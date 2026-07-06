@@ -16,7 +16,6 @@
 
 // Include Windows networking headers.
 #ifdef _WIN32
-#  define WIN32_LEAN_AND_MEAN
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
 #  pragma comment(lib, "Ws2_32.lib")
@@ -98,6 +97,8 @@ struct TcpServer::Impl {
     SOCKET listen_sock = INVALID_SOCKET;
     std::thread accept_thread;
     std::vector<std::thread> worker_threads;
+    // All recv threads — must be joined in stop() before connections are destroyed.
+    std::vector<std::thread> recv_threads;
     std::unordered_map<std::uint64_t, std::unique_ptr<Connection>> connections;
     std::mutex connections_mu;
     std::atomic<std::uint64_t> next_id{1};
@@ -200,8 +201,8 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                 });
             }
 
-            // Handle this connection synchronously on a new thread (simple model).
-            std::thread([this, id, remote]() {
+            // Handle this connection on a new thread — track it so stop() can join.
+            std::thread t([this, id, remote]() {
                 Connection* c = nullptr;
                 {
                     std::lock_guard<std::mutex> lk(impl_->connections_mu);
@@ -261,7 +262,11 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                 // Cleanup.
                 std::lock_guard<std::mutex> lk(impl_->connections_mu);
                 impl_->close_connection_locked(id);
-            }).detach();
+            });
+            {
+                std::lock_guard<std::mutex> lk(impl_->connections_mu);
+                impl_->recv_threads.push_back(std::move(t));
+            }
         }
     });
 
@@ -277,6 +282,7 @@ void TcpServer::stop() {
         impl_->listen_sock = INVALID_SOCKET;
     }
 
+    // Close all client sockets so recv() calls unblock immediately.
     {
         std::lock_guard<std::mutex> lk(impl_->connections_mu);
         for (auto& [id, conn] : impl_->connections) {
@@ -285,6 +291,17 @@ void TcpServer::stop() {
     }
 
     if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
+
+    // Join all recv threads before destroying connections.
+    {
+        std::lock_guard<std::mutex> lk(impl_->connections_mu);
+        for (auto& t : impl_->recv_threads) {
+            if (t.joinable()) t.join();
+        }
+        impl_->recv_threads.clear();
+        impl_->connections.clear();
+    }
+
     for (auto& t : impl_->worker_threads) {
         if (t.joinable()) t.join();
     }
