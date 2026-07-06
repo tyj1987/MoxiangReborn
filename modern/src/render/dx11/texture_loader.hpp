@@ -21,4 +21,8 @@ LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size);
 // Auto-detect format and decode.
 LoadedTexture loadTextureFromMemory(const std::uint8_t* data, std::uint32_t size);
 
+// Encode a LoadedTexture to a TGA (type 2, uncompressed 32-bit BGRA, top-down).
+// Returns the encoded bytes on success, empty vector on failure.
+std::vector<std::uint8_t> saveTGA(const LoadedTexture& tex);
+
 } // namespace mxh::gx::dx11

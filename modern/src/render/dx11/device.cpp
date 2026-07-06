@@ -17,6 +17,7 @@ namespace mxh::gx::dx11 {
 Device::~Device() { shutdown(); }
 
 bool Device::initialize(HWND hWnd, const DISPLAY_INFO& info) {
+    m_hwnd = hWnd;
     if (!createSwapChain(hWnd, info)) {
         return false;
     }
@@ -322,6 +323,53 @@ ID3D11ShaderResourceView* Device::createTextureFromFile(const char* fileName) {
     ID3D11ShaderResourceView* srv = nullptr;
     hr = m_device->CreateShaderResourceView(tex2D.Get(), &srvDesc, &srv);
     return SUCCEEDED(hr) ? srv : nullptr;
+}
+
+void Device::updateWindowSize() {
+    if (!m_device || !m_swapChain || !m_context) return;
+
+    // Get new client area size.
+    RECT rc{};
+    if (!::GetClientRect(m_hwnd, &rc) || rc.right <= 0 || rc.bottom <= 0) return;
+    UINT newW = static_cast<UINT>(rc.right - rc.left);
+    UINT newH = static_cast<UINT>(rc.bottom - rc.top);
+    if (newW == 0 || newH == 0) return;
+
+    // If size unchanged, skip.
+    if (newW == m_width && newH == m_height) return;
+
+    MLOG_INFO("[dx11] Resizing swap chain: %ux%u -> %ux%u",
+              m_width, m_height, newW, newH);
+
+    // Release render targets so ResizeBuffers succeeds.
+    m_context->OMSetRenderTargets(0, nullptr, nullptr);
+    m_backBufferRTV.Reset();
+    m_dsv.Reset();
+    m_depthBuffer.Reset();
+
+    // Resize the swap chain buffers.
+    HRESULT hr = m_swapChain->ResizeBuffers(0, newW, newH, DXGI_FORMAT_UNKNOWN, 0);
+    if (FAILED(hr)) {
+        MLOG_ERROR("[dx11] ResizeBuffers failed: 0x%08x", hr);
+        return;
+    }
+
+    m_width  = static_cast<std::uint16_t>(newW);
+    m_height = static_cast<std::uint16_t>(newH);
+
+    // Re-create render targets at the new size.
+    createRenderTargets();
+
+    // Re-create shadow map if already initialized.
+    if (m_shadowMapReady) {
+        m_shadowMapDSV.Reset();
+        m_shadowMapSRV.Reset();
+        m_shadowMapTex.Reset();
+        m_shadowMapReady = false;
+        MLOG_INFO("[dx11] Shadow map released (will be recreated on next BeginShadowMap)");
+    }
+
+    MLOG_INFO("[dx11] Window resize complete: %ux%u", m_width, m_height);
 }
 
 // ===== Shadow map =====

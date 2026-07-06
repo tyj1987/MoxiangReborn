@@ -120,4 +120,43 @@ LoadedTexture loadTextureFromMemory(const std::uint8_t* data, std::uint32_t size
     return {};
 }
 
+std::vector<std::uint8_t> saveTGA(const LoadedTexture& tex) {
+    if (tex.pixels.empty() || tex.width == 0 || tex.height == 0) return {};
+    std::vector<std::uint8_t> out;
+    const std::size_t headerSize = 18;
+    out.resize(headerSize + tex.width * tex.height * 4);
+
+    // TGA header (type 2 = uncompressed true-color).
+    out[0]  = 0;                         // idLength
+    out[1]  = 0;                         // colorMapType
+    out[2]  = 2;                         // imageType = uncompressed true-color
+    out[3]  = 0; out[4]  = 0;          // colorMapFirst
+    out[5]  = 0; out[6]  = 0;          // colorMapLast
+    out[7]  = 0;                         // colorMapBits
+    out[8]  = 0; out[9]  = 0;          // firstX
+    out[10] = 0; out[11] = 0;          // firstY
+    // width (little-endian)
+    out[12] = static_cast<std::uint8_t>(tex.width & 0xff);
+    out[13] = static_cast<std::uint8_t>((tex.width >> 8) & 0xff);
+    // height (little-endian)
+    out[14] = static_cast<std::uint8_t>(tex.height & 0xff);
+    out[15] = static_cast<std::uint8_t>((tex.height >> 8) & 0xff);
+    out[16] = 32;                        // bits per pixel
+    out[17] = 0x20;                      // descriptor: top-down (bit 5 set)
+
+    // Pixel data: copy RGBA pixels, converting RGBA -> BGRA.
+    std::uint8_t* dst = out.data() + headerSize;
+    for (std::size_t i = 0; i < tex.pixels.size() / 4; ++i) {
+        const std::uint8_t r = tex.pixels[i * 4 + 0];
+        const std::uint8_t g = tex.pixels[i * 4 + 1];
+        const std::uint8_t b = tex.pixels[i * 4 + 2];
+        const std::uint8_t a = tex.pixels[i * 4 + 3];
+        *dst++ = b;  // B
+        *dst++ = g;  // G
+        *dst++ = r;  // R
+        *dst++ = a;  // A
+    }
+    return out;
+}
+
 } // namespace mxh::gx::dx11

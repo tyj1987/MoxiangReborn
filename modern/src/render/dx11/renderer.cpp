@@ -5,7 +5,9 @@
 #include "mesh_object.hpp"
 #include "font_object.hpp"
 #include "effect_shader.hpp"
+#include "texture_loader.hpp"
 
+#include <cstdio>
 #include <cstring>
 
 #include "mxh/log/mlog.hpp"
@@ -443,7 +445,7 @@ void __stdcall CoD3DDeviceDX11::GetSystemStatus(SYSTEM_STATUS* pStatus) {
 
 void __stdcall CoD3DDeviceDX11::UpdateWindowSize() {
     if (!m_dev) return;
-    // Phase 5 stub: re-create swap chain at new size.
+    m_dev->updateWindowSize();
 }
 void __stdcall CoD3DDeviceDX11::Present(HWND hWnd) { if (m_dev) m_dev->present(hWnd); }
 
@@ -454,7 +456,78 @@ std::uint32_t __stdcall CoD3DDeviceDX11::GetEmissiveColor() { return 0xff000000;
 
 void __stdcall CoD3DDeviceDX11::BeginPerformanceAnalyze() {}
 void __stdcall CoD3DDeviceDX11::EndPerformanceAnalyze() {}
-BOOL __stdcall CoD3DDeviceDX11::CaptureScreen(char* /*szFileName*/) { return FALSE; }
+
+BOOL __stdcall CoD3DDeviceDX11::CaptureScreen(char* szFileName) {
+    if (!m_dev || !szFileName) return FALSE;
+    auto* swapChain = m_dev->rawSwapChain();
+    auto* device   = m_dev->rawDevice();
+    auto* ctx      = m_dev->rawContext();
+    if (!swapChain || !device || !ctx) return FALSE;
+
+    // Get the back buffer.
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
+    if (FAILED(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), &backBuffer))) {
+        MLOG_ERROR("[renderer] CaptureScreen: GetBuffer failed");
+        return FALSE;
+    }
+
+    // Describe a staging texture matching the back buffer for CPU read.
+    D3D11_TEXTURE2D_DESC desc{};
+    backBuffer->GetDesc(&desc);
+    desc.Usage          = D3D11_USAGE_STAGING;
+    desc.BindFlags      = 0;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> stagingTex;
+    if (FAILED(device->CreateTexture2D(&desc, nullptr, stagingTex.GetAddressOf()))) {
+        MLOG_ERROR("[renderer] CaptureScreen: CreateTexture2D(staging) failed");
+        return FALSE;
+    }
+
+    // Copy the back buffer to the staging texture.
+    ctx->CopyResource(stagingTex.Get(), backBuffer.Get());
+
+    // Map for reading.
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(ctx->Map(stagingTex.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+        MLOG_ERROR("[renderer] CaptureScreen: Map failed");
+        return FALSE;
+    }
+
+    // Pack into LoadedTexture (RGBA8).
+    LoadedTexture ltex;
+    ltex.width  = desc.Width;
+    ltex.height = desc.Height;
+    ltex.bps    = 32;
+    ltex.pixels.resize(static_cast<std::size_t>(desc.Width) * desc.Height * 4);
+    const std::uint8_t* src = static_cast<const std::uint8_t*>(mapped.pData);
+    const UINT rowPitch = mapped.RowPitch;
+    for (UINT y = 0; y < desc.Height; ++y) {
+        std::memcpy(ltex.pixels.data() + y * desc.Width * 4,
+                    src + y * rowPitch,
+                    desc.Width * 4);
+    }
+    ctx->Unmap(stagingTex.Get(), 0);
+
+    // Encode and write TGA.
+    std::vector<std::uint8_t> tga = saveTGA(ltex);
+    if (tga.empty()) {
+        MLOG_ERROR("[renderer] CaptureScreen: saveTGA failed");
+        return FALSE;
+    }
+
+    FILE* fp = nullptr;
+    if (fopen_s(&fp, szFileName, "wb") != 0 || !fp) {
+        MLOG_ERROR("[renderer] CaptureScreen: fopen failed for '%s'", szFileName);
+        return FALSE;
+    }
+    std::fwrite(tga.data(), 1, tga.size(), fp);
+    std::fclose(fp);
+    MLOG_INFO("[renderer] CaptureScreen: saved %zux%zu to '%s'",
+              static_cast<std::size_t>(ltex.width),
+              static_cast<std::size_t>(ltex.height), szFileName);
+    return TRUE;
+}
 
 // ===== Material =====
 

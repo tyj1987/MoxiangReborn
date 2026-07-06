@@ -44,6 +44,7 @@ public:
     void endFrame();
 
     void present(HWND hWnd);
+    void updateWindowSize();
 
     // Viewport + matrices for 3D rendering.
     void setViewFrustum(const VIEW_VOLUME& vv, const CAMERA_DESC& cam,
@@ -116,6 +117,7 @@ private:
     DISPLAY_TYPE m_displayType = WINDOW_WITH_BLT;
     std::uint16_t m_width  = 0;
     std::uint16_t m_height = 0;
+    HWND         m_hwnd    = nullptr;
 
     MATRIX4 m_matView{};
     MATRIX4 m_matProj{};
