@@ -62,6 +62,19 @@ public:
     // Set a diffuse SRV on a specific face group (defaults to group 0).
     void setDiffuseSRV(std::uint32_t groupIndex, ID3D11ShaderResourceView* srv);
 
+    // Effect shader support: wire the effect palette and renderer for
+    // RENDER_TYPE_USE_EFFECT path (RenderEffect).
+    void setRenderer(Device* dev);
+    void setEffectPalette(class EffectShaderPalette* palette);
+
+    // Render using an effect entry (sphere-map / wave). Called by the renderer's
+    // RenderMeshObject when dwFlag & RENDER_TYPE_USE_EFFECT.
+    // matWorld: object's world matrix (used for sphere-map texgen).
+    // pEffect:  the EffectEntry from the palette (pre-fetched by index).
+    // alpha:    alpha modulation (0-255).
+    void RenderEffect(ID3D11PixelShader* psEffect, const MATRIX4* matWorld,
+                      struct EffectEntry* pEffect, std::uint32_t alpha);
+
     Device*                device()       const { return m_dev; }
     ID3D11Buffer*          vertexBuffer() const { return m_vertexBuffer.Get(); }
     ID3D11Buffer*          indexBuffer()  const { return m_indexBuffer.Get(); }
@@ -69,13 +82,16 @@ public:
 
 private:
     MeshObject() = default;
+public:
     ~MeshObject();
 
     bool finalizeVB();
 
     Device*                                m_dev = nullptr;
+    class EffectShaderPalette*             m_effectPalette = nullptr;
     Microsoft::WRL::ComPtr<ID3D11Buffer>   m_vertexBuffer;
     Microsoft::WRL::ComPtr<ID3D11Buffer>   m_indexBuffer;
+    Microsoft::WRL::ComPtr<ID3D11Buffer>   m_texMatrixBuffer;
     std::vector<FaceGroup>                 m_faceGroups;
 
     std::vector<Vertex>                    m_vertices;

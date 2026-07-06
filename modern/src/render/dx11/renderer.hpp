@@ -15,6 +15,8 @@
 #include "primitives.hpp"
 #include "mesh_shaders.hpp"
 #include "font_object.hpp"
+#include "height_field.hpp"
+#include "effect_shader.hpp"
 
 namespace mxh::gx::dx11 {
 
@@ -150,9 +152,22 @@ public:
     dx11::Device*          internalDevice()     { return m_dev.get(); }
     PrimitiveDrawer*       internalPrimitives() { return &m_primitives; }
     I4DyuchiFileStorage*   internalStorage()    { return m_storage; }
+    EffectShaderPalette*   internalEffectPalette() { return m_effectPalette.get(); }
+
+    // Effect palette helpers (mirrors INL_GetVLMeshEffect in original).
+    EffectEntry* INL_GetVLMeshEffect(std::uint32_t index) {
+        return m_effectPalette ? m_effectPalette->getEffect(index) : nullptr;
+    }
+    void SetSphereMapMatrix(MATRIX4* pResultMat, const MATRIX4* pMatWorld, const MATRIX4* pMatView) {
+        if (m_effectPalette) m_effectPalette->setSphereMapMatrix(pResultMat, pMatWorld, pMatView);
+    }
+    void SetWaveTexMatrix(MATRIX4* pMatResult) {
+        if (m_effectPalette) m_effectPalette->setWaveTexMatrix(pMatResult);
+    }
 
 private:
     std::unique_ptr<dx11::Device>          m_dev;
+    std::unique_ptr<EffectShaderPalette>   m_effectPalette;
     PrimitiveDrawer                        m_primitives;
     MeshShaders                            m_meshShaders;
     bool                                   m_meshShadersReady = false;

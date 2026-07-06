@@ -2,6 +2,9 @@
 // DX11 Device / SwapChain / RenderTarget setup.
 #include "device.hpp"
 
+#include "effect_shader.hpp"
+#include "texture_loader.hpp"
+
 #include <d3dcompiler.h>
 
 #include "mxh/log/mlog.hpp"

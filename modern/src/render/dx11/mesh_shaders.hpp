@@ -10,6 +10,7 @@ namespace mxh::gx::dx11 {
 struct MeshShaders {
     Microsoft::WRL::ComPtr<ID3D11VertexShader> vsLit;
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psLit;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader>  psEffect;     // dot3 + effect texture (slot t2)
     Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilLit;
     Microsoft::WRL::ComPtr<ID3D11Buffer>       cbWorld;       // world matrix
     Microsoft::WRL::ComPtr<ID3D11Buffer>       cbViewProj;    // view*proj

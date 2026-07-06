@@ -54,4 +54,26 @@ inline MATRIX4 MatrixIdentity() {
     return r;
 }
 
+// Set identity matrix in-place.
+inline void setIdentityMatrix(MATRIX4* m) {
+    if (!m) return;
+    m->_11 = m->_22 = m->_33 = m->_44 = 1.0f;
+    m->_12 = m->_13 = m->_14 = m->_21 = m->_23 = m->_24 = 0.0f;
+    m->_31 = m->_32 = m->_34 = m->_41 = m->_42 = m->_43 = 0.0f;
+}
+
+// Row-major matrix multiply: result = a × b.
+inline void MatrixMultiply2(MATRIX4* pResult, const MATRIX4* pA, const MATRIX4* pB) {
+    if (!pResult || !pA || !pB) return;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            float sum = 0.0f;
+            for (int k = 0; k < 4; ++k) {
+                sum += pA->m[i][k] * pB->m[k][j];
+            }
+            pResult->m[i][j] = sum;
+        }
+    }
+}
+
 } // namespace mxh::gx

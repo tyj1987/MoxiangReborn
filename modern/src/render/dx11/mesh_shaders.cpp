@@ -68,6 +68,44 @@ float4 main(PSInput i) : SV_Target {
 }
 )";
 
+// Effect pixel shader: dot3 lighting + effect texture from slot t2.
+// Mirrors original PLMeshObject::RenderEffect (diffDot3Reflect.pso).
+// The effect texture (sphere map or wave distortion) modulates the lit color.
+static const char* kPS_Effect = R"(
+struct PSInput {
+    float4 pos    : SV_Position;
+    float2 uv     : TEXCOORD0;
+    float3 normal : TEXCOORD1;
+    float3 worldP : TEXCOORD2;
+};
+cbuffer CBLight : register(b0) {
+    float4 ambient;
+    float4 diffuse;
+    float4 lightDir;
+    float4 cameraPos;
+    float4 fogParams;
+    float4 fogColor;
+};
+Texture2D    tex      : register(t0);  // base diffuse
+Texture2D    effectTex : register(t2); // effect / environment map
+SamplerState samp     : register(s0);
+float4 main(PSInput i) : SV_Target {
+    float3 n = normalize(i.normal);
+    float nDotL = saturate(dot(n, -lightDir.xyz));
+    float4 base = tex.Sample(samp, i.uv);
+    float4 env  = effectTex.Sample(samp, i.uv);
+    float3 lit = base.rgb * (ambient.rgb + diffuse.rgb * nDotL);
+    // Modulate by effect texture (sphere-map reflection or wave distortion).
+    lit *= env.rgb;
+    if (fogParams.x > 0.5) {
+        float dist = length(i.worldP - cameraPos.xyz);
+        float fog  = saturate((dist - fogParams.y) / max(fogParams.z - fogParams.y, 0.0001));
+        lit = lerp(lit, fogColor.rgb, fog);
+    }
+    return float4(lit, base.a);
+}
+)";
+
 bool MeshShaders::init(ID3D11Device* device) {
     Microsoft::WRL::ComPtr<ID3DBlob> vsBlob, psBlob, err;
 
@@ -85,6 +123,20 @@ bool MeshShaders::init(ID3D11Device* device) {
                    err ? static_cast<const char*>(err->GetBufferPointer()) : "?");
         return false;
     }
+
+    // Effect pixel shader (dot3 + effect texture on t2).
+    Microsoft::WRL::ComPtr<ID3DBlob> psEffectBlob;
+    hr = D3DCompile(kPS_Effect, strlen(kPS_Effect), nullptr, nullptr, nullptr,
+                    "main", "ps_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &psEffectBlob, &err);
+    if (FAILED(hr)) {
+        MLOG_ERROR("[mesh-shader] PS_Effect compile failed: %s",
+                   err ? static_cast<const char*>(err->GetBufferPointer()) : "?");
+        return false;
+    }
+    if (FAILED(device->CreatePixelShader(psEffectBlob->GetBufferPointer(),
+                                          psEffectBlob->GetBufferSize(),
+                                          nullptr, &psEffect)))
+        return false;
 
     if (FAILED(device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vsLit)))
         return false;
@@ -115,7 +167,7 @@ bool MeshShaders::init(ID3D11Device* device) {
 }
 
 void MeshShaders::release() {
-    vsLit.Reset(); psLit.Reset(); ilLit.Reset();
+    vsLit.Reset(); psLit.Reset(); psEffect.Reset(); ilLit.Reset();
     cbWorld.Reset(); cbViewProj.Reset(); cbLight.Reset();
 }
 

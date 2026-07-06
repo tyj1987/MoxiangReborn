@@ -9,9 +9,15 @@
 #include <cstdint>
 #include <string>
 
+#include "mxh/render/IFileStorage.hpp"
 #include "mxh/render/render_typedef.hpp"
 
 namespace mxh::gx::dx11 {
+
+class EffectShaderPalette;
+
+// Forward-declare MeshShaders to expose the effect pixel shader.
+struct MeshShaders;
 
 class Device {
 public:
@@ -57,6 +63,21 @@ public:
 
     const VECTOR3& cameraPosition()   const { return m_cameraPos; }
 
+    // Effect shader support.
+    void setEffectPalette(EffectShaderPalette* palette);
+    EffectShaderPalette* effectPalette() const { return m_effectPalette; }
+
+    // Tick count for wave animation.
+    void setTickCount(std::uint32_t tick);
+    std::uint32_t tickCount() const { return m_tickCount; }
+
+    // Texture creation (for effect shader palette).
+    ID3D11ShaderResourceView* createTextureFromFile(const char* fileName);
+
+    // File storage accessor.
+    I4DyuchiFileStorage* fileStorage() const { return m_storage; }
+    void setStorage(I4DyuchiFileStorage* s) { m_storage = s; }
+
 private:
     bool createSwapChain(HWND hWnd, const DISPLAY_INFO& info);
     bool createRenderTargets();
@@ -83,9 +104,14 @@ private:
     MATRIX4 m_matViewProj{};
     MATRIX4 m_matBillboard{};
 
-std::uint32_t                          m_ambientColor  = DEFAULT_AMBIENT_COLOR;
+    std::uint32_t                          m_ambientColor  = DEFAULT_AMBIENT_COLOR;
     std::uint32_t                          m_emissiveColor = 0xff000000;
     VECTOR3                               m_cameraPos{};
+    std::uint32_t                          m_tickCount = 0;
+
+    EffectShaderPalette*                  m_effectPalette = nullptr;
+
+    interface I4DyuchiFileStorage*          m_storage = nullptr;
 };
 
 } // namespace mxh::gx::dx11

@@ -4,6 +4,7 @@
 #include "sprite.hpp"
 #include "mesh_object.hpp"
 #include "font_object.hpp"
+#include "effect_shader.hpp"
 
 #include <cstring>
 
@@ -106,8 +107,8 @@ IDIFontObject* __stdcall CoD3DDeviceDX11::CreateFontObject(LOGFONT* pLogFont, st
 IDIHeightField* __stdcall CoD3DDeviceDX11::CreateHeightField(std::uint32_t /*dwFlag*/) {
     // HeightField pipeline is non-trivial (LOD + alpha map + chunked VB); defer
     // to a later phase. Callers should null-check the return.
-    MLOG_WARN("[renderer] CreateHeightField stub (Phase 5 advanced)");
-    return nullptr;
+    if (!m_dev) return nullptr;
+    return new HeightField(m_dev.get());
 }
 IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateImmMeshObject(IVERTEX* piv3Tri, std::uint32_t dwTriCount,
                                                              void* /*pMtlHandle*/, std::uint32_t /*dwFlag*/) {
@@ -201,21 +202,45 @@ std::uint32_t __stdcall CoD3DDeviceDX11::CreateDynamicLight(std::uint32_t /*dwRS
     return 0xffffffff;
 }
 BOOL __stdcall CoD3DDeviceDX11::DeleteDynamicLight(std::uint32_t /*dwIndex*/) { return FALSE; }
-BOOL __stdcall CoD3DDeviceDX11::CreateEffectShaderPaletteFromFile(char* /*szFileName*/) { return FALSE; }
-BOOL __stdcall CoD3DDeviceDX11::CreateEffectShaderPalette(CUSTOM_EFFECT_DESC* /*p*/, std::uint32_t /*n*/) { return FALSE; }
-void __stdcall CoD3DDeviceDX11::DeleteEffectShaderPalette() {}
+BOOL __stdcall CoD3DDeviceDX11::CreateEffectShaderPaletteFromFile(char* szFileName) {
+    if (!m_dev) return FALSE;
+    if (!m_effectPalette) {
+        m_effectPalette = std::make_unique<EffectShaderPalette>(m_dev.get());
+    }
+    return m_effectPalette->loadFromFile(szFileName) ? TRUE : FALSE;
+}
+BOOL __stdcall CoD3DDeviceDX11::CreateEffectShaderPalette(CUSTOM_EFFECT_DESC* p, std::uint32_t n) {
+    if (!m_dev) return FALSE;
+    if (!m_effectPalette) {
+        m_effectPalette = std::make_unique<EffectShaderPalette>(m_dev.get());
+    }
+    return m_effectPalette->buildFromDesc(p, n) ? TRUE : FALSE;
+}
+void __stdcall CoD3DDeviceDX11::DeleteEffectShaderPalette() {
+    m_effectPalette.reset();
+}
 
 // ===== Render mesh / sprite / font =====
 
 BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::uint32_t /*dwRefIndex*/, float /*fDistance*/, std::uint32_t /*dwAlpha*/,
                                                 LIGHT_INDEX_DESC* /*pDyn*/, std::uint32_t /*dwLightNum*/,
                                                 LIGHT_INDEX_DESC* /*pSpot*/, std::uint32_t /*dwSpotNum*/,
-                                                std::uint32_t /*dwMtlSet*/, std::uint32_t /*dwEffect*/, std::uint32_t /*dwFlag*/) {
+                                                std::uint32_t /*dwMtlSet*/, std::uint32_t dwEffectIndex, std::uint32_t dwFlag) {
     if (!m_dev || !m_meshShadersReady || !pMeshObj) return FALSE;
     auto* mesh = static_cast<MeshObject*>(pMeshObj);
     if (!mesh->vertexBuffer() || mesh->faceGroups().empty()) return FALSE;
 
     auto* ctx = m_dev->rawContext();
+
+    // Effect shader path: check RENDER_TYPE_USE_EFFECT flag.
+    if ((dwFlag & RENDER_TYPE_USE_EFFECT) && m_effectPalette) {
+        auto* effect = m_effectPalette->getEffect(dwEffectIndex);
+        if (effect && effect->bSuccess) {
+            mesh->setEffectPalette(m_effectPalette.get());
+            mesh->RenderEffect(m_meshShaders.psEffect.Get(), nullptr, effect, 0);
+            return TRUE;
+        }
+    }
 
     // Constant buffer: world matrix (identity for now — caller-driven transforms
     // would come via the Executive path in a full port).
@@ -431,7 +456,9 @@ void __stdcall CoD3DDeviceDX11::SetFreeVBCacheRate(float fVal) { m_freeVBCacheRa
 float __stdcall CoD3DDeviceDX11::GetFreeVBCacheRate() { return m_freeVBCacheRate; }
 std::uint32_t __stdcall CoD3DDeviceDX11::ClearVBCacheWithIDIMeshObject(IDIMeshObject* /*p*/) { return 0; }
 std::uint32_t __stdcall CoD3DDeviceDX11::ClearCacheWithMotionUID(void* /*p*/) { return 0; }
-void __stdcall CoD3DDeviceDX11::SetTickCount(std::uint32_t /*t*/, BOOL /*g*/) {}
+void __stdcall CoD3DDeviceDX11::SetTickCount(std::uint32_t t, BOOL /*g*/) {
+    if (m_effectPalette) m_effectPalette->setTickCount(t);
+}
 
 BOOL __stdcall CoD3DDeviceDX11::GetD3DDevice(REFIID refiid, void** ppVoid) {
     if (!m_dev || !ppVoid) return FALSE;

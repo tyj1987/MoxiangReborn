@@ -18,6 +18,12 @@ enum FSFILE_SEEK : std::uint32_t {
     FSFILE_SEEK_END = 2,
 };
 
+// File open mode for FSOpenFile.
+enum FSFILE_ACCESSMODE : std::uint32_t {
+    FSFILE_ACCESSMODE_BINARY    = 0x00000000,
+    FSFILE_ACCESSMODE_TEXT      = 0x00000001,
+};
+
 #pragma pack(push, 1)
 
 // 32-byte header for each file entry inside a .pak file.

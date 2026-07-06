@@ -2,6 +2,8 @@ add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp
     font_object_test.cpp
+    height_field_test.cpp
+    effect_shader_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -27,4 +29,25 @@ gtest_add_tests(TARGET mxh_render_tests
     MeshGeometryTest.IVertexLayout
     MeshGeometryTest.TVertexLayout
     MeshGeometryTest.CubeTriangleCount
+    HeightFieldTest.BuildTileIndicesProducesCorrectCount
+    HeightFieldTest.BuildTileIndicesProducesCCWTriangles
+    HeightFieldTest.HeightFieldConstructsWithNullDevice
+    HeightFieldTest.HeightAtBilinearInterpolation
+    HeightFieldTest.HeightAtCenterReturnsCenterValue
+    HeightFieldTest.HeightAtClampedToEdges
+    HeightFieldTest.HeightAtEmptyMapReturnsZero
+    HeightFieldTest.TileWorldSizeIsCorrect
+    HeightFieldTest.MaxLodLevelsConstantExists
+    EffectShaderTest.EffectEntryDefaultValues
+    EffectShaderTest.PaletteConstructsWithNullDevice
+    EffectShaderTest.PaletteBuildFromNullDescReturnsFalse
+    EffectShaderTest.PaletteBuildFromDescWithEmptyTexName
+    EffectShaderTest.PaletteBuildFromDescMultipleEntries
+    EffectShaderTest.GetEffectOutOfRangeReturnsNull
+    EffectShaderTest.ClearEmptiesPalette
+    EffectShaderTest.SetSphereMapMatrixOutputProperties
+    EffectShaderTest.SetSphereMapMatrixNullPtrNoCrash
+    EffectShaderTest.SetWaveTexMatrixOutputProperties
+    EffectShaderTest.SetWaveTexMatrixNullPtrNoCrash
+    EffectShaderTest.SetWaveTexMatrixAnimatedValuesInRange
 )

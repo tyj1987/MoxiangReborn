@@ -2,6 +2,7 @@
 // IDIMeshObject DX11 implementation.
 #include "mesh_object.hpp"
 #include "device.hpp"
+#include "effect_shader.hpp"
 #include "mesh_shaders.hpp"
 #include "texture_loader.hpp"
 
@@ -208,6 +209,80 @@ void __stdcall MeshObject::DisableUpdate() {}
 void MeshObject::setDiffuseSRV(std::uint32_t groupIndex, ID3D11ShaderResourceView* srv) {
     if (groupIndex >= m_faceGroups.size()) return;
     m_faceGroups[groupIndex].diffuseSRV = srv;
+}
+
+void MeshObject::setRenderer(Device* dev) { m_dev = dev; }
+
+void MeshObject::setEffectPalette(EffectShaderPalette* palette) { m_effectPalette = palette; }
+
+void MeshObject::RenderEffect(ID3D11PixelShader* psEffect, const MATRIX4* matWorld,
+                               EffectEntry* pEffect, std::uint32_t /*alpha*/) {
+    if (!m_dev || !psEffect || !pEffect || !pEffect->bSuccess) return;
+
+    auto* dev11 = m_dev->rawDevice();
+    auto* ctx   = m_dev->rawContext();
+    if (!dev11 || !ctx) return;
+
+    if (!m_vertexBuffer || !m_indexBuffer || m_faceGroups.empty()) return;
+
+    // Set vertex buffer.
+    constexpr UINT vertexStride = sizeof(Vertex);
+    constexpr UINT offset = 0;
+    ctx->IASetVertexBuffers(0, 1, m_vertexBuffer.GetAddressOf(), &vertexStride, &offset);
+    ctx->IASetIndexBuffer(m_indexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+    ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Set effect pixel shader (dot3 + effect texture on t2).
+    ctx->PSSetShader(psEffect, nullptr, 0);
+
+    // Set effect SRV on texture slot 2 (matches original: SetTexture(..., 2)).
+    if (pEffect->srv) {
+        ctx->PSSetShaderResources(2, 1, pEffect->srv.GetAddressOf());
+    }
+
+    // Set texture matrix: sphere-map base + wave offset.
+    const MATRIX4 identity = MatrixIdentity();
+    const MATRIX4* matWorldIn = matWorld ? matWorld : &identity;
+    const MATRIX4* viewMat = &m_dev->viewMatrix();
+    MATRIX4 matTex;
+    m_effectPalette->setSphereMapMatrix(&matTex, matWorldIn, viewMat);
+
+    if (pEffect->method == TEXGEN_METHOD_WAVE && m_effectPalette) {
+        MATRIX4 matWave;
+        m_effectPalette->setWaveTexMatrix(&matWave);
+        MATRIX4 matTmp;
+        MatrixMultiply2(&matTmp, &matTex, &matWave);
+        matTex = matTmp;
+    }
+
+    // Upload texture matrix to VS constant slot 25 (matches original engine).
+    ctx->VSSetConstantBuffers(25, 1, &m_texMatrixBuffer);
+    if (!m_texMatrixBuffer) {
+        D3D11_BUFFER_DESC bd{};
+        bd.Usage          = D3D11_USAGE_DYNAMIC;
+        bd.ByteWidth      = sizeof(MATRIX4);
+        bd.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+        bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        dev11->CreateBuffer(&bd, nullptr, &m_texMatrixBuffer);
+    }
+    if (m_texMatrixBuffer) {
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        ctx->Map(m_texMatrixBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+        if (mapped.pData) {
+            std::memcpy(mapped.pData, &matTex, sizeof(MATRIX4));
+            ctx->Unmap(m_texMatrixBuffer.Get(), 0);
+        }
+    }
+    ctx->VSSetConstantBuffers(25, 1, m_texMatrixBuffer.GetAddressOf());
+
+    // Draw each face group with the effect SRV.
+    for (auto& fg : m_faceGroups) {
+        ctx->DrawIndexed(fg.indexCount, fg.startIndex, 0);
+    }
+
+    // Unbind effect SRV to avoid leaving stale bindings.
+    ID3D11ShaderResourceView* nullSRV = nullptr;
+    ctx->PSSetShaderResources(2, 1, &nullSRV);
 }
 
 } // namespace mxh::gx::dx11

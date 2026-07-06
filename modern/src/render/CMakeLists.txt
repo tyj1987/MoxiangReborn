@@ -9,6 +9,8 @@ add_library(mxh_render STATIC
     dx11/mesh_object.cpp
     dx11/mesh_shaders.cpp
     dx11/font_object.cpp
+    dx11/height_field.cpp
+    dx11/effect_shader.cpp
     dx11/renderer.cpp
 )
 
