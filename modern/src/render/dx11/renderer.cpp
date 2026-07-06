@@ -15,6 +15,7 @@ namespace mxh::gx::dx11 {
 CoD3DDeviceDX11::CoD3DDeviceDX11() = default;
 
 CoD3DDeviceDX11::~CoD3DDeviceDX11() {
+    shutdownMaterials();
     m_primitives.shutdown();
     m_meshShaders.release();
     m_meshShadersReady = false;
@@ -435,12 +436,149 @@ BOOL __stdcall CoD3DDeviceDX11::CaptureScreen(char* /*szFileName*/) { return FAL
 
 // ===== Material =====
 
-std::uint32_t __stdcall CoD3DDeviceDX11::CreateMaterialSet(MATERIAL_TABLE* /*p*/, std::uint32_t /*n*/) { return 0; }
-void __stdcall CoD3DDeviceDX11::DeleteMaterialSet(std::uint32_t /*i*/) {}
-void* __stdcall CoD3DDeviceDX11::CreateMaterial(MATERIAL* /*p*/, std::uint32_t* /*w*/, std::uint32_t* /*h*/,
-                                                  std::uint32_t /*f*/) { return nullptr; }
-void __stdcall CoD3DDeviceDX11::SetMaterialTextureBorder(void* /*m*/, std::uint32_t /*c*/) {}
-void __stdcall CoD3DDeviceDX11::DeleteMaterial(void* /*m*/) {}
+std::uint32_t __stdcall CoD3DDeviceDX11::CreateMaterialSet(MATERIAL_TABLE* pMtlEntry, std::uint32_t dwNum) {
+    if (!pMtlEntry || dwNum == 0) return 0;
+    if (!m_dev) return 0;
+
+    auto set = std::make_unique<MaterialSet>();
+    set->entries.reserve(dwNum);
+
+    for (std::uint32_t i = 0; i < dwNum; ++i) {
+        MATERIAL_TABLE& entry = pMtlEntry[i];
+        if (!entry.pMtl) {
+            set->entries.push_back(nullptr);  // null entry for this slot
+            continue;
+        }
+
+        auto mat = std::make_unique<MaterialData>();
+        MATERIAL& src = *entry.pMtl;
+        mat->dwDiffuse       = src.dwDiffuse;
+        mat->dwAmbient       = src.dwAmbient;
+        mat->dwSpecular      = src.dwSpecular;
+        mat->fTransparency   = src.fTransparency;
+        mat->fShine          = src.fShine;
+        mat->fShineStrength  = src.fShineStrength;
+        mat->dwFlag          = src.dwFlag;
+
+        // Load diffuse texture.
+        const char* diffuseName = src.GetDiffuseTexmapName();
+        if (diffuseName && diffuseName[0] != '\0') {
+            mat->diffuse = loadMaterialTexture(diffuseName);
+        }
+
+        // Load reflect texture (environment map).
+        const char* reflectName = src.GetReflectTexmapName();
+        if (reflectName && reflectName[0] != '\0') {
+            mat->reflect = loadMaterialTexture(reflectName);
+        }
+
+        // Load bump/normal map.
+        const char* bumpName = src.GetBumpTexmapName();
+        if (bumpName && bumpName[0] != '\0') {
+            mat->bump = loadMaterialTexture(bumpName);
+        }
+
+        // Transfer ownership to the material set (not m_materials).
+        set->entries.push_back(std::move(mat));
+    }
+
+    std::uint32_t handle = static_cast<std::uint32_t>(m_materialSets.size()) + 1;
+    m_materialSets.push_back(std::move(set));
+    return handle;  // 0 means "invalid", so caller uses handle directly
+}
+
+void __stdcall CoD3DDeviceDX11::DeleteMaterialSet(std::uint32_t dwMtlSetIndex) {
+    if (dwMtlSetIndex == 0 || dwMtlSetIndex > m_materialSets.size()) return;
+    std::uint32_t idx = dwMtlSetIndex - 1;
+    m_materialSets[idx].reset();  // unique_ptr destructor handles entries
+}
+
+void* __stdcall CoD3DDeviceDX11::CreateMaterial(MATERIAL* pMaterial,
+                                                std::uint32_t* pdwWidth,
+                                                std::uint32_t* pdwHeight,
+                                                std::uint32_t /*dwFlag*/) {
+    if (!pMaterial) return nullptr;
+
+    auto mat = std::make_unique<MaterialData>();
+    mat->dwDiffuse       = pMaterial->dwDiffuse;
+    mat->dwAmbient       = pMaterial->dwAmbient;
+    mat->dwSpecular      = pMaterial->dwSpecular;
+    mat->fTransparency   = pMaterial->fTransparency;
+    mat->fShine          = pMaterial->fShine;
+    mat->fShineStrength  = pMaterial->fShineStrength;
+    mat->dwFlag          = pMaterial->dwFlag;
+
+    // Load diffuse texture.
+    const char* diffuseName = pMaterial->GetDiffuseTexmapName();
+    if (diffuseName && diffuseName[0] != '\0') {
+        mat->diffuse = loadMaterialTexture(diffuseName);
+    }
+
+    if (pdwWidth)  *pdwWidth  = mat->diffuse.width;
+    if (pdwHeight) *pdwHeight = mat->diffuse.height;
+
+    // Load reflect / bump textures.
+    const char* reflectName = pMaterial->GetReflectTexmapName();
+    if (reflectName && reflectName[0] != '\0') {
+        mat->reflect = loadMaterialTexture(reflectName);
+    }
+    const char* bumpName = pMaterial->GetBumpTexmapName();
+    if (bumpName && bumpName[0] != '\0') {
+        mat->bump = loadMaterialTexture(bumpName);
+    }
+
+    MaterialData* raw = mat.get();
+    m_materials[raw] = std::move(mat);
+    return static_cast<void*>(raw);
+}
+
+void __stdcall CoD3DDeviceDX11::SetMaterialTextureBorder(void* pMtlHandle, std::uint32_t dwColor) {
+    if (!pMtlHandle) return;
+    auto it = m_materials.find(static_cast<MaterialData*>(pMtlHandle));
+    if (it != m_materials.end()) {
+        it->second->borderColor = dwColor;
+    }
+}
+
+void __stdcall CoD3DDeviceDX11::DeleteMaterial(void* pMtlHandle) {
+    if (!pMtlHandle) return;
+    m_materials.erase(static_cast<MaterialData*>(pMtlHandle));
+}
+
+// ---------------------------------------------------------------------------
+// Material helpers
+// ---------------------------------------------------------------------------
+void CoD3DDeviceDX11::shutdownMaterials() {
+    m_materials.clear();
+    m_materialSets.clear();
+}
+
+MaterialTexture CoD3DDeviceDX11::loadMaterialTexture(const char* fileName) {
+    MaterialTexture tex;
+    if (!m_dev || !fileName || fileName[0] == '\0') return tex;
+    tex.srv = m_dev->createTextureFromFile(fileName);
+    if (tex.srv) {
+        tex.loaded = true;
+        // Query the underlying texture to get width/height.
+        Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+        tex.srv->GetResource(resource.GetAddressOf());
+        if (resource) {
+            D3D11_RESOURCE_DIMENSION dim{};
+            resource->GetType(&dim);
+            if (dim == D3D11_RESOURCE_DIMENSION_TEXTURE2D) {
+                Microsoft::WRL::ComPtr<ID3D11Texture2D> tex2D;
+                resource.As(&tex2D);
+                if (tex2D) {
+                    D3D11_TEXTURE2D_DESC desc{};
+                    tex2D->GetDesc(&desc);
+                    tex.width  = desc.Width;
+                    tex.height = desc.Height;
+                }
+            }
+        }
+    }
+    return tex;
+}
 
 // ===== Misc =====
 

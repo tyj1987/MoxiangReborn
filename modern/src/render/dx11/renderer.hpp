@@ -17,6 +17,7 @@
 #include "font_object.hpp"
 #include "height_field.hpp"
 #include "effect_shader.hpp"
+#include "material.hpp"
 
 namespace mxh::gx::dx11 {
 
@@ -190,6 +191,21 @@ private:
     float                                  m_fogEnd    = 0.0f;
     float                                  m_fogDensity = 1.0f;
     std::uint32_t                          m_fogColor  = 0xff000000;
+
+    // -------------------------------------------------------------------------
+    // Material management.
+    // -------------------------------------------------------------------------
+    // Material sets: handle = dwMtlSetIndex + 1 (0 means "invalid set").
+    std::vector<std::unique_ptr<MaterialSet>> m_materialSets;
+    // All materials across all sets, keyed by raw MaterialData* handle.
+    // (The handle is simply a pointer to the MaterialData stored here.)
+    std::unordered_map<MaterialData*, std::unique_ptr<MaterialData>> m_materials;
+
+    // Helper: load a texture from the file system into an SRV + dimensions.
+    MaterialTexture loadMaterialTexture(const char* fileName);
+
+    // Helper: shut down all material sets (called from destructor / ResetDevice).
+    void shutdownMaterials();
 };
 
 } // namespace mxh::gx::dx11

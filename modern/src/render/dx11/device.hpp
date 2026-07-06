@@ -2,6 +2,13 @@
 // Internal DX11 Device wrapper used by CoD3DDeviceDX11.
 #pragma once
 
+// winsock2.h must come before <d3d11.h> / <windows.h> to prevent macro conflicts
+// (e.g. min/max macros, MAKEWORD, etc.). Define WIN32_LEAN_AND_MEAN first.
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+#endif
+
 #include <d3d11.h>
 #include <dxgi1_4.h>
 #include <wrl/client.h>
