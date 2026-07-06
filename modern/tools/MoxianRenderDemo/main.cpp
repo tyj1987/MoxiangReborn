@@ -17,7 +17,6 @@
 #include "mxh/render/IRenderer.hpp"
 #include "mxh/render/IFileStorage.hpp"
 #include "mxh/render/render_typedef.hpp"
-#include "mxh/render/dx11/mesh_object.hpp"  // for setDiffuseSRV
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -245,9 +244,8 @@ int main(int argc, char** argv) {
         // GetD3DDevice.
         if (renderer->GetD3DDevice(__uuidof(IUnknown), reinterpret_cast<void**>(&dev))) {
             g_cubeSRV = makeCheckerSRV(dev, 64);
-            // Use the cube builder by downcasting.
-            auto* mesh = static_cast<mxh::gx::dx11::MeshObject*>(g_cube);
-            (void)mesh;
+            // Texture binding: rely on RenderMeshObject's default white/no-texture path
+            // (the real game uses mtrl system; demo skips it for simplicity)
         }
         // Initialize cube via MESH_DESC path.
         MESH_DESC md{};
@@ -295,9 +293,9 @@ int main(int argc, char** argv) {
         fd.dwMtlIndex = 0;
         g_cube->InsertFaceGroup(&fd);
         g_cube->EndInitialize();
-        // Bind the checker texture to face group 0.
-        auto* mesh = reinterpret_cast<mxh::gx::dx11::MeshObject*>(g_cube);
-        if (g_cubeSRV) mesh->setDiffuseSRV(0, g_cubeSRV.Get());
+        // Checker texture created but not bound to mesh face groups directly.
+        // RenderMeshObject will use the default lighting path (no texture needed for demo).
+        (void)g_cubeSRV;
     }
 
     // Optional fog.

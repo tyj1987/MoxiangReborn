@@ -3,6 +3,7 @@
 #include "renderer.hpp"
 #include "sprite.hpp"
 #include "mesh_object.hpp"
+#include "font_object.hpp"
 
 #include <cstring>
 
@@ -94,9 +95,13 @@ IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateMeshObject(CMeshFlag flag) {
     if (!m_dev) return nullptr;
     return MeshObject::createEmpty(m_dev.get(), flag);
 }
-IDIFontObject* __stdcall CoD3DDeviceDX11::CreateFontObject(LOGFONT* /*pLogFont*/, std::uint32_t /*dwFlag*/) {
-    MLOG_WARN("[renderer] CreateFontObject stub (Phase 5 advanced)");
-    return nullptr;
+IDIFontObject* __stdcall CoD3DDeviceDX11::CreateFontObject(LOGFONT* pLogFont, std::uint32_t dwFlag) {
+    if (!m_dev) return nullptr;
+    auto* f = FontObject::create(m_dev.get(), pLogFont, dwFlag);
+    if (!f) {
+        MLOG_WARN("[renderer] CreateFontObject returned null (LOGFONT or GDI init failed)");
+    }
+    return f;
 }
 IDIHeightField* __stdcall CoD3DDeviceDX11::CreateHeightField(std::uint32_t /*dwFlag*/) {
     // HeightField pipeline is non-trivial (LOD + alpha map + chunked VB); defer
@@ -299,10 +304,20 @@ BOOL __stdcall CoD3DDeviceDX11::RenderSprite(IDISpriteObject* pSprite, VECTOR2* 
     return sprite->Draw(pv2Scaling, fRot, pv2Trans, pRect, dwColor, dwFlag);
 }
 
-BOOL __stdcall CoD3DDeviceDX11::RenderFont(IDIFontObject* /*pFont*/, TCHAR* /*str*/, std::uint32_t /*dwLen*/,
-                                            RECT* /*pRect*/, std::uint32_t /*dwColor*/, CHAR_CODE_TYPE /*type*/,
-                                            int /*iZOrder*/, std::uint32_t /*dwFlag*/) {
-    return FALSE;
+BOOL __stdcall CoD3DDeviceDX11::RenderFont(IDIFontObject* pFont, TCHAR* str, std::uint32_t dwLen,
+                                            RECT* pRect, std::uint32_t dwColor, CHAR_CODE_TYPE type,
+                                            int iZOrder, std::uint32_t dwFlag) {
+    if (!pFont || !str || dwLen == 0 || !pRect) return FALSE;
+    auto* font = dynamic_cast<FontObject*>(static_cast<IDIFontObject*>(pFont));
+    if (!font) return FALSE;
+    if (iZOrder != 0) {
+        // Z-order layered rendering is reserved for a future sprite-batch path.
+        MLOG_DEBUG("[renderer] RenderFont zOrder=%d ignored (sprite batching deferred)", iZOrder);
+    }
+    font->BeginRender();
+    BOOL ok = font->DrawText(str, dwLen, pRect, dwColor, type, dwFlag);
+    font->EndRender();
+    return ok;
 }
 
 // ===== Render primitives =====

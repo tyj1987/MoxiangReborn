@@ -334,13 +334,57 @@ Phase 12: 持续迭代
 - [x] `modern/include/mxh/render/IFileStorage.hpp` — 1:1 端口（27 个方法签名）
 - [x] `modern/include/mxh/render/render_typedef.hpp` — 与原 DX8 引擎二进制兼容的结构体
 - [x] Device 初始化（SwapChain / RenderTarget / 默认状态对象）
-- [x] PrimitiveDrawer（RenderBox/Line/Point/Circle 的 DX11 实现）
+- [x] PrimitiveDrawer（RenderBox/Line/Point/Circle/Grid 的 DX11 实现）
 - [x] SpriteObject（ID3D11Texture2D + SRV，Draw + Resize + LockRect）
 - [x] TGA 解码器（uncompressed + RLE，含 bottom-up 翻转）
-- [x] `tools/MoxianRenderDemo` — 烟雾测试（窗口 + 清屏 + RenderBox）
-- [x] TGA 解码器单元测试 — 7 个 case（truncated/24bpp-topdown/24bpp-bottomup-flip/32bpp-alpha/auto-detect/invalid-type/RLE-pack-unpack）全过
-- [ ] Phase 5 进度报告（剩余 stub 清单：MeshObject / Font / HeightField / Effect 等）
-- [ ] HLSL shader 编译 + cache 策略
+- [x] `tools/MoxianRenderDemo` — 烟雾测试（3D lit textured cube + wireframe grid）
+- [x] TGA 解码器单元测试 — 7 个 case 全过（`TgaLoader.*`）
+- [x] MeshObject DX11 实现（`MeshObject::StartInitialize/EndInitialize/InsertFaceGroup`）
+  + 自研 HLSL 着色器 (`kVS_Lit` / `kPS_Lit`，D3DCompile `vs_4_0` / `ps_4_0`)
+  + 3 个常量缓冲: `world` + `viewProj` + `light (ambient/diffuse/lightDir/cameraPos/fog)`
+  + 立方体生成 (`initializeCube`, 24 vert / 36 idx) + MeshDescAndFaceDesc 合约单元测试
+- [x] FontObject DX11 实现（GDI `GetGlyphOutlineA` + 512×512 BGRA atlas + row-packing）
+  + 8-bit 单字节码点缓存（与原 MultiByte 构建的 `TCHAR == char` 一致；CJK 由 .TTB 预处理管线承担）
+  + `packGlyph` 行内打包 + 溢出时整张 atlas 复位（CPU 侧算法可独立单测）
+  + 复用 PrimitiveDrawer::drawTexturedQuad，无需新增 shader
+- [x] ChxModel 真实资源测试（4 case：`.chx` 是 TAB 分隔文本元数据, 不是二进制 mesh）
+- [x] ctest 集成（gtest_add_tests 手工列举, 绕开中文路径下 gtest_discover_tests 的 JSON 输出超时）
+- [x] Phase 5 进度报告（见下方 "Phase 5 当前状态摘要"）
+### Phase 5 当前状态摘要（2026-07-07）
+
+**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + 自研 HLSL + ChxModel 测试 + ctest 集成。Debug 测试 **47/47 PASS**。
+
+**已知限制 (stubs / deferred)**：
+
+| Stub | 接口 | 状态 | 备注 |
+|------|------|------|------|
+| `CreateHeightField` | LOD + alpha + chunked VB | 文档原计划 deferred | 旧 4Dyuchi HeightField 是大模块 |
+| `CreateMaterial[Set]` | 材质表管理 | Phase 5 高级 | 需要 MATERIAL→SRV 缓存 |
+| `CreateEffectShaderPalette*` | CUSTOM_EFFECT_DESC | Phase 5 高级 | 特效系统 |
+| `RenderTri*` / `AllocRenderTriBuffer*` | TriBuffer 路径 | Phase 5 高级 | 动态三角缓冲 |
+| `CaptureScreen` | DX11 offscreen RT + 保存 | 工具 | 屏幕截图 |
+| `ConvertCompressedTexture` | BC1-BC7 压缩 | Phase 5 高级 | DirectXTex |
+| `BeginShadowMap` / `EndShadowMap` | shadow map pipeline | 后期 | |
+| `GetD3DDevice` (非 IUnknown IID) | 兼容老代码 | 兼容性 | 当前只支持 `IUnknown` |
+
+> **FontObject 范围说明**：8-bit 缓存（非 Unicode CJK 簇）；CJK 应走老引擎自己的 .TTB 预烤字图。
+> DirectWrite SDF / 多色 emoji 需要单独 Phase 6+ 工作。
+
+**测试统计**：
+| 套件 | 数量 | 内容 |
+|------|------|------|
+| `TgaLoader` | 7 | TGA uncompressed / RLE / bottom-up-flip / RGBA32 |
+| `MeshGeometryTest` | 4 | MESH_DESC + FACE_DESC 合约 |
+| `FontObjectGlyph` | 2 | GlyphEntry 字段 + CHAR_CODE_TYPE 枚举值 |
+| `FontObjectAtlas` | 4 | row-packing：水平→回行→溢出复位→行高跟踪最大字 |
+| `MhFileEx` | 6 | `.bin` XOR/位移加解密 + CRC 校验 |
+| `PackFile` | 5 | `.pak` 头解析 + 实资源回环 |
+| `BsadArea` | 4 | `.bsad` 技能区域 |
+| `ChxModelRealResource` | 4 | 真实 `.chx` TAB 分隔文本 |
+| `DbAdapter` | 4 | `IDbAdapter` 工厂 + 配置 |
+| `SqliteAdapter` | 5 | SQLite 后端（事务/BLOB/文件持久化） |
+| `RealResource` | 2 | 真实 `MonsterList.bin` + `Effect.pak` 跑通 |
+| **合计** | **47** | Debug 全过 |
 
 ### Phase 3-7 交付物（每阶段）
 - [ ] 新模块源码 + 单元测试

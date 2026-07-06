@@ -14,6 +14,7 @@
 #include "device.hpp"
 #include "primitives.hpp"
 #include "mesh_shaders.hpp"
+#include "font_object.hpp"
 
 namespace mxh::gx::dx11 {
 

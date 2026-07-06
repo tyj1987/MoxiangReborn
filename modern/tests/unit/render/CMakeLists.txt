@@ -1,6 +1,7 @@
 add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp
+    font_object_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
