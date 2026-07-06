@@ -4,6 +4,12 @@
 #pragma once
 
 #include <cstdint>
+// Guard: if WIN32_LEAN_AND_MEAN is not yet defined, set it before <windows.h>
+// to prevent winsock2.h / windows.h ordering conflicts in translation units
+// that also include material.hpp (which includes winsock2.h before d3d11.h).
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>  // RECT, BOOL
 
 #include "math.hpp"

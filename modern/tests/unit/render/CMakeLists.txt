@@ -4,6 +4,7 @@ add_executable(mxh_render_tests
     font_object_test.cpp
     height_field_test.cpp
     effect_shader_test.cpp
+    material_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -50,4 +51,18 @@ gtest_add_tests(TARGET mxh_render_tests
     EffectShaderTest.SetWaveTexMatrixOutputProperties
     EffectShaderTest.SetWaveTexMatrixNullPtrNoCrash
     EffectShaderTest.SetWaveTexMatrixAnimatedValuesInRange
+    MaterialDataTest.DefaultFieldsAreZero
+    MaterialDataTest.FieldsCanBeSet
+    MaterialDataTest.TextureFieldsDefaultToEmpty
+    MaterialSetTest.DefaultConstructsWithEmptyEntries
+    MaterialSetTest.CanOwnMultipleMaterialEntries
+    MaterialContractTest.GetDiffuseTexmapNameReturnsEmptyWhenNotSet
+    MaterialContractTest.GetDiffuseTexmapNameReturnsSetValue
+    MaterialContractTest.GetBumpTexmapNameReturnsSetValue
+    MaterialContractTest.GetReflectTexmapNameReturnsSetValue
+    MaterialContractTest.GetFlagReturnsDwFlag
+    MaterialContractTest.GetTransparencyReturnsFloatValue
+    MaterialContractTest.MaterialTableEntryPointsToMaterial
+    MaterialContractTest.FillHelperProducesExpectedValues
+    MaterialSetContractTest.MultipleEntriesFormValidMaterialTable
 )
