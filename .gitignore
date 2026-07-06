@@ -1,0 +1,142 @@
+# 临时文件 / 编译产物
+*.ncb
+*.opt
+*.aps
+*.clw
+*.plg
+*.suo
+*.user
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.idb
+*.pch
+*.sdf
+*.opensdf
+*.cachefile
+*.VC.db
+*.ipch
+*.tmp
+
+# Visual Studio
+.vs/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebug*/
+[Rr]elease*/
+x64/
+x86/
+Win32/
+ARM/
+ARM64/
+[Bb]uild/
+[Ll]og/
+[Oo]ut/
+[Oo]bj*/
+[Ll]ib/
+
+# 编译输出目录（项目已有）
+[Dd]ebug/
+[Rr]elease/
+Log/
+[Output]Tools/
+cworking/
+SWorking/
+
+# 旧的 .vsscc/.vssscc/.scc (Perforce)
+*.vsscc
+*.vssscc
+*.scc
+*.vspscc
+*.dbmdl
+*.dbproj
+
+# IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 资源运行时文件（用户数据/截图/日志）
+*.UIS
+*.UII
+*.dat
+# 注意：*.bin 资源文件**不要**过滤（游戏资源）
+
+# Windows 快捷方式（启动脚本已重写）
+*.lnk
+
+# 已编译可执行文件（保留在 SWorking/ 和 cworking/，但不进 git）
+*.exe
+*.dll
+*.pyd
+*.so
+*.dylib
+
+# 但是注意：保留一些重要的 DLL 在版本控制里
+# SS3D*.dll
+# BaseNetwork.dll
+# HSEL.dll
+# SoundLib.dll
+
+# 数据库备份（保留目录结构，不进二进制内容）
+# MHCMEMBER.bak
+# MHGAME.bak
+# MHLOG.bak
+
+# 临时解压/转换目录
+tmp/
+work/
+.cache/
+build_artifacts/
+
+# 测试覆盖率报告
+coverage/
+*.gcov
+*.gcda
+*.gcno
+htmlcov/
+.pytest_cache/
+
+# Python（脚本工具）
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# Node（如果有）
+node_modules/
+package-lock.json
+
+# CMake（生成的）
+cmake-build-*/
+build-*/
+out/
+
+# Conan
+conanfile.lock
+conan_cache/
+
+# vcpkg
+vcpkg_installed/
+
+# 系统生成
+[Bb]uild[Ll]og.*
+*.[Pp]ublish.xml
+*.pfx
+*.publishsettings
+# Generated DB files
+*.db
+*.db-shm
+*.db-wal
+test_conn.db
+

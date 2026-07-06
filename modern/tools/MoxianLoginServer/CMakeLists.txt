@@ -1,0 +1,5 @@
+add_executable(mxh_login_server main.cpp)
+target_link_libraries(mxh_login_server PRIVATE mxh_server mxh_db mxh_net mxh_crypto)
+if(MSVC)
+    target_compile_definitions(mxh_login_server PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
