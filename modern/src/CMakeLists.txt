@@ -109,3 +109,20 @@ target_compile_features(mxh_server PUBLIC cxx_std_20)
 target_link_libraries(mxh_server PUBLIC mxh_net mxh_crypto mxh_db)
 
 install(TARGETS mxh_server ARCHIVE DESTINATION lib)
+
+# -----------------------------------------------------------------------------
+# mxh_log: minimal logging facility (used by all modules)
+# -----------------------------------------------------------------------------
+add_library(mxh_log STATIC
+    log/mlog.cpp
+)
+target_include_directories(mxh_log PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}              # so log/mlog.cpp finds mlog.hpp
+)
+target_compile_features(mxh_log PUBLIC cxx_std_20)
+
+# -----------------------------------------------------------------------------
+# mxh_render: DirectX 11 port of 4Dyuchi GX renderer (Phase 5)
+# -----------------------------------------------------------------------------
+add_subdirectory(render)

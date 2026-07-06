@@ -140,3 +140,14 @@ vcpkg_installed/
 *.db-wal
 test_conn.db
 
+
+# Render demo output
+render_demo_*.txt
+# Test artifacts
+test-extract/
+
+
+# Allow our log module (was matching Log/ rule)
+!modern/src/log/
+!modern/include/mxh/log/
+
