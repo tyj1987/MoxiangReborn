@@ -115,13 +115,20 @@ public:
     virtual ~IConnectionHandler() = default;
 
     // Called when a new client connects. Return true to accept.
-    virtual bool on_connect(ConnectionId id, const std::string& remote_addr) { return true; }
+    virtual bool on_connect(ConnectionId id, const std::string& remote_addr) {
+        (void)id;
+        (void)remote_addr;
+        return true;
+    }
 
     // Called when a complete message has been received (decrypted if applicable).
     virtual void on_message(ConnectionId id, const Message& msg) = 0;
 
     // Called when a connection is closed (remote or local).
-    virtual void on_disconnect(ConnectionId id, NetError reason) {}
+    virtual void on_disconnect(ConnectionId id, NetError reason) {
+        (void)id;
+        (void)reason;
+    }
 
     // Optional: pre-encryption/decryption (Phase 3 integration).
     virtual IEncryptor* encryptor_for(ConnectionId) { return nullptr; }

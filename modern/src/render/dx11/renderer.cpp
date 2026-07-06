@@ -182,8 +182,15 @@ void __stdcall CoD3DDeviceDX11::RenderBox(VECTOR3* pv3Oct, std::uint32_t dwColor
     m_primitives.setViewProj(m_dev->viewProjMatrix());
     m_primitives.drawBox(pv3Oct, dwColor);
 }
-void __stdcall CoD3DDeviceDX11::RenderPoint(VECTOR3* /*pv3Point*/, std::uint32_t /*dwColor*/) {
-    // Phase 5 stub: real implementation projects 3D point to screen.
+void __stdcall CoD3DDeviceDX11::RenderPoint(VECTOR3* pv3Point, std::uint32_t dwColor) {
+    if (!m_dev || !pv3Point) return;
+    // Phase 5: same top-down projection convention as RenderBox (X=screen X, Z=screen Y).
+    // Full 3D→2D projection is left for later when we have a proper view*proj matrix
+    // wired through the camera setup (currently the test/diagnostic scene uses the
+    // identity viewport).
+    m_primitives.setViewProj(m_dev->viewProjMatrix());
+    VECTOR2 screen{ pv3Point->x, pv3Point->z };
+    m_primitives.drawPoint(screen, dwColor);
 }
 void __stdcall CoD3DDeviceDX11::RenderCircle(VECTOR2* pv2Point, float fRs, std::uint32_t dwColor) {
     if (!m_dev || !pv2Point) return;
@@ -195,8 +202,10 @@ void __stdcall CoD3DDeviceDX11::RenderLine(VECTOR2* pv2Point0, VECTOR2* pv2Point
     m_primitives.setViewProj(m_dev->viewProjMatrix());
     m_primitives.drawLine(*pv2Point0, *pv2Point1, dwColor);
 }
-void __stdcall CoD3DDeviceDX11::RenderGrid(VECTOR3* /*pv3Quad*/, std::uint32_t /*dwColor*/) {
-    // stub
+void __stdcall CoD3DDeviceDX11::RenderGrid(VECTOR3* pv3Quad, std::uint32_t dwColor) {
+    if (!m_dev || !pv3Quad) return;
+    m_primitives.setViewProj(m_dev->viewProjMatrix());
+    m_primitives.drawGrid(pv3Quad, dwColor);
 }
 BOOL __stdcall CoD3DDeviceDX11::RenderTriIvertex(IVERTEX* /*p*/, void* /*m*/, std::uint32_t /*n*/, std::uint32_t /*f*/) {
     return FALSE;

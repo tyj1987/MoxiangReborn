@@ -328,6 +328,20 @@ Phase 12: 持续迭代
 - [ ] `tools/MoxianSchemaExporter` schema 导出
 - [ ] 文档：`docs/DATABASE_SCHEMA.md`
 
+### Phase 5 交付物（DX11 渲染器）
+- [x] `modern/src/render/mxh_render` 静态库 — DX11 后端
+- [x] `modern/include/mxh/render/IRenderer.hpp` — 1:1 端口（75 个方法签名）
+- [x] `modern/include/mxh/render/IFileStorage.hpp` — 1:1 端口（27 个方法签名）
+- [x] `modern/include/mxh/render/render_typedef.hpp` — 与原 DX8 引擎二进制兼容的结构体
+- [x] Device 初始化（SwapChain / RenderTarget / 默认状态对象）
+- [x] PrimitiveDrawer（RenderBox/Line/Point/Circle 的 DX11 实现）
+- [x] SpriteObject（ID3D11Texture2D + SRV，Draw + Resize + LockRect）
+- [x] TGA 解码器（uncompressed + RLE，含 bottom-up 翻转）
+- [x] `tools/MoxianRenderDemo` — 烟雾测试（窗口 + 清屏 + RenderBox）
+- [x] TGA 解码器单元测试 — 7 个 case（truncated/24bpp-topdown/24bpp-bottomup-flip/32bpp-alpha/auto-detect/invalid-type/RLE-pack-unpack）全过
+- [ ] Phase 5 进度报告（剩余 stub 清单：MeshObject / Font / HeightField / Effect 等）
+- [ ] HLSL shader 编译 + cache 策略
+
 ### Phase 3-7 交付物（每阶段）
 - [ ] 新模块源码 + 单元测试
 - [ ] 回归测试：与原模块行为对比

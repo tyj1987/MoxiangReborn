@@ -50,6 +50,10 @@ public:
     // Render a 2D filled circle.
     void drawCircle(const VECTOR2& center, float radius, std::uint32_t color);
 
+    // Render a wireframe quad in world space (4 corners connected edge to edge).
+    // Top-down projection: X=screen X, Z=screen Y (same as drawBox).
+    void drawGrid(const VECTOR3* quad, std::uint32_t color);
+
     // Render a screen-space textured quad (used by SpriteObject).
     void drawTexturedQuad(ID3D11ShaderResourceView* srv,
                           float x, float y, float w, float h,

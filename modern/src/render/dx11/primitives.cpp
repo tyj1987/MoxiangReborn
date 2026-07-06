@@ -292,6 +292,37 @@ void PrimitiveDrawer::drawCircle(const VECTOR2& center, float radius, std::uint3
     ctx->Draw(N * 2, 0);
 }
 
+void PrimitiveDrawer::drawGrid(const VECTOR3* quad, std::uint32_t color) {
+    if (!m_dev || !quad) return;
+    auto* ctx = m_dev->rawContext();
+    updateViewProj();
+
+    // 4 corners 鈫?4 edges as 8 vertices (LINELIST).
+    struct V { float x, y; std::uint32_t c; };
+    V verts[8];
+    auto push = [&](int idx, const VECTOR3& p) {
+        verts[idx] = { p.x, p.z, color };
+    };
+    push(0, quad[0]); push(1, quad[1]);
+    push(2, quad[1]); push(3, quad[2]);
+    push(4, quad[2]); push(5, quad[3]);
+    push(6, quad[3]); push(7, quad[0]);
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(ctx->Map(m_shaders.vbSolid.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
+    std::memcpy(mapped.pData, verts, sizeof(verts));
+    ctx->Unmap(m_shaders.vbSolid.Get(), 0);
+
+    UINT stride = sizeof(V), offset = 0;
+    ctx->IASetVertexBuffers(0, 1, m_shaders.vbSolid.GetAddressOf(), &stride, &offset);
+    ctx->IASetInputLayout(m_shaders.ilSolid.Get());
+    ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+    ctx->VSSetShader(m_shaders.vsSolid.Get(), nullptr, 0);
+    ctx->PSSetShader(m_shaders.psSolid.Get(), nullptr, 0);
+    ctx->VSSetConstantBuffers(0, 1, m_cbViewProj.GetAddressOf());
+    ctx->Draw(8, 0);
+}
+
 void PrimitiveDrawer::drawTexturedQuad(ID3D11ShaderResourceView* srv,
                                        float x, float y, float w, float h,
                                        float u0, float v0, float u1, float v1,
