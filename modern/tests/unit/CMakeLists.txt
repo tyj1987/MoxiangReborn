@@ -7,5 +7,26 @@ add_executable(mxh_compat_tests
 
 target_link_libraries(mxh_compat_tests PRIVATE mxh_compat gtest_main)
 
-# Skip gtest_discover_tests — Chinese path prevents JSON output in this build env.
-# Run tests manually: build/tests/unit/Debug/mxh_compat_tests.exe
+include(GoogleTest)
+# See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
+gtest_add_tests(TARGET mxh_compat_tests
+    MhFileEx.RoundtripBasicType0
+    MhFileEx.RoundtripType1ExtraSubtraction
+    MhFileEx.RejectTooShort
+    MhFileEx.Crc8Zero
+    MhFileEx.Crc8Basic
+    MhFileEx.WriteAndReadBack
+    PackFile.FindCaseInsensitive
+    PackFile.RejectsNonPakBlob
+    PackFile.ParsesRealEffectPak
+    PackFile.ParsesAllRealPakFiles
+    PackFile.ReadRealEntryData
+    BsadArea.Parse3x3CrossShape
+    BsadArea.EmptyArea
+    BsadArea.RejectsTooSmall
+    BsadArea.RejectsOutOfBoundsQuery
+    ChxModelRealResource.ManChxIsTextMetadata
+    ChxModelRealResource.MonsterBinSmoke
+    ChxModelRealResource.CharacterPakFileCount
+    ChxModelRealResource.ChxModelParseRejectsTextChx
+)

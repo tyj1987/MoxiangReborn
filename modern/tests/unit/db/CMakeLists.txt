@@ -6,5 +6,18 @@ add_executable(mxh_db_tests
 
 target_link_libraries(mxh_db_tests PRIVATE mxh_db mxh_compat gtest_main)
 
-# Skip gtest_discover_tests — Chinese path prevents JSON output in this build env.
-# Run tests manually: build/tests/unit/db/Debug/mxh_db_tests.exe
+include(GoogleTest)
+# See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
+gtest_add_tests(TARGET mxh_db_tests
+    DbAdapter.ConnectionConfigRoundTrip
+    DbAdapter.MakeAdapterReturnsNonNullForSqlite
+    DbAdapter.MakeAdapterReturnsNullForUnknown
+    DbAdapter.EmptyBackendDefaultsToSqlite
+    SqliteAdapter.CreateTableAndInsert
+    SqliteAdapter.SelectWithBindParameters
+    SqliteAdapter.Transactions
+    SqliteAdapter.NullAndBlobBindings
+    SqliteAdapter.FileBasedPersistence
+    RealResource.MonsterListIntoSqlite
+    RealResource.PakFileListingToDb
+)
