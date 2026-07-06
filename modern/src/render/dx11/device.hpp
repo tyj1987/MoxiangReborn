@@ -55,6 +55,8 @@ public:
     std::uint32_t ambientColor()       const { return m_ambientColor; }
     std::uint32_t emissiveColor()      const { return m_emissiveColor; }
 
+    const VECTOR3& cameraPosition()   const { return m_cameraPos; }
+
 private:
     bool createSwapChain(HWND hWnd, const DISPLAY_INFO& info);
     bool createRenderTargets();
@@ -81,8 +83,9 @@ private:
     MATRIX4 m_matViewProj{};
     MATRIX4 m_matBillboard{};
 
-    std::uint32_t m_ambientColor  = DEFAULT_AMBIENT_COLOR;
-    std::uint32_t m_emissiveColor = 0xff000000;
+std::uint32_t                          m_ambientColor  = DEFAULT_AMBIENT_COLOR;
+    std::uint32_t                          m_emissiveColor = 0xff000000;
+    VECTOR3                               m_cameraPos{};
 };
 
 } // namespace mxh::gx::dx11

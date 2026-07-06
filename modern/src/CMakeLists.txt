@@ -16,6 +16,7 @@ target_compile_features(mxh_compat PUBLIC cxx_std_20)
 
 if(MSVC)
     target_compile_definitions(mxh_compat PUBLIC _CRT_SECURE_NO_WARNINGS)
+    target_compile_options(mxh_compat PRIVATE /FS /MP)
 endif()
 
 # 安装（可选）

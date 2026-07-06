@@ -6,6 +6,8 @@ add_library(mxh_render STATIC
     dx11/primitives.cpp
     dx11/sprite.cpp
     dx11/texture_loader.cpp
+    dx11/mesh_object.cpp
+    dx11/mesh_shaders.cpp
     dx11/renderer.cpp
 )
 

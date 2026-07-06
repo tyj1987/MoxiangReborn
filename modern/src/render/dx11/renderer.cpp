@@ -2,6 +2,7 @@
 // Implementation of all 75 I4DyuchiGXRenderer methods.
 #include "renderer.hpp"
 #include "sprite.hpp"
+#include "mesh_object.hpp"
 
 #include <cstring>
 
@@ -13,6 +14,8 @@ CoD3DDeviceDX11::CoD3DDeviceDX11() = default;
 
 CoD3DDeviceDX11::~CoD3DDeviceDX11() {
     m_primitives.shutdown();
+    m_meshShaders.release();
+    m_meshShadersReady = false;
     m_dev.reset();
 }
 
@@ -54,6 +57,13 @@ BOOL __stdcall CoD3DDeviceDX11::Create(HWND hWnd, DISPLAY_INFO* pInfo, I4DyuchiF
         m_dev.reset();
         return FALSE;
     }
+    if (!m_meshShaders.init(m_dev->rawDevice())) {
+        MLOG_ERROR("[renderer] MeshShaders init failed");
+        m_primitives.shutdown();
+        m_dev.reset();
+        return FALSE;
+    }
+    m_meshShadersReady = true;
     MLOG_INFO("[renderer] CoD3DDeviceDX11 created (hwnd=%p storage=%p)", hWnd, pStorage);
     return TRUE;
 }
@@ -80,22 +90,53 @@ IDISpriteObject* __stdcall CoD3DDeviceDX11::CreateEmptySpriteObject(std::uint32_
     return SpriteObject::create(m_dev.get(), dwWidth, dwHeight, fmt, nullptr);
 }
 
-IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateMeshObject(CMeshFlag /*flag*/) {
-    MLOG_WARN("[renderer] CreateMeshObject stub (Phase 5 advanced)");
-    return nullptr;
+IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateMeshObject(CMeshFlag flag) {
+    if (!m_dev) return nullptr;
+    return MeshObject::createEmpty(m_dev.get(), flag);
 }
 IDIFontObject* __stdcall CoD3DDeviceDX11::CreateFontObject(LOGFONT* /*pLogFont*/, std::uint32_t /*dwFlag*/) {
     MLOG_WARN("[renderer] CreateFontObject stub (Phase 5 advanced)");
     return nullptr;
 }
 IDIHeightField* __stdcall CoD3DDeviceDX11::CreateHeightField(std::uint32_t /*dwFlag*/) {
+    // HeightField pipeline is non-trivial (LOD + alpha map + chunked VB); defer
+    // to a later phase. Callers should null-check the return.
     MLOG_WARN("[renderer] CreateHeightField stub (Phase 5 advanced)");
     return nullptr;
 }
-IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateImmMeshObject(IVERTEX* /*piv3Tri*/, std::uint32_t /*dwTriCount*/,
+IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateImmMeshObject(IVERTEX* piv3Tri, std::uint32_t dwTriCount,
                                                              void* /*pMtlHandle*/, std::uint32_t /*dwFlag*/) {
-    MLOG_WARN("[renderer] CreateImmMeshObject stub (Phase 5 advanced)");
-    return nullptr;
+    if (!m_dev || !piv3Tri || dwTriCount == 0) return nullptr;
+    auto* m = MeshObject::createEmpty(m_dev.get(), CMeshFlag());
+    if (!m) return nullptr;
+    // Convert IVERTEX (pos+uv) into the MESH_DESC layout.
+    const std::uint32_t n = dwTriCount * 3;
+    std::vector<VECTOR3> positions(n);
+    std::vector<VECTOR3> normals(n);
+    std::vector<TVERTEX> tex(n);
+    for (std::uint32_t i = 0; i < n; ++i) {
+        positions[i] = { piv3Tri[i].x, piv3Tri[i].y, piv3Tri[i].z };
+        normals[i]   = { 0.0f, 1.0f, 0.0f };
+        tex[i]       = { piv3Tri[i].u1, piv3Tri[i].v1 };
+    }
+    MESH_DESC md{};
+    md.dwVertexNum     = n;
+    md.pv3WorldList    = positions.data();
+    md.dwTexVertexNum  = n;
+    md.ptvTexCoordList = tex.data();
+    md.pv3NormalLocal  = normals.data();
+    md.meshFlag        = CMeshFlag();
+    if (!m->StartInitialize(&md, nullptr, nullptr)) { m->Release(); return nullptr; }
+
+    std::vector<std::uint16_t> idx(n);
+    for (std::uint32_t i = 0; i < n; ++i) idx[i] = static_cast<std::uint16_t>(i);
+    FACE_DESC fd{};
+    fd.pIndex     = idx.data();
+    fd.dwFacesNum = dwTriCount;
+    fd.dwMtlIndex = 0;
+    if (!m->InsertFaceGroup(&fd)) { m->Release(); return nullptr; }
+    m->EndInitialize();
+    return m;
 }
 
 // ===== Render frame =====
@@ -119,11 +160,19 @@ std::uint32_t __stdcall CoD3DDeviceDX11::GetLightMapFlag() { return m_lightMapFl
 void __stdcall CoD3DDeviceDX11::SetRenderMode(std::uint32_t dwFlag) { m_renderMode = dwFlag; }
 std::uint32_t __stdcall CoD3DDeviceDX11::GetRenderMode() { return m_renderMode; }
 
-void __stdcall CoD3DDeviceDX11::EnableFog(float /*fStart*/, float /*fEnd*/, float /*fDensity*/,
-                                          std::uint32_t /*dwColor*/, std::uint32_t /*dwFlag*/) {
-    MLOG_DEBUG("[renderer] EnableFog stub");
+void __stdcall CoD3DDeviceDX11::EnableFog(float fStart, float fEnd, float fDensity,
+                                          std::uint32_t dwColor, std::uint32_t /*dwFlag*/) {
+    m_fogEnabled  = true;
+    m_fogStart    = fStart;
+    m_fogEnd      = fEnd;
+    m_fogDensity  = fDensity;
+    m_fogColor    = dwColor;
+    MLOG_DEBUG("[renderer] Fog enabled (start=%.1f end=%.1f density=%.2f)",
+               fStart, fEnd, fDensity);
 }
-void __stdcall CoD3DDeviceDX11::DisableFog() {}
+void __stdcall CoD3DDeviceDX11::DisableFog() {
+    m_fogEnabled = false;
+}
 
 BOOL __stdcall CoD3DDeviceDX11::BeginShadowMap() { return FALSE; }
 void __stdcall CoD3DDeviceDX11::EndShadowMap() {}
@@ -153,11 +202,92 @@ void __stdcall CoD3DDeviceDX11::DeleteEffectShaderPalette() {}
 
 // ===== Render mesh / sprite / font =====
 
-BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* /*pMeshObj*/, std::uint32_t /*dwRefIndex*/, float /*fDistance*/, std::uint32_t /*dwAlpha*/,
+BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::uint32_t /*dwRefIndex*/, float /*fDistance*/, std::uint32_t /*dwAlpha*/,
                                                 LIGHT_INDEX_DESC* /*pDyn*/, std::uint32_t /*dwLightNum*/,
                                                 LIGHT_INDEX_DESC* /*pSpot*/, std::uint32_t /*dwSpotNum*/,
                                                 std::uint32_t /*dwMtlSet*/, std::uint32_t /*dwEffect*/, std::uint32_t /*dwFlag*/) {
-    return FALSE;
+    if (!m_dev || !m_meshShadersReady || !pMeshObj) return FALSE;
+    auto* mesh = static_cast<MeshObject*>(pMeshObj);
+    if (!mesh->vertexBuffer() || mesh->faceGroups().empty()) return FALSE;
+
+    auto* ctx = m_dev->rawContext();
+
+    // Constant buffer: world matrix (identity for now — caller-driven transforms
+    // would come via the Executive path in a full port).
+    MATRIX4 world = MatrixIdentity();
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (SUCCEEDED(ctx->Map(m_meshShaders.cbWorld.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        std::memcpy(mapped.pData, &world, sizeof(MATRIX4));
+        ctx->Unmap(m_meshShaders.cbWorld.Get(), 0);
+    }
+    if (SUCCEEDED(ctx->Map(m_meshShaders.cbViewProj.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        MATRIX4 vp = m_dev->viewProjMatrix();
+        std::memcpy(mapped.pData, &vp, sizeof(MATRIX4));
+        ctx->Unmap(m_meshShaders.cbViewProj.Get(), 0);
+    }
+    // Light CB: ambient + diffuse + lightDir + cameraPos + fogParams + fogColor.
+    struct LightCB {
+        float ambient[4];
+        float diffuse[4];
+        float lightDir[4];
+        float cameraPos[4];
+        float fogParams[4];
+        float fogColor[4];
+    } lcb{};
+    lcb.ambient[0] = lcb.ambient[1] = lcb.ambient[2] = 0.25f;
+    lcb.ambient[3] = 1.0f;
+    lcb.diffuse[0] = lcb.diffuse[1] = lcb.diffuse[2] = 0.95f;
+    lcb.diffuse[3] = 1.0f;
+    lcb.lightDir[0] =  0.3f;  // soft top-down light
+    lcb.lightDir[1] = -0.7f;
+    lcb.lightDir[2] =  0.4f;
+    lcb.lightDir[3] =  0.0f;
+    auto camPos = m_dev->cameraPosition();
+    lcb.cameraPos[0] = camPos.x;
+    lcb.cameraPos[1] = camPos.y;
+    lcb.cameraPos[2] = camPos.z;
+    lcb.cameraPos[3] = 0.0f;
+    lcb.fogParams[0] = m_fogEnabled ? 1.0f : 0.0f;
+    lcb.fogParams[1] = m_fogStart;
+    lcb.fogParams[2] = m_fogEnd;
+    lcb.fogParams[3] = m_fogDensity;
+    auto fr = static_cast<float>((m_fogColor >> 16) & 0xff) / 255.0f;
+    auto fg = static_cast<float>((m_fogColor >>  8) & 0xff) / 255.0f;
+    auto fb = static_cast<float>((m_fogColor      ) & 0xff) / 255.0f;
+    lcb.fogColor[0] = fr; lcb.fogColor[1] = fg; lcb.fogColor[2] = fb;
+    lcb.fogColor[3] = 1.0f;
+    if (SUCCEEDED(ctx->Map(m_meshShaders.cbLight.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        std::memcpy(mapped.pData, &lcb, sizeof(LightCB));
+        ctx->Unmap(m_meshShaders.cbLight.Get(), 0);
+    }
+
+    // Bind pipeline.
+    UINT stride = sizeof(MeshObject::Vertex), offset = 0;
+    ID3D11Buffer* vb = mesh->vertexBuffer();
+    ID3D11Buffer* ib = mesh->indexBuffer();
+    ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+    ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
+    ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
+    ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+    ctx->PSSetShader(m_meshShaders.psLit.Get(), nullptr, 0);
+    ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
+    ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
+    ctx->PSSetConstantBuffers(0, 1, m_meshShaders.cbLight.GetAddressOf());
+
+    for (const auto& fg : mesh->faceGroups()) {
+        if (!fg.diffuseSRV) {
+            ID3D11ShaderResourceView* nullSRV = nullptr;
+            ctx->PSSetShaderResources(0, 1, &nullSRV);
+        } else {
+            ctx->PSSetShaderResources(0, 1, fg.diffuseSRV.GetAddressOf());
+        }
+        ctx->DrawIndexed(fg.indexCount, fg.startIndex, 0);
+    }
+    // Unbind SRV to avoid D3D11 warnings.
+    ID3D11ShaderResourceView* nullSRV = nullptr;
+    ctx->PSSetShaderResources(0, 1, &nullSRV);
+    return TRUE;
 }
 
 BOOL __stdcall CoD3DDeviceDX11::RenderSprite(IDISpriteObject* pSprite, VECTOR2* pv2Scaling, float fRot,

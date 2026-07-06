@@ -13,6 +13,7 @@
 #include "mxh/render/IRenderer.hpp"
 #include "device.hpp"
 #include "primitives.hpp"
+#include "mesh_shaders.hpp"
 
 namespace mxh::gx::dx11 {
 
@@ -152,6 +153,8 @@ public:
 private:
     std::unique_ptr<dx11::Device>          m_dev;
     PrimitiveDrawer                        m_primitives;
+    MeshShaders                            m_meshShaders;
+    bool                                   m_meshShadersReady = false;
     I4DyuchiFileStorage*                   m_storage = nullptr;
     ErrorHandleProc                        m_errorHandler = nullptr;
     HWND                                   m_hwnd = nullptr;
@@ -164,6 +167,13 @@ private:
     float                                  m_freeVBCacheRate = DEFAULT_FREE_VBCACHE_RATE;
     BOOL                                   m_vsync = TRUE;
     BOOL                                   m_wireSolidBothMode = FALSE;
+
+    // Fog state. The mesh PS applies linear fog when m_fogEnabled is true.
+    bool                                   m_fogEnabled = false;
+    float                                  m_fogStart  = 0.0f;
+    float                                  m_fogEnd    = 0.0f;
+    float                                  m_fogDensity = 1.0f;
+    std::uint32_t                          m_fogColor  = 0xff000000;
 };
 
 } // namespace mxh::gx::dx11

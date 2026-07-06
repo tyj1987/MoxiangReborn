@@ -4,6 +4,12 @@ project(MoxianReborn
     DESCRIPTION "Moxian (DarkStory) - Modernized source tree"
     LANGUAGES CXX)
 
+# Enable ctest at the project root so all test subdirectories register
+# their gtest_discover_tests into the same root test list. Without this,
+# ctest 4.x refuses to find tests in subdirs that call enable_testing()
+# without a parent enable_testing().
+enable_testing()
+
 # -----------------------------------------------------------------------------
 # Global configuration
 # -----------------------------------------------------------------------------

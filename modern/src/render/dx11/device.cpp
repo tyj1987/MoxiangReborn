@@ -241,6 +241,7 @@ void Device::setViewFrustum(const VIEW_VOLUME& /*vv*/, const CAMERA_DESC& cam,
     m_matView      = matView;
     m_matProj      = matProj;
     m_matBillboard = matBillboard;
+    m_cameraPos    = cam.v3From;
 
     // Compose view*proj for convenience (column-major XMMATRIX multiplication
     // would be done here in a real engine; for now we store the parts separately
