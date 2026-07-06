@@ -15,6 +15,57 @@
 
 namespace mxh::gx::dx11 {
 
+TEST(EffectShaderTest, MatrixMultiply2IdentityTest) {
+    // Sanity-check MatrixMultiply2 with identity matrices.
+    MATRIX4 A = MatrixIdentity();
+    MATRIX4 B = MatrixIdentity();
+    MATRIX4 R{};
+    MatrixMultiply2(&R, &A, &B);
+    // Identity × Identity = Identity
+    EXPECT_EQ(R._11, 1.0f);  // row1,col1 = 1
+    EXPECT_EQ(R._12, 0.0f);  // row1,col2 = 0
+    EXPECT_EQ(R._21, 0.0f);  // row2,col1 = 0
+    EXPECT_EQ(R._22, 1.0f);  // row2,col2 = 1
+}
+
+TEST(EffectShaderTest, SetSphereMapMatrixIntermediateValues) {
+    // Check what setSphereMapMatrix produces at each step.
+    EffectShaderPalette palette(nullptr);
+    MATRIX4 world = MatrixIdentity();
+    MATRIX4 view  = MatrixIdentity();
+    MATRIX4 result{};
+    // Manual steps matching setSphereMapMatrix:
+    MatrixMultiply2(&result, &world, &view);  // should be identity
+    // Before scaling: check diagonal
+    EXPECT_EQ(result._11, 1.0f);
+    EXPECT_EQ(result._12, 0.0f);  // THIS IS THE KEY TEST
+    EXPECT_EQ(result._21, 0.0f);
+    EXPECT_EQ(result._22, 1.0f);
+}
+
+TEST(EffectShaderTest, SetSphereMapMatrixCall) {
+    // Call setSphereMapMatrix and check the result BEFORE the scaling issue.
+    EffectShaderPalette palette(nullptr);
+    MATRIX4 world = MatrixIdentity();
+    MATRIX4 view  = MatrixIdentity();
+    MATRIX4 result{};
+    palette.setSphereMapMatrix(&result, &world, &view);
+    // After setSphereMapMatrix:
+    // Row 1: _11 = 1*0.5 = 0.5; _21 = 0*0.5 = 0; _31 = 0*0.5 = 0
+    EXPECT_NEAR(result._11, 0.5f, 0.001f);
+    EXPECT_NEAR(result._21, 0.0f, 0.001f);
+    EXPECT_NEAR(result._31, 0.0f, 0.001f);
+    // Row 2: _12 = 0*-0.5 = 0; _22 = 1*-0.5 = -0.5; _32 = 0*-0.5 = 0
+    EXPECT_NEAR(result._12, 0.0f, 0.001f);   // <-- THIS IS THE KEY CHECK
+    EXPECT_NEAR(result._22, -0.5f, 0.001f);
+    EXPECT_NEAR(result._32, 0.0f, 0.001f);
+    // Translation row
+    EXPECT_NEAR(result._41, 0.5f, 0.001f);
+    EXPECT_NEAR(result._42, 0.5f, 0.001f);
+    EXPECT_NEAR(result._43, 0.0f, 0.001f);
+    EXPECT_NEAR(result._44, 1.0f, 0.001f);
+}
+
 TEST(EffectShaderTest, EffectEntryDefaultValues) {
     EffectEntry e;
     EXPECT_EQ(e.bDisableSrcTex, FALSE);
@@ -85,22 +136,23 @@ TEST(EffectShaderTest, SetSphereMapMatrixOutputProperties) {
     MATRIX4 view  = MatrixIdentity();
     MATRIX4 result{};
     palette.setSphereMapMatrix(&result, &world, &view);
-    // After identity × identity: scaled ±0.5 and translated +0.5
-    // Row 1: _11=_21=_31 = 1*0.5 = 0.5
-    EXPECT_NEAR(result._11, 0.5f, 0.001f);
-    EXPECT_NEAR(result._21, 0.5f, 0.001f);
-    EXPECT_NEAR(result._31, 0.5f, 0.001f);
-    // Row 2: _12=_22=_32 = -1*0.5 = -0.5
-    EXPECT_NEAR(result._12, -0.5f, 0.001f);
+    // setSphereMapMatrix: result = world × view, then:
+    //   Row 1 (Y):  *= 0.5  → diagonal gives 1*0.5=0.5, off-diagonal stay 0
+    //   Row 2 (X):  *= -0.5 → diagonal gives 1*-0.5=-0.5, off-diagonal stay 0
+    //   Row 4: set to 0.5, 0.5, 0, 1
+    // Row 1: _11 = 1*0.5 = 0.5; _21=_31 = 0*0.5 = 0
+    EXPECT_NEAR(result._11,  0.5f, 0.001f);
+    EXPECT_NEAR(result._21,  0.0f, 0.001f);
+    EXPECT_NEAR(result._31,  0.0f, 0.001f);
+    // Row 2: _12 = 0*-0.5 = 0; _22 = 1*-0.5 = -0.5; _32 = 0*-0.5 = 0
+    EXPECT_NEAR(result._12,  0.0f, 0.001f);
     EXPECT_NEAR(result._22, -0.5f, 0.001f);
-    EXPECT_NEAR(result._32, -0.5f, 0.001f);
-    // Translation row: _41=0.5, _42=0.5
-    EXPECT_NEAR(result._41, 0.5f, 0.001f);
-    EXPECT_NEAR(result._42, 0.5f, 0.001f);
-    // Translation on z is 0
-    EXPECT_NEAR(result._43, 0.0f, 0.001f);
-    // Translation on w is 1
-    EXPECT_NEAR(result._44, 1.0f, 0.001f);
+    EXPECT_NEAR(result._32,  0.0f, 0.001f);
+    // Translation row
+    EXPECT_NEAR(result._41,  0.5f, 0.001f);
+    EXPECT_NEAR(result._42,  0.5f, 0.001f);
+    EXPECT_NEAR(result._43,  0.0f, 0.001f);
+    EXPECT_NEAR(result._44,  1.0f, 0.001f);
 }
 
 TEST(EffectShaderTest, SetSphereMapMatrixNullPtrNoCrash) {

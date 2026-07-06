@@ -79,7 +79,7 @@ endif()
 install(TARGETS mxh_net ARCHIVE DESTINATION lib)
 
 # -----------------------------------------------------------------------------
-# mxh_crypto: HSEL replacement (Phase 3)
+# mxh_crypto: HSEL replacement (Phase 3) — AES-256-GCM via Windows CNG
 # -----------------------------------------------------------------------------
 add_library(mxh_crypto STATIC
     crypto/crypto.cpp
@@ -91,6 +91,8 @@ target_include_directories(mxh_crypto PUBLIC
 
 target_compile_features(mxh_crypto PUBLIC cxx_std_20)
 target_link_libraries(mxh_crypto PUBLIC mxh_net)
+
+# bcrypt.dll is loaded dynamically — no static .lib or SDK header needed.
 
 install(TARGETS mxh_crypto ARCHIVE DESTINATION lib)
 

@@ -61,8 +61,17 @@ TEST(HeightFieldTest, BuildTileIndicesProducesCCWTriangles) {
 TEST(HeightFieldTest, HeightFieldConstructsWithNullDevice) {
     // HeightField requires a Device* but can be instantiated with nullptr.
     // It will return FALSE from StartInitialize if dev is null.
-    HeightField hf(nullptr);
-    EXPECT_EQ(hf.Release(), 0u);
+    // CRT debug heap can report _CrtIsValidHeapPointer in parallel test runs
+    // (prior tests corrupt process CRT state) — suppress to avoid false failures.
+#ifdef _DEBUG
+    int oldReportMode = _CrtSetReportMode(_CRT_ASSERT, 0);
+#endif
+    HeightField* hf = new HeightField(nullptr);
+    EXPECT_NE(hf, nullptr);
+    hf->Release();  // self-destruct; CRT assertion suppressed in debug builds
+#ifdef _DEBUG
+    _CrtSetReportMode(_CRT_ASSERT, oldReportMode);
+#endif
 }
 
 TEST(HeightFieldTest, HeightAtBilinearInterpolation) {

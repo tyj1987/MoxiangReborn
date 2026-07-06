@@ -272,20 +272,33 @@ void HeightField::renderChunks(const MATRIX4&) {
 // Helper
 float heightAt(const std::vector<float>& hm, std::uint32_t hmSizeX,
                std::uint32_t hmSizeZ, float worldX, float worldZ,
-               float worldWidth, float worldDepth, float tileSize) {
+               float worldWidth, float worldDepth, float /*tileSize*/) {
     if (hm.empty() || hmSizeX == 0 || hmSizeZ == 0) return 0.0f;
-    float normX = (worldX + worldWidth * 0.5f) / worldWidth;
-    float normZ = (worldZ + worldDepth * 0.5f) / worldDepth;
+
+    // Normalize world coords to [0, 1] range (edge-aligned, not center-offset).
+    float normX = worldX / worldWidth;
+    float normZ = worldZ / worldDepth;
+
+    // Map to height map grid.
     float hmX = normX * static_cast<float>(hmSizeX - 1);
     float hmZ = normZ * static_cast<float>(hmSizeZ - 1);
-    std::uint32_t hx0 = static_cast<std::uint32_t>(std::min(hmX, static_cast<float>(hmSizeX - 1)));
-    std::uint32_t hz0 = static_cast<std::uint32_t>(std::min(hmZ, static_cast<float>(hmSizeZ - 1)));
+
+    // Compute integer grid cell and fractional offset.
+    std::uint32_t hx0 = static_cast<std::uint32_t>(std::floor(hmX));
+    std::uint32_t hz0 = static_cast<std::uint32_t>(std::floor(hmZ));
     float fx = hmX - static_cast<float>(hx0);
     float fz = hmZ - static_cast<float>(hz0);
+
+    // Clamp to valid grid cells (handles out-of-bounds world coords).
+    hx0 = std::min(hx0, hmSizeX - 1);
+    hz0 = std::min(hz0, hmSizeZ - 1);
+    std::uint32_t hx1 = std::min(hx0 + 1, hmSizeX - 1);
+    std::uint32_t hz1 = std::min(hz0 + 1, hmSizeZ - 1);
+
     float h00 = hm[hz0 * hmSizeX + hx0];
-    float h10 = hm[hz0 * hmSizeX + std::min(hx0 + 1, hmSizeX - 1)];
-    float h01 = hm[std::min(hz0 + 1, hmSizeZ - 1) * hmSizeX + hx0];
-    float h11 = hm[std::min(hz0 + 1, hmSizeZ - 1) * hmSizeX + std::min(hx0 + 1, hmSizeX - 1)];
+    float h10 = hm[hz0 * hmSizeX + hx1];
+    float h01 = hm[hz1 * hmSizeX + hx0];
+    float h11 = hm[hz1 * hmSizeX + hx1];
     return h00 * (1.0f - fx) * (1.0f - fz)
          + h10 * fx * (1.0f - fz)
          + h01 * (1.0f - fx) * fz

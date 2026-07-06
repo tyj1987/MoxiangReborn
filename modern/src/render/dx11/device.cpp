@@ -5,7 +5,10 @@
 #include "effect_shader.hpp"
 #include "texture_loader.hpp"
 
+#include <d3d11_1.h>
 #include <d3dcompiler.h>
+
+#include <vector>
 
 #include "mxh/log/mlog.hpp"
 
@@ -261,6 +264,64 @@ void Device::setViewFrustum(const VIEW_VOLUME& /*vv*/, const CAMERA_DESC& cam,
         }
     }
     m_matViewProj = out;
+}
+
+// -----------------------------------------------------------------------------
+// createTextureFromFile — loads a texture via IFileStorage, decodes it, and
+// uploads it to the DX11 device as a ShaderResourceView.
+// Returns nullptr on failure (file not found, decode error, or OOM).
+// -----------------------------------------------------------------------------
+ID3D11ShaderResourceView* Device::createTextureFromFile(const char* fileName) {
+    if (!m_storage) return nullptr;
+
+    // Open file via IFileStorage.
+    void* fp = m_storage->FSOpenFile(const_cast<char*>(fileName), FSFILE_ACCESSMODE_BINARY);
+    if (!fp) return nullptr;
+
+    // Get file size by seeking to end, then reset to start.
+    const std::uint32_t fileSize = m_storage->FSSeek(fp, 0, FSFILE_SEEK_END);
+    m_storage->FSSeek(fp, 0, FSFILE_SEEK_SET);
+    if (fileSize == 0) { m_storage->FSCloseFile(fp); return nullptr; }
+
+    // Read file into buffer.
+    std::vector<std::uint8_t> buf(fileSize);
+    if (m_storage->FSRead(fp, buf.data(), fileSize) != fileSize) {
+        m_storage->FSCloseFile(fp); return nullptr;
+    }
+    m_storage->FSCloseFile(fp);
+
+    // Decode texture (TGA / BMP / bmhm).
+    LoadedTexture tex = loadTextureFromMemory(buf.data(), fileSize);
+    if (tex.pixels.empty()) return nullptr;
+
+    // Describe the 2D texture.
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width     = tex.width;
+    desc.Height    = tex.height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format    = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count   = 1;
+    desc.Usage    = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA initData = {};
+    initData.pSysMem     = tex.pixels.data();
+    initData.SysMemPitch = tex.width * 4;  // RGBA8 = 4 bytes/pixel
+
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> tex2D;
+    HRESULT hr = m_device->CreateTexture2D(&desc, &initData, tex2D.GetAddressOf());
+    if (FAILED(hr) || !tex2D) return nullptr;
+
+    // Create SRV.
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format        = desc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+
+    ID3D11ShaderResourceView* srv = nullptr;
+    hr = m_device->CreateShaderResourceView(tex2D.Get(), &srvDesc, &srv);
+    return SUCCEEDED(hr) ? srv : nullptr;
 }
 
 } // namespace mxh::gx::dx11

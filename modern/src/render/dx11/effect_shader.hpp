@@ -1,19 +1,5 @@
 // mxh/render/dx11/effect_shader.hpp
 // Effect Shader Palette — DX11 implementation.
-//
-// Original: 墨香【源码】\4DYUCHIGX_RENDER\CoD3DDevice.cpp CreateEffectShaderPalette
-//           墨香【源码】\4DYUCHIGX_RENDER\PLMeshObject.cpp RenderEffect
-//           墨香【源码】\4DYUCHIGX_RENDER\CTexture.h VLMESH_EFFECT_DESC
-//
-// Design:
-//   - Palette: array of EffectEntry, indexed by dwEffectIndex in RenderMeshObject.
-//   - Each entry binds a texture + texgen method (sphere-map reflection / wave).
-//   - MeshObject::Render() checks RENDER_TYPE_USE_EFFECT and dispatches to
-//     RenderEffect(), which applies the texture matrix (world×view + wave offset)
-//     and sets the effect pixel shader + diffuse SRV.
-//   - Wave matrix uses m_dwTickCount for animated sinusoidal UV offset.
-//   - Sphere-map matrix: matTex = matWorld × matView, scaled 0.5/-0.5 and
-//     translated +0.5 to map to [0,1] UV space.
 #pragma once
 
 #include <d3d11.h>
@@ -32,11 +18,11 @@ class MeshObject;
 
 // One entry in the effect shader palette. Mirrors VLMESH_EFFECT_DESC.
 struct EffectEntry {
-    BOOL            bDisableSrcTex = FALSE;
-    TEXGEN_METHOD   method         = TEXGEN_METHOD_REFLECT_SPHEREMAP;
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv;
-    BOOL            bSuccess = FALSE;
-    std::uint32_t   dwFlag   = 0;
+    BOOL                                                    bDisableSrcTex = FALSE;
+    TEXGEN_METHOD                                           method         = TEXGEN_METHOD_REFLECT_SPHEREMAP;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>        srv;
+    BOOL                                                    bSuccess = FALSE;
+    std::uint32_t                                           dwFlag   = 0;
 };
 
 // Manages the global effect shader palette.
@@ -68,9 +54,9 @@ public:
     void setWaveTexMatrix(MATRIX4* pMatResult) const;
 
 private:
-    Device*                    m_dev = nullptr;
-    std::vector<EffectEntry>   m_entries;
-    std::uint32_t              m_tickCount = 0;
+    Device*                  m_dev = nullptr;
+    std::vector<EffectEntry> m_entries;
+    std::uint32_t            m_tickCount = 0;
 };
 
 } // namespace mxh::gx::dx11

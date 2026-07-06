@@ -51,6 +51,12 @@ constexpr float DEFAULT_FOV = PI / 4.0f;
 inline MATRIX4 MatrixIdentity() {
     MATRIX4 r{};
     r._11 = r._22 = r._33 = r._44 = 1.0f;
+    // Zero the off-diagonal elements (r{} only zero-initializes the struct,
+    // which we then partially overwrite with diagonal 1s — explicit is safer).
+    r._12 = r._13 = r._14 = 0.0f;
+    r._21 = r._23 = r._24 = 0.0f;
+    r._31 = r._32 = r._34 = 0.0f;
+    r._41 = r._42 = r._43 = 0.0f;
     return r;
 }
 
