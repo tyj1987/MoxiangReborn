@@ -181,8 +181,14 @@ void __stdcall CoD3DDeviceDX11::DisableFog() {
     m_fogEnabled = false;
 }
 
-BOOL __stdcall CoD3DDeviceDX11::BeginShadowMap() { return FALSE; }
-void __stdcall CoD3DDeviceDX11::EndShadowMap() {}
+BOOL __stdcall CoD3DDeviceDX11::BeginShadowMap() {
+    if (!m_dev) return FALSE;
+    return m_dev->beginShadowPass() ? TRUE : FALSE;
+}
+void __stdcall CoD3DDeviceDX11::EndShadowMap() {
+    if (!m_dev) return;
+    m_dev->endShadowPass();
+}
 
 void __stdcall CoD3DDeviceDX11::GetClientRect(SHORT_RECT* pRect, std::uint16_t* pwWidth, std::uint16_t* pwHeight) {
     if (!m_dev) return;
@@ -402,7 +408,23 @@ void __stdcall CoD3DDeviceDX11::DisableDirectionalLight() {}
 void __stdcall CoD3DDeviceDX11::SetSpotLightDesc(VECTOR3* /*a*/, VECTOR3* /*b*/, VECTOR3* /*c*/, float /*d*/,
                                                   float /*e*/, float /*f*/, float /*g*/, BOOL /*h*/, void* /*i*/,
                                                   std::uint32_t /*j*/, std::uint32_t /*k*/, SPOT_LIGHT_TYPE /*l*/) {}
-void __stdcall CoD3DDeviceDX11::SetShadowLightSenderPosition(BOUNDING_SPHERE* /*p*/, std::uint32_t /*i*/) {}
+void __stdcall CoD3DDeviceDX11::SetShadowLightSenderPosition(BOUNDING_SPHERE* pSphere, std::uint32_t /*dwLightIndex*/) {
+    if (!m_dev || !pSphere) return;
+    // Build a directional shadow light: orthographic projection from the light's
+    // position, looking toward the scene (downward by default: light is above).
+    VECTOR3 lightPos   = pSphere->v3Point;
+    VECTOR3 lightAt    = { lightPos.x, lightPos.y - 1.0f, lightPos.z };  // look downward
+    VECTOR3 lightUp    = { 0.0f, 0.0f, 1.0f };   // Z-up world space
+    float   halfExtent = pSphere->fRs * 4.0f;     // cover enough scene area
+
+    MATRIX4 matLightView, matLightProj, matShadow;
+    MatrixLookAtLH(&matLightView, &lightPos, &lightAt, &lightUp);
+    MatrixOrthographicLH(&matLightProj, halfExtent, halfExtent, 1.0f, halfExtent * 4.0f);
+    MatrixMultiply2(&matShadow, &matLightView, &matLightProj);
+    m_dev->setShadowLightMatrix(matShadow);
+    MLOG_DEBUG("[renderer] Shadow light pos=(%.1f %.1f %.1f) radius=%.1f",
+                lightPos.x, lightPos.y, lightPos.z, pSphere->fRs);
+}
 
 void __stdcall CoD3DDeviceDX11::SetViewFrusturm(VIEW_VOLUME* pViewVolume, CAMERA_DESC* camera,
                                                  MATRIX4* pMatView, MATRIX4* pMatProj, MATRIX4* pMatBillboard) {

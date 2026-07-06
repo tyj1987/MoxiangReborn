@@ -324,4 +324,103 @@ ID3D11ShaderResourceView* Device::createTextureFromFile(const char* fileName) {
     return SUCCEEDED(hr) ? srv : nullptr;
 }
 
+// ===== Shadow map =====
+
+bool Device::beginShadowPass() {
+    if (!m_device || !m_context) return false;
+    if (m_inShadowPass) return true;  // already in shadow pass
+
+    // Lazily create shadow map resources on first use.
+    if (!m_shadowMapReady) {
+        if (!m_shadowMapTex) {
+            D3D11_TEXTURE2D_DESC td{};
+            td.Width            = SHADOW_MAP_SIZE;
+            td.Height           = SHADOW_MAP_SIZE;
+            td.MipLevels        = 1;
+            td.ArraySize        = 1;
+            td.Format           = DXGI_FORMAT_R24G8_TYPELESS;
+            td.SampleDesc.Count = 1;
+            td.Usage           = D3D11_USAGE_DEFAULT;
+            td.BindFlags        = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+            if (FAILED(m_device->CreateTexture2D(&td, nullptr, m_shadowMapTex.GetAddressOf()))) {
+                MLOG_ERROR("[dx11] CreateTexture2D(shadow) failed");
+                return false;
+            }
+        }
+        if (m_shadowMapTex && !m_shadowMapDSV) {
+            D3D11_DEPTH_STENCIL_VIEW_DESC dsvd{};
+            dsvd.Format         = DXGI_FORMAT_D24_UNORM_S8_UINT;
+            dsvd.ViewDimension  = D3D11_DSV_DIMENSION_TEXTURE2D;
+            dsvd.Texture2D.MipSlice = 0;
+            if (FAILED(m_device->CreateDepthStencilView(m_shadowMapTex.Get(), &dsvd,
+                                                        m_shadowMapDSV.GetAddressOf()))) {
+                MLOG_ERROR("[dx11] CreateDepthStencilView(shadow) failed");
+                return false;
+            }
+        }
+        if (m_shadowMapTex && !m_shadowMapSRV) {
+            D3D11_SHADER_RESOURCE_VIEW_DESC srvd{};
+            srvd.Format              = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+            srvd.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURE2D;
+            srvd.Texture2D.MipLevels = 1;
+            if (FAILED(m_device->CreateShaderResourceView(m_shadowMapTex.Get(), &srvd,
+                                                          m_shadowMapSRV.GetAddressOf()))) {
+                MLOG_ERROR("[dx11] CreateShaderResourceView(shadow) failed");
+                return false;
+            }
+        }
+        m_shadowMapReady = true;
+        MLOG_INFO("[dx11] Shadow map created (%ux%u)", SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    }
+
+    // Save current render targets so we can restore them in endShadowPass.
+    ID3D11RenderTargetView* rtv = nullptr;
+    ID3D11DepthStencilView* dsv = nullptr;
+    m_context->OMGetRenderTargets(1, &rtv, &dsv);
+    if (rtv) { m_savedRTV = rtv; rtv->Release(); }
+    if (dsv) { m_savedDSV = dsv; dsv->Release(); }
+    UINT numVPs = 0;
+    m_context->RSGetViewports(&numVPs, nullptr);  // first call: get count
+    if (numVPs > 0) {
+        m_savedViewports.resize(numVPs);
+        m_context->RSGetViewports(&numVPs, m_savedViewports.data());  // second: get data
+    }
+
+    // Bind shadow map as the depth target; clear it.
+    D3D11_VIEWPORT vp{};
+    vp.Width    = static_cast<float>(SHADOW_MAP_SIZE);
+    vp.Height   = static_cast<float>(SHADOW_MAP_SIZE);
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    m_context->RSSetViewports(1, &vp);
+    m_context->OMSetRenderTargets(0, nullptr, m_shadowMapDSV.Get());
+    m_context->ClearDepthStencilView(m_shadowMapDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+    m_inShadowPass = true;
+    return true;
+}
+
+void Device::endShadowPass() {
+    if (!m_context || !m_inShadowPass) return;
+
+    // Restore main render target + depth stencil.
+    ID3D11RenderTargetView* rtv = m_savedRTV ? m_savedRTV.Get() : nullptr;
+    ID3D11DepthStencilView* dsv = m_savedDSV ? m_savedDSV.Get() : nullptr;
+    m_context->OMSetRenderTargets(rtv ? 1 : 0, rtv ? &rtv : nullptr, dsv);
+
+    // Restore viewports.
+    if (!m_savedViewports.empty()) {
+        m_context->RSSetViewports(static_cast<UINT>(m_savedViewports.size()),
+                                  m_savedViewports.data());
+    }
+
+    // Clear saved references (COM ref-count management via ComPtr).
+    m_savedRTV.Reset();
+    m_savedDSV.Reset();
+    m_savedViewports.clear();
+    m_inShadowPass = false;
+
+    MLOG_DEBUG("[dx11] Shadow pass ended, SRV available for lighting");
+}
+
 } // namespace mxh::gx::dx11

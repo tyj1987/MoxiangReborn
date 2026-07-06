@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "mxh/render/IFileStorage.hpp"
 #include "mxh/render/render_typedef.hpp"
@@ -85,6 +86,16 @@ public:
     I4DyuchiFileStorage* fileStorage() const { return m_storage; }
     void setStorage(I4DyuchiFileStorage* s) { m_storage = s; }
 
+    // ===== Shadow map =====
+    // Shadow map pipeline: create on first BeginShadowMap, bind DSV for depth
+    // rendering (shadow pass), then restore normal RT + expose SRV for lighting.
+    bool beginShadowPass();
+    void endShadowPass();
+    ID3D11ShaderResourceView* shadowMapSRV() const { return m_shadowMapSRV.Get(); }
+    bool shadowMapReady() const { return m_shadowMapReady; }
+    const MATRIX4& shadowLightMatrix() const { return m_shadowLightMatrix; }
+    void setShadowLightMatrix(const MATRIX4& m) { m_shadowLightMatrix = m; }
+
 private:
     bool createSwapChain(HWND hWnd, const DISPLAY_INFO& info);
     bool createRenderTargets();
@@ -119,6 +130,22 @@ private:
     EffectShaderPalette*                  m_effectPalette = nullptr;
 
     interface I4DyuchiFileStorage*          m_storage = nullptr;
+
+    // Shadow map resources (lazy-initialized on first BeginShadowMap).
+    static constexpr std::uint32_t SHADOW_MAP_SIZE = 2048u;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D>        m_shadowMapTex;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilView>  m_shadowMapDSV;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_shadowMapSRV;
+    bool                                               m_shadowMapReady = false;
+
+    // Shadow pass state: saved main RT/DSV/viewport for restore in endShadowPass.
+    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_savedRTV;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> m_savedDSV;
+    std::vector<D3D11_VIEWPORT>                    m_savedViewports;
+    bool                                           m_inShadowPass = false;
+
+    // Shadow light view-proj matrix (set by SetShadowLightSenderPosition).
+    MATRIX4 m_shadowLightMatrix{};
 };
 
 } // namespace mxh::gx::dx11

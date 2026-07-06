@@ -82,4 +82,53 @@ inline void MatrixMultiply2(MATRIX4* pResult, const MATRIX4* pA, const MATRIX4* 
     }
 }
 
+// Row-major orthographic projection (maps scene volume to NDC depth [0,1]).
+// Width/height are the half-extents; near/far are positive distances.
+inline void MatrixOrthographicLH(MATRIX4* pOut, float w, float h, float zn, float zf) {
+    if (!pOut) return;
+    *pOut = MatrixIdentity();
+    pOut->_11 = 2.0f / w;
+    pOut->_22 = 2.0f / h;
+    pOut->_33 = 1.0f / (zf - zn);
+    pOut->_43 = -zn / (zf - zn);
+    pOut->_44 = 1.0f;
+}
+
+// Row-major look-at (view) matrix — eye looking at target with up vector.
+// Result transforms world space so that looking down -Z (LH convention).
+inline void MatrixLookAtLH(MATRIX4* pOut, const VECTOR3* pEye,
+                           const VECTOR3* pAt, const VECTOR3* pUp) {
+    if (!pOut || !pEye || !pAt || !pUp) return;
+    VECTOR3 f{}, r{}, u{};
+    // forward = normalize(at - eye)
+    float fx = pAt->x - pEye->x, fy = pAt->y - pEye->y, fz = pAt->z - pEye->z;
+    float fl = std::sqrt(fx*fx + fy*fy + fz*fz);
+    if (fl < 1e-6f) { *pOut = MatrixIdentity(); return; }
+    f = { fx/fl, fy/fl, fz/fl };
+    // right = normalize(forward x up)
+    float rx = f.y*pUp->z - f.z*pUp->y;
+    float ry = f.z*pUp->x - f.x*pUp->z;
+    float rz = f.x*pUp->y - f.y*pUp->x;
+    float rl = std::sqrt(rx*rx + ry*ry + rz*rz);
+    if (rl < 1e-6f) { *pOut = MatrixIdentity(); return; }
+    r = { rx/rl, ry/rl, rz/rl };
+    // up = right x forward (LH)
+    u = { r.y*f.z - r.z*f.y, r.z*f.x - r.x*f.z, r.x*f.y - r.y*f.x };
+    // Row-major view matrix:
+    // R·R  R·U  R·F  -dot(R,eye)
+    // U·R  U·U  U·F  -dot(U,eye)
+    // F·R  F·U  F·F  -dot(F,eye)
+    //   0    0    0        1
+    pOut->_11 = r.x; pOut->_12 = r.y; pOut->_13 = r.z; pOut->_14 = -(r.x*pEye->x + r.y*pEye->y + r.z*pEye->z);
+    pOut->_21 = u.x; pOut->_22 = u.y; pOut->_23 = u.z; pOut->_24 = -(u.x*pEye->x + u.y*pEye->y + u.z*pEye->z);
+    pOut->_31 = f.x; pOut->_32 = f.y; pOut->_33 = f.z; pOut->_34 = -(f.x*pEye->x + f.y*pEye->y + f.z*pEye->z);
+    pOut->_41 = 0.0f; pOut->_42 = 0.0f; pOut->_43 = 0.0f; pOut->_44 = 1.0f;
+}
+
+// Set column j (j=0..3) of a row-major matrix to a 4-element vector.
+inline void setMatrixColumn(MATRIX4* m, int j, float x, float y, float z, float w) {
+    if (!m || j < 0 || j > 3) return;
+    m->m[0][j] = x; m->m[1][j] = y; m->m[2][j] = z; m->m[3][j] = w;
+}
+
 } // namespace mxh::gx

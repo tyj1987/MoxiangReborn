@@ -14,17 +14,24 @@
 #include <gtest/gtest.h>
 
 #include <vector>
+#include <cmath>
 
 #include "mxh/render/render_typedef.hpp"
+#include "mxh/render/math.hpp"
 
 using mxh::gx::CMeshFlag;
 using mxh::gx::FACE_DESC;
 using mxh::gx::IVERTEX;
+using mxh::gx::MATRIX4;
 using mxh::gx::MESH_DESC;
 using mxh::gx::TVERTEX;
 using mxh::gx::VECTOR3;
 
 namespace {
+
+using mxh::gx::MatrixIdentity;
+using mxh::gx::MatrixLookAtLH;
+using mxh::gx::MatrixOrthographicLH;
 
 // Verify that a hand-built MESH_DESC + FACE_DESC have the contract we expect:
 //   - dwVertexNum vertices, dwTexVertexNum <= dwVertexNum
@@ -92,6 +99,54 @@ TEST(MeshGeometryTest, CubeTriangleCount) {
     constexpr std::uint32_t kCubeTris  = 12;  // 6 faces × 2 tris
     constexpr std::uint32_t kCubeIdx   = kCubeTris * 3;
     EXPECT_EQ(kCubeIdx, 36u);
+}
+
+// ---------------------------------------------------------------------------
+// Matrix math helpers (used by shadow map pipeline).
+// ---------------------------------------------------------------------------
+
+// Verify MatrixOrthographicLH produces a row-major orthographic projection.
+TEST(MatrixMathTest, OrthographicLHHasCorrectDiagonal) {
+    MATRIX4 m{};
+    MatrixOrthographicLH(&m, 10.0f, 10.0f, 1.0f, 100.0f);
+    // _11 = 2/w, _22 = 2/h, _33 = 1/(zf-zn), _44 = 1
+    EXPECT_FLOAT_EQ(m._11, 0.2f);
+    EXPECT_FLOAT_EQ(m._22, 0.2f);
+    EXPECT_FLOAT_EQ(m._33, 1.0f / 99.0f);
+    EXPECT_FLOAT_EQ(m._44, 1.0f);
+    // Off-diagonal should be zero
+    EXPECT_FLOAT_EQ(m._12, 0.0f); EXPECT_FLOAT_EQ(m._13, 0.0f);
+    EXPECT_FLOAT_EQ(m._14, 0.0f); EXPECT_FLOAT_EQ(m._21, 0.0f);
+}
+
+// Verify MatrixLookAtLH produces a valid (non-identity) view matrix.
+// Camera at (0,0,5) looking toward origin (0,0,0) in LH coordinates:
+//   forward = normalize(at - eye) = normalize(0,0,-5) = (0,0,-1)
+//   _34 = -dot(F, eye) = -((-1)*5) = 5  (> 0 means world origin ends up behind camera)
+TEST(MatrixMathTest, LookAtLHProducesValidMatrix) {
+    MATRIX4 m{};
+    VECTOR3 eye{ 0.0f, 0.0f, 5.0f };
+    VECTOR3 at{  0.0f, 0.0f, 0.0f };
+    VECTOR3 up{  0.0f, 1.0f, 0.0f };
+    MatrixLookAtLH(&m, &eye, &at, &up);
+    // Bottom row of a row-major view matrix is always [0,0,0,1]
+    EXPECT_FLOAT_EQ(m._41, 0.0f);
+    EXPECT_FLOAT_EQ(m._42, 0.0f);
+    EXPECT_FLOAT_EQ(m._43, 0.0f);
+    EXPECT_FLOAT_EQ(m._44, 1.0f);
+    // _34 = -dot(F, eye) = -((-1)*5) = 5  (>0 means origin ends up at z_cam=5 in LH cam space)
+    EXPECT_FLOAT_EQ(m._34, 5.0f);
+}
+
+// Verify MatrixIdentity produces the canonical identity matrix.
+TEST(MatrixMathTest, IdentityHasCorrectDiagonal) {
+    MATRIX4 m = MatrixIdentity();
+    EXPECT_FLOAT_EQ(m._11, 1.0f); EXPECT_FLOAT_EQ(m._22, 1.0f);
+    EXPECT_FLOAT_EQ(m._33, 1.0f); EXPECT_FLOAT_EQ(m._44, 1.0f);
+    EXPECT_FLOAT_EQ(m._12, 0.0f); EXPECT_FLOAT_EQ(m._13, 0.0f); EXPECT_FLOAT_EQ(m._14, 0.0f);
+    EXPECT_FLOAT_EQ(m._21, 0.0f); EXPECT_FLOAT_EQ(m._23, 0.0f); EXPECT_FLOAT_EQ(m._24, 0.0f);
+    EXPECT_FLOAT_EQ(m._31, 0.0f); EXPECT_FLOAT_EQ(m._32, 0.0f); EXPECT_FLOAT_EQ(m._34, 0.0f);
+    EXPECT_FLOAT_EQ(m._41, 0.0f); EXPECT_FLOAT_EQ(m._42, 0.0f); EXPECT_FLOAT_EQ(m._43, 0.0f);
 }
 
 } // namespace

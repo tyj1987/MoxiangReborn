@@ -30,6 +30,9 @@ gtest_add_tests(TARGET mxh_render_tests
     MeshGeometryTest.IVertexLayout
     MeshGeometryTest.TVertexLayout
     MeshGeometryTest.CubeTriangleCount
+    MatrixMathTest.OrthographicLHHasCorrectDiagonal
+    MatrixMathTest.LookAtLHProducesValidMatrix
+    MatrixMathTest.IdentityHasCorrectDiagonal
     HeightFieldTest.BuildTileIndicesProducesCorrectCount
     HeightFieldTest.BuildTileIndicesProducesCCWTriangles
     HeightFieldTest.HeightFieldConstructsWithNullDevice
