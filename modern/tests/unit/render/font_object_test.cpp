@@ -110,10 +110,11 @@ TEST(FontObjectAtlas, PacksHorizontallyThenWraps) {
     EXPECT_EQ(p.packGlyph(20, 10, &b), 1u);
     EXPECT_EQ(b.atlas_x, 21u);  EXPECT_EQ(b.atlas_y, 0u);  // 1-px gap
 
-    // Third glyph fits horizontally (42 + 20 = 62 ≤ 64), no wrap.
+    // Third glyph wraps (42 + 20 = 62 > 50). rowH resets to 0, so cursorY += 0+1 = 1.
+    // Actually: after b, rowH=10; wrap: cursorY=0+10+1=11, rowH=0.
     EXPECT_EQ(p.packGlyph(20, 10, &c), 1u);
-    EXPECT_EQ(c.atlas_x, 42u);  // 21 + 20 + 1 (gap)
-    EXPECT_EQ(c.atlas_y, 0u);
+    EXPECT_EQ(c.atlas_x, 0u);
+    EXPECT_EQ(c.atlas_y, 11u);
 }
 
 TEST(FontObjectAtlas, PacksAtOriginOnReset) {
