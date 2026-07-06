@@ -1,10 +1,11 @@
-add_executable(mxh_render_tests
+﻿add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp
     font_object_test.cpp
     height_field_test.cpp
     effect_shader_test.cpp
     material_test.cpp
+    dynamic_light_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -68,4 +69,16 @@ gtest_add_tests(TARGET mxh_render_tests
     MaterialContractTest.MaterialTableEntryPointsToMaterial
     MaterialContractTest.FillHelperProducesExpectedValues
     MaterialSetContractTest.MultipleEntriesFormValidMaterialTable
+    DynamicLightDefaults.fieldsAreDefault
+    DynamicLightDefaults.pointLightFields
+    DynamicLightDefaults.flagsValues
+    LightCBInit.baseDirectionalLightDefaults
+    LightCBInit.extendedSlotsZeroed
+    ColorConversion.opaqueWhite
+    ColorConversion.opaqueRed
+    ColorConversion.semiTransparentBlue
+    ColorConversion.zeroAlpha
+    LightIndexDesc.structLayout
+    DynamicLightConstants.maxLightsIs8
+    TriBufferMagic.magicValueIsTRIB
 )

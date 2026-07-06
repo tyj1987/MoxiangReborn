@@ -18,6 +18,8 @@
 #include "height_field.hpp"
 #include "effect_shader.hpp"
 #include "material.hpp"
+#include "dynamic_light.hpp"
+#include "tri_buffer.hpp"
 
 namespace mxh::gx::dx11 {
 
@@ -206,6 +208,26 @@ private:
 
     // Helper: shut down all material sets (called from destructor / ResetDevice).
     void shutdownMaterials();
+
+    // -------------------------------------------------------------------------
+    // Dynamic Light management.
+    // -------------------------------------------------------------------------
+    std::array<DynamicLight, MAX_DYNAMIC_LIGHTS> m_dynamicLights{};
+
+    // -------------------------------------------------------------------------
+    // TriBuffer management.
+    // -------------------------------------------------------------------------
+    // Active TriBuffer set. Handles are pointers into this map.
+    // A TriBuffer handle is the pointer value itself.
+    std::vector<std::unique_ptr<TriBuffer>> m_triBuffers;
+
+    // Currently enabled TriBuffer (for DisableRenderTriBuffer).
+    TriBuffer* m_activeTriBuffer = nullptr;
+
+    // Helper: build LightCB from active dynamic lights + fog state.
+    void buildLightCB(LightCB& out, const float ambient[4], const float diffuse[4],
+                      const float lightDir[4], const float cameraPos4[4],
+                      LIGHT_INDEX_DESC* pDynList, std::uint32_t dwLightNum) const;
 };
 
 } // namespace mxh::gx::dx11

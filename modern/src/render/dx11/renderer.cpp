@@ -9,6 +9,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 #include "mxh/log/mlog.hpp"
 
@@ -206,11 +207,38 @@ void __stdcall CoD3DDeviceDX11::GetClientRect(SHORT_RECT* pRect, std::uint16_t* 
     if (pwHeight) *pwHeight = m_dev->height();
 }
 
-std::uint32_t __stdcall CoD3DDeviceDX11::CreateDynamicLight(std::uint32_t /*dwRS*/, std::uint32_t /*dwColor*/,
+std::uint32_t __stdcall CoD3DDeviceDX11::CreateDynamicLight(std::uint32_t dwRS, std::uint32_t dwColor,
                                                              char* /*szFileName*/) {
-    return 0xffffffff;
+    if (!m_dev) return 0xffffffff;
+
+    // Find first free slot.
+    for (std::uint32_t i = 0; i < MAX_DYNAMIC_LIGHTS; ++i) {
+        if (!m_dynamicLights[i].bActive) {
+            auto& L = m_dynamicLights[i];
+            L.bActive      = true;
+            L.bDirectional = (dwRS & LIGHT_FLAG_DIRECTIONAL) != 0;
+            L.dwRS         = dwRS;
+            L.dwColor      = dwColor;
+            L.fAmbient     = 0.25f;
+            L.fDiffuse     = 0.95f;
+            // Default direction: downward
+            L.v3Dir[0] = 0.f; L.v3Dir[1] = -1.f; L.v3Dir[2] = 0.f;
+            L.v3Pos[0] = 0.f; L.v3Pos[1] = 0.f; L.v3Pos[2] = 0.f;
+            L.fAttenuation0 = 0.f;
+            L.fAttenuation1 = 0.05f;
+            L.fAttenuation2 = 0.f;
+            L.fRange     = 200.f;
+            return i;  // index 0-7
+        }
+    }
+    return 0xffffffff; // all slots full
 }
-BOOL __stdcall CoD3DDeviceDX11::DeleteDynamicLight(std::uint32_t /*dwIndex*/) { return FALSE; }
+BOOL __stdcall CoD3DDeviceDX11::DeleteDynamicLight(std::uint32_t dwIndex) {
+    if (dwIndex >= MAX_DYNAMIC_LIGHTS) return FALSE;
+    if (!m_dynamicLights[dwIndex].bActive) return FALSE;
+    m_dynamicLights[dwIndex].bActive = false;
+    return TRUE;
+}
 BOOL __stdcall CoD3DDeviceDX11::CreateEffectShaderPaletteFromFile(char* szFileName) {
     if (!m_dev) return FALSE;
     if (!m_effectPalette) {
@@ -232,7 +260,7 @@ void __stdcall CoD3DDeviceDX11::DeleteEffectShaderPalette() {
 // ===== Render mesh / sprite / font =====
 
 BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::uint32_t /*dwRefIndex*/, float /*fDistance*/, std::uint32_t /*dwAlpha*/,
-                                                LIGHT_INDEX_DESC* /*pDyn*/, std::uint32_t /*dwLightNum*/,
+                                                LIGHT_INDEX_DESC* pDynList, std::uint32_t dwLightNum,
                                                 LIGHT_INDEX_DESC* /*pSpot*/, std::uint32_t /*dwSpotNum*/,
                                                 std::uint32_t /*dwMtlSet*/, std::uint32_t dwEffectIndex, std::uint32_t dwFlag) {
     if (!m_dev || !m_meshShadersReady || !pMeshObj) return FALSE;
@@ -264,37 +292,17 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
         std::memcpy(mapped.pData, &vp, sizeof(MATRIX4));
         ctx->Unmap(m_meshShaders.cbViewProj.Get(), 0);
     }
-    // Light CB: ambient + diffuse + lightDir + cameraPos + fogParams + fogColor.
-    struct LightCB {
-        float ambient[4];
-        float diffuse[4];
-        float lightDir[4];
-        float cameraPos[4];
-        float fogParams[4];
-        float fogColor[4];
-    } lcb{};
-    lcb.ambient[0] = lcb.ambient[1] = lcb.ambient[2] = 0.25f;
-    lcb.ambient[3] = 1.0f;
-    lcb.diffuse[0] = lcb.diffuse[1] = lcb.diffuse[2] = 0.95f;
-    lcb.diffuse[3] = 1.0f;
-    lcb.lightDir[0] =  0.3f;  // soft top-down light
-    lcb.lightDir[1] = -0.7f;
-    lcb.lightDir[2] =  0.4f;
-    lcb.lightDir[3] =  0.0f;
+
+    // Light CB: base directional light + fog. Dynamic lights (pDynList) are accumulated
+    // into extended slots for future multi-light shader support.
+    float ambient[4]   = {0.25f, 0.25f, 0.25f, 1.0f};
+    float diffuse[4]   = {0.95f, 0.95f, 0.95f, 1.0f};
+    float lightDir[4]  = {0.3f, -0.7f, 0.4f, 0.0f};
     auto camPos = m_dev->cameraPosition();
-    lcb.cameraPos[0] = camPos.x;
-    lcb.cameraPos[1] = camPos.y;
-    lcb.cameraPos[2] = camPos.z;
-    lcb.cameraPos[3] = 0.0f;
-    lcb.fogParams[0] = m_fogEnabled ? 1.0f : 0.0f;
-    lcb.fogParams[1] = m_fogStart;
-    lcb.fogParams[2] = m_fogEnd;
-    lcb.fogParams[3] = m_fogDensity;
-    auto fr = static_cast<float>((m_fogColor >> 16) & 0xff) / 255.0f;
-    auto fg = static_cast<float>((m_fogColor >>  8) & 0xff) / 255.0f;
-    auto fb = static_cast<float>((m_fogColor      ) & 0xff) / 255.0f;
-    lcb.fogColor[0] = fr; lcb.fogColor[1] = fg; lcb.fogColor[2] = fb;
-    lcb.fogColor[3] = 1.0f;
+    float camPos4[4] = {camPos.x, camPos.y, camPos.z, 0.0f};
+
+    LightCB lcb{};
+    buildLightCB(lcb, ambient, diffuse, lightDir, camPos4, pDynList, dwLightNum);
     if (SUCCEEDED(ctx->Map(m_meshShaders.cbLight.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
         std::memcpy(mapped.pData, &lcb, sizeof(LightCB));
         ctx->Unmap(m_meshShaders.cbLight.Get(), 0);
@@ -393,12 +401,209 @@ BOOL __stdcall CoD3DDeviceDX11::RenderTriVector3(VECTOR3* /*p*/, std::uint32_t /
     return FALSE;
 }
 
-void* __stdcall CoD3DDeviceDX11::AllocRenderTriBuffer(IVERTEX** /*p*/, std::uint32_t /*n*/, std::uint32_t /*f*/) {
-    return nullptr;
+void* __stdcall CoD3DDeviceDX11::AllocRenderTriBuffer(IVERTEX** ppIVList, std::uint32_t dwFacesNum, std::uint32_t dwFlag) {
+    if (!m_dev || !ppIVList || dwFacesNum == 0) return nullptr;
+
+    auto* device = m_dev->rawDevice();
+    auto* ctx    = m_dev->rawContext();
+
+    const std::uint32_t vertCount = dwFacesNum * 3;
+    const bool isIndexed = (dwFlag & 0x01) != 0;
+
+    // Layout: position (12B) + uv (8B) = 20B per vertex. Pad to 24B for D3D11 alignment.
+    struct TriVert { float x, y, z, u, v; };
+
+    std::vector<TriVert> verts;
+    verts.reserve(vertCount);
+    for (std::uint32_t i = 0; i < vertCount; ++i) {
+        const IVERTEX* src = ppIVList[i];
+        verts.push_back({src->x, src->y, src->z, src->u1, src->v1});
+    }
+
+    // Build vertex buffer.
+    D3D11_BUFFER_DESC bd{};
+    bd.ByteWidth      = static_cast<UINT>(vertCount * sizeof(TriVert));
+    bd.Usage          = D3D11_USAGE_DYNAMIC;
+    bd.BindFlags      = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    D3D11_SUBRESOURCE_DATA srd{};
+    srd.pSysMem = verts.data();
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> vb;
+    if (FAILED(device->CreateBuffer(&bd, &srd, &vb))) return nullptr;
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> ib;
+    if (isIndexed) {
+        std::vector<std::uint16_t> indices(vertCount);
+        for (std::uint32_t i = 0; i < vertCount; ++i) indices[i] = static_cast<std::uint16_t>(i);
+        D3D11_BUFFER_DESC ibd{};
+        ibd.ByteWidth      = static_cast<UINT>(vertCount * sizeof(std::uint16_t));
+        ibd.Usage          = D3D11_USAGE_IMMUTABLE;
+        ibd.BindFlags      = D3D11_BIND_INDEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA isrd{};
+        isrd.pSysMem = indices.data();
+        if (FAILED(device->CreateBuffer(&ibd, &isrd, &ib))) return nullptr;
+    }
+
+    auto buf = std::make_unique<TriBuffer>();
+    buf->vb           = vb;
+    buf->ib           = ib;
+    buf->vertexCount  = vertCount;
+    buf->indexCount   = isIndexed ? vertCount : 0;
+    buf->faceCount    = dwFacesNum;
+    buf->indexed      = isIndexed;
+    buf->mtlHandle    = nullptr;
+
+    m_triBuffers.push_back(std::move(buf));
+    return static_cast<void*>(m_triBuffers.back().get());
 }
-void __stdcall CoD3DDeviceDX11::EnableRenderTriBuffer(void* /*h*/, void* /*m*/, std::uint32_t /*n*/) {}
-void __stdcall CoD3DDeviceDX11::DisableRenderTriBuffer(void* /*h*/) {}
-void __stdcall CoD3DDeviceDX11::FreeRenderTriBuffer(void* /*h*/) {}
+
+void __stdcall CoD3DDeviceDX11::EnableRenderTriBuffer(void* h, void* mtlHandle, std::uint32_t) {
+    if (!m_dev || !h) return;
+    auto* buf = static_cast<TriBuffer*>(h);
+    if (buf->magic != TRI_BUFFER_MAGIC) return;
+
+    auto* ctx = m_dev->rawContext();
+
+    // Set vertex buffer.
+    constexpr UINT stride = sizeof(float) * 5; // x,y,z,u,v
+    constexpr UINT offset  = 0;
+    ctx->IASetVertexBuffers(0, 1, buf->vb.GetAddressOf(), &stride, &offset);
+
+    if (buf->indexed && buf->ib) {
+        ctx->IASetIndexBuffer(buf->ib.Get(), DXGI_FORMAT_R16_UINT, 0);
+        ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    } else {
+        ctx->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+        ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    }
+
+    ctx->IASetInputLayout(nullptr); // TriBuffer uses raw pos+uv, no IA layout needed for manual draw
+
+    // Bind mesh shaders if ready.
+    if (m_meshShadersReady) {
+        ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+        ctx->PSSetShader(m_meshShaders.psLit.Get(), nullptr, 0);
+        ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
+        ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
+        ctx->PSSetConstantBuffers(0, 1, m_meshShaders.cbLight.GetAddressOf());
+    }
+
+    buf->mtlHandle = mtlHandle;
+    m_activeTriBuffer = buf;
+}
+
+void __stdcall CoD3DDeviceDX11::DisableRenderTriBuffer(void* /*h*/) {
+    if (!m_dev) return;
+    m_activeTriBuffer = nullptr;
+    // Restore IA state: rebind mesh object pipeline.
+    // The next RenderMeshObject call will set up its own state.
+}
+
+void __stdcall CoD3DDeviceDX11::FreeRenderTriBuffer(void* h) {
+    if (!h) return;
+    auto* buf = static_cast<TriBuffer*>(h);
+    if (buf->magic != TRI_BUFFER_MAGIC) return;
+    if (m_activeTriBuffer == buf) m_activeTriBuffer = nullptr;
+
+    for (auto it = m_triBuffers.begin(); it != m_triBuffers.end(); ++it) {
+        if (it->get() == buf) {
+            m_triBuffers.erase(it);
+            break;
+        }
+    }
+}
+
+// ===== Light helper =====
+
+void CoD3DDeviceDX11::buildLightCB(LightCB& out,
+                                    const float ambient[4], const float diffuse[4],
+                                    const float lightDir[4], const float cameraPos4[4],
+                                    LIGHT_INDEX_DESC* pDynList, std::uint32_t dwLightNum) const {
+    // Base directional light (matches cbLight 96B format).
+    for (int i = 0; i < 4; ++i) {
+        out.ambient[i]   = ambient[i];
+        out.diffuse[i]   = diffuse[i];
+        out.lightDir[i]  = lightDir[i];
+        out.cameraPos[i] = cameraPos4[i];
+    }
+    out.fogParams[0] = m_fogEnabled ? 1.0f : 0.0f;
+    out.fogParams[1] = m_fogStart;
+    out.fogParams[2] = m_fogEnd;
+    out.fogParams[3] = m_fogDensity;
+    out.fogColor[0] = static_cast<float>((m_fogColor >> 16) & 0xff) / 255.f;
+    out.fogColor[1] = static_cast<float>((m_fogColor >>  8) & 0xff) / 255.f;
+    out.fogColor[2] = static_cast<float>((m_fogColor      ) & 0xff) / 255.f;
+    out.fogColor[3] = 1.0f;
+
+    // Zero-init extended dynamic-light slots.
+    std::memset(out.dynLightPos0, 0, sizeof(out.dynLightPos0));
+    std::memset(out.dynLightColor0, 0, sizeof(out.dynLightColor0));
+    std::memset(out.dynLightAtten0, 0, sizeof(out.dynLightAtten0));
+    // ... slots 1-7 are zeroed by the struct default-init or explicit below:
+    std::memset(out.dynLightPos1, 0, sizeof(out.dynLightPos1));
+    std::memset(out.dynLightColor1, 0, sizeof(out.dynLightColor1));
+    std::memset(out.dynLightAtten1, 0, sizeof(out.dynLightAtten1));
+    std::memset(out.dynLightPos2, 0, sizeof(out.dynLightPos2));
+    std::memset(out.dynLightColor2, 0, sizeof(out.dynLightColor2));
+    std::memset(out.dynLightAtten2, 0, sizeof(out.dynLightAtten2));
+    std::memset(out.dynLightPos3, 0, sizeof(out.dynLightPos3));
+    std::memset(out.dynLightColor3, 0, sizeof(out.dynLightColor3));
+    std::memset(out.dynLightAtten3, 0, sizeof(out.dynLightAtten3));
+    std::memset(out.dynLightPos4, 0, sizeof(out.dynLightPos4));
+    std::memset(out.dynLightColor4, 0, sizeof(out.dynLightColor4));
+    std::memset(out.dynLightAtten4, 0, sizeof(out.dynLightAtten4));
+    std::memset(out.dynLightPos5, 0, sizeof(out.dynLightPos5));
+    std::memset(out.dynLightColor5, 0, sizeof(out.dynLightColor5));
+    std::memset(out.dynLightAtten5, 0, sizeof(out.dynLightAtten5));
+    std::memset(out.dynLightPos6, 0, sizeof(out.dynLightPos6));
+    std::memset(out.dynLightColor6, 0, sizeof(out.dynLightColor6));
+    std::memset(out.dynLightAtten6, 0, sizeof(out.dynLightAtten6));
+    std::memset(out.dynLightPos7, 0, sizeof(out.dynLightPos7));
+    std::memset(out.dynLightColor7, 0, sizeof(out.dynLightColor7));
+    std::memset(out.dynLightAtten7, 0, sizeof(out.dynLightAtten7));
+
+    // Fill extended slots from pDynList.
+    // Each LIGHT_INDEX_DESC maps a face group's material handle to a dynamic light index.
+    // Extended slots 0-7 are written when the caller provides pDynList.
+    if (pDynList) {
+        for (std::uint32_t li = 0; li < dwLightNum && li < MAX_DYNAMIC_LIGHTS; ++li) {
+            std::uint8_t idx = pDynList[li].bLightIndex;
+            if (idx >= MAX_DYNAMIC_LIGHTS) continue;
+            const auto& L = m_dynamicLights[idx];
+            if (!L.bActive) continue;
+
+            float rgb[4];
+            color_to_float4(L.dwColor, rgb);
+
+            float* posSlots[8]   = {out.dynLightPos0, out.dynLightPos1, out.dynLightPos2,
+                                     out.dynLightPos3, out.dynLightPos4, out.dynLightPos5,
+                                     out.dynLightPos6, out.dynLightPos7};
+            float* colSlots[8]   = {out.dynLightColor0, out.dynLightColor1, out.dynLightColor2,
+                                     out.dynLightColor3, out.dynLightColor4, out.dynLightColor5,
+                                     out.dynLightColor6, out.dynLightColor7};
+            float* attSlots[8]   = {out.dynLightAtten0, out.dynLightAtten1, out.dynLightAtten2,
+                                     out.dynLightAtten3, out.dynLightAtten4, out.dynLightAtten5,
+                                     out.dynLightAtten6, out.dynLightAtten7};
+
+            posSlots[idx][0] = L.v3Pos[0];
+            posSlots[idx][1] = L.v3Pos[1];
+            posSlots[idx][2] = L.v3Pos[2];
+            posSlots[idx][3] = L.bActive ? 1.0f : 0.0f; // enabled flag in w
+
+            colSlots[idx][0] = rgb[0];
+            colSlots[idx][1] = rgb[1];
+            colSlots[idx][2] = rgb[2];
+            colSlots[idx][3] = L.fRange;
+
+            attSlots[idx][0] = L.fAttenuation0;
+            attSlots[idx][1] = L.fAttenuation1;
+            attSlots[idx][2] = L.fAttenuation2;
+            attSlots[idx][3] = 0.0f;
+        }
+    }
+}
 
 // ===== Lighting =====
 
