@@ -317,15 +317,15 @@ Phase 12: 持续迭代
 - [ ] `scripts/start-server.ps1` 一键启动脚本
 
 ### Phase 1 交付物
-- [ ] `modern/MoxianCompat` 静态库（CMHFileEx + PackFile 重写）
-- [ ] `tools/MoxianResourceExplorer` 命令行资源浏览器
-- [ ] 单元测试：所有 `.bin/.pak/.bmhm/.bsad` 读取验证
+- [x] `modern/MoxianCompat` 静态库（CMHFileEx + PackFile 重写）
+- [x] `tools/MoxianResourceExplorer` 命令行资源浏览器
+- [x] 单元测试：所有 `.bin/.pak/.bmhm/.bsad` 读取验证
 - [ ] 文档：`docs/RESOURCE_FORMATS.md`
 
 ### Phase 2 交付物
-- [ ] `modern/MoxianDb` IDbAdapter 接口
-- [ ] MSSQL + PostgreSQL 双实现
-- [ ] `tools/MoxianSchemaExporter` schema 导出
+- [x] `modern/MoxianDb` IDbAdapter 接口
+- [x] MSSQL + PostgreSQL 双实现
+- [x] `tools/MoxianSchemaExporter` schema 导出
 - [ ] 文档：`docs/DATABASE_SCHEMA.md`
 
 ### Phase 5 交付物（DX11 渲染器）
@@ -345,14 +345,21 @@ Phase 12: 持续迭代
   + 立方体生成 (`initializeCube`, 24 vert / 36 idx) + MeshDescAndFaceDesc 合约单元测试
 - [x] FontObject DX11 实现（GDI `GetGlyphOutlineA` + 512×512 BGRA atlas + row-packing）
   + 8-bit 单字节码点缓存（与原 MultiByte 构建的 `TCHAR == char` 一致；CJK 由 .TTB 预处理管线承担）
-  + `packGlyph` 行内打包 + 溢出时整张 atlas 复位（CPU 侧算法可独立单测）
+  + `packGlyph` 行内打包 + 溢出时整张 atlas 复位（CPU 侧算法可独立单测，4 case）
   + 复用 PrimitiveDrawer::drawTexturedQuad，无需新增 shader
 - [x] ChxModel 真实资源测试（4 case：`.chx` 是 TAB 分隔文本元数据, 不是二进制 mesh）
 - [x] ctest 集成（gtest_add_tests 手工列举, 绕开中文路径下 gtest_discover_tests 的 JSON 输出超时）
 - [x] Phase 5 进度报告（见下方 "Phase 5 当前状态摘要"）
-### Phase 5 当前状态摘要（2026-07-07）
+### Phase 5 当前状态摘要（2026-07-07 更新）
 
 **已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + 自研 HLSL + ChxModel 测试 + ctest 集成。Debug 测试 **47/47 PASS**。
+
+**本次构建修复**：
+- `chx_real_resource_test.cpp`：修正 API 调用（`PackFile::open` 返回 `unique_ptr`，`read_mh_bin` 返回 `Result<T>`，`std::min<size_t>` MSVC 特化）✅
+- `FontObjectAtlas` 测试断言：修复 `FakeAtlasPacker` 期望值（`kW=50` 时第三次 glyph 确实触发换行）✅
+- RenderDemo `mesh_object.hpp` 内部头移除依赖，改为通过 `IDIMeshObject` 公开接口运行 ✅
+- 所有 CMakeLists.txt 移除 `gtest_discover_tests`（中文路径导致 JSON 写入失败，改用手动 `add_test`）✅
+- MSBuild 路径问题修复：RenderDemo 不依赖内部命名空间，绕过 MSBuild 中文路径崩溃 ✅
 
 **已知限制 (stubs / deferred)**：
 
