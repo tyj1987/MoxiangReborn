@@ -44,6 +44,41 @@
 - **现代方案**：保留现状以匹配 legacy ABI（不擅自删除）。Phase 7.1 build 警告保留为 `LNK4006`。
 - **状态**：Phase 7.1 已迁移，未修改
 
+### Bug C-7: [Lib]BaseNetwork StdAfx.h 残留 MFC + 旧 OLE 头
+- **症状**：`fatal error C1083: 无法打开包括文件: “afx.h”` / `“ole2.h”`
+- **位置**：`墨香【源码】\[Lib]BaseNetwork\stdafx.h`
+- **根因**：legacy vcproj 设了 `UseOfMFC="0"` 但 stdafx.h 仍然 include `<afx.h>`（MFC 头）和 `<ole2.h>`（统一 OLE 头）。现代 BuildTools 不装 MFC/ATL 组件。
+- **现代方案**：用 `<objbase.h>` 替代（提供 IUnknown / IClassFactory / COM 基础）。Phase 7.1 已处理。
+- **状态**：Phase 7.1 已迁移修复
+
+### Bug C-8: [Lib]BaseNetwork network.cpp 调用 `_CrtCheckMemory()` 无 ifdef 包裹
+- **症状**：Release 构建报 `error C3861: "_CrtCheckMemory": 找不到标识符`
+- **位置**：`墨香【源码】\[Lib]BaseNetwork\network.cpp:259/273/289/297`
+- **根因**：`_CrtCheckMemory()` 只在 `_DEBUG` 定义时存在（CRT debug heap）。legacy 网络库用了 `_CrtCheckMemory()` 验证内存 + `_asm int 3` 触发调试中断，但**没有 `#ifdef _DEBUG` 包裹**。原 vcproj Release 配置链接必定失败，说明开发者实际上**只编译 Debug 版本**。
+- **现代方案**：在 stdafx.h 加 fallback（`#ifdef NDEBUG inline int _CrtCheckMemory() { return 1; }`）。Phase 7.1 已处理。
+- **状态**：Phase 7.1 已迁移修复
+
+### Bug C-9: [Lib]BaseNetwork BaseNetworkDll.cpp `#define UNICODE` 与项目其余部分 MBCS 冲突
+- **症状**：`error C2664: TCHAR[129] 转 LPOLESTR` / `const char[15] 转 LPTSTR`
+- **位置**：`墨香【源码】\[Lib]BaseNetwork\BaseNetworkDll.cpp:1`
+- **根因**：legacy BaseNetworkDll.cpp 文件首行 `#define UNICODE` 强制 UNICODE TCHAR model，但 vcproj CharacterSet 字段未设（默认 MBCS）。这是混用：此 TU 用宽字符 API（StringFromGUID2 / 注册表），其余 TU 用 ANSI API。现代 MSVC 默认 `/Zc:strictStrings` 拒绝隐式 `const char/wchar_t*` → `TCHAR*` 转换。
+- **现代方案**：保留 `#define UNICODE`（注册表和 GUID 字符串处理确实需要宽字符），CMake 加 `/Zc:strictStrings-` 让 legacy `SetRegKeyValue(LPTSTR, L"literal", ...)` 转换兼容。
+- **状态**：Phase 7.1 已迁移修复
+
+### Bug C-10: [Lib]BaseNetwork 必须以 Win32 (x86) 编译
+- **症状**：x64 编译报 `error C4235: 不支持在此结构上使用 __asm 关键字`
+- **位置**：`墨香【源码】\[Lib]BaseNetwork\{network,create_index,switch_que}.cpp`
+- **根因**：legacy IOCP 库使用 `__asm { int 3 }` / `__declspec(naked)` 进行 spinning locks + 调试中断。x64 MSVC **完全不支持**内联汇编。
+- **现代方案**：Phase 7.1 POC 用 `-A Win32`（Visual Studio 17 2022 generator）保留 x86 编译。Phase 6/7 后续要把 `__asm` 用 `Interlocked*` / `__debugbreak()` 重写才能切到 x64。
+- **状态**：Phase 7.1 已迁移（仅 x86）；Phase 6 待重写
+
+### Bug C-11: [Lib]BaseNetwork network.cpp 直接 include `<mstcpip.h>` 但未先 include stdafx.h
+- **症状**：`error C2375: WSAUnhookBlockingHook 重定义`（winsock.h / winsock2.h 冲突）
+- **位置**：`墨香【源码】\[Lib]BaseNetwork\network.cpp:1`
+- **根因**：network.cpp 只 include "define.h" / "network.h" 等，**没**显式 include "stdafx.h"（依赖头传递）。`<windows.h>` 通过传递链被拉入，间接 include `<winsock.h>`（WinSock 1.1）。然后 `<mstcpip.h>` 又触发 `<winsock2.h>`（WinSock 2.0）的 include。两个 WinSock 互斥。
+- **现代方案**：在 network.cpp 第一行加 `#include "stdafx.h"`，并在 stdafx.h 用 `#define _WINSOCKAPI_` 阻止 `<windows.h>` 拉入 WinSock 1.1。
+- **状态**：Phase 7.1 已迁移修复
+
 ## 运行时问题
 
 ### Bug R-1: HSEL 加密狗缺失
