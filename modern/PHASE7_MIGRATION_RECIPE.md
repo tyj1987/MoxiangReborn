@@ -23,7 +23,7 @@ first; MFC / engine DLLs / game servers later.
 | 7.3   | `[Server]Distribute` / `Agent` / `Map` / `[Monitoring]Server` | Multi-component server rebuilds |
 | 7.4   | `[Client]MH` / `MHAutoPatch` / `Selupdate` | MFC clients (Phase 6 path) |
 | 7.5   | `[Server]Map` (per-map game-world server, 313 cpp) | **DONE** — see `modern/docs/phase7.5_map_migration.md`. The legacy Release build was always broken (ChannelSystem.cpp + CommonStruct.h KOR-only fields), so we ship the Debug_Console (KOR) target instead. |
-| 7.5b  | `[Tool]*` (PackingMan / Regen / DS_RMTool / AutoPatch / anmexp / maxexp) | Tooling |
+| 7.5b  | `[Tool]*` (PackingMan / Regen / DS_RMTool / AutoPatch / anmexp / maxexp) | **ALL SKIPPED** (2026-07-07). PackingMan/Regen/DS_RMTool = MFC (UseOfMFC=1/2). AutoPatchToolWin32 = no MFC but depends on MFC-based ZipArchive.lib. anmexp/maxexp = 3ds Max plugins (3ds Max SDK not installed). |
 
 ## 2. Inventory the legacy `.vcproj`
 

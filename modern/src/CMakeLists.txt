@@ -83,6 +83,7 @@ install(TARGETS mxh_net ARCHIVE DESTINATION lib)
 # -----------------------------------------------------------------------------
 add_library(mxh_crypto STATIC
     crypto/crypto.cpp
+    crypto/hsel_stream.cpp
 )
 
 target_include_directories(mxh_crypto PUBLIC

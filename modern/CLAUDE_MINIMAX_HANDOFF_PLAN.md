@@ -330,6 +330,19 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 - **已知限制**: 7 个 deferred stubs (HeightField full / motion cache / render target pool / error texture / BC real compression / specular / per-geometry light)
 - **给下一个 AI 的备注**: 接口已完整（75 个方法），客户端接入时直接调用即可。stubs 不影响基本渲染。
 
+### Phase 7.5b (工具链) 出口状态 ❌ (全部跳过 — MFC)
+- **PackingMan**: SKIP — UseOfMFC="2" (full MFC)
+- **Regen**: SKIP — UseOfMFC="2" (full MFC)
+- **DS_RMTool**: SKIP — UseOfMFC="1" (shared MFC)
+- **AutoPatchToolWin32**: SKIP — No MFC, but depends on MFC-based ZipArchive.lib
+- **给下一个 AI 的备注**: 所有 4 个工具均因 MFC 或 MFC 传递依赖而跳过。ZipArchive 有预编译版本可用于完整 VS 环境。
+
+### Phase 3.2 (HSEL 流密码) 出口状态 ✅ (2026-07-07)
+- **测试**: **32/32 PASS** (MsvcRand + KeyGen + Stream + RoundTrip×19 + Stress)
+- **算法**: MSVC6 LCG PRNG → 12×int32 key gen → block swap → 4 DES types (XOR/ADD/SUB/MIXED) → CRC → key schedule
+- **源文件**: hsel_stream.hpp + hsel_stream.cpp (800 lines) + 32 tests
+- **给下一个 AI 的备注**: HSEL 已完整逆向实现，测试覆盖全部类型×大小组合。如需与旧版 HSEL.lib 字节级兼容，用 `MsvcRand`（MSVC6 LCG 再现）；否则直接用 `mxh::crypto::Aes256GcmCipher`。
+
 ---
 
 ## 快速启动命令（备忘）

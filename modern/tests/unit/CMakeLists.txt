@@ -30,3 +30,18 @@ gtest_add_tests(TARGET mxh_compat_tests
     ChxModelRealResource.CharacterPakFileCount
     ChxModelRealResource.ChxModelParseRejectsTextChx
 )
+
+# -----------------------------------------------------------------------------
+# mxh_crypto tests — HSEL stream cipher (Phase 3.2)
+# -----------------------------------------------------------------------------
+add_executable(mxh_crypto_tests
+    hsel_stream_test.cpp
+)
+
+target_link_libraries(mxh_crypto_tests PRIVATE mxh_crypto gtest_main)
+
+# Use add_test (not gtest_add_tests) to run ALL tests in the binary,
+# including parameterized tests (AllTypesSizes/HselRoundTripTest.*).
+# gtest_add_tests can't enumerate parameterized test names.
+add_test(NAME mxh_crypto_all_tests
+    COMMAND $<TARGET_FILE:mxh_crypto_tests>)
