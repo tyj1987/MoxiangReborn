@@ -100,6 +100,34 @@
 - **现代方案**：Phase 7.1 CMakeLists 移除 `/permissive-`（保留 legacy 语义）。Phase 6/7 后续把 `pRetValue > 0` 改成 `pRetValue != nullptr`。
 - **状态**：Phase 7.1 已迁移（未启用 /permissive-）；Phase 6 待重写
 
+### Bug C-15: 4DyuchiFileStorage `#pragma comment(lib, "...\\SS3DGFuncN.lib")` 引用不存在的文件
+- **症状**：`fatal error LNK1104: 无法打开输入文件 "..\4DyuchiGXGFunc\SS3DGFuncN.lib"`
+- **位置**：`墨香【源码】\4DyuchiFileStorage\dllmain.cpp:25`
+- **根因**：legacy 项目用 `SS3DGFuncN.lib`（Native CRT 版本）链接 SS3DGFunc.dll 导入库，但只有 `SS3DGFunc.lib` 在 `4DyuchiGXGFunc/` 目录。`SS3DGFuncN.dll` 在 `4DYUCHIGXEXECUTIVE/` 但 `.lib` 不存在。
+- **现代方案**：把 pragma 改成 `"SS3DGFunc.lib"`（build 脚本把它 copy 到 build dir/Release/）。Phase 7.2 已处理。
+- **状态**：Phase 7.2 已迁移修复
+
+### Bug C-16: 4DyuchiGRX_common/StdAfx.h 同时 include `<ole2.h>` 和 `<afx.h>`
+- **症状**：依赖 `4DyuchiGRX_common/StdAfx.h` 的项目（如 4DyuchiFileStorage、4DYUCHIGXEXECUTIVE）在现代 BuildTools 编译时报 `fatal error C1083: 无法打开包括文件: "ole2.h"` 或 `"afx.h"`
+- **位置**：`墨香【源码】\4DyuchiGRX_common\StdAfx.h`
+- **根因**：legacy header 给了 MFC 和非 MFC 两个分支，都引用了已废弃的 `<ole2.h>` + `<afx.h>`。现代 MSVC 不装这些。
+- **现代方案**：用 `<objbase.h>` 替代 `<ole2.h>`（提供 IUnknown/IClassFactory）。非 MFC 分支加 `#define _WINSOCKAPI_` 阻止 WinSock 1.1。MFC 分支（`_MFC` define）保留 legacy 行为。Phase 7.2 已处理。
+- **状态**：Phase 7.2 已迁移修复
+
+### Bug C-17: 4DyuchiFileStorage/dllmain.cpp 把 `WORD wszID[]` 传给 `StringFromGUID2` 期望 `LPOLESTR`
+- **症状**：`error C2664: StringFromGUID2 无法将参数 2 从 "WORD[129]" 转换为 "LPOLESTR"`
+- **位置**：`墨香【源码】\4DyuchiFileStorage\dllmain.cpp:88, 395`
+- **根因**：legacy `WORD wszID[GUID_SIZE+1]` 应该是 `WCHAR wszID[GUID_SIZE+1]`。`WORD`（unsigned short）和 `wchar_t` 都是 16 位，但类型不同，`StringFromGUID2` 需要 `LPOLESTR = wchar_t*`。
+- **现代方案**：把 `WORD wszID` 改成 `WCHAR wszID`（2 处）。这是最小 source 改动，不改行为。Phase 7.2 已处理。
+- **状态**：Phase 7.2 已迁移修复
+
+### Bug C-18: 4DyuchiFileStorage CMake target_link_libraries 传绝对路径含中文时 VS17 generator 路径损坏
+- **症状**：`fatal error LNK1181: 无法打开输入文件 "D:\...some{CJK-bytes-removed}...\4DyuchiGXGFunc\SS3DGFunc.lib"`
+- **位置**：CMakeLists.txt target_link_libraries(FileStorage PRIVATE "${_gxgfunc}/SS3DGFunc.lib")
+- **根因**：Visual Studio 17 2022 generator 把 `target_link_libraries` 的绝对路径重新基准化为相对于 build dir，但路径算术丢掉了 CJK 字节。
+- **现代方案**：build 脚本（Python）把 SS3DGFunc.lib 复制到 `${BD}/Release/`，CMakeLists 用 bare filename `target_link_libraries(... "SS3DGFunc.lib")` + `target_link_directories(... $<TARGET_FILE_DIR:FileStorage>)`。Phase 7.2 已处理。
+- **状态**：Phase 7.2 已迁移修复（workaround）
+
 ## 运行时问题
 
 ### Bug R-1: HSEL 加密狗缺失
