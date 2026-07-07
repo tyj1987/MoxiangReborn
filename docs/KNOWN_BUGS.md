@@ -306,6 +306,33 @@
 
 ---
 
+## Phase 7.5 Map 迁移发现
+
+### Bug C-30: [Server]Map 的 legacy Release 配置永远无法工作
+- **症状**：尝试 CMake 构建 `MapServer`（Release 目标）时，5 处 `error C2065: "bBattleChannel"/"wMoveMapNum"/"dwChangeMapState": 未声明的标识符`。Release 配置中 `_KOR_LOCAL_` 未定义（vcproj 的 `PreprocessorDefinitions` 只有 `WIN32;_WINDOWS;_MBCS;_MAPSERVER_;__MAPSERVER__`），所以 `MSG_CHANNEL_INFO` 那三个字段不存在。
+- **位置**：
+  - `[CC]Header/CommonStruct.h:3465` — `bBattleChannel[]` / `wMoveMapNum` / `dwChangeMapState` 三个字段被 `#ifdef _KOR_LOCAL_` 包裹
+  - `[Server]Map/ChannelSystem.cpp:237, 372, 377, 378, 437` — **无任何 `#ifdef` 包裹**就直接访问上述字段
+- **根因**：legacy vcproj 的 MapServer Config=Release 是个**死配置**——开发者只发过 Debug_Console (KOR) 构建。`SWorking/MapServer.exe` 实际上由 Debug_Console 编译，不是 Release。
+- **现代方案**：Phase 7.5 的 CMakeLists 提供 6 个目标：`MapServer`（Release）+ 5 个 `MapServer_Debug_<LOCALE>`。我们 ship 的是 `MapServer_Debug_KOR`，与 SWorking 同口径。Release 目标在源码未被修复前必须标为 out-of-scope（或要求所有 reader 一起打开 KOR — 不推荐）。
+- **状态**：Phase 7.5 已规避（选 Debug_Console KOR 而非 Release）。结构性修复（统一访问或拆字段）由后续 Phase 7.x 决定。
+
+### Bug D-4: Vendored IndexGenerator.obj 用 `-defaultlib:LIBC`（legacy 单线程 CRT）
+- **症状**：链接 `MapServer.exe` 时 `fatal error LNK1104: 无法打开文件"LIBC.lib"`。YHLibrary 链不缺，错误来自 vendored 的 `IndexGenerator.obj`。
+- **位置**：`墨香【源码】\[Lib]YHLibrary\IndexGenerator.lib`（3,358 bytes，2025 年第三方程式码）；`墨香【源码】\[Server]Map\CMakeLists.txt` `target_link_options`。
+- **根因**：第三方 / legacy 第三方 `.obj` 用 MSVC 6.0 编译时烧入 `-defaultlib:LIBC`（单线程 CRT）。现代 MSVC 不提供 LIBC.lib（17.0 起完全移除），链接器尝试按 drectve 拉它失败。
+- **现代方案**：在 `target_link_options(... /NODEFAULTLIB:LIBC)` 中显式禁用该 lib。**注意**：必须用 `target_link_options`，**不能**用 `target_link_libraries(/NODEFAULTLIB:LIBC)`——后者会把字面字符串当文件名查找，必然 LNK1104（lib 路径不存在）。
+- **状态**：Phase 7.5 已绕过 Map 端的 LNK1104。如果 Agent / Distribute 后续也链 IndexGenerator.lib 需要同样 workaround。
+
+### Bug D-5: SS3DGFunc.lib 缺失导致 CalcDistance / ICCreate / ICRelease 等 12 处 unresolved extern
+- **症状**：链接 MapServer.exe 时 `error LNK2019: 无法解析的外部符号 "void __cdecl CalcDistance(...)"`、`"int __cdecl ICCreate(void)"`、`"int __cdecl ICRelease(...)"`、`"int __cdecl ICInitialize(int)"`、`"unsigned int __cdecl ICAllocIndex(int)"`、`"void __cdecl ICFreeIndex(unsigned int)"` 等共 12 处。源码内调用方（`StateMachinen.cpp`、`BattleSystem_Server.cpp`、`SkillManager_server.cpp` 等 6 处）有声明但找不到实现。
+- **位置**：调用点散落在 `[Server]Map/StateMachinen.cpp`、`[CC]BattleSystem/BattleSystem_Server.cpp`、`[CC]Skill/SkillManager_server.cpp` 共 6 处。实现位于 `墨香【源码】\4DyuchiGXGFunc\SS3DGFunc.dll`（122,880 bytes，运行时）+ 对应 `.lib`（48,678 bytes，导入库）。
+- **根因**：legacy `[Server]Map.vcproj` 未将 `SS3DGFunc.lib` 加到 `AdditionalDependencies`，但实际构建时通过 `#pragma comment(lib, "../../4DyuchiGXGFunc/SS3DGFunc.lib")` 或 environment-specific drectve 链上了。源代码显式调用方仍能找到符号是因为 `#pragma comment` 不在源码而在 `.vcproj` 的 custom build / linker command。CMake 重建时没有这些 coupling，所以符号丢失。
+- **现代方案**：Phase 7.5 在 `[Server]Map/CMakeLists.txt` 把 `SS3DGFunc.lib`（从 `墨香【源码】\4DyuchiGXGFunc\SS3DGFunc.lib` 引用）加入 `target_link_libraries` 给 6 个目标。运行时要求 `SS3DGFunc.dll` 在 PATH（或与 EXE 同目录）—— `SWorking\` 仓库已附带此 DLL。
+- **状态**：Phase 7.5 已迁移链接。运行时 DLL 部署需求由 `墨香【源码】\SWorking\` 现状满足。
+
+---
+
 ## 加密层（Phase 3.3 已修复）
 
 ### Bug C-31: AES-256-GCM 实现使用 5 处错位/伪造的 BCrypt API
