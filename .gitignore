@@ -103,6 +103,8 @@ build_basenetwork/
 build_dbthread/
 build_ziparchive/
 build_hsel/
+build_filestorage/
+build_net/
 build_*.test*/
 
 # 测试覆盖率报告
@@ -153,6 +155,17 @@ test_conn.db
 render_demo_*.txt
 # Test artifacts
 test-extract/
+
+# MSBuild full logs (non-deterministic /MP ordering + CRLF on Windows;
+# regenerate on demand with build_*.py)
+modern/scripts/build_*_full.txt
+modern/build_*_log.txt
+
+# Mavis / planning scratch (session metadata, never source-of-truth)
+.mavis/
+plan_launch.txt
+roster.txt
+*plan_decision*.json
 
 
 # Allow our log module (was matching Log/ rule)
