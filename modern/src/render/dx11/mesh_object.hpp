@@ -1,4 +1,4 @@
-// mxh/render/dx11/mesh_object.hpp
+﻿// mxh/render/dx11/mesh_object.hpp
 // IDIMeshObject DX11 implementation. Loads simple static-mesh data into
 // vertex/index buffers and a per-face-group material table.
 #pragma once
@@ -66,6 +66,7 @@ public:
     // RENDER_TYPE_USE_EFFECT path (RenderEffect).
     void setRenderer(Device* dev);
     void setEffectPalette(class EffectShaderPalette* palette);
+    void releaseBuffers();
 
     // Render using an effect entry (sphere-map / wave). Called by the renderer's
     // RenderMeshObject when dwFlag & RENDER_TYPE_USE_EFFECT.

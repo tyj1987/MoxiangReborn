@@ -1,4 +1,4 @@
-// mxh/render/dx11/mesh_object.cpp
+﻿// mxh/render/dx11/mesh_object.cpp
 // IDIMeshObject DX11 implementation.
 #include "mesh_object.hpp"
 #include "device.hpp"
@@ -214,6 +214,17 @@ void MeshObject::setDiffuseSRV(std::uint32_t groupIndex, ID3D11ShaderResourceVie
 void MeshObject::setRenderer(Device* dev) { m_dev = dev; }
 
 void MeshObject::setEffectPalette(EffectShaderPalette* palette) { m_effectPalette = palette; }
+
+void MeshObject::releaseBuffers() {
+    m_vertexBuffer.Reset();
+    m_indexBuffer.Reset();
+    m_texMatrixBuffer.Reset();
+    m_faceGroups.clear();
+    m_vertices.clear();
+    m_indices.clear();
+    m_vertexCount = 0;
+    m_indexCount = 0;
+}
 
 void MeshObject::RenderEffect(ID3D11PixelShader* psEffect, const MATRIX4* matWorld,
                                EffectEntry* pEffect, std::uint32_t /*alpha*/) {

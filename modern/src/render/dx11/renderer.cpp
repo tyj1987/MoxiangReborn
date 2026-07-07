@@ -698,8 +698,17 @@ void CoD3DDeviceDX11::buildLightCB(LightCB& out,
 BOOL __stdcall CoD3DDeviceDX11::SetRTLight(LIGHT_DESC* /*p*/, std::uint32_t /*i*/, std::uint32_t /*f*/) {
     return TRUE;
 }
-void __stdcall CoD3DDeviceDX11::EnableDirectionalLight(DIRECTIONAL_LIGHT_DESC* /*p*/, std::uint32_t /*f*/) {}
-void __stdcall CoD3DDeviceDX11::DisableDirectionalLight() {}
+void __stdcall CoD3DDeviceDX11::EnableDirectionalLight(DIRECTIONAL_LIGHT_DESC* pDesc, std::uint32_t) {
+    if (!pDesc) return;
+    m_directionalLightEnabled = (pDesc->bEnable == TRUE);
+    if (m_directionalLightEnabled) {
+        m_ambientColor  = pDesc->dwAmbient;
+        m_emissiveColor = pDesc->dwSpecular;
+    }
+}
+void __stdcall CoD3DDeviceDX11::DisableDirectionalLight() {
+    m_directionalLightEnabled = false;
+}
 void __stdcall CoD3DDeviceDX11::SetSpotLightDesc(VECTOR3* /*a*/, VECTOR3* /*b*/, VECTOR3* /*c*/, float /*d*/,
                                                   float /*e*/, float /*f*/, float /*g*/, BOOL /*h*/, void* /*i*/,
                                                   std::uint32_t /*j*/, std::uint32_t /*k*/, SPOT_LIGHT_TYPE /*l*/) {}
@@ -742,9 +751,9 @@ void __stdcall CoD3DDeviceDX11::UpdateWindowSize() {
 }
 void __stdcall CoD3DDeviceDX11::Present(HWND hWnd) { if (m_dev) m_dev->present(hWnd); }
 
-void __stdcall CoD3DDeviceDX11::SetAmbientColor(std::uint32_t /*dwColor*/) {}
+void __stdcall CoD3DDeviceDX11::SetAmbientColor(std::uint32_t dwColor) { m_ambientColor = dwColor; }
 std::uint32_t __stdcall CoD3DDeviceDX11::GetAmbientColor() { return 0xff202020; }
-void __stdcall CoD3DDeviceDX11::SetEmissiveColor(std::uint32_t /*dwColor*/) {}
+void __stdcall CoD3DDeviceDX11::SetEmissiveColor(std::uint32_t dwColor) { m_emissiveColor = dwColor; }
 std::uint32_t __stdcall CoD3DDeviceDX11::GetEmissiveColor() { return 0xff000000; }
 
 void __stdcall CoD3DDeviceDX11::BeginPerformanceAnalyze() {}
@@ -1048,7 +1057,13 @@ BOOL __stdcall CoD3DDeviceDX11::IsSetVerticalSync() { return m_vsync; }
 void __stdcall CoD3DDeviceDX11::ResetDevice(BOOL /*bTest*/) { /* Phase 5 stub */ }
 void __stdcall CoD3DDeviceDX11::SetFreeVBCacheRate(float fVal) { m_freeVBCacheRate = fVal; }
 float __stdcall CoD3DDeviceDX11::GetFreeVBCacheRate() { return m_freeVBCacheRate; }
-std::uint32_t __stdcall CoD3DDeviceDX11::ClearVBCacheWithIDIMeshObject(IDIMeshObject* /*p*/) { return 0; }
+std::uint32_t __stdcall CoD3DDeviceDX11::ClearVBCacheWithIDIMeshObject(IDIMeshObject* pMeshObj) {
+    if (!pMeshObj) return 0;
+    auto* mesh = dynamic_cast<MeshObject*>(static_cast<IDIMeshObject*>(pMeshObj));
+    if (!mesh) return 0;
+    mesh->releaseBuffers();
+    return 1; // 1 buffer set cleared (vb + ib in one call)
+}
 std::uint32_t __stdcall CoD3DDeviceDX11::ClearCacheWithMotionUID(void* /*p*/) { return 0; }
 void __stdcall CoD3DDeviceDX11::SetTickCount(std::uint32_t t, BOOL /*g*/) {
     if (m_effectPalette) m_effectPalette->setTickCount(t);

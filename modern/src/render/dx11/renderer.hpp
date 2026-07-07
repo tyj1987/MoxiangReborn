@@ -194,6 +194,11 @@ private:
     float                                  m_fogDensity = 1.0f;
     std::uint32_t                          m_fogColor  = 0xff000000;
 
+    // Directional light state.
+    bool                                   m_directionalLightEnabled = true;
+    std::uint32_t                          m_ambientColor  = 0xff404040; // 0xAABBGGRR
+    std::uint32_t                          m_emissiveColor = 0xff000000;
+
     // -------------------------------------------------------------------------
     // Material management.
     // -------------------------------------------------------------------------

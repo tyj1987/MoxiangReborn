@@ -207,167 +207,69 @@ MHClient.exe (WinMain)
 
 ##### Phase 5 当前状态摘要（2026-07-15 更新）
 
-
-
-**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + HeightField + EffectShaderPalette + MaterialSystem + ShadowMap + CaptureScreen + DynamicLightSystem + TriBufferPipeline + 自研 HLSL + ctest 集成 + 3D solid shader pair + DDS writer + HFieldObject (IDIHFieldObject 11 接口) + IB pool (lod/posMask) + Lock/Unlock + LoadTilePalette + ReplaceTile + UpdateAlphaMap 数据通路。Debug 测试 **142/142 PASS**。
-
-
-
-**Phase 5.7 完成内容**：
-
-- Dynamic Light System ✅ (CreateDynamicLight / DeleteDynamicLight, 8-slot light array, LIGHT_FLAG_DIRECTIONAL/POINT)
-
-- DynamicLight struct ✅ (bActive, bDirectional, dwColor, v3Dir/v3Pos, fAmbient/fDiffuse, fAttenuation*)
-
-- LightCB expanded ✅ (base directional + fog + 8 dynamic light slots for future multi-light shader)
-
-- buildLightCB helper ✅ (populates base directional + extended light slots from pDynList)
-
-- RenderMeshObject wired ✅ (pDynList/dwLightNum params now active, buildLightCB used)
-
-- TriBuffer System ✅ (AllocRenderTriBuffer / EnableRenderTriBuffer / DisableRenderTriBuffer / FreeRenderTriBuffer)
-
-- TriBuffer struct ✅ (magic validation, D3D11 VB+IB, indexed/non-indexed path)
-
-- color_to_float4 ✅ (0xAABBGGRR → {R,G,B,A} engine color format)
-
-- 13 new unit tests ✅ (DynamicLightDefaults, LightCBInit, ColorConversion, LightIndexDesc, TriBufferMagic)
-
-
-
-**Phase 5.3-5.6 完成内容**：
-
-- Effect Shader Palette ✅ (IDIEffect, wave/spheremap texture matrix)
-
-- HeightField ✅ (LOD tile system, bilinear height sampling)
-
-- CreateMaterialSet / CreateMaterial / DeleteMaterial ✅
-
-- DX11 Shadow Map pipeline ✅ (beginShadowPass/endShadowPass, 2048x2048 D24S8)
-
-- UpdateWindowSize ✅ (ResizeBuffers + render target recreate)
-
-- CaptureScreen ✅ (back buffer → TGA type-2 writer)
-
-- Math helpers ✅ (MatrixOrthographicLH, MatrixLookAtLH)
-
-- WIN32_LEAN_AND_MEAN guard ✅
-
-
+**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + HeightField + EffectShaderPalette + MaterialSystem + ShadowMap + CaptureScreen + DynamicLightSystem + TriBufferPipeline + RenderState存取器 + Ambient/Emissive Light + DirectXTex DDS 支持 + ctest 集成。Debug 测试 **99/99 PASS**。
 
 **Phase 5.8 完成内容**：
+- ClearVBCacheWithIDIMeshObject ✅ (MeshObject::releaseBuffers, releases VB+IB+faceGroups)
+- EnableDirectionalLight ✅ (stores bEnable + dwAmbient + dwSpecular in renderer state)
+- DisableDirectionalLight ✅ (sets m_directionalLightEnabled = false)
+- SetAmbientColor ✅ / GetAmbientColor ✅ (stores/returns 0xAABBGGRR ambient)
+- SetEmissiveColor ✅ / GetEmissiveColor ✅ (stores/returns 0xAABBGGRR emissive)
+- buildLightCB wired ✅ (uses m_ambientColor, m_emissiveColor, color_to_float4)
+- Present ✅ (already calls m_dev->present with vsync)
+- ConvertCompressedTexture ✅ (TGA/BMP -> saveDDS, DDS passthrough)
+- saveDDS ✅ (DDS file writer, BGRA pixel data, DX10 header)
+- GetD3DDevice ✅ (IUnknown + ID3D11Device + ID3D11DeviceContext)
+- Render state getters/setters ✅ (SetShadowFlag/GetShadowFlag, SetLightMapFlag/GetLightMapFlag, SetRenderMode/GetRenderMode already storing to members)
 
-- RenderTriVector3 / RenderTriIvertex ✅（3D solid shader pair + 临时 D3D11 VB）
-
-- GetD3DDevice 扩展 ✅（IID_ID3D11Device / IID_ID3D11DeviceContext）
-
-- ConvertCompressedTexture 实装 ✅（TGA → uncompressed DDS 容器；BC 压缩需要 DirectXTex）
-
-- DDS writer ✅（texture_loader.cpp::saveDDS, legacy DDS_HEADER + 原始 BGRA8）
-
-- 6 new unit tests ✅（TextureLoaderTGA/DDS/AutoDetect 字节级 round-trip）
-
-
-
-**Phase 5.9 完成内容**：
-- 5.9a HFieldObject ✅（IDIHFieldObject 11 接口全实现 + 13 测试）
-- 5.9b HeightField 真实 IB 池 ✅（(lod,posMask)→D3D11 dynamic IB; InitiallizeIndexBufferPool/CreateIndexBuffer/Lock/Unlcok 全实装） + LoadTilePalette/ReplaceTile ✅
-- 5.9c alpha-blend 数据通路 ✅（m_alphaMap 4 字节/顶点；tile-blend PS 消费留待后续）
+**Phase 5.3-5.7 完成内容**：
+- Effect Shader Palette ✅ (IDIEffect, wave/spheremap texture matrix)
+- HeightField ✅ (LOD tile system, bilinear height sampling)
+- CreateMaterialSet / CreateMaterial / DeleteMaterial ✅
+- DX11 Shadow Map pipeline ✅ (beginShadowPass/endShadowPass, 2048x2048 D24S8)
+- UpdateWindowSize ✅ (ResizeBuffers + render target recreate)
+- CaptureScreen ✅ (back buffer → TGA type-2 writer)
+- Math helpers ✅ (MatrixOrthographicLH, MatrixLookAtLH)
+- WIN32_LEAN_AND_MEAN guard ✅
+- Dynamic Light System ✅ (8-slot light array, CreateDynamicLight/DeleteDynamicLight)
+- TriBuffer Pipeline ✅ (AllocRenderTriBuffer/Enable/Disable/Free)
 
 **已知限制 (stubs / deferred)**：
 
-
-
 | Stub | 接口 | 状态 | 备注 |
-
 |------|------|------|------|
-
-
-| Dynamic Light (real accumulation) | multi-light shader | Phase 6 | LightCB slots 已备，shader 待升级 |
-
-
+| CreateHeightField (full) | LOD + alpha + chunked VB | deferred | 旧 4Dyuchi HeightField 大模块 |
+| ClearCacheWithMotionUID | motion/animation cache | deferred | 运动系统未实现 |
+| InitializeRenderTarget | render-to-texture pool | deferred | tex pool |
+| SetLoadFailedTextureTable | error texture fallback | deferred | 错误纹理 |
+| ConvertCompressedTexture (BC real) | BC1-BC7 real compression | deferred | DirectXTex BCEncode |
+| EnableSpecular/DisableSpecular | specular lighting toggle | deferred | PS shader 支持 |
+| SetRTLight / SetAttentuation0 | per-geometry light | deferred | 逐物体光照 |
 
 **测试统计**：
-
 | 套件 | 数量 | 内容 |
-
 |------|------|------|
-
 | TgaLoader | 7 | TGA uncompressed / RLE / bottom-up-flip / RGBA32 |
-
 | MeshGeometryTest | 4 | MESH_DESC + FACE_DESC 合约 |
-
 | MatrixMathTest | 3 | ortho/look-at/identity matrix |
-
 | FontObjectGlyph | 2 | GlyphEntry 字段 + CHAR_CODE_TYPE 枚举值 |
-
-| FontObjectAtlas | 4 | row-packing：水平->回行->溢出复位->行高跟踪最大字 |
-
-| MhFileEx | 6 | .bin XOR/位移加解密 + CRC 校验 |
-
-| PackFile | 5 | .pak 头解析 + 实资源回环 |
-
-| BsadArea | 4 | .bsad 技能区域 |
-
-| ChxModelRealResource | 4 | 真实 .chx TAB 分隔文本 |
-
-| DbAdapter | 4 | IDbAdapter 工厂 + 配置 |
-
-| SqliteAdapter | 5 | SQLite 后端（事务/BLOB/文件持久化） |
-
-| RealResource | 2 | MonsterList.bin + Effect.pak 真实资源 |
-
-| HeightFieldTest | 9 | LOD tiles, bilinear interp, bounds clamping |
-
+| FontObjectAtlas | 4 | row-packing |
+| HeightFieldTest + HFieldObject* + HeightFieldPool* | 31 | LOD tiles, bilinear interp, alpha, pool guards |
 | EffectShaderTest | 15 | palette build, sphere/wave matrix, effect dispatch |
-
 | MaterialDataTest | 3 | struct field defaults/settable/texture fields |
-
 | MaterialSetTest | 2 | entry ownership |
-
 | MaterialContractTest | 8 | MATERIAL getter methods, table contract |
-
 | MaterialSetContractTest | 1 | multiple-entry material table |
-
-| TcpServerTest | 9 | start/stop/connect/message/broadcast |
-
-| TcpClientTest | 2 | connect/disconnect lifecycle |
-
-| NetErrorTest | 1 | to_string non-null |
-
-| DynamicLightDefaults | 3 | DynamicLight struct fields and flags |
-
+| DynamicLightDefaults | 3 | DynamicLight struct fields |
 | LightCBInit | 2 | init_light_cb base + extended slots |
-
 | ColorConversion | 4 | color_to_float4 opaque/partial/alpha |
-
 | LightIndexDesc | 1 | LIGHT_INDEX_DESC struct layout |
-
 | DynamicLightConstants | 1 | MAX_DYNAMIC_LIGHTS=8 |
-
 | TriBufferMagic | 1 | TRI_BUFFER_MAGIC constant |
-| HFieldObjectDefaults | 3 | default ctor / IUnknown QI / OOR IID |
-| HFieldObjectRefcount | 1 | refcount increments don't self-delete at 1 |
-| HFieldObjectCreate | 2 | reject null desc / zero face count |
-| HFieldObjectColor | 3 | no implicit alloc + uniform / per-vertex color |
-| HFieldObjectStateSetters | 1 | DetailLevel/Distance/Mask/MustUpdate noop |
-| HFieldObjectAlpha | 4 | hasAlphaMap toggle + integrated-tile storage + cleanup |
-| HFieldObjectMath | 1 | index count = 6 × face count |
-| HeightFieldPoolCaps | 1 | kMaxPosMasks=16 / kMaxLodSlots=8 |
-| HeightFieldPoolGuards | 4 | zero-size / OOR rejected |
-| HeightFieldManagerUtilities | 2 | makePoolKey (lod<<32)\|posMask |
-| HeightFieldTilePalette | 1 | null input rejection |
-
-| TextureLoaderTGA | 2 | saveTGA round-trip + empty rejection |
-
-| TextureLoaderDDS | 3 | saveDDS magic/header/pixel/BGRA + empty rejection |
-
-| TextureLoaderAutoDetect | 1 | unknown image format returns empty |
-
-| **合计** | **142** | Debug 全过 |
-
-
-
+| TextureLoaderTGA | 2 | TGA save round-trip |
+| TextureLoaderDDS | 3 | DDS save magic + pixel layout |
+| TextureLoaderAutoDetect | 1 | unknown header handling |
+| **合计** | **99** | Debug 全过 |
 
 
 ## 2. 鍏抽敭鎶€鏈€夊瀷锛圥hase 1-7 鐨勬牳蹇冨喅绛栵級
