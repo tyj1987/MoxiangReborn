@@ -129,3 +129,63 @@ set_source_files_properties(
 
 This is the cleanest way to migrate files one at a time rather than
 biting the bullet on `/utf-8` globally.
+
+## 8. Per-target status (Phase 7.1 — committed)
+
+The recipe above is the field guide. The status table below records
+what actually shipped.
+
+| Target              | Status        | Generator / arch | Build cmd                                                       | Artifact                                         | Known issues                                                                                  |
+|---------------------|---------------|------------------|-----------------------------------------------------------------|--------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| `[Lib]HSEL`         | **DONE** (7.0)| Ninja / x64      | `modern/scripts/build_hsel_python.py` + `test_hsel_linkage.py` | `HSEL.lib` 26,770 bytes                          | none                                                                                          |
+| `[Lib]YHLibrary`    | **DONE** (7.1)| Ninja / x64      | `modern/scripts/build_yhlibrary.py`                             | `YHLibrary.lib` 188,458 bytes                    | C-4 (atlbase.h removed), C-5/C-6 (vendored HSEL), LNK4006 duplicates                      |
+| `[Lib]BaseNetwork`  | **DONE** (7.1)| VS17 / x86       | `modern/scripts/build_basenetwork.py`                           | `BaseNetwork.dll` 99,840 bytes                  | C-7 (MFC removed), C-8 (_CrtCheckMemory fallback), C-9 (UNICODE+strictStrings), C-10/C-11 (x86 only) |
+| `[Lib]DBThread`     | **DONE** (7.1)| VS17 / x86       | `modern/scripts/build_dbthread.py`                              | `DBThread.dll` 140,800 bytes                     | C-12 (SQLLEN on x64), C-13 (cstdio), C-14 (permissive-)                                      |
+| `[Lib]ZipArchive`   | **SKIPPED**   | n/a              | n/a                                                             | (use prebuilt `ZipArchive_Debug.lib` 1,555,704 b)| Depends on MFC + zlib; not installed in this BuildTools env. Defer to Phase 6 install + rebuild.|
+
+### New conventions learned
+
+These rules surfaced while migrating BaseNetwork / DBThread and are
+**not** in the Phase 7.0 POC recipe:
+
+1. **COM DLLs** (`ConfigurationType="2"`) need `add_library(... SHARED)`
+   plus an explicit `LINK_FLAGS "/DEF:\"...\path\to\foo.def\""` to
+   surface the standard COM entrypoints (DllGetClassObject, etc.).
+   Do NOT use `target_sources(... foo.def)` — CMake rejects it for
+   `LANGUAGE NONE`.
+
+2. **`<winsock2.h>` must come before `<objbase.h>`** because `<objbase.h>`
+   pulls in `<rpc.h>` → `<windows.h>`, which silently includes the
+   legacy `<winsock.h>` if `_WINSOCKAPI_` isn't yet defined. Put
+   `#ifndef _WINSOCKAPI_ #define _WINSOCKAPI_ #endif` at the very top
+   of `stdafx.h` before any other include. (Pattern repeated across
+   BaseNetwork / DBThread.)
+
+3. **x86 only** — BaseNetwork / DBThread use `__asm` / `__declspec(naked)`
+   or `SDWORD*` for ODBC length params. These are x86-only constructs;
+   we use the Visual Studio 17 2022 generator with `-A Win32` so the
+   Ninja + x64 default doesn't apply.
+
+4. **`/Zc:strictStrings-`** is required for any DLL whose StdAfx.h
+   pulls `<tchar.h>` + uses `#define UNICODE` (BaseNetworkDll.cpp,
+   DBThreadDll.cpp). The legacy `TCHAR-style` API takes
+   `LPTSTR` (non-const TCHAR*) but call sites pass string literals
+   (const TCHAR[]).
+
+5. **`/permissive-` must be dropped** for DBThread (Bug C-14) because
+   legacy source uses `if (LPVOID > 0)` to test "non-null". For other
+   targets (HSEL, YHLibrary, BaseNetwork) `/permissive-` is safe.
+
+6. **`<cstdio>` / `<cstring>` / `<winsock2.h>` / `<oaidl.h>` / `<tchar.h>`**
+   often need to be added to stdafx.h because the MFC transitive
+   include chain used to drag them in. After MFC removal, add the
+   explicit includes.
+
+### Bug tracking
+
+All known issues are recorded in `docs/KNOWN_BUGS.md` under
+"Bug C-N" headings. Bug IDs introduced in Phase 7.1:
+
+- C-4 to C-6: YHLibrary
+- C-7 to C-11: BaseNetwork
+- C-12 to C-14: DBThread

@@ -1,0 +1,26 @@
+Phase 7.1: legacy [Lib]DBThread migration (.vcproj -> CMakeLists.txt)
+
+- Convert [Lib]DBThread/DBThread.vcproj (VS 7.10 / 2003 DLL format)
+  into a CMakeLists.txt. Uses Visual Studio 17 2022 generator with
+  -A Win32 (legacy DB.cpp uses SDWORD* / long* for ODBC length
+  parameters; modern ODBC 3.x on x64 typedefs SQLLEN as INT64, so
+  the legacy pointer types no longer match SQLBindCol(..., SQLLEN*).
+  Win32 keeps SQLLEN = long, which preserves ABI compatibility.
+  Tracked in docs/KNOWN_BUGS.md Bug C-12).
+- Replace <afx.h> + <ole2.h> with <objbase.h> (modern COM).
+- Add #include <cstdio> + <cstring> + _CRT_SECURE_NO_WARNINGS to
+  stdafx.h. Legacy DB.cpp calls sprintf / strcpy / wsprintf
+  unconditionally without including <cstdio>; the old MFC transitive
+  include chain used to drag in <stdio.h>. Tracked as Bug C-13.
+- Force WinSock 2.0 mode via #define _WINSOCKAPI_ before <windows.h>
+  so WinSock 1.1 is suppressed.
+- Add /Zc:strictStrings- so legacy TCHAR-style calls with string
+  literals still compile (matches [Lib]BaseNetwork Bug C-9).
+- Drop /permissive- so legacy `if (LPVOID > 0)` patterns (DB.cpp:885,
+  942) still compile. The strict mode would reject pointer-vs-int
+  comparisons. Tracked as Bug C-14.
+
+Build artifact: DBThread.dll (140800 bytes), DBThread.lib
+(1540 bytes), DBThread.exp (1526 bytes). Exports match the
+.def file: DllCanUnloadNow, DllGetClassObject, DllRegisterServer,
+DllUnregisterServer.
