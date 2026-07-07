@@ -139,7 +139,7 @@ what actually shipped.
 |---------------------------|---------------|------------------|----------------------------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------|
 | `[Lib]HSEL`               | **DONE** (7.0)| Ninja / x64      | `modern/scripts/build_hsel_python.py` + link test | `HSEL.lib` 26,770 bytes                              | none                                                                                          |
 | `[Lib]YHLibrary`          | **DONE** (7.1)| Ninja / x64      | `modern/scripts/build_yhlibrary.py`                | `YHLibrary.lib` 188,458 bytes                        | C-4 (atlbase.h removed), C-5/C-6 (vendored HSEL), LNK4006 duplicates                      |
-| `[Lib]BaseNetwork`        | **DONE** (7.1)| VS17 / x86       | `modern/scripts/build_basenetwork.py`              | `BaseNetwork.dll` 99,840 bytes                       | C-7/C-8/C-9/C-10/C-11                                                                         |
+| `[Lib]BaseNetwork` †      | **DONE** (7.1)| VS17 / x86       | `modern/scripts/build_basenetwork.py`              | `BaseNetwork.dll` 99,840 bytes                       | C-7/C-8/C-9/C-10/C-11                                                                         |
 | `[Lib]DBThread`           | **DONE** (7.1)| VS17 / x86       | `modern/scripts/build_dbthread.py`                 | `DBThread.dll` 140,800 bytes                         | C-12 (SQLLEN on x64), C-13 (cstdio), C-14 (permissive-)                                      |
 | `[Lib]ZipArchive`         | **SKIPPED**   | n/a              | n/a                                                | (use prebuilt `ZipArchive_Debug.lib`)                | Depends on MFC + zlib; not installed in this BuildTools env.                                   |
 | `4DyuchiFileStorage`      | **DONE** (7.2)| VS17 / x86       | `modern/scripts/build_filestorage.py`              | `4DyuchiFileStorage.dll` 165,376 bytes              | C-15 (SS3DGFuncN pragma), C-16 (common header MFC), C-17 (WORD/WCHAR), C-18 (CJK path)   |
@@ -149,6 +149,20 @@ what actually shipped.
 | `4DYUCHIGX_RENDER`        | DEFERRED      | n/a              | n/a                                                | Already modernized: see `modern/src/render/dx11/`   | Same — DX11 reimpl covers CoD3DDevice / D3DResourceManager / HField / Font / Mesh / Texture.  |
 | `4DyuchiGXMapEditor`     | SKIPPED       | n/a              | n/a                                                | n/a                                                   | MFC editor; MFC unavailable.                                                                  |
 | `4DyuchiNET_Latest`       | **DONE** (7.2)| VS17 / x86       | `modern/scripts/build_net.py`                      | `4DyuchiNET.dll` 150,016 bytes                       | C-19..C-26 (see `docs/KNOWN_BUGS.md`) — interface drift from `[CC]ServerModule/inetwork.h`; legacy Code_GUI mirror; odbc link leftover; lost constants; dead PauseTimer impl; missing `PPVOID` typedef; CUSTOM_EVENT/EVENTCALLBACK field-type swap (layout byte-identical). |
+
+† **`[Lib]BaseNetwork` — CMakeLists commit provenance & Phase 7 gate (2026-07-07).**
+The `墨香【源码】/[Lib]BaseNetwork/CMakeLists.txt` (139 lines) was committed
+in Phase 7.1 at **`eb58017`** (`Phase 7.1: legacy [Lib]BaseNetwork migration
+(.vcproj -> CMakeLists.txt)`). The Phase 7.1 gap-fill at **`6eeb815`**
+(`... build script -> VS17/Win32 + sibling _full.txt log`) switched
+`build_basenetwork.py` from Ninja to the VS17 2022 + `-A Win32` convention and
+added the sibling `build_basenetwork_full.txt` log — it did **not** touch the
+committed `CMakeLists.txt` or any legacy source. The Phase 7 integration gate
+independently rebuilt from a fresh build dir and confirmed: **0 errors / 17
+warnings** (14× C4819 MBCS codepage + 2× C4996 `inet_addr` + 1× tool noise),
+`BaseNetwork.dll` = **99,840 bytes** (exact parity with the Phase 7.1 baseline),
+and all 4 COM exports present (`DllCanUnloadNow`, `DllGetClassObject`,
+`DllRegisterServer`, `DllUnregisterServer`). No new C-N bug surfaced.
 
 ### New conventions learned
 
