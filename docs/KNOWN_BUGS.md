@@ -79,6 +79,27 @@
 - **现代方案**：在 network.cpp 第一行加 `#include "stdafx.h"`，并在 stdafx.h 用 `#define _WINSOCKAPI_` 阻止 `<windows.h>` 拉入 WinSock 1.1。
 - **状态**：Phase 7.1 已迁移修复
 
+### Bug C-12: [Lib]DBThread ODBC `SDWORD*` / `long*` 参数与 x64 `SQLLEN*` 不兼容
+- **症状**：x64 编译报 471 个 `error C2664: SQLBindCol/SQLBindParameter/SQLGetData 无法将参数 N 从 "SDWORD */long*" 转换为 "SQLLEN*"`
+- **位置**：`墨香【源码】\[Lib]DBThread\DB.cpp:1541, 1601, 1602, 1731, 1805` 等
+- **根因**：legacy DB.cpp 把 `SDWORD*`（=long*，32 位）作 ODBC length 参数传入。ODBC 3.x 32 位下 `SQLLEN = long`（通过 `#define SQLLEN SQLINTEGER`），所以兼容。ODBC 3.x 64 位下 `typedef INT64 SQLLEN`，`SDWORD*`（=long*，32 位）跟 `SQLLEN*`（=INT64*，64 位）不兼容。
+- **现代方案**：Phase 7.1 用 Visual Studio 17 2022 generator + `-A Win32`，保持 SQLLEN=long 的兼容性。Phase 6/7 后续要把 SDWORD* 改成 SQLLEN* 才能切到 x64。
+- **状态**：Phase 7.1 已迁移（仅 x86）；Phase 6 待重写
+
+### Bug C-13: [Lib]DBThread legacy 代码未 include `<cstdio>` 直接调用 sprintf
+- **症状**：21 个 `error C3861: "sprintf": 找不到标识符`
+- **位置**：`墨香【源码】\[Lib]DBThread\DB.cpp` 多处
+- **根因**：legacy DB.cpp 直接调 sprintf / strcpy / wsprintf 不 include `<cstdio>`。原来 MFC 的 `<afx.h>` 传递链拉入了 `<stdio.h>`，MFC 移除后需显式 include。
+- **现代方案**：stdafx.h 加 `#include <cstdio>` + `#include <cstring>`，并加 `#define _CRT_SECURE_NO_WARNINGS`（放在最前，让 stdio.h include 之前生效）。
+- **状态**：Phase 7.1 已迁移修复
+
+### Bug C-14: [Lib]DBThread legacy 代码 `if (LPVOID > 0)` 在 /permissive- 下报 C7664
+- **症状**：`error C7664: '>': 指针和整数零的有序比较("LPVOID" 和 "int")`
+- **位置**：`墨香【源码】\[Lib]DBThread\DB.cpp:885, 942`
+- **根因**：legacy `if (pRetValue > 0)` 想表达"指针非空"。现代 MSVC `/permissive-` 严格模式不允许指针和整数 0 比较（C++ 标准）。需要 `if (pRetValue != nullptr)` 或 `(LONG_PTR)pRetValue > 0`。
+- **现代方案**：Phase 7.1 CMakeLists 移除 `/permissive-`（保留 legacy 语义）。Phase 6/7 后续把 `pRetValue > 0` 改成 `pRetValue != nullptr`。
+- **状态**：Phase 7.1 已迁移（未启用 /permissive-）；Phase 6 待重写
+
 ## 运行时问题
 
 ### Bug R-1: HSEL 加密狗缺失
