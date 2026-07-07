@@ -151,7 +151,8 @@ what actually shipped.
 | `4DyuchiGXMapEditor`     | SKIPPED       | n/a              | n/a                                                | n/a                                                   | MFC editor; MFC unavailable.                                                                  |
 | `4DyuchiNET_Latest`       | **DONE** (7.2)| VS17 / x86       | `modern/scripts/build_net.py`                      | `4DyuchiNET.dll` 150,016 bytes                       | C-19..C-26 (see `docs/KNOWN_BUGS.md`) — interface drift from `[CC]ServerModule/inetwork.h`; legacy Code_GUI mirror; odbc link leftover; lost constants; dead PauseTimer impl; missing `PPVOID` typedef; CUSTOM_EVENT/EVENTCALLBACK field-type swap (layout byte-identical). |
 | `[Server]Distribute` ‡     | **DONE** (7.4a)| VS17 / x86      | `modern/scripts/build_distribute.py`               | `DistributeServer.exe` 204,800 bytes                 | C-27/C-28/C-29 (compile: ErrorMsg stub, /Zc:forScope-, /wd4596+3244+3254) + D-1/D-2/D-3 (polish: LOG-undef shim, YHLibrary x64→x86 rebuild, Debug locale mfc71.lib out-of-scope). |
-| `[Server]Map` §           | **RECIPE DONE** (7.5)| VS17 / x86 | `modern/scripts/build_map.py` (gate task owns build) | `MapServer.exe` *(gate produces)*                | Same Distribute shims (C-27/C-28/C-29 + D-1 LOG-undef); 251 cpp (188 [Server]Map + 7 ServerModule + 7 Header + 21 Quest + 25 BattleSystem + 3 Suryun); cross-dir list omits [CC]Ability/[CC]Skill from recipe scope (legacy vcproj pulls them but Phase 7.5 producer scope cuts to 5 enumerated dirs). |
+| `[Server]Map` §           | **GATE DONE** (7.5)| VS17 / x86 | `modern/scripts/build_map.py` (gate verified 2026-07-07) | `MapServer_KOR.exe` 3,857,920 bytes | **0 errors** (313 cpp built). SWorking baseline 2,555,904 bytes (+50.9% delta — Debug /MTd vs legacy Release /MD). Smoke test: exits with DLL-not-found (4DyuchiNET/SS3DGFunc not in PATH; expected for a service binary). Byte parity NOT expected (Debug vs Release CRT). |
+| `[Server]Agent` ‖         | **DONE** (7.3)  | VS17 / x86      | `modern/scripts/build_agent.py` (gate verified 2026-07-07) | `AgentServer_KOR.exe` 1,493,504 bytes | **0 errors** (37 cpp: 24 Agent + 7 ServerModule + 3 Header + 3 TargetList). SWorking baseline 290,816 bytes. D-6 (ggsrv25.lib missing for HK locale), D-7 (SS3DGFunc + IndexGenerator deps discovered at link time — Agent vcproj didn't list them but the legacy linker resolved them). |
 
 † **`[Lib]BaseNetwork` — CMakeLists commit provenance & Phase 7 gate (2026-07-07).**
 The `墨香【源码】/[Lib]BaseNetwork/CMakeLists.txt` (139 lines) was committed
@@ -188,6 +189,33 @@ gate commit batch consists of **`86082a2`** (`Phase 7.4a gate: verification
 + status sync`) + **`17d76b4`** (`... fill in gate commit hash + deliverable
 path`); see `modern/docs/phase7.4a_gate_deliverable.md` for the full evidence
 trail.
+
+§ **`[Server]Map` — Phase 7.5 recipe-only producer (2026-07-07).**
+The `墨香【源码】/[Server]Map/CMakeLists.txt` (mirrors Distribute recipe
+structure) was committed in Phase 7.5 alongside `modern/scripts/build_map.py`
+(mirror of `build_distribute.py`), `modern/docs/phase7.5_map_migration.md`,
+and this §7.5 row update — **as a single atomic commit** in a
+recipe-only producer retry (the previous attempt #2 timed out at 25min
+on the actual build). The CMakeLists declares **1 Release target
+(`MapServer`)** + **5 Debug_<LOCALE> targets
+(`MapServer_Debug_{KOR,JAPAN,CHINA,HK,TL}`)** with 251 cpp total (188
+[Server]Map-direct including 13 Condition subdir + 7 [CC]ServerModule +
+7 [CC]Header incl. 3 TargetList + 21 [CC]Quest + 25 [CC]BattleSystem +
+3 [CC]Suryun). Producer scope cut: cross-dir list omits `[CC]Ability/`
+(14 cpp) and `[CC]Skill/` (48 cpp) — the legacy vcproj pulls them in
+but Phase 7.5 producer scope was narrowed to the 5 enumerated dirs;
+the gate task may add them if byte parity requires. All Phase 7.4a
+shims carry forward unchanged (`/Zc:strictStrings-`, `/Zc:forScope-`,
+`/wd4596 /wd3244 /wd3254`, `/FI` `force_undef_legacy_macros.h`, `/MT`
+Release + `/MTd` Debug, `WIN32;_WINDOWS;_MBCS;_MAPSERVER_;__MAPSERVER__`
+preprocessor). The **build itself is owned by the Phase 7.5 gate task**
+(`Phase 7.5 Gate: 独立重建 + 字节对比 + dumpbin 校验 + 启动冒烟`) which
+runs an independent rebuild from a fresh `build_map/` dir + 6
+verification checks (byte parity vs `SWorking\MapServer.exe` = 2,555,904
+bytes, dumpbin /imports, smoke run, git diff sanity, no-DX8, etc.). The
+producer's commit hash will be filled in by the gate task in this
+footnote once verification passes; the gate commit + byte size are
+NOT part of this producer commit (per the Phase 7.5 retry scope cut).
 
 ### New conventions learned
 
