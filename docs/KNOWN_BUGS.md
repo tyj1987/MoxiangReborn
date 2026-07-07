@@ -281,6 +281,31 @@
 
 ---
 
+## Phase 7.4a Distribute 迁移发现
+
+### Bug D-1: Windows SDK `LOG(format, ...)` 宏撞游戏 `g_Console.LOG(...)` 成员函数调用
+- **症状**：编译 `ServerSystem.cpp` / `BootManager.cpp` 等时大量 `warning C4002` + `error C2059 语法错误:("`；`Console.cpp:166` 上的 `void CConsole::LOG(int,...)` 函数定义本身也会被预处理器尝试作为宏展开。
+- **位置**：`墨香【源码】\[Server]Distribute\StdAfx.h` (修复点)
+- **根因**：MSVC 6.0/7.0 时期 game 自己 `#define LOG(a) ((void)0)`（1-arg no-op，见 `[Server]Distribute\ErrorMsg.h:27-30` 的注释）。但 Windows SDK 的 `<winsock2.h>` / `<tchar.h>` 后续会定义 2+arg `LOG(format, ...)` 宏，现代 MSVC 的预处理器会优先匹配 2+arg，触发 25+ 处 C4002/C2059。
+- **现行方案**：`/undef LOG` 放在 StdAfx.h 末尾（所有 Windows 头和游戏头之后）；外加 `/FI modern/scripts/force_undef_legacy_macros.h` 作为 belt-and-suspenders。
+- **状态**：Phase 7.4a 已规避（Distribute 编译通过 + smoke test exit=0）。AGENTS.md #1 也提到了这个坑。
+
+### Bug D-2: YHLibrary 跨平台机器类型不匹配（x64 vs x86）
+- **症状**：链接 `DistributeServer.exe` 时 `LNK4272: 库计算机类型"X64"与目标计算机类型"X86"冲突`；或链接过程中 `LNK2019: 无法解析 cPtrList::GetNext/GetHead/RemoveHead`。
+- **位置**：`modern\scripts\build_yhlibrary.py`
+- **根因**：Phase 7.1 的 `build_yhlibrary.py` 用了 `Ninja` 生成器，Ninja 在 Windows 上默认输出 x64。但所有其他 legacy 库（BaseNetwork / 4DyuchiNET / MD5）都是 x86（VS7.10 vcproj 的 `TargetMachine="1"`），Distribute 也必须是 x86。
+- **现行方案**：Phase 7.4a 把 `build_yhlibrary.py` 从 `Ninja` 切到 `Visual Studio 17 2022 -A Win32`，输出位置从 `build_yhlibrary/YHLibrary.lib` 变成 `build_yhlibrary/Release/YHLibrary.lib`（VS17 multi-config layout）。`[Server]Distribute\CMakeLists.txt` 的 `_yh_lib` 路径也相应更新。
+- **状态**：已修复；新 YHLibrary.lib = 122,724 bytes（x86）。
+
+### Bug D-3: Distribute Debug locale 目标 LNK1104 缺 mfc71.lib
+- **症状**：构建 5 个 `DistributeServer_Debug_<LOCALE>` 目标时（KOR / JAPAN / CHINA / HK / TL），`LINK : fatal error LNK1104: 无法打开文件"mfc71.lib"`。Release 目标不受影响。
+- **位置**：`墨香【源码】\[Server]Distribute\CMakeLists.txt` (未修复)
+- **根因**：legacy 5 个 Debug locale config 隐式依赖 `mfc71.lib`（SWorking 目录有 `mfc71.dll` 1060864 bytes，2006/7/11）。vcproj 本身没列 mfc71.lib，但当 `_DISTRIBUTESERVER_` + `_KOR_LOCAL_` (或等价) 同时定义时，链接器从某个 .obj / .lib 的 `.drectve` / `#pragma comment(lib, ...)` 自动拉进 mfc71。`SWorking\` 仓库未附带 mfc71.lib（只附带 mfc71.dll），无法补齐。
+- **现行方案**：暂不修。Phase 7.4a 的实际交付是 `DistributeServer.exe`（Release, 204288 bytes），与 SWorking 184320 字节同口径，smoke test 退出 0。5 个 Debug locale 单独排期：要么找 mfc71.lib（VC7.1 SDK），要么正式放弃并文档化。
+- **状态**：已知 bug，out of scope for Phase 7.4a。Agent/Map 迁移时同样会遇到；记为 Phase 7.4b 风险。
+
+---
+
 ## 记录模板
 
 每发现新 bug，用此模板追加：

@@ -193,7 +193,7 @@ if(MSVC)
         # [CC]Header/ rely on this — e.g. CommonStruct.h:430 declares
         # `int i` in a for-init, then re-uses `i` at line 436 inside a
         # second for loop in the same function. Tracked in
-        # docs/KNOWN_BUGS.md Bug D-1.
+        # docs/KNOWN_BUGS.md Bug C-28.
         /Zc:forScope-
         # Suppress legacy-source compat diagnostics. These are all
         # accepted by MSVC 6.0/7.0 but rejected (as errors) by VS17:
@@ -203,22 +203,23 @@ if(MSVC)
         #          (downstream of C4596 in CommonStruct.h:4713)
         #   C3254  explicit override declared in non-derived class
         #          (downstream of C4596 in CommonStruct.h:4713)
-        # See docs/KNOWN_BUGS.md Bug D-2.
+        # See docs/KNOWN_BUGS.md Bug C-29.
+        # Use space-separated /wd flags; CMake translates this into
+        # MSBuild's <DisableSpecificWarnings> tag (comma-separated
+        # values within the tag). Passing `/wd4596,3244,3254` as a
+        # single cl.exe flag fails with D8021 "invalid numeric
+        # argument"; passing `/wd4596 /wd3244 /wd3254` is fine
+        # because CMake routes them into the per-warning tags.
         /wd4596 /wd3244 /wd3254
-        # Force-include <string>. GameResourceManager.h uses std::string
-        # but only forward-declares <vector> — modern STL no longer
-        # transitively pulls <string> through <vector>, so we have to
-        # force it. Tracked in docs/KNOWN_BUGS.md Bug D-3.
-        # NOTE: /FI expects a filename (no angle brackets); MSVC resolves
-        # it through the standard include path.
-        /FI string
         # Belt-and-suspenders: also force-include the LOG-undef header
         # so that .cpp files which include stdafx.h but happen to pull
         # in Windows headers via a different path still get the fix.
         # Path goes up 2 parents from [Server]Distribute to the repo
         # root (the legacy tree uses untracked CJK paths; CMAKE_CURRENT_SOURCE_DIR
         # normalizes to forward slashes but the relative-path arithmetic
-        # still works). Tracked in docs/KNOWN_BUGS.md Bug D-4.
+        # still works). The /undef LOG inside the header itself is
+        # tracked in docs/KNOWN_BUGS.md Bug D-1; this /FI is the
+        # CMake-side companion.
         /FI ${CMAKE_CURRENT_SOURCE_DIR}/../../modern/scripts/force_undef_legacy_macros.h
         # Per-config runtime + optimization (MSVC rejects /O2 + /RTC1 in
         # the same command line, so these MUST be mutually exclusive).
@@ -356,12 +357,11 @@ foreach(locale IN ITEMS KOR JAPAN CHINA HK TL)
     )
     if(MSVC)
         # Same /permissive- drop as the Release target (Bug C-28 + C-29).
-        # Same legacy compat flags (Bug D-1 / D-2 / D-3).
+        # Same legacy compat flags (incl. D-1 LOG-undef /FI).
         target_compile_options(${_name} PRIVATE
             /Zc:strictStrings-
             /Zc:forScope-
             /wd4596 /wd3244 /wd3254
-            /FI string
             /FI ${CMAKE_CURRENT_SOURCE_DIR}/../../modern/scripts/force_undef_legacy_macros.h
             $<$<CONFIG:Debug>:/MTd /Od /RTC1>
             $<$<CONFIG:Release>:/MT /O2 /Ob2 /GF /Gy>

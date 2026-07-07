@@ -57,6 +57,8 @@
 5. **多语言 ifdef**：`_KOR_LOCAL_ / _TW_LOCAL_ / _CHINA_LOCAL_ / _JP_LOCAL_ / _HK_LOCAL_ / _TL_LOCAL_ / _NDSC_LOCAL_ / TAIWAN_LOCAL` 散落代码各处。**别急着合并**，先确保每种宏都能编译。
 6. **`#pragma pack(push,1)`**：所有网络包结构强制 1 字节对齐——**绝对不要改**，否则协议崩溃。
 7. **MHVerInfo.ver**：客户端启动时读这个文件读 Distribute 地址 + 版本号。改服务端要先改这个。
+8. **PowerShell 方括号目录名当通配符**：本仓库目录名大量用 `[Lib]` / `[CC]` / `[Server]` 方括号，PowerShell 会把 `[...]` 当作通配符字符类。`Test-Path`/`Get-Item`/`Get-ChildItem` 直接传这种路径会误判（返回 False / 长度 0 / 找不到文件）。**必须**加 `-LiteralPath`（如 `Get-Item -LiteralPath "墨香【源码】\[Lib]BaseNetwork\...\BaseNetwork.dll"`）。`Select-String` / Python `os.path` 不受影响。
+9. **git 跟踪范围很窄**：仓库只跟踪约 439 个文件——`modern/`、`docs/`、根级文件、以及每个已迁移遗留目录里的单个 `CMakeLists.txt`。庞大的 `墨香【源码】/...` 遗留源码树是「未跟踪但也没被 .gitignore」的既定状态，`git status` 里成片的 `??` 是正常的，不是本次改动泄漏。验证「git 是否干净」时看的是**暂存/提交**是否有意外新增，而不是这些常驻未跟踪文件。另注意：`.mavis/`、`plan_launch.txt`、`roster.txt` 未被 gitignore，`git add .` 会误收。
 
 ## 推荐工作流（任何修改前）
 
