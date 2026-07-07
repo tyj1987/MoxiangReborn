@@ -1,0 +1,587 @@
+閫傜敤浜� .NET Framework MSBuild 鐗堟湰 17.14.40+3e7442088
+
+  1>Checking Build System
+  Building Custom Rule D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/4DyuchiNET_Latest/CMakeLists.txt
+  accept.cpp
+  collect_confirm_packet.cpp
+  confirm.cpp
+  connect.cpp
+  connect_que.cpp
+  connection.cpp
+  conetwork.cpp
+  cpio.cpp
+  create_index.cpp
+  dynamic_memory.cpp
+  exception.cpp
+  factory.cpp
+  log.cpp
+  mainthread.cpp
+  memory_object.cpp
+  net_global.cpp
+  network.cpp
+  overlapped.cpp
+  overlapped_recv.cpp
+  overlapped_send.cpp
+  overlapped_udp.cpp
+  pre_connect.cpp
+  que.cpp
+  quemanager.cpp
+  read_memory_handle.cpp
+  switch_que.cpp
+  timer.cpp
+  write_memory_handle.cpp
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../collect_confirm_packet.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../confirm.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../exception.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dynamic_memory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../cpio.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../mainthread.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../memory_object.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../log.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../factory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../net_global.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../pre_connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_udp.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../mainthread.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../write_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../read_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../quemanager.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../timer.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../pre_connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dynamic_memory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dynamic_memory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dynamic_memory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dynamic_memory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dynamic_memory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\code_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../conetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../collect_confirm_packet.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../collect_confirm_packet.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../collect_confirm_packet.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../collect_confirm_packet.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../collect_confirm_packet.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../confirm.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../confirm.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../confirm.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../confirm.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../confirm.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\conetwork.cpp(610,29): warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\conetwork.cpp(611,24): warning C4996: 'inet_ntoa': Use inet_ntop() or InetNtop() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../write_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../write_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../write_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../write_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../write_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\write_memory_handle.cpp(66,1): warning C4102: 鈥渓b_reset_length鈥�: 鏈紩鐢ㄧ殑鏍囩 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\write_memory_handle.cpp(186,1): warning C4102: 鈥渓b_set_obj鈥�: 鏈紩鐢ㄧ殑鏍囩 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../cpio.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../exception.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../cpio.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../exception.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../exception.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../cpio.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../exception.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../log.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../exception.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../cpio.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../cpio.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../log.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\exception.cpp(42,13): warning C4473: 鈥渇printf鈥�: 娌℃湁涓烘牸寮忓瓧绗︿覆浼犻€掕冻澶熺殑鍙傛暟 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+      D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\exception.cpp(42,13):
+      鍗犱綅绗﹀拰鍏跺弬鏁伴璁� 6 鍙彉鍙傛暟锛屼絾鎻愪緵鐨勫嵈鏄� 5 鍙傛暟
+      D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\exception.cpp(42,13):
+      缂哄け鐨勫彲鍙樺弬鏁� 6 涓烘牸寮忓瓧绗︿覆鈥�%d鈥濇墍闇€
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../log.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\exception.cpp(40,7): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../log.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../memory_object.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../log.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../memory_object.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\log.cpp(24,13): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../memory_object.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../memory_object.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\log.cpp(70,13): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../memory_object.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../factory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\network.cpp(201,35): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../factory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../factory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../factory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../factory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../net_global.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../net_global.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../net_global.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../net_global.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../net_global.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../mainthread.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../pre_connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../mainthread.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../pre_connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\connect.cpp(48,30): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../mainthread.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\connect.cpp(61,16): warning C4996: 'WSASocketA': Use WSASocketW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../pre_connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../mainthread.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../pre_connect.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../quemanager.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../quemanager.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../quemanager.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../quemanager.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../read_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../quemanager.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../read_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../read_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../read_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../read_memory_handle.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\read_memory_handle.cpp(64,1): warning C4102: 鈥渓b_read_length鈥�: 鏈紩鐢ㄧ殑鏍囩 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\read_memory_handle.cpp(74,1): warning C4102: 鈥渓b_read_msg鈥�: 鏈紩鐢ㄧ殑鏍囩 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_udp.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_udp.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_udp.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_udp.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_udp.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\connection.cpp(266,16): warning C4996: 'inet_ntoa': Use inet_ntop() or InetNtop() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../timer.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../timer.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../timer.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../timer.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../timer.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+  dllmain.cpp
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork_GUID.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\initguid.h(15,9): warning C4005: 鈥淚NITGUID鈥�: 瀹忛噸瀹氫箟 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\initguid.h(15,9):
+      涔嬪墠鍦ㄥ懡浠よ涓婂０鏄庣殑鈥淚NITGUID鈥�
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\typedef.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\net_define.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\icode.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Common\INetwork.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../dllmain.cpp鈥�)
+  
+D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/4DyuchiNET_Latest/I4DyuchiNET.def(4): warning LNK4017: DESCRIPTION 璇彞涓嶆敮鎸佺洰鏍囧钩鍙帮紱宸插拷鐣� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+    姝ｅ湪鍒涘缓搴� D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/4DyuchiNET_Latest/build_net/Release/4DyuchiNET.lib 鍜屽璞� D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/4DyuchiNET_Latest/build_net/Release/4DyuchiNET.exp
+4DyuchiNET.exp : warning LNK4070: .EXP 涓殑 /OUT:4DYUCHI.NET 鎸囦护涓庤緭鍑烘枃浠跺悕鈥淒:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\Release\4DyuchiNET.dll鈥濅笉鍚岋紱蹇界暐鎸囦护 [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\I4DyuchiNET.vcxproj]
+  I4DyuchiNET.vcxproj -> D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭4DyuchiNET_Latest\build_net\Release\4DyuchiNET.dll
+  Building Custom Rule D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/4DyuchiNET_Latest/CMakeLists.txt

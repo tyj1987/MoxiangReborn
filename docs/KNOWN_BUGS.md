@@ -152,6 +152,64 @@
 - **位置**：散落各文件
 - **现代方案**：抽 i18n 配置表
 
+
+### Bug C-19: [CC]ServerModule/inetwork.h 与 4DyuchiNET_Common/INetwork.h 接口签名不匹配
+- **症状**：`[CC]ServerModule/Network.cpp:50` 调 `m_pINet->CreateNetwork(desc)` 1-参数版本；`4DyuchiNET_Latest/conetwork.cpp:131` 实现 `Co4DyuchiNET::CreateNetwork(DESC_NETWORK*, DWORD, DWORD, OnIntialFunc)` 4-参数版本。任何以 NET 编译的 DLL 替换旧版都会被这张简化 header 阻断 link。
+- **位置**：`墨香【源码】\4DyuchiNET_Common\INetwork.h` vs `墨香【源码】\[CC]ServerModule\inetwork.h`
+- **根因**：Server 端曾经 fork 了简化版（只接受 DESC_NETWORK）而忘了同步真实实现。Phase 7.2 把 NET 端的 4-参数真实版本作为权威接口；Server 端的简化版本仍存在但是历史 invariant。
+- **现代方案**：[CC]ServerModule/inetwork.h 需要用 NET 的 4-参数版替换（或客户端用同一 header）。Phase 7.2 把不变量锁定在 NET 侧，Server 侧待 Phase 8 整改。
+- **状态**：Phase 7.2 已记录，待 Phase 8 处理客户端。
+
+### Bug C-20: 4DyuchiNET_Latest/conetwork.cpp 引用 `../4DyuchiNET_Common/code_GUID.h`（实际不存在）
+- **症状**：原 conetwork.cpp:7 `#include "../4DyuchiNET_Common/code_GUID.h"`。源码树里 `4DyuchiNET_Common/` 完全不存在，原版构建环境必定来自版本控制之外的 `code_GUID.h`。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\conetwork.cpp:7`
+- **根因**：历史构建依赖位于 `4DyuchiNET_Latest/code_guid.h`（小写）。但 conetwork.cpp 用 `../4DyuchiNET_Common/code_GUID.h`（目录拼写不同 + Windows 大小写不敏感）。
+- **现代方案**：NET_Common 文件夹已镜像 `code_GUID.h` 副本（CLSID_CODE/IID_CODE 占位定义）。`conetwork.cpp` 一字未改。
+- **状态**：Phase 7.2 已记录并通过镜像解决。
+
+### Bug C-21: 4DyuchiNET 链接了 odbc32.lib / odbccp32.lib（vcproj 模板残留）
+- **症状**：原 `I4DyuchiNET.vcproj` 的 `AdditionalDependencies` 包含 `odbc32.lib odbccp32.lib`。NET 自身不调用任何 ODBC API。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\I4DyuchiNET.vcproj` `<VCLinkerTool>` `AdditionalDependencies`
+- **根因**：vcproj 模板从 ODBC 服务项目（DBThread）复用，未清理 ODBC 链接项。
+- **现代方案**：保留 `odbc32.lib / odbccp32.lib` 在 CMakeLists link line 上以维持 ABI / build 路径一致；linker 自动丢弃未引用符号。
+- **状态**：Phase 7.2 保持现状。
+
+### Bug C-22: `MAX_TIMER_NUM` 常量原值丢失
+- **症状**：`timer.cpp` 6 处引用 `MAX_TIMER_NUM`，全局原值在 4DyuchiNET_Common 树丢失时一并消失。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\timer.cpp:30, 87, 106, 149, 176, 238`
+- **根因**：原 header 散失，无任何 #define 该常量。
+- **现代方案**：Phase 7.2 给 `4DyuchiNET_Common/net_define.h` 加入 `#define MAX_TIMER_NUM 64`。注意：当 timer 实际使用超过 64 时需要重新审视。
+- **状态**：Phase 7.2 已添加，值未经实测校准。
+
+### Bug C-23: `MAX_WORKER_THREAD_NUM` 常量原值丢失
+- **症状**：`switch_que.cpp:14` 用 `MAX_WORKER_THREAD_NUM` 作 CRITICAL_SECTION 数组维度；`cpio.cpp:24-25` 也引用。原值丢失。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\switch_que.cpp:14`、`cpio.cpp:23-25`
+- **根因**：原 header 散失。常量大小在编译期决定 IOCP worker 池上限。
+- **现代方案**：Phase 7.2 给 `#define MAX_WORKER_THREAD_NUM 8`（CPU 上限），运行时由 `g_dwWorkerThreadNum`（cpio.cpp）收敛到 host CPU 数。
+- **状态**：Phase 7.2 已添加，值未经实测校准。
+
+### Bug C-24: conetwork.cpp:416,420 实现 `PauseTimer/ResumeTimer` 但 conetwork.h:51-52 声明被注释
+- **症状**：实现存在但接口声明缺失；`Co4DyuchiNET` 不能 override，因此不能出现在 `I4DyuchiNET` 接口。当前 Phase 7.2 直接从接口去掉这两个方法以保持一致性。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\conetwork.cpp:416/420`、`conetwork.h:51-52` 注释 `//2007/12/19 removed by yuchi`
+- **根因**：原作者 2007-12-19 移除接口但忘了清空 implementation。当前实现永远不会被调用，是死代码。
+- **现代方案**：Phase 7.2 不在接口暴露它们，与 conetwork.h 的注释删除意图一致。其他 server 端如果调用 `m_pINet->PauseTimer/ResumeTimer` 需要更新为 `SetMainThreadUserDefineEventFunc`+ 0 周期 timer 替代。
+- **状态**：Phase 7.2 已记录。
+
+### Bug C-25: `PPVOID` typedef 在现代 WinSDK 中缺失
+- **症状**：`dllmain.cpp:89`、`factory.cpp:12/40`、`conetwork.cpp:20` 用 `PPVOID = void**` 参数。VS17 默认 SDK 不暴露这个名字。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\dllmain.cpp`、`factory.cpp`、`conetwork.cpp` 共 6 处
+- **根因**：WinSDK 2003 era `PPVOID` 在 `<wtypes.h>` 声明；现代 SDK 没有这个名字（被 `void**` 直接替代）。
+- **现代方案**：Phase 7.2 在 `4DyuchiNET_Common/typedef.h` 加 `typedef void** PPVOID;`。
+- **状态**：Phase 7.2 已修复。
+
+### Bug C-26: `EVENTCALLBACK` 与 `CUSTOM_EVENT::pEventFunc` 签名错位
+- **症状**：`conetwork.cpp:104/180` 用 `desc->pEvent[i].pEventFunc`（VOIDFUNC）传入期望 EVENTCALLBACK 的 `SetMainThreadUserDefineEventFunc`；`mainthread.cpp:234` 又以 `pEventFunc[dwUserEventIndex](dwUserEventIndex)` 用 1 个参数调用。同一字段被两种不兼容签名写入/读出。
+- **位置**：`墨香【源码】\4DyuchiNET_Latest\conetwork.cpp:104/180`、`mainthread.cpp:234`、`typedef.h:CUSTOM_EVENT.pEventFunc`
+- **根因**：legacy code 由不同时期拼接，已知 bug。在 VC6.0 / 2003 下编译器宽容（无声调用转换），在 MSVC 14+ 严格模式下编译失败。
+- **现代方案**：Phase 7.2 把 `CUSTOM_EVENT::pEventFunc` 字段类型由 `VOIDFUNC` 改为 `EVENTCALLBACK`（4 字节函数指针，struct 内存布局不变）。`EVENTCALLBACK = void(*)(DWORD)` 与 `mainthread.cpp:234` 调用约定匹配。
+- **状态**：Phase 7.2 已修复（**但未解决`pEventFunc`实际传入的函数本身签名可能与 EVENTCALLBACK 不一致的运行时行为**——需要在使用时确保回调签名匹配）。
+
+
 ## 资源问题
 
 ### Bug F-1: .bin CRC 校验注释

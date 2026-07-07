@@ -1,0 +1,44 @@
+Phase 7.2: legacy 4DyuchiNET_Latest migration (.vcproj -> CMakeLists.txt)
+
+- Convert 4DyuchiNET_Latest/I4DyuchiNET.vcproj (VS 7.10 / 2003
+  COM inproc-server format) into a CMakeLists.txt. Uses Visual
+  Studio 17 2022 generator with -A Win32 (matches the [Lib]BaseNetwork
+  / [Lib]DBThread / 4DyuchiFileStorage convention — keeps the
+  legacy MBCS source bytes wire-compatible across x86 process model).
+- The 4DyuchiNET_Common/ shared header directory was entirely
+  MISSING from the source tree. Reconstructed 6 headers + 1 stub
+  mirror from the .cpp/.h call sites:
+    StdAfx.h          PCH root (winsock1/2 guard + SDK headers)
+    typedef.h         callback typedefs + DESC_NETWORK + INET_BUF
+                       + PACKET_LIST + the constants (NETDDSC_*,
+                       MAX_TIMER_NUM, MAX_WORKER_THREAD_NUM, etc.)
+    net_define.h      ACTOR_TYPE / ACTION_TYPE / CONNECTION_STATUS
+                       / MAIN_THREAD_EVENT_INDEX enums + bit masks
+    INetwork_GUID.h   CLSID_4DyuchiNET + IID_4DyuchiNET via
+                       <initguid.h> / DEFINE_GUID; one TU (dllmain.cpp)
+                       opts in via CMake COMPILE_DEFINITIONS=INITGUID=1
+    INetwork.h        I4DyuchiNET COM interface (struct, not interface
+                       keyword) — 4-arg CreateNetwork matches Co4DyuchiNET
+    icode.h           ICode encrypt/decrypt interface (forward decl)
+    code_GUID.h       mirror of LEGACY CLSID_CODE / IID_CODE (conetwork.cpp:7
+                       references ../4DyuchiNET_Common/code_GUID.h, which
+                       was never in source tree — see Bug C-20).
+- Drop /permissive- and add /Zc:strictStrings- (matches FileStorage
+  Bug C-17 — dllmain.cpp #define UNICODE + lstrcpy with string literals).
+- _WINSOCKAPI_ guard at top of StdAfx.h and INetwork_GUID.h so
+  WSA + windows.h include cleanly (matches BaseNetwork convention #2).
+- <mstcpip.h> in StdAfx.h for tcp_keepalive + SIO_KEEPALIVE_VALS
+  (network.cpp:362).
+- I4DyuchiNET interface exposes `FLAG_SEND` flag as `DWORD flag`
+  (renamed) so Co4DyuchiNET's `DWORD flag` overrides land without
+  abstract-class complaint.
+- BaseNetwork/DBThread/FileStorage: warn C4819 (codepage) and
+  LNK4017/LNK4070 (DESCRIPTION / OUT name mismatch) remain as
+  informational.
+
+Tracked in docs/KNOWN_BUGS.md as Bug C-19..C-26.
+
+Build artifact: 4DyuchiNET.dll (150,016 bytes),
+4DyuchiNET.lib (1,528 bytes), 4DyuchiNET.exp (1,528 bytes).
+Exports match the .def file: DllCanUnloadNow, DllGetClassObject,
+DllRegisterServer, DllUnregisterServer.

@@ -148,7 +148,7 @@ what actually shipped.
 | `4DyuchiGXGeometry`       | DEFERRED      | n/a              | n/a                                                | Already modernized: see `modern/src/render/dx11/`   | DX11 reimpl in modern/ subsumes the legacy DX8 source. Skip legacy port unless needed.       |
 | `4DYUCHIGX_RENDER`        | DEFERRED      | n/a              | n/a                                                | Already modernized: see `modern/src/render/dx11/`   | Same — DX11 reimpl covers CoD3DDevice / D3DResourceManager / HField / Font / Mesh / Texture.  |
 | `4DyuchiGXMapEditor`     | SKIPPED       | n/a              | n/a                                                | n/a                                                   | MFC editor; MFC unavailable.                                                                  |
-| `4DyuchiNET_Latest`       | TODO          | n/a              | n/a                                                | n/a                                                   | IOCP TCP/IP layer (4DyuchiNET.dll). Pure Win32, no MFC — should be straightforward.           |
+| `4DyuchiNET_Latest`       | **DONE** (7.2)| VS17 / x86       | `modern/scripts/build_net.py`                      | `4DyuchiNET.dll` 150,016 bytes                       | C-19..C-26 (see `docs/KNOWN_BUGS.md`) — interface drift from `[CC]ServerModule/inetwork.h`; legacy Code_GUI mirror; odbc link leftover; lost constants; dead PauseTimer impl; missing `PPVOID` typedef; CUSTOM_EVENT/EVENTCALLBACK field-type swap (layout byte-identical). |
 
 ### New conventions learned
 
