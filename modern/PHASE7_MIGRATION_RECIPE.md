@@ -149,6 +149,7 @@ what actually shipped.
 | `4DYUCHIGX_RENDER`        | DEFERRED      | n/a              | n/a                                                | Already modernized: see `modern/src/render/dx11/`   | Same — DX11 reimpl covers CoD3DDevice / D3DResourceManager / HField / Font / Mesh / Texture.  |
 | `4DyuchiGXMapEditor`     | SKIPPED       | n/a              | n/a                                                | n/a                                                   | MFC editor; MFC unavailable.                                                                  |
 | `4DyuchiNET_Latest`       | **DONE** (7.2)| VS17 / x86       | `modern/scripts/build_net.py`                      | `4DyuchiNET.dll` 150,016 bytes                       | C-19..C-26 (see `docs/KNOWN_BUGS.md`) — interface drift from `[CC]ServerModule/inetwork.h`; legacy Code_GUI mirror; odbc link leftover; lost constants; dead PauseTimer impl; missing `PPVOID` typedef; CUSTOM_EVENT/EVENTCALLBACK field-type swap (layout byte-identical). |
+| `[Server]Distribute` ‡     | **DONE** (7.4a)| VS17 / x86      | `modern/scripts/build_distribute.py`               | `DistributeServer.exe` 204,800 bytes                 | C-27/C-28/C-29 (compile: ErrorMsg stub, /Zc:forScope-, /wd4596+3244+3254) + D-1/D-2/D-3 (polish: LOG-undef shim, YHLibrary x64→x86 rebuild, Debug locale mfc71.lib out-of-scope). |
 
 † **`[Lib]BaseNetwork` — CMakeLists commit provenance & Phase 7 gate (2026-07-07).**
 The `墨香【源码】/[Lib]BaseNetwork/CMakeLists.txt` (139 lines) was committed
@@ -163,6 +164,26 @@ warnings** (14× C4819 MBCS codepage + 2× C4996 `inet_addr` + 1× tool noise),
 `BaseNetwork.dll` = **99,840 bytes** (exact parity with the Phase 7.1 baseline),
 and all 4 COM exports present (`DllCanUnloadNow`, `DllGetClassObject`,
 `DllRegisterServer`, `DllUnregisterServer`). No new C-N bug surfaced.
+
+‡ **`[Server]Distribute` — Phase 7.4a migration + polish + gate (2026-07-07).**
+The `墨香【源码】/[Server]Distribute/CMakeLists.txt` (367 lines) was committed
+in Phase 7.4a at **`99c1559`** (`Phase 7.4a: legacy [Server]Distribute migration
+(.vcproj -> CMakeLists.txt)`). The Phase 7.4a polish at **`baaeeeb`**
+(`Phase 7.4a polish: LOG-undef shim + KNOWN_BUGS D-1..D-3 + AGENTS #8/#9`)
+added the LOG-undef `force_undef_legacy_macros.h` shim, three new bug
+entries (D-1 LOG macro / D-2 YHLibrary x64→x86 / D-3 mfc71.lib out-of-scope),
+and two new AGENTS.md traps (#8 PowerShell 方括号通配符 / #9 git 跟踪范围很窄);
+it did **not** touch the committed `CMakeLists.txt` or any legacy source.
+The Phase 7.4a integration gate independently rebuilt from a fresh build dir
+(trashed `build_distribute/`) and confirmed: **0 errors / 752 warnings**
+(mostly MBCS C4819 codepage + C4996 secure-CRT noise from legacy sources),
+`DistributeServer.exe` = **204,800 bytes** (vs SWorking baseline 184,320 bytes,
++11.1% delta consistent with VS2003→VS17 CRT drift; /MT static link means
+YHLibrary / 4DyuchiNET / MD5 / odbc32 / odbccp32 / wininet are all merged into
+the EXE — only `WS2_32.dll` + `KERNEL32.dll` show as dynamic imports), and
+smoke test `cmd /c "...DistributeServer.exe 0"` exits with **code 0**. The
+gate commit (this file's update) is added at the end of this batch; see
+`docs/phase7-gate/deliverable.md` for the full evidence trail.
 
 ### New conventions learned
 
