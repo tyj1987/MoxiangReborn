@@ -182,9 +182,10 @@ The Phase 7.4a integration gate independently rebuilt from a fresh build dir
 YHLibrary / 4DyuchiNET / MD5 / odbc32 / odbccp32 / wininet are all merged into
 the EXE — only `WS2_32.dll` + `KERNEL32.dll` show as dynamic imports), and
 smoke test `cmd /c "...DistributeServer.exe 0"` exits with **code 0**. The
-gate commit (this file's update) is **`86082a2`** (`Phase 7.4a gate:
-verification + status sync`); see `modern/docs/phase7.4a_gate_deliverable.md`
-for the full evidence trail.
+gate commit batch consists of **`86082a2`** (`Phase 7.4a gate: verification
++ status sync`) + **`17d76b4`** (`... fill in gate commit hash + deliverable
+path`); see `modern/docs/phase7.4a_gate_deliverable.md` for the full evidence
+trail.
 
 ### New conventions learned
 
