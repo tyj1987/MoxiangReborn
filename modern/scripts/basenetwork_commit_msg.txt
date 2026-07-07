@@ -1,24 +1,53 @@
-Phase 7.1: legacy [Lib]BaseNetwork migration (.vcproj -> CMakeLists.txt)
+Phase 7.1 gap-fill: [Lib]BaseNetwork build script -> VS17/Win32 + sibling _full.txt log
 
-- Convert [Lib]BaseNetwork/BaseNetwork.vcproj (VS 7.10 / 2003 DLL
-  format) into a CMakeLists.txt. Uses Visual Studio 17 2022 generator
-  with -A Win32 (legacy source uses __declspec(naked) + __asm which
-  x64 MSVC does not support; tracked in docs/KNOWN_BUGS.md Bug C-10).
-- Replace <afx.h> + <ole2.h> with <objbase.h> (modern COM).
-- Force WinSock 2.0 mode via #define _WINSOCKAPI_ before <windows.h>
-  so WinSock 1.1 is suppressed.
-- Add /Zc:strictStrings- so legacy TCHAR-style calls with string
-  literals still compile (matches legacy vcproj behavior).
-- Add NDEBUG fallback for _CrtCheckMemory() — legacy network.cpp
-  used it unconditionally but it only exists in _DEBUG; without the
-  fallback Release builds would fail to link.
-- network.cpp now #include "stdafx.h" first so winsock2.h is in
-  scope before <mstcpip.h> pulls it.
-- BaseNetworkDll.cpp kept its leading '#define UNICODE' (the COM
-  registration code needs wide TCHARs); CMakeLists backs it up with
-  /Zc:strictStrings-.
+Phase 7.1 commit eb58017 delivered the [Lib]BaseNetwork CMakeLists.txt
++ the working DLL (99840 bytes), but the build script
+(modern/scripts/build_basenetwork.py) used the Ninja generator instead
+of the Phase 7.2 convention: Visual Studio 17 2022 + -A Win32. The
+Ninja generator skips the Win32 toolchain (which is required because
+BaseNetwork uses __asm int 3 / __declspec(naked), x86-only constructs —
+see KNOWN_BUGS.md Bug C-10) and produces a different build-dir layout
+(no .sln, no .vcxproj). This commit realigns the build script with
+the convention established by build_net.py / build_filestorage.py.
 
-Build artifact: BaseNetwork.dll (99840 bytes), BaseNetwork.lib
-(1572 bytes), BaseNetwork.exp (1554 bytes). Exports match the
-.def file: DllCanUnloadNow, DllGetClassObject, DllRegisterServer,
-DllUnregisterServer.
+Changes
+- modern/scripts/build_basenetwork.py: switch -G Ninja to
+  "-G Visual Studio 17 2022 -A Win32"; mirror the
+  build_net.py / build_filestorage.py pattern (write a sibling
+  build_basenetwork_full.txt log next to the script for offline
+  inspection).
+- modern/scripts/build_basenetwork_full.txt: full MSBuild log
+  captured from the script (new artifact, 11,849 bytes).
+
+Verification
+- Re-ran build_basenetwork.py after the script change. Output:
+    errors: 0 | warnings: 17 | rc: 0
+    Release\BaseNetwork.dll: 99840 bytes
+    Release\BaseNetwork.exp:  1554 bytes
+    Release\BaseNetwork.lib:  1572 bytes
+  The DLL byte count matches the Phase 7.1 baseline (99840). 17
+  warnings: 14x C4819 codepage (MBCS source contains chars not
+  representable in codepage 936 — the legacy source uses KR/CN
+  comment bytes, expected behavior under _MBCS) + 2x C4996
+  inet_addr deprecation (network.cpp:85,239 — already-covered
+  legacy winsock API) + 1x tool noise. No new errors.
+- The CMakeLists.txt itself was already committed in eb58017 and
+  is unchanged — no source files in [Lib]BaseNetwork were
+  touched (per AGENTS.md "1:1 复刻" rule).
+
+Phase 7.2 deliverables that depended on BaseNetwork.dll are now
+unblocked: [Server]Agent, [Server]Distribute, [Server]Map,
+[Server]MurimNet, and 4Dyuchi* engines all link against this
+DLL.
+
+Known issues
+- KNOWN_BUGS.md Bug C-7 (MFC leftovers) — fixed in eb58017
+- KNOWN_BUGS.md Bug C-8 (_CrtCheckMemory fallback) — fixed
+- KNOWN_BUGS.md Bug C-9 (UNICODE/MBCS mix in BaseNetworkDll.cpp) —
+  fixed via /Zc:strictStrings-
+- KNOWN_BUGS.md Bug C-10 (x86-only __asm) — accepted; -A Win32
+  used to match
+- KNOWN_BUGS.md Bug C-11 (winsock 1/2 conflict via mstcpip.h) —
+  fixed via stdafx.h #include + #define _WINSOCKAPI_
+
+No new bugs introduced by this commit.

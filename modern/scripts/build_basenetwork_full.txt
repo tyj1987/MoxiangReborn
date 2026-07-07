@@ -1,0 +1,66 @@
+閫傜敤浜� .NET Framework MSBuild 鐗堟湰 17.14.40+3e7442088
+
+  1>Checking Build System
+  Building Custom Rule D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/[Lib]BaseNetwork/CMakeLists.txt
+  accept.cpp
+  BaseNetwork.cpp
+  BaseNetworkDll.cpp
+  BaseNetworkFactory.cpp
+  connection.cpp
+  create_index.cpp
+  main_msg_que.cpp
+  msgproc.cpp
+  network.cpp
+  overlapped.cpp
+  overlapped_recv.cpp
+  overlapped_send.cpp
+  switch_que.cpp
+  worker.cpp
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\BaseNetworkDll.cpp(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../BaseNetworkDll.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../network.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../BaseNetwork.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../BaseNetworkFactory.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../switch_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\Stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../accept.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../main_msg_que.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../create_index.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../msgproc.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../connection.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../worker.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_recv.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\stdafx.h(1,1): warning C4819: 璇ユ枃浠跺寘鍚笉鑳藉湪褰撳墠浠ｇ爜椤�(936)涓〃绀虹殑瀛楃銆傝灏嗚鏂囦欢淇濆瓨涓� Unicode 鏍煎紡浠ラ槻姝㈡暟鎹涪澶� [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+  (缂栬瘧婧愭枃浠垛€�../overlapped_send.cpp鈥�)
+  
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\network.cpp(85,35): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\network.cpp(239,25): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\BaseNetwork.vcxproj]
+    姝ｅ湪鍒涘缓搴� D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/[Lib]BaseNetwork/build_basenetwork/Release/BaseNetwork.lib 鍜屽璞� D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/[Lib]BaseNetwork/build_basenetwork/Release/BaseNetwork.exp
+  BaseNetwork.vcxproj -> D:\澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛塡澧ㄩ銆愭簮鐮併€慭[Lib]BaseNetwork\build_basenetwork\Release\BaseNetwork.dll
+  Building Custom Rule D:/澧ㄩ鍏ㄥ婧愪唬鐮侊紙婧愮爜+璧勬簮+瀹㈡埛绔�+鏈嶅姟绔�+鏁欑▼锛�/澧ㄩ銆愭簮鐮併€�/[Lib]BaseNetwork/CMakeLists.txt
