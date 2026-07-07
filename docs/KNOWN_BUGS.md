@@ -244,6 +244,29 @@
 - **现象**：大量 `strcat` / `sprintf`
 - **现代方案**：`std::string` + `std::format`
 
+## 编译期问题（Phase 7.4a 新增）
+
+### Bug C-27: [CC]Header/CommonDefine.h Release-only 引入客户端 ErrorMsg.h
+- **症状**：Release 构建所有 server 端 cpp 报 `fatal error C1083: 无法打开包括文件: "ErrorMsg.h"`
+- **位置**：`墨香【源码】\[CC]Header\CommonDefine.h:69`
+- **根因**：CommonDefine.h 在 `#ifndef _RMTOOL_ / #ifdef _DEBUG / #else //RELEASE` 分支的 `#else` 里直接 `#include "ErrorMsg.h"`，但 `ErrorMsg.h` 只在 `[Client]MH/` 下。三个 server 的 vcproj `AdditionalIncludeDirectories` 都没有 `[Client]MH/` 路径。原 vcproj Release 实际从未真正完整编译过（与 Bug C-8 同源：legacy 只编 Debug 不编 Release），所以这个 include bug 从未触发。
+- **现代方案**：在 `[Server]Distribute/` 下放一个 stub `ErrorMsg.h`（包含 no-op LOG 宏），CMake 把 server 源目录放 include 路径最前 → stub 优先匹配。Phase 7.4a 已处理。Agent/Map 后续迁移需复制同样 stub 或抽到 `modern/legacy_stdafx_patch.h`。
+- **状态**：Phase 7.4a 已迁移修复（Distribute），Agent/Map 待
+
+### Bug C-28: [CC]Header/CommonStruct.h:436 for-loop 变量跨 scope 复用
+- **症状**：Release 构建报 `error C2065: "i": 未声明的标识符`
+- **位置**：`墨香【源码】\[CC]Header\CommonStruct.h:436`
+- **根因**：第 430 行 `for(int i=0; ...)` 在 for-init 里声明 `i`，第 436 行 `for(i=0; ...)` 在另一个 for 里"裸用" `i`。MSVC7 默认 for-loop init 变量泄漏到 enclosing function scope（pre-VS2005 行为），所以编译过。VS2005+ 默认（以及 `/permissive-` 下）改为 ISO C++ 严格 scope，`i` 只在 for-loop 内可见。
+- **现代方案**：Phase 7.4a 决定保留 legacy ABI——drop `/permissive-`（同 DBThread Bug C-14），不修源码。Agent/Map 迁移同处理。
+- **状态**：Phase 7.4a 已迁移绕过（Distribute），Agent/Map 待
+
+### Bug C-29: [CC]Header/TargetList/TargetListIterator.h:52 类内 qualified member 声明
+- **症状**：编译报 `error C4596: "GetTargetData": 成员声明中的非法限定名`
+- **位置**：`墨香【源码】\[CC]Header\TargetList\TargetListIterator.h:52`
+- **根因**：`void CTargetListIterator::GetTargetData(RESULTINFO* pResultInfo);` — 类体里写带 `ClassName::` 前缀的成员函数声明。MSVC7 默认接受（Microsoft extension），`/permissive-` 下报 C4596。
+- **现代方案**：drop `/permissive-`（同 Bug C-14 / C-28），不修源码。
+- **状态**：Phase 7.4a 已迁移绕过（Distribute），Agent/Map 待
+
 ## 协议问题
 
 ### Bug P-1: 消息分发表硬编码大小
