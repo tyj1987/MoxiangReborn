@@ -207,12 +207,12 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 | 7.5b.4 | `[Tool]AutoPatchToolWin32` | 自动更新器 CMake |
 | 7.5b.5 | `anmexp` / `maxexp` | 3ds Max 导出插件（可跳过） |
 
-### 7.6 — [Server]MurimNet + [Monitoring]Server
+### 7.6 — [Server]MurimNet + [Monitoring]Server ✅ (2026-07-07)
 
-| # | 任务 | 描述 |
-|---|------|------|
-| 7.6.1 | `[Server]MurimNet/CMakeLists.txt` | PvP 服务 CMake |
-| 7.6.2 | `[Monitoring]Server/CMakeLists.txt` | 监控服务 CMake |
+| # | 任务 | 描述 | 状态 |
+|---|------|------|------|
+| 7.6.1 | `[Server]MurimNet/CMakeLists.txt` | PvP 服务 CMake (27 cpp) | **RECIPE DONE** — 4 locale errors (Bug D-8) |
+| 7.6.2 | `[Monitoring]Server` | 监控服务 | **SKIP** — Win32 GUI (HWND + resource.h), not a console service |
 
 ---
 
