@@ -96,6 +96,7 @@ tmp/
 work/
 .cache/
 build_artifacts/
+build_legacy_hsel/
 
 # 测试覆盖率报告
 coverage/
