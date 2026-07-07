@@ -120,7 +120,7 @@ Aes256GcmCipher::Aes256GcmCipher() {
     static constexpr wchar_t kChainModeGcm[] = L"ChainingModeGCM";
     st = bcrypt.SetProp(m_aesAlg, L"ChainingMode",
                         reinterpret_cast<PUCHAR>(const_cast<wchar_t*>(kChainModeGcm)),
-                        sizeof(kChainModeGcm) - sizeof(wchar_t), 0);
+                        sizeof(kChainModeGcm), 0);
     if (!NT_SUCCESS(st)) { bcrypt.CloseAlg(m_aesAlg, 0); m_initOk = false; return; }
 
     // Set AES key length to 256 bits.

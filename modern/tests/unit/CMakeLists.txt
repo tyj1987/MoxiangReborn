@@ -36,6 +36,7 @@ gtest_add_tests(TARGET mxh_compat_tests
 # -----------------------------------------------------------------------------
 add_executable(mxh_crypto_tests
     hsel_stream_test.cpp
+    aes_gcm_test.cpp
 )
 
 target_link_libraries(mxh_crypto_tests PRIVATE mxh_crypto gtest_main)

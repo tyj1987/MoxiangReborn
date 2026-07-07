@@ -21,6 +21,7 @@
 | 遗留库 CMake 迁移 (Phase 7) | ✅ HSEL / YHLibrary / BaseNetwork / DBThread / FileStorage / 4DyuchiNET / Distribute / **Agent** / **Map** |
 | 加密替换 (Phase 3) | ❌ 未开始 |
 | 网络层现代化 (Phase 4) | ❌ 仅 stub |
+| AES加密层 (Phase 3.3) | ⚠️ 17 tests written, impl needs fix (Bug C-31) |
 | 客户端构建 (Phase 6) | ❌ 未开始 |
 | Agent 服务端 (Phase 7.3) | ✅ **刚完成** |
 | 工具链迁移 (Phase 7.5b) | ❌ 未开始 |
@@ -211,7 +212,7 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 
 | # | 任务 | 描述 | 状态 |
 |---|------|------|------|
-| 7.6.1 | `[Server]MurimNet/CMakeLists.txt` | PvP 服务 CMake (27 cpp) | **RECIPE DONE** — 4 locale errors (Bug D-8) |
+| 7.6.1 | `[Server]MurimNet/CMakeLists.txt` | PvP 服务 CMake (27 cpp) | **RECIPE DONE** — 4→cascading locale errors (Bug D-8). Added GetMapNum() stub to ServerSystem.h, _KOR_LOCAL_+_USINGTOOL_ defines. CommonStruct.h has cascading locale-conditional fields (AbilityKyungGongLevel, MunpaName, etc.) that need the VC6-era headers. Not fixable without major CommonStruct.h surgery. |
 | 7.6.2 | `[Monitoring]Server` | 监控服务 | **SKIP** — Win32 GUI (HWND + resource.h), not a console service |
 
 ---
@@ -342,6 +343,14 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 - **算法**: MSVC6 LCG PRNG → 12×int32 key gen → block swap → 4 DES types (XOR/ADD/SUB/MIXED) → CRC → key schedule
 - **源文件**: hsel_stream.hpp + hsel_stream.cpp (800 lines) + 32 tests
 - **给下一个 AI 的备注**: HSEL 已完整逆向实现，测试覆盖全部类型×大小组合。如需与旧版 HSEL.lib 字节级兼容，用 `MsvcRand`（MSVC6 LCG 再现）；否则直接用 `mxh::crypto::Aes256GcmCipher`。
+
+### Phase 3.3 (AES-256-GCM) 出口状态 ⚠️ (2026-07-07 — 测试已写, 待实现修复)
+- **测试**: 17 tests written (round-trip, auth tag, key/IV export, tamper detection, stress)
+- **问题**: crypto.cpp BCrypt 实现有根本 API bug (Bug C-31):
+  1. `BCryptFinishKey` 不存在于 bcrypt.dll
+  2. Encrypt 未传入 `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO`
+  3. `BCRYPT_AUTH_MODE_GCM_FLAG` 不是真实的 Windows CNG 常量
+- **给下一个 AI 的备注**: AES 测试 (`modern/tests/unit/aes_gcm_test.cpp`) 是完整的合约规范。修复 crypto.cpp 使这些测试通过即可。正确 API: BCryptEncrypt 需要 GCM auth info struct，tag 从 struct 中读取而非 BCryptFinishKey。
 
 ---
 

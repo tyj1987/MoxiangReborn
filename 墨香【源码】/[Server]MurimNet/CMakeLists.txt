@@ -114,6 +114,7 @@ target_compile_definitions(MurimNetServer PRIVATE
     _MAPSERVER_
     __MAPSERVER__
     _MURIMNET_
+    _KOR_LOCAL_
     $<$<CONFIG:Debug>:_DEBUG;_USINGTOOL_>
     $<$<CONFIG:Release>:NDEBUG>
 )
