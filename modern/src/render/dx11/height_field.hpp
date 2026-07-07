@@ -119,6 +119,11 @@ private:
     // Per-LOD chunk grids. Each entry is a vector of chunks (one per row).
     std::vector<std::vector<std::unique_ptr<HeightFieldChunk>>> m_chunks;
 
+    // Phase 5.9a: HFieldObjects created via CreateHeightFieldObject. Kept alive
+    // past the returned IDIMeshObject* handle so per-chunk CPU state (colors,
+    // Y-axis, alpha-map flag) survives as long as the manager does.
+    std::vector<std::unique_ptr<class HFieldObject>> m_hFieldObjects;
+
     // Tile palette: tile textures (SRVs).
     struct TileTexture {
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv;

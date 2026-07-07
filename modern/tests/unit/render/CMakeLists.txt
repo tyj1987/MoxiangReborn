@@ -3,6 +3,7 @@
     mesh_geometry_test.cpp
     font_object_test.cpp
     height_field_test.cpp
+    hfield_object_test.cpp
     effect_shader_test.cpp
     material_test.cpp
     dynamic_light_test.cpp
@@ -88,4 +89,17 @@ gtest_add_tests(TARGET mxh_render_tests
     TextureLoaderDDS.SaveDDSPixelDataIsBGRA
     TextureLoaderDDS.SaveDDSRejectsEmptyTexture
     TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
+    HFieldObjectDefaults.ConstructWithoutDeviceDoesNotCrash
+    HFieldObjectDefaults.QueryInterfaceIUnknownReturnsSelf
+    HFieldObjectDefaults.QueryInterfaceUnknownIIDReturnsENoInterface
+    HFieldObjectRefcount.RefcountIncrementsAndDecrements
+    HFieldObjectCreate.RefusedWithNullHFieldDesc
+    HFieldObjectCreate.RefusedWithZeroFaceCount
+    HFieldObjectColor.SetVertexColorAllFillsUniformly
+    HFieldObjectColor.SetVertexColorCopiesArrayAndZeroFillsTail
+    HFieldObjectStateSetters.DetailLevelDistanceMaskMustUpdateAreNoop
+    HFieldObjectAlpha.UpdateAlphaMapTogglesFlagThenCleanupResets
+    HFieldObjectAlpha.UpdateAlphaMapRejectsNullDesc
+    HFieldObjectColor.NoImplicitColorAllocationBeforeCreate
+    HFieldObjectMath.IndexCountIsSixTimesFacesWhenCreated
 )

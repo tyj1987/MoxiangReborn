@@ -2,6 +2,7 @@
 // IDIHeightField DX11 implementation.
 #include "height_field.hpp"
 #include "device.hpp"
+#include "hfield_object.hpp"
 #include "mesh_object.hpp"
 #include "primitives.hpp"
 
@@ -196,57 +197,33 @@ BOOL __stdcall HeightField::StartInitialize(HFIELD_DESC* pDesc) {
 
 void __stdcall HeightField::EndInitialize() { m_initialized = true; }
 
-IDIMeshObject* __stdcall HeightField::CreateHeightFieldObject(HFIELD_OBJECT_DESC*) {
+IDIMeshObject* __stdcall HeightField::CreateHeightFieldObject(HFIELD_OBJECT_DESC* pDesc) {
     if (!m_dev) return nullptr;
-    auto* m = MeshObject::createEmpty(m_dev, CMeshFlag());
-    if (!m) return nullptr;
-
-    if (!m_heightMap.empty() && m_desc.dwTileNumX > 0 && m_desc.dwTileNumZ > 0) {
-        std::uint32_t vertsX = m_desc.dwTileNumX + 1;
-        std::uint32_t vertsZ = m_desc.dwTileNumZ + 1;
-        std::uint32_t vCount  = vertsX * vertsZ;
-
-        std::vector<VECTOR3> positions(vCount);
-        std::vector<TVERTEX> tex(vCount);
-        std::vector<VECTOR3> normals(vCount);
-
-        float halfW = static_cast<float>(m_desc.dwTileNumX) * kTileWorldSize * 0.5f;
-        float halfD = static_cast<float>(m_desc.dwTileNumZ) * kTileWorldSize * 0.5f;
-
-        for (std::uint32_t z = 0; z < vertsZ; ++z) {
-            for (std::uint32_t x = 0; x < vertsX; ++x) {
-                std::uint32_t i = z * vertsX + x;
-                positions[i] = {
-                    (static_cast<float>(x) * kTileWorldSize) - halfW,
-                    (x < m_desc.dwYFNumX && z < m_desc.dwYFNumZ)
-                        ? m_heightMap[z * m_desc.dwYFNumX + x] * m_desc.height
-                        : 0.0f,
-                    (static_cast<float>(z) * kTileWorldSize) - halfD
-                };
-                tex[i]     = { static_cast<float>(x), static_cast<float>(z) };
-                normals[i]  = { 0.0f, 1.0f, 0.0f };
-            }
-        }
-
-        std::vector<std::uint16_t> idx(m_desc.dwTileNumX * m_desc.dwTileNumZ * 6);
-        buildTileIndices(idx.data(), m_desc.dwTileNumX, m_desc.dwTileNumZ, vertsX);
-
-        MESH_DESC md{};
-        md.dwVertexNum     = vCount;
-        md.pv3WorldList    = positions.data();
-        md.dwTexVertexNum  = vCount;
-        md.ptvTexCoordList = tex.data();
-        md.pv3NormalLocal  = normals.data();
-        md.meshFlag        = CMeshFlag();
-        if (!m->StartInitialize(&md, nullptr, nullptr)) { m->Release(); return nullptr; }
-        FACE_DESC fd{};
-        fd.pIndex     = idx.data();
-        fd.dwFacesNum = m_desc.dwTileNumX * m_desc.dwTileNumZ * 2;
-        fd.dwMtlIndex = 0;
-        if (!m->InsertFaceGroup(&fd)) { m->Release(); return nullptr; }
-        m->EndInitialize();
+    // Phase 5.9a: defer to HFieldObject which owns the per-chunk state machine
+    // (CPU-side positions / colors / Y-axis factoring, alpha-blend bookkeeping).
+    // We store the HFieldObject so its CPU state outlives the returned mesh ref
+    // (callers can fetch it later via m_hFieldObjects if needed; the legacy
+    // engine kept an internal list for the same reason).
+    VECTOR3 rect[2] = {
+        { 0.0f, 0.0f, 0.0f },
+        { static_cast<float>(m_desc.dwTileNumX) * kTileWorldSize,
+          0.0f,
+          static_cast<float>(m_desc.dwTileNumZ) * kTileWorldSize }
+    };
+    auto hfObj = std::make_unique<HFieldObject>(m_dev);
+    if (!hfObj->Create(pDesc ? pDesc->dwPosX : 0,
+                        pDesc ? pDesc->dwPosZ : 0,
+                        /*dwDetailLevel*/ 0,
+                        m_desc.dwTileNumX ? m_desc.dwTileNumX : 1,
+                        m_desc.dwTileNumZ ? m_desc.dwTileNumZ : 1,
+                        rect, &m_desc)) {
+        return nullptr;
     }
-    return m;
+    IDIMeshObject* meshIface = hfObj->meshObject();
+    if (!meshIface) return nullptr;
+    m_hFieldObjects.push_back(std::move(hfObj));
+    meshIface->AddRef();  // bump refcount for the returned external handle
+    return meshIface;
 }
 
 BOOL __stdcall HeightField::InitiallizeIndexBufferPool(std::uint32_t, std::uint32_t, std::uint32_t) { return TRUE; }
