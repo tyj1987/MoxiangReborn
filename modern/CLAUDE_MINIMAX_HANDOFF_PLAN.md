@@ -10,7 +10,7 @@
 ```
 已完成的 Phase:  0, 1, 2, 3.2(HSEL), 5, 7.0-7.6
 跳过/受阻:      7.5b(Tools=MFC), 7.6(Monitoring=Win32 GUI)
-未开始:          3.3(AES测试), 4(网络重写), 6(客户端), 8(集成), 9(跨平台), 10(模型)
+未开始:          4(网络重写), 6(客户端), 8(集成), 9(跨平台), 10(模型)
 ```
 
 | 维度 | 状态 |
@@ -19,7 +19,7 @@
 | 数据库层 (Phase 2) | ✅ IDbAdapter + MSSQL + SQLite 双后端 |
 | DX11 渲染器 (Phase 5) | ✅ 75/75 接口 + 99/99 测试通过 |
 | 遗留库 CMake 迁移 (Phase 7) | ✅ HSEL / YHLibrary / BaseNetwork / DBThread / FileStorage / 4DyuchiNET / Distribute / **Agent** / **Map** |
-| 加密替换 (Phase 3) | ✅ 3.1/3.2/3.3/3.5 完成，3.4 待网络层 |
+| 加密层 (Phase 3.2/3.3/3.4/3.5) | ✅ HSEL+AES 完整实现，3.4 协商协议完成，benchmark 完成 |
 | 网络层现代化 (Phase 4) | ❌ 仅 stub |
 | 加密层 (Phase 3.2/3.3/3.5) | ✅ HSEL 32/32 PASS + AES 17/17 PASS + Benchmark done |
 | 客户端构建 (Phase 6) | ❌ 未开始 |
@@ -350,6 +350,14 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 - **结果**: HSEL wins ≤512B (up to 4.5×), AES wins ≥1KB (up to 6.7×) due to AES-NI
 - **报告**: docs/phase3.5_benchmark_report.md
 - **给下一个 AI 的备注**: Phase 3.4 需要先完成 Phase 4 网络层。Benchmark 结论：建议新连接用 AES-256-GCM，保留 HSEL 给旧客户端兼容。
+
+### Phase 3.4 (Cipher Negotiation Protocol) 出口状态 ✅ (2026-07-08)
+- **实现**: include/mxh/proto/negotiate.hpp (纯头文件，307行)
+- **测试**: 32/32 PASS — 包含完整 round-trip 集成测试
+- **协议**: MXHN magic + 版本 + 密码能力协商，XOR 校验
+- **选密算法**: 优先 AES-GCM (有认证)，回退 HSEL (无认证，遗留兼容)
+- **源文件**: negotiate.hpp (头文件) + negotiate_test.cpp
+- **给下一个 AI 的备注**: Wire 格式 12B 请求/5B 响应+XOR校验。协议固定，无需修改。
 
 ### Phase 3.3 (AES-256-GCM) 出口状态 ✅ (2026-07-08 — Bug C-31 全修, 17/17 PASS)
 - **测试**: **17/17 AES PASS** + **49/49 crypto_tests** (HSEL 32 + AES 17 不回归) — `mxh_crypto_tests.exe` 12ms, ctest 全套 143/143 (4.17s)

@@ -55,3 +55,19 @@ add_executable(mxh_crypto_benchmark
 )
 
 target_link_libraries(mxh_crypto_benchmark PRIVATE mxh_crypto)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# mxh_proto negotiation tests — Phase 3.4: cipher negotiation wire protocol
+# Header-only library (no compiled sources); test links against the header directly.
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+add_executable(mxh_proto_tests
+    negotiate_test.cpp
+)
+
+target_link_libraries(mxh_proto_tests PRIVATE gtest_main)
+target_include_directories(mxh_proto_tests PRIVATE
+    "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
+)
+
+add_test(NAME mxh_proto_negotiate_tests
+    COMMAND $<TARGET_FILE:mxh_proto_tests>)
