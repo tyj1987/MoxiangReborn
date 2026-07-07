@@ -14,6 +14,28 @@
 
 namespace mxh::gx::dx11 {
 
+void Device::release() {
+    // Release all COM objects in reverse allocation order.
+    m_swapChain.Reset();
+    m_backBufferRTV.Reset();
+    m_depthBuffer.Reset();
+    m_dsv.Reset();
+    m_shadowMapDSV.Reset();
+    m_shadowMapSRV.Reset();
+    m_shadowMapTex.Reset();
+    m_depthStateDefault.Reset();
+    m_blendDefault.Reset();
+    m_rasterizerDefault.Reset();
+    m_samplerPoint.Reset();
+    m_samplerLinear.Reset();
+    m_context.Reset();
+    m_device.Reset();
+    m_width = 0;
+    m_height = 0;
+    m_inShadowPass = false;
+    m_shadowMapReady = false;
+}
+
 Device::~Device() { shutdown(); }
 
 bool Device::initialize(HWND hWnd, const DISPLAY_INFO& info) {
@@ -236,10 +258,13 @@ void Device::endFrame() {
     // No-op for DX11 (D3DX had Scene/Begin/End).
 }
 
+void Device::setVSync(BOOL vsync) { m_vsync = vsync; }
+
 void Device::present(HWND /*hWnd*/) {
     if (m_swapChain) {
-        // VSync: 1 = wait for vsync, 0 = immediate.
-        m_swapChain->Present(1, 0);
+        // VSync: m_vsync controls whether we wait for vsync.
+        // DXGI_PRESENT_PARAMETERS can be extended later for do-not-flip / do-not-sequence.
+        m_swapChain->Present(m_vsync ? 1u : 0u, 0);
     }
 }
 

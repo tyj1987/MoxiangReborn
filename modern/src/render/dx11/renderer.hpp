@@ -199,6 +199,16 @@ private:
     std::uint32_t                          m_ambientColor  = 0xff404040; // 0xAABBGGRR
     std::uint32_t                          m_emissiveColor = 0xff000000;
 
+    // Specular lighting state.
+    bool                                   m_specularEnabled = false;
+    float                                  m_specularShininess = 32.f;  // Phong shininess
+
+    // Render texture update hint.
+    bool                                   m_renderTextureMustUpdate = false;
+
+    // Performance analysis gate.
+    bool                                   m_inPerfAnalyze = false;
+
     // -------------------------------------------------------------------------
     // Material management.
     // -------------------------------------------------------------------------

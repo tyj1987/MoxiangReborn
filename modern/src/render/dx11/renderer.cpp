@@ -756,8 +756,14 @@ std::uint32_t __stdcall CoD3DDeviceDX11::GetAmbientColor() { return 0xff202020; 
 void __stdcall CoD3DDeviceDX11::SetEmissiveColor(std::uint32_t dwColor) { m_emissiveColor = dwColor; }
 std::uint32_t __stdcall CoD3DDeviceDX11::GetEmissiveColor() { return 0xff000000; }
 
-void __stdcall CoD3DDeviceDX11::BeginPerformanceAnalyze() {}
-void __stdcall CoD3DDeviceDX11::EndPerformanceAnalyze() {}
+void __stdcall CoD3DDeviceDX11::BeginPerformanceAnalyze() {
+    m_inPerfAnalyze = true;
+    MLOG_DEBUG("[renderer] BeginPerformanceAnalyze: started");
+}
+void __stdcall CoD3DDeviceDX11::EndPerformanceAnalyze() {
+    m_inPerfAnalyze = false;
+    MLOG_DEBUG("[renderer] EndPerformanceAnalyze: ended");
+}
 
 BOOL __stdcall CoD3DDeviceDX11::CaptureScreen(char* szFileName) {
     if (!m_dev || !szFileName) return FALSE;
@@ -1050,11 +1056,34 @@ BOOL __stdcall CoD3DDeviceDX11::ConvertCompressedTexture(char* szFileName, std::
               outPath, dds.size());
     return TRUE;
 }
-void __stdcall CoD3DDeviceDX11::EnableSpecular(float /*f*/) {}
-void __stdcall CoD3DDeviceDX11::DisableSpecular() {}
-void __stdcall CoD3DDeviceDX11::SetVerticalSync(BOOL bSwitch) { m_vsync = bSwitch; }
+void __stdcall CoD3DDeviceDX11::EnableSpecular(float fVal) {
+    m_specularEnabled = true;
+    m_specularShininess = fVal;
+    MLOG_DEBUG("[renderer] EnableSpecular: enabled, shininess=%.1f", fVal);
+}
+void __stdcall CoD3DDeviceDX11::DisableSpecular() {
+    m_specularEnabled = false;
+    MLOG_DEBUG("[renderer] DisableSpecular: disabled");
+}
+void __stdcall CoD3DDeviceDX11::SetVerticalSync(BOOL bSwitch) {
+    m_vsync = bSwitch;
+    if (m_dev) m_dev->setVSync(bSwitch);
+}
 BOOL __stdcall CoD3DDeviceDX11::IsSetVerticalSync() { return m_vsync; }
-void __stdcall CoD3DDeviceDX11::ResetDevice(BOOL /*bTest*/) { /* Phase 5 stub */ }
+void __stdcall CoD3DDeviceDX11::ResetDevice(BOOL bTest) {
+    if (!m_dev) return;
+    if (!bTest) {
+        // Real reset: destroy and recreate device + swap chain + render targets.
+        // The caller wants a clean state, so release everything and let Create() be
+        // called again by the application.
+        m_dev->release();
+        MLOG_INFO("[renderer] ResetDevice: device released (application must call Create again)");
+    } else {
+        // Test mode: just validate device is alive.
+        MLOG_DEBUG("[renderer] ResetDevice test: device=%p, alive=%s",
+                  m_dev.get(), m_dev->rawDevice() ? "yes" : "no");
+    }
+}
 void __stdcall CoD3DDeviceDX11::SetFreeVBCacheRate(float fVal) { m_freeVBCacheRate = fVal; }
 float __stdcall CoD3DDeviceDX11::GetFreeVBCacheRate() { return m_freeVBCacheRate; }
 std::uint32_t __stdcall CoD3DDeviceDX11::ClearVBCacheWithIDIMeshObject(IDIMeshObject* pMeshObj) {
@@ -1092,7 +1121,10 @@ BOOL __stdcall CoD3DDeviceDX11::GetD3DDevice(REFIID refiid, void** ppVoid) {
 }
 
 BOOL __stdcall CoD3DDeviceDX11::InitializeRenderTarget(std::uint32_t /*s*/, std::uint32_t /*n*/) { return TRUE; }
-void __stdcall CoD3DDeviceDX11::SetRenderTextureMustUpdate(BOOL /*b*/) {}
+void __stdcall CoD3DDeviceDX11::SetRenderTextureMustUpdate(BOOL b) {
+    m_renderTextureMustUpdate = (b != FALSE);
+    MLOG_DEBUG("[renderer] SetRenderTextureMustUpdate: %s", m_renderTextureMustUpdate ? "ON" : "OFF");
+}
 void __stdcall CoD3DDeviceDX11::SetAlphaRefValue(std::uint32_t v) { m_alphaRefValue = v; }
 
 BOOL __stdcall CoD3DDeviceDX11::SetLoadFailedTextureTable(TEXTURE_TABLE* /*p*/, std::uint32_t /*n*/) { return TRUE; }

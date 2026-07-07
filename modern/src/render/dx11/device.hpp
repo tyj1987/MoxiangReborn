@@ -31,6 +31,7 @@ class Device {
 public:
     Device() = default;
     ~Device();
+    void release();  // Release all GPU resources (called by ResetDevice)
 
     // Initialize DX11 device + swap chain. Returns false if the GPU/Driver
     // rejects the requested format (e.g. user requests 32-bit color on a 16-bit
@@ -44,6 +45,7 @@ public:
     void endFrame();
 
     void present(HWND hWnd);
+    void setVSync(BOOL vsync);
     void updateWindowSize();
 
     // Viewport + matrices for 3D rendering.
@@ -118,6 +120,7 @@ private:
     std::uint16_t m_width  = 0;
     std::uint16_t m_height = 0;
     HWND         m_hwnd    = nullptr;
+    BOOL         m_vsync  = TRUE;   // vertical sync: TRUE=wait, FALSE=immediate
 
     MATRIX4 m_matView{};
     MATRIX4 m_matProj{};

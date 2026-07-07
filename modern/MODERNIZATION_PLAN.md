@@ -205,24 +205,22 @@ MHClient.exe (WinMain)
 
 
 
-##### Phase 5 当前状态摘要（2026-07-15 更新）
+##### Phase 5 当前状态摘要（2026-07-08 更新）
 
-**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + HeightField + EffectShaderPalette + MaterialSystem + ShadowMap + CaptureScreen + DynamicLightSystem + TriBufferPipeline + RenderState存取器 + Ambient/Emissive Light + DirectXTex DDS 支持 + ctest 集成。Debug 测试 **99/99 PASS**。
+**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + HeightField + EffectShaderPalette + MaterialSystem + ShadowMap + CaptureScreen + DynamicLightSystem + TriBufferPipeline + VSync + Specular + ResetDevice + PerformanceAnalyze + RenderTextureMustUpdate + DirectXTex DDS 支持 + ctest 集成。Debug 测试 **99/99 PASS**。
 
-**Phase 5.8 完成内容**：
-- ClearVBCacheWithIDIMeshObject ✅ (MeshObject::releaseBuffers, releases VB+IB+faceGroups)
-- EnableDirectionalLight ✅ (stores bEnable + dwAmbient + dwSpecular in renderer state)
-- DisableDirectionalLight ✅ (sets m_directionalLightEnabled = false)
-- SetAmbientColor ✅ / GetAmbientColor ✅ (stores/returns 0xAABBGGRR ambient)
-- SetEmissiveColor ✅ / GetEmissiveColor ✅ (stores/returns 0xAABBGGRR emissive)
-- buildLightCB wired ✅ (uses m_ambientColor, m_emissiveColor, color_to_float4)
-- Present ✅ (already calls m_dev->present with vsync)
-- ConvertCompressedTexture ✅ (TGA/BMP -> saveDDS, DDS passthrough)
-- saveDDS ✅ (DDS file writer, BGRA pixel data, DX10 header)
-- GetD3DDevice ✅ (IUnknown + ID3D11Device + ID3D11DeviceContext)
-- Render state getters/setters ✅ (SetShadowFlag/GetShadowFlag, SetLightMapFlag/GetLightMapFlag, SetRenderMode/GetRenderMode already storing to members)
+**Phase 5.9 完成内容**：
+- Device::setVSync ✅ + m_vsync ✅ (VSync flag stored in Device, used in Present)
+- Device::release ✅ (releases all ComPtr GPU resources for clean reset)
+- ResetDevice ✅ (real impl: m_dev->release() when !bTest, test-mode log when bTest)
+- EnableSpecular ✅ (m_specularEnabled=true, m_specularShininess=fVal)
+- DisableSpecular ✅ (m_specularEnabled=false)
+- SetRenderTextureMustUpdate ✅ (stores flag, logs debug message)
+- BeginPerformanceAnalyze ✅ / EndPerformanceAnalyze ✅ (m_inPerfAnalyze gate)
+- SetVerticalSync wired ✅ (calls m_dev->setVSync when set)
+- Present VSync wired ✅ (uses m_vsync: 1=wait, 0=immediate)
 
-**Phase 5.3-5.7 完成内容**：
+**Phase 5.3-5.8 完成内容**：
 - Effect Shader Palette ✅ (IDIEffect, wave/spheremap texture matrix)
 - HeightField ✅ (LOD tile system, bilinear height sampling)
 - CreateMaterialSet / CreateMaterial / DeleteMaterial ✅
@@ -233,6 +231,14 @@ MHClient.exe (WinMain)
 - WIN32_LEAN_AND_MEAN guard ✅
 - Dynamic Light System ✅ (8-slot light array, CreateDynamicLight/DeleteDynamicLight)
 - TriBuffer Pipeline ✅ (AllocRenderTriBuffer/Enable/Disable/Free)
+- ClearVBCacheWithIDIMeshObject ✅ (MeshObject::releaseBuffers)
+- EnableDirectionalLight ✅ / DisableDirectionalLight ✅
+- SetAmbientColor ✅ / GetAmbientColor ✅
+- SetEmissiveColor ✅ / GetEmissiveColor ✅
+- buildLightCB wired ✅ (uses real renderer state)
+- ConvertCompressedTexture ✅ (TGA/BMP → saveDDS, DDS passthrough)
+- saveDDS ✅ (DDS file writer, BGRA pixel data, DX10 header)
+- GetD3DDevice ✅ (IUnknown + ID3D11Device + ID3D11DeviceContext)
 
 **已知限制 (stubs / deferred)**：
 
@@ -243,7 +249,6 @@ MHClient.exe (WinMain)
 | InitializeRenderTarget | render-to-texture pool | deferred | tex pool |
 | SetLoadFailedTextureTable | error texture fallback | deferred | 错误纹理 |
 | ConvertCompressedTexture (BC real) | BC1-BC7 real compression | deferred | DirectXTex BCEncode |
-| EnableSpecular/DisableSpecular | specular lighting toggle | deferred | PS shader 支持 |
 | SetRTLight / SetAttentuation0 | per-geometry light | deferred | 逐物体光照 |
 
 **测试统计**：
