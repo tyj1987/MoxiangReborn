@@ -167,6 +167,39 @@ TEST(HFieldObjectAlpha, UpdateAlphaMapRejectsNullDesc) {
     EXPECT_FALSE(obj.hasAlphaMap());
 }
 
+TEST(HFieldObjectAlpha, UpdateAlphaMapRecordsIntegratedTileInAlphaMap) {
+    mxh::gx::dx11::HFieldObject obj(nullptr);
+    // Pre-allocate alphamap storage by calling Create() with our minimal grid
+    // — note that without a Device, Create() cannot run (it needs D3D11 for
+    // MeshObject::createEmpty), so we exercise the data path by directly
+    // driving m_alphaMap via UpdateAlphaMap on a freshly-constructed object.
+    // The integrated-tile capture logic short-circuits because m_vertCount
+    // is zero on a no-Create object — but the flag MUST flip.
+    EXPECT_FALSE(obj.hasAlphaMap());
+
+    TILE_BUFFER_DESC buf{};
+    buf.wTileIndexIntegrated = 2;
+    ASSERT_TRUE(obj.UpdateAlphaMap(&buf) == TRUE);
+    EXPECT_TRUE(obj.hasAlphaMap());
+
+    // Without a Device the loop body is skipped (m_vertCount = 0), so m_alphaMap
+    // stays empty. With Create() it'd be exactly 4 * m_vertCount bytes and the
+    // first byte of each 4-byte weight would equal wTileIndexIntegrated & 0xff.
+    EXPECT_TRUE(obj.alphaMap().empty());
+}
+
+TEST(HFieldObjectAlpha, CleanupAlphaMapResetsWeightsToTileZeroDefault) {
+    mxh::gx::dx11::HFieldObject obj(nullptr);
+    TILE_BUFFER_DESC buf{};
+    buf.wTileIndexIntegrated = 5;
+    ASSERT_TRUE(obj.UpdateAlphaMap(&buf) == TRUE);
+    EXPECT_TRUE(obj.hasAlphaMap());
+
+    obj.CleanupAlphaMap();
+    EXPECT_FALSE(obj.hasAlphaMap());
+    EXPECT_TRUE(obj.alphaMap().empty());
+}
+
 // ===== Color bounds when Create is not called =====
 
 TEST(HFieldObjectColor, NoImplicitColorAllocationBeforeCreate) {

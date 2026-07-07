@@ -177,9 +177,20 @@ void __stdcall HFieldObject::SetMustUpdate() { m_mustUpdate = true; }
 BOOL __stdcall HFieldObject::UpdateAlphaMap(TILE_BUFFER_DESC* pTileBufferDesc) {
     if (!pTileBufferDesc) return FALSE;
     m_hasAlphaMap = true;
-    MLOG_DEBUG("[hfield] UpdateAlphaMap tile=%u integrated=%u (Phase 5.9a: weights are placeholders)",
-               pTileBufferDesc->wTileIndexIntegrated,
-               pTileBufferDesc->wTileIndexIntegrated);
+    // Phase 5.9c: stash per-vertex 4-tile blend weights from the descriptor so
+    // a future shader uniform can read them. Until the PS is wired for tile
+    // blending, this just records the data — the renderer ignores alphaMap.
+    const std::uint32_t integrated = pTileBufferDesc->wTileIndexIntegrated;
+    if (m_alphaMap.size() != m_vertCount * 4) {
+        m_alphaMap.assign(m_vertCount * 4, 0);
+    }
+    for (std::uint32_t i = 0; i < m_vertCount; ++i) {
+        m_alphaMap[i * 4 + 0] = static_cast<std::uint8_t>(integrated & 0xff);
+        // Tiles 1-3 default to 0 until the descriptor pipeline feeds per-tile
+        // weights (out of scope for Phase 5.9c, but the storage is here).
+    }
+    MLOG_DEBUG("[hfield] UpdateAlphaMap integrated tile=%u verts=%u",
+               integrated, m_vertCount);
     return TRUE;
 }
 

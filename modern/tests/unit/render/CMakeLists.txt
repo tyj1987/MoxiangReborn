@@ -101,6 +101,8 @@ gtest_add_tests(TARGET mxh_render_tests
     HFieldObjectStateSetters.DetailLevelDistanceMaskMustUpdateAreNoop
     HFieldObjectAlpha.UpdateAlphaMapTogglesFlagThenCleanupResets
     HFieldObjectAlpha.UpdateAlphaMapRejectsNullDesc
+    HFieldObjectAlpha.UpdateAlphaMapRecordsIntegratedTileInAlphaMap
+    HFieldObjectAlpha.CleanupAlphaMapResetsWeightsToTileZeroDefault
     HFieldObjectColor.NoImplicitColorAllocationBeforeCreate
     HFieldObjectMath.IndexCountIsSixTimesFacesWhenCreated
     HeightFieldPoolCaps.ConstantValuesMatchLegacyArraySize
