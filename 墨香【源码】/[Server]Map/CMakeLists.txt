@@ -93,7 +93,45 @@ if(MSVC)
     # Per-config options are attached at the target level (generator
     # expressions) so /O2 (Release) and /RTC1 (Debug) never collide.
     # /W3 /FS /MP are config-agnostic so they can stay global.
-    add_compile_options(/W3 /FS /MP)
+    # /source-charset:utf-8 (Phase 7.5b fix, root cause: mixed-encoding
+    # source files). The legacy 墨香 [Server]Map source tree is a MIX
+    # of three encodings — none of which match MSBuild's default
+    # (system codepage 936 / GBK on the build host):
+    #   - 174 files with cp949 (Korean EUC-KR / Wansung) — Korean
+    #     comments + Korean string literals (e.g. Party.cpp:132
+    #     "파티가 꽉 찾는데 Add하려 했습니다" and FieldBossMonsterManager.cpp:238
+    #     "보스소멸" both in cp949 bytes \xba\xb8\xbd\xba\xbc\xd2\xb8\xea)
+    #   - 3 files with cp936 (Chinese GBK) — comments with Chinese
+    #     characters (Npc.cpp, StreetStall.h, TacticObject.h)
+    #   - 1 file (ServerSystem.cpp) with cp1252 / extended ASCII
+    # The 2f8b648 attempt at adding /source-charset:utf-8 to fix the
+    # cascade only fixed the cases where source bytes happened to
+    # decode as UTF-8; the cp949 bytes (Korean Hangul ranges
+    # \x81-\xFE lead bytes) decode as INVALID in UTF-8, which MSVC's
+    # tokenizer reports as C2001 (newline-in-constant) inside Korean
+    # string literals. That cascade becomes C2143/C2144/C2059/C2601/
+    # C1075 (siblings of the original C2447 cascade) and 67 total
+    # errors at the head of the file stream.
+    #
+    # The actual fix: convert every non-UTF-8 source file in the build
+    # to UTF-8 (lossless for cp949 → UTF-8 since all those bytes are
+    # valid in extended Unicode), then /source-charset:utf-8 is the
+    # ONLY consistent encoding for the whole TU. The transcoding is
+    # done by modern/scripts/convert_map_sources_to_utf8.py (called
+    # once during this phase; idempotent on re-run). 174 files were
+    # transcoded cp949 → UTF-8 + 1 cp1252 → UTF-8 + 3 cp936 → UTF-8
+    # in [Server]Map, plus 100+ cross-directory files in
+    # [CC]Ability / [CC]BattleSystem / [CC]Header / [CC]Quest /
+    # [CC]ServerModule / [CC]Skill / [CC]Suryun.
+    #
+    # Note: we keep /execution-charset at the default (system code
+    # page / GBK) because the legacy code uses char* string literals
+    # and MBCS APIs — flipping execution-charset to UTF-8 would
+    # change the encoding of "..." string literals and break the MBCS
+    # string handling. /source-charset:utf-8 alone is the surgical
+    # fix. See modern/docs/phase7.5b_map_build_fix.md for the full
+    # diagnostic.
+    add_compile_options(/W3 /FS /MP /source-charset:utf-8)
 endif()
 
 # -----------------------------------------------------------------------------
