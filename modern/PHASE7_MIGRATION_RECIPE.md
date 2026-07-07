@@ -22,7 +22,8 @@ first; MFC / engine DLLs / game servers later.
 | 7.2   | `4Dyuchi*` engines   | FilePack / FileStorage / Geometry / MapEditor / GX_Render |
 | 7.3   | `[Server]Distribute` / `Agent` / `Map` / `[Monitoring]Server` | Multi-component server rebuilds |
 | 7.4   | `[Client]MH` / `MHAutoPatch` / `Selupdate` | MFC clients (Phase 6 path) |
-| 7.5   | `[Tool]*` (PackingMan / Regen / DS_RMTool / AutoPatch / anmexp / maxexp) | Tooling |
+| 7.5   | `[Server]Map` (per-map game-world server, 313 cpp) | **DONE** — see `modern/docs/phase7.5_map_migration.md`. The legacy Release build was always broken (ChannelSystem.cpp + CommonStruct.h KOR-only fields), so we ship the Debug_Console (KOR) target instead. |
+| 7.5b  | `[Tool]*` (PackingMan / Regen / DS_RMTool / AutoPatch / anmexp / maxexp) | Tooling |
 
 ## 2. Inventory the legacy `.vcproj`
 
@@ -150,6 +151,7 @@ what actually shipped.
 | `4DyuchiGXMapEditor`     | SKIPPED       | n/a              | n/a                                                | n/a                                                   | MFC editor; MFC unavailable.                                                                  |
 | `4DyuchiNET_Latest`       | **DONE** (7.2)| VS17 / x86       | `modern/scripts/build_net.py`                      | `4DyuchiNET.dll` 150,016 bytes                       | C-19..C-26 (see `docs/KNOWN_BUGS.md`) — interface drift from `[CC]ServerModule/inetwork.h`; legacy Code_GUI mirror; odbc link leftover; lost constants; dead PauseTimer impl; missing `PPVOID` typedef; CUSTOM_EVENT/EVENTCALLBACK field-type swap (layout byte-identical). |
 | `[Server]Distribute` ‡     | **DONE** (7.4a)| VS17 / x86      | `modern/scripts/build_distribute.py`               | `DistributeServer.exe` 204,800 bytes                 | C-27/C-28/C-29 (compile: ErrorMsg stub, /Zc:forScope-, /wd4596+3244+3254) + D-1/D-2/D-3 (polish: LOG-undef shim, YHLibrary x64→x86 rebuild, Debug locale mfc71.lib out-of-scope). |
+| `[Server]Map` §           | **RECIPE DONE** (7.5)| VS17 / x86 | `modern/scripts/build_map.py` (gate task owns build) | `MapServer.exe` *(gate produces)*                | Same Distribute shims (C-27/C-28/C-29 + D-1 LOG-undef); 251 cpp (188 [Server]Map + 7 ServerModule + 7 Header + 21 Quest + 25 BattleSystem + 3 Suryun); cross-dir list omits [CC]Ability/[CC]Skill from recipe scope (legacy vcproj pulls them but Phase 7.5 producer scope cuts to 5 enumerated dirs). |
 
 † **`[Lib]BaseNetwork` — CMakeLists commit provenance & Phase 7 gate (2026-07-07).**
 The `墨香【源码】/[Lib]BaseNetwork/CMakeLists.txt` (139 lines) was committed
@@ -233,3 +235,14 @@ All known issues are recorded in `docs/KNOWN_BUGS.md` under
 - C-4 to C-6: YHLibrary
 - C-7 to C-11: BaseNetwork
 - C-12 to C-14: DBThread
+- C-15 to C-18: FileStorage (Phase 7.2)
+- C-19 to C-26: 4DyuchiNET (Phase 7.2)
+- C-27 to C-29: Distribute (Phase 7.4a)
+- **C-30: Map's legacy Release config (Phase 7.5)** — `MSG_CHANNEL_INFO`
+  fields `bBattleChannel[]`/`wMoveMapNum`/`dwChangeMapState` are
+  `#ifdef _KOR_LOCAL_` in `CommonStruct.h:3465`, but
+  `ChannelSystem.cpp:237/372/377/378/437` access them WITHOUT any
+  guard. Legacy Release never worked; SWorking/MapServer.exe was
+  built from Debug_Console (KOR).
+- D-1 to D-5: Phase 7.4a + 7.5 polish (LOG-undef shim, locale macro
+  notes, etc.).
