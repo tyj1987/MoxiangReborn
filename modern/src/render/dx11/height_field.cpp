@@ -5,6 +5,7 @@
 #include "hfield_object.hpp"
 #include "mesh_object.hpp"
 #include "primitives.hpp"
+#include "texture_loader.hpp"
 
 #include "mxh/log/mlog.hpp"
 
@@ -138,7 +139,68 @@ HeightField::HeightField(Device* dev) : m_dev(dev) {}
 
 HeightField::~HeightField() {
     m_chunks.clear();
+    m_hFieldObjects.clear();
     m_tileTextures.clear();
+
+    // Unmap any still-mapped IBs to keep D3D11 happy at teardown.
+    if (m_dev && m_dev->rawContext()) {
+        for (auto& kv : m_ibPool) {
+            if (kv.second.mapped && kv.second.buffer) {
+                m_dev->rawContext()->Unmap(kv.second.buffer.Get(), 0);
+                kv.second.mapped = false;
+            }
+        }
+    }
+    m_ibPool.clear();
+}
+
+std::uint64_t HeightField::makePoolKey(std::uint32_t lod, std::uint32_t posMask) {
+    return (static_cast<std::uint64_t>(lod) << 32) | posMask;
+}
+
+HeightField::PooledIB* HeightField::getOrCreatePoolEntry(std::uint32_t lod,
+                                                        std::uint32_t posMask,
+                                                        std::uint32_t capacity) {
+    if (!m_dev || posMask >= kMaxPosMasks) return nullptr;
+    auto it = m_ibPool.find({ lod, posMask });
+    if (it != m_ibPool.end()) {
+        if (capacity > it->second.capacity) {
+            // Reallocate: mark unmapped + resize the GPU buffer + the shadow.
+            if (it->second.mapped && m_dev->rawContext() && it->second.buffer) {
+                m_dev->rawContext()->Unmap(it->second.buffer.Get(), 0);
+                it->second.mapped = false;
+            }
+            D3D11_BUFFER_DESC bd{};
+            bd.ByteWidth      = capacity * sizeof(std::uint16_t);
+            bd.Usage          = D3D11_USAGE_DYNAMIC;
+            bd.BindFlags      = D3D11_BIND_INDEX_BUFFER;
+            bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+            if (FAILED(m_dev->rawDevice()->CreateBuffer(&bd, nullptr,
+                                                          it->second.buffer.GetAddressOf()))) {
+                m_ibPool.erase(it);
+                return nullptr;
+            }
+            it->second.capacity = capacity;
+            it->second.shadow.assign(capacity, 0);
+        }
+        return &it->second;
+    }
+
+    D3D11_BUFFER_DESC bd{};
+    bd.ByteWidth      = capacity * sizeof(std::uint16_t);
+    bd.Usage          = D3D11_USAGE_DYNAMIC;
+    bd.BindFlags      = D3D11_BIND_INDEX_BUFFER;
+    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    PooledIB entry;
+    entry.capacity = capacity;
+    entry.shadow.assign(capacity, 0);
+    if (FAILED(m_dev->rawDevice()->CreateBuffer(&bd, nullptr,
+                                                  entry.buffer.GetAddressOf()))) {
+        return nullptr;
+    }
+    auto [insertedIt, _] = m_ibPool.emplace(PoolKey{ lod, posMask }, std::move(entry));
+    return &insertedIt->second;
 }
 
 STDMETHODIMP HeightField::QueryInterface(REFIID riid, void** ppv) {
@@ -226,12 +288,111 @@ IDIMeshObject* __stdcall HeightField::CreateHeightFieldObject(HFIELD_OBJECT_DESC
     return meshIface;
 }
 
-BOOL __stdcall HeightField::InitiallizeIndexBufferPool(std::uint32_t, std::uint32_t, std::uint32_t) { return TRUE; }
-BOOL __stdcall HeightField::LoadTilePalette(TEXTURE_TABLE*, std::uint32_t) { return TRUE; }
-BOOL __stdcall HeightField::ReplaceTile(char*, std::uint32_t) { return TRUE; }
-BOOL __stdcall HeightField::CreateIndexBuffer(std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) { return TRUE; }
-BOOL __stdcall HeightField::LockIndexBufferPtr(std::uint16_t**, std::uint32_t, std::uint32_t) { return FALSE; }
-void __stdcall HeightField::UnlcokIndexBufferPtr(std::uint32_t, std::uint32_t) {}
+BOOL __stdcall HeightField::InitiallizeIndexBufferPool(std::uint32_t dwDetailLevel,
+                                                       std::uint32_t dwIndicesNum,
+                                                       std::uint32_t dwNum) {
+    if (!m_dev || dwDetailLevel >= kMaxLodSlots) return FALSE;
+    if (dwIndicesNum == 0 || dwNum == 0) return FALSE;
+
+    // Pre-allocate `dwNum` IBs at posMask 0..dwNum-1 (consecutive posMask range).
+    for (std::uint32_t pm = 0; pm < dwNum; ++pm) {
+        if (pm >= kMaxPosMasks) break;
+        PooledIB* entry = getOrCreatePoolEntry(dwDetailLevel, pm, dwIndicesNum);
+        if (!entry) return FALSE;
+    }
+    MLOG_DEBUG("[heightfield] InitiallizeIndexBufferPool: lod=%u indices=%u num=%u",
+               dwDetailLevel, dwIndicesNum, dwNum);
+    return TRUE;
+}
+
+BOOL __stdcall HeightField::CreateIndexBuffer(std::uint32_t dwIndicesNum,
+                                              std::uint32_t dwDetailLevel,
+                                              std::uint32_t dwPosMask,
+                                              std::uint32_t dwNum) {
+    if (!m_dev || dwDetailLevel >= kMaxLodSlots || dwPosMask >= kMaxPosMasks) return FALSE;
+    if (dwIndicesNum == 0 || dwNum == 0) return FALSE;
+    for (std::uint32_t i = 0; i < dwNum; ++i) {
+        std::uint32_t pm = dwPosMask + i;
+        if (pm >= kMaxPosMasks) break;
+        PooledIB* entry = getOrCreatePoolEntry(dwDetailLevel, pm, dwIndicesNum);
+        if (!entry) return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL __stdcall HeightField::LockIndexBufferPtr(std::uint16_t** ppWord,
+                                                std::uint32_t dwDetailLevel,
+                                                std::uint32_t dwPosMask) {
+    if (!ppWord || dwDetailLevel >= kMaxLodSlots || dwPosMask >= kMaxPosMasks) return FALSE;
+    auto it = m_ibPool.find({ dwDetailLevel, dwPosMask });
+    if (it == m_ibPool.end()) return FALSE;
+    PooledIB& entry = it->second;
+    if (!entry.buffer || !m_dev) return FALSE;
+    auto* ctx = m_dev->rawContext();
+    if (!ctx) return FALSE;
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(ctx->Map(entry.buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        return FALSE;
+    }
+    entry.mapped = true;
+    // Caller writes into the returned pointer; we mirror to shadow on Unmap.
+    *ppWord = static_cast<std::uint16_t*>(mapped.pData);
+    return TRUE;
+}
+
+void __stdcall HeightField::UnlcokIndexBufferPtr(std::uint32_t dwDetailLevel,
+                                                 std::uint32_t dwPosMask) {
+    auto it = m_ibPool.find({ dwDetailLevel, dwPosMask });
+    if (it == m_ibPool.end()) return;
+    PooledIB& entry = it->second;
+    if (!entry.mapped || !entry.buffer || !m_dev) return;
+    auto* ctx = m_dev->rawContext();
+    if (!ctx) return;
+    // Copy current GPU contents into the CPU shadow before unmap (so subsequent
+    // CPU queries see consistent state if the caller didn't fill the whole buffer).
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (SUCCEEDED(ctx->Map(entry.buffer.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+        const std::size_t byteCount = static_cast<std::size_t>(entry.capacity) * sizeof(std::uint16_t);
+        if (entry.shadow.size() < entry.capacity) entry.shadow.resize(entry.capacity);
+        std::memcpy(entry.shadow.data(), mapped.pData, byteCount);
+        ctx->Unmap(entry.buffer.Get(), 0);
+        entry.mapped = false;
+    }
+}
+
+BOOL __stdcall HeightField::LoadTilePalette(TEXTURE_TABLE* pTexTable,
+                                            std::uint32_t dwTileTextureNum) {
+    if (!m_dev || !pTexTable || dwTileTextureNum == 0) return FALSE;
+    m_tileTextures.clear();
+    m_tileTextures.reserve(dwTileTextureNum);
+    for (std::uint32_t i = 0; i < dwTileTextureNum; ++i) {
+        TileTexture tile;
+        const char* path = pTexTable[i].szTextureName;     // matches legacy TEXTURE_TABLE::szTextureName
+        if (path != nullptr && path[0] != '\0') {
+            tile.name = path;
+            tile.srv = m_dev->createTextureFromFile(path);
+        }
+        m_tileTextures.push_back(std::move(tile));
+    }
+    MLOG_DEBUG("[heightfield] LoadTilePalette: %u tiles (loaded %zu with SRV)",
+               dwTileTextureNum,
+               std::count_if(m_tileTextures.begin(), m_tileTextures.end(),
+                             [](const TileTexture& t) { return t.srv != nullptr; }));
+    return TRUE;
+}
+
+BOOL __stdcall HeightField::ReplaceTile(char* szFileName, std::uint32_t dwTexIndex) {
+    if (!m_dev || !szFileName || dwTexIndex >= m_tileTextures.size()) return FALSE;
+    m_tileTextures[dwTexIndex].name = szFileName;
+    auto srv = m_dev->createTextureFromFile(szFileName);
+    if (!srv) {
+        MLOG_WARN("[heightfield] ReplaceTile[%u]: failed to load '%s'", dwTexIndex, szFileName);
+        return FALSE;
+    }
+    m_tileTextures[dwTexIndex].srv = srv;
+    return TRUE;
+}
 BOOL __stdcall HeightField::RenderGrid(VECTOR3*, std::uint32_t, std::uint32_t) { return TRUE; }
 void __stdcall HeightField::SetHFieldTileBlend(BOOL b) { m_tileBlendEnabled = !!b; }
 BOOL __stdcall HeightField::IsEnableHFieldTileBlend() { return m_tileBlendEnabled ? TRUE : FALSE; }

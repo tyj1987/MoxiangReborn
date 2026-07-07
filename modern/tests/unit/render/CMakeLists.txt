@@ -4,6 +4,7 @@
     font_object_test.cpp
     height_field_test.cpp
     hfield_object_test.cpp
+    height_field_pool_test.cpp
     effect_shader_test.cpp
     material_test.cpp
     dynamic_light_test.cpp
@@ -102,4 +103,12 @@ gtest_add_tests(TARGET mxh_render_tests
     HFieldObjectAlpha.UpdateAlphaMapRejectsNullDesc
     HFieldObjectColor.NoImplicitColorAllocationBeforeCreate
     HFieldObjectMath.IndexCountIsSixTimesFacesWhenCreated
+    HeightFieldPoolCaps.ConstantValuesMatchLegacyArraySize
+    HeightFieldPoolGuards.InitiallizeRejectsZeroIndices
+    HeightFieldPoolGuards.CreateRejectsOutOfRange
+    HeightFieldPoolGuards.LockRequiresExistingEntry
+    HeightFieldPoolGuards.UnlockWithoutLockIsNoop
+    HeightFieldManagerUtilities.MakePoolKeyEncodesLodAndPosMask
+    HeightFieldManagerUtilities.MakePoolKeyHandlesMaxLod
+    HeightFieldTilePalette.LoadRejectsNullInputs
 )

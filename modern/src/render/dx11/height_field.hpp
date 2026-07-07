@@ -1,6 +1,18 @@
 // mxh/render/dx11/height_field.hpp
 // IDIHeightField DX11 implementation.
 //
+// Phase 5.9b adds the IB pool: a (lod, posMask) → D3D11 IB dictionary. Lock/Unlock
+// return a CPU pointer (D3D11_MAP_WRITE_DISCARD) that callers fill in. The pool
+// doubles as the lookup table for the in-flight map when the GPU side reads.
+//
+// Also adds real tile-palette loading: LoadTilePalette walks TEXTURE_TABLE file
+// paths via texture_loader's auto-detect (TGA, etc.) and stores SRVs.
+//
+// Excluded from Phase 5.9b (deferred):
+//   - Streaming hash tree on top of the pool for fast (lod, posMask) lookup
+//     across >256 chunks (we use std::map<std::pair<>> which is fine at the
+//     sizes the legacy engine actually used).
+//
 // Original: 墨香【源码】\4DYUCHIGX_RENDER\HFieldManager.h
 //
 // Design (Phase 5 simplified):
@@ -28,6 +40,8 @@
 
 #include "mxh/render/IRenderer.hpp"
 #include "mxh/render/render_typedef.hpp"
+
+#include <map>
 
 namespace mxh::gx::dx11 {
 
@@ -110,6 +124,10 @@ public:
     void setViewProj(const MATRIX4& vp) { m_viewProj = vp; }
     void renderChunks(const MATRIX4& worldMatrix);
 
+    // Phase 5.9b pool caps, public so tests + callers can size their inputs.
+    static constexpr std::uint32_t kMaxPosMasks = 16;        // legacy m_IndexTable[lod][16]
+    static constexpr std::uint32_t kMaxLodSlots = 8;         // legacy detail-level cap
+
 private:
     Device*                           m_dev = nullptr;
     HFIELD_DESC                       m_desc{};
@@ -131,6 +149,27 @@ private:
     };
     std::vector<TileTexture>          m_tileTextures;
     bool                             m_tileBlendEnabled = false;
+
+    // ----- Phase 5.9b: IB pool + mapped pointers -----
+    //
+    // (lodLevel, posMask) → one PooledIB. Each is a D3D11_USAGE_DYNAMIC IB; Lock
+    // returns the CPU pointer for in-place writes, Unmap persists a CPU shadow
+    // so the pool stays queryable after the GPU has read the buffer.
+    struct PooledIB {
+        Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+        std::vector<std::uint16_t>          shadow;        // last CPU-known contents
+        std::uint32_t                        capacity = 0;
+        bool                                mapped = false;
+    };
+
+    using PoolKey = std::pair<std::uint32_t, std::uint32_t>;  // (lod, posMask)
+    std::map<PoolKey, PooledIB>   m_ibPool;
+
+    // Helper: get or create a pool entry at (lod, posMask) with given capacity.
+    // If it already exists, capacity is increased only if requested > current.
+    PooledIB* getOrCreatePoolEntry(std::uint32_t lod, std::uint32_t posMask,
+                                    std::uint32_t capacity);
+    static std::uint64_t makePoolKey(std::uint32_t lod, std::uint32_t posMask);
 
     MATRIX4                           m_viewProj = {};
     bool                             m_initialized = false;
