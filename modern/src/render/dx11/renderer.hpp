@@ -209,6 +209,11 @@ private:
     // Helper: shut down all material sets (called from destructor / ResetDevice).
     void shutdownMaterials();
 
+    // Helper: build + bind a transient D3D11 dynamic vertex buffer for untextured
+    // debug triangles (RenderTriVector3 / RenderTriIvertex), then issue Draw().
+    // Each vert must be 16 bytes: pos(float3) + packed RGBA byte (uint32).
+    BOOL drawSolidTrisImpl(const void* verts, std::uint32_t vertCount);
+
     // -------------------------------------------------------------------------
     // Dynamic Light management.
     // -------------------------------------------------------------------------

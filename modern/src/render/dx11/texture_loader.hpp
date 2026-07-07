@@ -25,4 +25,10 @@ LoadedTexture loadTextureFromMemory(const std::uint8_t* data, std::uint32_t size
 // Returns the encoded bytes on success, empty vector on failure.
 std::vector<std::uint8_t> saveTGA(const LoadedTexture& tex);
 
+// Encode a LoadedTexture to an uncompressed .DDS file (legacy DDS_HEADER + raw
+// BGRA8 pixels). No actual DXT/BC compression — for the Phase 5 in-process
+// build-time tool we accept uncompressed rewrap; real BC1/BC7 needs DirectXTex.
+// Returns the encoded bytes on success, empty vector on failure.
+std::vector<std::uint8_t> saveDDS(const LoadedTexture& tex);
+
 } // namespace mxh::gx::dx11

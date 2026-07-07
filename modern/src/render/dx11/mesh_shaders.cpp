@@ -151,6 +151,66 @@ bool MeshShaders::init(ID3D11Device* device) {
     if (FAILED(device->CreateInputLayout(layout, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &ilLit)))
         return false;
 
+    // 3D solid-color shaders (debug / RenderTri* path). Input = pos3 + packed RGBA.
+    static const char* kVS_3DSolid = R"(
+struct VSInput {
+    float3 pos : POSITION;
+    float4 col : COLOR0;
+};
+struct VSOutput {
+    float4 pos : SV_Position;
+    float4 col : COLOR0;
+};
+cbuffer CBViewProj : register(b0) {
+    float4x4 viewProj;
+};
+VSOutput main(VSInput i) {
+    VSOutput o;
+    o.pos = mul(float4(i.pos, 1.0), viewProj);
+    o.col = i.col;
+    return o;
+}
+)";
+    static const char* kPS_3DSolid = R"(
+struct PSInput {
+    float4 pos : SV_Position;
+    float4 col : COLOR0;
+};
+float4 main(PSInput i) : SV_Target {
+    return i.col;
+}
+)";
+    Microsoft::WRL::ComPtr<ID3DBlob> vs3DBlob;
+    hr = D3DCompile(kVS_3DSolid, strlen(kVS_3DSolid), nullptr, nullptr, nullptr,
+                    "main", "vs_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &vs3DBlob, &err);
+    if (FAILED(hr)) {
+        MLOG_ERROR("[mesh-shader] VS_3DSolid compile failed: %s",
+                   err ? static_cast<const char*>(err->GetBufferPointer()) : "?");
+        return false;
+    }
+    Microsoft::WRL::ComPtr<ID3DBlob> ps3DBlob;
+    hr = D3DCompile(kPS_3DSolid, strlen(kPS_3DSolid), nullptr, nullptr, nullptr,
+                    "main", "ps_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &ps3DBlob, &err);
+    if (FAILED(hr)) {
+        MLOG_ERROR("[mesh-shader] PS_3DSolid compile failed: %s",
+                   err ? static_cast<const char*>(err->GetBufferPointer()) : "?");
+        return false;
+    }
+    if (FAILED(device->CreateVertexShader(vs3DBlob->GetBufferPointer(), vs3DBlob->GetBufferSize(),
+                                          nullptr, &vs3DSolid)))
+        return false;
+    if (FAILED(device->CreatePixelShader(ps3DBlob->GetBufferPointer(), ps3DBlob->GetBufferSize(),
+                                         nullptr, &ps3DSolid)))
+        return false;
+
+    D3D11_INPUT_ELEMENT_DESC layout3D[] = {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM,     0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    };
+    if (FAILED(device->CreateInputLayout(layout3D, 2, vs3DBlob->GetBufferPointer(),
+                                          vs3DBlob->GetBufferSize(), &il3DSolid)))
+        return false;
+
     // Constant buffers.
     auto makeCB = [&](UINT byteWidth, ID3D11Buffer** out) {
         D3D11_BUFFER_DESC cbd{};
@@ -168,6 +228,7 @@ bool MeshShaders::init(ID3D11Device* device) {
 
 void MeshShaders::release() {
     vsLit.Reset(); psLit.Reset(); psEffect.Reset(); ilLit.Reset();
+    vs3DSolid.Reset(); ps3DSolid.Reset(); il3DSolid.Reset();
     cbWorld.Reset(); cbViewProj.Reset(); cbLight.Reset();
 }
 

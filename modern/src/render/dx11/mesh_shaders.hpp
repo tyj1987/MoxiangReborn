@@ -12,6 +12,13 @@ struct MeshShaders {
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psLit;
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psEffect;     // dot3 + effect texture (slot t2)
     Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilLit;
+
+    // 3D solid-color shader pair: input = (pos3, packed RGBA byte).
+    // Used by RenderTriVector3 / RenderTriIvertex for untextured debug triangles.
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> vs3DSolid;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader>  ps3DSolid;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout>  il3DSolid;
+
     Microsoft::WRL::ComPtr<ID3D11Buffer>       cbWorld;       // world matrix
     Microsoft::WRL::ComPtr<ID3D11Buffer>       cbViewProj;    // view*proj
     Microsoft::WRL::ComPtr<ID3D11Buffer>       cbLight;       // light + ambient

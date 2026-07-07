@@ -24,6 +24,40 @@ struct TgaHeader {
 };
 #pragma pack(pop)
 
+// DDS file format reference:
+//   https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds
+// We emit the legacy DDS_HEADER (124 B) with an uncompressed BGRA8 pixel format
+// (no DX10 extension header). Real DXT1/DXT5/BC7 compression is out of scope
+// here — that needs DirectXTex or hand-written block encoders.
+#pragma pack(push, 1)
+struct DdsPixelFormat {
+    std::uint32_t dwSize;          // 32
+    std::uint32_t dwFlags;         // DDPF_ALPHAPIXELS | DDPF_RGB
+    std::uint32_t dwFourCC;
+    std::uint32_t dwRGBBitCount;
+    std::uint32_t dwRBitMask;
+    std::uint32_t dwGBitMask;
+    std::uint32_t dwBBitMask;
+    std::uint32_t dwABitMask;
+};
+struct DdsHeader {
+    std::uint32_t       dwSize;          // 124
+    std::uint32_t       dwFlags;         // DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_PITCH
+    std::uint32_t       dwHeight;
+    std::uint32_t       dwWidth;
+    std::uint32_t       dwPitchOrLinearSize;
+    std::uint32_t       dwDepth;
+    std::uint32_t       dwMipMapCount;
+    std::uint32_t       dwReserved1[11];
+    DdsPixelFormat      ddspf;
+    std::uint32_t       dwCaps;          // DDSCAPS_TEXTURE
+    std::uint32_t       dwCaps2;
+    std::uint32_t       dwCaps3;
+    std::uint32_t       dwCaps4;
+    std::uint32_t       dwReserved2;
+};
+#pragma pack(pop)
+
 namespace mxh::gx::dx11 {
 
 LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size) {
@@ -155,6 +189,70 @@ std::vector<std::uint8_t> saveTGA(const LoadedTexture& tex) {
         *dst++ = g;  // G
         *dst++ = r;  // R
         *dst++ = a;  // A
+    }
+    return out;
+}
+
+// Encode a 32-bit BGRA / RGBA texture as an uncompressed .DDS file (legacy
+// DDS_HEADER, no DX10 extension). The output:
+//   - magic "DDS " (4 B)
+//   - DDS_HEADER (124 B)
+//   - raw top-down BGRA pixels (width * height * 4 B)
+// Caller must write `out` to disk.
+//
+// This is a "passthrough rewrap": we don't actually compress to BC1/BC7.
+// The legacy engine only called this on .tga/.bmp inputs that the resource
+// manager wanted as .dds for the runtime loader. For Phase 5 we accept that
+// the runtime loader also handles uncompressed BGRA8 DDS, so the rewrap alone
+// is enough for behavior compatibility. Real BC compression needs DirectXTex.
+std::vector<std::uint8_t> saveDDS(const LoadedTexture& tex) {
+    if (tex.pixels.empty() || tex.width == 0 || tex.height == 0) return {};
+
+    std::vector<std::uint8_t> out;
+    const std::size_t kMagicAndHeader = 4 + sizeof(DdsHeader);
+    out.resize(kMagicAndHeader + tex.width * tex.height * 4);
+
+    // Magic.
+    out[0] = 'D'; out[1] = 'D'; out[2] = 'S'; out[3] = ' ';
+
+    auto* hdr = reinterpret_cast<DdsHeader*>(out.data() + 4);
+    std::memset(hdr, 0, sizeof(*hdr));
+    hdr->dwSize  = sizeof(DdsHeader);                                   // 124
+    hdr->dwFlags = 0x00000001u | 0x00000002u | 0x00000004u | 0x00001000u; // CAPS|HEIGHT|WIDTH|PIXELFORMAT
+    hdr->dwFlags |= 0x00000008u;                                         // PITCH (linear size for uncompressed)
+    hdr->dwHeight = tex.height;
+    hdr->dwWidth  = tex.width;
+    hdr->dwPitchOrLinearSize = tex.width * 4;                            // BGRA8: 4 B/px
+    hdr->dwDepth  = 0;
+    hdr->dwMipMapCount = 0;
+    // hdr->dwReserved1[11] = {0}
+
+    hdr->ddspf.dwSize  = sizeof(DdsPixelFormat);                         // 32
+    hdr->ddspf.dwFlags = 0x00000001u | 0x00000040u;                      // DDPF_ALPHAPIXELS | DDPF_RGB
+    hdr->ddspf.dwFourCC = 0;
+    hdr->ddspf.dwRGBBitCount = 32;
+    hdr->ddspf.dwRBitMask = 0x00FF0000u;
+    hdr->ddspf.dwGBitMask = 0x0000FF00u;
+    hdr->ddspf.dwBBitMask = 0x000000FFu;
+    hdr->ddspf.dwABitMask = 0xFF000000u;
+
+    hdr->dwCaps = 0x00001000u;                                           // DDSCAPS_TEXTURE
+    // hdr->dwCaps2..dwReserved2 = 0
+
+    // Pixel data: rgba → bgra, top-down (DDS rows go top to bottom).
+    std::uint8_t* dst = out.data() + kMagicAndHeader;
+    for (std::uint32_t y = 0; y < tex.height; ++y) {
+        const std::uint8_t* srcRow = tex.pixels.data() + y * tex.width * 4;
+        for (std::uint32_t x = 0; x < tex.width; ++x) {
+            const std::uint8_t r = srcRow[x * 4 + 0];
+            const std::uint8_t g = srcRow[x * 4 + 1];
+            const std::uint8_t b = srcRow[x * 4 + 2];
+            const std::uint8_t a = srcRow[x * 4 + 3];
+            *dst++ = b;
+            *dst++ = g;
+            *dst++ = r;
+            *dst++ = a;
+        }
     }
     return out;
 }

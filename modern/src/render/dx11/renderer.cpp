@@ -394,11 +394,99 @@ void __stdcall CoD3DDeviceDX11::RenderGrid(VECTOR3* pv3Quad, std::uint32_t dwCol
     m_primitives.setViewProj(m_dev->viewProjMatrix());
     m_primitives.drawGrid(pv3Quad, dwColor);
 }
-BOOL __stdcall CoD3DDeviceDX11::RenderTriIvertex(IVERTEX* /*p*/, void* /*m*/, std::uint32_t /*n*/, std::uint32_t /*f*/) {
-    return FALSE;
+BOOL __stdcall CoD3DDeviceDX11::RenderTriIvertex(IVERTEX* piv3Tri, void* pMtlHandle,
+                                                std::uint32_t dwFacesNum, std::uint32_t dwFlag) {
+    // Convert IVERTEX (pos3+uv+normal) to solid-color debug triangles using the
+    // 3D solid shader pair. Texture/material is not honored (this is the legacy
+    // "draw tris now" debugging path; production particle effects go through
+    // AllocRenderTriBuffer + EnableRenderTriBuffer + a dedicated material).
+    if (!m_dev || !m_meshShadersReady || !piv3Tri || dwFacesNum == 0) return FALSE;
+
+    std::uint32_t color = (pMtlHandle != nullptr) ? 0xFFFFFFFFu : 0xFFFFFFFFu;
+    if (dwFlag & 0x10) color = 0xFFAAAAAAu;  // translucent hint: lighter shade
+
+    const std::uint32_t vertCount = dwFacesNum * 3;
+    struct TriVert { float x, y, z; std::uint32_t rgba; };
+    std::vector<TriVert> verts(vertCount);
+    for (std::uint32_t i = 0; i < vertCount; ++i) {
+        verts[i].x = piv3Tri[i].x;
+        verts[i].y = piv3Tri[i].y;
+        verts[i].z = piv3Tri[i].z;
+        verts[i].rgba = color;
+    }
+    return drawSolidTrisImpl(verts.data(), verts.size());
 }
-BOOL __stdcall CoD3DDeviceDX11::RenderTriVector3(VECTOR3* /*p*/, std::uint32_t /*n*/, std::uint32_t /*f*/) {
-    return FALSE;
+
+BOOL __stdcall CoD3DDeviceDX11::RenderTriVector3(VECTOR3* pv3Tri, std::uint32_t dwFacesNum,
+                                                 std::uint32_t dwFlag) {
+    if (!m_dev || !m_meshShadersReady || !pv3Tri || dwFacesNum == 0) return FALSE;
+
+    const std::uint32_t vertCount = dwFacesNum * 3;
+    struct TriVert { float x, y, z; std::uint32_t rgba; };
+    std::vector<TriVert> verts(vertCount);
+    // dwFlag & 0x01 selects a default tint; production callers in the legacy engine
+    // usually pass a material handle — but for RenderTriVector3 there's no material
+    // param, so we just use a constant white.
+    const std::uint32_t color = (dwFlag & 0x01) ? 0xFFAAAAAAu : 0xFFFFFFFFu;
+    for (std::uint32_t i = 0; i < vertCount; ++i) {
+        verts[i].x = pv3Tri[i].x;
+        verts[i].y = pv3Tri[i].y;
+        verts[i].z = pv3Tri[i].z;
+        verts[i].rgba = color;
+    }
+    return drawSolidTrisImpl(verts.data(), verts.size());
+}
+
+// Shared path used by RenderTriVector3 / RenderTriIvertex / any future solid-tri
+// debug draw. Builds a transient dynamic VB, binds the 3D solid shader pair,
+// updates cbViewProj, and issues Draw(vertCount, 0).
+BOOL CoD3DDeviceDX11::drawSolidTrisImpl(const void* verts, std::uint32_t vertCount) {
+    if (!m_dev || !verts || vertCount == 0) return FALSE;
+    auto* device = m_dev->rawDevice();
+    auto* ctx    = m_dev->rawContext();
+    if (!device || !ctx) return FALSE;
+
+    // Vertex layout: pos(12B) + rgba(4B) = 16B. Pack as 4 floats for direct
+    // alignment; use DXGI_FORMAT_R8G8B8A8_UNORM so the byte packing goes in
+    // literally as color (alpha in A channel).
+    struct TriVert { float x, y, z; std::uint32_t rgba; };
+    static_assert(sizeof(TriVert) == 16, "TriVert must be 16 bytes");
+
+    D3D11_BUFFER_DESC bd{};
+    bd.ByteWidth      = vertCount * sizeof(TriVert);
+    bd.Usage          = D3D11_USAGE_DYNAMIC;
+    bd.BindFlags      = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    D3D11_SUBRESOURCE_DATA srd{};
+    srd.pSysMem = verts;
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> vb;
+    if (FAILED(device->CreateBuffer(&bd, &srd, &vb))) return FALSE;
+
+    constexpr UINT stride = sizeof(TriVert);
+    constexpr UINT offset = 0;
+    ctx->IASetVertexBuffers(0, 1, vb.GetAddressOf(), &stride, &offset);
+    ctx->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+    ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    ctx->IASetInputLayout(m_meshShaders.il3DSolid.Get());
+
+    ctx->VSSetShader(m_meshShaders.vs3DSolid.Get(), nullptr, 0);
+    ctx->PSSetShader(m_meshShaders.ps3DSolid.Get(), nullptr, 0);
+    ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbViewProj.GetAddressOf());
+    ctx->PSSetShader(nullptr, nullptr, 0);  // PS doesn't need a CB
+
+    // Update view-proj (identity world; mesh's viewProj already includes view).
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (SUCCEEDED(ctx->Map(m_meshShaders.cbViewProj.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        std::memcpy(mapped.pData, &m_dev->viewProjMatrix(), sizeof(MATRIX4));
+        ctx->Unmap(m_meshShaders.cbViewProj.Get(), 0);
+    }
+
+    ctx->Draw(vertCount, 0);
+    MLOG_DEBUG("[renderer] RenderTri: drew %u verts (%u tris)",
+               vertCount, vertCount / 3);
+    return TRUE;
 }
 
 void* __stdcall CoD3DDeviceDX11::AllocRenderTriBuffer(IVERTEX** ppIVList, std::uint32_t dwFacesNum, std::uint32_t dwFlag) {
@@ -884,7 +972,75 @@ MaterialTexture CoD3DDeviceDX11::loadMaterialTexture(const char* fileName) {
 
 void __stdcall CoD3DDeviceDX11::SetAttentuation0(float att) { m_attenuation0 = att; }
 float __stdcall CoD3DDeviceDX11::GetAttentuation0() { return m_attenuation0; }
-BOOL __stdcall CoD3DDeviceDX11::ConvertCompressedTexture(char* /*f*/, std::uint32_t /*g*/) { return FALSE; }
+BOOL __stdcall CoD3DDeviceDX11::ConvertCompressedTexture(char* szFileName, std::uint32_t /*dwFlag*/) {
+    if (!szFileName || szFileName[0] == '\0') return FALSE;
+
+    // Slurp the file into memory.
+    FILE* fp = nullptr;
+    if (fopen_s(&fp, szFileName, "rb") != 0 || !fp) {
+        MLOG_WARN("[renderer] ConvertCompressedTexture: cannot open '%s'", szFileName);
+        return FALSE;
+    }
+    fseek(fp, 0, SEEK_END);
+    long sz = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (sz <= 0) { std::fclose(fp); return FALSE; }
+
+    std::vector<std::uint8_t> data(static_cast<std::size_t>(sz));
+    size_t got = fread(data.data(), 1, data.size(), fp);
+    std::fclose(fp);
+    if (got != data.size()) {
+        MLOG_WARN("[renderer] ConvertCompressedTexture: short read '%s'", szFileName);
+        return FALSE;
+    }
+
+    // DDS fast path: if already DDS, surface a no-op. Real BC conversion needs
+    // DirectXTex; we don't block on that here.
+    if (data.size() >= 4 &&
+        data[0] == 'D' && data[1] == 'D' && data[2] == 'S' && data[3] == ' ') {
+        MLOG_INFO("[renderer] ConvertCompressedTexture: '%s' is already DDS, "
+                  "passthrough (BC compression requires DirectXTex, out of scope)",
+                  szFileName);
+        return TRUE;
+    }
+
+    // TGA/BMP/etc. → load → emit uncompressed DDS beside the source.
+    LoadedTexture tex = loadTextureFromMemory(data.data(), data.size());
+    if (tex.pixels.empty() || tex.width == 0 || tex.height == 0) {
+        MLOG_WARN("[renderer] ConvertCompressedTexture: decoder produced empty image for '%s'",
+                  szFileName);
+        return FALSE;
+    }
+    std::vector<std::uint8_t> dds = saveDDS(tex);
+    if (dds.empty()) {
+        MLOG_WARN("[renderer] ConvertCompressedTexture: saveDDS failed");
+        return FALSE;
+    }
+
+    // Replace the extension with .dds.
+    char outPath[_MAX_PATH]{};
+    std::strncpy(outPath, szFileName, _MAX_PATH - 1);
+    outPath[_MAX_PATH - 1] = '\0';
+    char* dot = std::strrchr(outPath, '.');
+    if (!dot) dot = outPath + std::strlen(outPath);
+    std::strcpy(dot, ".dds");
+
+    FILE* out = nullptr;
+    if (fopen_s(&out, outPath, "wb") != 0 || !out) {
+        MLOG_WARN("[renderer] ConvertCompressedTexture: cannot write '%s'", outPath);
+        return FALSE;
+    }
+    size_t wrote = fwrite(dds.data(), 1, dds.size(), out);
+    std::fclose(out);
+    if (wrote != dds.size()) {
+        MLOG_WARN("[renderer] ConvertCompressedTexture: short write to '%s'", outPath);
+        return FALSE;
+    }
+    MLOG_INFO("[renderer] ConvertCompressedTexture: %zux%zu → '%s' (%zu bytes)",
+              static_cast<std::size_t>(tex.width), static_cast<std::size_t>(tex.height),
+              outPath, dds.size());
+    return TRUE;
+}
 void __stdcall CoD3DDeviceDX11::EnableSpecular(float /*f*/) {}
 void __stdcall CoD3DDeviceDX11::DisableSpecular() {}
 void __stdcall CoD3DDeviceDX11::SetVerticalSync(BOOL bSwitch) { m_vsync = bSwitch; }
@@ -900,10 +1056,21 @@ void __stdcall CoD3DDeviceDX11::SetTickCount(std::uint32_t t, BOOL /*g*/) {
 
 BOOL __stdcall CoD3DDeviceDX11::GetD3DDevice(REFIID refiid, void** ppVoid) {
     if (!m_dev || !ppVoid) return FALSE;
-    // Phase 5: we return our DX11 device under the legacy IID. Real callers
-    // should use internalDevice() instead.
+    // Phase 5.8: extend legacy IID support to direct DX11 IIDs so callers that
+    // reach into the underlying device via __uuidof(ID3D11Device) /
+    // __uuidof(ID3D11DeviceContext) can get the real interface back. Anything
+    // else still falls through to FALSE (preserves the "only IUnknown" contract
+    // documented in the plan; non-DX11 GUIDs aren't supported).
     if (refiid == __uuidof(IUnknown)) {
         *ppVoid = m_dev->rawDevice();
+        return TRUE;
+    }
+    if (refiid == __uuidof(ID3D11Device)) {
+        *ppVoid = m_dev->rawDevice();
+        return TRUE;
+    }
+    if (refiid == __uuidof(ID3D11DeviceContext)) {
+        *ppVoid = m_dev->rawContext();
         return TRUE;
     }
     return FALSE;

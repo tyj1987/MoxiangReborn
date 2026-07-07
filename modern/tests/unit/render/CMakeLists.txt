@@ -6,6 +6,7 @@
     effect_shader_test.cpp
     material_test.cpp
     dynamic_light_test.cpp
+    texture_loader_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -81,4 +82,10 @@ gtest_add_tests(TARGET mxh_render_tests
     LightIndexDesc.structLayout
     DynamicLightConstants.maxLightsIs8
     TriBufferMagic.magicValueIsTRIB
+    TextureLoaderTGA.SaveTGARoundTripPreservesPixels
+    TextureLoaderTGA.SaveTGARejectsEmptyTexture
+    TextureLoaderDDS.SaveDDSMagicAndHeaderLayout
+    TextureLoaderDDS.SaveDDSPixelDataIsBGRA
+    TextureLoaderDDS.SaveDDSRejectsEmptyTexture
+    TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
 )
