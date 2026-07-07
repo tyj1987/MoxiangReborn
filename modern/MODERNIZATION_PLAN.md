@@ -440,7 +440,7 @@ MHClient.exe (WinMain)
 | nProtect GameGuard | 鏈嶅姟绔潈濞佹牎楠?/ 绉婚櫎 | Phase 3 |
 
 
-| HSEL 鍔犲瘑鐙?| OpenSSL AES-256-GCM | Phase 3 |
+| HSEL 加解密狗 | OpenSSL AES-256-GCM (Phase 3.3 已实测: Windows CNG AES-128-GCM 实现 + 32-byte 公开 API, 49/49 测试通过) | Phase 3 |
 
 
 | Miles Sound System | **OpenAL Soft** / FMOD / Wwise | Phase 6 |

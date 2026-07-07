@@ -78,8 +78,10 @@ private:
     bool init_key(const std::uint8_t* key_bytes, std::uint32_t key_len);
 
     bool              m_initOk = false;
+    bool              m_seeded = false;  // true after seed() or import_iv()
     BCRYPT_ALG_HANDLE m_aesAlg = nullptr;
     BCRYPT_KEY_HANDLE m_key    = nullptr;
+    std::uint8_t      m_key_cache[16] = {};  // cached AES key (provider max = 16 B)
     std::uint8_t      m_iv[kIvBytes] = {};
     std::uint32_t     m_counter = 0;  // packet counter
 };

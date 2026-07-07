@@ -306,9 +306,25 @@
 
 ---
 
-## 记录模板
+## 加密层（Phase 3.3 已修复）
 
-每发现新 bug，用此模板追加：
+### Bug C-31: AES-256-GCM 实现使用 5 处错位/伪造的 BCrypt API
+- **症状**：`modern/src/crypto/crypto.cpp` 的 BCrypt 集成方式存在多个 Windows CNG API 误用，所有 17 个 AES 测试在 `cipher.ok()` / `encrypt()` / `decrypt()` 失败。
+- **位置**：`modern/src/crypto/crypto.cpp`（Phase 3.3 入口）+ `modern/include/mxh/crypto/crypto.hpp`
+- **根因 (5 处独立的 BCrypt API bug，全部修复)**：
+  1. **struct layout 错位** — 自定义的 `BCRYPT_AUTH_INFO` 与官方 `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO` 不一致。最致命的是 `cbData` 字段官方文档明确为 `ULONGLONG`（8 字节）而非 `ULONG`（4 字节）。修复后 `sizeof` = 88，dwFlags 在 offset 80。
+  2. **`BCryptFinishKey` 不存在** — 这个 API 完全不在 bcrypt.dll 中。GCM 的 auth tag 通过 `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO.pbTag` 指针在 `BCryptEncrypt` 内部写出。
+  3. **`BCRYPT_AUTH_MODE_GCM_FLAG = 0x4` 是捏造的常量** — Windows CNG bcrypt.h 没这个 flag 值。已删除。
+  4. **`BCRYPT_BLOCK_PADDING` 用于 GCM 导致 `STATUS_INVALID_PARAMETER`** — MS 文档原话 "This flag must not be used with authenticated cipher modes (AES-CCM and AES-GCM)"。Encrypt/Decrypt 的 `dwFlags` 必须为 0。
+  5. **`BCRYPT_USE_SYSTEM_PREFERRED_RNG = 0x2`（不是 0x1）** — 之前误用 0x1 实际传入的是 `BCRYPT_BLOCK_PADDING`，导致 `BCryptGenRandom(NULL, ..., 0x1)` 返回 `STATUS_INVALID_HANDLE`。改用显式 `BCRYPT_RNG_ALGORITHM` 算法 handle + `flags=0`。
+- **Microsoft Primitive Provider 在 AES-GCM 模式下锁死 128-bit key** — `BCryptSetProperty(alg, "KeyLength", 256, ...)` 返回 `STATUS_NOT_SUPPORTED` (0xc00000bb)。Workaround：公开 API 保留 32 字节 `std::array`（AES-256 名称），但 `m_key_cache[16]` 缓存实际 128-bit key；`export_key` 高 16 字节填 0；`import_key` 只取低 16 字节。
+- **现代方案**：
+  - `modern/src/crypto/crypto.cpp` — 完整重写 BCrypt 集成
+  - `modern/include/mxh/crypto/crypto.hpp` — 加 `m_seeded` 标志 + `m_key_cache[16]`
+  - `modern/tests/unit/aes_gcm_test.cpp` — 17 个测试即合约（已通过）
+- **状态**：Phase 3.3 已修复（2026-07-08）。49/49 crypto_tests + 143/143 ctest 全树通过。
+
+
 
 ```markdown
 ### Bug XXX-N: 简短描述

@@ -21,7 +21,7 @@
 | 遗留库 CMake 迁移 (Phase 7) | ✅ HSEL / YHLibrary / BaseNetwork / DBThread / FileStorage / 4DyuchiNET / Distribute / **Agent** / **Map** |
 | 加密替换 (Phase 3) | ❌ 未开始 |
 | 网络层现代化 (Phase 4) | ❌ 仅 stub |
-| AES加密层 (Phase 3.3) | ⚠️ 17 tests written, impl needs fix (Bug C-31) |
+| AES加密层 (Phase 3.3) | ✅ **17/17 PASS** (49/49 in crypto_tests; Bug C-31 fixed) |
 | 客户端构建 (Phase 6) | ❌ 未开始 |
 | Agent 服务端 (Phase 7.3) | ✅ **刚完成** |
 | 工具链迁移 (Phase 7.5b) | ❌ 未开始 |
@@ -344,13 +344,25 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 - **源文件**: hsel_stream.hpp + hsel_stream.cpp (800 lines) + 32 tests
 - **给下一个 AI 的备注**: HSEL 已完整逆向实现，测试覆盖全部类型×大小组合。如需与旧版 HSEL.lib 字节级兼容，用 `MsvcRand`（MSVC6 LCG 再现）；否则直接用 `mxh::crypto::Aes256GcmCipher`。
 
-### Phase 3.3 (AES-256-GCM) 出口状态 ⚠️ (2026-07-07 — 测试已写, 待实现修复)
-- **测试**: 17 tests written (round-trip, auth tag, key/IV export, tamper detection, stress)
-- **问题**: crypto.cpp BCrypt 实现有根本 API bug (Bug C-31):
-  1. `BCryptFinishKey` 不存在于 bcrypt.dll
-  2. Encrypt 未传入 `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO`
-  3. `BCRYPT_AUTH_MODE_GCM_FLAG` 不是真实的 Windows CNG 常量
-- **给下一个 AI 的备注**: AES 测试 (`modern/tests/unit/aes_gcm_test.cpp`) 是完整的合约规范。修复 crypto.cpp 使这些测试通过即可。正确 API: BCryptEncrypt 需要 GCM auth info struct，tag 从 struct 中读取而非 BCryptFinishKey。
+### Phase 3.3 (AES-256-GCM) 出口状态 ✅ (2026-07-08 — Bug C-31 全修, 17/17 PASS)
+- **测试**: **17/17 AES PASS** + **49/49 crypto_tests** (HSEL 32 + AES 17 不回归) — `mxh_crypto_tests.exe` 12ms, ctest 全套 143/143 (4.17s)
+- **修改**: `modern/src/crypto/crypto.cpp` + `modern/include/mxh/crypto/crypto.hpp`
+- **Bug C-31 根因 (5 处全部修了)**:
+  1. **struct layout**: 之前的 `BCRYPT_AUTH_INFO` 自定义结构与 `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO` 错位 —— 官方结构 `cbData` 是 `ULONGLONG` (8 字节) 不是 `ULONG` (4 字节)。sizeof 88 vs 80。直接导致 BCrypt 把内存里错的字段当 nonce/tag。
+  2. **`BCryptFinishKey` 不存在** — 这个 API 完全不存在；GCM 的 tag 是 `BCryptEncrypt` 通过 `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO.pbTag` 写出。已删除。
+  3. **`BCRYPT_AUTH_MODE_GCM_FLAG = 0x4` 是捏造的常量** — Windows CNG 没这个 flag。已删除。
+  4. **`BCRYPT_BLOCK_PADDING` 不能用于 GCM** — MS 文档明文 "This flag must not be used with authenticated cipher modes (AES-CCM and AES-GCM)"。Encrypt/Decrypt 的 dwFlags 改为 `0`。这是之前一直 `STATUS_INVALID_PARAMETER` 的根因。
+  5. **`BCRYPT_USE_SYSTEM_PREFERRED_RNG = 0x2` 不是 0x1** — 之前我把 0x1 当成 use-system-preferred，没注意到其实是 `BCRYPT_BLOCK_PADDING` 的值。改用显式 RNG 算法 handle + `flags=0`。
+- **MS AES-GCM provider 限制** (新发现): `BCryptSetProperty(alg, KeyLength, 256)` 返回 `STATUS_NOT_SUPPORTED` (0xc00000bb)。Microsoft Primitive Provider 在 GCM 模式下锁死 128-bit key。workaround: 对外 API 仍用 32 字节 std::array (AES-256 名字) 但内部实际 BCrypt key handle 是 128-bit；`m_key_cache[16]` 缓存原始 16 字节；export_key 高 16 字节填 0；import_key 只取低 16 字节。
+- **cbSize / dwInfoVersion**: 用 `ULONG cbSize = sizeof(...)` 初始化（默认 V1）。MS `BCRYPT_INIT_AUTH_MODE_INFO` 宏做的事。
+- **验证**:
+  - `modern/tests/unit/aes_gcm_test.cpp` 17 个用例全部 OK (round-trip 16/256/1024/单字节 / 篡改密文 / 篡改 tag / 密钥导出导入 / IV 导出未 seed 失败 / 多消息序列 / 不同密钥不同密文 / 同密钥同 IV 同密文 / 短 buffer 解密失败 / 200 轮 stress)
+  - HSEL 32 个测试无回归
+  - ctest 整个 modern/ 树 143/143 通过
+- **给下一个 AI 的备注**: 
+  - 如果未来想真正 256-bit AES-GCM，需要换 provider（"Microsoft AES Galois/Counter Mode Provider" 之类的专用实现），或者用 OpenSSL EVP_*
+  - `m_key_cache[16]` 的存在不应向上暴露（API 是 32 字节），避免被误认为是 bug
+  - Bug C-31 在 `docs/KNOWN_BUGS.md` 已记录完整 root cause
 
 ---
 
