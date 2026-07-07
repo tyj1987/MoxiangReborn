@@ -97,6 +97,13 @@ work/
 .cache/
 build_artifacts/
 build_legacy_hsel/
+# Phase 7 — legacy library CMake build dirs (one per migrated lib)
+build_yhlibrary/
+build_basenetwork/
+build_dbthread/
+build_ziparchive/
+build_hsel/
+build_*.test*/
 
 # 测试覆盖率报告
 coverage/

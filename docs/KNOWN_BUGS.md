@@ -23,6 +23,27 @@
 - **根因**：DX8.1 SDK (2001) 不在 Visual Studio 默认路径
 - **解决方案**：在 vcxproj 里手动指定 `IncludePath / LibraryPath`
 
+### Bug C-4: [Lib]YHLibrary Strclass.cpp 残留 `<atlbase.h>` 死代码
+- **症状**：编译报 `fatal error C1083: 无法打开包括文件: “atlbase.h”`
+- **位置**：`墨香【源码】\[Lib]YHLibrary\Strclass.cpp:13`
+- **根因**：legacy 代码早期用过 MFC/ATL，后来改 Win32-only，但 #include 没清掉。`Strclass.cpp` 整文件 grep 无任何 `CString / AtlThrow / CAtlWinModule / CSimpleArray` 等 ATL 符号使用 → 纯死 include。ATL/MFC 组件不在现代 BuildTools 安装里（默认只装 MSVC）。
+- **现代方案**：删除该行。Phase 7.1 已处理（CMakeLists.txt 中记录）。MFC 类 `AllocSysString / SetSysString` 改成 `<oaidl.h>` 提供的 `BSTR` 类型。`_ASSERTE` 加 noop fallback。`_tcslen/_tcschr/_tcsinc/_ttoi` 等 generic-text mappings 显式 include `<tchar.h>`。
+- **状态**：Phase 7.1 已迁移修复
+
+### Bug C-5: [Lib]YHLibrary/HSEL.cpp 与 [Lib]HSEL/HSEL.cpp 不一致
+- **症状**：单独构建 `YHLibrary.lib` 时得到 188KB；legacy prebuilt 是 400KB。两份 `HSEL.cpp` 的内容不完全相同（diff 1067 行）。
+- **位置**：`墨香【源码】\[Lib]YHLibrary\HSEL.cpp` vs `墨香【源码】\[Lib]HSEL\HSEL.cpp`
+- **根因**：历史遗留——开发者从某版本复制 `HSEL.cpp` 到 `YHLibrary/`，但两份独立演化；`HSEL_STREAM.cpp` 两边仍然一致（hash 相同）。
+- **现代方案**：Phase 7.1 决定**保留** YHLibrary 内的 vendored 副本（不链接外部 `[Lib]HSEL.lib`，避免重复符号）。`YHLibrary.h` 公共 API 暴露 `CHSEL / CHSEL_STREAM`，调用方只链接 YHLibrary.lib 时行为是 self-contained。Phase 7.x 后续可考虑统一两份 source。
+- **状态**：Phase 7.1 已记录，未尝试统一
+
+### Bug C-6: [Lib]YHLibrary/HSEL.cpp 与 HSEL_STREAM.cpp 方法定义重复
+- **症状**：链接报大量 `LNK4006: "private: void __cdecl CHSEL_STREAM::DESLeftEncode_Type_4" 已在 HSEL_STREAM.cpp.obj 中定义；已忽略第二个定义` 警告
+- **位置**：`墨香【源码】\[Lib]YHLibrary\HSEL.cpp` + `HSEL_STREAM.cpp`
+- **根因**：legacy 复制粘贴失误——`HSEL.cpp`（YHLibrary 内的 vendor 版）包含**完整**的 `CHSEL_STREAM` 实现，与 `HSEL_STREAM.cpp` 中相应方法完全重复。原 vcproj 编译时也报这些警告，靠"忽略第二个定义"取第一个。
+- **现代方案**：保留现状以匹配 legacy ABI（不擅自删除）。Phase 7.1 build 警告保留为 `LNK4006`。
+- **状态**：Phase 7.1 已迁移，未修改
+
 ## 运行时问题
 
 ### Bug R-1: HSEL 加密狗缺失
