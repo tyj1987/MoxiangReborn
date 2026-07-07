@@ -46,3 +46,12 @@ target_link_libraries(mxh_crypto_tests PRIVATE mxh_crypto gtest_main)
 # gtest_add_tests can't enumerate parameterized test names.
 add_test(NAME mxh_crypto_all_tests
     COMMAND $<TARGET_FILE:mxh_crypto_tests>)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# mxh_crypto_benchmark — HSEL vs AES-256-GCM throughput & latency (Phase 3.5)
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+add_executable(mxh_crypto_benchmark
+    crypto_benchmark.cpp
+)
+
+target_link_libraries(mxh_crypto_benchmark PRIVATE mxh_crypto)

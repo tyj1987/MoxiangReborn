@@ -19,9 +19,9 @@
 | 数据库层 (Phase 2) | ✅ IDbAdapter + MSSQL + SQLite 双后端 |
 | DX11 渲染器 (Phase 5) | ✅ 75/75 接口 + 99/99 测试通过 |
 | 遗留库 CMake 迁移 (Phase 7) | ✅ HSEL / YHLibrary / BaseNetwork / DBThread / FileStorage / 4DyuchiNET / Distribute / **Agent** / **Map** |
-| 加密替换 (Phase 3) | ❌ 未开始 |
+| 加密替换 (Phase 3) | ✅ 3.1/3.2/3.3/3.5 完成，3.4 待网络层 |
 | 网络层现代化 (Phase 4) | ❌ 仅 stub |
-| AES加密层 (Phase 3.3) | ✅ **17/17 PASS** (49/49 in crypto_tests; Bug C-31 fixed) |
+| 加密层 (Phase 3.2/3.3/3.5) | ✅ HSEL 32/32 PASS + AES 17/17 PASS + Benchmark done |
 | 客户端构建 (Phase 6) | ❌ 未开始 |
 | Agent 服务端 (Phase 7.3) | ✅ **刚完成** |
 | 工具链迁移 (Phase 7.5b) | ❌ 未开始 |
@@ -344,6 +344,12 @@ Phase 7.5 Gate ──→ Phase 7.3 (Agent) ──→ Phase 7.5b (Tools) ──�
 - **算法**: MSVC6 LCG PRNG → 12×int32 key gen → block swap → 4 DES types (XOR/ADD/SUB/MIXED) → CRC → key schedule
 - **源文件**: hsel_stream.hpp + hsel_stream.cpp (800 lines) + 32 tests
 - **给下一个 AI 的备注**: HSEL 已完整逆向实现，测试覆盖全部类型×大小组合。如需与旧版 HSEL.lib 字节级兼容，用 `MsvcRand`（MSVC6 LCG 再现）；否则直接用 `mxh::crypto::Aes256GcmCipher`。
+
+### Phase 3.5 (AES/HSEL Benchmark) 出口状态 ✅ (2026-07-08)
+- **Benchmark**: mxh_crypto_benchmark.exe — 5 payload sizes × 2 ciphers
+- **结果**: HSEL wins ≤512B (up to 4.5×), AES wins ≥1KB (up to 6.7×) due to AES-NI
+- **报告**: docs/phase3.5_benchmark_report.md
+- **给下一个 AI 的备注**: Phase 3.4 需要先完成 Phase 4 网络层。Benchmark 结论：建议新连接用 AES-256-GCM，保留 HSEL 给旧客户端兼容。
 
 ### Phase 3.3 (AES-256-GCM) 出口状态 ✅ (2026-07-08 — Bug C-31 全修, 17/17 PASS)
 - **测试**: **17/17 AES PASS** + **49/49 crypto_tests** (HSEL 32 + AES 17 不回归) — `mxh_crypto_tests.exe` 12ms, ctest 全套 143/143 (4.17s)
