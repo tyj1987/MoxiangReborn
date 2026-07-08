@@ -234,7 +234,9 @@ void CChannelSystem::SendChannelInfo(MSG_DWORD* pInfo, DWORD dwConnectionIndex)
 	for(DWORD i=0; i<m_dwCount; ++i)
 	{
 		msg.PlayerNum[i] = m_Channel[i]->GetPlayerNum();
+#ifdef _KOR_LOCAL_
 		msg.bBattleChannel[i] = m_Channel[i]->IsBattleChannel();
+#endif
 	}
 	msg.dwObjectID = pInfo->dwObjectID;
 	msg.dwUniqueIDinAgent = pInfo->dwData;
@@ -369,13 +371,17 @@ void CChannelSystem::SendMapChangeChannelInfo(MSG_DWORD3* pInfo, DWORD dwConnect
 	for(DWORD i=0; i<m_dwCount; ++i)
 	{
 		msg.PlayerNum[i] = m_Channel[i]->GetPlayerNum();
+#ifdef _KOR_LOCAL_
 		msg.bBattleChannel[i] = m_Channel[i]->IsBattleChannel();
+#endif
 	}
 	msg.dwObjectID = pInfo->dwObjectID;
 	msg.dwUniqueIDinAgent = pInfo->dwData1;
 	msg.Count = (BYTE)m_dwCount;
+#ifdef _KOR_LOCAL_
 	msg.wMoveMapNum = pInfo->dwData2;
 	msg.dwChangeMapState = pInfo->dwData3;
+#endif
 	g_Network.Send2Server(dwConnectionIndex,(char*)&msg,sizeof(msg));
 }
 
@@ -434,7 +440,9 @@ void CChannelSystem::GetChannelInfo( MSG_CHANNEL_INFO* pInfo )
 
 	for( DWORD i = 0; i < m_dwCount; ++i )
 	{
+#ifdef _KOR_LOCAL_
 		pInfo->bBattleChannel[i] = m_Channel[i]->IsBattleChannel();
+#endif
 	}
 	pInfo->Count = m_dwCount;
 }
