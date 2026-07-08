@@ -264,7 +264,12 @@ char* CMHFile::GetStringInQuotation()
 	
 	if( m_bReadMode == MHFILE_PACKEDFILE )
 	{
-		while( (c=m_pData[m_Dfp]) != '"' )	// 첫따옴표 나올때까지 스킵
+		// Phase 7.5f (Bug C-33): bound-check the skip loop. TitanServer.bin
+		// is only 42 bytes of decoded data; if the first byte is not '"' the
+		// legacy code read m_pData[m_Dfp] until it found one — past
+		// m_Header.dwFileSize into uninitialized heap. Bail with an empty
+		// string instead of OOB-reading.
+		while( (m_Dfp < (int)m_Header.dwFileSize) && (c=m_pData[m_Dfp]) != '"' )	// 첫따옴표 나올때까지 스킵
 		{
 			++m_Dfp;
 			if( c == 10 )					//첫따옴표 나오기전에 엔터가 있으면 중지
@@ -273,10 +278,20 @@ char* CMHFile::GetStringInQuotation()
 				return buf2;
 			}
 		}
+		if( m_Dfp >= (int)m_Header.dwFileSize )	// EOF before opening quote
+		{
+			buf2[0] = 0;
+			return buf2;
+		}
 		int n = 0;
 		while( 1 )
 		{
 			++m_Dfp;
+			if( m_Dfp >= (int)m_Header.dwFileSize )	// EOF before closing quote / newline
+			{
+				buf[n] = 0;
+				break;
+			}
 			buf[n] = m_pData[m_Dfp];
 			if( buf[n] == '"' )
 			{
@@ -296,8 +311,16 @@ char* CMHFile::GetStringInQuotation()
 	}
 	else if( m_bReadMode == MHFILE_NORMALMODE )
 	{
+		// Phase 7.5f (Bug C-33): bound-check the skip loop. fgetc returns
+		// EOF (-1) at end of file; without an explicit feof() check, the
+		// legacy loop spins forever or reads junk into buf. Bail early.
 		while( (c=fgetc(fp)) != '"')	// 첫따옴표 나올때까지 스킵
 		{
+			if( c == EOF )	// EOF before opening quote
+			{
+				buf2[0] = 0;
+				return buf2;
+			}
 			if( c == 10 )//첫따옴표 나오기전에 엔터가 있으면 중지
 			{
 				Seek(-1);
@@ -308,7 +331,11 @@ char* CMHFile::GetStringInQuotation()
 		int n=0;
 		while(1)
 		{
-			ASSERT(!feof(fp));
+			if( feof(fp) )	// EOF before closing quote / newline
+			{
+				buf[n] = 0;
+				break;
+			}
 			buf[n] = fgetc(fp);
 			if(buf[n] == '"' )
 			{
@@ -324,7 +351,7 @@ char* CMHFile::GetStringInQuotation()
 			++n;
 		}
 		char * aa = &buf2[0];
-		memcpy( buf2, buf, n+1 );	
+		memcpy( buf2, buf, n+1 );
 	}
 
 	return buf2;
