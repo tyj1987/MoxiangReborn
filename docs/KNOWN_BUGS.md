@@ -315,7 +315,7 @@
   - `[Server]Map/ChannelSystem.cpp:237, 372, 377, 378, 437` — **无任何 `#ifdef` 包裹**就直接访问上述字段
 - **根因**：legacy vcproj 的 MapServer Config=Release 是个**死配置**——开发者只发过 Debug_Console (KOR) 构建。`SWorking/MapServer.exe` 实际上由 Debug_Console 编译，不是 Release。
 - **现代方案**：Phase 7.5 的 CMakeLists 提供 6 个目标：`MapServer`（Release）+ 5 个 `MapServer_Debug_<LOCALE>`。我们 ship 的是 `MapServer_Debug_KOR`，与 SWorking 同口径。Release 目标在源码未被修复前必须标为 out-of-scope（或要求所有 reader 一起打开 KOR — 不推荐）。
-- **状态**：Phase 7.5 已规避（选 Debug_Console KOR 而非 Release）。结构性修复（统一访问或拆字段）由后续 Phase 7.x 决定。
+- **状态**：Phase 7.5d **已修复**（commit `befc5c1`，2026-07-08）。5 个 access 点用 `#ifdef _KOR_LOCAL_ ... #endif` 包裹（8 行新增，0 行删除）。Release 现在 0 errors 编译通过，输出 `build_map/Release/MapServer.exe` = **1,283,584 字节**（vs SWorking 2,555,904 字节，-49.8%，在 ±60% 阈值内）。`MSG_CHANNEL_INFO` struct layout 不变（`CommonStruct.h` 的 `#ifdef _KOR_LOCAL_` 守卫未动），wire 协议字节兼容。完整诊断 + 字节 parity 阈值 rationale：`modern/docs/phase7.5d_release_diagnostic.md`。
 
 ### Bug D-4: Vendored IndexGenerator.obj 用 `-defaultlib:LIBC`（legacy 单线程 CRT）⚠ UNVERIFIED
 - **症状**（推断，**未在通过 build 中复现**）：链接 `MapServer.exe` 时预期报 `fatal error LNK1104: 无法打开文件"LIBC.lib"`。
