@@ -5,6 +5,7 @@
 # -----------------------------------------------------------------------------
 add_library(mxh_ui STATIC
     cWindow.cpp
+    cButton.cpp
 )
 
 target_include_directories(mxh_ui PUBLIC

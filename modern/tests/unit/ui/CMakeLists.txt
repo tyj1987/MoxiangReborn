@@ -1,5 +1,6 @@
 add_executable(mxh_ui_tests
     cwindow_test.cpp
+    cbutton_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -28,4 +29,24 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWindow.ActionEventReturnsLButtonClickInside
     CWindow.ActionEventReturnsNullOutside
     CWindow.WindowEventEnumValues
+    CButton.DefaultStateIsNormal
+    CButton.InitStoresImagesAndId
+    CButton.MouseEnterTransitionsToHover
+    CButton.MouseLeaveTransitionsBackToNormal
+    CButton.PressInsideTransitionsToPressed
+    CButton.PressThenReleaseInsideFiresClick
+    CButton.DragOutCancelsClick
+    CButton.PressOutsideThenDragInDoesNotFire
+    CButton.DisabledIgnoresAllEvents
+    CButton.SetTextStoresLabelAndColors
+    CButton.SetTextZeroOverPressDefaultsToBasic
+    CButton.CallbackReceivesUserdata
+    CButton.ShadowSetters
+    CButton.TextAlignSetter
+    CButton.SetTextXYStoresCoordinates
+    CButton.ClickEventReturnsLButtonClick
+    CButton.PressInsideReturnsLButtonDown
+    CButton.DisabledClickDoesNotInvokeCallback
+    CButton.MultipleSequentialClicksAllFire
+    CButton.NonLButtonFlagsDoNotTriggerClick
 )
