@@ -447,6 +447,7 @@ Phase 12: 持续迭代
 | `265c7f9` | 6.8 | mxh_ui_smoke (headless UI integration) | (smoke) |
 | (本会话) | 6.9 | cMsgBox (modal 4-type box + keys + dispatcher integration) + cDialog exposure fixes (findWindowById/alpha/SetAbsXY/SetDisable public) + SetModalDialog auto-Activate + /FS in test vcxproj | 14 |
 | (本会话) | 6.10 | cDivideBox (split-stack dialog — OK/Cancel callbacks + numeric cEditBox + min/max clamp + Enter-to-confirm) | 12 |
+| (本会话) | 6.11 | cIconDialog (icon-grid data model — cells + PtInCell + AddIcon/DeleteIcon + selection + acceptableIconType mask) | 15 |
 
 **Phase 6 收官总览**：
 
@@ -464,9 +465,10 @@ Phase 12: 持续迭代
 | `mxh_ui_smoke` | ✅ done (6.8) | headless end-to-end integration smoke |
 | `cMsgBox` | ✅ done (6.9) | modal message box + 4 MBType + Enter/Esc + auto-close |
 | `cDivideBox` | ✅ done (6.10) | split-stack dialog (OK/Cancel + numeric input + min/max clamp) |
+| `cIconDialog` | ✅ done (6.11) | icon-grid container (cells, AddIcon/DeleteIcon, selection, type-mask) |
 | Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
 | IME (Korean/JP composition) | ⏳ future | |
-| Drag-drop / cIconDialog | ⏳ future | |
+| Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
 | Sortable columns / multi-line text | ⏳ future | |
 | 80 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 |
 
@@ -484,11 +486,12 @@ Phase 12: 持续迭代
 | UI: legacy_compat | 6 | WE_* + cbWindowFunc bridge |
 | UI: cMsgBox | 14 | modal message box (4 MBType + keys + dispatcher integration) |
 | UI: cDivideBox | 12 | split-stack dialog (OK/Cancel + numeric input + min/max) |
-| **UI 合计** | **148** | |
+| UI: cIconDialog | 15 | icon-grid container (cells + AddIcon/DeleteIcon + PtInCell) |
+| **UI 合计** | **163** | |
 | MoxianRenderDemo smoke (3D+2D+Effect+Mtl) | 1 | visual smoke |
 | mxh_ui_smoke (Phase 6.8 headless) | 1 | framework end-to-end |
 | `MoxianCompat` + `MoxianDb` + 其它 | ~58 | resource/db tools |
-| **Render + UI 合计** | **280** | **Debug 全过** |
+| **Render + UI 合计** | **295** | **Debug 全过** |
 
 ### Phase 6 入口分析（2026-07-09 — 准备起步）
 

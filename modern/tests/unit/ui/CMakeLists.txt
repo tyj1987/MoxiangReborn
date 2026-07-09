@@ -8,6 +8,7 @@ add_executable(mxh_ui_tests
     cwindowmanager_test.cpp
     cmsgbox_test.cpp
     cdividebox_test.cpp
+    cicondialog_test.cpp
     legacy_compat_test.cpp
 )
 
@@ -173,4 +174,19 @@ gtest_add_tests(TARGET mxh_ui_tests
     CDivideBox.ClickCancelButtonFiresCancelAndCloses
     CDivideBox.ButtonIdsAreDistinct
     CDivideBox.ClickOutsideButtonsIsNoop
+    CIconDialog.DefaultStateHasZeroCells
+    CIconDialog.SetCellNumCreatesEmptyCells
+    CIconDialog.AddIconThenIsAddableFalse
+    CIconDialog.AddIconDoubleAddRefuses
+    CIconDialog.AddIconOutOfRangeRefuses
+    CIconDialog.DeleteIconClearsCell
+    CIconDialog.DeleteIconWithoutOutParam
+    CIconDialog.DeleteIconOnEmptyCellIsFalse
+    CIconDialog.DeleteIconAllClearsEverything
+    CIconDialog.AddIconCellSetsRect
+    CIconDialog.AddIconCellRespectsDialogAbsXAbsY
+    CIconDialog.GetPositionForXYRefReturnsIndex
+    CIconDialog.AcceptableTypeMaskWorks
+    CIconDialog.SelectionSetterGetter
+    CIconDialog.SetAbsXYMovesDialogAbsPosition
 )
