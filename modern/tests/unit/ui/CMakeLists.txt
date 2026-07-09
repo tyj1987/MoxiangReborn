@@ -13,6 +13,7 @@ add_executable(mxh_ui_tests
     cpushupbutton_test.cpp
     clistdialog_test.cpp
     cguilddialog_test.cpp
+    cmultilinetext_test.cpp
     legacy_compat_test.cpp
 )
 
@@ -232,4 +233,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildDialog.SetDisableFuncBtnMemberDisablesSenior
     CGuildDialog.ClearDisableBtnEnablesEverything
     CGuildDialog.SetActivePropagatesToChildren
+    CMultiLineText.DefaultStateIsInvalidAndEmpty
+    CMultiLineText.InitMarksValidAndStoresConfig
+    CMultiLineText.SetTextSplitsOnNewlines
+    CMultiLineText.SetTextWithTrailingNewlineDoesNotAddBlank
+    CMultiLineText.SetTextEmptyClearsLines
+    CMultiLineText.AddLineAppendsWithColor
+    CMultiLineText.AddLineOverloadFromStdString
+    CMultiLineText.AddNamePannelAddsSpacedLine
+    CMultiLineText.ReleaseClearsAndInvalidates
+    CMultiLineText.PositionSetters
+    CMultiLineText.FontAndColorAndImageSetters
+    CMultiLineText.OperatorAssignFromCString
+    CMultiLineText.GetLineOutOfRangeReturnsEmpty
+    CMultiLineText.LinesAccessorReadOnly
 )

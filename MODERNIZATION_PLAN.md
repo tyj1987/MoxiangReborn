@@ -449,6 +449,7 @@ Phase 12: 持续迭代
 | (本会话) | 6.10 | cDivideBox (split-stack dialog — OK/Cancel callbacks + numeric cEditBox + min/max clamp + Enter-to-confirm) | 12 |
 | (本会话) | 6.11 | cIconDialog (icon-grid data model — cells + PtInCell + AddIcon/DeleteIcon + selection + acceptableIconType mask) | 15 |
 | (本会话) | 6.12 | cGuildDialog (1/80 真实 legacy 端口 — header + member list + tabs + rank-gated buttons) + 依赖 widget 端口 cStatic (9 tests) + cPushupButton (5) + cListDialog (12) | 39 |
+| (本会话) | 6.13 | cMultiLineText (linked-list of text lines — NPC dialogs, quest descriptions, system messages) | 14 |
 
 **Phase 6 收官总览**：
 
@@ -471,11 +472,12 @@ Phase 12: 持续迭代
 | `cPushupButton` | ✅ done (6.12) | toggle / sticky button (m_pushed, m_passive) |
 | `cListDialog` | ✅ done (6.12) | scrollable text list (rows + selection + scroll) |
 | `cGuildDialog` | ✅ done (6.12) | first real legacy-port dialog (header + member list + tabs + rank-gated buttons) |
+| `cMultiLineText` | ✅ done (6.13) | multi-line text node list (NPC dialogs, quest descriptions, system messages) |
 | Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
 | IME (Korean/JP composition) | ⏳ future | |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| Sortable columns / multi-line text | ⏳ future | |
-| 80 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
+| Sortable columns | ⏳ future | cListCtrl sort already in 6.5 |
+| 79 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 wrap-up)**：
 | 套件 | 数量 | 内容 |
@@ -496,11 +498,78 @@ Phase 12: 持续迭代
 | UI: cPushupButton | 5 | toggle / sticky button (m_pushed, m_passive) |
 | UI: cListDialog | 12 | scrollable text list (rows + selection + scroll) |
 | UI: cGuildDialog | 13 | first real legacy-port dialog (header + member list + tabs + rank) |
-| **UI 合计** | **202** | |
+| UI: cMultiLineText | 14 | multi-line text node list (NPC dialogs + quest descriptions) |
+| **UI 合计** | **216** | |
 | MoxianRenderDemo smoke (3D+2D+Effect+Mtl) | 1 | visual smoke |
 | mxh_ui_smoke (Phase 6.8 headless) | 1 | framework end-to-end |
 | `MoxianCompat` + `MoxianDb` + 其它 | ~58 | resource/db tools |
-| **Render + UI 合计** | **334** | **Debug 全过** |
+| **Render + UI 合计** | **348** | **Debug 全过** |
+
+### Phase 6 wrap-up v2（2026-07-09 — 5 commit 闭环 6.9→6.13，UI 全面落地）
+
+**Phase 6 收官补充：5 commits (6.9 → 6.13) 落地 5 个 widget + Phase 6 全部就位。406/406 PASS。**
+
+| 提交 | Phase | 内容 | +测试 |
+|------|-------|------|-------|
+| `aa84cea` | 6.9 | cMsgBox (modal 4-type box + keys + dispatcher integration) + cDialog exposure + SetModalDialog auto-Activate + /FS in test vcxproj | 14 |
+| `53712aa` | 6.10 | cDivideBox (split-stack dialog) | 12 |
+| `02442ed` | 6.11 | cIconDialog (icon-grid data model) | 15 |
+| `c15fa77` | 6.12 | cGuildDialog (1/80 真实 legacy 端口) + cStatic + cPushupButton + cListDialog | 39 |
+| (本会话) | 6.13 | cMultiLineText (multi-line text node list) | 14 |
+
+**Phase 6 v2 收官总览 (UI 全部 widget 已落地)**：
+
+| Widget | 状态 | 备注 |
+|--------|------|------|
+| `cObject` 基类 | ✅ done (6.0) | id / name / parent |
+| `cWindow` framework | ✅ done (6.0) | hit-test / child / focus / dispatch / SetAbsXY/SetEnabled virtuals |
+| `cButton` | ✅ done (6.1) | 3-state image / click / drag-cancel / text |
+| `cEditBox` | ✅ done (6.2) | buffer / caret / keys / read-only / secret / valid-check |
+| `cDialog` | ✅ done (6.3) | container / caption rect / findById / cascade / active |
+| `cImage` (Phase 5→6 seam) | ✅ done (6.4) | borrow SpriteObject + render adapter |
+| `cListCtrl` | ✅ done (6.5) | columns / rows / selection / viewport / hit-test / callbacks |
+| `cWindowManager` | ✅ done (6.6) | top-most dispatch / modal / defer-destroy / RenderAll |
+| `legacy_compat` shim | ✅ done (6.7) | WE_* codes + cbWindowFunc → std::function bridge |
+| `mxh_ui_smoke` | ✅ done (6.8) | headless end-to-end integration smoke |
+| `cMsgBox` | ✅ done (6.9) | modal message box + 4 MBType + Enter/Esc + auto-close |
+| `cDivideBox` | ✅ done (6.10) | split-stack dialog (OK/Cancel + numeric input + min/max clamp) |
+| `cIconDialog` | ✅ done (6.11) | icon-grid container (cells, AddIcon/DeleteIcon, selection, type-mask) |
+| `cStatic` | ✅ done (6.12) | text label widget (text + color + shadow + align) |
+| `cPushupButton` | ✅ done (6.12) | toggle / sticky button (m_pushed, m_passive) |
+| `cListDialog` | ✅ done (6.12) | scrollable text list (rows + selection + scroll) |
+| `cGuildDialog` | ✅ done (6.12) | first real legacy-port dialog (header + member list + tabs + rank) |
+| `cMultiLineText` | ✅ done (6.13) | multi-line text node list (NPC dialogs + quest descriptions) |
+| Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
+| IME (Korean/JP composition) | ⏳ future | |
+| Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
+| 79 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
+
+**测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
+| 套件 | 数量 | 内容 |
+|------|------|------|
+| Render（含 Phase 5.12/5.13 deferred）| 132 | TGA/Mesh/FontObject/HeightField/Material/Effect/Texture/SaveDDSBC/MotionCache |
+| UI: cWindow | 19 | framework skeleton |
+| UI: cButton | 20 | state machine + click |
+| UI: cEditBox | 18 | text buffer + caret + keys |
+| UI: cDialog | 16 | container + caption + cascade |
+| UI: cImage | 13 | Phase 5→6 GPU seam + render adapter |
+| UI: cListCtrl | 16 | multi-column list |
+| UI: cWindowManager | 14 | dispatch + modal + defer-destroy |
+| UI: legacy_compat | 6 | WE_* + cbWindowFunc bridge |
+| UI: cMsgBox | 14 | modal message box (4 MBType + keys + dispatcher integration) |
+| UI: cDivideBox | 12 | split-stack dialog (OK/Cancel + numeric input + min/max) |
+| UI: cIconDialog | 15 | icon-grid container (cells + AddIcon/DeleteIcon + PtInCell) |
+| UI: cStatic | 9 | text label widget (text + color + shadow + align) |
+| UI: cPushupButton | 5 | toggle / sticky button (m_pushed, m_passive) |
+| UI: cListDialog | 12 | scrollable text list (rows + selection + scroll) |
+| UI: cGuildDialog | 13 | first real legacy-port dialog (header + member list + tabs + rank) |
+| UI: cMultiLineText | 14 | multi-line text node list (NPC dialogs + quest descriptions) |
+| **UI 合计** | **216** | |
+| MoxianRenderDemo smoke (3D+2D+Effect+Mtl) | 1 | visual smoke |
+| mxh_ui_smoke (Phase 6.8 headless) | 1 | framework end-to-end |
+| `MoxianCompat` + `MoxianDb` + 其它 | ~58 | resource/db tools |
+| **Render + UI 合计** | **348** | **Debug 全过** |
+| ctest 全过 | **406/406** | 全套件（11 套件 + smokes + tools）|
 
 ### Phase 6 入口分析（2026-07-09 — 准备起步）
 

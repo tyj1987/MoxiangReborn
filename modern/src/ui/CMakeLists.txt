@@ -18,6 +18,7 @@ add_library(mxh_ui STATIC
     cPushupButton.cpp
     cListDialog.cpp
     cGuildDialog.cpp
+    cMultiLineText.cpp
 )
 
 target_include_directories(mxh_ui PUBLIC
