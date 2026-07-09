@@ -100,7 +100,19 @@ if(MSVC)
     # Per-config options are attached at the target level (generator
     # expressions) so /O2 (Release) and /RTC1 (Debug) never collide.
     # /W3 /FS /MP are config-agnostic so they can stay global.
-    add_compile_options(/W3 /FS /MP)
+    #
+    # Phase 7.5g: add /source-charset:utf-8 /execution-charset:utf-8 (same
+    # rationale as [Server]Map/CMakeLists.txt:96-134). The build host is
+    # cp936 (GBK Chinese Windows) — without /execution-charset:utf-8 MSVC
+    # would silently turn Korean Hangul codepoints in string literals into
+    # '?' placeholders, and the Debug_<LOCALE> configs (KOR/JAPAN/CHINA/
+    # HK/TL — all with Korean codepoints in their build error messages)
+    # fail to parse [CC]Header/CommonStruct.h. The /source-charset:utf-8
+    # half is the actual fix for the parse errors; the /execution-charset
+    # half keeps the string-literal bytes intact. Same trade-off analysis
+    # as [Server]Map applies here — no _mbs* / isleadbyte / mbstowcs
+    # usage in [Server]Distribute so MBCS char* APIs are unaffected.
+    add_compile_options(/W3 /FS /MP /source-charset:utf-8 /execution-charset:utf-8)
 endif()
 
 # -----------------------------------------------------------------------------

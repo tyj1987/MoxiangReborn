@@ -124,14 +124,31 @@ if(MSVC)
     # [CC]Ability / [CC]BattleSystem / [CC]Header / [CC]Quest /
     # [CC]ServerModule / [CC]Skill / [CC]Suryun.
     #
-    # Note: we keep /execution-charset at the default (system code
-    # page / GBK) because the legacy code uses char* string literals
-    # and MBCS APIs — flipping execution-charset to UTF-8 would
-    # change the encoding of "..." string literals and break the MBCS
-    # string handling. /source-charset:utf-8 alone is the surgical
-    # fix. See modern/docs/phase7.5b_map_build_fix.md for the full
-    # diagnostic.
-    add_compile_options(/W3 /FS /MP /source-charset:utf-8)
+    # Note: pre-7.5g we kept /execution-charset at the default (system
+    # code page / GBK) because the legacy code uses char* string
+    # literals and MBCS APIs. The trade-off was that Korean Hangul
+    # codepoints (U+AC00..U+D7A3) don't fit in cp936/GBK, so MSVC
+    # replaced every Korean char in string literals with a `?` (0x3F)
+    # placeholder. This was silent — no warning, no error — and only
+    # surfaced at runtime when strcmp() against the original Korean text
+    # failed (e.g. Server.cpp's "이 파일이 없으면 타이탄 업데이트 안돼요~"
+    # sentinel in CheckUpdateFile; see Bug C-34 in docs/KNOWN_BUGS.md).
+    # The dumped .rdata was literally "? ??? ??? ??? ???? ???~" instead
+    # of the 40 bytes of cp949 or 57 bytes of UTF-8 the source actually
+    # says.
+    #
+    # Phase 7.5g re-evaluated this. The `[Server]Map` source uses
+    # standard C string functions (strcmp / strcpy / strlen / strchr /
+    # fopen / fprintf) — grep finds zero _mbslen / _mbscmp / isleadbyte
+    # / mbstowcs calls — so MBCS API breakage from the encoding switch
+    # is theoretical, not actual. The Korean char corruption was real.
+    # /execution-charset:utf-8 keeps every byte in the binary exactly
+    # what the source file says (UTF-8 throughout) and pairs cleanly
+    # with /source-charset:utf-8. The .bin resources still need to be
+    # re-encoded UTF-8 (the runtime CMHFile::CheckCRC decode then
+    # produces UTF-8 bytes that byte-equal the strcmp constants) — see
+    # modern/tools/repack_titan_bin.py + docs/KNOWN_BUGS.md C-34.
+    add_compile_options(/W3 /FS /MP /source-charset:utf-8 /execution-charset:utf-8)
 endif()
 
 # -----------------------------------------------------------------------------
