@@ -10,6 +10,7 @@
     material_test.cpp
     dynamic_light_test.cpp
     texture_loader_test.cpp
+    phase5_deferred_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -117,4 +118,32 @@ gtest_add_tests(TARGET mxh_render_tests
     HeightFieldRenderGrid.RejectsNullQuad
     HeightFieldRenderGrid.RejectsNullQuadEvenWhenInitialized
     HeightFieldRenderGrid.AccessorsStartAtZero
+    # Phase 5 deferred: SetRTLight, InitializeRenderTarget, SetLoadFailedTextureTable, BC encoder
+    SetRTLight.NullDescRejected
+    SetRTLight.OutOfRangeIndexRejected
+    SetRTLight.StoresDescAndIncrementsCount
+    SetRTLight.MultipleSlotsAccumulate
+    SetRTLight.OverwriteDoesNotIncrementCount
+    BuildLightCBRTLight.RTLightFillsSlot
+    BuildLightCBRTLight.DefaultRangeIsClamped
+    InitializeRenderTarget.ValidArgsStored
+    InitializeRenderTarget.ZeroArgsRejected
+    InitializeRenderTarget.OverLimitClamped
+    SetLoadFailedTextureTable.StoresPointerAndSize
+    SetLoadFailedTextureTable.NullTableAllowed
+    GetLoadFailedTextureTable.ReturnsStoredView
+    SaveDDSBC.EmptyTextureReturnsEmpty
+    SaveDDSBC.SolidRedPicksBC1
+    SaveDDSBC.AlphaGradientPicksBC3
+    SaveDDSBC.NonMultipleOf4PadsToBlockGrid
+    SaveDDSBC.SolidColorBlockHasFlatIndices
+    # BC4 / BC5 (single + two channel) DDS encoders
+    SaveDDSBC4.SolidGrayPicksATI1
+    SaveDDSBC4.GrayscaleGradientRoundtripsToEndpoints
+    SaveDDSBC4.RChannelOnlyIgnoresOtherChannels
+    SaveDDSBC4.EmptyTextureReturnsEmpty
+    SaveDDSBC5.HeaderIsATI2AndBodyIs16BytesPerBlock
+    SaveDDSBC5.RGChannelsEncodedSeparately
+    SaveDDSBC5.NonMultipleOf4PadsToBlockGrid
+    SaveDDSBC5.EmptyTextureReturnsEmpty
 )

@@ -10,6 +10,7 @@ namespace mxh::gx::dx11 {
 struct MeshShaders {
     Microsoft::WRL::ComPtr<ID3D11VertexShader> vsLit;
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psLit;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader>  psMultiLight; // accumulates up to 8 dynamic/rt lights (cbuffer 480B)
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psEffect;     // dot3 + effect texture (slot t2)
     Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilLit;
 

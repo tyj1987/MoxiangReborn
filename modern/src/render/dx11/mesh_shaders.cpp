@@ -106,6 +106,91 @@ float4 main(PSInput i) : SV_Target {
 }
 )";
 
+// Multi-light pixel shader (Phase 5 deferred / Phase 5.10): accumulates diffuse
+// contribution from up to 8 dynamic / real-time lights. Compatible with the same
+// register b0 cbuffer used by psLit (LightCB), so the existing 96-byte base
+// region + 8 light slots (3 vec4s each) are read. Each slot's pos.w is the
+// "enabled" flag (1.0 = active, 0.0 = inactive). Color.rgb is the light color,
+// color.a is the range. Attenuation.x/y/z are the standard D3D attenuation
+// coefficients. Point-light distance attenuation is applied; for a directional
+// light (pos.w == 2.0 — used as a sentinel for "treat pos.xyz as direction"),
+// attenuation is skipped.
+static const char* kPS_MultiLight = R"(
+struct PSInput {
+    float4 pos    : SV_Position;
+    float2 uv     : TEXCOORD0;
+    float3 normal : TEXCOORD1;
+    float3 worldP : TEXCOORD2;
+};
+cbuffer CBLight : register(b0) {
+    float4 ambient;
+    float4 diffuse;
+    float4 lightDir;   // base directional, normalized surface→light
+    float4 cameraPos;
+    float4 fogParams;  // x=enabled(0/1), y=start, z=end, w=density
+    float4 fogColor;
+    // 8 dynamic / RT light slots (3 vec4s each: pos+enabled-flag, color+range, atten).
+    float4 dyn0Pos;  float4 dyn0Color;  float4 dyn0Atten;
+    float4 dyn1Pos;  float4 dyn1Color;  float4 dyn1Atten;
+    float4 dyn2Pos;  float4 dyn2Color;  float4 dyn2Atten;
+    float4 dyn3Pos;  float4 dyn3Color;  float4 dyn3Atten;
+    float4 dyn4Pos;  float4 dyn4Color;  float4 dyn4Atten;
+    float4 dyn5Pos;  float4 dyn5Color;  float4 dyn5Atten;
+    float4 dyn6Pos;  float4 dyn6Color;  float4 dyn6Atten;
+    float4 dyn7Pos;  float4 dyn7Color;  float4 dyn7Atten;
+};
+Texture2D    tex : register(t0);
+SamplerState samp : register(s0);
+
+static const float4 dynPos[8]   = { dyn0Pos, dyn1Pos, dyn2Pos, dyn3Pos, dyn4Pos, dyn5Pos, dyn6Pos, dyn7Pos };
+static const float4 dynColor[8] = { dyn0Color, dyn1Color, dyn2Color, dyn3Color, dyn4Color, dyn5Color, dyn6Color, dyn7Color };
+static const float4 dynAtten[8] = { dyn0Atten, dyn1Atten, dyn2Atten, dyn3Atten, dyn4Atten, dyn5Atten, dyn6Atten, dyn7Atten };
+
+float3 accumulateDynamic(float3 n, float3 worldP) {
+    float3 sum = 0;
+    [unroll]
+    for (int i = 0; i < 8; ++i) {
+        float4 p = dynPos[i];
+        if (p.w <= 0.5) continue;             // disabled slot
+        float4 c = dynColor[i];
+        float4 a = dynAtten[i];
+        float3 toLight;
+        float dist;
+        if (p.w > 1.5) {
+            // directional sentinel (pos.xyz is normalized surface→light dir)
+            toLight = p.xyz;
+            dist = 1.0;
+        } else {
+            toLight = p.xyz - worldP;
+            dist = length(toLight);
+            if (dist > 0.0001) toLight /= dist;
+        }
+        float nDotL = saturate(dot(n, toLight));
+        float att = 1.0 / max(a.x + a.y * dist + a.z * dist * dist, 0.0001);
+        // Range falloff: 0 at far edge, 1 at near.
+        float range = c.a;
+        if (range > 0.0) att *= saturate(1.0 - dist / range);
+        sum += c.rgb * nDotL * att;
+    }
+    return sum;
+}
+
+float4 main(PSInput i) : SV_Target {
+    float3 n = normalize(i.normal);
+    float nDotL = saturate(dot(n, -lightDir.xyz));
+    float4 base = tex.Sample(samp, i.uv);
+    // Base directional + accumulated dynamic lights.
+    float3 dynamic = accumulateDynamic(n, i.worldP);
+    float3 lit = base.rgb * (ambient.rgb + diffuse.rgb * nDotL + dynamic);
+    if (fogParams.x > 0.5) {
+        float dist = length(i.worldP - cameraPos.xyz);
+        float fog  = saturate((dist - fogParams.y) / max(fogParams.z - fogParams.y, 0.0001));
+        lit = lerp(lit, fogColor.rgb, fog);
+    }
+    return float4(lit, base.a);
+}
+)";
+
 bool MeshShaders::init(ID3D11Device* device) {
     Microsoft::WRL::ComPtr<ID3DBlob> vsBlob, psBlob, err;
 
@@ -136,6 +221,20 @@ bool MeshShaders::init(ID3D11Device* device) {
     if (FAILED(device->CreatePixelShader(psEffectBlob->GetBufferPointer(),
                                           psEffectBlob->GetBufferSize(),
                                           nullptr, &psEffect)))
+        return false;
+
+    // Multi-light pixel shader (Phase 5 deferred). Up to 8 dynamic / RT lights.
+    Microsoft::WRL::ComPtr<ID3DBlob> psMultiBlob;
+    hr = D3DCompile(kPS_MultiLight, strlen(kPS_MultiLight), nullptr, nullptr, nullptr,
+                    "main", "ps_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &psMultiBlob, &err);
+    if (FAILED(hr)) {
+        MLOG_ERROR("[mesh-shader] PS_MultiLight compile failed: %s",
+                   err ? static_cast<const char*>(err->GetBufferPointer()) : "?");
+        return false;
+    }
+    if (FAILED(device->CreatePixelShader(psMultiBlob->GetBufferPointer(),
+                                          psMultiBlob->GetBufferSize(),
+                                          nullptr, &psMultiLight)))
         return false;
 
     if (FAILED(device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vsLit)))
@@ -222,12 +321,14 @@ float4 main(PSInput i) : SV_Target {
     };
     if (!makeCB(64,  &cbWorld))    return false;
     if (!makeCB(64,  &cbViewProj)) return false;
-    if (!makeCB(96,  &cbLight))    return false;
+    // LightCB is 480 bytes (96 base + 8 light slots × 48 bytes). psLit only reads
+    // the first 96 bytes; psMultiLight reads all 480. Both share register b0.
+    if (!makeCB(480, &cbLight))    return false;
     return true;
 }
 
 void MeshShaders::release() {
-    vsLit.Reset(); psLit.Reset(); psEffect.Reset(); ilLit.Reset();
+    vsLit.Reset(); psLit.Reset(); psMultiLight.Reset(); psEffect.Reset(); ilLit.Reset();
     vs3DSolid.Reset(); ps3DSolid.Reset(); il3DSolid.Reset();
     cbWorld.Reset(); cbViewProj.Reset(); cbLight.Reset();
 }

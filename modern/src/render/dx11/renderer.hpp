@@ -156,6 +156,21 @@ public:
     PrimitiveDrawer*       internalPrimitives() { return &m_primitives; }
     I4DyuchiFileStorage*   internalStorage()    { return m_storage; }
     EffectShaderPalette*   internalEffectPalette() { return m_effectPalette.get(); }
+    // Test accessors for Phase 5 deferred state (SetRTLight, InitializeRenderTarget,
+    // SetLoadFailedTextureTable). All getters return by value to keep the contract
+    // read-only — tests can use these without touching the private fields.
+    std::uint32_t          internalRTLightActiveCount() const { return m_rtLightActiveCount; }
+    bool                   internalRTLightActive(std::uint32_t idx) const {
+        return idx < MAX_DYNAMIC_LIGHTS && m_rtLights[idx].bActive;
+    }
+    LIGHT_DESC             internalRTLightDesc(std::uint32_t idx) const {
+        return idx < MAX_DYNAMIC_LIGHTS ? m_rtLights[idx].desc : LIGHT_DESC{};
+    }
+    std::uint32_t          internalDynamicLightActiveCount() const { return m_dynamicLightActiveCount; }
+    std::uint32_t          internalRTTexelSize() const { return m_rtTexelSize; }
+    std::uint32_t          internalRTMaxTexNum() const { return m_rtMaxTexNum; }
+    TEXTURE_TABLE*         internalLoadFailedTable() const { return m_loadFailedTable; }
+    std::uint32_t          internalLoadFailedTableSize() const { return m_loadFailedTableSize; }
 
     // Effect palette helpers (mirrors INL_GetVLMeshEffect in original).
     EffectEntry* INL_GetVLMeshEffect(std::uint32_t index) {
@@ -233,6 +248,49 @@ private:
     // Dynamic Light management.
     // -------------------------------------------------------------------------
     std::array<DynamicLight, MAX_DYNAMIC_LIGHTS> m_dynamicLights{};
+
+    // -------------------------------------------------------------------------
+    // Real-Time light management (Phase 5 deferred / SetRTLight).
+    // -------------------------------------------------------------------------
+    // Up to MAX_DYNAMIC_LIGHTS (8) RT lights, indexed by SetRTLight's dwLightIndex.
+    // Each entry is a full LIGHT_DESC as supplied by the caller. RT lights are
+    // folded into the same 8-slot dynamic-light range in the cbuffer; for
+    // convenience RT lights take priority over CreateDynamicLight entries at
+    // the same index (caller's responsibility to keep them disjoint).
+    struct RTLight {
+        bool        bActive   = false;
+        LIGHT_DESC  desc{};
+    };
+    std::array<RTLight, MAX_DYNAMIC_LIGHTS> m_rtLights{};
+    // Count of active RT lights (cached for RenderMeshObject PS dispatch).
+    std::uint32_t m_rtLightActiveCount = 0;
+    // Count of active dynamic lights (CreateDynamicLight) — used together with
+    // m_rtLightActiveCount to decide whether the multi-light PS is needed.
+    std::uint32_t m_dynamicLightActiveCount = 0;
+
+    // -------------------------------------------------------------------------
+    // Render target cache (Phase 5 deferred / InitializeRenderTarget).
+    // -------------------------------------------------------------------------
+    // A small per-frame RT pool used for off-screen passes (e.g. shadow maps,
+    // post-processing). The original engine allocated these dynamically; we
+    // track the configuration here and let callers request slots via a future
+    // AllocRenderTarget API. dwMaxTexNum is clamped to 64 to keep the footprint
+    // bounded — only descriptors are stored, not the underlying GPU resources,
+    // because real RT allocation lives behind Device::createRenderTarget and is
+    // driven by the Effect/Shadow paths in a later phase.
+    std::uint32_t m_rtTexelSize = 0;     // 0 = uninitialized
+    std::uint32_t m_rtMaxTexNum = 0;     // configured cap
+    std::uint32_t m_rtNextSlot  = 0;     // round-robin alloc cursor
+
+    // -------------------------------------------------------------------------
+    // Load-failed texture table (Phase 5 deferred / SetLoadFailedTextureTable).
+    // -------------------------------------------------------------------------
+    // The original engine exposes a "fallback textures" table for tools — when
+    // a material fails to load, the engine can substitute a placeholder. We
+    // store the caller-supplied pointer + size verbatim and return them in
+    // GetLoadFailedTextureTable. Ownership remains with the caller.
+    TEXTURE_TABLE* m_loadFailedTable   = nullptr;
+    std::uint32_t  m_loadFailedTableSize = 0;
 
     // -------------------------------------------------------------------------
     // TriBuffer management.

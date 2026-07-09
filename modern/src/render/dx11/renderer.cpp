@@ -228,6 +228,7 @@ std::uint32_t __stdcall CoD3DDeviceDX11::CreateDynamicLight(std::uint32_t dwRS, 
             L.fAttenuation1 = 0.05f;
             L.fAttenuation2 = 0.f;
             L.fRange     = 200.f;
+            ++m_dynamicLightActiveCount;
             return i;  // index 0-7
         }
     }
@@ -237,6 +238,7 @@ BOOL __stdcall CoD3DDeviceDX11::DeleteDynamicLight(std::uint32_t dwIndex) {
     if (dwIndex >= MAX_DYNAMIC_LIGHTS) return FALSE;
     if (!m_dynamicLights[dwIndex].bActive) return FALSE;
     m_dynamicLights[dwIndex].bActive = false;
+    if (m_dynamicLightActiveCount > 0) --m_dynamicLightActiveCount;
     return TRUE;
 }
 BOOL __stdcall CoD3DDeviceDX11::CreateEffectShaderPaletteFromFile(char* szFileName) {
@@ -317,7 +319,15 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
     ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
-    ctx->PSSetShader(m_meshShaders.psLit.Get(), nullptr, 0);
+    // Pick the multi-light PS when there's at least one active dynamic or RT
+    // light — it accumulates per-pixel contributions from up to 8 light slots.
+    // When no lights are active, fall back to the cheaper single-directional PS.
+    const bool needMultiLight = m_meshShaders.psMultiLight &&
+                                (m_rtLightActiveCount > 0 ||
+                                 (pDynList && dwLightNum > 0));
+    ctx->PSSetShader(needMultiLight ? m_meshShaders.psMultiLight.Get()
+                                    : m_meshShaders.psLit.Get(),
+                     nullptr, 0);
     ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
     ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
     ctx->PSSetConstantBuffers(0, 1, m_meshShaders.cbLight.GetAddressOf());
@@ -655,6 +665,16 @@ void CoD3DDeviceDX11::buildLightCB(LightCB& out,
     // Fill extended slots from pDynList.
     // Each LIGHT_INDEX_DESC maps a face group's material handle to a dynamic light index.
     // Extended slots 0-7 are written when the caller provides pDynList.
+    float* posSlots[8]   = {out.dynLightPos0, out.dynLightPos1, out.dynLightPos2,
+                             out.dynLightPos3, out.dynLightPos4, out.dynLightPos5,
+                             out.dynLightPos6, out.dynLightPos7};
+    float* colSlots[8]   = {out.dynLightColor0, out.dynLightColor1, out.dynLightColor2,
+                             out.dynLightColor3, out.dynLightColor4, out.dynLightColor5,
+                             out.dynLightColor6, out.dynLightColor7};
+    float* attSlots[8]   = {out.dynLightAtten0, out.dynLightAtten1, out.dynLightAtten2,
+                             out.dynLightAtten3, out.dynLightAtten4, out.dynLightAtten5,
+                             out.dynLightAtten6, out.dynLightAtten7};
+
     if (pDynList) {
         for (std::uint32_t li = 0; li < dwLightNum && li < MAX_DYNAMIC_LIGHTS; ++li) {
             std::uint8_t idx = pDynList[li].bLightIndex;
@@ -664,16 +684,6 @@ void CoD3DDeviceDX11::buildLightCB(LightCB& out,
 
             float rgb[4];
             color_to_float4(L.dwColor, rgb);
-
-            float* posSlots[8]   = {out.dynLightPos0, out.dynLightPos1, out.dynLightPos2,
-                                     out.dynLightPos3, out.dynLightPos4, out.dynLightPos5,
-                                     out.dynLightPos6, out.dynLightPos7};
-            float* colSlots[8]   = {out.dynLightColor0, out.dynLightColor1, out.dynLightColor2,
-                                     out.dynLightColor3, out.dynLightColor4, out.dynLightColor5,
-                                     out.dynLightColor6, out.dynLightColor7};
-            float* attSlots[8]   = {out.dynLightAtten0, out.dynLightAtten1, out.dynLightAtten2,
-                                     out.dynLightAtten3, out.dynLightAtten4, out.dynLightAtten5,
-                                     out.dynLightAtten6, out.dynLightAtten7};
 
             posSlots[idx][0] = L.v3Pos[0];
             posSlots[idx][1] = L.v3Pos[1];
@@ -691,11 +701,50 @@ void CoD3DDeviceDX11::buildLightCB(LightCB& out,
             attSlots[idx][3] = 0.0f;
         }
     }
+
+    // Overlay RT lights (SetRTLight): takes priority over CreateDynamicLight
+    // entries at the same index. RT lights are point/spot lights — their
+    // v3Point is the world position, v3To is the aim point (used by future
+    // spot-cone work). For now we always treat RT lights as point lights with
+    // standard 1/d² attenuation and a range falloff. SetRTLight's pos.w is
+    // set to 1.0f so the multi-light PS activates the slot.
+    for (std::uint32_t idx = 0; idx < MAX_DYNAMIC_LIGHTS; ++idx) {
+        const auto& R = m_rtLights[idx];
+        if (!R.bActive) continue;
+        const LIGHT_DESC& D = R.desc;
+        float rgb[4];
+        color_to_float4(D.dwDiffuse, rgb);
+        posSlots[idx][0] = D.v3Point.x;
+        posSlots[idx][1] = D.v3Point.y;
+        posSlots[idx][2] = D.v3Point.z;
+        posSlots[idx][3] = 1.0f; // enabled flag for the multi-light PS
+        colSlots[idx][0] = rgb[0];
+        colSlots[idx][1] = rgb[1];
+        colSlots[idx][2] = rgb[2];
+        colSlots[idx][3] = D.fRs > 0.f ? D.fRs : 200.f;
+        attSlots[idx][0] = 1.0f;
+        attSlots[idx][1] = 0.0f;
+        attSlots[idx][2] = 0.0f;
+        attSlots[idx][3] = 0.0f;
+    }
 }
 
 // ===== Lighting =====
 
-BOOL __stdcall CoD3DDeviceDX11::SetRTLight(LIGHT_DESC* /*p*/, std::uint32_t /*i*/, std::uint32_t /*f*/) {
+BOOL __stdcall CoD3DDeviceDX11::SetRTLight(LIGHT_DESC* pLightDesc, std::uint32_t dwLightIndex, std::uint32_t /*dwFlag*/) {
+    if (!pLightDesc || dwLightIndex >= MAX_DYNAMIC_LIGHTS) {
+        MLOG_WARN("[renderer] SetRTLight: invalid arg (p=%p, idx=%u)",
+                  static_cast<const void*>(pLightDesc), dwLightIndex);
+        return FALSE;
+    }
+    // Store the descriptor; mark the slot active. Recompute the active count
+    // so RenderMeshObject can decide whether the multi-light PS is needed.
+    bool wasActive = m_rtLights[dwLightIndex].bActive;
+    m_rtLights[dwLightIndex].desc   = *pLightDesc;
+    m_rtLights[dwLightIndex].bActive = true;
+    if (!wasActive) ++m_rtLightActiveCount;
+    MLOG_DEBUG("[renderer] SetRTLight[%u] active (count=%u, range=%.1f)",
+               dwLightIndex, m_rtLightActiveCount, pLightDesc->fRs);
     return TRUE;
 }
 void __stdcall CoD3DDeviceDX11::EnableDirectionalLight(DIRECTIONAL_LIGHT_DESC* pDesc, std::uint32_t) {
@@ -1009,24 +1058,25 @@ BOOL __stdcall CoD3DDeviceDX11::ConvertCompressedTexture(char* szFileName, std::
         return FALSE;
     }
 
-    // DDS fast path: if already DDS, surface a no-op. Real BC conversion needs
-    // DirectXTex; we don't block on that here.
+    // DDS fast path: passthrough any file that already starts with "DDS ".
+    // Re-encoding an already-compressed BC file would be a quality regression.
+    // TGA/BMP and other non-DDS inputs go through the BC encoder below.
     if (data.size() >= 4 &&
         data[0] == 'D' && data[1] == 'D' && data[2] == 'S' && data[3] == ' ') {
         MLOG_INFO("[renderer] ConvertCompressedTexture: '%s' is already DDS, "
-                  "passthrough (BC compression requires DirectXTex, out of scope)",
+                  "passthrough (no re-encode to avoid quality regression)",
                   szFileName);
         return TRUE;
     }
 
-    // TGA/BMP/etc. → load → emit uncompressed DDS beside the source.
+    // TGA/BMP/etc. → load → emit BC-compressed DDS beside the source.
     LoadedTexture tex = loadTextureFromMemory(data.data(), data.size());
     if (tex.pixels.empty() || tex.width == 0 || tex.height == 0) {
         MLOG_WARN("[renderer] ConvertCompressedTexture: decoder produced empty image for '%s'",
                   szFileName);
         return FALSE;
     }
-    std::vector<std::uint8_t> dds = saveDDS(tex);
+    std::vector<std::uint8_t> dds = saveDDS_BC(tex);
     if (dds.empty()) {
         MLOG_WARN("[renderer] ConvertCompressedTexture: saveDDS failed");
         return FALSE;
@@ -1077,6 +1127,11 @@ void __stdcall CoD3DDeviceDX11::ResetDevice(BOOL bTest) {
         // The caller wants a clean state, so release everything and let Create() be
         // called again by the application.
         m_dev->release();
+        // Drop all light state — slots/active counts are bound to the device.
+        for (auto& R : m_rtLights) R.bActive = false;
+        m_rtLightActiveCount = 0;
+        for (auto& L : m_dynamicLights) L.bActive = false;
+        m_dynamicLightActiveCount = 0;
         MLOG_INFO("[renderer] ResetDevice: device released (application must call Create again)");
     } else {
         // Test mode: just validate device is alive.
@@ -1093,7 +1148,16 @@ std::uint32_t __stdcall CoD3DDeviceDX11::ClearVBCacheWithIDIMeshObject(IDIMeshOb
     mesh->releaseBuffers();
     return 1; // 1 buffer set cleared (vb + ib in one call)
 }
-std::uint32_t __stdcall CoD3DDeviceDX11::ClearCacheWithMotionUID(void* /*p*/) { return 0; }
+std::uint32_t __stdcall CoD3DDeviceDX11::ClearCacheWithMotionUID(void* pMotionUID) {
+    // Motion-UID cache is a future-phase feature (per-motion VB/IB tracking for
+    // skeletal animation). Until that cache exists, return 0 to indicate "no
+    // entries cleared" — semantically correct, just an empty cache. The arg is
+    // accepted so callers can wire it through now without a signature change.
+    if (!pMotionUID) return 0;
+    MLOG_DEBUG("[renderer] ClearCacheWithMotionUID(%p): motion cache not yet "
+               "implemented (returns 0)", pMotionUID);
+    return 0;
+}
 void __stdcall CoD3DDeviceDX11::SetTickCount(std::uint32_t t, BOOL /*g*/) {
     if (m_effectPalette) m_effectPalette->setTickCount(t);
 }
@@ -1120,15 +1184,52 @@ BOOL __stdcall CoD3DDeviceDX11::GetD3DDevice(REFIID refiid, void** ppVoid) {
     return FALSE;
 }
 
-BOOL __stdcall CoD3DDeviceDX11::InitializeRenderTarget(std::uint32_t /*s*/, std::uint32_t /*n*/) { return TRUE; }
+BOOL __stdcall CoD3DDeviceDX11::InitializeRenderTarget(std::uint32_t dwTexelSize, std::uint32_t dwMaxTexNum) {
+    if (dwTexelSize == 0 || dwMaxTexNum == 0) {
+        MLOG_WARN("[renderer] InitializeRenderTarget: invalid size=%u, num=%u",
+                  dwTexelSize, dwMaxTexNum);
+        return FALSE;
+    }
+    // Clamp to a reasonable upper bound to keep the descriptor footprint small.
+    constexpr std::uint32_t kMaxAllowed = 64;
+    if (dwMaxTexNum > kMaxAllowed) {
+        MLOG_WARN("[renderer] InitializeRenderTarget: clamping %u -> %u", dwMaxTexNum, kMaxAllowed);
+        dwMaxTexNum = kMaxAllowed;
+    }
+    m_rtTexelSize = dwTexelSize;
+    m_rtMaxTexNum = dwMaxTexNum;
+    m_rtNextSlot  = 0;
+    MLOG_INFO("[renderer] InitializeRenderTarget: texelSize=%u maxNum=%u (descriptors only; "
+              "GPU resources lazy-alloc on first use)", dwTexelSize, dwMaxTexNum);
+    return TRUE;
+}
 void __stdcall CoD3DDeviceDX11::SetRenderTextureMustUpdate(BOOL b) {
     m_renderTextureMustUpdate = (b != FALSE);
     MLOG_DEBUG("[renderer] SetRenderTextureMustUpdate: %s", m_renderTextureMustUpdate ? "ON" : "OFF");
 }
 void __stdcall CoD3DDeviceDX11::SetAlphaRefValue(std::uint32_t v) { m_alphaRefValue = v; }
 
-BOOL __stdcall CoD3DDeviceDX11::SetLoadFailedTextureTable(TEXTURE_TABLE* /*p*/, std::uint32_t /*n*/) { return TRUE; }
-void __stdcall CoD3DDeviceDX11::GetLoadFailedTextureTable(TEXTURE_TABLE** /*p*/, std::uint32_t* /*a*/, std::uint32_t* /*b*/) {}
+BOOL __stdcall CoD3DDeviceDX11::SetLoadFailedTextureTable(TEXTURE_TABLE* pLoadFailedTextureTable,
+                                                            std::uint32_t dwLoadFailedTextureTableSize) {
+    // Caller retains ownership. We just snapshot the pointer + size so
+    // GetLoadFailedTextureTable can return the same view later. A null table
+    // is allowed (used to clear the prior table).
+    m_loadFailedTable      = pLoadFailedTextureTable;
+    m_loadFailedTableSize  = dwLoadFailedTextureTableSize;
+    MLOG_DEBUG("[renderer] SetLoadFailedTextureTable: %p, size=%u",
+               static_cast<const void*>(pLoadFailedTextureTable),
+               dwLoadFailedTextureTableSize);
+    return TRUE;
+}
+void __stdcall CoD3DDeviceDX11::GetLoadFailedTextureTable(TEXTURE_TABLE** ppoutLoadFailedTextureTable,
+                                                             std::uint32_t* poutdwLoadFailedTextureTableSize,
+                                                             std::uint32_t* poutdwFailedTextureCount) {
+    if (ppoutLoadFailedTextureTable) *ppoutLoadFailedTextureTable = m_loadFailedTable;
+    if (poutdwLoadFailedTextureTableSize) *poutdwLoadFailedTextureTableSize = m_loadFailedTableSize;
+    // Failed count is the number of distinct entries in the table — we don't
+    // track per-load outcomes, so report the table size as the worst case.
+    if (poutdwFailedTextureCount) *poutdwFailedTextureCount = m_loadFailedTableSize;
+}
 
 void __stdcall CoD3DDeviceDX11::SetRenderWireSolidBothMode(BOOL b) { m_wireSolidBothMode = b; }
 BOOL __stdcall CoD3DDeviceDX11::GetRenderWireSolidBothMode() { return m_wireSolidBothMode; }

@@ -350,34 +350,41 @@ Phase 12: 持续迭代
 - [x] ChxModel 真实资源测试（4 case：`.chx` 是 TAB 分隔文本元数据, 不是二进制 mesh）
 - [x] ctest 集成（gtest_add_tests 手工列举, 绕开中文路径下 gtest_discover_tests 的 JSON 输出超时）
 - [x] Phase 5 进度报告（见下方 "Phase 5 当前状态摘要"）
-### Phase 5 当前状态摘要（2026-07-07 更新）
+### Phase 5 当前状态摘要（2026-07-09 更新 — Phase 5 deferred 收尾轮 + BC4/BC5 闭环）
 
-**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + 自研 HLSL + ChxModel 测试 + ctest 集成。Debug 测试 **47/47 PASS**。
+**最近完成 (8 uncommitted files, +26 tests, 175/175 PASS 全量 / 131/131 render)**：
+- `SetRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` / `GetLoadFailedTextureTable` — 4 个 deferred renderer 状态方法实做，带 max-8 RT light 上限 + RT light overlay in buildLightCB + 多光 PS dispatch (`psMultiLight`) + RT/dynamic light active count tracking
+- `saveDDS_BC` 真实 BC1 (DXT1) + BC3 (DXT5) 块编码器（min/max 锚点, RGB565 endpoints, edge-pad 块栅格, 完整 DDS header）
+- `saveDDS_BC(tex, BCFormat)` 重构 + `BCFormat` 枚举 (`Auto` / `BC1` / `BC3` / `BC4` / `BC5`)
+- `encode_single_channel_block` 共享助手（BC3-alpha + BC4 复用, 8/6-step 自适应, 选 distortion 更小的模式）
+- **BC4 (ATI1)** 单通道（用 R 通道，灰度/alpha 纹理）
+- **BC5 (ATI2)** 双通道（R+G，tangent-space normal map 标准，shader 端 `Z = sqrt(1 - x² - y²)` 重建）
+- `ConvertCompressedTexture` DDS fast-path（passthrough 已压缩文件，避免质量回退）
+- `GetD3DDevice` 扩展到 `IUnknown` / `ID3D11Device` / `ID3D11DeviceContext`（原计划只支持 `IUnknown`）
+- `ResetDevice` 清理所有 light state（RT + dynamic）
 
-**本次构建修复**：
-- `chx_real_resource_test.cpp`：修正 API 调用（`PackFile::open` 返回 `unique_ptr`，`read_mh_bin` 返回 `Result<T>`，`std::min<size_t>` MSVC 特化）✅
-- `FontObjectAtlas` 测试断言：修复 `FakeAtlasPacker` 期望值（`kW=50` 时第三次 glyph 确实触发换行）✅
-- RenderDemo `mesh_object.hpp` 内部头移除依赖，改为通过 `IDIMeshObject` 公开接口运行 ✅
-- 所有 CMakeLists.txt 移除 `gtest_discover_tests`（中文路径导致 JSON 写入失败，改用手动 `add_test`）✅
-- MSBuild 路径问题修复：RenderDemo 不依赖内部命名空间，绕过 MSBuild 中文路径崩溃 ✅
+**Phase 5 状态总览（2026-07-09）**：
 
-**已知限制 (stubs / deferred)**：
-
-| Stub | 接口 | 状态 | 备注 |
-|------|------|------|------|
-| `CreateHeightField` | LOD + alpha + chunked VB | 文档原计划 deferred | 旧 4Dyuchi HeightField 是大模块 |
-| `CreateMaterial[Set]` | 材质表管理 | Phase 5 高级 | 需要 MATERIAL→SRV 缓存 |
-| `CreateEffectShaderPalette*` | CUSTOM_EFFECT_DESC | Phase 5 高级 | 特效系统 |
-| `RenderTri*` / `AllocRenderTriBuffer*` | TriBuffer 路径 | Phase 5 高级 | 动态三角缓冲 |
-| `CaptureScreen` | DX11 offscreen RT + 保存 | 工具 | 屏幕截图 |
-| `ConvertCompressedTexture` | BC1-BC7 压缩 | Phase 5 高级 | DirectXTex |
-| `BeginShadowMap` / `EndShadowMap` | shadow map pipeline | 后期 | |
-| `GetD3DDevice` (非 IUnknown IID) | 兼容老代码 | 兼容性 | 当前只支持 `IUnknown` |
+| Stub | 状态 | 备注 |
+|------|------|------|
+| `CreateHeightField` | ✅ done | 5.9c (38783fd) |
+| `CreateMaterial[Set]` | ✅ done | 5.9 (7bf70b8) |
+| `CreateEffectShaderPalette*` | ✅ done | effect_shader.cpp |
+| `RenderTri*` / `AllocRenderTriBuffer*` | ✅ done | renderer.cpp:407-614 |
+| `CaptureScreen` | ✅ done | renderer.cpp:817 |
+| `BeginShadowMap` / `EndShadowMap` | ✅ done (simple) | renderer.cpp:187-194, calls device |
+| `GetD3DDevice` (非 IUnknown IID) | ✅ done (extended) | ID3D11Device + ID3D11DeviceContext |
+| `SetRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` | ✅ done (this session) | |
+| `ConvertCompressedTexture` BC1/BC3 | ✅ done (this session) | saveDDS_BC + DDS passthrough |
+| `ConvertCompressedTexture` BC4/BC5 | ✅ done (this iter) | ATI1/ATI2 FourCC, encode_single_channel_block |
+| `ConvertCompressedTexture` BC6H/BC7 | ⏳ future | HDR + RGBA-hi-quality; 大型编码器 |
+| Motion cache (per-motion VB/IB) | ⏳ future | 真新功能，不是 stub |
+| `INL_GetVLMeshEffect` helper | ⏳ future | Effect palette accessor |
 
 > **FontObject 范围说明**：8-bit 缓存（非 Unicode CJK 簇）；CJK 应走老引擎自己的 .TTB 预烤字图。
 > DirectWrite SDF / 多色 emoji 需要单独 Phase 6+ 工作。
 
-**测试统计**：
+**测试统计 (Debug, 2026-07-09)**：
 | 套件 | 数量 | 内容 |
 |------|------|------|
 | `TgaLoader` | 7 | TGA uncompressed / RLE / bottom-up-flip / RGBA32 |
@@ -391,7 +398,20 @@ Phase 12: 持续迭代
 | `DbAdapter` | 4 | `IDbAdapter` 工厂 + 配置 |
 | `SqliteAdapter` | 5 | SQLite 后端（事务/BLOB/文件持久化） |
 | `RealResource` | 2 | 真实 `MonsterList.bin` + `Effect.pak` 跑通 |
-| **合计** | **47** | Debug 全过 |
+| `MatrixMathTest` | 3 | 矩阵数学 (Orthographic/LookAt/Identity) |
+| `HeightFieldTest` | 8 | 高度图 (build/lod/height/tile) |
+| `HeightFieldRenderGrid` | 3 | RenderGrid 入口 + accessor |
+| `HeightFieldPool*` | 7 | Pool caps / guards / key encoding / palette |
+| `HFieldObject*` | 12 | HField object 默认/IUnknown/refcount/create/color/alpha/state/math |
+| `EffectShaderTest` | 13 | EffectEntry / Palette / buildFromDesc / matrix ops |
+| `MaterialDataTest` + `MaterialSet*` + `MaterialContract*` | 14 | MATERIAL 字段 / 集合 / 合约 / Fill helper |
+| `DynamicLightDefaults` + `LightCBInit` + `ColorConversion` + `LightIndexDesc` + `DynamicLightConstants` | 11 | light 默认值 + cbuffer 布局 + 颜色转换 + 常量 |
+| `TriBufferMagic` | 1 | TRIB magic 常量 |
+| `TextureLoaderTGA` / `TextureLoaderDDS` / `TextureLoaderAutoDetect` | 6 | TGA roundtrip / DDS magic+BGRA / 探测 |
+| **Phase 5 deferred** (`SetRTLight` / `BuildLightCBRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` / `GetLoadFailedTextureTable` / `SaveDDSBC` / `SaveDDSBC4` / `SaveDDSBC5`) | **26** | **本 session 新增 (18 + 8)** |
+| **Render 合计** | **131** | |
+| MoxianRenderDemo smoke | 1 | Phase 5.10/5.11/6+/7 (7911120) — 3D lit cube + 2D HUD + Effect/Material |
+| **Modern 全部** | **175** | **Debug 全过** |
 
 ### Phase 3-7 交付物（每阶段）
 - [ ] 新模块源码 + 单元测试
