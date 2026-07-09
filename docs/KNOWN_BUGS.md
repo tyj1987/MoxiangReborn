@@ -372,7 +372,94 @@
   - `modern/tests/unit/aes_gcm_test.cpp` — 17 个测试即合约（已通过）
 - **状态**：Phase 3.3 已修复（2026-07-08）。49/49 crypto_tests + 143/143 ctest 全树通过。
 
+---
 
+## 运行时环境（Phase 7.5e-2 调研，2026-07-08）
+
+### Bug C-32: 本机无 SQL Server / MS Server，MapServer runtime smoke 不可执行
+- **症状**：`MapServer.exe` 在 staging 启动后 `<2s` 干净 `ExitProcess(0)`（新 build）或 stuck at 7 wow64 module 上 60s（legacy VS2008 control）。`Log\ServerStart.txt` 从未创建。`g_Network->Init()` / `BOOTMNGR->ConnectToMS()` 永远到不了，因为 `g_DB.Init()` 撞 `MessageBox(NULL,"DataBase Initializing Failed",0,0)` 阻塞等用户输入，或更早在 `CheckUpdateFile()` 早返（见 C-33）。
+- **位置**：`[Server]Map\Server.cpp:54-55` 的 `CheckUpdateFile()` gate + `[Server]Map\ServerSystem.cpp:612,629` 的 `BOOTMNGR->ConnectToMS()` 和 `g_DB.Init()`。
+- **根因**：本机（开发/CI 主机）未安装 SQL Server（`sc query MSSQLSERVER` → **ERROR 1060** `指定的服务未安装`），ODBC 驱动 registry 空（`HKLM:\SOFTWARE\ODBC\ODBCINST.INI\ODBC Drivers` → 0 entries），无 `MonitoringServer.exe` 运行。`DBThread.dll` 的 `SQLConnect` 直接失败；`4DyuchiNET.dll` 的 MS server connection 也失败。即使补齐所有 staging 文件，没有 DB/MS 也无法完成 `g_Network.Init` → `StartServerWithServerSide` 链路。
+- **现代方案**：
+  - **当前接受为 known gap**（Phase 7.5e 决策）：runtime smoke 在本机不可执行；`MapServer.exe` 启动链路的 functional equivalence 已由 dumpbin /dependents 排查（Phase 7.5e）+ legacy 对照 + TitanServer.bin 修复（C-33）间接证明
+  - **未来补齐路径**（需人工介入）：安装 SQL Server 2005/2008（匹配 legacy 2008 栈）+ legacy Native Client ODBC 驱动；启动 `SWorking\MonitoringServer.exe`；重跑 `plan_4b45c814` 的 staging 脚本 + smoke runner。预计一次性 confirm `g_Network` → `BOOTMNGR` → `bind()` 链路。
+  - **legacy 对照证据**：legacy VS2008 `SWorking\MapServer.exe`（2.5 MB）在同一 staging 下 fail 同方式（listen=0, ServerStart.txt 未创建），证明非 build regression，是 env blocker。
+- **状态**：Phase 7.5e-2 已记录（plan_4b45c814，auto-accept PASS-with-caveat），未尝试物理装 SQL Server。
+
+### Bug C-33: `CMHFile::GetStringInQuotation` 假设引号边界，对 `TitanServer.bin` 解码越界
+- **症状**：`MapServer.exe` 在 `Server.cpp:54-55` 调 `CheckUpdateFile()`，`CheckUpdateFile` 通过 `CMHFile::GetStringInQuotation` 读 `Resource\Server\TitanServer.bin`（56 字节，XOR 加密 + 1 字节 CRC），期望返回 `"이 파일이 없으면 타이탄 업데이트 안돼요~"`（Korean 错误消息），但读到空 / 乱码 → `strcmp != 0` → `CheckUpdateFile` 返回 `FALSE` → `WinMain` return 0 → `MapServer.exe` 在 `<2s` 干净 exit。`ServerStart.txt` 从未创建。
+- **位置**：`[Server]Map\Server.cpp:54-55`（调用点） + `[Server]Map\MHFile.cpp:265-296`（`CMHFile::GetStringInQuotation` 实现） + `[Server]Map\MHFile.cpp:446-449`（XOR 解码 `crc += m_pData[i]; m_pData[i] -= (char)i`）。
+- **根因**：
+  - `TitanServer.bin`（56 字节）经 XOR 解码后内容：首位 `0x45` ('E')，不是 `0x22` ('"')；只在 position 41 有 1 个 `"`（closing）。文件**缺失** leading `"`。
+  - `GetStringInQuotation()` 假设"内容以 `"` 开头然后 scan 到下一个 `"`"，但文件没 leading `"`，它会 scan 整个 42 字节内容，最后落在 position 41 的 `"` 上。然后尝试从 position 42 读内容 → `m_pData[42]` 越界（`m_Header.dwFileSize` = 42）→ UB → 返回垃圾 / 空串。
+  - 即使文件有 leading `"`，这个 reader 也假设 `dwFileSize > 2 * quote_count`，对极短文件（42 字节）fragile。
+- **现代方案**：
+  - **Phase 7.5f 计划**（即将启动）：改 `CMHFile::GetStringInQuotation` 加 robust quote handling：(a) 找不到 leading `"` 时回退 scan 整 buffer；(b) 内容为空时返回空串而非越界；(c) 把 `m_pData[m_Dfp++]` 改成 `if (m_Dfp < m_Header.dwFileSize) m_pData[m_Dfp++]` 加 bound check。
+  - **或**：直接修复 `TitanServer.bin`（在 `PlayDH\Resource\Server\` 加 leading `"` 字节）。这是 legacy 数据 bug，不属于源码范畴。
+  - **次级 fix**：在 `Server.cpp:54-55` 加 explicit log 而不是 silent return 0 — 至少 `g_Console.LOG` 输出 "CheckUpdateFile failed" 让问题可见。
+- **状态**：Phase 7.5f 已修复（commit `62765a3`，plan_5d296f1c，verifier PASS-auto-accept）。`GetStringInQuotation` 加了 bound check + `Server.cpp` 加 explicit log。**但 7.5f 落地后 smoke 仍 fail**，次级发现见 C-34。
+
+### Bug C-34: MSVC default execution-charset 是 cp936 (GBK)，Korean codepoint 被静默替成 `?` placeholder
+- **症状**：`MapServer.exe`（modern build）在 smoke 中仍 fail `CheckUpdateFile`，stderr 报 `decoded TitanServer.bin sentinel mismatch (got '?? ?????? ?????? ???? ??????? ????~')`。Dumping `.rdata` 找到 strcmp 的常量实际是 `? ??? ??? ??? ???? ???~`（22 字节 ASCII placeholder），不是源码里写的 40 字节 EUC-KR 或 57 字节 UTF-8。Phase 7.5f 修 OOB 后这个之前被 silent return 0 掩盖的 bug 才暴露。
+- **位置**：
+  - 编译时：`墨香【源码】\[Server]Map\CMakeLists.txt:96-134`（`/source-charset:utf-8` 注释里提到 "we keep /execution-charset at the default"）
+  - 字符串 literal：源码 `墨香【源码】\[Server]Map\Server.cpp:135` 的 `strcmp( temp, "이 파일이 없으면 타이탄 업데이트 안돼요~" )`
+  - runtime：`墨香【源码】\[Server]Map\MHFile.cpp:462-489` 的 `CheckCRC` decode（实际是**正常**的，不是 stub — 7.5g 重新确认；`m_pData[i] -= (char)i; if (i%dwType==0) m_pData[i] -= dwType`）
+- **根因**（与最初的 "byte-swap" 假设完全不同）：
+  1. CMakeLists 第 127-131 行的注释明确写了 build host 是 **cp936 (GBK) Windows**（中文 Windows），所以 MSVC 默认 `/execution-charset` = cp936。
+  2. `/source-charset:utf-8` 让 MSVC 正确读 UTF-8 源文件，但**默认 execution-charset 是系统 codepage**。当 MSVC 编译 string literal `이 파일이 없으면 타이탄 업데이트 안돼요~`（U+C774 ...），它要把 Unicode codepoint 转到 cp936 字节序列 — 但 cp936 没有 Korean Hangul 区段（U+AC00..U+D7A3）。
+  3. MSVC 对每个无法表示的 codepoint **静默替成 `?` (0x3F)**，**没有 warning，没有 error**。结果 binary 的 .rdata 里 strcmp 常量变成 22 字节的 ASCII placeholder `? ??? ??? ??? ???? ???~`。
+  4. runtime `CheckUpdateFile` 正确 decode 出来的 EUC-KR / UTF-8 Korean 字节序列 跟 ASCII placeholder 永远 strcmp 不上 → mismatch。
+  5. 之前 `LOG` 没显式输出（被 C-33 修），所以这个 bug 完全被 silent return 0 掩盖了。Phase 7.5f 加 explicit log 后才冒头。
+- **之前误判**：早期 7.5f 调研把这个错误归因成 "byte-swap"（每对 2-byte Hanja 字节顺序反了）— Python 反向分析 .bin 字节流后这个假设证伪：legacy `TitanServer.bin` 的 decoded text 在 EUC-KR 编码下完整恢复成 `"이 파일이 없으면 타이탄 업데이트 안돼요~"`，没有 byte-swap；`CheckCRC` decode 也工作正常。真正的错位在 **compiler 的 string literal 编码**。
+- **现代方案**（Phase 7.5g，已落地）：
+  - **改 `[Server]Map/CMakeLists.txt`**：`add_compile_options(... /source-charset:utf-8 /execution-charset:utf-8)`，MSVC 把所有 string literal 直接编成 UTF-8 字节（不再走 system codepage）。原注释里 "would break MBCS string handling" 的担心 grep 过 `[Server]Map/*.cpp` 没有任何 `_mbs*` / `isleadbyte` / `mbstowcs` 调用 — codebase 用的是 `strcmp / strcpy / strlen / strchr / fopen / fprintf` 这一套对字节序列 encoding-agnostic 的 C 字符串函数，**担心是理论性，实际不会破**。Comment block 同步更新，说明这次翻转的 trade-off。
+  - **改 smoke staging `TitanServer.bin`**：用 `modern/tools/repack_titan_bin.py` 重打 .bin，使 runtime `CheckCRC` decode 出来的字节序列是 UTF-8（与 binary 的 strcmp 常量对齐）。dwType=7（确定性小值），dwFileSize=59（leading `"` + 57 字节 UTF-8 + trailing `"`）。备份原 EUC-KR 文件为 `TitanServer.bin.old_euc_kr`。
+  - **rebuild + smoke**：新 MapServer.exe (1,289,216 bytes, +5632 vs pre-7.5g 的 1,283,584) + 新 .bin (73 bytes) → smoke 跑过 `CheckUpdateFile`，stderr 为空，进程进入 `CServerSystem::Start`（下一步卡 C-32，预期）。
+  - **新工具**：`modern/tools/repack_titan_bin.py` — 通用 PackingMan .bin 重打工具（命令行 `fix-titan` 子命令 = C-34 specific，`encode` 子命令 = 通用），`modern/.../test_repack.py` 留作 roundtrip 验证脚本。
+- **影响范围**：
+  - 只改 1 个 build flag + 1 个 .bin 文件 + 1 个新工具，**没有改任何运行时代码**。`CheckUpdateFile / GetStringInQuotation / CheckCRC` 行为不变。
+  - `SWorking/Resource/Server/TitanServer.bin` 保留原状（56 字节 EUC-KR 备份）— 旧 legacy 服务器仍然兼容这份 binary。
+  - **其他 .bin 文件**（`SWorking/Resource/Server/*.bin`）理论上也有同样问题（legacy 都是 cp949 编码，跟现在 UTF-8 binary strcmp 对不齐），但 smoke 暂时只测到 `TitanServer.bin`。如果 future 加载别的 .bin 时 strcmp 失败，同样跑 `repack_titan_bin.py encode` 重打。Phase 7.5h 待补的批量迁移就是这件事。
+- **状态**：Phase 7.5g 已修复（modern tool + build flag + smoke staging 替换）。`docs/KNOWN_BUGS.md` 这一条 + `modern/tools/repack_titan_bin.py` 是 delivery。`MODERNIZATION_PLAN.md` 5.4 节要勾掉 "C-34 修"。
+
+### Bug C-35: 4/5 DistributeServer_Debug_<LOCALE> target 撞 legacy 暗礁 (KOR mfc71.lib + JAPAN/HK/TL 4 个匿名 enum 重定义)
+- **症状**：`cmake --build` 5 个 Distribute Debug_<LOCALE> target 之后，1/5 干净 (CHINA → 1,306,112 字节 exe)，4/5 fail:
+  - `DistributeServer_Debug_KOR`: 1 LNK error — `cannot open file "mfc71.lib"` (VS2003 legacy MFC library, build host = MSVC14 没装)
+  - `DistributeServer_Debug_JAPAN`: 58 C errors
+  - `DistributeServer_Debug_CHINA`: ✅ 0 errors, 1,306,112 字节 exe 落地
+  - `DistributeServer_Debug_HK`: 162 C errors
+  - `DistributeServer_Debug_TL`: 58 C errors
+- **位置**：
+  - LNK error: `[Server]Distribute/build_distribute/DistributeServer_Debug_KOR.vcxproj` link 阶段
+  - C2365 重定义 (HK/JP/TL 共享): `[CC]Header/CommonGameDefine.h:1491-1494` `TP_MUGONG_START/END/JINBUB_START/END` — 4 个匿名 enum（line ~1230, 1340, 1440, 1490）成员名重复，legacy 应该用 `#ifdef _XXX_LOCAL_` 围栏但源码里丢了
+  - C2065 (HK 额外): `[CC]Header/CommonStruct.h:596-597` `SLOT_TITANWEAR_NUM/SLOT_TITANSHOPITEM_NUM` 未声明
+- **根因 (3 个独立 legacy 债)**:
+  1. **C-34 同病在 [Server]Distribute 也有**：`[Server]Distribute/CMakeLists.txt:103` 之前没设 `/source-charset:utf-8 /execution-charset:utf-8`，跟 Phase 7.5g 修过的 Map 是同 bug。已修 (Phase 7.5h)
+  2. **Phase 7.5b utf-8 转码脚本没覆盖 Distribute**：`[Server]Map` 的 188 个 .cpp 都被 `convert_map_sources_to_utf8.py` 转了，但 `[Server]Distribute` 的 13 个 .cpp 还在 cp949。10 个有 non-ASCII bytes 的是 EUC-KR (cp949) 韩文。已用 `modern/scripts/convert_distribute_sources_to_utf8.py` 转了 9 个，4 个本来就 ASCII 干净
+  3. **legacy code 债** (这俩跨 phase 都难搞):
+     - KOR 的 `mfc71.lib` 是 2003 era MFC，build host (MSVC14 / VS 2022) 没这库。要么装 VS2003 工具链 (环境侧)，要么改 KOR 源码把 MFC 替换成 STL/WTL (3-5 处 CString/CWnd 用法，量小)
+     - `[CC]Header/CommonGameDefine.h` 4 个匿名 enum 都在全局 scope，`TP_MUGONG_START` 等名字重复。CHINA config (`_CHINA_LOCAL_;TAIWAN_LOCAL_`) 下正好激活其中一个不冲突；HK/JP/TL config 下激活多个 → C2365。修法是给 4 个 enum 分别加 `#ifdef _XXX_LOCAL_` 围栏，但这是 shared header 改动，影响 server 端全栈
+- **现代方案**:
+  - **本 phase 7.5h 已落** (1/5 干净 + 2 个 fix):
+    - `DistributeServer_Debug_CHINA.exe` 1,306,112 字节 build 成功
+    - `[Server]Distribute/CMakeLists.txt:103` 加 `/source-charset:utf-8 /execution-charset:utf-8` (跟 Map 7.5g 同药)
+    - `modern/scripts/convert_distribute_sources_to_utf8.py` (idempotent + dry-run + .pre_utf8.bak 备份) 转换 9 个 cp949 .cpp
+    - `modern/scripts/build_distribute_debug_locales.py` 5 target 自动化 build + 摘要
+  - **4/5 撞的 legacy 债 → out of scope (本 plan 不强改)**:
+    - 选 A: 收手记 C-35，转别的 phase
+    - 选 B: 改 KOR 源码去 MFC (~30 min) + 给 CommonGameDefine.h 加 4 段 #ifdef 围栏 (大改 shared header, ~2-3h + 回归)
+    - 选 C: 绕过 Distribute 路径，专注 client 侧 (Phase 5.10+ renderer) 或 SQL Server 接入 (C-32)
+  - **后续 (Phase 8 之后)**:
+    - 如果 KOR/JP/HK/TL 业务必须跑 (e.g. 2008 era 多区域服务还原)，就需要装 VS2003 工具链 + 重做 CommonGameDefine.h 围栏
+    - 如果只跑 CN/EN (modern Moxian 单区域)，就当历史 gate 让 4/5 失败
+- **影响范围**:
+  - `DistributeServer_Debug_CHINA.exe` 是首个干净 build 的 Distribute 2008-era locale binary (5/5 target 里第 1 个)
+  - 9 个 .cpp 转换了源编码 (cp949 → utf-8)，legacy `SWorking\DistributeServer.exe` 不受影响 (那是 2008 prebuilt，不读 modern source)
+  - 4/5 失败对当前 modern pipeline 零影响 (smoke 测的是 Map 不是 Distribute)
+- **状态**：Phase 7.5h 文档化（1/5 落地 + 4/5 blocker）。`MODERNIZATION_PLAN.md` 5 节同步更新了交付清单 + 残留 blocker。`[Server]Distribute/build_distribute/Debug/DistributeServer_CHINA.exe` 1,306,112 字节是 delivery；4/5 KOR/JP/HK/TL out-of-scope。
+
+---
 
 ```markdown
 ### Bug XXX-N: 简短描述

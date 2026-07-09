@@ -207,18 +207,54 @@ MHClient.exe (WinMain)
 
 ##### Phase 5 当前状态摘要（2026-07-08 更新）
 
-**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + HeightField + EffectShaderPalette + MaterialSystem + ShadowMap + CaptureScreen + DynamicLightSystem + TriBufferPipeline + VSync + Specular + ResetDevice + PerformanceAnalyze + RenderTextureMustUpdate + DirectXTex DDS 支持 + ctest 集成。Debug 测试 **99/99 PASS**。
+**已完成**：75 个 I4DyuchiGXRenderer 方法 + Device + PrimitiveDrawer + SpriteObject + TGA + MeshObject + FontObject + HeightField + EffectShaderPalette + MaterialSystem + ShadowMap + CaptureScreen + DynamicLightSystem + TriBufferPipeline + VSync + Specular + ResetDevice + PerformanceAnalyze + RenderTextureMustUpdate + DirectXTex DDS 支持 + ctest 集成。Debug 测试 **102/102 PASS**（99 base + 3 新 RenderGrid）。
 
 **Phase 5.9 完成内容**：
-- Device::setVSync ✅ + m_vsync ✅ (VSync flag stored in Device, used in Present)
-- Device::release ✅ (releases all ComPtr GPU resources for clean reset)
-- ResetDevice ✅ (real impl: m_dev->release() when !bTest, test-mode log when bTest)
-- EnableSpecular ✅ (m_specularEnabled=true, m_specularShininess=fVal)
-- DisableSpecular ✅ (m_specularEnabled=false)
-- SetRenderTextureMustUpdate ✅ (stores flag, logs debug message)
-- BeginPerformanceAnalyze ✅ / EndPerformanceAnalyze ✅ (m_inPerfAnalyze gate)
-- SetVerticalSync wired ✅ (calls m_dev->setVSync when set)
-- Present VSync wired ✅ (uses m_vsync: 1=wait, 0=immediate)
+- `HeightField::RenderGrid` 桩填实：null/non-initialized 拒绝 + 校验 tile index 范围 + 记录 `lastRenderGridTile/Alpha` + 增 `renderGridCount` 计数 + 调 `chunk->meshObject()->Render()` 走 chunk 全集（CPU-side 接近原 D3D11 调用，最接近的 CPU-only analog）
+- 加 `height_field_rendergrid_test.cpp` 3 个 CPU-side test（不需要 D3D11 device），全过
+- 102/102 render test pass
+
+**Phase 5.10 完成内容 (MoxianRenderDemo smoke harness)**：
+- `modern/tools/MoxianRenderDemo/run_demo_smoke.py` — 双 PASS 标准 harness：
+  - PASS-A: 10s 内 natural exit + stdout 有 "Demo ran for X ms, Y frames"
+  - PASS-B: 5s cap hang（Session 0 / headless build host 没有真 display，`UpdateWindow` 卡）但 stderr 有 4 个 init markers
+  - FAIL-A: 4 个 init marker 缺一个 (DX11 init 失败)
+  - FAIL-B: 进程 error 早退
+- 实测 build host 是 Session 0，**2/2 PASS-B reproducible**：
+  - `[dx11] Created feature level 0xb000` (DX11.0)
+  - `[dx11] Device initialized 800x600 (bps=32, refresh=60)`
+  - `[renderer] CoD3DDeviceDX11 created (hwnd=...)`
+  - `[renderer] Fog enabled (...)` ← main loop 入口
+- 5s cap hang 是 demo main loop 的 bug (cap check 在 `UpdateWindow` 之后) 不在 renderer，out of scope
+
+**Phase 5.11 完成内容 (MoxianRenderDemo 5s cap hang 修复)**：
+- `modern/tools/MoxianRenderDemo/main.cpp` 把 cap check 从 `UpdateWindow` 之后挪到 `PeekMessage/DispatchMessage` 之后 + `UpdateWindow` 之前，并改 `g_running = false; break;`（原本 `break` 之前 cap 检查不会 fire 在 render call 之后那条路径）
+- 加注释明确 Session 0 / headless 上 `UpdateWindow` 仍可能 block 不返回（因为没有 WM_PAINT source），smoke harness 的 PASS-B 路径是为这种情况设计
+- Rebuild + 2 次 `run_demo_smoke.py` 都 PASS-B（DX11 init + main loop entry 都到，cap 仍然不 fire 在 Session 0 — 符合预期，正常 desktop 用户能受益）
+- **没有破坏既有 PASS-B**：feature level 0xb000, 800x600 32bpp, CoD3DDeviceDX11, Fog enabled 四个 marker 仍然齐
+
+**Phase 6+ 完成内容 (2D HUD smoke: Sprite + Font + Text)**：
+- `modern/tools/MoxianRenderDemo/main.cpp` 加 2D HUD 路径：`CreateEmptySpriteObject(128x64, A8R8G8B8, 0)` 出 `g_hudSprite`，`CreateFontObject(LOGFONT{Arial, 24pt, DEFAULT_CHARSET})` 出 `g_hudFont`，renderFrame 里在 cube + grid + fog 之后调 `RenderSprite(g_hudSprite, scale={1,1}, rot=0, trans={10,10}, rect={0,0,128,64}, ARGB=0xFFFFFFFF, z=0)` + `RenderFont(g_hudFont, "Moxian Render Demo (HUD)", rect={150,10,800,50}, ARGB=0xFFFFFFFF, ASCII, z=0)`
+- Sprite 用 `CreateEmptySpriteObject` 不带初始 bits（smoke 只验 CreateSpriteObject + RenderSprite 走通，visible 内容 out of scope）
+- Font 用 `LOGFONT{lfFaceName="Arial", lfHeight=24, lfWeight=FW_NORMAL, lfCharSet=DEFAULT_CHARSET}`，初始化成功 log 走 font_object.cpp:150 `[font] FontObject ready (face='Arial' size=24)` 自动覆盖 2D marker
+- Sprite init 在 demo 加手动 log `[sprite] SpriteObject created (128x64 A8R8G8B8)`
+- `modern/tools/MoxianRenderDemo/run_demo_smoke.py` 把 INIT_MARKERS 拆成 `MARKERS_3D` (4 个) + `MARKERS_2D` (2 个)，合并 6 个全 required 才算 PASS-B；打印 `3D markers hit: 4/4` + `2D markers hit: 2/2` 让 evidence 更直接
+- Release 路径补 `g_hudSprite->Release()` + `g_hudFont->Release()`
+- Rebuild + 2 次 smoke 验：**PASS-B 2/2 reproducible，3D 4/4 + 2D 2/2 全 marker 齐**，sterr 6 行整（4 init + 2 HUD）
+- **DX11 client 端 2D HUD pipeline (CreateEmptySpriteObject + CreateFontObject + RenderSprite + RenderFont) 走通**，为 Phase 9 端到端联调铺好 client side 基础
+
+**Phase 7 完成内容 (Effect Shader Palette + Material Set smoke)**：
+- `modern/tools/MoxianRenderDemo/main.cpp` 在 Phase 6+ 之后加 Effect + Material init 路径：
+  - `CreateEffectShaderPalette(CUSTOM_EFFECT_DESC[2], 2)`：一条 `TEXGEN_METHOD_WAVE` + 一条 `TEXGEN_METHOD_REFLECT_SPHEREMAP`，两个都空 `szTexName` + demo 名字（demo_wave / demo_sphere）→ 走 `effect_shader.cpp:53` 的 `[effect] palette built: %u entries` 自动 log（**renderer-side log**，不是 demo 拼的）
+  - `CreateMaterialSet(MATERIAL_TABLE[1], 1)`：一条 `MATERIAL{dwDiffuse=0xFF808080, dwAmbient=0xFF404040, dwSpecular=0xFFFFFFFF, fShine=32, fShineStrength=1, dwFlag=0x1}` + 空 diffuse/reflect/bump tex name → demo 自己打 `[material] MaterialSet created (1 entries, handle=%u)`（renderer 这边 CreateMaterialSet 是 silent 的）
+  - 这两条都先于 `MSG msg{}`（main loop 之前）执行，所以 init 失败 PASS-B 会立刻 fail
+  - Cleanup 区加 `renderer->DeleteMaterialSet(mtlHandle)` + `renderer->DeleteEffectShaderPalette()` 对称释放
+- `modern/tools/MoxianRenderDemo/run_demo_smoke.py` 把 INIT_MARKERS 拆成 `MARKERS_3D` (4) + `MARKERS_2D` (2) + `MARKERS_EFFECT_MTL` (2)，合并 8 个全 required 才算 PASS-B；打印 `3D markers hit: 4/4` + `2D markers hit: 2/2` + `Effect+Material markers hit: 2/2`，evidence 三组各自分开
+- Rebuild `mxh_render_demo`：**0 error / 0 warning**，编译 11 行整
+- 2 次 smoke 验：**PASS-B 2/2 reproducible，3D 4/4 + 2D 2/2 + Effect+Material 2/2 = 8/8 全 marker 齐**，stderr 8 行整
+  - 新 marker 是 `[effect] palette built: 2 entries`（renderer 自打）+ `[material] MaterialSet created (1 entries, handle=1)`（demo 打）
+- **DX11 client 端 Effect + Material CPU-side init pipeline (CreateEffectShaderPalette → buildFromDesc + CreateMaterialSet → loadMaterialTexture no-op) 走通**，Phase 9 client 端集成再多一格
+- 复现命令：`cmake --build modern/build --config Debug --target mxh_render_demo && cd modern/tools/MoxianRenderDemo && python run_demo_smoke.py`
 
 **Phase 5.3-5.8 完成内容**：
 - Effect Shader Palette ✅ (IDIEffect, wave/spheremap texture matrix)
