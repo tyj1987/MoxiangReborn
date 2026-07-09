@@ -9,6 +9,7 @@ add_library(mxh_ui STATIC
     cEditBox.cpp
     cDialog.cpp
     cImage.cpp
+    cListCtrl.cpp
 )
 
 target_include_directories(mxh_ui PUBLIC

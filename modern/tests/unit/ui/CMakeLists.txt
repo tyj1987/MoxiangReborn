@@ -4,6 +4,7 @@ add_executable(mxh_ui_tests
     ceditbox_test.cpp
     cdialog_test.cpp
     cimage_test.cpp
+    clistctrl_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -99,4 +100,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CImage.CachedSpriteSizeFallback
     CImage.CopyAndMoveSemantics
     CImage.IsInheritsObject
+    CListCtrl.DefaultState
+    CListCtrl.InitConfiguresLayout
+    CListCtrl.InitListCtrlAndImages
+    CListCtrl.ColumnsAndRows
+    CListCtrl.RemoveAllClearsState
+    CListCtrl.RemoveRowAtShiftsSelection
+    CListCtrl.RemoveSelectedRowClearsSelection
+    CListCtrl.SetTopItemIdxClampsToRange
+    CListCtrl.SetTopItemIdxAllowsValidOffset
+    CListCtrl.PtIdxInRowInsideBody
+    CListCtrl.ActionEventUpdatesOverAndSelection
+    CListCtrl.ActionEventClickOutsideClearsSelection
+    CListCtrl.SetSelectOptionSwitchesHighlightMode
+    CListCtrl.SetMarginAndAccessor
+    CListCtrl.ActionEventDisabledReturnsNull
+    CListCtrl.SetColumnsCapsRowVectors
 )
