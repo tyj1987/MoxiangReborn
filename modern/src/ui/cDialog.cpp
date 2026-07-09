@@ -28,6 +28,30 @@ std::uint32_t cDialog::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
     return cWindow::ActionEvent(mouseX, mouseY, mouseFlags);
 }
 
+std::uint32_t cDialog::ActionKeyboardEvent(std::int32_t key, std::int32_t ch) {
+    if (!isEnabled() || !m_bActive) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    // Forward to the focused child first (matches the legacy engine's
+    // "the focused child gets the key" contract). If no child has focus
+    // or none of the focused children consume the key, try the topmost
+    // child as a fallback. Index-based reverse iteration to dodge the
+    // MSVC 14.44 <xutility> ICE on std::unique_ptr reverse range-for.
+    for (std::size_t i = childCount(); i > 0; --i) {
+        cWindow* c = childAt(i - 1);
+        if (!c || !c->hasFocus()) continue;
+        const std::uint32_t ev = c->ActionKeyboardEvent(key, ch);
+        if (ev != static_cast<std::uint32_t>(WindowEvent::Null)) return ev;
+    }
+    for (std::size_t i = childCount(); i > 0; --i) {
+        cWindow* c = childAt(i - 1);
+        if (!c) continue;
+        const std::uint32_t ev = c->ActionKeyboardEvent(key, ch);
+        if (ev != static_cast<std::uint32_t>(WindowEvent::Null)) return ev;
+    }
+    return cWindow::ActionKeyboardEvent(key, ch);
+}
+
 void cDialog::SetCaptionRect(std::int32_t left, std::int32_t top,
                              std::int32_t right, std::int32_t bottom) noexcept {
     m_captionLeft   = left;

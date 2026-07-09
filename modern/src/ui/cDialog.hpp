@@ -66,6 +66,13 @@ public:
     std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
                               std::uint32_t mouseFlags) override;
 
+    // ActionKeyboardEvent: forward to the focused child if there is one,
+    // otherwise to the topmost child that consumes the key. The base
+    // cWindow default is a no-op; dialogs almost always have at least
+    // one focusable child (cEditBox, etc.) so we walk the tree.
+    std::uint32_t ActionKeyboardEvent(std::int32_t key,
+                                      std::int32_t ch) override;
+
     // -------------------------------------------------------------------------
     // Auto-close (legacy: SetAutoClose / IsAutoClose). The flag itself
     // doesn't close the dialog; the dispatcher (or a manual call to

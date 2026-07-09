@@ -5,6 +5,7 @@ add_executable(mxh_ui_tests
     cdialog_test.cpp
     cimage_test.cpp
     clistctrl_test.cpp
+    cwindowmanager_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -116,4 +117,17 @@ gtest_add_tests(TARGET mxh_ui_tests
     CListCtrl.SetMarginAndAccessor
     CListCtrl.ActionEventDisabledReturnsNull
     CListCtrl.SetColumnsCapsRowVectors
+    CWindowManager.DefaultState
+    CWindowManager.AddDialogStoresAndSetsTopmost
+    CWindowManager.TopmostActiveSkipsInactiveDialogs
+    CWindowManager.RemoveDialogByIdDeferDestroys
+    CWindowManager.RemoveDialogByIdUnknownIsNoop
+    CWindowManager.RemoveAllDefersAll
+    CWindowManager.FindByIdRecursesIntoDialogs
+    CWindowManager.FindByXYReturnsTopmostHit
+    CWindowManager.ModalDialogSteersAllInput
+    CWindowManager.RemovingModalClearsModalPointer
+    CWindowManager.KeyboardRoutedToTopmostActive
+    CWindowManager.NoActiveDialogsInputIsNull
+    CWindowManager.RenderAllWalksBackToFront
 )
