@@ -502,3 +502,199 @@ TEST(SaveDDSBC4, EmptyTextureReturnsEmpty) {
     EXPECT_TRUE(saveDDS_BC(tex, BCFormat::BC4).empty());
     EXPECT_TRUE(saveDDS_BC(tex, BCFormat::BC5).empty());
 }
+
+// =============================================================================
+// Motion cache tests (Phase 5.13 / per-motion VB/IB tracking)
+// =============================================================================
+// We use synthesized void* UIDs (cast of small int) and never need a real
+// DX11 device — the cache is a CPU-side bookkeeping layer that the mesh
+// system feeds via RegisterMotionUID / UnregisterMotionUID and that the
+// IRenderer surface exposes via ClearCacheWithMotionUID.
+//
+// Contract checks per test:
+//   - RegisterMotionUID adds an entry with the supplied vb/ib/counts and
+//     refCount = 1
+//   - Registering the same UID twice increments the refCount to 2 (shared
+//     motion) and does NOT clobber the cached vb/ib
+//   - LookupMotionUID returns the cached buffers + counts and false for
+//     unknown UIDs
+//   - UnregisterMotionUID decrements the refCount, and evicts the entry
+//     only when refCount hits 0
+//   - ClearCacheWithMotionUID(null) clears ALL entries and returns the
+//     total count cleared
+//   - ClearCacheWithMotionUID(uid) removes that specific entry and returns
+//     1 (or 0 if not in cache)
+//   - Edge cases: null UID is rejected by Register/Lookup, silently ignored
+//     by Unregister and returns 0 from Clear
+// =============================================================================
+
+namespace {
+// Synthesize a stable test UID from a small integer (avoids using stack
+// addresses which would be unstable across runs).
+inline void* testUID(int i) {
+    return reinterpret_cast<void*>(static_cast<uintptr_t>(i + 1));
+}
+} // namespace
+
+TEST(MotionCache, RegisterStoresEntry) {
+    CoD3DDeviceDX11 dev;
+    void* uid = testUID(1);
+    void* fakeVB = reinterpret_cast<void*>(0x1000);
+    void* fakeIB = reinterpret_cast<void*>(0x2000);
+    dev.RegisterMotionUID(uid, fakeVB, fakeIB, 1024, 512);
+    EXPECT_TRUE(dev.internalMotionCacheContains(uid));
+    EXPECT_EQ(dev.internalMotionCacheSize(), 1u);
+    EXPECT_EQ(dev.internalMotionCacheGetVB(uid), fakeVB);
+    EXPECT_EQ(dev.internalMotionCacheGetIB(uid), fakeIB);
+    EXPECT_EQ(dev.internalMotionCacheVertexCount(uid), 1024u);
+    EXPECT_EQ(dev.internalMotionCacheIndexCount(uid), 512u);
+    EXPECT_EQ(dev.internalMotionCacheRefCount(uid), 1u);
+}
+
+TEST(MotionCache, DoubleRegisterIncrementsRefCount) {
+    CoD3DDeviceDX11 dev;
+    void* uid = testUID(2);
+    void* fakeVB = reinterpret_cast<void*>(0x1000);
+    void* fakeIB = reinterpret_cast<void*>(0x2000);
+    dev.RegisterMotionUID(uid, fakeVB, fakeIB, 100, 50);
+    dev.RegisterMotionUID(uid, fakeVB, fakeIB, 100, 50); // shared motion
+    EXPECT_EQ(dev.internalMotionCacheSize(), 1u);
+    EXPECT_EQ(dev.internalMotionCacheRefCount(uid), 2u);
+    // Re-registration with the SAME buffers must keep the originals (no
+    // clobber): the second registration is a "shared motion" claim, not a
+    // replacement.
+    EXPECT_EQ(dev.internalMotionCacheGetVB(uid), fakeVB);
+    EXPECT_EQ(dev.internalMotionCacheGetIB(uid), fakeIB);
+}
+
+TEST(MotionCache, ReRegisterWithDifferentBuffersKeepsCached) {
+    // Production safety: the second registration claims a different vb/ib
+    // for the same motion UID. The cache must keep the canonical (first)
+    // entry and log a warning rather than silently overwriting. The refcount
+    // is still bumped because the second caller is using this motion.
+    CoD3DDeviceDX11 dev;
+    void* uid = testUID(3);
+    void* vb1 = reinterpret_cast<void*>(0x1000);
+    void* ib1 = reinterpret_cast<void*>(0x2000);
+    void* vb2 = reinterpret_cast<void*>(0x3000);
+    void* ib2 = reinterpret_cast<void*>(0x4000);
+    dev.RegisterMotionUID(uid, vb1, ib1, 100, 50);
+    dev.RegisterMotionUID(uid, vb2, ib2, 100, 50);
+    EXPECT_EQ(dev.internalMotionCacheGetVB(uid), vb1);
+    EXPECT_EQ(dev.internalMotionCacheGetIB(uid), ib1);
+    EXPECT_EQ(dev.internalMotionCacheRefCount(uid), 2u);
+}
+
+TEST(MotionCache, UnregisterDecrementsRefCount) {
+    CoD3DDeviceDX11 dev;
+    void* uid = testUID(4);
+    dev.RegisterMotionUID(uid, reinterpret_cast<void*>(0x1), reinterpret_cast<void*>(0x2),
+                          10, 5);
+    dev.RegisterMotionUID(uid, reinterpret_cast<void*>(0x1), reinterpret_cast<void*>(0x2),
+                          10, 5);
+    EXPECT_EQ(dev.internalMotionCacheRefCount(uid), 2u);
+    dev.UnregisterMotionUID(uid);
+    EXPECT_TRUE(dev.internalMotionCacheContains(uid));
+    EXPECT_EQ(dev.internalMotionCacheRefCount(uid), 1u);
+    dev.UnregisterMotionUID(uid);
+    EXPECT_FALSE(dev.internalMotionCacheContains(uid));
+    EXPECT_EQ(dev.internalMotionCacheSize(), 0u);
+}
+
+TEST(MotionCache, UnregisterUnknownUidIsNoop) {
+    CoD3DDeviceDX11 dev;
+    void* uid = testUID(99);
+    // Not registered. Unregister must be a silent no-op.
+    dev.UnregisterMotionUID(uid);
+    EXPECT_FALSE(dev.internalMotionCacheContains(uid));
+    EXPECT_EQ(dev.internalMotionCacheSize(), 0u);
+}
+
+TEST(MotionCache, UnregisterNullIsSafe) {
+    CoD3DDeviceDX11 dev;
+    dev.RegisterMotionUID(testUID(5), reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    // Null must be silently ignored (consistent with the original engine's
+    // defensive null-check).
+    dev.UnregisterMotionUID(nullptr);
+    EXPECT_EQ(dev.internalMotionCacheSize(), 1u);
+}
+
+TEST(MotionCache, LookupReturnsCachedBuffersAndCounts) {
+    CoD3DDeviceDX11 dev;
+    void* uid = testUID(6);
+    void* fakeVB = reinterpret_cast<void*>(0xABCD);
+    void* fakeIB = reinterpret_cast<void*>(0xDEAD);
+    dev.RegisterMotionUID(uid, fakeVB, fakeIB, 256, 128);
+
+    void* outVB = nullptr;
+    void* outIB = nullptr;
+    std::uint32_t outV = 0, outI = 0;
+    EXPECT_TRUE(dev.LookupMotionUID(uid, &outVB, &outIB, &outV, &outI));
+    EXPECT_EQ(outVB, fakeVB);
+    EXPECT_EQ(outIB, fakeIB);
+    EXPECT_EQ(outV, 256u);
+    EXPECT_EQ(outI, 128u);
+}
+
+TEST(MotionCache, LookupUnknownReturnsFalse) {
+    CoD3DDeviceDX11 dev;
+    EXPECT_FALSE(dev.LookupMotionUID(testUID(7), nullptr, nullptr, nullptr, nullptr));
+}
+
+TEST(MotionCache, LookupNullReturnsFalse) {
+    CoD3DDeviceDX11 dev;
+    EXPECT_FALSE(dev.LookupMotionUID(nullptr, nullptr, nullptr, nullptr, nullptr));
+}
+
+TEST(MotionCache, RegisterNullRejected) {
+    // Registering with a null UID must be rejected (no entry created, no
+    // crash). The cache size must remain unchanged.
+    CoD3DDeviceDX11 dev;
+    dev.RegisterMotionUID(nullptr, reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    EXPECT_EQ(dev.internalMotionCacheSize(), 0u);
+}
+
+TEST(MotionCache, ClearAllRemovesEverything) {
+    CoD3DDeviceDX11 dev;
+    dev.RegisterMotionUID(testUID(10), reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    dev.RegisterMotionUID(testUID(11), reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    dev.RegisterMotionUID(testUID(12), reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    EXPECT_EQ(dev.internalMotionCacheSize(), 3u);
+    EXPECT_EQ(dev.ClearCacheWithMotionUID(nullptr), 3u);
+    EXPECT_EQ(dev.internalMotionCacheSize(), 0u);
+}
+
+TEST(MotionCache, ClearAllEmptyReturnsZero) {
+    CoD3DDeviceDX11 dev;
+    EXPECT_EQ(dev.ClearCacheWithMotionUID(nullptr), 0u);
+    EXPECT_EQ(dev.internalMotionCacheSize(), 0u);
+}
+
+TEST(MotionCache, ClearSpecificRemovesOneEntry) {
+    CoD3DDeviceDX11 dev;
+    void* uidA = testUID(20);
+    void* uidB = testUID(21);
+    dev.RegisterMotionUID(uidA, reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    dev.RegisterMotionUID(uidB, reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    EXPECT_EQ(dev.ClearCacheWithMotionUID(uidA), 1u);
+    EXPECT_FALSE(dev.internalMotionCacheContains(uidA));
+    EXPECT_TRUE(dev.internalMotionCacheContains(uidB));
+    EXPECT_EQ(dev.internalMotionCacheSize(), 1u);
+}
+
+TEST(MotionCache, ClearUnknownUidReturnsZero) {
+    CoD3DDeviceDX11 dev;
+    dev.RegisterMotionUID(testUID(30), reinterpret_cast<void*>(0x1),
+                          reinterpret_cast<void*>(0x2), 10, 5);
+    // Different UID not in the cache: clear must return 0, cache size
+    // must be unchanged.
+    EXPECT_EQ(dev.ClearCacheWithMotionUID(testUID(31)), 0u);
+    EXPECT_EQ(dev.internalMotionCacheSize(), 1u);
+}

@@ -146,4 +146,19 @@ gtest_add_tests(TARGET mxh_render_tests
     SaveDDSBC5.RGChannelsEncodedSeparately
     SaveDDSBC5.NonMultipleOf4PadsToBlockGrid
     SaveDDSBC5.EmptyTextureReturnsEmpty
+    # Motion cache (Phase 5.13 / per-motion VB/IB tracking)
+    MotionCache.RegisterStoresEntry
+    MotionCache.DoubleRegisterIncrementsRefCount
+    MotionCache.ReRegisterWithDifferentBuffersKeepsCached
+    MotionCache.UnregisterDecrementsRefCount
+    MotionCache.UnregisterUnknownUidIsNoop
+    MotionCache.UnregisterNullIsSafe
+    MotionCache.LookupReturnsCachedBuffersAndCounts
+    MotionCache.LookupUnknownReturnsFalse
+    MotionCache.LookupNullReturnsFalse
+    MotionCache.RegisterNullRejected
+    MotionCache.ClearAllRemovesEverything
+    MotionCache.ClearAllEmptyReturnsZero
+    MotionCache.ClearSpecificRemovesOneEntry
+    MotionCache.ClearUnknownUidReturnsZero
 )

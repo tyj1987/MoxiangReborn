@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "mxh/render/IRenderer.hpp"
@@ -183,6 +184,38 @@ public:
         if (m_effectPalette) m_effectPalette->setWaveTexMatrix(pMatResult);
     }
 
+    // -------------------------------------------------------------------------
+    // Motion cache (Phase 5.13 / per-motion VB/IB tracking for skeletal animation).
+    // -------------------------------------------------------------------------
+    // The original 4Dyuchi engine cached the per-frame vertex/index buffers
+    // uploaded for each motion (animation) file, so that multiple mesh objects
+    // playing the same motion could share GPU resources. The IRenderer surface
+    // only exposes `ClearCacheWithMotionUID`; the registration side is internal
+    // and called by the mesh system (MeshObject::SetMotion) when a motion's
+    // GPU buffers are first uploaded. We track refcounts so a buffer that is
+    // shared by N mesh objects is only freed when the last one releases.
+    //
+    // void* here is a CPU-side bookkeeping pointer (mimicking the COM object
+    // identity that the legacy engine used as the cache key). Production mesh
+    // code passes the motion's ID3D11Buffer* / motion-UID; tests pass any
+    // distinct pointer to verify the cache contract.
+    void RegisterMotionUID(void* motionUID, void* vb, void* ib,
+                           std::uint32_t vertexCount, std::uint32_t indexCount);
+    void UnregisterMotionUID(void* motionUID);
+    bool LookupMotionUID(void* motionUID, void** outVB, void** outIB,
+                         std::uint32_t* outVertexCount, std::uint32_t* outIndexCount) const;
+
+    // Test accessors for the motion cache.
+    std::size_t   internalMotionCacheSize() const { return m_motionCache.size(); }
+    bool          internalMotionCacheContains(void* motionUID) const {
+        return motionUID != nullptr && m_motionCache.count(motionUID) > 0;
+    }
+    void*         internalMotionCacheGetVB(void* motionUID) const;
+    void*         internalMotionCacheGetIB(void* motionUID) const;
+    std::uint32_t internalMotionCacheVertexCount(void* motionUID) const;
+    std::uint32_t internalMotionCacheIndexCount(void* motionUID) const;
+    std::uint32_t internalMotionCacheRefCount(void* motionUID) const;
+
 private:
     std::unique_ptr<dx11::Device>          m_dev;
     std::unique_ptr<EffectShaderPalette>   m_effectPalette;
@@ -301,6 +334,21 @@ private:
 
     // Currently enabled TriBuffer (for DisableRenderTriBuffer).
     TriBuffer* m_activeTriBuffer = nullptr;
+
+    // -------------------------------------------------------------------------
+    // Motion cache (Phase 5.13 / per-motion VB/IB tracking).
+    // -------------------------------------------------------------------------
+    // Keyed by motion UID pointer; value is the cached GPU buffers + refcount.
+    // Same UID registered twice increments the refcount (shared motion);
+    // UnregisterMotionUID decrements and only erases when refcount hits 0.
+    struct MotionCacheEntry {
+        void*         vb          = nullptr;
+        void*         ib          = nullptr;
+        std::uint32_t vertexCount = 0;
+        std::uint32_t indexCount  = 0;
+        std::uint32_t refCount    = 0;
+    };
+    std::unordered_map<void*, MotionCacheEntry> m_motionCache;
 
     // Helper: build LightCB from active dynamic lights + fog state.
     void buildLightCB(LightCB& out, const float ambient[4], const float diffuse[4],

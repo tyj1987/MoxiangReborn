@@ -1149,14 +1149,118 @@ std::uint32_t __stdcall CoD3DDeviceDX11::ClearVBCacheWithIDIMeshObject(IDIMeshOb
     return 1; // 1 buffer set cleared (vb + ib in one call)
 }
 std::uint32_t __stdcall CoD3DDeviceDX11::ClearCacheWithMotionUID(void* pMotionUID) {
-    // Motion-UID cache is a future-phase feature (per-motion VB/IB tracking for
-    // skeletal animation). Until that cache exists, return 0 to indicate "no
-    // entries cleared" — semantically correct, just an empty cache. The arg is
-    // accepted so callers can wire it through now without a signature change.
-    if (!pMotionUID) return 0;
-    MLOG_DEBUG("[renderer] ClearCacheWithMotionUID(%p): motion cache not yet "
-               "implemented (returns 0)", pMotionUID);
-    return 0;
+    // Motion-UID cache (Phase 5.13). Three semantics:
+    //   pMotionUID == nullptr → clear ALL entries, return total removed
+    //   pMotionUID found      → erase that entry, return 1
+    //   pMotionUID not found  → no-op, return 0
+    if (!pMotionUID) {
+        const std::uint32_t total = static_cast<std::uint32_t>(m_motionCache.size());
+        m_motionCache.clear();
+        MLOG_DEBUG("[renderer] ClearCacheWithMotionUID(null): cleared %u motion entr%s",
+                   total, total == 1 ? "y" : "ies");
+        return total;
+    }
+    auto it = m_motionCache.find(pMotionUID);
+    if (it == m_motionCache.end()) {
+        MLOG_DEBUG("[renderer] ClearCacheWithMotionUID(%p): not in cache", pMotionUID);
+        return 0;
+    }
+    m_motionCache.erase(it);
+    MLOG_DEBUG("[renderer] ClearCacheWithMotionUID(%p): removed (cache now %zu entr%s)",
+               pMotionUID, m_motionCache.size(),
+               m_motionCache.size() == 1 ? "y" : "ies");
+    return 1;
+}
+
+// -------------------------------------------------------------------------
+// Motion cache registration / lookup (Phase 5.13)
+// -------------------------------------------------------------------------
+// These are renderer-internal: the IRenderer surface only exposes the clear
+// path. Mesh system code calls RegisterMotionUID when a motion's GPU buffers
+// are first uploaded, LookupMotionUID when it wants to share those buffers
+// with another mesh playing the same motion, and UnregisterMotionUID when
+// a mesh drops its reference. The same UID can be registered by N mesh
+// objects (shared motion) and the cache evicts only when refcount hits 0.
+
+void CoD3DDeviceDX11::RegisterMotionUID(void* motionUID, void* vb, void* ib,
+                                        std::uint32_t vertexCount, std::uint32_t indexCount) {
+    if (!motionUID) {
+        MLOG_WARN("[renderer] RegisterMotionUID: rejected null UID");
+        return;
+    }
+    auto& e = m_motionCache[motionUID];
+    // First registration: fill in the buffers + counts. Subsequent
+    // registrations (shared motion across mesh objects) only bump the
+    // refcount; we don't overwrite vb/ib because they should be identical
+    // for a given motion and the first registration is the canonical one.
+    if (e.refCount == 0) {
+        e.vb          = vb;
+        e.ib          = ib;
+        e.vertexCount = vertexCount;
+        e.indexCount  = indexCount;
+    } else if (e.vb != vb || e.ib != ib) {
+        MLOG_WARN("[renderer] RegisterMotionUID(%p): re-registration with different "
+                  "buffers (cached vb=%p ib=%p, new vb=%p ib=%p) — keeping cached",
+                  motionUID, e.vb, e.ib, vb, ib);
+    }
+    ++e.refCount;
+    MLOG_DEBUG("[renderer] RegisterMotionUID(%p) refCount=%u vb=%p ib=%p v=%u i=%u",
+               motionUID, e.refCount, vb, ib, vertexCount, indexCount);
+}
+
+void CoD3DDeviceDX11::UnregisterMotionUID(void* motionUID) {
+    if (!motionUID) return;
+    auto it = m_motionCache.find(motionUID);
+    if (it == m_motionCache.end()) {
+        MLOG_DEBUG("[renderer] UnregisterMotionUID(%p): not in cache", motionUID);
+        return;
+    }
+    if (it->second.refCount > 0) --it->second.refCount;
+    if (it->second.refCount == 0) {
+        MLOG_DEBUG("[renderer] UnregisterMotionUID(%p): refCount=0, evicting", motionUID);
+        m_motionCache.erase(it);
+    } else {
+        MLOG_DEBUG("[renderer] UnregisterMotionUID(%p): refCount=%u (still alive)",
+                   motionUID, it->second.refCount);
+    }
+}
+
+bool CoD3DDeviceDX11::LookupMotionUID(void* motionUID, void** outVB, void** outIB,
+                                      std::uint32_t* outVertexCount,
+                                      std::uint32_t* outIndexCount) const {
+    if (!motionUID) return false;
+    auto it = m_motionCache.find(motionUID);
+    if (it == m_motionCache.end()) return false;
+    if (outVB)          *outVB          = it->second.vb;
+    if (outIB)          *outIB          = it->second.ib;
+    if (outVertexCount) *outVertexCount = it->second.vertexCount;
+    if (outIndexCount)  *outIndexCount  = it->second.indexCount;
+    return true;
+}
+
+void* CoD3DDeviceDX11::internalMotionCacheGetVB(void* motionUID) const {
+    auto it = m_motionCache.find(motionUID);
+    return it != m_motionCache.end() ? it->second.vb : nullptr;
+}
+
+void* CoD3DDeviceDX11::internalMotionCacheGetIB(void* motionUID) const {
+    auto it = m_motionCache.find(motionUID);
+    return it != m_motionCache.end() ? it->second.ib : nullptr;
+}
+
+std::uint32_t CoD3DDeviceDX11::internalMotionCacheVertexCount(void* motionUID) const {
+    auto it = m_motionCache.find(motionUID);
+    return it != m_motionCache.end() ? it->second.vertexCount : 0u;
+}
+
+std::uint32_t CoD3DDeviceDX11::internalMotionCacheIndexCount(void* motionUID) const {
+    auto it = m_motionCache.find(motionUID);
+    return it != m_motionCache.end() ? it->second.indexCount : 0u;
+}
+
+std::uint32_t CoD3DDeviceDX11::internalMotionCacheRefCount(void* motionUID) const {
+    auto it = m_motionCache.find(motionUID);
+    return it != m_motionCache.end() ? it->second.refCount : 0u;
 }
 void __stdcall CoD3DDeviceDX11::SetTickCount(std::uint32_t t, BOOL /*g*/) {
     if (m_effectPalette) m_effectPalette->setTickCount(t);
