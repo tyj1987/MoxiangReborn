@@ -9,6 +9,10 @@ add_executable(mxh_ui_tests
     cmsgbox_test.cpp
     cdividebox_test.cpp
     cicondialog_test.cpp
+    cstatic_test.cpp
+    cpushupbutton_test.cpp
+    clistdialog_test.cpp
+    cguilddialog_test.cpp
     legacy_compat_test.cpp
 )
 
@@ -189,4 +193,43 @@ gtest_add_tests(TARGET mxh_ui_tests
     CIconDialog.AcceptableTypeMaskWorks
     CIconDialog.SelectionSetterGetter
     CIconDialog.SetAbsXYMovesDialogAbsPosition
+    CStatic.DefaultTextIsEmpty
+    CStatic.SetStaticTextStoresAndReturns
+    CStatic.SetStaticValueFormatsAsDecimal
+    CStatic.GetStaticValueParsesText
+    CStatic.FontIdxSetterGetter
+    CStatic.MultiLineSetterGetter
+    CStatic.TextXYStoresCoordinates
+    CStatic.FGAndShadowColorSetters
+    CStatic.AlignSetterGetter
+    CPushupButton.DefaultStateIsNotPushedAndNotPassive
+    CPushupButton.SetPushTogglesFlag
+    CPushupButton.SetPushExIsAliasForSetPush
+    CPushupButton.PassiveSetterGetter
+    CPushupButton.PassiveClickReturnsNull
+    CListDialog.DefaultState
+    CListDialog.InitListStoresConfig
+    CListDialog.AddItemAppendsToEnd
+    CListDialog.AddItemAtSpecificLine
+    CListDialog.IsMaxLineOverDetectsOverflow
+    CListDialog.RemoveAllClearsRowsAndSelection
+    CListDialog.SelectionSetterGetter
+    CListDialog.TopListItemIdxClamps
+    CListDialog.OnUpwardItemDecAndScrollUp
+    CListDialog.OnDownwardItemIncAndScrollDown
+    CListDialog.PtIdxInRowRespectsClip
+    CListDialog.AutoScrollSetterGetter
+    CGuildDialog.DefaultState
+    CGuildDialog.SetInfoPopulatesHeader
+    CGuildDialog.SetGuildInfoIncludesUnion
+    CGuildDialog.ResetMemberInfoAppends
+    CGuildDialog.DeleteMemberAllClears
+    CGuildDialog.SortByPositionStable
+    CGuildDialog.SortByLevel
+    CGuildDialog.SetGuildPositionUpdatesLocation
+    CGuildDialog.SetGuildPushupBtnSelectsActiveTab
+    CGuildDialog.RefreshMemberListPopulatesListDialog
+    CGuildDialog.SetDisableFuncBtnMemberDisablesSenior
+    CGuildDialog.ClearDisableBtnEnablesEverything
+    CGuildDialog.SetActivePropagatesToChildren
 )

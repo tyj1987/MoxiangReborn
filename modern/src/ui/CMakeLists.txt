@@ -14,6 +14,10 @@ add_library(mxh_ui STATIC
     cMsgBox.cpp
     cDivideBox.cpp
     cIconDialog.cpp
+    cStatic.cpp
+    cPushupButton.cpp
+    cListDialog.cpp
+    cGuildDialog.cpp
 )
 
 target_include_directories(mxh_ui PUBLIC
