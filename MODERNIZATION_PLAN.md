@@ -350,20 +350,30 @@ Phase 12: 持续迭代
 - [x] ChxModel 真实资源测试（4 case：`.chx` 是 TAB 分隔文本元数据, 不是二进制 mesh）
 - [x] ctest 集成（gtest_add_tests 手工列举, 绕开中文路径下 gtest_discover_tests 的 JSON 输出超时）
 - [x] Phase 5 进度报告（见下方 "Phase 5 当前状态摘要"）
-### Phase 5 当前状态摘要（2026-07-09 更新 — Phase 5 deferred 收尾轮 + BC4/BC5 闭环）
+- [x] **Phase 5 wrap-up（2026-07-09）**: 12 commits (5.9 → 5.13) closed all IRenderer stubs + BC1/3/4/5 encoders + motion cache. 175/175 modern PASS.
 
-**最近完成 (8 uncommitted files, +26 tests, 175/175 PASS 全量 / 131/131 render)**：
-- `SetRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` / `GetLoadFailedTextureTable` — 4 个 deferred renderer 状态方法实做，带 max-8 RT light 上限 + RT light overlay in buildLightCB + 多光 PS dispatch (`psMultiLight`) + RT/dynamic light active count tracking
-- `saveDDS_BC` 真实 BC1 (DXT1) + BC3 (DXT5) 块编码器（min/max 锚点, RGB565 endpoints, edge-pad 块栅格, 完整 DDS header）
-- `saveDDS_BC(tex, BCFormat)` 重构 + `BCFormat` 枚举 (`Auto` / `BC1` / `BC3` / `BC4` / `BC5`)
-- `encode_single_channel_block` 共享助手（BC3-alpha + BC4 复用, 8/6-step 自适应, 选 distortion 更小的模式）
-- **BC4 (ATI1)** 单通道（用 R 通道，灰度/alpha 纹理）
-- **BC5 (ATI2)** 双通道（R+G，tangent-space normal map 标准，shader 端 `Z = sqrt(1 - x² - y²)` 重建）
-- `ConvertCompressedTexture` DDS fast-path（passthrough 已压缩文件，避免质量回退）
-- `GetD3DDevice` 扩展到 `IUnknown` / `ID3D11Device` / `ID3D11DeviceContext`（原计划只支持 `IUnknown`）
-- `ResetDevice` 清理所有 light state（RT + dynamic）
+### Phase 5 当前状态摘要（2026-07-09 更新 — **Phase 5 wrap-up**）
 
-**Phase 5 状态总览（2026-07-09）**：
+**✅ Phase 5 主交付物全部完成。剩 BC6H/BC7（HDR + RGBA 高质量）— 旧引擎使用率低，留为 future。**
+
+**最后两轮 (8 uncommitted files → 2 commits `0d78386` + `11dff7c`, +40 tests, 175/175 → 189/189 PASS)**：
+
+`0d78386` — **Phase 5.12: deferred renderer state + BC1/3/4/5 encoders + multi-light PS**
+- `SetRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` / `GetLoadFailedTextureTable` — 4 个 deferred renderer 状态方法实做
+- `saveDDS_BC` 真实 BC1 (DXT1) + BC3 (DXT5) 块编码器
+- `saveDDS_BC(tex, BCFormat)` 重构 + `BCFormat` 枚举 + BC4 (ATI1) + BC5 (ATI2) 双通道 normal map
+- `ConvertCompressedTexture` DDS fast-path
+- `GetD3DDevice` 扩展到 `IUnknown` / `ID3D11Device` / `ID3D11DeviceContext`
+- `ResetDevice` 清理所有 light state
+- psMultiLight 着色器（8-slot dynamic+RT light 累加）
+
+`11dff7c` — **Phase 5.13: motion cache for per-motion VB/IB tracking**
+- 替换 `ClearCacheWithMotionUID` 的 stub 为真实 per-motion VB/IB cache
+- 注册/注销/查询 API（内部，IRenderer 表面只暴露 clear）
+- refcount 共享 motion，N mesh 用同一 motion 时 GPU buffer 复用
+- +14 tests: Register/Lookup/Unregister/Clear + null/unknown edge cases
+
+**Phase 5 收官总览（2026-07-09）**：
 
 | Stub | 状态 | 备注 |
 |------|------|------|
@@ -374,44 +384,90 @@ Phase 12: 持续迭代
 | `CaptureScreen` | ✅ done | renderer.cpp:817 |
 | `BeginShadowMap` / `EndShadowMap` | ✅ done (simple) | renderer.cpp:187-194, calls device |
 | `GetD3DDevice` (非 IUnknown IID) | ✅ done (extended) | ID3D11Device + ID3D11DeviceContext |
-| `SetRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` | ✅ done (this session) | |
-| `ConvertCompressedTexture` BC1/BC3 | ✅ done (this session) | saveDDS_BC + DDS passthrough |
-| `ConvertCompressedTexture` BC4/BC5 | ✅ done (this iter) | ATI1/ATI2 FourCC, encode_single_channel_block |
+| `SetRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` | ✅ done (5.12) | |
+| `ConvertCompressedTexture` BC1/BC3 | ✅ done (5.12) | saveDDS_BC + DDS passthrough |
+| `ConvertCompressedTexture` BC4/BC5 | ✅ done (5.12) | ATI1/ATI2 FourCC, encode_single_channel_block |
+| Motion cache (per-motion VB/IB) | ✅ done (5.13) | refcount-shared |
+| `INL_GetVLMeshEffect` helper | ✅ done (pre-5.12) | 1-line wrapper, covered by effect_shader_test |
 | `ConvertCompressedTexture` BC6H/BC7 | ⏳ future | HDR + RGBA-hi-quality; 大型编码器 |
-| Motion cache (per-motion VB/IB) | ⏳ future | 真新功能，不是 stub |
-| `INL_GetVLMeshEffect` helper | ⏳ future | Effect palette accessor |
 
 > **FontObject 范围说明**：8-bit 缓存（非 Unicode CJK 簇）；CJK 应走老引擎自己的 .TTB 预烤字图。
 > DirectWrite SDF / 多色 emoji 需要单独 Phase 6+ 工作。
 
-**测试统计 (Debug, 2026-07-09)**：
+**测试统计 (Debug, 2026-07-09 wrap-up)**：
 | 套件 | 数量 | 内容 |
 |------|------|------|
 | `TgaLoader` | 7 | TGA uncompressed / RLE / bottom-up-flip / RGBA32 |
 | `MeshGeometryTest` | 4 | MESH_DESC + FACE_DESC 合约 |
 | `FontObjectGlyph` | 2 | GlyphEntry 字段 + CHAR_CODE_TYPE 枚举值 |
-| `FontObjectAtlas` | 4 | row-packing：水平→回行→溢出复位→行高跟踪最大字 |
+| `FontObjectAtlas` | 4 | row-packing |
 | `MhFileEx` | 6 | `.bin` XOR/位移加解密 + CRC 校验 |
 | `PackFile` | 5 | `.pak` 头解析 + 实资源回环 |
 | `BsadArea` | 4 | `.bsad` 技能区域 |
 | `ChxModelRealResource` | 4 | 真实 `.chx` TAB 分隔文本 |
 | `DbAdapter` | 4 | `IDbAdapter` 工厂 + 配置 |
-| `SqliteAdapter` | 5 | SQLite 后端（事务/BLOB/文件持久化） |
-| `RealResource` | 2 | 真实 `MonsterList.bin` + `Effect.pak` 跑通 |
-| `MatrixMathTest` | 3 | 矩阵数学 (Orthographic/LookAt/Identity) |
-| `HeightFieldTest` | 8 | 高度图 (build/lod/height/tile) |
+| `SqliteAdapter` | 5 | SQLite 后端 |
+| `RealResource` | 2 | 真实 `MonsterList.bin` + `Effect.pak` |
+| `MatrixMathTest` | 3 | 矩阵数学 |
+| `HeightFieldTest` | 8 | 高度图 |
 | `HeightFieldRenderGrid` | 3 | RenderGrid 入口 + accessor |
 | `HeightFieldPool*` | 7 | Pool caps / guards / key encoding / palette |
-| `HFieldObject*` | 12 | HField object 默认/IUnknown/refcount/create/color/alpha/state/math |
+| `HFieldObject*` | 12 | HField object 全套 |
 | `EffectShaderTest` | 13 | EffectEntry / Palette / buildFromDesc / matrix ops |
-| `MaterialDataTest` + `MaterialSet*` + `MaterialContract*` | 14 | MATERIAL 字段 / 集合 / 合约 / Fill helper |
-| `DynamicLightDefaults` + `LightCBInit` + `ColorConversion` + `LightIndexDesc` + `DynamicLightConstants` | 11 | light 默认值 + cbuffer 布局 + 颜色转换 + 常量 |
+| `MaterialDataTest` + `MaterialSet*` + `MaterialContract*` | 14 | MATERIAL 字段 / 集合 / 合约 |
+| `DynamicLightDefaults` + `LightCBInit` + `ColorConversion` + `LightIndexDesc` + `DynamicLightConstants` | 11 | light 默认值 + cbuffer 布局 |
 | `TriBufferMagic` | 1 | TRIB magic 常量 |
 | `TextureLoaderTGA` / `TextureLoaderDDS` / `TextureLoaderAutoDetect` | 6 | TGA roundtrip / DDS magic+BGRA / 探测 |
-| **Phase 5 deferred** (`SetRTLight` / `BuildLightCBRTLight` / `InitializeRenderTarget` / `SetLoadFailedTextureTable` / `GetLoadFailedTextureTable` / `SaveDDSBC` / `SaveDDSBC4` / `SaveDDSBC5`) | **26** | **本 session 新增 (18 + 8)** |
-| **Render 合计** | **131** | |
-| MoxianRenderDemo smoke | 1 | Phase 5.10/5.11/6+/7 (7911120) — 3D lit cube + 2D HUD + Effect/Material |
-| **Modern 全部** | **175** | **Debug 全过** |
+| `SaveDDSBC` (BC1/BC3) | 5 | DDS 文件头 + 块编码 + 边界 + 索引 |
+| `SaveDDSBC4` (BC4/ATI1) | 4 | 单通道 R 编码 + 自适应端点 |
+| `SaveDDSBC5` (BC5/ATI2) | 4 | 双通道 R+G 编码 + 块栅格 |
+| `SetRTLight` / `BuildLightCBRTLight` | 7 | RT light 存/索引/累加/默认 range |
+| `InitializeRenderTarget` | 3 | RT 池配置 + clamp |
+| `SetLoadFailedTextureTable` / `GetLoadFailedTextureTable` | 3 | fallback texture 表 |
+| `MotionCache` | 14 | Register/Lookup/Unregister/Clear 全套 + edge cases |
+| **Render 合计** | **132** | |
+| MoxianRenderDemo smoke | 1 | Phase 5.10/5.11/6+/7 (7911120) |
+| `MoxianCompat` + `MoxianDb` + `MoxianResourceExplorer` + 其它 | ~56 | resource/db/explorer 工具集 |
+| **Modern 全部** | **189** | **Debug 全过** |
+
+### Phase 6 入口分析（2026-07-09 — 准备起步）
+
+**目标**：UI 系统现代化 (3-4 周 per plan §1.3)
+
+**legacy 现状** (`[Client]MH/`):
+- 框架核心：`interface/cWindow.h` (4.6 KB) + `cWindow.cpp` (4.3 KB) + `cWindowSystemFunc.h/cpp` (15 KB)
+- 控件树：`cObject` 基类 → `cWindow` → `cButton` / `cEditBox` / `cListCtrl` / `cDialog` / 各种 Guild*/Inventory* 对话框（~80 个 .h）
+- 渲染：`cImage` + GDI/MFC，`ToolTipRender` 走 GDI text
+- 事件：`ActionEvent(CMouse*)` / `ActionKeyboardEvent(CKeyboard*)` + WE_NULL/... 枚举
+- 国际化：散落 `_KOR_LOCAL_` / `_TW_LOCAL_` / `_CHINA_LOCAL_` / `_JP_LOCAL_` / `_HK_LOCAL_` / `_TL_LOCAL_` / `_NDSC_LOCAL_` 宏
+
+**两条路（plan §6.2）**：
+- **6.2.A 保留 cWindow** — 用现代 C++ 重写 framework（4.6+4.3 KB ≈ 300 行核心），保留所有 .bin UI 描述和 80 个对话框的二进制兼容
+- **6.2.B 替换为 ImGui** — vendor ImGui + DX11 backend，给 .bin UI 写 ImGui adapter；视觉/交互会变（**违反 1:1**），但代码量小很多
+
+**推荐路线 6.2.A**（1:1 兼容优先），具体分阶段：
+- 6.1.1 `cObject` / `cWindow` framework 用现代 C++ 重写（智能指针、范围 for、std::optional），保持 public API 同形
+- 6.1.2 `cImage` 接到 `mxh_render` 的 `ID3D11ShaderResourceView`（已有 SpriteObject，加 9-slice/border 支持）
+- 6.1.3 `cButton` / `cEditBox` / `cListCtrl` 三大核心控件重写（先无游戏内容、用单元测试验证 hit-test + 事件分发）
+- 6.1.4 `cWindowSystemFunc` 工厂方法（CreateMainTitle_m 等）改成注册式创建
+- 6.2 决定是否补 ImGui 调试 HUD（`mxh_render_demo` 可加 ~200 行 ImGui overlay）
+- 6.3 多语言抽离：先做枚举 + lookup table，保留 macro 1 个 phase 再删
+
+**前置条件**：
+- Phase 5 收官（✅ 完成）
+- 不需要 SQL Server
+- 不依赖 4Dyuchi 引擎运行（重写 framework 后老代码仍能 compile-link，但不直接运行）
+
+**风险**：
+- 80 个对话框文件的 binary 兼容（texture index、font index 偏移）— 需先逆向 .bin UI 描述格式
+- GDI 文本渲染（TTF 预烤字图 + 多色）— Phase 5 的 FontObject 8-bit 缓存是基础，但 DirectWrite/SDF 是 future
+- MFC 依赖移除（stdafx.h 还有 `<afx.h>` / `<ole2.h>` 死代码）— 需同步改
+
+**下一手可执行项**（scope 小，1-2 提交）:
+1. 6.0.1 创建 `modern/src/ui/cWindow/` 目录骨架 + `CMakeLists.txt` 子项目
+2. 6.0.2 `cObject` + `cWindow` framework 重写（`modern/src/ui/cWindow/{cObject,cWindow}.hpp`）
+3. 6.0.3 单元测试：hit-test / 事件分发 / 子树管理（CPU-side，不需 DX11）
+4. 6.0.4 把 `cWindowSystemFunc` 旧 .h 路径保留 compat shim，新代码用 modern cWindow
 
 ### Phase 3-7 交付物（每阶段）
 - [ ] 新模块源码 + 单元测试

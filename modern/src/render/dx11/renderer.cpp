@@ -1,4 +1,4 @@
-﻿// mxh/render/dx11/renderer.cpp
+// mxh/render/dx11/renderer.cpp
 // Implementation of all 75 I4DyuchiGXRenderer methods.
 #include "renderer.hpp"
 #include "sprite.hpp"

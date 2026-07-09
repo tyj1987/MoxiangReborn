@@ -1,4 +1,4 @@
-﻿// mxh/render/dx11/renderer.hpp
+// mxh/render/dx11/renderer.hpp
 // CoD3DDeviceDX11: implements I4DyuchiGXRenderer with full method signatures
 // matching the original DX8 engine. Critical-path methods (Create/Begin/End/
 // Present/Sprite/Box/Line/Point/Circle/SetViewFrustum) are real DX11 impls;

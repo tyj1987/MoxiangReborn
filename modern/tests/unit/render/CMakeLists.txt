@@ -1,4 +1,4 @@
-﻿add_executable(mxh_render_tests
+add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp
     font_object_test.cpp

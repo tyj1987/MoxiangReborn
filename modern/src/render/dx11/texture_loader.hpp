@@ -1,4 +1,4 @@
-﻿// mxh/render/dx11/texture_loader.hpp
+// mxh/render/dx11/texture_loader.hpp
 // Loads textures from raw bytes (TGA / BMP / bmhm).
 // Used by both SpriteObject and Material manager.
 #pragma once

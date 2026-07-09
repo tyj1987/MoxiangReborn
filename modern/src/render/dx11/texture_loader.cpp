@@ -1,4 +1,4 @@
-﻿// mxh/render/dx11/texture_loader.cpp
+// mxh/render/dx11/texture_loader.cpp
 // TGA decoder (uncompressed + RLE) and auto-detect format dispatch.
 #include "texture_loader.hpp"
 
