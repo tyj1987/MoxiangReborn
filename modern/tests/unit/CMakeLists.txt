@@ -1,5 +1,6 @@
 add_executable(mxh_compat_tests
     mh_file_ex_test.cpp
+    mh_file_ex_utf8_test.cpp
     pack_file_test.cpp
     bsad_area_test.cpp
     chx_real_resource_test.cpp
@@ -16,6 +17,9 @@ gtest_add_tests(TARGET mxh_compat_tests
     MhFileEx.Crc8Zero
     MhFileEx.Crc8Basic
     MhFileEx.WriteAndReadBack
+    MhFileExUtf8.C34SentinelRoundtrip
+    MhFileExUtf8.C34SentinelWriteAndRead
+    MhFileExUtf8.LegacyEucKrTitanServerBinDecodesToEucKr
     PackFile.FindCaseInsensitive
     PackFile.RejectsNonPakBlob
     PackFile.ParsesRealEffectPak
