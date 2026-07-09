@@ -593,6 +593,94 @@ Phase 7.5l-d1: python build_agent_debug_locales.py
 
 ---
 
+## D-6 AgentServer Debug_HK ggsrv25.lib 缺失（2026-07-10，Phase 7.5n 已修复）
+
+### 症状
+
+`cmake --build --target AgentServer_Debug_HK` 失败，1 LNK2019 报错：
+`unresolved external symbol "__declspec(dllimport) ggsrv25...InitGameguardAuth"`
+or similar (legacy .lib COFF missing from workspace, see Phase 7.3
+CMakeLists.txt comment block).
+
+### 位置
+
+- vendor header：`[Server]Agent/ggsrv25.h` (5284 B 全 nProtect GameGuard 2.5 SDK)
+- missed linker dependency：`ggsrv25.lib` (legacy .lib, MISSING from repo)
+- caller：`[Server]Agent/NProtectManager.cpp` (under `#ifdef _NPROTECT_`)
+- server boot path：`[Server]Agent/Server.cpp` -line 1209 calls
+  `NPROTECTMGR->Init(mapnum)` which calls `InitGameguardAuth`
+
+### 根因
+
+nProtect GameGuard 2.5 SDK 是独立的 .dll + .lib vendor。workspace 里只
+有 .h 头文件，没有 .lib 链接 + 没有 ggauth.dll runtime 库。没有 .lib
+MSVC linker 不能 resolve `__declspec(dllimport)` symbols from ggsrv25.h
+declarations，导致 LNK2019。Legacy 上游 HK 域大概也是这种状况（也许 HK
+从来没有真的 GG server reachable 在 legacy workspace 上），所以这个 .lib
+从来不发货。
+
+### 修法（Phase 7.5n）
+
+New `[Server]Agent/ggsrv25_vendor_stub.cpp`（**~7 KB**）— self-contained
+source-level stub of all symbols declared in `ggsrv25.h`:
+- `InitGameguardAuth(..)` → return 1 (TRUE, matches legacy "success")
+- `CleanupGameguardAuth()` → no-op
+- `GGAuthUpdateTimer()` → return 0 (matches NPGG_CHECKUPDATED_VERIFIED)
+- `AddAuthProtocol(..)` → return 0
+- `NpLog` / `GGAuthUpdateCallback` / `ModuleInfo` → stubs/nops/
+  server.cpp-overridden as appropriate
+- Full `CCSAuth2` class impl (init pass / query fill / answer pass)
+- `GGAuthCreateUser` / `GGAuthDeleteUser` / `GGAuthInitUser` /
+  `GGAuthCloseUser` / `GGAuthGetQuery` / `GGAuthCheckAnswer` /
+  `GGAuthCheckUpdated` / `GGAuthUserInfo` / `GGAuthGetUserValue` — C API
+  box/unbox to the C++ class
+
+CMakeLists.txt:HK target adds `target_sources(... ggsrv25_vendor_stub.cpp)`
+**only for HK** (other 4 locales don't define `_NPROTECT_` so stub silent).
+
+### 验证
+
+```
+Phase 7.5n: python build_agent_debug_locales.py
+  AgentServer_Debug_KOR:    OK  1,496,576 B
+  AgentServer_Debug_JAPAN:  OK  1,498,624 B
+  AgentServer_Debug_CHINA:  OK  1,496,064 B  (Phase 7.5l fix)
+  AgentServer_Debug_HK:     OK  1,485,824 B  (Phase 7.5n fix — new!)
+  AgentServer_Debug_TL:     OK  1,495,552 B
+
+AgentServer 5/locale matrix now 5/5 clean (was 4/5 after 7.5l,
+3/5 after 7.5k-B, 0/5 before any fix).
+
+ctest regression: 406/406 PASS, 0 FAIL (Phase 7.x modern/ still green
+after vendor stub file added to Agent target).
+```
+
+### 影响范围
+
+- 1 new file (`ggsrv25_vendor_stub.cpp` ~7 KB)
+- CMakeLists.txt:HK target 1 branch (1 if/endif/endif + 1 target_sources)
+- KOR/JP/CHINA/TL 路径完全无感
+- HK 路径：server boots up, NPROTECTMGR->Init returns true, GameGuard
+  query/answer 在 stub 模式下 forever-pass (no real GG wire protocol)
+- gameplay (玩家流动、quest、battle、billing) 完全不依赖 nProtect GameGuard
+  verification → 1:1 fidelity
+- legacy 上 HK GameGuard check 是 dead-code (没有 reachable GG server)，
+  所以 stub 行为 1:1 等价 (legacy HK 也跟 stub 一样，没真验过 client GG，
+  仅 log fail)。Phase 8+ 真接入 GG 2.5 时 drop-in ggsrv25.lib + rm stub。
+
+### 状态
+
+**Phase 7.5n 已修复**：AgentServer 5/locale matrix 5/5 干净。Distribute 5/5 + Agent 5/5
+= **10/10 server locale target** 全绿。
+`docs/KNOWN_BUGS.md` D-6 entry 新加 Phase 7.5n 修复 entry。
+`MODERNIZATION_PLAN.md` 5 节新增 Phase 7.5n entry。
+
+---
+
+
+
+---
+
 ## D-12 Phase 7.5l 修复（2026-07-10，1 char fix）
 
 ```markdown

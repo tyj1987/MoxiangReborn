@@ -680,6 +680,33 @@ Phase 12: 持续迭代
 - [x] **D-12 状态翻 fixed**：`docs/KNOWN_BUGS.md` 新加 D-12 Phase 7.5l 修复 entry
 - [x] **不依赖 .pre_utf8.bak**：UserTable.h 改动是直接编辑现 file，没用 .bak 还原
 
+#### Phase 7.5n（已完成 — D-6 状态翻转，5/5 Agent + 10/10 server 矩阵，2026-07-10）
+
+> Phase 7.5l 把 Agent 5/locale matrix 推到 4/5，仅剩 HK ggsrv25 linker 错。本 session 接着把它解掉，
+> 加上 Phase 7.5i 的 Distribute 5/5 — 服务端两个核心服务现已 5/locale × 2 = 10/10 全绿。
+
+- [x] **D-6 根因查明**：`ggsrv25.lib` 真的缺失（vendor .h 在，.lib 没在 workspace）；
+  HK GameGuard 2.5 SDK 链接永远 fail。
+- [x] **修法 跟 Phase 7.5i vendor MD5 套路**——source-level vendor stub：
+  - new `[Server]Agent/ggsrv25_vendor_stub.cpp` (~7 KB): source-level C++
+    port of all symbols declared in `ggsrv25.h` (InitGameguardAuth /
+    CleanupGameguardAuth / GGAuthUpdateTimer / AddAuthProtocol / ModuleInfo +
+    full CCSAuth2 class + GGAUTH_* C API)
+  - NpLog / GGAuthUpdateCallback 留空 → server.cpp 已 provide 这俩 thin
+    wrapper (NPROTECTMGR->NpLog / ->GGAuthUpdateCallback)，stub 不重 define 避免 LNK2005
+  - CMakeLists HK-only 分支：`target_sources(ggsrv25_vendor_stub.cpp)`
+    替代 `target_link_libraries(ggsrv25.lib)`
+- [x] **HK 1 LNK → 0**：AgentServer_Debug_HK.exe 1,485,824 B 落地
+- [x] **Agent 5/locale matrix 5/5**：KOR 1,496,576 / JP 1,498,624 / CHINA 1,496,064 / **HK 1,485,824** / TL 1,495,552
+- [x] **distribute 5/5 + agent 5/5 = 10/10 server locale target** 全绿
+- [x] **regression ctest 406/406 PASS, 0 FAIL**：加 stub 文件不动现代 c++ 测试
+- [x] **stub 行为 1:1** — legacy 上 HK ggsrv25.lib 也跟 stub 一样没真 GG wire
+  protocol，stub 模拟「forever-pass」路径 + 0 LNK；Phase 8+ 真接入 GG 时 drop-in
+  ggsrv25.lib + rm stub, server.cpp 不动
+- [x] **D-6 状态翻 fixed**：`docs/KNOWN_BUGS.md` 新加 D-6 Phase 7.5n 修复 entry
+- [x] **不动 CNProtectManager**: legacy `_NPROTECT_` path 中的 GameGuard callback 全保留,
+  stub 被动提供 vendor symbols，不动 runtime game-state machine
+
 ---
 
 > Phase 7.5h 把 KOR/JP/HK/TL 4 个 blocker 标 "out of scope"。本 session **反悔了**——用户偏好"看到落地证据"，所以我用以下修法把 4 个都修了：

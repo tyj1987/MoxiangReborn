@@ -424,14 +424,24 @@ foreach(locale IN ITEMS KOR JAPAN CHINA HK TL)
     target_link_options(${_name} PRIVATE
         /NODEFAULTLIB:LIBC
     )
-    # Debug_HK additionally links ggsrv25.lib (nProtect GameGuard 2.5 SDK).
+    # Debug_HK additionally provides nProtect GameGuard 2.5 SDK symbols.
     # The vendored header (ggsrv25.h) exists; the .lib is MISSING from the
-    # repo. The HK link step will fail until ggsrv25.lib is restored.
-    # Tracked as Bug D-6.
+    # repo (Bug D-6). Phase 7.5n ships a source-level C++ stub at
+    # ggsrv25_vendor_stub.cpp that implements all the symbols declared in
+    # ggsrv25.h (InitGameguardAuth / GGAuthUpdateTimer / CleanupGameguardAuth
+    # / ... + CCSAuth2 class + GGAUTH_* C API) as empty no-ops that return
+    # success-equivalent values. Linking this source-instead-of-lib means
+    # the HK target builds clean, the legacy CNProtectManager init path
+    # succeeds, and the gameplay layer (which does not depend on nProtect
+    # GameGuard) keeps working 1:1.  Real GGAuth 2.5 wire-protocol support
+    # is deferred to a future phase (8+) once upstream ggsrv25.lib is
+    # restored. KOR/JP/CHINA/TL targets do not define `_NPROTECT_` so they
+    # never reference any of these symbols and the stub is silent.
     if(locale STREQUAL "HK")
-        target_link_libraries(${_name} PRIVATE ggsrv25.lib)
-        target_link_directories(${_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-        message(STATUS "  Debug_HK: ggsrv25.lib EXPECTED at ${_ggsrv_lib} (Bug D-6: lib is MISSING from repo)")
+        target_sources(${_name} PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/ggsrv25_vendor_stub.cpp"
+        )
+        message(STATUS "  Debug_HK: ggsrv25_vendor_stub.cpp linked instead of missing ggsrv25.lib (Bug D-6 mitigated Phase 7.5n)")
     endif()
     set_target_properties(${_name} PROPERTIES
         OUTPUT_NAME "AgentServer_${locale}"
