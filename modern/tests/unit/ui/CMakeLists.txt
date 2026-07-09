@@ -6,10 +6,18 @@ add_executable(mxh_ui_tests
     cimage_test.cpp
     clistctrl_test.cpp
     cwindowmanager_test.cpp
+    cmsgbox_test.cpp
     legacy_compat_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
+
+# Force /FS so multiple CL.EXE invocations can write to the same PDB
+# without lock contention on the (CJK) build path. MSBuild defaults to
+# parallel CL/MPCount which races on vc143.pdb when the path is long.
+if(MSVC)
+    target_compile_options(mxh_ui_tests PRIVATE /FS /Z7 /MP1)
+endif()
 
 include(GoogleTest)
 # Hand-register tests via gtest_add_tests. We can't use gtest_discover_tests
@@ -137,4 +145,19 @@ gtest_add_tests(TARGET mxh_ui_tests
     LegacyCompat.DialogChildAddWorksThroughShimTypes
     LegacyCompat.ListCtrlRowClickUsesLegacyCode
     LegacyCompat.ModernEnumRoundTripsThroughUint32
+    CMsgBox.InitMsgBoxOnceNoOp
+    CMsgBox.DefaultConstruction
+    CMsgBox.MsgBoxOkBuildsOneButton
+    CMsgBox.MsgBoxYesNoBuildsTwoButtons
+    CMsgBox.MsgBoxCancelBuildsOneButton
+    CMsgBox.MsgBoxNoBtnBuildsZeroButtons
+    CMsgBox.ClickOkButtonFiresOkCallback
+    CMsgBox.ClickNoButtonFiresNoCallback
+    CMsgBox.EnterTriggersDefaultButton
+    CMsgBox.EscTriggersCancelOrNo
+    CMsgBox.ForcePressButtonFiresCallback
+    CMsgBox.ForcePressUnknownButtonReturnsFalse
+    CMsgBox.ForceCloseSkipsCallback
+    CMsgBox.CallbackFiresOnceEvenIfClickedTwice
+    CMsgBox.DispatcherIntegrationModalRouting
 )

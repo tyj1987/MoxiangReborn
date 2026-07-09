@@ -112,6 +112,13 @@ public:
     void SetActiveRecursive(bool v);                              // cascades
     bool isActive() const noexcept           { return m_bActive; }
 
+protected:
+    // Subclasses (e.g. cMsgBox) need direct read access for fast-path
+    // dispatch checks. We expose the field via protected access rather
+    // than an extra accessor because the value is checked in tight loops.
+    bool          m_bActive         = false;
+
+public:
     // -------------------------------------------------------------------------
     // Alpha (legacy: SetAlpha(BYTE) / SetOptionAlpha(DWORD)). The legacy
     // engine supports a per-dialog alpha for translucent UI (used in
@@ -125,15 +132,6 @@ public:
     std::uint32_t optionAlpha() const noexcept   { return m_optionAlpha; }
 
     // -------------------------------------------------------------------------
-    // Lookup helpers.
-    // -------------------------------------------------------------------------
-    cWindow* findWindowById(std::int32_t id) const;
-    // componentCount / componentAt mirror cWindow's child machinery but
-    // are spelled with the legacy names to keep the engine-facing API close.
-    std::size_t componentCount() const noexcept { return childCount(); }
-    cWindow*    componentAt(std::size_t i) const noexcept { return childAt(i); }
-
-    // -------------------------------------------------------------------------
     // SetAbsXY override: in addition to moving the dialog, offset every
     // child's absX/absY by the delta so the absolute layout stays correct.
     // Legacy: cDialog::SetAbsXY.
@@ -143,10 +141,20 @@ public:
     // SetDisable cascades to children (legacy contract).
     void SetDisable(bool v) noexcept override;
 
+    // -------------------------------------------------------------------------
+    // Lookup helpers. Publicly visible so the cWindowManager (and tests)
+    // can find a window by id without re-implementing the walk.
+    // Legacy: cDialog::FindWindowById / cDialog::GetWindowByID equivalents.
+    // -------------------------------------------------------------------------
+    cWindow* findWindowById(std::int32_t id) const;
+    // componentCount / componentAt mirror cWindow's child machinery but
+    // are spelled with the legacy names to keep the engine-facing API close.
+    std::size_t componentCount() const noexcept { return childCount(); }
+    cWindow*    componentAt(std::size_t i) const noexcept { return childAt(i); }
+
 private:
     bool          m_bAutoClose      = false;
     bool          m_bCloseRequested = false;
-    bool          m_bActive         = false;
     bool          m_hasCaption      = false;
     std::int32_t  m_captionLeft     = 0;
     std::int32_t  m_captionTop      = 0;

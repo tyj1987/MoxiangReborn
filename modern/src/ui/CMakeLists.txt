@@ -11,6 +11,7 @@ add_library(mxh_ui STATIC
     cImage.cpp
     cListCtrl.cpp
     cWindowManager.cpp
+    cMsgBox.cpp
 )
 
 target_include_directories(mxh_ui PUBLIC

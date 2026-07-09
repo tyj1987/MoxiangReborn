@@ -84,7 +84,7 @@ public:
     // Modal mode. While a modal dialog is open, all input goes to it
     // regardless of z-order. SetModalDialog(nullptr) clears modal state.
     // -------------------------------------------------------------------------
-    void SetModalDialog(cDialog* dlg) noexcept { m_modalDialog = dlg; }
+    void SetModalDialog(cDialog* dlg) noexcept;
     cDialog* modalDialog() const noexcept      { return m_modalDialog; }
     bool isModal() const noexcept              { return m_modalDialog != nullptr; }
 

@@ -445,6 +445,7 @@ Phase 12: 持续迭代
 | (未 commit) | 6.6 | cWindowManager (top-most dispatch + modal + defer-destroy) | 14 |
 | (未 commit) | 6.7 | legacy_compat (WE_* + cbWindowFunc bridge) | 6 |
 | `265c7f9` | 6.8 | mxh_ui_smoke (headless UI integration) | (smoke) |
+| (本会话) | 6.9 | cMsgBox (modal 4-type box + keys + dispatcher integration) + cDialog exposure fixes (findWindowById/alpha/SetAbsXY/SetDisable public) + SetModalDialog auto-Activate + /FS in test vcxproj | 14 |
 
 **Phase 6 收官总览**：
 
@@ -460,6 +461,7 @@ Phase 12: 持续迭代
 | `cWindowManager` | ✅ done (6.6) | top-most dispatch / modal / defer-destroy / RenderAll |
 | `legacy_compat` shim | ✅ done (6.7) | WE_* codes + cbWindowFunc → std::function bridge |
 | `mxh_ui_smoke` | ✅ done (6.8) | headless end-to-end integration smoke |
+| `cMsgBox` | ✅ done (6.9) | modal message box + 4 MBType + Enter/Esc + auto-close |
 | Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
 | IME (Korean/JP composition) | ⏳ future | |
 | Drag-drop / cIconDialog | ⏳ future | |
@@ -478,11 +480,12 @@ Phase 12: 持续迭代
 | UI: cListCtrl | 16 | multi-column list |
 | UI: cWindowManager | 14 | dispatch + modal + defer-destroy |
 | UI: legacy_compat | 6 | WE_* + cbWindowFunc bridge |
-| **UI 合计** | **122** | |
+| UI: cMsgBox | 14 | modal message box (4 MBType + keys + dispatcher integration) |
+| **UI 合计** | **136** | |
 | MoxianRenderDemo smoke (3D+2D+Effect+Mtl) | 1 | visual smoke |
 | mxh_ui_smoke (Phase 6.8 headless) | 1 | framework end-to-end |
 | `MoxianCompat` + `MoxianDb` + 其它 | ~58 | resource/db tools |
-| **Render + UI 合计** | **254** | **Debug 全过** |
+| **Render + UI 合计** | **268** | **Debug 全过** |
 
 ### Phase 6 入口分析（2026-07-09 — 准备起步）
 

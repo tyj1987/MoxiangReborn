@@ -94,6 +94,18 @@ cDialog* cWindowManager::findByXY(std::int32_t x, std::int32_t y) const {
     return nullptr;
 }
 
+void cWindowManager::SetModalDialog(cDialog* dlg) noexcept {
+    // Marking a dialog as modal also flips its "active" flag so its
+    // children (e.g. cMsgBox buttons) can fire their callbacks via the
+    // cDialog::ActionEvent fast path. This matches the legacy contract
+    // where SetModal called SetActive(TRUE) under the hood.
+    if (m_modalDialog && m_modalDialog != dlg) {
+        m_modalDialog->SetActive(false);
+    }
+    m_modalDialog = dlg;
+    if (m_modalDialog) m_modalDialog->SetActive(true);
+}
+
 std::uint32_t cWindowManager::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
                                           std::uint32_t mouseFlags) {
     cDialog* target = m_modalDialog ? m_modalDialog : topmostActive();
