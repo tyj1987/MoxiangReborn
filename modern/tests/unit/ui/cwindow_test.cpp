@@ -21,7 +21,8 @@ public:
     int renderCount = 0;
     std::uint32_t lastKeyboardEvent = 0xDEADBEEFu;
     void Render() override { ++renderCount; }
-    std::uint32_t ActionKeyboardEvent() override {
+    std::uint32_t ActionKeyboardEvent(std::int32_t /*key*/,
+                                     std::int32_t /*ch*/) override {
         lastKeyboardEvent = static_cast<std::uint32_t>(WE::KeyDown);
         return lastKeyboardEvent;
     }
@@ -238,7 +239,7 @@ TEST(CWindow, SubclassOverrides) {
     if (w.renderCount != 0) FAIL() << "renderCount not initialized";
     w.Render();
     EXPECT_EQ(w.renderCount, 1);
-    const std::uint32_t r1 = w.ActionKeyboardEvent();
+    const std::uint32_t r1 = w.ActionKeyboardEvent(0, 0);
     EXPECT_EQ(r1, static_cast<std::uint32_t>(WE::KeyDown));
     EXPECT_EQ(w.lastKeyboardEvent, static_cast<std::uint32_t>(WE::KeyDown));
 }

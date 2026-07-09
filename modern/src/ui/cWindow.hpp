@@ -123,10 +123,15 @@ public:
     //
     // mouseFlags carries the same bits as legacy `DWORD we`; only the L/R
     // button state is interpreted here.
+    //
+    // ActionKeyboardEvent takes a virtual-key code (`key`) and a character
+    // payload (`ch`, 0 for non-character keys). The base class is a no-op;
+    // control widgets (cEditBox, etc.) override to consume keys.
     // -------------------------------------------------------------------------
     virtual std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
                                       std::uint32_t mouseFlags);
-    virtual std::uint32_t ActionKeyboardEvent(/* keyboard payload TBD */) {
+    virtual std::uint32_t ActionKeyboardEvent(std::int32_t /*key*/,
+                                               std::int32_t /*ch*/) {
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
 

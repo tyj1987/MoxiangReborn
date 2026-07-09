@@ -1,6 +1,7 @@
 add_executable(mxh_ui_tests
     cwindow_test.cpp
     cbutton_test.cpp
+    ceditbox_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -49,4 +50,22 @@ gtest_add_tests(TARGET mxh_ui_tests
     CButton.DisabledClickDoesNotInvokeCallback
     CButton.MultipleSequentialClicksAllFire
     CButton.NonLButtonFlagsDoNotTriggerClick
+    CEditBox.InitStoresImagesAndDefaults
+    CEditBox.InitEditboxConfiguresBuffer
+    CEditBox.InsertCharAppendsAndMovesCaret
+    CEditBox.BackspaceDeletesCharBeforeCaret
+    CEditBox.DeleteRemovesCharAtCaret
+    CEditBox.ArrowKeysMoveCaret
+    CEditBox.EnterAndEscapeInvokeCallbacks
+    CEditBox.ReadOnlyRejectsInputButKeepsNavigation
+    CEditBox.SecretModeHidesDisplayText
+    CEditBox.SetEditTextReplacesContent
+    CEditBox.SetEditTextRespectsCapacity
+    CEditBox.TextChangeFiresCallback
+    CEditBox.BufferFullRejectsInsert
+    CEditBox.ValidCheckDigitsOnly
+    CEditBox.ValidCheckAlphaOnly
+    CEditBox.FocusOnClick
+    CEditBox.DisabledIgnoresKeyboard
+    CEditBox.TextColorAndAlignSetters
 )
