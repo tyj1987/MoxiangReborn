@@ -534,6 +534,55 @@ Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)�
 
 ---
 
+## D-12 AgentServer Debug_CHINA billing 字段缺失（2026-07-10，Phase 7.5k-B 新发现）
+
+### 症状
+
+`cmake --build --target AgentServer_Debug_CHINA` 失败，26 C2039 错误全指
+`tagUSERINFO` 缺字段（`bBillType` x 11 / `nRemainTime` x 8 / `dwLastCheckRemainTime` x 4）
++ 1 C2660 `InsertBillingTable` 不接受 3 个参数。3 个 member 函数缺字段全部
+`#ifdef _CHINA_LOCAL_` 围栏内。
+
+### 位置
+
+- 使用点：`[Server]Agent/AgentDBMsgParser.cpp` line ~2184 等多处；`[Server]Agent/ServerSystem.cpp` line ~1171 等多处
+- 缺失字段定义应在：`[CC]Header/CommonStruct.h` 内 `tagUSERINFO` struct
+- `InsertBillingTable` 应在：`[Server]Agent/AgentNetworkMsgParser.cpp` 同 locale 段
+
+### 根因
+
+Legacy 在 `[CC]Header/CommonStruct.h` 的 `tagUSERINFO` struct 周围漏了
+`#ifdef _CHINA_LOCAL_` 围栏：CHINA config 下编译期会读 Agent 那些 cpp 中
+`#ifdef _CHINA_LOCAL_` 段（`bBillType = ...` / `m_UserInfo.bBillType = ...` /
+`InsertBillingTable(pTable, idx, ...)` 等）但 `tagUSERINFO` 在 KOR/JP/HK/TL
+config 下展开不带 billing 字段，所以**只有** CHINA 失败。
+
+### 现代方案候选
+
+1. **加 struct 字段**（候选 A）：给 `tagUSERINFO` 在 CHINA 围栏内加 3 个字段 + 改
+   `InsertBillingTable` 调用点。但 `CommonStruct.h` 用 `#pragma pack(push,1)` 强制 1 字节对齐
+   保护网络包结构，**加字段会破坏 1:1 网络协议二进制兼容**（违反 AGENTS.md
+   "绝对不能破坏" 第 2 条）。
+2. **#ifdef 围栏屏蔽 CHINA 那几行**（候选 B）：不改 `tagUSERINFO`，给 Agent 那几处
+   `bBillType = X` / `InsertBillingTable(..,..,..)` 加
+   `#ifndef _CHINA_LOCAL_` 围栏"绕过" billing code。等于**让 CHINA 失去 billing
+   功能**。这违反"玩法 1:1 第 3 条"。
+3. **保持现状等用户决定**（候选 C）：跟 Phase 7.5h blocker 处理同款 — 不强推
+   改 shared header，先把 Phase 7.5k-B 的 3/5 Agent locale build matrix 落定
+   ，HK/CHINA 待用户方向。
+
+### 当前决定
+
+**候选 C**。Phase 7.5k-B 矩阵状态：KOR/JP/TL 3/5 build clean（KOR 1,496,576 B / JP 1,498,624 B /
+TL 1,495,552 B），CHINA 26 error + HK 1 LNK（已知 D-6 ggsrv25.lib 缺失）。
+新 Bug 卡 D-12 在 KNOWN_BUGS，等用户对 billing 字段的方向指示。
+
+### 状态
+
+未处理（Phase 7.5k-B headway 3/5）。
+
+---
+
 ```markdown
 ### Bug XXX-N: 简短描述
 - **症状**：
