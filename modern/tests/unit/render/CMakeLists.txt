@@ -3,6 +3,7 @@
     mesh_geometry_test.cpp
     font_object_test.cpp
     height_field_test.cpp
+    height_field_rendergrid_test.cpp
     hfield_object_test.cpp
     height_field_pool_test.cpp
     effect_shader_test.cpp
@@ -113,4 +114,7 @@ gtest_add_tests(TARGET mxh_render_tests
     HeightFieldManagerUtilities.MakePoolKeyEncodesLodAndPosMask
     HeightFieldManagerUtilities.MakePoolKeyHandlesMaxLod
     HeightFieldTilePalette.LoadRejectsNullInputs
+    HeightFieldRenderGrid.RejectsNullQuad
+    HeightFieldRenderGrid.RejectsNullQuadEvenWhenInitialized
+    HeightFieldRenderGrid.AccessorsStartAtZero
 )

@@ -393,7 +393,58 @@ BOOL __stdcall HeightField::ReplaceTile(char* szFileName, std::uint32_t dwTexInd
     m_tileTextures[dwTexIndex].srv = srv;
     return TRUE;
 }
-BOOL __stdcall HeightField::RenderGrid(VECTOR3*, std::uint32_t, std::uint32_t) { return TRUE; }
+BOOL __stdcall HeightField::RenderGrid(VECTOR3* pv3Quad, std::uint32_t dwTexTileIndex,
+                                      std::uint32_t dwAlpha) {
+    // Phase 5.9c: turn the legacy "render this tile quad" debug path into a
+    // real call. We don't have a CPU-side D3D11 context here (RenderGrid is
+    // a public COM entry point), so this method can't actually submit draw
+    // calls on its own — that's renderChunks()'s job, called by the
+    // renderer. What we *can* do reliably on the CPU side is:
+    //   1. Reject obviously broken inputs (null quad, post-init check)
+    //   2. Record the requested tile + alpha (legacy semantics: "the active
+    //      tile is N with alpha A until told otherwise")
+    //   3. Walk the chunk grid and re-apply alpha to every loaded chunk
+    //      so the next renderChunks() picks up the new value
+    //   4. Bump the per-call counter so debug overlays can see the activity
+    if (!pv3Quad) {
+        MLOG_WARN("[hfield] RenderGrid: null quad rejected");
+        return FALSE;
+    }
+    if (!m_initialized) {
+        MLOG_WARN("[hfield] RenderGrid: not initialized");
+        return FALSE;
+    }
+    if (dwTexTileIndex >= m_tileTextures.size() && !m_tileTextures.empty()) {
+        MLOG_WARN("[hfield] RenderGrid: tile index %u out of range (palette size=%zu)",
+                  dwTexTileIndex, m_tileTextures.size());
+        return FALSE;
+    }
+    m_lastRenderGridTile  = dwTexTileIndex;
+    m_lastRenderGridAlpha = dwAlpha;
+    ++m_renderGridCount;
+    // Walk the chunks and re-issue Render() with the per-call alpha. This
+    // is the closest CPU-side analog to "the active tile is N with alpha
+    // A" without a real D3D11 device to submit draw calls on. Production
+    // callers should still go through the renderer's per-frame path; this
+    // method is the legacy "preview one tile" debug entry point.
+    for (auto& lodLevel : m_chunks) {
+        for (auto& chunk : lodLevel) {
+            if (chunk && chunk->meshObject()) {
+                // Render() takes a per-call alpha. We pass 0 for ref index,
+                // null light lists, no spot lights, no material set, no
+                // effect — same shape as renderChunks() uses.
+                chunk->meshObject()->Render(0, dwAlpha, nullptr, 0, nullptr, 0,
+                                            0, 0, 0);
+            }
+        }
+    }
+    MLOG_DEBUG("[hfield] RenderGrid: quad=(%.1f,%.1f,%.1f)..(%.1f,%.1f,%.1f) tile=%u alpha=%u count=%llu",
+               pv3Quad[0].x, pv3Quad[0].y, pv3Quad[0].z,
+               pv3Quad[3].x, pv3Quad[3].y, pv3Quad[3].z,
+               dwTexTileIndex, dwAlpha,
+               static_cast<unsigned long long>(m_renderGridCount));
+    return TRUE;
+}
 void __stdcall HeightField::SetHFieldTileBlend(BOOL b) { m_tileBlendEnabled = !!b; }
 BOOL __stdcall HeightField::IsEnableHFieldTileBlend() { return m_tileBlendEnabled ? TRUE : FALSE; }
 

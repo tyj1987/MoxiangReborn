@@ -120,6 +120,13 @@ public:
     void __stdcall SetHFieldTileBlend(BOOL bSwitch) override;
     BOOL __stdcall IsEnableHFieldTileBlend() override;
 
+    // Phase 5.9c: RenderGrid accessors. The legacy port kept the active
+    // tile + alpha as state on the manager; expose them so tests + debug
+    // overlays can read them without re-issuing the render call.
+    std::uint32_t lastRenderGridTile()  const { return m_lastRenderGridTile; }
+    std::uint32_t lastRenderGridAlpha() const { return m_lastRenderGridAlpha; }
+    std::uint64_t renderGridCount()     const { return m_renderGridCount; }
+
     // Helpers for renderer.
     void setViewProj(const MATRIX4& vp) { m_viewProj = vp; }
     void renderChunks(const MATRIX4& worldMatrix);
@@ -136,6 +143,14 @@ private:
 
     // Per-LOD chunk grids. Each entry is a vector of chunks (one per row).
     std::vector<std::vector<std::unique_ptr<HeightFieldChunk>>> m_chunks;
+
+    // Phase 5.9c: RenderGrid bookkeeping. The legacy engine's RenderGrid
+    // was a per-quad debug-preview path; the modern port uses it as a
+    // "render N chunks with this alpha and remember the active tile" hook.
+    // We store the last-requested tile + call count for tests / debug overlays.
+    std::uint32_t                     m_lastRenderGridTile  = 0;
+    std::uint32_t                     m_lastRenderGridAlpha = 0;
+    std::uint64_t                     m_renderGridCount     = 0;
 
     // Phase 5.9a: HFieldObjects created via CreateHeightFieldObject. Kept alive
     // past the returned IDIMeshObject* handle so per-chunk CPU state (colors,
