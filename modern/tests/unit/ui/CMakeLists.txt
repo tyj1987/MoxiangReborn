@@ -3,6 +3,7 @@ add_executable(mxh_ui_tests
     cbutton_test.cpp
     ceditbox_test.cpp
     cdialog_test.cpp
+    cimage_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -85,4 +86,17 @@ gtest_add_tests(TARGET mxh_ui_tests
     CDialog.SetAbsXYAlsoMovesCaption
     CDialog.SetDisableCascadesToChildren
     CDialog.ActionEventRequiresActive
+    CImage.DefaultIsNull
+    CImage.SetSpriteObjectStoresPointer
+    CImage.SetSourceRecordsRectAndSize
+    CImage.EmptyRectMeansFullSprite
+    CImage.RenderFullSpriteUsesDefaultUVs
+    CImage.RenderClipsToSourceRect
+    CImage.RenderClampsOutOfRangeUVs
+    CImage.RenderWithoutAdapterIsNoOp
+    CImage.RenderWithoutSpriteIsNoOp
+    CImage.ColorAndZOrderForwarded
+    CImage.CachedSpriteSizeFallback
+    CImage.CopyAndMoveSemantics
+    CImage.IsInheritsObject
 )

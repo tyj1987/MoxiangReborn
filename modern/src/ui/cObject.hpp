@@ -17,8 +17,8 @@ public:
     explicit cObject(std::int32_t id) : m_id(id) {}
     virtual ~cObject() = default;
 
-    cObject(const cObject&) = delete;
-    cObject& operator=(const cObject&) = delete;
+    // Copy / move are enabled by default (cObject is a value-type ID/name
+    // holder). Subclasses that own resources should delete them.
 
     // Identity.
     std::int32_t  id() const noexcept { return m_id; }
