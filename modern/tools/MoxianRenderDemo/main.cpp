@@ -1,8 +1,20 @@
-// MoxianRenderDemo: 3D mesh + sprite smoke test.
+// MoxianRenderDemo: 3D mesh + 2D HUD + Effect/Material smoke test.
 // Opens a window, creates the DX11 renderer, draws a lit textured cube
 // (CreateMeshObject + RenderMeshObject path) plus a wireframe ground grid
-// (RenderBox + RenderGrid paths), keeps the window responsive until the user
-// closes it or N seconds pass.
+// (RenderBox + RenderGrid paths), and overlays a 2D HUD via
+// CreateEmptySpriteObject (RenderSprite path) and CreateFontObject
+// (RenderFont path). Also exercises the Effect Shader Palette
+// (CreateEffectShaderPalette → buildFromDesc) and Material Set
+// (CreateMaterialSet) CPU-side init paths.
+//
+// Phase 5.10 / Phase 6+ / Phase 7:
+//   - 3D path: cube + grid + fog (Phase 5.10 markers: feature level,
+//     device, CoD3DDeviceDX11, Fog enabled)
+//   - 2D path: sprite + font (Phase 6+ markers: SpriteObject created,
+//     FontObject ready)
+//   - Effect+Material path (Phase 7): effect palette + material set
+//     markers: "[effect] palette built", "[material] MaterialSet created"
+// The smoke harness (run_demo_smoke.py) verifies all three init paths.
 #include <windows.h>
 
 #include <cstdio>
@@ -129,12 +141,14 @@ void buildViewProj(MATRIX4& view, MATRIX4& proj) {
 
 } // namespace
 
-static I4DyuchiGXRenderer* g_renderer = nullptr;
-static bool                g_running   = true;
-static IDIMeshObject*      g_cube      = nullptr;
+static I4DyuchiGXRenderer* g_renderer  = nullptr;
+static bool                g_running    = true;
+static IDIMeshObject*      g_cube       = nullptr;
+static IDISpriteObject*    g_hudSprite  = nullptr;  // 2D HUD sprite (Phase 6+)
+static IDIFontObject*      g_hudFont    = nullptr;  // 2D HUD font   (Phase 6+)
 static ComPtr<ID3D11ShaderResourceView> g_cubeSRV;
-static float               g_angle     = 0.0f;
-static std::uint32_t       g_frames    = 0;
+static float               g_angle      = 0.0f;
+static std::uint32_t       g_frames     = 0;
 
 void renderFrame(HWND h) {
     if (!g_renderer) return;
@@ -170,6 +184,26 @@ void renderFrame(HWND h) {
         g_renderer->RenderMeshObject(g_cube, 0, 0.0f, 0xff,
                                      nullptr, 0, nullptr, 0,
                                      0, 0, 0);
+    }
+
+    // 4. 2D HUD overlay (Phase 6+). Sprite + font live in screen space, so
+    // they don't need a view/proj — RenderSprite/RenderFont are pixel-coord
+    // calls that go through the SpriteObject/FontObject internal pipeline.
+    if (g_hudSprite) {
+        VECTOR2 scale{ 1.0f, 1.0f };
+        VECTOR2 trans{ 10.0f, 10.0f };
+        RECT     rc  { 0, 0, 128, 64 };
+        g_renderer->RenderSprite(g_hudSprite, &scale, 0.0f, &trans, &rc,
+                                 0xffffffffu, /*iZOrder=*/0, /*dwFlag=*/0);
+    }
+    if (g_hudFont) {
+        const char* text = "Moxian Render Demo (HUD)";
+        RECT trc{ 150, 10, 800, 50 };
+        g_renderer->RenderFont(g_hudFont,
+                               reinterpret_cast<TCHAR*>(const_cast<char*>(text)),
+                               static_cast<std::uint32_t>(std::strlen(text)),
+                               &trc, 0xffffffffu,
+                               CHAR_CODE_TYPE_ASCII, /*iZOrder=*/0, /*dwFlag=*/0);
     }
 
     g_renderer->EndRender();
@@ -301,21 +335,108 @@ int main(int argc, char** argv) {
     // Optional fog.
     renderer->EnableFog(3.0f, 8.0f, 1.0f, 0xff101030, 0);
 
+    // === Phase 6+: 2D HUD pipeline (sprite + font) ===========================
+    // Create a 128x64 empty sprite (no pixels — the smoke only verifies the
+    // sprite went through CreateEmptySpriteObject + RenderSprite; visible
+    // content is out of scope here).
+    g_hudSprite = renderer->CreateEmptySpriteObject(128, 64,
+                                                    TEXTURE_FORMAT_A8R8G8B8, 0);
+    if (g_hudSprite) {
+        std::fprintf(stderr, "[sprite] SpriteObject created (128x64 A8R8G8B8)\n");
+    } else {
+        std::fprintf(stderr, "[sprite] CreateEmptySpriteObject returned null\n");
+    }
+
+    // Create a default Arial 24pt font. The font init logs "[font] FontObject
+    // ready (face=...)" internally (font_object.cpp:150) which the smoke
+    // harness matches against.
+    LOGFONT lf{};
+    std::strncpy(lf.lfFaceName, "Arial", sizeof(lf.lfFaceName) - 1);
+    lf.lfHeight = 24;
+    lf.lfWeight = FW_NORMAL;
+    lf.lfCharSet = DEFAULT_CHARSET;
+    g_hudFont = renderer->CreateFontObject(&lf, 0);
+    if (!g_hudFont) {
+        std::fprintf(stderr, "[font] CreateFontObject returned null (see renderer warn)\n");
+    }
+    // ==========================================================================
+
+    // === Phase 7: Effect Shader Palette + Material Set ========================
+    // Build a 2-entry effect palette (one WAVE + one SPHEREMAP). Both use empty
+    // texture names so the palette builds without hitting the file system (the
+    // demo's StubFileStorage returns nothing anyway). The renderer's
+    // effect_shader.cpp:53 logs "[effect] palette built: %u entries"
+    // automatically — that log line is the smoke marker.
+    CUSTOM_EFFECT_DESC effectDescs[2]{};
+    std::strncpy(effectDescs[0].szEffectShaderName, "demo_wave",
+                 sizeof(effectDescs[0].szEffectShaderName) - 1);
+    effectDescs[0].method         = TEXGEN_METHOD_WAVE;
+    effectDescs[0].bDisableSrcTex = TRUE;
+    std::strncpy(effectDescs[1].szEffectShaderName, "demo_sphere",
+                 sizeof(effectDescs[1].szEffectShaderName) - 1);
+    effectDescs[1].method         = TEXGEN_METHOD_REFLECT_SPHEREMAP;
+    effectDescs[1].bDisableSrcTex = FALSE;
+    BOOL effOk = renderer->CreateEffectShaderPalette(effectDescs, 2);
+    if (!effOk) {
+        std::fprintf(stderr, "[effect] CreateEffectShaderPalette returned FALSE\n");
+    }
+
+    // Build a 1-entry material set (no textures → no file IO). Demo logs the
+    // handle itself since the renderer-side CreateMaterialSet is silent. The
+    // return value is a 1-based handle (0 = invalid).
+    MATERIAL demoMtl{};
+    demoMtl.dwTextureNum    = 0;
+    demoMtl.dwDiffuse       = 0xFF808080u;   // grey
+    demoMtl.dwAmbient       = 0xFF404040u;
+    demoMtl.dwSpecular      = 0xFFFFFFFFu;
+    demoMtl.fTransparency   = 0.0f;
+    demoMtl.fShine          = 32.0f;
+    demoMtl.fShineStrength  = 1.0f;
+    demoMtl.dwFlag          = 0x00000001u;
+    MATERIAL_TABLE demoTable{};
+    demoTable.pMtl       = &demoMtl;
+    demoTable.dwMtlIndex = 1;
+    std::uint32_t mtlHandle = renderer->CreateMaterialSet(&demoTable, 1);
+    if (mtlHandle == 0) {
+        std::fprintf(stderr, "[material] CreateMaterialSet returned 0 (invalid handle)\n");
+    } else {
+        std::fprintf(stderr, "[material] MaterialSet created (1 entries, handle=%u)\n", mtlHandle);
+    }
+    // ==========================================================================
+
     MSG msg{};
     auto startTick = GetTickCount();
+    // Cap check runs BEFORE the render call so the loop can exit cleanly even
+    // if InvalidateRect/UpdateWindow happens to take a long time (e.g. when
+    // a window message sits in the queue and DispatchMessage runs user code
+    // for a long time). The original ordering (cap check after UpdateWindow)
+    // meant the cap never fired on hosts where the render call blocks.
+    //
+    // Note: on headless / Session 0 build hosts (no real display server)
+    // UpdateWindow can still block indefinitely even with this reordering,
+    // because the window message loop has no source of WM_PAINT events.
+    // The smoke harness accounts for that with PASS-B (force-kill after
+    // 10s, verify DX11 init markers) — see run_demo_smoke.py.
     while (g_running) {
         while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) g_running = false;
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        if (GetTickCount() - startTick > 5000) {
+            g_running = false;  // 5 s cap — checked BEFORE any render call
+            break;
+        }
         InvalidateRect(hwnd, nullptr, FALSE);
         UpdateWindow(hwnd);
         Sleep(16);
-        if (GetTickCount() - startTick > 5000) g_running = false;  // 5 s cap
     }
 
     if (g_cube) { g_cube->Release(); g_cube = nullptr; }
+    if (g_hudSprite) { g_hudSprite->Release(); g_hudSprite = nullptr; }
+    if (g_hudFont)   { g_hudFont->Release();   g_hudFont   = nullptr; }
+    if (mtlHandle) { renderer->DeleteMaterialSet(mtlHandle); }
+    renderer->DeleteEffectShaderPalette();
     renderer->Release();
     storage->Release();
     std::printf("Demo ran for %lu ms, %u frames.\n", GetTickCount() - startTick, g_frames);
