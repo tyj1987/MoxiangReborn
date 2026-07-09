@@ -665,7 +665,22 @@ Phase 12: 持续迭代
 
 ---
 
-#### Phase 7.5i（已完成 — C-35 状态翻转，5/5 落地，2026-07-09）
+#### Phase 7.5l（已完成 — D-12 状态翻转，4/5 Agent locale build，2026-07-10）
+
+> Phase 7.5k-B 给 Agent 5/locale build matrix 留下 2 blocker：CHINA (D-12 billing 字段缺失) + HK (D-6 ggsrv25)。
+> 本 session 接着 7.5k 解 D-12：
+
+- [x] **D-12 根因查明**：`[Server]Agent/UserTable.h:49` 的 `#ifdef _CHINA_LOCAL` (缺尾下划线) 跟 CMakeLists `_CHINA_LOCAL_` (带尾下划线) 不 match — 4 个 caller cpp 用的都是带尾下划线的正确 macro，struct 字段却被错的不带尾下划线 macro 围栏包 → 永远不展开
+- [x] **修法**：1 字符改动 — `[Server]Agent/UserTable.h:49` `#ifdef _CHINA_LOCAL` → `#ifdef _CHINA_LOCAL_`
+- [x] **CHINA 26 error → 0 error**：`AgentServer_CHINA.exe` 1,496,064 B 落地
+- [x] **5/locale matrix 4/5**（KOR 1,496,576 B / JP 1,498,624 B / **CHINA 1,496,064 B** / TL 1,495,552 B / HK ❌ D-6）
+- [x] **0 风险**：不动 shared header、不动 protocol、不动 `#pragma pack(1)`、不动 runtime logic
+- [x] **legacy 上遗 bug 落在 legacy 里**：UserTable.h 上游发版时手抖，把 macro 围栏写成错位。修法是 legacy 上「错」的 macro 回到正轨
+- [x] **modem matrix 现在 4/5**：`HK ggsrv25.lib (D-6)` 仍是仅剩 blocker
+- [x] **D-12 状态翻 fixed**：`docs/KNOWN_BUGS.md` 新加 D-12 Phase 7.5l 修复 entry
+- [x] **不依赖 .pre_utf8.bak**：UserTable.h 改动是直接编辑现 file，没用 .bak 还原
+
+---
 
 > Phase 7.5h 把 KOR/JP/HK/TL 4 个 blocker 标 "out of scope"。本 session **反悔了**——用户偏好"看到落地证据"，所以我用以下修法把 4 个都修了：
 

@@ -534,7 +534,7 @@ Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)�
 
 ---
 
-## D-12 AgentServer Debug_CHINA billing 字段缺失（2026-07-10，Phase 7.5k-B 新发现）
+## D-12 AgentServer Debug_CHINA billing 字段缺失（2026-07-10，Phase 7.5l 已修复）
 
 ### 症状
 
@@ -546,42 +546,54 @@ Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)�
 ### 位置
 
 - 使用点：`[Server]Agent/AgentDBMsgParser.cpp` line ~2184 等多处；`[Server]Agent/ServerSystem.cpp` line ~1171 等多处
-- 缺失字段定义应在：`[CC]Header/CommonStruct.h` 内 `tagUSERINFO` struct
-- `InsertBillingTable` 应在：`[Server]Agent/AgentNetworkMsgParser.cpp` 同 locale 段
+- struct 定义：[Server]Agent/UserTable.h:43
+- `InsertBillingTable` 定义：[Server]Agent/AgentDBMsgParser.cpp:60210 (4-arg)
 
-### 根因
+### 根因（实际）
 
-Legacy 在 `[CC]Header/CommonStruct.h` 的 `tagUSERINFO` struct 周围漏了
-`#ifdef _CHINA_LOCAL_` 围栏：CHINA config 下编译期会读 Agent 那些 cpp 中
-`#ifdef _CHINA_LOCAL_` 段（`bBillType = ...` / `m_UserInfo.bBillType = ...` /
-`InsertBillingTable(pTable, idx, ...)` 等）但 `tagUSERINFO` 在 KOR/JP/HK/TL
-config 下展开不带 billing 字段，所以**只有** CHINA 失败。
+`tagUSERINFO` struct 在 `[Server]Agent/UserTable.h:43` 定义。
+billing 3 字段被**正确的**宏 `#ifdef _CHINA_LOCAL` (缺尾下划线) 围栏。
+AgentServer CMakeLists 用 `_CHINA_LOCAL_` (带尾下划线) 编译宏。
+3 个 caller cpp (`ServerSystem.cpp:469` / `AgentNetworkMsgParser.cpp:632` /
+`UserTable.cpp:125` / `AgentDBMsgParser.cpp:496`) 都用 `#ifdef _CHINA_LOCAL_`
+(带尾下划线) 段引用 billing 字段。
+**结果**：caller 段激活（CHINA define match），struct 字段不展开（unmatched name）→ 26 C2039。
+Vendor cpps 用「正确」的带下划线 macro，struct 用「错」的缺尾下划线 macro —— 1 字符差，
+CHINA build 永远 fail。**Legacy 上游可能在发布时手抖了**。
 
-### 现代方案候选
+### 修法（Phase 7.5l）
 
-1. **加 struct 字段**（候选 A）：给 `tagUSERINFO` 在 CHINA 围栏内加 3 个字段 + 改
-   `InsertBillingTable` 调用点。但 `CommonStruct.h` 用 `#pragma pack(push,1)` 强制 1 字节对齐
-   保护网络包结构，**加字段会破坏 1:1 网络协议二进制兼容**（违反 AGENTS.md
-   "绝对不能破坏" 第 2 条）。
-2. **#ifdef 围栏屏蔽 CHINA 那几行**（候选 B）：不改 `tagUSERINFO`，给 Agent 那几处
-   `bBillType = X` / `InsertBillingTable(..,..,..)` 加
-   `#ifndef _CHINA_LOCAL_` 围栏"绕过" billing code。等于**让 CHINA 失去 billing
-   功能**。这违反"玩法 1:1 第 3 条"。
-3. **保持现状等用户决定**（候选 C）：跟 Phase 7.5h blocker 处理同款 — 不强推
-   改 shared header，先把 Phase 7.5k-B 的 3/5 Agent locale build matrix 落定
-   ，HK/CHINA 待用户方向。
+UserTable.h:49 `#ifdef _CHINA_LOCAL` → `#ifdef _CHINA_LOCAL_` (加尾下划线)。
+1 字符改动，1 文件改。
 
-### 当前决定
+### 验证
 
-**候选 C**。Phase 7.5k-B 矩阵状态：KOR/JP/TL 3/5 build clean（KOR 1,496,576 B / JP 1,498,624 B /
-TL 1,495,552 B），CHINA 26 error + HK 1 LNK（已知 D-6 ggsrv25.lib 缺失）。
-新 Bug 卡 D-12 在 KNOWN_BUGS，等用户对 billing 字段的方向指示。
+```
+Phase 7.5l-d1: python build_agent_debug_locales.py
+  AgentServer_Debug_KOR:    OK  1,496,576 B
+  AgentServer_Debug_JAPAN:  OK  1,498,624 B
+  AgentServer_Debug_CHINA:  OK  1,496,064 B  ← fixed
+  AgentServer_Debug_TL:     OK  1,495,552 B
+  AgentServer_Debug_HK:     FAIL (1 LNK, D-6 ggsrv25.lib)
+```
+
+4/5 干净，3 个 binary size 跟 Phase 7.5k-B 一致，CHINA 1,496,064 B (KOR 1,496,576 B 减 512 B 因为 CHINA 多 1 个 extra field group 但同样 pack 是 DWORD/BYTE/DWORD=9 bytes → 取整相同几乎不差)。
+
+### 影响范围
+
+- 1 file, 1 char change in `[Server]Agent/UserTable.h`
+- 0 风险：legacy 上「正确」的 macro 围栏没变，CHINA 路径下现在 caller 引用 struct 字段
+  1:1 byte-level match
+- legacy 上「错」的 macro 移到正轨后，KOR/JP/HK/TL 路径上 behaviour 一字不差
+- 不动 shared header (`[CC]Header/CommonStruct.h`)，不动 protocol 不动 `#pragma pack(1)`
 
 ### 状态
 
-未处理（Phase 7.5k-B headway 3/5）。
+**Phase 7.5l 已修复**：AgentServer 5/locale build 4/5 干净。剩 HK ggsrv25 (D-6，1 LNK)。
 
 ---
+
+## D-12 Phase 7.5l 修复（2026-07-10，1 char fix）
 
 ```markdown
 ### Bug XXX-N: 简短描述
