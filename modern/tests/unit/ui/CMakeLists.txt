@@ -2,6 +2,7 @@ add_executable(mxh_ui_tests
     cwindow_test.cpp
     cbutton_test.cpp
     ceditbox_test.cpp
+    cdialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -68,4 +69,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CEditBox.FocusOnClick
     CEditBox.DisabledIgnoresKeyboard
     CEditBox.TextColorAndAlignSetters
+    CDialog.DefaultConstruction
+    CDialog.InitStoresDialogState
+    CDialog.AutoCloseSetter
+    CDialog.CloseRequestLatchesUntilCleared
+    CDialog.CaptionRectAndPtInCaption
+    CDialog.CaptionRectStructOverload
+    CDialog.EmptyCaptionIsIgnored
+    CDialog.ActiveSetter
+    CDialog.AlphaSetters
+    CDialog.AddChildStoresInTree
+    CDialog.FindWindowByIdFindsDirectChild
+    CDialog.FindWindowByIdRecursesIntoNestedDialog
+    CDialog.SetAbsXYMovesChildren
+    CDialog.SetAbsXYAlsoMovesCaption
+    CDialog.SetDisableCascadesToChildren
+    CDialog.ActionEventRequiresActive
 )

@@ -74,7 +74,7 @@ public:
     bool PtInWindow(std::int32_t x, std::int32_t y) const noexcept;
 
     // Position / size / focus / state setters.
-    void SetAbsXY(std::int32_t x, std::int32_t y) noexcept;
+    virtual void SetAbsXY(std::int32_t x, std::int32_t y) noexcept;
     void SetRelXY(std::int32_t x, std::int32_t y) noexcept;
     void SetValidXY(std::int32_t x, std::int32_t y) noexcept;
     void SetWH(std::int32_t w, std::int32_t h) noexcept;
@@ -82,7 +82,11 @@ public:
     void SetMovable(bool v) noexcept      { m_bMovable  = v; }
     void SetDepend(bool v) noexcept       { m_bDepend   = v; }
     void SetVisible(bool v) noexcept      { m_bVisible  = v; }
-    void SetEnabled(bool v) noexcept      { m_bEnabled  = v; }
+    virtual void SetEnabled(bool v) noexcept { m_bEnabled  = v; }
+    // Legacy alias: the original cWindow exposes SetDisable(BOOL); we
+    // route it through SetEnabled so the dispatcher / engine-facing code
+    // can use either name.
+    virtual void SetDisable(bool v) noexcept { SetEnabled(!v); }
     void SetBasicImage(void* img) noexcept { m_basicImage = img; }
 
     // Read accessors.
