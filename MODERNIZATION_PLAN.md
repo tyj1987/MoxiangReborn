@@ -430,6 +430,60 @@ Phase 12: 持续迭代
 | `MoxianCompat` + `MoxianDb` + `MoxianResourceExplorer` + 其它 | ~56 | resource/db/explorer 工具集 |
 | **Modern 全部** | **189** | **Debug 全过** |
 
+### Phase 6 wrap-up（2026-07-09 — UI 框架全部落地，4 commit 闭环 0.0→0.8）
+
+**8 commits (6.0 → 6.7) 落地 7 个 widget + dispatcher + 兼容层 + smoke。254/254 PASS。**
+
+| 提交 | Phase | 内容 | +测试 |
+|------|-------|------|-------|
+| `920faed` | 6.0 | cObject + cWindow framework skeleton | 19 |
+| `d79b2f0` | 6.1 | cButton (state machine + click dispatch) | 20 |
+| `0321207` | 6.2 | cEditBox (text buffer + caret + keys) | 18 |
+| `77d5806` | 6.3 | cDialog (container + caption + tree cascade) | 16 |
+| (未 commit) | 6.4 | cImage (Phase 5→6 GPU seam, render adapter) | 13 |
+| (未 commit) | 6.5 | cListCtrl (multi-column list + selection + viewport) | 16 |
+| (未 commit) | 6.6 | cWindowManager (top-most dispatch + modal + defer-destroy) | 14 |
+| (未 commit) | 6.7 | legacy_compat (WE_* + cbWindowFunc bridge) | 6 |
+| `265c7f9` | 6.8 | mxh_ui_smoke (headless UI integration) | (smoke) |
+
+**Phase 6 收官总览**：
+
+| Widget | 状态 | 备注 |
+|--------|------|------|
+| `cObject` 基类 | ✅ done (6.0) | id / name / parent |
+| `cWindow` framework | ✅ done (6.0) | hit-test / child / focus / dispatch / SetAbsXY/SetEnabled virtuals |
+| `cButton` | ✅ done (6.1) | 3-state image / click / drag-cancel / text |
+| `cEditBox` | ✅ done (6.2) | buffer / caret / keys / read-only / secret / valid-check |
+| `cDialog` | ✅ done (6.3) | container / caption rect / findById / cascade / active |
+| `cImage` (Phase 5→6 seam) | ✅ done (6.4) | borrow SpriteObject + render adapter |
+| `cListCtrl` | ✅ done (6.5) | columns / rows / selection / viewport / hit-test / callbacks |
+| `cWindowManager` | ✅ done (6.6) | top-most dispatch / modal / defer-destroy / RenderAll |
+| `legacy_compat` shim | ✅ done (6.7) | WE_* codes + cbWindowFunc → std::function bridge |
+| `mxh_ui_smoke` | ✅ done (6.8) | headless end-to-end integration smoke |
+| Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
+| IME (Korean/JP composition) | ⏳ future | |
+| Drag-drop / cIconDialog | ⏳ future | |
+| Sortable columns / multi-line text | ⏳ future | |
+| 80 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 |
+
+**测试统计 (Debug, 2026-07-09 Phase 6 wrap-up)**：
+| 套件 | 数量 | 内容 |
+|------|------|------|
+| Render（含 Phase 5.12/5.13 deferred）| 132 | TGA/Mesh/FontObject/HeightField/Material/Effect/Texture/SaveDDSBC/MotionCache |
+| UI: cWindow | 19 | framework skeleton |
+| UI: cButton | 20 | state machine + click |
+| UI: cEditBox | 18 | text buffer + caret + keys |
+| UI: cDialog | 16 | container + caption + cascade |
+| UI: cImage | 13 | Phase 5→6 GPU seam + render adapter |
+| UI: cListCtrl | 16 | multi-column list |
+| UI: cWindowManager | 14 | dispatch + modal + defer-destroy |
+| UI: legacy_compat | 6 | WE_* + cbWindowFunc bridge |
+| **UI 合计** | **122** | |
+| MoxianRenderDemo smoke (3D+2D+Effect+Mtl) | 1 | visual smoke |
+| mxh_ui_smoke (Phase 6.8 headless) | 1 | framework end-to-end |
+| `MoxianCompat` + `MoxianDb` + 其它 | ~58 | resource/db tools |
+| **Render + UI 合计** | **254** | **Debug 全过** |
+
 ### Phase 6 入口分析（2026-07-09 — 准备起步）
 
 **目标**：UI 系统现代化 (3-4 周 per plan §1.3)
