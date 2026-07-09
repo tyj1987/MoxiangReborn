@@ -6,6 +6,7 @@ add_executable(mxh_ui_tests
     cimage_test.cpp
     clistctrl_test.cpp
     cwindowmanager_test.cpp
+    legacy_compat_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -130,4 +131,10 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWindowManager.KeyboardRoutedToTopmostActive
     CWindowManager.NoActiveDialogsInputIsNull
     CWindowManager.RenderAllWalksBackToFront
+    LegacyCompat.WE_ConstantsMatchModern
+    LegacyCompat.LegacyCbWindowFuncIsCallable
+    LegacyCompat.BinderWrapsButtonClick
+    LegacyCompat.DialogChildAddWorksThroughShimTypes
+    LegacyCompat.ListCtrlRowClickUsesLegacyCode
+    LegacyCompat.ModernEnumRoundTripsThroughUint32
 )
