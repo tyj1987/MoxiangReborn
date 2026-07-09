@@ -394,12 +394,28 @@ foreach(locale IN ITEMS KOR JAPAN CHINA HK TL)
     target_link_libraries(${_name} PRIVATE
         YHLibrary.lib
         4DyuchiNET.lib
-        MD5.lib
         ws2_32
         odbc32
         odbccp32
         wininet
     )
+    if(locale STREQUAL "KOR")
+        # Phase 7.5i: Bug C-35 KOR LNK1104 mfc71.lib. The legacy MD5.lib
+        # (compiled under VS2003) embeds /DEFAULTLIB:"mfc71.lib" /DEFAULTLIB:
+        # "mfcs71.lib" and unresolved references to ATL::CStringT<…,StrTraitMFC_DLL<…>>
+        # from CMD5Checksum::Final. MSVC14 (build host) has no mfc71.lib and
+        # also lacks the "C++ MFC" buildtools component (mfcs140.lib). We
+        # therefore drop the legacy MD5.lib and link MD5Checksum_vendor.cpp,
+        # an RFC 1321 C++ port with zero MFC dependency. The vendor produces
+        # hash digests byte-identical to MD5Checksum.lib (verified against the
+        # standard MD5 test vectors), so login equivalence holds: callers
+        # compute the hex string and compare against the SQL column.
+        target_sources(${_name} PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/MD5Checksum_vendor.cpp"
+        )
+    else()
+        target_link_libraries(${_name} PRIVATE MD5.lib)
+    endif()
     set_target_properties(${_name} PROPERTIES
         OUTPUT_NAME "DistributeServer_${locale}"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"

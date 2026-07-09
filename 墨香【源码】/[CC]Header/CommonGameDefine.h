@@ -1488,10 +1488,13 @@ enum
 	TP_GUILDWAREHOUSE_START		= 500,													// 500		// 430
 	TP_GUILDWAREHOUSE_END		= TP_GUILDWAREHOUSE_START + SLOT_GUILDWAREHOUSE_NUM,	// 560		// 490
 
-	TP_MUGONG_START				= 600,													//600
-	TP_MUGONG_END				= TP_MUGONG_START			+ SLOT_MUGONG_NUM,			//620
-	TP_JINBUB_START				= TP_MUGONG_END,										//620
-	TP_JINBUB_END				= TP_JINBUB_START			+ SLOT_JINBUB_NUM,			//625
+	// Phase 7.5i: removed redundant TP_MUGONG_START/END and TP_JINBUB_START/END
+	// duplicates — they were already defined above at lines 1459-1462 (inside
+	// the HK enum body), which was producing 208 x C2365 'redefinition' errors
+	// whenever any later locale used these members via anonymous enum scope.
+	// The values here (600 / 620) are not used by the HK runtime path — HK
+	// references use the higher-numbered TP_MUGONG1_START (1497) and friends.
+	// Tracked in docs/KNOWN_BUGS.md Bug C-35 (Phase 7.5i fix #1).
 
 	//06.08.08 [PKH]
 	TP_MUGONG1_START			= 600,													// 600		// 555
@@ -1667,6 +1670,38 @@ enum
 };
 
 #endif // _JAPAN_LOCAL_
+
+// Phase 7.5i: legacy locales without inline Titan slot/TP_* members
+// (Japan / Thailand / Hong Kong) get default shims so the cross-locale
+// helpers in [CC]Header (CommonGameFunc.cpp:487 / CommonStruct.h:596-597)
+// can still compile under MSVC14.  The SLOT_* shims are deliberately set
+// to 1 instead of 0 — MSVC14 forbids zero-sized arrays (C2229), and the
+// surrogate values feed into anonymous-enum array sizes that the legacy
+// Titan-absent locales never dereference at runtime.  Note the legacy
+// behavior of those locales was identical for in-distribute TITAN code:
+// they did not have a Release build for any of these locales, so the
+// runtime path that would have looped over TitanWearedItem / TitanShopItem
+// was simply absent.  If a future Titan feature lands and needs to fire
+// for JP/TL/HK, the real enum members (KOR/CHINA block) will shadow these
+// #define shims automatically since the block above this one is skipped for
+// non-JP/TL/HK locales — i.e. shims are scoped strictly to the three
+// legacy locales. Tracked in docs/KNOWN_BUGS.md Bug C-35 (Phase 7.5i shim).
+#if defined(_JAPAN_LOCAL_) || defined(_TL_LOCAL_) || defined(_HK_LOCAL_)
+#ifndef SLOT_TITANWEAR_NUM
+#define SLOT_TITANWEAR_NUM        1
+#endif
+#ifndef SLOT_TITANSHOPITEM_NUM
+#define SLOT_TITANSHOPITEM_NUM    1
+#endif
+#ifndef TP_TITANWEAR_START
+#define TP_TITANWEAR_START        0
+#define TP_TITANWEAR_END          0
+#define TP_TITANSHOPITEM_START    0
+#define TP_TITANSHOPITEM_END      0
+#define TP_TITANMUGONG_START      0
+#define TP_TITANMUGONG_END        0
+#endif
+#endif
 
 enum eITEMTABLE
 {

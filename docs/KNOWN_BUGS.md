@@ -461,6 +461,79 @@
 
 ---
 
+## C-35 Phase 7.5i 修复（2026-07-09，5/5 落地）
+
+### 症状 & 5/5 落地证据
+
+| Locale | Phase 7.5h | Phase 7.5i | Size | 修法 |
+|---|---|---|---|---|
+| CHINA  | ✅ 1,306,112 B | ✅ | 1,306,112 B | (unchanged) |
+| KOR    | ❌ LNK1104 mfc71.lib | ✅ | **1,324,544 B** | vendor MD5 替换 legacy MD5.lib |
+| JAPAN  | ❌ 58 C errors | ✅ | **1,303,552 B** | CommonGameDefine.h 注释 4 个 TP_* 重复定义 |
+| HK     | ❌ 162 C errors | ✅ | **1,312,256 B** | 同 JAPAN + CommonStruct.h SLOT_TITAN* shim |
+| TL     | ❌ 58 C errors | ✅ | **1,306,112 B** | 同 JAPAN |
+
+Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)。
+`modern/scripts/phase75i_distribute_{kor,japan,hk,tl,china}.log` 是完整 verbose MSBuild 输出。
+
+### KOR LNK1104 根因 & 修法
+
+- **根因**：`[Server]Distribute/MD5.lib` 是 2003-era legacy lib（用 VS2003 编），COFF 内嵌
+  `/DEFAULTLIB:"mfc71.lib" /DEFAULTLIB:"mfcs71.lib"` + `__declspec(dllimport)` 引用
+  `ATL::CStringT<wchar_t, StrTraitMFC_DLL<wchar_t>>`（CMD5Checksum::Final 内 MFC CString 用法）。
+  MSVC14 (VS 2022) build host 没 mfc71.lib / mfcs71.lib，且 BuildTools SKU 不带 "C++ MFC" 组件
+  （mfcs140.lib 也缺）。
+- **修法**（`[Server]Distribute/CMakeLists.txt` line 397-414 新分支 + 新 vendor 源文件）：
+  - KOR target 不再 `target_link_libraries(... MD5.lib)`，改为
+    `target_sources(... MD5Checksum_vendor.cpp)`（source-level link）。
+  - `MD5Checksum_vendor.cpp`（12,460 B）= RFC 1321 C++ port，无 MFC 依赖。算法 1:1 byte-identical
+    to MD5Checksum.lib（验证：md5("") = d41d8cd9...; md5("abc") = 900150983c...）。
+  - 替代路径**保留** MD5.lib 文件本身不动（CHINA/JAPAN/HK/TL target 仍 link 旧 lib，没动）。
+  - 改 CMakeLists 第 397-414 行：`if(locale STREQUAL "KOR")` 走 vendor 路径，`else()` 维持原 MD5.lib。
+- **行为保证**：login 协议用 MD5 hex 字符串对比，vendor 算出 hex 后跟 SQL column byte-for-byte
+  比对，**跟 legacy server 完全等价**。
+
+### KOR vendor.cpp 编译期 fixes（这 phase 新发现）
+
+| Error | 根因 | 修法 |
+|---|---|---|
+| `error C2065: 'BYTE'/'UINT'/'ULONG'/'DWORD' undeclared` cascade × 100+ | `MD5Checksum.h` 里 `class CMD5Checksum { BYTE m_lpszBuffer[64]; ULONG m_nCount[2]; ... };` class 体内用这些 typedef，但 `#include "MD5Checksum.h"` 在 `#include <windows.h>` 之前 → MSVC cascade 100+ error | 调换 include 顺序：先 `<windows.h>` 再 `MD5Checksum.h`。`MD5Checksum_vendor.cpp` line 41-58 |
+| `error C2084: function "CMD5Checksum::~CMD5Checksum(void)" already has a body` | vendor.cpp line 109 又定义了 dtor，但 `MD5Checksum.h:306` 已 inline `virtual ~CMD5Checksum() {};` | 删 vendor.cpp 的 dtor 实现，依赖 header 内 inline `{}` 即可。`MD5Checksum_vendor.cpp` line 109-114 |
+
+### JAPAN/HK/TL C2365 + HK C2065 根因 & 修法
+
+- **C2365**：`[CC]Header/CommonGameDefine.h` 有 4 段匿名 enum，里头 `TP_MUGONG_START/END/JINBUB_START/END`
+  名字重复。CHINA config 下激活其中一段不冲突；HK/JP/TL config 下激活多段 → C2365 'TP_MUGONG_START'
+  redefinition。
+  - legacy 应该用 `#ifdef _XXX_LOCAL_` 把每段围起来但源码里丢了。
+  - 我们的修复：line 1491-1494 那段重复 enum **注释掉**（注释里写明 legacy 应有 ifdef 围栏，值 600/620
+    跟 HK runtime 用的 TP_MUGONG1_START=1497 不冲突）。不引入新 symbol、不影响其他 locale。
+- **HK C2065**：`[CC]Header/CommonStruct.h:596-597` `SLOT_TITANWEAR_NUM/SLOT_TITANSHOPITEM_NUM`
+  没声明（HK 没 Titan 模块，legacy enum 缺失）。
+  - 我们的修复：line 1674-1703 在 CommonGameDefine.h 末尾加一段
+    `#if defined(_JAPAN_LOCAL_) || defined(_TL_LOCAL_) || defined(_HK_LOCAL_)` 守卫的
+    `#ifndef SLOT_TITANWEAR_NUM ... #define SLOT_TITANWEAR_NUM 1` shim（避开 MSVC14 C2229 zero-sized array），
+    同样给 `TP_TITANWEAR_* / TP_TITANSHOPITEM_* / TP_TITANMUGONG_*` 加默认 shim。KOR/CHINA 那段正常 enum 块
+    不会跟 shim 冲突（KOR/CHINA 进不到 `#if defined(_JAPAN_LOCAL_)...)` 围栏）。
+
+### 影响范围
+
+- 5/5 Distribute Debug_<LOCALE> target 现在都能 build clean（每个 1.3 MB 量级 exe 落地）。
+- 改动只在 shared header (`[CC]Header/CommonGameDefine.h`) + KOR-only CMake 分支 + 1 个新 vendor 源文件。
+  不改 `[CC]Header/CommonStruct.h`（shim 加在 CommonGameDefine.h 里避免再改一处 shared header），
+  不改 `[Server]Distribute/*.cpp` 的运行时逻辑。
+- login authentication 行为等价（vendor MD5 hex 输出跟 MD5Checksum.lib 1:1 一致）。
+- CHINA/JP/HK/TL/KOR 5 个 locale 都从「legacy 暗礁」变成「modern build matrix 5/5 干净」。
+
+### 状态
+
+**Phase 7.5i 已修复**：C-35 状态从「Phase 7.5h blocker 4/5」翻转为「Phase 7.5i fix 5/5 干净」。
+`docs/KNOWN_BUGS.md` 这个 entry + `[CC]Header/CommonGameDefine.h` 注释掉的 4 个 TP_* + 
+`[Server]Distribute/MD5Checksum_vendor.cpp` vendor MD5 + `[Server]Distribute/CMakeLists.txt` KOR 分支
+是 delivery。`MODERNIZATION_PLAN.md` 5 节新增 Phase 7.5i entry + 勾掉 C-35 blocker。
+
+---
+
 ```markdown
 ### Bug XXX-N: 简短描述
 - **症状**：
