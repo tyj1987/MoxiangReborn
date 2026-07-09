@@ -12,6 +12,7 @@ add_library(mxh_ui STATIC
     cListCtrl.cpp
     cWindowManager.cpp
     cMsgBox.cpp
+    cDivideBox.cpp
 )
 
 target_include_directories(mxh_ui PUBLIC

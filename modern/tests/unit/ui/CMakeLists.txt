@@ -7,6 +7,7 @@ add_executable(mxh_ui_tests
     clistctrl_test.cpp
     cwindowmanager_test.cpp
     cmsgbox_test.cpp
+    cdividebox_test.cpp
     legacy_compat_test.cpp
 )
 
@@ -160,4 +161,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMsgBox.ForceCloseSkipsCallback
     CMsgBox.CallbackFiresOnceEvenIfClickedTwice
     CMsgBox.DispatcherIntegrationModalRouting
+    CDivideBox.DefaultConstructionHasNullChildren
+    CDivideBox.CreateDivideBoxBuildsThreeChildren
+    CDivideBox.SetValueAndGetValueRoundtrip
+    CDivideBox.MinMaxClamping
+    CDivideBox.ExcuteDBFuncReturnsDividesOnEnter
+    CDivideBox.ExcuteDBFuncZeroCancels
+    CDivideBox.ActionKeyboardEnterTriggersDivide
+    CDivideBox.ActionKeyboardOtherKeyIsNoop
+    CDivideBox.ClickOkButtonFiresDivideAndCloses
+    CDivideBox.ClickCancelButtonFiresCancelAndCloses
+    CDivideBox.ButtonIdsAreDistinct
+    CDivideBox.ClickOutsideButtonsIsNoop
 )
