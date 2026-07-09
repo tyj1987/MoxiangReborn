@@ -130,3 +130,8 @@ target_compile_features(mxh_log PUBLIC cxx_std_20)
 # mxh_render: DirectX 11 port of 4Dyuchi GX renderer (Phase 5)
 # -----------------------------------------------------------------------------
 add_subdirectory(render)
+
+# -----------------------------------------------------------------------------
+# mxh_ui: Modern C++ UI framework (Phase 6)
+# -----------------------------------------------------------------------------
+add_subdirectory(ui)

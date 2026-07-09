@@ -1,0 +1,31 @@
+add_executable(mxh_ui_tests
+    cwindow_test.cpp
+)
+
+target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
+
+include(GoogleTest)
+# Hand-register tests via gtest_add_tests. We can't use gtest_discover_tests
+# because the POST_BUILD cmake_test_discovery_*.json step fails when the
+# build directory contains full-width CJK characters in the path (the cmake
+# script that writes the JSON file uses ANSI APIs that mangle CJK chars).
+gtest_add_tests(TARGET mxh_ui_tests
+    CWindow.DefaultConstruction
+    CWindow.InitStoresDimensions
+    CWindow.PtInWindowInside
+    CWindow.PtInWindowOutside
+    CWindow.PtInWindowBoundary
+    CWindow.PtInWindowSizeZero
+    CWindow.AddChildStoresAndParents
+    CWindow.RemoveChildReturnsOwnership
+    CWindow.RemoveChildOutOfRangeReturnsEmpty
+    CWindow.SetFocusToggles
+    CWindow.SetMovableToggles
+    CWindow.SetVisibleHidesFromDispatch
+    CWindow.SetEnabledHidesFromDispatch
+    CWindow.SetAbsXYClampsToBox
+    CWindow.ActionEventDispatchesToChild
+    CWindow.ActionEventReturnsLButtonClickInside
+    CWindow.ActionEventReturnsNullOutside
+    CWindow.WindowEventEnumValues
+)
