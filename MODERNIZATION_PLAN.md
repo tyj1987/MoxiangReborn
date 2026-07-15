@@ -1,4 +1,4 @@
-# 墨香（Moxian / DarkStory）现代化改造计划
+﻿# 墨香（Moxian / DarkStory）现代化改造计划
 
 > **项目代号**：Moxian-Reborn
 > **目标**：在不破坏现有游戏内容、玩法、资源的前提下，把 2003-2010 年的代码体系迁移到 2026 年的现代软硬件环境，并对性能、可维护性、跨平台能力做最大化提升。
@@ -890,6 +890,54 @@ Phase 12: 持续迭代 ✅
 
 ---
 
+
+
+## 9. Phase 10 series 总结（2026-07-15, 13 commits, 506/506 ctest PASS）
+
+Phase 10（工具链现代化）在 e1e8e2a..af2b086 区间用 13 个 commit 完成 P10.4 基础设施
++ 5 模块 + 5 测试 + scratch 归档 + CHANGELOG 同步 + C-32 文档化。Phase 10.1-10.3 是 6/7 天前
+另一个 session 提交的 P10.1-P10.3 工具（见 CHANGELOG.md 与 git log），本 session 接力 P10.4。
+
+### 9.1 落地清单（P10.4.0 — P10.4.10, 11 commits）
+
+| Commit  | 内容                                           | Size      |
+|---------|------------------------------------------------|-----------|
+| e1e8e2a | .gitignore expansion (agent leftovers + binaries) | +96 lines |
+| 4f32286 | docs/DATABASE_SCHEMA.md                        | +375      |
+| 26cb66c | vcpkg.json (gtest 1.14+ + sqlite3 3.45+)        | new       |
+| 6573a48 | Docker (compose + Dockerfile + init-db)        | new       |
+| d4d25b6 | modern/scripts/ 17 dev utilities               | new       |
+| ca0d11c | scripts/ SQL setup + DB restore + code counter  | 8 files   |
+| d5183ad | deploy/ operational subset                      | new       |
+| 011bf8f | 5 modern modules (game/memory/monitor/util/iocp) | +3496    |
+| 3346be0 | map_handler.cpp (Phase 8 P0 business code)     | +1560     |
+| 99c9b24 | 5 new test files + CMake wire-up               | +1757/-1  |
+| 3fed872 | CHANGELOG.md (Phase 11 deliverable) + housekeeping | +263   |
+
+### 9.2 Housekeeping 收尾
+
+- 666196a P10.6: CHANGELOG.md test count 430+ → 506/506 sync
+- f2b086 C-32 update: host env blocker (no docker / podman / WSL)
+- modern/scratch/_archive_2026-07-15/: 166 files → 12 子目录归档
+  （client_logs/probes/bin + decode/monitor/build/ld/mhfile/msl/titan tools）
+  根 README + 子目录 README 索引完整
+
+### 9.3 验证结果
+
+- Build: 0 error, 102 vcxproj, 41/41 一级 target (server 3 + lib 6 + render + ui + tools 8)
+- ctest: **506/506 PASS** (449 → 506, +57 new tests in P10.4.9)
+- Test runtime: 27-33 sec wall
+- 5/5 server matrix (KOR/CHINA/JAPAN/HK/TL): MoxianAgentServer + MoxianLoginServer +
+  MoxianMapServer 全部编译并支持 --backend sqlite|mssql_odbc
+
+### 9.4 C-32 layer-by-layer status
+
+- code-layer         ✅ MssqlOdbcAdapter + factory + 9 tests (Phase 10.2)
+- build-layer        ✅ 5/5 server matrix compiles with --backend mssql_odbc
+- container-image    ✅ docker-compose.yml + Dockerfile + init.sh + config/{login,agent,map}/
+- runtime connection ❌ host 缺 docker / podman / WSL，需 user 决策何时装
+
+详细见 docs/KNOWN_BUGS.md C-32 entry。
 ## 8. 长期愿景
 
 经过 3-6 个月的渐进式现代化，墨香将：
