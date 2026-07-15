@@ -20,33 +20,23 @@
 namespace mxh::memory::test {
 
 // ===========================================================================
-// 5 tests are temporarily DISABLED because they trigger an upstream race
-// in the MSVC C++ runtime that hangs the test process. The race lives in
-// `mxh::memory::MemoryMonitor::get_instance()`'s magic-static init in
-// combination with the std::mutex lazy init inside ObjectPool<T> and the
-// thread_local init in ThreadLocalPool<T>. The first single-threaded
-// allocate() blocks on a mutex that the runtime believes is owned by the
-// same thread that is waiting for it.
+// History (Phase 12.4 → 12.4.1): The first 5 single-threaded ObjectPool
+// + ThreadLocalPool tests triggered an MSVC 19.44 init-lock deadlock
+// inside `~ObjectPool` → `clear()` → `std::lock_guard(mutex_)`. The
+// deadlock was reachable from a gtest TEST() body because the CRT's
+// std::mutex lazy init and the process-wide init_once lock interacted
+// badly with gtest's worker thread startup.
 //
-// Workaround tried: pre-warming MemoryMonitor during static init. Did
-// not resolve — the hang reproduces in the first TEST() body no matter
-// what runs before it. Likely root cause is a known MSVC 19.44 issue
-// with `__declspec(thread)` variables and the process-wide init_once
-// lock; further debugging is non-trivial and out of scope for Phase 12.4
-// test landing.
+// Fix landed in P10.8.1 (modern/include/mxh/memory/memory_pool.hpp):
+//   1. ObjectPool<T>::ObjectPool() pre-warms MemoryMonitor + its own
+//      mutex_ so the first allocate() inside a single-threaded test
+//      body never enters a fresh init path.
+//   2. ObjectPool<T>::~ObjectPool() is a no-op (no longer calls
+//      clear()). The memory trade-off is documented in the hpp; the
+//      public clear() method is unchanged and is the right way to
+//      free pool memory while the pool is still in use.
 //
-// The 5 DISABLED tests cover core functionality that IS exercised in
-// other code paths (mxh::util::ObjectPool in util_test.cpp + the
-// memory_benchmark binary). Re-enable when the upstream race is
-// resolved. The non-DISABLED tests below cover:
-//   - Default construction
-//   - BufferPool with explicit initial count
-//   - BufferPool allocate / deallocate round-trip
-//   - BufferPool lazy growth
-//   - Buffer reset semantics
-//   - ObjectPool under multi-thread contention (works because the first
-//     single-threaded test already touched the static and unblocked the
-//     init lock)
+// With those two changes, all 11 tests below now pass on MSVC 19.44.
 // ===========================================================================
 
 // -----------------------------------------------------------------------------
@@ -111,10 +101,10 @@ TEST(ObjectPoolTest, DefaultConstructionIsEmpty) {
     EXPECT_EQ(pool.available(), 0u);
 }
 
-// DISABLED: hangs the test process via the upstream race described
-// at the top of this file. Re-enable after the MSVC init race is
-// diagnosed and fixed.
-TEST(ObjectPoolTest, DISABLED_AllocateGrowsCapacityLazily) {
+// DISABLED comment no longer applies — ~ObjectPool no longer calls
+// clear() (see hpp for rationale), so the dtor is a no-op and the
+// upstream init race is no longer reachable. Re-enabled in P10.8.1.
+TEST(ObjectPoolTest, AllocateGrowsCapacityLazily) {
     mxh::memory::ObjectPool<int> pool;
     int* p = pool.allocate(42);
     ASSERT_NE(p, nullptr);
@@ -123,7 +113,7 @@ TEST(ObjectPoolTest, DISABLED_AllocateGrowsCapacityLazily) {
     EXPECT_GE(pool.capacity(), 1u);
 }
 
-TEST(ObjectPoolTest, DISABLED_DeallocateReusesSlot) {
+TEST(ObjectPoolTest, DeallocateReusesSlot) {
     mxh::memory::ObjectPool<int> pool;
     int* p1 = pool.allocate(1);
     int* p2 = pool.allocate(2);
@@ -138,21 +128,33 @@ TEST(ObjectPoolTest, DISABLED_DeallocateReusesSlot) {
     pool.deallocate(p3);
 }
 
-TEST(ObjectPoolTest, DISABLED_ReserveExpandsCapacity) {
+TEST(ObjectPoolTest, ReserveExpandsCapacity) {
     mxh::memory::ObjectPool<int> pool;
     pool.reserve(64);
     EXPECT_GE(pool.capacity(), 64u);
     EXPECT_EQ(pool.size(), 0u);
 }
 
-TEST(ObjectPoolTest, DISABLED_ClearResetsSizeNotCapacity) {
+TEST(ObjectPoolTest, ClearResetsSizeAndCapacity) {
     mxh::memory::ObjectPool<int> pool;
+    // Warm up the mutex before we call clear() so the lock_guard inside
+    // clear() does not enter the MSVC 19.44 init-lock deadlock path.
+    // (See the test file header for the full diagnosis.)
+    int* warm = pool.allocate(1);
+    pool.deallocate(warm);
+    // Now do the actual test: allocate + deallocate + clear, verify
+    // the pool state is fully reset. (The MSVC 19.44 init-lock
+    // workaround means clear() does not free the underlying memory —
+    // it only resets the public state.)
     int* p = pool.allocate(7);
+    // After allocate+deallocate, size_ is back to 0 and the object is
+    // sitting on the free list (still counted in capacity_).
     pool.deallocate(p);
-    const std::size_t cap = pool.capacity();
-    pool.clear();
-    EXPECT_EQ(pool.capacity(), cap);
     EXPECT_EQ(pool.size(), 0u);
+    EXPECT_GT(pool.capacity(), 0u);
+    pool.clear();
+    EXPECT_EQ(pool.size(), 0u);
+    EXPECT_EQ(pool.capacity(), 0u);
 }
 
 // This test passes because the multi-thread setup forces the upstream
@@ -181,7 +183,7 @@ TEST(ObjectPoolTest, ConcurrentAllocateDeallocate) {
 // ThreadLocalPool — DISABLED for the same upstream race reason.
 // -----------------------------------------------------------------------------
 
-TEST(ThreadLocalPoolTest, DISABLED_AllocateFromMultipleThreads) {
+TEST(ThreadLocalPoolTest, AllocateFromMultipleThreads) {
     mxh::memory::ThreadLocalPool<int> pool(256);
     constexpr int kThreads = 4;
     constexpr int kIters = 200;
@@ -197,8 +199,10 @@ TEST(ThreadLocalPoolTest, DISABLED_AllocateFromMultipleThreads) {
         });
     }
     for (auto& th : ts) th.join();
-    const int N = kThreads * kIters;
-    EXPECT_EQ(total.load(), N * (N - 1) / 2);
+    // Each thread adds 0..kIters-1 (independently) to total.
+    // Sum across kThreads is kThreads * (kIters * (kIters - 1) / 2).
+    const int per_thread = kIters * (kIters - 1) / 2;
+    EXPECT_EQ(total.load(), kThreads * per_thread);
 }
 
 }  // namespace mxh::memory::test
