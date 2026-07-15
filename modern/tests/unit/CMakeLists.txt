@@ -1,4 +1,4 @@
-﻿add_executable(mxh_compat_tests
+add_executable(mxh_compat_tests
     mh_file_ex_test.cpp
     mh_file_ex_utf8_test.cpp
     pack_file_test.cpp
@@ -87,3 +87,20 @@ target_include_directories(mxh_version_tests PRIVATE
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_version_tests)
+# -----------------------------------------------------------------------------
+# mxh_game tests — Phase 10d game data structures
+# Header-only structs (item / monster / skill). Verifies wire-format byte
+# sizes match the legacy CommonStruct.h / GameResourceStruct.h layout and
+# exercises the small helper functions.
+# -----------------------------------------------------------------------------
+add_executable(mxh_game_types_tests
+    game_types_test.cpp
+)
+
+target_link_libraries(mxh_game_types_tests PRIVATE gtest_main)
+target_include_directories(mxh_game_types_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_game_types_tests)
