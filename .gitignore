@@ -180,6 +180,48 @@ modern/scripts/probe_artifacts/
 # Not source-of-truth; safe to `mavis-trash` any time.
 modern/scratch/
 
+# Phase 10.4 — agent tool directories and session leftovers.
+# These are dev-environment state, not source-of-truth. They contain
+# editor state, IDE config, runtime caches, and SQL Server installer
+# binaries. Mavis-side; never commit.
+.mimocode/
+.qoder/
+.qoder-work/
+.github-workflows-cache/
+Testing/
+plans/
+AI_*.md
+.agents/
+*.iml
+# GitHub workflows can land later via a dedicated PR if useful
+.github/
+
+# SQL Server Express installer (~300 MB) — too large for git, downloaded
+# from Microsoft and installed via the docker/init-db/init.sh path.
+SQLEXPR_x64_ENU/
+SQLEXPR_*/
+
+# Intermediate cmake build dirs (under modern/).
+# The actual build dir is modern/build/; the build_* dirs are leftover
+# experiments and should not be committed.
+modern/build_INET/
+modern/build_MHConsole/
+modern/build_net32/
+modern/build_inet/
+modern/build_mhconsole/
+modern/build_net32*/
+
+# Agent / IDE editing scratch files.
+modern/edit_*.py
+modern/test_*output.txt
+modern/test_*stderr.txt
+modern/test_*stdout.txt
+~$*
+*.bak
+*.tmp
+*.swp
+
+
 # modern/scripts/ — byproducts of build scripts (NOT in git tracking)
 # Real source files (.py/.cpp/.h/.json tools) are tracked; everything else here is output.
 modern/scripts/*.log
