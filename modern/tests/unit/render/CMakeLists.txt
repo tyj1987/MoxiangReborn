@@ -14,6 +14,7 @@ add_executable(mxh_render_tests
     mesh_flag_test.cpp
     math_test.cpp
     motion_flag_test.cpp
+    file_storage_typedef_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -209,4 +210,18 @@ gtest_add_tests(TARGET mxh_render_tests
     CMotionFlagTest.SettingUvDoesNotCorruptKeyframe
     CMotionFlagTest.ReEnableVertexAfterDisableClearsBit
     CMotionFlagTest.GetRawMatchesEnumBitwiseOr
+    # Phase 10.21: file storage wire-format pinning
+    FileAccessMethodTest.WireFormatValues
+    FsFileSeekTest.WireFormatValues
+    FsFileAccessModeTest.WireFormatValues
+    FsFileHeaderTest.SizeIs32Bytes
+    FsFileHeaderTest.FieldOffsets
+    FsFileHeaderTest.FieldAssignmentRoundTrips
+    FsFileHeaderTest.DefaultConstructIsZero
+    FsFileAtomInfoTest.SizeIsMaxPathPlus8
+    FsFileAtomInfoTest.FieldOffsets
+    FsPackFileInfoTest.SizeIsMaxPathPlus12
+    FsPackFileInfoTest.FieldOffsets
+    FileStorageCrossStructTest.HeaderIsSmallerThanAtomInfo
+    FileStorageCrossStructTest.NamesAreRawCharArrays
 )
