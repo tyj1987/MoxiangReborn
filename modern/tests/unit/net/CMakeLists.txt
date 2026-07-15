@@ -38,3 +38,18 @@ gtest_add_tests(TARGET mxh_iocp_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+# Phase 10.16: net message + connection types tests
+add_executable(mxh_message_tests
+    message_test.cpp
+)
+
+target_link_libraries(mxh_message_tests PRIVATE mxh_net gtest_main)
+target_include_directories(mxh_message_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_message_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
