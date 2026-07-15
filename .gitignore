@@ -171,6 +171,7 @@ roster.txt
 # Allow our log module (was matching Log/ rule)
 !modern/src/log/
 !modern/include/mxh/log/
+!modern/tests/unit/log/
 
 # Phase 7.5p — agent probe binaries (one-off size/layout/HSEL smoke probes)
 modern/scripts/probe_artifacts/
