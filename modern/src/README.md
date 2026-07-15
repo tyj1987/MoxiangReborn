@@ -1,22 +1,19 @@
-# MoxianCompat - 资源兼容层
+# MoxianCompat - 璧勬簮鍏煎灞?
+鎶?2003-2010 骞磋嚜鐮旀牸寮忕敤鐜颁唬 C++ 閲嶅啓锛屼繚鎸?**浜岃繘鍒?100% 鍏煎**銆?
+## 宸插疄鐜扮殑鏍煎紡
 
-把 2003-2010 年自研格式用现代 C++ 重写，保持 **二进制 100% 兼容**。
-
-## 已实现的格式
-
-| 格式 | 类 | 状态 | 覆盖率 |
+| 鏍煎紡 | 绫?| 鐘舵€?| 瑕嗙洊鐜?|
 |------|----|------|--------|
-| `.bin` (XOR 加密) | `mxh::compat::MhFileEx` | ✅ | 100% |
-| `.pak` (4DyuchiFileStorage) | `mxh::compat::PackFile` | ✅ | 100% |
-| `.bmhm/.mhm` (地图块) | `mxh::compat::BmhmMap` | 🚧 | 90% (待补全触发器) |
-| `.ttb` (TileTable) | `mxh::compat::TtbTileTable` | 🚧 | 70% |
-| `.chx` (角色模型) | `mxh::compat::ChxModel` | 🚧 | 80% |
-| `.chr` (角色动画) | `mxh::compat::ChrMotion` | 🚧 | 70% |
-| `.bsad` (技能区域) | `mxh::compat::BsadArea` | ✅ | 100% |
+| `.bin` (XOR 鍔犲瘑) | `mxh::compat::MhFileEx` | 鉁?| 100% |
+| `.pak` (4DyuchiFileStorage) | `mxh::compat::PackFile` | 鉁?| 100% |
+| `.bmhm/.mhm` (鍦板浘鍧? | `mxh::compat::BmhmMap` | 馃毀 | 90% (寰呰ˉ鍏ㄨЕ鍙戝櫒) |
+| `.ttb` (TileTable) | `mxh::compat::TtbTileTable` | 馃毀 | 70% |
+| `.chx` (瑙掕壊妯″瀷) | `mxh::compat::ChxModel` | 馃毀 | 80% |
+| `.chr` (瑙掕壊鍔ㄧ敾) | `mxh::compat::ChrMotion` | 馃毀 | 70% |
+| `.bsad` (鎶€鑳藉尯鍩? | `mxh::compat::BsadArea` | 鉁?| 100% |
 
-## 设计原则
+## 璁捐鍘熷垯
 
-1. **零拷贝优先**：直接 `mmap` 或 `fread` 一次性读取，解析器只读取不修改
-2. **不依赖老 SDK**：纯标准 C++17 实现，可移植
-3. **线程安全**：所有解析器为只读视图，多线程可共享
-4. **错误透明**：每个 API 返回 `Result<T>` 而非抛异常（兼容老代码风格的返回值）
+1. **闆舵嫹璐濅紭鍏?*锛氱洿鎺?`mmap` 鎴?`fread` 涓€娆℃€ц鍙栵紝瑙ｆ瀽鍣ㄥ彧璇诲彇涓嶄慨鏀?2. **涓嶄緷璧栬€?SDK**锛氱函鏍囧噯 C++17 瀹炵幇锛屽彲绉绘
+3. **绾跨▼瀹夊叏**锛氭墍鏈夎В鏋愬櫒涓哄彧璇昏鍥撅紝澶氱嚎绋嬪彲鍏变韩
+4. **閿欒閫忔槑**锛氭瘡涓?API 杩斿洖 `Result<T>` 鑰岄潪鎶涘紓甯革紙鍏煎鑰佷唬鐮侀鏍肩殑杩斿洖鍊硷級

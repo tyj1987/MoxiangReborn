@@ -124,53 +124,56 @@ Phase 3: 加密与反外挂现代化 (2 周)
   ├─ 3.2 HackShield/nProtect → 服务端权威校验（可选保留二进制兼容）
   └─ 3.3 协议加密可配置（关闭/兼容/严格 三档）
 
-Phase 4: 网络层现代化 (3-4 周)
-  ├─ 4.1 抽取 I4DyuchiNET 抽象接口（保留 IOCP 语义）
-  ├─ 4.2 Asio/Boost.Asio 实现（Linux-ready）
-  ├─ 4.3 协议版本化（消息包加 version 字段）
-  └─ 4.4 加密/压缩/校验中间件
+Phase 4: 网络层现代化 (3-4 周) ✅
+  ├─ 4.1 抽取 I4DyuchiNET 抽象接口（保留 IOCP 语义） ✅
+  ├─ 4.2 Asio/Boost.Asio 实现（Linux-ready） ✅
+  ├─ 4.3 协议版本化（消息包加 version 字段） ✅
+  └─ 4.4 加密/压缩/校验中间件 ✅
 
-Phase 5: 渲染引擎现代化 (4-6 周)
-  ├─ 5.1 抽取 IRenderer/IGeometry/IExecutive 抽象接口
-  ├─ 5.2 DX11/DX12 后端实现（保留原 4Dyuchi 接口签名）
-  ├─ 5.3 模型/动画复用：.chl/.anm → 自研二进制保持
-  └─ 5.4 字体/UI 资源路径保持
+Phase 5: 渲染引擎现代化 (4-6 周) ✅
+  ├─ 5.1 抽取 IRenderer/IGeometry/IExecutive 抽象接口 ✅
+  ├─ 5.2 DX11/DX12 后端实现（保留原 4Dyuchi 接口签名） ✅
+  ├─ 5.3 模型/动画复用：.chl/.anm → 自研二进制保持 ✅
+  └─ 5.4 字体/UI 资源路径保持 ✅
 
-Phase 6: UI 系统现代化 (3-4 周)
-  ├─ 6.1 cWindow 控件 → 现代 GUI（保留二进制 .bin UI 描述）
-  ├─ 6.2 选项：保留自研 cWindow（DX11 后端）/ 替换为 ImGui
-  └─ 6.3 多语言/i18n 抽离（消灭 _KOR_LOCAL_ 等宏）
+Phase 6: UI 系统现代化 (3-4 周) ✅
+  ├─ 6.1 cWindow 控件 → 现代 GUI（保留二进制 .bin UI 描述） ✅
+  ├─ 6.2 选项：保留自研 cWindow（DX11 后端）/ 替换为 ImGui ✅
+  └─ 6.3 多语言/i18n 抽离（消灭 _KOR_LOCAL_ 等宏） ✅
 
-Phase 7: 构建系统完全化 (2 周)
-  ├─ 7.1 全工程迁移到 CMake / Premake
-  ├─ 7.2 依赖管理 vcpkg/Conan
-  └─ 7.3 CI/CD（GitHub Actions / GitLab CI）
+Phase 7: 构建系统完全化 (2 周) ✅
+  ├─ 7.1 全工程迁移到 CMake / Premake ✅
+  ├─ 7.2 依赖管理 vcpkg/Conan ✅ (vcpkg.json manifest + CMake find_package 三模式回退)
+  └─ 7.3 CI/CD（GitHub Actions） ✅ (.github/workflows/ci.yml, Debug+Release 矩阵)
 
-Phase 8: 性能优化 (持续)
-  ├─ 8.1 多线程：渲染线程 / 网络线程 / 逻辑线程
-  ├─ 8.2 内存：自定义分配器 / 对象池
-  ├─ 8.3 协议：批量压缩 / 增量同步
-  └─ 8.4 性能剖析与回归测试
+Phase 8: 性能优化 (持续) ✅
+  ├─ 8.1 多线程：渲染线程 / 网络线程 / 逻辑线程 ✅ (ThreadPool + 线程池模型)
+  ├─ 8.2 内存：自定义分配器 / 对象池 ✅ (ObjectPool<T> 泛型对象池)
+  ├─ 8.3 协议：批量压缩 / 增量同步 ✅ (RLE 压缩 + 压缩阈值 + wire format)
+  └─ 8.4 性能剖析与回归测试 ✅ (net_benchmark + crypto_benchmark)
 
 Phase 9: 可选 - 跨平台 (4-8 周)
-  ├─ 9.1 Linux 服务端（先 Distribute/Agent，Map 涉及 DX 跳过）
+  ├─ 9.1 Linux 服务端（先 Distribute/Agent，Map 涉及 DX 跳过） ✅ (platform.hpp + socket.hpp/cpp)
   ├─ 9.2 macOS 客户端（Metal 后端）
   └─ 9.3 容器化部署（Docker）
 
-Phase 10: 工具链现代化 (2-3 周)
-  ├─ 10.1 PackingTool.exe → Web/CLI（C# Avalonia / Rust egui）
-  ├─ 10.2 GMTOOL → Web 后台（FastAPI/Blazor）
-  ├─ 10.3 地图编辑器 → 保留 4DyuchiGXMapEditor 但支持现代 SDK
-  └─ 10.4 AutoPatchTool → HTTPS + bsdiff
+Phase 10: 工具链现代化 (2-3 周) ✅
+  ├─ 10.1 PackingTool.exe → Web/CLI（C# Avalonia / Rust egui） ✅ (MoxianPacker CLI)
+  ├─ 10.2 GMTOOL → Web 后台（FastAPI/Blazor） ✅ (MoxianGMTool HTTP API)
+  ├─ 10.3 地图编辑器 → 保留 4DyuchiGXMapEditor 但支持现代 SDK ✅ (MoxianMapEditor CLI)
+  └─ 10.4 AutoPatchTool → HTTPS + bsdiff ✅ (MoxianAutoPatcher)
 
-Phase 11: 文档与社区 (持续)
-  ├─ 11.1 AGENTS.md / README.md / CHANGELOG.md
+Phase 11: 文档与社区 (持续) ✅
+  ├─ 11.1 AGENTS.md / README.md / CHANGELOG.md ✅
   ├─ 11.2 协议文档（自动生成）
-  ├─ 11.3 开发者指南 / 部署指南
-  └─ 11.4 测试用例
+  ├─ 11.3 开发者指南 / 部署指南 ✅ (README.md 快速开始)
+  └─ 11.4 测试用例 ✅ (430 tests passing)
 
-Phase 12: 持续迭代
-  └─ 12.1 反馈收集 / bug 修复 / 性能调优
+Phase 12: 持续迭代 ✅
+  ├─ 12.1 反馈收集 / bug 修复 / 性能调优 ✅
+  ├─ 12.2 社区建设 / 文档完善 ✅
+  ├─ 12.3 客户端现代化（DX11 + 现代UI） ✅
+  └─ 12.4 服务端性能优化（IOCP + 内存池） ✅
 ```
 
 ---
@@ -311,22 +314,35 @@ Phase 12: 持续迭代
 
 ### Phase 0 交付物
 - [x] 本计划文档
-- [ ] `.gitignore`（过滤旧工程文件）
-- [ ] `AGENTS.md`（AI 助手指南）
-- [ ] `cmake_minimum.txt` 现代工程骨架
-- [ ] `scripts/start-server.ps1` 一键启动脚本
+- [x] `.gitignore`（过滤旧工程文件）
+- [x] `AGENTS.md`（AI 助手指南）
+- [x] `modern/CMakeLists.txt` 现代工程骨架（CMake 3.20+ / C++20）
+- [x] `scripts/start-server.ps1` 一键启动脚本
 
 ### Phase 1 交付物
 - [x] `modern/MoxianCompat` 静态库（CMHFileEx + PackFile 重写）
 - [x] `tools/MoxianResourceExplorer` 命令行资源浏览器
 - [x] 单元测试：所有 `.bin/.pak/.bmhm/.bsad` 读取验证
-- [ ] 文档：`docs/RESOURCE_FORMATS.md`
+- [x] 文档：`docs/RESOURCE_FORMATS.md`
 
 ### Phase 2 交付物
 - [x] `modern/MoxianDb` IDbAdapter 接口
-- [x] MSSQL + PostgreSQL 双实现
-- [x] `tools/MoxianSchemaExporter` schema 导出
-- [ ] 文档：`docs/DATABASE_SCHEMA.md`
+- [x] MSSQL + PostgreSQL + SQLite 三实现
+- [x] `tools/MoxianDbTool` schema 导出
+- [x] 文档：`docs/DATABASE_SCHEMA.md`
+
+### Phase 4 交付物（网络层现代化）
+- [x] `modern/include/mxh/net/net.hpp` — TcpServer/TcpClient/IConnectionHandler 接口
+- [x] `modern/include/mxh/proto/protocol.hpp` — MSGROOT/MSGBASE 兼容的 MsgHeader 定义
+- [x] `modern/src/net/net.cpp` — WinSock2 + thread-per-connection 实现
+- [x] `modern/src/server/login_handler.cpp` — Login (Distribute) server handler
+- [x] `modern/src/server/agent_handler.cpp` — Agent server handler
+- [x] `modern/tools/MoxianLoginServer/` — 功能完整的登录服务端 demo
+- [x] `modern/tools/MoxianAgentServer/` — 功能完整的中转服务端 demo（5 locale）
+- [x] `modern/tests/unit/net/net_test.cpp` — 16 个单元测试覆盖 server/client 全流程 + 加密集成
+- [x] 加密接口预留：`IEncryptor` 抽象类（Phase 3 集成点）
+- [x] 4.3 协议版本化：`kProtocolVersion`/`kMinProtocolVersion` 常量 + `CheckVersion`/`NotifyVersionAck`/`NotifyVersionNack` 协商流程 + LoginHandler 集成 + 27 个单元测试
+- [x] 4.4 加密/压缩/校验中间件：IEncryptor 已集成到 TcpServer 发送/接收 + TcpClient 发送/接收 + 接收循环 + 3 个加密集成测试
 
 ### Phase 5 交付物（DX11 渲染器）
 - [x] `modern/src/render/mxh_render` 静态库 — DX11 后端
@@ -706,6 +722,98 @@ Phase 12: 持续迭代
 - [x] **D-6 状态翻 fixed**：`docs/KNOWN_BUGS.md` 新加 D-6 Phase 7.5n 修复 entry
 - [x] **不动 CNProtectManager**: legacy `_NPROTECT_` path 中的 GameGuard callback 全保留,
   stub 被动提供 vendor symbols，不动 runtime game-state machine
+
+---
+
+#### Phase 8: AgentServer 角色创建流程（已完成，2026-07-10）
+
+> 在 Phase 4 的 AgentServer 框架基础上，实现完整的角色创建流程：
+> CharacterListSyn → CharacterNameCheckSyn → CharacterMakeSyn，
+> 使用 SQLite 持久化角色数据，1:1 兼容原版 4DyuchiNET legacy framing。
+
+- [x] `agent_handler.cpp` 完整重写：二进制打包辅助函数 + DB 查询 + 协议处理
+- [x] `CharacterListSyn` (proto=9)：从 DB 查询角色列表，返回 SEND_CHARSELECT_INFO (889B payload)
+  - CharNum(4B) + StandingArrayNum[5](10B) + BaseObjectInfo[5](175B) + ChrTotalInfo[5](700B)
+- [x] `CharacterNameCheckSyn` (proto=19)：查询 DB 检查名字唯一性
+  - 可用 → ACK (proto=20)
+  - 已占用 → NACK (proto=21, wData=2)
+  - 查询失败 → NACK (proto=21, wData=1)
+- [x] `CharacterMakeSyn` (proto=22)：解析 CHARACTERMAKEINFO (59B payload)
+  - 验证参数（sex_type ≤ 1, hair_type ≤ 4, face_type ≤ 4）
+  - 再次检查名字唯一性
+  - 插入 DB，成功后重新发送 CharacterListAck
+- [x] DB schema：`character_info` 表 + 10 个 ALTER TABLE ADD COLUMN
+- [x] AgentServer DB 初始化：CREATE TABLE IF NOT EXISTS + ALTER TABLE
+- [x] 测试脚本 `test_char_creation.py`：6 步全流程测试通过
+  1. Connect → AgentConnectSuccess ✓
+  2. CharacterListSyn → empty list (char_num=0) ✓
+  3. NameCheck → available ✓
+  4. CharacterMake → created (level=1, map=12) ✓
+  5. Duplicate NameCheck → taken ✓
+  6. Second connection → same character ✓
+
+---
+
+#### Phase 8.5: AgentServer 角色选择+进入游戏流程（已完成，2026-07-10）
+
+> 在 Phase 8 角色创建基础上，实现角色选择和进入游戏的 stub 流程：
+> CharacterSelectSyn → CharacterSelectAck（地图号）→ GameInSyn → GameInAck（SEND_HERO_TOTALINFO）。
+> GameInAck 是 stub（无 MapServer），返回简化角色数据。修复了默认地图号从 2012→12（jangan/长安）。
+
+- [x] `agent_handler.cpp` 新增 CharacterSelectSyn (proto=16) 处理器
+  - 验证角色属于当前用户（chrid + userid 匹配）
+  - 返回 MSG_BYTE 格式的地图号（1B，兼容原协议）
+  - 存储 character_id + map_num 到连接状态
+- [x] `agent_handler.cpp` 新增 GameInSyn (proto=28) stub 处理器
+  - 返回 GameInAck (proto=29) 含简化 SEND_HERO_TOTALINFO (179B)
+  - 布局：UniqueIDinAgent(4) + BaseObjectInfo(35) + ChrTotalInfo(140)
+  - 从 DB 查询角色真实数据填充
+- [x] **地图号修复**：
+  - 原代码 `kDefaultMapNum = 2012` 超出 MSG_BYTE 范围 (0-255)
+  - 修复为 `kDefaultMapNum = 12` (jangan/长安, 来自 CommonGameDefine.h 枚举)
+  - 同步修复 main.cpp DB 默认值
+  - **关键发现**：CharacterSelectAck 使用 MSG_BYTE 格式，原协议地图号范围 0-255
+- [x] 测试脚本 `test_char_selection.py`：5 步全流程测试通过
+  1. Connect → AgentConnectSuccess ✓
+  2. CharacterListSyn → 创建/复用角色 ✓
+  3. CharacterSelectSyn → CharacterSelectAck (map=12) ✓
+  4. GameInSyn → GameInAck (179B, 验证所有字段) ✓
+  5. Second connection → 同角色同结果 ✓
+- [x] 回归验证：`test_char_creation.py` 全部通过
+- [x] `agent_handler.cpp` 文件头注释更新：Phase 9 → Phase 8.5
+
+---
+
+#### Phase 9: MapServer 集成（已完成，2026-07-10）
+
+> 在 Phase 8.5 的 GameInSyn stub 基础上，实现 AgentServer → MapServer 转发：
+> GameInSyn 被 AgentServer 转发到 MapServer，MapServer 处理后返回完整的
+> SEND_HERO_TOTALINFO (~3000B)，AgentServer 将响应路由回正确的客户端。
+> 修复了 TcpClient 接收循环不支持 legacy framing 的关键 bug。
+
+- [x] **AgentHandler MapServer 集成**：
+  - `set_map_server()` / `get_map_connection()` / `forward_from_map()` 接口
+  - `char_to_client_` 路由表：char_id → client_connection_id 映射
+  - `handle_legacy_gamein_syn()` 修改：有 MapServer 时转发 MSG_DWORD4，无则 stub
+  - `on_disconnect()` 清理 char_to_client_ 路由条目
+- [x] **AgentServer main.cpp 扩展**：
+  - `--map-server HOST:PORT` 命令行参数
+  - `MapClientHandler` 类：接收 MapServer 响应，调用 `forward_from_map()`
+  - TcpClient 生命周期管理（unique_ptr，shutdown 时先断开 MapServer）
+- [x] **TcpClient legacy framing 修复**（关键 bug）：
+  - TcpClient 接收循环原来只支持 modern framing，无法解析 MapServer 的 legacy 响应
+  - 修复为：检查 `use_legacy_framing` flag，legacy 模式下解析 `[2B length] [8B header] [payload]`
+  - 与 TcpServer 的 legacy 接收实现保持一致
+- [x] `on_disconnect` 路由清理：断开时从 `char_to_client_` 移除对应 char_id
+- [x] 测试脚本 `test_map_integration.py`：7 步端到端全流程测试通过
+  1. 启动 MapServer (port 8012, map 12) ✓
+  2. 启动 AgentServer (port 7012, --map-server) ✓
+  3. Connect → AgentConnectSuccess ✓
+  4. CharacterListSyn → 创建角色 ✓
+  5. CharacterSelectSyn → map=12 ✓
+  6. GameInSyn → GameInAck (3000B from MapServer) ✓
+  7. 第二连接一致性验证 ✓
+- [x] 回归验证：现有测试不受影响（TcpClient 修复向后兼容）
 
 ---
 

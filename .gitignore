@@ -172,3 +172,29 @@ roster.txt
 !modern/src/log/
 !modern/include/mxh/log/
 
+# Phase 7.5p — agent probe binaries (one-off size/layout/HSEL smoke probes)
+modern/scripts/probe_artifacts/
+
+# Phase 7.5p — agent scratch dir (desktop + session leftover archives)
+# Subdirs named `<source>_<YYYY-MM-DD>/` are ad-hoc agent scratch archives.
+# Not source-of-truth; safe to `mavis-trash` any time.
+modern/scratch/
+
+# modern/scripts/ — byproducts of build scripts (NOT in git tracking)
+# Real source files (.py/.cpp/.h/.json tools) are tracked; everything else here is output.
+modern/scripts/*.log
+modern/scripts/*_full.txt
+modern/scripts/*_run.txt
+modern/scripts/*_run*.txt
+modern/scripts/stdout*.txt
+modern/scripts/stderr*.txt
+modern/scripts/run_demo_*.txt
+modern/scripts/render_demo_*.txt
+modern/scripts/verifier_*.txt
+modern/scripts/build_*_attempt*.log
+modern/scripts/_bak_*/
+modern/scripts/*_commit_msg.txt
+# Tracked exceptions (early phase commit msg templates): basenetwork/dbthread/net
+# Untracked (ignored here): filestorage/hsel/phase75d
+modern/scripts/plan_decision*.json
+

@@ -58,7 +58,13 @@
 6. **`#pragma pack(push,1)`**：所有网络包结构强制 1 字节对齐——**绝对不要改**，否则协议崩溃。
 7. **MHVerInfo.ver**：客户端启动时读这个文件读 Distribute 地址 + 版本号。改服务端要先改这个。
 8. **PowerShell 方括号目录名当通配符**：本仓库目录名大量用 `[Lib]` / `[CC]` / `[Server]` 方括号，PowerShell 会把 `[...]` 当作通配符字符类。`Test-Path`/`Get-Item`/`Get-ChildItem` 直接传这种路径会误判（返回 False / 长度 0 / 找不到文件）。**必须**加 `-LiteralPath`（如 `Get-Item -LiteralPath "墨香【源码】\[Lib]BaseNetwork\...\BaseNetwork.dll"`）。`Select-String` / Python `os.path` 不受影响。
-9. **git 跟踪范围很窄**：仓库只跟踪约 439 个文件——`modern/`、`docs/`、根级文件、以及每个已迁移遗留目录里的单个 `CMakeLists.txt`。庞大的 `墨香【源码】/...` 遗留源码树是「未跟踪但也没被 .gitignore」的既定状态，`git status` 里成片的 `??` 是正常的，不是本次改动泄漏。验证「git 是否干净」时看的是**暂存/提交**是否有意外新增，而不是这些常驻未跟踪文件。另注意：`.mavis/`、`plan_launch.txt`、`roster.txt` 未被 gitignore，`git add .` 会误收。
+9. **git 跟踪范围很窄**：仓库只跟踪约 439 个文件——`modern/`、`docs/`、根级文件、以及每个已迁移遗留目录里的单个 `CMakeLists.txt`。庞大的 `墨香【源码】/...` 遗留源码树是「未跟踪但也没被 .gitignore」的既定状态，`git status` 里成片的 `??` 是正常的，不是本次改动泄漏。验证「git 是否干净」时看的是**暂存/提交**是否有意外新增，而不是这些常驻未跟踪文件。`.mavis/`、`plan_launch.txt`、`roster.txt` 已在 Phase 7.5p 加入 .gitignore。
+10. **agent 中间产物必须写到 workspace 内**（Phase 7.5p 立的规矩）：
+    - **绝不放桌面**（`C:\Users\Administrator\Desktop\`）——前 session 把 build log / source scan / cmake 探测写到桌面导致 21 个文件散落，cleanup 一次归档到 `modern/scratch/_desktop_<日期>/`。
+    - **绝不放 workspace 根**——build log / db / 编译产物 / session 私货 全部归档到：`modern/scripts/`（build log + 工具脚本）、`modern/scratch/<source>_<日期>/`（临时归档）、`test-extract/dbs/`（sqlite runtime db）、`modern/scripts/probe_artifacts/`（one-off probe exe/obj）。
+    - **会话级跨 session 笔记** 用 `$MAVIS_SCRATCHPAD`（agent context 里有路径，绝对不会出现在 workspace）。
+    - **所有归档子目录** 在子目录根放一个 `README.md` 索引（来源 + 用途 + 维护规则）。`mavis-trash` 删整个目录前先 grep 确认没被任何脚本/文档引用。
+    - 见 `modern/scratch/README.md` 顶层索引。
 
 ## 推荐工作流（任何修改前）
 
@@ -71,10 +77,36 @@
 
 ## 阶段路线
 
-详细见 `MODERNIZATION_PLAN.md` 第 12 阶段路线图。当前应该处于 **Phase 0-1**：
+详细见 `MODERNIZATION_PLAN.md` 第 12 阶段路线图。当前处于 **Phase 12 持续迭代**：
 
-- **Phase 0**：准备与可编译化（基础工程）
-- **Phase 1**：资源兼容层（最关键，必须最先做）
+- **Phase 0-4**：✅ 已完成（可编译化 / 资源兼容层 / 数据库抽象 / AES-256-GCM 加密 / 网络层现代化）
+- **Phase 5**：✅ 已完成（DX11 渲染后端 + BC1-5 + Motion Cache，141 render tests）
+- **Phase 6**：✅ 已完成（18 widget + legacy_compat，254 UI tests）
+- **Phase 7**：✅ 已完成（CMake + vcpkg + CI/CD）
+- **Phase 8**：✅ 已完成（ThreadPool + ObjectPool + Compression，17 tests）
+- **Phase 9**：✅ 已完成（platform.hpp + socket.hpp/cpp + Docker，20 tests）
+- **Phase 10**：✅ 已完成（MoxianPacker + MoxianGMTool + MoxianMapEditor + MoxianAutoPatcher）
+- **Phase 11**：✅ 已完成（README + CHANGELOG + 开发者指南 + MoxianProtocolDoc）
+- **Phase 12**：✅ 已完成（反馈收集 / 社区建设 / 客户端现代化 / 服务端优化）
+
+## 24 小时 AI 接力机制
+
+本项目使用 **Qoder IDE + QoderWork + QoderWake** 三产品接力实现 24 小时不间断开发。AI Agent 在开始任何工作前，**必须先读取以下文件**：
+
+| 文件 | 用途 | 何时读取 |
+|------|------|---------|
+| `AI_WORKFLOW_GUIDE.md` | 三产品协作完整指南 | 首次接入时通读 |
+| `AI_TASK_QUEUE.md` | 任务队列（AI 无人时的驱动力） | **每次会话开始时必读** |
+| `AI_SHIFT_LOG.md` | 交接日志（了解上一班做了什么） | **每次会话开始时必读** |
+
+**接力规则**：
+- 人在线时：人指挥 Qoder IDE 做 P0 任务
+- 人离开后：Qoder IDE 按 `AI_TASK_QUEUE.md` 中的 P1 队列自主执行
+- 夜间：QoderWake 监控构建/测试，Qoder IDE 执行排队中的 Quest
+- 每次交接：在 `AI_SHIFT_LOG.md` 中写一条记录
+- 每个 Quest 完成后：更新 `AI_TASK_QUEUE.md` 中的状态
+
+**当前任务优先级**：见 `AI_TASK_QUEUE.md`。P0 需人工确认，P1 可自主执行，P2/P3 空闲时做。
 
 ## 编码风格
 

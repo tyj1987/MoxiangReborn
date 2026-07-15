@@ -9,7 +9,7 @@
 - **位置**：`[Lib]MHConsole\Console.cpp/.h`
 - **根因**：游戏自定义 `void LOG(int LogLevel, char* strMsg, ...)` 与系统 `msplog.h` 的 LOG 函数宏冲突；系统 LOG 是函数宏无法重载
 - **解决方案**：把所有 `LOG` 重命名为 `MLOG`；或在包含 Windows 头之前 `#undef LOG`
-- **状态**：教程 4 已记录，未在源码修复
+- **状态**：✅ 已根治（2026-07-15, Phase 7.5o by Qoder IDE Quest）。CConsole::LOG 重命名为 CConsole::MLOG；35 个调用点文件批量更新（g_Console.LOG( → g_Console.MLOG( 和 ->LOG( → ->MLOG(）；保留 CConsole::Log(小写 L) 不动。
 
 ### Bug C-2: WS2_32 链接错误
 - **症状**：`LNK2019: 无法解析的外部符号 __imp__closesocket@4 / __imp__socket@12`
@@ -153,6 +153,30 @@
 - **现代方案**：抽 i18n 配置表
 
 
+### Bug R-5: 部分 .bmhm 资源键缺失 ``*`` 前缀（已知解析偏差，Phase 2.1 记录）
+- **症状**：真实 `.bmhm` 资源（如 `Map101.bmhm`）中部分键缺首 ``*`` 前缀：
+  `FOV 55`、`FIXHEIGHT 5910`、`FIXHEIGHT 0`、`SUN 0`、`SUNOBJECT Moon02.chr`、
+  `SUNDISTANCE 7000`、`SKYOFFSET  0   0   0`、4×`FOGCOLOR` 重复、`BRIGHT 150`、
+  备用 `SKYMOD sky_13night_wha.mod`。当前解析器跳过这些行（无 ``*`` 不识别），
+  与 legacy client 行为一致 — 但备用天空模型 / 用户修正配置无法生效。
+- **位置**：`墨香【源码配套资源】\PlayDH\Resource\Map\Map101.bmhm` 等"野外"文件
+  （标准工具 `MHMap` / `RegenTool` 输出的 .bmhm）；具体由 `[Tool]PackingMan` 的
+  `CMHFileEx` writer 假设所有键均以 ``*`` 前缀开头生成。
+- **根因**：原始 PackingMan 工具生成器对备用 / 重复 / override 行的前缀处理不
+  一致（手抖 / branch 缺失），未受文件头 magic 约束保护。Reader 端（Moxian 客户端
+  `MHMap::mapDesc`）只识别 ``*`` 前缀行 → 这些行在运行时静默失效。
+- **现代方案**：
+  - 当前实现 (`modern/src/bmhm_map.cpp`) 保留 legacy 语义：skip 无 ``*`` 行。
+    这是 1:1 兼容行为，符合"保持二进制兼容 / 不擅自修改 legacy 缺陷"原则。
+  - 如需启用对无 ``*`` 行的 fallback 解析，扩展 `detail::apply_key` 列表接受
+    无前缀同义键（`FOV == *FOV`、`FIXHEIGHT == *FIXHEIGHT`、`SUN == *SUN` 等）
+    是低风险 1 行扩展。但**这会改变 client 可见行为**，需要产品决策
+    （默认关 / opt-in flag）。未在 Phase 2.1 范围内，等待用户确认。
+- **状态**：已记录。当前实现与 legacy client 1:1 一致；不擅自启用扩展。
+- **关联**：`modern/src/bmhm_map.cpp:265-285`（skip-non-star 行为）；
+  `modern/tests/unit/bmhm_map_test.cpp::RealMap101` 测试期望固定
+  `"skipped to defaults"` 行子集的行为。
+
 ### Bug C-19: [CC]ServerModule/inetwork.h 与 4DyuchiNET_Common/INetwork.h 接口签名不匹配
 - **症状**：`[CC]ServerModule/Network.cpp:50` 调 `m_pINet->CreateNetwork(desc)` 1-参数版本；`4DyuchiNET_Latest/conetwork.cpp:131` 实现 `Co4DyuchiNET::CreateNetwork(DESC_NETWORK*, DWORD, DWORD, OnIntialFunc)` 4-参数版本。任何以 NET 编译的 DLL 替换旧版都会被这张简化 header 阻断 link。
 - **位置**：`墨香【源码】\4DyuchiNET_Common\INetwork.h` vs `墨香【源码】\[CC]ServerModule\inetwork.h`
@@ -225,7 +249,7 @@
 ### Bug F-3: `MAX_MAP_NUM 37` 硬编码
 - **位置**：`[Tool]Regen\DefineStruct.h`
 - **现象**：实际资源已扩到 Map207，硬编码 37 限制工具
-- **现代方案**：解硬编码，从配置或地图目录自动发现
+- **现代方案**：✅ 已修复（2026-07-15, Phase 7.5o by Qoder IDE Quest）。DefineStruct.h:26 改造 MAX_MAP_NUM 为可编译期覆盖（#ifndef guard + 默认 37）。用户可通过 /DMAX_MAP_NUM=300 或 CMakeLists.txt add_definitions(-DMAX_MAP_NUM=300) 覆盖以支持 Map207+ 资源。
 
 ## 性能问题
 
@@ -258,14 +282,14 @@
 - **位置**：`墨香【源码】\[CC]Header\CommonStruct.h:436`
 - **根因**：第 430 行 `for(int i=0; ...)` 在 for-init 里声明 `i`，第 436 行 `for(i=0; ...)` 在另一个 for 里"裸用" `i`。MSVC7 默认 for-loop init 变量泄漏到 enclosing function scope（pre-VS2005 行为），所以编译过。VS2005+ 默认（以及 `/permissive-` 下）改为 ISO C++ 严格 scope，`i` 只在 for-loop 内可见。
 - **现代方案**：Phase 7.4a 决定保留 legacy ABI——drop `/permissive-`（同 DBThread Bug C-14），不修源码。Agent/Map 迁移同处理。
-- **状态**：Phase 7.4a 已迁移绕过（Distribute），Agent/Map 待
+- **状态**：✅ 已根治（2026-07-15, Phase 7.5o by Qoder IDE Quest）。CommonStruct.h:436 添加显式 int i 声明以兼容 /permissive-。
 
 ### Bug C-29: [CC]Header/TargetList/TargetListIterator.h:52 类内 qualified member 声明
 - **症状**：编译报 `error C4596: "GetTargetData": 成员声明中的非法限定名`
 - **位置**：`墨香【源码】\[CC]Header\TargetList\TargetListIterator.h:52`
 - **根因**：`void CTargetListIterator::GetTargetData(RESULTINFO* pResultInfo);` — 类体里写带 `ClassName::` 前缀的成员函数声明。MSVC7 默认接受（Microsoft extension），`/permissive-` 下报 C4596。
 - **现代方案**：drop `/permissive-`（同 Bug C-14 / C-28），不修源码。
-- **状态**：Phase 7.4a 已迁移绕过（Distribute），Agent/Map 待
+- **状态**：✅ 已根治（2026-07-15, Phase 7.5o by Qoder IDE Quest）。TargetListIterator.h:52 移除 ClassName:: 限定符，兼容 /permissive-。
 
 ## 协议问题
 

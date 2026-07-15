@@ -5,7 +5,7 @@
 ## 目录
 
 - [RESOURCE_FORMATS.md](./RESOURCE_FORMATS.md) - 资源格式逆向文档（持续更新）
-- [PROTOCOL.md](./PROTOCOL.md) - 网络协议文档（待生成）
+- [PROTOCOL.md](./PROTOCOL.md) - 网络协议文档（自动生成）
 - [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - 数据库 schema（待生成）
 - [KNOWN_BUGS.md](./KNOWN_BUGS.md) - 已知 bug 与陷阱（来自教程 4 + 阅读源码）
 

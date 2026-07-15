@@ -256,6 +256,36 @@ MHClient.exe (WinMain)
 - **DX11 client 端 Effect + Material CPU-side init pipeline (CreateEffectShaderPalette → buildFromDesc + CreateMaterialSet → loadMaterialTexture no-op) 走通**，Phase 9 client 端集成再多一格
 - 复现命令：`cmake --build modern/build --config Debug --target mxh_render_demo && cd modern/tools/MoxianRenderDemo && python run_demo_smoke.py`
 
+**Phase 9 完成内容 (MapServer 集成 + 稳定性修复)**：
+- Phase 9.1: MapServer 从 DB 加载真实角色数据 ✅
+- Phase 9.2: Move 双向同步 ✅ (AgentServer → MapServer → AgentServer → 其他 client)
+- Phase 9.3: Chat 双向广播 ✅ (MapServer broadcast to ALL connections, AgentServer filter by char_id)
+- Phase 9.e: 稳定性修复 ✅
+  - TcpClient send/disconnect 竞态修复 (`send_mu` 保护 socket 检查 + ::send 循环)
+  - AgentHandler map_client_ 裸指针竞态修复 (`map_route_mu_` 保护读写，获取本地副本后发送)
+  - ReplyQueue drain_to 改为 swap-then-send 模式（持锁只 swap，发送在锁外）
+  - MapServer handle_chat 改为广播到所有连接（适配 AgentServer 多路复用）
+  - 清理冗余诊断日志
+- 集成测试: `python modern/scratch/test_map_integration.py` 全部通过
+  - Step 1-6: 连接 + 角色创建/选择 + GameIn ✅
+  - Step 7: 第二连接一致性 ✅
+  - Step 8: Move 双向同步 ✅
+  - Step 9: Chat 双向广播 ✅
+- 复现命令：`cmake --build modern/build --target mxh_map_server_KOR --config Debug && cmake --build modern/build --target mxh_agent_server_KOR --config Debug && python modern/scratch/test_map_integration.py`
+
+**Phase 10 完成内容 (多协议扩展 + 网络架构重构)**：
+- Phase 10b: 物品系统 ✅ (move/discard/use + 协议路由)
+- Phase 10c: 怪物生成/AI ✅ (MonsterAdd/LifeNotify/NpcSpeech + 协议路由)
+- Phase 10d: 基础战斗/技能 ✅ (SkillProtocol 19子协议 + BattleProtocol 17子协议 + 伤害计算)
+- Phase 10e: **TcpServer 网络架构重构** ✅
+  - **根本性解决 head-of-line blocking**: 每个连接独立的异步发送队列 + 专用 sender 线程
+  - `TcpServer::send()` 从阻塞式 `::send()` 改为 O(queue_push) 非阻塞入队
+  - 移除 SO_SNDTIMEO workaround（不再需要）
+  - 移除 AgentServer drain_to fairness limit（send 不再阻塞，无需限流）
+  - recv 线程不再负责关闭 socket（sender 线程独占 socket 生命周期，消除竞态）
+  - stop() 先 signal condvar → close sockets → join sender → join recv，保证干净退出
+- 集成测试: 全部通过（Move/Chat/Item/Monster/Skill/Battle 多客户端并发）
+
 **Phase 5.3-5.8 完成内容**：
 - Effect Shader Palette ✅ (IDIEffect, wave/spheremap texture matrix)
 - HeightField ✅ (LOD tile system, bilinear height sampling)
