@@ -184,6 +184,11 @@ modern/scripts/probe_artifacts/
 modern/scratch/_archive_*/
 !modern/scratch/*.py
 !modern/scratch/*.md
+# Runtime logs from running server tools in the scratch dir (login_handler,
+# MoxianLoginServer main, etc.) — these are session-ephemeral, not
+# source-of-truth. The .py / .md exceptions above still allow root-level
+# tools and the README to be tracked.
+modern/scratch/*.log
 
 # Phase 10.4 — agent tool directories and session leftovers.
 # These are dev-environment state, not source-of-truth. They contain
