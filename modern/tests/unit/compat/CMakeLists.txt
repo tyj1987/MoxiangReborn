@@ -32,3 +32,18 @@ gtest_add_tests(TARGET mxh_chr_motion_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+# Cross-platform abstraction tests — Phase 10.15
+add_executable(mxh_platform_tests
+    platform_test.cpp
+)
+
+target_link_libraries(mxh_platform_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_platform_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_platform_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
