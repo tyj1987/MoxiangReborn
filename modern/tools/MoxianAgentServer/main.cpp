@@ -41,6 +41,7 @@ namespace {
 
 struct Args {
     std::uint16_t port       = 7001;
+    std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path    = "./moxian_agent.db";
     bool          use_legacy = false;
     // Phase 9: optional MapServer connection for GameIn forwarding.
@@ -56,6 +57,8 @@ Args parse_args(int argc, char** argv) {
             a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--backend" && i + 1 < argc)
+            a.db_backend = argv[++i];
         else if (s == "--legacy")
             a.use_legacy = true;
         else if (s == "--map-server" && i + 1 < argc) {
@@ -73,7 +76,8 @@ Args parse_args(int argc, char** argv) {
         else if (s == "--help") {
             std::cout << "Usage: mxh_agent_server [options]\n"
                       << "  --port N              listen port (default 7001)\n"
-                      << "  --db PATH             SQLite db path\n"
+                      << "  --db PATH             db path (SQLite file or MSSQL DSN)\n"
+                      << "  --backend NAME        'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n";
             std::exit(0);
@@ -193,14 +197,19 @@ int main(int argc, char** argv) {
     std::cout << "[main] Moxian AgentServer (Phase 8 minimal demo)\n"
               << "  locale   = " << locale_name() << "\n"
               << "  port     = " << args.port << "\n"
-              << "  db       = " << args.db_path << "\n"
+              << "  db.bk    = " << args.db_backend << "\n"
+              << "  db.path  = " << args.db_path << "\n"
               << "  legacy   = " << (args.use_legacy ? "YES" : "no") << "\n";
 
-    // 1. Connect to database (sqlite only — same as MoxianLoginServer).
-    auto db = mxh::db::make_adapter("sqlite");
-    if (!db) { std::cerr << "FATAL: cannot create sqlite adapter\n"; return 1; }
+    // 1. Connect to database. Backend selected via --backend (sqlite
+    //    default; mssql_odbc when talking to the legacy 墨香 SQL Server).
+    auto db = mxh::db::make_adapter(args.db_backend);
+    if (!db) { std::cerr << "FATAL: cannot create '" << args.db_backend
+                        << "' adapter (unknown backend or platform unsupported)\n";
+              return 1; }
     auto db_cfg = mxh::db::ConnectionConfig::from_kv_string(args.db_path);
     if (db_cfg.path.empty()) db_cfg.path = args.db_path;  // raw path fallback
+    if (db_cfg.backend.empty()) db_cfg.backend = args.db_backend;
     if (db_cfg.backend.empty()) db_cfg.backend = "sqlite";
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect: " << cr.error_message << "\n"; return 1; }

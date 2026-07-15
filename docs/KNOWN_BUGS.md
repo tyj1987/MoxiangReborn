@@ -407,6 +407,14 @@
 - **现代方案**：
   - **当前接受为 known gap**（Phase 7.5e 决策）：runtime smoke 在本机不可执行；`MapServer.exe` 启动链路的 functional equivalence 已由 dumpbin /dependents 排查（Phase 7.5e）+ legacy 对照 + TitanServer.bin 修复（C-33）间接证明
   - **未来补齐路径**（需人工介入）：安装 SQL Server 2005/2008（匹配 legacy 2008 栈）+ legacy Native Client ODBC 驱动；启动 `SWorking\MonitoringServer.exe`；重跑 `plan_4b45c814` 的 staging 脚本 + smoke runner。预计一次性 confirm `g_Network` → `BOOTMNGR` → `bind()` 链路。
+- **状态（Phase 10.2 更新，2026-07-15）**：MSSQL 接入**已落地**：
+  - `modern/include/mxh/db/mssql_odbc_adapter.hpp` + `modern/src/mssql_odbc_adapter.cpp` — 完整 `IDbAdapter` 实现（connect / execute / query / begin / commit / rollback），用 Windows native ODBC API (`sql.h` / `sqlext.h` + `odbc32.lib`)。
+  - `db_factory.cpp` 加 `mssql_odbc` 后端注册。
+  - 5 个 server 工具（MoxianLoginServer / MoxianAgentServer / MoxianMapServer + MoxianDbTool + MoxianResourceExplorer）加 `--backend sqlite|mssql_odbc` 选项。
+  - 9 个新 test 覆盖 factory / not-connected / 错误路径 / 幂等断开。
+  - 限制：**runtime 真连 SQL Server 仍需 docker-compose up mssql**（`docker-compose.yml` 已有 MSSQL 2022 容器 + `init.sh` schema 引导）。单机 smoke 现在可以选 `--backend mssql_odbc` 跑真连接。
+  - 449/449 ctest pass + 41/41 vcxproj build OK。
+  - **原"本机无 SQL Server" 仍是事实**（host 上没装），但代码层 gap 已关闭。
   - **legacy 对照证据**：legacy VS2008 `SWorking\MapServer.exe`（2.5 MB）在同一 staging 下 fail 同方式（listen=0, ServerStart.txt 未创建），证明非 build regression，是 env blocker。
 - **状态**：Phase 7.5e-2 已记录（plan_4b45c814，auto-accept PASS-with-caveat），未尝试物理装 SQL Server。
 

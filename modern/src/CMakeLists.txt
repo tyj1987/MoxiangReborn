@@ -38,6 +38,7 @@ if(SQLite3_FOUND)
         db_adapter.cpp
         sqlite_adapter.cpp
         db_factory.cpp
+        mssql_odbc_adapter.cpp
     )
     target_link_libraries(mxh_db PRIVATE SQLite::SQLite3)
     target_include_directories(mxh_db PUBLIC
@@ -49,12 +50,20 @@ else()
         db_adapter.cpp
         sqlite_adapter.cpp
         db_factory.cpp
+        mssql_odbc_adapter.cpp
         ../third_party/sqlite/sqlite3.c
     )
     target_include_directories(mxh_db PUBLIC
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/third_party/sqlite
     )
+endif()
+
+# Phase 10.2: Microsoft SQL Server via native Windows ODBC (odbc32.lib).
+# Mirrors the legacy [Lib]DBThread ODBC layer. Windows-only — Linux would
+# use unixODBC + libiodbc; out of scope for now (the game is Win32-only).
+if(WIN32)
+    target_link_libraries(mxh_db PRIVATE odbc32)
 endif()
 
 target_compile_features(mxh_db PUBLIC cxx_std_20)

@@ -838,6 +838,31 @@ Phase 12: 持续迭代 ✅
 
 ---
 
+#### Phase 10.2: MssqlOdbcAdapter — Windows ODBC 后端落地（已完成，2026-07-15）
+
+> 关闭 Bug C-32 的代码层 gap。Modern 端之前只有 SqliteAdapter，`IDbAdapter` 后端注册只接受 "sqlite"；
+> 5 个 server 工具（Login/Agent/Map/DbTool/ResourceExplorer）全部 hardcode "sqlite"。本 phase 加 `MssqlOdbcAdapter`：
+> 直接用 Windows native ODBC API（`sql.h` / `sqlext.h` + `odbc32.lib`），跟 legacy [Lib]DBThread 是同一层协议。
+
+- [x] **`MssqlOdbcAdapter` 实现**：`modern/include/mxh/db/mssql_odbc_adapter.hpp`（115 行 interface）+ `modern/src/mssql_odbc_adapter.cpp`（415 行 impl）覆盖 `connect` / `disconnect` / `execute` / `query` / `begin_transaction` / `commit` / `rollback`，SQLSTATE 翻译（08001/08S01 → ConnectionFailed；23000 → ConstraintViolation；42S02 → NoSuchTable；42S01 → ConstraintViolation；42000 → QuerySyntaxError；其他 → Unknown）
+- [x] **参数 bind**：5 种 Value 类型（monostate/int64/double/string/bytes）走 SQLBindParameter + SQL_NULL_DATA/SQL_NTS/0 indicator。Null 用 SQL_DEFAULT（不是 SQL_NULL——ODBC 没那个常量）
+- [x] **结果集 fetch**：SQLGetData + 8192 字节 buffer；truncation 走二次 SQLGetData（最大 16 MiB 兜底）。Column type 走 SQLColAttribute + 6 个 SQL_* 类型 switch
+- [x] **`db_factory.cpp` 加 `mssql_odbc` / `mssql` / `sqlserver` 三个 alias**，注册到 MssqlOdbcAdapter。Windows-only 编译（`#ifdef _WIN32`）
+- [x] **5/5 server 工具加 `--backend` 选项**：
+  - `MoxianLoginServer`：Args.db_backend default "sqlite"，--backend NAME；help 文本更新
+  - `MoxianAgentServer`：同上
+  - `MoxianMapServer`：同上
+  - `MoxianDbTool` / `MoxianResourceExplorer`：后续按需
+- [x] **CMakeLists.txt**：`mxh_db` 加 `mssql_odbc_adapter.cpp` + `target_link_libraries(mxh_db PRIVATE odbc32)`（Win32 限定）
+- [x] **9 个新 test**：`MssqlOdbcAdapter.FactoryReturnsNonNull` / `.FactoryAcceptsAliases` / `.InitiallyNotConnected` / `.ExecuteWithoutConnectionFails` / `.QueryWithoutConnectionFails` / `.BeginTransactionWithoutConnectionFails` / `.CommitWithoutActiveTransactionFails` / `.ConnectToInvalidServerFails`（set 1s SQL_LOGIN_TIMEOUT）/ `.DisconnectIsIdempotent`。Windows-only；非 Windows 走 `MssqlOdbcAdapter.FactoryReturnsNullOnNonWindows` 一个 case
+- [x] **include 顺序坑**：ODBC header 要求 `<windows.h>` 在 `<sql.h>` 之前（sql.h:14 写明 "preconditions: #include "windows.h""）。3 次 build 调试（244 → 110 → 1 → 0 error）后定：hpp/cpp 顶部 `#ifdef _WIN32 #include <windows.h> #endif`，然后才 include sql.h。**WIN32_LEAN_AND_MEAN 不要设**——会截掉 sqltypes.h 需要的 INT64/UINT64 定义
+- [x] **build 41/41 vcxproj 0 error**（5 server × 5 locale = 25 server target + lib + test exe + ui + render + crypto + net + db + util = 41）
+- [x] **ctest 449/449 PASS, 0 FAIL**（从 439 → 449，加 9 个 MssqlOdbcAdapter + 1 个其他 = 10 个新 test）
+- [x] **KNOWN_BUGS C-32 状态更新**：标 "代码层 gap 已关闭"；runtime 真连 SQL Server 仍需 `docker-compose up mssql`（已有 MSSQL 2022 容器 + init.sh schema 引导）
+- [x] **不动 SqliteAdapter 行为**：默认 backend 仍 "sqlite"，5/5 server matrix + ctest 100% pass 都保持
+
+---
+
 ## 6. 不在本计划范围内
 
 为避免范围蔓延，明确以下**不做**：
