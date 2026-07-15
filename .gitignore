@@ -179,7 +179,11 @@ modern/scripts/probe_artifacts/
 # Phase 7.5p — agent scratch dir (desktop + session leftover archives)
 # Subdirs named `<source>_<YYYY-MM-DD>/` are ad-hoc agent scratch archives.
 # Not source-of-truth; safe to `mavis-trash` any time.
-modern/scratch/
+# Only the archive subdirs are ignored — root-level files (e.g. tools
+# referenced by MODERNIZATION_PLAN 复现命令) are tracked normally.
+modern/scratch/_archive_*/
+!modern/scratch/*.py
+!modern/scratch/*.md
 
 # Phase 10.4 — agent tool directories and session leftovers.
 # These are dev-environment state, not source-of-truth. They contain
