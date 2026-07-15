@@ -44,11 +44,16 @@ BufferPool::Buffer BufferPool::allocate() {
         buffer.data = free_buffers_.back();
         free_buffers_.pop_back();
     } else {
-        // Allocate new buffer
+        // Lazy allocate new buffer
         buffer.data = allocate_buffer();
         if (buffer.data == nullptr) {
             return buffer; // Invalid buffer
         }
+        // Phase 12.4 fix: lazy path also bumps capacity_ so the
+        // capacity()/available() stats reflect the real pool size.
+        // Without this, callers that rely on capacity to detect
+        // exhaustion or to size downstream containers see stale 0.
+        capacity_++;
     }
     
     buffer.size = 0;
