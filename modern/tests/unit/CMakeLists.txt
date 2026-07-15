@@ -5,6 +5,7 @@ add_executable(mxh_compat_tests
     bsad_area_test.cpp
     bmhm_map_test.cpp
     chx_real_resource_test.cpp
+    chx_model_test.cpp
 )
 
 target_link_libraries(mxh_compat_tests PRIVATE mxh_compat gtest_main)
