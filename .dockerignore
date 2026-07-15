@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+modern/build/
+modern/build_legacy_hsel/
+modern/build_yhlibrary/
+
+# IDE files
+.vs/
+*.suo
+*.user
+*.ncb
+*.opt
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# Documentation (not needed for runtime)
+docs/
+*.md
+!MODERNIZATION_PLAN.md
+
+# Test files
+modern/tests/
+
+# Scratch files
+modern/scratch/
+modern/scripts/
+
+# Legacy source (not needed for server)
+墨香【源码】/
+墨香【源码配套资源】/
+墨香【客户端+服务端+工具】/
+墨香【教程】/
+
+# Docker files (avoid recursion)
+Dockerfile
+docker-compose.yml
+.dockerignore
+docker/

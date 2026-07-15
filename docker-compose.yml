@@ -1,0 +1,151 @@
+# Moxian-Reborn Docker Compose
+#
+# Start all services: docker-compose up -d
+# Stop all services:  docker-compose down
+# View logs:          docker-compose logs -f
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Login Server (Distribute)
+  # ============================================================================
+  login-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moxian-login
+    ports:
+      - "6001:6001"
+    environment:
+      - MXH_SERVER_TYPE=login
+      - MXH_DB_HOST=mssql
+      - MXH_DB_PORT=1433
+      - MXH_DB_NAME=MoxianDB
+      - MXH_DB_USER=sa
+      - MXH_DB_PASSWORD=${MSSQL_SA_PASSWORD:-YourPassword123!}
+    volumes:
+      - ./docker/config/login:/app/config
+      - login-logs:/app/logs
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - moxian-net
+    restart: unless-stopped
+
+  # ============================================================================
+  # Agent Server (World)
+  # ============================================================================
+  agent-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moxian-agent
+    ports:
+      - "7001:7001"
+    environment:
+      - MXH_SERVER_TYPE=agent
+      - MXH_DB_HOST=mssql
+      - MXH_DB_PORT=1433
+      - MXH_DB_NAME=MoxianDB
+      - MXH_DB_USER=sa
+      - MXH_DB_PASSWORD=${MSSQL_SA_PASSWORD:-YourPassword123!}
+      - MXH_LOGIN_HOST=login-server
+      - MXH_LOGIN_PORT=6001
+    volumes:
+      - ./docker/config/agent:/app/config
+      - agent-logs:/app/logs
+    depends_on:
+      - login-server
+    networks:
+      - moxian-net
+    restart: unless-stopped
+
+  # ============================================================================
+  # Map Server (multiple instances)
+  # ============================================================================
+  map-server-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moxian-map-1
+    ports:
+      - "8001:8001"
+    environment:
+      - MXH_SERVER_TYPE=map
+      - MXH_MAP_ID=1
+      - MXH_DB_HOST=mssql
+      - MXH_DB_PORT=1433
+      - MXH_DB_NAME=MoxianDB
+      - MXH_DB_USER=sa
+      - MXH_DB_PASSWORD=${MSSQL_SA_PASSWORD:-YourPassword123!}
+      - MXH_AGENT_HOST=agent-server
+      - MXH_AGENT_PORT=7001
+    volumes:
+      - ./docker/config/map:/app/config
+      - map-logs-1:/app/logs
+    depends_on:
+      - agent-server
+    networks:
+      - moxian-net
+    restart: unless-stopped
+
+  # ============================================================================
+  # Microsoft SQL Server
+  # ============================================================================
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: moxian-mssql
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourPassword123!}
+      - MSSQL_PID=Developer
+    volumes:
+      - mssql-data:/var/opt/mssql
+      - ./docker/init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$${SA_PASSWORD}" -Q "SELECT 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - moxian-net
+    restart: unless-stopped
+
+  # ============================================================================
+  # Database Initialization
+  # ============================================================================
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: moxian-db-init
+    environment:
+      - SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourPassword123!}
+      - DB_HOST=mssql
+    volumes:
+      - ./docker/init-db:/scripts
+    entrypoint: /scripts/init.sh
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - moxian-net
+    restart: "no"
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  mssql-data:
+  login-logs:
+  agent-logs:
+  map-logs-1:
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  moxian-net:
+    driver: bridge
