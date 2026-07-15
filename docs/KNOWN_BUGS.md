@@ -417,6 +417,11 @@
   - **原"本机无 SQL Server" 仍是事实**（host 上没装），但代码层 gap 已关闭。
   - **legacy 对照证据**：legacy VS2008 `SWorking\MapServer.exe`（2.5 MB）在同一 staging 下 fail 同方式（listen=0, ServerStart.txt 未创建），证明非 build regression，是 env blocker。
 - **状态**：Phase 7.5e-2 已记录（plan_4b45c814，auto-accept PASS-with-caveat），未尝试物理装 SQL Server。
+- **状态（Phase 10.4 进一步 update，2026-07-15）**：
+  - 容器化路径已就位：`docker-compose.yml` + `docker/Dockerfile`（multi-stage）+ `docker/init-db/init.sh`（schema 引导）+ `docker/config/{login,agent,map}/`（配置模板）。`docker compose up mssql` 单条命令即可拉起 MSSQL 2022 + 5/5 服务矩阵。
+  - 但本机 host (P10.4 verifier) 验证时**没有 docker / podman / WSL** ——`where.exe docker` 空，`Test-Path C:\Program Files\Docker` False。WSL 返回 *g[`n(uN Linux ... wsl.exe --install* 错误（kernel 未启用）。
+  - 真正 runtime smoke (`MoxianLoginServer.exe --backend mssql_odbc` 真连 MSSQL 2022) 仍是 env-blocked。需要 (a) 装 Docker Desktop / WSL2 或 (b) 直装 SQL Server 2022 Express + Native Client ODBC driver。
+  - **C-32 全现状（2026-07-15）**：code-layer ✅ / build-layer ✅ (5/5 matrix compiles with `--backend mssql_odbc`) / container-image-layer ✅ (`docker-compose.yml` ready) / **runtime connection ❌** (host 缺容器引擎，user 决策何时装)。
 
 ### Bug C-33: `CMHFile::GetStringInQuotation` 假设引号边界，对 `TitanServer.bin` 解码越界
 - **症状**：`MapServer.exe` 在 `Server.cpp:54-55` 调 `CheckUpdateFile()`，`CheckUpdateFile` 通过 `CMHFile::GetStringInQuotation` 读 `Resource\Server\TitanServer.bin`（56 字节，XOR 加密 + 1 字节 CRC），期望返回 `"이 파일이 없으면 타이탄 업데이트 안돼요~"`（Korean 错误消息），但读到空 / 乱码 → `strcmp != 0` → `CheckUpdateFile` 返回 `FALSE` → `WinMain` return 0 → `MapServer.exe` 在 `<2s` 干净 exit。`ServerStart.txt` 从未创建。
