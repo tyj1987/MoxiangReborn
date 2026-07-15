@@ -38,6 +38,44 @@ mxh::gx::dx11::LoadedTexture makeCheckerTexture() {
 
 }  // namespace
 
+
+std::uint32_t read_u32(const std::uint8_t* p) {
+    return static_cast<std::uint32_t>(p[0])
+         | (static_cast<std::uint32_t>(p[1]) <<  8)
+         | (static_cast<std::uint32_t>(p[2]) << 16)
+         | (static_cast<std::uint32_t>(p[3]) << 24);
+}
+
+mxh::gx::dx11::LoadedTexture make_solid(std::uint8_t r, std::uint8_t g,
+                                          std::uint8_t b, std::uint8_t a) {
+    mxh::gx::dx11::LoadedTexture t;
+    t.width = 4; t.height = 4; t.bps = 32;
+    t.pixels.assign(4 * 4 * 4, 0);
+    for (std::uint32_t i = 0; i < 4 * 4; ++i) {
+        t.pixels[i*4 + 0] = r;
+        t.pixels[i*4 + 1] = g;
+        t.pixels[i*4 + 2] = b;
+        t.pixels[i*4 + 3] = a;
+    }
+    return t;
+}
+
+mxh::gx::dx11::LoadedTexture make_alpha_gradient() {
+    // Alpha values strictly between 0 and 255 so has_transparent_alpha()
+    // returns true (aMin > 0 && aMax < 255). Otherwise Auto mode would
+    // pick BC1, not BC3 / BC7.
+    mxh::gx::dx11::LoadedTexture t;
+    t.width = 4; t.height = 4; t.bps = 32;
+    t.pixels.assign(4 * 4 * 4, 0);
+    for (std::uint32_t i = 0; i < 16; ++i) {
+        t.pixels[i*4 + 0] = 200;
+        t.pixels[i*4 + 1] = 100;
+        t.pixels[i*4 + 2] = 50;
+        t.pixels[i*4 + 3] = static_cast<std::uint8_t>(50 + (i * 9) % 150);  // 50..199
+    }
+    return t;
+}
+
 // ===== TGA round-trip =====
 
 TEST(TextureLoaderTGA, SaveTGARoundTripPreservesPixels) {
@@ -148,4 +186,161 @@ TEST(TextureLoaderAutoDetect, UnknownHeaderReturnsEmpty) {
     std::uint8_t junk[5] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     auto tex = mxh::gx::dx11::loadTextureFromMemory(junk, sizeof(junk));
     EXPECT_TRUE(tex.pixels.empty());
+}
+
+TEST(SaveDDSBC6H, MagicAndHeaderLayout) {
+    auto tex = make_solid(0xAB, 0xCD, 0xEF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    ASSERT_FALSE(dds.empty());
+    EXPECT_EQ(dds[0], 'D');
+    EXPECT_EQ(dds[1], 'D');
+    EXPECT_EQ(dds[2], 'S');
+    EXPECT_EQ(dds[3], ' ');
+    const std::uint32_t dwSize   = read_u32(dds.data() + 4);
+    const std::uint32_t dwWidth  = read_u32(dds.data() + 4 + 12);
+    const std::uint32_t dwHeight = read_u32(dds.data() + 4 + 8);
+    EXPECT_EQ(dwSize, 124u);
+    EXPECT_EQ(dwWidth,  4u);
+    EXPECT_EQ(dwHeight, 4u);
+}
+
+TEST(SaveDDSBC6H, FourCCIsDX10ForBC6H) {
+    auto tex = make_solid(0xAB, 0xCD, 0xEF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    ASSERT_GE(dds.size(), 4u + 124u + 4u);
+    const std::uint32_t fourcc = read_u32(dds.data() + 4 + 80);
+    EXPECT_EQ(fourcc, 0x30315844u);
+}
+
+TEST(SaveDDSBC6H, DX10ExtendedHeaderHasCorrectDXGIFormat) {
+    auto tex = make_solid(0xAB, 0xCD, 0xEF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    // dxgiFormat is the first u32 of the DXT10 extended header, which
+    // starts at file offset 4 (magic) + 124 (DDS_HEADER) = 128.
+    const std::uint32_t dxgiFormat = read_u32(dds.data() + 4 + 124);
+    EXPECT_EQ(dxgiFormat, 95u);  // BC6H_UFLOAT
+}
+
+TEST(SaveDDSBC6H, DX10ResourceDimensionIsTexture2D) {
+    auto tex = make_solid(0xAB, 0xCD, 0xEF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    const std::uint32_t resDim = read_u32(dds.data() + 4 + 124 + 4);
+    EXPECT_EQ(resDim, 3u);
+}
+
+TEST(SaveDDSBC6H, PayloadIs16BytesPerBlock) {
+    auto tex = make_solid(0xAB, 0xCD, 0xEF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    const std::size_t kExpected = 4 + 124 + 20 + 1 * 16;
+    EXPECT_EQ(dds.size(), kExpected);
+}
+
+TEST(SaveDDSBC6H, NonMultipleOf4PadsToBlockGrid) {
+    mxh::gx::dx11::LoadedTexture tex;
+    tex.width = 5; tex.height = 5; tex.bps = 32;
+    tex.pixels.assign(5 * 5 * 4, 0x80);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    const std::size_t kExpected = 4 + 124 + 20 + 4 * 16;
+    EXPECT_EQ(dds.size(), kExpected);
+}
+
+TEST(SaveDDSBC6H, BC6HBlockMode1FieldLayout) {
+    auto tex = make_solid(0xFF, 0xFF, 0xFF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H);
+    ASSERT_GE(dds.size(), 4u + 124u + 20u + 16u);
+    const std::uint8_t* block = dds.data() + 4 + 124 + 20;
+    EXPECT_EQ(block[0] & 0x1F, 0x01);
+    for (std::size_t b = 8; b < 16; ++b) {
+        EXPECT_EQ(block[b], 0);
+    }
+}
+
+TEST(SaveDDSBC7, MagicAndHeaderLayout) {
+    auto tex = make_solid(0x12, 0x34, 0x56, 0x78);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC7);
+    ASSERT_FALSE(dds.empty());
+    EXPECT_EQ(dds[0], 'D');
+    EXPECT_EQ(dds[1], 'D');
+    EXPECT_EQ(dds[2], 'S');
+    EXPECT_EQ(dds[3], ' ');
+    const std::uint32_t dwSize = read_u32(dds.data() + 4);
+    EXPECT_EQ(dwSize, 124u);
+}
+
+TEST(SaveDDSBC7, FourCCIsDX10AndDXGIFormatIsBC7) {
+    auto tex = make_solid(0x12, 0x34, 0x56, 0x78);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC7);
+    ASSERT_GE(dds.size(), 4u + 124u + 20u + 16u);
+    // fourcc lives in DdsPixelFormat.dwFourCC @ header + 80.
+    const std::uint32_t fourcc     = read_u32(dds.data() + 4 + 80);
+    // dxgiFormat lives in DdsHeaderDxt10.dxgiFormat @ 4 + 124 (DX10 ext start).
+    const std::uint32_t dxgiFormat = read_u32(dds.data() + 4 + 124);
+    EXPECT_EQ(fourcc,     0x30315844u);  // 'DX10'
+    EXPECT_EQ(dxgiFormat, 98u);          // BC7_UNORM
+}
+
+TEST(SaveDDSBC7, PayloadIs16BytesPerBlock) {
+    auto tex = make_solid(0x12, 0x34, 0x56, 0x78);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC7);
+    const std::size_t kExpected = 4 + 124 + 20 + 1 * 16;
+    EXPECT_EQ(dds.size(), kExpected);
+}
+
+TEST(SaveDDSBC7, BC7BlockMode6FieldLayout) {
+    auto tex = make_solid(0xFF, 0xFF, 0xFF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC7);
+    ASSERT_GE(dds.size(), 4u + 124u + 20u + 16u);
+    const std::uint8_t* block = dds.data() + 4 + 124 + 20;
+    EXPECT_EQ(block[0], 0x06);
+    EXPECT_EQ(block[1], 0xFF);
+    EXPECT_EQ(block[2], 0xFF);
+    EXPECT_EQ(block[3], 0xFF);
+    EXPECT_EQ(block[4], 0xFF);
+    EXPECT_EQ(block[5], 0xFF);
+    EXPECT_EQ(block[6], 0xFF);
+    EXPECT_EQ(block[7], 0xFF);
+    EXPECT_EQ(block[8], 0xFF);
+}
+
+TEST(SaveDDSBC7, BC7BlockNonWhiteHasMeanEndpoints) {
+    auto tex = make_solid(0xFF, 0x00, 0x00, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC7);
+    ASSERT_GE(dds.size(), 4u + 124u + 20u + 16u);
+    const std::uint8_t* block = dds.data() + 4 + 124 + 20;
+    EXPECT_EQ(block[0], 0x06);
+    EXPECT_EQ(block[1], 0xFF);
+    EXPECT_EQ(block[2], 0xFF);
+    EXPECT_EQ(block[3], 0x00);
+    EXPECT_EQ(block[4], 0x00);
+    EXPECT_EQ(block[5], 0x00);
+    EXPECT_EQ(block[6], 0x00);
+}
+
+TEST(SaveDDSBCAuto, AlphaGradientPicksBC3) {
+    // Auto mode with alpha gradient must select BC3 (DXT5) to match
+    // the legacy ConvertCompressedTexture heuristic. Hosts that want
+    // BC7 pass BCFormat::BC7 explicitly (the BC6H/BC7 path requires
+    // the DX10 extended header which not every DDS loader can read).
+    auto tex = make_alpha_gradient();
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::Auto);
+    ASSERT_FALSE(dds.empty());
+    const std::uint32_t fourcc = read_u32(dds.data() + 4 + 80);
+    EXPECT_EQ(fourcc, 0x35545844u);  // 'DXT5'
+}
+
+TEST(SaveDDSBCAuto, NoAlphaPicksBC1) {
+    auto tex = make_solid(0xFF, 0xFF, 0xFF, 0xFF);
+    auto dds = mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::Auto);
+    ASSERT_FALSE(dds.empty());
+    const std::uint32_t fourcc = read_u32(dds.data() + 4 + 80);
+    EXPECT_EQ(fourcc, 0x31545844u);
+}
+
+TEST(SaveDDSBCFormat, EmptyTextureReturnsEmptyForAllFormats) {
+    mxh::gx::dx11::LoadedTexture tex;
+    EXPECT_TRUE(mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC1).empty());
+    EXPECT_TRUE(mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC3).empty());
+    EXPECT_TRUE(mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC6H).empty());
+    EXPECT_TRUE(mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::BC7).empty());
+    EXPECT_TRUE(mxh::gx::dx11::saveDDS_BC(tex, mxh::gx::dx11::BCFormat::Auto).empty());
 }
