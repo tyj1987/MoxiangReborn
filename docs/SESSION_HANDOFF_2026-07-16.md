@@ -180,3 +180,58 @@ git -C D:\Moxian log --oneline bafc20d..HEAD
 
 38 commits, all merge into main. No PRs opened (no remote
 configured).
+
+## Phase 10.27: bug finding during D-phase exploration
+
+While exploring the .bsad resource format for a real-
+resource integration test, I noticed the modern parser
+in `modern/src/bsad_area.cpp` is a **skeleton stub** that
+does not match the actual on-disk format of the .bsad
+files in `墨香【源码配套资源】\PlayDH\Resource\SkillArea\`.
+
+The current `bsad_area.hpp` declares:
+```
+[u16 width] [u16 height] [u32 reserved] [u8 cells[N]]
+```
+
+But the actual on-disk format appears to be:
+```
+[4 bytes — last 2 are 0x31 0x01, first 2 unknown]
+[u32LE — possibly an offset or a hash]
+[u32LE — possibly an offset or a hash]
+[encrypted cell data, NOT plain u8]
+```
+
+Looking at the legacy `CSkillAreaData::LoadAreaData()` in
+`墨香【源码】\[CC]Skill\SkillAreaData.cpp`, the server-
+side loader reads `pFile->GetByte()` (u8 radius) and
+then `AreaSize*AreaSize` cells — but the actual on-disk
+file has 12+ bytes of header before any cell-like data,
+and the data is encrypted (bytes look random).
+
+**Status**: not fixed. The bsad parser would need to
+either:
+1. Reverse-engineer the encryption (the bytes look
+   like a simple XOR or substitution cipher, but the
+   key is not obvious from the on-disk data).
+2. Read the legacy `CMHFile::GetAreaTile()` source
+   to find the actual byte layout (the function is
+   not present in the client-side MHFile.cpp; it
+   must be in a server-only file).
+3. Get the original `SkillAreaEditor` tool source
+   (it's in `墨香【工具】` or similar) to see the
+   exact format the editor writes.
+
+This is a real wire-format pin finding — the modern
+stub never matched the legacy format. Per AGENTS.md
+"1:1 不能动" rule, we don't fix it without a 1:1
+spec. The existing `bsad_area_test.cpp` tests pass
+because they only test the synthetic round-trip
+(`parse(unparse(parse(x))) == parse(x)`), not the
+real on-disk format.
+
+**Next session priority**: low. Fix this if/when
+someone needs to actually load .bsad files at
+runtime. The HSEL cipher stub in
+`modern/src/crypto/` might give a clue about the
+cipher.
