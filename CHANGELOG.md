@@ -249,11 +249,15 @@
 | Phase 7 | Build system | - | ✅ |
 | Phase 8 | Performance utils | 17 | ✅ |
 | Phase 9 | Cross-platform socket | 20 | ✅ |
-| **Total** | | **535+** | **430+ tests passing** |
+| Phase 10.4.9 | util / version / monitor tests | 57 | ✅ |
+| **Total** | | **592** | **506/506 tests passing** |
+
+Last verified: 2026-07-15 (commit 99c9b24, ctest 33.35 sec wall).
 
 ---
 
 ## Upcoming
 
-- Phase 9.3: Docker containerization
-- Phase 10: Tool chain modernization
+- P10.5: archive modern/scratch/ agent leftovers (per AGENTS.md trap #10) — done
+- P10.6: sync test count (this commit)
+- C-32: real docker compose up mssql + MoxianLoginServer --backend mssql_odbc smoke
