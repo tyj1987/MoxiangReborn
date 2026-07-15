@@ -124,15 +124,17 @@ TEST(MhFileExUtf8, C34SentinelWriteAndRead) {
 // decrypts to the EUC-KR rendering of the same Korean text. This protects
 // against accidentally breaking the existing legacy decoder path.
 //
-// The legacy file lives at
-//   D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\SWorking\Resource\Server\TitanServer.bin
+// The legacy EUC-KR copy lives at
+//   D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\SWorking\Resource\Server\TitanServer.bin.old_euc_kr
+// (TitanServer.bin itself was re-encoded to UTF-8 in Phase 7.5g; the original
+//  EUC-KR bytes are preserved alongside it for decoder regression checks.)
 // Path is expressed in UTF-8 (modern build uses /utf-8 globally).
 TEST(MhFileExUtf8, LegacyEucKrTitanServerBinDecodesToEucKr) {
     namespace fs = std::filesystem;
     fs::path legacy =
-        u8"D:\\墨香全套源代码（源码+资源+客户端+服务端+教程）\\墨香【源码】\\SWorking\\Resource\\Server\\TitanServer.bin";
+        u8"D:\\墨香全套源代码（源码+资源+客户端+服务端+教程）\\墨香【源码】\\SWorking\\Resource\\Server\\TitanServer.bin.old_euc_kr";
     if (!fs::exists(legacy)) {
-        GTEST_SKIP() << "Legacy TitanServer.bin not found at " << legacy.string()
+        GTEST_SKIP() << "Legacy TitanServer.bin (EUC-KR copy) not found at " << legacy.string()
                      << " — skipping C-34 regression check";
     }
 
