@@ -14,6 +14,11 @@ gtest_add_tests(TARGET mxh_db_tests
     DbAdapter.MakeAdapterReturnsNonNullForSqlite
     DbAdapter.MakeAdapterReturnsNullForUnknown
     DbAdapter.EmptyBackendDefaultsToSqlite
+    DbAdapter.SqliteFactoryReturnsSqliteAdapterConcreteType
+    DbAdapter.FactoryBackendNameLookupIsCaseSensitive
+    DbAdapter.FactoryReturnedAdapterIsNotConnected
+    DbAdapter.MssqlFactoryReturnsMssqlAdapterConcreteType
+    DbAdapter.MssqlFactoryAliasesRouteToMssqlAdapter
     SqliteAdapter.CreateTableAndInsert
     SqliteAdapter.SelectWithBindParameters
     SqliteAdapter.Transactions
