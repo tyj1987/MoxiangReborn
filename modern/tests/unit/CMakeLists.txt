@@ -56,3 +56,34 @@ target_include_directories(mxh_proto_tests PRIVATE
 
 add_test(NAME mxh_proto_negotiate_tests
     COMMAND $<TARGET_FILE:mxh_proto_tests>)
+# -----------------------------------------------------------------------------
+# mxh_util tests — thread pool / object pool / compression (Phase 8 helpers)
+# Header-only util module, links gtest_main only.
+# -----------------------------------------------------------------------------
+add_executable(mxh_util_tests
+    util_test.cpp
+)
+
+target_link_libraries(mxh_util_tests PRIVATE gtest_main)
+target_include_directories(mxh_util_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_util_tests)
+
+# -----------------------------------------------------------------------------
+# mxh_version tests — protocol version negotiation (Phase 3.4 / Phase 7.5)
+# Header-level checks against mxh::proto::protocol.hpp and mxh::net::MsgHeader.
+# -----------------------------------------------------------------------------
+add_executable(mxh_version_tests
+    version_test.cpp
+)
+
+target_link_libraries(mxh_version_tests PRIVATE mxh_net gtest_main)
+target_include_directories(mxh_version_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_version_tests)
