@@ -396,6 +396,29 @@ mxh::net::ConnectionId AgentHandler::get_map_connection() const {
     return map_conn_id_;
 }
 
+void AgentHandler::register_session(mxh::net::ConnectionId id,
+                                    std::uint32_t user_id,
+                                    std::uint32_t char_id,
+                                    std::uint16_t map_num) {
+    // Phase 12.1 P2-13 follow-up: see header for rationale. This
+    // populates the same four maps the legacy character list/select
+    // handlers would fill through the binary protocol, so unit tests
+    // can drive on_disconnect -> GameOutSyn forwarding without going
+    // through the full binary protocol. Both locks are taken in the
+    // same order forward_from_map / on_disconnect acquire them to
+    // avoid deadlock.
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        conn_user_ids_[id.value]   = user_id;
+        conn_char_ids_[id.value]   = char_id;
+        conn_map_nums_[id.value]   = map_num;
+    }
+    {
+        std::lock_guard<std::mutex> lk(map_route_mu_);
+        char_to_client_[char_id]   = id.value;
+    }
+}
+
 void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
                                     const mxh::net::Message& msg) {
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);

@@ -345,6 +345,88 @@ TEST(AgentHandlerTest, SetMapServerAcceptsITcpSender) {
     EXPECT_EQ(handler.get_map_connection().value, 7u);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 12.1 P2-13 follow-up: register_session() + complete GameOutSyn
+// forwarding test. The previous "no session" tests covered the early-return
+// path; register_session lets us populate conn_user_ids_/conn_char_ids_/
+// conn_map_nums_/char_to_client_ directly so the on_disconnect handler
+// fires the real forward-GameOutSyn path and the mock sender captures it.
+// ---------------------------------------------------------------------------
+
+TEST(AgentHandlerTest, RegisterSessionStoresUserCharMap) {
+    // register_session is the production-meaningful entry point that
+    // populates the four session maps without going through the binary
+    // protocol. It is also what tests use to drive the on_disconnect
+    // forwarding path. Verify all three state slots are reachable.
+    MockDbAdapter db;
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    handler.register_session(
+        mxh::net::make_connection_id(100),
+        /*user_id=*/3001, /*char_id=*/450035712, /*map_num=*/12);
+    // on_disconnect should now be able to look up the session for conn=100.
+    // We verify by triggering a real forward: a connected MockTcpSender
+    // must see a GameOutSyn message after on_disconnect.
+    MockTcpSender mock;
+    handler.set_map_server(&mock, mxh::net::make_connection_id(42));
+    handler.on_disconnect(mxh::net::make_connection_id(100),
+                          mxh::net::NetError::Disconnected);
+    EXPECT_EQ(mock.send_count.load(), 1);
+    ASSERT_EQ(mock.sent_msgs.size(), 1u);
+    const auto& fwd = mock.sent_msgs[0];
+    EXPECT_EQ(static_cast<int>(fwd.header.category),
+              static_cast<int>(mxh::proto::Category::UserConn));
+    // GameOutSyn protocol id is 33 (per AgentHandler.cpp:244).
+    EXPECT_EQ(fwd.header.protocol, 31);  // GameOutSyn = 31 per protocol.hpp
+    EXPECT_EQ(fwd.header.object_id, 450035712u);
+    // payload = wMapNum(2B) + bIsExiting=1(1B) + padding(5B) = 8B
+    ASSERT_EQ(fwd.payload.size(), 8u);
+    const std::uint16_t map_in_payload =
+        static_cast<std::uint16_t>(fwd.payload[0]) |
+        (static_cast<std::uint16_t>(fwd.payload[1]) << 8);
+    EXPECT_EQ(map_in_payload, 12u);
+    EXPECT_EQ(fwd.payload[2], 1);  // bIsExiting
+}
+
+TEST(AgentHandlerTest, RegisterSessionOverridesPriorSession) {
+    // Calling register_session twice for the same conn_id replaces the
+    // previous entry. The new char_id wins (so the forwarded message
+    // uses the new char_id as the object_id).
+    MockDbAdapter db;
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    handler.register_session(mxh::net::make_connection_id(100),
+                              3001, 450035712, 12);
+    handler.register_session(mxh::net::make_connection_id(100),
+                              3001, 99999, 7);
+    MockTcpSender mock;
+    handler.set_map_server(&mock, mxh::net::make_connection_id(42));
+    handler.on_disconnect(mxh::net::make_connection_id(100),
+                          mxh::net::NetError::Disconnected);
+    EXPECT_EQ(mock.send_count.load(), 1);
+    EXPECT_EQ(mock.sent_msgs[0].header.object_id, 99999u);
+    const std::uint16_t map_in_payload =
+        static_cast<std::uint16_t>(mock.sent_msgs[0].payload[0]) |
+        (static_cast<std::uint16_t>(mock.sent_msgs[0].payload[1]) << 8);
+    EXPECT_EQ(map_in_payload, 7u);
+}
+
+TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
+    // If we disconnect a conn_id that was never registered, no
+    // forwarding happens. Same as the pre-P2-13 OnDisconnectWith-
+    // MockSenderNoSessionDoesNotSend test, but exercises the path
+    // AFTER a different conn was registered (proving the maps are
+    // keyed by conn_id correctly).
+    MockDbAdapter db;
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    handler.register_session(mxh::net::make_connection_id(100),
+                              3001, 450035712, 12);
+    MockTcpSender mock;
+    handler.set_map_server(&mock, mxh::net::make_connection_id(42));
+    handler.on_disconnect(mxh::net::make_connection_id(999),  // never registered
+                          mxh::net::NetError::Disconnected);
+    EXPECT_EQ(mock.send_count.load(), 0);
+    EXPECT_TRUE(mock.sent_msgs.empty());
+}
+
 // ===========================================================================
 // MapHandler
 // ===========================================================================

@@ -275,6 +275,54 @@ put_hsel_init(payload, rng);  // deinit
 
 **关联**：`modern/src/server/agent_handler.cpp` (1 处 ifdef 守卫)。
 
+## [0.13.10] - 2026-07-16
+
+### Phase 12.1 P2-13 follow-up: register_session() public method + 完整 GameOutSyn 单元测试 ✅
+
+**背景**：0.13.8 (P2-13) 加了 `ITcpSender` interface 但留下了
+一个口：测试**没法**填 `conn_user_ids_ / conn_char_ids_ /
+conn_map_nums_ / char_to_client_` 4 个 private map（legacy
+character list/select 流程才填）。结果 4 个 MockTcpSender 测试
+只覆盖了 early-return / null / disconnected 路径；**完整的
+"on_disconnect 触发 GameOutSyn 转发 → MockTcpSender 真的收到"
+路径没法单测**。
+
+**已实装**
+
+- `modern/include/mxh/server/server.hpp` `AgentHandler`：
+  - 新 public method `register_session(ConnectionId, user_id, char_id,
+    map_num)` —— 同时填 4 个 map（conn_user_ids_ / conn_char_ids_ /
+    conn_map_nums_ / char_to_client_），lock 顺序与 on_disconnect /
+    forward_from_map 一致避免死锁
+  - 这是**生产可用的入口**（Phase 13+ 从持久化存储恢复 session
+    state 时用），不只是 test-only
+- `modern/src/server/agent_handler.cpp`：`register_session` 实现
+  紧跟 `set_map_server` 之后
+- `modern/tests/unit/server/server_handler_test.cpp`：3 个新测试
+  - `RegisterSessionStoresUserCharMap` — 注册 session → 断连
+    → 验证 MockTcpSender 收到 1 条 GameOutSyn（cat=UserConn,
+    proto=31=GameOutSyn, obj=char_id, payload=wMapNum+bIsExiting=1）
+  - `RegisterSessionOverridesPriorSession` — 同 conn 二次注册
+    用新 char_id 覆盖
+  - `RegisterSessionIsNoOpForUnknownConn` — 未注册的 conn 断连
+    不触发转发（map 正确按 conn_id key）
+
+**测试数**：`mxh_server_handler_tests` 20 → **23 PASS**（+3）
+**全栈**：`ctest -C Debug` 847 → **850/850 PASS**（+3，0 回归）
+
+**遗留**
+
+- `register_session` 暴露了原本私有的 session state；如果未来
+  Phase 13+ 持久化层直接用 OK，但 12.x 阶段任何 caller 都能改
+  state 是**有意为之**（测试需要）。生产代码应走 register_session
+  + set_map_server 两条入口，不要直接访问 conn_*_ map
+- P2-13 完全收口："GameOutSyn 真的发出去"现在**可单测**，不再
+  依赖真 MapServer 或 Phase 9 集成测试
+
+**关联**：`modern/include/mxh/server/server.hpp` (AgentHandler
+public method)、`modern/src/server/agent_handler.cpp` (实现)、
+`modern/tests/unit/server/server_handler_test.cpp` (+3 用例)。
+
 ## [0.13.3] - 2026-07-16
 
 ### Phase 12.1: agent_handler 断连 GameOutSyn 转发 ✅

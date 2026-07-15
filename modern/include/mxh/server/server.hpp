@@ -102,6 +102,21 @@ public:
     void forward_from_map(mxh::net::ConnectionId map_id,
                           const mxh::net::Message& msg);
 
+    // Phase 12.1 P2-13 follow-up: explicit session registration so unit
+    // tests can drive the on_disconnect -> GameOutSyn forwarding path
+    // without going through the full binary CharacterList/CharacterSelect
+    // protocol flow. Production code populates conn_user_ids_ /
+    // conn_char_ids_ / conn_map_nums_ / char_to_client_ internally via
+    // the legacy character list/select handlers, but tests need a way to
+    // set up the same state directly. Safe to call multiple times for
+    // the same id (overwrites the previous entry). This is also a
+    // reasonable production entry point for restoring session state
+    // from a persistent store (Phase 13+).
+    void register_session(mxh::net::ConnectionId id,
+                          std::uint32_t user_id,
+                          std::uint32_t char_id,
+                          std::uint16_t map_num);
+
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
