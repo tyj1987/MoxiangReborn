@@ -20,6 +20,7 @@
 //   [2B length LE] [8B MSGBASE: checksum+code+cat+proto+objID] [payload]
 
 #include "mxh/server/server.hpp"
+#include "mxh/game/item_effects.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -807,17 +808,124 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::memcpy(&pos, msg.payload.data(), 2);
             std::cout << "[Map] ITEM_USE_SYN pos=" << pos << "\n";
 
-            // Phase 10b P0: always send UseAck (basic implementation)
-            // TODO: apply item effects (HP/MP recovery, buffs, etc.)
+            // Phase 12.1: apply item effects on UseSyn.
+            //
+            // 1) Look up the item at the given position in the
+            //    player's inventory. If no item / wrong range, send
+            //    UseNack.
+            // 2) Classify the item by wIconIdx. Non-consumables
+            //    (wIconIdx >= 400 or wIconIdx == 0) also yield
+            //    UseNack.
+            // 3) Resolve the effect (HP / MP / buff delta) and
+            //    apply to the player's combat stats. Clamp HP/MP
+            //    to [0, max_*].
+            // 4) Send UseAck with a small payload describing the
+            //    applied effect (HP delta, MP delta, new HP, new
+            //    MP). This is sufficient for clients to update
+            //    their UI; a richer "UseEffectNotify" can be
+            //    added later.
+            mxh::game::ItemBase used_item{};
+            bool found = false;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                auto it = connected_players_.find(player_id);
+                if (it != connected_players_.end()) {
+                    auto& inv = it->second.items;
+                    if (pos < mxh::game::TP_INVENTORY_END) {
+                        used_item = inv.Inventory[pos];
+                        found = !mxh::game::is_empty_slot(used_item);
+                    }
+                }
+            }
+            if (!found) {
+                mxh::net::Message reply;
+                reply.header.category = static_cast<std::uint8_t>(
+                    mxh::proto::Category::Item);
+                reply.header.protocol = static_cast<std::uint8_t>(
+                    mxh::proto::ItemProtocol::UseNack);
+                reply.header.object_id = player_id;
+                reply.payload = msg.payload;
+                reply_(id, reply);
+                std::cout << "[Map] sent ITEM_USE_NACK (no item at pos)\n";
+                break;
+            }
+
+            const auto kind = mxh::game::classify_item(used_item.wIconIdx);
+            const auto effect = mxh::game::resolve_item_effect(used_item.wIconIdx);
+            if (kind == mxh::game::ItemEffectKind::None) {
+                // Equipment / scroll / unknown — not consumable.
+                mxh::net::Message reply;
+                reply.header.category = static_cast<std::uint8_t>(
+                    mxh::proto::Category::Item);
+                reply.header.protocol = static_cast<std::uint8_t>(
+                    mxh::proto::ItemProtocol::UseNack);
+                reply.header.object_id = player_id;
+                reply.payload = msg.payload;
+                reply_(id, reply);
+                std::cout << "[Map] sent ITEM_USE_NACK (non-consumable wIconIdx="
+                          << used_item.wIconIdx << ")\n";
+                break;
+            }
+
+            // Apply the effect to player combat stats.
+            std::uint32_t new_hp = 0;
+            std::uint32_t new_mp = 0;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                auto it = connected_players_.find(player_id);
+                if (it != connected_players_.end()) {
+                    auto& c = it->second.combat;
+                    if (effect.hp_delta > 0) {
+                        std::int64_t next = static_cast<std::int64_t>(c.current_hp)
+                                          + effect.hp_delta;
+                        if (next > c.max_hp) next = c.max_hp;
+                        if (next < 0) next = 0;
+                        c.current_hp = static_cast<std::uint32_t>(next);
+                    }
+                    if (effect.mp_delta > 0) {
+                        std::int64_t next = static_cast<std::int64_t>(c.current_mp)
+                                          + effect.mp_delta;
+                        if (next > c.max_mp) next = c.max_mp;
+                        if (next < 0) next = 0;
+                        c.current_mp = static_cast<std::uint32_t>(next);
+                    }
+                    new_hp = c.current_hp;
+                    new_mp = c.current_mp;
+                }
+            }
+
+            // Build the UseAck reply.
+            //
+            // Payload layout (12 bytes — matches the conventional
+            // GameIn reply shape used by other handlers in this
+            // file; can be expanded with a follow-up "UseEffect"
+            // notify if a real client needs more fields):
+            //   u16  pos               (echoed)
+            //   u16  wIconIdx          (echoed)
+            //   i32  hp_delta          (signed)
+            //   i32  mp_delta          (signed)
+            //   u32  current_hp        (post-effect)
+            //   u32  current_mp        (post-effect)
             mxh::net::Message reply;
             reply.header.category = static_cast<std::uint8_t>(
                 mxh::proto::Category::Item);
             reply.header.protocol = static_cast<std::uint8_t>(
                 mxh::proto::ItemProtocol::UseAck);
             reply.header.object_id = player_id;
-            reply.payload = msg.payload;
+            reply.payload.resize(2 + 2 + 4 + 4 + 4 + 4, 0);
+            std::size_t off = 0;
+            std::memcpy(reply.payload.data() + off, &pos, 2);            off += 2;
+            std::memcpy(reply.payload.data() + off, &used_item.wIconIdx, 2); off += 2;
+            std::memcpy(reply.payload.data() + off, &effect.hp_delta, 4); off += 4;
+            std::memcpy(reply.payload.data() + off, &effect.mp_delta, 4); off += 4;
+            std::memcpy(reply.payload.data() + off, &new_hp, 4);          off += 4;
+            std::memcpy(reply.payload.data() + off, &new_mp, 4);          off += 4;
             reply_(id, reply);
-            std::cout << "[Map] sent ITEM_USE_ACK\n";
+            std::cout << "[Map] sent ITEM_USE_ACK pos=" << pos
+                      << " wIconIdx=" << used_item.wIconIdx
+                      << " hp+=" << effect.hp_delta
+                      << " mp+=" << effect.mp_delta
+                      << " (now hp=" << new_hp << " mp=" << new_mp << ")\n";
             break;
         }
 
