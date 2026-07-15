@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/master/docs/vcpkg-schema.json",
+  "name": "moxian-reborn",
+  "version": "0.1.0",
+  "description": "Moxian (DarkStory) — modernized 2D MMORPG engine",
+  "dependencies": [
+    {
+      "name": "gtest",
+      "version>=": "1.14.0"
+    },
+    {
+      "name": "sqlite3",
+      "version>=": "3.45.0"
+    }
+  ],
+  "overrides": [],
+  "builtin-baseline": "2024.09.30"
+}
