@@ -201,6 +201,28 @@ AI_*.md
 SQLEXPR_x64_ENU/
 SQLEXPR_*/
 
+# deploy/ — legacy game content (binary, large, mirrored in SWorking/).
+# Per AGENTS.md trap #1 "保持游戏内容 1:1", the game data lives in
+# 墨香【源码】/SWorking/ and 墨香【源码配套资源】/. The deploy/ tree is
+# just an alternate copy of that legacy data (binary .bin/.bmhm/.ttb +
+# legacy 2008 .exe/.dll + game audio .wav). Git LFS would be the right
+# tool for binary game data, but this repo is plain git. So:
+#   - commit deploy/{DEPLOY_GUIDE.md, scripts/, database/, server/ServerSet/1/}
+#     (operational + ~5 KB config)
+#   - exclude the rest (binary blobs mirrored in SWorking/).
+deploy/client/
+deploy/server/Distribute/
+deploy/server/Agent/
+deploy/server/Map/
+deploy/server/Monitoring/
+deploy/server/RMTool/
+
+# Whitelist: keep the operational deploy/ subdirectories (override above).
+!deploy/DEPLOY_GUIDE.md
+!deploy/scripts/
+!deploy/database/
+!deploy/server/ServerSet/
+
 # Intermediate cmake build dirs (under modern/).
 # The actual build dir is modern/build/; the build_* dirs are leftover
 # experiments and should not be committed.
