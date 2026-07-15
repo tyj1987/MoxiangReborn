@@ -19,7 +19,13 @@ add_library(mxh_ui STATIC
     cListDialog.cpp
     cGuildDialog.cpp
     cMultiLineText.cpp
+    ime.cpp
 )
+
+if(WIN32)
+    target_sources(mxh_ui PRIVATE ime_win32_imm.cpp)
+    target_link_libraries(mxh_ui PRIVATE imm32)
+endif()
 
 target_include_directories(mxh_ui PUBLIC
     ${CMAKE_SOURCE_DIR}/include

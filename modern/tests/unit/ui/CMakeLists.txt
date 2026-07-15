@@ -15,6 +15,7 @@ add_executable(mxh_ui_tests
     cguilddialog_test.cpp
     cmultilinetext_test.cpp
     legacy_compat_test.cpp
+    ime_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
