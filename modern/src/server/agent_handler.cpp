@@ -553,10 +553,19 @@ void AgentHandler::handle_legacy_character_list(
     // before CharNum. The client's SEND_CHARSELECT_INFO struct starts with
     // these fields when _CRYPTCHECK_ is defined.
     // Server eninit -> client uses as deinit; server deinit -> client uses as eninit.
+    //
+    // Phase 12.1 fix: gate the injection on _CRYPTCHECK_ so legacy clients
+    // (which do not define the macro and therefore do not expect the 128 B
+    // prefix) get a payload that starts directly with char_count. Without
+    // this guard, every modern vs legacy integration test parses 128 B of
+    // random key material as the char_count + chrid + map fields, which
+    // makes the integration test non-deterministic.
+#ifdef _CRYPTCHECK_
     std::random_device rd;
     std::mt19937 rng(rd());
     put_hsel_init(payload, rng);  // eninit (server encrypt -> client decrypt)
     put_hsel_init(payload, rng);  // deinit (server decrypt -> client encrypt)
+#endif
 
     // CharNum (int32, little-endian)
     put_i32(payload, char_count);

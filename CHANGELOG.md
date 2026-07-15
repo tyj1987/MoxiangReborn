@@ -229,6 +229,52 @@ DX10 extended header 路径，需要新的 `DdsHeaderDxt10` struct + new
 `modern/tests/unit/render/texture_loader_test.cpp` (+14 用例)、
 `docs/KNOWN_BUGS.md` (R-11)。
 
+## [0.13.9] - 2026-07-16
+
+### Phase 12.1: agent_handler HSEL init injection 加 `_CRYPTCHECK_` 守卫 ✅
+
+**背景**：之前 P11a (commit 99c9b24, Phase 11) 在
+`AgentHandler::handle_legacy_character_list` 的 charlist ack 头部
+**无条件**注入了 128 字节 HSEL init key（eninit + deinit）。这在
+`_CRYPTCHECK_` 编译的 client 是对的（SEND_CHARSELECT_INFO struct
+头就是这两个 64-B init block），但**非 `_CRYPTCHECK_` legacy
+client 不知道这 128 字节**——它们的 client parser 直接把 char_count
+字段读成 HSEL key 头 4 字节的随机值，整个 payload 解析全错。
+
+**症状**：
+- `test_map_integration.py` Step 4 输出 `chrid=450035712 map=0
+  level=0` —— chrid/map/level 全是 HSEL key 头的随机值
+- Step 5 CharacterSelectSyn 查 DB 找不到这个 chrid →
+  CharacterSelectNack → 测试 fail
+
+**已实装**
+
+`modern/src/server/agent_handler.cpp` line 555-567: 把无条件
+`put_hsel_init(...)` × 2 改到 `#ifdef _CRYPTCHECK_` 块内
+
+```cpp
+// Phase 11a fix: ...（注释保留）
+// Phase 12.1 fix: gate the injection on _CRYPTCHECK_ so legacy
+// clients (which do not define the macro and therefore do not
+// expect the 128 B prefix) get a payload that starts directly
+// with char_count.
+#ifdef _CRYPTCHECK_
+std::random_device rd;
+std::mt19937 rng(rd());
+put_hsel_init(payload, rng);  // eninit
+put_hsel_init(payload, rng);  // deinit
+#endif
+```
+
+**测试结果**
+- 单元 ctest 847/847 PASS（不破）
+- `test_map_integration.py` Step 4 修：`chrid=2606684 map=12
+  level=1`（真 character from DB），Step 5+ 跑通，Step 7 仍有
+  自己的 second-connection 测试设计问题（**这是 Python 测试逻辑
+  bug，不是 modernization bug**，留给独立 P2-12 修）
+
+**关联**：`modern/src/server/agent_handler.cpp` (1 处 ifdef 守卫)。
+
 ## [0.13.3] - 2026-07-16
 
 ### Phase 12.1: agent_handler 断连 GameOutSyn 转发 ✅
