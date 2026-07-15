@@ -12,6 +12,7 @@ add_executable(mxh_render_tests
     texture_loader_test.cpp
     phase5_deferred_test.cpp
     mesh_flag_test.cpp
+    math_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -162,4 +163,33 @@ gtest_add_tests(TARGET mxh_render_tests
     MotionCache.ClearAllEmptyReturnsZero
     MotionCache.ClearSpecificRemovesOneEntry
     MotionCache.ClearUnknownUidReturnsZero
+    # Phase 10.19: math primitives (VECTOR2/3/4, MATRIX4, helpers)
+    VectorSizeTest.Vector2IsTwoFloats
+    VectorSizeTest.Vector3IsThreeFloats
+    VectorSizeTest.Vector4IsFourFloats
+    VectorLayoutTest.Vector3FieldOrder
+    MatrixSizeTest.Matrix4IsSixteenFloats
+    MatrixSizeTest.Matrix4FieldLayoutMatchesArray
+    PiConstantsTest.ValuesAreCloseToExpected
+    PiConstantsTest.DefaultFovIs45Degrees
+    PiConstantsTest.DoublesAndHalvesAreConsistent
+    MatrixIdentityTest.ReturnsStandard4x4Identity
+    MatrixIdentityTest.IsInPlaceSafe
+    SetIdentityMatrixTest.OverwritesAllFields
+    SetIdentityMatrixTest.NullPointerIsNoOp
+    MatrixMultiplyTest.IdentityTimesAnyIsAny
+    MatrixMultiplyTest.NonCommutative
+    MatrixMultiplyTest.NullPointerIsNoOp
+    MatrixOrthoTest.TwoByTwoUnitBox
+    MatrixOrthoTest.WiderBoxScalesX
+    MatrixOrthoTest.NullPointerIsNoOp
+    MatrixLookAtTest.StandardForwardView
+    MatrixLookAtTest.EyeMapsToOrigin
+    MatrixLookAtTest.TargetMapsToNegativeZ
+    MatrixLookAtTest.DegenerateEyeEqualsAtFallsBackToIdentity
+    MatrixLookAtTest.NullPointerIsNoOp
+    SetMatrixColumnTest.ColumnZero
+    SetMatrixColumnTest.AllFourColumns
+    SetMatrixColumnTest.InvalidColumnIndexIsNoOp
+    SetMatrixColumnTest.NullPointerIsNoOp
 )
