@@ -13,8 +13,6 @@ import os, subprocess, shutil
 ROOT = r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\[Lib]YHLibrary"
 BD   = r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\[Lib]YHLibrary\build_yhlibrary"
 
-if os.path.isdir(BD):
-    shutil.rmtree(BD)
 os.makedirs(BD, exist_ok=True)
 
 def setup_env():
@@ -44,7 +42,10 @@ r = subprocess.run(
      "-G", "Visual Studio 17 2022", "-A", "Win32",
      "-DCMAKE_BUILD_TYPE=Release"],
     capture_output=True, shell=False, env=env)
-print(r.stdout.decode("mbcs", errors="replace"))
+try:
+    print(r.stdout.decode("mbcs", errors="replace"))
+except UnicodeEncodeError:
+    print(r.stdout.decode("mbcs", errors="replace").encode("ascii", errors="replace").decode("ascii"))
 if r.returncode != 0:
     print("STDERR:", r.stderr.decode("mbcs", errors="replace")[:2000])
     raise SystemExit(r.returncode)
