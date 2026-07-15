@@ -1,4 +1,4 @@
-// agent_handler.cpp - AgentServer handler (per-user agent).
+﻿// agent_handler.cpp - AgentServer handler (per-user agent).
 //
 // Phase 4 demo: handles MP_USERCONN_CHARACTERLIST_SYN -> returns
 // character list from DB. Limited implementation; full Agent logic
@@ -185,27 +185,92 @@ bool AgentHandler::on_connect(mxh::net::ConnectionId id,
 void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
     std::cout << "[Agent] client disconnected (id=" << id.value
-              << " reason=" << mxh::net::to_string(reason) << ")\n";
+              << " reason=" << mxh::net::to_string(reason) << "\n";
     // Clean up connection state.
     std::uint32_t removed_char_id = 0;
+    std::uint16_t removed_map_num = 0;
+    bool had_map_num = false;
     {
         std::lock_guard<std::mutex> lk(user_mu_);
         auto char_it = conn_char_ids_.find(id.value);
         if (char_it != conn_char_ids_.end()) {
             removed_char_id = char_it->second;
         }
+        auto map_it = conn_map_nums_.find(id.value);
+        if (map_it != conn_map_nums_.end()) {
+            removed_map_num = map_it->second;
+            had_map_num = true;
+        }
         conn_user_ids_.erase(id.value);
         conn_char_ids_.erase(id.value);
         conn_map_nums_.erase(id.value);
     }
-    // Phase 9: do NOT erase char_to_client_ here.
-    // MapServer still considers this player connected (we never sent
-    // GameOutSyn), so broadcast messages will still arrive for this
-    // char_id. Removing the routing entry would drop those messages.
-    // The entry will be overwritten when the client reconnects and
-    // sends GameInSyn again.
-    // TODO: send GameOutSyn to MapServer on client disconnect to
-    // properly clean up both sides.
+
+    // Phase 12.1: forward GameOutSyn to MapServer so the Map side
+    // can erase the player from connected_players_ and stop
+    // broadcasting to a disconnected char_id. Without this, MapServer
+    // would keep the entry around until the next GameInSyn overwrites
+    // it, and any broadcasts targeted at this char_id would route to
+    // a stale connection (or silently no-op if the routing entry was
+    // already cleared).
+    //
+    // Trigger conditions (all must hold):
+    //   1) removed_char_id > 0  -- character was selected
+    //   2) had_map_num          -- CharacterSelectAck landed (so the
+    //                             client at least reached the map-load
+    //                             step; a GameOutSyn before that
+    //                             would be a no-op on the Map side)
+    //   3) map_client_ is connected -- there's somewhere to send to
+    //
+    // We snapshot the TcpClient* under map_route_mu_ so a concurrent
+    // set_map_server() doesn't race the send.
+    if (removed_char_id != 0 && had_map_num) {
+        mxh::net::ITcpSender* mc = nullptr;
+        {
+            std::lock_guard<std::mutex> lk(map_route_mu_);
+            mc = map_client_;
+        }
+        if (mc && mc->is_connected()) {
+            mxh::net::Message fwd;
+            fwd.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            fwd.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameOutSyn);
+            fwd.header.object_id = removed_char_id;
+            // Payload: wMapNum(2B) + bIsExiting(1B) + padding(5B).
+            // Original AgentNetworkMsgParser.cpp sends dwMapNum so
+            // MapServer can route the response back to the right map
+            // channel. bIsExiting=1 marks a hard exit (vs a
+            // channel-change exit which uses bIsExiting=0).
+            fwd.payload.resize(8, 0);
+            std::memcpy(fwd.payload.data() + 0,
+                        &removed_map_num, 2);
+            fwd.payload[2] = 1;  // bIsExiting = true
+            auto err = mc->send(fwd);
+            if (err != mxh::net::NetError::Ok) {
+                std::cerr << "[Agent] failed to forward GAMEOUT_SYN to MapServer: "
+                          << mxh::net::to_string(err) << "\n";
+            } else {
+                std::cout << "[Agent] forwarded GAMEOUT_SYN charid="
+                          << removed_char_id << " map=" << removed_map_num
+                          << " to MapServer\n";
+            }
+        } else {
+            std::cout << "[Agent] no MapServer connection, skipping GAMEOUT_SYN for charid="
+                      << removed_char_id << "\n";
+        }
+    }
+
+    // Now safe to drop the char_id -> client routing entry. The
+    // GameOutSyn above told MapServer to stop broadcasting to this
+    // char_id, so any straggling forward_from_map() calls would just
+    // silently no-op (no entry in char_to_client_ to route to).
+    {
+        std::lock_guard<std::mutex> lk(map_route_mu_);
+        if (removed_char_id != 0) {
+            char_to_client_.erase(removed_char_id);
+        }
+    }
 }
 
 void AgentHandler::on_message(mxh::net::ConnectionId id,
@@ -224,7 +289,7 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                   << " proto=" << (int)msg.header.protocol
                   << " from conn=" << id.value << "\n";
         // Snapshot map_client_ under lock to avoid race with set_map_server().
-        mxh::net::TcpClient* mc = nullptr;
+        mxh::net::ITcpSender* mc = nullptr;
         {
             std::lock_guard<std::mutex> lk(map_route_mu_);
             mc = map_client_;
@@ -320,7 +385,7 @@ std::uint32_t AgentHandler::get_char_id(mxh::net::ConnectionId id) {
 // Phase 9: MapServer integration
 // ============================================================================
 
-void AgentHandler::set_map_server(mxh::net::TcpClient* client,
+void AgentHandler::set_map_server(mxh::net::ITcpSender* client,
                                   mxh::net::ConnectionId map_conn_id) {
     std::lock_guard<std::mutex> lk(map_route_mu_);
     map_client_ = client;
@@ -940,7 +1005,7 @@ void AgentHandler::handle_legacy_gamein_syn(
 
     // Phase 9: Forward GameInSyn to MapServer if connected.
     // Snapshot map_client_ under lock to avoid race with set_map_server().
-    mxh::net::TcpClient* mc = nullptr;
+    mxh::net::ITcpSender* mc = nullptr;
     {
         std::lock_guard<std::mutex> lk(map_route_mu_);
         mc = map_client_;
@@ -1048,3 +1113,4 @@ void AgentHandler::handle_legacy_gamein_syn(
 }
 
 }  // namespace mxh::server
+

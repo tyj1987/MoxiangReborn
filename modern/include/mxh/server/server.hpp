@@ -91,7 +91,10 @@ public:
                        mxh::net::NetError reason) override;
 
     // Phase 9: connect to MapServer for GameIn forwarding.
-    void set_map_server(mxh::net::TcpClient* client,
+    // Phase 12.1 P2-13: takes ITcpSender* (was TcpClient*) so tests can
+    // inject a mock without subclassing TcpClient. Production code passes
+    // a real mxh::net::TcpClient; tests pass a MockTcpSender.
+    void set_map_server(mxh::net::ITcpSender* client,
                         mxh::net::ConnectionId map_conn_id);
     mxh::net::ConnectionId get_map_connection() const;
 
@@ -128,7 +131,10 @@ private:
     std::unordered_map<std::uint64_t, std::uint16_t> conn_map_nums_;
 
     // Phase 9: MapServer forwarding.
-    mxh::net::TcpClient* map_client_ = nullptr;
+    // Phase 12.1 P2-13: map_client_ now holds an ITcpSender* (was
+    // TcpClient*) so unit tests can inject a MockTcpSender and verify
+    // GameOutSyn / GameInSyn forwarding without a real map server.
+    mxh::net::ITcpSender* map_client_ = nullptr;
     mxh::net::ConnectionId map_conn_id_{};
     // char_id → client_connection_id mapping for routing MapServer responses.
     std::mutex map_route_mu_;

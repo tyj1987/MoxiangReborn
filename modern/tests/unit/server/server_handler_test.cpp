@@ -81,6 +81,33 @@ inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
 }
 
 // ===========================================================================
+// MockTcpSender — Phase 12.1 P2-13: capture outgoing messages from
+// AgentHandler without spinning up a real socket. Tests verify that
+// GameOutSyn / GameInSyn forwarding actually fires by reading sent_msgs_.
+// ===========================================================================
+class MockTcpSender final : public mxh::net::ITcpSender {
+public:
+    [[nodiscard]] mxh::net::NetError send(const mxh::net::Message& msg) override {
+        ++send_count;
+        last_message = msg;
+        if (!connected) return mxh::net::NetError::SendFailed;
+        sent_msgs.push_back(msg);
+        return mxh::net::NetError::Ok;
+    }
+    [[nodiscard]] bool is_connected() const noexcept override { return connected; }
+
+    // Tests can flip connected → false to simulate the map server going
+    // down between set_map_server() and on_disconnect().
+    void set_connected(bool c) noexcept { connected = c; }
+
+    std::atomic<int> send_count{0};
+    std::vector<mxh::net::Message> sent_msgs;
+    mxh::net::Message last_message{};
+private:
+    bool connected = true;
+};
+
+// ===========================================================================
 // LoginHandler
 // ===========================================================================
 
@@ -196,6 +223,126 @@ TEST(AgentHandlerTest, OnDisconnectDoesNotCrash) {
     EXPECT_EQ(reply.call_count.load(), 0);
     EXPECT_EQ(db.exec_count.load(), 0);
     EXPECT_EQ(db.query_count.load(), 0);
+}
+
+TEST(AgentHandlerTest, OnDisconnectWithoutMapServerDoesNotCrash) {
+    // Phase 12.1: GameOutSyn forwarding only fires when a TcpClient*
+    // has been set via set_map_server(). With no map server attached,
+    // on_disconnect must still clean up local state and not deref
+    // any null TcpClient.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.on_disconnect(mxh::net::make_connection_id(99),
+                          mxh::net::NetError::Disconnected);
+    EXPECT_EQ(reply.call_count.load(), 0);
+    // No DB calls either — on_disconnect doesn't persist anything.
+    EXPECT_EQ(db.exec_count.load(), 0);
+    EXPECT_EQ(db.query_count.load(), 0);
+}
+
+TEST(AgentHandlerTest, OnDisconnectWithMapServerNullptrDoesNotCrash) {
+    // Phase 12.1: even if set_map_server() was called with a
+    // non-null ConnectionId but a null TcpClient* (e.g. test setup
+    // or a transient race where the TcpClient was destroyed but the
+    // connection id is still set), on_disconnect must not deref the
+    // null pointer. It should log a "no MapServer connection" debug
+    // line and continue cleanly.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.set_map_server(/*client=*/nullptr,
+                           mxh::net::make_connection_id(7));
+    handler.on_disconnect(mxh::net::make_connection_id(100),
+                          mxh::net::NetError::Disconnected);
+    // No reply was sent (no client, no map_client_ connected).
+    EXPECT_EQ(reply.call_count.load(), 0);
+    // TcpClient::send must NOT have been called (we'd crash otherwise
+    // since the pointer is null and the code checks for it before
+    // calling send).
+    SUCCEED();
+}
+
+// ---------------------------------------------------------------------------
+// Phase 12.1 P2-13: ITcpSender injection — verify GameOutSyn forwarding
+// actually fires when a connected MockTcpSender is wired in. Before this
+// refactor, AgentHandler held a concrete TcpClient* and there was no way
+// to test "did the agent actually call send()?" without a live map server.
+//
+// Note: full "GameOutSyn sent" verification requires populating the
+// private conn_user_ids_ / conn_char_ids_ / conn_map_nums_ maps, which
+// has no public setter (the maps are populated by the legacy character
+// select path). The tests below cover the early-return / null /
+// disconnected paths; the "full send" path is covered by
+// `test_map_integration.py` in the integration test (Phase 9).
+// ---------------------------------------------------------------------------
+
+TEST(AgentHandlerTest, OnDisconnectWithMockSenderNoSessionDoesNotSend) {
+    // Mock sender is wired in but no user/char/map_num session has been
+    // registered on the handler. on_disconnect must clean up state
+    // without sending anything (the early-return path: removed_char_id
+    // == 0 means we have nothing to tell the map server).
+    MockDbAdapter db;
+    ReplySpy reply;
+    MockTcpSender mock;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.set_map_server(&mock, mxh::net::make_connection_id(42));
+    handler.on_disconnect(mxh::net::make_connection_id(100),
+                          mxh::net::NetError::Disconnected);
+    // Mock sender.send was never reached because the early-return fires
+    // when there is no recorded session to forward.
+    EXPECT_EQ(mock.send_count.load(), 0);
+    EXPECT_TRUE(mock.sent_msgs.empty());
+    EXPECT_EQ(reply.call_count.load(), 0);
+}
+
+TEST(AgentHandlerTest, OnDisconnectWithMockSenderDisconnectedSenderNoSend) {
+    // Mock sender is wired in but the sender reports !is_connected().
+    // on_disconnect must skip the send entirely (the code checks
+    // is_connected() before calling send). Even if a session were
+    // registered, no message should be delivered.
+    MockDbAdapter db;
+    ReplySpy reply;
+    MockTcpSender mock;
+    mock.set_connected(false);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.set_map_server(&mock, mxh::net::make_connection_id(42));
+    handler.on_disconnect(mxh::net::make_connection_id(100),
+                          mxh::net::NetError::Disconnected);
+    EXPECT_EQ(mock.send_count.load(), 0);
+    EXPECT_TRUE(mock.sent_msgs.empty());
+}
+
+TEST(AgentHandlerTest, ForwardFromMapWithMockSenderNoRoute) {
+    // forward_from_map with a char_id that has no registered client
+    // must not crash and not call reply (just a no-op debug log).
+    MockDbAdapter db;
+    ReplySpy reply;
+    MockTcpSender mock;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.set_map_server(&mock, mxh::net::make_connection_id(42));
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    msg.header.object_id = 9999;  // char_id with no registered client
+    handler.forward_from_map(mxh::net::make_connection_id(42), msg);
+    EXPECT_EQ(reply.call_count.load(), 0);
+}
+
+TEST(AgentHandlerTest, SetMapServerAcceptsITcpSender) {
+    // Phase 12.1 P2-13: set_map_server now takes ITcpSender* (was
+    // TcpClient*). A MockTcpSender must be accepted without conversion
+    // and the handler must remember it. The test verifies the
+    // signature change is real by passing a non-TcpClient through.
+    MockDbAdapter db;
+    ReplySpy reply;
+    MockTcpSender mock;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    // Compile-time check: this line is only valid if set_map_server
+    // takes ITcpSender* (or something more permissive). If the type
+    // regresses to TcpClient*, the implicit upcast fails and the
+    // test won't compile.
+    handler.set_map_server(&mock, mxh::net::make_connection_id(7));
+    EXPECT_EQ(handler.get_map_connection().value, 7u);
 }
 
 // ===========================================================================

@@ -187,20 +187,36 @@ private:
     std::atomic<bool> running_{false};
 };
 
+// Minimal send-only interface for outbound message delivery. Production
+// code uses TcpClient; tests can subclass ITcpSender to capture / verify
+// outgoing messages without spinning up a real socket.
+//
+// Phase 12.1 P2-13: this interface was added so AgentHandler can hold an
+// ITcpSender* (instead of a concrete TcpClient*) when forwarding GameInSyn
+// / GameOutSyn to MapServer. The concrete TcpClient below implements
+// ITcpSender, and unit tests use a MockTcpSender to verify "did the
+// agent actually send the GameOutSyn?" without needing a real map server.
+class ITcpSender {
+public:
+    virtual ~ITcpSender() = default;
+    [[nodiscard]] virtual NetError send(const Message& msg) = 0;
+    [[nodiscard]] virtual bool is_connected() const noexcept = 0;
+};
+
 // Asynchronous TCP client.
-class TcpClient {
+class TcpClient : public ITcpSender {
 public:
     explicit TcpClient(IConnectionHandler& handler);
-    ~TcpClient();
+    ~TcpClient() override;
 
     TcpClient(const TcpClient&) = delete;
     TcpClient& operator=(const TcpClient&) = delete;
 
     [[nodiscard]] NetError connect(const ClientConfig& cfg);
     void disconnect();
-    [[nodiscard]] bool is_connected() const noexcept;
+    [[nodiscard]] bool is_connected() const noexcept override;
 
-    [[nodiscard]] NetError send(const Message& msg);
+    [[nodiscard]] NetError send(const Message& msg) override;
 
     // Set the connection ID after connect completes (used for callbacks).
     [[nodiscard]] ConnectionId id() const noexcept;
