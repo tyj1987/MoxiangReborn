@@ -6,6 +6,7 @@ add_library(mxh_compat STATIC
     chx_model.cpp
     chr_motion.cpp
     bsad_area.cpp
+    item_effects.cpp
 )
 
 target_include_directories(mxh_compat PUBLIC

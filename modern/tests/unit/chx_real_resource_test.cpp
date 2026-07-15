@@ -56,11 +56,13 @@ TEST(ChxModelRealResource, ManChxIsTextMetadata) {
     if (!firstLine.empty() && firstLine.back() == '\r') firstLine.pop_back();
     EXPECT_EQ(firstLine, "*MOD_FILE_NUM\t5") << "Unexpected text header";
 
-    // ChxModel::parse currently rejects it (because its loose magic check
-    // requires a uint32 version in [1,10]). That's the documented limitation.
+    // ChxModel::parse is now a plain-text parser, so it should
+    // accept the file and recover 5 mod files. (This used to
+    // assert the opposite under the old binary-header skeleton.)
     auto m = ChxModel::parse(bytes);
-    EXPECT_FALSE(m.header.vertex_count > 0 || m.header.index_count > 0)
-        << "Parser accidentally accepted a text file as binary";
+    ASSERT_TRUE(m.has_value()) << "parser rejected a real .chx text file";
+    EXPECT_EQ(m->mod_files.size(), 5u)
+        << "man.chx is expected to have 5 *MOD_FILE_NAME entries";
 }
 
 TEST(ChxModelRealResource, MonsterBinSmoke) {
@@ -103,8 +105,9 @@ TEST(ChxModelRealResource, ChxModelParseRejectsTextChx) {
     bool startsWithStar = (!bytes.empty() && bytes[0] == '*');
     EXPECT_TRUE(startsWithStar) << "man.chx doesn't look like expected text format";
 
+    // The new text parser should accept the file and recover 5
+    // mod_file entries (man.chx is documented as 5-part character).
     auto m = ChxModel::parse(bytes);
-    // Text header should NOT be accepted as binary
-    EXPECT_EQ(m.header.vertex_count, static_cast<std::uint32_t>(0));
-    EXPECT_EQ(m.header.index_count, static_cast<std::uint32_t>(0));
+    ASSERT_TRUE(m.has_value()) << "parser rejected a real .chx text file";
+    EXPECT_EQ(m->mod_files.size(), 5u);
 }

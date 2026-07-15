@@ -1,239 +1,224 @@
-// chx_model_test.cpp - Phase 10.22 chx model parser tests
+// chx_model_test.cpp - .chx character manifest parser tests (Phase 10.22 / 12.1)
 //
-// Covers modern/include/mxh/compat/chx_model.hpp — the .chx
-// character model parser skeleton. The header struct + the
-// is_chx() / parse() / load() functions are 1:1 with the
-// original 3ds Max Biped/Physique export via MAXEXP/MtlExp/
-// anmexp plugins.
+// Covers modern/include/mxh/compat/chx_model.hpp + src/chx_model.cpp.
 //
-// What's tested:
-//   - ChxHeader wire-format size under #pragma pack(1) (32
-//     bytes).
-//   - ChxHeader field offsets are pinned.
-//   - is_chx() accepts plausible headers and rejects
-//     everything else (truncated, version out of range, zero
-//     counts, absurdly large counts).
-//   - parse() populates the header + raw bytes correctly.
-//   - load() returns empty on missing path.
+// The legacy 4Dyuchi .chx format is plain TEXT (tab-separated). It
+// is NOT the binary "CHLX" header format the original skeleton
+// stub assumed. Real format (verified against
+// test-extract/Character.pak:man.chx):
+//
+//   *MOD_FILE_NUM    <N>
+//   *MOD_FILE_NAME   <path_1>
+//   *MOD_FILE_NAME   <path_2>
+//   ...
+//   *MOTION_NUM      <M>
+//   <motion_path_1>
+//   ...
 
 #include "mxh/compat/chx_model.hpp"
 
 #include <gtest/gtest.h>
 
-#include <array>
 #include <cstdint>
-#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace mxh::compat::test {
 
 namespace {
 
-// Build a fake 32-byte ChxHeader with the given magic + counts.
-std::array<std::uint8_t, 32> make_header(std::uint32_t magic,
-                                          std::uint32_t version,
-                                          std::uint32_t mesh_count,
-                                          std::uint32_t bone_count,
-                                          std::uint32_t material_count,
-                                          std::uint32_t vertex_count,
-                                          std::uint32_t index_count,
-                                          std::uint32_t reserved) {
-    std::array<std::uint8_t, 32> buf{};
-    std::uint8_t* p = buf.data();
-    auto write_u32 = [&](std::uint32_t v) {
-        std::memcpy(p, &v, 4);
-        p += 4;
-    };
-    write_u32(magic);
-    write_u32(version);
-    write_u32(mesh_count);
-    write_u32(bone_count);
-    write_u32(material_count);
-    write_u32(vertex_count);
-    write_u32(index_count);
-    write_u32(reserved);
-    return buf;
+std::string make_chx_text(
+    const std::vector<std::string>& mod_files,
+    const std::vector<std::string>& motions) {
+    std::string out;
+    out += "*MOD_FILE_NUM\t" + std::to_string(mod_files.size()) + "\n";
+    for (const auto& mf : mod_files) {
+        out += "*MOD_FILE_NAME\t" + mf + "\n";
+    }
+    out += "*MOTION_NUM\t" + std::to_string(motions.size()) + "\n";
+    for (const auto& mv : motions) {
+        out += mv + "\n";
+    }
+    return out;
+}
+
+std::vector<std::uint8_t> to_bytes(std::string_view s) {
+    return std::vector<std::uint8_t>(s.begin(), s.end());
 }
 
 }  // namespace
 
 // ===========================================================================
-// Wire format
+// Empty / invalid input
 // ===========================================================================
 
-TEST(ChxHeaderTest, SizeIs32Bytes) {
-    // Field layout under pack(1):
-    //   magic (4) + version (4) + mesh_count (4) + bone_count (4)
-    //   + material_count (4) + vertex_count (4) + index_count (4)
-    //   + reserved (4) = 32 bytes
-    static_assert(sizeof(ChxHeader) == 32,
-                  "ChxHeader must be 32 bytes (eight uint32_t, pack(1))");
-    EXPECT_EQ(sizeof(ChxHeader), 32u);
+TEST(ChxModelParseTest, RejectsEmptyBuffer) {
+    EXPECT_FALSE(ChxModel::parse(std::span<const std::uint8_t>{}).has_value());
 }
 
-TEST(ChxHeaderTest, FieldOffsets) {
-    ChxHeader h{};
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.magic) -
-              reinterpret_cast<std::uintptr_t>(&h), 0u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.version) -
-              reinterpret_cast<std::uintptr_t>(&h), 4u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.mesh_count) -
-              reinterpret_cast<std::uintptr_t>(&h), 8u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.bone_count) -
-              reinterpret_cast<std::uintptr_t>(&h), 12u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.material_count) -
-              reinterpret_cast<std::uintptr_t>(&h), 16u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.vertex_count) -
-              reinterpret_cast<std::uintptr_t>(&h), 20u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.index_count) -
-              reinterpret_cast<std::uintptr_t>(&h), 24u);
-    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&h.reserved) -
-              reinterpret_cast<std::uintptr_t>(&h), 28u);
+TEST(ChxModelParseTest, RejectsWhitespaceOnly) {
+    auto bytes = to_bytes("   \n\t\n  \n");
+    EXPECT_FALSE(ChxModel::parse(bytes).has_value());
 }
 
-// ===========================================================================
-// is_chx()
-// ===========================================================================
-
-TEST(ChxIsChxTest, RejectsEmptyInput) {
-    std::vector<std::uint8_t> empty;
-    EXPECT_FALSE(ChxModel::is_chx(empty));
+TEST(ChxModelParseTest, RejectsModFileNumOnlyNoNames) {
+    // *MOD_FILE_NUM 5 but no following *MOD_FILE_NAME lines.
+    // mod_files stays empty → nullopt.
+    auto bytes = to_bytes("*MOD_FILE_NUM\t5\n");
+    EXPECT_FALSE(ChxModel::parse(bytes).has_value());
 }
 
-TEST(ChxIsChxTest, RejectsShorterThanHeader) {
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 100, 200, 0);
-    // Strip the last 4 bytes.
-    std::span<const std::uint8_t> truncated(buf.data(), buf.size() - 4);
-    EXPECT_FALSE(ChxModel::is_chx(truncated));
-}
-
-TEST(ChxIsChxTest, AcceptsPlausibleHeader) {
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 100, 200, 0);
-    EXPECT_TRUE(ChxModel::is_chx(buf));
-}
-
-TEST(ChxIsChxTest, RejectsVersionZero) {
-    auto buf = make_header('CHLX', 0, 1, 1, 1, 100, 200, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf));
-}
-
-TEST(ChxIsChxTest, RejectsVersionTooLarge) {
-    // version > 10 is rejected — the original parser is loose
-    // about the magic (region-specific variants) but strict
-    // about the version range.
-    auto buf = make_header('CHLX', 11, 1, 1, 1, 100, 200, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf));
-    auto buf2 = make_header('CHLX', 100, 1, 1, 1, 100, 200, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf2));
-}
-
-TEST(ChxIsChxTest, RejectsZeroVertexCount) {
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 0, 200, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf));
-}
-
-TEST(ChxIsChxTest, RejectsZeroIndexCount) {
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 100, 0, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf));
-}
-
-TEST(ChxIsChxTest, RejectsAbsurdlyLargeVertexCount) {
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 10'000'001, 200, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf));
-}
-
-TEST(ChxIsChxTest, RejectsAbsurdlyLargeIndexCount) {
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 100, 50'000'001, 0);
-    EXPECT_FALSE(ChxModel::is_chx(buf));
-}
-
-TEST(ChxIsChxTest, AcceptsBoundaryValues) {
-    // version = 1, version = 10, vertex_count = 1 + 10M-1,
-    // index_count = 1 + 50M-1 — these are the boundary
-    // values and should all be accepted.
-    auto buf_min_v = make_header('CHLX', 1,  1, 1, 1, 1, 1, 0);
-    EXPECT_TRUE(ChxModel::is_chx(buf_min_v));
-    auto buf_max_v = make_header('CHLX', 10, 1, 1, 1, 9'999'999, 49'999'999, 0);
-    EXPECT_TRUE(ChxModel::is_chx(buf_max_v));
-}
-
-// ===========================================================================
-// parse()
-// ===========================================================================
-
-TEST(ChxParseTest, RejectsNonChxInput) {
-    std::vector<std::uint8_t> empty;
-    auto m = ChxModel::parse(empty);
-    EXPECT_EQ(m.header.version, 0u);  // default
-    EXPECT_TRUE(m.raw.empty());
-    EXPECT_TRUE(m.vertices.empty());
-    EXPECT_TRUE(m.indices.empty());
-}
-
-TEST(ChxParseTest, PopulatesHeaderFromBytes) {
-    auto buf = make_header('CHLX', 3, 5, 10, 2, 1000, 2000, 0);
-    auto m = ChxModel::parse(buf);
-    EXPECT_EQ(m.header.magic,          'CHLX');
-    EXPECT_EQ(m.header.version,        3u);
-    EXPECT_EQ(m.header.mesh_count,     5u);
-    EXPECT_EQ(m.header.bone_count,     10u);
-    EXPECT_EQ(m.header.material_count, 2u);
-    EXPECT_EQ(m.header.vertex_count,   1000u);
-    EXPECT_EQ(m.header.index_count,    2000u);
-    EXPECT_EQ(m.header.reserved,       0u);
-}
-
-TEST(ChxParseTest, PopulatesRawBuffer) {
-    // parse() captures the entire input into `raw` for
-    // passthrough, including any trailing data after the
-    // header.
-    std::vector<std::uint8_t> input;
-    auto header = make_header('CHLX', 1, 1, 1, 1, 100, 200, 0);
-    input.insert(input.end(), header.begin(), header.end());
-    // Append 16 trailing bytes (e.g. a partial mesh table).
-    for (int i = 0; i < 16; ++i) input.push_back(static_cast<std::uint8_t>(i));
-    auto m = ChxModel::parse(input);
-    EXPECT_EQ(m.raw.size(), input.size());
-    EXPECT_EQ(std::memcmp(m.raw.data(), input.data(), input.size()), 0);
-}
-
-TEST(ChxParseTest, VerticesAndIndicesEmptyInSkeleton) {
-    // The current skeleton parser does NOT decode vertex /
-    // index / mesh / bone tables — the TODO(Phase 1.3) marker
-    // says so. Pin that as the current contract: a successful
-    // parse populates header + raw but leaves the per-table
-    // vectors empty. A future "real" decoder will need to
-    // update this test.
-    auto buf = make_header('CHLX', 1, 1, 1, 1, 100, 200, 0);
-    auto m = ChxModel::parse(buf);
-    EXPECT_TRUE(m.vertices.empty());
-    EXPECT_TRUE(m.indices.empty());
-}
-
-TEST(ChxParseTest, DefaultConstructedHasZeroedHeader) {
-    ChxModel m;
-    EXPECT_EQ(m.header.magic,          0u);
-    EXPECT_EQ(m.header.version,        0u);
-    EXPECT_EQ(m.header.mesh_count,     0u);
-    EXPECT_EQ(m.header.bone_count,     0u);
-    EXPECT_EQ(m.header.material_count, 0u);
-    EXPECT_EQ(m.header.vertex_count,   0u);
-    EXPECT_EQ(m.header.index_count,    0u);
-    EXPECT_EQ(m.header.reserved,       0u);
-    EXPECT_TRUE(m.raw.empty());
-    EXPECT_TRUE(m.vertices.empty());
-    EXPECT_TRUE(m.indices.empty());
-}
-
-// ===========================================================================
-// load()
-// ===========================================================================
-
-TEST(ChxLoadTest, MissingPathReturnsEmpty) {
+TEST(ChxModelLoadTest, MissingFileReturnsNullopt) {
     auto m = ChxModel::load("D:/_does_not_exist_/nope.chx");
-    EXPECT_EQ(m.header.version, 0u);
-    EXPECT_TRUE(m.raw.empty());
+    EXPECT_FALSE(m.has_value());
+}
+
+TEST(ChxModelLoadTest, EmptyFileReturnsNullopt) {
+    auto tmp = std::filesystem::temp_directory_path() / "mxh_chx_empty.chx";
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+    }
+    auto m = ChxModel::load(tmp);
+    EXPECT_FALSE(m.has_value());
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
+}
+
+// ===========================================================================
+// Simple cases
+// ===========================================================================
+
+TEST(ChxModelParseTest, SingleModFileNoMotions) {
+    auto text = make_chx_text({"M_BODY01.MOD"}, {});
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->mod_files.size(), 1u);
+    EXPECT_EQ(m->mod_files[0], "M_BODY01.MOD");
+    EXPECT_TRUE(m->motions.empty());
+}
+
+TEST(ChxModelParseTest, MultiModFileNoMotions) {
+    auto text = make_chx_text(
+        {"M_HAIR01.MOD", "M_BODY01.MOD", "M_PANTS01.MOD", "M_BOOTS01.MOD", "M_HAND01.MOD"},
+        {});
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    EXPECT_EQ(m->mod_files.size(), 5u);
+    EXPECT_EQ(m->mod_files[0], "M_HAIR01.MOD");
+    EXPECT_EQ(m->mod_files[4], "M_HAND01.MOD");
+    EXPECT_TRUE(m->motions.empty());
+}
+
+TEST(ChxModelParseTest, ModFilesWithMotions) {
+    auto text = make_chx_text(
+        {"A.MOD", "B.MOD"},
+        {"idle.ANM", "walk.ANM", "run.ANM"});
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->mod_files.size(), 2u);
+    EXPECT_EQ(m->mod_files[0], "A.MOD");
+    EXPECT_EQ(m->mod_files[1], "B.MOD");
+    ASSERT_EQ(m->motions.size(), 3u);
+    EXPECT_EQ(m->motions[0], "idle.ANM");
+    EXPECT_EQ(m->motions[1], "walk.ANM");
+    EXPECT_EQ(m->motions[2], "run.ANM");
+}
+
+// ===========================================================================
+// Tolerance
+// ===========================================================================
+
+TEST(ChxModelParseTest, SkipsBlankAndCommentLines) {
+    auto text = std::string("\n") +
+        "// pre-comment\n" +
+        "*MOD_FILE_NUM\t1\n" +
+        "   \n" +
+        "// another comment\n" +
+        "*MOD_FILE_NAME x.MOD\n" +
+        "\t*MOTION_NUM\t0\n";
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->mod_files.size(), 1u);
+    EXPECT_EQ(m->mod_files[0], "x.MOD");
+    EXPECT_TRUE(m->motions.empty());
+}
+
+TEST(ChxModelParseTest, NegativeCountsClampedToZero) {
+    auto text = std::string(
+        "*MOD_FILE_NUM\t-1\n"
+        "*MOD_FILE_NAME\tstray.MOD\n"  // count was 0, this is dropped
+        "*MOTION_NUM\t-3\n"
+        "stray.ANM\n");                // count was 0, this is dropped
+    auto m = ChxModel::parse(to_bytes(text));
+    EXPECT_FALSE(m.has_value()) << "no mod files should land → nullopt";
+}
+
+TEST(ChxModelParseTest, UnknownPidTokenIgnored) {
+    // *FOO_BAR is unknown, line is dropped, parsing continues.
+    auto text = std::string(
+        "*FOO_BAR 1\n"
+        "*MOD_FILE_NUM 1\n"
+        "*MOD_FILE_NAME x.MOD\n"
+        "*MOTION_NUM 0\n");
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->mod_files.size(), 1u);
+    EXPECT_EQ(m->mod_files[0], "x.MOD");
+}
+
+TEST(ChxModelParseTest, ModFileNameWithoutCountHeaderTreatedAsOne) {
+    // No leading *MOD_FILE_NUM but a *MOD_FILE_NAME appears. We
+    // treat this as a count of 1 and accept the file (defensive
+    // — some hand-edited resources skip the count header).
+    auto text = std::string(
+        "*MOD_FILE_NAME lonesome.MOD\n"
+        "*MOTION_NUM 0\n");
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->mod_files.size(), 1u);
+    EXPECT_EQ(m->mod_files[0], "lonesome.MOD");
+}
+
+// ===========================================================================
+// Round-trip
+// ===========================================================================
+
+TEST(ChxModelSerializeTest, EmptyProducesJustHeaders) {
+    // serialize_text with empty mod_files still writes the
+    // *MOD_FILE_NUM 0 line so the file is parseable.
+    auto text = ChxModel::serialize_text({}, {});
+    EXPECT_EQ(text, "*MOD_FILE_NUM\t0\n*MOTION_NUM\t0\n");
+}
+
+TEST(ChxModelRoundTripTest, SynthesizedManChx) {
+    std::vector<std::string> mods = {
+        "M_HAIR01.MOD", "M_BODY01.MOD", "M_PANTS01.MOD",
+        "M_BOOTS01.MOD", "M_HAND01.MOD"
+    };
+    std::vector<std::string> motions = {"man_idle.ANM", "man_walk.ANM"};
+    const std::string text = ChxModel::serialize_text(mods, motions);
+    auto m = ChxModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    EXPECT_EQ(m->mod_files, mods);
+    EXPECT_EQ(m->motions, motions);
+}
+
+TEST(ChxModelSaveLoadFileTest, RoundTripThroughDisk) {
+    auto tmp = std::filesystem::temp_directory_path() / "mxh_chx_roundtrip.chx";
+    std::vector<std::string> mods = {"A.MOD", "B.MOD"};
+    std::vector<std::string> motions = {"x.ANM"};
+
+    ASSERT_TRUE(ChxModel::save_to_file(tmp, mods, motions));
+    auto loaded = ChxModel::load(tmp);
+    ASSERT_TRUE(loaded.has_value());
+    EXPECT_EQ(loaded->mod_files, mods);
+    EXPECT_EQ(loaded->motions, motions);
+
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
 }
 
 }  // namespace mxh::compat::test

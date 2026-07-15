@@ -10,6 +10,7 @@
 // the parser itself is identical once we have ASCII text in hand.
 
 #include "mxh/compat/bmhm_map.hpp"
+#include "mxh/compat/detail/text_parse.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -90,36 +91,11 @@ std::uint8_t parse_byte(std::string_view tok, std::uint8_t fallback) noexcept {
 
 }  // namespace
 
+// trim() and tokenize() now live in
+// mxh/compat/detail/text_parse.hpp so .chr, .bmhm and any future
+// text-format parser can share them without ODR collisions.
+
 namespace detail {
-
-std::string_view trim(std::string_view s) noexcept {
-    std::size_t b = 0;
-    std::size_t e = s.size();
-    // Skip UTF-8 BOM if present.
-    if (s.size() >= 3 &&
-        static_cast<std::uint8_t>(s[0]) == 0xEF &&
-        static_cast<std::uint8_t>(s[1]) == 0xBB &&
-        static_cast<std::uint8_t>(s[2]) == 0xBF) {
-        b = 3;
-    }
-    while (b < e && std::isspace(static_cast<unsigned char>(s[b]))) ++b;
-    while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1]))) --e;
-    return s.substr(b, e - b);
-}
-
-std::vector<std::string_view> tokenize(std::string_view line) noexcept {
-    std::vector<std::string_view> out;
-    std::size_t i = 0;
-    const std::size_t n = line.size();
-    while (i < n) {
-        while (i < n && std::isspace(static_cast<unsigned char>(line[i]))) ++i;
-        if (i >= n) break;
-        std::size_t start = i;
-        while (i < n && !std::isspace(static_cast<unsigned char>(line[i]))) ++i;
-        out.emplace_back(line.substr(start, i - start));
-    }
-    return out;
-}
 
 // Pack RGBA from four DWORD tokens (legacy MHMap.cpp reads each as %x).
 std::uint32_t pack_rgba(std::span<std::string_view> args, std::size_t offset) noexcept {

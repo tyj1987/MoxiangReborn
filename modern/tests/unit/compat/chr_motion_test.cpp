@@ -1,217 +1,326 @@
-// chr_motion_test.cpp - Phase 10.14 .chr motion parser tests
+// chr_motion_test.cpp - .chr character manifest parser tests (Phase 10.14 / 12.1)
 //
 // Covers modern/include/mxh/compat/chr_motion.hpp + src/chr_motion.cpp.
-// The .chr format holds per-frame bone animation data. The current
-// implementation is a skeleton: it validates the 32-byte packed
-// header and copies the raw bytes, but does not yet decode the bone
-// tracks (TODO in Phase 1.3). The test pins the validation logic
-// so a future bone-track decode lands on a verified foundation.
+//
+// The legacy 4Dyuchi .chr format is a plain-text manifest that lists
+// one or more model sections. Each section has:
+//   *MOD_FILE_NAME <path>          # required section header
+//   *MOTION_NUM    <N>             # optional, default 0
+//   <motion_path_1>                # exactly N motion paths
+//   ...
+//   *MATERIAL_NUM  <N>             # optional, default 0
+//   <material_path_1>              # exactly N material paths
+//   ...
+//
+// A real sample is test-extract/11160.chr. We pin both the parser and
+// a round-trip serializer (serialize_text → parse → byte-equal).
 
 #include "mxh/compat/chr_motion.hpp"
 
 #include <gtest/gtest.h>
 
-#include <array>
 #include <cstdint>
-#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace mxh::compat::test {
 
 namespace {
 
-// Helper: build a 32-byte ChrHeader (packed, no padding) with the
-// given values. Matches the layout in chr_motion.hpp:
-//
-//   u32 magic  u32 version  u32 frame_count  u32 bone_count
-//   u32 fps    u32 reserved[3]
-constexpr std::size_t kChrHeaderSize = 32;
-
-std::vector<std::uint8_t> make_chr_bytes(std::uint32_t magic,
-                                          std::uint32_t version,
-                                          std::uint32_t frame_count,
-                                          std::uint32_t bone_count,
-                                          std::uint32_t fps) {
-    std::vector<std::uint8_t> buf(kChrHeaderSize, 0);
-    std::memcpy(buf.data() + 0,  &magic,       4);
-    std::memcpy(buf.data() + 4,  &version,     4);
-    std::memcpy(buf.data() + 8,  &frame_count, 4);
-    std::memcpy(buf.data() + 12, &bone_count,  4);
-    std::memcpy(buf.data() + 16, &fps,         4);
-    // reserved[3] stays zero
-    return buf;
+// Build a .chr text payload in-memory.
+std::string make_chr_text(
+    const std::vector<std::tuple<std::string,
+                                  std::vector<std::string>,
+                                  std::vector<std::string>>>& sections) {
+    std::string out;
+    for (const auto& [mod, motions, materials] : sections) {
+        out += "*MOD_FILE_NAME\t" + mod + "\n";
+        out += "\t*MOTION_NUM\t" + std::to_string(motions.size()) + "\n";
+        for (const auto& m : motions) {
+            out += "\t\t" + m + "\n";
+        }
+        out += "\t*MATERIAL_NUM\t" + std::to_string(materials.size()) + "\n";
+        for (const auto& mat : materials) {
+            out += "\t\t" + mat + "\n";
+        }
+    }
+    return out;
 }
+
+std::vector<std::uint8_t> to_bytes(std::string_view s) {
+    return std::vector<std::uint8_t>(s.begin(), s.end());
+}
+
+// Path to the bundled real-world sample (extracted from the original
+// game resources). Created by Phase 7.5p and shipped with the repo.
+const std::filesystem::path kRealChr = "test-extract/11160.chr";
 
 }  // namespace
 
 // ===========================================================================
-// ChrHeader wire format
+// Empty / invalid input
 // ===========================================================================
 
-TEST(ChrHeaderTest, WireFormatSizeIs32Bytes) {
-    // 4+4+4+4+4+12 = 32 bytes. The struct uses #pragma pack(push, 1)
-    // so no padding. Pinning here catches a future change that drops
-    // the pragma or adds a field without bumping the size check.
-    EXPECT_EQ(sizeof(ChrHeader), 32u);
-    EXPECT_EQ(sizeof(ChrHeader), kChrHeaderSize);
+TEST(ChrModelParseTest, RejectsEmptyBuffer) {
+    EXPECT_FALSE(ChrModel::parse(std::span<const std::uint8_t>{}).has_value());
 }
 
-// ===========================================================================
-// is_chr() — header validation
-// ===========================================================================
-
-TEST(IsChrTest, RejectsBufferShorterThanHeader) {
-    // Any buffer smaller than 32 bytes cannot be a valid .chr
-    // regardless of content. The check fires before version/fps
-    // are even read.
-    EXPECT_FALSE(ChrMotion::is_chr(std::span<const std::uint8_t>{}));
-    // 31 bytes — one short of the 32-byte header size.
-    std::vector<std::uint8_t> short_buf = {
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30
-    };
-    EXPECT_FALSE(ChrMotion::is_chr(short_buf));
+TEST(ChrModelParseTest, RejectsWhitespaceOnly) {
+    // Whitespace alone produces no tokens → no *MOD_FILE_NAME → no
+    // sections → std::nullopt.
+    auto bytes = to_bytes("   \n\t\n   \n");
+    EXPECT_FALSE(ChrModel::parse(bytes).has_value());
 }
 
-TEST(IsChrTest, AcceptsValidHeader) {
-    auto buf = make_chr_bytes(/*magic=*/0x41434852,  // 'ACHR' LE
-                              /*version=*/3,
-                              /*frame_count=*/60,
-                              /*bone_count=*/20,
-                              /*fps=*/30);
-    EXPECT_TRUE(ChrMotion::is_chr(buf));
+TEST(ChrModelParseTest, RejectsLinesWithoutModFileName) {
+    // The first recognized token is *MOTION_NUM with no preceding
+    // section. Legacy tolerated this (set count to 0 silently), but
+    // since no section was ever opened, sections() stays empty and
+    // we return nullopt. This is a deliberate divergence — the
+    // legacy path would have stored a count on a non-existent
+    // section, which we refuse to do.
+    auto bytes = to_bytes("*MOTION_NUM 5\nfoo.ANM\n");
+    EXPECT_FALSE(ChrModel::parse(bytes).has_value());
 }
 
-TEST(IsChrTest, RejectsVersionZero) {
-    // version must be >= 1.
-    auto buf = make_chr_bytes(0, 0, 60, 20, 30);
-    EXPECT_FALSE(ChrMotion::is_chr(buf));
+TEST(ChrModelLoadTest, MissingFileReturnsNullopt) {
+    auto m = ChrModel::load("D:/_does_not_exist_/nope.chr");
+    EXPECT_FALSE(m.has_value());
 }
 
-TEST(IsChrTest, RejectsVersionAboveTen) {
-    // The current parser only accepts versions 1..10. Pin that
-    // boundary so a future bump to "accept version 11+" shows up
-    // here.
-    auto buf = make_chr_bytes(0, 11, 60, 20, 30);
-    EXPECT_FALSE(ChrMotion::is_chr(buf));
-}
-
-TEST(IsChrTest, AcceptsVersionBoundaries) {
-    EXPECT_TRUE(ChrMotion::is_chr(make_chr_bytes(0, 1, 60, 20, 30)));
-    EXPECT_TRUE(ChrMotion::is_chr(make_chr_bytes(0, 10, 60, 20, 30)));
-}
-
-TEST(IsChrTest, RejectsZeroFrameCount) {
-    auto buf = make_chr_bytes(0, 3, /*frame_count=*/0, 20, 30);
-    EXPECT_FALSE(ChrMotion::is_chr(buf));
-}
-
-TEST(IsChrTest, RejectsHugeFrameCount) {
-    // frame_count must be < 1'000'000.
-    auto buf = make_chr_bytes(0, 3, /*frame_count=*/1'000'000, 20, 30);
-    EXPECT_FALSE(ChrMotion::is_chr(buf));
-    auto buf2 = make_chr_bytes(0, 3, /*frame_count=*/2'000'000, 20, 30);
-    EXPECT_FALSE(ChrMotion::is_chr(buf2));
-}
-
-TEST(IsChrTest, AcceptsLargeFrameCount) {
-    // Just under the 1M cap should still pass.
-    auto buf = make_chr_bytes(0, 3, /*frame_count=*/999'999, 20, 30);
-    EXPECT_TRUE(ChrMotion::is_chr(buf));
-}
-
-TEST(IsChrTest, RejectsZeroFps) {
-    auto buf = make_chr_bytes(0, 3, 60, 20, /*fps=*/0);
-    EXPECT_FALSE(ChrMotion::is_chr(buf));
-}
-
-TEST(IsChrTest, RejectsFpsAbove240) {
-    auto buf = make_chr_bytes(0, 3, 60, 20, /*fps=*/241);
-    EXPECT_FALSE(ChrMotion::is_chr(buf));
-}
-
-TEST(IsChrTest, AcceptsFpsBoundaries) {
-    // Pin the inclusive/exclusive boundaries of the fps check.
-    // The cpp uses `h.fps < 240` (strict less-than), so fps=239
-    // passes and fps=240 fails. fps=1 also passes.
-    EXPECT_TRUE(ChrMotion::is_chr(make_chr_bytes(0, 3, 60, 20, /*fps=*/1)));
-    EXPECT_TRUE(ChrMotion::is_chr(make_chr_bytes(0, 3, 60, 20, /*fps=*/239)));
-}
-
-TEST(IsChrTest, BoneCountIsNotValidated) {
-    // The current parser only checks version + frame_count + fps.
-    // bone_count can be 0 (no bones is technically valid for a
-    // static model), or absurdly large. Pin the current behaviour
-    // so a future change that adds bone_count validation lands
-    // here as a deliberate test update.
-    EXPECT_TRUE(ChrMotion::is_chr(make_chr_bytes(0, 3, 60, /*bone_count=*/0, 30)));
-    EXPECT_TRUE(ChrMotion::is_chr(make_chr_bytes(0, 3, 60, /*bone_count=*/99999, 30)));
-}
-
-// ===========================================================================
-// parse() — full pipeline
-// ===========================================================================
-
-TEST(ChrParseTest, ReturnsEmptyForInvalidHeader) {
-    // Invalid header → empty ChrMotion (no raw bytes, no header).
-    auto buf = make_chr_bytes(0, 0, 60, 20, 30);  // version 0 → invalid
-    ChrMotion m = ChrMotion::parse(buf);
-    EXPECT_TRUE(m.raw.empty());
-    // Default-constructed header is all-zero; we don't compare magic
-    // because the field is 0 by default and the test value was 0.
-    EXPECT_EQ(m.header.frame_count, 0u);
-}
-
-TEST(ChrParseTest, PreservesHeaderOnValidInput) {
-    auto buf = make_chr_bytes(/*magic=*/0xDEADBEEF, /*version=*/5,
-                              /*frame_count=*/120, /*bone_count=*/42,
-                              /*fps=*/60);
-    ChrMotion m = ChrMotion::parse(buf);
-    EXPECT_EQ(m.header.magic, 0xDEADBEEFu);
-    EXPECT_EQ(m.header.version, 5u);
-    EXPECT_EQ(m.header.frame_count, 120u);
-    EXPECT_EQ(m.header.bone_count, 42u);
-    EXPECT_EQ(m.header.fps, 60u);
-    EXPECT_EQ(m.header.reserved[0], 0u);
-    EXPECT_EQ(m.header.reserved[1], 0u);
-    EXPECT_EQ(m.header.reserved[2], 0u);
-}
-
-TEST(ChrParseTest, PreservesRawBytesOnValidInput) {
-    // The current skeleton stores the entire input in .raw, so the
-    // header is at offset 0..31 of raw. Pin that so a future
-    // compression or framing change surfaces here.
-    auto buf = make_chr_bytes(0xCAFEBABE, 3, 60, 20, 30);
-    // Add some payload bytes after the header (placeholder for the
-    // bone-track data that the skeleton doesn't decode yet).
-    for (int i = 0; i < 100; ++i) {
-        buf.push_back(static_cast<std::uint8_t>(i & 0xFF));
+TEST(ChrModelLoadTest, EmptyFileReturnsNullopt) {
+    // Create a zero-byte temp file and confirm load() returns nullopt.
+    auto tmp = std::filesystem::temp_directory_path() / "mxh_chr_empty.chr";
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        // don't write anything
     }
-    ChrMotion m = ChrMotion::parse(buf);
-    ASSERT_EQ(m.raw.size(), buf.size());
-    EXPECT_EQ(m.raw.size(), kChrHeaderSize + 100u);
-    // First 32 bytes are the header verbatim
-    for (std::size_t i = 0; i < kChrHeaderSize; ++i) {
-        EXPECT_EQ(m.raw[i], buf[i]) << "raw[" << i << "]";
+    auto m = ChrModel::load(tmp);
+    EXPECT_FALSE(m.has_value());
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
+}
+
+// ===========================================================================
+// Single section, simple case
+// ===========================================================================
+
+TEST(ChrModelParseTest, SingleSectionNoMotionsNoMaterials) {
+    auto text = make_chr_text({{"fighter.MOD", {}, {}}});
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "fighter.MOD");
+    EXPECT_TRUE(m->sections()[0].motions.empty());
+    EXPECT_TRUE(m->sections()[0].materials.empty());
+}
+
+TEST(ChrModelParseTest, SingleSectionWithMotions) {
+    auto text = make_chr_text({{"fighter.MOD", {"walk.ANM", "run.ANM", "idle.ANM"}, {}}});
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "fighter.MOD");
+    ASSERT_EQ(m->sections()[0].motions.size(), 3u);
+    EXPECT_EQ(m->sections()[0].motions[0], "walk.ANM");
+    EXPECT_EQ(m->sections()[0].motions[1], "run.ANM");
+    EXPECT_EQ(m->sections()[0].motions[2], "idle.ANM");
+    EXPECT_TRUE(m->sections()[0].materials.empty());
+}
+
+TEST(ChrModelParseTest, SingleSectionWithMotionsAndMaterials) {
+    auto text = make_chr_text({
+        {"11160.MOD", {"11160.ANM"}, {}}
+    });
+    // Match the real test-extract/11160.chr exactly.
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "11160.MOD");
+    ASSERT_EQ(m->sections()[0].motions.size(), 1u);
+    EXPECT_EQ(m->sections()[0].motions[0], "11160.ANM");
+    EXPECT_TRUE(m->sections()[0].materials.empty());
+}
+
+// ===========================================================================
+// Multi-section
+// ===========================================================================
+
+TEST(ChrModelParseTest, MultiSectionResetsCounters) {
+    // Section 1 has 2 motions, section 2 has 0 motions. The counter
+    // from section 1 must NOT bleed into section 2's "no motions" path
+    // (which would otherwise grab section 2's *MATERIAL_NUM as a
+    // motion).
+    auto text = make_chr_text({
+        {"a.MOD", {"a1.ANM", "a2.ANM"}, {}},
+        {"b.MOD", {}, {}}
+    });
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 2u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "a.MOD");
+    EXPECT_EQ(m->sections()[0].motions.size(), 2u);
+    EXPECT_TRUE(m->sections()[0].materials.empty());
+    EXPECT_STREQ(m->sections()[1].mod_file, "b.MOD");
+    EXPECT_TRUE(m->sections()[1].motions.empty());
+    EXPECT_TRUE(m->sections()[1].materials.empty());
+}
+
+TEST(ChrModelParseTest, MultiSectionKeepsIndependentLists) {
+    auto text = make_chr_text({
+        {"a.MOD", {"a.ANM"}, {"a.MML"}},
+        {"b.MOD", {"b1.ANM", "b2.ANM"}, {"b1.MML", "b2.MML"}}
+    });
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 2u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "a.MOD");
+    EXPECT_EQ(m->sections()[0].motions.size(), 1u);
+    EXPECT_EQ(m->sections()[0].motions[0], "a.ANM");
+    EXPECT_EQ(m->sections()[0].materials.size(), 1u);
+    EXPECT_EQ(m->sections()[0].materials[0], "a.MML");
+    EXPECT_STREQ(m->sections()[1].mod_file, "b.MOD");
+    EXPECT_EQ(m->sections()[1].motions.size(), 2u);
+    EXPECT_EQ(m->sections()[1].materials.size(), 2u);
+}
+
+// ===========================================================================
+// Tolerance
+// ===========================================================================
+
+TEST(ChrModelParseTest, SkipsBlankAndCommentLines) {
+    auto text = std::string("\n") +
+        "// pre-comment\n" +
+        "\n" +
+        "*MOD_FILE_NAME x.MOD\n" +
+        "   \n" +
+        "\t*MOTION_NUM\t1\n" +
+        "// another comment\n" +
+        "walk.ANM\n" +
+        "\t*MATERIAL_NUM\t0\n";
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "x.MOD");
+    EXPECT_EQ(m->sections()[0].motions.size(), 1u);
+    EXPECT_EQ(m->sections()[0].motions[0], "walk.ANM");
+}
+
+TEST(ChrModelParseTest, NegativeMotionCountClampedToZero) {
+    auto text = std::string(
+        "*MOD_FILE_NAME x.MOD\n"
+        "*MOTION_NUM -1\n"
+        "this.ANM\n"        // should be dropped
+        "*MATERIAL_NUM 1\n"
+        "this.MML\n");
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    EXPECT_TRUE(m->sections()[0].motions.empty());
+    EXPECT_EQ(m->sections()[0].materials.size(), 1u);
+    EXPECT_EQ(m->sections()[0].materials[0], "this.MML");
+}
+
+TEST(ChrModelParseTest, StrayPathTokenBeforeAnySectionIsDropped) {
+    auto text = std::string("orphan.ANM\n*MOD_FILE_NAME x.MOD\n");
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "x.MOD");
+    EXPECT_TRUE(m->sections()[0].motions.empty());
+}
+
+TEST(ChrModelParseTest, UnknownPidTokenIsIgnored) {
+    // *FOO_BAR is not a recognized PID. The line should be dropped
+    // and parsing should continue normally.
+    auto text = std::string(
+        "*FOO_BAR 1\n"
+        "*MOD_FILE_NAME x.MOD\n"
+        "*MOTION_NUM 1\n"
+        "walk.ANM\n");
+    auto m = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "x.MOD");
+    EXPECT_EQ(m->sections()[0].motions.size(), 1u);
+    EXPECT_EQ(m->sections()[0].motions[0], "walk.ANM");
+}
+
+// ===========================================================================
+// Round-trip
+// ===========================================================================
+
+TEST(ChrModelSerializeTest, EmptySectionsProducesEmptyString) {
+    EXPECT_EQ(ChrModel::serialize_text({}), std::string{});
+}
+
+TEST(ChrModelRoundTripTest, SynthesizedMultiSection) {
+    std::vector<ChrModelSection> in;
+    {
+        ChrModelSection a{};
+        std::strcpy(a.mod_file, "hero.MOD");
+        a.motions = {"hero_idle.ANM", "hero_run.ANM"};
+        a.materials = {"hero_skin.MML"};
+        in.push_back(std::move(a));
     }
-    // Payload bytes are preserved as-is
-    for (int i = 0; i < 100; ++i) {
-        EXPECT_EQ(m.raw[kChrHeaderSize + i], static_cast<std::uint8_t>(i & 0xFF));
+    {
+        ChrModelSection b{};
+        std::strcpy(b.mod_file, "weapon.MOD");
+        b.motions = {"weapon_swing.ANM"};
+        b.materials = {};
+        in.push_back(std::move(b));
+    }
+    const std::string text = ChrModel::serialize_text(in);
+    auto parsed = ChrModel::parse(to_bytes(text));
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_EQ(parsed->sections().size(), in.size());
+    for (std::size_t i = 0; i < in.size(); ++i) {
+        EXPECT_STREQ(parsed->sections()[i].mod_file, in[i].mod_file);
+        EXPECT_EQ(parsed->sections()[i].motions, in[i].motions);
+        EXPECT_EQ(parsed->sections()[i].materials, in[i].materials);
     }
 }
 
-TEST(ChrParseTest, ReturnsEmptyForBufferShorterThanHeader) {
-    // Less than 32 bytes → is_chr fails → parse returns empty.
-    std::vector<std::uint8_t> buf(16, 0);
-    ChrMotion m = ChrMotion::parse(buf);
-    EXPECT_TRUE(m.raw.empty());
-    EXPECT_EQ(m.header.frame_count, 0u);
+TEST(ChrModelSaveLoadFileTest, RoundTripThroughDisk) {
+    auto tmp = std::filesystem::temp_directory_path() / "mxh_chr_roundtrip.chr";
+    std::vector<ChrModelSection> in;
+    ChrModelSection s{};
+    std::strcpy(s.mod_file, "test.MOD");
+    s.motions = {"test.ANM"};
+    s.materials = {"test.MML"};
+    in.push_back(std::move(s));
+
+    ASSERT_TRUE(ChrModel::save_to_file(tmp, in));
+    auto loaded = ChrModel::load(tmp);
+    ASSERT_TRUE(loaded.has_value());
+    ASSERT_EQ(loaded->sections().size(), 1u);
+    EXPECT_STREQ(loaded->sections()[0].mod_file, "test.MOD");
+    EXPECT_EQ(loaded->sections()[0].motions.size(), 1u);
+    EXPECT_EQ(loaded->sections()[0].motions[0], "test.ANM");
+    EXPECT_EQ(loaded->sections()[0].materials.size(), 1u);
+    EXPECT_EQ(loaded->sections()[0].materials[0], "test.MML");
+
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
 }
 
-TEST(ChrParseTest, ReturnsEmptyForEmptyBuffer) {
-    ChrMotion m = ChrMotion::parse(std::span<const std::uint8_t>{});
-    EXPECT_TRUE(m.raw.empty());
+// ===========================================================================
+// Real-world sample
+// ===========================================================================
+
+TEST(ChrModelRealSampleTest, LoadsTestExtract11160Chr) {
+    if (!std::filesystem::exists(kRealChr)) {
+        GTEST_SKIP() << "test-extract/11160.chr not present; skipping real sample";
+    }
+    auto m = ChrModel::load(kRealChr);
+    ASSERT_TRUE(m.has_value());
+    ASSERT_EQ(m->sections().size(), 1u);
+    EXPECT_STREQ(m->sections()[0].mod_file, "11160.MOD");
+    ASSERT_EQ(m->sections()[0].motions.size(), 1u);
+    EXPECT_EQ(m->sections()[0].motions[0], "11160.ANM");
+    EXPECT_TRUE(m->sections()[0].materials.empty());
 }
 
 }  // namespace mxh::compat::test
