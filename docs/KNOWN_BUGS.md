@@ -177,6 +177,274 @@
   `modern/tests/unit/bmhm_map_test.cpp::RealMap101` 测试期望固定
   `"skipped to defaults"` 行子集的行为。
 
+### Bug R-6: `.chr` Stub 阶段错位为 32 字节 packed binary header（Phase 12.1 已修复）
+- **症状**：modern 端 `ChrMotion::ChrHeader` 假定 `.chr` 是二进制格式：
+  `u32 magic + u32 version + u32 frame_count + u32 bone_count + u32 fps + u32 reserved[3]`
+  （32 字节 packed），并预留 `TODO(Phase 1.3): decode bone tracks` 钩子。
+  实际 4Dyuchi `.chr` 是**纯文本 manifest**（`FSOpenFile(..., FSFILE_ACCESSMODE_TEXT)`），
+  无 magic、version、frame_count 等 binary 字段。
+- **位置**：`modern/include/mxh/compat/chr_motion.hpp`（已重写为
+  `ChrModel` + `ChrModelSection`）；`modern/src/chr_motion.cpp`（已重写为
+  文本格式状态机）；`modern/tests/unit/compat/chr_motion_test.cpp`（12 用例
+  重写为文本格式）。
+- **根因**：Phase 1.3 stub 阶段没参考 4Dyuchi 真实代码（`4DYUCHIGXEXECUTIVE/
+  executive.cpp:1485-1510` + `4DyuchiGRX_common/typedef.h:1382-1384`），凭空
+  假定"骨骼轨道"在 .chr 文件里。实际骨骼在 .mod (`FILE_SCENE_HEADER` 28 字节
+  + mesh/light/camera/bone objects) 里，motion 关键帧在 .ANM 里。`.chr` 只是
+  mod/motion/material 的引用列表。
+- **现代方案**：
+  - 修复 = `ChrModel` 重写为 `*MOD_FILE_NAME` / `*MOTION_NUM` / `*MATERIAL_NUM`
+    文本状态机，逐行 trim + tokenize（`mxh/compat/detail/text_parse.hpp` 共享
+    inline helper）。
+  - 配套：`serialize_text` + `save_to_file` round-trip；`test-extract/11160.chr`
+    真实加载测试通过。
+  - 已抽取 `mxh/compat/detail/text_parse.hpp` 共享 `trim` / `tokenize`，
+    避免后续 `.chx` / 其他文本格式重复定义触发 ODR 冲突。
+- **状态**：已修复（2026-07-16 Phase 12.1）。18/18 ChrModel 测试 PASS
+  （含 1 个真实 `11160.chr` 加载）。
+- **关联**：`modern/include/mxh/compat/chr_motion.hpp`、`modern/src/chr_motion.cpp`、
+  `modern/include/mxh/compat/detail/text_parse.hpp`（新建）；
+  legacy 参考：`墨香【源码】\4DYUCHIGXEXECUTIVE\executive.cpp:1485-1645`、
+  `墨香【源码】\4DyuchiGRX_common\typedef.h:1382-1384`、
+  `墨香【源码】\4DyuchiGXGeometry\model.cpp:2012`（CoModel::ReadFile）。
+
+### Bug R-7: `.chx` Stub 阶段错位为 32 字节 `CHLX` magic binary header（Phase 12.1 已修复）
+- **症状**：modern 端 `ChxModel::ChxHeader` 假定 `.chx` 是二进制格式：
+  `u32 magic('CHLX') + u32 version + u32 mesh_count + u32 bone_count +
+  u32 material_count + u32 vertex_count + u32 index_count + u32 reserved`。
+  实际 `.chx` 是**TAB 分隔的纯文本** metadata 文件，结构与 .chr 类似
+  但开头是 `*MOD_FILE_NUM <N>`（不是 `*MOD_FILE_NAME`），后跟 N 个
+  `*MOD_FILE_NAME <path>`，收尾 `*MOTION_NUM <M>` + M 个 motion path。
+- **位置**：`modern/include/mxh/compat/chx_model.hpp`（已重写为 `ChxModel`
+  + `mod_files` + `motions`）；`modern/src/chx_model.cpp`（已重写为文本
+  状态机）；`modern/tests/unit/chx_model_test.cpp`（12 用例重写为文本格式）。
+- **根因**：同 R-6。stub 阶段没看 4Dyuchi 真实代码（`executive.cpp:1512-1570`
+  PreLoadGXObject / LoadModelData 路径）。`chx_real_resource_test.cpp` 已
+  正确记录真实格式为文本（`"firstLine == *MOD_FILE_NUM\\t5"`），但 stub
+  端的 `is_chx` / `ChxHeader` 二进制假设与该测试期望相反，导致两个测试
+  矛盾。
+- **现代方案**：
+  - 修复 = `ChxModel` 重写为文本状态机，与 `ChrModel` 共享
+    `mxh/compat/detail/text_parse.hpp` helpers。
+  - `chx_real_resource_test.cpp::ManChxIsTextMetadata` 和
+    `ChxModelParseRejectsTextChx` 测试语义反转（原期望"二进制头拒绝文本"，
+    现期望"文本头解析出 5 个 mod_files"）。`Character.pak:man.chx` 真实
+    加载测试通过（4/4 ChxModelRealResource PASS）。
+  - 防御性：`ChxModel` 接受 *MOD_FILE_NAME 单行（无 *MOD_FILE_NUM 头），
+    按"count=1"对待，匹配手编资源。
+- **状态**：已修复（2026-07-16 Phase 12.1）。12/12 ChxModel 测试 +
+  4/4 ChxModelRealResource 测试 PASS。
+- **关联**：`modern/include/mxh/compat/chx_model.hpp`、`modern/src/chx_model.cpp`、
+  `modern/tests/unit/chx_model_test.cpp`、`modern/tests/unit/chx_real_resource_test.cpp`；
+  legacy 参考：`墨香【源码】\4DYUCHIGXEXECUTIVE\executive.cpp:1512-1645`、
+  `墨香【源码】\4DyuchiGRX_common\typedef.h:1382-1384`。
+  **遗留**：vertex / index / mesh / bone 实际数据**不在** .chx 里，仍在
+  各 .mod 子文件里。modern 端若需直接渲染，需进一步实现
+  `modern/include/mxh/compat/mod_model.hpp/cpp`（Phase 12.x deferred，
+  不在 P2 当前任务范围）。
+
+### Bug Perf-4: IocpServer 不支持 Linux/macOS（Phase 12.1 deferred）
+- **症状**：`IocpServer::start()` 在非 Windows 平台直接返回
+  `std::errc::not_supported`（`modern/src/net/iocp/iocp.cpp:215-219`）。
+  `worker_thread_func` / `accept_thread_func` 整个函数体被
+  `#ifdef MXH_PLATFORM_WINDOWS` 包裹。1:1 复刻承诺下，Linux/macOS 部署
+  无法使用 IOCP 服务器。
+- **位置**：`modern/src/net/iocp/iocp.cpp`（start/stop/worker/accept 4 处）。
+- **根因**：IOCP 是 Windows-only proactor API（completion-based）。
+  POSIX 等价物是 epoll（Linux）/ kqueue（macOS），是 **readiness-based**
+  reactor——和 IOCP 的"操作完成才通知"语义根本不同。直接翻译需要
+  重新设计 accept/send/recv 的回调时序，量级等同重写一个网络层。
+- **现代方案**：
+  - 选项 A（推荐）：在 `mxh::net` 下新增 `EpollServer`（Linux）+ `KqueueServer`
+    （macOS）实现，各自基于非阻塞多路复用。`IocpServer` 保持
+    Windows-only 命名，接口统一通过抽象 `AsyncServer` facade 暴露。
+    预估 4-6 小时实现 + 8-12 测试。
+  - 选项 B（最小占位）：为 POSIX 写一个最小 `mxh::net::nonblocking_server.hpp`
+    骨架（单线程 epoll + 简单 echo），仅作为可编译 demo。1-2 小时，test
+    pass 数有限。
+  - 选项 C：跳过。`IocpServer` 永久 Windows-only，POSIX 平台用现成
+    第三方 asio / Boost.Asio 替代。
+- **状态**：Deferred，2026-07-16 Phase 12.1 用户决策：跳过 P2-4/P2-5 整个
+  网络层任务。`AI_TASK_QUEUE.md` 已记录。
+- **关联**：`modern/src/net/iocp/iocp.cpp:215-219`（start POSIX 路径）、
+  `modern/src/net/iocp/iocp.cpp:368-407`（worker/accept 函数体被 ifdef 包裹）、
+  `modern/src/net/iocp/iocp.cpp:485-492`（handle_accept / post_accept 空 stub）。
+
+### Bug Perf-5: AcceptEx 性能优化未实装（Phase 12.1 deferred）
+- **症状**：`IocpServer::load_accept_ex()` 已写好（`iocp.cpp:583-602`），
+  但 `start()` 没调用它，`post_accept()` / `handle_accept()` 都是空 stub
+  （`iocp.cpp:485-492`、`iocp.cpp:567-570`）。当前 accept 使用同步
+  `accept()`（`accept_thread_func:413-414`），每个连接一次系统调用、
+  无 SO_UPDATE_ACCEPT_CONTEXT、无 GetAcceptExSockaddrs、无 pre-posted
+  accept 池。在高并发下 accept 线程会成为瓶颈。
+- **位置**：`modern/src/net/iocp/iocp.cpp`（5 处需要联动修改）。
+- **根因**：stub 阶段把 AcceptEx 留作 TODO（注释明确写"Implement AcceptEx
+  for better performance"），Phase 7 没动。
+- **现代方案**：
+  - 在 `start()` 里 pre-post N 个 `AcceptEx`（N = `worker_thread_count_`
+    或独立的 `max_pending_accepts_`），每个 AcceptEx 自带 16-byte padding
+    + 客户端 sockaddr_storage + 本地 sockaddr_storage。
+  - 在 `worker_thread_func` 处理 `IocpOperation::Accept` 完成：调用
+    `GetAcceptExSockaddrs` 取客户端地址，`setsockopt(SO_UPDATE_ACCEPT_CONTEXT)`
+    把 accept socket 与 listen socket 关联，立即 post 下一个 AcceptEx。
+  - 需要：accept pool 回收、错误时 fallback 同步 accept 的策略、
+    handle_accept 测试桩。
+  - 预估 1-2 小时，5-8 个测试（pre-posted count、exhausted 路径、
+    client addr 正确性、SO_UPDATE_ACCEPT_CONTEXT 错误路径）。
+- **状态**：Deferred，2026-07-16 Phase 12.1 用户决策：跳过。
+  `AI_TASK_QUEUE.md` 已记录。
+- **关联**：`modern/src/net/iocp/iocp.cpp` lines 215（start）、
+  485（handle_accept stub）、567（post_accept stub）、583（load_accept_ex）。
+
+### Bug R-8: ItemList.bin 解析器未实装（Phase 12.1 部分修复）
+- **症状**：modern 端没有 `[CC]Skill/ItemList.bin` 解析器。`item_effects.hpp`
+  用硬编码小表覆盖 4 类消耗品（HP / MP / HP+MP / Buff potion），按 `wIconIdx`
+  范围线性缩放。Legacy 客户端依赖的"等级曲线"、buff 持续时间、装备 stat mod
+  在现代端全部为 0/缺省。
+- **位置**：`modern/src/item_effects.cpp`、`modern/include/mxh/game/item_effects.hpp`。
+- **根因**：Phase 1.3 stub 阶段只实现了资源文件**格式层**（chr/chx/bmhm/bsad/
+  pack），没实现 ItemList.bin / GameResourceStruct.h 的字段解析。ItemList.bin
+  在 legacy 是 critical game data 源，影响所有物品效果 / 价格 / 装备 / 任务奖励。
+- **现代方案**：
+  - Phase 12.1 部分修复（2026-07-16）：实现 `resolve_item_effect()` 硬编码表，
+    覆盖 4 类消耗品（wIconIdx 1-399），`map_handler.cpp` 的 `UseSyn` 改为：
+    1) 读 inventory[pos] 拿 `wIconIdx`
+    2) `classify_item()` 判定是否消耗品
+    3) `resolve_item_effect()` 算 HP/MP/buff delta
+    4) apply 到 `PlayerInfo::combat.current_hp/mp`（clamp 到 max）
+    5) 回 UseAck（带 effect + 新 HP/MP），或 UseNack（非消耗品 / 空 slot）
+  - 完整修复需要 Phase 12.x deferred：实现 `ItemList.bin` 解析器
+    （类似 bmhm_map / bsad_area / pack_file 的格式层），把硬编码表换为
+    实时查表。
+- **状态**：部分修复（2026-07-16 Phase 12.1）。15/15 item_effects 测试 PASS +
+  map_handler.cpp 编译干净 + server_handler_test 14/14 PASS（0 回归）。
+  `mxh_compat_tests` 65 → 80（+15）。
+- **关联**：`modern/include/mxh/game/item_effects.hpp`（新建）、
+  `modern/src/item_effects.cpp`（新建）、`modern/tests/unit/item_effects_test.cpp`（新建）、
+  `modern/src/server/map_handler.cpp`（UseSyn 改写）、`modern/src/CMakeLists.txt`
+  （item_effects.cpp 加到 mxh_compat）、`modern/tests/unit/CMakeLists.txt`
+  （item_effects_test.cpp 注册）；
+  legacy 参考：`墨香【源码】\[CC]Skill\ItemList.bin`（binary 资源）、
+  `墨香【源码】\4DyuchiGRX_common\GameResourceStruct.h`（字段定义）。
+
+### Bug R-9: 矩阵 row/column-major 约定混乱，primitives.cpp drawBox 正交投影无法实装（Phase 12.1 deferred）
+- **症状**：`modern/src/render/dx11/primitives.cpp:212` 的 TODO 标记
+  ("simple: use x,y for now, proper ortho projection is TODO") 从 Phase 5
+  stub 阶段一直挂着。drawBox 用 oct.x, oct.z 当 2D 屏幕坐标——只看了
+  X、Z 维度且没做 matrix multiply。
+- **根因**：项目矩阵库的 row/column-major 约定**实际混乱**，无法在不
+  引入更多 bug 的前提下做"正确"的 CPU 端 transform：
+  - `MatrixLookAtLH` 注释自称 "Row-major view matrix"（`M[0][0]=R·R`,
+    `M[0][3]=-dot(R,eye)`），但这种排布在 row-major 矩阵 + 行向量
+    变换（`v × M`）下**translation 在最后一列**才生效——把 translation
+    写在 `M[0][3]`（第 0 行第 3 列）实际是 **column-major** 存储。
+  - `MatrixOrthographicLH` 的 `pOut->_43 = -zn/(zf-zn)`（行 2 列 3）
+    在 DX 标准 LH ortho **column-major** 下对，row-major 下错。
+  - `MatrixMultiply2` 用标准数学约定 `result[i][j] = sum_k A[i][k]*B[k][j]`
+    （行主序矩阵乘）。
+  - 三者**互相冲突**——同一份 4x4 数据同时按 row-major 和 column-major
+    解释，结果不同。
+- **尝试过的方案**（本 session 2026-07-16 03:15-03:30）：
+  - 加 `Vector4Transform(v, M) = v × M`（row-major 假设）+ 改 drawBox
+    用 4x4 transform 投 8 个 octahedron 角。
+  - Build 通过，写 8 个测试覆盖 identity / ortho / translation。
+  - **撤回**所有改动——Vector4Transform helper 撤掉、drawBox 恢复 stub、
+    8 个测试撤掉。原因：row-major 假设下，MatrixLookAtLH 输出**自相矛盾**，
+    任何使用 m_viewProj 的代码（height_field、mesh）看到的语义
+    都不确定。
+- **现代方案**：先做**矩阵约定审计**（1-2 个 commit）：
+  1) 决定项目用 row-major 还是 column-major（看 height_field / mesh
+     shader 怎么用 `mul(v, M)`）。
+  2) 修 MatrixLookAtLH / MatrixOrthographicLH 的 storage 与 transform
+     helper 一致。
+  3) 补 4-5 个 test pin 约定（identity / row-major perspective /
+     row-major ortho 等）。
+  4) **然后**才回头改 drawBox 正交投影。
+- **状态**：Deferred（2026-07-16 Phase 12.1 尝试后撤回）。用户决策：
+  是否做约定审计（牵涉 height_field / mesh 既有代码兼容性）。
+- **关联**：`modern/include/mxh/render/math.hpp`（MatrixLookAtLH/
+  MatrixOrthographicLH/MatrixMultiply2/已删 Vector4Transform）、
+  `modern/src/render/dx11/primitives.cpp:212`（TODO 仍在）、
+  `modern/src/render/dx11/height_field.hpp:131`（setViewProj）、
+  `modern/src/render/dx11/font_object.cpp:308`（drawer.setViewProj 调用）。
+
+### Bug R-10: cImage->RenderSprite reference adapter 无现成 host caller（Phase 12.1 部分实装）
+- **症状**：`modern/src/ui/cImage.{hpp,cpp}` 提供 `bindRenderer(drawFn, ctx)`
+  hook + `render()` 调用（Phase 6.4 完整实现），但**没有 reference
+  adapter**展示如何用 `I4DyuchiGXRenderer::RenderSprite` 实现真实
+  GPU 绘制。AI_TASK_QUEUE P2-9 描述的"真实 GPU 绘制"实际上是 reference
+  impl 缺失——hook 框架已实装。
+- **位置**：`modern/src/ui/cImage.{hpp,cpp}`（已实装，测试覆盖）；
+  reference adapter 位置未确定。
+- **根因**：mxh_ui 库**不**依赖 mxh_render（cImage 故意用 `void*`
+  把 IDISpriteObject 类型屏蔽）。Reference adapter 跨这两个 lib，
+  放哪都不干净：
+  - 放 `modern/src/ui/` → 引入 `mxh_ui -> mxh_render` link 依赖，
+    影响所有 mxh_ui 用户（即使不用 cImage）
+  - 放 `modern/src/render/dx11/` → cImage 头在 `mxh/ui/`，反向依赖
+    也违反分层
+  - 放 `tools/MoxianRenderDemo` → 没有现成 cImage caller（MoxianRenderDemo
+    直接用 `RenderSprite` 调 sprite，不走 cImage layer）
+- **尝试过的方案**（本 session 2026-07-16 03:35-03:50）：
+  - 写 `mxh::ui::installDx11ImageRenderer(I4DyuchiGXRenderer*)` adapter
+    + factory 入口
+  - 放 `modern/src/ui/dx11_image_renderer.{hpp,cpp}`，加到 mxh_ui 库
+  - **撤回**所有改动：reference adapter 没有 caller，写了也是死代码；
+    应该等第一个真正接入 cImage 的 host（MoxianClient）时再写。
+- **现代方案**：
+  - Phase 12.1 部分实装：**hook 框架已实装 + 测试**（cimage_test.cpp
+    8 用例覆盖 DefaultIsNull / SetSpriteObjectStoresPointer /
+    SetSourceRecordsRectAndSize / EmptyRectMeansFullSprite /
+    RenderFullSpriteUsesDefaultUVs / RenderClipsToSourceRect /
+    RenderClampsOutOfRangeUVs / RenderWithoutAdapterIsNoOp）
+  - 完整实装等待 Phase 12.x：当 MoxianClient 接入 cImage 时（不再
+    直接调 RenderSprite），参考 adapter 写在新 host 工具里（约
+    50 行，直接调 `RenderSprite(pSprite, &scaling, 0, &trans,
+    &rect, color, zOrder, 0)`，把 cImage 算好的 UV 翻回 pixel rect
+    用 sprite 的 known size）
+- **状态**：部分实装（hook 框架），reference adapter 撤回。Phase 12.x
+  等 host 接入。
+- **关联**：`modern/src/ui/cImage.{hpp,cpp}`（已实装）、
+  `modern/tests/unit/ui/cimage_test.cpp`（已 8 用例 PASS）、
+  `modern/tools/MoxianRenderDemo/main.cpp:196`（直接走 RenderSprite，
+  不用 cImage）。
+
+### Bug R-11: BC6H / BC7 编码器"低质量基线"实现（Phase 12.1 部分实装）
+- **症状**：`modern/src/render/dx11/texture_loader.cpp` 的
+  `encode_bc6h_block_mode1` 和 `encode_bc7_block_mode6` 输出的
+  每个 4×4 块都是**单色块**（端点 = mean, 索引全 0），BC6H 不做
+  模式选择，BC7 不分区不旋转。
+- **位置**：`modern/src/render/dx11/texture_loader.cpp`
+  (`encode_bc6h_block_mode1` line ~415, `encode_bc7_block_mode6`
+  line ~465), header `DdsHeaderDxt10` struct, `dxgi_format` 常量
+- **根因**：完整 BC6H/BC7 encoder 是几百行 + 十几种 mode 的
+  rate-distortion 优化，DirectXTex / bc7enc / ispc_texcomp 等
+  专用库才能做好。Phase 12.1 目标是"文件结构合法 + GPU 能解
+  码 + Auto 不自动升级"，所以**故意**输出低质量但格式正确的
+  块：file structure 100% 符合 DDS 规范，GPU 解码不崩。
+- **现代方案**：
+  - Phase 12.1 部分实装（CHANGELOG 0.13.5）：BC6H mode 1 + BC7
+    mode 6 文件结构 + DX10 扩展头 + 14 测试用例（fourcc=DX10
+    / dxgiFormat / resourceDim / payload size / block field
+    layout / non-multiple-of-4 padding）全部通过
+  - **Auto 模式** = BC1 (opaque) / BC3 (alpha gradient) **不**自动
+    选 BC7 —— 匹配 legacy `ConvertCompressedTexture` 启发式 1:1
+    （要 BC7 必须 host 显式 `saveDDS_BC(tex, BCFormat::BC7)`）
+  - **完整实装**等待：把 `DirectXTex` 或 `ispc_texcomp` 接进
+    CMake 依赖（需要 vcpkg 加 `directxtex` / `bc7enc`），替换
+    两个 `encode_*_block_mode*` 桩为真正的 RDO encoder。预期
+    改动 200-400 行 + CMake 依赖 + per-block mode selection。
+  - 过渡期使用建议：BC1/BC3/BC4/BC5 完全可用；BC6H/BC7 仅用于
+    "GPU 能否识别新格式"的 smoke test / 内部 pipeline placeholder，
+    **不要**用于游戏内纹理（视觉上每 4×4 块都是单色）。
+- **状态**：部分实装（interface / file structure），低质量 encoder。
+  Phase 12.x 等 DirectXTex 接入。
+- **关联**：`modern/src/render/dx11/texture_loader.cpp` (DX10
+  ext path, `encode_bc6h_block_mode1`, `encode_bc7_block_mode6`),
+  `modern/include/mxh/render/dx11/texture_loader.hpp` (BCFormat
+  enum), `modern/tests/unit/render/texture_loader_test.cpp`
+  (+14 用例 PASS), `CHANGELOG.md` 0.13.5。
+
 ### Bug C-19: [CC]ServerModule/inetwork.h 与 4DyuchiNET_Common/INetwork.h 接口签名不匹配
 - **症状**：`[CC]ServerModule/Network.cpp:50` 调 `m_pINet->CreateNetwork(desc)` 1-参数版本；`4DyuchiNET_Latest/conetwork.cpp:131` 实现 `Co4DyuchiNET::CreateNetwork(DESC_NETWORK*, DWORD, DWORD, OnIntialFunc)` 4-参数版本。任何以 NET 编译的 DLL 替换旧版都会被这张简化 header 阻断 link。
 - **位置**：`墨香【源码】\4DyuchiNET_Common\INetwork.h` vs `墨香【源码】\[CC]ServerModule\inetwork.h`
@@ -293,12 +561,16 @@
 
 ## 协议问题
 
-### Bug P-1: 消息分发表硬编码大小
+> 编号约定：本段条目以 `Bug Proto-N` 标识，与性能段 `Bug Perf-N` 区分
+> （历史：原 P-1/P-2 与性能段前缀撞，2026-07-16 改名）。性能段见上文
+> "性能问题"小节。
+
+### Bug Proto-1: 消息分发表硬编码大小
 - **位置**：`Protocol.h` 末尾 `MP_MAX`
 - **现象**：新增协议时必须更新
 - **现代方案**：运行时注册表（保留 MP_MAX 作为兼容）
 
-### Bug P-2: 加密可选
+### Bug Proto-2: 加密可选
 - **位置**：`#ifdef _CRYPTCHECK_` 宏
 - **现象**：默认未启用加密
 - **现代方案**：明确"明文/加密"双模式，不依赖宏

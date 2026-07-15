@@ -405,7 +405,7 @@ Phase 12: 持续迭代 ✅
 | `ConvertCompressedTexture` BC4/BC5 | ✅ done (5.12) | ATI1/ATI2 FourCC, encode_single_channel_block |
 | Motion cache (per-motion VB/IB) | ✅ done (5.13) | refcount-shared |
 | `INL_GetVLMeshEffect` helper | ✅ done (pre-5.12) | 1-line wrapper, covered by effect_shader_test |
-| `ConvertCompressedTexture` BC6H/BC7 | ⏳ future | HDR + RGBA-hi-quality; 大型编码器 |
+| `ConvertCompressedTexture` BC6H/BC7 | 🟡 partial (12.1 P2-11) | DX10 ext header + mean-color mode 1/6; **R-11** 等 DirectXTex/bc7enc 接入 |
 
 > **FontObject 范围说明**：8-bit 缓存（非 Unicode CJK 簇）；CJK 应走老引擎自己的 .TTB 预烤字图。
 > DirectWrite SDF / 多色 emoji 需要单独 Phase 6+ 工作。
@@ -489,8 +489,8 @@ Phase 12: 持续迭代 ✅
 | `cListDialog` | ✅ done (6.12) | scrollable text list (rows + selection + scroll) |
 | `cGuildDialog` | ✅ done (6.12) | first real legacy-port dialog (header + member list + tabs + rank-gated buttons) |
 | `cMultiLineText` | ✅ done (6.13) | multi-line text node list (NPC dialogs, quest descriptions, system messages) |
-| Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
-| IME (Korean/JP composition) | ⏳ future | |
+| Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
+| IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
 | Sortable columns | ⏳ future | cListCtrl sort already in 6.5 |
 | 79 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
@@ -555,8 +555,8 @@ Phase 12: 持续迭代 ✅
 | `cListDialog` | ✅ done (6.12) | scrollable text list (rows + selection + scroll) |
 | `cGuildDialog` | ✅ done (6.12) | first real legacy-port dialog (header + member list + tabs + rank) |
 | `cMultiLineText` | ✅ done (6.13) | multi-line text node list (NPC dialogs + quest descriptions) |
-| Real GPU draw (cImage → SRV) | ⏳ next | bindRenderer hook (6.4 already in place) |
-| IME (Korean/JP composition) | ⏳ future | |
+| Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
+| IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
 | 79 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
 
@@ -880,13 +880,17 @@ Phase 12: 持续迭代 ✅
 
 ## 7. 立即开始的执行项（Phase 0）
 
+> 状态快照：2026-07-16。本节为 Phase 0 启动清单，全部项已 2026-07-06 ~ 07-07
+> 期间完成。后续 §9 Phase 10 series 总结和 `CHANGELOG.md` 记录了全部 12
+> phase 的实际落地状态。
+
 1. ✅ **已完成**：本计划文档
-2. ⏳ **进行中**：
-   - 创建 `.gitignore`
-   - 创建 `AGENTS.md`
-   - 创建 `cmake/` 骨架（先不动原工程）
-   - 创建 `scripts/` 一键启动脚本
-   - 编写 `modern/MoxianCompat` Phase 1 起步代码
+2. ✅ **已完成**（2026-07-06 ~ 07-07）：
+   - 创建 `.gitignore`（后续多次扩充，详见 §9.2 P10.4 .gitignore expansion）
+   - 创建 `AGENTS.md`（P1: 跨 session 协作指南 + 24h AI 接力）
+   - 创建 `cmake/` 骨架 + `modern/CMakeLists.txt`（先不动原工程）
+   - 创建 `scripts/` 一键启动脚本（modern/scripts/ 17 dev utilities，见 P10.4）
+   - 编写 `modern/MoxianCompat` Phase 1 起步代码（MhFileEx / PackFile / TgaLoader / ResourceExplorer）
 
 ---
 

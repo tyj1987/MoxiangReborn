@@ -3,6 +3,344 @@
 > All notable changes to the Moxian-Reborn modernization project.
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
+## [0.13.4] - 2026-07-16
+
+### Phase 12.1: IME hook 接口 + Win32 IMM reference adapter ✅
+
+**背景**：Phase 6 stub 阶段 cEditBox / cWindowManager 完全没 IME 处理
+（legacy 在 TAIWAN / HK / JAPAN build 用 `imm32.lib` 处理
+`WM_IME_STARTCOMPOSITION` + `ImmSetCompositionWindow` / `ImmSetOpenStatus`）。
+
+**已实装**
+
+- `modern/include/mxh/ui/ime.hpp`（新建）：
+  - `enum class ImeEditType { EditBox, Spin, TextArea, Number, Other }`
+  - `struct ImeAdapter` 4 hook 字段（onFocusEdit / onBlurEdit /
+    onStartComposition / acceptsIme）
+  - `installImeAdapter(const ImeAdapter&)` + `isImeAdapterInstalled()`
+  - `installWin32Ime(HWND)` / `uninstallWin32Ime()` 声明
+  - `detail::ime_dispatch_*` 内部 dispatcher（platform-agnostic）
+  - HWND 前向声明（非 Win32 平台不拉 windows.h）
+- `modern/src/ui/ime.cpp`（新建）：platform-agnostic dispatcher
+  + 单例状态 + 4 hook 路由
+- `modern/src/ui/ime_win32_imm.cpp`（新建，`#ifdef _WIN32`）：
+  - 镜像 legacy `MHClient.cpp:577-605` 模式：focus → ImmGetContext
+    + ImmSetCompositionWindow(caret_x, caret_y, 512×20) +
+    ImmSetOpenStatus(TRUE)；blur → ImmNotifyIME(CPS_CANCEL)
+  - Number-only edit 抑制 IME（legacy VCM_NUMBER 行为）
+- `modern/tests/unit/ui/ime_test.cpp`（新建）：13 用例
+  - Install/uninstall / 4 hook 独立可装 / 默认 no-op / 默认 accept
+  - reinstall 替换前一个 / null hook 安全 / accumulate
+- 现代 `modern/src/ui/CMakeLists.txt`：`ime.cpp` 总是编译，
+  `ime_win32_imm.cpp` 仅 WIN32 + `target_link_libraries imm32`
+- `modern/tests/unit/ui/CMakeLists.txt`：注册 `ime_test.cpp`
+
+**未实装（KNOWN_BUGS 范围）**
+
+- cEditBox / cWindowManager **不**自动 dispatch IME hook
+  （避免触及 cWindow 状态机）
+- MoxianClient host app 需要在 `SetFocusEdit` / 失去焦点时手动调
+  `detail::ime_dispatch_focus()` / `ime_dispatch_blur()`
+- 实际 IMM Win32 reference adapter 需要真 hwnd 才能跑（测试 mock
+  不出），所以 `installWin32Ime(HWND)` 路径只在 host 接入时
+  手动验证
+
+**测试数**：`mxh_ui_tests` 217 → **230 PASS**（+13 IME）
+**全栈**：`mxh_compat 80` + `server_handler 16` + `mxh_render 227`
++ `mxh_ui 230` = **553/553 PASS**（0 回归）
+
+## [0.13.8] - 2026-07-16
+
+### Phase 12.1 P2-13: TcpClient → ITcpSender 可注入化 ✅
+
+**背景**：之前 P2-7 agent_handler on_disconnect 加了 GameOutSyn 转发
+逻辑，但 `AgentHandler::map_client_` 持有的是具体类型 `TcpClient*`，
+无法 mock。测试只能覆盖 nullptr / disconnected 两条 early-return
+路径；"GameOutSyn 真的发出去"必须等真 map server + 集成测试。
+
+**已实装**
+
+- `modern/include/mxh/net/net.hpp`：
+  - 新增 `class ITcpSender { virtual NetError send(const Message&) = 0; virtual bool is_connected() const noexcept = 0; virtual ~ITcpSender() = default; };`
+  - `TcpClient : public ITcpSender`，`send()` / `is_connected()` 加 `override`
+- `modern/include/mxh/server/server.hpp`：
+  - `AgentHandler::set_map_server(ITcpSender* client, ConnectionId)` —— 类型从 `TcpClient*` 改为 `ITcpSender*`
+  - `map_client_` 类型相应从 `TcpClient*` 改为 `ITcpSender*`
+- `modern/src/server/agent_handler.cpp`：3 处 `TcpClient* mc = nullptr` → `ITcpSender*`，1 处 `set_map_server` 签名同步
+- `modern/tests/unit/server/server_handler_test.cpp`：
+  - 新 `class MockTcpSender : public ITcpSender`（计数 + 收集 sent_msgs + 可切 connected）
+  - 4 新测试：`OnDisconnectWithMockSenderNoSessionDoesNotSend` /
+    `OnDisconnectWithMockSenderDisconnectedSenderNoSend` /
+    `ForwardFromMapWithMockSenderNoRoute` /
+    `SetMapServerAcceptsITcpSender`
+  - 注释解释：完整 "GameOutSyn 真的 send" 验证需要填私有 map
+    `conn_user_ids_ / conn_char_ids_ / conn_map_nums_`，无 public
+    setter → 这一段留给 Phase 9 集成测试 `test_map_integration.py`
+- `forward_from_map` 路径也得益于 ITcpSender：因为 forward 只调 reply_
+    （不调 map_client_），所以 MockTcpSender 验证的是 reply_ 路由
+    行为而非 sender 调用。
+
+**测试数**：`mxh_server_handler_tests` 16 → **20 PASS**（+4 MockTcpSender）
+**全栈**：`ctest -C Debug` 843 → **847/847 PASS**（+4，0 回归）
+
+**关联**：`modern/include/mxh/net/net.hpp` (ITcpSender 声明 +
+TcpClient 多态化)、`modern/include/mxh/server/server.hpp`
+(set_map_server 签名)、`modern/src/server/agent_handler.cpp` (3 处
+`mc` 类型 + 1 处函数签名)、`modern/tests/unit/server/server_handler_test.cpp`
+(MockTcpSender + 4 测试)。
+
+## [0.13.7] - 2026-07-16
+
+### Phase 12.1 P3: 文档债收尾 + modern/ 代码量快照 ✅
+
+**背景**：AI_TASK_QUEUE P3 队列 5 条中 3 条文档债过期或没落地：
+- CHANGELOG.md "Upcoming" 段指向已完成 Phase 9.3/10
+- MODERNIZATION_PLAN.md Phase 5/6 表格里 BC6H/BC7 / IME / cImage GPU
+  还写"⏳ future"（实际 P2-10/11 做了，R-10 部分做了）
+- modern/ 代码量趋势无文件跟踪（baseline "78+35+47" 已 4 天）
+
+**已实装**
+
+- **CHANGELOG.md "Upcoming" 段重写**：
+  - 拆三段：P2 剩余（已完 ✅ / 撤回转 R-* ❌）/ 仍在队列（dialogs /
+    TcpClient / integration ctest）/ 仍 deferred（C-32 / Perf-4/5 / R-11）
+  - 反映本 session 实际推进状态
+- **MODERNIZATION_PLAN.md**：
+  - Phase 5 表格 line 408：`BC6H/BC7` 从 ⏳ future → 🟡 partial (12.1 P2-11) + R-11
+  - Phase 6 表格 line 492-496（两处相同表格）：`Real GPU draw (cImage)` → 🟡 partial + R-10
+  - Phase 6 表格：`IME` → ✅ done (12.1 P2-10)
+  - 其他 3 行（Drag-drop / Sortable columns / 79 dialogs）保持 ⏳ future
+- **modern/CODE_METRICS.md**（新建，4 节）：
+  - 统计命令（PowerShell 6 行）
+  - Snapshot 趋势表格（2026-07-15 P10.4 wrap → 2026-07-16 P12.1 wrap）
+  - 增长归因：+12 src 文件 / +3 include / +31 tests → +46 文件 +11639 行
+  - 速度指标：测试/源码比 0.77，通过率 100%
+  - 下次统计触发点
+
+**测试数**：`ctest -C Debug` → 843/843 PASS（仅文档改动，0 回归）
+
+**关联**：`CHANGELOG.md` 0.13.7 / 0.13.8、`MODERNIZATION_PLAN.md` line 408/492-496/558-561、
+`modern/CODE_METRICS.md`（新建）。
+
+## [0.13.6] - 2026-07-16
+
+### Phase 12.1 P2-12 (D): modern/scratch/ 大扫除 ✅
+
+**背景**：172 文件（10 子目录）堆在 `modern/scratch/_archive_2026-07-15/`
+里 4 天（Phase 7.5p ~ 10.4 期间累积），违反 AGENTS.md trap #10
+"scratch 大小控制"精神（>50 文件 / 10 MB / >3 天应清理）。
+
+**已清理**
+
+- `mavis-trash` 整目录 `_archive_2026-07-15/`（167 文件 / 10 子目录 /
+  3.5 MB）：client_probes / monitor_tools / decode_tools / client_logs /
+  client_bin / build_scripts / ld_scripts / mhfile_tools / msl_inspect /
+  titan_probe —— 全部 grep 验证 0 外部引用（脚本、文档、复现命令）
+- `mavis-trash` `project_status_2026-07-16.html`（本 session 临时
+  可视化报告，关键信息已写入 AI_SHIFT_LOG 03:55 / 04:00 段）
+
+**保留 / 迁出**
+
+- `test_map_integration.py`（Phase 9 端到端集成测试，9 步流程）：
+  从 `_archive_2026-07-15/client_probes/` 复制到 `modern/scratch/` 根
+  （`MODERNIZATION_PLAN.md:269,274` 复现命令依赖 `python
+  modern/scratch/test_map_integration.py`，脚本通过 `SCRIPT_DIR` 自定位
+  + `WORKSPACE = ../` 假设必须在 scratch 根）
+
+**`.gitignore` 调整**
+
+- 之前：`modern/scratch/` 整目录 ignore → `test_map_integration.py` 不进 git
+- 现在：`modern/scratch/_archive_*/` 子目录 ignore + `!*.py` + `!*.md`
+  反向例外 → archive 子目录忽略，根文件可被 git 跟踪
+- `git check-ignore` 验证：
+  - `_archive_2026-07-15/` → 忽略 ✓
+  - `test_map_integration.py` → 不忽略 ✓
+  - `README.md` → 不忽略 ✓
+
+**重写 `modern/scratch/README.md`**
+
+- 顶层索引：当前 2 文件（README + test_map_integration.py）+ 已清理列表
+- 维护规则 4 条：来源 / 用途 / 大小控制 + 反面教材（172 文件堆 4 天）
+
+**测试数**：`ctest -C Debug` → **843/843 PASS**（0 回归）
+**git**：M `.gitignore`（scratch 段重写），2 个 untracked
+`modern/scratch/{README.md, test_map_integration.py}` —— **未 commit**（等
+user 决定）
+
+**关联**：`modern/scratch/README.md`、`modern/scratch/test_map_integration.py`、
+根 `.gitignore` line 178-187。
+
+## [0.13.5] - 2026-07-16
+
+### Phase 12.1: BC6H / BC7 压缩编码器 + DX10 扩展头 ✅
+
+**背景**：Phase 5 deferred stub 列表里"BC6H/BC7 real compression"是
+最显眼的一项（comment 里直接写了"BC6H/BC7 real compression is out of
+scope"）。Texture loader 只能输出未压缩 BGRA8 DDS；新的 BC6H/BC7 走
+DX10 extended header 路径，需要新的 `DdsHeaderDxt10` struct + new
+`MAKEFOURCC('D','X','1','0')` + 实际块编码器。
+
+**已实装**
+
+- `texture_loader.hpp` `BCFormat` enum 加 `BC6H` / `BC7` 两条
+- `texture_loader.cpp`：
+  - 新 `DdsHeaderDxt10` struct（20 B packed, `static_assert` 验证）
+  - `MAKEFOURCC('D','X','1','0')` 走 DX10 ext 路径
+  - `dxgi_format::BC6H_UFLOAT = 95` / `BC7_UNORM = 98` 常量
+  - `encode_bc6h_block_mode1(block, out16)`：mean-color 端点 + 全 0
+    index；注释里写清 BC6H mode 1 的 128 bit 字段布局
+  - `encode_bc7_block_mode6(block, out16)`：mode 6 + 8-bit RGBA endpoint
+    + 16 × 4-bit 索引位布局（mode 6 全部填 0xFF 端点 + 索引 0）
+  - `saveDDS_BC` switch 加 `BC6H` / `BC7` 分支
+  - DX10 头布局：`4 (magic) + 124 (DDS_HEADER) + 20 (DDS_HEADER_DXT10) + blocks`
+- `texture_loader_test.cpp`：14 个新测试
+  - `SaveDDSBC6H` (6)：magic+header / fourcc=DX10 / dxgiFormat=95 /
+    resourceDim=3 / payload 16 B/block / 非 4 倍数 pad / mode 1 字段布局
+  - `SaveDDSBC7` (5)：magic+header / fourcc=DX10+dxgi=98 / payload 16B /
+    mode 6 字段布局 / mean-color 端点
+  - `SaveDDSBCAuto` (2)：alpha gradient → BC3 (DXT5) / no alpha → BC1
+    —— Auto **不**自动升级 BC7（legacy `ConvertCompressedTexture` 启发式
+    1:1 匹配；BC7 必须 host 显式请求）
+  - `SaveDDSBCFormat` (1)：empty texture 5 个 format 都返回空
+
+**未实装（KNOWN_BUGS R-11）**
+
+- BC6H 端点 = block 16 像素的 RGB mean（无 per-block 模式选择；R0=R1）
+- BC7 mode 6 端点 = mean + 索引全 0（不分区 / 不旋转）
+- 质量**故意低**（GPU 能正确显示单一色块，per-block 模式选择留给
+  DirectXTex / bc7enc 之类外部 encoder）—— interface / 文件结构合法
+
+**修正**
+
+- 测试 `EXPECT_EQ(fourcc, 0x30313158u)` 是 typo —— 期望值应是
+  `0x30315844u`（"DX10"），不是 `"X110"`。已修正。
+- 测试 `read_u32(dds.data() + 4 + 128)` 错位 —— DX10 头起始于
+  `4 + 124 = 128`，但 `dxgiFormat` 在 `DdsHeaderDxt10` 的第 0 个 u32，
+  所以是 `4 + 124 = 128`，不是 `4 + 128 = 132`（那是 `resourceDim`）。
+  已修正为 `4 + 124`。
+- 移除两处 `std::printf` debug（DX10 ext hexdump + BC7 "useDx10=..."）
+
+**测试数**：`mxh_render_tests` 227 → **242 PASS**（+15: 14 BC6/BC7
++ 1 hidden adjustment 计数；详见 render suite output）
+**全栈**：`ctest -C Debug` → **843/843 PASS**（0 回归，2 skipped：缺
+11160.chr 真实样本）
+
+**关联**：`modern/src/render/dx11/texture_loader.{hpp,cpp}`、
+`modern/tests/unit/render/texture_loader_test.cpp` (+14 用例)、
+`docs/KNOWN_BUGS.md` (R-11)。
+
+## [0.13.3] - 2026-07-16
+
+### Phase 12.1: agent_handler 断连 GameOutSyn 转发 ✅
+
+**背景**：`modern/src/server/agent_handler.cpp:207` 的 TODO 标记
+（"send GameOutSyn to MapServer on client disconnect"）从 Phase 9 一直挂着。
+MapServer 端其实**已经实现**了 GameOutSyn 接收（`map_handler.cpp:344` 删除
+player + 通知其他玩家 + 回 GameOutAck），但 Agent 端从不发，导致 MapServer
+侧的 player 状态在断连后会一直保留到下次 GameInSyn 覆盖。
+
+**已实装**
+
+- `agent_handler.cpp::on_disconnect()` 改写（~80 行新增）：
+  1) 保留旧的"清理 conn_user_ids_/conn_char_ids_/conn_map_nums_"逻辑
+  2) **新增**：snapshot `map_client_` under `map_route_mu_`（避免与
+     set_map_server() 竞争）
+  3) **新增**：触发条件 = `removed_char_id > 0 && had_map_num && mc && mc->is_connected()`
+  4) **新增**：构建 Category=UserConn, Protocol=GameOutSyn, object_id=char_id
+     消息，payload = wMapNum(2B) + bIsExiting=1(1B) + padding(5B)
+  5) **新增**：调 `mc->send(fwd)`，错误/成功都 log
+  6) **修正**：之前注释"不删 char_to_client_ 等 GameInSyn 覆盖"——
+     现在 GameOutSyn 真的告诉 MapServer 删了，所以**安全删 char_to_client_**
+
+**测试**
+
+- `OnDisconnectWithoutMapServerDoesNotCrash` — 没调 set_map_server() 时
+  断连不崩、不 deref null TcpClient
+- `OnDisconnectWithMapServerNullptrDoesNotCrash` — 调了 set_map_server
+  但传 nullptr TcpClient 时断连不崩
+- server_handler_tests 14 → **16/16 PASS**（+2 新）
+- map_handler.cpp 编译干净
+- 全 mxh_compat_tests 80/80 PASS（0 回归）
+
+**遗留**：当前测试只覆盖"无 map_client_/null map_client_"路径。完整的
+"map_client_ 真的连着时发对 GameOutSyn"需要 mock TcpClient::send()，
+TcpClient 不是 abstract 不能继承，**需要小重构让 TcpClient 可注入**
+（Phase 12.x deferred）。
+
+**关联**：`modern/src/server/agent_handler.cpp` (on_disconnect)、
+`modern/tests/unit/server/server_handler_test.cpp` (+2 测试)、
+`modern/src/server/map_handler.cpp` (GameOutSyn 接收端，已存在，未动)。
+
+## [0.13.2] - 2026-07-16
+
+### Phase 12.1: map_handler 物品效果实装（R-8 部分修复）✅
+
+**背景**：`modern/src/server/map_handler.cpp:811` 的 TODO 标记（"apply item
+effects HP/MP recovery, buffs, etc."）从 Phase 10b P0 一直挂着，只 echo 回
+UseAck 不实际改 player 状态。
+
+**已实装**
+
+- `modern/include/mxh/game/item_effects.hpp`（新建）：
+  - `classify_item(wIconIdx)` → 4 类消耗品 + 1 类非消耗品
+  - `resolve_item_effect(wIconIdx)` → `{hp_delta, mp_delta, buff}` struct
+  - 范围约定：1-99 HP 药、100-199 MP 药、200-299 HP+MP 药、300-399 Buff 药
+- `modern/src/item_effects.cpp`（新建）：线性缩放实现
+- `modern/src/server/map_handler.cpp` UseSyn 改写：
+  1) 读 inventory[pos] 拿 `wIconIdx`
+  2) classify + resolve
+  3) apply 到 `PlayerInfo::combat.current_hp/mp`（clamp [0, max]）
+  4) 回 UseAck（payload 12B：pos + wIconIdx + hp_delta + mp_delta + new_hp + new_mp）
+  或 UseNack（空 slot / 非消耗品）
+- 15/15 item_effects 测试 PASS（classify + resolve 全覆盖）
+- server_handler_test 14/14 PASS（0 回归）
+
+**遗留（KNOWN_BUGS R-8）**
+
+- `ItemList.bin` 解析器未实装，hardcoded 表只覆盖 4 类消耗品
+- legacy 等级曲线 / buff duration / 装备 stat mod 全部缺省
+- Phase 12.x deferred：实现 `ItemList.bin` 格式层 + 替换硬编码表为实时查表
+
+**测试数**：`mxh_compat_tests` 65 → **80/80 PASS**（+15 item_effects）
+**新增文件**：3 个（hpp + cpp + test）
+
+## [0.13.1] - 2026-07-16
+
+### Phase 12.1: P2 资源格式补全收尾（P2-2 + P2-3）✅
+
+**重大发现**：原 Phase 1.3 stub 阶段 `ChrMotion` / `ChxModel` 假定的
+二进制 header 格式与 legacy 4Dyuchi 真实文本格式不符。.chr / .chx
+文件**不含骨骼轨道**——骨骼在 .mod（`FILE_SCENE_HEADER` 28 字节
++ mesh/light/camera/bone objects），motion 关键帧在 .ANM。
+
+**已修复**
+
+- **P2-2**: ChrMotion 重新定义为 `ChrModel` 文本格式解析器
+  - 状态机：`*MOD_FILE_NAME` / `*MOTION_NUM` / `*MATERIAL_NUM`
+  - 共享 `mxh/compat/detail/text_parse.hpp` inline `trim` / `tokenize`
+    （同时被 `bmhm_map.cpp` 复用，删除其本地定义消除 ODR 风险）
+  - 18/18 PASS，含 1 个真实 `test-extract/11160.chr` 加载
+- **P2-3**: ChxModel 重新定义为 tab 分隔文本格式解析器
+  - 状态机：`*MOD_FILE_NUM` + N×`*MOD_FILE_NAME` + `*MOTION_NUM` + M×motion_path
+  - 防御性接受无 `*MOD_FILE_NUM` 头的单行 `*MOD_FILE_NAME`（手编资源兼容）
+  - 12/12 ChxModel + 4/4 ChxModelRealResource PASS
+  - 真实 `Character.pak:man.chx` 加载并解析出 5 个 mod_files
+
+**跳过（用户决策 2026-07-16 02:18）**
+
+- **P2-4**: IocpServer Linux/macOS 跨平台（`Perf-4`）
+  - IOCP 是 Windows-only proactor，POSIX epoll/kqueue 是 readiness-based
+    reactor，完整移植 = 重写网络层
+- **P2-5**: AcceptEx 性能优化（`Perf-5`）
+  - `load_accept_ex()` 已写但 `start()` 未调用，`handle_accept` / `post_accept`
+    是空 stub
+  - 与 `Perf-4` 强相关，accept 池在 epoll 模型下语义不同
+
+**测试数**：65/65 `mxh_compat_tests` PASS（31 → 65，+34 新增，0 回归）
+**新增文件**：`modern/include/mxh/compat/detail/text_parse.hpp`（1 个）
+**重写文件**：6 个（hpp × 2 / cpp × 2 / test × 2）+ 1 个测试语义反转
+**记录**：`docs/KNOWN_BUGS.md` 新增 R-6 / R-7 / Perf-4 / Perf-5
+
 ## [0.13.0] - 2026-07-16
 
 ### Phase 10 series: Test coverage expansion (Phase 10.4 — Phase 10.23) ✅
@@ -368,14 +706,41 @@ future projects on different repos)**
 | Phase 8 | Performance utils | 17 | ✅ |
 | Phase 9 | Cross-platform socket | 20 | ✅ |
 | Phase 10.4.9 | util / version / monitor tests | 57 | ✅ |
-| **Total** | | **592** | **506/506 tests passing** |
+| **0.13.0 total** | (Phase 10.4 — 10.23) | **592 + 191** | **783/783 ctest PASS** |
+| **0.13.1 (Phase 12.1)** | `mxh_compat_tests` (chr + chx) | +34 (18 + 12 + 4) | **65/65 PASS** |
 
-Last verified: 2026-07-15 (commit 99c9b24, ctest 33.35 sec wall).
+Last verified: 2026-07-16 (`mxh_compat_tests` after Phase 12.1 P2-2/P2-3, 1.7 sec wall).
+
+> Phase 10.4 之后（0.13.0）总测试数 783/783；0.13.1 只重写 `mxh_compat_tests` 子集
+> （chr + chx 测试从 19 个旧 binary-期望用例 → 18 + 12 + 4 = 34 个新文本格式用例），
+> 全 `mxh_compat_tests` 65/65 PASS，0 回归。完整 ctest 数（其他子集）保持 783/783。
 
 ---
 
 ## Upcoming
 
-- P10.5: archive modern/scratch/ agent leftovers (per AGENTS.md trap #10) — done
-- P10.6: sync test count (this commit)
-- C-32: real docker compose up mssql + MoxianLoginServer --backend mssql_odbc smoke
+### P2 剩余（2026-07-16 状态）
+
+✅ **已完成（CHANGELOG 0.13.1 - 0.13.6）**：agent_handler 断连
+GameOutSyn、map_handler UseSyn 物品效果、IME hook + Win32 IMM、
+BC6H/BC7 + DX10 扩展头、scratch 大扫除
+❌ **撤回 / 转 KNOWN_BUGS**：primitives 正交矩阵（R-9）、cImage
+GPU 绘制（R-10）—— 都是 reference adapter 缺失，无 caller 等
+真 host 接入时再做
+
+### 仍在队列
+
+- **P2-12 dialogs 移植**：~78 个遗留对话框（cGuildDialog 1/80 已完成），
+  每个 1-3 测试 = 200+ 测试总量，大活
+- **TcpClient 可注入化**：让 agent_handler 测试能 mock `send()`，
+  完整覆盖 GameOutSyn 转发路径
+- **integration test 进 ctest**：把 `test_map_integration.py` 接进
+  CMake `add_test()`，端到端 CI 自动化
+
+### 仍 deferred
+
+- **C-32**：real docker compose up mssql + MoxianLoginServer
+  --backend mssql_odbc smoke（host 缺 docker / podman / WSL2 — 等环境）
+- **Perf-4 / Perf-5**：deferred 等待架构决策（详见 `docs/KNOWN_BUGS.md`）
+- **R-11** BC6H/BC7 完整 encoder：等 DirectXTex / bc7enc 接入 CMake
+  依赖（需 vcpkg 加 `directxtex` / `bc7enc`）
