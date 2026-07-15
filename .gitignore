@@ -238,6 +238,10 @@ modern/edit_*.py
 modern/test_*output.txt
 modern/test_*stderr.txt
 modern/test_*stdout.txt
+# Phase 10.4.10: build stdout logs for one-off map release / debug runs
+modern/scripts/build_*.txt
+# Phase 10.4.10: agent scratch helpers (incremental mod analysis, etc.)
+modern/update_plan_*.py
 ~$*
 *.bak
 *.tmp
