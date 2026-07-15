@@ -160,30 +160,43 @@ int cmd_bsad(const fs::path& path) {
 }
 
 int cmd_map(const fs::path& path) {
-    auto m = mxh::compat::BmhmMap::load(path);
-    if (m.header.magic[0] != 0x7E) {
-        std::cerr << "ERROR: not a .bmhm file: " << path << "\n";
+    auto opt = mxh::compat::BmhmMap::load(path);
+    if (!opt.has_value()) {
+        std::cerr << "ERROR: not a parseable .bmhm / .mhm file: " << path << "\n";
         return 1;
     }
+    auto& m = *opt;
     std::cout << "File: " << path << "\n";
-    std::cout << "Magic:        ";
-    for (auto b : m.header.magic) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0')
-                  << static_cast<int>(b) << " ";
+    if (m.has_bmhm_header()) {
+        const auto& h = m.header();
+        std::cout << "Header:       version=" << h.version
+                  << " type=" << h.type
+                  << " file_size=" << h.file_size << "\n";
+    } else {
+        std::cout << "Header:       (none — plaintext .mhm)\n";
     }
-    std::cout << std::dec << "\n";
-    std::cout << "Version:      " << m.header.version << "\n";
-    std::cout << "Width:        " << m.header.width << " tiles\n";
-    std::cout << "Height:       " << m.header.height << " tiles\n";
-    std::cout << "Tile size:    " << m.header.tile_size << " world units\n";
-    std::cout << "HField off:   " << m.header.hfield_offset << "\n";
-    std::cout << "Tile off:     " << m.header.tile_offset << "\n";
-    std::cout << "Trigger off:  " << m.header.trigger_offset << "\n";
-    std::cout << "Heights:      " << m.heights.size() << " float32 values\n";
-    if (!m.heights.empty()) {
-        auto minmax = std::minmax_element(m.heights.begin(), m.heights.end());
-        std::cout << "  min:        " << *minmax.first << "\n";
-        std::cout << "  max:        " << *minmax.second << "\n";
+    const auto& d = m.desc();
+    std::cout << "Sight:        " << d.default_sight << "\n";
+    std::cout << "FOV:          " << d.fov << " degrees\n";
+    std::cout << "Fog:          " << (d.fog_enabled ? "on" : "off")
+              << " density=" << d.fog_density
+              << " start=" << d.fog_start
+              << " end=" << d.fog_end << "\n";
+    std::cout << "Map file:     " << d.map_file_name << "\n";
+    std::cout << "Tile file:    " << d.tile_file_name << "\n";
+    std::cout << "Sky mod:      " << d.sky_mod << "\n";
+    std::cout << "BGM #:        " << d.bgm_sound_num << "\n";
+    std::cout << "Sun:          " << (d.sun_enabled ? "on" : "off")
+              << " dist=" << d.sun_distance
+              << " object=" << d.sun_object << "\n";
+    std::cout << "Cloud:        " << d.cloud_num
+              << " (" << d.cloud_h_min << ".." << d.cloud_h_max << ")\n";
+    std::cout << "Fix height:   " << (d.fix_height_enabled ? "on" : "off")
+              << " y=" << d.fix_height << "\n";
+    std::cout << "Plaintext:    " << m.plaintext().size() << " bytes\n";
+    if (!m.plaintext().empty()) {
+        auto first_n = m.plaintext().substr(0, std::min<std::size_t>(m.plaintext().size(), 80));
+        std::cout << "  head:        \"" << first_n << "\"\n";
     }
     return 0;
 }
