@@ -431,7 +431,12 @@ void IocpServer::accept_thread_func() {
         }
         
         // Set remote address
-        SocketAddress remote_addr(client_addr);
+        // client_addr is a sockaddr_in (16 bytes). SocketAddress takes
+        // a sockaddr_storage (128 bytes). Copy via a zero-initialised
+        // sockaddr_storage so the unused bytes don't leak stack data.
+        sockaddr_storage remote_storage{};
+        std::memcpy(&remote_storage, &client_addr, sizeof(client_addr));
+        SocketAddress remote_addr(remote_storage);
         connection->set_remote_address(remote_addr);
         connection->set_connected(true);
         

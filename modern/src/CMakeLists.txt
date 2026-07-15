@@ -92,7 +92,7 @@ install(TARGETS mxh_db
 add_library(mxh_net STATIC
     net/net.cpp
     net/socket.cpp
-    # net/iocp/iocp.cpp  # Temporarily disabled due to pre-existing errors
+    net/iocp/iocp.cpp
 )
 
 target_include_directories(mxh_net PUBLIC
@@ -100,10 +100,16 @@ target_include_directories(mxh_net PUBLIC
 )
 
 target_compile_features(mxh_net PUBLIC cxx_std_20)
-target_link_libraries(mxh_net PUBLIC mxh_compat)
+# Phase 10.11: mxh_net now also links mxh_monitor because iocp.cpp
+# records message received/sent/connected metrics via the
+# PerformanceMonitor singleton. PUBLIC so downstream tools that link
+# mxh_net (server tools, 5/5 matrix) also pick up the monitor dep.
+target_link_libraries(mxh_net PUBLIC mxh_compat mxh_monitor)
 
 if(WIN32)
-    target_link_libraries(mxh_net PRIVATE Ws2_32)
+    # Ws2_32 for sockets; Mswsock for AcceptEx / GetAcceptExSockaddrs
+    # (used by mxh::net::iocp — Phase 10.11 fix for missing imports).
+    target_link_libraries(mxh_net PRIVATE Ws2_32 Mswsock)
 endif()
 
 install(TARGETS mxh_net ARCHIVE DESTINATION lib)

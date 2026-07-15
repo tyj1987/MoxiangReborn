@@ -38,6 +38,13 @@
 #include <system_error>
 #include <thread>
 #include <unordered_map>
+
+#ifdef _WIN32
+// AcceptEx / GetAcceptExSockaddrs come from mswsock.h, and the
+// LPFN_ACCEPTEX function-pointer type lives there too. Must come
+// AFTER <winsock2.h> (transitively included by platform.hpp).
+#include <mswsock.h>
+#endif
 #include <vector>
 
 namespace mxh::net::iocp {
@@ -113,7 +120,12 @@ public:
     // Buffer management
     OverlappedEx* get_recv_overlapped() { return &recv_overlapped_; }
     OverlappedEx* get_send_overlapped() { return &send_overlapped_; }
-    
+
+    // Process the next pending send. Called by IocpServer after an
+    // async send completes; moved to public so the friend-less server
+    // class can call it from handle_send() (Phase 10.11 fix).
+    void process_send_queue();
+
     // Connection state
     void set_connected(bool connected) { connected_ = connected; }
     void close();
@@ -131,8 +143,6 @@ private:
     std::mutex send_mutex_;
     std::queue<std::vector<std::uint8_t>> send_queue_;
     std::atomic<bool> sending_{false};
-    
-    void process_send_queue();
 };
 
 // ============================================================================
