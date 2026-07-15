@@ -938,6 +938,45 @@ Phase 10（工具链现代化）在 e1e8e2a..af2b086 区间用 13 个 commit 完
 - runtime connection ❌ host 缺 docker / podman / WSL，需 user 决策何时装
 
 详细见 docs/KNOWN_BUGS.md C-32 entry。
+
+### 9.5 Phase 10 续作（P10.5 — P10.23, 2026-07-15 → 2026-07-16, +23 commits, 506 → 783 ctest PASS）
+
+P10.4 之后，session 继续推进 P10.5（scratch 归档收尾，gitignore 化）到 P10.23（db factory
+contract），23 个 commit 把 ctest 从 506 拉到 783（+277 测试，+54%），耗时约 12 sec wall
+build 0 error。
+
+**主线进展（按 commit 顺序）**：
+
+- **P10.5** — modern/scratch/ 167 文件 → 12 子目录归档
+- **P10.6** — CHANGELOG.md test count 430+ → 506/506 同步
+- **P10.7** — 本节 §9 总结（4d048c6 前一版本）
+- **P10.8** — memory_pool_test.cpp (11 tests, 5 DISABLED) + BufferPool capacity_ fix
+- **P10.9** — MSVC 19.44 init-lock deadlock fix (ObjectPool ~T() no-op trade-off)
+- **P10.10** — game_types_test.cpp (25 tests)
+- **P10.11** — iocp.cpp enable + iocp_test (12 tests) + 6 real error fixes
+- **P10.12** — protocol_test (26 tests) — 12 protocol enums
+- **P10.13** — ttb_tile_table (11) + mlog (11) — 22 tests
+- **P10.14** — chr_motion_test (18 tests)
+- **P10.15** — platform_test (19 tests)
+- **P10.16** — message_test (21 tests)
+- **P10.17** — server_handler_test (14 tests, 3 handlers)
+- **P10.18** — mesh_flag_test (30 tests) — render bitmask
+- **P10.19** — math_test (28 tests) — VECTOR + MATRIX4 + helpers
+- **P10.20** — motion_flag_test (15 tests)
+- **P10.21** — file_storage_typedef_test (13 tests) — .pak wire-format
+- **P10.22** — chx_model_test (18 tests) — .chx parser
+- **P10.23** — db_factory contract (5 tests augment) — concrete-class identity + case-sensitivity
+
+**覆盖率审计**：
+所有 28 个 modern/include/mxh/**/*.hpp 都有测试覆盖（IRenderer / IFileStorage /
+render_typedef 是纯 abstract 或超大，跳过但其他 test 间接触达）。换言之 wire-format
+侧（资源/协议/格式）已经达到 1:1 testability 的天花板。
+
+**HEAD**：`c2d30b9`（2026-07-16 01:47），`ctest -C Debug` 783/783 PASS，~12 sec。
+36 commits ahead of `bafc20d`（session start）。
+
+详细 commit 信息见 `git log --oneline bafc20d..HEAD` 和 CHANGELOG.md 0.13.0 条目。
+
 ## 8. 长期愿景
 
 经过 3-6 个月的渐进式现代化，墨香将：

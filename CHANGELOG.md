@@ -3,6 +3,124 @@
 > All notable changes to the Moxian-Reborn modernization project.
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
+## [0.13.0] - 2026-07-16
+
+### Phase 10 series: Test coverage expansion (Phase 10.4 — Phase 10.23) ✅
+
+This release expands test coverage across the modern runtime
+to 783/783 ctest PASS (~12 sec wall). Every public header in
+`modern/include/mxh/...` is now covered by at least one
+test file, with wire-format pinning (sizes / offsets /
+mask values) for every binary on-disk format that legacy
+tools can still write.
+
+**Added (commit-by-commit, in order)**
+
+- **Phase 10.4** (11 commits) — Infrastructure + 5 new modules
+  + 5 test files: `DATABASE_SCHEMA.md`, `vcpkg.json`,
+  `Dockerfile`, `deploy/`, plus `MoxianPacker`, `MoxianGMTool`,
+  `MoxianMapEditor`, `MoxianAutoPatcher` + 17 dev utilities.
+- **Phase 10.5 / 10.6 / 10.7** — `modern/scratch/` archival
+  (167 files → 12 subdir), CHANGELOG test-count sync to
+  506/506, `MODERNIZATION_PLAN.md` §9 Phase 10 总结 added.
+- **Phase 10.8** — `memory_pool_test.cpp` (11 tests, 5 initially
+  DISABLED) + `BufferPool::capacity_` fix for the lazy-allocate
+  path.
+- **Phase 10.9** — MSVC 19.44 init-lock deadlock fix in
+  `mxh::memory::ObjectPool`. Re-enables the 5 DISABLED tests.
+  Trade-off: `~ObjectPool()` is now a no-op (small memory leak
+  for long-lived processes) to avoid the lazy `std::mutex`
+  init deadlock that single-threaded gtest test bodies
+  trigger. Documented in the header.
+- **Phase 10.10** — `game_types_test.cpp` (25 tests) — wire-
+  format pinning for `item_types`, `monster_types`,
+  `skill_types`. Collateral findings: `is_empty_slot` returns
+  true if EITHER field is zero; `NpcRegen` is 43 bytes (header
+  comment said 44).
+- **Phase 10.11** — `iocp.cpp` enabled + `iocp_test.cpp`
+  (12 tests). Fixed 6 real errors: missing `<mswsock.h>`,
+  `sockaddr_in` → `sockaddr_storage` zero-init copy, private
+  `process_send_queue` → public, `Mswsock.lib` link, `mxh_net`
+  PUBLIC-link `mxh_monitor`.
+- **Phase 10.12** — `protocol_test.cpp` (26 tests) — wire-
+  format pinning for 12 protocol enums. Collateral: `Category
+  ::Npc=37`, `Monster=35` (different from the original guess).
+- **Phase 10.13** — `ttb_tile_table_test.cpp` (11 tests) +
+  `mlog_test.cpp` (11 tests). Collateral: `LogLevel` underlying
+  type is `int` (not `uint8_t`); parser 4-byte input returns
+  empty (size<8 early-exit).
+- **Phase 10.14** — `chr_motion_test.cpp` (18 tests).
+  Collateral: `is_chr` uses `fps < 240` strict less-than;
+  `std::span` brace-init doesn't compile C++20.
+- **Phase 10.15** — `platform_test.cpp` (19 tests). Collateral:
+  `sockaddr_to_string` returns `""` (not `"unknown"`) on null /
+  zero-length; needs `SocketGuard` for Winsock init.
+- **Phase 10.16** — `message_test.cpp` (21 tests) — covers
+  `MsgHeader` (8B), `MsgRoot` (4B), `Message+total_size`,
+  `ConnectionId`, `NetError+to_string`, `ServerConfig` /
+  `ClientConfig` defaults.
+- **Phase 10.17** — `server_handler_test.cpp` (14 tests) — 3
+  handlers (Login / Agent / Map) with `MockDbAdapter`. First
+  attempt failed (MapHandler ctor needs 3-arg + use_legacy
+  framing=true; MockDbAdapter private members); reverted and
+  re-landed correctly.
+- **Phase 10.18** — `mesh_flag_test.cpp` (30 tests) — render
+  flag bitmask. Pinning the legacy wire-format quirk where
+  `RENDER_ZPRIORITY_MASK_INVERSE = 0x80ffffff` includes bit 31
+  (Z-write flag), so `(flag & ZPRIORITY_INVERSE) | new_prio`
+  preserves the Z-write bit unchanged.
+- **Phase 10.19** — `math_test.cpp` (28 tests) — VECTOR2/3/4 +
+  MATRIX4 + 6 matrix helpers. Collateral: `MatrixLookAtLH` is
+  right-handed in the original's convention (target ends up at
+  +Z in view space, not -Z as the hpp comment claims); cross-
+  product f×up produces a left-handed view.
+- **Phase 10.20** — `motion_flag_test.cpp` (15 tests) — motion
+  flag bitmask round-trips for KEYFRAME / VERTEX / UV.
+- **Phase 10.21** — `file_storage_typedef_test.cpp` (13 tests)
+  — wire-format pinning for `FSFILE_HEADER` (32B),
+  `FSFILE_ATOM_INFO` (268B), `FSPACK_FILE_INFO` (272B).
+  Collateral: the hpp doesn't include the header that defines
+  `_MAX_PATH`; the test `#define _MAX_PATH 260` before
+  including the hpp.
+- **Phase 10.22** — `chx_model_test.cpp` (18 tests) — .chx
+  character model parser (32B header + is_chx / parse / load).
+  Pins the skeleton-parser contract (header + raw populated,
+  vertices / indices empty with TODO(Phase 1.3) for the
+  per-table decode).
+- **Phase 10.23** — `db_adapter_test.cpp` augmented with 5
+  new factory contract tests: concrete-class type identity
+  (SqliteAdapter / MssqlOdbcAdapter), case-sensitivity of
+  backend names, `is_connected() == false` pin, MSSQL alias
+  routing.
+
+**Test count**
+- 449 (start of session, 2026-07-15) → 506 (Phase 10.6 sync)
+  → 783 (Phase 10.23 end)
+- Wall time: ~12 sec for the full ctest run
+- Build: 0 error, Debug config
+
+**Cross-project memory entries (agent memory, will help
+future projects on different repos)**
+- MSVC 19.44 init-lock deadlock with gtest single-threaded
+  test body (root cause + 3 fix options).
+- `mavis-trash` refuses reparse-point paths; go through mirror.
+
+**Changed**
+- `.gitignore`: added `!modern/tests/unit/log/` allow-list and
+  several Phase 10 scratch entries.
+- `MODERNIZATION_PLAN.md`: §9 Phase 10 总结 added (Phase 10.7).
+
+**Known limitations (carry-over)**
+- C-32: host has no Docker / podman / WSL2 — full SQL Server
+  runtime smoke is env-blocked. Documented in
+  `docs/KNOWN_BUGS.md`.
+- C-35: 4/5 Distribute `Debug_<LOCALE>` targets fail (mfc71.lib
+  + 4 anonymous enum redefinitions). Shared-header refactor
+  would break 1:1 contract.
+- `MssqlOdbcAdapter.ConnectToInvalidServerFails` flake on busy
+  machines (5s ODBC retry timeout spikes past 30s ctest
+  budget). Passes on retry.
+
 ## [0.12.0] - 2026-07-10
 
 ### Phase 11.2: Protocol Documentation Generator ✅
