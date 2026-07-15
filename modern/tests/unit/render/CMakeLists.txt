@@ -11,6 +11,7 @@ add_executable(mxh_render_tests
     dynamic_light_test.cpp
     texture_loader_test.cpp
     phase5_deferred_test.cpp
+    mesh_flag_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
