@@ -143,6 +143,7 @@ struct ServerConfig {
     int recv_buffer_size = 65536;     // per-connection
     int send_buffer_size = 65536;
     bool use_encryption = false;
+    bool use_legacy_framing = false;  // Phase 7.6: 4DyuchiNET 2-byte length prefix
     std::chrono::milliseconds idle_timeout{120000};
 };
 
@@ -152,6 +153,7 @@ struct ClientConfig {
     std::uint16_t port = 0;
     std::chrono::milliseconds connect_timeout{5000};
     bool use_encryption = false;
+    bool use_legacy_framing = false;  // Phase 7.6: 4DyuchiNET compatibility
 };
 
 // Asynchronous TCP server.

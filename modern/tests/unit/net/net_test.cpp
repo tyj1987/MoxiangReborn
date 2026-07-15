@@ -358,4 +358,233 @@ TEST(TcpServerTest, DisconnectUnknownId) {
     EXPECT_EQ(srv.connection_count(), 0u);
 }
 
+// ============================================================================
+// Phase 4.4: Encryption integration tests.
+// ============================================================================
+
+// Simple XOR "encryptor" for testing. NOT secure — just verifies the
+// encrypt/decrypt hooks are called correctly.
+class XorEncryptor : public IEncryptor {
+public:
+    explicit XorEncryptor(std::uint8_t key = 0xA5) : key_(key) {}
+
+    NetError encrypt(std::span<std::uint8_t> data) override {
+        encrypt_count_.fetch_add(1);
+        for (auto& b : data) b ^= key_;
+        return NetError::Ok;
+    }
+
+    NetError decrypt(std::span<std::uint8_t> data) override {
+        decrypt_count_.fetch_add(1);
+        for (auto& b : data) b ^= key_;
+        return NetError::Ok;
+    }
+
+    void seed() override { seed_count_.fetch_add(1); }
+
+    std::atomic<int> encrypt_count_{0};
+    std::atomic<int> decrypt_count_{0};
+    std::atomic<int> seed_count_{0};
+
+private:
+    std::uint8_t key_;
+};
+
+// Handler that provides a XorEncryptor for each connection.
+struct EncryptedHandler : IConnectionHandler {
+    XorEncryptor encryptor;
+    std::atomic<std::size_t> connects{0};
+    std::atomic<std::size_t> messages{0};
+    std::vector<Message> received;
+    std::mutex mu;
+    ConnectionId last_cid{0};
+
+    bool on_connect(ConnectionId id, const std::string&) override {
+        connects.fetch_add(1);
+        last_cid = id;
+        return true;
+    }
+
+    void on_message(ConnectionId id, const Message& msg) override {
+        messages.fetch_add(1);
+        std::lock_guard<std::mutex> lk(mu);
+        received.push_back(msg);
+        last_cid = id;
+    }
+
+    void on_disconnect(ConnectionId, NetError) override {}
+
+    IEncryptor* encryptor_for(ConnectionId) override {
+        return &encryptor;
+    }
+
+    ConnectionId last_id() const { return last_cid; }
+};
+
+TEST(EncryptionIntegration, ServerEncryptsOutgoingMessages) {
+    EncryptedHandler sh;
+    TcpServer server(sh);
+    int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    cfg.worker_thread_count = 1;
+    NetError err = server.start(cfg);
+    ASSERT_EQ(err, NetError::Ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Connect a raw socket (no decryption on client side).
+    SOCKET csock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    struct sockaddr_in caddr{};
+    caddr.sin_family = AF_INET;
+    caddr.sin_port = htons(static_cast<u_short>(port));
+    caddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    connect(csock, reinterpret_cast<sockaddr*>(&caddr), sizeof(caddr));
+
+    for (int i = 0; i < 50 && sh.connects.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_EQ(sh.connects.load(), 1u);
+    ConnectionId client_id = sh.last_id();
+
+    // Server sends a message — it should be XOR-encrypted on the wire.
+    Message reply;
+    reply.header.category = 0x02;
+    reply.header.protocol = 0x03;
+    reply.payload = {0x11, 0x22, 0x33};
+    NetError send_err = server.send(client_id, reply);
+    EXPECT_EQ(send_err, NetError::Ok);
+
+    // Read raw bytes from socket — they should be XOR'd.
+    std::uint8_t recv_buf[64] = {};
+    int n = recv(csock, reinterpret_cast<char*>(recv_buf), sizeof(recv_buf), 0);
+    EXPECT_GE(n, 10);
+
+    // The payload bytes should NOT match the original (they're XOR'd).
+    // After XOR with 0xA5: 0x11^0xA5=0xB4, 0x22^0xA5=0x87, 0x33^0xA5=0x96
+    // Note: header is also encrypted, so we check payload offset.
+    bool found_encrypted = false;
+    for (int i = 0; i < n - 2; ++i) {
+        if (recv_buf[i] == 0xB4 && recv_buf[i+1] == 0x87 && recv_buf[i+2] == 0x96) {
+            found_encrypted = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_encrypted) << "encrypted payload not found on wire";
+    EXPECT_GE(sh.encryptor.encrypt_count_.load(), 1);
+
+    closesocket(csock);
+    server.stop();
+}
+
+TEST(EncryptionIntegration, ServerDecryptsIncomingMessages) {
+    EncryptedHandler sh;
+    TcpServer server(sh);
+    int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    cfg.worker_thread_count = 1;
+    cfg.recv_buffer_size = 4096;
+    NetError err = server.start(cfg);
+    ASSERT_EQ(err, NetError::Ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Connect raw socket and send XOR-encrypted data.
+    SOCKET csock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    struct sockaddr_in caddr{};
+    caddr.sin_family = AF_INET;
+    caddr.sin_port = htons(static_cast<u_short>(port));
+    caddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    connect(csock, reinterpret_cast<sockaddr*>(&caddr), sizeof(caddr));
+
+    for (int i = 0; i < 50 && sh.connects.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_EQ(sh.connects.load(), 1u);
+
+    // Build a message, then XOR-encrypt it before sending.
+    MsgHeader hdr{};
+    hdr.category = 0x01;
+    hdr.protocol = 0x05;
+    std::uint8_t pkt[10] = {};
+    std::memcpy(pkt, &hdr, sizeof(hdr));
+    pkt[8] = 0xAB;
+    pkt[9] = 0xCD;
+
+    // XOR-encrypt the entire packet.
+    for (int i = 0; i < 10; ++i) pkt[i] ^= 0xA5;
+
+    int sent = send(csock, reinterpret_cast<const char*>(pkt), sizeof(pkt), 0);
+    EXPECT_EQ(sent, 10);
+
+    // Wait for server to receive and decrypt.
+    for (int i = 0; i < 50 && sh.messages.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_EQ(sh.messages.load(), 1u);
+
+    {
+        std::lock_guard<std::mutex> lk(sh.mu);
+        ASSERT_EQ(sh.received.size(), 1u);
+        // After decryption, payload should match original.
+        EXPECT_EQ(sh.received[0].payload.size(), 2u);
+        EXPECT_EQ(sh.received[0].payload[0], 0xAB);
+        EXPECT_EQ(sh.received[0].payload[1], 0xCD);
+    }
+    EXPECT_GE(sh.encryptor.decrypt_count_.load(), 1);
+
+    closesocket(csock);
+    server.stop();
+}
+
+TEST(EncryptionIntegration, TcpClientSendUsesEncryptor) {
+    // Set up server.
+    EncryptedHandler sh;
+    TcpServer server(sh);
+    int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    cfg.worker_thread_count = 1;
+    NetError err = server.start(cfg);
+    ASSERT_EQ(err, NetError::Ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Set up encrypted client.
+    EncryptedHandler ch;
+    TcpClient client(ch);
+    ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port);
+    NetError cerr = client.connect(ccfg);
+    ASSERT_EQ(cerr, NetError::Ok);
+
+    for (int i = 0; i < 50 && sh.connects.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_EQ(sh.connects.load(), 1u);
+
+    // Client sends a message — should be encrypted by client's encryptor.
+    Message msg;
+    msg.header.category = 0x07;
+    msg.header.protocol = 0x01;
+    msg.payload = {0xDE, 0xAD};
+    NetError send_err = client.send(msg);
+    EXPECT_EQ(send_err, NetError::Ok);
+    EXPECT_GE(ch.encryptor.encrypt_count_.load(), 1);
+
+    // Server should receive and decrypt the message.
+    for (int i = 0; i < 50 && sh.messages.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_EQ(sh.messages.load(), 1u);
+
+    {
+        std::lock_guard<std::mutex> lk(sh.mu);
+        ASSERT_EQ(sh.received.size(), 1u);
+        EXPECT_EQ(sh.received[0].payload.size(), 2u);
+        EXPECT_EQ(sh.received[0].payload[0], 0xDE);
+        EXPECT_EQ(sh.received[0].payload[1], 0xAD);
+    }
+
+    client.disconnect();
+    server.stop();
+}
+
 }  // namespace mxh::net
