@@ -13,6 +13,7 @@ add_executable(mxh_render_tests
     phase5_deferred_test.cpp
     mesh_flag_test.cpp
     math_test.cpp
+    motion_flag_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -192,4 +193,20 @@ gtest_add_tests(TARGET mxh_render_tests
     SetMatrixColumnTest.AllFourColumns
     SetMatrixColumnTest.InvalidColumnIndexIsNoOp
     SetMatrixColumnTest.NullPointerIsNoOp
+    # Phase 10.20: motion flag bitmask
+    MotionKeyframeTest.WireFormatValues
+    MotionKeyframeTest.MaskAndInverseCoverAll32Bits
+    MotionVertexTest.WireFormatValues
+    MotionVertexTest.MaskAndInverseCoverAll32Bits
+    MotionUvTest.WireFormatValues
+    MotionUvTest.MaskAndInverseCoverAll32Bits
+    CMotionFlagTest.DefaultConstructionIsZero
+    CMotionFlagTest.KeyframeRoundTrip
+    CMotionFlagTest.VertexRoundTrip
+    CMotionFlagTest.UvRoundTrip
+    CMotionFlagTest.AllFieldsCanCoexist
+    CMotionFlagTest.SettingKeyframeDoesNotCorruptVertex
+    CMotionFlagTest.SettingUvDoesNotCorruptKeyframe
+    CMotionFlagTest.ReEnableVertexAfterDisableClearsBit
+    CMotionFlagTest.GetRawMatchesEnumBitwiseOr
 )
