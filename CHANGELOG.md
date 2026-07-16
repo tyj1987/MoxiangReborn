@@ -6,9 +6,11 @@
 
 ## [0.13.11] - 2026-07-16
 
-### Server build matrix: C-36 / C-37 — Distribute + Agent + Map Debug_<LOCALE> 实测收口 ✅
+### Server build matrix: C-36 / C-37 — Distribute + Agent + Map Debug_<LOCALE> 实测收口 (self-verified by producer session)
 
 **背景**：Phase 7.5o (C-1 fix 2026-07-15) 把 CConsole::LOG 重命名为 CConsole::MLOG 并批量更新 35 个 active call sites。但 refactor 文档说"5/5 干净"**实际从未跑过全 build 验证**。本 session 跑 uild_distribute_debug_locales.py 实测发现 5/5 target 每个 fail 8 C2039 —— 8 处 g_Console.LOG( 调用漏改（C-1 扫描没扫到 [CC]ServerModule/）。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据全部落地在 `modern/scripts/build_logs_20260716/c35_all_5_after_fix.log` (Distribute 5/5 build) + `agent_5locales.log` (Agent 5/5 build) + `map_5locales_after_fix.log` (Map 3/5 build, 2/5 legacy pre-existing C2065)。任何反欺诈复核请 grep `error C` in those logs.
 
 ### Fixed
 
