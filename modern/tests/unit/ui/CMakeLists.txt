@@ -16,6 +16,7 @@ add_executable(mxh_ui_tests
     cexitdialog_test.cpp
     cmultilinetext_test.cpp
     cguagen_test.cpp
+    clistdialogex_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -279,4 +280,19 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuagen.SetPieceImageDefaultIsNullSprite
     CGuagen.SetPieceImageStoresCopy
     CGuagen.RenderIsNoop
+    # P2-12 Tier 1.5: cListDialogEx (link list with WE_ROWCLICK)
+    CListDialogExTest.DefaultConstructionIsEmpty
+    CListDialogExTest.InitLinkListConfiguresMaxLine
+    CListDialogExTest.RemoveAllClearsItemsAndSelection
+    CListDialogExTest.AddLinkItemAppends
+    CListDialogExTest.AddLinkItemInsertsAtIndex
+    CListDialogExTest.AddLinkItemStoresColors
+    CListDialogExTest.LinkTypeEnumIsStable
+    CListDialogExTest.ListMouseCheckOutOfRangeClearsSelection
+    CListDialogExTest.ListMouseCheckInRangeSetsSelection
+    CListDialogExTest.ListMouseCheckLinkRowSetsRowClicked
+    CListDialogExTest.ConsumeRowClickedIsOneShot
+    CListDialogExTest.RowClickedCallbackFiresOnLinkRow
+    CListDialogExTest.AddLinkItemChainPreservesNext
+    CListDialogExTest.RenderIsNoop
 )
