@@ -2,21 +2,21 @@
 
 > **作者**：Mavis  
 > **日期**：2026-07-16  
-> **状态**：🟡 进行中（5/202 = 2.5%）  
+> **状态**：🟡 进行中（6/202 = 3.0%）  
 > **关联**：`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
 
 legacy `[Client]MH/` 目录下有 **202 个 dialog 文件**（含 1 个备份
 `MugongDialog_BACKUP.{h,cpp}`，实际活跃 201 个）。现代 `modern/src/ui/`
-只 port 了 **5 个**：`cDialog`（基类）、`cGuildDialog`、`cIconDialog`、
-`cListDialog`、`cExitDialog`。一次推完 197 个 dialog 不现实——这
-是 Phase 6 时代就遗留的 Phase 12 长尾任务。
+只 port 了 **6 个**：`cDialog`（基类）、`cGuildDialog`、`cIconDialog`、
+`cListDialog`、`cExitDialog`、`cGuagen`（子控件）。一次推完 196 个
+dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档，每档
 标 port 优先级 + 估计工作量 + blocker，让后续 session 按矩阵接活。
 
-## 已 Port 列表（5/202 = 2.5%）
+## 已 Port 列表（6/202 = 3.0%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -24,7 +24,8 @@ legacy `[Client]MH/` 目录下有 **202 个 dialog 文件**（含 1 个备份
 | `cGuildDialog` | `modern/src/ui/cGuildDialog.{hpp,cpp}` | 13 | Phase 6 早期 |
 | `cIconDialog` | `modern/src/ui/cIconDialog.{hpp,cpp}` | ? | Phase 6 |
 | `cListDialog` | `modern/src/ui/cListDialog.{hpp,cpp}` | ? | Phase 6 |
-| `cExitDialog` | `modern/src/ui/cExitDialog.{hpp,cpp}` | 10 | **2026-07-16**（本 session） |
+| `cExitDialog` | `modern/src/ui/cExitDialog.{hpp,cpp}` | 10 | 2026-07-16 (0.13.10) |
+| `cGuagen` | `modern/src/ui/cGuagen.{hpp,cpp}` | 18 | **2026-07-16** (0.13.12) — Tier 2 子控件 |
 
 ## 5 档分级
 
@@ -68,6 +69,26 @@ global service 的 dialog"**。符合条件者：
 **建议推进**：每次新 session 直接从 **Tier 2** 开始（接受 200-500
 行 + 1 个 service interface 注入），不要再在 Tier 1 找 trivial。
 
+### Tier 1.5 — 子控件 widget（无 service 依赖，作为 Tier 2 dialog 的子组件）
+
+**特征**：本身不是 dialog，而是 dialog 内部用的子控件（progress bar、
+list control、edit box、pushup button 等）。Tier 2 dialog 直接需要
+这些子控件。**先 port 完子控件再 port dialog**，否则 Tier 2
+"无 blocker" 的描述会暴露真实 blocker（0.13.12 教训：cGuagen 缺失
+阻塞 CharacterDialog / QuestDialog / MugongDialog 等多个 Tier 2）。
+
+| 子控件 | 现代目标 | 子 dialog 用户 | 状态 |
+|--------|---------|---------------|------|
+| `cGuagen` | `cGuagen` ✅ | CharacterDialog (HP/MP bar), MonsterGuageDlg, TitanGuageDlg, MainBarDialog, GuageDialog | **2026-07-16 ported** (commit `de390cd`, 18/18 test) |
+| `cPushupButton` | `cPushupButton` | OptionDialog, KeySettingTipDlg, MiniNoteDialog | 候选 (Tier 1.5 下一个) |
+| `cListCtrl` | `cListCtrl` (确认 modern 端存在) | FriendDialog, NoteDialog, PartyDialog, ChatDialog, QuestDialog | 候选 |
+| `cEditBox` | `cEditBox` (确认 modern 端存在) | ChatDialog, NoteDialog, MacroDialog, ChatOptionDialog | 候选 |
+| `cListDialogEx` | `cListDialogEx` | HelpDialog, 多个 log-style dialogs | 候选 (Tier 1.5 范围, 无 service 依赖) |
+| `cListCtrlEx` | `cListCtrlEx` | InventoryExDialog, QuickDialog (Tier 3 blocked) | Tier 3 范围 |
+| `cPage` | `cPage` | HelpDialog (page navigation) | 候选 |
+| `cDialogueList` | `cDialogueList` | HelpDialog + Tier 4 NpcScript | 候选 (Tier 4 范围) |
+| `cHyperTextList` | `cHyperTextList` | HelpDialog (rich text) | 候选 |
+
 ### Tier 2 — UI 状态 + 子控件编排（~200-500 行，2-3 commit/个）
 
 **特征**：dialog 自身无状态，但有 2-5 个 cButton / cListCtrl / cEditBox
@@ -76,19 +97,26 @@ global service 的 dialog"**。符合条件者：
 
 | Legacy Dialog | 现代目标 | 子控件 | 阻塞 |
 |--------------|---------|-------|------|
-| CharacterDialog | `cCharacterDialog` | cStatic, cButton, cEditBox, cListCtrl | 无 |
-| QuestDialog | `cQuestDialog` | cListCtrl, cButton, cStatic | 无 |
-| ChatDialog | `cChatDialog` | cEditBox, cButton, cListCtrl | 无 |
-| DealDialog | `cDealDialog` | cStatic, cButton, cListCtrl | 需 inventory 状态 |
-| ExchangeDialog | `cExchangeDialog` | cStatic, cButton, cListCtrl | 需 inventory 状态 |
-| FriendDialog | `cFriendDialog` | cListCtrl, cButton | 需 network |
-| NoteDialog | `cNoteDialog` | cListCtrl, cEditBox | 需 network |
-| PartyDialog | `cPartyDialog` | cListCtrl, cButton | 需 network |
-| ItemShopDialog | `cItemShopDialog` | cButton, cStatic, cListCtrl | 需 shop data |
-| MacroDialog | `cMacroDialog` | cEditBox, cButton | 无 |
+| CharacterDialog | `cCharacterDialog` | cStatic, cButton, cEditBox, cListCtrl, **cGuagen** ✅ | 需 PlayerStatsService (Tier 3) |
+| QuestDialog | `cQuestDialog` | cListCtrl, cButton, cStatic | 需 QuestService + 1 子控件 |
+| ChatDialog | `cChatDialog` | cEditBox, cButton, cListCtrl | 需 ChatService (Tier 5) |
+| DealDialog | `cDealDialog` | cStatic, cButton, cListCtrl | 需 inventory 状态 (Tier 3) |
+| ExchangeDialog | `cExchangeDialog` | cStatic, cButton, cListCtrl | 需 inventory 状态 (Tier 3) |
+| FriendDialog | `cFriendDialog` | cListCtrl, cButton | 需 network (Tier 5) |
+| NoteDialog | `cNoteDialog` | cListCtrl, cEditBox | 需 network (Tier 5) |
+| PartyDialog | `cPartyDialog` | cListCtrl, cButton | 需 network (Tier 5) |
+| ItemShopDialog | `cItemShopDialog` | cButton, cStatic, cListCtrl | 需 shop data (Tier 3) |
+| MacroDialog | `cMacroDialog` | cEditBox, cButton | 无（已 port 子控件） |
 
-**小活建议**：选 1 个 + 先确认子控件都 port 了（cStatic / cButton /
-cEditBox / cListCtrl / cPushupButton 多数已存在）。
+**重要更新（2026-07-16）**: 旧 roadmap 说 "无阻塞" 是错的。
+CharacterDialog header 包含 cGuagen.h，**0.13.12 cGuagen port 解锁
+CharacterDialog 子控件 blocker**。但 CharacterDialog 仍需 PlayerStatsService
+（HP/MP/str/agi 等数据从哪读）— Tier 3 阻塞。
+
+**小活建议**:
+- 选 1 个**纯 UI 状态机** + **子控件全 port** + **无 service** 的 dialog
+- 截至 0.13.12，唯一符合所有条件的是 **MacroDialog**（仅 cEditBox + cButton，OptionManager settings 已经是 local state）
+- 第二个候选是 **DealDialog**（Tier 3 blocked after 0.13.12 解锁子控件）
 
 ### Tier 3 — 需要 GameIn/Inventory 状态（~500-1000 行，3-5 commit/个）
 
@@ -228,22 +256,33 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 
 | 档 | 数量 | 工作量 | 累计估算 |
 |----|------|-------|---------|
-| Tier 1 | 9 | 80-200 行 + 测试 | 1-2 周（每次小活 1-2 个） |
+| Tier 1.5 子控件 | 9+ | 100-200 行 + 测试 | 1 周（每次小活 1-2 个, 已完成 1/9: cGuagen） |
+| Tier 1 (legacy "trivial") | 1 | 100 行 + 测试 | ✅ 已完成 (cExitDialog) |
 | Tier 2 | 10 | 200-500 行 + 测试 | 2-3 周 |
 | Tier 3 | 9 | 500-1000 行（需 service interface） | 3-4 周（依赖 Phase 13 service 化） |
 | Tier 4 | 3 | 800-2000 行（需 NpcScriptEngine） | 2-3 周（依赖 Phase 14 script port） |
 | Tier 5 | 100+ | 1000-3000 行（需 15-20 service） | 8-12 周（依赖 Phase 15 service + network） |
 | **总计** | **131+** | — | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **5/202** = **2.5%**（当前）→ 100% ≈ 4-5 个月全职工作量。
+加上 base **6/202** = **3.0%**（当前）→ 100% ≈ 4-5 个月全职工作量。
 **这是真的"长尾"，不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
 
-1. **每次新 session** 推 1-2 个 **Tier 1** dialog（小活，1-2 commit）
-2. **每 3-5 session** 评估一次 Tier 2（需要先确认子控件齐全）
+1. **每次新 session** 推 1-2 个 **Tier 1.5 子控件** widget（小活，1-2 commit）。
+   下次 session 候选: cListDialogEx / cPushupButton / cListCtrl（确认 modern 存在）
+2. **每 3-5 session** 评估一次 Tier 2（需要先确认子控件齐全 + 无 service 阻塞）
+   - 当前可立即 port 的 Tier 2 dialog: **MacroDialog**（无 service, 子控件全 port）
 3. **不开 Phase 13** 不动 Tier 3-5（架构阻塞）
 4. **每 10 session** 更新一次本 roadmap（重新评估 Tier / 优先级）
+
+## 0.13.12 更新摘要
+
+- ✅ 新 ported: cGuagen (18 test, Tier 1.5 子控件) — 解锁 CharacterDialog 等多个
+  Tier 2 dialog 的子控件 blocker
+- ✅ R-9 矩阵约定审计完成: 7 个新 test pin D3DX row-major layout, 3 个旧 test 更新
+- 📊 Progress: 5/202 = 2.5% → 6/202 = 3.0% (Tier 1.5 子控件算"组件 port",
+  不算严格 dialog port, 但属于"无 service 阻塞的 ui 元素")
 
 ## 关联文档
 
