@@ -18,6 +18,7 @@ add_library(mxh_ui STATIC
     cPushupButton.cpp
     cListDialog.cpp
     cGuildDialog.cpp
+    cExitDialog.cpp
     cMultiLineText.cpp
     ime.cpp
 )

@@ -445,6 +445,60 @@
   enum), `modern/tests/unit/render/texture_loader_test.cpp`
   (+14 用例 PASS), `CHANGELOG.md` 0.13.5。
 
+### Bug R-12: P2-12 dialogs 移植 roadmap + polymorphic SetActive bug
+- **症状 1（roadmap）**：legacy `[Client]MH/` 目录下有 **202 个 dialog 文件**
+  （含 1 个备份文件 `MugongDialog_BACKUP.{cpp,h}`），modern `src/ui/`
+  只 port 了 **5/202 = 2.5%**：`cDialog`（基类）、`cGuildDialog`、
+  `cIconDialog`、`cListDialog`、`cExitDialog`。一次推完 197 个
+  dialog 不现实，需要按优先级分级，让后续 session 按矩阵接活。
+- **症状 2（实际 bug）**：`cDialog::SetActive(bool)` 在 modern 端**不是
+  virtual**，所以 `cGuildDialog::SetActive` 和 `cExitDialog::SetActive`
+  都是**名字隐藏**（hide）而不是**虚函数覆盖**（override）。legacy
+  dispatcher 通过 `cDialog*` 指针调 `SetActive(true)` 时：
+  - legacy: 走 vtable，命中 `CGuildDialog::SetActive` /
+    `CExitDialog::SetActive`，联动 button highlight / main bar icon
+  - modern: 走 `cDialog::SetActive`（仅设 `m_bActive`），**完全跳过**
+    子类的 callback / button highlight 逻辑
+
+  这是**真实的 1:1 行为偏差**，不是 stub。Legacy 引擎的 cDialog
+  SetActive 在 2008 年的原始实现就是 non-virtual + 靠 dispatcher
+  静态调用（`g_pDialog->SetActive(TRUE)`，编译期知道是哪个 dialog），
+  所以当时没出 bug；modern 端用 `unique_ptr<cWindow>` 多态存储后，
+  `cDialog*` 多态调用变成隐式选择，**bug 暴露**。
+- **位置**：
+  - `modern/src/ui/cDialog.hpp:111` `void SetActive(bool v) noexcept`
+    缺 `virtual`
+  - `modern/src/ui/cGuildDialog.hpp:69` `void SetActive(bool val) noexcept;`
+    缺 `override` / 函数体注释已说明是 name-hide
+  - `modern/src/ui/cExitDialog.hpp` 同上
+  - roadmap：`docs/P2-12_DIALOGS_ROADMAP.md`（新建）
+- **根因**：Phase 6 把 cDialog 当容器设计，SetActive 是 trivial setter
+  (`m_bActive = v`)，当时还没有任何 dialog 子类 override，所以
+  virtual 关键字被省。后续 6.x port cGuildDialog / cExitDialog 时
+  沿用 hide 模式没改基类 → polymorphic 调用断链。
+- **现代方案**：
+  - **修基类**：把 `cDialog::SetActive` 改 virtual + 同步把
+    `cGuildDialog::SetActive` / `cExitDialog::SetActive` 加 `override`。
+    **风险**：virtual 多一个 vtable entry（4 字节）+ 任何
+    cDialog* 调 SetActive 都会多一次间接调用（不可观测）。现有
+    单元测试**应当全部继续通过**（行为不变，只是 dispatch 路径多
+    一层间接）。建议 Phase 12.x 第一个 dialog 移植 session 顺手修。
+  - **roadmap 落地**：`docs/P2-12_DIALOGS_ROADMAP.md` 把 202 个
+    dialog 按"无外部依赖 / 仅 UI / 需网络 / 需 NPC 脚本 / 需
+    GameIn 状态"5 档分级，每档标 port 优先级 + 估计代码量 +
+    blocker。
+- **状态**：**已记录，未修**。Phase 12.1 已 port 1 个 dialog
+  （`cExitDialog` + 10 测试用例，commit 待落），roadmap 文档
+  待落。基类 SetActive 改 virtual 列入 Phase 12.x 待办。
+- **关联**：
+  - `modern/src/ui/cDialog.hpp:111`（基类，缺 virtual）
+  - `modern/src/ui/cGuildDialog.{hpp,cpp}`（已 port，hide 模式）
+  - `modern/src/ui/cExitDialog.{hpp,cpp}`（2026-07-16 新 port，
+    10/10 测试 PASS）
+  - `墨香【源码】\[Client]MH\*Dialog.{h,cpp}`（202 个 legacy dialog）
+  - `墨香【源码】\[Client]MH\MugongDialog_BACKUP.{h,cpp}`（明显遗留
+    备份文件，可删但 R-12 不擅自动 legacy）
+
 ### Bug C-19: [CC]ServerModule/inetwork.h 与 4DyuchiNET_Common/INetwork.h 接口签名不匹配
 - **症状**：`[CC]ServerModule/Network.cpp:50` 调 `m_pINet->CreateNetwork(desc)` 1-参数版本；`4DyuchiNET_Latest/conetwork.cpp:131` 实现 `Co4DyuchiNET::CreateNetwork(DESC_NETWORK*, DWORD, DWORD, OnIntialFunc)` 4-参数版本。任何以 NET 编译的 DLL 替换旧版都会被这张简化 header 阻断 link。
 - **位置**：`墨香【源码】\4DyuchiNET_Common\INetwork.h` vs `墨香【源码】\[CC]ServerModule\inetwork.h`

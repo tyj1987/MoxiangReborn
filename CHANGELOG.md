@@ -3,6 +3,81 @@
 > All notable changes to the Moxian-Reborn modernization project.
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
+## [0.13.10] - 2026-07-16
+
+### Phase 12.1: P2-12 dialogs 启动 + 5 档 roadmap ✅
+
+**背景**：Phase 6 stub 阶段遗留 ~197 个 dialog 没 port。Modern `src/ui/`
+只有 4 个 dialog（cDialog 基类 + cGuildDialog + cIconDialog + cListDialog）。
+每次新 session 推 1-2 个 Tier 1 dialog 节奏不变，但需要先有 roadmap
+让后续 session 按矩阵接活。
+
+**已实装**
+
+- `modern/src/ui/cExitDialog.hpp` (新建, ~140 行):
+  - `class cExitDialog : public cDialog` — 1:1 port of legacy CExitDialog
+  - `Init(x, y, w, h, basicImg, id=0)` — 位置 + 尺寸 + 背景图
+  - `SetActive(bool) noexcept` — 名字隐藏基类同名方法（cDialog::SetActive
+    非 virtual；R-12 列出但未修，cDialog* 多态调用会跳过 callback）
+  - `SetOnActiveChanged(ActiveChangedCallback)` —
+    `std::function<void(bool)>` 替代 legacy CMainBarDialog 直接依赖，
+    host caller 自己决定连不连 main bar
+  - `exitActive()` 测试访问器
+  - 文档注释包含 R-12 关联 + 已知 polymorphic dispatch 限制
+
+- `modern/src/ui/cExitDialog.cpp` (新建, ~30 行):
+  - `SetActive` 实现：`wasActive != val` 转换时调 callback
+  - 初始 active 跟随 cDialog::Init 之后的 m_bActive=false
+
+- `modern/tests/unit/ui/cexitdialog_test.cpp` (新建, 10 用例):
+  - DefaultConstruction / InitResetsActiveState /
+    SetActiveUpdatesBaseAndExitFlags / CallbackFiresOnTransition /
+    CallbackDoesNotFireOnSameValue / CallbackCanBeCleared /
+    CallbackCanBeReboundAfterInit / CallbackReceivesNewValueNotOld /
+    InheritsDialogTreeManagement / NonCopyable
+  - 10/10 PASS
+
+- `docs/P2-12_DIALOGS_ROADMAP.md` (新建, ~280 行):
+  - 5 档分级：Tier 1 (9 trivial) / Tier 2 (10 子控件) /
+    Tier 3 (9 InventoryService 阻塞) / Tier 4 (3 NpcScriptEngine 阻塞) /
+    Tier 5 (100+ network service 阻塞)
+  - 整体估算 4-5 月全职工作量
+  - 推进节奏建议：每次 session 1-2 个 Tier 1
+
+- `docs/KNOWN_BUGS.md` R-12: SetActive polymorphic bug
+  - cDialog::SetActive 不是 virtual → cGuildDialog/cExitDialog 是
+    name-hide 而非 override → cDialog* 多态调用跳过子类 callback
+  - 列出但未修；建议第一个 Tier 1 dialog 移植时顺手把基类改 virtual
+
+**质量门**
+
+- 增量编译：mxh_ui.vcxproj 干净 (~10s)
+- 全栈 ctest: 850 → 860 PASS (+10 用例, 0 回归)
+- 字节级一致：cExitDialog 1:1 模拟 legacy CExitDialog 行为
+  （SetActive 联动 main-bar exit icon highlight，via callback）
+- 非破坏性：基类 cDialog 签名未动；其他 4 个已 port dialog 不受影响
+
+**遗留 / 下一个 session 推**
+
+- P2-12a cHelpDialog (Tier 1, ~80 行 + 6 test) — 推荐
+- P2-12b cBailDialog (Tier 1, ~120 行 + 8 test)
+- P2-12c cEventNotifyDialog (Tier 1, ~150 行 + 8 test)
+- 顺手修 R-12 (cDialog::SetActive 改 virtual + 子类加 override)
+
+**未 commit**（待 user 确认）:
+
+```
+ modern/src/ui/cExitDialog.hpp        | 新
+ modern/src/ui/cExitDialog.cpp        | 新
+ modern/tests/unit/ui/cexitdialog_test.cpp | 新
+ modern/src/ui/CMakeLists.txt         | +1 行
+ modern/tests/unit/ui/CMakeLists.txt  | +2 段
+ docs/P2-12_DIALOGS_ROADMAP.md        | 新
+ docs/KNOWN_BUGS.md                   | +R-12 段
+ AI_TASK_QUEUE.md                     | v2.1 → v2.2
+ AI_SHIFT_LOG.md                      | +06:55 记录
+```
+
 ## [0.13.4] - 2026-07-16
 
 ### Phase 12.1: IME hook 接口 + Win32 IMM reference adapter ✅

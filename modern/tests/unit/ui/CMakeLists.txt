@@ -13,6 +13,7 @@ add_executable(mxh_ui_tests
     cpushupbutton_test.cpp
     clistdialog_test.cpp
     cguilddialog_test.cpp
+    cexitdialog_test.cpp
     cmultilinetext_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
@@ -234,6 +235,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildDialog.SetDisableFuncBtnMemberDisablesSenior
     CGuildDialog.ClearDisableBtnEnablesEverything
     CGuildDialog.SetActivePropagatesToChildren
+    CExitDialog.DefaultConstruction
+    CExitDialog.InitResetsActiveState
+    CExitDialog.SetActiveUpdatesBaseAndExitFlags
+    CExitDialog.CallbackFiresOnTransition
+    CExitDialog.CallbackDoesNotFireOnSameValue
+    CExitDialog.CallbackCanBeCleared
+    CExitDialog.CallbackCanBeReboundAfterInit
+    CExitDialog.CallbackReceivesNewValueNotOld
+    CExitDialog.InheritsDialogTreeManagement
+    CExitDialog.NonCopyable
     CMultiLineText.DefaultStateIsInvalidAndEmpty
     CMultiLineText.InitMarksValidAndStoresConfig
     CMultiLineText.SetTextSplitsOnNewlines
