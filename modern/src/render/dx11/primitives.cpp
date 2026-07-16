@@ -1,6 +1,7 @@
 ﻿// mxh/render/dx11/primitives.cpp
 // DX11 primitive shaders and draw helpers.
 #include "primitives.hpp"
+#include "primitives_shader_source.hpp"
 #include "device.hpp"
 
 #include <d3dcompiler.h>
@@ -10,37 +11,27 @@
 
 namespace mxh::gx::dx11 {
 
-// Shader sources: minimal solid + textured 2D pipeline. Position-only vs +
-// solid color ps; textured uses vs + sampling ps.
-static const char* kVS_Solid = R"(
-struct VSInput {
-    float2 pos : POSITION;
-    float4 col : COLOR0;
-};
-struct VSOutput {
-    float4 pos : SV_Position;
-    float4 col : COLOR0;
-};
-cbuffer CBuf : register(b0) {
-    float4x4 viewProj;
-};
-VSOutput main(VSInput i) {
-    VSOutput o;
-    o.pos = mul(float4(i.pos, 0.0, 1.0), viewProj);
-    o.col = i.col;
-    return o;
-}
-)";
+// Shader sources are centralized in primitives_shader_source.hpp
+// so the unit tests can compile them and verify the input
+// signatures without depending on the D3D11 device layer. The
+// 2D solid VS (kVS_Solid2D) is the legacy shader for drawLine /
+// drawPoint / drawCircle / drawGrid — host supplies screen-space
+// 2D coordinates. The 3D solid VS (kVS_Solid3D) is the R-9.x
+// addition for drawBox — host supplies 3D world coordinates and
+// the GPU multiplies by viewProj.
+namespace {
+// Bring the shader source constants into this anonymous namespace
+// for local use. The header itself declares them in
+// mxh::gx::dx11, so this using-declaration pulls them in
+// unqualified.
+using mxh::gx::dx11::kVS_Solid2D;
+using mxh::gx::dx11::kVS_Solid3D;
+using mxh::gx::dx11::kPS_Solid;
 
-static const char* kPS_Solid = R"(
-struct PSInput {
-    float4 pos : SV_Position;
-    float4 col : COLOR0;
-};
-float4 main(PSInput i) : SV_Target {
-    return i.col;
+// Backward-compat alias: legacy code (and the rest of this file)
+// used `kVS_Solid` to refer to the 2D solid VS.
+constexpr const char* kVS_Solid = kVS_Solid2D;
 }
-)";
 
 static const char* kVS_Textured = R"(
 struct VSInput {
@@ -113,6 +104,22 @@ bool PrimitiveShaders::init(ID3D11Device* device) {
     if (FAILED(device->CreateInputLayout(layoutSolid, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &ilSolid)))
         return false;
 
+    // R-9.x: 3D solid VS + input layout for drawBox. Same cbuffer
+    // (b0 = viewProj) as the 2D VS. Input position is float3
+    // instead of float2. Vertex struct: 12 bytes (3 floats) +
+    // 4 bytes (RGBA) = 16 bytes, packed.
+    Microsoft::WRL::ComPtr<ID3DBlob> vs3DBlob;
+    if (!compile(kVS_Solid3D, "main", "vs_4_0", &vs3DBlob)) return false;
+    if (FAILED(device->CreateVertexShader(vs3DBlob->GetBufferPointer(), vs3DBlob->GetBufferSize(), nullptr, &vsSolid3D)))
+        return false;
+
+    D3D11_INPUT_ELEMENT_DESC layoutSolid3D[] = {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM,  0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    };
+    if (FAILED(device->CreateInputLayout(layoutSolid3D, 2, vs3DBlob->GetBufferPointer(), vs3DBlob->GetBufferSize(), &ilSolid3D)))
+        return false;
+
     // Textured shaders.
     Microsoft::WRL::ComPtr<ID3DBlob> vsTBlob;
     if (!compile(kVS_Textured, "main", "vs_4_0", &vsTBlob)) return false;
@@ -155,6 +162,7 @@ bool PrimitiveShaders::init(ID3D11Device* device) {
 
 void PrimitiveShaders::release() {
     vsSolid.Reset(); psSolid.Reset(); ilSolid.Reset();
+    vsSolid3D.Reset(); ilSolid3D.Reset();
     vsTextured.Reset(); psTextured.Reset(); ilTextured.Reset();
     vbSolid.Reset(); cbViewProj.Reset();
 }
@@ -205,29 +213,37 @@ void PrimitiveDrawer::drawBox(const VECTOR3* oct, std::uint32_t color) {
         {0,4},{1,5},{2,6},{3,7},  // verticals
     };
 
-    struct V { float x, y; std::uint32_t c; };
-    std::vector<V> verts(24);
+    // R-9.x: 3D vertex struct (float3 pos + packed RGBA byte).
+    // Previously used float2 + 2D shader + 2D input layout and
+    // degraded the box to the XZ plane (v.y = oct[i].z). The
+    // 3D upgrade uses all 3 of oct[i]'s components, so a box
+    // at (0,1,0)..(1,2,1) is now a 1x1x1 cube at y in [1,2]
+    // rather than a flat square on the ground plane.
+    struct V3D { float x, y, z; std::uint32_t c; };
+    std::vector<V3D> verts(24);
     for (int i = 0; i < 12; ++i) {
-        V v{};
-        v.x = oct[edges[i][0]].x;  // simple: use x,y for now (proper ortho projection is TODO)
-        v.y = oct[edges[i][0]].z;
+        V3D v{};
+        v.x = oct[edges[i][0]].x;
+        v.y = oct[edges[i][0]].y;
+        v.z = oct[edges[i][0]].z;
         v.c = color;
         verts[i*2] = v;
         v.x = oct[edges[i][1]].x;
-        v.y = oct[edges[i][1]].z;
+        v.y = oct[edges[i][1]].y;
+        v.z = oct[edges[i][1]].z;
         verts[i*2 + 1] = v;
     }
 
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(ctx->Map(m_shaders.vbSolid.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
-    std::memcpy(mapped.pData, verts.data(), verts.size() * sizeof(V));
+    std::memcpy(mapped.pData, verts.data(), verts.size() * sizeof(V3D));
     ctx->Unmap(m_shaders.vbSolid.Get(), 0);
 
-    UINT stride = sizeof(V), offset = 0;
+    UINT stride = sizeof(V3D), offset = 0;
     ctx->IASetVertexBuffers(0, 1, m_shaders.vbSolid.GetAddressOf(), &stride, &offset);
-    ctx->IASetInputLayout(m_shaders.ilSolid.Get());
+    ctx->IASetInputLayout(m_shaders.ilSolid3D.Get());
     ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-    ctx->VSSetShader(m_shaders.vsSolid.Get(), nullptr, 0);
+    ctx->VSSetShader(m_shaders.vsSolid3D.Get(), nullptr, 0);
     ctx->PSSetShader(m_shaders.psSolid.Get(), nullptr, 0);
     ctx->VSSetConstantBuffers(0, 1, m_cbViewProj.GetAddressOf());
     ctx->Draw(24, 0);

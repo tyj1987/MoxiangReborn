@@ -13,11 +13,22 @@ class Device;
 
 // One-time GPU resource init shared by all primitives.
 struct PrimitiveShaders {
+    // 2D solid pipeline: float2 pos + RGBA. Used by drawLine /
+    // drawPoint / drawCircle / drawGrid (host-supplied screen-space
+    // coordinates).
     Microsoft::WRL::ComPtr<ID3D11VertexShader> vsSolid;
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psSolid;
     Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilSolid;
     Microsoft::WRL::ComPtr<ID3D11Buffer>       vbSolid;     // dynamic vertex buffer
     Microsoft::WRL::ComPtr<ID3D11Buffer>       cbViewProj;  // view-proj constant buffer
+
+    // 3D solid pipeline: float3 pos + RGBA. Used by drawBox (the
+    // 8 corners of a real 3D box — X/Y/Z all meaningful). The 3D
+    // VS multiplies by the same viewProj constant buffer; the only
+    // difference is the input layout (3 floats per position vs 2)
+    // and the vertex struct size. R-9.x.
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> vsSolid3D;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilSolid3D;
 
     Microsoft::WRL::ComPtr<ID3D11VertexShader> vsTextured;
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psTextured;
@@ -38,7 +49,14 @@ public:
 
     void setViewProj(const MATRIX4& vp);
 
-    // Render a wireframe axis-aligned box (8 corners 鈫?12 edges).
+    // Render a wireframe axis-aligned box (8 corners → 12 edges) in
+    // 3D world space. Each VECTOR3's x, y, z are real 3D coordinates;
+    // the GPU multiplies by m_viewProj to project to screen space.
+    // R-9.x: previously this method degraded to 2D by using only
+    // oct[i].x and oct[i].z (ignoring y). The 3D upgrade restores
+    // full 3D meaning — a box at (0,1,0)..(1,2,1) is now drawn as
+    // a 1×1×1 cube centered at (0.5, 1.5, 0.5), not flattened to
+    // the XZ plane.
     void drawBox(const VECTOR3* oct, std::uint32_t color);
 
     // Render a 2D line in screen space (orthographic). color = ARGB.

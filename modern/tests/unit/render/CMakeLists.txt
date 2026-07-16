@@ -16,6 +16,7 @@ add_executable(mxh_render_tests
     math_d3dx_convention_test.cpp
     motion_flag_test.cpp
     file_storage_typedef_test.cpp
+    primitives_3d_shader_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -233,4 +234,11 @@ gtest_add_tests(TARGET mxh_render_tests
     FsPackFileInfoTest.FieldOffsets
     FileStorageCrossStructTest.HeaderIsSmallerThanAtomInfo
     FileStorageCrossStructTest.NamesAreRawCharArrays
+    # R-9.x: 3D solid VS shader source validation
+    Primitives3DShader.Solid2DVSCompiles
+    Primitives3DShader.Solid2DVSInputSignature
+    Primitives3DShader.Solid3DVSCompiles
+    Primitives3DShader.Solid3DVSInputSignature
+    Primitives3DShader.Solid3DVSHasViewProjCBuffer
+    Primitives3DShader.SolidPSCompiles
 )
