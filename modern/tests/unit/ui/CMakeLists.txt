@@ -244,6 +244,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CExitDialog.CallbackCanBeReboundAfterInit
     CExitDialog.CallbackReceivesNewValueNotOld
     CExitDialog.InheritsDialogTreeManagement
+    CExitDialog.PolymorphicDispatchFiresCallback
     CExitDialog.NonCopyable
     CMultiLineText.DefaultStateIsInvalidAndEmpty
     CMultiLineText.InitMarksValidAndStoresConfig

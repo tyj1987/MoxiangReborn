@@ -107,8 +107,19 @@ public:
     // engine, "active" means "this dialog is the current topmost" — only
     // the active dialog receives input. The recursive variant cascades the
     // flag to all children (used when re-activating a minimized dialog).
+    //
+    // SetActive is virtual (added in Phase 12.1, KNOWN_BUGS R-12 fix) so
+    // subclass overrides (cGuildDialog, cExitDialog, etc.) participate
+    // in polymorphic dispatch when the host calls SetActive through a
+    // cDialog* / cWindow* — the legacy engine's pattern. Before the fix
+    // these were name-hiding overloads and the subclass callback was
+    // silently skipped on cDialog* calls.
     // -------------------------------------------------------------------------
-    void SetActive(bool v) noexcept           { m_bActive = v; }
+    // Virtual so subclass overrides (cGuildDialog, cExitDialog, etc.)
+    // participate in polymorphic dispatch when the host calls SetActive
+    // through a cDialog* / cWindow* (the legacy engine's pattern). See
+    // KNOWN_BUGS R-12 for the historical bug this fixes.
+    virtual void SetActive(bool v) noexcept  { m_bActive = v; }
     void SetActiveRecursive(bool v);                              // cascades
     bool isActive() const noexcept           { return m_bActive; }
 

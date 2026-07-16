@@ -63,13 +63,14 @@ public:
     // double-notifying the main bar if the dispatcher redundantly sets
     // the same state.
     //
-    // Note: the base cDialog::SetActive is NOT virtual, so this method
-    // hides (not overrides) the base. Callers must invoke SetActive
-    // through a cExitDialog* (or reference) — invoking through a
-    // cDialog* would skip the callback. This matches the cGuildDialog
-    // pattern in the same framework (see cGuildDialog.hpp / .cpp).
+    // Overrides cDialog::SetActive (virtual since Phase 12.1 R-12 fix),
+    // so cDialog* / cWindow* polymorphic dispatch hits this method and
+    // the callback fires correctly. Before the R-12 fix, the base
+    // cDialog::SetActive was non-virtual and this was a name-hiding
+    // overload — polymorphic calls through cDialog* would skip the
+    // callback. See KNOWN_BUGS.md R-12 for the historical bug.
     // -------------------------------------------------------------------------
-    void SetActive(bool val) noexcept;
+    void SetActive(bool val) noexcept override;
 
     // -------------------------------------------------------------------------
     // Callback registration. Caller owns the callback lifetime; the

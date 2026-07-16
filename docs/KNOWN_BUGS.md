@@ -487,9 +487,14 @@
     dialog 按"无外部依赖 / 仅 UI / 需网络 / 需 NPC 脚本 / 需
     GameIn 状态"5 档分级，每档标 port 优先级 + 估计代码量 +
     blocker。
-- **状态**：**已记录，未修**。Phase 12.1 已 port 1 个 dialog
-  （`cExitDialog` + 10 测试用例，commit 待落），roadmap 文档
-  待落。基类 SetActive 改 virtual 列入 Phase 12.x 待办。
+- **状态**：**已修复**（commit `e8baa3f` + `R-12 fix commit`，2026-07-16）。
+  - `cDialog::SetActive` 加 `virtual`（vtable 多 1 entry，4 字节/实例）
+  - `cGuildDialog::SetActive` / `cExitDialog::SetActive` 加 `override`
+  - 新增 1 个 regression test `CExitDialog.PolymorphicDispatchFiresCallback`
+    验证 `cDialog* basePtr; basePtr->SetActive(true)` 真的会触发
+    `cExitDialog::onActiveChanged` callback
+  - 全部 861/861 ctest PASS（0 回归，+1 用例）
+  - 关联 commit: `R-12 fix` (本 session), `16ef797` (cExitDialog port)
 - **关联**：
   - `modern/src/ui/cDialog.hpp:111`（基类，缺 virtual）
   - `modern/src/ui/cGuildDialog.{hpp,cpp}`（已 port，hide 模式）

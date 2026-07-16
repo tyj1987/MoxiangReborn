@@ -65,8 +65,10 @@ public:
     void SortMemberListByPosition();
     void SortMemberListByLevel();
 
-    // UI state.
-    void SetActive(bool val) noexcept;
+    // UI state. Overrides cDialog::SetActive (virtual since Phase 12.1 R-12 fix)
+    // so that a cDialog* / cWindow* polymorphic call still hits the GuildDialog
+    // override and cascades to the embedded list / icons.
+    void SetActive(bool val) noexcept override;
     std::uint32_t ActionEvent(std::int32_t mx, std::int32_t my,
                               std::uint32_t flags) override;
 

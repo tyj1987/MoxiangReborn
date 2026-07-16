@@ -195,6 +195,32 @@ TEST(CExitDialog, InheritsDialogTreeManagement) {
     EXPECT_EQ(parent.componentAt(0)->id(), 2);
 }
 
+TEST(CExitDialog, PolymorphicDispatchFiresCallback) {
+    // Regression for KNOWN_BUGS R-12: cDialog::SetActive is now virtual
+    // (since Phase 12.1 R-12 fix), so a cDialog* polymorphic call must
+    // dispatch to cExitDialog::SetActive and fire the callback. Before
+    // the fix, the base method was non-virtual and the subclass
+    // SetActive was a name-hiding overload — a cDialog* call would skip
+    // the callback entirely.
+    auto* heap = new cExitDialog();
+    heap->Init(0, 0, 100, 100, &g_basicImg);
+    cDialog* basePtr = heap;  // upcast to test polymorphic dispatch
+
+    int fireCount = 0;
+    heap->SetOnActiveChanged([&](bool) { ++fireCount; });
+
+    basePtr->SetActive(true);
+    EXPECT_EQ(fireCount, 1);
+    EXPECT_TRUE(basePtr->isActive());  // cDialog* can read isActive()
+    EXPECT_TRUE(heap->exitActive());    // subclass state also flipped
+
+    basePtr->SetActive(false);
+    EXPECT_EQ(fireCount, 2);
+    EXPECT_FALSE(basePtr->isActive());
+
+    delete heap;  // unique_ptr was bypassed, manual delete
+}
+
 TEST(CExitDialog, NonCopyable) {
     cExitDialog d;
     // Compile-time check via std::is_copy_constructible / is_copy_assignable.
