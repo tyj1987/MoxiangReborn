@@ -29,7 +29,7 @@
 //   - Render is a no-op (deferred to 6.4+ cImage / Phase 13
 //     host integration, same as cGuagen's RenderIsNoop).
 
-#include "mxh/ui/cListDialogEx.hpp"
+#include "cListDialogEx.hpp"
 
 #include <gtest/gtest.h>
 
