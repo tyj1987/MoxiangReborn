@@ -4,6 +4,36 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.21] - 2026-07-16
+
+### R-9.x drawBox 3D upgrade + shader source header + 6 tests (self-verified by producer session)
+
+**背景**: 0.13.20 收口 cMiniFriendDialog。本 session 接 R-9.x deferred work —— 1 个真大活 (R-9 收尾)。drawBox 之前用 3D VECTOR3 8 corner 但 GPU 端只用了 x, z (降级到 2D 屏幕坐标)。本次升级到真 3D：vertex struct `V3D { float x, y, z; c; }` + 独立 3D VS shader + 3D input layout + GPU 端做 viewProj 乘。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: Primitives3DShader 6/6 ctest PASS (`ctest -C Debug -R Primitives3DShader`); 全栈 ctest 1034 → 1040 PASS (+6 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/render/dx11/primitives_shader_source.hpp` (新建, commit `e5bea93`): 中央化 HLSL shader source (kVS_Solid2D + kVS_Solid3D + kPS_Solid) 在 mxh::gx::dx11 namespace, 让 unit test 可以离线 D3DCompile + reflect 验证 input signature + cbuffer binding, 不需要 D3D11 device
+- `modern/src/render/dx11/primitives.hpp` (改): PrimitiveShaders 加 vsSolid3D + ilSolid3D 字段; drawBox 注释更新明确 3D 语义
+- `modern/src/render/dx11/primitives.cpp` (改): drawBox 内部用 struct V3D { float x, y, z; c; } (16 bytes/vert, 匹配 3D input layout stride); 24 vert 全部用 oct[i] 的真 3D 坐标; draw call 绑 vsSolid3D + ilSolid3D; 删除 inline shader string defs (改 include header)
+- `modern/tests/unit/render/primitives_3d_shader_test.cpp` (新建, 6 用例 PASS): 2D/3D VS D3DCompile + input signature 验证 (POSITION mask 3 vs 7) + 3D cbuffer viewProj mat4 验证 + 共享 PS compile
+- `modern/tests/unit/render/CMakeLists.txt` (改): 加 `primitives_3d_shader_test.cpp` + 6 gtest entry
+
+### 1:1 quirks preserved
+
+- 2D pipeline (kVS_Solid2D) 保持不变给 drawLine / drawPoint / drawCircle / drawGrid (host 继续 supply screen-space 2D 坐标)
+- 只有 drawBox 用新的 3D pipeline (kVS_Solid3D)
+- CPU 端 viewProj cbuffer (64 bytes mat4) 2D/3D pipeline 共享, updateViewProj() 不变
+- Host caller (CoD3DDeviceDX11::RenderBox) 不变 —— 仍传 8 VECTOR3 corner via pv3Oct, 3D 升级是 drawBox 内部
+- D3DCOMPILE_OPTIMIZATION_LEVEL0 用于 shader reflection (LEVEL3 strip 掉 unused cbuffer, 会让 viewProj 反射查不到)
+
+### Progress
+
+- ctest: 1040/1040 PASS (was 1034, +6 Primitives3DShader)
+- R-9 收口: drawBox 升级到真 3D, KNOWN_BUGS.md R-9 "剩余 drawBox 仍用 x,z 当 2D" 标记 done
+- 本 session 累计: 24 commits, 879 → 1040 ctest PASS (+161 用例, 0 回归)
+
 ## [0.13.20] - 2026-07-16
 
 ### Phase 12.x cMiniFriendDialog Tier 2 dialog port (self-verified by producer session)

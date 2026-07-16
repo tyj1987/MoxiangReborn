@@ -374,11 +374,22 @@
     view*ortho composition）
   - 3 个旧 test 更新到正确 layout，0 回归
   - 全栈 879 → 886 ctest PASS（+7 用例，0 回归）
-- **剩余**：primitives.cpp drawBox 仍用 x,z 当 2D（TODO 注释未删）。
-  改为 3D 顶点 + 真 ortho 投影需要把 vsolid 输入 layout 从 `float2 pos`
-  升级到 `float3 pos`（影响所有调用方：drawBox / drawLine / drawCircle
-  / drawPoint / drawGrid / drawTexturedQuad / sprite / font_object），
-  这是 1-2 commit 范围，**延后**到下一个 R-9.x session。
+- **剩余（2026-07-16 完成 R-9.x）**：primitives.cpp drawBox 升级
+  到 3D 完成（commit `e5bea93`）：
+  - 新增 `primitives_shader_source.hpp` 中央化 HLSL source
+  - drawBox 内部用 `V3D { float x, y, z; c; }` (16 bytes/vert)
+  - 新增独立 3D VS shader (`kVS_Solid3D`) + 3D input layout
+    (`R32G32B32_FLOAT`) + 3D cbuffer binding
+  - 2D pipeline (`kVS_Solid2D` + `ilSolid` + `V { float x, y; c; }`)
+    保持不变给其他 5 draw 方法 (line/point/circle/grid/textured)
+  - `primitives_3d_shader_test.cpp` 6 用例 (2D/3D VS compile +
+    input signature 验证 + 3D cbuffer viewProj mat4 验证 + 共享
+    PS compile) **全 PASS**。D3DCOMPILE_OPTIMIZATION_LEVEL0 用
+    于 reflection (LEVEL3 会 strip 掉 unused cbuffer)。
+  - Host caller (CoD3DDeviceDX11::RenderBox) 不变 —— 仍传
+    8 VECTOR3 corner via pv3Oct, 3D 升级是 drawBox 内部。
+  - 其他 5 draw 方法的 3D 升级 (把 host caller 也改成传 3D
+    world 坐标) 是 R-10 重构范围, 不在 R-9.x 内。
 - **关联**：`modern/include/mxh/render/math.hpp`（MatrixLookAtLH/
   MatrixOrthographicLH 修复 + 顶部 D3DX 约定注释）、
   `modern/tests/unit/render/math_d3dx_convention_test.cpp`（新建 7

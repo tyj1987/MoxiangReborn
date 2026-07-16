@@ -572,7 +572,7 @@ Phase 12: 持续迭代 ✅
 | `cMiniFriendDialog` | ✅ done (12.x 0.13.20) | mini friend-add dialog (Tier 2, 8th dialog port, header 930B; 4 children cStatic+cEditBox+2cButton 240-243; **第一个全 REAL Tier 2 (无 TODO, 无 deferred dispatch)**; 1:1 quirks: m_type drop, VCM_CHARNAME→2, m_bDisable→!isEnabled, cEditBox m_bInitEdit guard) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
-| R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) |
+| R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
 | 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (14/202 = 6.9% done: 5 base+8 dialog+4 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
