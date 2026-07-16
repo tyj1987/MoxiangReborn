@@ -4,6 +4,74 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.12] - 2026-07-16
+
+### P2-12 dialogs Tier 2 子控件 + R-9 矩阵约定审计 (self-verified by producer session)
+
+**背景**: 0.13.11 收口 C-36/C-37 server build matrix + 11.2 protocol doc + E-1 verifier note + 3 dev utilities + CI slow-test guard。user 反馈 "终极目标，啥活都要干，不能只干小活" 后本 session 推 2 个真活：(1) P2-12 Tier 2 子控件 cGuagen 1:1 port（Tier 2 dialog 的真 blocker, 之前 doc 写"无 blocker"是错的）；(2) R-9 矩阵约定审计 + 修复（Phase 5 stub 阶段遗留的隐藏 bug，off-axis eye 下 view 矩阵旋转/翻译全错）。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据：cGuagen 18/18 ctest PASS (`ctest -C Debug -R CGuagen`)；R-9 新 7 个 test PASS (`ctest -C Debug -R "D3DX|ViewOrtho"`)；全栈 ctest 861 → 886 PASS (+25 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Fixed
+
+- **R-9** (commit `ba99367`): `modern/include/mxh/render/math.hpp` MatrixLookAtLH + MatrixOrthographicLH 写错 layout。旧代码把 translation 写在 column 3 (`_14/_24/_34` / `_43`)，实为 column-major 存储。Axis-aligned eye / identity view case 数值碰巧通过，**off-axis eye** 下 view 矩阵旋转/翻译全错。
+  - **修复**: 决定项目用 D3DX row-major 约定 (`_ij` 命名 + C++ 行主序内存 + HLSL `mul(v_row, M)` row-vec mul)。translation 改到底行 (`_41/_42/_43` for view, `_43` for ortho z-translation)，basis vectors `(R.x, U.x, F.x)` 写 row 0。
+  - **math.hpp 顶部**: 新增 D3DX convention 注释段，明确 CPU 端 `_ij` 行主序 + HLSL `mul(v_row, M)` 配套语义。
+  - **3 个旧 test 更新** layout 期望：math_test.cpp (StandardForwardView + EyeMapsToOrigin) + mesh_geometry_test.cpp (LookAtLHProducesValidMatrix) — 这些 test 之前 pin 的是 bug layout (`_34 = 5` 当 translation), 现在 pin 正确 D3DX layout (`_43 = 5`)。
+  - **状态**: 部分实装。primitives.cpp drawBox TODO (`use x,y for now, proper ortho projection is TODO`) 仍在 — 升级到 3D 顶点需要 vsolid input layout 从 `float2 pos` 改 `float3 pos` + 拆 2D/3D shader paths，1-2 commit 范围，**延后到 R-9.x** (新 session 推)。R-9 entry in KNOWN_BUGS.md 已更新。
+
+### Added
+
+- `modern/src/ui/cGuagen.hpp` + `cGuagen.cpp` (新建, ~120 行, commit `de390cd`): 1:1 port of legacy `墨香【源码】\[Client]MH\interface\cGuagen.h` progress bar widget.
+  - `class cGuagen : public cWindow` — 子类化 cWindow (不是 cDialog, cGuagen 是嵌在 dialog 里的子控件)
+  - `SetValue(float)` 只 clamp upper bound (legacy 1:1 行为：负数 pass through, `> 1.f` 截到 1.f)
+  - `SetGuageImagePos(int, int)` / `(float, float)` — 重载保留 legacy 双重载
+  - `SetPieceImage(const cImage&)` / `GetPieceImage()` — 接受现代 cImage value-semantic handle (R-10 adapter 等 cImage 接入 host 时再写)
+  - `SetGuageWidth(float)` / `SetGuagePieceWidth(float)` / `SetGuagePieceHeightScale(float)` — 几何控制
+  - `GetImageRelX/Y()` — 调试用 relative offset
+  - `Render()` — no-op, 真实 sprite 绘制 deferred 到 6.4+ cImage seam (跟 R-10 同源)
+  - 文档注释包含 `1:1 quirk: SetValue 负数 pass through` + 关联 P2-12 dialog 子控件
+- `modern/tests/unit/ui/cguagen_test.cpp` (新建, 186 行, 18 用例 PASS):
+  - DefaultConstructionZeroesAll / InheritsCWindow
+  - SetValueStoresInRange / SetValueClampsAboveOne / SetValuePreservesZero / SetValuePassesThroughNegative (legacy quirk)
+  - SetGuageImagePosIntOverload / FloatOverload
+  - SetPieceImageDefaultIsNullSprite / SetPieceImageStoresCopy
+  - SetGuageWidth / SetGuagePieceWidth / SetGuagePieceHeightScale
+  - GetImageRelX/Y
+  - RenderIsNoop
+- `modern/tests/unit/render/math_d3dx_convention_test.cpp` (新建, 7 用例 PASS):
+  - `MatrixLookAtD3DXTest.OffAxisEyeTranslationColumn` (eye=(3,4,5) pin bottom-row translation)
+  - `MatrixLookAtD3DXTest.WorldRightBasisMapsToViewX` (basis 行 layout)
+  - `MatrixLookAtD3DXTest.ViewMatrixIsRigidIsometry` (orthonormal basis check)
+  - `MatrixLookAtD3DXTest.TargetDistanceIsPreserved` (|at - eye| 距离在 view space 保持)
+  - `MatrixOrthoD3DXTest.CornersMapToNDC` (-2,-2,1 → NDC -1,-1,0 + 2,2,3 → 1,1,1 post-divide)
+  - `MatrixOrthoD3DXTest.TranslationIsInRowThreeColumnTwo` (z-translation 位置)
+  - `ViewOrthoCompositionTest.ViewAtOriginLooksAtPlusZ` (shadow pipeline 用的 view*ortho)
+- `docs/KNOWN_BUGS.md` R-9 entry 大改 (commit `ba99367` 同步): 状态从 "Deferred" 改 "部分实装"，记录 D3DX 约定决策 + 7 个新 test + 3 个旧 test 更新 + drawBox 升级 TODO 延后到 R-9.x。
+
+### Changed
+
+- `modern/src/ui/CMakeLists.txt` +1 行 (`cGuagen.cpp`)
+- `modern/tests/unit/ui/CMakeLists.txt` +19 行 (`cguagen_test.cpp` + 18 gtest_add_tests entries)
+- `modern/tests/unit/render/CMakeLists.txt` +10 行 (`math_d3dx_convention_test.cpp` + 7 gtest_add_tests entries)
+
+### Verification
+
+- `ctest -C Debug -R CGuagen` → 18/18 PASS (0.25s)
+- `ctest -C Debug -R "D3DX|ViewOrtho"` → 7/7 PASS (0.05s)
+- `ctest -C Debug --timeout 30` → **886/886 PASS** (0 回归, 879 → 886, +7 R-9 test + 18 cGuagen test = +25, 已有 861 baseline)
+- `git log --oneline -2`:
+  ```
+  ba99367 fix(render): R-9 - MatrixLookAtLH/MatrixOrthographicLH D3DX row-major layout + 7 new tests
+  de390cd ui: 1:1 port of 墨香 cGuagen (progress bar widget) + 18 tests
+  ```
+
+### Lessons captured (this entry)
+
+两条新发现 (加入 agent memory):
+- **off-axis 测试才能 pin matrix layout bug** — R-9 旧测试只覆盖 axis-aligned eye (`(0,0,-5)` looking at origin) + identity view case，axis-aligned 时两种 layout (`_34` translation vs `_43` translation) 数值碰巧相同，bug 静默通过 4+ commit。修 R-9 强制 7 个 test 覆盖 off-axis eye `(3,4,5)` + asymmetric frustum `(4, 4, 1, 3)`，未来 layout regression 一跑就 fail。
+- **C++ `_ij` 命名 + HLSL 默认 column-major packing = 数学转置** — C++ 端 `_11 _12 _13 _14 _21 ...` (row-major 内存) memcpy 到 cbuffer，HLSL `float4x4` 默认 column-major packing 读为 `M[0][0] M[1][0] M[2][0] M[3][0] M[0][1] ...` (column-major 内存) = CPU 内存整体转置。`mul(v_row, M_hlsl) = v_row × M_cpu^T` 数学。CPU 端写 D3DX row-major view 矩阵（basis 行 / 翻译底行），HLSL row-vec mul 自动用对约定，不要 CPU 端手动转置。
+
 ## [0.13.11] - 2026-07-16
 
 ### Server build matrix: C-36 / C-37 — Distribute + Agent + Map Debug_<LOCALE> 实测收口 (self-verified by producer session)
