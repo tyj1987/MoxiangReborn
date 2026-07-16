@@ -4,6 +4,71 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.14] - 2026-07-16
+
+### Phase 13.2 real service impls + MacroDialog Tier 2 port (self-verified by producer session)
+
+**背景**: 0.13.13 收口 cListDialogEx + CHANGELOG + MODERNIZATION_PLAN 同步。user `/new 继续, 向最终目标出发, 扫清所有的障碍` 后本 session 推 3 个真活: Phase 13.2 real service impls (server-side backing 落地) + MacroDialog Tier 2 dialog port (首个真 dialog 端口径) + 同步 doc。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: Phase 13.2 real service 15/15 ctest PASS (`ctest -C Debug -R "Real.*Service"`); MacroDialog 20/20 ctest PASS (`ctest -C Debug -R CMacroDialog`); 全栈 ctest 911 → 946 PASS (+35 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/services/` (新建 INTERFACE library, 3 header-only impl files, commit `1a2e5e0`):
+  - `InventoryServiceImpl.hpp` (~150 行): bind to `mxh::game::ItemTotalInfo&`, 暴露 80 inventory + 10 weared slot。返回 pointer 指向同一 backing storage (host 通过 pointer 改 item state 直接 visible)。1:1 quirk: occupiedSlotCount 只算 inventory 0..79, 不算 weared 0..9 (legacy 区分 Inventory[80] / WearedItem[10])
+  - `PlayerStatsServiceImpl.hpp` (~120 行): bind to `mxh::game::PlayerCombatStats&`, 暴露 level/HP/MP + 5 核心属性 (str/agi/int/wis/dex)。1:1 quirk: 5 核心属性当前 return 0 (等 StatsCalcManager port); exp_for_next_level 当前 return `100 * level` (等 character_exp.bin port)
+  - `SkillServiceImpl.hpp` (~70 行): bind to `std::vector<LearnedSkill>&` (LearnedSkill = {idx, level, optional<quick_slot>}), 暴露 enumeration / isLearned / level / quickslot binding 查询
+  - `CMakeLists.txt` (新建): INTERFACE library, include paths propagate 到消费者
+- `modern/tests/unit/services/real/services_real_test.cpp` (新建, 15 用例 PASS):
+  - InventoryServiceImpl (6): empty / pointer-to-backing / OOB / weared occupancy / findItem first-match / occupied count
+  - PlayerStatsServiceImpl (5): defaults / max-zero div guard / partial HP fraction / level exp baseline / core attrs return 0
+  - SkillServiceImpl (3): empty / enumeration / OOB index
+  - Cross-service (1): CharacterDialog refresh 同时读 3 service, 跟 mock test 同 scenario
+- `modern/src/ui/cmacrodialog.hpp` + `cmacrodialog.cpp` (新建, 1:1 port, commit `8ab8d01`):
+  - `class cMacroDialog : public cDialog` — macro key binding UI, 7 quick-slot + 11 toggle-dialog + 1 minimap + 1 camera + 1 screencapture = 18 events
+  - `enum MacroEvent { USE_QUICKITEM01 = 0, ..., ME_COUNT = 18 }` 1:1 mirror 旧 ME_* 数值
+  - `enum MacroMode { Chat = 0, Macro = 1 }` 1:1 mirror 旧 MM_*
+  - `enum SysKey { None = 1, Ctrl = 2, Alt = 4, Shift = 8, All = 15 }` 1:1 mirror 旧 MSK_* (bit flags)
+  - `struct sMACRO { int nSysKey; uint16_t wKey; bool bAllMode; bool bUp; }` 1:1 mirror 旧 LEGACY struct
+  - `Init(x, y, wid, hei)` 1:1 旧 CMacroDialog::Init (省略 basicImage / ID 参数, host 单独调 SetID / 加 cImage child)
+  - `SetActive(bool) override` 1:1 gate: m_nMode == Macro 才 refresh 所有 cEditBox text (旧 legacy 行为)
+  - `Linking()` 调 cDialog::findWindowById(MAC_EB_* id) 解析 15 个 cEditBox child, id 范围 100-106 + 200-210 + 300-305 + 400-401 + 500
+  - `SetMacroBinding(evt, macro)` / `GetMacroBinding(evt)` 1:1 旧 m_MacroKey[ME_COUNT] 数组访问
+  - `ConvertMacroToText(text, macro)` 1:1 flat switch on modifier (Ctrl/Alt/Shift 拼 "X + " 前缀, MSK_NONE 跳前缀)
+  - `VKeyToName(vk)` static 覆盖 50+ common VK codes (F1-F12 / A-Z / 0-9 / SPACE / TAB / ENTER / 方向键)
+- `modern/tests/unit/ui/cmacrodialog_test.cpp` (新建, 470 行, 20 用例 PASS):
+  - enum 稳定性 (3): MacroEvent / MacroMode / SysKey 数值
+  - sMACRO default-construction
+  - Init 重置 / OOB Get 返默认
+  - Set/Get 回合 / OOB Set 是 no-op / ClearChanged
+  - SetMode / VKeyToName common + unknown
+  - ConvertMacroToText 4 个 case (modifier-only / full / no-modifier / null buffer)
+  - Linking 解析 quick-slot edit box
+  - SetMacroBinding refresh linked edit box
+  - SetActive Chat-mode 不 refresh / Macro-mode refresh
+
+### Notes
+
+- Phase 13.2 design: header-only INTERFACE library (跟 mxh_proto_tests /
+  mxh_services_tests header-only mock 模式一致), 避免 .cpp 文件
+  build 复杂度. 以后加 .cpp 实现 (e.g. 二进制 loader for
+  character_mugong.bin) 时只需 extend services/CMakeLists.txt
+- cEditBox 1:1 quirk: SetEditText is no-op if m_maxBytes == 0
+  (modern port 跟旧 legacy `m_bInitEdit` 守卫行为一致, host
+  必须先调 InitEditbox() 配 buffer, 跟旧 legacy InitEditbox 模式
+  一致)
+
+### Verification
+
+- `ctest -C Debug -R "Real.*Service"` → 15/15 PASS
+- `ctest -C Debug -R CMacroDialog` → 20/20 PASS
+- `ctest -C Debug --timeout 30` → **946/946 PASS** (911 → 946, +35 用例, 0 回归, 16.57s)
+- `git log --oneline -2`:
+  ```
+  8ab8d01 ui: 1:1 port of 墨香 MacroDialog (macro key bindings) + 20 tests
+  1a2e5e0 feat(services): Phase 13.2 real service impls + 15 contract tests
+  ```
+
 ## [0.13.13] - 2026-07-16
 
 ### P2-12 Tier 1.5 第 2 个子控件: cListDialogEx (self-verified by producer session)
