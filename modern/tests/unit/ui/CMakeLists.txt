@@ -19,6 +19,7 @@ add_executable(mxh_ui_tests
     clistdialogex_test.cpp
     cmacrodialog_test.cpp
     cmakdial_test.cpp
+    guildjoindialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -327,4 +328,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CCharMakeDlgTest.ChangeComboStatusWithoutLinksIsSafe
     CCharMakeDlgTest.ChangeComboStatusToggleRoundTrip
     CCharMakeDlgTest.OnActionEventIsNoOpUntilManagerPort
+    # P2-12 Tier 2 dialog: cGuildJoinDialog (guild member invite)
+    CGuildJoinDialogTest.DefaultConstructionDoesNotCrash
+    CGuildJoinDialogTest.IdConstantsMatchLocalRange
+    CGuildJoinDialogTest.IdConstantsMatchExpectedLocalRange
+    CGuildJoinDialogTest.LinkingIsNoOpLikeLegacy
+    CGuildJoinDialogTest.LinkingBeforeInitDoesNotCrash
+    CGuildJoinDialogTest.OnActionEventMemberBtnIsNoOp
+    CGuildJoinDialogTest.OnActionEventStudentBtnIsNoOp
+    CGuildJoinDialogTest.OnActionEventCancelBtnIsNoOp
+    CGuildJoinDialogTest.OnActionEventUnknownIdIsNoOpNoAssert
+    CGuildJoinDialogTest.OnActionEventBeforeInitDoesNotCrash
+    CGuildJoinDialogTest.OnActionEventAllThreeIdsInSequence
 )

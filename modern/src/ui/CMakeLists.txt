@@ -24,6 +24,7 @@ add_library(mxh_ui STATIC
     cListDialogEx.cpp
     cMacroDialog.cpp
     cmakdial.cpp
+    guildjoindialog.cpp
     ime.cpp
 )
 
