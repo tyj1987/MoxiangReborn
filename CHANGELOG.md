@@ -4,6 +4,43 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.24] - 2026-07-16
+
+### Phase 12.x cEventNotifyDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.23 收口 cTextArea + cMPNoticeDialog。本 session 接 cEventNotifyDialog (11th Tier 2 dialog, 1:1 port) — header 793B, 2 children (cStatic title + cTextArea context), Linking REAL + SetActive override (1:1 quirk 调 base + !val clear context text) + ActionEvent override + SetTitle/SetContext REAL wrapper + SetEventCount no-op stub。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cEventNotifyDialog 20/20 ctest PASS (`ctest -C Debug -R CEventNotifyDialog`); 全栈 ctest 1082 → 1102 PASS (+20 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/eventnotifydialog.hpp` + `eventnotifydialog.cpp` (新建, commit `95ccb93`): 1:1 port of 墨香 CEventNotifyDialog (EventNotifyDialog.h 793B + .cpp)
+  - Linking: REAL (resolve 2 children id 270-271)
+  - SetActive override: 1:1 跟 base noexcept 兼容 (R-12 polymorphic virtual), 调 base first + if !val clear context text (1:1 quirk)
+  - ActionEvent override: delegate 到 cDialog::ActionEvent (click-to-close 注释掉, TODO)
+  - SetTitle / SetContext: 1:1 wrapper with defensive null-check
+  - SetEventCount: no-op stub (state machine deferred)
+  - 2 accessor (GetStcTitle / GetTAContext)
+- `modern/tests/unit/ui/eventnotifydialog_test.cpp` (新建, 20 用例 PASS): DefaultConstruction + IdConstants x2 + Linking x3 + SetActive x5 (true/false/false-clears/true-not-clears/without-context) + ActionEvent x1 + SetTitle x3 (updates/empty-string-safe/without-link) + SetContext x4 (updates/null-clears/without-link/before-linking) + SetEventCount x1
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `eventnotifydialog.cpp` + 20 gtest entry
+
+### 1:1 quirks preserved
+
+- SetActive 跟 base noexcept 兼容 (R-12 polymorphic virtual 要求)
+- SetActive clear context text on deactivation (1:1 quirk: legacy !val clear, val 不 clear)
+- ActionEvent delegate 到 base (click-to-close 注释掉, TODO)
+- **SetTitle with nullptr NOT supported** by modern cStatic::SetStaticText (接 std::string, std::string(nullptr) 是 UB), modern port 用 SetTitle("") 作为 safe equivalent
+- SetEventCount no-op (state machine deferred)
+- Local id 270-271 (no collision with 200-203/210-212/220-224/230-231/240-243/250-252/260-261)
+
+### Progress
+
+- P2-12: 17/202 = 8.4% (5 base + 11 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1102/1102 PASS (was 1082, +20 cEventNotifyDialog)
+- Session commits: 31 (含 9 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1102 ctest PASS (+223 用例, 0 回归)
+- **第二个用 cTextArea 基础设施的 Tier 2 port** (0.13.23 cTextArea port 直接 enable 这个 — Linking + SetActive + SetContext 全调 cTextArea 方法, 不需要新基础设施工作)
+
 ## [0.13.23] - 2026-07-16
 
 ### Phase 12.x cTextArea sub-widget + cMPNoticeDialog Tier 2 dialog port (self-verified by producer session)
