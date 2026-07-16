@@ -22,6 +22,7 @@ add_executable(mxh_ui_tests
     guildjoindialog_test.cpp
     charstatedialog_test.cpp
     sosdialog_test.cpp
+    wearedexdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -382,4 +383,17 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSOSDialogTest.OnActionEventBeforeInitDoesNotCrash
     CSOSDialogTest.SelectIdxDefaultZero
     CSOSDialogTest.SetSelectIdxUpdatesValue
+    # P2-12 Tier 2 dialog: cWearedExDialog (equipment slots)
+    CWearedExDialogTest.DefaultConstructionIsValid
+    CWearedExDialogTest.InheritsIconDialogCellLayout
+    CWearedExDialogTest.AddItemSuccessReturnsTrue
+    CWearedExDialogTest.AddItemOutOfRangeReturnsFalse
+    CWearedExDialogTest.AddItemDoubleAddRefusesSecond
+    CWearedExDialogTest.AddItemDifferentCellsAllSucceed
+    CWearedExDialogTest.DeleteItemSuccessReturnsTrue
+    CWearedExDialogTest.DeleteItemEmptyCellReturnsFalse
+    CWearedExDialogTest.DeleteItemOutOfRangeReturnsFalse
+    CWearedExDialogTest.DeleteItemSetsOutIconToPrevious
+    CWearedExDialogTest.AddDeleteRoundTrip
+    CWearedExDialogTest.AddDeleteIndependenceBetweenCells
 )

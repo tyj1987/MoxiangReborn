@@ -27,6 +27,7 @@ add_library(mxh_ui STATIC
     guildjoindialog.cpp
     charstatedialog.cpp
     sosdialog.cpp
+    wearedexdialog.cpp
     ime.cpp
 )
 
