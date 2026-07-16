@@ -201,3 +201,12 @@ add_subdirectory(render)
 # mxh_ui: Modern C++ UI framework (Phase 6)
 # -----------------------------------------------------------------------------
 add_subdirectory(ui)
+
+# -----------------------------------------------------------------------------
+# mxh_services: Phase 13 service implementations (header-only)
+# Real implementations of IInventoryService / ISkillService / IPlayerStatsService
+# backed by ItemTotalInfo / PlayerCombatStats / std::vector<LearnedSkill>.
+# See modern/src/services/*.hpp and the contract test in
+# modern/tests/unit/services/real/.
+# -----------------------------------------------------------------------------
+add_subdirectory(services)

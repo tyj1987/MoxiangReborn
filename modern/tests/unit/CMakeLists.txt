@@ -127,3 +127,23 @@ target_include_directories(mxh_services_tests PRIVATE
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_services_tests)
+
+# -----------------------------------------------------------------------------
+# mxh_services_real tests — Phase 13.2 real service implementation
+# contract test (vs. the mock test in mxh_services_tests above).
+# The real impls are header-only; the test executable links the
+# mxh_services INTERFACE target so the headers are findable.
+# -----------------------------------------------------------------------------
+add_executable(mxh_services_real_tests
+    services/real/services_real_test.cpp
+)
+
+target_link_libraries(mxh_services_real_tests PRIVATE
+    mxh_services gtest_main)
+target_include_directories(mxh_services_real_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/services
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_services_real_tests)
