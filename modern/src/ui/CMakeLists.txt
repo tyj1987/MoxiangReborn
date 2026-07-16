@@ -35,6 +35,7 @@ add_library(mxh_ui STATIC
     eventnotifydialog.cpp
     guildcreatedialog.cpp
     chaseinputdialog.cpp
+    chasedialog.cpp
     ime.cpp
 )
 

@@ -30,6 +30,7 @@ add_executable(mxh_ui_tests
     eventnotifydialog_test.cpp
     guildcreatedialog_test.cpp
     chaseinputdialog_test.cpp
+    chasedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -528,4 +529,19 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChaseInputDialogTest.SetItemIdxBeforeInitDoesNotCrash
     CChaseInputDialogTest.WantedChaseSynIsNoOp
     CChaseInputDialogTest.WantedChaseSynWithoutLinkIsSafe
+    # P2-12 Tier 2 dialog: cChaseDialog (chase target minimap)
+    CChaseDialogTest.DefaultConstructionIsValid
+    CChaseDialogTest.IdConstantsMatchExpectedLocalRange
+    CChaseDialogTest.MaxWantedNameLenIs18
+    CChaseDialogTest.LinkingResolvesBothChildren
+    CChaseDialogTest.LinkingInitsState
+    CChaseDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CChaseDialogTest.SetActiveTrueUpdatesBaseAndActiveFlag
+    CChaseDialogTest.SetActiveFalseUpdatesBaseAndActiveFlag
+    CChaseDialogTest.SetActiveWithoutLinkIsSafe
+    CChaseDialogTest.InitMiniMapReturnsFalseUntilLoadMinimapPort
+    CChaseDialogTest.InitMiniMapWithNullNameClearsWantedName
+    CChaseDialogTest.InitMiniMapWithoutLinkIsSafe
+    CChaseDialogTest.LoadMinimapImageInfoReturnsFalse
+    CChaseDialogTest.RenderIsNoOp
 )
