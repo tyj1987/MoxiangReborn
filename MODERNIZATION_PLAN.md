@@ -489,11 +489,16 @@ Phase 12: 持续迭代 ✅
 | `cListDialog` | ✅ done (6.12) | scrollable text list (rows + selection + scroll) |
 | `cGuildDialog` | ✅ done (6.12) | first real legacy-port dialog (header + member list + tabs + rank-gated buttons) |
 | `cMultiLineText` | ✅ done (6.13) | multi-line text node list (NPC dialogs, quest descriptions, system messages) |
+| `cExitDialog` | ✅ done (12.x 0.13.10) | exit-confirm dialog (callback pattern, R-12 polymorphic SetActive fixed) |
+| `cGuagen` | ✅ done (12.x 0.13.12) | progress bar widget (1:1 quirk: SetValue negatives pass through, upper-bound clamp only) |
+| `cListDialogEx` | ✅ done (12.x 0.13.13) | link list with WE_ROWCLICK + multi-color chain (HelpDialog / PartyDialog / JournalDialog etc) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
+| R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) |
+| Phase 13 service interfaces | 🟡 partial (12.x 0.13.12) | IInventoryService / ISkillService / IPlayerStatsService headers + 11 mock tests; real impls 待 Tier 3 dialog 需要时落地 |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
 | Sortable columns | ⏳ future | cListCtrl sort already in 6.5 |
-| 79 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
+| 195 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (7/202 = 3.5% done: 5 base+2 dialog+3 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 wrap-up)**：
 | 套件 | 数量 | 内容 |
@@ -555,10 +560,15 @@ Phase 12: 持续迭代 ✅
 | `cListDialog` | ✅ done (6.12) | scrollable text list (rows + selection + scroll) |
 | `cGuildDialog` | ✅ done (6.12) | first real legacy-port dialog (header + member list + tabs + rank) |
 | `cMultiLineText` | ✅ done (6.13) | multi-line text node list (NPC dialogs + quest descriptions) |
+| `cExitDialog` | ✅ done (12.x 0.13.10) | exit-confirm dialog (callback pattern, R-12 polymorphic SetActive fixed) |
+| `cGuagen` | ✅ done (12.x 0.13.12) | progress bar widget (1:1 quirk: SetValue negatives pass through, upper-bound clamp only) |
+| `cListDialogEx` | ✅ done (12.x 0.13.13) | link list with WE_ROWCLICK + multi-color chain (HelpDialog / PartyDialog / JournalDialog etc) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
+| R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) |
+| Phase 13 service interfaces | 🟡 partial (12.x 0.13.12) | IInventoryService / ISkillService / IPlayerStatsService headers + 11 mock tests; real impls 待 Tier 3 dialog 需要时落地 |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 79 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (CGuildDialog 1/80 done in 6.12) |
+| 195 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (7/202 = 3.5% done: 5 base+2 dialog+3 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |
