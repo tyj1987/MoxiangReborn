@@ -920,7 +920,7 @@ Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)�
     - DistributeServer_HK.exe 1,312,256 B
     - DistributeServer_TL.exe 1,306,112 B
   - 字节数跟 C-35 fix entry 目标值 1:1 一致 → 行为等价 / 二进制对齐。
-  - Network.cpp 里还有 2 处 active g_Console.LOG(4, ...) (line 74/78)，但 [Server]Distribute 编译 list 不含 Network.cpp（只在 [Server]Agent/Map 编），所以这次 build 不 fail。**未来 Agent/Map Debug_<LOCALE> 迁移时记得一起改**。
+  - Network.cpp line 74/78 还有 2 处 `g_Console.LOG(4, ...)` 调用，**但**整个 `CNetwork::Start()` 函数体（line 58-93）被 `/* ... */` 块注释掉——**死代码，不编译**。本 session 用 `AgentServer_Debug_CHINA.exe` 1,495,552 字节 build 验证 + `dumpbin /symbols Network.obj` 确认 `CConsole` 符号在该 obj 里**零引用**。**附加验证**：跑 `build_agent_debug_locales.py` 全 5/5 干净（KOR 1,496,576 / JAPAN 1,498,112 / CHINA 1,495,552 / HK 1,485,824 / TL 1,495,040 字节），证实 `[Server]Agent` server 也无 C-1 MLOG regression。所以 C-36 entry 不需要 follow-up，Network.cpp 跟随 legacy 注释状态。
 - **影响范围**：
   - 本修复对 C-1 MLOG 命名保持 1:1 一致（不改 [Lib]MHConsole/ 头）。
   - 改的是 legacy 源码文件（注释掉的 // g_Console.LOG(...) 不动——只动 active 的）。
