@@ -58,7 +58,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 		// MHConsole pipe if it is up. WinMain runs BEFORE g_Console.Init(),
 		// so g_Console.LOG() is typically a no-op here — stderr is what
 		// the launcher / smoke harness actually captures.
-		g_Console.LOG(LOG_IMPORTANT, "CheckUpdateFile failed, exiting MapServer.");
+		g_Console.MLOG(LOG_IMPORTANT, "CheckUpdateFile failed, exiting MapServer.");
 		fprintf(stderr, "[MapServer] FATAL: CheckUpdateFile failed, exiting MapServer.\n");
 		return 0;
 	}
@@ -125,7 +125,7 @@ BOOL CheckUpdateFile()
 
 	if( !file.Init( "./Resource/Server/TitanServer.bin", "rb" ) )
 	{
-		g_Console.LOG(LOG_IMPORTANT, "CheckUpdateFile failed: TitanServer.bin Init() returned FALSE (file missing or header/CRC bad).");
+		g_Console.MLOG(LOG_IMPORTANT, "CheckUpdateFile failed: TitanServer.bin Init() returned FALSE (file missing or header/CRC bad).");
 		fprintf(stderr, "[MapServer] FATAL: CheckUpdateFile failed: TitanServer.bin Init() returned FALSE (file missing or header/CRC bad).\n");
 		return FALSE;
 	}
@@ -134,7 +134,7 @@ BOOL CheckUpdateFile()
 
 	if( strcmp( temp, "이 파일이 없으면 타이탄 업데이트 안돼요~" ) != 0 )
 	{
-		g_Console.LOG(LOG_IMPORTANT, "CheckUpdateFile failed: decoded TitanServer.bin sentinel mismatch (got '%s').", temp);
+		g_Console.MLOG(LOG_IMPORTANT, "CheckUpdateFile failed: decoded TitanServer.bin sentinel mismatch (got '%s').", temp);
 		fprintf(stderr, "[MapServer] FATAL: CheckUpdateFile failed: decoded TitanServer.bin sentinel mismatch (got '%s').\n", temp);
 		return FALSE;
 	}

@@ -928,6 +928,50 @@ Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)�
 - **关联 commit**：待 user 决策（AGENTS.md 规则：git 提交是 user 主导动作）。本 session 改动未提交，diff 已在 git diff 墨香【源码】/[CC]ServerModule/BootManager.cpp DataBase.cpp 可见（14 行变更 8 处 LOG→MLOG）。
 - **Build log**：D:\Moxian\modern\scripts\build_logs_20260716\c35_all_5_after_fix.log（5/5 OK 落地）。
 - **状态**：已修复。5/5 target build 落地 binary 字节数跟 C-35 fix entry 期望 1:1 一致。
+
+### Bug C-37: C-1 LOG→MLOG rename 漏了 [Server]Map/ 下的 7 个 cpp — Map Debug_<LOCALE> 3/5 clean + 2/5 legacy pre-existing bug (2026-07-16 已修复 LOG regression, 2/5 JAPAN/HK bug 记录但不修)
+- **症状**：cmake --build MapServer_Debug_<LOCALE> 5 target 跑下来：
+  - **KOR / CHINA / TL: 28 C2039 error each**（"LOG": 不是 "CConsole" 的成员）
+  - **JAPAN / HK: 31 C2039 + 3 C2065 (legacy)**（JAPAN/HK 多出来的 3 C2065 是 EXTRA_PYOGUK_SLOT 和 m_dwMussangTime 缺失，**预先存在的 legacy bug**）
+- **位置**（C-1 LOG→MLOG 漏改的 7 个 cpp）：
+  - 墨香【源码】\[Server]Map\MapItemDrop.cpp (line 42/51/72/87/95/381/456/468 — 8 active, 实际编 6 个因 _FILE_BIN_ define 排除 #else 块 51/95)
+  - 墨香【源码】\[Server]Map\Server.cpp (line 61/128/137)
+  - 墨香【源码】\[Server]Map\RegenManager.cpp (line 281)
+  - 墨香【源码】\[Server]Map\MapDBMsgParser.cpp (line 6699)
+  - 墨香【源码】\[Server]Map\MapNetworkMsgParser.cpp (line 109/111/125/768)
+  - 墨香【源码】\[Server]Map\ServerSystem.cpp (line 678/679/975/1860/1882/1910/1915/1940/1944/1951/1958/2054/2081)
+  - 墨香【源码】\[Server]Map\UserTable.cpp (line 428/459/468/472/483/487/496/499/502/505/508/511/514)
+- **根因**（同 C-36）：Phase 7.5o (C-1) 把 CConsole::LOG 重命名为 CConsole::MLOG 时扫描只覆盖 [Lib]MHConsole/ + client 端 + C-36 fix 的 [CC]ServerModule/。[Server]Map/ 是**直接** include [CC]ServerModule/Console.h 的 server 子树，但 grep scan 当时根本没看 [Server]Map/，所以这 7 个 cpp 共 43 处 active g_Console.LOG( 调用全部漏网。
+- **历史 invariant 违反**：跟 C-36 同一类问题——refactor 文档没真正跑全 build verify。本 session 之前从没人跑过 MapServer_Debug_<LOCALE> 5/5 build 验证。
+- **现代方案（本 session 2026-07-16 已落）**：
+  - 写 modern/scripts/rename_log_to_mlog_map.py（scratch 单次工具）——自动识别 active 调用（不在 // 行注释也不在 /* */ 块注释），rename 为 g_Console.MLOG(。跳过的 17 处全是注释里的，不动（与 C-36 entry "注释掉的 // g_Console.LOG(...) 不动" 规则一致）。
+  - 7 个 cpp 共 43 处 active rename：MapItemDrop 8 + Server 3 + RegenManager 1 + MapDBMsgParser 1 + MapNetworkMsgParser 4 + ServerSystem 13 + UserTable 13。
+  - 改完直接 --build MapServer_Debug_<LOCALE> 重跑 5 target：
+    - **MapServer_CHINA.exe** 3,879,424 B ✅ 0 errors
+    - **MapServer_KOR.exe** 3,879,936 B ✅ 0 errors
+    - **MapServer_TL.exe** 3,882,496 B ✅ 0 errors
+    - **MapServer_JAPAN.exe** ❌ 3 C2065 (legacy pre-existing, 不在本 fix 范围)
+    - **MapServer_HK.exe** ❌ 3 C2065 (legacy pre-existing, 不在本 fix 范围)
+  - **C-1 LOG→MLOG regression 在 Map 也 100% 修好**（3/5 干净 + 2/5 撞的是 JAPAN/HK 自己的 1:1 legacy bug，跟 C-35 KOR mfc71.lib 同性质）
+- **JAPAN/HK 3 C2065 预先存在 bug 详情（不修，记录）**：
+  1. ShopItemManager.cpp:2898 — EXTRA_PYOGUK_SLOT 未声明。Line 2897 是 #ifdef _JAPAN_LOCAL_，在 JAPAN/HK 下激活，但 enum 缺失。**legacy bug**——原 2003-era 开发者写了 Japan 路径但忘了在 [CC]Header/CommonGameDefine.h 加对应 enum。
+  2. Player.cpp:5079, 5121 — m_dwMussangTime 未声明。Player.h:293 把这个 member 包在 #ifndef _JAPAN_LOCAL_ 围栏里，但 Player.cpp line 5079/5121 的 #ifdef _JAPAN_LOCAL_ 路径**使用**了它。**legacy 双向 #ifdef 不一致**。
+  3. 这 3 个 C2065 在 Phase 7.5 期间**没人触发过**（因为没跑过 JAPAN/HK Debug_<LOCALE> build），所以 KNOWN_BUGS.md 此前无记录。本 session 第一次实测 Map 5/5 浮出水面。
+  4. 修法 = 给 Player.h 加 #ifdef _JAPAN_LOCAL_ 路径定义 m_dwMussangTime member + 给 CommonGameDefine.h 加 EXTRA_PYOGUK_SLOT enum，**但这会动 shared header + 跨 3 个 server (Distribute/Agent/Map) 影响**，违反 1:1 contract 跟 C-35 收手决策同性质。**out of scope，等用户决策**。
+- **影响范围**：
+  - 本修复对 C-1 MLOG 命名保持 1:1 一致（不改 [Lib]MHConsole/ 头 / [CC]ServerModule/Console.h）。
+  - 改的是 legacy 源码文件（注释掉的 // g_Console.LOG(...) / 块注释 / #else 块全不动）。
+  - 7 个 cpp 跟 C-1 MLOG 命名完全对齐。
+  - JAPAN/HK build 失败原因从"5/5 全 fail"变为"3/5 clean + 2/5 legacy pre-existing bug（与 C-35 收手策略一致）"。
+- **关联 commit**：
+  - 待 user 决策（AGENTS.md 规则：git 提交是 user 主导动作）。本 session 改动未提交。
+  - Diff 已在 git status 可见：7 个 cpp + 1 个新 build script + 1 个新 scratch dir。
+- **Build log**：
+  - 改前 5/5: D:\Moxian\modern\scripts\build_logs_20260716\map_5locales.log
+  - 改后 5/5: D:\Moxian\modern\scripts\build_logs_20260716\map_5locales_after_rename.log
+  - JAPAN 改后 detail: D:\Moxian\modern\scripts\build_logs_20260716\map_japan_detail.log
+- **新工具**：modern/scripts/build_map_debug_locales.py（对齐 uild_distribute_debug_locales.py / uild_agent_debug_locales.py 模式）。
+- **状态**：C-1 LOG→MLOG regression in Map 100% fixed (3/5 干净, 2/5 legacy pre-existing bug 记录但不修)。
 ## D-12 AgentServer Debug_CHINA billing 字段缺失（2026-07-10，Phase 7.5l 已修复）
 
 ### 症状

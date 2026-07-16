@@ -106,9 +106,9 @@ void MP_MonitorMsgParser(DWORD dwConnectionIndex, char* pMsg, DWORD dwLength)
 			MSG_DWORD* pmsg = (MSG_DWORD*)pMsg;
 			g_bAssertMsgBox = (BOOL)pmsg->dwData;
 			if(g_bAssertMsgBox)
-				g_Console.LOG(4,"Assert MsgBox is On");
+				g_Console.MLOG(4,"Assert MsgBox is On");
 			else
-				g_Console.LOG(4,"Assert MsgBox is Off");
+				g_Console.MLOG(4,"Assert MsgBox is Off");
 		}
 		break;
 	case MP_MORNITORMAPSERVER_SERVEROFF_SYN:
@@ -122,7 +122,7 @@ void MP_MonitorMsgParser(DWORD dwConnectionIndex, char* pMsg, DWORD dwLength)
 			g_pServerSystem->SetStart(FALSE);
 			g_pServerSystem->HandlingBeforeServerEND();
 
-			g_Console.LOG(4, "Close Window" );
+			g_Console.MLOG(4, "Close Window" );
 			g_bCloseWindow = TRUE;
 		}
 		break;
@@ -765,7 +765,7 @@ void MP_USERCONNMsgParser(DWORD dwConnectionIndex, char* pMsg, DWORD dwLength)
 			if( pPlayer == NULL ) return;
 
 			g_pServerSystem->RemovePlayer( pmsg->dwObjectID );
-			g_Console.LOG( 4, "Charackter Overlap!" );
+			g_Console.MLOG( 4, "Charackter Overlap!" );
 		}
 		break;
 

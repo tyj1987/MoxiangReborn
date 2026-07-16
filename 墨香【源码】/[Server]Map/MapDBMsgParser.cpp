@@ -6696,7 +6696,7 @@ void RUsingShopItemInfo( LPQUERY pData, LPDBMESSAGE pMessage )
 
 		if( msg.ItemCount >= 100 )
 		{
-			g_Console.LOG( 4, "UsingShopItemInfo over 100 !!" );
+			g_Console.MLOG( 4, "UsingShopItemInfo over 100 !!" );
 			break;
 		}
 

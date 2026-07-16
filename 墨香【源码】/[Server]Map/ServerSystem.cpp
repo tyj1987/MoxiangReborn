@@ -675,8 +675,8 @@ void CServerSystem::Start(WORD ServerNum)
 #endif
 
 
-	g_Console.LOG(4, "-----------   MAP SERVER START  -----------------");
-	g_Console.LOG(4, "-----------   Map Number %d     -----------------", GAMERESRCMNGR->GetLoadMapNum());
+	g_Console.MLOG(4, "-----------   MAP SERVER START  -----------------");
+	g_Console.MLOG(4, "-----------   Map Number %d     -----------------", GAMERESRCMNGR->GetLoadMapNum());
 	// AI ¡§¡þI¡§¡þ¡§¡Ë: )¡Íi¡Íi¡Ë?iAC ¡Ë¡þ¡§¡©¡§oAAo ¢®¢´cCA.CONSOLE; ¢®ic¡Ë?eCI¡Íic )¡Íi¡Íi¡Ë?i ¡Ë¡þ¡§¡©¡§oAAo ¢®¨úa¨ÏoY8¢®¢´I A¢®I¡Íic ¡§ui¡ËO¨Ï¡À¡§oA8¢®¢´I¡Íic AI¡§¡þ¢®I¡§¢®¡Ëc¡Ë¡þ| ¡Ë¡Íe¢®¨úaC¡§¨£¡§u¨Ï¡þCI
 	// CI¨ÏoC¢®¢´I ¢®¨úIAu: ¡Ë¡þ¡§¡©¡§oAAo ¢®¢´cCA AU¡§u¡§¡þ; CI¢®¨¡i ¡§oIAo ¡§uE¡Ë¡ÍU¡Ë¡þe AI ¡Ë¡þ¡§¡©¡§uO¡Íia¡Ë¡þ| ¢®ic¡Ë?eCN¡Ë¡ÍU.¢®¨ú¢®¢¯ ¡Ë¡Ía¢®¨¡i ¡Ë¡Ía: ¡Ë¡þ¡§¡©¡§oAAo ¢®¢´cCI ¡Íi¡Ë?AICN ¢®¨úa¡Ë¡ÍE; 
 	// ¡§uoCaCN¡Ë¡ÍU.AI ¡Ë¡þ¡§¡©¡§uO¡Íia¡Ë¡ÍA I4DyuchiCONSOLE ¡Ë¡ÍUAI¡§uo¢®¢´I¢®¨ú¢®¢¯AC x¨Ïoo¡§¢®¢®¨¡; ¡Ë¡Í¡§I¡Ë¡þ|¡ËO¢®¡¿¢®¨úiAo ¡Ë¡þ¡ËcAICIAo ¡§uE¡Ë¡ÍA¡Ë¡ÍU.AI ¡Ë¡þ¡§¡©¡§uO¡Íia¢®¨¡¡Ë¢ç ¡Ë¡þ¡ËcAICN¡Ë¡ÍU¡Ë¡þe CA
@@ -972,7 +972,7 @@ void CServerSystem::SetStart( BOOL state )
 	m_start = state;
 	if( m_start )
 	{
-		g_Console.LOG( 4, "-----------   MAP SERVER LOAD DATA FROM DB  -----------------");
+		g_Console.MLOG( 4, "-----------   MAP SERVER LOAD DATA FROM DB  -----------------");
 	}
 }
 
@@ -1857,7 +1857,7 @@ void CServerSystem::LoadHackCheck()
 	CMHFile file;
 	if( !file.Init( "ServerSet/HackCheck.txt", "rt", MHFILE_FLAG_DONOTDISPLAY_NOTFOUNDERROR ) )
 	{
-		g_Console.LOG(4, "HackCheckNum : %d, HackCheckWriteNum : %d", g_nHackCheckNum, g_nHackCheckWriteNum );
+		g_Console.MLOG(4, "HackCheckNum : %d, HackCheckWriteNum : %d", g_nHackCheckNum, g_nHackCheckWriteNum );
 		return;
 	}
 
@@ -1879,7 +1879,7 @@ void CServerSystem::LoadHackCheck()
 
 	file.Release();
 
-	g_Console.LOG(4, "HackCheckNum : %d, HackCheckWriteNum : %d", g_nHackCheckNum, g_nHackCheckWriteNum );
+	g_Console.MLOG(4, "HackCheckNum : %d, HackCheckWriteNum : %d", g_nHackCheckNum, g_nHackCheckWriteNum );
 }
 
 
@@ -1907,12 +1907,12 @@ void OnConnectServerSuccess(DWORD dwConnectionIndex, void* pVoid)
 	if(info->wServerKind == MONITOR_SERVER)
 	{
 		BOOTMNGR->NotifyBootUpToMS(&g_Network);
-		g_Console.LOG(4, "Connected to the MS : %s, %d, (%d)", info->szIPForServer, info->wPortForServer, dwConnectionIndex);
+		g_Console.MLOG(4, "Connected to the MS : %s, %d, (%d)", info->szIPForServer, info->wPortForServer, dwConnectionIndex);
 	}
 	else
 	{
 		BOOTMNGR->SendConnectSynMsg(&g_Network, dwConnectionIndex, g_pServerTable);
-		g_Console.LOG(4, "Connected to the Server : %s, %d, (%d)", info->szIPForServer, info->wPortForServer, dwConnectionIndex);
+		g_Console.MLOG(4, "Connected to the Server : %s, %d, (%d)", info->szIPForServer, info->wPortForServer, dwConnectionIndex);
 	}
 	/*/// Ao¡Ë?i¢®¨¡IAO taiyo
 	if(!dwConnectionIndex) return;
@@ -1937,25 +1937,25 @@ void OnConnectServerFail(void* pVoid)
 	{
 		BOOTMNGR->AddBootListINI(MAP_SERVER, GAMERESRCMNGR->GetLoadMapNum(), g_pServerTable);
 		BOOTMNGR->BactchConnectToMap(&g_Network, g_pServerTable);
-		g_Console.LOG(4, "Failed to Connect to the MS : %s, %d", info->szIPForServer, info->wPortForServer);
+		g_Console.MLOG(4, "Failed to Connect to the MS : %s, %d", info->szIPForServer, info->wPortForServer);
 	}
 	else
 	{
-		g_Console.LOG(4, "Failed to Connect to the Server : %s, %d", info->szIPForServer, info->wPortForServer);
+		g_Console.MLOG(4, "Failed to Connect to the Server : %s, %d", info->szIPForServer, info->wPortForServer);
 		BOOTMNGR->RemoveBootList(g_pServerTable, info->wPortForServer);
 	}	
 }
 
 void OnAcceptServer(DWORD dwConnectionIndex)
 {
-	g_Console.LOG(4, "Server Connected : ConnectionIndex %d", dwConnectionIndex);
+	g_Console.MLOG(4, "Server Connected : ConnectionIndex %d", dwConnectionIndex);
 }
 
 void OnDisconnectServer(DWORD dwConnectionIndex)
 {
 	if( g_pServerSystem->GetStart() == FALSE ) return;
 
-	g_Console.LOG(4, "Server Disconnected : ConnectionIndex %d", dwConnectionIndex);
+	g_Console.MLOG(4, "Server Disconnected : ConnectionIndex %d", dwConnectionIndex);
 
 	SERVERINFO * delInfo = g_pServerTable->RemoveServer(dwConnectionIndex);
 	if(!delInfo)
@@ -2051,7 +2051,7 @@ void _5minGameProcess()
 // console interface function
 void ButtonProc1()
 {
-	g_Console.LOG( 4, "QueryCount: %d, GetDB: %p", g_DB.GetQueryQueueCount(), g_DB.GetCurDB() );
+	g_Console.MLOG( 4, "QueryCount: %d, GetDB: %p", g_DB.GetQueryQueueCount(), g_DB.GetCurDB() );
 /*
 	g_bAssertMsgBox = !g_bAssertMsgBox;
 	if(g_bAssertMsgBox)
@@ -2078,7 +2078,7 @@ void ButtonProc2()
 void ButtonProc3()
 {
 	if( g_pServerSystem )
-		g_Console.LOG( 4, "MAIN PROCESS TIME : %d", g_pServerSystem->GetMainProcessTime() );
+		g_Console.MLOG( 4, "MAIN PROCESS TIME : %d", g_pServerSystem->GetMainProcessTime() );
 /*
 	CObject* pInfo = NULL;
 	g_pUserTable->SetPositionHead();

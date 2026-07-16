@@ -425,7 +425,7 @@ BOOL CUserTable::OnDisconnectUser(DWORD dwKey)
 	}
 	//user count 계산==============================================================================
 
-	g_Console.LOG(4, "  User Disconnected UserIDx:%d  CharID:%d  (%d)", 
+	g_Console.MLOG(4, "  User Disconnected UserIDx:%d  CharID:%d  (%d)", 
 			pInfo->dwUserID, pInfo->dwCharacterID, GetUserCount());
 
 	// AuthKey Release
@@ -456,7 +456,7 @@ BOOL CUserTable::OnDisconnectUser(DWORD dwKey)
 	RemoveUser(dwKey);
 	g_UserInfoPool.Free(pUserInfo);
 	
-	g_Console.LOG(4, "  User Disconnected UserIDx:%d  CharID:%d  (%d)", 
+	g_Console.MLOG(4, "  User Disconnected UserIDx:%d  CharID:%d  (%d)", 
 			pUserInfo->dwUserID, pUserInfo->dwCharacterID, GetUserCount());
 
 	return TRUE;
@@ -465,11 +465,11 @@ BOOL CUserTable::OnDisconnectUser(DWORD dwKey)
 
 BOOL DisconnectUser(DWORD dwConnectionIndex)
 {
-	g_Console.LOG(4, "CompulsiveDisconnect   ConnectionIndex : %d",dwConnectionIndex);
+	g_Console.MLOG(4, "CompulsiveDisconnect   ConnectionIndex : %d",dwConnectionIndex);
 	USERINFO* pUserInfo = g_pUserTable->FindUser(dwConnectionIndex);
 	if(pUserInfo)
 	{
-		g_Console.LOG(4, "  User CompulsiveDisconnected UserIDx:%d  CharID:%d  (%d)", 
+		g_Console.MLOG(4, "  User CompulsiveDisconnected UserIDx:%d  CharID:%d  (%d)", 
 			pUserInfo->dwUserID, pUserInfo->dwCharacterID, g_pUserTable->GetUserCount());	//
 	}
 
@@ -480,11 +480,11 @@ BOOL DisconnectUser(DWORD dwConnectionIndex)
 
 BOOL DisconnectUser(DWORD dwConnectionIndex, int flag )
 {
-	g_Console.LOG(4, "CompulsiveDisconnect   ConnectionIndex : %d",dwConnectionIndex);
+	g_Console.MLOG(4, "CompulsiveDisconnect   ConnectionIndex : %d",dwConnectionIndex);
 	USERINFO* pUserInfo = g_pUserTable->FindUser(dwConnectionIndex);
 	if(pUserInfo)
 	{
-		g_Console.LOG(4, "  User CompulsiveDisconnected UserIDx:%d  CharID:%d  (%d)", 
+		g_Console.MLOG(4, "  User CompulsiveDisconnected UserIDx:%d  CharID:%d  (%d)", 
 			pUserInfo->dwUserID, pUserInfo->dwCharacterID, g_pUserTable->GetUserCount());	//
 	}
 
@@ -493,25 +493,25 @@ BOOL DisconnectUser(DWORD dwConnectionIndex, int flag )
 	switch( flag )
 	{
 	case 1:		// connection check
-		g_Console.LOG(4, "DisconnectUser : Connection Check", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : Connection Check", dwConnectionIndex );
 		break;
 	case 2:		// mapserver down
-		g_Console.LOG(4, "DisconnectUser : Map Down", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : Map Down", dwConnectionIndex );
 		break;
 	case 3:		// GMTool Ban
-		g_Console.LOG(4, "DisconnectUser : GMTool Ban", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : GMTool Ban", dwConnectionIndex );
 		break;
 	case 4:		// Overlapped Login
-		g_Console.LOG(4, "DisconnectUser : Overlapped Login", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : Overlapped Login", dwConnectionIndex );
 		break;
 	case 5:		// MP_USERCONN_DISCONNECT_SYN
-		g_Console.LOG(4, "DisconnectUser : MP_USERCONN_DISCONNECT_SYN", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : MP_USERCONN_DISCONNECT_SYN", dwConnectionIndex );
 		break;
 	case 6:		// MP_CHEAT_BANCHARACTER_SYN
-		g_Console.LOG(4, "DisconnectUser : MP_CHEAT_BANCHARACTER_SYN", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : MP_CHEAT_BANCHARACTER_SYN", dwConnectionIndex );
 		break;
 	case 7:		// MP_HACKCHECK_SPEEDHACK
-		g_Console.LOG(4, "DisconnectUser : MP_HACKCHECK_SPEEDHACK", dwConnectionIndex );
+		g_Console.MLOG(4, "DisconnectUser : MP_HACKCHECK_SPEEDHACK", dwConnectionIndex );
 		break;
 	}
 

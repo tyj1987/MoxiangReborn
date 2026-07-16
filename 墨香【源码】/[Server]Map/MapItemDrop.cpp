@@ -39,7 +39,7 @@ BOOL CMapItemDrop::LoadMapDropItemList()
 	sprintf( strFileName,"./Resource/Server/MapDropListInitDate.bin" );
 	if( !mhDateFile.Init( strFileName, "rb" ) )
 	{
-		g_Console.LOG( 4, "Failed to open script file(%s). Set default value.", strFileName );
+		g_Console.MLOG( 4, "Failed to open script file(%s). Set default value.", strFileName );
 
 		m_wInitDay	= 5;
 		m_wInitHour	= 0;
@@ -48,7 +48,7 @@ BOOL CMapItemDrop::LoadMapDropItemList()
 	sprintf( strFileName,"./Resource/MapDropItemListInitDate.txt" );
 	if( !mhDateFile.Init( strFileName, "rt" ) )
 	{
-		g_Console.LOG( 4, "Failed to open script file(%s). Set default value.", strFileName );
+		g_Console.MLOG( 4, "Failed to open script file(%s). Set default value.", strFileName );
 
 		m_wInitDay	= 5;
 		m_wInitHour	= 0;
@@ -69,7 +69,7 @@ BOOL CMapItemDrop::LoadMapDropItemList()
 			if( !( 0 <= wInitDay && wInitDay <= 6 ) ||
 				!( 0 <= wInitHour && wInitHour <= 23 ) )
 			{
-				g_Console.LOG( 4, "Wrong value in file(%s)", strFileName );
+				g_Console.MLOG( 4, "Wrong value in file(%s)", strFileName );
 
 				wInitDay = 5;	// 금요일
 				wInitHour = 0;	// 0시
@@ -84,7 +84,7 @@ BOOL CMapItemDrop::LoadMapDropItemList()
 	sprintf( strFileName,"./Resource/Server/MapDropItemList.bin" );
 	if( !mhListFile.Init( strFileName, "rb" ) )
 	{
-		g_Console.LOG( 4, "Failed to open script file(%s).", strFileName );
+		g_Console.MLOG( 4, "Failed to open script file(%s).", strFileName );
 		
 		return FALSE;
 	}
@@ -92,7 +92,7 @@ BOOL CMapItemDrop::LoadMapDropItemList()
 	sprintf( strFileName,"./Resource/MapDropItemList.txt" );	
 	if( !mhListFile.Init( strFileName, "rt" ) )
 	{
-		g_Console.LOG( 4, "Failed to open script file(%s).", strFileName );
+		g_Console.MLOG( 4, "Failed to open script file(%s).", strFileName );
 		
 		return FALSE;
 	}
@@ -378,7 +378,7 @@ void CMapItemDrop::CalculateDropRate( CPlayer* pPlayer, WORD MonsterKind )
 {
 	if( !m_bLoadSucceed )
 	{
-		g_Console.LOG( 4, "Script file is not loaded : MapItemDrop.cpp(381)" );
+		g_Console.MLOG( 4, "Script file is not loaded : MapItemDrop.cpp(381)" );
 		
 		return;
 	}
@@ -453,7 +453,7 @@ void CMapItemDrop::SetItemDropInfoByDB(WORD wMapNum, WORD wChannel, WORD wItemID
 {
 	if( !m_bLoadSucceed )
 	{
-		g_Console.LOG( 4, "Script file is not loaded : MapItemDrop.cpp(456)" );
+		g_Console.MLOG( 4, "Script file is not loaded : MapItemDrop.cpp(456)" );
 
 		return;
 	}
@@ -465,7 +465,7 @@ void CMapItemDrop::SetItemDropInfoByDB(WORD wMapNum, WORD wChannel, WORD wItemID
 
 	if( !pMapDropItem )
 	{
-		g_Console.LOG( 4, "Do not exist MapDropItem Info : MapItemDrop.cpp(468)" );
+		g_Console.MLOG( 4, "Do not exist MapDropItem Info : MapItemDrop.cpp(468)" );
 		
 		return;
 	}
