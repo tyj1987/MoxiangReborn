@@ -2,7 +2,7 @@
 
 > **作者**：Mavis  
 > **日期**：2026-07-16  
-> **状态**：🟡 进行中（15/202 = 7.4%）  
+> **状态**：🟡 进行中（16/202 = 7.9%）  
 > **关联**：`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -35,6 +35,8 @@ dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cWearedExDialog` | `modern/src/ui/wearedexdialog.{hpp,cpp}` | 12 | **2026-07-16** (0.13.19) — Tier 2 dialog（equipment slot, wraps cIconDialog 14 cells, AddItem/DeleteItem REAL wrap, 1:1 quirk m_type/m_nIconType drop, 7-singleton dispatch 阻塞） |
 | `cMiniFriendDialog` | `modern/src/ui/minifrienddialog.{hpp,cpp}` | 19 | **2026-07-16** (0.13.20) — Tier 2 dialog（mini friend-add, 4 children 240-243, **第一个全 REAL Tier 2 (无 TODO)**, 1:1 quirks m_type drop, VCM_CHARNAME→2, m_bDisable→!isEnabled, cEditBox m_bInitEdit guard） |
 | `cReviveDialog` | `modern/src/ui/revivedialog.{hpp,cpp}` | 12 | **2026-07-16** (0.13.22) — Tier 2 dialog（revive options, 3 cButton 250-252, Linking REAL, SetActive override (siege war vs normal map 1:1 branch), **1:1 quirk m_pLoginBtn 永远不 toggle**, 1:1 quirk legacy cButton SetActive 改用 modern SetVisible; SIEGEMGR+MAP singleton dispatch 阻塞） |
+| `cTextArea` | `modern/src/ui/ctextarea.{hpp,cpp}` | 22 | **2026-07-16** (0.13.23) — Tier 1.5 sub-widget（multi-line text area, 5th subcontrol, header 2055B; InitTextArea 2 overloads + SetActive override + SetFocusEdit + SetScriptText + SetReadOnly + SetLimitLine + SetTextColor + Add delegate; **基础设施 port 解锁 ~30 Tier 2/3 dialog**; IME + 实际 render + scroll state Phase 12.x deferred) |
+| `cMPNoticeDialog` | `modern/src/ui/mpnoticedialog.{hpp,cpp}` | 8 | **2026-07-16** (0.13.23) — Tier 2 dialog（MP notice, 10th dialog port, header 695B; 2 cTextArea 260-261; Linking REAL + SetScriptText placeholder; 1:1 quirk ctor m_type drop, CHATMGR placeholder text; 复用 cTextArea port) |
 
 ## 5 档分级
 
@@ -273,7 +275,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 | Tier 5 | 100+ | 1000-3000 行（需 15-20 service） | 8-12 周（依赖 Phase 15 service + network） |
 | **总计** | **131+** | — | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **15/202** = **7.4%**（当前）→ 100% ≈ 4-5 个月全职工作量。
+加上 base **16/202** = **7.9%**（当前）→ 100% ≈ 4-5 个月全职工作量。
 **这是真的"长尾"，不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -290,7 +292,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 - ✅ 新 ported: cGuagen (18 test, Tier 1.5 子控件) — 解锁 CharacterDialog 等多个
   Tier 2 dialog 的子控件 blocker
 - ✅ R-9 矩阵约定审计完成: 7 个新 test pin D3DX row-major layout, 3 个旧 test 更新
-- 📊 Progress: 5/202 = 2.5% → 15/202 = 7.4% (Tier 1.5 子控件算"组件 port",
+- 📊 Progress: 5/202 = 2.5% → 16/202 = 7.9% (Tier 1.5 子控件算"组件 port",
   不算严格 dialog port, 但属于"无 service 阻塞的 ui 元素")
 
 ## 关联文档

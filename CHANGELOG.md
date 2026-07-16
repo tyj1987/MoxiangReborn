@@ -4,6 +4,46 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.23] - 2026-07-16
+
+### Phase 12.x cTextArea sub-widget + cMPNoticeDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.22 收口 cReviveDialog。本 session 接 cTextArea Tier 1.5 子控件 port + cMPNoticeDialog Tier 2 dialog port (双 port, 1 commit) — header 695B, 2 cTextArea (新 port Tier 1.5 子控件), 30 用例 (22 cTextArea + 8 MPNoticeDialog)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cTextArea 22/22 ctest PASS (`ctest -C Debug -R CTextArea`); cMPNoticeDialog 8/8 ctest PASS (`ctest -C Debug -R CMPNoticeDialog`); 全栈 ctest 1052 → 1082 PASS (+30 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/ctextarea.hpp` + `ctextarea.cpp` (新建, commit `012788c`): 1:1 port of 墨香 cTextArea (interface\cTextArea.h 2055B)
+  - 2 InitTextArea overloads (full + simple) — store 3 chrome image + 3 height + text rect + buffer size
+  - SetActive override (1:1 跟 base noexcept 兼容, stores caret intent)
+  - SetFocusEdit / SetFocus alias
+  - SetScriptText / GetScriptText / GetScriptTextCString — std::string + 兼容 c-string
+  - SetReadOnly / IsReadOnly / SetLimitLine / SetTextColor / Add (delegate to cDialog::Add) / Render (no-op)
+- `modern/src/ui/mpnoticedialog.hpp` + `mpnoticedialog.cpp` (新建, 同 commit): 1:1 port of 墨香 CMPNoticeDialog (MPNoticeDialog.h 695B + .cpp)
+  - Linking REAL (resolve 2 cTextArea id 260-261, SetScriptText placeholder text "MP_NCAUTION" / "MP_NREDCAUTION")
+  - 2 accessor (GetNCaution / GetNRedCaution)
+- `modern/tests/unit/ui/ctextarea_test.cpp` (新建, 22 用例 PASS): DefaultConstruction + InitTextArea x3 + SetActive x2 + SetFocusEdit/SetFocus alias + SetScriptText x3 + GetScriptTextCString x4 + SetReadOnly + SetLimitLine x2 + SetTextColor x2 + Add delegate + Render no-op
+- `modern/tests/unit/ui/mpnoticedialog_test.cpp` (新建, 8 用例 PASS): DefaultConstruction + IdConstants x2 + ChatMsgIdsMatchLegacy + LinkingResolvesBothTextAreas + LinkingCallsSetScriptText + Linking x2 (without-children / before-init)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `ctextarea.cpp` + `mpnoticedialog.cpp` + 30 gtest entry
+
+### 1:1 quirks preserved
+
+- cImage opaque-pointer pattern (void*) — 1:1 with cButton / cIconDialog
+- SetScriptText null input clears text (legacy 无条件 deref, modern null-check)
+- SetActive stores caret intent (实际 caret render Phase 6.13+ deferred)
+- Add delegates to cDialog::Add (legacy override just calls base)
+- cMPNoticeDialog ctor drop m_type=WT_MPNOTICEDIALOG (Phase 6 删除)
+- cMPNoticeDialog Linking 用 placeholder text (CHATMGR 未 port, kNCautionChatMsgId=667/kNRedCautionChatMsgId=668 常量保留)
+
+### Progress
+
+- P2-12: 16/202 = 7.9% (5 base + 10 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1082/1082 PASS (was 1052, +30 cTextArea+MPNoticeDialog)
+- Session commits: 29 (含 8 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1082 ctest PASS (+203 用例, 0 回归)
+- **cTextArea 是基础设施 port** — 解锁 ~30 个 Tier 2/3 dialog (BailDialog/ChaseDialog/EventNotifyDialog/GuildCreateDialog/GuildInviteDialog/GuildMarkDialog/GuildNickNameDialog/GuildFieldWarDialog/AutoAnswerDlg/AutoNoteDlg/ChinaAdviceDlg/cMsgBox 等)
+
 ## [0.13.22] - 2026-07-16
 
 ### Phase 12.x cReviveDialog Tier 2 dialog port (self-verified by producer session)
