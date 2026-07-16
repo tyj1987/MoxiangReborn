@@ -107,3 +107,23 @@ target_include_directories(mxh_game_types_tests PRIVATE
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_game_types_tests)
+
+# -----------------------------------------------------------------------------
+# mxh_services tests — Phase 13 service interface mock + contract test
+# Header-only interfaces (IInventoryService / ISkillService /
+# IPlayerStatsService) under modern/include/mxh/services/. The real
+# server-backed implementations will land in modern/src/services/ in
+# later sessions; this test file provides in-memory mock impls and
+# pins the contract that real impls must replicate.
+# -----------------------------------------------------------------------------
+add_executable(mxh_services_tests
+    services/services_test.cpp
+)
+
+target_link_libraries(mxh_services_tests PRIVATE gtest_main)
+target_include_directories(mxh_services_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_services_tests)
