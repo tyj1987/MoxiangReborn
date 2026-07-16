@@ -11,6 +11,12 @@ Agent session 中间产物归档目录。**不在 git 跟踪范围**（见根 `.
   Move 双向同步 → Chat 双向广播）。`MODERNIZATION_PLAN.md:269,274` 复现
   命令的依赖项。脚本通过 `SCRIPT_DIR` 自定位，**必须**放在 `modern/scratch/`
   根（`WORKSPACE = ../` 路径假设）。
+- `phase_7_5_c35_regression_fix_20260716/` — 2026-07-16 C-35/C-36/C-37
+  server build matrix regression fix 期间 11 个 commit 的 build log 归档
+  + 收口 README。6 个 build log (Distribute 5/5 修前/修后 + Map 5/5 修前
+  /修后 + Map JAPAN detail) + 1 个 `README.md` 总结 11 commits
+  全景。`modern/scripts/build_logs_20260716/` 是 working copy (build
+  触发后增量), `modern/scratch/.../` 是永久归档。
 
 ## 已清理（详见 AI_SHIFT_LOG）
 
