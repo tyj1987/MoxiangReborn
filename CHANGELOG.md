@@ -4,6 +4,40 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.25] - 2026-07-16
+
+### Phase 12.x cGuildCreateDialog + cGuildUnionCreateDialog Tier 2 dialog ports (self-verified by producer session)
+
+**背景**: 0.13.24 收口 cEventNotifyDialog。本 session 接 cGuildCreateDialog + cGuildUnionCreateDialog (12th + 13th Tier 2 dialog, 双 port 1 commit) — header 679B (两 class 在同一 legacy header), 5 + 3 children 复用 cTextArea + cEditBox + cStatic + cButton, Linking REAL, SetActive override (7-singleton + 4-singleton dispatch 阻塞, **本 session 最复杂 TODO**)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cGuildCreateDialog 14/14 ctest PASS + cGuildUnionCreateDialog 7/7 ctest PASS (`ctest -C Debug -R "CGuildCreate|CGuildUnion"`); 全栈 ctest 1102 → 1123 PASS (+21 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/guildcreatedialog.hpp` + `guildcreatedialog.cpp` (新建, commit `3ca1106`): 1:1 port of 墨香 CGuildCreateDialog + CGuildUnionCreateDialog (GuildCreateDialog.h 679B)
+  - cGuildCreateDialog (5 children id 280-284): cStatic location + cEditBox guild_name + cTextArea intro + cButton ok_btn + cStatic caption. Linking REAL + SetActive override (7-singleton TODO: MAP/HERO/GUILDMGR/GAMEIN/RESRCMGR/OBJECTSTATEMGR/OBJECTSTATE) + SetMunpaName (1:1 quirk SetReadOnly(TRUE)) + SetMunpaIntro
+  - cGuildUnionCreateDialog (3 children id 290-292): cEditBox name_edit + cButton ok_btn + cTextArea text. Linking REAL (SetScriptText placeholder "GUILD_UNION_TEXT" 替代 CHATMGR->GetChatMsg(1125)) + SetActive override (4-singleton TODO: HERO/GAMEIN/OBJECTSTATEMGR/OBJECTSTATE)
+- `modern/tests/unit/ui/guildcreatedialog_test.cpp` (新建, 21 用例 PASS): 14 cGuildCreateDialog + 7 cGuildUnionCreateDialog
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `guildcreatedialog.cpp` + 21 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor drop m_type=WT_GUILDCREATEDLG / WT_GUILDUNIONCREATEDLG (Phase 6 删除)
+- Linking SetScriptText placeholder text "GUILD_UNION_TEXT" (CHATMGR 未 port)
+- SetMunpaName 也设 SetReadOnly(TRUE) (1:1 with legacy)
+- SetActive 跟 base noexcept 兼容 (R-12 polymorphic virtual 要求)
+- 7-singleton + 4-singleton dispatch 都 TODO
+- Local id 280-284 + 290-292 (no collision with 200-203/210-212/220-224/230-231/240-243/250-252/260-261/270-271)
+
+### Progress
+
+- P2-12: 19/202 = 9.4% (5 base + 13 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1123/1123 PASS (was 1102, +21 cGuildCreate+GuildUnion)
+- Session commits: 33 (含 11 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1123 ctest PASS (+244 用例, 0 回归)
+- **本 commit 是 1 commit port 2 dialog** (legacy 同一 header 2 class, 1:1 with 源文件 layout)
+- **cTextArea-using dialog count 4**: cMPNoticeDialog + cEventNotifyDialog + cGuildCreateDialog + cGuildUnionCreateDialog
+
 ## [0.13.24] - 2026-07-16
 
 ### Phase 12.x cEventNotifyDialog Tier 2 dialog port (self-verified by producer session)

@@ -2,7 +2,7 @@
 
 > **作者**：Mavis  
 > **日期**：2026-07-16  
-> **状态**：🟡 进行中（17/202 = 8.4%）  
+> **状态**：🟡 进行中（19/202 = 9.4%）  
 > **关联**：`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -38,6 +38,8 @@ dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cTextArea` | `modern/src/ui/ctextarea.{hpp,cpp}` | 22 | **2026-07-16** (0.13.23) — Tier 1.5 sub-widget（multi-line text area, 5th subcontrol, header 2055B; InitTextArea 2 overloads + SetActive override + SetFocusEdit + SetScriptText + SetReadOnly + SetLimitLine + SetTextColor + Add delegate; **基础设施 port 解锁 ~30 Tier 2/3 dialog**; IME + 实际 render + scroll state Phase 12.x deferred) |
 | `cMPNoticeDialog` | `modern/src/ui/mpnoticedialog.{hpp,cpp}` | 8 | **2026-07-16** (0.13.23) — Tier 2 dialog（MP notice, 10th dialog port, header 695B; 2 cTextArea 260-261; Linking REAL + SetScriptText placeholder; 1:1 quirk ctor m_type drop, CHATMGR placeholder text; 复用 cTextArea port) |
 | `cEventNotifyDialog` | `modern/src/ui/eventnotifydialog.{hpp,cpp}` | 20 | **2026-07-16** (0.13.24) — Tier 2 dialog（GM event notification, 11th dialog port, header 793B; 2 children cStatic+cTextArea 270-271; Linking REAL, SetActive override (1:1 quirk 调 base + !val clear context text), ActionEvent override, SetTitle/SetContext REAL wrapper, SetEventCount no-op; **1:1 quirk SetTitle with nullptr not supported (modern cStatic::SetStaticText 接 std::string, UB)**) |
+| `cGuildCreateDialog` | `modern/src/ui/guildcreatedialog.{hpp,cpp}` | 14 | **2026-07-16** (0.13.25) — Tier 2 dialog（guild create, 12th dialog port, header 679B; 5 children cStatic+cEditBox+cTextArea+cButton+cStatic 280-284; Linking REAL, SetActive override 7-singleton dispatch TODO, SetMunpaName 1:1 quirk SetReadOnly(TRUE), SetMunpaIntro) |
+| `cGuildUnionCreateDialog` | `modern/src/ui/guildcreatedialog.{hpp,cpp}` | 7 | **2026-07-16** (0.13.25) — Tier 2 dialog（guild union create, 13th dialog port, header 679B 同 GuildCreateDialog.h; 3 children cEditBox+cButton+cTextArea 290-292; Linking REAL + SetScriptText placeholder "GUILD_UNION_TEXT" 替代 CHATMGR->GetChatMsg(1125), SetActive override 4-singleton TODO) |
 
 ## 5 档分级
 
@@ -276,7 +278,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 | Tier 5 | 100+ | 1000-3000 行（需 15-20 service） | 8-12 周（依赖 Phase 15 service + network） |
 | **总计** | **131+** | — | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **17/202** = **8.4%**（当前）→ 100% ≈ 4-5 个月全职工作量。
+加上 base **19/202** = **9.4%**（当前）→ 100% ≈ 4-5 个月全职工作量。
 **这是真的"长尾"，不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -293,7 +295,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 - ✅ 新 ported: cGuagen (18 test, Tier 1.5 子控件) — 解锁 CharacterDialog 等多个
   Tier 2 dialog 的子控件 blocker
 - ✅ R-9 矩阵约定审计完成: 7 个新 test pin D3DX row-major layout, 3 个旧 test 更新
-- 📊 Progress: 5/202 = 2.5% → 17/202 = 8.4% (Tier 1.5 子控件算"组件 port",
+- 📊 Progress: 5/202 = 2.5% → 19/202 = 9.4% (Tier 1.5 子控件算"组件 port",
   不算严格 dialog port, 但属于"无 service 阻塞的 ui 元素")
 
 ## 关联文档
