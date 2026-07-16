@@ -36,17 +36,37 @@ legacy `[Client]MH/` 目录下有 **202 个 dialog 文件**（含 1 个备份
 
 | Legacy Dialog | 现代目标 | 工作量 | 优先级 |
 |--------------|---------|-------|-------|
-| ExitDialog | `cExitDialog` ✅ | 100 行 + 10 test | **已完成** |
-| HelpDialog | `cHelpDialog` | 80 行 + 6 test | P2-12a |
-| BailDialog | `cBailDialog` | 120 行 + 8 test | P2-12b |
-| EventNotifyDialog | `cEventNotifyDialog` | 150 行 + 8 test | P2-12c |
-| MallNoticeDialog | `cMallNoticeDialog` | 100 行 + 6 test | P2-12d |
-| ChatOptionDialog | `cChatOptionDialog` | 180 行 + 10 test | P2-12e |
-| NameChangeDialog | `cNameChangeDialog` | 150 行 + 8 test | P2-12f |
-| PetRevivalDialog | `cPetRevivalDialog` | 200 行 + 10 test | P2-12g |
-| NumberPadDialog | `cNumberPadDialog` | 100 行 + 6 test | P2-12h |
+| ExitDialog | `cExitDialog` ✅ | 100 行 + 10 test | **已完成** (commit 16ef797) |
+| _(已查尽 — 无 trivial 候选)_ | — | — | — |
 
-**小活建议**：每次新 session 推 1-2 个，连续 3-4 session 把 Tier 1 扫完。
+**重要修正（2026-07-16 探查后）**：原 Tier 1 列表中除 ExitDialog 外
+**全部不是 trivial**——legacy 客户端所有 dialog 都深度耦合
+global singleton（CHATMGR / OBJECTMGR / GUILDMGR / HERO /
+WINDOWMGR / NETWORK / ITEMMGR / HEROID）。经 grep `<1500B` + 检查 cpp
+实装后，无 trivial 候选。具体排除原因：
+
+- `HelpDialog` 依赖 cListDialogEx + cPage + cDialogueList + cHyperTextList
+  + HelpDicManager（**Tier 2** — 需先 port cListDialogEx）
+- `BailDialog` 依赖 cEditBox + cTextArea + CHATMGR + HERO + WINDOWMGR
+  + NETWORK（**Tier 3/5** — 需 InventoryService + NetworkService）
+- `EventNotifyDialog` 待查（header 274 B，但 cpp 体量可能大）
+- `MallNoticeDialog` 待查
+- `ChatOptionDialog` 依赖 ChatManager settings（**Tier 5**）
+- `NameChangeDialog` 依赖 CHATMGR + GAMEIN + NETWORK（**Tier 5**）
+- `PetRevivalDialog` 依赖 OBJECTMGR + ITEMMGR（**Tier 5**）
+- `NumberPadDialog` 依赖 WINDOWMGR + cStatic + cComboBox + MT_LOGINDLG
+  （**Tier 5**）
+- `MNCreateDialog` / `MNFrontDialog` / `MNJoinDialog` 实际是**空壳
+  stub**（cpp 全空，WindowIDEnum 没 MN_* 编号）— port 它们毫无
+  价值（不会从 dispatcher 触发）
+
+**新策略**：把"trivial"重新定义为 **"无需 modern port 任何
+global service 的 dialog"**。符合条件者：
+- ✅ cExitDialog（已 port，callback pattern）
+- ❌ 其他所有 dialog 至少依赖 1 个 global service
+
+**建议推进**：每次新 session 直接从 **Tier 2** 开始（接受 200-500
+行 + 1 个 service interface 注入），不要再在 Tier 1 找 trivial。
 
 ### Tier 2 — UI 状态 + 子控件编排（~200-500 行，2-3 commit/个）
 
