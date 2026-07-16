@@ -566,12 +566,13 @@ Phase 12: 持续迭代 ✅
 | `cMacroDialog` | ✅ done (12.x 0.13.14) | macro key binding dialog (Tier 2, 1st real dialog port; ME_* / MM_* / MSK_* 1:1 enum mirroring) |
 | `cCharMakeDlg` | ✅ done (12.x 0.13.15) | sex-selector dialog (Tier 2, 3rd dialog port; 4 cStatic toggled by sex 0=M/1=F; SetVisible 替代 legacy 非存在 SetActive 1:1 quirk; OnActionEvent no-op 等 CharMakeManager port) |
 | `cGuildJoinDialog` | ✅ done (12.x 0.13.16) | guild member-invite dialog (Tier 2, 4th dialog port, header 275B 最小; 3 button id kJoinMember/kJoinStudent/kJoinCancel 210-212; OnActionEvent 4-singleton dispatch 阻塞) |
+| `cCharStateDialog` | ✅ done (12.x 0.13.17) | character state bar dialog (Tier 2, 5th dialog port, header 701B; 5 cPushupButton PK/Move/KyungGong/PeaceWar/Ungi 220-224; **5 SetXxxMode REAL (no singleton) + Linking SetPassive + 1:1 quirk PeaceWar 反向**; OnActionEvent + Refresh 阻塞) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (10/202 = 5.0% done: 5 base+4 dialog+4 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (11/202 = 5.4% done: 5 base+5 dialog+4 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |

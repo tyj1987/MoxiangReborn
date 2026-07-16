@@ -4,6 +4,40 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.17] - 2026-07-16
+
+### Phase 12.x cCharStateDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.16 收口 cGuildJoinDialog。本 session 接 cCharStateDialog (5th Tier 2 dialog, 1:1 port) — header 701B，5 个 cPushupButton 子控件 + 5 个 SetXxxMode widget-only method + 2 个 singleton-dependent method (OnActionEvent + Refresh)。**本 port 是目前最完整 Tier 2 — Linking + 5 SetXxxMode 全 REAL 可测，OnActionEvent + Refresh 留 TODO 等 singleton port。**
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cCharStateDialog 18/18 ctest PASS (`ctest -C Debug -R CCharStateDialog`); 全栈 ctest 965 → 983 PASS (+18 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/charstatedialog.hpp` + `charstatedialog.cpp` (新建, commit `e1a1280`): 1:1 port of 墨香 CCharStateDialog (CharStateDialog.h 701B + .cpp)
+  - Linking: resolve 5 cPushupButton (PK/Move/KyungGong/PeaceWar/Ungi) by id 220-224 + SetPassive(TRUE) on each
+  - **5 SetXxxMode (REAL, no singleton)**: SetPKMode / SetMoveMode / SetKyungGongMode / SetPeaceWarMode / SetUngiMode — 各 m_pBtnXxx->SetPush(bMode)
+  - OnActionEvent: 5 button id (kBtnPKId=220..kBtnUngiId=224) 区分, body no-op 直到 MACROMGR + PKMGR port
+  - Refresh: no-op 直到 SCRIPTMGR + RESRCMGR + MACROMGR + GAMEIN port
+  - 5 accessor (GetPKBtn/GetMoveBtn/GetKyungGongBtn/GetPeaceWarBtn/GetUngiBtn)
+- `modern/tests/unit/unit/ui/charstatedialog_test.cpp` (新建, 18 用例 PASS): 5 cPushupButton pointer + IdConstants + Linking x3 + SetXxxMode x8 (5+1 隔离+1 无链+1 全) + OnActionEvent x2 + Refresh x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `charstatedialog.cpp` + 18 gtest entry
+
+### 1:1 quirks preserved
+
+- Linking SetPassive(TRUE) on all 5 button (user can't toggle, code alone flips state)
+- **SetPeaceWarMode inverts argument**: legacy stores PeaceWar as OPPOSITE of underlying 'peace' flag, so SetPush(!bPeace)
+- KyungGong + Ungi OnActionEvent branch commented out (macros not implemented in legacy engine)
+- Refresh's KyungGong + Ungi tooltip rebuild commented out (same reason)
+- Local id 220-224 (no collision with cCharMakeDlg 200-203 / cGuildJoinDialog 210-212)
+
+### Progress
+
+- P2-12: 11/202 = 5.4% (5 base + 5 dialog cExitDialog/cMacroDialog/cCharMakeDlg/cGuildJoinDialog/cCharStateDialog + 4 subcontrol Tier 1.5)
+- ctest: 983/983 PASS (was 965, +18 cCharStateDialog)
+- Session commits: 16 (含 cCharMakeDlg + cGuildJoinDialog + cCharStateDialog 三个新 Tier 2 dialog)
+- 累计 1 session: 879 → 983 ctest PASS (+104 用例, 0 回归)
+
 ## [0.13.16] - 2026-07-16
 
 ### Phase 12.x cGuildJoinDialog Tier 2 dialog port (self-verified by producer session)
