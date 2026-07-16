@@ -28,6 +28,7 @@ add_library(mxh_ui STATIC
     charstatedialog.cpp
     sosdialog.cpp
     wearedexdialog.cpp
+    minifrienddialog.cpp
     ime.cpp
 )
 
