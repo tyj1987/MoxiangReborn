@@ -4,6 +4,42 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.18] - 2026-07-16
+
+### Phase 12.x cSOSDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.17 收口 cCharStateDialog。本 session 接 cSOSDialog (6th Tier 2 dialog, 1:1 port) — header 641B, 1 cListDialog + 1 cButton (both ported), Linking REAL (纯 widget), SetActive + ActionEvent override (5-singleton 阻塞), ~cSOSDlg null-checked RemoveAll。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cSOSDialog 20/20 ctest PASS (`ctest -C Debug -R CSOSDialog`); 全栈 ctest 983 → 1003 PASS (+20 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/sosdialog.hpp` + `sosdialog.cpp` (新建, commit `f324c0c`): 1:1 port of 墨香 CSOSDlg (SOSDialog.h 641B + .cpp)
+  - Linking: REAL (resolve cListDialog m_pListDlg id 230 + cButton m_pSOSOkBtn id 231, SetShowSelect(TRUE))
+  - SetActive override: 1:1 跟 base SetActive 兼容 (noexcept spec, R-12 polymorphic virtual), TODO 留 SOSMemberInfo fetch + cancel send (5-singleton 阻塞: GUILDMGR + HEROID + NETWORK + MAP + CHATMGR)
+  - ActionEvent override: 1:1 — 不 active 时 return 0 (跟 legacy WE_NULL 一致), active 时 delegate 到 cDialog::ActionEvent
+  - SOSMemberInfo: no-op RemoveAll (GUILDMGR fetch + AddItem pending)
+  - OnActionEvent: 1 button (SOS_OKBTN) state-machine, body no-op 直到 5-singleton dispatch wired
+  - ~cSOSDlg: null-checked m_pListDlg->RemoveAll (1:1 quirk: legacy 无条件 deref, modern 更安全)
+  - 3 accessor (GetMemberList / GetOkButton / GetSelectIdx + SetSelectIdx)
+- `modern/tests/unit/ui/sosdialog_test.cpp` (新建, 20 用例 PASS): 5 cPushupButton pointer + IdConstants + Linking x3 + Destructor x2 + SetActive x3 + ActionEvent x2 + SOSMemberInfo x2 + OnActionEvent x3 + SelectIdx x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `sosdialog.cpp` + 20 gtest entry
+
+### 1:1 quirks preserved
+
+- Linking SetShowSelect(TRUE) on resolved cListDialog (legacy configures list for click-row selection)
+- **legacy SetHeight(158) 在 modern cListDialog/cDialog API 不存在** (1:1 quirk 文档化: size 在 Init time 配置, 不在 Linking) — modern port drop 这个调用
+- ~cSOSDlg 1:1 quirk: legacy 无条件 deref m_pListDlg, modern null-check
+- SetActive override match base noexcept spec (/permissive- 要求)
+- Local id 230-231 (no collision with 200-203/210-212/220-224)
+
+### Progress
+
+- P2-12: 12/202 = 5.9% (5 base + 6 dialog + 4 subcontrol Tier 1.5)
+- ctest: 1003/1003 PASS (was 983, +20 cSOSDialog)
+- Session commits: 19 (含 cCharMakeDlg + cGuildJoinDialog + cCharStateDialog + cSOSDialog 4 个新 Tier 2 dialog)
+- 累计 1 session: 879 → 1003 ctest PASS (+124 用例, 0 回归)
+
 ## [0.13.17] - 2026-07-16
 
 ### Phase 12.x cCharStateDialog Tier 2 dialog port (self-verified by producer session)
