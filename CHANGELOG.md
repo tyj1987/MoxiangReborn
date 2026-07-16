@@ -4,6 +4,38 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.22] - 2026-07-16
+
+### Phase 12.x cReviveDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.21 收口 R-9.x drawBox 3D upgrade。本 session 接 cReviveDialog (9th Tier 2 dialog, 1:1 port) — header 729B, 3 cButton 子控件 (CR_PRESENTSPOT / CR_LOGINSPOT / CR_TOWNSPOT), Linking REAL (3 button resolve), SetActive override (SIEGEMGR + MAP singleton dispatch 阻塞, 1:1 quirk: m_pLoginBtn 永远不 toggle)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cReviveDialog 12/12 ctest PASS (`ctest -C Debug -R CReviveDialog`); 全栈 ctest 1040 → 1052 PASS (+12 用例, 0 回归, `ctest -C Debug --timeout 30` 2 次稳定)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/revivedialog.hpp` + `revivedialog.cpp` (新建, commit `a986775`): 1:1 port of 墨香 CReviveDialog (ReviveDialog.h 729B + .cpp)
+  - Linking: REAL (resolve 3 cButton id 250-252)
+  - SetActive override: 1:1 跟 base noexcept 兼容 (R-12 polymorphic virtual), 调用 base first 然后 SIEGEMGR + MAP singleton TODO
+  - 3 accessor (GetPresentBtn / GetLoginBtn / GetVillageBtn)
+- `modern/tests/unit/ui/revivedialog_test.cpp` (新建, 12 用例 PASS): DefaultConstruction + IdConstants x2 + Linking x3 (resolve/null/before-init) + SetActive x5 (true/false/round-trip/no-op-when-no-singleton/no-links/before-init) + SetActiveButtonTogglingIsNoOpUntilSIEGEMGRPort (m_pLoginBtn 1:1 quirk 验证)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `revivedialog.cpp` + 12 gtest entry
+
+### 1:1 quirks preserved
+
+- SetActive 跟 base noexcept 兼容 (R-12 polymorphic virtual 要求)
+- SetActive 调 base first 然后 button toggling (跟 legacy flow)
+- m_pLoginBtn 永远不 toggle (1:1 quirk: legacy 从不碰 m_pLoginBtn)
+- Modern cButton 没 SetActive (legacy cButton 有), 1:1 quirk: modern port 用 SetVisible 表达
+- Local id 250-252 (no collision with 200-203/210-212/220-224/230-231/240-243)
+
+### Progress
+
+- P2-12: 15/202 = 7.4% (5 base + 9 dialog + 4 subcontrol Tier 1.5)
+- ctest: 1052/1052 PASS (was 1040, +12 cReviveDialog)
+- Session commits: 27 (含 7 个新 Tier 2 dialog 本 session: cCharMakeDlg + cGuildJoinDialog + cCharStateDialog + cSOSDialog + cWearedExDialog + cMiniFriendDialog + cReviveDialog)
+- 累计 1 session: 879 → 1052 ctest PASS (+173 用例, 0 回归)
+
 ## [0.13.21] - 2026-07-16
 
 ### R-9.x drawBox 3D upgrade + shader source header + 6 tests (self-verified by producer session)
