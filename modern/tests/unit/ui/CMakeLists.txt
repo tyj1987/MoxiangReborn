@@ -18,6 +18,7 @@ add_executable(mxh_ui_tests
     cguagen_test.cpp
     clistdialogex_test.cpp
     cmacrodialog_test.cpp
+    cmakdial_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -317,4 +318,13 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMacroDialogTest.SetMacroBindingRefreshesLinkedEditBox
     CMacroDialogTest.SetActiveInChatModeDoesNotRefresh
     CMacroDialogTest.SetActiveInMacroModeRefreshes
+    # P2-12 Tier 2 dialog: cCharMakeDlg (character creation)
+    CCharMakeDlgTest.DefaultConstructionHasNullPointers
+    CCharMakeDlgTest.LinkingResolvesAllFourStatics
+    CCharMakeDlgTest.LinkingWithoutChildrenLeavesPointersNull
+    CCharMakeDlgTest.ChangeComboStatusMaleShowsMStatics
+    CCharMakeDlgTest.ChangeComboStatusFemaleShowsWStatics
+    CCharMakeDlgTest.ChangeComboStatusWithoutLinksIsSafe
+    CCharMakeDlgTest.ChangeComboStatusToggleRoundTrip
+    CCharMakeDlgTest.OnActionEventIsNoOpUntilManagerPort
 )

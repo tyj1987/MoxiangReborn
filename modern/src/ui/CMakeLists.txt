@@ -23,6 +23,7 @@ add_library(mxh_ui STATIC
     cGuagen.cpp
     cListDialogEx.cpp
     cMacroDialog.cpp
+    cmakdial.cpp
     ime.cpp
 )
 
