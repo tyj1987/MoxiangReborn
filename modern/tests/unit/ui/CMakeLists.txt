@@ -29,6 +29,7 @@ add_executable(mxh_ui_tests
     mpnoticedialog_test.cpp
     eventnotifydialog_test.cpp
     guildcreatedialog_test.cpp
+    chaseinputdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -510,4 +511,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildUnionCreateDialogTest.SetActiveTrueUpdatesBaseState
     CGuildUnionCreateDialogTest.SetActiveFalseUpdatesBaseState
     CGuildUnionCreateDialogTest.SetActiveWithoutLinksIsSafe
+    # P2-12 Tier 2 dialog: cChaseInputDialog (chase target name)
+    CChaseInputDialogTest.DefaultConstructionHasNullAndZero
+    CChaseInputDialogTest.IdConstantMatchesExpectedLocalRange
+    CChaseInputDialogTest.VcmCharnameAliasIsTwo
+    CChaseInputDialogTest.LinkingResolvesEditBox
+    CChaseInputDialogTest.LinkingConfiguresValidCheck
+    CChaseInputDialogTest.LinkingWithoutChildLeavesPointerNull
+    CChaseInputDialogTest.LinkingBeforeInitDoesNotCrash
+    CChaseInputDialogTest.SetActiveTrueUpdatesBaseState
+    CChaseInputDialogTest.SetActiveFalseUpdatesBaseState
+    CChaseInputDialogTest.SetActiveTrueClearsEditText
+    CChaseInputDialogTest.SetActiveFalseDoesNotClearState
+    CChaseInputDialogTest.SetActiveWithoutLinkIsSafe
+    CChaseInputDialogTest.SetItemIdxUpdatesValue
+    CChaseInputDialogTest.SetItemIdxBeforeInitDoesNotCrash
+    CChaseInputDialogTest.WantedChaseSynIsNoOp
+    CChaseInputDialogTest.WantedChaseSynWithoutLinkIsSafe
 )
