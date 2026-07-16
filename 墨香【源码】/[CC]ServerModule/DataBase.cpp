@@ -655,7 +655,7 @@ void  WriteMessage(char* pmsg)
 	GetLocalTime( &time );
 
 #ifndef _RMTOOL_
-	g_Console.LOG(2, pmsg);
+	g_Console.MLOG(2, pmsg);
 #ifdef _MAPSERVER_	
 	sprintf( szFile, "./Log/DB_ERROR_LOG_%02d_%4d%02d%02d.txt", g_pServerSystem->GetMapNum(), time.wYear, time.wMonth, time.wDay );
 #else

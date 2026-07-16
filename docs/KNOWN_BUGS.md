@@ -902,6 +902,32 @@ Build log 时间戳：2026-07-09 21:18:23 (KOR) / 21:03:17-19 (其余 4 locale)�
 
 ---
 
+
+### Bug C-36: C-1 LOG→MLOG 重命名漏了 [CC]ServerModule/ 下的 BootManager.cpp / DataBase.cpp — Distribute Debug_<LOCALE> 5/5 regression (2026-07-16 已修复)
+- **症状**：cmake --build DistributeServer_Debug_<LOCALE> 5/5 target 每个 fail 8 C2039（"LOG": 不是 "CConsole" 的成员），与 KNOWN_BUGS.md C-35 fix entry 末尾"5/5 干净"陈述矛盾。
+- **位置**：
+  - 墨香【源码】\[CC]ServerModule\BootManager.cpp:138/143/149/154/168/252/257（7 处 active g_Console.LOG(4, ...)）
+  - 墨香【源码】\[CC]ServerModule\DataBase.cpp:658（1 处 active g_Console.LOG(2, pmsg)）
+- **根因**：C-1 修复（2026-07-15 Phase 7.5o）把 CConsole::LOG 重命名为 CConsole::MLOG 并批量更新 35 个 active 调用点文件，但**只扫了 [Lib]MHConsole/ 和直接 include Console.h 的 client 端**。[CC]ServerModule/ 下的 BootManager.cpp / DataBase.cpp 是 **server 端 bootup/data 路径**——通过 #include "Console.h" 间接使用 g_Console.LOG()，原扫描没覆盖到这两个文件。结果：CHINA target build 失败，因为 [CC]ServerModule 下的 .cpp 在 [Server]Distribute Debug_<LOCALE> build list 里。
+- **历史 invariant 违反**：C-35 fix 4/5 → 5/5 干净是基于 **"已经认 8 个 LOG→MLOG 调用点没被引用"** 的假设。[CC]ServerModule/BootManager.cpp 在 [Server]Distribute/StdAfx.h 的 AdditionalIncludeDirectories 路径下被编，所以**没**满足假设。C-35 entry 末尾记录的"5/5 干净"实际是 0/5 干净——回归被错误归类为"已修复"。
+- **现代方案（本 session 2026-07-16 已落）**：
+  - BootManager.cpp 7 处 g_Console.LOG( → g_Console.MLOG(
+  - DataBase.cpp 1 处 g_Console.LOG( → g_Console.MLOG(
+  - 改完直接 --build DistributeServer_Debug_<LOCALE> 重跑 5 target，**0 errors / 5 OK**：
+    - DistributeServer_CHINA.exe 1,306,112 B
+    - DistributeServer_KOR.exe 1,324,544 B
+    - DistributeServer_JAPAN.exe 1,303,552 B
+    - DistributeServer_HK.exe 1,312,256 B
+    - DistributeServer_TL.exe 1,306,112 B
+  - 字节数跟 C-35 fix entry 目标值 1:1 一致 → 行为等价 / 二进制对齐。
+  - Network.cpp 里还有 2 处 active g_Console.LOG(4, ...) (line 74/78)，但 [Server]Distribute 编译 list 不含 Network.cpp（只在 [Server]Agent/Map 编），所以这次 build 不 fail。**未来 Agent/Map Debug_<LOCALE> 迁移时记得一起改**。
+- **影响范围**：
+  - 本修复对 C-1 MLOG 命名保持 1:1 一致（不改 [Lib]MHConsole/ 头）。
+  - 改的是 legacy 源码文件（注释掉的 // g_Console.LOG(...) 不动——只动 active 的）。
+  - 5 个 Distribute Debug_<LOCALE> target 现在真正 5/5 干净，C-35 fix entry 末尾的"5/5 干净"声明从"假设"变成"实测"。
+- **关联 commit**：待 user 决策（AGENTS.md 规则：git 提交是 user 主导动作）。本 session 改动未提交，diff 已在 git diff 墨香【源码】/[CC]ServerModule/BootManager.cpp DataBase.cpp 可见（14 行变更 8 处 LOG→MLOG）。
+- **Build log**：D:\Moxian\modern\scripts\build_logs_20260716\c35_all_5_after_fix.log（5/5 OK 落地）。
+- **状态**：已修复。5/5 target build 落地 binary 字节数跟 C-35 fix entry 期望 1:1 一致。
 ## D-12 AgentServer Debug_CHINA billing 字段缺失（2026-07-10，Phase 7.5l 已修复）
 
 ### 症状

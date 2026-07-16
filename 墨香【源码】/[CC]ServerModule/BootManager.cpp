@@ -135,23 +135,23 @@ BOOL CBootManager::StartServer(CNetwork * pNet, 	SERVERINFO * pSelfServerInfo)
 {
 	if(!pNet->StartServerServer(pSelfServerInfo->szIPForServer, pSelfServerInfo->wPortForServer))
 	{
-		g_Console.LOG(4, "Error StartServerForServer : %s, %d", pSelfServerInfo->szIPForServer, pSelfServerInfo->wPortForServer);
+		g_Console.MLOG(4, "Error StartServerForServer : %s, %d", pSelfServerInfo->szIPForServer, pSelfServerInfo->wPortForServer);
 		return FALSE;
 	}
 	else
 	{
-		g_Console.LOG(4, "StartServerForServer : %s, %d", pSelfServerInfo->szIPForServer, pSelfServerInfo->wPortForServer);
+		g_Console.MLOG(4, "StartServerForServer : %s, %d", pSelfServerInfo->szIPForServer, pSelfServerInfo->wPortForServer);
 	}
 	if( pSelfServerInfo->wServerKind == AGENT_SERVER || pSelfServerInfo->wServerKind == DISTRIBUTE_SERVER )
 	{
 		if(!pNet->StartUserServer(pSelfServerInfo->szIPForUser, pSelfServerInfo->wPortForUser))
 		{
-			g_Console.LOG(4, "Error StartServerForUser : %s, %d", pSelfServerInfo->szIPForUser, pSelfServerInfo->wPortForUser);
+			g_Console.MLOG(4, "Error StartServerForUser : %s, %d", pSelfServerInfo->szIPForUser, pSelfServerInfo->wPortForUser);
 			return FALSE;
 		}
 		else
 		{
-			g_Console.LOG(4, "StartServerForUser : %s, %d", pSelfServerInfo->szIPForUser, pSelfServerInfo->wPortForUser);
+			g_Console.MLOG(4, "StartServerForUser : %s, %d", pSelfServerInfo->szIPForUser, pSelfServerInfo->wPortForUser);
 		}
 	}
 	return TRUE;
@@ -165,7 +165,7 @@ void CBootManager::NotifyBootUpToMS(CNetwork * pNet)
 	msg.dwProcessID = GetCurrentProcessId();
 	msg.BootInfo = *g_pServerTable->GetSelfServer();
 	pNet->Send2Server(g_pServerTable->GetMSServer()->dwConnectionIndex, (char*)&msg, sizeof(MSG_PWRUP_BOOTUP));
-	g_Console.LOG(4, "bootup send");
+	g_Console.MLOG(4, "bootup send");
 }
 
 void CBootManager::AddBootList(CServerTable * pServerTable, SERVERINFO * pServerInfo)
@@ -249,12 +249,12 @@ void CBootManager::NetworkMsgParse(DWORD dwConnectionIndex, char* pMsg, DWORD dw
 	{
 	case MP_POWERUP_BOOTLIST_ACK:
 		{
-			g_Console.LOG(4, "bootlist ack");
+			g_Console.MLOG(4, "bootlist ack");
 			// AddBootList호출
 			MSG_PWRUP_BOOTLIST * pmsg = (MSG_PWRUP_BOOTLIST *)pMsg;
 			for(int i = 0 ; i < pmsg->Num ; ++i)
 			{
-				g_Console.LOG(4, "bootlist (%d):%s, %d", i, pmsg->BootList[i].szIPForServer, pmsg->BootList[i].wPortForServer);
+				g_Console.MLOG(4, "bootlist (%d):%s, %d", i, pmsg->BootList[i].szIPForServer, pmsg->BootList[i].wPortForServer);
 				AddBootList(g_pServerTable, &pmsg->BootList[i]);
 			}
 			BactchConnectToMap(&g_Network, g_pServerTable);
