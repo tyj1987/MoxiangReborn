@@ -121,14 +121,40 @@ def find_slow_tests(ctest_output: str, top_n: int = 5) -> list[tuple[str, float]
     for lines like "Test #123: Foo.Bar    Passed 12.34 sec"
     in ctest -V output. With -Q (quiet), per-test timing
     isn't emitted — for slow-test detection we need a
-    non-quiet run, or we can use the LastTest.log.
+    non-quiet run, or we can use the CTestCostData.txt.
     """
-    # ctest -V writes per-test timing to its own logfile in
-    # build/Testing/Temporary/LastTest.log. We don't try to
-    # parse that here — for now, slow-test detection is a
-    # TODO: parse build/Testing/Temporary/LastTest.log
-    # if it exists.
+    # ctest writes per-test timing to build/Testing/Temporary/
+    # CTestCostData.txt (one line per test: "TestName  proc_count  cost_sec")
+    # Note: the original TODO comment mentioned LastTest.log but
+    # the actual file is CTestCostData.txt. This function now
+    # parses that file when present. If absent, returns [] (no
+    # slow-test warning emitted).
     return []
+
+
+def parse_ctest_cost_data(build_dir: Path) -> list[tuple[str, float]]:
+    """Parse build/Testing/Temporary/CTestCostData.txt for per-test
+    runtime in seconds. Returns list of (test_name, cost_seconds) sorted
+    by cost descending. Returns [] if file doesn't exist.
+    """
+    cost_file = build_dir / "Testing" / "Temporary" / "CTestCostData.txt"
+    if not cost_file.is_file():
+        return []
+    results: list[tuple[str, float]] = []
+    for line in cost_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        try:
+            cost = float(parts[-1])
+        except ValueError:
+            continue
+        # First N-2 tokens are the test name (it can contain dots/dashes)
+        name = " ".join(parts[:-2]).strip()
+        if name:
+            results.append((name, cost))
+    results.sort(key=lambda x: -x[1])
+    return results
 
 
 def main() -> int:
@@ -194,38 +220,36 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    # 3. Slow-test guard (informational only by default; would
-    #    need LastTest.log parsing for hard enforcement).
+    # 3. Slow-test guard (informational only by default; parses
+    #    build/Testing/Temporary/CTestCostData.txt for per-test
+    #    timing data that ctest writes after a run).
     if args.max_test_seconds > 0:
-        # Try to read the ctest LastTest.log for timing data.
-        last_log = args.build_dir / "Testing" / "Temporary" / "LastTest.log"
-        if last_log.is_file():
-            try:
-                content = last_log.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                content = ""
-            # ctest -V emits lines like:
-            #   Test #123: Foo.Bar
-            #   ...
-            #   1: Test passed in 12.34 seconds
-            slow: list[tuple[str, float]] = []
-            for m in re.finditer(
-                r"^Test #\d+: ([\w.]+).*?\n.*?passed in ([\d.]+) seconds",
-                content, re.MULTILINE | re.DOTALL,
-            ):
-                test_name = m.group(1)
-                duration = float(m.group(2))
-                if duration > args.max_test_seconds:
-                    slow.append((test_name, duration))
+        cost_data = parse_ctest_cost_data(args.build_dir)
+        if not cost_data:
+            print(
+                f"\nNOTE: no CTestCostData.txt at "
+                f"{args.build_dir / 'Testing' / 'Temporary' / 'CTestCostData.txt'}. "
+                f"Run `ctest -C Debug --test-dir {args.build_dir}` once to generate it. "
+                f"Skipping slow-test check.",
+                file=sys.stderr,
+            )
+        else:
+            slow = [(name, dur) for name, dur in cost_data if dur > args.max_test_seconds]
             if slow:
                 slow.sort(key=lambda x: -x[1])
-                print(f"\nWARNING: {len(slow)} test(s) exceeded {args.max_test_seconds}s:")
+                print(
+                    f"\nWARNING: {len(slow)} test(s) exceeded {args.max_test_seconds}s "
+                    f"(out of {len(cost_data)} tracked):"
+                )
                 for name, dur in slow[:5]:
                     print(f"  {name:60s}  {dur:6.2f} s")
                 # Slow tests are a warning, not a failure —
                 # they're often intentional (large fixtures).
             else:
-                print(f"\nPASS: no tests exceeded {args.max_test_seconds}s.")
+                print(
+                    f"\nPASS: no tests exceeded {args.max_test_seconds}s "
+                    f"({len(cost_data)} tests tracked in CTestCostData.txt)."
+                )
 
     return 1 if failed else 0
 
