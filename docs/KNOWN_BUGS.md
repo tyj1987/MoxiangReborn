@@ -327,44 +327,65 @@
   legacy 参考：`墨香【源码】\[CC]Skill\ItemList.bin`（binary 资源）、
   `墨香【源码】\4DyuchiGRX_common\GameResourceStruct.h`（字段定义）。
 
-### Bug R-9: 矩阵 row/column-major 约定混乱，primitives.cpp drawBox 正交投影无法实装（Phase 12.1 deferred）
+### Bug R-9: 矩阵 row/column-major 约定混乱，primitives.cpp drawBox 正交投影无法实装（Phase 12.x 部分实装）
 - **症状**：`modern/src/render/dx11/primitives.cpp:212` 的 TODO 标记
   ("simple: use x,y for now, proper ortho projection is TODO") 从 Phase 5
   stub 阶段一直挂着。drawBox 用 oct.x, oct.z 当 2D 屏幕坐标——只看了
   X、Z 维度且没做 matrix multiply。
 - **根因**：项目矩阵库的 row/column-major 约定**实际混乱**，无法在不
   引入更多 bug 的前提下做"正确"的 CPU 端 transform：
-  - `MatrixLookAtLH` 注释自称 "Row-major view matrix"（`M[0][0]=R·R`,
+  - 旧 `MatrixLookAtLH` 注释自称 "Row-major view matrix"（`M[0][0]=R·R`,
     `M[0][3]=-dot(R,eye)`），但这种排布在 row-major 矩阵 + 行向量
     变换（`v × M`）下**translation 在最后一列**才生效——把 translation
     写在 `M[0][3]`（第 0 行第 3 列）实际是 **column-major** 存储。
-  - `MatrixOrthographicLH` 的 `pOut->_43 = -zn/(zf-zn)`（行 2 列 3）
+  - 旧 `MatrixOrthographicLH` 的 `pOut->_43 = -zn/(zf-zn)`（行 2 列 3）
     在 DX 标准 LH ortho **column-major** 下对，row-major 下错。
   - `MatrixMultiply2` 用标准数学约定 `result[i][j] = sum_k A[i][k]*B[k][j]`
     （行主序矩阵乘）。
   - 三者**互相冲突**——同一份 4x4 数据同时按 row-major 和 column-major
-    解释，结果不同。
-- **尝试过的方案**（本 session 2026-07-16 03:15-03:30）：
-  - 加 `Vector4Transform(v, M) = v × M`（row-major 假设）+ 改 drawBox
-    用 4x4 transform 投 8 个 octahedron 角。
-  - Build 通过，写 8 个测试覆盖 identity / ortho / translation。
-  - **撤回**所有改动——Vector4Transform helper 撤掉、drawBox 恢复 stub、
-    8 个测试撤掉。原因：row-major 假设下，MatrixLookAtLH 输出**自相矛盾**，
-    任何使用 m_viewProj 的代码（height_field、mesh）看到的语义
-    都不确定。
-- **现代方案**：先做**矩阵约定审计**（1-2 个 commit）：
-  1) 决定项目用 row-major 还是 column-major（看 height_field / mesh
-     shader 怎么用 `mul(v, M)`）。
-  2) 修 MatrixLookAtLH / MatrixOrthographicLH 的 storage 与 transform
-     helper 一致。
-  3) 补 4-5 个 test pin 约定（identity / row-major perspective /
-     row-major ortho 等）。
-  4) **然后**才回头改 drawBox 正交投影。
-- **状态**：Deferred（2026-07-16 Phase 12.1 尝试后撤回）。用户决策：
-  是否做约定审计（牵涉 height_field / mesh 既有代码兼容性）。
+    解释，结果不同。在 axis-aligned eye / 纯旋转 0° / 等同于 identity
+    的 case 下数值碰巧相同，旧测试只覆盖这些 case，**没 pin 出 layout**。
+- **尝试过的方案**（本 session 2026-07-16 13:30+，Phase 12.x）：
+  - **决定约定**：项目用 D3DX 风格的 `_ij` 命名 + 行主序 C++ 内存 +
+    HLSL `mul(v_row, M)` 配套。CPU 端 `memcpy(M, cbuffer, 64)` 后
+    HLSL 默认 column-major 解读 = 数学上 = `M_cpu^T`，
+    `mul(v_row, M_hlsl) = v_row × M_cpu^T` 数学 = 等价于 D3DX 行
+    主序 view 矩阵约定。
+  - **修 MatrixLookAtLH / MatrixOrthographicLH**：translation
+    从 column 3 (right column) 改到 row 3 (bottom row)，跟 D3DX
+    row-major view/ortho 一致：
+    - view: `_11=R.x _12=U.x _13=F.x _14=0 / _41=-P.R _42=-P.U _43=-P.F _44=1`
+    - ortho: `_11=2/w _22=2/h _33=1/(zf-zn) _43=-zn/(zf-zn) _44=1`
+  - **加 7 个新测试**（`math_d3dx_convention_test.cpp`）用 off-axis
+    eye (3,4,5) + asymmetric frustum pin 正确 layout：basis 行 / 翻译
+    行 / NDC corner 映射 / 视角矩阵正交归一 / view*ortho composition。
+  - **修 3 个旧测试**（`MatrixLookAtTest.StandardForwardView`,
+    `MatrixLookAtTest.EyeMapsToOrigin`,
+    `MatrixMathTest.LookAtLHProducesValidMatrix`）使其 pin 正确
+    layout 而非 bug layout。
+- **撤回的旧尝试**（2026-07-16 03:15-03:30, Phase 12.1）：`Vector4Transform`
+  helper 撤掉、drawBox 恢复 stub、8 个测试撤掉。原因：当时在 row-major
+  vs column-major 之间犹豫，没确定 HLSL 语义，导致 attempt 写出来的
+  view 矩阵在 off-axis eye 下结果矛盾。
+- **状态**：**部分实装**（2026-07-16 Phase 12.x）。
+  - math.hpp MatrixLookAtLH/MatrixOrthographicLH 改完，top-of-file
+    注释明确 D3DX 约定
+  - 7 个新 test PASS（off-axis eye + 翻译 + 正交归一 + NDC 边界 +
+    view*ortho composition）
+  - 3 个旧 test 更新到正确 layout，0 回归
+  - 全栈 879 → 886 ctest PASS（+7 用例，0 回归）
+- **剩余**：primitives.cpp drawBox 仍用 x,z 当 2D（TODO 注释未删）。
+  改为 3D 顶点 + 真 ortho 投影需要把 vsolid 输入 layout 从 `float2 pos`
+  升级到 `float3 pos`（影响所有调用方：drawBox / drawLine / drawCircle
+  / drawPoint / drawGrid / drawTexturedQuad / sprite / font_object），
+  这是 1-2 commit 范围，**延后**到下一个 R-9.x session。
 - **关联**：`modern/include/mxh/render/math.hpp`（MatrixLookAtLH/
-  MatrixOrthographicLH/MatrixMultiply2/已删 Vector4Transform）、
-  `modern/src/render/dx11/primitives.cpp:212`（TODO 仍在）、
+  MatrixOrthographicLH 修复 + 顶部 D3DX 约定注释）、
+  `modern/tests/unit/render/math_d3dx_convention_test.cpp`（新建 7
+  个 test）、`modern/tests/unit/render/math_test.cpp`（3 个旧
+  test 改 layout 期望）、`modern/tests/unit/render/mesh_geometry_test.cpp`
+  （LookAtLHProducesValidMatrix 改 layout 期望）、
+  `modern/src/render/dx11/primitives.cpp:212`（TODO 仍在，deferred）、
   `modern/src/render/dx11/height_field.hpp:131`（setViewProj）、
   `modern/src/render/dx11/font_object.cpp:308`（drawer.setViewProj 调用）。
 

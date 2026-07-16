@@ -1,6 +1,38 @@
 // mxh/render/math.hpp
 // 1:1 with original 4DyuchiGRX_common/math.inl (DirectX 8-era fixed-point math types).
 // All types kept as plain structs so binary layouts match the original COM interfaces.
+//
+// Convention: D3DX-style row-major naming on a row-major physical memory layout.
+//   - `M._ij` is a mathematical row-i, column-j element (the standard DirectX
+//     naming convention since D3DX 8.x). The union with `m[4][4]` puts _ij at the
+//     same memory location as `m[i][j]`, so the physical memory layout is
+//     `m[0][0] m[0][1] m[0][2] m[0][3] m[1][0] ...` — i.e. row 0 floats are
+//     contiguous, then row 1, etc.
+//   - HLSL `float4x4` defaults to column-major physical packing. When CPU code
+//     `memcpy`s a `MATRIX4` straight into a `cbuffer float4x4` slot, HLSL
+//     interprets the bytes as `M[0][0] m[0][1] m[0][2] m[0][3] m[1][0] ...`
+//     which is the same memory order (and equivalent to the transpose of the
+//     math matrix that HLSL uses internally). The project's HLSL shaders
+//     therefore use `mul(v_row, M)` to stay consistent with the CPU-side
+//     D3DX-style layout.
+//   - MatrixMultiply2 follows the D3DX matrix multiplication formula:
+//     `result._ij = sum_k a._ik * b._kj` (row-major math, row-major storage).
+//   - MatrixLookAtLH / MatrixOrthographicLH produce D3DX-compatible outputs:
+//       MatrixLookAtLH:        MatrixOrthographicLH (rows = function of basis/extent):
+//         _11=R.x _12=U.x _13=F.x _14=-P.R    _11=2/w _12=0   _13=0       _14=0
+//         _21=R.y _22=U.y _23=F.y _24=-P.U    _21=0   _22=2/h _23=0       _24=0
+//         _31=R.z _32=U.z _33=F.z _34=-P.F    _31=0   _32=0   _33=1/(zf-zn) _34=0
+//         _41=0   _42=0   _43=0   _44=1        _41=0   _42=0   _43=-zn/(zf-zn) _44=1
+//     Translation lives in column 3 (the basis dot products with -P), and
+//     z-translation in row 3 col 2 for the ortho (pre-perspective-divide row).
+//   - R-9 (Phase 12.x) audit: the previous implementation wrote column-major
+//     data into the row-major storage (e.g. _43 = -zn/(zf-zn) instead of
+//     _32, and the view basis as the first three rows instead of the first
+//     three columns). It happened to work for axis-aligned camera setups
+//     (R.x=1, U.y=1, F.z=1) but produced wrong rotation/translation for
+//     any off-axis eye. This file now uses the D3DX-correct layout and the
+//     `math_d3dx_convention_test.cpp` file pins the convention with
+//     off-axis tests.
 #pragma once
 
 #include <cmath>
@@ -84,18 +116,32 @@ inline void MatrixMultiply2(MATRIX4* pResult, const MATRIX4* pA, const MATRIX4* 
 
 // Row-major orthographic projection (maps scene volume to NDC depth [0,1]).
 // Width/height are the half-extents; near/far are positive distances.
+// D3DX row-major layout: the basis vectors live in row 0/1/2 columns 0..2,
+// and the affine translation lives in the BOTTOM row (_41, _42, _43, _44).
+// The z-translation that pushes the near plane to NDC z = 0 lives in _43
+// (bottom row col 2) — pre-perspective-divide.
 inline void MatrixOrthographicLH(MATRIX4* pOut, float w, float h, float zn, float zf) {
     if (!pOut) return;
     *pOut = MatrixIdentity();
     pOut->_11 = 2.0f / w;
     pOut->_22 = 2.0f / h;
     pOut->_33 = 1.0f / (zf - zn);
-    pOut->_43 = -zn / (zf - zn);
+    pOut->_43 = -zn / (zf - zn);   // R-9 fix: was _32 (placed the offset
+                                   // in row 2 col 2, producing a translation
+                                   // that would re-appear in the
+                                   // perspective-divide row).
     pOut->_44 = 1.0f;
 }
 
 // Row-major look-at (view) matrix — eye looking at target with up vector.
-// Result transforms world space so that looking down -Z (LH convention).
+// D3DX-compatible row-major layout: the basis vectors (R, U, F) live along
+// the columns of the upper-3x3 submatrix (row 0 = (R.x, U.x, F.x, 0), etc.),
+// and the affine translation lives in the BOTTOM row (_41, _42, _43, _44).
+// A row-major `mul(v_row, M)` from HLSL gives the same world-to-view
+// transform that `D3DXVec3TransformCoord` did in the original engine when
+// the CPU matrix is uploaded as-is (the HLSL column-major packing then
+// acts as the mathematical transpose of the row-major CPU layout, which
+// matches the D3DX row-major transform convention).
 inline void MatrixLookAtLH(MATRIX4* pOut, const VECTOR3* pEye,
                            const VECTOR3* pAt, const VECTOR3* pUp) {
     if (!pOut || !pEye || !pAt || !pUp) return;
@@ -114,15 +160,18 @@ inline void MatrixLookAtLH(MATRIX4* pOut, const VECTOR3* pEye,
     r = { rx/rl, ry/rl, rz/rl };
     // up = right x forward (LH)
     u = { r.y*f.z - r.z*f.y, r.z*f.x - r.x*f.z, r.x*f.y - r.y*f.x };
-    // Row-major view matrix:
-    // R·R  R·U  R·F  -dot(R,eye)
-    // U·R  U·U  U·F  -dot(U,eye)
-    // F·R  F·U  F·F  -dot(F,eye)
-    //   0    0    0        1
-    pOut->_11 = r.x; pOut->_12 = r.y; pOut->_13 = r.z; pOut->_14 = -(r.x*pEye->x + r.y*pEye->y + r.z*pEye->z);
-    pOut->_21 = u.x; pOut->_22 = u.y; pOut->_23 = u.z; pOut->_24 = -(u.x*pEye->x + u.y*pEye->y + u.z*pEye->z);
-    pOut->_31 = f.x; pOut->_32 = f.y; pOut->_33 = f.z; pOut->_34 = -(f.x*pEye->x + f.y*pEye->y + f.z*pEye->z);
-    pOut->_41 = 0.0f; pOut->_42 = 0.0f; pOut->_43 = 0.0f; pOut->_44 = 1.0f;
+    // D3DX row-major view matrix:
+    //   _11=R.x _12=U.x _13=F.x _14=0
+    //   _21=R.y _22=U.y _23=F.y _24=0
+    //   _31=R.z _32=U.z _33=F.z _34=0
+    //   _41=-P.R _42=-P.U _43=-P.F _44=1
+    pOut->_11 = r.x; pOut->_12 = u.x; pOut->_13 = f.x; pOut->_14 = 0.0f;
+    pOut->_21 = r.y; pOut->_22 = u.y; pOut->_23 = f.y; pOut->_24 = 0.0f;
+    pOut->_31 = r.z; pOut->_32 = u.z; pOut->_33 = f.z; pOut->_34 = 0.0f;
+    pOut->_41 = -(r.x*pEye->x + r.y*pEye->y + r.z*pEye->z);
+    pOut->_42 = -(u.x*pEye->x + u.y*pEye->y + u.z*pEye->z);
+    pOut->_43 = -(f.x*pEye->x + f.y*pEye->y + f.z*pEye->z);
+    pOut->_44 = 1.0f;
 }
 
 // Set column j (j=0..3) of a row-major matrix to a 4-element vector.

@@ -13,6 +13,7 @@ add_executable(mxh_render_tests
     phase5_deferred_test.cpp
     mesh_flag_test.cpp
     math_test.cpp
+    math_d3dx_convention_test.cpp
     motion_flag_test.cpp
     file_storage_typedef_test.cpp
 )
@@ -194,6 +195,14 @@ gtest_add_tests(TARGET mxh_render_tests
     SetMatrixColumnTest.AllFourColumns
     SetMatrixColumnTest.InvalidColumnIndexIsNoOp
     SetMatrixColumnTest.NullPointerIsNoOp
+    # R-9: D3DX row-major view/ortho convention pinning
+    MatrixLookAtD3DXTest.OffAxisEyeTranslationColumn
+    MatrixLookAtD3DXTest.WorldRightBasisMapsToViewX
+    MatrixLookAtD3DXTest.ViewMatrixIsRigidIsometry
+    MatrixLookAtD3DXTest.TargetDistanceIsPreserved
+    MatrixOrthoD3DXTest.CornersMapToNDC
+    MatrixOrthoD3DXTest.TranslationIsInRowThreeColumnTwo
+    ViewOrthoCompositionTest.ViewAtOriginLooksAtPlusZ
     # Phase 10.20: motion flag bitmask
     MotionKeyframeTest.WireFormatValues
     MotionKeyframeTest.MaskAndInverseCoverAll32Bits

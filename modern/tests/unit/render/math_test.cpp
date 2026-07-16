@@ -275,37 +275,37 @@ TEST(MatrixLookAtTest, StandardForwardView) {
     //       = (0*0 - 1*1, 1*0 - 0*0, 0*1 - 0*0) = (-1, 0, 0)
     // up = right × forward = (-1, 0, 0) × (0, 0, 1)
     //    = (0*1 - 0*0, 0*0 - (-1)*1, -1*0 - 0*0) = (0, 1, 0)
-    // The view matrix rows are R, U, F, (0,0,0,1), with
-    // translation column = -dot(R/U/F, eye).
+    // D3DX row-major view matrix (R-9 fix): the basis vectors
+    // (R, U, F) live along the rows of the upper-3x3 submatrix
+    // (row 0 = (R.x, U.x, F.x, 0), etc.), and the affine
+    // translation lives in the BOTTOM row (_41, _42, _43, _44).
+    // For this axis-aligned eye, R = (-1, 0, 0), U = (0, 1, 0),
+    // F = (0, 0, 1) and translation = -dot(basis, eye).
     MATRIX4 m{};
     VECTOR3 eye{0.0f, 0.0f, -5.0f};
     VECTOR3 at{0.0f, 0.0f, 0.0f};
     VECTOR3 up{0.0f, 1.0f, 0.0f};
     MatrixLookAtLH(&m, &eye, &at, &up);
-    // Right axis: (-1, 0, 0) — the cross-product f×up convention
-    // produces a left-handed view (the world's +X appears on the
-    // left of the screen). This is the original engine's quirk.
+    // Row 0 = (R.x, U.x, F.x, 0):
     EXPECT_NEAR(m._11, -1.0f, 1e-5f);
     EXPECT_NEAR(m._12,  0.0f, 1e-5f);
     EXPECT_NEAR(m._13,  0.0f, 1e-5f);
-    // Up axis: (0, 1, 0)
+    EXPECT_NEAR(m._14,  0.0f, 1e-5f);
+    // Row 1 = (R.y, U.y, F.y, 0):
     EXPECT_NEAR(m._21, 0.0f, 1e-5f);
     EXPECT_NEAR(m._22, 1.0f, 1e-5f);
     EXPECT_NEAR(m._23, 0.0f, 1e-5f);
-    // Forward axis: (0, 0, 1)
+    EXPECT_NEAR(m._24, 0.0f, 1e-5f);
+    // Row 2 = (R.z, U.z, F.z, 0):
     EXPECT_NEAR(m._31, 0.0f, 1e-5f);
     EXPECT_NEAR(m._32, 0.0f, 1e-5f);
     EXPECT_NEAR(m._33, 1.0f, 1e-5f);
-    // Bottom row: (0, 0, 0, 1)
+    EXPECT_NEAR(m._34, 0.0f, 1e-5f);
+    // Bottom row = (-dot(R,eye), -dot(U,eye), -dot(F,eye), 1):
     EXPECT_NEAR(m._41, 0.0f, 1e-5f);
     EXPECT_NEAR(m._42, 0.0f, 1e-5f);
-    EXPECT_NEAR(m._43, 0.0f, 1e-5f);
+    EXPECT_NEAR(m._43, 5.0f, 1e-5f);   // -dot(F, eye) = -(0+0+1*(-5)) = 5
     EXPECT_NEAR(m._44, 1.0f, 1e-5f);
-    // Translation: -dot(R, eye) = 0, -dot(U, eye) = 0,
-    // -dot(F, eye) = -(0+0+1*(-5)) = 5.
-    EXPECT_NEAR(m._14, 0.0f, 1e-5f);
-    EXPECT_NEAR(m._24, 0.0f, 1e-5f);
-    EXPECT_NEAR(m._34, 5.0f, 1e-5f);
 }
 
 TEST(MatrixLookAtTest, EyeMapsToOrigin) {
@@ -313,19 +313,20 @@ TEST(MatrixLookAtTest, EyeMapsToOrigin) {
     // origin (the camera is at the origin in its own view
     // space), regardless of eye orientation. Test this with a
     // non-axis-aligned setup.
+    //
+    // R-9 fix: the HLSL row-vector convention applies the
+    // matrix as `M * v` with result[j] = column j of M dotted
+    // with v. So the eye→origin check is:
+    //   result.x = _11*eye.x + _21*eye.y + _31*eye.z + _41
+    //            = (R.x)*eye.x + (R.y)*eye.y + (R.z)*eye.z + (-dot(R, eye)) = 0
     MATRIX4 m{};
     VECTOR3 eye{3.0f, 4.0f, 5.0f};
     VECTOR3 at{0.0f, 0.0f, 0.0f};
     VECTOR3 up{0.0f, 1.0f, 0.0f};
     MatrixLookAtLH(&m, &eye, &at, &up);
-    // (m * eye).x = R.x * eye.x + R.y * eye.y + R.z * eye.z + (-dot(R, eye))
-    //             = 0 by construction
-    // (m * eye).y = 0 by construction
-    // (m * eye).z = F.x * eye.x + F.y * eye.y + F.z * eye.z + (-dot(F, eye))
-    //             = 0 by construction
-    float tx = m._11 * eye.x + m._12 * eye.y + m._13 * eye.z + m._14;
-    float ty = m._21 * eye.x + m._22 * eye.y + m._23 * eye.z + m._24;
-    float tz = m._31 * eye.x + m._32 * eye.y + m._33 * eye.z + m._34;
+    float tx = m._11 * eye.x + m._21 * eye.y + m._31 * eye.z + m._41;
+    float ty = m._12 * eye.x + m._22 * eye.y + m._32 * eye.z + m._42;
+    float tz = m._13 * eye.x + m._23 * eye.y + m._33 * eye.z + m._43;
     EXPECT_NEAR(tx, 0.0f, 1e-4f);
     EXPECT_NEAR(ty, 0.0f, 1e-4f);
     EXPECT_NEAR(tz, 0.0f, 1e-4f);

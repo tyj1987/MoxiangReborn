@@ -122,20 +122,32 @@ TEST(MatrixMathTest, OrthographicLHHasCorrectDiagonal) {
 // Verify MatrixLookAtLH produces a valid (non-identity) view matrix.
 // Camera at (0,0,5) looking toward origin (0,0,0) in LH coordinates:
 //   forward = normalize(at - eye) = normalize(0,0,-5) = (0,0,-1)
-//   _34 = -dot(F, eye) = -((-1)*5) = 5  (> 0 means world origin ends up behind camera)
+//   R-9 fix: D3DX row-major view matrix has the affine
+//   translation in the BOTTOM row, not the rightmost column.
+//   So _43 = -dot(F, eye) = -((-1)*5) = 5. (Was _34 in the
+//   pre-R-9 column-major layout.)
 TEST(MatrixMathTest, LookAtLHProducesValidMatrix) {
     MATRIX4 m{};
     VECTOR3 eye{ 0.0f, 0.0f, 5.0f };
     VECTOR3 at{  0.0f, 0.0f, 0.0f };
     VECTOR3 up{  0.0f, 1.0f, 0.0f };
     MatrixLookAtLH(&m, &eye, &at, &up);
-    // Bottom row of a row-major view matrix is always [0,0,0,1]
+    // Right column of the upper-3x3 (m._14, m._24, m._34) is
+    // zero in an affine view matrix; the basis vectors live in
+    // rows 0..2 and translation lives in row 3.
+    EXPECT_FLOAT_EQ(m._14, 0.0f);
+    EXPECT_FLOAT_EQ(m._24, 0.0f);
+    EXPECT_FLOAT_EQ(m._34, 0.0f);
+    // Bottom row of a D3DX row-major view matrix holds the
+    // affine translation -dot(basis, eye):
+    //   _41 = -dot(R, eye) = 0   (R = (0, 0, -1), eye.z = 5)
+    //   _42 = -dot(U, eye) = 0
+    //   _43 = -dot(F, eye) = -((-1)*5) = 5
+    //   _44 = 1
     EXPECT_FLOAT_EQ(m._41, 0.0f);
     EXPECT_FLOAT_EQ(m._42, 0.0f);
-    EXPECT_FLOAT_EQ(m._43, 0.0f);
+    EXPECT_FLOAT_EQ(m._43, 5.0f);
     EXPECT_FLOAT_EQ(m._44, 1.0f);
-    // _34 = -dot(F, eye) = -((-1)*5) = 5  (>0 means origin ends up at z_cam=5 in LH cam space)
-    EXPECT_FLOAT_EQ(m._34, 5.0f);
 }
 
 // Verify MatrixIdentity produces the canonical identity matrix.
