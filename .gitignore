@@ -250,6 +250,9 @@ modern/test_*stderr.txt
 modern/test_*stdout.txt
 # Phase 10.4.10: build stdout logs for one-off map release / debug runs
 modern/scripts/build_*.txt
+# Phase 12.1: archive subdirs for build log roundups (e.g. build_logs_20260707/).
+# Root README.md in the subdir is tracked; the .txt logs are not.
+modern/scripts/build_logs_*/
 # Phase 10.4.10: agent scratch helpers (incremental mod analysis, etc.)
 modern/update_plan_*.py
 ~$*
