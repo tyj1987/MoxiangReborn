@@ -320,13 +320,13 @@ Phase 12: 持续迭代 ✅
 - [x] `scripts/start-server.ps1` 一键启动脚本
 
 ### Phase 1 交付物
-- [x] `modern/MoxianCompat` 静态库（CMHFileEx + PackFile 重写）
+- [x] `modern/src/mh_file_ex.cpp` + `modern/src/pack_file.cpp` + 7 个 resource format 解析器（MoxianCompat 静态库 — CMHFileEx + PackFile + chr_motion + chx_model + bmhm_map + bsad_area + ttb_tile_table 重写；Phase 12.1 后作为 flat `modern/src/*.cpp` 而非独立子目录）
 - [x] `tools/MoxianResourceExplorer` 命令行资源浏览器
 - [x] 单元测试：所有 `.bin/.pak/.bmhm/.bsad` 读取验证
 - [x] 文档：`docs/RESOURCE_FORMATS.md`
 
 ### Phase 2 交付物
-- [x] `modern/MoxianDb` IDbAdapter 接口
+- [x] `modern/src/db_adapter.cpp` + `db_factory.cpp` + `mssql_odbc_adapter.cpp` + `sqlite_adapter.cpp` (MoxianDb IDbAdapter 接口 — Phase 12.1 后作为 flat `modern/src/*.cpp` 而非独立子目录)
 - [x] MSSQL + PostgreSQL + SQLite 三实现
 - [x] `tools/MoxianDbTool` schema 导出
 - [x] 文档：`docs/DATABASE_SCHEMA.md`
@@ -345,7 +345,7 @@ Phase 12: 持续迭代 ✅
 - [x] 4.4 加密/压缩/校验中间件：IEncryptor 已集成到 TcpServer 发送/接收 + TcpClient 发送/接收 + 接收循环 + 3 个加密集成测试
 
 ### Phase 5 交付物（DX11 渲染器）
-- [x] `modern/src/render/mxh_render` 静态库 — DX11 后端
+- [x] `modern/src/render/dx11/` — DX11 后端（mxh_render 静态库以 `modern/src/render/dx11/*.cpp` 形式落地，而非独立 `mxh_render` 子目录）
 - [x] `modern/include/mxh/render/IRenderer.hpp` — 1:1 端口（75 个方法签名）
 - [x] `modern/include/mxh/render/IFileStorage.hpp` — 1:1 端口（27 个方法签名）
 - [x] `modern/include/mxh/render/render_typedef.hpp` — 与原 DX8 引擎二进制兼容的结构体
@@ -829,7 +829,7 @@ Phase 12: 持续迭代 ✅
   - **`DistributeServer_JAPAN.exe` 1,303,552 B**
   - **`DistributeServer_HK.exe` 1,312,256 B**
   - **`DistributeServer_TL.exe` 1,306,112 B**
-  - KOR build log: `modern/scripts/phase75i_distribute_kor_v3.log` (0 errors, 4 warnings 都是 legacy unrelated: Zc:forScope-, /wd 9999, LNK4098 LIBCMT)
+  - KOR build log: `modern/scripts/build_distribute_locales_v2.log` (0 errors, 4 warnings 都是 legacy unrelated: Zc:forScope-, /wd 9999, LNK4098 LIBCMT) — phase75i_distribute_kor_v3.log 已 archive 到 scratch
 - [x] **MD5 equivalence 验证**：vendor.cpp 注释里写明 md5("")/md5("a")/md5("abc") 3 个标准测试向量 1:1 byte-identical to MD5Checksum.lib。login 协议用 MD5 hex 字符串对比 SQL column，所以 vendor 跟 legacy 完全等价
 - [x] **KNOWN_BUGS C-35 状态翻转为 fixed**（`docs/KNOWN_BUGS.md` 新追加 C-35 Phase 7.5i 修复 entry，保留原 7.5h entry 作为历史快照）
 - [x] **5 target 残留**：`MODERNIZATION_PLAN.md` 5 节勾掉 4/5 blocker，标 Phase 7.5i = "C-35 修完"
@@ -890,7 +890,7 @@ Phase 12: 持续迭代 ✅
    - 创建 `AGENTS.md`（P1: 跨 session 协作指南 + 24h AI 接力）
    - 创建 `cmake/` 骨架 + `modern/CMakeLists.txt`（先不动原工程）
    - 创建 `scripts/` 一键启动脚本（modern/scripts/ 17 dev utilities，见 P10.4）
-   - 编写 `modern/MoxianCompat` Phase 1 起步代码（MhFileEx / PackFile / TgaLoader / ResourceExplorer）
+   - 编写 `modern/src/mh_file_ex.cpp` + `pack_file.cpp` + `chr_motion.cpp` + `chx_model.cpp` + `bmhm_map.cpp` + `bsad_area.cpp` + `ttb_tile_table.cpp` (Phase 1 起步代码 — MhFileEx + PackFile + chr_motion + chx_model + bmhm_map + bsad_area + ttb_tile_table)
 
 ---
 
