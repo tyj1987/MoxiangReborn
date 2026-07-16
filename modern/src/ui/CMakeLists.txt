@@ -30,6 +30,8 @@ add_library(mxh_ui STATIC
     wearedexdialog.cpp
     minifrienddialog.cpp
     revivedialog.cpp
+    ctextarea.cpp
+    mpnoticedialog.cpp
     ime.cpp
 )
 

@@ -25,6 +25,8 @@ add_executable(mxh_ui_tests
     wearedexdialog_test.cpp
     minifrienddialog_test.cpp
     revivedialog_test.cpp
+    ctextarea_test.cpp
+    mpnoticedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -431,4 +433,36 @@ gtest_add_tests(TARGET mxh_ui_tests
     CReviveDialogTest.SetActiveButtonTogglingIsNoOpUntilSIEGEMGRPort
     CReviveDialogTest.SetActiveWithoutLinksIsSafe
     CReviveDialogTest.SetActiveBeforeInitDoesNotCrash
+    # P2-12 Tier 1.5 sub-widget: cTextArea (multi-line text area)
+    CTextAreaTest.DefaultConstructionIsValid
+    CTextAreaTest.InitTextAreaFullOverloadStoresChromeImages
+    CTextAreaTest.InitTextAreaSimpleOverloadStoresTextRect
+    CTextAreaTest.InitTextAreaTwiceKeepsLastConfig
+    CTextAreaTest.SetActiveTrueUpdatesBaseAndCaret
+    CTextAreaTest.SetActiveFalseUpdatesBaseAndCaret
+    CTextAreaTest.SetFocusEditUpdatesCaret
+    CTextAreaTest.SetFocusIsAliasForSetFocusEdit
+    CTextAreaTest.SetScriptTextStoresText
+    CTextAreaTest.SetScriptTextOverwritesPrevious
+    CTextAreaTest.SetScriptTextNullClearsText
+    CTextAreaTest.GetScriptTextCStringWritesToBuffer
+    CTextAreaTest.GetScriptTextCStringRespectsBufferSize
+    CTextAreaTest.GetScriptTextCStringNullBufferIsSafe
+    CTextAreaTest.GetScriptTextCStringZeroSizeIsSafe
+    CTextAreaTest.SetReadOnlyToggles
+    CTextAreaTest.SetLimitLineAcceptsNonNegative
+    CTextAreaTest.SetLimitLineRejectsNegative
+    CTextAreaTest.SetTextColorStoresColor
+    CTextAreaTest.SetTextColorZeroIsValid
+    CTextAreaTest.AddDelegatesToBaseDialog
+    CTextAreaTest.RenderIsNoOp
+    # P2-12 Tier 2 dialog: cMPNoticeDialog (MP notice)
+    CMPNoticeDialogTest.DefaultConstructionHasNullPointers
+    CMPNoticeDialogTest.IdConstantsAreDistinct
+    CMPNoticeDialogTest.IdConstantsMatchExpectedLocalRange
+    CMPNoticeDialogTest.ChatMsgIdsMatchLegacy
+    CMPNoticeDialogTest.LinkingResolvesBothTextAreas
+    CMPNoticeDialogTest.LinkingCallsSetScriptText
+    CMPNoticeDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CMPNoticeDialogTest.LinkingBeforeInitDoesNotCrash
 )
