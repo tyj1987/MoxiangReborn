@@ -2,7 +2,7 @@
 
 > **作者**：Mavis  
 > **日期**：2026-07-16  
-> **状态**：🟡 进行中（13/202 = 6.4%）  
+> **状态**：🟡 进行中（14/202 = 6.9%）  
 > **关联**：`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档，每档
 标 port 优先级 + 估计工作量 + blocker，让后续 session 按矩阵接活。
 
-## 已 Port 列表（13/202 = 6.4%）
+## 已 Port 列表（14/202 = 6.9%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -33,6 +33,7 @@ dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cCharStateDialog` | `modern/src/ui/charstatedialog.{hpp,cpp}` | 18 | **2026-07-16** (0.13.17) — Tier 2 dialog（character state bar, 5 cPushupButton 220-224, **5 SetXxxMode REAL (no singleton)**, 1:1 quirk PeaceWar 反向, OnActionEvent + Refresh 阻塞） |
 | `cSOSDialog` | `modern/src/ui/sosdialog.{hpp,cpp}` | 20 | **2026-07-16** (0.13.18) — Tier 2 dialog（guild SOS, 1 cListDialog + 1 cButton 230-231, Linking REAL, 1:1 quirk SetHeight(158) drop, 5-singleton dispatch 阻塞） |
 | `cWearedExDialog` | `modern/src/ui/wearedexdialog.{hpp,cpp}` | 12 | **2026-07-16** (0.13.19) — Tier 2 dialog（equipment slot, wraps cIconDialog 14 cells, AddItem/DeleteItem REAL wrap, 1:1 quirk m_type/m_nIconType drop, 7-singleton dispatch 阻塞） |
+| `cMiniFriendDialog` | `modern/src/ui/minifrienddialog.{hpp,cpp}` | 19 | **2026-07-16** (0.13.20) — Tier 2 dialog（mini friend-add, 4 children 240-243, **第一个全 REAL Tier 2 (无 TODO)**, 1:1 quirks m_type drop, VCM_CHARNAME→2, m_bDisable→!isEnabled, cEditBox m_bInitEdit guard） |
 
 ## 5 档分级
 
@@ -271,7 +272,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 | Tier 5 | 100+ | 1000-3000 行（需 15-20 service） | 8-12 周（依赖 Phase 15 service + network） |
 | **总计** | **131+** | — | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **13/202** = **6.4%**（当前）→ 100% ≈ 4-5 个月全职工作量。
+加上 base **14/202** = **6.9%**（当前）→ 100% ≈ 4-5 个月全职工作量。
 **这是真的"长尾"，不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -288,7 +289,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 - ✅ 新 ported: cGuagen (18 test, Tier 1.5 子控件) — 解锁 CharacterDialog 等多个
   Tier 2 dialog 的子控件 blocker
 - ✅ R-9 矩阵约定审计完成: 7 个新 test pin D3DX row-major layout, 3 个旧 test 更新
-- 📊 Progress: 5/202 = 2.5% → 13/202 = 6.4% (Tier 1.5 子控件算"组件 port",
+- 📊 Progress: 5/202 = 2.5% → 14/202 = 6.9% (Tier 1.5 子控件算"组件 port",
   不算严格 dialog port, 但属于"无 service 阻塞的 ui 元素")
 
 ## 关联文档

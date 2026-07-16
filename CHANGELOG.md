@@ -4,6 +4,43 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.20] - 2026-07-16
+
+### Phase 12.x cMiniFriendDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.19 收口 cWearedExDialog。本 session 接 cMiniFriendDialog (8th Tier 2 dialog, 1:1 port) — header 930B, 4 children (cStatic + cEditBox + 2 cButton), **所有 method 全 REAL — 第一个 end-to-end 可测 Tier 2, 无 TODO 阻塞**。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cMiniFriendDialog 19/19 ctest PASS (`ctest -C Debug -R CMiniFriendDialog`); 全栈 ctest 1015 → 1034 PASS (+19 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/minifrienddialog.hpp` + `minifrienddialog.cpp` (新建, commit `7c8ba65`): 1:1 port of 墨香 CMiniFriendDialog (MiniFriendDialog.h 930B + .cpp)
+  - Ctor + Init override: drop m_type=WT_MINIFRIENDDLG (1:1 quirk: legacy cWindow type tag Phase 6 删除)
+  - **Linking: REAL** (resolve 4 children id 240-243, SetValidCheck + SetEditText(""))
+  - **SetActive override: REAL** (跟 base noexcept 兼容, R-12 polymorphic virtual)
+  - **SetName: REAL** (m_pNameEdit->SetEditText(name))
+  - 4 accessor (GetNameStatic/GetNameEdit/GetAddOkButton/GetAddCancelButton)
+  - kVcmCharnameAlias=2 (closest modern equivalent for legacy VCM_CHARNAME)
+- `modern/tests/unit/ui/minifrienddialog_test.cpp` (新建, 19 用例 PASS): DefaultConstruction + IdConstants x3 + Init + Linking x5 (resolve/validCheck/clear/null/before-init) + SetActive x6 (true/false/clear/not-clear/disabled/cascade) + SetName x3
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `minifrienddialog.cpp` + 19 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor + Init drop m_type=WT_MINIFRIENDDLG (Phase 6 删除)
+- SetValidCheck 用 kVcmCharnameAlias=2 (closest modern; cIMEex integration 缺)
+- SetActive check !isEnabled() (modern cWindow 用 m_bEnabled, legacy m_bDisable 反正)
+- SetEditText 在 cEditBox::m_maxBytes==0 时 no-op (legacy m_bInitEdit guard) — test 调 InitEditbox(50, 64) 启用
+- SetActiveRecursive child cascade no-op (modern cdialog.cpp:80, cWindow 无 isActive 概念)
+- Local id 240-243 (no collision with 200-203/210-212/220-224/230-231)
+
+### Progress
+
+- P2-12: 14/202 = 6.9% (5 base + 8 dialog + 4 subcontrol Tier 1.5)
+- ctest: 1034/1034 PASS (was 1015, +19 cMiniFriendDialog)
+- Session commits: 23 (含 6 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1034 ctest PASS (+155 用例, 0 回归)
+- **本 port 是第一个全 REAL Tier 2** — 无 TODO, 无 deferred dispatch, 4 method 全部 end-to-end 可测
+
 ## [0.13.19] - 2026-07-16
 
 ### Phase 12.x cWearedExDialog Tier 2 dialog port (self-verified by producer session)
