@@ -32,6 +32,7 @@ add_library(mxh_ui STATIC
     revivedialog.cpp
     ctextarea.cpp
     mpnoticedialog.cpp
+    eventnotifydialog.cpp
     ime.cpp
 )
 

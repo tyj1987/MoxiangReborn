@@ -27,6 +27,7 @@ add_executable(mxh_ui_tests
     revivedialog_test.cpp
     ctextarea_test.cpp
     mpnoticedialog_test.cpp
+    eventnotifydialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -465,4 +466,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPNoticeDialogTest.LinkingCallsSetScriptText
     CMPNoticeDialogTest.LinkingWithoutChildrenLeavesPointersNull
     CMPNoticeDialogTest.LinkingBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cEventNotifyDialog (GM event notification)
+    CEventNotifyDialogTest.DefaultConstructionHasNullPointers
+    CEventNotifyDialogTest.IdConstantsAreDistinct
+    CEventNotifyDialogTest.IdConstantsMatchExpectedLocalRange
+    CEventNotifyDialogTest.LinkingResolvesBothChildren
+    CEventNotifyDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CEventNotifyDialogTest.LinkingBeforeInitDoesNotCrash
+    CEventNotifyDialogTest.SetActiveTrueUpdatesBaseState
+    CEventNotifyDialogTest.SetActiveFalseUpdatesBaseState
+    CEventNotifyDialogTest.SetActiveFalseClearsContextText
+    CEventNotifyDialogTest.SetActiveTrueDoesNotClearContextText
+    CEventNotifyDialogTest.SetActiveWithoutContextIsSafe
+    CEventNotifyDialogTest.ActionEventDelegatesToBase
+    CEventNotifyDialogTest.SetTitleUpdatesStaticText
+    CEventNotifyDialogTest.SetTitleWithNullIsSafe
+    CEventNotifyDialogTest.SetTitleWithoutLinkIsSafe
+    CEventNotifyDialogTest.SetContextUpdatesScriptText
+    CEventNotifyDialogTest.SetContextWithNullClearsText
+    CEventNotifyDialogTest.SetContextWithoutLinkIsSafe
+    CEventNotifyDialogTest.SetContextBeforeLinkingIsSafe
+    CEventNotifyDialogTest.SetEventCountIsNoOp
 )
