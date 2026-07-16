@@ -44,6 +44,39 @@
 - **refactor 必须全栈 grep + 真跑验证** — 改名/换签名类 refactor 后必须真跑全 build matrix 验证，不是只信 refactor 文档的"已修复"。
 - **legacy 死代码用 /* */ 块注释常见** — 看到疑似"未修复"代码先验证（grep ^/\*|^\*/、dumpbin symbol、build verify）再判定 build 影响。
 
+### Added (continued 2)
+
+- `modern/scripts/check_modernization_plan_refs.py` (新, 96 lines): Phase 12.x utility — cross-check `MODERNIZATION_PLAN.md` file references vs reality. Scans for `modern/...` paths in the plan, checks each on disk, filters out braced globs + glob wildcards + bare project codenames. Exit 0 = all 21 refs OK; exit 1 + missing list if anything stale. Pair with the existing CI guards.
+
+### Docs
+
+- `MODERNIZATION_PLAN.md` 4 stale references synced to actual modern/ layout (commit bd1d50a):
+  - `modern/MoxianCompat` → `modern/src/{mh_file_ex,pack_file,chr_motion,chx_model,bmhm_map,bsad_area,ttb_tile_table}.cpp` (flat, not subdirectory)
+  - `modern/MoxianDb` → `modern/src/{db_adapter,db_factory,mssql_odbc_adapter,sqlite_adapter}.cpp` (flat, not subdirectory)
+  - `modern/src/render/mxh_render` → `modern/src/render/dx11/` (dx11/ subdir, not mxh_render/)
+  - `modern/scripts/phase75i_distribute_kor_v3.log` → `modern/scripts/build_distribute_locales_v2.log` (archive replaced)
+  - 21 modern/ file references verified all on disk
+- `CHANGELOG.md` 0.13.11 E-1 anti-fraud verifier note (commit 1918789):
+  - Title: "✅" → "(self-verified by producer session)"
+  - Added "Verifier note (per E-1 anti-fraud rule 5)" paragraph with producer session ID, build log paths, and grep audit command
+  - Per KNOWN_BUGS.md E-1: producer self-verify must be disclosed, not implied as independent verification
+
+### Tooling (continued)
+
+- `modern/scripts/scan_console_log_calls.py` (新, 50 lines): find active `g_Console.LOG(` in 墨香【源码】/ — strict regex excludes line comments, block comments, and `g_Console.Log(` (small L, 3-arg style). Used during C-37 fix to verify all 41 hits were inactive.
+- `modern/scripts/count_active_console_log_calls.py` (新, 34 lines): single-file count helper for the 7 server-side cpp files that needed the C-1 rename.
+- `modern/scripts/rename_console_log_to_mlog.py` (新, 62 lines): mechanical rename tool with idempotent + dry-run modes. Used during C-36 / C-37 to do the actual renames.
+
+### CI
+
+- `modern/scripts/ci_test_distribution_guard.py` slow-test guard closed (commit 8297477): replaced the `TODO: parse build/Testing/Temporary/LastTest.log` stub (5+ years old) with a real `parse_ctest_cost_data()` parser that reads `build/Testing/Temporary/CTestCostData.txt` (the actual ctest timing file). 1244 tests tracked. Slowest is `MssqlOdbcAdapter.ConnectToInvalidServerFails` at 0.07s (known C-32 SQL Server retry timeout, expected). The `LastTest.log` TODO was based on incorrect comment about where ctest writes timing — the real file is `CTestCostData.txt`. End-to-end functional now; CI step can be enabled without code changes.
+
+### Lessons captured (continued)
+
+两条新 agent memory 记录:
+- **legacy 死代码用 `/* */` 块注释常见** — 看到疑似"未修复"代码先验证（grep `^/\*|^\*/`、dumpbin symbol、build verify）再判定 build 影响。C-36 followup 验证了 `[CC]ServerModule/Network.cpp:74,78` 的 2 处 `g_Console.LOG(` 是死代码，dumpbin 0 引用。
+- **E-1 anti-fraud: producer self-verify 必须显式披露** — 不写"✅ gate passed"隐含独立 verifier 角色。CHANGELOG 0.13.11 entry 改为 `(self-verified by producer session)` + session ID + build log 路径 + grep 审计命令。诚实自报 > 自信的虚假宣称。
+
 ## [0.13.10] - 2026-07-16
 
 ### Phase 12.1: P2-12 dialogs 启动 + 5 档 roadmap ✅
