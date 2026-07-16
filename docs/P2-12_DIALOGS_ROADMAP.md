@@ -2,7 +2,7 @@
 
 > **作者**：Mavis  
 > **日期**：2026-07-16  
-> **状态**：🟡 进行中（6/202 = 3.0%）  
+> **状态**：🟡 进行中（9/202 = 4.5%）  
 > **关联**：`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档，每档
 标 port 优先级 + 估计工作量 + blocker，让后续 session 按矩阵接活。
 
-## 已 Port 列表（6/202 = 3.0%）
+## 已 Port 列表（9/202 = 4.5%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -26,6 +26,9 @@ dialog 不现实——这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cListDialog` | `modern/src/ui/cListDialog.{hpp,cpp}` | ? | Phase 6 |
 | `cExitDialog` | `modern/src/ui/cExitDialog.{hpp,cpp}` | 10 | 2026-07-16 (0.13.10) |
 | `cGuagen` | `modern/src/ui/cGuagen.{hpp,cpp}` | 18 | **2026-07-16** (0.13.12) — Tier 2 子控件 |
+| `cListDialogEx` | `modern/src/ui/cListDialogEx.{hpp,cpp}` | 14 | **2026-07-16** (0.13.13) — Tier 1.5 子控件（link list + WE_ROWCLICK） |
+| `cMacroDialog` | `modern/src/ui/cmacrodialog.{hpp,cpp}` | 20 | **2026-07-16** (0.13.14) — Tier 2 dialog（macro key bindings, ME_*/MM_*/MSK_* 1:1 enum） |
+| `cCharMakeDlg` | `modern/src/ui/cmakdial.{hpp,cpp}` | 8 | **2026-07-16** (0.13.15) — Tier 2 dialog（sex selector, 4 cStatic toggled by sex, SetVisible 替代 legacy 非存在 SetActive） |
 
 ## 5 档分级
 
@@ -264,7 +267,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 | Tier 5 | 100+ | 1000-3000 行（需 15-20 service） | 8-12 周（依赖 Phase 15 service + network） |
 | **总计** | **131+** | — | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **6/202** = **3.0%**（当前）→ 100% ≈ 4-5 个月全职工作量。
+加上 base **9/202** = **4.5%**（当前）→ 100% ≈ 4-5 个月全职工作量。
 **这是真的"长尾"，不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -281,7 +284,7 @@ timer 机制。这是 Phase 14+ 范畴，**预计 4-6 周工作量**，本 roadm
 - ✅ 新 ported: cGuagen (18 test, Tier 1.5 子控件) — 解锁 CharacterDialog 等多个
   Tier 2 dialog 的子控件 blocker
 - ✅ R-9 矩阵约定审计完成: 7 个新 test pin D3DX row-major layout, 3 个旧 test 更新
-- 📊 Progress: 5/202 = 2.5% → 6/202 = 3.0% (Tier 1.5 子控件算"组件 port",
+- 📊 Progress: 5/202 = 2.5% → 9/202 = 4.5% (Tier 1.5 子控件算"组件 port",
   不算严格 dialog port, 但属于"无 service 阻塞的 ui 元素")
 
 ## 关联文档

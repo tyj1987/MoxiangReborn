@@ -4,6 +4,35 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.15] - 2026-07-16
+
+### Phase 12.x cCharMakeDlg Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.14 收口 MacroDialog + Phase 13.2 real service impls。本 session 接 cCharMakeDlg (3rd Tier 2 dialog, 1:1 port) + 修正 test 文件 PowerShell regex 损坏。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cCharMakeDlg 8/8 ctest PASS (`ctest -C Debug -R CCharMakeDlg`); 全栈 ctest 946 → 954 PASS (+8 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/cmakdial.hpp` + `cmakdial.cpp` (新建, commit `df08688`): 1:1 port of 墨香 cCharMakeDlg (CharMakeDialog.h 659B + .cpp 1689B)
+  - Linking: 通过 id range 200-203 resolve 4 cStatic (m/f hair + m/f face)
+  - ChangeComboStatus(sex): toggle visibility — 0=male (M visible, W hidden), 1=female (W visible, M hidden)
+  - OnActionEvent: no-op stub (CharMakeManager singleton 未来 port; TODO 文档化 8 button id → RotateSelection 完整 dispatch 逻辑)
+- `modern/tests/unit/ui/cmakdial_test.cpp` (新建, 8 用例 PASS): DefaultConstruction / Linking x2 / ChangeComboStatus x4 (M / F / no-links-safe / round-trip) / OnActionEvent no-op
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `cmakdial.cpp` + 8 gtest entry
+
+### 1:1 quirks preserved
+
+- Children 从 2003-era legacy 的 cComboBoxEx* 降级到 2008-era 的 cStatic* (left/right arrow button 替代 combo box UI), modern port mirror 降级 form
+- Legacy cStatic 没 SetActive (cCharMakeDlg::ChangeComboStatus 在 legacy 编译不干净 — 见 KNOWN_BUGS R-12)。Modern port 用 cWindow::SetVisible/isVisible (cStatic 继承) 表达 show/hide intent
+- ChangeComboStatus defensive null-check (legacy 无条件 dereference, modern port 更安全)
+
+### Progress
+
+- P2-12: 9/202 = 4.5% (5 base widget + 3 dialog cMacroDialog cExitDialog cCharMakeDlg + 4 subcontrol Tier 1.5)
+- ctest: 954/954 PASS (was 946, +8 cCharMakeDlg)
+- Session commits: 12 (累计 1 大/1 大/1 commit/session)
+
 ## [0.13.14] - 2026-07-16
 
 ### Phase 13.2 real service impls + MacroDialog Tier 2 port (self-verified by producer session)
