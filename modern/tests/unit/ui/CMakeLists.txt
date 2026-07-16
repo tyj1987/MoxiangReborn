@@ -15,6 +15,7 @@ add_executable(mxh_ui_tests
     cguilddialog_test.cpp
     cexitdialog_test.cpp
     cmultilinetext_test.cpp
+    cguagen_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -260,4 +261,22 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMultiLineText.OperatorAssignFromCString
     CMultiLineText.GetLineOutOfRangeReturnsEmpty
     CMultiLineText.LinesAccessorReadOnly
+    CGuagen.DefaultConstructionZeroesAll
+    CGuagen.InheritsCWindow
+    CGuagen.SetValueStoresInRange
+    CGuagen.SetValueClampsAboveOne
+    CGuagen.SetValuePreservesZero
+    CGuagen.SetValuePreservesOne
+    CGuagen.SetValueIsIdempotent
+    CGuagen.SetValueClampFromNegativeNotClampedInLegacy
+    CGuagen.SetGuageImagePosInt32
+    CGuagen.SetGuageImagePosFloat
+    CGuagen.SetGuageImagePosNegative
+    CGuagen.SetGuageWidth
+    CGuagen.SetGuagePieceWidth
+    CGuagen.SetGuagePieceHeightScale
+    CGuagen.PieceWidthAndBarWidthAreIndependent
+    CGuagen.SetPieceImageDefaultIsNullSprite
+    CGuagen.SetPieceImageStoresCopy
+    CGuagen.RenderIsNoop
 )

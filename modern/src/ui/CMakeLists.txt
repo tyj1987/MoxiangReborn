@@ -20,6 +20,7 @@ add_library(mxh_ui STATIC
     cGuildDialog.cpp
     cExitDialog.cpp
     cMultiLineText.cpp
+    cGuagen.cpp
     ime.cpp
 )
 
