@@ -20,6 +20,7 @@ add_executable(mxh_ui_tests
     cmacrodialog_test.cpp
     cmakdial_test.cpp
     guildjoindialog_test.cpp
+    charstatedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -340,4 +341,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildJoinDialogTest.OnActionEventUnknownIdIsNoOpNoAssert
     CGuildJoinDialogTest.OnActionEventBeforeInitDoesNotCrash
     CGuildJoinDialogTest.OnActionEventAllThreeIdsInSequence
+    # P2-12 Tier 2 dialog: cCharStateDialog (character state bar)
+    CCharStateDialogTest.DefaultConstructionHasNullPointers
+    CCharStateDialogTest.IdConstantsAreDistinct
+    CCharStateDialogTest.IdConstantsMatchExpectedLocalRange
+    CCharStateDialogTest.LinkingResolvesAllFivePushups
+    CCharStateDialogTest.LinkingSetsAllButtonsPassive
+    CCharStateDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CCharStateDialogTest.SetPKModePushesUnpushesBtn
+    CCharStateDialogTest.SetMoveModePushesUnpushesBtn
+    CCharStateDialogTest.SetKyungGongModePushesUnpushesBtn
+    CCharStateDialogTest.SetPeaceWarModeInvertsArgument
+    CCharStateDialogTest.SetUngiModePushesUnpushesBtn
+    CCharStateDialogTest.SetXxxModeOnlyAffectsTargetButton
+    CCharStateDialogTest.SetXxxModeWithoutLinksIsSafe
+    CCharStateDialogTest.AllFiveSetXxxModeIndependently
+    CCharStateDialogTest.OnActionEventIsNoOpUntilMacroManagerPort
+    CCharStateDialogTest.OnActionEventUnknownIdIsNoOp
+    CCharStateDialogTest.RefreshIsNoOpUntilScriptManagerPort
+    CCharStateDialogTest.RefreshBeforeLinkingIsSafe
 )
