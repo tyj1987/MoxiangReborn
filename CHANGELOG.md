@@ -4,6 +4,42 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.26] - 2026-07-16
+
+### Phase 12.x cChaseInputDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.25 收口 cGuildCreate+GuildUnionCreateDialog。本 session 接 cChaseInputDialog (14th Tier 2 dialog, 1:1 port) — header 497B, **最简 Tier 2** (1 cEditBox child + 4 method + 0 cTextArea dep), Linking REAL + SetActive override 1:1 跟 base noexcept + SetItemIdx wrapper + WantedChaseSyn 6-singleton TODO。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cChaseInputDialog 16/16 ctest PASS (`ctest -C Debug -R CChaseInputDialog`); 全栈 ctest 1123 → 1139 PASS (+16 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/chaseinputdialog.hpp` + `chaseinputdialog.cpp` (新建, commit `b214cd4`): 1:1 port of 墨香 CChaseinputDialog (ChaseinputDialog.h 497B + .cpp)
+  - Linking: REAL (resolve cEditBox m_pEditName id 300 + SetValidCheck(VCM_CHARNAME alias=2))
+  - SetActive override: 1:1 跟 base noexcept 兼容, 调 base + if val clear edit text + reset m_dwItemIdx
+  - SetItemIdx: 1:1 wrapper
+  - WantedChaseSyn: 6-singleton dispatch TODO (gCurTime/CHATMGR/HERO/FILTERTABLE/WANTEDMGR/NETWORK)
+  - 2 accessor (GetEditName / GetItemIdx)
+- `modern/tests/unit/ui/chaseinputdialog_test.cpp` (新建, 16 用例 PASS): DefaultConstruction + IdConstant + VcmCharnameAlias + Linking x4 + SetActive x5 + SetItemIdx x2 + WantedChaseSyn x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `chaseinputdialog.cpp` + 16 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor drop m_type=WT_CHASEINPUT_DLG (Phase 6 删除)
+- Linking SetValidCheck(VCM_CHARNAME alias=2) (跟 cMiniFriendDialog 一样, closest modern equivalent)
+- SetActive 跟 base noexcept 兼容 (R-12 polymorphic virtual 要求)
+- SetActive clear edit text + reset m_dwItemIdx 只在 val=true (1:1 with legacy)
+- WantedChaseSyn TODO (6-singleton dispatch deferred)
+- Local id 300 (no collision with 200-203/210-212/220-224/230-231/240-243/250-252/260-261/270-271/280-284/290-292)
+
+### Progress
+
+- P2-12: 20/202 = 9.9% (5 base + 14 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1139/1139 PASS (was 1123, +16 cChaseInputDialog)
+- Session commits: 35 (含 12 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1139 ctest PASS (+260 用例, 0 回归)
+- **最简 Tier 2 port** (1 child, 4 method, 0 cTextArea dep, 只 cEditBox)
+
 ## [0.13.25] - 2026-07-16
 
 ### Phase 12.x cGuildCreateDialog + cGuildUnionCreateDialog Tier 2 dialog ports (self-verified by producer session)
