@@ -4,6 +4,50 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.13] - 2026-07-16
+
+### P2-12 Tier 1.5 第 2 个子控件: cListDialogEx (self-verified by producer session)
+
+**背景**: 0.13.12 推 cGuagen 1:1 port + R-9 矩阵约定审计 + CHANGELOG 收口 + roadmap 更新 + Phase 13 service interface 启动 (5 commit 全闭环)。user 反馈 "继续" 后本 session 推 1 个新子控件 (cListDialogEx) + 配套 doc 收口。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cListDialogEx 14/14 ctest PASS (`ctest -C Debug -R CListDialogEx`); 全栈 897 → 911 PASS (+14 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/cListDialogEx.hpp` + `cListDialogEx.cpp` (新建, ~10,300 行, commit `c85f776`): 1:1 port of legacy `墨香【源码】\[Client]MH\cListDialogEx.h` (310 B) + `.cpp` (4,371 B)。
+  - `class cListDialogEx : public cListDialog` — 扩展 base 加 2 个 1:1 行为差:
+    1. `ListMouseCheck(x, y, we)` — link row click (`type > emLink_Null`) 设 `m_rowClicked` flag + 触发 `RowClickedCallback` (替代 legacy `cbWindowFunc` 静态 dispatch, host 自己决定怎么发 `WE_ROWCLICK`)
+    2. `Render()` — selected row 高亮 + multi-color link chain 渲染 (no-op 占位, 真实 sprite draw deferred 到 6.4+ cImage / Phase 13 host integration)
+  - `enum LinkType { emLink_Null=0, emLink_Default=1, emLink_Image=2, emLink_Hyper=3 }` — 1:1 mirror 旧 enum 数值, 任何重编号会破坏 chat log 持久化 / 网络包解码 (LinkTypeEnumIsStable test pin)
+  - `struct LinkItem { text, color, overColor, type, shared_ptr<LinkItem> next }` — 替代旧 LINKITEM struct + NextItem 指针, `shared_ptr` 避免手内存管理, multi-color chain (HelpDialog rich-text 入口)
+  - `AddLinkItem(text, type, color, overColor, line=-1)` — append 或 insert at index
+  - `AddLinkItemChain(head)` — 整条 chain 一次性 push, head.next shared_ptr 保留
+  - `RemoveAll()` — 影子 m_linkItems + 调 base cListDialog::RemoveAll
+  - `SetOnRowClicked(callback, userData)` + `ConsumeRowClicked()` — 现代 callback 替代旧 `cbWindowFunc` 静态指针
+  - 局部 constexpr `WE_LBTNCLICK = 0x1` / `WE_ROWCLICK = 0x100` — 不拉全量 WindowIDEnum, 等第一个 Tier 2 dialog 真正需要时再全量落地 `modern/include/mxh/ui/WindowIDEnum.hpp`
+- `modern/tests/unit/ui/clistdialogex_test.cpp` (新建, ~470 行, 14 用例 PASS):
+  - DefaultConstructionIsEmpty / InitLinkListConfiguresMaxLine / RemoveAllClearsItemsAndSelection
+  - AddLinkItemAppends / AddLinkItemInsertsAtIndex / AddLinkItemStoresColors
+  - LinkTypeEnumIsStable (pin emLink_Null=0 数值)
+  - ListMouseCheckOutOfRangeClearsSelection / InRangeSetsSelection / LinkRowSetsRowClicked
+  - ConsumeRowClickedIsOneShot / RowClickedCallbackFiresOnLinkRow
+  - AddLinkItemChainPreservesNext (multi-color chain 验证)
+  - RenderIsNoop (deferred 跟 cGuagen 同源)
+
+### Notes
+
+- `RemoveAll()` 是 **name-hide 不是 virtual override** (跟 KNOWN_BUGS.md R-12 cExitDialog 同源, `cListDialog::RemoveAll` 非 virtual) — hpp 头注释显式说明, 跟踪 R-12 follow-up (cDialog::SetActive 已修, cListDialog::RemoveAll 等下次 Tier 2 dialog 落地时一起)
+- 数据模型 影子 (m_linkItems vs base m_rows) 而非 refactor 进 base — 保持 1:1 API 行为, base consumer (cGuildDialog / cChatDialog 等) 不付 LinkItem overhead
+
+### Verification
+
+- `ctest -C Debug -R CListDialogEx` → 14/14 PASS
+- `ctest -C Debug --timeout 30` → **911/911 PASS** (897 → 911, +14 cListDialogEx test, 0 回归, 20.43s)
+- `git log --oneline -1`:
+  ```
+  c85f776 ui: 1:1 port of 墨香 cListDialogEx (link list with WE_ROWCLICK) + 14 tests
+  ```
+
 ## [0.13.12] - 2026-07-16
 
 ### P2-12 dialogs Tier 2 子控件 + R-9 矩阵约定审计 (self-verified by producer session)
