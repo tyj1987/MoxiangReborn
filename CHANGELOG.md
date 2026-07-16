@@ -4,6 +4,45 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.27] - 2026-07-16
+
+### Phase 12.x cChaseDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.26 收口 cChaseInputDialog。本 session 接 cChaseDialog (15th Tier 2 dialog, 1:1 port) — header 775B, 2 children (cStatic map + cTextArea text), Linking REAL + SetActive override + InitMiniMap + LoadMinimapImageInfo TODO + Render no-op。**首个用未 port 类型 (MINIMAPIMAGE / cImageSelf / VECTOR2 / MAPTYPE) 的 Tier 2** — modern port 用 placeholder 类型 (int / float / std::string) 1:1 保留语义。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cChaseDialog 14/14 ctest PASS (`ctest -C Debug -R CChaseDialog`); 全栈 ctest 1139 → 1153 PASS (+14 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/chasedialog.hpp` + `chasedialog.cpp` (新建, commit `cc92925`): 1:1 port of 墨香 CChaseDialog (ChaseDialog.h 775B + .cpp)
+  - Linking: REAL (resolve cStatic m_pMap id 310 + cTextArea m_TextArea id 311, init m_bActive=false + m_MapNum=0; 1:1 quirk SCRIPTMGR->GetImage(126) drop, locale localizations _JP/_HK/_TL not in scope)
+  - SetActive override: 1:1 跟 base noexcept 兼容 (R-12 polymorphic virtual), 调 base + m_bActive = val
+  - InitMiniMap: data-model update (m_EventMapNum + m_TargetPosX/Y + m_WantedName, 1:1 quirk truncate to kMaxWantedNameLen-1 跟 legacy SafeStrCpy), 调 LoadMinimapImageInfo (TODO)
+  - LoadMinimapImageInfo: 7-singleton dispatch TODO (DIRECTORYMGR + GAMERESRCMNGR + CMHFile + minimap sprite) — return false
+  - Render: no-op stub (Phase 6.13+ deferred, real GPU draw)
+  - 8 accessor (GetMap / GetTextArea / IsChaseActive / GetMapNum / GetEventMapNum / GetTargetPosX / GetTargetPosY / GetWantedName)
+- `modern/tests/unit/ui/chasedialog_test.cpp` (新建, 14 用例 PASS): DefaultConstruction + IdConstants + MaxWantedNameLen + Linking x3 + SetActive x3 + InitMiniMap x3 + LoadMinimapImageInfo x1 + Render x1
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `chasedialog.cpp` + 14 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor drop m_type=WT_CHASE_DLG (Phase 6 删除)
+- SCRIPTMGR->GetImage(126) drop (1:1 quirk: minimap icon Phase 6.13+ deferred)
+- _JP/_HK/_TL locale localizations not in scope
+- SetActive 跟 base noexcept 兼容 (R-12 polymorphic virtual 要求)
+- **未 port 类型 (MINIMAPIMAGE / cImageSelf / VECTOR2 / MAPTYPE) 用 placeholder (int / float / std::string) 1:1 保留语义** (m_TargetPosX/Y mirror VECTOR2 x/y, m_MapNum/m_EventMapNum mirror MAPTYPE, m_WantedName mirror char[18])
+- InitMiniMap truncate wanted name to kMaxWantedNameLen-1 (1:1 with legacy SafeStrCpy)
+- LoadMinimapImageInfo + minimap Render 都 TODO
+- Local id 310-311 (no collision with 200-203/210-212/220-224/230-231/240-243/250-252/260-261/270-271/280-284/290-292/300)
+
+### Progress
+
+- P2-12: 21/202 = 10.4% (5 base + 15 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1153/1153 PASS (was 1139, +14 cChaseDialog)
+- Session commits: 37 (含 13 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1153 ctest PASS (+274 用例, 0 回归)
+- **首个用未 port 类型的 Tier 2** — modern port 用 placeholder 1:1 保留语义, minimap sub-system 未来 port 时 placeholder 替换为 real type
+
 ## [0.13.26] - 2026-07-16
 
 ### Phase 12.x cChaseInputDialog Tier 2 dialog port (self-verified by producer session)

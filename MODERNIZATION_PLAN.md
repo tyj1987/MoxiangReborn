@@ -577,12 +577,13 @@ Phase 12: 持续迭代 ✅
 | `cGuildCreateDialog` | ✅ done (12.x 0.13.25) | guild create dialog (Tier 2, 12th dialog port, header 679B; 5 children cStatic+cEditBox+cTextArea+cButton+cStatic 280-284; Linking REAL, SetActive override 7-singleton dispatch TODO, SetMunpaName 1:1 quirk SetReadOnly(TRUE), SetMunpaIntro) |
 | `cGuildUnionCreateDialog` | ✅ done (12.x 0.13.25) | guild union create dialog (Tier 2, 13th dialog port, header 679B 同 GuildCreateDialog.h; 3 children cEditBox+cButton+cTextArea 290-292; Linking REAL + SetScriptText placeholder "GUILD_UNION_TEXT" 替代 CHATMGR->GetChatMsg(1125), SetActive override 4-singleton TODO) |
 | `cChaseInputDialog` | ✅ done (12.x 0.13.26) | chase target name dialog (Tier 2, 14th dialog port, header 497B; **最简 Tier 2** (1 cEditBox child id 300 + 4 method + 0 cTextArea dep); Linking REAL + SetActive override (1:1 quirk val=true 才 clear) + SetItemIdx wrapper + WantedChaseSyn 6-singleton TODO) |
+| `cChaseDialog` | ✅ done (12.x 0.13.27) | chase target minimap dialog (Tier 2, 15th dialog port, header 775B; 2 children cStatic+cTextArea 310-311; Linking REAL + SetActive override + InitMiniMap + LoadMinimapImageInfo TODO + Render no-op; **首个用未 port 类型 (MINIMAPIMAGE/cImageSelf/VECTOR2/MAPTYPE) 的 Tier 2**, modern port 用 placeholder type (int/float/std::string) 1:1 保留语义) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (20/202 = 9.9% done: 5 base+14 dialog+5 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (21/202 = 10.4% done: 5 base+15 dialog+5 subcontrol; **P2-12 突破 10% 里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |
