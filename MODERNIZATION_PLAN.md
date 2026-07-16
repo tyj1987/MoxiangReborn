@@ -568,12 +568,13 @@ Phase 12: 持续迭代 ✅
 | `cGuildJoinDialog` | ✅ done (12.x 0.13.16) | guild member-invite dialog (Tier 2, 4th dialog port, header 275B 最小; 3 button id kJoinMember/kJoinStudent/kJoinCancel 210-212; OnActionEvent 4-singleton dispatch 阻塞) |
 | `cCharStateDialog` | ✅ done (12.x 0.13.17) | character state bar dialog (Tier 2, 5th dialog port, header 701B; 5 cPushupButton PK/Move/KyungGong/PeaceWar/Ungi 220-224; **5 SetXxxMode REAL (no singleton) + Linking SetPassive + 1:1 quirk PeaceWar 反向**; OnActionEvent + Refresh 阻塞) |
 | `cSOSDialog` | ✅ done (12.x 0.13.18) | guild SOS dialog (Tier 2, 6th dialog port, header 641B; 1 cListDialog + 1 cButton 230-231; Linking REAL (SetShowSelect), SetActive+ActionEvent override, **1:1 quirk SetHeight(158) drop**; 5-singleton dispatch 阻塞) |
+| `cWearedExDialog` | ✅ done (12.x 0.13.19) | equipment slot dialog (Tier 2, 7th dialog port, header 714B; wraps cIconDialog 10+4=14 cells; AddItem/DeleteItem REAL wrap, **1:1 quirk m_type/m_nIconType drop**, 1:1 quirk 武器 swap combo reset; 7-singleton dispatch 阻塞 (最复杂 TODO)) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (12/202 = 5.9% done: 5 base+6 dialog+4 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (13/202 = 6.4% done: 5 base+7 dialog+4 subcontrol; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |

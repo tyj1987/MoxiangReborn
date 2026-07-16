@@ -4,6 +4,40 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.19] - 2026-07-16
+
+### Phase 12.x cWearedExDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.18 收口 cSOSDialog。本 session 接 cWearedExDialog (7th Tier 2 dialog, 1:1 port) — header 714B, wraps cIconDialog (10 equip + 4 Titan 槽 = 14 cells), AddItem + DeleteItem REAL wrap + 7-singleton 阻塞 (OBJECTMGR + APPEARANCEMGR + ITEMMGR + STATSMGR + MUGONGMGR + GAMEIN + TITANMGR)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cWearedExDialog 12/12 ctest PASS (`ctest -C Debug -R CWearedExDialog`); 全栈 ctest 1003 → 1015 PASS (+12 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/wearedexdialog.hpp` + `wearedexdialog.cpp` (新建, commit `46e5ebd`): 1:1 port of 墨香 CWearedExDialog (WearedExDialog.h 714B + .cpp)
+  - Ctor: drop m_type=WT_WEAREDDIALOG / m_nIconType=WT_ITEM (1:1 quirk: legacy cWindow type tag 字段 Phase 6 删除)
+  - AddItem: wrap cIconDialog::AddIcon (REAL) + 1:1 quirk: return false on base failure / true on success; 7-singleton Titan vs normal branch 阻塞
+  - DeleteItem: wrap cIconDialog::DeleteIcon (REAL) + 1:1 quirk: 同样 return pattern; 7-singleton 同样阻塞
+- `modern/tests/unit/unit/ui/wearedexdialog_test.cpp` (新建, 12 用例 PASS): DefaultConstruction + InheritsCellLayout + AddItem x4 (success/OOB/double-add/14-cells) + DeleteItem x4 (success/empty/OOB/outIcon-preserve) + RoundTrip + CrossCellIndependence
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `wearedexdialog.cpp` + 12 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor drop m_type/m_nIconType (legacy cWindow type tag 字段不存在)
+- AddItem/DeleteItem return false on base failure (legacy return FALSE)
+- AddItem/DeleteItem return true on base success (legacy return TRUE)
+- Titan vs normal branch (item->GetItemKind() & eTITAN_EQUIPITEM) 在 TODO 文档化
+- 1:1 quirk: 武器 swap 调 pHero->SetCurComboNum(SKILL_COMBO_NUM) (weapon swap resets combo to 0) 在 TODO 文档化
+- 8x GAMEIN->GetCharacterDialog()->SetXxx() + UpdateData (5 核心 + attack/defense/critical re-render) 在 TODO 文档化
+
+### Progress
+
+- P2-12: 13/202 = 6.4% (5 base + 7 dialog + 4 subcontrol Tier 1.5)
+- ctest: 1015/1015 PASS (was 1003, +12 cWearedExDialog)
+- Session commits: 21 (含 5 个新 Tier 2 dialog: cCharMakeDlg + cGuildJoinDialog + cCharStateDialog + cSOSDialog + cWearedExDialog)
+- 累计 1 session: 879 → 1015 ctest PASS (+136 用例, 0 回归)
+- **本 port 是第一个 wrap cIconDialog 的 Tier 2** — cIconDialog base 处理 cell layout, modern port wrap + dispatch singleton side effects. 7-singleton dispatch 是目前最复杂 TODO
+
 ## [0.13.18] - 2026-07-16
 
 ### Phase 12.x cSOSDialog Tier 2 dialog port (self-verified by producer session)
