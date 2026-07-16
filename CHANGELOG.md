@@ -4,6 +4,36 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.16] - 2026-07-16
+
+### Phase 12.x cGuildJoinDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.15 收口 cCharMakeDlg。本 session 接 cGuildJoinDialog (4th Tier 2 dialog, 1:1 port) — legacy header 最小 (275B)，3 个 button + Linking 空 + OnActionEvent 4-singleton dispatch 阻塞。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cGuildJoinDialog 11/11 ctest PASS (`ctest -C Debug -R CGuildJoinDialog`); 全栈 ctest 954 → 965 PASS (+11 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/guildjoindialog.hpp` + `guildjoindialog.cpp` (新建, commit `b736d9d`): 1:1 port of 墨香 CGuildJoinDialog (GuildJoinDialog.h 275B + .cpp)
+  - Linking: 1:1 no-op (legacy empty body, dialog 纯 dispatch-driven)
+  - OnActionEvent: 3 button id (kJoinMemberBtnId=210 / kJoinStudentBtnId=211 / kJoinCancelBtnId=212) 区分, body no-op 直到 GuildManager + ObjectManager + ChatManager + Hero + Player 4 个 singleton port
+  - Local id range 210-212 (legacy JO_* 来自 WindowIDs.h 未 port, 跟 cCharMakeDlg 200-203 同 pattern)
+- `modern/tests/unit/ui/guildjoindialog_test.cpp` (新建, 11 用例 PASS): DefaultConstruction / IdConstants x2 / Linking x2 / OnActionEvent x5 (3 button id + unknown + before init + 3-in-sequence)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `guildjoindialog.cpp` + 11 gtest entry
+
+### 1:1 quirks preserved
+
+- Legacy cancel button SetActive(FALSE) 注释掉 (Korean dev comment "暂放弃, 改默认 CANCEL"), modern port 保持 no-op
+- Legacy student branch "return;" 注释掉 (跟 member branch 不同, student 走 fall-through), modern port 保持 fall-through
+- Legacy ASSERT(0) on unknown id 去掉 (modern test surface 无 assert harness), unknown id = safe no-op
+- Legacy fall-through SetActive(FALSE) deferred (会改变 test observable state), 等 singleton port 后再接
+
+### Progress
+
+- P2-12: 10/202 = 5.0% (5 base + 4 dialog cExitDialog/cMacroDialog/cCharMakeDlg/cGuildJoinDialog + 4 subcontrol Tier 1.5)
+- ctest: 965/965 PASS (was 954, +11 cGuildJoinDialog)
+- Session commits: 14 (含 cCharMakeDlg + cGuildJoinDialog 两个新 Tier 2 dialog)
+
 ## [0.13.15] - 2026-07-16
 
 ### Phase 12.x cCharMakeDlg Tier 2 dialog port (self-verified by producer session)
