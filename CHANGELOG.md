@@ -31,6 +31,11 @@
 - modern/scripts/build_map_debug_locales.py (新): 5-locale build 验证脚本，对齐 uild_distribute_debug_locales.py / uild_agent_debug_locales.py 模式——3/3 server 都有 5-locale build verification 工具了。
 - docs/KNOWN_BUGS.md C-36 + C-37 entries: 完整记录 LOG→MLOG regression 修复过程 + JAPAN/HK Map 1:1 legacy 暗礁 + Network.cpp 死代码真相。
 
+### Added (continued)
+
+- docs/MoxianProtocolDoc.md (新, 6,996 bytes): Phase 11.2 协议文档首次落地。用 modern/tools/gen_protocol_doc.py（Python wrapper）调用 MoxianProtocolDoc --summary 拿数据 + Python 直接 extract MP_CATEGORY/MP_PROTOCOL_* enum 名。77 个真实 category entries + 64 个 protocol enum 名字 + 3,458 total protocol values 全落档。C++ 工具的 generateMarkdown() 在 full 92KB Protocol.h 上 STATUS_STACK_BUFFER_OVERRUN crash，**bug 单独修不在本 commit 范围**。
+- modern/tools/gen_protocol_doc.py (新, 172 lines): Python wrapper——处理 Protocol.h 的 cp949 编码 + 用 line-based regex 提取 enum 名，避开 C++ 工具的 crash。
+
 ### Lessons captured
 
 两条新 agent memory 记录:
