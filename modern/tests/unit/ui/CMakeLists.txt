@@ -21,6 +21,7 @@ add_executable(mxh_ui_tests
     cmakdial_test.cpp
     guildjoindialog_test.cpp
     charstatedialog_test.cpp
+    sosdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -360,4 +361,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CCharStateDialogTest.OnActionEventUnknownIdIsNoOp
     CCharStateDialogTest.RefreshIsNoOpUntilScriptManagerPort
     CCharStateDialogTest.RefreshBeforeLinkingIsSafe
+    # P2-12 Tier 2 dialog: cSOSDialog (guild SOS)
+    CSOSDialogTest.DefaultConstructionHasNullPointers
+    CSOSDialogTest.IdConstantsAreDistinct
+    CSOSDialogTest.IdConstantsMatchExpectedLocalRange
+    CSOSDialogTest.LinkingResolvesListAndButton
+    CSOSDialogTest.LinkingConfiguresListDialog
+    CSOSDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CSOSDialogTest.DestructorNullChecksListBeforeRemoveAll
+    CSOSDialogTest.DestructorCallsRemoveAllOnResolvedList
+    CSOSDialogTest.SetActiveTrueUpdatesBaseState
+    CSOSDialogTest.SetActiveFalseUpdatesBaseState
+    CSOSDialogTest.SetActiveToggleRoundTrip
+    CSOSDialogTest.ActionEventReturnsZeroWhenNotActive
+    CSOSDialogTest.ActionEventDelegatesToBaseWhenActive
+    CSOSDialogTest.SOSMemberInfoIsNoOpRemoveAllUntilGuildManagerPort
+    CSOSDialogTest.SOSMemberInfoWithoutListIsSafe
+    CSOSDialogTest.OnActionEventOkBtnIsNoOp
+    CSOSDialogTest.OnActionEventUnknownIdIsNoOp
+    CSOSDialogTest.OnActionEventBeforeInitDoesNotCrash
+    CSOSDialogTest.SelectIdxDefaultZero
+    CSOSDialogTest.SetSelectIdxUpdatesValue
 )

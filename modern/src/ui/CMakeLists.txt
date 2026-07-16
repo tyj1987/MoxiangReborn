@@ -26,6 +26,7 @@ add_library(mxh_ui STATIC
     cmakdial.cpp
     guildjoindialog.cpp
     charstatedialog.cpp
+    sosdialog.cpp
     ime.cpp
 )
 
