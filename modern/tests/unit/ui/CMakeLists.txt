@@ -28,6 +28,7 @@ add_executable(mxh_ui_tests
     ctextarea_test.cpp
     mpnoticedialog_test.cpp
     eventnotifydialog_test.cpp
+    guildcreatedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -487,4 +488,26 @@ gtest_add_tests(TARGET mxh_ui_tests
     CEventNotifyDialogTest.SetContextWithoutLinkIsSafe
     CEventNotifyDialogTest.SetContextBeforeLinkingIsSafe
     CEventNotifyDialogTest.SetEventCountIsNoOp
+    # P2-12 Tier 2 dialog: cGuildCreateDialog + cGuildUnionCreateDialog
+    CGuildCreateDialogTest.DefaultConstructionHasNullPointers
+    CGuildCreateDialogTest.IdConstantsAreDistinct
+    CGuildCreateDialogTest.LinkingResolvesAllFiveChildren
+    CGuildCreateDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CGuildCreateDialogTest.SetActiveTrueUpdatesBaseState
+    CGuildCreateDialogTest.SetActiveFalseUpdatesBaseState
+    CGuildCreateDialogTest.SetActiveWithoutLinksIsSafe
+    CGuildCreateDialogTest.SetMunpaNameUpdatesEditTextAndReadOnly
+    CGuildCreateDialogTest.SetMunpaNameWithEmptyStringIsSafe
+    CGuildCreateDialogTest.SetMunpaNameWithoutLinkIsSafe
+    CGuildCreateDialogTest.SetMunpaIntroUpdatesScriptText
+    CGuildCreateDialogTest.SetMunpaIntroWithNullClearsText
+    CGuildCreateDialogTest.SetMunpaIntroWithoutLinkIsSafe
+    CGuildUnionCreateDialogTest.DefaultConstructionHasNullPointers
+    CGuildUnionCreateDialogTest.IdConstantsAreDistinct
+    CGuildUnionCreateDialogTest.LinkingResolvesAllThreeChildren
+    CGuildUnionCreateDialogTest.LinkingCallsSetScriptText
+    CGuildUnionCreateDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CGuildUnionCreateDialogTest.SetActiveTrueUpdatesBaseState
+    CGuildUnionCreateDialogTest.SetActiveFalseUpdatesBaseState
+    CGuildUnionCreateDialogTest.SetActiveWithoutLinksIsSafe
 )

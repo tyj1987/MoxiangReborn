@@ -33,6 +33,7 @@ add_library(mxh_ui STATIC
     ctextarea.cpp
     mpnoticedialog.cpp
     eventnotifydialog.cpp
+    guildcreatedialog.cpp
     ime.cpp
 )
 
