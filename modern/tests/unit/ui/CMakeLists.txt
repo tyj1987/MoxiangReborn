@@ -17,6 +17,7 @@ add_executable(mxh_ui_tests
     cmultilinetext_test.cpp
     cguagen_test.cpp
     clistdialogex_test.cpp
+    cmacrodialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -295,4 +296,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CListDialogExTest.RowClickedCallbackFiresOnLinkRow
     CListDialogExTest.AddLinkItemChainPreservesNext
     CListDialogExTest.RenderIsNoop
+    # P2-12 Tier 2 dialog: cMacroDialog (macro key binding)
+    CMacroDialogTest.MacroEventEnumIsStable
+    CMacroDialogTest.MacroModeEnumIsStable
+    CMacroDialogTest.SysKeyEnumIsStable
+    CMacroDialogTest.SMACRODefaultIsEmptyBinding
+    CMacroDialogTest.InitResetsAllState
+    CMacroDialogTest.GetMacroBindingOutOfRangeReturnsDefault
+    CMacroDialogTest.SetMacroBindingRoundTrip
+    CMacroDialogTest.SetMacroBindingOutOfRangeIsNoOp
+    CMacroDialogTest.ClearChangedResetsFlag
+    CMacroDialogTest.SetModeAndGetMode
+    CMacroDialogTest.VKeyToNameCoversCommonKeys
+    CMacroDialogTest.VKeyToNameUnknownReturnsEmpty
+    CMacroDialogTest.ConvertMacroToTextModifierOnly
+    CMacroDialogTest.ConvertMacroToTextFullBinding
+    CMacroDialogTest.ConvertMacroToTextNoModifier
+    CMacroDialogTest.ConvertMacroToTextNullBufferIsSafe
+    CMacroDialogTest.LinkingResolvesQuickSlotEditBoxes
+    CMacroDialogTest.SetMacroBindingRefreshesLinkedEditBox
+    CMacroDialogTest.SetActiveInChatModeDoesNotRefresh
+    CMacroDialogTest.SetActiveInMacroModeRefreshes
 )

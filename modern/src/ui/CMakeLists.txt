@@ -22,6 +22,7 @@ add_library(mxh_ui STATIC
     cMultiLineText.cpp
     cGuagen.cpp
     cListDialogEx.cpp
+    cMacroDialog.cpp
     ime.cpp
 )
 
