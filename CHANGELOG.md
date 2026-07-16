@@ -3,6 +3,40 @@
 > All notable changes to the Moxian-Reborn modernization project.
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
+
+## [0.13.11] - 2026-07-16
+
+### Server build matrix: C-36 / C-37 — Distribute + Agent + Map Debug_<LOCALE> 实测收口 ✅
+
+**背景**：Phase 7.5o (C-1 fix 2026-07-15) 把 CConsole::LOG 重命名为 CConsole::MLOG 并批量更新 35 个 active call sites。但 refactor 文档说"5/5 干净"**实际从未跑过全 build 验证**。本 session 跑 uild_distribute_debug_locales.py 实测发现 5/5 target 每个 fail 8 C2039 —— 8 处 g_Console.LOG( 调用漏改（C-1 扫描没扫到 [CC]ServerModule/）。
+
+### Fixed
+
+- **C-36** (commit 53026a9 + b5f055): [CC]ServerModule/BootManager.cpp (7 sites) + [CC]ServerModule/DataBase.cpp (1 site) g_Console.LOG( → g_Console.MLOG(。Distribute Debug_<LOCALE> 5/5 干净。
+  - DistributeServer_CHINA.exe 1,306,112 B
+  - DistributeServer_KOR.exe 1,324,544 B
+  - DistributeServer_JAPAN.exe 1,303,552 B
+  - DistributeServer_HK.exe 1,312,256 B
+  - DistributeServer_TL.exe 1,306,112 B
+  - All 5 byte sizes match C-35 fix entry's target values 1:1
+- **C-36 followup** (commit b5f055): 验证 [CC]ServerModule/Network.cpp:74,78 的 2 处 g_Console.LOG( 是**死代码**（整个 CNetwork::Start() 函数被 /* */ 块注释禁用）+ Agent 5/5 同样干净（顺带验证）。
+- **C-37** (commit 5b7f854): [Server]Map/ 7 cpp 43 active sites rename — MapItemDrop 8 / Server 3 / RegenManager 1 / MapDBMsgParser 1 / MapNetworkMsgParser 4 / ServerSystem 13 / UserTable 13。Map Debug_<LOCALE> **3/5 干净**（KOR/CHINA/TL）+ **2/5 撞 JAPAN/HK 1:1 legacy pre-existing bug**（C-37 entry 记录但不修）。
+  - MapServer_CHINA.exe 3,879,424 B
+  - MapServer_KOR.exe 3,879,936 B
+  - MapServer_TL.exe 3,882,496 B
+  - MapServer_JAPAN.exe / MapServer_HK.exe — 3 C2065 each (EXTRA_PYOGUK_SLOT + 2x m_dwMussangTime，pre-existing legacy，跟 C-35 收手策略一致)
+
+### Added
+
+- modern/scripts/build_map_debug_locales.py (新): 5-locale build 验证脚本，对齐 uild_distribute_debug_locales.py / uild_agent_debug_locales.py 模式——3/3 server 都有 5-locale build verification 工具了。
+- docs/KNOWN_BUGS.md C-36 + C-37 entries: 完整记录 LOG→MLOG regression 修复过程 + JAPAN/HK Map 1:1 legacy 暗礁 + Network.cpp 死代码真相。
+
+### Lessons captured
+
+两条新 agent memory 记录:
+- **refactor 必须全栈 grep + 真跑验证** — 改名/换签名类 refactor 后必须真跑全 build matrix 验证，不是只信 refactor 文档的"已修复"。
+- **legacy 死代码用 /* */ 块注释常见** — 看到疑似"未修复"代码先验证（grep ^/\*|^\*/、dumpbin symbol、build verify）再判定 build 影响。
+
 ## [0.13.10] - 2026-07-16
 
 ### Phase 12.1: P2-12 dialogs 启动 + 5 档 roadmap ✅
