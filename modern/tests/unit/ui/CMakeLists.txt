@@ -48,6 +48,7 @@ add_executable(mxh_ui_tests
     partyinvitedlg_test.cpp
     namechangedialog_test.cpp
     changejobdialog_test.cpp
+    gtregistcanceldialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -801,4 +802,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChangeJobDialogTest.CancelChangeJobIsNoOpUntilSingletonsPorted
     CChangeJobDialogTest.CancelChangeJobDoesNotChangeState
     CChangeJobDialogTest.CancelChangeJobBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cGTRegistcancelDialog (tournament registration cancel)
+    CGTRegistcancelDialogTest.DefaultConstructionIsValid
+    CGTRegistcancelDialogTest.InheritsDialogTreeManagement
+    CGTRegistcancelDialogTest.IdConstantMatchesExpectedLocalRange
+    CGTRegistcancelDialogTest.LinkingResolvesButton
+    CGTRegistcancelDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CGTRegistcancelDialogTest.LinkingBeforeInitDoesNotCrash
+    CGTRegistcancelDialogTest.SetActiveTrueUpdatesBaseState
+    CGTRegistcancelDialogTest.SetActiveFalseUpdatesBaseState
+    CGTRegistcancelDialogTest.SetActiveFalseDoesNotChangeState
+    CGTRegistcancelDialogTest.SetActiveWithoutLinkIsSafe
+    CGTRegistcancelDialogTest.SetActiveBeforeInitDoesNotCrash
+    CGTRegistcancelDialogTest.TournamentRegistCancelSynIsNoOpUntilSingletonsPorted
+    CGTRegistcancelDialogTest.TournamentRegistCancelSynDoesNotChangeState
+    CGTRegistcancelDialogTest.TournamentRegistCancelSynWithoutLinkIsSafe
+    CGTRegistcancelDialogTest.TournamentRegistCancelSynBeforeInitDoesNotCrash
 )

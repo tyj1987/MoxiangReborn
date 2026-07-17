@@ -53,6 +53,7 @@ add_library(mxh_ui STATIC
     partyinvitedlg.cpp
     namechangedialog.cpp
     changejobdialog.cpp
+    gtregistcanceldialog.cpp
     ime.cpp
 )
 
