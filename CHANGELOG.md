@@ -4,6 +4,34 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.33] - 2026-07-17
+
+### Phase 12.x cNameChangeDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.32 收口 cPartyInviteDlg (15% 里程碑). 本 session 接 cNameChangeDialog (32nd Tier 2 dialog, 1:1 port) — header 877B, 4 method (ctor + Linking + SetActive override + NameChangeSyn), 1 cEditBox + 1 m_dwDBIdx state, NameChangeSyn 4-singleton TODO (CHATMGR + FILTERTABLE + HERO + NETWORK). 1:1 quirk: modern SetEditText 是 no-op 除非 InitEditbox 被调 (m_bInitEdit guard).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cNameChangeDialog 20/20 ctest PASS; 全栈 ctest 1345 → 1365 PASS (+20 用例, 0 回归). 重跑: ctest -C Debug -R CNameChangeDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/namechangedialog.{hpp,cpp}` (新建, 1 commit): 1:1 port of 墨香 CNameChangeDialog (NameChangeDialog.h 877B + .cpp)
+  - Linking: REAL (resolve cEditBox id 450, call SetValidCheck(2)=VCM_CHARNAME)
+  - SetActive override: REAL (call base + clear edit text on val=true, 1:1 quirk: modern SetEditText 是 no-op 除非 InitEditbox 被调)
+  - NameChangeSyn: TODO (4-singleton: CHATMGR + FILTERTABLE + HERO + NETWORK, R-12.x deferred)
+  - SetItemDBIdx / GetItemDBIdx: REAL inline setter / getter
+  - 1:1 quirk: ctor m_type = WT_NAMECHANGE_DLG drop
+  - kVcmCharname = 2 (1:1 with legacy VCM_CHARNAME enum)
+- `modern/tests/unit/ui/namechangedialog_test.cpp` (新建, 20 用例 PASS): ctor + 1 id const + 1 vcm const + Linking x3 (resolve / without-children / before-init) + SetActive x6 (true-base / false-base / true-clears-text / false-no-clear / without-link / before-init) + SetItemDBIdx x3 (round-trip / overrides / zero) + NameChangeSyn x4 (is-noop / does-not-change-state / without-link / before-init)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 namechangedialog.cpp + 20 gtest entry
+
+### Progress
+
+- P2-12: 32/202 = 15.8% (5 base + 32 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1365/1365 PASS (was 1345, +20 cNameChangeDialog)
+- 累计 1 session: 879 → 1365 ctest PASS (+486 用例, 0 回归)
+- 13 个新 Tier 2 dialog 端口 (PetWearedEx + GuildNotice + 10 batch 0.13.31 + PartyInvite 0.13.32 + NameChange 0.13.33)
+- 1 cTextArea 扩展 (SetEnterAllow 0.13.30)
+
 ## [0.13.32] - 2026-07-17
 
 ### Phase 12.x cPartyInviteDlg Tier 2 dialog port (self-verified by producer session)

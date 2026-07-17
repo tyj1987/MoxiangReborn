@@ -593,12 +593,13 @@ Phase 12: 持续迭代 ✅
 | `cGuildInviteDialog` | ✅ done (12.x 0.13.31) | guild invitation display (Tier 2, 28th port, header 837B; 1 cTextArea; SetInfo 2-flk branch + CHATMGR TODO; kFlgMember=0 / kFlgStudent=1) |
 | `cStallKindSelectDlg` | ✅ done (12.x 0.13.31) | street stall kind selector (Tier 2, 29th port, header 898B; 3 button sell/buy/cancel; Show+Close REAL; 1:1 quirk modern cButton 没 SetActive 用 cWindow::SetVisible 替代) |
 | `cPartyInviteDlg` | ✅ done (12.x 0.13.32) | party invitation dialog (Tier 2, 30th port, header 812B; 2 button OK/cancel + 1 cTextArea + 1 cStatic, id 440-443; Linking REAL; SetMsg 2-option branch + CHATMGR TODO; kOptRandom=0 / kOptDamage=1; 1:1 quirks m_type drop, null pInviter guard) |
+| `cNameChangeDialog` | ✅ done (12.x 0.13.33) | name change editor dialog (Tier 2, 31st port, header 877B; 1 cEditBox id 450 + 1 m_dwDBIdx state; Linking REAL + SetValidCheck(2)=VCM_CHARNAME; SetActive override REAL; NameChangeSyn 4-singleton TODO; 1:1 quirks m_type drop, modern SetEditText m_bInitEdit guard) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (31/202 = 15.3% done: 5 base+30 dialog+5 subcontrol; **P2-12 突破 10% + 15% 双里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (32/202 = 15.8% done: 5 base+32 dialog+5 subcontrol; **P2-12 突破 10% + 15% 双里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |

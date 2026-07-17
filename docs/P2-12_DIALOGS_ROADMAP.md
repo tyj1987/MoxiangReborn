@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-16
-> **状态**:🟢 进行中(31/202 = 15.3% 突破 15% 里程碑)
+> **状态**:🟢 进行中(32/202 = 15.8%)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（31/202 = 15.3% 突破 15% 里程碑）
+## 已 Port 列表（32/202 = 15.8%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -57,6 +57,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cGuildInviteDialog` | `modern/src/ui/guildinvitedialog.{hpp,cpp}` | 15 | **2026-07-17** (0.13.31) - Tier 2 dialog(guild invitation display, 28th port, header 837B; 1 cTextArea; Linking REAL; SetInfo 2-flk branch + CHATMGR TODO; kFlgMember=0 / kFlgStudent=1; 1:1 quirk null names guard) |
 | `cStallKindSelectDlg` | `modern/src/ui/stallkindselectdlg.{hpp,cpp}` | 17 | **2026-07-17** (0.13.31) - Tier 2 dialog(street stall kind selector, 29th port, header 898B; 3 button sell/buy/cancel; Show+Close REAL; OnActionEvent 3 branch + final Close() for known ids; 1:1 quirk legacy `else return;` no Close() for unknown id, m_type drop; 1:1 quirk modern cButton 没 SetActive 用 cWindow::SetVisible 替代) |
 | `cPartyInviteDlg` | `modern/src/ui/partyinvitedlg.{hpp,cpp}` | 15 | **2026-07-17** (0.13.32) - Tier 2 dialog(party invitation, 30th port, header 812B; 2 button OK/cancel + 1 cTextArea + 1 cStatic, id 440-443; Linking REAL; SetMsg 2-option branch + CHATMGR TODO; kOptRandom=0 / kOptDamage=1; 1:1 quirks m_type drop, null pInviter guard, unknown option leaves cStatic empty) |
+| `cNameChangeDialog` | `modern/src/ui/namechangedialog.{hpp,cpp}` | 20 | **2026-07-17** (0.13.33) - Tier 2 dialog(name change editor, 31st port, header 877B; 1 cEditBox id 450 + 1 m_dwDBIdx state; Linking REAL + SetValidCheck(2)=VCM_CHARNAME; SetActive override REAL; NameChangeSyn 4-singleton TODO; 1:1 quirks m_type drop, modern SetEditText m_bInitEdit guard) |
 
 ## 5 档分级
 
