@@ -4,6 +4,36 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.31] - 2026-07-17
+
+### Phase 12.x Tier 2 dialog batch port (self-verified by producer session)
+
+**背景**: 0.13.30 收口 cGuildNoticeDlg. 本 session 一次性推 11 个新 Tier 2 dialog (cPetWearedExDialog + cGuildNoticeDlg 已在 0.13.29/0.13.30, 本 entry 涵盖 0.13.31 batch): ChinaAdvice, IntroReplay, KeySettingTip, Loading, NameChangeNotify, GuildInvitationKindSelection, TipBrowser, GuildNickName, Shout, GuildInvite, StallKindSelect. P2-12: 22/202 → 30/202 = 14.9% (**距 15% 只差 1 dialog**). ctest: 1167 → 1330 PASS (+163 用例, 0 回归). 11 个新 commits.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: 11 个新 ctest entry 全部 PASS, 1330/1330 全栈 PASS. 重跑: ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/chinaadvicedlg.{hpp,cpp}` (commit `702d71f`, 10 tests): 1:1 port of CChinaAdviceDlg (China T&C dialog, 1 cTextArea + SetScriptText placeholder "CHINA_ADVICE_TEXT" 替代 CHATMGR->GetChatMsg(30); 1:1 quirk CNA_BTN_OK enum 存在但 legacy .cpp 没用到)
+- `modern/src/ui/introreplaydlg.{hpp,cpp}` (commit `702d71f`, 5 tests): 1:1 port of CIntroReplayDlg (完全空 dialog, ctor + dtor + Linking empty body)
+- `modern/src/ui/keysettingtipdlg.{hpp,cpp}` (commit `702d71f`, 9 tests): 1:1 port of CKeySettingTipDlg (keyboard shortcut tip, 2 cImageSelf + Render override; cImageSelf 未 port, modern port 存 2 .tga 路径 std::string; Render no-op)
+- `modern/src/ui/loadingdlg.{hpp,cpp}` (commit `702d71f`, 3 tests): 1:1 port of CLoadingDlg (100% 空, ctor + dtor only, 无 Linking)
+- `modern/src/ui/namechangenotifydlg.{hpp,cpp}` (commit `702d71f`, 3 tests): 1:1 port of CNameChangeNotifyDlg (空 placeholder, 1:1 quirk m_type = WT_NAMECHANGENOTIFY_DLG drop)
+- `modern/src/ui/guildinvitationkindselectiondialog.{hpp,cpp}` (commit `827e8d3`, 13 tests): 1:1 port of CGuildInvitationKindSelectionDialog (3 button + 3-singleton TODO; 1:1 quirks legacy CANCEL SetActive(FALSE) commented out, legacy default ASSERT(0) 改 no-op)
+- `modern/src/ui/tipbrowserdlg.{hpp,cpp}` (commit `827e8d3`, 17 tests): 1:1 port of CTipBrowserDlg (4 pushup tab + 4 dialog page + cancel; 全 REAL; 1:1 quirk legacy `we == WE_PUSHDOWN` exact match, 不是 bit-and)
+- `modern/src/ui/guildnicknamedialog.{hpp,cpp}` (commit `4c3167c`, 18 tests): 1:1 port of CGuildNickNameDialog (1 cTextArea + 1 cEditBox; SetActive override 调 GUILDMGR+CHATMGR TODO; SetNickMsg placeholder sprintf "GUILD_NICK_MSG_FORMAT"; 1:1 quirk m_type drop)
+- `modern/src/ui/shoutdialog.{hpp,cpp}` (commit `193d7ca`, 13 tests): 1:1 port of CShoutDialog (1 cEditBox + item state; SendShoutMsgSyn 4-singleton TODO; SetItemInfo inline setter)
+- `modern/src/ui/guildinvitedialog.{hpp,cpp}` (commit `a91afbe`, 15 tests): 1:1 port of CGuildInviteDialog (1 cTextArea; SetInfo 2-flk branch + CHATMGR TODO; 1:1 quirk null names guard)
+- `modern/src/ui/stallkindselectdlg.{hpp,cpp}` (commit `6d503cc`, 17 tests): 1:1 port of CStallKindSelectDlg (3 button sell/buy/cancel; Show+Close REAL; OnActionEvent 3 branch TODO + trailing Close(); 1:1 quirk legacy `else return;` no Close() for unknown id)
+
+### Progress
+
+- P2-12: 30/202 = 14.9% (5 base + 30 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1330/1330 PASS (was 1167, +163 用例)
+- 累计 1 session: 879 → 1330 ctest PASS (+451 用例, 0 回归)
+- 11 个新 Tier 2 dialog: 19th-30th ports
+- **本 batch 的统一 1:1 quirk**: 多个 ctor 含 `m_type = WT_*` legacy cWindow type tag 都被 drop (modern cWindow 没 m_type 字段, Phase 6 移除); 多个 OnActionEvent 走 `if(we & WE_BTNCLICK)` 门 + 3 button dispatch; 多个 SetScriptText 用 placeholder string 替代 CHATMGR->GetChatMsg(N); 多个 modern cButton::SetActive 不存在, 用 cWindow::SetVisible 替代 (R-12 fix)
+
 ## [0.13.30] - 2026-07-17
 
 ### Phase 12.x cGuildNoticeDlg Tier 2 dialog port + cTextArea SetEnterAllow (self-verified by producer session)

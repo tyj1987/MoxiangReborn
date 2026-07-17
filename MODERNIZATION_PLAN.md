@@ -581,12 +581,23 @@ Phase 12: 持续迭代 ✅
 | `cBailDialog` | ✅ done (12.x 0.13.28) | bail amount entry dialog (Tier 2, 16th dialog port, header 497B; 2 children cEditBox+cTextArea 320-321; Linking REAL + SetValidCheck(1) + SetAlign(Right) + SetScriptText placeholder, 4 method wrapper (Open/Close/SetFame/SetBadFrameSync) 都 4-singleton TODO) |
 | `cPetWearedExDialog` | ✅ done (12.x 0.13.29) | pet equipment slots dialog (Tier 2, 17th dialog port, header 445B; wraps cIconDialog 3 cells; AddItem + DeleteItem REAL wrap (1:1 quirk Korean "!!!복사본 옵션 적용" comment 保留); **首个含 GetBlankPositionRestrictRef 实用方法（扫 cell 找空位）的 Tier 2**; CheckDuplication TODO (cItem 未 port, R-12.x); kSlotPetWearNum=3 / kTpPetWearStart=490 inline constexpr 不引 shared header) |
 | `cGuildNoticeDlg` | ✅ done (12.x 0.13.30) | guild notice editor dialog (Tier 2, 18th dialog port, header 310B; 1 cTextArea id 350 + 2 button id 351/352; Linking REAL + SetEnterAllow(FALSE) + SetScriptText(""); OnActionEvent 2-button dispatch (SEND + CANCEL, 都 GUILDMGR TODO); SetActive override (val=true pre-fill notice before base, 1:1 `if(val==TRUE)` guard); **首个用 cTextArea::SetEnterAllow 的 Tier 2**; 同步扩 cTextArea (1 bool toggle 0 regression); 1:1 quirk legacy typo'd `OnActionEvnet`, modern 用正确拼写 `OnActionEvent`) |
+| `cChinaAdviceDlg` | ✅ done (12.x 0.13.31) | China advice / T&C dialog (Tier 2, 19th port, header 677B; 1 cTextArea id 360; Linking REAL + SetScriptText placeholder "CHINA_ADVICE_TEXT" 替代 CHATMGR->GetChatMsg(30); OnActionEvent empty no-op; 1:1 quirk CNA_BTN_OK enum 存在但 legacy .cpp 没用到) |
+| `cIntroReplayDlg` | ✅ done (12.x 0.13.31) | intro replay placeholder (Tier 2, 20th port, header 475B; **完全空 dialog** ctor + dtor + Linking empty body) |
+| `cKeySettingTipDlg` | ✅ done (12.x 0.13.31) | keyboard shortcut tip dialog (Tier 2, 21st port, header 331B; 2 cImageSelf + Render override; cImageSelf 未 port, modern 存 2 .tga 路径 std::string; Render no-op) |
+| `cLoadingDlg` | ✅ done (12.x 0.13.31) | loading screen placeholder (Tier 2, 22nd port, header 578B; **100% 空** ctor + dtor only, 无 Linking 方法) |
+| `cNameChangeNotifyDlg` | ✅ done (12.x 0.13.31) | name change notify placeholder (Tier 2, 23rd port, header 652B; 1:1 quirk m_type = WT_NAMECHANGENOTIFY_DLG drop) |
+| `cGuildInvitationKindSelectionDialog` | ✅ done (12.x 0.13.31) | guild invitation kind selector (Tier 2, 24th port, header 329B; 3 button id 370-372; OnActionEvent 3-singleton TODO; 1:1 quirks legacy CANCEL SetActive(FALSE) commented out, legacy default ASSERT(0) 改 no-op) |
+| `cTipBrowserDlg` | ✅ done (12.x 0.13.31) | 4-tab tip browser (Tier 2, 25th port, header 383B; 4 cDialog page + 4 cPushupButton + cancel; **全 REAL**; 1:1 quirk legacy `we == WE_PUSHDOWN` exact match) |
+| `cGuildNickNameDialog` | ✅ done (12.x 0.13.31) | guild member nickname editor (Tier 2, 26th port, header 821B; 1 cTextArea + 1 cEditBox; Linking REAL + SetValidCheck(0)=VCM_SPACE; SetActive override 2-singleton TODO; SetNickMsg placeholder sprintf) |
+| `cShoutDialog` | ✅ done (12.x 0.13.31) | shout message sender (Tier 2, 27th port, header 832B; 1 cEditBox + 2 state field; SendShoutMsgSyn 4-singleton TODO) |
+| `cGuildInviteDialog` | ✅ done (12.x 0.13.31) | guild invitation display (Tier 2, 28th port, header 837B; 1 cTextArea; SetInfo 2-flk branch + CHATMGR TODO; kFlgMember=0 / kFlgStudent=1) |
+| `cStallKindSelectDlg` | ✅ done (12.x 0.13.31) | street stall kind selector (Tier 2, 29th port, header 898B; 3 button sell/buy/cancel; Show+Close REAL; 1:1 quirk modern cButton 没 SetActive 用 cWindow::SetVisible 替代) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (24/202 = 11.9% done: 5 base+18 dialog+5 subcontrol; **P2-12 突破 10% 里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (30/202 = 14.9% done: 5 base+30 dialog+5 subcontrol; **P2-12 突破 10% 里程碑**; **距 15% 只差 1 dialog**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |

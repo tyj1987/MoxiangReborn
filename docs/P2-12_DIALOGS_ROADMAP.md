@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（24/202 = 11.9%）
+## 已 Port 列表（30/202 = 14.9%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -45,6 +45,17 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cBailDialog` | `modern/src/ui/baildialog.{hpp,cpp}` | 14 | **2026-07-16** (0.13.28) - Tier 2 dialog(bail amount entry, 16th dialog port, header 497B; 2 children cEditBox+cTextArea 320-321; Linking REAL + SetValidCheck(1) + SetAlign(Right) + SetScriptText placeholder, 4 method wrapper (Open/Close/SetFame/SetBadFrameSync) 都 4-singleton TODO) |
 | `cPetWearedExDialog` | `modern/src/ui/petwearedexdialog.{hpp,cpp}` | 21 | **2026-07-17** (0.13.29) - Tier 2 dialog(pet equipment slots, 17th dialog port, header 445B; wraps cIconDialog 3 cells; AddItem + DeleteItem REAL wrap (1:1 quirk Korean "!!!복사본 옵션 적용" comment 保留); **首个含 GetBlankPositionRestrictRef 实用方法(扫 cell 找空位)的 Tier 2**; CheckDuplication TODO (cItem 未 port, R-12.x); kSlotPetWearNum=3 / kTpPetWearStart=490 inline constexpr 不引 shared header) |
 | `cGuildNoticeDlg` | `modern/src/ui/guildnoticedlg.{hpp,cpp}` | 19 | **2026-07-17** (0.13.30) - Tier 2 dialog(guild notice editor, 18th dialog port, header 310B; 1 cTextArea id 350 + 2 button id 351/352; Linking REAL + SetEnterAllow(FALSE) + SetScriptText(""); OnActionEvent 2-button dispatch (SEND + CANCEL, 都 GUILDMGR TODO); SetActive override (val=true pre-fill notice before base, 1:1 `if(val==TRUE)` guard); **首个用 cTextArea::SetEnterAllow 的 Tier 2**; 同步扩 cTextArea (1 bool toggle 0 regression); 1:1 quirk legacy typo'd `OnActionEvnet`, modern 用正确拼写 `OnActionEvent`) |
+| `cChinaAdviceDlg` | `modern/src/ui/chinaadvicedlg.{hpp,cpp}` | 10 | **2026-07-17** (0.13.31) - Tier 2 dialog(China advice / T&C, 19th port, header 677B; 1 cTextArea id 360; Linking REAL + SetScriptText placeholder "CHINA_ADVICE_TEXT" 替代 CHATMGR->GetChatMsg(30); OnActionEvent empty no-op; 1:1 quirk CNA_BTN_OK enum 存在但 legacy .cpp 没用到) |
+| `cIntroReplayDlg` | `modern/src/ui/introreplaydlg.{hpp,cpp}` | 5 | **2026-07-17** (0.13.31) - Tier 2 dialog(intro replay placeholder, 20th port, header 475B; **完全空 dialog** ctor + dtor + Linking empty body; 为 "intro replay button" target id 占位) |
+| `cKeySettingTipDlg` | `modern/src/ui/keysettingtipdlg.{hpp,cpp}` | 9 | **2026-07-17** (0.13.31) - Tier 2 dialog(keyboard shortcut tip, 21st port, header 331B; 2 cImageSelf + Render override; cImageSelf 未 port, modern 存 2 .tga 路径 std::string; Render no-op; kModeHidden=2 + kNumImages=2 constexpr) |
+| `cLoadingDlg` | `modern/src/ui/loadingdlg.{hpp,cpp}` | 3 | **2026-07-17** (0.13.31) - Tier 2 dialog(loading screen placeholder, 22nd port, header 578B; **100% 空** ctor + dtor only, 无 Linking 方法) |
+| `cNameChangeNotifyDlg` | `modern/src/ui/namechangenotifydlg.{hpp,cpp}` | 3 | **2026-07-17** (0.13.31) - Tier 2 dialog(name change notify placeholder, 23rd port, header 652B; 1:1 quirk m_type = WT_NAMECHANGENOTIFY_DLG drop, modern ctor + dtor only) |
+| `cGuildInvitationKindSelectionDialog` | `modern/src/ui/guildinvitationkindselectiondialog.{hpp,cpp}` | 13 | **2026-07-17** (0.13.31) - Tier 2 dialog(guild invitation kind selector, 24th port, header 329B; 3 button id 370-372; Linking empty; OnActionEvent 3 branch + 3-singleton TODO; 1:1 quirks legacy CANCEL SetActive(FALSE) commented out, legacy default ASSERT(0) 改 no-op) |
+| `cTipBrowserDlg` | `modern/src/ui/tipbrowserdlg.{hpp,cpp}` | 17 | **2026-07-17** (0.13.31) - Tier 2 dialog(4-tab tip browser, 25th port, header 383B; 4 cDialog page + 4 cPushupButton + cancel; **全 REAL**; Show/Close REAL; OnActionEvent 2 path 1:1 quirks legacy `we == WE_PUSHDOWN` exact match + `we & WE_BTNCLICK`) |
+| `cGuildNickNameDialog` | `modern/src/ui/guildnicknamedialog.{hpp,cpp}` | 18 | **2026-07-17** (0.13.31) - Tier 2 dialog(guild member nickname editor, 26th port, header 821B; 1 cTextArea + 1 cEditBox; Linking REAL + SetValidCheck(0)=VCM_SPACE; SetActive override 2-singleton TODO; SetNickMsg placeholder sprintf; 1:1 quirk m_type drop, null Name guard) |
+| `cShoutDialog` | `modern/src/ui/shoutdialog.{hpp,cpp}` | 13 | **2026-07-17** (0.13.31) - Tier 2 dialog(shout message sender, 27th port, header 832B; 1 cEditBox + 2 state field; Linking REAL; SetItemInfo inline setter; SendShoutMsgSyn 4-singleton TODO; 1:1 quirk m_type drop, cEditBox::editText() 不是 GetEditText()) |
+| `cGuildInviteDialog` | `modern/src/ui/guildinvitedialog.{hpp,cpp}` | 15 | **2026-07-17** (0.13.31) - Tier 2 dialog(guild invitation display, 28th port, header 837B; 1 cTextArea; Linking REAL; SetInfo 2-flk branch + CHATMGR TODO; kFlgMember=0 / kFlgStudent=1; 1:1 quirk null names guard) |
+| `cStallKindSelectDlg` | `modern/src/ui/stallkindselectdlg.{hpp,cpp}` | 17 | **2026-07-17** (0.13.31) - Tier 2 dialog(street stall kind selector, 29th port, header 898B; 3 button sell/buy/cancel; Show+Close REAL; OnActionEvent 3 branch + final Close() for known ids; 1:1 quirk legacy `else return;` no Close() for unknown id, m_type drop; 1:1 quirk modern cButton 没 SetActive 用 cWindow::SetVisible 替代) |
 
 ## 5 档分级
 
