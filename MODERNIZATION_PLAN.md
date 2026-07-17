@@ -604,7 +604,7 @@ Phase 12: 持续迭代 ✅
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (37/202 = 18.3% done: 5 base+37 dialog+5 subcontrol; **P2-12 突破 10% + 15% + 16% + 17% + 18% 五里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (45/202 = 22.3% done: 5 base+45 dialog+5 subcontrol; **P2-12 突破 10% + 15% + 20% + 21% + 22% 五里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |
