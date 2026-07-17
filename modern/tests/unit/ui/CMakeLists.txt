@@ -44,6 +44,7 @@ add_executable(mxh_ui_tests
     guildnicknamedialog_test.cpp
     shoutdialog_test.cpp
     guildinvitedialog_test.cpp
+    stallkindselectdlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -730,4 +731,22 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildInviteDialogTest.SetInfoOverwritesPreviousText
     CGuildInviteDialogTest.SetInfoWithoutLinkIsSafe
     CGuildInviteDialogTest.SetInfoBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cStallKindSelectDlg (street stall kind selector)
+    CStallKindSelectDlgTest.DefaultConstructionIsValid
+    CStallKindSelectDlgTest.InheritsDialogTreeManagement
+    CStallKindSelectDlgTest.IdConstantsAreDistinct
+    CStallKindSelectDlgTest.IdConstantsMatchExpectedLocalRange
+    CStallKindSelectDlgTest.LinkingResolvesAllChildren
+    CStallKindSelectDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CStallKindSelectDlgTest.LinkingBeforeInitDoesNotCrash
+    CStallKindSelectDlgTest.ShowActivatesDialogAndAllButtons
+    CStallKindSelectDlgTest.ShowWithoutLinkIsSafe
+    CStallKindSelectDlgTest.CloseDeactivatesDialogAndAllButtons
+    CStallKindSelectDlgTest.ShowCloseRoundTrip
+    CStallKindSelectDlgTest.OnActionEventSellBtnIsNoOpUntilStallMgrPort
+    CStallKindSelectDlgTest.OnActionEventBuyBtnIsNoOpUntilStallMgrPort
+    CStallKindSelectDlgTest.OnActionEventCancelBtnIsNoOpUntilStallMgrPort
+    CStallKindSelectDlgTest.OnActionEventUnknownIdIsNoOp
+    CStallKindSelectDlgTest.OnActionEventNonBtnClickIsNoOp
+    CStallKindSelectDlgTest.OnActionEventBeforeLinkingDoesNotCrash
 )

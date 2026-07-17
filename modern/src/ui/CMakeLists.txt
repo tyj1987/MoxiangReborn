@@ -49,6 +49,7 @@ add_library(mxh_ui STATIC
     guildnicknamedialog.cpp
     shoutdialog.cpp
     guildinvitedialog.cpp
+    stallkindselectdlg.cpp
     ime.cpp
 )
 
