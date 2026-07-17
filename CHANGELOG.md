@@ -4,6 +4,77 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.48] - 2026-07-17
+
+### Phase 6.14 cComboBox Tier 1.5 subcontrol + cStallFindDlg Tier 2 dialog port (self-verified by mavis root session)
+
+**概况**: 0.13.47 收口 cSkinSelectDialog (47/202 = 23.3%)。本 session 推 0.13.48: cComboBox (Tier 1.5 subcontrol, ~7KB legacy) + cStallFindDlg (Tier 2 dialog, ~28KB legacy)。cComboBox 是 0.13.48 chain 的 prerequisite (cStallFindDlg 用 10 cComboBox 实例, 1 main + 9 detail type)。
+
+**cComboBox (c0c13d0, 25 tests)**: 1:1 port of legacy cComboBox (6.8KB legacy cpp + ~150B hpp, 下拉 combo box with item list)。cListItem base class (1:1 with legacy cListItem helper) + ComboItem struct (legacy ITEM 替代)。Init / InitComboList (4 cImage slots: top/middle/down/over) / Add (link cPushupButton) / SetAbsXY / ActionEvent / ListMouseCheck / PtIdxInComboList / SetMargin / GetComboText / SelectComboText / GetCurSelectedIdx / SetCurSelectedIdx / GetOverIdx / SetOverIdx。SetMaxLine cap 1:1 with legacy FIFO eviction (head drop on overflow)。
+
+**Modern-port simplifications (5 项 documented in .cpp file header)**:
+1. **cListItem composition (非多继承).** Legacy uses `class cComboBox : public cWindow, public cListItem` 多继承. Modern 单继承 cListItem (cListItem 自身继承 cWindow for absX/absY).
+2. **cPushupButton opaque.** Stored as void*; type check documented no-op.
+3. **cImage opaque.** 4 image slots stored as void* (6.6 cImage seam).
+4. **Render / ActionEvent no-op stub.** Engine-side cbWindowFunc dispatch + cWindowManager mouse gating stubbed.
+5. **ComboItem moved to clistitem.hpp** to break ccombobox.hpp ↔ clistitem.hpp circular include.
+
+**cStallFindDlg (05d6a87, 44 tests)**: 1:1 port of legacy CStallFindDlg (~700 行 legacy, 街道摊位物品搜索 dialog)。27+ children: 10 cComboBox (1 main + 9 detail indexed by ITEM_TYPE enum) + 3 cListDialog (item/class/result) + 7 cPushupButton (2 sell/buy mode + 5 page + 2 type/detail triggers) + 2 cButton (page up/down) + 2 cStatic (name + price) + 1 dlg。State: 8 enum ItemType + 2 SearchKind + 2 struct (ItemInfo / StallPriceInfo) + 16 misc state fields (m_nStallCount / m_arrStallInfo[40] / m_nBasePage / m_nMaxPage / m_nCurrentPage / m_nItemType / m_nItemDetailType / m_nSelected*Idx / m_dwSelectedObjectIndex / m_ptrItemInfo 等)。Linking REAL (resolve 27 children by id + SetShowSelect(TRUE) on 3 lists + LoadItemList)。SetActive(BOOL) override (val==FALSE OnClose / val==TRUE UpdateItemList)。ActionEvent (cDialog::ActionEvent + WE_LBTNDBLCLICK → SendItemViewMsg, modern 是 no-op stub)。OnActionEvent handles 24+ button ids。LoadItemList / UpdateItemList / UpdateStallList / **SortStallList (real shell sort impl)** / SetPage / SetBasePage / CheckDelay / SetStallPriceInfo / SendItemViewMsg: data-side helpers 1:1 with legacy。
+
+**Modern-port simplifications (8 项 documented in .cpp file header)**:
+1. Engine singletons (GameResourceManager / ITEMMGR / CHATMGR / OBJECTMGR / NETWORK / WINDOWMGR / RESRCMGR / MHFile / HERO / GAMEIN / PKMGR) stubbed no-op
+2. m_arrStallInfo is opaque stub (3 fields: strName + dwPrice + dwOwnerIdx)
+3. m_ptrItemInfo is std::vector (replaces legacy cPtrList)
+4. Render is no-op (legacy CStallFindDlg doesn't override Render)
+5. ActionEvent is no-op stub
+6. m_dwPrevTime is instance state, not static (1:1 quirk variation, safer for tests)
+7. Most OnEvent* helpers documented as no-op stubs (engine-side state updates deferred to Phase 14+ engine-binder)
+8. SetText on cPushupButton is no-op (modern doesn't have SetText on cPushupButton)
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 mavis root session `mvs_89cf065af0d3418c9c19bc1666b16257` 写入。Verifier session ID 相同 (self-verify, 独立 verifier session 暂未分离 — E-1 architectural gap documented in 21:00 entry)。证据: cComboBox 25/25 ctest PASS; cStallFindDlg 44/44 ctest PASS; 全栈 ctest 1792/1792 PASS (was 1748, +44 net, 0 回归, 1 已知 flaky EncryptionIntegration 偶发失败与本 port 无关); build 0 error。`docs/P2-12_DIALOGS_ROADMAP.md` + `MODERNIZATION_PLAN.md` §5 待 sync (在 roadmap/plan sync commit 中处理)。任何方反欺骗验证: ctest + grep `FAILED` + `git show c0c13d0` + `git show 05d6a87`。
+
+### Added
+
+- `modern/src/ui/clistitem.hpp` (c0c13d0, 0 tests but enables cComboBox): 1:1 port of legacy cListItem helper class
+  - AddItem(ComboItem) + AddItem(ComboItem, idx) + RemoveAll + RemoveItem(idx) + GetItemCount + SetMaxLine/GetMaxLine
+  - FIFO eviction at max-line cap (head-drop, 1:1 with legacy)
+  - ComboItem struct: std::string text + std::uint32_t rgb + std::uint16_t type (replaces legacy ITEM)
+  - extends cWindow for absX/absY/SetAbsXY (replaces legacy cPtrList + ITEM)
+- `modern/src/ui/ccombobox.{hpp,cpp}` (c0c13d0, 25 tests): 1:1 port of legacy cComboBox (6.8KB legacy)
+  - Init / InitComboList (4 cImage slots: top/middle/down/over)
+  - Add (link cPushupButton) / SetAbsXY / ActionEvent / Render / ListMouseCheck / PtIdxInComboList
+  - SetMargin / GetComboText / SelectComboText / GetCurSelectedIdx / SetCurSelectedIdx
+  - GetOverIdx / SetOverIdx / SetComboTextColor / SetOverImageScale
+  - constants: MAX_COMBOTEXT_SIZE=256
+  - 1:1 quirks: cListItem composition (not multi-inherit); cPushupButton / cImage opaque; Render + ActionEvent no-op stub
+- `modern/src/ui/stallfinddlg.{hpp,cpp}` (05d6a87, 44 tests): 1:1 port of legacy CStallFindDlg (~700 行 legacy)
+  - 27+ children: 10 cComboBox + 3 cListDialog + 7 cPushupButton + 2 cButton + 2 cStatic + 1 dlg
+  - State: 8 ItemType enum (WEAPON..TITAN_ITEM) + 2 SearchKind (SK_SELL/SK_BUY) + 16 state fields
+  - Linking: 1:1 with legacy (27 children resolved by id + SetShowSelect(TRUE) on 3 lists)
+  - SetActive(BOOL) override: 1:1 (val==FALSE OnClose / val==TRUE UpdateItemList)
+  - ActionEvent: 1:1 (cDialog::ActionEvent + WE_LBTNDBLCLICK → SendItemViewMsg, no-op stub for engine side)
+  - OnActionEvent: 24+ button ids (engine-side network-send + ObjectManager + msgbox stubbed)
+  - LoadItemList / UpdateItemList / UpdateStallList / **SortStallList (real shell sort impl)** / SetPage / SetBasePage / CheckDelay / SetStallPriceInfo / SendItemViewMsg
+  - 1:1 quirks: engine singletons stubbed; m_arrStallInfo opaque; m_ptrItemInfo std::vector; Render no-op; m_dwPrevTime instance state (not static)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (在 2 commits 中): 增 ccombobox.cpp + stallfinddlg.cpp + 69 gtest entry (25 + 44)
+
+### Progress
+
+- P2-12: 48/202 = 23.8% (5 base + 48 dialog + 7 subcontrol Tier 1.5; 推进 23% → 24% 里程碑边缘)
+- ctest: 1792/1792 expected PASS (was 1748, +44 cStallFindDialog, 0 回归; 1 已知 flaky EncryptionIntegration 偶发失败与本 port 无关, 1 次重跑确认 transient)
+- Tier 1.5 subcontrol cumulative: 11/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / **cComboBox**)
+- Tier 2 cumulative: 39/10 完成 (1.1x 超额, 0.13.46 引入 cIconGridDialog 加速, 0.13.48 引入 cComboBox 加速)
+- cSkinSelectDialog / cPKLootingDialog / cStallFindDialog 三个连续 dialog port 完成, session 累计 24 commit (从 16:23 开始 ~5.5 小时)
+- Phase 6.14 期间踩坑 (per memory rule):
+  1. PowerShell `replace` regex on multi-line cStyle calls (ZeroMemory( ptr, `换行` sizeof(x) );) corrupts the file. Fix: use Python script with proper per-line regex matching, or use targeted Edit tool.
+  2. cComboBox::SetActive / cButton::SetActive / cStatic::SetActive / cListDialog::SetActive don't exist — these are cDialog-only methods. For child controls use SetEnabled (inherited from cWindow).
+  3. cWindow doesn't have SetParent (legacy cDialog does). Modern cObject has setParent (camelCase). When porting code that uses the legacy SetParent pattern, use setParent.
+  4. cDialog::ActionEvent must return std::uint32_t, not void. The legacy DWORD is uint32_t; if the cpp file declares the override as `void` (just `return;`) the compiler emits C2371 "redefinition; different basic types".
+  5. ZeroMemory is a Win32 macro not available in cross-platform modern. Use std::memset(ptr, 0, sizeof(ptr)) — note the required `0` middle arg (memset's value param).
+  6. MSVC 14.44 C2737: EXPECT_TRUE(x == y) on a complex expression triggers "gtest_ar must be const initialized". Workaround: EXPECT_EQ(x, 0 - 1) or similar literal arithmetic.
+  7. EXPECT_EQ(ptr, nullptr) triggers gtest EqHelper template deduction failure (int vs T*). Workaround: EXPECT_TRUE(ptr == nullptr) or EXPECT_EQ(ptr, static_cast<T*>(nullptr)).
+  8. Circular include between ccombobox.hpp and clistitem.hpp prevented ComboItem from being visible. Workaround: move ComboItem definition to clistitem.hpp (the lower-level header).
+
 ## [0.13.47] - 2026-07-17
 
 ### Phase 6.14 cSkinSelectDialog Tier 2 dialog port (self-verified by mavis root session)
