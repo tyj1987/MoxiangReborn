@@ -4,6 +4,33 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.34] - 2026-07-17
+
+### Phase 12.x cChangeJobDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.33 收口 cNameChangeDialog (15.8%). 本 session 接 cChangeJobDialog (33rd Tier 2 dialog, 1:1 port) — header 920B, 4 method (ctor + SetItemInfo inline + ChangeJobSyn + CancelChangeJob), 2 state field (m_ItemPos + m_ItemDBIdx). 2 method 都 4-singleton TODO (HERO + NETWORK + OBJECTSTATEMGR + ITEMMGR).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cChangeJobDialog 11/11 ctest PASS; 全栈 ctest 1365 → 1376 PASS (+11 用例, 0 回归). 重跑: ctest -C Debug -R CChangeJobDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/changejobdialog.{hpp,cpp}` (新建, 1 commit): 1:1 port of 墨香 CChangeJobDialog (ChangeJobDialog.h 920B + .cpp)
+  - SetItemInfo / GetItemPos / GetItemDBIdx: REAL inline setter / getters
+  - ChangeJobSyn: TODO (4-singleton: HERO + NETWORK + SetProtocol + ITEMMGR, R-12.x deferred)
+  - CancelChangeJob: TODO (4-singleton: HERO + OBJECTSTATEMGR + ITEMMGR, R-12.x deferred)
+  - 1:1 quirk: ctor m_type = WT_ITEM_CHANGEJOB_DLG drop
+  - 1:1 quirk: legacy ctor 不 init state fields (2003-era C++ default-init), modern 用 default member init
+- `modern/tests/unit/ui/changejobdialog_test.cpp` (新建, 11 用例 PASS): ctor + 1 tree + SetItemInfo x3 (round-trip / overrides / zero) + ChangeJobSyn x3 (is-noop / does-not-change-state / before-init) + CancelChangeJob x3 (is-noop / does-not-change-state / before-init)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 changejobdialog.cpp + 11 gtest entry
+
+### Progress
+
+- P2-12: 33/202 = 16.3% (5 base + 33 dialog + 5 subcontrol Tier 1.5; **突破 16% 里程碑**)
+- ctest: 1376/1376 PASS (was 1365, +11 cChangeJobDialog)
+- 累计 1 session: 879 → 1376 ctest PASS (+497 用例, 0 回归)
+- 16 个新 Tier 2 dialog 端口 (PetWearedEx + GuildNotice + 10 batch 0.13.31 + PartyInvite 0.13.32 + NameChange 0.13.33 + ChangeJob 0.13.34)
+- 1 cTextArea 扩展 (SetEnterAllow 0.13.30)
+
 ## [0.13.33] - 2026-07-17
 
 ### Phase 12.x cNameChangeDialog Tier 2 dialog port (self-verified by producer session)
