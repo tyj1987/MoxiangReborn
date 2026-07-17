@@ -4,6 +4,33 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.42] - 2026-07-17
+
+### Phase 12.x cAlertDlg Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.41 收口 cMPMissionDialog (20.3%). 本 session 接 cAlertDlg (42nd Tier 2 dialog, 1:1 port) — header 4.7 KB, 4 method (ctor + Linking + ActionEvent + SetcbBtn + SetObj/GetObj), 2 cButton (OK + Cancel) + 1 cbBtnFunc callback + 1 m_obj opaque pointer. Linking REAL (synth 2 cButton, store non-owning raw pointers in m_pOk/m_pCancel, Add to dialog children for findWindowById). SetcbBtn REAL with std::function. SetObj/GetObj REAL. ActionEvent TODO (CMouse not ported, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cAlertDlg 21/21 ctest PASS; 全栈 ctest 1525 → 1546 PASS (+21 用例, 0 回归). 重跑: ctest -C Debug -R CAlertDlg, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/alertdlg.{hpp,cpp}` (1 commit, 21 tests): 1:1 port of CAlertDlg (header 4727B)
+  - Linking: REAL (synth 2 cButton, store non-owning raw pointers m_pOk/m_pCancel, Add to dialog children)
+  - ActionEvent: CMouse not ported; return WE_NULL (TODO R-12.x deferred)
+  - SetcbBtn: REAL with std::function (1:1 with legacy C function pointer)
+  - SetObj/GetObj: REAL with void* opaque user object
+  - 1:1 quirk: m_pOk/m_pCancel are non-owning raw pointers (legacy cButton* captured via Add() side-channel; modern synthesizes in Linking since cWindow::Add is non-virtual)
+  - 2 AB_* enum constants (kAbOkCancel=0, kAbYesNo=1) for legacy AB_OKCANCEL/AB_YESNO
+  - Local id range 600-601 (kIdOkBtn=600, kIdCancelBtn=601)
+- `modern/tests/unit/ui/alertdlg_test.cpp` (新建, 21 用例 PASS): ctor + 2 id const + 2 ab const + Linking x5 + GetObj/SetObj x4 + SetcbBtn x3 + ActionEvent x3
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 alertdlg.cpp + 21 gtest entry
+
+### Progress
+
+- P2-12: 42/202 = 20.8% (5 base + 42 dialog + 5 subcontrol Tier 1.5; 继续推进 21% 里程碑)
+- ctest: 1546/1546 PASS (was 1525, +21 cAlertDlg)
+- 25 个新 Tier 2 dialog 端口
+
 ## [0.13.41] - 2026-07-17
 
 ### Phase 12.x cMPMissionDialog Tier 2 dialog port (self-verified by producer session)
