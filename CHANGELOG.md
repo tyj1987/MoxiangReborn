@@ -4,6 +4,87 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.41] - 2026-07-17
+
+### Phase 12.x cMPMissionDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.40 收口 cGuildMarkDialog (19.8%). 本 session 接 cMPMissionDialog (41st Tier 2 dialog, 1:1 port) — header 6.1 KB, 6 method (ctor + Linking + SetMissionInfo + SetActive + ActionEvent + LoadMissionMsg), 2 cTextArea + 2 message arrays. Linking REAL (resolve 2 cTextArea by id, SetScriptText with placeholders). SetMissionInfo REAL with defensive bounds-check. SetActive/ActionEvent TODO (GAMEIN + gCurTime + CMouse not ported, R-12.x deferred). LoadMissionMsg no-op (legacy cpp body is empty).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cMPMissionDialog 20/20 ctest PASS; 全栈 ctest 1505 → 1525 PASS (+20 用例, 0 回归). 重跑: ctest -C Debug -R CMPMissionDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/mpmissiondialog.{hpp,cpp}` (1 commit, 20 tests): 1:1 port of CMPMissionDialog (header 6136B)
+  - Linking: REAL (resolve cTextArea id 570 + 571, SetScriptText with kMissionText/kCautionText placeholders for CHATMGR msg 665/666)
+  - SetMissionInfo: REAL with defensive bounds-check (msgnum < 0 || msgnum >= 5 → silent return; legacy ASSERT(0) replaced with safe return)
+  - SetActive override: TODO (GAMEIN singleton + gCurTime not ported)
+  - ActionEvent: CMouse + gCurTime 5 sec timer not ported; return WE_NULL
+  - LoadMissionMsg: 1:1 with legacy (no-op; legacy cpp body is empty, never populates m_pMissionMsg/m_pCautionMsg)
+  - 1:1 quirk: ctor m_type = WT_MPMISSIONDLG drop
+  - 1:1 quirk: m_pMissionMsg/m_pCautionMsg use std::vector<std::string> (legacy char* with NULL after ZeroMemory)
+  - Local id range 570-571 (kIdMission=570, kIdCaution=571)
+  - kMaxMissionMsgNum=5 (1:1 with legacy MAX_MISSIONMSG_NUM common const)
+- `modern/tests/unit/ui/mpmissiondialog_test.cpp` (新建, 20 用例 PASS): ctor + 2 id const + 1 max const + 2 placeholder consts + Linking x3 + SetMissionInfo x3 + SetActive x3 + ActionEvent x2 + LoadMissionMsg x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 mpmissiondialog.cpp + 20 gtest entry
+
+### Progress
+
+- P2-12: 41/202 = 20.3% (5 base + 41 dialog + 5 subcontrol Tier 1.5; **突破 20% 里程碑**)
+- ctest: 1525/1525 PASS (was 1505, +20 cMPMissionDialog)
+- 24 个新 Tier 2 dialog 端口
+
+## [0.13.40] - 2026-07-17
+
+### Phase 12.x cGuildMarkDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.39 收口 cMainDialog (19.3%). 本 session 接 cGuildMarkDialog (40th Tier 2 dialog, 1:1 port) — header 6.3 KB, 4 method (ctor + Linking + SetActive + ShowGuildMark + ShowGuildUnionMark), 1 cTextArea + 2 cButton. Linking REAL (resolve 3 children by id, SetScriptText on cTextArea with kGuildMarkInfoText placeholder for CHATMGR msg 303). ShowGuildMark / ShowGuildUnionMark 1:1 with legacy, cButton SetActive 改 SetVisible (R-12 fix). SetActive override TODO (HERO + OBJECTSTATEMGR + GAMEIN singletons, R-12.x deferred) — modern port calls base + SetFocusEdit(false) on resolved cEditBox.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cGuildMarkDialog 21/21 ctest PASS; 全栈 ctest 1484 → 1505 PASS (+21 用例, 0 回归). 重跑: ctest -C Debug -R CGuildMarkDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/guildmarkdialog.{hpp,cpp}` (1 commit, 21 tests): 1:1 port of CGuildMarkDialog (header 6257B)
+  - Linking: REAL (resolve cTextArea id 550 + 2 cButton id 551/552, SetScriptText with kGuildMarkInfoText placeholder for CHATMGR msg 303)
+  - SetActive override: TODO (HERO + OBJECTSTATEMGR + GAMEIN dispatch, R-12.x deferred); modern port calls base SetActive + SetFocusEdit(false) on cEditBox (resolved per-call via findWindowById(kIdNameEdit=553))
+  - ShowGuildMark: 1:1 with legacy. cButton SetActive(TRUE) 改 SetVisible(TRUE) (R-12 fix)
+  - ShowGuildUnionMark: 1:1 with legacy. cButton SetActive(TRUE/FALSE) 改 SetVisible(TRUE/FALSE) (R-12 fix)
+  - 2 info text placeholders: kGuildMarkInfoText (CHATMGR msg 303) + kGuildUnionMarkInfoText (CHATMGR msg 1114)
+  - 1:1 quirk: ctor m_type = WT_GUILDMARKDLG drop
+  - Local id range 550-553 (kIdInfoText=550, kIdRegistOkBtn=551, kIdUnionRegistOkBtn=552, kIdNameEdit=553)
+- `modern/tests/unit/ui/guildmarkdialog_test.cpp` (新建, 21 用例 PASS): ctor + 4 id const + 2 placeholder consts + Linking x4 + SetActive x3 + ShowGuildMark x3 + ShowGuildUnionMark x3 + toggleable x1 + safe-without-linking x1
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 guildmarkdialog.cpp + 21 gtest entry
+
+### Progress
+
+- P2-12: 40/202 = 19.8% (5 base + 40 dialog + 5 subcontrol Tier 1.5; 继续推进 20% 里程碑)
+- ctest: 1505/1505 PASS (was 1484, +21 cGuildMarkDialog)
+- 23 个新 Tier 2 dialog 端口
+
+## [0.13.39] - 2026-07-17
+
+### Phase 12.x cMainDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.38 收口 cWantRegistDialog (18.8%). 本 session 接 cMainDialog (39th Tier 2 dialog, 1:1 port) — header 4.4 KB, 3 method (ctor + Linking + GetPushupBtn), 4 cPushupButton. Linking REAL (synth 4 cPushupButton with id 530-533, store in m_pBtn[4] unique_ptr). GetPushupBtn REAL with bounds-check (legacy is UB on OOB; modern returns nullptr defensively). 1:1 quirk: legacy Add(cWindow*) override used as side-channel to capture cPushupButton from resource loader; modern cWindow::Add is non-virtual (takes unique_ptr by value), so modern port synthesizes children in Linking instead — semantic preservation: post-Linking state has the same 4 cPushupButton captured.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cMainDialog 18/18 ctest PASS; 全栈 ctest 1466 → 1484 PASS (+18 用例, 0 回归). 重跑: ctest -C Debug -R CMainDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/maindialog.{hpp,cpp}` (1 commit, 18 tests): 1:1 port of CMainDialog (header 4393B)
+  - Linking: REAL (synth 4 cPushupButton id 530-533, store in m_pBtn[4] unique_ptr; 1:1 quirk: legacy Add() side-channel replaced by synth since modern cWindow::Add is non-virtual)
+  - GetPushupBtn: REAL with bounds-check (kNumBtns=4)
+  - 4 idx constants (kIdxChar=0, kIdxInventory=1, kIdxMugong=2, kIdxParty=3) + kNumBtns=4 (1:1 with legacy CHAR_BTN/INVENTORY_BTN/MUGONG_BTN/PARTY_BTN enum, 5-1=4 valid indices)
+  - 1:1 quirk: ctor m_type = WT_MAINDIALOG drop
+  - Local id range 530-533 (kIdInventoryBtn=530, kIdMugongBtn=531, kIdCharBtn=532, kIdPartyBtn=533)
+- `modern/tests/unit/ui/maindialog_test.cpp` (新建, 18 用例 PASS): ctor + 4 id const + 4 idx const + 1 num const + Linking x3 + GetPushupBtn x4 + base-class x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 maindialog.cpp + 18 gtest entry
+
+### Progress
+
+- P2-12: 39/202 = 19.3% (5 base + 39 dialog + 5 subcontrol Tier 1.5; **突破 19% 里程碑**)
+- ctest: 1484/1484 PASS (was 1466, +18 cMainDialog)
+- 22 个新 Tier 2 dialog 端口
+
 ## [0.13.38] - 2026-07-17
 
 ### Phase 12.x cWantRegistDialog Tier 2 dialog port (self-verified by producer session)

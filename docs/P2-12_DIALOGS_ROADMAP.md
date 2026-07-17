@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-17
-> **状态**:🟢 进行中(38/202 = 18.8% 继续推进 19% 里程碑)
+> **状态**:🟢 进行中(41/202 = 20.3% 突破 20% 里程碑)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（38/202 = 18.8%）
+## 已 Port 列表（41/202 = 20.3%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -64,6 +64,9 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cReinforceDataGuideDlg` | `modern/src/ui/reinforcedataguidedlg.{hpp,cpp}` | 20 | **2026-07-17** (0.13.36) - Tier 2 dialog(9-tab reinforce data guide, 35th port, header 793B; 9 cPushupButton id 480-488 + 7 unique cDialog id 490-496 + 1 OK button id 498; **全 REAL** (no singleton TODO); 1:1 quirks m_pDataDlg[6] aliases 5 + m_pDataDlg[8] aliases 7; legacy `we == WE_PUSHDOWN` exact match; 9 eRFDG_ITEM_KIND enum constants) |
 | `cWantedDialog` | `modern/src/ui/wanteddialog.{hpp,cpp}` | 16 | **2026-07-17** (0.13.37) - Tier 2 dialog(wanted list, 36th port, header 759B; 1 cListDialog id 500; Linking REAL; InitWanted REAL (RemoveAll); SetInfo + AddInfo TODO (WANTEDLIST struct + CHATMGR, R-12.x deferred); kMaxWantedNum=20) |
 | `cWantRegistDialog` | `modern/src/ui/wantregistdialog.{hpp,cpp}` | 19 | **2026-07-17** (0.13.38) - Tier 2 dialog(wanted registration editor, 37th port, header 5172B; 1 cStatic id 510 + 1 cEditBox id 511; Linking REAL; SetWantedName REAL; SetActive override REAL for SetFocusEdit(false); gCurTime + HERO + NETWORK MSGBASE dispatch TODO; ActionEvent CMouse + gCurTime timer TODO; kVcmNumber=1) |
+| `cMainDialog` | `modern/src/ui/maindialog.{hpp,cpp}` | 18 | **2026-07-17** (0.13.39) - Tier 2 dialog(main UI button bar, 38th port, header 4393B; 4 cPushupButton id 530-533; Linking REAL synth 4 cPushupButton (legacy Add() side-channel replaced by synth since modern cWindow::Add is non-virtual); GetPushupBtn REAL with bounds-check; kNumBtns=4) |
+| `cGuildMarkDialog` | `modern/src/ui/guildmarkdialog.{hpp,cpp}` | 21 | **2026-07-17** (0.13.40) - Tier 2 dialog(guild mark registration, 39th port, header 6257B; 1 cTextArea id 550 + 2 cButton id 551/552; Linking REAL; ShowGuildMark/ShowGuildUnionMark 1:1 with cButton SetActive 改 SetVisible (R-12 fix); SetActive override TODO (HERO + OBJECTSTATEMGR + GAMEIN); 2 CHATMGR placeholders for msg 303/1114) |
+| `cMPMissionDialog` | `modern/src/ui/mpmissiondialog.{hpp,cpp}` | 20 | **2026-07-17** (0.13.41) - Tier 2 dialog(event-map mission notice, 40th port, header 6136B; 2 cTextArea id 570/571 + 2 message arrays; Linking REAL; SetMissionInfo REAL with defensive bounds-check; SetActive/ActionEvent TODO (GAMEIN + gCurTime + CMouse); LoadMissionMsg no-op (legacy cpp body empty); kMaxMissionMsgNum=5) |
 
 ## 5 档分级
 
