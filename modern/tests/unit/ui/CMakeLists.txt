@@ -39,6 +39,8 @@ add_executable(mxh_ui_tests
     keysettingtipdlg_test.cpp
     loadingdlg_test.cpp
     namechangenotifydlg_test.cpp
+    guildinvitationkindselectiondialog_test.cpp
+    tipbrowserdlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -644,4 +646,36 @@ gtest_add_tests(TARGET mxh_ui_tests
     CNameChangeNotifyDlgTest.DefaultConstructionIsValid
     CNameChangeNotifyDlgTest.InheritsDialogTreeManagement
     CNameChangeNotifyDlgTest.SetActiveToggleRoundTrip
+    # P2-12 Tier 2 dialog: cGuildInvitationKindSelectionDialog (guild invite kind)
+    CGuildInvitationKindSelectionDialogTest.DefaultConstructionIsValid
+    CGuildInvitationKindSelectionDialogTest.InheritsDialogTreeManagement
+    CGuildInvitationKindSelectionDialogTest.IdConstantsAreDistinct
+    CGuildInvitationKindSelectionDialogTest.IdConstantsMatchExpectedLocalRange
+    CGuildInvitationKindSelectionDialogTest.LinkingIsNoOp
+    CGuildInvitationKindSelectionDialogTest.LinkingBeforeInitDoesNotCrash
+    CGuildInvitationKindSelectionDialogTest.OnActionEventNonBtnClickIsNoOp
+    CGuildInvitationKindSelectionDialogTest.OnActionEventMemberBtnIsNoOpUntilGuildMgrPort
+    CGuildInvitationKindSelectionDialogTest.OnActionEventStudentBtnIsNoOpUntilGuildMgrPort
+    CGuildInvitationKindSelectionDialogTest.OnActionEventCancelBtnIsNoOpKeepsDialogOpen
+    CGuildInvitationKindSelectionDialogTest.OnActionEventUnknownIdIsNoOp
+    CGuildInvitationKindSelectionDialogTest.OnActionEventAllThreeIdsInSequence
+    CGuildInvitationKindSelectionDialogTest.OnActionEventBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cTipBrowserDlg (4-tab tip browser)
+    CTipBrowserDlgTest.DefaultConstructionIsValid
+    CTipBrowserDlgTest.InheritsDialogTreeManagement
+    CTipBrowserDlgTest.IdConstantsMatchExpectedLocalRange
+    CTipBrowserDlgTest.LinkingResolvesAllChildren
+    CTipBrowserDlgTest.LinkingSetsCurDlgToZero
+    CTipBrowserDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CTipBrowserDlgTest.LinkingBeforeInitDoesNotCrash
+    CTipBrowserDlgTest.ShowActivatesDialogAndCurrentTab
+    CTipBrowserDlgTest.ShowDeactivatesOtherTabs
+    CTipBrowserDlgTest.CloseDeactivatesDialogAndResetsCurDlg
+    CTipBrowserDlgTest.OnActionEventPushDownSwitchesTab
+    CTipBrowserDlgTest.OnActionEventPushDownInvalidIdIsNoOp
+    CTipBrowserDlgTest.OnActionEventPushDownExactMatchRequired
+    CTipBrowserDlgTest.OnActionEventCancelBtnClosesDialog
+    CTipBrowserDlgTest.OnActionEventBtnClickNonCancelIsNoOp
+    CTipBrowserDlgTest.OnActionEventUnknownWeIsNoOp
+    CTipBrowserDlgTest.OnActionEventBeforeLinkingDoesNotCrash
 )

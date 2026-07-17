@@ -44,6 +44,8 @@ add_library(mxh_ui STATIC
     keysettingtipdlg.cpp
     loadingdlg.cpp
     namechangenotifydlg.cpp
+    guildinvitationkindselectiondialog.cpp
+    tipbrowserdlg.cpp
     ime.cpp
 )
 
