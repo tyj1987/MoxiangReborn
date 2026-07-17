@@ -128,8 +128,49 @@ TEST(CListDialog, PtIdxInRowRespectsClip) {
 }
 
 TEST(CListDialog, AutoScrollSetterGetter) {
+    // 1:1 with legacy cListDialog::SetAutoScroll + SetShowSelect.
+    // Both setters existed before this fix but the AutoScroll getter
+    // did not (mirrors the cButton 87e831a / cStatic 7cf011e pattern).
+    // Setter/getter pairs must always be present in modern UI; the
+    // test upgrades from a weak "no getter" form (just verifies the
+    // call doesn't crash) to a 4-assertion round-trip.
     mxh::ui::cListDialog l;
+    l.InitList(5, 0, 0, 100, 100);
+    // Defaults: auto-scroll off, show-select on.
+    EXPECT_FALSE(l.IsAutoScroll());
+    EXPECT_TRUE(l.IsShowSelect());
     l.SetAutoScroll(true);
     l.SetShowSelect(false);
+    EXPECT_TRUE(l.IsAutoScroll());
     EXPECT_FALSE(l.IsShowSelect());
+    // Toggle back: setter is a re-write, not an add.
+    l.SetAutoScroll(false);
+    l.SetShowSelect(true);
+    EXPECT_FALSE(l.IsAutoScroll());
+    EXPECT_TRUE(l.IsShowSelect());
+}
+
+TEST(CListDialog, LineHeightSetterGetter) {
+    // 1:1 with legacy cListDialog::SetLineHeight: the line height is
+    // the row pitch used by PtIdxInRow and by OnUpwardItem /
+    // OnDownwardItem scroll math. Setter existed before this fix but
+    // the getter did not (same pattern as cButton 87e831a and
+    // cStatic 7cf011e).
+    mxh::ui::cListDialog l;
+    l.InitList(5, 0, 0, 100, 100);
+    // Default line height is 14 (legacy cListDialog default).
+    EXPECT_EQ(l.GetLineHeight(), 14);
+    l.SetLineHeight(20);
+    EXPECT_EQ(l.GetLineHeight(), 20);
+    // Re-Init must not clobber the line height.
+    l.InitList(5, 0, 0, 100, 100);
+    EXPECT_EQ(l.GetLineHeight(), 20);
+    // Negative / zero line heights must round-trip verbatim (the
+    // legacy engine stores the value as-is; the hit-test math
+    // produces 0 / negative row indices, which PtIdxInRow treats
+    // as "outside the clip" and returns -1).
+    l.SetLineHeight(0);
+    EXPECT_EQ(l.GetLineHeight(), 0);
+    l.SetLineHeight(-1);
+    EXPECT_EQ(l.GetLineHeight(), -1);
 }

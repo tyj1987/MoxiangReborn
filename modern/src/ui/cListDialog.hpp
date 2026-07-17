@@ -37,6 +37,7 @@ public:
     void InitList(std::uint16_t maxLines, std::int32_t clipX, std::int32_t clipY,
                   std::int32_t clipW, std::int32_t clipH);
     void SetLineHeight(std::int32_t h) noexcept { m_lineHeight = h; }
+    std::int32_t GetLineHeight() const noexcept  { return m_lineHeight; }
     void SetMaxLine(std::uint16_t n) noexcept    { m_maxLine = n; }
     std::uint16_t GetMaxLine() const noexcept    { return m_maxLine; }
     void SetShowSelect(bool v) noexcept          { m_showSelect = v; }
@@ -65,6 +66,7 @@ public:
     void Render() override {}
 
     void SetAutoScroll(bool v) noexcept           { m_autoScroll = v; }
+    bool IsAutoScroll() const noexcept            { return m_autoScroll; }
 
 private:
     std::vector<Row> m_rows;
