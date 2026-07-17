@@ -1,8 +1,8 @@
 # P2-12 Dialogs 移植 Roadmap
 
 > **作者**:Mavis
-> **日期**:2026-07-16
-> **状态**:🟢 进行中(37/202 = 18.3% 突破 18% 里程碑)
+> **日期**:2026-07-17
+> **状态**:🟢 进行中(38/202 = 18.8% 继续推进 19% 里程碑)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（37/202 = 18.3%）
+## 已 Port 列表（38/202 = 18.8%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -63,6 +63,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cGTRegistDialog` | `modern/src/ui/gtregistdialog.{hpp,cpp}` | 20 | **2026-07-17** (0.13.35) - Tier 2 dialog(tournament registration, 34th port, header 865B; 2 cStatic id 470-471 + 1 cButton id 472; Linking REAL; SetActive override REAL; TournamentRegistSyn 3-singleton TODO 返回 kErrorNoGuildMaster; SetRegistGuildCount TODO (cStatic::SetStaticValue 未 port); 5 eGTError enum constants + kMaxGuildInTournament=32) |
 | `cReinforceDataGuideDlg` | `modern/src/ui/reinforcedataguidedlg.{hpp,cpp}` | 20 | **2026-07-17** (0.13.36) - Tier 2 dialog(9-tab reinforce data guide, 35th port, header 793B; 9 cPushupButton id 480-488 + 7 unique cDialog id 490-496 + 1 OK button id 498; **全 REAL** (no singleton TODO); 1:1 quirks m_pDataDlg[6] aliases 5 + m_pDataDlg[8] aliases 7; legacy `we == WE_PUSHDOWN` exact match; 9 eRFDG_ITEM_KIND enum constants) |
 | `cWantedDialog` | `modern/src/ui/wanteddialog.{hpp,cpp}` | 16 | **2026-07-17** (0.13.37) - Tier 2 dialog(wanted list, 36th port, header 759B; 1 cListDialog id 500; Linking REAL; InitWanted REAL (RemoveAll); SetInfo + AddInfo TODO (WANTEDLIST struct + CHATMGR, R-12.x deferred); kMaxWantedNum=20) |
+| `cWantRegistDialog` | `modern/src/ui/wantregistdialog.{hpp,cpp}` | 19 | **2026-07-17** (0.13.38) - Tier 2 dialog(wanted registration editor, 37th port, header 5172B; 1 cStatic id 510 + 1 cEditBox id 511; Linking REAL; SetWantedName REAL; SetActive override REAL for SetFocusEdit(false); gCurTime + HERO + NETWORK MSGBASE dispatch TODO; ActionEvent CMouse + gCurTime timer TODO; kVcmNumber=1) |
 
 ## 5 档分级
 

@@ -4,6 +4,33 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.38] - 2026-07-17
+
+### Phase 12.x cWantRegistDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.37 收口 cWantedDialog (18.3%). 本 session 接 cWantRegistDialog (38th Tier 2 dialog, 1:1 port) — header 5.2 KB, 4 method (ctor + Linking + SetWantedName + SetActive + ActionEvent), 1 cStatic + 1 cEditBox. Linking REAL (resolve 2 children by id, SetValidCheck(VCM_NUMBER=1)). SetWantedName REAL with std::string. SetActive override REAL for SetFocusEdit(false); gCurTime/HERO/NETWORK MSGBASE dispatch TODO (R-12.x deferred). ActionEvent: CMouse + gCurTime timer (3 sec m_bShow gate) not ported; return WE_NULL (matches legacy early-return path).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cWantRegistDialog 19/19 ctest PASS; 全栈 ctest 1447 → 1466 PASS (+19 用例, 0 回归). 重跑: ctest -C Debug -R CWantRegistDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/wantregistdialog.{hpp,cpp}` (1 commit, 19 tests): 1:1 port of CWantRegistDialog (header 5172B)
+  - Linking: REAL (resolve cStatic id 510 + cEditBox id 511, SetValidCheck(VCM_NUMBER=1))
+  - SetWantedName: REAL with std::string (1:1 with legacy char*); null pName defensive guard
+  - SetActive override: REAL for SetFocusEdit(false) on val==FALSE; gCurTime + HERO + NETWORK MSGBASE dispatch TODO (R-12.x deferred)
+  - ActionEvent: CMouse + gCurTime 3 sec timer + m_bShow gate not ported; return WE_NULL
+  - 1:1 quirk: ctor m_type = WT_WANTREGISTDIALOG drop (modern cWindow no m_type)
+  - Local id range 510-511 (kIdWantedName=510, kIdPrizeEdit=511)
+  - kVcmNumber=1 (1:1 with legacy cEditBox VCM_NUMBER=1)
+- `modern/tests/unit/ui/wantregistdialog_test.cpp` (新建, 19 用例 PASS): ctor + 2 id const + 1 vcm const + Linking x4 + SetWantedName x5 + SetActive x4 + ActionEvent x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 wantregistdialog.cpp + 19 gtest entry
+
+### Progress
+
+- P2-12: 38/202 = 18.8% (5 base + 38 dialog + 5 subcontrol Tier 1.5; **继续推进 19% 里程碑**)
+- ctest: 1466/1466 PASS (was 1447, +19 cWantRegistDialog)
+- 21 个新 Tier 2 dialog 端口
+
 ## [0.13.37] - 2026-07-17
 
 ### Phase 12.x cWantedDialog Tier 2 dialog port (self-verified by producer session)
