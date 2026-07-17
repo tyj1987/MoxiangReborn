@@ -70,6 +70,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cAlertDlg` | `modern/src/ui/alertdlg.{hpp,cpp}` | 21 | **2026-07-17** (0.13.42) - Tier 2 dialog(alert dialog with 2 cButton + cbBtnFunc callback, 41st port, header 4727B; 2 cButton id 600-601 + 1 cbBtnFunc callback + 1 m_obj; Linking REAL synth 2 cButton; ActionEvent CMouse TODO; SetcbBtn REAL with std::function; SetObj/GetObj REAL; 2 AB_* enum constants) |
 | `cMPGuageDialog` | `modern/src/ui/mpguagedialog.{hpp,cpp}` | 30 | **2026-07-17** (0.13.43) - Tier 2 dialog(event-map timer + exp gauge, 42nd port, header 5525B; CObjectGuagen (void*) + 3 cStatic id 610-613; Linking REAL; SetTime REAL with red threshold + "%02u:%02u" format; SetEventMapTimer REAL 3-way switch (kFlagReady=0, kFlagActive=1, kFlagStopped=2); SetExpGuage/ShowEventMap TODO (CObjectGuagen::SetValue + CHATMGR); kRedTextThreshold=30000) |
 | `cUnionNoteDlg` | `modern/src/ui/unionnotedlg.{hpp,cpp}` | 19 | **2026-07-17** (0.13.44) - Tier 2 dialog(guild union note sender, 43rd port, header 5181B; 1 cTextArea id 620 + 1 cEditBox id 621 (unused) + CItem (void*) + m_bUse flag; Linking REAL SetEnterAllow(false) + SetScriptText(""); Show/Use/OnActionEvent TODO (HERO + CHATMGR + NETWORK + ITEMMGR); 1:1 quirk legacy "OnActionEvnet" typo 改 "OnActionEvent") |
+| `cMPRegistDialog` | `modern/src/ui/mpregistdialog.{hpp,cpp}` | 28 | **2026-07-17** (0.13.45) - Tier 2 dialog(MP practice registration, 44th port, header 1098B; 4 children: 2 cTextArea (id 564/565) + 1 cStatic (id 566) + 1 cIconDialog (id 563); Linking REAL + 1-cell layout config on inner cIconDialog (1:1 quirk: modern has no .bin loader); SetActive override (val==FALSE resets 4 children + WINDOWMGR/OBJECTSTATEMGR TODO); FakeMoveIcon 5-singleton TODO (SURYUNMGR/HERO/WINDOWMGR/CHATMGR/OBJECTSTATEMGR + cMugongBase/cSkillInfo); SetSuryunMugongInfo sprintf placeholder "Mugong: %s (Sung %u)" + SetScriptText (CHATMGR msg 661 TODO); SetPracticeInfo LTime=limitime/60000 + sprintf placeholder + SetStaticValue (CHATMGR msg 660 TODO); AddLink 1:1 wrap (DeleteIcon(0) if not addable + AddIcon(0,picon,TRUE)); GetMugong returns nullptr (TODO until CMugongBase port, R-12.x deferred); 1:1 quirks: m_type=WT_MPREGISTDIALOG drop, SetDragOverIconType drop (modern cIconDialog has no such API, same as cPetWearedExDialog/cWearedExDialog), null mugongName→"(null)" defensive; 7 local id range 562-568 1:1 with legacy enum) |
 
 ## 5 档分级
 
@@ -161,6 +162,12 @@ CharacterDialog 子控件 blocker**。但 CharacterDialog 仍需 PlayerStatsServ
 - 选 1 个**纯 UI 状态机** + **子控件全 port** + **无 service** 的 dialog
 - 截至 0.13.12,唯一符合所有条件的是 **MacroDialog**(仅 cEditBox + cButton,OptionManager settings 已经是 local state)
 - 第二个候选是 **DealDialog**(Tier 3 blocked after 0.13.12 解锁子控件)
+- **0.13.12-0.13.45 修正**: MacroDialog 0.13.14 已 ported(20 tests)。子控件 cListDialogEx 0.13.13 + cTextArea 0.13.23 也已 ported,解锁了 cChaseInputDialog / cMPNoticeDialog / cTextArea 系列。当前(0.13.45)最新可立即 port 的 Tier 2 候选:
+  - **cMPRegistDialog** ✅ 已 ported (0.13.45, 28 tests, 5-singleton TODO)
+  - **cChatOptionDialog** (cEditBox, cButton - 跟 MacroDialog 类似小 dialog)
+  - **cStallFindDlg** (cListDialog + 搜索按钮 - 中等)
+  - **cPKLootingDialog** (8 cStatic + 1 cIconGridDialog - 较大,9 singleton)
+  - **cSkinSelectDialog** (cListDialog + cIconDialog - 1:1 简单,1 CItemShow quirk drop)
 
 ### Tier 3 - 需要 GameIn/Inventory 状态(~500-1000 行,3-5 commit/个)
 
@@ -308,15 +315,15 @@ timer 机制。这是 Phase 14+ 范畴,**预计 4-6 周工作量**,本 roadmap
 | Tier 5 | 100+ | 1000-3000 行(需 15-20 service) | 8-12 周(依赖 Phase 15 service + network) |
 | **总计** | **131+** | - | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **22/202** = **10.9%**(当前)→ 100% ≈ 4-5 个月全职工作量。**突破 10% 里程碑。**
+加上 base **45/202** = **22.3%**(当前, 0.13.45 后 cMPRegistDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% 里程碑(0.13.27/0.13.30/0.13.42/0.13.45)。**
 **这是真的"长尾",不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
 
 1. **每次新 session** 推 1-2 个 **Tier 1.5 子控件** widget(小活,1-2 commit)。
-   下次 session 候选: cListDialogEx / cPushupButton / cListCtrl(确认 modern 存在)
+   下次 session 候选: cListDialogEx / cPushupButton / cListCtrl / cTextArea(全部已 ported,见 0.13.12 摘要下方的小活建议段)
 2. **每 3-5 session** 评估一次 Tier 2(需要先确认子控件齐全 + 无 service 阻塞)
-   - 当前可立即 port 的 Tier 2 dialog: **MacroDialog**(无 service, 子控件全 port)
+   - 当前可立即 port 的 Tier 2 dialog: **MacroDialog** ✅(0.13.14, 20 tests) / **cMPRegistDialog** ✅(0.13.45, 28 tests);新候选见上方"小活建议"段
 3. **不开 Phase 13** 不动 Tier 3-5(架构阻塞)
 4. **每 10 session** 更新一次本 roadmap(重新评估 Tier / 优先级)
 
@@ -328,6 +335,47 @@ timer 机制。这是 Phase 14+ 范畴,**预计 4-6 周工作量**,本 roadmap
 - 📊 Progress: 5/202 = 2.5% → 22/202 = 10.9% 突破 10% 里程碑
   (Tier 1.5 子控件算"组件 port", 不算严格 dialog port,
   但属于"无 service 阻塞的 ui 元素")
+
+## 0.13.45 更新摘要 (2026-07-17)
+
+Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 的 45/202 = 22.3%
+(+23 dialog 跨越 0.13.13 - 0.13.45, ~5 天, 12 个 Tier 2 dialog + Tier 1.5 sub-widget 同步):
+
+- 0.13.13 cListDialogEx (14 tests, Tier 1.5 sub-widget)
+- 0.13.14 cMacroDialog (20 tests, Tier 2 - **解锁** MacroDialog 候选)
+- 0.13.15 cCharMakeDlg (8 tests)
+- 0.13.16-0.13.20 cGuildJoinDialog / cCharStateDialog / cSOSDialog / cWearedExDialog / cMiniFriendDialog
+- 0.13.22 cReviveDialog
+- 0.13.23 cTextArea (22 tests, Tier 1.5 sub-widget - **解锁** ~30 Tier 2/3 dialog)
+- 0.13.23 cMPNoticeDialog
+- 0.13.24 cEventNotifyDialog
+- 0.13.25 cGuildCreateDialog + cGuildUnionCreateDialog
+- 0.13.26 cChaseInputDialog
+- 0.13.27 cChaseDialog (突破 10% 里程碑)
+- 0.13.28 cBailDialog
+- 0.13.29 cPetWearedExDialog
+- 0.13.30 cGuildNoticeDlg
+- 0.13.31 11 个 batch: cChinaAdviceDlg / cIntroReplayDlg / cKeySettingTipDlg / cLoadingDlg / cNameChangeNotifyDlg / cGuildInvitationKindSelectionDialog / cTipBrowserDlg / cGuildNickNameDialog / cShoutDialog / cGuildInviteDialog / cStallKindSelectDlg
+- 0.13.32 cPartyInviteDlg
+- 0.13.33 cNameChangeDialog
+- 0.13.34 cChangeJobDialog (突破 16% 里程碑)
+- 0.13.35 cGTRegistDialog + cGTRegistcancelDialog
+- 0.13.36 cReinforceDataGuideDlg
+- 0.13.37 cWantedDialog (突破 18% 里程碑)
+- 0.13.38 cWantRegistDialog
+- 0.13.39-0.13.41 cMainDialog / cGuildMarkDialog / cMPMissionDialog batch
+- 0.13.42 cAlertDlg
+- 0.13.43 cMPGuageDialog (突破 21% 里程碑)
+- 0.13.44 cUnionNoteDlg
+- 0.13.45 cMPRegistDialog (28 tests, 突破 22% 里程碑)
+
+**整体进展**:
+- 测试: 506 → 1646 (+1140 tests, 0 回归,~30 sec wall)
+- Tier 1.5 子控件 9/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox)
+- Tier 1 (trivial) 1/1 ✅ (cExitDialog)
+- Tier 2 累计 36/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速)
+- Tier 3-5 仍 blocked (待 Phase 13 service interface)
+- 4 个 blocker 仍未动: C-32 (无 SQL Server) / C-35 (4 个 Distribute Debug_<LOCALE> 撞 legacy mfc71.lib + 4 个匿名 enum 重定义) / R-9.x drawBox 真正 host 接入 / Phase 13 Tier 3+ dialog 化
 
 ## 关联文档
 
