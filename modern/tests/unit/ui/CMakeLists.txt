@@ -34,6 +34,11 @@ add_executable(mxh_ui_tests
     baildialog_test.cpp
     petwearedexdialog_test.cpp
     guildnoticedlg_test.cpp
+    chinaadvicedlg_test.cpp
+    introreplaydlg_test.cpp
+    keysettingtipdlg_test.cpp
+    loadingdlg_test.cpp
+    namechangenotifydlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -604,4 +609,39 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoticeDlgTest.OnActionEventCancelBtnIsNoOpUntilGuildMgrPort
     CGuildNoticeDlgTest.OnActionEventUnknownIdIsNoOp
     CGuildNoticeDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    # P2-12 Tier 2 dialog: cChinaAdviceDlg (China advice / T&C)
+    CChinaAdviceDlgTest.DefaultConstructionHasNullPointer
+    CChinaAdviceDlgTest.InheritsDialogTreeManagement
+    CChinaAdviceDlgTest.IdConstantMatchesExpectedLocalRange
+    CChinaAdviceDlgTest.LinkingResolvesTextAreaAndSetsScriptText
+    CChinaAdviceDlgTest.LinkingWithoutChildrenLeavesPointerNull
+    CChinaAdviceDlgTest.LinkingBeforeInitDoesNotCrash
+    CChinaAdviceDlgTest.LinkingOverwritesPreviousScriptText
+    CChinaAdviceDlgTest.OnActionEventIsNoOp
+    CChinaAdviceDlgTest.OnActionEventDoesNotChangeState
+    CChinaAdviceDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    # P2-12 Tier 2 dialog: cIntroReplayDlg (intro replay placeholder)
+    CIntroReplayDlgTest.DefaultConstructionIsValid
+    CIntroReplayDlgTest.InheritsDialogTreeManagement
+    CIntroReplayDlgTest.LinkingIsNoOp
+    CIntroReplayDlgTest.LinkingBeforeInitDoesNotCrash
+    CIntroReplayDlgTest.LinkingIsIdempotent
+    # P2-12 Tier 2 dialog: cKeySettingTipDlg (keyboard shortcut tip)
+    CKeySettingTipDlgTest.DefaultConstructionHasModeHidden
+    CKeySettingTipDlgTest.InheritsDialogTreeManagement
+    CKeySettingTipDlgTest.NumImagesIsTwo
+    CKeySettingTipDlgTest.ModeHiddenIsTwo
+    CKeySettingTipDlgTest.SetModeGetModeRoundTrip
+    CKeySettingTipDlgTest.LinkingStoresImagePaths
+    CKeySettingTipDlgTest.LinkingBeforeInitDoesNotCrash
+    CKeySettingTipDlgTest.LinkingIsIdempotent
+    CKeySettingTipDlgTest.RenderIsNoOp
+    # P2-12 Tier 2 dialog: cLoadingDlg (loading screen placeholder)
+    CLoadingDlgTest.DefaultConstructionIsValid
+    CLoadingDlgTest.InheritsDialogTreeManagement
+    CLoadingDlgTest.SetActiveToggleRoundTrip
+    # P2-12 Tier 2 dialog: cNameChangeNotifyDlg (name change placeholder)
+    CNameChangeNotifyDlgTest.DefaultConstructionIsValid
+    CNameChangeNotifyDlgTest.InheritsDialogTreeManagement
+    CNameChangeNotifyDlgTest.SetActiveToggleRoundTrip
 )
