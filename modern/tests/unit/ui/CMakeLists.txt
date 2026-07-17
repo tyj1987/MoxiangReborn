@@ -32,6 +32,7 @@ add_executable(mxh_ui_tests
     chaseinputdialog_test.cpp
     chasedialog_test.cpp
     baildialog_test.cpp
+    petwearedexdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -560,4 +561,26 @@ gtest_add_tests(TARGET mxh_ui_tests
     CBailDialogTest.SetFameWithoutLinkIsSafe
     CBailDialogTest.SetBadFrameSyncIsNoOp
     CBailDialogTest.SetBadFrameSyncWithoutLinkIsSafe
+    # P2-12 Tier 2 dialog: cPetWearedExDialog (pet equipment slots)
+    CPetWearedExDialogTest.DefaultConstructionIsValid
+    CPetWearedExDialogTest.InheritsIconDialogCellLayout
+    CPetWearedExDialogTest.PetWearSlotCountIsThree
+    CPetWearedExDialogTest.TpPetWearStartIsFourNinety
+    CPetWearedExDialogTest.AddItemSuccessReturnsTrue
+    CPetWearedExDialogTest.AddItemOutOfRangeReturnsFalse
+    CPetWearedExDialogTest.AddItemDoubleAddRefusesSecond
+    CPetWearedExDialogTest.AddItemAllThreeCellsSucceed
+    CPetWearedExDialogTest.DeleteItemSuccessReturnsTrue
+    CPetWearedExDialogTest.DeleteItemEmptyCellReturnsFalse
+    CPetWearedExDialogTest.DeleteItemOutOfRangeReturnsFalse
+    CPetWearedExDialogTest.DeleteItemSetsOutIconToPrevious
+    CPetWearedExDialogTest.AddDeleteRoundTrip
+    CPetWearedExDialogTest.AddDeleteIndependenceBetweenCells
+    CPetWearedExDialogTest.GetBlankPositionRestrictRefEmptyDialogReturnsFalse
+    CPetWearedExDialogTest.GetBlankPositionRestrictRefAllOccupiedReturnsFalse
+    CPetWearedExDialogTest.GetBlankPositionRestrictRefEmptyDialogReturnsFirstCell
+    CPetWearedExDialogTest.GetBlankPositionRestrictRefSkipsOccupied
+    CPetWearedExDialogTest.GetBlankPositionRestrictRefReturnsFirstAddable
+    CPetWearedExDialogTest.CheckDuplicationReturnsFalse
+    CPetWearedExDialogTest.CheckDuplicationEmptyDialogReturnsFalse
 )

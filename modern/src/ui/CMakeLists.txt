@@ -37,6 +37,7 @@ add_library(mxh_ui STATIC
     chaseinputdialog.cpp
     chasedialog.cpp
     baildialog.cpp
+    petwearedexdialog.cpp
     ime.cpp
 )
 

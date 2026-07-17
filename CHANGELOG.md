@@ -4,6 +4,44 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.29] - 2026-07-17
+
+### Phase 12.x cPetWearedExDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.28 收口 cBailDialog。本 session 接 cPetWearedExDialog (17th Tier 2 dialog, 1:1 port) — header 445B, 4 method (AddItem + DeleteItem + GetBlankPositionRestrictRef + CheckDuplication), wraps cIconDialog 3 cells (SLOT_PETWEAR_NUM=3, TP_PETWEAR_START=490)。**首个含 GetBlankPositionRestrictRef 实用方法（不是单纯 wrap cIconDialog）的 Tier 2 dialog**——扫 cell 找第一个 addable + offset by kTpPetWearStart。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cPetWearedExDialog 21/21 ctest PASS (`ctest -C Debug -R CPetWearedExDialogTest`); 全栈 ctest 1167 → 1188 PASS (+21 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/petwearedexdialog.hpp` + `petwearedexdialog.cpp` (新建, 1 commit): 1:1 port of 墨香 CPetWearedExDialog (PetWearedExDialog.h 445B + .cpp)
+  - Linking: 无 (不接窗口树, pattern 跟 cWearedExDialog 一样只 wrap cIconDialog methods)
+  - AddItem: REAL wrap of cIconDialog::AddIcon (1:1 quirk Korean "!!!복사본 옵션 적용" comment 保留为 doc-only no-op, legacy 也没 code)
+  - DeleteItem: REAL wrap of cIconDialog::DeleteIcon (same Korean comment)
+  - GetBlankPositionRestrictRef: REAL — 扫 [0, kSlotPetWearNum) 用 cIconDialog::IsAddable, 第一个 addable 时 absPos = kTpPetWearStart + i; 全占时返回 false
+  - CheckDuplication: TODO (cItem 未 port, R-12.x deferred — 跟 cWearedExDialog 7-singleton TODO 模式同源)
+  - 2 constexpr: kSlotPetWearNum=3 + kTpPetWearStart=490 (1:1 with legacy [CC]Header/CommonGameDefine.h enum, inline 不引 shared header 保持 AGENTS.md 1:1 shared header 约束)
+- `modern/tests/unit/ui/petwearedexdialog_test.cpp` (新建, 21 用例 PASS): ctor+3-cell layout + 2 const + AddItem x4 (success/out-of-range/double-add/all-3) + DeleteItem x4 (success/empty/out-of-range/sets-outIcon) + 2 round-trip + GetBlankPositionRestrictRef x5 (empty-dialog/all-occupied/empty-returns-first/skips-occupied/returns-first) + CheckDuplication x2 (always-false/empty-dialog-false)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `petwearedexdialog.cpp` + 21 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor / dtor: empty (1:1 with legacy empty CPetWearedExDialog ctor)
+- AddItem + DeleteItem 保留 legacy Korean "!!!복사본 옵션 적용" / "copy option apply" 2008-era TODO comment (legacy 也没 code, modern 也不加 code — pure doc marker)
+- kSlotPetWearNum=3 / kTpPetWearStart=490 inline constexpr (1:1 with legacy [CC]Header/CommonGameDefine.h enum, 不引 shared header)
+- GetBlankPositionRestrictRef 找第一个 addable cell (1:1 with legacy scan order)
+- CheckDuplication TODO 跟 cWearedExDialog 7-singleton TODO 同源 (cItem 未 port, R-12.x deferred)
+- Local id: 无 (不接窗口树, cIconDialog uses cellIdx not id range)
+- 1:1 quirk: GetBlankPositionRestrictRef 1 个 cell in use, 1 个空, 仍然只返回第一个 (即使 i=0 空, 0 addable 也对——1:1 with legacy `if(IsAddable(i))` short-circuit)
+
+### Progress
+
+- P2-12: 23/202 = 11.4% (5 base + 17 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1188/1188 PASS (was 1167, +21 cPetWearedExDialog)
+- Session commits: 40 (本 session 17 个新 Tier 2 dialog: CharMake, GuildJoin, CharState, SOS, WearedEx, MiniFriend, Revive, MPNotice, EventNotify, GuildCreate, GuildUnion, ChaseInput, Chase, Bail, PetWearedEx, + cTextArea infra subwidget)
+- 累计 1 session: 879 → 1188 ctest PASS (+309 用例, 0 回归)
+- **本 port 是首个含"扫 cell 找空位"实用方法（GetBlankPositionRestrictRef）的 Tier 2** — 之前 Tier 2 都是 pure wrap cIconDialog::AddIcon/DeleteIcon (1:1 行为但没自己的逻辑); 本 port 第一个有 cell 扫描逻辑的 Tier 2
+
 ## [0.13.28] - 2026-07-16
 
 ### Phase 12.x cBailDialog Tier 2 dialog port (self-verified by producer session)
