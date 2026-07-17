@@ -55,6 +55,7 @@ add_library(mxh_ui STATIC
     changejobdialog.cpp
     gtregistcanceldialog.cpp
     gtregistdialog.cpp
+    reinforcedataguidedlg.cpp
     ime.cpp
 )
 

@@ -50,6 +50,7 @@ add_executable(mxh_ui_tests
     changejobdialog_test.cpp
     gtregistcanceldialog_test.cpp
     gtregistdialog_test.cpp
+    reinforcedataguidedlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -840,4 +841,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGTRegistDialogTest.SetRegistGuildCountIsNoOpUntilSetStaticValuePorted
     CGTRegistDialogTest.SetRegistGuildCountWithoutLinkIsSafe
     CGTRegistDialogTest.SetRegistGuildCountBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cReinforceDataGuideDlg (9-tab reinforce data guide)
+    CReinforceDataGuideDlgTest.DefaultConstructionIsValid
+    CReinforceDataGuideDlgTest.InheritsDialogTreeManagement
+    CReinforceDataGuideDlgTest.NumTabsIsNine
+    CReinforceDataGuideDlgTest.NumUniqueSheetsIsSeven
+    CReinforceDataGuideDlgTest.ItemKindEnumConstantsMatchLegacy
+    CReinforceDataGuideDlgTest.LinkingResolvesAllChildren
+    CReinforceDataGuideDlgTest.LinkingAppliesSheetAliases
+    CReinforceDataGuideDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CReinforceDataGuideDlgTest.LinkingBeforeInitDoesNotCrash
+    CReinforceDataGuideDlgTest.ShowActivatesDialogAndCurrentTab
+    CReinforceDataGuideDlgTest.ShowDeactivatesOtherTabs
+    CReinforceDataGuideDlgTest.SelectDataUpdatesCurData
+    CReinforceDataGuideDlgTest.CloseDeactivatesDialogAndResetsCurData
+    CReinforceDataGuideDlgTest.OnActionEventPushDownSwitchesTab
+    CReinforceDataGuideDlgTest.OnActionEventPushDownInvalidIdIsNoOp
+    CReinforceDataGuideDlgTest.OnActionEventPushDownExactMatchRequired
+    CReinforceDataGuideDlgTest.OnActionEventOkBtnClosesDialog
+    CReinforceDataGuideDlgTest.OnActionEventBtnClickNonOkIsNoOp
+    CReinforceDataGuideDlgTest.OnActionEventUnknownWeIsNoOp
+    CReinforceDataGuideDlgTest.OnActionEventBeforeLinkingDoesNotCrash
 )
