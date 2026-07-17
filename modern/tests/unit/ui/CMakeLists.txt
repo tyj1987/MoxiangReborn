@@ -59,6 +59,8 @@ add_executable(mxh_ui_tests
     alertdlg_test.cpp
     mpguagedialog_test.cpp
     unionnotedlg_test.cpp
+    autonotedlg_test.cpp
+    mpregistdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1042,4 +1044,57 @@ gtest_add_tests(TARGET mxh_ui_tests
     CUnionNoteDlgTest.UseWithoutLinkingIsSafe
     CUnionNoteDlgTest.OnActionEventIsNoOp
     CUnionNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cAutoNoteDlg (auto note / auto reply)
+    CAutoNoteDlgTest.CtorDoesNotCrash
+    CAutoNoteDlgTest.DtorDoesNotCrash
+    CAutoNoteDlgTest.InheritsFromCDialog
+    CAutoNoteDlgTest.IdConstantsMatchExpectedLocalRange
+    CAutoNoteDlgTest.IdConstantsAreUnique
+    CAutoNoteDlgTest.AutoNoteManualTextPlaceholderMatchesExpected
+    CAutoNoteDlgTest.TestClientLoopCountIsThirtyFive
+    CAutoNoteDlgTest.AutoNoteTextColorIsGray
+    CAutoNoteDlgTest.LinkingResolvesAllThreeChildren
+    CAutoNoteDlgTest.LinkingSetsManualText
+    CAutoNoteDlgTest.LinkingSetsTextColor
+    CAutoNoteDlgTest.LinkingBeforeInitDoesNotCrash
+    CAutoNoteDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CAutoNoteDlgTest.AddAutoListAddsItem
+    CAutoNoteDlgTest.AddAutoListMultipleAdds
+    CAutoNoteDlgTest.AddAutoListWithNullNameIsSafe
+    CAutoNoteDlgTest.AddAutoListWithNullDateIsSafe
+    CAutoNoteDlgTest.AddAutoListWithoutLinkingIsSafe
+    CAutoNoteDlgTest.SetActiveTestClientActivatesDialog
+    CAutoNoteDlgTest.SetActiveTestClientAddsThirtyFiveItems
+    CAutoNoteDlgTest.SetActiveTestClientWithoutLinkingIsSafe
+    CAutoNoteDlgTest.OnActionEventIsNoOp
+    CAutoNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cMPRegistDialog (MP practice registration)
+    CMPRegistDialogTest.DefaultConstructionIsValid
+    CMPRegistDialogTest.InheritsIconDialogCellLayout
+    CMPRegistDialogTest.LocalIdConstantsMatchExpectedRange
+    CMPRegistDialogTest.ChatMsgIdsMatchLegacy
+    CMPRegistDialogTest.LinkingWithoutChildrenLeavesAllFieldsNull
+    CMPRegistDialogTest.LinkingResolvesAllFourChildren
+    CMPRegistDialogTest.LinkingConfiguresIconCellWhenMissing
+    CMPRegistDialogTest.LinkingDoesNotOverwriteExistingIconCell
+    CMPRegistDialogTest.SetActiveTrueDoesNotResetChildren
+    CMPRegistDialogTest.SetActiveFalseClearsPracticeInfo
+    CMPRegistDialogTest.SetActiveFalseSetsMugongInfoToClearPlaceholder
+    CMPRegistDialogTest.SetActiveFalseResetsFeeToZero
+    CMPRegistDialogTest.SetActiveFalseDeletesIcon
+    CMPRegistDialogTest.SetActivePropagatesToBase
+    CMPRegistDialogTest.SetActiveFalseOnUnlinkedDialogIsSafe
+    CMPRegistDialogTest.FakeMoveIconReturnsFalse
+    CMPRegistDialogTest.SetSuryunMugongInfoFormatsString
+    CMPRegistDialogTest.SetSuryunMugongInfoNullNameHandled
+    CMPRegistDialogTest.SetSuryunMugongInfoOnUnlinkedDialogIsSafe
+    CMPRegistDialogTest.SetPracticeInfoComputesMinutes
+    CMPRegistDialogTest.SetPracticeInfoSetsFee
+    CMPRegistDialogTest.SetPracticeInfoZeroLimitIsZeroMinutes
+    CMPRegistDialogTest.SetPracticeInfoOnUnlinkedDialogIsSafe
+    CMPRegistDialogTest.AddLinkToEmptyCellSucceeds
+    CMPRegistDialogTest.AddLinkToOccupiedCellReplaces
+    CMPRegistDialogTest.AddLinkOnUnlinkedDialogIsSafe
+    CMPRegistDialogTest.GetMugongReturnsNull
+    CMPRegistDialogTest.GetMugongOnUnlinkedDialogReturnsNull
 )

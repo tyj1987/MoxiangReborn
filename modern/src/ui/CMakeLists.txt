@@ -64,6 +64,8 @@ add_library(mxh_ui STATIC
     alertdlg.cpp
     mpguagedialog.cpp
     unionnotedlg.cpp
+    autonotedlg.cpp
+    mpregistdialog.cpp
     ime.cpp
 )
 
