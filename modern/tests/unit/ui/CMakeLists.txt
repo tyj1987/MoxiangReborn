@@ -65,6 +65,7 @@ add_executable(mxh_ui_tests
     pklootingdialog_test.cpp
     skinselectdialog_test.cpp
     ccombobox_test.cpp
+    stallfinddlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1125,6 +1126,51 @@ gtest_add_tests(TARGET mxh_ui_tests
     CComboBox.ListMouseCheckLeftDownSetsCurSelectedIdx
     CComboBox.ListMouseCheckHoverOnlySetsOverIdx
     CComboBox.ListMouseCheckNoHitResetsSelection
+    # P2-12 Tier 2 dialog: cStallFindDlg (street-stall item search)
+    CStallFindDlg.DefaultConstructionIsValid
+    CStallFindDlg.InheritsDialogTreeManagement
+    CStallFindDlg.ConstantsAreStable
+    CStallFindDlg.ItemTypeEnumIsStable
+    CStallFindDlg.SearchKindEnumIsStable
+    CStallFindDlg.IdConstantsAreDistinct
+    CStallFindDlg.LinkingResolvesAllChildren
+    CStallFindDlg.LinkingSetsInitialItemTypeToWeapon
+    CStallFindDlg.LinkingIsIdempotent
+    CStallFindDlg.SetSearchType
+    CStallFindDlg.SortStallListAscending
+    CStallFindDlg.SortStallListDescending
+    CStallFindDlg.SortStallListWithZeroItemsIsNoOp
+    CStallFindDlg.SetStallPriceInfoResetsAndPopulates
+    CStallFindDlg.SetStallPriceInfoClampsToMaxStallItemNum
+    CStallFindDlg.SetBasePageNextShifts
+    CStallFindDlg.SetBasePagePreviousShifts
+    CStallFindDlg.SetBasePageClampsToBounds
+    CStallFindDlg.CheckDelayFirstCallReturnsTrue
+    CStallFindDlg.SetActiveTrueDoesNotCrash
+    CStallFindDlg.SetActiveFalseDoesNotCrash
+    CStallFindDlg.SetActiveToggleRoundTrip
+    CStallFindDlg.OnActionEventUnknownIdIsNoOp
+    CStallFindDlg.OnActionEventBeforeLinkingIsSafe
+    CStallFindDlg.OnActionEventTypeComboSelectIsNoOp
+    CStallFindDlg.OnActionEventDetailComboSelectIsNoOp
+    CStallFindDlg.OnActionEventPageBtnsIsNoOp
+    CStallFindDlg.OnActionEventPageUpDownIsNoOp
+    CStallFindDlg.OnActionEventSellBuyModeIsNoOp
+    CStallFindDlg.ActionEventBeforeLinkingIsSafe
+    CStallFindDlg.ActionEventWithoutDoubleClickIsNoOp
+    CStallFindDlg.UpdateItemListDoesNotCrash
+    CStallFindDlg.UpdateStallListDoesNotCrash
+    CStallFindDlg.SetPageIndexClamps
+    CStallFindDlg.SendItemViewMsgWithoutSelectionIsNoOp
+    CStallFindDlg.SendItemViewMsgWithSelectionRecordsIndex
+    CStallFindDlg.GetItemDetailTypeComboOutOfRangeReturnsNull
+    CStallFindDlg.GetPageBtnOutOfRangeReturnsNull
+    CStallFindDlg.GetPageUpDownBtnOutOfRangeReturnsNull
+    CStallFindDlg.StallPriceInfoDefaultFields
+    CStallFindDlg.ItemInfoDefaultFields
+    CStallFindDlg.SetSearchedAllRoundTrip
+    CStallFindDlg.SetStallInfoForTestingOutOfRangeIgnored
+    CStallFindDlg.RenderIsNoop
     CMPGuageDialogTest.SetEventMapTimerWithoutLinkingIsSafe
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog
