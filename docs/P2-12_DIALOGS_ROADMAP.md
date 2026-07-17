@@ -74,6 +74,8 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cIconGridDialog` | `modern/src/ui/cIconGridDialog.{hpp,cpp}` | 24 | **2026-07-17** (0.13.46) - Tier 1.5 subcontrol(2D icon grid with drag-drop, 6th Tier 1.5 subcontrol; Init(x, y, wid, hei, basicImage, col, row, id) + InitGrid(gridX, gridY, cellWid, cellHei, borderX, borderY); AddIcon / DeleteIcon (linear pos + 2D cellX/cellY overloads) + MoveIcon; GetCellPosition / GetPositionForXYRef / GetPositionForCell / GetCellAbsPos hit-test math; PtInCell simplified to in-bounds cell rect (modern cIcon opaque); SetAbsXY / SetActive / SetDisable / SetAlpha cascade to dependent icons (IsDepend simplified to always-true); 1:1 quirks: GetCellPosition uses DEFAULT_CELLSIZE=40 for hit range, NOT m_wCellWidth; m_DisableFromPos/m_DisableToPos per-locale not ported; constants NOTUSE=0, USE=1, DEFAULT_CELLSIZE=40, DEFAULT_CELLBORDER=4) |
 | `cPKLootingDialog` | `modern/src/ui/pklootingdialog.{hpp,cpp}` | 25 | **2026-07-17** (0.13.46) - Tier 2 dialog(PK loot dialog, 46th port, header ~11KB; 7 cStatic id 0-6 + 1 cIconGridDialog id 8 (12 cells 4×3); state m_dwDiePlayerIdx / m_nTime (30s default) / m_dwStartTime / m_nChance (1 default) / m_nLootItemNum (1 default) / m_bSelected[12] / m_bLootingEnd / m_bMsgSync / m_dwCreateTime / m_bShow; InitPKLootDlg + Linking + ActionEvent (1s m_bShow delay + per-sec timer) + OnActionEvent (close-btn + close-window + loot-cell click); ReleaseAllIcon / ChangeIconImage / AddLootingItemNum; LootItemKind enum (Item/Money/Exp/None); engine singletons stubbed no-op (PKMGR/HERO/OBJECTMGR/ITEMMGR/CHATMGR/NETWORK); test-injectable SetClockForTesting) |
 | `cSkinSelectDialog` | `modern/src/ui/skinselectdialog.{hpp,cpp}` | 23 | **2026-07-17** (0.13.47) - Tier 2 dialog(skin-select dialog, 47th port, ~200 行 legacy; 1 cListDialog id 2 (皮肤列表) + 1 cIconDialog id 1 (3-cell 预览); state m_dwSelectIdx (1-based per legacy quirk) / m_dwSkinDelayTime / m_bSkinDelayResult; Linking REAL + SetShowSelect(TRUE); SetActive override (val==FALSE clear list/icon/idx, val==TRUE SkinItemListInfo); ActionEvent override (cDialog::ActionEvent + PtIdxInRow hit-test + on LBTNCLICK populate 3-cell preview); OnActionEvent (WE_CLOSEWINDOW + 3 button id OK/CANCEL/RECOVERY, engine-send stubbed); SkinItemListInfo (GAMERESRCMNGR stubbed 0, color-from-level preserved); engine singletons stubbed (GAMERESRCMNGR/HERO/CHATMGR/OBJECTMGR/ITEMMGR/NETWORK/WINDOWMGR); CItemShow opaque placeholder; constants SKINITEM_LIST_MAX=3 + ID_DLG=0/ID_ITEMVIEW=1/ID_LIST=2/ID_OK=3/ID_CANCEL=4/ID_RECOVERY=5) |
+| `cComboBox` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/ccombobox.{hpp,cpp}` + `clistitem.hpp` | 25 | **2026-07-17** (0.13.48) - Tier 1.5 subcontrol(combo box with dropdown, 7th Tier 1.5; cListItem base class (1:1 with legacy cListItem helper) + ComboItem struct (replaces legacy ITEM); Init(x, y, wid, hei, basicImage, id) + InitComboList(listWid, topImage, topHei, middleImage, middleHei, downImage, downHei, overImage) 4 cImage slots; Add(cPushupBtn) + SetAbsXY + ActionEvent + ListMouseCheck + PtIdxInComboList; SetMargin / GetComboText / SelectComboText / GetCurSelectedIdx / SetCurSelectedIdx / GetOverIdx / SetOverIdx / SetComboTextColor / SetOverImageScale; SetMaxLine FIFO eviction at cap; 1:1 quirks: cListItem composition (not multi-inherit from cWindow + cListItem), cPushupButton + cImage opaque, Render/ActionEvent no-op stub, ComboItem moved to clistitem.hpp (break circular include)) |
+| `cStallFindDlg` | `modern/src/ui/stallfinddlg.{hpp,cpp}` | 44 | **2026-07-17** (0.13.48) - Tier 2 dialog(street-stall item-search dialog, 48th port, ~700 行 legacy; 27+ children: 10 cComboBox (1 main + 9 detail indexed by ITEM_TYPE) + 3 cListDialog (item/class/result) + 7 cPushupButton (2 sell/buy mode + 5 page + 2 type/detail triggers) + 2 cButton (page up/down) + 2 cStatic (name + price) + 1 dlg; state 8 ItemType enum + 2 SearchKind + 16 misc state fields (m_nStallCount / m_arrStallInfo[40] / m_nBasePage / m_nMaxPage / m_nCurrentPage / m_nItemType / m_nItemDetailType / m_nSelected*Idx / m_dwSelectedObjectIndex / m_ptrItemInfo / m_dwPrevTime[5]); Linking REAL (resolve 27 children by id + SetShowSelect(TRUE) on 3 lists + LoadItemList); SetActive override (val==FALSE OnClose / val==TRUE UpdateItemList); ActionEvent (cDialog::ActionEvent + WE_LBTNDBLCLICK → SendItemViewMsg, modern no-op stub for engine side); OnActionEvent (24+ button ids, engine-send + ObjectManager + msgbox stubbed); LoadItemList / UpdateItemList / UpdateStallList / **SortStallList (real shell sort impl)** / SetPage / SetBasePage / CheckDelay / SetStallPriceInfo / SendItemViewMsg; 1:1 quirks: engine singletons stubbed (GameResourceManager/ITEMMGR/CHATMGR/OBJECTMGR/NETWORK/WINDOWMGR/RESRCMGR/MHFile/HERO/GAMEIN/PKMR), m_arrStallInfo opaque, m_ptrItemInfo std::vector, Render no-op, m_dwPrevTime instance state) |
 
 ## 5 档分级
 
@@ -170,7 +172,7 @@ CharacterDialog 子控件 blocker**。但 CharacterDialog 仍需 PlayerStatsServ
   - **cPKLootingDialog** ✅ 已 ported (0.13.46, 25 tests, 5-singleton no-op stub)
   - **cSkinSelectDialog** ✅ 已 ported (0.13.47, 23 tests, 7-singleton stubbed)
   - **cChatOptionDialog** (cEditBox, cButton - 跟 MacroDialog 类似小 dialog。0.13.45 探查发现是 dead code - 整段 `/* */` 块注释 disabled, see `docs/KNOWN_BUGS.md`)
-  - **cStallFindDlg** (cListDialog + cComboBox + 2 cPushupButton + 2 cButton + 1 cEditBox - 中等, ~28KB legacy, 需先 port cComboBox Tier 1.5 subcontrol)
+  - **cStallFindDlg** ✅ 已 ported (0.13.48, 44 tests, 11-singleton stubbed)
   - **cSkinSelectDialog** (cListDialog + cIconDialog - 1:1 简单,1 CItemShow quirk drop)
 
 ### Tier 3 - 需要 GameIn/Inventory 状态(~500-1000 行,3-5 commit/个)
@@ -319,7 +321,7 @@ timer 机制。这是 Phase 14+ 范畴,**预计 4-6 周工作量**,本 roadmap
 | Tier 5 | 100+ | 1000-3000 行(需 15-20 service) | 8-12 周(依赖 Phase 15 service + network) |
 | **总计** | **131+** | - | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **47/202** = **23.3%**(当前, 0.13.47 后 cSkinSelectDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% 五里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47)。**
+加上 base **48/202** = **23.8%**(当前, 0.13.48 后 cStallFindDlg)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% / 24% 六里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47/0.13.48)。**
 **这是真的"长尾",不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -386,11 +388,18 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 
 - 0.13.47 cSkinSelectDialog (23 tests, Tier 2 - **47th Tier 2 dialog port, 突破 23% 里程碑**)
 
+## 0.13.48 更新摘要 (2026-07-17)
+
+0.13.48 接力 0.13.47。本 session 推 1 个 Tier 1.5 subcontrol + 1 个 Tier 2 dialog: cComboBox (25 tests) + cStallFindDlg (44 tests)。ctest baseline 1748 → 1792 (+44 net, 0 回归)。cComboBox 是 0.13.48 chain 的 prerequisite (cStallFindDlg 用 10 cComboBox 实例)。
+
+- 0.13.48 cComboBox (25 tests, Tier 1.5 subcontrol - **7th Tier 1.5 subcontrol, 解锁 cStallFindDlg + 任何 cComboBox-依赖的 Tier 2 dialog**)
+- 0.13.48 cStallFindDlg (44 tests, Tier 2 - **48th Tier 2 dialog port, 接近 24% 里程碑**)
+
 **整体进展**:
-- 测试: 506 → 1723 (+1217 tests, 0 回归, ~36 sec wall)
-- Tier 1.5 子控件 10/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog)
+- 测试: 506 → 1792 (+1286 tests, 0 回归, ~37 sec wall)
+- Tier 1.5 子控件 11/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / **cComboBox**)
 - Tier 1 (trivial) 1/1 ✅ (cExitDialog)
-- Tier 2 累计 38/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速, 0.13.46 引入 cIconGridDialog 加速, 0.13.47 cSkinSelectDialog 继续)
+- Tier 2 累计 39/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速, 0.13.46 引入 cIconGridDialog 加速, 0.13.48 引入 cComboBox + cStallFindDlg 继续)
 - Tier 3-5 仍 blocked (待 Phase 13 service interface)
 - 4 个 blocker 仍未动: C-32 (无 SQL Server) / C-35 (4 个 Distribute Debug_<LOCALE> 撞 legacy mfc71.lib + 4 个匿名 enum 重定义) / R-9.x drawBox 真正 host 接入 / Phase 13 Tier 3+ dialog 化
 - Modern UI setter/getter sweep (持续 background): 完整 11 classes (cStatic / cButton / cEditBox / cListDialog + cTextArea / cPushupButton / cIconDialog / cListDialogEx / cGuagen / cListCtrl + cIconGridDialog partial — visual-only render no-op stubs are intentional). Future 1:1 port 不需要 re-audit (memory entry 标记 sweep-complete)
