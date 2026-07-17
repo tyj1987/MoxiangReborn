@@ -42,6 +42,7 @@ add_executable(mxh_ui_tests
     guildinvitationkindselectiondialog_test.cpp
     tipbrowserdlg_test.cpp
     guildnicknamedialog_test.cpp
+    shoutdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -698,4 +699,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNickNameDialogTest.SetNickMsgWithNullIsSafe
     CGuildNickNameDialogTest.SetNickMsgWithoutLinkIsSafe
     CGuildNickNameDialogTest.SetNickMsgBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cShoutDialog (shout message sender)
+    CShoutDialogTest.DefaultConstructionHasZeroState
+    CShoutDialogTest.InheritsDialogTreeManagement
+    CShoutDialogTest.IdConstantMatchesExpectedLocalRange
+    CShoutDialogTest.LinkingResolvesEditBox
+    CShoutDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CShoutDialogTest.LinkingBeforeInitDoesNotCrash
+    CShoutDialogTest.SetItemInfoRoundTrip
+    CShoutDialogTest.SetItemInfoOverridesPrevious
+    CShoutDialogTest.SetItemInfoZeroIsValid
+    CShoutDialogTest.SendShoutMsgSynReturnsFalseUntilSingletonsPorted
+    CShoutDialogTest.SendShoutMsgSynDoesNotChangeState
+    CShoutDialogTest.SendShoutMsgSynWithoutLinkIsSafe
+    CShoutDialogTest.SendShoutMsgSynBeforeInitDoesNotCrash
 )
