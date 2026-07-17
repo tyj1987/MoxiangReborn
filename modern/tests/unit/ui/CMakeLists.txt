@@ -45,6 +45,7 @@ add_executable(mxh_ui_tests
     shoutdialog_test.cpp
     guildinvitedialog_test.cpp
     stallkindselectdlg_test.cpp
+    partyinvitedlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -749,4 +750,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStallKindSelectDlgTest.OnActionEventUnknownIdIsNoOp
     CStallKindSelectDlgTest.OnActionEventNonBtnClickIsNoOp
     CStallKindSelectDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    # P2-12 Tier 2 dialog: cPartyInviteDlg (party invitation)
+    CPartyInviteDlgTest.DefaultConstructionIsValid
+    CPartyInviteDlgTest.InheritsDialogTreeManagement
+    CPartyInviteDlgTest.IdConstantsAreDistinct
+    CPartyInviteDlgTest.IdConstantsMatchExpectedLocalRange
+    CPartyInviteDlgTest.OptConstantsMatchLegacy
+    CPartyInviteDlgTest.LinkingResolvesAllChildren
+    CPartyInviteDlgTest.LinkingWithoutChildrenLeavesPointersNull
+    CPartyInviteDlgTest.LinkingBeforeInitDoesNotCrash
+    CPartyInviteDlgTest.SetMsgWithRandomOptionUpdatesBothChildren
+    CPartyInviteDlgTest.SetMsgWithDamageOptionUpdatesBothChildren
+    CPartyInviteDlgTest.SetMsgWithUnknownOptionLeavesDistributeEmpty
+    CPartyInviteDlgTest.SetMsgWithNullInviterIsSafe
+    CPartyInviteDlgTest.SetMsgOverwritesPreviousText
+    CPartyInviteDlgTest.SetMsgWithoutLinkIsSafe
+    CPartyInviteDlgTest.SetMsgBeforeInitDoesNotCrash
 )

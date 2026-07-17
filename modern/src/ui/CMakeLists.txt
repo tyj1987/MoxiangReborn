@@ -50,6 +50,7 @@ add_library(mxh_ui STATIC
     shoutdialog.cpp
     guildinvitedialog.cpp
     stallkindselectdlg.cpp
+    partyinvitedlg.cpp
     ime.cpp
 )
 
