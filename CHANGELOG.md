@@ -4,6 +4,39 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.28] - 2026-07-16
+
+### Phase 12.x cBailDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.27 收口 cChaseDialog。本 session 接 cBailDialog (16th Tier 2 dialog, 1:1 port) — header 497B, 2 children (cEditBox bail + cTextArea text), Linking REAL + SetValidCheck + SetAlign + SetScriptText placeholder, Open/Close/SetFame/SetBadFrameSync 4 个 method 都是 1:1 wrapper + 4-singleton TODO (本 session 最复杂 TODO 模式)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cBailDialog 14/14 ctest PASS (`ctest -C Debug -R CBailDialog`); 全栈 ctest 1153 → 1167 PASS (+14 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/baildialog.hpp` + `baildialog.cpp` (新建, commit `5c3d835`): 1:1 port of 墨香 CBailDialog (BailDialog.h 497B + .cpp)
+  - Linking: REAL (resolve cEditBox id 320 + cTextArea id 321, SetValidCheck(1) + SetAlign(Right) + SetScriptText placeholder "BAIL_TEXT_PLACEHOLDER")
+  - Open/Close/SetFame/SetBadFrameSync: 1:1 wrapper signature, body TODO (4-singleton dispatch HERO+WINDOWMGR+CHATMGR+NETWORK)
+  - 3 accessor (GetBailEditBox / GetBailText / GetBadFame)
+- `modern/tests/unit/ui/baildialog_test.cpp` (新建, 14 用例 PASS): DefaultConstruction + IdConstants + Linking x4 (resolve/valid+align/settext/without-children) + Open x2 + Close x2 + SetFame x2 + SetBadFrameSync x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 `baildialog.cpp` + 14 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor init 2 child pointer = null + m_BadFame = 0 (modern port 用 default member init)
+- Linking SetValidCheck(1) (VCM_NUMBER = digits only) + SetAlign(TextAlign::Right = 2)
+- Linking SetScriptText placeholder text "BAIL_TEXT_PLACEHOLDER" (legacy 用 CHATMGR->GetChatMsg(644) + AddComma)
+- Open/Close/SetFame/SetBadFrameSync 都 TODO (4-singleton dispatch 阻塞)
+- Local id 320-321 (no collision with 200-203/210-212/220-224/230-231/240-243/250-252/260-261/270-271/280-284/290-292/300/310-311)
+
+### Progress
+
+- P2-12: 22/202 = 10.9% (5 base + 16 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1167/1167 PASS (was 1153, +14 cBailDialog)
+- Session commits: 39 (含 14 个新 Tier 2 dialog 本 session)
+- 累计 1 session: 879 → 1167 ctest PASS (+288 用例, 0 回归)
+- **本 port 是 4-singleton TODO 模式** (Open + SetFame 共 4 singleton, Close + SetBadFrameSync 共 3 singleton) — 4 different singletons in 4 different methods
+
 ## [0.13.27] - 2026-07-16
 
 ### Phase 12.x cChaseDialog Tier 2 dialog port (self-verified by producer session)
