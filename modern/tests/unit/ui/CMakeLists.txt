@@ -51,6 +51,7 @@ add_executable(mxh_ui_tests
     gtregistcanceldialog_test.cpp
     gtregistdialog_test.cpp
     reinforcedataguidedlg_test.cpp
+    wanteddialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -862,4 +863,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CReinforceDataGuideDlgTest.OnActionEventBtnClickNonOkIsNoOp
     CReinforceDataGuideDlgTest.OnActionEventUnknownWeIsNoOp
     CReinforceDataGuideDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    # P2-12 Tier 2 dialog: cWantedDialog (wanted list)
+    CWantedDialogTest.DefaultConstructionIsValid
+    CWantedDialogTest.InheritsDialogTreeManagement
+    CWantedDialogTest.IdConstantMatchesExpectedLocalRange
+    CWantedDialogTest.MaxWantedNumIs20
+    CWantedDialogTest.LinkingResolvesListDialog
+    CWantedDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CWantedDialogTest.LinkingBeforeInitDoesNotCrash
+    CWantedDialogTest.InitWantedClearsListDialog
+    CWantedDialogTest.InitWantedWithoutLinkIsSafe
+    CWantedDialogTest.InitWantedBeforeInitDoesNotCrash
+    CWantedDialogTest.SetInfoCallsInitWanted
+    CWantedDialogTest.SetInfoWithoutLinkIsSafe
+    CWantedDialogTest.SetInfoBeforeInitDoesNotCrash
+    CWantedDialogTest.AddInfoIsNoOpUntilWantedListStructPorted
+    CWantedDialogTest.AddInfoWithoutLinkIsSafe
+    CWantedDialogTest.AddInfoBeforeInitDoesNotCrash
 )
