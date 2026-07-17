@@ -52,6 +52,7 @@ add_executable(mxh_ui_tests
     gtregistdialog_test.cpp
     reinforcedataguidedlg_test.cpp
     wanteddialog_test.cpp
+    wantregistdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -880,4 +881,24 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWantedDialogTest.AddInfoIsNoOpUntilWantedListStructPorted
     CWantedDialogTest.AddInfoWithoutLinkIsSafe
     CWantedDialogTest.AddInfoBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cWantRegistDialog (wanted registration editor)
+    CWantRegistDialogTest.DefaultConstructionIsValid
+    CWantRegistDialogTest.InheritsDialogTreeManagement
+    CWantRegistDialogTest.IdConstantsMatchExpectedLocalRange
+    CWantRegistDialogTest.VcmNumberIsOne
+    CWantRegistDialogTest.LinkingResolvesBothChildren
+    CWantRegistDialogTest.LinkingConfiguresValidCheckNumber
+    CWantRegistDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CWantRegistDialogTest.LinkingBeforeInitDoesNotCrash
+    CWantRegistDialogTest.SetWantedNameUpdatesBothChildren
+    CWantRegistDialogTest.SetWantedNameWithNullNameIsSafe
+    CWantRegistDialogTest.SetWantedNameOverwritesPreviousText
+    CWantRegistDialogTest.SetWantedNameWithoutLinkIsSafe
+    CWantRegistDialogTest.SetWantedNameBeforeInitDoesNotCrash
+    CWantRegistDialogTest.SetActiveTrueUpdatesBaseState
+    CWantRegistDialogTest.SetActiveFalseClearsFocus
+    CWantRegistDialogTest.SetActiveWithoutLinkIsSafe
+    CWantRegistDialogTest.SetActiveBeforeInitDoesNotCrash
+    CWantRegistDialogTest.ActionEventReturnsWeNullUntilCMousePorted
+    CWantRegistDialogTest.ActionEventBeforeInitDoesNotCrash
 )

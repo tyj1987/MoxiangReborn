@@ -57,6 +57,7 @@ add_library(mxh_ui STATIC
     gtregistdialog.cpp
     reinforcedataguidedlg.cpp
     wanteddialog.cpp
+    wantregistdialog.cpp
     ime.cpp
 )
 
