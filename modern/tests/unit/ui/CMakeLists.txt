@@ -58,6 +58,7 @@ add_executable(mxh_ui_tests
     mpmissiondialog_test.cpp
     alertdlg_test.cpp
     mpguagedialog_test.cpp
+    unionnotedlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1021,4 +1022,24 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog
     CMPGuageDialogTest.ShowEventMapWithoutLinkingIsSafe
+    # P2-12 Tier 2 dialog: cUnionNoteDlg (guild union note sender)
+    CUnionNoteDlgTest.CtorDoesNotCrash
+    CUnionNoteDlgTest.DtorDoesNotCrash
+    CUnionNoteDlgTest.InheritsFromCDialog
+    CUnionNoteDlgTest.DefaultBUseIsFalse
+    CUnionNoteDlgTest.IdConstantsMatchExpectedLocalRange
+    CUnionNoteDlgTest.IdConstantsAreUnique
+    CUnionNoteDlgTest.LinkingResolvesNoteText
+    CUnionNoteDlgTest.LinkingDisablesEnterAllow
+    CUnionNoteDlgTest.LinkingClearsScriptText
+    CUnionNoteDlgTest.LinkingBeforeInitDoesNotCrash
+    CUnionNoteDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CUnionNoteDlgTest.ShowWithNullItemIsSafe
+    CUnionNoteDlgTest.ShowWithItemActivatesDialog
+    CUnionNoteDlgTest.ShowBeforeInitDoesNotCrash
+    CUnionNoteDlgTest.UseClearsNoteText
+    CUnionNoteDlgTest.UseClearsBUseFlag
+    CUnionNoteDlgTest.UseWithoutLinkingIsSafe
+    CUnionNoteDlgTest.OnActionEventIsNoOp
+    CUnionNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
 )
