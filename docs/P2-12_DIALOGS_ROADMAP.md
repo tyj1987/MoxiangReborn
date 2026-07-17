@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-17
-> **状态**:🟢 进行中(43/202 = 21.3% 突破 21% 里程碑)
+> **状态**:🟢 进行中(44/202 = 21.8% 继续推进 22% 里程碑)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（43/202 = 21.3%）
+## 已 Port 列表（44/202 = 21.8%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -69,6 +69,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cMPMissionDialog` | `modern/src/ui/mpmissiondialog.{hpp,cpp}` | 20 | **2026-07-17** (0.13.41) - Tier 2 dialog(event-map mission notice, 40th port, header 6136B; 2 cTextArea id 570/571 + 2 message arrays; Linking REAL; SetMissionInfo REAL with defensive bounds-check; SetActive/ActionEvent TODO (GAMEIN + gCurTime + CMouse); LoadMissionMsg no-op (legacy cpp body empty); kMaxMissionMsgNum=5) |
 | `cAlertDlg` | `modern/src/ui/alertdlg.{hpp,cpp}` | 21 | **2026-07-17** (0.13.42) - Tier 2 dialog(alert dialog with 2 cButton + cbBtnFunc callback, 41st port, header 4727B; 2 cButton id 600-601 + 1 cbBtnFunc callback + 1 m_obj; Linking REAL synth 2 cButton; ActionEvent CMouse TODO; SetcbBtn REAL with std::function; SetObj/GetObj REAL; 2 AB_* enum constants) |
 | `cMPGuageDialog` | `modern/src/ui/mpguagedialog.{hpp,cpp}` | 30 | **2026-07-17** (0.13.43) - Tier 2 dialog(event-map timer + exp gauge, 42nd port, header 5525B; CObjectGuagen (void*) + 3 cStatic id 610-613; Linking REAL; SetTime REAL with red threshold + "%02u:%02u" format; SetEventMapTimer REAL 3-way switch (kFlagReady=0, kFlagActive=1, kFlagStopped=2); SetExpGuage/ShowEventMap TODO (CObjectGuagen::SetValue + CHATMGR); kRedTextThreshold=30000) |
+| `cUnionNoteDlg` | `modern/src/ui/unionnotedlg.{hpp,cpp}` | 19 | **2026-07-17** (0.13.44) - Tier 2 dialog(guild union note sender, 43rd port, header 5181B; 1 cTextArea id 620 + 1 cEditBox id 621 (unused) + CItem (void*) + m_bUse flag; Linking REAL SetEnterAllow(false) + SetScriptText(""); Show/Use/OnActionEvent TODO (HERO + CHATMGR + NETWORK + ITEMMGR); 1:1 quirk legacy "OnActionEvnet" typo 改 "OnActionEvent") |
 
 ## 5 档分级
 

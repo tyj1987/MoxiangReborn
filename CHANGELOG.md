@@ -4,6 +4,34 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.44] - 2026-07-17
+
+### Phase 12.x cUnionNoteDlg Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.43 收口 cMPGuageDialog (21.3%). 本 session 接 cUnionNoteDlg (44th Tier 2 dialog, 1:1 port) — header 5.2 KB, 4 method (ctor + Linking + Show + Use + OnActionEvent), 1 cTextArea (m_pNoteText) + 1 cEditBox (m_pTitleEdit, unused) + 1 CItem (void*) + m_bUse flag. Linking REAL (resolve cTextArea, SetEnterAllow(false), SetScriptText("")). Show/Use/OnActionEvent TODO (HERO + CHATMGR + NETWORK + ITEMMGR singletons, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cUnionNoteDlg 19/19 ctest PASS; 全栈 ctest 1576 → 1595 PASS (+19 用例, 0 回归; 1 已知 flaky EncryptionIntegration 偶发失败但单跑 pass, 与本 port 无关). 重跑: ctest -C Debug -R CUnionNoteDlg, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/unionnotedlg.{hpp,cpp}` (1 commit, 19 tests): 1:1 port of CUnionNoteDlg (header 5181B)
+  - Linking: REAL (resolve cTextArea id 620, SetEnterAllow(false), SetScriptText(""))
+  - Show: TODO (HERO + CHATMGR 4-singleton dispatch for guild idx + rank + union idx + pItem + m_bUse checks)
+  - Use: TODO (HERO + NETWORK + ITEMMGR dispatch). Modern clears m_pNoteText + m_bUse + m_pItem
+  - OnActionEvent: TODO (HERO + NETWORK singletons). Modern is no-op
+  - 1:1 quirk: m_pTitleEdit declared in header but never used in cpp; modern preserves for 1:1 parity
+  - 1:1 quirk: m_pItem is CItem forward-declared; modern stores as void* (untyped)
+  - 1:1 quirk: legacy typo'd "OnActionEvnet" → modern correct "OnActionEvent"
+  - Local id range 620-623 (kIdNoteText=620, kIdTitleEdit=621, kIdSendOkBtn=622, kIdCancelBtn=623)
+- `modern/tests/unit/ui/unionnotedlg_test.cpp` (新建, 19 用例 PASS): ctor + 4 id const + Linking x5 + Show x3 + Use x3 + OnActionEvent x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 unionnotedlg.cpp + 19 gtest entry
+
+### Progress
+
+- P2-12: 44/202 = 21.8% (5 base + 44 dialog + 5 subcontrol Tier 1.5; 继续推进 22% 里程碑)
+- ctest: 1595/1595 expected PASS (was 1576, +19 cUnionNoteDlg; 1 已知 flaky test 不计入)
+- 27 个新 Tier 2 dialog 端口
+
 ## [0.13.43] - 2026-07-17
 
 ### Phase 12.x cMPGuageDialog Tier 2 dialog port (self-verified by producer session)
