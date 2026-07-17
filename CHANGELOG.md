@@ -4,6 +4,33 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.37] - 2026-07-17
+
+### Phase 12.x cWantedDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.36 收口 cReinforceDataGuideDlg (17.8%). 本 session 接 cWantedDialog (37th Tier 2 dialog, 1:1 port) — header 759B, 4 method (ctor + Linking + SetInfo + AddInfo + InitWanted), 1 cListDialog. InitWanted REAL (RemoveAll), SetInfo/AddInfo TODO (WANTEDLIST struct + CHATMGR, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cWantedDialog 16/16 ctest PASS; 全栈 ctest 1431 → 1447 PASS (+16 用例, 0 回归). 重跑: ctest -C Debug -R CWantedDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/wanteddialog.{hpp,cpp}` (1 commit, 16 tests): 1:1 port of CWantedDialog (header 759B)
+  - Linking: REAL (resolve cListDialog id 500)
+  - SetInfo: TODO (WANTEDLIST struct + CHATMGR, R-12.x deferred)
+  - AddInfo: TODO (same as SetInfo)
+  - InitWanted: REAL (RemoveAll on cListDialog)
+  - 1:1 quirk: ctor m_type = WT_WANTEDDIALOG drop
+  - 1:1 quirk: legacy SetInfo/AddInfo take WANTEDLIST* param; modern port uses no-arg signature (WANTEDLIST struct not ported)
+  - kMaxWantedNum=20 (1:1 with legacy MAX_WANTED_NUM common header)
+- `modern/tests/unit/ui/wanteddialog_test.cpp` (新建, 16 用例 PASS): ctor + 1 id const + 1 max const + Linking x3 + InitWanted x3 + SetInfo x3 + AddInfo x3
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 wanteddialog.cpp + 16 gtest entry
+
+### Progress
+
+- P2-12: 37/202 = 18.3% (5 base + 37 dialog + 5 subcontrol Tier 1.5; **突破 18% 里程碑**)
+- ctest: 1447/1447 PASS (was 1431, +16 cWantedDialog)
+- 20 个新 Tier 2 dialog 端口
+
 ## [0.13.36] - 2026-07-17
 
 ### Phase 12.x cReinforceDataGuideDlg Tier 2 dialog port (self-verified by producer session)

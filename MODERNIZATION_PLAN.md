@@ -598,12 +598,13 @@ Phase 12: 持续迭代 ✅
 | `cGTRegistcancelDialog` | ✅ done (12.x 0.13.35) | tournament registration cancel dialog (Tier 2, 33rd port, header 795B; 1 cButton id 460; Linking REAL; SetActive override REAL + HERO/OBJECTSTATEMGR TODO; TournamentRegistCancelSyn 2-singleton TODO) |
 | `cGTRegistDialog` | ✅ done (12.x 0.13.35) | tournament registration dialog (Tier 2, 34th port, header 865B; 2 cStatic id 470-471 + 1 cButton id 472; Linking REAL; SetActive override REAL; TournamentRegistSyn 3-singleton TODO 返回 kErrorNoGuildMaster; SetRegistGuildCount TODO; 5 eGTError enum constants + kMaxGuildInTournament=32) |
 | `cReinforceDataGuideDlg` | ✅ done (12.x 0.13.36) | 9-tab reinforce data guide dialog (Tier 2, 35th port, header 793B; 9 cPushupButton id 480-488 + 7 unique cDialog id 490-496 + 1 OK button id 498; **全 REAL**; 1:1 quirks m_pDataDlg[6] aliases 5 + m_pDataDlg[8] aliases 7; legacy `we == WE_PUSHDOWN` exact match; 9 eRFDG_ITEM_KIND enum constants) |
+| `cWantedDialog` | ✅ done (12.x 0.13.37) | wanted list dialog (Tier 2, 36th port, header 759B; 1 cListDialog id 500; Linking REAL; InitWanted REAL (RemoveAll); SetInfo + AddInfo TODO (WANTEDLIST struct + CHATMGR); kMaxWantedNum=20) |
 | Real GPU draw (cImage → SRV) | 🟡 partial (12.1) | bindRenderer hook done (6.4); **R-10** reference adapter 等真 host 接入 |
 | IME (Korean/JP composition) | ✅ done (12.1 P2-10) | ime.hpp/ime.cpp/ime_win32_imm.cpp + 13 tests |
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (36/202 = 17.8% done: 5 base+36 dialog+5 subcontrol; **P2-12 突破 10% + 15% + 16% + 17% 四里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (37/202 = 18.3% done: 5 base+37 dialog+5 subcontrol; **P2-12 突破 10% + 15% + 16% + 17% + 18% 五里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |
