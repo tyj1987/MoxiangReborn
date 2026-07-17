@@ -4,6 +4,33 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.32] - 2026-07-17
+
+### Phase 12.x cPartyInviteDlg Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.31 收口 batch of 11 Tier 2 dialog. 本 session 接 cPartyInviteDlg (30th Tier 2 dialog, 1:1 port) — header 812B, 3 method (ctor + Linking + SetMsg), 4 children (2 cButton + 1 cTextArea + 1 cStatic, id 440-443). CHATMGR placeholder pattern (3 个 placeholder: PARTY_OPT_RANDOM / PARTY_OPT_DAMAGE / PARTY_INVITER_MSG_FORMAT 替代 CHATMGR->GetChatMsg(640/641/305)).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cPartyInviteDlg 15/15 ctest PASS; 全栈 ctest 1330 → 1345 PASS (+15 用例, 0 回归). 重跑: ctest -C Debug -R CPartyInviteDlg, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/partyinvitedlg.{hpp,cpp}` (新建, 1 commit): 1:1 port of 墨香 CPartyInviteDlg (PartyInviteDlg.h 812B + .cpp)
+  - Linking: REAL (resolve 4 children by id 440-443: cStatic m_pDistribute + cTextArea m_pInviter + cButton m_pOK + cButton m_pCancel)
+  - SetMsg: REAL with 3 placeholder format strings (PARTY_OPT_RANDOM / PARTY_OPT_DAMAGE / PARTY_INVITER_MSG_FORMAT) 替代 CHATMGR->GetChatMsg(640/641/305)
+  - 1:1 quirks: ctor m_type = WT_PARTYINVITEDLG drop; null pInviter guard; unknown option leaves cStatic empty (legacy 无 `else` branch)
+  - kOptRandom=0 / kOptDamage=1 (1:1 with legacy ePartyOpt_Random / ePartyOpt_Damage)
+- `modern/tests/unit/ui/partyinvitedlg_test.cpp` (新建, 15 用例 PASS): ctor + 4 id const + 2 opt const + Linking x3 (resolve / without-children / before-init) + SetMsg x7 (random / damage / unknown / null-inviter / overwrites / without-link / before-init)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 partyinvitedlg.cpp + 15 gtest entry
+
+### Progress
+
+- P2-12: 31/202 = **15.3%** (**突破 15% 里程碑**, 5 base + 30 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1345/1345 PASS (was 1330, +15 cPartyInviteDlg)
+- 累计 1 session: 879 → 1345 ctest PASS (+466 用例, 0 回归)
+- 12 个新 Tier 2 dialog 端口 (PetWearedEx + GuildNotice + 10 batch 0.13.31 + PartyInvite 0.13.32)
+- 1 cTextArea 扩展 (SetEnterAllow 0.13.30)
+- 0.13.29 (PetWearedEx) → 0.13.30 (GuildNoticeDlg + cTextArea) → 0.13.31 (batch of 11) → 0.13.32 (PartyInviteDlg)
+
 ## [0.13.31] - 2026-07-17
 
 ### Phase 12.x Tier 2 dialog batch port (self-verified by producer session)
