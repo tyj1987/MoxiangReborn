@@ -46,6 +46,7 @@ add_executable(mxh_ui_tests
     guildinvitedialog_test.cpp
     stallkindselectdlg_test.cpp
     partyinvitedlg_test.cpp
+    namechangedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -766,4 +767,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPartyInviteDlgTest.SetMsgOverwritesPreviousText
     CPartyInviteDlgTest.SetMsgWithoutLinkIsSafe
     CPartyInviteDlgTest.SetMsgBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cNameChangeDialog (name change editor)
+    CNameChangeDialogTest.DefaultConstructionHasZeroState
+    CNameChangeDialogTest.InheritsDialogTreeManagement
+    CNameChangeDialogTest.IdConstantMatchesExpectedLocalRange
+    CNameChangeDialogTest.VcmCharnameIsTwo
+    CNameChangeDialogTest.LinkingResolvesEditBox
+    CNameChangeDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CNameChangeDialogTest.LinkingBeforeInitDoesNotCrash
+    CNameChangeDialogTest.SetActiveTrueUpdatesBaseState
+    CNameChangeDialogTest.SetActiveFalseUpdatesBaseState
+    CNameChangeDialogTest.SetActiveTrueClearsEditText
+    CNameChangeDialogTest.SetActiveFalseDoesNotClearEditText
+    CNameChangeDialogTest.SetActiveWithoutLinkIsSafe
+    CNameChangeDialogTest.SetActiveBeforeInitDoesNotCrash
+    CNameChangeDialogTest.SetItemDBIdxRoundTrip
+    CNameChangeDialogTest.SetItemDBIdxOverridesPrevious
+    CNameChangeDialogTest.SetItemDBIdxZeroIsValid
+    CNameChangeDialogTest.NameChangeSynIsNoOpUntilSingletonsPorted
+    CNameChangeDialogTest.NameChangeSynDoesNotChangeState
+    CNameChangeDialogTest.NameChangeSynWithoutLinkIsSafe
+    CNameChangeDialogTest.NameChangeSynBeforeInitDoesNotCrash
 )
