@@ -53,6 +53,7 @@ add_executable(mxh_ui_tests
     reinforcedataguidedlg_test.cpp
     wanteddialog_test.cpp
     wantregistdialog_test.cpp
+    maindialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -901,4 +902,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWantRegistDialogTest.SetActiveBeforeInitDoesNotCrash
     CWantRegistDialogTest.ActionEventReturnsWeNullUntilCMousePorted
     CWantRegistDialogTest.ActionEventBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cMainDialog (main UI button bar)
+    CMainDialogTest.CtorDoesNotCrash
+    CMainDialogTest.DtorDoesNotCrash
+    CMainDialogTest.InheritsFromCDialog
+    CMainDialogTest.IsACDialog
+    CMainDialogTest.IdConstantsMatchExpectedLocalRange
+    CMainDialogTest.IdConstantsAreUnique
+    CMainDialogTest.IdxConstantsMatchExpectedValues
+    CMainDialogTest.NumBtnsIsFour
+    CMainDialogTest.LinkingPopulatesAllFourPushupButtons
+    CMainDialogTest.LinkingBeforeInitDoesNotCrash
+    CMainDialogTest.EachLinkedBtnHasCorrectId
+    CMainDialogTest.LinkedBtnsAreUniqueInstances
+    CMainDialogTest.LinkedBtnsAreCButtons
+    CMainDialogTest.GetPushupBtnBeforeLinkingReturnsNull
+    CMainDialogTest.GetPushupBtnOutOfRangeReturnsNull
+    CMainDialogTest.GetPushupBtnReturnsSamePointerOnRepeatedCalls
+    CMainDialogTest.MakeLinkedDialogHelperProducesValidState
+    CMainDialogTest.LinkedBtnHasDefaultPushupStateFalse
 )
