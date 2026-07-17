@@ -86,7 +86,11 @@ public:
     ColorRGBA currentTextColor() const noexcept { return m_fgCurColor; }
 
     void SetTextXY(std::int32_t x, std::int32_t y) noexcept;
+    std::int32_t textX() const noexcept             { return m_textX; }
+    std::int32_t textY() const noexcept             { return m_textY; }
     void SetShadowTextXY(std::int32_t x, std::int32_t y) noexcept;
+    std::int32_t shadowTextX() const noexcept       { return m_shadowTextX; }
+    std::int32_t shadowTextY() const noexcept       { return m_shadowTextY; }
     void SetShadowColor(ColorRGBA c) noexcept   { m_shadowColor = c; }
     void SetShadow(bool v) noexcept              { m_bShadow    = v; }
     void SetTextAlign(TextAlign a) noexcept     { m_align      = a; }

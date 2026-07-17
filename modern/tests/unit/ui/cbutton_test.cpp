@@ -191,13 +191,45 @@ TEST(CButton, TextAlignSetter) {
 }
 
 TEST(CButton, SetTextXYStoresCoordinates) {
+    // 1:1 with legacy cButton::SetTextXY: the text-position offset
+    // is stored verbatim and survives a re-Init (cButton::Init only
+    // resets the widget's abs xy + images + state, not the text
+    // offset). Also verifies the lower-case textX() / textY()
+    // accessors read back the same value — the setter/getter pair
+    // was asymmetric before this fix (setter existed, no getter).
     cButton b;
+    b.SetTextXY(13, 2);
+    EXPECT_EQ(b.textX(), 13);
+    EXPECT_EQ(b.textY(), 2);
     b.Init(0, 0, 100, 100, &g_basicImage, &g_overImage, &g_pressImage);
-    b.SetTextXY(10, 20);
-    // No getter for textXY, but the call must not crash and the
-    // rest of the state machine must remain intact.
+    EXPECT_EQ(b.textX(), 13);
+    EXPECT_EQ(b.textY(), 2);
+    b.SetTextXY(7, 9);
+    EXPECT_EQ(b.textX(), 7);
+    EXPECT_EQ(b.textY(), 9);
+    // The state machine must remain intact after SetTextXY.
     b.ActionEvent(50, 50, 0);
     EXPECT_EQ(b.state(), BState::Hover);
+}
+
+TEST(CButton, ShadowTextXYSetterGetter) {
+    // Mirror of SetTextXYStoresCoordinates for the shadow-text
+    // offset. SetShadowTextXY takes a separate (x, y) pair so the
+    // button can render the shadow label one pixel up/left of the
+    // main label. Lower-case shadowTextX() / shadowTextY() accessors
+    // round-trip the values, including negative offsets (used when
+    // the shadow is offset to the right of the main text).
+    cButton b;
+    b.Init(0, 0, 100, 100, &g_basicImage, &g_overImage, &g_pressImage);
+    b.SetShadowTextXY(2, 3);
+    EXPECT_EQ(b.shadowTextX(), 2);
+    EXPECT_EQ(b.shadowTextY(), 3);
+    b.SetShadowTextXY(-1, -1);
+    EXPECT_EQ(b.shadowTextX(), -1);
+    EXPECT_EQ(b.shadowTextY(), -1);
+    b.SetShadowTextXY(0, 0);
+    EXPECT_EQ(b.shadowTextX(), 0);
+    EXPECT_EQ(b.shadowTextY(), 0);
 }
 
 TEST(CButton, ClickEventReturnsLButtonClick) {
