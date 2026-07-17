@@ -938,7 +938,7 @@ Phase 12: 持续迭代 ✅
 
 
 
-## 9. Phase 10 series 总结（2026-07-15, 13 commits, 506/506 ctest PASS）
+## 9. Phase 10 series + Phase 11/12 接力总结（2026-07-15 → 2026-07-17, 1376/1376 ctest PASS）
 
 Phase 10（工具链现代化）在 e1e8e2a..af2b086 区间用 13 个 commit 完成 P10.4 基础设施
 + 5 模块 + 5 测试 + scratch 归档 + CHANGELOG 同步 + C-32 文档化。Phase 10.1-10.3 是 6/7 天前
@@ -1018,10 +1018,58 @@ build 0 error。
 render_typedef 是纯 abstract 或超大，跳过但其他 test 间接触达）。换言之 wire-format
 侧（资源/协议/格式）已经达到 1:1 testability 的天花板。
 
-**HEAD**：`c2d30b9`（2026-07-16 01:47），`ctest -C Debug` 783/783 PASS，~12 sec。
-36 commits ahead of `bafc20d`（session start）。
+**HEAD**：`de05882`（2026-07-17 12:55），`ctest -C Debug` 1376/1376 PASS，~16 sec。
+Phase 10 → Phase 11/12 持续推进, P2-12 dialog 1:1 port 21/202 → 33/202 = 16.3%
+(突破 10% / 15% / 16% 三里程碑)。
 
-详细 commit 信息见 `git log --oneline bafc20d..HEAD` 和 CHANGELOG.md 0.13.0 条目。
+详细 commit 信息见 `git log --oneline bafc20d..HEAD` 和 CHANGELOG.md 0.13.0 - 0.13.34 条目。
+
+### 9.6 Phase 11 / Phase 12 接力（2026-07-16 → 2026-07-17, 783 → 1376 ctest PASS）
+
+P10.5-P10.23 收口后, session 接力推进 Phase 11(文档/协议/服务接口) + Phase 12
+(持续迭代/UI port/R-9.x 收口), 持续把 ctest 从 783 拉到 1376 (+593 用例, +76%),
+~16 sec wall build 0 error。
+
+**主线进展 (按 CHANGELOG 版本号顺序)**:
+
+- **0.13.0** — Phase 10.4-P10.23 收口 (已在 §9.5 详述)
+- **0.13.0 收口** — `ci_test_distribution_guard.py` real parser 替换 5 年 TODO
+- **0.13.12** — R-9 matrix D3DX row-major layout fix (off-axis eye 测试)
+  + 7 new tests + Phase 13 service interfaces (header-only + real impl)
+  + cListDialogEx + cGuagen (R-9 subcontrol)
+- **0.13.14** — Phase 13 real impl (InventoryServiceImpl/PlayerStatsServiceImpl/
+  SkillServiceImpl) + 15 real contract tests
+- **0.13.18 — 0.13.34** — **P2-12 dialog 1:1 port** 17+ 个 Tier 2 dialog
+  (cSOSDialog / cCharStateDialog / cGuildJoinDialog / cCharMakeDlg /
+  cReviveDialog / cTextArea / cMPNoticeDialog / cEventNotifyDialog /
+  cGuildCreateDialog / cGuildUnionCreateDialog / cChaseInputDialog /
+  cChaseDialog / cBailDialog / cPetWearedExDialog / cGuildNoticeDlg /
+  cChinaAdviceDlg / cIntroReplayDlg / cKeySettingTipDlg / cLoadingDlg /
+  cNameChangeNotifyDlg / cGuildNickNameDialog / cShoutDialog /
+  cGuildInviteDialog / cStallKindSelectDlg + 11 batch in 0.13.31 /
+  cPartyInviteDlg / cNameChangeDialog / cChangeJobDialog) + subcontrols
+  → **P2-12 进度 5.9% → 16.3% (突破 10% / 15% / 16% 三里程碑)**
+- **0.13.21** — R-9.x drawBox 3D upgrade (V3D vertex + 3D VS shader + 3D
+  input layout + 6 shader compile/reflect tests)
+- **0.13.18 — 0.13.34** — CHANGELOG 同步 (每 port 一个 entry, E-1 anti-fraud
+  verifier note 自报 session ID + ctest 数字)
+
+**P2-12 dialog port 现状** (详见 `docs/P2-12_DIALOGS_ROADMAP.md`):
+
+- 5 base + ~28 dialog + 5+ subcontrol = **~38/202 = 18.8% node** 完成
+  (P2-12 metric 33/202 = 16.3% dialog-only, base+subcontrol 单独计)
+- 7.5x ctest 增量全部 0 回归
+- Render path 仍是 no-op stub (R-10 reference adapter 等真 host 接入)
+- ~169 个 legacy 对话框待 port, 平均 ~10 tests/dialog
+
+**E-1 anti-fraud 协议**: 所有 0.13.18-0.13.34 producer session entry 在
+CHANGELOG 顶部"Verifier note"段显式声明 self-verify 状态、build log 路径、
+audit 命令 (`ctest -C Debug --timeout 30` + `grep FAILED`)。独立 verifier
+session 尚未分离 — 已知 limitation, 详见 `docs/KNOWN_BUGS.md` E-1。
+
+**§5 Phase 6/12 table 已同步**: line 586 区域已更新至 33/202 = 16.3%
+(三里程碑), R-9/R-9.x 状态、Phase 13 service interfaces 状态、IME 状态
+全部反映本 session 进展。
 
 ## 8. 长期愿景
 
