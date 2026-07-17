@@ -43,6 +43,7 @@ add_executable(mxh_ui_tests
     tipbrowserdlg_test.cpp
     guildnicknamedialog_test.cpp
     shoutdialog_test.cpp
+    guildinvitedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -713,4 +714,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutDialogTest.SendShoutMsgSynDoesNotChangeState
     CShoutDialogTest.SendShoutMsgSynWithoutLinkIsSafe
     CShoutDialogTest.SendShoutMsgSynBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cGuildInviteDialog (guild invitation display)
+    CGuildInviteDialogTest.DefaultConstructionIsValid
+    CGuildInviteDialogTest.InheritsDialogTreeManagement
+    CGuildInviteDialogTest.IdConstantMatchesExpectedLocalRange
+    CGuildInviteDialogTest.FlgKindConstantsMatchLegacy
+    CGuildInviteDialogTest.LinkingResolvesTextArea
+    CGuildInviteDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CGuildInviteDialogTest.LinkingBeforeInitDoesNotCrash
+    CGuildInviteDialogTest.SetInfoAsMemberUpdatesTextArea
+    CGuildInviteDialogTest.SetInfoAsStudentUpdatesTextArea
+    CGuildInviteDialogTest.SetInfoAsStudentWithUnknownFlgKind
+    CGuildInviteDialogTest.SetInfoAsMemberWithNullNamesIsSafe
+    CGuildInviteDialogTest.SetInfoAsStudentWithNullNamesIsSafe
+    CGuildInviteDialogTest.SetInfoOverwritesPreviousText
+    CGuildInviteDialogTest.SetInfoWithoutLinkIsSafe
+    CGuildInviteDialogTest.SetInfoBeforeInitDoesNotCrash
 )
