@@ -41,6 +41,8 @@ public:
     void SetTextXY(std::int32_t x, std::int32_t y) noexcept {
         m_textX = x; m_textY = y;
     }
+    std::int32_t GetTextX() const noexcept           { return m_textX; }
+    std::int32_t GetTextY() const noexcept           { return m_textY; }
     void SetFGColor(std::uint32_t color) noexcept    { m_fgColor = color; }
     std::uint32_t GetFGColor() const noexcept        { return m_fgColor; }
 
@@ -49,7 +51,10 @@ public:
     void SetShadowTextXY(std::int32_t x, std::int32_t y) noexcept {
         m_shadowX = x; m_shadowY = y;
     }
+    std::int32_t GetShadowTextX() const noexcept     { return m_shadowX; }
+    std::int32_t GetShadowTextY() const noexcept     { return m_shadowY; }
     void SetShadowColor(std::uint32_t c) noexcept    { m_shadowColor = c; }
+    std::uint32_t GetShadowColor() const noexcept    { return m_shadowColor; }
 
     enum class Align { Left = 0, Center = 1, Right = 2 };
     void SetAlign(Align a) noexcept                  { m_align = a; }
