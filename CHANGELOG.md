@@ -4,6 +4,32 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.36] - 2026-07-17
+
+### Phase 12.x cReinforceDataGuideDlg Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.35 收口 GT tournament dialogs (17.3%). 本 session 接 cReinforceDataGuideDlg (36th Tier 2 dialog, 1:1 port) — header 793B, 5 method (ctor + Linking + Show + Close + OnActionEvent), 9 cPushupButton + 9 cDialog page (1:1 quirk: index 6 aliases 5, index 8 aliases 7) + 1 OK button. 全 REAL (no singleton TODO). 9-tab 跟 cTipBrowserDlg 4-tab 模式 1:1 复制.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cReinforceDataGuideDlg 20/20 ctest PASS; 全栈 ctest 1411 → 1431 PASS (+20 用例, 0 回归). 重跑: ctest -C Debug -R CReinforceDataGuideDlg, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/reinforcedataguidedlg.{hpp,cpp}` (1 commit, 20 tests): 1:1 port of CReinforceDataGuideDlg (header 793B)
+  - Linking: REAL (resolve 9 cPushupButton + 7 unique cDialog, with 1:1 quirks: m_pDataDlg[6] aliases 5, m_pDataDlg[8] aliases 7)
+  - Show/Close: REAL
+  - OnActionEvent: 1:1 with legacy 2 paths (1:1 quirk legacy `we == WE_PUSHDOWN` exact match, not bit-and)
+  - 9 eRFDG_ITEM_KIND enum constants (kItemWeapon=0 / kItemCap=1 / kItemClothes=2 / kItemBoots=3 / kItemClove=4 / kItemCloak=5 / kItemBlet=6 / kItemAmulet=7 / kItemRing=8)
+  - kNumTabs=9 + kNumUniqueSheets=7
+  - 1:1 quirk: modern cPushupButton 没 SetActive, modern port 用 cWindow::SetVisible 替代 (R-12 fix)
+- `modern/tests/unit/ui/reinforcedataguidedlg_test.cpp` (新建, 20 用例 PASS): ctor + 2 size const + 9 item kind consts + Linking x4 (resolve / applies-aliases / without-children / before-init) + Show x3 + Close x1 + OnActionEvent x7
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 reinforcedataguidedlg.cpp + 20 gtest entry
+
+### Progress
+
+- P2-12: 36/202 = 17.8% (5 base + 36 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1431/1431 PASS (was 1411, +20 cReinforceDataGuideDlg)
+- 19 个新 Tier 2 dialog 端口 (PetWearedEx + GuildNotice + 10 batch 0.13.31 + PartyInvite + NameChange + ChangeJob + GTRegistcancel + GTRegist + ReinforceDataGuide)
+
 ## [0.13.35] - 2026-07-17
 
 ### Phase 12.x batch port of 2 guild tournament dialogs (self-verified by producer session)
