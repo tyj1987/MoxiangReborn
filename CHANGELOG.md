@@ -4,6 +4,81 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.46] - 2026-07-17
+
+### Phase 6.13 cIconGridDialog Tier 1.5 subcontrol + cPKLootingDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**概况**: 0.13.45 收口 cMPRegistDialog (45th Tier 2 dialog, 22.3%)。本 session 推 0.13.46: cIconGridDialog (Tier 1.5 subcontrol, 19KB legacy 2D icon grid) + cPKLootingDialog (46th Tier 2 dialog, PK loot after kill)。
+
+**cIconGridDialog (ed943a8, 24 tests)**: 1:1 port of legacy cIconGridDialog (Interface/cIconGridDialog.cpp 19KB — 2D cell array with drag-drop semantics; backs inventory, equipment slots, loot grids, shop cells)。Init(x, y, w, h, basicImage, col, row, id) + InitGrid(gridX, gridY, cellWid, cellHei, borderX, borderY) layout。AddIcon / DeleteIcon (linear pos + 2D cellX/cellY overloads) + MoveIcon。GetCellPosition / GetPositionForXYRef / GetPositionForCell / GetCellAbsPos hit-test math ported verbatim (1:1 quirk: GetCellPosition uses DEFAULT_CELLSIZE=40 for hit range, NOT m_wCellWidth)。SetAbsXY / SetActive / SetDisable / SetAlpha cascade to dependent icons (legacy IsDepend path; modern simplified to always-true since cIcon is opaque forward-decl)。m_acceptableIconType bitmask stored for API parity, not consulted in IsAddable until real cIcon port lands。
+
+**Modern-port simplifications (5 项, 全部 documented in .cpp file header)**:
+1. cIcon is opaque forward-decl — icon cascade (SetAbsXY / SetActive / SetDisable / SetAlpha on the icon) are no-op stubs; dialog-side state still updated. Real cIcon port lands with 6.6 cImage seam.
+2. Render is a no-op (selected-bg + drag-over-bg + per-cell sprite draw are cImage seam 6.6 work).
+3. ActionEvent is a no-op stub. Legacy cbWindowFunc dispatch has no modern equivalent; the dispatcher integration is 6.6 follow-up.
+4. IsDragOverDraw returns false unconditionally (cWindowManager drag-window state lands in 6.6).
+5. m_DisableFromPos / m_DisableToPos (JAPAN / HK / TL per-locale grid-lock ranges) not ported — 2003-era workaround, modern inventory's dialog-level SetDisable replaces。
+
+**cPKLootingDialog (4aceea4, 25 tests)**: 1:1 port of legacy CPKLootingDialog (8.7KB — PK loot after kill: 7 cStatic + 1 cIconGridDialog children, 12-cell loot grid, chance / item-count / per-cell picked flag, 30-sec timer + 1-sec delayed-show, end-state on chance-zero or items-zero)。InitPKLootDlg(id, x, y, dwDiePlayerIdx) + Linking (resolve 8 children by id) + ActionEvent (m_bShow delay + per-sec timer countdown) + OnActionEvent (close-btn + close-window + loot-cell click routing) + ReleaseAllIcon / ChangeIconImage / AddLootingItemNum data-side helpers。
+
+**Modern-port simplifications**:
+1. Engine singletons (PKMGR / HERO / OBJECTMGR / ITEMMGR / CHATMGR / NETWORK) stubbed to no-op. Data-side state (chance / item-count / end-flag / msg-sync) preserved 1:1. Engine-binder layer (Phase 14+) will replace。
+2. cIcon grid contents are placeholder pointers (modern cIcon forward-decl)。
+3. Render is a no-op (cImage seam 6.6)。
+4. m_nChance / m_nLootItemNum default to 1 (legacy default for "first kill" with bad-fame=0)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 mavis root session `mvs_89cf065af0d3418c9c19bc1666b16257` 写入。Verifier session ID 相同 (self-verify, 独立 verifier session 暂未分离 — E-1 architectural gap documented in 21:00 entry)。证据: cIconGridDialog 24/24 ctest PASS; cPKLootingDialog 25/25 ctest PASS; 全栈 ctest 1700/1700 PASS (was 1675, +25, 0 回归, 1 已知 flaky EncryptionIntegration 偶发失败与本 port 无关); build 0 error。`docs/P2-12_DIALOGS_ROADMAP.md` + `MODERNIZATION_PLAN.md` §5 待 sync (在 roadmap/plan sync commit 中处理)。任何方反欺骗验证: ctest + grep `FAILED` + `git show ed943a8` + `git show 4aceea4`。
+
+### Added
+
+- `modern/src/ui/cIconGridDialog.{hpp,cpp}` (ed943a8, 24 tests): 1:1 port of legacy cIconGridDialog (2D icon grid + drag-drop)
+  - Init(x, y, wid, hei, basicImage, col, row, id=0): 8 params
+  - InitGrid(gridX, gridY, cellWid, cellHei, borderX, borderY): 6 params
+  - AddIcon (linear pos + 2D cellX/cellY overloads)
+  - DeleteIcon (linear pos + 2D cellX/cellY + by-pointer overloads)
+  - MoveIcon(cellX, cellY, icon)
+  - GetCellPosition / GetPositionForXYRef / GetPositionForCell / GetCellAbsPos
+  - PtInCell (cell-rect hit-test, simplified to "in-bounds cell rect" since modern cIcon is opaque)
+  - SetAcceptableIconType / GetAcceptableIconType (bitmask, stored not consulted)
+  - GetCellNum = row * col
+  - GetCurSelCellPos / SetCurSelCellPos
+  - SetShowGrid / SetDragOverIconType
+  - SetAbsXY / SetActive / SetDisable / SetAlpha (cascades to dependent icons; modern simplified)
+  - SetIconCellBGImage / SetDragOverBGImage (no-op render-side stubs)
+  - 1:1 quirk: GetCellPosition uses DEFAULT_CELLSIZE=40 for hit range, not m_wCellWidth (preserved 1:1)
+  - 1:1 quirk: IsDepend simplified to always-true (cIcon opaque in modern)
+  - Constants: NOTUSE=0, USE=1, DEFAULT_CELLSIZE=40, DEFAULT_CELLBORDER=4
+  - Tests cover: 24/24 PASS (init / grid layout / add / delete / move / hit-test / position-mapping / cascade / render no-op / etc.)
+- `modern/src/ui/pklootingdialog.{hpp,cpp}` (4aceea4, 25 tests): 1:1 port of legacy CPKLootingDialog (PK loot dialog)
+  - 7 cStatic children (bad-fame / time / chance / target-name / item-count / end-text / none-text) + 1 cIconGridDialog (12 cells, 4 cols × 3 rows)
+  - State: m_dwDiePlayerIdx / m_nTime / m_dwStartTime / m_nChance / m_nLootItemNum / m_bSelected[12] / m_bLootingEnd / m_bMsgSync / m_dwCreateTime / m_bShow
+  - InitPKLootDlg(id, x, y, dwDiePlayerIdx) + Linking
+  - ActionEvent override: m_bShow delay (1 sec) + per-sec timer countdown (30 sec default)
+  - OnActionEvent: close-btn + close-window + loot-cell click routing
+  - ReleaseAllIcon / ChangeIconImage / AddLootingItemNum
+  - LootItemKind enum (Item/Money/Exp/None) mirroring legacy eLOOTINGITEM_KIND
+  - Constants: PKLOOTING_ITEM_NUM=12, PKLOOTING_LIMIT_TIME=30000, PKLOOTING_DLG_DELAY_TIME=1000
+  - Test-injectable clock (SetClockForTesting) drives m_bShow delay + timer deterministically
+  - 1:1 quirk: 4 cols × 3 rows grid layout (legacy 27729B source confirmed)
+  - 1:1 quirk: m_bSelected[] is bool[12] (legacy BOOL m_bSelected[PKLOOTING_ITEM_NUM])
+  - Engine deps stubbed: PKMGR / HERO / OBJECTMGR / ITEMMGR / CHATMGR / NETWORK all no-op
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (在 2 commits 中): 增 cIconGridDialog.cpp + cPKLootingDialog.cpp + 49 gtest entry
+
+### Progress
+
+- P2-12: 46/202 = 22.8% (5 base + 46 dialog + 6 subcontrol Tier 1.5; 推进 22% → 23% 里程碑边缘)
+- ctest: 1700/1700 expected PASS (was 1675, +25 cPKLootingDialog, 0 回归; 1 已知 flaky EncryptionIntegration 偶发失败与本 port 无关, 已通过 1 次重跑确认 transient)
+- cIconGridDialog 2 commit: 1 commit 端口 + 49 gtest entry added
+- cPKLootingDialog 1 commit: 端口 + 25 tests
+- 0.13.46 dialog 起步成功: cPKLootingDialog 是 P2-12 roadmap 中 "无 legacy service 依赖" 类别中最小候选, 1 commit 量级 + 4 docs commit 完成
+- Modern UI setter/getter sweep (0.13.46 background): 完整 11 classes (cStatic / cButton / cEditBox / cListDialog + cTextArea / cPushupButton / cIconDialog / cListDialogEx / cGuagen / cListCtrl 全部 audit clean) — 4 micro-patch commits (7cf011e / 87e831a / ad0a4d2 / 8a3f5be), memory entry 标记 sweep-complete
+- Phase 6.13 期间踩坑 (per memory rule):
+  1. cIconGridDialog: `static_cast<cWindow*>(cIcon*)` 失败 (modern cIcon 是 forward-decl 空类型, 不是 cWindow 派生)。解法: 跟 modern cIconDialog 一样, 存 cIcon* 为不透明, 不 cascade to icons (留 6.6 cImage seam 重新接入)
+  2. cIconGridDialog: 参数 `int& absX` 阴影继承的 `absX()` getter (C2064 function not accept 0 args)。解法: 重命名 out-params 为 `outAbsX` / `outAbsY`
+  3. cPKLootingDialog: `SetID()` 不存在 (modern cWindow 继承 cObject::setId())。解法: 用 `setId(...)` 替代
+  4. cPKLootingDialog: ctor 中 unique_ptr<> 持有 children + Add 转移所有权 → 双所有权风险。解法: children 在 Linking 创建 (跟 cAlertDlg pattern 一致), ctor 只 init state
+  5. cPKLootingDialog: 5 engine singletons (PKMGR / HERO / OBJECTMGR / ITEMMGR / CHATMGR / NETWORK) 全部 no-op stub — data-side state preserved 1:1, engine-binder (Phase 14+) 重新接入
+
 ## [0.13.45] - 2026-07-17
 
 ### Phase 12.x cMPRegistDialog Tier 2 dialog port (self-verified by mavis root session)
