@@ -73,6 +73,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cMPRegistDialog` | `modern/src/ui/mpregistdialog.{hpp,cpp}` | 28 | **2026-07-17** (0.13.45) - Tier 2 dialog(MP practice registration, 44th port, header 1098B; 4 children: 2 cTextArea (id 564/565) + 1 cStatic (id 566) + 1 cIconDialog (id 563); Linking REAL + 1-cell layout config on inner cIconDialog (1:1 quirk: modern has no .bin loader); SetActive override (val==FALSE resets 4 children + WINDOWMGR/OBJECTSTATEMGR TODO); FakeMoveIcon 5-singleton TODO (SURYUNMGR/HERO/WINDOWMGR/CHATMGR/OBJECTSTATEMGR + cMugongBase/cSkillInfo); SetSuryunMugongInfo sprintf placeholder "Mugong: %s (Sung %u)" + SetScriptText (CHATMGR msg 661 TODO); SetPracticeInfo LTime=limitime/60000 + sprintf placeholder + SetStaticValue (CHATMGR msg 660 TODO); AddLink 1:1 wrap (DeleteIcon(0) if not addable + AddIcon(0,picon,TRUE)); GetMugong returns nullptr (TODO until CMugongBase port, R-12.x deferred); 1:1 quirks: m_type=WT_MPREGISTDIALOG drop, SetDragOverIconType drop (modern cIconDialog has no such API, same as cPetWearedExDialog/cWearedExDialog), null mugongName→"(null)" defensive; 7 local id range 562-568 1:1 with legacy enum) |
 | `cIconGridDialog` | `modern/src/ui/cIconGridDialog.{hpp,cpp}` | 24 | **2026-07-17** (0.13.46) - Tier 1.5 subcontrol(2D icon grid with drag-drop, 6th Tier 1.5 subcontrol; Init(x, y, wid, hei, basicImage, col, row, id) + InitGrid(gridX, gridY, cellWid, cellHei, borderX, borderY); AddIcon / DeleteIcon (linear pos + 2D cellX/cellY overloads) + MoveIcon; GetCellPosition / GetPositionForXYRef / GetPositionForCell / GetCellAbsPos hit-test math; PtInCell simplified to in-bounds cell rect (modern cIcon opaque); SetAbsXY / SetActive / SetDisable / SetAlpha cascade to dependent icons (IsDepend simplified to always-true); 1:1 quirks: GetCellPosition uses DEFAULT_CELLSIZE=40 for hit range, NOT m_wCellWidth; m_DisableFromPos/m_DisableToPos per-locale not ported; constants NOTUSE=0, USE=1, DEFAULT_CELLSIZE=40, DEFAULT_CELLBORDER=4) |
 | `cPKLootingDialog` | `modern/src/ui/pklootingdialog.{hpp,cpp}` | 25 | **2026-07-17** (0.13.46) - Tier 2 dialog(PK loot dialog, 46th port, header ~11KB; 7 cStatic id 0-6 + 1 cIconGridDialog id 8 (12 cells 4×3); state m_dwDiePlayerIdx / m_nTime (30s default) / m_dwStartTime / m_nChance (1 default) / m_nLootItemNum (1 default) / m_bSelected[12] / m_bLootingEnd / m_bMsgSync / m_dwCreateTime / m_bShow; InitPKLootDlg + Linking + ActionEvent (1s m_bShow delay + per-sec timer) + OnActionEvent (close-btn + close-window + loot-cell click); ReleaseAllIcon / ChangeIconImage / AddLootingItemNum; LootItemKind enum (Item/Money/Exp/None); engine singletons stubbed no-op (PKMGR/HERO/OBJECTMGR/ITEMMGR/CHATMGR/NETWORK); test-injectable SetClockForTesting) |
+| `cSkinSelectDialog` | `modern/src/ui/skinselectdialog.{hpp,cpp}` | 23 | **2026-07-17** (0.13.47) - Tier 2 dialog(skin-select dialog, 47th port, ~200 行 legacy; 1 cListDialog id 2 (皮肤列表) + 1 cIconDialog id 1 (3-cell 预览); state m_dwSelectIdx (1-based per legacy quirk) / m_dwSkinDelayTime / m_bSkinDelayResult; Linking REAL + SetShowSelect(TRUE); SetActive override (val==FALSE clear list/icon/idx, val==TRUE SkinItemListInfo); ActionEvent override (cDialog::ActionEvent + PtIdxInRow hit-test + on LBTNCLICK populate 3-cell preview); OnActionEvent (WE_CLOSEWINDOW + 3 button id OK/CANCEL/RECOVERY, engine-send stubbed); SkinItemListInfo (GAMERESRCMNGR stubbed 0, color-from-level preserved); engine singletons stubbed (GAMERESRCMNGR/HERO/CHATMGR/OBJECTMGR/ITEMMGR/NETWORK/WINDOWMGR); CItemShow opaque placeholder; constants SKINITEM_LIST_MAX=3 + ID_DLG=0/ID_ITEMVIEW=1/ID_LIST=2/ID_OK=3/ID_CANCEL=4/ID_RECOVERY=5) |
 
 ## 5 档分级
 
@@ -164,12 +165,12 @@ CharacterDialog 子控件 blocker**。但 CharacterDialog 仍需 PlayerStatsServ
 - 选 1 个**纯 UI 状态机** + **子控件全 port** + **无 service** 的 dialog
 - 截至 0.13.12,唯一符合所有条件的是 **MacroDialog**(仅 cEditBox + cButton,OptionManager settings 已经是 local state)
 - 第二个候选是 **DealDialog**(Tier 3 blocked after 0.13.12 解锁子控件)
-- **0.13.12-0.13.46 修正**: MacroDialog 0.13.14 已 ported(20 tests)。子控件 cListDialogEx 0.13.13 + cTextArea 0.13.23 + cIconGridDialog 0.13.46 也已 ported,解锁了 cChaseInputDialog / cMPNoticeDialog / cTextArea / cPKLootingDialog 系列。当前(0.13.46)最新可立即 port 的 Tier 2 候选:
+- **0.13.12-0.13.47 修正**: MacroDialog 0.13.14 已 ported(20 tests)。子控件 cListDialogEx 0.13.13 + cTextArea 0.13.23 + cIconGridDialog 0.13.46 也已 ported,解锁了 cChaseInputDialog / cMPNoticeDialog / cTextArea / cPKLootingDialog / cSkinSelectDialog 系列。当前(0.13.47)最新可立即 port 的 Tier 2 候选:
   - **cMPRegistDialog** ✅ 已 ported (0.13.45, 28 tests, 5-singleton TODO)
   - **cPKLootingDialog** ✅ 已 ported (0.13.46, 25 tests, 5-singleton no-op stub)
+  - **cSkinSelectDialog** ✅ 已 ported (0.13.47, 23 tests, 7-singleton stubbed)
   - **cChatOptionDialog** (cEditBox, cButton - 跟 MacroDialog 类似小 dialog。0.13.45 探查发现是 dead code - 整段 `/* */` 块注释 disabled, see `docs/KNOWN_BUGS.md`)
-  - **cStallFindDlg** (cListDialog + 搜索按钮 - 中等, ~28KB legacy)
-  - **cSkinSelectDialog** (cListDialog + cIconDialog - 1:1 简单, 1 CItemShow quirk drop)
+  - **cStallFindDlg** (cListDialog + cComboBox + 2 cPushupButton + 2 cButton + 1 cEditBox - 中等, ~28KB legacy, 需先 port cComboBox Tier 1.5 subcontrol)
   - **cSkinSelectDialog** (cListDialog + cIconDialog - 1:1 简单,1 CItemShow quirk drop)
 
 ### Tier 3 - 需要 GameIn/Inventory 状态(~500-1000 行,3-5 commit/个)
@@ -318,7 +319,7 @@ timer 机制。这是 Phase 14+ 范畴,**预计 4-6 周工作量**,本 roadmap
 | Tier 5 | 100+ | 1000-3000 行(需 15-20 service) | 8-12 周(依赖 Phase 15 service + network) |
 | **总计** | **131+** | - | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **46/202** = **22.8%**(当前, 0.13.46 后 cPKLootingDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% 里程碑(0.13.27/0.13.30/0.13.42/0.13.45)。**
+加上 base **47/202** = **23.3%**(当前, 0.13.47 后 cSkinSelectDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% 五里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47)。**
 **这是真的"长尾",不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -379,14 +380,20 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 - 0.13.46 cIconGridDialog (24 tests, Tier 1.5 subcontrol - **解锁** cPKLootingDialog + 任何 cIconGridDialog-依赖的 Tier 2 dialog)
 - 0.13.46 cPKLootingDialog (25 tests, Tier 2 - **46th Tier 2 dialog port**)
 
+## 0.13.47 更新摘要 (2026-07-17)
+
+0.13.47 接力 0.13.46。本 session 推 1 个 port: 1 个 Tier 2 dialog (cSkinSelectDialog 23 tests)。ctest baseline 1700 → 1723 (+23 net, 0 回归)。
+
+- 0.13.47 cSkinSelectDialog (23 tests, Tier 2 - **47th Tier 2 dialog port, 突破 23% 里程碑**)
+
 **整体进展**:
-- 测试: 506 → 1700 (+1194 tests, 0 回归, ~36 sec wall)
-- Tier 1.5 子控件 10/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / **cIconGridDialog**)
+- 测试: 506 → 1723 (+1217 tests, 0 回归, ~36 sec wall)
+- Tier 1.5 子控件 10/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog)
 - Tier 1 (trivial) 1/1 ✅ (cExitDialog)
-- Tier 2 累计 37/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速, 0.13.46 引入 cIconGridDialog 加速)
+- Tier 2 累计 38/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速, 0.13.46 引入 cIconGridDialog 加速, 0.13.47 cSkinSelectDialog 继续)
 - Tier 3-5 仍 blocked (待 Phase 13 service interface)
 - 4 个 blocker 仍未动: C-32 (无 SQL Server) / C-35 (4 个 Distribute Debug_<LOCALE> 撞 legacy mfc71.lib + 4 个匿名 enum 重定义) / R-9.x drawBox 真正 host 接入 / Phase 13 Tier 3+ dialog 化
-- Modern UI setter/getter sweep (本 session background): 完整 11 classes (cStatic / cButton / cEditBox / cListDialog + cTextArea / cPushupButton / cIconDialog / cListDialogEx / cGuagen / cListCtrl + cIconGridDialog partial — visual-only render no-op stubs are intentional). Future 1:1 port 不需要 re-audit (memory entry 标记 sweep-complete)
+- Modern UI setter/getter sweep (持续 background): 完整 11 classes (cStatic / cButton / cEditBox / cListDialog + cTextArea / cPushupButton / cIconDialog / cListDialogEx / cGuagen / cListCtrl + cIconGridDialog partial — visual-only render no-op stubs are intentional). Future 1:1 port 不需要 re-audit (memory entry 标记 sweep-complete)
 
 ## 关联文档
 
