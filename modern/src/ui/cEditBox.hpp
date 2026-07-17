@@ -107,6 +107,7 @@ public:
     void SetReadOnly(bool v) noexcept        { m_bReadOnly = v; }
     bool IsReadOnly() const noexcept        { return m_bReadOnly; }
     void ShowCaretInReadOnly(bool v) noexcept { m_bShowCaretInReadOnly = v; }
+    bool showCaretInReadOnly() const noexcept { return m_bShowCaretInReadOnly; }
 
     // Secret (password) mode: displayText() returns bullets of the same
     // length as the actual text.

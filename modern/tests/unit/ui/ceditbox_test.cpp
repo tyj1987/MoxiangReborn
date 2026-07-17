@@ -261,6 +261,30 @@ TEST(CEditBox, DisabledIgnoresKeyboard) {
     EXPECT_EQ(e.editText(), "");
 }
 
+TEST(CEditBox, ShowCaretInReadOnlySetterGetter) {
+    // 1:1 with legacy cEditBox::ShowCaretInReadOnly: when read-only mode
+    // is on, the caret is normally hidden (matches the typical password
+    // field UX). The legacy engine flips this independently of
+    // SetReadOnly so the application can show a "you can't edit this"
+    // caret without making the box editable. Setter existed before this
+    // fix but the getter did not (mirrors cButton 87e831a).
+    cEditBox e;
+    e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage);
+    e.InitEditbox(0, 32);
+    EXPECT_FALSE(e.showCaretInReadOnly());
+    e.ShowCaretInReadOnly(true);
+    EXPECT_TRUE(e.showCaretInReadOnly());
+    // Toggle the other way; setter is a re-write, not an add.
+    e.ShowCaretInReadOnly(false);
+    EXPECT_FALSE(e.showCaretInReadOnly());
+    // The flag must survive a re-Init (cEditBox::Init only resets the
+    // widget's abs xy + images + id, not the read-only caret flag).
+    e.ShowCaretInReadOnly(true);
+    e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage, 99);
+    EXPECT_TRUE(e.showCaretInReadOnly());
+    EXPECT_EQ(e.id(), 99);
+}
+
 TEST(CEditBox, TextColorAndAlignSetters) {
     cEditBox e;
     e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage);
