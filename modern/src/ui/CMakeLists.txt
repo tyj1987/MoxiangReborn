@@ -54,6 +54,7 @@ add_library(mxh_ui STATIC
     namechangedialog.cpp
     changejobdialog.cpp
     gtregistcanceldialog.cpp
+    gtregistdialog.cpp
     ime.cpp
 )
 

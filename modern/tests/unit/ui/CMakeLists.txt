@@ -49,6 +49,7 @@ add_executable(mxh_ui_tests
     namechangedialog_test.cpp
     changejobdialog_test.cpp
     gtregistcanceldialog_test.cpp
+    gtregistdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -818,4 +819,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGTRegistcancelDialogTest.TournamentRegistCancelSynDoesNotChangeState
     CGTRegistcancelDialogTest.TournamentRegistCancelSynWithoutLinkIsSafe
     CGTRegistcancelDialogTest.TournamentRegistCancelSynBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cGTRegistDialog (tournament registration)
+    CGTRegistDialogTest.DefaultConstructionIsValid
+    CGTRegistDialogTest.InheritsDialogTreeManagement
+    CGTRegistDialogTest.IdConstantsAreDistinct
+    CGTRegistDialogTest.IdConstantsMatchExpectedLocalRange
+    CGTRegistDialogTest.ErrorConstantsMatchLegacy
+    CGTRegistDialogTest.MaxGuildInTournamentIs32
+    CGTRegistDialogTest.LinkingResolvesAllChildren
+    CGTRegistDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CGTRegistDialogTest.LinkingBeforeInitDoesNotCrash
+    CGTRegistDialogTest.SetActiveTrueUpdatesBaseState
+    CGTRegistDialogTest.SetActiveFalseUpdatesBaseState
+    CGTRegistDialogTest.SetActiveWithoutLinkIsSafe
+    CGTRegistDialogTest.SetActiveBeforeInitDoesNotCrash
+    CGTRegistDialogTest.TournamentRegistSynReturnsNoGuildMaster
+    CGTRegistDialogTest.TournamentRegistSynDoesNotChangeState
+    CGTRegistDialogTest.TournamentRegistSynWithoutLinkIsSafe
+    CGTRegistDialogTest.TournamentRegistSynBeforeInitDoesNotCrash
+    CGTRegistDialogTest.SetRegistGuildCountIsNoOpUntilSetStaticValuePorted
+    CGTRegistDialogTest.SetRegistGuildCountWithoutLinkIsSafe
+    CGTRegistDialogTest.SetRegistGuildCountBeforeInitDoesNotCrash
 )
