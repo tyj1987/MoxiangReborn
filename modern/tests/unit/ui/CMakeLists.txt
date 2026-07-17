@@ -54,6 +54,7 @@ add_executable(mxh_ui_tests
     wanteddialog_test.cpp
     wantregistdialog_test.cpp
     maindialog_test.cpp
+    guildmarkdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -921,4 +922,26 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMainDialogTest.GetPushupBtnReturnsSamePointerOnRepeatedCalls
     CMainDialogTest.MakeLinkedDialogHelperProducesValidState
     CMainDialogTest.LinkedBtnHasDefaultPushupStateFalse
+    # P2-12 Tier 2 dialog: cGuildMarkDialog (guild mark registration)
+    CGuildMarkDialogTest.CtorDoesNotCrash
+    CGuildMarkDialogTest.DtorDoesNotCrash
+    CGuildMarkDialogTest.InheritsFromCDialog
+    CGuildMarkDialogTest.IdConstantsMatchExpectedLocalRange
+    CGuildMarkDialogTest.IdConstantsAreUnique
+    CGuildMarkDialogTest.InfoTextPlaceholdersMatchExpectedStrings
+    CGuildMarkDialogTest.LinkingResolvesAllThreeChildren
+    CGuildMarkDialogTest.LinkingBeforeInitDoesNotCrash
+    CGuildMarkDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CGuildMarkDialogTest.LinkingSetsGuildMarkInfoText
+    CGuildMarkDialogTest.SetActiveTrueUpdatesBaseState
+    CGuildMarkDialogTest.SetActiveFalseUpdatesBaseState
+    CGuildMarkDialogTest.SetActiveBeforeInitDoesNotCrash
+    CGuildMarkDialogTest.ShowGuildMarkSetsGuildMarkBtnVisibleTrue
+    CGuildMarkDialogTest.ShowGuildMarkSetsUnionMarkBtnVisibleFalse
+    CGuildMarkDialogTest.ShowGuildMarkSetsInfoText
+    CGuildMarkDialogTest.ShowGuildUnionMarkSetsGuildMarkBtnVisibleFalse
+    CGuildMarkDialogTest.ShowGuildUnionMarkSetsUnionMarkBtnVisibleTrue
+    CGuildMarkDialogTest.ShowGuildUnionMarkSetsInfoText
+    CGuildMarkDialogTest.ShowGuildMarkAndUnionMarkAreToggleable
+    CGuildMarkDialogTest.ShowGuildMarkWithoutLinkingIsSafe
 )

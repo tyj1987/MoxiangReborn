@@ -59,6 +59,7 @@ add_library(mxh_ui STATIC
     wanteddialog.cpp
     wantregistdialog.cpp
     maindialog.cpp
+    guildmarkdialog.cpp
     ime.cpp
 )
 
