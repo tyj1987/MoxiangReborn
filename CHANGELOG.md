@@ -4,6 +4,25 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.35] - 2026-07-17
+
+### Phase 12.x batch port of 2 guild tournament dialogs (self-verified by producer session)
+
+**背景**: 0.13.34 收口 cChangeJobDialog (16.3%). 本 session 接 cGTRegistcancelDialog + cGTRegistDialog (35th + 36th Tier 2 dialog, 1:1 port). 2 个 guild tournament (GT) 体系 dialog. cGTRegistcancelDialog 简单 (1 button + 3 singleton TODO); cGTRegistDialog 复杂 (2 cStatic + 1 cButton + 3 singleton TODO + eGTError enum 5 个 + kMaxGuildInTournament=32 constant + cStatic::SetStaticValue TODO).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: 35/35 新 ctest PASS; 全栈 ctest 1376 → 1411 PASS (+35 用例, 0 回归). 重跑: ctest -C Debug -R "CGTRegistcancelDialog|CGTRegistDialog", then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/gtregistcanceldialog.{hpp,cpp}` (1 commit, 15 tests): 1:1 port of CGTRegistcancelDialog (header 795B). 1 cButton + 3 method (Linking REAL + SetActive override + TournamentRegistCancelSyn TODO). 2-singleton TODO (HERO + NETWORK).
+- `modern/src/ui/gtregistdialog.{hpp,cpp}` (1 commit, 20 tests): 1:1 port of CGTRegistDialog (header 865B). 2 cStatic + 1 cButton + 4 method (Linking REAL + SetActive override + TournamentRegistSyn TODO + SetRegistGuildCount TODO). 3-singleton TODO (HERO + GUILDMGR + NETWORK) + cStatic::SetStaticValue TODO. eGTError enum 5 个 + kMaxGuildInTournament=32.
+
+### Progress
+
+- P2-12: 35/202 = 17.3% (5 base + 35 dialog + 5 subcontrol Tier 1.5; **突破 17% 里程碑**)
+- ctest: 1411/1411 PASS (was 1376, +35 个 GT dialog)
+- 18 个新 Tier 2 dialog 端口 (PetWearedEx + GuildNotice + 10 batch 0.13.31 + PartyInvite + NameChange + ChangeJob + GTRegistcancel + GTRegist)
+
 ## [0.13.34] - 2026-07-17
 
 ### Phase 12.x cChangeJobDialog Tier 2 dialog port (self-verified by producer session)

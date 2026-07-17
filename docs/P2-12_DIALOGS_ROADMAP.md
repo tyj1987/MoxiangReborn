@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-16
-> **状态**:🟢 进行中(33/202 = 16.3% 突破 16% 里程碑)
+> **状态**:🟢 进行中(35/202 = 17.3% 突破 17% 里程碑)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（33/202 = 16.3%）
+## 已 Port 列表（35/202 = 17.3%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -59,6 +59,8 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cPartyInviteDlg` | `modern/src/ui/partyinvitedlg.{hpp,cpp}` | 15 | **2026-07-17** (0.13.32) - Tier 2 dialog(party invitation, 30th port, header 812B; 2 button OK/cancel + 1 cTextArea + 1 cStatic, id 440-443; Linking REAL; SetMsg 2-option branch + CHATMGR TODO; kOptRandom=0 / kOptDamage=1; 1:1 quirks m_type drop, null pInviter guard, unknown option leaves cStatic empty) |
 | `cNameChangeDialog` | `modern/src/ui/namechangedialog.{hpp,cpp}` | 20 | **2026-07-17** (0.13.33) - Tier 2 dialog(name change editor, 31st port, header 877B; 1 cEditBox id 450 + 1 m_dwDBIdx state; Linking REAL + SetValidCheck(2)=VCM_CHARNAME; SetActive override REAL; NameChangeSyn 4-singleton TODO; 1:1 quirks m_type drop, modern SetEditText m_bInitEdit guard) |
 | `cChangeJobDialog` | `modern/src/ui/changejobdialog.{hpp,cpp}` | 11 | **2026-07-17** (0.13.34) - Tier 2 dialog(job-change item, 32nd port, header 920B; 2 state field (m_ItemPos + m_ItemDBIdx); SetItemInfo/GetItemPos/GetItemDBIdx REAL inline; ChangeJobSyn + CancelChangeJob 4-singleton TODO (HERO + NETWORK + OBJECTSTATEMGR + ITEMMGR); 1:1 quirks m_type drop, legacy ctor 不 init state fields) |
+| `cGTRegistcancelDialog` | `modern/src/ui/gtregistcanceldialog.{hpp,cpp}` | 15 | **2026-07-17** (0.13.35) - Tier 2 dialog(tournament registration cancel, 33rd port, header 795B; 1 cButton id 460; Linking REAL; SetActive override REAL + HERO/OBJECTSTATEMGR TODO; TournamentRegistCancelSyn 2-singleton TODO; 1:1 quirk m_type drop, legacy val==FALSE only triggers HERO dispatch) |
+| `cGTRegistDialog` | `modern/src/ui/gtregistdialog.{hpp,cpp}` | 20 | **2026-07-17** (0.13.35) - Tier 2 dialog(tournament registration, 34th port, header 865B; 2 cStatic id 470-471 + 1 cButton id 472; Linking REAL; SetActive override REAL; TournamentRegistSyn 3-singleton TODO 返回 kErrorNoGuildMaster; SetRegistGuildCount TODO (cStatic::SetStaticValue 未 port); 5 eGTError enum constants + kMaxGuildInTournament=32) |
 
 ## 5 档分级
 
