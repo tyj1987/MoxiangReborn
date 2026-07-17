@@ -90,6 +90,18 @@ public:
     void SetReadOnly(bool val) noexcept          { m_bReadOnly = val; }
     bool IsReadOnly() const noexcept            { return m_bReadOnly; }
 
+    // ----- 1:1 with legacy cTextArea::SetEnterAllow -----
+
+    // 1:1 quirk: legacy cTextArea::SetEnterAllow
+    // toggles whether the user can press Enter to
+    // insert a newline (FALSE disables Enter for
+    // single-line notice / input dialogs). Modern
+    // port stores the boolean. Actual Enter handling
+    // is Phase 12.x deferred (the keyboard callback
+    // is wired in cTextArea's full render path).
+    void SetEnterAllow(bool val) noexcept        { m_bEnterAllow = val; }
+    bool IsEnterAllow() const noexcept          { return m_bEnterAllow; }
+
     // ----- 1:1 with legacy cTextArea::SetLimitLine -----
 
     bool SetLimitLine(int nMaxLine) noexcept;
@@ -126,6 +138,7 @@ private:
 
     bool           m_bReadOnly    = false;
     bool           m_bCaret       = false;
+    bool           m_bEnterAllow  = true;     // 1:1 default (legacy ctor sets TRUE)
 
     // 1:1 quirk: legacy stores 3 cImage objects.
     // Modern port stores them as void* (1:1 with the

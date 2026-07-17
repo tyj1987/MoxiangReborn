@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-16
-> **状态**:🟡 进行中(22/202 = 10.9%)
+> **状态**:🟡 进行中(24/202 = 11.9%)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（23/202 = 11.4%）
+## 已 Port 列表（24/202 = 11.9%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -44,6 +44,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cChaseDialog` | `modern/src/ui/chasedialog.{hpp,cpp}` | 14 | **2026-07-16** (0.13.27) - Tier 2 dialog(chase target minimap, 15th dialog port, header 775B; 2 children cStatic+cTextArea 310-311; Linking REAL + SetActive override + InitMiniMap + LoadMinimapImageInfo TODO + Render no-op; **首个用未 port 类型 (MINIMAPIMAGE/cImageSelf/VECTOR2/MAPTYPE) 的 Tier 2**, modern port 用 placeholder type (int/float/std::string) 1:1 保留语义) |
 | `cBailDialog` | `modern/src/ui/baildialog.{hpp,cpp}` | 14 | **2026-07-16** (0.13.28) - Tier 2 dialog(bail amount entry, 16th dialog port, header 497B; 2 children cEditBox+cTextArea 320-321; Linking REAL + SetValidCheck(1) + SetAlign(Right) + SetScriptText placeholder, 4 method wrapper (Open/Close/SetFame/SetBadFrameSync) 都 4-singleton TODO) |
 | `cPetWearedExDialog` | `modern/src/ui/petwearedexdialog.{hpp,cpp}` | 21 | **2026-07-17** (0.13.29) - Tier 2 dialog(pet equipment slots, 17th dialog port, header 445B; wraps cIconDialog 3 cells; AddItem + DeleteItem REAL wrap (1:1 quirk Korean "!!!복사본 옵션 적용" comment 保留); **首个含 GetBlankPositionRestrictRef 实用方法(扫 cell 找空位)的 Tier 2**; CheckDuplication TODO (cItem 未 port, R-12.x); kSlotPetWearNum=3 / kTpPetWearStart=490 inline constexpr 不引 shared header) |
+| `cGuildNoticeDlg` | `modern/src/ui/guildnoticedlg.{hpp,cpp}` | 19 | **2026-07-17** (0.13.30) - Tier 2 dialog(guild notice editor, 18th dialog port, header 310B; 1 cTextArea id 350 + 2 button id 351/352; Linking REAL + SetEnterAllow(FALSE) + SetScriptText(""); OnActionEvent 2-button dispatch (SEND + CANCEL, 都 GUILDMGR TODO); SetActive override (val=true pre-fill notice before base, 1:1 `if(val==TRUE)` guard); **首个用 cTextArea::SetEnterAllow 的 Tier 2**; 同步扩 cTextArea (1 bool toggle 0 regression); 1:1 quirk legacy typo'd `OnActionEvnet`, modern 用正确拼写 `OnActionEvent`) |
 
 ## 5 档分级
 

@@ -38,6 +38,7 @@ add_library(mxh_ui STATIC
     chasedialog.cpp
     baildialog.cpp
     petwearedexdialog.cpp
+    guildnoticedlg.cpp
     ime.cpp
 )
 

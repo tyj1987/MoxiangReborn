@@ -4,6 +4,42 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.30] - 2026-07-17
+
+### Phase 12.x cGuildNoticeDlg Tier 2 dialog port + cTextArea SetEnterAllow (self-verified by producer session)
+
+**背景**: 0.13.29 收口 cPetWearedExDialog。本 session 接 cGuildNoticeDlg (18th Tier 2 dialog, 1:1 port) — header 310B, 3 method (Linking + OnActionEvent + SetActive override), 1 cTextArea child (350), 2 button id (351/352)。**首个用 cTextArea::SetEnterAllow (legacy cTextArea::SetEnterAllow) 的 Tier 2**——cTextArea 0.13.23 minimal port 没 SetEnterAllow, 本 session 顺带加 1 个 bool toggle 进去 (4 行 hpp, 0 test regression)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cGuildNoticeDlg 19/19 ctest PASS (`ctest -C Debug -R CGuildNoticeDlg`); 全栈 ctest 1188 → 1207 PASS (+19 用例, 0 回归, `ctest -C Debug --timeout 30`)。任何反欺诈复核请重跑 ctest + grep `FAILED`。
+
+### Added
+
+- `modern/src/ui/guildnoticedlg.hpp` + `guildnoticedlg.cpp` (新建, 1 commit): 1:1 port of 墨香 CGuildNoticeDlg (GuildNoticeDlg.h 310B + .cpp)
+  - Linking: REAL (resolve cTextArea id 350, call SetEnterAllow(false) + SetScriptText(""); 2 button id 351/352 走 OnActionEvent 不在 Linking 解析)
+  - OnActionEvent: 2 button id dispatch (SEND → GUILDMGR->SetGuildNotice TODO + SetActive(FALSE) TODO; CANCEL → SetActive(FALSE) TODO; 都 GUILDMGR 阻塞, 整个分支标 TODO; 1:1 quirk legacy typo'd `OnActionEvnet`, modern 用正确拼写 `OnActionEvent`)
+  - SetActive override: 1:1 with legacy (val=true 先 pre-fill m_pNoticeText->SetScriptText(GUILDMGR->GetGuildNotice()) 然后 调 base SetActive; modern port SetScriptText("") safe no-op 替 GUILDMGR; val=false 不动 m_pNoticeText, 1:1 `if(val == TRUE)` guard)
+  - 3 local id constexpr: kIdNoticeText=350, kIdSendOkBtn=351, kIdCancelBtn=352 (1:1 with legacy WindowIDs.h GNotice_* enum, distinct from 200-321 Tier 2 range)
+- `modern/src/ui/ctextarea.hpp` (改): 加 SetEnterAllow(bool) / IsEnterAllow() + private m_bEnterAllow=true 字段 (4 line patch, 0 test regression in 22 existing CTextArea tests)
+- `modern/tests/unit/ui/guildnoticedlg_test.cpp` (新建, 19 用例 PASS): ctor + 2 id constant + Linking x4 (resolve-text/configure-enter-allow/without-children/before-init) + SetActive x6 (true-updates-base/false-updates-base/true-clears-text/false-doesnt-touch/without-link/before-linking) + OnActionEvent x5 (non-btnclick/send-todo/cancel-todo/unknown-id/before-linking)
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 guildnoticedlg.cpp + 19 gtest entry
+
+### 1:1 quirks preserved
+
+- Ctor / dtor: empty (1:1 with legacy empty CGuildNoticeDlg ctor)
+- Linking 只 resolve cTextArea, 不 resolve 2 button (legacy button 在 OnActionEvent 内部 用 GetWindowForID, modern 用 constexpr id 直接)
+- SetActive override: notice pre-fill 调在 base SetActive **之前** (1:1 with legacy call order)
+- OnActionEvent 走 `if(we & WE_BTNCLICK)` 门; 1:1 quirk legacy typo'd `OnActionEvnet`, modern 用正确拼写
+- 1:1 quirk modern SetScriptText("") 是 GUILDMGR 阻塞的 safe placeholder (legacy `if(GUILDMGR->GetGuildNotice())` guard 在 GUILDMGR 未 port 时也实现不了, modern 用无条件 "" 作为等价 no-op 语义)
+- Local id 350-352 (no collision with 200-321 Tier 2 range)
+
+### Progress
+
+- P2-12: 24/202 = 11.9% (5 base + 18 dialog + 5 subcontrol Tier 1.5)
+- ctest: 1207/1207 PASS (was 1188, +19 cGuildNoticeDlg)
+- Session commits: 41 (本 session 18 个新 Tier 2 dialog: CharMake, GuildJoin, CharState, SOS, WearedEx, MiniFriend, Revive, MPNotice, EventNotify, GuildCreate, GuildUnion, ChaseInput, Chase, Bail, PetWearedEx, GuildNotice, + cTextArea infra subwidget + R-9.x drawBox)
+- 累计 1 session: 879 → 1207 ctest PASS (+328 用例, 0 回归)
+- **本 port 同步扩展 cTextArea (1 个 bool toggle SetEnterAllow)** — 首个 Tier 2 触发 cTextArea 1:1 minor port; 解锁未来 AutoNoteDlg/UnionNoteDlg/GuildNoteDlg 都需要 cTextArea::SetEnterAllow
+
 ## [0.13.29] - 2026-07-17
 
 ### Phase 12.x cPetWearedExDialog Tier 2 dialog port (self-verified by producer session)

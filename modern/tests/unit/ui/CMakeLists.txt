@@ -33,6 +33,7 @@ add_executable(mxh_ui_tests
     chasedialog_test.cpp
     baildialog_test.cpp
     petwearedexdialog_test.cpp
+    guildnoticedlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -583,4 +584,24 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPetWearedExDialogTest.GetBlankPositionRestrictRefReturnsFirstAddable
     CPetWearedExDialogTest.CheckDuplicationReturnsFalse
     CPetWearedExDialogTest.CheckDuplicationEmptyDialogReturnsFalse
+    # P2-12 Tier 2 dialog: cGuildNoticeDlg (guild notice editor)
+    CGuildNoticeDlgTest.DefaultConstructionHasNullPointer
+    CGuildNoticeDlgTest.InheritsDialogTreeManagement
+    CGuildNoticeDlgTest.IdConstantsAreDistinct
+    CGuildNoticeDlgTest.IdConstantsMatchExpectedLocalRange
+    CGuildNoticeDlgTest.LinkingResolvesTextArea
+    CGuildNoticeDlgTest.LinkingConfiguresEnterAllowFalse
+    CGuildNoticeDlgTest.LinkingWithoutChildrenLeavesPointerNull
+    CGuildNoticeDlgTest.LinkingBeforeInitDoesNotCrash
+    CGuildNoticeDlgTest.SetActiveTrueUpdatesBaseState
+    CGuildNoticeDlgTest.SetActiveFalseUpdatesBaseState
+    CGuildNoticeDlgTest.SetActiveTrueClearsNoticeText
+    CGuildNoticeDlgTest.SetActiveFalseDoesNotTouchNoticeText
+    CGuildNoticeDlgTest.SetActiveWithoutLinkIsSafe
+    CGuildNoticeDlgTest.SetActiveBeforeLinkingIsSafe
+    CGuildNoticeDlgTest.OnActionEventNonBtnClickIsNoOp
+    CGuildNoticeDlgTest.OnActionEventSendBtnIsNoOpUntilGuildMgrPort
+    CGuildNoticeDlgTest.OnActionEventCancelBtnIsNoOpUntilGuildMgrPort
+    CGuildNoticeDlgTest.OnActionEventUnknownIdIsNoOp
+    CGuildNoticeDlgTest.OnActionEventBeforeLinkingDoesNotCrash
 )
