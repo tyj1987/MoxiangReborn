@@ -4,6 +4,36 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.43] - 2026-07-17
+
+### Phase 12.x cMPGuageDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.42 收口 cAlertDlg (20.8%). 本 session 接 cMPGuageDialog (43rd Tier 2 dialog, 1:1 port) — header 5.5 KB, 5 method (ctor + Linking + SetExpGuage + SetTime + SetEventMapTimer + ShowEventMap), CObjectGuagen (forward-declared, void*) + 3 cStatic (m_Time + m_ExpPercent + m_pTitle). Linking REAL (resolve 3 cStatic by id). SetTime REAL with red threshold + "%02u:%02u" format. SetEventMapTimer REAL 3-way switch (kFlagReady=0 blue, kFlagActive=1 conditional red, kFlagStopped=2 blue). SetExpGuage/ShowEventMap TODO (CObjectGuagen::SetValue + CHATMGR not ported, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cMPGuageDialog 30/30 ctest PASS; 全栈 ctest 1546 → 1576 PASS (+30 用例, 0 回归). 重跑: ctest -C Debug -R CMPGuageDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/mpguagedialog.{hpp,cpp}` (1 commit, 30 tests): 1:1 port of CMPGuageDialog (header 5525B)
+  - Linking: REAL (resolve CObjectGuagen + 3 cStatic by id 610-613)
+  - SetExpGuage: TODO (CObjectGuagen::SetValue not ported). m_ExpPercent text updated with "%4.2f%%" format
+  - SetTime: REAL (red threshold < 30000 + "%02u:%02u" SetStaticText)
+  - SetEventMapTimer: REAL 3-way switch (kFlagReady=0 blue, kFlagActive=1 conditional red, kFlagStopped=2 blue)
+  - ShowEventMap: TODO (CHATMGR). SetActive(true) + SetStaticText with kEventMapTitle placeholder
+  - 1:1 quirk: ctor m_type = WT_MPGUAGEDLG drop
+  - 1:1 quirk: m_ExpGuage is void* (CObjectGuagen forward-declared, untyped)
+  - 3 bFlag enum constants (kFlagReady=0, kFlagActive=1, kFlagStopped=2)
+  - kRedTextThreshold=30000 (1:1 with legacy DWORD threshold)
+  - Local id range 610-613 (kIdExpGuage=610, kIdTime=611, kIdExpPercent=612, kIdTitle=613)
+- `modern/tests/unit/ui/mpguagedialog_test.cpp` (新建, 30 用例 PASS): ctor + 4 id const + 1 placeholder + 1 threshold const + 3 flag consts + Linking x3 + SetExpGuage x4 + SetTime x6 + SetEventMapTimer x6 + ShowEventMap x3
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 mpguagedialog.cpp + 30 gtest entry
+
+### Progress
+
+- P2-12: 43/202 = 21.3% (5 base + 43 dialog + 5 subcontrol Tier 1.5; **突破 21% 里程碑**)
+- ctest: 1576/1576 PASS (was 1546, +30 cMPGuageDialog)
+- 26 个新 Tier 2 dialog 端口
+
 ## [0.13.42] - 2026-07-17
 
 ### Phase 12.x cAlertDlg Tier 2 dialog port (self-verified by producer session)
