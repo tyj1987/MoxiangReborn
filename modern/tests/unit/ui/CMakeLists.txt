@@ -55,6 +55,7 @@ add_executable(mxh_ui_tests
     wantregistdialog_test.cpp
     maindialog_test.cpp
     guildmarkdialog_test.cpp
+    mpmissiondialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -944,4 +945,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildMarkDialogTest.ShowGuildUnionMarkSetsInfoText
     CGuildMarkDialogTest.ShowGuildMarkAndUnionMarkAreToggleable
     CGuildMarkDialogTest.ShowGuildMarkWithoutLinkingIsSafe
+    # P2-12 Tier 2 dialog: cMPMissionDialog (event-map mission notice)
+    CMPMissionDialogTest.CtorDoesNotCrash
+    CMPMissionDialogTest.DtorDoesNotCrash
+    CMPMissionDialogTest.InheritsFromCDialog
+    CMPMissionDialogTest.IdConstantsMatchExpectedLocalRange
+    CMPMissionDialogTest.IdConstantsAreUnique
+    CMPMissionDialogTest.MaxMissionMsgNumIsFive
+    CMPMissionDialogTest.PlaceholderStringsMatchExpectedValues
+    CMPMissionDialogTest.LinkingResolvesBothTextAreas
+    CMPMissionDialogTest.LinkingBeforeInitDoesNotCrash
+    CMPMissionDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CMPMissionDialogTest.SetMissionInfoWithValidIdxIsSafe
+    CMPMissionDialogTest.SetMissionInfoWithNegativeIdxIsSafe
+    CMPMissionDialogTest.SetMissionInfoWithOOBIdxIsSafe
+    CMPMissionDialogTest.SetActiveTrueUpdatesBaseState
+    CMPMissionDialogTest.SetActiveFalseUpdatesBaseState
+    CMPMissionDialogTest.SetActiveBeforeInitDoesNotCrash
+    CMPMissionDialogTest.ActionEventReturnsZero
+    CMPMissionDialogTest.ActionEventBeforeInitDoesNotCrash
+    CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
+    CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 )
