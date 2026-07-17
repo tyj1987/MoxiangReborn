@@ -67,6 +67,7 @@ add_library(mxh_ui STATIC
     unionnotedlg.cpp
     autonotedlg.cpp
     mpregistdialog.cpp
+    pklootingdialog.cpp
     ime.cpp
 )
 

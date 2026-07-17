@@ -62,6 +62,7 @@ add_executable(mxh_ui_tests
     unionnotedlg_test.cpp
     autonotedlg_test.cpp
     mpregistdialog_test.cpp
+    pklootingdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1046,6 +1047,32 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPGuageDialogTest.SetEventMapTimerActiveBelowThresholdSetsRed
     CMPGuageDialogTest.SetEventMapTimerActiveAtThresholdKeepsColor
     CMPGuageDialogTest.SetEventMapTimerUnknownFlagDoesNotCrash
+    # P2-12 Tier 2 dialog: cPKLootingDialog (PK loot dialog)
+    CPKLootingDialog.DefaultConstructionHasNullPointers
+    CPKLootingDialog.InheritsDialogTreeManagement
+    CPKLootingDialog.ConstantsAreStable
+    CPKLootingDialog.IdConstantsAreDistinct
+    CPKLootingDialog.LinkingResolvesAllChildren
+    CPKLootingDialog.LinkingIsIdempotent
+    CPKLootingDialog.LinkingBeforeInitDoesNotCrash
+    CPKLootingDialog.InitPKLootDlgSetsState
+    CPKLootingDialog.InitPKLootDlgPopulatesIconGrid
+    CPKLootingDialog.ReleaseAllIconClearsGrid
+    CPKLootingDialog.ChangeIconImageStoresKind
+    CPKLootingDialog.SetLootingEndToggle
+    CPKLootingDialog.SetMsgSyncToggle
+    CPKLootingDialog.AddLootingItemNumDecrements
+    CPKLootingDialog.AddLootingItemNumBelowZeroIsNoOp
+    CPKLootingDialog.OnActionEventCloseBtnSetsEnd
+    CPKLootingDialog.OnActionEventCloseWindowSetsEnd
+    CPKLootingDialog.OnActionEventUnknownIdIsNoOp
+    CPKLootingDialog.OnActionEventLootCellClickDecrementsChance
+    CPKLootingDialog.OnActionEventLootCellDoubleClickIsNoOp
+    CPKLootingDialog.OnActionEventBeforeInitDoesNotCrash
+    CPKLootingDialog.OnActionEventWhenLootingEndIsNoOp
+    CPKLootingDialog.ActionEventDelayedShow
+    CPKLootingDialog.RenderIsNoop
+    CPKLootingDialog.LootItemKindEnumValues
     CMPGuageDialogTest.SetEventMapTimerWithoutLinkingIsSafe
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog
