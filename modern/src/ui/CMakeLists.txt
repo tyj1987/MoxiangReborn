@@ -52,6 +52,7 @@ add_library(mxh_ui STATIC
     stallkindselectdlg.cpp
     partyinvitedlg.cpp
     namechangedialog.cpp
+    changejobdialog.cpp
     ime.cpp
 )
 

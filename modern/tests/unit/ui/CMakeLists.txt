@@ -47,6 +47,7 @@ add_executable(mxh_ui_tests
     stallkindselectdlg_test.cpp
     partyinvitedlg_test.cpp
     namechangedialog_test.cpp
+    changejobdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -788,4 +789,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CNameChangeDialogTest.NameChangeSynDoesNotChangeState
     CNameChangeDialogTest.NameChangeSynWithoutLinkIsSafe
     CNameChangeDialogTest.NameChangeSynBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cChangeJobDialog (job-change item)
+    CChangeJobDialogTest.DefaultConstructionHasZeroState
+    CChangeJobDialogTest.InheritsDialogTreeManagement
+    CChangeJobDialogTest.SetItemInfoRoundTrip
+    CChangeJobDialogTest.SetItemInfoOverridesPrevious
+    CChangeJobDialogTest.SetItemInfoZeroIsValid
+    CChangeJobDialogTest.ChangeJobSynIsNoOpUntilSingletonsPorted
+    CChangeJobDialogTest.ChangeJobSynDoesNotChangeState
+    CChangeJobDialogTest.ChangeJobSynBeforeInitDoesNotCrash
+    CChangeJobDialogTest.CancelChangeJobIsNoOpUntilSingletonsPorted
+    CChangeJobDialogTest.CancelChangeJobDoesNotChangeState
+    CChangeJobDialogTest.CancelChangeJobBeforeInitDoesNotCrash
 )
