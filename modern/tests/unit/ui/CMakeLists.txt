@@ -31,6 +31,7 @@ add_executable(mxh_ui_tests
     guildcreatedialog_test.cpp
     chaseinputdialog_test.cpp
     chasedialog_test.cpp
+    baildialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -544,4 +545,19 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChaseDialogTest.InitMiniMapWithoutLinkIsSafe
     CChaseDialogTest.LoadMinimapImageInfoReturnsFalse
     CChaseDialogTest.RenderIsNoOp
+    # P2-12 Tier 2 dialog: cBailDialog (bail amount entry)
+    CBailDialogTest.DefaultConstructionIsValid
+    CBailDialogTest.IdConstantsMatchExpectedLocalRange
+    CBailDialogTest.LinkingResolvesBothChildren
+    CBailDialogTest.LinkingConfiguresValidCheckAndAlign
+    CBailDialogTest.LinkingCallsSetScriptText
+    CBailDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CBailDialogTest.OpenIsNoOp
+    CBailDialogTest.OpenWithoutLinkIsSafe
+    CBailDialogTest.CloseIsNoOp
+    CBailDialogTest.CloseWithoutLinkIsSafe
+    CBailDialogTest.SetFameIsNoOp
+    CBailDialogTest.SetFameWithoutLinkIsSafe
+    CBailDialogTest.SetBadFrameSyncIsNoOp
+    CBailDialogTest.SetBadFrameSyncWithoutLinkIsSafe
 )
