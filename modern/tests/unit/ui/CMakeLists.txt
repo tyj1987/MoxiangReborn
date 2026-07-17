@@ -56,6 +56,7 @@ add_executable(mxh_ui_tests
     maindialog_test.cpp
     guildmarkdialog_test.cpp
     mpmissiondialog_test.cpp
+    alertdlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -966,4 +967,26 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPMissionDialogTest.ActionEventBeforeInitDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
+    # P2-12 Tier 2 dialog: cAlertDlg (alert dialog with 2 cButton + callback)
+    CAlertDlgTest.CtorDoesNotCrash
+    CAlertDlgTest.DtorDoesNotCrash
+    CAlertDlgTest.InheritsFromCDialog
+    CAlertDlgTest.IdConstantsMatchExpectedLocalRange
+    CAlertDlgTest.IdConstantsAreUnique
+    CAlertDlgTest.AbEnumConstantsMatchLegacyValues
+    CAlertDlgTest.LinkingPopulatesOkButton
+    CAlertDlgTest.LinkingPopulatesCancelButton
+    CAlertDlgTest.LinkingBeforeInitDoesNotCrash
+    CAlertDlgTest.LinkingTwiceIsSafe
+    CAlertDlgTest.LinkedButtonsAreUniqueInstances
+    CAlertDlgTest.GetObjDefaultIsNull
+    CAlertDlgTest.SetObjStoresValue
+    CAlertDlgTest.SetObjWithNullClearsObject
+    CAlertDlgTest.SetObjAcceptsOpaquePointer
+    CAlertDlgTest.SetcbBtnAcceptsLambda
+    CAlertDlgTest.SetcbBtnWithNullptrIsSafe
+    CAlertDlgTest.SetcbBtnWithStdFunctionIsSafe
+    CAlertDlgTest.ActionEventReturnsZero
+    CAlertDlgTest.ActionEventBeforeLinkingDoesNotCrash
+    CAlertDlgTest.ActionEventBeforeInitDoesNotCrash
 )

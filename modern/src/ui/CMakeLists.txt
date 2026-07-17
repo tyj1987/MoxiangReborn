@@ -61,6 +61,7 @@ add_library(mxh_ui STATIC
     maindialog.cpp
     guildmarkdialog.cpp
     mpmissiondialog.cpp
+    alertdlg.cpp
     ime.cpp
 )
 
