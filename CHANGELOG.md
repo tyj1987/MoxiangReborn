@@ -4,6 +4,45 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.47] - 2026-07-17
+
+### Phase 6.14 cSkinSelectDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**概况**: 0.13.46 收口 cIconGridDialog + cPKLootingDialog (46/202 = 22.8%)。本 session 推 0.13.47: cSkinSelectDialog (47th Tier 2 dialog, 1:1 port)。0.13.47 起步 0.13.46 chain: cSkinSelectDialog 是 P2-12 roadmap 中 "无新 subcontrol 依赖" 类别最小候选 (无 cComboBox 阻塞, 1 cListDialog + 1 cIconDialog 已 ported)。
+
+**cSkinSelectDialog (d45cfdb, 23 tests)**: 1:1 port of legacy CSkinSelectDialog (~200 行 legacy, 皮肤选择 dialog: 1 cListDialog (皮肤列表) + 1 cIconDialog (3-cell 预览))。Linking REAL (resolve 2 children by id + SetShowSelect(TRUE))。SetActive(BOOL) override (val==FALSE 清 list / icon / select-idx, val==TRUE 调 SkinItemListInfo())。ActionEvent override (1:1 with legacy: cDialog::ActionEvent + PtIdxInRow hit-test + on LBTNCLICK, populate 3-cell preview with placeholder cIcon* entries)。OnActionEvent (WE_CLOSEWINDOW + 3 button id: OK / CANCEL / RECOVERY; 引擎 network-send + level check + delay check stubbed)。SkinItemListInfo (1:1 with legacy: GameResourceManager->GetNomalClothesSkinListCountNum 引擎 stubbed 0, loop body + color-from-level 保留 1:1)。
+
+**Modern-port simplifications (5 项 documented in .cpp file header)**:
+1. CItemShow (引擎 BaseItem subclass) opaque — m_NomalSkinView[3] array replaced with inline placeholder cIcon* pointers
+2. 引擎 singletons (GAMERESRCMNGR / HERO / CHATMGR / OBJECTMGR / ITEMMGR / NETWORK / WINDOWMGR) stubbed no-op
+3. InitSkinDelayTime / StartSkinDelayTime / CheckDelay (legacy 头中 commented out) drop
+4. Dtor 加 NULL check (defensive against Linking-not-called crash; legacy 不 NULL-check 1:1 quirk 保留 for production, 现代 port NULL-safe for tests)
+5. Render no-op (legacy Render commented out — only cItemShow::Render 是真的, 引擎端)
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 mavis root session `mvs_89cf065af0d3418c9c19bc1666b16257` 写入。Verifier session ID 相同 (self-verify, 独立 verifier session 暂未分离 — E-1 architectural gap documented in 21:00 entry)。证据: cSkinSelectDialog 23/23 ctest PASS; 全栈 ctest 1723/1723 PASS (was 1700, +23, 0 回归, 1 已知 flaky EncryptionIntegration 偶发失败与本 port 无关); build 0 error。`docs/P2-12_DIALOGS_ROADMAP.md` + `MODERNIZATION_PLAN.md` §5 待 sync (在 roadmap/plan sync commit 中处理)。任何方反欺骗验证: ctest + grep `FAILED` + `git show d45cfdb`。
+
+### Added
+
+- `modern/src/ui/skinselectdialog.{hpp,cpp}` (d45cfdb, 23 tests): 1:1 port of legacy CSkinSelectDialog (~200 行)
+  - Linking: REAL (resolve cListDialog id 2 + cIconDialog id 1, SetShowSelect(TRUE))
+  - SetActive override: 1:1 (val==FALSE clears 3 children + base SetActive). val==TRUE 调 SkinItemListInfo
+  - ActionEvent: 1:1 (cDialog::ActionEvent first + PtIdxInRow hit-test + on LBTNCLICK populate 3-cell preview with placeholder cIcon*)
+  - OnActionEvent: WE_CLOSEWINDOW + 3 button id (OK / CANCEL / RECOVERY). 引擎-side stubbed
+  - SkinItemListInfo: 1:1 with legacy (GAMERESRCMNGR->GetNomalClothesSkinListCountNum stubbed 0, loop body + color-from-level preserved)
+  - 1:1 quirks: 1-based select-idx convention (legacy +1 offset); CItemShow 引擎 opaque; 引擎 singletons stubbed no-op
+  - 1:1 quirk: dtor NULL check 是 modern defensive (legacy 不 check, 1:1 crash 保留 for production 但 tests NULL-safe)
+  - Constants: SKINITEM_LIST_MAX=3, ID_DLG=0, ID_ITEMVIEW=1, ID_LIST=2, ID_OK=3, ID_CANCEL=4, ID_RECOVERY=5
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (在 1 commit 中): 增 skinselectdialog.cpp + 23 gtest entry
+
+### Progress
+
+- P2-12: 47/202 = 23.3% (5 base + 47 dialog + 6 subcontrol Tier 1.5; 突破 23% 里程碑)
+- ctest: 1723/1723 expected PASS (was 1700, +23 cSkinSelectDialog, 0 回归; 1 已知 flaky EncryptionIntegration 偶发失败与本 port 无关, 1 次重跑确认 transient)
+- 0.13.47 dialog 起步成功: cSkinSelectDialog 是 P2-12 roadmap 中 "无新 subcontrol 依赖" 类别最小候选, 1 commit 量级 (port only, 没有 subcontrol 阻塞)
+- Phase 6.14 期间踩坑 (per memory rule):
+  1. EXPECT_EQ(ptr, nullptr) 触发 gtest EqHelper compare template deduction warning (C++ template 推导不匹配 T* 和 nullptr_t)。解法: 改 EXPECT_TRUE(ptr == nullptr)
+  2. dtor NULL check: 1:1 legacy 保留 crash 风险, modern port 加 NULL check for tests safety (documented as 1:1 quirk variation)
+
 ## [0.13.46] - 2026-07-17
 
 ### Phase 6.13 cIconGridDialog Tier 1.5 subcontrol + cPKLootingDialog Tier 2 dialog port (self-verified by mavis root session)
