@@ -63,6 +63,7 @@ add_executable(mxh_ui_tests
     autonotedlg_test.cpp
     mpregistdialog_test.cpp
     pklootingdialog_test.cpp
+    skinselectdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1073,6 +1074,30 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPKLootingDialog.ActionEventDelayedShow
     CPKLootingDialog.RenderIsNoop
     CPKLootingDialog.LootItemKindEnumValues
+    # P2-12 Tier 2 dialog: cSkinSelectDialog (skin-select dialog)
+    CSkinSelectDialog.DefaultConstructionHasNullPointers
+    CSkinSelectDialog.InheritsDialogTreeManagement
+    CSkinSelectDialog.ConstantsAreStable
+    CSkinSelectDialog.LinkingResolvesAllChildren
+    CSkinSelectDialog.LinkingIsIdempotent
+    CSkinSelectDialog.LinkingBeforeInitDoesNotCrash
+    CSkinSelectDialog.SetActiveFalseClearsState
+    CSkinSelectDialog.SetActiveTrueDoesNotCrash
+    CSkinSelectDialog.OnActionEventCloseWindowReturnsTrue
+    CSkinSelectDialog.OnActionEventCancelSetsInactive
+    CSkinSelectDialog.OnActionEventOkWithoutSelectIdxIsNoOp
+    CSkinSelectDialog.OnActionEventOkWithSelectIdxFlipsDelay
+    CSkinSelectDialog.OnActionEventRecoveryFlipsDelay
+    CSkinSelectDialog.OnActionEventUnknownIdReturnsTrue
+    CSkinSelectDialog.ActionEventWithoutListIconIsSafe
+    CSkinSelectDialog.ActionEventDelegatesToBase
+    CSkinSelectDialog.ActionEventLButtonClickPopulatesPreview
+    CSkinSelectDialog.ActionEventLButtonClickSecondRowSelects2
+    CSkinSelectDialog.ActionEventRButtonClickIsIgnored
+    CSkinSelectDialog.SetSelectIdxRoundTrip
+    CSkinSelectDialog.SetSkinDelayResultRoundTrip
+    CSkinSelectDialog.SkinItemListInfoEmpty
+    CSkinSelectDialog.DestructorNullSafe
     CMPGuageDialogTest.SetEventMapTimerWithoutLinkingIsSafe
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog

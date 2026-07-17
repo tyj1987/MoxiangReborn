@@ -68,6 +68,7 @@ add_library(mxh_ui STATIC
     autonotedlg.cpp
     mpregistdialog.cpp
     pklootingdialog.cpp
+    skinselectdialog.cpp
     ime.cpp
 )
 
