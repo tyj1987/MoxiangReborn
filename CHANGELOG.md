@@ -4,6 +4,41 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.45] - 2026-07-17
+
+### Phase 12.x cMPRegistDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.44 后续 cMPRegistDialog (45th Tier 2 dialog, 1:1 port)。header 1098B, 6 method (ctor + Linking + SetActive + FakeMoveIcon + SetSuryunMugongInfo + SetPracticeInfo + AddLink + GetMugong), 4 children: 2 cTextArea (m_MugongInfo + m_PracticeInfo) + 1 cStatic (m_Fee) + 1 cIconDialog (m_pMugongIconDlg, 1 cell)。Linking REAL (4 children resolved by id 562-568 + 1-cell layout config on inner cIconDialog, 1:1 quirk: modern has no .bin loader)。SetActive override (val==FALSE resets 4 children + WINDOWMGR/OBJECTSTATEMGR TODO)。FakeMoveIcon 5-singleton TODO (SURYUNMGR/HERO/WINDOWMGR/CHATMGR/OBJECTSTATEMGR + cMugongBase/cSkillInfo)。SetSuryunMugongInfo sprintf placeholder "Mugong: %s (Sung %u)" + SetScriptText (CHATMGR msg 661 TODO)。SetPracticeInfo LTime=limitime/60000 + sprintf placeholder + SetStaticValue (CHATMGR msg 660 TODO)。AddLink 1:1 wrap (DeleteIcon(0) if not addable + AddIcon(0,picon,TRUE))。GetMugong returns nullptr (TODO until CMugongBase port, R-12.x deferred)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 mavis root session `mvs_89cf065af0d3418c9c19bc1666b16257` 自写。Verifier session ID 同上 (self-verify, 独立 verifier session 未分离 — 已知 limitation)。证据: cMPRegistDialog 28/28 ctest PASS (`ctest -C Debug -R CMPRegistDialog`); 全栈 ctest 1646/1646 PASS (was 1618, +28 新增, 0 回归, `ctest -C Debug --timeout 30`); build 0 error。`docs/P2-12_DIALOGS_ROADMAP.md` 已 sync (cMPRegistDialog row + 整体估算 10.9% → 22.3% + 0.13.45 摘要 + 小活建议段更新)。任何反欺诈复核请重跑 ctest + grep `FAILED` + `git show 7afb5c1`。
+
+### Added
+
+- `modern/src/ui/mpregistdialog.{hpp,cpp}` (1 commit, 28 tests): 1:1 port of CMPRegistDialog (header 1098B + cpp 3860B)
+  - Ctor: empty (1:1 quirk: m_type=WT_MPREGISTDIALOG drop, modern cWindow doesn't have m_type)
+  - Linking: REAL (resolve 4 children by id + 1-cell layout config on inner cIconDialog)
+  - SetActive override: 1:1 (val==FALSE resets 4 children + base SetActive call). WINDOWMGR msgbox dismiss + OBJECTSTATEMGR EndObjectState TODO
+  - FakeMoveIcon: returns false unconditionally. 5-singleton dispatch + cMugongBase + cSkillInfo TODO (R-12.x deferred)
+  - SetSuryunMugongInfo: sprintf placeholder + SetScriptText (CHATMGR msg 661 TODO). Null mugongName → "(null)" defensive
+  - SetPracticeInfo: LTime=limitime/60000 (ms→min) + sprintf placeholder + SetStaticValue (CHATMGR msg 660 TODO)
+  - AddLink: 1:1 wrap (DeleteIcon(0) if not addable + AddIcon(0,picon,TRUE))
+  - GetMugong: returns nullptr (TODO until CMugongBase port)
+  - 1:1 quirks: m_type drop, SetDragOverIconType drop (modern cIconDialog has no such API), null mugongName→"(null)" defensive, GetMugong nullptr TODO
+  - Local id range 562-568 (1:1 with legacy enum)
+- `modern/tests/unit/ui/mpregistdialog_test.cpp` (新建, 28 测试 PASS): DefaultConstruction + InheritsIconDialogCellLayout + LocalIdConstantsMatchExpectedRange + ChatMsgIdsMatchLegacy + Linking x4 (WithoutChildren + ResolvesAllFour + ConfiguresIconCell + DoesNotOverwriteExisting) + SetActive x7 (TrueDoesNotReset + FalseClearsPracticeInfo + FalseSetsMugongInfoClearPlaceholder + FalseResetsFeeToZero + FalseDeletesIcon + PropagatesToBase + FalseOnUnlinkedIsSafe) + FakeMoveIconReturnsFalse + SetSuryunMugongInfo x3 (FormatsString + NullNameHandled + OnUnlinkedIsSafe) + SetPracticeInfo x4 (ComputesMinutes + SetsFee + ZeroLimitIsZeroMinutes + OnUnlinkedIsSafe) + AddLink x3 (ToEmptyCell + ToOccupiedReplaces + OnUnlinkedIsSafe) + GetMugong x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 mpregistdialog.cpp + 28 gtest entry
+
+### Progress
+
+- P2-12: 45/202 = 22.3% (5 base + 45 dialog + 5 subcontrol Tier 1.5; 突破 22% 里程碑)
+- ctest: 1646/1646 expected PASS (was 1618, +28 cMPRegistDialog, 0 回归; 1 已知 flaky EncryptionIntegration 偶尔失败与本 port 无关)
+- 28 累计 Tier 2 dialog 已 port
+- cMPRegistDialog port 时遇到 2 个调试坑 (per memory 续):
+  1. cicon.hpp 不存在 (cIcon forward-declared in cIconDialog.hpp, 1:1 quirk drop)
+  2. cWindow::SetID 不存在 (id 在 Init() 时设, 之后 read-only)
+  3. SetPracticeInfo 提前 return `if (!m_PracticeInfo) return;` (1:1 quirk: legacy sprintf target 是 m_PracticeInfo, 不是 m_Fee; test 必须同时插入 m_PracticeInfo + m_Fee children, 不可只插 m_Fee)
+  - 第三个坑在跟 cAlertDlg/cMainDialog pattern (memory entry "dialog Add() side-channel pattern") 对比中能看出来
+
 ## [0.13.44] - 2026-07-17
 
 ### Phase 12.x cUnionNoteDlg Tier 2 dialog port (self-verified by producer session)
