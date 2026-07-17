@@ -46,6 +46,7 @@ add_library(mxh_ui STATIC
     namechangenotifydlg.cpp
     guildinvitationkindselectiondialog.cpp
     tipbrowserdlg.cpp
+    guildnicknamedialog.cpp
     ime.cpp
 )
 

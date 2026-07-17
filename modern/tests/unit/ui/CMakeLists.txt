@@ -41,6 +41,7 @@ add_executable(mxh_ui_tests
     namechangenotifydlg_test.cpp
     guildinvitationkindselectiondialog_test.cpp
     tipbrowserdlg_test.cpp
+    guildnicknamedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -678,4 +679,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTipBrowserDlgTest.OnActionEventBtnClickNonCancelIsNoOp
     CTipBrowserDlgTest.OnActionEventUnknownWeIsNoOp
     CTipBrowserDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    # P2-12 Tier 2 dialog: cGuildNickNameDialog (guild member nickname editor)
+    CGuildNickNameDialogTest.DefaultConstructionIsValid
+    CGuildNickNameDialogTest.InheritsDialogTreeManagement
+    CGuildNickNameDialogTest.IdConstantsMatchExpectedLocalRange
+    CGuildNickNameDialogTest.VcmSpaceIsZero
+    CGuildNickNameDialogTest.LinkingResolvesBothChildren
+    CGuildNickNameDialogTest.LinkingConfiguresValidCheckSpace
+    CGuildNickNameDialogTest.LinkingWithoutChildrenLeavesPointersNull
+    CGuildNickNameDialogTest.LinkingBeforeInitDoesNotCrash
+    CGuildNickNameDialogTest.SetActiveTrueUpdatesBaseState
+    CGuildNickNameDialogTest.SetActiveFalseUpdatesBaseStateAndClearsFocus
+    CGuildNickNameDialogTest.SetActiveToggleRoundTrip
+    CGuildNickNameDialogTest.SetActiveWithoutLinkIsSafe
+    CGuildNickNameDialogTest.SetActiveBeforeInitDoesNotCrash
+    CGuildNickNameDialogTest.SetNickMsgUpdatesTextArea
+    CGuildNickNameDialogTest.SetNickMsgWithEmptyStringIsSafe
+    CGuildNickNameDialogTest.SetNickMsgWithNullIsSafe
+    CGuildNickNameDialogTest.SetNickMsgWithoutLinkIsSafe
+    CGuildNickNameDialogTest.SetNickMsgBeforeInitDoesNotCrash
 )
