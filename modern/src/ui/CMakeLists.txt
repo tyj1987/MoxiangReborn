@@ -14,6 +14,7 @@ add_library(mxh_ui STATIC
     cMsgBox.cpp
     cDivideBox.cpp
     cIconDialog.cpp
+    cIconGridDialog.cpp
     cStatic.cpp
     cPushupButton.cpp
     cListDialog.cpp

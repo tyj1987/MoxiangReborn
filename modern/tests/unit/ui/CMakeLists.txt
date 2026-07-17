@@ -9,6 +9,7 @@ add_executable(mxh_ui_tests
     cmsgbox_test.cpp
     cdividebox_test.cpp
     cicondialog_test.cpp
+    cicongriddialog_test.cpp
     cstatic_test.cpp
     cpushupbutton_test.cpp
     clistdialog_test.cpp
@@ -242,6 +243,31 @@ gtest_add_tests(TARGET mxh_ui_tests
     CIconDialog.AcceptableTypeMaskWorks
     CIconDialog.SelectionSetterGetter
     CIconDialog.SetAbsXYMovesDialogAbsPosition
+    # P2-12 Tier 1.5 subcontrol: cIconGridDialog (2D icon grid + drag-drop)
+    CIconGridDialog.DefaultStateHasZeroCells
+    CIconGridDialog.InitAllocatesEmptyGrid
+    CIconGridDialog.InitGridComputesCellRect
+    CIconGridDialog.AddIconLinear
+    CIconGridDialog.AddIcon2D
+    CIconGridDialog.AddIconOutOfRange
+    CIconGridDialog.GetPositionForCell
+    CIconGridDialog.DeleteIconLinear
+    CIconGridDialog.DeleteIconByPointer
+    CIconGridDialog.DeleteIcon2D
+    CIconGridDialog.MoveIcon
+    CIconGridDialog.IsAddable2DRequiresTypeMatch
+    CIconGridDialog.AcceptableTypeSetterGetter
+    CIconGridDialog.GetCellPosition
+    CIconGridDialog.GetPositionForXYRefLinearises
+    CIconGridDialog.GetCellAbsPos
+    CIconGridDialog.PtInCellReturnsTrueInsideAnOccupiedCell
+    CIconGridDialog.SelectionSetterGetter
+    CIconGridDialog.ShowGridFlag
+    CIconGridDialog.DragOverIconTypeSetterGetter
+    CIconGridDialog.IsDragOverDrawAlwaysFalseInModernPort
+    CIconGridDialog.SetCellRectGetter
+    CIconGridDialog.RenderIsNoop
+    CIconGridDialog.SetAbsXYMovesDialog
     CStatic.DefaultTextIsEmpty
     CStatic.SetStaticTextStoresAndReturns
     CStatic.SetStaticValueFormatsAsDecimal
