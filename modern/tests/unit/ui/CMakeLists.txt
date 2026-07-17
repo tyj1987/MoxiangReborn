@@ -64,6 +64,7 @@ add_executable(mxh_ui_tests
     mpregistdialog_test.cpp
     pklootingdialog_test.cpp
     skinselectdialog_test.cpp
+    ccombobox_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1098,6 +1099,32 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSkinSelectDialog.SetSkinDelayResultRoundTrip
     CSkinSelectDialog.SkinItemListInfoEmpty
     CSkinSelectDialog.DestructorNullSafe
+    # P2-12 Tier 1.5 subcontrol: cComboBox (combo with dropdown)
+    CComboBox.DefaultConstruction
+    CComboBox.InheritsCWindow
+    CComboBox.InitComboListStoresImages
+    CComboBox.AddItemAppendsToEnd
+    CComboBox.AddItemAtIndexInserts
+    CComboBox.AddItemFifoEvictionAtMaxLine
+    CComboBox.AddItemAtIndexBeyondSizeIsNoOp
+    CComboBox.RemoveAllClearsItems
+    CComboBox.RemoveItemAtIndex
+    CComboBox.SetMaxLineCapRoundTrip
+    CComboBox.SetCurSelectedIdxRoundTrip
+    CComboBox.SetOverIdxRoundTrip
+    CComboBox.SelectComboTextCopiesItemText
+    CComboBox.SelectComboTextOutOfRangeIsNoOp
+    CComboBox.SetComboTextColorRoundTrip
+    CComboBox.SetOverImageScaleRoundTrip
+    CComboBox.SetMarginRoundTrip
+    CComboBox.AddLinkComboBtn
+    CComboBox.AddNullBtnIsSafe
+    CComboBox.RenderIsNoop
+    CComboBox.PtIdxInComboListNoHitReturnsNoHit
+    CComboBox.PtIdxInComboListWithItems
+    CComboBox.ListMouseCheckLeftDownSetsCurSelectedIdx
+    CComboBox.ListMouseCheckHoverOnlySetsOverIdx
+    CComboBox.ListMouseCheckNoHitResetsSelection
     CMPGuageDialogTest.SetEventMapTimerWithoutLinkingIsSafe
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog

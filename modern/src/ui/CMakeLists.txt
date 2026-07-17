@@ -69,6 +69,7 @@ add_library(mxh_ui STATIC
     mpregistdialog.cpp
     pklootingdialog.cpp
     skinselectdialog.cpp
+    ccombobox.cpp
     ime.cpp
 )
 

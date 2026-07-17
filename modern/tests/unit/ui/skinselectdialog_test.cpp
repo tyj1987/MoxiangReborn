@@ -79,7 +79,7 @@ TEST(CSkinSelectDialog, SetActiveFalseClearsState) {
         d.findWindowById(mxh::ui::cSkinSelectDialog::ID_ITEMVIEW));
     ASSERT_NE(list, nullptr);
     ASSERT_NE(icon, nullptr);
-    EXPECT_EQ(list->GetCurSelCellPos(), -1);
+    EXPECT_EQ(list->GetCurSelCellPos(), 0 - 1);
     // cIconDialog (already ported) — verify all cells are empty.
     for (std::uint16_t i = 0; i < icon->GetCellNum(); ++i) {
         EXPECT_EQ(icon->GetIconForIdx(i), nullptr);
