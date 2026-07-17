@@ -56,7 +56,16 @@ std::vector<std::uint8_t> to_bytes(std::string_view s) {
 
 // Path to the bundled real-world sample (extracted from the original
 // game resources). Created by Phase 7.5p and shipped with the repo.
-const std::filesystem::path kRealChr = "test-extract/11160.chr";
+//
+// Hardcoded to the D:\Moxian reparse-point alias of the CJK repo root
+// (see AGENTS.md trap #9). The CJK path D:\墨香全套源代码... is the
+// canonical filesystem path; D:\Moxian is a Windows reparse point
+// (junction) aliasing it. The reparse point path is what mavis tools
+// and CMake use internally to avoid the CJK path encoding. Using the
+// reparse-point path here keeps the open() syscall off any code path
+// that touches the CJK encoding layer.
+const std::filesystem::path kRealChr =
+    "D:/Moxian/test-extract/11160.chr";
 
 }  // namespace
 
