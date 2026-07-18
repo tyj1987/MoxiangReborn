@@ -76,15 +76,10 @@ void cComboBox::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
     // (no static-function-pointer seam in modern cDialog);
     // the engine-binder layer (Phase 14+) will re-add it.
     (void)basicImage;
-    (void)id;
-    SetAbsXY(x, y);
-    // The legacy cWindow::Init stores x/y/wid/hei/id. Modern
-    // cListItem doesn't have those; we use absX/absY/width/
-    // height from cWindow. (We don't extend cWindow here, so
-    // we just store absX/absY in a private m_absX/m_absY if
-    // needed — but for cStallFindDlg use, the absolute
-    // position is set via SetAbsXY.)
-    (void)wid; (void)hei;
+    // Store x/y/wid/hei/id via cWindow::Init so findWindowById
+    // can locate the combo by id (cDialog uses cObject::id()
+    // which is set by cWindow::Init's mutableId()=id line).
+    cWindow::Init(x, y, wid, hei, basicImage, id);
 }
 
 void cComboBox::InitComboList(std::uint16_t listWid,
@@ -183,9 +178,10 @@ std::uint16_t cComboBox::PtIdxInComboList(std::int32_t x, std::int32_t y) const 
     // detect no-hit). Modern port returns the same.
     const std::int32_t listnum = static_cast<std::int32_t>(GetItemCount());
     for (std::int32_t i = 0; i < listnum; ++i) {
-        if (absX() < x && absY() + 0 /* m_height */ < y
+        if (absX() < x && absY() + static_cast<std::int32_t>(height()) < y
             && x < absX() + m_listWidth
-            && y < absY() + 0 /* m_height */ + (i + 1) * m_middleHeight) {
+            && y < absY() + static_cast<std::int32_t>(height())
+                 + (i + 1) * m_middleHeight) {
             return static_cast<std::uint16_t>(i);
         }
     }

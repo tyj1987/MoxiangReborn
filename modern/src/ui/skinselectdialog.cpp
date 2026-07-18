@@ -100,7 +100,7 @@ std::uint32_t cSkinSelectDialog::ActionEvent(std::int32_t mouseX,
     }
 
     if (m_pNomalSkinListDlg->PtIdxInRow(mouseX, mouseY) != -1) {
-        if (we & cWindow::MouseFlagLButton) {  // WE_LBTNCLICK bit
+        if (mouseFlags & cWindow::MouseFlagLButton) {  // LButton click
             // The legacy uses WINDOWMGR->IsMouseDownUsed() to gate
             // double-click consume. The modern port drops the
             // check (no cWindowManager::IsMouseDownUsed equivalent
