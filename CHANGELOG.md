@@ -4,6 +4,24 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.52] - 2026-07-18
+
+### Phase 12.x batch: cTitanRecallDlg + cGuildNoteDlg Tier 2 dialogs (self-verified by producer session)
+
+**背景**: 0.13.51 收口 3 progress bar dialogs (24.3%)。本 session 推 0.13.52: cTitanRecallDlg (4th progress bar subclass, 16 tests) + cGuildNoteDlg (51st Tier 2 dialog, guild note sender, 18 tests)。两者都 follow the simple pattern: cProgressBarDlg/cDialog base + 1 CObjectGuagen/cTextArea + 1 cStatic + state fields, OnActionEvent/Render/Use/Show 都 TODO (GAMEIN + HERO + CHATMGR + NETWORK singletons not ported, R-12.x deferred)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cTitanRecallDlg 16/16 + cGuildNoteDlg 18/18 = 34 ctest PASS, 全栈 1949 → 1983 PASS (+34 用例, 0 回归). 重跑: ctest -C Debug -R "CTitanRecallDlg|CGuildNoteDlg", then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/titanrecalldlg.{hpp,cpp}` (1 commit, 16 tests): titan recall progress bar (id 690-692, kBaseSuccessTime=7000)
+- `modern/src/ui/guildnotedlg.{hpp,cpp}` (1 commit, 18 tests): guild note sender (id 700-703, 1:1 quirk legacy "OnActionEvnet" typo 改 "OnActionEvent")
+
+### Progress
+
+- P2-12: 51/202 = 25.2% (5 base + 51 dialog + 11 subcontrol Tier 1.5; **突破 25% 里程碑**)
+- ctest: 1983/1983 PASS (was 1949, +34 cTitanRecallDlg + cGuildNoteDlg)
+
 ## [0.13.51] - 2026-07-18
 
 ### Phase 12.x batch: cObjectGuagen (Tier 1.5 subcontrol) + cProgressBarDlg base + 3 progress bar dialog subclasses (self-verified by producer session)
