@@ -89,6 +89,7 @@ add_executable(mxh_ui_tests
     ime_test.cpp
     cspin_test.cpp
     moneydlg_test.cpp
+    petstateminidlg_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1700,4 +1701,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMoneyDlg.OkPushedWithoutCallbackSendsByDefault
     CMoneyDlg.OkPushedCallbackReturningFalseSkipsSend
     CMoneyDlg.OkPushedCallbackReturningTrueProceeds
+    # P2-12 Tier 2 dialog: cPetStateMiniDlg (pet state UI)
+    CPetStateMiniDlg.IdConstantsMatchLocalRange
+    CPetStateMiniDlg.AllIdsAreDistinct
+    CPetStateMiniDlg.DefaultConstructionHasNullPointers
+    CPetStateMiniDlg.LinkingMaterializesAllNineChildren
+    CPetStateMiniDlg.LinkingSetsChildIds
+    CPetStateMiniDlg.LinkingMaterializesToggleButton
+    CPetStateMiniDlg.LinkingIdempotent
+    CPetStateMiniDlg.OnActionEventNonBtnClickIsNoOp
+    CPetStateMiniDlg.OnActionEventToggleBtnIsNoOpStubsCall
+    CPetStateMiniDlg.OnActionEventInvenBtnIsNoOpStubsCall
+    CPetStateMiniDlg.OnActionEventUseRestBtnWithNoPetIsNoOp
+    CPetStateMiniDlg.OnActionEventUnknownIdIsNoOp
+    CPetStateMiniDlg.OnActionEventBeforeLinkingIsSafe
 )

@@ -93,6 +93,7 @@ add_library(mxh_ui STATIC
     ime.cpp
     cspin.cpp
     moneydlg.cpp
+    petstateminidlg.cpp
 )
 
 if(WIN32)
