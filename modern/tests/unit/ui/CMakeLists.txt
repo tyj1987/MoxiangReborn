@@ -95,6 +95,7 @@ add_executable(mxh_ui_tests
     titanguagedlg_test.cpp
     skilloptioncleardlg_test.cpp
     titanrepairdlg_test.cpp
+    ctabdialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)

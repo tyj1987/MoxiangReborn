@@ -99,6 +99,7 @@ add_library(mxh_ui STATIC
     titanguagedlg.cpp
     skilloptioncleardlg.cpp
     titanrepairdlg.cpp
+    ctabdialog.cpp
 )
 
 if(WIN32)
