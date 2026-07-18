@@ -4,6 +4,25 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.54] - 2026-07-18
+
+### Phase 12.x batch: cSurvivalCountDialog + cDebugDlg Tier 2 dialogs (self-verified by producer session)
+
+**背景**: 0.13.53 收口 cPointSaveDialog (25.7%)。本 session 推 0.13.54: cSurvivalCountDialog (survival-mode alive counter, 2 cStatic + 1:1 quirk legacy 2-cStatic array 折叠 to 1 cStatic, 27 tests) + cDebugDlg (debug flag display, cListDialog subclass + 6 BOOL flags + DebugMsgParser variadic, 16 tests)。两者都 follow the simple pattern: Linking REAL + 1-2 method 1:1 with legacy body, 1-2 method TODO (MAP/CHATMGR/etc singletons, R-12.x deferred)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cSurvivalCountDialog 27/27 + cDebugDlg 16/16 = 43 ctest PASS, 全栈 2003 → 2046 PASS (+43 用例, 0 回归). 重跑: ctest -C Debug -R "CSurvivalCountDialog|CDebugDlg", then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/survivalcountdialog.{hpp,cpp}` (1 commit, 27 tests): survival-mode alive counter + winner name (id 720-721, kMaxCounterNumber=99, kSurvivalDefaultName placeholder for CHATMGR msg 484)
+- `modern/src/ui/debugdlg.{hpp,cpp}` (1 commit, 16 tests): debug flag display, cListDialog subclass (6 DBG_* enum constants + 6 setter/getter pairs; DebugMsgParser TODO variadic + 6-branch)
+
+### Progress
+
+- P2-12: 54/202 = 26.7% (5 base + 54 dialog + 11 subcontrol Tier 1.5; **突破 26% 里程碑**)
+- ctest: 2046/2046 PASS (was 2003, +43 cSurvivalCountDialog + cDebugDlg)
+- 34 个新 Tier 2 dialog 端口
+
 ## [0.13.53] - 2026-07-18
 
 ### Phase 12.x cPointSaveDialog Tier 2 dialog port (self-verified by producer session)
