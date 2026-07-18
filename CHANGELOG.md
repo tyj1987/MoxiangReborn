@@ -4,6 +4,65 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.58] - 2026-07-18
+
+### Phase 12.x cFWEngraveDialog + cFWTimeDialog Tier 2 dialogs (self-verified by producer session)
+
+**背景**: 0.13.57 收口 cMNChannelDialog (28.2%, 跨 28% 里程碑)。本 session 续 0.13.58: cFWEngraveDialog (FortWar engrave progress bar, 2 children: cObjectGuagen + cStatic remaintime) + cFWTimeDialog (FortWar siege-war timer, 2 cStatic: timer + character name) — both from same legacy `FortWarDialog.h` header. 5+5 method 1:1 wrappers with stub body for ActionEvent (gCurTime unported). SetActiveWithTime + SetActiveWithTimeName + SetCharacterName REAL with 1:1 quirks (m_dwProcessTime = dwTime*1000 stored as relative deadline, m_dwWarTime same pattern, m_fBasicTime reset to 1.0f on close). 23 tests (11+12) PASS, no regressions. P2-12 59/202 = 29.2% (跨 29% 里程碑).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cFWEngraveDialog + cFWTimeDialog 23/23 ctest PASS; 全栈 ctest 2109 → 2132 PASS (+23 用例, 0 回归). 重跑: ctest -C Debug -R CFW, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/fortwartimedialog.{hpp,cpp}` (1 commit, 23 tests): 1:1 port of legacy `FortWarDialog.h` subset (CFWEngraveDialog + CFWTimeDialog; CFWWareHouseDialog deferred — cTabDialog + cIconGridDialog)
+  - cFWEngraveDialog: 6 method (ctor + dtor + Linking + ActionEvent + OnActionEvent + SetActiveWithTime)
+  - cFWTimeDialog: 5 method (ctor + dtor + Linking + ActionEvent + SetActiveWithTimeName + SetCharacterName)
+  - 1:1 quirks: legacy `static int last` tick-preservation pattern documented; gCurTime stubbed in ActionEvent body
+  - Local id range 780-783 (2 per dialog)
+  - 1:1 quirks: ctor m_type=WT_* drop (modern cWindow removed in Phase 6)
+  - ActionEvent + OnActionEvent TODO (gCurTime + CHATMGR + NETWORK + HERO singletons stubbed, R-12.x deferred)
+- `modern/tests/unit/ui/fortwartimedialog_test.cpp` (新建, 23 用例 PASS): 11 cFWEngraveDialog + 12 cFWTimeDialog
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 fortwartimedialog.cpp + 23 gtest entry
+
+### Progress
+
+- P2-12: 59/202 = 29.2% (5 base + 58 dialog + 11 subcontrol Tier 1.5; **跨 29% 里程碑, 续推 30%**)
+- ctest: 2132/2132 PASS (was 2109, +23 FortWar 2 dialogs)
+- 38 个新 Tier 2 dialog 端口
+- 2100+ tests milestone crossed
+
+## [0.13.57] - 2026-07-18
+
+### Phase 12.x cMNChannelDialog Tier 2 dialog + cListDialog Tier 1.5 subcontrol extensions (self-verified by producer session)
+
+**背景**: 0.13.56 收口 cGuildLevelUpDialog (27.7%)。本 session 接 0.13.57: cMNChannelDialog (MurimNet channel selection, 57th Tier 2 dialog, 9 children: 3 cListDialog mode panes + 3 cPushupButton mode tabs + 1 cButton join + 1 cEditBox chat + 1 cListDialog chat log + 1 cStatic title, 9 method 1:1: Linking + SetChannelInfo + 3 add/remove-all pairs + ChatMsgWhole + SetChannelMode) + cListDialog Tier 1.5 subcontrol extensions: RemoveItem(text) 1:1 with legacy first-match remove + GetRow(idx) 1:1 with legacy GetRowItem.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cMNChannelDialog 26/26 ctest PASS; cListDialog RemoveItem/GetRow also verified; 全栈 ctest 2083 → 2109 PASS (+26 用例, 0 回归). 重跑: ctest -C Debug -R CMNChannelDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/cListDialog.hpp` + `cListDialog.cpp` (改): 2 new 1:1 method matching legacy cListDialog
+  - `RemoveItem(const std::string& text) -> bool` — first-match remove, adjusts m_selectedRow + m_topRow
+  - `GetRow(std::size_t idx) -> const Row&` — read text/color at index, default-constructed Row{} on OOB
+- `modern/src/ui/mnchanneldialog.{hpp,cpp}` (1 commit, 26 tests): 1:1 port of CmnChannelDialog (header 1356B)
+  - ChannelMode enum: Id=0 / Channel=1 / PlayRoom=2 / Max=3 (1:1 with legacy eCHANNEL_MODE in shared header — inlined in modern port per AGENTS.md 1:1 contract rule)
+  - 9 method 1:1 wrappers; format strings ("%-50s [Level:%3d]" + "%-54s (%3d/%3d)" + "[%s]: %s") verbatim from legacy
+  - 1:1 quirks: legacy `m_pBtnList[nChannelMode]->SetPush( FALSE )` typo (line 145, should be `i`) — modern preserves verbatim
+  - 1:1 quirks: legacy RemoveChannel(rawTitle) unformatted — modern preserves (legacy comment "수정해야한다.." / "must fix later")
+  - 1:1 quirks: legacy `gStrTemp128` global → modern std::array<char, 128> function-local
+  - 1:1 quirks: legacy `SetEditFunc(MNCNL_ChatFunc)` global C-callback → modern cEditBox std::function seam (default no-op)
+  - 1:1 quirks: legacy ctor m_type=WT_* drop (modern cWindow removed in Phase 6)
+  - Local id range 760-769
+- `modern/tests/unit/ui/mnchanneldialog_test.cpp` (新建, 26 用例 PASS): ctor + 3 const + 3 Linking + 2 SetChannelInfo + 6 add/remove + 3 add/remove-all + 2 ChatMsgWhole + 3 SetChannelMode
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 mnchanneldialog.cpp + 26 gtest entry
+
+### Progress
+
+- P2-12: 58/202 = 28.7% (5 base + 58 dialog + 11 subcontrol Tier 1.5; **跨 28% 里程碑, 续推 29%**)
+- ctest: 2109/2109 PASS (was 2083, +26 cMNChannelDialog)
+- 37 个新 Tier 2 dialog 端口
+- 2100+ tests milestone crossed
+
 ## [0.13.56] - 2026-07-18
 
 ### Phase 6.16 cGuildLevelUpDialog Tier 2 dialog port (self-verified by mavis root session)
