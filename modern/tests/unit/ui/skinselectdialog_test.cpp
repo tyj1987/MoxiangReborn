@@ -8,8 +8,36 @@
 
 #include "cIconDialog.hpp"
 #include "cListDialog.hpp"
+#include "cWindow.hpp"
 
 #include <gtest/gtest.h>
+
+#include <memory>
+
+namespace {
+
+// BuildDlgWithChildren: 1:1 with the legacy resource-loader
+// step. Adds the 2 children (cListDialog at ID_LIST +
+// cIconDialog at ID_ITEMVIEW) before Linking so that
+// findWindowById can resolve them.
+void BuildDlgWithChildren(mxh::ui::cSkinSelectDialog& d) {
+    d.Init(0, 0, 400, 400, nullptr, 0);
+    {
+        auto l = std::make_unique<mxh::ui::cListDialog>();
+        l->InitList(5, 0, 0, 100, 30);
+        l->Init(0, 0, 0, 0, nullptr, mxh::ui::cSkinSelectDialog::ID_LIST);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(l.release()));
+    }
+    {
+        auto i = std::make_unique<mxh::ui::cIconDialog>();
+        i->Init(0, 0, 0, 0, nullptr,
+                mxh::ui::cSkinSelectDialog::ID_ITEMVIEW);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(i.release()));
+    }
+    d.Linking();
+}
+
+}  // namespace
 
 TEST(CSkinSelectDialog, DefaultConstructionHasNullPointers) {
     mxh::ui::cSkinSelectDialog d;
@@ -38,7 +66,7 @@ TEST(CSkinSelectDialog, ConstantsAreStable) {
 
 TEST(CSkinSelectDialog, LinkingResolvesAllChildren) {
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     // 1:1 with legacy: 2 children resolved by id.
     EXPECT_NE(d.findWindowById(mxh::ui::cSkinSelectDialog::ID_LIST), nullptr);
     EXPECT_NE(d.findWindowById(mxh::ui::cSkinSelectDialog::ID_ITEMVIEW), nullptr);
@@ -51,14 +79,14 @@ TEST(CSkinSelectDialog, LinkingResolvesAllChildren) {
 
 TEST(CSkinSelectDialog, LinkingIsIdempotent) {
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.Linking();
     EXPECT_NE(d.findWindowById(mxh::ui::cSkinSelectDialog::ID_LIST), nullptr);
 }
 
 TEST(CSkinSelectDialog, LinkingBeforeInitDoesNotCrash) {
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     // ActionEvent / OnActionEvent before SetActive: no state
     // mutation, no crash.
     d.ActionEvent(0, 0, 0);
@@ -68,7 +96,7 @@ TEST(CSkinSelectDialog, LinkingBeforeInitDoesNotCrash) {
 
 TEST(CSkinSelectDialog, SetActiveFalseClearsState) {
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.SetSelectIdx(5);
     d.SetActive(false);
     EXPECT_EQ(d.GetSelectIdx(), 0u);
@@ -79,7 +107,7 @@ TEST(CSkinSelectDialog, SetActiveFalseClearsState) {
         d.findWindowById(mxh::ui::cSkinSelectDialog::ID_ITEMVIEW));
     ASSERT_NE(list, nullptr);
     ASSERT_NE(icon, nullptr);
-    EXPECT_EQ(list->GetCurSelCellPos(), 0 - 1);
+    EXPECT_EQ(list->GetCurSelectedRowIdx(), 0 - 1);
     // cIconDialog (already ported) — verify all cells are empty.
     for (std::uint16_t i = 0; i < icon->GetCellNum(); ++i) {
         EXPECT_EQ(icon->GetIconForIdx(i), nullptr);
@@ -180,7 +208,7 @@ TEST(CSkinSelectDialog, ActionEventLButtonClickPopulatesPreview) {
     // directly call PtIdxInRow with a known position. The legacy
     // would then call cListDialog::GetCurSelectedRowIdx + populate.
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.SetActive(true);
     // Manually set the list selection to row 0 (simulating a click).
     auto* list = static_cast<mxh::ui::cListDialog*>(
@@ -189,6 +217,15 @@ TEST(CSkinSelectDialog, ActionEventLButtonClickPopulatesPreview) {
         d.findWindowById(mxh::ui::cSkinSelectDialog::ID_ITEMVIEW));
     ASSERT_NE(list, nullptr);
     ASSERT_NE(icon, nullptr);
+    // The icon dialog needs 3 cells configured so populatePreview
+    // can AddIcon to cells 0..2.
+    icon->SetCellNum(mxh::ui::cSkinSelectDialog::SKINITEM_LIST_MAX);
+    for (std::uint16_t i = 0; i < mxh::ui::cSkinSelectDialog::SKINITEM_LIST_MAX; ++i) {
+        icon->AddIconCell(static_cast<std::int32_t>(i) * 30, 0, 30, 30);
+    }
+    // The list needs a row so PtIdxInRow(0, 0) returns row 0
+    // (m_lineHeight default is 14; row = m_topRow + (0-0)/14 = 0).
+    list->AddItem("row 0");
     list->SetCurSelectedRowIdx(0);
     // Now send an LButton click event — modern port uses
     // cWindow::MouseFlagLButton = 0x0001 as the WE_LBTNCLICK bit.
@@ -203,19 +240,27 @@ TEST(CSkinSelectDialog, ActionEventLButtonClickPopulatesPreview) {
 
 TEST(CSkinSelectDialog, ActionEventLButtonClickSecondRowSelects2) {
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.SetActive(true);
     auto* list = static_cast<mxh::ui::cListDialog*>(
         d.findWindowById(mxh::ui::cSkinSelectDialog::ID_LIST));
+    // The list needs 2 rows. Set selection to row 1 then click
+    // at y=20 (which PtIdxInRow maps to row 1: m_lineHeight=14,
+    // m_clipY=0, row = 0 + (20-0)/14 = 1). The modern
+    // cSkinSelectDialog::ActionEvent reads m_selectedRow via
+    // GetCurSelectedRowIdx() to compute m_dwSelectIdx, so the
+    // selection must be set before the click.
+    list->AddItem("row 0");
+    list->AddItem("row 1");
     list->SetCurSelectedRowIdx(1);
-    d.ActionEvent(0, 0, mxh::ui::cWindow::MouseFlagLButton);
+    d.ActionEvent(0, 20, mxh::ui::cWindow::MouseFlagLButton);
     EXPECT_EQ(d.GetSelectIdx(), 2u);
 }
 
 TEST(CSkinSelectDialog, ActionEventRButtonClickIsIgnored) {
     // 1:1 with legacy: only LBTNCLICK populates the preview.
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.SetActive(true);
     auto* list = static_cast<mxh::ui::cListDialog*>(
         d.findWindowById(mxh::ui::cSkinSelectDialog::ID_LIST));
@@ -246,7 +291,7 @@ TEST(CSkinSelectDialog, SkinItemListInfoEmpty) {
     // is stubbed to 0 in modern, so SkinItemListInfo loops 0
     // times. Verify no crash + list is empty.
     mxh::ui::cSkinSelectDialog d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.SetActive(true);
     auto* list = static_cast<mxh::ui::cListDialog*>(
         d.findWindowById(mxh::ui::cSkinSelectDialog::ID_LIST));

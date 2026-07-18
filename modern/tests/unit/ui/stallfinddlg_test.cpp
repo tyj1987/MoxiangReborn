@@ -9,7 +9,138 @@
 
 #include "stallfinddlg.hpp"
 
+#include "cButton.hpp"
+#include "cComboBox.hpp"
+#include "cListDialog.hpp"
+#include "cPushupButton.hpp"
+#include "cStatic.hpp"
+#include "cWindow.hpp"
+
 #include <gtest/gtest.h>
+
+#include <memory>
+
+namespace {
+
+// BuildDlgWithChildren: 1:1 with the legacy resource-loader
+// step. In the legacy, the dialog is loaded with all 24+ child
+// controls already attached (m_pItemTypeCombo, m_arrItemDetail
+// TypeCombo[8], m_pItemList, m_pClassList, m_pNameStatic,
+// m_pPriceStatic, m_pStallList, m_parrPageBtn[5],
+// m_parrPageUpDownBtn[2], m_pSellModeRadioBtn,
+// m_pBuyModeRadioBtn). Linking() then resolves them by id.
+// The modern port follows the same flow: children are added
+// first, then Linking() resolves them.
+//
+// This helper creates + adds the minimum set of children that
+// LinkingResolvesAllChildren + LinkingIsIdempotent assert.
+void BuildDlgWithChildren(mxh::ui::cStallFindDlg& d) {
+    d.Init(0, 0, 400, 400, nullptr, 0);
+    // 1 main type combo.
+    {
+        auto c = std::make_unique<mxh::ui::cComboBox>();
+        c->Init(0, 0, 100, 30, nullptr,
+                mxh::ui::cStallFindDlg::ID_TYPECOMBO);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(c.release()));
+    }
+    // 8 detail combos.
+    const std::int32_t detailIds[8] = {
+        mxh::ui::cStallFindDlg::ID_WEAPON_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_CLOTHES_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_ACCESSORY_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_POTION_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_MATERIAL_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_ETC_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_ITEMMALL_DETAILCOMBO,
+        mxh::ui::cStallFindDlg::ID_TITAN_DETAILCOMBO,
+    };
+    for (int i = 0; i < 8; ++i) {
+        auto c = std::make_unique<mxh::ui::cComboBox>();
+        c->Init(0, 0, 100, 30, nullptr, detailIds[i]);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(c.release()));
+    }
+    // 3 list dialogs (item / class / result).
+    {
+        auto l = std::make_unique<mxh::ui::cListDialog>();
+        l->InitList(5, 0, 0, 100, 30);
+        l->Init(0, 0, 0, 0, nullptr, mxh::ui::cStallFindDlg::ID_ITEMLIST);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(l.release()));
+    }
+    {
+        auto l = std::make_unique<mxh::ui::cListDialog>();
+        l->InitList(5, 0, 0, 100, 30);
+        l->Init(0, 0, 0, 0, nullptr, mxh::ui::cStallFindDlg::ID_CLASSLIST);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(l.release()));
+    }
+    {
+        auto l = std::make_unique<mxh::ui::cListDialog>();
+        l->InitList(5, 0, 0, 100, 30);
+        l->Init(0, 0, 0, 0, nullptr, mxh::ui::cStallFindDlg::ID_RESULTLIST);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(l.release()));
+    }
+    // 2 statics (name + price).
+    {
+        auto s = std::make_unique<mxh::ui::cStatic>();
+        s->Init(0, 0, 0, 0, nullptr,
+                mxh::ui::cStallFindDlg::ID_NAMESTATIC);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(s.release()));
+    }
+    {
+        auto s = std::make_unique<mxh::ui::cStatic>();
+        s->Init(0, 0, 0, 0, nullptr,
+                mxh::ui::cStallFindDlg::ID_PRICESTATIC);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(s.release()));
+    }
+    // 2 pushup buttons (sell mode + buy mode).
+    {
+        auto b = std::make_unique<mxh::ui::cPushupButton>();
+        b->Init(0, 0, 30, 30, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_PB_SELLMODE);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    {
+        auto b = std::make_unique<mxh::ui::cPushupButton>();
+        b->Init(0, 0, 30, 30, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_PB_BUYMODE);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    // 5 page pushup buttons.
+    for (int i = 0; i < 5; ++i) {
+        auto b = std::make_unique<mxh::ui::cPushupButton>();
+        b->Init(0, 0, 20, 20, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_RESULTPAGEBTN1 + i);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    // 2 page up/down buttons.
+    {
+        auto b = std::make_unique<mxh::ui::cButton>();
+        b->Init(0, 0, 20, 20, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_RESULTPAGEBTNUP);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    {
+        auto b = std::make_unique<mxh::ui::cButton>();
+        b->Init(0, 0, 20, 20, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_RESULTPAGEBTNDOWN);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    // 2 search buttons (search + search all).
+    {
+        auto b = std::make_unique<mxh::ui::cButton>();
+        b->Init(0, 0, 50, 30, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_SEARCHBTN);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    {
+        auto b = std::make_unique<mxh::ui::cButton>();
+        b->Init(0, 0, 50, 30, nullptr, nullptr, nullptr, nullptr, nullptr,
+                mxh::ui::cStallFindDlg::ID_SEARCHALLBTN);
+        d.Add(std::unique_ptr<mxh::ui::cWindow>(b.release()));
+    }
+    d.Linking();
+}
+
+}  // namespace
 
 TEST(CStallFindDlg, DefaultConstructionIsValid) {
     mxh::ui::cStallFindDlg d;
@@ -73,7 +204,7 @@ TEST(CStallFindDlg, IdConstantsAreDistinct) {
 
 TEST(CStallFindDlg, LinkingResolvesAllChildren) {
     mxh::ui::cStallFindDlg d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     // 1:1 with legacy. After Linking, findWindowById finds all
     // 27 children (24 ids + 5 page btns + 2 up/down + 1 dlg).
     EXPECT_NE(d.findWindowById(mxh::ui::cStallFindDlg::ID_TYPECOMBO), nullptr);
@@ -99,7 +230,7 @@ TEST(CStallFindDlg, LinkingSetsInitialItemTypeToWeapon) {
 
 TEST(CStallFindDlg, LinkingIsIdempotent) {
     mxh::ui::cStallFindDlg d;
-    d.Linking();
+    BuildDlgWithChildren(d);
     d.Linking();
     EXPECT_NE(d.findWindowById(mxh::ui::cStallFindDlg::ID_TYPECOMBO), nullptr);
 }
