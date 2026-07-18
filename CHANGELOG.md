@@ -4,6 +4,47 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.62] - 2026-07-18
+
+### Phase 6.16 cGuageDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.61 收口 cPetStateMiniDlg (30.7%, 续推 31% 里程碑)。本 session 续 0.13.62: cGuageDialog (mussang guage UI, 3 children: 1 cButton + 1 cStatic + 1 cObjectGuagen). 1:1 quirks 完整保留: `m_pFlicker02` 不被使用 (commented out in cpp, modern port 直接不写), gCurTime → modern port test-injectable `m_nowMillis` 时钟, cButton::SetDisable → cButton::SetEnabled (per R-12 fix), cStatic::SetActive → cWindow::SetVisible (per R-12 fix, cStatic 继承 cWindow), `((CObjectGuagen*)GetWindowForID(CG_GUAGEMUSSANG))->SetValue(0, 0)` 1:1 cast preserved, `SetImageRGB` → m_imageRGB field + test accessor (R-10 cImage GPU 1:1 deferred), HERO + MUSSANGMGR stubbed no-op, FLICKER_TIME 宏 → kFlickerTimeMs=100 const. 18 tests PASS, no regressions. P2-12 63/202 = 31.2% (**突破 31% 里程碑**).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_296164aca56644428c53affeab6bd00a` 自主写. Verifier session ID 同上 (self-verify). 证据: cGuageDialog 18/18 ctest PASS (`ctest -C Debug -R "^CGuageDialog\."` 1.93 sec wall); 全栈 ctest 2197 → 2215 PASS (+18 net, 0 回归, 62.14 sec wall). 重跑命令: `cmake --build modern/build --config Debug --target mxh_ui mxh_ui_tests` + `ctest -C Debug --timeout 30`.
+
+### Added
+
+- `modern/src/ui/guagedialog.{hpp,cpp}` (新建, 18 tests): 1:1 port of legacy `CGuageDialog` from `墨香【源码】\[Client]MH\GuageDialog.{h,cpp}`
+  - cGuageDialog: 5 method (Linking + OnActionEvent + Render + DisableMussangBtn + SetFlicker + FlickerMussangGuage) + 5 state field (m_bFlicker / m_bFlActive / m_dwFlickerSwapTime / m_imageRGB / m_nowMillis) + 2 children (1 cButton + 1 cStatic) + 1 cast cObjectGuagen
+  - 1:1 quirks: ctor 3 raw pointer=NULL → modern unique_ptr nullptr 默认 (no 1:1 m_pFlicker02 since cpp 永不使用)
+  - 1:1 quirks: legacy `m_pFlicker02` field in legacy .h but cpp 不 wire → modern port 直接不写 (无 1:1 fidelity gained)
+  - 1:1 quirks: legacy `SetDisable(bDisable)` → cButton::SetEnabled(!bDisable) per R-12 fix
+  - 1:1 quirks: legacy `SetActive(bFlicker)` on cStatic → cWindow::SetVisible(bFlicker) (cStatic 没有 SetActive per R-12 fix)
+  - 1:1 quirks: legacy `gCurTime` → modern test-injectable `m_nowMillis` (deterministic test)
+  - 1:1 quirks: legacy `SetImageRGB(FullColor)` → m_imageRGB field + SetImageRGBStub 1:1 preserved
+  - 1:1 quirks: legacy `((CObjectGuagen*)...)` cast preserved → modern `findWindowById + dynamic_cast`
+  - 1:1 quirks: legacy `MUSSANGMGR->SendMsgMussangOn()` stubbed no-op per Phase 6 pattern
+  - 1:1 quirks: legacy `HERO->IsDied() / InTitan()` checks stubbed conservative (always return true → never allow) per Phase 6 pattern
+  - 1:1 quirks: FLICKER_TIME macro=100 → kFlickerTimeMs=100 const
+  - 1:1 surface: Linking() (materialize 2 children + 1 cObjectGuagen + DisableMussangBtn) + OnActionEvent(lId, p, we) (1 button 路由 MUSSANGMGR) + Render (FlickerMussangGuage + cDialog::Render) + DisableMussangBtn + SetFlicker + FlickerMussangGuage
+  - 11 test accessor (GetMussangButton/GetFlicker01/isFlickerActive/isFlickerOn/flickSwapTime/imageRGB/nowMillis/SetMillisForTesting/AdvanceMillisForTesting)
+- `modern/tests/unit/ui/guagedialog_test.cpp` (新建, 18 用例 PASS): 2 ctor/constants + 4 Linking + 3 DisableMussangBtn + 3 OnActionEvent + 6 SetFlicker/FlickerMussangGuage
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 guagedialog.cpp + 18 gtest entry
+
+### Progress
+
+- P2-12: 63/202 = **31.2%** (5 base + 58 dialog + 12 subcontrol Tier 1.5; **突破 31% 里程碑**)
+- ctest: 2215/2215 PASS (was 2197, +18 cGuageDialog, 0 回归)
+- 41 个新 Tier 2 dialog 端口 (含本 batch 0.13.62 cGuageDialog)
+- 12 个 Tier 1.5 subcontrol 端口 (不变)
+- 2200+ tests milestone crossed (now 2215)
+
+### Notes
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): MallNoticeDialog (2.1 KB, **blocked on cTabDialog port** — defer) / MunpaMarkDialog (1.8 KB, MunpaMarkManager 跨 class 依赖, ~2h) / NumberPadDialog (3.7 KB, 1 cEditBox + button grid) / SkillOptionClearDlg (3.1 KB, CItem + 6 singleton 依赖) / TitanRepairDlg (2.8 KB, 6 singleton 依赖) / MugongSuryunDialog (2.9 KB, **blocked on cTabDialog** — defer)
+- 0.13.61 cPetStateMiniDlg commit history: 6b385eb (code) + 7588255 (docs). 0.13.60 follow-up fix commit: 889fa22 (cMoneyDlg spin() non-const overload).
+
+
 ## [0.13.61] - 2026-07-18
 
 ### Phase 6.16 cPetStateMiniDlg Tier 2 dialog port (self-verified by mavis root session)
