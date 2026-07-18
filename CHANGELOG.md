@@ -1,5 +1,45 @@
 # Changelog — Moxian-Reborn
 
+
+## [0.13.66] - 2026-07-18
+
+### Phase 6.16 cTitanRepairDlg Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.65 收口 cSkillOptionClearDlg (32.7%, 续推 33% 里程碑). 本 session 续 0.13.66: cTitanRepairDlg (titan repair dialog, cDialog subclass + 3 method, 6-singleton dispatch, WE_CLOSEWINDOW + TITAN_REPAIR_PART/ALL branches). 1:1 quirks 完整保留: legacy class name in comment 是 CTitanPartsChangeDlg 但 .h/.cpp filenames 是 TitanRepairDlg (copy-paste residue) → modern port 用 cTitanRepairDlg 匹配 filenames, ctor + dtor 空 body → = default, Linking() 空 body → modern port preserve verbatim, SetActive override irtual → 
+oexcept override (R-12 fix), OnActionEvent 第一个 switch 用 we (not we & WE_BTNCLICK) 1:1 preserved, commented-out self-close //GAMEIN->GetTitanRepairDlg()->SetActive(FALSE); preserve 1:1 note (避免 infinite loop), legacy eturn TRUE → eturn true, legacy TITAN_REPAIR_PART/ALL 缺 reak fall-through → modern port preserve 1:1 (PART click 触发 cursor toggle + TITANMGR call), 6-singleton (HERO/OBJECTSTATEMGR/CURSOR/GAMEIN/CHATMGR/WINDOWMGR/TITANMGR) 全部 stubbed no-op per Phase 6 pattern, TITAN_REPAIR_PART/ALL → local kIdTitanRepairPart=2100/kIdTitanRepairAll=2101, CHATMGR msg 1582/1543 + MBI_TITAN_TOTAL_REPAIR 保留为 constants (production wires), MSG_TITAN_REPAIR_TOTAL_EQUIPITEM_SYN → test-injectable SetTitanRepairCostForTesting (default 0 → "no items" branch), eCURSOR_TITANREPAIR/eCURSOR_DEFAULT → local ECursorState enum (per cWindow.hpp note 1:1 stub). 27 tests PASS, no regressions. P2-12 67/202 = 33.2% (**突破 33% 里程碑**).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session mvs_296164aca56644428c53affeab6bd00a 自主写. Verifier session ID 同上 (self-verify). 证据: cTitanRepairDlg 27/27 ctest PASS (ctest -C Debug -R "^CTitanRepairDlgTest\." 3.48 sec wall); 全栈 ctest 2268 → 2295 PASS (+27 net, 0 回归, j 4 timeout 30 sec). 重跑命令: cmake --build modern/build --config Debug (full build) + ctest -C Debug --timeout 30 -j 4.
+
+### Added
+
+- modern/src/ui/titanrepairdlg.{hpp,cpp} (新建, 27 tests): 1:1 port of legacy CTitanRepairDlg from 墨香【源码】\[Client]MH\TitanRepairDlg.{h,cpp}
+  - cTitanRepairDlg: cDialog subclass + 3 method (Linking empty + SetActive override + OnActionEvent) + ECursorState enum + 5 local constants (kIdTitanRepairPart/kIdTitanRepairAll/kWeCloseWindow/kChatMsgNoItemsToRepair/kChatMsgRepairConfirm)
+  - 1:1 surface: Linking (empty body preserved) + SetActive(val) override (R-12 + end eObjectState_Deal + reset cursor) + OnActionEvent(lId, p, we) (WE_CLOSEWINDOW + TITAN_REPAIR_PART/ALL branches)
+  - 1:1 quirks: class name comment residue CTitanPartsChangeDlg documented, ctor/dtor empty body, Linking empty body, SetActive virtual → noexcept override, OnActionEvent 第一个 switch 用 we exact match, commented-out self-close preserved, eturn TRUE → eturn true, TITAN_REPAIR_PART 缺 reak fall-through 1:1
+  - 6-singleton (HERO/OBJECTSTATEMGR/CURSOR/GAMEIN/CHATMGR/WINDOWMGR/TITANMGR) 全部 stubbed no-op, 5 local constants, ECursorState enum (per cWindow.hpp 1:1 stub pattern)
+  - 9 test accessor (cursorState/objectStateDealEnded/4 counter accessor/2 chat counter/2 msgbox+titanmgr) + 3 test-injectable (SetTitanRepairCostForTesting/titanRepairCostForTesting/ClearTestInjections)
+- modern/tests/unit/ui/titanrepairdlg_test.cpp (新建, 27 用例 PASS): 6 ctor/constants + 1 Linking + 4 SetActive + 4 WE_CLOSEWINDOW + 5 TITAN_REPAIR_PART (含 fall-through) + 5 TITAN_REPAIR_ALL + 2 unknown id/event
+- modern/src/ui/CMakeLists.txt + modern/tests/unit/ui/CMakeLists.txt (改): 加 titanrepairdlg.cpp + 27 gtest entry
+
+### Progress
+
+- P2-12: 67/202 = **33.2%** (5 base + 62 dialog + 12 subcontrol Tier 1.5; **突破 33% 里程碑**)
+- ctest: 2295/2295 PASS (was 2268, +27 cTitanRepairDlg, 0 回归)
+- 44 个新 Tier 2 dialog 端口 (含本 batch 0.13.66 cTitanRepairDlg)
+- 12 个 Tier 1.5 subcontrol 端口 (不变)
+- 2200+ tests milestone crossed (now 2295)
+
+### Known follow-ups
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): MallNoticeDialog (3.1 KB, **blocked on cTabDialog** — defer) / MugongSuryunDialog (2.9 KB, **blocked on cTabDialog** — defer) / **PartyDlg / 其它无 cTabDialog 依赖 dialog**
+
+### Important Fixup in 0.13.66 batch
+
+- cWindow::WindowEvent 没 CloseWindow 枚举值 (cWindow.hpp line 32 note: "the full legacy enum is added in 6.1.x")。modern port 用本地 constexpr std::uint32_t kWeCloseWindow = 1u 匹配 legacy WE_CLOSEWINDOW=1 (per cWindowDef.h enum WINDOW_EVENT)。生产代码 Phase 6.1.x 加 CloseWindow 后切换到 cWindow::WindowEvent。
+- TITAN_REPAIR_PART switch 缺 reak 导致 fall-through 到 TITAN_REPAIR_ALL block — legacy 1:1 quirk，modern port 用 sequential if (no break) preserve。
+- cDialog::SetActive(bool) noexcept virtual 是 R-12 fix, override 必须 
+oexcept (MSVC C2694 强制) — 跟 cTitanGuageDlg/cSkillOptionClearDlg 同样。
+- cWindow::WindowEvent 是 enum class，**不能用 bit field 跟 legacy we & 1 等同**。每个 1:1 quirk 必须单独 static_cast<std::uint32_t>(...) 或 local constexpr。
 ## [0.13.65] - 2026-07-18
 
 ### Phase 6.16 cSkillOptionClearDlg Tier 2 dialog port (self-verified by mavis root session)
