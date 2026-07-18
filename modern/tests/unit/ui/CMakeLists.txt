@@ -75,6 +75,7 @@ add_executable(mxh_ui_tests
     titanmixprogressbardlg_test.cpp
     titanpartsprogressbardlg_test.cpp
     uniqueitemmixprogressbardlg_test.cpp
+    titanrecalldlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1423,4 +1424,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CUniqueItemMixProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
     CUniqueItemMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CUniqueItemMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
+    # P2-12 Tier 2 dialog: cTitanRecallDlg (titan recall progress bar)
+    CTitanRecallDlgTest.CtorDoesNotCrash
+    CTitanRecallDlgTest.DtorDoesNotCrash
+    CTitanRecallDlgTest.InheritsFromCProgressBarDlg
+    CTitanRecallDlgTest.DefaultSuccessRecallIsFalse
+    CTitanRecallDlgTest.IdConstantsMatchExpectedLocalRange
+    CTitanRecallDlgTest.BaseSuccessTimeIs7000
+    CTitanRecallDlgTest.LinkingResolvesProgressGuagen
+    CTitanRecallDlgTest.LinkingResolvesRemaintimeStatic
+    CTitanRecallDlgTest.LinkingSetsSuccessTime
+    CTitanRecallDlgTest.LinkingBeforeInitDoesNotCrash
+    CTitanRecallDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CTitanRecallDlgTest.OnActionEventReturnsTrue
+    CTitanRecallDlgTest.OnActionEventBeforeInitIsSafe
+    CTitanRecallDlgTest.RenderIsNoOp
+    CTitanRecallDlgTest.RenderBeforeInitDoesNotCrash
+    CTitanRecallDlgTest.SetSuccessRecallToggles
 )
