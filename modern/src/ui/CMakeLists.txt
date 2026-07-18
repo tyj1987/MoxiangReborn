@@ -80,6 +80,7 @@ add_library(mxh_ui STATIC
     titanrecalldlg.cpp
     guildnotedlg.cpp
     pointsavedialog.cpp
+    survivalcountdialog.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp

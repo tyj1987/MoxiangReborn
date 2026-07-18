@@ -78,6 +78,7 @@ add_executable(mxh_ui_tests
     titanrecalldlg_test.cpp
     guildnotedlg_test.cpp
     pointsavedialog_test.cpp
+    survivalcountdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1483,4 +1484,32 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPointSaveDialogTest.SetDialogStatusToggles
     CPointSaveDialogTest.ChangePointNameIsNoOp
     CPointSaveDialogTest.CancelPointNameIsNoOp
+    # P2-12 Tier 2 dialog: cSurvivalCountDialog (survival-mode alive counter)
+    CSurvivalCountDialogTest.CtorDoesNotCrash
+    CSurvivalCountDialogTest.DtorDoesNotCrash
+    CSurvivalCountDialogTest.InheritsFromCDialog
+    CSurvivalCountDialogTest.IdConstantsMatchExpectedLocalRange
+    CSurvivalCountDialogTest.IdConstantsAreUnique
+    CSurvivalCountDialogTest.SurvivalDefaultNamePlaceholder
+    CSurvivalCountDialogTest.MaxCounterNumberIs99
+    CSurvivalCountDialogTest.LinkingResolvesCounterNum
+    CSurvivalCountDialogTest.LinkingResolvesWinnerName
+    CSurvivalCountDialogTest.LinkingSetsCounterToZero
+    CSurvivalCountDialogTest.LinkingSetsWinnerName
+    CSurvivalCountDialogTest.LinkingBeforeInitDoesNotCrash
+    CSurvivalCountDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CSurvivalCountDialogTest.InitSurvivalCountDlgDeactivates
+    CSurvivalCountDialogTest.InitSurvivalCountDlgBeforeInitIsSafe
+    CSurvivalCountDialogTest.SetCounterNumberZero
+    CSurvivalCountDialogTest.SetCounterNumberNine
+    CSurvivalCountDialogTest.SetCounterNumberTen
+    CSurvivalCountDialogTest.SetCounterNumberTwenty
+    CSurvivalCountDialogTest.SetCounterNumberNinetyNine
+    CSurvivalCountDialogTest.SetCounterNumberOver99
+    CSurvivalCountDialogTest.SetCounterNumberOverwritesPrevious
+    CSurvivalCountDialogTest.SetCounterNumberWithoutLinkingIsSafe
+    CSurvivalCountDialogTest.SetWinnerNameUpdatesText
+    CSurvivalCountDialogTest.SetWinnerNameWithNullFallsBack
+    CSurvivalCountDialogTest.SetWinnerNameOverwritesPrevious
+    CSurvivalCountDialogTest.SetWinnerNameWithoutLinkingIsSafe
 )
