@@ -83,6 +83,7 @@ add_executable(mxh_ui_tests
     shoutchatdialog_test.cpp
     guildlevelupdialog_test.cpp
     mnchanneldialog_test.cpp
+    fortwartimedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1617,4 +1618,28 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMNChannelDialog.SetChannelModeActivatesSelectedList
     CMNChannelDialog.SetChannelModeRejectsOutOfRange
     CMNChannelDialog.SetChannelModeSwitchesMode
+    # P2-12 Tier 2 dialogs: CFWEngraveDialog + CFWTimeDialog (FortWar)
+    CFWEngraveDialog.DefaultProcessTimeIsZero
+    CFWEngraveDialog.ChildrenNullBeforeLinking
+    CFWEngraveDialog.LinkingMaterializesBothChildren
+    CFWEngraveDialog.LinkingSetsChildIds
+    CFWEngraveDialog.LinkingIdempotent
+    CFWEngraveDialog.SetActiveWithTimeTrueStoresProcessTime
+    CFWEngraveDialog.SetActiveWithTimeFalseResetsState
+    CFWEngraveDialog.SetActiveWithTimeTrueThenTrue
+    CFWEngraveDialog.ActionEventOnDisabledDialogReturnsZero
+    CFWEngraveDialog.ActionEventOnEnabledDialogDelegatesToBase
+    CFWEngraveDialog.OnActionEventIsNoOp
+    CFWTimeDialog.DefaultWarTimeIsZero
+    CFWTimeDialog.ChildrenNullBeforeLinking
+    CFWTimeDialog.LinkingMaterializesBothStatics
+    CFWTimeDialog.LinkingSetsChildIds
+    CFWTimeDialog.SetActiveWithTimeNameTrueStoresWarTime
+    CFWTimeDialog.SetActiveWithTimeNameFalseClearsName
+    CFWTimeDialog.SetActiveWithTimeNameNullNameIsNoOpForText
+    CFWTimeDialog.SetCharacterNameUpdatesText
+    CFWTimeDialog.SetCharacterNameNullIsDefensiveNoOp
+    CFWTimeDialog.SetCharacterNameBeforeLinkingIsNoOp
+    CFWTimeDialog.ActionEventOnDisabledDialogReturnsZero
+    CFWTimeDialog.ActionEventOnEnabledDialogDoesNotCrash
 )
