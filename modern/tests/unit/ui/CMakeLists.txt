@@ -90,6 +90,7 @@ add_executable(mxh_ui_tests
     cspin_test.cpp
     moneydlg_test.cpp
     petstateminidlg_test.cpp
+    guagedialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1715,4 +1716,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPetStateMiniDlg.OnActionEventUseRestBtnWithNoPetIsNoOp
     CPetStateMiniDlg.OnActionEventUnknownIdIsNoOp
     CPetStateMiniDlg.OnActionEventBeforeLinkingIsSafe
+    # P2-12 Tier 2 dialog: cGuageDialog (mussang guage UI)
+    CGuageDialog.IdConstantsMatchLocalRange
+    CGuageDialog.DefaultConstructionHasNullPointersAndFalseFlags
+    CGuageDialog.LinkingMaterializesMussangButtonAndFlicker
+    CGuageDialog.LinkingDisablesMussangButtonByDefault
+    CGuageDialog.LinkingFlickerStartsInactive
+    CGuageDialog.LinkingIdempotent
+    CGuageDialog.DisableMussangBtnTrueSetsHalfColor
+    CGuageDialog.DisableMussangBtnFalseSetsFullColor
+    CGuageDialog.DisableMussangBtnToggleRoundTrip
+    CGuageDialog.OnActionEventNonBtnClickIsNoOp
+    CGuageDialog.OnActionEventMussangBtnIsNoOpWhenHeroInvalid
+    CGuageDialog.OnActionEventUnknownIdIsNoOp
+    CGuageDialog.SetFlickerTrueActivatesFlicker
+    CGuageDialog.SetFlickerFalseDeactivatesFlicker
+    CGuageDialog.FlickerNoSwapWhenBelowThreshold
+    CGuageDialog.FlickerSwapsAfterThreshold
+    CGuageDialog.FlickerDoubleSwapTogglesBackToFalse
+    CGuageDialog.FlickerNoOpWhenInactive
 )
