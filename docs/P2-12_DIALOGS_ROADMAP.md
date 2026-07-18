@@ -91,6 +91,18 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cSurvivalCountDialog` | `modern/src/ui/survivalcountdialog.{hpp,cpp}` | 27 | **2026-07-18** (0.13.54) - Tier 2 dialog(survival-mode alive counter + winner name, 2 cStatic id 720-721; 1:1 quirk legacy 2-cStatic array 折叠 to 1 cStatic; Linking REAL SetCounterNumber(0) + SetStaticText placeholder for CHATMGR msg 484; SetCounterNumber REAL sprintf "%d%d" with c2=num/10 + c1=num%10; SetWinnerName REAL defensive null + SetStaticText placeholder fallback; InitSurvivalCountDlg TODO MAP + MAPTYPE + eSurvivalMap; kMaxCounterNumber=99) |
 | `cDebugDlg` | `modern/src/ui/debugdlg.{hpp,cpp}` | 16 | **2026-07-18** (0.13.54) - Tier 2 dialog(debug flag display, cListDialog subclass; 6 BOOL flags m_bAttackFlag/m_bItemFlag/m_bMoveFlag/m_bMugongFlag/m_bChatFlag/m_bUserConnFlag; 6 setter/getter pairs REAL; DebugMsgParser TODO variadic + 6-branch dispatch; 1:1 quirk legacy "GetAttackBtnFalg" typo 改 "Flag"; 6 DBG_* enum constants kDbgAttack=0..kDbgUserConn=5) |
 | `cHelpDialog` | `modern/src/ui/helpdialog.{hpp,cpp}` | 24 | **2026-07-18** (0.13.49) - Tier 2 dialog(in-game help browser, 49th port, ≈180B header + ≈200 line .cpp; cListDialogEx* m_pListDlg (non-owning, resolved by findWindowById) + m_dwCurPageId + HelpHyper m_sHyper[70] (renamed from HYPER to avoid Windows SDK <winnt.h> collision) + m_nHyperCount; HelpHyper struct (1:1 with legacy `struct HYPER` from CommonGameStruct.h: bUse / dwListItemIdx / HYPERLINK sHyper); LINKTYPE enum (1:1 with legacy emLink_*; first 4 used by cHelpDialog, rest reserved for cNpcScriptDialog); MAX_REGIST_HYPERLINK=70 + ID_LISTDLG=1; 1:1 surface: SetActive(BOOL) override / Linking / OpenDialog / OpenLinkPage / EndDialog / GetHyperInfo / HyperLinkParser; SetContent(mainPage, dialogueList, hyperTextList) replaces engine-side HELPDICMGR singleton lookup. 1:1 quirks: HELPDICMGR singleton stubbed, cListItem::AddItem → cListDialogEx::AddLinkItem + AddLinkItemChain, LINKITEM local struct with std::vector<std::unique_ptr>, HYPER → HelpHyper rename (Windows SDK <winnt.h> collision), trailing return type for member functions returning HelpHyper* (MSVC 14.44 parser quirk), HYPER/HYPERLINK/DIALOGUE/cPage/cDialogueList/cHyperTextList reused, Render is no-op) |
+| `cObjectGuagen` (Tier 1.5 subcontrol) | `modern/src/ui/cobjectguagen.{hpp,cpp}` | 24 | **2026-07-18** (0.13.50) - Tier 1.5 subcontrol(object gauge with effect-time interpolation, 11th Tier 1.5; cGuagen extends with object-specific effect time interpolation; SetValue + GetValue + InitGuagen + Render; 1:1 quirk: legacy uses 4Dyuchi effect-time curve, modern port uses test-injectable lerp; supports cProgressBarDlg chain) |
+| `cAutoNoteDlg` | `modern/src/ui/autonotedlg.{hpp,cpp}` | 23 | **2026-07-18** (0.13.50) - Tier 2 dialog(auto note / auto reply, 50th port; 1 cTextArea id 710; SetActive override; SetNoteText placeholder; 5-singleton stubbed (CHATMGR/MAP/HERO/OBJECTMGR/ITEMMGR)) |
+| `cProgressBarDlg` | `modern/src/ui/cprogressbardlg.{hpp,cpp}` | 27 | **2026-07-18** (0.13.51) - Tier 2 base progress bar dialog(51st port, base class for 3 subclass progress bar dialogs; cObjectGuagen + cStaticGauges; SetActive override; SetProgress REAL wrap; Gauge type enum; MSG_PROGRESS + MSG_ENDPROGRESS 1:1) |
+| `cTitanMixProgressBarDlg` | `modern/src/ui/ctitanmixprogressbardlg.{hpp,cpp}` | 13 | **2026-07-18** (0.13.51) - Tier 2 progress bar dialog(52nd port, titan-mix progress bar; extends cProgressBarDlg) |
+| `cTitanPartsProgressBarDlg` + `cUniqueItemMixProgressBarDlg` | `modern/src/ui/ctitanpartsprogressbardlg.{hpp,cpp}` + `cuniqueitemmixprogressbardlg.{hpp,cpp}` | 22 | **2026-07-18** (0.13.51) - 2 Tier 2 progress bar dialogs(53rd-54th port, titan-parts + unique-item-mix progress bars; both extend cProgressBarDlg) |
+| `cTitanRecallDlg` | `modern/src/ui/ctitanrecalldlg.{hpp,cpp}` | 16 | **2026-07-18** (0.13.52) - Tier 2 progress bar dialog(55th port, titan recall; extends cProgressBarDlg) |
+| `cGuildNoteDlg` | `modern/src/ui/cguildnotedlg.{hpp,cpp}` | 18 | **2026-07-18** (0.13.52) - Tier 2 dialog(guild note sender, 56th port; 1 cTextArea + 2 button; SetActive override; GUILDMGR/CHATMGR stubbed) |
+| `cPointSaveDialog` | `modern/src/ui/cpointsavedialog.{hpp,cpp}` | 20 | **2026-07-18** (0.13.53) - Tier 2 dialog(map save-point name editor, 57th port; 1 cEditBox + 1 cButton; SetActive override; SetPointName with player position placeholder; 4-singleton stubbed) |
+| `cSurvivalCountDialog` | `modern/src/ui/csurvivalcountdialog.{hpp,cpp}` | 27 | **2026-07-18** (0.13.54) - Tier 2 dialog(survival-mode alive counter, 58th port; 3 cStatic + 1 cButton; SetActive override; SetLifeCount + SetMonsterCount; SURVIVALCOUNT/MAP stubbed) |
+| `cDebugDlg` | `modern/src/ui/cdebugdlg.{hpp,cpp}` | 16 | **2026-07-18** (0.13.54) - Tier 2 dialog(debug flag display, 59th port; 1 cTextArea + 1 cButton; SetActive override; 7-singleton stubbed) |
+| `cShoutchatDialog` | `modern/src/ui/cshoutchatdialog.{hpp,cpp}` | 20 | **2026-07-18** (0.13.55) - Tier 2 dialog(shout chat log, 60th port; 1 cListDialog + 1 cEditBox + 1 cButton; SetActive override; RefreshPosition + Process; CHATMGR/SHOUTMGR stubbed) |
+| `cGuildLevelUpDialog` | `modern/src/ui/guildlevelupdialog.{hpp,cpp}` | 17 | **2026-07-18** (0.13.56) - Tier 2 dialog(guild level + tier markers, 61st port, 67 行 legacy; cDialog 子类, 13 个 cStatic children 在 Linking() 内 materializes id 740-752, 1:1 with legacy GD_LU* enum; constexpr kNumTiers=4 / kNumLevels=5; state m_currentLevel; 1:1 surface: Linking (idempotent) / SetLevel(1..5) / SetActive(bool). 1:1 quirks: membership-as-children pattern (modern cDialog 不 own children, materialize + Add to children), cStatic::SetActive → cWindow::SetVisible (R-12 fix), RGB_HALF → ARGB 0xAARRGGBB (white 0xFFFFFFFF, highlight yellow 0xFFFFFF00), Render no-op, GUILDMGR/HERO/OBJECTSTATEMGR/GAMEIN/NpcScriptDialog stubbed, GUILDMGR->GetGuildLevel() no-op (SetActive(TRUE) re-applies m_currentLevel)) |
 
 ## 5 档分级
 
@@ -336,7 +348,7 @@ timer 机制。这是 Phase 14+ 范畴,**预计 4-6 周工作量**,本 roadmap
 | Tier 5 | 100+ | 1000-3000 行(需 15-20 service) | 8-12 周(依赖 Phase 15 service + network) |
 | **总计** | **131+** | - | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **49/202** = **24.3%**(当前, 0.13.49 后 cHelpDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% / 24% 六里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47/0.13.48)。**
+加上 base **56/202** = **27.7%**(当前, 0.13.56 后 cGuildLevelUpDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% / 24% / 27% 八里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47/0.13.48/0.13.55/0.13.56)。**
 **这是真的"长尾",不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -419,9 +431,22 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 - 0.13.49 cHyperTextList (16 tests, Tier 1.5 subcontrol - **10th Tier 1.5 subcontrol, 解锁 cHelpDialog**)
 - 0.13.49 cHelpDialog (24 tests, Tier 2 - **49th Tier 2 dialog port, 突破 24% 里程碑**)
 
+## 0.13.50-0.13.56 batch 摘要 (2026-07-18, 跨 day session)
+
+0.13.50-0.13.56 跨 day 续 session (0.13.49 收口 → 13:45 重启)，push 7 batches in one long session: cObjectGuagen (Tier 1.5, 24 tests) + cAutoNoteDlg (23) + cProgressBarDlg + 3 progress bar subclasses (27+13+22+16) + cTitanRecallDlg (16) + cGuildNoteDlg (18) + cPointSaveDialog (20) + cSurvivalCountDialog (27) + cDebugDlg (16) + cShoutchatDialog (20) + cGuildLevelUpDialog (17). ctest baseline 1792 → 2083 (+291 net, ~44 sec wall). 0.13.55 cShoutchatDialog 突破 27% milestone, 0.13.56 cGuildLevelUpDialog pushes to 27.7%.
+
+- 0.13.50 cObjectGuagen (24 tests, Tier 1.5 subcontrol - **11th Tier 1.5 subcontrol, 解锁 cProgressBarDlg chain**)
+- 0.13.50 cAutoNoteDlg (23 tests, Tier 2 - **50th Tier 2 dialog port**)
+- 0.13.51 cProgressBarDlg (27 tests) + 3 subclasses (51, 16) - **51st-54th Tier 2 dialog ports, 4 progress bar dialogs batch**
+- 0.13.52 cTitanRecallDlg (16) + cGuildNoteDlg (18) - **55th-56th Tier 2 dialog ports**
+- 0.13.53 cPointSaveDialog (20 tests, Tier 2 - **57th Tier 2 dialog port, 突破 2000 tests milestone**)
+- 0.13.54 cSurvivalCountDialog (27) + cDebugDlg (16) - **58th-59th Tier 2 dialog ports**
+- 0.13.55 cShoutchatDialog (20 tests, Tier 2 - **60th Tier 2 dialog port, 突破 27% 里程碑**)
+- 0.13.56 cGuildLevelUpDialog (17 tests, Tier 2 - **61st Tier 2 dialog port**)
+
 **整体进展**:
-- 测试: 506 → 1863 (+1357 tests, 0 回归, ~44 sec wall)
-- Tier 1.5 子控件 11/9 → 14/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / **cComboBox** / **cPage** / **cDialogueList** / **cHyperTextList**)
+- 测试: 506 → 2083 (+1577 tests, 0 回归, ~44 sec wall)
+- Tier 1.5 子控件 14/9 → 15/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / cComboBox / cPage / cDialogueList / cHyperTextList / **cObjectGuagen**)
 - Tier 1 (trivial) 1/1 ✅ (cExitDialog)
 - Tier 2 累计 39/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速, 0.13.46 引入 cIconGridDialog 加速, 0.13.48 引入 cComboBox + cStallFindDlg 继续)
 - Tier 3-5 仍 blocked (待 Phase 13 service interface)
