@@ -91,6 +91,7 @@ add_executable(mxh_ui_tests
     moneydlg_test.cpp
     petstateminidlg_test.cpp
     guagedialog_test.cpp
+    munpamarkdialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1735,4 +1736,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuageDialog.FlickerSwapsAfterThreshold
     CGuageDialog.FlickerDoubleSwapTogglesBackToFalse
     CGuageDialog.FlickerNoOpWhenInactive
+    # P2-12 Tier 2 dialog: cMunpaMarkDialog (guild mark UI)
+    CMunpaMarkDialog.DefaultConstructionHasNullMark
+    CMunpaMarkDialog.InitStoresDimensions
+    CMunpaMarkDialog.InitDoesNotAssignMunpamark
+    CMunpaMarkDialog.SetMunpaMarkReturnsFalseWhenManagerReturnsNull
+    CMunpaMarkDialog.SetMunpaMarkReturnsTrueWhenMarkInjected
+    CMunpaMarkDialog.SetMunpaMarkOverridesPrevious
+    CMunpaMarkDialog.RenderWithoutMarkIsSafe
+    CMunpaMarkDialog.RenderWithMarkCallsMunpamarkRender
+    CMunpaMarkDialog.RenderMultipleCallsInvokeMarkEachTime
+    CMunpaMarkDialog.RenderThenClearMarkSkipsMark
+    CMunpaMarkDialog.InitDefaultIdIsZero
 )

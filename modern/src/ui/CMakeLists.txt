@@ -95,6 +95,7 @@ add_library(mxh_ui STATIC
     moneydlg.cpp
     petstateminidlg.cpp
     guagedialog.cpp
+    munpamarkdialog.cpp
 )
 
 if(WIN32)
