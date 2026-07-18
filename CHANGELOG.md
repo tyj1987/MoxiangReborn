@@ -1,4 +1,44 @@
-﻿# Changelog — Moxian-Reborn
+# Changelog — Moxian-Reborn
+
+## [0.13.65] - 2026-07-18
+
+### Phase 6.16 cSkillOptionClearDlg Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.64 收口 cTitanGuageDlg (32.2%, 续推 33% 里程碑). 本 session 续 0.13.65: cSkillOptionClearDlg (skill option clear dialog, cIconDialog subclass + 1 inner cIconDialog m_pMugongIconDlg, FakeMoveIcon + OnActionEvent + SetActive + SetItem + OptionClearSyn). 1:1 quirks 完整保留: legacy OnActionEvnet (typo) → modern OnActionEvent (跟 cGuildNoticeDlg/cUnionNoteDlg 同样 pattern), m_ClearOption 声明但未用 → modern port omit (跟 cTitanGuageDlg::m_pMpPercent 同样), ctor 不 init m_ItemPos → modern port default-init 0, legacy cIcon* temp; 声明但未用 → modern port omit, FakeMoveIcon 永远 return FALSE even on success path, we & WE_BTNCLICK (64) → we == WindowEvent::LButtonClick (4) per R-12, MSG_WORD4 → inline struct MsgWord4 (跟 TitanCalcStats 同样 pattern), HEROID stubbed 0u, NETWORK stubbed (记录 lastSentMessage test access), T_DefaultICON/T_DefaultOKBTN/T_DefaultCANCERBTN → local kMugongIconId/kOkBtnId/kCancelBtnId (2000-2002), CMugongBase + CItem forward decl 1:1 stubs, eSkillOption_None / MBI_SKILLOPTIONCLEAR_NACK / MBI_SKILLOPTIONCLEAR_ACK / MBT_OK / MBT_YESNO / MP_MUGONG / MP_MUGONG_OPTION_CLEAR_SYN 都保留为 constants, SetActive override 
+oexcept (R-12 fix), 5-singleton 全部 stubbed no-op per Phase 6 pattern (NETWORK/ITEMMGR/WINDOWMGR/CHATMGR/OBJECTMGR). 25 tests PASS, no regressions. P2-12 66/202 = 32.7% (续推 33% 里程碑).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session mvs_296164aca56644428c53affeab6bd00a 自主写. Verifier session ID 同上 (self-verify). 证据: cSkillOptionClearDlg 25/25 ctest PASS (ctest -C Debug -R "^CSkillOptionClearDlgTest\." 2.13 sec wall); 全栈 ctest 2243 → 2268 PASS (+25 net, 0 回归, j 4 timeout 30 sec). 重跑命令: cmake --build modern/build --config Debug (full build) + ctest -C Debug --timeout 30 -j 4.
+
+### Added
+
+- modern/src/ui/skilloptioncleardlg.{hpp,cpp} (新建, 25 tests): 1:1 port of legacy CSkillOptionClearDlg from 墨香【源码】\[Client]MH\SkillOptionClearDlg.{h,cpp}
+  - cSkillOptionClearDlg: cIconDialog subclass (跟 cMPRegistDialog 同样 pattern) + 1 inner cIconDialog m_pMugongIconDlg resolved by id + 2 state field m_ItemPos (WORD) + inline MsgWord4 struct + inline CItem/CMugongBase 1:1 stubs
+  - 1:1 surface: Linking + SetActive(val) override + FakeMoveIcon + OnActionEvent + SetItem + OptionClearSyn
+  - 1:1 quirks: OnActionEvnet typo 修正, m_ClearOption omit, ctor 不 init m_ItemPos → 0, cIcon* temp; omit, FakeMoveIcon 永远 return FALSE, we & WE_BTNCLICK → WindowEvent::LButtonClick (R-12), MSG_WORD4 → MsgWord4, CMugongBase + CItem forward decl 1:1 stubs, SetActive override 
+oexcept
+  - 5-singleton 全部 stubbed no-op, 7 protocol/chatmsg constants 保留
+  - 3 test accessor + 9 test-injectable
+- modern/tests/unit/ui/skilloptioncleardlg_test.cpp (新建, 25 用例 PASS): 4 ctor/constants + 4 Linking + 4 FakeMoveIcon + 5 OnActionEvent + 3 SetActive + 5 SetItem/OptionClearSyn
+- modern/src/ui/CMakeLists.txt + modern/tests/unit/ui/CMakeLists.txt (改): 加 skilloptioncleardlg.cpp + 25 gtest entry
+
+### Progress
+
+- P2-12: 66/202 = **32.7%** (5 base + 61 dialog + 12 subcontrol Tier 1.5; **续推 33% 里程碑**)
+- ctest: 2268/2268 PASS (was 2243, +25 cSkillOptionClearDlg, 0 回归)
+- 44 个新 Tier 2 dialog 端口 (含本 batch 0.13.65 cSkillOptionClearDlg)
+- 12 个 Tier 1.5 subcontrol 端口 (不变)
+- 2200+ tests milestone crossed (now 2268)
+
+### Known follow-ups
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): TitanRepairDlg (2.8 KB, 6 singleton 复杂) / MallNoticeDialog (3.1 KB, **blocked on cTabDialog** — defer) / MugongSuryunDialog (2.9 KB, **blocked on cTabDialog** — defer)
+
+### Important Fixup in 0.13.65 batch
+
+- cIconDialog 没 cIcon.hpp 头文件, skilloptioncleardlg.cpp 不 include cIcon.hpp (跟 mpregistdialog.cpp 同样 forward decl 模式, cIcon forward decl 在 cIconDialog.hpp 已经够用).
+- OnActionEvent 用 cWindow::WindowEvent::LButtonClick (4) 替代 legacy we & WE_BTNCLICK (64), per R-12 fix (跟 cPetStateMiniDlg/cCharStateDialog 同样 pattern).
+- cDialog::SetActive(bool) noexcept virtual 是 R-12 fix, override 必须 
+oexcept (MSVC C2694 强制).
 
 > All notable changes to the Moxian-Reborn modernization project.
 > Format: [Keep a Changelog](https://keepachangelog.com/)
