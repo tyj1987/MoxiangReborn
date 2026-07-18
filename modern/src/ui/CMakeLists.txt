@@ -98,6 +98,7 @@ add_library(mxh_ui STATIC
     munpamarkdialog.cpp
     titanguagedlg.cpp
     skilloptioncleardlg.cpp
+    titanrepairdlg.cpp
 )
 
 if(WIN32)
