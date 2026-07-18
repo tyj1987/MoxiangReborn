@@ -162,7 +162,9 @@ TEST(CMoneyDlg, ShowOverwritesPreviousState) {
 TEST(CMoneyDlg, OkPushedReadsSpinValue) {
     auto d = MakeDialog();
     d->Linking();
-    d->spin()->SetValue(500);
+    // 1:1 quirk: cSpin default m_maxValue = 100 (legacy behavior).
+    // SetValue(50) is within range; OkPushed delivers 50 to the callback.
+    d->spin()->SetValue(50);
     std::uint32_t receivedMoney = 0;
     std::uint32_t receivedParam = 0;
     auto msg = MakeSampleMsg();
@@ -173,7 +175,7 @@ TEST(CMoneyDlg, OkPushedReadsSpinValue) {
                 return true;
             });
     d->OkPushed();
-    EXPECT_EQ(receivedMoney, 500u);
+    EXPECT_EQ(receivedMoney, 50u);
     EXPECT_EQ(receivedParam, 42u);
 }
 

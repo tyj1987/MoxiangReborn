@@ -79,6 +79,11 @@ public:
     // Test accessors.
     int  msgLen() const noexcept   { return m_MsgLen; }
     std::uint32_t param() const noexcept { return m_dwParam; }
+    // 1:1 quirk: cSpin is mutable (cMoneyDlg needs to set its value in
+    // OkPushed via m_pSpin->GetValue()). The accessor is non-const so
+    // tests can also call SetValue / SetMin / SetMax. For const-safe
+    // read-only access, use the const overload below.
+    cSpin* spin() noexcept { return m_pSpin.get(); }
     const cSpin* spin() const noexcept { return m_pSpin.get(); }
     bool hasCallback() const noexcept { return static_cast<bool>(m_OnPushFunc); }
     const std::vector<std::uint8_t>& savedMsg() const noexcept { return m_SavedMsg; }
