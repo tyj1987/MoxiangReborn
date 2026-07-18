@@ -604,7 +604,7 @@ Phase 12: 持续迭代 ✅
 | R-9 matrix D3DX row-major audit | ✅ done (12.x 0.13.12 + 0.13.21) | MatrixLookAtLH/OrthographicLH layout fix + 7 new tests (off-axis eye) + **R-9.x drawBox 3D upgrade** (V3D vertex struct + 3D VS shader + 3D input layout + 6 shader compile/reflect tests) |
 | Phase 13 service interfaces | ✅ done (12.x 0.13.12 + 0.13.14) | 3 header-only interfaces + 3 real impls (InventoryServiceImpl/PlayerStatsServiceImpl/SkillServiceImpl backed by ItemTotalInfo/PlayerCombatStats/vector<LearnedSkill>) + 11 mock + 15 real contract tests |
 | Drag-drop rendering wiring | ⏳ future | cIcon sprite + dispatch (data model is 6.11) |
-| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (63/202 = 31.2% done: 5 base+58 dialog+12 subcontrol; **P2-12 突破 10% + 15% + 20% + 21% + 22% + 23% + 24% + 27% + 29% + 30% + 31% 十一里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred + 0.13.59 cSpin 12th Tier 1.5 subcontrol 解锁 MoneyDlg/PetStateMiniDlg 等 + 0.13.60 cMoneyDlg 56th Tier 2 dialog 跨 30% 里程碑 + 0.13.61 cPetStateMiniDlg 57th Tier 2 dialog + 0.13.62 cGuageDialog 58th Tier 2 dialog 跨 31% 里程碑) |
+| 194 个 legacy 对话框（Guild*/Inventory*）| ⏳ future | 1:1 端口 (64/202 = 31.7% done: 5 base+59 dialog+12 subcontrol; **P2-12 突破 10% + 15% + 20% + 21% + 22% + 23% + 24% + 27% + 29% + 30% + 31% 十一里程碑**; **P2-12 roadmap** 在 `docs/P2-12_DIALOGS_ROADMAP.md` + **R-9** 矩阵 audit 跟 drawBox deferred + 0.13.59 cSpin 12th Tier 1.5 subcontrol 解锁 MoneyDlg/PetStateMiniDlg 等 + 0.13.60 cMoneyDlg 56th Tier 2 dialog 跨 30% 里程碑 + 0.13.61 cPetStateMiniDlg 57th Tier 2 dialog + 0.13.62 cGuageDialog 58th Tier 2 dialog 跨 31% 里程碑 + 0.13.63 cMunpaMarkDialog 59th Tier 2 dialog) |
 
 **测试统计 (Debug, 2026-07-09 Phase 6 v2 wrap-up)**：
 | 套件 | 数量 | 内容 |

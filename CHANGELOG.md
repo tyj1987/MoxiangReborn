@@ -4,6 +4,40 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.63] - 2026-07-18
+
+### Phase 6.16 cMunpaMarkDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.62 收口 cGuageDialog (31.2%, 突破 31% 里程碑)。本 session 续 0.13.63: cMunpaMarkDialog (guild mark UI, 1 state field: 1 CMunpaMark* 1:1 1 child, 1 method Init override (modern port 不 override — base cDialog::Init 已经 1:1), 1 method SetMunpaMark (MUNPAMARKMGR 跨 class 依赖, stubbed no-op), 1 method Render (cDialog::Render + m_pMunpaMark->Render(&m_absPos) 仿 legacy)). 1:1 quirks 完整保留: ctor 1 raw pointer=NULL → modern unique_ptr nullptr 默认, m_type=WT_MUNPAMARKDLG drop (Phase 6 移除字段), Init override 不需要 (base cDialog::Init 6 params 1:1 仿 legacy), CMunpaMark inline class with virtual Render (modern port 1:1 stub for 4Dyuchi 4DyuchiDLL), MUNPAMARKMGR stubbed returns nullptr (mimicking "no mark found"), legacy m_absPos=cPOINT 2-int struct → modern m_absX/m_absY 拆, port synthesise std::int32_t absPos[2]={absX(),absY()} on the fly. 11 tests PASS, no regressions. P2-12 64/202 = 31.7%.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_296164aca56644428c53affeab6bd00a` 自主写. Verifier session ID 同上 (self-verify). 证据: cMunpaMarkDialog 11/11 ctest PASS (`ctest -C Debug -R "^CMunpaMarkDialog\."` 1.75 sec wall); 全栈 ctest 2215 → 2226 PASS (+11 net, 0 回归, 67.34 sec wall). 重跑命令: `cmake --build modern/build --config Debug` (full build) + `ctest -C Debug --timeout 30`.
+
+### Added
+
+- `modern/src/ui/munpamarkdialog.{hpp,cpp}` (新建, 11 tests): 1:1 port of legacy `CMunpaMarkDialog` from `墨香【源码】\[Client]MH\MunpaMarkDialog.{h,cpp}`
+  - cMunpaMarkDialog: 2 method (SetMunpaMark + Render) + 1 state field (m_pMunpaMark) + Init 不 override (base cDialog::Init 1:1)
+  - 1:1 quirks: ctor 1 raw pointer=NULL → modern unique_ptr nullptr 默认, m_type=WT_MUNPAMARKDLG drop (Phase 6 移除字段), Init override 不需要 (base cDialog::Init 6 params 1:1 仿 legacy Init body)
+  - 1:1 quirks: CMunpaMark inline class with virtual Render (modern port 1:1 stub for 4Dyuchi 4DyuchiDLL, host app 可 override vtable by linking a separate translation unit)
+  - 1:1 quirks: MUNPAMARKMGR stubbed returns nullptr (mimicking "no mark found" → SetMunpaMark returns FALSE 1:1)
+  - 1:1 quirks: legacy m_absPos=cPOINT 2-int struct → modern m_absX/m_absY 拆, port synthesise std::int32_t absPos[2]={absX(),absY()} on the fly (passing pointer to local array, same 1:1 contract: "the mark is handed a pointer to the dialog's (x, y) origin")
+  - 1:1 surface: Init 不 override + SetMunpaMark(DWORD MunpaID) (legacy signature) + Render() (cDialog::Render + mark->Render) + 3 test accessor (hasMunpaMark/munpaMark/SetMunpaMarkForTesting)
+- `modern/tests/unit/ui/munpamarkdialog_test.cpp` (新建, 11 用例 PASS): 3 ctor/Init + 3 SetMunpaMark + 4 Render + 1 InitDefaultIdIsZero
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 munpamarkdialog.cpp + 11 gtest entry
+
+### Progress
+
+- P2-12: 64/202 = **31.7%** (5 base + 59 dialog + 12 subcontrol Tier 1.5; 续推 32% 里程碑)
+- ctest: 2226/2226 PASS (was 2215, +11 cMunpaMarkDialog, 0 回归)
+- 42 个新 Tier 2 dialog 端口 (含本 batch 0.13.63 cMunpaMarkDialog)
+- 12 个 Tier 1.5 subcontrol 端口 (不变)
+- 2200+ tests milestone crossed (now 2226)
+
+### Notes
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): NumberPadDialog (3.7 KB, 1 cEditBox + button grid) / SkillOptionClearDlg (3.1 KB, CItem + 6 singleton) / TitanRepairDlg (2.8 KB, 6 singleton)
+- cMunpaMarkDialog 用 1:1 stub pattern: CMunpaMark 在 hpp inline 定义 with virtual Render, test 用 TestMunpaMark extends CMunpaMark override Render 验证 delegation. 跟 cGuageDialog test-injectable clock pattern 一致.
+
+
 ## [0.13.62] - 2026-07-18
 
 ### Phase 6.16 cGuageDialog Tier 2 dialog port (self-verified by mavis root session)
