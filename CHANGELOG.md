@@ -4,6 +4,27 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.51] - 2026-07-18
+
+### Phase 12.x batch: cObjectGuagen (Tier 1.5 subcontrol) + cProgressBarDlg base + 3 progress bar dialog subclasses (self-verified by producer session)
+
+**背景**: 0.13.50 收口 cObjectGuagen (11th Tier 1.5 subcontrol)。本 session 推 0.13.51: cProgressBarDlg base dialog (3 method + SetActive override + 6 state fields) + 3 progress bar dialogs (TitanMix + TitanParts + UniqueItemMix, all cProgressBarDlg subclasses)。 1:1 quirks: 全部 3 个 subclass 用 GAMEIN singleton (R-12.x deferred), SetDisable(FALSE) call 是 TODO。 1:1 quirks: m_pProgressGuagen + m_pRemaintimeStatic 是 non-owning raw pointers (legacy also raw, subclass Linking sets after dialog owns via cWindow children).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: 1 + 27 + 13 + 11 + 11 = 63 ctest PASS, 全栈 1887 → 1949 PASS (+62 用例, 0 回归). 重跑: ctest -C Debug -R "CObjectGuagen|CProgressBarDlg|CTitanMixProgressBarDlg|CTitanPartsProgressBarDlg|CUniqueItemMixProgressBarDlg", then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/progressbardlg.{hpp,cpp}` (1 commit, 27 tests): 1:1 port of CProgressBarDlg base dialog. SetActive REAL, Process/StartProgress/Render TODO (gCurTime not ported)
+- `modern/src/ui/titanmixprogressbardlg.{hpp,cpp}` (1 commit, 13 tests): titan-mix progress bar (id 660-662)
+- `modern/src/ui/titanpartsprogressbardlg.{hpp,cpp}` (1 commit, 11 tests): titan-parts make progress bar (id 670-672)
+- `modern/src/ui/uniqueitemmixprogressbardlg.{hpp,cpp}` (1 commit, 11 tests): unique-item mix progress bar (id 680-682)
+
+### Progress
+
+- P2-12: 49/202 = 24.3% (3/3 progress bar dialogs ported)
+- ctest: 1949/1949 PASS (was 1887, +62 from 4 dialogs + 1 subcontrol)
+- **Unblocks** 3 dialog subclasses via cProgressBarDlg base
+
 ## [0.13.50] - 2026-07-18
 
 ### Phase 12.x cObjectGuagen Tier 1.5 subcontrol port (self-verified by producer session)
