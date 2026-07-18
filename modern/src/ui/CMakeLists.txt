@@ -101,6 +101,7 @@ add_library(mxh_ui STATIC
     titanrepairdlg.cpp
     ctabdialog.cpp
     mallnoticedialog.cpp
+    mugongsuryundialog.cpp
 )
 
 if(WIN32)

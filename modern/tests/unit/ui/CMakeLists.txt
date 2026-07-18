@@ -97,6 +97,7 @@ add_executable(mxh_ui_tests
     titanrepairdlg_test.cpp
     ctabdialog_test.cpp
     mallnoticedialog_test.cpp
+    mugongsuryundialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
