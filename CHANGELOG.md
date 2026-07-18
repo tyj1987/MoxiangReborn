@@ -4,6 +4,34 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.50] - 2026-07-18
+
+### Phase 12.x cObjectGuagen Tier 1.5 subcontrol port (self-verified by producer session)
+
+**背景**: 0.13.49 收口 cHelpDialog chain (24.3%)。本 session 接 cObjectGuagen (11th Tier 1.5 subcontrol) — header 6.5 KB, 3 method (ctor + SetValue + ActionEvent + Render), cGuagen subclass + 11 state fields (m_fGuageEffectPieceWidth / m_fIncAmount / m_dwEffectTime / m_dwStartTime / m_fOldPercentRate / m_fCurPercentRate / m_bBlink / m_dwStartBlinkTime / m_fGuageEffectPieceHeightScaleY + 1 cImage m_GuageEffectPieceImage)。SetValue REAL (clamp val to 1 + interp state with m_fIncAmount calc)。ActionEvent/Render TODO (CMouse + VECTOR2 + cImage::RenderSprite + RGBA_MERGE + gCurTime not ported, R-12.x deferred)。
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cObjectGuagen 24/24 ctest PASS; 全栈 ctest 1863 → 1887 PASS (+24 用例, 0 回归). 重跑: ctest -C Debug -R CObjectGuagen, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/cobjectguagen.{hpp,cpp}` (1 commit, 24 tests): 1:1 port of CObjectGuagen (header 6522B)
+  - SetValue: REAL (clamp val to 1 + interp state with m_fIncAmount calc per legacy `if (m_dwEffectTime) m_fIncAmount = (val - m_fOldPercentRate) / m_dwEffectTime`)
+  - ActionEvent: CMouse TODO; return WE_NULL
+  - Render: VECTOR2 + cImage::RenderSprite + RGBA_MERGE + gCurTime TODO; modern is no-op (calls base cGuagen::Render)
+  - 11 state accessors / setters (1:1 with legacy state fields)
+  - 1:1 quirk: ctor m_type = WT_GUAGENE drop (modern cWindow no m_type)
+  - 1:1 quirk: legacy commented-out blink anim preserved as documented field, not activated
+  - 1:1 quirk: legacy m_dwImageRGB / m_alpha / m_dwOptionAlpha come from cWindow (removed in modern Phase 6; treated as 0 in tests)
+  - GUAGEVAL = float (1:1 with legacy typedef)
+- `modern/tests/unit/ui/cobjectguagen_test.cpp` (新建, 24 用例 PASS): ctor + 5 base + 3 default + 8 SetValue + 2 ActionEvent + 3 Render + 4 setter/getter
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 cobjectguagen.cpp + 24 gtest entry
+
+### Progress
+
+- P2-12 subcontrol Tier 1.5: 11/11 (5 base + 6 subcontrol + 1 cObjectGuagen)
+- ctest: 1887/1887 PASS (was 1863, +24 cObjectGuagen)
+- **Unblocks** 3 progress bar dialogs (CProgressBarDlg / TitanPartsProgressBarDlg / TitanMixProgressBarDlg / UniqueItemMixProgressBarDlg) which all depend on CObjectGuagen
+
 ## [0.13.49] - 2026-07-18
 
 ### Phase 6.16 cHelpDialog Tier 2 dialog port (self-verified by mavis root session)
@@ -266,6 +294,37 @@
   2. cWindow::SetID 不存在 (id 在 Init() 时设, 之后 read-only)
   3. SetPracticeInfo 提前 return `if (!m_PracticeInfo) return;` (1:1 quirk: legacy sprintf target 是 m_PracticeInfo, 不是 m_Fee; test 必须同时插入 m_PracticeInfo + m_Fee children, 不可只插 m_Fee)
   - 第三个坑在跟 cAlertDlg/cMainDialog pattern (memory entry "dialog Add() side-channel pattern") 对比中能看出来
+
+## [0.13.45] - 2026-07-18
+
+### Phase 12.x cAutoNoteDlg Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.44 收口 cUnionNoteDlg (21.8%). 本 session 接 cAutoNoteDlg (45th Tier 2 dialog, 1:1 port) — header 5.1 KB, 4 method (ctor + Linking + OnActionEvent + AddAutoList + SetActiveTestClient), 1 cTextArea (m_pTextAreaManual) + 1 cButton (m_pBtnAsk) + 1 cListDialog (m_pListAuto). Linking REAL (resolve 3 children, SetScriptText with kAutoNoteManualText placeholder for CHATMGR msg 1721, SetTextColor gray). AddAutoList REAL (sprintf "%-16s %s" + AddItem). SetActiveTestClient REAL (SetActive(true) + 35-loop sprintf + AddItem). OnActionEvent TODO (OBJECTMGR + HERO + AUTONOTEMGR + CHATMGR singletons, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cAutoNoteDlg 23/23 ctest PASS; 全栈 ctest 1863/1863 PASS (0 回归). 重跑: ctest -C Debug -R CAutoNoteDlg, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/autonotedlg.{hpp,cpp}` (1 commit, 23 tests): 1:1 port of CAutoNoteDlg (header 5105B)
+  - Linking: REAL (resolve cTextArea id 630 + cButton id 631 + cListDialog id 632, SetScriptText with kAutoNoteManualText placeholder for CHATMGR msg 1721, SetTextColor gray)
+  - OnActionEvent: TODO (OBJECTMGR + HERO + AUTONOTEMGR + CHATMGR singletons, R-12.x deferred)
+  - AddAutoList: REAL (sprintf "%-16s %s" + AddItem to cListDialog with defensive null checks)
+  - SetActiveTestClient: REAL (SetActive(true) + 35-loop sprintf "%d %-16s %s" + AddItem)
+  - 1:1 quirk: ctor m_type = WT_AUTONOTEDLG drop (modern cWindow no m_type)
+  - 1:1 quirk: legacy ctor null-init m_pTextAreaManual/m_pBtnAsk/m_pListAuto via raw pointer assignment; modern uses default member init (= nullptr in header)
+  - 1:1 quirk: legacy dtor calls m_pListAuto->RemoveAll(); modern cListDialog dtor handles cleanup via child chain
+  - 1:1 quirk: legacy SafeStrCpy(day, strDate, 11) truncated strDate to 11 chars; modern snprintf uses bounded buffer (sizeof(buf))
+  - kTestClientLoopCount=35 (1:1 with legacy SetActiveTestClient loop)
+  - kAutoNoteTextColor=0xFF808080 (1:1 with legacy RGB_HALF(128,128,128))
+  - Local id range 630-632 (kIdTextAreaManual=630, kIdBtnAsk=631, kIdListAuto=632)
+- `modern/tests/unit/ui/autonotedlg_test.cpp` (新建, 23 用例 PASS): ctor + 3 id const + 1 placeholder + 1 loop const + 1 color const + Linking x5 + AddAutoList x5 + SetActiveTestClient x3 + OnActionEvent x2
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 autonotedlg.cpp + 23 gtest entry
+
+### Progress
+
+- P2-12: 45/202 = 22.3% (5 base + 45 dialog + 5 subcontrol Tier 1.5; **突破 22% 里程碑**)
+- ctest: 1863/1863 PASS (0 回归)
+- 28 个新 Tier 2 dialog 端口
 
 ## [0.13.44] - 2026-07-17
 
