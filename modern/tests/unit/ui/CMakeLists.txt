@@ -73,6 +73,8 @@ add_executable(mxh_ui_tests
     cobjectguagen_test.cpp
     progressbardlg_test.cpp
     titanmixprogressbardlg_test.cpp
+    titanpartsprogressbardlg_test.cpp
+    uniqueitemmixprogressbardlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1397,4 +1399,28 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CTitanMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
     CTitanMixProgressBarDlgTest.SuccessProcessIsNoOp
+    # P2-12 Tier 2 dialog: cTitanPartsProgressBarDlg (titan-parts make progress)
+    CTitanPartsProgressBarDlgTest.CtorDoesNotCrash
+    CTitanPartsProgressBarDlgTest.DtorDoesNotCrash
+    CTitanPartsProgressBarDlgTest.InheritsFromCProgressBarDlg
+    CTitanPartsProgressBarDlgTest.IdConstantsMatchExpectedLocalRange
+    CTitanPartsProgressBarDlgTest.LinkingResolvesProgressGuagen
+    CTitanPartsProgressBarDlgTest.LinkingResolvesRemaintimeStatic
+    CTitanPartsProgressBarDlgTest.LinkingBeforeInitDoesNotCrash
+    CTitanPartsProgressBarDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CTitanPartsProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
+    CTitanPartsProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
+    CTitanPartsProgressBarDlgTest.OnActionEventBeforeInitIsSafe
+    # P2-12 Tier 2 dialog: cUniqueItemMixProgressBarDlg (unique-item mix progress)
+    CUniqueItemMixProgressBarDlgTest.CtorDoesNotCrash
+    CUniqueItemMixProgressBarDlgTest.DtorDoesNotCrash
+    CUniqueItemMixProgressBarDlgTest.InheritsFromCProgressBarDlg
+    CUniqueItemMixProgressBarDlgTest.IdConstantsMatchExpectedLocalRange
+    CUniqueItemMixProgressBarDlgTest.LinkingResolvesProgressGuagen
+    CUniqueItemMixProgressBarDlgTest.LinkingResolvesRemaintimeStatic
+    CUniqueItemMixProgressBarDlgTest.LinkingBeforeInitDoesNotCrash
+    CUniqueItemMixProgressBarDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CUniqueItemMixProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
+    CUniqueItemMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
+    CUniqueItemMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
 )
