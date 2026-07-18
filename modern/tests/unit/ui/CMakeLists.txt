@@ -71,6 +71,7 @@ add_executable(mxh_ui_tests
     chypertextlist_test.cpp
     helpdialog_test.cpp
     cobjectguagen_test.cpp
+    progressbardlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1353,4 +1354,32 @@ gtest_add_tests(TARGET mxh_ui_tests
     CObjectGuagenTest.SetGuageEffectPieceHeightScaleUpdatesGetter
     CObjectGuagenTest.SetBlinkTogglesState
     CObjectGuagenTest.SetGuageEffectPieceWidthAndHeightScaleCoexist
+    # P2-12 Tier 2 dialog: cProgressBarDlg (base progress bar dialog)
+    CProgressBarDlgTest.CtorDoesNotCrash
+    CProgressBarDlgTest.DtorDoesNotCrash
+    CProgressBarDlgTest.InheritsFromCDialog
+    CProgressBarDlgTest.DefaultStateIsZero
+    CProgressBarDlgTest.SetActiveTrueUpdatesBaseState
+    CProgressBarDlgTest.SetActiveFalseUpdatesBaseState
+    CProgressBarDlgTest.SetActiveFalseResetsStateFields
+    CProgressBarDlgTest.SetActiveFalseResetsGuagenValue
+    CProgressBarDlgTest.SetActiveFalseWithoutGuagenIsSafe
+    CProgressBarDlgTest.SetActiveBeforeInitDoesNotCrash
+    CProgressBarDlgTest.InitProgressResetsState
+    CProgressBarDlgTest.InitProgressSetsActiveFalse
+    CProgressBarDlgTest.StartProgressSetsProgressStart
+    CProgressBarDlgTest.StartProgressSetsActiveTrue
+    CProgressBarDlgTest.StartProgressWithSuccessTime
+    CProgressBarDlgTest.StartProgressWithoutLinkingIsSafe
+    CProgressBarDlgTest.ProcessBeforeStartIsNoOp
+    CProgressBarDlgTest.ProcessAfterStartIsNoOp
+    CProgressBarDlgTest.ProcessBeforeInitIsSafe
+    CProgressBarDlgTest.SetSuccessTimeUpdatesField
+    CProgressBarDlgTest.SetSuccessProgressToggles
+    CProgressBarDlgTest.RenderIsNoOp
+    CProgressBarDlgTest.RenderBeforeInitDoesNotCrash
+    CProgressBarDlgTest.SetProgressGuagenUpdatesGetter
+    CProgressBarDlgTest.SetRemaintimeStaticUpdatesGetter
+    CProgressBarDlgTest.SetProgressGuagenWithNullptr
+    CProgressBarDlgTest.SetRemaintimeStaticWithNullptr
 )
