@@ -69,6 +69,7 @@ add_executable(mxh_ui_tests
     cpage_test.cpp
     cdialoguelist_test.cpp
     chypertextlist_test.cpp
+    helpdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1301,4 +1302,29 @@ gtest_add_tests(TARGET mxh_ui_tests
     CHyperTextList.ManyEntriesPreserveLookup
     CHyperTextList.NonContiguousKeysSupported
     CHyperTextList.NotCopyable
+    # P2-12 Tier 2 dialog: cHelpDialog (in-game help browser)
+    CHelpDialog.DefaultConstructionIsValid
+    CHelpDialog.InheritsDialogTreeManagement
+    CHelpDialog.ConstantsAreStable
+    CHelpDialog.LinkingResolvesListDialog
+    CHelpDialog.SetContentStoresPointers
+    CHelpDialog.OpenDialogWithoutContentReturnsFalse
+    CHelpDialog.OpenDialogWithEmptyContentSucceeds
+    CHelpDialog.OpenDialogPopulatesDialogueRows
+    CHelpDialog.OpenDialogPopulatesHyperRows
+    CHelpDialog.OpenDialogRegistersUpToMaxHyperlinks
+    CHelpDialog.GetHyperInfoReturnsNullWhenEmpty
+    CHelpDialog.GetHyperInfoFindsRegisteredIdx
+    CHelpDialog.GetHyperInfoReturnsNullForUnknownIdx
+    CHelpDialog.EndDialogClearsState
+    CHelpDialog.SetActiveFalseTriggersEndDialog
+    CHelpDialog.OpenLinkPageSwapsContent
+    CHelpDialog.OpenLinkPageWithoutMainPageReturnsFalse
+    CHelpDialog.HyperLinkParserEmLinkEndTriggersEndDialog
+    CHelpDialog.HyperLinkParserWithEmptyIsNoOp
+    CHelpDialog.HyperLinkParserUnknownIdxIsNoOp
+    CHelpDialog.HyperStructInitResetsFields
+    CHelpDialog.GetHyperAtOutOfRangeReturnsNull
+    CHelpDialog.OpenDialogWithoutListDlgIsSafe
+    CHelpDialog.NotCopyable
 )

@@ -74,6 +74,7 @@ add_library(mxh_ui STATIC
     cpage.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
+    helpdialog.cpp
     ime.cpp
 )
 
