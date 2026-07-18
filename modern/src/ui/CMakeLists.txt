@@ -78,6 +78,7 @@ add_library(mxh_ui STATIC
     titanpartsprogressbardlg.cpp
     uniqueitemmixprogressbardlg.cpp
     titanrecalldlg.cpp
+    guildnotedlg.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp

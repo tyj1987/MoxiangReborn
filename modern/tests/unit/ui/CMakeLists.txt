@@ -76,6 +76,7 @@ add_executable(mxh_ui_tests
     titanpartsprogressbardlg_test.cpp
     uniqueitemmixprogressbardlg_test.cpp
     titanrecalldlg_test.cpp
+    guildnotedlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1441,4 +1442,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanRecallDlgTest.RenderIsNoOp
     CTitanRecallDlgTest.RenderBeforeInitDoesNotCrash
     CTitanRecallDlgTest.SetSuccessRecallToggles
+    # P2-12 Tier 2 dialog: cGuildNoteDlg (guild note sender)
+    CGuildNoteDlgTest.CtorDoesNotCrash
+    CGuildNoteDlgTest.DtorDoesNotCrash
+    CGuildNoteDlgTest.InheritsFromCDialog
+    CGuildNoteDlgTest.DefaultBUseIsFalse
+    CGuildNoteDlgTest.IdConstantsMatchExpectedLocalRange
+    CGuildNoteDlgTest.IdConstantsAreUnique
+    CGuildNoteDlgTest.LinkingResolvesNoteText
+    CGuildNoteDlgTest.LinkingDisablesEnterAllow
+    CGuildNoteDlgTest.LinkingBeforeInitDoesNotCrash
+    CGuildNoteDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CGuildNoteDlgTest.ShowWithNullItemIsSafe
+    CGuildNoteDlgTest.ShowWithItemActivatesDialog
+    CGuildNoteDlgTest.ShowBeforeInitDoesNotCrash
+    CGuildNoteDlgTest.UseClearsNoteText
+    CGuildNoteDlgTest.UseClearsBUseFlag
+    CGuildNoteDlgTest.UseWithoutLinkingIsSafe
+    CGuildNoteDlgTest.OnActionEventIsNoOp
+    CGuildNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
 )
