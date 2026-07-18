@@ -4,6 +4,34 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.55] - 2026-07-18
+
+### Phase 12.x cShoutchatDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.54 收口 cSurvivalCountDialog + cDebugDlg (26.7%)。本 session 接 cShoutchatDialog (55th Tier 2 dialog, 1:1 port) — header 4.2 KB, 5 method (ctor + Linking + Process + SetActive + AddMsg + RefreshPosition), 1 cListDialog (m_pMsgListDlg) + m_LastMsgTime state. Linking REAL (resolve cListDialog). AddMsg REAL (strncpy 60-char + AddItem with kShoutchatItemColor 0xFFD9CEF7). SetActive/Process/RefreshPosition TODO (GAMERESRCMNGR + GAMEIN + cChatDialog + gCurTime singletons, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cShoutchatDialog 20/20 ctest PASS; 全栈 ctest 2046 → 2066 PASS (+20 用例, 0 回归). 重跑: ctest -C Debug -R CShoutchatDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/shoutchatdialog.{hpp,cpp}` (1 commit, 20 tests): 1:1 port of CShoutchatDialog (header 4189B)
+  - Linking: REAL (resolve cListDialog id 730, GAMERESRCMNGR + GAMEIN dispatch TODO)
+  - AddMsg: REAL (strncpy 60-char + AddItem with kShoutchatItemColor)
+  - SetActive/Process/RefreshPosition: TODO
+  - 1:1 quirk: ctor m_type = WT_SHOUTCHAT_DLG drop
+  - Local id 730 (kIdMsgList)
+  - kShoutchatItemColor=0xFFD9CEF7 (1:1 with legacy RGBA_MAKE(217,206,247,255))
+  - kMsgThrottleMs=5000 (1:1 with legacy Process 5 sec timer)
+  - kMaxMsgLen=60 (1:1 with legacy strncpy 60)
+- `modern/tests/unit/ui/shoutchatdialog_test.cpp` (新建, 20 用例 PASS): ctor + 4 const + Linking x3 + AddMsg x5 + SetActive x3 + Process + RefreshPosition
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 shoutchatdialog.cpp + 20 gtest entry
+
+### Progress
+
+- P2-12: 55/202 = 27.2% (5 base + 55 dialog + 11 subcontrol Tier 1.5; **突破 27% 里程碑**)
+- ctest: 2066/2066 PASS (was 2046, +20 cShoutchatDialog)
+- 35 个新 Tier 2 dialog 端口
+
 ## [0.13.54] - 2026-07-18
 
 ### Phase 12.x batch: cSurvivalCountDialog + cDebugDlg Tier 2 dialogs (self-verified by producer session)
