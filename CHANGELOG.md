@@ -4,6 +4,48 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.64] - 2026-07-18
+
+### Phase 6.16 cTitanGuageDlg Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.63 收口 cMunpaMarkDialog (31.7%, 续推 32% 里程碑). 本 session 续 0.13.64: cTitanGuageDlg (titan HP guage UI, 2 children: 1 cObjectGuagen HP bar + 1 cStatic HP percent text). 1:1 quirks 完整保留: ctor 0 raw pointer → modern 不需要 (default init), `enum eTitanGuage` defined but unused → modern port omit (无 1:1 fidelity gained), `CObjectGuagen* m_TitanGuage[3]` array 全部 commented out → modern port single member (1:1 quirk preserved), `cStatic* m_pMpPercent` declared but never used → modern port omit, `TITANMGR` global singleton stubbed no-op, `titan_calc_stats*` struct (forward decl, GameResourceStruct.h) replaced by inline struct (MaxFuel / MaxSpell), `static BOOL OnActionEvent` preserved as static method, SetActive override (R-12 fix: override must be noexcept), `SetNaeRyuk` body fully commented out → modern port empty body (1:1 quirk preserved), 1:1 quirk: `TitanCalcStats::MaxFuel == 0` → SetValue(0,0) + " : X/0" text (defensive division-by-zero guard vs legacy NaN). 17 tests PASS, no regressions. P2-12 65/202 = 32.2% (**突破 32% 里程碑**).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_296164aca56644428c53affeab6bd00a` 自主写. Verifier session ID 同上 (self-verify). 证据: cTitanGuageDlg 17/17 ctest PASS (`ctest -C Debug -R "^CTitanGuageDlg\."` 1.17 sec wall); 全栈 ctest 2226 → 2243 PASS (+17 net, 0 回归, j 4 timeout 30 sec). 重跑命令: `cmake --build modern/build --config Debug` (full build) + `ctest -C Debug --timeout 30 -j 4`.
+
+### Added
+
+- `modern/src/ui/titanguagedlg.{hpp,cpp}` (新建, 17 tests): 1:1 port of legacy `CTitanGuageDlg` from `墨香【源码】\[Client]MH\TitanGuageDlg.{h,cpp}`
+  - cTitanGuageDlg: 4 method (Linking + SetActive + SetLife + SetNaeRyuk) + 1 static (OnActionEventStatic) + 2 children (1 cObjectGuagen + 1 cStatic) + inline TitanCalcStats struct
+  - 1:1 quirks: ctor 0 raw pointer (default init), `enum eTitanGuage` defined but unused → omit, `CObjectGuagen* m_TitanGuage[3]` array commented out → single member, `cStatic* m_pMpPercent` declared but never used → omit
+  - 1:1 quirks: `TITANMGR` global singleton stubbed no-op (per Phase 6 pattern, host caller 自己 wire)
+  - 1:1 quirks: `titan_calc_stats*` struct (forward decl, GameResourceStruct.h) replaced by inline `struct TitanCalcStats { MaxFuel / MaxSpell }` (1:1 field layout)
+  - 1:1 quirks: `static BOOL OnActionEvent` preserved as `static bool OnActionEventStatic`
+  - 1:1 quirks: SetActive override is `noexcept` (R-12 fix: virtual SetActive noexcept 强制)
+  - 1:1 quirks: SetNaeRyuk body fully commented out → modern port empty body (1:1 quirk preserved)
+  - 1:1 quirks: `MaxFuel == 0` defensive guard → SetValue(0,0) + " : X/0" text (modern port avoid NaN, legacy would have NaN)
+  - 1:1 surface: Linking() (materialize 2 children) + SetActive(val) override (R-12 + cascade stubbed) + SetLife(dwLife) (compute ratio + SetValue + SetStaticText) + SetNaeRyuk(dwNaeRyuk) (no-op) + OnActionEventStatic(lId, p, we) static
+  - 5 test accessor + 3 test-injectable (SetTitanStatsForTesting / ClearTitanStatsForTesting / GetTitanStatsForTesting)
+- `modern/tests/unit/ui/titanguagedlg_test.cpp` (新建, 17 用例 PASS): 3 ctor/constants + 3 Linking + 5 SetLife + 1 SetNaeRyuk + 3 SetActive + 2 OnActionEventStatic
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 titanguagedlg.cpp + 17 gtest entry
+
+### Progress
+
+- P2-12: 65/202 = **32.2%** (5 base + 60 dialog + 12 subcontrol Tier 1.5; **突破 32% 里程碑**)
+- ctest: 2243/2243 PASS (was 2226, +17 cTitanGuageDlg, 0 回归)
+- 43 个新 Tier 2 dialog 端口 (含本 batch 0.13.64 cTitanGuageDlg)
+- 12 个 Tier 1.5 subcontrol 端口 (不变)
+- 2200+ tests milestone crossed (now 2243)
+
+### Notes
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): SkillOptionClearDlg (3.1 KB, CItem + 6 singleton 复杂) / TitanRepairDlg (2.8 KB, 6 singleton 复杂) / MugongSuryunDialog (2.9 KB, **blocked on cTabDialog** — defer)
+- cTitanGuageDlg 跟 cMunpaMarkDialog 一样用 1:1 stub pattern: inline stub class/struct in hpp, test 用 SetXxxForTesting 注入. SetLife test 用 test-injectable TitanCalcStats (SetTitanStatsForTesting).
+
+### Important Fixup in 0.13.64 batch
+
+- `cObjectGuagen::SetValue` 现代 port 1:1 quirk (clamp val > 1.0 → 1.0) 影响 TitanGuageDlg::SetLife(150/100) 期望值: 1:1 SetValue 不 clamp (legacy), modern clamp to 1.0. **test SetLifeOverMax 期望值调整**: 1.5 → 1.0 (per cObjectGuagen 1:1 quirk), percent text 仍 " : 150/100" (unclamped sprintf).
+
+
 ## [0.13.63] - 2026-07-18
 
 ### Phase 6.16 cMunpaMarkDialog Tier 2 dialog port (self-verified by mavis root session)
