@@ -67,6 +67,7 @@ add_executable(mxh_ui_tests
     ccombobox_test.cpp
     stallfinddlg_test.cpp
     cpage_test.cpp
+    cdialoguelist_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1189,6 +1190,22 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPage.AddNullHyperlinkIsSafe
     CPage.InheritsPageBaseBehavior
     CPage.MultipleHyperlinks
+    # P2-12 Tier 1.5 subcontrol: cDialogueList (NPC dialogue data)
+    CDialogueList.DefaultConstruction
+    CDialogueList.InheritsBaselineApi
+    CDialogueList.ColorSetterRoundTrip
+    CDialogueList.AddLineAppends
+    CDialogueList.GetDialogueReturnsPointer
+    CDialogueList.GetDialogueOutOfRangeReturnsNull
+    CDialogueList.AddLineOutOfRangeIgnored
+    CDialogueList.AddLineCopiesString
+    CDialogueList.AddLineWithNullStringIsSafe
+    CDialogueList.AddLineWithLongStringTruncates
+    CDialogueList.DialogueStructInit
+    CDialogueList.AddLineStoresColorAndLineAndType
+    CDialogueList.AddLineMultipleMsgIdsAreIndependent
+    CDialogueList.AddLineRespectsExplicitLineIndex
+    CDialogueList.MaxDialogueCountIsStable
     CMPGuageDialogTest.SetEventMapTimerWithoutLinkingIsSafe
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog

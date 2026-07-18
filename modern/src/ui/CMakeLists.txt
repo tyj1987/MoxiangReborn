@@ -72,6 +72,7 @@ add_library(mxh_ui STATIC
     ccombobox.cpp
     stallfinddlg.cpp
     cpage.cpp
+    cdialoguelist.cpp
     ime.cpp
 )
 
