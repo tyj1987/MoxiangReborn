@@ -4,6 +4,42 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.61] - 2026-07-18
+
+### Phase 6.16 cPetStateMiniDlg Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.60 收口 cMoneyDlg (30.2%, 跨 30% 里程碑)。本 session 续 0.13.61: cPetStateMiniDlg (pet state UI, 9 children: 4 cStatic + 2 cGuagen + 3 cButton). 1:1 quirks 完整保留: ctor 8 raw pointer = NULL 仿 (modern unique_ptr nullptr 默认), OnActionEvent 3 button 路由 PETMGR 全局 (stubbed no-op, host caller wire), use/rest 按钮检查 GetCurSummonPet()==nullptr early return, link 9 children by PSMN_* id (modern port 选 800-808 local range 避开冲突), 1:1 quirk 仿 legacy `we & WE_BTNCLICK` 用 modern `we == WindowEvent::LButtonClick` 替代. 13 tests PASS, no regressions. P2-12 62/202 = 30.7%.
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_296164aca56644428c53affeab6bd00a` 自主写. Verifier session ID 同上 (self-verify). 证据: cPetStateMiniDlg 13/13 ctest PASS (`ctest -C Debug -R "^CPetStateMiniDlg\."` 2.14 sec wall); 全栈 ctest 2184 → 2197 PASS (+13 net, 0 回归, 63.30 sec wall). 重跑命令: `cmake --build modern/build --config Debug --target mxh_ui mxh_ui_tests` + `ctest -C Debug --timeout 30`.
+
+### Added
+
+- `modern/src/ui/petstateminidlg.{hpp,cpp}` (新建, 13 tests): 1:1 port of legacy `CPetStateMiniDlg` from `墨香【源码】\[Client]MH\PetStateMiniDlg.{h,cpp}`
+  - cPetStateMiniDlg: 2 method (Linking + OnActionEvent) + 9 children (4 cStatic + 2 cGuagen + 3 cButton)
+  - 1:1 quirks: ctor 8 raw pointer=NULL → modern unique_ptr nullptr 默认, OnActionEvent 3 button (kIdUseRestBtn/kIdInvenBtn/kIdToggleBtn) 路由 PETMGR 全局 (stubbed no-op)
+  - 1:1 quirks: use/rest 按钮调 GetCurSummonPet() 检查 nullptr early return 仿 legacy
+  - 1:1 quirks: legacy `we & WE_BTNCLICK` (64) → modern `we == WindowEvent::LButtonClick` (4) 1:1 替代 (modern WindowEvent bit field 是不同的 bit position)
+  - 1:1 quirks: unknown lId silently 忽略 (no `else` branch, no log) preserved
+  - 1:1 quirks: Linking 9 child by PSMN_* id (legacy WindowIDs.h) → modern port 选 800-808 local range 避开冲突
+  - 1:1 surface: Linking() (materialize 9 children idempotent) + OnActionEvent(lId, p, we) (3 button 路由) + 9 read accessor (GetNameTextWin/GetUseRestTextWin/GetFriendShipTextWin/GetStaminaTextWin/GetFriendShipGuage/GetStaminaGuage/GetUseRestButton/GetInvenButton/GetToggleButton)
+- `modern/tests/unit/ui/petstateminidlg_test.cpp` (新建, 13 用例 PASS): 3 ctor/constants + 4 Linking + 6 OnActionEvent
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 petstateminidlg.cpp + 13 gtest entry
+- 修复 0.13.60 batch cMoneyDlg::spin() getter: 加 non-const overload (`cSpin* spin() noexcept` + `const cSpin* spin() const noexcept`) 修 const-correctness, 让 test 可调 SetValue (per 0.13.60 batch 收口时发现的 compile error)
+
+### Progress
+
+- P2-12: 62/202 = **30.7%** (5 base + 57 dialog + 12 subcontrol Tier 1.5; 续推 31% 里程碑)
+- ctest: 2197/2197 PASS (was 2184, +13 cPetStateMiniDlg, 0 回归)
+- 40 个新 Tier 2 dialog 端口 (含本 batch 0.13.61 cPetStateMiniDlg)
+- 12 个 Tier 1.5 subcontrol 端口 (不变)
+
+### Notes
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): MallNoticeDialog (2.1 KB, cEditBox + cButton) / MunpaMarkDialog (1.8 KB, MunpaMarkManager 跨 class 依赖, ~2h) / NumberPadDialog (3.7 KB, 1 cEditBox + button grid) / SkillOptionClearDlg (3.1 KB) / MugongSuryunDialog (2.9 KB) / TitanRepairDlg (2.8 KB)
+- PetStateMiniDlg 依赖 cGuagen 跟 cObjectGuagen (0.13.50 已 ported) 同 cGuagen 父类, 不需要新 subcontrol
+- cMoneyDlg::spin() non-const overload fix 是 1:1 port principle "modern API consistency" vs "test mutation needs" 的冲突解法, 跟 cAlertDlg::m_pOk (non-owning raw) pattern 一致
+
+
 ## [0.13.60] - 2026-07-18
 
 ### Phase 6.16 cMoneyDlg Tier 2 dialog port (self-verified by mavis root session)

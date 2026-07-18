@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-18
-> **状态**:🟢 进行中(61/202 = 30.2% 突破 30% 里程碑, 续推 31%)
+> **状态**:🟢 进行中(62/202 = 30.7% 续推 31%)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（61/202 = 30.2%，0.13.60）
+## 已 Port 列表（62/202 = 30.7%，0.13.61）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -83,6 +83,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cObjectGuagen` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/cobjectguagen.{hpp,cpp}` | 24 | **2026-07-18** (0.13.50) - Tier 1.5 subcontrol(cGuagen subclass with effect-time interpolation, 11th Tier 1.5; m_fGuageEffectPieceWidth / m_fIncAmount / m_dwEffectTime / m_dwStartTime / m_fOldPercentRate / m_fCurPercentRate / m_bBlink / m_dwStartBlinkTime / m_fGuageEffectPieceHeightScaleY + m_GuageEffectPieceImage cImage; SetValue REAL (clamp val to 1 + interp state m_fIncAmount = (val - m_fOldPercentRate) / estTime); ActionEvent/Render TODO (CMouse + VECTOR2 + cImage::RenderSprite + RGBA_MERGE + gCurTime not ported); 1:1 quirks: ctor m_type=WT_GUAGENE drop, commented-out blink anim preserved as documented field, m_dwImageRGB/m_alpha/m_dwOptionAlpha come from cWindow (removed in modern); unblocks 3 progress bar dialogs) |
 | `cSpin` (Tier 1.5 subcontrol) | `modern/src/ui/cspin.{hpp,cpp}` | 25 | **2026-07-18** (0.13.59) - Tier 1.5 subcontrol(numeric spin control, 12th Tier 1.5; cEditBox subclass + 2 cButton children (Up + Down arrows); state m_Unit (default 10) / m_minValue (default 0) / m_maxValue (default 100); 1:1 surface: Init(x, y, wid, hei, basicImage, cb, id) + InitSpin(bufSize, strSize) + GetValue + SetValue + IncUnit + DecUnit + SetUnit/SetMin/SetMax/SetMinMax + AddSpinButton; SPINUNIT=std::uint32_t; 1:1 quirks: ctor m_bCaret=FALSE preserved as SetCaret(false), Init 第 5 参 basicImage 传 2 次 (basic+focus), InitSpin 调 InitEditbox + SetValue(0), SetValue clamp [min,max] + AddComma thousands-separator, IncUnit/DecUnit 仿 legacy `value + m_Unit < value` unsigned overflow check (wrap to max/min), AddSpinButton(unique_ptr<cButton>, SpinButtonKind) 替代 legacy `Add(cWindow*)` 只能接 WT_BUTTON (modern cWindow::Add 接 unique_ptr<cWindow> 不是 raw pointer); unblocks MoneyDlg / PetStateMiniDlg / 等 cSpin-依赖 Tier 2 dialog) |
 | `cMoneyDlg` | `modern/src/ui/moneydlg.{hpp,cpp}` | 18 | **2026-07-18** (0.13.60) - Tier 2 dialog(money-amount picker, 56th port, header 796B + cpp 1175B = 1.9 KB; cDialog subclass + 1 cSpin child (1:1 依赖 0.13.59 cSpin) + 4 state field m_MsgLen / m_SavedMsg (1024 byte) / m_dwParam / m_OnPushFunc; 1:1 surface: Show(pmsg, msglen, dwParam, onPush) + OkPushed() + Linking() (materialize cSpin); 1:1 quirks: ctor m_type=WT_MONEYDIALOG drop, ctor memset(m_SavedMsg, 0, sizeof(1024)) 字面保留 (legacy 1024 byte buffer), OkPushed ASSERT(pSpin) → null guard silent no-op (modern test-friendly), memcpy overflow guard cap at kSavedMsgSize=1024, Show 双 early return (m_MsgLen==0 \|\| pmsg==nullptr) preserved verbatim, NETWORK 单例 stubbed no-op (per Phase 6 pattern, host caller 自己 wire); MoneyCallback = std::function<bool(uint32_t money, uint32_t dwParam)> 替代 legacy `BOOL(*)(DWORD,DWORD)` C-style function pointer; 1:1 quirk: ctor cDialog::Init in cMoneyDlg::Init + dtor virtual override; 6 test accessor (msgLen/param/spin/hasCallback/savedMsg/isActive 继承 cDialog); kIdMoneySpin=0 1:1 with legacy CMI_MONEYSPIN; **56th Tier 2 dialog port, 突破 30% 里程碑**) |
+| `cPetStateMiniDlg` | `modern/src/ui/petstateminidlg.{hpp,cpp}` | 13 | **2026-07-18** (0.13.61) - Tier 2 dialog(pet state mini UI, 57th port, header 1023B + cpp 1571B = 2.5 KB; cDialog subclass + 9 children (4 cStatic + 2 cGuagen + 3 cButton); 1:1 surface: Linking() (materialize 9 children idempotent) + OnActionEvent(lId, p, we) (3 button 路由 PETMGR 全局 stubbed); 1:1 quirks: ctor 8 raw pointer=NULL → modern unique_ptr nullptr 默认, OnActionEvent 3 button (kIdUseRestBtn/kIdInvenBtn/kIdToggleBtn) 路由 PETMGR.TogglePetStateDlg/SendPetRestMsg/OpenPetInvenDlg (stubbed no-op per Phase 6 pattern), use/rest 按钮调 GetCurSummonPet() 检查 nullptr early return 仿 legacy, legacy `we & WE_BTNCLICK` (64) → modern `we == WindowEvent::LButtonClick` (4) 1:1 替代 (modern WindowEvent bit field 不同的 bit position), unknown lId silently 忽略 (no `else` branch, no log) preserved, PSMN_* id (legacy WindowIDs.h) → modern port 选 800-808 local range 避开冲突; 9 read accessor (GetNameTextWin/GetUseRestTextWin/GetFriendShipTextWin/GetStaminaTextWin/GetFriendShipGuage/GetStaminaGuage/GetUseRestButton/GetInvenButton/GetToggleButton); **57th Tier 2 dialog port**) |
 | `cProgressBarDlg` (Tier 2 dialog, base class) | `modern/src/ui/progressbardlg.{hpp,cpp}` | 27 | **2026-07-18** (0.13.51) - Tier 2 dialog(base progress bar dialog, base class for 3 progress bar dialogs; CObjectGuagen (id varies by subclass) + 1 cStatic remaintime + 6 state fields m_bProgressStart/m_bSuccessProgress/m_dwProcessTime/m_dwCurrentTime/m_dwSuccessTime; SetActive override REAL (reset state on val==FALSE + SetValue(0,0) on cObjectGuagen); Process/StartProgress/Render TODO (gCurTime not ported, R-12.x deferred); InitProgress/GetSuccessProgress/SetSuccessProgress/SetSuccessTime REAL; 1:1 quirks: legacy base class doesn't have its own Linking (each subclass does), modern port provides SetProgressGuagen/SetRemaintimeStatic setters for subclass Linking) |
 | `cTitanMixProgressBarDlg` | `modern/src/ui/titanmixprogressbardlg.{hpp,cpp}` | 13 | **2026-07-18** (0.13.51) - Tier 2 dialog(titan-mix progress bar, cProgressBarDlg subclass; 2 children: 1 cObjectGuagen id 660 + 1 cStatic id 661; Linking REAL; OnActionEvent 1 cancel branch InitProgress + GAMEIN->GetTitanMixDlg()->SetDisable(FALSE) TODO; SuccessProcess empty placeholder; 3 local id range 660-662) |
 | `cTitanPartsProgressBarDlg` | `modern/src/ui/titanpartsprogressbardlg.{hpp,cpp}` | 11 | **2026-07-18** (0.13.51) - Tier 2 dialog(titan-parts make progress bar, cProgressBarDlg subclass; 2 children: 1 cObjectGuagen id 670 + 1 cStatic id 671; Linking REAL; OnActionEvent 1 cancel branch InitProgress + GAMEIN->GetTitanPartsMakeDlg()->SetDisable(FALSE) TODO; 3 local id range 670-672) |
@@ -444,6 +445,12 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 0.13.60 接力 0.13.59 (cSpin 收口, 29.7% 跨 29% 里程碑)。本 session 推 1 个 Tier 2 dialog: **cMoneyDlg** (18 tests, 0.13.59 cSpin-依赖解锁)。ctest baseline 2166 → 2184 (+18 net, 0 回归)。cMoneyDlg 是 1:1 port of legacy `CMoneyDlg` from `墨香【源码】\[Client]MH\MoneyDlg.{h,cpp}`，1.9 KB total (header 796B + cpp 1175B), cDialog subclass + 1 cSpin child + 2 method (Show + OkPushed) + 4 state field。**P2-12 突破 30% 里程碑** (61/202 = 30.2%, 距 100% 还有 141 dialog ≈ 3-4 月)。
 
 - 0.13.60 cMoneyDlg (18 tests, Tier 2 dialog - **56th Tier 2 dialog port, 突破 30% 里程碑**)
+
+## 0.13.61 更新摘要 (2026-07-18)
+
+0.13.61 接力 0.13.60 (cMoneyDlg 收口, 30.2% 跨 30% 里程碑)。本 session 推 1 个 Tier 2 dialog: **cPetStateMiniDlg** (13 tests). ctest baseline 2184 → 2197 (+13 net, 0 回归). cPetStateMiniDlg 是 1:1 port of legacy `CPetStateMiniDlg` from `墨香【源码】\[Client]MH\PetStateMiniDlg.{h,cpp}`，2.5 KB total (header 1023B + cpp 1571B), cDialog subclass + 9 children (4 cStatic + 2 cGuagen + 3 cButton). 1:1 quirks: ctor 8 raw pointer=NULL → modern unique_ptr, OnActionEvent 3 button 路由 PETMGR 全局 (stubbed no-op), use/rest 按钮 nullptr 检查 仿 legacy, legacy `we & WE_BTNCLICK` (64) → modern `we == WindowEvent::LButtonClick` (4) 1:1 替代. **P2-12 62/202 = 30.7%** (续推 31% 里程碑)。
+
+- 0.13.61 cPetStateMiniDlg (13 tests, Tier 2 dialog - **57th Tier 2 dialog port**)
 
 ## 0.13.50-0.13.56 batch 摘要 (2026-07-18, 跨 day session)
 
