@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（44/202 = 21.8%）
+## 已 Port 列表（49/202 = 24.3%）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -76,6 +76,10 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cSkinSelectDialog` | `modern/src/ui/skinselectdialog.{hpp,cpp}` | 23 | **2026-07-17** (0.13.47) - Tier 2 dialog(skin-select dialog, 47th port, ~200 行 legacy; 1 cListDialog id 2 (皮肤列表) + 1 cIconDialog id 1 (3-cell 预览); state m_dwSelectIdx (1-based per legacy quirk) / m_dwSkinDelayTime / m_bSkinDelayResult; Linking REAL + SetShowSelect(TRUE); SetActive override (val==FALSE clear list/icon/idx, val==TRUE SkinItemListInfo); ActionEvent override (cDialog::ActionEvent + PtIdxInRow hit-test + on LBTNCLICK populate 3-cell preview); OnActionEvent (WE_CLOSEWINDOW + 3 button id OK/CANCEL/RECOVERY, engine-send stubbed); SkinItemListInfo (GAMERESRCMNGR stubbed 0, color-from-level preserved); engine singletons stubbed (GAMERESRCMNGR/HERO/CHATMGR/OBJECTMGR/ITEMMGR/NETWORK/WINDOWMGR); CItemShow opaque placeholder; constants SKINITEM_LIST_MAX=3 + ID_DLG=0/ID_ITEMVIEW=1/ID_LIST=2/ID_OK=3/ID_CANCEL=4/ID_RECOVERY=5) |
 | `cComboBox` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/ccombobox.{hpp,cpp}` + `clistitem.hpp` | 25 | **2026-07-17** (0.13.48) - Tier 1.5 subcontrol(combo box with dropdown, 7th Tier 1.5; cListItem base class (1:1 with legacy cListItem helper) + ComboItem struct (replaces legacy ITEM); Init(x, y, wid, hei, basicImage, id) + InitComboList(listWid, topImage, topHei, middleImage, middleHei, downImage, downHei, overImage) 4 cImage slots; Add(cPushupBtn) + SetAbsXY + ActionEvent + ListMouseCheck + PtIdxInComboList; SetMargin / GetComboText / SelectComboText / GetCurSelectedIdx / SetCurSelectedIdx / GetOverIdx / SetOverIdx / SetComboTextColor / SetOverImageScale; SetMaxLine FIFO eviction at cap; 1:1 quirks: cListItem composition (not multi-inherit from cWindow + cListItem), cPushupButton + cImage opaque, Render/ActionEvent no-op stub, ComboItem moved to clistitem.hpp (break circular include)) |
 | `cStallFindDlg` | `modern/src/ui/stallfinddlg.{hpp,cpp}` | 44 | **2026-07-17** (0.13.48) - Tier 2 dialog(street-stall item-search dialog, 48th port, ~700 行 legacy; 27+ children: 10 cComboBox (1 main + 9 detail indexed by ITEM_TYPE) + 3 cListDialog (item/class/result) + 7 cPushupButton (2 sell/buy mode + 5 page + 2 type/detail triggers) + 2 cButton (page up/down) + 2 cStatic (name + price) + 1 dlg; state 8 ItemType enum + 2 SearchKind + 16 misc state fields (m_nStallCount / m_arrStallInfo[40] / m_nBasePage / m_nMaxPage / m_nCurrentPage / m_nItemType / m_nItemDetailType / m_nSelected*Idx / m_dwSelectedObjectIndex / m_ptrItemInfo / m_dwPrevTime[5]); Linking REAL (resolve 27 children by id + SetShowSelect(TRUE) on 3 lists + LoadItemList); SetActive override (val==FALSE OnClose / val==TRUE UpdateItemList); ActionEvent (cDialog::ActionEvent + WE_LBTNDBLCLICK → SendItemViewMsg, modern no-op stub for engine side); OnActionEvent (24+ button ids, engine-send + ObjectManager + msgbox stubbed); LoadItemList / UpdateItemList / UpdateStallList / **SortStallList (real shell sort impl)** / SetPage / SetBasePage / CheckDelay / SetStallPriceInfo / SendItemViewMsg; 1:1 quirks: engine singletons stubbed (GameResourceManager/ITEMMGR/CHATMGR/OBJECTMGR/NETWORK/WINDOWMGR/RESRCMGR/MHFile/HERO/GAMEIN/PKMR), m_arrStallInfo opaque, m_ptrItemInfo std::vector, Render no-op, m_dwPrevTime instance state) |
+| `cPage` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/cpage.{hpp,cpp}` | 16 | **2026-07-18** (0.13.49) - Tier 1.5 subcontrol(help-dialog page data model, 8th Tier 1.5; cPageBase (m_dwPageId / m_dialogueIds std::vector / m_nDialogueCount / m_nNextPageId / m_nPrevPageId) + cPage extends cPageBase (m_hyperLinks std::vector / m_nHyperLinkCount); Init / AddDialogue / RemoveAll / GetPageId / GetRandomDialogue (test-injectable counter, deterministic) / Get/SetNextPageId / Get/SetPrevPageId / AddHyperLink / GetHyperLinkCount / GetHyperText. HYPERLINK struct stub (1:1 with legacy CommonGameStruct.h 3 fields: wLinkId / wLinkType / dwData — fixed in 36aa8e6, was originally 5 fields by mistake). 1:1 quirks: cLinkedList → std::vector, rand() → test-injectable counter, HYPERLINK is opaque stub) |
+| `cDialogueList` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/cdialoguelist.{hpp,cpp}` | 15 | **2026-07-18** (0.13.49) - Tier 1.5 subcontrol(NPC dialogue data, 9th Tier 1.5; m_dwDefaultColor + m_dwStressColor (legacy 1:1 colors used by parser); m_dialogues[12800]: std::vector<std::vector<DIALOGUE>> 替代 cPtrList<DIALOGUE>[12800]; 1:1 surface: LoadDialogueListFile / LoadDialogueList / ParsingLine / AddLine / GetDialogue. DIALOGUE struct stub (1:1 with legacy fields: dwColor / str[1024] / wLine / wType). 1:1 quirks: cPtrList → std::vector, CMHFile engine-side stubbed (no-op), Korean DBCS detection stubbed, DIALOGUE is opaque stub) |
+| `cHyperTextList` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/chypertextlist.{hpp,cpp}` | 16 | **2026-07-18** (0.13.49) - Tier 1.5 subcontrol(DIALOGUE hash table for help links, 10th Tier 1.5; m_hyperText: std::unordered_map<std::uint32_t, std::unique_ptr<DIALOGUE>> 替代 CYHHashTable<DIALOGUE>; 1:1 surface: LoadHyperTextFormFile (no-op stub) / GetHyperText / AddEntry / RemoveAll / GetCount; reserve(1000) to match legacy Initialize(1000). 1:1 quirks: CYHHashTable → std::unordered_map, CMHFile engine-side stubbed, manual delete → unique_ptr, DIALOGUE is opaque stub) |
+| `cHelpDialog` | `modern/src/ui/helpdialog.{hpp,cpp}` | 24 | **2026-07-18** (0.13.49) - Tier 2 dialog(in-game help browser, 49th port, ≈180B header + ≈200 line .cpp; cListDialogEx* m_pListDlg (non-owning, resolved by findWindowById) + m_dwCurPageId + HelpHyper m_sHyper[70] (renamed from HYPER to avoid Windows SDK <winnt.h> collision) + m_nHyperCount; HelpHyper struct (1:1 with legacy `struct HYPER` from CommonGameStruct.h: bUse / dwListItemIdx / HYPERLINK sHyper); LINKTYPE enum (1:1 with legacy emLink_*; first 4 used by cHelpDialog, rest reserved for cNpcScriptDialog); MAX_REGIST_HYPERLINK=70 + ID_LISTDLG=1; 1:1 surface: SetActive(BOOL) override / Linking / OpenDialog / OpenLinkPage / EndDialog / GetHyperInfo / HyperLinkParser; SetContent(mainPage, dialogueList, hyperTextList) replaces engine-side HELPDICMGR singleton lookup. 1:1 quirks: HELPDICMGR singleton stubbed, cListItem::AddItem → cListDialogEx::AddLinkItem + AddLinkItemChain, LINKITEM local struct with std::vector<std::unique_ptr>, HYPER → HelpHyper rename (Windows SDK <winnt.h> collision), trailing return type for member functions returning HelpHyper* (MSVC 14.44 parser quirk), HYPER/HYPERLINK/DIALOGUE/cPage/cDialogueList/cHyperTextList reused, Render is no-op) |
 
 ## 5 档分级
 
@@ -321,7 +325,7 @@ timer 机制。这是 Phase 14+ 范畴,**预计 4-6 周工作量**,本 roadmap
 | Tier 5 | 100+ | 1000-3000 行(需 15-20 service) | 8-12 周(依赖 Phase 15 service + network) |
 | **总计** | **131+** | - | **16-22 周** ≈ 4-5 个月 |
 
-加上 base **48/202** = **23.8%**(当前, 0.13.48 后 cStallFindDlg)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% / 24% 六里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47/0.13.48)。**
+加上 base **49/202** = **24.3%**(当前, 0.13.49 后 cHelpDialog)→ 100% ≈ 3-4 个月全职工作量。**突破 10% / 15% / 20% / 22% / 23% / 24% 六里程碑(0.13.27/0.13.30/0.13.42/0.13.45/0.13.47/0.13.48)。**
 **这是真的"长尾",不靠 24 小时 AI 接力推不完。**
 
 ## 建议推进节奏
@@ -395,9 +399,18 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 - 0.13.48 cComboBox (25 tests, Tier 1.5 subcontrol - **7th Tier 1.5 subcontrol, 解锁 cStallFindDlg + 任何 cComboBox-依赖的 Tier 2 dialog**)
 - 0.13.48 cStallFindDlg (44 tests, Tier 2 - **48th Tier 2 dialog port, 接近 24% 里程碑**)
 
+## 0.13.49 更新摘要 (2026-07-18)
+
+0.13.49 接力 0.13.48，跨 day 续 session (22:01 → 09:36 重启) 推 3 个 Tier 1.5 subcontrol + 1 个 Tier 2 dialog: cPage (16 tests) + cDialogueList (15 tests) + cHyperTextList (16 tests) + cHelpDialog (24 tests)。ctest baseline 1792 → 1863 (+71 net, includes collateral fixups: 3a499cf ccombobox + skinselectdialog 1:1 quirks, 913351c test helpers for cStallFindDlg + cSkinSelectDialog, 36aa8e6 cPage HYPERLINK struct 1:1 fix)。3 个 Tier 1.5 subcontrol 都是 cHelpDialog 的 prerequisite (page data model + dialogue data + DIALOGUE hash table)。cHelpDialog 复用 cListDialogEx + cPage + cDialogueList + cHyperTextList，4 个 chain 一起收口。
+
+- 0.13.49 cPage (16 tests, Tier 1.5 subcontrol - **8th Tier 1.5 subcontrol, 解锁 cHelpDialog**)
+- 0.13.49 cDialogueList (15 tests, Tier 1.5 subcontrol - **9th Tier 1.5 subcontrol, 解锁 cHelpDialog**)
+- 0.13.49 cHyperTextList (16 tests, Tier 1.5 subcontrol - **10th Tier 1.5 subcontrol, 解锁 cHelpDialog**)
+- 0.13.49 cHelpDialog (24 tests, Tier 2 - **49th Tier 2 dialog port, 突破 24% 里程碑**)
+
 **整体进展**:
-- 测试: 506 → 1792 (+1286 tests, 0 回归, ~37 sec wall)
-- Tier 1.5 子控件 11/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / **cComboBox**)
+- 测试: 506 → 1863 (+1357 tests, 0 回归, ~44 sec wall)
+- Tier 1.5 子控件 11/9 → 14/9 ✅ (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / **cComboBox** / **cPage** / **cDialogueList** / **cHyperTextList**)
 - Tier 1 (trivial) 1/1 ✅ (cExitDialog)
 - Tier 2 累计 39/10 完成 (1.1x 超额, 0.13.30 引入 cTextArea 加速, 0.13.46 引入 cIconGridDialog 加速, 0.13.48 引入 cComboBox + cStallFindDlg 继续)
 - Tier 3-5 仍 blocked (待 Phase 13 service interface)
