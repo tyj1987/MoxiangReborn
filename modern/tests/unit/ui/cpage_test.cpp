@@ -94,7 +94,9 @@ TEST(CPage, DefaultConstructionHasNoHyperlinks) {
 TEST(CPage, AddHyperLinkAppends) {
     mxh::ui::cPage p;
     mxh::ui::HYPERLINK link{};
-    link.dwPageId = 42;
+    link.wLinkId   = 1;
+    link.wLinkType = 1;  // emLink_Page
+    link.dwData    = 42; // target page id
     p.AddHyperLink(&link);
     EXPECT_EQ(p.GetHyperLinkCount(), 1);
 }
@@ -102,11 +104,15 @@ TEST(CPage, AddHyperLinkAppends) {
 TEST(CPage, GetHyperTextReturnsPointer) {
     mxh::ui::cPage p;
     mxh::ui::HYPERLINK link{};
-    link.dwPageId = 42;
+    link.wLinkId   = 7;
+    link.wLinkType = 1;
+    link.dwData    = 42;
     p.AddHyperLink(&link);
     const auto* pLink = p.GetHyperText(0);
     ASSERT_NE(pLink, nullptr);
-    EXPECT_EQ(pLink->dwPageId, 42u);
+    EXPECT_EQ(pLink->wLinkId, 7u);
+    EXPECT_EQ(pLink->wLinkType, 1u);
+    EXPECT_EQ(pLink->dwData, 42u);
 }
 
 TEST(CPage, GetHyperTextOutOfRangeReturnsNull) {
@@ -120,7 +126,8 @@ TEST(CPage, RemoveAllClearsDialoguesAndHyperlinks) {
     p.AddDialogue(1);
     p.AddDialogue(2);
     mxh::ui::HYPERLINK link{};
-    link.dwPageId = 100;
+    link.wLinkId = 3;
+    link.dwData  = 100;
     p.AddHyperLink(&link);
     EXPECT_EQ(p.GetDialogueCount(), 2);
     EXPECT_EQ(p.GetHyperLinkCount(), 1);
@@ -149,13 +156,15 @@ TEST(CPage, MultipleHyperlinks) {
     mxh::ui::cPage p;
     for (std::uint32_t i = 0; i < 5; ++i) {
         mxh::ui::HYPERLINK link{};
-        link.dwPageId = i * 10;
+        link.wLinkId = static_cast<std::uint16_t>(i);
+        link.dwData  = i * 10;
         p.AddHyperLink(&link);
     }
     EXPECT_EQ(p.GetHyperLinkCount(), 5);
     for (std::uint32_t i = 0; i < 5; ++i) {
         const auto* pLink = p.GetHyperText(i);
         ASSERT_NE(pLink, nullptr);
-        EXPECT_EQ(pLink->dwPageId, i * 10);
+        EXPECT_EQ(pLink->wLinkId, i);
+        EXPECT_EQ(pLink->dwData, i * 10u);
     }
 }

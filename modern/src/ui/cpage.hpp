@@ -39,15 +39,18 @@
 
 namespace mxh::ui {
 
-// HYPERLINK is the engine-side link payload. Modern port uses
-// a placeholder struct with the same field names; the engine-
-// binder layer (Phase 14+) provides the real type.
+// HYPERLINK is the engine-side link payload (1:1 with legacy
+// `HYPERLINK` from `[CC]Header/CommonGameStruct.h`). The
+// cHelpDialog / cNpcScriptDialog chain reads wLinkId +
+// wLinkType + dwData; cPage just stores + retrieves the struct
+// (the consumer interprets the fields). Modern port uses
+// std::uint16_t / std::uint32_t to match the legacy WORD /
+// DWORD types; the engine-binder layer (Phase 14+) provides
+// the real type when the help-dialog content is loaded.
 struct HYPERLINK {
-    std::uint32_t dwPageId = 0;  // target page id
-    std::int32_t  nBeginLine = 0;
-    std::int32_t  nEndLine   = 0;
-    std::uint32_t dwColor    = 0xFFFFFFFFu;
-    char          szText[256] = {};
+    std::uint16_t wLinkId   = 0;  // index into cHyperTextList
+    std::uint16_t wLinkType = 0;  // emLink_Page / emLink_Open / emLink_End / etc.
+    std::uint32_t dwData    = 0;  // target page id (for emLink_Page) / etc.
 };
 
 class cPageBase {
