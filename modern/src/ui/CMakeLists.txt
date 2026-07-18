@@ -102,6 +102,7 @@ add_library(mxh_ui STATIC
     ctabdialog.cpp
     mallnoticedialog.cpp
     mugongsuryundialog.cpp
+    ccheckbox.cpp
 )
 
 if(WIN32)

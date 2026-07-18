@@ -98,6 +98,7 @@ add_executable(mxh_ui_tests
     ctabdialog_test.cpp
     mallnoticedialog_test.cpp
     mugongsuryundialog_test.cpp
+    ccheckbox_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -262,6 +263,28 @@ gtest_add_tests(TARGET mxh_ui_tests
     CDivideBox.ClickCancelButtonFiresCancelAndCloses
     CDivideBox.ButtonIdsAreDistinct
     CDivideBox.ClickOutsideButtonsIsNoop
+    CCheckBox.WeConstantsMatchLegacyBitField
+    CCheckBox.DefaultColorIsWhite
+    CCheckBox.DefaultCheckedIsFalse
+    CCheckBoxTest.InitStoresPositionAndId
+    CCheckBoxTest.InitWithCallbackStoresIt
+    CCheckBoxTest.InitWithNullCallbackIsTolerated
+    CCheckBoxTest.SetCheckedTrueChangesState
+    CCheckBoxTest.SetCheckedFalseChangesState
+    CCheckBoxTest.SetCheckBoxMsgStoresTextAndColor
+    CCheckBoxTest.SetCheckBoxMsgNullTextClearsText
+    CCheckBoxTest.ToggleFlipsChecked
+    CCheckBoxTest.ToggleFiresCallbackWithChecked
+    CCheckBoxTest.ToggleSecondTimeFiresCallbackWithNotChecked
+    CCheckBoxTest.ToggleWithoutCallbackIsNoOp
+    CCheckBoxTest.TogglePassesParentDialogToCallback
+    CCheckBoxTest.ToggleIncrementsCallbackCount
+    CCheckBoxTest.ToggleOnDisabledCheckBoxIsNoOp
+    CCheckBoxTest.ToggleOnDisabledCheckBoxDoesNotChangeState
+    CCheckBoxTest.ActionEventOnDisabledReturnsZero
+    CCheckBoxTest.ActionEventOnEnabledReturnsZero
+    CCheckBoxTest.RenderIsNoOp
+    CCheckBoxTest.ClearTestInjectionsResetsState
     CIconDialog.DefaultStateHasZeroCells
     CIconDialog.SetCellNumCreatesEmptyCells
     CIconDialog.AddIconThenIsAddableFalse
