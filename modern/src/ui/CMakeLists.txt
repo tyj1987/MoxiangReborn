@@ -91,6 +91,8 @@ add_library(mxh_ui STATIC
     chypertextlist.cpp
     helpdialog.cpp
     ime.cpp
+    cspin.cpp
+    moneydlg.cpp
 )
 
 if(WIN32)

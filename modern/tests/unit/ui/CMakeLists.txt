@@ -87,6 +87,8 @@ add_executable(mxh_ui_tests
     skillpointnotify_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
+    cspin_test.cpp
+    moneydlg_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1653,4 +1655,49 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSkillPointNotify.InitTextAreaDefensiveBeforeLinking
     CSkillPointNotify.InitTextAreaCanBeCalledMultipleTimes
     CSkillPointNotify.NotActiveByDefault
+    # P2-12 Tier 1.5 sub-widget: cSpin (numeric spin control)
+    CSpin.DefaultConstructionHasZeroChildren
+    CSpin.DefaultValueIsZero
+    CSpin.InitStoresConfig
+    CSpin.InitSpinSetsBuffer
+    CSpin.SetUnitGetUnitRoundTrip
+    CSpin.SetMinGetMinRoundTrip
+    CSpin.SetMaxGetMaxRoundTrip
+    CSpin.SetMinMaxRoundTrip
+    CSpin.SetValueStoresInRange
+    CSpin.SetValueBelowMinClampsToMin
+    CSpin.SetValueAboveMaxClampsToMax
+    CSpin.SetValueFormatsWithCommas
+    CSpin.GetValueParsesCommasInBuffer
+    CSpin.GetValueEmptyBufferReturnsMin
+    CSpin.IncUnitBumpsByDefault
+    CSpin.DecUnitBumpsByDefault
+    CSpin.IncUnitSaturatesAtMax
+    CSpin.DecUnitSaturatesAtMin
+    CSpin.IncUnitRespectsCustomUnit
+    CSpin.DecUnitRespectsCustomUnit
+    CSpin.AddUpButtonStoresPointer
+    CSpin.AddDownButtonStoresPointer
+    CSpin.AddBothButtonsInOrder
+    CSpin.AddUpButtonTwiceIsIdempotent
+    CSpin.AddNullButtonIsSafe
+    # P2-12 Tier 2 dialog: cMoneyDlg (money-amount picker)
+    CMoneyDlg.IdConstantMatchesLegacyCmiMoneyspinRange
+    CMoneyDlg.DefaultConstructionHasNoSpin
+    CMoneyDlg.DefaultIsNotActive
+    CMoneyDlg.LinkingMaterializesSpin
+    CMoneyDlg.LinkingSetsSpinId
+    CMoneyDlg.LinkingIdempotent
+    CMoneyDlg.ShowActivatesDialog
+    CMoneyDlg.ShowCopiesMsgBytes
+    CMoneyDlg.ShowWithNullMsgIsSafeAndDoesNotCrash
+    CMoneyDlg.ShowWithZeroMsgLenIsSafe
+    CMoneyDlg.ShowStoresCallback
+    CMoneyDlg.ShowOverwritesPreviousState
+    CMoneyDlg.OkPushedReadsSpinValue
+    CMoneyDlg.OkPushedDeactivatesDialog
+    CMoneyDlg.OkPushedWithoutLinkingIsNoOp
+    CMoneyDlg.OkPushedWithoutCallbackSendsByDefault
+    CMoneyDlg.OkPushedCallbackReturningFalseSkipsSend
+    CMoneyDlg.OkPushedCallbackReturningTrueProceeds
 )
