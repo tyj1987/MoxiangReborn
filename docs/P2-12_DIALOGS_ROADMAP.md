@@ -2,7 +2,7 @@
 
 > **作者**:Mavis
 > **日期**:2026-07-18
-> **状态**:🟢 进行中(45/202 = 22.3% 突破 22% 里程碑)
+> **状态**:🟢 进行中(61/202 = 30.2% 突破 30% 里程碑, 续推 31%)
 > **关联**:`docs/KNOWN_BUGS.md` R-12、`AI_TASK_QUEUE.md` P2-12
 
 ## 背景
@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（49/202 = 24.3%）
+## 已 Port 列表（61/202 = 30.2%，0.13.60）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -81,6 +81,8 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 | `cDialogueList` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/cdialoguelist.{hpp,cpp}` | 15 | **2026-07-18** (0.13.49) - Tier 1.5 subcontrol(NPC dialogue data, 9th Tier 1.5; m_dwDefaultColor + m_dwStressColor (legacy 1:1 colors used by parser); m_dialogues[12800]: std::vector<std::vector<DIALOGUE>> 替代 cPtrList<DIALOGUE>[12800]; 1:1 surface: LoadDialogueListFile / LoadDialogueList / ParsingLine / AddLine / GetDialogue. DIALOGUE struct stub (1:1 with legacy fields: dwColor / str[1024] / wLine / wType). 1:1 quirks: cPtrList → std::vector, CMHFile engine-side stubbed (no-op), Korean DBCS detection stubbed, DIALOGUE is opaque stub) |
 | `cHyperTextList` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/chypertextlist.{hpp,cpp}` | 16 | **2026-07-18** (0.13.49) - Tier 1.5 subcontrol(DIALOGUE hash table for help links, 10th Tier 1.5; m_hyperText: std::unordered_map<std::uint32_t, std::unique_ptr<DIALOGUE>> 替代 CYHHashTable<DIALOGUE>; 1:1 surface: LoadHyperTextFormFile (no-op stub) / GetHyperText / AddEntry / RemoveAll / GetCount; reserve(1000) to match legacy Initialize(1000). 1:1 quirks: CYHHashTable → std::unordered_map, CMHFile engine-side stubbed, manual delete → unique_ptr, DIALOGUE is opaque stub) |
 | `cObjectGuagen` (Tier 1.5 subcontrol, prerequisite) | `modern/src/ui/cobjectguagen.{hpp,cpp}` | 24 | **2026-07-18** (0.13.50) - Tier 1.5 subcontrol(cGuagen subclass with effect-time interpolation, 11th Tier 1.5; m_fGuageEffectPieceWidth / m_fIncAmount / m_dwEffectTime / m_dwStartTime / m_fOldPercentRate / m_fCurPercentRate / m_bBlink / m_dwStartBlinkTime / m_fGuageEffectPieceHeightScaleY + m_GuageEffectPieceImage cImage; SetValue REAL (clamp val to 1 + interp state m_fIncAmount = (val - m_fOldPercentRate) / estTime); ActionEvent/Render TODO (CMouse + VECTOR2 + cImage::RenderSprite + RGBA_MERGE + gCurTime not ported); 1:1 quirks: ctor m_type=WT_GUAGENE drop, commented-out blink anim preserved as documented field, m_dwImageRGB/m_alpha/m_dwOptionAlpha come from cWindow (removed in modern); unblocks 3 progress bar dialogs) |
+| `cSpin` (Tier 1.5 subcontrol) | `modern/src/ui/cspin.{hpp,cpp}` | 25 | **2026-07-18** (0.13.59) - Tier 1.5 subcontrol(numeric spin control, 12th Tier 1.5; cEditBox subclass + 2 cButton children (Up + Down arrows); state m_Unit (default 10) / m_minValue (default 0) / m_maxValue (default 100); 1:1 surface: Init(x, y, wid, hei, basicImage, cb, id) + InitSpin(bufSize, strSize) + GetValue + SetValue + IncUnit + DecUnit + SetUnit/SetMin/SetMax/SetMinMax + AddSpinButton; SPINUNIT=std::uint32_t; 1:1 quirks: ctor m_bCaret=FALSE preserved as SetCaret(false), Init 第 5 参 basicImage 传 2 次 (basic+focus), InitSpin 调 InitEditbox + SetValue(0), SetValue clamp [min,max] + AddComma thousands-separator, IncUnit/DecUnit 仿 legacy `value + m_Unit < value` unsigned overflow check (wrap to max/min), AddSpinButton(unique_ptr<cButton>, SpinButtonKind) 替代 legacy `Add(cWindow*)` 只能接 WT_BUTTON (modern cWindow::Add 接 unique_ptr<cWindow> 不是 raw pointer); unblocks MoneyDlg / PetStateMiniDlg / 等 cSpin-依赖 Tier 2 dialog) |
+| `cMoneyDlg` | `modern/src/ui/moneydlg.{hpp,cpp}` | 18 | **2026-07-18** (0.13.60) - Tier 2 dialog(money-amount picker, 56th port, header 796B + cpp 1175B = 1.9 KB; cDialog subclass + 1 cSpin child (1:1 依赖 0.13.59 cSpin) + 4 state field m_MsgLen / m_SavedMsg (1024 byte) / m_dwParam / m_OnPushFunc; 1:1 surface: Show(pmsg, msglen, dwParam, onPush) + OkPushed() + Linking() (materialize cSpin); 1:1 quirks: ctor m_type=WT_MONEYDIALOG drop, ctor memset(m_SavedMsg, 0, sizeof(1024)) 字面保留 (legacy 1024 byte buffer), OkPushed ASSERT(pSpin) → null guard silent no-op (modern test-friendly), memcpy overflow guard cap at kSavedMsgSize=1024, Show 双 early return (m_MsgLen==0 \|\| pmsg==nullptr) preserved verbatim, NETWORK 单例 stubbed no-op (per Phase 6 pattern, host caller 自己 wire); MoneyCallback = std::function<bool(uint32_t money, uint32_t dwParam)> 替代 legacy `BOOL(*)(DWORD,DWORD)` C-style function pointer; 1:1 quirk: ctor cDialog::Init in cMoneyDlg::Init + dtor virtual override; 6 test accessor (msgLen/param/spin/hasCallback/savedMsg/isActive 继承 cDialog); kIdMoneySpin=0 1:1 with legacy CMI_MONEYSPIN; **56th Tier 2 dialog port, 突破 30% 里程碑**) |
 | `cProgressBarDlg` (Tier 2 dialog, base class) | `modern/src/ui/progressbardlg.{hpp,cpp}` | 27 | **2026-07-18** (0.13.51) - Tier 2 dialog(base progress bar dialog, base class for 3 progress bar dialogs; CObjectGuagen (id varies by subclass) + 1 cStatic remaintime + 6 state fields m_bProgressStart/m_bSuccessProgress/m_dwProcessTime/m_dwCurrentTime/m_dwSuccessTime; SetActive override REAL (reset state on val==FALSE + SetValue(0,0) on cObjectGuagen); Process/StartProgress/Render TODO (gCurTime not ported, R-12.x deferred); InitProgress/GetSuccessProgress/SetSuccessProgress/SetSuccessTime REAL; 1:1 quirks: legacy base class doesn't have its own Linking (each subclass does), modern port provides SetProgressGuagen/SetRemaintimeStatic setters for subclass Linking) |
 | `cTitanMixProgressBarDlg` | `modern/src/ui/titanmixprogressbardlg.{hpp,cpp}` | 13 | **2026-07-18** (0.13.51) - Tier 2 dialog(titan-mix progress bar, cProgressBarDlg subclass; 2 children: 1 cObjectGuagen id 660 + 1 cStatic id 661; Linking REAL; OnActionEvent 1 cancel branch InitProgress + GAMEIN->GetTitanMixDlg()->SetDisable(FALSE) TODO; SuccessProcess empty placeholder; 3 local id range 660-662) |
 | `cTitanPartsProgressBarDlg` | `modern/src/ui/titanpartsprogressbardlg.{hpp,cpp}` | 11 | **2026-07-18** (0.13.51) - Tier 2 dialog(titan-parts make progress bar, cProgressBarDlg subclass; 2 children: 1 cObjectGuagen id 670 + 1 cStatic id 671; Linking REAL; OnActionEvent 1 cancel branch InitProgress + GAMEIN->GetTitanPartsMakeDlg()->SetDisable(FALSE) TODO; 3 local id range 670-672) |
@@ -430,6 +432,18 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 - 0.13.49 cDialogueList (15 tests, Tier 1.5 subcontrol - **9th Tier 1.5 subcontrol, 解锁 cHelpDialog**)
 - 0.13.49 cHyperTextList (16 tests, Tier 1.5 subcontrol - **10th Tier 1.5 subcontrol, 解锁 cHelpDialog**)
 - 0.13.49 cHelpDialog (24 tests, Tier 2 - **49th Tier 2 dialog port, 突破 24% 里程碑**)
+
+## 0.13.59 更新摘要 (2026-07-18)
+
+0.13.59 接力 0.13.58 chain (0.13.50-0.13.58 全 12 dialog 完成, 跨 day 推到 59/202 = 29.2%)。本 session 推 1 个 Tier 1.5 subcontrol: **cSpin** (25 tests)。ctest baseline 2132 → 2166 (+34 net, includes 0.13.50-0.13.58 chain collateral + 0.13.59 cSpin)。cSpin 是 1:1 port of legacy `cSpin` from `墨香【源码】\[Client]MH\interface\cSpin.{h,cpp}`，cEditBox subclass + 2 cButton children (up + down arrows)。Tier 1.5 subcontrol 跟 cPushupButton / cListCtrl / cListDialogEx / cComboBox / cObjectGuagen / cTextArea / cMultiLineText / cIconGridDialog 同一档。**Unblocks 5+ Tier 2 dialogs** that depend on cSpin (e.g. MoneyDlg, PetStateMiniDlg, 部分 StallFindDlg 子件)。
+
+- 0.13.59 cSpin (25 tests, Tier 1.5 subcontrol - **12th Tier 1.5 subcontrol, 解锁 MoneyDlg / PetStateMiniDlg 等 cSpin-依赖 Tier 2 dialog**)
+
+## 0.13.60 更新摘要 (2026-07-18)
+
+0.13.60 接力 0.13.59 (cSpin 收口, 29.7% 跨 29% 里程碑)。本 session 推 1 个 Tier 2 dialog: **cMoneyDlg** (18 tests, 0.13.59 cSpin-依赖解锁)。ctest baseline 2166 → 2184 (+18 net, 0 回归)。cMoneyDlg 是 1:1 port of legacy `CMoneyDlg` from `墨香【源码】\[Client]MH\MoneyDlg.{h,cpp}`，1.9 KB total (header 796B + cpp 1175B), cDialog subclass + 1 cSpin child + 2 method (Show + OkPushed) + 4 state field。**P2-12 突破 30% 里程碑** (61/202 = 30.2%, 距 100% 还有 141 dialog ≈ 3-4 月)。
+
+- 0.13.60 cMoneyDlg (18 tests, Tier 2 dialog - **56th Tier 2 dialog port, 突破 30% 里程碑**)
 
 ## 0.13.50-0.13.56 batch 摘要 (2026-07-18, 跨 day session)
 

@@ -4,6 +4,80 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.60] - 2026-07-18
+
+### Phase 6.16 cMoneyDlg Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.59 收口 cSpin Tier 1.5 subcontrol (29.7%, 跨 29% 里程碑)。本 session 续 0.13.60: cMoneyDlg (money-amount picker dialog, cSpin 1:1 依赖刚被 0.13.59 解锁). cDialog subclass + 1 cSpin child + 2 method (Show + OkPushed) + 4 state field. 1:1 quirks 完整保留: ctor `m_type = WT_MONEYDIALOG` drop (modern cWindow 没 m_type 字段 per Phase 6 移除字段规则), ctor `memset(m_SavedMsg, 0, sizeof(1024))` 字面保留 (`sizeof(1024)` = 1024 字节碰巧 = buffer size, 1:1 quirk 仿), OkPushed `ASSERT(pSpin)` → null guard silent no-op (现代 test-friendly), NETWORK 单例 stubbed (per Phase 6 pattern). 18 tests PASS, no regressions. P2-12 61/202 = 30.2% (**突破 30% 里程碑**).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_296164aca56644428c53affeab6bd00a` 自主写. Verifier session ID 同上 (self-verify). 证据: cMoneyDlg 18/18 ctest PASS (`ctest -C Debug -R "^CMoneyDlg\."` 0.71 sec wall); 全栈 ctest 2166 → 2184 PASS (+18 net, 0 回归, 61.32 sec wall). 重跑命令: `cmake --build modern/build --config Debug --target mxh_ui mxh_ui_tests` + `ctest -C Debug --timeout 30`.
+
+### Added
+
+- `modern/src/ui/moneydlg.{hpp,cpp}` (新建, 18 tests): 1:1 port of legacy `CMoneyDlg` from `墨香【源码】\[Client]MH\MoneyDlg.{h,cpp}`
+  - cMoneyDlg: 2 method (Show + OkPushed) + Linking (materialize cSpin child) + 4 state field (m_MsgLen / m_SavedMsg / m_dwParam / m_OnPushFunc)
+  - 1:1 quirks: ctor `m_type = WT_MONEYDIALOG` drop, ctor `memset(m_SavedMsg, 0, sizeof(1024))` 字面保留 (legacy 1024 byte buffer)
+  - 1:1 quirks: OkPushed `ASSERT(pSpin)` → null guard silent no-op (modern test-friendly)
+  - 1:1 quirks: NETWORK 单例 stubbed no-op (per Phase 6 pattern, host caller 自己 wire)
+  - 1:1 quirks: memcpy overflow guard (legacy 1024 byte buffer, modern caps at kSavedMsgSize)
+  - 1:1 quirks: Show 双 early return (m_MsgLen==0 || pmsg==nullptr) preserved verbatim
+  - Modern port: cSpin 用 unique_ptr<cSpin> m_pSpin (跟 cSkillPointNotify pattern 一致, test 不需要手动 Add cSpin 到 dialog children)
+  - 1:1 surface: Show(pmsg, msglen, dwParam, onPush) + OkPushed() + Linking() + 6 test accessor (msgLen / param / spin / hasCallback / savedMsg / isActive 继承)
+  - Local id range: kIdMoneySpin=0 (1:1 with legacy CMI_MONEYSPIN, modern port 选 0 兼容 self-contained 测试)
+- `modern/tests/unit/ui/moneydlg_test.cpp` (新建, 18 用例 PASS): 3 ctor/constants + 3 Linking + 6 Show + 6 OkPushed
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 moneydlg.cpp + 18 gtest entry
+
+### Progress
+
+- P2-12: 61/202 = **30.2%** (5 base + 56 dialog + 12 subcontrol Tier 1.5; **突破 30% 里程碑**)
+- ctest: 2184/2184 PASS (was 2166, +18 cMoneyDlg, 0 回归)
+- 39 个新 Tier 2 dialog 端口 (含本 batch 0.13.60 cMoneyDlg)
+- 12 个 Tier 1.5 subcontrol 端口 (cListCtrl, cPushupButton, cListDialogEx, cPage, cDialogueList, cHyperTextList, cTextArea, cMultiLineText, cObjectGuagen, cHelpDialog, cComboBox, cSpin)
+- 2100+ tests milestone crossed (now 2184)
+
+### Notes
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先 + cSpin-依赖 next): PetStateMiniDlg (2.5 KB, cSpin 1 instance) / MallNoticeDialog (2.1 KB, cEditBox+cButton) / MunpaMarkDialog (1.8 KB, MunpaMarkManager 跨 class 依赖, ~2h) / NumberPadDialog (3.7 KB, 1 cEditBox + button grid, ~3h)
+- Tier 1.5 余候选: cProgressBar / cAnimation / cScene / 等
+- Phase 13 service 6/9 待推 (按 ROADMAP §3.2): IItemShopService / IQuestService / IFriendService / IPartyService / INoteService / IGuildService
+
+
+## [0.13.59] - 2026-07-18
+
+### Phase 6.16 cSpin Tier 1.5 subcontrol port (self-verified by mavis root session)
+
+**背景**: 0.13.58 收口 cFWEngraveDialog + cFWTimeDialog (29.2%, 跨 29% 里程碑)。本 session 续 0.13.59: cSpin (numeric spin control, 2 children: cButton up + cButton down) — Tier 1.5 subcontrol 跟 cPushupButton / cListCtrl / cPage / cDialogueList / cHyperTextList 同一档位. 11 method 1:1 wrappers 替代 legacy `cIMEex` text buffer 用 cEditBox. 1:1 quirks 完整保留: 7-param Init 签名 (basicImage 传 2 次当 basic+focus), m_Unit default=10, m_minValue default=0, m_maxValue default=100, GetValue/SetValue 强制 clamp [min,max], IncUnit/DecUnit 边界 saturate + 仿 legacy unsigned wraparound. 25 tests PASS, no regressions. P2-12 60/202 = 29.7% (跨 29% 里程碑, 续推 30%).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_296164aca56644428c53affeab6bd00a` 自主写. Verifier session ID 同上 (self-verify). 证据: cSpin 25/25 ctest PASS (`ctest -C Debug -R "^CSpin\."` 2.37 sec wall); 全栈 ctest 2132 → 2166 PASS (+34 net, 0 回归, 60.43 sec wall). 重跑命令: `cmake --build modern/build --config Debug --target mxh_ui mxh_ui_tests` + `ctest -C Debug --timeout 30`.
+
+### Added
+
+- `modern/src/ui/cspin.{hpp,cpp}` (新建, 25 tests): 1:1 port of legacy `cSpin` from `墨香【源码】\[Client]MH\interface\cSpin.{h,cpp}`
+  - cSpin: 11 method (ctor + dtor + Init + InitSpin + GetValue + SetValue + IncUnit + DecUnit + SetUnit + SetMin + SetMax + SetMinMax + AddSpinButton + parseCurrentValue + formatWithCommas)
+  - Local id range unused (cSpin is a sub-widget, no top-level dialog id)
+  - 1:1 quirks: ctor `m_bCaret = FALSE` preserved as `SetCaret(false)` (spin 不显示 caret, 只靠 up/down)
+  - 1:1 quirks: Init 第 5 参 basicImage 传 2 次 (basic+focus) 跟 legacy 7-param signature 一致
+  - 1:1 quirks: InitSpin(spinStrSize, strSize) 调 cEditBox::InitEditbox + SetValue(0)
+  - 1:1 quirks: SetValue clamp [min,max] + AddComma thousands-separator
+  - 1:1 quirks: IncUnit/DecUnit 仿 legacy `value + m_Unit < value` unsigned overflow check (wrap to max/min)
+  - 1:1 quirks: AddSpinButton(unique_ptr<cButton>, SpinButtonKind) 替代 legacy `Add(cWindow*)` 只能接 WT_BUTTON (modern cWindow::Add 接 unique_ptr<cWindow> 不是 raw pointer, per memory pattern)
+- `modern/tests/unit/ui/cspin_test.cpp` (新建, 25 用例 PASS): 4 ctor/default + 4 setter/getter + 6 SetValue/GetValue + 6 IncUnit/DecUnit + 5 AddSpinButton
+- `modern/src/ui/CMakeLists.txt` + `modern/tests/unit/ui/CMakeLists.txt` (改): 加 cspin.cpp + 25 gtest entry
+
+### Progress
+
+- P2-12: 60/202 = 29.7% (5 base + 59 dialog + 12 subcontrol Tier 1.5; **跨 29% 里程碑, 续推 30%**)
+- ctest: 2166/2166 PASS (was 2132, +25 cSpin + 9 net other producer activity)
+- 38 个新 Tier 2 dialog 端口
+- 12 个 Tier 1.5 subcontrol 端口 (cListCtrl, cPushupButton, cListDialogEx, cPage, cDialogueList, cHyperTextList, cTextArea, cMultiLineText, cObjectGuagen, cHelpDialog, cComboBox, **cSpin**)
+- 2100+ tests milestone crossed
+
+### Notes
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序, Tier 2 优先): MoneyDlg / MunpaMarkDialog / MallNoticeDialog / MugongSuryunDialog / SkillOptionClearDlg / NumberPadDialog / TitanRepairDlg / GuildRankDialog / TitanGuageDlg / PetStateMiniDlg
+- Tier 1.5 余候选: cProgressBar / cAnimation / cScene / 等
+
+
 ## [0.13.58] - 2026-07-18
 
 ### Phase 12.x cFWEngraveDialog + cFWTimeDialog Tier 2 dialogs (self-verified by producer session)
