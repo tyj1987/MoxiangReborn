@@ -81,6 +81,7 @@ add_executable(mxh_ui_tests
     survivalcountdialog_test.cpp
     debugdlg_test.cpp
     shoutchatdialog_test.cpp
+    guildlevelupdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1552,4 +1553,40 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutchatDialogTest.SetActiveBeforeInitDoesNotCrash
     CShoutchatDialogTest.ProcessIsNoOp
     CShoutchatDialogTest.RefreshPositionIsNoOp
+    # P2-12 Tier 2 dialog: cGuildLevelUpDialog (guild level-up markers)
+    CGuildLevelUpDialog.ConstantsAreLegacySized
+    CGuildLevelUpDialog.DefaultCtorLeavesCurrentLevelAtZero
+    CGuildLevelUpDialog.AccessorRejectsOutOfRange
+    CGuildLevelUpDialog.LinkingMaterializesAllThirteenStatics
+    CGuildLevelUpDialog.LinkingIdempotent
+    CGuildLevelUpDialog.LinkingSetsStaticIds
+    CGuildLevelUpDialog.SetLevelZeroIsIgnored
+    CGuildLevelUpDialog.SetLevelSixIsIgnored
+    CGuildLevelUpDialog.SetLevel1MarksZeroTiersComplete
+    CGuildLevelUpDialog.SetLevel5MarksAllTiersComplete
+    CGuildLevelUpDialog.SetLevel3MarksTwoTiersComplete
+    CGuildLevelUpDialog.SetLevelRecolorsHighlight
+    CGuildLevelUpDialog.SetLevelTwiceOverridesHighlight
+    CGuildLevelUpDialog.SetActiveTrueReappliesCurrentLevel
+    CGuildLevelUpDialog.SetActiveTrueWithoutPriorLevelIsNoOp
+    CGuildLevelUpDialog.SetActiveFalseDelegatesToBase
+    CGuildLevelUpDialog.SetActiveFalseAfterLevelPreservesState
+    # P2-12 Tier 2 dialog: cGuildLevelUpDialog (guild level + tier markers)
+    CGuildLevelUpDialog.ConstantsAreLegacySized
+    CGuildLevelUpDialog.DefaultCtorLeavesCurrentLevelAtZero
+    CGuildLevelUpDialog.AccessorRejectsOutOfRange
+    CGuildLevelUpDialog.LinkingMaterializesAllThirteenStatics
+    CGuildLevelUpDialog.LinkingIdempotent
+    CGuildLevelUpDialog.LinkingSetsStaticIds
+    CGuildLevelUpDialog.SetLevelZeroIsIgnored
+    CGuildLevelUpDialog.SetLevelSixIsIgnored
+    CGuildLevelUpDialog.SetLevel1MarksZeroTiersComplete
+    CGuildLevelUpDialog.SetLevel5MarksAllTiersComplete
+    CGuildLevelUpDialog.SetLevel3MarksTwoTiersComplete
+    CGuildLevelUpDialog.SetLevelRecolorsHighlight
+    CGuildLevelUpDialog.SetLevelTwiceOverridesHighlight
+    CGuildLevelUpDialog.SetActiveTrueReappliesCurrentLevel
+    CGuildLevelUpDialog.SetActiveTrueWithoutPriorLevelIsNoOp
+    CGuildLevelUpDialog.SetActiveFalseDelegatesToBase
+    CGuildLevelUpDialog.SetActiveFalseAfterLevelPreservesState
 )
