@@ -4,6 +4,38 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.56] - 2026-07-18
+
+### Phase 6.16 cGuildLevelUpDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**概况**: 0.13.55 收口 cShoutchatDialog (55/202 = 27.2%)。本 session 续 0.13.56: cGuildLevelUpDialog (Tier 2 dialog, guild level + tier markers)。`等 GuildService` (P2-12 backlog 标) — 3 个 m_pLevel[m_pLevel[level-1]] 调 SetFGColor + 4 对 "not complete" / "complete" cStatic 切换 SetVisible。
+
+**cGuildLevelUpDialog (2b9874c, 17 tests)** [Tier 2 dialog]: 1:1 port of legacy `CGuildLevelUpDialog` (67 行 legacy)。cDialog 子类, 13 个 cStatic children 在 Linking() 内 materializes (4 "not complete" markers id 740-743 + 4 "complete" markers id 744-747 + 5 level labels id 748-752, 1:1 with legacy GD_LU* enum)。constexpr kNumTiers=4 / kNumLevels=5。1:1 surface: Linking / SetLevel(1..5) / SetActive(bool)。state m_currentLevel (1:1 with legacy m_nLevel)。Linking idempotency: 二次 Linking() 是 no-op (cStatic unique_ptrs 已 populated, matches legacy resource-loader 行为)。
+
+**Modern-port simplifications (7 项 documented in guildlevelupdialog.cpp file header)**:
+1. **membership-as-children pattern.** Legacy GetWindowForID → modern findWindowById. Modern 不 own dialog's children (cDialog 已做). 改成 materialize 13 cStatic members + 存为 dialog children with matching id, findWindowById 对 future caller 也 work. Matches cMainDialog pattern + 给出 stable unique_ptr accessors for tests.
+2. **cStatic::SetActive → cWindow::SetVisible.** Legacy cStatic::SetActive(TRUE/FALSE). cStatic in modern inherits cWindow, cWindow no SetActive (legacy SetActive is on cDialog). R-12 fix: use cWindow::SetVisible(bool) — same end-state toggle.
+3. **cStatic::SetFGColor 1:1** (already ported in 0.13.46).
+4. **RGB_HALF → ARGB 0xAARRGGBB.** Legacy RGB_HALF(255,255,0) 是 4Dyuchi macro packs to 0xFFBBGGRR. Modern ARGB 0xAARRGGBB same visual: white = 0xFFFFFFFF, highlight yellow = 0xFFFFFF00.
+5. **Render no-op.** Legacy CGuildLevelUpDialog 不 override Render; cDialog::Render (no-op) is default.
+6. **Engine singleton deps stubbed.** GUILDMGR (SetActive TRUE) / HERO / OBJECTSTATEMGR / GAMEIN / NpcScriptDialog (SetActive FALSE) 都 unported. SetActive branches preserve legacy guard shape, stub body. R-12.x deferred.
+7. **GUILDMGR->GetGuildLevel() no-op.** SetActive(TRUE) re-applies m_currentLevel, visibility toggle 不 lose state. First boot (level=0) no-op until caller SetLevel()s before next frame.
+
+**Test baseline**: ctest **2083/2083 PASS, 0 FAILED** (从 0.13.55 的 baseline 升 17, ctest wall ~44 sec)。累积 0.13.46-56 batches: +52 P2-12 milestones (cIconGridDialog 23, cPKLootingDialog 24, cSkinSelectDialog 25, cComboBox 26, cStallFindDlg 27, cPage 28, cDialogueList 29, cHyperTextList 30, cHelpDialog 31, cObjectGuagen 32, cAutoNoteDlg 33, cProgressBarDlg 34, cTitanMixProgressBarDlg 35, cTitanPartsProgressBarDlg 36, cUniqueItemMixProgressBarDlg 37, cTitanRecallDlg 38, cGuildNoteDlg 39, cPointSaveDialog 40, cSurvivalCountDialog 41, cDebugDlg 42, cShoutchatDialog 43, **cGuildLevelUpDialog 44**, plus 7 supporting doc-only milestones for roadmap / plan / changelog syncs)。
+
+**P2-12 进度**: 56/202 = 27.7% (0.13.55 突破 27% milestone, 0.13.56 cGuildLevelUpDialog pushes to 27.7%)。
+
+**Tier 1.5 subcontrol count**: 12/9 (0.13.50 cObjectGuagen +1) — 跟 0.13.49 收口时同 (cObjectGuagen 是 0.13.50 加入的)。
+
+**Tier 2 count**: 41/10 → 42/10 (cGuildLevelUpDialog +1 in 0.13.56 batch)。
+
+**Session state**: 跨 day 续 session (0.13.55 batch 收口 → 13:45 重启)。~12h cumulative across 3 days, 36+ commits。5/5 server build 干净 (C-32 SQL Server blocker 仍 open)。
+
+**Open context (carries over)**:
+- 4 blockers 未动: C-32 (无 SQL Server) / C-35 (Distribute Debug_<LOCALE> 撞 legacy mfc71.lib) / R-9.x drawBox 真正 host 接入 / Phase 13 Tier 3+ (needs service interface)
+- 0.13.57+ 候选: cNpcScriptDialog (复用 cHelpDialog + cListDialogEx + HYPER array, Phase 14+ reuses HelpHyper machinery) / cQuestTotalDialog / cChatOptionDialog (dead code) / GuildPlusTimeDialog / GuildJoinDialog (已 ported 0.13.16) / GuildLevelUpDialog (DONE in 0.13.56)
+- Tier 3-5 (Friend / Note / Party / ItemShop) all blocked on Phase 13/14/15 service implementation
+
 ## [0.13.55] - 2026-07-18
 
 ### Phase 12.x cShoutchatDialog Tier 2 dialog port (self-verified by producer session)
