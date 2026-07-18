@@ -82,6 +82,7 @@ add_library(mxh_ui STATIC
     pointsavedialog.cpp
     survivalcountdialog.cpp
     debugdlg.cpp
+    shoutchatdialog.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp

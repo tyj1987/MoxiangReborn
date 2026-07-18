@@ -80,6 +80,7 @@ add_executable(mxh_ui_tests
     pointsavedialog_test.cpp
     survivalcountdialog_test.cpp
     debugdlg_test.cpp
+    shoutchatdialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1530,4 +1531,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CDebugDlgTest.AllFlagsCanBeSet
     CDebugDlgTest.DebugMsgParserIsNoOp
     CDebugDlgTest.DebugMsgParserBeforeInitIsSafe
+    # P2-12 Tier 2 dialog: cShoutchatDialog (shout chat log)
+    CShoutchatDialogTest.CtorDoesNotCrash
+    CShoutchatDialogTest.DtorDoesNotCrash
+    CShoutchatDialogTest.InheritsFromCDialog
+    CShoutchatDialogTest.IdConstantMatchesExpected
+    CShoutchatDialogTest.ShoutchatItemColorIsD9CEF7
+    CShoutchatDialogTest.MsgThrottleMsIs5000
+    CShoutchatDialogTest.MaxMsgLenIs60
+    CShoutchatDialogTest.LinkingResolvesMsgList
+    CShoutchatDialogTest.LinkingBeforeInitDoesNotCrash
+    CShoutchatDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CShoutchatDialogTest.AddMsgAddsItem
+    CShoutchatDialogTest.AddMsgMultipleAdds
+    CShoutchatDialogTest.AddMsgWithNullIsSafe
+    CShoutchatDialogTest.AddMsgTruncatesAtMaxLen
+    CShoutchatDialogTest.AddMsgWithoutLinkingIsSafe
+    CShoutchatDialogTest.SetActiveTrueUpdatesBaseState
+    CShoutchatDialogTest.SetActiveFalseUpdatesBaseState
+    CShoutchatDialogTest.SetActiveBeforeInitDoesNotCrash
+    CShoutchatDialogTest.ProcessIsNoOp
+    CShoutchatDialogTest.RefreshPositionIsNoOp
 )
