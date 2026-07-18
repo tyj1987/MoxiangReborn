@@ -1,6 +1,49 @@
 # Changelog — Moxian-Reborn
 
 
+
+## [0.13.67] - 2026-07-18
+
+### Phase 6.16 cTabDialog Tier 1.5 subcontrol port (self-verified by mavis root session)
+
+**背景**: 0.13.66 收口 cTitanRepairDlg (33.2%, 续推 34% 里程碑). 本 session 续 0.13.67: **cTabDialog Tier 1.5 subcontrol** (tab container, cDialog subclass + 动态 N 对 (cPushupButton + cWindow) tabs) — **解锁 MallNoticeDialog / MugongSuryunDialog 2 个 deferred Tier 2 dialog** (之前 blocked on cTabDialog per ROADMAP §5). 1:1 quirks 完整保留: ctor m_type=WT_TABDIALOG drop (per Phase 6 全局 m_type 移除, 跟 cTipBrowserDlg/cPetStateMiniDlg/cSkillPointNotify 同样 pattern), curIdx1/curIdx2 declared-but-unused → modern port preserve as curIdx1_/curIdx2_ 1:1 (dead fields matching legacy header), destructor SAFE_DELETE 数组 → modern port std::vector<std::unique_ptr<...>> 自动 RAII 清理, AddTabBtn/AddTabSheet 调 m_absPos+m_relPos (cPOINT) → modern bsX()+relX()/absY()+relY() (per cWindow.hpp Phase 6 cPOINT 拆分, 跟 cMunpaMarkDialog m_absPos=m_absX/m_absY 同样 pattern), AddTabBtn/AddTabSheet 调 legacy SetParent(this) → modern port omit (cWindow::Add auto-parent-links, 但 tab btns+sheets 存 std::vector 不是 cDialog children — 需要 FindAnyWindowForID 找, 跟 cTabDialog 同样), legacy BYTE tabNum → modern std::uint8_t tabNum, ActionEvent 接受 CMouse* stub (Phase 6 没 CMouse type) → modern no-op stub 返回 WE_NULL=0, SetActive override virtual → 
+oexcept override (R-12 fix per MSVC C2694 强制), legacy if (m_bDisable) return; guard → modern port omit (Phase 6 移除 m_bDisable field 跟 m_type 同样 pattern), legacy cWindow::SetActive(val) cascade to tab btns+sheets → modern port SetVisible(val) 替代 (per R-12, cWindow 没 SetActive 跟 cGuageDialog SetActive(cStatic)→SetVisible 同样 pattern), SetAlpha/SetOptionAlpha legacy cWindow cascade → modern port 只 call cDialog::SetAlpha/SetOptionAlpha (cWindow 没这些 methods, tab btns+sheets cascade 1:1 documented no-op), legacy cDialog::GetWindowForID override → modern port 没 virtual GetWindowForID override, 改 public FindAnyWindowForID 1:1 (search findWindowById + iterate tab btns+sheets, 跟 legacy lookup order 一致), legacy BYTE curIdx1/curIdx2 保留 (1:1 dead fields), legacy 注释 m_BtnPushstartTime/m_BtnPushDelayTime omit (跟 cTitanGuageDlg m_pMpPercent omit 同样), SetDisable override virtual → 
+oexcept override (跟 cDialog::SetDisable 签名一致). 29 tests PASS, no regressions. P2-12 68/202 = 33.7% (续推 34% 里程碑) + 13th Tier 1.5 subcontrol (unlock MallNoticeDialog + MugongSuryunDialog).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session mvs_296164aca56644428c53affeab6bd00a 自主写. Verifier session ID 同上 (self-verify). 证据: cTabDialog 29/29 ctest PASS (ctest -C Debug -R "^CTabDialogTest\." 3.29 sec wall); 全栈 ctest 2295 → 2324 PASS (+29 net, 0 回归, j 4 timeout 30 sec). 重跑命令: cmake --build modern/build --config Debug (full build) + ctest -C Debug --timeout 30 -j 4.
+
+### Added
+
+- modern/src/ui/ctabdialog.{hpp,cpp} (新建, 29 tests): 1:1 port of legacy cTabDialog from 墨香【源码】\[Client]MH\interface\cTabDialog.{h,cpp}
+  - cTabDialog: cDialog subclass + 4 method (InitTab + AddTabBtn/AddTabSheet + SelectTab + SetActive + SetAbsXY + SetDisable + SetAlpha + SetOptionAlpha + Render + RenderTabComponent + FindAnyWindowForID) + 2 std::vector<std::unique_ptr<...>> (m_ppPushupTabBtn + m_ppWindowTabSheet) + 2 dead fields (curIdx1_/curIdx2_ 1:1)
+  - 1:1 surface: InitTab(N) (resize 2 vectors to N) + AddTabBtn(idx, unique_ptr<cPushupButton>) (sets abs + SetPassive + SetPush) + AddTabSheet(idx, unique_ptr<cWindow>) (sets abs) + SelectTab(idx) (push+active 联动) + SetActive(val) noexcept override (R-12 + SetVisible cascade) + SetAbsXY(x, y) noexcept (delta cascade) + SetDisable(val) noexcept override (cascade) + SetAlpha/SetOptionAlpha (cDialog only, tab btns+sheets 1:1 documented no-op) + Render/RenderTabComponent (no-op stubs) + FindAnyWindowForID (findWindowById + tab btns+sheets 1:1 lookup)
+  - 1:1 quirks: m_type=WT_TABDIALOG drop, curIdx1/curIdx2 dead fields preserve, SAFE_DELETE → unique_ptr auto, cPOINT m_absPos/m_relPos → m_absX/m_absY/m_relX/m_relY split, SetParent omit (cWindow::Add auto-parent-links), CMouse stub no-op, SetActive virtual → noexcept override (R-12), m_bDisable field drop (Phase 6 removed), cWindow::SetActive → SetVisible (R-12 pattern, 跟 cGuageDialog 同样), cWindow SetAlpha/SetOptionAlpha cascade → cDialog only (cWindow 没这些 methods), cDialog::GetWindowForID override → public FindAnyWindowForID (modern cDialog 没 virtual GetWindowForID)
+  - 8 test accessor (GetTabNum/GetCurTabNum/curIdx1/curIdx2/GetTabBtn/GetTabSheet/FindAnyWindowForID/lastActionEventReturn) + 1 test-injectable (ClearTestInjections)
+- modern/tests/unit/ui/ctabdialog_test.cpp (新建, 29 用例 PASS): 2 ctor/constants + 5 InitTab + 5 AddTabBtn/AddTabSheet + 5 SelectTab + 3 SetActive + 2 SetAbsXY cascade + 3 FindAnyWindowForID + 4 Render/ActionEvent/Dtor
+- modern/src/ui/CMakeLists.txt + modern/tests/unit/ui/CMakeLists.txt (改): 加 ctabdialog.cpp + 29 gtest entry
+
+### Progress
+
+- P2-12: 68/202 = **33.7%** (5 base + 63 dialog + 13 subcontrol Tier 1.5; **续推 34% 里程碑**)
+- ctest: 2324/2324 PASS (was 2295, +29 cTabDialog, 0 回归)
+- 44 个新 Tier 2 dialog 端口 (含 0.13.66 cTitanRepairDlg)
+- 13 个 Tier 1.5 subcontrol 端口 (**+1 cTabDialog, 解锁 MallNoticeDialog + MugongSuryunDialog**)
+- 2300+ tests milestone crossed (now 2324)
+
+### Known follow-ups
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序): **MallNoticeDialog 3.1 KB Tier 2 (NOW UNLOCKED, 之前 blocked on cTabDialog)** / **MugongSuryunDialog 2.9 KB Tier 2 (NOW UNLOCKED)** / PartyDlg / 其它 dialog
+- cTabDialog 解锁 2 个 deferred Tier 2 dialog, 现在可以 port. cTabDialog 本身 Tier 1.5 解锁 13th milestone.
+
+### Important Fixup in 0.13.67 batch
+
+- cWindow 没 SetActive 方法 (Phase 6 R-12 fix 移到了 cDialog). legacy cTabDialog cascade m_ppWindowTabSheet[i]->SetActive(val) → modern SetVisible(val) (per R-12, 跟 cGuageDialog SetActive(cStatic)→SetVisible 同样 pattern).
+- cWindow 没 SetAlpha/SetOptionAlpha methods (Phase 6 deferred alpha blending). legacy cTabDialog cascade to tab btns+sheets → modern port 只 call cDialog::SetAlpha/SetOptionAlpha, tab btns+sheets cascade 1:1 documented no-op.
+- cDialog 没 virtual GetWindowForID (只有 indWindowById). legacy cTabDialog override → modern port 用 public FindAnyWindowForID 1:1 (search findWindowById + iterate tab btns+sheets).
+- cDialog::SetDisable 是 
+oexcept override, cTabDialog::SetDisable 必须匹配 (MSVC C2694 强制).
+- cDialog::SetActive 是 irtual noexcept, cTabDialog::SetActive 必须 
+oexcept override (R-12 fix).
 ## [0.13.66] - 2026-07-18
 
 ### Phase 6.16 cTitanRepairDlg Tier 2 dialog port (self-verified by mavis root session)
