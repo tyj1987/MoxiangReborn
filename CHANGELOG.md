@@ -4,6 +4,34 @@
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
 
+## [0.13.53] - 2026-07-18
+
+### Phase 12.x cPointSaveDialog Tier 2 dialog port (self-verified by producer session)
+
+**背景**: 0.13.52 收口 cTitanRecallDlg + cGuildNoteDlg (25.2%)。本 session 接 cPointSaveDialog (52nd Tier 2 dialog, 1:1 port) — header 4.9 KB, 5 method (ctor + Linking + SetActive + SetItemToMapServer + ChangePointName + CancelPointName + SetDialogStatus), 1 cEditBox (m_pNameEdtBox) + 1 cTextArea (m_pText, declared-but-unused) + 3 state fields (m_bNewPoint + m_ItemPos + m_ItemIdx). Linking REAL (resolve cEditBox, SetValidCheck(VCM_CHARNAME=2)). SetActive REAL (base + SetFocusEdit + SetEditText). SetItemToMapServer + SetDialogStatus REAL inline setters. ChangePointName + CancelPointName TODO (5-singleton + 3-singleton dispatch, R-12.x deferred).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session `mvs_95dbae3dead144e08e903d57a75beb75` 自主写. Verifier session ID 同上 (self-verify). 证据: cPointSaveDialog 20/20 ctest PASS; 全栈 ctest 1983 → 2003 PASS (+20 用例, 0 回归; first time over 2000 tests!). 重跑: ctest -C Debug -R CPointSaveDialog, then ctest -C Debug --timeout 30.
+
+### Added
+
+- `modern/src/ui/pointsavedialog.{hpp,cpp}` (1 commit, 20 tests): 1:1 port of CPointSaveDialog (header 4878B)
+  - Linking: REAL (resolve cEditBox id 710, SetValidCheck(VCM_CHARNAME=2))
+  - SetActive override: REAL (base + SetFocusEdit + SetEditText)
+  - SetItemToMapServer: REAL inline setter
+  - SetDialogStatus: REAL inline setter
+  - ChangePointName: TODO (5-singleton dispatch ITEMMGR + GAMEIN + HERO + CHATMGR + MAP + NETWORK, R-12.x deferred)
+  - CancelPointName: TODO (3-singleton dispatch, R-12.x deferred)
+  - 1:1 quirk: m_pText declared in header but never used in legacy cpp body; modern port preserves
+  - Local id 710 (kIdNameEditBox)
+  - kVcmCharName=2 (1:1 with legacy VCM_CHARNAME)
+- `modern/tests/unit/ui/pointsavedialog_test.cpp` (新建, 20 用例 PASS): ctor + 4 const + Linking x3 + SetActive x4 + SetItemToMapServer x3 + SetDialogStatus + 2 TODO body
+
+### Progress
+
+- P2-12: 52/202 = 25.7% (5 base + 52 dialog + 11 subcontrol Tier 1.5)
+- ctest: 2003/2003 PASS (was 1983, +20 cPointSaveDialog; **first time over 2000 tests**)
+- 32 个新 Tier 2 dialog 端口
+
 ## [0.13.52] - 2026-07-18
 
 ### Phase 12.x batch: cTitanRecallDlg + cGuildNoteDlg Tier 2 dialogs (self-verified by producer session)
