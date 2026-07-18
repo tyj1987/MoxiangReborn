@@ -86,6 +86,7 @@ add_library(mxh_ui STATIC
     guildlevelupdialog.cpp
     mnchanneldialog.cpp
     fortwartimedialog.cpp
+    skillpointnotify.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp

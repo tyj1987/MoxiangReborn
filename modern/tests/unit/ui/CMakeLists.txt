@@ -84,6 +84,7 @@ add_executable(mxh_ui_tests
     guildlevelupdialog_test.cpp
     mnchanneldialog_test.cpp
     fortwartimedialog_test.cpp
+    skillpointnotify_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1642,4 +1643,14 @@ gtest_add_tests(TARGET mxh_ui_tests
     CFWTimeDialog.SetCharacterNameBeforeLinkingIsNoOp
     CFWTimeDialog.ActionEventOnDisabledDialogReturnsZero
     CFWTimeDialog.ActionEventOnEnabledDialogDoesNotCrash
+    # P2-12 Tier 2 dialog: cSkillPointNotify (skill-point reset notice)
+    CSkillPointNotify.IdConstantsAreLegacy
+    CSkillPointNotify.ChildrenNullBeforeLinking
+    CSkillPointNotify.LinkingMaterializesAllThreeChildren
+    CSkillPointNotify.LinkingSetsChildIds
+    CSkillPointNotify.LinkingIdempotent
+    CSkillPointNotify.InitTextAreaPopulatesBothTexts
+    CSkillPointNotify.InitTextAreaDefensiveBeforeLinking
+    CSkillPointNotify.InitTextAreaCanBeCalledMultipleTimes
+    CSkillPointNotify.NotActiveByDefault
 )
