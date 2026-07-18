@@ -77,6 +77,7 @@ add_executable(mxh_ui_tests
     uniqueitemmixprogressbardlg_test.cpp
     titanrecalldlg_test.cpp
     guildnotedlg_test.cpp
+    pointsavedialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1461,4 +1462,25 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoteDlgTest.UseWithoutLinkingIsSafe
     CGuildNoteDlgTest.OnActionEventIsNoOp
     CGuildNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
+    # P2-12 Tier 2 dialog: cPointSaveDialog (map save-point name editor)
+    CPointSaveDialogTest.CtorDoesNotCrash
+    CPointSaveDialogTest.DtorDoesNotCrash
+    CPointSaveDialogTest.InheritsFromCDialog
+    CPointSaveDialogTest.DefaultNewPointIsTrue
+    CPointSaveDialogTest.DefaultItemStateIsZero
+    CPointSaveDialogTest.IdConstantsMatchExpectedLocalRange
+    CPointSaveDialogTest.VcmCharNameIsTwo
+    CPointSaveDialogTest.LinkingResolvesNameEditBox
+    CPointSaveDialogTest.LinkingBeforeInitDoesNotCrash
+    CPointSaveDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CPointSaveDialogTest.SetActiveTrueUpdatesBaseState
+    CPointSaveDialogTest.SetActiveFalseUpdatesBaseState
+    CPointSaveDialogTest.SetActiveTrueClearsEditText
+    CPointSaveDialogTest.SetActiveBeforeInitDoesNotCrash
+    CPointSaveDialogTest.SetItemToMapServerUpdatesItemIdx
+    CPointSaveDialogTest.SetItemToMapServerUpdatesItemPos
+    CPointSaveDialogTest.SetItemToMapServerMultipleCalls
+    CPointSaveDialogTest.SetDialogStatusToggles
+    CPointSaveDialogTest.ChangePointNameIsNoOp
+    CPointSaveDialogTest.CancelPointNameIsNoOp
 )

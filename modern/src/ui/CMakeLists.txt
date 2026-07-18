@@ -79,6 +79,7 @@ add_library(mxh_ui STATIC
     uniqueitemmixprogressbardlg.cpp
     titanrecalldlg.cpp
     guildnotedlg.cpp
+    pointsavedialog.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp
