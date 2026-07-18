@@ -45,9 +45,24 @@ public:
 
     // Row operations --------------------------------------------------------
     void AddItem(std::string text, std::uint32_t color = 0xFF000000, int line = -1);
+    // 1:1 with legacy cListDialog::RemoveItem(const char* text) — find the
+    // first row whose text matches `text` and erase it. Returns true if a
+    // row was removed. Used by cMNChannelDialog (RemovePlayer/RemoveChannel
+    // /RemovePlayRoom) and several other Tier 2 dialogs.
+    bool RemoveItem(const std::string& text);
     void RemoveAll() noexcept { m_rows.clear(); m_selectedRow = -1; m_topRow = 0; }
     std::size_t RowCount() const noexcept         { return m_rows.size(); }
     bool IsMaxLineOver() const noexcept           { return m_rows.size() > m_maxLine; }
+
+    // Read accessors. 1:1 with legacy cListDialog::GetRowItem(idx, ...).
+    // Returns the text/color of row `idx` (0-based), or default-constructed
+    // Row{} if `idx` is out of range. Used by cMNChannelDialog tests and
+    // by other consumers that need to inspect row state without owning a
+    // mutable cListDialog.
+    const Row& GetRow(std::size_t idx) const noexcept {
+        static const Row kEmpty{};
+        return (idx < m_rows.size()) ? m_rows[idx] : kEmpty;
+    }
 
     // Selection / scroll ----------------------------------------------------
     int  GetCurSelectedRowIdx() const noexcept    { return m_selectedRow; }

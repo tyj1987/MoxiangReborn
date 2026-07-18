@@ -82,6 +82,7 @@ add_executable(mxh_ui_tests
     debugdlg_test.cpp
     shoutchatdialog_test.cpp
     guildlevelupdialog_test.cpp
+    mnchanneldialog_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1589,4 +1590,31 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildLevelUpDialog.SetActiveTrueWithoutPriorLevelIsNoOp
     CGuildLevelUpDialog.SetActiveFalseDelegatesToBase
     CGuildLevelUpDialog.SetActiveFalseAfterLevelPreservesState
+    # P2-12 Tier 2 dialog: cMNChannelDialog (MurimNet channel selection)
+    CMNChannelDialog.NumModesMatchesLegacyEnum
+    CMNChannelDialog.DefaultChannelModeIsId
+    CMNChannelDialog.ChildrenNullBeforeLinking
+    CMNChannelDialog.GetListDialogForModeRejectsOutOfRange
+    CMNChannelDialog.LinkingMaterializesAllNineChildren
+    CMNChannelDialog.LinkingSetsChildIds
+    CMNChannelDialog.LinkingIdempotent
+    CMNChannelDialog.SetChannelInfoUpdatesTitle
+    CMNChannelDialog.SetChannelInfoDefensiveBeforeLinking
+    CMNChannelDialog.AddPlayerAppendsFormattedRow
+    CMNChannelDialog.AddPlayerMultipleAppendsInOrder
+    CMNChannelDialog.AddPlayerDoesNotTouchOtherLists
+    CMNChannelDialog.RemovePlayerRemovesMatchingRow
+    CMNChannelDialog.RemovePlayerNotFoundIsNoOp
+    CMNChannelDialog.RemoveAllPlayerClearsList
+    CMNChannelDialog.AddChannelAppendsFormattedRow
+    CMNChannelDialog.RemoveChannelRemovesByRawTitle
+    CMNChannelDialog.RemoveAllChannelClearsList
+    CMNChannelDialog.AddPlayRoomAppendsRawTitle
+    CMNChannelDialog.RemovePlayRoomRemovesByTitle
+    CMNChannelDialog.RemoveAllPlayRoomClearsList
+    CMNChannelDialog.ChatMsgWholeAppendsFormattedLine
+    CMNChannelDialog.ChatMsgWholeMultipleAppendsInOrder
+    CMNChannelDialog.SetChannelModeActivatesSelectedList
+    CMNChannelDialog.SetChannelModeRejectsOutOfRange
+    CMNChannelDialog.SetChannelModeSwitchesMode
 )

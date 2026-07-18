@@ -34,6 +34,31 @@ void cListDialog::AddItem(std::string text, std::uint32_t color, int line) {
     }
 }
 
+bool cListDialog::RemoveItem(const std::string& text) {
+    // 1:1 with legacy cListDialog::RemoveItem(const char* text) — first
+    // match wins. We do exact match (legacy cStrcmp-based); a partial
+    // match would be a behavior change.
+    for (auto it = m_rows.begin(); it != m_rows.end(); ++it) {
+        if (it->first == text) {
+            const int removedIdx = static_cast<int>(it - m_rows.begin());
+            m_rows.erase(it);
+            // Adjust selection if the removed row was at or before the
+            // current selected row (1:1 with legacy list-dialog semantics).
+            if (m_selectedRow > removedIdx) {
+                --m_selectedRow;
+            } else if (m_selectedRow == removedIdx) {
+                m_selectedRow = -1;
+            }
+            if (m_topRow >= static_cast<int>(m_rows.size())) {
+                m_topRow = static_cast<int>(m_rows.size()) - 1;
+                if (m_topRow < 0) m_topRow = 0;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 void cListDialog::SetTopListItemIdx(int idx) noexcept {
     if (idx < 0) idx = 0;
     if (idx >= static_cast<int>(m_rows.size())) {

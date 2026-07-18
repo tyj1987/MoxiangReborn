@@ -84,6 +84,7 @@ add_library(mxh_ui STATIC
     debugdlg.cpp
     shoutchatdialog.cpp
     guildlevelupdialog.cpp
+    mnchanneldialog.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp
