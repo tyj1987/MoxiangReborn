@@ -96,6 +96,7 @@ add_library(mxh_ui STATIC
     petstateminidlg.cpp
     guagedialog.cpp
     munpamarkdialog.cpp
+    titanguagedlg.cpp
 )
 
 if(WIN32)

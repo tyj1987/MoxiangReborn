@@ -92,6 +92,7 @@ add_executable(mxh_ui_tests
     petstateminidlg_test.cpp
     guagedialog_test.cpp
     munpamarkdialog_test.cpp
+    titanguagedlg_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1748,4 +1749,22 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMunpaMarkDialog.RenderMultipleCallsInvokeMarkEachTime
     CMunpaMarkDialog.RenderThenClearMarkSkipsMark
     CMunpaMarkDialog.InitDefaultIdIsZero
+    # P2-12 Tier 2 dialog: cTitanGuageDlg (titan HP guage UI)
+    CTitanGuageDlg.IdConstantsMatchLocalRange
+    CTitanGuageDlg.DefaultConstructionHasNullChildren
+    CTitanGuageDlg.DefaultStatsHasZeroMaxFuel
+    CTitanGuageDlg.LinkingMaterializesBothChildren
+    CTitanGuageDlg.LinkingSetsChildIds
+    CTitanGuageDlg.LinkingIdempotent
+    CTitanGuageDlg.SetLifeWithZeroMaxFuelIsSafe
+    CTitanGuageDlg.SetLifeHalfMax
+    CTitanGuageDlg.SetLifeFullMax
+    CTitanGuageDlg.SetLifeOverMax
+    CTitanGuageDlg.SetLifeUpdatesStatsForTesting
+    CTitanGuageDlg.SetNaeRyukIsNoOp
+    CTitanGuageDlg.SetActiveTrueDelegatesToBase
+    CTitanGuageDlg.SetActiveFalseDelegatesToBase
+    CTitanGuageDlg.SetActiveFalseDoesNotCrashWithoutGAMEIN
+    CTitanGuageDlg.OnActionEventStaticLookBtnIsNoOp
+    CTitanGuageDlg.OnActionEventStaticUnknownIdIsNoOp
 )
