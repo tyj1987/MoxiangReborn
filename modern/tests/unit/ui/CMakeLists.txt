@@ -79,6 +79,7 @@ add_executable(mxh_ui_tests
     guildnotedlg_test.cpp
     pointsavedialog_test.cpp
     survivalcountdialog_test.cpp
+    debugdlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1512,4 +1513,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSurvivalCountDialogTest.SetWinnerNameWithNullFallsBack
     CSurvivalCountDialogTest.SetWinnerNameOverwritesPrevious
     CSurvivalCountDialogTest.SetWinnerNameWithoutLinkingIsSafe
+    # P2-12 Tier 2 dialog: cDebugDlg (debug flag display, cListDialog subclass)
+    CDebugDlgTest.CtorDoesNotCrash
+    CDebugDlgTest.DtorDoesNotCrash
+    CDebugDlgTest.InheritsFromCListDialog
+    CDebugDlgTest.InheritsFromCDialog
+    CDebugDlgTest.DbgEnumConstantsMatchLegacyValues
+    CDebugDlgTest.AllFlagsDefaultFalse
+    CDebugDlgTest.AttackFlagSetGet
+    CDebugDlgTest.ItemFlagSetGet
+    CDebugDlgTest.MoveFlagSetGet
+    CDebugDlgTest.MugongFlagSetGet
+    CDebugDlgTest.ChatFlagSetGet
+    CDebugDlgTest.UserConnFlagSetGet
+    CDebugDlgTest.MultipleFlagsIndependent
+    CDebugDlgTest.AllFlagsCanBeSet
+    CDebugDlgTest.DebugMsgParserIsNoOp
+    CDebugDlgTest.DebugMsgParserBeforeInitIsSafe
 )
