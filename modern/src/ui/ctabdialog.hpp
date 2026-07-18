@@ -196,14 +196,19 @@ public:
     static std::uint32_t lastActionEventReturn() noexcept { return s_lastActionEventReturn; }
     static void ClearTestInjections() noexcept;
 
-private:
-    // 1:1 quirk: legacy `curIdx1` / `curIdx2` declared in
-    // header but never read in cpp. Modern port preserves
-    // them as `curIdx1_` / `curIdx2_` for 1:1 fidelity
-    // (mangled to avoid clashing with the accessors).
+protected:
+    // 1:1 quirk: legacy `curIdx1` / `curIdx2` declared as
+    // protected fields in header (curIdx1 = 0; curIdx2 = 0;
+    // init in ctor + InitTab). Modern port: preserved as
+    // `curIdx1_` / `curIdx2_` (mangled to avoid clashing
+    // with the public accessors). Subclasses (e.g. cMallNoticeDialog)
+    // read + increment these in their Add() override.
+    // 1:1 quirk: legacy `curIdx1` / `curIdx2` are protected
+    // — modern port uses the same access level.
     std::uint8_t curIdx1_ = 0;
     std::uint8_t curIdx2_ = 0;
 
+private:
     std::uint8_t m_bTabNum    = 0;
     std::uint8_t m_bSelTabNum = 0;
 

@@ -100,6 +100,7 @@ add_library(mxh_ui STATIC
     skilloptioncleardlg.cpp
     titanrepairdlg.cpp
     ctabdialog.cpp
+    mallnoticedialog.cpp
 )
 
 if(WIN32)
