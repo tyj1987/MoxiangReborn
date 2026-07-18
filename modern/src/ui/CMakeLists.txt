@@ -74,6 +74,7 @@ add_library(mxh_ui STATIC
     cpage.cpp
     cobjectguagen.cpp
     progressbardlg.cpp
+    titanmixprogressbardlg.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp

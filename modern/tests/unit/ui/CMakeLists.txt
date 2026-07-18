@@ -72,6 +72,7 @@ add_executable(mxh_ui_tests
     helpdialog_test.cpp
     cobjectguagen_test.cpp
     progressbardlg_test.cpp
+    titanmixprogressbardlg_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1382,4 +1383,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CProgressBarDlgTest.SetRemaintimeStaticUpdatesGetter
     CProgressBarDlgTest.SetProgressGuagenWithNullptr
     CProgressBarDlgTest.SetRemaintimeStaticWithNullptr
+    # P2-12 Tier 2 dialog: cTitanMixProgressBarDlg (titan-mix progress bar)
+    CTitanMixProgressBarDlgTest.CtorDoesNotCrash
+    CTitanMixProgressBarDlgTest.DtorDoesNotCrash
+    CTitanMixProgressBarDlgTest.InheritsFromCProgressBarDlg
+    CTitanMixProgressBarDlgTest.IdConstantsMatchExpectedLocalRange
+    CTitanMixProgressBarDlgTest.IdConstantsAreUnique
+    CTitanMixProgressBarDlgTest.LinkingResolvesProgressGuagen
+    CTitanMixProgressBarDlgTest.LinkingResolvesRemaintimeStatic
+    CTitanMixProgressBarDlgTest.LinkingBeforeInitDoesNotCrash
+    CTitanMixProgressBarDlgTest.LinkingWithoutChildrenDoesNotCrash
+    CTitanMixProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
+    CTitanMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
+    CTitanMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
+    CTitanMixProgressBarDlgTest.SuccessProcessIsNoOp
 )
