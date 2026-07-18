@@ -2,6 +2,46 @@
 
 
 
+
+## [0.13.68] - 2026-07-18
+
+### Phase 6.16 cMallNoticeDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.67 收口 cTabDialog (33.7%, 续推 34% 里程碑, **解锁 MallNoticeDialog + MugongSuryunDialog**). 本 session 续 0.13.68: cMallNoticeDialog (mall notice dialog, cTabDialog subclass + 2 method Add + OnActionEvent). 1:1 quirks 完整保留: ctor/dtor 空 body → = default, legacy Add(cWindow*) override 用 cWindow::GetType() dispatch (WT_PUSHUPBUTTON → AddTabBtn(curIdx1++), WT_DIALOG → AddTabSheet(curIdx2++), else → cTabDialog::Add) → modern port cWindow::Add non-virtual 所以 改 public Add(cWindow*) (不是 override, 是新的同名), dispatch key 改 dynamic_cast<cPushupButton*> + dynamic_cast<cDialog*> (Phase 6 移除 m_type/GetType, 跟 cTipBrowserDlg/cPetStateMiniDlg 同样 pattern), curIdx1/curIdx2 protected fields 继承 cTabDialog → modern port 直接 access cTabDialog::curIdx1_/curIdx2_ (0.13.67 改 protected) + 自增, legacy we & WE_BTNCLICK (64) → modern we == WindowEvent::LButtonClick (4) per R-12, legacy ITEM_MALLBTN → local kItemMallBtnId=2200, legacy ShellExecute 4 locale URL (TAIWAN/HK/JP/else) → modern port stubbed no-op, URL 保留为 test-injectable SetMallUrlForTesting (default = wldhmx.com else-branch URL), legacy <shellapi.h.> typo 头 (extra .) → modern port 不 include (Phase 6 ShellExecute stubbed), legacy 1:1 commented-out ShellExecute(... mall.darkstoryonline.com ...) 1:1 quirk documented 不 port, ITEM_MALLBTN 走 default else URL. 15 tests PASS, no regressions. P2-12 69/202 = 34.2% (**突破 34% 里程碑**).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session mvs_296164aca56644428c53affeab6bd00a 自主写. Verifier session ID 同上 (self-verify). 证据: cMallNoticeDialog 15/15 ctest PASS (ctest -C Debug -R "^CMallNoticeDialogTest\." 3.34 sec wall); 全栈 ctest 2324 → 2339 PASS (+15 net, 0 回归, j 4 timeout 30 sec). 重跑命令: cmake --build modern/build --config Debug (full build) + ctest -C Debug --timeout 30 -j 4.
+
+### Added
+
+- modern/src/ui/mallnoticedialog.{hpp,cpp} (新建, 15 tests): 1:1 port of legacy CMallNoticeDialog from 墨香【源码】\[Client]MH\MallNoticeDialog.{h,cpp}
+  - cMallNoticeDialog: cTabDialog subclass + 2 method (Add + OnActionEvent) + 4 mallUrls namespace constants (kTaiwan/kJapan/kHk/kElse) + 1 local id (kItemMallBtnId=2200)
+  - 1:1 surface: Add(cWindow* window) (3-way dispatch: cPushupButton → AddTabBtn + curIdx1_++, cDialog → AddTabSheet + curIdx2_++, else → cDialog::Add) + OnActionEvent(lId, p, we) (WE_BTNCLICK + ITEM_MALLBTN → ShellExecute stubbed + record URL)
+  - 1:1 quirks: ctor/dtor empty body, legacy Add irtual override 改 public Add (modern cWindow::Add non-virtual), legacy cWindow::GetType() dispatch 改 dynamic_cast (Phase 6 移除 m_type), legacy we & WE_BTNCLICK → WindowEvent::LButtonClick (R-12), legacy ITEM_MALLBTN → local kItemMallBtnId=2200, legacy 4 locale ShellExecute → stubbed no-op + test-injectable URL, legacy <shellapi.h.> typo 头 omit, legacy 1:1 commented-out mall.darkstoryonline.com documented 不 port
+  - 4 test accessor (addCallCount/onActionEventCallCount/shellExecuteCount/lastShellUrl) + 3 test-injectable (SetMallUrlForTesting/mallUrlForTesting/ClearTestInjections)
+  - cTabDialog 配套修改 (0.13.68 follow-up): curIdx1_/curIdx2_ 改 protected (legacy 1:1, 0.13.67 当时写 private) 允许 cMallNoticeDialog 直接 access
+- modern/tests/unit/ui/mallnoticedialog_test.cpp (新建, 15 用例 PASS): 4 ctor/constants + 5 Add() dispatch + 5 OnActionEvent + 1 ClearTestInjections
+- modern/src/ui/CMakeLists.txt + modern/tests/unit/ui/CMakeLists.txt (改): 加 mallnoticedialog.cpp + 15 gtest entry
+- modern/src/ui/ctabdialog.hpp (改): curIdx1_/curIdx2_ 从 private 改 protected (1:1 legacy, 解锁 cMallNoticeDialog)
+
+### Progress
+
+- P2-12: 69/202 = **34.2%** (5 base + 63 dialog + 13 subcontrol Tier 1.5; **突破 34% 里程碑**)
+- ctest: 2339/2339 PASS (was 2324, +15 cMallNoticeDialog, 0 回归)
+- 44 个新 Tier 2 dialog 端口 (含本 batch 0.13.68 cMallNoticeDialog)
+- 13 个 Tier 1.5 subcontrol 端口 (不变)
+- 2300+ tests milestone crossed (now 2339)
+
+### Known follow-ups
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序): **MugongSuryunDialog 2.9 KB Tier 2** (NOW UNLOCKED 0.13.67, 第二个 deferred dialog) / PartyDlg / 其它 dialog
+- cMallNoticeDialog 解锁后 0.13.68 第一个 1:1 port. MugongSuryunDialog 2.9 KB 仍 unlocked 等 0.13.69 port.
+
+### Important Fixup in 0.13.68 batch
+
+- cWindow::Add 是 non-virtual (per cWindow.hpp Phase 6 design). legacy irtual void Add(cWindow*) override → modern port 改 public Add(cWindow*) (新 method, 不是 override). End-state 1:1 (3-way dispatch), 签名一致.
+- cWindow::GetType() 不存在 (Phase 6 移除 m_type). legacy dispatch 用 GetType() → modern port 用 dynamic_cast<cPushupButton*> + dynamic_cast<cDialog*> (跟 cTipBrowserDlg/cPetStateMiniDlg 同样 pattern).
+- cTabDialog::curIdx1_/curIdx2_ 0.13.67 时设为 private, cMallNoticeDialog 没法 access (它继承 cTabDialog 但 private 字段不能跨 class). 0.13.68 改 protected (1:1 legacy, 跟 cTabDialog.h 注释一致).
+- ShellExecute 是 Windows API, modern port stubbed no-op per Phase 6 pattern. URL 保留为 test-injectable.
 ## [0.13.67] - 2026-07-18
 
 ### Phase 6.16 cTabDialog Tier 1.5 subcontrol port (self-verified by mavis root session)
