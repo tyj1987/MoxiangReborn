@@ -71,6 +71,7 @@ add_library(mxh_ui STATIC
     skinselectdialog.cpp
     ccombobox.cpp
     stallfinddlg.cpp
+    cpage.cpp
     ime.cpp
 )
 

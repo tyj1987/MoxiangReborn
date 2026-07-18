@@ -66,6 +66,7 @@ add_executable(mxh_ui_tests
     skinselectdialog_test.cpp
     ccombobox_test.cpp
     stallfinddlg_test.cpp
+    cpage_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1171,6 +1172,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStallFindDlg.SetSearchedAllRoundTrip
     CStallFindDlg.SetStallInfoForTestingOutOfRangeIgnored
     CStallFindDlg.RenderIsNoop
+    # P2-12 Tier 1.5 subcontrol: cPage (help-dialog page data model)
+    CPageBase.DefaultConstruction
+    CPageBase.InitSetsPageId
+    CPageBase.AddDialogueAppends
+    CPageBase.GetRandomDialogueEmptyReturnsZero
+    CPageBase.GetRandomDialogueSingleReturnsThatOne
+    CPageBase.GetRandomDialogueMultipleUsesTestCounter
+    CPageBase.NextPrevPageIdRoundTrip
+    CPageBase.RemoveAllClearsState
+    CPage.DefaultConstructionHasNoHyperlinks
+    CPage.AddHyperLinkAppends
+    CPage.GetHyperTextReturnsPointer
+    CPage.GetHyperTextOutOfRangeReturnsNull
+    CPage.RemoveAllClearsDialoguesAndHyperlinks
+    CPage.AddNullHyperlinkIsSafe
+    CPage.InheritsPageBaseBehavior
+    CPage.MultipleHyperlinks
     CMPGuageDialogTest.SetEventMapTimerWithoutLinkingIsSafe
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog
