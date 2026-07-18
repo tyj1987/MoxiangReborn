@@ -4,6 +4,44 @@
 
 
 
+
+## [0.14.0] - 2026-07-19
+
+### Phase 6.16 cCheckBox Tier 1.5 subcontrol port (self-verified by mavis root session)
+
+**背景**: 0.13.69 收口 cMugongSuryunDialog (34.7%, 续推 35% 里程碑, **0.13.67 cTabDialog 解锁 2 dialog 都 ported**). 新 session 8h+ 重新计时，按 ROADMAP_2026.md §9.1 流程接 0.14.0 推 1 个遗漏 Tier 1.5 subcontrol. **0.14.0 推 cCheckBox** (check box widget, cWindow subclass, 1KB+2KB). 1:1 quirks 完整保留: ctor m_type=WT_CHECKBOX drop, ctor memset(m_szCheckBoxText, 0, MAX_CHECKBOXTEXT_SIZE) 1:1 保留, ctor m_dwCheckBoxTextColor=RGB_HALF(255,255,255) → 0xFFFFFFFFu ARGB, ctor m_fChecked=FALSE → modern default-init false, legacy cbWindowFunc = Func (在 cWindow base) → modern port 存 m_func (modern cWindow 没 cbWindowFunc), legacy cbFUNC typedef → std::function<void(int32_t, void*, uint32_t)> (test-injectable), legacy m_pParent (cWindow 没这 field) → modern port 引入 cWindow* m_parentDialog test-injectable, legacy WE_CHECKED=128 / WE_NOTCHECKED=256 (cWindowDef.h enum WINDOW_EVENT) → local constexpr kWeChecked=128 / kWeNotChecked=256 (cWindow::WindowEvent 没这些 enum), legacy WE_LBTNCLICK → modern we == WindowEvent::LButtonClick (4) per R-12, legacy m_fChecked ^= TRUE (XOR) → modern port preserve 1:1, legacy m_bActive field (cWindow 没) → modern isEnabled() (legacy guard 1:1 documented no-op), legacy m_bDisable → modern !isEnabled(), legacy m_szCheckBoxText (fixed-size char array MAX_CHECKBOXTEXT_SIZE) → modern std::string (dynamic), legacy cImage m_CheckBoxImage/m_CheckImage (value-typed) → modern oid* opaque handle (cImage GPU-backed), legacy Render 用 VECTOR2 / RGBA_MERGE / cFont → modern Render no-op stub (Phase 6.x render deferred, R-10), ActionEvent 接受 CMouse* 跟 legacy 1:1 但 modern CMouse 是 stub 所以 click detection no-op, click → toggle + callback dispatch 暴露为 ToggleForTesting() test helper (跟 cMoneyDlg::OkPushed + cSkillOptionClearDlg::OptionClearSyn 同样 pattern, modern port 暴露 test-injectable side effects 当 input system stubbed). 22 tests PASS (3 free function + 19 fixture), no regressions. P2-12 71/202 = 35.1% (**突破 35% 里程碑**).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session mvs_296164aca56644428c53affeab6bd00a 自主写. Verifier session ID 同上 (self-verify). 证据: cCheckBox 22/22 ctest PASS (ctest -C Debug -R "^(CCheckBox|CCheckBoxTest)\." 2.57 sec wall); 全栈 ctest 2358 → 2380 PASS (+22 net, 0 回归, j 4 timeout 30 sec). 重跑命令: cmake --build modern/build --config Debug (full build) + ctest -C Debug --timeout 30 -j 4.
+
+### Added
+
+- modern/src/ui/ccheckbox.{hpp,cpp} (新建, 22 tests): 1:1 port of legacy cCheckBox from 墨香【源码】\[Client]MH\interface\cCheckBox.{h,cpp}
+  - cCheckBox: cWindow subclass + 4 method (Init + ActionEvent + Render + IsChecked/SetChecked) + 1:1 callback (SetCheckBoxMsg) + 1 test-injectable (ToggleForTesting) + 1 parent setter (SetParentDialogForTesting)
+  - 1:1 surface: Init(x, y, wid, hei, basicImage, checkBoxImage, checkImage, Func, ID) (store handles + cWindow::Init + m_func) + ActionEvent(CMouse*) (no-op shell, modern CMouse stubbed) + Render (no-op stub, Phase 6.x deferred) + IsChecked/SetChecked (XOR semantics) + SetCheckBoxMsg(msg, color) (text + color storage)
+  - 1:1 quirks: ctor m_type=WT_CHECKBOX drop, ctor memset m_szCheckBoxText 1:1 preserved, ctor m_dwCheckBoxTextColor RGB_HALF(255,255,255) → 0xFFFFFFFFu ARGB, cbWindowFunc 移到 m_func (cWindow 没), cbFUNC → std::function test-injectable, m_pParent → m_parentDialog test-injectable, WE_CHECKED/WE_NOTCHECKED → local constexpr kWeChecked=128/kWeNotChecked=256, WE_LBTNCLICK → WindowEvent::LButtonClick (R-12), m_fChecked ^= TRUE preserve, m_bActive → isEnabled() (1:1 documented no-op), m_bDisable → !isEnabled(), m_szCheckBoxText[MAX] → std::string, cImage value-typed → void* opaque, Render VECTOR2/RGBA_MERGE/cFont → no-op, ActionEvent CMouse → no-op shell (test-injectable ToggleForTesting)
+  - 5 test accessor (IsChecked/checkBoxText/checkBoxTextColor/callbackFiredCount/lastCallbackWe/lastCallbackId/lastCallbackParent) + 2 test-injectable (ToggleForTesting/SetParentDialogForTesting/ClearTestInjections)
+- modern/tests/unit/ui/ccheckbox_test.cpp (新建, 22 用例 PASS): 3 constants + 3 Init + 2 SetChecked + 2 SetCheckBoxMsg + 8 Toggle (含 XOR + callback + parent + disabled) + 2 ActionEvent + 1 Render + 1 ClearTestInjections
+- modern/src/ui/CMakeLists.txt + modern/tests/unit/ui/CMakeLists.txt (改): 加 ccheckbox.cpp + 22 gtest entry (3 free function + 19 fixture)
+
+### Progress
+
+- P2-12: 71/202 = **35.1%** (5 base + 64 dialog + 14 subcontrol Tier 1.5; **突破 35% 里程碑**)
+- ctest: 2380/2380 PASS (was 2358, +22 cCheckBox, 0 回归)
+- 44 个新 Tier 2 dialog 端口 (不变)
+- 14 个 Tier 1.5 subcontrol 端口 (**+1 cCheckBox, 14th Tier 1.5**)
+- 2300+ tests milestone crossed (now 2380)
+
+### Known follow-ups
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序): 0.14.1 推 cGridDialog (0.9KB+1KB Tier 1.5 subcontrol, ~12 tests) / cList (1.5KB+6KB Tier 1.5 subcontrol) / cObject (基类, ~6 tests) / Plan C housekeeping
+- cCheckBox 14th Tier 1.5 subcontrol 端口. 继续推遗漏 Tier 1.5.
+
+### Important Fixup in 0.14.0 batch
+
+- **0.14.0 候选误判**: 计划推 cDivideBox 但发现 cDivideBox 已经被 0.13.x 早期 batch ported (camelCase cDivideBox.{hpp,cpp} 已存在 + 12 tests PASS). 撤回 cdividebox.{hpp,cpp} + 还原 CMakeLists. 改推 cCheckBox (Type 1.5 subcontrol 还没 ported). **Lesson**: 新 batch 推前先 grep modern/src/ui/ 已 ported 列表 + Select-String cDivideBox test name 确认, 避免 duplicate.
+- cWindow 没 m_bActive field (cDialog 才有). legacy cCheckBox 用 m_bActive 实际是 cWindow 继承 (R-12 移除). modern port 用 isEnabled() 替代 + 1:1 quirk documented.
+- cWindow::WindowEvent 没 Checked / NotChecked 枚举. modern port 用 local constexpr kWeChecked=128 / kWeNotChecked=256 匹配 legacy bit-field 值.
+- ActionEvent(CMouse*) legacy signature 保留 1:1, 但 modern CMouse 是 stub 所以 click detection no-op. Toggle 行为暴露为 ToggleForTesting() test helper (跟 cMoneyDlg/cSkillOptionClearDlg 同样 pattern).
 ## [0.13.69] - 2026-07-19
 
 ### Phase 6.16 cMugongSuryunDialog Tier 2 dialog port (self-verified by mavis root session)

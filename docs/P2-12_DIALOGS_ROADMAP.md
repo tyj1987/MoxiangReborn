@@ -16,7 +16,7 @@ dialog 不现实--这是 Phase 6 时代就遗留的 Phase 12 长尾任务。
 本文把 202 个 legacy dialog 按"实现难度 + 依赖复杂度"分 5 档,每档
 标 port 优先级 + 估计工作量 + blocker,让后续 session 按矩阵接活。
 
-## 已 Port 列表（70/202 = 34.7%，0.13.69）
+## 已 Port 列表（71/202 = 35.1%，0.14.0）
 
 | 现代类 | 头文件 | 测试数 | 备注 |
 |--------|-------|-------|------|
@@ -507,6 +507,12 @@ Phase 10.24 + 12.x 接力。P2-12 进度从 0.13.12 的 22/202 推到 0.13.45 �
 0.13.69 接力 0.13.68 (cMallNoticeDialog 收口, 34.2% 续推 35% 里程碑). 本 session 推 1 个 Tier 2 dialog: **cMugongSuryunDialog** (19 tests, 0.13.67 cTabDialog 解锁后**第二个** 1:1 port). ctest baseline 2339 → 2358 (+19 net, 0 回归, j 4 timeout 30 sec). cMugongSuryunDialog 是 1:1 port of legacy `CMugongSuryunDialog` from `墨香【源码】\[Client]MH\MugongSuryunDialog.{h,cpp}`. **1:1 quirk 最关键**: legacy `Add` 有 TYPO bug — 第一个 if-pair 第二个分支检查 `WT_MUGONGDIALOG` (不是 `WT_SURYUNDIALOG`), 所以 m_pSuryunDlg 永远 NULL (legacy bug 1:1 preserved). 1:1 quirks: ctor m_type=WT_MUGONGSURYUNDIALOG drop, ctor m_pMugongDlg=NULL/m_pSuryunDlg=NULL → raw pointer default-init nullptr, OnActionEvent 空 body 1:1 preserved, SetActive(FALSE) 调 SetDisable(FALSE) self-undo 1:1, SetActive base SetActive LAST, cWindow::GetType() → dynamic_cast (Phase 6 移除 m_type), we & WE_BTNCLICK → WindowEvent::LButtonClick (R-12), FakeMoveIcon UB guard 返回 false (legacy crash, modern defensive), 4-singleton 全部 stubbed, MBI_MUGONGDELETE → local kMbiMugongDelete=2300. **P2-12 70/202 = 34.7%** (续推 35% 里程碑). 0.13.67 cTabDialog 解锁 2 dialog **都 ported** (0.13.68 MallNoticeDialog + 0.13.69 MugongSuryunDialog).
 
 - 0.13.69 cMugongSuryunDialog (19 tests, Tier 2 dialog - **64th Tier 2 dialog port, 续推 35% 里程碑**)
+
+## 0.14.0 更新摘要 (2026-07-19)
+
+新 session 8h+ 重新计时. 0.14.0 推 1 个 Tier 1.5 subcontrol: **cCheckBox** (22 tests, check box widget). ctest baseline 2358 → 2380 (+22 net, 0 回归, j 4 timeout 30 sec). cCheckBox 是 1:1 port of legacy `cCheckBox` from `墨香【源码】\[Client]MH\interface\cCheckBox.{h,cpp}`. 1:1 quirks: ctor m_type=WT_CHECKBOX drop, ctor memset m_szCheckBoxText 1:1 preserved, ctor m_dwCheckBoxTextColor RGB_HALF(255,255,255) → 0xFFFFFFFFu ARGB, cbWindowFunc 移到 m_func (cWindow 没), cbFUNC → std::function test-injectable, m_pParent → m_parentDialog test-injectable, WE_CHECKED/WE_NOTCHECKED → local constexpr kWeChecked=128/kWeNotChecked=256 (cWindow::WindowEvent 没这些 enum), WE_LBTNCLICK → WindowEvent::LButtonClick (R-12), m_fChecked ^= TRUE preserve, m_bActive → isEnabled() (1:1 documented no-op), m_bDisable → !isEnabled(), m_szCheckBoxText[MAX] → std::string, cImage value-typed → void* opaque, Render VECTOR2/RGBA_MERGE/cFont → no-op, ActionEvent CMouse → no-op shell + ToggleForTesting test helper. **0.14.0 误判 fix**: 计划推 cDivideBox 但发现已被 0.13.x 早期 batch ported (camelCase `cDivideBox.{hpp,cpp}` + 12 tests). 撤回 cdividebox 改推 cCheckBox. **P2-12 71/202 = 35.1%** (突破 35% 里程碑, 14th Tier 1.5 subcontrol).
+
+- 0.14.0 cCheckBox (22 tests, **Tier 1.5 subcontrol 14th, 突破 35% 里程碑**)
 
 ## 0.13.50-0.13.56 batch 摘要 (2026-07-18, 跨 day session)
 
