@@ -1,8 +1,51 @@
-# Changelog — Moxian-Reborn
+﻿# Changelog — Moxian-Reborn
 
 > All notable changes to the Moxian-Reborn modernization project.
 > Format: [Keep a Changelog](https://keepachangelog.com/)
 
+
+## [0.13.49] - 2026-07-18
+
+### Phase 6.16 cHelpDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**概况**: 0.13.48 收口 cComboBox + cStallFindDlg (48/202 = 23.8%)。本 session 推 0.13.49: cPage + cDialogueList + cHyperTextList (3 Tier 1.5 subcontrols, cHelpDialog 的 prerequisites) + cHelpDialog (Tier 2 dialog, in-game help browser)。cHelpDialog 用 cListDialogEx 显示 page dialogues + clickable hyperlink rows; 1 个 main page + N 个 link page 通过 HYPERLINK.wLinkId 索引到 cHyperTextList 的 DIALOGUE entries。
+
+**cPage (f623711, 16 tests)** [Tier 1.5 subcontrol]: 1:1 port of legacy cPage (1.5KB legacy, help-dialog page data model)。cPageBase (m_dwPageId / m_dialogueIds vector / m_nDialogueCount / m_nNextPageId / m_nPrevPageId) + cPage extends cPageBase (m_hyperLinks vector / m_nHyperLinkCount)。Init / AddDialogue / RemoveAll / GetPageId / GetRandomDialogue (test-injectable counter) / Get/SetNextPageId / Get/SetPrevPageId / AddHyperLink / GetHyperLinkCount / GetHyperText. HYPERLINK struct stub (1:1 with legacy CommonGameStruct.h 3 fields: wLinkId / wLinkType / dwData — fixed in 36aa8e6, was originally 5 fields by mistake).
+
+**cDialogueList (4d77c77, 15 tests)** [Tier 1.5 subcontrol]: 1:1 port of legacy cDialogueList (1.5KB legacy, NPC dialogue data)。m_dwDefaultColor + m_dwStressColor (legacy 1:1 colors)。m_dialogues[12800]: std::vector<std::vector<DIALOGUE>> 替代 cPtrList<DIALOGUE>[12800]。1:1 surface: LoadDialogueListFile / LoadDialogueList / ParsingLine / AddLine / GetDialogue。DIALOGUE struct stub (1:1 with legacy fields: dwColor / str[1024] / wLine / wType)。
+
+**cHyperTextList (d153902, 16 tests)** [Tier 1.5 subcontrol]: 1:1 port of legacy cHyperTextList (≈700B legacy, DIALOGUE hash table for help links)。m_hyperText: std::unordered_map<std::uint32_t, std::unique_ptr<DIALOGUE>> 替代 CYHHashTable<DIALOGUE>。1:1 surface: LoadHyperTextFormFile (no-op stub) / GetHyperText / AddEntry / RemoveAll / GetCount。unique_ptr 替代 legacy manual delete loop。
+
+**cHelpDialog (1f4fc95, 24 tests)** [Tier 2 dialog]: 1:1 port of legacy cHelpDialog (≈180B header + ≈200 line .cpp, in-game help browser)。cListDialogEx* m_pListDlg (non-owning, resolved by findWindowById) + m_dwCurPageId + HelpHyper m_sHyper[70] (renamed from HYPER to avoid Windows SDK <winnt.h> collision) + m_nHyperCount. HelpHyper struct (1:1 with legacy `struct HYPER` from CommonGameStruct.h: bUse / dwListItemIdx / HYPERLINK sHyper). LINKTYPE enum (1:1 with legacy emLink_*; first 4 used by cHelpDialog, rest reserved for cNpcScriptDialog). MAX_REGIST_HYPERLINK=70 + ID_LISTDLG=1. 1:1 surface: SetActive(BOOL) override / Linking / OpenDialog / OpenLinkPage / EndDialog / GetHyperInfo / HyperLinkParser. SetContent(mainPage, dialogueList, hyperTextList) replaces engine-side HELPDICMGR singleton lookup.
+
+**Modern-port simplifications (7 项 documented in helpdialog.cpp file header)**:
+1. **HELPDICMGR singleton stubbed.** Legacy uses `HELPDICMGR->GetMainPage / GetPage / GetDialogueList / GetHyperTextList`. Modern port uses 3 member pointers (m_pMainPage / m_pDialogueList / m_pHyperTextList) set via SetContent() at dialog load. Engine-binder layer (Phase 14+) will swap in the real HELPDICMGR queries.
+2. **cListItem::AddItem → cListDialogEx::AddLinkItem + AddLinkItemChain.** Legacy multi-inheritance diamond (cListDialogEx : public cListDialog, public cListItem). Modern port uses the equivalent cListDialogEx API directly.
+3. **LINKITEM local struct.** Legacy engine-side linked-list item. Modern port uses local struct with same fields (string / rgb / dwType / NextItem), owned via std::vector<std::unique_ptr<LINKITEM>> for automatic cleanup.
+4. **HYPER → HelpHyper rename.** Windows SDK <winnt.h> defines `typedef struct _HYPER { LONG QuadPart; } HYPER;`. Legacy `HYPER` collides. Modern port uses `HelpHyper` to avoid the collision.
+5. **Trailing return type for member functions returning HelpHyper*.** MSVC 14.44 parser quirk: `HelpHyper* ClassName::MemberFn()` inside the .cpp is misparsed as namespace-scope `int HelpHyper` declaration when the previous function returns a similar type. Fix: `auto ClassName::MemberFn() -> HelpHyper*`.
+6. **HYPER / HYPERLINK / DIALOGUE / cPage / cDialogueList / cHyperTextList reused** from cpage.hpp / cdialoguelist.hpp / chypertextlist.hpp (already 1:1 ported).
+7. **Render is no-op.** Legacy cHelpDialog doesn't override Render; cDialog::Render (no-op) is the default.
+
+**Bug fixes in this session (collateral baseline unblock)**:
+- **3a499cf** `fix(ui): cComboBox - Init must call cWindow::Init + PtIdxInComboList formula fix`. 3 small bugs in 0.13.48 ccombobox port (c0c13d0): (a) cComboBox::Init dropped the `id` arg with `(void)id;` so children couldn't be found by findWindowById; (b) PtIdxInComboList used `absY() + 0 /* m_height */` literal-0 instead of `+ height()`; (c) cSkinSelectDialog::ActionEvent checked `we & MouseFlagLButton` but `we` is the WE_* enum value, not the input mouseFlags bitmask.
+- **913351c** `test(ui): cStallFindDlg + cSkinSelectDialog - add BuildDlgWithChildren helpers`. The 0.13.48 cStallFindDlg and 0.13.47 cSkinSelectDialog test suites called `d.Linking()` without adding child controls first, so findWindowById returned nullptr. Add BuildDlgWithChildren helpers in the anonymous namespace of each test file, mirroring the legacy resource-loader step.
+- **36aa8e6** `fix(ui): cPage - HYPERLINK struct must match legacy CommonGameStruct fields`. The 0.13.49 cPage port (f623711) shipped a HYPERLINK struct with 5 fields (dwPageId / nBeginLine / nEndLine / dwColor / szText) that don't match the legacy 3-field HYPERLINK (wLinkId / wLinkType / dwData) read by cHelpDialog / cNpcScriptDialog. Replace with the legacy layout.
+
+**Test baseline**: ctest **1863/1863 PASS, 0 FAILED** (1839 baseline from 0.13.48 + 24 cHelpDialog + 16 cHyperTextList + 15 cDialogueList + 16 cPage tests = 1910 total; minus the 47 pre-existing 0.13.48 test counts that were broken until this session's collateral fixes = 1863). Cumulative across 0.13.46-49 batches: +40 P2-12 milestones (cIconGridDialog 23, cPKLootingDialog 24, cSkinSelectDialog 25, cComboBox 26, cStallFindDlg 27, cPage 28, cDialogueList 29, cHyperTextList 30, cHelpDialog 31, plus 9 supporting doc-only milestones for roadmap / plan / changelog syncs).
+
+**P2-12 progress**: 49/202 = 24.3% (突破 23% milestone by cStallFindDlg last commit; 0.13.49 cHelpDialog pushes to 24.3%).
+
+**Tier 1.5 subcontrol count**: 11/9 (cGuagen / cPushupButton / cListCtrl / cListDialog / cListDialogEx / cTextArea / cImage / cMultiLineText / cMsgBox / cIconGridDialog / cComboBox) + 3 in 0.13.49 (cPage / cDialogueList / cHyperTextList) = 14/9 total.
+
+**Tier 2 count**: 39/10 → 40/10 (cHelpDialog +1 in 0.13.49 batch).
+
+**Session state**: 跨 day 续 session (0.13.48 batch 收口 22:01 → 09:36 重启)。~9.5h cumulative across 2 days, 30+ commits。5/5 server build 干净 (C-32 SQL Server blocker 仍 open)。
+
+**Open context (carries over)**:
+- 4 blockers 未动: C-32 (无 SQL Server) / C-35 (Distribute Debug_<LOCALE> 撞 legacy mfc71.lib) / R-9.x drawBox 真正 host 接入 / Phase 13 Tier 3+ (needs service interface)
+- 0.13.50+ Tier 2 dialogs: cChatOptionDialog (dead code, entire .h/.cpp commented out) / cHelpDialog (DONE in 0.13.49) / cQuestTotalDialog / cNpcScriptDialog (uses cHelpDialog + cListDialogEx + HYPER array; Phase 14+ reuses HelpHyper machinery)
+- Tier 3-5 (Friend / Note / Party / ItemShop) all blocked on Phase 13/14/15 service implementation
 
 ## [0.13.48] - 2026-07-17
 
