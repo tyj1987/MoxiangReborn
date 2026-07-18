@@ -68,6 +68,7 @@ add_executable(mxh_ui_tests
     stallfinddlg_test.cpp
     cpage_test.cpp
     cdialoguelist_test.cpp
+    chypertextlist_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1283,4 +1284,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPRegistDialogTest.AddLinkOnUnlinkedDialogIsSafe
     CMPRegistDialogTest.GetMugongReturnsNull
     CMPRegistDialogTest.GetMugongOnUnlinkedDialogReturnsNull
+    # P2-12 Tier 1.5 subcontrol: cHyperTextList (DIALOGUE hash table for help links)
+    CHyperTextList.DefaultConstructionIsEmpty
+    CHyperTextList.InheritsBaselineApi
+    CHyperTextList.AddEntryAppends
+    CHyperTextList.GetHyperTextReturnsPointer
+    CHyperTextList.GetHyperTextOutOfRangeReturnsNull
+    CHyperTextList.AddEntryOverwritesAtSameIdx
+    CHyperTextList.AddEntryWithNullStringIsNoOp
+    CHyperTextList.AddEntryWithEmptyStringIsValid
+    CHyperTextList.AddEntryStoresDefaultsForNonStringFields
+    CHyperTextList.AddEntryWithLongStringTruncates
+    CHyperTextList.AddEntryWithExactSizeStringFits
+    CHyperTextList.RemoveAllClearsEntries
+    CHyperTextList.AddEntryAfterRemoveAllReusesIds
+    CHyperTextList.ManyEntriesPreserveLookup
+    CHyperTextList.NonContiguousKeysSupported
+    CHyperTextList.NotCopyable
 )

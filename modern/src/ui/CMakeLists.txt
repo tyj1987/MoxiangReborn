@@ -73,6 +73,7 @@ add_library(mxh_ui STATIC
     stallfinddlg.cpp
     cpage.cpp
     cdialoguelist.cpp
+    chypertextlist.cpp
     ime.cpp
 )
 
