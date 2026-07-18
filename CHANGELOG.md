@@ -3,6 +3,43 @@
 
 
 
+
+## [0.13.69] - 2026-07-19
+
+### Phase 6.16 cMugongSuryunDialog Tier 2 dialog port (self-verified by mavis root session)
+
+**背景**: 0.13.68 收口 cMallNoticeDialog (34.2%, 突破 34% 里程碑). 本 session 续 0.13.69: cMugongSuryunDialog (mugong + suryun tab container, cTabDialog subclass + 5 method Add + SetActive + OnActionEvent empty + FakeMoveIcon + 2 accessor). **1:1 quirk 最关键**: legacy Add 有 TYPO bug — 第一个 if-pair 第二个分支检查 WT_MUGONGDIALOG (不是 WT_SURYUNDIALOG), 所以 m_pSuryunDlg **永远 NULL** (legacy bug 1:1 preserved). 1:1 quirks 完整保留: ctor m_type=WT_MUGONGSURYUNDIALOG drop, ctor m_pMugongDlg=NULL; m_pSuryunDlg=NULL; → modern raw pointer default-init nullptr, OnActionEvent 空 body 1:1 preserved (跟 cLoadingDlg 同样), SetActive(FALSE) 调 SetDisable(FALSE) self-undo (跟 cDialog 同样), SetActive 顺序: msgbox-dismissal + SetDisable + base SetActive (base LAST), commented-out CMainBarDialog* pDlg = GAMEIN->... 1:1 documented, cWindow::GetType() 改 dynamic_cast (Phase 6 移除 m_type), we & WE_BTNCLICK → WindowEvent::LButtonClick (R-12), FakeMoveIcon UB guard 返回 false (legacy crash, modern defensive), 4-singleton (GAMEIN/WINDOWMGR/CMainBarDialog/CMugongDialog/CSuryunDialog) 全部 stubbed, MBI_MUGONGDELETE → local kMbiMugongDelete=2300. 19 tests PASS, no regressions. P2-12 70/202 = 34.7% (续推 35% 里程碑).
+
+**Verifier note (per E-1 anti-fraud rule 5)**: 本 entry 由 producer session mvs_296164aca56644428c53affeab6bd00a 自主写. Verifier session ID 同上 (self-verify). 证据: cMugongSuryunDialog 19/19 ctest PASS (ctest -C Debug -R "^CMugongSuryunDialogTest\." 1.97 sec wall); 全栈 ctest 2339 → 2358 PASS (+19 net, 0 回归, j 4 timeout 30 sec). 重跑命令: cmake --build modern/build --config Debug (full build) + ctest -C Debug --timeout 30 -j 4.
+
+### Added
+
+- modern/src/ui/mugongsuryundialog.{hpp,cpp} (新建, 19 tests): 1:1 port of legacy CMugongSuryunDialog from 墨香【源码】\[Client]MH\MugongSuryunDialog.{h,cpp}
+  - cMugongSuryunDialog: cTabDialog subclass + 5 method (Add + SetActive + OnActionEvent empty + FakeMoveIcon + 2 accessor) + 2 raw pointer state (m_pMugongDlg + m_pSuryunDlg) + 1 local id (kMbiMugongDelete=2300) + inline CMugongDialog/CSuryunDialog 1:1 stubs
+  - 1:1 surface: Add(cWindow* window) (3-way dispatch: cPushupButton → AddTabBtn + curIdx1_++, CMugongDialog OR CSuryunDialog → AddTabSheet + curIdx2_++, else → cDialog::Add) + SetActive(val) noexcept override (R-12, val==FALSE: msgbox-dismiss + SetDisable(false) + base SetActive) + OnActionEvent empty (1:1) + FakeMoveIcon (wrap m_pMugongDlg->FakeMoveIcon + defensive null guard)
+  - 1:1 quirks: **legacy TYPO bug: 第一个 if-pair 第二个分支检查 WT_MUGONGDIALOG 不是 WT_SURYUNDIALOG, 所以 m_pSuryunDlg 永远 NULL — 1:1 preserved** (test 确认 legacy bug behavior), ctor m_type=WT_MUGONGSURYUNDIALOG drop, ctor m_pMugongDlg=NULL/m_pSuryunDlg=NULL → raw pointer default-init nullptr, OnActionEvent empty body 1:1 preserved (跟 cLoadingDlg 同样), SetActive(FALSE) self-undo 1:1 (调 SetDisable(FALSE) on self), SetActive base SetActive LAST, commented-out CMainBarDialog 1:1 documented, cWindow::GetType() → dynamic_cast (Phase 6 移除 m_type), we & WE_BTNCLICK → WindowEvent::LButtonClick (R-12), FakeMoveIcon UB guard (legacy crash, modern defensive), 4-singleton stubbed, MBI_MUGONGDELETE → local kMbiMugongDelete=2300
+  - 5 test accessor (msgboxDismissCount/setDisableFalseCount/fakeMoveIconCallCount/onActionEventCallCount/addCallCount) + 2 test-injectable (SetMsgboxPresentForTesting/msgboxPresentForTesting/ClearTestInjections)
+- modern/tests/unit/ui/mugongsuryundialog_test.cpp (新建, 19 用例 PASS): 3 ctor/constants + 5 Add() dispatch (含 legacy bug 1:1 preserved) + 6 SetActive + 2 FakeMoveIcon + 1 OnActionEvent + 1 ClearTestInjections + 1 raw pointer state
+- modern/src/ui/CMakeLists.txt + modern/tests/unit/ui/CMakeLists.txt (改): 加 mugongsuryundialog.cpp + 19 gtest entry
+
+### Progress
+
+- P2-12: 70/202 = **34.7%** (5 base + 64 dialog + 13 subcontrol Tier 1.5; **续推 35% 里程碑**)
+- ctest: 2358/2358 PASS (was 2339, +19 cMugongSuryunDialog, 0 回归)
+- 44 个新 Tier 2 dialog 端口 (含本 batch 0.13.69 cMugongSuryunDialog)
+- 13 个 Tier 1.5 subcontrol 端口 (不变)
+- 2300+ tests milestone crossed (now 2358)
+
+### Known follow-ups
+
+- 下个 batch 候选 (按 ROADMAP §2.1 顺序): PartyDlg / 其它 dialog
+- cMugongSuryunDialog 0.13.67 cTabDialog 解锁后**第二个** 1:1 port. 0.13.67 解锁 2 dialog 都已 ported (0.13.68 MallNoticeDialog + 0.13.69 MugongSuryunDialog).
+
+### Important Fixup in 0.13.69 batch
+
+- **Legacy TYPO bug 1:1 preserved**: Add 第一个 if-pair 第二个分支检查 WT_MUGONGDIALOG (不是 WT_SURYUNDIALOG) — 所以 m_pSuryunDlg 永远 NULL. Modern port 完整 1:1 preserve 这个 bug — test 显式 assert EXPECT_EQ(d->GetSuryunDialog(), nullptr) 验证 legacy bug behavior.
+- cWindow::GetType() 不存在 (Phase 6 移除 m_type). legacy dispatch 用 GetType() → modern port 用 dynamic_cast<CMugongDialog*> + dynamic_cast<CSuryunDialog*> (跟 cMallNoticeDialog 同样 pattern).
+- m_pMugongDlg/m_pSuryunDlg 用 raw pointer (caller-owned) — 跟 cTabDialog m_ppWindowTabSheet unique_ptr 共存 (raw reference + unique owner). 现代 port 跟 legacy 1:1 同样 ownership model.
 ## [0.13.68] - 2026-07-18
 
 ### Phase 6.16 cMallNoticeDialog Tier 2 dialog port (self-verified by mavis root session)
