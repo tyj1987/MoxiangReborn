@@ -70,6 +70,7 @@ add_executable(mxh_ui_tests
     cdialoguelist_test.cpp
     chypertextlist_test.cpp
     helpdialog_test.cpp
+    cobjectguagen_test.cpp
     legacy_compat_test.cpp
     ime_test.cpp
 )
@@ -1327,4 +1328,29 @@ gtest_add_tests(TARGET mxh_ui_tests
     CHelpDialog.GetHyperAtOutOfRangeReturnsNull
     CHelpDialog.OpenDialogWithoutListDlgIsSafe
     CHelpDialog.NotCopyable
+    # P2-12 Tier 1.5 subcontrol: cObjectGuagen (object gauge with effect-time interp)
+    CObjectGuagenTest.CtorDoesNotCrash
+    CObjectGuagenTest.DtorDoesNotCrash
+    CObjectGuagenTest.InheritsFromCGuagen
+    CObjectGuagenTest.IsACGuagen
+    CObjectGuagenTest.DefaultStateIsZero
+    CObjectGuagenTest.DefaultEffectPieceHeightScaleIsOne
+    CObjectGuagenTest.DefaultEffectPieceWidthIsZero
+    CObjectGuagenTest.SetValueClampsToOne
+    CObjectGuagenTest.SetValueUpdatesCurPercentRate
+    CObjectGuagenTest.SetValueWithEstTimeUpdatesIncAmount
+    CObjectGuagenTest.SetValueWithZeroEstTimeSetsCurPercent
+    CObjectGuagenTest.SetValuePreservesOldPercentRate
+    CObjectGuagenTest.SetValueWithMultipleCalls
+    CObjectGuagenTest.SetValueBeforeInitDoesNotCrash
+    CObjectGuagenTest.SetValueWithNegativeValIsSafe
+    CObjectGuagenTest.ActionEventReturnsZero
+    CObjectGuagenTest.ActionEventBeforeInitDoesNotCrash
+    CObjectGuagenTest.RenderIsNoOp
+    CObjectGuagenTest.RenderBeforeInitDoesNotCrash
+    CObjectGuagenTest.RenderAfterSetValueDoesNotCrash
+    CObjectGuagenTest.SetGuageEffectPieceWidthUpdatesGetter
+    CObjectGuagenTest.SetGuageEffectPieceHeightScaleUpdatesGetter
+    CObjectGuagenTest.SetBlinkTogglesState
+    CObjectGuagenTest.SetGuageEffectPieceWidthAndHeightScaleCoexist
 )

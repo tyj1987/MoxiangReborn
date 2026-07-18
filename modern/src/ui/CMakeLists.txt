@@ -72,6 +72,7 @@ add_library(mxh_ui STATIC
     ccombobox.cpp
     stallfinddlg.cpp
     cpage.cpp
+    cobjectguagen.cpp
     cdialoguelist.cpp
     chypertextlist.cpp
     helpdialog.cpp
