@@ -31,6 +31,7 @@ endif()
 # Sub-projects
 # -----------------------------------------------------------------------------
 add_subdirectory(src)
+add_subdirectory(src/game)
 add_subdirectory(src/client)
 add_subdirectory(tests)
 add_subdirectory(tools/MoxianResourceExplorer)
