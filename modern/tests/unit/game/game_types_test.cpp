@@ -314,12 +314,56 @@ TEST(GameMonsterTemplate, DefaultSpawnPointsHasFiveForMap12) {
 TEST(GameSkillInfo, DefaultFieldsAreSane) {
     SkillInfo s{};
     EXPECT_EQ(s.skill_idx,   0u);
-    EXPECT_EQ(s.skill_kind,  0u);
+    EXPECT_EQ(s.skill_kind,  SkillKind::Combo);
     EXPECT_EQ(s.skill_range, 1u);
     EXPECT_EQ(s.delay_time,  1000u);
     EXPECT_EQ(s.phy_attack,  10u);
     EXPECT_EQ(s.att_rate,    100u);
     EXPECT_EQ(s.critical_rate, 5u);
+}
+
+// -------------------------------------------------------------------------
+// SkillKind enum — 1:1 with the legacy SKILLKIND in
+// `墨香【源码】\[CC]Header\CommonStruct.h` lines 2676-2688.  Each
+// value is locked so a future port of SkillList.bin can use the enum
+// without a numeric drift.
+// -------------------------------------------------------------------------
+
+TEST(GameSkillKind, ComboIsZero) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Combo), 0u);
+}
+TEST(GameSkillKind, OuterMugongIs1) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::OuterMugong), 1u);
+}
+TEST(GameSkillKind, InnerMugongIs2) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::InnerMugong), 2u);
+}
+TEST(GameSkillKind, SimbubIs3) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Simbub), 3u);
+}
+TEST(GameSkillKind, JinbubIs4) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Jinbub), 4u);
+}
+TEST(GameSkillKind, MiningIs5) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Mining), 5u);
+}
+TEST(GameSkillKind, CollectionIs6) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Collection), 6u);
+}
+TEST(GameSkillKind, HuntIs7) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Hunt), 7u);
+}
+TEST(GameSkillKind, TitanIs8) {
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Titan), 8u);
+}
+TEST(GameSkillKind, MaxIs9) {
+    // SKILLKIND_MAX is a count sentinel (==9), not a valid skill kind.
+    EXPECT_EQ(static_cast<std::uint8_t>(SkillKind::Max), 9u);
+}
+TEST(GameSkillKind, EnumIsUint8) {
+    // SkillKind is stored as u8 in the legacy wire format; the modern
+    // enum must also fit in 1 byte.
+    static_assert(sizeof(SkillKind) == 1, "SkillKind must be 1 byte");
 }
 
 TEST(GameCombatStats, DefaultFieldsAreSane) {

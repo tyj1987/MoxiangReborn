@@ -14,6 +14,26 @@
 namespace mxh::game {
 
 // ============================================================================
+// SkillKind - 1:1 with the legacy SKILLKIND enum in
+//   `墨香【源码】\[CC]Header\CommonStruct.h` lines 2676-2688.
+// Stored as std::uint8_t to match the original wire format (see
+// SKILLINFO::SkillKind in the legacy struct).  Max is a sentinel
+// count (== 9), NOT a valid skill-kind value.
+// ============================================================================
+enum class SkillKind : std::uint8_t {
+    Combo       = 0,   // SKILLKIND_COMBO      = 连击
+    OuterMugong = 1,   // SKILLKIND_OUTERMUGONG = 外功
+    InnerMugong = 2,   // SKILLKIND_INNERMUGONG = 内功
+    Simbub      = 3,   // SKILLKIND_SIMBUB      = 心法
+    Jinbub      = 4,   // SKILLKIND_JINBUB      = 真法
+    Mining      = 5,   // SKILLKIND_MINING      = 采矿
+    Collection  = 6,   // SKILLKIND_COLLECTION  = 采集
+    Hunt        = 7,   // SKILLKIND_HUNT        = 狩猎
+    Titan       = 8,   // SKILLKIND_TITAN       = 泰坦 (magi82)
+    Max         = 9,   // SKILLKIND_MAX         = count sentinel
+};
+
+// ============================================================================
 // SkillInfo - Static skill data (equivalent to CSkillInfo in original).
 //
 // In the original, this is loaded from SkillList.bin. For the modern server,
@@ -22,7 +42,7 @@ namespace mxh::game {
 struct SkillInfo {
     std::uint32_t skill_idx = 0;       // unique skill ID
     std::string   name;                // skill name (for logging)
-    std::uint8_t  skill_kind = 0;      // 0=attack, 1=recover, 2=buff, etc.
+    SkillKind    skill_kind = SkillKind::Combo;
     std::uint16_t skill_range = 1;     // max range in tiles
     std::uint16_t target_range = 0;    // AoE radius (0 = single target)
     std::uint16_t delay_time = 1000;   // cooldown in ms
