@@ -253,7 +253,7 @@ TEST(CMainGameStateIds, StubsRegister) {
     game.RegisterState(GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelectState>());
     game.RegisterState(GameStateId::CharMake,   std::make_unique<mxh::client::CCharMake>());
     game.RegisterState(GameStateId::GameLoading,std::make_unique<mxh::client::CGameLoading>());
-    game.RegisterState(GameStateId::GameIn,     std::make_unique<mxh::client::CGameIn>());
+    game.RegisterState(GameStateId::GameIn,     std::make_unique<mxh::client::CInGameState>());
     game.RegisterState(GameStateId::MapChange,  std::make_unique<mxh::client::CMapChange>());
     game.RegisterState(GameStateId::MurimNet,   std::make_unique<mxh::client::CMurimNet>());
 

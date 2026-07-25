@@ -458,7 +458,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.RegisterState(mxh::client::GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelectState>());
     mainGame.RegisterState(mxh::client::GameStateId::CharMake,   std::make_unique<mxh::client::CCharMake>());
     mainGame.RegisterState(mxh::client::GameStateId::GameLoading,std::make_unique<mxh::client::CGameLoading>());
-    mainGame.RegisterState(mxh::client::GameStateId::GameIn,     std::make_unique<mxh::client::CGameIn>());
+    mainGame.RegisterState(mxh::client::GameStateId::GameIn,     std::make_unique<mxh::client::CInGameState>());
     mainGame.RegisterState(mxh::client::GameStateId::MapChange,  std::make_unique<mxh::client::CMapChange>());
     mainGame.RegisterState(mxh::client::GameStateId::MurimNet,   std::make_unique<mxh::client::CMurimNet>());
 
@@ -513,6 +513,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
                         cs->Start(mainGame.GetEngine());
+                    }
+                } else if (cur_state == mxh::client::GameStateId::GameIn) {
+                    // Phase B.2.3: dev-mode direct-connect to MapServer.
+                    // The full CharSelect → GameLoading → GameIn path
+                    // requires a character in character_info (Phase B.4+);
+                    // for now we jump straight to MapServer with the
+                    // login ack user_idx as chrid.
+                    if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
+                            mainGame.GetGameState(cur_state))) {
+                        g->Start(mainGame.GetEngine(), "127.0.0.1", 8001,
+                                 /*player_id=*/1, /*map_num=*/12);
                     }
                 }
                 prev_state = cur_state;

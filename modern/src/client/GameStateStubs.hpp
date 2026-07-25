@@ -19,6 +19,7 @@
 #include "CMainTitle.hpp"
 #include "CLoginState.hpp"
 #include "CCharSelectState.hpp"
+#include "CInGameState.hpp"
 
 namespace mxh::client {
 
@@ -66,15 +67,11 @@ public:
 };
 
 // -------------------------------------------------------------------------
-// CGameIn — in-game state.  The biggest one (Player, ObjectManager,
-// ChatManager, etc.).  Lands in B.4-B.6.
+// CGameIn (eGS_GAMEIN = 7) was the placeholder until Phase B.2.3
+// replaced it with CInGameState (see CInGameState.hpp) which drives
+// the GameIn handshake against MoxianMapServer.  The CGameIn stub
+// class is gone.
 // -------------------------------------------------------------------------
-class CGameIn : public CGameState {
-public:
-    void Init(void* p) override;
-    void Release() override;
-    void Process() override;
-};
 
 // -------------------------------------------------------------------------
 // CMapChange — between-map transition state.  Lands in B.3.

@@ -38,9 +38,10 @@ MXH_STATE_STUB_IMPL(CIntroReplay)
 // CCharSelect (eGS_CHARSELECT = 4) is now CCharSelectState (Phase B.2.2)
 // — drives the character-list + character-select handshake against
 // MoxianAgentServer.
+// CGameIn (eGS_GAMEIN = 7) is now CInGameState (Phase B.2.3) —
+// drives the GameIn handshake against MoxianMapServer.
 MXH_STATE_STUB_IMPL(CCharMake)
 MXH_STATE_STUB_IMPL(CGameLoading)
-MXH_STATE_STUB_IMPL(CGameIn)
 MXH_STATE_STUB_IMPL(CMapChange)
 MXH_STATE_STUB_IMPL(CMurimNet)
 

@@ -35,6 +35,6 @@ TEST(CLoginState, Lifecycle)  { CheckStubLifecycle<CLoginState>(); }
 TEST(CCharSelectState, Lifecycle)  { CheckStubLifecycle<CCharSelectState>(); }
 TEST(CCharMake, Lifecycle)    { CheckStubLifecycle<CCharMake>(); }
 TEST(CGameLoading, Lifecycle) { CheckStubLifecycle<CGameLoading>(); }
-TEST(CGameIn, Lifecycle)      { CheckStubLifecycle<CGameIn>(); }
+TEST(CInGameState, Lifecycle) { CheckStubLifecycle<CInGameState>(); }
 TEST(CMapChange, Lifecycle)   { CheckStubLifecycle<CMapChange>(); }
 TEST(CMurimNet, Lifecycle)    { CheckStubLifecycle<CMurimNet>(); }

@@ -4,6 +4,7 @@ add_executable(mxh_client_tests
     cmain_title_test.cpp
     clogin_state_test.cpp
     ccharselect_state_test.cpp
+    cingame_state_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE
