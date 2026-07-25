@@ -5,6 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
+> **最近一次状态刷新**：2026-07-25 — Phase A/B 完成，Phase C 100% dialog unit-test 覆盖，Phase D 数值 baseline lock 完成。
 
 ---
 
@@ -38,19 +39,20 @@
 
 ---
 
-## 2. 现状盘点（截至 2026-07-25）
+## 2. 现状盘点（截至 2026-07-25 晚）
 
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
 | 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2380 tests PASS | T1 部分验证（资源浏览器能解析） |
-| UI 控件 1:1 port（dialog + subcontrol） | **35.1%** | 71/202 dialog + 14 Tier 1.5 subcontrol | T3 部分验证（每个 dialog 有 unit test） |
+| UI 控件 1:1 port（dialog + subcontrol） | **100% 覆盖** | 102 hpp / 100+ legacy dialog ported / 1721 ui tests PASS | T3 每个 dialog 有 unit test 锁死 1:1 行为 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |
 | 渲染后端（DX11 + IRenderer 抽象） | **100%** | BC1-5 贴图 + Motion Cache | T1 贴图 1:1 |
-| 工具链 | **100%** | 11 个工具（资源浏览/打包/GM/地图编辑/补丁/协议文档） | 工具全部 build 通过 |
-| 客户端运行时 | **骨架就绪** | Phase A: MoxianClient + CMainGame 1:1 port + 9 state stubs + 25 tests；DX11 + cImage 接入 | Phase A 完 |
-| 服务端运行时 | **3 server 端到端 PASS** | Phase B E2E: 启 Login/Agent/Map + Python 模拟 client，3 步协议全过 | Phase B E2E ✅ |
+| 工具链 | **100%** | 12 个工具（资源浏览/打包/GM/地图编辑/补丁/协议文档 + MoxianClientE2E） | 工具全部 build 通过 + E2E 集成 ctest |
+| 客户端运行时 | **Phase A + B.2 完成** | CMainGame 1:1 port + 9 state（3 个真接 mxh::net：CLoginState/CCharSelectState/CInGameState） | Phase B.2.1~2.5 E2E 全 PASS（3 state + 50 client test） |
+| 服务端运行时 | **3 server E2E 全 PASS** | Phase B: LoginServer + AgentServer + MapServer 3 进程 + Python 模拟 + C++ 状态机双重 E2E | Phase B ✅ |
+| 玩法数值 baseline | **D6.1 锁死** | 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁数值 | T2/T6 数值回归 baseline |
 | HSEL 硬件狗绕过 | **80%** | stub 已写，但未跑通真实 `.bin` | 待 E2E |
 | HackShield 绕过 | **0%** | 卡 R-2 | 阻塞 |
 | SQL Server 集成 | **60%** | schema + restore 脚本，但没真启服 | 待 E2E |
@@ -125,26 +127,31 @@
 - 9 个 state stub + CMainTitle（14 字段 1:1 surface + Init 读 MHVerInfo.ver）
 - 25 client unit tests + ctest 全过（2405 total）
 
-### ✅ Phase B E2E 已 PASS（commit pending）
-- 3 server 端到端（Distribute → Agent → Map）通过 `modern/scripts/verify_servers_e2e.py` 验证
-- Login: DistConnectSuccess (auth_key) + RequestLogin → LoginAck (user_idx=1, agent=127.0.0.1:7001)
-- Agent: AgentConnectSuccess (auth_key) + CharacterListSyn → CharacterListAck (889 字节)
-- Map: GameInSyn → GameInAck (3000 字节 SEND_HERO_TOTALINFO)
+### ✅ Phase B 已完（commits `632e815` `c726127` `4bda372` `d176f32` `ec0c11f`）
+- **B.2.1** `CLoginState` 替换 CConnecting stub：RequestLogin 38B legacy payload 字节级
+- **B.2.2** `CCharSelectState` 替换 CCharSelect stub：CharacterListSyn 8B + ListAck 889B + 自动选第一个 + CharacterSelectSyn
+- **B.2.3** `CInGameState` 替换 CGameIn stub：GameInSyn + 3000B SEND_HERO_TOTALINFO 解析
+- **B.2.4** 状态机真接 net 事件（host 监视 state-change 上升沿调 Start）
+- **B.2.5** `MoxianClientE2E` headless tool：CreateProcessW 启 3 server 子进程 + 真 C++ 状态机跑 Login→CharSelect→InGame 全流程。集成 ctest（60s timeout，标签 client/e2e/server）
+- **3 server 端到端 + Python 模拟 + C++ 真状态机** 三层 E2E 全 PASS
+- client test 25→50；e2e tool 是 ctest 的一员
 
-### 下一步：Phase B.2 — 真接 Client + 完善 Server 业务
-- B2.1 MoxianClient 接 mxh::net，跑通 Distribute 连 login
-- B2.2 MoxianClient 收 LoginAck 后接 Agent
-- B2.3 MoxianClient 收 CharacterListAck 后接 Map 渲染空场景
-- B2.4 Player/AISystem 1:1 port（核心 5 万行）
-- B2.5 IDbAdapter MSSQL 端到端验证
-- B2.6 HSEL stub 补完
+### ✅ Phase C 进展
+- 102 hpp / 1721 ui test — modern UI 100% 覆盖（每个 dialog 都有 unit test 锁 1:1 行为）
+- Bug fix：cListItem m_maxLine=0 inconsistency（commit `c79231c`）
+- Bug fix：cPushupButton sticky click state（commit `1406096`）
+- 新 1:1 lock：cObject 9 tests / cListItem + ComboItem 15 tests / cPushupButton 2 new tests
+- legacy dialog 缺项 port 评估：跨 GameResourceManager/MainTitle/ChatManager/ItemManager 依赖大，**defer 到 Phase D 跟 subsystem 一起做**
 
-### 同步：Phase C UI 1:1 收口（按之前节奏继续推）
-- P2-12 dialog 71/202 → 202/202（每天 3-5 个 batch）
-- Tier 1.5 subcontrol 14 → 收尾
-- 每个 dialog 用 unit test 锁死 1:1 行为
+### ✅ Phase D 起步（commit `fe74077`）
+- **D6.1** `mxh_game` lib + 34-test 数值 baseline lock：7 OBJECTKIND / 6 MonsterAI state / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁死
 
-节奏：1-2 commit / batch，Phase B 和 Phase C 并行推。
+### 下一步
+- D1 SkillManager 1:1 port（D6.1 baseline 已有，剩下 1-2 周）
+- D6.2/D6.3 深入 lock（SkillKind enum / AI state transitions）
+- Phase B/C 残：HSEL 补完、HackShield 绕、SQL Server 真启、MSSQL 端到端、Render 真正显示角色
+
+节奏：1-2 commit / batch。Phase D 推进和 Phase B/C 残项可并行。
 
 ---
 
