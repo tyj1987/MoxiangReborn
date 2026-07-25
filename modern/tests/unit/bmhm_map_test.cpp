@@ -26,9 +26,11 @@ using namespace mxh::compat;
 
 namespace {
 
-// Hardcoded project paths (workspace is fixed).
-const std::filesystem::path kRealMap0   = LR"(D:\Moxian\墨香【源码配套资源】\PlayDH\Resource\Map\Map0.bmhm)";
-const std::filesystem::path kRealMap101 = LR"(D:\Moxian\墨香【源码配套资源】\PlayDH\Resource\Map\Map101.bmhm)";
+// Hardcoded project paths (workspace is fixed).  Use C:\moxiang\ (the
+// canonical project root on this machine); the original D:\Moxian\
+// hardcode was a stale path from a prior mount that no longer exists.
+const std::filesystem::path kRealMap0   = LR"(C:\moxiang\墨香【源码配套资源】\PlayDH\Resource\Map\Map0.bmhm)";
+const std::filesystem::path kRealMap101 = LR"(C:\moxiang\墨香【源码配套资源】\PlayDH\Resource\Map\Map101.bmhm)";
 
 // Read a file fully into a byte vector.
 std::vector<std::uint8_t> read_file(const std::filesystem::path& p) {
