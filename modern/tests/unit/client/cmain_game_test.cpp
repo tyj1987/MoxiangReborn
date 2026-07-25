@@ -248,7 +248,7 @@ TEST(CMainGameStateIds, StubsRegister) {
     CMainGame game;
     game.Init(nullptr);
     game.RegisterState(GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
-    game.RegisterState(GameStateId::Connect,    std::make_unique<mxh::client::CConnecting>());
+    game.RegisterState(GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
     game.RegisterState(GameStateId::Title,      std::make_unique<mxh::client::CMainTitle>());
     game.RegisterState(GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelect>());
     game.RegisterState(GameStateId::CharMake,   std::make_unique<mxh::client::CCharMake>());

@@ -17,6 +17,7 @@
 
 #include "CGameState.hpp"
 #include "CMainTitle.hpp"
+#include "CLoginState.hpp"
 
 namespace mxh::client {
 
@@ -31,16 +32,11 @@ public:
 };
 
 // -------------------------------------------------------------------------
-// CConnecting (legacy: CONNECT — no dedicated class, engine handled
-// the Distribute connect dialog inline).  A.1.7 lifts it into its own
-// stub so the CMainGame state table matches 1:1 with eGAMESTATE.
+// CConnecting was the placeholder for eGS_CONNECT (= 2).  Phase B.2.1
+// replaces it with CLoginState (see CLoginState.hpp) which drives the
+// real login handshake against MoxianLoginServer.  The CConnecting
+// class is gone; registrations should use CLoginState.
 // -------------------------------------------------------------------------
-class CConnecting : public CGameState {
-public:
-    void Init(void* p) override;
-    void Release() override;
-    void Process() override;
-};
 
 // -------------------------------------------------------------------------
 // CMainTitle — login screen, server list, agent connect.  A.1.8 ships

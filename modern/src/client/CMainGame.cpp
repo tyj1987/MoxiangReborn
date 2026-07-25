@@ -38,6 +38,16 @@ void CMainGame::Init(void* /*hMainWnd*/) {
     m_nCurStateNum = GameStateId::End;
     m_nNextStateNum = GameStateId::End;
     m_pCurrentGameState = nullptr;
+
+    // Phase B.2.1: install the state-change callback on the engine so
+    // that game states (which hold only a CEngine* and not a CMainGame*
+    // to avoid a header cycle) can request a transition.
+    if (m_pEngine) {
+        m_pEngine->SetStateChangeRequestFn(
+            [this](int state_id) {
+                this->SetGameState(static_cast<GameStateId>(state_id));
+            });
+    }
 }
 
 void CMainGame::Release() {

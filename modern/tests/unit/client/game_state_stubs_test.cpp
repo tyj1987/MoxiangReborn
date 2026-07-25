@@ -30,8 +30,8 @@ void CheckStubLifecycle() {
 } // namespace
 
 TEST(CIntroReplay, Lifecycle) { CheckStubLifecycle<CIntroReplay>(); }
-TEST(CConnecting, Lifecycle)  { CheckStubLifecycle<CConnecting>(); }
 TEST(CMainTitle, Lifecycle)   { CheckStubLifecycle<CMainTitle>(); }
+TEST(CLoginState, Lifecycle)  { CheckStubLifecycle<CLoginState>(); }
 TEST(CCharSelect, Lifecycle)  { CheckStubLifecycle<CCharSelect>(); }
 TEST(CCharMake, Lifecycle)    { CheckStubLifecycle<CCharMake>(); }
 TEST(CGameLoading, Lifecycle) { CheckStubLifecycle<CGameLoading>(); }

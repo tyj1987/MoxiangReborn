@@ -453,7 +453,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.Init(hwnd);
     mainGame.SetEngine(std::move(engine));
     mainGame.RegisterState(mxh::client::GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
-    mainGame.RegisterState(mxh::client::GameStateId::Connect,    std::make_unique<mxh::client::CConnecting>());
+    mainGame.RegisterState(mxh::client::GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
     mainGame.RegisterState(mxh::client::GameStateId::Title,      std::make_unique<mxh::client::CMainTitle>());
     mainGame.RegisterState(mxh::client::GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelect>());
     mainGame.RegisterState(mxh::client::GameStateId::CharMake,   std::make_unique<mxh::client::CCharMake>());
@@ -462,11 +462,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.RegisterState(mxh::client::GameStateId::MapChange,  std::make_unique<mxh::client::CMapChange>());
     mainGame.RegisterState(mxh::client::GameStateId::MurimNet,   std::make_unique<mxh::client::CMurimNet>());
 
-    // A.1.7 boots into the CConnecting stub (legacy started at
+    // A.1.7 booted into the CConnecting stub (legacy started at
     // eGAMESTATE_CONNECT and immediately tried the Distribute connect).
-    // The stub no-ops, so the user sees a frozen boot screen; A.1.8
-    // fills CConnecting / CMainTitle in with the real Distribute TCP
-    // connect + server list UI.
+    // Phase B.2.1 replaces the stub with CLoginState; we now boot into
+    // the CMainTitle (which presents the server list) and let the user
+    // click "Connect" to drive CLoginState explicitly.  Until the
+    // server-list UI is wired up we still boot into Connect as a
+    // dev-mode shortcut; that path will move to a button in B.2.5+.
     mainGame.SetGameState(mxh::client::GameStateId::Connect);
     MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
               "boot → GameStateId::Connect");

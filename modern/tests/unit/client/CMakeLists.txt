@@ -2,6 +2,7 @@ add_executable(mxh_client_tests
     cmain_game_test.cpp
     game_state_stubs_test.cpp
     cmain_title_test.cpp
+    clogin_state_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE
