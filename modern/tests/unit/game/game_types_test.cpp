@@ -308,6 +308,88 @@ TEST(GameMonsterTemplate, DefaultSpawnPointsHasFiveForMap12) {
 }
 
 // -------------------------------------------------------------------------
+// D6.3 — spawn-geometry numerics.  The legacy engine places 5 monsters
+// in a 5-fold symmetric ring around the map center, with a 30-tile
+// radius and the center at (150, 150).  Lock these values so any
+// future change to the spawn pattern is visible.
+// -------------------------------------------------------------------------
+
+TEST(GameSpawnGeometry, CenterIs150x150Radius30) {
+    // cx=150, cz=150, radius=30.  These are the constants the
+    // default-spawn loop uses; if they change, the AI pathing test
+    // (Phase D2) and MapServer respawn (Phase B.5) must both be
+    // re-verified.
+    auto s = get_default_spawn_points(12);
+    ASSERT_EQ(s.size(), 5u);
+    // Every spawn must lie on the ring of radius 30 around (150, 150).
+    constexpr float cx   = 150.0f;
+    constexpr float cz   = 150.0f;
+    constexpr float r    = 30.0f;
+    constexpr float r_sq = r * r;
+    for (const auto& sp : s) {
+        const float dx = sp.PosX - cx;
+        const float dz = sp.PosZ - cz;
+        // distance_sq_2d should be exactly r*r.
+        EXPECT_NEAR(dx * dx + dz * dz, r_sq, 0.01f);
+        // Y always 0 (ground level).
+        EXPECT_FLOAT_EQ(sp.PosY, 0.0f);
+    }
+}
+
+TEST(GameSpawnGeometry, AnglesAreFiveFoldSymmetric) {
+    // ang_i = i * 2 * pi / 5  -> 0, 2pi/5, 4pi/5, 6pi/5, 8pi/5.
+    auto s = get_default_spawn_points(12);
+    ASSERT_EQ(s.size(), 5u);
+    constexpr float two_pi = 2.0f * 3.14159f;
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        const float expected_angle = static_cast<float>(i) * two_pi / 5.0f;
+        EXPECT_NEAR(s[i].Angle, expected_angle, 1e-4f);
+    }
+}
+
+// -------------------------------------------------------------------------
+// D6.3 — distance_sq_2d.  Used by the AI to compute aggro range and
+// by MapServer for despawn checks.
+// -------------------------------------------------------------------------
+
+TEST(GameGeometry, DistanceSq2DIsZeroForSamePoint) {
+    EXPECT_FLOAT_EQ(distance_sq_2d(0, 0, 0, 0), 0.0f);
+    EXPECT_FLOAT_EQ(distance_sq_2d(150.0f, 150.0f, 150.0f, 150.0f), 0.0f);
+}
+
+TEST(GameGeometry, DistanceSq2DIsEuclidean) {
+    // 3-4-5 triangle: distance² = 3² + 4² = 25.
+    EXPECT_FLOAT_EQ(distance_sq_2d(0.0f, 0.0f, 3.0f, 4.0f), 25.0f);
+    EXPECT_FLOAT_EQ(distance_sq_2d(0.0f, 0.0f, -3.0f, -4.0f), 25.0f);
+    EXPECT_FLOAT_EQ(distance_sq_2d(0.0f, 0.0f, 5.0f, 12.0f), 169.0f);
+}
+
+TEST(GameGeometry, DistanceSq2DIsSymmetric) {
+    // d²(p, q) == d²(q, p).
+    for (int x = -10; x <= 10; x += 3) {
+        for (int z = -10; z <= 10; z += 3) {
+            const float a = distance_sq_2d(0.0f, 0.0f,
+                                            static_cast<float>(x),
+                                            static_cast<float>(z));
+            const float b = distance_sq_2d(static_cast<float>(x),
+                                            static_cast<float>(z),
+                                            0.0f, 0.0f);
+            EXPECT_FLOAT_EQ(a, b);
+        }
+    }
+}
+
+TEST(GameGeometry, DistanceSq2DIsTranslationInvariant) {
+    // d²(p+t, q+t) == d²(p, q) for any t.
+    for (int t = -100; t <= 100; t += 25) {
+        const float a = distance_sq_2d(10.0f, 20.0f, 30.0f, 40.0f);
+        const float b = distance_sq_2d(10.0f + t, 20.0f + t,
+                                       30.0f + t, 40.0f + t);
+        EXPECT_FLOAT_EQ(a, b);
+    }
+}
+
+// -------------------------------------------------------------------------
 // SkillInfo / PlayerCombatStats defaults.
 // -------------------------------------------------------------------------
 
