@@ -327,3 +327,8 @@ modern/third_party/googletest-src/
 # changes on every build and has no source-of-truth value.
 modern/scripts/build_map_detected_encoding.json
 
+# Phase A.1 — session-ephemeral artifacts from old agent runs.
+# Kept on disk for forensic value but never tracked.
+modern/docs/progress-video/
+modern/scratch/progress_dashboard.html
+modern/scratch/transfer_*/
