@@ -35,8 +35,13 @@ std::uint32_t cPushupButton::ActionEvent(std::int32_t mouseX, std::int32_t mouse
         // returned WE_NULL here to signal "no effect".
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
+    // Drive the base-class state machine first (LButtonDown / LButtonUp
+    // pair).  We use consumeClickInside() instead of inspecting the
+    // returned WindowEvent flags because the latter can be sticky
+    // across consecutive clicks (m_bClickInside is set on the
+    // up-transition but only reset by consumeClickInside).
     const std::uint32_t we = cButton::ActionEvent(mouseX, mouseY, mouseFlags);
-    if (we & static_cast<std::uint32_t>(WindowEvent::LButtonClick)) {
+    if (cButton::consumeClickInside()) {
         m_pushed = !m_pushed;
     }
     return we;
