@@ -33,6 +33,7 @@
 #include "CGameState.hpp"
 #include "CCharSelectState.hpp"   // defines LoginResult (shared with CCharSelectState)
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -98,13 +99,19 @@ public:
     void Start(CEngine* engine, std::string host, std::uint16_t port,
                std::string user_id, std::string password);
 
-    // Inspectors (test + diagnostics).
+    // Inspectors (test + diagnostics).  All public accessors return
+    // values written by the TcpClient recv thread; we use std::atomic
+    // internally so a polling host (e.g. the Phase B.2.5 E2E tool)
+    // observes updates without a data race.
     bool        is_connected()   const noexcept;
-    std::uint32_t auth_key()     const noexcept { return m_authKey; }
-    std::uint32_t user_idx()     const noexcept { return m_userIdx; }
-    std::string  agent_addr()    const { return m_agentAddr; }
-    std::uint16_t agent_port()   const noexcept { return m_agentPort; }
+    std::uint32_t auth_key()     const noexcept { return m_authKey.load(std::memory_order_acquire); }
+    std::uint32_t user_idx()     const noexcept { return m_userIdx.load(std::memory_order_acquire); }
+    std::string  agent_addr()    const;
+    std::uint16_t agent_port()   const noexcept { return m_agentPort.load(std::memory_order_acquire); }
     std::uint8_t user_level()    const noexcept { return 0; }  // legacy field; not in 23B ack
+    bool        is_ack_received() const noexcept { return m_ackReceived.load(std::memory_order_acquire); }
+    bool        is_failed()      const noexcept { return m_failed.load(std::memory_order_acquire); }
+    const std::string& failure_reason() const { return m_failureReason; }
 
     // Phase B.2.2: extract the LoginResult for the next state.  The
     // host calls this right before SetGameState(CharSelect) and feeds
@@ -125,14 +132,21 @@ private:
     std::string              m_userId;
     std::string              m_password;
 
-    std::uint32_t            m_authKey    = 0;        // received in DistConnectSuccess
-    std::uint32_t            m_userIdx    = 0;        // from LoginAck
+    // Cross-thread fields — written by TcpClient recv thread, read by
+    // host's main thread (e.g. B.2.5 E2E poll loop).  std::atomic
+    // ensures the host sees updates without UB.
+    std::atomic<std::uint32_t> m_authKey    {0};
+    std::atomic<std::uint32_t> m_userIdx    {0};
+    std::atomic<std::uint16_t> m_agentPort  {0};
+    // m_agentAddr is a std::string; we guard it with m_mu under
+    // dispatch_login_ack, and the accessor snapshots under the same
+    // lock so the host sees a consistent value.
+    mutable std::mutex       m_mu;
     std::string              m_agentAddr;
-    std::uint16_t            m_agentPort  = 0;
 
-    bool                     m_started    = false;
-    bool                     m_ackReceived = false;
-    bool                     m_failed     = false;
+    std::atomic<bool>        m_started    {false};
+    std::atomic<bool>        m_ackReceived {false};
+    std::atomic<bool>        m_failed     {false};
     std::string              m_failureReason;
 };
 

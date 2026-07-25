@@ -106,7 +106,17 @@ void CInGameState::Release() {
     setInitialized(false);
 }
 
-void CInGameState::Process() { tick(); }
+void CInGameState::Process() {
+    tick();
+    // MapServer doesn't push DistConnectSuccess (unlike Distribute /
+    // Agent), so we have to send GameInSyn from the host.  We try
+    // in on_connect first (most paths); if that fails or hasn't
+    // happened yet, Process() retries every tick once a connect is
+    // detected.  m_sentGameInSyn is set once the send succeeded.
+    if (m_client && m_client->is_connected() && !m_sentGameInSyn) {
+        send_gamein_syn();
+    }
+}
 
 void CInGameState::Start(CEngine* engine, std::string host,
                           std::uint16_t port,
@@ -214,6 +224,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
 }
 
 void CInGameState::send_gamein_syn() {
+    if (m_sentGameInSyn) return;
     mxh::net::Message out;
     out.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::UserConn);
@@ -223,10 +234,14 @@ void CInGameState::send_gamein_syn() {
     out.payload          = {};           // empty payload
     const auto e = m_client->send(out);
     if (e != mxh::net::NetError::Ok) {
-        fail_with(std::string("send GameInSyn failed: ") +
-                  mxh::net::to_string(e));
+        // Don't fail; Process() will retry on the next tick once the
+        // connection is fully up.  TcpClient::send() can transiently
+        // return Disconnected during the connect handshake.
+        MLOG_DEBUG("CInGameState: send GameInSyn transiently failed: %s",
+                   mxh::net::to_string(e));
         return;
     }
+    m_sentGameInSyn = true;
     MLOG_INFO("CInGameState: sent GameInSyn player_id=%u (empty payload)",
               static_cast<unsigned>(m_playerId));
 }

@@ -121,6 +121,7 @@ private:
     bool                     m_started    = false;
     bool                     m_inGame     = false;
     bool                     m_failed     = false;
+    bool                     m_sentGameInSyn = false;  // gate for Process() retry
     std::string              m_failureReason;
 };
 

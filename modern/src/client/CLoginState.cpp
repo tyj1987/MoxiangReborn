@@ -113,9 +113,9 @@ void CLoginState::Release() {
         if (m_client->is_connected()) m_client->disconnect();
         m_client.reset();
     }
-    m_started     = false;
-    m_ackReceived = false;
-    m_failed      = false;
+    m_started.store(false, std::memory_order_release);
+    m_ackReceived.store(false, std::memory_order_release);
+    m_failed.store(false, std::memory_order_release);
     m_failureReason.clear();
     setInitialized(false);
 }
@@ -136,11 +136,11 @@ void CLoginState::Start(CEngine* engine, std::string host,
     m_userId  = std::move(user_id);
     m_password = std::move(password);
 
-    if (m_started) {
+    if (m_started.load(std::memory_order_acquire)) {
         MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
         return;
     }
-    m_started = true;
+    m_started.store(true, std::memory_order_release);
 
     MLOG_INFO("CLoginState connecting to %s:%u as '%s'",
               m_host.c_str(), static_cast<unsigned>(m_port),
@@ -163,22 +163,33 @@ bool CLoginState::is_connected() const noexcept {
     return m_client && m_client->is_connected();
 }
 
+std::string CLoginState::agent_addr() const {
+    std::lock_guard<std::mutex> lk(m_mu);
+    return m_agentAddr;
+}
+
 mxh::client::LoginResult CLoginState::TakeLoginResult() {
     // LoginResult is defined in CCharSelectState.hpp (shared between
     // the two states).  CLoginState's `TakeLoginResult()` returns the
     // same type so the host can move it across the state boundary.
     mxh::client::LoginResult r;
-    r.agent_addr    = m_agentAddr;
-    r.agent_port    = m_agentPort;
-    r.user_idx      = m_userIdx;
-    r.dist_auth_key = m_authKey;
-    // user_level isn't returned by modern LoginServer's 23B ack (only
-    // 1B is present in payload[22] but we don't store it); Phase B.2.5
-    // will plumb it through once the agent's GM-flag flow is in.
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        r.agent_addr = m_agentAddr;
+    }
+    r.agent_port    = m_agentPort.load(std::memory_order_acquire);
+    r.user_idx      = m_userIdx.load(std::memory_order_acquire);
+    r.dist_auth_key = m_authKey.load(std::memory_order_acquire);
+    MLOG_DEBUG("CLoginState::TakeLoginResult -> user_idx=%u agent=%s:%u dist_auth_key=%u",
+              static_cast<unsigned>(r.user_idx),
+              r.agent_addr.c_str(),
+              static_cast<unsigned>(r.agent_port),
+              static_cast<unsigned>(r.dist_auth_key));
+    // user_level isn't returned by modern LoginServer's 23B ack.
     // Consume so a second call returns empty.
     m_agentAddr.clear();
-    m_agentPort   = 0;
-    m_userIdx     = 0;
+    m_agentPort.store(0, std::memory_order_release);
+    m_userIdx.store(0, std::memory_order_release);
     return r;
 }
 
@@ -212,9 +223,9 @@ void CLoginState::on_message(mxh::net::ConnectionId id,
     }
     switch (proto) {
         case UserConnProtocol::DistConnectSuccess: {
-            m_authKey = msg.header.object_id;
+            m_authKey.store(msg.header.object_id, std::memory_order_release);
             MLOG_INFO("CLoginState: got DistConnectSuccess auth_key=%u",
-                      static_cast<unsigned>(m_authKey));
+                      static_cast<unsigned>(msg.header.object_id));
             // Build and send the RequestLogin legacy payload.
             const auto pl = legacy_request_login_payload(
                 m_authKey, m_userId, m_password);
@@ -258,27 +269,40 @@ void CLoginState::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CLoginState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
-    if (!m_ackReceived && !m_failed) {
+    if (!m_ackReceived.load(std::memory_order_acquire)
+        && !m_failed.load(std::memory_order_acquire)) {
         fail_with(std::string("disconnected before LoginAck: ") +
                   mxh::net::to_string(reason));
     }
 }
 
 void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {
-    m_userIdx   = ack.user_idx;
-    m_agentAddr = ack.agent_addr;
-    m_agentPort = ack.agent_port;
-    m_ackReceived = true;
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        m_agentAddr = ack.agent_addr;
+    }
+    m_agentPort.store(ack.agent_port, std::memory_order_release);
+    m_userIdx.store(ack.user_idx, std::memory_order_release);
+    m_ackReceived.store(true, std::memory_order_release);
     MLOG_INFO("CLoginState: LoginAck agent=%s:%u user_idx=%u level=%u",
-              m_agentAddr.c_str(),
-              static_cast<unsigned>(m_agentPort),
-              static_cast<unsigned>(m_userIdx),
+              ack.agent_addr.c_str(),
+              static_cast<unsigned>(ack.agent_port),
+              static_cast<unsigned>(ack.user_idx),
               static_cast<unsigned>(ack.user_level));
     if (m_pEngine) {
         // Phase B.2.2: hand the LoginResult to CCharSelectState via the
         // engine's transfer slot.  CCharSelectState::Init() will pull it
-        // before its first Process() tick.
-        m_pEngine->SetPendingTransfer(TakeLoginResult());
+        // before its first Process() tick.  We construct the result
+        // directly from the ack fields (rather than calling
+        // TakeLoginResult()) so the cached m_userIdx stays intact for
+        // host inspectors / E2E polls.
+        mxh::client::LoginResult result;
+        result.agent_addr    = ack.agent_addr;
+        result.agent_port    = ack.agent_port;
+        result.user_idx      = ack.user_idx;
+        result.user_level    = ack.user_level;
+        result.dist_auth_key = m_authKey.load(std::memory_order_acquire);
+        m_pEngine->SetPendingTransfer(std::move(result));
         m_pEngine->RequestStateChange(
             static_cast<int>(GameStateId::CharSelect));
     } else {
@@ -287,8 +311,9 @@ void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {
 }
 
 void CLoginState::fail_with(const std::string& reason) {
-    if (m_failed) return;
-    m_failed = true;
+    bool expected = false;
+    if (!m_failed.compare_exchange_strong(expected, true,
+            std::memory_order_acq_rel)) return;
     m_failureReason = reason;
     MLOG_ERROR("CLoginState: %s", reason.c_str());
 }
