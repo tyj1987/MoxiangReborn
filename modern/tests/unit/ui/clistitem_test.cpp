@@ -17,12 +17,12 @@
 //   * RemoveItem(idx) ignores out-of-range indices
 //   * SetMaxLine / GetMaxLine round-trip
 //
-// KNOWN-INCONSISTENCY (flagged for follow-up, not fixed in this commit):
-//   The header comment says "m_maxLine (WORD cap; 0 = unlimited)" but
-//   the implementation rejects any AddItem when m_maxLine < 1, so the
-//   "0 = unlimited" path is actually broken.  This commit's tests
-//   document the current (buggy) behavior so any future fix is
-//   visible.  Phase C 1.1+ will add a regression test once fixed.
+// KNOWN-INCONSISTENCY (was: flagged for follow-up, now: fixed in this commit).
+//   Previously the header comment said "m_maxLine (WORD cap; 0 = unlimited)" but
+//   the implementation rejected any AddItem when m_maxLine < 1, so
+//   m_maxLine=0 was effectively "no items ever added" rather than
+//   "unlimited".  This commit's last two tests now lock down the fixed
+//   behaviour (0 == unlimited, no eviction).
 
 #include "clistitem.hpp"
 
@@ -219,21 +219,34 @@ TEST(CListItem, SetMaxLineRoundTrip) {
 }
 
 // -------------------------------------------------------------------------
-// KNOWN INCONSISTENCY (documented; not fixed in this commit).
-//
-// The header comment says "m_maxLine (WORD cap; 0 = unlimited)" but
-// the implementation rejects any AddItem when m_maxLine < 1, so
-// m_maxLine=0 is effectively "no items ever added" rather than
-// "unlimited".  Locking down the current behaviour so a future fix is
-// visible:
+// m_maxLine == 0 means "unlimited" (no cap, no eviction).  1:1 with
+// the legacy cListItem default of zero == unlimited.  Previous
+// behaviour (rejected all AddItem) was an inconsistency between the
+// header comment and the implementation; this commit fixes both.
 // -------------------------------------------------------------------------
 
-TEST(CListItem, KnownInconsistencyMaxLineZeroRejectsAdds) {
+TEST(CListItem, MaxLineZeroMeansUnlimited) {
     cListItem li;
-    // m_maxLine defaults to 0; the implementation treats this as a
-    // hard "do not add" gate instead of "unlimited".  Documented for
-    // a follow-up fix.
     EXPECT_EQ(li.GetMaxLine(), 0u);
-    li.AddItem(ComboItem{ "should_not_be_added" });
-    EXPECT_EQ(li.GetItemCount(), 0u);
+    // Add a few items; no eviction should occur.
+    for (int i = 0; i < 10; ++i) {
+        li.AddItem(ComboItem{ "item" + std::to_string(i) });
+    }
+    EXPECT_EQ(li.GetItemCount(), 10u);
+    EXPECT_EQ(li.Items().front().text, "item0");
+    EXPECT_EQ(li.Items().back().text,  "item9");
+}
+
+TEST(CListItem, MaxLineZeroInsertAtIndex) {
+    cListItem li;
+    li.AddItem(ComboItem{ "a" });
+    li.AddItem(ComboItem{ "b" });
+    // Unlimited mode: idx >= size is still a silent drop.
+    li.AddItem(ComboItem{ "X" }, 5);
+    EXPECT_EQ(li.GetItemCount(), 2u);
+    li.AddItem(ComboItem{ "Y" }, 1);
+    ASSERT_EQ(li.GetItemCount(), 3u);
+    EXPECT_EQ(li.Items()[0].text, "a");
+    EXPECT_EQ(li.Items()[1].text, "Y");
+    EXPECT_EQ(li.Items()[2].text, "b");
 }

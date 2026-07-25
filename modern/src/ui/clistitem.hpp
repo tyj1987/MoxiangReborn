@@ -68,10 +68,14 @@ public:
     // -------------------------------------------------------------------------
     // AddItem: tail-add. If m_maxLine > 0 and the list is at
     // cap, the head item is dropped (1:1 with legacy FIFO
-    // eviction).
+    // eviction).  m_maxLine == 0 means "unlimited" (no cap, no
+    // eviction) — matches the legacy cListItem default.
     // -------------------------------------------------------------------------
     void AddItem(const ComboItem& item) {
-        if (m_maxLine < 1) return;
+        if (m_maxLine == 0) {
+            m_items.push_back(item);
+            return;
+        }
         if (m_maxLine <= m_items.size()) {
             m_items.erase(m_items.begin());
         }
@@ -81,8 +85,13 @@ public:
     // AddItem at index. If m_maxLine > 0 and the list is at cap,
     // the head item is dropped first. If idx > size, the insert
     // is silently dropped (legacy FindIndex returns null).
+    // m_maxLine == 0 means "unlimited" (no cap, no eviction).
     void AddItem(const ComboItem& item, std::size_t idx) {
-        if (m_maxLine < 1) return;
+        if (m_maxLine == 0) {
+            if (idx >= m_items.size()) return;
+            m_items.insert(m_items.begin() + idx, item);
+            return;
+        }
         if (m_maxLine <= m_items.size()) {
             m_items.erase(m_items.begin());
         }
