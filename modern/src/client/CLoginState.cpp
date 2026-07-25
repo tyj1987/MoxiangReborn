@@ -163,6 +163,25 @@ bool CLoginState::is_connected() const noexcept {
     return m_client && m_client->is_connected();
 }
 
+mxh::client::LoginResult CLoginState::TakeLoginResult() {
+    // LoginResult is defined in CCharSelectState.hpp (shared between
+    // the two states).  CLoginState's `TakeLoginResult()` returns the
+    // same type so the host can move it across the state boundary.
+    mxh::client::LoginResult r;
+    r.agent_addr    = m_agentAddr;
+    r.agent_port    = m_agentPort;
+    r.user_idx      = m_userIdx;
+    r.dist_auth_key = m_authKey;
+    // user_level isn't returned by modern LoginServer's 23B ack (only
+    // 1B is present in payload[22] but we don't store it); Phase B.2.5
+    // will plumb it through once the agent's GM-flag flow is in.
+    // Consume so a second call returns empty.
+    m_agentAddr.clear();
+    m_agentPort   = 0;
+    m_userIdx     = 0;
+    return r;
+}
+
 bool CLoginState::on_connect(mxh::net::ConnectionId id,
                              const std::string& remote_addr) {
     MLOG_INFO("CLoginState::on_connect id=%llu from %s",
@@ -256,6 +275,10 @@ void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {
               static_cast<unsigned>(m_userIdx),
               static_cast<unsigned>(ack.user_level));
     if (m_pEngine) {
+        // Phase B.2.2: hand the LoginResult to CCharSelectState via the
+        // engine's transfer slot.  CCharSelectState::Init() will pull it
+        // before its first Process() tick.
+        m_pEngine->SetPendingTransfer(TakeLoginResult());
         m_pEngine->RequestStateChange(
             static_cast<int>(GameStateId::CharSelect));
     } else {

@@ -31,6 +31,7 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "CCharSelectState.hpp"   // defines LoginResult (shared with CCharSelectState)
 
 #include <cstdint>
 #include <memory>
@@ -103,6 +104,15 @@ public:
     std::uint32_t user_idx()     const noexcept { return m_userIdx; }
     std::string  agent_addr()    const { return m_agentAddr; }
     std::uint16_t agent_port()   const noexcept { return m_agentPort; }
+    std::uint8_t user_level()    const noexcept { return 0; }  // legacy field; not in 23B ack
+
+    // Phase B.2.2: extract the LoginResult for the next state.  The
+    // host calls this right before SetGameState(CharSelect) and feeds
+    // the result into CCharSelectState::SetLoginResult.  Consuming the
+    // result also clears the internal agent address so a re-entry
+    // (e.g. after a CharSelect fail) doesn't reuse stale data.
+    // (LoginResult is defined in CCharSelectState.hpp.)
+    LoginResult TakeLoginResult();
 
 private:
     void dispatch_login_ack(const LegacyLoginAck& ack);

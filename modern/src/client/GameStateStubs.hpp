@@ -18,6 +18,7 @@
 #include "CGameState.hpp"
 #include "CMainTitle.hpp"
 #include "CLoginState.hpp"
+#include "CCharSelectState.hpp"
 
 namespace mxh::client {
 
@@ -36,24 +37,12 @@ public:
 // replaces it with CLoginState (see CLoginState.hpp) which drives the
 // real login handshake against MoxianLoginServer.  The CConnecting
 // class is gone; registrations should use CLoginState.
+//
+// CCharSelect (eGS_CHARSELECT = 4) is now CCharSelectState (Phase B.2.2,
+// see CCharSelectState.hpp) which drives the real character-list +
+// character-select handshake against MoxianAgentServer.  The CCharSelect
+// stub class is gone.
 // -------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------
-// CMainTitle — login screen, server list, agent connect.  A.1.8 ships
-// the real implementation in CMainTitle.hpp / .cpp; this header
-// is included at the top of GameStateStubs.hpp so the registration
-// code in MoxianClient can keep using the same GameStateStubs.hpp
-// include.
-// -------------------------------------------------------------------------
-// -------------------------------------------------------------------------
-// CCharSelect — character select screen.  Lands in A.2+ (Phase B).
-// -------------------------------------------------------------------------
-class CCharSelect : public CGameState {
-public:
-    void Init(void* p) override;
-    void Release() override;
-    void Process() override;
-};
 
 // -------------------------------------------------------------------------
 // CCharMake — character creation.  Lands in A.2+.

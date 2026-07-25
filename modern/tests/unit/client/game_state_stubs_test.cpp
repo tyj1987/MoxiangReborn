@@ -32,7 +32,7 @@ void CheckStubLifecycle() {
 TEST(CIntroReplay, Lifecycle) { CheckStubLifecycle<CIntroReplay>(); }
 TEST(CMainTitle, Lifecycle)   { CheckStubLifecycle<CMainTitle>(); }
 TEST(CLoginState, Lifecycle)  { CheckStubLifecycle<CLoginState>(); }
-TEST(CCharSelect, Lifecycle)  { CheckStubLifecycle<CCharSelect>(); }
+TEST(CCharSelectState, Lifecycle)  { CheckStubLifecycle<CCharSelectState>(); }
 TEST(CCharMake, Lifecycle)    { CheckStubLifecycle<CCharMake>(); }
 TEST(CGameLoading, Lifecycle) { CheckStubLifecycle<CGameLoading>(); }
 TEST(CGameIn, Lifecycle)      { CheckStubLifecycle<CGameIn>(); }

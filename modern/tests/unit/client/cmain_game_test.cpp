@@ -250,7 +250,7 @@ TEST(CMainGameStateIds, StubsRegister) {
     game.RegisterState(GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
     game.RegisterState(GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
     game.RegisterState(GameStateId::Title,      std::make_unique<mxh::client::CMainTitle>());
-    game.RegisterState(GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelect>());
+    game.RegisterState(GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelectState>());
     game.RegisterState(GameStateId::CharMake,   std::make_unique<mxh::client::CCharMake>());
     game.RegisterState(GameStateId::GameLoading,std::make_unique<mxh::client::CGameLoading>());
     game.RegisterState(GameStateId::GameIn,     std::make_unique<mxh::client::CGameIn>());

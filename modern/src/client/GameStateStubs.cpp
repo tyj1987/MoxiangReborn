@@ -32,11 +32,12 @@ namespace mxh::client {
     }
 
 MXH_STATE_STUB_IMPL(CIntroReplay)
-// CConnecting (eGS_CONNECT = 2) is now CLoginState (Phase B.2.1) which
-// drives the actual login handshake against MoxianLoginServer.  See
-// CLoginState.hpp / CLoginState.cpp.
+// CConnecting (eGS_CONNECT = 2) is now CLoginState (Phase B.2.1) —
+// drives the login handshake against MoxianLoginServer.
 // CMainTitle is no longer a stub — see CMainTitle.cpp (Phase A.1.8).
-MXH_STATE_STUB_IMPL(CCharSelect)
+// CCharSelect (eGS_CHARSELECT = 4) is now CCharSelectState (Phase B.2.2)
+// — drives the character-list + character-select handshake against
+// MoxianAgentServer.
 MXH_STATE_STUB_IMPL(CCharMake)
 MXH_STATE_STUB_IMPL(CGameLoading)
 MXH_STATE_STUB_IMPL(CGameIn)

@@ -455,7 +455,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.RegisterState(mxh::client::GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
     mainGame.RegisterState(mxh::client::GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
     mainGame.RegisterState(mxh::client::GameStateId::Title,      std::make_unique<mxh::client::CMainTitle>());
-    mainGame.RegisterState(mxh::client::GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelect>());
+    mainGame.RegisterState(mxh::client::GameStateId::CharSelect, std::make_unique<mxh::client::CCharSelectState>());
     mainGame.RegisterState(mxh::client::GameStateId::CharMake,   std::make_unique<mxh::client::CCharMake>());
     mainGame.RegisterState(mxh::client::GameStateId::GameLoading,std::make_unique<mxh::client::CGameLoading>());
     mainGame.RegisterState(mxh::client::GameStateId::GameIn,     std::make_unique<mxh::client::CGameIn>());
@@ -473,12 +473,29 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
               "boot → GameStateId::Connect");
 
+    // Phase B.2.1: kick off the CLoginState connect (host-driven; the
+    // state can't self-start because it doesn't know the login address
+    // until MHVerInfo.ver parsing lands in B.2.5).
+    if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
+            mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
+        login->Start(mainGame.GetEngine(),
+                     "127.0.0.1", 6001, "test", "test");
+    } else {
+        MLOG_ERROR("Connect slot is not a CLoginState; cannot start login");
+    }
+
     MLOG_INFO("mxh_client: entering message loop");
 
     // Standard Win32 message pump + CMainGame driver.  The legacy
     // engine did "Process() → render() → flip" once per frame; we
     // mirror that here.  CMainGame::BeforeRender/AfterRender fan out
     // to the current state and respect the pause-render flag.
+    //
+    // Phase B.2.2: the host has to Start() each new state once it
+    // becomes current.  CMainGame's transition is delayed (next
+    // Process() call after SetGameState), so we track the previous
+    // state number and drive Start() on the rising edge.
+    auto prev_state = mxh::client::GameStateId::End;
     MSG msg{};
     while (mxh::client::g_running) {
         if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -488,6 +505,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         } else {
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
+            // Phase B.2.2: on state-change rising edge, Start() the
+            // states that have an external Start() hook.
+            const auto cur_state = mainGame.GetCurStateNum();
+            if (cur_state != prev_state) {
+                if (cur_state == mxh::client::GameStateId::CharSelect) {
+                    if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
+                            mainGame.GetGameState(cur_state))) {
+                        cs->Start(mainGame.GetEngine());
+                    }
+                }
+                prev_state = cur_state;
+            }
             mainGame.BeforeRender();
             renderFrame(hwnd);
             mainGame.AfterRender();

@@ -22,10 +22,17 @@
 //     without holding a back-pointer to CMainGame (which would create
 //     a header cycle).  The callback is installed by CMainGame::Init
 //     and forwards to SetGameState() with the int -> GameStateId cast.
+//   * Phase B.2.2: SetPendingTransfer / TakePendingTransfer is a
+//     single-slot std::any bridge that lets an outgoing state hand
+//     a typed payload (e.g. LoginResult) to the next state without
+//     a back-reference.  Consumers should std::any_cast to the exact
+//     type they expect; mismatched type returns an empty any.
 #pragma once
 
 #include <cstdint>
 #include <functional>
+#include <any>
+#include <utility>
 
 #include "mxh/render/IRenderer.hpp"
 
@@ -68,11 +75,25 @@ public:
         if (m_stateChangeFn) m_stateChangeFn(state_id);
     }
 
+    // ---------------------------------------------------------------------
+    // Transfer slot (Phase B.2.2).  One typed payload pending handoff to
+    // the next state.  Set overwrites; Take returns and clears.  Both
+    // sides type-check with std::any_cast.
+    // ---------------------------------------------------------------------
+    void SetPendingTransfer(std::any v) { m_pendingTransfer = std::move(v); }
+    std::any TakePendingTransfer() {
+        std::any out;
+        out.swap(m_pendingTransfer);
+        return out;
+    }
+    bool has_pending_transfer() const noexcept { return m_pendingTransfer.has_value(); }
+
 private:
     void*                           m_hWnd         = nullptr;
     mxh::gx::I4DyuchiGXRenderer*    m_pRenderer    = nullptr;
     bool                            m_bInitialized = false;
     StateChangeFn                   m_stateChangeFn;
+    std::any                        m_pendingTransfer;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers
     // are wired in.  Kept out of A.1.6 to keep the surface minimal.
 };
