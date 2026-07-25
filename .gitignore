@@ -180,7 +180,22 @@ roster.txt
 # Allow our log module (was matching Log/ rule)
 !modern/src/log/
 !modern/include/mxh/log/
-!modern/tests/unit/log/
+
+# Phase A.1.5 — `include/mxh/ui/` is a junction to `src/ui/` (UI headers
+# physically live in `src/ui/` but `CMakeLists.txt` and `#include` paths
+# reference them under `mxh/ui/`).  Tracking the junction contents
+# would double-add every UI file, so we ignore the junction's view.
+modern/include/mxh/ui/
+
+# Phase A.1 — manual build helpers (bypass cmake when not available).
+# Tracked in scratch for the rare case the user wants to build without
+# a fresh cmake configure.  See `modern/scratch/compile_mxh_client.bat`
+# for the bypass recipe.
+!modern/scratch/compile_mxh_client.bat
+!modern/scratch/build_client_lib.bat
+!modern/scratch/build_client_tests.bat
+!modern/scratch/rebuild_mxh_ui.bat
+!modern/scratch/stub_search.cpp
 
 # Phase 7.5p — agent probe binaries (one-off size/layout/HSEL smoke probes)
 modern/scripts/probe_artifacts/
@@ -287,4 +302,28 @@ modern/scripts/*_commit_msg.txt
 # Tracked exceptions (early phase commit msg templates): basenetwork/dbthread/net
 # Untracked (ignored here): filestorage/hsel/phase75d
 modern/scripts/plan_decision*.json
+
+# Phase A.1 — The four `墨香【...】` directories at the repo root are
+# the unmodified 2003-2010 source code + PlayDH resources + tutorial
+# documents.  They are explicitly kept *outside* git tracking per
+# AGENTS.md rule "原始源码（不动）"; the modern/ tree is the only
+# commit target.  Listing them as ignored keeps `git status` from
+# being a wall of 4,000 untracked entries.
+墨香【客户端+服务端+工具】/
+墨香【教程】/
+墨香【源码】/
+墨香【源码配套资源】/
+
+# Phase A.1 — `modern/third_party/googletest-src/` is a vendored copy
+# of GoogleTest that we patched (build flags, install layout).  We
+# keep the upstream copy tracked upstream via a submodule in a future
+# commit; for now, ignore the entire tree to avoid diff noise from
+# vendor refreshes that don't affect the modern build.
+modern/third_party/googletest-src/
+
+# Phase A.1 — `build_map_detected_encoding.json` is a per-build
+# cache from `setup-modern.ps1` (records the detected text encoding
+# of each source file so cross-locale builds stay consistent).  It
+# changes on every build and has no source-of-truth value.
+modern/scripts/build_map_detected_encoding.json
 

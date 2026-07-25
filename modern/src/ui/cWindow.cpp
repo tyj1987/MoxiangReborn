@@ -3,7 +3,16 @@
 // See cWindow.hpp for the contract; this file is kept separate from the
 // header so consumers that include cWindow.hpp don't pay the cost of the
 // method bodies in every translation unit.
+//
+// Phase A.1.5 — Render() body.  Casts m_basicImage (void* opaque) to
+// cImage* and forwards to mxh::ui::cImage::render(), which in turn calls
+// the host-installed render adapter (see modern/tools/MoxianClient/
+// main.cpp renderAdapter).  The cast is safe-by-contract: every
+// cWindow::Init / SetBasicImage call site is expected to pass a cImage*
+// (the legacy engine's cImage is a value-typed wrapper that owns a
+// borrowed sprite — matching the modern port's design).
 #include "cWindow.hpp"
+#include "cImage.hpp"
 
 namespace mxh::ui {
 
@@ -102,6 +111,44 @@ std::uint32_t cWindow::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
         return static_cast<std::uint32_t>(WindowEvent::RButtonClick);
     }
     return static_cast<std::uint32_t>(WindowEvent::MouseMove);
+}
+
+void cWindow::Render() {
+    if (!m_bVisible) return;
+
+    // Phase A.1.5: draw this window's basic image (a cImage* held in
+    // m_basicImage as void* for legacy-Init compatibility).  cImage's
+    // render() is a no-op if no adapter is bound or the sprite is null
+    // — same defensive contract as the legacy cWindow::Render.
+    if (m_basicImage != nullptr) {
+        // The cast from void* to cImage* is the seam between the opaque
+        // legacy API and the modern framework.  See Phase 6.0 notes on
+        // cWindow.hpp for the contract.
+        auto* img = static_cast<cImage*>(m_basicImage);
+        img->render(m_absX, m_absY,
+                    static_cast<std::int32_t>(m_w),
+                    static_cast<std::int32_t>(m_h),
+                    0xFFFFFFFFu,
+                    /*zOrder=*/0);
+    }
+
+    // Recurse into children.  The legacy engine drew children in the
+    // order they were Add()'d, with later (topmost) children last so
+    // they paint on top — exactly what std::vector preserves for us.
+    // We also propagate the parent's absX/absY as the new origin so
+    // children's relX/relY compose into screen-space coords.  This
+    // matches the legacy "parent.abs + child.abs" model.
+    for (std::size_t i = 0; i < m_children.size(); ++i) {
+        cWindow* child = m_children[i].get();
+        if (!child) continue;
+
+        // The legacy engine's children store absX/absY in screen space
+        // (set by SetAbsXY at construction); the parent's absX/absY is
+        // already folded in.  We don't add it again here so the
+        // coordinates stay consistent with how the host wired up the
+        // tree (CMainTitle in A.1.8 will set child absX explicitly).
+        child->Render();
+    }
 }
 
 } // namespace mxh::ui

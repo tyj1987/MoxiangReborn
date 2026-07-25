@@ -1,130 +1,184 @@
-# AGENTS.md — Moxian-Reborn AI 协作指南
+# AGENTS.md — Mavis 协作指南
 
-> 本文件指导 AI Agent（Claude、GPT、Cursor、Mavis 等）在这个项目上工作。请同时阅读 `MODERNIZATION_PLAN.md` 了解整体路线。
+> 指导 Mavis（以及任何其他 AI agent）在这个项目上工作。
+> **终极目标**：1:1 完美复现 2003-2010 韩国 2D MMORPG《墨香》。详见 `ROADMAP.md`。
+> **最近一次重置**：2026-07-25。
 
-## 项目一句话
+---
 
-**墨香（Moxian / DarkStory）**：2003-2010 年韩国 2D MMORPG，使用自研 4Dyuchi 引擎（DX8 + 自研 3D + 自研网络）。目标是**保持游戏内容 1:1 复刻**，把代码迁移到现代软硬件环境。
+## 0. 不可破坏的约束
 
-## 关键约束（绝对不能破坏）
+违反任何一条 = 1:1 复现失败。这 4 条是项目宪法：
 
-1. **资源格式兼容**：`.bin`（XOR 加密）、`.pak`（4DyuchiFileStorage）、`.bmhm`、`.ttb`、`.chl/.chx/.chr/.mon`、`.bsad` 必须**保持二进制兼容**
-2. **网络协议兼容**：`[CC]Header/Protocol.h` 的 96 类 Category + `CommonStruct.h` 的网络包结构**不能改字段**
-3. **玩法/数值 1:1**：经验曲线、伤害公式、爆率、Boss 刷新、商城等**不能动**
-4. **HSEL/HackShield/nProtect 接口**：可以替换实现，但**接口签名要保持**（便于回退）
+1. **资源格式二进制兼容** —— `.bin` / `.pak` / `.bmhm` / `.ttb` / `.chl` / `.chx` / `.chr` / `.mon` / `.bsad` 必须能被现代代码读到和老码完全一致的字节
+2. **网络协议字节级兼容** —— `[CC]Header/Protocol.h` 的 96 类 Category + `CommonStruct.h` 网络包结构（含 `#pragma pack(push,1)`）**绝对不能改字段**
+3. **玩法/数值 1:1 锁定** —— 经验曲线、伤害公式、爆率、Boss 刷新、商城、MurimNet PvP 不能动
+4. **HSEL/HackShield/nProtect 接口签名保持** —— 实现可换，签名不能换
 
-## 核心目录速查
+---
 
-| 路径 | 用途 | 关键文件 |
-|------|------|---------|
-| `墨香【源码】\[Client]MH/` | 客户端代码 | `MHClient.cpp`, `GameIn.cpp`, `ItemManager.cpp` |
-| `墨香【源码】\[Server]Agent/` | 代理服务端 | `AgentNetworkMsgParser.cpp` |
-| `墨香【源码】\[Server]Distribute/` | 登录服 | `DistributeNetworkMsgParser.cpp` |
-| `墨香【源码】\[Server]Map/` | 地图服（最复杂） | `MapServer.cpp`, `Player.cpp`, `AISystem.cpp` |
-| `墨香【源码】\[Server]MurimNet/` | PvP | `MurimNetSystem.cpp` |
-| `墨香【源码】\[CC]Header/` | 共享协议与结构 | **`Protocol.h`** `CommonStruct.h` `CommonGameDefine.h` |
-| `墨香【源码】\[CC]Skill/` | 技能系统（双版本） | `SkillManager_server.cpp`, `SkillObject*` |
-| `墨香【源码】\[CC]BattleSystem/` | 战斗系统 | `BattleFactory_Default.cpp` |
-| `墨香【源码】\[CC]Quest/` | 任务系统 | `QuestManager.cpp`, `QuestExecute_*` |
-| `墨香【源码】\[CC]Ability/` | 能力/状态 | `AbilityManager.cpp` |
-| `墨香【源码】\[Lib]BaseNetwork/` | 网络客户端封装 | `BaseNetwork.cpp` |
-| `墨香【源码】\[Lib]DBThread/` | 数据库线程池 | `DB.cpp` |
-| `墨香【源码】\[Lib]HSEL/` | 加密库 | `HSEL_STREAM.cpp` |
-| `墨香【源码】\[Lib]YHLibrary/` | 工具库 | – |
-| `墨香【源码】\[Lib]dx81/` | DirectX 8.1 SDK | `d3d8.h`, `d3dx8.h` |
-| `墨香【源码】\[Tool]PackingMan/` | BIN 打包工具 | `MHFileEx.cpp`, `PackingTool.cpp` |
-| `墨香【源码】\[Tool]Regen/` | 怪物重生编辑器 | `RegenTool.cpp` |
-| `墨香【源码】\[Tool]AutoPatchToolWin32/` | 自动更新器 | `AutoPatchToolWin32.cpp` |
-| `墨香【源码】\[Tool]DS_RMTool/` | GM 工具 | `RMNetwork.cpp` |
-| `墨香【源码】\4DyuchiNET_Latest/` | 网络底层（IOCP） | `connection.cpp`, `I4DyuchiNET.def` |
-| `墨香【源码】\4DYUCHIGX_RENDER/` | DX8 渲染 DLL | `CoD3DDevice.cpp` |
-| `墨香【源码】\4DyuchiGXGeometry/` | 几何 DLL | `CoGeometry.cpp` |
-| `墨香【源码】\4DyuchiFileStorage/` | PAK 格式 DLL | `CoStorage.cpp`, `PackFile.cpp` |
-| `墨香【源码】\4DyuchiFilePack/` | PAK 打包工具 | `4DyuchiFilePack.cpp` |
-| `墨香【源码】\4DyuchiGXMapEditor/` | 地图编辑器 | `TileSet.cpp` |
-| `墨香【源码】\SWorking/` | 已编译服务端目录 | 完整运行实例 |
-| `墨香【源码】\cworking/` | 已编译客户端目录 | `MHClient-Connect.exe` |
-| `墨香【源码配套资源】\PlayDH\` | 完整游戏资源 | `Resource/`, `Image/`, `Ini/`, `Data/` |
-| `墨香【客户端+服务端+工具】` | 已部署客户端/服务端/工具 | `客户端.rar`, `服务端.rar`, `工具.rar`, `DB.zip` |
-| `墨香【教程】` | 4 篇中文教程 | `配置服务端.docx` 等 |
+## 1. 项目结构（真结构，不是老 session 留下的）
 
-## 工作时的常见陷阱
+```
+C:\moxiang\
+├── 墨香【源码】/                  # 原始源码（不动）
+│   ├── [Client]MH/                # 客户端 ~930 文件 / 35-40 万行
+│   ├── [Server]*/                 # 服务端 3 个进程
+│   ├── [CC]Header/                # 协议头（不可改）
+│   ├── [Lib]*/                    # 引擎库
+│   ├── 4Dyuchi*/                  # 自研 3D 引擎
+│   └── [Tool]*/                   # 工具链源码
+├── 墨香【源码配套资源】/PlayDH/    # 完整游戏资源（1.3GB）
+├── 墨香【教程】/                  # 4 篇中文教程
+├── 墨香【客户端+服务端+工具】/     # 已部署包（参考）
+├── modern/                        # 现代 C++17/20 重写（**全部在这**）
+│   ├── src/                       # 254 个文件
+│   │   ├── compat/                # 资源兼容层（100%）
+│   │   ├── crypto/                # AES-256-GCM + HSEL
+│   │   ├── db/                    # MSSQL/SQLite
+│   │   ├── net/                   # Asio + IOCP
+│   │   ├── proto/                 # 协议
+│   │   ├── render/                # DX11
+│   │   ├── ui/                    # 70+ dialog（1:1 port）
+│   │   ├── server/                # 服务端核心
+│   │   ├── services/              # service interface
+│   │   ├── log/                   # MLOG
+│   │   ├── memory/                # ObjectPool
+│   │   └── monitor/               # perf monitor
+│   ├── tests/unit/                # 153 个测试文件 / 2380 用例
+│   ├── tools/                     # 11 个现代工具
+│   ├── include/mxh/               # 公共头
+│   ├── docs/                      # 中间过程文档（逐步清理）
+│   └── build/                     # CMake 构建输出
+├── deploy/                        # 现代部署（部分）
+├── docs/                          # 真实数据文档
+│   ├── RESOURCE_FORMATS.md        # 资源格式
+│   ├── MoxianProtocolDoc.md       # 协议
+│   ├── DATABASE_SCHEMA.md         # 数据库
+│   └── KNOWN_BUGS.md              # bug 清单
+├── ROADMAP.md                     # 1:1 复现路线图（**主路线**）
+├── AGENTS.md                      # 本文件
+├── README.md                      # 上手指南
+└── scripts/                       # 启动脚本
+```
 
-1. **编译时 `LOG` 宏冲突**：游戏自定义 `void LOG(...)` 与系统 `msplog.h` 的 LOG 函数宏冲突。**不要**直接 include Windows 头后还用 LOG；要么 `#undef LOG`，要么把游戏 LOG 改名 `MLOG`。
-2. **`wsock32.lib` 未链接**：会报 `LNK2019: closesocket@4 / socket@12` 等 9 处错误。需要在项目链接器加 `WS2_32.lib`。
-3. **`d3dx8.lib`** 不存在：DX8.1 SDK 中叫 `d3dx8.lib` 但实际不同版本路径不同。建议在 vcxproj 里直接用 `<PropertyGroup Label="Dx8SdkPaths">` 形式给出。
-4. **字符编码**：客户端大量 EUC-KR/CN 注释，UTF-8 编辑器可能乱码。保持原编码别动。
-5. **多语言 ifdef**：`_KOR_LOCAL_ / _TW_LOCAL_ / _CHINA_LOCAL_ / _JP_LOCAL_ / _HK_LOCAL_ / _TL_LOCAL_ / _NDSC_LOCAL_ / TAIWAN_LOCAL` 散落代码各处。**别急着合并**，先确保每种宏都能编译。
-6. **`#pragma pack(push,1)`**：所有网络包结构强制 1 字节对齐——**绝对不要改**，否则协议崩溃。
-7. **MHVerInfo.ver**：客户端启动时读这个文件读 Distribute 地址 + 版本号。改服务端要先改这个。
-8. **PowerShell 方括号目录名当通配符**：本仓库目录名大量用 `[Lib]` / `[CC]` / `[Server]` 方括号，PowerShell 会把 `[...]` 当作通配符字符类。`Test-Path`/`Get-Item`/`Get-ChildItem` 直接传这种路径会误判（返回 False / 长度 0 / 找不到文件）。**必须**加 `-LiteralPath`（如 `Get-Item -LiteralPath "墨香【源码】\[Lib]BaseNetwork\...\BaseNetwork.dll"`）。`Select-String` / Python `os.path` 不受影响。
-9. **git 跟踪范围很窄**：仓库只跟踪约 439 个文件——`modern/`、`docs/`、根级文件、以及每个已迁移遗留目录里的单个 `CMakeLists.txt`。庞大的 `墨香【源码】/...` 遗留源码树是「未跟踪但也没被 .gitignore」的既定状态，`git status` 里成片的 `??` 是正常的，不是本次改动泄漏。验证「git 是否干净」时看的是**暂存/提交**是否有意外新增，而不是这些常驻未跟踪文件。`.mavis/`、`plan_launch.txt`、`roster.txt` 已在 Phase 7.5p 加入 .gitignore。
-10. **agent 中间产物必须写到 workspace 内**（Phase 7.5p 立的规矩）：
-    - **绝不放桌面**（`C:\Users\Administrator\Desktop\`）——前 session 把 build log / source scan / cmake 探测写到桌面导致 21 个文件散落，cleanup 一次归档到 `modern/scratch/_desktop_<日期>/`。
-    - **绝不放 workspace 根**——build log / db / 编译产物 / session 私货 全部归档到：`modern/scripts/`（build log + 工具脚本）、`modern/scratch/<source>_<日期>/`（临时归档）、`test-extract/dbs/`（sqlite runtime db）、`modern/scripts/probe_artifacts/`（one-off probe exe/obj）。
-    - **会话级跨 session 笔记** 用 `$MAVIS_SCRATCHPAD`（agent context 里有路径，绝对不会出现在 workspace）。
-    - **所有归档子目录** 在子目录根放一个 `README.md` 索引（来源 + 用途 + 维护规则）。`mavis-trash` 删整个目录前先 grep 确认没被任何脚本/文档引用。
-    - 见 `modern/scratch/README.md` 顶层索引。
+---
 
-## 推荐工作流（任何修改前）
+## 2. 工作流（每天必读 3 件事）
 
-1. **读相关头文件**：先 grep 找到所有定义/调用点
-2. **理解原接口**：用 Read 工具看 1-2 个调用点
-3. **写测试**：在 `modern/tests/` 里加单元测试
-4. **实现新模块**：用现代 C++ 重写
-5. **行为对比**：与原实现对比输出字节级一致
-6. **回归**：跑原客户端/服务端，验证 1:1 行为
+每次开 Mavis session，**先读**：
 
-## 阶段路线
+1. `ROADMAP.md` §0-3 —— 当前在哪个阶段，下一步是什么
+2. `AGENTS.md` 本文件 —— 约束 + 陷阱
+3. `docs/KNOWN_BUGS.md` —— 待修 bug（挑不会破坏 1:1 的来修）
 
-详细见 `MODERNIZATION_PLAN.md` 第 12 阶段路线图。当前处于 **Phase 12 持续迭代**：
+**然后做**：
 
-- **Phase 0-4**：✅ 已完成（可编译化 / 资源兼容层 / 数据库抽象 / AES-256-GCM 加密 / 网络层现代化）
-- **Phase 5**：✅ 已完成（DX11 渲染后端 + BC1-5 + Motion Cache，141 render tests）
-- **Phase 6**：✅ 已完成（18 widget + legacy_compat，254 UI tests）
-- **Phase 7**：✅ 已完成（CMake + vcpkg + CI/CD）
-- **Phase 8**：✅ 已完成（ThreadPool + ObjectPool + Compression，17 tests）
-- **Phase 9**：✅ 已完成（platform.hpp + socket.hpp/cpp + Docker，20 tests）
-- **Phase 10**：✅ 已完成（MoxianPacker + MoxianGMTool + MoxianMapEditor + MoxianAutoPatcher）
-- **Phase 11**：✅ 已完成（README + CHANGELOG + 开发者指南 + MoxianProtocolDoc）
-- **Phase 12**：✅ 已完成（反馈收集 / 社区建设 / 客户端现代化 / 服务端优化）
+- 改 `modern/src/` 或 `modern/tests/` 或 `modern/tools/`
+- 写或更新测试
+- 跑 `cmake --build modern/build --config Debug` + `ctest -C Debug`
+- 更新 `ROADMAP.md` §2 现状表（如果完成度变了）
 
-## 24 小时 AI 接力机制
+**不要做**：
 
-本项目使用 **Qoder IDE + QoderWork + QoderWake** 三产品接力实现 24 小时不间断开发。AI Agent 在开始任何工作前，**必须先读取以下文件**：
+- 改 `墨香【源码】/`（除非改老编译 bug，且不会改变行为）
+- 改 `[CC]Header/Protocol.h` 或 `CommonStruct.h`
+- 改 `墨香【源码配套资源】/PlayDH/`
+- 写 P0/P1/P2/P3 任务队列（已被 ROADMAP §3 替代）
+- 写 session 交接 log（已废弃）
+- 写到根目录的 `.log / .obj / .db` 等临时文件
 
-| 文件 | 用途 | 何时读取 |
-|------|------|---------|
-| `AI_WORKFLOW_GUIDE.md` | 三产品协作完整指南 | 首次接入时通读 |
-| `AI_TASK_QUEUE.md` | 任务队列（AI 无人时的驱动力） | **每次会话开始时必读** |
-| `AI_SHIFT_LOG.md` | 交接日志（了解上一班做了什么） | **每次会话开始时必读** |
+---
 
-**接力规则**：
-- 人在线时：人指挥 Qoder IDE 做 P0 任务
-- 人离开后：Qoder IDE 按 `AI_TASK_QUEUE.md` 中的 P1 队列自主执行
-- 夜间：QoderWake 监控构建/测试，Qoder IDE 执行排队中的 Quest
-- 每次交接：在 `AI_SHIFT_LOG.md` 中写一条记录
-- 每个 Quest 完成后：更新 `AI_TASK_QUEUE.md` 中的状态
+## 3. 真实陷阱清单（不要被老 AGENTS.md 误导）
 
-**当前任务优先级**：见 `AI_TASK_QUEUE.md`。P0 需人工确认，P1 可自主执行，P2/P3 空闲时做。
+老 AGENTS.md 列了 10 条"陷阱"，其中有些已修、有些过时。下面是**当前仍然成立**的：
 
-## 编码风格
+| 陷阱 | 当前状态 | 处理 |
+|---|---|---|
+| `[...]` 目录名 | 仍存在 | PowerShell 操作必须用 `-LiteralPath` |
+| `#pragma pack(push,1)` | 仍存在 | 网络包改字段会崩溃 |
+| `LOG` 宏冲突 | **已根治**（2026-07-15） | CConsole::LOG → CConsole::MLOG，新代码用 MLOG |
+| `WS2_32.lib` 链接 | **已修** | CMakeLists.txt 已含 |
+| `d3dx8.lib` 路径 | **已迁移到 DX11** | 用 modern 渲染，不要再碰 DX8 |
+| EUC-KR/CN 注释乱码 | 仍存在 | 保持原编码别动 |
+| 多语言 ifdef (`_KOR_LOCAL_` 等) | 仍存在 | 5 种宏都编，确保每种都能 build |
+| HSEL 硬件狗 | 80% stub | R-1，阻塞运行时 |
+| HackShield 反外挂 | 0% | R-2，阻塞客户端登录 |
+| SQL Server 集成 | 60% | 已写 schema + restore，缺端到端验证 |
 
-- 遵循项目原有风格（匈牙利命名法：前缀 `m_` 成员、`g_` 全局、`p` 指针）
-- C++17 起步；新代码用智能指针、范围 for、`auto`、`std::optional`、`std::string_view`
-- 旧代码原样保留（除非是 bug 或必须改）
-- 注释：中文/英文都可以，但**避免韩文/日文**（搜索不出来）
+**根目录散落文件陷阱**（最近 session 反复犯）：
+- 不要往根目录写 `*.log / *.obj / *.db` / `test_*.txt`
+- 临时文件用 `modern/scratch/<source>_<日期>/` 归档
+- 子目录根放 `README.md` 索引
 
-## 交付物清单
+---
 
-每次完成工作，**更新 `MODERNIZATION_PLAN.md` 第 5 节交付物**，勾选已完成项。
+## 4. 编码风格
 
-## 反馈 / Bug
+**老代码**（`墨香【源码】/`）：匈牙利命名法，不动。
+**新代码**（`modern/`）：
+- 遵循老代码的 `m_` 成员 / `g_` 全局 / `p` 指针前缀
+- C++17 起步；能用 `std::optional / std::string_view / auto / 范围 for` 就用
+- 智能指针优先；裸指针只在 C ABI / OS 句柄时用
+- 注释中文/英文都行，避免韩文/日文
+- 头文件 `#pragma once`
+- 类成员大括号同行（C++ 风格，不是老 C 的 Allman）
 
-发现原代码 bug 时，**记录但不擅自修改**。在 `docs/KNOWN_BUGS.md` 写明：
-- 文件:行号
-- 原代码行为
-- 期望行为
-- 触发条件
+---
 
-除非用户明确指示修复。
+## 5. 提交规范
+
+每次提交必须：
+
+- **1 个 commit = 1 个对话框 / 1 个 bug fix / 1 个工具**，**不要把多个混在一起**
+- commit message 用 `类型: 简述` 格式：
+  - `ui: cCheckBox 1:1 port + 22 tests`
+  - `crypto: HSEL stub 补 20% 绕过点`
+  - `bug: R-3 CommonStruct.h 编译错误修`
+  - `docs: ROADMAP 重置到 1:1 复现`
+- commit 必跑：`cmake --build modern/build --config Debug` 0 错 + `ctest -C Debug` 全过
+- 1:1 port 必须有 unit test 锁死（dialog 至少 1 个行为断言）
+
+---
+
+## 6. 与 Mavis 的协作边界
+
+**Mavis 自动可做**：
+
+- 改 `modern/src/` / `modern/tests/` / `modern/tools/` / `modern/include/`
+- 写新 dialog / service / 工具
+- 跑测试 + 修编译错误
+- 重构 modern/ 内部代码（不改接口）
+
+**Mavis 必须问用户**：
+
+- 改老源码（`墨香【源码】/`）的逻辑
+- 改协议头（`[CC]Header/Protocol.h`）
+- 改资源文件
+- 1:1 复现 vs 功能增强 的取舍
+
+**用户拍板**：
+
+- 删文件（破坏性操作，列清单等确认）
+- 1.0 release 标记
+- 跨平台方向选择
+
+---
+
+## 7. 常见问题
+
+**Q：老 MODERNIZATION_PLAN.md / CHANGELOG.md / AI_*.md 还在，能参考吗？**
+A：能读，不要被"Phase 12 已完成"误导。那是 35% 完成的过度表述。看 `ROADMAP.md` §2 现状表和 §5 完成判据。
+
+**Q：能直接用 `SWorking/` 启动老服吗？**
+A：能，那里有完整编译产物。`scripts/start-server.ps1` 还在。
+
+**Q：modern 代码能和老客户端/老服务端互通吗？**
+A：目前不能，modern 客户端/服务端运行时还没接（Phase A/B）。老资源/老协议 100% 兼容。
+
+**Q：HSEL 硬件狗真没了怎么办？**
+A：用 `modern/src/crypto/` 的 stub 跑，能进登录但有些功能受限。要真上线得补完 stub（参 ROADMAP §2 R-1）。
+
+**Q：怎么贡献？**
+A：挑 `ROADMAP.md` §3 当前阶段的一个 task → 改 modern/ → 测试过 → 提交。PR 不需要（单分支 + commit history 足够）。

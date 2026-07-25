@@ -65,8 +65,20 @@ public:
     void Init(std::int32_t x, std::int32_t y, std::uint16_t wid, std::uint16_t hei,
               void* basicImage = nullptr, std::int32_t id = 0);
 
-    // Render — placeholder in the skeleton. Real GPU draw lives in 6.1.2.
-    virtual void Render() {}
+    // Render — Phase A.1.5 wiring.  Real GPU draw goes through cImage
+    // (m_basicImage, cast from void*) and recurses into children.  The
+    // legacy cWindow::Render() walked the child tree depth-first, drawing
+    // each child's basicImage (and the dialog's chrome) before the
+    // children themselves.  We preserve that order here.
+    //
+    // 1:1 quirk: the legacy engine sets m_absX / m_absY as the screen-
+    // space origin, so children's absolute coords include the parent's
+    // offset by the time the renderer sees them.  We honour that
+    // contract by adding the parent's absX/absY when recursing.
+    //
+    // Virtual so subclasses (cDialog, cButton, cMsgBox, ...) can
+    // override with their own draw tree.
+    virtual void Render();
 
     // Hit test: returns true if (x,y) in absolute coordinates is inside the
     // window's bounding rectangle. Inclusive on the boundary, matching the

@@ -31,6 +31,7 @@ endif()
 
 enable_testing()
 add_subdirectory(unit)
+add_subdirectory(unit/client)
 add_subdirectory(unit/compat)
 add_subdirectory(unit/db)
 add_subdirectory(unit/log)
