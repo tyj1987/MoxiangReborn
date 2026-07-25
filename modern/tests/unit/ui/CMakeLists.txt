@@ -1,4 +1,5 @@
 add_executable(mxh_ui_tests
+    cobject_test.cpp
     cwindow_test.cpp
     cbutton_test.cpp
     ceditbox_test.cpp
