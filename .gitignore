@@ -213,6 +213,10 @@ modern/scratch/_archive_*/
 # source-of-truth. The .py / .md exceptions above still allow root-level
 # tools and the README to be tracked.
 modern/scratch/*.log
+# Phase B E2E smoke test artifacts: SQLite DBs and per-server log files
+# written by verify_servers_e2e.py under modern/scratch/e2e_*/. The script
+# auto-cleans on success; on failure use --keep-on-fail to inspect.
+modern/scratch/e2e_*/
 
 # Phase 10.4 — agent tool directories and session leftovers.
 # These are dev-environment state, not source-of-truth. They contain

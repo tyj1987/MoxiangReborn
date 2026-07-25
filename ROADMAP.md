@@ -49,8 +49,8 @@
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |
 | 渲染后端（DX11 + IRenderer 抽象） | **100%** | BC1-5 贴图 + Motion Cache | T1 贴图 1:1 |
 | 工具链 | **100%** | 11 个工具（资源浏览/打包/GM/地图编辑/补丁/协议文档） | 工具全部 build 通过 |
-| 客户端运行时 | **0%** | modern 只 port 了 UI 控件，没接 main loop / DX11 renderer / 网络 | 未启动 |
-| 服务端运行时 | **0%** | modern 只有抽象层 + 部分 service interface，没接 Player/AISystem/Map network | 未启动 |
+| 客户端运行时 | **骨架就绪** | Phase A: MoxianClient + CMainGame 1:1 port + 9 state stubs + 25 tests；DX11 + cImage 接入 | Phase A 完 |
+| 服务端运行时 | **3 server 端到端 PASS** | Phase B E2E: 启 Login/Agent/Map + Python 模拟 client，3 步协议全过 | Phase B E2E ✅ |
 | HSEL 硬件狗绕过 | **80%** | stub 已写，但未跑通真实 `.bin` | 待 E2E |
 | HackShield 绕过 | **0%** | 卡 R-2 | 阻塞 |
 | SQL Server 集成 | **60%** | schema + restore 脚本，但没真启服 | 待 E2E |
@@ -117,17 +117,34 @@
 
 ---
 
-## 4. 当前在做（C 阶段早期）
+## 4. 当前在做
 
-P2-12 UI 1:1 port：**71/202 = 35.1%**（438 tests, modern 默认增量开发 + unit test 锁死）
+### ✅ Phase A 已完（commit `f80f6e0`）
+- MoxianClient 骨架（DX11 + WinMain + 4 sprite + cImage↔IDISpriteObject）
+- CMainGame 1:1 port：eGAMESTATE 0..9 byte-for-byte + state machine
+- 9 个 state stub + CMainTitle（14 字段 1:1 surface + Init 读 MHVerInfo.ver）
+- 25 client unit tests + ctest 全过（2405 total）
 
-下个 batch 候选（按复杂度递增）：
-- cGridDialog (Tier 1.5, 0.9KB+1KB, ~12 tests)
-- cList (Tier 1.5, 1.5KB+6KB, ~30 tests)
-- cObject (基类, ~6 tests)
-- 继续推遗漏 Tier 1.5
+### ✅ Phase B E2E 已 PASS（commit pending）
+- 3 server 端到端（Distribute → Agent → Map）通过 `modern/scripts/verify_servers_e2e.py` 验证
+- Login: DistConnectSuccess (auth_key) + RequestLogin → LoginAck (user_idx=1, agent=127.0.0.1:7001)
+- Agent: AgentConnectSuccess (auth_key) + CharacterListSyn → CharacterListAck (889 字节)
+- Map: GameInSyn → GameInAck (3000 字节 SEND_HERO_TOTALINFO)
 
-节奏：1-2 commit / batch，每天 3-5 个 batch。
+### 下一步：Phase B.2 — 真接 Client + 完善 Server 业务
+- B2.1 MoxianClient 接 mxh::net，跑通 Distribute 连 login
+- B2.2 MoxianClient 收 LoginAck 后接 Agent
+- B2.3 MoxianClient 收 CharacterListAck 后接 Map 渲染空场景
+- B2.4 Player/AISystem 1:1 port（核心 5 万行）
+- B2.5 IDbAdapter MSSQL 端到端验证
+- B2.6 HSEL stub 补完
+
+### 同步：Phase C UI 1:1 收口（按之前节奏继续推）
+- P2-12 dialog 71/202 → 202/202（每天 3-5 个 batch）
+- Tier 1.5 subcontrol 14 → 收尾
+- 每个 dialog 用 unit test 锁死 1:1 行为
+
+节奏：1-2 commit / batch，Phase B 和 Phase C 并行推。
 
 ---
 
