@@ -15,6 +15,7 @@
 # -----------------------------------------------------------------------------
 add_library(mxh_game STATIC
     ${CMAKE_SOURCE_DIR}/src/item_effects.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/skill_manager.cpp
 )
 target_include_directories(mxh_game PUBLIC
     ${CMAKE_SOURCE_DIR}/include
