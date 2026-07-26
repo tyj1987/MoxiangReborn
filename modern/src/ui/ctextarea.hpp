@@ -106,6 +106,13 @@ public:
 
     bool SetLimitLine(int nMaxLine) noexcept;
 
+    // ----- 1:1 with legacy cTextArea::SetCaretMoveFirst -----
+    // Modern port: stores a flag; the actual caret-move-first
+    // operation is applied on the next SetScriptText call (Phase
+    // 12.x + 6.13: full caret / IME render path is deferred).
+    void SetCaretMoveFirst(bool val) noexcept     { m_bCaretMoveFirst = val; }
+    bool IsCaretMoveFirst() const noexcept       { return m_bCaretMoveFirst; }
+
     // ----- 1:1 with legacy cTextArea::SetTextColor -----
 
     void SetTextColor(std::uint32_t dwColor) noexcept { m_dwTextColor = dwColor; }
@@ -139,6 +146,7 @@ private:
     bool           m_bReadOnly    = false;
     bool           m_bCaret       = false;
     bool           m_bEnterAllow  = true;     // 1:1 default (legacy ctor sets TRUE)
+    bool           m_bCaretMoveFirst = false;  // 1:1 with legacy SetCaretMoveFirst
 
     // 1:1 quirk: legacy stores 3 cImage objects.
     // Modern port stores them as void* (1:1 with the

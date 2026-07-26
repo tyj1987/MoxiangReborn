@@ -117,6 +117,15 @@ public:
     bool   isEnabled() const noexcept { return m_bEnabled; }
     void*  basicImage() const noexcept { return m_basicImage; }
 
+    // Active state. 1:1 with legacy cWindow::SetActive / IsActive --
+    // toggles per-child visibility / dispatch for non-dialog
+    // children (cStatic / cTextArea / cButton / cEditBox / etc.).
+    // cDialog overrides SetActive to also flip m_bActive; the
+    // base no-op is enough for control windows in Phase 6.4+
+    // (render path is deferred).
+    virtual void SetActive(bool v) noexcept        { m_bActive = v; }
+    bool         isActive() const noexcept        { return m_bActive; }
+
     // -------------------------------------------------------------------------
     // Child management. `Add` takes ownership (unique_ptr) and parent-links
     // the child. Mirrors the legacy `virtual void Add(cWindow* wnd)` contract
@@ -168,6 +177,7 @@ private:
     bool m_bDepend  = false;
     bool m_bVisible = true;
     bool m_bEnabled = true;
+    bool m_bActive  = false;  // 1:1 with legacy cWindow active state
 
     // Owning children. Insertion is O(1) amortized; topmost is m_children.back().
     std::vector<std::unique_ptr<cWindow>> m_children;
