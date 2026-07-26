@@ -755,3 +755,9 @@ add_executable(mxh_regen_condition_info_tests
 )
 target_link_libraries(mxh_regen_condition_info_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_regen_condition_info_tests COMMAND mxh_regen_condition_info_tests)
+
+add_executable(mxh_regen_prototype_tests
+    regen_prototype_test.cpp
+)
+target_link_libraries(mxh_regen_prototype_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_regen_prototype_tests COMMAND mxh_regen_prototype_tests)

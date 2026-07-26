@@ -175,6 +175,7 @@ add_library(mxh_server STATIC
     server/fame_manager.cpp
     server/purse.cpp
     server/regen_condition_info.cpp
+    server/regen_prototype.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
