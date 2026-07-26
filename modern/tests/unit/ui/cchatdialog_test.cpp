@@ -174,6 +174,8 @@ TEST(CChatDialog, AddMsgAllRoutesToAllSheets) {
 }
 
 TEST(CChatDialog, AddMsgNullStringIsSafe) {
+    test_chatdlg::g_addItemCount = 0;
+    test_chatdlg::g_captured.clear();
     cChatDialog d;
     d.SetListAddItemCallbackForTest(&test_chatdlg::faAddItem, nullptr);
     d.AddMsg(mxh::ui::kChatLimitWhole, 0, nullptr);
@@ -203,6 +205,8 @@ TEST(CChatDialog, SelectMenuSwitchesSheetAndFiresCallback) {
 }
 
 TEST(CChatDialog, SelectMenuOutOfRangeIsNoOp) {
+    test_chatdlg::g_selectMenuCount = 0;
+    test_chatdlg::g_lastSelectSheet = -1;
     cChatDialog d;
     d.SetSelectMenuCallbackForTest(&test_chatdlg::faSelectMenu, nullptr);
     d.SelectMenu(-1);
@@ -223,6 +227,7 @@ TEST(CChatDialog, OnActionEventTabClickSelectsMenu) {
 }
 
 TEST(CChatDialog, OnActionEventIgnoresNonClickEvents) {
+    test_chatdlg::g_selectMenuCount = 0;
     cChatDialog d;
     d.SetSelectMenuCallbackForTest(&test_chatdlg::faSelectMenu, nullptr);
     d.OnActionEvent(1, nullptr, 0x0000);
