@@ -109,6 +109,7 @@ add_library(mxh_ui STATIC
     cautoanswerdlg.cpp
     cstatusicondlg.cpp
     cscreenshotdlg.cpp
+    coptiondialog.cpp
 )
 
 if(WIN32)
