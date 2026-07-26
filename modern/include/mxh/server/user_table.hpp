@@ -1,4 +1,4 @@
-﻿// user_table.hpp - Phase 6.3 AgentServer 1:1 port of legacy
+// user_table.hpp - Phase 6.3 AgentServer 1:1 port of legacy
 // [Server]Agent/UserTable.h + UserTable.cpp (CUserTable : CYHHashTable<USERINFO>).
 //
 // Locked invariants (1:1 with legacy):
@@ -157,10 +157,14 @@ inline bool add_user(UserTable& t, std::uint32_t key, const UserInfo& info) {
 // saturates the count at 0 to keep the table usable from tests.
 inline std::optional<UserInfo> remove_user(UserTable& t, std::uint32_t key) {
     auto it = t.m_Table.find(key);
-    if (it == t.m_Table.end()) return std::nullopt;
+    if (it == t.m_Table.end()) {
+        --t.m_dwUserCount;
+        ++t.m_removeCount;
+        return std::nullopt;
+    }
     UserInfo out = it->second;
     t.m_Table.erase(it);
-    if (t.m_dwUserCount > 0) --t.m_dwUserCount;
+    --t.m_dwUserCount;
     ++t.m_removeCount;
     return out;
 }

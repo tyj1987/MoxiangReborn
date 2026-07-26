@@ -1,4 +1,4 @@
-﻿// user_table_test.cpp - Phase 6.3 UserTable 1:1 port tests.
+// user_table_test.cpp - Phase 6.3 UserTable 1:1 port tests.
 //
 // Locks the byte-level shape and lifecycle behavior of the legacy
 // [Server]Agent/UserTable.h + UserTable.cpp state. Each test names a
@@ -203,21 +203,15 @@ TEST(UserTableRemove, RemovesAndReturnsSlot) {
     EXPECT_EQ(find_user(t, 5u), nullptr);
 }
 
-TEST(UserTableRemove, MissingKeyDoesNotChangeCounts) {
-    // Modern deliberately diverges from legacy here: legacy RemoveUser
-    // unconditionally --m_dwUserCount and ++m_removeCount even when the
-    // key is absent, which causes DWORD underflow when the table is
-    // empty. Modern saturates the count at 0 and does not bump
-    // m_removeCount for a no-op remove, so callers can defensively call
-    // remove_user without pre-checking find_user.
+TEST(UserTableRemove, MissingKeyMatchesLegacyUnderflow) {
     auto t = make_user_table();
     auto popped = remove_user(t, 999u);
     EXPECT_FALSE(popped.has_value());
-    EXPECT_EQ(get_user_count(t), 0u);
-    EXPECT_EQ(get_remove_count(t), 0u);
+    EXPECT_EQ(get_user_count(t), 0xFFFFFFFFu);
+    EXPECT_EQ(get_remove_count(t), 1u);
 }
 
-TEST(UserTableRemove, CountSaturatesAtZero) {
+TEST(UserTableRemove, MissingRemoveUsesUnsignedUnderflow) {
     auto t = make_user_table();
     UserInfo u = make_user(1u, 11u, 21u);
     ASSERT_TRUE(add_user(t, 1u, u));
