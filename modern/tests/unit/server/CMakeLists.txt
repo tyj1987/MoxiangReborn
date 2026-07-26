@@ -806,3 +806,15 @@ add_executable(mxh_tile_tests
 )
 target_link_libraries(mxh_tile_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_tile_tests COMMAND mxh_tile_tests)
+
+add_executable(mxh_agent_weather_tests
+    agent_weather_test.cpp
+)
+target_link_libraries(mxh_agent_weather_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_weather_tests COMMAND mxh_agent_weather_tests)
+
+add_executable(mxh_tactic_ability_info_tests
+    tactic_ability_info_test.cpp
+)
+target_link_libraries(mxh_tactic_ability_info_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_tactic_ability_info_tests COMMAND mxh_tactic_ability_info_tests)
