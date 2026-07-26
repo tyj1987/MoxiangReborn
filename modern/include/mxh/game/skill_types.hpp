@@ -108,4 +108,98 @@ struct PlayerCombatStats {
     std::uint8_t  dodge_rate = 5;       // dodge chance (%)
 };
 
+// ============================================================================
+// Default skill templates (Phase D1.1 placeholder).
+//
+// Symmetric to monster_types.hpp::get_default_templates() — a small
+// hardcoded table covering the most common skill archetypes.  Will
+// be replaced by SkillList.bin parsing in D1.3 once the legacy
+// format is documented / ported.
+// ============================================================================
+inline std::vector<SkillInfo> get_default_skills() {
+    std::vector<SkillInfo> skills;
+
+    // Skill 1: basic physical attack (OuterMugong)
+    {
+        SkillInfo s{};
+        s.skill_idx   = 1;
+        s.name        = "BasicStrike";
+        s.skill_kind  = SkillKind::OuterMugong;
+        s.skill_range = 1;
+        s.target_range = 0;     // single target
+        s.delay_time  = 1000;   // 1s cooldown
+        s.duration    = 0;      // instant
+        s.weapon_kind = 0;      // any
+        s.attrib      = 0;      // none
+        s.phy_attack  = 15;
+        s.att_attack  = 0;
+        s.att_rate    = 100;
+        s.critical_rate = 5;
+        s.stun_rate   = 0;
+        s.need_nearyuk = 5;     // 5 内力
+        skills.push_back(s);
+    }
+    // Skill 2: ranged combo (Combo, multi-hit)
+    {
+        SkillInfo s{};
+        s.skill_idx   = 2;
+        s.name        = "TripleCombo";
+        s.skill_kind  = SkillKind::Combo;
+        s.skill_range = 2;
+        s.target_range = 0;
+        s.delay_time  = 2500;
+        s.duration    = 0;
+        s.weapon_kind = 0;
+        s.attrib      = 0;
+        s.phy_attack  = 12;     // per-hit damage
+        s.att_attack  = 0;
+        s.att_rate    = 100;
+        s.critical_rate = 3;
+        s.stun_rate   = 0;
+        s.need_nearyuk = 15;
+        skills.push_back(s);
+    }
+    // Skill 3: self-heal (Simbub)
+    {
+        SkillInfo s{};
+        s.skill_idx   = 3;
+        s.name        = "HealSelf";
+        s.skill_kind  = SkillKind::Simbub;
+        s.skill_range = 0;      // self-cast
+        s.target_range = 0;
+        s.delay_time  = 5000;
+        s.duration    = 0;
+        s.weapon_kind = 0;
+        s.attrib      = 0;
+        s.phy_attack  = 0;
+        s.att_attack  = 0;
+        s.att_rate    = 100;
+        s.critical_rate = 0;
+        s.stun_rate   = 0;
+        s.need_nearyuk = 20;
+        skills.push_back(s);
+    }
+    // Skill 4: area-of-effect attack (OuterMugong, AoE)
+    {
+        SkillInfo s{};
+        s.skill_idx   = 4;
+        s.name        = "Whirlwind";
+        s.skill_kind  = SkillKind::OuterMugong;
+        s.skill_range = 3;
+        s.target_range = 200;   // 2-tile AoE radius
+        s.delay_time  = 4000;
+        s.duration    = 0;
+        s.weapon_kind = 0;
+        s.attrib      = 0;
+        s.phy_attack  = 20;
+        s.att_attack  = 0;
+        s.att_rate    = 100;
+        s.critical_rate = 4;
+        s.stun_rate   = 10;
+        s.need_nearyuk = 30;
+        skills.push_back(s);
+    }
+    return skills;
+}
+
 }  // namespace mxh::game

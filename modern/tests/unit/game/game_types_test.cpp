@@ -469,3 +469,72 @@ TEST(GameDamageResult, DefaultFieldsAreZero) {
     EXPECT_FALSE(d.is_miss);
     EXPECT_EQ(d.hit_result, 0u);
 }
+
+// -------------------------------------------------------------------------
+// D1.1 — get_default_skills() returns 4 placeholder skills that cover
+// the most common archetypes (single-target physical, multi-hit
+// combo, self-heal, AoE).  These will be replaced by SkillList.bin
+// parsing in D1.3; the values are locked here so any future drift is
+// visible.
+// -------------------------------------------------------------------------
+
+TEST(GameSkillTable, DefaultSkillsHasFourEntries) {
+    auto s = get_default_skills();
+    ASSERT_EQ(s.size(), 4u);
+}
+
+TEST(GameSkillTable, Skill1BasicStrikeOuterMugong) {
+    auto s = get_default_skills();
+    EXPECT_EQ(s[0].skill_idx,   1u);
+    EXPECT_EQ(s[0].name,        "BasicStrike");
+    EXPECT_EQ(s[0].skill_kind,  SkillKind::OuterMugong);
+    EXPECT_EQ(s[0].skill_range, 1u);
+    EXPECT_EQ(s[0].target_range, 0u);
+    EXPECT_EQ(s[0].delay_time,  1000u);
+    EXPECT_EQ(s[0].phy_attack,  15u);
+    EXPECT_EQ(s[0].need_nearyuk, 5u);
+}
+
+TEST(GameSkillTable, Skill2TripleCombo) {
+    auto s = get_default_skills();
+    EXPECT_EQ(s[1].skill_idx,   2u);
+    EXPECT_EQ(s[1].name,        "TripleCombo");
+    EXPECT_EQ(s[1].skill_kind,  SkillKind::Combo);
+    EXPECT_EQ(s[1].skill_range, 2u);
+    EXPECT_EQ(s[1].delay_time,  2500u);
+    EXPECT_EQ(s[1].phy_attack,  12u);
+    EXPECT_EQ(s[1].need_nearyuk, 15u);
+}
+
+TEST(GameSkillTable, Skill3HealSelfSimbub) {
+    auto s = get_default_skills();
+    EXPECT_EQ(s[2].skill_idx,   3u);
+    EXPECT_EQ(s[2].name,        "HealSelf");
+    EXPECT_EQ(s[2].skill_kind,  SkillKind::Simbub);
+    EXPECT_EQ(s[2].skill_range, 0u);     // self-cast
+    EXPECT_EQ(s[2].delay_time,  5000u);
+    EXPECT_EQ(s[2].need_nearyuk, 20u);
+}
+
+TEST(GameSkillTable, Skill4WhirlwindAoe) {
+    auto s = get_default_skills();
+    EXPECT_EQ(s[3].skill_idx,   4u);
+    EXPECT_EQ(s[3].name,        "Whirlwind");
+    EXPECT_EQ(s[3].skill_kind,  SkillKind::OuterMugong);
+    EXPECT_EQ(s[3].skill_range, 3u);
+    EXPECT_EQ(s[3].target_range, 200u);   // 2-tile AoE radius
+    EXPECT_EQ(s[3].delay_time,  4000u);
+    EXPECT_EQ(s[3].phy_attack,  20u);
+    EXPECT_EQ(s[3].stun_rate,   10u);
+    EXPECT_EQ(s[3].need_nearyuk, 30u);
+}
+
+TEST(GameSkillTable, SkillIdsAreUnique) {
+    auto s = get_default_skills();
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        for (std::size_t j = i + 1; j < s.size(); ++j) {
+            EXPECT_NE(s[i].skill_idx, s[j].skill_idx)
+                << "duplicate skill_idx at " << i << " and " << j;
+        }
+    }
+}
