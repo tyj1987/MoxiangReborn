@@ -197,6 +197,7 @@ add_library(mxh_server STATIC
     server/agent_siegewar.cpp
     server/agent_siegewar_server.cpp
     server/agent_simple_auth_forward.cpp
+    server/agent_hackcheck.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
@@ -227,6 +228,7 @@ add_library(mxh_server STATIC
     server/agent_siegewar.cpp
     server/agent_siegewar_server.cpp
     server/agent_simple_auth_forward.cpp
+    server/agent_hackcheck.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp

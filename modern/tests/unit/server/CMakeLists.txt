@@ -884,3 +884,9 @@ add_executable(mxh_agent_simple_auth_forward_tests
 )
 target_link_libraries(mxh_agent_simple_auth_forward_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_simple_auth_forward_tests COMMAND mxh_agent_simple_auth_forward_tests)
+
+add_executable(mxh_agent_hackcheck_tests
+    agent_hackcheck_test.cpp
+)
+target_link_libraries(mxh_agent_hackcheck_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_hackcheck_tests COMMAND mxh_agent_hackcheck_tests)
