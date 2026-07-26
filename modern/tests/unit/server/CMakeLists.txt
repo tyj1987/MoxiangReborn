@@ -731,3 +731,15 @@ add_executable(mxh_fame_manager_tests
 )
 target_link_libraries(mxh_fame_manager_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_fame_manager_tests COMMAND mxh_fame_manager_tests)
+
+add_executable(mxh_agent_party_tests
+    agent_party_test.cpp
+)
+target_link_libraries(mxh_agent_party_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_party_tests COMMAND mxh_agent_party_tests)
+
+add_executable(mxh_purse_tests
+    purse_test.cpp
+)
+target_link_libraries(mxh_purse_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_purse_tests COMMAND mxh_purse_tests)

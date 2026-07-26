@@ -173,6 +173,7 @@ add_library(mxh_server STATIC
     server/economy.cpp
     server/mh_error.cpp
     server/fame_manager.cpp
+    server/purse.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
@@ -181,6 +182,7 @@ add_library(mxh_server STATIC
     server/agent_skill.cpp
     server/agent_guild.cpp
     server/agent_murimnet.cpp
+    server/agent_party.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
