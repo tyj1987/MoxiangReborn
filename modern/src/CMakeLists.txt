@@ -173,6 +173,7 @@ add_library(mxh_server STATIC
     server/user_table.cpp
     server/server_table.cpp
     server/filtering_table.cpp
+    server/skill_delay_manager.cpp
     server/quest_group.cpp
 )
 
@@ -245,6 +246,7 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
+
 
 
 
