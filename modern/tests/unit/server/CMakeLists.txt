@@ -830,3 +830,9 @@ add_executable(mxh_agent_fortwar_tests
 )
 target_link_libraries(mxh_agent_fortwar_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_fortwar_tests COMMAND mxh_agent_fortwar_tests)
+
+add_executable(mxh_agent_survival_tests
+    agent_survival_test.cpp
+)
+target_link_libraries(mxh_agent_survival_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_survival_tests COMMAND mxh_agent_survival_tests)

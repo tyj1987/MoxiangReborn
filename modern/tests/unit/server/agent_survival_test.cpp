@@ -1,0 +1,13 @@
+#include "mxh/server/agent_survival.hpp"
+#include <gtest/gtest.h>
+using namespace mxh::server;
+TEST(SurvivalUser, NoUserDefaultsForward){SurvivalUserRequest r;r.protocol=survival_leave_syn;r.user_found=false;EXPECT_EQ(classify_survival_user(r).kind,SurvivalUserActionKind::default_forward_to_map);}
+TEST(SurvivalUser, LeaveSynSendsAnnotatedMessageToMap){SurvivalUserRequest r;r.protocol=survival_leave_syn;r.user_found=true;r.unique_connect_idx=11;r.user_level=1;r.channel=2;auto a=classify_survival_user(r);EXPECT_EQ(a.kind,SurvivalUserActionKind::send_leave_syn_to_map);EXPECT_EQ(a.protocol,survival_leave_syn);EXPECT_EQ(a.unique_connect_idx,11u);EXPECT_EQ(a.user_level,1);EXPECT_EQ(a.channel,2);}
+TEST(SurvivalUser, ReadySynGmProtectedForward){SurvivalUserRequest r;r.protocol=survival_ready_syn;r.user_found=true;EXPECT_EQ(classify_survival_user(r).kind,SurvivalUserActionKind::gm_protected_forward_to_map);}
+TEST(SurvivalUser, StopSynGmProtectedForward){SurvivalUserRequest r;r.protocol=survival_stop_syn;EXPECT_EQ(classify_survival_user(r).kind,SurvivalUserActionKind::gm_protected_forward_to_map);}
+TEST(SurvivalUser, MapOffSynGmProtectedForward){SurvivalUserRequest r;r.protocol=survival_mapoff_syn;EXPECT_EQ(classify_survival_user(r).kind,SurvivalUserActionKind::gm_protected_forward_to_map);}
+TEST(SurvivalUser, ItemUsingCountSetGmProtectedForward){SurvivalUserRequest r;r.protocol=survival_itemusingcount_set;EXPECT_EQ(classify_survival_user(r).kind,SurvivalUserActionKind::gm_protected_forward_to_map);}
+TEST(SurvivalUser, UnknownProtocolDefaultsForward){SurvivalUserRequest r;r.protocol=survival_info;EXPECT_EQ(classify_survival_user(r).kind,SurvivalUserActionKind::default_forward_to_map);}
+TEST(SurvivalServer, ReturnToMapWithPortUpdatesUserState){SurvivalServerRequest r;r.protocol=survival_returntomap;r.user_found=true;r.target_map=12;r.target_map_port_found=true;auto a=classify_survival_server(r);EXPECT_EQ(a.kind,SurvivalServerActionKind::update_user_map_and_forward_to_client);EXPECT_EQ(a.target_map,12u);EXPECT_TRUE(a.update_user_state);}
+TEST(SurvivalServer, ReturnToMapWithoutUserStillForwards){SurvivalServerRequest r;r.protocol=survival_returntomap;r.user_found=false;EXPECT_EQ(classify_survival_server(r).kind,SurvivalServerActionKind::default_forward_to_client);EXPECT_FALSE((classify_survival_server(r).update_user_state));}
+TEST(SurvivalServer, DefaultForwardsToClient){SurvivalServerRequest r;r.protocol=survival_info;EXPECT_EQ(classify_survival_server(r).kind,SurvivalServerActionKind::default_forward_to_client);}
