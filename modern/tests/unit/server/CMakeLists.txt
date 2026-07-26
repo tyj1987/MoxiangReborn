@@ -842,3 +842,9 @@ add_executable(mxh_agent_wanted_tests
 )
 target_link_libraries(mxh_agent_wanted_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_wanted_tests COMMAND mxh_agent_wanted_tests)
+
+add_executable(mxh_agent_bobusang_user_tests
+    agent_bobusang_user_test.cpp
+)
+target_link_libraries(mxh_agent_bobusang_user_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_bobusang_user_tests COMMAND mxh_agent_bobusang_user_tests)
