@@ -1,0 +1,2 @@
+﻿#include "csealdialog.hpp"
+namespace mxh::ui{bool cSealDialog::SetItem(SealItem i){if(i.item_id==0||(m_mode==SealMode::Seal&&i.sealed)||(m_mode==SealMode::Unseal&&!i.sealed))return false;m_item=i;m_done=false;return true;}bool cSealDialog::Execute(){if(!m_item||m_done)return false;if(m_callback&&!m_callback(*m_item,m_mode))return false;m_item->sealed=(m_mode==SealMode::Seal);m_done=true;return true;}}
