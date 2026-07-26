@@ -336,3 +336,20 @@ modern/scripts/build_map_detected_encoding.json
 modern/docs/progress-video/
 modern/scratch/progress_dashboard.html
 modern/scratch/transfer_*/
+
+# Phase 6 (2026-07-26) — alternate CMake build directories kept as
+# working trees but never tracked (machine-local state).
+modern/build2/
+modern/build_check/
+modern/build_vs/
+modern/test_quick.txt
+
+# Phase 6 (2026-07-26) — scratch directory holds session-ephemeral
+# analysis + build helpers.  Per AGENTS.md, scratch files belong to
+# `modern/scratch/<date>-<topic>/` and are not tracked.
+modern/scratch/
+
+# Phase 6 (2026-07-26) — top-level scratch scripts (debug + build
+# wrappers) are session-only and should never enter the repo.
+# Use scripts/ for anything that needs to persist.
+/scratch_*.py
