@@ -22,3 +22,21 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_game_tests)
 
 
+
+add_executable(mxh_attack_calc_tests
+    attack_calc_test.cpp
+)
+target_include_directories(mxh_attack_calc_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(mxh_attack_calc_tests
+    PRIVATE
+    mxh_game
+    gtest_main
+)
+if(MSVC)
+    target_compile_options(mxh_attack_calc_tests PRIVATE /W3 /utf-8)
+endif()
+
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_attack_calc_tests)
