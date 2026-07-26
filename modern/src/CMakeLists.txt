@@ -192,6 +192,7 @@ add_library(mxh_server STATIC
     server/agent_wanted.cpp
     server/agent_bobusang_user.cpp
     server/agent_gtournament.cpp
+    server/agent_siegewarprofit.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
@@ -217,6 +218,7 @@ add_library(mxh_server STATIC
     server/agent_wanted.cpp
     server/agent_bobusang_user.cpp
     server/agent_gtournament.cpp
+    server/agent_siegewarprofit.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
