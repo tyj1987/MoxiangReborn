@@ -1,0 +1,2 @@
+﻿#include "citemshopgriddialog.hpp"
+namespace mxh::ui{bool cItemShopGridDialog::Select(std::size_t c)noexcept{auto i=m_page*kPageSize+c;if(c>=kPageSize||i>=m_items.size())return false;m_selected=i;return true;}std::optional<ShopGridItem> cItemShopGridDialog::Selected()const{if(m_selected>=m_items.size())return std::nullopt;return m_items[m_selected];}bool cItemShopGridDialog::CanBuy(std::uint16_t q)const noexcept{auto x=Selected();return x.has_value()&&q>0&&x->stock>=q;}}
