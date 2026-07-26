@@ -1,5 +1,5 @@
 // mxh/client/CInGameState.hpp
-// Phase B.2.3 — in-game state (replaces CGameIn stub).
+// Phase B.2.3 â€” in-game state (replaces CGameIn stub).
 //
 // Wires the eGS_GAMEIN (GameStateId::GameIn = 7) slot to the modern
 // mxh::net::TcpClient and drives the legacy 4DyuchiNET game-in
@@ -68,8 +68,26 @@ struct GameInInfo {
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload);
 
+// Server-pushed monster state received after GameInAck.
+// Mirrors the wire layout written by map_handler.cpp::broadcast_monster_add:
+//   [BASEOBJECT_INFO: 35 bytes] [MONSTER_TOTALINFO: 14 bytes]
+//   [SEND_MOVEINFO: 14 bytes] [MobVelocityTable1: 1 byte]
+struct MonsterAddInfo {
+    std::uint32_t object_id = 0;
+    std::uint32_t user_id = 0;
+    char name[17] = {};
+    std::uint32_t current_life = 0;
+    std::uint32_t current_shield = 0;
+    std::uint16_t monster_kind = 0;
+    std::uint16_t group = 0;
+    std::uint16_t map_num = 0;
+};
+
+std::optional<MonsterAddInfo>
+parse_legacy_monster_add(std::span<const std::uint8_t> payload);
+
 // -------------------------------------------------------------------------
-// CInGameState — eGS_GAMEIN state.
+// CInGameState â€” eGS_GAMEIN state.
 // -------------------------------------------------------------------------
 class CInGameState final : public CGameState,
                            public mxh::net::IConnectionHandler {
@@ -118,6 +136,7 @@ private:
     std::uint16_t            m_mapNum     = 0;
 
     GameInInfo               m_info;
+    std::vector<MonsterAddInfo> monsters_;
     bool                     m_started    = false;
     bool                     m_inGame     = false;
     bool                     m_failed     = false;

@@ -1,5 +1,5 @@
 // mxh/client/CInGameState.cpp
-// Phase B.2.3 — in-game state implementation.
+// Phase B.2.3 â€” in-game state implementation.
 
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
@@ -36,6 +36,21 @@ inline std::uint16_t get_u16(const std::uint8_t* p) {
 }
 } // namespace
 
+std::optional<MonsterAddInfo>
+parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 64) return std::nullopt;
+    MonsterAddInfo info;
+    info.object_id = get_u32(payload.data() + 0);
+    info.user_id = get_u32(payload.data() + 4);
+    for (std::size_t i = 0; i < 17; ++i) info.name[i] = static_cast<char>(payload[8 + i]);
+    info.current_life = get_u32(payload.data() + 35);
+    info.current_shield = get_u32(payload.data() + 39);
+    info.monster_kind = get_u16(payload.data() + 43);
+    info.group = get_u16(payload.data() + 45);
+    info.map_num = get_u16(payload.data() + 47);
+    return info;
+}
+
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     // Need at least the trailing ServerTime block (offset 2965 + 10B).
@@ -66,7 +81,7 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     info.level    = get_u16(payload.data() + 35 + 40);
     info.map_num  = get_u16(payload.data() + 35 + 42);
 
-    // SYSTEMTIME ServerTime [2965..2981) — 5 little-endian u16s:
+    // SYSTEMTIME ServerTime [2965..2981) â€” 5 little-endian u16s:
     //   +0 year, +2 month, +4 wday, +6 day, +8 hour
     info.server_year  = get_u16(payload.data() + 2965 + 0);
     info.server_month = get_u16(payload.data() + 2965 + 2);
@@ -199,6 +214,20 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
             MLOG_INFO("CInGameState: GameOutAck (server confirmed disconnect)");
             break;
         }
+        case UserConnProtocol::MonsterAdd: {
+            auto info = parse_legacy_monster_add(msg.payload);
+            if (!info) {
+                MLOG_WARN("CInGameState: MonsterAdd payload too short (%zu bytes)",
+                          msg.payload.size());
+                break;
+            }
+            monsters_.push_back(*info);
+            MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u name=%.16s",
+                       static_cast<unsigned>(info->object_id),
+                       static_cast<unsigned>(info->monster_kind),
+                       static_cast<unsigned>(info->current_life), info->name);
+            break;
+        }
         case UserConnProtocol::ConnectionCheckOk: {
             // Phase 10d keep-alive.  Server pushes this every ~10s
             // once you're in game; we just log.
@@ -264,7 +293,7 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
               static_cast<unsigned>(info.server_month),
               static_cast<unsigned>(info.server_day),
               static_cast<unsigned>(info.server_hour));
-    // B.2.3 doesn't switch state — the in-game loop is the terminal
+    // B.2.3 doesn't switch state â€” the in-game loop is the terminal
     // happy state.  Future Phase D will hook chat/movement/combat
     // handlers here.
 }
