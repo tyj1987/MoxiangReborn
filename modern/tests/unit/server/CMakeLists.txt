@@ -526,3 +526,17 @@ gtest_add_tests(TARGET mxh_shout_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+add_executable(mxh_gm_power_list_tests
+    gm_power_list_test.cpp
+)
+target_link_libraries(mxh_gm_power_list_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_gm_power_list_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_gm_power_list_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
