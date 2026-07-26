@@ -110,6 +110,7 @@ add_executable(mxh_ui_tests
     coptiondialog_test.cpp
     cchanneldialog_test.cpp
     cjournaldialog_test.cpp
+    chelperspeechdlg_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)

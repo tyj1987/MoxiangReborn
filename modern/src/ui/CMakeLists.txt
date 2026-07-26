@@ -112,6 +112,7 @@ add_library(mxh_ui STATIC
     coptiondialog.cpp
     cchanneldialog.cpp
     cjournaldialog.cpp
+    chelperspeechdlg.cpp
 )
 
 if(WIN32)
