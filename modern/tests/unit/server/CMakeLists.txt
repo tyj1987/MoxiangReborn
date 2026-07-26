@@ -647,3 +647,9 @@ add_executable(mxh_attack_manager_tests
 )
 target_link_libraries(mxh_attack_manager_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_attack_manager_tests COMMAND mxh_attack_manager_tests)
+
+add_executable(mxh_object_event_tests
+    object_event_test.cpp
+)
+target_link_libraries(mxh_object_event_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_object_event_tests COMMAND mxh_object_event_tests)
