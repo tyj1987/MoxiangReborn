@@ -1,36 +1,81 @@
-﻿{
-    "format":  "moxian-resource-reference-v1",
-    "source":  "墨香【源码配套资源】/PlayDH/Resource",
-    "files":  [
-                  {
-                      "name":  "SkillList.bin",
-                      "sha256":  "9b5d1fac408c610252e419f6c55b12e3bc38f9ed436fdebbdc01ec664da906b7",
-                      "size":  769649
-                  },
-                  {
-                      "name":  "MonsterList.bin",
-                      "sha256":  "fb7ee93e66ea9321577fe4a5031e98689d346b6fdbd5852e05d69ad7a952eebe",
-                      "size":  142234
-                  },
-                  {
-                      "name":  "ItemList.bin",
-                      "sha256":  "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd",
-                      "size":  1510488
-                  },
-                  {
-                      "name":  "AvatarEquip.bin",
-                      "sha256":  "32413ec55572bd58cb687ec6a5089ca7934107e06aa7112a20a176e3cb757605",
-                      "size":  26751
-                  },
-                  {
-                      "name":  "CharacterExpPoint.bin",
-                      "sha256":  "8010160a2ed9a7e0bac91c73eb31efa43d25d101200d1cb149be5e8083305f59",
-                      "size":  3519
-                  },
-                  {
-                      "name":  "QuestScript/QuestScript.bin",
-                      "sha256":  "82bcdf96770bdf09e8b56e57d48bcffded0169e301967a115cb6336d5e97ba1e",
-                      "size":  238478
-                  }
-              ]
+{
+    "format": "moxian-resource-reference-v1",
+    "source": "墨香【源码配套资源】/PlayDH/Resource",
+    "files": [
+        {
+            "name": "SkillList.bin",
+            "sha256": "9b5d1fac408c610252e419f6c55b12e3bc38f9ed436fdebbdc01ec664da906b7",
+            "size": 769649
+        },
+        {
+            "name": "MonsterList.bin",
+            "sha256": "fb7ee93e66ea9321577fe4a5031e98689d346b6fdbd5852e05d69ad7a952eebe",
+            "size": 142234
+        },
+        {
+            "name": "ItemList.bin",
+            "sha256": "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd",
+            "size": 1510488
+        },
+        {
+            "name": "ItemMixList.bin",
+            "sha256": "4ead8cd9f4665ab97b1540df1dab75c2a0375f42ac748b4a6e4321b76acd634a",
+            "size": 514261
+        },
+        {
+            "name": "MapKindInfo.bin",
+            "sha256": "9af05426844b08bc8c624b04da2413a7ef23ec5025a66af0f7679b0c378f55f8",
+            "size": 1650
+        },
+        {
+            "name": "AbilityBaseInfo.bin",
+            "sha256": "900d97e6afdaf2c1dbb0bad91264966c7e8ad28b3ded33ff7b3577d815455f62",
+            "size": 12684
+        },
+        {
+            "name": "JobSkillList.bin",
+            "sha256": "7b306270acc1a67d2025c80b11582dfa125afc1442310354636133ef41ab8864",
+            "size": 278
+        },
+        {
+            "name": "CharacterExpPoint.bin",
+            "sha256": "8010160a2ed9a7e0bac91c73eb31efa43d25d101200d1cb149be5e8083305f59",
+            "size": 3519
+        },
+        {
+            "name": "AvatarEquip.bin",
+            "sha256": "32413ec55572bd58cb687ec6a5089ca7934107e06aa7112a20a176e3cb757605",
+            "size": 26751
+        },
+        {
+            "name": "Dealitem.bin",
+            "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+            "size": 166939
+        },
+        {
+            "name": "MonsterDropItemList.bin",
+            "sha256": "a65baf6ec5ffae8e3af8ec2c9fd9a4878a8773f69624aea1cafa594fc07e858e",
+            "size": 196253
+        },
+        {
+            "name": "TacticStartInfo.bin",
+            "sha256": "2fa652d7429be2ae860f46beeaf0212ad109b203fa4e123a9350d458c67d7000",
+            "size": 1514
+        },
+        {
+            "name": "TitanList.bin",
+            "sha256": "8a7ff80ec1cafcdbf343d30bedb866715e4391293c1667bec388a6cae8f07a8d",
+            "size": 362
+        },
+        {
+            "name": "MapChange.bin",
+            "sha256": "66aca3ccca86469e4f8ec1f0dada451fd2422d5c4b0c2698408e56c0101b7048",
+            "size": 9692
+        },
+        {
+            "name": "QuestScript/QuestScript.bin",
+            "sha256": "82bcdf96770bdf09e8b56e57d48bcffded0169e301967a115cb6336d5e97ba1e",
+            "size": 238478
+        }
+    ]
 }

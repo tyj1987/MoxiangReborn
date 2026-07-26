@@ -36,36 +36,54 @@ namespace fs = std::filesystem;
 
 namespace {
 
-// Resource directory: prefer PlayDH (real game assets), fall back to
-// deploy/server/Distribute/Resource if PlayDH lacks the file.
+// Locate the immutable PlayDH directory without embedding its non-ASCII
+// parent name in the source. The test working directory is normally below
+// modern/, so checking each ancestor and its immediate children is enough.
+fs::path find_playdh_root() {
+    fs::path cwd;
+    try { cwd = fs::current_path(); } catch (...) { return {}; }
+    for (int depth = 0; !cwd.empty() && depth < 8;
+         cwd = cwd.parent_path(), ++depth) {
+        std::error_code ec;
+        const auto direct = cwd / "PlayDH";
+        if (fs::is_directory(direct, ec)) return direct;
+        for (fs::directory_iterator it(cwd,
+                 fs::directory_options::skip_permission_denied, ec);
+             !ec && it != fs::directory_iterator(); it.increment(ec)) {
+            if (!it->is_directory(ec)) continue;
+            const auto nested = it->path() / "PlayDH";
+            if (fs::is_directory(nested, ec)) return nested;
+        }
+    }
+    return {};
+}
+
+// PlayDH is always searched first. deploy/SWorking are only compatibility
+// fallbacks for environments that do not ship the original asset tree.
 fs::path find_resource(const std::string& filename) {
-    // Walk the resource tree under PlayDH + deploy + SWorking and
-    // find the first match. We avoid hardcoded non-ASCII paths in
-    // the source code because MSVC / PowerShell sometimes mangle
-    // them on save; runtime fs::recursive_directory_iterator handles
-    // the Unicode correctly.
     std::vector<fs::path> roots;
+    const auto playdh = find_playdh_root();
+    if (!playdh.empty()) {
+        roots.push_back(playdh / "Resource");
+        roots.push_back(playdh);
+    }
     fs::path cwd;
     try { cwd = fs::current_path(); } catch (...) {}
-    int depth = 0;
-    for (fs::path p = cwd; !p.empty() && depth < 6; p = p.parent_path(), ++depth) {
-        roots.push_back(p / "deploy/server/Distribute/Resource");
-        roots.push_back(p / "SWorking/Resource");
-        roots.push_back(p / L"墨香【源码配套资源】/PlayDH/Resource");
-        roots.push_back(p / L"墨香【源码配套资源】/PlayDH");
+    for (int depth = 0; !cwd.empty() && depth < 8;
+         cwd = cwd.parent_path(), ++depth) {
+        roots.push_back(cwd / "deploy/server/Distribute/Resource");
+        roots.push_back(cwd / "SWorking/Resource");
     }
     for (const auto& root : roots) {
         std::error_code ec;
-        if (!fs::exists(root, ec)) continue;
-        // Direct child check first.
-        auto direct = root / filename;
-        if (fs::exists(direct, ec)) return direct;
-        // Recursive scan (PlayDH/Resource has subfolders like
-        // QuestScript/, Server/, Client/).
+        if (!fs::is_directory(root, ec)) continue;
+        const auto direct = root / filename;
+        if (fs::is_regular_file(direct, ec)) return direct;
         for (auto it = fs::recursive_directory_iterator(
                  root, fs::directory_options::skip_permission_denied, ec);
              !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
-            if (it->path().filename() == filename) return it->path();
+            if (it->path().filename() == filename && it->is_regular_file(ec))
+                return it->path();
         }
     }
     return {};
@@ -107,6 +125,13 @@ TEST(MxhResourceByteLevel, MhFileHeaderLayoutIsPacked) {
 
 // SkillList.bin - the largest resource. Must open cleanly via the
 // modern MhFileEx path. Real file is 1817 entries.
+TEST(MxhResourceByteLevel, OriginalPlayDhIsPreferredWhenAvailable) {
+    const auto path = find_resource("SkillList.bin");
+    if (path.empty()) GTEST_SKIP() << "PlayDH resource tree not available";
+    const auto text = path.wstring();
+    EXPECT_NE(text.find(L"PlayDH"), std::wstring::npos) << path.string();
+}
+
 TEST(MxhResourceByteLevel, SkillListBinOpensCleanly) {
     std::vector<std::uint8_t> bytes;
     ASSERT_TRUE(load_resource_bytes("SkillList.bin", bytes));
