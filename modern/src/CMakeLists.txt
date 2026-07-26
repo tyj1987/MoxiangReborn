@@ -176,6 +176,7 @@ add_library(mxh_server STATIC
     server/skill_delay_manager.cpp
     server/msg_table.cpp
     server/punish_manager.cpp
+    server/shout_manager.cpp
     server/quest_group.cpp
 )
 
