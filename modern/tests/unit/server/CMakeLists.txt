@@ -671,3 +671,9 @@ add_executable(mxh_object_factory_tests
 )
 target_link_libraries(mxh_object_factory_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_object_factory_tests COMMAND mxh_object_factory_tests)
+
+add_executable(mxh_ai_define_tests
+    ai_define_test.cpp
+)
+target_link_libraries(mxh_ai_define_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_ai_define_tests COMMAND mxh_ai_define_tests)
