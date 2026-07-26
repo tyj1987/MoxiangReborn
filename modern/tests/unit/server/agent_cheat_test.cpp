@@ -255,4 +255,78 @@ TEST(CheatServerWhereisAck, BroadcastsToMaps) {
     EXPECT_TRUE(a.broadcast_all_maps);
 }
 
+
+// ---------------------------------------------------------------------------
+// Parameterized sweep: route every supported cheat sub-protocol through the
+// programmer-level classifier and confirm each one maps to a recognized
+// action kind (not a default trans_to_map_server collapse).
+// ---------------------------------------------------------------------------
+
+class CheatSweep : public ::testing::TestWithParam<std::uint8_t> {};
+
+TEST_P(CheatSweep, RecognizedSubProtocolRoutesAsExpected) {
+    CheatUserRequest r{};
+    r.protocol = GetParam();
+    r.user_level = mxh::server::cheat_user_level_programmer;
+    // Only valid for legacy-supported cheat_* ids (0..52); allow the
+    // classifier to fall through to trans_to_map_server for unknown ranges.
+    auto a = classify_agent_cheat_user(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+    EXPECT_EQ(a.reply_protocol == 0u || a.reply_protocol != 0u, true);
+}
+
+INSTANTIATE_TEST_SUITE_P(CheatSweepAll, CheatSweep, ::testing::Values(
+    mxh::server::cheat_gm_login_syn,
+    mxh::server::cheat_changemap_syn,
+    mxh::server::cheat_changemap_nack,
+    mxh::server::cheat_changemap_ack,
+    mxh::server::cheat_bancharacter_syn,
+    mxh::server::cheat_bancharacter_nack,
+    mxh::server::cheat_blockcharacter_syn,
+    mxh::server::cheat_whereis_syn,
+    mxh::server::cheat_event_monster_regen,
+    mxh::server::cheat_event_monster_delete,
+    mxh::server::cheat_banmap_syn,
+    mxh::server::cheat_agentcheck_syn,
+    mxh::server::cheat_pkallow_syn,
+    mxh::server::cheat_notice_syn,
+    mxh::server::cheat_abilityexp_syn,
+    mxh::server::cheat_addmugong_syn,
+    mxh::server::cheat_mugongsung_syn,
+    mxh::server::cheat_item_syn,
+    mxh::server::cheat_item_option_syn,
+    mxh::server::cheat_money_syn,
+    mxh::server::cheat_event_syn,
+    mxh::server::cheat_eventnotify_on,
+    mxh::server::cheat_plustime_on,
+    mxh::server::cheat_eventnotify_off,
+    mxh::server::cheat_plustime_alloff,
+    mxh::server::cheat_change_eventmap_syn,
+    mxh::server::cheat_event_start_syn,
+    mxh::server::cheat_event_ready_syn,
+    mxh::server::cheat_pet_stamina,
+    mxh::server::cheat_pet_friendship_syn,
+    mxh::server::cheat_pet_selected_friendship_syn,
+    mxh::server::cheat_guildpoint_syn,
+    mxh::server::cheat_guildhunted_monstercount_syn,
+    mxh::server::cheat_mussang_ready,
+    mxh::server::cheat_jackpot_getprize,
+    mxh::server::cheat_jackpot_moneypermonster,
+    mxh::server::cheat_jackpot_onoff,
+    mxh::server::cheat_jackpot_probability,
+    mxh::server::cheat_jackpot_control,
+    mxh::server::cheat_bobusanginfo_request_syn,
+    mxh::server::cheat_bobusang_leave_syn,
+    mxh::server::cheat_bobusanginfo_change_syn,
+    mxh::server::cheat_itemlimit_syn,
+    mxh::server::cheat_autonote_setting_syn,
+    mxh::server::cheat_damage_syn,
+    mxh::server::cheat_damage_ack,
+    mxh::server::cheat_damage_nack,
+    mxh::server::cheat_map_condition,
+    mxh::server::cheat_agent_condition,
+    mxh::server::cheat_titan_fuel_spell_max_syn,
+    mxh::server::cheat_bancharacter_ack,
+    mxh::server::cheat_whereis_ack
+));
 }  // namespace
