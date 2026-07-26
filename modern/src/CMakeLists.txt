@@ -172,6 +172,7 @@ add_library(mxh_server STATIC
     server/ai_group_prototype.cpp
     server/economy.cpp
     server/mh_error.cpp
+    server/fame_manager.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp

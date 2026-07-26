@@ -725,3 +725,9 @@ add_executable(mxh_mh_error_tests
 )
 target_link_libraries(mxh_mh_error_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_mh_error_tests COMMAND mxh_mh_error_tests)
+
+add_executable(mxh_fame_manager_tests
+    fame_manager_test.cpp
+)
+target_link_libraries(mxh_fame_manager_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_fame_manager_tests COMMAND mxh_fame_manager_tests)
