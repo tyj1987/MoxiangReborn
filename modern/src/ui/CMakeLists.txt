@@ -108,6 +108,7 @@ add_library(mxh_ui STATIC
     cnotedialog.cpp
     cautoanswerdlg.cpp
     cstatusicondlg.cpp
+    cscreenshotdlg.cpp
 )
 
 if(WIN32)

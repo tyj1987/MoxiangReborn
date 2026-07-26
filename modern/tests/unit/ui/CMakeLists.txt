@@ -106,6 +106,7 @@ add_executable(mxh_ui_tests
     cnotedialog_test.cpp
     cautoanswerdlg_test.cpp
     cstatusicondlg_test.cpp
+    cscreenshotdlg_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
