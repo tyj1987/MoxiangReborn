@@ -177,6 +177,7 @@ add_library(mxh_server STATIC
     server/regen_condition_info.cpp
     server/regen_prototype.cpp
     server/state_param.cpp
+    server/summon_monster.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp

@@ -773,3 +773,9 @@ add_executable(mxh_agent_packed_tests
 )
 target_link_libraries(mxh_agent_packed_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_packed_tests COMMAND mxh_agent_packed_tests)
+
+add_executable(mxh_summon_monster_tests
+    summon_monster_test.cpp
+)
+target_link_libraries(mxh_summon_monster_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_summon_monster_tests COMMAND mxh_summon_monster_tests)
