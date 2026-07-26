@@ -761,3 +761,15 @@ add_executable(mxh_regen_prototype_tests
 )
 target_link_libraries(mxh_regen_prototype_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_regen_prototype_tests COMMAND mxh_regen_prototype_tests)
+
+add_executable(mxh_state_param_tests
+    state_param_test.cpp
+)
+target_link_libraries(mxh_state_param_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_state_param_tests COMMAND mxh_state_param_tests)
+
+add_executable(mxh_agent_packed_tests
+    agent_packed_test.cpp
+)
+target_link_libraries(mxh_agent_packed_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_packed_tests COMMAND mxh_agent_packed_tests)

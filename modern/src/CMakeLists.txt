@@ -176,6 +176,7 @@ add_library(mxh_server STATIC
     server/purse.cpp
     server/regen_condition_info.cpp
     server/regen_prototype.cpp
+    server/state_param.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
@@ -186,6 +187,7 @@ add_library(mxh_server STATIC
     server/agent_murimnet.cpp
     server/agent_party.cpp
     server/agent_item.cpp
+    server/agent_packed.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
