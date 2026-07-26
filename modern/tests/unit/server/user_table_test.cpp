@@ -217,9 +217,9 @@ TEST(UserTableRemove, MissingRemoveUsesUnsignedUnderflow) {
     ASSERT_TRUE(add_user(t, 1u, u));
     ASSERT_TRUE(remove_user(t, 1u).has_value());
     EXPECT_EQ(get_user_count(t), 0u);
-    // Removing a missing key must not push count negative.
+    // Legacy decrements the unsigned count even when the key is missing.
     EXPECT_FALSE(remove_user(t, 1u).has_value());
-    EXPECT_EQ(get_user_count(t), 0u);
+    EXPECT_EQ(get_user_count(t), 0xFFFFFFFFu);
 }
 
 TEST(UserTableRemove, RemoveAllUserClearsTable) {
