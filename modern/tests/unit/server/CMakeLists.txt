@@ -611,3 +611,9 @@ add_executable(mxh_common_network_msg_parser_tests
 )
 target_link_libraries(mxh_common_network_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_common_network_msg_parser_tests COMMAND mxh_common_network_msg_parser_tests)
+
+add_executable(mxh_crypt_tests
+    crypt_test.cpp
+)
+target_link_libraries(mxh_crypt_tests PRIVATE mxh_server mxh_crypto GTest::gtest_main)
+add_test(NAME mxh_crypt_tests COMMAND mxh_crypt_tests)
