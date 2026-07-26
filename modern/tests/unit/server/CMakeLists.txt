@@ -629,3 +629,9 @@ add_executable(mxh_plustime_manager_tests
 )
 target_link_libraries(mxh_plustime_manager_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_plustime_manager_tests COMMAND mxh_plustime_manager_tests)
+
+add_executable(mxh_jackpot_manager_agent_tests
+    jackpot_manager_agent_test.cpp
+)
+target_link_libraries(mxh_jackpot_manager_agent_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_jackpot_manager_agent_tests COMMAND mxh_jackpot_manager_agent_tests)
