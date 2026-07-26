@@ -599,3 +599,9 @@ add_executable(mxh_agent_db_msg_parser_tests
 )
 target_link_libraries(mxh_agent_db_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_db_msg_parser_tests COMMAND mxh_agent_db_msg_parser_tests)
+
+add_executable(mxh_mh_time_manager_tests
+    mh_time_manager_test.cpp
+)
+target_link_libraries(mxh_mh_time_manager_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_mh_time_manager_tests COMMAND mxh_mh_time_manager_tests)
