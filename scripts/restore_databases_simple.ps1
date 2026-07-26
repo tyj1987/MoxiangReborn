@@ -1,64 +1,28 @@
-# 还原墨香游戏数据库备份到SQL Server
-$ErrorActionPreference = "Stop"
+﻿[CmdletBinding()]
+param(
+    [string]$BackupDir = $env:MOXIAN_BACKUP_DIR,
+    [string]$ServerInstance = $(if ($env:MOXIAN_SQL_INSTANCE) { $env:MOXIAN_SQL_INSTANCE } else { '(local)' }),
+    [switch]$TrustServerCertificate
+)
+$ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($BackupDir)) { $BackupDir = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) '..\database_backups' }
 
-$backupDir = "D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\数据库"
-$serverInstance = "(local)"
+$sqlcmd = Get-Command sqlcmd -ErrorAction Stop
+$databases = @('MHCMEMBER','MHGAME','MHLOG')
+$missing = $databases | ForEach-Object { $path = Join-Path $BackupDir ($_.ToString() + '.bak'); if (-not (Test-Path -LiteralPath $path)) { $path } }
+if ($missing) { throw "Backup files missing under '$BackupDir': $($missing -join ', ')" }
 
-Write-Host "=== 墨香游戏数据库还原脚本 ==="
-Write-Host ""
-
-# 检查备份文件
-$files = @("MHCMEMBER.bak", "MHGAME.bak", "MHLOG.bak")
-foreach ($f in $files) {
-    $path = Join-Path $backupDir $f
-    if (Test-Path $path) {
-        $size = (Get-Item $path).Length / 1MB
-        Write-Host "$f - $([math]::Round($size, 2)) MB"
-    } else {
-        Write-Host "错误: 找不到 $path"
-        exit 1
-    }
+$common = @('-S', $ServerInstance, '-b', '-r', '1')
+if ($TrustServerCertificate) { $common += @('-C') }
+Write-Host "Restoring Moxian databases to $ServerInstance from $BackupDir"
+foreach ($database in $databases) {
+    $backup = (Join-Path $BackupDir ($database + '.bak')).Replace("'", "''")
+    $sql = "RESTORE DATABASE [$database] FROM DISK = N'$backup' WITH FILE = 1, NOUNLOAD, REPLACE, STATS = 10"
+    & $sqlcmd.Source @common '-Q' $sql
+    if ($LASTEXITCODE -ne 0) { throw "Restore failed for $database (exit $LASTEXITCODE)" }
 }
+$query = "SELECT name, state_desc FROM sys.databases WHERE name IN ('MHCMEMBER','MHGAME','MHLOG') ORDER BY name"
+& $sqlcmd.Source @common '-Q' $query
+if ($LASTEXITCODE -ne 0) { throw "Database verification failed (exit $LASTEXITCODE)" }
+Write-Host 'Restore and verification completed.'
 
-Write-Host ""
-Write-Host "开始还原数据库..."
-
-# 还原MHCMEMBER
-Write-Host "正在还原 MHCMEMBER..."
-$backupFile = Join-Path $backupDir "MHCMEMBER.bak"
-$sql = "RESTORE DATABASE [MHCMEMBER] FROM DISK = N'$backupFile' WITH FILE = 1, NOUNLOAD, REPLACE, STATS = 10"
-& sqlcmd -S $serverInstance -Q $sql
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "MHCMEMBER 还原成功!"
-} else {
-    Write-Host "MHCMEMBER 还原失败!"
-}
-
-# 还原MHGAME
-Write-Host "正在还原 MHGAME..."
-$backupFile = Join-Path $backupDir "MHGAME.bak"
-$sql = "RESTORE DATABASE [MHGAME] FROM DISK = N'$backupFile' WITH FILE = 1, NOUNLOAD, REPLACE, STATS = 10"
-& sqlcmd -S $serverInstance -Q $sql
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "MHGAME 还原成功!"
-} else {
-    Write-Host "MHGAME 还原失败!"
-}
-
-# 还原MHLOG
-Write-Host "正在还原 MHLOG..."
-$backupFile = Join-Path $backupDir "MHLOG.bak"
-$sql = "RESTORE DATABASE [MHLOG] FROM DISK = N'$backupFile' WITH FILE = 1, NOUNLOAD, REPLACE, STATS = 10"
-& sqlcmd -S $serverInstance -Q $sql
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "MHLOG 还原成功!"
-} else {
-    Write-Host "MHLOG 还原失败!"
-}
-
-Write-Host ""
-Write-Host "=== 数据库还原完成 ==="
-
-# 验证数据库
-Write-Host "验证数据库状态:"
-& sqlcmd -S $serverInstance -Q "SELECT name, state_desc FROM sys.databases WHERE name IN ('MHCMEMBER', 'MHGAME', 'MHLOG')"
