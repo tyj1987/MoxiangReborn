@@ -161,6 +161,7 @@ add_library(mxh_server STATIC
     server/agent_network_msg_parser.cpp
     server/agent_db_msg_parser.cpp
     server/mh_time_manager.cpp
+    server/common_network_msg_parser.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp

@@ -605,3 +605,9 @@ add_executable(mxh_mh_time_manager_tests
 )
 target_link_libraries(mxh_mh_time_manager_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_mh_time_manager_tests COMMAND mxh_mh_time_manager_tests)
+
+add_executable(mxh_common_network_msg_parser_tests
+    common_network_msg_parser_test.cpp
+)
+target_link_libraries(mxh_common_network_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_common_network_msg_parser_tests COMMAND mxh_common_network_msg_parser_tests)
