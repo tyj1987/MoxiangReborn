@@ -782,3 +782,9 @@ add_executable(mxh_agent_friend_tests
 )
 target_link_libraries(mxh_agent_friend_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_friend_tests COMMAND mxh_agent_friend_tests)
+
+add_executable(mxh_fixed_tile_tests
+    fixed_tile_test.cpp
+)
+target_link_libraries(mxh_fixed_tile_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_fixed_tile_tests COMMAND mxh_fixed_tile_tests)

@@ -179,6 +179,7 @@ add_library(mxh_server STATIC
     server/state_param.cpp
     server/summon_monster.cpp
     server/agent_note.cpp
+    server/fixed_tile.cpp
     server/agent_friend.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
@@ -192,6 +193,7 @@ add_library(mxh_server STATIC
     server/agent_item.cpp
     server/agent_packed.cpp
     server/agent_note.cpp
+    server/fixed_tile.cpp
     server/agent_friend.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
