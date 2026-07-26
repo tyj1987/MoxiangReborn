@@ -181,6 +181,7 @@ add_library(mxh_server STATIC
     server/agent_note.cpp
     server/fixed_tile.cpp
     server/fixed_tile_info.cpp
+    server/tile.cpp
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/plustime_manager.cpp
@@ -197,6 +198,7 @@ add_library(mxh_server STATIC
     server/agent_note.cpp
     server/fixed_tile.cpp
     server/fixed_tile_info.cpp
+    server/tile.cpp
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/bobusang_manager_agent.cpp

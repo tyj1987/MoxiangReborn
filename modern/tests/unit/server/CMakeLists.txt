@@ -800,3 +800,9 @@ add_executable(mxh_fixed_tile_info_tests
 )
 target_link_libraries(mxh_fixed_tile_info_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_fixed_tile_info_tests COMMAND mxh_fixed_tile_info_tests)
+
+add_executable(mxh_tile_tests
+    tile_test.cpp
+)
+target_link_libraries(mxh_tile_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_tile_tests COMMAND mxh_tile_tests)
