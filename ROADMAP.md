@@ -39,11 +39,11 @@
 
 ---
 
-## 2. 现状盘点（截至 2026-07-25 晚）
+## 2. 现状盘点（截至 2026-07-26）
 
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
-| 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2380 tests PASS | T1 部分验证（资源浏览器能解析） |
+| 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2536 tests PASS | T1 部分验证（资源浏览器能解析） |
 | UI 控件 1:1 port（dialog + subcontrol） | **100% 覆盖** | 102 hpp / 100+ legacy dialog ported / 1721 ui tests PASS | T3 每个 dialog 有 unit test 锁死 1:1 行为 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
@@ -53,6 +53,7 @@
 | 客户端运行时 | **Phase A + B.2 完成** | CMainGame 1:1 port + 9 state（3 个真接 mxh::net：CLoginState/CCharSelectState/CInGameState） | Phase B.2.1~2.5 E2E 全 PASS（3 state + 50 client test） |
 | 服务端运行时 | **3 server E2E 全 PASS** | Phase B: LoginServer + AgentServer + MapServer 3 进程 + Python 模拟 + C++ 状态机双重 E2E | Phase B ✅ |
 | 玩法数值 baseline | **D6.1 锁死** | 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁数值 | T2/T6 数值回归 baseline |
+| **SkillList.bin 解析** | **D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段含 7×[12] 数组）；SkillListParser 解码 MHFile packed-text；SkillManager::init_from_bin() 装真 bin（1817 entries）；端到端 test 锁首行 | 11 SkillListParser test + 13 SkillManager test PASS |
 | HSEL 硬件狗绕过 | **80%** | stub 已写，但未跑通真实 `.bin` | 待 E2E |
 | HackShield 绕过 | **0%** | 卡 R-2 | 阻塞 |
 | SQL Server 集成 | **60%** | schema + restore 脚本，但没真启服 | 待 E2E |
@@ -156,19 +157,24 @@
 
 **为什么 defer**:
 1. **Bin 格式复杂**: legacy `CSkillInfo::InitSkillInfo` 读 ~50+ 字段（SkillIdx, SkillName string, TooltipIdx, RestrictLevel, LowImage, HighImage, SkillKind, WeaponKind, SkillRange, TargetKind, TargetRange, ... Duration, Interval, ... 12-element NeedExp array, 12-element NeedNaeRyuk array, Attrib, ... ~6 AdditiveAttr cases with 12-element attribute arrays, etc.）。完整 1:1 1 个 skill 解析 200+ bytes bin，subset port 不"1:1"。
-2. **struct 1:1 不一致**: modern `SkillInfo` 有 10 字段，legacy `SKILLINFO` 有 50+ 字段。Phase D 推进需先扩 modern `SkillInfo` 到 full legacy 字段（向后兼容 + 测试），然后 port bin parser。
-3. **MapHandler 已有 hardcoded** (`init_skill_table` line 1319-1331) 4 个 skill（BasicSlash, FireBolt, Heal, Whirlwind），但跟 D1.1 placeholder 不同名（BasicSlash vs BasicStrike 等）。D1.3 需统一这两套。
-4. **Bin 文件大**: `SWorking\Resource\SkillList.bin` 769KB，~500+ skill entries。每个 200+ bytes。
+2. **struct 1:1 不一致**: ~~D1.3 已扩 `SkillInfo` 到 full legacy `SKILLINFO` 60+ 字段含 7×[12] 数组（D1.3.1 ✅）~~。
+3. **MapHandler 已有 hardcoded** (`init_skill_table` line 1319+) 4 个 skill（BasicSlash, FireBolt, Heal, Whirlwind）— D1.3 改用 `add_simple_skill` helper project `SkillInfoSimple` → `SkillInfo` 1:1 struct（D1.3.3 ✅，向后兼容 + 留 hook 给 `init_from_bin`）。
+4. **Bin 文件大**: `SWorking\Resource\SkillList.bin` 769KB，1817 entries × 150 token/行（`{150: 1817}` 分布）— D1.3.2 parser 一气呵成。
 
-**D1.3 计划**（下个 session 起 1-2 周）:
-- **D1.3.1**: 扩 `mxh::game::SkillInfo` 到完整 legacy `SKILLINFO` 字段（含 12-元素 array）。加 unit test lock 全部 50+ 字段。
-- **D1.3.2**: port `SkillListParser` class — read `SkillList.bin` 文件, parse header + N entries。throw on malformed。
-- **D1.3.3**: 把 MapHandler::init_skill_table 换成 `SkillManager::init_from_bin(path)`，统一 D1.1 placeholder + MapHandler hardcoded + bin load。
-- **D1.3.4**: 1:1 端到端 test — load 真 SkillList.bin, 验证第一行 SkillIdx 是 1, name 是某字符串, skill_kind 是 SKILLKIND_COMBO/OUTERMUGONG 等。
+**D1.3 完成**（2026-07-26 commit `2228226`）:
+- **D1.3.1** ✅ 扩 `mxh::game::SkillInfo` 到完整 legacy `SKILLINFO` 60+ 字段（PascalCase，1:1 名字），7 段 12-元素数组（NeedExp/NeedNaeRyuk/CounterDodgeRate/FirstRecoverLife/.../ContinueAttAttackRate/AmplifiedPowerPhy/.../VampiricLife/.../UpPhyDefence/.../DownPhyDefence/.../SkillAdditionalTime/UpAttAttack/DamageRate/AttackRate/UpCriticalRate/AttackLifeRate/AttackShieldRate/AttackSuccessRate/VampiricReverseLife/VampiricReverseNaeryuk/AttackPhyLastUp/AttackAttLastUp）。Fix 1:1 byte 布局，BYTE/WORD/DWORD 类型都保留。加 2nd-class 字段（SkipEffect/SpecialState/ChangeKind/AddDegree/SafeRange/LinkSkillIdx）。提供 `to_simple()` view 给运行时 combat 路径。
+- **D1.3.2** ✅ `SkillListParser` 1:1 port 老 `[CC]Skill\skillinfo.cpp::InitSkillInfo` (L65-258) + `[Client]MH\MHFile.cpp::OpenBin`/`CheckCRC` (L102-201)。Decode `m_pData[i] -= i; if (i%type==0) m_pData[i] -= type`。`FindEffectNum` 走 map-server 分支（0 if "0", else 1）。CRLF split → tab+space tokenize → 6 AdditiveAttr segment (1 disc + 12 values) → SKILLINFO 字段。Header check + per-row try-catch 累加 parse_errors。
+- **D1.3.3** ✅ `SkillManager::init_from_bin(path, *out_errors)` — 调 `load_skill_list` → clear → add 全部 entries。IO error throw `std::runtime_error`；per-row error 累加到 `out_errors` 不 throw。`MapHandler::init_skill_table` 改用 `add_simple_skill` helper 投影 `SkillInfoSimple` → `SkillInfo` 1:1 struct，留 hook 给将来 `init_from_bin`。
+- **D1.3.4** ✅ 11 个 `SkillListParser` test: decode roundtrip (zero/ascii), parse_skill_row (minimal, with effects, wrong token count, 5 AdditiveAttr cases), **2 端到端 test load 真 SWorking\Resource\SkillList.bin 验证 first entry 1:1 字段** (SkillIdx=1, SkillKind=0, SkillRange=230, WeaponKind=1, ComboNum=1, EffectStart=0, EffectUse=1, LinkSkillIdx=10001, etc.)。
 
-**defer 决策**: D1.3 整套是 4 步、1-2 周、~150-300 行代码 + 50+ 新 test 字段。Session 内 7+ 小时已过，defer 到下次 session 起始。
+**测试**: 42/42 game tests pass, **2536/2536 全 ctest pass**（8 skipped，0 fail）。真 bin 1817 entries 全部 load 成功，0 parse_errors。
 
-节奏：1-2 commit / batch。Phase D 推进和 Phase B/C 残项可并行。
+**Trivia**:
+- skill_list_parser_test 必须用 `LR"(...)"` 路径 + ASCII temp copy (kTempSkillList)：MSVC `std::ifstream` ctor 对 CJK 路径会跑 `MultiByteToWideChar` → throw `system_error(1113)`。
+- `e.what()` 自身会 throw（system_category::message(1113) → MultiByteToWideChar 失败 → recursive system_error）— test catch 块只 print `e.code().value()`，不 print `e.what()`。
+- MapHandler 用 `auto simple = mxh::game::to_simple(*skill);` 在 hot path 一次投影。
+
+下一波: D1.3 完工，**Phase D2 BattleFactory / D3 QuestManager / D4 商城物品 / D5 MurimNet** 任选，或回头推 Phase C 残（HSEL 补完 / HackShield 绕 / Render 真实输出）。
 
 ---
 
