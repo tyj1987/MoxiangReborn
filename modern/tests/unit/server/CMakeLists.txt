@@ -582,3 +582,8 @@ gtest_add_tests(TARGET mxh_bobusang_manager_agent_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+add_executable(mxh_server_system_tests
+    server_system_test.cpp
+)
+target_link_libraries(mxh_server_system_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_server_system_tests COMMAND mxh_server_system_tests)

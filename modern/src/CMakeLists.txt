@@ -157,6 +157,7 @@ add_library(mxh_server STATIC
     server/street_stall_manager.cpp
     server/friend_manager.cpp
     server/bobusang_manager.cpp
+    server/server_system.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
