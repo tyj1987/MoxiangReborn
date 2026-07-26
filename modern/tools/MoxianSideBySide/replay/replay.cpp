@@ -52,6 +52,7 @@ void put_u32(std::uint8_t* dst, std::uint32_t v) {
 ReplayScenario login_scenario() {
     ReplayScenario s;
     s.name = "login";
+    s.endpoint = ReplayEndpoint::Login;
     // Category 7 = MP_USERCONN. Protocol 1 = MP_USERCONN_LOGIN_SYN.
     // Payload format: [AuthKey:u32][id:17][pw:17] = 38 bytes minimum.
     std::vector<std::uint8_t> creds(38, 0);
@@ -66,6 +67,7 @@ ReplayScenario login_scenario() {
 ReplayScenario enter_game_scenario() {
     ReplayScenario s;
     s.name = "enter_game";
+    s.endpoint = ReplayEndpoint::Agent;
     // Two-step: CharacterSelectSyn then GameInSyn to AgentServer.
     std::vector<std::uint8_t> sel(2, 0);
     put_u16(sel.data(), 0);
@@ -79,6 +81,7 @@ ReplayScenario enter_game_scenario() {
 ReplayScenario attack_scenario() {
     ReplayScenario s;
     s.name = "attack";
+    s.endpoint = ReplayEndpoint::Map;
     // Cat 9 MP_MUGONG. Proto 4 MP_MUGONG_USE_SYN. Payload: skill(u16) + target(u32) = 6B.
     std::vector<std::uint8_t> p(6, 0);
     put_u16(p.data(), 1);
@@ -90,6 +93,7 @@ ReplayScenario attack_scenario() {
 ReplayScenario shop_scenario() {
     ReplayScenario s;
     s.name = "shop";
+    s.endpoint = ReplayEndpoint::Map;
     // Cat 5 MP_ITEM. Proto 17 MP_ITEM_BUY_SYN. Payload: item(u16) + qty(u16) = 4B.
     std::vector<std::uint8_t> p(4, 0);
     put_u16(p.data(), 1);
@@ -101,11 +105,21 @@ ReplayScenario shop_scenario() {
 ReplayScenario quest_scenario() {
     ReplayScenario s;
     s.name = "quest";
+    s.endpoint = ReplayEndpoint::Map;
     // Cat 39 MP_QUEST. Proto 1 MP_QUEST_ACCEPT_SYN. Payload: quest(u16) = 2B.
     std::vector<std::uint8_t> p(2, 0);
     put_u16(p.data(), 1);
     s.client_packets.push_back(mk(39, 1, 0, std::move(p)));
     return s;
+}
+
+const char* endpoint_name(ReplayEndpoint endpoint) noexcept {
+    switch (endpoint) {
+    case ReplayEndpoint::Login: return "login";
+    case ReplayEndpoint::Agent: return "agent";
+    case ReplayEndpoint::Map:   return "map";
+    }
+    return "unknown";
 }
 
 }  // namespace mxh::tools::sidebyside

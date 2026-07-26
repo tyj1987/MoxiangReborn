@@ -41,6 +41,8 @@ struct Args {
     std::string modern_exe;
     std::string modern_server_dir;
     int legacy_port = 6001;
+    int legacy_agent_port = 7001;
+    int legacy_map_port = 6001;
     int modern_port = 16001;
     int modern_agent_port = 17001;
     int modern_map_port = 18001;
@@ -67,7 +69,11 @@ bool parse_args(int argc, char** argv, Args& a) {
         else if (s == "--modern-exe")  a.modern_exe  = next("--modern-exe");
         else if (s == "--modern-server-dir") a.modern_server_dir = next("--modern-server-dir");
         else if (s == "--legacy-port") a.legacy_port = std::stoi(next("--legacy-port"));
+        else if (s == "--legacy-agent-port") a.legacy_agent_port = std::stoi(next("--legacy-agent-port"));
+        else if (s == "--legacy-map-port") a.legacy_map_port = std::stoi(next("--legacy-map-port"));
         else if (s == "--modern-port") a.modern_port = std::stoi(next("--modern-port"));
+        else if (s == "--modern-agent-port") a.modern_agent_port = std::stoi(next("--modern-agent-port"));
+        else if (s == "--modern-map-port") a.modern_map_port = std::stoi(next("--modern-map-port"));
         else if (s == "--capture-dir") a.capture_dir = next("--capture-dir");
         else if (s == "--timeout")     a.timeout_sec = std::stoi(next("--timeout"));
         else if (s == "--start")       a.start_processes = true;
@@ -83,6 +89,19 @@ bool parse_args(int argc, char** argv, Args& a) {
         }
     }
     return true;
+}
+
+int endpoint_port(mxh::tools::sidebyside::ReplayEndpoint endpoint,
+                  const Args& args, bool modern) {
+    switch (endpoint) {
+    case mxh::tools::sidebyside::ReplayEndpoint::Login:
+        return modern ? args.modern_port : args.legacy_port;
+    case mxh::tools::sidebyside::ReplayEndpoint::Agent:
+        return modern ? args.modern_agent_port : args.legacy_agent_port;
+    case mxh::tools::sidebyside::ReplayEndpoint::Map:
+        return modern ? args.modern_map_port : args.legacy_map_port;
+    }
+    return modern ? args.modern_port : args.legacy_port;
 }
 
 struct ChildProcess {
@@ -289,9 +308,14 @@ int main(int argc, char** argv) {
     options.ignore_trace_length_mismatch = a.ignore_trace_length;
     for (const auto& scenario : scenarios) {
         if (a.scenario != "all" && a.scenario != scenario.name) continue;
-        std::cout << "[" << scenario.name << "] running...\n";
-        const auto legacyTrace = run_scenario(a.legacy_port, scenario, a.timeout_sec);
-        const auto modernTrace = run_scenario(a.modern_port, scenario, a.timeout_sec);
+        const int legacyPort = endpoint_port(scenario.endpoint, a, false);
+        const int modernPort = endpoint_port(scenario.endpoint, a, true);
+        std::cout << "[" << scenario.name << "] endpoint="
+                  << mxh::tools::sidebyside::endpoint_name(scenario.endpoint)
+                  << " legacy_port=" << legacyPort
+                  << " modern_port=" << modernPort << " running...\n";
+        const auto legacyTrace = run_scenario(legacyPort, scenario, a.timeout_sec);
+        const auto modernTrace = run_scenario(modernPort, scenario, a.timeout_sec);
         const auto legacyPath = a.capture_dir + "/legacy_" + scenario.name + ".cap";
         const auto modernPath = a.capture_dir + "/modern_" + scenario.name + ".cap";
         mxh::tools::sidebyside::save_capture(legacyTrace, legacyPath);

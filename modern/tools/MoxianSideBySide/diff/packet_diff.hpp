@@ -9,6 +9,8 @@ namespace mxh::tools::sidebyside {
 struct DiffOptions {
     std::vector<std::size_t> ignore_payload_offsets;
     bool ignore_object_id = false;
+    // Disabled by default because T2 requires byte-level equality.
+    bool ignore_length_prefix = false;
     bool ignore_timestamp_bytes = false;
     // When true, mismatched trace lengths do not count as diffs.
     // Useful when only one side has a working server.

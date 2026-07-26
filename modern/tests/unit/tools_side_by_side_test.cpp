@@ -65,12 +65,23 @@ TEST(SideBySideDiff, ReportsFirstPayloadByteDifference) {
     EXPECT_EQ(diffs[0].actual_byte, 0x99u);
 }
 
-TEST(SideBySideDiff, ReportsLengthDifferenceAtEnd) {
+TEST(SideBySideDiff, ReportsLengthPrefixDifferenceBeforePayload) {
     auto a = make_packet();
     auto b = a;
     b.payload.pop_back();
     b.length = static_cast<std::uint32_t>(b.payload.size());
     const auto diffs = diff_traces({a}, {b}, {});
+    ASSERT_EQ(diffs.size(), 1u);
+    EXPECT_EQ(diffs[0].first_diff_offset, 0u);
+}
+
+TEST(SideBySideDiff, CanIgnoreLengthPrefixForDiagnosticMode) {
+    auto a = make_packet();
+    auto b = a;
+    b.payload.pop_back();
+    DiffOptions options;
+    options.ignore_length_prefix = true;
+    const auto diffs = diff_traces({a}, {b}, options);
     ASSERT_EQ(diffs.size(), 1u);
     EXPECT_EQ(diffs[0].first_diff_offset, 12u);
 }
@@ -82,6 +93,41 @@ TEST(SideBySideDiff, CanIgnoreObjectIdOnly) {
     DiffOptions options;
     options.ignore_object_id = true;
     EXPECT_TRUE(diff_traces({a}, {b}, options).empty());
+}
+
+TEST(SideBySideDiff, ObjectIdMaskDoesNotHideCategoryOrProtocol) {
+    auto a = make_packet(1u);
+    auto b = make_packet(2u);
+    b.category = a.category + 1;
+    DiffOptions options;
+    options.ignore_object_id = true;
+    const auto diffs = diff_traces({a}, {b}, options);
+    ASSERT_EQ(diffs.size(), 1u);
+    EXPECT_EQ(diffs[0].first_diff_offset, 4u);
+
+    b = a;
+    b.protocol = a.protocol + 1;
+    const auto protocolDiffs = diff_traces({a}, {b}, options);
+    ASSERT_EQ(protocolDiffs.size(), 1u);
+    EXPECT_EQ(protocolDiffs[0].first_diff_offset, 5u);
+}
+
+TEST(SideBySideDiff, PayloadIgnoreOffsetsStartAfterTenWireBytes) {
+    auto a = make_packet();
+    auto b = a;
+    b.payload[0] = 0x99;
+    DiffOptions options;
+    options.ignore_payload_offsets = {0};
+    EXPECT_TRUE(diff_traces({a}, {b}, options).empty());
+}
+
+TEST(SideBySideDiff, LengthPrefixIsComparedByDefault) {
+    auto a = make_packet();
+    auto b = a;
+    b.payload.push_back(0x40);
+    const auto diffs = diff_traces({a}, {b}, {});
+    ASSERT_EQ(diffs.size(), 1u);
+    EXPECT_EQ(diffs[0].first_diff_offset, 0u);
 }
 
 TEST(SideBySideDiff, ReportsMissingPacketByTraceLength) {
@@ -117,8 +163,17 @@ TEST(SideBySideReplay, LoginScenarioHas38BytePayload) {
 TEST(SideBySideReplay, EnterGameScenarioIsTwoStep) {
     const auto s = enter_game_scenario();
     ASSERT_EQ(s.client_packets.size(), 2u);
+    EXPECT_EQ(s.endpoint, ReplayEndpoint::Agent);
     EXPECT_EQ(s.client_packets[0].protocol, 16u);  // CharacterSelectSyn
     EXPECT_EQ(s.client_packets[1].protocol, 28u);  // GameInSyn
+}
+
+TEST(SideBySideReplay, ScenariosRouteToExpectedServer) {
+    EXPECT_EQ(login_scenario().endpoint, ReplayEndpoint::Login);
+    EXPECT_EQ(attack_scenario().endpoint, ReplayEndpoint::Map);
+    EXPECT_EQ(shop_scenario().endpoint, ReplayEndpoint::Map);
+    EXPECT_EQ(quest_scenario().endpoint, ReplayEndpoint::Map);
+    EXPECT_STREQ(endpoint_name(ReplayEndpoint::Agent), "agent");
 }
 
 TEST(SideBySideReplay, AttackShopQuestScenariosHaveFixedSizes) {

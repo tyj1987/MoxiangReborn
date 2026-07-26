@@ -21,10 +21,12 @@ PacketDiff diff_one(const Packet& a, const Packet& b,
 
     std::size_t n = std::min(bytes_a.size(), bytes_b.size());
     for (std::size_t i = 0; i < n; ++i) {
-        if (i == 0) continue;
-        if (opt.ignore_object_id && i >= 4 && i <= 7) continue;
-        if (i >= 12 && opt.ignore_payload_offsets.size() > 0) {
-            std::size_t off = i - 12;
+        if (opt.ignore_length_prefix && i < 2) continue;
+        // [len:2][checksum:1][code:1][category:1][protocol:1]
+        // [object_id:4][payload...]
+        if (opt.ignore_object_id && i >= 6 && i <= 9) continue;
+        if (i >= 10 && !opt.ignore_payload_offsets.empty()) {
+            std::size_t off = i - 10;
             if (std::find(opt.ignore_payload_offsets.begin(),
                           opt.ignore_payload_offsets.end(),
                           off) != opt.ignore_payload_offsets.end())
