@@ -4,7 +4,7 @@
 # library is currently header-only (the types live in include/mxh/game/)
 # with one .cpp (item_effects.cpp) for the linear-scaling effect
 # resolver.  Future Phase D sub-phases (D1 SkillManager, D2 BattleFactory,
-# D3 QuestManager, D4 商城 / 物品 / 仓库 / 邮件 / 帮派 / 队伍, D5 MurimNet)
+# D3 QuestManager, D4 ?????? / ?????? / ?????? / ?????? / ?????? / ??????, D5 MurimNet)
 # will add their .cpp files here and link against this library.
 #
 # Numeric baseline lock: every size, constant, and enum value here is
@@ -17,6 +17,8 @@ add_library(mxh_game STATIC
     ${CMAKE_SOURCE_DIR}/src/item_effects.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/skill_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/skill_list_parser.cpp
+    battle_factory.cpp
+    battle.cpp
 )
 target_include_directories(mxh_game PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -24,3 +26,4 @@ target_include_directories(mxh_game PUBLIC
 if(MSVC)
     target_compile_options(mxh_game PRIVATE /W3 /utf-8)
 endif()
+

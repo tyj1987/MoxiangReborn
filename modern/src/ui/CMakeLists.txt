@@ -8,6 +8,24 @@ add_library(mxh_ui STATIC
     cButton.cpp
     cEditBox.cpp
     cDialog.cpp
+    cinventoryexdialog.cpp
+    citemshopdialog.cpp
+    cdealdialog.cpp
+    cquickdialog.cpp
+    cmovedialog.cpp
+    cexchangedialog.cpp
+    cquestdialog.cpp
+    cfrienddialog.cpp
+    cpartydialog.cpp
+    cguildwarehousedialog.cpp
+    cmugongdialog.cpp
+    cnpcscript_dialog.cpp
+    cmainbardialog.cpp
+    citemshopgriddialog.cpp
+    cdissolutiondialog.cpp
+    crarecreatedialog.cpp
+    csealdialog.cpp
+    cchatoptiondialog.cpp
     cImage.cpp
     cListCtrl.cpp
     cWindowManager.cpp
@@ -114,7 +132,64 @@ add_library(mxh_ui STATIC
     cjournaldialog.cpp
     chelperspeechdlg.cpp
     ccostumeskinselectdialog.cpp
+    bigmapdlg.cpp
+    charchangedlg.cpp
+    cjackpotdialog.cpp
+    menuslotdialog.cpp
+    minimapdlg.cpp
+    mixdialog.cpp
+    pyogukdialog.cpp
+    questtotaldialog.cpp
+    reinforcedlg.cpp
+    reinforceresetdlg.cpp
+    serverlistdialog.cpp
+    upgradedlg.cpp
     cchatdialog.cpp
+    buyregdialog.cpp
+    disslovedlg.cpp
+    gtbattlelistdialog.cpp
+    gtscoreinfodialog.cpp
+    gtstandingdialog.cpp
+    guildfieldwardialog.cpp
+    guildmunhadialog.cpp
+    guildplustimedialog.cpp
+    guildrankdialog.cpp
+    guildtraineedialog.cpp
+    mncreatedialog.cpp
+    mnfrontdialog.cpp
+    mnjoindialog.cpp
+    mnplayroomdialog.cpp
+    partybtndlg.cpp
+    partycreatedlg.cpp
+    partymatchingdlg.cpp
+    partymemberdlg.cpp
+    partywardialog.cpp
+    petinventorydlg.cpp
+    petrevivaldialog.cpp
+    petstatedlg.cpp
+    petupgradedialog.cpp
+    privatewarehousedialog.cpp
+    seigewardialog.cpp
+    skilloptionchangedlg.cpp
+    skillpointresetdlg.cpp
+    streetstallitemviewdlg.cpp
+    suryundialog.cpp
+    titanbreakdlg.cpp
+    titandissolutiondlg.cpp
+    titaninventorydlg.cpp
+    titanmixdlg.cpp
+    titanmugongmixdlg.cpp
+    titanpartschangedlg.cpp
+    titanpartsmakedlg.cpp
+    titanregisterdlg.cpp
+    titanupgradedlg.cpp
+    uniqueitemcursecancellationdlg.cpp
+    uniqueitemmixdlg.cpp
+    wantnpcdialog.cpp
+    fortwardialog.cpp
+    cgriddialog.cpp
+    charmakedialog.cpp
+    monsterguagedlg.cpp
     ccharacterdialog.cpp
 )
 
@@ -136,3 +211,22 @@ if(MSVC)
 endif()
 
 install(TARGETS mxh_ui ARCHIVE DESTINATION lib)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

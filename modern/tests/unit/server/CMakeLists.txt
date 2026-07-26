@@ -617,3 +617,9 @@ add_executable(mxh_crypt_tests
 )
 target_link_libraries(mxh_crypt_tests PRIVATE mxh_server mxh_crypto GTest::gtest_main)
 add_test(NAME mxh_crypt_tests COMMAND mxh_crypt_tests)
+
+add_executable(mxh_traffic_log_tests
+    traffic_log_test.cpp
+)
+target_link_libraries(mxh_traffic_log_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_traffic_log_tests COMMAND mxh_traffic_log_tests)

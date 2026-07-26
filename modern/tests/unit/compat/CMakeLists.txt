@@ -47,3 +47,22 @@ gtest_add_tests(TARGET mxh_platform_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+# T1 resource byte-level verification - Phase 6.1
+add_executable(mxh_resource_byte_level_tests
+    resource_byte_level_test.cpp
+)
+target_link_libraries(mxh_resource_byte_level_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_resource_byte_level_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_resource_byte_level_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
+add_executable(mxh_resource_reference_tests resource_reference_test.cpp)
+target_link_libraries(mxh_resource_reference_tests PRIVATE gtest_main bcrypt)
+target_include_directories(mxh_resource_reference_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_resource_reference_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)

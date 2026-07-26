@@ -2,6 +2,81 @@ add_executable(mxh_ui_tests
     cobject_test.cpp
     clistitem_test.cpp
     cwindow_test.cpp
+    cinventoryexdialog_test.cpp
+    citemshopdialog_test.cpp
+    cdealdialog_test.cpp
+    cquickdialog_test.cpp
+    cmovedialog_test.cpp
+    cexchangedialog_test.cpp
+    cquestdialog_test.cpp
+    cfrienddialog_test.cpp
+    cpartydialog_test.cpp
+    cguildwarehousedialog_test.cpp
+    cmugongdialog_test.cpp
+    cnpcscript_dialog_test.cpp
+    cmainbardialog_test.cpp
+    citemshopgriddialog_test.cpp
+    cdissolutiondialog_test.cpp
+    crarecreatedialog_test.cpp
+    csealdialog_test.cpp
+    cchatoptiondialog_test.cpp
+    bigmapdlg_test.cpp
+    charchangedlg_test.cpp
+    cjackpotdialog_test.cpp
+    menuslotdialog_test.cpp
+    minimapdlg_test.cpp
+    mixdialog_test.cpp
+    pyogukdialog_test.cpp
+    questtotaldialog_test.cpp
+    reinforcedlg_test.cpp
+    reinforceresetdlg_test.cpp
+    serverlistdialog_test.cpp
+    upgradedlg_test.cpp
+    buyregdialog_test.cpp
+    disslovedlg_test.cpp
+    gtbattlelistdialog_test.cpp
+    gtscoreinfodialog_test.cpp
+    gtstandingdialog_test.cpp
+    guildfieldwardialog_test.cpp
+    guildmunhadialog_test.cpp
+    guildplustimedialog_test.cpp
+    guildrankdialog_test.cpp
+    guildtraineedialog_test.cpp
+    mncreatedialog_test.cpp
+    mnfrontdialog_test.cpp
+    mnjoindialog_test.cpp
+    mnplayroomdialog_test.cpp
+    partybtndlg_test.cpp
+    partycreatedlg_test.cpp
+    partymatchingdlg_test.cpp
+    partymemberdlg_test.cpp
+    partywardialog_test.cpp
+    petinventorydlg_test.cpp
+    petrevivaldialog_test.cpp
+    petstatedlg_test.cpp
+    petupgradedialog_test.cpp
+    privatewarehousedialog_test.cpp
+    seigewardialog_test.cpp
+    skilloptionchangedlg_test.cpp
+    skillpointresetdlg_test.cpp
+    streetstallitemviewdlg_test.cpp
+    suryundialog_test.cpp
+    titanbreakdlg_test.cpp
+    titandissolutiondlg_test.cpp
+    titaninventorydlg_test.cpp
+    titanmixdlg_test.cpp
+    titanmugongmixdlg_test.cpp
+    titanpartschangedlg_test.cpp
+    titanpartsmakedlg_test.cpp
+    titanregisterdlg_test.cpp
+    titanupgradedlg_test.cpp
+    uniqueitemcursecancellationdlg_test.cpp
+    uniqueitemmixdlg_test.cpp
+    wantnpcdialog_test.cpp
+    fortwardialog_test.cpp
+    cgriddialog_test.cpp
+    charmakedialog_test.cpp
+    monsterguagedlg_test.cpp
     cbutton_test.cpp
     ceditbox_test.cpp
     cdialog_test.cpp
@@ -1811,3 +1886,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanGuageDlg.OnActionEventStaticLookBtnIsNoOp
     CTitanGuageDlg.OnActionEventStaticUnknownIdIsNoOp
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
