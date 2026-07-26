@@ -788,3 +788,15 @@ add_executable(mxh_fixed_tile_tests
 )
 target_link_libraries(mxh_fixed_tile_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_fixed_tile_tests COMMAND mxh_fixed_tile_tests)
+
+add_executable(mxh_agent_autonote_tests
+    agent_autonote_test.cpp
+)
+target_link_libraries(mxh_agent_autonote_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_autonote_tests COMMAND mxh_agent_autonote_tests)
+
+add_executable(mxh_fixed_tile_info_tests
+    fixed_tile_info_test.cpp
+)
+target_link_libraries(mxh_fixed_tile_info_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_fixed_tile_info_tests COMMAND mxh_fixed_tile_info_tests)
