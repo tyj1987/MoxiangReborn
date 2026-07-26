@@ -212,6 +212,11 @@ public:
     static std::uint32_t fakeMoveIconCallCount() noexcept { return s_fakeMoveIconCalls; }
     static std::uint32_t optionClearSynCallCount() noexcept { return s_optionClearSynCalls; }
     static std::uint32_t onActionEventCallCount() noexcept { return s_onActionEventCalls; }
+    static void resetCallCounts() noexcept {
+        s_fakeMoveIconCalls = 0;
+        s_optionClearSynCalls = 0;
+        s_onActionEventCalls = 0;
+    }
 
 private:
     cIconDialog* m_pMugongIconDlg = nullptr;

@@ -164,6 +164,7 @@ TEST_F(CSkillOptionClearDlgTest, FakeMoveIconReplacesExistingIcon) {
 }
 
 TEST_F(CSkillOptionClearDlgTest, FakeMoveIconIncrementsCallCount) {
+    cSkillOptionClearDlg::resetCallCounts();
     auto d = MakeDialog();
     d->Linking();
     d->FakeMoveIcon(0, 0, nullptr);
