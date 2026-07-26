@@ -1,0 +1,7 @@
+#include "mxh/server/agent_party.hpp"
+#include <gtest/gtest.h>
+using namespace mxh::server;
+TEST(PartyUser, MasterRequestResolvesForwardsToMasterMap){PartyUserRequest r;r.protocol=party_master_to_request_syn;r.object_id=11;r.master_object_id=22;r.master_resolved=true;auto a=classify_party_user(r);EXPECT_EQ(a.kind,PartyUserActionKind::forward_to_map);EXPECT_EQ(a.protocol,party_master_to_request_syn);EXPECT_EQ(a.object_id,22u);}
+TEST(PartyUser, MasterRequestUnresolvesSendsNotMasterError){PartyUserRequest r;r.protocol=party_master_to_request_syn;r.object_id=11;r.master_object_id=22;r.master_resolved=false;auto a=classify_party_user(r);EXPECT_EQ(a.kind,PartyUserActionKind::send_to_map_with_not_master_error);EXPECT_EQ(a.protocol,party_error);EXPECT_EQ(a.error_code,party_err_request_not_master);EXPECT_EQ(a.object_id,11u);}
+TEST(PartyUser, DefaultProtocolForwardsToMap){PartyUserRequest r;r.protocol=party_create_syn;auto a=classify_party_user(r);EXPECT_EQ(a.kind,PartyUserActionKind::forward_to_map);EXPECT_EQ(a.protocol,party_create_syn);}
+TEST(PartyServer, NotifyToMapserverBroadcastsToOtherMaps){PartyServerRequest r;r.protocol=party_notify_add_to_mapserver;EXPECT_EQ(classify_party_server(r).kind,PartyServerActionKind::broadcast_to_other_maps);r.protocol=party_notify_member_level;EXPECT_EQ(classify_party_server(r).kind,PartyServerActionKind::broadcast_to_other_maps);}
