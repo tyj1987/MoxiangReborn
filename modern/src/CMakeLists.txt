@@ -167,9 +167,11 @@ add_library(mxh_server STATIC
     server/attack_manager.cpp
     server/object_event.cpp
     server/object_state_manager.cpp
+    server/object_factory.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
+    server/mh_file_reader.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
