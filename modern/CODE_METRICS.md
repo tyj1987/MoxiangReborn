@@ -355,3 +355,12 @@ plus WORKING_DIRECTORY bugfixes recovered **25 previously Not-Run tests** (compa
   queue; no-player processing preserves queued events.
 - Full ctest with per-test timeout: **3655/3655 PASS**, 10 environment/resource
   dependent skips, 0 fail.
+
+
+## 2026-07-26 Current T1/T2 Gate Snapshot
+
+- Debug build: **0 errors** (`cmake --build modern/build --config Debug`).
+- Full ctest: **4016/4016 registered tests passed**, **10 environment-dependent tests skipped**, 0 failures (`ctest -C Debug -j 8`).
+- T1: PlayDH reference manifest expanded to **15 immutable `.bin` files**, each locked by SHA-256 and byte size; resource smoke tests now prefer PlayDH over deploy variants.
+- T2/T3 harness: `MoxianSideBySide` now routes Login/Agent/Map scenarios to separate ports (6001/7001/6001 vs 16001/17001/18001); packet diff offsets are locked to the 2-byte length prefix + 8-byte legacy header + payload layout.
+- Remaining gates: real legacy packet capture/field comparison, EnterGame/Attack/Quest/Shop live traces, Docker SQL Server E2E, and full Map/Agent/Distribute/MurimNet behavioral port.

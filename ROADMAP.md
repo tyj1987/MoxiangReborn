@@ -58,6 +58,13 @@
 | HackShield 绕过 | **0%** | 卡 R-2 | 阻塞 |
 | SQL Server 集成 | **60%** | schema + restore 脚本，但没真启服 | 待 E2E |
 
+### 2.1 2026-07-26 实时验收快照
+
+- Debug 构建通过；`ctest -C Debug -j 8`：**4016/4016 PASS，10 个环境依赖跳过，0 FAIL**。
+- T1 已锁定 PlayDH 下 15 个真实 `.bin` 文件的 SHA-256 与字节大小；资源 smoke 测试优先 PlayDH，禁止静默使用 deploy 变体。
+- T2/T3 验证工具已按 Login/Agent/Map 三端口路由，且按 `[length:2][MSGBASE:8][payload]` 修正字节偏移；真实老服 15 包捕获与五段行为 diff 仍待完成。
+- 当前状态不是阶段 E 完成：SQL Server 真连接、真实老服协议回放、完整服务端行为 1:1 仍是后续门禁。
+
 ---
 
 ## 3. 新的阶段路线（**砍掉老 12 阶段噪音**）
