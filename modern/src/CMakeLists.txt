@@ -178,6 +178,7 @@ add_library(mxh_server STATIC
     server/punish_manager.cpp
     server/shout_manager.cpp
     server/gm_power_list.cpp
+    server/hackshield_manager.cpp
     server/quest_group.cpp
 )
 
