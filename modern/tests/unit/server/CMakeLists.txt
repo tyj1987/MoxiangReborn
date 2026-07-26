@@ -577,241 +577,281 @@ add_executable(mxh_server_system_tests
     server_system_test.cpp
 )
 target_link_libraries(mxh_server_system_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_server_system_tests COMMAND mxh_server_system_tests)
+gtest_add_tests(TARGET mxh_server_system_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_network_msg_parser_tests
     agent_network_msg_parser_test.cpp
 )
 target_link_libraries(mxh_agent_network_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_network_msg_parser_tests COMMAND mxh_agent_network_msg_parser_tests)
+gtest_add_tests(TARGET mxh_agent_network_msg_parser_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_db_msg_parser_tests
     agent_db_msg_parser_test.cpp
 )
 target_link_libraries(mxh_agent_db_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_db_msg_parser_tests COMMAND mxh_agent_db_msg_parser_tests)
+gtest_add_tests(TARGET mxh_agent_db_msg_parser_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_mh_time_manager_tests
     mh_time_manager_test.cpp
 )
 target_link_libraries(mxh_mh_time_manager_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_mh_time_manager_tests COMMAND mxh_mh_time_manager_tests)
+gtest_add_tests(TARGET mxh_mh_time_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_common_network_msg_parser_tests
     common_network_msg_parser_test.cpp
 )
 target_link_libraries(mxh_common_network_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_common_network_msg_parser_tests COMMAND mxh_common_network_msg_parser_tests)
+gtest_add_tests(TARGET mxh_common_network_msg_parser_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_crypt_tests
     crypt_test.cpp
 )
 target_link_libraries(mxh_crypt_tests PRIVATE mxh_server mxh_crypto GTest::gtest_main)
-add_test(NAME mxh_crypt_tests COMMAND mxh_crypt_tests)
+gtest_add_tests(TARGET mxh_crypt_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_traffic_log_tests
     traffic_log_test.cpp
 )
 target_link_libraries(mxh_traffic_log_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_traffic_log_tests COMMAND mxh_traffic_log_tests)
+gtest_add_tests(TARGET mxh_traffic_log_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_plustime_manager_tests
     plustime_manager_test.cpp
 )
 target_link_libraries(mxh_plustime_manager_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_plustime_manager_tests COMMAND mxh_plustime_manager_tests)
+gtest_add_tests(TARGET mxh_plustime_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_jackpot_manager_agent_tests
     jackpot_manager_agent_test.cpp
 )
 target_link_libraries(mxh_jackpot_manager_agent_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_jackpot_manager_agent_tests COMMAND mxh_jackpot_manager_agent_tests)
+gtest_add_tests(TARGET mxh_jackpot_manager_agent_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_gm_tool_manager_tests
     gm_tool_manager_test.cpp
 )
 target_link_libraries(mxh_gm_tool_manager_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_gm_tool_manager_tests COMMAND mxh_gm_tool_manager_tests)
+gtest_add_tests(TARGET mxh_gm_tool_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_attack_manager_tests
     attack_manager_test.cpp
 )
 target_link_libraries(mxh_attack_manager_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_attack_manager_tests COMMAND mxh_attack_manager_tests)
+gtest_add_tests(TARGET mxh_attack_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_object_event_tests
     object_event_test.cpp
 )
 target_link_libraries(mxh_object_event_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_object_event_tests COMMAND mxh_object_event_tests)
+gtest_add_tests(TARGET mxh_object_event_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_object_state_manager_tests
     object_state_manager_test.cpp
 )
 target_link_libraries(mxh_object_state_manager_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_object_state_manager_tests COMMAND mxh_object_state_manager_tests)
+gtest_add_tests(TARGET mxh_object_state_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_mh_file_reader_tests
     mh_file_reader_test.cpp
 )
 target_link_libraries(mxh_mh_file_reader_tests PRIVATE mxh_server mxh_compat GTest::gtest_main)
-add_test(NAME mxh_mh_file_reader_tests COMMAND mxh_mh_file_reader_tests)
+gtest_add_tests(TARGET mxh_mh_file_reader_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_object_factory_tests
     object_factory_test.cpp
 )
 target_link_libraries(mxh_object_factory_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_object_factory_tests COMMAND mxh_object_factory_tests)
+gtest_add_tests(TARGET mxh_object_factory_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_ai_define_tests
     ai_define_test.cpp
 )
 target_link_libraries(mxh_ai_define_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_ai_define_tests COMMAND mxh_ai_define_tests)
+gtest_add_tests(TARGET mxh_ai_define_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_ai_param_tests
     ai_param_test.cpp
 )
 target_link_libraries(mxh_ai_param_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_ai_param_tests COMMAND mxh_ai_param_tests)
+gtest_add_tests(TARGET mxh_ai_param_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_chat_tests
     agent_chat_test.cpp
 )
 target_link_libraries(mxh_agent_chat_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_chat_tests COMMAND mxh_agent_chat_tests)
+gtest_add_tests(TARGET mxh_agent_chat_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_skill_tests
     agent_skill_test.cpp
 )
 target_link_libraries(mxh_agent_skill_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_skill_tests COMMAND mxh_agent_skill_tests)
+gtest_add_tests(TARGET mxh_agent_skill_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_ai_group_prototype_tests
     ai_group_prototype_test.cpp
 )
 target_link_libraries(mxh_ai_group_prototype_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_ai_group_prototype_tests COMMAND mxh_ai_group_prototype_tests)
+gtest_add_tests(TARGET mxh_ai_group_prototype_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_guild_tests
     agent_guild_test.cpp
 )
 target_link_libraries(mxh_agent_guild_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_guild_tests COMMAND mxh_agent_guild_tests)
+gtest_add_tests(TARGET mxh_agent_guild_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_murimnet_tests
     agent_murimnet_test.cpp
 )
 target_link_libraries(mxh_agent_murimnet_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_murimnet_tests COMMAND mxh_agent_murimnet_tests)
+gtest_add_tests(TARGET mxh_agent_murimnet_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_economy_tests
     economy_test.cpp
 )
 target_link_libraries(mxh_economy_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_economy_tests COMMAND mxh_economy_tests)
+gtest_add_tests(TARGET mxh_economy_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_mh_error_tests
     mh_error_test.cpp
 )
 target_link_libraries(mxh_mh_error_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_mh_error_tests COMMAND mxh_mh_error_tests)
+gtest_add_tests(TARGET mxh_mh_error_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_fame_manager_tests
     fame_manager_test.cpp
 )
 target_link_libraries(mxh_fame_manager_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_fame_manager_tests COMMAND mxh_fame_manager_tests)
+gtest_add_tests(TARGET mxh_fame_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_party_tests
     agent_party_test.cpp
 )
 target_link_libraries(mxh_agent_party_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_party_tests COMMAND mxh_agent_party_tests)
+gtest_add_tests(TARGET mxh_agent_party_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_purse_tests
     purse_test.cpp
 )
 target_link_libraries(mxh_purse_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_purse_tests COMMAND mxh_purse_tests)
+gtest_add_tests(TARGET mxh_purse_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_item_tests
     agent_item_test.cpp
 )
 target_link_libraries(mxh_agent_item_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_item_tests COMMAND mxh_agent_item_tests)
+gtest_add_tests(TARGET mxh_agent_item_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_regen_condition_info_tests
     regen_condition_info_test.cpp
 )
 target_link_libraries(mxh_regen_condition_info_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_regen_condition_info_tests COMMAND mxh_regen_condition_info_tests)
+gtest_add_tests(TARGET mxh_regen_condition_info_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_regen_prototype_tests
     regen_prototype_test.cpp
 )
 target_link_libraries(mxh_regen_prototype_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_regen_prototype_tests COMMAND mxh_regen_prototype_tests)
+gtest_add_tests(TARGET mxh_regen_prototype_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_state_param_tests
     state_param_test.cpp
 )
 target_link_libraries(mxh_state_param_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_state_param_tests COMMAND mxh_state_param_tests)
+gtest_add_tests(TARGET mxh_state_param_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_packed_tests
     agent_packed_test.cpp
 )
 target_link_libraries(mxh_agent_packed_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_packed_tests COMMAND mxh_agent_packed_tests)
+gtest_add_tests(TARGET mxh_agent_packed_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_summon_monster_tests
     summon_monster_test.cpp
 )
 target_link_libraries(mxh_summon_monster_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_summon_monster_tests COMMAND mxh_summon_monster_tests)
+gtest_add_tests(TARGET mxh_summon_monster_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_note_tests
     agent_note_test.cpp
 )
 target_link_libraries(mxh_agent_note_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_note_tests COMMAND mxh_agent_note_tests)
+gtest_add_tests(TARGET mxh_agent_note_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_friend_tests
     agent_friend_test.cpp
 )
 target_link_libraries(mxh_agent_friend_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_friend_tests COMMAND mxh_agent_friend_tests)
+gtest_add_tests(TARGET mxh_agent_friend_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_fixed_tile_tests
     fixed_tile_test.cpp
 )
 target_link_libraries(mxh_fixed_tile_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_fixed_tile_tests COMMAND mxh_fixed_tile_tests)
+gtest_add_tests(TARGET mxh_fixed_tile_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_autonote_tests
     agent_autonote_test.cpp
 )
 target_link_libraries(mxh_agent_autonote_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_autonote_tests COMMAND mxh_agent_autonote_tests)
+gtest_add_tests(TARGET mxh_agent_autonote_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_fixed_tile_info_tests
     fixed_tile_info_test.cpp
 )
 target_link_libraries(mxh_fixed_tile_info_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_fixed_tile_info_tests COMMAND mxh_fixed_tile_info_tests)
+gtest_add_tests(TARGET mxh_fixed_tile_info_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_tile_tests
     tile_test.cpp
 )
 target_link_libraries(mxh_tile_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_tile_tests COMMAND mxh_tile_tests)
+gtest_add_tests(TARGET mxh_tile_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_weather_tests
     agent_weather_test.cpp
 )
 target_link_libraries(mxh_agent_weather_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_weather_tests COMMAND mxh_agent_weather_tests)
+gtest_add_tests(TARGET mxh_agent_weather_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_tactic_ability_info_tests
     tactic_ability_info_test.cpp
@@ -823,95 +863,110 @@ add_executable(mxh_agent_userconn_tests
 )
 target_link_libraries(mxh_agent_userconn_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_userconn_tests
-    WORKING_DIRECTORY /tests/unit)
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_powerup_tests
     agent_powerup_test.cpp
 )
 target_link_libraries(mxh_agent_powerup_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_powerup_tests COMMAND mxh_agent_powerup_tests)
+gtest_add_tests(TARGET mxh_agent_powerup_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_cheat_tests
     agent_cheat_test.cpp
 )
 target_link_libraries(mxh_agent_cheat_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_cheat_tests
-    WORKING_DIRECTORY /tests/unit)
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_gtournament_server_tests
     agent_gtournament_server_test.cpp
 )
 target_link_libraries(mxh_agent_gtournament_server_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_gtournament_server_tests COMMAND mxh_agent_gtournament_server_tests)
+gtest_add_tests(TARGET mxh_agent_gtournament_server_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 
-add_test(NAME mxh_tactic_ability_info_tests COMMAND mxh_tactic_ability_info_tests)
+gtest_add_tests(TARGET mxh_tactic_ability_info_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_itemlimit_tests
     agent_itemlimit_test.cpp
 )
 target_link_libraries(mxh_agent_itemlimit_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_itemlimit_tests COMMAND mxh_agent_itemlimit_tests)
+gtest_add_tests(TARGET mxh_agent_itemlimit_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_fortwar_tests
     agent_fortwar_test.cpp
 )
 target_link_libraries(mxh_agent_fortwar_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_fortwar_tests COMMAND mxh_agent_fortwar_tests)
+gtest_add_tests(TARGET mxh_agent_fortwar_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_survival_tests
     agent_survival_test.cpp
 )
 target_link_libraries(mxh_agent_survival_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_survival_tests COMMAND mxh_agent_survival_tests)
+gtest_add_tests(TARGET mxh_agent_survival_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_wanted_tests
     agent_wanted_test.cpp
 )
 target_link_libraries(mxh_agent_wanted_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_wanted_tests COMMAND mxh_agent_wanted_tests)
+gtest_add_tests(TARGET mxh_agent_wanted_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_bobusang_user_tests
     agent_bobusang_user_test.cpp
 )
 target_link_libraries(mxh_agent_bobusang_user_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_bobusang_user_tests COMMAND mxh_agent_bobusang_user_tests)
+gtest_add_tests(TARGET mxh_agent_bobusang_user_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_gtournament_tests
     agent_gtournament_test.cpp
 )
 target_link_libraries(mxh_agent_gtournament_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_gtournament_tests COMMAND mxh_agent_gtournament_tests)
+gtest_add_tests(TARGET mxh_agent_gtournament_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_siegewarprofit_tests
     agent_siegewarprofit_test.cpp
 )
 target_link_libraries(mxh_agent_siegewarprofit_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_siegewarprofit_tests COMMAND mxh_agent_siegewarprofit_tests)
+gtest_add_tests(TARGET mxh_agent_siegewarprofit_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_guild_union_tests
     agent_guild_union_test.cpp
 )
 target_link_libraries(mxh_agent_guild_union_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_guild_union_tests COMMAND mxh_agent_guild_union_tests)
+gtest_add_tests(TARGET mxh_agent_guild_union_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_siegewar_tests
     agent_siegewar_test.cpp
 )
 target_link_libraries(mxh_agent_siegewar_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_siegewar_tests COMMAND mxh_agent_siegewar_tests)
+gtest_add_tests(TARGET mxh_agent_siegewar_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_siegewar_server_tests
     agent_siegewar_server_test.cpp
 )
 target_link_libraries(mxh_agent_siegewar_server_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_siegewar_server_tests COMMAND mxh_agent_siegewar_server_tests)
+gtest_add_tests(TARGET mxh_agent_siegewar_server_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_simple_auth_forward_tests
     agent_simple_auth_forward_test.cpp
 )
 target_link_libraries(mxh_agent_simple_auth_forward_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_simple_auth_forward_tests COMMAND mxh_agent_simple_auth_forward_tests)
+gtest_add_tests(TARGET mxh_agent_simple_auth_forward_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_agent_hackcheck_tests
     agent_hackcheck_test.cpp
 )
 target_link_libraries(mxh_agent_hackcheck_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_hackcheck_tests COMMAND mxh_agent_hackcheck_tests)
+gtest_add_tests(TARGET mxh_agent_hackcheck_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
