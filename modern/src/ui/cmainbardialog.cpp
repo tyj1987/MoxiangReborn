@@ -1,0 +1,2 @@
+﻿#include "cmainbardialog.hpp"
+namespace mxh::ui{bool cMainBarDialog::SetButton(std::uint32_t id,bool v){if(id==0)return false;m_buttons[id]=v;return true;}bool cMainBarDialog::IsButtonVisible(std::uint32_t id)const noexcept{auto it=m_buttons.find(id);return it!=m_buttons.end()&&it->second;}bool cMainBarDialog::Toggle(std::uint32_t id){auto it=m_buttons.find(id);if(it==m_buttons.end())return false;it->second=!it->second;if(m_callback)m_callback(id,it->second);return true;}}
