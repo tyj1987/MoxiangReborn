@@ -880,7 +880,12 @@ add_executable(mxh_agent_gtournament_server_tests
     agent_gtournament_server_test.cpp
 )
 target_link_libraries(mxh_agent_gtournament_server_tests PRIVATE mxh_server GTest::gtest_main)
-gtest_add_tests(TARGET mxh_agent_gtournament_server_tests
+
+add_executable(mxh_protocol_constants_sweep_tests
+    protocol_constants_sweep_test.cpp
+)
+target_link_libraries(mxh_protocol_constants_sweep_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_protocol_constants_sweep_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 
