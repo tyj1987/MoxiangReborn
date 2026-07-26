@@ -1,0 +1,36 @@
+﻿{
+    "format":  "moxian-resource-reference-v1",
+    "source":  "墨香【源码配套资源】/PlayDH/Resource",
+    "files":  [
+                  {
+                      "name":  "SkillList.bin",
+                      "sha256":  "9b5d1fac408c610252e419f6c55b12e3bc38f9ed436fdebbdc01ec664da906b7",
+                      "size":  769649
+                  },
+                  {
+                      "name":  "MonsterList.bin",
+                      "sha256":  "fb7ee93e66ea9321577fe4a5031e98689d346b6fdbd5852e05d69ad7a952eebe",
+                      "size":  142234
+                  },
+                  {
+                      "name":  "ItemList.bin",
+                      "sha256":  "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd",
+                      "size":  1510488
+                  },
+                  {
+                      "name":  "AvatarEquip.bin",
+                      "sha256":  "32413ec55572bd58cb687ec6a5089ca7934107e06aa7112a20a176e3cb757605",
+                      "size":  26751
+                  },
+                  {
+                      "name":  "CharacterExpPoint.bin",
+                      "sha256":  "8010160a2ed9a7e0bac91c73eb31efa43d25d101200d1cb149be5e8083305f59",
+                      "size":  3519
+                  },
+                  {
+                      "name":  "QuestScript/QuestScript.bin",
+                      "sha256":  "82bcdf96770bdf09e8b56e57d48bcffded0169e301967a115cb6336d5e97ba1e",
+                      "size":  238478
+                  }
+              ]
+}
