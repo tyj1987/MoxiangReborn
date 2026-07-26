@@ -155,7 +155,7 @@ add_executable(mxh_tools_side_by_side_tests
     ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/packet.cpp
     ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/capture/packet_capture.cpp
     ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/diff/packet_diff.cpp
-    \/tools/MoxianSideBySide/replay/replay.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/replay/replay.cpp
 )
 target_link_libraries(mxh_tools_side_by_side_tests PRIVATE gtest_main)
 target_include_directories(mxh_tools_side_by_side_tests PRIVATE
