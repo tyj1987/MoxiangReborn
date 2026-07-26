@@ -147,9 +147,26 @@
 - **D6.1** `mxh_game` lib + 34-test 数值 baseline lock：7 OBJECTKIND / 6 MonsterAI state / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁死
 
 ### 下一步
-- D1 SkillManager 1:1 port（D6.1 baseline 已有，剩下 1-2 周）
-- D6.2/D6.3 深入 lock（SkillKind enum / AI state transitions）
+- D1 SkillManager 1:1 port — **D1.1 (placeholder 表) + D1.2 (lookup class) 已完，剩 D1.3 (SkillList.bin 1:1 parser) 是 1-2 周大活，defer**
+- D2 BattleFactory / D3 QuestManager / D5 MurimNet — 各 1-2 周
+- D4 商城/物品/仓库/邮件/帮派/队伍 — 3-4 周
 - Phase B/C 残：HSEL 补完、HackShield 绕、SQL Server 真启、MSSQL 端到端、Render 真正显示角色
+
+### D1.3 (SkillList.bin parser) — 评估后 defer
+
+**为什么 defer**:
+1. **Bin 格式复杂**: legacy `CSkillInfo::InitSkillInfo` 读 ~50+ 字段（SkillIdx, SkillName string, TooltipIdx, RestrictLevel, LowImage, HighImage, SkillKind, WeaponKind, SkillRange, TargetKind, TargetRange, ... Duration, Interval, ... 12-element NeedExp array, 12-element NeedNaeRyuk array, Attrib, ... ~6 AdditiveAttr cases with 12-element attribute arrays, etc.）。完整 1:1 1 个 skill 解析 200+ bytes bin，subset port 不"1:1"。
+2. **struct 1:1 不一致**: modern `SkillInfo` 有 10 字段，legacy `SKILLINFO` 有 50+ 字段。Phase D 推进需先扩 modern `SkillInfo` 到 full legacy 字段（向后兼容 + 测试），然后 port bin parser。
+3. **MapHandler 已有 hardcoded** (`init_skill_table` line 1319-1331) 4 个 skill（BasicSlash, FireBolt, Heal, Whirlwind），但跟 D1.1 placeholder 不同名（BasicSlash vs BasicStrike 等）。D1.3 需统一这两套。
+4. **Bin 文件大**: `SWorking\Resource\SkillList.bin` 769KB，~500+ skill entries。每个 200+ bytes。
+
+**D1.3 计划**（下个 session 起 1-2 周）:
+- **D1.3.1**: 扩 `mxh::game::SkillInfo` 到完整 legacy `SKILLINFO` 字段（含 12-元素 array）。加 unit test lock 全部 50+ 字段。
+- **D1.3.2**: port `SkillListParser` class — read `SkillList.bin` 文件, parse header + N entries。throw on malformed。
+- **D1.3.3**: 把 MapHandler::init_skill_table 换成 `SkillManager::init_from_bin(path)`，统一 D1.1 placeholder + MapHandler hardcoded + bin load。
+- **D1.3.4**: 1:1 端到端 test — load 真 SkillList.bin, 验证第一行 SkillIdx 是 1, name 是某字符串, skill_kind 是 SKILLKIND_COMBO/OUTERMUGONG 等。
+
+**defer 决策**: D1.3 整套是 4 步、1-2 周、~150-300 行代码 + 50+ 新 test 字段。Session 内 7+ 小时已过，defer 到下次 session 起始。
 
 节奏：1-2 commit / batch。Phase D 推进和 Phase B/C 残项可并行。
 
