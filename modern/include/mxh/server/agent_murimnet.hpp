@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 namespace mxh::server {
-inline constexpr std::uint8_t murimnet_category=35;
+inline constexpr std::uint8_t murimnet_category=38;
 inline constexpr std::uint8_t murimnet_changetomurimnet_syn=1,murimnet_connect_syn=2,murimnet_reconnect_syn=3;
 inline constexpr std::uint8_t murimnet_changetomurimnet_ack=4,murimnet_changetomurimnet_nack=5,murimnet_pr_start=6,murimnet_disconnect_ack=7,murimnet_returntomurimnet_ack=8,murimnet_returntomurimnet_nack=9;
 inline constexpr std::uint16_t murimnet_default_server_num=99;
