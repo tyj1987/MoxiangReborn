@@ -1,4 +1,4 @@
-add_library(mxh_compat STATIC
+﻿add_library(mxh_compat STATIC
     mh_file_ex.cpp
     pack_file.cpp
     bmhm_map.cpp
@@ -121,6 +121,8 @@ install(TARGETS mxh_net ARCHIVE DESTINATION lib)
 add_library(mxh_crypto STATIC
     crypto/crypto.cpp
     crypto/hsel_stream.cpp
+    crypto/hsel_class.cpp
+    crypto/hackshield_stub.cpp
 )
 
 target_include_directories(mxh_crypto PUBLIC
@@ -138,9 +140,38 @@ install(TARGETS mxh_crypto ARCHIVE DESTINATION lib)
 # mxh_server: Minimal game server (Distribute + Agent + Map stubs)
 # -----------------------------------------------------------------------------
 add_library(mxh_server STATIC
+    server/help_request_manager.cpp
     server/login_handler.cpp
     server/agent_handler.cpp
     server/map_handler.cpp
+    server/character_calc_manager.cpp
+    server/player_state.cpp
+    server/monster.cpp
+    server/quest_manager.cpp
+    server/item_manager.cpp
+    server/party_manager.cpp
+    server/guild_manager.cpp
+    server/pet_manager.cpp
+    server/exchange_manager.cpp
+    server/titan_manager.cpp
+    server/street_stall_manager.cpp
+    server/friend_manager.cpp
+    server/bobusang_manager.cpp
+    server/survival_mode_manager.cpp
+    server/regen_manager.cpp
+    server/party_war_mgr.cpp
+    server/distributer.cpp
+    server/quest_regen_mgr.cpp
+    server/looting_manager.cpp
+    server/distribute_strategy.cpp
+    server/item_drop.cpp
+    server/item_limit_manager.cpp
+    server/change_item_manager.cpp
+    server/quest_map_mgr.cpp
+    server/quest_updater.cpp
+    server/cquest_base.cpp
+    server/user_table.cpp
+    server/quest_group.cpp
 )
 
 target_include_directories(mxh_server PUBLIC
@@ -210,3 +241,7 @@ add_subdirectory(ui)
 # modern/tests/unit/services/real/.
 # -----------------------------------------------------------------------------
 add_subdirectory(services)
+
+# Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
+
+
