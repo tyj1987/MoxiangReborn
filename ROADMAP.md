@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-25 — Phase A/B 完成，Phase C 100% dialog unit-test 覆盖，Phase D 数值 baseline lock 完成。
+> **最近一次状态刷新**：2026-07-26 — Phase C Batch 1 完成（7 dialog, 144 tests, 87→80 missing）；继续 Batch 2。
 
 ---
 
@@ -44,7 +44,7 @@
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
 | 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2536 tests PASS | T1 部分验证（资源浏览器能解析） |
-| UI 控件 1:1 port（dialog + subcontrol） | **102/158 hpp（87 missing，Batch 1 开 cNumberPadDialog）** | 老 client 158 dialog / modern 102 hpp（含 subcontrol+core）；差 87 个老 dialog 待 1:1 port + test | T3 1:1 行为锁死 |
+| UI 控件 1:1 port（dialog + subcontrol） | **109/158 hpp（80 missing，Phase C Batch 1 完成 7/10）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（11 个，144 tests）；剩 80 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |
