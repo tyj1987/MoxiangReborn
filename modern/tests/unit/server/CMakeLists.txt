@@ -719,3 +719,9 @@ add_executable(mxh_economy_tests
 )
 target_link_libraries(mxh_economy_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_economy_tests COMMAND mxh_economy_tests)
+
+add_executable(mxh_mh_error_tests
+    mh_error_test.cpp
+)
+target_link_libraries(mxh_mh_error_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_mh_error_tests COMMAND mxh_mh_error_tests)
