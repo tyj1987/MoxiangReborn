@@ -176,6 +176,7 @@ add_library(mxh_server STATIC
     server/mh_file_reader.cpp
     server/agent_chat.cpp
     server/agent_skill.cpp
+    server/agent_guild.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
