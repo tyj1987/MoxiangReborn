@@ -587,3 +587,15 @@ add_executable(mxh_server_system_tests
 )
 target_link_libraries(mxh_server_system_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_server_system_tests COMMAND mxh_server_system_tests)
+
+add_executable(mxh_agent_network_msg_parser_tests
+    agent_network_msg_parser_test.cpp
+)
+target_link_libraries(mxh_agent_network_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_network_msg_parser_tests COMMAND mxh_agent_network_msg_parser_tests)
+
+add_executable(mxh_agent_db_msg_parser_tests
+    agent_db_msg_parser_test.cpp
+)
+target_link_libraries(mxh_agent_db_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_db_msg_parser_tests COMMAND mxh_agent_db_msg_parser_tests)

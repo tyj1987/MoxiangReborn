@@ -158,6 +158,8 @@ add_library(mxh_server STATIC
     server/friend_manager.cpp
     server/bobusang_manager.cpp
     server/server_system.cpp
+    server/agent_network_msg_parser.cpp
+    server/agent_db_msg_parser.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
