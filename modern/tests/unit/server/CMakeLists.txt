@@ -833,6 +833,11 @@ add_executable(mxh_agent_cheat_tests
 )
 target_link_libraries(mxh_agent_cheat_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_cheat_tests COMMAND mxh_agent_cheat_tests)
+add_executable(mxh_agent_gtournament_server_tests
+    agent_gtournament_server_test.cpp
+)
+target_link_libraries(mxh_agent_gtournament_server_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_gtournament_server_tests COMMAND mxh_agent_gtournament_server_tests)
 
 
 add_test(NAME mxh_tactic_ability_info_tests COMMAND mxh_tactic_ability_info_tests)
