@@ -113,6 +113,7 @@ add_library(mxh_ui STATIC
     cchanneldialog.cpp
     cjournaldialog.cpp
     chelperspeechdlg.cpp
+    ccostumeskinselectdialog.cpp
 )
 
 if(WIN32)
