@@ -108,6 +108,7 @@ add_executable(mxh_ui_tests
     cstatusicondlg_test.cpp
     cscreenshotdlg_test.cpp
     coptiondialog_test.cpp
+    cchanneldialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
