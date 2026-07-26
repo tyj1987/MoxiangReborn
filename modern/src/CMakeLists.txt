@@ -185,6 +185,7 @@ add_library(mxh_server STATIC
     server/tactic_ability_info.cpp
     server/agent_userconn.cpp
     server/agent_powerup.cpp
+    server/agent_cheat.cpp
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/agent_weather.cpp
