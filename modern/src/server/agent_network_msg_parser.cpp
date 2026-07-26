@@ -1,0 +1,17 @@
+#include "mxh/server/agent_network_msg_parser.hpp"
+#include <algorithm>
+
+namespace mxh::server {
+namespace {
+struct CategoryParser { std::uint8_t category; std::string_view user_name; std::string_view server_name; };
+constexpr CategoryParser kParsers[] = {
+ {1,"MP_AGENTSERVERMsgParser","MP_AGENTSERVERMsgParser"},{2,"MP_POWERUPMsgParser","MP_POWERUPMsgParser"},{6,"MP_CHATMsgParser","MP_CHATServerMsgParser"},{7,"MP_USERCONNMsgParser","MP_USERCONNMsgParser"},{13,"MP_PACKEDMsgParser","MP_PACKEDMsgParser"},{14,"MP_PARTYUserMsgParser","MP_PARTYServerMsgParser"},{22,"MP_SkillUserMsgParser","MP_SkillServerMsgParser"},{25,"MP_MORNITORTOOLMsgParser","MP_MORNITORTOOLMsgParser"},{27,"MP_EXCHANGEUserMsgParser","MP_EXCHANGEUserMsgParser"},{28,"MP_STREETSTALLUserMsgParser","MP_STREETSTALLUserMsgParser"},{34,"MP_HACKCHECKMsgParser","MP_HACKCHECKMsgParser"},{35,"MP_MURIMNETUserMsgParser","MP_MURIMNETServerMsgParser"},{39,"MP_DebugMsgParser","MP_DebugMsgParser"},{56,"MP_WANTEDServerMsgParser","MP_WANTEDServerMsgParser"},{63,"MP_GUILDUserMsgParser","MP_GUILDServerMsgParser"},{64,"MP_GUILD_FIELDWARUserMsgParser","MP_GUILD_FIELDWARServerMsgParser"},{35,"MP_FRIENDMsgParser","MP_FRIENDMsgParser"},{6,"MP_CHATMsgParser","MP_CHATServerMsgParser"},{10,"MP_CHEATUserMsgParser","MP_CHEATServerMsgParser"},{5,"MP_ITEMUserMsgParser","MP_ITEMServerMsgParser"},{65,"MP_NOTEMsgParser","MP_NOTEServerMsgParser"},{39,"MP_OPTIONUserMsgParser","MP_OPTIONUserMsgParser"},{26,"MP_MonitorMsgParser","MP_MonitorMsgParser"},{65,"MP_NOTEUserMsgParser","MP_NOTEServerMsgParser"},{67,"MP_GTOURNAMENTUserMsgParser","MP_GTOURNAMENTServerMsgParser"},{68,"MP_JACKPOTUserMsgParser","MP_JACKPOTServerMsgParser"},{69,"MP_GUILD_UNIONUserMsgParser","MP_GUILD_UNIONServerMsgParser"},{70,"MP_SIEGEWARUserMsgParser","MP_SIEGEWARServerMsgParser"},{71,"MP_SIEGEWARPROFITUserMsgParser","MP_SIEGEWARPROFITServerMsgParser"},{72,"MP_WEATHERUserMsgParser","MP_WEATHERUserMsgParser"},{76,"MP_HACKSHIELDUserMsgParser","MP_HACKSHIELDUserMsgParser"},{77,"MP_NPROTECTUserMsgParser","MP_NPROTECTUserMsgParser"},{78,"MP_SURVIVALUserMsgParser","MP_SURVIVALServerMsgParser"},{82,"MP_BOBUSANGUserMsgParser","MP_BOBUSANGServerMsgParser"},{83,"MP_ITEMLIMITServerMsgParser","MP_ITEMLIMITServerMsgParser"},{84,"MP_AUTONOTEUserMsgParser","MP_AUTONOTEServerMsgParser"},{85,"MP_FORTWARServerMsgParser","MP_FORTWARServerMsgParser"}
+};
+}
+AgentNetworkDispatcher::AgentNetworkDispatcher() = default;
+void AgentNetworkDispatcher::register_handler(std::uint8_t c,std::uint8_t p,AgentMessageDirection d,AgentMessageHandler h){ if(!h)return; routes_.push_back({c,p,d,std::move(h)}); }
+AgentDispatchResult AgentNetworkDispatcher::dispatch(const AgentMessage& m,AgentMessageDirection d) const { if(m.payload.size()>65527u)return {}; auto it=std::find_if(routes_.begin(),routes_.end(),[&](const Route&r){return r.category==m.category&&r.protocol==m.protocol&&r.direction==d;}); if(it==routes_.end()) return {true,false,parser_name(m.category,d)}; it->handler(m); return {true,true,parser_name(m.category,d)}; }
+std::size_t AgentNetworkDispatcher::handler_count() const noexcept{return routes_.size();}
+std::string_view AgentNetworkDispatcher::parser_name(std::uint8_t c,AgentMessageDirection d){for(const auto&p:kParsers)if(p.category==c)return d==AgentMessageDirection::from_user?p.user_name:p.server_name;return {};}
+}
+[[maybe_unused]] constexpr int agent_network_msg_parser_translation_unit_anchor=0;

@@ -1,0 +1,10 @@
+#include "mxh/server/agent_network_msg_parser.hpp"
+#include <gtest/gtest.h>
+#include <array>
+using namespace mxh::server;
+TEST(AgentNetworkDispatcher, RecognizesLegacyParserNames){EXPECT_EQ(AgentNetworkDispatcher::parser_name(7,AgentMessageDirection::from_user),"MP_USERCONNMsgParser");EXPECT_EQ(AgentNetworkDispatcher::parser_name(63,AgentMessageDirection::from_server),"MP_GUILDServerMsgParser");}
+TEST(AgentNetworkDispatcher, AllLegacyAliasesHaveNames){EXPECT_EQ(AgentNetworkDispatcher::parser_name(10,AgentMessageDirection::from_user),"MP_CHEATUserMsgParser");EXPECT_EQ(AgentNetworkDispatcher::parser_name(5,AgentMessageDirection::from_server),"MP_ITEMServerMsgParser");EXPECT_EQ(AgentNetworkDispatcher::parser_name(26,AgentMessageDirection::from_server),"MP_MonitorMsgParser");}\nTEST(AgentNetworkDispatcher, UnknownCategoryHasNoParser){EXPECT_TRUE(AgentNetworkDispatcher::parser_name(250,AgentMessageDirection::from_user).empty());}
+TEST(AgentNetworkDispatcher, DispatchesExactDirectionAndProtocol){AgentNetworkDispatcher d;int calls=0;d.register_handler(7,10,AgentMessageDirection::from_user,[&](const AgentMessage&m){++calls;EXPECT_EQ(m.connection_index,9u);});std::array<std::uint8_t,2> p{};AgentMessage m{9,7,10,p};auto r=d.dispatch(m,AgentMessageDirection::from_user);EXPECT_TRUE(r.accepted);EXPECT_TRUE(r.handled);EXPECT_EQ(calls,1);}
+TEST(AgentNetworkDispatcher, DirectionMismatchIsNotHandled){AgentNetworkDispatcher d;d.register_handler(7,10,AgentMessageDirection::from_user,[](const AgentMessage&){});AgentMessage m{0,7,10,{}};auto r=d.dispatch(m,AgentMessageDirection::from_server);EXPECT_TRUE(r.accepted);EXPECT_FALSE(r.handled);}
+TEST(AgentNetworkDispatcher, OversizedPayloadRejected){AgentNetworkDispatcher d;std::vector<std::uint8_t> p(65528);AgentMessage m{0,7,10,p};EXPECT_FALSE(d.dispatch(m,AgentMessageDirection::from_user).accepted);}
+TEST(AgentNetworkDispatcher, NullHandlerDoesNotRegister){AgentNetworkDispatcher d;d.register_handler(1,1,AgentMessageDirection::from_user,{});EXPECT_EQ(d.handler_count(),0u);}
