@@ -64,7 +64,6 @@ gtest_add_tests(TARGET mxh_monster_tests
     PRE_SHIP_BUILD
 )
 
-
 add_executable(mxh_quest_manager_tests
     quest_manager_test.cpp
 )
@@ -80,7 +79,6 @@ gtest_add_tests(TARGET mxh_quest_manager_tests
     PRE_SHIP_BUILD
 )
 
-
 add_executable(mxh_item_manager_tests
     item_manager_test.cpp
 )
@@ -95,7 +93,6 @@ gtest_add_tests(TARGET mxh_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
-
 
 add_executable(mxh_party_manager_tests
     party_manager_test.cpp
@@ -126,7 +123,6 @@ gtest_add_tests(TARGET mxh_guild_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
-
 
 add_executable(mxh_pet_manager_tests
     pet_manager_test.cpp
@@ -424,7 +420,6 @@ gtest_add_tests(TARGET mxh_user_table_tests
     PRE_SHIP_BUILD
 )
 
-
 add_executable(mxh_help_request_manager_tests help_request_manager_test.cpp)
 target_link_libraries(mxh_help_request_manager_tests PRIVATE mxh_server gtest_main)
 target_include_directories(mxh_help_request_manager_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -448,7 +443,6 @@ gtest_add_tests(TARGET mxh_server_table_tests
 
 
 
-
 add_executable(mxh_filtering_table_tests
     filtering_table_test.cpp
 )
@@ -463,7 +457,6 @@ gtest_add_tests(TARGET mxh_filtering_table_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
-
 
 add_executable(mxh_skill_delay_manager_tests
     skill_delay_manager_test.cpp
@@ -480,7 +473,6 @@ gtest_add_tests(TARGET mxh_skill_delay_manager_tests
     PRE_SHIP_BUILD
 )
 
-
 add_executable(mxh_msg_table_tests
     msg_table_test.cpp
 )
@@ -495,7 +487,6 @@ gtest_add_tests(TARGET mxh_msg_table_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
-
 
 add_executable(mxh_punish_manager_tests
     punish_manager_test.cpp
@@ -786,8 +777,8 @@ add_executable(mxh_agent_note_tests
 target_link_libraries(mxh_agent_note_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_note_tests COMMAND mxh_agent_note_tests)
 
-add_executable(mxh_agent_note_tests
-    agent_note_test.cpp
+add_executable(mxh_agent_friend_tests
+    agent_friend_test.cpp
 )
-target_link_libraries(mxh_agent_note_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_note_tests COMMAND mxh_agent_note_tests)
+target_link_libraries(mxh_agent_friend_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_friend_tests COMMAND mxh_agent_friend_tests)
