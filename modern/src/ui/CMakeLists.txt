@@ -106,6 +106,7 @@ add_library(mxh_ui STATIC
     cnumberpaddialog.cpp
     cmininotedialog.cpp
     cnotedialog.cpp
+    cautoanswerdlg.cpp
 )
 
 if(WIN32)
