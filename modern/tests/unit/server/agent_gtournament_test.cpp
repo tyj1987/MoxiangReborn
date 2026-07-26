@@ -1,0 +1,16 @@
+#include "mxh/server/agent_gtournament.hpp"
+#include <gtest/gtest.h>
+using namespace mxh::server;
+TEST(GTournament, NoUserDrops){GtournamentRequest r;r.protocol=gtournament_movetobattlemap_syn;r.user_found=false;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::drop_no_user);}
+TEST(GTournament, MoveBattleUserMapFoundForwards){GtournamentRequest r;r.protocol=gtournament_movetobattlemap_syn;r.user_map_found=true;auto a=classify_gtournament_user(r);EXPECT_EQ(a.kind,GtournamentActionKind::send_movetobattle_to_user_map);EXPECT_EQ(a.protocol,gtournament_movetobattlemap_syn);}
+TEST(GTournament, MoveBattleUserMapMissingNacks){GtournamentRequest r;r.protocol=gtournament_movetobattlemap_syn;r.user_map_found=false;auto a=classify_gtournament_user(r);EXPECT_EQ(a.kind,GtournamentActionKind::send_movetobattle_nack_to_user);EXPECT_EQ(a.protocol,gtournament_movetobattlemap_nack);}
+TEST(GTournament, StandingInfoGtMapFoundForwards){GtournamentRequest r;r.protocol=gtournament_standinginfo_syn;r.gt_map_found=true;auto a=classify_gtournament_user(r);EXPECT_EQ(a.kind,GtournamentActionKind::send_standing_info_to_gt_map);EXPECT_EQ(a.target_map,28);}
+TEST(GTournament, StandingInfoGtMapMissingNacks){GtournamentRequest r;r.protocol=gtournament_standinginfo_syn;r.gt_map_found=false;auto a=classify_gtournament_user(r);EXPECT_EQ(a.kind,GtournamentActionKind::send_standing_info_nack_to_user);EXPECT_EQ(a.protocol,gtournament_standinginfo_nack);}
+TEST(GTournament, BattleJoinGtMapFoundForwards){GtournamentRequest r;r.protocol=gtournament_battlejoin_syn;r.gt_map_found=true;auto a=classify_gtournament_user(r);EXPECT_EQ(a.kind,GtournamentActionKind::send_standing_info_to_gt_map);EXPECT_EQ(a.target_map,28);}
+TEST(GTournament, BattleJoinGtMapMissingNacks){GtournamentRequest r;r.protocol=gtournament_battlejoin_syn;r.gt_map_found=false;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::send_battlejoin_nack_to_user);}
+TEST(GTournament, LeaveSynSendsToUserMap){GtournamentRequest r;r.protocol=gtournament_leave_syn;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::send_leave_syn_to_user_map);}
+TEST(GTournament, CheatData1SendsToUserMap){GtournamentRequest r;r.protocol=gtournament_cheat;r.cheat_data=1;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::send_cheat_to_user_map);}
+TEST(GTournament, CheatData2GtMapFoundSendsToGt){GtournamentRequest r;r.protocol=gtournament_cheat;r.cheat_data=2;r.gt_map_found=true;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::send_cheat_to_gt_map);}
+TEST(GTournament, EventStartGmBlockedByLevel){GtournamentRequest r;r.protocol=gtournament_event_start;r.user_level=10;r.gt_map_found=true;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::drop_no_user);}
+TEST(GTournament, EventStartGmLevelSends){GtournamentRequest r;r.protocol=gtournament_event_start;r.user_level=8;r.gt_map_found=true;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::send_event_to_gt_map);}
+TEST(GTournament, UnknownProtocolForwards){GtournamentRequest r;r.protocol=0;EXPECT_EQ(classify_gtournament_user(r).kind,GtournamentActionKind::forward_to_map_server);}
