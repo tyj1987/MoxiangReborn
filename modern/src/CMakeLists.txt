@@ -170,6 +170,7 @@ add_library(mxh_server STATIC
     server/object_factory.cpp
     server/ai_param.cpp
     server/ai_group_prototype.cpp
+    server/economy.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
