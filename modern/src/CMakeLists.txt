@@ -164,6 +164,7 @@ add_library(mxh_server STATIC
     server/common_network_msg_parser.cpp
     server/crypt.cpp
     server/traffic_log.cpp
+    server/plustime_manager.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
