@@ -103,6 +103,7 @@ add_executable(mxh_ui_tests
     ccheckbox_test.cpp
     cnumberpaddialog_test.cpp
     cmininotedialog_test.cpp
+    cnotedialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
