@@ -90,6 +90,7 @@ TEST(PerformanceMonitorTest, LatencyTracking) {
 
 TEST(PerformanceMonitorTest, AlertCallback) {
     auto& monitor = PerformanceMonitor::get_instance();
+    monitor.reset();  // singleton survives across tests
     
     // Set low threshold
     monitor.set_connection_threshold(1);
