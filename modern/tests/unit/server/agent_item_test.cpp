@@ -1,0 +1,16 @@
+#include "mxh/server/agent_item.hpp"
+#include <gtest/gtest.h>
+using namespace mxh::server;
+TEST(ItemUser, ChangeMapSynForwardsToMapWithDropPayload){ItemUserRequest r;r.protocol=item_shopitem_changemap_syn;r.object_id=42;auto a=classify_item_user(r);EXPECT_EQ(a.kind,ItemUserActionKind::forward_to_map);EXPECT_EQ(a.protocol,item_shopitem_changemap_syn);EXPECT_TRUE(a.drop_payload);}
+TEST(ItemUser, NChangeUserNotFoundSendsNack){ItemUserRequest r;r.protocol=item_shopitem_nchange_syn;r.user_found=false;auto a=classify_item_user(r);EXPECT_EQ(a.kind,ItemUserActionKind::send_nack_to_user);EXPECT_EQ(a.protocol,item_shopitem_nchange_nack);EXPECT_EQ(a.error_code,item_name_nack_code);}
+TEST(ItemUser, NChangeNameTooShortSendsNack){ItemUserRequest r;r.protocol=item_shopitem_nchange_syn;r.user_found=true;r.name_length=3;auto a=classify_item_user(r);EXPECT_EQ(a.kind,ItemUserActionKind::send_nack_to_user);EXPECT_EQ(a.error_code,item_name_nack_code);}
+TEST(ItemUser, NChangeNameInvalidCharSendsNack){ItemUserRequest r;r.protocol=item_shopitem_nchange_syn;r.user_found=true;r.name_length=10;r.name_usable=true;r.name_has_invalid_char=true;auto a=classify_item_user(r);EXPECT_EQ(a.kind,ItemUserActionKind::send_nack_to_user);EXPECT_EQ(a.error_code,item_name_nack_code);}
+TEST(ItemUser, NChangeNameValidForwardsToMap){ItemUserRequest r;r.protocol=item_shopitem_nchange_syn;r.user_found=true;r.name_length=10;r.name_usable=true;r.name_has_invalid_char=false;auto a=classify_item_user(r);EXPECT_EQ(a.kind,ItemUserActionKind::forward_to_map_if_name_valid);EXPECT_EQ(a.protocol,item_shopitem_nchange_syn);EXPECT_FALSE(a.drop_payload);}
+TEST(ItemUser, ChaseSynTriggersChaseLookup){ItemUserRequest r;r.protocol=item_shopitem_chase_syn;auto a=classify_item_user(r);EXPECT_EQ(a.kind,ItemUserActionKind::send_chase_lookup);EXPECT_EQ(a.protocol,item_shopitem_chase_syn);}
+TEST(ItemUserExt, DefaultForwardsToMap){EXPECT_EQ(classify_item_user_ext(item_shopitem_nchange_syn).kind,ItemUserActionKind::forward_to_map);}
+TEST(ItemServer, ChaseAckSendsToUser){ItemServerRequest r;r.protocol=item_shopitem_chase_ack;r.data=99;EXPECT_EQ(classify_item_server(r).kind,ItemServerActionKind::forward_to_user);}
+TEST(ItemServer, ChaseNackSendsToUserWithData2Rewrite){ItemServerRequest r;r.protocol=item_shopitem_chase_nack;r.data=99;auto a=classify_item_server(r);EXPECT_EQ(a.kind,ItemServerActionKind::send_chase_nack_to_user);EXPECT_EQ(a.alternate_data,item_chase_nack_data);}
+TEST(ItemServer, ShoutAckWithFullBufferSendsNack){ItemServerRequest r;r.protocol=item_shopitem_shout_ack;r.shout_buffer_full=true;auto a=classify_item_server(r);EXPECT_EQ(a.kind,ItemServerActionKind::shout_ack_with_broadcast);EXPECT_TRUE(a.broadcast_shout);}
+TEST(ItemServer, ShoutAckWithSpaceAddsAndBroadcasts){ItemServerRequest r;r.protocol=item_shopitem_shout_ack;r.shout_buffer_full=false;auto a=classify_item_server(r);EXPECT_EQ(a.kind,ItemServerActionKind::shout_ack_with_broadcast);EXPECT_FALSE(a.broadcast_shout);}
+TEST(ItemServer, ShoutSendServerAddsOnly){ItemServerRequest r;r.protocol=item_shopitem_shout_sendserver;auto a=classify_item_server(r);EXPECT_EQ(a.kind,ItemServerActionKind::shout_add_only);}
+TEST(ItemServerExt, DefaultForwardsToClient){EXPECT_EQ(classify_item_server_ext(item_shopitem_changemap_ack).kind,ItemServerActionKind::forward_to_client);}
