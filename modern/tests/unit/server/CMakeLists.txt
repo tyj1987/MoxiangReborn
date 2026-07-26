@@ -822,7 +822,8 @@ add_executable(mxh_agent_userconn_tests
     agent_userconn_test.cpp
 )
 target_link_libraries(mxh_agent_userconn_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_userconn_tests COMMAND mxh_agent_userconn_tests)
+gtest_add_tests(TARGET mxh_agent_userconn_tests
+    WORKING_DIRECTORY /tests/unit)
 add_executable(mxh_agent_powerup_tests
     agent_powerup_test.cpp
 )
@@ -832,7 +833,8 @@ add_executable(mxh_agent_cheat_tests
     agent_cheat_test.cpp
 )
 target_link_libraries(mxh_agent_cheat_tests PRIVATE mxh_server GTest::gtest_main)
-add_test(NAME mxh_agent_cheat_tests COMMAND mxh_agent_cheat_tests)
+gtest_add_tests(TARGET mxh_agent_cheat_tests
+    WORKING_DIRECTORY /tests/unit)
 add_executable(mxh_agent_gtournament_server_tests
     agent_gtournament_server_test.cpp
 )

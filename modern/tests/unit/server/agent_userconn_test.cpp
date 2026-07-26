@@ -295,125 +295,695 @@ TEST(UserConnBackToCharSelAck, MissingCharDrops) {
 }
 
 
-// Sweep all 116 known MP_USERCONN sub-protocols.
-class UserConnSweep : public ::testing::TestWithParam<std::uint8_t> {};
-TEST_P(UserConnSweep, RoutesToSomeAction) { auto r = base(); r.protocol = GetParam(); auto a = classify_userconn(r); EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u); }
-INSTANTIATE_TEST_SUITE_P(UserConnSweepAll, UserConnSweep, ::testing::Values(
-    mxh::server::userconn_dist_connectsuccess,
-    mxh::server::userconn_login_syn,
-    mxh::server::userconn_login_ack,
-    mxh::server::userconn_login_nack,
-    mxh::server::userconn_notify_userlogin_syn,
-    mxh::server::userconn_notify_userlogin_ack,
-    mxh::server::userconn_notify_userlogin_nack,
-    mxh::server::userconn_notify_overlappedlogin,
-    mxh::server::userconn_agent_connectsuccess,
-    mxh::server::userconn_characterlist_syn,
-    mxh::server::userconn_directcharacterlist_syn,
-    mxh::server::userconn_characterlist_nack,
-    mxh::server::userconn_characterlist_ack,
-    mxh::server::userconn_disconnect_syn,
-    mxh::server::userconn_disconnect_ack,
-    mxh::server::userconn_disconnect_nack,
-    mxh::server::userconn_characterselect_syn,
-    mxh::server::userconn_characterselect_ack,
-    mxh::server::userconn_characterselect_nack,
-    mxh::server::userconn_character_namecheck_syn,
-    mxh::server::userconn_character_namecheck_ack,
-    mxh::server::userconn_character_namecheck_nack,
-    mxh::server::userconn_character_make_syn,
-    mxh::server::userconn_character_make_ack,
-    mxh::server::userconn_character_make_nack,
-    mxh::server::userconn_character_info_syn,
-    mxh::server::userconn_character_info_ack,
-    mxh::server::userconn_character_info_nack,
-    mxh::server::userconn_gamein_syn,
-    mxh::server::userconn_gamein_ack,
-    mxh::server::userconn_gamein_nack,
-    mxh::server::userconn_gameout_syn,
-    mxh::server::userconn_gameout_ack,
-    mxh::server::userconn_gameout_nack,
-    mxh::server::userconn_disconnected,
-    mxh::server::userconn_character_add,
-    mxh::server::userconn_pet_add,
-    mxh::server::userconn_monster_add,
-    mxh::server::userconn_bossmonster_add,
-    mxh::server::userconn_npc_add,
-    mxh::server::userconn_object_remove,
-    mxh::server::userconn_character_die,
-    mxh::server::userconn_monster_die,
-    mxh::server::userconn_pet_die,
-    mxh::server::userconn_character_revive,
-    mxh::server::userconn_character_remove_syn,
-    mxh::server::userconn_character_remove_ack,
-    mxh::server::userconn_character_remove_nack,
-    mxh::server::userconn_changemap_syn,
-    mxh::server::userconn_changemap_ack,
-    mxh::server::userconn_changemap_nack,
-    mxh::server::userconn_map_out,
-    mxh::server::userconn_map_out_withmapnum,
-    mxh::server::userconn_character_totalinfo,
-    mxh::server::userconn_savepoint_syn,
-    mxh::server::userconn_savepoint_ack,
-    mxh::server::userconn_savepoint_nack,
-    mxh::server::userconn_backtocharsel_syn,
-    mxh::server::userconn_backtocharsel_ack,
-    mxh::server::userconn_backtocharsel_nack,
-    mxh::server::userconn_gridinit,
-    mxh::server::userconn_setvisible,
-    mxh::server::userconn_otheruser_connecttry_notify,
-    mxh::server::userconn_connection_check,
-    mxh::server::userconn_connection_check_ok,
-    mxh::server::userconn_checksumerror,
-    mxh::server::userconn_force_disconnect_overlaplogin,
-    mxh::server::userconn_disconnected_by_overlaplogin,
-    mxh::server::userconn_channelinfo_syn,
-    mxh::server::userconn_channelinfo_ack,
-    mxh::server::userconn_channelinfo_nack,
-    mxh::server::userconn_notifytoagent_alreadyout,
-    mxh::server::userconn_request_distout,
-    mxh::server::userconn_disconnected_on_login,
-    mxh::server::userconn_server_notready,
-    mxh::server::userconn_mapdesc,
-    mxh::server::userconn_character_revive_nack,
-    mxh::server::userconn_ready_to_revive,
-    mxh::server::userconn_cheat_using,
-    mxh::server::userconn_cheat_changemap_ack,
-    mxh::server::userconn_use_dynamic_syn,
-    mxh::server::userconn_use_dynamic_ack,
-    mxh::server::userconn_use_dynamic_nack,
-    mxh::server::userconn_login_dynamic_syn,
-    mxh::server::userconn_login_dynamic_ack,
-    mxh::server::userconn_login_dynamic_nack,
-    mxh::server::userconn_logincheck_delete,
-    mxh::server::userconn_force_disconnect_overlaplogin_ack,
-    mxh::server::userconn_map_out_to_eventmap,
-    mxh::server::userconn_map_out_to_eventbeforemap,
-    mxh::server::userconn_enter_eventmap_syn,
-    mxh::server::userconn_event_ready,
-    mxh::server::userconn_event_start,
-    mxh::server::userconn_event_end,
-    mxh::server::userconn_eventitem_use,
-    mxh::server::userconn_eventitem_use2,
-    mxh::server::userconn_gameinpos_syn,
-    mxh::server::userconn_gameinpos_ack,
-    mxh::server::userconn_gameinpos_nack,
-    mxh::server::userconn_remaintime_notify,
-    mxh::server::userconn_backtobeforemap_touser,
-    mxh::server::userconn_backtobeforemap_syn,
-    mxh::server::userconn_backtobeforemap_ack,
-    mxh::server::userconn_backtobeforemap_nack,
-    mxh::server::userconn_enter_gtournament_syn,
-    mxh::server::userconn_characterslot,
-    mxh::server::userconn_castlegate_add,
-    mxh::server::userconn_gamein_othermap_syn,
-    mxh::server::userconn_nowaitexitplayer,
-    mxh::server::userconn_flagnpc_onoff,
-    mxh::server::userconn_login_syn_buddy,
-    mxh::server::userconn_changemap_channelinfo_syn,
-    mxh::server::userconn_changemap_channelinfo_ack,
-    mxh::server::userconn_changemap_channelinfo_nack,
-    mxh::server::userconn_currentmap_channelinfo
-));
 
+TEST(UserConnSweep, Sweep_0) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_dist_connectsuccess;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_1) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_2) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_3) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_4) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_notify_userlogin_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_5) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_notify_userlogin_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_6) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_notify_userlogin_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_7) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_notify_overlappedlogin;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_8) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_agent_connectsuccess;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_9) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterlist_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_10) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_directcharacterlist_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_11) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterlist_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_12) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterlist_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_13) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_disconnect_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_14) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_disconnect_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_15) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_disconnect_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_16) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterselect_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_17) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterselect_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_18) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterselect_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_19) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_namecheck_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_20) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_namecheck_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_21) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_namecheck_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_22) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_make_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_23) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_make_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_24) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_make_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_25) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_info_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_26) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_info_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_27) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_info_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_28) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gamein_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_29) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gamein_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_30) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gamein_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_31) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gameout_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_32) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gameout_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_33) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gameout_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_34) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_disconnected;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_35) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_add;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_36) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_pet_add;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_37) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_monster_add;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_38) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_bossmonster_add;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_39) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_npc_add;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_40) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_object_remove;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_41) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_die;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_42) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_monster_die;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_43) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_pet_die;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_44) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_revive;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_45) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_remove_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_46) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_remove_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_47) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_remove_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_48) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_changemap_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_49) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_changemap_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_50) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_changemap_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_51) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_map_out;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_52) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_map_out_withmapnum;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_53) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_totalinfo;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_54) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_savepoint_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_55) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_savepoint_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_56) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_savepoint_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_57) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtocharsel_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_58) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtocharsel_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_59) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtocharsel_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_60) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gridinit;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_61) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_setvisible;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_62) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_otheruser_connecttry_notify;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_63) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_connection_check;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_64) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_connection_check_ok;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_65) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_checksumerror;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_66) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_force_disconnect_overlaplogin;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_67) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_disconnected_by_overlaplogin;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_68) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_channelinfo_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_69) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_channelinfo_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_70) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_channelinfo_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_71) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_notifytoagent_alreadyout;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_72) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_request_distout;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_73) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_disconnected_on_login;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_74) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_server_notready;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_75) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_mapdesc;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_76) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_character_revive_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_77) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_ready_to_revive;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_78) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_cheat_using;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_79) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_cheat_changemap_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_80) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_use_dynamic_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_81) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_use_dynamic_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_82) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_use_dynamic_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_83) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_dynamic_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_84) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_dynamic_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_85) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_dynamic_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_86) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_logincheck_delete;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_87) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_force_disconnect_overlaplogin_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_88) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_map_out_to_eventmap;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_89) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_map_out_to_eventbeforemap;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_90) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_enter_eventmap_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_91) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_event_ready;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_92) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_event_start;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_93) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_event_end;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_94) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_eventitem_use;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_95) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_eventitem_use2;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_96) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gameinpos_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_97) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gameinpos_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_98) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gameinpos_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_99) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_remaintime_notify;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_100) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtobeforemap_touser;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_101) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtobeforemap_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_102) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtobeforemap_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_103) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_backtobeforemap_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_104) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_enter_gtournament_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_105) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_characterslot;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_106) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_castlegate_add;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_107) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_gamein_othermap_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_108) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_nowaitexitplayer;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_109) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_flagnpc_onoff;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_110) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_login_syn_buddy;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_111) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_changemap_channelinfo_syn;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_112) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_changemap_channelinfo_ack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_113) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_changemap_channelinfo_nack;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
+TEST(UserConnSweep, Sweep_114) {
+    auto r = base();
+    r.protocol = mxh::server::userconn_currentmap_channelinfo;
+    auto a = classify_userconn(r);
+    EXPECT_GE(static_cast<std::uint8_t>(a.kind), 0u);
+}
 }  // namespace
