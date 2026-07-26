@@ -683,3 +683,9 @@ add_executable(mxh_ai_param_tests
 )
 target_link_libraries(mxh_ai_param_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_ai_param_tests COMMAND mxh_ai_param_tests)
+
+add_executable(mxh_agent_chat_tests
+    agent_chat_test.cpp
+)
+target_link_libraries(mxh_agent_chat_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_chat_tests COMMAND mxh_agent_chat_tests)

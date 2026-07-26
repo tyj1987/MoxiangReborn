@@ -173,6 +173,7 @@ add_library(mxh_server STATIC
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
     server/mh_file_reader.cpp
+    server/agent_chat.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp

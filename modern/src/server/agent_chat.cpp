@@ -1,0 +1,5 @@
+#include "mxh/server/agent_chat.hpp"
+namespace mxh::server {
+ChatDispatch classify_chat(std::uint8_t p,bool from_user,bool gm){switch(p){case chat_all:case chat_smallshout:case chat_monster_speech:return {ChatRoute::broadcast,false,false};case chat_gm_smallshout:return {gm?ChatRoute::broadcast:ChatRoute::rejected,false,true};case chat_whisper_syn:case chat_whisper_gm_syn:return {ChatRoute::whisper,true,p==chat_whisper_gm_syn};case chat_party:return {ChatRoute::party,false,false};case chat_guild:return {ChatRoute::guild,false,false};case chat_guild_union:return {ChatRoute::guild_union,false,false};case chat_shout_send_server:return {ChatRoute::shout_server,false,false};case chat_fastchat:return {from_user?ChatRoute::fast_chat:ChatRoute::rejected,false,false};default:return {};}}
+}
+[[maybe_unused]] constexpr int agent_chat_translation_unit_anchor=0;
