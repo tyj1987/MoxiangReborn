@@ -824,3 +824,9 @@ add_executable(mxh_agent_itemlimit_tests
 )
 target_link_libraries(mxh_agent_itemlimit_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_itemlimit_tests COMMAND mxh_agent_itemlimit_tests)
+
+add_executable(mxh_agent_fortwar_tests
+    agent_fortwar_test.cpp
+)
+target_link_libraries(mxh_agent_fortwar_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_fortwar_tests COMMAND mxh_agent_fortwar_tests)
