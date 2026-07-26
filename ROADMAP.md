@@ -44,7 +44,7 @@
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
 | 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2536 tests PASS | T1 部分验证（资源浏览器能解析） |
-| UI 控件 1:1 port（dialog + subcontrol） | **100% 覆盖** | 102 hpp / 100+ legacy dialog ported / 1721 ui tests PASS | T3 每个 dialog 有 unit test 锁死 1:1 行为 |
+| UI 控件 1:1 port（dialog + subcontrol） | **102/158 hpp（87 missing，Batch 1 开 cNumberPadDialog）** | 老 client 158 dialog / modern 102 hpp（含 subcontrol+core）；差 87 个老 dialog 待 1:1 port + test | T3 1:1 行为锁死 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |
@@ -85,13 +85,20 @@
 - [ ] B6 HSEL stub 完整化（已 80%，补 20%）
 - [ ] 验证：登录→选服→进图→看到角色（空场景）
 
-### Phase C —— 客户端 UI 1:1 收口（3-4 周，**已在进行**）
-**目标**：P2-12 dialog 100% + UI 行为 1:1。
+### Phase C —— 客户端 UI 1:1 收口（5-7 session 多批，**已开 Batch 1**）
+**目标**：把老 client 158 个 dialog 全部 1:1 port + test。Modern 当前 102 个 hpp（含 subcontrol/core），缺 **87 个老 dialog**。
 
-- [ ] C1 71/202 → 202/202 dialog（每天 3-5 个 batch）
-- [ ] C2 Tier 1.5 subcontrol 14 → 收尾
-- [ ] C3 Tier 3 dialog 9 个（等 Phase B service 真接）
-- [ ] C4 Tier 4/5 dialog 100+（NPC script + network）
+- [x] **C-Batch-1.1** `cNumberPadDialog` — login PIN 4-digit entry（commit `5790051`）
+  - 14 test: constants, Linking, InitProtectionStr, InsertStr (mask+digit), 4-char cap, OnActionEvent 派发, backspace, WE_CLOSEWINDOW, nGate=3 短路, nGate!=3 允许, unknown button id 容忍, GetProtectionStr 返回 raw digits, SetActive forwarder, buffer cap constant
+- [ ] **C-Batch-1.2 ~ 1.10** NumberPadDialog 之后: MiniNoteDialog, NoteDialog, ScreenShotDlg, StatusIconDlg, OptionDialog, ChannelDialog, JournalDialog, AutoAnswerDlg, HelperSpeechDlg, CostumeSkinSelectDialog, BigMapDlg, MiniMapDlg, ChatDialog, CharacterDialog, CharMakeDialog, CharChangeDlg, MonsterGuageDlg, QuestDialog, QuestTotalDialog, MoveDialog, PyoGukDialog, QuickDialog, FriendDialog, MixDialog, DissolveDlg, DissolutionDialog, BuyRegDialog, DealDialog, ExchangeDialog, MainBarDialog, MenuSlotDialog, ...
+- [ ] **C-Batch-2 ~ 5** 主 UI 框架 (MainBarDialog, MenuSlotDialog) + 帮派/商城/泰坦/宠物/战盟/摆摊/强化 等复杂 dialog 100+ 个
+- [ ] **C-Tier-3** 9 个等 Phase B service 真接的 dialog（QuestDialog/QuestTotalDialog/DealDialog 等）
+- [ ] **C-Tier-4/5** NPC script + network dialog（CharMake/CharChange/CharacterDialog/InventoryEx 等）
+
+**评估**：单 session 平均 port 2-3 个 dialog（hpp+cpp+test+build verify+commit）。87 个 total → **5-7 session**。
+
+**已完成 1/87**（cNumberPadDialog，2026-07-26 commit `5790051`）。
+
 - [ ] 验证：每个 dialog 用 unit test 锁死 1:1 行为
 
 ### Phase D —— 玩法/数值 1:1 锁定（4-6 周）
