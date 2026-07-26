@@ -104,6 +104,7 @@ add_library(mxh_ui STATIC
     mugongsuryundialog.cpp
     ccheckbox.cpp
     cnumberpaddialog.cpp
+    cmininotedialog.cpp
 )
 
 if(WIN32)
