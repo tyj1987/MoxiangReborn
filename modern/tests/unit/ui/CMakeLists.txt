@@ -112,6 +112,7 @@ add_executable(mxh_ui_tests
     cjournaldialog_test.cpp
     chelperspeechdlg_test.cpp
     ccostumeskinselectdialog_test.cpp
+    cchatdialog_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
