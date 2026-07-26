@@ -111,6 +111,7 @@ add_library(mxh_ui STATIC
     cscreenshotdlg.cpp
     coptiondialog.cpp
     cchanneldialog.cpp
+    cjournaldialog.cpp
 )
 
 if(WIN32)
