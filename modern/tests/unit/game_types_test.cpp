@@ -213,58 +213,63 @@ TEST(ObjectKindTest, MonsterHierarchyIsDistinct) {
 
 TEST(SkillInfoTest, DefaultConstructionIsEmpty) {
     SkillInfo s{};
-    EXPECT_EQ(s.skill_idx, 0u);
-    EXPECT_EQ(s.skill_kind, 0u);
-    EXPECT_EQ(s.skill_range, 1u);  // default range = 1 tile
-    EXPECT_EQ(s.target_range, 0u);
-    EXPECT_EQ(s.delay_time, 1000u); // 1s default cooldown
-    EXPECT_EQ(s.duration, 0u);
-    EXPECT_EQ(s.weapon_kind, 0u);
+    // D1.3 expanded SkillInfo to the 1:1 legacy SKILLINFO layout.  All
+    // numeric defaults are zero (zero-init); the legacy .bin populates
+    // the actual values.
+    EXPECT_EQ(s.SkillIdx, 0u);
+    EXPECT_EQ(s.SkillKind, 0u);            // 0 == Combo in legacy enum
+    EXPECT_EQ(s.SkillRange, 0u);
+    EXPECT_EQ(s.TargetRange, 0u);
+    EXPECT_EQ(s.DelayTime, 0u);
+    EXPECT_EQ(s.Duration, 0u);
+    EXPECT_EQ(s.WeaponKind, 0u);
+    // SkillName is NUL-padded.
+    EXPECT_EQ(s.SkillName[0], '\0');
 }
 
 TEST(SkillInfoTest, FieldsAreSettable) {
     SkillInfo s{};
-    s.skill_idx = 100;
-    s.skill_kind = 1;  // recover
-    s.skill_range = 5;
-    s.target_range = 3;  // AoE radius 3
-    s.delay_time = 2000;
-    s.duration = 10000;
-    s.weapon_kind = 2;  // sword
-    EXPECT_EQ(s.skill_idx, 100u);
-    EXPECT_EQ(s.skill_kind, 1u);
-    EXPECT_EQ(s.skill_range, 5u);
-    EXPECT_EQ(s.target_range, 3u);
-    EXPECT_EQ(s.delay_time, 2000u);
-    EXPECT_EQ(s.duration, 10000u);
-    EXPECT_EQ(s.weapon_kind, 2u);
+    s.SkillIdx   = 100;
+    s.SkillKind  = 1;                       // OuterMugong
+    s.SkillRange = 5;
+    s.TargetRange = 3;                       // AoE radius 3
+    s.DelayTime  = 2000;
+    s.Duration   = 10000;
+    s.WeaponKind = 2;                       // sword
+    EXPECT_EQ(s.SkillIdx,   100u);
+    EXPECT_EQ(s.SkillKind,  1u);
+    EXPECT_EQ(s.SkillRange, 5u);
+    EXPECT_EQ(s.TargetRange, 3u);
+    EXPECT_EQ(s.DelayTime,  2000u);
+    EXPECT_EQ(s.Duration,   10000u);
+    EXPECT_EQ(s.WeaponKind, 2u);
 }
 
 TEST(SkillInstanceTest, TracksCasterAndTarget) {
     SkillInstance inst{};
     EXPECT_EQ(inst.skill_object_id, 0u);
-    EXPECT_EQ(inst.skill_idx, 0u);
-    EXPECT_EQ(inst.caster_id, 0u);
-    EXPECT_EQ(inst.main_target_id, 0u);
+    EXPECT_EQ(inst.skill_idx,       0u);
+    EXPECT_EQ(inst.caster_id,       0u);
+    EXPECT_EQ(inst.main_target_id,  0u);
     EXPECT_TRUE(inst.is_active);
 
     inst.skill_object_id = 999;
-    inst.skill_idx = 42;
-    inst.caster_id = 1000;
-    inst.main_target_id = 1001;
+    inst.skill_idx       = 42;
+    inst.caster_id       = 1000;
+    inst.main_target_id  = 1001;
     inst.pos_x = 100.0f;
     inst.pos_z = 200.0f;
     inst.direction = 180;
     inst.duration = 5000;
     inst.is_active = false;
     EXPECT_EQ(inst.skill_object_id, 999u);
-    EXPECT_EQ(inst.skill_idx, 42u);
-    EXPECT_EQ(inst.caster_id, 1000u);
-    EXPECT_EQ(inst.main_target_id, 1001u);
-    EXPECT_FLOAT_EQ(inst.pos_x, 100.0f);
-    EXPECT_FLOAT_EQ(inst.pos_z, 200.0f);
-    EXPECT_EQ(inst.direction, 180u);
-    EXPECT_EQ(inst.duration, 5000u);
+    EXPECT_EQ(inst.skill_idx,       42u);
+    EXPECT_EQ(inst.caster_id,       1000u);
+    EXPECT_EQ(inst.main_target_id,  1001u);
+    EXPECT_FLOAT_EQ(inst.pos_x,     100.0f);
+    EXPECT_FLOAT_EQ(inst.pos_z,     200.0f);
+    EXPECT_EQ(inst.direction,       180u);
+    EXPECT_EQ(inst.duration,        5000u);
     EXPECT_FALSE(inst.is_active);
 }
 

@@ -1,6 +1,7 @@
 add_executable(mxh_game_tests
     game_types_test.cpp
     skill_manager_test.cpp
+    skill_list_parser_test.cpp
 )
 target_include_directories(mxh_game_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include

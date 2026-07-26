@@ -395,13 +395,16 @@ TEST(GameGeometry, DistanceSq2DIsTranslationInvariant) {
 
 TEST(GameSkillInfo, DefaultFieldsAreSane) {
     SkillInfo s{};
-    EXPECT_EQ(s.skill_idx,   0u);
-    EXPECT_EQ(s.skill_kind,  SkillKind::Combo);
-    EXPECT_EQ(s.skill_range, 1u);
-    EXPECT_EQ(s.delay_time,  1000u);
-    EXPECT_EQ(s.phy_attack,  10u);
-    EXPECT_EQ(s.att_rate,    100u);
-    EXPECT_EQ(s.critical_rate, 5u);
+    // 1:1 port: SkillIdx is uint16_t; legacy default is 0.
+    EXPECT_EQ(s.SkillIdx,   0u);
+    // SkillName NUL-padded.
+    EXPECT_EQ(s.SkillName[0], '\0');
+    // Simplified view of a default-constructed skill.
+    auto simple = to_simple(s);
+    EXPECT_EQ(simple.skill_kind,  SkillKind::Combo);
+    EXPECT_EQ(simple.skill_range, 0u);   // not set, default 0
+    EXPECT_EQ(simple.delay_time,  0u);   // not set, default 0
+    EXPECT_EQ(simple.phy_attack,  0.0f);
 }
 
 // -------------------------------------------------------------------------
@@ -485,56 +488,56 @@ TEST(GameSkillTable, DefaultSkillsHasFourEntries) {
 
 TEST(GameSkillTable, Skill1BasicStrikeOuterMugong) {
     auto s = get_default_skills();
-    EXPECT_EQ(s[0].skill_idx,   1u);
-    EXPECT_EQ(s[0].name,        "BasicStrike");
-    EXPECT_EQ(s[0].skill_kind,  SkillKind::OuterMugong);
-    EXPECT_EQ(s[0].skill_range, 1u);
-    EXPECT_EQ(s[0].target_range, 0u);
-    EXPECT_EQ(s[0].delay_time,  1000u);
-    EXPECT_EQ(s[0].phy_attack,  15u);
-    EXPECT_EQ(s[0].need_nearyuk, 5u);
+    EXPECT_EQ(s[0].SkillIdx, 1u);
+    EXPECT_STREQ(s[0].SkillName, "BasicStrike");
+    EXPECT_EQ(s[0].SkillKind, static_cast<std::uint16_t>(SkillKind::OuterMugong));
+    EXPECT_EQ(s[0].SkillRange, 1u);
+    EXPECT_EQ(s[0].TargetRange, 0u);
+    EXPECT_EQ(s[0].DelayTime, 1000u);
+    EXPECT_EQ(s[0].UpPhyAttack[0], 15.0f);
+    EXPECT_EQ(s[0].NeedNaeRyuk[0], 5u);
 }
 
 TEST(GameSkillTable, Skill2TripleCombo) {
     auto s = get_default_skills();
-    EXPECT_EQ(s[1].skill_idx,   2u);
-    EXPECT_EQ(s[1].name,        "TripleCombo");
-    EXPECT_EQ(s[1].skill_kind,  SkillKind::Combo);
-    EXPECT_EQ(s[1].skill_range, 2u);
-    EXPECT_EQ(s[1].delay_time,  2500u);
-    EXPECT_EQ(s[1].phy_attack,  12u);
-    EXPECT_EQ(s[1].need_nearyuk, 15u);
+    EXPECT_EQ(s[1].SkillIdx, 2u);
+    EXPECT_STREQ(s[1].SkillName, "TripleCombo");
+    EXPECT_EQ(s[1].SkillKind, static_cast<std::uint16_t>(SkillKind::Combo));
+    EXPECT_EQ(s[1].SkillRange, 2u);
+    EXPECT_EQ(s[1].DelayTime, 2500u);
+    EXPECT_EQ(s[1].UpPhyAttack[0], 12.0f);
+    EXPECT_EQ(s[1].NeedNaeRyuk[0], 15u);
 }
 
 TEST(GameSkillTable, Skill3HealSelfSimbub) {
     auto s = get_default_skills();
-    EXPECT_EQ(s[2].skill_idx,   3u);
-    EXPECT_EQ(s[2].name,        "HealSelf");
-    EXPECT_EQ(s[2].skill_kind,  SkillKind::Simbub);
-    EXPECT_EQ(s[2].skill_range, 0u);     // self-cast
-    EXPECT_EQ(s[2].delay_time,  5000u);
-    EXPECT_EQ(s[2].need_nearyuk, 20u);
+    EXPECT_EQ(s[2].SkillIdx, 3u);
+    EXPECT_STREQ(s[2].SkillName, "HealSelf");
+    EXPECT_EQ(s[2].SkillKind, static_cast<std::uint16_t>(SkillKind::Simbub));
+    EXPECT_EQ(s[2].SkillRange, 0u);     // self-cast
+    EXPECT_EQ(s[2].DelayTime, 5000u);
+    EXPECT_EQ(s[2].NeedNaeRyuk[0], 20u);
 }
 
 TEST(GameSkillTable, Skill4WhirlwindAoe) {
     auto s = get_default_skills();
-    EXPECT_EQ(s[3].skill_idx,   4u);
-    EXPECT_EQ(s[3].name,        "Whirlwind");
-    EXPECT_EQ(s[3].skill_kind,  SkillKind::OuterMugong);
-    EXPECT_EQ(s[3].skill_range, 3u);
-    EXPECT_EQ(s[3].target_range, 200u);   // 2-tile AoE radius
-    EXPECT_EQ(s[3].delay_time,  4000u);
-    EXPECT_EQ(s[3].phy_attack,  20u);
-    EXPECT_EQ(s[3].stun_rate,   10u);
-    EXPECT_EQ(s[3].need_nearyuk, 30u);
+    EXPECT_EQ(s[3].SkillIdx, 4u);
+    EXPECT_STREQ(s[3].SkillName, "Whirlwind");
+    EXPECT_EQ(s[3].SkillKind, static_cast<std::uint16_t>(SkillKind::OuterMugong));
+    EXPECT_EQ(s[3].SkillRange, 3u);
+    EXPECT_EQ(s[3].TargetRange, 200u);   // 2-tile AoE radius
+    EXPECT_EQ(s[3].DelayTime, 4000u);
+    EXPECT_EQ(s[3].UpPhyAttack[0], 20.0f);
+    EXPECT_EQ(s[3].StunRate[0], 10.0f);
+    EXPECT_EQ(s[3].NeedNaeRyuk[0], 30u);
 }
 
 TEST(GameSkillTable, SkillIdsAreUnique) {
     auto s = get_default_skills();
     for (std::size_t i = 0; i < s.size(); ++i) {
         for (std::size_t j = i + 1; j < s.size(); ++j) {
-            EXPECT_NE(s[i].skill_idx, s[j].skill_idx)
-                << "duplicate skill_idx at " << i << " and " << j;
+            EXPECT_NE(s[i].SkillIdx, s[j].SkillIdx)
+                << "duplicate SkillIdx at " << i << " and " << j;
         }
     }
 }

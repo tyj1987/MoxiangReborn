@@ -1,11 +1,19 @@
-// mxh/src/game/skill_manager.cpp - Phase D1.2
+// mxh/src/game/skill_manager.cpp - Phase D1.3
 //
 // Implementation of the SkillManager lookup table.  Kept in a .cpp
 // (rather than the header) so the SkillManager member definitions
 // don't leak into every translation unit that includes the header.
+//
+// D1.3 adds init_from_bin(): loads the real legacy SkillList.bin
+// (packed-text format) into the table.  This is the 1:1 equivalent
+// of the legacy CSkillManager::LoadSkillList() in
+// `墨香【源码】\[CC]Skill\SkillManager_client.cpp` lines 174-200.
 
 #include "mxh/game/skill_manager.hpp"
+#include "mxh/game/skill_list_parser.hpp"
 #include "mxh/game/skill_types.hpp"
+
+#include <stdexcept>
 
 namespace mxh::game {
 
@@ -16,23 +24,42 @@ void SkillManager::init() {
     }
 }
 
+void SkillManager::init_from_bin(const std::string& path,
+                                 std::uint32_t* out_errors) {
+    auto result = load_skill_list(path);
+    if (!result.error_message.empty()
+        && result.skills.empty()) {
+        // I/O or header failure: no rows loaded, propagate.
+        throw std::runtime_error(
+            "SkillManager::init_from_bin: " + result.error_message);
+    }
+    clear();
+    for (auto& s : result.skills) {
+        // add() throws on duplicate skill_idx; for the legacy bin
+        // (which has unique skill indices by construction) this
+        // signals a malformed file, not normal flow.
+        add(std::move(s));
+    }
+    if (out_errors) *out_errors = result.parse_errors;
+}
+
 void SkillManager::add(const SkillInfo& s) {
-    if (m_idx.find(s.skill_idx) != m_idx.end()) {
+    if (m_idx.find(s.SkillIdx) != m_idx.end()) {
         throw std::invalid_argument(
             "SkillManager::add: duplicate skill_idx " +
-            std::to_string(s.skill_idx));
+            std::to_string(s.SkillIdx));
     }
-    m_idx.emplace(s.skill_idx, m_skills.size());
+    m_idx.emplace(s.SkillIdx, m_skills.size());
     m_skills.push_back(s);
 }
 
 void SkillManager::add(SkillInfo&& s) {
-    if (m_idx.find(s.skill_idx) != m_idx.end()) {
+    if (m_idx.find(s.SkillIdx) != m_idx.end()) {
         throw std::invalid_argument(
             "SkillManager::add: duplicate skill_idx " +
-            std::to_string(s.skill_idx));
+            std::to_string(s.SkillIdx));
     }
-    m_idx.emplace(s.skill_idx, m_skills.size());
+    m_idx.emplace(s.SkillIdx, m_skills.size());
     m_skills.push_back(std::move(s));
 }
 

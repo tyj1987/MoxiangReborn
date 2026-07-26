@@ -48,6 +48,16 @@ public:
     // there; safe to call multiple times.
     void init();
 
+    // Phase D1.3 hook: load the real skill table from a packed-text
+    // SkillList.bin file (the 1:1 legacy file format).  Clears any
+    // existing table on success.  Throws std::runtime_error on I/O
+    // failure or header corruption; per-row parse errors are
+    // accumulated and returned via out_errors (may be nullptr).
+    // 1:1 with the legacy CSkillManager::LoadSkillList() in
+    // `墨香【源码】\[CC]Skill\SkillManager_client.cpp` lines 174-200.
+    void init_from_bin(const std::string& path,
+                       std::uint32_t* out_errors = nullptr);
+
     // Phase D1.3 hook: append a single SkillInfo to the table and
     // update the hash index.  The skill must not already exist
     // (skill_idx must be unique) -- callers are expected to enforce

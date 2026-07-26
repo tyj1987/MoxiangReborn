@@ -43,10 +43,10 @@ TEST(SkillManager, GetReturnsCorrectSkill) {
     SkillManager mgr;
     mgr.init();
     const auto& s = mgr.get(1);
-    EXPECT_EQ(s.skill_idx,  1u);
-    EXPECT_EQ(s.name,       "BasicStrike");
-    EXPECT_EQ(s.skill_kind, SkillKind::OuterMugong);
-    EXPECT_EQ(s.phy_attack, 15u);
+    EXPECT_EQ(s.SkillIdx, 1u);
+    EXPECT_STREQ(s.SkillName, "BasicStrike");
+    EXPECT_EQ(s.SkillKind, static_cast<std::uint16_t>(SkillKind::OuterMugong));
+    EXPECT_EQ(s.UpPhyAttack[0], 15.0f);
 }
 
 TEST(SkillManager, GetThrowsOnMiss) {
@@ -67,8 +67,8 @@ TEST(SkillManager, TryGetReturnsFalseOnMiss) {
     SkillInfo out{};
     EXPECT_FALSE(mgr.try_get(999, out));
     // out must be untouched on miss.
-    EXPECT_EQ(out.skill_idx, 0u);
-    EXPECT_EQ(out.name, "");
+    EXPECT_EQ(out.SkillIdx, 0u);
+    EXPECT_STREQ(out.SkillName, "");
 }
 
 TEST(SkillManager, TryGetPopulatesOnHit) {
@@ -76,9 +76,9 @@ TEST(SkillManager, TryGetPopulatesOnHit) {
     mgr.init();
     SkillInfo out{};
     EXPECT_TRUE(mgr.try_get(3, out));
-    EXPECT_EQ(out.skill_idx, 3u);
-    EXPECT_EQ(out.name,      "HealSelf");
-    EXPECT_EQ(out.skill_kind, SkillKind::Simbub);
+    EXPECT_EQ(out.SkillIdx, 3u);
+    EXPECT_STREQ(out.SkillName, "HealSelf");
+    EXPECT_EQ(out.SkillKind, static_cast<std::uint16_t>(SkillKind::Simbub));
 }
 
 TEST(SkillManager, ExistsIsFalseOnMiss) {
@@ -94,16 +94,17 @@ TEST(SkillManager, ExistsIsFalseOnMiss) {
 TEST(SkillManager, AddInsertsNewSkill) {
     SkillManager mgr;
     SkillInfo s{};
-    s.skill_idx   = 100;
-    s.name        = "TestSkill";
-    s.skill_kind  = SkillKind::Jinbub;
-    s.skill_range = 5;
-    s.phy_attack  = 99;
+    s.SkillIdx   = 100;
+    const char name[] = "TestSkill";
+    for (std::size_t i = 0; i < sizeof(name); ++i) s.SkillName[i] = name[i];
+    s.SkillKind    = static_cast<std::uint16_t>(SkillKind::Jinbub);
+    s.SkillRange   = 5;
+    s.UpPhyAttack[0] = 99.0f;
     mgr.add(s);
     EXPECT_EQ(mgr.size(), 1u);
     EXPECT_TRUE(mgr.exists(100));
-    EXPECT_EQ(mgr.get(100).name, "TestSkill");
-    EXPECT_EQ(mgr.get(100).phy_attack, 99u);
+    EXPECT_STREQ(mgr.get(100).SkillName, "TestSkill");
+    EXPECT_EQ(mgr.get(100).UpPhyAttack[0], 99.0f);
 }
 
 TEST(SkillManager, AddThrowsOnDuplicate) {
@@ -111,8 +112,9 @@ TEST(SkillManager, AddThrowsOnDuplicate) {
     mgr.init();
     // skill_idx=1 (BasicStrike) is already in the default table.
     SkillInfo dup{};
-    dup.skill_idx = 1;
-    dup.name      = "BasicStrikeDuplicate";
+    dup.SkillIdx = 1;
+    const char name[] = "BasicStrikeDuplicate";
+    for (std::size_t i = 0; i < sizeof(name); ++i) dup.SkillName[i] = name[i];
     EXPECT_THROW(mgr.add(dup), std::invalid_argument);
     // Size unchanged.
     EXPECT_EQ(mgr.size(), 4u);
@@ -122,7 +124,9 @@ TEST(SkillManager, InitResetsTable) {
     SkillManager mgr;
     mgr.init();
     EXPECT_EQ(mgr.size(), 4u);
-    mgr.add(SkillInfo{ .skill_idx = 999 });
+    SkillInfo extra{};
+    extra.SkillIdx = 999;
+    mgr.add(extra);
     EXPECT_EQ(mgr.size(), 5u);
     mgr.init();   // resets
     EXPECT_EQ(mgr.size(), 4u);
@@ -142,10 +146,10 @@ TEST(SkillManager, SkillsAreInsertionOrder) {
     mgr.init();
     const auto& v = mgr.skills();
     ASSERT_EQ(v.size(), 4u);
-    EXPECT_EQ(v[0].skill_idx, 1u);
-    EXPECT_EQ(v[1].skill_idx, 2u);
-    EXPECT_EQ(v[2].skill_idx, 3u);
-    EXPECT_EQ(v[3].skill_idx, 4u);
+    EXPECT_EQ(v[0].SkillIdx, 1u);
+    EXPECT_EQ(v[1].SkillIdx, 2u);
+    EXPECT_EQ(v[2].SkillIdx, 3u);
+    EXPECT_EQ(v[3].SkillIdx, 4u);
 }
 
 TEST(SkillManager, GetReturnsReferenceIntoInternalStorage) {

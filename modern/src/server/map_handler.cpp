@@ -1316,16 +1316,58 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
 // Phase 10d: Skill system implementation
 // ============================================================================
 
+namespace {
+
+// Helper: project the simplified 15-field view onto the legacy
+// 1:1 SKILLINFO struct so the combat path can read it through
+// the same SkillInfo handle it will use after D1.3 init_from_bin
+// lands.  Pulled out as a free function because MSVC can't deduce
+// the return type of a 15-arg nested lambda inside init_skill_table.
+void add_simple_skill(std::unordered_map<std::uint32_t, mxh::game::SkillInfo>& dst,
+                      std::uint16_t idx, const char* name,
+                      std::uint8_t kind, std::uint16_t range,
+                      std::uint16_t target_range, std::uint32_t delay,
+                      std::uint16_t duration, std::uint8_t weapon,
+                      std::uint8_t attrib, std::uint16_t phy,
+                      std::uint16_t att, std::uint16_t att_rate,
+                      std::uint8_t crit, std::uint8_t stun,
+                      std::uint16_t nearyuk) {
+    using namespace mxh::game;
+    SkillInfo full{};
+    full.SkillIdx       = idx;
+    const std::size_t n = std::strlen(name);
+    for (std::size_t i = 0; i < n && i < SKILL_MAX_NAME - 1; ++i) {
+        full.SkillName[i] = name[i];
+    }
+    full.SkillKind      = kind;
+    full.SkillRange     = range;
+    full.TargetRange    = target_range;
+    full.DelayTime      = delay;
+    full.Duration       = duration;
+    full.WeaponKind     = weapon;
+    full.Attrib         = attrib;
+    full.UpPhyAttack[0]      = static_cast<float>(phy);
+    full.FirstAttAttack[0]    = static_cast<float>(att);
+    full.AttackSuccessRate[0] = static_cast<float>(att_rate);
+    full.CriticalRate[0]      = static_cast<float>(crit);
+    full.StunRate[0]          = static_cast<float>(stun);
+    full.NeedNaeRyuk[0]       = nearyuk;
+    dst[idx] = full;
+}
+
+}  // namespace
+
 void MapHandler::init_skill_table() {
-    // Hardcoded basic skills for testing. In production, load from SkillList.bin.
-    skill_table_[1] = {1, "BasicSlash", 0, 3, 0, 500, 0, 0, 0,
-                        15, 0, 100, 5, 0, 0};
-    skill_table_[2] = {2, "FireBolt", 0, 5, 2, 1000, 0, 0, 1,
-                        20, 10, 90, 8, 0, 5};
-    skill_table_[3] = {3, "Heal", 1, 4, 0, 2000, 0, 0, 0,
-                        0, 0, 100, 0, 0, 10};
-    skill_table_[10] = {10, "Whirlwind", 0, 2, 3, 1500, 0, 0, 0,
-                         25, 0, 100, 10, 0, 8};
+    // D1.3: SkillInfo is now the 1:1 legacy SKILLINFO layout.  The
+    // hardcoded 4-skill table is still here for offline testing, but
+    // the production path will eventually call SkillManager::init_from_bin
+    // and forget this method.
+    using namespace mxh::game;
+    auto& t = skill_table_;
+    add_simple_skill(t, 1,  "BasicSlash", 0, 3, 0, 500, 0, 0, 0, 15, 0,  100, 5,  0, 0);
+    add_simple_skill(t, 2,  "FireBolt",   0, 5, 2, 1000, 0, 0, 1, 20, 10, 90, 8,  0, 5);
+    add_simple_skill(t, 3,  "Heal",       1, 4, 0, 2000, 0, 0, 0, 0, 0,  100, 0,  0, 10);
+    add_simple_skill(t, 10, "Whirlwind",  0, 2, 3, 1500, 0, 0, 0, 25, 0,  100, 10, 0, 8);
     std::cout << "[Map] skill_table initialized with " << skill_table_.size()
               << " skills\n";
 }
@@ -1353,13 +1395,14 @@ mxh::game::DamageResult MapHandler::calculate_damage(
     }
 
     // Base damage = skill phy_attack + attacker phy_attack - defender phy_defence
-    std::int32_t base_damage = static_cast<std::int32_t>(skill.phy_attack)
+    const auto simple = mxh::game::to_simple(skill);
+    std::int32_t base_damage = static_cast<std::int32_t>(simple.phy_attack)
                              + static_cast<std::int32_t>(attacker.phy_attack)
                              - static_cast<std::int32_t>(defender.phy_defence);
     if (base_damage < 1) base_damage = 1;
 
     // Attribute damage
-    std::int32_t attr_damage = static_cast<std::int32_t>(skill.att_attack)
+    std::int32_t attr_damage = static_cast<std::int32_t>(simple.att_attack)
                              + static_cast<std::int32_t>(attacker.att_attack)
                              - static_cast<std::int32_t>(defender.att_defence);
     if (attr_damage < 0) attr_damage = 0;
@@ -1368,7 +1411,7 @@ mxh::game::DamageResult MapHandler::calculate_damage(
 
     // Critical check
     std::uint8_t crit_roll = static_cast<std::uint8_t>(rng() % 100);
-    if (crit_roll < (skill.critical_rate + attacker.critical_rate)) {
+    if (crit_roll < (simple.critical_rate + attacker.critical_rate)) {
         result.is_critical = true;
         total_damage = static_cast<std::int32_t>(total_damage * 1.5);
         result.hit_result = 2;
@@ -1497,7 +1540,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             }
 
             // MP check
-            if (caster->combat.current_mp < skill->need_nearyuk) {
+            if (caster->combat.current_mp < mxh::game::to_simple(*skill).need_nearyuk) {
                 std::cout << "[Map] Skill not enough MP\n";
                 mxh::net::Message nack;
                 nack.header.category = static_cast<std::uint8_t>(
@@ -1513,7 +1556,8 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             }
 
             // Deduct MP
-            caster->combat.current_mp -= skill->need_nearyuk;
+            const auto simple = mxh::game::to_simple(*skill);
+            caster->combat.current_mp -= simple.need_nearyuk;
 
             // Create skill instance
             mxh::game::SkillInstance skill_obj;
@@ -1528,7 +1572,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 skill_obj.start_time = static_cast<std::uint64_t>(
                     std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now().time_since_epoch()).count());
-                skill_obj.duration = skill->duration;
+                skill_obj.duration = simple.duration;
                 active_skills_.push_back(skill_obj);
             }
 
@@ -1549,7 +1593,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             broadcast_skill_object_add(caster_id, skill_obj, caster_id);
 
             // Calculate damage for target
-            if (main_target != 0 && skill->skill_kind == 0) {
+            if (main_target != 0 && simple.skill_kind == mxh::game::SkillKind::Combo) {
                 // Attack skill - calculate damage
                 PlayerInfo* target = nullptr;
                 {
@@ -1582,7 +1626,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     std::cout << "[Map] Skill target " << main_target
                               << " not a player (monster?)\n";
                 }
-            } else if (skill->skill_kind == 1) {
+            } else if (simple.skill_kind == mxh::game::SkillKind::OuterMugong) {
                 // Heal skill
                 if (main_target != 0) {
                     PlayerInfo* target = nullptr;
@@ -1592,7 +1636,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                         if (it != connected_players_.end()) target = &it->second;
                     }
                     if (target) {
-                        std::int32_t heal = skill->phy_attack + caster->combat.level * 5;
+                        std::int32_t heal = simple.phy_attack + caster->combat.level * 5;
                         target->combat.current_hp += heal;
                         if (target->combat.current_hp > target->combat.max_hp)
                             target->combat.current_hp = target->combat.max_hp;
@@ -1606,7 +1650,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             }
 
             // Remove skill object after duration (instant for now)
-            if (skill->duration == 0) {
+            if (simple.duration == 0) {
                 std::lock_guard<std::mutex> lk(skills_mu_);
                 active_skills_.erase(
                     std::remove_if(active_skills_.begin(), active_skills_.end(),
