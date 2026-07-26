@@ -1,0 +1,2 @@
+﻿#include "cnpcscript_dialog.hpp"
+namespace mxh::ui { bool cNpcScriptDialog::Select(std::size_t i) noexcept { if(i>=m_options.size()||m_options[i].action==0||m_options[i].text.empty()) return false; m_selected=static_cast<int>(i); return true; } bool cNpcScriptDialog::ExecuteSelected(){ if(m_selected<0||static_cast<std::size_t>(m_selected)>=m_options.size()) return false; return !m_action||m_action(m_options[static_cast<std::size_t>(m_selected)].action); } }
