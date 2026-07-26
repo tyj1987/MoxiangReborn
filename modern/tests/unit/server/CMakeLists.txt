@@ -743,3 +743,15 @@ add_executable(mxh_purse_tests
 )
 target_link_libraries(mxh_purse_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_purse_tests COMMAND mxh_purse_tests)
+
+add_executable(mxh_agent_item_tests
+    agent_item_test.cpp
+)
+target_link_libraries(mxh_agent_item_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_item_tests COMMAND mxh_agent_item_tests)
+
+add_executable(mxh_regen_condition_info_tests
+    regen_condition_info_test.cpp
+)
+target_link_libraries(mxh_regen_condition_info_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_regen_condition_info_tests COMMAND mxh_regen_condition_info_tests)
