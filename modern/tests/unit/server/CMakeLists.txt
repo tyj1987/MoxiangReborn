@@ -568,3 +568,17 @@ gtest_add_tests(TARGET mxh_nprotect_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+add_executable(mxh_bobusang_manager_agent_tests
+    bobusang_manager_agent_test.cpp
+)
+target_link_libraries(mxh_bobusang_manager_agent_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_bobusang_manager_agent_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_bobusang_manager_agent_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
