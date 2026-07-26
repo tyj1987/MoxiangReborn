@@ -183,6 +183,7 @@ add_library(mxh_server STATIC
     server/fixed_tile_info.cpp
     server/tile.cpp
     server/tactic_ability_info.cpp
+    server/agent_userconn.cpp
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/agent_weather.cpp
