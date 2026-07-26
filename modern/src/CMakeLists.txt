@@ -186,6 +186,7 @@ add_library(mxh_server STATIC
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/agent_weather.cpp
+    server/agent_itemlimit.cpp
     server/plustime_manager.cpp
     server/jackpot_manager_agent.cpp
     server/gm_tool_manager.cpp
@@ -205,6 +206,7 @@ add_library(mxh_server STATIC
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/agent_weather.cpp
+    server/agent_itemlimit.cpp
     server/bobusang_manager_agent.cpp
     server/survival_mode_manager.cpp
     server/regen_manager.cpp
