@@ -866,3 +866,9 @@ add_executable(mxh_agent_guild_union_tests
 )
 target_link_libraries(mxh_agent_guild_union_tests PRIVATE mxh_server GTest::gtest_main)
 add_test(NAME mxh_agent_guild_union_tests COMMAND mxh_agent_guild_union_tests)
+
+add_executable(mxh_agent_siegewar_tests
+    agent_siegewar_test.cpp
+)
+target_link_libraries(mxh_agent_siegewar_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME mxh_agent_siegewar_tests COMMAND mxh_agent_siegewar_tests)
