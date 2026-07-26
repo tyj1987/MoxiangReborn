@@ -20,10 +20,12 @@ gtest_add_tests(TARGET mxh_compat_tests)
 
 
 # -----------------------------------------------------------------------------
-# mxh_crypto tests 鈥?HSEL stream cipher (Phase 3.2)
+# mxh_crypto tests ????HSEL stream cipher (Phase 3.2)
 # -----------------------------------------------------------------------------
 add_executable(mxh_crypto_tests
     hsel_stream_test.cpp
+    hsel_class_test.cpp
+    hackshield_stub_test.cpp
     aes_gcm_test.cpp
 )
 
@@ -36,7 +38,7 @@ add_test(NAME mxh_crypto_all_tests
     COMMAND $<TARGET_FILE:mxh_crypto_tests>)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
-# mxh_crypto_benchmark 鈥?HSEL vs AES-256-GCM throughput & latency (Phase 3.5)
+# mxh_crypto_benchmark ????HSEL vs AES-256-GCM throughput & latency (Phase 3.5)
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 add_executable(mxh_crypto_benchmark
     crypto_benchmark.cpp
@@ -45,7 +47,7 @@ add_executable(mxh_crypto_benchmark
 target_link_libraries(mxh_crypto_benchmark PRIVATE mxh_crypto)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
-# mxh_proto negotiation tests 鈥?Phase 3.4: cipher negotiation wire protocol
+# mxh_proto negotiation tests ????Phase 3.4: cipher negotiation wire protocol
 # Header-only library (no compiled sources); test links against the header directly.
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 add_executable(mxh_proto_tests
@@ -60,7 +62,7 @@ target_include_directories(mxh_proto_tests PRIVATE
 add_test(NAME mxh_proto_negotiate_tests
     COMMAND $<TARGET_FILE:mxh_proto_tests>)
 # -----------------------------------------------------------------------------
-# mxh_util tests — thread pool / object pool / compression (Phase 8 helpers)
+# mxh_util tests ??? thread pool / object pool / compression (Phase 8 helpers)
 # Header-only util module, links gtest_main only.
 # -----------------------------------------------------------------------------
 add_executable(mxh_util_tests
@@ -76,7 +78,7 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_util_tests)
 
 # -----------------------------------------------------------------------------
-# mxh_version tests — protocol version negotiation (Phase 3.4 / Phase 7.5)
+# mxh_version tests ??? protocol version negotiation (Phase 3.4 / Phase 7.5)
 # Header-level checks against mxh::proto::protocol.hpp and mxh::net::MsgHeader.
 # -----------------------------------------------------------------------------
 add_executable(mxh_version_tests
@@ -91,7 +93,7 @@ target_include_directories(mxh_version_tests PRIVATE
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_version_tests)
 # -----------------------------------------------------------------------------
-# mxh_game tests — Phase 10d game data structures
+# mxh_game tests ??? Phase 10d game data structures
 # Header-only structs (item / monster / skill). Verifies wire-format byte
 # sizes match the legacy CommonStruct.h / GameResourceStruct.h layout and
 # exercises the small helper functions.
@@ -109,7 +111,7 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_game_types_tests)
 
 # -----------------------------------------------------------------------------
-# mxh_services tests — Phase 13 service interface mock + contract test
+# mxh_services tests ??? Phase 13 service interface mock + contract test
 # Header-only interfaces (IInventoryService / ISkillService /
 # IPlayerStatsService) under modern/include/mxh/services/. The real
 # server-backed implementations will land in modern/src/services/ in
@@ -129,7 +131,7 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_services_tests)
 
 # -----------------------------------------------------------------------------
-# mxh_services_real tests — Phase 13.2 real service implementation
+# mxh_services_real tests ??? Phase 13.2 real service implementation
 # contract test (vs. the mock test in mxh_services_tests above).
 # The real impls are header-only; the test executable links the
 # mxh_services INTERFACE target so the headers are findable.
@@ -147,3 +149,18 @@ target_include_directories(mxh_services_real_tests PRIVATE
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_services_real_tests)
+
+add_executable(mxh_tools_side_by_side_tests
+    tools_side_by_side_test.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/packet.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/capture/packet_capture.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/diff/packet_diff.cpp
+    \/tools/MoxianSideBySide/replay/replay.cpp
+)
+target_link_libraries(mxh_tools_side_by_side_tests PRIVATE gtest_main)
+target_include_directories(mxh_tools_side_by_side_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_tools_side_by_side_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
