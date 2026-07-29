@@ -914,6 +914,21 @@ add_executable(mxh_agent_constants_sweep_tests
     agent_constants_sweep_test.cpp
 )
 target_link_libraries(mxh_agent_constants_sweep_tests PRIVATE mxh_server GTest::gtest_main)
+add_executable(mxh_bonus_constants_sweep_tests
+    bonus_constants_sweep_test.cpp
+)
+target_link_libraries(mxh_bonus_constants_sweep_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME Skill_types.BonusSKILLMAXNAMEIs17 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Skill_types.BonusSKILLMAXNAMEIs17)
+add_test(NAME Skill_types.BonusSKILLMAXLEVELIs12 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Skill_types.BonusSKILLMAXLEVELIs12)
+add_test(NAME Negotiate.BonusKHandshakeRequestSizeIs12 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Negotiate.BonusKHandshakeRequestSizeIs12)
+add_test(NAME Negotiate.BonusKHandshakeResponseHeaderSizeIs5 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Negotiate.BonusKHandshakeResponseHeaderSizeIs5)
+add_test(NAME Negotiate.BonusKMagicByte0Is77 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Negotiate.BonusKMagicByte0Is77)
+add_test(NAME Negotiate.BonusKMagicByte1Is88 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Negotiate.BonusKMagicByte1Is88)
+add_test(NAME Negotiate.BonusKMagicByte2Is72 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Negotiate.BonusKMagicByte2Is72)
+add_test(NAME Negotiate.BonusKMagicByte3Is78 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=Negotiate.BonusKMagicByte3Is78)
+add_test(NAME VersionCheck.MxhVersionMatches COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=VersionCheck.MxhVersionMatches)
+add_test(NAME VersionCheck.MxhModernProtocolIsV1 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=VersionCheck.MxhModernProtocolIsV1)
+add_test(NAME VersionCheck.MxhLegacyProtocolIsV0 COMMAND mxh_bonus_constants_sweep_tests --gtest_filter=VersionCheck.MxhLegacyProtocolIsV0)
 add_executable(mxh_server_misc_constants_sweep_tests
     server_misc_constants_sweep_test.cpp
 )
