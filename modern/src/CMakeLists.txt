@@ -167,6 +167,7 @@ add_library(mxh_server STATIC
     server/attack_manager.cpp
     server/object_event.cpp
     server/object.cpp
+    server/map_object.cpp
     server/object_state_manager.cpp
     server/object_factory.cpp
     server/ai_param.cpp
