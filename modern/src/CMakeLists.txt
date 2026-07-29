@@ -123,6 +123,7 @@ add_library(mxh_crypto STATIC
     crypto/hsel_stream.cpp
     crypto/hsel_class.cpp
     crypto/hackshield_stub.cpp
+    crypto/ggsrv25_vendor_stub.cpp
 )
 
 target_include_directories(mxh_crypto PUBLIC
@@ -147,6 +148,12 @@ add_library(mxh_server STATIC
     server/character_calc_manager.cpp
     server/player_state.cpp
     server/monster.cpp
+    server/boss_state.cpp
+    server/boss_monster.cpp
+    server/boss_monster_manager.cpp
+    server/field_boss_monster.cpp
+    server/c_monster_speech_manager.cpp
+    server/drop_item.cpp
     server/quest_manager.cpp
     server/item_manager.cpp
     server/party_manager.cpp
@@ -190,6 +197,11 @@ add_library(mxh_server STATIC
     server/agent_powerup.cpp
     server/agent_cheat.cpp
     server/agent_gtournament_server.cpp
+    server/agent_battle.cpp
+    server/agent_quest.cpp
+    server/agent_mugong.cpp
+    server/agent_move.cpp
+    server/agent_user.cpp
     server/agent_friend.cpp
     server/agent_autonote.cpp
     server/agent_weather.cpp
@@ -332,8 +344,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
-
 
 
 

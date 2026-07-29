@@ -1,7 +1,7 @@
-#pragma once
+﻿#pragma once
 
 // ============================================================================
-// Monster/NPC data structures — 1:1 with original CommonStruct.h
+// Monster/NPC data structures â€” 1:1 with original CommonStruct.h
 //
 // MONSTER_TOTALINFO layout (14 bytes, packed):
 //   Life(4) Shield(4) MonsterKind(2) Group(2) MapNum(2)
@@ -23,6 +23,11 @@
 #include <array>
 
 namespace mxh::game {
+
+// Monster/NPC name length limits (from CommonGameDefine.h).
+inline constexpr std::size_t MAX_MONSTER_NAME_LENGTH = 60;  // 60+NUL, legacy CommonGameDefine.h L1819
+inline constexpr std::size_t MAX_CHXNAME_LENGTH      = 24;  // chx file name (legacy GameResourceStruct.h L123)
+inline constexpr std::size_t MAX_MONSTER_SPEECH_LEN  = 128; // chat line, legacy cMonsterSpeechManager
 
 // Object kind constants (from CommonGameDefine.h eObjectKind)
 constexpr std::uint8_t OBJECTKIND_MONSTER      = 32;
@@ -52,7 +57,7 @@ enum class MonsterAIState : std::uint8_t {
 
 #pragma pack(push, 1)
 
-// MONSTER_TOTALINFO (14 bytes) — from CommonStruct.h
+// MONSTER_TOTALINFO (14 bytes) â€” from CommonStruct.h
 struct MonsterTotalInfo {
     std::uint32_t Life;          // current HP
     std::uint32_t Shield;        // current shield/MP
@@ -62,7 +67,7 @@ struct MonsterTotalInfo {
 };
 static_assert(sizeof(MonsterTotalInfo) == 14, "MonsterTotalInfo must be 14 bytes");
 
-// NPC_REGEN (44 bytes) — spawn point configuration from GameResourceStruct.h
+// NPC_REGEN (44 bytes) â€” spawn point configuration from GameResourceStruct.h
 struct NpcRegen {
     std::uint32_t dwObjectID;    // unique object ID
     std::uint16_t MapNum;        // map number

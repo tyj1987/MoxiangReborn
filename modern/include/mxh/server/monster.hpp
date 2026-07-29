@@ -1,4 +1,4 @@
-// monster.hpp - 1:1 port of legacy [Server]Map/Monster.h (CMonster) and
+﻿// monster.hpp - 1:1 port of legacy [Server]Map/Monster.h (CMonster) and
 // AISystem.h (CAISystem) into pure data structs + pure functions.
 //
 // Source: legacy [Server]Map/Monster.h + AISystem.h + AIParam.h
@@ -7,6 +7,10 @@
 // state machine transitions as pure POD structs + free functions. The
 // map_handler uses these to populate ServerSideMonsterInstance and drive
 // the per-tick AI loop.
+//
+// Phase 6.2 extension: adds full legacy 1:1 fields (SubID, RegenNum,
+// DropItemId, SuryunGroup, EventMob, Group from MONSTER_TOTALINFO) and
+// the BossMonsterInstance stage / field-boss variants.
 
 #pragma once
 
@@ -48,52 +52,87 @@ struct AiBehavior final {
 };
 
 // ---- Monster instance runtime state ----
-// 1:1 port of CMonster m_Hero / m_HP / m_AI / m_AISub / m_pSUnit fields
-// (a subset of the 80+ legacy members, only those driving server-side
-// AI ticks + combat resolution).
+// 1:1 port of CMonster m_Hero / m_HP / m_AI / m_AISub / m_pSUnit fields,
+// extended in Phase 6.2 with the full set of legacy 1:1 fields so that
+// the wire format / server-side bookkeeping is byte-equivalent to the
+// original engine.
 struct MonsterInstance final {
+    // ---- object identity ----
     std::uint32_t object_id      = 0;     // unique across the map
     std::uint32_t monster_kind   = 0;     // legacy MonsterKind enum
+    std::uint8_t  object_kind    = mxh::game::OBJECTKIND_MONSTER;
+    char          name[mxh::game::MAX_MONSTER_NAME_LENGTH+1] = {};
     std::uint16_t map_num        = 0;
+    std::uint16_t group          = 0;     // MONSTER_TOTALINFO.Group (legacy aggro group)
 
-    // Position (cells, legacy uses VECTOR3 in 4Dyuchi coords; we use
-    // XZ + Y separate ints for portability)
+    // ---- position ----
     std::int32_t  pos_x          = 0;
     std::int32_t  pos_y          = 0;
     std::int32_t  pos_z          = 0;
+    std::int32_t  spawn_x        = 0;     // legacy regen point
+    std::int32_t  spawn_y        = 0;
+    std::int32_t  spawn_z        = 0;
 
-    // Vitals (legacy GetLife/GetMaxLife)
+    // ---- vitals ----
     std::uint32_t current_hp     = 0;
     std::uint32_t max_hp         = 1;
+    std::uint32_t current_shield = 0;     // legacy Shield (hostile-shield, not MP)
+    std::uint32_t max_shield     = 0;
     std::uint8_t  state          = 0;     // eObjectState enum (Die=2)
 
-    // AI state
+    // ---- AI state ----
     AiState  ai_state            = AiState::None;
     std::uint32_t target_player_id = 0;  // 0 = no target
     std::uint32_t last_attack_ms   = 0;  // legacy m_dwLastAttackTime
     std::uint32_t state_entered_ms = 0;  // legacy m_dwStateEnteredTime
 
-    // Static behavior table
+    // ---- static behavior table (loaded from BASE_MONSTER_LIST) ----
     AiBehavior behavior;
 
-    // Exp drop on kill (legacy m_exp / MonsterList.bin)
-    std::uint32_t exp_reward     = 0;
+    // ---- legacy CMonster fields (1:1) ----
+    std::uint16_t drop_item_id      = 0;  // legacy m_DropItemId (0..MonsterDropItemList.bin size)
+    std::uint32_t drop_item_ratio   = 100;// legacy m_dwDropItemRatio (percent; 100 = always)
+    std::uint32_t sub_id            = 0;  // legacy m_SubID (object_id of the regen point)
+    std::uint16_t regen_num         = 0;  // legacy m_RegenNum (spawn index within the regen list)
+    int           suryun_group      = 0;  // legacy m_SuryunGroup (training area group)
+    bool          event_mob         = false;  // legacy m_bEventMob (event-flagged)
+    std::uint32_t killer_player_id  = 0;  // legacy m_KillerPlayer (last killing blow)
+    std::uint32_t last_attacker_id  = 0;  // legacy m_pLastAttackPlayer
 
-    // Group ID for aggro / leash; same group monsters assist each
-    // other (legacy m_dwGroup)
-    std::uint32_t group_id       = 0;
+    // ---- exp / aggro / leash ----
+    std::uint32_t exp_reward     = 0;
+    std::uint32_t group_id       = 0;     // legacy m_dwGroup (assist / leash group)
+
+    // ---- helpers ----
+    // Wire-format dump into MONSTER_TOTALINFO (14 bytes).
+    mxh::game::MonsterTotalInfo make_totalinfo() const noexcept {
+        mxh::game::MonsterTotalInfo t{};
+        t.Life        = current_hp;
+        t.Shield      = current_shield;
+        t.MonsterKind = static_cast<std::uint16_t>(monster_kind & 0xFFFFu);
+        t.Group       = group;
+        t.MapNum      = map_num;
+        return t;
+    }
 };
 
 // ---- Boss variant (legacy CBossMonster extends CMonster) ----
 // Adds field-boss-only behavior: stage transitions, shout, special drop.
+//
+// Phase 6.2 extension: stage is now a 1:1 port of the legacy 4-stage
+// boss combat model: 0=normal, 1=enraged (HP<75%), 2=phase2 (HP<50%),
+// 3=rage (HP<25%). Each stage can swap attack patterns, AI param and
+// shout trigger.
 struct BossMonsterInstance final {
     MonsterInstance base;
-    std::uint32_t stage          = 0;     // boss stage (1..3, legacy)
+    std::uint32_t stage          = 0;     // boss stage (0..3, legacy)
     std::uint32_t rage_target_id = 0;     // boss targets this in rage
     std::uint32_t rage_until_ms  = 0;     // rage timer end
     std::uint8_t  is_field_boss  = 0;     // 0=map boss, 1=world boss
     std::uint8_t  reserved0      = 0;
     std::uint16_t reserved1      = 0;
+    std::uint32_t speech_id      = 0;     // cMonsterSpeechManager cue
+    std::uint32_t last_shout_ms  = 0;
 };
 
 // ---- AI state transitions (pure functions) ----
@@ -127,5 +166,21 @@ void kill_monster(MonsterInstance& m, std::uint32_t now_ms) noexcept;
 // Advance the AI state machine by one tick. Pure function; caller is
 // responsible for broadcasting the resulting delta.
 AiState ai_tick(MonsterInstance& m, std::uint32_t now_ms) noexcept;
+
+// ---- Boss stage helpers ----
+
+// Compute the boss stage from HP percent (0..100). Stages:
+//   100..76 -> stage 0 (normal)
+//   75..51  -> stage 1 (enraged)
+//   50..26  -> stage 2 (phase2)
+//   25..1   -> stage 3 (rage)
+//   0       -> die (caller decides)
+std::uint32_t boss_stage_from_hp(std::uint32_t current_hp, std::uint32_t max_hp) noexcept;
+
+// Update a boss instance: re-evaluate stage based on HP and reset
+// attack interval / shout counters when the stage changes.
+void update_boss_stage(BossMonsterInstance& b,
+                       std::uint32_t now_ms,
+                       std::uint32_t shout_interval_ms = 5000) noexcept;
 
 }  // namespace mxh::server

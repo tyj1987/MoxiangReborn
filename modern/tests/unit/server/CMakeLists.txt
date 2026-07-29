@@ -64,6 +64,21 @@ gtest_add_tests(TARGET mxh_monster_tests
     PRE_SHIP_BUILD
 )
 
+
+add_executable(mxh_monster_ext_tests
+    monster_ext_test.cpp
+)
+target_link_libraries(mxh_monster_ext_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_monster_ext_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_monster_ext_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
 add_executable(mxh_quest_manager_tests
     quest_manager_test.cpp
 )
@@ -884,6 +899,36 @@ add_executable(mxh_agent_userconn_tests
     agent_userconn_test.cpp
 )
 target_link_libraries(mxh_agent_userconn_tests PRIVATE mxh_server GTest::gtest_main)
+add_executable(mxh_agent_battle_tests
+    agent_battle_test.cpp
+)
+target_link_libraries(mxh_agent_battle_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_battle_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_quest_tests
+    agent_quest_test.cpp
+)
+target_link_libraries(mxh_agent_quest_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_quest_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_mugong_tests
+    agent_mugong_test.cpp
+)
+target_link_libraries(mxh_agent_mugong_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_mugong_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_move_tests
+    agent_move_test.cpp
+)
+target_link_libraries(mxh_agent_move_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_move_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_user_tests
+    agent_user_test.cpp
+)
+target_link_libraries(mxh_agent_user_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_user_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 gtest_add_tests(TARGET mxh_agent_userconn_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_powerup_tests
@@ -1587,3 +1632,4 @@ add_executable(mxh_agent_hackcheck_tests
 target_link_libraries(mxh_agent_hackcheck_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_hackcheck_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
