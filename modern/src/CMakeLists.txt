@@ -154,6 +154,7 @@ add_library(mxh_server STATIC
     server/field_boss_monster.cpp
     server/c_monster_speech_manager.cpp
     server/drop_item.cpp
+    server/skill_manager.cpp
     server/quest_manager.cpp
     server/item_manager.cpp
     server/party_manager.cpp
@@ -344,6 +345,8 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
+
+
 
 
 
