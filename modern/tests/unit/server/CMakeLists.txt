@@ -680,6 +680,13 @@ gtest_add_tests(TARGET mxh_object_factory_tests
 
 
 
+
+add_executable(mxh_ai_system_tests
+    ai_system_test.cpp
+)
+target_link_libraries(mxh_ai_system_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_ai_system_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_map_object_tests
     map_object_test.cpp
 )
