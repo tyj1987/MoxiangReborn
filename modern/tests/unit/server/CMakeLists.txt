@@ -80,6 +80,21 @@ gtest_add_tests(TARGET mxh_monster_ext_tests
     PRE_SHIP_BUILD
 )
 
+
+add_executable(mxh_item_container_tests
+    item_container_test.cpp
+)
+target_link_libraries(mxh_item_container_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_item_container_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_item_container_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
 add_executable(mxh_skill_manager_tests
     skill_manager_test.cpp
 )
@@ -1647,5 +1662,6 @@ add_executable(mxh_agent_hackcheck_tests
 target_link_libraries(mxh_agent_hackcheck_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_hackcheck_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 
 
