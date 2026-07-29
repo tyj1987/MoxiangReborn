@@ -678,6 +678,13 @@ target_link_libraries(mxh_object_factory_tests PRIVATE mxh_server GTest::gtest_m
 gtest_add_tests(TARGET mxh_object_factory_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+
+add_executable(mxh_object_tests
+    object_test.cpp
+)
+target_link_libraries(mxh_object_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_object_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_ai_define_tests
     ai_define_test.cpp
 )
@@ -887,6 +894,32 @@ add_executable(mxh_protocol_constants_sweep_tests
 target_link_libraries(mxh_protocol_constants_sweep_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_protocol_constants_sweep_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_category_byte_sweep_tests
+    category_byte_sweep_test.cpp
+)
+target_link_libraries(mxh_category_byte_sweep_tests PRIVATE mxh_server GTest::gtest_main)
+add_test(NAME CategoryByteSweep.UserConn_IsByte7 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.UserConn_IsByte7)
+add_test(NAME CategoryByteSweep.PowerUp_IsByte2 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.PowerUp_IsByte2)
+add_test(NAME CategoryByteSweep.Cheat_IsByte11 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Cheat_IsByte11)
+add_test(NAME CategoryByteSweep.Friend_IsByte33 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Friend_IsByte33)
+add_test(NAME CategoryByteSweep.Weather_IsByte64 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Weather_IsByte64)
+add_test(NAME CategoryByteSweep.Wanted_IsByte51 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Wanted_IsByte51)
+add_test(NAME CategoryByteSweep.Survival_IsByte70 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Survival_IsByte70)
+add_test(NAME CategoryByteSweep.ItemLimit_IsByte74 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.ItemLimit_IsByte74)
+add_test(NAME CategoryByteSweep.FortWar_IsByte76 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.FortWar_IsByte76)
+add_test(NAME CategoryByteSweep.Bobusang_IsByte73 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Bobusang_IsByte73)
+add_test(NAME CategoryByteSweep.AutoNote_IsByte75 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.AutoNote_IsByte75)
+add_test(NAME CategoryByteSweep.SiegeWarProfit_IsByte63 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.SiegeWarProfit_IsByte63)
+add_test(NAME CategoryByteSweep.GuildUnion_IsByte61 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.GuildUnion_IsByte61)
+add_test(NAME CategoryByteSweep.SiegeWar_IsByte62 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.SiegeWar_IsByte62)
+add_test(NAME CategoryByteSweep.HackCheck_IsByte41 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.HackCheck_IsByte41)
+add_test(NAME CategoryByteSweep.PackedData_IsByte13 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.PackedData_IsByte13)
+add_test(NAME CategoryByteSweep.Note_IsByte58 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Note_IsByte58)
+add_test(NAME CategoryByteSweep.Item_IsByte5 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Item_IsByte5)
+add_test(NAME CategoryByteSweep.Party_IsByte14 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Party_IsByte14)
+add_test(NAME CategoryByteSweep.MurimNet_IsByte38 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.MurimNet_IsByte38)
+add_test(NAME CategoryByteSweep.Exchange_IsByte28 COMMAND mxh_category_byte_sweep_tests --gtest_filter=CategoryByteSweep.Exchange_IsByte28)
 
 
 gtest_add_tests(TARGET mxh_tactic_ability_info_tests

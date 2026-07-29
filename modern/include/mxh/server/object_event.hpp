@@ -25,7 +25,7 @@ enum class ObjectEventCode : std::uint8_t {
 // ObjectEvent is the legacy entry point used by CObject::Release,
 // CCharacterCalcManager::LevelUp, etc.  In modern it becomes a
 // pure notification function the server framework can hook.
-struct Object;
+class Object;
 struct ObjectEventSink {
     // Receivers return true to acknowledge the event.
     bool (*on_levelup)(Object* obj, void* user_data) = nullptr;
