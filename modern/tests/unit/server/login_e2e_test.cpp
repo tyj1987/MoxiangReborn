@@ -1256,3 +1256,35 @@ TEST_F(EncryptedLoginFixture, EncryptedCat4RequestIsDropped) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M12 -- encrypted path for cat=6 (Chat). Completes the encrypted
+// coverage matrix for cat != 7: cat=8 (M7), cat=4 (M11), cat=6 (M12).
+// Together they prove the encrypt path is fully category-agnostic.
+// =============================================================================
+
+TEST_F(EncryptedLoginFixture, EncryptedCat6RequestIsDropped) {
+
+    EncryptedClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    Message unknown;
+    unknown.header.category = 6;
+    unknown.header.protocol = 3;
+    unknown.header.object_id = 1234;
+    unknown.payload.push_back(0x55);
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
