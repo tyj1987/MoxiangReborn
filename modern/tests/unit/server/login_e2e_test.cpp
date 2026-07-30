@@ -4041,3 +4041,78 @@ TEST_F(LoginServerFixture, UnknownCategoryBattleRequestIsDroppedWithoutResponse)
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M52 -- cat=3 (Char) wire-format golden + drop test.
+// First character-state category locked. Char
+// carries character create / delete / select / state
+// requests sent on character management screens.
+// Locking the request shape here means a regression in
+// modern char encoder trips the golden comparison
+// before any real character slot gets corrupted.
+//
+// 18B total: 2B length=16 + 8B header (cat=3, proto=1, obj_id=34444) +
+// 8B payload (4B char_op=1 + 4B target=0).
+//
+// C 协议扩展 M52 -- the 38th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 37, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 46.9% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesCharRequest) {
+    // cat=3 (Char), proto=1 (char base), obj_id=34444,
+    // 8B payload (4B char_op=1 + 4B target=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // character management request. Pins a real char
+    // request so a regression in net layer framing or modern
+    // Char encoder trips the golden comparison.
+    Message ch;
+    ch.header.category = 3;
+    ch.header.protocol = 1;
+    ch.header.object_id = 34444;
+    ch.header.checksum = 0;
+    ch.header.code = 0;
+    ch.payload.clear();
+    // 4B char_op=1 LE
+    ch.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    ch.payload.push_back(0);
+    ch.payload.push_back(0);
+    ch.payload.push_back(0);
+    // 4B target=0
+    ch.payload.push_back(0);
+    ch.payload.push_back(0);
+    ch.payload.push_back(0);
+    ch.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(ch);
+    const auto golden = read_golden_bytes("char_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryCharRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=3 (Char) char-mgmt request --
+    // LoginHandler logs unhandled category: Char and drops it
+    // without reply. Thirty-eighth category in the C 协议扩展
+    // arc.
+    Message ch;
+    ch.header.category = 3;
+    ch.header.protocol = 1;
+    ch.header.object_id = 34444;
+    ch.payload.assign(8, 0);
+    ch.payload[0] = static_cast<std::uint8_t>(1u & 0xFFu);
+    ASSERT_EQ(tcp.send(ch), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
