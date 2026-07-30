@@ -3164,3 +3164,81 @@ TEST_F(LoginServerFixture, UnknownCategoryStreetStallRequestIsDroppedWithoutResp
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M41 -- cat=65 (PartyWar) wire-format golden + drop test.
+// First party-vs-party PvP category locked. PartyWar carries
+// war-declare / war-score / war-surrender requests between
+// client and server for small-scale party PvP events. Locking
+// the request shape here means a regression in modern PartyWar
+// encoder trips the golden comparison before any real party
+// mis-declares a war against the wrong target or gets stuck
+// mid-PvP without score updates.
+//
+// 18B total: 2B length=16 + 8B header (cat=65, proto=1, obj_id=19999) +
+// 8B payload (4B target_party_id=100 + 4B war_type=1=declare).
+//
+// C 协议扩展 M41 -- the 27th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 22, 23, 28, 29, 30, 33, 37, 39, 58, 62, 69, 71, 72).
+// Crossed the 33% mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPartyWarRequest) {
+    // cat=65 (PartyWar), proto=1 (war-declare base), obj_id=19999,
+    // 8B payload (4B target_party_id=100 + 4B war_type=1=declare).
+    // Mirrors the wire shape the legacy client sends for a party
+    // declaring war on another party. Pins a real war-declare
+    // request so a regression in net layer framing or modern
+    // PartyWar encoder trips the golden comparison.
+    Message pw;
+    pw.header.category = 65;
+    pw.header.protocol = 1;
+    pw.header.object_id = 19999;
+    pw.header.checksum = 0;
+    pw.header.code = 0;
+    pw.payload.clear();
+    // 4B target_party_id=100 LE
+    pw.payload.push_back(static_cast<std::uint8_t>(100u & 0xFFu));
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+    // 4B war_type=1 (declare) LE
+    pw.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pw);
+    const auto golden = read_golden_bytes("partywar_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPartyWarRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=65 (PartyWar) war-declare request -- LoginHandler
+    // logs unhandled category: PartyWar and drops it without
+    // reply. Twenty-seventh category in the C 协议扩展 arc.
+    Message pw;
+    pw.header.category = 65;
+    pw.header.protocol = 1;
+    pw.header.object_id = 19999;
+    pw.payload.assign(8, 0);
+    pw.payload[0] = static_cast<std::uint8_t>(100u & 0xFFu);  // target_party
+    pw.payload[4] = static_cast<std::uint8_t>(1u & 0xFFu);  // war_type
+    ASSERT_EQ(tcp.send(pw), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
