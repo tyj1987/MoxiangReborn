@@ -1062,3 +1062,56 @@ TEST_F(EncryptedLoginFixture, EncryptedUnknownCategoryRequestIsDropped) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M8 -- wire-format coverage for cat=4 (Character). Mirrors M6 with a
+// different category to prove the wire framing treats cat != 7 uniformly.
+// cat=4 is the AgentHandler category in the legacy dispatch; on this
+// LoginServerFixture the LoginHandler logs [Login] unhandled category:
+// Character and drops it. The serialization golden pins the bytes.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesCat4Request) {
+
+    // cat=4 (Character), proto=2, object_id=99, empty payload.
+    Message unknown;
+    unknown.header.category = 4;
+    unknown.header.protocol = 2;
+    unknown.header.object_id = 99;
+    unknown.header.checksum = 0;
+    unknown.header.code = 0;
+    unknown.payload.clear();
+
+    const auto actual = reconstruct_wire(unknown);
+    const auto golden = read_golden_bytes("unknown_category_cat4_request.bin");
+    EXPECT_EQ(actual, golden);
+}
+
+
+TEST_F(LoginServerFixture, UnknownCategoryCat4RequestIsDroppedWithoutResponse) {
+
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=4 (Character) -- LoginHandler logs "unhandled category: Character"
+    // and drops it without reply. Same wire-frame invariant as M6 but
+    // for a different category byte (4 vs 8).
+    Message unknown;
+    unknown.header.category = 4;
+    unknown.header.protocol = 2;
+    unknown.header.object_id = 99;
+    unknown.payload.clear();
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
