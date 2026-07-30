@@ -4341,3 +4341,78 @@ TEST_F(LoginServerFixture, UnknownCategorySignalRequestIsDroppedWithoutResponse)
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M56 -- cat=18 (AutoPatch) wire-format golden + drop test.
+// First auto-patcher category locked. AutoPatch
+// carries client-side patch / version requests when
+// the launcher pumps a new client build.
+// Locking the request shape here means a regression in
+// modern autopatch encoder trips the golden comparison
+// before any real patch rollout gets wedged.
+//
+// 18B total: 2B length=16 + 8B header (cat=18, proto=1, obj_id=38888) +
+// 8B payload (4B patch_id=20 + 4B version=0).
+//
+// C 协议扩展 M56 -- the 42nd distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 16, 17, 19, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 37, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 51.9% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesAutoPatchRequest) {
+    // cat=18 (AutoPatch), proto=1 (patch base), obj_id=38888,
+    // 8B payload (4B patch_id=20 + 4B version=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // client auto-patch handshake. Pins a real patch
+    // request so a regression in net layer framing or modern
+    // AutoPatch encoder trips the golden comparison.
+    Message ap;
+    ap.header.category = 18;
+    ap.header.protocol = 1;
+    ap.header.object_id = 38888;
+    ap.header.checksum = 0;
+    ap.header.code = 0;
+    ap.payload.clear();
+    // 4B patch_id=20 LE
+    ap.payload.push_back(static_cast<std::uint8_t>(20u & 0xFFu));
+    ap.payload.push_back(0);
+    ap.payload.push_back(0);
+    ap.payload.push_back(0);
+    // 4B version=0
+    ap.payload.push_back(0);
+    ap.payload.push_back(0);
+    ap.payload.push_back(0);
+    ap.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(ap);
+    const auto golden = read_golden_bytes("autopatch_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryAutoPatchRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=18 (AutoPatch) patch handshake request --
+    // LoginHandler logs unhandled category: AutoPatch and drops it
+    // without reply. Forty-second category in the C 协议扩展
+    // arc.
+    Message ap;
+    ap.header.category = 18;
+    ap.header.protocol = 1;
+    ap.header.object_id = 38888;
+    ap.payload.assign(8, 0);
+    ap.payload[0] = static_cast<std::uint8_t>(20u & 0xFFu);
+    ASSERT_EQ(tcp.send(ap), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
