@@ -2311,3 +2311,79 @@ TEST_F(LoginServerFixture, UnknownCategoryWeatherRequestIsDroppedWithoutResponse
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M30 -- cat=12 (Quick) wire-format golden + drop test.
+// First quick-slot bar category locked. Quick carries quick-slot
+// use / equip / unequip requests from the client to the server.
+// Locking the request shape here means a regression in modern
+// Quick encoder trips the golden comparison before any real
+// player mis-fires a quick-slot skill or item.
+//
+// 18B total: 2B length=16 + 8B header (cat=12, proto=1, obj_id=7777) +
+// 8B payload (4B slot_index=5 + 4B item_id=12345).
+//
+// C 协议扩展 M30 -- the 16th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 14, 22, 28, 58, 71).
+// Crossed the 19.7% mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesQuickRequest) {
+    // cat=12 (Quick), proto=1 (slot-use base), obj_id=7777, 8B
+    // payload (4B slot_index=5 + 4B item_id=12345). Mirrors the
+    // wire shape the legacy client sends for quick-slot use.
+    // Pins a real quick-slot request so a regression in net
+    // layer framing or modern Quick encoder trips the golden
+    // comparison.
+    Message quick;
+    quick.header.category = 12;
+    quick.header.protocol = 1;
+    quick.header.object_id = 7777;
+    quick.header.checksum = 0;
+    quick.header.code = 0;
+    quick.payload.clear();
+    // 4B slot_index=5 LE
+    quick.payload.push_back(static_cast<std::uint8_t>(5u & 0xFFu));
+    quick.payload.push_back(0);
+    quick.payload.push_back(0);
+    quick.payload.push_back(0);
+    // 4B item_id=12345 LE
+    quick.payload.push_back(static_cast<std::uint8_t>(12345u & 0xFFu));
+    quick.payload.push_back(static_cast<std::uint8_t>((12345u >> 8) & 0xFFu));
+    quick.payload.push_back(0);
+    quick.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(quick);
+    const auto golden = read_golden_bytes("quick_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryQuickRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=12 (Quick) slot-use request -- LoginHandler logs
+    // unhandled category: Quick and drops it without reply.
+    // Sixteenth category in the C 协议扩展 arc.
+    Message quick;
+    quick.header.category = 12;
+    quick.header.protocol = 1;
+    quick.header.object_id = 7777;
+    quick.payload.assign(8, 0);
+    quick.payload[0] = static_cast<std::uint8_t>(5u & 0xFFu);  // slot_index
+    quick.payload[4] = static_cast<std::uint8_t>(12345u & 0xFFu);  // item_id low
+    quick.payload[5] = static_cast<std::uint8_t>((12345u >> 8) & 0xFFu);  // item_id high
+    ASSERT_EQ(tcp.send(quick), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
