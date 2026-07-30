@@ -1902,3 +1902,15 @@ target_include_directories(mxh_wire_format_tests PRIVATE
 target_link_libraries(mxh_wire_format_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_wire_format_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# Phase 6.4 E2E: in-process LoginServer wire-format test (M2 step 1 scaffold).
+# Spins up LoginHandler + TcpServer(legacy_framing=true) inside the test,
+# connects a TcpClient, and verifies DistConnectSuccess / NotifyUserLoginAck
+# byte layouts round-trip correctly across the wire.
+add_executable(mxh_login_e2e_tests login_e2e_test.cpp)
+target_link_libraries(mxh_login_e2e_tests PRIVATE mxh_server mxh_db GTest::gtest_main)
+if(WIN32)
+    target_link_libraries(mxh_login_e2e_tests PRIVATE Ws2_32)
+endif()
+gtest_add_tests(TARGET mxh_login_e2e_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
