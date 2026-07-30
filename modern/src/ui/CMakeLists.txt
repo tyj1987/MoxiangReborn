@@ -75,7 +75,6 @@ add_library(mxh_ui STATIC
     gtregistcanceldialog.cpp
     gtregistdialog.cpp
     reinforcedataguidedlg.cpp
-    wanteddialog.cpp
     wantregistdialog.cpp
     maindialog.cpp
     guildmarkdialog.cpp
@@ -164,6 +163,7 @@ add_library(mxh_ui STATIC
     partymatchingdlg.cpp
     partymemberdlg.cpp
     cpartywardialog.cpp
+    cwanteddialog.cpp
     petinventorydlg.cpp
     petrevivaldialog.cpp
     petstatedlg.cpp
