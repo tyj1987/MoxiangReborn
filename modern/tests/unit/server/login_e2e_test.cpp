@@ -31,6 +31,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -48,6 +49,10 @@ using mxh::net::TcpServer;
 
 // Find an ephemeral TCP port. Also ensures WSAStartup has run
 // (the first ::socket call needs it).
+// Pinned ephemeral port used by M2 step 2 golden-capture tests so wire bytes
+// are byte-stable across runs (find_free_port gives different port each run).
+constexpr std::uint16_t kGoldenPort = 54321;
+
 int find_free_port() {
 #ifdef _WIN32
     WSADATA wsa;
@@ -156,7 +161,7 @@ protected:
         auto er = sa->exec_multi(schema);
         ASSERT_TRUE(er) << er.error_message;
 
-        port_ = find_free_port();
+        port_ = pin_port_for_golden_ ? kGoldenPort : find_free_port();
         ASSERT_GT(port_, 0);
         agent_port_for_ack_ = static_cast<std::uint16_t>(port_ + 1);
 
@@ -209,6 +214,7 @@ protected:
 
     std::string db_path_;
     int port_ = 0;
+    bool pin_port_for_golden_ = false;
     std::uint16_t agent_port_for_ack_ = 0;
     std::unique_ptr<mxh::db::IDbAdapter> db_;
     std::unique_ptr<mxh::server::LoginHandler> handler_;
@@ -217,6 +223,14 @@ protected:
     std::atomic<bool> drain_running_{false};
     std::mutex replies_mu_;
     std::unordered_map<std::uint64_t, std::vector<Message>> replies_;
+};
+
+// M2 step 2 -- derived fixture that pins the ephemeral port to kGoldenPort
+// so wire bytes are byte-stable across runs. Default fixture uses
+// find_free_port() which yields a different port each run.
+class LoginServerFixtureGolden : public LoginServerFixture {
+public:
+    LoginServerFixtureGolden() { pin_port_for_golden_ = true; }
 };
 
 }  // namespace
@@ -321,4 +335,128 @@ TEST_F(LoginServerFixture, LegacyLoginInvalidCredsReceivesNack) {
     EXPECT_EQ(nack.header.protocol, 1);
     EXPECT_TRUE(nack.payload.empty());
     tcp.disconnect();
+}
+
+// =============================================================================
+// M2 step 2 -- golden wire-byte capture. LoginServerFixtureGolden pins port_
+// to kGoldenPort (54321); a fresh LoginHandler sets next_auth_key_ = 1000.
+// Combined, the wire bytes for dist_connect_success / login_ack / login_nack
+// are deterministic and locked against modern/tests/unit/server/golden/*.bin.
+// =============================================================================
+
+std::vector<std::uint8_t> reconstruct_wire(const Message& m) {
+    const auto body_length = static_cast<std::uint16_t>(8u + m.payload.size());
+    std::vector<std::uint8_t> out;
+    out.reserve(2u + body_length);
+    out.push_back(static_cast<std::uint8_t>(body_length & 0xff));
+    out.push_back(static_cast<std::uint8_t>((body_length >> 8) & 0xff));
+    out.push_back(m.header.checksum);
+    out.push_back(static_cast<std::uint8_t>(m.header.code));
+    out.push_back(m.header.category);
+    out.push_back(m.header.protocol);
+    out.push_back(static_cast<std::uint8_t>(m.header.object_id & 0xff));
+    out.push_back(static_cast<std::uint8_t>((m.header.object_id >> 8) & 0xff));
+    out.push_back(static_cast<std::uint8_t>((m.header.object_id >> 16) & 0xff));
+    out.push_back(static_cast<std::uint8_t>((m.header.object_id >> 24) & 0xff));
+    out.insert(out.end(), m.payload.begin(), m.payload.end());
+    return out;
+}
+
+std::vector<std::uint8_t> read_golden_bytes(const std::string& filename) {
+    // CMake sets WORKING_DIRECTORY = modern/tests/unit. Relative path resolves
+    // to modern/tests/unit/server/golden/ which is the canonical capture dir.
+    const std::filesystem::path p = std::filesystem::path("server") / "golden" / filename;
+    std::ifstream f(p, std::ios::binary);
+    EXPECT_TRUE(f.is_open()) << "golden file missing: " << p.string();
+    return std::vector<std::uint8_t>(
+        std::istreambuf_iterator<char>(f),
+        std::istreambuf_iterator<char>{});
+}
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesDistConnectSuccess) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    auto cr = tcp.connect(ccfg);
+    ASSERT_EQ(cr, NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 1u);
+    const auto& dcs = msgs[0];
+    EXPECT_EQ(dcs.header.category, 7);
+    EXPECT_EQ(dcs.header.protocol, 0);
+    EXPECT_EQ(dcs.header.object_id, 1000u);
+    EXPECT_TRUE(dcs.payload.empty());
+    tcp.disconnect();
+    const auto actual = reconstruct_wire(dcs);
+    const auto golden = read_golden_bytes("dist_connect_success.bin");
+    EXPECT_EQ(actual, golden);
+}
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginAck) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    auto cr = tcp.connect(ccfg);
+    ASSERT_EQ(cr, NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    auto dcs = client.snapshot()[0];
+    ASSERT_EQ(dcs.header.protocol, 0);
+    std::uint32_t auth_key = dcs.header.object_id;
+    ASSERT_EQ(auth_key, 1000u);
+    Message login;
+    login.header.category = 7;
+    login.header.protocol = 1;
+    login.header.object_id = 0;
+    login.payload = make_legacy_login_payload(auth_key, "test", "test");
+    auto se = tcp.send(login);
+    ASSERT_EQ(se, NetError::Ok);
+    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 2u);
+    const auto& ack = msgs[1];
+    EXPECT_EQ(ack.header.protocol, 2);
+    tcp.disconnect();
+    const auto actual = reconstruct_wire(ack);
+    const auto golden = read_golden_bytes("login_ack.bin");
+    EXPECT_EQ(actual, golden);
+}
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginNack) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    auto cr = tcp.connect(ccfg);
+    ASSERT_EQ(cr, NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    auto dcs = client.snapshot()[0];
+    ASSERT_EQ(dcs.header.protocol, 0);
+    std::uint32_t auth_key = dcs.header.object_id;
+    ASSERT_EQ(auth_key, 1000u);
+    Message login;
+    login.header.category = 7;
+    login.header.protocol = 1;
+    login.header.object_id = 0;
+    login.payload = make_legacy_login_payload(auth_key, "test", "wrong");
+    auto se = tcp.send(login);
+    ASSERT_EQ(se, NetError::Ok);
+    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 2u);
+    const auto& nack = msgs[1];
+    EXPECT_EQ(nack.header.protocol, 1);
+    EXPECT_TRUE(nack.payload.empty());
+    tcp.disconnect();
+    const auto actual = reconstruct_wire(nack);
+    const auto golden = read_golden_bytes("login_nack.bin");
+    EXPECT_EQ(actual, golden);
 }
