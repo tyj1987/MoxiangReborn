@@ -2,6 +2,7 @@
 
 #include "mxh/server/quest_manager.hpp"
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace {
 using mxh::server::QuestState;
@@ -17,6 +18,8 @@ using mxh::server::complete_quest;
 using mxh::server::fail_quest;
 using mxh::server::reward_quest;
 using mxh::server::accept_quest;
+using mxh::server::LIMIT_PROCESS_QUEST;
+using mxh::server::QuestRewardStatus;
 
 static QuestDefinition make_kill_quest(std::uint32_t id, std::uint32_t monster_kind, std::uint32_t count) {
     QuestDefinition d;
@@ -283,4 +286,124 @@ TEST(RewardQuest, OnlyCompletesToRewarded) {
     increment_sub(p, QuestSubKind::Kill, 200, 5);
     evaluate_quest_state(p);
     EXPECT_EQ(reward_quest(p), QuestState::Rewarded);
+}
+
+TEST(QuestTimer, NotExpiredAtExactDeadline) {
+    auto def = make_kill_quest(501, 200, 1);
+    def.timer_seconds = 10;
+    auto progress = start_quest(1, def, 1000);
+    const auto result = tick_quest(progress, def, 11000);
+    EXPECT_EQ(result.state, QuestState::Accepted);
+    EXPECT_FALSE(result.expired);
+    EXPECT_FALSE(result.changed);
+}
+
+TEST(QuestTimer, ExpiresAfterDeadline) {
+    auto def = make_kill_quest(502, 200, 1);
+    def.timer_seconds = 10;
+    auto progress = start_quest(1, def, 1000);
+    const auto result = tick_quest(progress, def, 11001);
+    EXPECT_EQ(result.state, QuestState::Failed);
+    EXPECT_TRUE(result.expired);
+    EXPECT_TRUE(result.changed);
+}
+
+TEST(QuestTimer, CompletedQuestIsNotRevertedByTick) {
+    auto def = make_kill_quest(503, 200, 1);
+    def.timer_seconds = 1;
+    auto progress = start_quest(1, def, 1000);
+    increment_sub(progress, QuestSubKind::Kill, 200, 1);
+    EXPECT_EQ(evaluate_quest_state(progress), QuestState::Complete);
+    const auto result = tick_quest(progress, def, 999999);
+    EXPECT_EQ(result.state, QuestState::Complete);
+    EXPECT_FALSE(result.expired);
+}
+
+TEST(QuestCounter, SaturatesWithoutUint32Wrap) {
+    auto def = make_kill_quest(504, 200, std::numeric_limits<std::uint32_t>::max());
+    auto progress = start_quest(1, def, 0);
+    progress.subs[0].count = std::numeric_limits<std::uint32_t>::max() - 1u;
+    EXPECT_TRUE(increment_sub(progress, QuestSubKind::Kill, 200, 10));
+    EXPECT_EQ(progress.subs[0].count, std::numeric_limits<std::uint32_t>::max());
+}
+
+TEST(QuestLimit, OnlyTwentyAcceptedQuestsCanBeActive) {
+    QuestLog log;
+    for (std::uint32_t id = 1; id <= LIMIT_PROCESS_QUEST; ++id) {
+        EXPECT_TRUE(accept_quest(log, make_kill_quest(id, 200, 1), 0));
+    }
+    EXPECT_FALSE(accept_quest(log, make_kill_quest(999, 200, 1), 0));
+    EXPECT_EQ(active_quest_count(log), LIMIT_PROCESS_QUEST);
+}
+
+TEST(QuestLimit, CompletedQuestFreesAnActiveSlot) {
+    QuestLog log;
+    for (std::uint32_t id = 1; id <= LIMIT_PROCESS_QUEST; ++id) {
+        EXPECT_TRUE(accept_quest(log, make_kill_quest(id, 200, 1), 0));
+    }
+    auto first = find_quest(log, 1);
+    ASSERT_TRUE(first.has_value());
+    increment_sub(*first.value(), QuestSubKind::Kill, 200, 1);
+    evaluate_quest_state(*first.value());
+    EXPECT_TRUE(accept_quest(log, make_kill_quest(999, 200, 1), 0));
+    EXPECT_EQ(active_quest_count(log), LIMIT_PROCESS_QUEST);
+}
+
+TEST(QuestEligibility, PlayerLevelRangeIsInclusive) {
+    auto def = make_kill_quest(601, 200, 1);
+    def.min_level = 10;
+    def.max_level = 20;
+    QuestLog log;
+    EXPECT_FALSE(accept_quest(log, def, 0, 9));
+    EXPECT_TRUE(accept_quest(log, def, 0, 10));
+    auto too_high = make_kill_quest(602, 200, 1);
+    too_high.min_level = 10;
+    too_high.max_level = 20;
+    EXPECT_FALSE(accept_quest(log, too_high, 0, 21));
+}
+TEST(QuestReward, GrantsPlayerResourcesAndMarksRewarded) {
+    auto def = make_kill_quest(701, 200, 1);
+    def.reward_exp = 250;
+    def.reward_money = 75;
+    def.reward_item_idx = 9001;
+    def.reward_item_qty = 2;
+    auto progress = start_quest(1, def, 0);
+    complete_quest(progress);
+    mxh::server::PlayerSpawnInfo info;
+    info.player_id = 1;
+    info.base.level = 10;
+    info.base.cheryuk = 20;
+    mxh::server::Player player;
+    ASSERT_TRUE(player.initialize(info));
+    ASSERT_TRUE(player.activate());
+    const auto result = claim_quest_reward(progress, def, player, 1000);
+    EXPECT_EQ(result.status, QuestRewardStatus::Granted);
+    EXPECT_EQ(result.experience, 250u);
+    EXPECT_EQ(result.money, 75u);
+    EXPECT_EQ(result.item_idx, 9001u);
+    EXPECT_EQ(result.item_qty, 2u);
+    EXPECT_EQ(progress.state, QuestState::Rewarded);
+}
+
+TEST(QuestReward, InactivePlayerDoesNotConsumeCompletion) {
+    auto def = make_kill_quest(702, 200, 1);
+    auto progress = start_quest(1, def, 0);
+    complete_quest(progress);
+    mxh::server::Player player;
+    const auto result = claim_quest_reward(progress, def, player, 1000);
+    EXPECT_EQ(result.status, QuestRewardStatus::PlayerInactive);
+    EXPECT_EQ(progress.state, QuestState::Complete);
+}
+
+TEST(QuestReward, AlreadyRewardedIsIdempotentlyRejected) {
+    auto def = make_kill_quest(703, 200, 1);
+    auto progress = start_quest(1, def, 0);
+    complete_quest(progress);
+    mxh::server::PlayerSpawnInfo info;
+    info.player_id = 1;
+    mxh::server::Player player;
+    ASSERT_TRUE(player.initialize(info));
+    ASSERT_TRUE(player.activate());
+    ASSERT_EQ(claim_quest_reward(progress, def, player, 1000).status, QuestRewardStatus::Granted);
+    EXPECT_EQ(claim_quest_reward(progress, def, player, 1000).status, QuestRewardStatus::NotComplete);
 }

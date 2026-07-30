@@ -14,6 +14,7 @@ using mxh::server::PetUpgradeResult;
 using mxh::server::PetFeedResult;
 using mxh::server::PetKind;
 using mxh::server::PetBuffData;
+using mxh::server::PetUpgradeProfile;
 using mxh::server::make_pet_manager;
 using mxh::server::init_pet_manager;
 using mxh::server::add_pet_total_info;
@@ -482,4 +483,42 @@ TEST(PetManagerBuffData, SetAndGetByKind) {
     ASSERT_TRUE(got.has_value());
     EXPECT_EQ(got->Prob, 50u);
     EXPECT_EQ(got->BuffValueData, 100u);
+}
+
+TEST(PetManagerFriendship, FriendshipLossKillsPetAtZero) {
+    auto pet = make_pet(1u, static_cast<std::uint16_t>(PetKind::CommonPet), 1u, 100u, 10u, 1u);
+    add_friendship(pet, -10);
+    EXPECT_EQ(pet.PetFriendly, 0u);
+    EXPECT_EQ(pet.bAlive, 1u);
+    add_friendship(pet, -1);
+    EXPECT_EQ(pet.PetFriendly, 0u);
+    EXPECT_EQ(pet.bAlive, 0u);
+}
+
+TEST(PetManagerFriendship, EventPetIgnoresFriendshipDelta) {
+    auto pet = make_pet(1u, static_cast<std::uint16_t>(PetKind::EventPet), 1u, 100u, 10u, 1u);
+    add_friendship(pet, -100);
+    EXPECT_EQ(pet.PetFriendly, 10u);
+    EXPECT_EQ(pet.bAlive, 1u);
+}
+
+TEST(PetManagerUpgrade, ProfileResetsStatsOnSuccess) {
+    auto pet = make_pet(1u, static_cast<std::uint16_t>(PetKind::CommonPet), 1u, 10u, 123u, 1u);
+    PetUpgradeProfile profile;
+    profile.stamina_max = {100u, 250u, 500u};
+    profile.default_friendship = 3000000u;
+    profile.failure_friendship_loss = 10u;
+    EXPECT_EQ(upgrade_pet_with_profile(pet, 0u, profile), PetUpgradeResult::UpgradeSucess);
+    EXPECT_EQ(pet.PetGrade, 2u);
+    EXPECT_EQ(pet.PetStamina, 250u);
+    EXPECT_EQ(pet.PetFriendly, 3000000u);
+}
+
+TEST(PetManagerUpgrade, ProfileFailureReducesFriendshipAndCanKill) {
+    auto pet = make_pet(1u, static_cast<std::uint16_t>(PetKind::CommonPet), 1u, 10u, 5u, 1u);
+    PetUpgradeProfile profile;
+    profile.failure_friendship_loss = 10u;
+    EXPECT_EQ(upgrade_pet_with_profile(pet, 9999u, profile), PetUpgradeResult::UpgradeFailforProb);
+    EXPECT_EQ(pet.PetFriendly, 0u);
+    EXPECT_EQ(pet.bAlive, 0u);
 }

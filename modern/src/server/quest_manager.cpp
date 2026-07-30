@@ -2,6 +2,7 @@
 
 #include "mxh/server/quest_manager.hpp"
 #include <algorithm>
+#include <limits>
 
 namespace mxh::server {
 
@@ -24,7 +25,8 @@ bool increment_sub(QuestProgress& progress,
                     std::uint32_t delta) noexcept {
     for (auto& s : progress.subs) {
         if (s.kind == kind && s.target_id == target_id) {
-            s.count += delta;
+            const auto remaining = std::numeric_limits<std::uint32_t>::max() - s.count;
+            s.count += std::min(delta, remaining);
             if (s.count >= s.target) {
                 s.count = s.target;
                 return true;
@@ -62,6 +64,64 @@ QuestState reward_quest(QuestProgress& progress) noexcept {
     return QuestState::Rewarded;
 }
 
+QuestRewardResult claim_quest_reward(QuestProgress& progress,
+                                      const QuestDefinition& def,
+                                      Player& player,
+                                      std::uint32_t next_level_exp) noexcept {
+    QuestRewardResult result;
+    if (progress.state != QuestState::Complete) return result;
+    if (!player.is_active()) {
+        result.status = QuestRewardStatus::PlayerInactive;
+        return result;
+    }
+    const auto money_before = player.state().progress.money;
+    const auto exp_before = player.state().progress.total_exp;
+    if (def.reward_money != 0u) player.add_money(def.reward_money);
+    if (def.reward_exp != 0u) player.add_experience(def.reward_exp, next_level_exp);
+    result.status = QuestRewardStatus::Granted;
+    result.money = player.state().progress.money - money_before;
+    result.experience = player.state().progress.total_exp - exp_before;
+    result.item_idx = def.reward_item_idx;
+    result.item_qty = def.reward_item_qty;
+    progress.state = QuestState::Rewarded;
+    return result;
+}
+
+QuestTickResult tick_quest(QuestProgress& progress,
+                           const QuestDefinition& def,
+                           std::uint32_t now_ms) noexcept {
+    QuestTickResult result;
+    result.state = progress.state;
+    if (progress.state != QuestState::Accepted) return result;
+    const auto before = progress.state;
+    if (def.timer_seconds != 0u) {
+        const auto elapsed = static_cast<std::uint32_t>(now_ms - progress.accepted_time_ms);
+        const auto limit = static_cast<std::uint64_t>(def.timer_seconds) * 1000u;
+        if (static_cast<std::uint64_t>(elapsed) > limit) {
+            progress.state = QuestState::Failed;
+            result.state = progress.state;
+            result.expired = true;
+            result.changed = true;
+            return result;
+        }
+    }
+    result.state = evaluate_quest_state(progress);
+    result.changed = result.state != before;
+    return result;
+}
+
+std::size_t active_quest_count(const QuestLog& log) noexcept {
+    std::size_t count = 0;
+    for (const auto& quest : log.quests) {
+        if (quest.state == QuestState::Accepted) ++count;
+    }
+    return count;
+}
+
+bool can_accept_quest(const QuestDefinition& def,
+                      std::uint16_t player_level) noexcept {
+    return player_level >= def.min_level && player_level <= def.max_level;
+}
 std::optional<QuestProgress*> find_quest(QuestLog& log, std::uint32_t quest_id) noexcept {
     for (auto& q : log.quests) {
         if (q.quest_id == quest_id) return &q;
@@ -71,8 +131,17 @@ std::optional<QuestProgress*> find_quest(QuestLog& log, std::uint32_t quest_id) 
 
 bool accept_quest(QuestLog& log, const QuestDefinition& def, std::uint32_t now_ms) noexcept {
     if (find_quest(log, def.quest_id).has_value()) return false;
+    if (active_quest_count(log) >= LIMIT_PROCESS_QUEST) return false;
     log.quests.push_back(start_quest(log.player_id, def, now_ms));
     return true;
+}
+
+bool accept_quest(QuestLog& log,
+                  const QuestDefinition& def,
+                  std::uint32_t now_ms,
+                  std::uint16_t player_level) noexcept {
+    if (!can_accept_quest(def, player_level)) return false;
+    return accept_quest(log, def, now_ms);
 }
 
 // drop_quest - player gives up an active quest.

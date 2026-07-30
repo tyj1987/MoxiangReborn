@@ -64,7 +64,7 @@ struct PlayerProgress final {
     std::uint32_t max_exp    = 0;       // exp needed to next level
 };
 
-// ---- Vitals (HP / Shield / NaeRyuk = 内力) ----
+// ---- Vitals (HP / Shield / NaeRyuk = å†…åŠ›) ----
 struct PlayerVitals final {
     std::uint32_t current_hp     = 0;
     std::uint32_t max_hp         = 1;
@@ -155,6 +155,8 @@ struct PlayerState final {
     std::uint8_t  face_type = 0;
     std::uint8_t  hair_type = 0;
     std::uint16_t map_num   = 0;
+    float pos_x = 0.0f;
+    float pos_z = 0.0f;
 
     // Character state
     PlayerProgress  progress;

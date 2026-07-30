@@ -146,6 +146,7 @@ add_library(mxh_server STATIC
     server/agent_handler.cpp
     server/map_handler.cpp
     server/character_calc_manager.cpp
+    server/player.cpp
     server/player_state.cpp
     server/monster.cpp
     server/boss_state.cpp
@@ -175,6 +176,7 @@ add_library(mxh_server STATIC
     server/pet_manager.cpp
     server/exchange_manager.cpp
     server/titan_manager.cpp
+    server/titan_item_manager.cpp
     server/street_stall_manager.cpp
     server/friend_manager.cpp
     server/bobusang_manager.cpp

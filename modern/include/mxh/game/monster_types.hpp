@@ -98,6 +98,8 @@ struct MonsterTemplate {
     float         SearchRange = 500.0f;
     float         DomainRange = 1000.0f;
     bool          Aggressive  = false;
+    std::uint16_t DropItemId   = 0;
+    std::uint32_t DropItemRatio = 100;
 };
 
 #pragma pack(pop)
@@ -142,6 +144,8 @@ struct MonsterInstance {
     float         search_range= 500.0f;
     float         domain_range= 1000.0f;
     bool          aggressive  = false;
+    std::uint16_t drop_item_id = 0;
+    std::uint32_t drop_item_ratio = 100;
 };
 
 // Helper: compute distance squared between two 2D points (XZ plane)

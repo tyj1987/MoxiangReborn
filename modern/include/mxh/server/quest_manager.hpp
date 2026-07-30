@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "mxh/server/player_state.hpp"
+#include "mxh/server/player.hpp"
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -83,6 +83,26 @@ QuestState complete_quest(QuestProgress& progress) noexcept;
 QuestState fail_quest(QuestProgress& progress) noexcept;
 QuestState reward_quest(QuestProgress& progress) noexcept;
 
+enum class QuestRewardStatus : std::uint8_t {
+    Granted = 0,
+    NotComplete = 1,
+    PlayerInactive = 2,
+};
+
+struct QuestRewardResult final {
+    QuestRewardStatus status = QuestRewardStatus::NotComplete;
+    std::uint32_t experience = 0;
+    std::uint32_t money = 0;
+    std::uint32_t item_idx = 0;
+    std::uint32_t item_qty = 0;
+};
+
+QuestRewardResult claim_quest_reward(QuestProgress& progress,
+                                      const QuestDefinition& def,
+                                      Player& player,
+                                      std::uint32_t next_level_exp) noexcept;
+
+
 // ---- Quest log (per-player quest list) ----
 struct QuestLog final {
     std::uint32_t player_id = 0;
@@ -92,6 +112,11 @@ struct QuestLog final {
 std::optional<QuestProgress*> find_quest(QuestLog& log, std::uint32_t quest_id) noexcept;
 bool accept_quest(QuestLog& log, const QuestDefinition& def, std::uint32_t now_ms) noexcept;
 
+
+bool accept_quest(QuestLog& log,
+                  const QuestDefinition& def,
+                  std::uint32_t now_ms,
+                  std::uint16_t player_level) noexcept;
 // drop_quest: player gives up an active quest. Returns true if removed.
 bool drop_quest(QuestLog& log, std::uint32_t quest_id) noexcept;
 
@@ -103,5 +128,21 @@ struct QuestSummary {
     std::uint32_t failed   = 0;
 };
 QuestSummary summarize(const QuestLog& log) noexcept;
+
+inline constexpr std::size_t LIMIT_PROCESS_QUEST = 20u;
+
+struct QuestTickResult final {
+    QuestState state = QuestState::None;
+    bool expired = false;
+    bool changed = false;
+};
+
+QuestTickResult tick_quest(QuestProgress& progress,
+                           const QuestDefinition& def,
+                           std::uint32_t now_ms) noexcept;
+
+std::size_t active_quest_count(const QuestLog& log) noexcept;
+bool can_accept_quest(const QuestDefinition& def,
+                      std::uint16_t player_level) noexcept;
 
 }  // namespace mxh::server

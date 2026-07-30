@@ -1,6 +1,6 @@
 // server_handler_test.cpp - Phase 10.17 server handler smoke tests
 //
-// Covers modern/include/mxh/server/server.hpp — the 3 high-level
+// Covers modern/include/mxh/server/server.hpp ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â the 3 high-level
 // game-server handlers (LoginHandler, AgentHandler, MapHandler).
 // These are the bridge between the net layer and the game logic.
 //
@@ -10,13 +10,13 @@
 // methods exposed on the public API surface work as documented.
 //
 // What is NOT tested here (covered by other test files):
-//   - The actual on_message protocol dispatch — covered by
+//   - The actual on_message protocol dispatch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â covered by
 //     integration tests that wire a real TcpServer to a handler
 //     and feed it bytes (see modern/tools/MoxianLoginServer 5/5
 //     smoke). A unit test for the byte-level protocol would need
 //     to re-derive the message framing, which would duplicate the
 //     integration test surface for no extra value.
-//   - HSEL encryption integration with the handlers — covered
+//   - HSEL encryption integration with the handlers ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â covered
 //     by hsel_stream_test.cpp + aes_gcm_test.cpp.
 
 #include "mxh/server/server.hpp"
@@ -33,7 +33,7 @@
 namespace mxh::server::test {
 
 // ===========================================================================
-// Mock IDbAdapter — minimum viable stub for handler construction.
+// Mock IDbAdapter ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â minimum viable stub for handler construction.
 //
 // All methods return a default-constructed DbResult (success).
 // The DB-write counters are public so tests can verify that a
@@ -81,7 +81,7 @@ inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
 }
 
 // ===========================================================================
-// MockTcpSender — Phase 12.1 P2-13: capture outgoing messages from
+// MockTcpSender ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Phase 12.1 P2-13: capture outgoing messages from
 // AgentHandler without spinning up a real socket. Tests verify that
 // GameOutSyn / GameInSyn forwarding actually fires by reading sent_msgs_.
 // ===========================================================================
@@ -96,7 +96,7 @@ public:
     }
     [[nodiscard]] bool is_connected() const noexcept override { return connected; }
 
-    // Tests can flip connected → false to simulate the map server going
+    // Tests can flip connected ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ false to simulate the map server going
     // down between set_map_server() and on_disconnect().
     void set_connected(bool c) noexcept { connected = c; }
 
@@ -236,7 +236,7 @@ TEST(AgentHandlerTest, OnDisconnectWithoutMapServerDoesNotCrash) {
     handler.on_disconnect(mxh::net::make_connection_id(99),
                           mxh::net::NetError::Disconnected);
     EXPECT_EQ(reply.call_count.load(), 0);
-    // No DB calls either — on_disconnect doesn't persist anything.
+    // No DB calls either ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â on_disconnect doesn't persist anything.
     EXPECT_EQ(db.exec_count.load(), 0);
     EXPECT_EQ(db.query_count.load(), 0);
 }
@@ -264,7 +264,7 @@ TEST(AgentHandlerTest, OnDisconnectWithMapServerNullptrDoesNotCrash) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 12.1 P2-13: ITcpSender injection — verify GameOutSyn forwarding
+// Phase 12.1 P2-13: ITcpSender injection ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â verify GameOutSyn forwarding
 // actually fires when a connected MockTcpSender is wired in. Before this
 // refactor, AgentHandler held a concrete TcpClient* and there was no way
 // to test "did the agent actually call send()?" without a live map server.
@@ -444,13 +444,214 @@ TEST(MapHandlerTest, ConstructionWithMapNumDoesNotCrash) {
 
 TEST(MapHandlerTest, OnConnectNonLegacyReturnsTrue) {
     // MapHandler.on_connect accepts all clients (no version
-    // negotiation, no auth key — those happen on Distribute/Agent).
+    // negotiation, no auth key ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â those happen on Distribute/Agent).
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, /*map_num=*/7, make_reply_spy(reply));
     EXPECT_TRUE(handler.on_connect({}, "10.0.0.1:1234"));
 }
 
+TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    ASSERT_EQ(handler.player_runtime_count(), 1u);
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->player_id, 123u);
+    EXPECT_EQ(snapshot->map_num, 7u);
+    EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
+}
+
+TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const auto drop = handler.create_ground_drop_for_test(50000u, 77u, 3u, 10.0f, 20.0f);
+    ASSERT_TRUE(drop.has_value());
+    ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
+    EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->inventory_count, 1u);
+}
+
+TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    mxh::server::DropTable table;
+    table.drop_id = 9u;
+    table.monster_kind = 77u;
+    table.entries.push_back(mxh::server::DropItemEntry{501u, 10000u, 1u, 1u});
+    handler.register_drop_table(table);
+
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 88000u;
+    monster.monster_kind = 77u;
+    monster.map_num = 7u;
+    monster.max_life = 20u;
+    monster.current_life = 20u;
+    monster.drop_item_id = 9u;
+    monster.drop_item_ratio = 100u;
+    monster.pos_x = 10.0f;
+    monster.pos_z = 20.0f;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+
+    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 19u, 0u).has_value());
+    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u);
+    ASSERT_TRUE(drop.has_value());
+    EXPECT_EQ(drop->source_monster_id, monster.object_id);
+    EXPECT_EQ(drop->item_id, 501u);
+    EXPECT_EQ(drop->count, 1u);
+    EXPECT_FLOAT_EQ(drop->pos_x, 10.0f);
+    EXPECT_FLOAT_EQ(drop->pos_z, 20.0f);
+
+    const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    });
+    ASSERT_NE(notify, replies.end());
+    EXPECT_EQ(notify->header.object_id, 123u);
+    ASSERT_EQ(notify->payload.size(), 20u);
+
+    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 1u, 0u).has_value());
+    ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
+    EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
+    ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+}
+
+TEST(MapHandlerTest, UseConsumesActorItemAndUpdatesVitals) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 1u, 1u));
+    ASSERT_TRUE(handler.add_player_item_for_test(123u, mxh::game::make_item(9002u, 1u, 0u)));
+    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    mxh::net::Message use;
+    use.header.object_id = 123u;
+    use.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    use.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseSyn);
+    use.payload.resize(2);
+    const std::uint16_t pos = 0u;
+    std::memcpy(use.payload.data(), &pos, sizeof(pos));
+    handler.on_message(connection, use);
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->inventory_count, 0u);
+    EXPECT_GT(snapshot->current_hp, 1u);
+    EXPECT_GE(reply.call_count.load(), 2);
+}
+
+TEST(MapHandlerTest, DiscardRemovesAuthoritativeInventoryItem) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.add_player_item_for_test(123u, mxh::game::make_item(9001u, 77u, 0u)));
+    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    mxh::net::Message discard;
+    discard.header.object_id = 123u;
+    discard.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    discard.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardSyn);
+    discard.payload.resize(2);
+    const std::uint16_t pos = 0u;
+    std::memcpy(discard.payload.data(), &pos, sizeof(pos));
+    handler.on_message(connection, discard);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+}
+
+TEST(MapHandlerTest, MoveUpdatesAuthoritativePlayerPosition) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    mxh::net::Message move;
+    move.header.object_id = 123u;
+    move.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    move.header.protocol = static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Target);
+    move.payload.resize(4);
+    const std::uint16_t x = 321u;
+    const std::uint16_t z = 654u;
+    std::memcpy(move.payload.data(), &x, sizeof(x));
+    std::memcpy(move.payload.data() + 2, &z, sizeof(z));
+    handler.on_message(connection, move);
+
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_FLOAT_EQ(snapshot->pos_x, 321.0f);
+    EXPECT_FLOAT_EQ(snapshot->pos_z, 654.0f);
+}
+TEST(MapHandlerTest, ActorVitalsAreAuthoritativeForStateObservation) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 1u, 1u));
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->current_hp, 1u);
+    EXPECT_EQ(snapshot->current_mp, 1u);
+    EXPECT_LE(snapshot->current_hp, snapshot->max_hp);
+    EXPECT_LE(snapshot->current_mp, snapshot->max_mp);
+}
+TEST(MapHandlerTest, RuntimeSnapshotRemovedOnDisconnect) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    const auto connection = mxh::net::make_connection_id(55);
+    handler.on_message(connection, game_in);
+    handler.on_disconnect(connection, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    EXPECT_FALSE(handler.player_runtime_snapshot(123u).has_value());
+}
 TEST(MapHandlerTest, OnDisconnectDoesNotCrash) {
     MockDbAdapter db;
     ReplySpy reply;

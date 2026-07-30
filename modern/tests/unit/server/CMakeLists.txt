@@ -49,6 +49,21 @@ gtest_add_tests(TARGET mxh_player_state_tests
     PRE_SHIP_BUILD
 )
 
+add_executable(mxh_player_tests
+    player_test.cpp
+)
+target_link_libraries(mxh_player_tests PRIVATE
+    mxh_server mxh_game gtest_main
+)
+target_include_directories(mxh_player_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_player_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_monster_tests
     monster_test.cpp
 )
@@ -374,6 +389,20 @@ target_include_directories(mxh_exchange_manager_tests PRIVATE
 )
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_exchange_manager_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+add_executable(mxh_titan_item_manager_tests
+    titan_item_manager_test.cpp
+)
+target_link_libraries(mxh_titan_item_manager_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_titan_item_manager_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_titan_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )

@@ -689,6 +689,7 @@ void TcpClient::disconnect() {
     {
         std::lock_guard<std::mutex> lk(impl_->send_mu);
         if (impl_->sock != INVALID_SOCKET) {
+            shutdown(impl_->sock, SD_BOTH);
             closesocket(impl_->sock);
             impl_->sock = INVALID_SOCKET;
         }

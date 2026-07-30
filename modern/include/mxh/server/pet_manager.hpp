@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -111,6 +112,12 @@ struct PetTotalInfo {
 };
 
 // Mirrors legacy CPetManager state.
+struct PetUpgradeProfile final {
+    std::array<std::uint32_t, PET_MAX_GRADE> stamina_max{};
+    std::uint32_t default_friendship = PET_DEFAULT_FRIENDLY;
+    std::uint32_t failure_friendship_loss = 0;
+};
+
 struct PetManagerState {
     std::uint32_t m_dwPetObjectID = 1;
     std::uint32_t m_dwSkillRechargeCheckTime = 0;
@@ -198,13 +205,45 @@ inline PetUpgradeResult upgrade_pet(PetTotalInfo& pet, std::uint32_t roll_basis_
     return PetUpgradeResult::UpgradeSucess;
 }
 
+inline PetUpgradeResult upgrade_pet_with_profile(PetTotalInfo& pet,
+                                            std::uint32_t roll_basis_points,
+                                            const PetUpgradeProfile& profile,
+                                            bool same_pet_summoned = false) {
+    if (pet.PetGrade >= PET_MAX_GRADE) return PetUpgradeResult::UpgradeFailfor3rdUp;
+    if (same_pet_summoned) return PetUpgradeResult::UpgradeFailforSamePetSummoned;
+    const auto probability = gradeup_probability_basis_points(pet.PetGrade);
+    if (probability == 0u) return PetUpgradeResult::UpgradeFailforEtc;
+    if (roll_basis_points >= probability) {
+        const auto loss = std::min<std::uint32_t>(pet.PetFriendly, profile.failure_friendship_loss);
+        pet.PetFriendly -= loss;
+        if (pet.PetFriendly == 0u) pet.bAlive = 0u;
+        return PetUpgradeResult::UpgradeFailforProb;
+    }
+    ++pet.PetGrade;
+    pet.PetFriendly = profile.default_friendship;
+    pet.PetStamina = profile.stamina_max[pet.PetGrade - 1u];
+    return PetUpgradeResult::UpgradeSucess;
+}
+
 // Friendship delta applied by an event (eFIA). Always clamps to [0, MAX].
 inline void add_friendship(PetTotalInfo& pet, int delta) {
-    std::int64_t v = static_cast<std::int64_t>(pet.PetFriendly) + delta;
-    if (v < 0) v = 0;
-    if (v > static_cast<std::int64_t>(PET_MAX_FRIENDLY)) v = PET_MAX_FRIENDLY;
-    pet.PetFriendly = static_cast<std::uint32_t>(v);
+    if (pet.PetKind == static_cast<std::uint16_t>(PetKind::EventPet)) return;
+    const auto before = pet.PetFriendly;
+    const auto value = static_cast<std::int64_t>(before) + delta;
+    if (value < 0) {
+        pet.PetFriendly = 0u;
+        pet.bAlive = 0u;
+        return;
+    }
+    if (value == 0) {
+        pet.PetFriendly = 0u;
+        return;
+    }
+    pet.PetFriendly = value > static_cast<std::int64_t>(PET_MAX_FRIENDLY)
+        ? PET_MAX_FRIENDLY : static_cast<std::uint32_t>(value);
 }
+
+
 
 inline bool is_pet_max_friendship(const PetTotalInfo& pet) {
     return pet.PetFriendly >= PET_MAX_FRIENDLY;
