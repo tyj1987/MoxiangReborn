@@ -2541,3 +2541,80 @@ TEST_F(LoginServerFixture, UnknownCategoryNpcRequestIsDroppedWithoutResponse) {
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M33 -- cat=39 (Quest) wire-format golden + drop test.
+// First quest-progress category locked. Quest carries quest-start /
+// progress / complete / abandon requests between client and server.
+// Locking the request shape here means a regression in modern Quest
+// encoder trips the golden comparison before any real player gets
+// stuck with a quest that will not advance.
+//
+// 18B total: 2B length=16 + 8B header (cat=39, proto=1, obj_id=11111) +
+// 8B payload (4B quest_id=500 + 4B quest_action=2=complete).
+//
+// C 协议扩展 M33 -- the 19th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 22, 28,
+// 33, 37, 58, 71). Crossed the 23.4% mark of the 81-category
+// protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesQuestRequest) {
+    // cat=39 (Quest), proto=1 (quest-complete base), obj_id=11111,
+    // 8B payload (4B quest_id=500 + 4B quest_action=2=complete).
+    // Mirrors the wire shape the legacy client sends for turning
+    // in a finished quest. Pins a real quest-complete request so
+    // a regression in net layer framing or modern Quest encoder
+    // trips the golden comparison.
+    Message quest;
+    quest.header.category = 39;
+    quest.header.protocol = 1;
+    quest.header.object_id = 11111;
+    quest.header.checksum = 0;
+    quest.header.code = 0;
+    quest.payload.clear();
+    // 4B quest_id=500 LE
+    quest.payload.push_back(static_cast<std::uint8_t>(500u & 0xFFu));
+    quest.payload.push_back(static_cast<std::uint8_t>((500u >> 8) & 0xFFu));
+    quest.payload.push_back(0);
+    quest.payload.push_back(0);
+    // 4B quest_action=2 (complete) LE
+    quest.payload.push_back(static_cast<std::uint8_t>(2u & 0xFFu));
+    quest.payload.push_back(0);
+    quest.payload.push_back(0);
+    quest.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(quest);
+    const auto golden = read_golden_bytes("quest_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryQuestRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=39 (Quest) quest-complete request -- LoginHandler
+    // logs unhandled category: Quest and drops it without reply.
+    // Nineteenth category in the C 协议扩展 arc.
+    Message quest;
+    quest.header.category = 39;
+    quest.header.protocol = 1;
+    quest.header.object_id = 11111;
+    quest.payload.assign(8, 0);
+    quest.payload[0] = static_cast<std::uint8_t>(500u & 0xFFu);  // quest_id low
+    quest.payload[1] = static_cast<std::uint8_t>((500u >> 8) & 0xFFu);  // quest_id high
+    quest.payload[4] = static_cast<std::uint8_t>(2u & 0xFFu);  // quest_action
+    ASSERT_EQ(tcp.send(quest), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
