@@ -3321,3 +3321,82 @@ TEST_F(LoginServerFixture, UnknownCategoryAuctionRequestIsDroppedWithoutResponse
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M43 -- cat=21 (Munpa) wire-format golden + drop test.
+// First clan / pre-Guild category locked. Munpa (문파) carries
+// the legacy clan join / leave / chat packets that predate the
+// Guild rewrite. Locking the request shape here means a
+// regression in modern Munpa encoder trips the golden
+// comparison before any real player gets stuck in a broken
+// clan-leave transition.
+//
+// 18B total: 2B length=16 + 8B header (cat=21, proto=1, obj_id=22222) +
+// 8B payload (4B munpa_id=300 + 4B action=2=leave).
+//
+// C 协议扩展 M43 -- the 29th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 22, 23, 28, 29, 30, 33, 37, 39, 58, 62, 65, 69, 71,
+// 72). Crossed the 35.8% mark of the 81-category protocol
+// surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesMunpaRequest) {
+    // cat=21 (Munpa), proto=1 (clan-leave base), obj_id=22222,
+    // 8B payload (4B munpa_id=300 + 4B action=2=leave). Mirrors
+    // the wire shape the legacy client sends for a player
+    // leaving a clan. Pins a real clan-leave request so a
+    // regression in net layer framing or modern Munpa encoder
+    // trips the golden comparison.
+    Message munpa;
+    munpa.header.category = 21;
+    munpa.header.protocol = 1;
+    munpa.header.object_id = 22222;
+    munpa.header.checksum = 0;
+    munpa.header.code = 0;
+    munpa.payload.clear();
+    // 4B munpa_id=300 LE
+    munpa.payload.push_back(static_cast<std::uint8_t>(300u & 0xFFu));
+    munpa.payload.push_back(static_cast<std::uint8_t>((300u >> 8) & 0xFFu));
+    munpa.payload.push_back(0);
+    munpa.payload.push_back(0);
+    // 4B action=2 (leave) LE
+    munpa.payload.push_back(static_cast<std::uint8_t>(2u & 0xFFu));
+    munpa.payload.push_back(0);
+    munpa.payload.push_back(0);
+    munpa.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(munpa);
+    const auto golden = read_golden_bytes("munpa_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryMunpaRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=21 (Munpa) clan-leave request -- LoginHandler logs
+    // unhandled category: Munpa and drops it without reply.
+    // Twenty-ninth category in the C 协议扩展 arc.
+    Message munpa;
+    munpa.header.category = 21;
+    munpa.header.protocol = 1;
+    munpa.header.object_id = 22222;
+    munpa.payload.assign(8, 0);
+    munpa.payload[0] = static_cast<std::uint8_t>(300u & 0xFFu);  // munpa_id low
+    munpa.payload[1] = static_cast<std::uint8_t>((300u >> 8) & 0xFFu);  // munpa_id high
+    munpa.payload[4] = static_cast<std::uint8_t>(2u & 0xFFu);  // action
+    ASSERT_EQ(tcp.send(munpa), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
