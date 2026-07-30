@@ -3637,3 +3637,102 @@ TEST_F(LoginServerFixture, UnknownCategoryTacticRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M46 -- cat=20 (Tactic) wire-format golden + drop test.
+// First combat-tactic / formation category locked. Tactic
+// carries formation-set / formation-trigger / formation-break
+// requests from client to server. Locking the request shape
+// here means a regression in modern Tactic encoder trips the
+// golden comparison before any real party gets stuck with a
+// broken formation layout in combat.
+//
+// 18B total: 2B length=16 + 8B header (cat=20, proto=1, obj_id=25555) +
+// 8B payload (4B formation_id=5 + 4B tactic_action=1=trigger).
+//
+// C 协议扩展 M46 -- the 32nd distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 21, 22, 23, 28, 29, 30, 33, 37, 39, 41, 58, 62, 64,
+// 65, 69, 71, 72). Crossed the 39.5% mark of the 81-category
+// protocol surface.
+// =============================================================================
+
+// =============================================================================
+// M47 -- cat=24 (SimBub) wire-format golden + drop test.
+// First combat-simBub / formation category locked. SimBub
+// carries formation-set / formation-trigger / formation-break
+// requests from client to server. Locking the request shape
+// here means a regression in modern SimBub encoder trips the
+// golden comparison before any real party gets stuck with a
+// broken formation layout in combat.
+//
+// 18B total: 2B length=16 + 8B header (cat=24, proto=1, obj_id=26666) +
+// 8B payload (4B skill_id=200 + 4B target=12345).
+//
+// C 协议扩展 M47 -- the 33rd distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 21, 22, 23, 28, 29, 30, 33, 37, 39, 41, 58, 62, 64,
+// 65, 69, 71, 72). Crossed the 39.5% mark of the 81-category
+// protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesSimBubRequest) {
+    // cat=24 (SimBub), proto=1 (formation-trigger base), obj_id=26666,
+    // 8B payload (4B skill_id=200 + 4B target=12345).
+    // Mirrors the wire shape the legacy client sends for a party
+    // triggering a formation in combat. Pins a real formation
+    // request so a regression in net layer framing or modern
+    // SimBub encoder trips the golden comparison.
+    Message simBub;
+    simBub.header.category = 24;
+    simBub.header.protocol = 1;
+    simBub.header.object_id = 26666;
+    simBub.header.checksum = 0;
+    simBub.header.code = 0;
+    simBub.payload.clear();
+    // 4B skill_id=200 LE
+    simBub.payload.push_back(static_cast<std::uint8_t>(200u & 0xFFu));
+    simBub.payload.push_back(0);
+    simBub.payload.push_back(0);
+    simBub.payload.push_back(0);
+    // 4B target=12345 LE
+    simBub.payload.push_back(static_cast<std::uint8_t>(12345u & 0xFFu));
+    simBub.payload.push_back(static_cast<std::uint8_t>((12345u >> 8) & 0xFFu));
+    simBub.payload.push_back(0);
+    simBub.payload.push_back(0);
+
+
+    const auto actual = reconstruct_wire(simBub);
+    const auto golden = read_golden_bytes("sim_bub_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategorySimBubRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=24 (SimBub) formation-trigger request --
+    // LoginHandler logs unhandled category: SimBub and drops it
+    // without reply. Thirty-third category in the C 协议扩展
+    // arc.
+    Message simBub;
+    simBub.header.category = 24;
+    simBub.header.protocol = 1;
+    simBub.header.object_id = 26666;
+    simBub.payload.assign(8, 0);
+    simBub.payload[0] = static_cast<std::uint8_t>(200u & 0xFFu);  // skill_id
+    simBub.payload[4] = static_cast<std::uint8_t>(12345u & 0xFFu);  // simBub_action
+    ASSERT_EQ(tcp.send(simBub), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
