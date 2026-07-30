@@ -4719,3 +4719,79 @@ TEST_F(LoginServerFixture, UnknownCategoryOptionRequestIsDroppedWithoutResponse)
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M61 -- cat=25 (MornitorTool) wire-format golden + drop test.
+// First map-tool / monitor-tool category locked. MornitorTool
+// carries ops-tool requests between map server and the
+// operations monitor / tool client.
+// Locking the request shape here means a regression in
+// modern mornitortool encoder trips the golden comparison
+// before any real ops-tool handshake gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=25, proto=1, obj_id=44444) +
+// 8B payload (4B tool_id=600 + 4B reserved=0).
+//
+// C 协议扩展 M61 -- the 47th distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 58.0% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesMornitorToolRequest) {
+    // cat=25 (MornitorTool), proto=1 (tool base), obj_id=44444,
+    // 8B payload (4B tool_id=600 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // ops-tool monitor request. Pins a real tool
+    // request so a regression in net layer framing or modern
+    // MornitorTool encoder trips the golden comparison.
+    Message mt;
+    mt.header.category = 25;
+    mt.header.protocol = 1;
+    mt.header.object_id = 44444;
+    mt.header.checksum = 0;
+    mt.header.code = 0;
+    mt.payload.clear();
+    // 4B tool_id=600 LE
+    mt.payload.push_back(static_cast<std::uint8_t>(600u & 0xFFu));
+    mt.payload.push_back(static_cast<std::uint8_t>((600u >> 8) & 0xFFu));
+    mt.payload.push_back(0);
+    mt.payload.push_back(0);
+    // 4B reserved=0
+    mt.payload.push_back(0);
+    mt.payload.push_back(0);
+    mt.payload.push_back(0);
+    mt.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(mt);
+    const auto golden = read_golden_bytes("mornitortool_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryMornitorToolRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=25 (MornitorTool) monitor request --
+    // LoginHandler logs unhandled category: MornitorTool and drops it
+    // without reply. Forty-seventh category in the C 协议扩展
+    // arc.
+    Message mt;
+    mt.header.category = 25;
+    mt.header.protocol = 1;
+    mt.header.object_id = 44444;
+    mt.payload.assign(8, 0);
+    mt.payload[0] = static_cast<std::uint8_t>(600u & 0xFFu);
+    mt.payload[1] = static_cast<std::uint8_t>((600u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(mt), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
