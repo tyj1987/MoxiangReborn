@@ -1862,3 +1862,74 @@ TEST_F(LoginServerFixture, UnknownCategoryCheatRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M24 -- cat=14 (Party) wire-format golden + drop test.
+// First multiplayer category locked. Party carries create/join/leave
+// requests the client sends to coordinate group play. Locking the
+// request shape here means a regression in modern party encoder
+// trips the golden comparison before any real player notices.
+//
+// 18B total: 2B length=16 + 8B header (cat=14, proto=1, obj_id=5555) +
+// 8B payload (4B party_id=0 + 4B member_count=1).
+//
+// C 协议扩展 M24 -- the 10th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 11). Past the 12% mark.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPartyRequest) {
+    // cat=14 (Party), proto=1 (create-party base), obj_id=5555, 8B
+    // payload (4B party_id=0 + 4B member_count=1). Mirrors the wire
+    // shape the legacy client sends for party-create. Pins a real
+    // multiplayer request so a regression in net layer framing or
+    // modern Party encoder trips the golden comparison.
+    Message party;
+    party.header.category = 14;
+    party.header.protocol = 1;
+    party.header.object_id = 5555;
+    party.header.checksum = 0;
+    party.header.code = 0;
+    party.payload.clear();
+    // 4B party_id=0 LE (0 = create new party)
+    party.payload.push_back(0);
+    party.payload.push_back(0);
+    party.payload.push_back(0);
+    party.payload.push_back(0);
+    // 4B member_count=1 LE
+    party.payload.push_back(1);
+    party.payload.push_back(0);
+    party.payload.push_back(0);
+    party.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(party);
+    const auto golden = read_golden_bytes("party_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPartyRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=14 (Party) create-party request -- LoginHandler logs
+    // unhandled category: Party and drops it without reply. Tenth
+    // category in the C 协议扩展 arc.
+    Message party;
+    party.header.category = 14;
+    party.header.protocol = 1;
+    party.header.object_id = 5555;
+    party.payload.assign(8, 0);
+    party.payload[4] = 1;  // member_count
+    ASSERT_EQ(tcp.send(party), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
