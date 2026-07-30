@@ -5920,3 +5920,75 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolMunpaRequestIsDroppedWithoutResp
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M77 -- cat=46 (RmToolGameLog) wire-format golden + drop test.
+// First remote-management game-log tool category locked.
+// RmToolGameLog carries remote-management / admin tool game-log
+// queries (login history, item transaction history, etc).
+// Locking the request shape here means a regression in modern
+// RmToolGameLog encoder trips the golden comparison before any
+// real admin game-log query gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=46, proto=1, obj_id=62223) +
+// 8B payload (4B tool_id=2200 + 4B reserved=0).
+//
+// C 协议扩展 M77 -- the 63rd distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesRmToolGameLogRequest) {
+    // cat=46 (RmToolGameLog), proto=1 (rmtool gamelog base), obj_id=62223,
+    // 8B payload (4B tool_id=2200 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // rmtool gamelog request. Pins a real rmtool gamelog
+    // request so a regression in net layer framing or modern
+    // RmToolGameLog encoder trips the golden comparison.
+    Message gl;
+    gl.header.category = 46;
+    gl.header.protocol = 1;
+    gl.header.object_id = 62223;
+    gl.header.checksum = 0;
+    gl.header.code = 0;
+    gl.payload.clear();
+    // 4B tool_id=2200 LE
+    gl.payload.push_back(static_cast<std::uint8_t>(2200u & 0xFFu));
+    gl.payload.push_back(static_cast<std::uint8_t>((2200u >> 8) & 0xFFu));
+    gl.payload.push_back(0);
+    gl.payload.push_back(0);
+    // 4B reserved=0
+    gl.payload.push_back(0);
+    gl.payload.push_back(0);
+    gl.payload.push_back(0);
+    gl.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(gl);
+    const auto golden = read_golden_bytes("rmtool_gamelog_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryRmToolGameLogRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=46 (RmToolGameLog) admin-gamelog request --
+    // LoginHandler logs unhandled category: RmToolGameLog and drops it
+    // without reply. Sixty-third category in the C 协议扩展 arc.
+    Message gl;
+    gl.header.category = 46;
+    gl.header.protocol = 1;
+    gl.header.object_id = 62223;
+    gl.payload.assign(8, 0);
+    gl.payload[0] = static_cast<std::uint8_t>(2200u & 0xFFu);
+    gl.payload[1] = static_cast<std::uint8_t>((2200u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(gl), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
