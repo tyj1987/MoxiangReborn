@@ -1786,3 +1786,79 @@ TEST_F(LoginServerFixture, UnknownCategoryServerRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M23 -- cat=11 (Cheat) wire-format golden + drop test.
+// First admin / diagnostic category locked. Cheat carries GM commands
+// like teleport, give item, god mode. Lower frequency than gameplay
+// cats but high regression value: a bug here could let a malicious
+// packet trigger unintended server behavior.
+//
+// 22B total: 2B length=20 + 8B header (cat=11, proto=1, obj_id=12345) +
+// 12B payload (4B map_id=1 + 4B x_pos=0 + 4B y_pos=0).
+//
+// C 协议扩展 M23 -- the 9th distinct category locked at the wire layer
+// (after cat=1, 2, 4, 5, 6, 7, 8, 9).
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesCheatRequest) {
+    // cat=11 (Cheat), proto=1 (teleport base), obj_id=12345, 12B
+    // payload (4B map_id=1 + 4B x_pos=0 + 4B y_pos=0). Mirrors the
+    // wire shape the legacy client sends for GM teleport. Pins a
+    // real admin request so a regression in net layer framing or
+    // modern Cheat encoder trips the golden comparison.
+    Message cheat;
+    cheat.header.category = 11;
+    cheat.header.protocol = 1;
+    cheat.header.object_id = 12345;
+    cheat.header.checksum = 0;
+    cheat.header.code = 0;
+    cheat.payload.clear();
+    // 4B map_id=1 LE
+    cheat.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    // 4B x_pos=0 LE
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    // 4B y_pos=0 LE
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+    cheat.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(cheat);
+    const auto golden = read_golden_bytes("cheat_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 22u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryCheatRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=11 (Cheat) teleport request -- LoginHandler logs
+    // unhandled category: Cheat and drops it without reply. Ninth
+    // category in the C 协议扩展 arc.
+    Message cheat;
+    cheat.header.category = 11;
+    cheat.header.protocol = 1;
+    cheat.header.object_id = 12345;
+    cheat.payload.assign(12, 0);
+    cheat.payload[0] = 1;  // map_id
+    ASSERT_EQ(tcp.send(cheat), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
