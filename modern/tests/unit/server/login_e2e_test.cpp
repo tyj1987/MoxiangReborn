@@ -1167,3 +1167,59 @@ TEST_F(LoginServerFixture, UnknownCategoryCat6RequestIsDroppedWithoutResponse) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M10 -- wire-format with non-trivial payload size. M6-M9 all use empty
+// or 1-byte payloads (well under typical TCP MSS / 4KB). This step
+// exercises a 256-byte payload to prove the wire framing correctly
+// carries a larger message: 2B length prefix encodes 264 (=8+256)
+// as little-endian [0x08, 0x01], header plaintext, 256B payload
+// appended verbatim. Same server behavior (cat=8 -> unhandled drop).
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesLargePayloadCat8Request) {
+
+    // cat=8 (Move), proto=1, object_id=42, 256B all-zeros payload.
+    Message unknown;
+    unknown.header.category = 8;
+    unknown.header.protocol = 1;
+    unknown.header.object_id = 42;
+    unknown.header.checksum = 0;
+    unknown.header.code = 0;
+    unknown.payload.assign(256, 0);
+
+    const auto actual = reconstruct_wire(unknown);
+    const auto golden = read_golden_bytes("large_payload_cat8_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 266u);  // 2 length + 8 header + 256 payload
+}
+
+
+TEST_F(LoginServerFixture, LargePayloadCat8RequestIsDroppedWithoutResponse) {
+
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=8 with 256-byte payload. The wire frame is 266 bytes
+    // total; the net layer must buffer and reassemble this into a
+    // single Message on the receive side, then LoginHandler logs
+    // unhandled and drops.
+    Message unknown;
+    unknown.header.category = 8;
+    unknown.header.protocol = 1;
+    unknown.header.object_id = 42;
+    unknown.payload.assign(256, 0);
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
