@@ -6425,3 +6425,77 @@ TEST_F(LoginServerFixture, UnknownCategoryWantedV2RequestIsDroppedWithoutRespons
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M84 -- cat=54 (Suryun) wire-format golden + drop test.
+// First Suryun (training / cultivation) category at the canonical wire byte.
+// Suryun carries player training / cultivation requests (start practice,
+// apply cultivation result, abandon training). NOTE: this is a separate
+// golden from suryun_request.bin (cat=60 wire byte = MP_GTOURNAMENT per
+// Protocol.h) -- suryun_v2_request.bin uses wire byte 54 = MP_SURYUN per
+// Protocol.h.
+// Locking the canonical wire byte here means a regression in modern
+// Suryun encoder trips the golden comparison before any real cultivation
+// op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=54, proto=1, obj_id=70007) +
+// 8B payload (4B tool_id=2900 + 4B reserved=0).
+//
+// C 协议扩展 M84 -- the 70th distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesSuryunV2Request) {
+    // cat=54 (Suryun per Protocol.h wire byte 54 = MP_SURYUN),
+    // proto=1 (suryun base), obj_id=70007,
+    // 8B payload (4B tool_id=2900 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // suryun / cultivation request at the canonical wire byte.
+    Message su;
+    su.header.category = 54;
+    su.header.protocol = 1;
+    su.header.object_id = 70007;
+    su.header.checksum = 0;
+    su.header.code = 0;
+    su.payload.clear();
+    // 4B tool_id=2900 LE
+    su.payload.push_back(static_cast<std::uint8_t>(2900u & 0xFFu));
+    su.payload.push_back(static_cast<std::uint8_t>((2900u >> 8) & 0xFFu));
+    su.payload.push_back(0);
+    su.payload.push_back(0);
+    // 4B reserved=0
+    su.payload.push_back(0);
+    su.payload.push_back(0);
+    su.payload.push_back(0);
+    su.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(su);
+    const auto golden = read_golden_bytes("suryun_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategorySuryunV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=54 (Suryun) cultivation request at the canonical wire byte --
+    // LoginHandler logs unhandled category: Suryun and drops it
+    // without reply. Seventieth category in the C 协议扩展 arc.
+    Message su;
+    su.header.category = 54;
+    su.header.protocol = 1;
+    su.header.object_id = 70007;
+    su.payload.assign(8, 0);
+    su.payload[0] = static_cast<std::uint8_t>(2900u & 0xFFu);
+    su.payload[1] = static_cast<std::uint8_t>((2900u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(su), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
