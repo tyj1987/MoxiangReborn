@@ -1346,3 +1346,39 @@ TEST_F(LoginServerFixture, TenConcurrentClientsSendCat8WithoutCrash) {
         if (failures[i]) std::rethrow_exception(failures[i]);
     }
 }
+
+
+// =============================================================================
+// M14 -- encrypted + 256-byte payload. Combines M7 (encrypted path)
+// with M10 (large payload). Proves the encrypt path correctly
+// handles a non-trivial payload: 256 bytes XOR with kGoldenEncKey
+// (32-byte key, cyclic), wire frame is 266 bytes total, server
+// decrypts + reassembles + routes to unhandled-category drop.
+// =============================================================================
+
+TEST_F(EncryptedLoginFixture, EncryptedLargePayloadCat8RequestIsDropped) {
+
+    EncryptedClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // cat=8 with 256-byte payload -- encrypt path must handle the full
+    // length, encrypt + send + recv + decrypt + reassemble.
+    Message unknown;
+    unknown.header.category = 8;
+    unknown.header.protocol = 1;
+    unknown.header.object_id = 42;
+    unknown.payload.assign(256, 0);
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
