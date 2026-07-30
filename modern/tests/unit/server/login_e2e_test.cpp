@@ -6352,3 +6352,76 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolItemRequestIsDroppedWithoutRespo
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M83 -- cat=52 (Wanted) wire-format golden + drop test.
+// First bounty / wanted-list category locked at the canonical wire byte.
+// Wanted carries player-bounty requests (place bounty, list bounties,
+// collect reward). NOTE: this is a separate golden from wanted_request.bin
+// (cat=58 wire byte = MP_NOTE per Protocol.h) -- wanted_v2_request.bin uses
+// wire byte 52 = MP_WANTED per Protocol.h.
+// Locking the canonical wire byte here means a regression in modern Wanted
+// encoder trips the golden comparison before any real bounty op gets the
+// wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=52, proto=1, obj_id=68895) +
+// 8B payload (4B tool_id=2800 + 4B reserved=0).
+//
+// C 协议扩展 M83 -- the 69th distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesWantedV2Request) {
+    // cat=52 (Wanted per Protocol.h wire byte 52 = MP_WANTED),
+    // proto=1 (wanted base), obj_id=68895,
+    // 8B payload (4B tool_id=2800 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // wanted / bounty request at the canonical wire byte.
+    Message w2;
+    w2.header.category = 52;
+    w2.header.protocol = 1;
+    w2.header.object_id = 68895;
+    w2.header.checksum = 0;
+    w2.header.code = 0;
+    w2.payload.clear();
+    // 4B tool_id=2800 LE
+    w2.payload.push_back(static_cast<std::uint8_t>(2800u & 0xFFu));
+    w2.payload.push_back(static_cast<std::uint8_t>((2800u >> 8) & 0xFFu));
+    w2.payload.push_back(0);
+    w2.payload.push_back(0);
+    // 4B reserved=0
+    w2.payload.push_back(0);
+    w2.payload.push_back(0);
+    w2.payload.push_back(0);
+    w2.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(w2);
+    const auto golden = read_golden_bytes("wanted_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryWantedV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=52 (Wanted) bounty request at the canonical wire byte --
+    // LoginHandler logs unhandled category: Wanted and drops it
+    // without reply. Sixty-ninth category in the C 协议扩展 arc.
+    Message w2;
+    w2.header.category = 52;
+    w2.header.protocol = 1;
+    w2.header.object_id = 68895;
+    w2.payload.assign(8, 0);
+    w2.payload[0] = static_cast<std::uint8_t>(2800u & 0xFFu);
+    w2.payload[1] = static_cast<std::uint8_t>((2800u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(w2), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
