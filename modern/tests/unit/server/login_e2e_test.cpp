@@ -2006,3 +2006,77 @@ TEST_F(LoginServerFixture, UnknownCategorySkillRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M26 -- cat=28 (Exchange) wire-format golden + drop test.
+// First player-to-player (P2P) trading category locked. Exchange
+// carries trade-start / item-offer / money-offer / confirm requests
+// between two players. Locking the request shape here means a
+// regression in modern exchange encoder trips the golden comparison
+// before any real player loses gold on a malformed trade packet.
+//
+// 18B total: 2B length=16 + 8B header (cat=28, proto=1, obj_id=3333) +
+// 8B payload (4B target_player_id=5 + 4B my_money=100).
+//
+// C 协议扩展 M26 -- the 12th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 11, 14, 22). Crossed
+// the 14% mark of the 96-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesExchangeRequest) {
+    // cat=28 (Exchange), proto=1 (trade-start base), obj_id=3333, 8B
+    // payload (4B target_player_id=5 + 4B my_money=100). Mirrors the
+    // wire shape the legacy client sends for trade-start. Pins a
+    // real P2P trade request so a regression in net layer framing or
+    // modern Exchange encoder trips the golden comparison.
+    Message exchange;
+    exchange.header.category = 28;
+    exchange.header.protocol = 1;
+    exchange.header.object_id = 3333;
+    exchange.header.checksum = 0;
+    exchange.header.code = 0;
+    exchange.payload.clear();
+    // 4B target_player_id=5 LE
+    exchange.payload.push_back(static_cast<std::uint8_t>(5u & 0xFFu));
+    exchange.payload.push_back(0);
+    exchange.payload.push_back(0);
+    exchange.payload.push_back(0);
+    // 4B my_money=100 LE
+    exchange.payload.push_back(static_cast<std::uint8_t>(100u & 0xFFu));
+    exchange.payload.push_back(0);
+    exchange.payload.push_back(0);
+    exchange.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(exchange);
+    const auto golden = read_golden_bytes("exchange_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryExchangeRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=28 (Exchange) trade-start request -- LoginHandler
+    // logs unhandled category: Exchange and drops it without reply.
+    // Twelfth category in the C 协议扩展 arc.
+    Message exchange;
+    exchange.header.category = 28;
+    exchange.header.protocol = 1;
+    exchange.header.object_id = 3333;
+    exchange.payload.assign(8, 0);
+    exchange.payload[0] = static_cast<std::uint8_t>(5u & 0xFFu);  // target_player_id
+    exchange.payload[4] = static_cast<std::uint8_t>(100u & 0xFFu); // my_money
+    ASSERT_EQ(tcp.send(exchange), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
