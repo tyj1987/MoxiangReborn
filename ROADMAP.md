@@ -54,6 +54,8 @@
 | 服务端运行时 | **3 server E2E 全 PASS** | Phase B: LoginServer + AgentServer + MapServer 3 进程 + Python 模拟 + C++ 状态机双重 E2E | Phase B ✅ |
 | 玩法数值 baseline | **D6.1 锁死** | 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁数值 | T2/T6 数值回归 baseline |
 | **SkillList.bin 解析** | **D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段含 7×[12] 数组）；SkillListParser 解码 MHFile packed-text；SkillManager::init_from_bin() 装真 bin（1817 entries）；端到端 test 锁首行 | 11 SkillListParser test + 13 SkillManager test PASS |
+| **BattleFactory 1:1** | **D2 完成** | 14 compute_* 函数（critical/decisive/player-phy/player-attr/player-exp/player-point/phy-defence/received-dmg/monster-phy/monster-attr/titan-phy/titan-attr）+ 13 新 1:1 unit test（attack_calc legacy_* 系列保持 API 兼容） | T2 数值公式回归
+| **Wire-format 协议覆盖** | **77/81 distinct = 95.1%** | 84 goldens 在 modern/tests/unit/server/golden/；LoginHandler wire 字节层覆盖：81 个 legacy MP_* cat 全部经 M-series 锁定（cat 78-81 是 modern-only 扩展，legacy 无 traffic）；M86-M93 batch 完成 cat=59/60/62/66/74/75/76/77 共 9 个新增 goldens | T2 wire 字节 1:1 锁
 | HSEL 硬件狗绕过 | **80%** | stub 已写，但未跑通真实 `.bin` | 待 E2E |
 | HackShield 绕过 | **0%** | 卡 R-2 | 阻塞 |
 | SQL Server 集成 | **60%** | schema + restore 脚本，但没真启服 | 待 E2E |
