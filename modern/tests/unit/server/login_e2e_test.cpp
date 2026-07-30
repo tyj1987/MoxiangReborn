@@ -3479,3 +3479,82 @@ TEST_F(LoginServerFixture, UnknownCategoryPkRequestIsDroppedWithoutResponse) {
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M45 -- cat=64 (Note) wire-format golden + drop test.
+// First player-note category locked. Note carries
+// send-note / read-note / delete-note requests between
+// client and server. Locking the request shape here means
+// a regression in modern Note encoder trips the golden
+// comparison before any real player loses a critical
+// in-game message to a malformed note packet.
+//
+// 18B total: 2B length=16 + 8B header (cat=64, proto=1, obj_id=24444) +
+// 8B payload (4B target_player_id=5555 + 4B note_type=1=send).
+//
+// C 协议扩展 M45 -- the 31st distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 21, 22, 23, 28, 29, 30, 33, 37, 39, 41, 58, 62, 65,
+// 69, 71, 72). Crossed the 38.3% mark of the 81-category
+// protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesNoteRequest) {
+    // cat=64 (Note), proto=1 (note-send base), obj_id=24444,
+    // 8B payload (4B target_player_id=5555 + 4B note_type=1=send).
+    // Mirrors the wire shape the legacy client sends for
+    // sending an in-game player-to-player note. Pins a real
+    // note-send request so a regression in net layer framing
+    // or modern Note encoder trips the golden comparison.
+    Message note;
+    note.header.category = 64;
+    note.header.protocol = 1;
+    note.header.object_id = 24444;
+    note.header.checksum = 0;
+    note.header.code = 0;
+    note.payload.clear();
+    // 4B target_player_id=5555 LE
+    note.payload.push_back(static_cast<std::uint8_t>(5555u & 0xFFu));
+    note.payload.push_back(static_cast<std::uint8_t>((5555u >> 8) & 0xFFu));
+    note.payload.push_back(0);
+    note.payload.push_back(0);
+    // 4B note_type=1 (send) LE
+    note.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    note.payload.push_back(0);
+    note.payload.push_back(0);
+    note.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(note);
+    const auto golden = read_golden_bytes("note_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryNoteRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=64 (Note) note-send request -- LoginHandler logs
+    // unhandled category: Note and drops it without reply.
+    // Thirty-first category in the C 协议扩展 arc.
+    Message note;
+    note.header.category = 64;
+    note.header.protocol = 1;
+    note.header.object_id = 24444;
+    note.payload.assign(8, 0);
+    note.payload[0] = static_cast<std::uint8_t>(5555u & 0xFFu);  // target low
+    note.payload[1] = static_cast<std::uint8_t>((5555u >> 8) & 0xFFu);  // target high
+    note.payload[4] = static_cast<std::uint8_t>(1u & 0xFFu);  // note_type
+    ASSERT_EQ(tcp.send(note), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
