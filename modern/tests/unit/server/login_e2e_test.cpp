@@ -1382,3 +1382,43 @@ TEST_F(EncryptedLoginFixture, EncryptedLargePayloadCat8RequestIsDropped) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M15 -- rapid reconnect storm. 20 sequential cycles of
+// connect -> receive DistConnect -> disconnect, no login. Stresses
+// the server's accept loop + per-connection cleanup (on_disconnect
+// handler, recv-thread teardown, reply queue drain). The login flow
+// is NOT exercised, so this isolates TCP-level cleanup from
+// login-flow cleanup. If the server leaks file descriptors or
+// recv-thread handles, this test catches it (eventually -- not
+// directly, since gtest doesn't expose FD counts, but the test
+// would hang or fail via wait_for timeout when ports are exhausted).
+// =============================================================================
+
+TEST_F(LoginServerFixture, RapidReconnectStormCompletesWithinBudget) {
+
+    constexpr int kCycles = 20;
+    constexpr long long kMaxTotalMs = 15000;
+
+    auto t0 = std::chrono::steady_clock::now();
+    for (int i = 0; i < kCycles; ++i) {
+        CapturingClientHandler client;
+        mxh::net::TcpClient tcp(client);
+        mxh::net::ClientConfig ccfg;
+        ccfg.remote_address = "127.0.0.1";
+        ccfg.port = static_cast<std::uint16_t>(port_);
+        ccfg.use_legacy_framing = true;
+        ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+        ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(5)));
+        auto msgs = client.snapshot();
+        ASSERT_EQ(msgs.size(), 1u);
+        EXPECT_EQ(msgs[0].header.category, 7);
+        EXPECT_EQ(msgs[0].header.protocol, 0);
+        tcp.disconnect();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    auto t1 = std::chrono::steady_clock::now();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    EXPECT_LT(elapsed_ms, kMaxTotalMs);
+}
