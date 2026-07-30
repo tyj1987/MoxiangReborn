@@ -68,6 +68,7 @@ C:\moxiang\
 
 每次开 Mavis session，**先读**：
 
+0. `pwsh -File scripts\session-bootstrap.ps1` —— 见 §2.5（清污染 + 加载反 JSON 截断工具箱）
 1. `ROADMAP.md` §0-3 —— 当前在哪个阶段，下一步是什么
 2. `AGENTS.md` 本文件 —— 约束 + 陷阱
 3. `docs/KNOWN_BUGS.md` —— 待修 bug（挑不会破坏 1:1 的来修）
@@ -106,8 +107,14 @@ C:\moxiang\
 | HSEL 硬件狗 | 80% stub | R-1，阻塞运行时 |
 | HackShield 反外挂 | 0% | R-2，阻塞客户端登录 |
 | SQL Server 集成 | 60% | 已写 schema + restore，缺端到端验证 |
+| **F-1 shell_command JSON 截断** | **每次必踩**（2026-07-30 已根治） | 见 §2.5 + `scripts/no-truncation.ps1`；单行简单 cmdlet，复杂逻辑写到 .ps1 再 `pwsh -File` |
+| F-2 根目录 scratch_*.py 污染 | 反复犯 | `scripts/session-bootstrap.ps1` 第 1 步自动清 |
 
 **根目录散落文件陷阱**（最近 session 反复犯）：
+- 不要往根目录写 `*.log / *.obj / *.db` / `test_*.txt`
+- 临时文件用 `modern/scratch/<source>_<日期>/` 归档
+- 子目录根放 `README.md` 索引
+- `scripts/session-bootstrap.ps1` 第 1 步会清理根目录散落，**不要绕过它**
 - 不要往根目录写 `*.log / *.obj / *.db` / `test_*.txt`
 - 临时文件用 `modern/scratch/<source>_<日期>/` 归档
 - 子目录根放 `README.md` 索引
@@ -182,3 +189,46 @@ A：用 `modern/src/crypto/` 的 stub 跑，能进登录但有些功能受限。
 
 **Q：怎么贡献？**
 A：挑 `ROADMAP.md` §3 当前阶段的一个 task → 改 modern/ → 测试过 → 提交。PR 不需要（单分支 + commit history 足够）。
+
+## 2.5 Session Bootstrap（每次开 session **第一件事**）
+
+> **2026-07-30 根因事故**：session `019f9c8e` 和 `019fb254` 先后在 4 天 / 30 分钟内因为同一个 JSON 截断 bug 死亡（详见 §3 陷阱 F-1）。两个 session 都留下未提交的工作和根目录 `scratch_*.py` 污染。修复 = 改 agent 行为，不动模型。
+
+**每个新 Mavis session 在读 ROADMAP / AGENTS / KNOWN_BUGS 之前，先跑**：
+
+```powershell
+pwsh -File C:\moxiang\scripts\session-bootstrap.ps1
+```
+
+脚本会做 4 件事，**全部通过才能继续**：
+
+1. **清根目录散落** —— 删除 `C:\moxiang\scratch_*.py`、临时 `*.log / *.obj / *.db`、空 `Testing\Temporary\`。
+2. **检查 working tree** —— `git status --short` 非空时输出警告（不是阻断，让你知道有没有上一 session 留下的工作要 commit）。
+3. **加载反 JSON 截断工具箱** —— 输出 `scripts/no-truncation.ps1` 的存在性，并把它的使用提示打印到屏幕上。
+4. **打印 1 行确认** —— `AGENTS.md ✓ | scratch clean ✓ | bootstrap loaded ✓ | ready`。
+
+如果第 1 或第 3 步失败，**停下来修，不要带着 broken state 进 session**。
+
+### 反 JSON 截断硬规则（agent 必须遵守）
+
+`MiniMax-M3` 在生成 `shell_command` 工具调用时，arguments 字符串经常被截断
+（不发闭合 `"` / `}`），CLI 端 `EOF while parsing a string at column N` 报错，
+且**没有自动重试 / 降级**。一旦触发必死。
+
+**禁止**：
+
+- 在一条 `shell_command` 里写多语句 PowerShell（`$x = ...; for (...) { ... }`）
+- 在一条 `shell_command` 里用 `\"` / `$()` / backtick `` ` `` 转义
+- 在一条 `shell_command` 里嵌入 here-string `@"..."@`
+- 把 CJK 路径直接拼到 PowerShell 表达式里（用 `-LiteralPath` 也救不了，但能降概率）
+
+**必须**：
+
+- 每条 `shell_command` 是**单行简单命令**（一个 cmdlet 或一个 `|` 管道）
+- 复杂逻辑 → 先 `apply_patch` 写一个 `.ps1` 或 `.py` 文件到 `modern\scratch\<date>-<topic>\`，再 `pwsh -File` / `python` 调用
+- 读文件 → 用 **Read 工具**，不要 `Get-Content` 链
+- 写文件 → 用 **apply_patch 工具**，不要 sed / 流式 PowerShell
+- 跑测试 → `ctest -C Debug --test-dir modern\build`，不要 subprocess hack
+- 跑 build → `cmake --build modern/build --config Debug`，不要手动调 MSBuild
+
+`scripts/no-truncation.ps1` 提供 4 个安全 wrapper（`Get-FileLines`、`Read-JsonObject`、`Test-PathSafe`、`Format-TestOutput`），任何涉及文件读取 / JSON 解析 / 路径判断的操作**优先调用它们**而不是裸 shell_command。

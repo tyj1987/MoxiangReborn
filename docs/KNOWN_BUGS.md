@@ -1161,3 +1161,96 @@ after vendor stub file added to Agent target).
 - **现代方案**：
 - **状态**：未处理 / 教程记录 / 修复中 / 已修复
 ```
+---
+
+## F-1 shell_command arguments JSON 截断（2026-07-30 已根治）
+
+### 症状
+
+Mavis session 在跑了一段时间后，发出 `shell_command` 工具调用时 CLI 端报：
+
+```
+failed to parse function arguments: EOF while parsing a string at column N
+```
+
+或
+
+```
+{"error":{"message":"invalid params, invalid function arguments json string,
+ tool_call_id: call_xxxxxxxxxxxxxxxxxxxxxxx (2013)","code":"invalid_prompt"}}
+```
+
+`task_complete` 错误码 `codex_error_info":"other"`，session 死亡。
+
+### 现场证据
+
+**Session 019f9c8e**（2026-07-26 03:53 → 2026-07-30 09:21，共 11,168,569 tokens）：
+
+- 最后 3 次 `task_complete` 全部因 `(2013)` 错误退出
+- 系统反复回灌 "解决这个问题并继续"，但 agent 重试 3 次全部同样错误
+- 留下 13 个根目录 `scratch_*.py` + 大块未提交的 modern/ 代码
+
+**Session 019fb254**（2026-07-30 09:21 → 09:35，共 277 行）：
+
+- 最后一次 `function_call` (line 271) 的 arguments 字符串在 column 208 处被截断：
+
+  ```json
+  {"command": "$lines = Get-Content -LiteralPath \"C:\\moxiang\\modern\\include\\mxh\\net\\net.hpp\"; for ($i = 50; $i -lt 120; $i++) { ($i+1).ToString() + \": \" + $lines[$i] }", "justification": "read Message
+  ```
+
+  注意末尾 `"justification": "read Message` 后面没有闭合的 `"` `}` `,`。
+- 错误信息精确：`failed to parse function arguments: EOF while parsing a string at line 1 column 208`
+- 留下 4 modified + 6 untracked modern/ 文件
+
+### 根因
+
+`MiniMax-M3` 在生成 `shell_command` tool_call 时，arguments 字符串经常被截断（不发闭合字符）。
+
+**触发条件**（rollout 中实际出现过的）：
+- 多语句 PowerShell（`$x = ...; for (...) { ... }`）
+- `\"` 转义嵌套在 JSON 字符串里
+- `$()` 内插
+- here-string `@"..."@`
+- 单条 fc 包含多个 `shell_command` call_id
+
+**不触发**（line 272 同样 session 里成功的）：
+- 单 cmdlet `Get-Content -LiteralPath X -ErrorAction S | Select-Object -First 100`
+
+### 影响范围
+
+- 不止 Mavis：任何用 `MiniMax-M3` 的 Codex Desktop session 都会遇到
+- session 越长越容易触发（token 累积导致模型输出抖动）
+- 没有自动重试 / 降级 —— 一旦触发必死
+
+### 现代方案（AGENTS.md §2.5 + §3 F-1）
+
+1. **改 agent 行为**（不动模型）：
+   - 每条 `shell_command` 必须是**单行简单 cmdlet**
+   - 复杂逻辑 → 先 `apply_patch` 写一个 `.ps1` 到 `modern\scratch\<date>-<topic>\`，再 `pwsh -File` 调用
+   - 读文件 → 用 **Read 工具**，不要 `Get-Content` 链
+   - 写文件 → 用 **apply_patch 工具**，不要 sed / 流式 PowerShell
+   - 跑测试 → `ctest -C Debug --test-dir modern\build`
+   - 跑 build → `cmake --build modern/build --config Debug`
+
+2. **新建两个工具脚本**（AGENTS.md §2.5）：
+   - `scripts\session-bootstrap.ps1` —— 每个 session 第一件事
+     - 清根目录散落（scratch_*.py / *.log / *.obj / *.db）
+     - 检查 working tree
+     - 加载反 JSON 截断工具箱
+     - 打印单行确认 `AGENTS.md ✓ | scratch CLEAN | bootstrap LOADED | ready.`
+   - `scripts\no-truncation.ps1` —— 7 个安全 wrapper
+     - `Get-FileLines`、`Read-JsonObject`、`Test-PathSafe`、`Format-TestOutput`、`Grep-Pattern`、`Count-TestCases`、`List-TestSuite`、`Help`
+     - 每个 Action 是单 cmdlet / 单文件 I/O，无内嵌脚本
+
+3. **AGENTS.md 强制**：
+   - §2 工作流 "先读" 列表加第 0 步：跑 bootstrap
+   - §3 陷阱表新增 F-1 行（"每次必踩"）+ F-2 行（根目录污染）
+   - 新增 §2.5 "Session Bootstrap（每次开 session 第一件事）"
+
+### 状态
+
+**Phase 6.4 (2026-07-30) 已根治**：
+- bootstrap + no-truncation 脚本已建并通过自测
+- 5498/5498 tests pass（恢复 session 019fb254 留下代码后）
+- 两个失败 session 的恢复 commit `63e44a0` 已合入 main
+- 后续 session 第一件事必须是 `pwsh -File C:\moxiang\scripts\session-bootstrap.ps1`，否则视为违反 AGENTS.md
