@@ -4795,3 +4795,79 @@ TEST_F(LoginServerFixture, UnknownCategoryMornitorToolRequestIsDroppedWithoutRes
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M62 -- cat=26 (MornitorServer) wire-format golden + drop test.
+// First monitor-server category locked. MornitorServer
+// carries monitor / stats pings between the client
+// tool and the server, used for ops dashboards.
+// Locking the request shape here means a regression in
+// modern mornitorserver encoder trips the golden comparison
+// before any real ops dashboard loses its feed.
+//
+// 18B total: 2B length=16 + 8B header (cat=26, proto=1, obj_id=45555) +
+// 8B payload (4B server_id=700 + 4B reserved=0).
+//
+// C 协议扩展 M62 -- the 48th distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 59.3% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesMornitorServerRequest) {
+    // cat=26 (MornitorServer), proto=1 (monitor base), obj_id=45555,
+    // 8B payload (4B server_id=700 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // monitor feed request. Pins a real monitor
+    // request so a regression in net layer framing or modern
+    // MornitorServer encoder trips the golden comparison.
+    Message ms;
+    ms.header.category = 26;
+    ms.header.protocol = 1;
+    ms.header.object_id = 45555;
+    ms.header.checksum = 0;
+    ms.header.code = 0;
+    ms.payload.clear();
+    // 4B server_id=700 LE
+    ms.payload.push_back(static_cast<std::uint8_t>(700u & 0xFFu));
+    ms.payload.push_back(static_cast<std::uint8_t>((700u >> 8) & 0xFFu));
+    ms.payload.push_back(0);
+    ms.payload.push_back(0);
+    // 4B reserved=0
+    ms.payload.push_back(0);
+    ms.payload.push_back(0);
+    ms.payload.push_back(0);
+    ms.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(ms);
+    const auto golden = read_golden_bytes("mornitorserver_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryMornitorServerRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=26 (MornitorServer) monitor request --
+    // LoginHandler logs unhandled category: MornitorServer and drops it
+    // without reply. Forty-eighth category in the C 协议扩展
+    // arc.
+    Message ms;
+    ms.header.category = 26;
+    ms.header.protocol = 1;
+    ms.header.object_id = 45555;
+    ms.payload.assign(8, 0);
+    ms.payload[0] = static_cast<std::uint8_t>(700u & 0xFFu);
+    ms.payload[1] = static_cast<std::uint8_t>((700u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(ms), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
