@@ -1223,3 +1223,36 @@ TEST_F(LoginServerFixture, LargePayloadCat8RequestIsDroppedWithoutResponse) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M11 -- encrypted path for cat=4 (Character). Combines M7 (encrypted
+// path) with M8 (cat=4 coverage): proves the encryptor layer works
+// correctly for non-Move categories too. cat=4 -> unhandled drop.
+// =============================================================================
+
+TEST_F(EncryptedLoginFixture, EncryptedCat4RequestIsDropped) {
+
+    EncryptedClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=4 (Character) with 1-byte payload -- encryptor must run.
+    Message unknown;
+    unknown.header.category = 4;
+    unknown.header.protocol = 2;
+    unknown.header.object_id = 99;
+    unknown.payload.push_back(0xAA);
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
