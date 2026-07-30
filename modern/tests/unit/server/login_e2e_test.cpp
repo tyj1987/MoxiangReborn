@@ -6064,3 +6064,75 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolOperLogRequestIsDroppedWithoutRe
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M79 -- cat=48 (RmToolStatistics) wire-format golden + drop test.
+// First remote-management statistics tool category locked.
+// RmToolStatistics carries remote-management / admin tool statistics
+// queries (player counts, online distribution, economy stats, etc).
+// Locking the request shape here means a regression in modern
+// RmToolStatistics encoder trips the golden comparison before any
+// real admin statistics query gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=48, proto=1, obj_id=64447) +
+// 8B payload (4B tool_id=2400 + 4B reserved=0).
+//
+// C 协议扩展 M79 -- the 65th distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesRmToolStatisticsRequest) {
+    // cat=48 (RmToolStatistics), proto=1 (rmtool statistics base), obj_id=64447,
+    // 8B payload (4B tool_id=2400 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // rmtool statistics request. Pins a real rmtool statistics
+    // request so a regression in net layer framing or modern
+    // RmToolStatistics encoder trips the golden comparison.
+    Message st;
+    st.header.category = 48;
+    st.header.protocol = 1;
+    st.header.object_id = 64447;
+    st.header.checksum = 0;
+    st.header.code = 0;
+    st.payload.clear();
+    // 4B tool_id=2400 LE
+    st.payload.push_back(static_cast<std::uint8_t>(2400u & 0xFFu));
+    st.payload.push_back(static_cast<std::uint8_t>((2400u >> 8) & 0xFFu));
+    st.payload.push_back(0);
+    st.payload.push_back(0);
+    // 4B reserved=0
+    st.payload.push_back(0);
+    st.payload.push_back(0);
+    st.payload.push_back(0);
+    st.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(st);
+    const auto golden = read_golden_bytes("rmtool_statistics_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryRmToolStatisticsRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=48 (RmToolStatistics) admin-statistics request --
+    // LoginHandler logs unhandled category: RmToolStatistics and drops it
+    // without reply. Sixty-fifth category in the C 协议扩展 arc.
+    Message st;
+    st.header.category = 48;
+    st.header.protocol = 1;
+    st.header.object_id = 64447;
+    st.payload.assign(8, 0);
+    st.payload[0] = static_cast<std::uint8_t>(2400u & 0xFFu);
+    st.payload[1] = static_cast<std::uint8_t>((2400u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(st), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
