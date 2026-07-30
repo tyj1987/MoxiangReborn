@@ -3891,3 +3891,78 @@ TEST_F(LoginServerFixture, UnknownCategorySiegeWarProfitRequestIsDroppedWithoutR
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M50 -- cat=60 (Suryun) wire-format golden + drop test.
+// First training-practice category locked. Suryun
+// carries practice / training requests when a player
+// wants to grind a skill outside combat.
+// Locking the request shape here means a regression in
+// modern suryun encoder trips the golden comparison
+// before any real skill grinding gets the wrong rates.
+//
+// 18B total: 2B length=16 + 8B header (cat=60, proto=1, obj_id=29999) +
+// 8B payload (4B skill_id=42 + 4B duration=0).
+//
+// C 协议扩展 M50 -- the 36th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 20, 21, 22, 23, 24, 28, 29, 30, 32, 33, 37, 39, 41,
+// 58, 62, 64, 65, 69, 70, 71, 72). Crossed the 44.4% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesSuryunRequest) {
+    // cat=60 (Suryun), proto=1 (practice base), obj_id=29999,
+    // 8B payload (4B skill_id=42 + 4B duration=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // training / practice request. Pins a real practice
+    // request so a regression in net layer framing or modern
+    // Suryun encoder trips the golden comparison.
+    Message suryun;
+    suryun.header.category = 60;
+    suryun.header.protocol = 1;
+    suryun.header.object_id = 29999;
+    suryun.header.checksum = 0;
+    suryun.header.code = 0;
+    suryun.payload.clear();
+    // 4B skill_id=42 LE
+    suryun.payload.push_back(static_cast<std::uint8_t>(42u & 0xFFu));
+    suryun.payload.push_back(0);
+    suryun.payload.push_back(0);
+    suryun.payload.push_back(0);
+    // 4B duration=0
+    suryun.payload.push_back(0);
+    suryun.payload.push_back(0);
+    suryun.payload.push_back(0);
+    suryun.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(suryun);
+    const auto golden = read_golden_bytes("suryun_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategorySuryunRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=60 (Suryun) practice request --
+    // LoginHandler logs unhandled category: Suryun and drops it
+    // without reply. Thirty-sixth category in the C 协议扩展
+    // arc.
+    Message suryun;
+    suryun.header.category = 60;
+    suryun.header.protocol = 1;
+    suryun.header.object_id = 29999;
+    suryun.payload.assign(8, 0);
+    suryun.payload[0] = static_cast<std::uint8_t>(42u & 0xFFu);
+    ASSERT_EQ(tcp.send(suryun), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
