@@ -1,4 +1,4 @@
-﻿# Server handler tests - Phase 10.17
+# Server handler tests - Phase 10.17
 # Smoke tests for the 3 game-server handlers (Login / Agent / Map).
 
 add_executable(mxh_server_handler_tests
@@ -1913,4 +1913,11 @@ if(WIN32)
     target_link_libraries(mxh_login_e2e_tests PRIVATE Ws2_32)
 endif()
 gtest_add_tests(TARGET mxh_login_e2e_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# M18 wire-format coverage audit (C 协议扩展 foundation).
+# Pure header-only test that reads golden/ files and asserts the floor.
+add_executable(mxh_wire_format_coverage_tests wire_format_coverage_test.cpp)
+target_link_libraries(mxh_wire_format_coverage_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_wire_format_coverage_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
