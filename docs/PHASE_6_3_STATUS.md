@@ -85,6 +85,24 @@
 - 影响：0（modern 端无 caller 调用 legacy SDK 符号；stub 仅供未来 Phase 8 vendor SDK 重接时 fallback）
 - ROADMAP §0 约束 4（HSEL/HackShield/nProtect 接口签名保持）的实现可换但签名不能换原则：GGAuth 协议包通过 `ggsrv25_check_auth()` 验签，不直接依赖 SDK 符号
 
+
+
+### 4.5 Side-by-side harness wire-format 不匹配 (实测)
+
+实测: tools/MoxianSideBySide/packet.cpp:wire_bytes() 写 [2B length][checksum][code][category][protocol][object_id u32][payload], 但 modern LoginServer / AgentServer 均报 unhandled category: Unknown proto=0 (scenario 实际发 proto=1 / 16). 说明 server 解析器期望的 wire format 与 sbs harness 不一致. 修复路径(非 Phase 6.3 scope): 改 sbs/packet.cpp:wire_bytes() 匹配 server 真实 preamble, 或改 server 接收端兼容 harness 格式, 一旦修好, 配合 legacy server 才可跑 diff=0.
+
+### 4.6 Legacy server 未编译产物
+
+workspace 无 SWorking/ (无 [Server]Agent/Distribute/Map 三大进程编译产物). 已部署包 墨香[客户端+服务端+工具]/ 只有 PAK 工具, 无 server 二进制. 旧源码 墨香[源码]/[Server]*/ 编译需要 MSVC + Win7-era dependency, Win11 兼容性未验证 (PLAN §0.2 列中等风险).
+
+### 4.7 7.11 双阻塞汇总
+
+| 阻塞 | 来源 | Phase |
+|---|---|---|
+| Legacy server 启动 | Phase B Win11 compat | B |
+| Wire format mismatch | sbs harness vs server | E |
+
+任一未解即无法跑 diff=0. 当前 Phase 6.3 代码完成度 100%, E2E gate 7.11 须 Phase B + Phase E 协作完成.
 ### 4.4 gtest_add_tests auto-discovery 边界
 - 7 个 SkillManager/MugongManager 测试需 `WORKING_DIRECTORY` 才能跑通（已修 `7d95341`）
 - 单 `TEST_P` 不会被 `gtest_add_tests` 枚举（必须用 `add_test(NAME ... --gtest_filter=...)`）— 详见 `tests/unit/CMakeLists.txt:34-36`
