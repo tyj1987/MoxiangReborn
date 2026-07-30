@@ -2696,3 +2696,80 @@ TEST_F(LoginServerFixture, UnknownCategoryPyogukRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M35 -- cat=62 (Guild) wire-format golden + drop test.
+// First guild category locked. Guild carries guild-chat /
+// join / leave / kick / promote requests between client and
+// server. Locking the request shape here means a regression
+// in modern Guild encoder trips the golden comparison before
+// any real player gets stuck outside their guild or sends a
+// malformed guild message.
+//
+// 18B total: 2B length=16 + 8B header (cat=62, proto=1, obj_id=13333) +
+// 8B payload (4B guild_id=200 + 4B action_type=1=join).
+//
+// C 协议扩展 M35 -- the 21st distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 22, 28, 30, 33, 37, 39, 58, 71). Crossed the 25.9% mark of
+// the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesGuildRequest) {
+    // cat=62 (Guild), proto=1 (guild-join base), obj_id=13333,
+    // 8B payload (4B guild_id=200 + 4B action_type=1=join).
+    // Mirrors the wire shape the legacy client sends for a
+    // player requesting to join a guild. Pins a real guild-join
+    // request so a regression in net layer framing or modern
+    // Guild encoder trips the golden comparison.
+    Message guild;
+    guild.header.category = 62;
+    guild.header.protocol = 1;
+    guild.header.object_id = 13333;
+    guild.header.checksum = 0;
+    guild.header.code = 0;
+    guild.payload.clear();
+    // 4B guild_id=200 LE
+    guild.payload.push_back(static_cast<std::uint8_t>(200u & 0xFFu));
+    guild.payload.push_back(0);
+    guild.payload.push_back(0);
+    guild.payload.push_back(0);
+    // 4B action_type=1 (join) LE
+    guild.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    guild.payload.push_back(0);
+    guild.payload.push_back(0);
+    guild.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(guild);
+    const auto golden = read_golden_bytes("guild_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryGuildRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=62 (Guild) guild-join request -- LoginHandler
+    // logs unhandled category: Guild and drops it without reply.
+    // Twenty-first category in the C 协议扩展 arc.
+    Message guild;
+    guild.header.category = 62;
+    guild.header.protocol = 1;
+    guild.header.object_id = 13333;
+    guild.payload.assign(8, 0);
+    guild.payload[0] = static_cast<std::uint8_t>(200u & 0xFFu);  // guild_id
+    guild.payload[4] = static_cast<std::uint8_t>(1u & 0xFFu);  // action_type
+    ASSERT_EQ(tcp.send(guild), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
