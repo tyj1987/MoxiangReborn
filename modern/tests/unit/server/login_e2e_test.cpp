@@ -5848,3 +5848,75 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolUserRequestIsDroppedWithoutRespo
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M76 -- cat=45 (RmToolMunpa) wire-format golden + drop test.
+// First remote-management munpa (guild) tool category locked.
+// RmToolMunpa carries remote-management / admin tool guild
+// requests (guild list / create / disband / rank management).
+// Locking the request shape here means a regression in modern
+// RmToolMunpa encoder trips the golden comparison before any real
+// admin munpa op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=45, proto=1, obj_id=61111) +
+// 8B payload (4B tool_id=2100 + 4B reserved=0).
+//
+// C 协议扩展 M76 -- the 62nd distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesRmToolMunpaRequest) {
+    // cat=45 (RmToolMunpa), proto=1 (rmtool munpa base), obj_id=61111,
+    // 8B payload (4B tool_id=2100 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // rmtool munpa request. Pins a real rmtool munpa
+    // request so a regression in net layer framing or modern
+    // RmToolMunpa encoder trips the golden comparison.
+    Message rm;
+    rm.header.category = 45;
+    rm.header.protocol = 1;
+    rm.header.object_id = 61111;
+    rm.header.checksum = 0;
+    rm.header.code = 0;
+    rm.payload.clear();
+    // 4B tool_id=2100 LE
+    rm.payload.push_back(static_cast<std::uint8_t>(2100u & 0xFFu));
+    rm.payload.push_back(static_cast<std::uint8_t>((2100u >> 8) & 0xFFu));
+    rm.payload.push_back(0);
+    rm.payload.push_back(0);
+    // 4B reserved=0
+    rm.payload.push_back(0);
+    rm.payload.push_back(0);
+    rm.payload.push_back(0);
+    rm.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(rm);
+    const auto golden = read_golden_bytes("rmtool_munpa_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryRmToolMunpaRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=45 (RmToolMunpa) admin-munpa request --
+    // LoginHandler logs unhandled category: RmToolMunpa and drops it
+    // without reply. Sixty-second category in the C 协议扩展 arc.
+    Message rm;
+    rm.header.category = 45;
+    rm.header.protocol = 1;
+    rm.header.object_id = 61111;
+    rm.payload.assign(8, 0);
+    rm.payload[0] = static_cast<std::uint8_t>(2100u & 0xFFu);
+    rm.payload[1] = static_cast<std::uint8_t>((2100u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(rm), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
