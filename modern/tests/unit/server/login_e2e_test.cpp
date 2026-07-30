@@ -4266,3 +4266,78 @@ TEST_F(LoginServerFixture, UnknownCategoryUngiJosikRequestIsDroppedWithoutRespon
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M55 -- cat=19 (Signal) wire-format golden + drop test.
+// First inter-server signal category locked. Signal
+// carries inter-server signaling between agent / map /
+// client for cross-server state events.
+// Locking the request shape here means a regression in
+// modern signal encoder trips the golden comparison
+// before any real cross-server event gets lost.
+//
+// 18B total: 2B length=16 + 8B header (cat=19, proto=1, obj_id=37777) +
+// 8B payload (4B signal_id=50 + 4B reserved=0).
+//
+// C 协议扩展 M55 -- the 41st distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 16, 17, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 37, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 50.6% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesSignalRequest) {
+    // cat=19 (Signal), proto=1 (signal base), obj_id=37777,
+    // 8B payload (4B signal_id=50 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // server-to-server signal. Pins a real signal
+    // request so a regression in net layer framing or modern
+    // Signal encoder trips the golden comparison.
+    Message sig;
+    sig.header.category = 19;
+    sig.header.protocol = 1;
+    sig.header.object_id = 37777;
+    sig.header.checksum = 0;
+    sig.header.code = 0;
+    sig.payload.clear();
+    // 4B signal_id=50 LE
+    sig.payload.push_back(static_cast<std::uint8_t>(50u & 0xFFu));
+    sig.payload.push_back(0);
+    sig.payload.push_back(0);
+    sig.payload.push_back(0);
+    // 4B reserved=0
+    sig.payload.push_back(0);
+    sig.payload.push_back(0);
+    sig.payload.push_back(0);
+    sig.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(sig);
+    const auto golden = read_golden_bytes("signal_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategorySignalRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=19 (Signal) inter-server request --
+    // LoginHandler logs unhandled category: Signal and drops it
+    // without reply. Forty-first category in the C 协议扩展
+    // arc.
+    Message sig;
+    sig.header.category = 19;
+    sig.header.protocol = 1;
+    sig.header.object_id = 37777;
+    sig.payload.assign(8, 0);
+    sig.payload[0] = static_cast<std::uint8_t>(50u & 0xFFu);
+    ASSERT_EQ(tcp.send(sig), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
