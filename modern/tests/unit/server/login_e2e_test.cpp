@@ -6499,3 +6499,76 @@ TEST_F(LoginServerFixture, UnknownCategorySuryunV2RequestIsDroppedWithoutRespons
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M85 -- cat=56 (Guild) wire-format golden + drop test.
+// First Guild category at the canonical wire byte.
+// Guild carries guild-management requests (create, join, leave, rank,
+// member management, guild chat). NOTE: this is a separate golden from
+// guild_request.bin (cat=62 wire byte = MP_GUILD_UNION per Protocol.h) --
+// guild_v2_request.bin uses wire byte 56 = MP_GUILD per Protocol.h.
+// Locking the canonical wire byte here means a regression in modern
+// Guild encoder trips the golden comparison before any real guild op
+// gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=56, proto=1, obj_id=71119) +
+// 8B payload (4B tool_id=3000 + 4B reserved=0).
+//
+// C 协议扩展 M85 -- the 71st distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesGuildV2Request) {
+    // cat=56 (Guild per Protocol.h wire byte 56 = MP_GUILD),
+    // proto=1 (guild base), obj_id=71119,
+    // 8B payload (4B tool_id=3000 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // guild request at the canonical wire byte.
+    Message gv;
+    gv.header.category = 56;
+    gv.header.protocol = 1;
+    gv.header.object_id = 71119;
+    gv.header.checksum = 0;
+    gv.header.code = 0;
+    gv.payload.clear();
+    // 4B tool_id=3000 LE
+    gv.payload.push_back(static_cast<std::uint8_t>(3000u & 0xFFu));
+    gv.payload.push_back(static_cast<std::uint8_t>((3000u >> 8) & 0xFFu));
+    gv.payload.push_back(0);
+    gv.payload.push_back(0);
+    // 4B reserved=0
+    gv.payload.push_back(0);
+    gv.payload.push_back(0);
+    gv.payload.push_back(0);
+    gv.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(gv);
+    const auto golden = read_golden_bytes("guild_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryGuildV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=56 (Guild) guild request at the canonical wire byte --
+    // LoginHandler logs unhandled category: Guild and drops it
+    // without reply. Seventy-first category in the C 协议扩展 arc.
+    Message gv;
+    gv.header.category = 56;
+    gv.header.protocol = 1;
+    gv.header.object_id = 71119;
+    gv.payload.assign(8, 0);
+    gv.payload[0] = static_cast<std::uint8_t>(3000u & 0xFFu);
+    gv.payload[1] = static_cast<std::uint8_t>((3000u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(gv), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
