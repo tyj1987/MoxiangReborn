@@ -6719,3 +6719,80 @@ TEST_F(LoginServerFixture, UnknownCategoryGTournamentV2RequestIsDroppedWithoutRe
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M88 -- cat=62 (GuildUnion) wire-format golden + drop test.
+// First guild-union category at the canonical wire byte.
+// GuildUnion carries guild-union requests (create, destroy, invite, add,
+// remove, secede, mark-regist, mark-request, note). NOTE: this is a separate
+// golden from guild_request.bin (cat=62 wire byte = MP_GUILD_UNION per
+// Protocol.h) -- guild_request.bin uses wire byte 62 for a Guild payload
+// (legacy repurposing), while guildunion_v2_request.bin uses the canonical
+// MP_GUILD_UNION wire byte.
+// Locking the canonical wire byte here means a regression in modern
+// GuildUnion encoder trips the golden comparison before any real guild-union
+// op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=62, proto=1, obj_id=74455) +
+// 8B payload (4B tool_id=3300 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M88 -- the 74th distinct golden locked at the wire layer
+// (collides with guild_request.bin at cat=62, so by_cat.size() stays at 72u).
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesGuildUnionV2Request) {
+    // cat=62 (GuildUnion per Protocol.h wire byte 62 = MP_GUILD_UNION),
+    // proto=1 (guildunion base), obj_id=74455,
+    // 8B payload (4B tool_id=3300 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // guild-union request at the canonical wire byte.
+    Message gu;
+    gu.header.category = 62;
+    gu.header.protocol = 1;
+    gu.header.object_id = 74455;
+    gu.header.checksum = 0;
+    gu.header.code = 0;
+    gu.payload.clear();
+    // 4B tool_id=3300 LE
+    gu.payload.push_back(static_cast<std::uint8_t>(3300u & 0xFFu));
+    gu.payload.push_back(static_cast<std::uint8_t>((3300u >> 8) & 0xFFu));
+    gu.payload.push_back(0);
+    gu.payload.push_back(0);
+    // 4B reserved=0
+    gu.payload.push_back(0);
+    gu.payload.push_back(0);
+    gu.payload.push_back(0);
+    gu.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(gu);
+    const auto golden = read_golden_bytes("guildunion_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryGuildUnionV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=62 (GuildUnion) guild-union request at the canonical wire byte --
+    // LoginHandler logs unhandled category: GuildUnion and drops it
+    // without reply. Seventy-fourth golden locked in the C å­è®®æ©å±• arc.
+    Message gu;
+    gu.header.category = 62;
+    gu.header.protocol = 1;
+    gu.header.object_id = 74455;
+    gu.payload.assign(8, 0);
+    gu.payload[0] = static_cast<std::uint8_t>(3300u & 0xFFu);
+    gu.payload[1] = static_cast<std::uint8_t>((3300u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(gu), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
