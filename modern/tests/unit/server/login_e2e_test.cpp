@@ -5707,3 +5707,72 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolPetRequestIsDroppedWithoutRespon
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M74 -- cat=73 (ItemExt) wire-format golden + drop test.
+// Item-extended category. Carries inventory-extension sub-protocol
+// requests (reinforce/dissolve/titan parts). Locking the request
+// shape here means a regression in modern ItemExt encoder trips
+// the golden comparison before any real ItemExt op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=73, proto=1, obj_id=58888) +
+// 8B payload (4B tool_id=1900 + 4B reserved=0).
+//
+// C 协议扩展 M74 -- the 60th distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesItemExtRequest) {
+    // cat=73 (ItemExt), proto=1 (itemext base), obj_id=58888,
+    // 8B payload (4B tool_id=1900 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for an
+    // item-extended request. Pins a real ItemExt request so a
+    // regression in net layer framing or modern ItemExt encoder
+    // trips the golden comparison.
+    Message ie;
+    ie.header.category = 73;
+    ie.header.protocol = 1;
+    ie.header.object_id = 58888;
+    ie.header.checksum = 0;
+    ie.header.code = 0;
+    ie.payload.clear();
+    // 4B tool_id=1900 LE
+    ie.payload.push_back(static_cast<std::uint8_t>(1900u & 0xFFu));
+    ie.payload.push_back(static_cast<std::uint8_t>((1900u >> 8) & 0xFFu));
+    ie.payload.push_back(0);
+    ie.payload.push_back(0);
+    // 4B reserved=0
+    ie.payload.push_back(0);
+    ie.payload.push_back(0);
+    ie.payload.push_back(0);
+    ie.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(ie);
+    const auto golden = read_golden_bytes("itemext_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryItemExtRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=73 (ItemExt) itemext request --
+    // LoginHandler logs unhandled category: ItemExt and drops it
+    // without reply. Sixtieth category in the C 协议扩展 arc.
+    Message ie;
+    ie.header.category = 73;
+    ie.header.protocol = 1;
+    ie.header.object_id = 58888;
+    ie.payload.assign(8, 0);
+    ie.payload[0] = static_cast<std::uint8_t>(1900u & 0xFFu);
+    ie.payload[1] = static_cast<std::uint8_t>((1900u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(ie), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
