@@ -100,7 +100,7 @@ add_executable(mxh_ui_tests
     charstatedialog_test.cpp
     sosdialog_test.cpp
     wearedexdialog_test.cpp
-    minifrienddialog_test.cpp
+    cminifrienddialog_test.cpp
     crevivedialog_test.cpp
     ctextarea_test.cpp
     cmpnoticedialog_test.cpp
@@ -607,26 +607,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWearedExDialogTest.DeleteItemSetsOutIconToPrevious
     CWearedExDialogTest.AddDeleteRoundTrip
     CWearedExDialogTest.AddDeleteIndependenceBetweenCells
-    # P2-12 Tier 2 dialog: cMiniFriendDialog (mini friend-add)
-    CMiniFriendDialogTest.DefaultConstructionHasNullPointers
-    CMiniFriendDialogTest.IdConstantsAreDistinct
-    CMiniFriendDialogTest.IdConstantsMatchExpectedLocalRange
-    CMiniFriendDialogTest.VcmCharnameAliasIsTwo
-    CMiniFriendDialogTest.InitOverrideCallsBaseInit
-    CMiniFriendDialogTest.LinkingResolvesAllFourChildren
-    CMiniFriendDialogTest.LinkingConfiguresNameEditValidCheck
-    CMiniFriendDialogTest.LinkingClearsNameEditText
-    CMiniFriendDialogTest.LinkingWithoutChildrenLeavesPointersNull
-    CMiniFriendDialogTest.LinkingBeforeInitDoesNotCrash
-    CMiniFriendDialogTest.SetActiveTrueUpdatesBaseState
-    CMiniFriendDialogTest.SetActiveFalseUpdatesBaseState
-    CMiniFriendDialogTest.SetActiveTrueClearsNameEditText
-    CMiniFriendDialogTest.SetActiveFalseDoesNotClearNameEditText
-    CMiniFriendDialogTest.SetActiveWhenDisabledIsNoOp
-    CMiniFriendDialogTest.SetActiveCascadesRecursively
-    CMiniFriendDialogTest.SetNameUpdatesEditText
-    CMiniFriendDialogTest.SetNameWithEmptyStringWorks
-    CMiniFriendDialogTest.SetNameWithoutEditIsSafe
     # P2-12 Tier 1.5 sub-widget: cTextArea (multi-line text area)
     CTextAreaTest.DefaultConstructionIsValid
     CTextAreaTest.InitTextAreaFullOverloadStoresChromeImages

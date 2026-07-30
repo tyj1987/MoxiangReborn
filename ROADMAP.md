@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-31 — Phase C Batch 1.5 完成（cReviveDialog，+13 tests，UI 套件 2195 全过）；Batch 1 进行中（5/10 dialog）。
+> **最近一次状态刷新**：2026-07-31 — Phase C Batch 1.6 完成（cMiniFriendDialog，+13 tests，UI 套件 2189 全过）；Batch 1 进行中（6/10 dialog）。
 
 ---
 
@@ -44,7 +44,7 @@
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
 | 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2536 tests PASS | T1 部分验证（资源浏览器能解析） |
-| UI 控件 1:1 port（dialog + subcontrol） | **109/158 hpp（77 missing，Phase C Batch 1.5 完成 5/10）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cPartyWarDialog / cWantedDialog / cMPNoticeDialog / cReviveDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（15 个，206 tests）；剩 76 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
+| UI 控件 1:1 port（dialog + subcontrol） | **109/158 hpp（76 missing，Phase C Batch 1.6 完成 6/10）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cPartyWarDialog / cWantedDialog / cMPNoticeDialog / cReviveDialog / cMiniFriendDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（16 个，219 tests）；剩 75 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |
@@ -102,6 +102,7 @@
 - [x] **C-Batch-1.3** `cWantedDialog` — 通缉列表（SetInfo/AddInfo/InitWanted，18 tests）
 - [x] **C-Batch-1.4** `cMPNoticeDialog` — MP 房间提示（Linking + 2 cTextArea，11 tests）
 - [x] **C-Batch-1.5** `cReviveDialog` — 复活选项（3 cButton + 城战分支，13 tests）
+- [x] **C-Batch-1.6** `cMiniFriendDialog` — 好友添加（4 child + SetActive/SetName，13 tests）
   - 14 test: constants, Linking, InitProtectionStr, InsertStr (mask+digit), 4-char cap, OnActionEvent 派发, backspace, WE_CLOSEWINDOW, nGate=3 短路, nGate!=3 允许, unknown button id 容忍, GetProtectionStr 返回 raw digits, SetActive forwarder, buffer cap constant
 - [ ] **C-Batch-1.2 ~ 1.10** NumberPadDialog 之后: MiniNoteDialog, NoteDialog, ScreenShotDlg, StatusIconDlg, OptionDialog, ChannelDialog, JournalDialog, AutoAnswerDlg, HelperSpeechDlg, CostumeSkinSelectDialog, BigMapDlg, MiniMapDlg, ChatDialog, CharacterDialog, CharMakeDialog, CharChangeDlg, MonsterGuageDlg, QuestDialog, QuestTotalDialog, MoveDialog, PyoGukDialog, QuickDialog, FriendDialog, MixDialog, DissolveDlg, DissolutionDialog, BuyRegDialog, DealDialog, ExchangeDialog, MainBarDialog, MenuSlotDialog, ...
 - [ ] **C-Batch-2 ~ 5** 主 UI 框架 (MainBarDialog, MenuSlotDialog) + 帮派/商城/泰坦/宠物/战盟/摆摊/强化 等复杂 dialog 100+ 个
@@ -110,7 +111,7 @@
 
 **评估**：单 session 平均 port 2-3 个 dialog（hpp+cpp+test+build verify+commit）。87 个 total → **5-7 session**。
 
-**已完成 5/87**（cNumberPadDialog 2026-07-26 commit `5790051`；cPartyWarDialog 2026-07-31；cWantedDialog 2026-07-31；cMPNoticeDialog 2026-07-31；cReviveDialog 2026-07-31）。
+**已完成 6/87**（cNumberPadDialog 2026-07-26 commit `5790051`；cPartyWarDialog 2026-07-31；cWantedDialog 2026-07-31；cMPNoticeDialog 2026-07-31；cReviveDialog 2026-07-31；cMiniFriendDialog 2026-07-31）。
 
 - [ ] 验证：每个 dialog 用 unit test 锁死 1:1 行为
 
