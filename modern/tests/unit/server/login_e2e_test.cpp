@@ -956,3 +956,66 @@ TEST_F(LoginServerFixture, SustainsSequentialLoginThroughputAboveFloor) {
     EXPECT_LT(elapsed_ms, kMaxTotalMs);
 }
 
+
+
+// =============================================================================
+
+
+// =============================================================================
+// M6 -- wire-format coverage extension: cat != 7. M2-M5 all exercise
+// cat=7 (UserConn / login flow). This step extends coverage to a
+// non-UserConn category by proving:
+//   1) The serialization layer produces the right bytes for cat != 7
+//      (file-based golden lock, no server round-trip needed)
+//   2) The server's LoginHandler drops unknown-category messages
+//      without crashing and without sending a reply
+// Together these prove the wire framing is category-agnostic.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesUnknownCategoryRequest) {
+
+    // cat=8 (Move / MoveTarget) with empty payload. LoginHandler only
+    // services cat=7; it logs [Login] unhandled category: Move and
+    // drops the message. The wire framing must still serialize this
+    // header correctly -- this golden pins those bytes.
+    Message unknown;
+    unknown.header.category = 8;
+    unknown.header.protocol = 1;
+    unknown.header.object_id = 42;
+    unknown.header.checksum = 0;
+    unknown.header.code = 0;
+    unknown.payload.clear();
+
+    const auto actual = reconstruct_wire(unknown);
+    const auto golden = read_golden_bytes("unknown_category_request.bin");
+    EXPECT_EQ(actual, golden);
+}
+
+
+TEST_F(LoginServerFixture, UnknownCategoryRequestIsDroppedWithoutResponse) {
+
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=8 (Move) -- LoginHandler logs "unhandled category: Move"
+    // and drops it without reply. Server must NOT send anything back.
+    Message unknown;
+    unknown.header.category = 8;
+    unknown.header.protocol = 1;
+    unknown.header.object_id = 42;
+    unknown.payload.clear();
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    // wait_for(2) within 500ms must return false -- still only the
+    // initial DistConnect, no reply from the server.
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
