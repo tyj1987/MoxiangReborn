@@ -1650,3 +1650,77 @@ TEST_F(LoginServerFixture, UnknownCategoryMugongRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M21 -- cat=2 (PowerUp) wire-format golden + drop test.
+// Mirrors the M6/M8/M9/M19/M20 pattern: capture a real use-powerup client
+// request and verify the LoginHandler drops it without reply (cat=2
+// is not part of the login flow).
+//
+// 18B total: 2B length=16 + 8B header (cat=2, proto=1, obj_id=8888) +
+// 8B payload (4B power_id=20001 LE + 4B target_id=0 LE).
+//
+// C 协议扩展 M21 -- the 7th distinct category locked at the wire layer
+// (after cat=4, 5, 6, 7, 8, 9 from M-stack + M19 Item + M20 Mugong).
+// PowerUp is the most frequent wire category in any MMORPG (every
+// state change / level-up broadcasts through cat=2), so locking the
+// request shape here catches a wide class of regression vectors.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPowerUpRequest) {
+    // cat=2 (PowerUp), proto=1 (use-powerup base), obj_id=8888, 8B payload
+    // (4B power_id=20001 + 4B target_id=0). Mirrors the wire shape the
+    // legacy client sends for use-powerup -- pins a real stat-change
+    // request so a regression in net layer framing or modern PowerUp
+    // encoder trips the golden comparison.
+    Message powerup;
+    powerup.header.category = 2;
+    powerup.header.protocol = 1;
+    powerup.header.object_id = 8888;
+    powerup.header.checksum = 0;
+    powerup.header.code = 0;
+    powerup.payload.clear();
+    // 4B power_id=20001 LE
+    powerup.payload.push_back(static_cast<std::uint8_t>(20001u & 0xFFu));
+    powerup.payload.push_back(static_cast<std::uint8_t>((20001u >> 8) & 0xFFu));
+    powerup.payload.push_back(static_cast<std::uint8_t>((20001u >> 16) & 0xFFu));
+    powerup.payload.push_back(static_cast<std::uint8_t>((20001u >> 24) & 0xFFu));
+    // 4B target_id=0 LE
+    powerup.payload.push_back(0);
+    powerup.payload.push_back(0);
+    powerup.payload.push_back(0);
+    powerup.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(powerup);
+    const auto golden = read_golden_bytes("powerup_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPowerUpRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=2 (PowerUp) use-powerup request -- LoginHandler logs
+    // unhandled category: PowerUp and drops it without reply. Seventh
+    // category in the C 协议扩展 arc.
+    Message powerup;
+    powerup.header.category = 2;
+    powerup.header.protocol = 1;
+    powerup.header.object_id = 8888;
+    powerup.payload.assign(8, 0);
+    powerup.payload[0] = static_cast<std::uint8_t>(20001u & 0xFFu);
+    powerup.payload[1] = static_cast<std::uint8_t>((20001u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(powerup), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
