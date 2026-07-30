@@ -192,6 +192,13 @@ NetError TcpServer::start(const ServerConfig& cfg) {
             conn->sock = client;
             conn->id = id;
             conn->remote_addr = remote;
+            // Phase 6.4 (M2 step 3): Assign encryptor BEFORE on_connect so that
+            // any DistConnect-style reply sent during on_connect is encrypted
+            // when use_encryption=true. Previously, encryptor was only set in
+            // the per-connection recv thread spawned below, leaving a race
+            // window where reply_() during on_connect used null encryptor and
+            // went out plaintext while the client expected ciphertext.
+            conn->encryptor = handler_.encryptor_for(ConnectionId{id});
 
             ConnectionId cid{id};
             if (!handler_.on_connect(cid, remote)) {
@@ -319,25 +326,29 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                             //   [CheckSum:1B] [Code:1B] [Category:1B] [Protocol:1B] [dwObjectID:4B]
                             constexpr std::size_t LEGACY_HEADER_SIZE = 8;
                             if (msg_body.size() < LEGACY_HEADER_SIZE) {
-                                std::cerr << "[net] legacy: message too short (" 
+                                std::cerr << "[net] legacy: message too short ("
                                           << msg_body.size() << " bytes)\n";
                                 continue;
                             }
-                            
+
+                            // Phase 6.4 (M2 step 3): Decrypt whole msg_body BEFORE
+                            // parsing. Previously decryption targeted msg.payload
+                            // only, leaving the parsed header fields as
+                            // encrypted bytes. Symmetric with TcpServer::send
+                            // which encrypts the whole msg_body.
+                            if (c->encryptor) c->encryptor->decrypt(msg_body);
+
                             MsgHeader h{};
                             h.checksum  = msg_body[0];
                             h.code      = msg_body[1];
                             h.category  = msg_body[2];
                             h.protocol  = msg_body[3];
                             std::memcpy(&h.object_id, msg_body.data() + 4, 4);
-                            
+
                             Message msg;
                             msg.header = h;
                             msg.payload.assign(msg_body.begin() + LEGACY_HEADER_SIZE,
                                                msg_body.end());
-                            
-                            // Optional decryption.
-                            if (c->encryptor) c->encryptor->decrypt(msg.payload);
                             
                             handler_.on_message(ConnectionId{id}, msg);
                         } else {
@@ -641,6 +652,11 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
                         continue;
                     }
 
+                    // Phase 6.4 (M2 step 3): Decrypt whole msg_body BEFORE
+                    // parsing. Symmetric with TcpServer::send / TcpClient::send
+                    // which encrypt the whole msg_body.
+                    if (impl_->encryptor) impl_->encryptor->decrypt(msg_body);
+
                     MsgHeader h{};
                     std::memcpy(&h, msg_body.data(), sizeof(h));
 
@@ -648,9 +664,6 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
                     msg.header = h;
                     msg.payload.assign(msg_body.begin() + sizeof(MsgHeader),
                                        msg_body.end());
-
-                    // Optional decryption.
-                    if (impl_->encryptor) impl_->encryptor->decrypt(msg.payload);
 
                     handler_.on_message(ConnectionId{impl_->id}, msg);
                 } else {
