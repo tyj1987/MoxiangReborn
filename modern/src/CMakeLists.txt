@@ -158,6 +158,7 @@ add_library(mxh_server STATIC
     server/item_container.cpp
     server/ability_group.cpp
     server/note_manager.cpp
+    server/wanted_manager.cpp
     server/quest_manager.cpp
     server/item_manager.cpp
     server/party_manager.cpp
@@ -348,6 +349,7 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
+
 
 
 
