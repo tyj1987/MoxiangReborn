@@ -6796,3 +6796,334 @@ TEST_F(LoginServerFixture, UnknownCategoryGuildUnionV2RequestIsDroppedWithoutRes
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M89 -- cat=66 (Pet) wire-format golden + drop test.
+// First Pet category at the canonical wire byte.
+// Pet carries pet summon / unsummon / command / state requests.
+// Locking the canonical wire byte here means a regression in modern
+// Pet encoder trips the golden comparison before any real pet op
+// gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=66, proto=1, obj_id=75567) +
+// 8B payload (4B tool_id=3400 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M89 -- continuing the wire-layer coverage push.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPetV2Request) {
+    // cat=66, proto=1, obj_id=75567,
+    // 8B payload (4B tool_id=3400 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends.
+    Message msg;
+    msg.header.category = 66;
+    msg.header.protocol = 1;
+    msg.header.object_id = 75567;
+    msg.header.checksum = 0;
+    msg.header.code = 0;
+    msg.payload.clear();
+    // 4B tool_id=3400 LE
+    msg.payload.push_back(static_cast<std::uint8_t>(3400u & 0xFFu));
+    msg.payload.push_back(static_cast<std::uint8_t>((3400u >> 8) & 0xFFu));
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    // 4B reserved=0
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(msg);
+    const auto golden = read_golden_bytes("pet_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryPetV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=66 (Pet) request at the canonical wire byte.
+    Message msg;
+    msg.header.category = 66;
+    msg.header.protocol = 1;
+    msg.header.object_id = 75567;
+    msg.payload.assign(8, 0);
+    msg.payload[0] = static_cast<std::uint8_t>(3400u & 0xFFu);
+    msg.payload[1] = static_cast<std::uint8_t>((3400u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(msg), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
+// =============================================================================
+// M90 -- cat=74 (Bobusang) wire-format golden + drop test.
+// First Bobusang category at the canonical wire byte.
+// Bobusang carries the traveling merchant NPC spawn / item list / buy requests.
+// Locking the canonical wire byte here means a regression in modern
+// Bobusang encoder trips the golden comparison before any real bobusang op
+// gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=74, proto=1, obj_id=76679) +
+// 8B payload (4B tool_id=3500 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M90 -- continuing the wire-layer coverage push.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesBobusangV2Request) {
+    // cat=74, proto=1, obj_id=76679,
+    // 8B payload (4B tool_id=3500 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends.
+    Message msg;
+    msg.header.category = 74;
+    msg.header.protocol = 1;
+    msg.header.object_id = 76679;
+    msg.header.checksum = 0;
+    msg.header.code = 0;
+    msg.payload.clear();
+    // 4B tool_id=3500 LE
+    msg.payload.push_back(static_cast<std::uint8_t>(3500u & 0xFFu));
+    msg.payload.push_back(static_cast<std::uint8_t>((3500u >> 8) & 0xFFu));
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    // 4B reserved=0
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(msg);
+    const auto golden = read_golden_bytes("bobusang_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryBobusangV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=74 (Bobusang) request at the canonical wire byte.
+    Message msg;
+    msg.header.category = 74;
+    msg.header.protocol = 1;
+    msg.header.object_id = 76679;
+    msg.payload.assign(8, 0);
+    msg.payload[0] = static_cast<std::uint8_t>(3500u & 0xFFu);
+    msg.payload[1] = static_cast<std::uint8_t>((3500u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(msg), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
+// =============================================================================
+// M91 -- cat=75 (ItemLimit) wire-format golden + drop test.
+// First ItemLimit category at the canonical wire byte.
+// ItemLimit carries inventory-capacity-overflow warnings and quota updates.
+// Locking the canonical wire byte here means a regression in modern
+// ItemLimit encoder trips the golden comparison before any real itemlimit op
+// gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=75, proto=1, obj_id=77791) +
+// 8B payload (4B tool_id=3600 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M91 -- continuing the wire-layer coverage push.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesItemLimitV2Request) {
+    // cat=75, proto=1, obj_id=77791,
+    // 8B payload (4B tool_id=3600 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends.
+    Message msg;
+    msg.header.category = 75;
+    msg.header.protocol = 1;
+    msg.header.object_id = 77791;
+    msg.header.checksum = 0;
+    msg.header.code = 0;
+    msg.payload.clear();
+    // 4B tool_id=3600 LE
+    msg.payload.push_back(static_cast<std::uint8_t>(3600u & 0xFFu));
+    msg.payload.push_back(static_cast<std::uint8_t>((3600u >> 8) & 0xFFu));
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    // 4B reserved=0
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(msg);
+    const auto golden = read_golden_bytes("itemlimit_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryItemLimitV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=75 (ItemLimit) request at the canonical wire byte.
+    Message msg;
+    msg.header.category = 75;
+    msg.header.protocol = 1;
+    msg.header.object_id = 77791;
+    msg.payload.assign(8, 0);
+    msg.payload[0] = static_cast<std::uint8_t>(3600u & 0xFFu);
+    msg.payload[1] = static_cast<std::uint8_t>((3600u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(msg), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
+// =============================================================================
+// M92 -- cat=76 (AutoNote) wire-format golden + drop test.
+// First AutoNote category at the canonical wire byte.
+// AutoNote carries auto-generated notification requests (event / quest completion).
+// Locking the canonical wire byte here means a regression in modern
+// AutoNote encoder trips the golden comparison before any real autonote op
+// gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=76, proto=1, obj_id=78903) +
+// 8B payload (4B tool_id=3700 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M92 -- continuing the wire-layer coverage push.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesAutoNoteV2Request) {
+    // cat=76, proto=1, obj_id=78903,
+    // 8B payload (4B tool_id=3700 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends.
+    Message msg;
+    msg.header.category = 76;
+    msg.header.protocol = 1;
+    msg.header.object_id = 78903;
+    msg.header.checksum = 0;
+    msg.header.code = 0;
+    msg.payload.clear();
+    // 4B tool_id=3700 LE
+    msg.payload.push_back(static_cast<std::uint8_t>(3700u & 0xFFu));
+    msg.payload.push_back(static_cast<std::uint8_t>((3700u >> 8) & 0xFFu));
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    // 4B reserved=0
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(msg);
+    const auto golden = read_golden_bytes("autonote_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryAutoNoteV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=76 (AutoNote) request at the canonical wire byte.
+    Message msg;
+    msg.header.category = 76;
+    msg.header.protocol = 1;
+    msg.header.object_id = 78903;
+    msg.payload.assign(8, 0);
+    msg.payload[0] = static_cast<std::uint8_t>(3700u & 0xFFu);
+    msg.payload[1] = static_cast<std::uint8_t>((3700u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(msg), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
+// =============================================================================
+// M93 -- cat=77 (FortWar) wire-format golden + drop test.
+// First FortWar category at the canonical wire byte.
+// FortWar carries fortress-war declare / status / capture requests.
+// Locking the canonical wire byte here means a regression in modern
+// FortWar encoder trips the golden comparison before any real fortwar op
+// gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=77, proto=1, obj_id=80015) +
+// 8B payload (4B tool_id=3800 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M93 -- continuing the wire-layer coverage push.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesFortWarV2Request) {
+    // cat=77, proto=1, obj_id=80015,
+    // 8B payload (4B tool_id=3800 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends.
+    Message msg;
+    msg.header.category = 77;
+    msg.header.protocol = 1;
+    msg.header.object_id = 80015;
+    msg.header.checksum = 0;
+    msg.header.code = 0;
+    msg.payload.clear();
+    // 4B tool_id=3800 LE
+    msg.payload.push_back(static_cast<std::uint8_t>(3800u & 0xFFu));
+    msg.payload.push_back(static_cast<std::uint8_t>((3800u >> 8) & 0xFFu));
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    // 4B reserved=0
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+    msg.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(msg);
+    const auto golden = read_golden_bytes("fortwar_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryFortWarV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=77 (FortWar) request at the canonical wire byte.
+    Message msg;
+    msg.header.category = 77;
+    msg.header.protocol = 1;
+    msg.header.object_id = 80015;
+    msg.payload.assign(8, 0);
+    msg.payload[0] = static_cast<std::uint8_t>(3800u & 0xFFu);
+    msg.payload[1] = static_cast<std::uint8_t>((3800u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(msg), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
