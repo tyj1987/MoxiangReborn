@@ -3085,3 +3085,82 @@ TEST_F(LoginServerFixture, UnknownCategoryKyungGongRequestIsDroppedWithoutRespon
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M40 -- cat=29 (StreetStall) wire-format golden + drop test.
+// First player-vendor / street-stall category locked. StreetStall
+// (노점) carries stall-open / item-register / stall-buy requests
+// between client and server. Locking the request shape here means
+// a regression in modern StreetStall encoder trips the golden
+// comparison before any real player gets stuck unable to sell
+// items at their in-world stall.
+//
+// 18B total: 2B length=16 + 8B header (cat=29, proto=1, obj_id=18888) +
+// 8B payload (4B stall_slot=5 + 4B item_id=54321).
+//
+// C 协议扩展 M40 -- the 26th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 22, 23, 28, 30, 33, 37, 39, 58, 62, 69, 71, 72). Crossed
+// the 32% mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesStreetStallRequest) {
+    // cat=29 (StreetStall), proto=1 (item-register base), obj_id=18888,
+    // 8B payload (4B stall_slot=5 + 4B item_id=54321). Mirrors the
+    // wire shape the legacy client sends for putting an item up
+    // for sale at an in-world stall. Pins a real stall-register
+    // request so a regression in net layer framing or modern
+    // StreetStall encoder trips the golden comparison.
+    Message stall;
+    stall.header.category = 29;
+    stall.header.protocol = 1;
+    stall.header.object_id = 18888;
+    stall.header.checksum = 0;
+    stall.header.code = 0;
+    stall.payload.clear();
+    // 4B stall_slot=5 LE
+    stall.payload.push_back(static_cast<std::uint8_t>(5u & 0xFFu));
+    stall.payload.push_back(0);
+    stall.payload.push_back(0);
+    stall.payload.push_back(0);
+    // 4B item_id=54321 LE
+    stall.payload.push_back(static_cast<std::uint8_t>(54321u & 0xFFu));
+    stall.payload.push_back(static_cast<std::uint8_t>((54321u >> 8) & 0xFFu));
+    stall.payload.push_back(0);
+    stall.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(stall);
+    const auto golden = read_golden_bytes("streetstall_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryStreetStallRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=29 (StreetStall) stall-register request --
+    // LoginHandler logs unhandled category: StreetStall and
+    // drops it without reply. Twenty-sixth category in the
+    // C 协议扩展 arc.
+    Message stall;
+    stall.header.category = 29;
+    stall.header.protocol = 1;
+    stall.header.object_id = 18888;
+    stall.payload.assign(8, 0);
+    stall.payload[0] = static_cast<std::uint8_t>(5u & 0xFFu);  // stall_slot
+    stall.payload[4] = static_cast<std::uint8_t>(54321u & 0xFFu);  // item_id low
+    stall.payload[5] = static_cast<std::uint8_t>((54321u >> 8) & 0xFFu);  // item_id high
+    ASSERT_EQ(tcp.send(stall), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
