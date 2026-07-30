@@ -1579,3 +1579,74 @@ TEST_F(LoginServerFixture, UnknownCategoryItemRequestIsDroppedWithoutResponse) {
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M20 -- cat=9 (Mugong) wire-format golden + drop test.
+// Mirrors the M6/M8/M9/M19 pattern: capture a real use-mugong client
+// request and verify the LoginHandler drops it without reply (cat=9
+// is not part of the login flow).
+//
+// 18B total: 2B length=16 + 8B header (cat=9, proto=1, obj_id=7777) +
+// 8B payload (4B skill_id=10001 LE + 4B target_id=0 LE).
+//
+// C 协议扩展 M20 -- the 6th distinct category locked at the wire layer
+// (after cat=4, 5, 6, 7, 8 from the M-stack + M19 Item).
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesMugongRequest) {
+    // cat=9 (Mugong), proto=1 (use-skill base), obj_id=7777, 8B payload
+    // (4B skill_id=10001 + 4B target_id=0). Mirrors the wire shape the
+    // legacy client sends for use-skill -- pins a real combat request
+    // so a regression in net layer framing or modern Mugong encoder
+    // trips the golden comparison.
+    Message mugong;
+    mugong.header.category = 9;
+    mugong.header.protocol = 1;
+    mugong.header.object_id = 7777;
+    mugong.header.checksum = 0;
+    mugong.header.code = 0;
+    mugong.payload.clear();
+    // 4B skill_id=10001 LE
+    mugong.payload.push_back(static_cast<std::uint8_t>(10001u & 0xFFu));
+    mugong.payload.push_back(static_cast<std::uint8_t>((10001u >> 8) & 0xFFu));
+    mugong.payload.push_back(static_cast<std::uint8_t>((10001u >> 16) & 0xFFu));
+    mugong.payload.push_back(static_cast<std::uint8_t>((10001u >> 24) & 0xFFu));
+    // 4B target_id=0 LE
+    mugong.payload.push_back(0);
+    mugong.payload.push_back(0);
+    mugong.payload.push_back(0);
+    mugong.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(mugong);
+    const auto golden = read_golden_bytes("mugong_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryMugongRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=9 (Mugong) use-skill request -- LoginHandler logs
+    // unhandled category: Mugong and drops it without reply. Sixth
+    // category in the C 协议扩展 arc.
+    Message mugong;
+    mugong.header.category = 9;
+    mugong.header.protocol = 1;
+    mugong.header.object_id = 7777;
+    mugong.payload.assign(8, 0);
+    mugong.payload[0] = static_cast<std::uint8_t>(10001u & 0xFFu);
+    mugong.payload[1] = static_cast<std::uint8_t>((10001u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(mugong), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+

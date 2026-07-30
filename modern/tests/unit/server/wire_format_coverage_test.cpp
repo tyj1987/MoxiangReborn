@@ -180,10 +180,10 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     const auto by_cat = golden_by_category();
     int total_goldens = 0;
     for (const auto& kv : by_cat) total_goldens += static_cast<int>(kv.second.size());
-    EXPECT_EQ(total_goldens, 10)
+    EXPECT_EQ(total_goldens, 11)
         << "Golden file count regressed. Re-add the missing golden or "
            "bump the floor if intentional.";
-    EXPECT_EQ(by_cat.size(), 5u)
+    EXPECT_EQ(by_cat.size(), 6u)
         << "Distinct category count regressed. C 协议扩展 should only "
            "grow this number, never shrink.";
     EXPECT_TRUE(by_cat.count(4)) << "cat=4 (Map) golden lost";
@@ -191,6 +191,7 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     EXPECT_TRUE(by_cat.count(7)) << "cat=7 (UserConn) golden lost";
     EXPECT_TRUE(by_cat.count(8)) << "cat=8 (Move) golden lost";
     EXPECT_TRUE(by_cat.count(5)) << "cat=5 (Item) golden lost (M19)";
+    EXPECT_TRUE(by_cat.count(9)) << "cat=9 (Mugong) golden lost (M20)";
 }
 
 TEST(WireFormatCoverage, EachGoldenIsValidWireHeader) {
