@@ -3558,3 +3558,82 @@ TEST_F(LoginServerFixture, UnknownCategoryNoteRequestIsDroppedWithoutResponse) {
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M46 -- cat=20 (Tactic) wire-format golden + drop test.
+// First combat-tactic / formation category locked. Tactic
+// carries formation-set / formation-trigger / formation-break
+// requests from client to server. Locking the request shape
+// here means a regression in modern Tactic encoder trips the
+// golden comparison before any real party gets stuck with a
+// broken formation layout in combat.
+//
+// 18B total: 2B length=16 + 8B header (cat=20, proto=1, obj_id=25555) +
+// 8B payload (4B formation_id=5 + 4B tactic_action=1=trigger).
+//
+// C 协议扩展 M46 -- the 32nd distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 21, 22, 23, 28, 29, 30, 33, 37, 39, 41, 58, 62, 64,
+// 65, 69, 71, 72). Crossed the 39.5% mark of the 81-category
+// protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesTacticRequest) {
+    // cat=20 (Tactic), proto=1 (formation-trigger base), obj_id=25555,
+    // 8B payload (4B formation_id=5 + 4B tactic_action=1=trigger).
+    // Mirrors the wire shape the legacy client sends for a party
+    // triggering a formation in combat. Pins a real formation
+    // request so a regression in net layer framing or modern
+    // Tactic encoder trips the golden comparison.
+    Message tactic;
+    tactic.header.category = 20;
+    tactic.header.protocol = 1;
+    tactic.header.object_id = 25555;
+    tactic.header.checksum = 0;
+    tactic.header.code = 0;
+    tactic.payload.clear();
+    // 4B formation_id=5 LE
+    tactic.payload.push_back(static_cast<std::uint8_t>(5u & 0xFFu));
+    tactic.payload.push_back(0);
+    tactic.payload.push_back(0);
+    tactic.payload.push_back(0);
+    // 4B tactic_action=1 (trigger) LE
+    tactic.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    tactic.payload.push_back(0);
+    tactic.payload.push_back(0);
+    tactic.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(tactic);
+    const auto golden = read_golden_bytes("tactic_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryTacticRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=20 (Tactic) formation-trigger request --
+    // LoginHandler logs unhandled category: Tactic and drops it
+    // without reply. Thirty-second category in the C 协议扩展
+    // arc.
+    Message tactic;
+    tactic.header.category = 20;
+    tactic.header.protocol = 1;
+    tactic.header.object_id = 25555;
+    tactic.payload.assign(8, 0);
+    tactic.payload[0] = static_cast<std::uint8_t>(5u & 0xFFu);  // formation_id
+    tactic.payload[4] = static_cast<std::uint8_t>(1u & 0xFFu);  // tactic_action
+    ASSERT_EQ(tcp.send(tactic), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
