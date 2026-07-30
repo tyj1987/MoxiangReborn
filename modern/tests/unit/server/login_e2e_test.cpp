@@ -749,3 +749,77 @@ TEST_F(LoginServerFixture, DisconnectReconnectKeepsAuthKeysIsolated) {
         tcp2.disconnect();
     }
 }
+
+// =============================================================================
+// M3 -- concurrent multi-client stress. Closes the loop's concurrency axis:
+// a single server instance must serve N parallel clients through the full
+// DistConnect + login + Ack cycle without crossing replies, without
+// corrupting next_auth_key_, and without changing the wire shape.
+// =============================================================================
+
+TEST_F(LoginServerFixture, MultipleConcurrentClientsGetDistinctAuthKeys) {
+    constexpr int kClients = 3;
+    std::vector<std::uint32_t> auth_keys(kClients, 0);
+    std::vector<int> ack_payload_22(kClients, -1);  // userLevel slot
+    std::vector<std::exception_ptr> failures(kClients);
+    std::vector<std::thread> workers;
+    workers.reserve(kClients);
+
+    for (int i = 0; i < kClients; ++i) {
+        workers.emplace_back([this, i, &auth_keys, &ack_payload_22, &failures] {
+            try {
+                CapturingClientHandler client;
+                mxh::net::TcpClient tcp(client);
+                mxh::net::ClientConfig ccfg;
+                ccfg.remote_address = "127.0.0.1";
+                ccfg.port = static_cast<std::uint16_t>(port_);
+                ccfg.use_legacy_framing = true;
+                ASSERT_EQ(tcp.connect(ccfg), mxh::net::NetError::Ok);
+                ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(3)));
+                auto msgs = client.snapshot();
+                ASSERT_EQ(msgs.size(), 1u);
+                const auto& dcs = msgs[0];
+                EXPECT_EQ(dcs.header.category, 7);
+                EXPECT_EQ(dcs.header.protocol, 0);
+                EXPECT_GT(dcs.header.object_id, 0u);
+                EXPECT_TRUE(dcs.payload.empty());
+                auth_keys[i] = dcs.header.object_id;
+
+                // Send the legacy login flow and expect Ack.
+                mxh::net::Message login;
+                login.header.category = 7;
+                login.header.protocol = 1;
+                login.header.object_id = 0;
+                login.payload = make_legacy_login_payload(auth_keys[i], "test", "test");
+                ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
+                ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(3)));
+                msgs = client.snapshot();
+                ASSERT_EQ(msgs.size(), 2u);
+                const auto& ack = msgs[1];
+                EXPECT_EQ(ack.header.category, 7);
+                EXPECT_EQ(ack.header.protocol, 2);
+                ASSERT_EQ(ack.payload.size(), 23u);
+                ack_payload_22[i] = ack.payload[22];
+                tcp.disconnect();
+            } catch (...) {
+                failures[i] = std::current_exception();
+            }
+        });
+    }
+    for (auto& w : workers) w.join();
+
+    // Surface any worker-side ASSERT failures into the main thread.
+    for (int i = 0; i < kClients; ++i) {
+        if (failures[i]) std::rethrow_exception(failures[i]);
+    }
+
+    // Auth keys must be distinct (next_auth_key_ increments under auth_mu_
+    // lock; this test would catch a regression that drops the lock).
+    std::set<std::uint32_t> uniq(auth_keys.begin(), auth_keys.end());
+    EXPECT_EQ(uniq.size(), static_cast<std::size_t>(kClients));
+
+    // Ack userLevel is server-derived ("test" row has userlevel=2). All 3
+    // clients should see the same value -- proves the handler's DB lookup
+    // is consistently returning the seeded row across parallel calls.
+    for (int v : ack_payload_22) EXPECT_EQ(v, 2);
+}
