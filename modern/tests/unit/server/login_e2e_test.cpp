@@ -2387,3 +2387,80 @@ TEST_F(LoginServerFixture, UnknownCategoryQuickRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M31 -- cat=33 (Friend) wire-format golden + drop test.
+// First friend-list category locked. Friend carries friend-add /
+// remove / block requests between client and server. Locking the
+// request shape here means a regression in modern Friend encoder
+// trips the golden comparison before any real player fails to
+// add a friend or gets a corrupt block notification.
+//
+// 18B total: 2B length=16 + 8B header (cat=33, proto=1, obj_id=8888) +
+// 8B payload (4B target_player_id=12345 + 4B action_type=2=block).
+//
+// C 协议扩展 M31 -- the 17th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 22, 28,
+// 58, 71). Crossed the 21% mark of the 81-category protocol
+// surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesFriendRequest) {
+    // cat=33 (friendReq), proto=1 (friendReq-block base), obj_id=8888,
+    // 8B payload (4B target_player_id=12345 + 4B action_type=2
+    // =block). Mirrors the wire shape the legacy client sends for
+    // adding a player to the friendReq block list. Pins a real
+    // friendReq-block request so a regression in net layer framing
+    // or modern friendReq encoder trips the golden comparison.
+    Message friendReq;
+    friendReq.header.category = 33;
+    friendReq.header.protocol = 1;
+    friendReq.header.object_id = 8888;
+    friendReq.header.checksum = 0;
+    friendReq.header.code = 0;
+    friendReq.payload.clear();
+    // 4B target_player_id=12345 LE
+    friendReq.payload.push_back(static_cast<std::uint8_t>(12345u & 0xFFu));
+    friendReq.payload.push_back(static_cast<std::uint8_t>((12345u >> 8) & 0xFFu));
+    friendReq.payload.push_back(0);
+    friendReq.payload.push_back(0);
+    // 4B action_type=2 (block) LE
+    friendReq.payload.push_back(static_cast<std::uint8_t>(2u & 0xFFu));
+    friendReq.payload.push_back(0);
+    friendReq.payload.push_back(0);
+    friendReq.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(friendReq);
+    const auto golden = read_golden_bytes("friend_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryFriendRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=33 (friendReq) friendReq-block request -- LoginHandler
+    // logs unhandled category: friendReq and drops it without reply.
+    // Seventeenth category in the C 协议扩展 arc.
+    Message friendReq;
+    friendReq.header.category = 33;
+    friendReq.header.protocol = 1;
+    friendReq.header.object_id = 8888;
+    friendReq.payload.assign(8, 0);
+    friendReq.payload[0] = static_cast<std::uint8_t>(12345u & 0xFFu);  // target low
+    friendReq.payload[1] = static_cast<std::uint8_t>((12345u >> 8) & 0xFFu);  // target high
+    friendReq.payload[4] = static_cast<std::uint8_t>(2u & 0xFFu);  // action_type
+    ASSERT_EQ(tcp.send(friendReq), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
