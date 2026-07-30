@@ -2928,3 +2928,82 @@ TEST_F(LoginServerFixture, UnknownCategorySiegeWarRequestIsDroppedWithoutRespons
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M38 -- cat=15 (PeaceWarMode) wire-format golden + drop test.
+// First PvP-toggle category locked. PeaceWarMode carries
+// peace-to-war / war-to-peace toggle requests and PvP-attack
+// declarations from client to server. Locking the request
+// shape here means a regression in modern PeaceWarMode
+// encoder trips the golden comparison before any real player
+// gets stuck in wrong-mode state or attacks out of mode.
+//
+// 18B total: 2B length=16 + 8B header (cat=15, proto=1, obj_id=16666) +
+// 8B payload (4B mode=1=war + 4B target_player_id=12345).
+//
+// C 协议扩展 M38 -- the 24th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 22, 28, 30, 33, 37, 39, 58, 62, 69, 71, 72). Crossed the
+// 29.6% mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPeaceWarModeRequest) {
+    // cat=15 (PeaceWarMode), proto=1 (war-toggle base), obj_id=16666,
+    // 8B payload (4B mode=1=war + 4B target_player_id=12345).
+    // Mirrors the wire shape the legacy client sends when a
+    // player toggles into war mode and targets another player.
+    // Pins a real war-toggle request so a regression in net
+    // layer framing or modern PeaceWarMode encoder trips the
+    // golden comparison.
+    Message pwm;
+    pwm.header.category = 15;
+    pwm.header.protocol = 1;
+    pwm.header.object_id = 16666;
+    pwm.header.checksum = 0;
+    pwm.header.code = 0;
+    pwm.payload.clear();
+    // 4B mode=1 (war) LE
+    pwm.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    pwm.payload.push_back(0);
+    pwm.payload.push_back(0);
+    pwm.payload.push_back(0);
+    // 4B target_player_id=12345 LE
+    pwm.payload.push_back(static_cast<std::uint8_t>(12345u & 0xFFu));
+    pwm.payload.push_back(static_cast<std::uint8_t>((12345u >> 8) & 0xFFu));
+    pwm.payload.push_back(0);
+    pwm.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pwm);
+    const auto golden = read_golden_bytes("peacewarmode_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPeaceWarModeRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=15 (PeaceWarMode) war-toggle request -- LoginHandler
+    // logs unhandled category: PeaceWarMode and drops it without
+    // reply. Twenty-fourth category in the C 协议扩展 arc.
+    Message pwm;
+    pwm.header.category = 15;
+    pwm.header.protocol = 1;
+    pwm.header.object_id = 16666;
+    pwm.payload.assign(8, 0);
+    pwm.payload[0] = static_cast<std::uint8_t>(1u & 0xFFu);  // mode=war
+    pwm.payload[4] = static_cast<std::uint8_t>(12345u & 0xFFu);  // target low
+    pwm.payload[5] = static_cast<std::uint8_t>((12345u >> 8) & 0xFFu);  // target high
+    ASSERT_EQ(tcp.send(pwm), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
