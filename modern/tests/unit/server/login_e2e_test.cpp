@@ -1475,3 +1475,51 @@ TEST_F(LoginServerFixture, RetryAfterInvalidCredsSucceeds) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M17 -- client request golden for cat=7 login. The existing
+// dist_connect_success.bin / login_ack.bin / login_nack.bin lock the
+// SERVER's response bytes. M17 adds a complementary lock: the
+// CLIENT's request bytes. Together they pin both directions of the
+// cat=7 login E2E flow at the wire layer.
+//
+// The request is built with auth_key=1000 (the default
+// next_auth_key_ on a fresh LoginHandler) so the bytes are
+// deterministic under LoginServerFixtureGolden (kGoldenPort=54321).
+// 48B total: 2B length=46 + 8B header (cat=7, proto=1, obj_id=0) +
+// 38B payload (4B auth_key=1000 LE + 17B id 'test' + 17B pw 'test').
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginRequest) {
+
+    // Connect first to ensure server is at auth_key=1000 (the default).
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    auto dcs = client.snapshot()[0];
+    ASSERT_EQ(dcs.header.object_id, 1000u);
+
+    // Build the login request. auth_key=1000 LE, id='test', pw='test'.
+    Message login;
+    login.header.category = 7;
+    login.header.protocol = 1;
+    login.header.object_id = 0;
+    login.payload = make_legacy_login_payload(1000u, "test", "test");
+
+    // Compare wire bytes to the locked golden.
+    const auto actual = reconstruct_wire(login);
+    const auto golden = read_golden_bytes("login_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 48u);
+
+    // Still send the login so the server-side state remains clean
+    // (in case gtest runs additional tests in this fixture).
+    ASSERT_EQ(tcp.send(login), NetError::Ok);
+    tcp.disconnect();
+}
