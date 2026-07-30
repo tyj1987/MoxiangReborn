@@ -177,10 +177,10 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     const auto by_cat = golden_by_category();
     int total_goldens = 0;
     for (const auto& kv : by_cat) total_goldens += static_cast<int>(kv.second.size());
-    EXPECT_EQ(total_goldens, 54)
+    EXPECT_EQ(total_goldens, 55)
         << "Golden file count regressed. Re-add the missing golden or "
            "bump the floor if intentional.";
-    EXPECT_EQ(by_cat.size(), 49u)
+    EXPECT_EQ(by_cat.size(), 50u)
         << "Distinct category count regressed. C 协议扩展 should only "
            "grow this number, never shrink.";
     EXPECT_TRUE(by_cat.count(4)) << "cat=4 (Map) golden lost";
@@ -232,6 +232,7 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     EXPECT_TRUE(by_cat.count(25)) << "cat=25 (MornitorTool) golden lost (M61)";
     EXPECT_TRUE(by_cat.count(26)) << "cat=26 (MornitorServer) golden lost (M62)";
     EXPECT_TRUE(by_cat.count(27)) << "cat=27 (MornitorMapServer) golden lost (M63)";
+    EXPECT_TRUE(by_cat.count(40)) << "cat=40 (Debug) golden lost (M64)";
     EXPECT_TRUE(by_cat.count(11)) << "cat=11 (Cheat) golden lost (M23)";
     EXPECT_TRUE(by_cat.count(14)) << "cat=14 (Party) golden lost (M24)";
     EXPECT_TRUE(by_cat.count(22)) << "cat=22 (Skill) golden lost (M25)";
@@ -273,6 +274,7 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     EXPECT_TRUE(by_cat.count(25)) << "cat=25 (MornitorTool) golden lost (M61)";
     EXPECT_TRUE(by_cat.count(26)) << "cat=26 (MornitorServer) golden lost (M62)";
     EXPECT_TRUE(by_cat.count(27)) << "cat=27 (MornitorMapServer) golden lost (M63)";
+    EXPECT_TRUE(by_cat.count(40)) << "cat=40 (Debug) golden lost (M64)";
 }
 
 TEST(WireFormatCoverage, EachGoldenIsValidWireHeader) {
