@@ -177,7 +177,7 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     const auto by_cat = golden_by_category();
     int total_goldens = 0;
     for (const auto& kv : by_cat) total_goldens += static_cast<int>(kv.second.size());
-    EXPECT_EQ(total_goldens, 77)
+    EXPECT_EQ(total_goldens, 78)
         << "Golden file count regressed. Re-add the missing golden or "
            "bump the floor if intentional.";
     EXPECT_EQ(by_cat.size(), 72u)
@@ -255,6 +255,7 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     EXPECT_TRUE(by_cat.count(54)) << "cat=54 (Suryun) golden lost (M84)";
     EXPECT_TRUE(by_cat.count(56)) << "cat=56 (Guild) golden lost (M85)";
     EXPECT_TRUE(by_cat.count(59)) << "cat=59 (PartyWar) golden lost (M86)";
+    EXPECT_TRUE(by_cat.count(60)) << "cat=60 (GTournament) golden lost (M87)";
     EXPECT_TRUE(by_cat.count(11)) << "cat=11 (Cheat) golden lost (M23)";
     EXPECT_TRUE(by_cat.count(14)) << "cat=14 (Party) golden lost (M24)";
     EXPECT_TRUE(by_cat.count(22)) << "cat=22 (Skill) golden lost (M25)";
@@ -319,6 +320,7 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     EXPECT_TRUE(by_cat.count(54)) << "cat=54 (Suryun) golden lost (M84)";
     EXPECT_TRUE(by_cat.count(56)) << "cat=56 (Guild) golden lost (M85)";
     EXPECT_TRUE(by_cat.count(59)) << "cat=59 (PartyWar) golden lost (M86)";
+    EXPECT_TRUE(by_cat.count(60)) << "cat=60 (GTournament) golden lost (M87)";
 }
 
 TEST(WireFormatCoverage, EachGoldenIsValidWireHeader) {

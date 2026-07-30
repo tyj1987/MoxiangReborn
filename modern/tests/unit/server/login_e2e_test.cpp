@@ -6645,3 +6645,77 @@ TEST_F(LoginServerFixture, UnknownCategoryPartyWarV2RequestIsDroppedWithoutRespo
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M87 -- cat=60 (GTournament) wire-format golden + drop test.
+// First guild-tournament category at the canonical wire byte.
+// GTournament carries guild-tournament requests (regist, cancel, observer,
+// battle-join, standing-info). NOTE: this is a separate golden from
+// suryun_request.bin (cat=60 wire byte = MP_GTOURNAMENT per Protocol.h) --
+// suryun_request.bin uses wire byte 60 for a Suryun payload (legacy repurposing),
+// while gtournament_v2_request.bin uses the canonical MP_GTOURNAMENT wire byte.
+// Locking the canonical wire byte here means a regression in modern
+// GTournament encoder trips the golden comparison before any real GTournament
+// op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=60, proto=1, obj_id=73343) +
+// 8B payload (4B tool_id=3200 + 4B reserved=0).
+//
+// C å­è®®æ©å±• M87 -- the 73rd distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesGTournamentV2Request) {
+    // cat=60 (GTournament per Protocol.h wire byte 60 = MP_GTOURNAMENT),
+    // proto=1 (gtournament base), obj_id=73343,
+    // 8B payload (4B tool_id=3200 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // guild-tournament request at the canonical wire byte.
+    Message gt;
+    gt.header.category = 60;
+    gt.header.protocol = 1;
+    gt.header.object_id = 73343;
+    gt.header.checksum = 0;
+    gt.header.code = 0;
+    gt.payload.clear();
+    // 4B tool_id=3200 LE
+    gt.payload.push_back(static_cast<std::uint8_t>(3200u & 0xFFu));
+    gt.payload.push_back(static_cast<std::uint8_t>((3200u >> 8) & 0xFFu));
+    gt.payload.push_back(0);
+    gt.payload.push_back(0);
+    // 4B reserved=0
+    gt.payload.push_back(0);
+    gt.payload.push_back(0);
+    gt.payload.push_back(0);
+    gt.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(gt);
+    const auto golden = read_golden_bytes("gtournament_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryGTournamentV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=60 (GTournament) guild-tournament request at the canonical wire byte --
+    // LoginHandler logs unhandled category: GTournament and drops it
+    // without reply. Seventy-third category in the C å­è®®æ©å±• arc.
+    Message gt;
+    gt.header.category = 60;
+    gt.header.protocol = 1;
+    gt.header.object_id = 73343;
+    gt.payload.assign(8, 0);
+    gt.payload[0] = static_cast<std::uint8_t>(3200u & 0xFFu);
+    gt.payload[1] = static_cast<std::uint8_t>((3200u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(gt), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
