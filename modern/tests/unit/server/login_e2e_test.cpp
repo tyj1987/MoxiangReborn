@@ -2773,3 +2773,81 @@ TEST_F(LoginServerFixture, UnknownCategoryGuildRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M36 -- cat=72 (Pet) wire-format golden + drop test.
+// First pet / companion category locked. Pet carries
+// pet-summon / dismiss / feed / command requests between client
+// and server. Locking the request shape here means a regression
+// in modern Pet encoder trips the golden comparison before any
+// real player gets stuck with an unsummonable pet or a wrong
+// command interpretation.
+//
+// 18B total: 2B length=16 + 8B header (cat=72, proto=1, obj_id=14444) +
+// 8B payload (4B pet_id=5000 + 4B command=0=summon).
+//
+// C 协议扩展 M36 -- the 22nd distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 22, 28, 30, 33, 37, 39, 58, 62, 71). Crossed the 27.1% mark
+// of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPetRequest) {
+    // cat=72 (Pet), proto=1 (pet-summon base), obj_id=14444,
+    // 8B payload (4B pet_id=5000 + 4B command=0=summon). Mirrors
+    // the wire shape the legacy client sends for summoning a
+    // pet into the world. Pins a real pet-summon request so a
+    // regression in net layer framing or modern Pet encoder
+    // trips the golden comparison.
+    Message pet;
+    pet.header.category = 72;
+    pet.header.protocol = 1;
+    pet.header.object_id = 14444;
+    pet.header.checksum = 0;
+    pet.header.code = 0;
+    pet.payload.clear();
+    // 4B pet_id=5000 LE
+    pet.payload.push_back(static_cast<std::uint8_t>(5000u & 0xFFu));
+    pet.payload.push_back(static_cast<std::uint8_t>((5000u >> 8) & 0xFFu));
+    pet.payload.push_back(0);
+    pet.payload.push_back(0);
+    // 4B command=0 (summon) LE
+    pet.payload.push_back(0);
+    pet.payload.push_back(0);
+    pet.payload.push_back(0);
+    pet.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pet);
+    const auto golden = read_golden_bytes("pet_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPetRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=72 (Pet) pet-summon request -- LoginHandler logs
+    // unhandled category: Pet and drops it without reply.
+    // Twenty-second category in the C 协议扩展 arc.
+    Message pet;
+    pet.header.category = 72;
+    pet.header.protocol = 1;
+    pet.header.object_id = 14444;
+    pet.payload.assign(8, 0);
+    pet.payload[0] = static_cast<std::uint8_t>(5000u & 0xFFu);  // pet_id low
+    pet.payload[1] = static_cast<std::uint8_t>((5000u >> 8) & 0xFFu);  // pet_id high
+    pet.payload[4] = 0;  // command=0 (summon)
+    ASSERT_EQ(tcp.send(pet), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
