@@ -2618,3 +2618,81 @@ TEST_F(LoginServerFixture, UnknownCategoryQuestRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M34 -- cat=30 (Pyoguk) wire-format golden + drop test.
+// First warehouse / storage category locked. Pyoguk carries
+// warehouse-put / warehouse-get / warehouse-list requests
+// between client and server. Locking the request shape here
+// means a regression in modern Pyoguk encoder trips the golden
+// comparison before any real player loses an item to a corrupt
+// warehouse slot.
+//
+// 18B total: 2B length=16 + 8B header (cat=30, proto=1, obj_id=12222) +
+// 8B payload (4B warehouse_slot=10 + 4B item_id=23456).
+//
+// C 协议扩展 M34 -- the 20th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 22, 28, 33, 37, 39, 58, 71). Crossed the 24.7% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPyogukRequest) {
+    // cat=30 (Pyoguk), proto=1 (warehouse-put base), obj_id=12222,
+    // 8B payload (4B warehouse_slot=10 + 4B item_id=23456). Mirrors
+    // the wire shape the legacy client sends for putting an item
+    // in a warehouse slot. Pins a real warehouse-put request so
+    // a regression in net layer framing or modern Pyoguk encoder
+    // trips the golden comparison.
+    Message pyoguk;
+    pyoguk.header.category = 30;
+    pyoguk.header.protocol = 1;
+    pyoguk.header.object_id = 12222;
+    pyoguk.header.checksum = 0;
+    pyoguk.header.code = 0;
+    pyoguk.payload.clear();
+    // 4B warehouse_slot=10 LE
+    pyoguk.payload.push_back(static_cast<std::uint8_t>(10u & 0xFFu));
+    pyoguk.payload.push_back(0);
+    pyoguk.payload.push_back(0);
+    pyoguk.payload.push_back(0);
+    // 4B item_id=23456 LE
+    pyoguk.payload.push_back(static_cast<std::uint8_t>(23456u & 0xFFu));
+    pyoguk.payload.push_back(static_cast<std::uint8_t>((23456u >> 8) & 0xFFu));
+    pyoguk.payload.push_back(0);
+    pyoguk.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pyoguk);
+    const auto golden = read_golden_bytes("pyoguk_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPyogukRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=30 (Pyoguk) warehouse-put request -- LoginHandler
+    // logs unhandled category: Pyoguk and drops it without reply.
+    // Twentieth category in the C 协议扩展 arc.
+    Message pyoguk;
+    pyoguk.header.category = 30;
+    pyoguk.header.protocol = 1;
+    pyoguk.header.object_id = 12222;
+    pyoguk.payload.assign(8, 0);
+    pyoguk.payload[0] = static_cast<std::uint8_t>(10u & 0xFFu);  // warehouse_slot
+    pyoguk.payload[4] = static_cast<std::uint8_t>(23456u & 0xFFu);  // item_id low
+    pyoguk.payload[5] = static_cast<std::uint8_t>((23456u >> 8) & 0xFFu);  // item_id high
+    ASSERT_EQ(tcp.send(pyoguk), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
