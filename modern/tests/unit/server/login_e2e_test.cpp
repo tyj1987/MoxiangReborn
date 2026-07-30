@@ -2234,3 +2234,80 @@ TEST_F(LoginServerFixture, UnknownCategoryWantedRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M29 -- cat=71 (Weather) wire-format golden + drop test.
+// First world-state broadcast category locked. Weather carries
+// region-weather / forecast / storm-warning requests between
+// client and server. Locking the request shape here means a
+// regression in modern Weather encoder trips the golden
+// comparison before any real player gets a malformed weather
+// update.
+//
+// 18B total: 2B length=16 + 8B header (cat=71, proto=1, obj_id=6666) +
+// 8B payload (4B region_id=12345 + 4B weather_type=3=snow).
+//
+// C 协议扩展 M29 -- the 15th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 14, 22, 28, 58).
+// Crossed the 18.5% mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesWeatherRequest) {
+    // cat=71 (Weather), proto=1 (region-lookup base), obj_id=6666,
+    // 8B payload (4B region_id=12345 + 4B weather_type=3=snow).
+    // Mirrors the wire shape the legacy client sends for region
+    // weather lookup. Pins a real weather request so a regression
+    // in net layer framing or modern Weather encoder trips the
+    // golden comparison.
+    Message weather;
+    weather.header.category = 71;
+    weather.header.protocol = 1;
+    weather.header.object_id = 6666;
+    weather.header.checksum = 0;
+    weather.header.code = 0;
+    weather.payload.clear();
+    // 4B region_id=12345 LE
+    weather.payload.push_back(static_cast<std::uint8_t>(12345u & 0xFFu));
+    weather.payload.push_back(static_cast<std::uint8_t>((12345u >> 8) & 0xFFu));
+    weather.payload.push_back(0);
+    weather.payload.push_back(0);
+    // 4B weather_type=3 (snow) LE
+    weather.payload.push_back(static_cast<std::uint8_t>(3u & 0xFFu));
+    weather.payload.push_back(0);
+    weather.payload.push_back(0);
+    weather.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(weather);
+    const auto golden = read_golden_bytes("weather_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryWeatherRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=71 (Weather) region-lookup request -- LoginHandler
+    // logs unhandled category: Weather and drops it without reply.
+    // Fifteenth category in the C 协议扩展 arc.
+    Message weather;
+    weather.header.category = 71;
+    weather.header.protocol = 1;
+    weather.header.object_id = 6666;
+    weather.payload.assign(8, 0);
+    weather.payload[0] = static_cast<std::uint8_t>(12345u & 0xFFu);  // region low
+    weather.payload[1] = static_cast<std::uint8_t>((12345u >> 8) & 0xFFu);  // region high
+    weather.payload[4] = static_cast<std::uint8_t>(3u & 0xFFu);  // weather_type
+    ASSERT_EQ(tcp.send(weather), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
