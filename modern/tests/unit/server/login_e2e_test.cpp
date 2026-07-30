@@ -1422,3 +1422,56 @@ TEST_F(LoginServerFixture, RapidReconnectStormCompletesWithinBudget) {
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
     EXPECT_LT(elapsed_ms, kMaxTotalMs);
 }
+
+
+// =============================================================================
+// M16 -- retry-after-nack flow. Client connects, gets DistConnect,
+// sends invalid creds -> Nack, then retries with valid creds on the
+// same connection -> Ack. Tests that the server does not lock out
+// the client after a single bad login attempt. This is a realistic
+// flow: typos in passwords are common, and the server must allow
+// immediate retry without requiring a reconnect.
+// =============================================================================
+
+TEST_F(LoginServerFixture, RetryAfterInvalidCredsSucceeds) {
+
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    auto dcs = client.snapshot()[0];
+    ASSERT_EQ(dcs.header.protocol, 0);
+    std::uint32_t auth_key = dcs.header.object_id;
+
+    // First attempt: invalid creds (wrong password).
+    Message bad;
+    bad.header.category = 7;
+    bad.header.protocol = 1;
+    bad.header.object_id = 0;
+    bad.payload = make_legacy_login_payload(auth_key, "test", "wrong");
+    ASSERT_EQ(tcp.send(bad), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 2u);
+    EXPECT_EQ(msgs[1].header.protocol, 1);  // Nack
+
+    // Second attempt on the SAME connection: valid creds.
+    Message good;
+    good.header.category = 7;
+    good.header.protocol = 1;
+    good.header.object_id = 0;
+    good.payload = make_legacy_login_payload(auth_key, "test", "test");
+    ASSERT_EQ(tcp.send(good), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
+    msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 3u);
+    EXPECT_EQ(msgs[2].header.protocol, 2);  // Ack
+    EXPECT_EQ(msgs[2].payload.size(), 23u);
+    EXPECT_EQ(msgs[2].payload[22], 2);       // userLevel
+
+    tcp.disconnect();
+}
