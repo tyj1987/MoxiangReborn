@@ -1724,3 +1724,65 @@ TEST_F(LoginServerFixture, UnknownCategoryPowerUpRequestIsDroppedWithoutResponse
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M22 -- cat=1 (Server) wire-format golden + drop test.
+// First pre-login domain locked. cat=1 carries server-list / info
+// requests the client sends before any UserConn flow (cat=7). The
+// LoginHandler does not service cat=1, so the request must be
+// dropped without reply.
+//
+// 10B total: 2B length=8 + 8B header (cat=1, proto=1, obj_id=0,
+// empty payload).
+//
+// C 协议扩展 M22 -- the 8th distinct category locked at the wire layer
+// (after cat=2, 4, 5, 6, 7, 8, 9). Distinct from cat=7 in that cat=7
+// is the UserConn login flow while cat=1 is the pre-login server
+// list / info channel.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesServerRequest) {
+    // cat=1 (Server), proto=1 (server-list-syn base), obj_id=0,
+    // empty payload. Mirrors the wire shape the legacy client sends
+    // for server-list request. Pins a real pre-login operation so a
+    // regression in net layer framing or modern Server encoder trips
+    // the golden comparison.
+    Message server;
+    server.header.category = 1;
+    server.header.protocol = 1;
+    server.header.object_id = 0;
+    server.header.checksum = 0;
+    server.header.code = 0;
+    server.payload.clear();
+
+    const auto actual = reconstruct_wire(server);
+    const auto golden = read_golden_bytes("server_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 10u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryServerRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=1 (Server) server-list request -- LoginHandler logs
+    // unhandled category: Server and drops it without reply. Eighth
+    // category in the C 协议扩展 arc.
+    Message server;
+    server.header.category = 1;
+    server.header.protocol = 1;
+    server.header.object_id = 0;
+    server.payload.clear();
+    ASSERT_EQ(tcp.send(server), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
