@@ -50,7 +50,7 @@ add_library(mxh_ui STATIC
     minifrienddialog.cpp
     revivedialog.cpp
     ctextarea.cpp
-    mpnoticedialog.cpp
+    cmpnoticedialog.cpp
     eventnotifydialog.cpp
     guildcreatedialog.cpp
     chaseinputdialog.cpp

@@ -103,7 +103,7 @@ add_executable(mxh_ui_tests
     minifrienddialog_test.cpp
     revivedialog_test.cpp
     ctextarea_test.cpp
-    mpnoticedialog_test.cpp
+    cmpnoticedialog_test.cpp
     eventnotifydialog_test.cpp
     guildcreatedialog_test.cpp
     chaseinputdialog_test.cpp
@@ -663,15 +663,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTextAreaTest.SetTextColorZeroIsValid
     CTextAreaTest.AddDelegatesToBaseDialog
     CTextAreaTest.RenderIsNoOp
-    # P2-12 Tier 2 dialog: cMPNoticeDialog (MP notice)
-    CMPNoticeDialogTest.DefaultConstructionHasNullPointers
-    CMPNoticeDialogTest.IdConstantsAreDistinct
-    CMPNoticeDialogTest.IdConstantsMatchExpectedLocalRange
-    CMPNoticeDialogTest.ChatMsgIdsMatchLegacy
-    CMPNoticeDialogTest.LinkingResolvesBothTextAreas
-    CMPNoticeDialogTest.LinkingCallsSetScriptText
-    CMPNoticeDialogTest.LinkingWithoutChildrenLeavesPointersNull
-    CMPNoticeDialogTest.LinkingBeforeInitDoesNotCrash
     # P2-12 Tier 2 dialog: cEventNotifyDialog (GM event notification)
     CEventNotifyDialogTest.DefaultConstructionHasNullPointers
     CEventNotifyDialogTest.IdConstantsAreDistinct
