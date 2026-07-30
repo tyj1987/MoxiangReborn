@@ -3736,3 +3736,81 @@ TEST_F(LoginServerFixture, UnknownCategorySimBubRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M48 -- cat=32 (CharRevive) wire-format golden + drop test.
+// First death-revival category locked. CharRevive
+// carries player revival / respawn requests sent when a
+// dead character wants to come back to the world.
+// Locking the request shape here means a regression in
+// modern revival encoder trips the golden comparison
+// before any real player gets stuck in a dead state.
+//
+// 18B total: 2B length=16 + 8B header (cat=32, proto=1, obj_id=27777) +
+// 8B payload (4B target=8888 + 4B type=0).
+//
+// C 协议扩展 M48 -- the 34th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 20, 21, 22, 23, 24, 28, 29, 30, 33, 37, 39, 41,
+// 58, 62, 64, 65, 69, 71, 72). Crossed the 42.0% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesCharReviveRequest) {
+    // cat=32 (CharRevive), proto=1 (revive base), obj_id=27777,
+    // 8B payload (4B target=8888 + 4B type=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // player requesting revival. Pins a real revival
+    // request so a regression in net layer framing or modern
+    // CharRevive encoder trips the golden comparison.
+    Message revive;
+    revive.header.category = 32;
+    revive.header.protocol = 1;
+    revive.header.object_id = 27777;
+    revive.header.checksum = 0;
+    revive.header.code = 0;
+    revive.payload.clear();
+    // 4B target=8888 LE
+    revive.payload.push_back(static_cast<std::uint8_t>(8888u & 0xFFu));
+    revive.payload.push_back(static_cast<std::uint8_t>((8888u >> 8) & 0xFFu));
+    revive.payload.push_back(0);
+    revive.payload.push_back(0);
+    // 4B type=0
+    revive.payload.push_back(0);
+    revive.payload.push_back(0);
+    revive.payload.push_back(0);
+    revive.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(revive);
+    const auto golden = read_golden_bytes("char_revive_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryCharReviveRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=32 (CharRevive) revival request --
+    // LoginHandler logs unhandled category: CharRevive and drops it
+    // without reply. Thirty-fourth category in the C 协议扩展
+    // arc.
+    Message revive;
+    revive.header.category = 32;
+    revive.header.protocol = 1;
+    revive.header.object_id = 27777;
+    revive.payload.assign(8, 0);
+    revive.payload[0] = static_cast<std::uint8_t>(8888u & 0xFFu);
+    revive.payload[1] = static_cast<std::uint8_t>((8888u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(revive), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
