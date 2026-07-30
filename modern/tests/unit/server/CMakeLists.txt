@@ -1886,3 +1886,19 @@ gtest_add_tests(TARGET mxh_agent_hackcheck_tests
 
 
 
+
+# Phase 6.4 unblock: regression coverage for tools/MoxianSideBySide/packet.cpp
+# Packet::wire_bytes() -- locks the 4.5 wire-format fix (commit 60110a7).
+# packet.cpp is compiled directly into the test because MoxianSideBySide is
+# built as an executable (not a library) -- including it as a source avoids
+# needing to refactor packet.cpp into mxh_side_by_side_core.
+add_executable(mxh_wire_format_tests
+    wire_format_test.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide/packet.cpp
+)
+target_include_directories(mxh_wire_format_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide
+)
+target_link_libraries(mxh_wire_format_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_wire_format_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
