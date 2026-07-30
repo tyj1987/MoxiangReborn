@@ -2464,3 +2464,80 @@ TEST_F(LoginServerFixture, UnknownCategoryFriendRequestIsDroppedWithoutResponse)
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M32 -- cat=37 (Npc) wire-format golden + drop test.
+// First NPC dialog category locked. Npc carries NPC-talk /
+// dialog-select / quest-start-at-NPC requests between client
+// and server. Locking the request shape here means a regression
+// in modern Npc encoder trips the golden comparison before any
+// real player gets stuck in a broken dialog tree.
+//
+// 18B total: 2B length=16 + 8B header (cat=37, proto=1, obj_id=9999) +
+// 8B payload (4B npc_id=1234 + 4B dialog_index=5).
+//
+// C 协议扩展 M32 -- the 18th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 22, 28, 33, 58, 71). Crossed the 22% mark of the 81-category
+// protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesNpcRequest) {
+    // cat=37 (Npc), proto=1 (dialog-select base), obj_id=9999,
+    // 8B payload (4B npc_id=1234 + 4B dialog_index=5). Mirrors
+    // the wire shape the legacy client sends for selecting a
+    // dialog option at an NPC. Pins a real NPC-talk request so
+    // a regression in net layer framing or modern Npc encoder
+    // trips the golden comparison.
+    Message npc;
+    npc.header.category = 37;
+    npc.header.protocol = 1;
+    npc.header.object_id = 9999;
+    npc.header.checksum = 0;
+    npc.header.code = 0;
+    npc.payload.clear();
+    // 4B npc_id=1234 LE
+    npc.payload.push_back(static_cast<std::uint8_t>(1234u & 0xFFu));
+    npc.payload.push_back(static_cast<std::uint8_t>((1234u >> 8) & 0xFFu));
+    npc.payload.push_back(0);
+    npc.payload.push_back(0);
+    // 4B dialog_index=5 LE
+    npc.payload.push_back(static_cast<std::uint8_t>(5u & 0xFFu));
+    npc.payload.push_back(0);
+    npc.payload.push_back(0);
+    npc.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(npc);
+    const auto golden = read_golden_bytes("npc_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryNpcRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=37 (Npc) dialog-select request -- LoginHandler
+    // logs unhandled category: Npc and drops it without reply.
+    // Eighteenth category in the C 协议扩展 arc.
+    Message npc;
+    npc.header.category = 37;
+    npc.header.protocol = 1;
+    npc.header.object_id = 9999;
+    npc.payload.assign(8, 0);
+    npc.payload[0] = static_cast<std::uint8_t>(1234u & 0xFFu);  // npc_id low
+    npc.payload[1] = static_cast<std::uint8_t>((1234u >> 8) & 0xFFu);  // npc_id high
+    npc.payload[4] = static_cast<std::uint8_t>(5u & 0xFFu);  // dialog_index
+    ASSERT_EQ(tcp.send(npc), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
