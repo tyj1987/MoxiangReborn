@@ -823,3 +823,91 @@ TEST_F(LoginServerFixture, MultipleConcurrentClientsGetDistinctAuthKeys) {
     // is consistently returning the seeded row across parallel calls.
     for (int v : ack_payload_22) EXPECT_EQ(v, 2);
 }
+
+
+// =============================================================================
+
+
+// =============================================================================
+// M4 -- higher-load stress. Same invariants as M3 (distinct auth_keys,
+// consistent userLevel) but at 10-way concurrency. This exercises:
+//   - next_auth_key_ lock at ~3x M3 contention
+//   - DB adapter thread safety at 10 simultaneous lookups
+//   - TcpServer accept loop not dropping sockets under burst
+//   - per-client reply queue (drain thread) preserving 1:1 message order
+// =============================================================================
+
+TEST_F(LoginServerFixture, TenConcurrentClientsStress) {
+    constexpr int kClients = 10;
+    std::vector<std::uint32_t> auth_keys(kClients, 0);
+    std::vector<int> ack_payload_22(kClients, -1);
+    std::vector<std::size_t> ack_payload_sizes(kClients, 0);
+
+    std::vector<std::exception_ptr> failures(kClients);
+    std::vector<std::thread> workers;
+    workers.reserve(kClients);
+
+    for (int i = 0; i < kClients; ++i) {
+        workers.emplace_back([this, i, &auth_keys, &ack_payload_22, &ack_payload_sizes, &failures] {
+            try {
+                CapturingClientHandler client;
+                mxh::net::TcpClient tcp(client);
+                mxh::net::ClientConfig ccfg;
+                ccfg.remote_address = "127.0.0.1";
+                ccfg.port = static_cast<std::uint16_t>(port_);
+                ccfg.use_legacy_framing = true;
+                ASSERT_EQ(tcp.connect(ccfg), mxh::net::NetError::Ok);
+                ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(5)));
+                auto msgs = client.snapshot();
+                ASSERT_EQ(msgs.size(), 1u);
+                const auto& dcs = msgs[0];
+                EXPECT_EQ(dcs.header.category, 7);
+                EXPECT_EQ(dcs.header.protocol, 0);
+                EXPECT_GT(dcs.header.object_id, 0u);
+                EXPECT_TRUE(dcs.payload.empty());
+                auth_keys[i] = dcs.header.object_id;
+
+
+
+                mxh::net::Message login;
+                login.header.category = 7;
+                login.header.protocol = 1;
+                login.header.object_id = 0;
+                login.payload = make_legacy_login_payload(auth_keys[i], "test", "test");
+                ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
+                ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(5)));
+                msgs = client.snapshot();
+                ASSERT_EQ(msgs.size(), 2u);
+                const auto& ack = msgs[1];
+                EXPECT_EQ(ack.header.category, 7);
+                EXPECT_EQ(ack.header.protocol, 2);
+                ASSERT_EQ(ack.payload.size(), 23u);
+                ack_payload_22[i] = ack.payload[22];
+                ack_payload_sizes[i] = ack.payload.size();
+                tcp.disconnect();
+            } catch (...) {
+                failures[i] = std::current_exception();
+            }
+        });
+    }
+    for (auto& w : workers) w.join();
+
+
+
+    for (int i = 0; i < kClients; ++i) {
+        if (failures[i]) std::rethrow_exception(failures[i]);
+    }
+
+    // 1) auth_keys all distinct (next_auth_key_ mutex holds at 10-way).
+    std::set<std::uint32_t> uniq(auth_keys.begin(), auth_keys.end());
+    EXPECT_EQ(uniq.size(), static_cast<std::size_t>(kClients));
+
+    // 2) userLevel consistent across all parallel DB lookups.
+    for (int v : ack_payload_22) EXPECT_EQ(v, 2);
+
+    // 3) wire shape invariant under concurrency: every Ack payload is
+    //    exactly 23 bytes (proves no truncation / concatenation across
+    //    concurrent replies on the per-client send queue).
+    for (std::size_t sz : ack_payload_sizes) EXPECT_EQ(sz, 23u);
+}
+
