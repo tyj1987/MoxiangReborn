@@ -1933,3 +1933,76 @@ TEST_F(LoginServerFixture, UnknownCategoryPartyRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M25 -- cat=22 (Skill) wire-format golden + drop test.
+// First combat-cast category locked. Skill is distinct from cat=9
+// Mugong: Mugong is learning a new skill from a book/NPC, Skill is
+// actually casting a skill in combat. Every combat action sends
+// cat=22, so this is the highest-frequency gameplay cat in the
+// wire layer.
+//
+// 18B total: 2B length=16 + 8B header (cat=22, proto=1, obj_id=9999) +
+// 8B payload (4B skill_id=50001 + 4B target_id=0).
+//
+// C 协议扩展 M25 -- the 11th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 11, 14).
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesSkillRequest) {
+    // cat=22 (Skill), proto=1 (skill-cast base), obj_id=9999, 8B
+    // payload (4B skill_id=50001 + 4B target_id=0). Mirrors the wire
+    // shape the legacy client sends for skill-cast. Pins a real
+    // combat request so a regression in net layer framing or modern
+    // Skill encoder trips the golden comparison.
+    Message skill;
+    skill.header.category = 22;
+    skill.header.protocol = 1;
+    skill.header.object_id = 9999;
+    skill.header.checksum = 0;
+    skill.header.code = 0;
+    skill.payload.clear();
+    // 4B skill_id=50001 LE
+    skill.payload.push_back(static_cast<std::uint8_t>(50001u & 0xFFu));
+    skill.payload.push_back(static_cast<std::uint8_t>((50001u >> 8) & 0xFFu));
+    skill.payload.push_back(static_cast<std::uint8_t>((50001u >> 16) & 0xFFu));
+    skill.payload.push_back(static_cast<std::uint8_t>((50001u >> 24) & 0xFFu));
+    // 4B target_id=0 LE
+    skill.payload.push_back(0);
+    skill.payload.push_back(0);
+    skill.payload.push_back(0);
+    skill.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(skill);
+    const auto golden = read_golden_bytes("skill_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategorySkillRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=22 (Skill) skill-cast request -- LoginHandler logs
+    // unhandled category: Skill and drops it without reply. Eleventh
+    // category in the C 协议扩展 arc.
+    Message skill;
+    skill.header.category = 22;
+    skill.header.protocol = 1;
+    skill.header.object_id = 9999;
+    skill.payload.assign(8, 0);
+    skill.payload[0] = static_cast<std::uint8_t>(50001u & 0xFFu);
+    skill.payload[1] = static_cast<std::uint8_t>((50001u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(skill), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
