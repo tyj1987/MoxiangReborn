@@ -2,7 +2,7 @@
 
 > 锁定日期：2026-07-30
 > HEAD：91dcbd4
-> ctest：5415 / 5415 (100%)，10 skipped
+> ctest：5443 / 5443 (100%)，10 skipped
 
 ---
 
@@ -11,13 +11,13 @@
 ### Week 6 Gate
 | 判据 | 状态 | 证据 |
 |---|---|---|
-| ctest ≥5050 PASS（+200 新）| ✓ | 5415/5415 PASS（+1457 自基线） |
+| ctest ≥5050 PASS（+200 新）| ✓ | 5443/5443 PASS（+1485 自基线） |
 | AgentServer 启动模块（6.14）| ✓ | `agent_handler.cpp` (48KB) 1:1 port `AgentNetworkMsgParser.cpp` + `Server.cpp` + `ServerSystem.cpp` |
 
 ### Week 7 Gate
 | 判据 | 状态 | 证据 |
 |---|---|---|
-| ctest ≥5300 PASS（+250 新）| ✓ | 5415/5415 PASS |
+| ctest ≥5300 PASS（+250 新）| ✓ | 5443/5443 PASS |
 | AgentServer 100% (51 文件)| ✓ | 55 个 modern `src/server/` cpp（33 agent_* MP 分类 + 22 legacy 1:1） |
 | 7.2 AgentQuest + AgentGuild + AgentMurimNet | ✓ | `agent_quest.hpp/cpp`, `agent_guild.hpp/cpp`, `agent_murimnet.hpp/cpp` |
 | 7.4 AgentDBMsgParser + AgentNetworkMsgParser 完整 | ✓ | `agent_db_msg_parser.cpp` + `agent_network_msg_parser.cpp` (3.4KB) |
@@ -87,20 +87,20 @@
 
 
 
-### 4.5 Side-by-side harness wire-format 不匹配 (实测)
+### 4.5 [已修] Side-by-side harness wire-format (commit 60110a7)
 
-实测: tools/MoxianSideBySide/packet.cpp:wire_bytes() 写 [2B length][checksum][code][category][protocol][object_id u32][payload], 但 modern LoginServer / AgentServer 均报 unhandled category: Unknown proto=0 (scenario 实际发 proto=1 / 16). 说明 server 解析器期望的 wire format 与 sbs harness 不一致. 修复路径(非 Phase 6.3 scope): 改 sbs/packet.cpp:wire_bytes() 匹配 server 真实 preamble, 或改 server 接收端兼容 harness 格式, 一旦修好, 配合 legacy server 才可跑 diff=0.
+实测并修复: tools/MoxianSideBySide/packet.cpp:wire_bytes() 写 [2B length LE][MSGBASE 8B][payload], server `use_legacy_framing=true` 时接收格式匹配. 但 --modern-legacy 启动时只把 --legacy 传给 LoginServer, 没传给 AgentServer (ServerLaunch ma 用了固定 args vector). 修复: 把 ma_args 改成可追加 vector, --modern-legacy 时 push --legacy. 验证: enter_game scenario 现在 modern_enter_game.cap 捕获 2 包 (AgentConnectSuccess cat=7 proto=8 + CharacterListAck cat=7 proto=18), login scenario modern_login.cap 捕获 2 包 (DistConnectSuccess + agent addr payload).
 
 ### 4.6 Legacy server 未编译产物
 
 workspace 无 SWorking/ (无 [Server]Agent/Distribute/Map 三大进程编译产物). 已部署包 墨香[客户端+服务端+工具]/ 只有 PAK 工具, 无 server 二进制. 旧源码 墨香[源码]/[Server]*/ 编译需要 MSVC + Win7-era dependency, Win11 兼容性未验证 (PLAN §0.2 列中等风险).
 
-### 4.7 7.11 双阻塞汇总
+### 4.7 7.11 单阻塞汇总 (wire-format 已修)
 
 | 阻塞 | 来源 | Phase |
 |---|---|---|
 | Legacy server 启动 | Phase B Win11 compat | B |
-| Wire format mismatch | sbs harness vs server | E |
+| Wire format mismatch | sbs harness vs server | E | [修 60110a7]
 
 任一未解即无法跑 diff=0. 当前 Phase 6.3 代码完成度 100%, E2E gate 7.11 须 Phase B + Phase E 协作完成.
 ### 4.4 gtest_add_tests auto-discovery 边界
@@ -120,7 +120,7 @@ workspace 无 SWorking/ (无 [Server]Agent/Distribute/Map 三大进程编译产�
 ## 6. 验证命令
 
 ```powershell
-# 5415/5415 PASS
+# 5443/5443 PASS
 cd C:\moxiang\modern\build
 ctest -C Debug -j 2 --timeout 120
 
@@ -138,7 +138,7 @@ cd C:\moxiang\modern\build\tools\MoxianSideBySide\Debug
 
 Phase 6.3 AgentServer **代码 1:1 port 工作 100% 完成**：
 - 55 个 modern server cpp，33 个 agent_* hpp（按 96 MP_CATEGORY 分类）
-- ctest 5415/5415 PASS（+1457 自基线 3958）
+- ctest 5443/5443 PASS（+1485 自基线 3958）
 - Week 6/7 全部 ctest gate 通过
 - Week 7 task 7.2/7.4-7.10 全部交付
 
