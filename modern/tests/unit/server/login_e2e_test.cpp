@@ -1019,3 +1019,46 @@ TEST_F(LoginServerFixture, UnknownCategoryRequestIsDroppedWithoutResponse) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M7 -- encrypted path coverage for cat != 7. M2 step 3 (login_ack_enc.bin)
+// proved encryption is transparent for the cat=7 login path; M6 extended
+// coverage to cat=8 on the plaintext path. This step closes the loop on
+// the *combination*: encrypted cat != 7 must also flow through correctly.
+// A 1-byte payload (non-empty to exercise the encryptor) of 0xFF is sent
+// encrypted via XorEncryptor + kGoldenEncKey. The server decrypts, the
+// LoginHandler logs [Login] unhandled category: Move, and drops it
+// without replying. If the encrypt path leaked category bytes or short-
+// circuited on empty payloads, this would either crash or misroute.
+// =============================================================================
+
+TEST_F(EncryptedLoginFixture, EncryptedUnknownCategoryRequestIsDropped) {
+
+    EncryptedClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=8 with a 1-byte payload -- this is just enough to force
+    // the encryptor to run (empty payload would be a no-op XOR).
+    Message unknown;
+    unknown.header.category = 8;
+    unknown.header.protocol = 1;
+    unknown.header.object_id = 42;
+    unknown.payload.push_back(0xFF);
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    // Server must NOT reply. The encrypted wire bytes round-trip through
+    // the net layer, decrypt on receive, hit LoginHandler with cat=8,
+    // which logs and drops. wait_for(2) within 500ms must return false.
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
