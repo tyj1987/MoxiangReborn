@@ -1523,3 +1523,59 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginRequest) {
     ASSERT_EQ(tcp.send(login), NetError::Ok);
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M19 -- cat=5 (Item) wire-format golden + drop test.
+// Mirrors the M6/M8/M9 pattern: capture a real use-item client request
+// and verify the LoginHandler drops it without reply (cat=5 is not part
+// of the login flow).
+//
+// 18B total: 2B length=16 + 8B header (cat=5, proto=1, obj_id=5000) +
+// 8B payload (4B item_id=10001 LE + 4B target_pos=0 LE).
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesItemRequest) {
+    Message item;
+    item.header.category = 5;
+    item.header.protocol = 1;
+    item.header.object_id = 5000;
+    item.header.checksum = 0;
+    item.header.code = 0;
+    item.payload.clear();
+    item.payload.push_back(static_cast<std::uint8_t>(10001u & 0xFFu));
+    item.payload.push_back(static_cast<std::uint8_t>((10001u >> 8) & 0xFFu));
+    item.payload.push_back(static_cast<std::uint8_t>((10001u >> 16) & 0xFFu));
+    item.payload.push_back(static_cast<std::uint8_t>((10001u >> 24) & 0xFFu));
+    item.payload.push_back(0);
+    item.payload.push_back(0);
+    item.payload.push_back(0);
+    item.payload.push_back(0);
+    const auto actual = reconstruct_wire(item);
+    const auto golden = read_golden_bytes("item_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryItemRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    Message item;
+    item.header.category = 5;
+    item.header.protocol = 1;
+    item.header.object_id = 5000;
+    item.payload.assign(8, 0);
+    item.payload[0] = static_cast<std::uint8_t>(10001u & 0xFFu);
+    item.payload[1] = static_cast<std::uint8_t>((10001u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(item), NetError::Ok);
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
