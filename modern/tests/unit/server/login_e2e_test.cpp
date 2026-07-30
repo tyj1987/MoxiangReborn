@@ -4191,3 +4191,78 @@ TEST_F(LoginServerFixture, UnknownCategoryPackedDataRequestIsDroppedWithoutRespo
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M54 -- cat=16 (UngiJosik) wire-format golden + drop test.
+// First notice-board category locked. UngiJosik
+// carries server-pushed notice / news requests that
+// surface popup text on the client (maintenance, events).
+// Locking the request shape here means a regression in
+// modern notice encoder trips the golden comparison
+// before any real in-game notice gets mangled.
+//
+// 18B total: 2B length=16 + 8B header (cat=16, proto=1, obj_id=36666) +
+// 8B payload (4B notice_id=100 + 4B duration=0).
+//
+// C 协议扩展 M54 -- the 40th distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 17, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 37, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 49.4% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesUngiJosikRequest) {
+    // cat=16 (UngiJosik), proto=1 (notice base), obj_id=36666,
+    // 8B payload (4B notice_id=100 + 4B duration=0).
+    // Mirrors the wire shape the legacy client receives for a
+    // server-pushed notice. Pins a real notice
+    // request so a regression in net layer framing or modern
+    // UngiJosik encoder trips the golden comparison.
+    Message uj;
+    uj.header.category = 16;
+    uj.header.protocol = 1;
+    uj.header.object_id = 36666;
+    uj.header.checksum = 0;
+    uj.header.code = 0;
+    uj.payload.clear();
+    // 4B notice_id=100 LE
+    uj.payload.push_back(static_cast<std::uint8_t>(100u & 0xFFu));
+    uj.payload.push_back(0);
+    uj.payload.push_back(0);
+    uj.payload.push_back(0);
+    // 4B duration=0
+    uj.payload.push_back(0);
+    uj.payload.push_back(0);
+    uj.payload.push_back(0);
+    uj.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(uj);
+    const auto golden = read_golden_bytes("ungijosik_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryUngiJosikRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=16 (UngiJosik) notice request --
+    // LoginHandler logs unhandled category: UngiJosik and drops it
+    // without reply. Fortieth category in the C 协议扩展
+    // arc.
+    Message uj;
+    uj.header.category = 16;
+    uj.header.protocol = 1;
+    uj.header.object_id = 36666;
+    uj.payload.assign(8, 0);
+    uj.payload[0] = static_cast<std::uint8_t>(100u & 0xFFu);
+    ASSERT_EQ(tcp.send(uj), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
