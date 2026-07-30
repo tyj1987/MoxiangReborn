@@ -3400,3 +3400,82 @@ TEST_F(LoginServerFixture, UnknownCategoryMunpaRequestIsDroppedWithoutResponse) 
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M44 -- cat=41 (Pk) wire-format golden + drop test.
+// First player-kill (PK) category locked. Pk carries PK
+// score / kill / death / penalty requests from client to
+// server. Locking the request shape here means a regression
+// in modern Pk encoder trips the golden comparison before
+// any real player gets wrong PK score on a malformed kill
+// packet.
+//
+// 18B total: 2B length=16 + 8B header (cat=41, proto=1, obj_id=23333) +
+// 8B payload (4B victim_player_id=4444 + 4B kill_type=1).
+//
+// C 协议扩展 M44 -- the 30th distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 21, 22, 23, 28, 29, 30, 33, 37, 39, 58, 62, 65, 69,
+// 71, 72). Crossed the 37% mark of the 81-category protocol
+// surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPkRequest) {
+    // cat=41 (Pk), proto=1 (kill-score base), obj_id=23333,
+    // 8B payload (4B victim_player_id=4444 + 4B kill_type=1).
+    // Mirrors the wire shape the legacy client sends for
+    // reporting a player-kill score. Pins a real PK-kill
+    // request so a regression in net layer framing or modern
+    // Pk encoder trips the golden comparison.
+    Message pk;
+    pk.header.category = 41;
+    pk.header.protocol = 1;
+    pk.header.object_id = 23333;
+    pk.header.checksum = 0;
+    pk.header.code = 0;
+    pk.payload.clear();
+    // 4B victim_player_id=4444 LE
+    pk.payload.push_back(static_cast<std::uint8_t>(4444u & 0xFFu));
+    pk.payload.push_back(static_cast<std::uint8_t>((4444u >> 8) & 0xFFu));
+    pk.payload.push_back(0);
+    pk.payload.push_back(0);
+    // 4B kill_type=1 LE
+    pk.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    pk.payload.push_back(0);
+    pk.payload.push_back(0);
+    pk.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pk);
+    const auto golden = read_golden_bytes("pk_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryPkRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=41 (Pk) PK-kill request -- LoginHandler logs
+    // unhandled category: Pk and drops it without reply.
+    // Thirtieth category in the C 协议扩展 arc.
+    Message pk;
+    pk.header.category = 41;
+    pk.header.protocol = 1;
+    pk.header.object_id = 23333;
+    pk.payload.assign(8, 0);
+    pk.payload[0] = static_cast<std::uint8_t>(4444u & 0xFFu);  // victim low
+    pk.payload[1] = static_cast<std::uint8_t>((4444u >> 8) & 0xFFu);  // victim high
+    pk.payload[4] = static_cast<std::uint8_t>(1u & 0xFFu);  // kill_type
+    ASSERT_EQ(tcp.send(pk), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
