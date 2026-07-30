@@ -162,6 +162,7 @@ add_library(mxh_server STATIC
     server/murimnet_channelling_manager.cpp
     server/distribute_server.cpp
     server/mn_server.cpp
+    server/login_server_db_msg_parser.cpp
     server/quest_manager.cpp
     server/item_manager.cpp
     server/party_manager.cpp
@@ -352,6 +353,7 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
+
 
 
 

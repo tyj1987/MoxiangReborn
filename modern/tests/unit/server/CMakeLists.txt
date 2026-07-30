@@ -87,6 +87,21 @@ gtest_add_tests(TARGET mxh_monster_ext_tests
 
 
 
+
+add_executable(mxh_login_server_db_msg_parser_tests
+    login_server_db_msg_parser_test.cpp
+)
+target_link_libraries(mxh_login_server_db_msg_parser_tests PRIVATE
+    mxh_server mxh_db gtest_main
+)
+target_include_directories(mxh_login_server_db_msg_parser_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_login_server_db_msg_parser_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
 add_executable(mxh_mn_server_tests
     mn_server_test.cpp
 )
@@ -1752,6 +1767,7 @@ add_executable(mxh_agent_hackcheck_tests
 target_link_libraries(mxh_agent_hackcheck_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_hackcheck_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 
 
 
