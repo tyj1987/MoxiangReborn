@@ -1,4 +1,4 @@
-﻿// battle_factory_test.cpp - 1:1 numeric locks for the BattleFactory formulas.
+// battle_factory_test.cpp - 1:1 numeric locks for the BattleFactory formulas.
 //
 // Each test pins a single output of the formula to a hand-computed value
 // (or to the output of running the legacy function with equivalent inputs).
@@ -245,6 +245,76 @@ TEST(BattleFactory, MonsterPhysicalAttackMultipliesByRate) {
     // min=100, max=100, rate=2.5 -> 250.
     EXPECT_EQ(compute_monster_physical_attack(100u, 100u, 2.5, 0), 250u);
     EXPECT_EQ(compute_monster_physical_attack(100u, 100u, 0.5, 0), 50u);
+}
+
+
+// ---- Monster attribute attack (AttackCalc.cpp L372) ----
+TEST(BattleFactory, MonsterAttributeAttackInclusiveRange) {
+    // gap = max - min + 1 = 6; rolled = min + (rand % 6)
+    EXPECT_EQ(compute_monster_attribute_attack(10u, 15u, 0), 10u);
+    EXPECT_EQ(compute_monster_attribute_attack(10u, 15u, 5), 15u);
+    EXPECT_EQ(compute_monster_attribute_attack(10u, 15u, 6), 10u);  // wrap
+    EXPECT_EQ(compute_monster_attribute_attack(10u, 15u, 100), 14u);  // 100 % 6 = 4
+}
+
+TEST(BattleFactory, MonsterAttributeAttackDegenerateReturnsMin) {
+    // max <= min -> min (modern port is defensive; legacy ASSERTed).
+    EXPECT_EQ(compute_monster_attribute_attack(50u, 50u, 7), 50u);
+    EXPECT_EQ(compute_monster_attribute_attack(50u, 30u, 7), 50u);
+}
+
+TEST(BattleFactory, MonsterAttributeAttackNegativeRandClampsToZero) {
+    // Negative rand_gap is treated as 0.
+    EXPECT_EQ(compute_monster_attribute_attack(10u, 15u, -1), 10u);
+}
+
+// ---- Titan physical attack (AttackCalc.cpp L383, SW070127 Titan branch) ----
+TEST(BattleFactory, TitanPhysicalAttackHonoursRandGap) {
+    // gap = 11; rolled = min + (rand % 11); * rate=1.0; no crit.
+    EXPECT_EQ(compute_titan_physical_attack(20u, 30u, 1.0, false, 0), 20u);
+    EXPECT_EQ(compute_titan_physical_attack(20u, 30u, 1.0, false, 10), 30u);
+    EXPECT_EQ(compute_titan_physical_attack(20u, 30u, 1.0, false, 11), 20u);
+}
+
+TEST(BattleFactory, TitanPhysicalAttackAppliesRateAndCritical) {
+    // min=max=20, rate=1.5, no crit: rolled=20; * 1.5 = 30.
+    EXPECT_EQ(compute_titan_physical_attack(20u, 20u, 1.5, false, 0), 30u);
+    // min=max=20, rate=1.0, crit: 20 * 1.5 (crit) = 30.
+    EXPECT_EQ(compute_titan_physical_attack(20u, 20u, 1.0, true, 0), 30u);
+    // min=max=20, rate=2.0, crit: 20 * 2.0 * 1.5 = 60.
+    EXPECT_EQ(compute_titan_physical_attack(20u, 20u, 2.0, true, 0), 60u);
+}
+
+TEST(BattleFactory, TitanPhysicalAttackDegenerateReturnsMin) {
+    EXPECT_EQ(compute_titan_physical_attack(50u, 50u, 1.0, false, 7), 50u);
+    EXPECT_EQ(compute_titan_physical_attack(50u, 30u, 1.0, false, 7), 50u);
+}
+
+// ---- Titan attribute attack (AttackCalc.cpp L411) ----
+TEST(BattleFactory, TitanAttributeAttackMatchesLegacyFormula) {
+    // titan_attr=100, owner_sim_mek=20, rate=1.0
+    // base = 100 * (20+100) / 400 + 20/5 = 100*120/400 + 4 = 30 + 4 = 34
+    // power = DWORD(34 * 0.74) = DWORD(25.16) = 25
+    EXPECT_EQ(compute_titan_attribute_attack(100u, 20u, 1.0, 0), 25u);
+}
+
+TEST(BattleFactory, TitanAttributeAttackRateApplied) {
+    // Same inputs but rate=2.0 -> 25 * 2 = 50.
+    EXPECT_EQ(compute_titan_attribute_attack(100u, 20u, 2.0, 0), 50u);
+}
+
+TEST(BattleFactory, TitanAttributeAttackDeterministicDespiteRandGap) {
+    // Legacy uses random(MinPwr, MaxPwr) with Min==Max so result is
+    // constant regardless of rand_gap. Modern port matches this.
+    EXPECT_EQ(compute_titan_attribute_attack(100u, 20u, 1.0, 0),
+                 compute_titan_attribute_attack(100u, 20u, 1.0, 99999));
+}
+
+TEST(BattleFactory, TitanAttributeAttackHighSimMekScalesLinearly) {
+    // titan_attr=400, sim_mek=100, rate=1.0
+    // base = 400 * (100+100) / 400 + 100/5 = 200 + 20 = 220
+    // power = DWORD(220 * 0.74) = DWORD(162.8) = 162
+    EXPECT_EQ(compute_titan_attribute_attack(400u, 100u, 1.0, 0), 162u);
 }
 
 }  // namespace mxh::game

@@ -115,4 +115,52 @@ std::uint32_t compute_monster_physical_attack(std::uint32_t min_val,
                                              double phy_attack_rate,
                                              int rand_gap);
 
+// ---- Monster attribute (fire/water/wind/...) attack (AttackCalc.cpp L372) ----
+//
+// Legacy getMonsterAttributeAttackPower:
+//   gap = AttAttackMax - AttAttackMin + 1
+//   return AttAttackMin + rand() % gap
+// NOTE: legacy uses ASSERT(AttAttackMax >= AttAttackMin); modern port
+// trusts the caller (the formula degrades gracefully when max < min).
+std::uint32_t compute_monster_attribute_attack(
+    std::uint32_t attack_min,
+    std::uint32_t attack_max,
+    int rand_gap);
+
+// ---- Titan physical attack (AttackCalc.cpp L383, SW070127 Titan branch) ----
+//
+// Legacy getTitanPhysicalAttackPower:
+//   if (maxVal <= minVal) power = minVal;
+//   else                 power = minVal + rand() % (maxVal - minVal + 1);
+//   power = power * PhyAttackRate;
+//   if (bCritical) power = power * 1.5;   // KR/CN crit multiplier (1.5x).
+//
+// Used by the InTitan() branch of getPhysicalAttackPower (L436) which
+// returns titanPwr + masterPwr * 0.6.
+std::uint32_t compute_titan_physical_attack(
+    std::uint32_t min_val,
+    std::uint32_t max_val,
+    double phy_attack_rate,
+    bool b_critical,
+    int rand_gap);
+
+// ---- Titan attribute attack (AttackCalc.cpp L411) ----
+//
+// Legacy getTitanAttributeAttackPower:
+//   base = pStats.AttributeAttack.GetElement_Val(Attrib) * (SimMek + 100) / 400
+//        + SimMek / 5
+//   MinPwr = MaxPwr = DWORD(base * 0.74f)
+//   AttackPower = random(MinPwr, MaxPwr);   // Min==Max so deterministic
+//   return AttackPower * AttAttackRate
+//
+// titan_attribute_val is the element_val from titan stats (already passed in);
+// owner_sim_mek is the master player's SimMek (mystique) stat.
+std::uint32_t compute_titan_attribute_attack(
+    std::uint32_t titan_attribute_val,
+    std::uint32_t owner_sim_mek,
+    double att_attack_rate,
+    int rand_gap);
+
+
+
 }  // namespace mxh::game

@@ -1,4 +1,4 @@
-﻿// battle_factory.cpp - 1:1 numeric formulas from AttackCalc.cpp
+// battle_factory.cpp - 1:1 numeric formulas from AttackCalc.cpp
 //
 // All formulas reproduced byte-for-byte from
 //   ?? [Server]Map\AttackCalc.cpp
@@ -231,6 +231,87 @@ std::uint32_t compute_monster_physical_attack(
     }
     return static_cast<std::uint32_t>(
         static_cast<double>(val) * phy_attack_rate);
+}
+
+
+// Monster attribute attack (AttackCalc.cpp L372).
+//
+// Legacy:
+//   ASSERT(AttAttackMax >= AttAttackMin);
+//   gap = AttAttackMax - AttAttackMin + 1;
+//   return AttAttackMin + rand() % gap;
+//
+// When max <= min, gap underflows to a huge number -- we guard by
+// collapsing to min (matches the inclusive_roll() invariant used by
+// the modern attack_calc.cpp port). Legacy ASSERTs and would crash on
+// bad inputs; modern port is defensive.
+std::uint32_t compute_monster_attribute_attack(
+    std::uint32_t attack_min,
+    std::uint32_t attack_max,
+    int rand_gap) {
+    if (attack_max <= attack_min) return attack_min;
+    std::uint64_t gap =
+        static_cast<std::uint64_t>(attack_max) - attack_min + 1u;
+    std::uint32_t sample = (rand_gap < 0) ? 0u
+                                        : static_cast<std::uint32_t>(rand_gap);
+    return attack_min + static_cast<std::uint32_t>(sample % gap);
+}
+
+// Titan physical attack (AttackCalc.cpp L383, SW070127 Titan branch).
+//
+// Legacy:
+//   if (maxVal <= minVal) power = minVal;
+//   else {
+//     gap = maxVal - minVal + 1;
+//     power = minVal + rand() % gap;
+//   }
+//   power *= PhyAttackRate;
+//   if (bCritical) power *= 1.5;   // KR/CN crit multiplier.
+std::uint32_t compute_titan_physical_attack(
+    std::uint32_t min_val,
+    std::uint32_t max_val,
+    double phy_attack_rate,
+    bool b_critical,
+    int rand_gap) {
+    std::uint32_t rolled;
+    if (max_val <= min_val) {
+        rolled = min_val;
+    } else {
+        std::uint64_t gap = static_cast<std::uint64_t>(max_val) - min_val + 1u;
+        std::uint32_t sample = (rand_gap < 0) ? 0u
+                                            : static_cast<std::uint32_t>(rand_gap);
+        rolled = min_val + static_cast<std::uint32_t>(sample % gap);
+    }
+    double result = static_cast<double>(rolled) * phy_attack_rate;
+    if (b_critical) result *= 1.5;
+    return static_cast<std::uint32_t>(result);
+}
+
+// Titan attribute attack (AttackCalc.cpp L411).
+//
+// Legacy:
+//   base = titan_attribute_val * (SimMek + 100) / 400 + SimMek / 5
+//   MinPwr = MaxPwr = DWORD(base * 0.74f)
+//   AttackPower = random(MinPwr, MaxPwr);   // deterministic since Min==Max
+//   return AttackPower * AttAttackRate
+//
+// The legacy uses the same value for Min and Max so random() yields that
+// constant; modern port is fully deterministic. titan_attribute_val is
+// the element_val from titan stats (e.g. fire/water/wind); owner_sim_mek// owner_sim_mek is the master player's SimMek (mystique) stat.
+std::uint32_t compute_titan_attribute_attack(
+    std::uint32_t titan_attribute_val,
+    std::uint32_t owner_sim_mek,
+    double att_attack_rate,
+    int rand_gap) {
+    std::uint64_t base = static_cast<std::uint64_t>(titan_attribute_val) *
+                          (owner_sim_mek + 100u) / 400u +
+                      owner_sim_mek / 5u;
+    double scaled = static_cast<double>(base) * 0.74;
+    auto power = static_cast<std::uint32_t>(scaled);
+    // Legacy uses random(MinPwr, MaxPwr) with Min==Max; rand_gap accepted
+    // for API parity but the result is fully deterministic.
+    (void)rand_gap;
+    return static_cast<std::uint32_t>(static_cast<double>(power) * att_attack_rate);
 }
 
 }  // namespace mxh::game
