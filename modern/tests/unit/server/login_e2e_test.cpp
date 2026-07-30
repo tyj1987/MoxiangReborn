@@ -6280,3 +6280,75 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolCharacterRequestIsDroppedWithout
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M82 -- cat=51 (RmToolItem) wire-format golden + drop test.
+// First remote-management item-tool category locked.
+// RmToolItem carries remote-management / admin tool item
+// operations (look up by id, force-add/remove, gold adjustments).
+// Locking the request shape here means a regression in modern
+// RmToolItem encoder trips the golden comparison before any
+// real admin item op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=51, proto=1, obj_id=67783) +
+// 8B payload (4B tool_id=2700 + 4B reserved=0).
+//
+// C 协议扩展 M82 -- the 68th distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesRmToolItemRequest) {
+    // cat=51 (RmToolItem), proto=1 (rmtool item base), obj_id=67783,
+    // 8B payload (4B tool_id=2700 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // rmtool item request. Pins a real rmtool item
+    // request so a regression in net layer framing or modern
+    // RmToolItem encoder trips the golden comparison.
+    Message it;
+    it.header.category = 51;
+    it.header.protocol = 1;
+    it.header.object_id = 67783;
+    it.header.checksum = 0;
+    it.header.code = 0;
+    it.payload.clear();
+    // 4B tool_id=2700 LE
+    it.payload.push_back(static_cast<std::uint8_t>(2700u & 0xFFu));
+    it.payload.push_back(static_cast<std::uint8_t>((2700u >> 8) & 0xFFu));
+    it.payload.push_back(0);
+    it.payload.push_back(0);
+    // 4B reserved=0
+    it.payload.push_back(0);
+    it.payload.push_back(0);
+    it.payload.push_back(0);
+    it.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(it);
+    const auto golden = read_golden_bytes("rmtool_item_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryRmToolItemRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=51 (RmToolItem) admin-item request --
+    // LoginHandler logs unhandled category: RmToolItem and drops it
+    // without reply. Sixty-eighth category in the C 协议扩展 arc.
+    Message it;
+    it.header.category = 51;
+    it.header.protocol = 1;
+    it.header.object_id = 67783;
+    it.payload.assign(8, 0);
+    it.payload[0] = static_cast<std::uint8_t>(2700u & 0xFFu);
+    it.payload[1] = static_cast<std::uint8_t>((2700u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(it), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
