@@ -268,8 +268,10 @@ int main(int argc, char** argv) {
             ml.args.push_back("--init-schema");
             ml.args.push_back("--agent-addr"); ml.args.push_back("127.0.0.1");
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
-            ServerLaunch ma{agentPath, {"--port", std::to_string(a.modern_agent_port),
-                                        "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)}};
+            std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
+                                                "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
+if (a.modern_legacy) ma_args.push_back("--legacy");
+ServerLaunch ma{agentPath, std::move(ma_args)};
             ServerLaunch mm{mapPath, {"--port", std::to_string(a.modern_map_port), "--map", "12"}};
             modern_login = start_process(ml);
             modern_agent = start_process(ma);
