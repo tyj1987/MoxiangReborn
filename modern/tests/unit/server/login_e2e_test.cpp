@@ -2080,3 +2080,80 @@ TEST_F(LoginServerFixture, UnknownCategoryExchangeRequestIsDroppedWithoutRespons
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M27 -- cat=10 (AuctionBoard) wire-format golden + drop test.
+// First player-driven economy category locked. AuctionBoard
+// carries auction-browse / bid / buyout / list-item requests
+// from clients to the server. Locking the request shape here
+// means a regression in modern AuctionBoard encoder trips the
+// golden comparison before any real player mis-bids on a
+// malformed auction packet.
+//
+// 18B total: 2B length=16 + 8B header (cat=10, proto=1, obj_id=4444) +
+// 8B payload (4B item_id=7777 + 4B bid_price=50000).
+//
+// C 协议扩展 M27 -- the 13th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 11, 14, 22, 28). 14% mark
+// of the 96-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesAuctionBoardRequest) {
+    // cat=10 (AuctionBoard), proto=1 (bid-base), obj_id=4444, 8B
+    // payload (4B item_id=7777 + 4B bid_price=50000). Mirrors the
+    // wire shape the legacy client sends for auction-bid. Pins a
+    // real auction-bid request so a regression in net layer framing
+    // or modern AuctionBoard encoder trips the golden comparison.
+    Message auction;
+    auction.header.category = 10;
+    auction.header.protocol = 1;
+    auction.header.object_id = 4444;
+    auction.header.checksum = 0;
+    auction.header.code = 0;
+    auction.payload.clear();
+    // 4B item_id=7777 LE
+    auction.payload.push_back(static_cast<std::uint8_t>(7777u & 0xFFu));
+    auction.payload.push_back(static_cast<std::uint8_t>((7777u >> 8) & 0xFFu));
+    auction.payload.push_back(0);
+    auction.payload.push_back(0);
+    // 4B bid_price=50000 LE
+    auction.payload.push_back(static_cast<std::uint8_t>(50000u & 0xFFu));
+    auction.payload.push_back(static_cast<std::uint8_t>((50000u >> 8) & 0xFFu));
+    auction.payload.push_back(0);
+    auction.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(auction);
+    const auto golden = read_golden_bytes("auctionboard_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryAuctionBoardRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=10 (AuctionBoard) auction-bid request -- LoginHandler
+    // logs unhandled category: AuctionBoard and drops it without
+    // reply. Thirteenth category in the C 协议扩展 arc.
+    Message auction;
+    auction.header.category = 10;
+    auction.header.protocol = 1;
+    auction.header.object_id = 4444;
+    auction.payload.assign(8, 0);
+    auction.payload[0] = static_cast<std::uint8_t>(7777u & 0xFFu);  // item_id low
+    auction.payload[1] = static_cast<std::uint8_t>((7777u >> 8) & 0xFFu);  // item_id high
+    auction.payload[4] = static_cast<std::uint8_t>(50000u & 0xFFu);  // bid_price low
+    auction.payload[5] = static_cast<std::uint8_t>((50000u >> 8) & 0xFFu);  // bid_price high
+    ASSERT_EQ(tcp.send(auction), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
