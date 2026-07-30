@@ -2157,3 +2157,80 @@ TEST_F(LoginServerFixture, UnknownCategoryAuctionBoardRequestIsDroppedWithoutRes
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M28 -- cat=58 (Wanted) wire-format golden + drop test.
+// First bounty / wanted-system category locked. Wanted carries
+// post-bounty / list-wanted / claim-bounty requests from clients
+// to the server. Locking the request shape here means a regression
+// in modern Wanted encoder trips the golden comparison before any
+// real player posts a malformed bounty.
+//
+// 18B total: 2B length=16 + 8B header (cat=58, proto=1, obj_id=5555) +
+// 8B payload (4B target_player_id=8888 + 4B bounty_amount=25000).
+//
+// C 协议扩展 M28 -- the 14th distinct category locked at the wire
+// layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 14, 22, 28).
+// Crossed the 17% mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesWantedRequest) {
+    // cat=58 (Wanted), proto=1 (post-bounty base), obj_id=5555, 8B
+    // payload (4B target_player_id=8888 + 4B bounty_amount=25000).
+    // Mirrors the wire shape the legacy client sends for posting a
+    // bounty. Pins a real wanted-list request so a regression in
+    // net layer framing or modern Wanted encoder trips the golden
+    // comparison.
+    Message wanted;
+    wanted.header.category = 58;
+    wanted.header.protocol = 1;
+    wanted.header.object_id = 5555;
+    wanted.header.checksum = 0;
+    wanted.header.code = 0;
+    wanted.payload.clear();
+    // 4B target_player_id=8888 LE
+    wanted.payload.push_back(static_cast<std::uint8_t>(8888u & 0xFFu));
+    wanted.payload.push_back(static_cast<std::uint8_t>((8888u >> 8) & 0xFFu));
+    wanted.payload.push_back(0);
+    wanted.payload.push_back(0);
+    // 4B bounty_amount=25000 LE
+    wanted.payload.push_back(static_cast<std::uint8_t>(25000u & 0xFFu));
+    wanted.payload.push_back(static_cast<std::uint8_t>((25000u >> 8) & 0xFFu));
+    wanted.payload.push_back(0);
+    wanted.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(wanted);
+    const auto golden = read_golden_bytes("wanted_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategoryWantedRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=58 (Wanted) post-bounty request -- LoginHandler
+    // logs unhandled category: Wanted and drops it without reply.
+    // Fourteenth category in the C 协议扩展 arc.
+    Message wanted;
+    wanted.header.category = 58;
+    wanted.header.protocol = 1;
+    wanted.header.object_id = 5555;
+    wanted.payload.assign(8, 0);
+    wanted.payload[0] = static_cast<std::uint8_t>(8888u & 0xFFu);  // target low
+    wanted.payload[1] = static_cast<std::uint8_t>((8888u >> 8) & 0xFFu);  // target high
+    wanted.payload[4] = static_cast<std::uint8_t>(25000u & 0xFFu);  // bounty low
+    wanted.payload[5] = static_cast<std::uint8_t>((25000u >> 8) & 0xFFu);  // bounty high
+    ASSERT_EQ(tcp.send(wanted), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
