@@ -50,7 +50,6 @@ add_executable(mxh_ui_tests
     partycreatedlg_test.cpp
     partymatchingdlg_test.cpp
     partymemberdlg_test.cpp
-    partywardialog_test.cpp
     petinventorydlg_test.cpp
     petrevivaldialog_test.cpp
     petstatedlg_test.cpp
@@ -179,6 +178,7 @@ add_executable(mxh_ui_tests
     cnumberpaddialog_test.cpp
     cmininotedialog_test.cpp
     cnotedialog_test.cpp
+    cpartywardialog_test.cpp
     cautoanswerdlg_test.cpp
     cstatusicondlg_test.cpp
     cscreenshotdlg_test.cpp

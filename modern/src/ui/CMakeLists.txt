@@ -163,7 +163,7 @@ add_library(mxh_ui STATIC
     partycreatedlg.cpp
     partymatchingdlg.cpp
     partymemberdlg.cpp
-    partywardialog.cpp
+    cpartywardialog.cpp
     petinventorydlg.cpp
     petrevivaldialog.cpp
     petstatedlg.cpp

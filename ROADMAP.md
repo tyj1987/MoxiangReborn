@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-26 — Phase C Batch 1 完成（7 dialog, 144 tests, 87→80 missing）；继续 Batch 2。
+> **最近一次状态刷新**：2026-07-31 — Phase C Batch 1.2 完成（cPartyWarDialog，+20 tests，UI 套件 2189 全过）；Batch 1 进行中（2/10 dialog）。
 
 ---
 
@@ -44,7 +44,7 @@
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
 | 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2536 tests PASS | T1 部分验证（资源浏览器能解析） |
-| UI 控件 1:1 port（dialog + subcontrol） | **109/158 hpp（80 missing，Phase C Batch 1 完成 7/10）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（11 个，144 tests）；剩 80 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
+| UI 控件 1:1 port（dialog + subcontrol） | **109/158 hpp（80 missing，Phase C Batch 1.2 完成 2/10）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cPartyWarDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（12 个，164 tests）；剩 79 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |
@@ -98,6 +98,7 @@
 **目标**：把老 client 158 个 dialog 全部 1:1 port + test。Modern 当前 102 个 hpp（含 subcontrol/core），缺 **87 个老 dialog**。
 
 - [x] **C-Batch-1.1** `cNumberPadDialog` — login PIN 4-digit entry（commit `5790051`）
+- [x] **C-Batch-1.2** `cPartyWarDialog` — 战盟战对阵窗口（Show/Hide/NoChange/SetMember/Add/Remove/SetLock/SetUnLock/SetTime，20 tests）
   - 14 test: constants, Linking, InitProtectionStr, InsertStr (mask+digit), 4-char cap, OnActionEvent 派发, backspace, WE_CLOSEWINDOW, nGate=3 短路, nGate!=3 允许, unknown button id 容忍, GetProtectionStr 返回 raw digits, SetActive forwarder, buffer cap constant
 - [ ] **C-Batch-1.2 ~ 1.10** NumberPadDialog 之后: MiniNoteDialog, NoteDialog, ScreenShotDlg, StatusIconDlg, OptionDialog, ChannelDialog, JournalDialog, AutoAnswerDlg, HelperSpeechDlg, CostumeSkinSelectDialog, BigMapDlg, MiniMapDlg, ChatDialog, CharacterDialog, CharMakeDialog, CharChangeDlg, MonsterGuageDlg, QuestDialog, QuestTotalDialog, MoveDialog, PyoGukDialog, QuickDialog, FriendDialog, MixDialog, DissolveDlg, DissolutionDialog, BuyRegDialog, DealDialog, ExchangeDialog, MainBarDialog, MenuSlotDialog, ...
 - [ ] **C-Batch-2 ~ 5** 主 UI 框架 (MainBarDialog, MenuSlotDialog) + 帮派/商城/泰坦/宠物/战盟/摆摊/强化 等复杂 dialog 100+ 个
@@ -106,7 +107,7 @@
 
 **评估**：单 session 平均 port 2-3 个 dialog（hpp+cpp+test+build verify+commit）。87 个 total → **5-7 session**。
 
-**已完成 1/87**（cNumberPadDialog，2026-07-26 commit `5790051`）。
+**已完成 2/87**（cNumberPadDialog 2026-07-26 commit `5790051`；cPartyWarDialog 2026-07-31）。
 
 - [ ] 验证：每个 dialog 用 unit test 锁死 1:1 行为
 
