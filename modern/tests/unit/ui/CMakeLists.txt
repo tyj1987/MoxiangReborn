@@ -101,7 +101,7 @@ add_executable(mxh_ui_tests
     sosdialog_test.cpp
     wearedexdialog_test.cpp
     minifrienddialog_test.cpp
-    revivedialog_test.cpp
+    crevivedialog_test.cpp
     ctextarea_test.cpp
     cmpnoticedialog_test.cpp
     eventnotifydialog_test.cpp
@@ -627,19 +627,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMiniFriendDialogTest.SetNameUpdatesEditText
     CMiniFriendDialogTest.SetNameWithEmptyStringWorks
     CMiniFriendDialogTest.SetNameWithoutEditIsSafe
-    # P2-12 Tier 2 dialog: cReviveDialog (revive options)
-    CReviveDialogTest.DefaultConstructionHasNullPointers
-    CReviveDialogTest.IdConstantsAreDistinct
-    CReviveDialogTest.IdConstantsMatchExpectedLocalRange
-    CReviveDialogTest.LinkingResolvesAllThreeButtons
-    CReviveDialogTest.LinkingWithoutChildrenLeavesPointersNull
-    CReviveDialogTest.LinkingBeforeInitDoesNotCrash
-    CReviveDialogTest.SetActiveTrueUpdatesBaseState
-    CReviveDialogTest.SetActiveFalseUpdatesBaseState
-    CReviveDialogTest.SetActiveToggleRoundTrip
-    CReviveDialogTest.SetActiveButtonTogglingIsNoOpUntilSIEGEMGRPort
-    CReviveDialogTest.SetActiveWithoutLinksIsSafe
-    CReviveDialogTest.SetActiveBeforeInitDoesNotCrash
     # P2-12 Tier 1.5 sub-widget: cTextArea (multi-line text area)
     CTextAreaTest.DefaultConstructionIsValid
     CTextAreaTest.InitTextAreaFullOverloadStoresChromeImages
