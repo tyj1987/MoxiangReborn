@@ -1115,3 +1115,55 @@ TEST_F(LoginServerFixture, UnknownCategoryCat4RequestIsDroppedWithoutResponse) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M9 -- wire-format coverage for cat=6 (Chat). Completes the three-
+// category coverage matrix (cat=4 M8, cat=8 M6, cat=6 M9) plus M7's
+// encrypted variant. Together they prove the wire framing treats every
+// non-UserConn category uniformly -- header bytes round-trip correctly,
+// server logs [Login] unhandled category: Chat, no reply.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesCat6Request) {
+
+    // cat=6 (Chat), proto=3, object_id=1234, empty payload.
+    Message unknown;
+    unknown.header.category = 6;
+    unknown.header.protocol = 3;
+    unknown.header.object_id = 1234;
+    unknown.header.checksum = 0;
+    unknown.header.code = 0;
+    unknown.payload.clear();
+
+    const auto actual = reconstruct_wire(unknown);
+    const auto golden = read_golden_bytes("unknown_category_cat6_request.bin");
+    EXPECT_EQ(actual, golden);
+}
+
+
+TEST_F(LoginServerFixture, UnknownCategoryCat6RequestIsDroppedWithoutResponse) {
+
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=6 (Chat) -- LoginHandler logs "unhandled category: Chat"
+    // and drops it without reply. Third category in the matrix.
+    Message unknown;
+    unknown.header.category = 6;
+    unknown.header.protocol = 3;
+    unknown.header.object_id = 1234;
+    unknown.payload.clear();
+    ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+
+    tcp.disconnect();
+}
