@@ -1288,3 +1288,61 @@ TEST_F(EncryptedLoginFixture, EncryptedCat6RequestIsDropped) {
 
     tcp.disconnect();
 }
+
+
+// =============================================================================
+// M13 -- concurrent cat != 7 stress. M3 / M4 stress-tested the login
+// flow under 3 / 10-way concurrency, which exercises next_auth_key_
+// mutex + DB lookup contention. M13 stress-tests the unhandled-
+// category dispatch path under 10-way concurrency: cat=8 does NOT
+// touch the auth_key lock (LoginHandler ignores cat != 7 entirely),
+// so this test catches a regression where cat != 7 accidentally
+// acquires a shared lock or contends with the cat=7 path.
+// =============================================================================
+
+TEST_F(LoginServerFixture, TenConcurrentClientsSendCat8WithoutCrash) {
+
+    constexpr int kClients = 10;
+    std::vector<std::exception_ptr> failures(kClients);
+    std::vector<std::thread> workers;
+    workers.reserve(kClients);
+
+    for (int i = 0; i < kClients; ++i) {
+        workers.emplace_back([this, i, &failures] {
+            try {
+                CapturingClientHandler client;
+                mxh::net::TcpClient tcp(client);
+                mxh::net::ClientConfig ccfg;
+                ccfg.remote_address = "127.0.0.1";
+                ccfg.port = static_cast<std::uint16_t>(port_);
+                ccfg.use_legacy_framing = true;
+                ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+                ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(3)));
+                auto msgs = client.snapshot();
+                ASSERT_EQ(msgs.size(), 1u);
+                EXPECT_EQ(msgs[0].header.category, 7);
+                EXPECT_EQ(msgs[0].header.protocol, 0);
+
+                // Send cat=8 (Move). Server logs unhandled and drops.
+                Message unknown;
+                unknown.header.category = 8;
+                unknown.header.protocol = 1;
+                unknown.header.object_id = 42;
+                unknown.payload.clear();
+                ASSERT_EQ(tcp.send(unknown), NetError::Ok);
+
+                // No reply expected. Short timeout.
+                EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(300)));
+
+                tcp.disconnect();
+            } catch (...) {
+                failures[i] = std::current_exception();
+            }
+        });
+    }
+    for (auto& w : workers) w.join();
+
+    for (int i = 0; i < kClients; ++i) {
+        if (failures[i]) std::rethrow_exception(failures[i]);
+    }
+}
