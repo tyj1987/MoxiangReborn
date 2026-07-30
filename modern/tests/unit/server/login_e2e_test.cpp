@@ -2851,3 +2851,80 @@ TEST_F(LoginServerFixture, UnknownCategoryPetRequestIsDroppedWithoutResponse) {
     tcp.disconnect();
 }
 
+
+// =============================================================================
+// M37 -- cat=69 (SiegeWar) wire-format golden + drop test.
+// First castle-siege category locked. SiegeWar carries
+// siege-register / attack / defend / profit-distribute requests
+// between client and server. Locking the request shape here
+// means a regression in modern SiegeWar encoder trips the
+// golden comparison before any real guild attacks the wrong
+// castle or gets dropped from a siege roster.
+//
+// 18B total: 2B length=16 + 8B header (cat=69, proto=1, obj_id=15555) +
+// 8B payload (4B castle_id=7 + 4B action=1=attack).
+//
+// C 协议扩展 M37 -- the 23rd distinct category locked at the
+// wire layer (after cat=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 22, 28, 30, 33, 37, 39, 58, 62, 71, 72). Crossed the 28.4%
+// mark of the 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesSiegeWarRequest) {
+    // cat=69 (SiegeWar), proto=1 (siege-attack base), obj_id=15555,
+    // 8B payload (4B castle_id=7 + 4B action=1=attack). Mirrors
+    // the wire shape the legacy client sends for a guild declaring
+    // an attack on a castle. Pins a real siege-attack request so
+    // a regression in net layer framing or modern SiegeWar encoder
+    // trips the golden comparison.
+    Message siege;
+    siege.header.category = 69;
+    siege.header.protocol = 1;
+    siege.header.object_id = 15555;
+    siege.header.checksum = 0;
+    siege.header.code = 0;
+    siege.payload.clear();
+    // 4B castle_id=7 LE
+    siege.payload.push_back(static_cast<std::uint8_t>(7u & 0xFFu));
+    siege.payload.push_back(0);
+    siege.payload.push_back(0);
+    siege.payload.push_back(0);
+    // 4B action=1 (attack) LE
+    siege.payload.push_back(static_cast<std::uint8_t>(1u & 0xFFu));
+    siege.payload.push_back(0);
+    siege.payload.push_back(0);
+    siege.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(siege);
+    const auto golden = read_golden_bytes("siegewar_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+
+TEST_F(LoginServerFixture, UnknownCategorySiegeWarRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=69 (SiegeWar) siege-attack request -- LoginHandler
+    // logs unhandled category: SiegeWar and drops it without
+    // reply. Twenty-third category in the C 协议扩展 arc.
+    Message siege;
+    siege.header.category = 69;
+    siege.header.protocol = 1;
+    siege.header.object_id = 15555;
+    siege.payload.assign(8, 0);
+    siege.payload[0] = static_cast<std::uint8_t>(7u & 0xFFu);  // castle_id
+    siege.payload[4] = static_cast<std::uint8_t>(1u & 0xFFu);  // action
+    ASSERT_EQ(tcp.send(siege), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
+
