@@ -6572,3 +6572,76 @@ TEST_F(LoginServerFixture, UnknownCategoryGuildV2RequestIsDroppedWithoutResponse
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M86 -- cat=59 (PartyWar) wire-format golden + drop test.
+// First party-war category at the canonical wire byte.
+// PartyWar carries party-vs-party war requests (declare, accept, score,
+// surrender). NOTE: this is a separate golden from partywar_request.bin
+// (cat=65 wire byte = MP_WEATHER per Protocol.h) -- partywar_v2_request.bin
+// uses wire byte 59 = MP_PARTYWAR per Protocol.h.
+// Locking the canonical wire byte here means a regression in modern
+// PartyWar encoder trips the golden comparison before any real party-war
+// op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=59, proto=1, obj_id=72231) +
+// 8B payload (4B tool_id=3100 + 4B reserved=0).
+//
+// C 协议扩展 M86 -- the 72nd distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPartyWarV2Request) {
+    // cat=59 (PartyWar per Protocol.h wire byte 59 = MP_PARTYWAR),
+    // proto=1 (partywar base), obj_id=72231,
+    // 8B payload (4B tool_id=3100 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // party-war request at the canonical wire byte.
+    Message pw;
+    pw.header.category = 59;
+    pw.header.protocol = 1;
+    pw.header.object_id = 72231;
+    pw.header.checksum = 0;
+    pw.header.code = 0;
+    pw.payload.clear();
+    // 4B tool_id=3100 LE
+    pw.payload.push_back(static_cast<std::uint8_t>(3100u & 0xFFu));
+    pw.payload.push_back(static_cast<std::uint8_t>((3100u >> 8) & 0xFFu));
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+    // 4B reserved=0
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+    pw.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pw);
+    const auto golden = read_golden_bytes("partywar_v2_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryPartyWarV2RequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=59 (PartyWar) party-war request at the canonical wire byte --
+    // LoginHandler logs unhandled category: PartyWar and drops it
+    // without reply. Seventy-second category in the C 协议扩展 arc.
+    Message pw;
+    pw.header.category = 59;
+    pw.header.protocol = 1;
+    pw.header.object_id = 72231;
+    pw.payload.assign(8, 0);
+    pw.payload[0] = static_cast<std::uint8_t>(3100u & 0xFFu);
+    pw.payload[1] = static_cast<std::uint8_t>((3100u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(pw), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
