@@ -4116,3 +4116,78 @@ TEST_F(LoginServerFixture, UnknownCategoryCharRequestIsDroppedWithoutResponse) {
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M53 -- cat=13 (PackedData) wire-format golden + drop test.
+// First compressed-batch category locked. PackedData
+// carries bulk / batched client messages wrapped into
+// a single compressed payload to save bandwidth.
+// Locking the request shape here means a regression in
+// modern packed-data encoder trips the golden comparison
+// before any real batched message gets corrupted.
+//
+// 18B total: 2B length=16 + 8B header (cat=13, proto=1, obj_id=35555) +
+// 8B payload (4B packed_size=64 + 4B checksum=0).
+//
+// C 协议扩展 M53 -- the 39th distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14,
+// 15, 17, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 37, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 48.1% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesPackedDataRequest) {
+    // cat=13 (PackedData), proto=1 (packed base), obj_id=35555,
+    // 8B payload (4B packed_size=64 + 4B checksum=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // packed data batch. Pins a real batch
+    // request so a regression in net layer framing or modern
+    // PackedData encoder trips the golden comparison.
+    Message pd;
+    pd.header.category = 13;
+    pd.header.protocol = 1;
+    pd.header.object_id = 35555;
+    pd.header.checksum = 0;
+    pd.header.code = 0;
+    pd.payload.clear();
+    // 4B packed_size=64 LE
+    pd.payload.push_back(static_cast<std::uint8_t>(64u & 0xFFu));
+    pd.payload.push_back(0);
+    pd.payload.push_back(0);
+    pd.payload.push_back(0);
+    // 4B checksum=0
+    pd.payload.push_back(0);
+    pd.payload.push_back(0);
+    pd.payload.push_back(0);
+    pd.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(pd);
+    const auto golden = read_golden_bytes("packeddata_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryPackedDataRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=13 (PackedData) batch request --
+    // LoginHandler logs unhandled category: PackedData and drops it
+    // without reply. Thirty-ninth category in the C 协议扩展
+    // arc.
+    Message pd;
+    pd.header.category = 13;
+    pd.header.protocol = 1;
+    pd.header.object_id = 35555;
+    pd.payload.assign(8, 0);
+    pd.payload[0] = static_cast<std::uint8_t>(64u & 0xFFu);
+    ASSERT_EQ(tcp.send(pd), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
