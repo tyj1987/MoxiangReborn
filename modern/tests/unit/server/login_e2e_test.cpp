@@ -5631,3 +5631,79 @@ TEST_F(LoginServerFixture, UnknownCategoryHackShieldRequestIsDroppedWithoutRespo
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M73 -- cat=68 (RmToolPet) wire-format golden + drop test.
+// First remote-admin pet-tool category locked. RmToolPet
+// carries the remote-management / admin tool's pet
+// subsystem requests (admin pet list / give / remove).
+// Locking the request shape here means a regression in
+// modern rmtool pet encoder trips the golden comparison
+// before any real admin pet op gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=68, proto=1, obj_id=57777) +
+// 8B payload (4B tool_id=1800 + 4B reserved=0).
+//
+// C 协议扩展 M73 -- the 59th distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 53, 55, 57, 61, 63, 67,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 72.8% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesRmToolPetRequest) {
+    // cat=68 (RmToolPet), proto=1 (rmtool pet base), obj_id=57777,
+    // 8B payload (4B tool_id=1800 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // rmtool pet request. Pins a real rmtool pet
+    // request so a regression in net layer framing or modern
+    // RmToolPet encoder trips the golden comparison.
+    Message rt;
+    rt.header.category = 68;
+    rt.header.protocol = 1;
+    rt.header.object_id = 57777;
+    rt.header.checksum = 0;
+    rt.header.code = 0;
+    rt.payload.clear();
+    // 4B tool_id=1800 LE
+    rt.payload.push_back(static_cast<std::uint8_t>(1800u & 0xFFu));
+    rt.payload.push_back(static_cast<std::uint8_t>((1800u >> 8) & 0xFFu));
+    rt.payload.push_back(0);
+    rt.payload.push_back(0);
+    // 4B reserved=0
+    rt.payload.push_back(0);
+    rt.payload.push_back(0);
+    rt.payload.push_back(0);
+    rt.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(rt);
+    const auto golden = read_golden_bytes("rmtool_pet_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryRmToolPetRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=68 (RmToolPet) admin-pet request --
+    // LoginHandler logs unhandled category: RmToolPet and drops it
+    // without reply. Fifty-ninth category in the C 协议扩展
+    // arc.
+    Message rt;
+    rt.header.category = 68;
+    rt.header.protocol = 1;
+    rt.header.object_id = 57777;
+    rt.payload.assign(8, 0);
+    rt.payload[0] = static_cast<std::uint8_t>(1800u & 0xFFu);
+    rt.payload[1] = static_cast<std::uint8_t>((1800u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(rt), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
