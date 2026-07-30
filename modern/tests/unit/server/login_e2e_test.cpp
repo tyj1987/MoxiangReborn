@@ -911,3 +911,48 @@ TEST_F(LoginServerFixture, TenConcurrentClientsStress) {
     for (std::size_t sz : ack_payload_sizes) EXPECT_EQ(sz, 23u);
 }
 
+
+
+// =============================================================================
+// M5 -- perf floor. Catches gross regression in the wire-format path:
+// 20 sequential full E2E login cycles must complete within a 10-second
+// budget (>= 2 cycles/sec on dev hardware). Deliberately loose -- this
+// is a regression detector, not a benchmark.
+// =============================================================================
+
+TEST_F(LoginServerFixture, SustainsSequentialLoginThroughputAboveFloor) {
+    constexpr int kCycles = 10;
+    constexpr long long kMaxTotalMs = 10000;
+
+
+
+    auto t0 = std::chrono::steady_clock::now();
+    for (int i = 0; i < kCycles; ++i) {
+        CapturingClientHandler client;
+        mxh::net::TcpClient tcp(client);
+        mxh::net::ClientConfig ccfg;
+        ccfg.remote_address = "127.0.0.1";
+        ccfg.port = static_cast<std::uint16_t>(port_);
+        ccfg.use_legacy_framing = true;
+        ASSERT_EQ(tcp.connect(ccfg), mxh::net::NetError::Ok);
+        ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(5)));
+        auto msgs = client.snapshot();
+        ASSERT_EQ(msgs.size(), 1u);
+        const auto& dcs = msgs[0];
+        mxh::net::Message login;
+        login.header.category = 7;
+        login.header.protocol = 1;
+        login.header.object_id = 0;
+        login.payload = make_legacy_login_payload(dcs.header.object_id, "test", "test");
+        ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
+        ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(5)));
+        msgs = client.snapshot();
+        ASSERT_EQ(msgs.size(), 2u);
+        tcp.disconnect();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    auto t1 = std::chrono::steady_clock::now();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    EXPECT_LT(elapsed_ms, kMaxTotalMs);
+}
+
