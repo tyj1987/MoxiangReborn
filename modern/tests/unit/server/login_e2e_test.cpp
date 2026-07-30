@@ -5992,3 +5992,75 @@ TEST_F(LoginServerFixture, UnknownCategoryRmToolGameLogRequestIsDroppedWithoutRe
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+
+// =============================================================================
+// M78 -- cat=47 (RmToolOperLog) wire-format golden + drop test.
+// First remote-management operator-log tool category locked.
+// RmToolOperLog carries remote-management / admin tool operator
+// activity log queries (admin action history, GM command log, etc).
+// Locking the request shape here means a regression in modern
+// RmToolOperLog encoder trips the golden comparison before any
+// real admin oper-log query gets the wrong seq.
+//
+// 18B total: 2B length=16 + 8B header (cat=47, proto=1, obj_id=63335) +
+// 8B payload (4B tool_id=2300 + 4B reserved=0).
+//
+// C 协议扩展 M78 -- the 64th distinct category locked at the wire layer.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesRmToolOperLogRequest) {
+    // cat=47 (RmToolOperLog), proto=1 (rmtool operlog base), obj_id=63335,
+    // 8B payload (4B tool_id=2300 + 4B reserved=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // rmtool operlog request. Pins a real rmtool operlog
+    // request so a regression in net layer framing or modern
+    // RmToolOperLog encoder trips the golden comparison.
+    Message ol;
+    ol.header.category = 47;
+    ol.header.protocol = 1;
+    ol.header.object_id = 63335;
+    ol.header.checksum = 0;
+    ol.header.code = 0;
+    ol.payload.clear();
+    // 4B tool_id=2300 LE
+    ol.payload.push_back(static_cast<std::uint8_t>(2300u & 0xFFu));
+    ol.payload.push_back(static_cast<std::uint8_t>((2300u >> 8) & 0xFFu));
+    ol.payload.push_back(0);
+    ol.payload.push_back(0);
+    // 4B reserved=0
+    ol.payload.push_back(0);
+    ol.payload.push_back(0);
+    ol.payload.push_back(0);
+    ol.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(ol);
+    const auto golden = read_golden_bytes("rmtool_operlog_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryRmToolOperLogRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=47 (RmToolOperLog) admin-operlog request --
+    // LoginHandler logs unhandled category: RmToolOperLog and drops it
+    // without reply. Sixty-fourth category in the C 协议扩展 arc.
+    Message ol;
+    ol.header.category = 47;
+    ol.header.protocol = 1;
+    ol.header.object_id = 63335;
+    ol.payload.assign(8, 0);
+    ol.payload[0] = static_cast<std::uint8_t>(2300u & 0xFFu);
+    ol.payload[1] = static_cast<std::uint8_t>((2300u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(ol), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
