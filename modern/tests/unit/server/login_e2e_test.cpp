@@ -4642,3 +4642,80 @@ TEST_F(LoginServerFixture, UnknownCategoryMonsterRequestIsDroppedWithoutResponse
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
+// =============================================================================
+// M60 -- cat=36 (Option) wire-format golden + drop test.
+// First player-option category locked. Option
+// carries per-player option toggles (block whispers,
+// reject duels, hide helm, etc.) sent at login or
+// when the player toggles a setting.
+// Locking the request shape here means a regression in
+// modern option encoder trips the golden comparison
+// before any real player setting gets lost.
+//
+// 18B total: 2B length=16 + 8B header (cat=36, proto=1, obj_id=43333) +
+// 8B payload (4B option_id=500 + 4B value=0).
+//
+// C 协议扩展 M60 -- the 46th distinct category locked at the
+// wire layer (after cat=1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+// 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39, 41,
+// 58, 60, 62, 64, 65, 69, 70, 71, 72). Crossed the 56.8% mark of the
+// 81-category protocol surface.
+// =============================================================================
+
+TEST_F(LoginServerFixtureGolden, GoldenCapturesOptionRequest) {
+    // cat=36 (Option), proto=1 (option base), obj_id=43333,
+    // 8B payload (4B option_id=500 + 4B value=0).
+    // Mirrors the wire shape the legacy client sends for a
+    // player option toggle. Pins a real option
+    // request so a regression in net layer framing or modern
+    // Option encoder trips the golden comparison.
+    Message opt;
+    opt.header.category = 36;
+    opt.header.protocol = 1;
+    opt.header.object_id = 43333;
+    opt.header.checksum = 0;
+    opt.header.code = 0;
+    opt.payload.clear();
+    // 4B option_id=500 LE
+    opt.payload.push_back(static_cast<std::uint8_t>(500u & 0xFFu));
+    opt.payload.push_back(static_cast<std::uint8_t>((500u >> 8) & 0xFFu));
+    opt.payload.push_back(0);
+    opt.payload.push_back(0);
+    // 4B value=0
+    opt.payload.push_back(0);
+    opt.payload.push_back(0);
+    opt.payload.push_back(0);
+    opt.payload.push_back(0);
+
+    const auto actual = reconstruct_wire(opt);
+    const auto golden = read_golden_bytes("option_request.bin");
+    EXPECT_EQ(actual, golden);
+    ASSERT_EQ(actual.size(), 18u);
+}
+TEST_F(LoginServerFixture, UnknownCategoryOptionRequestIsDroppedWithoutResponse) {
+    CapturingClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(tcp.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+
+    // Send cat=36 (Option) toggle request --
+    // LoginHandler logs unhandled category: Option and drops it
+    // without reply. Forty-sixth category in the C 协议扩展
+    // arc.
+    Message opt;
+    opt.header.category = 36;
+    opt.header.protocol = 1;
+    opt.header.object_id = 43333;
+    opt.payload.assign(8, 0);
+    opt.payload[0] = static_cast<std::uint8_t>(500u & 0xFFu);
+    opt.payload[1] = static_cast<std::uint8_t>((500u >> 8) & 0xFFu);
+    ASSERT_EQ(tcp.send(opt), NetError::Ok);
+
+    EXPECT_FALSE(client.wait_for(2, std::chrono::milliseconds(500)));
+    EXPECT_EQ(client.snapshot().size(), 1u);
+    tcp.disconnect();
+}
