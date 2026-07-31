@@ -112,3 +112,19 @@ TEST(MurimNetChannelling, RejectsMessagesFromNonMembers) {
     EXPECT_TRUE(mn.send_message(message));
 }
 
+TEST(MurimNetChannelling, DestroyChannelClearsOnlyItsHistory) {
+    MurimNetChannellingManager mn;
+    auto first = mn.create_channel(10);
+    auto second = mn.create_channel(20);
+    MnChatMessage firstMessage{};
+    firstMessage.channel_id = first;
+    firstMessage.sender_id = 10;
+    MnChatMessage secondMessage{};
+    secondMessage.channel_id = second;
+    secondMessage.sender_id = 20;
+    ASSERT_TRUE(mn.send_message(firstMessage));
+    ASSERT_TRUE(mn.send_message(secondMessage));
+    ASSERT_TRUE(mn.destroy_channel(first));
+    EXPECT_TRUE(mn.history(first).empty());
+    EXPECT_EQ(mn.history(second).size(), 1u);
+}

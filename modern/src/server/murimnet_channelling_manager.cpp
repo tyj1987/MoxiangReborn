@@ -22,6 +22,11 @@ bool MurimNetChannellingManager::destroy_channel(std::uint32_t channel_id) noexc
                             [&](const Channel& c){ return c.id == channel_id; });
     if (it == channels_.end()) return false;
     channels_.erase(it);
+    messages_.erase(std::remove_if(messages_.begin(), messages_.end(),
+                                   [&](const MnChatMessage& message) {
+                                       return message.channel_id == channel_id;
+                                   }),
+                    messages_.end());
     return true;
 }
 
