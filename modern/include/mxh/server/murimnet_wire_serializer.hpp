@@ -30,6 +30,16 @@ std::vector<std::uint8_t> mnh_build_chat_wire(std::uint32_t sender_id, const std
 // TeamChange wire (MP_MURIMNET_PR_TEAMCHANGE_ACK = 22 / _NACK = 23). Fixed 13 bytes = MSGBASE + dwMoverID + cbFromTeam + cbToTeam.
 // sender_id populates MSGBASE.dwObjectID (room or mover, caller decides); payload fields are always serialized.
 std::vector<std::uint8_t> mnh_build_team_change_wire(std::uint32_t sender_id, std::uint32_t mover_id, std::uint8_t from_team, std::uint8_t to_team, std::uint8_t protocol);
+// Short wire helpers (MSGBASE + small payload). Each fixed-size struct from MnhWireByte/Word/Word2/Dword/Dword2/Dword3/Dword4.
+// sender_id populates MSGBASE.dwObjectID. protocol is the MP_MURIMNET_<...> enumerator byte (Category=38 is implicit).
+std::vector<std::uint8_t> mnh_build_byte_wire(std::uint32_t sender_id, std::uint8_t bData, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_word_wire(std::uint32_t sender_id, std::uint16_t wData, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_word2_wire(std::uint32_t sender_id, std::uint16_t wData1, std::uint16_t wData2, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_dword_wire(std::uint32_t sender_id, std::uint32_t dwData, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_dword2_wire(std::uint32_t sender_id, std::uint32_t dwData1, std::uint32_t dwData2, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_dword3_wire(std::uint32_t sender_id, std::uint32_t dwData1, std::uint32_t dwData2, std::uint32_t dwData3, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_dword4_wire(std::uint32_t sender_id, std::uint32_t dwData1, std::uint32_t dwData2, std::uint32_t dwData3, std::uint32_t dwData4, std::uint8_t protocol);
+
 std::vector<std::uint8_t> mnh_build_player_list_wire(const std::function<void(const std::function<void(const MurimNetPlayer&)>&)>& visitor, std::uint8_t protocol);
 }
 #include "mxh/server/murimnet_wire.hpp"

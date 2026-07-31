@@ -123,6 +123,90 @@ std::vector<std::uint8_t> mnh_build_team_change_wire(std::uint32_t sender_id, st
     return out;
 }
 
+std::vector<std::uint8_t> mnh_build_byte_wire(std::uint32_t sender_id, std::uint8_t bData, std::uint8_t protocol) {
+    MnhWireByte msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.bData = bData;
+    std::vector<std::uint8_t> out(sizeof(MnhWireByte));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
+std::vector<std::uint8_t> mnh_build_word_wire(std::uint32_t sender_id, std::uint16_t wData, std::uint8_t protocol) {
+    MnhWireWord msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.wData = wData;
+    std::vector<std::uint8_t> out(sizeof(MnhWireWord));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
+std::vector<std::uint8_t> mnh_build_word2_wire(std::uint32_t sender_id, std::uint16_t wData1, std::uint16_t wData2, std::uint8_t protocol) {
+    MnhWireWord2 msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.wData1 = wData1;
+    msg.wData2 = wData2;
+    std::vector<std::uint8_t> out(sizeof(MnhWireWord2));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
+std::vector<std::uint8_t> mnh_build_dword_wire(std::uint32_t sender_id, std::uint32_t dwData, std::uint8_t protocol) {
+    MnhWireDword msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.dwData = dwData;
+    std::vector<std::uint8_t> out(sizeof(MnhWireDword));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
+std::vector<std::uint8_t> mnh_build_dword2_wire(std::uint32_t sender_id, std::uint32_t dwData1, std::uint32_t dwData2, std::uint8_t protocol) {
+    MnhWireDword2 msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.dwData1 = dwData1;
+    msg.dwData2 = dwData2;
+    std::vector<std::uint8_t> out(sizeof(MnhWireDword2));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
+std::vector<std::uint8_t> mnh_build_dword3_wire(std::uint32_t sender_id, std::uint32_t dwData1, std::uint32_t dwData2, std::uint32_t dwData3, std::uint8_t protocol) {
+    MnhWireDword3 msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.dwData1 = dwData1;
+    msg.dwData2 = dwData2;
+    msg.dwData3 = dwData3;
+    std::vector<std::uint8_t> out(sizeof(MnhWireDword3));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
+std::vector<std::uint8_t> mnh_build_dword4_wire(std::uint32_t sender_id, std::uint32_t dwData1, std::uint32_t dwData2, std::uint32_t dwData3, std::uint32_t dwData4, std::uint8_t protocol) {
+    MnhWireDword4 msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.dwData1 = dwData1;
+    msg.dwData2 = dwData2;
+    msg.dwData3 = dwData3;
+    msg.dwData4 = dwData4;
+    std::vector<std::uint8_t> out(sizeof(MnhWireDword4));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
 std::vector<std::uint8_t> mnh_build_player_list_wire(const std::function<void(const std::function<void(const MurimNetPlayer&)>&)>& visitor, std::uint8_t protocol) {
     MnhMsgPlayerBaseInfoList msg{};
     msg.Category = MNH_CATEGORY_MURIMNET;
