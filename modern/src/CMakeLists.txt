@@ -276,6 +276,7 @@ add_library(mxh_server STATIC
     server/regen_manager.cpp
     server/party_war_mgr.cpp
     server/distributer.cpp
+    server/player_monster_point.cpp
     server/quest_regen_mgr.cpp
     server/looting_manager.cpp
     server/distribute_strategy.cpp

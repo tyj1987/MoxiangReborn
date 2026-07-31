@@ -1960,3 +1960,18 @@ gtest_add_tests(TARGET mxh_murimnet_wire_serializer_tests WORKING_DIRECTORY ${CM
 add_executable(mxh_murimnet_crypt_tests murimnet_crypt_test.cpp)
 target_link_libraries(mxh_murimnet_crypt_tests PRIVATE mxh_server mxh_crypto GTest::gtest_main)
 gtest_add_tests(TARGET mxh_murimnet_crypt_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_player_monster_point_tests
+    player_monster_point_test.cpp
+)
+target_link_libraries(mxh_player_monster_point_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_player_monster_point_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_player_monster_point_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)

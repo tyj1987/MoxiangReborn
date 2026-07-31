@@ -2,6 +2,7 @@
 
 #include "mxh/server/distributer.hpp"
 #include <gtest/gtest.h>
+#include <string>
 
 namespace {
 using mxh::server::DistributerState;
@@ -19,6 +20,16 @@ using mxh::server::calc_obtain_exp;
 using mxh::server::calc_obtain_ability_exp;
 }
 
+mxh::server::PlayerMonsterPointTable test_point_table() {
+    std::string text;
+    for (std::uint16_t level = 1; level <= mxh::server::MAX_PLAYER_LEVEL_NUM; ++level) {
+        for (std::int32_t column = 0; column < static_cast<std::int32_t>(mxh::server::PLAYER_MONSTER_POINT_COLUMN_COUNT); ++column) {
+            text += std::to_string(static_cast<unsigned>(level) * 100u + static_cast<unsigned>(column));
+            text += ' ';
+        }
+    }
+    return mxh::server::PlayerMonsterPointTable::load_from_text(text);
+}
 // ---- Constants 1:1 ----
 
 TEST(DistributerConstants, MaxPointAcceptObjectNumMatchesLegacy) {
@@ -158,80 +169,61 @@ TEST(DistributerDelete, ResetsFirstAttackerIfMatch) {
 // ---- CalcObtainExp formula ----
 
 TEST(DistributerExp, ZeroLifeReturnsZero) {
-    EXPECT_EQ(calc_obtain_exp(50, 50, 0u, 100u, 1u), 0u);
+    EXPECT_EQ(calc_obtain_exp(test_point_table(), 50, 50, 0u, 100u, 1u), 0u);
+}
+
+TEST(DistributerExp, UsesPlayerMonsterPointTableAtFullDamage) {
+    const auto table = test_point_table();
+    EXPECT_EQ(calc_obtain_exp(table, 50, 50, 1000u, 1000u, 1u),
+              table.get_player_point(50, 0));
 }
 
 TEST(DistributerExp, ZeroDamageReturnsZero) {
-    EXPECT_EQ(calc_obtain_exp(50, 50, 1000u, 0u, 1u), 0u);
+    EXPECT_EQ(calc_obtain_exp(test_point_table(), 50, 50, 1000u, 0u, 1u), 0u);
 }
 
-TEST(DistributerExp, DamageGreaterThanLifeClamps) {
-    // 1500 damage, 1000 life -> ratio = 1.0
-    const std::uint32_t e = calc_obtain_exp(50, 50, 1000u, 1500u, 1u);
-    // base=500, level_diff=0, mult=100, ratio_bp=1000
-    // exp = 500*100*1000 / 1000 / 100 = 500
-    EXPECT_EQ(e, 500u);
+TEST(DistributerExp, DamageBandsUseLegacyFloorPercentages) {
+    const auto table = test_point_table();
+    const auto point = table.get_player_point(50, 0);
+    EXPECT_EQ(calc_obtain_exp(table, 50, 50, 1000u, 800u, 1u),
+              static_cast<std::uint32_t>(point * 0.8));
+    EXPECT_EQ(calc_obtain_exp(table, 50, 50, 1000u, 600u, 1u),
+              static_cast<std::uint32_t>(point * 0.6));
+    EXPECT_EQ(calc_obtain_exp(table, 50, 50, 1000u, 400u, 1u),
+              static_cast<std::uint32_t>(point * 0.4));
+    EXPECT_EQ(calc_obtain_exp(table, 50, 50, 1000u, 200u, 1u),
+              static_cast<std::uint32_t>(point * 0.2));
+    EXPECT_EQ(calc_obtain_exp(table, 50, 50, 1000u, 199u, 1u), 0u);
 }
 
-TEST(DistributerExp, SameLevelSoloFullDamage) {
-    // monster=50, killer=50, total=1000, damage=1000, players=1
-    const std::uint32_t e = calc_obtain_exp(50, 50, 1000u, 1000u, 1u);
-    EXPECT_EQ(e, 500u);
+TEST(DistributerExp, LevelRestrictionsMatchLegacy) {
+    const auto table = test_point_table();
+    EXPECT_EQ(calc_obtain_exp(table, 50, 56, 1000u, 1000u, 1u), 0u);
+    EXPECT_EQ(calc_obtain_exp(table, 50, 40, 1000u, 1000u, 1u),
+              table.get_player_point(49, 9));
 }
 
-TEST(DistributerExp, PartyDoublesDamage) {
-    const std::uint32_t solo  = calc_obtain_exp(50, 50, 1000u, 1000u, 1u);
-    const std::uint32_t party = calc_obtain_exp(50, 50, 1000u, 1000u, 2u);
-    EXPECT_EQ(party, solo / 2u);
-}
-
-TEST(DistributerExp, HigherMonsterLevelBoostsExp) {
-    // diff +5 (clamped)
-    const std::uint32_t same  = calc_obtain_exp(50, 50, 1000u, 1000u, 1u);
-    const std::uint32_t above = calc_obtain_exp(60, 50, 1000u, 1000u, 1u);
-    EXPECT_GT(above, same);
-}
-
-TEST(DistributerExp, LowerMonsterLevelGivesLessExp) {
-    // base scales with monster_level, so lower monster gives less exp.
-    const std::uint32_t same  = calc_obtain_exp(50, 50, 1000u, 1000u, 1u);
-    const std::uint32_t below = calc_obtain_exp(40, 50, 1000u, 1000u, 1u);
-    EXPECT_LT(below, same);
-}
-
-TEST(DistributerExp, HalfDamageHalfExp) {
-    const std::uint32_t full = calc_obtain_exp(50, 50, 1000u, 1000u, 1u);
-    const std::uint32_t half = calc_obtain_exp(50, 50, 1000u, 500u, 1u);
-    // half should be ~full/2 (integer rounding)
-    EXPECT_GE(half * 2u, full - 1u);
-    EXPECT_LE(half * 2u, full + 1u);
+TEST(DistributerExp, NormalMapIgnoresPartyCountParameter) {
+    const auto table = test_point_table();
+    const auto solo = calc_obtain_exp(table, 50, 50, 1000u, 1000u, 1u);
+    const auto party = calc_obtain_exp(table, 50, 50, 1000u, 1000u, 2u);
+    EXPECT_EQ(party, solo);
 }
 
 // ---- CalcObtainAbilityExp ----
 
-TEST(DistributerAbilityExp, SameLevelGivesBase) {
-    // monster=50, killer=50: base=250, mult=100, exp=250
-    EXPECT_EQ(calc_obtain_ability_exp(50, 50), 250u);
+TEST(DistributerAbilityExp, SameLevelUsesPlusFiveTimesTen) {
+    EXPECT_EQ(calc_obtain_ability_exp(50, 50), 50u);
 }
 
-TEST(DistributerAbilityExp, HigherMonsterBoost) {
-    EXPECT_GT(calc_obtain_ability_exp(60, 50), calc_obtain_ability_exp(50, 50));
+TEST(DistributerAbilityExp, HigherMonsterLevelUsesLevelDifference) {
+    EXPECT_EQ(calc_obtain_ability_exp(60, 50), 140u);
 }
 
-TEST(DistributerAbilityExp, LowerMonsterGivesLess) {
-    EXPECT_LT(calc_obtain_ability_exp(40, 50), calc_obtain_ability_exp(50, 50));
+TEST(DistributerAbilityExp, MoreThanFiveLevelsAbovePlayerReturnsZero) {
+    EXPECT_EQ(calc_obtain_ability_exp(40, 50), 0u);
 }
 
-TEST(DistributerAbilityExp, ClampSaturatesMultiplier) {
-    // exp scales with monster_level * (100 + clamped_diff * 5).
-    // For diff == +5 and diff == +50 (both clamped), the multiplier is
-    // identical, so the exp ratio equals the monster_level ratio.
-    // (100/60) = 5/3; verify ratio of results reflects that.
-    const std::uint32_t lo = calc_obtain_ability_exp(60, 95);  // diff=0 (clamped=0)
-    const std::uint32_t hi = calc_obtain_ability_exp(100, 95); // diff=5 (clamped=5)
-    // hi > lo because higher base AND higher multiplier
-    EXPECT_GT(hi, lo);
-    // And at monster_level=200, diff=105 -> clamped=5; exp should be 2x of the +60 case
-    const std::uint32_t hi2 = calc_obtain_ability_exp(120, 95);
-    EXPECT_EQ(hi2, hi * 120 / 100);
+TEST(DistributerAbilityExp, MonsterLevelIsCappedAtPlayerPlusNine) {
+    EXPECT_EQ(calc_obtain_ability_exp(120, 95), 140u);
 }
