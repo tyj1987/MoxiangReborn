@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.8 完成（test registration cleanup，+13 tests via CShoutDialogTest，UI 套件 2351 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 合计 7 个 dialog + Batch 2.8 修复 3 个未注册 test 文件（pklootingdialog + pointsavedialog + shoutdialog）。
+> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.9 完成（meta-cleanup，60 个 P2-12 注释更新到 Phase C 1:1 port 状态，UI 套件 2351 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 合计 7 个新 1:1 port + Batch 2.8 修复 3 个 test 文件 + Batch 2.9 标记 60 个 P2-12 stub 为已 1:1 ported。
 
 ---
 

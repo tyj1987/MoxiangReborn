@@ -390,7 +390,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CIconDialog.AcceptableTypeMaskWorks
     CIconDialog.SelectionSetterGetter
     CIconDialog.SetAbsXYMovesDialogAbsPosition
-    # P2-12 Tier 1.5 subcontrol: cIconGridDialog (2D icon grid + drag-drop)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cIconGridDialog (2D icon grid + drag-drop)
     CIconGridDialog.DefaultStateHasZeroCells
     CIconGridDialog.InitAllocatesEmptyGrid
     CIconGridDialog.InitGridComputesCellRect
@@ -512,7 +512,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CListDialogExTest.RowClickedCallbackFiresOnLinkRow
     CListDialogExTest.AddLinkItemChainPreservesNext
     CListDialogExTest.RenderIsNoop
-    # P2-12 Tier 2 dialog: cMacroDialog (macro key binding)
+    # Phase C 1:1 port (dialog): cMacroDialog (macro key binding)
     CMacroDialogTest.MacroEventEnumIsStable
     CMacroDialogTest.MacroModeEnumIsStable
     CMacroDialogTest.SysKeyEnumIsStable
@@ -533,7 +533,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMacroDialogTest.SetMacroBindingRefreshesLinkedEditBox
     CMacroDialogTest.SetActiveInChatModeDoesNotRefresh
     CMacroDialogTest.SetActiveInMacroModeRefreshes
-    # P2-12 Tier 2 dialog: cCharMakeDlg (character creation)
+    # Phase C 1:1 port (dialog): cCharMakeDlg (character creation)
     CCharMakeDlgTest.DefaultConstructionHasNullPointers
     CCharMakeDlgTest.LinkingResolvesAllFourStatics
     CCharMakeDlgTest.LinkingWithoutChildrenLeavesPointersNull
@@ -542,7 +542,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CCharMakeDlgTest.ChangeComboStatusWithoutLinksIsSafe
     CCharMakeDlgTest.ChangeComboStatusToggleRoundTrip
     CCharMakeDlgTest.OnActionEventIsNoOpUntilManagerPort
-    # P2-12 Tier 2 dialog: cGuildJoinDialog (guild member invite)
+    # Phase C 1:1 port (dialog): cGuildJoinDialog (guild member invite)
     CGuildJoinDialogTest.DefaultConstructionDoesNotCrash
     CGuildJoinDialogTest.IdConstantsMatchLocalRange
     CGuildJoinDialogTest.IdConstantsMatchExpectedLocalRange
@@ -554,7 +554,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildJoinDialogTest.OnActionEventUnknownIdIsNoOpNoAssert
     CGuildJoinDialogTest.OnActionEventBeforeInitDoesNotCrash
     CGuildJoinDialogTest.OnActionEventAllThreeIdsInSequence
-    # P2-12 Tier 2 dialog: cCharStateDialog (character state bar)
+    # Phase C 1:1 port (dialog): cCharStateDialog (character state bar)
     CCharStateDialogTest.DefaultConstructionHasNullPointers
     CCharStateDialogTest.IdConstantsAreDistinct
     CCharStateDialogTest.IdConstantsMatchExpectedLocalRange
@@ -573,7 +573,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CCharStateDialogTest.OnActionEventUnknownIdIsNoOp
     CCharStateDialogTest.RefreshIsNoOpUntilScriptManagerPort
     CCharStateDialogTest.RefreshBeforeLinkingIsSafe
-    # P2-12 Tier 2 dialog: cSOSDialog (guild SOS)
+    # Phase C 1:1 port (dialog): cSOSDialog (guild SOS)
     CSOSDialogTest.DefaultConstructionHasNullPointers
     CSOSDialogTest.IdConstantsAreDistinct
     CSOSDialogTest.IdConstantsMatchExpectedLocalRange
@@ -594,7 +594,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSOSDialogTest.OnActionEventBeforeInitDoesNotCrash
     CSOSDialogTest.SelectIdxDefaultZero
     CSOSDialogTest.SetSelectIdxUpdatesValue
-    # P2-12 Tier 2 dialog: cWearedExDialog (equipment slots)
+    # Phase C 1:1 port (dialog): cWearedExDialog (equipment slots)
     CWearedExDialogTest.DefaultConstructionIsValid
     CWearedExDialogTest.InheritsIconDialogCellLayout
     CWearedExDialogTest.AddItemSuccessReturnsTrue
@@ -607,7 +607,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWearedExDialogTest.DeleteItemSetsOutIconToPrevious
     CWearedExDialogTest.AddDeleteRoundTrip
     CWearedExDialogTest.AddDeleteIndependenceBetweenCells
-    # P2-12 Tier 1.5 sub-widget: cTextArea (multi-line text area)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cTextArea (multi-line text area)
     CTextAreaTest.DefaultConstructionIsValid
     CTextAreaTest.InitTextAreaFullOverloadStoresChromeImages
     CTextAreaTest.InitTextAreaSimpleOverloadStoresTextRect
@@ -630,7 +630,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTextAreaTest.SetTextColorZeroIsValid
     CTextAreaTest.AddDelegatesToBaseDialog
     CTextAreaTest.RenderIsNoOp
-    # P2-12 Tier 2 dialog: cEventNotifyDialog (GM event notification)
+    # Phase C 1:1 port (dialog): cEventNotifyDialog (GM event notification)
     CEventNotifyDialogTest.DefaultConstructionHasNullPointers
     CEventNotifyDialogTest.IdConstantsAreDistinct
     CEventNotifyDialogTest.IdConstantsMatchExpectedLocalRange
@@ -651,7 +651,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CEventNotifyDialogTest.SetContextWithoutLinkIsSafe
     CEventNotifyDialogTest.SetContextBeforeLinkingIsSafe
     CEventNotifyDialogTest.SetEventCountIsNoOp
-    # P2-12 Tier 2 dialog: cGuildCreateDialog + cGuildUnionCreateDialog
+    # Phase C 1:1 port (dialog): cGuildCreateDialog + cGuildUnionCreateDialog
     CGuildCreateDialogTest.DefaultConstructionHasNullPointers
     CGuildCreateDialogTest.IdConstantsAreDistinct
     CGuildCreateDialogTest.LinkingResolvesAllFiveChildren
@@ -673,7 +673,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildUnionCreateDialogTest.SetActiveTrueUpdatesBaseState
     CGuildUnionCreateDialogTest.SetActiveFalseUpdatesBaseState
     CGuildUnionCreateDialogTest.SetActiveWithoutLinksIsSafe
-    # P2-12 Tier 2 dialog: cChaseInputDialog (chase target name)
+    # Phase C 1:1 port (dialog): cChaseInputDialog (chase target name)
     CChaseInputDialogTest.DefaultConstructionHasNullAndZero
     CChaseInputDialogTest.IdConstantMatchesExpectedLocalRange
     CChaseInputDialogTest.VcmCharnameAliasIsTwo
@@ -690,7 +690,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChaseInputDialogTest.SetItemIdxBeforeInitDoesNotCrash
     CChaseInputDialogTest.WantedChaseSynIsNoOp
     CChaseInputDialogTest.WantedChaseSynWithoutLinkIsSafe
-    # P2-12 Tier 2 dialog: cChaseDialog (chase target minimap)
+    # Phase C 1:1 port (dialog): cChaseDialog (chase target minimap)
     CChaseDialogTest.DefaultConstructionIsValid
     CChaseDialogTest.IdConstantsMatchExpectedLocalRange
     CChaseDialogTest.MaxWantedNameLenIs18
@@ -705,7 +705,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChaseDialogTest.InitMiniMapWithoutLinkIsSafe
     CChaseDialogTest.LoadMinimapImageInfoReturnsFalse
     CChaseDialogTest.RenderIsNoOp
-    # P2-12 Tier 2 dialog: cBailDialog (bail amount entry)
+    # Phase C 1:1 port (dialog): cBailDialog (bail amount entry)
     CBailDialogTest.DefaultConstructionIsValid
     CBailDialogTest.IdConstantsMatchExpectedLocalRange
     CBailDialogTest.LinkingResolvesBothChildren
@@ -720,7 +720,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CBailDialogTest.SetFameWithoutLinkIsSafe
     CBailDialogTest.SetBadFrameSyncIsNoOp
     CBailDialogTest.SetBadFrameSyncWithoutLinkIsSafe
-    # P2-12 Tier 2 dialog: cPetWearedExDialog (pet equipment slots)
+    # Phase C 1:1 port (dialog): cPetWearedExDialog (pet equipment slots)
     CPetWearedExDialogTest.DefaultConstructionIsValid
     CPetWearedExDialogTest.InheritsIconDialogCellLayout
     CPetWearedExDialogTest.PetWearSlotCountIsThree
@@ -742,7 +742,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPetWearedExDialogTest.GetBlankPositionRestrictRefReturnsFirstAddable
     CPetWearedExDialogTest.CheckDuplicationReturnsFalse
     CPetWearedExDialogTest.CheckDuplicationEmptyDialogReturnsFalse
-    # P2-12 Tier 2 dialog: cGuildNoticeDlg (guild notice editor)
+    # Phase C 1:1 port (dialog): cGuildNoticeDlg (guild notice editor)
     CGuildNoticeDlgTest.DefaultConstructionHasNullPointer
     CGuildNoticeDlgTest.InheritsDialogTreeManagement
     CGuildNoticeDlgTest.IdConstantsAreDistinct
@@ -765,7 +765,7 @@ gtest_add_tests(TARGET mxh_ui_tests
 
 
 
-    # P2-12 Tier 2 dialog: cGuildInvitationKindSelectionDialog (guild invite kind)
+    # Phase C 1:1 port (dialog): cGuildInvitationKindSelectionDialog (guild invite kind)
     CGuildInvitationKindSelectionDialogTest.DefaultConstructionIsValid
     CGuildInvitationKindSelectionDialogTest.InheritsDialogTreeManagement
     CGuildInvitationKindSelectionDialogTest.IdConstantsAreDistinct
@@ -779,7 +779,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildInvitationKindSelectionDialogTest.OnActionEventUnknownIdIsNoOp
     CGuildInvitationKindSelectionDialogTest.OnActionEventAllThreeIdsInSequence
     CGuildInvitationKindSelectionDialogTest.OnActionEventBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cTipBrowserDlg (4-tab tip browser)
+    # Phase C 1:1 port (dialog): cTipBrowserDlg (4-tab tip browser)
     CTipBrowserDlgTest.DefaultConstructionIsValid
     CTipBrowserDlgTest.InheritsDialogTreeManagement
     CTipBrowserDlgTest.IdConstantsMatchExpectedLocalRange
@@ -797,7 +797,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTipBrowserDlgTest.OnActionEventBtnClickNonCancelIsNoOp
     CTipBrowserDlgTest.OnActionEventUnknownWeIsNoOp
     CTipBrowserDlgTest.OnActionEventBeforeLinkingDoesNotCrash
-    # P2-12 Tier 2 dialog: cGuildNickNameDialog (guild member nickname editor)
+    # Phase C 1:1 port (dialog): cGuildNickNameDialog (guild member nickname editor)
     CGuildNickNameDialogTest.DefaultConstructionIsValid
     CGuildNickNameDialogTest.InheritsDialogTreeManagement
     CGuildNickNameDialogTest.IdConstantsMatchExpectedLocalRange
@@ -816,7 +816,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNickNameDialogTest.SetNickMsgWithNullIsSafe
     CGuildNickNameDialogTest.SetNickMsgWithoutLinkIsSafe
     CGuildNickNameDialogTest.SetNickMsgBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cPartyInviteDlg (party invitation)
+    # Phase C 1:1 port (dialog): cPartyInviteDlg (party invitation)
     CPartyInviteDlgTest.DefaultConstructionIsValid
     CPartyInviteDlgTest.InheritsDialogTreeManagement
     CPartyInviteDlgTest.IdConstantsAreDistinct
@@ -832,7 +832,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPartyInviteDlgTest.SetMsgOverwritesPreviousText
     CPartyInviteDlgTest.SetMsgWithoutLinkIsSafe
     CPartyInviteDlgTest.SetMsgBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cNameChangeDialog (name change editor)
+    # Phase C 1:1 port (dialog): cNameChangeDialog (name change editor)
     CNameChangeDialogTest.DefaultConstructionHasZeroState
     CNameChangeDialogTest.InheritsDialogTreeManagement
     CNameChangeDialogTest.IdConstantMatchesExpectedLocalRange
@@ -853,7 +853,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CNameChangeDialogTest.NameChangeSynDoesNotChangeState
     CNameChangeDialogTest.NameChangeSynWithoutLinkIsSafe
     CNameChangeDialogTest.NameChangeSynBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cChangeJobDialog (job-change item)
+    # Phase C 1:1 port (dialog): cChangeJobDialog (job-change item)
     CChangeJobDialogTest.DefaultConstructionHasZeroState
     CChangeJobDialogTest.InheritsDialogTreeManagement
     CChangeJobDialogTest.SetItemInfoRoundTrip
@@ -865,7 +865,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChangeJobDialogTest.CancelChangeJobIsNoOpUntilSingletonsPorted
     CChangeJobDialogTest.CancelChangeJobDoesNotChangeState
     CChangeJobDialogTest.CancelChangeJobBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cGTRegistcancelDialog (tournament registration cancel)
+    # Phase C 1:1 port (dialog): cGTRegistcancelDialog (tournament registration cancel)
     CGTRegistcancelDialogTest.DefaultConstructionIsValid
     CGTRegistcancelDialogTest.InheritsDialogTreeManagement
     CGTRegistcancelDialogTest.IdConstantMatchesExpectedLocalRange
@@ -881,7 +881,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGTRegistcancelDialogTest.TournamentRegistCancelSynDoesNotChangeState
     CGTRegistcancelDialogTest.TournamentRegistCancelSynWithoutLinkIsSafe
     CGTRegistcancelDialogTest.TournamentRegistCancelSynBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cGTRegistDialog (tournament registration)
+    # Phase C 1:1 port (dialog): cGTRegistDialog (tournament registration)
     CGTRegistDialogTest.DefaultConstructionIsValid
     CGTRegistDialogTest.InheritsDialogTreeManagement
     CGTRegistDialogTest.IdConstantsAreDistinct
@@ -902,7 +902,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGTRegistDialogTest.SetRegistGuildCountIsNoOpUntilSetStaticValuePorted
     CGTRegistDialogTest.SetRegistGuildCountWithoutLinkIsSafe
     CGTRegistDialogTest.SetRegistGuildCountBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cReinforceDataGuideDlg (9-tab reinforce data guide)
+    # Phase C 1:1 port (dialog): cReinforceDataGuideDlg (9-tab reinforce data guide)
     CReinforceDataGuideDlgTest.DefaultConstructionIsValid
     CReinforceDataGuideDlgTest.InheritsDialogTreeManagement
     CReinforceDataGuideDlgTest.NumTabsIsNine
@@ -923,7 +923,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CReinforceDataGuideDlgTest.OnActionEventBtnClickNonOkIsNoOp
     CReinforceDataGuideDlgTest.OnActionEventUnknownWeIsNoOp
     CReinforceDataGuideDlgTest.OnActionEventBeforeLinkingDoesNotCrash
-    # P2-12 Tier 2 dialog: cWantRegistDialog (wanted registration editor)
+    # Phase C 1:1 port (dialog): cWantRegistDialog (wanted registration editor)
     CWantRegistDialogTest.DefaultConstructionIsValid
     CWantRegistDialogTest.InheritsDialogTreeManagement
     CWantRegistDialogTest.IdConstantsMatchExpectedLocalRange
@@ -943,7 +943,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWantRegistDialogTest.SetActiveBeforeInitDoesNotCrash
     CWantRegistDialogTest.ActionEventReturnsWeNullUntilCMousePorted
     CWantRegistDialogTest.ActionEventBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cMainDialog (main UI button bar)
+    # Phase C 1:1 port (dialog): cMainDialog (main UI button bar)
     CMainDialogTest.CtorDoesNotCrash
     CMainDialogTest.DtorDoesNotCrash
     CMainDialogTest.InheritsFromCDialog
@@ -962,7 +962,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMainDialogTest.GetPushupBtnReturnsSamePointerOnRepeatedCalls
     CMainDialogTest.MakeLinkedDialogHelperProducesValidState
     CMainDialogTest.LinkedBtnHasDefaultPushupStateFalse
-    # P2-12 Tier 2 dialog: cGuildMarkDialog (guild mark registration)
+    # Phase C 1:1 port (dialog): cGuildMarkDialog (guild mark registration)
     CGuildMarkDialogTest.CtorDoesNotCrash
     CGuildMarkDialogTest.DtorDoesNotCrash
     CGuildMarkDialogTest.InheritsFromCDialog
@@ -984,7 +984,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildMarkDialogTest.ShowGuildUnionMarkSetsInfoText
     CGuildMarkDialogTest.ShowGuildMarkAndUnionMarkAreToggleable
     CGuildMarkDialogTest.ShowGuildMarkWithoutLinkingIsSafe
-    # P2-12 Tier 2 dialog: cMPMissionDialog (event-map mission notice)
+    # Phase C 1:1 port (dialog): cMPMissionDialog (event-map mission notice)
     CMPMissionDialogTest.CtorDoesNotCrash
     CMPMissionDialogTest.DtorDoesNotCrash
     CMPMissionDialogTest.InheritsFromCDialog
@@ -1207,7 +1207,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 
-    # P2-12 Tier 2 dialog: cPKLootingDialog (PK loot dialog)
+    # Phase C 1:1 port (dialog): cPKLootingDialog (PK loot dialog)
     CPKLootingDialog.DefaultConstructionHasNullPointers
     CPKLootingDialog.InheritsDialogTreeManagement
     CPKLootingDialog.ConstantsAreStable
@@ -1233,7 +1233,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPKLootingDialog.ActionEventDelayedShow
     CPKLootingDialog.RenderIsNoop
     CPKLootingDialog.LootItemKindEnumValues
-    # P2-12 Tier 2 dialog: cSkinSelectDialog (skin-select dialog)
+    # Phase C 1:1 port (dialog): cSkinSelectDialog (skin-select dialog)
     CSkinSelectDialog.DefaultConstructionHasNullPointers
     CSkinSelectDialog.InheritsDialogTreeManagement
     CSkinSelectDialog.ConstantsAreStable
@@ -1257,7 +1257,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSkinSelectDialog.SetSkinDelayResultRoundTrip
     CSkinSelectDialog.SkinItemListInfoEmpty
     CSkinSelectDialog.DestructorNullSafe
-    # P2-12 Tier 1.5 subcontrol: cComboBox (combo with dropdown)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cComboBox (combo with dropdown)
     CComboBox.DefaultConstruction
     CComboBox.InheritsCWindow
     CComboBox.InitComboListStoresImages
@@ -1283,7 +1283,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CComboBox.ListMouseCheckLeftDownSetsCurSelectedIdx
     CComboBox.ListMouseCheckHoverOnlySetsOverIdx
     CComboBox.ListMouseCheckNoHitResetsSelection
-    # P2-12 Tier 2 dialog: cStallFindDlg (street-stall item search)
+    # Phase C 1:1 port (dialog): cStallFindDlg (street-stall item search)
     CStallFindDlg.DefaultConstructionIsValid
     CStallFindDlg.InheritsDialogTreeManagement
     CStallFindDlg.ConstantsAreStable
@@ -1328,7 +1328,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStallFindDlg.SetSearchedAllRoundTrip
     CStallFindDlg.SetStallInfoForTestingOutOfRangeIgnored
     CStallFindDlg.RenderIsNoop
-    # P2-12 Tier 1.5 subcontrol: cPage (help-dialog page data model)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cPage (help-dialog page data model)
     CPageBase.DefaultConstruction
     CPageBase.InitSetsPageId
     CPageBase.AddDialogueAppends
@@ -1345,7 +1345,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPage.AddNullHyperlinkIsSafe
     CPage.InheritsPageBaseBehavior
     CPage.MultipleHyperlinks
-    # P2-12 Tier 1.5 subcontrol: cDialogueList (NPC dialogue data)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cDialogueList (NPC dialogue data)
     CDialogueList.DefaultConstruction
     CDialogueList.InheritsBaselineApi
     CDialogueList.ColorSetterRoundTrip
@@ -1365,7 +1365,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPGuageDialogTest.ShowEventMapSetsTitle
     CMPGuageDialogTest.ShowEventMapActivatesDialog
     CMPGuageDialogTest.ShowEventMapWithoutLinkingIsSafe
-    # P2-12 Tier 2 dialog: cUnionNoteDlg (guild union note sender)
+    # Phase C 1:1 port (dialog): cUnionNoteDlg (guild union note sender)
     CUnionNoteDlgTest.CtorDoesNotCrash
     CUnionNoteDlgTest.DtorDoesNotCrash
     CUnionNoteDlgTest.InheritsFromCDialog
@@ -1385,7 +1385,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CUnionNoteDlgTest.UseWithoutLinkingIsSafe
     CUnionNoteDlgTest.OnActionEventIsNoOp
     CUnionNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cAutoNoteDlg (auto note / auto reply)
+    # Phase C 1:1 port (dialog): cAutoNoteDlg (auto note / auto reply)
     CAutoNoteDlgTest.CtorDoesNotCrash
     CAutoNoteDlgTest.DtorDoesNotCrash
     CAutoNoteDlgTest.InheritsFromCDialog
@@ -1409,7 +1409,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CAutoNoteDlgTest.SetActiveTestClientWithoutLinkingIsSafe
     CAutoNoteDlgTest.OnActionEventIsNoOp
     CAutoNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cMPRegistDialog (MP practice registration)
+    # Phase C 1:1 port (dialog): cMPRegistDialog (MP practice registration)
     CMPRegistDialogTest.DefaultConstructionIsValid
     CMPRegistDialogTest.InheritsIconDialogCellLayout
     CMPRegistDialogTest.LocalIdConstantsMatchExpectedRange
@@ -1438,7 +1438,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPRegistDialogTest.AddLinkOnUnlinkedDialogIsSafe
     CMPRegistDialogTest.GetMugongReturnsNull
     CMPRegistDialogTest.GetMugongOnUnlinkedDialogReturnsNull
-    # P2-12 Tier 1.5 subcontrol: cHyperTextList (DIALOGUE hash table for help links)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cHyperTextList (DIALOGUE hash table for help links)
     CHyperTextList.DefaultConstructionIsEmpty
     CHyperTextList.InheritsBaselineApi
     CHyperTextList.AddEntryAppends
@@ -1455,7 +1455,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CHyperTextList.ManyEntriesPreserveLookup
     CHyperTextList.NonContiguousKeysSupported
     CHyperTextList.NotCopyable
-    # P2-12 Tier 2 dialog: cHelpDialog (in-game help browser)
+    # Phase C 1:1 port (dialog): cHelpDialog (in-game help browser)
     CHelpDialog.DefaultConstructionIsValid
     CHelpDialog.InheritsDialogTreeManagement
     CHelpDialog.ConstantsAreStable
@@ -1480,7 +1480,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CHelpDialog.GetHyperAtOutOfRangeReturnsNull
     CHelpDialog.OpenDialogWithoutListDlgIsSafe
     CHelpDialog.NotCopyable
-    # P2-12 Tier 1.5 subcontrol: cObjectGuagen (object gauge with effect-time interp)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cObjectGuagen (object gauge with effect-time interp)
     CObjectGuagenTest.CtorDoesNotCrash
     CObjectGuagenTest.DtorDoesNotCrash
     CObjectGuagenTest.InheritsFromCGuagen
@@ -1505,7 +1505,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CObjectGuagenTest.SetGuageEffectPieceHeightScaleUpdatesGetter
     CObjectGuagenTest.SetBlinkTogglesState
     CObjectGuagenTest.SetGuageEffectPieceWidthAndHeightScaleCoexist
-    # P2-12 Tier 2 dialog: cProgressBarDlg (base progress bar dialog)
+    # Phase C 1:1 port (dialog): cProgressBarDlg (base progress bar dialog)
     CProgressBarDlgTest.CtorDoesNotCrash
     CProgressBarDlgTest.DtorDoesNotCrash
     CProgressBarDlgTest.InheritsFromCDialog
@@ -1533,7 +1533,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CProgressBarDlgTest.SetRemaintimeStaticUpdatesGetter
     CProgressBarDlgTest.SetProgressGuagenWithNullptr
     CProgressBarDlgTest.SetRemaintimeStaticWithNullptr
-    # P2-12 Tier 2 dialog: cTitanMixProgressBarDlg (titan-mix progress bar)
+    # Phase C 1:1 port (dialog): cTitanMixProgressBarDlg (titan-mix progress bar)
     CTitanMixProgressBarDlgTest.CtorDoesNotCrash
     CTitanMixProgressBarDlgTest.DtorDoesNotCrash
     CTitanMixProgressBarDlgTest.InheritsFromCProgressBarDlg
@@ -1547,7 +1547,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CTitanMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
     CTitanMixProgressBarDlgTest.SuccessProcessIsNoOp
-    # P2-12 Tier 2 dialog: cTitanPartsProgressBarDlg (titan-parts make progress)
+    # Phase C 1:1 port (dialog): cTitanPartsProgressBarDlg (titan-parts make progress)
     CTitanPartsProgressBarDlgTest.CtorDoesNotCrash
     CTitanPartsProgressBarDlgTest.DtorDoesNotCrash
     CTitanPartsProgressBarDlgTest.InheritsFromCProgressBarDlg
@@ -1559,7 +1559,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanPartsProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
     CTitanPartsProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CTitanPartsProgressBarDlgTest.OnActionEventBeforeInitIsSafe
-    # P2-12 Tier 2 dialog: cUniqueItemMixProgressBarDlg (unique-item mix progress)
+    # Phase C 1:1 port (dialog): cUniqueItemMixProgressBarDlg (unique-item mix progress)
     CUniqueItemMixProgressBarDlgTest.CtorDoesNotCrash
     CUniqueItemMixProgressBarDlgTest.DtorDoesNotCrash
     CUniqueItemMixProgressBarDlgTest.InheritsFromCProgressBarDlg
@@ -1571,7 +1571,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CUniqueItemMixProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
     CUniqueItemMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CUniqueItemMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
-    # P2-12 Tier 2 dialog: cTitanRecallDlg (titan recall progress bar)
+    # Phase C 1:1 port (dialog): cTitanRecallDlg (titan recall progress bar)
     CTitanRecallDlgTest.CtorDoesNotCrash
     CTitanRecallDlgTest.DtorDoesNotCrash
     CTitanRecallDlgTest.InheritsFromCProgressBarDlg
@@ -1588,7 +1588,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanRecallDlgTest.RenderIsNoOp
     CTitanRecallDlgTest.RenderBeforeInitDoesNotCrash
     CTitanRecallDlgTest.SetSuccessRecallToggles
-    # P2-12 Tier 2 dialog: cGuildNoteDlg (guild note sender)
+    # Phase C 1:1 port (dialog): cGuildNoteDlg (guild note sender)
     CGuildNoteDlgTest.CtorDoesNotCrash
     CGuildNoteDlgTest.DtorDoesNotCrash
     CGuildNoteDlgTest.InheritsFromCDialog
@@ -1607,7 +1607,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoteDlgTest.UseWithoutLinkingIsSafe
     CGuildNoteDlgTest.OnActionEventIsNoOp
     CGuildNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cPointSaveDialog (map save-point name editor)
+    # Phase C 1:1 port (dialog): cPointSaveDialog (map save-point name editor)
     CPointSaveDialogTest.CtorDoesNotCrash
     CPointSaveDialogTest.DtorDoesNotCrash
     CPointSaveDialogTest.InheritsFromCDialog
@@ -1628,7 +1628,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPointSaveDialogTest.SetDialogStatusToggles
     CPointSaveDialogTest.ChangePointNameIsNoOp
     CPointSaveDialogTest.CancelPointNameIsNoOp
-    # P2-12 Tier 2 dialog: cSurvivalCountDialog (survival-mode alive counter)
+    # Phase C 1:1 port (dialog): cSurvivalCountDialog (survival-mode alive counter)
     CSurvivalCountDialogTest.CtorDoesNotCrash
     CSurvivalCountDialogTest.DtorDoesNotCrash
     CSurvivalCountDialogTest.InheritsFromCDialog
@@ -1656,7 +1656,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSurvivalCountDialogTest.SetWinnerNameWithNullFallsBack
     CSurvivalCountDialogTest.SetWinnerNameOverwritesPrevious
     CSurvivalCountDialogTest.SetWinnerNameWithoutLinkingIsSafe
-    # P2-12 Tier 2 dialog: cShoutchatDialog (shout chat log)
+    # Phase C 1:1 port (dialog): cShoutchatDialog (shout chat log)
     CShoutchatDialogTest.CtorDoesNotCrash
     CShoutchatDialogTest.DtorDoesNotCrash
     CShoutchatDialogTest.InheritsFromCDialog
@@ -1677,7 +1677,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutchatDialogTest.SetActiveBeforeInitDoesNotCrash
     CShoutchatDialogTest.ProcessIsNoOp
     CShoutchatDialogTest.RefreshPositionIsNoOp
-    # P2-12 Tier 2 dialog: cGuildLevelUpDialog (guild level-up markers)
+    # Phase C 1:1 port (dialog): cGuildLevelUpDialog (guild level-up markers)
     CGuildLevelUpDialog.ConstantsAreLegacySized
     CGuildLevelUpDialog.DefaultCtorLeavesCurrentLevelAtZero
     CGuildLevelUpDialog.AccessorRejectsOutOfRange
@@ -1695,7 +1695,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildLevelUpDialog.SetActiveTrueWithoutPriorLevelIsNoOp
     CGuildLevelUpDialog.SetActiveFalseDelegatesToBase
     CGuildLevelUpDialog.SetActiveFalseAfterLevelPreservesState
-    # P2-12 Tier 2 dialog: cGuildLevelUpDialog (guild level + tier markers)
+    # Phase C 1:1 port (dialog): cGuildLevelUpDialog (guild level + tier markers)
     CGuildLevelUpDialog.ConstantsAreLegacySized
     CGuildLevelUpDialog.DefaultCtorLeavesCurrentLevelAtZero
     CGuildLevelUpDialog.AccessorRejectsOutOfRange
@@ -1713,7 +1713,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildLevelUpDialog.SetActiveTrueWithoutPriorLevelIsNoOp
     CGuildLevelUpDialog.SetActiveFalseDelegatesToBase
     CGuildLevelUpDialog.SetActiveFalseAfterLevelPreservesState
-    # P2-12 Tier 2 dialog: cMNChannelDialog (MurimNet channel selection)
+    # Phase C 1:1 port (dialog): cMNChannelDialog (MurimNet channel selection)
     CMNChannelDialog.NumModesMatchesLegacyEnum
     CMNChannelDialog.DefaultChannelModeIsId
     CMNChannelDialog.ChildrenNullBeforeLinking
@@ -1740,7 +1740,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMNChannelDialog.SetChannelModeActivatesSelectedList
     CMNChannelDialog.SetChannelModeRejectsOutOfRange
     CMNChannelDialog.SetChannelModeSwitchesMode
-    # P2-12 Tier 2 dialogs: CFWEngraveDialog + CFWTimeDialog (FortWar)
+    # Phase C 1:1 port (dialog): CFWEngraveDialog + CFWTimeDialog (FortWar)
     CFWEngraveDialog.DefaultProcessTimeIsZero
     CFWEngraveDialog.ChildrenNullBeforeLinking
     CFWEngraveDialog.LinkingMaterializesBothChildren
@@ -1764,7 +1764,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CFWTimeDialog.SetCharacterNameBeforeLinkingIsNoOp
     CFWTimeDialog.ActionEventOnDisabledDialogReturnsZero
     CFWTimeDialog.ActionEventOnEnabledDialogDoesNotCrash
-    # P2-12 Tier 2 dialog: cSkillPointNotify (skill-point reset notice)
+    # Phase C 1:1 port (dialog): cSkillPointNotify (skill-point reset notice)
     CSkillPointNotify.IdConstantsAreLegacy
     CSkillPointNotify.ChildrenNullBeforeLinking
     CSkillPointNotify.LinkingMaterializesAllThreeChildren
@@ -1774,7 +1774,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSkillPointNotify.InitTextAreaDefensiveBeforeLinking
     CSkillPointNotify.InitTextAreaCanBeCalledMultipleTimes
     CSkillPointNotify.NotActiveByDefault
-    # P2-12 Tier 1.5 sub-widget: cSpin (numeric spin control)
+    # Phase C 1:1 port (1.5 subcontrol/sub-widget): cSpin (numeric spin control)
     CSpin.DefaultConstructionHasZeroChildren
     CSpin.DefaultValueIsZero
     CSpin.InitStoresConfig
@@ -1800,7 +1800,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSpin.AddBothButtonsInOrder
     CSpin.AddUpButtonTwiceIsIdempotent
     CSpin.AddNullButtonIsSafe
-    # P2-12 Tier 2 dialog: cMoneyDlg (money-amount picker)
+    # Phase C 1:1 port (dialog): cMoneyDlg (money-amount picker)
     CMoneyDlg.IdConstantMatchesLegacyCmiMoneyspinRange
     CMoneyDlg.DefaultConstructionHasNoSpin
     CMoneyDlg.DefaultIsNotActive
@@ -1819,7 +1819,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMoneyDlg.OkPushedWithoutCallbackSendsByDefault
     CMoneyDlg.OkPushedCallbackReturningFalseSkipsSend
     CMoneyDlg.OkPushedCallbackReturningTrueProceeds
-    # P2-12 Tier 2 dialog: cPetStateMiniDlg (pet state UI)
+    # Phase C 1:1 port (dialog): cPetStateMiniDlg (pet state UI)
     CPetStateMiniDlg.IdConstantsMatchLocalRange
     CPetStateMiniDlg.AllIdsAreDistinct
     CPetStateMiniDlg.DefaultConstructionHasNullPointers
@@ -1833,7 +1833,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPetStateMiniDlg.OnActionEventUseRestBtnWithNoPetIsNoOp
     CPetStateMiniDlg.OnActionEventUnknownIdIsNoOp
     CPetStateMiniDlg.OnActionEventBeforeLinkingIsSafe
-    # P2-12 Tier 2 dialog: cGuageDialog (mussang guage UI)
+    # Phase C 1:1 port (dialog): cGuageDialog (mussang guage UI)
     CGuageDialog.IdConstantsMatchLocalRange
     CGuageDialog.DefaultConstructionHasNullPointersAndFalseFlags
     CGuageDialog.LinkingMaterializesMussangButtonAndFlicker
@@ -1852,7 +1852,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuageDialog.FlickerSwapsAfterThreshold
     CGuageDialog.FlickerDoubleSwapTogglesBackToFalse
     CGuageDialog.FlickerNoOpWhenInactive
-    # P2-12 Tier 2 dialog: cMunpaMarkDialog (guild mark UI)
+    # Phase C 1:1 port (dialog): cMunpaMarkDialog (guild mark UI)
     CMunpaMarkDialog.DefaultConstructionHasNullMark
     CMunpaMarkDialog.InitStoresDimensions
     CMunpaMarkDialog.InitDoesNotAssignMunpamark
@@ -1864,7 +1864,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMunpaMarkDialog.RenderMultipleCallsInvokeMarkEachTime
     CMunpaMarkDialog.RenderThenClearMarkSkipsMark
     CMunpaMarkDialog.InitDefaultIdIsZero
-    # P2-12 Tier 2 dialog: cTitanGuageDlg (titan HP guage UI)
+    # Phase C 1:1 port (dialog): cTitanGuageDlg (titan HP guage UI)
     CTitanGuageDlg.IdConstantsMatchLocalRange
     CTitanGuageDlg.DefaultConstructionHasNullChildren
     CTitanGuageDlg.DefaultStatsHasZeroMaxFuel
