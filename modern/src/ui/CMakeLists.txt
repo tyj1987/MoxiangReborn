@@ -193,6 +193,7 @@ add_library(mxh_ui STATIC
     monsterguagedlg.cpp
     ccharacterdialog.cpp
     ctitanchangepreviewdlg.cpp
+    cmousepointer.cpp
 )
 
 if(WIN32)

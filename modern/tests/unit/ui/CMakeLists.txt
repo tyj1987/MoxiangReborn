@@ -190,6 +190,7 @@ add_executable(mxh_ui_tests
     cchatdialog_test.cpp
     ccharacterdialog_test.cpp
     ctitanchangepreviewdlg_test.cpp
+    cmousepointer_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1211,6 +1212,35 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanChangePreViewDlgTest.WindowIdIsAcceptedByInit
     CTitanChangePreViewDlgTest.SetVisibleToggle
     CTitanChangePreViewDlgTest.SetAbsXYChangesPosition
+    # Phase C 1:1 port: cMousePointer (cursor / monster-target pointer)
+    CMousePointerTest.CtorDoesNotCrash
+    CMousePointerTest.DtorDoesNotCrash
+    CMousePointerTest.InheritsFromCDialog
+    CMousePointerTest.IsAlsoAWindow
+    CMousePointerTest.NonCopyable
+    CMousePointerTest.MultipleInstancesAreSafe
+    CMousePointerTest.DefaultAniMembersAreNull
+    CMousePointerTest.InitStoresPositionAndSize
+    CMousePointerTest.InitIsIdempotent
+    CMousePointerTest.InitBeforeAnyStateChangeDoesNotCrash
+    CMousePointerTest.LinkingAfterInitDoesNotCrash
+    CMousePointerTest.LinkingBeforeInitDoesNotCrash
+    CMousePointerTest.LinkingMultipleTimesIsSafe
+    CMousePointerTest.LinkingWithNullAniMembersIsSafe
+    CMousePointerTest.MonsterAttackDoesNotCrash
+    CMousePointerTest.MonsterMouseOverDoesNotCrash
+    CMousePointerTest.MonsterLeaveDoesNotCrash
+    CMousePointerTest.MonsterAttackBeforeInitIsSafe
+    CMousePointerTest.MonsterMouseOverBeforeLinkingIsSafe
+    CMousePointerTest.MonsterLeaveBeforeAnyStateIsSafe
+    CMousePointerTest.MonsterEntryPointsInAnyOrder
+    CMousePointerTest.SetAniBasicForTestStoresPointer
+    CMousePointerTest.SetAniClickForTestStoresPointer
+    CMousePointerTest.SetAniForTestToNullResets
+    CMousePointerTest.MonsterEntryPointsSafeWithInjectedAnis
+    CMousePointerTest.MouseBasicIdConstantMatchesLegacyEnum
+    CMousePointerTest.MouseClickIdConstantMatchesLegacyEnum
+    CMousePointerTest.ChildIdsAreDistinct
     # Phase C 1:1 port: cShoutDialog (shout message sender)
     CShoutDialogTest.DefaultConstructionHasZeroState
     CShoutDialogTest.InheritsDialogTreeManagement
