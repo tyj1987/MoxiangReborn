@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.7 完成（cNameChangeNotifyDlg，+24 tests，UI 套件 2338 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 合计 7 个 dialog（cMPGuageDialog + cAlertDlg + cChinaAdviceDlg + cLoadingDlg + cKeySettingTipDlg + cIntroReplayDlg + cNameChangeNotifyDlg）。
+> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.8 完成（test registration cleanup，+13 tests via CShoutDialogTest，UI 套件 2351 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 合计 7 个 dialog + Batch 2.8 修复 3 个未注册 test 文件（pklootingdialog + pointsavedialog + shoutdialog）。
 
 ---
 

@@ -155,6 +155,7 @@ add_executable(mxh_ui_tests
     survivalcountdialog_test.cpp
     cdebugdlg_test.cpp
     shoutchatdialog_test.cpp
+    shoutdialog_test.cpp
     guildlevelupdialog_test.cpp
     mnchanneldialog_test.cpp
     fortwartimedialog_test.cpp
@@ -1189,6 +1190,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CNameChangeNotifyDlgTest.FindWindowByIdReturnsNullWhenMissing
     CNameChangeNotifyDlgTest.IsAutoCloseDefaultsFalse
     CNameChangeNotifyDlgTest.RequestCloseLatchesTrue
+    # Phase C 1:1 port: cShoutDialog (shout message sender)
+    CShoutDialogTest.DefaultConstructionHasZeroState
+    CShoutDialogTest.InheritsDialogTreeManagement
+    CShoutDialogTest.IdConstantMatchesExpectedLocalRange
+    CShoutDialogTest.LinkingResolvesEditBox
+    CShoutDialogTest.LinkingWithoutChildrenDoesNotCrash
+    CShoutDialogTest.LinkingBeforeInitDoesNotCrash
+    CShoutDialogTest.SetItemInfoRoundTrip
+    CShoutDialogTest.SetItemInfoOverridesPrevious
+    CShoutDialogTest.SetItemInfoZeroIsValid
+    CShoutDialogTest.SendShoutMsgSynReturnsFalseUntilSingletonsPorted
+    CShoutDialogTest.SendShoutMsgSynDoesNotChangeState
+    CShoutDialogTest.SendShoutMsgSynWithoutLinkIsSafe
+    CShoutDialogTest.SendShoutMsgSynBeforeInitDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 
