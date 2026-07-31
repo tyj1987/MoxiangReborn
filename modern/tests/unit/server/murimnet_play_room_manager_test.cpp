@@ -1,0 +1,10 @@
+#include "mxh/server/murimnet_play_room_manager.hpp"
+#include <gtest/gtest.h>
+using namespace mxh::server;
+static MnPlayRoomCreateInfo custom(){MnPlayRoomCreateInfo i;i.title="custom";i.max_players_per_team=1;i.max_observers=1;return i;}
+TEST(MurimNetPlayRoomManager, InitCreatesDefaultRoom){MurimNetPlayRoomManager m;ASSERT_TRUE(m.init(3));ASSERT_NE(m.default_room(),nullptr);EXPECT_EQ(m.default_room()->room_index(),1u);EXPECT_EQ(m.room_count(),1u);}
+TEST(MurimNetPlayRoomManager, CapacityAndLookup){MurimNetPlayRoomManager m;ASSERT_TRUE(m.init(2));auto* second=m.create_room(custom());ASSERT_NE(second,nullptr);EXPECT_EQ(second,m.get_room(2));EXPECT_EQ(m.create_room(custom()),nullptr);EXPECT_EQ(m.room_count(),2u);}
+TEST(MurimNetPlayRoomManager, DeleteReusesLowestIndex){MurimNetPlayRoomManager m;ASSERT_TRUE(m.init(3));auto* second=m.create_room(custom());auto* third=m.create_room(custom());ASSERT_NE(second,nullptr);ASSERT_NE(third,nullptr);ASSERT_TRUE(m.delete_room(2));auto* replacement=m.create_room(custom());ASSERT_NE(replacement,nullptr);EXPECT_EQ(replacement->room_index(),2u);}
+TEST(MurimNetPlayRoomManager, EnterAndExitRouteByLocationIndex){MurimNetPlayRoomManager m;ASSERT_TRUE(m.init(2));MnRoomPlayer p{10};ASSERT_TRUE(m.enter_room(p,1));EXPECT_EQ(p.location_index,1u);EXPECT_TRUE(m.exit_room(p));EXPECT_EQ(p.location_index,0u);EXPECT_FALSE(m.exit_room(p));}
+TEST(MurimNetPlayRoomManager, DeleteRoomReleasesPlayers){MurimNetPlayRoomManager m;ASSERT_TRUE(m.init(2));auto* room=m.create_room(custom());ASSERT_NE(room,nullptr);MnRoomPlayer p{10};ASSERT_TRUE(m.enter_room(p,room->room_index()));ASSERT_TRUE(m.delete_room(room->room_index()));EXPECT_EQ(p.location,MnPlayerLocation::None);EXPECT_EQ(m.room_count(),1u);}
+TEST(MurimNetPlayRoomManager, ReleaseClearsAllRooms){MurimNetPlayRoomManager m;ASSERT_TRUE(m.init(2));ASSERT_NE(m.create_room(custom()),nullptr);m.release();EXPECT_EQ(m.room_count(),0u);EXPECT_EQ(m.default_room(),nullptr);EXPECT_EQ(m.max_rooms(),0u);}

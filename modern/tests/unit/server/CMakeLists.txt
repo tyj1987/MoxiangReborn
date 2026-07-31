@@ -1925,3 +1925,7 @@ gtest_add_tests(TARGET mxh_wire_format_coverage_tests
 add_executable(mxh_murimnet_play_room_tests murimnet_play_room_test.cpp)
 target_link_libraries(mxh_murimnet_play_room_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_murimnet_play_room_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_murimnet_play_room_manager_tests murimnet_play_room_manager_test.cpp)
+target_link_libraries(mxh_murimnet_play_room_manager_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_murimnet_play_room_manager_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
