@@ -29,6 +29,7 @@ bool MurimNetChannellingManager::join(std::uint32_t channel_id, std::uint32_t pl
     if (player_id == 0) return false;
     for (auto& c : channels_) {
         if (c.id == channel_id) {
+            if (c.state != MnChannelState::Active) return false;
             if (c.players.size() >= MXH_MN_MAX_PLAYERS) return false;
             if (std::find(c.players.begin(), c.players.end(), player_id) != c.players.end())
                 return false;
@@ -54,7 +55,7 @@ bool MurimNetChannellingManager::leave(std::uint32_t channel_id, std::uint32_t p
 
 bool MurimNetChannellingManager::send_message(const MnChatMessage& m) noexcept {
     if (m.channel_id == 0) return false;
-    auto exists = [&]{ for (auto& c : channels_) if (c.id == m.channel_id) return true; return false; }();
+    auto exists = [&]{ for (const auto& c : channels_) if (c.id == m.channel_id && c.state == MnChannelState::Active) return true; return false; }();
     if (!exists) return false;
     MnChatMessage msg = m;
     messages_.push_back(msg);

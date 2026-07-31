@@ -1,4 +1,4 @@
-﻿// murimnet_channelling_manager_test.cpp
+// murimnet_channelling_manager_test.cpp
 
 #include "mxh/server/murimnet_channelling_manager.hpp"
 #include <gtest/gtest.h>
@@ -82,4 +82,17 @@ TEST(MurimNetChat, RejectsBadInputs) {
     MurimNetChat chat;
     EXPECT_FALSE(chat.send(0, 7, "no sender", 1));
     EXPECT_FALSE(chat.send(1, 7, "", 1));
+}
+
+TEST(MurimNetChannelling, ClosingChannelRejectsJoinAndMessages) {
+    MurimNetChannellingManager mn;
+    auto id = mn.create_channel(10);
+    EXPECT_TRUE(mn.leave(id, 10));
+    EXPECT_EQ(mn.state(id), MnChannelState::Closing);
+    EXPECT_FALSE(mn.join(id, 20));
+    MnChatMessage message{};
+    message.sender_id = 20;
+    message.channel_id = id;
+    EXPECT_FALSE(mn.send_message(message));
+    EXPECT_TRUE(mn.destroy_channel(id));
 }
