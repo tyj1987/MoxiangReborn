@@ -115,7 +115,7 @@ add_executable(mxh_ui_tests
     cchinaadvicedlg_test.cpp
     introreplaydlg_test.cpp
     keysettingtipdlg_test.cpp
-    loadingdlg_test.cpp
+    cloadingdlg_test.cpp
     namechangenotifydlg_test.cpp
     guildinvitationkindselectiondialog_test.cpp
     tipbrowserdlg_test.cpp
@@ -778,10 +778,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CKeySettingTipDlgTest.LinkingBeforeInitDoesNotCrash
     CKeySettingTipDlgTest.LinkingIsIdempotent
     CKeySettingTipDlgTest.RenderIsNoOp
-    # P2-12 Tier 2 dialog: cLoadingDlg (loading screen placeholder)
-    CLoadingDlgTest.DefaultConstructionIsValid
-    CLoadingDlgTest.InheritsDialogTreeManagement
-    CLoadingDlgTest.SetActiveToggleRoundTrip
+
     # P2-12 Tier 2 dialog: cNameChangeNotifyDlg (name change placeholder)
     CNameChangeNotifyDlgTest.DefaultConstructionIsValid
     CNameChangeNotifyDlgTest.InheritsDialogTreeManagement
@@ -1092,6 +1089,39 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChinaAdviceDlgTest.OnActionEventBeforeLinkingDoesNotCrash
     CChinaAdviceDlgTest.OnActionEventBeforeInitDoesNotCrash
     CChinaAdviceDlgTest.OnActionEventWithBtnClickIsNoOp
+    # Phase C 1:1 port: cLoadingDlg (loading screen placeholder)
+    CLoadingDlgTest.CtorDoesNotCrash
+    CLoadingDlgTest.DtorDoesNotCrash
+    CLoadingDlgTest.InheritsFromCDialog
+    CLoadingDlgTest.NonCopyable
+    CLoadingDlgTest.IsAlsoAWindow
+    CLoadingDlgTest.InheritsInitPositionSize
+    CLoadingDlgTest.InheritsInitId
+    CLoadingDlgTest.InheritsInitNotActive
+    CLoadingDlgTest.InheritsInitVisible
+    CLoadingDlgTest.InheritsInitEnabled
+    CLoadingDlgTest.InheritsDefaultAlpha
+    CLoadingDlgTest.SetActiveToggle
+    CLoadingDlgTest.SetAbsXYChangesPosition
+    CLoadingDlgTest.SetRelXYChangesRelative
+    CLoadingDlgTest.SetWHChangesSize
+    CLoadingDlgTest.SetVisibleToggle
+    CLoadingDlgTest.SetEnabledToggle
+    CLoadingDlgTest.SetDisableIsAliasForSetEnabled
+    CLoadingDlgTest.SetAlphaStoresValue
+    CLoadingDlgTest.SetOptionAlphaStoresValue
+    CLoadingDlgTest.SetCaptionRectStoresBounds
+    CLoadingDlgTest.PtInCaptionReturnsTrueInside
+    CLoadingDlgTest.PtInCaptionReturnsFalseOutside
+    CLoadingDlgTest.AddChildStoresInTree
+    CLoadingDlgTest.FindWindowByIdReturnsSelfWhenMatching
+    CLoadingDlgTest.FindWindowByIdReturnsNullWhenMissing
+    CLoadingDlgTest.IsAutoCloseDefaultsFalse
+    CLoadingDlgTest.SetAutoCloseStoresValue
+    CLoadingDlgTest.RequestCloseDefaultsFalse
+    CLoadingDlgTest.RequestCloseLatchesTrue
+    CLoadingDlgTest.InitIsIdempotent
+    CLoadingDlgTest.InitBeforeStateChangeDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 
