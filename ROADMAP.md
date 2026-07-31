@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.6 完成（cIntroReplayDlg，+25 tests，UI 套件 2317 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6 合计 6 个 dialog（cMPGuageDialog + cAlertDlg + cChinaAdviceDlg + cLoadingDlg + cKeySettingTipDlg + cIntroReplayDlg）。
+> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.7 完成（cNameChangeNotifyDlg，+24 tests，UI 套件 2338 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 合计 7 个 dialog（cMPGuageDialog + cAlertDlg + cChinaAdviceDlg + cLoadingDlg + cKeySettingTipDlg + cIntroReplayDlg + cNameChangeNotifyDlg）。
 
 ---
 
@@ -44,7 +44,7 @@
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
 | 资源兼容层（`.bin/.pak/.bmhm/.ttb/.chx/.chr/.bsad`） | **100%** | 254 src / 153 test / 2536 tests PASS | T1 部分验证（资源浏览器能解析） |
-| UI 控件 1:1 port（dialog + subcontrol） | **114/158 hpp（70 missing，Phase C Batch 1.10 完成 10/10 + Batch 2.1+2.2+2.3+2.4+2.5+2.6 完成 6 个）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cPartyWarDialog / cWantedDialog / cMPNoticeDialog / cReviveDialog / cMiniFriendDialog / cGuildInviteDialog / cChatOptionDialog / cStallKindSelectDlg / cDebugDlg / cMPGuageDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（21 个，331 tests）；Batch 2.1+2.2+2.3+2.4+2.5+2.6 完成 cMPGuageDialog + cAlertDlg + cChinaAdviceDlg + cLoadingDlg + cKeySettingTipDlg + cIntroReplayDlg（6 个，186 tests）；剩 69 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
+| UI 控件 1:1 port（dialog + subcontrol） | **115/158 hpp（69 missing，Phase C Batch 1.10 完成 10/10 + Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 完成 7 个）** | 老 client 158 dialog / modern 109 hpp（含 subcontrol+core）；Batch 1 已完成 cNumberPadDialog / cPartyWarDialog / cWantedDialog / cMPNoticeDialog / cReviveDialog / cMiniFriendDialog / cGuildInviteDialog / cChatOptionDialog / cStallKindSelectDlg / cDebugDlg / cMPGuageDialog / cMiniNoteDialog / cNoteDialog / cAutoAnswerDlg / cStatusIconDlg / cScreenShotDlg / cOptionDialog / cChannelDialog / cJournalDialog / cHelperSpeechDlg / cCostumeSkinSelectDialog（21 个，331 tests）；Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 完成 cMPGuageDialog + cAlertDlg + cChinaAdviceDlg + cLoadingDlg + cKeySettingTipDlg + cIntroReplayDlg + cNameChangeNotifyDlg（7 个，210 tests）；剩 68 个老 dialog 待 1:1 port | T3 1:1 行为锁死 |
 | 数据库抽象（MSSQL/SQLite） | **100%** | 两套 adapter + 真实数据 schema | T1 DB 字段级 1:1 |
 | 加密（AES-256-GCM + HSEL 接口） | **100%** | OpenSSL EVP，HSEL 签名保留 | T2 协议包加密 1:1 |
 | 网络（Asio + IOCP） | **100%** | 跨平台就绪 | T2 协议收发 1:1 |

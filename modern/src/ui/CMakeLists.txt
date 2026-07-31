@@ -63,7 +63,7 @@ add_library(mxh_ui STATIC
     cintroreplaydlg.cpp
     ckeysettingtipdlg.cpp
     cloadingdlg.cpp
-    namechangenotifydlg.cpp
+    cnamechangenotifydlg.cpp
     guildinvitationkindselectiondialog.cpp
     tipbrowserdlg.cpp
     guildnicknamedialog.cpp

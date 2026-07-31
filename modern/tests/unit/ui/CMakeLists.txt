@@ -116,7 +116,7 @@ add_executable(mxh_ui_tests
     cintroreplaydlg_test.cpp
     ckeysettingtipdlg_test.cpp
     cloadingdlg_test.cpp
-    namechangenotifydlg_test.cpp
+    cnamechangenotifydlg_test.cpp
     guildinvitationkindselectiondialog_test.cpp
     tipbrowserdlg_test.cpp
     guildnicknamedialog_test.cpp
@@ -763,10 +763,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoticeDlgTest.OnActionEventBeforeLinkingDoesNotCrash
 
 
-    # P2-12 Tier 2 dialog: cNameChangeNotifyDlg (name change placeholder)
-    CNameChangeNotifyDlgTest.DefaultConstructionIsValid
-    CNameChangeNotifyDlgTest.InheritsDialogTreeManagement
-    CNameChangeNotifyDlgTest.SetActiveToggleRoundTrip
+
     # P2-12 Tier 2 dialog: cGuildInvitationKindSelectionDialog (guild invite kind)
     CGuildInvitationKindSelectionDialogTest.DefaultConstructionIsValid
     CGuildInvitationKindSelectionDialogTest.InheritsDialogTreeManagement
@@ -1167,6 +1164,31 @@ gtest_add_tests(TARGET mxh_ui_tests
     CIntroReplayDlgTest.FindWindowByIdReturnsSelfWhenMatching
     CIntroReplayDlgTest.RequestCloseLatchesTrue
     CIntroReplayDlgTest.IsAutoCloseStoresValue
+    # Phase C 1:1 port: cNameChangeNotifyDlg (name change notification placeholder)
+    CNameChangeNotifyDlgTest.CtorDoesNotCrash
+    CNameChangeNotifyDlgTest.DtorDoesNotCrash
+    CNameChangeNotifyDlgTest.InheritsFromCDialog
+    CNameChangeNotifyDlgTest.IsAlsoAWindow
+    CNameChangeNotifyDlgTest.NonCopyable
+    CNameChangeNotifyDlgTest.MultipleInstancesAreSafe
+    CNameChangeNotifyDlgTest.InitStoresPositionAndId
+    CNameChangeNotifyDlgTest.InitIsIdempotent
+    CNameChangeNotifyDlgTest.InitBeforeAnyStateChangeDoesNotCrash
+    CNameChangeNotifyDlgTest.SetActiveToggle
+    CNameChangeNotifyDlgTest.SetVisibleToggle
+    CNameChangeNotifyDlgTest.SetEnabledToggle
+    CNameChangeNotifyDlgTest.SetDisableIsAliasForSetEnabled
+    CNameChangeNotifyDlgTest.SetAbsXYChangesPosition
+    CNameChangeNotifyDlgTest.SetAlphaStoresValue
+    CNameChangeNotifyDlgTest.SetOptionAlphaStoresValue
+    CNameChangeNotifyDlgTest.SetCaptionRectStoresBounds
+    CNameChangeNotifyDlgTest.PtInCaptionReturnsTrueInside
+    CNameChangeNotifyDlgTest.PtInCaptionReturnsFalseOutside
+    CNameChangeNotifyDlgTest.AddChildStoresInTree
+    CNameChangeNotifyDlgTest.FindWindowByIdReturnsSelfWhenMatching
+    CNameChangeNotifyDlgTest.FindWindowByIdReturnsNullWhenMissing
+    CNameChangeNotifyDlgTest.IsAutoCloseDefaultsFalse
+    CNameChangeNotifyDlgTest.RequestCloseLatchesTrue
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 
