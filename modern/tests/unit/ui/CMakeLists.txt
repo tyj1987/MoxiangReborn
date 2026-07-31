@@ -191,6 +191,7 @@ add_executable(mxh_ui_tests
     ccharacterdialog_test.cpp
     ctitanchangepreviewdlg_test.cpp
     cmousepointer_test.cpp
+    chelper_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1241,6 +1242,46 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMousePointerTest.MouseBasicIdConstantMatchesLegacyEnum
     CMousePointerTest.MouseClickIdConstantMatchesLegacyEnum
     CMousePointerTest.ChildIdsAreDistinct
+    # Phase C 1:1 port: cHelper (guide / newbie helper animation)
+    CHelperTest.CtorDoesNotCrash
+    CHelperTest.DtorDoesNotCrash
+    CHelperTest.InheritsFromCDialog
+    CHelperTest.IsAlsoAWindow
+    CHelperTest.NonCopyable
+    CHelperTest.MultipleInstancesAreSafe
+    CHelperTest.DefaultMotionIsStand
+    CHelperTest.DefaultGreetCheckIsTrue
+    CHelperTest.DefaultGreetTimeIsZero
+    CHelperTest.DefaultMotionAniSlotsAreNull
+    CHelperTest.InitStoresPositionAndSize
+    CHelperTest.InitIsIdempotent
+    CHelperTest.InitBeforeAnyStateChangeDoesNotCrash
+    CHelperTest.RenderInactiveDialogIsNoOp
+    CHelperTest.RenderActiveDialogCallsCallback
+    CHelperTest.RenderWithNullAniDoesNotCrash
+    CHelperTest.RenderWithoutCallbackDoesNotCrash
+    CHelperTest.RenderBeforeInitDoesNotCrash
+    CHelperTest.ActionEventReturnsWeNull
+    CHelperTest.ActionEventForwardsToCallback
+    CHelperTest.ActionEventWithNullAniIsNoOp
+    CHelperTest.ActionEventBeforeInitDoesNotCrash
+    CHelperTest.SetMotionSwapsCurrentMotion
+    CHelperTest.SetMotionOutOfRangeIsNoOp
+    CHelperTest.SetMaxSpriteForwardsToCallback
+    CHelperTest.SetMaxSpriteWithNullAniIsNoOp
+    CHelperTest.SetMaxSpriteOutOfRangeIsNoOp
+    CHelperTest.AddSpriteForwardsToCallback
+    CHelperTest.AddSpriteWithNullAniIsNoOp
+    CHelperTest.AddSpriteOutOfRangeIsNoOp
+    CHelperTest.SetStartTimeSetsAllThreeFields
+    CHelperTest.SetGreetTimeStoresValue
+    CHelperTest.StopGreetCheckClearsFlag
+    CHelperTest.SetGreetTimeAcceptsMaxUint32
+    CHelperTest.HelperMotionEnumStandIsZero
+    CHelperTest.HelperMotionEnumMaxIsOne
+    CHelperTest.KMaxMotionSlotsConstantIsOne
+    CHelperTest.KWeNullConstantIsZero
+    CHelperTest.SetMotionSwapsThenRenderUsesNewMotion
     # Phase C 1:1 port: cShoutDialog (shout message sender)
     CShoutDialogTest.DefaultConstructionHasZeroState
     CShoutDialogTest.InheritsDialogTreeManagement

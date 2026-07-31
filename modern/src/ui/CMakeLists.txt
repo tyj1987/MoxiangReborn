@@ -194,6 +194,7 @@ add_library(mxh_ui STATIC
     ccharacterdialog.cpp
     ctitanchangepreviewdlg.cpp
     cmousepointer.cpp
+    chelper.cpp
 )
 
 if(WIN32)
