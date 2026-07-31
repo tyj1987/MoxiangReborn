@@ -37,6 +37,7 @@ TEST(MurimNetChannelling, ChannelCapIsRespected) {
 TEST(MurimNetChannelling, SendMessageAndHistory) {
     MurimNetChannellingManager mn;
     auto id = mn.create_channel(1);
+    ASSERT_TRUE(mn.join(id, 2));
     MnChatMessage m1{}; m1.sender_id=1; m1.channel_id=id; m1.send_ms=100;
     std::strncpy(m1.text, "hello", 5);
     MnChatMessage m2{}; m2.sender_id=2; m2.channel_id=id; m2.send_ms=200;
@@ -96,3 +97,18 @@ TEST(MurimNetChannelling, ClosingChannelRejectsJoinAndMessages) {
     EXPECT_FALSE(mn.send_message(message));
     EXPECT_TRUE(mn.destroy_channel(id));
 }
+
+TEST(MurimNetChannelling, RejectsMessagesFromNonMembers) {
+    MurimNetChannellingManager mn;
+    auto id = mn.create_channel(10);
+    MnChatMessage message{};
+    message.channel_id = id;
+    message.sender_id = 20;
+    EXPECT_FALSE(mn.send_message(message));
+    message.sender_id = 0;
+    EXPECT_FALSE(mn.send_message(message));
+    EXPECT_TRUE(mn.join(id, 20));
+    message.sender_id = 20;
+    EXPECT_TRUE(mn.send_message(message));
+}
+
