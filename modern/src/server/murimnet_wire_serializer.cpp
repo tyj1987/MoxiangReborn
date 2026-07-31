@@ -37,6 +37,37 @@ std::vector<std::uint8_t> mnh_build_channel_list_wire(const MurimNetChannelManag
     std::memcpy(out.data(), &msg, total);
     return out;
 }
+std::vector<std::uint8_t> mnh_build_player_list_wire(const std::function<void(const std::function<void(const MurimNetPlayer&)>&)>& visitor, std::uint8_t protocol) {
+    MnhMsgPlayerBaseInfoList msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = 0;
+    std::size_t i = 0;
+    if (visitor) {
+        visitor([&](const MurimNetPlayer& p) {
+            if (i >= MNH_MAX_PLAYER_IN_CHANNEL) return;
+            const auto& info = p.info();
+            auto& dst = msg.PlayerInfo[i++];
+            dst.dwObjectID = info.player_id;
+            dst.wRankPoint = info.rank_point;
+            copy_truncated(dst.strPlayerName, info.name);
+            dst.Level = info.level;
+            copy_truncated(dst.strNick, info.nick);
+            dst.wPlayCount = info.play_count;
+            dst.wWin = info.win;
+            dst.wLose = info.lose;
+            copy_truncated(dst.strMunpa, info.munpa);
+            dst.cbPositionInMunpa = info.position_in_munpa;
+            dst.cbTeam = static_cast<std::int8_t>(info.team);
+        });
+    }
+    msg.dwTotalPlayerNum = static_cast<std::uint32_t>(i);
+    const std::size_t total = sizeof(MnhWireBase) + sizeof(std::uint32_t) + i * sizeof(MnhPlayerBaseInfo);
+    std::vector<std::uint8_t> out(total);
+    std::memcpy(out.data(), &msg, total);
+    return out;
+}
+
 std::vector<std::uint8_t> mnh_build_playroom_list_wire(const MurimNetPlayRoomManager& mgr) {
     MnhMsgPlayRoomBaseInfoList msg{};
     msg.Category = MNH_CATEGORY_MURIMNET;
