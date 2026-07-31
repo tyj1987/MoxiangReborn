@@ -100,6 +100,8 @@ public:
     // can use either name.
     virtual void SetDisable(bool v) noexcept { SetEnabled(!v); }
     void SetBasicImage(void* img) noexcept { m_basicImage = img; }
+    void SetImageRGB(std::uint32_t color) noexcept { m_imageRGB = color; }
+    std::uint32_t imageRGB() const noexcept { return m_imageRGB; }
 
     // Read accessors.
     std::int32_t  absX() const noexcept  { return m_absX; }
@@ -171,6 +173,7 @@ private:
     std::uint16_t m_h        = 0;
 
     void* m_basicImage = nullptr;  // opaque in skeleton (cImage* in 6.1.2)
+    std::uint32_t m_imageRGB = 0xFFFFFFFFu;
 
     bool m_bFocus   = false;
     bool m_bMovable = false;
