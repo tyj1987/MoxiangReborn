@@ -166,6 +166,7 @@ add_library(mxh_server STATIC
     server/murimnet_player.cpp
     server/murimnet_runtime.cpp
     server/murimnet_channel.cpp
+    server/murimnet_wire_serializer.cpp
     server/distribute_server.cpp
     server/mn_server.cpp
     server/login_server_db_msg_parser.cpp
