@@ -131,7 +131,7 @@ add_executable(mxh_ui_tests
     maindialog_test.cpp
     guildmarkdialog_test.cpp
     mpmissiondialog_test.cpp
-    alertdlg_test.cpp
+    calertdlg_test.cpp
     cmpguagedialog_test.cpp
     unionnotedlg_test.cpp
     autonotedlg_test.cpp
@@ -1034,30 +1034,50 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPMissionDialogTest.SetActiveBeforeInitDoesNotCrash
     CMPMissionDialogTest.ActionEventReturnsZero
     CMPMissionDialogTest.ActionEventBeforeInitDoesNotCrash
-    CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
-    CMPMissionDialogTest.LoadMissionMsgIsIdempotent
-    # P2-12 Tier 2 dialog: cAlertDlg (alert dialog with 2 cButton + callback)
+    # Phase C 1:1 port: cAlertDlg (alert dialog: OK/Cancel + callback)
     CAlertDlgTest.CtorDoesNotCrash
     CAlertDlgTest.DtorDoesNotCrash
     CAlertDlgTest.InheritsFromCDialog
+    CAlertDlgTest.NonCopyable
     CAlertDlgTest.IdConstantsMatchExpectedLocalRange
     CAlertDlgTest.IdConstantsAreUnique
     CAlertDlgTest.AbEnumConstantsMatchLegacyValues
-    CAlertDlgTest.LinkingPopulatesOkButton
-    CAlertDlgTest.LinkingPopulatesCancelButton
+    CAlertDlgTest.WeBtnClickConstantMatchesLegacy
+    CAlertDlgTest.DefaultButtonsAreNull
+    CAlertDlgTest.LinkingResolvesFromTree
+    CAlertDlgTest.LinkingWithoutChildrenLeavesNull
+    CAlertDlgTest.LinkingIsIdempotent
     CAlertDlgTest.LinkingBeforeInitDoesNotCrash
-    CAlertDlgTest.LinkingTwiceIsSafe
-    CAlertDlgTest.LinkedButtonsAreUniqueInstances
+    CAlertDlgTest.HostInjectedTakesPriorityOverLinking
     CAlertDlgTest.GetObjDefaultIsNull
     CAlertDlgTest.SetObjStoresValue
     CAlertDlgTest.SetObjWithNullClearsObject
     CAlertDlgTest.SetObjAcceptsOpaquePointer
     CAlertDlgTest.SetcbBtnAcceptsLambda
-    CAlertDlgTest.SetcbBtnWithNullptrIsSafe
     CAlertDlgTest.SetcbBtnWithStdFunctionIsSafe
-    CAlertDlgTest.ActionEventReturnsZero
-    CAlertDlgTest.ActionEventBeforeLinkingDoesNotCrash
-    CAlertDlgTest.ActionEventBeforeInitDoesNotCrash
+    CAlertDlgTest.SetcbBtnWithNullptrClearsCallback
+    CAlertDlgTest.HasCallbackDefaultFalse
+    CAlertDlgTest.OnActionEventOkBtnFiresCallbackWithOne
+    CAlertDlgTest.OnActionEventOkBtnIncrementsOkDispatchCount
+    CAlertDlgTest.OnActionEventOkBtnDoesNotIncrementCancelCount
+    CAlertDlgTest.OnActionEventOkBtnSetsLastLId
+    CAlertDlgTest.OnActionEventOkBtnSetsLastWe
+    CAlertDlgTest.OnActionEventOkBtnReceivesDialogAsPArg
+    CAlertDlgTest.OnActionEventCancelBtnFiresCallbackWithZero
+    CAlertDlgTest.OnActionEventCancelBtnIncrementsCancelDispatchCount
+    CAlertDlgTest.OnActionEventCancelBtnDoesNotIncrementOkCount
+    CAlertDlgTest.OnActionEventCancelBtnSetsLastLId
+    CAlertDlgTest.OnActionEventUnknownIdIsNoOp
+    CAlertDlgTest.OnActionEventOkWithoutBtnClickIsNoOp
+    CAlertDlgTest.OnActionEventCancelWithoutBtnClickIsNoOp
+    CAlertDlgTest.OnActionEventUnknownFlagsIsNoOp
+    CAlertDlgTest.OnActionEventWithoutCallbackIsSafe
+    CAlertDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    CAlertDlgTest.OnActionEventBeforeInitDoesNotCrash
+    CAlertDlgTest.MultipleOkClicksAccumulateDispatchCount
+    CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
+    CMPMissionDialogTest.LoadMissionMsgIsIdempotent
+
     # P2-12 Tier 2 dialog: cPKLootingDialog (PK loot dialog)
     CPKLootingDialog.DefaultConstructionHasNullPointers
     CPKLootingDialog.InheritsDialogTreeManagement

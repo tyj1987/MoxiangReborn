@@ -80,7 +80,7 @@ add_library(mxh_ui STATIC
     maindialog.cpp
     guildmarkdialog.cpp
     mpmissiondialog.cpp
-    alertdlg.cpp
+    calertdlg.cpp
     cmpguagedialog.cpp
     unionnotedlg.cpp
     autonotedlg.cpp
