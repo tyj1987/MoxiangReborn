@@ -12,3 +12,5 @@ TEST(MurimNetWire, MsgTeamChangeIsThirteenBytes){EXPECT_EQ(sizeof(MnhMsgTeamChan
 TEST(MurimNetWire, ChannelInfoListIsHeaderPlusTenThousandEntries){EXPECT_EQ(sizeof(MnhMsgChannelBaseInfoList),sizeof(MnhWireBase)+4u+sizeof(MnhChannelBaseInfo)*MNH_MAX_CHANNEL_IN_MURIMNET);EXPECT_EQ(offsetof(MnhMsgChannelBaseInfoList,dwTotalChannelNum),7u);EXPECT_EQ(offsetof(MnhMsgChannelBaseInfoList,ChannelInfo),11u);}
 TEST(MurimNetWire, PlayRoomInfoListIsHeaderPlusTenThousandEntries){EXPECT_EQ(sizeof(MnhMsgPlayRoomBaseInfoList),sizeof(MnhWireBase)+4u+sizeof(MnhPlayRoomBaseInfo)*MNH_MAX_PLAYROOM_IN_MURIMNET);EXPECT_EQ(offsetof(MnhMsgPlayRoomBaseInfoList,dwTotalPlayRoomNum),7u);EXPECT_EQ(offsetof(MnhMsgPlayRoomBaseInfoList,PlayRoomInfo),11u);}
 TEST(MurimNetWire, CategoryByteIsThirtyEight){EXPECT_EQ(MNH_CATEGORY_MURIMNET,38u);}
+
+TEST(MurimNetWire, MsgChatIsHundredAndThirtyFiveBytes){EXPECT_EQ(sizeof(MnhMsgChat),135u);EXPECT_EQ(offsetof(MnhMsgChat,Msg),7u);}

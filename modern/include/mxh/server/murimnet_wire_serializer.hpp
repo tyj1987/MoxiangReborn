@@ -4,9 +4,12 @@
 // trimmed to legacy GetMsgLength() = sizeof(header) + 4 + count * sizeof(BaseInfo).
 #include <cstdint>
 #include <functional>
+#include <string>
 #include <vector>
 namespace mxh::server {
 class MurimNetPlayer;
+class MurimNetChannel;
+class MurimNetPlayRoom;
 class MurimNetChannelManager;
 class MurimNetPlayRoomManager;
 // Build wire bytes for SendMsg_ChannelList reply (MP_MURIMNET_CHNL_CHANNELINFOLIST = 34).
@@ -18,6 +21,12 @@ std::vector<std::uint8_t> mnh_build_playroom_list_wire(const MurimNetPlayRoomMan
 // Build wire bytes for player list reply (MP_MURIMNET_CHNL_PLAYERLIST = 33 or MP_MURIMNET_PR_PLAYERLIST = 16).
 // visitor is called with a sink that should invoke once per player (e.g. for_each_member adapter).
 // Returned vector size = sizeof(MnhWireBase) + 4 + emitted_count * sizeof(MnhPlayerBaseInfo).
+// Single-item wire messages.
+std::vector<std::uint8_t> mnh_build_channel_info_wire(const MurimNetChannel& c, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_playroom_info_wire(const MurimNetPlayRoom& r, std::uint8_t protocol);
+std::vector<std::uint8_t> mnh_build_player_info_wire(const MurimNetPlayer& p, std::uint8_t protocol);
+// Chat wire (MP_MURIMNET_CHAT_ALL = 48). Trim to strlen(Msg) + 1 null.
+std::vector<std::uint8_t> mnh_build_chat_wire(std::uint32_t sender_id, const std::string& text, std::uint8_t protocol);
 std::vector<std::uint8_t> mnh_build_player_list_wire(const std::function<void(const std::function<void(const MurimNetPlayer&)>&)>& visitor, std::uint8_t protocol);
 }
 #include "mxh/server/murimnet_wire.hpp"

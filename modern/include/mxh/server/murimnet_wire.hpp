@@ -14,6 +14,7 @@ inline constexpr std::size_t MNH_PLAYROOMTITLE_LENGTH = 64;
 inline constexpr std::size_t MNH_MAX_PLAYER_IN_CHANNEL = 300;
 inline constexpr std::size_t MNH_MAX_CHANNEL_IN_MURIMNET = 10000;
 inline constexpr std::size_t MNH_MAX_PLAYROOM_IN_MURIMNET = 10000;
+inline constexpr std::size_t MNH_MAX_CHAT_LENGTH = 127;
 // Legacy Protocol.h MP_MURIMNET category byte (1-based, value = 38).
 inline constexpr std::uint8_t MNH_CATEGORY_MURIMNET = 38;
 
@@ -49,5 +50,7 @@ struct MnhMsgPlayRoomBaseInfoList : public MnhWireBase { std::uint32_t dwTotalPl
 
 // MP_MURIMNET_PR_TEAMCHANGE payload (legacy size = 4+1+1 = 6 bytes after MSGBASE).
 struct MnhMsgTeamChange : public MnhWireBase { std::uint32_t dwMoverID; std::uint8_t cbFromTeam; std::uint8_t cbToTeam; };
+// Chat payload: header (7) + char[MNH_MAX_CHAT_LENGTH+1] = 7 + 128 = 135 bytes max.
+struct MnhMsgChat : public MnhWireBase { std::array<char, MNH_MAX_CHAT_LENGTH + 1> Msg; };
 #pragma pack(pop)
 }
