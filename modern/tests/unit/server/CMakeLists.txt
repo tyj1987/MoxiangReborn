@@ -1003,6 +1003,13 @@ target_link_libraries(mxh_agent_murimnet_tests PRIVATE mxh_server GTest::gtest_m
 gtest_add_tests(TARGET mxh_agent_murimnet_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_murimnet_protocol_tests
+    murimnet_protocol_test.cpp
+)
+target_link_libraries(mxh_murimnet_protocol_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_murimnet_protocol_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 add_executable(mxh_economy_tests
     economy_test.cpp
 )
