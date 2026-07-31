@@ -61,7 +61,7 @@ add_library(mxh_ui STATIC
     guildnoticedlg.cpp
     cchinaadvicedlg.cpp
     introreplaydlg.cpp
-    keysettingtipdlg.cpp
+    ckeysettingtipdlg.cpp
     cloadingdlg.cpp
     namechangenotifydlg.cpp
     guildinvitationkindselectiondialog.cpp

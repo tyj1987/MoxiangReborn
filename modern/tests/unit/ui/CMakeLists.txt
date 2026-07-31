@@ -114,7 +114,7 @@ add_executable(mxh_ui_tests
     guildnoticedlg_test.cpp
     cchinaadvicedlg_test.cpp
     introreplaydlg_test.cpp
-    keysettingtipdlg_test.cpp
+    ckeysettingtipdlg_test.cpp
     cloadingdlg_test.cpp
     namechangenotifydlg_test.cpp
     guildinvitationkindselectiondialog_test.cpp
@@ -768,16 +768,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CIntroReplayDlgTest.LinkingIsNoOp
     CIntroReplayDlgTest.LinkingBeforeInitDoesNotCrash
     CIntroReplayDlgTest.LinkingIsIdempotent
-    # P2-12 Tier 2 dialog: cKeySettingTipDlg (keyboard shortcut tip)
-    CKeySettingTipDlgTest.DefaultConstructionHasModeHidden
-    CKeySettingTipDlgTest.InheritsDialogTreeManagement
-    CKeySettingTipDlgTest.NumImagesIsTwo
-    CKeySettingTipDlgTest.ModeHiddenIsTwo
-    CKeySettingTipDlgTest.SetModeGetModeRoundTrip
-    CKeySettingTipDlgTest.LinkingStoresImagePaths
-    CKeySettingTipDlgTest.LinkingBeforeInitDoesNotCrash
-    CKeySettingTipDlgTest.LinkingIsIdempotent
-    CKeySettingTipDlgTest.RenderIsNoOp
 
     # P2-12 Tier 2 dialog: cNameChangeNotifyDlg (name change placeholder)
     CNameChangeNotifyDlgTest.DefaultConstructionIsValid
@@ -1122,6 +1112,41 @@ gtest_add_tests(TARGET mxh_ui_tests
     CLoadingDlgTest.RequestCloseLatchesTrue
     CLoadingDlgTest.InitIsIdempotent
     CLoadingDlgTest.InitBeforeStateChangeDoesNotCrash
+    # Phase C 1:1 port: cKeySettingTipDlg (keyboard shortcut tip)
+    CKeySettingTipDlgTest.CtorDoesNotCrash
+    CKeySettingTipDlgTest.DtorDoesNotCrash
+    CKeySettingTipDlgTest.InheritsFromCDialog
+    CKeySettingTipDlgTest.NonCopyable
+    CKeySettingTipDlgTest.ModeHiddenIs2
+    CKeySettingTipDlgTest.NumImagesIs2
+    CKeySettingTipDlgTest.SrcRectIs0_0_1024_768
+    CKeySettingTipDlgTest.ImagePathsMatchLegacy
+    CKeySettingTipDlgTest.RenderStepEnumValues
+    CKeySettingTipDlgTest.DefaultModeIsHidden
+    CKeySettingTipDlgTest.DefaultPathsAreEmpty
+    CKeySettingTipDlgTest.SetModeStoresValue
+    CKeySettingTipDlgTest.SetModeToHiddenStoresHidden
+    CKeySettingTipDlgTest.LinkingStoresImagePaths
+    CKeySettingTipDlgTest.LinkingCallsLoadSpriteTwice
+    CKeySettingTipDlgTest.LinkingPassesCorrectPaths
+    CKeySettingTipDlgTest.LinkingCallsSetSrcRectTwice
+    CKeySettingTipDlgTest.LinkingPassesCorrectSrcRect
+    CKeySettingTipDlgTest.LinkingWithoutCallbacksIsSafe
+    CKeySettingTipDlgTest.LinkingIsIdempotent
+    CKeySettingTipDlgTest.LinkingBeforeInitDoesNotCrash
+    CKeySettingTipDlgTest.RenderInactiveDoesNotFireCallbacks
+    CKeySettingTipDlgTest.RenderWithModeGreaterThan1DoesNotFire
+    CKeySettingTipDlgTest.RenderWithMode3DoesNotFire
+    CKeySettingTipDlgTest.RenderWithMode255DoesNotFire
+    CKeySettingTipDlgTest.RenderMode0FiresAll3Callbacks
+    CKeySettingTipDlgTest.RenderMode1FiresAll3Callbacks
+    CKeySettingTipDlgTest.RenderFiresInCorrectOrder
+    CKeySettingTipDlgTest.RenderPassesModeToCallback
+    CKeySettingTipDlgTest.RenderWithoutCallbackIsSafe
+    CKeySettingTipDlgTest.RenderBeforeLinkingIsSafe
+    CKeySettingTipDlgTest.RenderBeforeSetModeUsesDefault
+    CKeySettingTipDlgTest.HasRenderCallbackDefaultsFalse
+    CKeySettingTipDlgTest.HasRenderCallbackAfterSetReturnsTrue
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 
