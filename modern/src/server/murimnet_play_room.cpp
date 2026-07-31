@@ -9,5 +9,5 @@ bool MurimNetPlayRoom::player_in(MnRoomPlayer& p){if(p.id==0||m_info.room_index=
 bool MurimNetPlayRoom::player_out(MnRoomPlayer& p){auto it=std::find(m_players.begin(),m_players.end(),&p);if(it==m_players.end())return false;auto& team=m_teams[static_cast<std::size_t>(p.team)];team.erase(std::remove(team.begin(),team.end(),&p),team.end());bool captain=p.captain;m_players.erase(it);p.location=MnPlayerLocation::None;p.location_index=0;p.captain=false;if(captain&&!m_players.empty())m_players.front()->captain=true;return true;}
 bool MurimNetPlayRoom::team_change(MnRoomPlayer& p,MnTeam from,MnTeam to){auto fi=static_cast<std::size_t>(from),ti=static_cast<std::size_t>(to);if(fi>=m_teams.size()||ti>=m_teams.size()||from==to||!contains(p.id)||p.team!=from||m_started)return false;auto limit=to==MnTeam::Observer?m_info.max_observers:m_info.max_players_per_team;if(m_teams[ti].size()>=limit)return false;m_teams[ti].push_back(&p);auto& source=m_teams[fi];source.erase(std::remove(source.begin(),source.end(),&p),source.end());p.team=to;return true;}
 void MurimNetPlayRoom::play_start(bool start)noexcept{m_started=start;for(auto* p:m_players)if(p)p->location=start?MnPlayerLocation::Game:MnPlayerLocation::Result;}
+void MurimNetPlayRoom::for_each_member(const std::function<void(const MnRoomPlayer&)>& fn)const{for(auto* p:m_players)if(p&&fn)fn(*p);}
 }
-
