@@ -161,6 +161,7 @@ add_library(mxh_server STATIC
     server/note_manager.cpp
     server/wanted_manager.cpp
     server/murimnet_channelling_manager.cpp
+    server/murimnet_play_room.cpp
     server/distribute_server.cpp
     server/mn_server.cpp
     server/login_server_db_msg_parser.cpp
