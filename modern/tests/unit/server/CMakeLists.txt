@@ -1975,3 +1975,18 @@ gtest_add_tests(TARGET mxh_player_monster_point_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
+add_executable(mxh_boss_monster_tests
+    boss_monster_test.cpp
+)
+target_link_libraries(mxh_boss_monster_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_boss_monster_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_boss_monster_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
