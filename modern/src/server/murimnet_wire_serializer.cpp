@@ -110,6 +110,19 @@ std::vector<std::uint8_t> mnh_build_chat_wire(std::uint32_t sender_id, const std
     return out;
 }
 
+std::vector<std::uint8_t> mnh_build_team_change_wire(std::uint32_t sender_id, std::uint32_t mover_id, std::uint8_t from_team, std::uint8_t to_team, std::uint8_t protocol) {
+    MnhMsgTeamChange msg{};
+    msg.Category = MNH_CATEGORY_MURIMNET;
+    msg.Protocol = protocol;
+    msg.dwObjectID = sender_id;
+    msg.dwMoverID = mover_id;
+    msg.cbFromTeam = from_team;
+    msg.cbToTeam = to_team;
+    std::vector<std::uint8_t> out(sizeof(MnhMsgTeamChange));
+    std::memcpy(out.data(), &msg, out.size());
+    return out;
+}
+
 std::vector<std::uint8_t> mnh_build_player_list_wire(const std::function<void(const std::function<void(const MurimNetPlayer&)>&)>& visitor, std::uint8_t protocol) {
     MnhMsgPlayerBaseInfoList msg{};
     msg.Category = MNH_CATEGORY_MURIMNET;

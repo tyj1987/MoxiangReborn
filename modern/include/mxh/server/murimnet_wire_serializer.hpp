@@ -27,6 +27,9 @@ std::vector<std::uint8_t> mnh_build_playroom_info_wire(const MurimNetPlayRoom& r
 std::vector<std::uint8_t> mnh_build_player_info_wire(const MurimNetPlayer& p, std::uint8_t protocol);
 // Chat wire (MP_MURIMNET_CHAT_ALL = 48). Trim to strlen(Msg) + 1 null.
 std::vector<std::uint8_t> mnh_build_chat_wire(std::uint32_t sender_id, const std::string& text, std::uint8_t protocol);
+// TeamChange wire (MP_MURIMNET_PR_TEAMCHANGE_ACK = 22 / _NACK = 23). Fixed 13 bytes = MSGBASE + dwMoverID + cbFromTeam + cbToTeam.
+// sender_id populates MSGBASE.dwObjectID (room or mover, caller decides); payload fields are always serialized.
+std::vector<std::uint8_t> mnh_build_team_change_wire(std::uint32_t sender_id, std::uint32_t mover_id, std::uint8_t from_team, std::uint8_t to_team, std::uint8_t protocol);
 std::vector<std::uint8_t> mnh_build_player_list_wire(const std::function<void(const std::function<void(const MurimNetPlayer&)>&)>& visitor, std::uint8_t protocol);
 }
 #include "mxh/server/murimnet_wire.hpp"
