@@ -79,6 +79,7 @@
     monsterguagedlg_test.cpp
     cbutton_test.cpp
     cstreetstall_test.cpp
+    cstreetbuystall_test.cpp
     ceditbox_test.cpp
     cdialog_test.cpp
     cimage_test.cpp
@@ -2024,5 +2025,11 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStreetStallTest.MoneyAndSelection
     CStreetStallTest.TitleAndSafeOperations
     CStreetStallTest.DivideAndCheckCallbacks
+    CStreetBuyStallTest.SurfaceAndDefaults
+    CStreetBuyStallTest.StatesAndClose
+    CStreetBuyStallTest.MoneyAndRegInfoBounds
+    CStreetBuyStallTest.TitleRoundTrip
+    CStreetBuyStallTest.CheckCallbacks
+    CStreetBuyStallTest.ResetClearsData
 )
 
