@@ -81,7 +81,7 @@ add_library(mxh_ui STATIC
     guildmarkdialog.cpp
     mpmissiondialog.cpp
     alertdlg.cpp
-    mpguagedialog.cpp
+    cmpguagedialog.cpp
     unionnotedlg.cpp
     autonotedlg.cpp
     mpregistdialog.cpp

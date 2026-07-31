@@ -132,7 +132,7 @@ add_executable(mxh_ui_tests
     guildmarkdialog_test.cpp
     mpmissiondialog_test.cpp
     alertdlg_test.cpp
-    mpguagedialog_test.cpp
+    cmpguagedialog_test.cpp
     unionnotedlg_test.cpp
     autonotedlg_test.cpp
     mpregistdialog_test.cpp
@@ -1058,33 +1058,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CAlertDlgTest.ActionEventReturnsZero
     CAlertDlgTest.ActionEventBeforeLinkingDoesNotCrash
     CAlertDlgTest.ActionEventBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cMPGuageDialog (event-map timer + exp gauge)
-    CMPGuageDialogTest.CtorDoesNotCrash
-    CMPGuageDialogTest.DtorDoesNotCrash
-    CMPGuageDialogTest.InheritsFromCDialog
-    CMPGuageDialogTest.IdConstantsMatchExpectedLocalRange
-    CMPGuageDialogTest.IdConstantsAreUnique
-    CMPGuageDialogTest.EventMapTitlePlaceholderMatchesExpected
-    CMPGuageDialogTest.RedTextThresholdMatchesExpected
-    CMPGuageDialogTest.FlagEnumConstantsMatchLegacyValues
-    CMPGuageDialogTest.LinkingResolvesAllThreeCStatics
-    CMPGuageDialogTest.LinkingBeforeInitDoesNotCrash
-    CMPGuageDialogTest.LinkingWithoutChildrenDoesNotCrash
-    CMPGuageDialogTest.SetExpGuageUpdatesExpPercentText
-    CMPGuageDialogTest.SetExpGuageZeroPercent
-    CMPGuageDialogTest.SetExpGuageFullPercent
-    CMPGuageDialogTest.SetExpGuageWithoutLinkingIsSafe
-    CMPGuageDialogTest.SetTimeFormatsOneMinute
-    CMPGuageDialogTest.SetTimeFormatsThirtySeconds
-    CMPGuageDialogTest.SetTimeFormatsMixed
-    CMPGuageDialogTest.SetTimeBelowThresholdSetsRedColor
-    CMPGuageDialogTest.SetTimeAtThresholdDoesNotSetRed
-    CMPGuageDialogTest.SetTimeWithoutLinkingIsSafe
-    CMPGuageDialogTest.SetEventMapTimerReadySetsBlue
-    CMPGuageDialogTest.SetEventMapTimerStoppedSetsBlue
-    CMPGuageDialogTest.SetEventMapTimerActiveBelowThresholdSetsRed
-    CMPGuageDialogTest.SetEventMapTimerActiveAtThresholdKeepsColor
-    CMPGuageDialogTest.SetEventMapTimerUnknownFlagDoesNotCrash
     # P2-12 Tier 2 dialog: cPKLootingDialog (PK loot dialog)
     CPKLootingDialog.DefaultConstructionHasNullPointers
     CPKLootingDialog.InheritsDialogTreeManagement
