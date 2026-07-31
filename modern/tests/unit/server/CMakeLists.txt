@@ -1937,3 +1937,7 @@ gtest_add_tests(TARGET mxh_murimnet_player_tests WORKING_DIRECTORY ${CMAKE_SOURC
 add_executable(mxh_murimnet_runtime_tests murimnet_runtime_test.cpp)
 target_link_libraries(mxh_murimnet_runtime_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_murimnet_runtime_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_murimnet_channel_tests murimnet_channel_test.cpp)
+target_link_libraries(mxh_murimnet_channel_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_murimnet_channel_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
