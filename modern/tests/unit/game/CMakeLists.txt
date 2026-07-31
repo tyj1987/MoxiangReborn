@@ -5,6 +5,7 @@ add_executable(mxh_game_tests
     battle_factory_test.cpp
     battle_runtime_test.cpp
     attack_loop_test.cpp
+    experience_curve_test.cpp
 )
 target_include_directories(mxh_game_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include

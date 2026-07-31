@@ -20,10 +20,12 @@ add_library(mxh_game STATIC
     battle_factory.cpp
     attack_calc.cpp
     battle.cpp
+    experience_curve.cpp
 )
 target_include_directories(mxh_game PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
+target_link_libraries(mxh_game PUBLIC mxh_compat)
 if(MSVC)
     target_compile_options(mxh_game PRIVATE /W3 /utf-8)
 endif()
