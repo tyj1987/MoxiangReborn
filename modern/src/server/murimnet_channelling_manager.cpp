@@ -10,7 +10,19 @@ std::uint32_t MurimNetChannellingManager::create_channel(std::uint32_t creator_i
     if (creator_id == 0) return 0;
     if (channels_.size() >= MXH_MN_MAX_CHANNELS) return 0;
     Channel c{};
-    c.id = next_ch_id_++;
+    for (std::uint32_t attempts = 0; attempts <= MXH_MN_MAX_CHANNELS; ++attempts) {
+        const auto candidate = next_ch_id_++;
+        if (candidate == 0) continue;
+        const bool in_use = std::any_of(channels_.begin(), channels_.end(),
+                                        [&](const Channel& channel) {
+                                            return channel.id == candidate;
+                                        });
+        if (!in_use) {
+            c.id = candidate;
+            break;
+        }
+    }
+    if (c.id == 0) return 0;
     c.players.push_back(creator_id);
     c.state = MnChannelState::Active;
     channels_.push_back(c);

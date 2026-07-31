@@ -128,3 +128,15 @@ TEST(MurimNetChannelling, DestroyChannelClearsOnlyItsHistory) {
     EXPECT_TRUE(mn.history(first).empty());
     EXPECT_EQ(mn.history(second).size(), 1u);
 }
+
+TEST(MurimNetChannelling, ChannelIdWrapSkipsZeroAndExistingIds) {
+    MurimNetChannellingManager mn;
+    auto first = mn.create_channel(10);
+    ASSERT_EQ(first, 1u);
+    mn.set_next_channel_id_for_test(0xffffffffu);
+    auto high = mn.create_channel(20);
+    EXPECT_EQ(high, 0xffffffffu);
+    auto wrapped = mn.create_channel(30);
+    EXPECT_EQ(wrapped, 2u);
+    EXPECT_NE(wrapped, 0u);
+}

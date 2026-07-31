@@ -43,6 +43,7 @@ public:
                                          std::uint32_t max_count = 32) const noexcept;
     std::vector<std::uint32_t> members(std::uint32_t channel_id) const noexcept;
     MnChannelState state(std::uint32_t channel_id) const noexcept;
+    void set_next_channel_id_for_test(std::uint32_t id) noexcept { next_ch_id_ = id; }
 
 private:
     struct Channel {
