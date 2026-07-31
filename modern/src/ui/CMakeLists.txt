@@ -69,7 +69,7 @@ add_library(mxh_ui STATIC
     guildnicknamedialog.cpp
     shoutdialog.cpp
     cguildinvitedialog.cpp
-    stallkindselectdlg.cpp
+    cstallkindselectdlg.cpp
     partyinvitedlg.cpp
     namechangedialog.cpp
     changejobdialog.cpp
