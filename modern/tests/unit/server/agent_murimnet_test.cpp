@@ -8,3 +8,6 @@ TEST(MurimNetUser, ConnectAndReconnectForward){MurimNetUserRequest r;r.protocol=
 TEST(MurimNetServer, AckNoPortSendsNack){MurimNetServerRequest r;r.protocol=murimnet_changetomurimnet_ack;auto a=classify_murimnet_server(r);EXPECT_EQ(a.kind,MurimNetActionKind::send_nack);EXPECT_EQ(a.protocol,murimnet_changetomurimnet_nack);}
 TEST(MurimNetServer, ReturnAckWithPortSendsAck){MurimNetServerRequest r;r.protocol=murimnet_returntomurimnet_ack;r.lookup.port=9000;auto a=classify_murimnet_server(r);EXPECT_EQ(a.kind,MurimNetActionKind::send_ack);EXPECT_EQ(a.protocol,murimnet_returntomurimnet_ack);}
 TEST(MurimNetServer, PrStartForwards){MurimNetServerRequest r;r.protocol=murimnet_pr_start;EXPECT_EQ(classify_murimnet_server(r).kind,MurimNetActionKind::forward_to_map);}
+
+TEST(MurimNetUser, UnknownProtocolIsDropped){MurimNetUserRequest r;r.protocol=0xff;auto a=classify_murimnet_user(r);EXPECT_EQ(a.kind,MurimNetActionKind::drop_unknown);EXPECT_EQ(a.protocol,0xff);}
+TEST(MurimNetServer, UnknownProtocolIsDropped){MurimNetServerRequest r;r.protocol=0xfe;auto a=classify_murimnet_server(r);EXPECT_EQ(a.kind,MurimNetActionKind::drop_unknown);EXPECT_EQ(a.protocol,0xfe);}

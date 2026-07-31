@@ -127,7 +127,7 @@
 - [x] D2 战斗系统 BattleFactory_Default 1:1
 - [ ] D3 任务系统 QuestManager + QuestExecute_* 1:1
 - [ ] D4 商城 / 物品 / 仓库 / 邮件 / 帮派 / 队伍 1:1
-- [ ] D5 MurimNet PvP 1:1（频道状态已锁：Closing 禁止重新加入/发消息，非成员禁止频道注入消息，销毁频道同步清理历史，频道 ID 溢出跳过 0/重复值；PlayRoom + PlayRoomManager + MNPlayer/MNPlayerManager 已移植（房间状态、索引、玩家连接字段与生命周期））
+- [ ] D5 MurimNet PvP 1:1（频道状态已锁：Closing 禁止重新加入/发消息，非成员禁止频道注入消息，销毁频道同步清理历史，频道 ID 溢出跳过 0/重复值；PlayRoom + PlayRoomManager + MNPlayer/MNPlayerManager 已移植（房间状态、索引、玩家连接字段与生命周期）；Agent parser 未知协议显式丢弃）
 - [ ] D6 经验曲线 / 伤害公式 / 爆率 / Boss 刷新回归测试
 - [ ] 验证：side-by-side 跑原版和 modern，截日志 diff = 0
 
