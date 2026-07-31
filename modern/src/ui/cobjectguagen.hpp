@@ -41,9 +41,9 @@
 //   - Render: TODO (VECTOR2 + cImage::RenderSprite
 //     + RGBA_MERGE not ported, R-12.x deferred).
 //     Modern port is no-op (calls base cGuagen::Render).
-//   - 1:1 quirk: legacy m_dwImageRGB / m_alpha /
-//     m_dwOptionAlpha come from base cWindow (already
-//     removed in modern cWindow; treated as 0 in tests).
+//   - 1:1 quirk: legacy m_dwImageRGB is exposed by modern cWindow.
+//     Alpha and option-alpha fields remain deferred because the modern
+//     renderer does not yet expose the legacy merge path.
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is a Tier 1.5 subcontrol (cGuagen subclass
@@ -153,10 +153,9 @@ private:
     // (even if unused in Phase 12.x).
     cImage m_GuageEffectPieceImage;
 
-    // 1:1 with legacy state fields. m_dwImageRGB /
-    // m_alpha / m_dwOptionAlpha are not ported
-    // (legacy cWindow had them; modern cWindow
-    // removed them in Phase 6).
+    // 1:1 with legacy state fields. m_dwImageRGB is provided
+    // by modern cWindow; m_alpha and m_dwOptionAlpha remain
+    // deferred until the legacy RGBA merge render path is ported.
     float m_fGuageEffectPieceWidth = 0.0f;
     float m_fIncAmount = 0.0f;
     std::uint32_t m_dwEffectTime = 0;
