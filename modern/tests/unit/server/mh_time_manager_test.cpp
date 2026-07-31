@@ -1,10 +1,13 @@
 #include "mxh/server/mh_time_manager.hpp"
 #include <gtest/gtest.h>
 using namespace mxh::server;
-TEST(MhTime, FirstProcessOnlyPrimesClock){MhTimeState s;mh_time_init(s,4,5);EXPECT_EQ(mh_time_process(s,100),0u);EXPECT_EQ(s.mh_date,4u);EXPECT_EQ(s.mh_time,5u);}
-TEST(MhTime, AdvancesCurAndGameTime){MhTimeState s;mh_time_init(s,4,5);mh_time_process(s,100);EXPECT_EQ(mh_time_process(s,250),150u);EXPECT_EQ(s.cur_time,150u);EXPECT_EQ(s.mh_time,155u);}
-TEST(MhTime, WrapsDay){MhTimeState s;mh_time_init(s,4,tick_per_day-10);mh_time_process(s,1);mh_time_process(s,21);EXPECT_EQ(s.mh_date,5u);EXPECT_EQ(s.mh_time,10u);}
-TEST(MhTime, UsesUnsignedTickWrap){MhTimeState s;mh_time_init(s,0,0);mh_time_process(s,0xffffff00u);EXPECT_EQ(mh_time_process(s,0x00000010u),0x110u);}
-TEST(MhTime, NewCalcDoesNotMutate){MhTimeState s;mh_time_init(s,0,0);mh_time_process(s,100);EXPECT_EQ(mh_new_calc_cur_time(s,140),40u);EXPECT_EQ(s.cur_time,0u);}
-TEST(MhTime, LegacyDateParts){MhTimeState s;mh_time_init(s,360u+30u+29u,0);std::uint8_t y,m,d;mh_date_parts(s,y,m,d);EXPECT_EQ(y,2);EXPECT_EQ(m,14);EXPECT_EQ(d,30);}
-TEST(MhTime, LegacyTimeParts){MhTimeState s;mh_time_init(s,0,2*tick_per_hour+17*tick_per_minute);std::uint8_t h,m;mh_time_parts(s,h,m);EXPECT_EQ(h,2);EXPECT_EQ(m,136);}
+TEST(MhTimeManager, NumericConstantsMatchLegacy){EXPECT_EQ(MXH_MH_TICK_PER_DAY,8640000u);EXPECT_EQ(MXH_MH_TICK_PER_HOUR,3600000u);EXPECT_EQ(MXH_MH_TICK_PER_MINUTE,60000u);EXPECT_EQ(MXH_MH_DAY_PER_YEAR,360u);EXPECT_EQ(MXH_MH_DAY_PER_MONTH,30u);}
+TEST(MhTimeManager, InitSetsInitialDateAndTime){MhTimeManager t;t.init(7,12345);EXPECT_EQ(t.mh_date(),7u);EXPECT_EQ(t.mh_time(),12345u);}
+TEST(MhTimeManager, FirstProcessEstablishesBaselineWithoutAdvancing){MhTimeManager t;t.init(0,1000);t.process(5000);EXPECT_EQ(t.mh_date(),0u);EXPECT_EQ(t.mh_time(),1000u);}
+TEST(MhTimeManager, ProcessAdvancesMhTimeByDelta){MhTimeManager t;t.init(0,0);t.process(1000);t.process(2500);EXPECT_EQ(t.mh_time(),1500u);EXPECT_EQ(t.mh_date(),0u);}
+TEST(MhTimeManager, ProcessWrapsDayWhenCrossingMidnight){MhTimeManager t;t.init(0,MXH_MH_TICK_PER_DAY-500);t.process(1000);t.process(2000);EXPECT_EQ(t.mh_date(),1u);EXPECT_EQ(t.mh_time(),500u);}
+TEST(MhTimeManager, ProcessWrapsMultipleDays){MhTimeManager t;t.init(0,MXH_MH_TICK_PER_DAY*2-100);t.process(1000);t.process(2000);EXPECT_EQ(t.mh_date(),2u);EXPECT_EQ(t.mh_time(),900u);}
+TEST(MhTimeManager, ProcessHandlesClockWrap){MhTimeManager t;t.init(0,0);t.process(0xFFFFFFF0u);t.process(0x00000010u);EXPECT_EQ(t.mh_time(),32u);}
+TEST(MhTimeManager, SplitDateMatchesYearMonthDay){MhTimeManager t;t.init(0,0);std::uint8_t y=0,m=0,d=0;t.mh_date(y,m,d);EXPECT_EQ(y,1);EXPECT_EQ(m,1);EXPECT_EQ(d,1);t.init(29,0);t.mh_date(y,m,d);EXPECT_EQ(y,1);EXPECT_EQ(m,1);EXPECT_EQ(d,30);t.init(30,0);t.mh_date(y,m,d);EXPECT_EQ(y,1);EXPECT_EQ(m,2);EXPECT_EQ(d,1);t.init(360,0);t.mh_date(y,m,d);EXPECT_EQ(y,2);EXPECT_EQ(m,1);EXPECT_EQ(d,1);}
+TEST(MhTimeManager, SplitTimeMatchesHourMinute){MhTimeManager t;t.init(0,0);std::uint8_t h=99,mi=99;t.mh_time(h,mi);EXPECT_EQ(h,0);EXPECT_EQ(mi,0);t.init(0,3600000);t.mh_time(h,mi);EXPECT_EQ(h,1);EXPECT_EQ(mi,0);t.init(0,3660000);t.mh_time(h,mi);EXPECT_EQ(h,1);EXPECT_EQ(mi,1);t.init(0,MXH_MH_TICK_PER_DAY-1);t.mh_time(h,mi);EXPECT_EQ(h,2);EXPECT_EQ(mi,23);}
+TEST(MhTimeManager, ResetForTestClearsState){MhTimeManager t;t.init(100,2000);t.process(5000);t.reset_for_test();EXPECT_EQ(t.mh_date(),0u);EXPECT_EQ(t.mh_time(),0u);std::uint8_t h=99,mi=99;t.mh_time(h,mi);EXPECT_EQ(h,0);EXPECT_EQ(mi,0);}
