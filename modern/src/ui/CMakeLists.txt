@@ -196,6 +196,7 @@ add_library(mxh_ui STATIC
     cmousepointer.cpp
     chelper.cpp
     cskillpointredist.cpp
+    cstreetstall.cpp
 )
 
 if(WIN32)
