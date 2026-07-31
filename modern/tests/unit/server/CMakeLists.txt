@@ -1929,3 +1929,7 @@ gtest_add_tests(TARGET mxh_murimnet_play_room_tests WORKING_DIRECTORY ${CMAKE_SO
 add_executable(mxh_murimnet_play_room_manager_tests murimnet_play_room_manager_test.cpp)
 target_link_libraries(mxh_murimnet_play_room_manager_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_murimnet_play_room_manager_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_murimnet_player_tests murimnet_player_test.cpp)
+target_link_libraries(mxh_murimnet_player_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_murimnet_player_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
