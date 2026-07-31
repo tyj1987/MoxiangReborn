@@ -192,6 +192,7 @@ add_library(mxh_ui STATIC
     charmakedialog.cpp
     monsterguagedlg.cpp
     ccharacterdialog.cpp
+    ctitanchangepreviewdlg.cpp
 )
 
 if(WIN32)

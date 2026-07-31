@@ -189,6 +189,7 @@ add_executable(mxh_ui_tests
     ccostumeskinselectdialog_test.cpp
     cchatdialog_test.cpp
     ccharacterdialog_test.cpp
+    ctitanchangepreviewdlg_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1190,6 +1191,26 @@ gtest_add_tests(TARGET mxh_ui_tests
     CNameChangeNotifyDlgTest.FindWindowByIdReturnsNullWhenMissing
     CNameChangeNotifyDlgTest.IsAutoCloseDefaultsFalse
     CNameChangeNotifyDlgTest.RequestCloseLatchesTrue
+    # Phase C 1:1 port: cTitanChangePreViewDlg (titan parts change preview placeholder)
+    CTitanChangePreViewDlgTest.CtorDoesNotCrash
+    CTitanChangePreViewDlgTest.DtorDoesNotCrash
+    CTitanChangePreViewDlgTest.InheritsFromCDialog
+    CTitanChangePreViewDlgTest.IsAlsoAWindow
+    CTitanChangePreViewDlgTest.NonCopyable
+    CTitanChangePreViewDlgTest.MultipleInstancesAreSafe
+    CTitanChangePreViewDlgTest.InitStoresPositionAndId
+    CTitanChangePreViewDlgTest.InitIsIdempotent
+    CTitanChangePreViewDlgTest.InitBeforeAnyStateChangeDoesNotCrash
+    CTitanChangePreViewDlgTest.LinkingAfterInitDoesNotCrash
+    CTitanChangePreViewDlgTest.LinkingBeforeInitDoesNotCrash
+    CTitanChangePreViewDlgTest.LinkingMultipleTimesIsSafe
+    CTitanChangePreViewDlgTest.LinkingDoesNotAlterState
+    CTitanChangePreViewDlgTest.SetActiveTogglesThroughBase
+    CTitanChangePreViewDlgTest.SetActiveBeforeInitDoesNotCrash
+    CTitanChangePreViewDlgTest.WindowIdConstantMatchesLegacyEnum
+    CTitanChangePreViewDlgTest.WindowIdIsAcceptedByInit
+    CTitanChangePreViewDlgTest.SetVisibleToggle
+    CTitanChangePreViewDlgTest.SetAbsXYChangesPosition
     # Phase C 1:1 port: cShoutDialog (shout message sender)
     CShoutDialogTest.DefaultConstructionHasZeroState
     CShoutDialogTest.InheritsDialogTreeManagement
