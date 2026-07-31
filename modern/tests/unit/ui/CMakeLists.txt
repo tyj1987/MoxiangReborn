@@ -12,6 +12,7 @@ add_executable(mxh_ui_tests
     cfrienddialog_test.cpp
     cpartydialog_test.cpp
     cguildwarehousedialog_test.cpp
+    cguildinvitedialog_test.cpp
     cmugongdialog_test.cpp
     cnpcscript_dialog_test.cpp
     cmainbardialog_test.cpp
@@ -119,8 +120,6 @@ add_executable(mxh_ui_tests
     guildinvitationkindselectiondialog_test.cpp
     tipbrowserdlg_test.cpp
     guildnicknamedialog_test.cpp
-    shoutdialog_test.cpp
-    guildinvitedialog_test.cpp
     stallkindselectdlg_test.cpp
     partyinvitedlg_test.cpp
     namechangedialog_test.cpp
@@ -848,36 +847,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNickNameDialogTest.SetNickMsgWithNullIsSafe
     CGuildNickNameDialogTest.SetNickMsgWithoutLinkIsSafe
     CGuildNickNameDialogTest.SetNickMsgBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cShoutDialog (shout message sender)
-    CShoutDialogTest.DefaultConstructionHasZeroState
-    CShoutDialogTest.InheritsDialogTreeManagement
-    CShoutDialogTest.IdConstantMatchesExpectedLocalRange
-    CShoutDialogTest.LinkingResolvesEditBox
-    CShoutDialogTest.LinkingWithoutChildrenDoesNotCrash
-    CShoutDialogTest.LinkingBeforeInitDoesNotCrash
-    CShoutDialogTest.SetItemInfoRoundTrip
-    CShoutDialogTest.SetItemInfoOverridesPrevious
-    CShoutDialogTest.SetItemInfoZeroIsValid
-    CShoutDialogTest.SendShoutMsgSynReturnsFalseUntilSingletonsPorted
-    CShoutDialogTest.SendShoutMsgSynDoesNotChangeState
-    CShoutDialogTest.SendShoutMsgSynWithoutLinkIsSafe
-    CShoutDialogTest.SendShoutMsgSynBeforeInitDoesNotCrash
-    # P2-12 Tier 2 dialog: cGuildInviteDialog (guild invitation display)
-    CGuildInviteDialogTest.DefaultConstructionIsValid
-    CGuildInviteDialogTest.InheritsDialogTreeManagement
-    CGuildInviteDialogTest.IdConstantMatchesExpectedLocalRange
-    CGuildInviteDialogTest.FlgKindConstantsMatchLegacy
-    CGuildInviteDialogTest.LinkingResolvesTextArea
-    CGuildInviteDialogTest.LinkingWithoutChildrenDoesNotCrash
-    CGuildInviteDialogTest.LinkingBeforeInitDoesNotCrash
-    CGuildInviteDialogTest.SetInfoAsMemberUpdatesTextArea
-    CGuildInviteDialogTest.SetInfoAsStudentUpdatesTextArea
-    CGuildInviteDialogTest.SetInfoAsStudentWithUnknownFlgKind
-    CGuildInviteDialogTest.SetInfoAsMemberWithNullNamesIsSafe
-    CGuildInviteDialogTest.SetInfoAsStudentWithNullNamesIsSafe
-    CGuildInviteDialogTest.SetInfoOverwritesPreviousText
-    CGuildInviteDialogTest.SetInfoWithoutLinkIsSafe
-    CGuildInviteDialogTest.SetInfoBeforeInitDoesNotCrash
     # P2-12 Tier 2 dialog: cStallKindSelectDlg (street stall kind selector)
     CStallKindSelectDlgTest.DefaultConstructionIsValid
     CStallKindSelectDlgTest.InheritsDialogTreeManagement

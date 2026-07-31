@@ -18,6 +18,7 @@ add_library(mxh_ui STATIC
     cfrienddialog.cpp
     cpartydialog.cpp
     cguildwarehousedialog.cpp
+    cguildinvitedialog.cpp
     cmugongdialog.cpp
     cnpcscript_dialog.cpp
     cmainbardialog.cpp
@@ -67,7 +68,7 @@ add_library(mxh_ui STATIC
     tipbrowserdlg.cpp
     guildnicknamedialog.cpp
     shoutdialog.cpp
-    guildinvitedialog.cpp
+    cguildinvitedialog.cpp
     stallkindselectdlg.cpp
     partyinvitedlg.cpp
     namechangedialog.cpp
