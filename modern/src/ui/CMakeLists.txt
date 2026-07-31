@@ -60,7 +60,7 @@ add_library(mxh_ui STATIC
     petwearedexdialog.cpp
     guildnoticedlg.cpp
     cchinaadvicedlg.cpp
-    introreplaydlg.cpp
+    cintroreplaydlg.cpp
     ckeysettingtipdlg.cpp
     cloadingdlg.cpp
     namechangenotifydlg.cpp

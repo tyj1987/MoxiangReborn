@@ -113,7 +113,7 @@ add_executable(mxh_ui_tests
     petwearedexdialog_test.cpp
     guildnoticedlg_test.cpp
     cchinaadvicedlg_test.cpp
-    introreplaydlg_test.cpp
+    cintroreplaydlg_test.cpp
     ckeysettingtipdlg_test.cpp
     cloadingdlg_test.cpp
     namechangenotifydlg_test.cpp
@@ -762,12 +762,6 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoticeDlgTest.OnActionEventUnknownIdIsNoOp
     CGuildNoticeDlgTest.OnActionEventBeforeLinkingDoesNotCrash
 
-    # P2-12 Tier 2 dialog: cIntroReplayDlg (intro replay placeholder)
-    CIntroReplayDlgTest.DefaultConstructionIsValid
-    CIntroReplayDlgTest.InheritsDialogTreeManagement
-    CIntroReplayDlgTest.LinkingIsNoOp
-    CIntroReplayDlgTest.LinkingBeforeInitDoesNotCrash
-    CIntroReplayDlgTest.LinkingIsIdempotent
 
     # P2-12 Tier 2 dialog: cNameChangeNotifyDlg (name change placeholder)
     CNameChangeNotifyDlgTest.DefaultConstructionIsValid
@@ -1147,6 +1141,32 @@ gtest_add_tests(TARGET mxh_ui_tests
     CKeySettingTipDlgTest.RenderBeforeSetModeUsesDefault
     CKeySettingTipDlgTest.HasRenderCallbackDefaultsFalse
     CKeySettingTipDlgTest.HasRenderCallbackAfterSetReturnsTrue
+    # Phase C 1:1 port: cIntroReplayDlg (intro replay placeholder)
+    CIntroReplayDlgTest.CtorDoesNotCrash
+    CIntroReplayDlgTest.DtorDoesNotCrash
+    CIntroReplayDlgTest.InheritsFromCDialog
+    CIntroReplayDlgTest.IsAlsoAWindow
+    CIntroReplayDlgTest.NonCopyable
+    CIntroReplayDlgTest.InitStoresPosition
+    CIntroReplayDlgTest.InitIsIdempotent
+    CIntroReplayDlgTest.LinkingIsNoOp
+    CIntroReplayDlgTest.LinkingBeforeInitDoesNotCrash
+    CIntroReplayDlgTest.LinkingIsIdempotent
+    CIntroReplayDlgTest.LinkingDoesNotChangeId
+    CIntroReplayDlgTest.LinkingDoesNotChangeActive
+    CIntroReplayDlgTest.LinkingDoesNotChangeAutoClose
+    CIntroReplayDlgTest.LinkingDoesNotChangeDisabledState
+    CIntroReplayDlgTest.SetActiveToggle
+    CIntroReplayDlgTest.SetVisibleToggle
+    CIntroReplayDlgTest.SetEnabledToggle
+    CIntroReplayDlgTest.SetDisableIsAliasForSetEnabled
+    CIntroReplayDlgTest.SetAbsXYChangesPosition
+    CIntroReplayDlgTest.SetAlphaStoresValue
+    CIntroReplayDlgTest.SetOptionAlphaStoresValue
+    CIntroReplayDlgTest.AddChildStoresInTree
+    CIntroReplayDlgTest.FindWindowByIdReturnsSelfWhenMatching
+    CIntroReplayDlgTest.RequestCloseLatchesTrue
+    CIntroReplayDlgTest.IsAutoCloseStoresValue
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 
