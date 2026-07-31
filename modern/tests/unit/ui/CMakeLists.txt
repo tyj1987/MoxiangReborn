@@ -112,7 +112,7 @@ add_executable(mxh_ui_tests
     baildialog_test.cpp
     petwearedexdialog_test.cpp
     guildnoticedlg_test.cpp
-    chinaadvicedlg_test.cpp
+    cchinaadvicedlg_test.cpp
     introreplaydlg_test.cpp
     keysettingtipdlg_test.cpp
     loadingdlg_test.cpp
@@ -761,17 +761,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoticeDlgTest.OnActionEventCancelBtnIsNoOpUntilGuildMgrPort
     CGuildNoticeDlgTest.OnActionEventUnknownIdIsNoOp
     CGuildNoticeDlgTest.OnActionEventBeforeLinkingDoesNotCrash
-    # P2-12 Tier 2 dialog: cChinaAdviceDlg (China advice / T&C)
-    CChinaAdviceDlgTest.DefaultConstructionHasNullPointer
-    CChinaAdviceDlgTest.InheritsDialogTreeManagement
-    CChinaAdviceDlgTest.IdConstantMatchesExpectedLocalRange
-    CChinaAdviceDlgTest.LinkingResolvesTextAreaAndSetsScriptText
-    CChinaAdviceDlgTest.LinkingWithoutChildrenLeavesPointerNull
-    CChinaAdviceDlgTest.LinkingBeforeInitDoesNotCrash
-    CChinaAdviceDlgTest.LinkingOverwritesPreviousScriptText
-    CChinaAdviceDlgTest.OnActionEventIsNoOp
-    CChinaAdviceDlgTest.OnActionEventDoesNotChangeState
-    CChinaAdviceDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+
     # P2-12 Tier 2 dialog: cIntroReplayDlg (intro replay placeholder)
     CIntroReplayDlgTest.DefaultConstructionIsValid
     CIntroReplayDlgTest.InheritsDialogTreeManagement
@@ -1075,6 +1065,33 @@ gtest_add_tests(TARGET mxh_ui_tests
     CAlertDlgTest.OnActionEventBeforeLinkingDoesNotCrash
     CAlertDlgTest.OnActionEventBeforeInitDoesNotCrash
     CAlertDlgTest.MultipleOkClicksAccumulateDispatchCount
+    # Phase C 1:1 port: cChinaAdviceDlg (China advice / T&C)
+    CChinaAdviceDlgTest.CtorDoesNotCrash
+    CChinaAdviceDlgTest.DtorDoesNotCrash
+    CChinaAdviceDlgTest.InheritsFromCDialog
+    CChinaAdviceDlgTest.NonCopyable
+    CChinaAdviceDlgTest.IdConstantMatchesExpectedLocalRange
+    CChinaAdviceDlgTest.ChatMsgIdConstantMatchesLegacy
+    CChinaAdviceDlgTest.WeBtnClickConstantMatchesLegacy
+    CChinaAdviceDlgTest.PlaceholderTextIsSet
+    CChinaAdviceDlgTest.DefaultTextAreaIsNull
+    CChinaAdviceDlgTest.DefaultLastScriptTextIsNull
+    CChinaAdviceDlgTest.LinkingResolvesTextAreaFromTree
+    CChinaAdviceDlgTest.LinkingWithoutChildrenLeavesPointerNull
+    CChinaAdviceDlgTest.LinkingIsIdempotent
+    CChinaAdviceDlgTest.LinkingBeforeInitDoesNotCrash
+    CChinaAdviceDlgTest.HostInjectedTakesPriorityOverLinking
+    CChinaAdviceDlgTest.LinkingSetsScriptTextViaCallback
+    CChinaAdviceDlgTest.LinkingCallsCallbackWithChatMsgId30
+    CChinaAdviceDlgTest.LinkingWithoutCallbackUsesPlaceholder
+    CChinaAdviceDlgTest.LinkingWithNullCallbackResultUsesPlaceholder
+    CChinaAdviceDlgTest.LinkingWithoutTextAreaDoesNotSetScriptText
+    CChinaAdviceDlgTest.MultipleLinkingCallsKeepLastText
+    CChinaAdviceDlgTest.OnActionEventIsNoOp
+    CChinaAdviceDlgTest.OnActionEventDoesNotChangeScriptText
+    CChinaAdviceDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    CChinaAdviceDlgTest.OnActionEventBeforeInitDoesNotCrash
+    CChinaAdviceDlgTest.OnActionEventWithBtnClickIsNoOp
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 

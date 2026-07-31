@@ -59,7 +59,7 @@ add_library(mxh_ui STATIC
     baildialog.cpp
     petwearedexdialog.cpp
     guildnoticedlg.cpp
-    chinaadvicedlg.cpp
+    cchinaadvicedlg.cpp
     introreplaydlg.cpp
     keysettingtipdlg.cpp
     loadingdlg.cpp
