@@ -83,8 +83,8 @@ TEST(Itemlimit, ItemlimitCategoryIs74) { EXPECT_EQ(mxh::server::itemlimit_catego
 TEST(Itemlimit, ItemlimitAddcountToMapIs0) { EXPECT_EQ(mxh::server::itemlimit_addcount_to_map, 0u); }
 TEST(Itemlimit, ItemlimitFullToClientIs1) { EXPECT_EQ(mxh::server::itemlimit_full_to_client, 1u); }
 TEST(Murimnet, MurimnetCategoryIs38) { EXPECT_EQ(mxh::server::murimnet_category, 38u); }
-TEST(Murimnet, MurimnetChangetomurimnetSynIs1) { EXPECT_EQ(mxh::server::murimnet_changetomurimnet_syn, 1u); }
-TEST(Murimnet, MurimnetChangetomurimnetAckIs4) { EXPECT_EQ(mxh::server::murimnet_changetomurimnet_ack, 4u); }
+TEST(Murimnet, MurimnetChangetomurimnetSynIs0) { EXPECT_EQ(mxh::server::murimnet_changetomurimnet_syn, 0u); }
+TEST(Murimnet, MurimnetChangetomurimnetAckIs1) { EXPECT_EQ(mxh::server::murimnet_changetomurimnet_ack, 1u); }
 TEST(Note, NoteCategoryIs58) { EXPECT_EQ(mxh::server::note_category, 58u); }
 TEST(Note, NoteSendnoteSynIs0) { EXPECT_EQ(mxh::server::note_sendnote_syn, 0u); }
 TEST(Note, NoteSendnoteidSynIs3) { EXPECT_EQ(mxh::server::note_sendnoteid_syn, 3u); }
