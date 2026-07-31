@@ -1948,3 +1948,7 @@ gtest_add_tests(TARGET mxh_murimnet_runtime_tests WORKING_DIRECTORY ${CMAKE_SOUR
 add_executable(mxh_murimnet_channel_tests murimnet_channel_test.cpp)
 target_link_libraries(mxh_murimnet_channel_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_murimnet_channel_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_murimnet_wire_tests murimnet_wire_test.cpp)
+target_link_libraries(mxh_murimnet_wire_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_murimnet_wire_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
