@@ -192,6 +192,7 @@ add_executable(mxh_ui_tests
     ctitanchangepreviewdlg_test.cpp
     cmousepointer_test.cpp
     chelper_test.cpp
+    cskillpointredist_test.cpp
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
@@ -1282,6 +1283,48 @@ gtest_add_tests(TARGET mxh_ui_tests
     CHelperTest.KMaxMotionSlotsConstantIsOne
     CHelperTest.KWeNullConstantIsZero
     CHelperTest.SetMotionSwapsThenRenderUsesNewMotion
+    # Phase C 1:1 port: cSkillPointRedist (skill-point redistribution dialog)
+    CSkillPointRedistTest.CtorDoesNotCrash
+    CSkillPointRedistTest.DtorDoesNotCrash
+    CSkillPointRedistTest.InheritsFromCDialog
+    CSkillPointRedistTest.IsAlsoAWindow
+    CSkillPointRedistTest.NonCopyable
+    CSkillPointRedistTest.MultipleInstancesAreSafe
+    CSkillPointRedistTest.DefaultTabIsWar
+    CSkillPointRedistTest.DefaultItemIdxIsZero
+    CSkillPointRedistTest.DefaultItemPosIsZero
+    CSkillPointRedistTest.DefaultChildSlotsAreNull
+    CSkillPointRedistTest.InitStoresPositionAndId
+    CSkillPointRedistTest.InitIsIdempotent
+    CSkillPointRedistTest.InitBeforeAnyStateChangeDoesNotCrash
+    CSkillPointRedistTest.SetActiveForwardsToBase
+    CSkillPointRedistTest.SetActiveTrueTriggersRefreshCallback
+    CSkillPointRedistTest.SetActiveFalseTriggersDeactivateCallback
+    CSkillPointRedistTest.LinkingResolvesAll12Children
+    CSkillPointRedistTest.LinkingWithoutResolverLeavesSlotsNull
+    CSkillPointRedistTest.LinkingBeforeInitDoesNotCrash
+    CSkillPointRedistTest.RefreshAbilityIconsForwardsToCallback
+    CSkillPointRedistTest.MakeNewAbilityIconForwardsToCallback
+    CSkillPointRedistTest.SetAbilityToolTipForwardsToCallback
+    CSkillPointRedistTest.SetAbilitySynForwardsToCallback
+    CSkillPointRedistTest.SetAbilityExpCachesValue
+    CSkillPointRedistTest.RefreshAbilityPointForwardsToCallback
+    CSkillPointRedistTest.GetCurAbilityNameForwardsToCallback
+    CSkillPointRedistTest.GetCurAbilityLevelForwardsToCallback
+    CSkillPointRedistTest.GetCurAbilityInfoForwardsToCallback
+    CSkillPointRedistTest.R12DeferredMethodsAreSafeWithoutCallbacks
+    CSkillPointRedistTest.SetCurItemStoresBothFields
+    CSkillPointRedistTest.SetCurItemOverwritesPrevious
+    CSkillPointRedistTest.SetTabNumberStoresValue
+    CSkillPointRedistTest.SetTabNumberOutOfRangeIsNoOp
+    CSkillPointRedistTest.KIdDialogMatchesLegacyEnum
+    CSkillPointRedistTest.KIdUpDownOkBtnConstantsMatchLegacyEnum
+    CSkillPointRedistTest.KIdPointStaticConstantsMatchLegacyEnum
+    CSkillPointRedistTest.KIdTabBtnConstantsMatchLegacyEnum
+    CSkillPointRedistTest.KIdIconGridConstantsMatchLegacyEnum
+    CSkillPointRedistTest.KAbilityIdxMatchesLegacyArray
+    CSkillPointRedistTest.KTabCountMatchesLegacy
+    CSkillPointRedistTest.SkillRedistTabEnumValues
     # Phase C 1:1 port: cShoutDialog (shout message sender)
     CShoutDialogTest.DefaultConstructionHasZeroState
     CShoutDialogTest.InheritsDialogTreeManagement
