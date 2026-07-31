@@ -164,6 +164,7 @@ add_library(mxh_server STATIC
     server/murimnet_play_room.cpp
     server/murimnet_play_room_manager.cpp
     server/murimnet_player.cpp
+    server/murimnet_runtime.cpp
     server/distribute_server.cpp
     server/mn_server.cpp
     server/login_server_db_msg_parser.cpp
