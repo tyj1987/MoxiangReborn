@@ -10,3 +10,10 @@ MurimNetRuntimeStatus MurimNetRuntime::disconnect(std::uint32_t id){auto* p=m_pl
 MurimNetRuntimeStatus MurimNetRuntime::game_logout(std::uint32_t roomId,std::uint32_t id){auto* p=m_players.find_player(id);if(!p)return MurimNetRuntimeStatus::PlayerNotFound;if(p->room_state().location_index!=roomId)return MurimNetRuntimeStatus::RoomNotFound;auto* room=m_rooms.get_room(roomId);if(!room)return MurimNetRuntimeStatus::RoomNotFound;if(!room->player_out(p->room_state()))return MurimNetRuntimeStatus::NotInRoom;m_players.delete_player(id);return MurimNetRuntimeStatus::Ok;}
 }
 
+
+namespace mxh::server {
+MurimNetRuntimeStatus MurimNetRuntime::request_start(std::uint32_t id){auto* p=m_players.find_player(id);if(!p)return MurimNetRuntimeStatus::PlayerNotFound;if(!p->room_state().captain)return MurimNetRuntimeStatus::NotCaptain;auto* room=m_rooms.get_room(p->room_state().location_index);if(!room)return MurimNetRuntimeStatus::RoomNotFound;if(room->started())return MurimNetRuntimeStatus::AlreadyStarted;return MurimNetRuntimeStatus::Ok;}
+MurimNetRuntimeStatus MurimNetRuntime::start_ack(std::uint32_t roomId){auto* room=m_rooms.get_room(roomId);if(!room)return MurimNetRuntimeStatus::RoomNotFound;if(room->started())return MurimNetRuntimeStatus::AlreadyStarted;room->play_start(true);return MurimNetRuntimeStatus::Ok;}
+MurimNetRuntimeStatus MurimNetRuntime::start_nack(std::uint32_t roomId){auto* room=m_rooms.get_room(roomId);if(!room)return MurimNetRuntimeStatus::RoomNotFound;room->play_start(false);return MurimNetRuntimeStatus::Ok;}
+}
+
