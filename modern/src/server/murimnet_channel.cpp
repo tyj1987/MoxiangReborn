@@ -4,7 +4,7 @@ namespace mxh::server {
 bool MurimNetChannel::create(const MnChannelCreateInfo& i){if(i.channel_index==0||i.max_players==0)return false;release();m_info=i;return true;}
 void MurimNetChannel::release()noexcept{for(auto* p:m_players)if(p&&p->location_index==m_info.channel_index){p->location=MnPlayerLocation::None;p->location_index=0;}m_players.clear();}
 bool MurimNetChannel::contains(std::uint32_t id)const noexcept{return std::any_of(m_players.begin(),m_players.end(),[&](auto* p){return p&&p->id==id;});}
-bool MurimNetChannel::player_in(MnRoomPlayer& p){if(p.id==0||contains(p.id)||m_players.size()>=m_info.max_players)return false;p.location=MnPlayerLocation::PlayRoom;p.location_index=m_info.channel_index;m_players.push_back(&p);return true;}
+bool MurimNetChannel::player_in(MnRoomPlayer& p){if(p.id==0||contains(p.id)||m_players.size()>=m_info.max_players)return false;p.location=MnPlayerLocation::Channel;p.location_index=m_info.channel_index;m_players.push_back(&p);return true;}
 bool MurimNetChannel::player_out(MnRoomPlayer& p){auto it=std::find(m_players.begin(),m_players.end(),&p);if(it==m_players.end())return false;m_players.erase(it);p.location=MnPlayerLocation::None;p.location_index=0;return true;}
 bool MurimNetChannelManager::init(std::uint32_t max,const MnChannelCreateInfo& def){release();if(max==0)return false;m_maxChannels=max;auto d=def;if(d.channel_index==0){d.channel_index=1;d.max_players=16;d.title="Default Channel";}m_defaultChannel=create_channel(d);return m_defaultChannel!=nullptr;}
 void MurimNetChannelManager::release()noexcept{for(auto& c:m_channels)if(c)c->release();m_channels.clear();m_defaultChannel=nullptr;m_maxChannels=0;}
@@ -14,4 +14,3 @@ MurimNetChannel* MurimNetChannelManager::get_channel(std::uint32_t id)noexcept{f
 bool MurimNetChannelManager::enter_default(MnRoomPlayer& p){return m_defaultChannel&&m_defaultChannel->player_in(p);}
 bool MurimNetChannelManager::exit(MnRoomPlayer& p){if(p.location_index==0)return false;auto* c=get_channel(p.location_index);return c&&c->player_out(p);}
 }
-

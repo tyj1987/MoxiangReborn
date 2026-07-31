@@ -127,7 +127,7 @@
 - [x] D2 战斗系统 BattleFactory_Default 1:1
 - [ ] D3 任务系统 QuestManager + QuestExecute_* 1:1
 - [ ] D4 商城 / 物品 / 仓库 / 邮件 / 帮派 / 队伍 1:1
-- [ ] D5 MurimNet PvP 1:1（频道状态已锁：Closing 禁止重新加入/发消息，非成员禁止频道注入消息，销毁频道同步清理历史，频道 ID 溢出跳过 0/重复值；PlayRoom + PlayRoomManager + MNPlayer/MNPlayerManager 已移植（房间状态、索引、玩家连接字段与生命周期）；Agent parser 未知协议显式丢弃；runtime connect/reconnect/disconnect/game-logout 已接房间与玩家管理器，开局 transport 断线保留玩家并允许重连；队长开局请求与 ACK/NACK 状态已锁；大厅 Channel/ChannelManager 核心已移植并接入 runtime 频道进出）
+- [ ] D5 MurimNet PvP 1:1（频道状态已锁：Closing 禁止重新加入/发消息，非成员禁止频道注入消息，销毁频道同步清理历史，频道 ID 溢出跳过 0/重复值；PlayRoom + PlayRoomManager + MNPlayer/MNPlayerManager 已移植（房间状态、索引、玩家连接字段与生命周期）；Agent parser 未知协议显式丢弃；runtime connect/reconnect/disconnect/game-logout 已接房间与玩家管理器，开局 transport 断线保留玩家并允许重连；队长开局请求与 ACK/NACK 状态已锁；大厅 Channel/ChannelManager 核心已移植并接入 runtime 频道进出MnPlayerLocation 拆出 Channel 与 PlayRoom（Channel=1, PlayRoom=2）匹配老 eLOCATION_ 顺序；MnChannelMode 与 runtime.select_channel_mode 已落地，状态码新增 InvalidChannelMode=10，要求进频道才能选 ID/Channel/PlayRoom 三种视图）
 - [ ] D6 经验曲线 / 伤害公式 / 爆率 / Boss 刷新回归测试
 - [ ] 验证：side-by-side 跑原版和 modern，截日志 diff = 0
 
