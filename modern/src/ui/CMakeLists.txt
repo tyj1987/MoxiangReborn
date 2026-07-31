@@ -99,7 +99,7 @@ add_library(mxh_ui STATIC
     guildnotedlg.cpp
     pointsavedialog.cpp
     survivalcountdialog.cpp
-    debugdlg.cpp
+    cdebugdlg.cpp
     shoutchatdialog.cpp
     guildlevelupdialog.cpp
     mnchanneldialog.cpp
