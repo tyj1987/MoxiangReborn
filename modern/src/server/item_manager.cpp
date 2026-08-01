@@ -1,12 +1,11 @@
 // item_manager.cpp
 
 #include "mxh/server/item_manager.hpp"
+#include "mxh/server/money_manager.hpp"
+
 #include <algorithm>
 
 namespace mxh::server {
-
-// MAX_MONEY == 2,000,000,000 (legacy 32-bit cap)
-constexpr std::uint32_t kMaxMoney = 2000000000u;
 
 static bool item_empty(const mxh::game::ItemBase& item) noexcept {
     return item.dwDBIdx == 0;
@@ -122,9 +121,9 @@ ItemOpResult pyoguk_out(PyogukSlots& p, std::uint16_t pos) noexcept {
 }
 
 std::optional<std::uint32_t> add_money(std::uint32_t purse, std::uint32_t delta) noexcept {
-    std::uint64_t sum = static_cast<std::uint64_t>(purse) + delta;
-    if (sum > kMaxMoney) return std::nullopt;
-    return static_cast<std::uint32_t>(sum);
+    const auto room = MXH_PLAYER_MAX_MONEY - purse;
+    const auto actual = std::min(delta, room);
+    return purse + actual;
 }
 
 std::optional<std::uint32_t> spend_money(std::uint32_t purse, std::uint32_t cost) noexcept {

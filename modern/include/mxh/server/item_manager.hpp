@@ -35,8 +35,8 @@ ItemOpResult pyoguk_in(PyogukSlots& p, const mxh::game::ItemBase& item) noexcept
 ItemOpResult pyoguk_out(PyogukSlots& p, std::uint16_t pos) noexcept;
 
 // ---- Money handling ----
-// 1:1 port of legacy CPurse::Add/Minus: only adds money if it doesnt
-// overflow MAX_MONEY (legacy 2 billion cap).
+// 1:1 port of legacy CPurse::Addition/Subtraction. Addition clips to
+// MAXMONEY=0xFFFFFFFF without wrapping; subtraction rejects insufficient funds.
 std::optional<std::uint32_t> add_money(std::uint32_t purse, std::uint32_t delta) noexcept;
 std::optional<std::uint32_t> spend_money(std::uint32_t purse, std::uint32_t cost) noexcept;
 

@@ -179,8 +179,22 @@ TEST(AddMoney, NormalAddition) {
     EXPECT_EQ(*r, 150u);
 }
 
-TEST(AddMoney, OverflowReturnsNullopt) {
-    EXPECT_FALSE(add_money(2000000000u - 10, 100).has_value());
+TEST(AddMoney, OverflowClipsAtLegacyMaxMoney) {
+    const auto result = add_money(0xFFFFFFF0u, 0x20u);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 0xFFFFFFFFu);
+}
+
+TEST(AddMoney, ValuesAboveFabricatedTwoBillionRemainValid) {
+    const auto result = add_money(2000000000u, 1u);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 2000000001u);
+}
+
+TEST(AddMoney, AdditionAtUint32MaxDoesNotWrap) {
+    const auto result = add_money(0xFFFFFFFFu, 1u);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 0xFFFFFFFFu);
 }
 
 TEST(SpendMoney, NormalSubtraction) {
