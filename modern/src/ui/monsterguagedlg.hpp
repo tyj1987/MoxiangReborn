@@ -32,15 +32,15 @@ struct MonsterGaugeInfo {
 
 class cMonsterGuageDlg final : public cDialog {
 public:
-    static constexpr std::int32_t kDialogId = 1047;
-    static constexpr std::int32_t kNameId = 1048;
-    static constexpr std::int32_t kLifeTextId = 1049;
-    static constexpr std::int32_t kLifeGaugeId = 1050;
-    static constexpr std::int32_t kShieldGaugeId = 1051;
-    static constexpr std::int32_t kGuildNameId = 1052;
-    static constexpr std::int32_t kGuildUnionNameId = 1053;
-    static constexpr std::int32_t kNpcNameId = 1057;
-    static constexpr std::int32_t kLifeBaseId = 1058;
+    static constexpr std::int32_t kDialogId = 985;
+    static constexpr std::int32_t kNameId = 986;
+    static constexpr std::int32_t kLifeTextId = 987;
+    static constexpr std::int32_t kLifeGaugeId = 988;
+    static constexpr std::int32_t kShieldGaugeId = 989;
+    static constexpr std::int32_t kGuildNameId = 990;
+    static constexpr std::int32_t kGuildUnionNameId = 991;
+    static constexpr std::int32_t kNpcNameId = 995;
+    static constexpr std::int32_t kLifeBaseId = 996;
 
     static constexpr std::uint32_t kMonsterObjectType = 32;
     static constexpr int kGuildNameChatMsg = 783;

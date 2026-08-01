@@ -118,10 +118,10 @@ TEST(ServerListDialogTest, IsNonCopyable) {
 }
 
 TEST(ServerListDialogTest, ConstantsMatchLegacy) {
-    EXPECT_EQ(cServerListDialog::kServerListDialogId, 1128);
-    EXPECT_EQ(cServerListDialog::kListCtrlId, 1129);
-    EXPECT_EQ(cServerListDialog::kConnectButtonId, 1130);
-    EXPECT_EQ(cServerListDialog::kExitButtonId, 1131);
+    EXPECT_EQ(cServerListDialog::kServerListDialogId, 1066);
+    EXPECT_EQ(cServerListDialog::kListCtrlId, 1067);
+    EXPECT_EQ(cServerListDialog::kConnectButtonId, 1068);
+    EXPECT_EQ(cServerListDialog::kExitButtonId, 1069);
     EXPECT_EQ(cServerListDialog::kRowClickEvent, 4096u);
     EXPECT_EQ(cServerListDialog::kRowDoubleClickEvent, 4194304u);
     EXPECT_EQ(cServerListDialog::kDefaultColor, 0xFFFFFFFFu);

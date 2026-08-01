@@ -130,25 +130,25 @@ TEST(PetStateDlgTest, InheritsTabDialogAndIsNonCopyable) {
 }
 
 TEST(PetStateDlgTest, ConstantsMatchLegacyWindowIds) {
-    EXPECT_EQ(cPetStateDlg::kDialogId, 1507);
-    EXPECT_EQ(cPetStateDlg::kSheet1Id, 1508);
-    EXPECT_EQ(cPetStateDlg::kSheet2Id, 1509);
-    EXPECT_EQ(cPetStateDlg::kLockBtnId, 1510);
-    EXPECT_EQ(cPetStateDlg::kUseRestBtnId, 1511);
-    EXPECT_EQ(cPetStateDlg::kInvenBtnId, 1512);
-    EXPECT_EQ(cPetStateDlg::kToggleBtnId, 1513);
-    EXPECT_EQ(cPetStateDlg::kNameId, 1514);
-    EXPECT_EQ(cPetStateDlg::kGradeId, 1515);
-    EXPECT_EQ(cPetStateDlg::kStateId, 1516);
-    EXPECT_EQ(cPetStateDlg::kImageId, 1517);
-    EXPECT_EQ(cPetStateDlg::kFriendGaugeId, 1518);
-    EXPECT_EQ(cPetStateDlg::kStaminaGaugeId, 1519);
-    EXPECT_EQ(cPetStateDlg::kFriendTextId, 1520);
-    EXPECT_EQ(cPetStateDlg::kStaminaTextId, 1521);
-    EXPECT_EQ(cPetStateDlg::kInvenNumId, 1522);
-    EXPECT_EQ(cPetStateDlg::kSkill1Id, 1523);
-    EXPECT_EQ(cPetStateDlg::kSkill2Id, 1524);
-    EXPECT_EQ(cPetStateDlg::kSkill3Id, 1525);
+    EXPECT_EQ(cPetStateDlg::kDialogId, 1466);
+    EXPECT_EQ(cPetStateDlg::kSheet1Id, 1467);
+    EXPECT_EQ(cPetStateDlg::kSheet2Id, 1468);
+    EXPECT_EQ(cPetStateDlg::kLockBtnId, 1469);
+    EXPECT_EQ(cPetStateDlg::kUseRestBtnId, 1470);
+    EXPECT_EQ(cPetStateDlg::kInvenBtnId, 1471);
+    EXPECT_EQ(cPetStateDlg::kToggleBtnId, 1472);
+    EXPECT_EQ(cPetStateDlg::kNameId, 1473);
+    EXPECT_EQ(cPetStateDlg::kGradeId, 1474);
+    EXPECT_EQ(cPetStateDlg::kStateId, 1475);
+    EXPECT_EQ(cPetStateDlg::kImageId, 1476);
+    EXPECT_EQ(cPetStateDlg::kFriendGaugeId, 1477);
+    EXPECT_EQ(cPetStateDlg::kStaminaGaugeId, 1478);
+    EXPECT_EQ(cPetStateDlg::kFriendTextId, 1479);
+    EXPECT_EQ(cPetStateDlg::kStaminaTextId, 1480);
+    EXPECT_EQ(cPetStateDlg::kInvenNumId, 1481);
+    EXPECT_EQ(cPetStateDlg::kSkill1Id, 1482);
+    EXPECT_EQ(cPetStateDlg::kSkill2Id, 1483);
+    EXPECT_EQ(cPetStateDlg::kSkill3Id, 1484);
 }
 
 TEST(PetStateDlgTest, ConstructorInitializesAllLegacyPointersToNull) {

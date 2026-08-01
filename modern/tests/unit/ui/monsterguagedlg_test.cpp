@@ -98,15 +98,15 @@ TEST(MonsterGuageDlgTest, ConstantsMatchLegacyModesAndIds) {
     EXPECT_EQ(static_cast<int>(MonsterGuageMode::Npc), 2);
     EXPECT_EQ(static_cast<int>(MonsterGuageMode::Pet), 3);
     EXPECT_EQ(static_cast<int>(MonsterGuageMode::Max), 4);
-    EXPECT_EQ(cMonsterGuageDlg::kDialogId, 1047);
-    EXPECT_EQ(cMonsterGuageDlg::kNameId, 1048);
-    EXPECT_EQ(cMonsterGuageDlg::kLifeTextId, 1049);
-    EXPECT_EQ(cMonsterGuageDlg::kLifeGaugeId, 1050);
-    EXPECT_EQ(cMonsterGuageDlg::kShieldGaugeId, 1051);
-    EXPECT_EQ(cMonsterGuageDlg::kGuildNameId, 1052);
-    EXPECT_EQ(cMonsterGuageDlg::kGuildUnionNameId, 1053);
-    EXPECT_EQ(cMonsterGuageDlg::kNpcNameId, 1057);
-    EXPECT_EQ(cMonsterGuageDlg::kLifeBaseId, 1058);
+    EXPECT_EQ(cMonsterGuageDlg::kDialogId, 985);
+    EXPECT_EQ(cMonsterGuageDlg::kNameId, 986);
+    EXPECT_EQ(cMonsterGuageDlg::kLifeTextId, 987);
+    EXPECT_EQ(cMonsterGuageDlg::kLifeGaugeId, 988);
+    EXPECT_EQ(cMonsterGuageDlg::kShieldGaugeId, 989);
+    EXPECT_EQ(cMonsterGuageDlg::kGuildNameId, 990);
+    EXPECT_EQ(cMonsterGuageDlg::kGuildUnionNameId, 991);
+    EXPECT_EQ(cMonsterGuageDlg::kNpcNameId, 995);
+    EXPECT_EQ(cMonsterGuageDlg::kLifeBaseId, 996);
     EXPECT_EQ(cMonsterGuageDlg::kMonsterObjectType, 32u);
 }
 

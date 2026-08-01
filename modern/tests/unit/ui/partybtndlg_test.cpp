@@ -91,15 +91,15 @@ TEST(PartyBtnDlgTest, IsNonCopyable) {
 }
 
 TEST(PartyBtnDlgTest, ConstantsMatchLegacyWindowIdsAndColors) {
-    EXPECT_EQ(cPartyBtnDlg::kBackgroundId, 502);
-    EXPECT_EQ(cPartyBtnDlg::kSecedeButtonId, 503);
-    EXPECT_EQ(cPartyBtnDlg::kTransferButtonId, 504);
-    EXPECT_EQ(cPartyBtnDlg::kForcedSecedeButtonId, 505);
-    EXPECT_EQ(cPartyBtnDlg::kBreakUpButtonId, 506);
-    EXPECT_EQ(cPartyBtnDlg::kAddMemberButtonId, 507);
-    EXPECT_EQ(cPartyBtnDlg::kWarSuggestButtonId, 508);
-    EXPECT_EQ(cPartyBtnDlg::kOptionButtonId, 509);
-    EXPECT_EQ(cPartyBtnDlg::kMemberButtonId, 510);
+    EXPECT_EQ(cPartyBtnDlg::kBackgroundId, 448);
+    EXPECT_EQ(cPartyBtnDlg::kSecedeButtonId, 449);
+    EXPECT_EQ(cPartyBtnDlg::kTransferButtonId, 450);
+    EXPECT_EQ(cPartyBtnDlg::kForcedSecedeButtonId, 451);
+    EXPECT_EQ(cPartyBtnDlg::kBreakUpButtonId, 452);
+    EXPECT_EQ(cPartyBtnDlg::kAddMemberButtonId, 453);
+    EXPECT_EQ(cPartyBtnDlg::kWarSuggestButtonId, 454);
+    EXPECT_EQ(cPartyBtnDlg::kOptionButtonId, 455);
+    EXPECT_EQ(cPartyBtnDlg::kMemberButtonId, 456);
     EXPECT_EQ(cPartyBtnDlg::kUsableImageColor, 0x00FFFFFFu);
     EXPECT_EQ(cPartyBtnDlg::kDisabledImageColor, 0x00FF6464u);
 }

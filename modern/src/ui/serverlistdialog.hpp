@@ -31,10 +31,10 @@ static_assert(sizeof(ServerListEntry) == 88);
 
 class cServerListDialog final : public cDialog {
 public:
-    static constexpr std::int32_t kServerListDialogId = 1128;
-    static constexpr std::int32_t kListCtrlId = 1129;
-    static constexpr std::int32_t kConnectButtonId = 1130;
-    static constexpr std::int32_t kExitButtonId = 1131;
+    static constexpr std::int32_t kServerListDialogId = 1066;
+    static constexpr std::int32_t kListCtrlId = 1067;
+    static constexpr std::int32_t kConnectButtonId = 1068;
+    static constexpr std::int32_t kExitButtonId = 1069;
 
     static constexpr std::uint32_t kRowClickEvent = 4096;
     static constexpr std::uint32_t kRowDoubleClickEvent = 4194304;

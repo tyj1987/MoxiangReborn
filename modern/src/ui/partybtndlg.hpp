@@ -19,15 +19,15 @@ struct PartyState {
 
 class cPartyBtnDlg final : public cDialog {
 public:
-    static constexpr std::int32_t kBackgroundId = 502;
-    static constexpr std::int32_t kSecedeButtonId = 503;
-    static constexpr std::int32_t kTransferButtonId = 504;
-    static constexpr std::int32_t kForcedSecedeButtonId = 505;
-    static constexpr std::int32_t kBreakUpButtonId = 506;
-    static constexpr std::int32_t kAddMemberButtonId = 507;
-    static constexpr std::int32_t kWarSuggestButtonId = 508;
-    static constexpr std::int32_t kOptionButtonId = 509;
-    static constexpr std::int32_t kMemberButtonId = 510;
+    static constexpr std::int32_t kBackgroundId = 448;
+    static constexpr std::int32_t kSecedeButtonId = 449;
+    static constexpr std::int32_t kTransferButtonId = 450;
+    static constexpr std::int32_t kForcedSecedeButtonId = 451;
+    static constexpr std::int32_t kBreakUpButtonId = 452;
+    static constexpr std::int32_t kAddMemberButtonId = 453;
+    static constexpr std::int32_t kWarSuggestButtonId = 454;
+    static constexpr std::int32_t kOptionButtonId = 455;
+    static constexpr std::int32_t kMemberButtonId = 456;
 
     static constexpr std::uint32_t kUsableImageColor = 0x00FFFFFFu;
     static constexpr std::uint32_t kDisabledImageColor = 0x00FF6464u;
