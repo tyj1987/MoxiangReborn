@@ -1,4 +1,4 @@
-﻿// economy.hpp - Phase D6 Economy 1:1 port.
+// economy.hpp - Phase D6 Economy 1:1 port.
 //
 // Source-of-truth: legacy [Server]Map/Economy.h + .cpp.
 // Mirrors legacy CEconomy singleton's two-pointer state and the
@@ -14,13 +14,27 @@
 
 namespace mxh::server {
 
-struct RegistBaseEconomy;
-struct ItemInfo;
+#pragma pack(push, 1)
+struct RegistBaseEconomy {
+    std::uint16_t MapNum = 0;
+    std::uint16_t OriginNum = 0;
+    std::uint16_t OriginPrice = 0;
+    std::uint16_t OriginAmount = 0;
+    std::uint16_t RequireNum = 0;
+    std::uint16_t RequirePrice = 0;
+    std::uint16_t RequireAmount = 0;
+    std::uint8_t BuyRates = 0;
+    std::uint8_t SellRates = 0;
+};
+#pragma pack(pop)
+
+static_assert(sizeof(RegistBaseEconomy) == 16);
 
 // ---- Economy state (mirror CEconomy) ----
 struct EconomyState {
     void* m_RegEconomy     = nullptr;  // owned pointer
     void* m_SpacialItemBase = nullptr;  // owned pointer
+    std::size_t m_SpacialItemBaseSize = 0;
     bool  initialized     = false;
 };
 
@@ -34,9 +48,7 @@ const void* get_regist_economy(const EconomyState& s);
 // SetBaseValue: legacy memcpy(m_SpacialItemBase, ListValue, sizeof(ITEM_INFO)).
 bool set_base_value(EconomyState& s, const void* list_value, std::size_t item_size);
 
-// CalculBase: legacy sets BasePrice/BuyPrice on the special-item slot
-// to the registered origin.  We expose a pure-calc helper that returns
-// the computed base price for direct testability.
+// CalculBase is an empty legacy stub; the return value remains zeroed.
 struct CalculBaseResult {
     std::uint32_t base_price = 0;
     std::uint32_t buy_price  = 0;
