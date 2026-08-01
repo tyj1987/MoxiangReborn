@@ -43,14 +43,16 @@ enum class ExchangeState : std::uint8_t {
 
 // Opaque POD standing in for legacy ITEMBASE in the exchange context.
 struct ExchangeItemSlot {
-    std::uint64_t dwDBIdx   = 0;
-    std::uint32_t dwDurability = 0;
-    std::uint32_t dwOption  = 0;
-    std::uint16_t wItemIdx  = 0;
+    std::uint32_t dwDBIdx = 0;
+    std::uint16_t wItemIdx = 0;
     std::uint16_t wPosition = 0;
-    std::uint8_t  bLock     = 0;
-    std::uint8_t  bSealed   = 0;
+    std::uint32_t dwDurability = 0;
+    std::uint32_t dwRareIdx = 0;
+    std::uint16_t wQuickPosition = 0;
+    std::uint32_t dwItemParam = 0;
 };
+
+static_assert(sizeof(ExchangeItemSlot) == 24);
 
 // Mirrors legacy sEXCHANGEDATA.
 struct ExchangeData {
@@ -101,7 +103,14 @@ inline void exit_exchange_room(ExchangeRoom& r) {
 // Lock / unlock by participant index.
 inline void lock_slot(ExchangeRoom& r, int idx, bool lock_flag) {
     if (idx < 0 || idx > 1) return;
-    r.m_ExchangeData[idx].bLock = lock_flag;
+    if (lock_flag) {
+        r.m_ExchangeData[idx].bLock = true;
+        return;
+    }
+    for (auto& slot : r.m_ExchangeData) {
+        slot.bLock = false;
+        slot.bExchange = false;
+    }
 }
 
 inline bool is_slot_locked(const ExchangeRoom& r, int idx) {
@@ -131,7 +140,8 @@ inline void set_exchange_state(ExchangeRoom& r, ExchangeState s) {
 inline bool add_exchange_item(ExchangeRoom& r, int idx, const ExchangeItemSlot& item) {
     if (idx < 0 || idx > 1) return false;
     auto& data = r.m_ExchangeData[idx];
-    if (data.nAddItemNum >= MAX_EXCHANGEITEM) return false;
+    if (data.bLock || data.nAddItemNum >= MAX_EXCHANGEITEM) return false;
+    if (item.wQuickPosition != 0) return false;
     data.ItemInfo[static_cast<std::size_t>(data.nAddItemNum)] = item;
     data.nAddItemNum += 1;
     return true;
@@ -140,7 +150,7 @@ inline bool add_exchange_item(ExchangeRoom& r, int idx, const ExchangeItemSlot& 
 inline bool del_exchange_item(ExchangeRoom& r, int idx, int pos) {
     if (idx < 0 || idx > 1) return false;
     auto& data = r.m_ExchangeData[idx];
-    if (pos < 0 || pos >= data.nAddItemNum) return false;
+    if (pos < 0 || pos >= data.nAddItemNum || data.bLock) return false;
     for (int i = pos; i < data.nAddItemNum - 1; ++i) {
         data.ItemInfo[static_cast<std::size_t>(i)] = data.ItemInfo[static_cast<std::size_t>(i + 1)];
     }
@@ -149,16 +159,14 @@ inline bool del_exchange_item(ExchangeRoom& r, int idx, int pos) {
     return true;
 }
 
-// InputMoney records offered money from a participant. Returns OK on success;
-// returns MaxMoney if the resulting sum would overflow uint32_t. legacy
-// InputMoney returns the DWORD it actually stored (or 0xFFFFFFFF on overflow).
-inline ExchangeError input_money(ExchangeRoom& r, int idx, std::uint32_t amount) {
-    if (idx < 0 || idx > 1) return ExchangeError::Error;
-    auto& data = r.m_ExchangeData[idx];
-    const std::uint64_t sum = static_cast<std::uint64_t>(data.dwMoney) + amount;
-    if (sum > 0xFFFFFFFFu) return ExchangeError::MaxMoney;
-    data.dwMoney = static_cast<std::uint32_t>(sum);
-    return ExchangeError::OK;
+// InputMoney replaces the participant offer, clamps it to current player money,
+// and returns the actual stored amount (legacy CExchangeRoom::InputMoney).
+inline std::uint32_t input_money(ExchangeRoom& r, int idx, std::uint32_t amount,
+                                 std::uint32_t available_money = 0xFFFFFFFFu) {
+    if (idx < 0 || idx > 1) return 0;
+    const std::uint32_t actual = amount > available_money ? available_money : amount;
+    r.m_ExchangeData[idx].dwMoney = actual;
+    return actual;
 }
 
 // DoExchange succeeds only when both players locked AND both accepted. Returns

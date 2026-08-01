@@ -179,27 +179,27 @@ TEST(ExchangeManagerTotalItems, SumAcrossSlots) {
 
 TEST(ExchangeManagerMoney, FirstInputSucceeds) {
     auto r = make_room();
-    EXPECT_EQ(input_money(r, 0, 1000u), ExchangeError::OK);
+    EXPECT_EQ(input_money(r, 0, 1000u), 1000u);
     EXPECT_EQ(r.m_ExchangeData[0].dwMoney, 1000u);
 }
 
-TEST(ExchangeManagerMoney, RepeatedInputsAccumulate) {
+TEST(ExchangeManagerMoney, RepeatedInputReplacesOffer) {
     auto r = make_room();
-    EXPECT_EQ(input_money(r, 0, 1000u), ExchangeError::OK);
-    EXPECT_EQ(input_money(r, 0, 500u),  ExchangeError::OK);
-    EXPECT_EQ(r.m_ExchangeData[0].dwMoney, 1500u);
+    EXPECT_EQ(input_money(r, 0, 1000u), 1000u);
+    EXPECT_EQ(input_money(r, 0, 500u), 500u);
+    EXPECT_EQ(r.m_ExchangeData[0].dwMoney, 500u);
 }
 
-TEST(ExchangeManagerMoney, OverflowAtMaxReturnsMaxMoney) {
+TEST(ExchangeManagerMoney, InputClampsToAvailablePlayerMoney) {
     auto r = make_room();
-    EXPECT_EQ(input_money(r, 0, 0xFFFFFFFEu), ExchangeError::OK);
-    EXPECT_EQ(input_money(r, 0, 2u), ExchangeError::MaxMoney);
+    EXPECT_EQ(input_money(r, 0, 1000u, 600u), 600u);
+    EXPECT_EQ(r.m_ExchangeData[0].dwMoney, 600u);
 }
 
-TEST(ExchangeManagerMoney, InvalidIndexIsError) {
+TEST(ExchangeManagerMoney, InvalidIndexReturnsZero) {
     auto r = make_room();
-    EXPECT_EQ(input_money(r, -1, 100u), ExchangeError::Error);
-    EXPECT_EQ(input_money(r, 5, 100u), ExchangeError::Error);
+    EXPECT_EQ(input_money(r, -1, 100u), 0u);
+    EXPECT_EQ(input_money(r, 5, 100u), 0u);
 }
 
 // ---- DoExchange ----
@@ -257,4 +257,51 @@ TEST(ExchangeManagerErrorEnum, OkValueIsZero) {
     EXPECT_EQ(static_cast<int>(ExchangeError::MaxMoney),       7);
     EXPECT_EQ(static_cast<int>(ExchangeError::NotMatchItem),   8);
     EXPECT_EQ(static_cast<int>(ExchangeError::Error),          9);
+}
+
+
+TEST(ExchangeManagerLayout, ItemSlotMatchesLegacyItemBasePrefixAndSize) {
+    EXPECT_EQ(sizeof(ExchangeItemSlot), 24u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, dwDBIdx), 0u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, wItemIdx), 4u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, wPosition), 6u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, dwDurability), 8u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, dwRareIdx), 12u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, wQuickPosition), 16u);
+    EXPECT_EQ(offsetof(ExchangeItemSlot, dwItemParam), 20u);
+}
+
+TEST(ExchangeManagerLock, UnlockEitherParticipantResetsBothSidesAndAccepts) {
+    auto room = make_room();
+    lock_slot(room, 0, true);
+    lock_slot(room, 1, true);
+    set_exchange_accept(room, 0);
+    set_exchange_accept(room, 1);
+    lock_slot(room, 0, false);
+    EXPECT_FALSE(is_all_locked(room));
+    EXPECT_FALSE(is_all_accepted(room));
+    EXPECT_FALSE(is_slot_locked(room, 0));
+    EXPECT_FALSE(is_slot_locked(room, 1));
+}
+
+TEST(ExchangeManagerAddItem, LockedParticipantCannotAdd) {
+    auto room = make_room();
+    lock_slot(room, 0, true);
+    EXPECT_FALSE(add_exchange_item(room, 0, make_item()));
+    EXPECT_EQ(total_item_count(room), 0);
+}
+
+TEST(ExchangeManagerAddItem, QuickPositionItemIsRejected) {
+    auto room = make_room();
+    auto item = make_item();
+    item.wQuickPosition = 1;
+    EXPECT_FALSE(add_exchange_item(room, 0, item));
+}
+
+TEST(ExchangeManagerDelItem, LockedParticipantCannotDelete) {
+    auto room = make_room();
+    ASSERT_TRUE(add_exchange_item(room, 0, make_item()));
+    lock_slot(room, 0, true);
+    EXPECT_FALSE(del_exchange_item(room, 0, 0));
+    EXPECT_EQ(total_item_count(room), 1);
 }
