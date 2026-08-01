@@ -1,11 +1,11 @@
-﻿#pragma once
-
+//
 // skill_manager.hpp - 1:1 port of legacy [Server]Map/SkillManager.h CSkillManager.
+//
 
 #include "mxh/game/skill_types.hpp"
 #include <cstdint>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace mxh::server {
 
@@ -35,10 +35,19 @@ public:
     MugongSlot* find(std::uint32_t mugong_idx) noexcept;
     const MugongSlot* find(std::uint32_t mugong_idx) const noexcept;
     const std::vector<MugongSlot>& slots() const noexcept { return slots_; }
-    void clear() noexcept { slots_.clear(); }
     std::uint32_t total_sp() const noexcept;
     std::uint32_t owner_id() const noexcept { return owner_id_; }
     void set_owner_id(std::uint32_t v) noexcept { owner_id_ = v; }
+
+    // 1:1 with legacy CSkillManager::InitMugongList / ClearMugongList:
+    // clear() resets both the slot array and the lookup index so the
+    // manager is usable again after being emptied. Pre-fix this only
+    // cleared slots_ and left idx_ pointing past the end, causing
+    // vector subscript OOB on the next find().
+    void clear() noexcept {
+        slots_.clear();
+        idx_.clear();
+    }
 
 private:
     std::uint32_t owner_id_;
