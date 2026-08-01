@@ -7,8 +7,8 @@
 namespace mxh::server {
 
 namespace {
-constexpr std::uint16_t kInventorySlots = 80;
-constexpr std::uint16_t kEquipmentBase = 80;
+constexpr std::uint16_t kInventorySlots = mxh::game::SLOT_INVENTORY_NUM;
+constexpr std::uint16_t kEquipmentBase = mxh::game::TP_WEAREDITEM_START;
 constexpr std::uint16_t kMaxLevel = 99;
 
 bool valid_item(const mxh::game::ItemBase& item) noexcept {

@@ -147,6 +147,16 @@ TEST(PyogukIn, EmptySlotReceivesItem) {
     EXPECT_EQ(s.pyoguk.items[0].dwDBIdx, 101u);
 }
 
+TEST(PyogukIn, LastCellOfFifthPageIsUsable) {
+    PlayerState state = make_player_for_item_test();
+    ASSERT_EQ(state.pyoguk.items.size(), 150u);
+    for (std::size_t index = 0; index + 1 < state.pyoguk.items.size(); ++index) {
+        state.pyoguk.items[index] = make_item(static_cast<std::uint32_t>(index + 1), 1);
+    }
+    EXPECT_TRUE(pyoguk_in(state.pyoguk, make_item(999, 1)).success);
+    EXPECT_EQ(state.pyoguk.items.back().dwDBIdx, 999u);
+}
+
 TEST(PyogukIn, FullFails) {
     PlayerState s = make_player_for_item_test();
     for (std::uint16_t i = 0; i < s.pyoguk.items.size(); ++i) {

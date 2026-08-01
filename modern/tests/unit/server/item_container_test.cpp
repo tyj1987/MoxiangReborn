@@ -89,6 +89,15 @@ TEST(PyogukContainer, DepositAndWithdraw) {
     EXPECT_FALSE(p.withdraw(0));
 }
 
+TEST(PyogukContainer, CapacityMatchesFiveLegacyPages) {
+    PyogukContainer container;
+    EXPECT_EQ(container.slots.size(), 150u);
+    for (std::uint32_t index = 0; index < container.slots.size(); ++index) {
+        EXPECT_TRUE(container.deposit(make_item(index + 1, 22, 0, 100, 1)));
+    }
+    EXPECT_FALSE(container.deposit(make_item(999, 22, 0, 100, 1)));
+}
+
 TEST(ItemContainers, WireSlotSizesMatchLegacy) {
     // Slot sizes are locked by static_asserts in item_types.hpp; here we
     // re-check the array dimensions and total bytes against legacy.

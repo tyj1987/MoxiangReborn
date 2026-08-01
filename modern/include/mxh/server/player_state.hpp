@@ -117,17 +117,17 @@ struct PartyMembership final {
 // ---- Inventory slot (legacy ITEMBASE, mirrors mxh::game::ItemBase) ----
 // Inventory is the 80-slot grid the player carries around.
 struct InventorySlots final {
-    std::array<mxh::game::ItemBase, 80> items{};  // SLOT_INVENTORY_NUM = 80
+    std::array<mxh::game::ItemBase, mxh::game::SLOT_INVENTORY_NUM> items{};
 };
 
 // ---- Pyoguk (warehouse) slot ----
 struct PyogukSlots final {
-    std::array<mxh::game::ItemBase, 80> items{};
+    std::array<mxh::game::ItemBase, mxh::game::SLOT_PYOGUK_NUM> items{};
 };
 
 // ---- Equipment slot (legacy WearSlot = WEARED_ITEM_MAX = 10) ----
 struct EquipSlots final {
-    std::array<mxh::game::ItemBase, 10> items{};
+    std::array<mxh::game::ItemBase, mxh::game::WEARED_ITEM_MAX> items{};
 };
 
 // ---- Learned mugong (skill) list ----

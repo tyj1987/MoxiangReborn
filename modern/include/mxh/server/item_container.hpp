@@ -50,9 +50,11 @@ struct ShopInven final {
     bool remove(std::uint16_t position) noexcept;
 };
 
-// Pyoguk (warehouse): 80 slots per character. Legacy uses a separate
+// Pyoguk (warehouse): 150 slots per character. Legacy uses a separate
 // grid per warehouse number; modern port keeps the same wire layout.
-inline constexpr std::uint16_t PYOGUK_SLOT_NUM = 80;
+inline constexpr std::uint16_t PYOGUK_SLOT_NUM =
+    static_cast<std::uint16_t>(mxh::game::SLOT_PYOGUK_NUM);
+static_assert(PYOGUK_SLOT_NUM == 150);
 struct PyogukContainer final {
     std::array<mxh::game::ItemBase, PYOGUK_SLOT_NUM> slots{};
     PyogukContainer() noexcept { for (auto& s : slots) s = make_empty_slot(); }

@@ -236,9 +236,9 @@ TEST(PlayerStateComposition, FullPlayerInitializedFromFactory) {
     EXPECT_EQ(s.vitals.max_hp, 625u);  // 25*5 + 50*10 = 625
     EXPECT_EQ(s.vitals.max_shield, 25u * 5 + 30u * 10);  // 425
     EXPECT_EQ(s.vitals.max_mp, 25u * 5 + 30u * 10);  // 425
-    EXPECT_EQ(s.inventory.items.size(), 80u);
-    EXPECT_EQ(s.equipment.items.size(), 10u);
-    EXPECT_EQ(s.pyoguk.items.size(), 80u);
+    EXPECT_EQ(s.inventory.items.size(), static_cast<std::size_t>(mxh::game::SLOT_INVENTORY_NUM));
+    EXPECT_EQ(s.equipment.items.size(), static_cast<std::size_t>(mxh::game::WEARED_ITEM_MAX));
+    EXPECT_EQ(s.pyoguk.items.size(), static_cast<std::size_t>(mxh::game::SLOT_PYOGUK_NUM));
 }
 
 TEST(PlayerStateComposition, AddSkillAndFindInQuickBar) {
