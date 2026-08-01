@@ -574,6 +574,20 @@ gtest_add_tests(TARGET mxh_item_drop_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+add_executable(mxh_drop_item_tests
+    drop_item_test.cpp
+)
+target_link_libraries(mxh_drop_item_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_drop_item_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_drop_item_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
 add_executable(mxh_item_limit_manager_tests
     item_limit_manager_test.cpp
 )
