@@ -1,4 +1,4 @@
-﻿// note_manager_test.cpp
+// note_manager_test.cpp
 
 #include "mxh/server/note_manager.hpp"
 #include <gtest/gtest.h>
@@ -85,4 +85,66 @@ TEST(AutoNoteRoom, AddHasRemove) {
     EXPECT_FALSE(r.remove_player(99));
 }
 
+
+
+TEST(NoteManager, EnforcesTenActiveNotesPerRecipient) {
+    NoteManager manager;
+    for (std::uint32_t i = 0; i < mxh::server::MXH_NOTE_PER_PLAYER; ++i) {
+        EXPECT_TRUE(manager.send(i + 1, 100, {}, i));
+    }
+    EXPECT_FALSE(manager.send(99, 100, {}, 100));
+    EXPECT_EQ(manager.inbox_count(100), mxh::server::MXH_NOTE_PER_PLAYER);
+}
+
+TEST(NoteManager, RecipientCapacityIsIndependent) {
+    NoteManager manager;
+    for (std::uint32_t i = 0; i < mxh::server::MXH_NOTE_PER_PLAYER; ++i) {
+        ASSERT_TRUE(manager.send(i + 1, 100, {}, i));
+    }
+    EXPECT_TRUE(manager.send(1, 200, {}, 0));
+    EXPECT_EQ(manager.inbox_count(200), 1u);
+}
+
+TEST(NoteManager, AcknowledgeReleasesRecipientCapacity) {
+    NoteManager manager;
+    for (std::uint32_t i = 0; i < mxh::server::MXH_NOTE_PER_PLAYER; ++i) {
+        ASSERT_TRUE(manager.send(i + 1, 100, {}, i));
+    }
+    const auto first = manager.read(100).front().note_id;
+    ASSERT_TRUE(manager.acknowledge(100, first));
+    EXPECT_TRUE(manager.send(99, 100, {}, 100));
+    EXPECT_EQ(manager.inbox_count(100), mxh::server::MXH_NOTE_PER_PLAYER);
+    EXPECT_EQ(manager.total(), 11u);
+}
+
+TEST(NoteManager, AcknowledgeIsNotRepeatable) {
+    NoteManager manager;
+    ASSERT_TRUE(manager.send(1, 2, {}, 0));
+    const auto id = manager.read(2).front().note_id;
+    EXPECT_TRUE(manager.acknowledge(2, id));
+    EXPECT_FALSE(manager.acknowledge(2, id));
+}
+
+TEST(NoteManager, RejectsZeroRecipientWithoutAllocatingId) {
+    NoteManager manager;
+    EXPECT_FALSE(manager.send(1, 0, {}, 0));
+    ASSERT_TRUE(manager.send(1, 2, {}, 0));
+    EXPECT_EQ(manager.read(2).front().note_id, 1u);
+}
+
+TEST(NoteManager, InstancesHaveIndependentIdSequences) {
+    NoteManager first;
+    NoteManager second;
+    ASSERT_TRUE(first.send(1, 2, {}, 0));
+    ASSERT_TRUE(second.send(1, 2, {}, 0));
+    EXPECT_EQ(first.read(2).front().note_id, 1u);
+    EXPECT_EQ(second.read(2).front().note_id, 1u);
+}
+
+TEST(NoteManager, ExpirationUsesLegacyFourteenDayOffset) {
+    NoteManager manager;
+    ASSERT_TRUE(manager.send(1, 2, {}, 1000u));
+    const auto note = manager.read(2).front();
+    EXPECT_EQ(note.expire_ms, 1000u + 14u * 24u * 3600000u);
+}
 

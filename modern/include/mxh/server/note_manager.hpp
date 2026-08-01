@@ -1,4 +1,4 @@
-﻿// note_manager.hpp - 1:1 port of legacy NoteManager + AutoNoteManager + AutoNoteRoom.
+// note_manager.hpp - 1:1 port of legacy NoteManager + AutoNoteManager + AutoNoteRoom.
 //
 // The legacy [Server]Map has three note subsystems:
 //   1. NoteManager: in-game mail (player-to-player text). LIMIT_DCOUNT 10.
@@ -62,6 +62,7 @@ public:
     std::size_t total() const noexcept { return notes_.size(); }
 private:
     std::vector<NoteEntry> notes_;
+    std::uint32_t next_note_id_ = 1;
 };
 
 // AutoNoteManager — server-wide auto event note queue.
@@ -73,6 +74,7 @@ public:
     bool acknowledge(std::uint32_t note_id) noexcept;
 private:
     std::vector<AutoNoteEntry> entries_;
+    std::uint32_t next_note_id_ = 1;
 };
 
 // AutoNoteRoom — per-map distribution group (legacy CNoteRoom).

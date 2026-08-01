@@ -1,4 +1,4 @@
-﻿// note_manager.cpp
+// note_manager.cpp
 
 #include "mxh/server/note_manager.hpp"
 #include <algorithm>
@@ -6,15 +6,11 @@
 
 namespace mxh::server {
 
-namespace {
-inline std::uint32_t next_id = 1;
-}
-
 bool NoteManager::send(std::uint32_t sender_id, std::uint32_t recv_id,
                           const std::string& body, std::uint32_t now_ms) noexcept {
-    if (recv_id == 0) return false;
+    if (recv_id == 0 || inbox_count(recv_id) >= MXH_NOTE_PER_PLAYER) return false;
     NoteEntry n{};
-    n.note_id = next_id++;
+    n.note_id = next_note_id_++;
     n.sender_id = sender_id;
     n.recv_id   = recv_id;
     n.send_ms   = now_ms;
@@ -44,7 +40,7 @@ std::vector<NoteEntry> NoteManager::read(std::uint32_t recv_id) const {
 
 bool NoteManager::acknowledge(std::uint32_t recv_id, std::uint32_t note_id) noexcept {
     for (auto& x : notes_) {
-        if (x.recv_id == recv_id && x.note_id == note_id) {
+        if (x.recv_id == recv_id && x.note_id == note_id && !x.acknowledged) {
             x.acknowledged = 1;
             return true;
         }
@@ -56,7 +52,7 @@ bool NoteManager::acknowledge(std::uint32_t recv_id, std::uint32_t note_id) noex
 
 bool AutoNoteManager::enqueue(AutoNoteEntry e) noexcept {
     if (entries_.size() >= MXH_AUTONOTE_LIMIT) return false;
-    if (e.note_id == 0) e.note_id = next_id++;
+    if (e.note_id == 0) e.note_id = next_note_id_++;
     entries_.push_back(e);
     return true;
 }
