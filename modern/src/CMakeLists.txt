@@ -157,6 +157,7 @@ add_library(mxh_server STATIC
     server/drop_item.cpp
     server/skill_manager.cpp
     server/item_container.cpp
+    server/item_slot.cpp
     server/ability_group.cpp
     server/note_manager.cpp
     server/wanted_manager.cpp
