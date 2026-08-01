@@ -162,6 +162,9 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
  TickUpdatesLastSpawnObjectId, TickOneSpawnPerCallEvenWithMultipleChannels,
  TickRespawnsAfterActiveCleared, SpawnedChannelRemembersPosition,
  MultipleChannelsWithDifferentIntervals, FieldBossChannelDefaultZero.
+- [x] D6.3 BossMonsterManager 1:1 lock | 19 tests lock legacy [Server]Map/BossMonsterManager.h CBossMonsterManager
+ BossMonsterManager: register_info() upserts per-MonsterKind into infos_ map, info_for() returns pointer or nullptr. spawn() looks up info; returns 0 when missing (legacy guard against spawning without static info), otherwise calls create_boss_from_template with x/y/z/map and stores by object_id. Same object_id respawn replaces (1:1 with legacy). damage() forwards to apply_boss_damage on the live instance; returns Sealed for unknown oid. erase() returns bool, idempotent. live_count() tracks map size.
+ Tests: DefaultManagerIsEmpty, FindUnknownOidReturnsNull, RegisterInfoStoresData, InfoForUnknownKindReturnsNull, RegisterMultipleKinds, RegisterInfoOverwritesByKind, SpawnWithoutInfoReturnsZero, SpawnCreatesLiveInstance, SpawnMultipleDistinctOids, SpawnSameOidReplaces, InfoKeepsRewardsIntact, FindConstAndNonConstReturnSamePointer, DamageUnknownOidReturnsSealed, DamageKnownOidReturnsValidPhase, EraseUnknownOidReturnsFalse, EraseKnownOidReturnsTrueAndRemoves, EraseOneKeepsOthers, EraseThenSpawnReusesOid, LiveCountTracksSpawnAndErase.
 - [ ]  D6.1 DropTableRegistry 1:1 lock | 31 tests lock legacy [Server]Map/ItemDrop.h
  CItemDrop: add() appends to flat vector (no dedup, 1:1 with legacy), find() returns
  first match by (monster_kind, drop_id), roll() uses rng_value % total_ratio with
