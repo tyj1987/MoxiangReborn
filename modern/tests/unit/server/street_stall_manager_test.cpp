@@ -74,26 +74,30 @@ TEST(StreetStallInit, DefaultClearsAll) {
 
 TEST(StreetStallFillCell, AddsAtCurrentSlot) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     EXPECT_TRUE(fill_cell(s, /*money*/100u, /*vol*/1u));
     EXPECT_EQ(s.m_nCurRegistItemNum, 1);
-    EXPECT_EQ(s.m_nTotalMoney, 100u);
+    EXPECT_EQ(s.m_nTotalMoney, 0u);
     EXPECT_TRUE(s.m_sArticles[0].bFill);
     EXPECT_EQ(s.m_sArticles[0].dwMoney, 100u);
 }
 
-TEST(StreetStallFillCell, AddsAtAbsolutePosition) {
+TEST(StreetStallFillCell, BuyStallAddsAtAbsolutePosition) {
     StreetStall s;
-    init_street_stall(s);
-    EXPECT_TRUE(fill_cell(s, 50u, 1u, /*bLock*/false, /*wAbsPosition*/5));
-    EXPECT_TRUE(s.m_sArticles[5].bFill);
-    EXPECT_EQ(s.m_sArticles[5].dwMoney, 50u);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Buy);
+    EXPECT_TRUE(fill_cell(s, 50u, 2u, false, 4));
+    EXPECT_TRUE(s.m_sArticles[4].bFill);
+    EXPECT_EQ(s.m_sArticles[4].dwMoney, 50u);
     EXPECT_EQ(s.m_nCurRegistItemNum, 1);
+    EXPECT_EQ(s.m_nTotalMoney, 100u);
 }
 
 TEST(StreetStallFillCell, OverflowRejects) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     for (int i = 0; i < MAX_STREETSTALL_CELLNUM; ++i) {
         EXPECT_TRUE(fill_cell(s, 10u, 1u));
     }
@@ -101,38 +105,44 @@ TEST(StreetStallFillCell, OverflowRejects) {
     EXPECT_FALSE(fill_cell(s, 10u, 1u));
 }
 
-TEST(StreetStallFillCell, OutOfRangeAbsoluteRejects) {
+TEST(StreetStallFillCell, SellStallIgnoresAbsolutePosition) {
     StreetStall s;
-    init_street_stall(s);
-    EXPECT_FALSE(fill_cell(s, 10u, 1u, false, MAX_STREETSTALL_CELLNUM));
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
+    EXPECT_TRUE(fill_cell(s, 10u, 1u, false, MAX_STREETSTALL_CELLNUM));
+    EXPECT_TRUE(s.m_sArticles[0].bFill);
 }
 
 TEST(StreetStallEmptyCell, RemovesCellAndUpdatesTotals) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     fill_cell(s, 100u, 1u);
     fill_cell(s, 200u, 1u);
     EXPECT_TRUE(empty_cell(s, /*pos*/0));
     EXPECT_FALSE(s.m_sArticles[0].bFill);
     EXPECT_EQ(s.m_nCurRegistItemNum, 1);
-    EXPECT_EQ(s.m_nTotalMoney, 200u);
+    EXPECT_EQ(s.m_nTotalMoney, 0u);
 }
 
 TEST(StreetStallEmptyCell, EmptyRejectsOnUnfilled) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     EXPECT_FALSE(empty_cell(s, 0));
 }
 
 TEST(StreetStallEmptyCell, OutOfRangeRejects) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     EXPECT_FALSE(empty_cell(s, MAX_STREETSTALL_CELLNUM));
 }
 
 TEST(StreetStallEmptyCell, EmptyCellAllResets) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     fill_cell(s, 100u, 1u);
     fill_cell(s, 200u, 1u);
     empty_cell_all(s);
@@ -145,7 +155,8 @@ TEST(StreetStallEmptyCell, EmptyCellAllResets) {
 
 TEST(StreetStallCellState, ChangeLockTogglesFlag) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     fill_cell(s, 100u, 1u);
     change_cell_state(s, 0, true);
     EXPECT_TRUE(s.m_sArticles[0].bLock);
@@ -155,13 +166,15 @@ TEST(StreetStallCellState, ChangeLockTogglesFlag) {
 
 TEST(StreetStallCellState, ChangeLockOutOfRangeIsNoOp) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     change_cell_state(s, MAX_STREETSTALL_CELLNUM, true);
 }
 
-TEST(StreetStallCellMoney, SetMoneyUpdatesTotalWhenFilled) {
+TEST(StreetStallCellMoney, SetMoneyUpdatesBuyTotalWhenFilled) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Buy);
     fill_cell(s, 100u, 1u);
     set_cell_money(s, 0, 300u);
     EXPECT_EQ(s.m_sArticles[0].dwMoney, 300u);
@@ -170,15 +183,17 @@ TEST(StreetStallCellMoney, SetMoneyUpdatesTotalWhenFilled) {
 
 TEST(StreetStallCellMoney, SetMoneyOnUnfilledDoesNotChangeTotal) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     set_cell_money(s, 0, 300u);
-    EXPECT_EQ(s.m_sArticles[0].dwMoney, 300u);
+    EXPECT_EQ(s.m_sArticles[0].dwMoney, 0u);
     EXPECT_EQ(s.m_nTotalMoney, 0u);
 }
 
 TEST(StreetStallCellVolume, SetVolumeUpdatesCell) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     fill_cell(s, 100u, 1u);
     set_cell_volume(s, 0, 99u);
     EXPECT_EQ(s.m_sArticles[0].wVolume, 99u);
@@ -188,7 +203,8 @@ TEST(StreetStallCellVolume, SetVolumeUpdatesCell) {
 
 TEST(StreetStallKind, SetAndGet) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     set_stall_kind(s, StallKind::Sell);
     EXPECT_EQ(get_stall_kind(s), StallKind::Sell);
     set_stall_kind(s, StallKind::Buy);
@@ -205,7 +221,8 @@ TEST(StreetStallKind, EnumValues) {
 
 TEST(StreetStallGuest, AddAppendsUnique) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     add_guest(s, 100u);
     add_guest(s, 200u);
     EXPECT_EQ(s.m_GuestList.size(), 2u);
@@ -213,7 +230,8 @@ TEST(StreetStallGuest, AddAppendsUnique) {
 
 TEST(StreetStallGuest, DeleteRemovesById) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     add_guest(s, 100u);
     add_guest(s, 200u);
     delete_guest(s, 100u);
@@ -223,7 +241,8 @@ TEST(StreetStallGuest, DeleteRemovesById) {
 
 TEST(StreetStallGuest, DeleteUnknownIsNoOp) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     add_guest(s, 100u);
     delete_guest(s, 999u);
     EXPECT_EQ(s.m_GuestList.size(), 1u);
@@ -231,7 +250,8 @@ TEST(StreetStallGuest, DeleteUnknownIsNoOp) {
 
 TEST(StreetStallGuest, DeleteAllClears) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     add_guest(s, 100u);
     add_guest(s, 200u);
     delete_guest_all(s);
@@ -301,9 +321,60 @@ TEST(StreetStallDelay, AfterWindowReturnsTrue) {
 
 TEST(StreetStallCapacity, IsFullAtMax) {
     StreetStall s;
-    init_street_stall(s);
+    init_street_stall(s, 1u);
+    set_stall_kind(s, StallKind::Sell);
     EXPECT_FALSE(is_stall_full(s));
     for (int i = 0; i < MAX_STREETSTALL_CELLNUM; ++i) fill_cell(s, 1u, 1u);
     EXPECT_TRUE(is_stall_full(s));
     EXPECT_EQ(get_cur_regist_item_num(s), MAX_STREETSTALL_CELLNUM);
+}
+
+
+TEST(StreetStallLayout, CellMatchesLegacyFortyByteLayout) {
+    EXPECT_EQ(sizeof(mxh::server::StallItemBase), 24u);
+    EXPECT_EQ(sizeof(mxh::server::StallCellInfo), 40u);
+    EXPECT_EQ(offsetof(mxh::server::StallCellInfo, sItemBase), 0u);
+    EXPECT_EQ(offsetof(mxh::server::StallCellInfo, dwMoney), 24u);
+    EXPECT_EQ(offsetof(mxh::server::StallCellInfo, wVolume), 28u);
+    EXPECT_EQ(offsetof(mxh::server::StallCellInfo, bLock), 32u);
+    EXPECT_EQ(offsetof(mxh::server::StallCellInfo, bFill), 36u);
+}
+
+TEST(StreetStallFillCell, RequiresOwnerAndConfiguredKind) {
+    StreetStall stall;
+    init_street_stall(stall);
+    EXPECT_FALSE(fill_cell(stall, 10u, 1u));
+    init_street_stall(stall, 1u);
+    EXPECT_FALSE(fill_cell(stall, 10u, 1u));
+}
+
+TEST(StreetStallFillCell, BuyReplacementKeepsCountAndRecomputesTotal) {
+    StreetStall stall;
+    init_street_stall(stall, 1u);
+    set_stall_kind(stall, StallKind::Buy);
+    ASSERT_TRUE(fill_cell(stall, 10u, 2u, false, 0));
+    ASSERT_TRUE(fill_cell(stall, 30u, 3u, false, 0));
+    EXPECT_EQ(stall.m_nCurRegistItemNum, 1);
+    EXPECT_EQ(stall.m_nTotalMoney, 90u);
+}
+
+TEST(StreetStallCellMoney, LockedCellRejectsMoneyAndVolumeChanges) {
+    StreetStall stall;
+    init_street_stall(stall, 1u);
+    set_stall_kind(stall, StallKind::Sell);
+    ASSERT_TRUE(fill_cell(stall, 10u, 2u, true));
+    set_cell_money(stall, 0, 99u);
+    set_cell_volume(stall, 0, 9u);
+    EXPECT_EQ(stall.m_sArticles[0].dwMoney, 10u);
+    EXPECT_EQ(stall.m_sArticles[0].wVolume, 2u);
+}
+
+TEST(StreetStallGuest, DuplicateAndZeroGuestsAreIgnored) {
+    StreetStall stall;
+    init_street_stall(stall, 1u);
+    add_guest(stall, 0u);
+    add_guest(stall, 7u);
+    add_guest(stall, 7u);
+    EXPECT_EQ(stall.m_GuestList.size(), 1u);
+    EXPECT_EQ(stall.m_GuestList.front(), 7u);
 }

@@ -48,21 +48,35 @@ enum class StreetStallDelayState : std::uint8_t {
 // ---- POD structs ----
 
 // Mirrors legacy sCELLINFO. ItemBase is opaque POD (legacy ITEMBASE).
+struct StallItemBase {
+    std::uint32_t dwDBIdx = 0;
+    std::uint16_t wItemIdx = 0;
+    std::uint16_t wPosition = 0;
+    std::uint32_t dwDurability = 0;
+    std::uint32_t dwRareIdx = 0;
+    std::uint16_t wQuickPosition = 0;
+    std::uint32_t dwItemParam = 0;
+};
+
+static_assert(sizeof(StallItemBase) == 24);
+
 struct StallCellInfo {
-    std::array<std::uint8_t, 64> sItemBase{};  // opaque legacy ITEMBASE blob
+    StallItemBase sItemBase{};
     std::uint32_t dwMoney = 0;
     std::uint16_t wVolume = 0;
-    bool          bLock   = false;
-    bool          bFill   = false;
+    std::uint32_t bLock = 0;
+    std::uint32_t bFill = 0;
 
     inline void init() {
-        sItemBase.fill(0);
+        sItemBase = {};
         dwMoney = 0;
         wVolume = 0;
-        bLock = false;
-        bFill = false;
+        bLock = 0;
+        bFill = 0;
     }
 };
+
+static_assert(sizeof(StallCellInfo) == 40);
 
 // Mirrors legacy cStreetStall.
 struct StreetStall {
@@ -100,10 +114,21 @@ inline void init_street_stall(StreetStall& s, std::uint32_t owner_id = 0u) {
 // Add a stall cell. Returns false if stall full.
 inline bool fill_cell(StreetStall& s, std::uint32_t money, std::uint16_t volume,
                       bool bLock = false, std::uint16_t wAbsPosition = 0xFFFFu) {
-    if (s.m_nCurRegistItemNum >= MAX_STREETSTALL_CELLNUM) return false;
-    const std::uint16_t pos = (wAbsPosition == 0xFFFFu)
-                                  ? static_cast<std::uint16_t>(s.m_nCurRegistItemNum)
-                                  : wAbsPosition;
+    if (!s.m_pOwner || s.m_nCurRegistItemNum >= MAX_STREETSTALL_CELLNUM) return false;
+    std::uint16_t pos = 0;
+    if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Sell) {
+        while (pos < MAX_STREETSTALL_CELLNUM && s.m_sArticles[pos].bFill) ++pos;
+    } else if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Buy) {
+        pos = wAbsPosition == 0xFFFFu ? 0u : wAbsPosition;
+        if (pos >= MAX_STREETBUYSTALL_CELLNUM) return false;
+        if (s.m_sArticles[pos].bFill) {
+            s.m_nTotalMoney -= s.m_sArticles[pos].dwMoney * s.m_sArticles[pos].wVolume;
+            s.m_sArticles[pos].init();
+            --s.m_nCurRegistItemNum;
+        }
+    } else {
+        return false;
+    }
     if (pos >= MAX_STREETSTALL_CELLNUM) return false;
     auto& cell = s.m_sArticles[pos];
     cell.init();
@@ -112,14 +137,22 @@ inline bool fill_cell(StreetStall& s, std::uint32_t money, std::uint16_t volume,
     cell.bLock   = bLock;
     cell.bFill   = true;
     s.m_nCurRegistItemNum += 1;
-    s.m_nTotalMoney += money;
+    if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Buy) {
+        s.m_nTotalMoney = 0;
+        for (int index = 0; index < MAX_STREETBUYSTALL_CELLNUM; ++index) {
+            const auto& article = s.m_sArticles[index];
+            if (article.bFill) s.m_nTotalMoney += article.dwMoney * article.wVolume;
+        }
+    }
     return true;
 }
 
 inline bool empty_cell(StreetStall& s, std::uint16_t pos) {
     if (pos >= MAX_STREETSTALL_CELLNUM) return false;
     if (!s.m_sArticles[pos].bFill) return false;
-    s.m_nTotalMoney -= s.m_sArticles[pos].dwMoney;
+    if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Buy) {
+        s.m_nTotalMoney -= s.m_sArticles[pos].dwMoney * s.m_sArticles[pos].wVolume;
+    }
     s.m_sArticles[pos].init();
     s.m_nCurRegistItemNum -= 1;
     return true;
@@ -132,22 +165,33 @@ inline void empty_cell_all(StreetStall& s) {
 }
 
 inline void change_cell_state(StreetStall& s, std::uint16_t pos, bool bLock) {
-    if (pos >= MAX_STREETSTALL_CELLNUM) return;
-    s.m_sArticles[pos].bLock = bLock;
+    if (!s.m_pOwner || pos >= MAX_STREETSTALL_CELLNUM) return;
+    auto& cell = s.m_sArticles[pos];
+    if (!cell.bFill || cell.bLock == static_cast<std::uint32_t>(bLock)) return;
+    if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Buy) return;
+    cell.bLock = bLock ? 1u : 0u;
 }
 
 inline void set_cell_money(StreetStall& s, std::uint16_t pos, std::uint32_t money) {
     if (pos >= MAX_STREETSTALL_CELLNUM) return;
-    if (s.m_sArticles[pos].bFill) {
-        s.m_nTotalMoney -= s.m_sArticles[pos].dwMoney;
-        s.m_nTotalMoney += money;
+    auto& cell = s.m_sArticles[pos];
+    if (!cell.bFill || cell.bLock) return;
+    if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Buy) {
+        s.m_nTotalMoney -= cell.dwMoney * cell.wVolume;
+        s.m_nTotalMoney += money * cell.wVolume;
     }
-    s.m_sArticles[pos].dwMoney = money;
+    cell.dwMoney = money;
 }
 
 inline void set_cell_volume(StreetStall& s, std::uint16_t pos, std::uint16_t volume) {
     if (pos >= MAX_STREETSTALL_CELLNUM) return;
-    s.m_sArticles[pos].wVolume = volume;
+    auto& cell = s.m_sArticles[pos];
+    if (!cell.bFill || cell.bLock) return;
+    if (static_cast<StallKind>(s.m_wStallKind) == StallKind::Buy) {
+        s.m_nTotalMoney -= cell.dwMoney * cell.wVolume;
+        s.m_nTotalMoney += cell.dwMoney * volume;
+    }
+    cell.wVolume = volume;
 }
 
 // Stall kind accessors.
@@ -161,6 +205,8 @@ inline void set_stall_kind(StreetStall& s, StallKind kind) {
 
 // Guest tracking.
 inline void add_guest(StreetStall& s, std::uint32_t guest_id) {
+    if (guest_id == 0) return;
+    for (const auto existing : s.m_GuestList) if (existing == guest_id) return;
     s.m_GuestList.push_back(guest_id);
 }
 
