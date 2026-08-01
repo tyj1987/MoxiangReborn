@@ -185,6 +185,7 @@ add_library(mxh_server STATIC
     server/titan_manager.cpp
     server/titan_item_manager.cpp
     server/street_stall_manager.cpp
+    server/pyo_guk_manager.cpp
     server/friend_manager.cpp
     server/bobusang_manager.cpp
     server/server_system.cpp
