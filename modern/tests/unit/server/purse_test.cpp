@@ -1,4 +1,4 @@
-﻿// purse_test.cpp - Phase D6 Purse 1:1 port tests.
+// purse_test.cpp - Phase D6 Purse 1:1 port tests.
 
 #include "mxh/server/purse.hpp"
 
@@ -130,6 +130,53 @@ TEST(Purse, AdditionBeforeInitReturnsZero) {
 TEST(Purse, SubtractionBeforeInitReturnsZero) {
     PurseState s{};
     EXPECT_EQ(purse_subtraction(s, 100u), 0u);
+}
+
+
+TEST(Purse, MoneyTypeMatchesLegacyDword) {
+    EXPECT_EQ(sizeof(MoneyType), 4u);
+    EXPECT_EQ(PURSE_UNLIMITED, 0xFFFFFFFFu);
+}
+
+TEST(Purse, AdditionAtUint32BoundaryDoesNotWrap) {
+    PurseState s{};
+    ASSERT_TRUE(purse_init(s, nullptr, 0xFFFFFFF0u, PURSE_UNLIMITED));
+    EXPECT_EQ(purse_addition(s, 0x20u), 0x0Fu);
+    EXPECT_EQ(purse_get_cur_money(s), 0xFFFFFFFFu);
+}
+
+TEST(Purse, IsAdditionEnoughRejectsUint32Overflow) {
+    PurseState s{};
+    ASSERT_TRUE(purse_init(s, nullptr, 0xFFFFFFF0u, PURSE_UNLIMITED));
+    EXPECT_TRUE(purse_is_addition_enough(s, 0x0Fu));
+    EXPECT_FALSE(purse_is_addition_enough(s, 0x10u));
+    EXPECT_FALSE(purse_is_addition_enough(s, 0x20u));
+}
+
+TEST(Purse, QueryPredicatesMatchLegacyBeforeInit) {
+    PurseState s{};
+    s.m_dwMoney = 50u;
+    s.m_dwMaxMoney = 100u;
+    EXPECT_TRUE(purse_is_enough_money(s, 50u));
+    EXPECT_FALSE(purse_is_enough_money(s, 51u));
+    EXPECT_TRUE(purse_is_addition_enough(s, 50u));
+    EXPECT_FALSE(purse_is_addition_enough(s, 51u));
+}
+
+TEST(Purse, ReleasePreservesMoneyAndMaximum) {
+    PurseState s{};
+    ASSERT_TRUE(purse_init(s, nullptr, 40u, 100u));
+    purse_release(s);
+    EXPECT_EQ(purse_get_cur_money(s), 40u);
+    EXPECT_EQ(purse_get_max_money(s), 100u);
+}
+
+TEST(Purse, AdditionRejectsCorruptMoneyAboveMaximum) {
+    PurseState s{};
+    ASSERT_TRUE(purse_init(s, nullptr, 50u, 100u));
+    s.m_dwMoney = 101u;
+    EXPECT_EQ(purse_addition(s, 1u), 0u);
+    EXPECT_EQ(purse_get_cur_money(s), 101u);
 }
 
 }  // namespace

@@ -1,4 +1,4 @@
-﻿// purse.hpp - Phase D6 Purse 1:1 port.
+// purse.hpp - Phase D6 Purse 1:1 port.
 //
 // Source-of-truth: legacy [Server]Map/Purse.h + .cpp.
 // Mirrors legacy CPurse state machine (init, addition, subtraction,
@@ -13,10 +13,10 @@
 namespace mxh::server {
 
 // MONEYTYPE alias (mirror legacy typedef).
-using MoneyType = std::uint64_t;
+using MoneyType = std::uint32_t;
 
 // Sentinel for unbounded money (used when max is not enforced).
-inline constexpr MoneyType PURSE_UNLIMITED = 0xFFFFFFFFFFFFFFFFull;
+inline constexpr MoneyType PURSE_UNLIMITED = 0xFFFFFFFFu;
 
 struct PurseState {
     void* m_pOwner = nullptr;

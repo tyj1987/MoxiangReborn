@@ -1,4 +1,4 @@
-﻿// purse.cpp - Phase D6 Purse 1:1 port implementations.
+// purse.cpp - Phase D6 Purse 1:1 port implementations.
 
 #include "mxh/server/purse.hpp"
 
@@ -21,27 +21,20 @@ void purse_release(PurseState& s) {
 }
 
 bool purse_is_addition_enough(const PurseState& s, MoneyType addition) {
-    if (!s.m_bInit) return false;
-    if (s.m_dwMaxMoney == PURSE_UNLIMITED) return true;
-    return addition <= (s.m_dwMaxMoney - s.m_dwMoney);
+    if (s.m_dwMoney + addition < s.m_dwMoney) return false;
+    if (s.m_dwMaxMoney < s.m_dwMoney) return false;
+    return addition <= s.m_dwMaxMoney - s.m_dwMoney;
 }
 
 bool purse_is_enough_money(const PurseState& s, MoneyType subtraction) {
-    if (!s.m_bInit) return false;
     return s.m_dwMoney >= subtraction;
 }
 
 MoneyType purse_addition(PurseState& s, MoneyType add, std::uint8_t /*msg_flag*/) {
     if (!s.m_bInit) return 0;
-    // Legacy: if (add > max - cur) add = max - cur;
-    // (skips the legacy wrap-around edge case where add < cur - cur is unobservable
-    //  when max is finite; modern treats max-unlimited as unbounded.)
-    if (s.m_dwMaxMoney == PURSE_UNLIMITED) {
-        s.m_dwMoney += add;
-        return add;
-    }
-    const MoneyType room = (s.m_dwMoney >= s.m_dwMaxMoney) ? 0u : (s.m_dwMaxMoney - s.m_dwMoney);
-    MoneyType actual = (add <= room) ? add : room;
+    if (s.m_dwMaxMoney < s.m_dwMoney) return 0;
+    const MoneyType room = s.m_dwMaxMoney - s.m_dwMoney;
+    const MoneyType actual = add > room ? room : add;
     s.m_dwMoney += actual;
     return actual;
 }
