@@ -1,8 +1,8 @@
-﻿// money_manager.hpp - 1:1 port of legacy [Server]Map/MoneyManager.h.
+// money_manager.hpp - 1:1 port of legacy [Server]Map/MoneyManager.h.
 //
 // Legacy CMoneyManager owns the per-player purse movements (MoneyLimit /
 // Money filter / log transactions to DB). Modern port locks the rules:
-//   - Cannot exceed PLAYER_MAX_MONEY (legacy 21,000,000 gold).
+//   - Cannot exceed MAXMONEY (legacy 0xFFFFFFFF).
 //   - Cannot go below 0.
 //   - All operations log via callback (legacy writes DBLOG_MONEY).
 
@@ -14,7 +14,7 @@
 
 namespace mxh::server {
 
-inline constexpr std::uint32_t MXH_PLAYER_MAX_MONEY    = 21'000'000u;   // legacy
+inline constexpr std::uint32_t MXH_PLAYER_MAX_MONEY = 0xFFFFFFFFu;  // legacy MAXMONEY
 inline constexpr std::uint32_t MXH_PLAYER_MIN_TRANSFER = 1u;
 
 struct MoneyLogEntry final {
