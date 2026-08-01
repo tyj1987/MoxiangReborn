@@ -6,12 +6,16 @@ namespace mxh::crypto {
 
 // ---- CHSEL_STREAM -------------------------------------------------------
 
-CHSEL_STREAM::CHSEL_STREAM(void) {}
+CHSEL_STREAM::CHSEL_STREAM(void) {
+    iVersion = HselStream::kVersion;
+    iHSELType = 0;
+}
 
 CHSEL_STREAM::~CHSEL_STREAM(void) {}
 
 std::int32_t CHSEL_STREAM::Initial(HselInit hselinit) {
-    return m_stream.initial(hselinit);
+    iHSELType = m_stream.initial(hselinit);
+    return iHSELType;
 }
 
 HselInit CHSEL_STREAM::GetHSELCustomizeOption(void) const {
@@ -20,16 +24,6 @@ HselInit CHSEL_STREAM::GetHSELCustomizeOption(void) const {
 
 HselKey CHSEL_STREAM::GetNowHSELKey(void) const {
     return m_stream.now_key();
-}
-
-// ---- CHSEL overrides ---------------------------------------------------
-
-std::int32_t CHSEL_STREAM::GetVersion(void) {
-    return HselStream::kVersion;
-}
-
-std::int32_t CHSEL_STREAM::GetHSELType(void) {
-    return m_stream.hsel_type();
 }
 
 bool CHSEL_STREAM::Encrypt(char* lpStream, const std::int32_t iStreamSize) {
@@ -46,15 +40,15 @@ bool CHSEL_STREAM::Decrypt(char* lpStream, const std::int32_t iStreamSize) {
     return m_stream.decrypt(lpStream, iStreamSize);
 }
 
-char CHSEL_STREAM::GetCRCConvertChar(void) {
+char CHSEL_STREAM::GetCRCConvertChar(void) const {
     return m_stream.get_crc_char();
 }
 
-short CHSEL_STREAM::GetCRCConvertShort(void) {
+short CHSEL_STREAM::GetCRCConvertShort(void) const {
     return m_stream.get_crc_short();
 }
 
-std::int32_t CHSEL_STREAM::GetCRCConvertInt(void) {
+std::int32_t CHSEL_STREAM::GetCRCConvertInt(void) const {
     return m_stream.get_crc_int();
 }
 

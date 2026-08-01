@@ -94,6 +94,8 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 - [ ] B3 MoxianMapServer 启动 + 接 Agent
 - [ ] B4 Player/AISystem/Map 1:1 port（核心 5 万行）
 - [ ] B5 DBThread + IDbAdapter 真接 MSSQL
+- [x] B6.1 HSEL YHLibrary ABI correction | 79 crypto tests
+ CHSEL now matches the actual self-contained YHLibrary public header: non-virtual destructor, exactly two const virtual getters, protected version/type fields, and non-virtual CHSEL_STREAM Encrypt/Decrypt/CRC/key methods. R-1 remains open pending real legacy .bin E2E.
 - [ ] B6 HSEL stub 完整化（已 80%，补 20%）
 - [ ] 验证：登录→选服→进图→看到角色（空场景）
 

@@ -16,6 +16,7 @@
 #include <cstring>
 #include <vector>
 #include <cstdint>
+#include <type_traits>
 
 namespace mxh::crypto {
 namespace {
@@ -210,34 +211,25 @@ TEST(CHselStreamTest, TwoStreamEncryptDecryptRoundTrip) {
     EXPECT_EQ(buf, original) << "two-stream round-trip restores plaintext";
 }
 
-TEST(CHselStreamTest, DispatchThroughChselBase) {
-    // Legacy CHSEL* callers (NetworkMS.cpp, ClientNetwork.cpp) dispatch through
-    // the base pointer; this verifies the override correctly forwards.
-    CHSEL_STREAM stream;
-    CHSEL* base = &stream;
+TEST(CHselAbiTest, BaseDestructorIsNonVirtualLikeYhLibrary) {
+    EXPECT_FALSE(std::has_virtual_destructor_v<CHSEL>);
+    EXPECT_FALSE(std::has_virtual_destructor_v<CHSEL_STREAM>);
+}
 
-    HselInit init;
-    init.iDesCount    = HSEL_DES_SINGLE;
-    init.iEncryptType = HSEL_ENCRYPTTYPE_1;
-    init.iSwapFlag    = HSEL_SWAP_FLAG_OFF;
-    init.iCustomize   = HSEL_KEY_TYPE_CUSTOMIZE;
-    init.Keys.iLeftKey = 0x12345678;
-    init.Keys.iLeftMultiGab = 1; init.Keys.iLeftPlusGab = 0;
-    init.Keys.iRightMultiGab = 1; init.Keys.iRightPlusGab = 0;
-    init.Keys.iMiddleMultiGab = 1; init.Keys.iMiddlePlusGab = 0;
-    init.Keys.iTotalMultiGab = 1; init.Keys.iTotalPlusGab = 0;
-    stream.Initial(init);
+TEST(CHselAbiTest, BaseGetterSignaturesAreConstVirtualSurface) {
+    using Getter = std::int32_t (CHSEL::*)(void) const;
+    Getter version = &CHSEL::GetVersion;
+    Getter type = &CHSEL::GetHSELType;
+    EXPECT_NE(version, nullptr);
+    EXPECT_NE(type, nullptr);
+}
 
-    std::vector<char> buf(16);
-    for (int i = 0; i < 16; ++i) buf[i] = static_cast<char>(i);
-    std::vector<char> original = buf;
-
-    // Dispatch through the base pointer MUST produce the same result as the direct call.
-    auto via_base = buf;
-    auto direct = buf;
-    EXPECT_TRUE(base->Encrypt(via_base.data(), 16));
-    EXPECT_NE(via_base, original);
-    // The dispatch path produces a non-trivial mutation; legacy semantics preserved.
+TEST(CHselAbiTest, EncryptBelongsToConcreteStream) {
+    using CryptMethod = bool (CHSEL_STREAM::*)(char*, const std::int32_t);
+    CryptMethod encrypt = &CHSEL_STREAM::Encrypt;
+    CryptMethod decrypt = &CHSEL_STREAM::Decrypt;
+    EXPECT_NE(encrypt, nullptr);
+    EXPECT_NE(decrypt, nullptr);
 }
 
 TEST(CHselStreamTest, BufferMutationConfirmed) {
