@@ -19,6 +19,7 @@
 //   - HSEL encryption integration with the handlers ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â covered
 //     by hsel_stream_test.cpp + aes_gcm_test.cpp.
 
+#include "mxh/game/hero_total_layout.hpp"
 #include "mxh/server/server.hpp"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/net/net.hpp"
@@ -71,12 +72,16 @@ public:
 struct ReplySpy {
     std::atomic<int> call_count{0};
     mxh::net::ConnectionId last_id{};
+    mxh::net::Message last_message{};
+    std::vector<mxh::net::Message> messages;
 };
 
 inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
-    return [&spy](mxh::net::ConnectionId id, const mxh::net::Message&) {
+    return [&spy](mxh::net::ConnectionId id, const mxh::net::Message& message) {
         ++spy.call_count;
         spy.last_id = id;
+        spy.last_message = message;
+        spy.messages.push_back(message);
     };
 }
 
@@ -466,6 +471,37 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     EXPECT_EQ(snapshot->player_id, 123u);
     EXPECT_EQ(snapshot->map_num, 7u);
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
+}
+
+TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.call_count.load(), static_cast<int>(reply.messages.size()));
+    const auto& ack = reply.messages.front();
+    EXPECT_EQ(ack.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::UserConn));
+    EXPECT_EQ(ack.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck));
+    ASSERT_EQ(ack.payload.size(), mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE);
+    for (std::size_t offset = mxh::game::HERO_TOTAL_ITEM_OFFSET;
+         offset < mxh::game::HERO_TOTAL_OPTION_COUNTS_OFFSET; ++offset) {
+        EXPECT_EQ(ack.payload[offset], 0u);
+    }
+    EXPECT_EQ(ack.payload[mxh::game::HERO_TOTAL_ADDABLE_INFO_OFFSET], 0u);
+    EXPECT_EQ(ack.payload[mxh::game::HERO_TOTAL_ADDABLE_INFO_OFFSET + 1], 0u);
+    for (const auto& message : reply.messages) {
+        EXPECT_NE(message.header.category,
+                  static_cast<std::uint8_t>(mxh::proto::Category::Item));
+    }
 }
 
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {

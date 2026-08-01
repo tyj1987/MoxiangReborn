@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "mxh/log/mlog.hpp"
+#include "mxh/game/hero_total_layout.hpp"
 #include "mxh/proto/protocol.hpp"
 
 namespace mxh::client {
@@ -19,7 +20,7 @@ namespace mxh::client {
 // Offsets match map_handler.cpp:
 //   kPayloadBaseObjOff   = 0
 //   kPayloadCharTotalOff = 35
-//   kPayloadServerTimeOff = 2965
+//   HERO_TOTAL_SERVER_TIME_OFFSET = 3757
 // -------------------------------------------------------------------------
 
 namespace {
@@ -53,8 +54,8 @@ parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
 
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
-    // Need at least the trailing ServerTime block (offset 2965 + 10B).
-    if (payload.size() < 2975) return std::nullopt;
+    // Need at least the trailing ServerTime block (current fixed payload).
+    if (payload.size() < mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE) return std::nullopt;
 
     GameInInfo info;
     // BASEOBJECT_INFO [0..35)
@@ -81,13 +82,13 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     info.level    = get_u16(payload.data() + 35 + 40);
     info.map_num  = get_u16(payload.data() + 35 + 42);
 
-    // SYSTEMTIME ServerTime [2965..2981) â€” 5 little-endian u16s:
+    // SYSTEMTIME ServerTime at HERO_TOTAL_SERVER_TIME_OFFSET â€” 5 little-endian u16s:
     //   +0 year, +2 month, +4 wday, +6 day, +8 hour
-    info.server_year  = get_u16(payload.data() + 2965 + 0);
-    info.server_month = get_u16(payload.data() + 2965 + 2);
-    // payload[2969..2971) is wday, but we don't store it; skip 2 bytes.
-    info.server_day   = get_u16(payload.data() + 2965 + 6);
-    info.server_hour  = get_u16(payload.data() + 2965 + 8);
+    info.server_year  = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 0);
+    info.server_month = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 2);
+    // The next two bytes after month contain wday; we do not store it.
+    info.server_day   = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 6);
+    info.server_hour  = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 8);
 
     return info;
 }
@@ -204,7 +205,7 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case UserConnProtocol::GameInAck: {
             auto info = parse_legacy_gamein_ack(msg.payload);
             if (!info) {
-                fail_with("GameInAck payload too short (< 2975 bytes)");
+                fail_with("GameInAck payload too short for SEND_HERO_TOTALINFO");
                 return;
             }
             dispatch_gamein_ack(*info);

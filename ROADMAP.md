@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-07-31 — Phase C Batch 2.15 完成；D2 BattleFactory 定向回归确认通过（cStreetStall + cStreetBuyStall，12 tests）（meta-cleanup，60 个 P2-12 注释更新到 Phase C 1:1 port 状态，UI 套件 2351 全过）；Batch 1 全部完成（10/10 dialog），Batch 2.1+2.2+2.3+2.4+2.5+2.6+2.7 合计 7 个新 1:1 port + Batch 2.8 修复 3 个 test 文件 + Batch 2.9 标记 60 个 P2-12 stub 为已 1:1 ported。
+> **最近一次状态刷新**：2026-08-01 — T2 `ITEM_TOTALINFO` / `SEND_HERO_TOTALINFO` 当前 legacy 默认布局修正完成：124 槽、2728B item block、3775B hero payload；新增 9 个回归，Debug 全量 6760 tests PASS（Login E2E 波动项经 CTest 单项重试通过）。
 
 ---
 
@@ -39,7 +39,7 @@
 
 ---
 
-## 2. 现状盘点（截至 2026-07-26）
+## 2. 现状盘点（截至 2026-08-01）
 
 | 模块 | 完成度 | 状态 | 验证 |
 |---|---|---|---|
@@ -52,7 +52,7 @@
 | 工具链 | **100%** | 12 个工具（资源浏览/打包/GM/地图编辑/补丁/协议文档 + MoxianClientE2E） | 工具全部 build 通过 + E2E 集成 ctest |
 | 客户端运行时 | **Phase A + B.2 完成** | CMainGame 1:1 port + 9 state（3 个真接 mxh::net：CLoginState/CCharSelectState/CInGameState） | Phase B.2.1~2.5 E2E 全 PASS（3 state + 50 client test） |
 | 服务端运行时 | **3 server E2E 全 PASS** | Phase B: LoginServer + AgentServer + MapServer 3 进程 + Python 模拟 + C++ 状态机双重 E2E | Phase B ✅ |
-| 玩法数值 baseline | **D6.1 锁死** | 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁数值 | T2/T6 数值回归 baseline |
+| 玩法数值 baseline | **D6.1 + T2 item wire 锁死** | 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 124 槽、2728B ItemTotalInfo / 3775B GameInAck hero payload / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁定 | T2/T3 wire 与数值回归 baseline |
 | D6.2 experience reward | **partial** | CharacterExpPoint.bin + PlayerxMonsterPoint.bin loaders; Distributer reward bands and ability-exp rules | 30 focused tests |
 | **SkillList.bin 解析** | ** D1.2 reinforcement | MugongManager.clear() fix (idx_ now resets; pre-fix left stale indices causing vector subscript OOB on find after clear()). 14 new 1:1 lock tests for MugongManager (OwnerIdDefaultZero, SetOwnerIdRoundTrip, ClearResetsSlotsAndIndex regression, RemoveMissingReturnsFalse, FindConstReturnsSameValue, SlotsVectorReturnsAllInInsertionOrder, TotalSpOnEmptyManagerIsZero, MaxSlotConstantIsLegacyHundred, UpdatePreservesPositionInVector) and SkillManager (ReRegisterSameSkillIdxUpdatesInPlace, SkillsVectorPreservesInsertionOrder, EmptyManagerReturnsZeroForAllAccessors, FindReturnsNullForUnknownSkill, Level1AccessorsPullArrayIndexZero). 21 tests total (was 7).
 D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段含 7×[12] 数组）；SkillListParser 解码 MHFile packed-text；SkillManager::init_from_bin() 装真 bin（1817 entries）；端到端 test 锁首行 | 11 SkillListParser test + 13 SkillManager test PASS |
@@ -161,6 +161,8 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
  Restores 24-byte ITEMBASE and 40-byte sCELLINFO layouts, requires owner+stall kind before filling, preserves Sell first-empty behavior, limits Buy slots to 5 with replacement, computes Buy total as money*volume, blocks locked/empty setters, and deduplicates guests.
 - [x] D4.7 PyoGukManager page/money/access 1:1 lock | 26 tests
 - Locks 5 pages x 30 cells, DWORD money, per-level buy price/max money, first-buy initialization, Japan/HK/Taiwan extra-page gates, warehouse-item/NPC access, deposit NACK clipping, and legacy zero-withdraw no-response behavior.
+- [x] D4.8 ITEM_TOTALINFO + GameInAck current-layout 1:1 lock | 9 new tests
+ Restores the default legacy 124-slot, 2728-byte item block including pet/titan wear and titan shop slots; centralizes the 3775-byte SEND_HERO_TOTALINFO offsets; embeds the item block directly in GameInAck; rejects the obsolete pre-Titan 3000-byte payload to prevent truncation and server-side stack overwrite.
 - [ ] D5 MurimNet PvP 1:1（频道状态已锁：Closing 禁止重新加入/发消息，非成员禁止频道注入消息，销毁频道同步清理历史，频道 ID 溢出跳过 0/重复值；PlayRoom + PlayRoomManager + MNPlayer/MNPlayerManager 已移植（房间状态、索引、玩家连接字段与生命周期）；Agent parser 未知协议显式丢弃；runtime connect/reconnect/disconnect/game-logout 已接房间与玩家管理器，开局 transport 断线保留玩家并允许重连；队长开局请求与 ACK/NACK 状态已锁；大厅 Channel/ChannelManager 核心已移植并接入 runtime 频道进出MnPlayerLocation 拆出 Channel 与 PlayRoom（Channel=1, PlayRoom=2）匹配老 eLOCATION_ 顺序；MnChannelMode 与 runtime.select_channel_mode 已落地，状态码新增 InvalidChannelMode=10，要求进频道才能选 ID/Channel/PlayRoom 三种视图runtime.team_change 已落地，对齐 MP_MURIMNET_PR_TEAMCHANGE_SYN：检查玩家所在房间 -> 检查 room 启动 -> 调用 play_room.team_change，错误返 Ok/CapacityFull、RoomStarted、NotInRoom、RoomNotFound、PlayerNotFoundMurimNet 协些协些 wire-byte 协计协义：以 MP_PROTOCOL_MURIMNET 60 个协计代码建立枚体型 enum 迁出， agent_murimnet 类体原来 升到：changetomurimnet_syn=0/connect_syn=6/reconnect_syn=9/disconnect_ack=13/pr_teamchange_syn=21/chnl_modechange=32/chat_all=48/notifytomn_player_logout=58通道，房间以 for_each_member 接口，另 runtime.broadcast_chat 根据玩家位置（转发 Channel/PlayRoom/NotInRoom），对齐 MP_MURIMNET_CHAT_ALL、 SendMsgToAll 调用 sink回调MHTimeManager 已落地（启动、 init）可接 now_ms 参数， 清除 timeGetTime ） + TICK_PER_DAY/HOUR/MINUTE 1:1 锁赭 MhDate， MhTime 分裂 getter ）， 解  modern 代码 gCurTime/MHTIMEMGR TODO）MurimNetChannel.for_each_channel + MurimNetPlayRoomManager.for_each_room ???,?? SendMsg_ChannelList/SendMsg_PlayRoomList ????(commit 83d53c1b);?? wire-byte ???(MSG_CHANNEL_BASEINFO/MSG_PLAYROOM_BASEINFO)???wire-byte ???(MnhWireBase/MnhMsgChannelBaseInfoList/MnhMsgPlayRoomBaseInfoList/MnhMsgTeamChange/MnhMsgPlayerBaseInfo[|List])? #pragma pack(1) ?? 1:1 ????(commit ce931c51,9 size ????);SendMsg_ChannelList / SendMsg_PlayRoomList ??????(commit 845294ec,8 tests:size ?? GetMsgLength?Category=38?Protocol=34/35?title ?? 63 ??+???);channel/playroom ? kind/max_observers/max_players_per_team/money_for_play/map_num ?? getter;?? MnPlayerBaseInfo ??? / Chat_All wire / Crypt stub ???
 - [x] D6.2 FieldBossMonsterManager 1:1 lock | 19 tests lock legacy [Server]Map/FieldBossMonster.h
  FieldBossMonsterManager: configure_channel() auto-resizes channel vector
@@ -238,7 +240,7 @@ D6 经验曲线 / 伤害公式 / 爆率 / Boss 刷新回归测试
 ### ✅ Phase B 已完（commits `632e815` `c726127` `4bda372` `d176f32` `ec0c11f`）
 - **B.2.1** `CLoginState` 替换 CConnecting stub：RequestLogin 38B legacy payload 字节级
 - **B.2.2** `CCharSelectState` 替换 CCharSelect stub：CharacterListSyn 8B + ListAck 889B + 自动选第一个 + CharacterSelectSyn
-- **B.2.3** `CInGameState` 替换 CGameIn stub：GameInSyn + 3000B SEND_HERO_TOTALINFO 解析
+- **B.2.3** `CInGameState` 替换 CGameIn stub：GameInSyn + 当前默认分支 3775B SEND_HERO_TOTALINFO 解析（含 2728B / 124 槽 ITEM_TOTALINFO）
 - **B.2.4** 状态机真接 net 事件（host 监视 state-change 上升沿调 Start）
 - **B.2.5** `MoxianClientE2E` headless tool：CreateProcessW 启 3 server 子进程 + 真 C++ 状态机跑 Login→CharSelect→InGame 全流程。集成 ctest（60s timeout，标签 client/e2e/server）
 - **3 server 端到端 + Python 模拟 + C++ 真状态机** 三层 E2E 全 PASS
@@ -252,7 +254,7 @@ D6 经验曲线 / 伤害公式 / 爆率 / Boss 刷新回归测试
 - legacy dialog 缺项 port 评估：跨 GameResourceManager/MainTitle/ChatManager/ItemManager 依赖大，**defer 到 Phase D 跟 subsystem 一起做**
 
 ### ✅ Phase D 起步（commit `fe74077`）
-- **D6.1** `mxh_game` lib + 34-test 数值 baseline lock：7 OBJECTKIND / 6 MonsterAI state / 14B MonsterTotalInfo / 22B ItemBase / 110 槽 ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁死
+- **D6.1** `mxh_game` lib 数值 baseline lock：7 OBJECTKIND / 6 MonsterAI state / 14B MonsterTotalInfo / 22B ItemBase / 124 槽、2728B ItemTotalInfo / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁死
 
 ### 下一步
 - D1 SkillManager 1:1 port — **D1.1 (placeholder 表) + D1.2 (lookup class) 已完，剩 D1.3 (SkillList.bin 1:1 parser) 是 1-2 周大活，defer**

@@ -430,7 +430,7 @@ enum class ChatProtocol : std::uint8_t {
 // 1:1 with the original C enum MP_PROTOCOL_ITEM.
 // ============================================================================
 enum class ItemProtocol : std::uint8_t {
-    TotalInfoLocal       = 0,   // S -> C: full inventory snapshot
+    TotalInfoLocal       = 0,   // client-local dispatch from GameInAck
     PyogukItemInfo       = 1,   // warehouse item info
 
     UseSyn               = 2,   // C -> S: use item

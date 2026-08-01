@@ -1,7 +1,7 @@
 // game_types_test.cpp - Phase 10d game data structure layout tests
 //
 // Covers the 3 header files in modern/include/mxh/game/:
-//   - item_types.hpp    (IconBase, ItemBase, ItemTotalInfo, SendItemTotalInfoLocal)
+//   - item_types.hpp    (IconBase, ItemBase, ItemTotalInfo)
 //   - monster_types.hpp (MonsterTotalInfo, NpcRegen, MonsterTemplate, MonsterInstance)
 //   - skill_types.hpp   (SkillInfo, SkillInstance, DamageResult, PlayerCombatStats)
 //
@@ -21,6 +21,7 @@
 // those headers FIRST and the test assertions here SECOND.
 
 #include "mxh/game/item_types.hpp"
+#include "mxh/game/hero_total_layout.hpp"
 #include "mxh/game/monster_types.hpp"
 #include "mxh/game/skill_types.hpp"
 
@@ -80,53 +81,58 @@ TEST(ItemBaseTest, IsEmptySlotReturnsTrueIfEitherFieldIsZero) {
     EXPECT_FALSE(is_empty_slot(d));
 }
 
-TEST(ItemTotalInfoTest, WireFormatSizeIs2420Bytes) {
-    // 110 ItemBase slots × 22 bytes = 2420.
-    EXPECT_EQ(sizeof(ItemTotalInfo), 22u * 110u);
-    EXPECT_EQ(sizeof(ItemTotalInfo), 2420u);
+TEST(ItemTotalInfoTest, WireFormatSizeIs2728Bytes) {
+    EXPECT_EQ(ITEM_TOTAL_SLOT_COUNT, 124u);
+    EXPECT_EQ(sizeof(ItemTotalInfo), 22u * 124u);
+    EXPECT_EQ(sizeof(ItemTotalInfo), 2728u);
+}
+
+TEST(ItemTotalInfoTest, FieldOffsetsMatchLegacy) {
+    EXPECT_EQ(offsetof(ItemTotalInfo, Inventory), 0u);
+    EXPECT_EQ(offsetof(ItemTotalInfo, WearedItem), 1760u);
+    EXPECT_EQ(offsetof(ItemTotalInfo, ShopInventory), 1980u);
+    EXPECT_EQ(offsetof(ItemTotalInfo, PetWearedItem), 2420u);
+    EXPECT_EQ(offsetof(ItemTotalInfo, TitanWearedItem), 2486u);
+    EXPECT_EQ(offsetof(ItemTotalInfo, TitanShopItem), 2640u);
 }
 
 TEST(ItemTotalInfoTest, AllSlotsStartEmpty) {
     ItemTotalInfo info{};
-    for (std::size_t i = 0; i < SLOT_INVENTORY_NUM; ++i) {
-        EXPECT_TRUE(is_empty_slot(info.Inventory[i])) << "Inventory[" << i << "]";
-    }
-    for (std::size_t i = 0; i < WEARED_ITEM_MAX; ++i) {
-        EXPECT_TRUE(is_empty_slot(info.WearedItem[i])) << "WearedItem[" << i << "]";
-    }
-    for (std::size_t i = 0; i < TABCELL_SHOPINVEN_NUM; ++i) {
-        EXPECT_TRUE(is_empty_slot(info.ShopInventory[i])) << "ShopInventory[" << i << "]";
-    }
+    for (const auto& item : info.Inventory) EXPECT_TRUE(is_empty_slot(item));
+    for (const auto& item : info.WearedItem) EXPECT_TRUE(is_empty_slot(item));
+    for (const auto& item : info.ShopInventory) EXPECT_TRUE(is_empty_slot(item));
+    for (const auto& item : info.PetWearedItem) EXPECT_TRUE(is_empty_slot(item));
+    for (const auto& item : info.TitanWearedItem) EXPECT_TRUE(is_empty_slot(item));
+    for (const auto& item : info.TitanShopItem) EXPECT_TRUE(is_empty_slot(item));
 }
 
-TEST(SendItemTotalInfoLocalTest, WireFormatSizeIs2424Bytes) {
-    // 4 (Money) + 2420 (Items) = 2424.
-    EXPECT_EQ(sizeof(SendItemTotalInfoLocal), 4u + 22u * 110u);
-    EXPECT_EQ(sizeof(SendItemTotalInfoLocal), 2424u);
+TEST(HeroTotalLayoutTest, CurrentItemBlockShiftsTrailingFields) {
+    EXPECT_EQ(HERO_TOTAL_ITEM_OFFSET, 1019u);
+    EXPECT_EQ(HERO_TOTAL_OPTION_COUNTS_OFFSET, 3747u);
+    EXPECT_EQ(HERO_TOTAL_SERVER_TIME_OFFSET, 3757u);
+    EXPECT_EQ(HERO_TOTAL_ADDABLE_INFO_OFFSET, 3773u);
+    EXPECT_EQ(HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 3775u);
 }
 
-TEST(SendItemTotalInfoLocalTest, MoneyAndItemsAreIndependent) {
-    SendItemTotalInfoLocal msg{};
-    msg.Money = 12345;
-    msg.Items.Inventory[0] = make_item(99, 1, 0);
-    EXPECT_EQ(msg.Money, 12345u);
-    EXPECT_EQ(msg.Items.Inventory[0].dwDBIdx, 99u);
-    // Touching Items should not corrupt Money.
-    EXPECT_EQ(msg.Money, 12345u);
-}
-
-TEST(EquipmentPositionTest, RangesAreContiguous) {
-    // The TP_* position constants partition the 0..130 range into 4
-    // contiguous sub-ranges. Verify the partition so a future change
-    // to slot counts doesn't silently overlap two ranges.
+TEST(EquipmentPositionTest, RangesMatchDefaultLegacyBranch) {
     EXPECT_EQ(TP_INVENTORY_START, 0u);
     EXPECT_EQ(TP_INVENTORY_END, 80u);
     EXPECT_EQ(TP_WEAREDITEM_START, 80u);
     EXPECT_EQ(TP_WEAREDITEM_END, 90u);
-    EXPECT_EQ(TP_SHOPINVEN_START, 90u);
-    EXPECT_EQ(TP_SHOPINVEN_END, 110u);
-    EXPECT_EQ(TP_PYOGUK_START, 110u);
-    EXPECT_EQ(TP_PYOGUK_END, 130u);
+    EXPECT_EQ(TP_PYOGUK_START, 90u);
+    EXPECT_EQ(TP_PYOGUK_END, 240u);
+    EXPECT_EQ(TP_SHOPITEM_START, 240u);
+    EXPECT_EQ(TP_SHOPITEM_END, 390u);
+    EXPECT_EQ(TP_SHOPINVEN_START, 390u);
+    EXPECT_EQ(TP_SHOPINVEN_END, 430u);
+    EXPECT_EQ(TP_PETINVEN_START, 430u);
+    EXPECT_EQ(TP_PETINVEN_END, 490u);
+    EXPECT_EQ(TP_PETWEAR_START, 490u);
+    EXPECT_EQ(TP_PETWEAR_END, 493u);
+    EXPECT_EQ(TP_TITANWEAR_START, 493u);
+    EXPECT_EQ(TP_TITANWEAR_END, 500u);
+    EXPECT_EQ(TP_TITANSHOPITEM_START, 500u);
+    EXPECT_EQ(TP_TITANSHOPITEM_END, 504u);
 }
 
 TEST(EquipmentPositionTest, WearedSlotsMatchEnum) {

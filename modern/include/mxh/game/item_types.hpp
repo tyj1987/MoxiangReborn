@@ -8,9 +8,10 @@
 //   QuickPosition(2) ItemParam(4)
 //
 // ITEM_TOTALINFO contains:
-//   Inventory[80] + WearedItem[10] + ShopInventory[20]
+//   Inventory[80] + WearedItem[10] + ShopInventory[20] + PetWear[3] + TitanWear[7] + TitanShop[4]
 // ============================================================================
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -18,10 +19,21 @@
 namespace mxh::game {
 
 // Slot counts (from CommonGameDefine.h)
-constexpr int SLOT_INVENTORY_NUM    = 80;   // 4 tabs × 20 slots
-constexpr int WEARED_ITEM_MAX      = 10;   // hat, weapon, dress, shoes, ring×2, cape, necklace, armlet, belt
-constexpr int TABCELL_SHOPINVEN_NUM = 20;   // shop inventory slots
-constexpr int SLOT_PYOGUK_NUM       = 20;   // warehouse slots
+constexpr int SLOT_INVENTORY_NUM = 80;
+constexpr int WEARED_ITEM_MAX = 10;
+constexpr int TAB_PYOGUK_NUM = 5;
+constexpr int TABCELL_PYOGUK_NUM = 30;
+constexpr int SLOT_PYOGUK_NUM = TAB_PYOGUK_NUM * TABCELL_PYOGUK_NUM;
+constexpr int TAB_SHOPITEM_NUM = 5;
+constexpr int TABCELL_SHOPITEM_NUM = 30;
+constexpr int SLOT_SHOPITEM_NUM = TAB_SHOPITEM_NUM * TABCELL_SHOPITEM_NUM;
+constexpr int TAB_SHOPINVEN_NUM = 2;
+constexpr int TABCELL_SHOPINVEN_NUM = 20;
+constexpr int SLOT_SHOPINVEN_NUM = TAB_SHOPINVEN_NUM * TABCELL_SHOPINVEN_NUM;
+constexpr int SLOT_PETINVEN_NUM = 60;
+constexpr int SLOT_PETWEAR_NUM = 3;
+constexpr int SLOT_TITANWEAR_NUM = 7;
+constexpr int SLOT_TITANSHOPITEM_NUM = 4;
 
 // Equipment positions (EWEARED_ITEM enum)
 constexpr std::uint8_t WEARED_HAT      = 0;
@@ -35,15 +47,25 @@ constexpr std::uint8_t WEARED_NECKLACE= 7;
 constexpr std::uint8_t WEARED_ARMLET  = 8;
 constexpr std::uint8_t WEARED_BELT    = 9;
 
-// Position ranges (from CommonGameDefine.h TP_* constants)
-constexpr std::uint16_t TP_INVENTORY_START    = 0;
-constexpr std::uint16_t TP_INVENTORY_END      = TP_INVENTORY_START + SLOT_INVENTORY_NUM;       // 80
-constexpr std::uint16_t TP_WEAREDITEM_START    = TP_INVENTORY_END;                               // 80
-constexpr std::uint16_t TP_WEAREDITEM_END     = TP_WEAREDITEM_START + WEARED_ITEM_MAX;         // 90
-constexpr std::uint16_t TP_SHOPINVEN_START    = TP_WEAREDITEM_END;                              // 90
-constexpr std::uint16_t TP_SHOPINVEN_END      = TP_SHOPINVEN_START + TABCELL_SHOPINVEN_NUM;    // 110
-constexpr std::uint16_t TP_PYOGUK_START       = TP_SHOPINVEN_END;                               // 110
-constexpr std::uint16_t TP_PYOGUK_END         = TP_PYOGUK_START + SLOT_PYOGUK_NUM;              // 130
+// Position ranges from the default KOR/CHINA CommonGameDefine.h branch.
+constexpr std::uint16_t TP_INVENTORY_START = 0;
+constexpr std::uint16_t TP_INVENTORY_END = TP_INVENTORY_START + SLOT_INVENTORY_NUM;
+constexpr std::uint16_t TP_WEAREDITEM_START = TP_INVENTORY_END;
+constexpr std::uint16_t TP_WEAREDITEM_END = TP_WEAREDITEM_START + WEARED_ITEM_MAX;
+constexpr std::uint16_t TP_PYOGUK_START = TP_WEAREDITEM_END;
+constexpr std::uint16_t TP_PYOGUK_END = TP_PYOGUK_START + SLOT_PYOGUK_NUM;
+constexpr std::uint16_t TP_SHOPITEM_START = TP_PYOGUK_END;
+constexpr std::uint16_t TP_SHOPITEM_END = TP_SHOPITEM_START + SLOT_SHOPITEM_NUM;
+constexpr std::uint16_t TP_SHOPINVEN_START = TP_SHOPITEM_END;
+constexpr std::uint16_t TP_SHOPINVEN_END = TP_SHOPINVEN_START + SLOT_SHOPINVEN_NUM;
+constexpr std::uint16_t TP_PETINVEN_START = TP_SHOPINVEN_END;
+constexpr std::uint16_t TP_PETINVEN_END = TP_PETINVEN_START + SLOT_PETINVEN_NUM;
+constexpr std::uint16_t TP_PETWEAR_START = TP_PETINVEN_END;
+constexpr std::uint16_t TP_PETWEAR_END = TP_PETWEAR_START + SLOT_PETWEAR_NUM;
+constexpr std::uint16_t TP_TITANWEAR_START = TP_PETWEAR_END;
+constexpr std::uint16_t TP_TITANWEAR_END = TP_TITANWEAR_START + SLOT_TITANWEAR_NUM;
+constexpr std::uint16_t TP_TITANSHOPITEM_START = TP_TITANWEAR_END;
+constexpr std::uint16_t TP_TITANSHOPITEM_END = TP_TITANSHOPITEM_START + SLOT_TITANSHOPITEM_NUM;
 
 #pragma pack(push, 1)
 
@@ -67,25 +89,30 @@ struct ItemBase {
 
 static_assert(sizeof(ItemBase) == 22, "ItemBase must be 22 bytes to match original");
 
-// ITEM_TOTALINFO — sent as MP_ITEM_TOTALINFO_LOCAL payload
-// Layout: Inventory[80] + WearedItem[10] + ShopInventory[20]
-// Total size: 110 × 22 = 2420 bytes
+// ITEM_TOTALINFO embedded in SEND_HERO_TOTALINFO.
+// Default KOR/CHINA size: 124 × 22 = 2728 bytes.
 struct ItemTotalInfo {
-    ItemBase Inventory[SLOT_INVENTORY_NUM];      // 80 items
-    ItemBase WearedItem[WEARED_ITEM_MAX];        // 10 equipment slots
-    ItemBase ShopInventory[TABCELL_SHOPINVEN_NUM]; // 20 shop slots
+    ItemBase Inventory[SLOT_INVENTORY_NUM];
+    ItemBase WearedItem[WEARED_ITEM_MAX];
+    ItemBase ShopInventory[TABCELL_SHOPINVEN_NUM];
+    ItemBase PetWearedItem[SLOT_PETWEAR_NUM];
+    ItemBase TitanWearedItem[SLOT_TITANWEAR_NUM];
+    ItemBase TitanShopItem[SLOT_TITANSHOPITEM_NUM];
 };
 
-static_assert(sizeof(ItemTotalInfo) == 22 * 110, "ItemTotalInfo size mismatch");
+inline constexpr std::size_t ITEM_TOTAL_SLOT_COUNT =
+    SLOT_INVENTORY_NUM + WEARED_ITEM_MAX + TABCELL_SHOPINVEN_NUM +
+    SLOT_PETWEAR_NUM + SLOT_TITANWEAR_NUM + SLOT_TITANSHOPITEM_NUM;
 
-// SEND_ITEM_TOTALINFO_LOCAL — message payload for MP_ITEM_TOTALINFO_LOCAL
-// Format: MONEYTYPE(4B) + ITEM_TOTALINFO(2420B) = 2424 bytes
-struct SendItemTotalInfoLocal {
-    std::uint32_t Money;
-    ItemTotalInfo Items;
-};
-
-static_assert(sizeof(SendItemTotalInfoLocal) == 4 + 22 * 110, "SendItemTotalInfoLocal size mismatch");
+static_assert(ITEM_TOTAL_SLOT_COUNT == 124);
+static_assert(sizeof(ItemTotalInfo) == 2728, "ItemTotalInfo must match legacy wire size");
+static_assert(sizeof(ItemTotalInfo) == sizeof(ItemBase) * ITEM_TOTAL_SLOT_COUNT);
+static_assert(offsetof(ItemTotalInfo, Inventory) == 0);
+static_assert(offsetof(ItemTotalInfo, WearedItem) == 1760);
+static_assert(offsetof(ItemTotalInfo, ShopInventory) == 1980);
+static_assert(offsetof(ItemTotalInfo, PetWearedItem) == 2420);
+static_assert(offsetof(ItemTotalInfo, TitanWearedItem) == 2486);
+static_assert(offsetof(ItemTotalInfo, TitanShopItem) == 2640);
 
 #pragma pack(pop)
 

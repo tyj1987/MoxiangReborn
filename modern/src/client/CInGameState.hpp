@@ -26,7 +26,7 @@
 //   * GameInSyn payload is empty (the channel/level fields the
 //     legacy MSG_DWORD2 carried aren't read by the modern server).
 //   * GameInAck parser is a free function so unit tests can lock the
-//     3000-byte SEND_HERO_TOTALINFO layout without a TcpClient.
+//     SEND_HERO_TOTALINFO layout without a TcpClient.
 
 #pragma once
 
@@ -43,7 +43,7 @@ namespace mxh::client {
 
 class CEngine;
 
-// 1:1 with the 3000-byte SEND_HERO_TOTALINFO layout in map_handler.cpp
+// 1:1 with the SEND_HERO_TOTALINFO layout in map_handler.cpp
 // (kPayloadBaseObjOff/kPayloadCharTotalOff/...).  We expose the
 // minimum subset needed to drive a "you are in game" overlay.
 struct GameInInfo {
@@ -62,7 +62,7 @@ struct GameInInfo {
     std::uint16_t  server_hour  = 0;
 };
 
-// Parse the 3000-byte legacy GameInAck payload (map_handler.cpp
+// Parse the legacy GameInAck payload (map_handler.cpp
 // make_gamein_ack).  Returns std::nullopt if the payload is too short
 // to safely read BASEOBJECT_INFO / CHARACTER_TOTALINFO / ServerTime.
 std::optional<GameInInfo>
