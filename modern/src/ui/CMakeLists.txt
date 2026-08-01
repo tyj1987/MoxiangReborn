@@ -41,6 +41,7 @@ add_library(mxh_ui STATIC
     cExitDialog.cpp
     cMultiLineText.cpp
     cGuagen.cpp
+    cGuageBar.cpp
     cListDialogEx.cpp
     cMacroDialog.cpp
     cmakdial.cpp
