@@ -106,4 +106,12 @@ QuestExecuteApplyResult apply_quest_execute(
 QuestExecuteApplyResult apply_time_execute(
     QuestGroupState& state, const QuestExecuteSpec& spec) noexcept;
 
+// Apply the item-family executors whose legacy inputs are fully represented
+// by QuestGroupState (GiveQuestItem, TakeQuestItem, TakeMoneyPerCount). All
+// other Item executors (GiveItem / TakeItem / GiveMoney / TakeMoney / TakeExp
+// / TakeSExp / RandomTakeItem weapon-filtered) return UnsupportedContext
+// until a real player inventory / network / random context is available.
+QuestExecuteApplyResult apply_item_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec) noexcept;
+
 }  // namespace mxh::server

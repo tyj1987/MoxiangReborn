@@ -317,6 +317,27 @@ inline bool quest_group_register_check_time(QuestGroupState& state,
     return true;
 }
 
+inline bool quest_group_give_quest_item(QuestGroupState& state,
+                                        std::uint32_t questIdx,
+                                        std::uint32_t itemIdx) {
+    const auto removed = state.m_QuestItemTable.erase(itemIdx);
+    static_cast<void>(questIdx);
+    return removed > 0u;
+}
+
+inline bool quest_group_take_quest_item(QuestGroupState& state,
+                                        std::uint32_t questIdx,
+                                        std::uint32_t subQuestIdx,
+                                        std::uint32_t itemIdx,
+                                        std::uint32_t itemNum,
+                                        std::uint32_t probability) {
+    if (!check_quest_probability(probability, itemNum)) return false;
+    auto& item = state.m_QuestItemTable[itemIdx];
+    item = QuestGroupItem{questIdx, itemIdx, itemNum};
+    (void)quest_group_add_count(state, questIdx, subQuestIdx, itemNum);
+    return true;
+}
+
 inline bool quest_group_save_login_point(QuestGroupState& state,
                                          std::uint32_t mapNum) {
     if (mapNum > 2000u) return false;

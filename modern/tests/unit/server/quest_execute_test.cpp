@@ -9,8 +9,11 @@ using mxh::server::QuestExecuteApplyStatus;
 using mxh::server::apply_count_execute;
 using mxh::server::apply_quest_execute;
 using mxh::server::apply_time_execute;
+using mxh::server::apply_item_execute;
 using mxh::server::make_quest_group;
 using mxh::server::quest_group_create_quest;
+using mxh::server::quest_group_get_quest;
+using mxh::server::quest_group_set_item;
 using mxh::server::quest_group_get_quest;
 using mxh::server::quest_group_start_subquest;
 using mxh::server::quest_group_end_subquest;
@@ -237,4 +240,44 @@ TEST(QuestExecuteApply, MissingSubquestReturnsExplicitStatus) {
     ASSERT_TRUE(end.has_value());
     EXPECT_EQ(apply_quest_execute(state, *end, 1000u).status,
               QuestExecuteApplyStatus::MissingSubquest);
+}
+
+TEST(QuestExecuteApply, GiveQuestItemRemovesAndTakeRefillsTable) {
+    auto state = make_quest_group();
+    ASSERT_TRUE(quest_group_create_quest(state, 7u));
+    quest_group_set_item(state, 7u, 100u, 2u);
+    const auto give = parse_quest_execute("*GIVEQUESTITEM 100 0", 7u, 0u);
+    ASSERT_TRUE(give.has_value());
+    EXPECT_EQ(apply_item_execute(state, *give).status,
+              QuestExecuteApplyStatus::Applied);
+    EXPECT_EQ(state.m_QuestItemTable.count(100u), 0u);
+
+    const auto take = parse_quest_execute("*TAKEQUESTITEM 100 4 9000", 7u, 0u);
+    ASSERT_TRUE(take.has_value());
+    EXPECT_EQ(apply_item_execute(state, *take).status,
+              QuestExecuteApplyStatus::Applied);
+    EXPECT_EQ(state.m_QuestItemTable.at(100u).dwItemNum, 4u);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(0u), 1u);
+}
+
+TEST(QuestExecuteApply, TakeMoneyPerCountEmptiesAndReturnsTrue) {
+    auto state = make_quest_group();
+    quest_group_set_item(state, 7u, 100u, 3u);
+    const auto spec = parse_quest_execute("*TAKEMONEYPERCOUNT 100 17", 7u, 0u);
+    ASSERT_TRUE(spec.has_value());
+    EXPECT_EQ(apply_item_execute(state, *spec).status,
+              QuestExecuteApplyStatus::Applied);
+    EXPECT_EQ(state.m_QuestItemTable.count(100u), 0u);
+}
+
+TEST(QuestExecuteApply, GiveMoneyAndTakeItemRequireUnsupportedContext) {
+    auto state = make_quest_group();
+    const auto give_money = parse_quest_execute("*GIVEMONEY 100", 7u, 0u);
+    ASSERT_TRUE(give_money.has_value());
+    EXPECT_EQ(apply_item_execute(state, *give_money).status,
+              QuestExecuteApplyStatus::UnsupportedContext);
+    const auto take_item = parse_quest_execute("*TAKEITEM 1 1 10000", 7u, 0u);
+    ASSERT_TRUE(take_item.has_value());
+    EXPECT_EQ(apply_item_execute(state, *take_item).status,
+              QuestExecuteApplyStatus::UnsupportedContext);
 }

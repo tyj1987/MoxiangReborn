@@ -206,4 +206,37 @@ QuestExecuteApplyResult apply_time_execute(
                 spec.args[0], spec.args[1], spec.args[2], spec.args[3])};
 }
 
+QuestExecuteApplyResult apply_item_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec) noexcept {
+    switch (spec.kind) {
+    case QuestExecuteKind::GiveQuestItem:
+        if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_give_quest_item(
+                    state, spec.quest_idx, spec.args[0])};
+    case QuestExecuteKind::TakeQuestItem:
+        if (spec.args.size() != 3u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_take_quest_item(
+                    state, spec.quest_idx, spec.subquest_idx,
+                    spec.args[0], spec.args[1], spec.args[2])};
+    case QuestExecuteKind::TakeMoneyPerCount:
+        if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_take_money_per_count(state, spec.args[0], spec.args[1]) > 0u};
+    case QuestExecuteKind::GiveItem:
+    case QuestExecuteKind::TakeItem:
+    case QuestExecuteKind::GiveMoney:
+    case QuestExecuteKind::TakeMoney:
+    case QuestExecuteKind::TakeExp:
+    case QuestExecuteKind::TakeSExp:
+    case QuestExecuteKind::TakeQuestItemFQW:
+    case QuestExecuteKind::TakeQuestItemFW:
+    case QuestExecuteKind::RandomTakeItem:
+        return {QuestExecuteApplyStatus::UnsupportedContext, false};
+    default:
+        return {QuestExecuteApplyStatus::InvalidSpec, false};
+    }
+}
+
 }  // namespace mxh::server
