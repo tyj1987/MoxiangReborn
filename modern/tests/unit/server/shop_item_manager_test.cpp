@@ -1249,6 +1249,52 @@ TEST(ShopItemManagerHelpers, GetSavedMPNumAliasesMovePointCount) {
     EXPECT_EQ(m.get_saved_mp_num(), m.move_point_count());
 }
 
+
+// ---- D4.19 using_items() const accessor (legacy SendShopItemUseInfo hook) ----
+
+TEST(ShopItemManagerAccessor, UsingItemsIsEmptyAfterInit) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_TRUE(m.using_items().empty());
+    EXPECT_EQ(m.using_items().size(), 0u);
+}
+
+TEST(ShopItemManagerAccessor, UsingItemsReturnsAllInsertedEntries) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib_a = make_item_base(55134);
+    auto ib_b = make_item_base(55142);
+    ASSERT_TRUE(m.used_shop_item(ib_a, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    ASSERT_TRUE(m.used_shop_item(ib_b, 1, PackedTime{0x22222222u}, 30000u, 2000u));
+    auto const& tbl = m.using_items();
+    ASSERT_EQ(tbl.size(), 2u);
+    auto it_a = tbl.find(55134);
+    ASSERT_NE(it_a, tbl.end());
+    EXPECT_EQ(it_a->second.Data.ShopItem.ItemBase.wIconIdx, 55134);
+    EXPECT_EQ(it_a->second.Data.LastCheckTime, 1000u);
+    auto it_b = tbl.find(55142);
+    ASSERT_NE(it_b, tbl.end());
+    EXPECT_EQ(it_b->second.Data.LastCheckTime, 2000u);
+}
+
+TEST(ShopItemManagerAccessor, UsingItemsReflectsDeleteAndRelease) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib_a = make_item_base(55134);
+    auto ib_b = make_item_base(55142);
+    ASSERT_TRUE(m.used_shop_item(ib_a, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    ASSERT_TRUE(m.used_shop_item(ib_b, 1, PackedTime{0x22222222u}, 30000u, 2000u));
+    ASSERT_TRUE(m.delete_using_item(55134));
+    EXPECT_EQ(m.using_items().size(), 1u);
+    EXPECT_EQ(m.using_items().count(55134), 0u);
+    EXPECT_EQ(m.using_items().count(55142), 1u);
+    m.release();
+    EXPECT_TRUE(m.using_items().empty());
+}
+
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
     EXPECT_EQ(SHOP_ITEM_DUP_NONE, 0u);
 }
