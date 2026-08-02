@@ -71,6 +71,47 @@ bool ShopItemManager::delete_using_item(std::uint64_t item_idx) noexcept {
     return m_usingItems.erase(item_idx) > 0;
 }
 
+bool ShopItemManager::used_shop_item(const game::ItemBase& item_base,
+                                     std::uint32_t param,
+                                     game::PackedTime begin_time,
+                                     std::uint32_t remain_ms,
+                                     std::uint32_t now_ms) noexcept {
+    if (item_base.wIconIdx == 0) return false;  // invalid shop-item slot
+    const std::uint64_t key = item_base.wIconIdx;  // legacy key = wIconIdx
+    if (m_usingItems.find(key) != m_usingItems.end()) return false;  // already in use
+    UsingShopItemEntry e{};
+    e.ItemIdx = key;
+    e.Data.ShopItem.ItemBase = item_base;
+    e.Data.ShopItem.Param = param;
+    e.Data.ShopItem.BeginTime = begin_time;
+    e.Data.ShopItem.Remaintime = remain_ms;
+    e.Data.LastCheckTime = now_ms;  // legacy uses gCurTime
+    m_usingItems.emplace(key, e);
+    return true;
+}
+
+bool ShopItemManager::has_using_item_by_icon_idx(std::uint16_t icon_idx) const noexcept {
+    return m_usingItems.find(static_cast<std::uint64_t>(icon_idx)) != m_usingItems.end();
+    (void)0;  // suppress unused warning on no-op return
+}
+
+const UsingShopItemEntry* ShopItemManager::find_using_item_by_icon_idx(
+    std::uint16_t icon_idx) const noexcept {
+    auto it = m_usingItems.find(static_cast<std::uint64_t>(icon_idx));
+    if (it == m_usingItems.end()) return nullptr;
+    return &it->second;
+}
+
+bool ShopItemManager::is_using_item_active(std::uint16_t icon_idx,
+                                           std::uint32_t now_ms) const noexcept {
+    const auto* e = find_using_item_by_icon_idx(icon_idx);
+    if (e == nullptr) return false;
+    const std::uint64_t deadline =
+        static_cast<std::uint64_t>(e->Data.LastCheckTime)
+        + static_cast<std::uint64_t>(e->Data.ShopItem.Remaintime);
+    return deadline > now_ms;  // strict > matches legacy 'still active'
+}
+
 bool ShopItemManager::add_move_point(const MovePointEntry& entry) noexcept {
     if (entry.DBIdx == 0) return false;  // legacy refused DBIdx == 0
     if (m_movePoints.find(entry.DBIdx) != m_movePoints.end()) return false;

@@ -550,6 +550,154 @@ TEST(ShopItemManagerExpire, TickAndCollectPreservesCallerBufferContentsUntilClea
     EXPECT_TRUE(out.empty());  // collect_expired clears
 }
 
+
+// ---- D4.14 UsedShopItem data plane (no ITEMMGR/AbilityManager coupling) ----
+
+mxh::game::ItemBase make_item_base(std::uint16_t icon_idx, std::uint32_t db_idx = 12345) {
+    mxh::game::ItemBase ib{};
+    ib.dwDBIdx = db_idx;
+    ib.wIconIdx = icon_idx;
+    ib.Position = 0xFFFF;  // "unplaced" sentinel from legacy
+    return ib;
+}
+
+TEST(ShopItemManagerUsedShopItem, RejectsZeroIconIdx) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(0);
+    EXPECT_FALSE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_EQ(m.using_item_count(), 0u);
+}
+
+TEST(ShopItemManagerUsedShopItem, FirstInsertSucceedsAndSetsLastCheckTime) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 12345u));
+    EXPECT_EQ(m.using_item_count(), 1u);
+    EXPECT_TRUE(m.has_using_item_by_icon_idx(55134));
+    const auto* found = m.find_using_item_by_icon_idx(55134);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->Data.LastCheckTime, 12345u);
+    EXPECT_EQ(found->Data.ShopItem.Remaintime, 60000u);
+    EXPECT_EQ(found->Data.ShopItem.Param, 1u);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.wIconIdx, 55134);
+}
+
+TEST(ShopItemManagerUsedShopItem, DuplicateIconIdxIsRejected) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib1 = make_item_base(55134, 111);
+    auto ib2 = make_item_base(55134, 222);  // same icon, different db_idx
+    ASSERT_TRUE(m.used_shop_item(ib1, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_FALSE(m.used_shop_item(ib2, 2, PackedTime{0x22222222u}, 30000u, 2000u));
+    EXPECT_EQ(m.using_item_count(), 1u);
+    // Existing row must be untouched (still lastCheckTime=1000, not 2000).
+    const auto* found = m.find_using_item_by_icon_idx(55134);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->Data.LastCheckTime, 1000u);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.dwDBIdx, 111u);
+}
+
+TEST(ShopItemManagerUsedShopItem, DistinctIconIndicesCoexist) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto a = make_item_base(55134);
+    auto b = make_item_base(55142);  // different icon, allowed alongside
+    ASSERT_TRUE(m.used_shop_item(a, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    ASSERT_TRUE(m.used_shop_item(b, 1, PackedTime{0x11111111u}, 30000u, 1000u));
+    EXPECT_EQ(m.using_item_count(), 2u);
+    EXPECT_TRUE(m.has_using_item_by_icon_idx(55134));
+    EXPECT_TRUE(m.has_using_item_by_icon_idx(55142));
+}
+
+TEST(ShopItemManagerUsedShopItem, HasByIconIdxIsFalseForUnknownIcon) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_FALSE(m.has_using_item_by_icon_idx(99999));
+    EXPECT_EQ(m.find_using_item_by_icon_idx(99999), nullptr);
+}
+
+TEST(ShopItemManagerUsedShopItem, HasByIconIdxTrueAfterInsert) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(7777);
+    EXPECT_FALSE(m.has_using_item_by_icon_idx(7777));
+    ASSERT_TRUE(m.used_shop_item(ib, 2, PackedTime{0x33333333u}, 5000u, 500u));
+    EXPECT_TRUE(m.has_using_item_by_icon_idx(7777));
+}
+
+TEST(ShopItemManagerUsedShopItem, ActivePredicateBeforeDeadline) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 10000u, 1000u));
+    // deadline = LastCheckTime + Remaintime = 1000 + 10000 = 11000
+    EXPECT_TRUE(m.is_using_item_active(55134, 5000u));   // well before
+    EXPECT_TRUE(m.is_using_item_active(55134, 10999u));  // just before
+    EXPECT_FALSE(m.is_using_item_active(55134, 11000u)); // exactly at deadline (strict >)
+    EXPECT_FALSE(m.is_using_item_active(55134, 99999u)); // well past
+}
+
+TEST(ShopItemManagerUsedShopItem, ActivePredicateFalseForUnknownIcon) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_FALSE(m.is_using_item_active(12345, 0u));
+}
+
+TEST(ShopItemManagerUsedShopItem, DeleteThenReinsertReplacesAfterDrop) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_TRUE(m.has_using_item_by_icon_idx(55134));
+    EXPECT_TRUE(m.delete_using_item(55134));
+    EXPECT_FALSE(m.has_using_item_by_icon_idx(55134));
+    // After delete, legacy allows re-insert with a new lastCheckTime.
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x22222222u}, 30000u, 5000u));
+    EXPECT_EQ(m.using_item_count(), 1u);
+    const auto* found = m.find_using_item_by_icon_idx(55134);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->Data.LastCheckTime, 5000u);
+}
+
+TEST(ShopItemManagerUsedShopItem, ReleaseClearsUsedShopItems) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto a = make_item_base(55134);
+    auto b = make_item_base(55142);
+    ASSERT_TRUE(m.used_shop_item(a, 1, PackedTime{0u}, 60000u, 100u));
+    ASSERT_TRUE(m.used_shop_item(b, 1, PackedTime{0u}, 30000u, 100u));
+    EXPECT_EQ(m.using_item_count(), 2u);
+    m.release();
+    EXPECT_EQ(m.using_item_count(), 0u);
+    EXPECT_FALSE(m.has_using_item_by_icon_idx(55134));
+    EXPECT_FALSE(m.has_using_item_by_icon_idx(55142));
+    EXPECT_FALSE(m.is_using_item_active(55134, 0u));
+}
+
+TEST(ShopItemManagerUsedShopItem, LegacyKeyAlwaysEqualsIconIdx) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(7777, /*db_idx=*/0xCAFEBABEu);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x55555555u}, 60000u, 1000u));
+    const auto* found = m.find_using_item(7777u);  // legacy key = wIconIdx
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->ItemIdx, 7777u);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.wIconIdx, 7777);
+}
+
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
     EXPECT_EQ(SHOP_ITEM_DUP_NONE, 0u);
 }

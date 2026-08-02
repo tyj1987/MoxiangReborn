@@ -116,6 +116,37 @@ public:
     const UsingShopItemEntry* find_using_item(std::uint64_t item_idx) const noexcept;
     bool delete_using_item(std::uint64_t item_idx) noexcept;
 
+    // Legacy CShopItemManager::UsedShopItem data plane.
+    // Inserts a new using-item row keyed by item_base.wIconIdx (1:1 with
+    // legacy m_UsingItemTable.Add(ShopItem, pItemBase->wIconIdx)). Returns
+    // false if the icon index is already present (the legacy 'this item
+    // is already in use' guard) or if wIconIdx is zero (invalid item).
+    // LastCheckTime is set to now_ms (legacy uses gCurTime; the caller
+    // passes the same clock value the runtime passes into tick()).
+    //
+    // The full legacy UsedShopItem path also adjusts ShopItemOption
+    // (SkillPoint / StatePoint counters) for special incantation items
+    // and writes the row to DB; those hooks live outside the data
+    // plane and remain in a follow-up commit.
+    bool used_shop_item(const game::ItemBase& item_base,
+                        std::uint32_t param,
+                        game::PackedTime begin_time,
+                        std::uint32_t remain_ms,
+                        std::uint32_t now_ms) noexcept;
+
+    // True iff an entry keyed by wIconIdx already exists. Cheap O(1) hash
+    // lookup that mirrors legacy m_UsingItemTable.GetData(wIconIdx).
+    bool has_using_item_by_icon_idx(std::uint16_t icon_idx) const noexcept;
+
+    // O(1) lookup by wIconIdx, returns nullptr if missing.
+    const UsingShopItemEntry* find_using_item_by_icon_idx(
+        std::uint16_t icon_idx) const noexcept;
+
+    // True if this icon index has a remainder time still in the future at
+    // now_ms (legacy 'active using-item' predicate before any DB flush).
+    bool is_using_item_active(std::uint16_t icon_idx,
+                              std::uint32_t now_ms) const noexcept;
+
     // Move-point table CRUD (legacy MovePointTable operations).
     bool add_move_point(const MovePointEntry& entry) noexcept;
     std::size_t move_point_count() const noexcept { return m_movePoints.size(); }
