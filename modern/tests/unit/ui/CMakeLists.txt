@@ -96,6 +96,7 @@
     cexitdialog_test.cpp
     cmultilinetext_test.cpp
     cguagen_test.cpp
+    cguagebar_test.cpp
     clistdialogex_test.cpp
     cmacrodialog_test.cpp
     cmakdial_test.cpp
