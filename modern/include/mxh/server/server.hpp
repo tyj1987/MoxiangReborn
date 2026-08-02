@@ -137,6 +137,17 @@ public:
     bool has_hackshield_state(mxh::net::ConnectionId id) const noexcept;
     bool is_hackshield_disconnect_pending(mxh::net::ConnectionId id) const noexcept;
 
+    // R-2.2: Server-side periodic HackShield recheck. Walks every
+    // connection with active HackShield state and runs the same
+    // state-machine step (send_hackshield_req) the client-driven
+    // Req handler does. The host invokes this from a timer (legacy
+    // CHackShieldManager called it every ~30s). Returns the number
+    // of connections that produced a Send or Disconnect action so
+    // tests can assert progress without inspecting reply buffers.
+    // Pure data-plane: only mutates per-connection state and replies
+    // via reply_() when the action is Send; marks the connection for
+    // disconnect when the action is Disconnect.
+    std::size_t tick_hackshield();
 
 private:
     void handle_userconn(mxh::net::ConnectionId id,

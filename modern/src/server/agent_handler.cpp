@@ -28,6 +28,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <vector>
 
 namespace mxh::server {
 
@@ -435,6 +436,47 @@ bool AgentHandler::is_hackshield_disconnect_pending(mxh::net::ConnectionId id) c
     std::lock_guard<std::mutex> lk(user_mu_);
     return hackshield_disconnect_pending_.find(id.value)
         != hackshield_disconnect_pending_.end();
+}
+
+// R-2.2: server-side periodic HackShield recheck.
+std::size_t AgentHandler::tick_hackshield() {
+    struct Entry { std::uint64_t id; HackShieldUserState state; std::uint8_t user_level; };
+    std::vector<Entry> snapshot;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        snapshot.reserve(conn_hs_states_.size());
+        for (const auto& kv : conn_hs_states_) {
+            Entry e{kv.first, kv.second, 0u};
+            auto lvl_it = conn_user_levels_.find(kv.first);
+            if (lvl_it != conn_user_levels_.end()) e.user_level = lvl_it->second;
+            snapshot.push_back(e);
+        }
+    }
+    std::size_t actions = 0u;
+    for (auto& e : snapshot) {
+        if (e.user_level < HACKSHIELD_SUPERUSER_LEVEL) continue;
+        HackShieldAction action = send_hackshield_req(e.state, /*make_req_succeeded=*/true);
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            conn_hs_states_[e.id] = e.state;
+        }
+        if (action.Kind == HackShieldActionKind::Send) {
+            mxh::net::Message reply;
+            reply.header.category = HACKSHIELD_CATEGORY;
+            reply.header.protocol = static_cast<std::uint8_t>(action.Packet.Protocol);
+            reply.header.object_id = 0u;
+            reply.payload.assign(action.Packet.Payload.begin(),
+                                 action.Packet.Payload.begin() + action.Packet.PayloadSize);
+            reply_(mxh::net::make_connection_id(static_cast<std::uint32_t>(e.id)),
+                   reply);
+            ++actions;
+        } else if (action.Kind == HackShieldActionKind::Disconnect) {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            hackshield_disconnect_pending_.insert(e.id);
+            ++actions;
+        }
+    }
+    return actions;
 }
 
 

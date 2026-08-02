@@ -787,6 +787,100 @@ TEST(AgentHandlerHackShieldTest, CharacterListMissingUserLevelDefaultsZero) {
 
 // MapHandler
 // ===========================================================================
+// R-2.2: AgentHandler::tick_hackshield() server-side periodic recheck
+//
+// Walks every connection with active HackShield state and runs
+// send_hackshield_req() through the same state machine the
+// client-driven Req handler does. Legacy CHackShieldManager
+// called this every ~30s. State machine decisions:
+//   m_bHSCheck == 0 (idle)       -> send Req, -> 1 (waiting)
+//   m_bHSCheck == 1 (waiting)    -> Disconnect (timeout)
+//   m_bHSCheck == 2 (just-grace) -> 1 (waiting) without send
+// ===========================================================================
+
+TEST(AgentHandlerHackShieldTest, TickHackshieldOnEmptyHandlerIsZero) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    EXPECT_EQ(handler.tick_hackshield(), 0u);
+    EXPECT_EQ(reply.call_count.load(), 0);
+}
+
+TEST(AgentHandlerHackShieldTest, TickHackshieldGraceSuperuserNoOpThenDisconnect) {
+    // Send a GuidReq to push state machine into m_bHSCheck=2 (grace).
+    // First tick: grace -> waiting (no send). Second tick: waiting ->
+    // Disconnect (timeout exceeded).
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(800);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+    mxh::net::Message req;
+    req.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    req.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::GuidReq);
+    handler.on_message(cid, req);
+    EXPECT_TRUE(handler.has_hackshield_state(cid));
+    reply.call_count.store(0);
+    EXPECT_EQ(handler.tick_hackshield(), 0u);
+    EXPECT_EQ(reply.call_count.load(), 0);
+    EXPECT_GE(handler.tick_hackshield(), 1u);
+    EXPECT_TRUE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, TickHackshieldNonSuperuserIsNoOp) {
+    // Non-superuser: state should never have been created by the
+    // client-driven handler (UserLevel < 5 guard), so tick
+    // finds no entries to walk.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(801);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/2);
+    mxh::net::Message req;
+    req.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    req.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::GuidReq);
+    handler.on_message(cid, req);
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
+    EXPECT_EQ(handler.tick_hackshield(), 0u);
+    EXPECT_EQ(reply.call_count.load(), 0);
+}
+
+TEST(AgentHandlerHackShieldTest, TickHackshieldMixedSuperusersHandlesEach) {
+    // Two superusers + one non-superuser. Two ticks produce 2
+    // disconnect actions on the superusers only.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid_super_a = mxh::net::make_connection_id(810);
+    auto cid_super_b = mxh::net::make_connection_id(811);
+    auto cid_normal = mxh::net::make_connection_id(812);
+    handler.register_session(cid_super_a, 1, 2, 3, /*user_level=*/5);
+    handler.register_session(cid_super_b, 4, 5, 6, /*user_level=*/5);
+    handler.register_session(cid_normal, 7, 8, 9, /*user_level=*/3);
+    auto send_guid = [&](mxh::net::ConnectionId id) {
+        mxh::net::Message req;
+        req.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::HackShield);
+        req.header.protocol = static_cast<std::uint8_t>(
+            mxh::server::HackShieldProtocol::GuidReq);
+        handler.on_message(id, req);
+    };
+    send_guid(cid_super_a);
+    send_guid(cid_super_b);
+    send_guid(cid_normal);
+    EXPECT_EQ(handler.tick_hackshield(), 0u);
+    EXPECT_EQ(handler.tick_hackshield(), 2u);
+    EXPECT_TRUE(handler.is_hackshield_disconnect_pending(cid_super_a));
+    EXPECT_TRUE(handler.is_hackshield_disconnect_pending(cid_super_b));
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid_normal));
+}
+
+
+// ===========================================================================
 
 TEST(MapHandlerTest, ConstructionWithMapNumDoesNotCrash) {
     // MapHandler takes (db, map_num, reply, use_legacy_framing=true).
