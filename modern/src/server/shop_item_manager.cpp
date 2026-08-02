@@ -246,6 +246,41 @@ std::vector<std::uint8_t> ShopItemManager::serialize_move_points_headerless(
     return serialize_move_points(0, 0, b_inited);
 }
 
+UsingShopItemEntry* ShopItemManager::find_using_item_by_icon_idx_mutable(
+    std::uint16_t icon_idx) noexcept {
+    auto it = m_usingItems.find(static_cast<std::uint64_t>(icon_idx));
+    if (it == m_usingItems.end()) return nullptr;
+    return &it->second;
+}
+
+bool ShopItemManager::add_shop_item_use(const game::ShopItemBase& shop_item,
+                                       std::uint32_t now_ms) noexcept {
+    if (shop_item.ItemBase.wIconIdx == 0) return false;
+    const std::uint64_t key = shop_item.ItemBase.wIconIdx;
+    if (m_usingItems.find(key) != m_usingItems.end()) return false;
+    UsingShopItemEntry e{};
+    e.ItemIdx = key;
+    e.Data.ShopItem = shop_item;
+    e.Data.LastCheckTime = now_ms;  // legacy gCurTime
+    m_usingItems.emplace(key, e);
+    return true;
+}
+
+bool ShopItemManager::rename_move_point(std::uint32_t db_idx,
+                                        std::string_view new_name) noexcept {
+    auto it = m_movePoints.find(db_idx);
+    if (it == m_movePoints.end()) return false;
+    auto& name = it->second.Data.Name;
+    name.fill(0);
+    const std::size_t n = std::min(new_name.size(), name.size() - 1);
+    std::memcpy(name.data(), new_name.data(), n);
+    return true;
+}
+
+void ShopItemManager::release_move_points() noexcept {
+    m_movePoints.clear();
+}
+
 [[maybe_unused]] constexpr int shop_item_manager_translation_unit_anchor = 0;
 
 } // namespace mxh::server

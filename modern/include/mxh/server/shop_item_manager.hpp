@@ -28,6 +28,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -175,6 +176,41 @@ public:
 
     // Opaque player pointer accessors. After release() this returns nullptr.
     void* player() const noexcept { return m_pPlayer; }
+
+    // ---- Pure-data query/mutate helpers (D4.18) ----
+
+    // Legacy CShopItemManager::GetUsingItemInfo(ItemIdx). O(1) lookup
+    // by wIconIdx returning a mutable pointer; returns nullptr if the
+    // icon is not currently in the using-items table.
+    UsingShopItemEntry* find_using_item_by_icon_idx_mutable(
+        std::uint16_t icon_idx) noexcept;
+
+    // Legacy CShopItemManager::AddShopItemUse(pShopItem) -- inserts a
+    // pre-built ShopItemBase into the using-items table keyed by wIconIdx
+    // with LastCheckTime=now_ms. Returns false if wIconIdx is 0 (invalid)
+    // or already present (legacy Add() guard). The full legacy UsedShopItem
+    // path also sets BeginTime/Remaintime from pShopItem -- this helper
+    // preserves those exact fields and only assigns LastCheckTime, so
+    // callers that pre-build the ShopItemBase get byte-identical state.
+    bool add_shop_item_use(const game::ShopItemBase& shop_item,
+                           std::uint32_t now_ms) noexcept;
+
+    // Legacy CShopItemManager::ReNameMovePoint(DBIdx, newName). Copies
+    // up to MAX_SAVEDMOVE_NAME-1 bytes from new_name into the row's Name
+    // field and NUL-terminates. Returns false if the DBIdx is not in
+    // the move-point table.
+    bool rename_move_point(std::uint32_t db_idx,
+                            std::string_view new_name) noexcept;
+
+    // Legacy CShopItemManager::ReleseMovePoint() (legacy typo preserved
+    // in a comment). Clears the move-point table only -- the using-items
+    // table and the dup counters are untouched. Use release() to clear
+    // all state.
+    void release_move_points() noexcept;
+
+    // Legacy CShopItemManager::GetSavedMPNum() -- alias for the move
+    // point count (legacy called m_MovePointTable.GetDataNum()).
+    std::size_t get_saved_mp_num() const noexcept { return m_movePoints.size(); }
 
     // Build the SEND_SHOPITEM_USEDINFO wire bytes for this manager,
     // 1:1 with legacy CShopItemManager::SendShopItemUseInfo(). The header

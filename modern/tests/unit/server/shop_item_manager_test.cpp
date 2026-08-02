@@ -1068,6 +1068,187 @@ TEST(ShopItemManagerCapacity, InitResetsCapacityGate) {
     EXPECT_EQ(m.move_point_capacity(), 10u);
 }
 
+
+// ---- D4.18 data-plane query/mutate helpers ----
+
+TEST(ShopItemManagerHelpers, FindUsingItemByIconIdxMutableReturnsNullForUnknown) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_EQ(m.find_using_item_by_icon_idx_mutable(99999), nullptr);
+}
+
+TEST(ShopItemManagerHelpers, FindUsingItemByIconIdxMutableAllowsMutation) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    auto* entry = m.find_using_item_by_icon_idx_mutable(55134);
+    ASSERT_NE(entry, nullptr);
+    entry->Data.LastCheckTime = 55555u;  // mutate
+    EXPECT_EQ(m.find_using_item_by_icon_idx(55134)->Data.LastCheckTime, 55555u);
+}
+
+TEST(ShopItemManagerHelpers, AddShopItemUseRejectsZeroIconIdx) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    mxh::game::ShopItemBase si{};
+    si.ItemBase.wIconIdx = 0;
+    si.Param = 1;
+    si.Remaintime = 60000;
+    EXPECT_FALSE(m.add_shop_item_use(si, 1000u));
+    EXPECT_EQ(m.using_item_count(), 0u);
+}
+
+TEST(ShopItemManagerHelpers, AddShopItemUseRejectsDuplicateIconIdx) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+
+    mxh::game::ShopItemBase si{};
+    si.ItemBase.wIconIdx = 55134;
+    si.ItemBase.dwDBIdx = 999;  // different db_idx
+    si.Param = 2;
+    si.Remaintime = 30000;
+    si.BeginTime = PackedTime{0x22222222u};
+    EXPECT_FALSE(m.add_shop_item_use(si, 2000u));
+    // Original row preserved
+    const auto* found = m.find_using_item_by_icon_idx(55134);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.dwDBIdx, 12345u);  // original db
+    EXPECT_EQ(found->Data.LastCheckTime, 1000u);                // original lct
+}
+
+TEST(ShopItemManagerHelpers, AddShopItemUsePreservesAllShopItemBaseFields) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    mxh::game::ShopItemBase si{};
+    si.ItemBase.dwDBIdx = 0xABCD1234u;
+    si.ItemBase.wIconIdx = 55142;
+    si.ItemBase.Position = 7;
+    si.ItemBase.Durability = 999;
+    si.ItemBase.RareIdx = 1;
+    si.ItemBase.QuickPosition = 0xFFFF;
+    si.ItemBase.ItemParam = 5;
+    si.Param = 2;
+    si.BeginTime = PackedTime{0xABCDEF01u};
+    si.Remaintime = 123456789u;
+    ASSERT_TRUE(m.add_shop_item_use(si, 7777u));
+    const auto* found = m.find_using_item_by_icon_idx(55142);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.dwDBIdx,       0xABCD1234u);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.wIconIdx,      55142);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.Position,      7);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.Durability,    999);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.RareIdx,       1);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.QuickPosition, 0xFFFF);
+    EXPECT_EQ(found->Data.ShopItem.ItemBase.ItemParam,     5);
+    EXPECT_EQ(found->Data.ShopItem.Param,                  2);
+    EXPECT_EQ(found->Data.ShopItem.BeginTime.value,        0xABCDEF01u);
+    EXPECT_EQ(found->Data.ShopItem.Remaintime,             123456789u);
+    EXPECT_EQ(found->Data.LastCheckTime,                   7777u);
+}
+
+TEST(ShopItemManagerHelpers, RenameMovePointRejectsUnknownDbIdx) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_FALSE(m.rename_move_point(99999, "SungTong"));
+}
+
+TEST(ShopItemManagerHelpers, RenameMovePointCopiesAndTerminatesAt20) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    MovePointEntry e{};
+    e.DBIdx = 1;
+    e.Data = make_move_data(1, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+
+    ASSERT_TRUE(m.rename_move_point(1, "ABCDE"));
+    const auto* found = m.find_move_point(1);
+    ASSERT_NE(found, nullptr);
+    EXPECT_STREQ(found->Data.Name.data(), "ABCDE");
+}
+
+TEST(ShopItemManagerHelpers, RenameMovePointTruncatesAtMaxNameMinusOne) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    MovePointEntry e{};
+    e.DBIdx = 2;
+    e.Data = make_move_data(2, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+
+    // 50 'X' should truncate to 20 chars + NUL (MAX_SAVED_MOVE_NAME=21)
+    std::string long_name(50, 'X');
+    ASSERT_TRUE(m.rename_move_point(2, long_name));
+    const auto* found = m.find_move_point(2);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(std::strlen(found->Data.Name.data()), 20u);
+    EXPECT_EQ(found->Data.Name[20], 0);  // NUL terminator
+    for (size_t i = 0; i < 20; ++i) EXPECT_EQ(found->Data.Name[i], 'X');
+}
+
+TEST(ShopItemManagerHelpers, RenameMovePointZerosOldContent) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    MovePointEntry e{};
+    e.DBIdx = 3;
+    e.Data = make_move_data(3, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+    ASSERT_TRUE(m.rename_move_point(3, "OldLongName"));
+    ASSERT_TRUE(m.rename_move_point(3, "X"));
+    const auto* found = m.find_move_point(3);
+    ASSERT_NE(found, nullptr);
+    EXPECT_STREQ(found->Data.Name.data(), "X");
+    // Bytes past the new name should be 0 (memset fill before copy)
+    EXPECT_EQ(found->Data.Name[2], 0);
+    EXPECT_EQ(found->Data.Name[5], 0);
+}
+
+TEST(ShopItemManagerHelpers, ReleaseMovePointsClearsOnlyMovePoints) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    MovePointEntry e{};
+    e.DBIdx = 1;
+    e.Data = make_move_data(1, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+    m.bump_dup_charm();
+    ASSERT_EQ(m.using_item_count(), 1u);
+    ASSERT_EQ(m.move_point_count(), 1u);
+    ASSERT_EQ(m.dup_charm(), 1u);
+
+    m.release_move_points();
+    EXPECT_EQ(m.move_point_count(), 0u);
+    EXPECT_EQ(m.using_item_count(), 1u);  // untouched
+    EXPECT_EQ(m.dup_charm(), 1u);        // untouched
+}
+
+TEST(ShopItemManagerHelpers, GetSavedMPNumAliasesMovePointCount) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_EQ(m.get_saved_mp_num(), 0u);
+    for (uint32_t i = 1; i <= 5; ++i) {
+        MovePointEntry e{};
+        e.DBIdx = i;
+        e.Data = make_move_data(i, 1);
+        ASSERT_TRUE(m.add_move_point(e));
+    }
+    EXPECT_EQ(m.get_saved_mp_num(), 5u);
+    EXPECT_EQ(m.get_saved_mp_num(), m.move_point_count());
+}
+
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
     EXPECT_EQ(SHOP_ITEM_DUP_NONE, 0u);
 }
