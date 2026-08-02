@@ -37,6 +37,11 @@ using mxh::server::SHOP_ITEM_MANAGER_USING_TABLE_CAPACITY;
 using mxh::server::UsingShopItemEntry;
 using mxh::server::SHOP_ITEM_CHECK_INTERVAL_MS;
 using mxh::server::SHOP_ITEM_UPDATE_INTERVAL_MS;
+using mxh::server::INCANTATION_MEMORY_MOVE_EXTEND;
+using mxh::server::INCANTATION_MEMORY_MOVE_EXTEND7;
+using mxh::server::INCANTATION_MEMORY_MOVE2;
+using mxh::server::INCANTATION_MEMORY_MOVE_EXTEND30;
+using mxh::server::MAX_MOVEDATA_PER_PAGE_MODERN;
 
 ShopItemWithTime make_with_time(std::uint64_t db_idx, std::uint32_t remain_ms) {
     ShopItemWithTime out{};
@@ -923,6 +928,144 @@ TEST(ShopItemManagerWire, UsingItemsAndMovePointsSerializersAreIndependent) {
     EXPECT_EQ(using_bytes[3], 0x11);
     EXPECT_EQ(move_bytes[2], 0x10);
     EXPECT_EQ(move_bytes[3], 0x12);
+}
+
+
+// ---- D4.17 AddMovePoint ValidCount gate ----
+
+TEST(ShopItemManagerCapacity, ConstantsMatchLegacy) {
+    EXPECT_EQ(INCANTATION_MEMORY_MOVE_EXTEND,    55365);
+    EXPECT_EQ(INCANTATION_MEMORY_MOVE_EXTEND7,   55390);
+    EXPECT_EQ(INCANTATION_MEMORY_MOVE2,          55371);
+    EXPECT_EQ(INCANTATION_MEMORY_MOVE_EXTEND30,  58010);
+    EXPECT_EQ(MAX_MOVEDATA_PER_PAGE_MODERN,      10u);
+    EXPECT_EQ(mxh::game::MAX_MOVEPOINT_PAGE_MODERN, 2u);
+}
+
+TEST(ShopItemManagerCapacity, IsMemoryMoveExtendIconRecognisesAllFour) {
+    EXPECT_TRUE(ShopItemManager::is_memory_move_extend_icon(55365));
+    EXPECT_TRUE(ShopItemManager::is_memory_move_extend_icon(55390));
+    EXPECT_TRUE(ShopItemManager::is_memory_move_extend_icon(55371));
+    EXPECT_TRUE(ShopItemManager::is_memory_move_extend_icon(58010));
+    EXPECT_FALSE(ShopItemManager::is_memory_move_extend_icon(55134));  // not extend
+    EXPECT_FALSE(ShopItemManager::is_memory_move_extend_icon(0));
+    EXPECT_FALSE(ShopItemManager::is_memory_move_extend_icon(65535));
+}
+
+TEST(ShopItemManagerCapacity, DefaultCapacityIsTenWithoutIncantations) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_EQ(m.move_point_capacity(), 10u);
+}
+
+TEST(ShopItemManagerCapacity, EachIncantationDoublesCapacityToTwenty) {
+    for (uint16_t icon : {uint16_t{55365}, uint16_t{55390}, uint16_t{55371}, uint16_t{58010}}) {
+        ShopItemManager m;
+        int s = 0;
+        m.init(&s);
+        auto ib = make_item_base(icon);
+        ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+        EXPECT_EQ(m.move_point_capacity(), 20u);
+    }
+}
+
+TEST(ShopItemManagerCapacity, NonExtendingItemKeepsCapacityTen) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);  // not a memory-move extend
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_EQ(m.move_point_capacity(), 10u);
+}
+
+TEST(ShopItemManagerCapacity, AddMovePointAcceptsUpToTenByDefault) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    for (uint32_t i = 1; i <= 10; ++i) {
+        MovePointEntry e{};
+        e.DBIdx = i;
+        e.Data = make_move_data(i, 1);
+        ASSERT_TRUE(m.add_move_point(e)) << "DBIdx " << i << " should be accepted";
+    }
+    EXPECT_EQ(m.move_point_count(), 10u);
+}
+
+TEST(ShopItemManagerCapacity, AddMovePointRejectsEleventhWithoutIncantation) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    for (uint32_t i = 1; i <= 10; ++i) {
+        MovePointEntry e{};
+        e.DBIdx = i;
+        e.Data = make_move_data(i, 1);
+        ASSERT_TRUE(m.add_move_point(e));
+    }
+    MovePointEntry extra{};
+    extra.DBIdx = 11;
+    extra.Data = make_move_data(11, 1);
+    EXPECT_FALSE(m.add_move_point(extra));
+    EXPECT_EQ(m.move_point_count(), 10u);
+}
+
+TEST(ShopItemManagerCapacity, AddMovePointAcceptsEleventhWithIncantation) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55365);  // INCANTATION_MEMORY_MOVE_EXTEND
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_EQ(m.move_point_capacity(), 20u);
+    for (uint32_t i = 1; i <= 11; ++i) {
+        MovePointEntry e{};
+        e.DBIdx = i;
+        e.Data = make_move_data(i, 1);
+        ASSERT_TRUE(m.add_move_point(e)) << "DBIdx " << i;
+    }
+    EXPECT_EQ(m.move_point_count(), 11u);
+}
+
+TEST(ShopItemManagerCapacity, AddMovePointAcceptsUpToTwentyWithIncantation) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(58010);  // INCANTATION_MEMORY_MOVE_EXTEND30
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    for (uint32_t i = 1; i <= 20; ++i) {
+        MovePointEntry e{};
+        e.DBIdx = i;
+        e.Data = make_move_data(i, 1);
+        ASSERT_TRUE(m.add_move_point(e)) << "DBIdx " << i;
+    }
+    EXPECT_EQ(m.move_point_count(), 20u);
+
+    MovePointEntry extra{};
+    extra.DBIdx = 21;
+    extra.Data = make_move_data(21, 1);
+    EXPECT_FALSE(m.add_move_point(extra));
+    EXPECT_EQ(m.move_point_count(), 20u);
+}
+
+TEST(ShopItemManagerCapacity, ReleasingIncantationShrinksCapacityBackToTen) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55365);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_EQ(m.move_point_capacity(), 20u);
+    ASSERT_TRUE(m.delete_using_item(55365));
+    EXPECT_EQ(m.move_point_capacity(), 10u);
+}
+
+TEST(ShopItemManagerCapacity, InitResetsCapacityGate) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55365);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    EXPECT_EQ(m.move_point_capacity(), 20u);
+    m.init(&s);
+    EXPECT_EQ(m.move_point_capacity(), 10u);
 }
 
 TEST(ShopItemManagerConstants, DupNoneIsZero) {

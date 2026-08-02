@@ -113,9 +113,32 @@ bool ShopItemManager::is_using_item_active(std::uint16_t icon_idx,
     return deadline > now_ms;  // strict > matches legacy 'still active'
 }
 
+bool ShopItemManager::is_memory_move_extend_icon(std::uint16_t icon_idx) noexcept {
+    return icon_idx == INCANTATION_MEMORY_MOVE_EXTEND
+        || icon_idx == INCANTATION_MEMORY_MOVE_EXTEND7
+        || icon_idx == INCANTATION_MEMORY_MOVE2
+        || icon_idx == INCANTATION_MEMORY_MOVE_EXTEND30;
+}
+
+std::size_t ShopItemManager::move_point_capacity() const noexcept {
+    // Legacy: capacity is MAX_MOVEDATA_PER_PAGE (10) unless any of the 4
+    // MemoryMove incantation items is in the using-item table; then it
+    // doubles to MAX_MOVEDATA_PER_PAGE*MAX_MOVEPOINT_PAGE (20).
+    for (const auto& kv : m_usingItems) {
+        const auto icon = static_cast<std::uint16_t>(kv.first & 0xFFFFu);
+        if (is_memory_move_extend_icon(icon)) {
+            return MAX_MOVEDATA_PER_PAGE_MODERN * game::MAX_MOVEPOINT_PAGE_MODERN;
+        }
+    }
+    return MAX_MOVEDATA_PER_PAGE_MODERN;
+}
+
 bool ShopItemManager::add_move_point(const MovePointEntry& entry) noexcept {
     if (entry.DBIdx == 0) return false;  // legacy refused DBIdx == 0
     if (m_movePoints.find(entry.DBIdx) != m_movePoints.end()) return false;
+    // Legacy capacity gate: rejecting on `>=` so a full table refuses the
+    // next insert without overshooting.
+    if (m_movePoints.size() >= move_point_capacity()) return false;
     m_movePoints.emplace(entry.DBIdx, entry);
     return true;
 }

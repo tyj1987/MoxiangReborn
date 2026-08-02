@@ -46,6 +46,16 @@ inline constexpr std::size_t SHOP_ITEM_MANAGER_MOVE_TABLE_CAPACITY = 30u;
 
 inline constexpr std::uint32_t SHOP_ITEM_DUP_NONE = 0u;
 
+// Legacy CShopItemManager::AddMovePoint capacity gate. When ANY of the
+// Memory-Move Extend incantation items (55365 / 55390 / 55371 / 58010) is
+// currently in the using-item table, the move-point capacity doubles
+// from MAX_MOVEDATA_PER_PAGE (10) to MAX_MOVEDATA_PER_PAGE*MAX_MOVEPOINT_PAGE (20).
+inline constexpr std::uint16_t INCANTATION_MEMORY_MOVE_EXTEND    = 55365u;
+inline constexpr std::uint16_t INCANTATION_MEMORY_MOVE_EXTEND7   = 55390u;
+inline constexpr std::uint16_t INCANTATION_MEMORY_MOVE2          = 55371u;
+inline constexpr std::uint16_t INCANTATION_MEMORY_MOVE_EXTEND30  = 58010u;
+inline constexpr std::size_t   MAX_MOVEDATA_PER_PAGE_MODERN      = 10u;
+
 // Legacy timer thresholds from CShopItemManager::CheckEndTime.
 inline constexpr std::uint32_t SHOP_ITEM_CHECK_INTERVAL_MS = 30000u;
 inline constexpr std::uint32_t SHOP_ITEM_UPDATE_INTERVAL_MS = 600000u;
@@ -149,6 +159,16 @@ public:
 
     // Move-point table CRUD (legacy MovePointTable operations).
     bool add_move_point(const MovePointEntry& entry) noexcept;
+    // Capacity for the move-point table. Returns MAX_MOVEDATA_PER_PAGE
+    // (10) by default and MAX_MOVEDATA_PER_PAGE*MAX_MOVEPOINT_PAGE (20)
+    // when any of the 4 legacy MemoryMove incantation items is currently
+    // in the using-items table. Mirrors legacy AddMovePoint gate exactly.
+    std::size_t move_point_capacity() const noexcept;
+
+    // True iff a using-item with the given wIconIdx is one of the 4
+    // incantation items that expand the move-point table.
+    static bool is_memory_move_extend_icon(std::uint16_t icon_idx) noexcept;
+
     std::size_t move_point_count() const noexcept { return m_movePoints.size(); }
     const MovePointEntry* find_move_point(std::uint32_t db_idx) const noexcept;
     bool delete_move_point(std::uint32_t db_idx) noexcept;
