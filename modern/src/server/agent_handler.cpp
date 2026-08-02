@@ -202,6 +202,10 @@ void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
             had_map_num = true;
         }
         conn_user_ids_.erase(id.value);
+        conn_user_levels_.erase(id.value);  // R-2
+        conn_hs_states_.erase(id.value);    // R-2
+        hackshield_disconnect_pending_.erase(id.value);  // R-2
+
         conn_char_ids_.erase(id.value);
         conn_map_nums_.erase(id.value);
     }
@@ -310,12 +314,129 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                 }
             }
         }
+    } else if (cat == mxh::proto::Category::HackShield) {
+        // R-2: HackShield category (cat=67) routed to the state
+        // machine. parse_hackshield_message handles GuidAck/Ack
+        // and updates per-connection m_bHSCheck.
+        handle_hackshield(id, msg);
     } else {
         std::cout << "[Agent] unhandled category: "
                   << mxh::proto::category_name(cat)
                   << " proto=" << (int)msg.header.protocol << "\n";
     }
+
 }
+
+// ============================================================================
+// R-2: HackShield routing
+//
+// cat==HackShield messages route through the HackShieldManager state
+// machine (see hackshield_manager.hpp). The state machine returns a
+// HackShieldAction with one of: None, Send (reply via reply_()), or
+// Disconnect (queue the connection id so the TcpServer owner can
+// drop it).
+//
+// send_guid_req / send_hackshield_req / parse_hackshield_message all
+// accept make_*_succeeded / analyze_succeeded flags. In production the
+// real AntiCpSvr vendor library call returns these; in the modern
+// stub we default to success so unit tests can drive the data plane
+// without vendor binaries.
+// ============================================================================
+
+void AgentHandler::handle_hackshield(mxh::net::ConnectionId id,
+                                     const mxh::net::Message& msg) {
+    auto proto = static_cast<HackShieldProtocol>(msg.header.protocol);
+
+    // Look up user_level and the prior HackShieldUserState.
+    HackShieldUserState hs{};
+    std::uint8_t user_level = 0;
+    bool have_state = false;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        auto lvl_it = conn_user_levels_.find(id.value);
+        if (lvl_it != conn_user_levels_.end()) user_level = lvl_it->second;
+        auto it = conn_hs_states_.find(id.value);
+        if (it != conn_hs_states_.end()) {
+            hs = it->second;
+            have_state = true;
+        }
+    }
+    hs.dwConnectionIndex = static_cast<std::uint32_t>(id.value);
+    hs.UserLevel = user_level;
+
+    HackShieldAction action = hackshield_none();
+    switch (proto) {
+    case HackShieldProtocol::GuidReq:
+        // Normally a server->client request; if a client sends one,
+        // treat defensively as a re-issue of the GUID request.
+        action = send_guid_req(hs, /*make_guid_req_succeeded=*/true);
+        break;
+    case HackShieldProtocol::Req:
+        // Legacy periodic recheck from server side; if client sends
+        // one, run through the same state machine.
+        action = send_hackshield_req(hs, /*make_req_succeeded=*/true);
+        break;
+    case HackShieldProtocol::GuidAck:
+    case HackShieldProtocol::Ack:
+        action = parse_hackshield_message(&hs, proto,
+            /*analyze_succeeded=*/true, /*make_req_succeeded=*/true);
+        break;
+    case HackShieldProtocol::Disconnect:
+        // Client told us to disconnect; drop the session.
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            hackshield_disconnect_pending_.insert(id.value);
+            conn_hs_states_[id.value] = hs;
+        }
+        return;
+    }
+    (void)have_state;
+
+    // Persist the (possibly updated) state -- but only for
+    // superusers or if a state was already there. Non-superusers
+    // never touch the HackShield map, mirroring the legacy
+    // CHackShieldManager::SendGUIDReq early-return on UserLevel < 5.
+    if (hs.UserLevel >= HACKSHIELD_SUPERUSER_LEVEL || have_state) {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        conn_hs_states_[id.value] = hs;
+    }
+
+
+    // Execute the action.
+    if (action.Kind == HackShieldActionKind::Send) {
+        mxh::net::Message reply;
+        reply.header.category = HACKSHIELD_CATEGORY;
+        reply.header.protocol = static_cast<std::uint8_t>(action.Packet.Protocol);
+        reply.header.object_id = msg.header.object_id;
+        reply.payload.assign(action.Packet.Payload.begin(),
+                             action.Packet.Payload.begin() + action.Packet.PayloadSize);
+        reply_(id, reply);
+    } else if (action.Kind == HackShieldActionKind::Disconnect) {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        hackshield_disconnect_pending_.insert(id.value);
+    }
+}
+
+// R-2: inspection helpers (test-only).
+
+std::uint8_t AgentHandler::user_level(mxh::net::ConnectionId id) const noexcept {
+    std::lock_guard<std::mutex> lk(user_mu_);
+    auto it = conn_user_levels_.find(id.value);
+    if (it == conn_user_levels_.end()) return 0;
+    return it->second;
+}
+
+bool AgentHandler::has_hackshield_state(mxh::net::ConnectionId id) const noexcept {
+    std::lock_guard<std::mutex> lk(user_mu_);
+    return conn_hs_states_.find(id.value) != conn_hs_states_.end();
+}
+
+bool AgentHandler::is_hackshield_disconnect_pending(mxh::net::ConnectionId id) const noexcept {
+    std::lock_guard<std::mutex> lk(user_mu_);
+    return hackshield_disconnect_pending_.find(id.value)
+        != hackshield_disconnect_pending_.end();
+}
+
 
 void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
                                    const mxh::net::Message& msg) {
@@ -399,7 +520,8 @@ mxh::net::ConnectionId AgentHandler::get_map_connection() const {
 void AgentHandler::register_session(mxh::net::ConnectionId id,
                                     std::uint32_t user_id,
                                     std::uint32_t char_id,
-                                    std::uint16_t map_num) {
+                                    std::uint16_t map_num,
+                                    std::uint8_t user_level) {
     // Phase 12.1 P2-13 follow-up: see header for rationale. This
     // populates the same four maps the legacy character list/select
     // handlers would fill through the binary protocol, so unit tests
@@ -407,9 +529,14 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
     // through the full binary protocol. Both locks are taken in the
     // same order forward_from_map / on_disconnect acquire them to
     // avoid deadlock.
+    // R-2: also stores user_level so the HackShield gate sees the
+    // correct eUSERLEVEL_SUPERUSER (5) threshold. Lazily allocates
+    // the HackShieldUserState on demand (handle_hackshield will
+    // populate dwConnectionIndex and m_bHSCheck on first use).
     {
         std::lock_guard<std::mutex> lk(user_mu_);
         conn_user_ids_[id.value]   = user_id;
+        conn_user_levels_[id.value] = user_level;
         conn_char_ids_[id.value]   = char_id;
         conn_map_nums_[id.value]   = map_num;
     }
@@ -418,6 +545,7 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
         char_to_client_[char_id]   = id.value;
     }
 }
+
 
 void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
                                     const mxh::net::Message& msg) {
@@ -993,6 +1121,52 @@ void AgentHandler::handle_legacy_character_select(
     std::cout << "[Agent] reply_ CHARACTERSELECT_ACK to conn=" << id.value
               << " payload_size=" << m.payload.size() << "\n";
     reply_(id, m);
+
+    // R-2: after CharacterSelectAck, query chr_log_info.userlevel and
+    // trigger HackShieldManager::SendGUIDReq for superusers (legacy
+    // AgentDBMsgParser.cpp:500-502 does the same right after sending
+    // SEND_CHARSELECT_INFO). Store the level so subsequent HackShield
+    // messages from this connection see the right threshold.
+    std::uint8_t user_level = 0;
+    {
+        mxh::db::ResultSet ul_rs;
+        std::vector<mxh::db::Bind> ul_params = {mxh::db::bind(
+            std::to_string(user_id))};
+        auto ul_q = db_.query(
+            "SELECT userlevel FROM chr_log_info WHERE id = ?",
+            ul_params, ul_rs);
+        if (ul_q.ok() && !ul_rs.empty()) {
+            user_level = static_cast<std::uint8_t>(
+                std::get<std::int64_t>(ul_rs.rows[0][0]));
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        conn_user_levels_[id.value] = user_level;
+    }
+    if (user_level >= HACKSHIELD_SUPERUSER_LEVEL) {
+        HackShieldUserState hs{};
+        hs.dwConnectionIndex = static_cast<std::uint32_t>(id.value);
+        hs.UserLevel = user_level;
+        HackShieldAction action = send_guid_req(hs,
+            /*make_guid_req_succeeded=*/true);
+        if (action.Kind == HackShieldActionKind::Send) {
+            mxh::net::Message hs_msg;
+            hs_msg.header.category = HACKSHIELD_CATEGORY;
+            hs_msg.header.protocol = static_cast<std::uint8_t>(
+                action.Packet.Protocol);
+            hs_msg.header.object_id = character_id;
+            hs_msg.payload.assign(action.Packet.Payload.begin(),
+                action.Packet.Payload.begin() + action.Packet.PayloadSize);
+            reply_(id, hs_msg);
+            std::cout << "[Agent] R-2: sent HackShield GuidReq to "
+                      << "conn=" << id.value
+                      << " (user_level=" << (int)user_level << ")\n";
+        }
+        std::lock_guard<std::mutex> lk(user_mu_);
+        conn_hs_states_[id.value] = hs;
+    }
+
 }
 
 // ============================================================================

@@ -433,6 +433,229 @@ TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
 }
 
 // ===========================================================================
+
+// ===========================================================================
+// R-2: HackShield routing tests
+//
+// Cover the data-plane: cat==HackShield messages route through the
+// HackShieldManager state machine. Tests verify:
+//   - non-superuser (UserLevel < 5) -> no reply, no state change
+//   - superuser + GuidAck -> sends Req (160B)
+//   - superuser + Ack -> no reply, state cleared
+//   - superuser + Disconnect -> disconnect pending flag set
+//   - on_disconnect cleans up hackshield_disconnect_pending_ entries
+//   - register_session stores user_level + initializes HackShieldUserState
+//   - inspection helpers return expected values
+// ===========================================================================
+
+TEST(AgentHandlerHackShieldTest, RegisterSessionStoresUserLevel) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(101);
+    handler.register_session(cid, /*user_id=*/777, /*char_id=*/9001,
+                              /*map_num=*/12, /*user_level=*/5);
+    EXPECT_EQ(handler.user_level(cid), 5u);
+}
+
+TEST(AgentHandlerHackShieldTest, DefaultUserLevelIsZero) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(102);
+    handler.register_session(cid, 1, 2, 3);  // no user_level -> default 0
+    EXPECT_EQ(handler.user_level(cid), 0u);
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, GuidReqNonSuperuserIsNoOp) {
+    // UserLevel < HACKSHIELD_SUPERUSER_LEVEL (5) -> send_guid_req
+    // returns hackshield_none(), so no reply should fire.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(200);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/2);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::GuidReq);
+    handler.on_message(cid, msg);
+
+    EXPECT_EQ(reply.call_count.load(), 0);
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, GuidAckSuperuserSendsReq) {
+    // superuser sends GuidAck (proto=1) -> state machine clears
+    // m_bHSCheck to 0, then re-issues Req (proto=2, 160B).
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(201);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::GuidAck);
+    msg.payload.assign(mxh::server::HACKSHIELD_GUID_ACK_SIZE, 0xAB);
+    handler.on_message(cid, msg);
+
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::HackShield));
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::server::HackShieldProtocol::Req));
+    EXPECT_EQ(reply.last_message.payload.size(),
+              mxh::server::HACKSHIELD_REQ_SIZE);
+    EXPECT_TRUE(handler.has_hackshield_state(cid));
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, AckSuperuserClearsState) {
+    // superuser sends Ack (proto=3) after a successful analysis ->
+    // state machine clears m_bHSCheck to 0, no reply.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(202);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::Ack);
+    msg.payload.assign(mxh::server::HACKSHIELD_ACK_SIZE, 0xCD);
+    handler.on_message(cid, msg);
+
+    EXPECT_EQ(reply.call_count.load(), 0);
+    EXPECT_TRUE(handler.has_hackshield_state(cid));
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, ClientDisconnectProtocolSetsPendingFlag) {
+    // proto=4 (Disconnect) from client -> queue drop session.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(203);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::Disconnect);
+    handler.on_message(cid, msg);
+
+    EXPECT_EQ(reply.call_count.load(), 0);
+    EXPECT_TRUE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, ReqSecondCallQueuesDisconnect) {
+    // First Req from server: state machine sets m_bHSCheck=1 and
+    // returns Send. Second Req with m_bHSCheck==1 returns Disconnect.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(204);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+
+    // 1st Req: state was 0, sets to 1, returns Send.
+    mxh::net::Message req1;
+    req1.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    req1.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::Req);
+    handler.on_message(cid, req1);
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::server::HackShieldProtocol::Req));
+    EXPECT_EQ(reply.last_message.payload.size(),
+              mxh::server::HACKSHIELD_REQ_SIZE);
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid));
+
+    // 2nd Req: state was 1, returns Disconnect (no reply).
+    mxh::net::Message req2;
+    req2.header.category = req1.header.category;
+    req2.header.protocol = req1.header.protocol;
+    handler.on_message(cid, req2);
+    EXPECT_EQ(reply.call_count.load(), 1);  // no second reply
+    EXPECT_TRUE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, OnDisconnectClearsPendingFlag) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(205);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+
+    // Trigger disconnect pending via client Disconnect protocol.
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::Disconnect);
+    handler.on_message(cid, msg);
+    ASSERT_TRUE(handler.is_hackshield_disconnect_pending(cid));
+
+    // on_disconnect clears the pending flag and the HackShieldUserState.
+    handler.on_disconnect(cid, mxh::net::NetError::Disconnected);
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid));
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
+    EXPECT_EQ(handler.user_level(cid), 0u);  // user_level erased too
+}
+
+TEST(AgentHandlerHackShieldTest, NonHackShieldCatIsNotRouted) {
+    // cat==Chat (6) -- make sure handle_hackshield is NOT called
+    // for non-HackShield categories; existing on_message should
+    // log "unhandled category" and not touch the HackShield map.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    auto cid = mxh::net::make_connection_id(206);
+    handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Chat);
+    msg.header.protocol = 0;
+    handler.on_message(cid, msg);
+
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
+    EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, ConnIdMismatchDoesNotLeakState) {
+    // Verify the per-connection map is keyed by id.value, not by
+    // some other identifier; two different conn ids with the same
+    // user_level should not interfere.
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+
+    auto cid_a = mxh::net::make_connection_id(300);
+    auto cid_b = mxh::net::make_connection_id(301);
+
+    handler.register_session(cid_a, 1, 2, 3, /*user_level=*/5);
+    handler.register_session(cid_b, 4, 5, 6, /*user_level=*/2);
+
+    // Disconnect cid_a only.
+    handler.on_disconnect(cid_a, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(handler.user_level(cid_a), 0u);
+    EXPECT_EQ(handler.user_level(cid_b), 2u);
+    EXPECT_FALSE(handler.has_hackshield_state(cid_a));
+    EXPECT_FALSE(handler.has_hackshield_state(cid_b));
+}
+
+
 // MapHandler
 // ===========================================================================
 

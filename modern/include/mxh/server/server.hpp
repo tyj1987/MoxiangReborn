@@ -16,6 +16,7 @@
 #include "mxh/server/quest_manager.hpp"
 #include "mxh/server/pet_manager.hpp"
 #include "mxh/server/titan_manager.hpp"
+#include "mxh/server/hackshield_manager.hpp"
 
 #include <functional>
 #include <memory>
@@ -118,10 +119,24 @@ public:
     // the same id (overwrites the previous entry). This is also a
     // reasonable production entry point for restoring session state
     // from a persistent store (Phase 13+).
+    // R-2 HackShield routing: user_level drives the HackShield check
+    // gate. Legacy HackShieldManager::SendGUIDReq gates on
+    // UserLevel >= eUSERLEVEL_SUPERUSER (5). Default 0 keeps existing
+    // call sites that pre-date the HackShield port source-compatible.
     void register_session(mxh::net::ConnectionId id,
                           std::uint32_t user_id,
                           std::uint32_t char_id,
-                          std::uint16_t map_num);
+                          std::uint16_t map_num,
+                          std::uint8_t user_level = 0);
+
+    // R-2: HackShield inspection helpers (test-only). user_level()
+    // returns 0 if the connection has no level recorded yet (i.e.
+    // register_session was not called or handle_legacy_character_list
+    // has not populated it from the DB).
+    std::uint8_t user_level(mxh::net::ConnectionId id) const noexcept;
+    bool has_hackshield_state(mxh::net::ConnectionId id) const noexcept;
+    bool is_hackshield_disconnect_pending(mxh::net::ConnectionId id) const noexcept;
+
 
 private:
     void handle_userconn(mxh::net::ConnectionId id,
@@ -136,16 +151,38 @@ private:
                                         const mxh::net::Message& msg);
     void handle_legacy_gamein_syn(mxh::net::ConnectionId id,
                                    const mxh::net::Message& msg);
+    // R-2: route cat==HackShield messages through the HackShieldManager
+    // state machine. Pure data-plane: only mutates per-connection state,
+    // replies via reply_() when the action is Send, and marks the
+    // connection for disconnect when the action is Disconnect.
+    void handle_hackshield(mxh::net::ConnectionId id,
+                           const mxh::net::Message& msg);
+
     std::uint32_t get_user_id(mxh::net::ConnectionId id);
     std::uint32_t get_char_id(mxh::net::ConnectionId id);
+
 
     mxh::db::IDbAdapter& db_;
     ReplyFn reply_;
     bool use_legacy_framing_;
 
     // Track user_id per connection (set during CharacterListSyn).
-    std::mutex user_mu_;
+    mutable std::mutex user_mu_;
     std::unordered_map<std::uint64_t, std::uint32_t> conn_user_ids_;
+    // R-2: per-connection user_level (from chr_log_info.userlevel).
+    // Default 0 means no level read yet; the HackShield check stays
+    // disabled until register_session or handle_legacy_character_list
+    // populates it. Protected by user_mu_.
+    std::unordered_map<std::uint64_t, std::uint8_t> conn_user_levels_;
+    // R-2: per-connection HackShieldManager user state. Created
+    // lazily by handle_hackshield() the first time a HackShield
+    // message arrives for a given connection. Protected by user_mu_.
+    std::unordered_map<std::uint64_t, HackShieldUserState> conn_hs_states_;
+    // R-2: connection ids whose latest HackShield action was
+    // Disconnect. The TcpServer owner is expected to poll this via
+    // is_hackshield_disconnect_pending() and tear the connection down.
+    std::unordered_set<std::uint64_t> hackshield_disconnect_pending_;
+
     // Track character_id per connection (set during CharacterSelectSyn).
     std::unordered_map<std::uint64_t, std::uint32_t> conn_char_ids_;
     // Track map_num per connection (set during CharacterSelectSyn).
