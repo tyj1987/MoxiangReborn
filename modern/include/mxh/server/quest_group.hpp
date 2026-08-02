@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace mxh::server {
@@ -21,6 +22,11 @@ struct QuestGroupQuest {
     std::uint32_t checkTime = 0;
     bool complete = false;
     bool deleteRequested = false;
+    std::unordered_set<std::uint32_t> activeSubquests;
+    bool checkTimeActive = false;
+    std::uint32_t checkDay = 0;
+    std::uint32_t checkHour = 0;
+    std::uint32_t checkMinute = 0;
     std::unordered_map<std::uint32_t, std::uint32_t> subQuestData;
     std::unordered_map<std::uint32_t, std::uint32_t> subQuestTime;
 };
@@ -49,6 +55,9 @@ struct QuestGroupState {
     std::unordered_map<std::uint32_t, QuestGroupQuest> m_QuestTable;
     std::unordered_map<std::uint32_t, QuestGroupItem> m_QuestItemTable;
     std::vector<QuestGroupEvent> m_QuestEvent;
+    std::uint8_t m_stage = 0;
+    std::uint16_t m_savePoint = 0;
+    std::uint16_t m_loginPoint = 0;
 };
 
 inline QuestGroupState make_quest_group() {
@@ -78,6 +87,7 @@ inline bool quest_group_create_quest(QuestGroupState& state, std::uint32_t quest
     state.m_QuestTable.emplace(questIdx, QuestGroupQuest{questIdx});
     return true;
 }
+
 
 inline QuestGroupQuest* quest_group_get_quest(QuestGroupState& state,
                                               std::uint32_t questIdx) {
@@ -200,14 +210,6 @@ inline bool quest_group_add_count_from_monster_level(QuestGroupState& state,
     return quest_group_add_count(state, questIdx, subQuestIdx, maxCount);
 }
 
-inline bool quest_group_map_change(QuestGroupState& state,
-                                   std::uint16_t currentMap,
-                                   std::uint16_t returnMap) {
-    static_cast<void>(currentMap);
-    if (!state.m_hasPlayer) return false;
-    state.m_QuestEvent.push_back({returnMap, 0u, 1u, 0});
-    return true;
-}
 
 inline bool quest_group_change_stage(std::uint8_t currentStage,
                                      std::uint8_t requestedStage,
@@ -245,13 +247,94 @@ inline bool check_quest_probability(std::uint32_t probability,
     return true;
 }
 
-inline bool quest_group_save_login_point(std::uint32_t mapNum,
-                                         std::uint16_t& savePoint,
-                                         std::uint16_t& loginPoint) {
-    if (mapNum > 2000u) return false;
-    savePoint = static_cast<std::uint16_t>(mapNum);
-    loginPoint = static_cast<std::uint16_t>(mapNum + 2000u);
+inline bool quest_group_start_subquest(QuestGroupState& state,
+                                       std::uint32_t questIdx,
+                                       std::uint32_t subQuestIdx,
+                                       std::uint32_t nowMs) {
+    auto* quest = quest_group_get_quest(state, questIdx);
+    if (quest == nullptr || !quest->activeSubquests.insert(subQuestIdx).second)
+        return false;
+    quest->subQuestData[subQuestIdx] = 0;
+    quest->subQuestTime[subQuestIdx] = nowMs;
     return true;
+}
+
+inline bool quest_group_end_subquest(QuestGroupState& state,
+                                     std::uint32_t questIdx,
+                                     std::uint32_t subQuestIdx,
+                                     std::uint32_t nowMs) {
+    auto* quest = quest_group_get_quest(state, questIdx);
+    if (quest == nullptr || quest->activeSubquests.erase(subQuestIdx) == 0)
+        return false;
+    quest->subQuestData[subQuestIdx] = 0;
+    quest->subQuestTime[subQuestIdx] = nowMs;
+    if (subQuestIdx < 32u)
+        quest->subQuestFlag |= (1u << (31u - subQuestIdx));
+    if (subQuestIdx == 0u) {
+        quest->data = 0;
+        quest->time = nowMs;
+    }
+    return true;
+}
+
+inline bool quest_group_end_quest(QuestGroupState& state,
+                                  std::uint32_t questIdx,
+                                  std::uint32_t repeat,
+                                  std::uint32_t nowMs) {
+    auto* quest = quest_group_get_quest(state, questIdx);
+    if (quest == nullptr) return false;
+    quest->activeSubquests.clear();
+    quest->subQuestData.clear();
+    quest->subQuestTime.clear();
+    quest->subQuestFlag = 0;
+    quest->time = nowMs;
+    quest->checkTimeActive = false;
+    if (repeat != 0u) {
+        quest->data = 0;
+        quest->complete = false;
+    } else {
+        quest->data = 1;
+        quest->complete = true;
+    }
+    return true;
+}
+
+inline bool quest_group_register_check_time(QuestGroupState& state,
+                                            std::uint32_t questIdx,
+                                            std::uint32_t subQuestIdx,
+                                            std::uint32_t type,
+                                            std::uint32_t day,
+                                            std::uint32_t hour,
+                                            std::uint32_t minute) {
+    static_cast<void>(subQuestIdx);
+    auto* quest = quest_group_get_quest(state, questIdx);
+    if (quest == nullptr) return false;
+    quest->checkTimeActive = true;
+    quest->checkType = static_cast<std::uint8_t>(type);
+    quest->checkDay = day;
+    quest->checkHour = hour;
+    quest->checkMinute = minute;
+    return true;
+}
+
+inline bool quest_group_save_login_point(QuestGroupState& state,
+                                         std::uint32_t mapNum) {
+    if (mapNum > 2000u) return false;
+    state.m_savePoint = static_cast<std::uint16_t>(mapNum);
+    state.m_loginPoint = static_cast<std::uint16_t>(mapNum + 2000u);
+    return true;
+}
+
+inline bool quest_group_save_login_point(std::uint32_t mapNum,
+                                          std::uint16_t& savePoint,
+                                          std::uint16_t& loginPoint) {
+    QuestGroupState state{};
+    state.m_savePoint = savePoint;
+    state.m_loginPoint = loginPoint;
+    const auto ok = quest_group_save_login_point(state, mapNum);
+    savePoint = state.m_savePoint;
+    loginPoint = state.m_loginPoint;
+    return ok;
 }
 
 }

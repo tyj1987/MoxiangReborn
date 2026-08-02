@@ -148,6 +148,7 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 - [ ] D3 任务系统 QuestManager + QuestExecute_* 1:1
 - [x] D3.1 QuestExecute_* script parser | 9 tests lock the 27 commands registered by the Korean legacy QuestScriptLoader, exact eQuestExecute numeric values, quest/subquest context, DWORD argument order, tab/CRLF tokenization, and RANDOMTAKEITEM WORD triples; unsupported STARTQUEST/MINUSCOUNT/CHANGESUBATTR remain rejected like the default loader.
 - [x] D3.2 QuestExecute_Count state dispatch | 3 tests lock ADDCOUNT, ADDCOUNTLEVELGAP, and ADDCOUNTMONLEVEL forwarding into QuestGroupState with legacy threshold order, clamping, missing-quest rejection, and explicit UnsupportedContext for weapon-filtered variants until player equipment state is available.
+- [x] D3.3 QuestExecute_Quest/Time state dispatch | 5 QuestGroup helper tests + 4 dispatch tests lock StartSub/EndSub active-slot model, EndSub legacy subQuestFlag bit `1 << (31-idx)` plus data/time reset, EndQuest repeat vs final complete, RegistCheckTime day/hour/minute persistence, SaveLoginPoint 2000 offset clamp, and explicit MissingSubquest status; MapChange/RegenMonster/ChangeStage/ChangeSubAttr deliberately return UnsupportedContext.
 - [ ] D4 商城 / 物品 / 仓库 / 邮件 / 帮派 / 队伍 1:1
 - [x] D4.1 Economy 1:1 lock | 14 tests lock legacy [Server]Map/Economy.h/.cpp
  RegistBaseEconomy matches the packed 16-byte REGIST_BASEECONOMY layout; SetRegistEconomy copies all fields; SetBaseValue safely replaces opaque ITEM_INFO bytes; CalculBase remains the legacy no-op; init/release are idempotent.

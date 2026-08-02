@@ -153,4 +153,57 @@ QuestExecuteApplyResult apply_count_execute(
     }
 }
 
+QuestExecuteApplyResult apply_quest_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec,
+    std::uint32_t now_ms) noexcept {
+    auto report = [](bool applied) {
+        return QuestExecuteApplyResult{
+            applied ? QuestExecuteApplyStatus::Applied
+                    : QuestExecuteApplyStatus::MissingSubquest,
+            applied};
+    };
+    switch (spec.kind) {
+    case QuestExecuteKind::StartSub:
+        if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return report(quest_group_start_subquest(
+            state, spec.quest_idx, spec.args[0], now_ms));
+    case QuestExecuteKind::EndSub:
+        return report(quest_group_end_subquest(
+            state, spec.quest_idx, spec.subquest_idx, now_ms));
+    case QuestExecuteKind::EndOtherSub:
+        if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return report(quest_group_end_subquest(
+            state, spec.quest_idx, spec.args[0], now_ms));
+    case QuestExecuteKind::EndQuest:
+    case QuestExecuteKind::EndOtherQuest:
+        if (spec.args.size() != 2u)
+            return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return report(quest_group_end_quest(
+            state, spec.quest_idx, spec.args[1], now_ms));
+    case QuestExecuteKind::SaveLoginPoint:
+        if (spec.args.size() != 1u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_save_login_point(state, spec.args[0])};
+    case QuestExecuteKind::MapChange:
+    case QuestExecuteKind::RegenMonster:
+    case QuestExecuteKind::ChangeStage:
+    case QuestExecuteKind::ChangeSubAttr:
+        return {QuestExecuteApplyStatus::UnsupportedContext, false};
+    default:
+        return {QuestExecuteApplyStatus::InvalidSpec, false};
+    }
+}
+
+QuestExecuteApplyResult apply_time_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec) noexcept {
+    if (spec.kind != QuestExecuteKind::RegistTime)
+        return {QuestExecuteApplyStatus::InvalidSpec, false};
+    if (spec.args.size() != 4u)
+        return {QuestExecuteApplyStatus::InvalidSpec, false};
+    return {QuestExecuteApplyStatus::Applied,
+            quest_group_register_check_time(
+                state, spec.quest_idx, spec.subquest_idx,
+                spec.args[0], spec.args[1], spec.args[2], spec.args[3])};
+}
+
 }  // namespace mxh::server

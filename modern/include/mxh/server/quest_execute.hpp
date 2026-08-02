@@ -65,6 +65,7 @@ enum class QuestExecuteApplyStatus : std::uint8_t {
     MissingQuest = 1,
     InvalidSpec = 2,
     UnsupportedContext = 3,
+    MissingSubquest = 4,
 };
 
 struct QuestExecuteApplyResult final {
@@ -91,5 +92,18 @@ QuestExecuteApplyResult apply_count_execute(
     QuestGroupState& state, const QuestExecuteSpec& spec,
     std::int32_t player_level = 0,
     std::int32_t monster_level = 0) noexcept;
+
+// Apply the quest-family executors (StartSub / EndSub / EndQuest / EndOther
+// Sub / EndOtherQuest / MapChange / SaveLoginPoint). Each entry requires the
+// referenced quest to exist; subquest operations additionally require the
+// caller to have started the subquest.
+QuestExecuteApplyResult apply_quest_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec,
+    std::uint32_t now_ms) noexcept;
+
+// Apply the time-family executor (RegistTime). Records the legacy day/hour/
+// minute tuple on the target quest.
+QuestExecuteApplyResult apply_time_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec) noexcept;
 
 }  // namespace mxh::server
