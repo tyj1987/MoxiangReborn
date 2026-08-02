@@ -46,6 +46,10 @@ inline constexpr std::size_t SHOP_ITEM_MANAGER_MOVE_TABLE_CAPACITY = 30u;
 
 inline constexpr std::uint32_t SHOP_ITEM_DUP_NONE = 0u;
 
+// Legacy timer thresholds from CShopItemManager::CheckEndTime.
+inline constexpr std::uint32_t SHOP_ITEM_CHECK_INTERVAL_MS = 30000u;
+inline constexpr std::uint32_t SHOP_ITEM_UPDATE_INTERVAL_MS = 600000u;
+
 // Tracks one using-item row, mirror of legacy SHOPITEMWITHTIME plus the
 // 64-bit object id used as the table key (legacy dwItemIdx).
 struct UsingShopItemEntry {
@@ -126,6 +130,31 @@ public:
     const std::unordered_map<std::uint64_t, UsingShopItemEntry>& using_items() const noexcept {
         return m_usingItems;
     }
+    // Tick the timer fields (m_Checktime, m_Updatetime) by delta_ms.
+    // Returns true if m_Updatetime wrapped past the 10-minute mark
+    // (legacy uses this to flush ShopItemAllUseInfo to DB).
+    bool tick(uint32_t delta_ms) noexcept;
+
+    // True once m_Checktime has reached 30000 ms (legacy throttle: the
+    // full CheckEndTime sweep only runs every ~30s).
+    bool check_due() const noexcept { return m_Checktime >= 30000u; }
+
+    // Scan using-items and append the indices of items whose remaining
+    // time at LastCheckTime would have elapsed by now_ms. Pure data-plane:
+    // no DB writes, no ShopItemOption updates, no ItemManager calls.
+    void collect_expired(uint32_t now_ms, std::vector<std::uint64_t>& out) const;
+
+    // Convenience wrapper: tick by delta_ms and, if check_due(), append
+    // expired item indices. Returns the number of expired entries.
+    std::size_t tick_and_collect_expired(uint32_t delta_ms, uint32_t now_ms,
+                                          std::vector<std::uint64_t>& out);
+
+    // Reset m_Checktime after a check sweep so the next 30-second window
+    // begins. Legacy resets to 0 unconditionally.
+    void clear_check_time() noexcept { m_Checktime = 0; }
+
+    // Reset m_Updatetime after a DB flush. Legacy resets to 0.
+    void clear_update_time() noexcept { m_Updatetime = 0; }
     const std::unordered_map<std::uint32_t, MovePointEntry>& move_points() const noexcept {
         return m_movePoints;
     }

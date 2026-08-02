@@ -88,6 +88,46 @@ bool ShopItemManager::delete_move_point(std::uint32_t db_idx) noexcept {
     return m_movePoints.erase(db_idx) > 0;
 }
 
+bool ShopItemManager::tick(std::uint32_t delta_ms) noexcept {
+    if (delta_ms == 0) return false;
+    // Use DWORD arithmetic to match legacy (no overflow checks). The legacy
+    // code uses gTickTime which is bounded (~10s max), so practical overflow
+    // never happens, but the data plane preserves the legacy shape.
+    m_Updatetime += delta_ms;
+    if (m_Updatetime > SHOP_ITEM_UPDATE_INTERVAL_MS) {
+        m_Updatetime = 0;
+        return true;  // rollover - legacy flushes ShopItemAllUseInfo to DB
+    }
+    m_Checktime += delta_ms;
+    return false;
+}
+
+void ShopItemManager::collect_expired(std::uint32_t now_ms,
+                                     std::vector<std::uint64_t>& out) const {
+    out.clear();
+    for (const auto& kv : m_usingItems) {
+        const auto& entry = kv.second;
+        const std::uint64_t deadline =
+            static_cast<std::uint64_t>(entry.Data.LastCheckTime)
+            + static_cast<std::uint64_t>(entry.Data.ShopItem.Remaintime);
+        if (deadline <= now_ms) out.push_back(kv.first);
+    }
+}
+
+std::size_t ShopItemManager::tick_and_collect_expired(std::uint32_t delta_ms,
+                                                     std::uint32_t now_ms,
+                                                     std::vector<std::uint64_t>& out) {
+    const bool rollover = tick(delta_ms);
+    (void)rollover;
+    if (!check_due()) {
+        out.clear();
+        return 0;
+    }
+    const std::size_t before = out.size();
+    collect_expired(now_ms, out);
+    return out.size() - before;
+}
+
 [[maybe_unused]] constexpr int shop_item_manager_translation_unit_anchor = 0;
 
 } // namespace mxh::server

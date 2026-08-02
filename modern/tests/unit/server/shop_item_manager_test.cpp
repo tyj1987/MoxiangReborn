@@ -14,6 +14,7 @@
 #include "mxh/server/shop_item_manager.hpp"
 
 #include <gtest/gtest.h>
+#include <vector>
 
 #include <cstring>
 
@@ -34,6 +35,8 @@ using mxh::server::SHOP_ITEM_MANAGER_USING_POOL_INCREMENT;
 using mxh::server::SHOP_ITEM_MANAGER_USING_POOL_MAX;
 using mxh::server::SHOP_ITEM_MANAGER_USING_TABLE_CAPACITY;
 using mxh::server::UsingShopItemEntry;
+using mxh::server::SHOP_ITEM_CHECK_INTERVAL_MS;
+using mxh::server::SHOP_ITEM_UPDATE_INTERVAL_MS;
 
 ShopItemWithTime make_with_time(std::uint64_t db_idx, std::uint32_t remain_ms) {
     ShopItemWithTime out{};
@@ -359,6 +362,192 @@ TEST(ShopItemManagerMix, TwoDistinctTablesAreIndependent) {
     EXPECT_FALSE(m.has_using_item(10));
     EXPECT_NE(m.find_move_point(10), nullptr);
     EXPECT_EQ(m.move_point_count(), 1u);
+}
+
+
+// ---- Tick / expiry logic (D4.13) ----
+
+TEST(ShopItemManagerConstants, CheckAndUpdateIntervalsMatchLegacy) {
+    EXPECT_EQ(SHOP_ITEM_CHECK_INTERVAL_MS, 30000u);
+    EXPECT_EQ(SHOP_ITEM_UPDATE_INTERVAL_MS, 600000u);
+}
+
+TEST(ShopItemManagerTick, ZeroDeltaIsNoOpAndDoesNotRollover) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    EXPECT_FALSE(m.tick(0));
+    EXPECT_EQ(m.check_time(), 0u);
+    EXPECT_EQ(m.update_time(), 0u);
+    EXPECT_FALSE(m.check_due());
+}
+
+TEST(ShopItemManagerTick, IncrementsCheckTimeUntilDue) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    m.tick(10000u);
+    EXPECT_EQ(m.check_time(), 10000u);
+    EXPECT_EQ(m.update_time(), 10000u);
+    EXPECT_FALSE(m.check_due());
+    m.tick(20000u);
+    EXPECT_EQ(m.check_time(), 30000u);
+    EXPECT_TRUE(m.check_due());
+}
+
+TEST(ShopItemManagerTick, RolloverHappensPastTenMinutes) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    // Use small ticks so check_time stays under 30000 but update_time crosses 600000.
+    // 70 ticks of 9000ms each = 630000ms total, crosses rollover on the 67th tick.
+    bool saw_rollover = false;
+    for (int i = 0; i < 70 && !saw_rollover; ++i) {
+        saw_rollover = m.tick(9000u);
+    }
+    EXPECT_TRUE(saw_rollover);
+    EXPECT_EQ(m.update_time(), 0u);  // rollover resets to 0
+}
+
+TEST(ShopItemManagerTick, ClearCheckTimeResetsWindow) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    m.tick(30000u);
+    ASSERT_TRUE(m.check_due());
+    m.clear_check_time();
+    EXPECT_EQ(m.check_time(), 0u);
+    EXPECT_FALSE(m.check_due());
+}
+
+TEST(ShopItemManagerTick, ClearUpdateTimeIsIdempotent) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    m.tick(1234u);
+    m.clear_update_time();
+    EXPECT_EQ(m.update_time(), 0u);
+    m.clear_update_time();
+    EXPECT_EQ(m.update_time(), 0u);
+}
+
+TEST(ShopItemManagerExpire, EmptyTableProducesEmptyOutput) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    std::vector<std::uint64_t> out;
+    m.collect_expired(1000u, out);
+    EXPECT_TRUE(out.empty());
+    EXPECT_FALSE(m.check_due());
+    EXPECT_EQ(m.tick_and_collect_expired(100u, 1000u, out), 0u);
+    EXPECT_TRUE(out.empty());
+}
+
+TEST(ShopItemManagerExpire, ItemWithFutureDeadlineIsNotExpired) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    UsingShopItemEntry e{};
+    e.ItemIdx = 11;
+    e.Data = make_with_time(11, 60000);  // 60s
+    e.Data.LastCheckTime = 0;
+    ASSERT_TRUE(m.add_using_item(e));
+
+    std::vector<std::uint64_t> out;
+    m.collect_expired(30000u, out);  // 30s in: not yet expired
+    EXPECT_TRUE(out.empty());
+}
+
+TEST(ShopItemManagerExpire, ItemAtExactDeadlineIsExpired) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    UsingShopItemEntry e{};
+    e.ItemIdx = 12;
+    e.Data = make_with_time(12, 60000);
+    e.Data.LastCheckTime = 0;
+    ASSERT_TRUE(m.add_using_item(e));
+
+    std::vector<std::uint64_t> out;
+    m.collect_expired(60000u, out);  // exactly at deadline
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0], 12u);
+}
+
+TEST(ShopItemManagerExpire, PastDeadlineIsExpired) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    UsingShopItemEntry e{};
+    e.ItemIdx = 13;
+    e.Data = make_with_time(13, 5000);
+    e.Data.LastCheckTime = 1000;
+    ASSERT_TRUE(m.add_using_item(e));
+
+    std::vector<std::uint64_t> out;
+    m.collect_expired(10000u, out);  // deadline 1000+5000=6000, now 10000 -> expired
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0], 13u);
+}
+
+TEST(ShopItemManagerExpire, MixedItemsReportedTogether) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    UsingShopItemEntry a{};
+    a.ItemIdx = 20;
+    a.Data = make_with_time(20, 1000);
+    a.Data.LastCheckTime = 0;
+    UsingShopItemEntry b{};
+    b.ItemIdx = 21;
+    b.Data = make_with_time(21, 60000);
+    b.Data.LastCheckTime = 0;
+    UsingShopItemEntry c{};
+    c.ItemIdx = 22;
+    c.Data = make_with_time(22, 5000);
+    c.Data.LastCheckTime = 5000;  // deadline 10000
+    ASSERT_TRUE(m.add_using_item(a));
+    ASSERT_TRUE(m.add_using_item(b));
+    ASSERT_TRUE(m.add_using_item(c));
+
+    std::vector<std::uint64_t> out;
+    m.collect_expired(10000u, out);
+    // 20 (deadline 1000) expired, 21 (deadline 60000) not, 22 (deadline 10000) expired at exact boundary
+    ASSERT_EQ(out.size(), 2u);
+    EXPECT_EQ(out[0], 20u);
+    EXPECT_EQ(out[1], 22u);
+}
+
+TEST(ShopItemManagerExpire, TickAndCollectGatesOnCheckDue) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    UsingShopItemEntry e{};
+    e.ItemIdx = 30;
+    e.Data = make_with_time(30, 1000);
+    e.Data.LastCheckTime = 0;
+    ASSERT_TRUE(m.add_using_item(e));
+
+    std::vector<std::uint64_t> out;
+    // tick by 10000 (< 30000): check_due false -> 0 returned, out cleared
+    EXPECT_EQ(m.tick_and_collect_expired(10000u, 10000u, out), 0u);
+    EXPECT_TRUE(out.empty());
+    EXPECT_FALSE(m.check_due());
+
+    // tick by another 20000 -> total 30000 -> check_due true -> 1 expired
+    EXPECT_EQ(m.tick_and_collect_expired(20000u, 10000u, out), 1u);
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0], 30u);
+}
+
+TEST(ShopItemManagerExpire, TickAndCollectPreservesCallerBufferContentsUntilCleared) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    // collect_expired clears its output; tick_and_collect_expired passes through.
+    std::vector<std::uint64_t> out{99u, 100u};
+    m.collect_expired(0u, out);
+    EXPECT_TRUE(out.empty());  // collect_expired clears
 }
 
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
