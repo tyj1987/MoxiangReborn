@@ -264,3 +264,60 @@ TEST(ModernVersionTest, ModernConstantsAreDistinct) {
 }
 
 }  // namespace mxh::proto::test
+
+
+namespace mxh::proto::test {
+TEST(CategoryTest, LegacyTailCategoriesAreByteCompatible) {
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::HackCheck), 42u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::RMTool_Connect), 43u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::RMTool_Item), 51u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::Wanted), 52u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::GTournament), 60u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::HackShield), 67u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::NProtect), 69u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::FortWar), 77u);
+    EXPECT_EQ(static_cast<std::uint8_t>(Category::Max), 78u);
+}
+
+TEST(CategoryTest, CategoryNamesIdentifySecurityCategories) {
+    EXPECT_STREQ(category_name(Category::HackShield), "HackShield");
+    EXPECT_STREQ(category_name(Category::NProtect), "NProtect");
+    EXPECT_STREQ(category_name(Category::HackCheck), "HackCheck");
+}
+
+TEST(CategoryTest, CompleteLegacyCategoryTableIsSequential) {
+    constexpr Category categories[] = {
+        Category::Server, Category::PowerUp, Category::Character,
+        Category::Map, Category::Item, Category::Chat, Category::UserConn,
+        Category::Move, Category::Mugong, Category::AuctionBoard, Category::Cheat,
+        Category::Quick, Category::PackedData, Category::Party,
+        Category::PeaceWarMode, Category::UngiJosik, Category::Auction,
+        Category::AutoPatch, Category::Signal, Category::Tactic, Category::Munpa,
+        Category::Skill, Category::KyungGong, Category::SimBub,
+        Category::MornitorTool, Category::MornitorServer,
+        Category::MornitorMapServer, Category::Exchange, Category::StreetStall,
+        Category::Pyoguk, Category::Battle, Category::CharRevive,
+        Category::Friend, Category::BossMonster, Category::Monster,
+        Category::Option, Category::Npc, Category::MurimNet, Category::Quest,
+        Category::Debug, Category::Pk, Category::HackCheck,
+        Category::RMTool_Connect, Category::RMTool_User, Category::RMTool_Munpa,
+        Category::RMTool_GameLog, Category::RMTool_OperLog,
+        Category::RMTool_Statistics, Category::RMTool_Admin,
+        Category::RMTool_Character, Category::RMTool_Item, Category::Wanted,
+        Category::Journal, Category::Suryun, Category::SocietyAct, Category::Guild,
+        Category::GuildFieldWar, Category::Note, Category::PartyWar,
+        Category::GTournament, Category::Jackpot, Category::GuildUnion,
+        Category::SiegeWar, Category::SiegeWar_Profit, Category::Weather,
+        Category::Pet, Category::HackShield, Category::RMTool_Pet,
+        Category::NProtect, Category::RMTool_DelChar, Category::Survival,
+        Category::Titan, Category::ItemExt, Category::Bobusang, Category::ItemLimit,
+        Category::AutoNote, Category::FortWar,
+    };
+    ASSERT_EQ((sizeof(categories) / sizeof(categories[0])), 77u);
+    for (std::size_t i = 0; i < (sizeof(categories) / sizeof(categories[0])); ++i) {
+        EXPECT_EQ(static_cast<std::uint8_t>(categories[i]),
+                  static_cast<std::uint8_t>(i + 1));
+    }
+}
+
+}  // namespace mxh::proto::test

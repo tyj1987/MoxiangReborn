@@ -355,3 +355,4 @@ D6 经验曲线 / 伤害公式 / 爆率 / Boss 刷新回归测试
 
 **下一步**：清理老的 14 份干扰性文档（见 `CLEANUP_PLAN.md` 清单），重写 `AGENTS.md` + `README.md`。
 - [x] **C-Batch-2.33** cGuageBar -- completes the missing unit-test coverage for the already-ported cGuagen slider subclass. 26 tests lock default state, interval/orientation initialization and clamping, legacy value-to-track repositioning, rate semantics, horizontal/vertical button sizing, null/duplicate Add behavior, absolute-position propagation, lock color, inactive/locked ActionEvent, and Render smoke behavior.
+- [x] **P-Batch-1** Category wire compatibility correction -- replaced the drifted modern category ordering with explicit legacy MP_CATEGORY bytes 1-78; HackShield=67, GTournament=60, NProtect=69, and added complete category-table regression coverage plus corrected GTournament constants.

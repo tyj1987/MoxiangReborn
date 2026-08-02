@@ -12,8 +12,8 @@
 
 namespace mxh::server {
 
-// MP_CATEGORY byte for MP_GTOURNAMENT (MP_GTOURNAMENT=59 in MP_CATEGORY).
-inline constexpr std::uint8_t gtoournament_category = 59u;
+// MP_CATEGORY byte for MP_GTOURNAMENT (MP_GTOURNAMENT=60 in MP_CATEGORY).
+inline constexpr std::uint8_t gtoournament_category = 60u;
 
 // Sub-protocols within MP_PROTOCOL_GTOURNAMENT (offset 0..N).
 inline constexpr std::uint8_t gtournament_movetobattlemap_syn = 0u;

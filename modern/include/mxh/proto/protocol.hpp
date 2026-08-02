@@ -46,87 +46,83 @@ enum class VersionRejectReason : std::uint8_t {
 // Categories (1:1 with [CC]Header/Protocol.h MP_CATEGORY).
 enum class Category : std::uint8_t {
     Server            = 1,
-    PowerUp,
-    Character,
-    Map,
-    Item,
-    Chat,
-    UserConn,
-    Move,
-    Mugong,
-    AuctionBoard,
-    Cheat,
-    Quick,
-    PackedData,
-    Party,
-    PeaceWarMode,
-    UngiJosik,
-    Auction,
-    AutoPatch,
-    Signal,
-    Tactic,
-    Munpa,
-    Skill,
-    KyungGong,
-    SimBub,
-    MornitorTool,
-    MornitorServer,
-    MornitorMapServer,
-    Exchange,
-    StreetStall,
-    Pyoguk,
-    Battle,
-    CharRevive,
-    Friend,
-    BossMonster,
-    Monster,
-    Option,
-    Npc,
-    MurimNet,
-    Quest,
-    Debug,
-    Pk,
-    HackCheck,
-    RMTool_Connect,
-    RMTool_User,
-    RMTool_Munpa,
-    RMTool_Item,
-    RMTool_Chat,
-    RMTool_Dungeon,
-    RMTool_Map,
-    RMTool_Oper,
-    RMTool_Money,
-    RMTool_Monster,
-    RMTool_Skill,
-    RMTool_Character_Info,
-    RMTool_Guild,
-    RMTool_Notes,
-    RMTool_DelChar,
-    Wanted,
-    Journal,
-    Suryun,
-    SocietyAct,
-    Guild,
-    GuildFieldWar,
-    Note,
-    PartyWar,
-    GTournament,
-    Jackpot,
-    GuildUnion,
-    SiegeWar,
-    SiegeWar_Profit,
-    Weather,
-    Pet,
-    HackShield,
-    NProtect,
-    Survival,
-    Titan,
-    ItemExt,
-    Bobusang,
-    ItemLimit,
-    AutoNote,
-    FortWar,
-    Max,
+    PowerUp           = 2,
+    Character         = 3,
+    Map               = 4,
+    Item              = 5,
+    Chat              = 6,
+    UserConn          = 7,
+    Move              = 8,
+    Mugong            = 9,
+    AuctionBoard      = 10,
+    Cheat             = 11,
+    Quick             = 12,
+    PackedData        = 13,
+    Party             = 14,
+    PeaceWarMode      = 15,
+    UngiJosik         = 16,
+    Auction           = 17,
+    AutoPatch         = 18,
+    Signal            = 19,
+    Tactic            = 20,
+    Munpa             = 21,
+    Skill             = 22,
+    KyungGong         = 23,
+    SimBub            = 24,
+    MornitorTool      = 25,
+    MornitorServer    = 26,
+    MornitorMapServer = 27,
+    Exchange          = 28,
+    StreetStall       = 29,
+    Pyoguk            = 30,
+    Battle            = 31,
+    CharRevive        = 32,
+    Friend            = 33,
+    BossMonster       = 34,
+    Monster           = 35,
+    Option            = 36,
+    Npc               = 37,
+    MurimNet          = 38,
+    Quest             = 39,
+    Debug             = 40,
+    Pk                = 41,
+    HackCheck         = 42,
+    RMTool_Connect    = 43,
+    RMTool_User       = 44,
+    RMTool_Munpa      = 45,
+    RMTool_GameLog    = 46,
+    RMTool_OperLog    = 47,
+    RMTool_Statistics = 48,
+    RMTool_Admin      = 49,
+    RMTool_Character  = 50,
+    RMTool_Item       = 51,
+    Wanted            = 52,
+    Journal           = 53,
+    Suryun            = 54,
+    SocietyAct        = 55,
+    Guild             = 56,
+    GuildFieldWar     = 57,
+    Note              = 58,
+    PartyWar          = 59,
+    GTournament       = 60,
+    Jackpot           = 61,
+    GuildUnion        = 62,
+    SiegeWar          = 63,
+    SiegeWar_Profit   = 64,
+    Weather           = 65,
+    Pet               = 66,
+    HackShield        = 67,
+    RMTool_Pet        = 68,
+    NProtect          = 69,
+    RMTool_DelChar    = 70,
+    Survival          = 71,
+    Titan             = 72,
+    ItemExt           = 73,
+    Bobusang          = 74,
+    ItemLimit         = 75,
+    AutoNote          = 76,
+    FortWar           = 77,
+    Max               = 78,
 };
 
 inline const char* category_name(Category c) {
@@ -176,18 +172,12 @@ inline const char* category_name(Category c) {
         case Category::RMTool_Connect: return "RMTool_Connect";
         case Category::RMTool_User: return "RMTool_User";
         case Category::RMTool_Munpa: return "RMTool_Munpa";
+        case Category::RMTool_GameLog: return "RMTool_GameLog";
+        case Category::RMTool_OperLog: return "RMTool_OperLog";
+        case Category::RMTool_Statistics: return "RMTool_Statistics";
+        case Category::RMTool_Admin: return "RMTool_Admin";
+        case Category::RMTool_Character: return "RMTool_Character";
         case Category::RMTool_Item: return "RMTool_Item";
-        case Category::RMTool_Chat: return "RMTool_Chat";
-        case Category::RMTool_Dungeon: return "RMTool_Dungeon";
-        case Category::RMTool_Map: return "RMTool_Map";
-        case Category::RMTool_Oper: return "RMTool_Oper";
-        case Category::RMTool_Money: return "RMTool_Money";
-        case Category::RMTool_Monster: return "RMTool_Monster";
-        case Category::RMTool_Skill: return "RMTool_Skill";
-        case Category::RMTool_Character_Info: return "RMTool_Character_Info";
-        case Category::RMTool_Guild: return "RMTool_Guild";
-        case Category::RMTool_Notes: return "RMTool_Notes";
-        case Category::RMTool_DelChar: return "RMTool_DelChar";
         case Category::Wanted: return "Wanted";
         case Category::Journal: return "Journal";
         case Category::Suryun: return "Suryun";
@@ -204,7 +194,9 @@ inline const char* category_name(Category c) {
         case Category::Weather: return "Weather";
         case Category::Pet: return "Pet";
         case Category::HackShield: return "HackShield";
+        case Category::RMTool_Pet: return "RMTool_Pet";
         case Category::NProtect: return "NProtect";
+        case Category::RMTool_DelChar: return "RMTool_DelChar";
         case Category::Survival: return "Survival";
         case Category::Titan: return "Titan";
         case Category::ItemExt: return "ItemExt";

@@ -21,8 +21,8 @@ GTournamentUserRequest base_user() {
     return r;
 }
 
-TEST(GTournamentCategory, CategoryByteIs59) {
-    EXPECT_EQ(mxh::server::gtoournament_category, 59u);
+TEST(GTournamentCategory, CategoryByteIs60) {
+    EXPECT_EQ(mxh::server::gtoournament_category, 60u);
 }
 
 TEST(GTournamentConstants, MapNumIs60) {

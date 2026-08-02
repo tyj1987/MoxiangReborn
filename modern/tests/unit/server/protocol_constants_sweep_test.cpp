@@ -68,10 +68,10 @@ TEST(ProtocolConstantsSweep, MpPowerUpCategoryIs2) {
 TEST(ProtocolConstantsSweep, MpCheatCategoryIs11) {
     EXPECT_EQ(mxh::server::cheat_category, 11u);
 }
-TEST(ProtocolConstantsSweep, MpGTournamentCategoryIs59) {
-    // GTournament in modern MP_CATEGORY is index 59 + 4 (auto-numbering
-    // from RMTool_*)... actually 63 + offset; verify 63 here.
-    EXPECT_EQ(mxh::server::gtoournament_category, 59u);
+TEST(ProtocolConstantsSweep, MpGTournamentCategoryIs60) {
+    // GTournament in the legacy MP_CATEGORY is byte 60 (fixed numbering
+    // not an inferred offset; verify the source byte directly.
+    EXPECT_EQ(mxh::server::gtoournament_category, 60u);
 }
 
 TEST(ProtocolConstantsSweep, MpPowerUpBootingNotifyIs0) {
@@ -126,12 +126,12 @@ TEST(ProtocolConstantsSweep, UserconnLoginErrDistAlreadyoutIsOne) {
 }
 
 // Cross-module invariant: userconn + powerup + cheat + gtournament
-// categories all stay within MP_CATEGORY max (88 in modern enum).
+// categories all stay within MP_CATEGORY max (78 in the legacy enum).
 TEST(ProtocolConstantsSweep, AllCategoryBytesWithinMax) {
-    EXPECT_LE(mxh::server::userconn_category, 88u);
-    EXPECT_LE(mxh::server::powerup_category, 88u);
-    EXPECT_LE(mxh::server::cheat_category, 88u);
-    EXPECT_LE(mxh::server::gtoournament_category, 88u);
+    EXPECT_LE(mxh::server::userconn_category, 78u);
+    EXPECT_LE(mxh::server::powerup_category, 78u);
+    EXPECT_LE(mxh::server::cheat_category, 78u);
+    EXPECT_LE(mxh::server::gtoournament_category, 78u);
 }
 
 // Sub-protocol offsets all stay within their respective enum spans.

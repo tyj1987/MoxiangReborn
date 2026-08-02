@@ -94,7 +94,7 @@ TEST(UserConnConstants, LoginErrDistAlreadyoutIs1) { EXPECT_EQ(mxh::server::user
 TEST(CategoryInvariant, UserConnIs7) { EXPECT_EQ(mxh::server::userconn_category, 7u); }
 TEST(CategoryInvariant, PowerUpIs2) { EXPECT_EQ(mxh::server::powerup_category, 2u); }
 TEST(CategoryInvariant, CheatIs11) { EXPECT_EQ(mxh::server::cheat_category, 11u); }
-TEST(CategoryInvariant, GTournamentIs59) { EXPECT_EQ(mxh::server::gtoournament_category, 59u); }
+TEST(CategoryInvariant, GTournamentIs60) { EXPECT_EQ(mxh::server::gtoournament_category, 60u); }
 TEST(MapConstants, GTournamentMapNumIs60) { EXPECT_EQ(mxh::server::gtournament_map_num, 60u); }
 TEST(PowerUpConstants, MaxAgentServersAtLeast50) { EXPECT_GE(mxh::server::powerup_max_agent_servers, 50u); }
 

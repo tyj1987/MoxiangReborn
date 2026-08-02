@@ -71,7 +71,7 @@ TEST(Cheat, CheatDamageNackIs46) { EXPECT_EQ(mxh::server::cheat_damage_nack, 46u
 TEST(Cheat, CheatMapConditionIs47) { EXPECT_EQ(mxh::server::cheat_map_condition, 47u); }
 TEST(Cheat, CheatAgentConditionIs48) { EXPECT_EQ(mxh::server::cheat_agent_condition, 48u); }
 TEST(Cheat, CheatTitanFuelSpellMaxSynIs49) { EXPECT_EQ(mxh::server::cheat_titan_fuel_spell_max_syn, 49u); }
-TEST(Gtournament_server, GtoournamentCategoryIs59) { EXPECT_EQ(mxh::server::gtoournament_category, 59u); }
+TEST(Gtournament_server, GtoournamentCategoryIs60) { EXPECT_EQ(mxh::server::gtoournament_category, 60u); }
 TEST(Gtournament_server, GtournamentMovetobattlemapSynIs0) { EXPECT_EQ(mxh::server::gtournament_movetobattlemap_syn, 0u); }
 TEST(Gtournament_server, GtournamentMovetobattlemapNackIs1) { EXPECT_EQ(mxh::server::gtournament_movetobattlemap_nack, 1u); }
 TEST(Gtournament_server, GtournamentStandinginfoSynIs2) { EXPECT_EQ(mxh::server::gtournament_standinginfo_syn, 2u); }
