@@ -789,6 +789,142 @@ TEST(ShopItemManagerWire, SerializeAfterReleaseIsEmptyFrame) {
     EXPECT_EQ(count, 0u);
 }
 
+
+// ---- D4.16 SEND_SHOPITEM_INFO + SEND_MOVEDATA_INFO wire ----
+
+TEST(ShopItemManagerWire, SendShopItemInfoStructLayout) {
+    // 8-byte MsgHeader + 2-byte ItemCount + 150 * 22-byte ItemBase = 3310 bytes.
+    EXPECT_EQ(sizeof(mxh::game::SendShopItemInfo), 3310u);
+    EXPECT_EQ(mxh::game::SEND_SHOPITEM_INFO_MAX_BYTES, 3310u);
+    EXPECT_EQ(mxh::game::SLOT_SHOPITEM_NUM_MODERN, 150u);
+}
+
+TEST(ShopItemManagerWire, SendShopItemInfoSizeHelperMatchesLegacyGetSize) {
+    EXPECT_EQ(mxh::game::send_shopitem_info_size(0),    10u);    // 8 + 2
+    EXPECT_EQ(mxh::game::send_shopitem_info_size(1),    32u);    // 8 + 2 + 22
+    EXPECT_EQ(mxh::game::send_shopitem_info_size(150),  3310u);  // full
+    EXPECT_EQ(mxh::game::send_shopitem_info_size(151),  0u);     // over legacy max
+}
+
+TEST(ShopItemManagerWire, SendMoveDataInfoStructLayout) {
+    // 8 MsgHeader + 1 bInited + 2 Count + 20 * 31 MoveData = 631 bytes.
+    EXPECT_EQ(sizeof(mxh::game::SendMoveDataInfo), 631u);
+    EXPECT_EQ(mxh::game::SEND_MOVEDATA_INFO_MAX_BYTES, 631u);
+    EXPECT_EQ(mxh::game::MOVEPOINT_TOTAL_MODERN, 20u);
+    EXPECT_EQ(mxh::game::MAX_MOVEDATA_PERPAGE_MODERN, 10u);
+    EXPECT_EQ(mxh::game::MAX_MOVEPOINT_PAGE_MODERN, 2u);
+}
+
+TEST(ShopItemManagerWire, SendMoveDataInfoSizeHelperMatchesLegacyGetSize) {
+    EXPECT_EQ(mxh::game::send_movedata_info_size(0,  false), 11u);  // 8 + 1 + 2
+    EXPECT_EQ(mxh::game::send_movedata_info_size(0,  true),  11u);
+    EXPECT_EQ(mxh::game::send_movedata_info_size(1,  true),  42u);  // 11 + 31
+    EXPECT_EQ(mxh::game::send_movedata_info_size(20, true),  631u); // full
+    EXPECT_EQ(mxh::game::send_movedata_info_size(21, true),  0u);   // over legacy max
+}
+
+TEST(ShopItemManagerWire, MovePointsEmptySerializesToHeaderPlusZeroCount) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto bytes = m.serialize_move_points(0x05, 0x06, true);
+    ASSERT_EQ(bytes.size(), 11u);  // 8 + 1 + 2
+    EXPECT_EQ(bytes[2], 0x05);   // category
+    EXPECT_EQ(bytes[3], 0x06);   // protocol
+    EXPECT_EQ(bytes[8], 1u);     // bInited
+    std::uint16_t count = 0xFFFFu;
+    std::memcpy(&count, bytes.data() + 9, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 0u);
+}
+
+TEST(ShopItemManagerWire, MovePointsSingleRowMatchesLegacyGetSize) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    MovePointEntry e{};
+    e.DBIdx = 42;
+    e.Data = make_move_data(42, 12);
+    ASSERT_TRUE(m.add_move_point(e));
+    auto bytes = m.serialize_move_points(0x05, 0x06, false);
+    EXPECT_EQ(bytes.size(), 42u);  // 11 + 1*31
+    EXPECT_EQ(bytes[8], 0u);       // bInited=false
+    std::uint16_t count = 0;
+    std::memcpy(&count, bytes.data() + 9, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 1u);
+    // First Data entry starts at offset 11.
+    std::uint32_t first_db = 0;
+    std::memcpy(&first_db, bytes.data() + 11, sizeof(std::uint32_t));
+    EXPECT_EQ(first_db, 42u);
+}
+
+TEST(ShopItemManagerWire, MovePointsMultipleRowsAreContiguous) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    for (uint32_t db : {1u, 2u, 3u, 4u}) {
+        MovePointEntry e{};
+        e.DBIdx = db;
+        e.Data = make_move_data(db, 1);
+        ASSERT_TRUE(m.add_move_point(e));
+    }
+    auto bytes = m.serialize_move_points(0, 0, true);
+    EXPECT_EQ(bytes.size(), 11u + 4u * 31u);  // = 135
+    std::uint16_t count = 0;
+    std::memcpy(&count, bytes.data() + 9, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 4u);
+}
+
+TEST(ShopItemManagerWire, MovePointsHeaderlessHelperZerosCategoryAndProtocol) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    MovePointEntry e{};
+    e.DBIdx = 1;
+    e.Data = make_move_data(1, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+    auto bytes = m.serialize_move_points_headerless(true);
+    EXPECT_EQ(bytes[2], 0);
+    EXPECT_EQ(bytes[3], 0);
+    EXPECT_EQ(bytes[8], 1u);  // bInited preserved
+}
+
+TEST(ShopItemManagerWire, MovePointsSerializeAfterReleaseIsEmptyFrame) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    MovePointEntry e{};
+    e.DBIdx = 5;
+    e.Data = make_move_data(5, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+    m.release();
+    auto bytes = m.serialize_move_points(0, 0, false);
+    EXPECT_EQ(bytes.size(), 11u);
+    std::uint16_t count = 0xFFFFu;
+    std::memcpy(&count, bytes.data() + 9, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 0u);
+    EXPECT_EQ(bytes[8], 0u);  // bInited=false after release
+}
+
+TEST(ShopItemManagerWire, UsingItemsAndMovePointsSerializersAreIndependent) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    MovePointEntry e{};
+    e.DBIdx = 7;
+    e.Data = make_move_data(7, 1);
+    ASSERT_TRUE(m.add_move_point(e));
+    auto using_bytes = m.serialize_using_items(0x10, 0x11);
+    auto move_bytes = m.serialize_move_points(0x10, 0x12, true);
+    EXPECT_EQ(using_bytes.size(), 44u);    // 8 + 2 + 34
+    EXPECT_EQ(move_bytes.size(), 42u);     // 8 + 1 + 2 + 31
+    EXPECT_EQ(using_bytes[2], 0x10);
+    EXPECT_EQ(using_bytes[3], 0x11);
+    EXPECT_EQ(move_bytes[2], 0x10);
+    EXPECT_EQ(move_bytes[3], 0x12);
+}
+
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
     EXPECT_EQ(SHOP_ITEM_DUP_NONE, 0u);
 }

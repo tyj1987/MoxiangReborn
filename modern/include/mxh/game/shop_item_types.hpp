@@ -114,6 +114,53 @@ inline std::size_t send_shopitem_usedinfo_size(std::uint16_t item_count) noexcep
            static_cast<std::size_t>(item_count) * sizeof(ShopItemBase);
 }
 
+// 1:1 port of legacy [CC]Header/CommonStruct.h SEND_SHOPITEM_INFO.
+// Carries the full shop-inventory (legacy TAB_SHOPITEM_NUM=5 tabs of
+// TABCELL_SHOPITEM_NUM=30 cells = SLOT_SHOPITEM_NUM=150 entries).
+struct SendShopItemInfo {
+    mxh::net::MsgHeader header{};
+    std::uint16_t ItemCount = 0;
+    ItemBase Item[150] = {};  // SLOT_SHOPITEM_NUM = TAB_SHOPITEM_NUM * TABCELL_SHOPITEM_NUM = 5 * 30
+};
+
+inline constexpr std::size_t SLOT_SHOPITEM_NUM_MODERN = 150u;
+inline constexpr std::size_t SEND_SHOPITEM_INFO_MAX_BYTES =
+    sizeof(mxh::net::MsgHeader) + sizeof(std::uint16_t) +
+    SLOT_SHOPITEM_NUM_MODERN * sizeof(ItemBase);
+
+inline std::size_t send_shopitem_info_size(std::uint16_t item_count) noexcept {
+    if (item_count > SLOT_SHOPITEM_NUM_MODERN) return 0;
+    return sizeof(mxh::net::MsgHeader) + sizeof(std::uint16_t) +
+           static_cast<std::size_t>(item_count) * sizeof(ItemBase);
+}
+
+// 1:1 port of legacy [CC]Header/CommonStruct.h SEND_MOVEDATA_INFO.
+// Carries the saved-move-point table (legacy MAX_MOVEDATA_PERPAGE=10
+// entries per page x MAX_MOVEPOINT_PAGE=2 pages = 20 entries max).
+struct SendMoveDataInfo {
+    mxh::net::MsgHeader header{};
+    std::uint8_t bInited = 0;
+    std::uint16_t Count = 0;
+    MoveData Data[20] = {};  // MAX_MOVEDATA_PERPAGE * MAX_MOVEPOINT_PAGE = 10 * 2
+};
+
+inline constexpr std::size_t MAX_MOVEDATA_PERPAGE_MODERN = 10u;
+inline constexpr std::size_t MAX_MOVEPOINT_PAGE_MODERN = 2u;
+inline constexpr std::size_t MOVEPOINT_TOTAL_MODERN =
+    MAX_MOVEDATA_PERPAGE_MODERN * MAX_MOVEPOINT_PAGE_MODERN;
+inline constexpr std::size_t SEND_MOVEDATA_INFO_MAX_BYTES =
+    sizeof(mxh::net::MsgHeader) + sizeof(std::uint8_t) + sizeof(std::uint16_t) +
+    MOVEPOINT_TOTAL_MODERN * sizeof(MoveData);
+
+inline std::size_t send_movedata_info_size(std::uint16_t count,
+                                           bool b_inited) noexcept {
+    if (count > MOVEPOINT_TOTAL_MODERN) return 0;
+    (void)b_inited;
+    std::size_t base = sizeof(mxh::net::MsgHeader) + sizeof(std::uint8_t)
+                        + sizeof(std::uint16_t);
+    return base + static_cast<std::size_t>(count) * sizeof(MoveData);
+}
+
 #pragma pack(pop)
 
 } // namespace mxh::game

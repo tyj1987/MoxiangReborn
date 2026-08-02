@@ -195,6 +195,34 @@ std::vector<std::uint8_t> ShopItemManager::serialize_using_items_headerless() co
     return serialize_using_items(0, 0);
 }
 
+std::vector<std::uint8_t> ShopItemManager::serialize_move_points(
+    std::uint8_t category, std::uint8_t protocol, bool b_inited) const {
+    if (m_movePoints.size() > game::MOVEPOINT_TOTAL_MODERN) return {};
+    const std::uint16_t count = static_cast<std::uint16_t>(m_movePoints.size());
+    const std::size_t total = sizeof(mxh::net::MsgHeader) + sizeof(std::uint8_t)
+                              + sizeof(std::uint16_t)
+                              + static_cast<std::size_t>(count) * sizeof(game::MoveData);
+    std::vector<std::uint8_t> out(total, 0);
+    out[2] = category;   // MSGBASE.Category
+    out[3] = protocol;   // MSGBASE.Protocol
+    out[sizeof(mxh::net::MsgHeader)] = b_inited ? 1 : 0;  // bInited
+    std::memcpy(out.data() + sizeof(mxh::net::MsgHeader) + sizeof(std::uint8_t),
+                &count, sizeof(std::uint16_t));
+    std::size_t offset = sizeof(mxh::net::MsgHeader) + sizeof(std::uint8_t)
+                          + sizeof(std::uint16_t);
+    for (const auto& kv : m_movePoints) {
+        std::memcpy(out.data() + offset, &kv.second.Data,
+                    sizeof(game::MoveData));
+        offset += sizeof(game::MoveData);
+    }
+    return out;
+}
+
+std::vector<std::uint8_t> ShopItemManager::serialize_move_points_headerless(
+    bool b_inited) const {
+    return serialize_move_points(0, 0, b_inited);
+}
+
 [[maybe_unused]] constexpr int shop_item_manager_translation_unit_anchor = 0;
 
 } // namespace mxh::server

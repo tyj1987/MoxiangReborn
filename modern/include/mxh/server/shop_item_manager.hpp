@@ -172,6 +172,23 @@ public:
     // ItemCount + Item[N] layout.
     std::vector<std::uint8_t> serialize_using_items_headerless() const;
 
+    // Build the SEND_MOVEDATA_INFO wire bytes for this manager, 1:1 with
+    // legacy CShopItemManager wire for the saved-move-point table. The
+    // bytes are MSGBASE + BYTE bInited + WORD Count + Count * MoveData,
+    // trimmed exactly as legacy SEND_MOVEDATA_INFO::GetSize() does.
+    // Returns an empty vector if the table exceeds the legacy 20-entry
+    // maximum (the pool capacity is 50 so this cannot happen at the
+    // data plane unless the caller bypasses add_move_point).
+    std::vector<std::uint8_t> serialize_move_points(
+        std::uint8_t category, std::uint8_t protocol,
+        bool b_inited) const;
+
+    // Same as serialize_move_points() but leaves the header category/
+    // protocol bytes at 0. Useful for tests that only care about the
+    // bInited + Count + Data[N] layout.
+    std::vector<std::uint8_t> serialize_move_points_headerless(
+        bool b_inited) const;
+
     // Const read-only access to the underlying tables for serialization
     // (legacy SendShopItemUseInfo sends the entire table on demand).
     const std::unordered_map<std::uint64_t, UsingShopItemEntry>& using_items() const noexcept {
