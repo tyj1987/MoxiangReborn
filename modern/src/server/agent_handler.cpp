@@ -666,11 +666,32 @@ void AgentHandler::handle_legacy_character_list(
     std::cout << "[Agent] legacy: CHARACTERLIST_SYN user_id=" << user_id
               << " dist_auth_key=" << dist_auth_key << "\n";
 
-    // Store user_id for this connection.
+    // R-2: store user_id, then immediately query chr_log_info for
+    // userlevel so the HackShield gate (UserLevel >= 5) sees the
+    // right threshold. Legacy AgentNetworkMsgParser expects
+    // USERCONNECT_AGENT_CONNECTSUCCESS to flow into a USERINFO
+    // with the user_level populated -- the chr_log_info.userlevel
+    // column is the canonical source (login_handler.cpp:318 reads
+    // the same column at the Distribute phase).
+    std::uint8_t user_level = 0;
+    {
+        mxh::db::ResultSet ul_rs;
+        std::vector<mxh::db::Bind> ul_params = {mxh::db::bind(
+            std::to_string(user_id))};
+        auto ul_q = db_.query(
+            "SELECT userlevel FROM chr_log_info WHERE id = ?",
+            ul_params, ul_rs);
+        if (ul_q.ok() && !ul_rs.empty()) {
+            user_level = static_cast<std::uint8_t>(
+                std::get<std::int64_t>(ul_rs.rows[0][0]));
+        }
+    }
     {
         std::lock_guard<std::mutex> lk(user_mu_);
         conn_user_ids_[id.value] = user_id;
+        conn_user_levels_[id.value] = user_level;
     }
+
 
     // Query DB for characters belonging to this user.
     mxh::db::ResultSet rs;

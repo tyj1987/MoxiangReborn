@@ -50,12 +50,27 @@ public:
         ++exec_count;
         return {};
     }
-    mxh::db::DbResult query(std::string_view, std::span<const mxh::db::Bind>,
+    // R-2: if userlevel_to_return != UINT8_MAX, treat the next query
+    // against "chr_log_info" as returning one row with that value in
+    // column [0]. UINT8_MAX means "do not inject" (default) so other
+    // tests that do not care about userlevel keep the original empty
+    // result semantics.
+    std::atomic<std::uint8_t> userlevel_to_return{0xFFu};
+    mxh::db::DbResult query(std::string_view sql, std::span<const mxh::db::Bind>,
                            mxh::db::ResultSet& out) override {
         ++query_count;
         out = mxh::db::ResultSet{};
+        std::uint8_t lvl = userlevel_to_return.load();
+        if (lvl != 0xFFu && sql.find("chr_log_info") != std::string_view::npos) {
+            mxh::db::ResultSet injected;
+            mxh::db::Row row;
+            row.push_back(static_cast<std::int64_t>(lvl));
+            injected.rows.push_back(std::move(row));
+            out = std::move(injected);
+        }
         return {};
     }
+
     mxh::db::DbResult begin_transaction() override { return {}; }
     mxh::db::DbResult commit() override { return {}; }
     mxh::db::DbResult rollback() override { return {}; }
@@ -653,6 +668,120 @@ TEST(AgentHandlerHackShieldTest, ConnIdMismatchDoesNotLeakState) {
     EXPECT_EQ(handler.user_level(cid_b), 2u);
     EXPECT_FALSE(handler.has_hackshield_state(cid_a));
     EXPECT_FALSE(handler.has_hackshield_state(cid_b));
+}
+
+
+
+// ===========================================================================
+// R-2.1: handle_legacy_character_list auto-populates user_level from DB
+//
+// Before R-2.1 the AgentHandler required a manual register_session call
+// to set user_level before the HackShield gate would let any cat=67
+// message through. After R-2.1, handle_legacy_character_list queries
+// chr_log_info.userlevel automatically and stores it. This makes
+// end-to-end HackShield routing work without any test scaffolding:
+// 1) Client sends CharacterListSyn with user_id
+// 2) Agent queries chr_log_info.userlevel
+// 3) Agent stores the level in conn_user_levels_
+// 4) Subsequent HackShield messages see the right threshold
+// ===========================================================================
+
+TEST(AgentHandlerHackShieldTest, CharacterListPopulatesUserLevelFromDb) {
+    MockDbAdapter db;
+    db.userlevel_to_return.store(5u);  // superuser
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    auto cid = mxh::net::make_connection_id(700);
+
+    // Drive CharacterListSyn with user_id=42 in the payload.
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListSyn);
+    msg.payload.resize(8, 0);
+    std::uint32_t user_id = 42u;
+    std::memcpy(msg.payload.data(), &user_id, 4);
+    handler.on_message(cid, msg);
+
+    EXPECT_EQ(handler.user_level(cid), 5u);
+
+    // Now send a HackShield GuidAck -- the superuser gate should
+    // fire and reply with a Req packet (160B).
+    mxh::net::Message hs;
+    hs.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    hs.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::GuidAck);
+    hs.payload.assign(mxh::server::HACKSHIELD_GUID_ACK_SIZE, 0xEF);
+    handler.on_message(cid, hs);
+
+    ASSERT_GE(reply.call_count.load(), 1);
+    bool found_req = false;
+    for (const auto& m : reply.messages) {
+        if (m.header.category ==
+                static_cast<std::uint8_t>(mxh::proto::Category::HackShield)
+            && m.header.protocol ==
+                static_cast<std::uint8_t>(mxh::server::HackShieldProtocol::Req)) {
+            EXPECT_EQ(m.payload.size(), mxh::server::HACKSHIELD_REQ_SIZE);
+            found_req = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_req) << "superuser GuidAck should trigger Req reply";
+}
+
+TEST(AgentHandlerHackShieldTest, CharacterListNonSuperuserGatesHackShield) {
+    MockDbAdapter db;
+    db.userlevel_to_return.store(2u);  // NOT a superuser
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    auto cid = mxh::net::make_connection_id(701);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListSyn);
+    msg.payload.resize(8, 0);
+    std::uint32_t user_id = 99u;
+    std::memcpy(msg.payload.data(), &user_id, 4);
+    handler.on_message(cid, msg);
+
+    EXPECT_EQ(handler.user_level(cid), 2u);
+
+    // GuidAck from non-superuser -- no reply, no state.
+    mxh::net::Message hs;
+    hs.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::HackShield);
+    hs.header.protocol = static_cast<std::uint8_t>(
+        mxh::server::HackShieldProtocol::GuidAck);
+    handler.on_message(cid, hs);
+
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
+}
+
+TEST(AgentHandlerHackShieldTest, CharacterListMissingUserLevelDefaultsZero) {
+    // userlevel_to_return left at default 0xFFu -- chr_log_info query
+    // returns empty ResultSet (MockDbAdapter default) -- so
+    // conn_user_levels_ is 0 (same as no register_session call).
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    auto cid = mxh::net::make_connection_id(702);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListSyn);
+    msg.payload.resize(8, 0);
+    std::uint32_t user_id = 7u;
+    std::memcpy(msg.payload.data(), &user_id, 4);
+    handler.on_message(cid, msg);
+
+    EXPECT_EQ(handler.user_level(cid), 0u);
+    EXPECT_FALSE(handler.has_hackshield_state(cid));
 }
 
 
