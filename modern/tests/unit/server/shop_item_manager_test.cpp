@@ -698,6 +698,97 @@ TEST(ShopItemManagerUsedShopItem, LegacyKeyAlwaysEqualsIconIdx) {
     EXPECT_EQ(found->Data.ShopItem.ItemBase.wIconIdx, 7777);
 }
 
+
+// ---- D4.15 SEND_SHOPITEM_USEDINFO wire serialization ----
+
+TEST(ShopItemManagerWire, SendShopItemUsedInfoStructLayout) {
+    // 8-byte MsgHeader + 2-byte ItemCount + 100 * 34-byte ShopItemBase = 3410 bytes.
+    EXPECT_EQ(sizeof(mxh::game::SendShopItemUsedInfo), 3410u);
+    EXPECT_EQ(mxh::game::SEND_SHOPITEM_USEDINFO_MAX_BYTES, 3410u);
+}
+
+TEST(ShopItemManagerWire, SizeHelperMatchesLegacyGetSize) {
+    EXPECT_EQ(mxh::game::send_shopitem_usedinfo_size(0), 10u);   // 8 + 2 + 0
+    EXPECT_EQ(mxh::game::send_shopitem_usedinfo_size(1), 44u);   // 8 + 2 + 34
+    EXPECT_EQ(mxh::game::send_shopitem_usedinfo_size(50), 1710u);
+    EXPECT_EQ(mxh::game::send_shopitem_usedinfo_size(100), 3410u);
+    EXPECT_EQ(mxh::game::send_shopitem_usedinfo_size(101), 0u);  // over legacy max
+}
+
+TEST(ShopItemManagerWire, EmptyManagerSerializesToHeaderPlusZeroCount) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto bytes = m.serialize_using_items(0x55, 0x66);
+    ASSERT_EQ(bytes.size(), 10u);  // 8 (header) + 2 (ItemCount)
+    EXPECT_EQ(bytes[2], 0x55);  // category
+    EXPECT_EQ(bytes[3], 0x66);  // protocol
+    std::uint16_t count = 0;
+    std::memcpy(&count, bytes.data() + 8, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 0u);
+}
+
+TEST(ShopItemManagerWire, SingleItemMatchesLegacyGetSize) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    auto bytes = m.serialize_using_items(0x05, 0x07);
+    EXPECT_EQ(bytes.size(), 44u);  // 8 + 2 + 1*34
+    EXPECT_EQ(bytes[2], 0x05);
+    EXPECT_EQ(bytes[3], 0x07);
+    std::uint16_t count = 0;
+    std::memcpy(&count, bytes.data() + 8, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 1u);
+    // First Item starts at offset 10.
+    mxh::game::ShopItemBase first{};
+    std::memcpy(&first, bytes.data() + 10, sizeof(first));
+    EXPECT_EQ(first.ItemBase.wIconIdx, 55134);
+    EXPECT_EQ(first.Param, 1u);
+    EXPECT_EQ(first.Remaintime, 60000u);
+}
+
+TEST(ShopItemManagerWire, MultipleItemsAreContiguousAndTrimmed) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    for (uint16_t icon : {uint16_t{55134}, uint16_t{55142}, uint16_t{55200}}) {
+        auto ib = make_item_base(icon);
+        ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    }
+    auto bytes = m.serialize_using_items(0, 0);
+    EXPECT_EQ(bytes.size(), 8u + 2u + 3u * 34u);  // = 112
+    std::uint16_t count = 0;
+    std::memcpy(&count, bytes.data() + 8, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 3u);
+}
+
+TEST(ShopItemManagerWire, HeaderlessHelperZerosCategoryAndProtocol) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    auto bytes = m.serialize_using_items_headerless();
+    EXPECT_EQ(bytes[2], 0);
+    EXPECT_EQ(bytes[3], 0);
+}
+
+TEST(ShopItemManagerWire, SerializeAfterReleaseIsEmptyFrame) {
+    ShopItemManager m;
+    int s = 0;
+    m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, 1, PackedTime{0x11111111u}, 60000u, 1000u));
+    m.release();
+    auto bytes = m.serialize_using_items(0, 0);
+    EXPECT_EQ(bytes.size(), 10u);
+    std::uint16_t count = 0xFFFFu;
+    std::memcpy(&count, bytes.data() + 8, sizeof(std::uint16_t));
+    EXPECT_EQ(count, 0u);
+}
+
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
     EXPECT_EQ(SHOP_ITEM_DUP_NONE, 0u);
 }

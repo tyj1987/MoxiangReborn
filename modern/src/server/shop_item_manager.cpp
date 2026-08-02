@@ -5,6 +5,7 @@
 // manager participates in mxh_server link units and CMake target_sources.
 
 #include "mxh/server/shop_item_manager.hpp"
+#include <cstring>
 
 namespace mxh::server {
 
@@ -167,6 +168,31 @@ std::size_t ShopItemManager::tick_and_collect_expired(std::uint32_t delta_ms,
     const std::size_t before = out.size();
     collect_expired(now_ms, out);
     return out.size() - before;
+}
+
+std::vector<std::uint8_t> ShopItemManager::serialize_using_items(
+    std::uint8_t category, std::uint8_t protocol) const {
+    if (m_usingItems.size() > 100u) return {};  // legacy max
+    const std::uint16_t count = static_cast<std::uint16_t>(m_usingItems.size());
+    const std::size_t total =
+        sizeof(mxh::net::MsgHeader) + sizeof(std::uint16_t) +
+        static_cast<std::size_t>(count) * sizeof(game::ShopItemBase);
+    std::vector<std::uint8_t> out(total, 0);
+    if (total < 8u) return out;
+    out[2] = category;   // MSGBASE.Category offset = 2 (checksum, code, category)
+    out[3] = protocol;   // MSGBASE.Protocol offset = 3
+    std::memcpy(out.data() + 8, &count, sizeof(std::uint16_t));
+    std::size_t offset = 8 + sizeof(std::uint16_t);
+    for (const auto& kv : m_usingItems) {
+        std::memcpy(out.data() + offset, &kv.second.Data.ShopItem,
+                    sizeof(game::ShopItemBase));
+        offset += sizeof(game::ShopItemBase);
+    }
+    return out;
+}
+
+std::vector<std::uint8_t> ShopItemManager::serialize_using_items_headerless() const {
+    return serialize_using_items(0, 0);
 }
 
 [[maybe_unused]] constexpr int shop_item_manager_translation_unit_anchor = 0;

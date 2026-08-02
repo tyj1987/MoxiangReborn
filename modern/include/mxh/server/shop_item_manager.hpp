@@ -156,6 +156,22 @@ public:
     // Opaque player pointer accessors. After release() this returns nullptr.
     void* player() const noexcept { return m_pPlayer; }
 
+    // Build the SEND_SHOPITEM_USEDINFO wire bytes for this manager,
+    // 1:1 with legacy CShopItemManager::SendShopItemUseInfo(). The header
+    // is zeroed except for category/protocol (caller supplies them via
+    // `category` and `protocol`). The bytes are MSGBASE + WORD ItemCount
+    // + ItemCount * ShopItemBase, trimmed exactly as the legacy
+    // SEND_SHOPITEM_USEDINFO::GetSize() does. Returns an empty vector
+    // if the table exceeds the legacy 100-entry maximum (which cannot
+    // happen at the data plane since the pool capacity is 50).
+    std::vector<std::uint8_t> serialize_using_items(
+        std::uint8_t category, std::uint8_t protocol) const;
+
+    // Same as serialize_using_items() but leaves the header category/
+    // protocol bytes at 0. Useful for tests that only care about the
+    // ItemCount + Item[N] layout.
+    std::vector<std::uint8_t> serialize_using_items_headerless() const;
+
     // Const read-only access to the underlying tables for serialization
     // (legacy SendShopItemUseInfo sends the entire table on demand).
     const std::unordered_map<std::uint64_t, UsingShopItemEntry>& using_items() const noexcept {

@@ -29,6 +29,7 @@
 #include <cstdint>
 
 #include "mxh/game/item_types.hpp"
+#include "mxh/net/net.hpp"
 
 namespace mxh::game {
 
@@ -88,6 +89,30 @@ struct MoveData {
 
 static_assert(sizeof(MoveData) == MOVE_DATA_SIZE,
               "MoveData must be 31 bytes to match legacy CommonStruct.h MOVEDATA (under pack(1))");
+
+// 1:1 port of legacy [CC]Header/CommonStruct.h SEND_SHOPITEM_USEDINFO.
+// Sent by CShopItemManager::SendShopItemUseInfo() in response to the
+// client requesting the full using-item list (category=MP_ITEM,
+// protocol=MP_ITEM_SHOPITEM_USEDINFO). The wire size depends on
+// ItemCount: GetSize() returns the trimmed total bytes, just like the
+// legacy SEND_SHOPITEM_USEDINFO::GetSize().
+struct SendShopItemUsedInfo {
+    mxh::net::MsgHeader header{};
+    std::uint16_t ItemCount = 0;
+    ShopItemBase Item[100] = {};
+};
+
+inline constexpr std::size_t SEND_SHOPITEM_USEDINFO_MAX_BYTES =
+    sizeof(mxh::net::MsgHeader) + sizeof(std::uint16_t) + 100 * sizeof(ShopItemBase);
+
+// GetSize(): legacy returns total minus the unused trailing ShopItemBase
+// entries. We replicate the exact arithmetic so the wire byte length
+// matches what the legacy server emitted.
+inline std::size_t send_shopitem_usedinfo_size(std::uint16_t item_count) noexcept {
+    if (item_count > 100) return 0;
+    return sizeof(mxh::net::MsgHeader) + sizeof(std::uint16_t) +
+           static_cast<std::size_t>(item_count) * sizeof(ShopItemBase);
+}
 
 #pragma pack(pop)
 
