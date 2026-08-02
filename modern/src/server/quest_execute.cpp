@@ -1,4 +1,5 @@
 #include "mxh/server/quest_execute.hpp"
+#include "mxh/server/quest_group.hpp"
 
 #include <charconv>
 #include <cstddef>
@@ -24,8 +25,8 @@ constexpr CommandShape kCommands[] = {
     {"*ADDCOUNT", QuestExecuteKind::AddCount, 2, 2},
     {"*ADDCOUNTFQW", QuestExecuteKind::AddCountFQW, 3, 3},
     {"*ADDCOUNTFW", QuestExecuteKind::AddCountFW, 3, 3},
-    {"*ADDCOUNTLEVELGAP", QuestExecuteKind::LevelGap, 3, 3},
-    {"*ADDCOUNTMONLEVEL", QuestExecuteKind::MonLevel, 3, 3},
+    {"*ADDCOUNTLEVELGAP", QuestExecuteKind::LevelGap, 4, 4},
+    {"*ADDCOUNTMONLEVEL", QuestExecuteKind::MonLevel, 4, 4},
     {"*GIVEQUESTITEM", QuestExecuteKind::GiveQuestItem, 2, 2},
     {"*TAKEQUESTITEM", QuestExecuteKind::TakeQuestItem, 3, 3},
     {"*GIVEITEM", QuestExecuteKind::GiveItem, 2, 2},
@@ -118,6 +119,38 @@ std::optional<QuestExecuteSpec> parse_quest_execute(
             static_cast<std::uint16_t>(result.args[offset + 2])});
     }
     return result;
+}
+
+QuestExecuteApplyResult apply_count_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec,
+    std::int32_t player_level, std::int32_t monster_level) noexcept {
+    const auto* quest = quest_group_get_quest(state, spec.quest_idx);
+    if (quest == nullptr)
+        return {QuestExecuteApplyStatus::MissingQuest, false};
+
+    switch (spec.kind) {
+    case QuestExecuteKind::AddCount:
+        if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_add_count(state, spec.quest_idx, spec.args[0], spec.args[1])};
+    case QuestExecuteKind::LevelGap:
+        if (spec.args.size() != 4u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_add_count_from_level_gap(
+                    state, spec.quest_idx, spec.args[0], spec.args[1], spec.args[2],
+                    spec.args[3], player_level, monster_level)};
+    case QuestExecuteKind::MonLevel:
+        if (spec.args.size() != 4u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_add_count_from_monster_level(
+                    state, spec.quest_idx, spec.args[0], spec.args[1], spec.args[2],
+                    spec.args[3], static_cast<std::uint32_t>(monster_level))};
+    case QuestExecuteKind::AddCountFQW:
+    case QuestExecuteKind::AddCountFW:
+        return {QuestExecuteApplyStatus::UnsupportedContext, false};
+    default:
+        return {QuestExecuteApplyStatus::InvalidSpec, false};
+    }
 }
 
 }  // namespace mxh::server

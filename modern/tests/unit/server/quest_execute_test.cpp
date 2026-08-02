@@ -1,9 +1,13 @@
 #include "mxh/server/quest_execute.hpp"
+#include "mxh/server/quest_group.hpp"
 
 #include <gtest/gtest.h>
 
 namespace {
 using mxh::server::QuestExecuteKind;
+using mxh::server::QuestExecuteApplyStatus;
+using mxh::server::apply_count_execute;
+using mxh::server::make_quest_group;
 using mxh::server::parse_quest_execute;
 using mxh::server::quest_execute_kind_from_token;
 }
@@ -71,4 +75,42 @@ TEST(QuestExecuteParser, RejectsMissingExtraMalformedAndOutOfRangeArgs) {
     EXPECT_FALSE(parse_quest_execute("*RANDOMTAKEITEM 1 2 1 1 10000", 1u, 1u).has_value());
     EXPECT_FALSE(parse_quest_execute("*RANDOMTAKEITEM 1 1 70000 1 1", 1u, 1u).has_value());
     EXPECT_FALSE(parse_quest_execute("unknown", 1u, 1u).has_value());
+}
+
+TEST(QuestExecuteApply, AddCountUsesParsedSubquestAndClamps) {
+    auto state = make_quest_group();
+    ASSERT_TRUE(mxh::server::quest_group_create_quest(state, 7u));
+    const auto spec = parse_quest_execute("*ADDCOUNT 2 3", 7u, 0u);
+    ASSERT_TRUE(spec.has_value());
+    EXPECT_EQ(apply_count_execute(state, *spec).status, QuestExecuteApplyStatus::Applied);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(2u), 1u);
+    EXPECT_EQ(apply_count_execute(state, *spec).status, QuestExecuteApplyStatus::Applied);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(2u), 2u);
+}
+
+TEST(QuestExecuteApply, LevelGapAndMonsterLevelForwardBounds) {
+    auto state = make_quest_group();
+    ASSERT_TRUE(mxh::server::quest_group_create_quest(state, 7u));
+    const auto gap = parse_quest_execute("*ADDCOUNTLEVELGAP 1 5 3 2", 7u, 0u);
+    ASSERT_TRUE(gap.has_value());
+    EXPECT_EQ(apply_count_execute(state, *gap, 10, 8).status,
+              QuestExecuteApplyStatus::Applied);
+    const auto level = parse_quest_execute("*ADDCOUNTMONLEVEL 1 5 8 10", 7u, 0u);
+    ASSERT_TRUE(level.has_value());
+    EXPECT_EQ(apply_count_execute(state, *level, 0, 9).status,
+              QuestExecuteApplyStatus::Applied);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(1u), 2u);
+}
+
+TEST(QuestExecuteApply, MissingQuestAndWeaponContextAreExplicit) {
+    auto state = make_quest_group();
+    const auto missing = parse_quest_execute("*ADDCOUNT 1 2", 99u, 0u);
+    ASSERT_TRUE(missing.has_value());
+    EXPECT_EQ(apply_count_execute(state, *missing).status,
+              QuestExecuteApplyStatus::MissingQuest);
+    ASSERT_TRUE(mxh::server::quest_group_create_quest(state, 99u));
+    const auto weapon = parse_quest_execute("*ADDCOUNTFW 1 2 3", 99u, 0u);
+    ASSERT_TRUE(weapon.has_value());
+    EXPECT_EQ(apply_count_execute(state, *weapon).status,
+              QuestExecuteApplyStatus::UnsupportedContext);
 }

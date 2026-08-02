@@ -8,6 +8,8 @@
 
 namespace mxh::server {
 
+struct QuestGroupState;
+
 // Values mirror legacy eQuestExecute. Unsupported legacy enum values are
 // intentionally not accepted by parse_quest_execute because the original
 // QuestScriptLoader did not construct an executor for them.
@@ -58,6 +60,18 @@ struct QuestExecuteSpec final {
     std::vector<QuestRandomItem> random_items;
 };
 
+enum class QuestExecuteApplyStatus : std::uint8_t {
+    Applied = 0,
+    MissingQuest = 1,
+    InvalidSpec = 2,
+    UnsupportedContext = 3,
+};
+
+struct QuestExecuteApplyResult final {
+    QuestExecuteApplyStatus status = QuestExecuteApplyStatus::InvalidSpec;
+    bool changed = false;
+};
+
 // Parse one legacy QuestScriptLoader execution line. The command must be the
 // first whitespace-delimited token (for example "*ADDCOUNT 3 10"). Numeric
 // values are decimal DWORDs, and extra or missing parameters reject the line.
@@ -69,5 +83,13 @@ std::optional<QuestExecuteSpec> parse_quest_execute(
 
 std::optional<QuestExecuteKind> quest_execute_kind_from_token(
     std::string_view token) noexcept;
+
+// Apply the count-family executors whose legacy inputs are fully represented
+// by QuestGroupState. Weapon-filtered variants deliberately return
+// UnsupportedContext until a real player equipment view is supplied.
+QuestExecuteApplyResult apply_count_execute(
+    QuestGroupState& state, const QuestExecuteSpec& spec,
+    std::int32_t player_level = 0,
+    std::int32_t monster_level = 0) noexcept;
 
 }  // namespace mxh::server
