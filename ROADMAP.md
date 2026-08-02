@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-08-03 — D4.13 ShopItemManager tick 时间跟踪 + expire 扫描（13 new tests：tick/rollover/check_due/clear_* + collect_expired + tick_and_collect_expired gate on 30s 阈值），D5.1 agent_murimnet forward runtime/chat/logout 协议（7 new tests），D4.12 ShopItemManager 数据平面（25 new tests）。
+> **最近一次状态刷新**：2026-08-03 — D4.14 ShopItemManager UsedShopItem 数据面（11 new tests：legacy wIconIdx key + de-dup + is_using_item_active + delete-then-reinsert + release-clears），D4.13 tick/expire +13，D5.1 agent_murimnet forward +7，D4.12 数据平面 +25；ShopItemManager 49/49 PASS。
 
 ---
 
@@ -170,6 +170,8 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 - [x] D4.11 ItemManager MAXMONEY clipping correction | 2 new tests
 - [x] D4.12 ShopItemManager 1:1 lock | 25 new tests
 - [x] D4.13 ShopItemManager tick timer + expire scan | 13 new tests
+- [x] D4.14 ShopItemManager UsedShopItem data plane | 11 new tests
+ Locks legacy CShopItemManager::UsedShopItem data plane without the ITEMMGR/AbilityManager/ShopItemOption coupling: used_shop_item(item_base, param, begin_time, remain_ms, now_ms) inserts a UsingShopItemEntry keyed by item_base.wIconIdx (1:1 with legacy m_UsingItemTable.Add(ShopItem, wIconIdx)), rejects zero icon and duplicate icons, sets LastCheckTime=now_ms (legacy gCurTime). Adds has_using_item_by_icon_idx/find_using_item_by_icon_idx O(1) lookups (legacy GetData) and is_using_item_active(now_ms) which is true iff (LastCheckTime+Remaintime) > now_ms. Delete-then-reinsert replaces the row (matches legacy m_UsingItemTable.Remove + Add sequence). ShopItemAllUseInfoUpdateToDB and the eIncantation_SkPointRedist/eIncantation_StatePoint ShopItemOption adjustments remain a follow-up commit.
  Locks the legacy CheckEndTime timing gate (CHECK_INTERVAL_MS=30000, UPDATE_INTERVAL_MS=600000) without the player/item-manager coupling: tick(delta_ms) increments m_Checktime and m_Updatetime using DWORD arithmetic, returns true when m_Updatetime wraps past 600000 (legacy DB-flush trigger), check_due() exposes the 30s throttle, collect_expired(now_ms, out) appends item indices whose (LastCheckTime + Remaintime) deadline has passed, tick_and_collect_expired(delta_ms, now_ms, out) is the convenience wrapper that gates on check_due(). UseShopItem/CheckEndTime full legacy path (ITEMMGR/AbilityManager/ShopItemOption hooks) remains a follow-up.
  Ports the legacy [Server]Map/ShopItemManager.h data plane: SHOPITEMBASE/SHOPITEMWITHTIME/MOVEDATA packed structs under #pragma pack(1) (34/38/31 bytes), the five dup counters (Incantation/Charm/Herb/Sundries/PetEquip), the m_ProtectItemIdx, the m_Checktime/m_Updatetime timers, and CRUD on the using-item table (legacy UsingItemPool 50/10) and move-point table (legacy MovePointPool 50/10, MovePointTable 30). Init zeroes all state and stores the opaque player pointer; release clears state and nulls the pointer; add_* rejects 0 keys and duplicates. UseShopItem/CheckEndTime/CalcShopItemOption and the legacy AbilityManager/StatsCalcManager/EventMapMgr/etc. hooks remain in a follow-up commit.
  Removes the fabricated 2,000,000,000 cap and reuses MXH_PLAYER_MAX_MONEY=0xFFFFFFFF; add_money now mirrors CPurse::Addition by clipping to remaining room instead of rejecting the whole addition, accepts 2,000,000,001, and cannot wrap at UINT32_MAX.
