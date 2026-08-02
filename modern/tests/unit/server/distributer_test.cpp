@@ -18,6 +18,8 @@ using mxh::server::choose_one;
 using mxh::server::delete_damaged_player;
 using mxh::server::calc_obtain_exp;
 using mxh::server::calc_obtain_ability_exp;
+using mxh::server::serialize_exp_point_wire;
+using mxh::server::serialize_ability_exp_point_wire;
 }
 
 mxh::server::PlayerMonsterPointTable test_point_table() {
@@ -226,4 +228,37 @@ TEST(DistributerAbilityExp, MoreThanFiveLevelsAbovePlayerReturnsZero) {
 
 TEST(DistributerAbilityExp, MonsterLevelIsCappedAtPlayerPlusNine) {
     EXPECT_EQ(calc_obtain_ability_exp(120, 95), 140u);
+}
+
+TEST(DistributerExpWire, CharacterExpPointUsesLegacyPackedLayout) {
+    const auto wire = serialize_exp_point_wire(0x01020304u, 0x0102030405060708LL, 1u);
+    ASSERT_EQ(wire.size(), 17u);
+    EXPECT_EQ(wire[2], 3u);
+    EXPECT_EQ(wire[3], 13u);
+    EXPECT_EQ(wire[4], 0x04u);
+    EXPECT_EQ(wire[7], 0x01u);
+    EXPECT_EQ(wire[8], 0x08u);
+    EXPECT_EQ(wire[15], 0x01u);
+    EXPECT_EQ(wire[16], 1u);
+}
+
+TEST(DistributerExpWire, CharacterExpPointPreservesNegativeSignedValue) {
+    const auto wire = serialize_exp_point_wire(7u, -1, 2u, 99u, 88u);
+    ASSERT_EQ(wire.size(), 17u);
+    EXPECT_EQ(wire[2], 99u);
+    EXPECT_EQ(wire[3], 88u);
+    for (std::size_t i = 8; i < 16; ++i) EXPECT_EQ(wire[i], 0xffu);
+    EXPECT_EQ(wire[16], 2u);
+}
+
+TEST(DistributerExpWire, AbilityExpPointUsesLegacyDwordLayout) {
+    const auto wire = serialize_ability_exp_point_wire(0xaabbccddu, 0x01020304u, 0u);
+    ASSERT_EQ(wire.size(), 13u);
+    EXPECT_EQ(wire[2], 3u);
+    EXPECT_EQ(wire[3], 29u);
+    EXPECT_EQ(wire[4], 0xddu);
+    EXPECT_EQ(wire[7], 0xaau);
+    EXPECT_EQ(wire[8], 0x04u);
+    EXPECT_EQ(wire[11], 0x01u);
+    EXPECT_EQ(wire[12], 0u);
 }

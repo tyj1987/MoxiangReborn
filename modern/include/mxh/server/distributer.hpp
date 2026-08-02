@@ -3,8 +3,10 @@
 #include "mxh/server/player_monster_point.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 namespace mxh::server {
 
@@ -132,6 +134,33 @@ inline std::uint32_t calc_obtain_ability_exp(std::uint32_t monster_level,
     if (monster_level + 5u < killer_level) return 0u;
     if (killer_level + 9u < monster_level) monster_level = killer_level + 9u;
     return (monster_level - killer_level + 5u) * 10u;
+}
+
+// Legacy MP_CHAR_EXPPOINT_ACK wire: MSGBASE + EXPTYPE + BYTE. EXPTYPE is
+// INT64 in CommonStruct.h; the explicit offsets preserve the packed layout.
+inline std::vector<std::uint8_t> serialize_exp_point_wire(
+    std::uint32_t object_id, std::int64_t exp_point, std::uint8_t exp_kind,
+    std::uint8_t category = 3u, std::uint8_t protocol = 13u) {
+    std::vector<std::uint8_t> wire(17u, 0u);
+    wire[2] = category;
+    wire[3] = protocol;
+    std::memcpy(wire.data() + 4u, &object_id, sizeof(object_id));
+    std::memcpy(wire.data() + 8u, &exp_point, sizeof(exp_point));
+    wire[16] = exp_kind;
+    return wire;
+}
+
+// Legacy MP_CHAR_ABILITYEXPPOINT_ACK wire: MSGBASE + DWORD + BYTE.
+inline std::vector<std::uint8_t> serialize_ability_exp_point_wire(
+    std::uint32_t object_id, std::uint32_t exp_point, std::uint8_t exp_kind,
+    std::uint8_t category = 3u, std::uint8_t protocol = 29u) {
+    std::vector<std::uint8_t> wire(13u, 0u);
+    wire[2] = category;
+    wire[3] = protocol;
+    std::memcpy(wire.data() + 4u, &object_id, sizeof(object_id));
+    std::memcpy(wire.data() + 8u, &exp_point, sizeof(exp_point));
+    wire[12] = exp_kind;
+    return wire;
 }
 
 }  // namespace mxh::server
