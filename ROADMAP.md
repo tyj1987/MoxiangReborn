@@ -143,7 +143,7 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 ### Phase D —— 玩法/数值 1:1 锁定（4-6 周）
 **目标**：原版所有玩法可玩且数值一致。
 
-- [ ] D1 技能系统 SkillManager 1:1（双版本，client/server）
+- [x] D1 技能系统 SkillManager 1:1（双版本，client/server） | D1.1+D1.2+D1.3 all done; SkillInfo 60+ field legacy SKILLINFO layout with 7x[12] arrays; SkillListParser decodes MHFile packed-text per legacy skillinfo.cpp InitSkillInfo; SkillManager init_from_bin loads 1817 SWorking Resource SkillList.bin entries; 276+ skill tests passing (11 SkillListParser + 13 SkillManager + 14 MugongManager + 21 SkillInfo coverage + 2 end-to-end real bin load).
 - [x] D2 战斗系统 BattleFactory_Default 1:1
 - [ ] D3 任务系统 QuestManager + QuestExecute_* 1:1
 - [x] D3.1 QuestExecute_* script parser | 9 tests lock the 27 commands registered by the Korean legacy QuestScriptLoader, exact eQuestExecute numeric values, quest/subquest context, DWORD argument order, tab/CRLF tokenization, and RANDOMTAKEITEM WORD triples; unsupported STARTQUEST/MINUSCOUNT/CHANGESUBATTR remain rejected like the default loader.
