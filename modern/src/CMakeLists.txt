@@ -180,6 +180,7 @@ add_library(mxh_server STATIC
     server/quest_manager.cpp
     server/quest_execute.cpp
     server/quest_script_line.cpp
+    server/quest_trigger.cpp
     server/item_manager.cpp
     server/party_manager.cpp
     server/guild_manager.cpp

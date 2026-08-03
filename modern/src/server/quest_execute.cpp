@@ -183,6 +183,10 @@ QuestExecuteApplyResult apply_quest_execute(
         return report(quest_group_end_subquest(
             state, spec.quest_idx, spec.args[0], now_ms));
     case QuestExecuteKind::EndQuest:
+        if (spec.args.size() != 1u)
+            return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return report(quest_group_end_quest(
+            state, spec.quest_idx, spec.args[0], now_ms));
     case QuestExecuteKind::EndOtherQuest:
         if (spec.args.size() != 2u)
             return {QuestExecuteApplyStatus::InvalidSpec, false};

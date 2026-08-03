@@ -362,6 +362,21 @@ gtest_add_tests(TARGET mxh_quest_script_line_tests
     PRE_SHIP_BUILD
 )
 
+add_executable(mxh_quest_trigger_tests
+    quest_trigger_test.cpp
+)
+target_link_libraries(mxh_quest_trigger_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_quest_trigger_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_quest_trigger_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 
 
 add_executable(mxh_item_manager_tests
