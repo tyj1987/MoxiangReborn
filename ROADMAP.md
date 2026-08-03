@@ -89,9 +89,9 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 ### Phase B —— 服务端能跑起来（2-3 周）
 **目标**：3 个 server（Distribute/Agent/Map）能 listen，能用 modern 客户端登录进游戏。
 
-- [ ] B1 MoxianDistributeServer 启动 + listen 400/600
-- [ ] B2 MoxianAgentServer 启动 + 接 Distribute
-- [ ] B3 MoxianMapServer 启动 + 接 Agent
+- [x] B1 MoxianDistributeServer 启动 + listen 6001 | mxh_login_server legacy framing listens on 6001; DistConnectSuccess and LoginAck verified by live E2E.
+- [x] B2 MoxianAgentServer 启动 + 接 Distribute | Client transition from Distribute LoginAck to Agent CharacterList/CharacterSelect is verified with a seeded SQLite character.
+- [x] B3 MoxianMapServer 启动 + 接 Agent | Delayed MapServer startup locks Agent initial-connect failure, automatic reconnect, GameInSyn forwarding, and 3775-byte GameInAck relay.
 - [ ] B4 Player/AISystem/Map 1:1 port（核心 5 万行）
 - [ ] B5 DBThread + IDbAdapter 真接 MSSQL
 - [x] B6.1 HSEL YHLibrary ABI correction | 79 crypto tests

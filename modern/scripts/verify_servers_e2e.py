@@ -6,17 +6,16 @@ Boots the three modern servers (mxh_login_server, mxh_agent_server,
 mxh_map_server) with SQLite backends, simulates a legacy Moxian
 client through Distribute → Agent → Map, and reports PASS/FAIL.
 
-What it covers (Phase B.1-B.6 E2E):
+What it covers (Phase B server-chain E2E):
   * LoginServer listens on :6001 + sends DistConnectSuccess on connect.
   * Client sends RequestLogin (proto=1) with id+password; server
     validates against the SQLite chr_log_info table and replies
     NotifyUserLoginAck (proto=2) carrying the AgentServer address.
-  * Client connects to AgentServer :7001 and sends
-    CharacterListSyn (proto=9); server replies CharacterListAck
-    (proto=12) with a (possibly empty) character list from the DB.
-  * Client connects to MapServer :8001 and sends GameInSyn
-    (proto=28); server replies GameInAck (proto=29) with a
-    SEND_HERO_TOTALINFO payload (~3000 bytes).
+  * Client connects to AgentServer :7001, loads a seeded character,
+    and completes CharacterSelectSyn/Ack (proto=16/17).
+  * AgentServer starts before MapServer, survives the initial failed
+    connection, reconnects, forwards GameInSyn (proto=28), and relays
+    MapServer GameInAck (proto=29) with SEND_HERO_TOTALINFO.
 
 The test is non-destructive: it writes its DBs to a temp directory
 under modern/scratch/ and removes them on success. The servers are
@@ -27,7 +26,7 @@ Usage:
                                               [--keep-on-fail]
 
 Exit codes:
-  0  — all 4 protocol steps passed
+  0  — all 3 protocol stages passed
   1  — server failed to start within the timeout
   2  — protocol step failed (printed which)
   3  — usage error
@@ -38,6 +37,7 @@ import os
 import shutil
 import signal
 import socket
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -59,6 +59,8 @@ REQUEST_LOGIN            = 1
 NOTIFY_USER_LOGIN_ACK    = 2
 CHARACTER_LIST_SYN       = 9
 CHARACTER_LIST_ACK       = 12
+CHARACTER_SELECT_SYN      = 16
+CHARACTER_SELECT_ACK      = 17
 GAME_IN_SYN              = 28
 GAME_IN_ACK              = 29
 
@@ -69,6 +71,7 @@ LOGIN_PORT = 6001
 AGENT_PORT = 7001
 # MapServer defaults
 MAP_PORT = 8001
+TEST_CHARACTER_ID = 1001
 
 # Server readiness wait (seconds)
 WAIT_FOR_PORT_TIMEOUT = 10.0
@@ -202,6 +205,46 @@ def wait_for_port(host: str, port: int, timeout: float) -> bool:
 # ---------------------------------------------------------------------------
 # E2E test protocol
 # ---------------------------------------------------------------------------
+def seed_agent_character(db_path: Path) -> None:
+    """Create a real character so CharacterSelectSyn can reach MapServer."""
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS character_info ("
+            "charname TEXT PRIMARY KEY, chrid INTEGER NOT NULL UNIQUE, "
+            "userid TEXT NOT NULL, sex_type INTEGER DEFAULT 0, "
+            "hair_type INTEGER DEFAULT 0, face_type INTEGER DEFAULT 0, "
+            "body_type INTEGER DEFAULT 0, start_area INTEGER DEFAULT 12, "
+            "height REAL DEFAULT 1.0, width REAL DEFAULT 1.0, "
+            "level INTEGER DEFAULT 1, map_num INTEGER DEFAULT 12, "
+            "standing_idx INTEGER DEFAULT 0, character_data BLOB)")
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS chr_log_info ("
+            "id TEXT PRIMARY KEY, userlevel INTEGER NOT NULL DEFAULT 0)")
+        connection.execute(
+            "INSERT OR REPLACE INTO character_info "
+            "(charname, chrid, userid, level, map_num, start_area) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("E2EHero", TEST_CHARACTER_ID, "1", 1, 12, 12))
+        connection.execute(
+            "INSERT OR REPLACE INTO chr_log_info (id, userlevel) VALUES (?, ?)",
+            ("1", 0))
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def wait_for_log(server: ServerProc, needle: str, timeout: float = 3.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if server.log_path and server.log_path.exists():
+            text = server.log_path.read_text(encoding="utf-8", errors="replace")
+            if needle in text:
+                return
+        time.sleep(0.05)
+    raise RuntimeError(f"{server.name} log never contained: {needle}")
+
+
 def step_distribute(host: str, port: int, user_id: str, password: str) \
         -> Tuple[str, int, int, int]:
     """
@@ -264,85 +307,56 @@ def step_distribute(host: str, port: int, user_id: str, password: str) \
     return agent_addr, agent_port, user_idx, auth_key
 
 
-def step_agent(host: str, port: int, user_id: str, user_idx: int,
-               dist_auth_key: int) -> int:
-    """
-    Connect to AgentServer, send CharacterListSyn, expect CharacterListAck.
-
-    Legacy CharacterListSyn payload (agent_handler.cpp:526-538):
-        [user_id: u32 LE] [dist_auth_key: u32 LE]   = 8 bytes
-
-    Returns the user_id (which is also the player_id for MapServer).
-    Note: GameInSyn via Agent requires a prior CharacterSelectSyn
-    (proto=16) to set conn_char_ids_; that's an Agent↔Map forwarding
-    test (Phase 9), exercised separately. Here we only verify the
-    AgentServer's character-list reply works against the live DB.
-    """
+def step_agent(host: str, port: int, user_idx: int,
+               dist_auth_key: int, character_id: int) -> None:
+    """Drive CharacterList, CharacterSelect, and GameIn through AgentServer."""
     print(f"  [2/3] Agent connect {host}:{port} ...")
-    s = socket.create_connection((host, port), timeout=3.0)
-    cat, proto, obj, payload = recv_message(s)
-    # AgentServer uses AgentConnectSuccess (proto=8) for its connect ack,
-    # not DistConnectSuccess (proto=0) like DistributeServer.
-    if (cat, proto) != (CATEGORY_USERCONN, AGENT_CONNECT_SUCCESS):
-        s.close()
-        raise RuntimeError(
-            f"expected (UserConn, AgentConnectSuccess) for agent, got "
-            f"(cat={cat}, proto={proto})")
-    agent_auth_key = obj
-    print(f"        got AgentConnectSuccess auth_key={agent_auth_key}")
+    sock = socket.create_connection((host, port), timeout=5.0)
+    try:
+        cat, proto, obj, payload = recv_message(sock)
+        if (cat, proto) != (CATEGORY_USERCONN, AGENT_CONNECT_SUCCESS):
+            raise RuntimeError(
+                f"expected AgentConnectSuccess, got cat={cat} proto={proto}")
+        print(f"        got AgentConnectSuccess auth_key={obj}")
 
-    # Send CharacterListSyn: [user_id:4B LE][dist_auth_key:4B LE] = 8 bytes
-    pl = struct.pack("<II", user_idx, dist_auth_key)
-    s.sendall(build_message(CATEGORY_USERCONN, CHARACTER_LIST_SYN, user_idx, pl))
-    print(f"        sent CharacterListSyn user_idx={user_idx}")
+        list_payload = struct.pack("<II", user_idx, dist_auth_key)
+        sock.sendall(build_message(
+            CATEGORY_USERCONN, CHARACTER_LIST_SYN, user_idx, list_payload))
+        cat, proto, obj, payload = recv_message(sock)
+        if (cat, proto) != (CATEGORY_USERCONN, CHARACTER_LIST_ACK):
+            raise RuntimeError(
+                f"expected CharacterListAck, got cat={cat} proto={proto}")
+        print(f"        got CharacterListAck payload={len(payload)} bytes")
 
-    cat, proto, obj, payload = recv_message(s)
-    s.close()
-    if (cat, proto) != (CATEGORY_USERCONN, CHARACTER_LIST_ACK):
-        raise RuntimeError(
-            f"expected (UserConn, CharacterListAck), got "
-            f"(cat={cat}, proto={proto}, obj={obj})")
-    print(f"        got CharacterListAck payload={len(payload)} bytes")
-    return user_idx
+        sock.sendall(build_message(
+            CATEGORY_USERCONN, CHARACTER_SELECT_SYN, character_id,
+            struct.pack("<H", 0)))
+        cat, proto, obj, payload = recv_message(sock)
+        if (cat, proto, obj) != (
+                CATEGORY_USERCONN, CHARACTER_SELECT_ACK, character_id):
+            raise RuntimeError(
+                f"expected CharacterSelectAck for {character_id}, got "
+                f"cat={cat} proto={proto} obj={obj}")
+        if len(payload) != 1 or payload[0] != 12:
+            raise RuntimeError(
+                f"CharacterSelectAck map payload mismatch: {payload!r}")
+        print(f"        got CharacterSelectAck char={character_id} map={payload[0]}")
 
-
-def step_map(host: str, port: int, player_id: int) -> None:
-    """
-    Connect to MapServer directly, send GameInSyn, expect GameInAck with
-    SEND_HERO_TOTALINFO payload (>= 1000 bytes).
-
-    This bypasses the AgentServer's Phase 9 forwarding (which requires
-    CharacterSelectSyn first). MapServer reads MSGBASE.object_id as
-    player_id and replies with default CharData even when chrid is not
-    in character_info.
-
-    Legacy GameInSyn payload: empty (server reads player_id from
-    MSGBASE.object_id; payload is reserved for legacy channel/level
-    fields which the modern server ignores for stub mode).
-    """
-    print(f"  [3/3] Map connect {host}:{port} ...")
-    s = socket.create_connection((host, port), timeout=3.0)
-    # MapServer's on_connect does NOT push a DistConnectSuccess (unlike
-    # DistributeServer/AgentServer); it just logs and waits for the
-    # client to send GameInSyn. Skip the recv and go straight to send.
-    print(f"        connected (MapServer doesn't push connect-ack)")
-
-    # GameInSyn with MSGBASE.object_id = player_id, empty payload.
-    s.sendall(build_message(CATEGORY_USERCONN, GAME_IN_SYN, player_id, b""))
-    print(f"        sent GameInSyn player_id={player_id}")
-
-    cat, proto, obj, payload = recv_message(s)
-    s.close()
-    if (cat, proto) != (CATEGORY_USERCONN, GAME_IN_ACK):
-        raise RuntimeError(
-            f"expected (UserConn, GameInAck), got "
-            f"(cat={cat}, proto={proto}, obj={obj})")
-    if len(payload) < 1000:
-        raise RuntimeError(
-            f"GameInAck payload suspiciously small ({len(payload)} bytes); "
-            f"expected >= 1000 for SEND_HERO_TOTALINFO")
-    print(f"        got GameInAck payload={len(payload)} bytes "
-          f"(>= 1000 -> SEND_HERO_TOTALINFO present)")
+        print("  [3/3] GameIn through Agent -> Map -> Agent ...")
+        sock.sendall(build_message(
+            CATEGORY_USERCONN, GAME_IN_SYN, character_id,
+            struct.pack("<II", 0, 0)))
+        cat, proto, obj, payload = recv_message(sock)
+        if (cat, proto, obj) != (CATEGORY_USERCONN, GAME_IN_ACK, character_id):
+            raise RuntimeError(
+                f"expected relayed GameInAck for {character_id}, got "
+                f"cat={cat} proto={proto} obj={obj}")
+        if len(payload) < 1000:
+            raise RuntimeError(
+                f"GameInAck payload too small: {len(payload)} bytes")
+        print(f"        got relayed GameInAck payload={len(payload)} bytes")
+    finally:
+        sock.close()
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +409,7 @@ def main() -> int:
     db_login = scratch / "login.db"
     db_agent = scratch / "agent.db"
     db_map   = scratch / "map.db"
+    seed_agent_character(db_agent)
 
     # Spawn servers.  LoginServer uses --init-schema so the test user is
     # already in chr_log_info; the seed user is id="test" pw="test".
@@ -420,10 +435,19 @@ def main() -> int:
                      "--db", str(db_map),
                      "--legacy"]),
     ]
-    print(f"  [boot] starting 3 servers from {cfg_dir_name} ...")
-    for s in servers:
-        s.start(log_dir)
-        print(f"        started {s.name} (pid={s.proc.pid})")
+    print(f"  [boot] starting login + agent before delayed MapServer ({cfg_dir_name}) ...")
+    for server in servers[:2]:
+        server.start(log_dir)
+        print(f"        started {server.name} (pid={server.proc.pid})")
+    if not wait_for_port("127.0.0.1", AGENT_PORT, WAIT_FOR_PORT_TIMEOUT):
+        for server in reversed(servers[:2]):
+            server.kill()
+        print("  [FAIL] agent did not listen before delayed map start",
+              file=sys.stderr)
+        return 1
+    time.sleep(6.0)
+    servers[2].start(log_dir)
+    print(f"        started map (pid={servers[2].proc.pid}) after delay")
 
     try:
         # Wait for each port to come up.
@@ -436,6 +460,9 @@ def main() -> int:
                     f"see {s.log_path}")
             print(f"        {s.name} listening on :{port_for[s.name]}")
 
+        wait_for_log(servers[1], "MapServer unavailable; retrying in 500ms")
+        wait_for_log(servers[1], "reconnecting to MapServer...")
+
         # 1. Distribute login
         agent_addr, agent_port, user_idx, dist_auth_key = step_distribute(
             LOGIN_HOST, LOGIN_PORT, "test", "test")
@@ -443,14 +470,10 @@ def main() -> int:
             print(f"  [warn] login ack agent port {agent_port} != expected {AGENT_PORT}",
                   file=sys.stderr)
 
-        # 2. Agent character list (basic DB roundtrip; full Agent→Map
-        #    forwarding needs CharacterSelectSyn which is a separate
-        #    test in the Agent↔Map forwarding smoke).
-        player_id = step_agent(agent_addr, agent_port, "test", user_idx,
-                                dist_auth_key)
-
-        # 3. MapServer GameInSyn → GameInAck (direct, bypassing Agent).
-        step_map("127.0.0.1", MAP_PORT, player_id)
+        step_agent(agent_addr, agent_port, user_idx, dist_auth_key,
+                   TEST_CHARACTER_ID)
+        wait_for_log(servers[1], "forwarding GAMEIN_SYN to MapServer")
+        wait_for_log(servers[2], "[Map] GAMEIN_SYN from player=")
 
         print("\n  [OK] Phase B e2e: all 3 protocol steps passed.")
         return 0

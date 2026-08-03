@@ -271,25 +271,36 @@ int main(int argc, char** argv) {
     // Phase 9: Connect to MapServer if specified.
     std::unique_ptr<MapClientHandler> map_handler;
     std::unique_ptr<mxh::net::TcpClient> map_client;
-    if (!args.map_server_addr.empty()) {
+    auto next_map_reconnect = std::chrono::steady_clock::now();
+
+    const auto connect_map_server = [&]() -> bool {
         map_handler = std::make_unique<MapClientHandler>(handler);
         map_client = std::make_unique<mxh::net::TcpClient>(*map_handler);
         mxh::net::ClientConfig ccfg;
         ccfg.remote_address = args.map_server_addr;
         ccfg.port = args.map_server_port;
-        ccfg.use_legacy_framing = true;  // MapServer always uses legacy
-        auto cerr = map_client->connect(ccfg);
-        if (cerr != mxh::net::NetError::Ok) {
-            std::cerr << "[main] WARNING: cannot connect to MapServer at "
+        ccfg.use_legacy_framing = true;
+        ccfg.connect_timeout = std::chrono::milliseconds(500);
+        const auto error = map_client->connect(ccfg);
+        if (error != mxh::net::NetError::Ok) {
+            std::cerr << "[main] cannot connect to MapServer at "
                       << args.map_server_addr << ":" << args.map_server_port
-                      << " (" << mxh::net::to_string(cerr) << ")\n";
-            std::cerr << "[main] GameInSyn will use stub mode\n";
+                      << " (" << mxh::net::to_string(error) << ")\n";
             map_client.reset();
             map_handler.reset();
-        } else {
-            handler.set_map_server(map_client.get(), map_handler->get_map_conn_id());
-            std::cout << "[main] connected to MapServer at "
-                      << args.map_server_addr << ":" << args.map_server_port << "\n";
+            return false;
+        }
+        handler.set_map_server(map_client.get(), map_handler->get_map_conn_id());
+        std::cout << "[main] connected to MapServer at "
+                  << args.map_server_addr << ":" << args.map_server_port << "\n";
+        return true;
+    };
+
+    if (!args.map_server_addr.empty()) {
+        if (!connect_map_server()) {
+            std::cerr << "[main] MapServer unavailable; retrying in 500ms\n";
+            next_map_reconnect = std::chrono::steady_clock::now() +
+                                 std::chrono::milliseconds(500);
         }
     } else {
         std::cout << "[main] no --map-server specified, GameInSyn will use stub mode\n";
@@ -299,31 +310,18 @@ int main(int argc, char** argv) {
     while (g_running.load()) {
         queue->drain_to(server);
 
-        // Phase 9: auto-reconnect MapClient if disconnected.
-        if (map_handler && map_client && !map_client->is_connected()) {
-            std::cout << "[main] MapClient disconnected, reconnecting...\n";
+        const auto now = std::chrono::steady_clock::now();
+        const bool map_disconnected = !map_client || !map_client->is_connected();
+        if (!args.map_server_addr.empty() && map_disconnected &&
+            now >= next_map_reconnect) {
             handler.set_map_server(nullptr, mxh::net::ConnectionId{});
-            map_client->disconnect();  // join recv thread, clean up
+            if (map_client) map_client->disconnect();
             map_client.reset();
             map_handler.reset();
 
-            // Recreate and reconnect.
-            map_handler = std::make_unique<MapClientHandler>(handler);
-            map_client = std::make_unique<mxh::net::TcpClient>(*map_handler);
-            mxh::net::ClientConfig ccfg;
-            ccfg.remote_address = args.map_server_addr;
-            ccfg.port = args.map_server_port;
-            ccfg.use_legacy_framing = true;
-            auto cerr = map_client->connect(ccfg);
-            if (cerr != mxh::net::NetError::Ok) {
-                std::cerr << "[main] reconnect failed: "
-                          << mxh::net::to_string(cerr) << "\n";
-                map_client.reset();
-                map_handler.reset();
-            } else {
-                handler.set_map_server(map_client.get(),
-                                       map_handler->get_map_conn_id());
-                std::cout << "[main] reconnected to MapServer\n";
+            std::cout << "[main] reconnecting to MapServer...\n";
+            if (!connect_map_server()) {
+                next_map_reconnect = now + std::chrono::milliseconds(500);
             }
         }
 
