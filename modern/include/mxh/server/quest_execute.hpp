@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace mxh::server {
@@ -81,6 +82,14 @@ struct QuestExecuteApplyResult final {
 std::optional<QuestExecuteSpec> parse_quest_execute(
     std::string_view line, std::uint32_t quest_idx,
     std::uint32_t subquest_idx) noexcept;
+
+
+
+// Return the [min,max] argument count the legacy QuestScriptLoader expects
+// for a given command kind. Used by the line parser to trim a sub-line
+// that may be followed by additional clauses (event, limit, execute).
+std::pair<std::size_t, std::size_t> quest_execute_arg_range(
+    QuestExecuteKind kind) noexcept;
 
 std::optional<QuestExecuteKind> quest_execute_kind_from_token(
     std::string_view token) noexcept;

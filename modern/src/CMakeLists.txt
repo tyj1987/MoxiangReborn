@@ -179,6 +179,7 @@ add_library(mxh_server STATIC
     server/money_manager.cpp
     server/quest_manager.cpp
     server/quest_execute.cpp
+    server/quest_script_line.cpp
     server/item_manager.cpp
     server/party_manager.cpp
     server/guild_manager.cpp

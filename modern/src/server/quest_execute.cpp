@@ -74,6 +74,14 @@ bool parse_u32(std::string_view token, std::uint32_t& value) noexcept {
 
 }  // namespace
 
+std::pair<std::size_t, std::size_t> quest_execute_arg_range(
+    QuestExecuteKind kind) noexcept {
+    for (const auto& command : kCommands)
+        if (command.kind == kind)
+            return {command.min_args, command.max_args};
+    return {0u, 0u};
+}
+
 std::optional<QuestExecuteKind> quest_execute_kind_from_token(
     std::string_view token) noexcept {
     const auto* command = find_command(token);
