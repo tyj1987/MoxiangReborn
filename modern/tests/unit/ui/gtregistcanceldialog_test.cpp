@@ -218,4 +218,145 @@ TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynBeforeInitDoesNotCrash)
     SUCCEED();
 }
 
+// ===========================================================================
+// SetCallbacks host-callback injection (C-Batch-2.43).
+//
+// 1:1 with legacy HERO + OBJECTSTATEMGR dispatch in SetActive(val==FALSE):
+//   if (HERO->GetState() == eObjectState_Deal)
+//     OBJECTSTATEMGR->EndObjectState(HERO, eObjectState_Deal).
+// The modern port wires the same dispatch via OPTIONAL host callbacks.
+// ===========================================================================
+
+TEST(CGTRegistcancelDialogTest, SetActiveFalseChecksHostHeroStateFn) {
+    // 1:1: when val==FALSE and the host reports eObjectState_Deal,
+    // the end-deal-state callback is invoked exactly once.
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+
+    // Use a struct to share state (the getState fn returns Deal) and a
+    // counter (the end fn increments) through the same userData pointer.
+    struct SharedData {
+        int state;
+        int endCount;
+    };
+    SharedData shared{};
+    shared.state = mxh::ui::cGTRegistcancelDialog::kObjectStateDeal;
+    shared.endCount = 0;
+    auto sharedGet = [](void* userData) -> std::int32_t {
+        return static_cast<SharedData*>(userData)->state;
+    };
+    auto sharedEnd = [](void* userData) {
+        ++static_cast<SharedData*>(userData)->endCount;
+    };
+    dlg.SetCallbacks(sharedGet, sharedEnd, &shared);
+    dlg.SetActive(false);
+    EXPECT_EQ(shared.endCount, 1);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CGTRegistcancelDialogTest, SetActiveFalseSkipsWhenHeroStateNotDeal) {
+    // 1:1: when val==FALSE but hero state != eObjectState_Deal,
+    // the end-deal-state callback is NOT invoked.
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+
+    // Hero state 99 != Deal (6), so the dispatch must NOT fire.
+    struct SharedData {
+        int state;
+        int endCount;
+    };
+    SharedData shared{};
+    shared.state = 99;
+    shared.endCount = 0;
+    auto getState = [](void* userData) -> std::int32_t {
+        return static_cast<SharedData*>(userData)->state;
+    };
+    auto endState = [](void* userData) {
+        ++static_cast<SharedData*>(userData)->endCount;
+    };
+    dlg.SetCallbacks(getState, endState, &shared);
+    dlg.SetActive(false);
+    EXPECT_EQ(shared.endCount, 0);
+}
+
+TEST(CGTRegistcancelDialogTest, SetActiveTrueDoesNotInvokeEndCallback) {
+    // 1:1: when val==TRUE the legacy has NO OBJECTSTATEMGR dispatch.
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+
+    struct SharedData {
+        int state;
+        int endCount;
+    };
+    SharedData shared{};
+    shared.state = mxh::ui::cGTRegistcancelDialog::kObjectStateDeal;
+    shared.endCount = 0;
+    auto getState = [](void* userData) -> std::int32_t {
+        return static_cast<SharedData*>(userData)->state;
+    };
+    auto endState = [](void* userData) {
+        ++static_cast<SharedData*>(userData)->endCount;
+    };
+    dlg.SetCallbacks(getState, endState, &shared);
+    dlg.SetActive(true);
+    EXPECT_EQ(shared.endCount, 0);
+    EXPECT_TRUE(dlg.isActive());
+}
+
+TEST(CGTRegistcancelDialogTest, SetActiveFalseNullCheckFnSkipsDispatch) {
+    // Safe-no-op: a null check fn skips the conditional even if
+    // val==FALSE. The base SetActive(false) still runs.
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    int endCalls = 0;
+    auto endState = [](void* userData) {
+        ++(*static_cast<int*>(userData));
+    };
+    dlg.SetCallbacks(nullptr, endState, &endCalls);
+    dlg.SetActive(false);
+    EXPECT_EQ(endCalls, 0);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CGTRegistcancelDialogTest, SetActiveFalseNullEndFnSkipsDispatch) {
+    // Safe-no-op: a null end fn does not invoke the dispatch.
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    auto getState = [](void*) -> std::int32_t {
+        return mxh::ui::cGTRegistcancelDialog::kObjectStateDeal;
+    };
+    int userData = 0;
+    dlg.SetCallbacks(getState, nullptr, &userData);
+    dlg.SetActive(false);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CGTRegistcancelDialogTest, SetCallbacksPreservesBaseSetActive) {
+    // 1:1: the base SetActive(false) is always called, regardless of
+    // whether the deal-state dispatch fires.
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    EXPECT_TRUE(dlg.isActive());
+    dlg.SetActive(false);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CGTRegistcancelDialogTest, SetActiveFalseAllowsNullCallbackUserData) {
+    cGTRegistcancelDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    auto getState = [](void*) -> std::int32_t {
+        return cGTRegistcancelDialog::kObjectStateDeal;
+    };
+    auto endState = [](void*) {};
+    dlg.SetCallbacks(getState, endState);
+    dlg.SetActive(false);
+    EXPECT_FALSE(dlg.isActive());
+}
+
 }  // namespace mxh::ui::test

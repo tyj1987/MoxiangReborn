@@ -39,18 +39,28 @@ void cGTRegistcancelDialog::SetActive(bool val) noexcept {
     // The modern port:
     //   - Always calls base SetActive(val) (matches
     //     legacy call order).
-    //   - The val == FALSE HERO + OBJECTSTATEMGR
-    //     dispatch is TODO (R-12.x deferred).
+    //   - When val == FALSE, the host HERO state check
+    //     + host OBJECTSTATEMGR EndObjectState(Deal)
+    //     are dispatched via OPTIONAL callbacks
+    //     (replacing the legacy singletons).
     cDialog::SetActive(val);
     if (!val) {
-        // TODO: 1:1 with legacy val == FALSE path:
-        //   if (HERO->GetState() == eObjectState_Deal)
-        //     OBJECTSTATEMGR->EndObjectState(HERO, eObjectState_Deal);
-        //
-        // HERO + OBJECTSTATEMGR not ported (R-12.x
-        // deferred). When ported, the body becomes
-        // the legacy code.
+        if (m_getHeroStateFn && m_endDealStateFn) {
+            const std::int32_t heroState = m_getHeroStateFn(m_callbackUserData);
+            if (heroState == kObjectStateDeal) {
+                m_endDealStateFn(m_callbackUserData);
+            }
+        }
     }
+}
+
+void cGTRegistcancelDialog::SetCallbacks(
+    GetHeroStateFn getHeroState,
+    EndDealStateFn endDealState,
+    void* userData) noexcept {
+    m_getHeroStateFn   = getHeroState;
+    m_endDealStateFn   = endDealState;
+    m_callbackUserData = userData;
 }
 
 void cGTRegistcancelDialog::TournamentRegistCancelSyn() {

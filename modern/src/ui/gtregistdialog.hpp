@@ -87,12 +87,27 @@ public:
 
     // ----- 1:1 with legacy CGTRegistDialog::SetActive override -----
 
-    // 1:1 with legacy SetActive override. Call
-    // base SetActive; if val == FALSE, the
-    // HERO + OBJECTSTATEMGR dispatch is TODO
-    // (R-12.x deferred). The base SetActive is
-    // always called.
+    // 1:1 with legacy SetActive override. Call base SetActive;
+    // if val == FALSE, then if the hero-state provider reports
+    // the hero is currently in eObjectState_Deal (legacy:
+    // HERO->GetState() == eObjectState_Deal), the end-deal-state
+    // callback is invoked (legacy: OBJECTSTATEMGR->
+    // EndObjectState(HERO, eObjectState_Deal)). The host callbacks
+    // are OPTIONAL (same pattern as cGTRegistcancelDialog).
     void SetActive(bool val) noexcept override;
+
+    // ----- Host-injected callbacks (legacy: HERO + OBJECTSTATEMGR singletons) -----
+
+    using GetHeroStateFn = std::int32_t (*)(void* userData);
+    using EndDealStateFn = void (*)(void* userData);
+
+    void SetCallbacks(GetHeroStateFn getHeroState,
+                      EndDealStateFn endDealState,
+                      void* userData = nullptr) noexcept;
+
+    // 1:1 with legacy eObjectState_Deal. The host GetHeroStateFn
+    // returns this value when the hero is in a deal state.
+    static constexpr std::int32_t kObjectStateDeal = 6;
 
     // ----- 1:1 with legacy CGTRegistDialog::TournamentRegistSyn -----
 
@@ -150,6 +165,14 @@ private:
     cStatic* m_pRegistGuild     = nullptr;
     cStatic* m_pRegistableGuild = nullptr;
     cButton* m_pRegistBtn       = nullptr;
+
+    // Host-injected callbacks (replaces HERO + OBJECTSTATEMGR
+    // singletons). A null pointer preserves the safe no-op
+    // behavior so the dialog can be exercised in tests without
+    // wiring the full host singletons.
+    GetHeroStateFn m_getHeroStateFn  = nullptr;
+    EndDealStateFn m_endDealStateFn  = nullptr;
+    void*          m_callbackUserData = nullptr;
 };
 
 }  // namespace mxh::ui
