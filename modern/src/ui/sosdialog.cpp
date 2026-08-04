@@ -6,6 +6,10 @@
 #include "clistdialog.hpp"
 #include "cbutton.hpp"
 
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+
 namespace mxh::ui {
 
 cSOSDialog::cSOSDialog() = default;
@@ -46,129 +50,98 @@ void cSOSDialog::Linking() {
     }
 }
 
+void cSOSDialog::SetCallbacks(
+    GetMemberCountFn getMemberCount, GetMemberFn getMember,
+    GetHeroObjectIdFn getHeroObjectId, GetDwordFn getMapNum,
+    GetDwordFn getChannelNum, GetPositionFn getHeroPosition,
+    AddSystemMessageFn addSystemMessage, SendCancelFn sendCancel,
+    SendSOSFn sendSOS, IsMouseDownUsedFn isMouseDownUsed,
+    void* userData) noexcept {
+    m_getMemberCount = getMemberCount;
+    m_getMember = getMember;
+    m_getHeroObjectId = getHeroObjectId;
+    m_getMapNum = getMapNum;
+    m_getChannelNum = getChannelNum;
+    m_getHeroPosition = getHeroPosition;
+    m_addSystemMessage = addSystemMessage;
+    m_sendCancel = sendCancel;
+    m_sendSOS = sendSOS;
+    m_isMouseDownUsed = isMouseDownUsed;
+    m_callbackUserData = userData;
+}
+
 void cSOSDialog::SetActive(bool val) noexcept {
-    // 1:1 with legacy CSOSDlg::SetActive. The legacy is:
-    //   SOSMemberInfo();
-    //   cDialog::SetActive(val);
-    //   if (!val) {
-    //       MSGBASE msg;
-    //       SetProtocol(&msg, MP_GUILD, MP_GUILD_SOS_SEND_CANCEL);
-    //       msg.dwObjectID = HEROID;
-    //       NETWORK->Send(&msg, sizeof(MSGBASE));
-    //   }
-    //
-    // The modern port calls the base SetActive (so the
-    // dialog becomes active/inactive correctly) but the
-    // SOSMemberInfo fetch + cancel send are no-op stubs
-    // until GUILDMGR + HEROID + NETWORK singletons are
-    // ported. See the TODO below for the exact dispatch
-    // logic.
+    SOSMemberInfo();
     cDialog::SetActive(val);
-    if (val) {
-        // TODO: SOSMemberInfo() — fetch GUILDMGR member
-        //       list + populate m_pListDlg. The body
-        //       depends on GUILDMGR (Tier 3 port) +
-        //       GUILDMEMBERINFO (game_types port) +
-        //       cPtrList (legacy collection type, not
-        //       ported).
-    } else {
-        // TODO: send MP_GUILD_SOS_SEND_CANCEL via NETWORK.
+    if (!val && m_getHeroObjectId && m_sendCancel) {
+        m_sendCancel(m_getHeroObjectId(m_callbackUserData), m_callbackUserData);
     }
 }
 
 std::uint32_t cSOSDialog::ActionEvent(std::int32_t mouseX,
                                       std::int32_t mouseY,
                                       std::uint32_t mouseFlags) {
-    // 1:1 with legacy CSOSDlg::ActionEvent. The legacy
-    // is:
-    //   DWORD we = WE_NULL;
-    //   if (!m_bActive) return we;
-    //   we = cDialog::ActionEvent(mouseInfo);
-    //   if (m_pListDlg->PtIdxInRow(x, y) != -1) {
-    //       if (we & WE_LBTNCLICK) {
-    //           if (WINDOWMGR->IsMouseDownUsed() == FALSE) {
-    //               int Idx = m_pListDlg->GetCurSelectedRowIdx();
-    //               if (Idx != -1) m_dwSelectIdx = Idx;
-    //           }
-    //       }
-    //   }
-    //   return we;
-    //
-    // The modern cDialog::ActionEvent already returns
-    // the base we. The row-click tracking is deferred
-    // until cListDialog::PtIdxInRow is fully ported
-    // (it's in the header but the modern test surface
-    // doesn't exercise it). The modern port just calls
-    // the base ActionEvent.
     if (!isActive()) return 0;
-    std::uint32_t we = cDialog::ActionEvent(mouseX, mouseY, mouseFlags);
-    // TODO: track m_dwSelectIdx from m_pListDlg
-    //       row click (depends on cListDialog row API).
+    const std::uint32_t we = cDialog::ActionEvent(mouseX, mouseY, mouseFlags);
+    if (m_pListDlg && m_pListDlg->PtIdxInRow(mouseX, mouseY) != -1 &&
+        (we & kWeLeftButtonClick) != 0u &&
+        (!m_isMouseDownUsed || !m_isMouseDownUsed(m_callbackUserData))) {
+        const int selected = m_pListDlg->GetCurSelectedRowIdx();
+        if (selected != -1) m_dwSelectIdx = static_cast<std::uint32_t>(selected);
+    }
     return we;
 }
 
 void cSOSDialog::SOSMemberInfo() {
-    // 1:1 with legacy CSOSDlg::SOSMemberInfo. The legacy
-    // is:
-    //   m_pListDlg->RemoveAll();
-    //   cPtrList* pList = GUILDMGR->GetGuild()->GetMemberList();
-    //   PTRLISTPOS pos = pList->GetHeadPosition();
-    //   GUILDMEMBERINFO* pInfo;
-    //   while (pos) {
-    //       pInfo = (GUILDMEMBERINFO*)pList->GetNext(pos);
-    //       if (pInfo) {
-    //           // format name + rank + level, color by bLogged
-    //           if (pInfo->bLogged) m_pListDlg->AddItem(buf, 0xffffffff);
-    //           else                m_pListDlg->AddItem(buf, RGBA_MAKE(172,182,199,255));
-    //       }
-    //   }
-    //
-    // The modern port is a no-op until GUILDMGR +
-    // GUILDMEMBERINFO + cPtrList are ported. The
-    // m_pListDlg->RemoveAll() / AddItem() surface
-    // (cListDialog API) is already in place.
-    if (m_pListDlg) m_pListDlg->RemoveAll();
-    // TODO: fetch GUILDMGR member list + populate
-    //       m_pListDlg with formatted "name rank level"
-    //       rows.
+    if (!m_pListDlg) return;
+    m_pListDlg->RemoveAll();
+    if (!m_getMemberCount || !m_getMember) return;
+
+    const auto count = m_getMemberCount(m_callbackUserData);
+    for (std::size_t index = 0; index < count; ++index) {
+        SOSGuildMember member;
+        if (!m_getMember(index, &member, m_callbackUserData)) continue;
+        char name[17]{};
+        char rank[7]{};
+        std::snprintf(name, sizeof(name), "%.16s", member.memberName ? member.memberName : "");
+        std::snprintf(rank, sizeof(rank), "%.6s", member.rankName ? member.rankName : "");
+        std::fill(name + std::strlen(name), name + 16, ' ');
+        std::fill(rank + std::strlen(rank), rank + 6, ' ');
+        char row[64]{};
+        std::snprintf(row, sizeof(row), "%s %10s %4d", name, rank, member.level);
+        m_pListDlg->AddItem(row, member.logged ? kOnlineColor : kOfflineColor);
+    }
 }
 
-void cSOSDialog::OnActionEvent(std::int32_t lId, void* /*p*/,
-                               std::uint32_t /*we*/) {
-    // 1:1 with legacy CSOSDlg::OnActionEvent. The legacy
-    // handles SOS_OKBTN:
-    //   case SOS_OKBTN: {
-    //       cPtrList* pList = GUILDMGR->GetGuild()->GetMemberList();
-    //       PTRLISTPOS pos = pList->FindIndex(m_dwSelectIdx);
-    //       if (pos) {
-    //           GUILDMEMBERINFO* pInfo = (GUILDMEMBERINFO*)pList->GetAt(pos);
-    //           if (pInfo->MemberIdx == HEROID) {
-    //               CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(1631));
-    //               break;
-    //           }
-    //           if (pInfo->bLogged == FALSE) {
-    //               CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(1632));
-    //               break;
-    //           }
-    //           MSG_DWORD4 msg;
-    //           SetProtocol(&msg, MP_GUILD, MP_GUILD_SOS_SEND_SYN);
-    //           msg.dwObjectID = HEROID;
-    //           msg.dwData1 = pInfo->MemberIdx;
-    //           msg.dwData2 = MAP->GetMapNum();
-    //           VECTOR3 pos = HERO->GetCurPosition();
-    //           stMOVEPOINT stMovePoint;
-    //           stMovePoint.SetMovePoint((WORD)pos.x, (WORD)pos.z);
-    //           msg.dwData3 = stMovePoint.value;
-    //           msg.dwData4 = gChannelNum;
-    //           NETWORK->Send(&msg, sizeof(MSG_DWORD4));
-    //       }
-    //   } break;
-    //
-    // The modern port is a no-op until GUILDMGR + HEROID
-    // + MAP + CHATMGR + NETWORK singletons are ported.
-    (void)lId;
-    // TODO: dispatch to GUILDMGR + HEROID + MAP + CHATMGR
-    //       + NETWORK once those singletons are ported.
+void cSOSDialog::OnActionEvent(std::int32_t lId, void* p,
+                               std::uint32_t we) {
+    (void)p;
+    (void)we;
+    if (lId != kOkBtnId || !m_getMember) return;
+
+    SOSGuildMember member;
+    if (!m_getMember(m_dwSelectIdx, &member, m_callbackUserData)) return;
+    const auto heroObjectId = m_getHeroObjectId
+        ? m_getHeroObjectId(m_callbackUserData)
+        : 0u;
+    if (member.memberIdx == heroObjectId) {
+        if (m_addSystemMessage) m_addSystemMessage(kSelfTargetMessageId, m_callbackUserData);
+        return;
+    }
+    if (!member.logged) {
+        if (m_addSystemMessage) m_addSystemMessage(kOfflineTargetMessageId, m_callbackUserData);
+        return;
+    }
+    if (!m_getMapNum || !m_getChannelNum || !m_getHeroPosition || !m_sendSOS) return;
+
+    float x = 0.0f;
+    float z = 0.0f;
+    m_getHeroPosition(&x, &z, m_callbackUserData);
+    const auto movePoint = static_cast<std::uint32_t>(static_cast<std::uint16_t>(x)) |
+        (static_cast<std::uint32_t>(static_cast<std::uint16_t>(z)) << 16u);
+    m_sendSOS(heroObjectId, member.memberIdx, m_getMapNum(m_callbackUserData),
+              movePoint, m_getChannelNum(m_callbackUserData), m_callbackUserData);
 }
+
 
 }  // namespace mxh::ui

@@ -7,44 +7,16 @@
 //   墨香【源码】\[Client]MH\SOSDialog.cpp.
 //
 // What's tested:
-//   - Default construction: cListDialog + cButton pointers are
-//     null, m_dwSelectIdx is 0.
-//   - Linking resolves the cListDialog (kMemberListId=230) and
-//     cButton (kOkBtnId=231) by id, calls SetShowSelect(TRUE)
-//     + SetHeight(158) on the resolved cListDialog.
-//   - Linking without children leaves pointers null and is
-//     safe.
-//   - ~cSOSDlg null-checks m_pListDlg before RemoveAll (1:1
-//     quirk: legacy unconditionally dereferences; modern
-//     port is more defensive).
-//   - SetActive override calls base SetActive (active state
-//     updates correctly). SOSMemberInfo fetch + cancel send
-//     are no-op stubs (5-singleton dispatch deferred).
-//   - ActionEvent returns 0 when dialog is not active (1:1
-//     with legacy's !m_bActive → return WE_NULL).
-//   - ActionEvent delegates to base cDialog::ActionEvent when
-//     active (row-click tracking deferred).
-//   - SOSMemberInfo is a no-op RemoveAll (until GUILDMGR is
-//     ported).
-//   - OnActionEvent with SOS_OKBTN is a no-op (5-singleton
-//     dispatch deferred).
-//   - OnActionEvent with unknown id is a no-op.
-//   - Accessors return the linked pointers + select idx.
+//   - Linking, destructor safety, and selection state.
+//   - Guild member row formatting and online/offline colors.
+//   - SetActive refresh ordering and close-cancel dispatch.
+//   - Self/offline target messages and successful SOS fields.
+//   - Legacy WORD position packing and callback replacement.
 //
 // 1:1 quirks preserved:
-//   - Linking calls SetShowSelect(TRUE) + SetHeight(158) on
-//     the resolved cListDialog (legacy configures the list
-//     for click-row selection + 158 px height).
-//   - ~cSOSDlg calls m_pListDlg->RemoveAll() (1:1 with
-//     legacy, modern port null-checked for safety).
-//   - SetActive override calls base SetActive + has TODO
-//     for SOSMemberInfo fetch + cancel send (5-singleton
-//     dispatch deferred).
-//   - ActionEvent override returns 0 when not active (1:1
-//     with legacy WE_NULL).
-//   - OnActionEvent + SOSMemberInfo + Refresh are no-op
-//     stubs until GUILDMGR + HEROID + MAP + CHATMGR +
-//     NETWORK singletons are ported.
+//   - SetActive always refreshes before base state change.
+//   - Close always sends cancel when host wiring exists.
+//   - Position x/z use WORD casts before packed DWORD send.
 
 #include "sosdialog.hpp"
 #include "clistdialog.hpp"
@@ -188,150 +160,137 @@ TEST(CSOSDialogTest, DestructorCallsRemoveAllOnResolvedList) {
 }
 
 // ===========================================================================
-// SetActive (1:1 override, base + TODO)
+// Runtime callbacks
 // ===========================================================================
 
-TEST(CSOSDialogTest, SetActiveTrueUpdatesBaseState) {
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    EXPECT_FALSE(dlg.isActive());
+namespace {
 
-    dlg.SetActive(true);
-    EXPECT_TRUE(dlg.isActive());
+struct SOSState {
+    std::vector<SOSGuildMember> members;
+    std::uint32_t heroId = 10;
+    std::uint32_t mapNum = 55;
+    std::uint32_t channel = 3;
+    float x = 12.9f;
+    float z = 34.8f;
+    bool mouseDownUsed = false;
+    int cancelCalls = 0;
+    std::uint32_t cancelObjectId = 0;
+    int messageCalls = 0;
+    std::int32_t lastMessageId = 0;
+    int sendCalls = 0;
+    std::uint32_t sentObjectId = 0;
+    std::uint32_t sentMemberId = 0;
+    std::uint32_t sentMapNum = 0;
+    std::uint32_t sentMovePoint = 0;
+    std::uint32_t sentChannel = 0;
+};
+std::size_t GetSOSMemberCount(void* data) { return static_cast<SOSState*>(data)->members.size(); }
+bool GetSOSMember(std::size_t index,SOSGuildMember* member,void* data) {
+    auto& members=static_cast<SOSState*>(data)->members;
+    if(index>=members.size()||!member) return false;
+    *member=members[index]; return true;
+}
+std::uint32_t GetSOSHeroId(void* data){return static_cast<SOSState*>(data)->heroId;}
+std::uint32_t GetSOSMapNum(void* data){return static_cast<SOSState*>(data)->mapNum;}
+std::uint32_t GetSOSChannel(void* data){return static_cast<SOSState*>(data)->channel;}
+void GetSOSPosition(float* x,float* z,void* data){auto& s=*static_cast<SOSState*>(data);*x=s.x;*z=s.z;}
+void AddSOSMessage(std::int32_t id,void* data){auto& s=*static_cast<SOSState*>(data);++s.messageCalls;s.lastMessageId=id;}
+void SendSOSCancel(std::uint32_t id,void* data){auto& s=*static_cast<SOSState*>(data);++s.cancelCalls;s.cancelObjectId=id;}
+void SendSOSRequest(std::uint32_t objectId,std::uint32_t memberId,std::uint32_t mapNum,
+                    std::uint32_t movePoint,std::uint32_t channel,void* data){
+ auto& s=*static_cast<SOSState*>(data);++s.sendCalls;s.sentObjectId=objectId;s.sentMemberId=memberId;
+ s.sentMapNum=mapNum;s.sentMovePoint=movePoint;s.sentChannel=channel;
+}
+bool IsSOSMouseDownUsed(void* data){return static_cast<SOSState*>(data)->mouseDownUsed;}
+void InstallSOSCallbacks(cSOSDialog& dlg,SOSState& state){
+ dlg.SetCallbacks(GetSOSMemberCount,GetSOSMember,GetSOSHeroId,GetSOSMapNum,GetSOSChannel,
+                  GetSOSPosition,AddSOSMessage,SendSOSCancel,SendSOSRequest,
+                  IsSOSMouseDownUsed,&state);
+}
+SOSGuildMember MakeSOSMember(std::uint32_t id,const char* name,const char* rank,
+                             std::int32_t level,bool logged){return {id,name,rank,level,logged};}
+
+}  // namespace
+
+TEST(CSOSDialogTest, LegacyRuntimeConstantsMatchSource) {
+    EXPECT_EQ(cSOSDialog::kSelfTargetMessageId,1631);
+    EXPECT_EQ(cSOSDialog::kOfflineTargetMessageId,1632);
+    EXPECT_EQ(cSOSDialog::kOnlineColor,0xFFFFFFFFu);
+    EXPECT_EQ(cSOSDialog::kOfflineColor,0xFFACB6C7u);
 }
 
-TEST(CSOSDialogTest, SetActiveFalseUpdatesBaseState) {
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    dlg.SetActive(true);
-    ASSERT_TRUE(dlg.isActive());
-
-    dlg.SetActive(false);
-    EXPECT_FALSE(dlg.isActive());
+TEST(CSOSDialogTest, SetActiveRefreshesMembersBeforeActivating) {
+    cSOSDialog dlg; cListDialog* list=nullptr; cButton* btn=nullptr; BuildDlgWithChildren(dlg,list,btn);
+    SOSState state; state.members.push_back(MakeSOSMember(20,"Alice","Master",88,true));
+    InstallSOSCallbacks(dlg,state); dlg.SetActive(true);
+    EXPECT_TRUE(dlg.isActive()); ASSERT_EQ(list->RowCount(),1u);
+    EXPECT_NE(list->GetRow(0).first.find("Alice"),std::string::npos);
+    EXPECT_NE(list->GetRow(0).first.find("Master"),std::string::npos);
+    EXPECT_NE(list->GetRow(0).first.find("88"),std::string::npos);
+    EXPECT_EQ(list->GetRow(0).second,cSOSDialog::kOnlineColor);
 }
 
-TEST(CSOSDialogTest, SetActiveToggleRoundTrip) {
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-
-    for (int round = 0; round < 3; ++round) {
-        dlg.SetActive(true);
-        EXPECT_TRUE(dlg.isActive());
-        dlg.SetActive(false);
-        EXPECT_FALSE(dlg.isActive());
-    }
+TEST(CSOSDialogTest, MemberRefreshUsesOfflineColorAndClearsExistingRows) {
+    cSOSDialog dlg; cListDialog* list=nullptr; cButton* btn=nullptr; BuildDlgWithChildren(dlg,list,btn);
+    list->AddItem("stale"); SOSState state; state.members.push_back(MakeSOSMember(20,"Bob","Member",7,false));
+    InstallSOSCallbacks(dlg,state); dlg.SOSMemberInfo();
+    ASSERT_EQ(list->RowCount(),1u); EXPECT_EQ(list->GetRow(0).second,cSOSDialog::kOfflineColor);
 }
 
-// ===========================================================================
-// ActionEvent (1:1 override, base + TODO)
-// ===========================================================================
-
-TEST(CSOSDialogTest, ActionEventReturnsZeroWhenNotActive) {
-    // 1:1 with legacy !m_bActive → return WE_NULL (0).
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    EXPECT_FALSE(dlg.isActive());
-
-    std::uint32_t we = dlg.ActionEvent(10, 10, 0x01);
-    EXPECT_EQ(we, 0u);
+TEST(CSOSDialogTest, SetActiveFalseSendsCancelAfterBaseStateChange) {
+    cSOSDialog dlg; cListDialog* list=nullptr; cButton* btn=nullptr; BuildDlgWithChildren(dlg,list,btn);
+    SOSState state; InstallSOSCallbacks(dlg,state); dlg.SetActive(true); dlg.SetActive(false);
+    EXPECT_FALSE(dlg.isActive()); EXPECT_EQ(state.cancelCalls,1); EXPECT_EQ(state.cancelObjectId,10u);
 }
 
-TEST(CSOSDialogTest, ActionEventDelegatesToBaseWhenActive) {
-    // When active, modern port delegates to
-    // cDialog::ActionEvent. We don't pin the exact
-    // return value (depends on child hit-test), just
-    // verify it doesn't crash and returns without
-    // UB.
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    dlg.SetActive(true);
-    ASSERT_TRUE(dlg.isActive());
-
-    std::uint32_t we = dlg.ActionEvent(10, 10, 0x01);
-    // The exact value depends on cDialog::ActionEvent
-    // child hit-test, but it must be a valid uint32
-    // (no UB). We just check the call returns.
-    (void)we;
-    SUCCEED();
+TEST(CSOSDialogTest, SetActiveFalseWithoutHostIsSafe) {
+    cSOSDialog dlg; dlg.SetActive(false); EXPECT_FALSE(dlg.isActive());
 }
 
-// ===========================================================================
-// SOSMemberInfo (deferred to GUILDMGR port)
-// ===========================================================================
-
-TEST(CSOSDialogTest, SOSMemberInfoIsNoOpRemoveAllUntilGuildManagerPort) {
-    // 1:1 quirk: legacy SOSMemberInfo calls RemoveAll +
-    // fetches GUILDMGR member list + AddItem. Modern
-    // port only does RemoveAll (until GUILDMGR is
-    // ported). Verify the RemoveAll path works.
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    ASSERT_NE(dlg.GetMemberList(), nullptr);
-    raw_list->AddItem("pre-existing row");
-    EXPECT_EQ(dlg.GetMemberList()->RowCount(), 1u);
-
-    dlg.SOSMemberInfo();
-    // RemoveAll was called → row count is 0.
-    EXPECT_EQ(dlg.GetMemberList()->RowCount(), 0u);
+TEST(CSOSDialogTest, SelfTargetEmits1631) {
+    cSOSDialog dlg; SOSState state; state.members.push_back(MakeSOSMember(10,"Hero","Master",90,true));
+    InstallSOSCallbacks(dlg,state); dlg.OnActionEvent(cSOSDialog::kOkBtnId,nullptr,0);
+    EXPECT_EQ(state.lastMessageId,1631); EXPECT_EQ(state.sendCalls,0);
 }
 
-TEST(CSOSDialogTest, SOSMemberInfoWithoutListIsSafe) {
-    // Defensive: SOSMemberInfo with no list child
-    // must not crash (the modern port null-checks
-    // m_pListDlg before RemoveAll).
-    cSOSDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
-    dlg.Linking();
-    dlg.SOSMemberInfo();
-    SUCCEED();
+TEST(CSOSDialogTest, OfflineTargetEmits1632) {
+    cSOSDialog dlg; SOSState state; state.members.push_back(MakeSOSMember(20,"Bob","Member",10,false));
+    InstallSOSCallbacks(dlg,state); dlg.OnActionEvent(cSOSDialog::kOkBtnId,nullptr,0);
+    EXPECT_EQ(state.lastMessageId,1632); EXPECT_EQ(state.sendCalls,0);
 }
 
-// ===========================================================================
-// OnActionEvent (deferred to 5-singleton dispatch)
-// ===========================================================================
-
-TEST(CSOSDialogTest, OnActionEventOkBtnIsNoOp) {
-    // 1:1 quirk: legacy SOS_OKBTN branch dispatches
-    // to GUILDMGR + HEROID + MAP + CHATMGR + NETWORK
-    // (5-singleton dispatch). Modern port is a no-op
-    // until those singletons are ported. The test
-    // verifies the call doesn't crash and doesn't
-    // change any observable state.
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    dlg.OnActionEvent(cSOSDialog::kOkBtnId, nullptr, 0x10);
-    SUCCEED();
+TEST(CSOSDialogTest, OnlineTargetSendsMapPositionAndChannel) {
+    cSOSDialog dlg; SOSState state; state.members.push_back(MakeSOSMember(20,"Bob","Member",10,true));
+    InstallSOSCallbacks(dlg,state); dlg.OnActionEvent(cSOSDialog::kOkBtnId,nullptr,0);
+    EXPECT_EQ(state.sendCalls,1); EXPECT_EQ(state.sentObjectId,10u); EXPECT_EQ(state.sentMemberId,20u);
+    EXPECT_EQ(state.sentMapNum,55u); EXPECT_EQ(state.sentChannel,3u);
+    EXPECT_EQ(state.sentMovePoint,12u|(34u<<16u));
 }
 
-TEST(CSOSDialogTest, OnActionEventUnknownIdIsNoOp) {
-    cSOSDialog dlg;
-    cListDialog* raw_list = nullptr;
-    cButton*     raw_btn  = nullptr;
-    BuildDlgWithChildren(dlg, raw_list, raw_btn);
-    dlg.OnActionEvent(/*unknown=*/99999, nullptr, 0x10);
-    SUCCEED();
+TEST(CSOSDialogTest, PositionPackingUsesLegacyWordCasts) {
+    cSOSDialog dlg; SOSState state; state.members.push_back(MakeSOSMember(20,"Bob","Member",10,true));
+    state.x=65537.0f; state.z=65538.0f; InstallSOSCallbacks(dlg,state);
+    dlg.OnActionEvent(cSOSDialog::kOkBtnId,nullptr,0);
+    EXPECT_EQ(state.sentMovePoint,1u|(2u<<16u));
 }
 
-TEST(CSOSDialogTest, OnActionEventBeforeInitDoesNotCrash) {
-    // Defensive: OnActionEvent before Init should
-    // still be a safe no-op.
-    cSOSDialog dlg;
-    dlg.OnActionEvent(cSOSDialog::kOkBtnId, nullptr, 0x10);
-    SUCCEED();
+TEST(CSOSDialogTest, UnknownButtonDoesNotSend) {
+    cSOSDialog dlg; SOSState state; state.members.push_back(MakeSOSMember(20,"Bob","Member",10,true));
+    InstallSOSCallbacks(dlg,state); dlg.OnActionEvent(999,nullptr,0); EXPECT_EQ(state.sendCalls,0);
+}
+
+TEST(CSOSDialogTest, MissingSelectedMemberDoesNotSend) {
+    cSOSDialog dlg; SOSState state; InstallSOSCallbacks(dlg,state);
+    dlg.OnActionEvent(cSOSDialog::kOkBtnId,nullptr,0); EXPECT_EQ(state.sendCalls,0);
+}
+
+TEST(CSOSDialogTest, SetCallbacksReplacesDispatch) {
+    cSOSDialog dlg; SOSState first; SOSState second;
+    first.members.push_back(MakeSOSMember(20,"A","M",1,true));
+    second.members.push_back(MakeSOSMember(30,"B","M",1,true));
+    InstallSOSCallbacks(dlg,first); InstallSOSCallbacks(dlg,second);
+    dlg.OnActionEvent(cSOSDialog::kOkBtnId,nullptr,0);
+    EXPECT_EQ(first.sendCalls,0); EXPECT_EQ(second.sendCalls,1); EXPECT_EQ(second.sentMemberId,30u);
 }
 
 // ===========================================================================

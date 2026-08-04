@@ -43,22 +43,28 @@
 // cMacroDialog, cCharMakeDlg, cGuildJoinDialog,
 // cCharStateDialog). The dialog has no service dependency
 // on the modern service interface (Phase 13) — all state
-// lives in 5 global singletons (HEROID / NETWORK /
-// GUILDMGR / MAP / CHATMGR / WINDOWMGR), none of which
-// are ported yet. The GuildManager port is tracked as a
-// future Tier 3 work item (depends on PlayerStatsService
-// already in Phase 13.2).
+// lives in legacy singletons; modern adapters provide
+// their values without coupling the UI library to them.
 
 #pragma once
 
 #include "cdialog.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace mxh::ui {
 
 class cListDialog;
 class cButton;
+
+struct SOSGuildMember {
+    std::uint32_t memberIdx = 0;
+    const char* memberName = nullptr;
+    const char* rankName = nullptr;
+    std::int32_t level = 0;
+    bool logged = false;
+};
 
 class cSOSDialog : public cDialog {
 public:
@@ -74,22 +80,48 @@ public:
 
     // ----- 1:1 with legacy CSOSDlg::SetActive -----
 
+    using GetMemberCountFn = std::size_t (*)(void* userData);
+    using GetMemberFn = bool (*)(std::size_t index, SOSGuildMember* member,
+                                 void* userData);
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using GetDwordFn = std::uint32_t (*)(void* userData);
+    using GetPositionFn = void (*)(float* x, float* z, void* userData);
+    using AddSystemMessageFn = void (*)(std::int32_t messageId,
+                                        void* userData);
+    using SendCancelFn = void (*)(std::uint32_t objectId, void* userData);
+    using SendSOSFn = void (*)(std::uint32_t objectId,
+                               std::uint32_t memberId,
+                               std::uint32_t mapNum,
+                               std::uint32_t movePoint,
+                               std::uint32_t channel,
+                               void* userData);
+    using IsMouseDownUsedFn = bool (*)(void* userData);
+
+    void SetCallbacks(GetMemberCountFn getMemberCount,
+                      GetMemberFn getMember,
+                      GetHeroObjectIdFn getHeroObjectId,
+                      GetDwordFn getMapNum,
+                      GetDwordFn getChannelNum,
+                      GetPositionFn getHeroPosition,
+                      AddSystemMessageFn addSystemMessage,
+                      SendCancelFn sendCancel,
+                      SendSOSFn sendSOS,
+                      IsMouseDownUsedFn isMouseDownUsed,
+                      void* userData = nullptr) noexcept;
+
     // 1:1 override: legacy calls SOSMemberInfo() (fetch
     // guild member list via GUILDMGR + populate
     // m_pListDlg) then cDialog::SetActive(val) then if
-    // !val send MP_GUILD_SOS_SEND_CANCEL. Modern port
-    // calls base SetActive(val) (the SOSMemberInfo fetch
-    // and cancel send are no-op stubs until GUILDMGR +
-    // NETWORK are ported).
+    // !val send MP_GUILD_SOS_SEND_CANCEL. Modern host
+    // callbacks supply both guild refresh and cancel send.
     void SetActive(bool val) noexcept override;
 
     // ----- 1:1 with legacy CSOSDlg::ActionEvent -----
 
     // 1:1 override: legacy calls cDialog::ActionEvent +
     // tracks m_dwSelectIdx from clicked row in
-    // m_pListDlg. Modern port calls base ActionEvent
-    // (row-click tracking is no-op until WINDOWMGR +
-    // cListDialog::PtIdxInRow are ported).
+    // m_pListDlg. Modern port uses cListDialog hit-test
+    // plus the host mouse-consumed state.
     std::uint32_t ActionEvent(std::int32_t mouseX,
                               std::int32_t mouseY,
                               std::uint32_t mouseFlags) override;
@@ -129,8 +161,25 @@ public:
 
     static constexpr std::int32_t kMemberListId = 230;  // was SOS_MEMBERLIST
     static constexpr std::int32_t kOkBtnId      = 231;  // was SOS_OKBTN
+    static constexpr std::uint32_t kWeLeftButtonClick = 0x0002u;
+    static constexpr std::int32_t kSelfTargetMessageId = 1631;
+    static constexpr std::int32_t kOfflineTargetMessageId = 1632;
+    static constexpr std::uint32_t kOnlineColor = 0xFFFFFFFFu;
+    static constexpr std::uint32_t kOfflineColor = 0xFFACB6C7u;
 
 private:
+    GetMemberCountFn m_getMemberCount = nullptr;
+    GetMemberFn m_getMember = nullptr;
+    GetHeroObjectIdFn m_getHeroObjectId = nullptr;
+    GetDwordFn m_getMapNum = nullptr;
+    GetDwordFn m_getChannelNum = nullptr;
+    GetPositionFn m_getHeroPosition = nullptr;
+    AddSystemMessageFn m_addSystemMessage = nullptr;
+    SendCancelFn m_sendCancel = nullptr;
+    SendSOSFn m_sendSOS = nullptr;
+    IsMouseDownUsedFn m_isMouseDownUsed = nullptr;
+    void* m_callbackUserData = nullptr;
+
     cListDialog* m_pListDlg    = nullptr;
     cButton*     m_pSOSOkBtn   = nullptr;
     std::uint32_t m_dwSelectIdx = 0;

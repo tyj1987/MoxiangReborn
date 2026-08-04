@@ -589,16 +589,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CSOSDialogTest.LinkingWithoutChildrenLeavesPointersNull
     CSOSDialogTest.DestructorNullChecksListBeforeRemoveAll
     CSOSDialogTest.DestructorCallsRemoveAllOnResolvedList
-    CSOSDialogTest.SetActiveTrueUpdatesBaseState
-    CSOSDialogTest.SetActiveFalseUpdatesBaseState
-    CSOSDialogTest.SetActiveToggleRoundTrip
-    CSOSDialogTest.ActionEventReturnsZeroWhenNotActive
-    CSOSDialogTest.ActionEventDelegatesToBaseWhenActive
-    CSOSDialogTest.SOSMemberInfoIsNoOpRemoveAllUntilGuildManagerPort
-    CSOSDialogTest.SOSMemberInfoWithoutListIsSafe
-    CSOSDialogTest.OnActionEventOkBtnIsNoOp
-    CSOSDialogTest.OnActionEventUnknownIdIsNoOp
-    CSOSDialogTest.OnActionEventBeforeInitDoesNotCrash
+    CSOSDialogTest.LegacyRuntimeConstantsMatchSource
+    CSOSDialogTest.SetActiveRefreshesMembersBeforeActivating
+    CSOSDialogTest.MemberRefreshUsesOfflineColorAndClearsExistingRows
+    CSOSDialogTest.SetActiveFalseSendsCancelAfterBaseStateChange
+    CSOSDialogTest.SetActiveFalseWithoutHostIsSafe
+    CSOSDialogTest.SelfTargetEmits1631
+    CSOSDialogTest.OfflineTargetEmits1632
+    CSOSDialogTest.OnlineTargetSendsMapPositionAndChannel
+    CSOSDialogTest.PositionPackingUsesLegacyWordCasts
+    CSOSDialogTest.UnknownButtonDoesNotSend
+    CSOSDialogTest.MissingSelectedMemberDoesNotSend
+    CSOSDialogTest.SetCallbacksReplacesDispatch
     CSOSDialogTest.SelectIdxDefaultZero
     CSOSDialogTest.SetSelectIdxUpdatesValue
     # Phase C 1:1 port (dialog): cWearedExDialog (equipment slots)
