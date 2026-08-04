@@ -15,6 +15,7 @@
 //   * Shuffle() jitters the dialog Y by the supplied delta
 
 #include "mxh/ui/cautoanswerdlg.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 #include "mxh/ui/cstatic.hpp"
 #include "mxh/ui/ctextarea.hpp"
 #include "mxh/ui/cbutton.hpp"
@@ -52,6 +53,8 @@ struct Harness {
 
 TEST(CAutoAnswerDlg, ConstantsMatchLegacy) {
     EXPECT_EQ(mxh::ui::kAutoAnswerButtonCount, 4);
+    EXPECT_EQ(mxh::ui::kAutoAnswerFirstButtonId, 1695);
+    EXPECT_EQ(mxh::ui::kAutoAnswerLastButtonId, 1698);
 }
 
 TEST(CAutoAnswerDlg, DefaultConstructionIsIdle) {
@@ -97,10 +100,10 @@ TEST(CAutoAnswerDlg, OnActionEventRecordsAnswerAndAdvancesCursor) {
     h.dlg.SetQuestion("Q1");
     EXPECT_TRUE(h.dlg.IsAnswerStart());
     EXPECT_EQ(h.dlg.GetAnswerPos(), 0);
-    h.dlg.OnActionEvent(/*lId=*/0, /*p=*/nullptr, /*we=*/0x0001);
+    h.dlg.OnActionEvent(/*lId=*/mxh::ui::kAutoAnswerFirstButtonId, /*p=*/nullptr, /*we=*/mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(h.dlg.GetAnswerPos(), 1);
     EXPECT_EQ(h.dlg.GetAnswer(0), 0u);
-    h.dlg.OnActionEvent(2, nullptr, 0x0001);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId + 2, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(h.dlg.GetAnswer(1), 2u);
     EXPECT_EQ(h.dlg.GetAnswerPos(), 2);
 }
@@ -116,11 +119,11 @@ TEST(CAutoAnswerDlg, OnActionEventFiresAnswerCallbackAtFourthTap) {
         ++callCount;
         last0 = a0; last1 = a1; last2 = a2; last3 = a3;
     });
-    h.dlg.OnActionEvent(1, nullptr, 0x0001);
-    h.dlg.OnActionEvent(3, nullptr, 0x0001);
-    h.dlg.OnActionEvent(0, nullptr, 0x0001);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId + 1, nullptr, mxh::ui::legacy_window_event::kButtonClick);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId + 3, nullptr, mxh::ui::legacy_window_event::kButtonClick);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(callCount, 0);  // 3 taps -> not yet
-    h.dlg.OnActionEvent(2, nullptr, 0x0001);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId + 2, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(callCount, 1);
     EXPECT_EQ(last0, 1u);
     EXPECT_EQ(last1, 3u);
@@ -134,7 +137,7 @@ TEST(CAutoAnswerDlg, OnActionEventIgnoresNonClickEvents) {
     Harness h;
     h.dlg.Linking();
     h.dlg.SetQuestion("Q");
-    h.dlg.OnActionEvent(0, nullptr, /*we=*/0x0010 /*WE_PUSHUP*/);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId, nullptr, mxh::ui::legacy_window_event::kPushUp);
     EXPECT_EQ(h.dlg.GetAnswerPos(), 0);
     EXPECT_TRUE(h.dlg.IsAnswerStart());
 }
@@ -143,8 +146,8 @@ TEST(CAutoAnswerDlg, OnActionEventIgnoresOutOfRangeButtonId) {
     Harness h;
     h.dlg.Linking();
     h.dlg.SetQuestion("Q");
-    h.dlg.OnActionEvent(99, nullptr, 0x0001);   // > kAutoAnswerButtonCount-1
-    h.dlg.OnActionEvent(-1, nullptr, 0x0001);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerLastButtonId + 1, nullptr, mxh::ui::legacy_window_event::kButtonClick);   // above ASD_BTN_COLOR4
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId - 1, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(h.dlg.GetAnswerPos(), 0);
 }
 
@@ -157,7 +160,7 @@ TEST(CAutoAnswerDlg, OnActionEventStopsAtFifthTap) {
         ++callCount;
     });
     for (std::int32_t i = 0; i < 5; ++i) {
-        h.dlg.OnActionEvent(i % 4, nullptr, 0x0001);
+        h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId + i % 4, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     }
     EXPECT_EQ(callCount, 1);   // only fires on the 4th tap
 }
@@ -188,9 +191,9 @@ TEST(CAutoAnswerDlg, AnswerStaticAccumulatesStars) {
     Harness h;
     h.dlg.Linking();
     h.dlg.SetQuestion("Q");
-    h.dlg.OnActionEvent(0, nullptr, 0x0001);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(h.stcAnswer.GetStaticText(), " * ");
-    h.dlg.OnActionEvent(1, nullptr, 0x0001);
+    h.dlg.OnActionEvent(mxh::ui::kAutoAnswerFirstButtonId + 1, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(h.stcAnswer.GetStaticText(), " *  * ");
 }
 

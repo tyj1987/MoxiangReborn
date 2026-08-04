@@ -136,9 +136,9 @@ void cAutoAnswerDlg::OnActionEvent(std::int32_t lId, void* /*p*/, std::uint32_t 
     //       }
     //   }
     if (m_nAnswerPos > 3) return;
-    if ((we & 0x0001 /*WE_BTNCLICK*/) == 0) return;
-    if (lId < 0 || lId >= kAutoAnswerButtonCount) return;
-    OnAnswerButtonClick(lId);
+    if ((we & legacy_window_event::kButtonClick) == 0) return;
+    if (lId < kAutoAnswerFirstButtonId || lId > kAutoAnswerLastButtonId) return;
+    OnAnswerButtonClick(lId - kAutoAnswerFirstButtonId);
 }
 
 void cAutoAnswerDlg::OnAnswerButtonClick(std::int32_t buttonIdx) {

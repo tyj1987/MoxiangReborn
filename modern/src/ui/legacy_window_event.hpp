@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MXH_UI_LEGACY_WINDOW_EVENT_HPP
+#define MXH_UI_LEGACY_WINDOW_EVENT_HPP
 
 #include <cstdint>
 
@@ -30,3 +31,5 @@ inline constexpr std::uint32_t kActiveWindow = 2097152u;
 inline constexpr std::uint32_t kRowDoubleClick = 4194304u;
 
 }  // namespace mxh::ui::legacy_window_event
+
+#endif  // MXH_UI_LEGACY_WINDOW_EVENT_HPP

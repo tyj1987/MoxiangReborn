@@ -1,4 +1,4 @@
-﻿// cstallkindselectdlg.cpp -- modern implementation of
+// cstallkindselectdlg.cpp -- modern implementation of
 //   Moxiang CStallKindSelectDlg.
 
 #include "cstallkindselectdlg.hpp"
@@ -75,7 +75,7 @@ void cStallKindSelectDlg::OnActionEvent(std::int32_t lId,
     //       return;  // unknown id -- no Close() call
     //   Close();
     //
-    // 1:1 quirk: WE_BTNCLICK == 0x0001 (legacy cWindowDef.h).
+    // 1:1 quirk: WE_BTNCLICK == 0x0040 (legacy cWindowDef.h).
     // Modern cWindow::WindowEvent does not export this
     // value; the modern port uses a local constant.
     if (!(we & kWeBtnClick)) {

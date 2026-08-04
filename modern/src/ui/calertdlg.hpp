@@ -115,7 +115,7 @@ public:
 
     // ----- 1:1 with legacy WE_BTNCLICK -----
 
-    // 1:1 with legacy WE_BTNCLICK=0x0001.
+    // 1:1 with legacy WE_BTNCLICK=0x0040.
     static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // ----- 1:1 with legacy child ids (local range) -----

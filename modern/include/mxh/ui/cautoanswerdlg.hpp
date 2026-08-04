@@ -30,6 +30,7 @@
 #include "cbutton.hpp"
 #include "cstatic.hpp"
 #include "ctextarea.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -39,6 +40,8 @@ namespace mxh::ui {
 
 // 1:1 with legacy CAutoAnswerDlg: 4 colored buttons.
 inline constexpr std::int32_t kAutoAnswerButtonCount = 4;
+inline constexpr std::int32_t kAutoAnswerFirstButtonId = 1695;
+inline constexpr std::int32_t kAutoAnswerLastButtonId = 1698;
 
 class cImageSelf;   // forward-declared; the modern port stores
                    // the image as void* (1:1 with cImageSelf*).
@@ -130,7 +133,7 @@ public:
     void SetOnAnswer(AnswerCallback cb) noexcept { m_onAnswer = std::move(cb); }
 
     // 1:1 with legacy OnActionEvent WE_BTNCLICK mapping.
-    // The button ids are the local legacy ids 0..3
+    // The button ids are legacy WindowIDs.h values 1695..1698
     // (ASD_BTN_COLOR1..4).  The host (or tests) forward
     // button-click events to OnActionEvent; the dialog does
     // the answer-entry bookkeeping and fires the callback.
