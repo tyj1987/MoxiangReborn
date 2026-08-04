@@ -27,6 +27,30 @@ std::unique_ptr<cFWTimeDialog> MakeTime() {
     return d;
 }
 
+// Captures every clock tick + call count for SetCurrentTimeProvider.
+struct ClockCapture {
+    std::uint32_t value = 0;
+    int calls = 0;
+    static std::uint32_t Get(void* userData) {
+        auto* self = static_cast<ClockCapture*>(userData);
+        ++self->calls;
+        return self->value;
+    }
+};
+
+// Captures every chat lookup + canned template.
+struct ChatCapture {
+    std::string template_str = "Remaining %d sec";
+    int last_msg_id = -1;
+    int calls = 0;
+    static const char* Get(int msgId, void* userData) {
+        auto* self = static_cast<ChatCapture*>(userData);
+        ++self->calls;
+        self->last_msg_id = msgId;
+        return self->template_str.c_str();
+    }
+};
+
 }  // namespace
 
 // ===========================================================================
@@ -256,4 +280,264 @@ TEST(CFWTimeDialog, ActionEventOnEnabledDialogDoesNotCrash) {
     std::uint32_t we = d->ActionEvent(0, 0, 0);
     (void)we;
     SUCCEED();
+}
+
+// ===========================================================================
+// cFWEngraveDialog -- clock provider + chat msg provider + ActionEvent body
+// ===========================================================================
+
+TEST(CFWEngraveDialog, SetActiveWithTimeStampsProcessTimeFromClock) {
+    ClockCapture clock;
+    clock.value = 5000u;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTime(true, 30);  // 30 seconds
+    EXPECT_EQ(d->GetProcessTime(), 5000u + 30u * 1000u);
+    EXPECT_FLOAT_EQ(d->GetBasicTime(), 30.0f);
+    EXPECT_TRUE(d->isActive());
+}
+
+TEST(CFWEngraveDialog, SetActiveWithTimeWithoutProviderUsesZeroClock) {
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetActiveWithTime(true, 30);
+    // No clock provider: m_dwProcessTime = 0 + dwTime*1000.
+    EXPECT_EQ(d->GetProcessTime(), 30u * 1000u);
+}
+
+TEST(CFWEngraveDialog, SetActiveWithTimeFalseResetsLastTickAndProcessTime) {
+    ClockCapture clock;
+    clock.value = 5000u;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTime(true, 30);
+    d->SetActiveWithTime(false, 0);
+    EXPECT_EQ(d->GetProcessTime(), 0u);
+    EXPECT_FLOAT_EQ(d->GetBasicTime(), 1.0f);
+    EXPECT_FALSE(d->isActive());
+}
+
+TEST(CFWEngraveDialog, ActionEventRefreshesStaticTextWithDefaultFormat) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTime(true, 30);
+    // m_dwProcessTime = 1000 + 30000 = 31000; nLimitTime = 30
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetRemaintimeStatic()->GetStaticText(), "Engrave time: 30");
+}
+
+TEST(CFWEngraveDialog, ActionEventRefreshesStaticTextWithInjectedChatMsg) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    ChatCapture chat;
+    chat.template_str = "[%d sec]";
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetChatMessageFn(&ChatCapture::Get, &chat);
+    d->SetActiveWithTime(true, 30);
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetRemaintimeStatic()->GetStaticText(), "[30 sec]");
+    EXPECT_EQ(chat.calls, 1);
+    EXPECT_EQ(chat.last_msg_id, 1043);
+}
+
+TEST(CFWEngraveDialog, ActionEventThrottlesByLastTick) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    ChatCapture chat;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetChatMessageFn(&ChatCapture::Get, &chat);
+    d->SetActiveWithTime(true, 30);
+    // First tick: m_dwProcessTime = 1000 + 30000 = 31000; nLimitTime = 30
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(chat.calls, 1);
+    // Second tick same nLimitTime: throttled.
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(chat.calls, 1);
+}
+
+TEST(CFWEngraveDialog, ActionEventUpdatesGuageValue) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTime(true, 30);
+    d->ActionEvent(0, 0, 0);
+    // m_fBasicTime=30, nLimitTime=30, value=30/30=1.0
+    EXPECT_FLOAT_EQ(d->GetEngraveGuage()->GetValue(), 1.0f);
+}
+
+TEST(CFWEngraveDialog, ActionEventClampsToZeroOnExpiry) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    // m_dwProcessTime = 1000 + 30000 = 31000; nLimitTime = 30.
+    d->SetActiveWithTime(true, 30);
+    d->ActionEvent(0, 0, 0);
+    // Advance clock past process time → nLimitTime = -19 → clamped to 0.
+    clock.value = 50000u;
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetRemaintimeStatic()->GetStaticText(), "Engrave time: 0");
+}
+
+TEST(CFWEngraveDialog, ActionEventAdvancesOnSecondTick) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    ChatCapture chat;
+    chat.template_str = "Remaining %d sec";
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetChatMessageFn(&ChatCapture::Get, &chat);
+    d->SetActiveWithTime(true, 30);
+    // Tick 1: nLimitTime = (31000-1000)/1000 = 30.
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(chat.calls, 1);
+    // Advance clock by 1 second -> nLimitTime = 29.
+    clock.value = 2000u;
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(chat.calls, 2);
+    EXPECT_EQ(d->GetRemaintimeStatic()->GetStaticText(), "Remaining 29 sec");
+}
+
+TEST(CFWEngraveDialog, ActionEventWithoutClockProviderIsNoOp) {
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetActive(true);
+    d->SetActiveWithTime(true, 30);
+    std::uint32_t we = d->ActionEvent(0, 0, 0);
+    (void)we;
+    // Static text unchanged because clock provider is null.
+    EXPECT_EQ(d->GetRemaintimeStatic()->GetStaticText(), "");
+}
+
+TEST(CFWEngraveDialog, ActionEventHandlesZeroBasicTimeGracefully) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeEngrave();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTime(true, 0);  // 0 second -> m_fBasicTime=0
+    std::uint32_t we = d->ActionEvent(0, 0, 0);
+    (void)we;
+    // Must not crash on division-by-zero. Static text refreshed.
+    EXPECT_EQ(d->GetRemaintimeStatic()->GetStaticText(), "Engrave time: 0");
+}
+
+// ===========================================================================
+// cFWTimeDialog -- clock provider + ActionEvent body
+// ===========================================================================
+
+TEST(CFWTimeDialog, SetActiveWithTimeNameStampsWarTimeFromClock) {
+    ClockCapture clock;
+    clock.value = 5000u;
+    auto d = MakeTime();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTimeName(true, 60, "Alice");
+    EXPECT_EQ(d->GetWarTime(), 5000u + 60u * 1000u);
+    EXPECT_TRUE(d->isActive());
+    EXPECT_EQ(d->GetCharacterName()->GetStaticText(), "Alice");
+}
+
+TEST(CFWTimeDialog, SetActiveWithTimeNameWithoutProviderUsesZeroClock) {
+    auto d = MakeTime();
+    d->Linking();
+    d->SetActiveWithTimeName(true, 60, "Alice");
+    // No clock provider: m_dwWarTime = 0 + 60000.
+    EXPECT_EQ(d->GetWarTime(), 60u * 1000u);
+}
+
+TEST(CFWTimeDialog, ActionEventRefreshesStaticTextAsMmSs) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeTime();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTimeName(true, 130, "Bob");  // 2:10
+    // m_dwWarTime = 1000 + 130000 = 131000; nLimitTime = 130
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "02:10");
+}
+
+TEST(CFWTimeDialog, ActionEventThrottlesByLastTick) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeTime();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTimeName(true, 60, "C");
+    // warTime = 1000 + 60000 = 61000; nLimitTime = (61000-1000)/1000 = 60; fmt = 01:00.
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "01:00");
+    // Same nLimitTime throttled.
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "01:00");
+}
+
+TEST(CFWTimeDialog, ActionEventClampsToZeroOnExpiry) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeTime();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTimeName(true, 30, "D");
+    // warTime = 1000 + 30000 = 31000; nLimitTime = 30; fmt = 00:30.
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "00:30");
+    // Advance clock past process time → nLimitTime = -19 → clamped to 0.
+    clock.value = 50000u;
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "00:00");
+}
+
+TEST(CFWTimeDialog, ActionEventAdvancesOnSecondTick) {
+    ClockCapture clock;
+    clock.value = 1000u;
+    auto d = MakeTime();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTimeName(true, 65, "E");  // 1:05
+    // warTime = 1000 + 65000 = 66000; nLimitTime = 65 -> 01:05
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "01:05");
+    // Advance clock by 5 seconds -> nLimitTime = 60 -> 01:00
+    clock.value = 6000u;
+    d->ActionEvent(0, 0, 0);
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "01:00");
+}
+
+TEST(CFWTimeDialog, ActionEventWithoutClockProviderIsNoOp) {
+    auto d = MakeTime();
+    d->Linking();
+    d->SetActive(true);
+    d->SetActiveWithTimeName(true, 60, "F");
+    std::uint32_t we = d->ActionEvent(0, 0, 0);
+    (void)we;
+    // Static text unchanged because clock provider is null.
+    EXPECT_EQ(d->GetTimeStatic()->GetStaticText(), "");
+}
+
+TEST(CFWTimeDialog, SetActiveWithTimeNameFalseResetsLastTick) {
+    ClockCapture clock;
+    clock.value = 5000u;
+    auto d = MakeTime();
+    d->Linking();
+    d->SetCurrentTimeProvider(&ClockCapture::Get, &clock);
+    d->SetActiveWithTimeName(true, 30, "G");
+    d->ActionEvent(0, 0, 0);
+    d->SetActiveWithTimeName(false, 0, nullptr);
+    EXPECT_EQ(d->GetWarTime(), 0u);
+    EXPECT_FALSE(d->isActive());
 }
