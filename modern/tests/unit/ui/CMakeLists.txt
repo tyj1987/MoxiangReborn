@@ -1648,8 +1648,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     CAutoNoteDlgTest.SetActiveTestClientActivatesDialog
     CAutoNoteDlgTest.SetActiveTestClientAddsThirtyFiveItems
     CAutoNoteDlgTest.SetActiveTestClientWithoutLinkingIsSafe
-    CAutoNoteDlgTest.OnActionEventIsNoOp
-    CAutoNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
+    CAutoNoteDlgTest.LegacyConstantsMatchSource
+    CAutoNoteDlgTest.ActionWithoutButtonClickIsNoOp
+    CAutoNoteDlgTest.DifferentButtonIsNoOp
+    CAutoNoteDlgTest.MissingSelectionEmits1704
+    CAutoNoteDlgTest.NonPlayerSelectionEmits1704
+    CAutoNoteDlgTest.HeroSelectionSilentlyReturns
+    CAutoNoteDlgTest.PlayerSelectionAsksWithObjectIdAndRandModulo100
+    CAutoNoteDlgTest.MissingAskCallbackDoesNotDispatch
+    CAutoNoteDlgTest.SetCallbacksReplacesDispatch
     # Phase C 1:1 port (dialog): cMPRegistDialog (MP practice registration)
     CMPRegistDialogTest.DefaultConstructionIsValid
     CMPRegistDialogTest.InheritsIconDialogCellLayout

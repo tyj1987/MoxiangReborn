@@ -20,7 +20,7 @@
 //   - SetActiveTestClient activates the dialog
 //   - SetActiveTestClient adds 35 items
 //   - SetActiveTestClient without Linking is safe
-//   - OnActionEvent is a no-op (TODO)
+//   - OnActionEvent preserves selection and ask gates
 
 #include "autonotedlg.hpp"
 #include "cdialog.hpp"
@@ -233,15 +233,128 @@ TEST(CAutoNoteDlgTest, SetActiveTestClientWithoutLinkingIsSafe) {
 
 // ---------- OnActionEvent ----------
 
-TEST(CAutoNoteDlgTest, OnActionEventIsNoOp) {
-    cAutoNoteDlg dlg;
-    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk, nullptr, 0);
-    dlg.OnActionEvent(0, nullptr, 0);
-    SUCCEED();
+namespace {
+
+struct AutoNoteCallbackState {
+    void* selectedObject = reinterpret_cast<void*>(0x1);
+    std::int32_t objectKind = cAutoNoteDlg::kPlayerObjectKind;
+    std::uint32_t objectId = 77;
+    bool heroObject = false;
+    std::uint32_t randomValue = 143;
+    int messageCalls = 0;
+    std::int32_t lastMessageId = 0;
+    int askCalls = 0;
+    std::uint32_t askedObjectId = 0;
+    std::uint32_t askedRandomValue = 0;
+};
+
+void* GetAutoNoteSelectedObject(void* data) { return static_cast<AutoNoteCallbackState*>(data)->selectedObject; }
+std::int32_t GetAutoNoteObjectKind(void*, void* data) { return static_cast<AutoNoteCallbackState*>(data)->objectKind; }
+std::uint32_t GetAutoNoteObjectId(void*, void* data) { return static_cast<AutoNoteCallbackState*>(data)->objectId; }
+bool IsAutoNoteHeroObject(void*, void* data) { return static_cast<AutoNoteCallbackState*>(data)->heroObject; }
+void AddAutoNoteMessage(std::int32_t id, void* data) {
+    auto& state=*static_cast<AutoNoteCallbackState*>(data);
+    ++state.messageCalls;
+    state.lastMessageId=id;
+}
+std::uint32_t GetAutoNoteRandomPercent(void* data) { return static_cast<AutoNoteCallbackState*>(data)->randomValue; }
+void AskAutoNoteUser(std::uint32_t id, std::uint32_t randomValue, void* data) {
+    auto& state=*static_cast<AutoNoteCallbackState*>(data);
+    ++state.askCalls;
+    state.askedObjectId=id;
+    state.askedRandomValue=randomValue;
+}
+void InstallAutoNoteCallbacks(cAutoNoteDlg& dlg, AutoNoteCallbackState& state) {
+    dlg.SetCallbacks(GetAutoNoteSelectedObject, GetAutoNoteObjectKind,
+                     GetAutoNoteObjectId, IsAutoNoteHeroObject,
+                     AddAutoNoteMessage, GetAutoNoteRandomPercent,
+                     AskAutoNoteUser, &state);
 }
 
-TEST(CAutoNoteDlgTest, OnActionEventBeforeInitDoesNotCrash) {
+}  // namespace
+
+TEST(CAutoNoteDlgTest, LegacyConstantsMatchSource) {
+    EXPECT_EQ(cAutoNoteDlg::kWeBtnClick, 1u);
+    EXPECT_EQ(cAutoNoteDlg::kSelectPlayerMessageId, 1704);
+    EXPECT_EQ(cAutoNoteDlg::kManualMessageId, 1721);
+}
+
+TEST(CAutoNoteDlgTest, ActionWithoutButtonClickIsNoOp) {
     cAutoNoteDlg dlg;
-    dlg.OnActionEvent(0, nullptr, 0);
-    SUCCEED();
+    AutoNoteCallbackState state;
+    InstallAutoNoteCallbacks(dlg,state);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,0);
+    EXPECT_EQ(state.askCalls,0);
+    EXPECT_EQ(state.messageCalls,0);
+}
+
+TEST(CAutoNoteDlgTest, DifferentButtonIsNoOp) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState state;
+    InstallAutoNoteCallbacks(dlg,state);
+    dlg.OnActionEvent(999,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(state.askCalls,0);
+}
+
+TEST(CAutoNoteDlgTest, MissingSelectionEmits1704) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState state;
+    state.selectedObject=nullptr;
+    InstallAutoNoteCallbacks(dlg,state);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(state.lastMessageId,1704);
+    EXPECT_EQ(state.askCalls,0);
+}
+
+TEST(CAutoNoteDlgTest, NonPlayerSelectionEmits1704) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState state;
+    state.objectKind=32;
+    InstallAutoNoteCallbacks(dlg,state);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(state.lastMessageId,1704);
+    EXPECT_EQ(state.askCalls,0);
+}
+
+#ifndef _GMTOOL_
+TEST(CAutoNoteDlgTest, HeroSelectionSilentlyReturns) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState state;
+    state.heroObject=true;
+    InstallAutoNoteCallbacks(dlg,state);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(state.messageCalls,0);
+    EXPECT_EQ(state.askCalls,0);
+}
+#endif
+
+TEST(CAutoNoteDlgTest, PlayerSelectionAsksWithObjectIdAndRandModulo100) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState state;
+    InstallAutoNoteCallbacks(dlg,state);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(state.askCalls,1);
+    EXPECT_EQ(state.askedObjectId,77u);
+    EXPECT_EQ(state.askedRandomValue,43u);
+}
+
+TEST(CAutoNoteDlgTest, MissingAskCallbackDoesNotDispatch) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState state;
+    dlg.SetCallbacks(GetAutoNoteSelectedObject,GetAutoNoteObjectKind,
+                     GetAutoNoteObjectId,IsAutoNoteHeroObject,
+                     AddAutoNoteMessage,GetAutoNoteRandomPercent,nullptr,&state);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(state.askCalls,0);
+}
+
+TEST(CAutoNoteDlgTest, SetCallbacksReplacesDispatch) {
+    cAutoNoteDlg dlg;
+    AutoNoteCallbackState first;
+    AutoNoteCallbackState second;
+    InstallAutoNoteCallbacks(dlg,first);
+    InstallAutoNoteCallbacks(dlg,second);
+    dlg.OnActionEvent(cAutoNoteDlg::kIdBtnAsk,nullptr,cAutoNoteDlg::kWeBtnClick);
+    EXPECT_EQ(first.askCalls,0);
+    EXPECT_EQ(second.askCalls,1);
 }

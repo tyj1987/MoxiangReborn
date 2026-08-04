@@ -39,9 +39,9 @@
 //     SetScriptText with kAutoNoteManualText
 //     placeholder for CHATMGR msg 1721, SetTextColor
 //     (gray = RGB_HALF(128,128,128)).
-//   - OnActionEvent: TODO (OBJECTMGR + HERO +
-//     AUTONOTEMGR + CHATMGR singletons, R-12.x
-//     deferred). Modern port is no-op.
+//   - OnActionEvent: REAL through optional host
+//     callbacks, preserving selection/player/self
+//     gates and AskToAutoUser random payload.
 //   - AddAutoList: REAL — sprintf "%-16s %s" + AddItem.
 //   - SetActiveTestClient: REAL — 35-loop sprintf +
 //     AddItem + SetActive(true).
@@ -49,8 +49,8 @@
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is the 45th **Tier 2** dialog port (after
 // cUnionNoteDlg). The dialog has 1 cTextArea +
-// 1 cButton + 1 cListDialog. AUTONOTEMGR + OBJECTMGR
-// + HERO + CHATMGR singletons are R-12.x deferred.
+// 1 cButton + 1 cListDialog. Legacy singleton
+// operations are supplied through host callbacks.
 
 #pragma once
 
@@ -83,10 +83,26 @@ public:
 
     // ----- 1:1 with legacy CAutoNoteDlg::OnActionEvent -----
 
-    // 1:1 with legacy OnActionEvent. The whole
-    // method is TODO (OBJECTMGR + HERO + AUTONOTEMGR
-    // + CHATMGR singletons, R-12.x deferred).
-    // Modern port is no-op for now.
+    using GetSelectedObjectFn = void* (*)(void* userData);
+    using GetObjectKindFn = std::int32_t (*)(void* object, void* userData);
+    using GetObjectIdFn = std::uint32_t (*)(void* object, void* userData);
+    using IsHeroObjectFn = bool (*)(void* object, void* userData);
+    using AddSystemMessageFn = void (*)(std::int32_t messageId,
+                                        void* userData);
+    using GetRandomPercentFn = std::uint32_t (*)(void* userData);
+    using AskToAutoUserFn = void (*)(std::uint32_t objectId,
+                                     std::uint32_t randomValue,
+                                     void* userData);
+
+    void SetCallbacks(GetSelectedObjectFn getSelectedObject,
+                      GetObjectKindFn getObjectKind,
+                      GetObjectIdFn getObjectId,
+                      IsHeroObjectFn isHeroObject,
+                      AddSystemMessageFn addSystemMessage,
+                      GetRandomPercentFn getRandomPercent,
+                      AskToAutoUserFn askToAutoUser,
+                      void* userData = nullptr) noexcept;
+
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
 
     // ----- 1:1 with legacy CAutoNoteDlg::AddAutoList -----
@@ -123,8 +139,21 @@ public:
     // 1:1 with legacy RGB_HALF(128, 128, 128) for
     // the auto note text color (gray). ARGB = 0xFF808080.
     static constexpr std::uint32_t kAutoNoteTextColor = 0xFF808080u;
+    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    static constexpr std::int32_t kPlayerObjectKind = 1;
+    static constexpr std::int32_t kSelectPlayerMessageId = 1704;
+    static constexpr std::int32_t kManualMessageId = 1721;
 
 private:
+    GetSelectedObjectFn m_getSelectedObject = nullptr;
+    GetObjectKindFn m_getObjectKind = nullptr;
+    GetObjectIdFn m_getObjectId = nullptr;
+    IsHeroObjectFn m_isHeroObject = nullptr;
+    AddSystemMessageFn m_addSystemMessage = nullptr;
+    GetRandomPercentFn m_getRandomPercent = nullptr;
+    AskToAutoUserFn m_askToAutoUser = nullptr;
+    void* m_callbackUserData = nullptr;
+
     // 1:1 with legacy m_pTextAreaManual (resolved in
     // Linking by AND_TEXTAREA_MANUAL id).
     cTextArea* m_pTextAreaManual = nullptr;

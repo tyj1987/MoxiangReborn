@@ -51,38 +51,59 @@ void cAutoNoteDlg::Linking() {
     }
 }
 
+void cAutoNoteDlg::SetCallbacks(
+    GetSelectedObjectFn getSelectedObject,
+    GetObjectKindFn getObjectKind,
+    GetObjectIdFn getObjectId,
+    IsHeroObjectFn isHeroObject,
+    AddSystemMessageFn addSystemMessage,
+    GetRandomPercentFn getRandomPercent,
+    AskToAutoUserFn askToAutoUser,
+    void* userData) noexcept {
+    m_getSelectedObject = getSelectedObject;
+    m_getObjectKind = getObjectKind;
+    m_getObjectId = getObjectId;
+    m_isHeroObject = isHeroObject;
+    m_addSystemMessage = addSystemMessage;
+    m_getRandomPercent = getRandomPercent;
+    m_askToAutoUser = askToAutoUser;
+    m_callbackUserData = userData;
+}
+
 void cAutoNoteDlg::OnActionEvent(std::int32_t lId, void* p,
                                  std::uint32_t we) {
-    // 1:1 with legacy CAutoNoteDlg::OnActionEvent.
-    // The legacy is:
-    //   if (we & WE_BTNCLICK) {
-    //     if (lId == AND_BTN_ASK) {
-    //       CObject* pObject = OBJECTMGR->GetSelectedObject();
-    //       if (pObject == NULL) {
-    //         CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(1704));
-    //         return;
-    //       }
-    //       if (pObject->GetObjectKind() != eObjectKind_Player) {
-    //         CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(1704));
-    //         return;
-    //       }
-    //       #ifndef _GMTOOL_
-    //       if (pObject == HERO) return;
-    //       #endif
-    //       AUTONOTEMGR->AskToAutoUser(pObject->GetID(), rand()%100);
-    //     }
-    //   }
-    //
-    // The modern port: the whole method is TODO
-    // (OBJECTMGR + HERO + AUTONOTEMGR + CHATMGR
-    // singletons, R-12.x deferred). Modern port is
-    // no-op for now.
-    (void)lId;
     (void)p;
-    (void)we;
-    // TODO: OBJECTMGR + HERO + AUTONOTEMGR + CHATMGR
-    //       not ported (R-12.x deferred). When
-    //       ported, the body becomes the legacy code.
+    if ((we & kWeBtnClick) == 0u || lId != kIdBtnAsk) return;
+
+    void* selectedObject = m_getSelectedObject
+        ? m_getSelectedObject(m_callbackUserData)
+        : nullptr;
+    const auto rejectSelection = [this]() {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kSelectPlayerMessageId, m_callbackUserData);
+        }
+    };
+    if (!selectedObject) {
+        rejectSelection();
+        return;
+    }
+    if (!m_getObjectKind ||
+        m_getObjectKind(selectedObject, m_callbackUserData) != kPlayerObjectKind) {
+        rejectSelection();
+        return;
+    }
+#ifndef _GMTOOL_
+    if (m_isHeroObject && m_isHeroObject(selectedObject, m_callbackUserData)) {
+        return;
+    }
+#endif
+    if (!m_getObjectId || !m_askToAutoUser) return;
+
+    const auto randomValue = m_getRandomPercent
+        ? m_getRandomPercent(m_callbackUserData) % 100u
+        : 0u;
+    m_askToAutoUser(m_getObjectId(selectedObject, m_callbackUserData),
+                    randomValue, m_callbackUserData);
 }
 
 void cAutoNoteDlg::AddAutoList(const char* strName, const char* strDate) {
