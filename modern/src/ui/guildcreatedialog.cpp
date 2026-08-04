@@ -128,31 +128,34 @@ void cGuildUnionCreateDialog::Linking() {
     if (m_pText) m_pText->SetScriptText("GUILD_UNION_TEXT");
 }
 
+void cGuildUnionCreateDialog::SetCallbacks(
+    GetHeroObjectIdFn getHeroObjectId,
+    GetHeroStateFn getHeroState,
+    IsNpcScriptDialogActiveFn isNpcScriptDialogActive,
+    EndObjectStateFn endObjectState,
+    void* userData) noexcept {
+    m_getHeroObjectId = getHeroObjectId;
+    m_getHeroState = getHeroState;
+    m_isNpcScriptDialogActive = isNpcScriptDialogActive;
+    m_endObjectState = endObjectState;
+    m_callbackUserData = userData;
+}
+
 void cGuildUnionCreateDialog::SetActive(bool val) noexcept {
-    // 1:1 with legacy CGuildUnionCreateDialog::SetActive.
-    // The legacy is:
-    //   if (val == TRUE) {
-    //       m_pNameEdit->SetEditText("");
-    //   } else {
-    //       if (HERO == 0) return;
-    //       if (HERO->GetState() == eObjectState_Deal &&
-    //           GAMEIN->GetNpcScriptDialog()->IsActive() == FALSE)
-    //           OBJECTSTATEMGR->EndObjectState(HERO, eObjectState_Deal);
-    //       if (m_pNameEdit) m_pNameEdit->SetFocusEdit(FALSE);
-    //   }
-    //   cDialog::SetActive(val);
-    //
-    // Modern port: base SetActive + TODO for singleton
-    // dispatch. The "if (HERO == 0) return" early-out
-    // is preserved in the TODO (it skips the singleton
-    // dispatch when HERO is null).
     if (val) {
-        // TODO: m_pNameEdit->SetEditText("") when
-        //       m_pNameEdit is non-null.
+        if (m_pNameEdit) m_pNameEdit->SetEditText("");
     } else {
-        // TODO: HERO check (early return if null) +
-        //       OBJECTSTATEMGR check +
-        //       m_pNameEdit->SetFocusEdit(FALSE).
+        const auto heroObjectId = m_getHeroObjectId
+            ? m_getHeroObjectId(m_callbackUserData)
+            : 0u;
+        if (heroObjectId == 0u) return;
+
+        if (m_getHeroState && m_isNpcScriptDialogActive && m_endObjectState &&
+            m_getHeroState(m_callbackUserData) == kObjectStateDeal &&
+            !m_isNpcScriptDialogActive(m_callbackUserData)) {
+            m_endObjectState(heroObjectId, kObjectStateDeal, m_callbackUserData);
+        }
+        if (m_pNameEdit) m_pNameEdit->SetFocusEdit(false);
     }
     cDialog::SetActive(val);
 }

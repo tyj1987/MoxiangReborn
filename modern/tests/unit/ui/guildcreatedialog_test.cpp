@@ -1,10 +1,10 @@
-// guildcreatedialog_test.cpp - Phase 12.x P2-12 Tier 2 dialog 1:1 port
+﻿// guildcreatedialog_test.cpp - Phase 12.x P2-12 Tier 2 dialog 1:1 port
 // contract test for modern cGuildCreateDialog +
 // cGuildUnionCreateDialog (guild create + guild union create
 // dialogs).
 //
 // Covers modern/src/ui/guildcreatedialog.{hpp,cpp}, a 1:1 port of
-//   墨香【源码】\[Client]MH\GuildCreateDialog.h (679 B).
+//   å¢¨é¦™ã€æºç ã€‘\[Client]MH\GuildCreateDialog.h (679 B).
 //
 // What's tested (cGuildCreateDialog):
 //   - Default construction: 5 child pointers are null.
@@ -62,7 +62,7 @@
 namespace mxh::ui::test {
 
 // ===========================================================================
-// cGuildCreateDialog — Construction
+// cGuildCreateDialog â€” Construction
 // ===========================================================================
 
 TEST(CGuildCreateDialogTest, DefaultConstructionHasNullPointers) {
@@ -75,7 +75,7 @@ TEST(CGuildCreateDialogTest, DefaultConstructionHasNullPointers) {
 }
 
 // ===========================================================================
-// cGuildCreateDialog — Id constants
+// cGuildCreateDialog â€” Id constants
 // ===========================================================================
 
 TEST(CGuildCreateDialogTest, IdConstantsAreDistinct) {
@@ -100,7 +100,7 @@ TEST(CGuildCreateDialogTest, IdConstantsAreDistinct) {
 }
 
 // ===========================================================================
-// cGuildCreateDialog — Linking
+// cGuildCreateDialog â€” Linking
 // ===========================================================================
 
 namespace {
@@ -181,7 +181,7 @@ TEST(CGuildCreateDialogTest, LinkingWithoutChildrenLeavesPointersNull) {
 }
 
 // ===========================================================================
-// cGuildCreateDialog — SetActive (1:1 override, base + TODO)
+// cGuildCreateDialog â€” SetActive (1:1 override, base + TODO)
 // ===========================================================================
 
 TEST(CGuildCreateDialogTest, SetActiveTrueUpdatesBaseState) {
@@ -215,7 +215,7 @@ TEST(CGuildCreateDialogTest, SetActiveWithoutLinksIsSafe) {
 }
 
 // ===========================================================================
-// cGuildCreateDialog — SetMunpaName / SetMunpaIntro
+// cGuildCreateDialog â€” SetMunpaName / SetMunpaIntro
 // ===========================================================================
 
 TEST(CGuildCreateDialogTest, SetMunpaNameUpdatesEditTextAndReadOnly) {
@@ -287,7 +287,7 @@ TEST(CGuildCreateDialogTest, SetMunpaIntroWithoutLinkIsSafe) {
 }
 
 // ===========================================================================
-// cGuildUnionCreateDialog — Construction
+// cGuildUnionCreateDialog â€” Construction
 // ===========================================================================
 
 TEST(CGuildUnionCreateDialogTest, DefaultConstructionHasNullPointers) {
@@ -298,7 +298,7 @@ TEST(CGuildUnionCreateDialogTest, DefaultConstructionHasNullPointers) {
 }
 
 // ===========================================================================
-// cGuildUnionCreateDialog — Id constants
+// cGuildUnionCreateDialog â€” Id constants
 // ===========================================================================
 
 TEST(CGuildUnionCreateDialogTest, IdConstantsAreDistinct) {
@@ -317,7 +317,7 @@ TEST(CGuildUnionCreateDialogTest, IdConstantsAreDistinct) {
 }
 
 // ===========================================================================
-// cGuildUnionCreateDialog — Linking
+// cGuildUnionCreateDialog â€” Linking
 // ===========================================================================
 
 namespace {
@@ -393,7 +393,7 @@ TEST(CGuildUnionCreateDialogTest, LinkingWithoutChildrenLeavesPointersNull) {
 }
 
 // ===========================================================================
-// cGuildUnionCreateDialog — SetActive
+// cGuildUnionCreateDialog â€” SetActive
 // ===========================================================================
 
 TEST(CGuildUnionCreateDialogTest, SetActiveTrueUpdatesBaseState) {
@@ -406,10 +406,19 @@ TEST(CGuildUnionCreateDialogTest, SetActiveTrueUpdatesBaseState) {
     EXPECT_TRUE(dlg.isActive());
 }
 
+namespace {
+
+std::uint32_t GetExistingGuildUnionHeroObjectId(void*) {
+    return 1;
+}
+
+}  // namespace
+
 TEST(CGuildUnionCreateDialogTest, SetActiveFalseUpdatesBaseState) {
     cGuildUnionCreateDialog dlg;
     GuildUnionChildren raws;
     BuildUnionDlgWithChildren(dlg, raws);
+    dlg.SetCallbacks(GetExistingGuildUnionHeroObjectId, nullptr, nullptr, nullptr);
     dlg.SetActive(true);
     ASSERT_TRUE(dlg.isActive());
 
@@ -424,6 +433,171 @@ TEST(CGuildUnionCreateDialogTest, SetActiveWithoutLinksIsSafe) {
     dlg.SetActive(true);
     dlg.SetActive(false);
     SUCCEED();
+}
+
+namespace {
+
+struct GuildUnionCallbackState {
+    std::uint32_t heroObjectId = 7;
+    std::int32_t heroState = cGuildUnionCreateDialog::kObjectStateDeal;
+    bool npcScriptActive = false;
+    int endCalls = 0;
+    std::uint32_t endedObjectId = 0;
+    std::int32_t endedState = 0;
+};
+
+std::uint32_t GetGuildUnionHeroObjectId(void* userData) {
+    return static_cast<GuildUnionCallbackState*>(userData)->heroObjectId;
+}
+
+std::int32_t GetGuildUnionHeroState(void* userData) {
+    return static_cast<GuildUnionCallbackState*>(userData)->heroState;
+}
+
+bool IsGuildUnionNpcScriptActive(void* userData) {
+    return static_cast<GuildUnionCallbackState*>(userData)->npcScriptActive;
+}
+
+void EndGuildUnionObjectState(std::uint32_t objectId,
+                              std::int32_t state,
+                              void* userData) {
+    auto& callbackState = *static_cast<GuildUnionCallbackState*>(userData);
+    ++callbackState.endCalls;
+    callbackState.endedObjectId = objectId;
+    callbackState.endedState = state;
+}
+
+std::uint32_t GetFixedGuildUnionHeroObjectId(void*) {
+    return 19;
+}
+
+}  // namespace
+
+TEST(CGuildUnionCreateDialogTest, ObjectStateDealConstantMatchesLegacy) {
+    EXPECT_EQ(cGuildUnionCreateDialog::kObjectStateDeal, 6);
+}
+
+TEST(CGuildUnionCreateDialogTest, SetActiveTrueClearsNameEditText) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    raws.name_edit->SetEditText("union name");
+
+    dlg.SetActive(true);
+
+    EXPECT_TRUE(raws.name_edit->editText().empty());
+}
+
+TEST(CGuildUnionCreateDialogTest, SetActiveFalseEndsDealStateWhenNpcScriptInactive) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    GuildUnionCallbackState callbackState;
+    dlg.SetCallbacks(GetGuildUnionHeroObjectId, GetGuildUnionHeroState,
+                     IsGuildUnionNpcScriptActive, EndGuildUnionObjectState,
+                     &callbackState);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(callbackState.endCalls, 1);
+    EXPECT_EQ(callbackState.endedObjectId, callbackState.heroObjectId);
+    EXPECT_EQ(callbackState.endedState, cGuildUnionCreateDialog::kObjectStateDeal);
+}
+
+TEST(CGuildUnionCreateDialogTest, SetActiveFalseSkipsEndForNonDealState) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    GuildUnionCallbackState callbackState;
+    callbackState.heroState = 5;
+    dlg.SetCallbacks(GetGuildUnionHeroObjectId, GetGuildUnionHeroState,
+                     IsGuildUnionNpcScriptActive, EndGuildUnionObjectState,
+                     &callbackState);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(callbackState.endCalls, 0);
+}
+
+TEST(CGuildUnionCreateDialogTest, SetActiveFalseSkipsEndWhenNpcScriptActive) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    GuildUnionCallbackState callbackState;
+    callbackState.npcScriptActive = true;
+    dlg.SetCallbacks(GetGuildUnionHeroObjectId, GetGuildUnionHeroState,
+                     IsGuildUnionNpcScriptActive, EndGuildUnionObjectState,
+                     &callbackState);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(callbackState.endCalls, 0);
+}
+
+TEST(CGuildUnionCreateDialogTest, SetActiveFalsePreservesLegacyNullHeroEarlyReturn) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    GuildUnionCallbackState callbackState;
+    callbackState.heroObjectId = 0;
+    dlg.SetCallbacks(GetGuildUnionHeroObjectId, GetGuildUnionHeroState,
+                     IsGuildUnionNpcScriptActive, EndGuildUnionObjectState,
+                     &callbackState);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(callbackState.endCalls, 0);
+}
+
+TEST(CGuildUnionCreateDialogTest, SetActiveFalseWithoutCallbacksPreservesEarlyReturn) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_TRUE(dlg.isActive());
+}
+
+TEST(CGuildUnionCreateDialogTest, SetCallbacksReplacesExistingHostDispatch) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    GuildUnionCallbackState firstState;
+    GuildUnionCallbackState secondState;
+    dlg.SetCallbacks(GetGuildUnionHeroObjectId, GetGuildUnionHeroState,
+                     IsGuildUnionNpcScriptActive, EndGuildUnionObjectState,
+                     &firstState);
+    dlg.SetCallbacks(GetGuildUnionHeroObjectId, GetGuildUnionHeroState,
+                     IsGuildUnionNpcScriptActive, EndGuildUnionObjectState,
+                     &secondState);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_EQ(firstState.endCalls, 0);
+    EXPECT_EQ(secondState.endCalls, 1);
+}
+
+TEST(CGuildUnionCreateDialogTest, SetCallbacksAcceptsNullUserData) {
+    cGuildUnionCreateDialog dlg;
+    GuildUnionChildren raws;
+    BuildUnionDlgWithChildren(dlg, raws);
+    dlg.SetCallbacks(GetFixedGuildUnionHeroObjectId, nullptr, nullptr, nullptr);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
 }
 
 }  // namespace mxh::ui::test

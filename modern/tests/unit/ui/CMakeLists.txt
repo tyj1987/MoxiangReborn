@@ -680,6 +680,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildUnionCreateDialogTest.SetActiveTrueUpdatesBaseState
     CGuildUnionCreateDialogTest.SetActiveFalseUpdatesBaseState
     CGuildUnionCreateDialogTest.SetActiveWithoutLinksIsSafe
+    CGuildUnionCreateDialogTest.ObjectStateDealConstantMatchesLegacy
+    CGuildUnionCreateDialogTest.SetActiveTrueClearsNameEditText
+    CGuildUnionCreateDialogTest.SetActiveFalseEndsDealStateWhenNpcScriptInactive
+    CGuildUnionCreateDialogTest.SetActiveFalseSkipsEndForNonDealState
+    CGuildUnionCreateDialogTest.SetActiveFalseSkipsEndWhenNpcScriptActive
+    CGuildUnionCreateDialogTest.SetActiveFalsePreservesLegacyNullHeroEarlyReturn
+    CGuildUnionCreateDialogTest.SetActiveFalseWithoutCallbacksPreservesEarlyReturn
+    CGuildUnionCreateDialogTest.SetCallbacksReplacesExistingHostDispatch
+    CGuildUnionCreateDialogTest.SetCallbacksAcceptsNullUserData
     # Phase C 1:1 port (dialog): cChaseInputDialog (chase target name)
     CChaseInputDialogTest.DefaultConstructionHasNullAndZero
     CChaseInputDialogTest.IdConstantMatchesExpectedLocalRange

@@ -151,9 +151,21 @@ public:
 
     // ----- 1:1 with legacy CGuildUnionCreateDialog::SetActive -----
 
-    // 1:1 override: 4-singleton dispatch. Modern
-    // port: calls base SetActive + TODO for singleton
-    // dispatch.
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using GetHeroStateFn = std::int32_t (*)(void* userData);
+    using IsNpcScriptDialogActiveFn = bool (*)(void* userData);
+    using EndObjectStateFn = void (*)(std::uint32_t objectId,
+                                      std::int32_t stateIdx,
+                                      void* userData);
+
+    void SetCallbacks(GetHeroObjectIdFn getHeroObjectId,
+                      GetHeroStateFn getHeroState,
+                      IsNpcScriptDialogActiveFn isNpcScriptDialogActive,
+                      EndObjectStateFn endObjectState,
+                      void* userData = nullptr) noexcept;
+
+    // 1:1 override: HERO-null early return, deal-state
+    // cancellation, focus release, then base SetActive.
     void SetActive(bool val) noexcept override;
 
     // ----- Accessors (used by tests) -----
@@ -167,8 +179,15 @@ public:
     static constexpr std::int32_t kNameEditId = 290;  // was GDU_NAME
     static constexpr std::int32_t kOkBtnId   = 291;  // was GDU_OKBTN
     static constexpr std::int32_t kTextId     = 292;  // was GDU_TEXT
+    static constexpr std::int32_t kObjectStateDeal = 6;
 
 private:
+    GetHeroObjectIdFn m_getHeroObjectId = nullptr;
+    GetHeroStateFn m_getHeroState = nullptr;
+    IsNpcScriptDialogActiveFn m_isNpcScriptDialogActive = nullptr;
+    EndObjectStateFn m_endObjectState = nullptr;
+    void* m_callbackUserData = nullptr;
+
     cEditBox* m_pNameEdit = nullptr;
     cButton*  m_pOkBtn    = nullptr;
     cTextArea* m_pText    = nullptr;
