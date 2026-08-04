@@ -695,7 +695,29 @@ gtest_add_tests(TARGET mxh_ui_tests
     CChaseInputDialogTest.SetActiveWithoutLinkIsSafe
     CChaseInputDialogTest.SetItemIdxUpdatesValue
     CChaseInputDialogTest.SetItemIdxBeforeInitDoesNotCrash
-    CChaseInputDialogTest.WantedChaseSynIsNoOp
+    CChaseInputDialogTest.LegacyConstantsMatchWireValues
+    CChaseInputDialogTest.WantedChaseSynRateLimitsRecentRequest
+    CChaseInputDialogTest.WantedChaseSynAtRateLimitBoundarySends
+    CChaseInputDialogTest.WantedChaseSynWithEmptyNameReturnsEarly
+    CChaseInputDialogTest.WantedChaseSynRejectsExactHeroName
+    CChaseInputDialogTest.WantedChaseSynFiltersUppercaseCopy
+    CChaseInputDialogTest.WantedChaseSynSendsOriginalCaseName
+    CChaseInputDialogTest.TrackingJinRequiresWantedListMembership
+    CChaseInputDialogTest.TrackingJinSendsWantedMember
+    CChaseInputDialogTest.NonTrackingItemSkipsWantedListCheck
+    CChaseInputDialogTest.WantedChaseSynSendsAndUpdatesState
+    CChaseInputDialogTest.WantedChaseSynIgnoresSendResult
+    CChaseInputDialogTest.MissingCurrentTimeIsSafeNoOp
+    CChaseInputDialogTest.MissingEditBoxIsSafeNoOp
+    CChaseInputDialogTest.MissingHeroIdSkipsSendAndStateChange
+    CChaseInputDialogTest.MissingSendCallbackSkipsSendAndStateChange
+    CChaseInputDialogTest.MissingHeroNameSkipsSelfCheck
+    CChaseInputDialogTest.MissingFilterCallbackSkipsFilterBranch
+    CChaseInputDialogTest.MissingWantedCallbackSkipsTrackingGate
+    CChaseInputDialogTest.CurrentTimeWrapAroundStillRateLimits
+    CChaseInputDialogTest.WantedNameIsLimitedToLegacySixteenBytes
+    CChaseInputDialogTest.CaseSensitiveHeroNameComparisonMatchesLegacy
+    CChaseInputDialogTest.WantedChaseSynWithDefaultCallbacksIsSafeNoOp
     CChaseInputDialogTest.WantedChaseSynWithoutLinkIsSafe
     # Phase C 1:1 port (dialog): cChaseDialog (chase target minimap)
     CChaseDialogTest.DefaultConstructionIsValid

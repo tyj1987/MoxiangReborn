@@ -486,6 +486,12 @@ enum class ItemProtocol : std::uint8_t {
     DissolveFailedAck    = 51,
     DissolveNack         = 52,
 
+    // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_CHASE_*
+    // (positions 154/155/156 in [CC]Header/Protocol.h).
+    ShopItemChaseSyn     = 154,
+    ShopItemChaseAck     = 155,
+    ShopItemChaseNack    = 156,
+
     // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_JOBCHANGE_*
     // (positions 175/176/177 in [CC]Header/Protocol.h). Modern skips the
     // intermediate entries 53..174 because the modern client/server does
