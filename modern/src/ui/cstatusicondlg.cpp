@@ -109,7 +109,13 @@ void cStatusIconDlg::AddIcon(void* pObject, std::uint16_t statusIconNum,
     // remaining time for the *latest* icon of that kind.  The
     // modern port keeps the same single-slot model.
     m_dwRemainTime[statusIconNum] = dwRemainTime;
-    m_dwStartTime[statusIconNum]  = 0;  // host supplies via SetNowMsForTest
+    // 1:1 with legacy m_dwStartTime[StatusIconNum] = gCurTime.
+    // The host clock provider replaces gCurTime (R-12.x).  A null
+    // provider preserves the safe zero-clock fallback so the
+    // remaining tooltip still computes correctly (elapsed = 0).
+    m_dwStartTime[statusIconNum]  = m_getCurrentTimeFn
+        ? m_getCurrentTimeFn(m_clockUserData)
+        : 0u;
     ++m_CurIconNum;
 }
 
@@ -200,4 +206,60 @@ void cStatusIconDlg::Render() {
     }
 }
 
+void cStatusIconDlg::SetCurrentTimeProvider(
+    GetCurrentTimeFn getCurrentTime, void* userData) noexcept {
+    m_getCurrentTimeFn = getCurrentTime;
+    m_clockUserData    = userData;
+}
+std::uint32_t cStatusIconDlg::GetRemainTimeAt(std::int32_t kind) const noexcept {
+    if (kind < 0 || kind >= eStatusIcon_Max) return 0u;
+    return m_dwRemainTime[kind];
+}
+std::uint32_t cStatusIconDlg::GetStartTimeAt(std::int32_t kind) const noexcept {
+    if (kind < 0 || kind >= eStatusIcon_Max) return 0u;
+    return m_dwStartTime[kind];
+}
+bool cStatusIconDlg::GetAlphaFlagAt(std::int32_t kind) const noexcept {
+    if (kind < 0 || kind >= eStatusIcon_Max) return false;
+    return m_IconInfo[kind].bAlpha;
+}
+void cStatusIconDlg::Process() {
+    // 1:1 with the per-frame timer logic from legacy
+    // CStatusIconDlg::Render -- mirrors the legacy pattern:
+    //   DWORD elapsed = gCurTime - m_dwStartTime[n];
+    //   if (elapsed < m_dwRemainTime[n]) {
+    //       if (m_dwRemainTime[n] - elapsed <= 5000)
+    //           m_IconInfo[n].bAlpha = TRUE;
+    //   }
+    // The host clock provider replaces gCurTime (R-12.x); a null
+    // provider preserves the safe zero-clock fallback.
+    const std::uint32_t curTime = m_getCurrentTimeFn
+        ? m_getCurrentTimeFn(m_clockUserData)
+        : 0u;
+
+    // Only kinds with active icons participate in the timer.
+    for (std::int32_t kind = 1; kind < eStatusIcon_Max; ++kind) {
+        if (m_IconCount[kind] == 0) continue;
+        if (m_dwRemainTime[kind] == 0u) continue;
+
+        // Legacy uses DWORD arithmetic (unsigned wrap-around).
+        // curTime - m_dwStartTime[kind] matches the legacy intent
+        // even when curTime < m_dwStartTime[kind].
+        const std::uint32_t elapsed = curTime - m_dwStartTime[kind];
+
+        // Legacy DWORD comparison: elapsed < m_dwRemainTime[kind]
+        // determines whether the icon is still active.  When
+        // expired, the legacy flips bAlpha back to FALSE (the
+        // tooltip branch then skips the remain-time label).
+        if (elapsed < m_dwRemainTime[kind]) {
+            const std::uint32_t remaining = m_dwRemainTime[kind] - elapsed;
+            // Blink when remaining is within 5000 ms (locked constant).
+            m_IconInfo[kind].bAlpha =
+                (remaining <= kStatusIconExpiringBlinkMs);
+        } else {
+            // Expired: no blink.
+            m_IconInfo[kind].bAlpha = false;
+        }
+    }
+}
 } // namespace mxh::ui

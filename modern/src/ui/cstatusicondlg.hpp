@@ -160,6 +160,25 @@ public:
     std::int32_t  IconCount() const noexcept     { return static_cast<std::int32_t>(m_IconCount.size()); }
     std::int32_t  DescriptionCount() const noexcept { return m_MaxDesc; }
 
+    // ----- 1:1 with legacy gCurTime-based dwRemainTime / dwStartTime -----
+
+    // Replace the legacy gCurTime read for AddIcon + Process.
+    // A null provider preserves the safe zero-clock fallback (m_dwStartTime = 0).
+    using GetCurrentTimeFn = std::uint32_t (*)(void* userData);
+    void SetCurrentTimeProvider(GetCurrentTimeFn getCurrentTime,
+                                 void* userData = nullptr) noexcept;
+
+    // 1:1 with the per-frame timer logic in legacy Render.
+    // Walks every kind, computes elapsed time via the host clock,
+    // and flips m_IconInfo[kind].bAlpha = TRUE when remaining time
+    // is within 5000 ms of expiry (legacy blink animation).
+    void Process();
+
+    // Per-kind state accessors (range-safe for tests).
+    std::uint32_t GetRemainTimeAt(std::int32_t kind) const noexcept;
+    std::uint32_t GetStartTimeAt(std::int32_t kind) const noexcept;
+    bool          GetAlphaFlagAt(std::int32_t kind) const noexcept;
+
     // Test hook -- register a description entry (replaces the
     // legacy LoadDescription file load).
     void AddDescriptionForTest(const char* key, const char* value);
@@ -189,6 +208,16 @@ private:
     std::int32_t  m_nQuestIconCount = 0;
 
     DrawIconCallback m_onDrawIcon;
+
+    // Host clock provider (replaces legacy global gCurTime). A null
+    // pointer preserves the safe zero-clock fallback.
+    GetCurrentTimeFn m_getCurrentTimeFn = nullptr;
+    void*            m_clockUserData     = nullptr;
 };
+
+// 1:1 with legacy Render's if (m_dwRemainTime[n] - elapsed <= 5000)
+// m_IconInfo[n].bAlpha = TRUE boundary. Hosts may override but the
+// legacy constant is locked.
+constexpr std::uint32_t kStatusIconExpiringBlinkMs = 5000u;
 
 } // namespace mxh::ui

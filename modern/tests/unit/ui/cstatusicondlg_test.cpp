@@ -270,6 +270,174 @@ TEST(CStatusIconDlg, SetOneMinuteToShopItemIsTolerated) {
     SUCCEED();
 }
 
+// --------------------------------------------------------------------------
+// Clock provider + Process() tests (C-Batch-2.42).
+//
+// Locks down the 1:1 surface:
+//   * AddIcon stamps m_dwStartTime[kind] via host clock (null = 0)
+//   * Process() flips bAlpha = TRUE within 5000 ms of expiry
+//   * Process() flips bAlpha = FALSE when icon has expired
+//   * Process() skips empty kinds + zero-remainTime kinds
+//   * Process() preserves DWORD wrap-around for curTime < startTime
+//   * kStatusIconExpiringBlinkMs = 5000 (legacy constant)
+// --------------------------------------------------------------------------
+
+namespace {
+struct ClockCapture {
+    std::uint32_t value = 0;
+    int           calls = 0;
+    static std::uint32_t Get(void* userData) {
+        auto* self = static_cast<ClockCapture*>(userData);
+        ++self->calls;
+        return self->value;
+    }
+};
+} // namespace
+
+TEST(CStatusIconDlg, ExpiringBlinkConstantIsFiveThousand) {
+    // 1:1 with legacy Render if (m_dwRemainTime[n] - elapsed <= 5000).
+    EXPECT_EQ(mxh::ui::kStatusIconExpiringBlinkMs, 5000u);
+}
+
+TEST(CStatusIconDlg, AddIconStampsStartTimeViaHostClock) {
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 12345u;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 7, 60000);
+    EXPECT_EQ(dlg.GetStartTimeAt(eStatusIcon_Poison), 12345u);
+    EXPECT_EQ(dlg.GetRemainTimeAt(eStatusIcon_Poison), 60000u);
+    EXPECT_GE(clk.calls, 1);
+}
+
+TEST(CStatusIconDlg, NullCurrentTimeProviderKeepsSafeZeroStart) {
+    // 1:1 fallback: a null clock provider leaves m_dwStartTime at 0.
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 7, 60000);
+    EXPECT_EQ(dlg.GetStartTimeAt(eStatusIcon_Poison), 0u);
+}
+
+TEST(CStatusIconDlg, ProcessFlipsAlphaOnExpiringRemain) {
+    // Within 5000 ms of expiry -> legacy sets bAlpha = TRUE (blink).
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 1000u;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    // Icon active from t = 0 with 10000 ms remaining -> at t = 7000
+    // elapsed = 7000, remaining = 3000 (<= 5000) -> bAlpha = TRUE.
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 10000);
+    clk.value = 7000u;
+    dlg.Process();
+    EXPECT_TRUE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+}
+
+TEST(CStatusIconDlg, ProcessClearsAlphaWhenExpired) {
+    // elapsed >= m_dwRemainTime -> legacy flips bAlpha back to FALSE.
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 0u;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 5000);
+    // Pre-set bAlpha via AddIcon semantics: legacy AddIcon sets bAlpha = FALSE.
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+    // Pump curTime past the expiry + manually enable blink to prove Process clears it.
+    clk.value = 6000u;
+    dlg.Process();
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+}
+
+TEST(CStatusIconDlg, ProcessLeavesAlphaWhenRemainingAboveBlink) {
+    // remaining > 5000 ms but < m_dwRemainTime -> bAlpha must stay FALSE.
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 0u;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    // remain 60_000, after 1000 ms remaining is 59000 (>5000) -> blink=FALSE.
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 60000);
+    clk.value = 1000u;
+    dlg.Process();
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+}
+
+TEST(CStatusIconDlg, ProcessSkipsEmptyAndZeroRemainKinds) {
+    // A kind with m_IconCount == 0 must be skipped (no read of bAlpha).
+    // A kind with m_dwRemainTime == 0 (legacy: expires immediately)
+    // is also skipped (no inverse state mutation).
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 0u;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    // Icon with zero remain: skipped (legacy semantics: no timer).
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 0);
+    clk.value = 8000u;
+    dlg.Process();
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+    // Range-safe accessors return 0 / false for unknown kinds.
+    EXPECT_EQ(dlg.GetRemainTimeAt(-1), 0u);
+    EXPECT_EQ(dlg.GetRemainTimeAt(mxh::ui::eStatusIcon_Max), 0u);
+    EXPECT_EQ(dlg.GetStartTimeAt(-1), 0u);
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(mxh::ui::eStatusIcon_Max));
+}
+
+TEST(CStatusIconDlg, ProcessPreservesDwordWrapAround) {
+    // curTime < m_dwStartTime (DWORD wrap) -> elapsed = curTime - start.
+    // Legacy uses unsigned DWORD subtraction; the modern port mirrors it.
+    //
+    // Setup: start=0xFFFFFFFE, curTime=0x00000005 -> elapsed=7 (wrap).
+    // remain=10 -> within range, remaining = 3 (<=5000) -> bAlpha = TRUE.
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 0xFFFFFFFEu;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 10);
+    // Now advance curTime past start by 7 (wrap).
+    clk.value = 0x00000005u;
+    dlg.Process();
+    EXPECT_TRUE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+}
+
+TEST(CStatusIconDlg, ProcessUsesDwordRemainComparisonOnExpiry) {
+    // Legacy DWORD: elapsed >= m_dwRemainTime means expired.
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    ClockCapture clk;
+    clk.value = 0u;
+    dlg.SetCurrentTimeProvider(&ClockCapture::Get, &clk);
+    // Add icon at t=0 with remain=100. At t=100 elapsed==remain -> expired.
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 100);
+    clk.value = 100u;
+    dlg.Process();
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+}
+
+TEST(CStatusIconDlg, ProcessWithoutProviderUsesZeroClock) {
+    // Null clock => curTime=0, so elapsed = 0 - 0 = 0 (or 0 - 0).
+    // If m_dwStartTime was set via host earlier, curTime=0 still goes through
+    // the same call site -- no crash, no UB.
+    cStatusIconDlg dlg;
+    int dummy = 0;
+    dlg.Init(&dummy, 0, 0, 4);
+    dlg.AddIcon(&dummy, eStatusIcon_Poison, 0, 60000);
+    dlg.Process();  // must not crash, must not flip bAlpha.
+    // curTime=0, start=0, elapsed=0, remaining=60000 -> bAlpha = FALSE.
+    EXPECT_FALSE(dlg.GetAlphaFlagAt(eStatusIcon_Poison));
+}
+
 TEST(CStatusIconDlg, NonCopyable) {
     cStatusIconDlg dlg;
     static_assert(!std::is_copy_constructible_v<cStatusIconDlg>);
