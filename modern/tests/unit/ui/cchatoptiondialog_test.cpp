@@ -1,10 +1,10 @@
-﻿//
+//
 // Unit tests for mxh::ui::cChatOptionDialog (Phase C dialog port).
 //
 // Locks down the 1:1 surface:
 //   * Constants: kChatOptionCount=12, kIdOptionBase=750,
-//                kIdOptionEnd=761, kWeChecked=0x0080,
-//                kWeNotChecked=0x0100
+//                kIdOptionEnd=761, kWeChecked=0x4000,
+//                kWeNotChecked=0x8000
 //   * Default construction: option array all false,
 //                            m_bFirst=true, m_bChanged=false
 //   * Init forwards to cDialog::Init and resets
@@ -97,8 +97,8 @@ TEST(CChatOptionDialog, ConstantsMatchLegacy) {
     EXPECT_EQ(cChatOptionDialog::kChatOptionCount, 12u);
     EXPECT_EQ(cChatOptionDialog::kIdOptionBase, 750);
     EXPECT_EQ(cChatOptionDialog::kIdOptionEnd,  761);
-    EXPECT_EQ(cChatOptionDialog::kWeChecked,     0x0080u);
-    EXPECT_EQ(cChatOptionDialog::kWeNotChecked,  0x0100u);
+    EXPECT_EQ(cChatOptionDialog::kWeChecked, mxh::ui::legacy_window_event::kChecked);
+    EXPECT_EQ(cChatOptionDialog::kWeNotChecked, mxh::ui::legacy_window_event::kNotChecked);
 }
 
 TEST(CChatOptionDialog, OptionBaseEndIsContiguous) {
@@ -339,7 +339,7 @@ TEST(CChatOptionDialog, OnActionEventUnknownFlagStillFlagsChanged) {
     // 1:1 quirk: legacy always sets m_bChanged = TRUE
     // regardless of the WE_* bits.  Use a flag that
     // overlaps neither WE_CHECKED nor WE_NOTCHECKED
-    // (e.g. WE_LBTNCLICK = 0x0040).  The options
+    // (e.g. WE_BTNCLICK = 0x0040).  The options
     // array is unchanged but m_bChanged latches.
     Harness h;
     ResetCbState();
@@ -347,7 +347,7 @@ TEST(CChatOptionDialog, OnActionEventUnknownFlagStillFlagsChanged) {
     h.dlg.SetActive(true);
     EXPECT_FALSE(h.dlg.HasChanged());
 
-    constexpr std::uint32_t kWeOther = 0x0040u;  // WE_LBTNCLICK
+    constexpr std::uint32_t kWeOther = 0x0040u;  // WE_BTNCLICK
     h.dlg.OnActionEvent(cChatOptionDialog::kIdOptionBase + 0, nullptr,
                         kWeOther);
     EXPECT_TRUE(h.dlg.HasChanged());

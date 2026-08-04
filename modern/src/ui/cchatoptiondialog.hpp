@@ -1,4 +1,4 @@
-﻿// cchatoptiondialog.hpp -- modern port of Moxiang CChatOptionDialog
+// cchatoptiondialog.hpp -- modern port of Moxiang CChatOptionDialog
 //   (chat option toggles).
 //
 // 1:1 port of legacy `CChatOptionDialog` from
@@ -34,6 +34,7 @@
 #pragma once
 
 #include "cDialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -98,8 +99,8 @@ public:
     static constexpr std::int32_t kIdOptionEnd  = 761;
 
     // WE flags (1:1 with legacy WE_CHECKED / WE_NOTCHECKED).
-    static constexpr std::uint32_t kWeChecked    = 0x0080u;
-    static constexpr std::uint32_t kWeNotChecked = 0x0100u;
+    static constexpr std::uint32_t kWeChecked = legacy_window_event::kChecked;
+    static constexpr std::uint32_t kWeNotChecked = legacy_window_event::kNotChecked;
 
     // Test hook -- inject the 12 cCheckBox pointers.
     // 1:1 with legacy `cCheckBox* m_pBtnOption[12]`.
