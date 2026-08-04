@@ -1,6 +1,7 @@
 // ccostumeskinselectdialog.cpp — modern port of 墨香 CCostumeSkinSelectDialog.
 
 #include "mxh/ui/ccostumeskinselectdialog.hpp"
+#include "legacy_window_event.hpp"
 #include "mxh/ui/clistdialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
 
@@ -83,7 +84,7 @@ bool cCostumeSkinSelectDialog::OnActionEvent(std::int32_t lId, void* /*p*/, std:
     // 1:1 with legacy OnActionEvent.  Routes:
     //   * tab btn click -> switch tab + SetCostumTabBtnFocus
     //   * list row click -> update m_dwSelectIdx
-    constexpr std::uint32_t kBtnClick = 0x0001;
+    constexpr std::uint32_t kBtnClick = legacy_window_event::kButtonClick;
     if (we & kBtnClick) {
         if (lId == kTabBtnHatId) {
             m_currentTab = CostumeSkinTab::Hat;

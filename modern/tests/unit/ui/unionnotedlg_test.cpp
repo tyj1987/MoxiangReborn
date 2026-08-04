@@ -210,7 +210,7 @@ TEST(CUnionNoteDlgTest, LegacyConstantsMatchSource) {
     EXPECT_EQ(cUnionNoteDlg::kNoUnionMessageId, 1103);
     EXPECT_EQ(cUnionNoteDlg::kInvalidItemMessageId, 786);
     EXPECT_EQ(cUnionNoteDlg::kAlreadyUsingMessageId, 752);
-    EXPECT_EQ(cUnionNoteDlg::kWeBtnClick, 1u);
+    EXPECT_EQ(cUnionNoteDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
 }
 
 TEST(CUnionNoteDlgTest, ShowWithoutGuildEmits35) {

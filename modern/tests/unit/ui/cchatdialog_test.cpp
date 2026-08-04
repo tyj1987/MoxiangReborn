@@ -23,6 +23,7 @@
 //   * NonCopyable
 
 #include "mxh/ui/cchatdialog.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 #include "mxh/ui/ceditbox.hpp"
 #include "mxh/ui/clistdialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
@@ -221,7 +222,7 @@ TEST(CChatDialog, OnActionEventTabClickSelectsMenu) {
     cChatDialog d;
     d.SetSelectMenuCallbackForTest(&test_chatdlg::faSelectMenu, nullptr);
     d.SetSetEditTextCallbackForTest(&test_chatdlg::faSetEditText, nullptr);
-    d.OnActionEvent(static_cast<int>(ChatSheet::Party), nullptr, 0x0001);
+    d.OnActionEvent(static_cast<int>(ChatSheet::Party), nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(d.GetCurSheetNum(), static_cast<int>(ChatSheet::Party));
     EXPECT_EQ(test_chatdlg::g_selectMenuCount, 1);
 }
@@ -238,7 +239,7 @@ TEST(CChatDialog, OnActionEventIgnoresNonClickEvents) {
 TEST(CChatDialog, OnActionEventIgnoresOutOfRangeId) {
     cChatDialog d;
     d.SetSelectMenuCallbackForTest(&test_chatdlg::faSelectMenu, nullptr);
-    d.OnActionEvent(99, nullptr, 0x0001);
+    d.OnActionEvent(99, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(d.GetCurSheetNum(), 0);
 }
 

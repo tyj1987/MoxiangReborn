@@ -274,7 +274,7 @@ void InstallAutoNoteCallbacks(cAutoNoteDlg& dlg, AutoNoteCallbackState& state) {
 }  // namespace
 
 TEST(CAutoNoteDlgTest, LegacyConstantsMatchSource) {
-    EXPECT_EQ(cAutoNoteDlg::kWeBtnClick, 1u);
+    EXPECT_EQ(cAutoNoteDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(cAutoNoteDlg::kSelectPlayerMessageId, 1704);
     EXPECT_EQ(cAutoNoteDlg::kManualMessageId, 1721);
 }

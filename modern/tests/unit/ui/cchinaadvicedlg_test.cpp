@@ -1,4 +1,4 @@
-﻿//
+//
 // Unit tests for mxh::ui::cChinaAdviceDlg (Phase C dialog port).
 //
 // Locks down the 1:1 surface of legacy CChinaAdviceDlg
@@ -127,7 +127,7 @@ TEST(CChinaAdviceDlgTest, ChatMsgIdConstantMatchesLegacy) {
 }
 
 TEST(CChinaAdviceDlgTest, WeBtnClickConstantMatchesLegacy) {
-    EXPECT_EQ(cChinaAdviceDlg::kWeBtnClick, 0x0001u);
+    EXPECT_EQ(cChinaAdviceDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
 }
 
 TEST(CChinaAdviceDlgTest, PlaceholderTextIsSet) {

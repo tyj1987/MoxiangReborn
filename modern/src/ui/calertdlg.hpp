@@ -1,4 +1,4 @@
-﻿// calertdlg.hpp -- modern port of Moxiang
+// calertdlg.hpp -- modern port of Moxiang
 //   CAlertDlg (alert dialog: OK/Cancel buttons + callback).
 //
 // 1:1 port of legacy `CAlertDlg` from
@@ -49,6 +49,8 @@
 //     args (useful for diagnostic assertions).
 
 #pragma once
+
+#include "legacy_window_event.hpp"
 
 #include "cdialog.hpp"
 
@@ -114,7 +116,7 @@ public:
     // ----- 1:1 with legacy WE_BTNCLICK -----
 
     // 1:1 with legacy WE_BTNCLICK=0x0001.
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // ----- 1:1 with legacy child ids (local range) -----
 

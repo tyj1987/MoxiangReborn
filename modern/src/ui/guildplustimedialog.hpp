@@ -1,5 +1,7 @@
 #pragma once
 
+#include "legacy_window_event.hpp"
+
 #include "mxh/ui/cDialog.hpp"
 
 #include <cstddef>
@@ -47,7 +49,7 @@ public:
     static constexpr std::int32_t kMugongMessageId = 1378;
     static constexpr std::int32_t kExpMessageId = 1379;
     static constexpr std::int32_t kDamageUpMessageId = 1380;
-    static constexpr std::int32_t kActionBtnClick = 0x0001;
+    static constexpr std::int32_t kActionBtnClick = legacy_window_event::kButtonClick;
 
     cGuildPlusTimeDialog();
     ~cGuildPlusTimeDialog() override;

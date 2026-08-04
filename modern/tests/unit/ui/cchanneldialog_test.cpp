@@ -23,6 +23,7 @@
 //   * SetActiveExt(false) clears IsBattleChannel global
 
 #include "mxh/ui/cchanneldialog.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 
 #include <gtest/gtest.h>
 
@@ -242,7 +243,7 @@ TEST(CChannelDialog, ActionEventRowClickSelects) {
     info.PlayerNum[0] = 10;
     info.PlayerNum[1] = 50;
     d.SetChannelList(info);
-    d.SetLastActionEventWeForTest(0x0400 /* WE_ROWCLICK */);
+    d.SetLastActionEventWeForTest(mxh::ui::legacy_window_event::kRowClick);
     d.selectRowIdxForTest() = 1;  // test helper
     d.ActionEvent(nullptr);
     EXPECT_EQ(d.selectRowIdx(), 1);
@@ -260,7 +261,7 @@ TEST(CChannelDialog, ActionEventRowDblClickOnConnect) {
         [](int id, void* user) { *static_cast<int*>(user) = id; },
         &noticeId);
     cChannelDialog::SetGlobalChannelNumForTest(-1);
-    d.SetLastActionEventWeForTest(0x0800 /* WE_ROWDBLCLICK */);
+    d.SetLastActionEventWeForTest(mxh::ui::legacy_window_event::kRowDoubleClick);
     d.ActionEvent(nullptr);
     EXPECT_EQ(noticeId, 279);
 }
@@ -269,7 +270,7 @@ TEST(CChannelDialog, ActionEventOnInactiveDialogIsNoOp) {
     cChannelDialog d;
     d.SetChatMsgCallbackForTest(&faChatMsg, nullptr);
     // Dialog not active -> ActionEvent should not dispatch.
-    d.SetLastActionEventWeForTest(0x0400);
+    d.SetLastActionEventWeForTest(mxh::ui::legacy_window_event::kRowClick);
     d.ActionEvent(nullptr);
     SUCCEED();
 }

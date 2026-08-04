@@ -86,7 +86,7 @@ TEST(CStallKindSelectDlg, ConstantsMatchLegacy) {
     EXPECT_EQ(cStallKindSelectDlg::kIdSellBtn,   430);
     EXPECT_EQ(cStallKindSelectDlg::kIdBuyBtn,    431);
     EXPECT_EQ(cStallKindSelectDlg::kIdCancelBtn, 432);
-    EXPECT_EQ(cStallKindSelectDlg::kWeBtnClick,  0x0001u);
+    EXPECT_EQ(cStallKindSelectDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
 }
 
 TEST(CStallKindSelectDlg, IdsAreDistinct) {

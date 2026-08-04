@@ -38,12 +38,14 @@
 //     uses `if (handled) Close();` to preserve the
 //     semantics.
 //   - 1:1 with legacy WE_BTNCLICK constant (legacy
-//     value 0x0001).  Modern port uses a local constant
-//     `kWeBtnClick = 0x0001` (the legacy WE_BTNCLICK
+//     value 0x0040).  Modern port uses the canonical constant
+//     `kWeBtnClick = legacy_window_event::kButtonClick` (legacy WE_BTNCLICK
 //     was repurposed in cWindowDef.h and is not
 //     re-exported by modern cWindowEvent).
 
 #pragma once
+
+#include "legacy_window_event.hpp"
 
 #include "cDialog.hpp"
 
@@ -98,8 +100,8 @@ public:
     static constexpr std::int32_t kIdBuyBtn    = 431;
     static constexpr std::int32_t kIdCancelBtn = 432;
 
-    // 1:1 with legacy cWindowDef.h WE_BTNCLICK (= 0x0001).
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    // 1:1 with legacy cWindowDef.h WE_BTNCLICK (= 0x0040).
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // Test hooks -- inject the 3 cButton pointers
     // (replaces the legacy GetWindowForID lookups).  The

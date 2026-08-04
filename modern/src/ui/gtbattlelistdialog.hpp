@@ -1,5 +1,7 @@
 #pragma once
 
+#include "legacy_window_event.hpp"
+
 #include "mxh/ui/cDialog.hpp"
 
 #include <cstddef>
@@ -33,7 +35,7 @@ public:
 
     static constexpr std::int32_t kBattleListId = 1390;
     static constexpr std::int32_t kNoSelection = -1;
-    static constexpr std::int32_t kActionRowClick = 0x0100;
+    static constexpr std::int32_t kActionRowClick = legacy_window_event::kRowClick;
     static constexpr std::uint32_t kSelectedRgb = 0xFFFFEA00u;
     static constexpr std::uint32_t kDefaultRgb = 0xFFFFFFFFu;
     static constexpr std::int32_t kPlayOffMessageId = 953;

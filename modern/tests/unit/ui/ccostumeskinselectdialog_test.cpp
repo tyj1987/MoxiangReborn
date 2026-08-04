@@ -18,6 +18,7 @@
 //   * SetSkinDelayTime / SetSkinDelayResult store their flags
 
 #include "mxh/ui/ccostumeskinselectdialog.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 #include "mxh/ui/clistdialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
 
@@ -156,14 +157,14 @@ TEST(CCostumeSkinSelectDialog, OnActionEventTabBtnClickSwitchesTab) {
     test_cssd::g_lastFocused = CostumeSkinTab::Max;
     cCostumeSkinSelectDialog d;
     d.SetTabBtnFocusCallbackForTest(&test_cssd::faFocus, nullptr);
-    d.OnActionEvent(cCostumeSkinSelectDialog::kTabBtnDressId, nullptr, 0x0001);
+    d.OnActionEvent(cCostumeSkinSelectDialog::kTabBtnDressId, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(d.currentTab(), CostumeSkinTab::Dress);
     EXPECT_EQ(test_cssd::g_focusCount, 1);
     EXPECT_EQ(test_cssd::g_lastFocused, CostumeSkinTab::Dress);
-    d.OnActionEvent(cCostumeSkinSelectDialog::kTabBtnAccessoryId, nullptr, 0x0001);
+    d.OnActionEvent(cCostumeSkinSelectDialog::kTabBtnAccessoryId, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(d.currentTab(), CostumeSkinTab::Accessory);
     EXPECT_EQ(test_cssd::g_lastFocused, CostumeSkinTab::Accessory);
-    d.OnActionEvent(cCostumeSkinSelectDialog::kTabBtnHatId, nullptr, 0x0001);
+    d.OnActionEvent(cCostumeSkinSelectDialog::kTabBtnHatId, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(d.currentTab(), CostumeSkinTab::Hat);
     EXPECT_EQ(test_cssd::g_lastFocused, CostumeSkinTab::Hat);
 }

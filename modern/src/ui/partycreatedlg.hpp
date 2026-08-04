@@ -1,5 +1,7 @@
 #pragma once
 
+#include "legacy_window_event.hpp"
+
 #include "mxh/ui/cDialog.hpp"
 
 #include <cstdint>
@@ -46,7 +48,7 @@ public:
     static constexpr std::int32_t kOkButtonId = 398;
     static constexpr std::int32_t kCancelButtonId = 399;
 
-    static constexpr std::int32_t kActionBtnClick = 0x0001;
+    static constexpr std::int32_t kActionBtnClick = legacy_window_event::kButtonClick;
     static constexpr std::int32_t kMaxPartyNameLength = 15;
     static constexpr std::int32_t kChatPartyNameTooLong = 1742;
     static constexpr std::int32_t kResourceRandomOption = 483;

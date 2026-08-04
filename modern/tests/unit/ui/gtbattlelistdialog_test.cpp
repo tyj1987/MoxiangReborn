@@ -93,7 +93,7 @@ TEST(GTBattleListDialogTest, ConstantsMatchPreprocessedLegacyValues) {
     EXPECT_EQ(cGTBattleListDialog::kPlayOffMessageId, 953);
     EXPECT_EQ(cGTBattleListDialog::kGroupMessageId, 954);
     EXPECT_EQ(cGTBattleListDialog::kGuildPairMessageId, 955);
-    EXPECT_EQ(cGTBattleListDialog::kActionRowClick, 0x0100);
+    EXPECT_EQ(cGTBattleListDialog::kActionRowClick, mxh::ui::legacy_window_event::kRowClick);
     EXPECT_EQ(cGTBattleListDialog::kSelectedRgb, 0xFFFFEA00u);
     EXPECT_EQ(cGTBattleListDialog::kDefaultRgb, 0xFFFFFFFFu);
     EXPECT_EQ(cGTBattleListDialog::kGroupCount, 4u);

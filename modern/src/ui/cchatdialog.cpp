@@ -1,6 +1,7 @@
 // cchatdialog.cpp — modern port of 墨香 CChatDialog.
 
 #include "mxh/ui/cchatdialog.hpp"
+#include "legacy_window_event.hpp"
 #include "mxh/ui/ceditbox.hpp"
 #include "mxh/ui/clistdialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
@@ -75,7 +76,7 @@ void cChatDialog::OnActionEvent(std::int32_t lId, void* /*p*/, std::uint32_t we)
     // to SelectMenu.  The legacy also handles chat-input
     // send (CHATDLG_INPUTBOX id) which delegates to a global
     // CHATMSG / network path; modern port defers that.
-    constexpr std::uint32_t kBtnClick = 0x0001;
+    constexpr std::uint32_t kBtnClick = legacy_window_event::kButtonClick;
     if ((we & kBtnClick) == 0) return;
     // Tab menu ids are 0..4 in the legacy; the modern port
     // lets the host map its own id range, so we accept any

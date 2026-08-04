@@ -1,4 +1,4 @@
-﻿// cchinaadvicedlg.hpp -- modern port of Moxiang
+// cchinaadvicedlg.hpp -- modern port of Moxiang
 //   CChinaAdviceDlg (China-region advice / T&C dialog).
 //
 // 1:1 port of legacy `CChinaAdviceDlg` from
@@ -45,6 +45,8 @@
 //     or outside-click dismissal.
 
 #pragma once
+
+#include "legacy_window_event.hpp"
 
 #include "cdialog.hpp"
 
@@ -101,7 +103,7 @@ public:
     // ----- 1:1 with legacy empty-OnActionEvent no-op -----
 
     // 1:1 with legacy WE_BTNCLICK constant.
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // ----- Test hooks -----
 

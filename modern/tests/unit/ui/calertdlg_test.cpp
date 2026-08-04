@@ -1,4 +1,4 @@
-﻿//
+//
 // Unit tests for mxh::ui::cAlertDlg (Phase C dialog port).
 //
 // Locks down the 1:1 surface of legacy CAlertDlg (alert
@@ -138,7 +138,7 @@ TEST(CAlertDlgTest, AbEnumConstantsMatchLegacyValues) {
 }
 
 TEST(CAlertDlgTest, WeBtnClickConstantMatchesLegacy) {
-    EXPECT_EQ(cAlertDlg::kWeBtnClick, 0x0001u);
+    EXPECT_EQ(cAlertDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
 }
 
 // ---------- Linking ----------

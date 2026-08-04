@@ -54,6 +54,8 @@
 
 #pragma once
 
+#include "legacy_window_event.hpp"
+
 #include "cdialog.hpp"
 
 #include <cstdint>
@@ -139,7 +141,7 @@ public:
     // 1:1 with legacy RGB_HALF(128, 128, 128) for
     // the auto note text color (gray). ARGB = 0xFF808080.
     static constexpr std::uint32_t kAutoNoteTextColor = 0xFF808080u;
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
     static constexpr std::int32_t kPlayerObjectKind = 1;
     static constexpr std::int32_t kSelectPlayerMessageId = 1704;
     static constexpr std::int32_t kManualMessageId = 1721;

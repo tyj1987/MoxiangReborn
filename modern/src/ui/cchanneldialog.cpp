@@ -1,6 +1,7 @@
 // cchanneldialog.cpp — modern port of 墨香 CChannelDialog.
 
 #include "mxh/ui/cchanneldialog.hpp"
+#include "legacy_window_event.hpp"
 #include "mxh/ui/clistctrl.hpp"
 
 #include <algorithm>
@@ -196,8 +197,8 @@ std::uint32_t cChannelDialog::ActionEvent(void* /*mouseInfo*/) {
     // 1:1 with legacy ActionEvent.  The modern port
     // dispatches WE_ROWCLICK / WE_ROWDBLCLICK based on the
     // bits the host injected via SetLastActionEventWeForTest.
-    constexpr std::uint32_t kRowClick    = 0x0400;  // 1:1 with WE_ROWCLICK
-    constexpr std::uint32_t kRowDblClick = 0x0800;  // 1:1 with WE_ROWDBLCLICK
+    constexpr std::uint32_t kRowClick = legacy_window_event::kRowClick;
+    constexpr std::uint32_t kRowDblClick = legacy_window_event::kRowDoubleClick;
 
     std::uint32_t we = m_lastWe;
     m_lastWe = 0;

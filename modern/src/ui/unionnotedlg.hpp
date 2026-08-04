@@ -49,6 +49,8 @@
 
 #pragma once
 
+#include "legacy_window_event.hpp"
+
 #include "cdialog.hpp"
 
 #include <cstdint>
@@ -145,7 +147,7 @@ public:
     static constexpr std::int32_t kNoUnionMessageId = 1103;
     static constexpr std::int32_t kInvalidItemMessageId = 786;
     static constexpr std::int32_t kAlreadyUsingMessageId = 752;
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
 private:
     AddSystemMessageFn m_addSystemMessage = nullptr;
