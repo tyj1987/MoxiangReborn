@@ -25,6 +25,15 @@ cSurvivalCountDialog::cSurvivalCountDialog() {
 
 cSurvivalCountDialog::~cSurvivalCountDialog() = default;
 
+void cSurvivalCountDialog::SetCallbacks(
+    IsSurvivalMapFn isSurvivalMap,
+    GetChatMessageFn getChatMessage,
+    void* userData) noexcept {
+    m_isSurvivalMapFn = isSurvivalMap;
+    m_getChatMessageFn = getChatMessage;
+    m_callbackUserData = userData;
+}
+
 void cSurvivalCountDialog::Linking() {
     // 1:1 with legacy CSurvivalCountDialog::Linking.
     // The legacy is:
@@ -39,10 +48,12 @@ void cSurvivalCountDialog::Linking() {
 
     SetCounterNumber(0);
     if (m_pWinnerName) {
-        // 1:1 with legacy CHATMGR->GetChatMsg(484).
-        // Modern port uses kSurvivalDefaultName
-        // placeholder until CHATMGR is ported.
-        m_pWinnerName->SetStaticText(kSurvivalDefaultName);
+        const char* defaultName = m_getChatMessageFn
+            ? m_getChatMessageFn(kSurvivalDefaultNameMessageId,
+                                 m_callbackUserData)
+            : nullptr;
+        m_pWinnerName->SetStaticText(
+            defaultName ? defaultName : kSurvivalDefaultName);
     }
 }
 
@@ -54,15 +65,11 @@ void cSurvivalCountDialog::InitSurvivalCountDlg(int mapNum) {
     //   else
     //     SetActive(FALSE);
     //
-    // The modern port: the MAP singleton + MAPTYPE /
-    // eSurvivalMap dispatch is TODO (R-12.x
-    // deferred). Modern port always SetActive(false)
-    // for now.
-    // TODO: MAP + MAPTYPE + eSurvivalMap not ported
-    //       (R-12.x deferred). When ported, the
-    //       body becomes the legacy code.
+    // Legacy ignores MapNum and queries the current MAP singleton.
     (void)mapNum;
-    SetActive(false);
+    SetActive(m_isSurvivalMapFn
+        ? m_isSurvivalMapFn(m_callbackUserData)
+        : false);
 }
 
 void cSurvivalCountDialog::SetCounterNumber(std::uint32_t num) {
@@ -108,9 +115,12 @@ void cSurvivalCountDialog::SetWinnerName(const char* pName) {
     if (pName) {
         m_pWinnerName->SetStaticText(pName);
     } else {
-        // 1:1 with legacy CHATMGR->GetChatMsg(484)
-        // fallback.
-        m_pWinnerName->SetStaticText(kSurvivalDefaultName);
+        const char* defaultName = m_getChatMessageFn
+            ? m_getChatMessageFn(kSurvivalDefaultNameMessageId,
+                                 m_callbackUserData)
+            : nullptr;
+        m_pWinnerName->SetStaticText(
+            defaultName ? defaultName : kSurvivalDefaultName);
     }
 }
 

@@ -35,21 +35,13 @@
 //     m_pWinnerName null-init via default member
 //     init).
 //   - Dtor: empty (no-op).
-//   - Linking: REAL — resolve 2 children by id +
-//     SetCounterNumber(0) +
-//     m_pWinnerName->SetScriptText placeholder for
-//     CHATMGR msg 484 (but cStatic has SetStaticText
-//     not SetScriptText, so we use SetStaticText
-//     with placeholder).
-//   - InitSurvivalCountDlg: TODO (MAP singleton
-//     + MAPTYPE not ported, R-12.x deferred).
-//     Modern port always SetActive(false) for now.
-//   - SetCounterNumber: REAL — clamp to 99 +
-//     sprintf "%d%d" with c2 = num/10 + c1 = num%10
-//     + SetStaticText.
-//   - SetWinnerName: REAL — defensive null check +
-//     SetStaticText with kSurvivalDefaultName
-//     placeholder for CHATMGR msg 484 fallback.
+//   - Linking: REAL -- resolves both statics, initializes counter,
+//     and resolves CHATMGR message 484 through an optional callback.
+//   - InitSurvivalCountDlg: REAL through an optional current-map-kind
+//     callback; the unused MapNum argument remains ignored.
+//   - SetCounterNumber: REAL -- active legacy one-static formatting.
+//   - SetWinnerName: REAL -- explicit name or injected message 484,
+//     with a literal placeholder only when the host is unavailable.
 //   - 1:1 quirk: legacy 2-cStatic array
 //     (m_pCounterNum[2]) collapsed to single
 //     cStatic in modern port (1:1 with legacy
@@ -59,8 +51,8 @@
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is the 53rd **Tier 2** dialog port (after
 // cPointSaveDialog). The dialog has 2 cStatic
-// (m_pCounterNum + m_pWinnerName). MAP + MAPTYPE
-// are R-12.x deferred.
+// (m_pCounterNum + m_pWinnerName). MAP and CHATMGR globals
+// are supplied through optional host callbacks.
 
 #pragma once
 
@@ -87,12 +79,20 @@ public:
     // placeholder for CHATMGR msg 484.
     void Linking();
 
+    using IsSurvivalMapFn = bool (*)(void* userData);
+    using GetChatMessageFn = const char* (*)(std::int32_t messageId,
+                                             void* userData);
+
+    // Replaces legacy MAP->IsMapKind(eSurvivalMap) and
+    // CHATMGR->GetChatMsg(484). Both callbacks are optional.
+    void SetCallbacks(IsSurvivalMapFn isSurvivalMap,
+                      GetChatMessageFn getChatMessage,
+                      void* userData = nullptr) noexcept;
+
     // ----- 1:1 with legacy CSurvivalCountDialog::InitSurvivalCountDlg -----
 
-    // 1:1 with legacy InitSurvivalCountDlg(MAPTYPE).
-    // The MAP singleton + MAPTYPE / eSurvivalMap
-    // dispatch is TODO (R-12.x deferred). Modern
-    // port always SetActive(false) for now.
+    // 1:1 with legacy InitSurvivalCountDlg(MAPTYPE). The mapNum
+    // parameter remains intentionally unused; legacy queries current MAP.
     void InitSurvivalCountDlg(int mapNum);
 
     // ----- 1:1 with legacy CSurvivalCountDialog::SetCounterNumber -----
@@ -135,6 +135,7 @@ public:
     // placeholder until CHATMGR is ported.
     static constexpr const char* kSurvivalDefaultName =
         "SURVIVAL_DEFAULT_NAME";  // CHATMGR msg 484
+    static constexpr std::int32_t kSurvivalDefaultNameMessageId = 484;
 
     // 1:1 with legacy SetCounterNumber clamp.
     static constexpr std::uint32_t kMaxCounterNumber = 99;
@@ -151,6 +152,10 @@ private:
     // 1:1 with legacy m_pWinnerName (resolved in
     // Linking by SVV_WINNERNAME id).
     cStatic* m_pWinnerName = nullptr;
+
+    IsSurvivalMapFn m_isSurvivalMapFn = nullptr;
+    GetChatMessageFn m_getChatMessageFn = nullptr;
+    void* m_callbackUserData = nullptr;
 };
 
 }  // namespace mxh::ui

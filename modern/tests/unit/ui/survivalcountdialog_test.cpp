@@ -122,10 +122,9 @@ TEST(CSurvivalCountDialogTest, LinkingWithoutChildrenDoesNotCrash) {
 
 // ---------- InitSurvivalCountDlg ----------
 
-TEST(CSurvivalCountDialogTest, InitSurvivalCountDlgDeactivates) {
+TEST(CSurvivalCountDialogTest, InitSurvivalCountDlgWithoutProviderDeactivates) {
     LinkedDialog ld;
-    // TODO: real MAP-based dispatch when MAP/MAPTYPE ported.
-    // Modern port always SetActive(false) for now.
+    // Missing optional MAP host preserves the defensive inactive state.
     ld.dlg.InitSurvivalCountDlg(0);
     EXPECT_FALSE(ld.dlg.isActive());
 }
@@ -219,4 +218,173 @@ TEST(CSurvivalCountDialogTest, SetWinnerNameWithoutLinkingIsSafe) {
     dlg.Init(0, 0, 200, 200, nullptr, 0);
     dlg.SetWinnerName("Alice");
     SUCCEED();
+}
+
+
+// ---------- MAP + CHATMGR host callbacks (C-Batch-2.46) ----------
+
+namespace {
+
+struct SurvivalHostCapture {
+    bool survivalMap = false;
+    const char* chatText = "Survival Winner";
+    int mapCalls = 0;
+    int chatCalls = 0;
+    std::int32_t lastMessageId = -1;
+
+    static bool IsSurvivalMap(void* userData) {
+        auto* capture = static_cast<SurvivalHostCapture*>(userData);
+        ++capture->mapCalls;
+        return capture->survivalMap;
+    }
+
+    static const char* GetChatMessage(std::int32_t messageId, void* userData) {
+        auto* capture = static_cast<SurvivalHostCapture*>(userData);
+        ++capture->chatCalls;
+        capture->lastMessageId = messageId;
+        return capture->chatText;
+    }
+};
+
+}  // namespace
+
+TEST(CSurvivalCountDialogTest, DefaultWinnerMessageIdMatchesLegacy) {
+    EXPECT_EQ(cSurvivalCountDialog::kSurvivalDefaultNameMessageId, 484);
+}
+
+TEST(CSurvivalCountDialogTest, InitSurvivalCountDlgActivatesOnSurvivalMap) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    SurvivalHostCapture capture;
+    capture.survivalMap = true;
+    dlg.SetCallbacks(&SurvivalHostCapture::IsSurvivalMap, nullptr, &capture);
+
+    dlg.InitSurvivalCountDlg(1234);
+
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(capture.mapCalls, 1);
+}
+
+TEST(CSurvivalCountDialogTest, InitSurvivalCountDlgDeactivatesOffSurvivalMap) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    dlg.SetActive(true);
+    SurvivalHostCapture capture;
+    capture.survivalMap = false;
+    dlg.SetCallbacks(&SurvivalHostCapture::IsSurvivalMap, nullptr, &capture);
+
+    dlg.InitSurvivalCountDlg(0);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(capture.mapCalls, 1);
+}
+
+TEST(CSurvivalCountDialogTest, InitSurvivalCountDlgIgnoresMapNumLikeLegacy) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    SurvivalHostCapture capture;
+    capture.survivalMap = true;
+    dlg.SetCallbacks(&SurvivalHostCapture::IsSurvivalMap, nullptr, &capture);
+
+    dlg.InitSurvivalCountDlg(-1);
+    dlg.InitSurvivalCountDlg(999999);
+
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(capture.mapCalls, 2);
+}
+
+TEST(CSurvivalCountDialogTest, SetCallbacksReplacesPreviousMapHost) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    SurvivalHostCapture first;
+    SurvivalHostCapture second;
+    first.survivalMap = false;
+    second.survivalMap = true;
+    dlg.SetCallbacks(&SurvivalHostCapture::IsSurvivalMap, nullptr, &first);
+    dlg.SetCallbacks(&SurvivalHostCapture::IsSurvivalMap, nullptr, &second);
+
+    dlg.InitSurvivalCountDlg(0);
+
+    EXPECT_EQ(first.mapCalls, 0);
+    EXPECT_EQ(second.mapCalls, 1);
+    EXPECT_TRUE(dlg.isActive());
+}
+
+TEST(CSurvivalCountDialogTest, LinkingUsesInjectedDefaultWinnerMessage) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    auto counter = std::make_unique<cStatic>();
+    counter->Init(0, 0, 50, 20, nullptr,
+                  cSurvivalCountDialog::kIdAliveCounter);
+    dlg.Add(std::move(counter));
+    auto winner = std::make_unique<cStatic>();
+    winner->Init(0, 20, 100, 20, nullptr,
+                 cSurvivalCountDialog::kIdWinnerName);
+    cStatic* winnerRaw = winner.get();
+    dlg.Add(std::move(winner));
+    SurvivalHostCapture capture;
+    dlg.SetCallbacks(nullptr, &SurvivalHostCapture::GetChatMessage, &capture);
+
+    dlg.Linking();
+
+    EXPECT_EQ(capture.chatCalls, 1);
+    EXPECT_EQ(capture.lastMessageId, 484);
+    EXPECT_EQ(winnerRaw->GetStaticText(), "Survival Winner");
+}
+
+TEST(CSurvivalCountDialogTest, LinkingNullChatResultUsesPlaceholder) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    auto winner = std::make_unique<cStatic>();
+    winner->Init(0, 20, 100, 20, nullptr,
+                 cSurvivalCountDialog::kIdWinnerName);
+    cStatic* winnerRaw = winner.get();
+    dlg.Add(std::move(winner));
+    SurvivalHostCapture capture;
+    capture.chatText = nullptr;
+    dlg.SetCallbacks(nullptr, &SurvivalHostCapture::GetChatMessage, &capture);
+
+    dlg.Linking();
+
+    EXPECT_EQ(winnerRaw->GetStaticText(),
+              cSurvivalCountDialog::kSurvivalDefaultName);
+}
+
+TEST(CSurvivalCountDialogTest, NullWinnerNameUsesInjectedChatMessage) {
+    LinkedDialog linked;
+    SurvivalHostCapture capture;
+    capture.chatText = "Injected Winner";
+    linked.dlg.SetCallbacks(nullptr, &SurvivalHostCapture::GetChatMessage,
+                            &capture);
+
+    linked.dlg.SetWinnerName(nullptr);
+
+    EXPECT_EQ(capture.lastMessageId, 484);
+    EXPECT_EQ(linked.wPtr_->GetStaticText(), "Injected Winner");
+}
+
+TEST(CSurvivalCountDialogTest, ExplicitWinnerNameSkipsChatLookup) {
+    LinkedDialog linked;
+    SurvivalHostCapture capture;
+    linked.dlg.SetCallbacks(nullptr, &SurvivalHostCapture::GetChatMessage,
+                            &capture);
+
+    linked.dlg.SetWinnerName("Alice");
+
+    EXPECT_EQ(capture.chatCalls, 0);
+    EXPECT_EQ(linked.wPtr_->GetStaticText(), "Alice");
+}
+
+TEST(CSurvivalCountDialogTest, CallbacksAllowNullUserData) {
+    cSurvivalCountDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    auto isSurvivalMap = [](void*) -> bool { return true; };
+    auto getChatMessage = [](std::int32_t, void*) -> const char* {
+        return "Winner";
+    };
+    dlg.SetCallbacks(isSurvivalMap, getChatMessage);
+
+    dlg.InitSurvivalCountDlg(0);
+
+    EXPECT_TRUE(dlg.isActive());
 }
