@@ -34,21 +34,13 @@
 //     drop, modern cWindow does not have m_type).
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve 3 children by id.
-//   - SetActive override: 1:1 with legacy. The
-//     HERO + OBJECTSTATEMGR dispatch is TODO
-//     (R-12.x deferred). The base SetActive is
-//     always called (matches legacy call order).
-//   - TournamentRegistSyn: TODO (3-singleton: HERO
-//     + GUILDMGR + NETWORK not ported, R-12.x
-//     deferred). The modern port returns
-//     kErrorNoGuildMaster (matching the legacy
-//     early-return path for non-master). When
-//     ported, the body becomes the legacy code.
-//   - SetRegistGuildCount: TODO (cStatic::SetStaticValue
-//     not yet ported, R-12.x deferred). Modern
-//     port is a no-op. When ported, the body
-//     becomes the legacy code with kMaxGuildInTournament
-//     - count.
+//   - SetActive override: REAL through HERO + OBJECTSTATEMGR
+//     host callbacks; base call order matches legacy.
+//   - TournamentRegistSyn: REAL through guild-rank, HEROID,
+//     and NETWORK callbacks. Commented-out legacy guild-level/member
+//     gates remain disabled exactly as in the source.
+//   - SetRegistGuildCount: REAL through cStatic::SetStaticValue,
+//     including DWORD subtraction and LONG conversion behavior.
 //   - eGTError enum: 1:1 with legacy (kErrorNoError = 0,
 //     kErrorNoGuildMaster = 1, kErrorUnderLevel =
 //     2, kErrorUnderLimitMember = 3,
@@ -58,8 +50,8 @@
 // this is the 35th **Tier 2** dialog port (after
 // cGTRegistcancelDialog). The dialog has no service
 // dependency on the modern service interface
-// (Phase 13) — only HERO + OBJECTSTATEMGR + GUILDMGR
-// + NETWORK singletons (R-12.x deferred).
+// dependency on the modern service interface (Phase 13).
+// Legacy globals are supplied through optional host callbacks.
 
 #pragma once
 
@@ -105,28 +97,32 @@ public:
                       EndDealStateFn endDealState,
                       void* userData = nullptr) noexcept;
 
+    using GetGuildMemberRankFn = std::int32_t (*)(void* userData);
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using SendTournamentRegistFn = bool (*)(std::uint32_t objectId,
+                                            void* userData);
+
+    void SetTournamentCallbacks(GetGuildMemberRankFn getGuildMemberRank,
+                                GetHeroObjectIdFn getHeroObjectId,
+                                SendTournamentRegistFn sendTournamentRegist,
+                                void* userData = nullptr) noexcept;
+
     // 1:1 with legacy eObjectState_Deal. The host GetHeroStateFn
     // returns this value when the hero is in a deal state.
     static constexpr std::int32_t kObjectStateDeal = 6;
 
     // ----- 1:1 with legacy CGTRegistDialog::TournamentRegistSyn -----
 
-    // 1:1 with legacy TournamentRegistSyn. The
-    // whole method is TODO (3-singleton: HERO +
-    // GUILDMGR + NETWORK not ported, R-12.x
-    // deferred). The modern port returns
-    // kErrorNoGuildMaster (matching the legacy
-    // early-return path for non-master). When
-    // ported, the body becomes the legacy code.
+    // 1:1 with legacy TournamentRegistSyn. Non-master rank
+    // returns kErrorNoGuildMaster. Guild masters send the legacy
+    // registration MSGBASE through optional host callbacks and return
+    // kErrorNoError; the network result is intentionally ignored.
     std::uint32_t TournamentRegistSyn();
 
     // ----- 1:1 with legacy CGTRegistDialog::SetRegistGuildCount -----
 
-    // 1:1 with legacy SetRegistGuildCount(DWORD
-    // count). The whole method is TODO (cStatic::
-    // SetStaticValue not yet ported, R-12.x
-    // deferred). Modern port is a no-op. When
-    // ported, the body becomes the legacy code.
+    // 1:1 with legacy SetRegistGuildCount(DWORD count).
+    // Writes count and DWORD(32-count) through cStatic::SetStaticValue.
     void SetRegistGuildCount(std::uint32_t count);
 
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
@@ -157,6 +153,9 @@ public:
     // SetRegistGuildCount to compute the
     // "registable guild" count.
     static constexpr std::uint32_t kMaxGuildInTournament = 32;
+    static constexpr std::int32_t kGuildMasterRank = 50;
+    static constexpr std::uint8_t kGTournamentCategory = 60;
+    static constexpr std::uint8_t kTournamentRegistProtocol = 1;
 
 private:
     // 1:1 with legacy m_pRegistGuild /
@@ -170,9 +169,13 @@ private:
     // singletons). A null pointer preserves the safe no-op
     // behavior so the dialog can be exercised in tests without
     // wiring the full host singletons.
-    GetHeroStateFn m_getHeroStateFn  = nullptr;
-    EndDealStateFn m_endDealStateFn  = nullptr;
-    void*          m_callbackUserData = nullptr;
+    GetHeroStateFn         m_getHeroStateFn = nullptr;
+    EndDealStateFn         m_endDealStateFn = nullptr;
+    void*                  m_callbackUserData = nullptr;
+    GetGuildMemberRankFn   m_getGuildMemberRankFn = nullptr;
+    GetHeroObjectIdFn      m_getHeroObjectIdFn = nullptr;
+    SendTournamentRegistFn m_sendTournamentRegistFn = nullptr;
+    void*                  m_tournamentUserData = nullptr;
 };
 
 }  // namespace mxh::ui

@@ -32,16 +32,14 @@
 //     host callbacks when the hero is in Deal state.
 //   - SetActive without Linking is safe.
 //   - SetActive before Init does not crash.
-//   - TournamentRegistSyn returns kErrorNoGuildMaster
-//     (TODO: 3-singleton dispatch HERO + GUILDMGR
-//     + NETWORK, R-12.x deferred). The 1:1 contract
-//     is preserved: returns uint32 matching the
-//     legacy early-return path.
+//   - TournamentRegistSyn preserves the guild-master
+//     rank gate, sends the hero ID through the host,
+//     and returns the legacy eGTError value.
 //   - TournamentRegistSyn without Linking returns
 //     kErrorNoGuildMaster.
 //   - TournamentRegistSyn before Init does not crash.
-//   - SetRegistGuildCount is a no-op (TODO: cStatic
-//     ::SetStaticValue not ported, R-12.x deferred).
+//   - SetRegistGuildCount updates both linked statics
+//     with legacy DWORD subtraction/LONG conversion.
 //   - SetRegistGuildCount without Linking is safe.
 //   - SetRegistGuildCount before Init does not crash.
 //
@@ -60,7 +58,7 @@
 //     kErrorNoGuildMaster as the default
 //     (matching the legacy early-return path for
 //     non-master while singletons are unported).
-//   - SetRegistGuildCount is a no-op (TODO marker).
+//   - SetRegistGuildCount preserves DWORD-to-LONG wrap.
 //   - eGTError enum inlined as class-level constants
 //     (1:1 with legacy enum values).
 //   - kMaxGuildInTournament = 32 (1:1 with legacy
@@ -238,11 +236,8 @@ TEST(CGTRegistDialogTest, SetActiveBeforeInitDoesNotCrash) {
 
 TEST(CGTRegistDialogTest, TournamentRegistSynReturnsNoGuildMaster) {
     // 1:1 with legacy contract: returns uint32.
-    // Modern port returns kErrorNoGuildMaster
-    // (TODO: 3-singleton dispatch HERO + GUILDMGR +
-    // NETWORK, R-12.x deferred). The 1:1 contract
-    // is preserved: returns uint32 matching the
-    // legacy early-return path for non-master.
+    // With no rank provider the defensive host path defaults to
+    // non-master and returns the legacy error code.
     cGTRegistDialog dlg;
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetActive(true);
@@ -277,10 +272,9 @@ TEST(CGTRegistDialogTest, TournamentRegistSynBeforeInitDoesNotCrash) {
 // SetRegistGuildCount
 // ===========================================================================
 
-TEST(CGTRegistDialogTest, SetRegistGuildCountIsNoOpUntilSetStaticValuePorted) {
-    // 1:1 with legacy contract: returns void.
-    // Modern port is a no-op (TODO: cStatic::
-    // SetStaticValue not ported, R-12.x deferred).
+TEST(CGTRegistDialogTest, SetRegistGuildCountWithoutLinkedStaticsIsSafe) {
+    // The real cStatic::SetStaticValue path is wired; with no
+    // linked statics the defensive path remains safe.
     cGTRegistDialog dlg;
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetRegistGuildCount(10u);
@@ -402,6 +396,172 @@ TEST(CGTRegistDialogTest, SetActiveFalseWithoutCallbacksStillUpdatesBaseState) {
     dlg.SetActive(true);
     dlg.SetActive(false);
     EXPECT_FALSE(dlg.isActive());
+}
+
+
+// ===========================================================================
+// Tournament registration network + count display (C-Batch-2.45)
+// ===========================================================================
+
+namespace {
+
+struct GTRegistNetworkCapture {
+    std::int32_t rank = 0;
+    std::uint32_t heroId = 0;
+    std::uint32_t sentObjectId = 0;
+    int rankCalls = 0;
+    int heroCalls = 0;
+    int sendCalls = 0;
+    bool sendResult = true;
+
+    static std::int32_t GetRank(void* userData) {
+        auto* capture = static_cast<GTRegistNetworkCapture*>(userData);
+        ++capture->rankCalls;
+        return capture->rank;
+    }
+
+    static std::uint32_t GetHeroId(void* userData) {
+        auto* capture = static_cast<GTRegistNetworkCapture*>(userData);
+        ++capture->heroCalls;
+        return capture->heroId;
+    }
+
+    static bool Send(std::uint32_t objectId, void* userData) {
+        auto* capture = static_cast<GTRegistNetworkCapture*>(userData);
+        ++capture->sendCalls;
+        capture->sentObjectId = objectId;
+        return capture->sendResult;
+    }
+};
+
+}  // namespace
+
+TEST(CGTRegistDialogTest, TournamentWireAndRankConstantsMatchLegacy) {
+    EXPECT_EQ(cGTRegistDialog::kGuildMasterRank, 50);
+    EXPECT_EQ(cGTRegistDialog::kGTournamentCategory, 60u);
+    EXPECT_EQ(cGTRegistDialog::kTournamentRegistProtocol, 1u);
+}
+
+TEST(CGTRegistDialogTest, TournamentRegistSynRejectsNonMaster) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture capture;
+    capture.rank = 40;
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank,
+                               &GTRegistNetworkCapture::GetHeroId,
+                               &GTRegistNetworkCapture::Send, &capture);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoGuildMaster);
+    EXPECT_EQ(capture.rankCalls, 1);
+    EXPECT_EQ(capture.heroCalls, 0);
+    EXPECT_EQ(capture.sendCalls, 0);
+}
+
+TEST(CGTRegistDialogTest, TournamentRegistSynMasterSendsHeroId) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture capture;
+    capture.rank = cGTRegistDialog::kGuildMasterRank;
+    capture.heroId = 0x87654321u;
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank,
+                               &GTRegistNetworkCapture::GetHeroId,
+                               &GTRegistNetworkCapture::Send, &capture);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoError);
+    EXPECT_EQ(capture.rankCalls, 1);
+    EXPECT_EQ(capture.heroCalls, 1);
+    EXPECT_EQ(capture.sendCalls, 1);
+    EXPECT_EQ(capture.sentObjectId, 0x87654321u);
+}
+
+TEST(CGTRegistDialogTest, TournamentRegistSynIgnoresSendFailure) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture capture;
+    capture.rank = cGTRegistDialog::kGuildMasterRank;
+    capture.sendResult = false;
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank,
+                               &GTRegistNetworkCapture::GetHeroId,
+                               &GTRegistNetworkCapture::Send, &capture);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoError);
+    EXPECT_EQ(capture.sendCalls, 1);
+}
+
+TEST(CGTRegistDialogTest, TournamentRegistSynNullRankDefaultsToNonMaster) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture capture;
+    dlg.SetTournamentCallbacks(nullptr, &GTRegistNetworkCapture::GetHeroId,
+                               &GTRegistNetworkCapture::Send, &capture);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoGuildMaster);
+    EXPECT_EQ(capture.heroCalls, 0);
+    EXPECT_EQ(capture.sendCalls, 0);
+}
+
+TEST(CGTRegistDialogTest, TournamentRegistSynMasterWithoutHeroCallbackIsSafe) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture capture;
+    capture.rank = cGTRegistDialog::kGuildMasterRank;
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank, nullptr,
+                               &GTRegistNetworkCapture::Send, &capture);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoError);
+    EXPECT_EQ(capture.sendCalls, 0);
+}
+
+TEST(CGTRegistDialogTest, TournamentRegistSynMasterWithoutSendSkipsHeroLookup) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture capture;
+    capture.rank = cGTRegistDialog::kGuildMasterRank;
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank,
+                               &GTRegistNetworkCapture::GetHeroId,
+                               nullptr, &capture);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoError);
+    EXPECT_EQ(capture.heroCalls, 0);
+}
+
+TEST(CGTRegistDialogTest, TournamentCallbacksReplacePreviousHost) {
+    cGTRegistDialog dlg;
+    GTRegistNetworkCapture first;
+    GTRegistNetworkCapture second;
+    first.rank = cGTRegistDialog::kGuildMasterRank;
+    second.rank = cGTRegistDialog::kGuildMasterRank;
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank,
+                               &GTRegistNetworkCapture::GetHeroId,
+                               &GTRegistNetworkCapture::Send, &first);
+    dlg.SetTournamentCallbacks(&GTRegistNetworkCapture::GetRank,
+                               &GTRegistNetworkCapture::GetHeroId,
+                               &GTRegistNetworkCapture::Send, &second);
+
+    EXPECT_EQ(dlg.TournamentRegistSyn(), cGTRegistDialog::kErrorNoError);
+    EXPECT_EQ(first.rankCalls, 0);
+    EXPECT_EQ(second.rankCalls, 1);
+    EXPECT_EQ(second.sendCalls, 1);
+}
+
+TEST(CGTRegistDialogTest, SetRegistGuildCountUpdatesBothStatics) {
+    cGTRegistDialog dlg;
+    cStatic* registGuild = nullptr;
+    cStatic* registableGuild = nullptr;
+    cButton* registButton = nullptr;
+    BuildDlgWithChildren(dlg, &registGuild, &registableGuild, &registButton);
+
+    dlg.SetRegistGuildCount(10u);
+
+    EXPECT_EQ(registGuild->GetStaticValue(), 10);
+    EXPECT_EQ(registableGuild->GetStaticValue(), 22);
+}
+
+TEST(CGTRegistDialogTest, SetRegistGuildCountPreservesLegacyDwordToLongWrap) {
+    cGTRegistDialog dlg;
+    cStatic* registGuild = nullptr;
+    cStatic* registableGuild = nullptr;
+    cButton* registButton = nullptr;
+    BuildDlgWithChildren(dlg, &registGuild, &registableGuild, &registButton);
+
+    dlg.SetRegistGuildCount(33u);
+
+    EXPECT_EQ(registGuild->GetStaticValue(), 33);
+    EXPECT_EQ(registableGuild->GetStaticValue(), -1);
 }
 
 }  // namespace mxh::ui::test

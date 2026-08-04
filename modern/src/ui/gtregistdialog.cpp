@@ -66,52 +66,39 @@ void cGTRegistDialog::SetCallbacks(
     m_callbackUserData = userData;
 }
 
+void cGTRegistDialog::SetTournamentCallbacks(
+    GetGuildMemberRankFn getGuildMemberRank,
+    GetHeroObjectIdFn getHeroObjectId,
+    SendTournamentRegistFn sendTournamentRegist,
+    void* userData) noexcept {
+    m_getGuildMemberRankFn = getGuildMemberRank;
+    m_getHeroObjectIdFn = getHeroObjectId;
+    m_sendTournamentRegistFn = sendTournamentRegist;
+    m_tournamentUserData = userData;
+}
+
 std::uint32_t cGTRegistDialog::TournamentRegistSyn() {
-    // 1:1 with legacy CGTRegistDialog::TournamentRegistSyn.
-    // The legacy is:
-    //   if (HERO->GetGuildMemberRank() != GUILD_MASTER)
-    //     return eGTError_NOGUILDMASTER;
-    //   // (commented-out level + member checks)
-    //   MSGBASE msg;
-    //   msg.Category = MP_GTOURNAMENT;
-    //   msg.Protocol = MP_GTOURNAMENT_REGIST_SYN;
-    //   msg.dwObjectID = HEROID;
-    //   NETWORK->Send(&msg, sizeof(msg));
-    //   return eGTError_NOERROR;
-    //
-    // The modern port:
-    //   - The whole method is TODO (3-singleton:
-    //     HERO + GUILDMGR + NETWORK not ported,
-    //     R-12.x deferred).
-    //   - Returns kErrorNoGuildMaster (matching
-    //     the legacy early-return path for non-master
-    //     — the modern port assumes non-master as
-    //     a safe default while the singletons are
-    //     unported).
-    //   - When ported, the body becomes the legacy
-    //     code.
-    // TODO: 3-singleton dispatch (R-12.x deferred).
-    return kErrorNoGuildMaster;
+    if (!m_getGuildMemberRankFn
+        || m_getGuildMemberRankFn(m_tournamentUserData) != kGuildMasterRank) {
+        return kErrorNoGuildMaster;
+    }
+    if (m_getHeroObjectIdFn && m_sendTournamentRegistFn) {
+        const std::uint32_t objectId =
+            m_getHeroObjectIdFn(m_tournamentUserData);
+        (void)m_sendTournamentRegistFn(objectId, m_tournamentUserData);
+    }
+    return kErrorNoError;
 }
 
 void cGTRegistDialog::SetRegistGuildCount(std::uint32_t count) {
-    // 1:1 with legacy CGTRegistDialog::SetRegistGuildCount.
-    // The legacy is:
-    //   m_pRegistGuild->SetStaticValue(count);
-    //   m_pRegistableGuild->SetStaticValue(MAXGUILD_INTOURNAMENT - count);
-    //
-    // The modern port: the whole method is TODO
-    // (cStatic::SetStaticValue not yet ported, R-12.x
-    // deferred). Modern port is a no-op (no state
-    // change). When ported, the body becomes the
-    // legacy code with kMaxGuildInTournament - count.
-    (void)count;
-    // TODO: cStatic::SetStaticValue not ported (R-12.x
-    //       deferred). When ported, replace with:
-    //         if (m_pRegistGuild) m_pRegistGuild->SetStaticValue(count);
-    //         if (m_pRegistableGuild)
-    //           m_pRegistableGuild->SetStaticValue(
-    //             kMaxGuildInTournament - count);
+    if (m_pRegistGuild) {
+        m_pRegistGuild->SetStaticValue(static_cast<std::int32_t>(count));
+    }
+    if (m_pRegistableGuild) {
+        const std::uint32_t registable = kMaxGuildInTournament - count;
+        m_pRegistableGuild->SetStaticValue(
+            static_cast<std::int32_t>(registable));
+    }
 }
 
 }  // namespace mxh::ui

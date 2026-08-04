@@ -27,22 +27,17 @@
 //     does not have m_type).
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve cButton child by id.
-//   - SetActive override: 1:1 with legacy. The
-//     HERO + OBJECTSTATEMGR dispatch is TODO
-//     (R-12.x deferred). The base SetActive is
-//     always called (matches legacy call order).
-//   - TournamentRegistCancelSyn: TODO (2-singleton:
-//     HERO + NETWORK not ported, R-12.x deferred).
-//     Modern port is a no-op (no network send)
-//     while singletons are unported. When ported,
-//     the body becomes the legacy code.
+//   - SetActive override: REAL through HERO + OBJECTSTATEMGR
+//     host callbacks; base call order matches legacy.
+//   - TournamentRegistCancelSyn: REAL through HEROID + NETWORK
+//     callbacks; send result remains intentionally ignored.
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is the 34th **Tier 2** dialog port (after
 // cChangeJobDialog). The dialog has no service
 // dependency on the modern service interface
-// (Phase 13) — only HERO + OBJECTSTATEMGR + NETWORK
-// singletons (R-12.x deferred).
+// dependency on the modern service interface (Phase 13).
+// Legacy globals are supplied through optional host callbacks.
 
 #pragma once
 
@@ -98,6 +93,14 @@ public:
                       EndDealStateFn endDealState,
                       void* userData = nullptr) noexcept;
 
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using SendTournamentCancelFn = bool (*)(std::uint32_t objectId,
+                                            void* userData);
+
+    void SetTournamentCallbacks(GetHeroObjectIdFn getHeroObjectId,
+                                SendTournamentCancelFn sendTournamentCancel,
+                                void* userData = nullptr) noexcept;
+
     // ----- 1:1 with legacy eObjectState_Deal -----
 
     // 1:1 with legacy eObjectState_Deal from [Server]CommonServerDefine.h.
@@ -106,12 +109,9 @@ public:
 
     // ----- 1:1 with legacy CGTRegistcancelDialog::TournamentRegistCancelSyn -----
 
-    // 1:1 with legacy TournamentRegistCancelSyn.
-    // The whole method is TODO (2-singleton: HERO
-    // + NETWORK not ported, R-12.x deferred).
-    // Modern port is a no-op (does not call
-    // NETWORK->Send) while singletons are unported.
-    // When ported, the body becomes the legacy code.
+    // 1:1 with legacy TournamentRegistCancelSyn. Sends the
+    // registration-cancel MSGBASE through optional HEROID + NETWORK
+    // callbacks and intentionally ignores the send result.
     void TournamentRegistCancelSyn();
 
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
@@ -121,6 +121,8 @@ public:
     // from 200-450 used by previous Tier 2
     // dialogs.
     static constexpr std::int32_t kIdCancelBtn = 460;
+    static constexpr std::uint8_t kGTournamentCategory = 60;
+    static constexpr std::uint8_t kTournamentRegistCancelProtocol = 4;
 
 private:
     // 1:1 with legacy m_pCancelBtn (resolved in
@@ -130,9 +132,12 @@ private:
     // Host-injected callbacks (replaces HERO + OBJECTSTATEMGR singletons).
     // A null pointer preserves the safe no-op behavior so the dialog can
     // be exercised in tests without wiring the full host singletons.
-    GetHeroStateFn m_getHeroStateFn  = nullptr;
-    EndDealStateFn m_endDealStateFn  = nullptr;
-    void*          m_callbackUserData = nullptr;
+    GetHeroStateFn         m_getHeroStateFn = nullptr;
+    EndDealStateFn         m_endDealStateFn = nullptr;
+    void*                  m_callbackUserData = nullptr;
+    GetHeroObjectIdFn      m_getHeroObjectIdFn = nullptr;
+    SendTournamentCancelFn m_sendTournamentCancelFn = nullptr;
+    void*                  m_tournamentUserData = nullptr;
 };
 
 }  // namespace mxh::ui

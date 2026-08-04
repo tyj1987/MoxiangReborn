@@ -63,22 +63,22 @@ void cGTRegistcancelDialog::SetCallbacks(
     m_callbackUserData = userData;
 }
 
+void cGTRegistcancelDialog::SetTournamentCallbacks(
+    GetHeroObjectIdFn getHeroObjectId,
+    SendTournamentCancelFn sendTournamentCancel,
+    void* userData) noexcept {
+    m_getHeroObjectIdFn = getHeroObjectId;
+    m_sendTournamentCancelFn = sendTournamentCancel;
+    m_tournamentUserData = userData;
+}
+
 void cGTRegistcancelDialog::TournamentRegistCancelSyn() {
-    // 1:1 with legacy CGTRegistcancelDialog
-    // ::TournamentRegistCancelSyn. The legacy is:
-    //   MSGBASE msg;
-    //   msg.Category = MP_GTOURNAMENT;
-    //   msg.Protocol = MP_GTOURNAMENT_REGISTCANCEL_SYN;
-    //   msg.dwObjectID = HEROID;
-    //   NETWORK->Send(&msg, sizeof(msg));
-    //
-    // The modern port: the whole method is TODO
-    // (2-singleton: HERO + NETWORK not ported,
-    // R-12.x deferred). Modern port is a no-op
-    // (does not call NETWORK->Send) while
-    // singletons are unported. When ported, the
-    // body becomes the legacy code.
-    // TODO: 2-singleton dispatch (R-12.x deferred).
+    if (!m_getHeroObjectIdFn || !m_sendTournamentCancelFn) {
+        return;
+    }
+    const std::uint32_t objectId =
+        m_getHeroObjectIdFn(m_tournamentUserData);
+    (void)m_sendTournamentCancelFn(objectId, m_tournamentUserData);
 }
 
 }  // namespace mxh::ui

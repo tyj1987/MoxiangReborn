@@ -22,16 +22,12 @@
 //   - SetActive val=true calls base SetActive
 //     (no singleton dispatch on val=true per
 //     legacy 1:1 quirk).
-//   - SetActive val=false calls base SetActive
-//     (HERO + OBJECTSTATEMGR TODO: the modern
-//     port returns without observable state
-//     change).
+//   - SetActive val=false calls base SetActive and
+//     dispatches optional HERO + OBJECTSTATEMGR callbacks.
 //   - SetActive without Linking is safe.
 //   - SetActive before Init does not crash.
-//   - TournamentRegistCancelSyn is a no-op (TODO:
-//     2-singleton dispatch HERO + NETWORK, R-12.x
-//     deferred). The 1:1 contract is preserved:
-//     returns void, no state change.
+//   - TournamentRegistCancelSyn sends through optional
+//     HERO + NETWORK callbacks and returns void.
 //   - TournamentRegistCancelSyn without Linking
 //     is safe.
 //   - TournamentRegistCancelSyn before Init does
@@ -47,8 +43,7 @@
 //     the HERO + OBJECTSTATEMGR dispatch (val ==
 //     TRUE has no singleton dispatch). Modern
 //     port preserves this 1:1 behavior.
-//   - TournamentRegistCancelSyn TODO (2-singleton
-//     dispatch, R-12.x deferred).
+//   - TournamentRegistCancelSyn ignores send results.
 //   - Local id range 460 (distinct from 200-450
 //     used by previous Tier 2 dialogs; no
 //     collision).
@@ -149,9 +144,9 @@ TEST(CGTRegistcancelDialogTest, SetActiveFalseUpdatesBaseState) {
 
 TEST(CGTRegistcancelDialogTest, SetActiveFalseDoesNotChangeState) {
     // 1:1 with legacy: SetActive(val=FALSE) only
-    // calls base SetActive + the HERO +
-    // OBJECTSTATEMGR dispatch (TODO). The
-    // observable state change is the base
+    // calls base SetActive + the optional HERO +
+    // OBJECTSTATEMGR dispatch. The observable
+    // state change without callbacks is the base
     // SetActive(false).
     cGTRegistcancelDialog dlg;
     dlg.Init(0, 0, 400, 400, nullptr, 0);
@@ -179,19 +174,16 @@ TEST(CGTRegistcancelDialogTest, SetActiveBeforeInitDoesNotCrash) {
 // TournamentRegistCancelSyn
 // ===========================================================================
 
-TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynIsNoOpUntilSingletonsPorted) {
+TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynWithoutCallbacksIsSafe) {
     // 1:1 with legacy contract: returns void.
-    // Modern port is a no-op (TODO: 2-singleton
-    // dispatch HERO + NETWORK, R-12.x deferred).
-    // The 1:1 contract is preserved: no state
-    // change observable.
+    // Optional HERO + NETWORK callbacks are absent, so the
+    // defensive path performs no send and preserves dialog state.
     cGTRegistcancelDialog dlg;
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetActive(true);
 
     dlg.TournamentRegistCancelSyn();
-    // State preserved (legacy would have sent
-    // network message, but modern is TODO).
+    // State is preserved; optional network callbacks are absent.
     EXPECT_TRUE(dlg.isActive());
 }
 
@@ -357,6 +349,114 @@ TEST(CGTRegistcancelDialogTest, SetActiveFalseAllowsNullCallbackUserData) {
     dlg.SetCallbacks(getState, endState);
     dlg.SetActive(false);
     EXPECT_FALSE(dlg.isActive());
+}
+
+
+// ===========================================================================
+// Tournament registration-cancel network dispatch (C-Batch-2.45)
+// ===========================================================================
+
+namespace {
+
+struct GTCancelNetworkCapture {
+    std::uint32_t heroId = 0;
+    std::uint32_t sentObjectId = 0;
+    int heroCalls = 0;
+    int sendCalls = 0;
+    bool sendResult = true;
+
+    static std::uint32_t GetHeroId(void* userData) {
+        auto* capture = static_cast<GTCancelNetworkCapture*>(userData);
+        ++capture->heroCalls;
+        return capture->heroId;
+    }
+
+    static bool Send(std::uint32_t objectId, void* userData) {
+        auto* capture = static_cast<GTCancelNetworkCapture*>(userData);
+        ++capture->sendCalls;
+        capture->sentObjectId = objectId;
+        return capture->sendResult;
+    }
+};
+
+}  // namespace
+
+TEST(CGTRegistcancelDialogTest, TournamentCancelWireConstantsMatchLegacy) {
+    EXPECT_EQ(cGTRegistcancelDialog::kGTournamentCategory, 60u);
+    EXPECT_EQ(cGTRegistcancelDialog::kTournamentRegistCancelProtocol, 4u);
+}
+
+TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynSendsHeroId) {
+    cGTRegistcancelDialog dlg;
+    GTCancelNetworkCapture capture;
+    capture.heroId = 0x10203040u;
+    dlg.SetTournamentCallbacks(&GTCancelNetworkCapture::GetHeroId,
+                               &GTCancelNetworkCapture::Send, &capture);
+
+    dlg.TournamentRegistCancelSyn();
+
+    EXPECT_EQ(capture.heroCalls, 1);
+    EXPECT_EQ(capture.sendCalls, 1);
+    EXPECT_EQ(capture.sentObjectId, 0x10203040u);
+}
+
+TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynIgnoresSendFailure) {
+    cGTRegistcancelDialog dlg;
+    GTCancelNetworkCapture capture;
+    capture.sendResult = false;
+    dlg.SetTournamentCallbacks(&GTCancelNetworkCapture::GetHeroId,
+                               &GTCancelNetworkCapture::Send, &capture);
+
+    dlg.TournamentRegistCancelSyn();
+
+    EXPECT_EQ(capture.sendCalls, 1);
+}
+
+TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynSkipsNullHeroCallback) {
+    cGTRegistcancelDialog dlg;
+    GTCancelNetworkCapture capture;
+    dlg.SetTournamentCallbacks(nullptr, &GTCancelNetworkCapture::Send, &capture);
+
+    dlg.TournamentRegistCancelSyn();
+
+    EXPECT_EQ(capture.sendCalls, 0);
+}
+
+TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynSkipsNullSendCallback) {
+    cGTRegistcancelDialog dlg;
+    GTCancelNetworkCapture capture;
+    dlg.SetTournamentCallbacks(&GTCancelNetworkCapture::GetHeroId, nullptr,
+                               &capture);
+
+    dlg.TournamentRegistCancelSyn();
+
+    EXPECT_EQ(capture.heroCalls, 0);
+}
+
+TEST(CGTRegistcancelDialogTest, TournamentCallbacksReplacePreviousHost) {
+    cGTRegistcancelDialog dlg;
+    GTCancelNetworkCapture first;
+    GTCancelNetworkCapture second;
+    dlg.SetTournamentCallbacks(&GTCancelNetworkCapture::GetHeroId,
+                               &GTCancelNetworkCapture::Send, &first);
+    dlg.SetTournamentCallbacks(&GTCancelNetworkCapture::GetHeroId,
+                               &GTCancelNetworkCapture::Send, &second);
+
+    dlg.TournamentRegistCancelSyn();
+
+    EXPECT_EQ(first.heroCalls, 0);
+    EXPECT_EQ(second.heroCalls, 1);
+    EXPECT_EQ(second.sendCalls, 1);
+}
+
+TEST(CGTRegistcancelDialogTest, TournamentRegistCancelSynAllowsNullUserData) {
+    cGTRegistcancelDialog dlg;
+    auto getHeroId = [](void*) -> std::uint32_t { return 7u; };
+    auto send = [](std::uint32_t, void*) -> bool { return true; };
+    dlg.SetTournamentCallbacks(getHeroId, send);
+
+    dlg.TournamentRegistCancelSyn();
+    SUCCEED();
 }
 
 }  // namespace mxh::ui::test
