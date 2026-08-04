@@ -1040,6 +1040,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildMarkDialogTest.ShowGuildUnionMarkSetsInfoText
     CGuildMarkDialogTest.ShowGuildMarkAndUnionMarkAreToggleable
     CGuildMarkDialogTest.ShowGuildMarkWithoutLinkingIsSafe
+    CGuildMarkDialogTest.ObjectStateDealMatchesLegacy6
+    CGuildMarkDialogTest.SetActiveFalseEndsDealStateWhenAllGates
+    CGuildMarkDialogTest.SetActiveFalseNonDealNoEnd
+    CGuildMarkDialogTest.SetActiveFalseNpcScriptActiveSkipsEnd
+    CGuildMarkDialogTest.SetActiveFalseMissingHeroSkipsEnd
+    CGuildMarkDialogTest.SetActiveFalseWithoutCallbacksIsSafe
+    CGuildMarkDialogTest.SetActiveFalseNullUserDataIsSafe
+    CGuildMarkDialogTest.SetActiveTrueDoesNotInvokeEnd
+    CGuildMarkDialogTest.SetActiveFalseReplacesCallbacks
     # Phase C 1:1 port (dialog): cMPMissionDialog (event-map mission notice)
     CMPMissionDialogTest.CtorDoesNotCrash
     CMPMissionDialogTest.DtorDoesNotCrash

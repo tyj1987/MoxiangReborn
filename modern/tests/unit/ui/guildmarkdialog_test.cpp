@@ -276,3 +276,171 @@ TEST(CGuildMarkDialogTest, ShowGuildMarkWithoutLinkingIsSafe) {
     dlg.ShowGuildUnionMark();
     SUCCEED();
 }
+
+
+
+// ---------- SetCallbacks / SetActive(false) OBJECTSTATEMGR dispatch ----------
+
+namespace {
+
+struct GuildMarkHost {
+    int endCalls = 0;
+    std::uint32_t lastObjectId = 0;
+    std::int32_t lastState = -1;
+    std::uint32_t heroObjectId = 0x12345678u;
+    std::int32_t heroState = cGuildMarkDialog::kObjectStateDeal;
+    bool npcScriptActive = false;
+};
+
+std::uint32_t GuildMarkHeroObjectId(void* userData) {
+    return static_cast<GuildMarkHost*>(userData)->heroObjectId;
+}
+
+std::int32_t GuildMarkHeroState(void* userData) {
+    return static_cast<GuildMarkHost*>(userData)->heroState;
+}
+
+bool GuildMarkIsNpcScriptActive(void* userData) {
+    return static_cast<GuildMarkHost*>(userData)->npcScriptActive;
+}
+
+void GuildMarkEndObjectState(std::uint32_t objectId,
+                             std::int32_t stateIdx,
+                             void* userData) {
+    auto* c = static_cast<GuildMarkHost*>(userData);
+    ++c->endCalls;
+    c->lastObjectId = objectId;
+    c->lastState = stateIdx;
+}
+
+}  // namespace
+
+TEST(CGuildMarkDialogTest, ObjectStateDealMatchesLegacy6) {
+    EXPECT_EQ(cGuildMarkDialog::kObjectStateDeal, 6);
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseEndsDealStateWhenAllGates) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    GuildMarkHost host;
+    host.heroObjectId = 0xABCDEF01u;
+    host.heroState = cGuildMarkDialog::kObjectStateDeal;
+    host.npcScriptActive = false;
+    ld.dlg.SetCallbacks(&GuildMarkHeroObjectId,
+                        &GuildMarkHeroState,
+                        &GuildMarkIsNpcScriptActive,
+                        &GuildMarkEndObjectState,
+                        &host);
+    ld.dlg.SetActive(true);
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(host.endCalls, 1);
+    EXPECT_EQ(host.lastObjectId, 0xABCDEF01u);
+    EXPECT_EQ(host.lastState, cGuildMarkDialog::kObjectStateDeal);
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseNonDealNoEnd) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    GuildMarkHost host;
+    host.heroState = 0;
+    ld.dlg.SetCallbacks(&GuildMarkHeroObjectId,
+                        &GuildMarkHeroState,
+                        &GuildMarkIsNpcScriptActive,
+                        &GuildMarkEndObjectState,
+                        &host);
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(host.endCalls, 0);
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseNpcScriptActiveSkipsEnd) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    GuildMarkHost host;
+    host.heroState = cGuildMarkDialog::kObjectStateDeal;
+    host.npcScriptActive = true;
+    ld.dlg.SetCallbacks(&GuildMarkHeroObjectId,
+                        &GuildMarkHeroState,
+                        &GuildMarkIsNpcScriptActive,
+                        &GuildMarkEndObjectState,
+                        &host);
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(host.endCalls, 0);
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseMissingHeroSkipsEnd) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    GuildMarkHost host;
+    host.heroObjectId = 0u;
+    host.heroState = cGuildMarkDialog::kObjectStateDeal;
+    ld.dlg.SetCallbacks(&GuildMarkHeroObjectId,
+                        &GuildMarkHeroState,
+                        &GuildMarkIsNpcScriptActive,
+                        &GuildMarkEndObjectState,
+                        &host);
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(host.endCalls, 0);
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseWithoutCallbacksIsSafe) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    ld.dlg.SetActive(false);
+    EXPECT_FALSE(ld.dlg.isActive());
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseNullUserDataIsSafe) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    auto getId = [](void*) -> std::uint32_t { return 0xBEEFu; };
+    auto getState = [](void*) -> std::int32_t { return 6; };
+    auto isActive = [](void*) -> bool { return false; };
+    auto endObj = [](std::uint32_t, std::int32_t, void*) {};
+    ld.dlg.SetCallbacks(getId, getState, isActive, endObj);
+    ld.dlg.SetActive(true);
+    ld.dlg.SetActive(false);
+    SUCCEED();
+}
+
+TEST(CGuildMarkDialogTest, SetActiveTrueDoesNotInvokeEnd) {
+    LinkedDialog ld;
+    ld.dlg.Init(0, 0, 200, 200, nullptr, 0);
+    GuildMarkHost host;
+    host.heroState = cGuildMarkDialog::kObjectStateDeal;
+    ld.dlg.SetCallbacks(&GuildMarkHeroObjectId,
+                        &GuildMarkHeroState,
+                        &GuildMarkIsNpcScriptActive,
+                        &GuildMarkEndObjectState,
+                        &host);
+    ld.dlg.SetActive(true);
+    EXPECT_EQ(host.endCalls, 0);
+}
+
+TEST(CGuildMarkDialogTest, SetActiveFalseReplacesCallbacks) {
+    cGuildMarkDialog dlg;
+    dlg.Init(0, 0, 200, 200, nullptr, 0);
+    GuildMarkHost first;
+    GuildMarkHost second;
+    auto getObj = [](void* u) -> std::uint32_t {
+        return static_cast<GuildMarkHost*>(u)->heroObjectId;
+    };
+    auto getSt = [](void* u) -> std::int32_t {
+        return static_cast<GuildMarkHost*>(u)->heroState;
+    };
+    auto isAct = [](void* u) -> bool {
+        return static_cast<GuildMarkHost*>(u)->npcScriptActive;
+    };
+    auto endF = [](std::uint32_t o, std::int32_t s, void* u) {
+        auto* c = static_cast<GuildMarkHost*>(u);
+        ++c->endCalls;
+        c->lastObjectId = o;
+        c->lastState = s;
+    };
+    dlg.SetCallbacks(getObj, getSt, isAct, endF, &first);
+    dlg.SetCallbacks(getObj, getSt, isAct, endF, &second);
+    dlg.SetActive(false);
+    EXPECT_EQ(first.endCalls, 0);
+    EXPECT_EQ(second.endCalls, 1);
+    EXPECT_EQ(second.lastObjectId, second.heroObjectId);
+}
+

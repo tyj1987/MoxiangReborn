@@ -40,12 +40,13 @@
 //     "GUILD_MARK_INFO_TEXT" placeholder for the
 //     CHATMGR->GetChatMsg(303) call, 1:1 with
 //     legacy c-string content).
-//   - SetActive override: TODO (HERO + OBJECTSTATEMGR
-//     + GAMEIN not ported, R-12.x deferred).
-//     Modern port calls base SetActive + the
-//     SetFocusEdit(false) + the GetWindowForID
-//     wrapper is preserved as a helper
-//     (cEditBox not ported, TODO).
+//   - SetActive override: REAL -- the val == FALSE
+//     path now honors the legacy OBJECTSTATEMGR
+//     deal-state guard through OPTIONAL host
+//     callbacks (HERO + GAMEIN-NpcScriptDialog +
+//     OBJECTSTATEMGR). The cEditBox SetFocusEdit
+//     remains REAL. Always calls base
+//     cDialog::SetActive(val) (1:1 with legacy).
 //   - ShowGuildMark / ShowGuildUnionMark: 1:1
 //     with legacy. The cButton->SetActive is the
 //     R-12 fix — modern cButton doesn't have
@@ -60,8 +61,11 @@
 // cMainDialog). The dialog has 1 cTextArea (m_pInfoText)
 // + 2 cButton (m_pGuildMarkBtn, m_pGuildUnionMarkBtn)
 // + 1 cEditBox (resolved in SetActive only, m_pMarkName
-// not stored). The CHATMGR + HERO + OBJECTSTATEMGR +
-// GAMEIN singletons are R-12.x deferred.
+// not stored). The CHATMGR global is mapped to a
+// literal placeholder (kGuildMarkInfoText +
+// kGuildUnionMarkInfoText). HERO + GAMEIN + OBJECTSTATEMGR
+// are reached through OPTIONAL host-injected callbacks
+// (SetCallbacks) rather than the legacy singletons.
 
 #pragma once
 
@@ -92,16 +96,12 @@ public:
 
     // ----- 1:1 with legacy CGuildMarkDialog::SetActive override -----
 
-    // 1:1 with legacy SetActive override. The
-    // HERO + OBJECTSTATEMGR + GAMEIN dispatch is
-    // TODO (R-12.x deferred). Modern port calls
-    // base SetActive + the SetFocusEdit(false) on
-    // a resolved cEditBox. The cEditBox resolution
-    // is itself TODO (cEditBox not stored in modern
-    // port; modern cEditBox is ported but the
-    // GDM_NAMEEDIT id is in a different range; the
-    // resolution is per-setActive-call via
-    // findWindowById).
+    // 1:1 with legacy SetActive override. The val==FALSE
+    // path now honors the legacy OBJECTSTATEMGR deal
+    // guard through OPTIONAL host callbacks (HERO +
+    // GAMEIN-NpcScriptDialog + OBJECTSTATEMGR). The
+    // cEditBox SetFocusEdit stays REAL. Always calls
+    // base cDialog::SetActive(val) (1:1 with legacy).
     void SetActive(bool val) noexcept override;
 
     // ----- 1:1 with legacy CGuildMarkDialog::ShowGuildMark -----
@@ -147,6 +147,28 @@ public:
     static constexpr const char* kGuildUnionMarkInfoText =
         "GUILD_UNION_MARK_INFO_TEXT";  // CHATMGR msg 1114
 
+    // 1:1 with legacy eObjectState_Deal = 6 (CommonGameDefine.h).
+    static constexpr std::int32_t kObjectStateDeal = 6;
+
+    // ----- Host-injected callbacks (legacy: HERO + GAMEIN + OBJECTSTATEMGR) -----
+
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using GetHeroStateFn = std::int32_t (*)(void* userData);
+    using IsNpcScriptDialogActiveFn = bool (*)(void* userData);
+    using EndObjectStateFn =
+        void (*)(std::uint32_t objectId, std::int32_t stateIdx,
+                 void* userData);
+
+    // Replaces legacy HERO + OBJECTSTATEMGR + GAMEIN NpcScriptDialog
+    // dispatch in SetActive(false). When HERO is missing (HEROID=0),
+    // or hero state != kObjectStateDeal, or GAMEIN NpcScriptDialog is
+    // active, EndObjectState is skipped (1:1 with legacy guard order).
+    void SetCallbacks(GetHeroObjectIdFn getHeroObjectId,
+                      GetHeroStateFn getHeroState,
+                      IsNpcScriptDialogActiveFn isNpcScriptDialogActive,
+                      EndObjectStateFn endObjectState,
+                      void* userData = nullptr) noexcept;
+
 private:
     // 1:1 with legacy m_pInfoText (resolved in
     // Linking by GDM_INFOTEXT id).
@@ -159,6 +181,12 @@ private:
     // 1:1 with legacy m_pGuildUnionMarkBtn (resolved
     // in Linking by GUM_REGISTOKBTN id).
     cButton* m_pGuildUnionMarkBtn = nullptr;
+
+    GetHeroObjectIdFn m_getHeroObjectIdFn = nullptr;
+    GetHeroStateFn m_getHeroStateFn = nullptr;
+    IsNpcScriptDialogActiveFn m_isNpcScriptDialogActiveFn = nullptr;
+    EndObjectStateFn m_endObjectStateFn = nullptr;
+    void* m_callbackUserData = nullptr;
 };
 
 }  // namespace mxh::ui

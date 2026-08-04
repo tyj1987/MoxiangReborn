@@ -44,6 +44,19 @@ void cGuildMarkDialog::Linking() {
         static_cast<cButton*>(findWindowById(kIdUnionRegistOkBtn));
 }
 
+void cGuildMarkDialog::SetCallbacks(
+    GetHeroObjectIdFn getHeroObjectId,
+    GetHeroStateFn getHeroState,
+    IsNpcScriptDialogActiveFn isNpcScriptDialogActive,
+    EndObjectStateFn endObjectState,
+    void* userData) noexcept {
+    m_getHeroObjectIdFn = getHeroObjectId;
+    m_getHeroStateFn = getHeroState;
+    m_isNpcScriptDialogActiveFn = isNpcScriptDialogActive;
+    m_endObjectStateFn = endObjectState;
+    m_callbackUserData = userData;
+}
+
 void cGuildMarkDialog::SetActive(bool val) noexcept {
     // 1:1 with legacy CGuildMarkDialog::SetActive
     // override. The legacy is:
@@ -73,16 +86,33 @@ void cGuildMarkDialog::SetActive(bool val) noexcept {
                 findWindowById(kIdNameEdit))) {
             pMarkName->SetFocusEdit(false);
         }
-        // TODO: 1:1 with legacy val == FALSE path:
-        //   if (HERO == 0) return;
-        //   if (HERO->GetState() == eObjectState_Deal &&
-        //       GAMEIN->GetNpcScriptDialog()->IsActive() == FALSE) {
-        //     OBJECTSTATEMGR->EndObjectState(HERO, eObjectState_Deal);
-        //   }
-        //
-        // HERO + OBJECTSTATEMGR + GAMEIN not ported
-        // (R-12.x deferred). When ported, the body
-        // becomes the legacy code.
+        // 1:1 with legacy HERO + OBJECTSTATEMGR + GAMEIN
+        // gate (val == FALSE path).
+        // 1) if (HERO == 0) return; -- modeled as
+        //    m_getHeroObjectIdFn() == 0; without the
+        //    hero fn we skip the whole gate.
+        // 2) if (HERO->GetState() == eObjectState_Deal
+        //    && GAMEIN->GetNpcScriptDialog()->IsActive()
+        //    == FALSE) EndObjectState(HERO, eObjectState_Deal).
+        // 1:1 ordering preserved.
+        if (m_getHeroObjectIdFn && m_getHeroStateFn &&
+            m_isNpcScriptDialogActiveFn && m_endObjectStateFn) {
+            const std::uint32_t objectId =
+                m_getHeroObjectIdFn(m_callbackUserData);
+            if (objectId != 0u) {
+                const std::int32_t state =
+                    m_getHeroStateFn(m_callbackUserData);
+                if (state == kObjectStateDeal) {
+                    const bool npcScriptActive =
+                        m_isNpcScriptDialogActiveFn(
+                            m_callbackUserData);
+                    if (!npcScriptActive) {
+                        m_endObjectStateFn(objectId, state,
+                                            m_callbackUserData);
+                    }
+                }
+            }
+        }
     }
     cDialog::SetActive(val);
 }
