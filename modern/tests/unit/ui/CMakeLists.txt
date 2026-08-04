@@ -719,14 +719,31 @@ gtest_add_tests(TARGET mxh_ui_tests
     CBailDialogTest.LinkingConfiguresValidCheckAndAlign
     CBailDialogTest.LinkingCallsSetScriptText
     CBailDialogTest.LinkingWithoutChildrenLeavesPointersNull
-    CBailDialogTest.OpenIsNoOp
-    CBailDialogTest.OpenWithoutLinkIsSafe
-    CBailDialogTest.CloseIsNoOp
-    CBailDialogTest.CloseWithoutLinkIsSafe
-    CBailDialogTest.SetFameIsNoOp
+    CBailDialogTest.LegacyConstantsMatchPreprocessedValues
+    CBailDialogTest.DefaultConstructorLeavesAllCallbacksNull
+    CBailDialogTest.SetCallbacksAcceptsNullUserData
+    CBailDialogTest.OpenWithHighBadFameActivatesDialog
+    CBailDialogTest.OpenWithLowBadFameShowsMsgBox
+    CBailDialogTest.OpenWithExactBadFameBoundaryShowsMsgBox
+    CBailDialogTest.OpenWithoutGetHeroBadFameIsNoOp
+    CBailDialogTest.OpenWithoutShowMsgBoxSkipsFailureBranch
+    CBailDialogTest.OpenBeforeLinkIsSafe
+    CBailDialogTest.CloseDisablesAndDeactivatesAndEndsDeal
+    CBailDialogTest.CloseWithoutEndDealStateStillDisables
+    CBailDialogTest.CloseBeforeLinkIsSafe
+    CBailDialogTest.SetFameWithZeroParseResultShortCircuits
+    CBailDialogTest.SetFameWithInsufficientFameShowsErrorAndDisables
+    CBailDialogTest.SetFameWithInsufficientMoneyShowsErrorAndDisables
+    CBailDialogTest.SetFameSuccessPathShowsConfirmationAndDisables
+    CBailDialogTest.SetFameBadFameAdditionUsesLegacyDwordWrap
+    CBailDialogTest.SetFameBailCostUsesLegacyDwordWrap
+    CBailDialogTest.SetFameWithoutParseAmountIsNoOp
     CBailDialogTest.SetFameWithoutLinkIsSafe
-    CBailDialogTest.SetBadFrameSyncIsNoOp
-    CBailDialogTest.SetBadFrameSyncWithoutLinkIsSafe
+    CBailDialogTest.SetBadFrameSyncWithZeroReturnsEarly
+    CBailDialogTest.SetBadFrameSyncWithPositiveSendsAndCloses
+    CBailDialogTest.SetBadFrameSyncWithoutSendBadFameIsNoOp
+    CBailDialogTest.SetBadFrameSyncWithoutGetHeroIdIsNoOp
+    CBailDialogTest.SetBadFrameSyncBeforeLinkIsSafe
     # Phase C 1:1 port (dialog): cPetWearedExDialog (pet equipment slots)
     CPetWearedExDialogTest.DefaultConstructionIsValid
     CPetWearedExDialogTest.InheritsIconDialogCellLayout
