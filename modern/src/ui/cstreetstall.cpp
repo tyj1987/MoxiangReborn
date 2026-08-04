@@ -52,13 +52,15 @@ void cStreetStall::SetDisable(bool val) noexcept {
 }
 
 void cStreetStall::ShowSellStall() {
-    if (m_showStallCb) m_showStallCb(StallDlgState::Opened, m_showStallUser);
+    SetActive(true);
     m_dlgState = StallDlgState::Opened;
+    if (m_showStallCb) m_showStallCb(StallDlgState::Opened, m_showStallUser);
 }
 
 void cStreetStall::ShowBuyStall() {
-    if (m_showStallCb) m_showStallCb(StallDlgState::Buy, m_showStallUser);
+    SetActive(true);
     m_dlgState = StallDlgState::Buy;
+    if (m_showStallCb) m_showStallCb(StallDlgState::Buy, m_showStallUser);
 }
 
 void cStreetStall::OnCloseStall(bool bDelOption) {
@@ -93,9 +95,18 @@ void cStreetStall::FakeDeleteItem(std::uint16_t pos) {
 }
 
 void cStreetStall::OnActionEvnet(std::int32_t lId, void* p, std::uint32_t we) {
-    // 1:1 with legacy OnActionEvnet (sic -- typo in
-    // legacy).  Dispatch via host-injected hook.
-    (void)lId; (void)p; (void)we;
+    (void)p;
+    if ((we & kWeBtnClick) == 0u) {
+        return;
+    }
+
+    if (lId == kIdEnter) {
+        if (m_editTitleRequestCb) {
+            m_editTitleRequestCb(m_editTitleRequestUser);
+        }
+    } else if (lId == kIdCloseBtn) {
+        SetActive(false);
+    }
 }
 
 std::uint32_t cStreetStall::ActionEvent(std::int32_t, std::int32_t, std::uint32_t) noexcept {
@@ -112,7 +123,13 @@ std::uint32_t cStreetStall::ActionEventWindow(std::int32_t, std::int32_t, std::u
 }
 
 void cStreetStall::SetActive(bool val) noexcept {
-    cDialog::SetActive(val);
+    if (!isEnabled() || isActive() == val) {
+        return;
+    }
+    if (!val && m_closeStreetStallCb) {
+        m_closeStreetStallCb(m_closeStreetStallUser);
+    }
+    cDialog::SetActiveRecursive(val);
 }
 
 void cStreetStall::RegistMoney() {}
@@ -228,6 +245,12 @@ void cStreetStall::SetOnMoneyEditClickCallbackForTest(EditClickCallback cb, void
 }
 void cStreetStall::SetOnTitleEditClickCallbackForTest(EditClickCallback cb, void* user) noexcept {
     m_onTitleEditClickCb = cb; m_onTitleEditClickUser = user;
+}
+void cStreetStall::SetEditTitleRequestCallbackForTest(EditTitleRequestCallback cb, void* user) noexcept {
+    m_editTitleRequestCb = cb; m_editTitleRequestUser = user;
+}
+void cStreetStall::SetCloseStreetStallCallbackForTest(CloseStreetStallCallback cb, void* user) noexcept {
+    m_closeStreetStallCb = cb; m_closeStreetStallUser = user;
 }
 void cStreetStall::SetFakeMoveCallbackForTest(FakeMoveCallback cb, void* user) noexcept {
     m_fakeMoveCb = cb; m_fakeMoveUser = user;

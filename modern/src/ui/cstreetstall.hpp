@@ -80,8 +80,8 @@
 //   - 1:1 with legacy static callback signatures
 //     (LONG iId, void* p, DWORD param1, void* vData1,
 //     void* vData2).
-//   - 1:1 with legacy cDialog::SetActive forwarding in
-//     SetActive override.
+//   - 1:1 with legacy SetActive disabled/unchanged gates,
+//     close-manager dispatch, and recursive activation.
 //   - 1:1 with legacy default title DEFAULT_TITLE_TEXT
 //     (CHATMGR->GetChatMsg(366), R-12.x deferred via
 //     host callback).
@@ -181,8 +181,9 @@ public:
                                    std::int32_t mouseY,
                                    std::uint32_t mouseFlags) noexcept;
 
-    // 1:1 with legacy SetActive override.  Forwards
-    // to cDialog::SetActive(val).
+    // 1:1 with legacy SetActive override. Ignores requests while
+    // disabled or unchanged, dispatches CloseStreetStall before
+    // recursively deactivating, and activates recursively.
     void SetActive(bool val) noexcept override;
 
     // 1:1 with legacy RegistMoney() / RegistMoney(pos, dwMoney).
@@ -272,20 +273,18 @@ public:
     cIconGridDialog* GetGridDialog() const noexcept;
 
     // ---- 1:1 id constants (legacy WindowIDs.h) ----
-    // 1:1 with legacy SSI_STALLDLG.
-    static constexpr std::int32_t kIdDialog    = 379;
-    // 1:1 with legacy SSI_ICONGRID.
-    static constexpr std::int32_t kIdIconGrid  = 380;
-    // 1:1 with legacy SSI_TITLEEDIT.
-    static constexpr std::int32_t kIdTitleEdit = 381;
-    // 1:1 with legacy SSI_ENTER.
-    static constexpr std::int32_t kIdEnter     = 382;
-    // 1:1 with legacy SSI_BUYBTN.
-    static constexpr std::int32_t kIdBuyBtn    = 383;
-    // 1:1 with legacy SSI_EDITBTN.
-    static constexpr std::int32_t kIdEditBtn   = 385;
-    // 1:1 with legacy SSI_MONEYEDIT.
-    static constexpr std::int32_t kIdMoneyEdit = 386;
+    static constexpr std::int32_t kIdDialog       = 241;
+    static constexpr std::int32_t kIdIconGrid     = 242;
+    static constexpr std::int32_t kIdTitleEdit    = 243;
+    static constexpr std::int32_t kIdEnter        = 244;
+    static constexpr std::int32_t kIdBuyBtn       = 245;
+    static constexpr std::int32_t kIdRegistBtn    = 246;
+    static constexpr std::int32_t kIdEditBtn      = 247;
+    static constexpr std::int32_t kIdMoneyEdit    = 248;
+    static constexpr std::int32_t kIdRegistEndBtn = 249;
+    static constexpr std::int32_t kIdCloseBtn     = 250;
+
+    static constexpr std::uint32_t kWeBtnClick = 64u;
 
     // ---- Test hooks ----
     void SetStallGridForTest(cIconGridDialog* g) noexcept;
@@ -318,6 +317,17 @@ public:
     using EditClickCallback = void(*)(void* user);
     void SetOnMoneyEditClickCallbackForTest(EditClickCallback cb, void* user) noexcept;
     void SetOnTitleEditClickCallbackForTest(EditClickCallback cb, void* user) noexcept;
+
+    using EditTitleRequestCallback = void(*)(void* user);
+    using CloseStreetStallCallback = void(*)(void* user);
+    void SetEditTitleRequestCallbackForTest(EditTitleRequestCallback cb, void* user) noexcept;
+    void SetCloseStreetStallCallbackForTest(CloseStreetStallCallback cb, void* user) noexcept;
+    EditTitleRequestCallback GetEditTitleRequestCallbackForTest() const noexcept {
+        return m_editTitleRequestCb;
+    }
+    CloseStreetStallCallback GetCloseStreetStallCallbackForTest() const noexcept {
+        return m_closeStreetStallCb;
+    }
 
     // 1:1 with legacy FakeMoveIcon hook.
     using FakeMoveCallback = bool(*)(std::int32_t mouseX, std::int32_t mouseY, void* icon, void* user);
@@ -392,6 +402,10 @@ private:
     void* m_onMoneyEditClickUser = nullptr;
     EditClickCallback m_onTitleEditClickCb = nullptr;
     void* m_onTitleEditClickUser = nullptr;
+    EditTitleRequestCallback m_editTitleRequestCb = nullptr;
+    void* m_editTitleRequestUser = nullptr;
+    CloseStreetStallCallback m_closeStreetStallCb = nullptr;
+    void* m_closeStreetStallUser = nullptr;
     FakeMoveCallback m_fakeMoveCb = nullptr;
     void* m_fakeMoveUser = nullptr;
     GetIconCallback m_getIconCb = nullptr;

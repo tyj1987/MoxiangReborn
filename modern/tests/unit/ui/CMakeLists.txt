@@ -2238,6 +2238,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStreetStallTest.MoneyAndSelection
     CStreetStallTest.TitleAndSafeOperations
     CStreetStallTest.DivideAndCheckCallbacks
+    CStreetStallTest.LegacyWindowIdsMatchSource
+    CStreetStallTest.ActionCallbacksInitiallyNull
+    CStreetStallTest.ActionCallbackSettersStorePointers
+    CStreetStallTest.ShowSellStallActivatesDialog
+    CStreetStallTest.ShowBuyStallActivatesDialog
+    CStreetStallTest.EnterButtonDispatchesEditTitleRequest
+    CStreetStallTest.EnterButtonWithExtraFlagsStillDispatches
+    CStreetStallTest.EnterButtonWithoutClickFlagIsNoOp
+    CStreetStallTest.UnknownButtonIsNoOp
+    CStreetStallTest.CloseButtonDispatchesAndDeactivates
+    CStreetStallTest.CloseCallbackRunsBeforeDeactivation
+    CStreetStallTest.CloseWhenAlreadyInactiveIsNoOp
+    CStreetStallTest.SetActiveFalseWhileDisabledIsNoOp
+    CStreetStallTest.SetActiveTrueDoesNotDispatchClose
+    CStreetStallTest.ActionWithoutCallbacksIsSafe
     CStreetBuyStallTest.SurfaceAndDefaults
     CStreetBuyStallTest.StatesAndClose
     CStreetBuyStallTest.MoneyAndRegInfoBounds
