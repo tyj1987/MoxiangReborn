@@ -112,6 +112,92 @@ public:
     void SetMunpaName(const char* name);
     void SetMunpaIntro(const char* intro);
 
+
+    // ----- 1:1 with legacy RESRCMGR->GetMsg ids -----
+
+    // 1:1 with legacy RESRCMGR->GetMsg(270) --
+    //   "edit existing guild name" caption
+    //   (used when HERO is already in a guild).
+    static constexpr std::int32_t kMsgEditExistingGuildCaption = 270;
+
+    // 1:1 with legacy RESRCMGR->GetMsg(335) --
+    //   "rename" button text (used when HERO is
+    //   already in a guild).
+    static constexpr std::int32_t kMsgRenameGuildButton = 335;
+
+    // 1:1 with legacy RESRCMGR->GetMsg(510) --
+    //   "create new guild" caption (used when
+    //   HERO is NOT in a guild).
+    static constexpr std::int32_t kMsgCreateGuildCaption = 510;
+
+    // 1:1 with legacy RESRCMGR->GetMsg(513) --
+    //   "create" button text (used when HERO is
+    //   NOT in a guild).
+    static constexpr std::int32_t kMsgCreateGuildButton = 513;
+
+    // 1:1 with legacy eObjectState_Deal (used
+    // by SetActive(false) deal-state
+    // cancellation).
+    static constexpr std::int32_t kObjectStateDeal = 6;
+
+    // ----- Host callback signatures -----
+
+    // 1:1 with legacy HERO pointer (nullptr when
+    // no hero exists).
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+
+    // 1:1 with legacy HERO->GetGuildIdx() (0
+    // when the hero has no guild; non-zero
+    // guild idx when the hero is in a guild).
+    using GetHeroGuildIdxFn = std::uint32_t (*)(void* userData);
+
+    // 1:1 with legacy HERO->GetState() (eObjectState_*).
+    using GetHeroStateFn = std::int32_t (*)(void* userData);
+
+    // 1:1 with legacy MAP->GetMapName(...) (the
+    // dialog passes the map num internally via
+    // the GAMEIN-singleton lookup; modern port
+    // folds that into the host callback).
+    using GetMapNameFn = const char* (*)(void* userData);
+
+    // 1:1 with legacy GUILDMGR->GetGuildName()
+    // (used to pre-fill the read-only edit box
+    // when HERO is already in a guild).
+    using GetGuildNameFn = const char* (*)(void* userData);
+
+    // 1:1 with legacy
+    //   GAMEIN->GetNpcScriptDialog()->IsActive()
+    // (used by the SetActive(false) deal-state
+    // cancellation gate to avoid cancelling the
+    // NPC-owned dialog state).
+    using IsNpcScriptDialogActiveFn = bool (*)(void* userData);
+
+    // 1:1 with legacy RESRCMGR->GetMsg(id) (the
+    // dialog queries 4 distinct ids: 270/335 /
+    // 510/513, depending on HERO->GetGuildIdx()
+    // branch).
+    using GetLocalizedMessageFn = const char* (*)(std::int32_t msgId, void* userData);
+
+    // 1:1 with legacy
+    //   OBJECTSTATEMGR->EndObjectState(HERO, eObjectState_Deal)
+    using EndObjectStateFn = void (*)(std::uint32_t objectId,
+                                      std::int32_t stateIdx,
+                                      void* userData);
+
+    // Install host callbacks. Pass nullptr for
+    // any callback to fall through to the legacy
+    // no-op / "singleton not yet ported" path.
+    void SetCallbacks(
+        GetHeroObjectIdFn         getHeroObjectId,
+        GetHeroGuildIdxFn         getHeroGuildIdx,
+        GetHeroStateFn            getHeroState,
+        GetMapNameFn              getMapName,
+        GetGuildNameFn            getGuildName,
+        IsNpcScriptDialogActiveFn isNpcScriptDialogActive,
+        GetLocalizedMessageFn     getLocalizedMessage,
+        EndObjectStateFn          endObjectState,
+        void*                     userData = nullptr) noexcept;
+
     // ----- Accessors (used by tests) -----
 
     cStatic*  GetLocation()    const noexcept { return m_pLocation; }
@@ -134,6 +220,20 @@ private:
     cTextArea* m_pIntro      = nullptr;
     cButton*  m_OkBtn        = nullptr;
     cStatic*  m_CaptionName  = nullptr;
+
+    // 1:1 host callback pointers (replaces
+    // MAP + HERO + GUILDMGR + GAMEIN + RESRCMGR
+    // + OBJECTSTATEMGR globals, R-12.x
+    // deferred).
+    GetHeroObjectIdFn         m_getHeroObjectId         = nullptr;
+    GetHeroGuildIdxFn         m_getHeroGuildIdx         = nullptr;
+    GetHeroStateFn            m_getHeroState            = nullptr;
+    GetMapNameFn              m_getMapName              = nullptr;
+    GetGuildNameFn            m_getGuildName            = nullptr;
+    IsNpcScriptDialogActiveFn m_isNpcScriptDialogActive = nullptr;
+    GetLocalizedMessageFn     m_getLocalizedMessage     = nullptr;
+    EndObjectStateFn          m_endObjectState          = nullptr;
+    void*                     m_callbackUserData         = nullptr;
 };
 
 class cGuildUnionCreateDialog : public cDialog {

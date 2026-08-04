@@ -665,9 +665,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildCreateDialogTest.IdConstantsAreDistinct
     CGuildCreateDialogTest.LinkingResolvesAllFiveChildren
     CGuildCreateDialogTest.LinkingWithoutChildrenLeavesPointersNull
-    CGuildCreateDialogTest.SetActiveTrueUpdatesBaseState
-    CGuildCreateDialogTest.SetActiveFalseUpdatesBaseState
+    CGuildCreateDialogTest.SetActiveTrueWithNoCallbacksClearsAndActivates
+    CGuildCreateDialogTest.SetActiveFalseWithNoHeroCallbackKeepsDialogOpen
     CGuildCreateDialogTest.SetActiveWithoutLinksIsSafe
+    CGuildCreateDialogTest.LegacyMessageAndStateConstantsMatchSource
+    CGuildCreateDialogTest.SetActiveTrueNoGuildBranchUsesCreateCaptionsAndUnreadonlys
+    CGuildCreateDialogTest.SetActiveTrueGuildedBranchUsesRenameCaptionsAndReadOnly
+    CGuildCreateDialogTest.SetActiveTrueNullMapCallbackLeavesLocationUnchanged
+    CGuildCreateDialogTest.SetActiveTrueNullLocalizedCallbackDoesNotCrash
+    CGuildCreateDialogTest.SetActiveFalseEndDealStateDispatchedWhenHeroInDealAndNpcScriptOff
+    CGuildCreateDialogTest.SetActiveFalseSkipsEndForNonDealState
+    CGuildCreateDialogTest.SetActiveFalseSkipsEndWhenNpcScriptDialogActive
+    CGuildCreateDialogTest.SetActiveFalseEarlyReturnWhenHeroObjectIdZero
+    CGuildCreateDialogTest.SetActiveFalseReleasesEditFocusBeforeEarlyReturn
+    CGuildCreateDialogTest.SetCallbacksReplacesExistingHostDispatch
     CGuildCreateDialogTest.SetMunpaNameUpdatesEditTextAndReadOnly
     CGuildCreateDialogTest.SetMunpaNameWithEmptyStringIsSafe
     CGuildCreateDialogTest.SetMunpaNameWithoutLinkIsSafe

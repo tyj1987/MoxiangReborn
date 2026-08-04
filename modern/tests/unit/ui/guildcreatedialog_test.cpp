@@ -184,25 +184,41 @@ TEST(CGuildCreateDialogTest, LinkingWithoutChildrenLeavesPointersNull) {
 // cGuildCreateDialog â€” SetActive (1:1 override, base + TODO)
 // ===========================================================================
 
-TEST(CGuildCreateDialogTest, SetActiveTrueUpdatesBaseState) {
+
+TEST(CGuildCreateDialogTest, SetActiveTrueWithNoCallbacksClearsAndActivates) {
+    // With no callbacks installed, val==TRUE
+    // still clears the guild-name + intro
+    // (REAL) and calls base SetActive. The
+    // RESRCMGR/MAP branch falls through safely
+    // because all callbacks are null.
     cGuildCreateDialog dlg;
     GuildCreateChildren raws;
     BuildDlgWithChildren(dlg, raws);
-    EXPECT_FALSE(dlg.isActive());
+    raws.guild_name->SetEditText("initial");
+    ASSERT_STREQ(raws.guild_name->editText().c_str(), "initial");
 
     dlg.SetActive(true);
+
     EXPECT_TRUE(dlg.isActive());
+    EXPECT_TRUE(raws.guild_name->editText().empty());
 }
 
-TEST(CGuildCreateDialogTest, SetActiveFalseUpdatesBaseState) {
+TEST(CGuildCreateDialogTest, SetActiveFalseWithNoHeroCallbackKeepsDialogOpen) {
+    // 1:1 quirk: legacy `if (HERO == 0) return;`
+    // means the dialog stays active after
+    // SetActive(false) when no HERO is present.
+    // Modern port preserves this with the
+    // early-return on `heroObjectId == 0u`
+    // (matches the legacy null-HERO behavior).
     cGuildCreateDialog dlg;
     GuildCreateChildren raws;
     BuildDlgWithChildren(dlg, raws);
     dlg.SetActive(true);
     ASSERT_TRUE(dlg.isActive());
 
+    // No SetCallbacks() -> m_getHeroObjectId = nullptr -> early return.
     dlg.SetActive(false);
-    EXPECT_FALSE(dlg.isActive());
+    EXPECT_TRUE(dlg.isActive());
 }
 
 TEST(CGuildCreateDialogTest, SetActiveWithoutLinksIsSafe) {
@@ -213,6 +229,296 @@ TEST(CGuildCreateDialogTest, SetActiveWithoutLinksIsSafe) {
     dlg.SetActive(false);
     SUCCEED();
 }
+
+// ===========================================================================
+// Callback fixtures (shared with cGuildCreateDialog host-dispatch tests)
+// ===========================================================================
+
+namespace {
+
+struct GuildCreateHostCalls {
+    std::uint32_t heroObjectId      = 9;
+    std::uint32_t heroGuildIdx      = 0;
+    std::int32_t  heroState         = 0;
+    const char*   mapName           = "MAP_DEFAULT";
+    const char*   guildName         = "MY_GUILD";
+    bool          npcScriptActive   = false;
+    int           getMapNameCalls   = 0;
+    int           getGuildNameCalls = 0;
+    int           localizedCalls    = 0;
+    int           endCalls          = 0;
+    std::uint32_t endedObjectId     = 0;
+    std::int32_t  endedState        = 0;
+
+    static std::uint32_t GetHeroObjectId(void* ud) {
+        return static_cast<GuildCreateHostCalls*>(ud)->heroObjectId;
+    }
+    static std::uint32_t GetHeroGuildIdx(void* ud) {
+        return static_cast<GuildCreateHostCalls*>(ud)->heroGuildIdx;
+    }
+    static std::int32_t GetHeroState(void* ud) {
+        return static_cast<GuildCreateHostCalls*>(ud)->heroState;
+    }
+    static const char* GetMapName(void* ud) {
+        auto* hc = static_cast<GuildCreateHostCalls*>(ud);
+        ++hc->getMapNameCalls;
+        return hc->mapName;
+    }
+    static const char* GetGuildName(void* ud) {
+        auto* hc = static_cast<GuildCreateHostCalls*>(ud);
+        ++hc->getGuildNameCalls;
+        return hc->guildName;
+    }
+    static bool IsNpcScriptActive(void* ud) {
+        return static_cast<GuildCreateHostCalls*>(ud)->npcScriptActive;
+    }
+    static const char* GetLocalizedMsg(std::int32_t, void* ud) {
+        ++static_cast<GuildCreateHostCalls*>(ud)->localizedCalls;
+        return "LOCALIZED";
+    }
+    static void EndObjectState(std::uint32_t objectId, std::int32_t state,
+                                void* ud) {
+        auto* hc = static_cast<GuildCreateHostCalls*>(ud);
+        ++hc->endCalls;
+        hc->endedObjectId = objectId;
+        hc->endedState = state;
+    }
+};
+
+// Convenience builder that wires every callback to the same HostCalls struct.
+void InstallGuildCreateCallbacks(cGuildCreateDialog& dlg,
+                                 GuildCreateHostCalls* hc) {
+    dlg.SetCallbacks(&GuildCreateHostCalls::GetHeroObjectId,
+                     &GuildCreateHostCalls::GetHeroGuildIdx,
+                     &GuildCreateHostCalls::GetHeroState,
+                     &GuildCreateHostCalls::GetMapName,
+                     &GuildCreateHostCalls::GetGuildName,
+                     &GuildCreateHostCalls::IsNpcScriptActive,
+                     &GuildCreateHostCalls::GetLocalizedMsg,
+                     &GuildCreateHostCalls::EndObjectState,
+                     hc);
+}
+
+}  // namespace
+
+// ===========================================================================
+// cGuildCreateDialog -- host-callback port (replaces the 7-singleton no-op)
+// ===========================================================================
+
+TEST(CGuildCreateDialogTest, LegacyMessageAndStateConstantsMatchSource) {
+    // 1:1 with legacy RESRCMGR->GetMsg ids +
+    // eObjectState_Deal.
+    EXPECT_EQ(cGuildCreateDialog::kMsgEditExistingGuildCaption, 270);
+    EXPECT_EQ(cGuildCreateDialog::kMsgRenameGuildButton,         335);
+    EXPECT_EQ(cGuildCreateDialog::kMsgCreateGuildCaption,       510);
+    EXPECT_EQ(cGuildCreateDialog::kMsgCreateGuildButton,        513);
+    EXPECT_EQ(cGuildCreateDialog::kObjectStateDeal,             6);
+}
+
+TEST(CGuildCreateDialogTest, SetActiveTrueNoGuildBranchUsesCreateCaptionsAndUnreadonlys) {
+    // HERO->GetGuildIdx() == 0 -> create-guild
+    // view: caption=510, button=513, edit box
+    // is WRITABLE (legacy un-readonly's it).
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    InstallGuildCreateCallbacks(dlg, &hc);
+
+    dlg.SetActive(true);
+
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(hc.getMapNameCalls, 1);            // map queried
+    EXPECT_GE(hc.localizedCalls, 2);             // 510 + 513
+    // 1:1 quirk: legacy un-readonly's the edit box
+    // so the user can type a guild name.
+    EXPECT_FALSE(raws.guild_name->IsReadOnly());
+}
+
+TEST(CGuildCreateDialogTest, SetActiveTrueGuildedBranchUsesRenameCaptionsAndReadOnly) {
+    // HERO->GetGuildIdx() != 0 -> existing-guild
+    // view: caption=270, button=335, edit box
+    // contains current guild name (read-only).
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    hc.heroGuildIdx = 12u;  // in a guild
+    hc.guildName = "MY_EXISTING_GUILD";
+    InstallGuildCreateCallbacks(dlg, &hc);
+
+    dlg.SetActive(true);
+
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(hc.getGuildNameCalls, 1);
+    EXPECT_STREQ(raws.guild_name->editText().c_str(), "MY_EXISTING_GUILD");
+    EXPECT_TRUE(raws.guild_name->IsReadOnly());
+}
+
+TEST(CGuildCreateDialogTest, SetActiveTrueNullMapCallbackLeavesLocationUnchanged) {
+    // The location widget's text is only set by
+    // the MAP callback. With the MAP callback
+    // absent the widget stays at its
+    // ctor-initial value (empty string).
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    InstallGuildCreateCallbacks(dlg, &hc);
+    // Make the MAP callback null by replacing it
+    // with nullptr.
+    dlg.SetCallbacks(&GuildCreateHostCalls::GetHeroObjectId,
+                     &GuildCreateHostCalls::GetHeroGuildIdx,
+                     &GuildCreateHostCalls::GetHeroState,
+                     nullptr,                            // no GetMapName
+                     &GuildCreateHostCalls::GetGuildName,
+                     &GuildCreateHostCalls::IsNpcScriptActive,
+                     &GuildCreateHostCalls::GetLocalizedMsg,
+                     &GuildCreateHostCalls::EndObjectState,
+                     &hc);
+    dlg.SetActive(true);
+    EXPECT_TRUE(dlg.isActive());
+}
+
+TEST(CGuildCreateDialogTest, SetActiveTrueNullLocalizedCallbackDoesNotCrash) {
+    // RESRCMGR (GetLocalizedMessage) callback is
+    // absent -- caption/button text widgets
+    // stay at their ctor values. The dialog
+    // activates cleanly.
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    InstallGuildCreateCallbacks(dlg, &hc);
+    dlg.SetCallbacks(&GuildCreateHostCalls::GetHeroObjectId,
+                     &GuildCreateHostCalls::GetHeroGuildIdx,
+                     &GuildCreateHostCalls::GetHeroState,
+                     &GuildCreateHostCalls::GetMapName,
+                     &GuildCreateHostCalls::GetGuildName,
+                     &GuildCreateHostCalls::IsNpcScriptActive,
+                     nullptr,                            // no GetLocalizedMessage
+                     &GuildCreateHostCalls::EndObjectState,
+                     &hc);
+    dlg.SetActive(true);
+    EXPECT_TRUE(dlg.isActive());
+}
+
+TEST(CGuildCreateDialogTest, SetActiveFalseEndDealStateDispatchedWhenHeroInDealAndNpcScriptOff) {
+    // 1:1 with legacy guard:
+    //   if (HERO->GetState() == eObjectState_Deal &&
+    //       GAMEIN->GetNpcScriptDialog()->IsActive() == FALSE)
+    //   then OBJECTSTATEMGR->EndObjectState(HERO, eObjectState_Deal).
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    hc.heroState = cGuildCreateDialog::kObjectStateDeal;
+    hc.npcScriptActive = false;
+    InstallGuildCreateCallbacks(dlg, &hc);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(hc.endCalls, 1);
+    EXPECT_EQ(hc.endedObjectId, hc.heroObjectId);
+    EXPECT_EQ(hc.endedState, cGuildCreateDialog::kObjectStateDeal);
+}
+
+TEST(CGuildCreateDialogTest, SetActiveFalseSkipsEndForNonDealState) {
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    hc.heroState = 5;  // some non-deal state
+    InstallGuildCreateCallbacks(dlg, &hc);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(hc.endCalls, 0);
+}
+
+TEST(CGuildCreateDialogTest, SetActiveFalseSkipsEndWhenNpcScriptDialogActive) {
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    hc.heroState = cGuildCreateDialog::kObjectStateDeal;
+    hc.npcScriptActive = true;
+    InstallGuildCreateCallbacks(dlg, &hc);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(hc.endCalls, 0);
+}
+
+TEST(CGuildCreateDialogTest, SetActiveFalseEarlyReturnWhenHeroObjectIdZero) {
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls hc;
+    hc.heroObjectId = 0u;  // no hero
+    InstallGuildCreateCallbacks(dlg, &hc);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+
+    // 1:1 with legacy `if (HERO == 0) return;`
+    // -- the dialog stays active.
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(hc.endCalls, 0);
+}
+
+TEST(CGuildCreateDialogTest, SetActiveFalseReleasesEditFocusBeforeEarlyReturn) {
+    // 1:1 with legacy control flow: the edit-box
+    // focus is released BEFORE the HERO
+    // null-check. Even when HERO is null and
+    // the SetActive returns early, focus must
+    // have been released.
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    raws.guild_name->SetFocusEdit(true);
+    ASSERT_TRUE(raws.guild_name->hasFocus());
+
+    GuildCreateHostCalls hc;
+    hc.heroObjectId = 0u;
+    InstallGuildCreateCallbacks(dlg, &hc);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+
+    EXPECT_FALSE(raws.guild_name->hasFocus());
+    EXPECT_TRUE(dlg.isActive());
+}
+
+TEST(CGuildCreateDialogTest, SetCallbacksReplacesExistingHostDispatch) {
+    // First call uses host context #1, second
+    // call swaps to host context #2. Verify the
+    // second dispatch goes to context #2 and
+    // context #1's counter doesn't increment.
+    cGuildCreateDialog dlg;
+    GuildCreateChildren raws;
+    BuildDlgWithChildren(dlg, raws);
+    GuildCreateHostCalls firstCtx;
+    firstCtx.heroObjectId = 11u;
+    firstCtx.heroState = cGuildCreateDialog::kObjectStateDeal;
+    InstallGuildCreateCallbacks(dlg, &firstCtx);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+    EXPECT_EQ(firstCtx.endCalls, 1);
+
+    // Re-activate and install a different context.
+    dlg.SetActive(true);
+    GuildCreateHostCalls secondCtx;
+    secondCtx.heroObjectId = 22u;
+    secondCtx.heroState = cGuildCreateDialog::kObjectStateDeal;
+    InstallGuildCreateCallbacks(dlg, &secondCtx);
+    dlg.SetActive(false);
+    EXPECT_EQ(secondCtx.endCalls, 1);
+    EXPECT_EQ(secondCtx.endedObjectId, 22u);
+    EXPECT_EQ(firstCtx.endCalls, 1);   // NOT incremented
+}
+
 
 // ===========================================================================
 // cGuildCreateDialog â€” SetMunpaName / SetMunpaIntro
