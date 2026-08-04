@@ -37,6 +37,39 @@ struct LinkedDialog {
     cListDialog* mPtr_ = nullptr;
 };
 
+
+// ===========================================================================
+// Callback fixtures + new host-dispatch tests
+// ===========================================================================
+
+struct ShoutchatHostCalls {
+    bool isLowResolutionValue = false;
+    std::int32_t chatAbsXValue = 0;
+    std::int32_t chatSheetPosYValue = 0;
+    int isLowResCalls = 0;
+    int getChatAbsXCalls = 0;
+    int getChatSheetPosYCalls = 0;
+    static bool IsLowResolution(void* ud) {
+        auto* hc = static_cast<ShoutchatHostCalls*>(ud);
+        ++hc->isLowResCalls;
+        return hc->isLowResolutionValue;
+    }
+
+
+    static std::int32_t GetChatDialogAbsX(void* ud) {
+        auto* hc = static_cast<ShoutchatHostCalls*>(ud);
+        ++hc->getChatAbsXCalls;
+        return hc->chatAbsXValue;
+    }
+
+
+    static std::int32_t GetChatDialogSheetPosY(void* ud) {
+        auto* hc = static_cast<ShoutchatHostCalls*>(ud);
+        ++hc->getChatSheetPosYCalls;
+        return hc->chatSheetPosYValue;
+    }
+};
+
 }  // namespace
 
 TEST(CShoutchatDialogTest, CtorDoesNotCrash) {
@@ -78,6 +111,46 @@ TEST(CShoutchatDialogTest, LinkingResolvesMsgList) {
     // which uses it.
     ld.dlg.AddMsg("Hello");
     EXPECT_EQ(ld.mPtr_->RowCount(), 1);
+}
+
+TEST(CShoutchatDialogTest, LinkingWithoutLowResCallbackIsNoOp) {
+    LinkedDialog ld;
+    EXPECT_EQ(ld.dlg.absX(), 0);
+    EXPECT_EQ(ld.dlg.absY(), 0);
+}
+
+TEST(CShoutchatDialogTest, LinkingWithLowResCallbackDispatchesRefreshPosition) {
+    LinkedDialog ld;
+    ShoutchatHostCalls hc;
+    hc.isLowResolutionValue = true;
+    hc.chatAbsXValue = 100;
+    hc.chatSheetPosYValue = 300;
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &hc);
+    ld.dlg.Linking();
+    const std::int32_t expectedY = 300 - ld.dlg.height();
+    EXPECT_EQ(ld.dlg.absX(), 100);
+    EXPECT_EQ(ld.dlg.absY(), expectedY);
+    EXPECT_EQ(hc.isLowResCalls, 1);
+}
+
+TEST(CShoutchatDialogTest, LinkingWithLowResFalseSkipsRefreshPosition) {
+    LinkedDialog ld;
+    ShoutchatHostCalls hc;
+    hc.isLowResolutionValue = false;
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &hc);
+    ld.dlg.Linking();
+    EXPECT_EQ(ld.dlg.absX(), 0);
+    EXPECT_EQ(ld.dlg.absY(), 0);
+    EXPECT_EQ(hc.isLowResCalls, 1);
+    EXPECT_EQ(hc.getChatAbsXCalls, 0);
 }
 
 TEST(CShoutchatDialogTest, LinkingBeforeInitDoesNotCrash) {
@@ -133,19 +206,49 @@ TEST(CShoutchatDialogTest, AddMsgWithoutLinkingIsSafe) {
     SUCCEED();
 }
 
-TEST(CShoutchatDialogTest, SetActiveTrueUpdatesBaseState) {
+TEST(CShoutchatDialogTest, SetActiveTrueWithoutCallbacksUpdatesBaseState) {
     cShoutchatDialog dlg;
     dlg.Init(0, 0, 200, 200, nullptr, 0);
     dlg.SetActive(true);
     EXPECT_TRUE(dlg.isActive());
+    EXPECT_EQ(dlg.absX(), 0);
+    EXPECT_EQ(dlg.absY(), 0);
 }
 
-TEST(CShoutchatDialogTest, SetActiveFalseUpdatesBaseState) {
+TEST(CShoutchatDialogTest, SetActiveTrueRepositionDialogFromChat) {
     LinkedDialog ld;
+    ShoutchatHostCalls hc;
+    hc.chatAbsXValue = 250;
+    hc.chatSheetPosYValue = 400;
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &hc);
     ld.dlg.SetActive(true);
+    const std::int32_t expectedY = 400 - ld.dlg.height();
+    EXPECT_EQ(ld.dlg.absX(), 250);
+    EXPECT_EQ(ld.dlg.absY(), expectedY);
     EXPECT_TRUE(ld.dlg.isActive());
+    EXPECT_EQ(hc.getChatAbsXCalls, 1);
+    EXPECT_EQ(hc.getChatSheetPosYCalls, 1);
+}
+
+TEST(CShoutchatDialogTest, SetActiveFalseSkipsRefreshPosition) {
+    LinkedDialog ld;
+    ShoutchatHostCalls hc;
+    hc.chatAbsXValue = 100;
+    hc.chatSheetPosYValue = 200;
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &hc);
     ld.dlg.SetActive(false);
+    EXPECT_EQ(ld.dlg.absX(), 0);
+    EXPECT_EQ(ld.dlg.absY(), 0);
     EXPECT_FALSE(ld.dlg.isActive());
+    EXPECT_EQ(hc.getChatAbsXCalls, 0);
 }
 
 TEST(CShoutchatDialogTest, SetActiveBeforeInitDoesNotCrash) {
@@ -164,6 +267,44 @@ TEST(CShoutchatDialogTest, RefreshPositionIsNoOp) {
     LinkedDialog ld;
     ld.dlg.RefreshPosition();
     SUCCEED();
+}
+
+TEST(CShoutchatDialogTest, RefreshPositionWithoutCallbacksIsSafe) {
+    LinkedDialog ld;
+    ld.dlg.RefreshPosition();
+    EXPECT_EQ(ld.dlg.absX(), 0);
+    EXPECT_EQ(ld.dlg.absY(), 0);
+}
+
+TEST(CShoutchatDialogTest, RefreshPositionReadsHostCallbacksAndSetsAbsXY) {
+    LinkedDialog ld;
+    ShoutchatHostCalls hc;
+    hc.chatAbsXValue = 75;
+    hc.chatSheetPosYValue = 250;
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &hc);
+    ld.dlg.RefreshPosition();
+    const std::int32_t expectedY = 250 - ld.dlg.height();
+    EXPECT_EQ(ld.dlg.absX(), 75);
+    EXPECT_EQ(ld.dlg.absY(), expectedY);
+    EXPECT_EQ(hc.getChatAbsXCalls, 1);
+    EXPECT_EQ(hc.getChatSheetPosYCalls, 1);
+}
+
+TEST(CShoutchatDialogTest, RefreshPositionWithPartialCallbacksIsSafe) {
+    LinkedDialog ld;
+    ShoutchatHostCalls hc;
+    ld.dlg.SetCallbacks(
+        nullptr,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        nullptr,
+        &hc);
+    ld.dlg.RefreshPosition();
+    EXPECT_EQ(ld.dlg.absX(), 0);
+    EXPECT_EQ(hc.getChatAbsXCalls, 0);
 }
 
 
@@ -236,4 +377,53 @@ TEST(CShoutchatDialogTest, ProcessUsesLegacyDwordWrap) {
     ld.dlg.Process();
     // 0xFFFFFFF0 - 6000 = wrap distance, huge -> update.
     EXPECT_EQ(ld.dlg.GetLastMsgTime(), 0xFFFFFFF0u);
+}
+
+
+
+TEST(CShoutchatDialogTest, SetCallbacksReplacesExistingHostDispatch) {
+    LinkedDialog ld;
+    ShoutchatHostCalls firstCtx;
+    ShoutchatHostCalls secondCtx;
+    firstCtx.isLowResolutionValue = true;
+    firstCtx.chatAbsXValue = 10;
+    firstCtx.chatSheetPosYValue = 20;
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &firstCtx);
+    ld.dlg.SetActive(true);
+    EXPECT_EQ(firstCtx.getChatAbsXCalls, 1);
+    ld.dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &secondCtx);
+    ld.dlg.SetActive(false);
+    ld.dlg.SetActive(true);
+    EXPECT_EQ(firstCtx.getChatAbsXCalls, 1);
+    EXPECT_EQ(secondCtx.getChatAbsXCalls, 1);
+}
+
+
+TEST(CShoutchatDialogTest, AccessorsExposeHostCallbackFields) {
+    cShoutchatDialog dlg;
+    ShoutchatHostCalls hc;
+    EXPECT_EQ(dlg.GetIsLowResolutionForTest(), nullptr);
+    EXPECT_EQ(dlg.GetChatDialogAbsXForTest(), nullptr);
+    EXPECT_EQ(dlg.GetChatDialogSheetPosYForTest(), nullptr);
+    EXPECT_EQ(dlg.GetCallbackUserDataForTest(), nullptr);
+    dlg.SetCallbacks(
+        &ShoutchatHostCalls::IsLowResolution,
+        &ShoutchatHostCalls::GetChatDialogAbsX,
+        &ShoutchatHostCalls::GetChatDialogSheetPosY,
+        &hc);
+    EXPECT_EQ(dlg.GetIsLowResolutionForTest(),
+              &ShoutchatHostCalls::IsLowResolution);
+    EXPECT_EQ(dlg.GetChatDialogAbsXForTest(),
+              &ShoutchatHostCalls::GetChatDialogAbsX);
+    EXPECT_EQ(dlg.GetChatDialogSheetPosYForTest(),
+              &ShoutchatHostCalls::GetChatDialogSheetPosY);
+    EXPECT_EQ(dlg.GetCallbackUserDataForTest(), &hc);
 }

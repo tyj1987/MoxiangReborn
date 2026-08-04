@@ -59,6 +59,19 @@ class cListDialog;
 // Shared clock provider signature (replaces legacy gCurTime global).
 using ScClockFn = std::uint32_t (*)(void* userData);
 
+
+// ----- Host callback signatures -----
+
+// 1:1 with legacy GAMERESRCMNGR->IsLowResolution().
+using IsLowResolutionFn = bool (*)(void* userData);
+
+// 1:1 with legacy GAMEIN->GetChatDialog()->GetAbsX().
+using GetChatDialogAbsXFn = std::int32_t (*)(void* userData);
+
+// 1:1 with legacy GAMEIN->GetChatDialog()->GetSheetPosY().
+// (legacy WORD return -- modern uses std::int32_t).
+using GetChatDialogSheetPosYFn = std::int32_t (*)(void* userData);
+
 class cShoutchatDialog : public cDialog {
 public:
     cShoutchatDialog();
@@ -70,6 +83,29 @@ public:
     // (m_pMsgListDlg by kIdMsgList). The
     // GAMERESRCMNGR + GAMEIN dispatch is TODO.
     void Linking();
+    // ----- Test-only accessors -----
+
+    // Returns the m_isLowResolution callback.
+    IsLowResolutionFn GetIsLowResolutionForTest() const noexcept {
+        return m_isLowResolution;
+    }
+
+    // Returns the m_getChatDialogAbsX callback.
+    GetChatDialogAbsXFn GetChatDialogAbsXForTest() const noexcept {
+        return m_getChatDialogAbsX;
+    }
+
+    // Returns the m_getChatDialogSheetPosY callback.
+    GetChatDialogSheetPosYFn GetChatDialogSheetPosYForTest() const noexcept {
+        return m_getChatDialogSheetPosY;
+    }
+
+    // Returns the m_callbackUserData pointer.
+    void* GetCallbackUserDataForTest() const noexcept {
+        return m_callbackUserData;
+    }
+
+
 
     // ----- 1:1 with legacy CShoutchatDialog::Process -----
 
@@ -82,6 +118,17 @@ public:
     // Replace the legacy gCurTime read for Process.
     void SetCurrentTimeProvider(ScClockFn getCurrentTime,
                                 void* userData = nullptr) noexcept;
+
+    // Install host callbacks (GAMERESRCMNGR + GAMEIN +
+    // cChatDialog singletons, R-12.x deferred). Pass
+    // nullptr for any callback to fall through to the
+    // legacy no-op / singleton not yet ported path.
+    void SetCallbacks(
+        IsLowResolutionFn         isLowResolution,
+        GetChatDialogAbsXFn       getChatDialogAbsX,
+        GetChatDialogSheetPosYFn  getChatDialogSheetPosY,
+        void*                     userData = nullptr) noexcept;
+
 
     // ----- 1:1 with legacy CShoutchatDialog::SetActive override -----
 
@@ -98,10 +145,15 @@ public:
 
     // ----- 1:1 with legacy CShoutchatDialog::RefreshPosition -----
 
-    // 1:1 with legacy RefreshPosition. The
-    // GAMEIN + cChatDialog singletons are TODO
-    // (R-12.x deferred). Modern port is no-op.
-    void RefreshPosition() {}
+    // 1:1 with legacy RefreshPosition. Reads
+    // absX + sheetPosY via OPTIONAL host callbacks
+    // (GAMEIN + cChatDialog singletons, R-12.x
+    // deferred). A null provider pair preserves
+    // the safe no-op fallback. Otherwise the
+    // dialog is repositioned to (chatAbsX,
+    // chatSheetPosY - GetHeight()) matching the
+    // legacy byte-for-byte.
+    void RefreshPosition();
 
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
 
@@ -135,6 +187,14 @@ private:
 
     ScClockFn m_getCurrentTimeFn = nullptr;
     void*     m_clockUserData    = nullptr;
+
+    // 1:1 host callback pointers (replaces
+    // GAMERESRCMNGR + GAMEIN + cChatDialog globals,
+    // R-12.x deferred).
+    IsLowResolutionFn         m_isLowResolution         = nullptr;
+    GetChatDialogAbsXFn       m_getChatDialogAbsX       = nullptr;
+    GetChatDialogSheetPosYFn  m_getChatDialogSheetPosY  = nullptr;
+    void*                     m_callbackUserData        = nullptr;
 };
 
 }  // namespace mxh::ui

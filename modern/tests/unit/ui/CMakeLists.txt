@@ -1,4 +1,4 @@
-﻿add_executable(mxh_ui_tests
+\xef\xbb\xbf﻿add_executable(mxh_ui_tests
     cobject_test.cpp
     clistitem_test.cpp
     cwindow_test.cpp
@@ -1989,6 +1989,9 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutchatDialogTest.MsgThrottleMsIs5000
     CShoutchatDialogTest.MaxMsgLenIs60
     CShoutchatDialogTest.LinkingResolvesMsgList
+    CShoutchatDialogTest.LinkingWithoutLowResCallbackIsNoOp
+    CShoutchatDialogTest.LinkingWithLowResCallbackDispatchesRefreshPosition
+    CShoutchatDialogTest.LinkingWithLowResFalseSkipsRefreshPosition
     CShoutchatDialogTest.LinkingBeforeInitDoesNotCrash
     CShoutchatDialogTest.LinkingWithoutChildrenDoesNotCrash
     CShoutchatDialogTest.AddMsgAddsItem
@@ -1996,11 +1999,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutchatDialogTest.AddMsgWithNullIsSafe
     CShoutchatDialogTest.AddMsgTruncatesAtMaxLen
     CShoutchatDialogTest.AddMsgWithoutLinkingIsSafe
-    CShoutchatDialogTest.SetActiveTrueUpdatesBaseState
-    CShoutchatDialogTest.SetActiveFalseUpdatesBaseState
+    CShoutchatDialogTest.SetActiveTrueWithoutCallbacksUpdatesBaseState
+    CShoutchatDialogTest.SetActiveTrueRepositionDialogFromChat
+    CShoutchatDialogTest.SetActiveFalseSkipsRefreshPosition
     CShoutchatDialogTest.SetActiveBeforeInitDoesNotCrash
     CShoutchatDialogTest.ProcessIsNoOp
-    CShoutchatDialogTest.RefreshPositionIsNoOp
+    CShoutchatDialogTest.RefreshPositionWithoutCallbacksIsSafe
+    CShoutchatDialogTest.RefreshPositionReadsHostCallbacksAndSetsAbsXY
+    CShoutchatDialogTest.RefreshPositionWithPartialCallbacksIsSafe
+    CShoutchatDialogTest.SetCallbacksReplacesExistingHostDispatch
+    CShoutchatDialogTest.AccessorsExposeHostCallbackFields
     # Phase C 1:1 port (dialog): cGuildLevelUpDialog (guild level-up markers)
     CGuildLevelUpDialog.ConstantsAreLegacySized
     CGuildLevelUpDialog.DefaultCtorLeavesCurrentLevelAtZero

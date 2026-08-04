@@ -29,6 +29,17 @@ void cShoutchatDialog::SetCurrentTimeProvider(
     m_clockUserData = userData;
 }
 
+void cShoutchatDialog::SetCallbacks(
+    IsLowResolutionFn         isLowResolution,
+    GetChatDialogAbsXFn       getChatDialogAbsX,
+    GetChatDialogSheetPosYFn  getChatDialogSheetPosY,
+    void*                     userData) noexcept {
+    m_isLowResolution         = isLowResolution;
+    m_getChatDialogAbsX       = getChatDialogAbsX;
+    m_getChatDialogSheetPosY  = getChatDialogSheetPosY;
+    m_callbackUserData        = userData;
+}
+
 void cShoutchatDialog::Process() {
     // 1:1 with legacy CShoutchatDialog::Process. The
     // legacy is:
@@ -53,8 +64,14 @@ void cShoutchatDialog::Linking() {
     //     GAMEIN->GetShoutchatDlg()->RefreshPosition();
     m_pMsgListDlg =
         static_cast<cListDialog*>(findWindowById(kIdMsgList));
-    // TODO: 1:1 with legacy GAMERESRCMNGR + GAMEIN
-    //       dispatch (R-12.x deferred).
+    // 1:1 with legacy low-resolution dispatch:
+    // when GAMERESRCMNGR->IsLowResolution() returns
+    // true the legacy calls this->RefreshPosition()
+    // (GAMEIN->GetShoutchatDlg() is self). Routed through
+    // the OPTIONAL host callback (R-12.x deferred).
+    if (m_isLowResolution && m_isLowResolution(m_callbackUserData)) {
+        RefreshPosition();
+    }
 }
 
 void cShoutchatDialog::SetActive(bool val) noexcept {
@@ -63,12 +80,39 @@ void cShoutchatDialog::SetActive(bool val) noexcept {
     //   if (val) RefreshPosition();
     //   cDialog::SetActive(val);
     //
-    // The modern port: RefreshPosition is TODO
-    // (GAMEIN + cChatDialog singletons, R-12.x
-    // deferred). Modern port always base SetActive.
-    // TODO: 1:1 with legacy RefreshPosition call
-    //       (R-12.x deferred).
+    // The modern port: RefreshPosition is REAL
+    // (reads via OPTIONAL host callbacks); called
+    // BEFORE the base cDialog::SetActive so the
+    // dialog repositions first when activated
+    // (matches legacy byte-for-byte). val==FALSE
+    // skips the RefreshPosition call (legacy 1:1).
+    if (val) {
+        RefreshPosition();
+    }
     cDialog::SetActive(val);
+}
+
+void cShoutchatDialog::RefreshPosition() {
+    // 1:1 with legacy CShoutchatDialog::RefreshPosition.
+    // The legacy is:
+    //   float absX = GAMEIN->GetChatDialog()->GetAbsX();
+    //   float absY = GAMEIN->GetChatDialog()->GetSheetPosY();
+    //   SetAbsXY((LONG)absX, (LONG)absY - GetHeight());
+    //
+    // Modern port: absX + sheetPosY are routed
+    // through OPTIONAL host callbacks (GAMEIN +
+    // cChatDialog singletons, R-12.x deferred). A
+    // null provider pair preserves the safe no-op
+    // fallback (singleton not yet ported path).
+    // Otherwise the dialog is repositioned to
+    // (chatAbsX, chatSheetPosY - height()) matching
+    // the legacy byte-for-byte.
+    if (!m_getChatDialogAbsX || !m_getChatDialogSheetPosY) {
+        return;
+    }
+    const std::int32_t absX = m_getChatDialogAbsX(m_callbackUserData);
+    const std::int32_t absY = m_getChatDialogSheetPosY(m_callbackUserData);
+    SetAbsXY(absX, absY - static_cast<std::int32_t>(height()));
 }
 
 void cShoutchatDialog::AddMsg(const char* pstr) {
