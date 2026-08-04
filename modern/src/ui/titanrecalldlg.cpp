@@ -33,6 +33,31 @@ void cTitanRecallDlg::Linking() {
     SetSuccessTime(kBaseSuccessTime);
 }
 
+void cTitanRecallDlg::SetRecallSendCallbacks(
+    GetHeroObjectIdFn getHeroObjectId,
+    SendRecallSynFn sendRecallSyn,
+    SendRecallCancelSynFn sendRecallCancelSyn,
+    void* userData) noexcept {
+    m_getHeroObjectIdFn = getHeroObjectId;
+    m_sendRecallSynFn = sendRecallSyn;
+    m_sendRecallCancelSynFn = sendRecallCancelSyn;
+    m_recallUserData = userData;
+}
+
+void cTitanRecallDlg::SetCloseWindowCallbacks(
+    GetHeroObjectIdFn getHeroObjectId,
+    GetHeroStateFn getHeroState,
+    EndObjectStateFn endObjectState,
+    void* userData) noexcept {
+    // reuse the hero-object-id slot since both bundles
+    // share the same HERO->GetID() lookup; track two
+    // userData slots so each bundle is independent.
+    m_getHeroObjectIdFn = getHeroObjectId;
+    m_getHeroStateFn = getHeroState;
+    m_endObjectStateFn = endObjectState;
+    m_closeWindowUserData = userData;
+}
+
 void cTitanRecallDlg::Render() {
     // 1:1 with legacy CTitanRecallDlg::Render. The
     // legacy is:
@@ -46,12 +71,24 @@ void cTitanRecallDlg::Render() {
     //   }
     //   CProgressBarDlg::Render();
     //
-    // The modern port: the NETWORK send + InitProgress
-    // dispatch is TODO (R-12.x deferred). Modern port
-    // calls base Render.
+    // The modern port: when GetSuccessProgress()=true,
+    // the RECALL send callback (SetRecallSendCallbacks)
+    // is invoked with HEROID (legacy NETWORK send of
+    // MP_TITAN/MP_TITAN_RECALL_SYN) and InitProgress()
+    // is called (1:1 with legacy post-send teardown).
+    // With no callback registered the send is skipped
+    // but InitProgress() still fires (1:1 with legacy
+    // always-tear-down behavior). The send result is
+    // ignored (1:1 with legacy NETWORK->Send return).
+    if (GetSuccessProgress()) {
+        if (m_getHeroObjectIdFn && m_sendRecallSynFn) {
+            const std::uint32_t objectId =
+                m_getHeroObjectIdFn(m_recallUserData);
+            (void)m_sendRecallSynFn(objectId, m_recallUserData);
+        }
+        InitProgress();
+    }
     cProgressBarDlg::Render();
-    // TODO: 1:1 with legacy NETWORK send + InitProgress
-    //       (R-12.x deferred).
 }
 
 bool cTitanRecallDlg::OnActionEvent(std::int32_t lId, void* p,
@@ -75,16 +112,36 @@ bool cTitanRecallDlg::OnActionEvent(std::int32_t lId, void* p,
     //   }
     //   return TRUE;
     //
-    // The modern port: the HERO + OBJECTSTATEMGR +
-    // NETWORK dispatch is TODO (R-12.x deferred).
-    // Modern port returns TRUE (legacy also returns
-    // TRUE).
-    (void)lId;
+    // The modern port: WE_CLOSEWINDOW branch reads the
+    // hero state through the close-window host bundle
+    // and ends eObjectState_Society (kObjectStateSociety=24)
+    // when in that state. kIdCancelBtn branch sends the
+    // legacy cancel MSGBASE through the recall host
+    // bundle. The send result is ignored (1:1 with legacy).
+    // Returns TRUE (1:1 with legacy).
+    if (we == kWeCloseWindow) {
+        if (m_getHeroObjectIdFn && m_getHeroStateFn &&
+            m_endObjectStateFn) {
+            const std::uint32_t objectId =
+                m_getHeroObjectIdFn(m_closeWindowUserData);
+            const std::int32_t state =
+                m_getHeroStateFn(m_closeWindowUserData);
+            if (state == kObjectStateSociety) {
+                m_endObjectStateFn(objectId, state,
+                                   m_closeWindowUserData);
+            }
+        }
+        return true;
+    }
+    if (lId == kIdCancelBtn) {
+        if (m_getHeroObjectIdFn && m_sendRecallCancelSynFn) {
+            const std::uint32_t objectId =
+                m_getHeroObjectIdFn(m_recallUserData);
+            (void)m_sendRecallCancelSynFn(objectId, m_recallUserData);
+        }
+        return true;
+    }
     (void)p;
-    (void)we;
-    // TODO: 1:1 with legacy 2-switch dispatch
-    //       (HERO + OBJECTSTATEMGR + NETWORK not
-    //       ported, R-12.x deferred).
     return true;
 }
 

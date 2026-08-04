@@ -1790,6 +1790,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanRecallDlgTest.RenderIsNoOp
     CTitanRecallDlgTest.RenderBeforeInitDoesNotCrash
     CTitanRecallDlgTest.SetSuccessRecallToggles
+    CTitanRecallDlgTest.WeCloseWindowIsLegacy1
+    CTitanRecallDlgTest.ObjectStateSocietyMatchesLegacyEnum
+    CTitanRecallDlgTest.TitanCategoryMatchesLegacy72
+    CTitanRecallDlgTest.TitanRecallSynProtocolMatchesLegacy3
+    CTitanRecallDlgTest.TitanRecallCancelSynProtocolMatchesLegacy6
+    CTitanRecallDlgTest.RenderInvokesRecallSynOnSuccess
+    CTitanRecallDlgTest.RenderNoCallbackOnSuccessIsSafeAndStillResets
+    CTitanRecallDlgTest.RenderWithoutSuccessDoesNotInvokeSend
+    CTitanRecallDlgTest.SetRecallSendCallbacksAllowNullUserData
+    CTitanRecallDlgTest.OnActionEventCloseWindowEndsSocietyState
+    CTitanRecallDlgTest.OnActionEventCloseWindowNonSocietyNoEnd
+    CTitanRecallDlgTest.OnActionEventCloseWindowWithoutCallbackIsSafe
+    CTitanRecallDlgTest.OnActionEventCloseWindowNullUserDataIsSafe
+    CTitanRecallDlgTest.OnActionEventCancelSendsTitanRecallCancelSyn
+    CTitanRecallDlgTest.OnActionEventCancelWithoutCallbackIsSafe
+    CTitanRecallDlgTest.OnActionEventUnknownIdAndUnknownWeIsNoOp
+    CTitanRecallDlgTest.OnActionEventCancelReplacesCallback
     # Phase C 1:1 port (dialog): cGuildNoteDlg (guild note sender)
     CGuildNoteDlgTest.CtorDoesNotCrash
     CGuildNoteDlgTest.DtorDoesNotCrash

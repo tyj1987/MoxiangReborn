@@ -141,3 +141,266 @@ TEST(CTitanRecallDlgTest, SetSuccessRecallToggles) {
     dlg.SetSuccessRecall(false);
     EXPECT_FALSE(dlg.GetSuccessRecall());
 }
+
+
+
+// ---------- WeCloseWindow / ObjectStateSociety constants ----------
+
+TEST(CTitanRecallDlgTest, WeCloseWindowIsLegacy1) {
+    EXPECT_EQ(cTitanRecallDlg::kWeCloseWindow, 1u);
+}
+
+TEST(CTitanRecallDlgTest, ObjectStateSocietyMatchesLegacyEnum) {
+    EXPECT_EQ(cTitanRecallDlg::kObjectStateSociety, 24);
+}
+
+TEST(CTitanRecallDlgTest, TitanCategoryMatchesLegacy72) {
+    EXPECT_EQ(cTitanRecallDlg::kTitanCategory, 72u);
+}
+
+TEST(CTitanRecallDlgTest, TitanRecallSynProtocolMatchesLegacy3) {
+    EXPECT_EQ(cTitanRecallDlg::kTitanRecallSynProtocol, 3u);
+}
+
+TEST(CTitanRecallDlgTest, TitanRecallCancelSynProtocolMatchesLegacy6) {
+    EXPECT_EQ(cTitanRecallDlg::kTitanRecallCancelSynProtocol, 6u);
+}
+
+// ---------- SetRecallSendCallbacks / Render success path ----------
+
+namespace {
+
+struct RecallSendCapture {
+    int synCalls = 0;
+    int cancelCalls = 0;
+    std::uint32_t lastSynObjectId = 0;
+    std::uint32_t lastCancelObjectId = 0;
+};
+
+std::uint32_t CaptureHeroObjectId(void* userData) {
+    return static_cast<std::uint32_t>(
+        reinterpret_cast<std::uintptr_t>(userData) & 0xFFFFFFFFu);
+}
+
+bool CaptureSendRecallSyn(std::uint32_t objectId, void* userData) {
+    auto* c = static_cast<RecallSendCapture*>(userData);
+    ++c->synCalls;
+    c->lastSynObjectId = objectId;
+    return true;
+}
+
+bool CaptureSendRecallCancelSyn(std::uint32_t objectId, void* userData) {
+    auto* c = static_cast<RecallSendCapture*>(userData);
+    ++c->cancelCalls;
+    c->lastCancelObjectId = objectId;
+    return true;
+}
+
+}  // namespace
+
+TEST(CTitanRecallDlgTest, RenderInvokesRecallSynOnSuccess) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    RecallSendCapture cap;
+    dlg.SetRecallSendCallbacks(&CaptureHeroObjectId,
+                              &CaptureSendRecallSyn,
+                              &CaptureSendRecallCancelSyn,
+                              &cap);
+    dlg.SetSuccessProgress(true);
+    EXPECT_TRUE(dlg.GetSuccessProgress());
+    dlg.Render();
+    EXPECT_EQ(cap.synCalls, 1);
+    EXPECT_EQ(cap.cancelCalls, 0);
+    EXPECT_EQ(cap.lastSynObjectId,
+              static_cast<std::uint32_t>(
+                  reinterpret_cast<std::uintptr_t>(&cap) & 0xFFFFFFFFu));
+    EXPECT_FALSE(dlg.GetSuccessProgress());
+}
+
+TEST(CTitanRecallDlgTest, RenderNoCallbackOnSuccessIsSafeAndStillResets) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    dlg.SetSuccessProgress(true);
+    dlg.Render();
+    EXPECT_FALSE(dlg.GetSuccessProgress());
+}
+
+TEST(CTitanRecallDlgTest, RenderWithoutSuccessDoesNotInvokeSend) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    RecallSendCapture cap;
+    dlg.SetRecallSendCallbacks(&CaptureHeroObjectId,
+                              &CaptureSendRecallSyn,
+                              &CaptureSendRecallCancelSyn,
+                              &cap);
+    dlg.Render();
+    EXPECT_EQ(cap.synCalls, 0);
+    EXPECT_EQ(cap.cancelCalls, 0);
+}
+
+TEST(CTitanRecallDlgTest, SetRecallSendCallbacksAllowNullUserData) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    auto getId = [](void*) -> std::uint32_t { return 0xDEADBEEFu; };
+    auto sendSyn = [](std::uint32_t, void*) { return true; };
+    auto sendCancel = [](std::uint32_t, void*) { return true; };
+    dlg.SetRecallSendCallbacks(getId, sendSyn, sendCancel);
+    dlg.SetSuccessProgress(true);
+    dlg.Render();
+    SUCCEED();
+}
+
+// ---------- SetCloseWindowCallbacks / OnActionEvent WE_CLOSEWINDOW branch ----------
+
+namespace {
+
+struct CloseWindowCapture {
+    int endCalls = 0;
+    std::uint32_t lastObjectId = 0;
+    std::int32_t lastState = -1;
+    std::uint32_t heroObjectId = 0x12345678u;
+    std::int32_t heroState = cTitanRecallDlg::kObjectStateSociety;
+};
+
+std::uint32_t CloseWindowGetHeroObjectId(void* userData) {
+    return static_cast<CloseWindowCapture*>(userData)->heroObjectId;
+}
+
+std::int32_t CloseWindowGetHeroState(void* userData) {
+    return static_cast<CloseWindowCapture*>(userData)->heroState;
+}
+
+void CloseWindowEndObjectState(std::uint32_t objectId,
+                               std::int32_t stateIdx,
+                               void* userData) {
+    auto* c = static_cast<CloseWindowCapture*>(userData);
+    ++c->endCalls;
+    c->lastObjectId = objectId;
+    c->lastState = stateIdx;
+}
+
+}  // namespace
+
+TEST(CTitanRecallDlgTest, OnActionEventCloseWindowEndsSocietyState) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    CloseWindowCapture cap;
+    dlg.SetCloseWindowCallbacks(&CloseWindowGetHeroObjectId,
+                                &CloseWindowGetHeroState,
+                                &CloseWindowEndObjectState,
+                                &cap);
+    dlg.OnActionEvent(999, nullptr,
+                      cTitanRecallDlg::kWeCloseWindow);
+    EXPECT_EQ(cap.endCalls, 1);
+    EXPECT_EQ(cap.lastObjectId, cap.heroObjectId);
+    EXPECT_EQ(cap.lastState, cTitanRecallDlg::kObjectStateSociety);
+}
+
+TEST(CTitanRecallDlgTest, OnActionEventCloseWindowNonSocietyNoEnd) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    CloseWindowCapture cap;
+    cap.heroState = 0;
+    dlg.SetCloseWindowCallbacks(&CloseWindowGetHeroObjectId,
+                                &CloseWindowGetHeroState,
+                                &CloseWindowEndObjectState,
+                                &cap);
+    dlg.OnActionEvent(999, nullptr,
+                      cTitanRecallDlg::kWeCloseWindow);
+    EXPECT_EQ(cap.endCalls, 0);
+}
+
+TEST(CTitanRecallDlgTest, OnActionEventCloseWindowWithoutCallbackIsSafe) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    dlg.OnActionEvent(999, nullptr,
+                      cTitanRecallDlg::kWeCloseWindow);
+    SUCCEED();
+}
+
+TEST(CTitanRecallDlgTest, OnActionEventCloseWindowNullUserDataIsSafe) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    auto getId = [](void*) -> std::uint32_t { return 0xCAFEBABEu; };
+    auto getState = [](void*) -> std::int32_t { return 24; };
+    auto endState = [](std::uint32_t, std::int32_t, void*) {};
+    dlg.SetCloseWindowCallbacks(getId, getState, endState);
+    dlg.OnActionEvent(999, nullptr,
+                      cTitanRecallDlg::kWeCloseWindow);
+    SUCCEED();
+}
+
+// ---------- SetRecallSendCallbacks / OnActionEvent kIdCancelBtn branch ----------
+
+TEST(CTitanRecallDlgTest, OnActionEventCancelSendsTitanRecallCancelSyn) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    RecallSendCapture cap;
+    dlg.SetRecallSendCallbacks(&CaptureHeroObjectId,
+                              &CaptureSendRecallSyn,
+                              &CaptureSendRecallCancelSyn,
+                              &cap);
+    dlg.OnActionEvent(cTitanRecallDlg::kIdCancelBtn, nullptr, 0);
+    EXPECT_EQ(cap.cancelCalls, 1);
+    EXPECT_EQ(cap.synCalls, 0);
+    EXPECT_EQ(cap.lastCancelObjectId,
+              static_cast<std::uint32_t>(
+                  reinterpret_cast<std::uintptr_t>(&cap) & 0xFFFFFFFFu));
+}
+
+TEST(CTitanRecallDlgTest, OnActionEventCancelWithoutCallbackIsSafe) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    dlg.OnActionEvent(cTitanRecallDlg::kIdCancelBtn, nullptr, 0);
+    SUCCEED();
+}
+
+TEST(CTitanRecallDlgTest, OnActionEventUnknownIdAndUnknownWeIsNoOp) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    RecallSendCapture cap;
+    CloseWindowCapture closeCap;
+    dlg.SetRecallSendCallbacks(&CaptureHeroObjectId,
+                              &CaptureSendRecallSyn,
+                              &CaptureSendRecallCancelSyn,
+                              &cap);
+    dlg.SetCloseWindowCallbacks(&CloseWindowGetHeroObjectId,
+                                &CloseWindowGetHeroState,
+                                &CloseWindowEndObjectState,
+                                &closeCap);
+    dlg.OnActionEvent(999, nullptr, 0);
+    EXPECT_EQ(cap.synCalls, 0);
+    EXPECT_EQ(cap.cancelCalls, 0);
+    EXPECT_EQ(closeCap.endCalls, 0);
+}
+
+TEST(CTitanRecallDlgTest, OnActionEventCancelReplacesCallback) {
+    cTitanRecallDlg dlg;
+    dlg.Init(0, 0, 200, 100, nullptr, 0);
+    dlg.Linking();
+    RecallSendCapture first;
+    RecallSendCapture second;
+    dlg.SetRecallSendCallbacks(&CaptureHeroObjectId,
+                              &CaptureSendRecallSyn,
+                              &CaptureSendRecallCancelSyn,
+                              &first);
+    dlg.SetRecallSendCallbacks(&CaptureHeroObjectId,
+                              &CaptureSendRecallSyn,
+                              &CaptureSendRecallCancelSyn,
+                              &second);
+    dlg.OnActionEvent(cTitanRecallDlg::kIdCancelBtn, nullptr, 0);
+    EXPECT_EQ(first.cancelCalls, 0);
+    EXPECT_EQ(second.cancelCalls, 1);
+}
+
