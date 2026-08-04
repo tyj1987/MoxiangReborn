@@ -4,37 +4,20 @@
 
 namespace mxh::server {
 
-namespace {
-bool is_locked_state(ObjectState s) {
-    switch (s) {
-        case ObjectState::Ungijosik:
-        case ObjectState::Exchange:
-        case ObjectState::StreetStall_Owner:
-        case ObjectState::StreetStall_Guest:
-        case ObjectState::Deal:
-        case ObjectState::Move:
-        case ObjectState::Tactic:
-        case ObjectState::TiedUp:
-            return true;
-        default:
-            return false;
-    }
-}
-}  // namespace
-
 StartStateResult start_object_state(ObjectState current, ObjectState next) {
-    // Legacy ObjectStateManager::StartObjectState transition table.
+    // Legacy Die is terminal for StartObjectState, including an Exit
+    // request: the assertion branch returns FALSE before the common
+    // OnStartObjectState / SetState path.
     if (current == ObjectState::Die) {
-        // Die rejects all except Exit.
-        if (next != ObjectState::Exit) return StartStateResult::RejectedDieBlocks;
-        return StartStateResult::Accepted;
+        return StartStateResult::RejectedDieBlocks;
     }
-    if (is_locked_state(current)) {
-        // Locked states reject all except Die / Exit.
-        if (next != ObjectState::Die && next != ObjectState::Exit) {
-            return StartStateResult::RejectedLocked;
-        }
-    }
+
+    // Legacy locked states assert for requests other than Die / Exit,
+    // but the assertion does not return. The state transition still
+    // proceeds and the method returns TRUE. The modern pure function
+    // cannot expose the assertion side effect, so every non-Die
+    // current state maps to Accepted.
+    (void)next;
     return StartStateResult::Accepted;
 }
 
@@ -44,8 +27,6 @@ EndStateResult end_object_state(ObjectState current,
                                 std::uint32_t now_ms,
                                 std::uint32_t& out_end_time,
                                 bool& out_b_end_state) {
-    out_end_time = 0;
-    out_b_end_state = false;
     if (current != requested) {
         // Legacy: if current is Die, silently return; otherwise assert+return.
         if (current == ObjectState::Die) return EndStateResult::MismatchedButDie;
