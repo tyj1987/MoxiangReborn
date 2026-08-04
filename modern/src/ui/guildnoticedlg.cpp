@@ -5,6 +5,8 @@
 #include "guildnoticedlg.hpp"
 #include "ctextarea.hpp"
 
+#include <cstring>
+
 namespace mxh::ui {
 
 cGuildNoticeDlg::cGuildNoticeDlg() {
@@ -85,37 +87,35 @@ void cGuildNoticeDlg::OnActionEvent(std::int32_t lId, void* p, std::uint32_t we)
     }
     switch (lId) {
         case kIdSendOkBtn: {
-            // TODO: 1:1 with legacy GNotice_SENDOKBTN
-            //       branch:
-            //         char notice[MAX_GUILD_NOTICE+1] = {0,};
-            //         if (m_pNoticeText)
-            //             m_pNoticeText->GetScriptText(notice);
-            //         GUILDMGR->SetGuildNotice(notice);
-            //         SetActive(FALSE);
+            // 1:1 with legacy GNotice_SENDOKBTN branch:
+            //   char notice[MAX_GUILD_NOTICE+1] = {0,};
+            //   if (m_pNoticeText)
+            //       m_pNoticeText->GetScriptText(notice);
+            //   GUILDMGR->SetGuildNotice(notice);
+            //   SetActive(FALSE);
             //
-            // GUILDMGR not ported (R-12.x deferred).
-            // When ported, the body becomes:
-            //   if (m_pNoticeText) {
-            //     char notice[MAX_GUILD_NOTICE+1] = {0,};
-            //     m_pNoticeText->GetScriptText(notice);
-            //     GUILDMGR->SetGuildNotice(notice);
-            //   }
-            //   SetActive(false);
+            // Modern port: fill a kMaxGuildNotice-sized
+            // buffer from cTextArea::GetScriptTextCString
+            // and dispatch through the OPTIONAL GUILDMGR
+            // host SetGuildNotice callback. With no
+            // callback registered the dialog still
+            // closes via SetActive(false).
+            char notice[kMaxGuildNotice + 1] = {0,};
+            if (m_pNoticeText) {
+                m_pNoticeText->GetScriptTextCString(
+                    notice, sizeof(notice));
+            }
+            if (m_setGuildNoticeFn) {
+                m_setGuildNoticeFn(notice,
+                                    m_callbackUserData);
+            }
+            SetActive(false);
             break;
         }
         case kIdCancelBtn: {
-            // TODO: 1:1 with legacy GNotice_CANCELBTN
-            //       branch:
-            //         SetActive(FALSE);
-            //
-            // The SetActive(FALSE) call is the only
-            // operation in this branch. Since it would
-            // dispatch through the override (which
-            // calls GUILDMGR->GetGuildNotice), the
-            // whole branch is documented as TODO.
-            // When GUILDMGR is ported, the body
-            // becomes:
-            //   SetActive(false);
+            // 1:1 with legacy GNotice_CANCELBTN branch:
+            //   SetActive(FALSE);
+            SetActive(false);
             break;
         }
         default:
@@ -123,6 +123,15 @@ void cGuildNoticeDlg::OnActionEvent(std::int32_t lId, void* p, std::uint32_t we)
             // legacy switch fallthrough).
             break;
     }
+}
+
+void cGuildNoticeDlg::SetGuildNoticeCallbacks(
+    GetGuildNoticeFn getGuildNotice,
+    SetGuildNoticeFn setGuildNotice,
+    void* userData) noexcept {
+    m_getGuildNoticeFn = getGuildNotice;
+    m_setGuildNoticeFn = setGuildNotice;
+    m_callbackUserData = userData;
 }
 
 void cGuildNoticeDlg::SetActive(bool val) noexcept {
@@ -155,11 +164,21 @@ void cGuildNoticeDlg::SetActive(bool val) noexcept {
     // 1:1 quirk: the notice pre-fill happens BEFORE
     // the base SetActive (matches legacy call order).
     if (val && m_pNoticeText) {
-        // TODO: GUILDMGR not ported. When ported,
-        //       replace "" with
-        //       GUILDMGR->GetGuildNotice() and
-        //       guard with non-null check.
-        m_pNoticeText->SetScriptText("");
+        // 1:1 with legacy pre-fill:
+        //   if (val == TRUE)
+        //     if (GUILDMGR->GetGuildNotice())
+        //       m_pNoticeText->SetScriptText(
+        //         GUILDMGR->GetGuildNotice());
+        // Modern port reads the notice through the
+        // OPTIONAL host callback. With no callback
+        // or null result, falls back to
+        // SetScriptText("") which is the safe no-op
+        // that matches legacy semantics for the
+        // "notice empty" path.
+        const char* notice = m_getGuildNoticeFn
+            ? m_getGuildNoticeFn(m_callbackUserData)
+            : nullptr;
+        m_pNoticeText->SetScriptText(notice ? notice : "");
     }
     cDialog::SetActive(val);
 }

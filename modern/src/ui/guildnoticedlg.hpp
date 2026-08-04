@@ -38,28 +38,32 @@
 //     for OnActionEvent dispatch (legacy uses
 //     GetWindowForID inside switch case; modern port
 //     uses the constants directly).
-//   - OnActionEvent: 1:1 with legacy 2-button branch
-//     + the 2 button ids are constants. The
-//     GUILDMGR->SetGuildNotice(notice) call is
-//     TODO (GUILDMGR not ported, R-12.x deferred).
-//     SetActive(FALSE) at the end of the SEND branch
-//     is also TODO (would call our own SetActive
-//     which dispatches to GUILDMGR). The CANCEL
-//     branch's SetActive(FALSE) is also TODO. When
-//     GUILDMGR is ported, these become real calls.
-//   - SetActive override: 1:1 with legacy — if val ==
-//     TRUE and m_pNoticeText is linked, call
-//     SetScriptText(GUILDMGR->GetGuildNotice()). The
-//     GUILDMGR->GetGuildNotice() call is TODO
-//     (GUILDMGR not ported). The base SetActive is
-//     always called (matches legacy `cDialog::SetActive(val)`).
+//   - OnActionEvent: REAL -- 2 button ids dispatch
+//     through OPTIONAL GUILDMGR host callbacks:
+//       SENDOKBTN -> read notice buffer (cTextArea::
+//       GetScriptTextCString) -> SetGuildNotice(buf,
+//       userData) -> SetActive(false).
+//       CANCELBTN -> SetActive(false).
+//     Unknown ids and non-WE_BTNCLICK are no-ops
+//     (1:1 with legacy switch fallthrough + bitmask).
+//   - SetActive override: REAL -- if val == TRUE and
+//     m_pNoticeText is linked, pre-fill with the
+//     notice returned by the OPTIONAL GUILDMGR host
+//     callback (legacy GUILDMGR->GetGuildNotice()).
+//     Falls back to SetScriptText("") only when no
+//     callback is registered or the callback returns
+//     null. 1:1 quirk: the notice pre-fill happens
+//     BEFORE the base SetActive (matches legacy call
+//     order).
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is the 18th **Tier 2** dialog port (after
 // cPetWearedExDialog). The dialog has no service
 // dependency on the modern service interface
-// (Phase 13) — all state lives in GUILDMGR singleton
-// (R-12.x deferred).
+// (Phase 13). GUILDMGR is supplied through OPTIONAL
+// host callbacks (SetGuildNoticeCallbacks) rather
+// than the legacy singleton, decoupling the dialog
+// from GUILDMGR global state.
 
 #pragma once
 
@@ -91,19 +95,24 @@ public:
     // 1:1 with legacy OnActionEvent (note: legacy
     // typo'd as "OnActionEvnet" — the modern port
     // uses the correct spelling "OnActionEvent"). 2
-    // button ids: GNotice_SENDOKBTN → TODO
-    // GUILDMGR->SetGuildNotice + SetActive(FALSE);
-    // GNotice_CANCELBTN → TODO SetActive(FALSE). The
-    // gate is `if(we & WE_BTNCLICK)`.
+    // button ids: SENDOKBTN reads the cTextArea
+    // script text into a kMaxGuildNotice-sized buffer
+    // and invokes the OPTIONAL GUILDMGR host
+    // SetGuildNotice callback (legacy GUILDMGR->
+    // SetGuildNotice), then SetActive(false). CANCELBTN
+    // just SetActive(false). The gate is
+    // `if(we & WE_BTNCLICK)`. Unknown ids are
+    // silently ignored (1:1 with legacy fallthrough).
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
 
     // ----- 1:1 with legacy CGuildNoticeDlg::SetActive override -----
 
     // 1:1 with legacy SetActive override. If val ==
-    // TRUE and m_pNoticeText is linked, call
-    // SetScriptText(GUILDMGR->GetGuildNotice()). The
-    // GUILDMGR->GetGuildNotice() call is TODO
-    // (GUILDMGR not ported, R-12.x deferred). Then
+    // TRUE and m_pNoticeText is linked, pre-fill
+    // with the GUILDMGR host GetGuildNotice return
+    // value (legacy GUILDMGR->GetGuildNotice()).
+    // Falls back to SetScriptText("") only when the
+    // callback is missing or returns null. Then
     // call cDialog::SetActive(val). 1:1 quirk: the
     // notice pre-fill happens BEFORE the base
     // SetActive (matches legacy call order).
@@ -130,12 +139,42 @@ public:
     static constexpr std::int32_t kIdSendOkBtn  = 351;
     static constexpr std::int32_t kIdCancelBtn  = 352;
 
+    // 1:1 with legacy MAX_GUILD_NOTICE = 150
+    // (CommonGameDefine.h). The local buffer used in
+    // the SENDOKBTN branch of OnActionEvent.
+    static constexpr std::int32_t kMaxGuildNotice = 150;
+
+    // 1:1 with legacy cWindow::we constants.
+    // WE_BTNCLICK = 0x0001 (legacy cWindow::we bitmask).
+    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+
+    // ----- Host-injected callbacks (legacy: GUILDMGR singleton) -----
+
+    using GetGuildNoticeFn = const char* (*)(void* userData);
+    using SetGuildNoticeFn = void (*)(const char* notice,
+                                      void* userData);
+
+    // Replaces the legacy GUILDMGR->GetGuildNotice
+    // (used in SetActive(true)) and GUILDMGR->
+    // SetGuildNotice (used in OnActionEvent SENDOKBTN).
+    // Both callbacks are OPTIONAL; with no callback
+    // registered the dialog stays safe (pre-fill
+    // becomes SetScriptText(""), the SEND branch
+    // still toggles the dialog off).
+    void SetGuildNoticeCallbacks(GetGuildNoticeFn getGuildNotice,
+                                 SetGuildNoticeFn setGuildNotice,
+                                 void* userData = nullptr) noexcept;
+
 private:
     // 1:1 with legacy m_pNoticeText (resolved in
     // Linking by GNotice_TEXTREA id). Modern port
     // stores raw pointer (not owned; cDialog owns
     // the child).
     cTextArea* m_pNoticeText = nullptr;
+
+    GetGuildNoticeFn m_getGuildNoticeFn = nullptr;
+    SetGuildNoticeFn m_setGuildNoticeFn = nullptr;
+    void* m_callbackUserData = nullptr;
 };
 
 }  // namespace mxh::ui

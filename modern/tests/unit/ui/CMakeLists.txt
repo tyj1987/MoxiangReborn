@@ -804,10 +804,21 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNoticeDlgTest.SetActiveWithoutLinkIsSafe
     CGuildNoticeDlgTest.SetActiveBeforeLinkingIsSafe
     CGuildNoticeDlgTest.OnActionEventNonBtnClickIsNoOp
-    CGuildNoticeDlgTest.OnActionEventSendBtnIsNoOpUntilGuildMgrPort
-    CGuildNoticeDlgTest.OnActionEventCancelBtnIsNoOpUntilGuildMgrPort
     CGuildNoticeDlgTest.OnActionEventUnknownIdIsNoOp
     CGuildNoticeDlgTest.OnActionEventBeforeLinkingDoesNotCrash
+    CGuildNoticeDlgTest.MaxGuildNoticeIsLegacy150
+    CGuildNoticeDlgTest.WeBtnClickIsLegacy1
+    CGuildNoticeDlgTest.SetActiveTruePrefillsFromHostCallback
+    CGuildNoticeDlgTest.SetActiveTrueNullResultClearsToEmpty
+    CGuildNoticeDlgTest.SetActiveTrueWithoutCallbackClearsToEmpty
+    CGuildNoticeDlgTest.SetActiveFalseDoesNotInvokeGetGuildNotice
+    CGuildNoticeDlgTest.OnActionEventSendDispatchesToSetGuildNotice
+    CGuildNoticeDlgTest.OnActionEventSendStillClosesWhenCallbackNull
+    CGuildNoticeDlgTest.OnActionEventSendWithoutLinkingClosesDialog
+    CGuildNoticeDlgTest.OnActionEventCancelDeactivates
+    CGuildNoticeDlgTest.OnActionEventCancelDoesNotCallSetGuildNotice
+    CGuildNoticeDlgTest.OnActionEventSendReplacesCallback
+    CGuildNoticeDlgTest.CallbacksAllowNullUserData
 
 
 

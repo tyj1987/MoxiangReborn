@@ -284,54 +284,6 @@ TEST(CGuildNoticeDlgTest, OnActionEventNonBtnClickIsNoOp) {
     EXPECT_TRUE(dlg.isActive());
 }
 
-TEST(CGuildNoticeDlgTest, OnActionEventSendBtnIsNoOpUntilGuildMgrPort) {
-    // 1:1 quirk: the SEND branch's
-    // GUILDMGR->SetGuildNotice + SetActive(FALSE) is
-    // TODO (GUILDMGR not ported, R-12.x deferred).
-    // Modern port returns without doing anything
-    // observable.
-    cGuildNoticeDlg dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
-
-    auto text = std::make_unique<cTextArea>();
-    text->Init(0, 0, 380, 380, nullptr, cGuildNoticeDlg::kIdNoticeText);
-    text->InitTextArea({0, 0, 380, 380}, 256);
-    cTextArea* pText = text.get();
-    dlg.Add(std::unique_ptr<cWindow>(text.release()));
-    dlg.Linking();
-    dlg.SetActive(true);
-
-    pText->SetScriptText("guild master notice");
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;
-    dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr, WE_BTNCLICK);
-    // Notice text preserved (no GUILDMGR dispatch).
-    EXPECT_EQ(pText->GetScriptText(), "guild master notice");
-    // Dialog still active (no SetActive(FALSE) dispatch).
-    EXPECT_TRUE(dlg.isActive());
-}
-
-TEST(CGuildNoticeDlgTest, OnActionEventCancelBtnIsNoOpUntilGuildMgrPort) {
-    // 1:1 quirk: the CANCEL branch's SetActive(FALSE)
-    // would dispatch through the override (which
-    // touches GUILDMGR). The whole branch is
-    // documented as TODO. Modern port returns
-    // without observable state change.
-    cGuildNoticeDlg dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
-
-    auto text = std::make_unique<cTextArea>();
-    text->Init(0, 0, 380, 380, nullptr, cGuildNoticeDlg::kIdNoticeText);
-    text->InitTextArea({0, 0, 380, 380}, 256);
-    dlg.Add(std::unique_ptr<cWindow>(text.release()));
-    dlg.Linking();
-    dlg.SetActive(true);
-
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;
-    dlg.OnActionEvent(cGuildNoticeDlg::kIdCancelBtn, nullptr, WE_BTNCLICK);
-    // Dialog still active (no SetActive(FALSE) dispatch).
-    EXPECT_TRUE(dlg.isActive());
-}
-
 TEST(CGuildNoticeDlgTest, OnActionEventUnknownIdIsNoOp) {
     // 1:1 with legacy: unknown ids are silently
     // ignored (switch fallthrough).
@@ -351,6 +303,186 @@ TEST(CGuildNoticeDlgTest, OnActionEventBeforeLinkingDoesNotCrash) {
     dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr, WE_BTNCLICK);
     dlg.OnActionEvent(cGuildNoticeDlg::kIdCancelBtn, nullptr, WE_BTNCLICK);
     SUCCEED();
+}
+
+
+// ===========================================================================
+// C-Batch-2.50: host GUILDMGR callbacks (GetGuildNotice + SetGuildNotice)
+// ===========================================================================
+
+namespace {
+
+struct GuildNoticeHost {
+    int getCalls = 0;
+    int setCalls = 0;
+    std::string lastStoredNotice;
+    const char* noticeToReturn = "stub_guild_notice";
+};
+
+const char* HostGetGuildNotice(void* userData) {
+    auto* h = static_cast<GuildNoticeHost*>(userData);
+    ++h->getCalls;
+    return h->noticeToReturn;
+}
+
+void HostSetGuildNotice(const char* notice, void* userData) {
+    auto* h = static_cast<GuildNoticeHost*>(userData);
+    ++h->setCalls;
+    h->lastStoredNotice = notice ? notice : "";
+}
+
+struct LinkedGuildNotice {
+    cGuildNoticeDlg dlg;
+    std::unique_ptr<cTextArea> noticeText;
+    cTextArea* pText = nullptr;
+
+    LinkedGuildNotice() {
+        dlg.Init(0, 0, 400, 400, nullptr, 0);
+        noticeText = std::make_unique<cTextArea>();
+        noticeText->Init(0, 0, 380, 380, nullptr,
+                         cGuildNoticeDlg::kIdNoticeText);
+        noticeText->InitTextArea({0, 0, 380, 380}, 256);
+        pText = noticeText.get();
+        dlg.Add(std::unique_ptr<cWindow>(noticeText.release()));
+        dlg.Linking();
+    }
+};
+
+}  // namespace
+
+TEST(CGuildNoticeDlgTest, MaxGuildNoticeIsLegacy150) {
+    EXPECT_EQ(cGuildNoticeDlg::kMaxGuildNotice, 150);
+}
+
+TEST(CGuildNoticeDlgTest, WeBtnClickIsLegacy1) {
+    EXPECT_EQ(cGuildNoticeDlg::kWeBtnClick, 0x0001u);
+}
+
+TEST(CGuildNoticeDlgTest, SetActiveTruePrefillsFromHostCallback) {
+    LinkedGuildNotice ln;
+    GuildNoticeHost host;
+    host.noticeToReturn = "Greetings from the guild master";
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &host);
+    ln.dlg.SetActive(true);
+    EXPECT_EQ(host.getCalls, 1);
+    EXPECT_EQ(ln.pText->GetScriptText(), "Greetings from the guild master");
+}
+
+TEST(CGuildNoticeDlgTest, SetActiveTrueNullResultClearsToEmpty) {
+    LinkedGuildNotice ln;
+    GuildNoticeHost host;
+    host.noticeToReturn = nullptr;
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &host);
+    ln.pText->SetScriptText("stale");
+    ln.dlg.SetActive(true);
+    EXPECT_EQ(ln.pText->GetScriptText(), "");
+}
+
+TEST(CGuildNoticeDlgTest, SetActiveTrueWithoutCallbackClearsToEmpty) {
+    LinkedGuildNotice ln;
+    ln.pText->SetScriptText("stale");
+    ln.dlg.SetActive(true);
+    EXPECT_EQ(ln.pText->GetScriptText(), "");
+}
+
+TEST(CGuildNoticeDlgTest, SetActiveFalseDoesNotInvokeGetGuildNotice) {
+    LinkedGuildNotice ln;
+    GuildNoticeHost host;
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &host);
+    ln.dlg.SetActive(true);
+    EXPECT_EQ(host.getCalls, 1);
+    ln.dlg.SetActive(false);
+    EXPECT_EQ(host.getCalls, 1);  // unchanged
+}
+
+TEST(CGuildNoticeDlgTest, OnActionEventSendDispatchesToSetGuildNotice) {
+    LinkedGuildNotice ln;
+    GuildNoticeHost host;
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &host);
+    ln.dlg.SetActive(true);
+    ln.pText->SetScriptText("final guild notice");
+    EXPECT_EQ(host.getCalls, 1);   // pre-fill
+    EXPECT_EQ(host.setCalls, 0);
+    ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr,
+                         cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_EQ(host.setCalls, 1);
+    EXPECT_EQ(host.lastStoredNotice, "final guild notice");
+    EXPECT_EQ(ln.pText->GetScriptText(), "final guild notice");
+    EXPECT_FALSE(ln.dlg.isActive());
+}
+
+TEST(CGuildNoticeDlgTest, OnActionEventSendStillClosesWhenCallbackNull) {
+    LinkedGuildNotice ln;
+    ln.dlg.SetActive(true);
+    ln.pText->SetScriptText("any notice");
+    // No SetGuildNoticeCallbacks registered
+    ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr,
+                         cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_FALSE(ln.dlg.isActive());
+}
+
+TEST(CGuildNoticeDlgTest, OnActionEventSendWithoutLinkingClosesDialog) {
+    cGuildNoticeDlg dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr,
+                      cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CGuildNoticeDlgTest, OnActionEventCancelDeactivates) {
+    LinkedGuildNotice ln;
+    ln.dlg.SetActive(true);
+    ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdCancelBtn, nullptr,
+                         cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_FALSE(ln.dlg.isActive());
+}
+
+TEST(CGuildNoticeDlgTest, OnActionEventCancelDoesNotCallSetGuildNotice) {
+    LinkedGuildNotice ln;
+    GuildNoticeHost host;
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &host);
+    ln.dlg.SetActive(true);
+    ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdCancelBtn, nullptr,
+                         cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_EQ(host.setCalls, 0);
+    EXPECT_FALSE(ln.dlg.isActive());
+}
+
+TEST(CGuildNoticeDlgTest, OnActionEventSendReplacesCallback) {
+    LinkedGuildNotice ln;
+    GuildNoticeHost first;
+    GuildNoticeHost second;
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &first);
+    ln.dlg.SetGuildNoticeCallbacks(&HostGetGuildNotice,
+                                   &HostSetGuildNotice, &second);
+    ln.dlg.SetActive(true);
+    EXPECT_EQ(first.getCalls, 0);
+    EXPECT_EQ(second.getCalls, 1);
+    ln.pText->SetScriptText("second notice");
+    ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr,
+                         cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_EQ(first.setCalls, 0);
+    EXPECT_EQ(second.setCalls, 1);
+    EXPECT_EQ(second.lastStoredNotice, "second notice");
+}
+
+TEST(CGuildNoticeDlgTest, CallbacksAllowNullUserData) {
+    LinkedGuildNotice ln;
+    auto getFn = [](void*) -> const char* { return "noop-notice"; };
+    auto setFn = [](const char*, void*) {};
+    ln.dlg.SetGuildNoticeCallbacks(getFn, setFn);
+    ln.dlg.SetActive(true);
+    EXPECT_EQ(ln.pText->GetScriptText(), "noop-notice");
+    ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr,
+                         cGuildNoticeDlg::kWeBtnClick);
+    EXPECT_FALSE(ln.dlg.isActive());
 }
 
 }  // namespace mxh::ui::test
