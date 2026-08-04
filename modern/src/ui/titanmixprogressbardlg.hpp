@@ -25,18 +25,23 @@
 //   - Linking: REAL — resolve 2 children by id,
 //     call base cProgressBarDlg::SetProgressGuagen +
 //     cProgressBarDlg::SetRemaintimeStatic.
-//   - OnActionEvent: TODO (GAMEIN singleton not
-//     ported, R-12.x deferred). Modern port calls
-//     InitProgress() on cancel (matching legacy
-//     body) but the SetDisable call is TODO.
+//   - OnActionEvent: REAL -- InitProgress() +
+//     optional host-injected re-enable callback
+//     (replaces legacy GAMEIN->GetTitanMixDlg()
+//     ->SetDisable(FALSE)) when SetCancelCallback
+//     binds one. With no callback registered the
+//     GAMEIN side is safely no-oped.
 //   - SuccessProcess: empty (1:1 with legacy
 //     placeholder).
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is a Tier 2 dialog port (after
 // cProgressBarDlg). The dialog has 2 children
-// (1 CObjectGuagen + 1 cStatic). GAMEIN is
-// R-12.x deferred.
+// (1 CObjectGuagen + 1 cStatic). The parent
+// re-enable side effect is wired through an
+// OPTIONAL host callback rather than the legacy
+// GAMEIN singleton, so each dialog stays a pure
+// UI object decoupled from framework globals.
 
 #pragma once
 
@@ -62,10 +67,21 @@ public:
     // ----- 1:1 with legacy CTitanMixProgressBarDlg::OnActionEvent -----
 
     // 1:1 with legacy OnActionEvent. The cancel
-    // branch InitProgress + GAMEIN dispatch is
-    // TODO (R-12.x deferred). Modern port calls
-    // InitProgress only.
+    // branch matches legacy 1:1: InitProgress() is
+    // real, then the host-injected re-enable
+    // callback (replacing legacy GAMEIN->GetTitanMixDlg()
+    // ->SetDisable(FALSE)) is invoked when present.
+    // When no callback is registered the cancel
+    // branch safely no-ops the GAMEIN side effect.
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
+
+    using ReEnableFn = void (*)(void* userData);
+
+    // Replaces legacy GAMEIN->GetTitanMixDlg()->SetDisable(FALSE)
+    // invoked from the cancel branch. Optional: when the
+    // callback is null the cancel branch is still safe.
+    void SetCancelCallback(ReEnableFn reEnable,
+                           void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy CTitanMixProgressBarDlg::SuccessProcess -----
 
@@ -82,6 +98,10 @@ public:
     static constexpr std::int32_t kIdProgressBarGage  = 660;
     static constexpr std::int32_t kIdRemaintimeTime   = 661;
     static constexpr std::int32_t kIdCancelBtn        = 662;
+
+private:
+    ReEnableFn m_reEnableFn = nullptr;
+    void* m_reEnableUserData = nullptr;
 };
 
 }  // namespace mxh::ui

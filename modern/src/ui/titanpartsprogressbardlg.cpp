@@ -24,14 +24,34 @@ void cTitanPartsProgressBarDlg::Linking() {
         findWindowById(kIdRemaintimeTime)));
 }
 
+void cTitanPartsProgressBarDlg::SetCancelCallback(
+    ReEnableFn reEnable, void* userData) noexcept {
+    m_reEnableFn = reEnable;
+    m_reEnableUserData = userData;
+}
+
 void cTitanPartsProgressBarDlg::OnActionEvent(std::int32_t lId, void* p,
                                               std::uint32_t we) {
     // 1:1 with legacy CTitanPartsProgressBarDlg::OnActionEvent.
+    // The legacy is:
+    //   switch (lId) {
+    //   case TITANPARTS_PROGRESSBAR_CANCEL:
+    //     InitProgress();
+    //     GAMEIN->GetTitanPartsMakeDlg()->SetDisable(FALSE);
+    //     break;
+    //   }
+    //
+    // InitProgress() remains REAL (resets state + SetActive(false)).
+    // GAMEIN->GetTitanPartsMakeDlg()->SetDisable(FALSE) is replaced
+    // by an optional host-injected re-enable callback so the host
+    // controls the parent dialog lifecycle.
     (void)p;
     (void)we;
     if (lId == kIdCancelBtn) {
         InitProgress();
-        // TODO: GAMEIN not ported (R-12.x deferred).
+        if (m_reEnableFn) {
+            m_reEnableFn(m_reEnableUserData);
+        }
     }
 }
 

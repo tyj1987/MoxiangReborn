@@ -22,9 +22,12 @@
 //   - Ctor: empty (no-op).
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve 2 children by id.
-//   - OnActionEvent: TODO (GAMEIN singleton not
-//     ported, R-12.x deferred). Modern port calls
-//     InitProgress on cancel.
+//   - OnActionEvent: REAL -- InitProgress() +
+//     optional host-injected re-enable callback
+//     (replaces legacy GAMEIN->GetUniqueItemMixDlg()
+//     ->SetDisable(FALSE)) when SetCancelCallback
+//     binds one. With no callback registered the
+//     GAMEIN side is safely no-oped.
 
 #pragma once
 
@@ -50,10 +53,21 @@ public:
     // ----- 1:1 with legacy CUniqueItemMixProgressBarDlg::OnActionEvent -----
 
     // 1:1 with legacy OnActionEvent. The cancel
-    // branch InitProgress + GAMEIN dispatch is
-    // TODO (R-12.x deferred). Modern port calls
-    // InitProgress only.
+    // branch matches legacy 1:1: InitProgress() is
+    // real, then the host-injected re-enable
+    // callback (replacing legacy GAMEIN->GetUniqueItemMixDlg()
+    // ->SetDisable(FALSE)) is invoked when present.
+    // When no callback is registered the cancel
+    // branch safely no-ops the GAMEIN side effect.
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
+
+    using ReEnableFn = void (*)(void* userData);
+
+    // Replaces legacy GAMEIN->GetUniqueItemMixDlg()->SetDisable(FALSE)
+    // invoked from the cancel branch. Optional: when the
+    // callback is null the cancel branch is still safe.
+    void SetCancelCallback(ReEnableFn reEnable,
+                           void* userData = nullptr) noexcept;
 
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
 
@@ -64,6 +78,10 @@ public:
     static constexpr std::int32_t kIdProgressBarGage  = 680;
     static constexpr std::int32_t kIdRemaintimeTime   = 681;
     static constexpr std::int32_t kIdCancelBtn        = 682;
+
+private:
+    ReEnableFn m_reEnableFn = nullptr;
+    void* m_reEnableUserData = nullptr;
 };
 
 }  // namespace mxh::ui

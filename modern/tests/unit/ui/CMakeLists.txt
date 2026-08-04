@@ -1734,6 +1734,11 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CTitanMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
     CTitanMixProgressBarDlgTest.SuccessProcessIsNoOp
+    CTitanMixProgressBarDlgTest.OnActionEventCancelInvokesHostReEnable
+    CTitanMixProgressBarDlgTest.OnActionEventCancelWithoutCallbackIsSafe
+    CTitanMixProgressBarDlgTest.OnActionEventNonCancelDoesNotInvokeReEnable
+    CTitanMixProgressBarDlgTest.OnActionEventCancelReplacesCallback
+    CTitanMixProgressBarDlgTest.OnActionEventCancelWithNullUserDataIsSafe
     # Phase C 1:1 port (dialog): cTitanPartsProgressBarDlg (titan-parts make progress)
     CTitanPartsProgressBarDlgTest.CtorDoesNotCrash
     CTitanPartsProgressBarDlgTest.DtorDoesNotCrash
@@ -1746,6 +1751,11 @@ gtest_add_tests(TARGET mxh_ui_tests
     CTitanPartsProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
     CTitanPartsProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CTitanPartsProgressBarDlgTest.OnActionEventBeforeInitIsSafe
+    CTitanPartsProgressBarDlgTest.OnActionEventCancelInvokesHostReEnable
+    CTitanPartsProgressBarDlgTest.OnActionEventCancelWithoutCallbackIsSafe
+    CTitanPartsProgressBarDlgTest.OnActionEventNonCancelDoesNotInvokeReEnable
+    CTitanPartsProgressBarDlgTest.OnActionEventCancelReplacesCallback
+    CTitanPartsProgressBarDlgTest.OnActionEventCancelWithNullUserDataIsSafe
     # Phase C 1:1 port (dialog): cUniqueItemMixProgressBarDlg (unique-item mix progress)
     CUniqueItemMixProgressBarDlgTest.CtorDoesNotCrash
     CUniqueItemMixProgressBarDlgTest.DtorDoesNotCrash
@@ -1758,6 +1768,11 @@ gtest_add_tests(TARGET mxh_ui_tests
     CUniqueItemMixProgressBarDlgTest.OnActionEventOnCancelCallsInitProgress
     CUniqueItemMixProgressBarDlgTest.OnActionEventOnUnknownIdIsNoOp
     CUniqueItemMixProgressBarDlgTest.OnActionEventBeforeInitIsSafe
+    CUniqueItemMixProgressBarDlgTest.OnActionEventCancelInvokesHostReEnable
+    CUniqueItemMixProgressBarDlgTest.OnActionEventCancelWithoutCallbackIsSafe
+    CUniqueItemMixProgressBarDlgTest.OnActionEventNonCancelDoesNotInvokeReEnable
+    CUniqueItemMixProgressBarDlgTest.OnActionEventCancelReplacesCallback
+    CUniqueItemMixProgressBarDlgTest.OnActionEventCancelWithNullUserDataIsSafe
     # Phase C 1:1 port (dialog): cTitanRecallDlg (titan recall progress bar)
     CTitanRecallDlgTest.CtorDoesNotCrash
     CTitanRecallDlgTest.DtorDoesNotCrash

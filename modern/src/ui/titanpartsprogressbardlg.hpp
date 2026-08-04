@@ -23,14 +23,20 @@
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve 2 children by id,
 //     call base setters.
-//   - OnActionEvent: TODO (GAMEIN singleton not
-//     ported, R-12.x deferred). Modern port calls
-//     InitProgress on cancel.
+//   - OnActionEvent: REAL -- InitProgress() +
+//     optional host-injected re-enable callback
+//     (replaces legacy GAMEIN->GetTitanPartsMakeDlg()
+//     ->SetDisable(FALSE)) when SetCancelCallback
+//     binds one. With no callback registered the
+//     GAMEIN side is safely no-oped.
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is a Tier 2 dialog port (after
 // cTitanMixProgressBarDlg). The dialog has 2
-// children (1 CObjectGuagen + 1 cStatic).
+// children (1 CObjectGuagen + 1 cStatic). The
+// parent re-enable side effect is wired through
+// an OPTIONAL host callback rather than the legacy
+// GAMEIN singleton.
 
 #pragma once
 
@@ -56,10 +62,21 @@ public:
     // ----- 1:1 with legacy CTitanPartsProgressBarDlg::OnActionEvent -----
 
     // 1:1 with legacy OnActionEvent. The cancel
-    // branch InitProgress + GAMEIN dispatch is
-    // TODO (R-12.x deferred). Modern port calls
-    // InitProgress only.
+    // branch matches legacy 1:1: InitProgress() is
+    // real, then the host-injected re-enable
+    // callback (replacing legacy GAMEIN->GetTitanPartsMakeDlg()
+    // ->SetDisable(FALSE)) is invoked when present.
+    // When no callback is registered the cancel
+    // branch safely no-ops the GAMEIN side effect.
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
+
+    using ReEnableFn = void (*)(void* userData);
+
+    // Replaces legacy GAMEIN->GetTitanPartsMakeDlg()->SetDisable(FALSE)
+    // invoked from the cancel branch. Optional: when the
+    // callback is null the cancel branch is still safe.
+    void SetCancelCallback(ReEnableFn reEnable,
+                           void* userData = nullptr) noexcept;
 
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
 
@@ -70,6 +87,10 @@ public:
     static constexpr std::int32_t kIdProgressBarGage  = 670;
     static constexpr std::int32_t kIdRemaintimeTime   = 671;
     static constexpr std::int32_t kIdCancelBtn        = 672;
+
+private:
+    ReEnableFn m_reEnableFn = nullptr;
+    void* m_reEnableUserData = nullptr;
 };
 
 }  // namespace mxh::ui

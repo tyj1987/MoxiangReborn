@@ -114,3 +114,63 @@ TEST(CUniqueItemMixProgressBarDlgTest, OnActionEventBeforeInitIsSafe) {
     dlg.OnActionEvent(cUniqueItemMixProgressBarDlg::kIdCancelBtn, nullptr, 0);
     SUCCEED();
 }
+
+
+// ---------- SetCancelCallback / host re-enable dispatch ----------
+
+TEST(CUniqueItemMixProgressBarDlgTest, OnActionEventCancelInvokesHostReEnable) {
+    LinkedDialog ld;
+    int calls = 0;
+    auto cb = [](void* userData) {
+        ++*static_cast<int*>(userData);
+    };
+    ld.dlg.SetCancelCallback(cb, &calls);
+    ld.dlg.OnActionEvent(cUniqueItemMixProgressBarDlg::kIdCancelBtn, nullptr, 0);
+    EXPECT_EQ(calls, 1);
+}
+
+TEST(CUniqueItemMixProgressBarDlgTest, OnActionEventCancelWithoutCallbackIsSafe) {
+    LinkedDialog ld;
+    ld.dlg.StartProgress();
+    EXPECT_TRUE(ld.dlg.IsProgressStart());
+    ld.dlg.OnActionEvent(cUniqueItemMixProgressBarDlg::kIdCancelBtn, nullptr, 0);
+    EXPECT_FALSE(ld.dlg.IsProgressStart());
+}
+
+TEST(CUniqueItemMixProgressBarDlgTest, OnActionEventNonCancelDoesNotInvokeReEnable) {
+    LinkedDialog ld;
+    int calls = 0;
+    auto cb = [](void* userData) {
+        ++*static_cast<int*>(userData);
+    };
+    ld.dlg.SetCancelCallback(cb, &calls);
+    ld.dlg.OnActionEvent(999, nullptr, 0);
+    ld.dlg.OnActionEvent(0, nullptr, 0);
+    EXPECT_EQ(calls, 0);
+}
+
+TEST(CUniqueItemMixProgressBarDlgTest, OnActionEventCancelReplacesCallback) {
+    LinkedDialog ld;
+    int firstCalls = 0;
+    int secondCalls = 0;
+    auto firstCb = [](void* userData) {
+        ++*static_cast<int*>(userData);
+    };
+    auto secondCb = [](void* userData) {
+        ++*static_cast<int*>(userData);
+    };
+    ld.dlg.SetCancelCallback(firstCb, &firstCalls);
+    ld.dlg.SetCancelCallback(secondCb, &secondCalls);
+    ld.dlg.OnActionEvent(cUniqueItemMixProgressBarDlg::kIdCancelBtn, nullptr, 0);
+    EXPECT_EQ(firstCalls, 0);
+    EXPECT_EQ(secondCalls, 1);
+}
+
+TEST(CUniqueItemMixProgressBarDlgTest, OnActionEventCancelWithNullUserDataIsSafe) {
+    LinkedDialog ld;
+    auto cb = [](void*) {};
+    ld.dlg.SetCancelCallback(cb);
+    ld.dlg.OnActionEvent(cUniqueItemMixProgressBarDlg::kIdCancelBtn, nullptr, 0);
+    SUCCEED();
+}
+

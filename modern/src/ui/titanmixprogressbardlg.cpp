@@ -37,6 +37,12 @@ void cTitanMixProgressBarDlg::Linking() {
         findWindowById(kIdRemaintimeTime)));
 }
 
+void cTitanMixProgressBarDlg::SetCancelCallback(
+    ReEnableFn reEnable, void* userData) noexcept {
+    m_reEnableFn = reEnable;
+    m_reEnableUserData = userData;
+}
+
 void cTitanMixProgressBarDlg::OnActionEvent(std::int32_t lId, void* p,
                                             std::uint32_t we) {
     // 1:1 with legacy CTitanMixProgressBarDlg::OnActionEvent.
@@ -48,18 +54,18 @@ void cTitanMixProgressBarDlg::OnActionEvent(std::int32_t lId, void* p,
     //     break;
     //   }
     //
-    // The modern port: InitProgress is REAL (calls
-    // base cProgressBarDlg::InitProgress which
-    // resets state + SetActive(false)). The
-    // GAMEIN->GetTitanMixDlg()->SetDisable(FALSE)
-    // call is TODO (R-12.x deferred).
+    // InitProgress is REAL (calls base cProgressBarDlg::InitProgress
+    // which resets state + SetActive(false)). The
+    // GAMEIN->GetTitanMixDlg()->SetDisable(FALSE) call is replaced
+    // by an optional host-injected re-enable callback wired through
+    // SetCancelCallback.
     (void)p;
     (void)we;
     if (lId == kIdCancelBtn) {
         InitProgress();
-        // TODO: 1:1 with legacy
-        //   GAMEIN->GetTitanMixDlg()->SetDisable(FALSE);
-        // GAMEIN not ported (R-12.x deferred).
+        if (m_reEnableFn) {
+            m_reEnableFn(m_reEnableUserData);
+        }
     }
 }
 
