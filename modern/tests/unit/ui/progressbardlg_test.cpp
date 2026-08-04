@@ -213,9 +213,10 @@ TEST(CProgressBarDlgTest, StartProgressWithSuccessTime) {
     ld.dlg.SetSuccessTime(5000);
     ld.dlg.StartProgress();
     EXPECT_TRUE(ld.dlg.IsProgressStart());
-    // m_dwProcessTime calculation is TODO (gCurTime)
-    // so it remains 0 in modern port.
-    EXPECT_EQ(ld.dlg.GetProcessTime(), 0u);
+    // No clock provider -> m_dwCurrentTime = 0;
+    // m_dwProcessTime = 0 + 5000 = 5000.
+    EXPECT_EQ(ld.dlg.GetProcessTime(), 5000u);
+    EXPECT_EQ(ld.dlg.GetCurrentTime(), 0u);
 }
 
 TEST(CProgressBarDlgTest, StartProgressWithoutLinkingIsSafe) {
@@ -312,4 +313,153 @@ TEST(CProgressBarDlgTest, SetRemaintimeStaticWithNullptr) {
     cProgressBarDlg dlg;
     dlg.SetRemaintimeStatic(nullptr);
     EXPECT_EQ(dlg.GetRemaintimeStatic(), nullptr);
+}
+
+// ---------- Clock provider + chat message provider + Process body ----------
+
+struct PbClockCapture {
+    std::uint32_t value = 0;
+    int calls = 0;
+    static std::uint32_t Get(void* userData) {
+        auto* self = static_cast<PbClockCapture*>(userData);
+        ++self->calls;
+        return self->value;
+    }
+};
+
+struct PbChatCapture {
+    std::string template_str = "Remaining %d sec";
+    int last_msg_id = -1;
+    int calls = 0;
+    static const char* Get(int msgId, void* userData) {
+        auto* self = static_cast<PbChatCapture*>(userData);
+        ++self->calls;
+        self->last_msg_id = msgId;
+        return self->template_str.c_str();
+    }
+};
+
+TEST(CProgressBarDlgTest, StartProgressStampsProcessTimeFromClock) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 5000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    ld.dlg.SetSuccessTime(3000u);
+    ld.dlg.StartProgress();
+    EXPECT_EQ(ld.dlg.GetCurrentTime(), 5000u);
+    EXPECT_EQ(ld.dlg.GetProcessTime(), 5000u + 3000u);
+}
+
+TEST(CProgressBarDlgTest, StartProgressWithoutProviderUsesZeroClock) {
+    LinkedDialog ld;
+    ld.dlg.SetSuccessTime(3000u);
+    ld.dlg.StartProgress();
+    // No clock provider -> m_dwCurrentTime = 0; process = 0 + 3000 = 3000.
+    EXPECT_EQ(ld.dlg.GetCurrentTime(), 0u);
+    EXPECT_EQ(ld.dlg.GetProcessTime(), 3000u);
+}
+
+TEST(CProgressBarDlgTest, ProcessUpdatesCurrentTimeFromClock) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    ld.dlg.SetSuccessTime(5000u);
+    ld.dlg.StartProgress();
+    clock.value = 2000u;
+    ld.dlg.Process();
+    EXPECT_EQ(ld.dlg.GetCurrentTime(), 2000u);
+}
+
+TEST(CProgressBarDlgTest, ProcessAdvancesGuagenValue) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    ld.dlg.SetSuccessTime(5000u);
+    ld.dlg.StartProgress();
+    // After StartProgress: process = 1000 + 5000 = 6000; current = 1000.
+    clock.value = 2000u;
+    ld.dlg.Process();
+    // fGageValue = 1.0 - (6000-2000)/5000 = 1.0 - 0.8 = 0.2.
+    EXPECT_FLOAT_EQ(ld.gPtr_->GetValue(), 0.2f);
+}
+
+TEST(CProgressBarDlgTest, ProcessSetsSuccessProgressOnExpiry) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    ld.dlg.SetSuccessTime(5000u);
+    ld.dlg.StartProgress();
+    // After StartProgress: process = 6000; current = 1000.
+    clock.value = 7000u;  // past process time
+    ld.dlg.Process();
+    EXPECT_TRUE(ld.dlg.GetSuccessProgress());
+}
+
+TEST(CProgressBarDlgTest, ProcessWritesRemaintimeWithDefaultFormat) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    ld.dlg.SetSuccessTime(5000u);
+    ld.dlg.StartProgress();
+    // process = 6000; current = 1000; remaining = (6000-1000+1000)/1000 = 6.
+    ld.dlg.Process();
+    EXPECT_EQ(ld.sPtr_->GetStaticText(), "Remaining 6 sec");
+}
+
+TEST(CProgressBarDlgTest, ProcessWritesRemaintimeWithInjectedChatMsg) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    PbChatCapture chat;
+    chat.template_str = "[%d sec left]";
+    ld.dlg.SetChatMessageFn(&PbChatCapture::Get, &chat);
+    ld.dlg.SetSuccessTime(5000u);
+    ld.dlg.StartProgress();
+    ld.dlg.Process();
+    EXPECT_EQ(ld.sPtr_->GetStaticText(), "[6 sec left]");
+    EXPECT_EQ(chat.calls, 1);
+    EXPECT_EQ(chat.last_msg_id, 1043);
+}
+
+TEST(CProgressBarDlgTest, ProcessBeforeStartIsNoOpEvenWithClock) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 5000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    EXPECT_FALSE(ld.dlg.IsProgressStart());
+    ld.dlg.Process();
+    // No StartProgress yet, so state should remain at default.
+    EXPECT_EQ(ld.dlg.GetCurrentTime(), 0u);
+    EXPECT_EQ(ld.dlg.GetProcessTime(), 0u);
+    EXPECT_EQ(clock.calls, 0);
+}
+
+TEST(CProgressBarDlgTest, RenderCallsProcessAndAdvancesGuage) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    ld.dlg.SetSuccessTime(5000u);
+    ld.dlg.StartProgress();
+    clock.value = 2000u;
+    ld.dlg.Render();
+    EXPECT_EQ(ld.dlg.GetCurrentTime(), 2000u);
+    EXPECT_FLOAT_EQ(ld.gPtr_->GetValue(), 0.2f);
+}
+
+TEST(CProgressBarDlgTest, ProcessWithZeroSuccessTimeDoesNotCrash) {
+    LinkedDialog ld;
+    PbClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&PbClockCapture::Get, &clock);
+    // Default m_dwSuccessTime = 0.
+    ld.dlg.StartProgress();
+    ld.dlg.Process();
+    // No SetValue call on guagen, but no crash either.
+    SUCCEED();
 }

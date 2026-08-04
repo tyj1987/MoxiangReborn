@@ -72,8 +72,12 @@
 // (TitanPartsProgressBarDlg / TitanMixProgressBarDlg
 // / UniqueItemMixProgressBarDlg). The dialog has
 // CObjectGuagen (m_pProgressGuagen) + 1 cStatic
-// (m_pRemaintimeStatic) + 6 state fields. gCurTime +
-// CHATMGR are R-12.x deferred.
+// (m_pRemaintimeStatic) + 6 state fields.
+//
+// Process() + StartProgress() now run the legacy
+// gCurTime-based body through OPTIONAL host clock +
+// chat message callbacks (1:1 with cObjectGuagen /
+// cFWEngraveDialog).  Render() now calls Process().
 
 #pragma once
 
@@ -85,6 +89,12 @@ namespace mxh::ui {
 
 class cStatic;
 class cObjectGuagen;
+
+// Shared clock provider signature (replaces legacy gCurTime global).
+using PbClockFn = std::uint32_t (*)(void* userData);
+
+// Host callback for CHATMGR->GetChatMsg(1043) (legacy sprintf in Process).
+using PbChatMsgFn = const char* (*)(int msgId, void* userData);
 
 class cProgressBarDlg : public cDialog {
 public:
@@ -115,6 +125,16 @@ public:
     // m_dwCurrentTime / m_dwProcessTime updates are
     // TODO (R-12.x deferred).
     void StartProgress();
+
+    // Replace the legacy gCurTime read for StartProgress/Process.
+    // A null provider preserves the safe zero-clock fallback.
+    void SetCurrentTimeProvider(PbClockFn getCurrentTime,
+                                void* userData = nullptr) noexcept;
+
+    // Replace the legacy CHATMGR->GetChatMsg(1043) call in Process.
+    // A null provider falls back to a literal placeholder.
+    void SetChatMessageFn(PbChatMsgFn getChatMsg,
+                          void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy CProgressBarDlg::InitProgress -----
 
@@ -217,6 +237,11 @@ private:
 
     // 1:1 with legacy m_dwSuccessTime (DWORD, init 0).
     std::uint32_t m_dwSuccessTime = 0;
+
+    PbClockFn   m_getCurrentTimeFn = nullptr;
+    void*       m_clockUserData    = nullptr;
+    PbChatMsgFn m_getChatMsgFn     = nullptr;
+    void*       m_chatUserData     = nullptr;
 };
 
 }  // namespace mxh::ui

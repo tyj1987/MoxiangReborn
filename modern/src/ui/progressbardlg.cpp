@@ -26,6 +26,18 @@ cProgressBarDlg::cProgressBarDlg() {
 
 cProgressBarDlg::~cProgressBarDlg() = default;
 
+void cProgressBarDlg::SetCurrentTimeProvider(
+    PbClockFn getCurrentTime, void* userData) noexcept {
+    m_getCurrentTimeFn = getCurrentTime;
+    m_clockUserData = userData;
+}
+
+void cProgressBarDlg::SetChatMessageFn(
+    PbChatMsgFn getChatMsg, void* userData) noexcept {
+    m_getChatMsgFn = getChatMsg;
+    m_chatUserData = userData;
+}
+
 void cProgressBarDlg::SetActive(bool val) noexcept {
     // 1:1 with legacy CProgressBarDlg::SetActive.
     // The legacy is:
@@ -60,18 +72,41 @@ void cProgressBarDlg::Process() {
     //                               m_dwCurrentTime) / m_dwSuccessTime);
     //   m_pProgressGuagen->SetValue(fGageValue, m_dwCurrentTime);
     //   if (m_dwProcessTime < m_dwCurrentTime) m_bSuccessProgress = TRUE;
-    //   char buf[128];
     //   sprintf(buf, CHATMGR->GetChatMsg(1043),
     //           (m_dwProcessTime - m_dwCurrentTime + 1000) / 1000);
     //   m_pRemaintimeStatic->SetStaticText(buf);
     //
-    // The modern port: the gCurTime + CHATMGR + tick
-    // interpolation is TODO (R-12.x deferred). Modern
-    // port returns without updating state.
-    // TODO: gCurTime + CHATMGR not ported (R-12.x
-    //       deferred). When ported, the body becomes
-    //       the legacy code.
+    // The modern port: gCurTime and CHATMGR are routed
+    // through OPTIONAL host callbacks. A null clock
+    // provider preserves the safe zero-clock fallback
+    // (m_dwCurrentTime = 0, m_dwProcessTime unchanged).
+    // A null chat fn falls back to a literal
+    // placeholder so tests can verify both branches.
     if (!m_bProgressStart) return;
+    const std::uint32_t curTime = m_getCurrentTimeFn
+        ? m_getCurrentTimeFn(m_clockUserData)
+        : 0u;
+    m_dwCurrentTime = curTime;
+    if (m_pProgressGuagen && m_dwSuccessTime > 0u) {
+        const float fGageValue = 1.0f
+            - static_cast<float>(m_dwProcessTime - m_dwCurrentTime)
+              / static_cast<float>(m_dwSuccessTime);
+        m_pProgressGuagen->SetValue(fGageValue, m_dwCurrentTime);
+    }
+    if (m_dwProcessTime < m_dwCurrentTime) {
+        m_bSuccessProgress = true;
+    }
+    if (m_pRemaintimeStatic) {
+        constexpr std::size_t kFmtBufSize = 128;
+        char buf[kFmtBufSize] = {};
+        const char* fmt = m_getChatMsgFn
+            ? m_getChatMsgFn(1043, m_chatUserData)
+            : "Remaining %d sec";
+        std::snprintf(buf, sizeof(buf), fmt,
+            static_cast<int>(
+                (m_dwProcessTime - m_dwCurrentTime + 1000u) / 1000u));
+        m_pRemaintimeStatic->SetStaticText(buf);
+    }
 }
 
 void cProgressBarDlg::StartProgress() {
@@ -83,14 +118,16 @@ void cProgressBarDlg::StartProgress() {
     //   m_dwProcessTime = m_dwCurrentTime + m_dwSuccessTime;
     //   SetActive(TRUE);
     //
-    // The modern port: InitProgress + m_bProgressStart
-    // + SetActive(TRUE) are REAL. The gCurTime-based
-    // m_dwCurrentTime / m_dwProcessTime updates are
-    // TODO.
+    // The modern port: gCurTime is routed through the
+    // OPTIONAL host clock provider. A null provider
+    // preserves the safe zero-clock fallback.
     InitProgress();
     m_bProgressStart = true;
-    // TODO: m_dwCurrentTime = gCurTime;
-    //       m_dwProcessTime = m_dwCurrentTime + m_dwSuccessTime;
+    const std::uint32_t curTime = m_getCurrentTimeFn
+        ? m_getCurrentTimeFn(m_clockUserData)
+        : 0u;
+    m_dwCurrentTime = curTime;
+    m_dwProcessTime = curTime + m_dwSuccessTime;
     SetActive(true);
 }
 
@@ -115,9 +152,12 @@ void cProgressBarDlg::Render() {
     //   Process();
     //   cDialog::Render();
     //
-    // The modern port: Process is TODO + cDialog::Render
-    // is no-op. Modern port is a no-op.
-    // TODO: Process() call (R-12.x deferred).
+    // The modern port: Process() is REAL (now wired
+    // with OPTIONAL clock + chat callbacks);
+    // cDialog::Render is still no-op in the test
+    // environment.
+    Process();
+    cDialog::Render();
 }
 
 }  // namespace mxh::ui
