@@ -55,6 +55,7 @@
 
 #include "guildinvitationkindselectiondialog.hpp"
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <gtest/gtest.h>
 
@@ -247,7 +248,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, OnActionEventMemberBtnNoCallbacksC
     // with legacy null-singleton path: dialog
     // closes silently.
     ActiveDialog ad;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn,
                           nullptr, WE_BTNCLICK);
     EXPECT_FALSE(ad.dlg.isActive());
@@ -259,7 +260,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, OnActionEventStudentBtnNoCallbacks
     // installed skips the early-return gate and
     // falls through to SetActive(false).
     ActiveDialog ad;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdStudentBtn,
                           nullptr, WE_BTNCLICK);
     EXPECT_FALSE(ad.dlg.isActive());
@@ -273,7 +274,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, OnActionEventCancelBtnStaysOpenEve
     // SetActive(false) IS executed (1:1 quirk
     // preserved by the CANCEL branch's `return;`).
     ActiveDialog ad;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdCancelBtn,
                           nullptr, WE_BTNCLICK);
     EXPECT_TRUE(ad.dlg.isActive());
@@ -287,14 +288,14 @@ TEST(CGuildInvitationKindSelectionDialogTest, OnActionEventUnknownIdIsNoOp) {
     // post-branch SetActive, so the dialog stays
     // open.
     ActiveDialog ad;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(/*lId=*/9999, nullptr, WE_BTNCLICK);
     EXPECT_TRUE(ad.dlg.isActive());
 }
 
 TEST(CGuildInvitationKindSelectionDialogTest, OnActionEventBeforeInitDoesNotCrash) {
     mxh::ui::cGuildInvitationKindSelectionDialog dlg;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn, nullptr, WE_BTNCLICK);
     dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdStudentBtn, nullptr, WE_BTNCLICK);
     dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdCancelBtn, nullptr, WE_BTNCLICK);
@@ -330,7 +331,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, MemberBtnPlayerWithGuildEmits38And
     ad.dlg.SetMemberSynCallbackForTest(&HostCalls::AddMemberSyn);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -355,7 +356,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, MemberBtnPlayerNoGuildDispatchesAd
     ad.dlg.SetMemberSynCallbackForTest(&HostCalls::AddMemberSyn);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -378,7 +379,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, MemberBtnNonPlayerSelectionClosesW
     ad.dlg.SetSystemMessageCallbackForTest(&HostCalls::AddSystem);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -398,7 +399,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, MemberBtnNoSelectionId0ClosesWitho
     ad.dlg.SetMemberSynCallbackForTest(&HostCalls::AddMemberSyn);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -422,7 +423,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, MemberBtnNullMemberSynCallbackDoes
     // Do NOT install AddMemberSyn callback.
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdMemberBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -446,7 +447,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, StudentBtnGuildLevelBelow5Emits136
     ad.dlg.SetStudentSynCallbackForTest(&HostCalls::AddStudentSyn);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdStudentBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -470,7 +471,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, StudentBtnGuildLevelAt5BoundaryPro
     ad.dlg.SetSystemMessageCallbackForTest(&HostCalls::AddSystem);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdStudentBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -497,7 +498,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, StudentBtnPlayerNoGuildDispatchesA
     ad.dlg.SetStudentSynCallbackForTest(&HostCalls::AddStudentSyn);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdStudentBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -524,7 +525,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, StudentBtnPlayerWithGuildEmits38An
     ad.dlg.SetStudentSynCallbackForTest(&HostCalls::AddStudentSyn);
     ad.dlg.SetCallbackUserDataForTest(&hc);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     ad.dlg.OnActionEvent(mxh::ui::cGuildInvitationKindSelectionDialog::kIdStudentBtn,
                           nullptr, WE_BTNCLICK);
 
@@ -549,7 +550,7 @@ TEST(CGuildInvitationKindSelectionDialogTest, SetCallbacksReplacesDispatch) {
     ad.dlg.SetIsSelectedObjectPlayerCallbackForTest(&HostCalls::IsPlayer_True);
     ad.dlg.SetGetSelectedObjectGuildIdxCallbackForTest(&HostCalls::GetGuildIdx_Zero);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001u;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
 
     // First click: install callback #1.
     ad.dlg.SetMemberSynCallbackForTest(&HostCalls::AddMemberSyn);
@@ -573,5 +574,12 @@ TEST(CGuildInvitationKindSelectionDialogTest, SetCallbacksReplacesDispatch) {
     EXPECT_EQ(hc1.member_count, 1);  // NOT incremented
 }
 
+
+
+// === Canonical WINDOW_EVENT constants (C-Batch-2.68) ===
+
+TEST(CGuildInvitationKindSelectionDialogTest, UsesCanonicalWindowEventConstants) {
+    EXPECT_EQ(cGuildInvitationKindSelectionDialog::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
+}
 
 }  // namespace mxh::ui::test

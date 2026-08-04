@@ -36,6 +36,7 @@
 
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cwindow.hpp"
+#include "mxh/ui/legacy_window_event.hpp"
 
 #include <cstdint>
 #include <unordered_map>
@@ -207,6 +208,13 @@ public:
     static constexpr std::int32_t kOtiBtnSetMacro = 605;
 
     static constexpr std::int32_t kOtiCbAutoControl = 700;
+
+    // 1:1 with legacy cWindow::we constants.
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
+    static constexpr std::uint32_t kWePushUp   = legacy_window_event::kPushUp;
+    static constexpr std::uint32_t kWePushDown = legacy_window_event::kPushDown;
+    static constexpr std::uint32_t kWeChecked  = legacy_window_event::kChecked;
+    static constexpr std::uint32_t kWeNotChecked = legacy_window_event::kNotChecked;
 
     bool isGraphicTabDisabled() const noexcept { return m_bGraphicTabDisabled; }
 

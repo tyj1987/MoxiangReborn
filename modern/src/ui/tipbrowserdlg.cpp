@@ -4,6 +4,7 @@
 
 #include "tipbrowserdlg.hpp"
 #include "cpushupbutton.hpp"
+#include "legacy_window_event.hpp"
 
 namespace mxh::ui {
 
@@ -98,8 +99,8 @@ void cTipBrowserDlg::OnActionEvent(std::int32_t lId, void* p, std::uint32_t we) 
     //   - WE_BTNCLICK uses `&` bit-and (1:1 with
     //     legacy).
     (void)p;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;
-    constexpr std::uint32_t WE_PUSHDOWN  = 0x0010;  // legacy cWindow::we
+    constexpr std::uint32_t WE_BTNCLICK = legacy_window_event::kButtonClick;
+    constexpr std::uint32_t WE_PUSHDOWN  = legacy_window_event::kPushDown;  // legacy cWindow::we
     if (we == WE_PUSHDOWN) {
         // 1:1 quirk: legacy uses `==` not `&` for
         // WE_PUSHDOWN (exact match required).

@@ -59,6 +59,7 @@
 #pragma once
 
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -118,6 +119,10 @@ public:
     static constexpr std::int32_t kIdPushupBase     = 385;  // pushup button base
     static constexpr std::int32_t kIdCancelBtn      = 389;
     static constexpr std::size_t   kNumTabs          = 4;
+
+    // 1:1 with legacy cWindow::we constants.
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
+    static constexpr std::uint32_t kWePushDown = legacy_window_event::kPushDown;
 
 private:
     // 1:1 with legacy m_pButton[4] (4 cPushupButton

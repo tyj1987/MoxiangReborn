@@ -3,6 +3,7 @@
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/ccheckbox.hpp"
 #include "mxh/ui/cPushupButton.hpp"
+#include "mxh/ui/legacy_window_event.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -233,11 +234,11 @@ void cOptionDialog::OnActionEvent(std::int32_t lId, void* /*p*/, std::uint32_t w
     // 1:1 with legacy OnActionEvent.  Routes the OK / CANCEL /
     // RESET buttons + the chatmode/macromode + graphic pushup
     // toggles + the AUTOCONTROL checkbox.
-    constexpr std::uint32_t kBtnClick = 0x0001;  // 1:1 with WE_BTNCLICK
-    constexpr std::uint32_t kPushUp   = 0x0002;  // 1:1 with WE_PUSHUP
-    constexpr std::uint32_t kPushDown = 0x0004;  // 1:1 with WE_PUSHDOWN
-    constexpr std::uint32_t kChecked  = 0x0010;  // 1:1 with WE_CHECKED
-    constexpr std::uint32_t kNotChk   = 0x0020;  // 1:1 with WE_NOTCHECKED
+    constexpr std::uint32_t kBtnClick = mxh::ui::legacy_window_event::kButtonClick;  // 1:1 with WE_BTNCLICK
+    constexpr std::uint32_t kPushUp   = mxh::ui::legacy_window_event::kPushUp;       // 1:1 with WE_PUSHUP
+    constexpr std::uint32_t kPushDown = mxh::ui::legacy_window_event::kPushDown;     // 1:1 with WE_PUSHDOWN
+    constexpr std::uint32_t kChecked  = mxh::ui::legacy_window_event::kChecked;      // 1:1 with WE_CHECKED
+    constexpr std::uint32_t kNotChk   = mxh::ui::legacy_window_event::kNotChecked;   // 1:1 with WE_NOTCHECKED
     if (we & kBtnClick) {
         if (lId == kOtiBtnOk) {
             // 1:1 with legacy: UpdateData(TRUE) + dispatch to

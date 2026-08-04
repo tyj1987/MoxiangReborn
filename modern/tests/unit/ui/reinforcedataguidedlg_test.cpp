@@ -63,6 +63,7 @@
 
 #include "reinforcedataguidedlg.hpp"
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 #include "cpushupbutton.hpp"
 #include "cwindow.hpp"
 
@@ -269,8 +270,8 @@ TEST(CReinforceDataGuideDlgTest, CloseDeactivatesDialogAndResetsCurData) {
 // ===========================================================================
 
 namespace {
-constexpr std::uint32_t WE_BTNCLICK = 0x0001;
-constexpr std::uint32_t WE_PUSHDOWN  = 0x0010;
+constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
+constexpr std::uint32_t WE_PUSHDOWN  = mxh::ui::legacy_window_event::kPushDown;
 }  // namespace
 
 TEST(CReinforceDataGuideDlgTest, OnActionEventPushDownSwitchesTab) {
@@ -354,6 +355,14 @@ TEST(CReinforceDataGuideDlgTest, OnActionEventBeforeLinkingDoesNotCrash) {
     dlg.OnActionEvent(cReinforceDataGuideDlg::kIdOkBtn, nullptr, WE_BTNCLICK);
     dlg.OnActionEvent(cReinforceDataGuideDlg::kIdBtnBase + 1, nullptr, WE_PUSHDOWN);
     SUCCEED();
+}
+
+
+// === Canonical WINDOW_EVENT constants (C-Batch-2.68) ===
+
+TEST(CReinforceDataGuideDlgTest, UsesCanonicalWindowEventConstants) {
+    EXPECT_EQ(cReinforceDataGuideDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
+    EXPECT_EQ(cReinforceDataGuideDlg::kWePushDown, mxh::ui::legacy_window_event::kPushDown);
 }
 
 }  // namespace mxh::ui::test

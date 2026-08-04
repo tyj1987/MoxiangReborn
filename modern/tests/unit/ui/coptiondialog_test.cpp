@@ -24,6 +24,7 @@
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/ccheckbox.hpp"
+#include "mxh/ui/legacy_window_event.hpp"
 
 #include <gtest/gtest.h>
 
@@ -215,7 +216,7 @@ TEST(COptionDialog, OnActionEventOkAppliesAndCloses) {
         },
         &applyCount);
     // 1:1 with legacy: OnActionEvent(OTI_BTN_OK, 0, WE_BTNCLICK)
-    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnOk, nullptr, 0x0001);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnOk, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(applyCount, 1);
     EXPECT_FALSE(h.dlg.isActive());
 }
@@ -229,7 +230,7 @@ TEST(COptionDialog, OnActionEventCancelClosesWithoutApply) {
     h.dlg.SetCancelCallbackForTest(
         [](void* user) { ++*static_cast<int*>(user); }, &cancelCount);
     h.dlg.SetActive(true);
-    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnCancel, nullptr, 0x0001);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnCancel, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(applyCount, 0);
     EXPECT_EQ(cancelCount, 1);
     EXPECT_FALSE(h.dlg.isActive());
@@ -246,7 +247,7 @@ TEST(COptionDialog, OnActionEventResetRepaintsFromDefault) {
         &defaultCount);
     h.dlg.SetActive(true);
     EXPECT_EQ(defaultCount, 1);
-    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnReset, nullptr, 0x0001);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnReset, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(defaultCount, 2);
     EXPECT_EQ(h.store.guages[301], 7);
 }
@@ -257,10 +258,10 @@ TEST(COptionDialog, OnActionEventPushDownUnpushesOtherInGroup) {
     h.store.pushups[121] = true;
     // 1:1 with legacy: PUSHDOWN on the chatmode pushup unpushes
     // the macromode pushup in the same group.
-    h.dlg.OnActionEvent(120, nullptr, 0x0004);
+    h.dlg.OnActionEvent(120, nullptr, mxh::ui::legacy_window_event::kPushDown);
     EXPECT_FALSE(h.store.pushups[121]);
     // After both are unpushed, neither is the "active" one.
-    h.dlg.OnActionEvent(121, nullptr, 0x0004);
+    h.dlg.OnActionEvent(121, nullptr, mxh::ui::legacy_window_event::kPushDown);
     EXPECT_FALSE(h.store.pushups[120]);
     EXPECT_FALSE(h.store.pushups[121]);
 }
@@ -268,9 +269,9 @@ TEST(COptionDialog, OnActionEventPushDownUnpushesOtherInGroup) {
 TEST(COptionDialog, OnActionEventAutoControlCheckDisablesGraphicTab) {
     Harness h;
     EXPECT_FALSE(h.dlg.isGraphicTabDisabled());
-    h.dlg.OnActionEvent(cOptionDialog::kOtiCbAutoControl, nullptr, 0x0010);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiCbAutoControl, nullptr, mxh::ui::legacy_window_event::kChecked);
     EXPECT_TRUE(h.dlg.isGraphicTabDisabled());
-    h.dlg.OnActionEvent(cOptionDialog::kOtiCbAutoControl, nullptr, 0x0020);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiCbAutoControl, nullptr, mxh::ui::legacy_window_event::kNotChecked);
     EXPECT_FALSE(h.dlg.isGraphicTabDisabled());
 }
 
@@ -348,10 +349,21 @@ TEST(COptionDialog, OnActionEventSetChatAndSetMacroAreNoOps) {
     h.dlg.SetApplyCallbackForTest(
         [](sGAMEOPTION*, void* u) { ++*static_cast<int*>(u); }, &applyCount);
     h.dlg.SetActive(true);
-    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnSetChat, nullptr, 0x0001);
-    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnSetMacro, nullptr, 0x0001);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnSetChat, nullptr, mxh::ui::legacy_window_event::kButtonClick);
+    h.dlg.OnActionEvent(cOptionDialog::kOtiBtnSetMacro, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_EQ(applyCount, 0);
     EXPECT_TRUE(h.dlg.isActive());
+}
+
+
+// === Canonical WINDOW_EVENT constants (C-Batch-2.68) ===
+
+TEST(COptionDialogTest, UsesCanonicalWindowEventConstants) {
+    EXPECT_EQ(cOptionDialog::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
+    EXPECT_EQ(cOptionDialog::kWePushUp, mxh::ui::legacy_window_event::kPushUp);
+    EXPECT_EQ(cOptionDialog::kWePushDown, mxh::ui::legacy_window_event::kPushDown);
+    EXPECT_EQ(cOptionDialog::kWeChecked, mxh::ui::legacy_window_event::kChecked);
+    EXPECT_EQ(cOptionDialog::kWeNotChecked, mxh::ui::legacy_window_event::kNotChecked);
 }
 
 TEST(COptionDialog, NonCopyable) {

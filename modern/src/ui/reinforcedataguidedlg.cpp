@@ -4,6 +4,7 @@
 // data-model rationale + 1:1 quirks.
 
 #include "reinforcedataguidedlg.hpp"
+#include "legacy_window_event.hpp"
 #include "cpushupbutton.hpp"
 
 namespace mxh::ui {
@@ -105,8 +106,8 @@ void cReinforceDataGuideDlg::OnActionEvent(std::int32_t lId, void* p, std::uint3
     // exact match (not bit-and). Modern port
     // preserves the `==`.
     (void)p;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;
-    constexpr std::uint32_t WE_PUSHDOWN  = 0x0010;
+    constexpr std::uint32_t WE_BTNCLICK = legacy_window_event::kButtonClick;
+    constexpr std::uint32_t WE_PUSHDOWN  = legacy_window_event::kPushDown;
     if (we == WE_PUSHDOWN) {
         std::int32_t offset = lId - kIdBtnBase;
         if (offset >= 0 && offset < static_cast<std::int32_t>(kNumTabs)) {

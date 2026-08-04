@@ -53,6 +53,7 @@
 #pragma once
 
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -188,6 +189,9 @@ public:
     static constexpr std::int32_t kIdCancelBtn = 370;
     static constexpr std::int32_t kIdMemberBtn = 371;
     static constexpr std::int32_t kIdStudentBtn = 372;
+
+    // 1:1 with legacy cWindow::we constants.
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // ----- Test-only accessors -----
 

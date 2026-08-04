@@ -68,6 +68,7 @@
 #pragma once
 
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -145,8 +146,8 @@ public:
     static constexpr std::int32_t kMaxGuildNotice = 150;
 
     // 1:1 with legacy cWindow::we constants.
-    // WE_BTNCLICK = 0x0001 (legacy cWindow::we bitmask).
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    // WE_BTNCLICK = 0x0040 (legacy cWindow::we bitmask; canonical via legacy_window_event::kButtonClick).
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // ----- Host-injected callbacks (legacy: GUILDMGR singleton) -----
 

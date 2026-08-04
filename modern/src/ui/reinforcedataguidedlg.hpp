@@ -75,6 +75,7 @@
 #pragma once
 
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -137,6 +138,10 @@ public:
     static constexpr std::int32_t kIdOkBtn        = 498;
     static constexpr std::size_t   kNumTabs        = 9;
     static constexpr std::size_t   kNumUniqueSheets = 7;
+
+    // 1:1 with legacy cWindow::we constants.
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
+    static constexpr std::uint32_t kWePushDown = legacy_window_event::kPushDown;
 
     // Item kind enum (1:1 with legacy eRFDG_ITEM_KIND).
     // The modern port inlines the enum values (no

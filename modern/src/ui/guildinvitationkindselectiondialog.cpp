@@ -5,6 +5,7 @@
 // data-model rationale + 1:1 quirks.
 
 #include "guildinvitationkindselectiondialog.hpp"
+#include "legacy_window_event.hpp"
 
 namespace mxh::ui {
 
@@ -72,7 +73,7 @@ void cGuildInvitationKindSelectionDialog::OnActionEvent(std::int32_t lId, void* 
     // (matches the legacy "singleton not ported"
     // path).
     (void)p;
-    constexpr std::uint32_t kBtnClick = 0x0001u;  // legacy cWindow::we WE_BTNCLICK.
+    constexpr std::uint32_t kBtnClick = legacy_window_event::kButtonClick;  // legacy cWindow::we WE_BTNCLICK.
     if (!(we & kBtnClick)) {
         return;
     }

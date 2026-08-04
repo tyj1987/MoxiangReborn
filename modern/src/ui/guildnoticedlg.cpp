@@ -6,6 +6,7 @@
 #include "ctextarea.hpp"
 
 #include <cstring>
+#include "legacy_window_event.hpp"
 
 namespace mxh::ui {
 
@@ -81,7 +82,7 @@ void cGuildNoticeDlg::OnActionEvent(std::int32_t lId, void* p, std::uint32_t we)
     //   - Unknown ids are silently ignored (1:1 with
     //     legacy switch fallthrough).
     (void)p;
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;  // legacy cWindow::we
+    constexpr std::uint32_t WE_BTNCLICK = legacy_window_event::kButtonClick;  // legacy cWindow::we
     if (!(we & WE_BTNCLICK)) {
         return;
     }

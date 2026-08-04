@@ -291,7 +291,7 @@ TEST(CGuildNoticeDlgTest, OnActionEventUnknownIdIsNoOp) {
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetActive(true);
 
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     dlg.OnActionEvent(/*lId=*/9999, nullptr, WE_BTNCLICK);
     EXPECT_TRUE(dlg.isActive());
 }
@@ -299,7 +299,7 @@ TEST(CGuildNoticeDlgTest, OnActionEventUnknownIdIsNoOp) {
 TEST(CGuildNoticeDlgTest, OnActionEventBeforeLinkingDoesNotCrash) {
     cGuildNoticeDlg dlg;
     dlg.Init(0, 0, 400, 400, nullptr, 0);
-    constexpr std::uint32_t WE_BTNCLICK = 0x0001;
+    constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
     dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr, WE_BTNCLICK);
     dlg.OnActionEvent(cGuildNoticeDlg::kIdCancelBtn, nullptr, WE_BTNCLICK);
     SUCCEED();
@@ -355,7 +355,7 @@ TEST(CGuildNoticeDlgTest, MaxGuildNoticeIsLegacy150) {
 }
 
 TEST(CGuildNoticeDlgTest, WeBtnClickIsLegacy1) {
-    EXPECT_EQ(cGuildNoticeDlg::kWeBtnClick, 0x0001u);
+    EXPECT_EQ(cGuildNoticeDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
 }
 
 TEST(CGuildNoticeDlgTest, SetActiveTruePrefillsFromHostCallback) {
@@ -483,6 +483,13 @@ TEST(CGuildNoticeDlgTest, CallbacksAllowNullUserData) {
     ln.dlg.OnActionEvent(cGuildNoticeDlg::kIdSendOkBtn, nullptr,
                          cGuildNoticeDlg::kWeBtnClick);
     EXPECT_FALSE(ln.dlg.isActive());
+}
+
+
+// === Canonical WINDOW_EVENT constants (C-Batch-2.68) ===
+
+TEST(CGuildNoticeDlgTest, UsesCanonicalWindowEventConstants) {
+    EXPECT_EQ(cGuildNoticeDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
 }
 
 }  // namespace mxh::ui::test

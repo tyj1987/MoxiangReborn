@@ -68,6 +68,8 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+
+#include "legacy_window_event.hpp"
 #include <memory>
 
 namespace mxh::ui::test {
@@ -226,8 +228,8 @@ TEST(CTipBrowserDlgTest, CloseDeactivatesDialogAndResetsCurDlg) {
 // ===========================================================================
 
 namespace {
-constexpr std::uint32_t WE_BTNCLICK = 0x0001;
-constexpr std::uint32_t WE_PUSHDOWN  = 0x0010;
+constexpr std::uint32_t WE_BTNCLICK = mxh::ui::legacy_window_event::kButtonClick;
+constexpr std::uint32_t WE_PUSHDOWN  = mxh::ui::legacy_window_event::kPushDown;
 }  // namespace
 
 TEST(CTipBrowserDlgTest, OnActionEventPushDownSwitchesTab) {
@@ -314,8 +316,8 @@ TEST(CTipBrowserDlgTest, OnActionEventUnknownWeIsNoOp) {
     BuildDlgWithChildren(dlg, ch);
     dlg.Show();
 
-    // we = 0xDE00 has no WE_BTNCLICK (bit 0 = 0)
-    // and no WE_PUSHDOWN (bit 4 = 0); neither
+    // we = 0xDE00 has no WE_BTNCLICK (bit 6 = 0)
+    // and no WE_PUSHDOWN (bit 5 = 0); neither
     // path triggers.
     dlg.OnActionEvent(cTipBrowserDlg::kIdCancelBtn, nullptr, /*we=*/0xDE00u);
     dlg.OnActionEvent(cTipBrowserDlg::kIdPushupBase + 1, nullptr, /*we=*/0xDE00u);
@@ -329,6 +331,17 @@ TEST(CTipBrowserDlgTest, OnActionEventBeforeLinkingDoesNotCrash) {
     dlg.OnActionEvent(cTipBrowserDlg::kIdCancelBtn, nullptr, WE_BTNCLICK);
     dlg.OnActionEvent(cTipBrowserDlg::kIdPushupBase + 1, nullptr, WE_PUSHDOWN);
     SUCCEED();
+}
+
+
+
+
+
+// === Canonical WINDOW_EVENT constants (C-Batch-2.68) ===
+
+TEST(CTipBrowserDlgTest, UsesCanonicalWindowEventConstants) {
+    EXPECT_EQ(cTipBrowserDlg::kWeBtnClick, mxh::ui::legacy_window_event::kButtonClick);
+    EXPECT_EQ(cTipBrowserDlg::kWePushDown, mxh::ui::legacy_window_event::kPushDown);
 }
 
 }  // namespace mxh::ui::test
