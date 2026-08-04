@@ -31,6 +31,7 @@
 //    always call Linking first.
 
 #include "skinselectdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include "cIconDialog.hpp"
 #include "cListDialog.hpp"
@@ -134,7 +135,7 @@ void cSkinSelectDialog::populatePreview() {
 bool cSkinSelectDialog::OnActionEvent(std::int32_t lId, void* /*p*/,
                                       std::uint32_t we) {
     // 1:1 with legacy: switch on we first, then switch on lId.
-    if (we == 0x00000010 /*WE_CLOSEWINDOW*/) {
+    if (we == legacy_window_event::kCloseWindow) {
         return true;
     }
     switch (lId) {

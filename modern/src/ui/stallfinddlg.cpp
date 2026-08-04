@@ -46,6 +46,7 @@
 //    side effects are stubbed.
 
 #include "stallfinddlg.hpp"
+#include "legacy_window_event.hpp"
 
 #include "cButton.hpp"
 #include "cComboBox.hpp"
@@ -402,7 +403,7 @@ void cStallFindDlg::OnActionEvent(std::int32_t lId, void* /*p*/,
     // the data-side state is preserved.
     switch (lId) {
     case ID_TYPECOMBO:
-        if (we == 0x00000100 /*WE_COMBOBOXSELECT*/) {
+        if (we == legacy_window_event::kComboBoxSelect) {
             // OnEventTypeCombo(lId, p, we); — engine-side stub
             // (the modern port doesn't do anything on type
             // combo change; the OnEventTypeCombo is a no-op
@@ -417,7 +418,7 @@ void cStallFindDlg::OnActionEvent(std::int32_t lId, void* /*p*/,
     case ID_ETC_DETAILCOMBO:
     case ID_ITEMMALL_DETAILCOMBO:
     case ID_TITAN_DETAILCOMBO:
-        if (we == 0x00000100 /*WE_COMBOBOXSELECT*/) {
+        if (we == legacy_window_event::kComboBoxSelect) {
             // OnEventDetailTypeCombo(lId, p, we);
         }
         break;

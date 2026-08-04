@@ -5,6 +5,7 @@
 // stubbed to no-op; the data-side state is preserved 1:1.
 
 #include "pklootingdialog.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 
 #include "cIconGridDialog.hpp"
 #include "cStatic.hpp"
@@ -198,7 +199,7 @@ TEST(CPKLootingDialog, OnActionEventCloseBtnSetsEnd) {
     mxh::ui::cPKLootingDialog d;
     d.Linking();
     d.InitPKLootDlg(1, 0, 0, 1);
-    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_BTN_CLOSE, nullptr, 0x20 /*WE_BTNCLICK*/);
+    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_BTN_CLOSE, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_TRUE(d.IsLootingEnd());
 }
 
@@ -206,7 +207,7 @@ TEST(CPKLootingDialog, OnActionEventCloseWindowSetsEnd) {
     mxh::ui::cPKLootingDialog d;
     d.Linking();
     d.InitPKLootDlg(1, 0, 0, 1);
-    d.OnActionEvent(0, nullptr, 0x10 /*WE_CLOSEWINDOW*/);
+    d.OnActionEvent(0, nullptr, mxh::ui::legacy_window_event::kCloseWindow);
     EXPECT_TRUE(d.IsLootingEnd());
 }
 
@@ -214,7 +215,7 @@ TEST(CPKLootingDialog, OnActionEventUnknownIdIsNoOp) {
     mxh::ui::cPKLootingDialog d;
     d.Linking();
     d.InitPKLootDlg(1, 0, 0, 1);
-    d.OnActionEvent(99, nullptr, 0x01 /*WE_LBTNCLICK*/);
+    d.OnActionEvent(99, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick);
     EXPECT_FALSE(d.IsLootingEnd());
     EXPECT_EQ(d.GetChance(), 1);  // not consumed
 }
@@ -229,7 +230,7 @@ TEST(CPKLootingDialog, OnActionEventLootCellClickDecrementsChance) {
     ASSERT_NE(grid, nullptr);
     grid->SetCurSelCellPos(0);
     // Click the loot cell.
-    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, 0x01 /*WE_LBTNCLICK*/);
+    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick);
     EXPECT_EQ(d.GetChance(), 0);
     EXPECT_TRUE(d.IsLootingEnd());
     EXPECT_TRUE(d.IsSelected(0));
@@ -244,19 +245,19 @@ TEST(CPKLootingDialog, OnActionEventLootCellDoubleClickIsNoOp) {
     auto* w = d.findWindowById(mxh::ui::cPKLootingDialog::ID_IGD_ITEM);
     auto* grid = dynamic_cast<mxh::ui::cIconGridDialog*>(w);
     grid->SetCurSelCellPos(3);
-    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, 0x01);
+    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick);
     EXPECT_EQ(d.GetChance(), 0);
     d.SetLootingEnd(false);  // un-end to retry
     d.SetMsgSync(false);
     // Re-trying: should be no-op (m_bSelected[3] is true).
-    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, 0x01);
+    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick);
     EXPECT_TRUE(d.IsSelected(3));
 }
 
 TEST(CPKLootingDialog, OnActionEventBeforeInitDoesNotCrash) {
     mxh::ui::cPKLootingDialog d;
     d.Linking();
-    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_BTN_CLOSE, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_BTN_CLOSE, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_TRUE(d.IsLootingEnd());
 }
 
@@ -270,7 +271,7 @@ TEST(CPKLootingDialog, OnActionEventWhenLootingEndIsNoOp) {
     grid->SetCurSelCellPos(0);
     // Loot click should be no-op when already ended.
     int chanceBefore = d.GetChance();
-    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, 0x01);
+    d.OnActionEvent(mxh::ui::cPKLootingDialog::ID_IGD_ITEM, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick);
     EXPECT_EQ(d.GetChance(), chanceBefore);
 }
 

@@ -8,6 +8,7 @@
 // preserved 1:1.
 
 #include "stallfinddlg.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 
 #include "cButton.hpp"
 #include "cComboBox.hpp"
@@ -363,13 +364,13 @@ TEST(CStallFindDlg, SetActiveToggleRoundTrip) {
 TEST(CStallFindDlg, OnActionEventUnknownIdIsNoOp) {
     mxh::ui::cStallFindDlg d;
     d.Linking();
-    d.OnActionEvent(999, nullptr, 0x01);
+    d.OnActionEvent(999, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick);
     EXPECT_EQ(d.GetCurrentPage(), -1);  // unchanged
 }
 
 TEST(CStallFindDlg, OnActionEventBeforeLinkingIsSafe) {
     mxh::ui::cStallFindDlg d;
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_TYPECOMBO, nullptr, 0x100);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_TYPECOMBO, nullptr, mxh::ui::legacy_window_event::kComboBoxSelect);
     SUCCEED();
 }
 
@@ -380,39 +381,39 @@ TEST(CStallFindDlg, OnActionEventTypeComboSelectIsNoOp) {
     // OnEventTypeCombo is a no-op stub (engine-side state).
     mxh::ui::cStallFindDlg d;
     d.Linking();
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_TYPECOMBO, nullptr, 0x100);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_TYPECOMBO, nullptr, mxh::ui::legacy_window_event::kComboBoxSelect);
     EXPECT_EQ(d.GetItemType(), 0);  // unchanged
 }
 
 TEST(CStallFindDlg, OnActionEventDetailComboSelectIsNoOp) {
     mxh::ui::cStallFindDlg d;
     d.Linking();
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_WEAPON_DETAILCOMBO, nullptr, 0x100);
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_TITAN_DETAILCOMBO, nullptr, 0x100);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_WEAPON_DETAILCOMBO, nullptr, mxh::ui::legacy_window_event::kComboBoxSelect);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_TITAN_DETAILCOMBO, nullptr, mxh::ui::legacy_window_event::kComboBoxSelect);
     EXPECT_EQ(d.GetItemDetailType(), 0);  // unchanged
 }
 
 TEST(CStallFindDlg, OnActionEventPageBtnsIsNoOp) {
     mxh::ui::cStallFindDlg d;
     d.Linking();
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTN1, nullptr, 0x20);
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTN5, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTN1, nullptr, mxh::ui::legacy_window_event::kButtonClick);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTN5, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     SUCCEED();
 }
 
 TEST(CStallFindDlg, OnActionEventPageUpDownIsNoOp) {
     mxh::ui::cStallFindDlg d;
     d.Linking();
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTNUP, nullptr, 0x20);
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTNDOWN, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTNUP, nullptr, mxh::ui::legacy_window_event::kButtonClick);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_RESULTPAGEBTNDOWN, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     SUCCEED();
 }
 
 TEST(CStallFindDlg, OnActionEventSellBuyModeIsNoOp) {
     mxh::ui::cStallFindDlg d;
     d.Linking();
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_PB_SELLMODE, nullptr, 0x20);
-    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_PB_BUYMODE, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_PB_SELLMODE, nullptr, mxh::ui::legacy_window_event::kButtonClick);
+    d.OnActionEvent(mxh::ui::cStallFindDlg::ID_PB_BUYMODE, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     SUCCEED();
 }
 

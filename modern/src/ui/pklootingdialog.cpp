@@ -38,6 +38,7 @@
 //    global mutable and keeps the timer state testable.
 
 #include "pklootingdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include "cIconGridDialog.hpp"
 #include "cStatic.hpp"
@@ -221,16 +222,16 @@ std::uint32_t cPKLootingDialog::ActionEvent(std::int32_t mouseX,
 void cPKLootingDialog::OnActionEvent(std::int32_t lId, void* p,
                                      std::uint32_t we) {
     (void)p;
-    if (we == 0x00000010 /*WE_CLOSEWINDOW*/) {
+    if (we == legacy_window_event::kCloseWindow) {
         // WE_CLOSEWINDOW is the legacy "X button" close event.
         setEndState();
         return;
     }
-    if (lId == ID_BTN_CLOSE && we == 0x00000020 /*WE_BTNCLICK*/) {
+    if (lId == ID_BTN_CLOSE && we == legacy_window_event::kButtonClick) {
         setEndState();
         return;
     }
-    if (lId == ID_IGD_ITEM && we == 0x00000001 /*WE_LBTNCLICK*/) {
+    if (lId == ID_IGD_ITEM && we == legacy_window_event::kLeftButtonClick) {
         if (IsLootingEnd()) return;
         if (m_nChance <= 0) return;
         if (m_nLootItemNum <= 0) return;

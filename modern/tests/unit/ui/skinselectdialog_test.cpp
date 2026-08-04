@@ -5,6 +5,7 @@
 // to no-op; the data-side state is preserved 1:1.
 
 #include "skinselectdialog.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 
 #include "cIconDialog.hpp"
 #include "cListDialog.hpp"
@@ -126,14 +127,14 @@ TEST(CSkinSelectDialog, SetActiveTrueDoesNotCrash) {
 TEST(CSkinSelectDialog, OnActionEventCloseWindowReturnsTrue) {
     mxh::ui::cSkinSelectDialog d;
     d.Linking();
-    EXPECT_TRUE(d.OnActionEvent(0, nullptr, 0x10 /*WE_CLOSEWINDOW*/));
+    EXPECT_TRUE(d.OnActionEvent(0, nullptr, mxh::ui::legacy_window_event::kCloseWindow));
 }
 
 TEST(CSkinSelectDialog, OnActionEventCancelSetsInactive) {
     mxh::ui::cSkinSelectDialog d;
     d.Linking();
     d.SetActive(true);
-    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_CANCEL, nullptr, 0x20 /*WE_BTNCLICK*/);
+    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_CANCEL, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_FALSE(d.isActive());
 }
 
@@ -143,7 +144,7 @@ TEST(CSkinSelectDialog, OnActionEventOkWithoutSelectIdxIsNoOp) {
     d.SetActive(true);
     d.SetSelectIdx(0);  // no selection
     d.SetSkinDelayResult(true);
-    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_OK, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_OK, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     // m_bSkinDelayResult unchanged (the engine-side check would
     // have rejected the OK).
     EXPECT_TRUE(d.IsSkinDelayResult());
@@ -155,7 +156,7 @@ TEST(CSkinSelectDialog, OnActionEventOkWithSelectIdxFlipsDelay) {
     d.SetActive(true);
     d.SetSelectIdx(3);
     d.SetSkinDelayResult(true);
-    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_OK, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_OK, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     // 1:1 with legacy: OK fires the network send, which is
     // preceded by HERO->CheckSkinDelay()==FALSE. Modern port
     // records the engine-side rejection by flipping the flag.
@@ -167,7 +168,7 @@ TEST(CSkinSelectDialog, OnActionEventRecoveryFlipsDelay) {
     d.Linking();
     d.SetActive(true);
     d.SetSkinDelayResult(true);
-    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_RECOVERY, nullptr, 0x20);
+    d.OnActionEvent(mxh::ui::cSkinSelectDialog::ID_RECOVERY, nullptr, mxh::ui::legacy_window_event::kButtonClick);
     EXPECT_FALSE(d.IsSkinDelayResult());
 }
 
@@ -175,7 +176,7 @@ TEST(CSkinSelectDialog, OnActionEventUnknownIdReturnsTrue) {
     mxh::ui::cSkinSelectDialog d;
     d.Linking();
     d.SetActive(true);
-    EXPECT_TRUE(d.OnActionEvent(99, nullptr, 0x01));
+    EXPECT_TRUE(d.OnActionEvent(99, nullptr, mxh::ui::legacy_window_event::kLeftButtonClick));
 }
 
 TEST(CSkinSelectDialog, ActionEventWithoutListIconIsSafe) {
