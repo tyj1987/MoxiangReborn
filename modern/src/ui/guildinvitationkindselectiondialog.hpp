@@ -90,6 +90,95 @@ public:
     // a no-op (no assert).
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
 
+    // ----- 1:1 with legacy CHATMGR message IDs -----
+
+    // 1:1 with legacy CHATMGR->GetChatMsg(38) --
+    //   "already in a guild" -- for when the
+    //   target player is already in a guild.
+    static constexpr std::int32_t kSysmsgAlreadyInGuild = 38;
+
+    // 1:1 with legacy CHATMGR->GetChatMsg(1368) --
+    //   "guild level too low for student invite"
+    //   (gates STUDENT branch when the player
+    //   guild is below level 5).
+    static constexpr std::int32_t kSysmsgGuildLevelTooLow = 1368;
+
+    // 1:1 with legacy GUILD_5LEVEL (5-level
+    // minimum for student invites).
+    static constexpr std::uint8_t kGuildStudentMinLevel = 5;
+
+    // 1:1 with legacy eObjectKind_Player. The
+    // modern port drops the legacy CObject /
+    // CPlayer hierarchy (R-12.x deferred) and
+    // instead asks the host whether the
+    // selected object is a player.
+    static constexpr std::int32_t kObjectKindPlayer = 1;
+
+    // ----- Host callback signatures -----
+
+    // 1:1 with legacy
+    //   OBJECTMGR->GetSelectedObject()->GetID()
+    // Returns the selected object id, or 0 when
+    // no object is selected.
+    using GetSelectedObjectIdFn = std::uint32_t (*)(void* userData);
+
+    // 1:1 with legacy
+    //   OBJECTMGR->GetSelectedObject()
+    //     ->GetObjectKind() == eObjectKind_Player
+    // Returns true when the selected object is a
+    // player (1:1 with kObjectKindPlayer).
+    using IsSelectedObjectPlayerFn = bool (*)(void* userData);
+
+    // 1:1 with legacy
+    //   ((CPlayer*)targetObj)->GetGuildIdx()
+    // Returns the selected player guild idx,
+    // or 0 when no guild.
+    using GetSelectedObjectGuildIdxFn = std::uint32_t (*)(void* userData);
+
+    // 1:1 with legacy
+    //   ((CPlayer*)targetObj)->GetLevel()
+    // Returns the selected player level (used by
+    // STUDENT branch AddStudentSyn payload).
+    using GetSelectedObjectLevelFn = std::uint16_t (*)(void* userData);
+
+    // 1:1 with legacy GUILDMGR->GetLevel().
+    using GetGuildLevelFn = std::uint8_t (*)(void* userData);
+
+    // 1:1 with legacy CHATMGR->GetChatMsg(id).
+    using GetChatMessageFn = const char* (*)(std::int32_t msgId, void* userData);
+
+    // 1:1 with legacy
+    //   CHATMGR->AddMsg(CTC_SYSMSG, text)
+    // Modern port drops the CTC_SYSMSG tag
+    // parameter and folds it into the
+    // dispatch -- the host knows it is a system
+    // message (matches the legacy 2-arg form).
+    using AddSystemMessageFn = void (*)(const char* text, void* userData);
+
+    // 1:1 with legacy
+    //   GUILDMGR->AddMemberSyn(targetObj->GetID())
+    using AddMemberSynFn = void (*)(std::uint32_t targetId, void* userData);
+
+    // 1:1 with legacy
+    //   GUILDMGR->AddStudentSyn(targetObj->GetID(),
+    //                           targetObj->GetLevel())
+    using AddStudentSynFn = void (*)(std::uint32_t targetId, std::uint16_t level, void* userData);
+
+    // Install host callbacks. A null callback falls
+    // through to the legacy no-op branch (no
+    // dispatch). Pass nullptr to clear all.
+    void SetCallbacks(
+        GetSelectedObjectIdFn        getSelectedObjectId,
+        IsSelectedObjectPlayerFn     isSelectedObjectPlayer,
+        GetSelectedObjectGuildIdxFn  getSelectedObjectGuildIdx,
+        GetSelectedObjectLevelFn     getSelectedObjectLevel,
+        GetGuildLevelFn              getGuildLevel,
+        GetChatMessageFn             getChatMessage,
+        AddSystemMessageFn           addSystemMessage,
+        AddMemberSynFn               addMemberSyn,
+        AddStudentSynFn              addStudentSyn,
+        void*                        userData = nullptr) noexcept;
+
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
 
     // 1:1 with legacy WindowIDs.h WINDOW_ID values
@@ -99,6 +188,73 @@ public:
     static constexpr std::int32_t kIdCancelBtn = 370;
     static constexpr std::int32_t kIdMemberBtn = 371;
     static constexpr std::int32_t kIdStudentBtn = 372;
+
+    // ----- Test-only accessors -----
+
+    // Returns the m_getChatMessage callback
+    // pointer (used by the cpp-internal
+    // GIK_ResolveChatMessage helper).
+    GetChatMessageFn GetChatMessageForTest() const noexcept {
+        return m_getChatMessage;
+    }
+
+    // Returns the m_callbackUserData pointer
+    // so the cpp helper can pass it to the
+    // GetChatMessage callback.
+    void* GetCallbackUserDataForTest() const noexcept {
+        return m_callbackUserData;
+    }
+
+    // Direct setter (test only) -- lets each
+    // test install one callback at a time
+    // without re-typing the full SetCallbacks
+    // 9-callback signature.
+    void SetMemberSynCallbackForTest(AddMemberSynFn fn) noexcept {
+        m_addMemberSyn = fn;
+    }
+    void SetStudentSynCallbackForTest(AddStudentSynFn fn) noexcept {
+        m_addStudentSyn = fn;
+    }
+    void SetSystemMessageCallbackForTest(AddSystemMessageFn fn) noexcept {
+        m_addSystemMessage = fn;
+    }
+    void SetChatMessageCallbackForTest(GetChatMessageFn fn) noexcept {
+        m_getChatMessage = fn;
+    }
+    void SetGetGuildLevelCallbackForTest(GetGuildLevelFn fn) noexcept {
+        m_getGuildLevel = fn;
+    }
+    void SetGetSelectedObjectIdCallbackForTest(GetSelectedObjectIdFn fn) noexcept {
+        m_getSelectedObjectId = fn;
+    }
+    void SetIsSelectedObjectPlayerCallbackForTest(IsSelectedObjectPlayerFn fn) noexcept {
+        m_isSelectedObjectPlayer = fn;
+    }
+    void SetGetSelectedObjectGuildIdxCallbackForTest(GetSelectedObjectGuildIdxFn fn) noexcept {
+        m_getSelectedObjectGuildIdx = fn;
+    }
+    void SetGetSelectedObjectLevelCallbackForTest(GetSelectedObjectLevelFn fn) noexcept {
+        m_getSelectedObjectLevel = fn;
+    }
+    void SetCallbackUserDataForTest(void* userData) noexcept {
+        m_callbackUserData = userData;
+    }
+
+private:
+    // 1:1 host callback pointers (replaces
+    // OBJECTMGR + GUILDMGR + CHATMGR globals,
+    // R-12.x deferred).
+    GetSelectedObjectIdFn        m_getSelectedObjectId        = nullptr;
+    IsSelectedObjectPlayerFn     m_isSelectedObjectPlayer     = nullptr;
+    GetSelectedObjectGuildIdxFn  m_getSelectedObjectGuildIdx  = nullptr;
+    GetSelectedObjectLevelFn     m_getSelectedObjectLevel     = nullptr;
+    GetGuildLevelFn              m_getGuildLevel              = nullptr;
+    GetChatMessageFn             m_getChatMessage             = nullptr;
+    AddSystemMessageFn           m_addSystemMessage           = nullptr;
+    AddMemberSynFn               m_addMemberSyn               = nullptr;
+    AddStudentSynFn              m_addStudentSyn              = nullptr;
+    void*                        m_callbackUserData           = nullptr;
+
 };
 
 }  // namespace mxh::ui
