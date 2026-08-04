@@ -29,12 +29,10 @@
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve cEditBox child by id.
 //   - SetItemInfo: REAL inline setter.
-//   - SendShoutMsgSyn: TODO (4-singleton: CHATMGR
-//     + FILTERTABLE + HERO + NETWORK not ported,
-//     R-12.x deferred). The 1:1 contract is
-//     preserved: returns bool, early return on
-//     empty/filtered, sends network message on
-//     success.
+//   - SendShoutMsgSyn: REAL through optional host
+//     callbacks, preserving edit clearing, filtering,
+//     message formatting, WORD casts, send, close,
+//     item-state reset, and return values.
 //   - 2 state fields: m_dwItemIdx + m_dwItemPos
 //     (1:1 with legacy).
 //
@@ -49,6 +47,7 @@
 
 #include "cdialog.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace mxh::ui {
@@ -74,13 +73,26 @@ public:
 
     // ----- 1:1 with legacy CShoutDialog::SendShoutMsgSyn -----
 
-    // 1:1 with legacy SendShoutMsgSyn. Returns
-    // false on empty message or filtered message,
-    // true on success. The whole method is TODO
-    // (4-singleton: CHATMGR + FILTERTABLE + HERO +
-    // NETWORK not ported, R-12.x deferred). When
-    // the singletons are ported, the body becomes
-    // the legacy code.
+    using AddSystemMessageFn = void (*)(std::int32_t messageId,
+                                          void* userData);
+    using FilterChatFn = bool (*)(const char* message, void* userData);
+    using GetHeroNameFn = const char* (*)(void* userData);
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using SendShoutFn = void (*)(std::uint32_t objectId,
+                                 std::uint16_t itemIdx,
+                                 std::uint16_t itemPos,
+                                 const char* message,
+                                 void* userData);
+
+    void SetCallbacks(AddSystemMessageFn addSystemMessage,
+                      FilterChatFn filterChat,
+                      GetHeroNameFn getHeroName,
+                      GetHeroObjectIdFn getHeroObjectId,
+                      SendShoutFn sendShout,
+                      void* userData = nullptr) noexcept;
+
+    // Returns false on empty/filtered/missing-host
+    // paths and true after sending and closing.
     bool SendShoutMsgSyn();
 
     // ----- 1:1 with legacy CShoutDialog::GetItemIdx -----
@@ -97,8 +109,18 @@ public:
     // (CHA_MSG). Local 410 — distinct from 200-401
     // used by previous Tier 2 dialogs.
     static constexpr std::int32_t kIdMsgBox = 410;
+    static constexpr std::size_t kMaxShoutLength = 60;
+    static constexpr std::int32_t kEmptyMessageId = 903;
+    static constexpr std::int32_t kFilteredMessageId = 27;
 
 private:
+    AddSystemMessageFn m_addSystemMessage = nullptr;
+    FilterChatFn m_filterChat = nullptr;
+    GetHeroNameFn m_getHeroName = nullptr;
+    GetHeroObjectIdFn m_getHeroObjectId = nullptr;
+    SendShoutFn m_sendShout = nullptr;
+    void* m_callbackUserData = nullptr;
+
     // 1:1 with legacy m_pMsgBox (resolved in
     // Linking by CHA_MSG id).
     cEditBox* m_pMsgBox = nullptr;

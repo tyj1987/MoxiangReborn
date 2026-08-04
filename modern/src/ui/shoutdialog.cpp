@@ -5,6 +5,8 @@
 #include "shoutdialog.hpp"
 #include "ceditbox.hpp"
 
+#include <cstdio>
+
 namespace mxh::ui {
 
 cShoutDialog::cShoutDialog() {
@@ -35,41 +37,56 @@ void cShoutDialog::SetItemInfo(std::uint32_t itemIdx, std::uint32_t itemPos) noe
     m_dwItemPos = itemPos;
 }
 
+void cShoutDialog::SetCallbacks(
+    AddSystemMessageFn addSystemMessage,
+    FilterChatFn filterChat,
+    GetHeroNameFn getHeroName,
+    GetHeroObjectIdFn getHeroObjectId,
+    SendShoutFn sendShout,
+    void* userData) noexcept {
+    m_addSystemMessage = addSystemMessage;
+    m_filterChat = filterChat;
+    m_getHeroName = getHeroName;
+    m_getHeroObjectId = getHeroObjectId;
+    m_sendShout = sendShout;
+    m_callbackUserData = userData;
+}
+
 bool cShoutDialog::SendShoutMsgSyn() {
-    // 1:1 with legacy CShoutDialog::SendShoutMsgSyn.
-    // The legacy is:
-    //   char buf[MAX_SHOUT_LENGTH+1] = {0,};
-    //   strcpy(buf, m_pMsgBox->GetEditText());
-    //   if (strlen(buf) == 0) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(903));
-    //     return FALSE;
-    //   }
-    //   m_pMsgBox->SetEditText("");
-    //   if (FILTERTABLE->FilterChat(buf)) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(27));
-    //     return FALSE;
-    //   }
-    //   SEND_SHOUTBASE_ITEMINFO msg;
-    //   sprintf(msg.Msg, "%s : %s", HERO->GetObjectName(), buf);
-    //   msg.Category = MP_ITEM;
-    //   msg.Protocol = MP_ITEM_SHOPITEM_SHOUT_SYN;
-    //   msg.dwObjectID = HERO->GetID();
-    //   msg.ItemIdx = (WORD)m_dwItemIdx;
-    //   msg.ItemPos = (WORD)m_dwItemPos;
-    //   NETWORK->Send(&msg, sizeof(msg));
-    //   SetActive(FALSE);
-    //   m_dwItemIdx = m_dwItemPos = 0;
-    //   return TRUE;
-    //
-    // The modern port: the whole method is TODO
-    // (4-singleton: CHATMGR + FILTERTABLE + HERO +
-    // NETWORK not ported, R-12.x deferred). Returns
-    // false (matching the legacy "early return on
-    // empty" path as a safe no-op while the
-    // singletons are unported). When the singletons
-    // are ported, the body becomes the legacy code.
-    // TODO: 4-singleton dispatch (R-12.x deferred).
-    return false;
+    if (!m_pMsgBox) return false;
+
+    const std::string message = m_pMsgBox->editText();
+    if (message.empty()) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kEmptyMessageId, m_callbackUserData);
+        }
+        return false;
+    }
+
+    m_pMsgBox->SetEditText("");
+    if (m_filterChat && m_filterChat(message.c_str(), m_callbackUserData)) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kFilteredMessageId, m_callbackUserData);
+        }
+        return false;
+    }
+    if (!m_getHeroName || !m_getHeroObjectId || !m_sendShout) return false;
+
+    const char* heroName = m_getHeroName(m_callbackUserData);
+    if (!heroName) return false;
+
+    char formatted[kMaxShoutLength + 1]{};
+    std::snprintf(formatted, sizeof(formatted), "%s : %s",
+                  heroName, message.c_str());
+    m_sendShout(m_getHeroObjectId(m_callbackUserData),
+                static_cast<std::uint16_t>(m_dwItemIdx),
+                static_cast<std::uint16_t>(m_dwItemPos),
+                formatted, m_callbackUserData);
+
+    SetActive(false);
+    m_dwItemIdx = 0;
+    m_dwItemPos = 0;
+    return true;
 }
 
 }  // namespace mxh::ui

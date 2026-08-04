@@ -1430,10 +1430,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutDialogTest.SetItemInfoRoundTrip
     CShoutDialogTest.SetItemInfoOverridesPrevious
     CShoutDialogTest.SetItemInfoZeroIsValid
-    CShoutDialogTest.SendShoutMsgSynReturnsFalseUntilSingletonsPorted
-    CShoutDialogTest.SendShoutMsgSynDoesNotChangeState
+    CShoutDialogTest.LegacyConstantsMatchSource
+    CShoutDialogTest.EmptyMessageShows903WithoutClearingItemState
+    CShoutDialogTest.NonEmptyMessageClearsEditBeforeFilterFailure
+    CShoutDialogTest.SuccessFormatsMessageSendsAndResetsState
+    CShoutDialogTest.SuccessTruncatesItemFieldsToLegacyWord
+    CShoutDialogTest.FormattedMessageIsBoundedToLegacyBuffer
+    CShoutDialogTest.MissingSendCallbackReturnsFalseAfterClearingEdit
+    CShoutDialogTest.SetCallbacksReplacesExistingDispatch
     CShoutDialogTest.SendShoutMsgSynWithoutLinkIsSafe
-    CShoutDialogTest.SendShoutMsgSynBeforeInitDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
 

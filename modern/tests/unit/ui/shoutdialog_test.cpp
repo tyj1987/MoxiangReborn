@@ -18,11 +18,9 @@
 //     null (SendShoutMsgSyn is safe).
 //   - Linking before Init does not crash.
 //   - SetItemInfo round-trip (item idx + pos).
-//   - SendShoutMsgSyn returns false (TODO: 4-singleton
-//     dispatch CHATMGR + FILTERTABLE + HERO + NETWORK,
-//     R-12.x deferred). The 1:1 contract is preserved:
-//     returns bool, false matches the legacy
-//     "early return on empty" safe no-op path.
+//   - SendShoutMsgSyn preserves the legacy empty,
+//     filtered, successful-send, and reset paths via
+//     optional host callbacks.
 //   - SendShoutMsgSyn without Linking is safe.
 //   - SendShoutMsgSyn before Init is safe.
 //
@@ -34,10 +32,8 @@
 //     m_dwItemIdx = m_dwItemPos = 0 init).
 //   - SetItemInfo inline setter (1:1 with legacy
 //     inline setter).
-//   - SendShoutMsgSyn is TODO (4-singleton
-//     dispatch, R-12.x deferred). Returns false
-//     matching the legacy "early return on empty"
-//     safe no-op path.
+//   - SendShoutMsgSyn keeps the legacy callback
+//     ordering, formatting, WORD casts, and resets.
 //   - Local id range 410 (distinct from 200-401
 //     used by previous Tier 2 dialogs; no
 //     collision).
@@ -147,64 +143,210 @@ TEST(CShoutDialogTest, SetItemInfoZeroIsValid) {
 // SendShoutMsgSyn
 // ===========================================================================
 
-TEST(CShoutDialogTest, SendShoutMsgSynReturnsFalseUntilSingletonsPorted) {
-    // 1:1 with legacy contract: returns false on
-    // early return (empty / filtered / network
-    // failure). Modern port returns false as a
-    // safe no-op while the 4 singletons
-    // (CHATMGR + FILTERTABLE + HERO + NETWORK)
-    // are unported. When ported, the body becomes
-    // the legacy code (returns true on success,
-    // false on empty/filtered).
-    cShoutDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
+namespace {
 
+struct ShoutChildren {
+    cEditBox* edit = nullptr;
+};
+
+void BuildShoutDialog(cShoutDialog& dlg, ShoutChildren& children) {
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
     auto edit = std::make_unique<cEditBox>();
     edit->Init(0, 0, 200, 14, nullptr, nullptr, cShoutDialog::kIdMsgBox);
-    edit->InitEditbox(50, 64);
+    edit->InitEditbox(100, 128);
+    children.edit = edit.get();
     dlg.Add(std::unique_ptr<cWindow>(edit.release()));
     dlg.Linking();
-    dlg.SetItemInfo(42u, 100u);
-
-    EXPECT_FALSE(dlg.SendShoutMsgSyn());
 }
 
-TEST(CShoutDialogTest, SendShoutMsgSynDoesNotChangeState) {
-    // The modern port does not execute the legacy
-    // state-mutation (SetActive(false) +
-    // m_dwItemIdx/Pos = 0) because the method
-    // returns false at the TODO marker. Item idx
-    // + pos are preserved.
+struct ShoutCallbackState {
+    bool filtered = false;
+    std::string heroName = "Hero";
+    std::uint32_t heroObjectId = 77;
+    int messageCalls = 0;
+    std::int32_t lastMessageId = 0;
+    int filterCalls = 0;
+    std::string filteredText;
+    int sendCalls = 0;
+    std::uint32_t sentObjectId = 0;
+    std::uint16_t sentItemIdx = 0;
+    std::uint16_t sentItemPos = 0;
+    std::string sentMessage;
+};
+
+void AddShoutSystemMessage(std::int32_t messageId, void* userData) {
+    auto& state = *static_cast<ShoutCallbackState*>(userData);
+    ++state.messageCalls;
+    state.lastMessageId = messageId;
+}
+
+bool FilterShoutChat(const char* message, void* userData) {
+    auto& state = *static_cast<ShoutCallbackState*>(userData);
+    ++state.filterCalls;
+    state.filteredText = message ? message : "";
+    return state.filtered;
+}
+
+const char* GetShoutHeroName(void* userData) {
+    return static_cast<ShoutCallbackState*>(userData)->heroName.c_str();
+}
+
+std::uint32_t GetShoutHeroObjectId(void* userData) {
+    return static_cast<ShoutCallbackState*>(userData)->heroObjectId;
+}
+
+void SendShout(std::uint32_t objectId, std::uint16_t itemIdx,
+               std::uint16_t itemPos, const char* message, void* userData) {
+    auto& state = *static_cast<ShoutCallbackState*>(userData);
+    ++state.sendCalls;
+    state.sentObjectId = objectId;
+    state.sentItemIdx = itemIdx;
+    state.sentItemPos = itemPos;
+    state.sentMessage = message ? message : "";
+}
+
+void InstallShoutCallbacks(cShoutDialog& dlg, ShoutCallbackState& state) {
+    dlg.SetCallbacks(AddShoutSystemMessage, FilterShoutChat,
+                     GetShoutHeroName, GetShoutHeroObjectId,
+                     SendShout, &state);
+}
+
+}  // namespace
+
+TEST(CShoutDialogTest, LegacyConstantsMatchSource) {
+    EXPECT_EQ(cShoutDialog::kMaxShoutLength, 60u);
+    EXPECT_EQ(cShoutDialog::kEmptyMessageId, 903);
+    EXPECT_EQ(cShoutDialog::kFilteredMessageId, 27);
+}
+
+TEST(CShoutDialogTest, EmptyMessageShows903WithoutClearingItemState) {
     cShoutDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState state;
+    InstallShoutCallbacks(dlg, state);
+    dlg.SetItemInfo(42, 100);
 
-    auto edit = std::make_unique<cEditBox>();
-    edit->Init(0, 0, 200, 14, nullptr, nullptr, cShoutDialog::kIdMsgBox);
-    edit->InitEditbox(50, 64);
-    dlg.Add(std::unique_ptr<cWindow>(edit.release()));
-    dlg.Linking();
-    dlg.SetItemInfo(42u, 100u);
+    EXPECT_FALSE(dlg.SendShoutMsgSyn());
 
-    dlg.SendShoutMsgSyn();
-    // State preserved (legacy would reset to 0
-    // on success, but modern returns false at
-    // the TODO marker).
+    EXPECT_EQ(state.lastMessageId, 903);
+    EXPECT_EQ(state.filterCalls, 0);
     EXPECT_EQ(dlg.GetItemIdx(), 42u);
     EXPECT_EQ(dlg.GetItemPos(), 100u);
 }
 
-TEST(CShoutDialogTest, SendShoutMsgSynWithoutLinkIsSafe) {
+TEST(CShoutDialogTest, NonEmptyMessageClearsEditBeforeFilterFailure) {
     cShoutDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
-    dlg.SetItemInfo(1u, 2u);
-    // SendShoutMsgSyn without m_pMsgBox is safe.
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState state;
+    state.filtered = true;
+    InstallShoutCallbacks(dlg, state);
+    dlg.SetItemInfo(42, 100);
+    children.edit->SetEditText("blocked shout");
+
     EXPECT_FALSE(dlg.SendShoutMsgSyn());
+
+    EXPECT_TRUE(children.edit->editText().empty());
+    EXPECT_EQ(state.filteredText, "blocked shout");
+    EXPECT_EQ(state.lastMessageId, 27);
+    EXPECT_EQ(state.sendCalls, 0);
+    EXPECT_EQ(dlg.GetItemIdx(), 42u);
+    EXPECT_EQ(dlg.GetItemPos(), 100u);
 }
 
-TEST(CShoutDialogTest, SendShoutMsgSynBeforeInitDoesNotCrash) {
+TEST(CShoutDialogTest, SuccessFormatsMessageSendsAndResetsState) {
     cShoutDialog dlg;
-    dlg.SendShoutMsgSyn();
-    SUCCEED();
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState state;
+    InstallShoutCallbacks(dlg, state);
+    dlg.SetItemInfo(42, 100);
+    dlg.SetActive(true);
+    children.edit->SetEditText("hello world");
+
+    EXPECT_TRUE(dlg.SendShoutMsgSyn());
+
+    EXPECT_EQ(state.sendCalls, 1);
+    EXPECT_EQ(state.sentObjectId, 77u);
+    EXPECT_EQ(state.sentItemIdx, 42u);
+    EXPECT_EQ(state.sentItemPos, 100u);
+    EXPECT_EQ(state.sentMessage, "Hero : hello world");
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(dlg.GetItemIdx(), 0u);
+    EXPECT_EQ(dlg.GetItemPos(), 0u);
+}
+
+TEST(CShoutDialogTest, SuccessTruncatesItemFieldsToLegacyWord) {
+    cShoutDialog dlg;
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState state;
+    InstallShoutCallbacks(dlg, state);
+    dlg.SetItemInfo(0x12345u, 0x23456u);
+    children.edit->SetEditText("hello");
+
+    EXPECT_TRUE(dlg.SendShoutMsgSyn());
+
+    EXPECT_EQ(state.sentItemIdx, 0x2345u);
+    EXPECT_EQ(state.sentItemPos, 0x3456u);
+}
+
+TEST(CShoutDialogTest, FormattedMessageIsBoundedToLegacyBuffer) {
+    cShoutDialog dlg;
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState state;
+    state.heroName = "VeryLongHeroName";
+    InstallShoutCallbacks(dlg, state);
+    children.edit->SetEditText(std::string(60, 'x'));
+
+    EXPECT_TRUE(dlg.SendShoutMsgSyn());
+
+    EXPECT_LE(state.sentMessage.size(), cShoutDialog::kMaxShoutLength);
+    EXPECT_EQ(state.sentMessage.substr(0, 19), "VeryLongHeroName : ");
+}
+
+TEST(CShoutDialogTest, MissingSendCallbackReturnsFalseAfterClearingEdit) {
+    cShoutDialog dlg;
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState state;
+    dlg.SetCallbacks(AddShoutSystemMessage, FilterShoutChat,
+                     GetShoutHeroName, GetShoutHeroObjectId,
+                     nullptr, &state);
+    dlg.SetItemInfo(4, 5);
+    children.edit->SetEditText("hello");
+
+    EXPECT_FALSE(dlg.SendShoutMsgSyn());
+
+    EXPECT_TRUE(children.edit->editText().empty());
+    EXPECT_EQ(dlg.GetItemIdx(), 4u);
+    EXPECT_EQ(dlg.GetItemPos(), 5u);
+}
+
+TEST(CShoutDialogTest, SetCallbacksReplacesExistingDispatch) {
+    cShoutDialog dlg;
+    ShoutChildren children;
+    BuildShoutDialog(dlg, children);
+    ShoutCallbackState firstState;
+    ShoutCallbackState secondState;
+    InstallShoutCallbacks(dlg, firstState);
+    InstallShoutCallbacks(dlg, secondState);
+    children.edit->SetEditText("hello");
+
+    EXPECT_TRUE(dlg.SendShoutMsgSyn());
+
+    EXPECT_EQ(firstState.sendCalls, 0);
+    EXPECT_EQ(secondState.sendCalls, 1);
+}
+
+TEST(CShoutDialogTest, SendShoutMsgSynWithoutLinkIsSafe) {
+    cShoutDialog dlg;
+    dlg.SetItemInfo(1u, 2u);
+    EXPECT_FALSE(dlg.SendShoutMsgSyn());
+    EXPECT_EQ(dlg.GetItemIdx(), 1u);
+    EXPECT_EQ(dlg.GetItemPos(), 2u);
 }
 
 }  // namespace mxh::ui::test
