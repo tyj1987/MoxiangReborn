@@ -40,6 +40,12 @@ void cFWEngraveDialog::SetChatMessageFn(
     m_getChatMsgFn = getChatMsg;
     m_chatUserData = userData;
 }
+void cFWEngraveDialog::SetFwEngraveCancelCallback(
+    SendEngraveCancelFn sendEngraveCancel, void* userData) noexcept {
+    m_sendEngraveCancelFn = sendEngraveCancel;
+    m_callbackUserData = userData;
+}
+
 
 void cFWEngraveDialog::Linking() {
     // 1:1 with legacy: cStatic + CObjectGuagen (modern cGuagen subclass).
@@ -120,11 +126,18 @@ void cFWEngraveDialog::OnActionEvent(std::int32_t lId, void* p, std::uint32_t we
     //   msg.dwObjectID = HEROID;
     //   NETWORK->Send(&msg, sizeof(msg));
     // All four singletons (HERO + NETWORK + MP_FORTWAR*) are unported.
-    // 1:1 with legacy: only FW_ENGRAVECANCEL id is dispatched. The
-    // legacy class hardcodes the id; modern port keeps the same hardcode
-    // so a future port can wire it up. R-12.x deferred.
-    (void)lId; (void)p; (void)we;
+    // 1:1 with legacy: only FW_ENGRAVECANCEL id is dispatched when
+    // (we & WE_BTNCLICK) is set. The legacy class hardcodes the id; modern port
+    // keeps the same hardcode so the host callback (NETWORK->Send) is dispatched
+    // only for the cancel-id + btnclick flag combination. R-12.x deferred.
+    if ((we & kWeBtnClick) && (lId == kEngraveCancelId)) {
+        if (m_sendEngraveCancelFn) {
+            m_sendEngraveCancelFn(m_callbackUserData);
+        }
+    }
+    (void)p;
 }
+
 
 void cFWEngraveDialog::SetActiveWithTime(bool val, std::uint32_t dwTime) {
     if (val) {

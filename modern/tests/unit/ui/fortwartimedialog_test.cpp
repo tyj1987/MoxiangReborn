@@ -51,7 +51,17 @@ struct ChatCapture {
     }
 };
 
+
+// Captures every send-engrave-cancel dispatch.
+struct EngraveHostCalls {
+    int callCount = 0;
+    static void SendEngraveCancel(void* userData) {
+        auto* self = static_cast<EngraveHostCalls*>(userData);
+        ++self->callCount;
+    }
+};
 }  // namespace
+
 
 // ===========================================================================
 // cFWEngraveDialog
@@ -161,15 +171,104 @@ TEST(CFWEngraveDialog, ActionEventOnEnabledDialogDelegatesToBase) {
 // OnActionEvent
 // ---------------------------------------------------------------------------
 
-TEST(CFWEngraveDialog, OnActionEventIsNoOp) {
+// New tests for OnActionEvent host dispatch
+
+TEST(CFWEngraveDialog, SendEngraveCancelCallbackInitiallyNull) {
     auto d = MakeEngrave();
-    d->Linking();
-    d->OnActionEvent(999, nullptr, 0x4);  // bogus id + WE_BTNCLICK
-    SUCCEED();  // body is stubbed, just must not crash
+    EXPECT_EQ(d->GetSendEngraveCancelForTest(), nullptr);
+    EXPECT_EQ(d->GetCallbackUserDataForTest(), nullptr);
+    EXPECT_EQ(d->GetEngraveCancelIdForTest(), 784);
+    EXPECT_EQ(d->GetWeBtnClickForTest(), 0x0001u);
 }
 
-// ===========================================================================
+TEST(CFWEngraveDialog, SetFwEngraveCancelCallbackStoresPointer) {
+    auto d = MakeEngrave();
+    EngraveHostCalls hc;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc);
+    EXPECT_EQ(d->GetSendEngraveCancelForTest(), &EngraveHostCalls::SendEngraveCancel);
+    EXPECT_EQ(d->GetCallbackUserDataForTest(), &hc);
+}
+
+TEST(CFWEngraveDialog, SetFwEngraveCancelCallbackReplaces) {
+    auto d = MakeEngrave();
+    EngraveHostCalls hc1;
+    EngraveHostCalls hc2;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc1);
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc2);
+    EXPECT_EQ(d->GetCallbackUserDataForTest(), &hc2);
+}
+
+TEST(CFWEngraveDialog, SetFwEngraveCancelCallbackWithNullFnClears) {
+    auto d = MakeEngrave();
+    EngraveHostCalls hc;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc);
+    d->SetFwEngraveCancelCallback(nullptr, nullptr);
+    EXPECT_EQ(d->GetSendEngraveCancelForTest(), nullptr);
+    EXPECT_EQ(d->GetCallbackUserDataForTest(), nullptr);
+}
+
+
+// ============================================================================
+// cFWEngraveDialog -- OnActionEvent host dispatch
+// ============================================================================
+
+TEST(CFWEngraveDialog, OnActionEventWithoutCallbackIsNoOp) {
+    auto d = MakeEngrave();
+    d->Linking();
+    // No callback installed; must not crash.
+    d->OnActionEvent(d->GetEngraveCancelIdForTest(), nullptr, d->GetWeBtnClickForTest());
+    SUCCEED();
+}
+
+TEST(CFWEngraveDialog, OnActionEventWithoutBtnClickFlagIsNoOp) {
+    auto d = MakeEngrave();
+    d->Linking();
+    EngraveHostCalls hc;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc);
+    // we=0 (no WE_BTNCLICK); even with lId == kEngraveCancelId, no dispatch.
+    d->OnActionEvent(d->GetEngraveCancelIdForTest(), nullptr, 0);
+    EXPECT_EQ(hc.callCount, 0);
+}
+
+TEST(CFWEngraveDialog, OnActionEventWithWrongIdIsNoOp) {
+    auto d = MakeEngrave();
+    d->Linking();
+    EngraveHostCalls hc;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc);
+    // we=WE_BTNCLICK but lId != kEngraveCancelId; no dispatch.
+    d->OnActionEvent(999, nullptr, d->GetWeBtnClickForTest());
+    EXPECT_EQ(hc.callCount, 0);
+}
+
+TEST(CFWEngraveDialog, OnActionEventFwEngraveCancelDispatchesCallback) {
+    auto d = MakeEngrave();
+    d->Linking();
+    EngraveHostCalls hc;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc);
+    // we=WE_BTNCLICK + lId=kEngraveCancelId -> dispatch.
+    d->OnActionEvent(d->GetEngraveCancelIdForTest(), nullptr, d->GetWeBtnClickForTest());
+    EXPECT_EQ(hc.callCount, 1);
+    // Replaces check: set null callback, dispatch again -- no inc.
+    d->SetFwEngraveCancelCallback(nullptr, nullptr);
+    d->OnActionEvent(d->GetEngraveCancelIdForTest(), nullptr, d->GetWeBtnClickForTest());
+    EXPECT_EQ(hc.callCount, 1);
+}
+
+TEST(CFWEngraveDialog, OnActionEventFwEngraveCancelWithExtraFlagsStillDispatches) {
+    auto d = MakeEngrave();
+    d->Linking();
+    EngraveHostCalls hc;
+    d->SetFwEngraveCancelCallback(&EngraveHostCalls::SendEngraveCancel, &hc);
+    // Legacy 1:1: legacy guard is (we & WE_BTNCLICK) -- any extra flags are
+    // ignored. Modern port keeps the same semantics.
+    const std::uint32_t we = d->GetWeBtnClickForTest() | 0x100u | 0x200u;
+    d->OnActionEvent(d->GetEngraveCancelIdForTest(), nullptr, we);
+    EXPECT_EQ(hc.callCount, 1);
+}
+
+// ============================================================================
 // cFWTimeDialog
+
 // ===========================================================================
 
 // ---------------------------------------------------------------------------

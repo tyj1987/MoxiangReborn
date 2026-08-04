@@ -42,11 +42,27 @@ using FwChatMsgFn = const char* (*)(int msgId, void* userData);
 // ---------------------------------------------------------------------------
 // CFWEngraveDialog — engrave-in-progress bar
 // ---------------------------------------------------------------------------
+
+// 1:1 with legacy OnActionEvent FW_ENGRAVECANCEL dispatch.
+// Modern port routes the entire NETWORK->Send through this host
+// callback (HERO + NETWORK + MP_FORTWAR singletons unported, R-12.x
+// deferred). A null callback preserves the safe no-op fallback.
+using SendEngraveCancelFn = void (*)(void* userData);
 class cFWEngraveDialog : public cDialog {
 public:
     // Local id range 1:1 with legacy FW_* enum (rebased to 780..781).
     static constexpr int kIdEngraveGuage  = 780;
     static constexpr int kIdRemaintimeText = 781;
+
+    // 1:1 with legacy WindowIDs.h FW_ENGRAVECANCEL. Local 784
+    // - distinct from 780..783 used by the
+    // engrave gauge / remain-time / time-static / character-name
+    // ids above.
+    static constexpr int kEngraveCancelId = 784;
+
+    // 1:1 with legacy WE_BTNCLICK bit (0x0001) used by the
+    // OnActionEvent guard.
+    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
 
     cFWEngraveDialog();
     ~cFWEngraveDialog() override;
@@ -67,11 +83,42 @@ public:
     void SetChatMessageFn(FwChatMsgFn getChatMsg,
                           void* userData = nullptr) noexcept;
 
+    // Install the host callback for OnActionEvent(FW_ENGRAVECANCEL
+    // + WE_BTNCLICK). The callback replaces the legacy
+    // NETWORK->Send(MSGBASE{MP_FORTWAR, MP_FORTWAR_ENGRAVE_CANCEL_SYN,
+    // HEROID}) body. A null callback preserves the safe no-op
+    // fallback (1:1 with legacy build that had NETWORK/HERO R-12.x
+    // deferred). Calling this replaces any previously installed
+    // callback.
+    void SetFwEngraveCancelCallback(SendEngraveCancelFn sendEngraveCancel,
+                                void* userData = nullptr) noexcept;
+
+
     // Test accessors.
     const cObjectGuagen* GetEngraveGuage() const noexcept { return m_pEngraveGuage.get(); }
     const cStatic* GetRemaintimeStatic() const noexcept    { return m_pRemaintimeStatic.get(); }
     std::uint32_t GetProcessTime() const noexcept          { return m_dwProcessTime; }
     float GetBasicTime() const noexcept                    { return m_fBasicTime; }
+
+    // Returns the m_sendEngraveCancelFn callback (test-only).
+    SendEngraveCancelFn GetSendEngraveCancelForTest() const noexcept {
+        return m_sendEngraveCancelFn;
+    }
+
+    // Returns the m_callbackUserData pointer (test-only).
+    void* GetCallbackUserDataForTest() const noexcept {
+        return m_callbackUserData;
+    }
+
+    // Returns the kEngraveCancelId constant (test-only).
+    static int GetEngraveCancelIdForTest() noexcept {
+        return kEngraveCancelId;
+    }
+
+    // Returns the kWeBtnClick constant (test-only).
+    static std::uint32_t GetWeBtnClickForTest() noexcept {
+        return kWeBtnClick;
+    }
 
 private:
     std::unique_ptr<cObjectGuagen> m_pEngraveGuage;
@@ -85,6 +132,10 @@ private:
     void*       m_clockUserData    = nullptr;
     FwChatMsgFn m_getChatMsgFn     = nullptr;
     void*       m_chatUserData     = nullptr;
+
+
+    SendEngraveCancelFn m_sendEngraveCancelFn = nullptr;
+    void*               m_callbackUserData     = nullptr;
 };
 
 // ---------------------------------------------------------------------------

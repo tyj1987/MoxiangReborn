@@ -1,4 +1,4 @@
-\xef\xbb\xbf﻿add_executable(mxh_ui_tests
+add_executable(mxh_ui_tests
     cobject_test.cpp
     clistitem_test.cpp
     cwindow_test.cpp
@@ -2083,7 +2083,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     CFWEngraveDialog.SetActiveWithTimeTrueThenTrue
     CFWEngraveDialog.ActionEventOnDisabledDialogReturnsZero
     CFWEngraveDialog.ActionEventOnEnabledDialogDelegatesToBase
-    CFWEngraveDialog.OnActionEventIsNoOp
+    CFWEngraveDialog.SendEngraveCancelCallbackInitiallyNull
+    CFWEngraveDialog.SetFwEngraveCancelCallbackStoresPointer
+    CFWEngraveDialog.SetFwEngraveCancelCallbackReplaces
+    CFWEngraveDialog.SetFwEngraveCancelCallbackWithNullFnClears
+    CFWEngraveDialog.OnActionEventWithoutCallbackIsNoOp
+    CFWEngraveDialog.OnActionEventWithoutBtnClickFlagIsNoOp
+    CFWEngraveDialog.OnActionEventWithWrongIdIsNoOp
+    CFWEngraveDialog.OnActionEventFwEngraveCancelDispatchesCallback
+    CFWEngraveDialog.OnActionEventFwEngraveCancelWithExtraFlagsStillDispatches
     CFWTimeDialog.DefaultWarTimeIsZero
     CFWTimeDialog.ChildrenNullBeforeLinking
     CFWTimeDialog.LinkingMaterializesBothStatics
