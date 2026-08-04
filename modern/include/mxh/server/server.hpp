@@ -16,6 +16,7 @@
 #include "mxh/server/quest_manager.hpp"
 #include "mxh/server/pet_manager.hpp"
 #include "mxh/server/titan_manager.hpp"
+#include "mxh/server/ai_group_loader.hpp"
 #include "mxh/server/hackshield_manager.hpp"
 
 #include <functional>
@@ -257,6 +258,8 @@ public:
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);
     bool add_monster_instance(const mxh::game::MonsterInstance& monster);
+    std::size_t install_ai_groups(const AiGroupList& groups);
+    std::size_t monster_count_for_test();
     std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id, std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value);
 
 
@@ -385,6 +388,8 @@ private:
     std::vector<mxh::game::NpcRegen> spawn_points_;
     std::uint32_t next_monster_id_ = 50000;  // reserved range for monsters
     bool monsters_spawned_ = false;
+    std::vector<AiSpawnDefinition> ai_spawn_overrides_;
+    std::unordered_map<std::uint32_t, mxh::game::MonsterTemplate> ai_template_overrides_;
 
     // Phase 10d: Skill management
     std::unordered_map<std::uint32_t, mxh::game::SkillInfo> skill_table_;

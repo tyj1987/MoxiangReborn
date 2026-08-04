@@ -17,6 +17,10 @@
 // map server process would be started with a different --map value.
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/ai_system.hpp"
+#include "mxh/server/ai_group_loader.hpp"
+
+#include <filesystem>
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/net/net.hpp"
@@ -144,6 +148,21 @@ int main(int argc, char** argv) {
     if (db_cfg.path.empty()) db_cfg.path = args.db_path;  // raw path fallback
     if (db_cfg.backend.empty()) db_cfg.backend = args.db_backend;
     auto cr = db->connect(db_cfg);
+    std::filesystem::path ai_groups_path =
+        std::filesystem::path("Resource/Server") /
+        (std::string("Monster_") + std::to_string(args.map_num) + ".bin");
+    if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
+        std::cerr << "[WARN] no AIGroup data at " << ai_groups_path.string()
+                  << "; using default spawn points\n";
+    } else {
+        std::cout << "[main] AIGroup data loaded for map " << args.map_num
+                  << " (groups="
+                  << mxh::server::AISystem::instance().group_list().groups.size()
+                  << " spawns="
+                  << mxh::server::AISystem::instance().group_list().spawn_count()
+                  << ")\n";
+    }
+
     if (!cr) { std::cerr << "FATAL: db connect: " << cr.error_message << "\n"; return 1; }
 
     // Phase 9.1: Ensure character_info table exists with all needed columns.

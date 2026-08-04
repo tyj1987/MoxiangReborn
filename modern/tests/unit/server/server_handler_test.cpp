@@ -1134,6 +1134,34 @@ TEST(MapHandlerTest, RuntimeSnapshotRemovedOnDisconnect) {
     EXPECT_EQ(handler.player_runtime_count(), 0u);
     EXPECT_FALSE(handler.player_runtime_snapshot(123u).has_value());
 }
+TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::server::AiGroupList groups;
+    mxh::server::AiGroupDefinition group;
+    group.group_id = 42u;
+    mxh::server::AiSpawnDefinition first;
+    first.object_kind = 3u;
+    first.monster_kind = 101u;
+    first.pos_x = 10.0f;
+    first.pos_z = 20.0f;
+    mxh::server::AiSpawnDefinition second = first;
+    second.monster_kind = 102u;
+    second.pos_x = 30.0f;
+    group.spawns = {first, second};
+    groups.groups.push_back(group);
+
+    EXPECT_EQ(handler.install_ai_groups(groups), 2u);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+
+    EXPECT_EQ(handler.monster_count_for_test(), groups.spawn_count());
+}
+
 TEST(MapHandlerTest, OnDisconnectDoesNotCrash) {
     MockDbAdapter db;
     ReplySpy reply;

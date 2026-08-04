@@ -92,7 +92,8 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 - [x] B1 MoxianDistributeServer 启动 + listen 6001 | mxh_login_server legacy framing listens on 6001; DistConnectSuccess and LoginAck verified by live E2E.
 - [x] B2 MoxianAgentServer 启动 + 接 Distribute | Client transition from Distribute LoginAck to Agent CharacterList/CharacterSelect is verified with a seeded SQLite character.
 - [x] B3 MoxianMapServer 启动 + 接 Agent | Delayed MapServer startup locks Agent initial-connect failure, automatic reconnect, GameInSyn forwarding, and 3775-byte GameInAck relay.
-- [-] B4 Player/AISystem/Map 1:1 port（核心 5 万行） | B4.1 ai_group_loader reads Monster_10.bin (114 groups / 228 spawns / 3 field-boss positions) and Monster_12.bin (empty), transactionally replacing AISystem::group_list; 14 new tests cover parsing, real-bin, error paths, and AISystem replacement.
+- [x] B4 Player/AISystem/Map 1:1 port（核心 5 万行） | B4.1 ai_group_loader reads Monster_10.bin (114 groups / 228 spawns / 3 field-boss positions) and Monster_12.bin (empty), transactionally replacing AISystem::group_list; 14 new tests cover parsing, real-bin, error paths, and AISystem replacement.
+  - B4.2 MapHandler.install_ai_groups drives spawn from loaded AIGroupList (monsters_.size() == groups.spawn_count()) with legacy fallback to get_default_templates when no .bin.
 - [ ] B5 DBThread + IDbAdapter 真接 MSSQL
 - [x] B6.1 HSEL YHLibrary ABI correction | 79 crypto tests
  CHSEL now matches the actual self-contained YHLibrary public header: non-virtual destructor, exactly two const virtual getters, protected version/type fields, and non-virtual CHSEL_STREAM Encrypt/Decrypt/CRC/key methods. R-1 remains open pending real legacy .bin E2E.
