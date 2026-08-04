@@ -485,6 +485,17 @@ enum class ItemProtocol : std::uint8_t {
     DissolveSuccessAck   = 50,
     DissolveFailedAck    = 51,
     DissolveNack         = 52,
+
+    // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_JOBCHANGE_*
+    // (positions 175/176/177 in [CC]Header/Protocol.h). Modern skips the
+    // intermediate entries 53..174 because the modern client/server does
+    // not implement them yet, but the wire byte for the job-change syn /
+    // ack / nack must remain stable so legacy clients/servers can talk to
+    // the modern server (and vice versa) once Phase A/B wires real network
+    // I/O.
+    ShopItemJobChangeSyn  = 175,
+    ShopItemJobChangeAck  = 176,
+    ShopItemJobChangeNack = 177,
 };
 
 // ============================================================================

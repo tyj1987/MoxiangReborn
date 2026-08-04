@@ -863,14 +863,24 @@ gtest_add_tests(TARGET mxh_ui_tests
     # Phase C 1:1 port (dialog): cChangeJobDialog (job-change item)
     CChangeJobDialogTest.DefaultConstructionHasZeroState
     CChangeJobDialogTest.InheritsDialogTreeManagement
+    CChangeJobDialogTest.ConstantsMatchPreprocessedLegacyValues
+    CChangeJobDialogTest.ChangeJobRequestDefaultsAreZero
+    CChangeJobDialogTest.DefaultConstructorLeavesAllCallbacksNull
     CChangeJobDialogTest.SetItemInfoRoundTrip
     CChangeJobDialogTest.SetItemInfoOverridesPrevious
     CChangeJobDialogTest.SetItemInfoZeroIsValid
-    CChangeJobDialogTest.ChangeJobSynIsNoOpUntilSingletonsPorted
-    CChangeJobDialogTest.ChangeJobSynDoesNotChangeState
+    CChangeJobDialogTest.SetCallbacksAcceptsNullUserData
+    CChangeJobDialogTest.ChangeJobSynDispatchesViaHostCallbacks
+    CChangeJobDialogTest.ChangeJobSynWithoutGetHeroDefaultsObjectIdToZero
+    CChangeJobDialogTest.ChangeJobSynWithoutSendCallbackSkipsSendButDeactivates
+    CChangeJobDialogTest.ChangeJobSynAlwaysDeactivatesLast
     CChangeJobDialogTest.ChangeJobSynBeforeInitDoesNotCrash
-    CChangeJobDialogTest.CancelChangeJobIsNoOpUntilSingletonsPorted
-    CChangeJobDialogTest.CancelChangeJobDoesNotChangeState
+    CChangeJobDialogTest.CancelChangeJobDispatchesFourItemTablesInLegacyOrder
+    CChangeJobDialogTest.CancelChangeJobWhenHeroInDealCallsEndDealState
+    CChangeJobDialogTest.CancelChangeJobWhenHeroNotInDealSkipsEndDealState
+    CChangeJobDialogTest.CancelChangeJobWithoutIsHeroCallbackSkipsEndDeal
+    CChangeJobDialogTest.CancelChangeJobWithoutSetItemTableCallbackSkipsTables
+    CChangeJobDialogTest.CancelChangeJobAlwaysDeactivates
     CChangeJobDialogTest.CancelChangeJobBeforeInitDoesNotCrash
     # Phase C 1:1 port (dialog): cGTRegistcancelDialog (tournament registration cancel)
     CGTRegistcancelDialogTest.DefaultConstructionIsValid
