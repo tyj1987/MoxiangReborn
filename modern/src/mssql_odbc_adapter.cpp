@@ -99,7 +99,11 @@ DbResult MssqlOdbcAdapter::connect(const ConnectionConfig& cfg) {
         nullptr, 0, nullptr, SQL_DRIVER_NOPROMPT);
 
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-        return translate_error(dbc_, SQL_HANDLE_DBC, "SQLDriverConnect");
+        DbResult error = translate_error(dbc_, SQL_HANDLE_DBC, "SQLDriverConnect");
+        SQLFreeHandle(SQL_HANDLE_DBC, dbc_);
+        dbc_ = SQL_NULL_HANDLE;
+        in_txn_ = false;
+        return error;
     }
 
     r = alloc_handle(SQL_HANDLE_STMT, dbc_, &stmt_);
@@ -180,14 +184,16 @@ DbResult MssqlOdbcAdapter::bind_param(SQLHSTMT stmt, SQLUSMALLINT param_index,
                               &out_indicator);
     } else if (std::holds_alternative<std::int64_t>(v)) {
         out_indicator = 0;
-        std::int64_t i = std::get<std::int64_t>(v);
         rc = SQLBindParameter(stmt, param_index, SQL_PARAM_INPUT,
-                              SQL_C_SBIGINT, SQL_BIGINT, 0, 0, &i, 0, &out_indicator);
+                              SQL_C_SBIGINT, SQL_BIGINT, 0, 0,
+                              const_cast<std::int64_t*>(&std::get<std::int64_t>(v)),
+                              0, &out_indicator);
     } else if (std::holds_alternative<double>(v)) {
         out_indicator = 0;
-        double d = std::get<double>(v);
         rc = SQLBindParameter(stmt, param_index, SQL_PARAM_INPUT,
-                              SQL_C_DOUBLE, SQL_DOUBLE, 0, 0, &d, 0, &out_indicator);
+                              SQL_C_DOUBLE, SQL_DOUBLE, 0, 0,
+                              const_cast<double*>(&std::get<double>(v)),
+                              0, &out_indicator);
     } else if (std::holds_alternative<std::string>(v)) {
         const std::string& s = std::get<std::string>(v);
         out_indicator = SQL_NTS;
@@ -216,69 +222,92 @@ DbResult MssqlOdbcAdapter::bind_param(SQLHSTMT stmt, SQLUSMALLINT param_index,
 }
 
 DbResult MssqlOdbcAdapter::fetch_column(SQLHSTMT stmt, SQLUSMALLINT col,
-                                        Value& out) {
+                                         Value& out) {
     DbResult r;
-    SQLLEN indicator = 0;
-    SQLCHAR buf[8192];
-    SQLRETURN rc = SQLGetData(stmt, col, SQL_C_DEFAULT, buf, sizeof(buf),
-                              &indicator);
-    if (rc == SQL_NULL_DATA) {
-        out = std::monostate{};
-        return r;
-    }
-    if (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) {
-        if (rc == SQL_SUCCESS_WITH_INFO && indicator > (SQLLEN)sizeof(buf)) {
-            // Truncation: try again with bigger buffer up to 16 MiB.
-            std::vector<std::uint8_t> big;
-            big.resize(static_cast<std::size_t>(indicator));
-            rc = SQLGetData(stmt, col, SQL_C_BINARY, big.data(),
-                            static_cast<SQLLEN>(big.size()), &indicator);
-            if (rc != SQL_SUCCESS) {
-                return translate_error(stmt, SQL_HANDLE_STMT, "SQLGetData (large)");
-            }
-            out = std::move(big);
+    SQLLEN type = SQL_UNKNOWN_TYPE;
+    SQLColAttribute(stmt, col, SQL_DESC_TYPE, nullptr, 0, nullptr, &type);
+
+    if (type == SQL_BIGINT || type == SQL_INTEGER ||
+        type == SQL_SMALLINT || type == SQL_TINYINT || type == SQL_BIT) {
+        std::int64_t value = 0;
+        SQLLEN indicator = 0;
+        const SQLRETURN rc = SQLGetData(stmt, col, SQL_C_SBIGINT,
+                                        &value, sizeof(value), &indicator);
+        if (rc == SQL_NULL_DATA || indicator == SQL_NULL_DATA) {
+            out = std::monostate{};
             return r;
         }
-        // Inspect column type via SQLColAttribute (or fall back to buffer).
-        SQLLEN type = 0;
-        SQLColAttribute(stmt, col, SQL_DESC_TYPE, nullptr, 0, nullptr, &type);
-        switch (type) {
-            case SQL_BIGINT:
-            case SQL_INTEGER:
-            case SQL_SMALLINT:
-            case SQL_TINYINT:
-                out = static_cast<std::int64_t>(*reinterpret_cast<long long*>(buf));
-                break;
-            case SQL_DOUBLE:
-            case SQL_FLOAT:
-            case SQL_REAL:
-                out = *reinterpret_cast<double*>(buf);
-                break;
-            case SQL_CHAR:
-            case SQL_VARCHAR:
-            case SQL_LONGVARCHAR:
-            case SQL_WCHAR:
-            case SQL_WVARCHAR:
-                out = std::string(reinterpret_cast<const char*>(buf),
-                                  static_cast<std::size_t>(indicator));
-                break;
-            case SQL_BINARY:
-            case SQL_VARBINARY:
-            case SQL_LONGVARBINARY:
-                out = std::vector<std::uint8_t>(
-                    reinterpret_cast<const std::uint8_t*>(buf),
-                    reinterpret_cast<const std::uint8_t*>(buf) + indicator);
-                break;
-            default:
-                out = std::string(reinterpret_cast<const char*>(buf),
-                                  static_cast<std::size_t>(indicator));
-                break;
+        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+            return translate_error(stmt, SQL_HANDLE_STMT, nullptr);
         }
+        out = value;
         return r;
     }
-    return translate_error(stmt, SQL_HANDLE_STMT, "SQLGetData");
-}
 
+    if (type == SQL_DOUBLE || type == SQL_FLOAT || type == SQL_REAL) {
+        double value = 0.0;
+        SQLLEN indicator = 0;
+        const SQLRETURN rc = SQLGetData(stmt, col, SQL_C_DOUBLE,
+                                        &value, sizeof(value), &indicator);
+        if (rc == SQL_NULL_DATA || indicator == SQL_NULL_DATA) {
+            out = std::monostate{};
+            return r;
+        }
+        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+            return translate_error(stmt, SQL_HANDLE_STMT, nullptr);
+        }
+        out = value;
+        return r;
+    }
+
+    if (type == SQL_BINARY || type == SQL_VARBINARY ||
+        type == SQL_LONGVARBINARY) {
+        std::vector<std::uint8_t> value;
+        for (;;) {
+            SQLCHAR chunk[4096] = {};
+            SQLLEN indicator = 0;
+            const SQLRETURN rc = SQLGetData(stmt, col, SQL_C_BINARY,
+                                            chunk, sizeof(chunk), &indicator);
+            if (rc == SQL_NULL_DATA || indicator == SQL_NULL_DATA) {
+                out = std::monostate{};
+                return r;
+            }
+            if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+                return translate_error(stmt, SQL_HANDLE_STMT, nullptr);
+            }
+            std::size_t count = sizeof(chunk);
+            if (rc == SQL_SUCCESS && indicator >= 0 &&
+                static_cast<std::size_t>(indicator) < count) {
+                count = static_cast<std::size_t>(indicator);
+            }
+            value.insert(value.end(), chunk, chunk + count);
+            if (rc == SQL_SUCCESS) break;
+        }
+        out = std::move(value);
+        return r;
+    }
+
+    std::string value;
+    for (;;) {
+        SQLCHAR chunk[4096] = {};
+        SQLLEN indicator = 0;
+        const SQLRETURN rc = SQLGetData(stmt, col, SQL_C_CHAR,
+                                        chunk, sizeof(chunk), &indicator);
+        if (rc == SQL_NULL_DATA || indicator == SQL_NULL_DATA) {
+            out = std::monostate{};
+            return r;
+        }
+        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+            return translate_error(stmt, SQL_HANDLE_STMT, nullptr);
+        }
+        std::size_t count = 0;
+        while (count + 1 < sizeof(chunk) && chunk[count] != 0) ++count;
+        value.append(reinterpret_cast<const char*>(chunk), count);
+        if (rc == SQL_SUCCESS) break;
+    }
+    out = std::move(value);
+    return r;
+}
 DbResult MssqlOdbcAdapter::execute(std::string_view sql,
                                    std::span<const Bind> params) {
     std::lock_guard<std::mutex> lk(mu_);
@@ -295,10 +324,10 @@ DbResult MssqlOdbcAdapter::execute(std::string_view sql,
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         return translate_error(stmt_, SQL_HANDLE_STMT, "SQLPrepare");
     }
-    SQLUSMALLINT p = 1;
-    for (const auto& b : params) {
-        SQLLEN ind = 0;
-        DbResult br = bind_param(stmt_, p++, b.value, ind);
+    std::vector<SQLLEN> indicators(params.size(), 0);
+    for (std::size_t i = 0; i < params.size(); ++i) {
+        DbResult br = bind_param(stmt_, static_cast<SQLUSMALLINT>(i + 1),
+                                 params[i].value, indicators[i]);
         if (!br) return br;
     }
     rc = SQLExecute(stmt_);
@@ -334,10 +363,10 @@ DbResult MssqlOdbcAdapter::query(std::string_view sql,
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         return translate_error(stmt_, SQL_HANDLE_STMT, "SQLPrepare");
     }
-    SQLUSMALLINT p = 1;
-    for (const auto& b : params) {
-        SQLLEN ind = 0;
-        DbResult br = bind_param(stmt_, p++, b.value, ind);
+    std::vector<SQLLEN> indicators(params.size(), 0);
+    for (std::size_t i = 0; i < params.size(); ++i) {
+        DbResult br = bind_param(stmt_, static_cast<SQLUSMALLINT>(i + 1),
+                                 params[i].value, indicators[i]);
         if (!br) return br;
     }
     rc = SQLExecute(stmt_);
@@ -377,38 +406,73 @@ DbResult MssqlOdbcAdapter::query(std::string_view sql,
 }
 
 DbResult MssqlOdbcAdapter::begin_transaction() {
-    if (in_txn_) {
-        DbResult r;
-        r.error = DbError::ConstraintViolation;
-        r.error_message = "transaction already in progress";
+    std::lock_guard<std::mutex> lk(mu_);
+    DbResult r;
+    if (dbc_ == SQL_NULL_HANDLE || stmt_ == SQL_NULL_HANDLE) {
+        r.error = DbError::NotConnected;
         return r;
     }
-    DbResult r = execute("BEGIN TRANSACTION", {});
-    if (r) in_txn_ = true;
+    if (in_txn_) {
+        r.error = DbError::ConstraintViolation;
+        return r;
+    }
+    const SQLRETURN rc = SQLSetConnectAttr(
+        dbc_, SQL_ATTR_AUTOCOMMIT,
+        reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_OFF), 0);
+    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+        return translate_error(dbc_, SQL_HANDLE_DBC, nullptr);
+    }
+    in_txn_ = true;
     return r;
 }
 
 DbResult MssqlOdbcAdapter::commit() {
-    if (!in_txn_) {
-        DbResult r;
-        r.error = DbError::ConstraintViolation;
-        r.error_message = "no active transaction";
+    std::lock_guard<std::mutex> lk(mu_);
+    DbResult r;
+    if (dbc_ == SQL_NULL_HANDLE || stmt_ == SQL_NULL_HANDLE) {
+        r.error = DbError::NotConnected;
         return r;
     }
-    DbResult r = execute("COMMIT", {});
+    if (!in_txn_) {
+        r.error = DbError::ConstraintViolation;
+        return r;
+    }
+    const SQLRETURN end_rc = SQLEndTran(SQL_HANDLE_DBC, dbc_, SQL_COMMIT);
+    if (end_rc != SQL_SUCCESS && end_rc != SQL_SUCCESS_WITH_INFO) {
+        return translate_error(dbc_, SQL_HANDLE_DBC, nullptr);
+    }
     in_txn_ = false;
+    const SQLRETURN auto_rc = SQLSetConnectAttr(
+        dbc_, SQL_ATTR_AUTOCOMMIT,
+        reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_ON), 0);
+    if (auto_rc != SQL_SUCCESS && auto_rc != SQL_SUCCESS_WITH_INFO) {
+        return translate_error(dbc_, SQL_HANDLE_DBC, nullptr);
+    }
     return r;
 }
 
 DbResult MssqlOdbcAdapter::rollback() {
-    if (!in_txn_) {
-        DbResult r;
-        r.error = DbError::ConstraintViolation;
-        r.error_message = "no active transaction";
+    std::lock_guard<std::mutex> lk(mu_);
+    DbResult r;
+    if (dbc_ == SQL_NULL_HANDLE || stmt_ == SQL_NULL_HANDLE) {
+        r.error = DbError::NotConnected;
         return r;
     }
-    DbResult r = execute("ROLLBACK", {});
+    if (!in_txn_) {
+        r.error = DbError::ConstraintViolation;
+        return r;
+    }
+    const SQLRETURN end_rc = SQLEndTran(SQL_HANDLE_DBC, dbc_, SQL_ROLLBACK);
+    if (end_rc != SQL_SUCCESS && end_rc != SQL_SUCCESS_WITH_INFO) {
+        return translate_error(dbc_, SQL_HANDLE_DBC, nullptr);
+    }
     in_txn_ = false;
+    const SQLRETURN auto_rc = SQLSetConnectAttr(
+        dbc_, SQL_ATTR_AUTOCOMMIT,
+        reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_ON), 0);
+    if (auto_rc != SQL_SUCCESS && auto_rc != SQL_SUCCESS_WITH_INFO) {
+        return translate_error(dbc_, SQL_HANDLE_DBC, nullptr);
+    }
     return r;
 }
 

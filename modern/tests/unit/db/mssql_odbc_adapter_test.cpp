@@ -104,6 +104,7 @@ TEST(MssqlOdbcAdapter, ConnectToInvalidServerFails) {
     if (!r.ok()) {
         EXPECT_EQ(r.error, DbError::ConnectionFailed);
     }
+    EXPECT_FALSE(a->is_connected());
     // If by some miracle the connection succeeded (e.g. localhost SQL
     // exists with that password), tear it down cleanly.
     a->disconnect();
