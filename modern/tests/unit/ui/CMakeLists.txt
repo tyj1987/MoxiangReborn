@@ -1612,14 +1612,20 @@ gtest_add_tests(TARGET mxh_ui_tests
     CUnionNoteDlgTest.LinkingClearsScriptText
     CUnionNoteDlgTest.LinkingBeforeInitDoesNotCrash
     CUnionNoteDlgTest.LinkingWithoutChildrenDoesNotCrash
-    CUnionNoteDlgTest.ShowWithNullItemIsSafe
-    CUnionNoteDlgTest.ShowWithItemActivatesDialog
-    CUnionNoteDlgTest.ShowBeforeInitDoesNotCrash
-    CUnionNoteDlgTest.UseClearsNoteText
-    CUnionNoteDlgTest.UseClearsBUseFlag
-    CUnionNoteDlgTest.UseWithoutLinkingIsSafe
-    CUnionNoteDlgTest.OnActionEventIsNoOp
-    CUnionNoteDlgTest.OnActionEventBeforeInitDoesNotCrash
+    CUnionNoteDlgTest.LegacyConstantsMatchSource
+    CUnionNoteDlgTest.ShowWithoutGuildEmits35
+    CUnionNoteDlgTest.ShowInvalidRankEmits1100
+    CUnionNoteDlgTest.ShowViceMasterIsAllowed
+    CUnionNoteDlgTest.ShowWithoutUnionEmits1103
+    CUnionNoteDlgTest.ShowWithNullItemEmits786
+    CUnionNoteDlgTest.ShowWithValidContextActivates
+    CUnionNoteDlgTest.UseClearsTextAndSendsItemFields
+    CUnionNoteDlgTest.UseWithoutItemDoesNotSendOrIncrement
+    CUnionNoteDlgTest.SendButtonSendsNoteFieldsAndCloses
+    CUnionNoteDlgTest.SendButtonWithoutHostStillCloses
+    CUnionNoteDlgTest.CancelButtonClosesWithoutSend
+    CUnionNoteDlgTest.ActionWithoutButtonClickIsNoOp
+    CUnionNoteDlgTest.SetCallbacksReplacesDispatch
     # Phase C 1:1 port (dialog): cAutoNoteDlg (auto note / auto reply)
     CAutoNoteDlgTest.CtorDoesNotCrash
     CAutoNoteDlgTest.DtorDoesNotCrash

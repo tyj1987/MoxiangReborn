@@ -30,17 +30,9 @@
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve cTextArea by id,
 //     SetEnterAllow(false), SetScriptText("").
-//   - Show: TODO (HERO + CHATMGR singletons, R-12.x
-//     deferred). Modern port stores m_pItem
-//     forward-declared as void* + SetActive(true)
-//     if all checks pass; but checks are TODO.
-//   - Use: TODO (HERO + NETWORK + ITEMMGR singletons,
-//     R-12.x deferred). Modern port clears
-//     m_pNoteText + m_bUse.
-//   - OnActionEvnet: TODO (HERO + NETWORK singletons,
-//     R-12.x deferred). Modern port is empty
-//     (no-op for now; the body becomes the legacy
-//     code when CHATMGR + HERO + NETWORK are ported).
+//   - Show / Use / OnActionEvent: REAL through host
+//     callbacks, preserving all guild gates, item-use
+//     fields/count, union-note fields, and close paths.
 //   - 1:1 quirk: legacy ctor m_bUse = FALSE;
 //     modern uses default member init (m_bUse = false).
 //   - 1:1 quirk: m_pTitleEdit is declared in legacy
@@ -52,8 +44,8 @@
 // cMPGuageDialog). The dialog has 1 cTextArea
 // (m_pNoteText) + 1 cEditBox (m_pTitleEdit,
 // unused) + 1 CItem (forward-declared) +
-// m_bUse flag. HERO + CHATMGR + NETWORK + ITEMMGR
-// are R-12.x deferred.
+// m_bUse flag. Legacy singleton operations are
+// supplied through optional host callbacks.
 
 #pragma once
 
@@ -80,30 +72,50 @@ public:
 
     // ----- 1:1 with legacy CUnionNoteDlg::Show -----
 
-    // 1:1 with legacy Show(CItem* pItem). The
-    // HERO + CHATMGR 4-singleton dispatch is TODO
-    // (R-12.x deferred). Modern port stores
-    // pItem forward-declared as void* + sets
-    // m_pItem; SetActive(true) is called only if
-    // all checks pass (currently: always pass, TODO
-    // make the checks real when CHATMGR is ported).
+    using AddSystemMessageFn = void (*)(std::int32_t messageId,
+                                          void* userData);
+    using GetHeroDwordFn = std::uint32_t (*)(void* userData);
+    using GetHeroRankFn = std::int32_t (*)(void* userData);
+    using GetHeroNameFn = const char* (*)(void* userData);
+    using GetItemWordFn = std::uint16_t (*)(void* item, void* userData);
+    using GetItemPositionFn = std::uint32_t (*)(void* item, void* userData);
+    using SendItemUseFn = void (*)(std::uint32_t objectId,
+                                   std::uint16_t itemIdx,
+                                   std::uint32_t position,
+                                   void* userData);
+    using SendUnionNoteFn = void (*)(std::uint32_t objectId,
+                                     std::uint32_t unionId,
+                                     const char* fromName,
+                                     const char* note,
+                                     void* userData);
+    using IncrementItemUseCountFn = void (*)(void* userData);
+
+    void SetCallbacks(AddSystemMessageFn addSystemMessage,
+                      GetHeroDwordFn getGuildIdx,
+                      GetHeroRankFn getGuildMemberRank,
+                      GetHeroDwordFn getGuildUnionIdx,
+                      GetHeroDwordFn getHeroObjectId,
+                      GetHeroNameFn getHeroName,
+                      GetItemWordFn getItemIdx,
+                      GetItemPositionFn getItemPosition,
+                      SendItemUseFn sendItemUse,
+                      SendUnionNoteFn sendUnionNote,
+                      IncrementItemUseCountFn incrementItemUseCount,
+                      void* userData = nullptr) noexcept;
+
     void Show(void* pItem);
 
     // ----- 1:1 with legacy CUnionNoteDlg::Use -----
 
-    // 1:1 with legacy Use(). The HERO + NETWORK +
-    // ITEMMGR dispatch is TODO (R-12.x deferred).
-    // Modern port clears m_pNoteText + m_bUse +
-    // m_pItem.
+    // Clears use/text state, sends the item-use
+    // fields, then increments the debug use count.
     void Use();
 
     // ----- 1:1 with legacy CUnionNoteDlg::OnActionEvnet -----
 
-    // 1:1 with legacy OnActionEvnet (typo'd).
-    // 2 button case (AN_SENDOKBTN + AN_CANCELBTN).
-    // The whole method is TODO (HERO + NETWORK
-    // singletons, R-12.x deferred). Modern port is
-    // a no-op for now.
+    // 1:1 with legacy OnActionEvnet (typo'd):
+    // SEND sends union-note fields and falls through
+    // to the same close path as CANCEL.
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
 
     // ----- 1:1 with legacy m_bUse getter -----
@@ -126,8 +138,29 @@ public:
     // 1:1 with legacy AN_SENDOKBTN + AN_CANCELBTN.
     static constexpr std::int32_t kIdSendOkBtn   = 622;
     static constexpr std::int32_t kIdCancelBtn   = 623;
+    static constexpr std::int32_t kGuildMaster = 50;
+    static constexpr std::int32_t kGuildViceMaster = 40;
+    static constexpr std::int32_t kNoGuildMessageId = 35;
+    static constexpr std::int32_t kInvalidRankMessageId = 1100;
+    static constexpr std::int32_t kNoUnionMessageId = 1103;
+    static constexpr std::int32_t kInvalidItemMessageId = 786;
+    static constexpr std::int32_t kAlreadyUsingMessageId = 752;
+    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
 
 private:
+    AddSystemMessageFn m_addSystemMessage = nullptr;
+    GetHeroDwordFn m_getGuildIdx = nullptr;
+    GetHeroRankFn m_getGuildMemberRank = nullptr;
+    GetHeroDwordFn m_getGuildUnionIdx = nullptr;
+    GetHeroDwordFn m_getHeroObjectId = nullptr;
+    GetHeroNameFn m_getHeroName = nullptr;
+    GetItemWordFn m_getItemIdx = nullptr;
+    GetItemPositionFn m_getItemPosition = nullptr;
+    SendItemUseFn m_sendItemUse = nullptr;
+    SendUnionNoteFn m_sendUnionNote = nullptr;
+    IncrementItemUseCountFn m_incrementItemUseCount = nullptr;
+    void* m_callbackUserData = nullptr;
+
     // 1:1 with legacy m_pTitleEdit (declared in
     // header but never used in cpp). Modern port
     // preserves the field for 1:1 parity.
@@ -137,9 +170,8 @@ private:
     // Linking by AN_TEXTREA id).
     cTextArea* m_pNoteText = nullptr;
 
-    // 1:1 with legacy m_pItem. CItem is forward-
-    // declared; modern port stores as void* (untyped
-    // pointer, R-12.x deferred).
+    // 1:1 with legacy m_pItem. Item properties are
+    // extracted by host callbacks to avoid coupling.
     void* m_pItem = nullptr;
 
     // 1:1 with legacy m_bUse (BOOL; init FALSE

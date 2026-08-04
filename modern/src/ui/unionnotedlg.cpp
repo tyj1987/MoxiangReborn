@@ -38,90 +38,109 @@ void cUnionNoteDlg::Linking() {
     // legacy unused field).
 }
 
+void cUnionNoteDlg::SetCallbacks(
+    AddSystemMessageFn addSystemMessage,
+    GetHeroDwordFn getGuildIdx,
+    GetHeroRankFn getGuildMemberRank,
+    GetHeroDwordFn getGuildUnionIdx,
+    GetHeroDwordFn getHeroObjectId,
+    GetHeroNameFn getHeroName,
+    GetItemWordFn getItemIdx,
+    GetItemPositionFn getItemPosition,
+    SendItemUseFn sendItemUse,
+    SendUnionNoteFn sendUnionNote,
+    IncrementItemUseCountFn incrementItemUseCount,
+    void* userData) noexcept {
+    m_addSystemMessage = addSystemMessage;
+    m_getGuildIdx = getGuildIdx;
+    m_getGuildMemberRank = getGuildMemberRank;
+    m_getGuildUnionIdx = getGuildUnionIdx;
+    m_getHeroObjectId = getHeroObjectId;
+    m_getHeroName = getHeroName;
+    m_getItemIdx = getItemIdx;
+    m_getItemPosition = getItemPosition;
+    m_sendItemUse = sendItemUse;
+    m_sendUnionNote = sendUnionNote;
+    m_incrementItemUseCount = incrementItemUseCount;
+    m_callbackUserData = userData;
+}
+
 void cUnionNoteDlg::Show(void* pItem) {
-    // 1:1 with legacy CUnionNoteDlg::Show. The
-    // legacy is:
-    //   if (!HERO->GetGuildIdx()) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(35));
-    //     return;
-    //   }
-    //   if (HERO->GetGuildMemberRank() != GUILD_MASTER &&
-    //       HERO->GetGuildMemberRank() != GUILD_VICEMASTER) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(1100));
-    //     return;
-    //   }
-    //   if (!HERO->GetGuildUnionIdx()) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(1103));
-    //     return;
-    //   }
-    //   if (pItem == NULL) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(786));
-    //     return;
-    //   }
-    //   if (m_bUse) {
-    //     CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(752));
-    //     return;
-    //   }
-    //   m_pItem = pItem;
-    //   SetActive(TRUE);
-    //
-    // The modern port: the 4-singleton dispatch is
-    // TODO (R-12.x deferred). Modern port stores
-    // pItem + SetActive(true) without the checks.
-    // TODO: 1:1 with legacy 4-singleton checks
-    //       (HERO + CHATMGR not ported, R-12.x
-    //       deferred). When ported, the body
-    //       becomes the legacy code.
+    const auto addMessage = [this](std::int32_t messageId) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(messageId, m_callbackUserData);
+        }
+    };
+
+    if (!m_getGuildIdx || m_getGuildIdx(m_callbackUserData) == 0u) {
+        addMessage(kNoGuildMessageId);
+        return;
+    }
+    const auto rank = m_getGuildMemberRank
+        ? m_getGuildMemberRank(m_callbackUserData)
+        : 0;
+    if (rank != kGuildMaster && rank != kGuildViceMaster) {
+        addMessage(kInvalidRankMessageId);
+        return;
+    }
+    if (!m_getGuildUnionIdx || m_getGuildUnionIdx(m_callbackUserData) == 0u) {
+        addMessage(kNoUnionMessageId);
+        return;
+    }
+    if (!pItem) {
+        addMessage(kInvalidItemMessageId);
+        return;
+    }
+    if (m_bUse) {
+        addMessage(kAlreadyUsingMessageId);
+        return;
+    }
+
     m_pItem = pItem;
     SetActive(true);
 }
 
 void cUnionNoteDlg::Use() {
-    // 1:1 with legacy CUnionNoteDlg::Use. The
-    // legacy is:
-    //   m_bUse = FALSE;
-    //   m_pNoteText->SetScriptText("");
-    //   MSG_ITEM_USE_SYN msg;
-    //   ...
-    //   NETWORK->Send(&msg, sizeof(msg));
-    //   ITEMMGR->m_nItemUseCount++;
-    //
-    // The modern port: clears m_bUse + m_pNoteText +
-    // m_pItem. The HERO + NETWORK + ITEMMGR dispatch
-    // is TODO.
     m_bUse = false;
-    m_pItem = nullptr;
-    if (m_pNoteText) {
-        m_pNoteText->SetScriptText("");
+    if (m_pNoteText) m_pNoteText->SetScriptText("");
+
+    if (m_pItem && m_getHeroObjectId && m_getItemIdx &&
+        m_getItemPosition && m_sendItemUse) {
+        m_sendItemUse(m_getHeroObjectId(m_callbackUserData),
+                      m_getItemIdx(m_pItem, m_callbackUserData),
+                      m_getItemPosition(m_pItem, m_callbackUserData),
+                      m_callbackUserData);
+        if (m_incrementItemUseCount) {
+            m_incrementItemUseCount(m_callbackUserData);
+        }
     }
-    // TODO: 1:1 with legacy NETWORK send + ITEMMGR
-    //       m_nItemUseCount++ (R-12.x deferred).
 }
 
 void cUnionNoteDlg::OnActionEvent(std::int32_t lId, void* p,
                                   std::uint32_t we) {
-    // 1:1 with legacy CUnionNoteDlg::OnActionEvnet
-    // (typo'd). The legacy is:
-    //   if (we & WE_BTNCLICK) {
-    //     switch (lId) {
-    //     case AN_SENDOKBTN:
-    //       MSG_GUILD_SEND_NOTE msg;
-    //       ...
-    //       NETWORK->Send(&msg, msg.GetMsgLength());
-    //       SetActive(FALSE);
-    //     case AN_CANCELBTN:
-    //       SetActive(FALSE);
-    //     }
-    //   }
-    //
-    // The modern port: the whole method is TODO
-    // (HERO + NETWORK singletons, R-12.x deferred).
-    // The method is a no-op for now; the body
-    // becomes the legacy code when CHATMGR + HERO +
-    // NETWORK are ported.
-    (void)lId;
     (void)p;
-    (void)we;
+    if ((we & kWeBtnClick) == 0u) return;
+
+    switch (lId) {
+    case kIdSendOkBtn:
+        if (m_pNoteText && m_getGuildUnionIdx && m_getHeroObjectId &&
+            m_getHeroName && m_sendUnionNote) {
+            const char* heroName = m_getHeroName(m_callbackUserData);
+            m_sendUnionNote(m_getHeroObjectId(m_callbackUserData),
+                            m_getGuildUnionIdx(m_callbackUserData),
+                            heroName ? heroName : "",
+                            m_pNoteText->GetScriptText().c_str(),
+                            m_callbackUserData);
+        }
+        SetActive(false);
+        [[fallthrough]];
+    case kIdCancelBtn:
+        SetActive(false);
+        break;
+    default:
+        break;
+    }
 }
+
 
 }  // namespace mxh::ui
