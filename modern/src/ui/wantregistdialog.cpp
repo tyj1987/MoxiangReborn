@@ -16,10 +16,8 @@ cWantRegistDialog::cWantRegistDialog() {
     // 1:1 quirk: modern cWindow does not have
     // m_type field (removed in Phase 6 when cWindow
     // was modernized). The ctor body is dropped.
-    // The m_bShow + m_dwStartShowTime state fields
-    // are documented in the header but not
-    // initialized in the modern port (Phase 12.x
-    // minimal port — the m_bShow gating is TODO).
+    // m_bShow and m_dwStartShowTime use their legacy false/zero
+    // in-class initial values.
 }
 
 cWantRegistDialog::~cWantRegistDialog() = default;
@@ -28,6 +26,15 @@ void cWantRegistDialog::SetCurrentTimeProvider(
     WgClockFn getCurrentTime, void* userData) noexcept {
     m_getCurrentTimeFn = getCurrentTime;
     m_clockUserData = userData;
+}
+
+void cWantRegistDialog::SetCancelCallbacks(
+    GetHeroObjectIdFn getHeroObjectId,
+    SendRegistCancelFn sendRegistCancel,
+    void* userData) noexcept {
+    m_getHeroObjectIdFn = getHeroObjectId;
+    m_sendRegistCancelFn = sendRegistCancel;
+    m_cancelUserData = userData;
 }
 
 void cWantRegistDialog::Linking() {
@@ -43,6 +50,8 @@ void cWantRegistDialog::Linking() {
     if (m_PrizeEdit) {
         m_PrizeEdit->SetValidCheck(kVcmNumber);
     }
+    m_bShow = false;
+    m_dwStartShowTime = 0;
 }
 
 void cWantRegistDialog::SetWantedName(const char* pName) {
@@ -83,28 +92,15 @@ void cWantRegistDialog::SetActive(bool val) noexcept {
     //   m_bShow = FALSE;
     //   cDialog::SetActive(val);
     //
-    // The modern port:
-    //   - The early return on val == m_bActive
-    //     is omitted (1:1 quirk: legacy's
-    //     m_bActive check is a 2003-era optimization;
-    //     modern cDialog::SetActive is idempotent).
-    //   - The val == TRUE gCurTime init is TODO
-    //     (gCurTime not ported, R-12.x deferred).
-    //   - The val == FALSE SetFocusEdit(false) call
-    //     is REAL (no singleton dep).
-    //   - The val == FALSE MSGBASE NETWORK send is
-    //     TODO (HERO + NETWORK not ported, R-12.x
-    //     deferred).
-    //   - m_bShow = FALSE is TODO (m_bShow state
-    //     field is documented but not implemented
-    //     in the Phase 12.x minimal port).
-    //   - Always calls base SetActive(val) (matches
-    //     legacy call order).
+    // Preserve the legacy same-active early return before every
+    // side effect, including clock reads and cancel sends.
+    if (val == isActive()) {
+        return;
+    }
     if (val) {
         // 1:1 with legacy: m_dwStartShowTime = gCurTime.
         // m_bShow gates ActionEvent so the dialog stays
         // invisible until 3 sec have passed.
-        m_bShow = false;
         m_dwStartShowTime = m_getCurrentTimeFn
             ? m_getCurrentTimeFn(m_clockUserData)
             : 0u;
@@ -112,19 +108,13 @@ void cWantRegistDialog::SetActive(bool val) noexcept {
         if (m_PrizeEdit) {
             m_PrizeEdit->SetFocusEdit(false);
         }
-        m_bShow = false;
-        m_dwStartShowTime = 0;
-        // TODO: 1:1 with legacy val == FALSE path:
-        //   MSGBASE msg;
-        //   msg.Category = MP_WANTED;
-        //   msg.Protocol = MP_WANTED_REGIST_CANCEL;
-        //   msg.dwObjectID = HEROID;
-        //   NETWORK->Send(&msg, sizeof(msg));
-        //
-        // HERO + NETWORK not ported (R-12.x
-        // deferred). When ported, the body becomes
-        // the legacy code.
+        if (m_getHeroObjectIdFn && m_sendRegistCancelFn) {
+            const std::uint32_t objectId =
+                m_getHeroObjectIdFn(m_cancelUserData);
+            (void)m_sendRegistCancelFn(objectId, m_cancelUserData);
+        }
     }
+    m_bShow = false;
     cDialog::SetActive(val);
 }
 
@@ -150,15 +140,24 @@ std::uint32_t cWantRegistDialog::ActionEvent() {
     // not ported, R-12.x deferred). Modern port
     // returns WE_NULL matching the legacy early
     // return path (DWORD wrap-around preserved).
+    if (!isEnabled() || !isActive()) {
+        return 0;
+    }
     if (m_getCurrentTimeFn && !m_bShow) {
         const std::uint32_t curTime = m_getCurrentTimeFn(m_clockUserData);
-        if (curTime - m_dwStartShowTime >= 3000u) {
+        if (curTime - m_dwStartShowTime >= kShowDelayMilliseconds) {
             m_bShow = true;
         } else {
             return 0;  // WE_NULL (early return)
         }
     }
     return 0;  // WE_NULL
+}
+
+void cWantRegistDialog::Render() {
+    if (m_bShow) {
+        cDialog::Render();
+    }
 }
 
 }  // namespace mxh::ui

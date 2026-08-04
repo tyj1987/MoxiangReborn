@@ -31,37 +31,32 @@
 //     crash on null).
 //   - SetWantedName without Linking is safe.
 //   - SetWantedName before Init does not crash.
-//   - SetActive val=true calls base SetActive
-//     (gCurTime TODO: modern port does not init
-//     m_dwStartShowTime, R-12.x deferred).
+//   - SetActive val=true stamps m_dwStartShowTime
+//     through the optional host clock provider.
 //   - SetActive val=false calls base SetActive +
 //     SetFocusEdit(false) on cEditBox (1:1 with
-//     legacy else branch; the MSGBASE NETWORK
-//     send is TODO).
+//     legacy else branch) and sends the wanted
+//     registration-cancel MSGBASE through callbacks.
 //   - SetActive without Linking is safe.
 //   - SetActive before Init does not crash.
-//   - ActionEvent returns 0 (WE_NULL) (TODO:
-//     CMouse + gCurTime not ported, R-12.x
-//     deferred). The 1:1 contract is preserved:
-//     returns uint32 matching the legacy early-
-//     return path.
+//   - ActionEvent preserves inactive/disabled and
+//     3000 ms delayed-show gates; CMouse routing
+//     remains deferred and returns WE_NULL.
 //   - ActionEvent before Init does not crash.
 //
 // 1:1 quirks preserved:
 //   - Ctor body empty (1:1 quirk: m_type =
 //     WT_WANTREGISTDIALOG drop, modern cWindow
 //     does not have m_type field).
-//   - 1:1 quirk: legacy's m_bActive check (early
-//     return on val == m_bActive) is omitted in
-//     the modern port (1:1 quirk: modern
-//     cDialog::SetActive is idempotent).
+//   - Legacy same-active early return is preserved
+//     before clock, focus, network, and base effects.
 //   - SetWantedName with null pName is safe
 //     (modern port guards null; legacy would
 //     crash).
 //   - SetActive override: base SetActive always
 //     called. The val == FALSE SetFocusEdit(false)
-//     call is REAL (no singleton dep). The
-//     MSGBASE NETWORK send is TODO.
+//     call is REAL; the MSGBASE send is wired
+//     through optional HERO + NETWORK callbacks.
 //   - ActionEvent returns 0 (matching legacy
 //     WE_NULL).
 //   - kVcmNumber = 1 (1:1 with legacy
@@ -261,9 +256,8 @@ TEST(CWantRegistDialogTest, SetActiveTrueUpdatesBaseState) {
 
 TEST(CWantRegistDialogTest, SetActiveFalseClearsFocus) {
     // 1:1 with legacy val == FALSE: calls
-    // m_PrizeEdit->SetFocusEdit(FALSE) (REAL, no
-    // singleton dep) + the MSGBASE NETWORK send
-    // is TODO.
+    // m_PrizeEdit->SetFocusEdit(FALSE) plus the
+    // optional HERO + NETWORK cancel dispatch.
     cWantRegistDialog dlg;
     cStatic* pWantedName = nullptr;
     cEditBox* pPrizeEdit = nullptr;
@@ -355,7 +349,7 @@ TEST(CWantRegistDialogTest, SetActiveTrueWithoutProviderUsesZeroClock) {
     EXPECT_EQ(dlg.GetStartShowTime(), 0u);
 }
 
-TEST(CWantRegistDialogTest, SetActiveFalseResetsShowState) {
+TEST(CWantRegistDialogTest, SetActiveFalsePreservesStartTimeAndResetsShow) {
     cWantRegistDialog dlg;
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     WgClockCapture clock;
@@ -364,7 +358,7 @@ TEST(CWantRegistDialogTest, SetActiveFalseResetsShowState) {
     dlg.SetActive(true);
     dlg.SetActive(false);
     EXPECT_FALSE(dlg.IsShow());
-    EXPECT_EQ(dlg.GetStartShowTime(), 0u);
+    EXPECT_EQ(dlg.GetStartShowTime(), 5000u);
 }
 
 TEST(CWantRegistDialogTest, ActionEventBefore3SecKeepsShowFalse) {
@@ -411,5 +405,196 @@ TEST(CWantRegistDialogTest, ActionEventUsesLegacyDwordWrap) {
     dlg.SetActive(true);
     clock.value = 0xFFFFFFF0u;  // DWORD wrap-around distance
     dlg.ActionEvent();
+    EXPECT_TRUE(dlg.IsShow());
+}
+
+
+// ===========================================================================
+// Legacy early-return + cancel network dispatch (C-Batch-2.44)
+// ===========================================================================
+
+struct WantCancelCapture {
+    std::uint32_t heroId = 0;
+    std::uint32_t sentObjectId = 0;
+    int getHeroCalls = 0;
+    int sendCalls = 0;
+    bool sendResult = true;
+
+    static std::uint32_t GetHeroId(void* userData) {
+        auto* capture = static_cast<WantCancelCapture*>(userData);
+        ++capture->getHeroCalls;
+        return capture->heroId;
+    }
+
+    static bool Send(std::uint32_t objectId, void* userData) {
+        auto* capture = static_cast<WantCancelCapture*>(userData);
+        ++capture->sendCalls;
+        capture->sentObjectId = objectId;
+        return capture->sendResult;
+    }
+};
+
+TEST(CWantRegistDialogTest, WantedCancelWireConstantsMatchLegacy) {
+    EXPECT_EQ(cWantRegistDialog::kWantedCategory, 52u);
+    EXPECT_EQ(cWantRegistDialog::kWantedRegistCancelProtocol, 27u);
+    EXPECT_EQ(cWantRegistDialog::kShowDelayMilliseconds, 3000u);
+}
+
+TEST(CWantRegistDialogTest, LinkingResetsLegacyShowDelayState) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    clock.value = 4000u;
+    dlg.ActionEvent();
+    ASSERT_TRUE(dlg.IsShow());
+
+    dlg.Linking();
+
+    EXPECT_FALSE(dlg.IsShow());
+    EXPECT_EQ(dlg.GetStartShowTime(), 0u);
+}
+
+TEST(CWantRegistDialogTest, SetActiveTrueSameStateReturnsBeforeClockRead) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    clock.value = 9000u;
+
+    dlg.SetActive(true);
+
+    EXPECT_EQ(clock.calls, 1);
+    EXPECT_EQ(dlg.GetStartShowTime(), 1000u);
+}
+
+TEST(CWantRegistDialogTest, SetActiveFalseSameStateSkipsCancelSend) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WantCancelCapture capture;
+    capture.heroId = 77u;
+    dlg.SetCancelCallbacks(&WantCancelCapture::GetHeroId,
+                           &WantCancelCapture::Send, &capture);
+
+    dlg.SetActive(false);
+
+    EXPECT_EQ(capture.getHeroCalls, 0);
+    EXPECT_EQ(capture.sendCalls, 0);
+}
+
+TEST(CWantRegistDialogTest, SetActiveFalseSendsCancelForHero) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WantCancelCapture capture;
+    capture.heroId = 0x12345678u;
+    dlg.SetCancelCallbacks(&WantCancelCapture::GetHeroId,
+                           &WantCancelCapture::Send, &capture);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_EQ(capture.getHeroCalls, 1);
+    EXPECT_EQ(capture.sendCalls, 1);
+    EXPECT_EQ(capture.sentObjectId, 0x12345678u);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CWantRegistDialogTest, SetActiveTrueNeverSendsCancel) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WantCancelCapture capture;
+    dlg.SetCancelCallbacks(&WantCancelCapture::GetHeroId,
+                           &WantCancelCapture::Send, &capture);
+
+    dlg.SetActive(true);
+
+    EXPECT_EQ(capture.getHeroCalls, 0);
+    EXPECT_EQ(capture.sendCalls, 0);
+}
+
+TEST(CWantRegistDialogTest, SetActiveFalseSkipsMissingHeroCallback) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WantCancelCapture capture;
+    dlg.SetCancelCallbacks(nullptr, &WantCancelCapture::Send, &capture);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_EQ(capture.sendCalls, 0);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CWantRegistDialogTest, SetActiveFalseSkipsMissingSendCallback) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WantCancelCapture capture;
+    dlg.SetCancelCallbacks(&WantCancelCapture::GetHeroId, nullptr, &capture);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_EQ(capture.getHeroCalls, 0);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CWantRegistDialogTest, SetActiveFalseIgnoresSendFailure) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WantCancelCapture capture;
+    capture.sendResult = false;
+    dlg.SetCancelCallbacks(&WantCancelCapture::GetHeroId,
+                           &WantCancelCapture::Send, &capture);
+    dlg.SetActive(true);
+
+    dlg.SetActive(false);
+
+    EXPECT_EQ(capture.sendCalls, 1);
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CWantRegistDialogTest, ActionEventInactiveReturnsBeforeClockRead) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 5000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+
+    EXPECT_EQ(dlg.ActionEvent(), 0u);
+    EXPECT_EQ(clock.calls, 0);
+    EXPECT_FALSE(dlg.IsShow());
+}
+
+TEST(CWantRegistDialogTest, ActionEventDisabledReturnsBeforeClockRead) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    dlg.SetDisable(true);
+    clock.calls = 0;
+    clock.value = 5000u;
+
+    EXPECT_EQ(dlg.ActionEvent(), 0u);
+    EXPECT_EQ(clock.calls, 0);
+    EXPECT_FALSE(dlg.IsShow());
+}
+
+TEST(CWantRegistDialogTest, RenderIsSafeBeforeAndAfterShowDelay) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    dlg.Render();
+    clock.value = 4000u;
+    dlg.ActionEvent();
+    dlg.Render();
     EXPECT_TRUE(dlg.IsShow());
 }

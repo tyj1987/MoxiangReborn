@@ -42,29 +42,20 @@
 //     with legacy char* c-string). The modern
 //     port uses null guard for pName (legacy
 //     would crash on null).
-//   - SetActive override: TODO (gCurTime + HERO
-//     + NETWORK not ported, R-12.x deferred).
-//     Modern port calls base SetActive + the
-//     val == FALSE SetFocusEdit(false) call.
-//     The MSGBASE NETWORK send is TODO.
-//   - ActionEvent: TODO (CMouse + gCurTime not
-//     ported, R-12.x deferred). Modern port
-//     returns WE_NULL.
-//   - Render: TODO (Phase 12.x minimal port; the
-//     m_bShow gating is documented but not
-//     implemented — the modern port always
-//     renders if active, matching the legacy
-//     behavior once m_bShow is set). The m_bShow
-//     + m_dwStartShowTime state fields are
-//     documented in the modern port for future
-//     implementation.
+//   - SetActive override: REAL through optional host clock, hero-id,
+//     and network callbacks. Preserves the same-active early return,
+//     cancel MSGBASE send, focus clear, and m_bShow reset order.
+//   - ActionEvent: REAL delayed-show gate with inactive/disabled
+//     early returns and DWORD wrap-around. CMouse routing remains
+//     deferred because the modern signature has no mouse input.
+//   - Render: REAL m_bShow gate around cDialog::Render.
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
 // this is the 38th **Tier 2** dialog port (after
 // cWantedDialog). The dialog has no service
 // dependency on the modern service interface
-// (Phase 13) — only gCurTime + CMouse + HERO +
-// NETWORK singletons (R-12.x deferred).
+// dependency on the modern service interface (Phase 13).
+// CMouse routing remains deferred; runtime globals use host callbacks.
 
 #pragma once
 
@@ -109,10 +100,18 @@ public:
     // 1:1 with legacy SetActive override.
     // val==TRUE: stamp m_dwStartShowTime via
     // OPTIONAL host clock provider (legacy gCurTime).
-    // val==FALSE: SetFocusEdit(false) is REAL;
-    // the MSGBASE NETWORK send is TODO
-    // (HERO + NETWORK singletons).
+    // val==FALSE: clear edit focus and send the
+    // legacy MP_WANTED_REGIST_CANCEL MSGBASE through
+    // OPTIONAL hero-id + network host callbacks.
     void SetActive(bool val) noexcept override;
+
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using SendRegistCancelFn = bool (*)(std::uint32_t objectId,
+                                        void* userData);
+
+    void SetCancelCallbacks(GetHeroObjectIdFn getHeroObjectId,
+                            SendRegistCancelFn sendRegistCancel,
+                            void* userData = nullptr) noexcept;
 
     // Replace the legacy gCurTime read for SetActive +
     // ActionEvent. A null provider preserves the
@@ -122,12 +121,13 @@ public:
 
     // ----- 1:1 with legacy CWantRegistDialog::ActionEvent -----
 
-    // 1:1 with legacy ActionEvent. The whole
-    // method is TODO (CMouse + gCurTime not
-    // ported, R-12.x deferred). Modern port returns
-    // WE_NULL (matching the legacy "early return"
-    // path when m_bShow is false).
+    // 1:1 delayed-show gate. Returns WE_NULL while inactive,
+    // disabled, or before 3000 ms. Once shown, CMouse routing
+    // remains deferred because this modern overload has no mouse input.
     std::uint32_t ActionEvent();
+
+    // 1:1 m_bShow render gate.
+    void Render() override;
 
     // ----- Local id range (avoids collision with existing Tier 2 dialogs) -----
 
@@ -141,6 +141,12 @@ public:
     // VCM_NUMBER = 1 (1:1 with legacy cEditBox
     // valid-check enum: digits-only valid check).
     static constexpr int kVcmNumber = 1;
+
+    // 1:1 with legacy Protocol.h MP_WANTED and
+    // MP_WANTED_REGIST_CANCEL numeric wire bytes.
+    static constexpr std::uint8_t kWantedCategory = 52;
+    static constexpr std::uint8_t kWantedRegistCancelProtocol = 27;
+    static constexpr std::uint32_t kShowDelayMilliseconds = 3000;
 
     // 1:1 with legacy m_dwStartShowTime getter (test-only).
     std::uint32_t GetStartShowTime() const noexcept { return m_dwStartShowTime; }
@@ -163,8 +169,11 @@ private:
     // 1:1 with legacy m_dwStartShowTime.
     std::uint32_t m_dwStartShowTime = 0;
 
-    WgClockFn m_getCurrentTimeFn = nullptr;
-    void*     m_clockUserData    = nullptr;
+    WgClockFn          m_getCurrentTimeFn = nullptr;
+    void*              m_clockUserData = nullptr;
+    GetHeroObjectIdFn  m_getHeroObjectIdFn = nullptr;
+    SendRegistCancelFn m_sendRegistCancelFn = nullptr;
+    void*              m_cancelUserData = nullptr;
 };
 
 }  // namespace mxh::ui
