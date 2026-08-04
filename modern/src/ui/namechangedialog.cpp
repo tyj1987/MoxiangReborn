@@ -6,6 +6,8 @@
 #include "namechangedialog.hpp"
 #include "ceditbox.hpp"
 
+#include <cstring>
+
 namespace mxh::ui {
 
 cNameChangeDialog::cNameChangeDialog() {
@@ -50,36 +52,67 @@ void cNameChangeDialog::SetActive(bool val) noexcept {
     }
 }
 
+void cNameChangeDialog::SetCallbacks(
+    AddSystemMessageFn addSystemMessage,
+    GetHeroNameFn getHeroName,
+    GetHeroObjectIdFn getHeroObjectId,
+    IsInvalidCharIncludedFn isInvalidCharIncluded,
+    IsUsableNameFn isUsableName,
+    SendNameChangeFn sendNameChange,
+    void* userData) noexcept {
+    m_addSystemMessage = addSystemMessage;
+    m_getHeroName = getHeroName;
+    m_getHeroObjectId = getHeroObjectId;
+    m_isInvalidCharIncluded = isInvalidCharIncluded;
+    m_isUsableName = isUsableName;
+    m_sendNameChange = sendNameChange;
+    m_callbackUserData = userData;
+}
+
 void cNameChangeDialog::NameChangeSyn() {
-    // 1:1 with legacy CNameChangeDialog::NameChangeSyn.
-    // The legacy is:
-    //   DWORD len = 0;
-    //   char buf[20];
-    //   strcpy(buf, m_pNameBox->GetEditText());
-    //   len = strlen(buf);
-    //   if (len == 0) { CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(11)); return; }
-    //   else if (len < 4) { CHATMGR->AddMsg(CTC_SYSMSG, CHATMGR->GetChatMsg(19)); return; }
-    //   else if (len > MAX_NAME_LENGTH) return;
-    //   if (strcmp(buf, HERO->GetObjectName()) == 0) return;
-    //   if (FILTERTABLE->IsInvalidCharInclude(...)) { CHATMGR->AddMsg(...,14); return; }
-    //   if (!FILTERTABLE->IsUsableName(buf)) { CHATMGR->AddMsg(...,14); return; }
-    //   if (m_dwDBIdx == 0) return;
-    //   SEND_CHANGENAMEBASE msg;
-    //   msg.Category = MP_ITEM;
-    //   msg.Protocol = MP_ITEM_SHOPITEM_NCHANGE_SYN;
-    //   msg.dwObjectID = HERO->GetID();
-    //   msg.DBIdx = m_dwDBIdx;
-    //   strncpy(msg.Name, buf, MAX_NAME_LENGTH+1);
-    //   NETWORK->Send(&msg, sizeof(msg));
-    //   SetActive(FALSE);
-    //
-    // The modern port: the whole method is TODO
-    // (4-singleton: CHATMGR + FILTERTABLE + HERO +
-    // NETWORK not ported, R-12.x deferred). Returns
-    // immediately (no-op) while singletons are
-    // unported. When ported, the body becomes the
-    // legacy code.
-    // TODO: 4-singleton dispatch (R-12.x deferred).
+    if (!m_pNameBox) return;
+
+    const std::string& editText = m_pNameBox->editText();
+    const auto length = editText.size();
+    if (length == 0) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kEmptyNameMessageId, m_callbackUserData);
+        }
+        return;
+    }
+    if (length < 4) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kShortNameMessageId, m_callbackUserData);
+        }
+        return;
+    }
+    if (length > kMaxNameLength) return;
+
+    const char* heroName = m_getHeroName
+        ? m_getHeroName(m_callbackUserData)
+        : nullptr;
+    if (heroName && std::strcmp(editText.c_str(), heroName) == 0) return;
+
+    if (m_isInvalidCharIncluded &&
+        m_isInvalidCharIncluded(
+            reinterpret_cast<const unsigned char*>(editText.c_str()),
+            m_callbackUserData)) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kInvalidNameMessageId, m_callbackUserData);
+        }
+        return;
+    }
+    if (m_isUsableName && !m_isUsableName(editText.c_str(), m_callbackUserData)) {
+        if (m_addSystemMessage) {
+            m_addSystemMessage(kInvalidNameMessageId, m_callbackUserData);
+        }
+        return;
+    }
+    if (m_dwDBIdx == 0 || !m_getHeroObjectId || !m_sendNameChange) return;
+
+    m_sendNameChange(m_getHeroObjectId(m_callbackUserData), m_dwDBIdx,
+                     editText.c_str(), m_callbackUserData);
+    SetActive(false);
 }
 
 }  // namespace mxh::ui

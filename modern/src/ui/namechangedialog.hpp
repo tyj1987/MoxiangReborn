@@ -41,12 +41,10 @@
 //   - SetActive override: 1:1 with legacy
 //     (call base SetActive + clear edit text on
 //     val=true).
-//   - NameChangeSyn: TODO (4-singleton: CHATMGR +
-//     FILTERTABLE + HERO + NETWORK not ported,
-//     R-12.x deferred). Modern port returns
-//     immediately (no-op) while singletons are
-//     unported. When ported, the body becomes the
-//     legacy code.
+//   - NameChangeSyn: REAL via optional host callbacks;
+//     preserves the legacy validation order, message
+//     ids, hero-name duplicate check, filter gates,
+//     DB item gate, send fields, and dialog close.
 //   - SetItemDBIdx / GetItemDBIdx: REAL inline
 //     setter / getter.
 //
@@ -61,6 +59,7 @@
 
 #include "cdialog.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace mxh::ui {
@@ -90,13 +89,28 @@ public:
 
     // ----- 1:1 with legacy CNameChangeDialog::NameChangeSyn -----
 
-    // 1:1 with legacy NameChangeSyn. The whole
-    // method is TODO (4-singleton: CHATMGR +
-    // FILTERTABLE + HERO + NETWORK not ported,
-    // R-12.x deferred). Modern port returns
-    // immediately (no-op) while singletons are
-    // unported. When ported, the body becomes the
-    // legacy code.
+    using AddSystemMessageFn = void (*)(std::int32_t messageId,
+                                          void* userData);
+    using GetHeroNameFn = const char* (*)(void* userData);
+    using GetHeroObjectIdFn = std::uint32_t (*)(void* userData);
+    using IsInvalidCharIncludedFn = bool (*)(const unsigned char* name,
+                                             void* userData);
+    using IsUsableNameFn = bool (*)(const char* name, void* userData);
+    using SendNameChangeFn = void (*)(std::uint32_t objectId,
+                                      std::uint32_t dbIdx,
+                                      const char* name,
+                                      void* userData);
+
+    void SetCallbacks(AddSystemMessageFn addSystemMessage,
+                      GetHeroNameFn getHeroName,
+                      GetHeroObjectIdFn getHeroObjectId,
+                      IsInvalidCharIncludedFn isInvalidCharIncluded,
+                      IsUsableNameFn isUsableName,
+                      SendNameChangeFn sendNameChange,
+                      void* userData = nullptr) noexcept;
+
+    // Executes the legacy validation chain in order,
+    // dispatches the name-change request, then closes.
     void NameChangeSyn();
 
     // ----- 1:1 with legacy CNameChangeDialog::SetItemDBIdx / GetItemDBIdx -----
@@ -116,8 +130,20 @@ public:
     // valid-check enum: character-name valid
     // check).
     static constexpr int kVcmCharname = 2;
+    static constexpr std::size_t kMaxNameLength = 16;
+    static constexpr std::int32_t kEmptyNameMessageId = 11;
+    static constexpr std::int32_t kInvalidNameMessageId = 14;
+    static constexpr std::int32_t kShortNameMessageId = 19;
 
 private:
+    AddSystemMessageFn m_addSystemMessage = nullptr;
+    GetHeroNameFn m_getHeroName = nullptr;
+    GetHeroObjectIdFn m_getHeroObjectId = nullptr;
+    IsInvalidCharIncludedFn m_isInvalidCharIncluded = nullptr;
+    IsUsableNameFn m_isUsableName = nullptr;
+    SendNameChangeFn m_sendNameChange = nullptr;
+    void* m_callbackUserData = nullptr;
+
     // 1:1 with legacy m_pNameBox (resolved in
     // Linking by CH_NAME_CHANGE_EDITBOX id).
     cEditBox* m_pNameBox = nullptr;

@@ -26,10 +26,9 @@
 //     (no edit text clear, 1:1 with legacy).
 //   - SetActive without Linking is safe.
 //   - SetItemDBIdx / GetItemDBIdx round-trip.
-//   - NameChangeSyn is a no-op (TODO: 4-singleton
-//     dispatch CHATMGR + FILTERTABLE + HERO +
-//     NETWORK, R-12.x deferred). The 1:1 contract
-//     is preserved: returns void, no state change.
+//   - NameChangeSyn preserves all legacy validation
+//     gates, message ids, callback order, send fields,
+//     and successful dialog close.
 //   - NameChangeSyn without Linking is safe.
 //   - NameChangeSyn before Init does not crash.
 //
@@ -47,8 +46,8 @@
 //     unless InitEditbox was called (m_bInitEdit
 //     guard). Test caller must call InitEditbox
 //     before SetEditText takes effect.
-//   - NameChangeSyn TODO (4-singleton dispatch,
-//     R-12.x deferred).
+//   - NameChangeSyn singleton dependencies are
+//     supplied through optional host callbacks.
 //   - kVcmCharname = 2 (1:1 with legacy
 //     cEditBox::SetValidCheck enum value).
 //   - Local id range 450 (distinct from 200-443
@@ -242,61 +241,256 @@ TEST(CNameChangeDialogTest, SetItemDBIdxZeroIsValid) {
 // NameChangeSyn
 // ===========================================================================
 
-TEST(CNameChangeDialogTest, NameChangeSynIsNoOpUntilSingletonsPorted) {
-    // 1:1 with legacy contract: returns void.
-    // Modern port is a no-op (TODO: 4-singleton
-    // dispatch CHATMGR + FILTERTABLE + HERO +
-    // NETWORK, R-12.x deferred). The 1:1 contract
-    // is preserved: no state change observable.
-    cNameChangeDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
+namespace {
 
+struct NameChangeChildren {
+    cEditBox* edit = nullptr;
+};
+
+void BuildNameChangeDialog(cNameChangeDialog& dlg, NameChangeChildren& children) {
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
     auto edit = std::make_unique<cEditBox>();
     edit->Init(0, 0, 200, 14, nullptr, nullptr, cNameChangeDialog::kIdNameBox);
     edit->InitEditbox(50, 64);
+    children.edit = edit.get();
     dlg.Add(std::unique_ptr<cWindow>(edit.release()));
     dlg.Linking();
-    dlg.SetItemDBIdx(42u);
-
-    dlg.SetActive(true);
-    dlg.NameChangeSyn();
-    // State preserved (legacy would have set
-    // active false + sent network message, but
-    // modern is TODO).
-    EXPECT_TRUE(dlg.isActive());
-    EXPECT_EQ(dlg.GetItemDBIdx(), 42u);
 }
 
-TEST(CNameChangeDialogTest, NameChangeSynDoesNotChangeState) {
+struct NameChangeCallbackState {
+    std::string heroName = "OldHero";
+    std::uint32_t heroObjectId = 77;
+    bool invalidChar = false;
+    bool usableName = true;
+    int messageCalls = 0;
+    std::int32_t lastMessageId = 0;
+    int invalidCalls = 0;
+    int usableCalls = 0;
+    int sendCalls = 0;
+    std::uint32_t sentObjectId = 0;
+    std::uint32_t sentDbIdx = 0;
+    std::string sentName;
+};
+
+void AddNameChangeSystemMessage(std::int32_t messageId, void* userData) {
+    auto& state = *static_cast<NameChangeCallbackState*>(userData);
+    ++state.messageCalls;
+    state.lastMessageId = messageId;
+}
+
+const char* GetNameChangeHeroName(void* userData) {
+    return static_cast<NameChangeCallbackState*>(userData)->heroName.c_str();
+}
+
+std::uint32_t GetNameChangeHeroObjectId(void* userData) {
+    return static_cast<NameChangeCallbackState*>(userData)->heroObjectId;
+}
+
+bool IsNameChangeInvalidCharIncluded(const unsigned char*, void* userData) {
+    auto& state = *static_cast<NameChangeCallbackState*>(userData);
+    ++state.invalidCalls;
+    return state.invalidChar;
+}
+
+bool IsNameChangeUsable(const char*, void* userData) {
+    auto& state = *static_cast<NameChangeCallbackState*>(userData);
+    ++state.usableCalls;
+    return state.usableName;
+}
+
+void SendNameChange(std::uint32_t objectId, std::uint32_t dbIdx,
+                    const char* name, void* userData) {
+    auto& state = *static_cast<NameChangeCallbackState*>(userData);
+    ++state.sendCalls;
+    state.sentObjectId = objectId;
+    state.sentDbIdx = dbIdx;
+    state.sentName = name ? name : "";
+}
+
+void InstallNameChangeCallbacks(cNameChangeDialog& dlg,
+                                NameChangeCallbackState& state) {
+    dlg.SetCallbacks(AddNameChangeSystemMessage, GetNameChangeHeroName,
+                     GetNameChangeHeroObjectId, IsNameChangeInvalidCharIncluded,
+                     IsNameChangeUsable, SendNameChange, &state);
+}
+
+}  // namespace
+
+TEST(CNameChangeDialogTest, LegacyConstantsMatchSource) {
+    EXPECT_EQ(cNameChangeDialog::kMaxNameLength, 16u);
+    EXPECT_EQ(cNameChangeDialog::kEmptyNameMessageId, 11);
+    EXPECT_EQ(cNameChangeDialog::kInvalidNameMessageId, 14);
+    EXPECT_EQ(cNameChangeDialog::kShortNameMessageId, 19);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynEmptyNameShowsMessage11) {
     cNameChangeDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    InstallNameChangeCallbacks(dlg, state);
 
-    auto edit = std::make_unique<cEditBox>();
-    edit->Init(0, 0, 200, 14, nullptr, nullptr, cNameChangeDialog::kIdNameBox);
-    edit->InitEditbox(50, 64);
-    dlg.Add(std::unique_ptr<cWindow>(edit.release()));
-    dlg.Linking();
-    dlg.SetItemDBIdx(42u);
-
-    dlg.SetActive(true);
     dlg.NameChangeSyn();
-    // State preserved.
+
+    EXPECT_EQ(state.messageCalls, 1);
+    EXPECT_EQ(state.lastMessageId, 11);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynShortNameShowsMessage19) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    InstallNameChangeCallbacks(dlg, state);
+    children.edit->SetEditText("abc");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.lastMessageId, 19);
+    EXPECT_EQ(state.invalidCalls, 0);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynOverMaxLengthSilentlyReturns) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    InstallNameChangeCallbacks(dlg, state);
+    children.edit->SetEditText("12345678901234567");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.messageCalls, 0);
+    EXPECT_EQ(state.invalidCalls, 0);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynSameAsHeroNameSilentlyReturns) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    state.heroName = "SameHero";
+    InstallNameChangeCallbacks(dlg, state);
+    children.edit->SetEditText("SameHero");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.messageCalls, 0);
+    EXPECT_EQ(state.invalidCalls, 0);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynInvalidCharacterShowsMessage14) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    state.invalidChar = true;
+    InstallNameChangeCallbacks(dlg, state);
+    children.edit->SetEditText("Bad!Name");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.lastMessageId, 14);
+    EXPECT_EQ(state.invalidCalls, 1);
+    EXPECT_EQ(state.usableCalls, 0);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynUnusableNameShowsMessage14) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    state.usableName = false;
+    InstallNameChangeCallbacks(dlg, state);
+    children.edit->SetEditText("BlockedName");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.lastMessageId, 14);
+    EXPECT_EQ(state.invalidCalls, 1);
+    EXPECT_EQ(state.usableCalls, 1);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynZeroDbIdxSilentlyReturnsAfterFilters) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    InstallNameChangeCallbacks(dlg, state);
+    children.edit->SetEditText("NewHero");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.invalidCalls, 1);
+    EXPECT_EQ(state.usableCalls, 1);
+    EXPECT_EQ(state.sendCalls, 0);
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynSendsExpectedFieldsAndCloses) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    InstallNameChangeCallbacks(dlg, state);
+    dlg.SetItemDBIdx(1234);
+    dlg.SetActive(true);
+    children.edit->SetEditText("NewHero");
+
+    dlg.NameChangeSyn();
+
+    EXPECT_EQ(state.sendCalls, 1);
+    EXPECT_EQ(state.sentObjectId, 77u);
+    EXPECT_EQ(state.sentDbIdx, 1234u);
+    EXPECT_EQ(state.sentName, "NewHero");
+    EXPECT_FALSE(dlg.isActive());
+}
+
+TEST(CNameChangeDialogTest, NameChangeSynWithoutSendCallbackDoesNotClose) {
+    cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState state;
+    dlg.SetCallbacks(AddNameChangeSystemMessage, GetNameChangeHeroName,
+                     GetNameChangeHeroObjectId, IsNameChangeInvalidCharIncluded,
+                     IsNameChangeUsable, nullptr, &state);
+    dlg.SetItemDBIdx(1);
+    dlg.SetActive(true);
+    children.edit->SetEditText("NewHero");
+
+    dlg.NameChangeSyn();
+
     EXPECT_TRUE(dlg.isActive());
-    EXPECT_EQ(dlg.GetItemDBIdx(), 42u);
+    EXPECT_EQ(state.sendCalls, 0);
 }
 
 TEST(CNameChangeDialogTest, NameChangeSynWithoutLinkIsSafe) {
     cNameChangeDialog dlg;
-    dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetItemDBIdx(1u);
     dlg.NameChangeSyn();
     SUCCEED();
 }
 
-TEST(CNameChangeDialogTest, NameChangeSynBeforeInitDoesNotCrash) {
+TEST(CNameChangeDialogTest, SetCallbacksReplacesExistingDispatch) {
     cNameChangeDialog dlg;
+    NameChangeChildren children;
+    BuildNameChangeDialog(dlg, children);
+    NameChangeCallbackState firstState;
+    NameChangeCallbackState secondState;
+    InstallNameChangeCallbacks(dlg, firstState);
+    InstallNameChangeCallbacks(dlg, secondState);
+    dlg.SetItemDBIdx(9);
+    children.edit->SetEditText("NewHero");
+
     dlg.NameChangeSyn();
-    SUCCEED();
+
+    EXPECT_EQ(firstState.sendCalls, 0);
+    EXPECT_EQ(secondState.sendCalls, 1);
 }
 
 }  // namespace mxh::ui::test

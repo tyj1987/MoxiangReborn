@@ -921,10 +921,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CNameChangeDialogTest.SetItemDBIdxRoundTrip
     CNameChangeDialogTest.SetItemDBIdxOverridesPrevious
     CNameChangeDialogTest.SetItemDBIdxZeroIsValid
-    CNameChangeDialogTest.NameChangeSynIsNoOpUntilSingletonsPorted
-    CNameChangeDialogTest.NameChangeSynDoesNotChangeState
+    CNameChangeDialogTest.LegacyConstantsMatchSource
+    CNameChangeDialogTest.NameChangeSynEmptyNameShowsMessage11
+    CNameChangeDialogTest.NameChangeSynShortNameShowsMessage19
+    CNameChangeDialogTest.NameChangeSynOverMaxLengthSilentlyReturns
+    CNameChangeDialogTest.NameChangeSynSameAsHeroNameSilentlyReturns
+    CNameChangeDialogTest.NameChangeSynInvalidCharacterShowsMessage14
+    CNameChangeDialogTest.NameChangeSynUnusableNameShowsMessage14
+    CNameChangeDialogTest.NameChangeSynZeroDbIdxSilentlyReturnsAfterFilters
+    CNameChangeDialogTest.NameChangeSynSendsExpectedFieldsAndCloses
+    CNameChangeDialogTest.NameChangeSynWithoutSendCallbackDoesNotClose
     CNameChangeDialogTest.NameChangeSynWithoutLinkIsSafe
-    CNameChangeDialogTest.NameChangeSynBeforeInitDoesNotCrash
+    CNameChangeDialogTest.SetCallbacksReplacesExistingDispatch
     # Phase C 1:1 port (dialog): cChangeJobDialog (job-change item)
     CChangeJobDialogTest.DefaultConstructionHasZeroState
     CChangeJobDialogTest.InheritsDialogTreeManagement
