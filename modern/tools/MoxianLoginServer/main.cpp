@@ -161,9 +161,19 @@ INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('admin', 'admin',
 INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('test', 'test', 2);
 INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderland', 0);
 )SQL";
-        auto er = static_cast<mxh::db::SqliteAdapter*>(db.get())->exec_multi(schema);
-        if (!er) std::cerr << "WARN: schema init: " << er.error_message << "\n";
-        else std::cout << "[main] schema initialized\n";
+        // The bundled schema uses SQLite-only DDL (INSERT OR IGNORE, no MSSQL
+        // counterpart); only run it when the runtime adapter is actually SQLite.
+        // For MSSQL deployments the schema is created out-of-band by the restore
+        // scripts in scripts/db/.
+        if (auto* sqlite = dynamic_cast<mxh::db::SqliteAdapter*>(db.get())) {
+            auto er = sqlite->exec_multi(schema);
+            if (!er) std::cerr << "WARN: schema init: " << er.error_message << "\n";
+            else std::cout << "[main] schema initialized\n";
+        } else {
+            std::cerr << "WARN: --init-schema skipped: bundled schema uses SQLite-only DDL "
+                      << "(backend='" << db->backend_name() << "'); "
+                      << "create schema out-of-band for non-SQLite backends\n";
+        }
     }
 
     // 3. Build reply queue + handler + server.

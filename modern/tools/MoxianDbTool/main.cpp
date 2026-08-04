@@ -25,7 +25,7 @@ USAGE:
     mxh_db_tool <command> [options]
 
 COMMANDS:
-    init    --db <cfg>             Initialize SQLite database (creates tables)
+    init    --db <cfg>             Initialize schema (SQLite only; for MSSQL use scripts/db/*.sql)
     exec    --db <cfg> <sql>       Execute a SQL statement (INSERT/UPDATE/DELETE/DDL)
     query   --db <cfg> <sql>       Execute a query and print result as TSV
     schema  --db <cfg>             List tables
@@ -134,7 +134,19 @@ int cmd_init(const std::string& cfg_str) {
         std::cerr << "ERROR connect: " << r.error_message << "\n";
         return 1;
     }
-    auto er = static_cast<mxh::db::SqliteAdapter*>(adapter.get())->exec_multi(moxian_schema_sql());
+    // The bundled schema uses SQLite-only DDL (INSERT OR IGNORE, AUTOINCREMENT,
+    // sqlite_master). For non-SQLite backends the schema must be created
+    // out-of-band (e.g. by restoring the MSSQL .bak and applying the migration
+    // scripts in scripts/db/).
+    auto* sqlite = dynamic_cast<mxh::db::SqliteAdapter*>(adapter.get());
+    if (!sqlite) {
+        std::cerr << "ERROR init schema: backend '" << adapter->backend_name()
+                  << " is not SQLite. The bundled moxian_schema_sql() contains "
+                  << "SQLite-only DDL (INSERT OR IGNORE, AUTOINCREMENT). "
+                  << "Restore the MSSQL .bak and apply scripts/db/*.sql instead.\n";
+        return 1;
+    }
+    auto er = sqlite->exec_multi(moxian_schema_sql());
     if (!er) {
         std::cerr << "ERROR init schema: " << er.error_message << "\n";
         return 1;
@@ -204,7 +216,12 @@ int cmd_schema(const std::string& cfg_str) {
     auto cr = adapter->connect(cfg);
     if (!cr) { std::cerr << "connect: " << cr.error_message << "\n"; return 1; }
     mxh::db::ResultSet rs;
-    auto r = adapter->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name", rs);
+    // sqlite_master is SQLite-only; MSSQL uses INFORMATION_SCHEMA.TABLES.
+    const char* kSchemaSql =
+        (adapter->backend_name() == "sqlite")
+            ? "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            : "SELECT TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME";
+    auto r = adapter->query(kSchemaSql, rs);
     if (!r) {
         std::cerr << "ERROR: " << r.error_message << "\n";
         return 1;

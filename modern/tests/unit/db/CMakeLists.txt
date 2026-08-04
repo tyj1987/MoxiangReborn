@@ -26,6 +26,7 @@ gtest_add_tests(TARGET mxh_db_tests
     SqliteAdapter.Transactions
     SqliteAdapter.NullAndBlobBindings
     SqliteAdapter.FileBasedPersistence
+    SqliteAdapter.ExecMultiWithInsertOrIgnore
     MssqlOdbcAdapter.FactoryReturnsNonNull
     MssqlOdbcAdapter.FactoryAcceptsAliases
     MssqlOdbcAdapter.InitiallyNotConnected

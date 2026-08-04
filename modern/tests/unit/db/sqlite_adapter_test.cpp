@@ -135,3 +135,39 @@ TEST(SqliteAdapter, FileBasedPersistence) {
 
     std::filesystem::remove(path);
 }
+
+TEST(SqliteAdapter, ExecMultiWithInsertOrIgnore) {
+    // B5.3 lock: exec_multi() must handle SQLite-only DDL such as
+    // INSERT OR IGNORE without crashing. The bundled moxian_schema_sql()
+    // in tools/MoxianDbTool/main.cpp uses this pattern to seed default
+    // accounts; this test pins the contract.
+    auto db = make_in_memory();
+    ASSERT_NE(db, nullptr);
+    
+    const char* schema = R"SQL(
+CREATE TABLE IF NOT EXISTS t (id TEXT PRIMARY KEY, n INTEGER);
+INSERT OR IGNORE INTO t (id, n) VALUES ('a', 1);
+INSERT OR IGNORE INTO t (id, n) VALUES ('b', 2);
+)SQL";
+    auto* sqlite = dynamic_cast<SqliteAdapter*>(db.get());
+    ASSERT_NE(sqlite, nullptr);
+    auto er = sqlite->exec_multi(schema);
+    ASSERT_TRUE(er.ok()) << er.error_message;
+    
+    // Re-run; OR IGNORE means the inserts are no-ops the second time,
+    // and the table still has exactly 2 rows.
+    er = sqlite->exec_multi(schema);
+    ASSERT_TRUE(er.ok()) << er.error_message;
+    
+    ResultSet rs;
+    ASSERT_TRUE(db->query("SELECT COUNT(*) FROM t", rs).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 2);
+    
+    ResultSet rs2;
+    ASSERT_TRUE(db->query("SELECT id, n FROM t ORDER BY id", rs2).ok());
+    ASSERT_EQ(rs2.rows.size(), 2u);
+    EXPECT_EQ(std::get<std::string>(rs2.rows[0][0]), "a");
+    EXPECT_EQ(std::get<std::int64_t>(rs2.rows[0][1]), 1);
+    EXPECT_EQ(std::get<std::string>(rs2.rows[1][0]), "b");
+    EXPECT_EQ(std::get<std::int64_t>(rs2.rows[1][1]), 2);
+}

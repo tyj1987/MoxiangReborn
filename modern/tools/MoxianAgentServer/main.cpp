@@ -225,7 +225,10 @@ int main(int argc, char** argv) {
         "    character_data BLOB"
         ");";
     auto schema_result = db->execute(kSchemaInit);
-    (void)schema_result;
+    if (!schema_result.ok()) {
+        std::cerr << "[main] schema init warning: "
+                  << schema_result.error_message << "\n";
+    }
 
     static const char* kSchemaAlters[] = {
         "ALTER TABLE character_info ADD COLUMN sex_type INTEGER DEFAULT 0",
@@ -244,7 +247,7 @@ int main(int argc, char** argv) {
         // Ignore errors (column already exists).
         (void)sr2;
     }
-    std::cout << "[main] DB schema initialized\n";
+    std::cout << "[main] DB schema initialized (backend=" << db->backend_name() << ")\n";
 
     // 2. Build reply queue + handler + server.
     auto queue = std::make_shared<ReplyQueue>();

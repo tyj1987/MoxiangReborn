@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-08-03 — D4.19 ShopItemManager using_items() const accessor (3 new tests: empty after init / all inserted entries returned / delete+release), ShopItemManager 91/91 PASS。
+> **最近一次状态刷新**：2026-08-03 — D4.19 ShopItemManager using_items() const accessor (3 new tests: empty after init / all inserted entries returned / delete+release), ShopItemManager 91/91 PASS, then 2026-08-04 B5.3 backend-aware schema init for tools (LoginServer/AgentServer/MoxianDbTool no longer crash with --backend mssql_odbc)。
 
 ---
 
@@ -94,7 +94,7 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
 - [x] B3 MoxianMapServer 启动 + 接 Agent | Delayed MapServer startup locks Agent initial-connect failure, automatic reconnect, GameInSyn forwarding, and 3775-byte GameInAck relay.
 - [x] B4 Player/AISystem/Map 1:1 port（核心 5 万行） | B4.1 ai_group_loader reads Monster_10.bin (114 groups / 228 spawns / 3 field-boss positions) and Monster_12.bin (empty), transactionally replacing AISystem::group_list; 14 new tests cover parsing, real-bin, error paths, and AISystem replacement.
   - B4.2 MapHandler.install_ai_groups drives spawn from loaded AIGroupList (monsters_.size() == groups.spawn_count()) with legacy fallback to get_default_templates when no .bin.
-- [ ] B5 DBThread + IDbAdapter 真接 MSSQL | B5.1 ODBC parameter lifetime, failed-connect cleanup, native transaction state, and chunked SQLGetData are hardened. B5.2 DbThread async execute/query futures with graceful shutdown are covered by 2 end-to-end adapter tests.
+- [ ] B5 DBThread + IDbAdapter 真接 MSSQL | B5.1 ODBC parameter lifetime, failed-connect cleanup, native transaction state, and chunked SQLGetData are hardened. B5.2 DbThread async execute/query futures with graceful shutdown are covered by 2 end-to-end adapter tests. B5.3 tool-side schema init is backend-aware: LoginServer/AgentServer/MoxianDbTool no longer crash with --backend mssql_odbc (dynamic_cast<SqliteAdapter> guards; cmd_schema routes sqlite_master vs INFORMATION_SCHEMA.TABLES). 1 new SqliteAdapter.ExecMultiWithInsertOrIgnore unit test pins the SQLite-only-DDL contract.
 - [x] B6.1 HSEL YHLibrary ABI correction | 79 crypto tests
  CHSEL now matches the actual self-contained YHLibrary public header: non-virtual destructor, exactly two const virtual getters, protected version/type fields, and non-virtual CHSEL_STREAM Encrypt/Decrypt/CRC/key methods. R-1 remains open pending real legacy .bin E2E.
 - [ ] B6 HSEL stub 完整化（已 80%，补 20%）
