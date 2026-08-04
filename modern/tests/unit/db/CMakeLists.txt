@@ -2,6 +2,7 @@ add_executable(mxh_db_tests
     db_adapter_test.cpp
     sqlite_adapter_test.cpp
     mssql_odbc_adapter_test.cpp
+    db_thread_test.cpp
     mssql_real_e2e_test.cpp
     real_resource_test.cpp
 )
@@ -34,6 +35,8 @@ gtest_add_tests(TARGET mxh_db_tests
     MssqlOdbcAdapter.CommitWithoutActiveTransactionFails
     MssqlOdbcAdapter.ConnectToInvalidServerFails
     MssqlOdbcAdapter.DisconnectIsIdempotent
+    DbThread.AsyncExecuteQueryAndShutdown
+    DbThread.AsyncOperationAfterShutdownFailsImmediately
     RealResource.MonsterListIntoSqlite
     RealResource.PakFileListingToDb
 )

@@ -39,6 +39,7 @@ if(SQLite3_FOUND)
         db_adapter.cpp
         sqlite_adapter.cpp
         db_factory.cpp
+        db_thread.cpp
         mssql_odbc_adapter.cpp
     )
     target_link_libraries(mxh_db PRIVATE SQLite::SQLite3)
@@ -51,6 +52,7 @@ else()
         db_adapter.cpp
         sqlite_adapter.cpp
         db_factory.cpp
+        db_thread.cpp
         mssql_odbc_adapter.cpp
         ../third_party/sqlite/sqlite3.c
     )
