@@ -75,6 +75,35 @@ struct LinkedDialog {
     cTextArea* cautionPtr_ = nullptr;
 };
 
+// ===========================================================================
+
+namespace {
+
+struct MPMissionHostCalls {
+    int showMPNoticeCalls = 0;
+    int chatMsgCalls      = 0;
+    std::int32_t lastChatMsgId = -1;
+
+    static const char* GetChatMsg(std::int32_t msgId, void* ud) {
+        auto* hc = static_cast<MPMissionHostCalls*>(ud);
+        ++hc->chatMsgCalls;
+        hc->lastChatMsgId = msgId;
+        if (msgId == cMPMissionDialog::kChatMsgMission) {
+            return "MP_MISSION_CUSTOM";
+        }
+        if (msgId == cMPMissionDialog::kChatMsgCaution) {
+            return "MP_CAUTION_CUSTOM";
+        }
+        return "MP_OTHER";
+    }
+
+    static void ShowMPNoticeDialog(void* ud) {
+        ++static_cast<MPMissionHostCalls*>(ud)->showMPNoticeCalls;
+    }
+};
+
+}  // namespace
+
 }  // namespace
 
 // ---------- ctor / dtor ----------
@@ -118,10 +147,41 @@ TEST(CMPMissionDialogTest, PlaceholderStringsMatchExpectedValues) {
 
 // ---------- Linking ----------
 
-TEST(CMPMissionDialogTest, LinkingResolvesBothTextAreas) {
+TEST(CMPMissionDialogTest, LinkingWithoutCallbacksUsesPlaceholderText) {
+    // 1:1 with legacy CHATMGR placeholder:
+    // when the host GetChatMessage callback
+    // is absent, Linking falls back to the
+    // kMissionText / kCautionText constants.
     LinkedDialog ld;
     EXPECT_EQ(ld.missionPtr_->GetScriptText(), cMPMissionDialog::kMissionText);
     EXPECT_EQ(ld.cautionPtr_->GetScriptText(), cMPMissionDialog::kCautionText);
+}
+
+TEST(CMPMissionDialogTest, LinkingWithChatCallbackOverridesPlaceholder) {
+    // The host callback returns a custom
+    // chat message per legacy id (665/666).
+    LinkedDialog ld;
+    MPMissionHostCalls hc;
+    ld.dlg.SetCallbacks(&MPMissionHostCalls::GetChatMsg,
+                         nullptr, &hc);
+    ld.dlg.Linking();
+    EXPECT_EQ(ld.missionPtr_->GetScriptText(), "MP_MISSION_CUSTOM");
+    EXPECT_EQ(ld.cautionPtr_->GetScriptText(), "MP_CAUTION_CUSTOM");
+}
+
+TEST(CMPMissionDialogTest, LinkingRecalledUsesLatestCallback) {
+    // Linking is idempotent: re-calling it
+    // with a different chat-message callback
+    // overrides the previous text.
+    LinkedDialog ld;
+    ld.dlg.SetCallbacks(nullptr, nullptr, nullptr);
+    ld.dlg.Linking();
+    EXPECT_EQ(ld.missionPtr_->GetScriptText(), cMPMissionDialog::kMissionText);
+    MPMissionHostCalls hc;
+    ld.dlg.SetCallbacks(&MPMissionHostCalls::GetChatMsg,
+                         nullptr, &hc);
+    ld.dlg.Linking();
+    EXPECT_EQ(ld.missionPtr_->GetScriptText(), "MP_MISSION_CUSTOM");
 }
 
 TEST(CMPMissionDialogTest, LinkingBeforeInitDoesNotCrash) {
@@ -174,10 +234,32 @@ TEST(CMPMissionDialogTest, SetActiveTrueUpdatesBaseState) {
     EXPECT_TRUE(dlg.isActive());
 }
 
-TEST(CMPMissionDialogTest, SetActiveFalseUpdatesBaseState) {
+TEST(CMPMissionDialogTest, SetActiveFalseClosesAndDispatchesShowMPNotice) {
+    // 1:1 with legacy SetActive(false):
+    // GAMEIN->GetMPNoticeDialog()->SetActive(TRUE)
+    // dispatch runs BEFORE cDialog::SetActive
+    // (matches legacy byte-for-byte). Verify
+    // both the dispatch + the base close.
+    LinkedDialog ld;
+    MPMissionHostCalls hc;
+    ld.dlg.SetCallbacks(nullptr,
+                         &MPMissionHostCalls::ShowMPNoticeDialog,
+                         &hc);
+    ld.dlg.SetActive(true);
+    ASSERT_TRUE(ld.dlg.isActive());
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(hc.showMPNoticeCalls, 1);
+    EXPECT_FALSE(ld.dlg.isActive());
+}
+
+TEST(CMPMissionDialogTest, SetActiveFalseWithoutCallbackClosesDialog) {
+    // No host callback -> null singleton
+    // (GAMEIN not yet ported) -- the dialog
+    // still closes (1:1 with legacy base
+    // SetActive).
     LinkedDialog ld;
     ld.dlg.SetActive(true);
-    EXPECT_TRUE(ld.dlg.isActive());
+    ASSERT_TRUE(ld.dlg.isActive());
     ld.dlg.SetActive(false);
     EXPECT_FALSE(ld.dlg.isActive());
 }
@@ -321,3 +403,60 @@ TEST(CMPMissionDialogTest, ActionEventUsesLegacyDwordWrap) {
     // curTime - startTime = 0xFFFFFF00 - 1000 = wrap, huge. Auto-closes.
     EXPECT_FALSE(ld.dlg.isActive());
 }
+// ===========================================================================
+// Callback fixtures + new host-dispatch tests
+
+TEST(CMPMissionDialogTest, LegacyChatMessageIdsAndAccessorsMatchSource) {
+    // 1:1 with legacy CHATMGR->GetChatMsg ids.
+    EXPECT_EQ(cMPMissionDialog::kChatMsgMission, 665);
+    EXPECT_EQ(cMPMissionDialog::kChatMsgCaution, 666);
+}
+
+TEST(CMPMissionDialogTest, LinkingWithPartialChatCallbackFallsBackForMissingId) {
+    // The host callback returns nullptr -- the
+    // fallback (kMissionText) is used.
+    LinkedDialog ld;
+    struct AlwaysNull {
+        static const char* Get(std::int32_t, void*) { return nullptr; }
+    };
+    ld.dlg.SetCallbacks(&AlwaysNull::Get, nullptr, nullptr);
+    ld.dlg.Linking();
+    EXPECT_EQ(ld.missionPtr_->GetScriptText(), cMPMissionDialog::kMissionText);
+    EXPECT_EQ(ld.cautionPtr_->GetScriptText(), cMPMissionDialog::kCautionText);
+}
+
+TEST(CMPMissionDialogTest, SetActiveTrueDoesNotDispatchShowMPNotice) {
+    // 1:1 with legacy: val==TRUE only stamps
+    // m_dwStartTime -- the ShowMPNoticeDialog
+    // dispatch runs only on val==FALSE.
+    LinkedDialog ld;
+    MPMissionHostCalls hc;
+    ld.dlg.SetCallbacks(nullptr,
+                         &MPMissionHostCalls::ShowMPNoticeDialog,
+                         &hc);
+    ld.dlg.SetActive(true);
+    EXPECT_EQ(hc.showMPNoticeCalls, 0);
+}
+
+TEST(CMPMissionDialogTest, SetCallbacksReplacesExistingHostDispatch) {
+    // First context then second context. Verify
+    // the second context receives the dispatch.
+    LinkedDialog ld;
+    MPMissionHostCalls firstCtx;
+    MPMissionHostCalls secondCtx;
+    ld.dlg.SetCallbacks(nullptr,
+                         &MPMissionHostCalls::ShowMPNoticeDialog,
+                         &firstCtx);
+    ld.dlg.SetActive(true);
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(firstCtx.showMPNoticeCalls, 1);
+
+    ld.dlg.SetActive(true);
+    ld.dlg.SetCallbacks(nullptr,
+                         &MPMissionHostCalls::ShowMPNoticeDialog,
+                         &secondCtx);
+    ld.dlg.SetActive(false);
+    EXPECT_EQ(firstCtx.showMPNoticeCalls, 1);  // NOT incremented again
+    EXPECT_EQ(secondCtx.showMPNoticeCalls, 1);
+}
+

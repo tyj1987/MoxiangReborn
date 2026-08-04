@@ -1120,14 +1120,19 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMPMissionDialogTest.IdConstantsAreUnique
     CMPMissionDialogTest.MaxMissionMsgNumIsFive
     CMPMissionDialogTest.PlaceholderStringsMatchExpectedValues
-    CMPMissionDialogTest.LinkingResolvesBothTextAreas
+    CMPMissionDialogTest.LinkingWithoutCallbacksUsesPlaceholderText
+    CMPMissionDialogTest.LinkingWithChatCallbackOverridesPlaceholder
+    CMPMissionDialogTest.LinkingRecalledUsesLatestCallback
+    CMPMissionDialogTest.LinkingWithPartialChatCallbackFallsBackForMissingId
     CMPMissionDialogTest.LinkingBeforeInitDoesNotCrash
     CMPMissionDialogTest.LinkingWithoutChildrenDoesNotCrash
     CMPMissionDialogTest.SetMissionInfoWithValidIdxIsSafe
     CMPMissionDialogTest.SetMissionInfoWithNegativeIdxIsSafe
     CMPMissionDialogTest.SetMissionInfoWithOOBIdxIsSafe
     CMPMissionDialogTest.SetActiveTrueUpdatesBaseState
-    CMPMissionDialogTest.SetActiveFalseUpdatesBaseState
+    CMPMissionDialogTest.SetActiveFalseClosesAndDispatchesShowMPNotice
+    CMPMissionDialogTest.SetActiveFalseWithoutCallbackClosesDialog
+    CMPMissionDialogTest.SetActiveTrueDoesNotDispatchShowMPNotice
     CMPMissionDialogTest.SetActiveBeforeInitDoesNotCrash
     CMPMissionDialogTest.ActionEventReturnsZero
     CMPMissionDialogTest.ActionEventBeforeInitDoesNotCrash
@@ -1470,6 +1475,8 @@ gtest_add_tests(TARGET mxh_ui_tests
     CShoutDialogTest.SendShoutMsgSynWithoutLinkIsSafe
     CMPMissionDialogTest.LoadMissionMsgDoesNotCrash
     CMPMissionDialogTest.LoadMissionMsgIsIdempotent
+    CMPMissionDialogTest.LegacyChatMessageIdsAndAccessorsMatchSource
+    CMPMissionDialogTest.SetCallbacksReplacesExistingHostDispatch
 
     # Phase C 1:1 port (dialog): cPKLootingDialog (PK loot dialog)
     CPKLootingDialog.DefaultConstructionHasNullPointers

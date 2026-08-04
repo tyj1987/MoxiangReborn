@@ -31,6 +31,15 @@ void cMPMissionDialog::SetCurrentTimeProvider(
     m_clockUserData = userData;
 }
 
+void cMPMissionDialog::SetCallbacks(
+    GetChatMessageFn     getChatMessage,
+    ShowMPNoticeDialogFn showMPNoticeDialog,
+    void*                userData) noexcept {
+    m_getChatMessage     = getChatMessage;
+    m_showMPNoticeDialog = showMPNoticeDialog;
+    m_callbackUserData   = userData;
+}
+
 void cMPMissionDialog::Linking() {
     // 1:1 with legacy CMPMissionDialog::Linking.
     // The legacy is:
@@ -44,14 +53,20 @@ void cMPMissionDialog::Linking() {
     m_pCaution =
         static_cast<cTextArea*>(findWindowById(kIdCaution));
     if (m_pMission) {
+        const char* msg = m_getChatMessage
+            ? m_getChatMessage(kChatMsgMission, m_callbackUserData)
+            : nullptr;
         // 1:1 with legacy CHATMGR->GetChatMsg(665)
-        // for mission text. Modern port uses
-        // kMissionText placeholder until CHATMGR is
-        // ported.
-        m_pMission->SetScriptText(kMissionText);
+        // -- resolved via host callback, with
+        // kMissionText as the placeholder
+        // fallback when the callback is absent.
+        m_pMission->SetScriptText(msg ? msg : kMissionText);
     }
     if (m_pCaution) {
-        m_pCaution->SetScriptText(kCautionText);
+        const char* msg = m_getChatMessage
+            ? m_getChatMessage(kChatMsgCaution, m_callbackUserData)
+            : nullptr;
+        m_pCaution->SetScriptText(msg ? msg : kCautionText);
     }
     m_dwStartTime = 0;
 }
@@ -115,6 +130,17 @@ void cMPMissionDialog::SetActive(bool val) noexcept {
         m_dwStartTime = m_getCurrentTimeFn
             ? m_getCurrentTimeFn(m_clockUserData)
             : 0u;
+    } else {
+        // 1:1 with legacy:
+        //   GAMEIN->GetMPNoticeDialog()->SetActive(TRUE);
+        // Dispatched BEFORE the base
+        // SetActive(val) so the MPNoticeDialog
+        // activates before the MPMissionDialog
+        // closes (matches legacy call order
+        // byte-for-byte).
+        if (m_showMPNoticeDialog) {
+            m_showMPNoticeDialog(m_callbackUserData);
+        }
     }
     cDialog::SetActive(val);
 }

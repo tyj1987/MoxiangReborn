@@ -81,6 +81,19 @@ class cTextArea;
 // Shared clock provider signature (replaces legacy `gCurTime` global).
 using MpClockFn = std::uint32_t (*)(void* userData);
 
+
+    // ----- Host callback signatures -----
+
+    // 1:1 with legacy CHATMGR->GetChatMsg(id).
+    using GetChatMessageFn = const char* (*)(std::int32_t msgId, void* userData);
+
+    // 1:1 with legacy
+    //   GAMEIN->GetMPNoticeDialog()->SetActive(TRUE)
+    // (called on val==FALSE; the legacy code
+    // activates the MPNoticeDialog when the
+    // mission dialog closes, so the user can
+    // see the post-mission notice).
+    using ShowMPNoticeDialogFn = void (*)(void* userData);
 class cMPMissionDialog : public cDialog {
 public:
     cMPMissionDialog();
@@ -94,6 +107,18 @@ public:
     // the placeholder strings (CHATMGR->GetChatMsg
     // (665/666) substitution).
     void Linking();
+
+    // ----- 1:1 with legacy CHATMGR message IDs -----
+
+    // 1:1 with legacy CHATMGR->GetChatMsg(665) --
+    // mission text (set in Linking via host
+    // callback).
+    static constexpr std::int32_t kChatMsgMission = 665;
+
+    // 1:1 with legacy CHATMGR->GetChatMsg(666) --
+    // caution text (set in Linking via host
+    // callback).
+    static constexpr std::int32_t kChatMsgCaution = 666;
 
     // ----- 1:1 with legacy CMPMissionDialog::SetMissionInfo -----
 
@@ -109,6 +134,24 @@ public:
     // 1:1 with legacy m_dwStartTime getter (test-only).
     std::uint32_t GetStartTime() const noexcept { return m_dwStartTime; }
 
+    // ----- Test-only accessors -----
+
+    // Returns the m_getChatMessage callback.
+    GetChatMessageFn GetChatMessageForTest() const noexcept {
+        return m_getChatMessage;
+    }
+
+    // Returns the m_showMPNoticeDialog
+    // callback.
+    ShowMPNoticeDialogFn GetShowMPNoticeDialogForTest() const noexcept {
+        return m_showMPNoticeDialog;
+    }
+
+    // Returns the m_callbackUserData pointer.
+    void* GetCallbackUserDataForTest() const noexcept {
+        return m_callbackUserData;
+    }
+
     // ----- 1:1 with legacy CMPMissionDialog::SetActive override -----
 
     // 1:1 with legacy SetActive override.
@@ -123,6 +166,16 @@ public:
     // safe zero-clock fallback.
     void SetCurrentTimeProvider(MpClockFn getCurrentTime,
                                 void* userData = nullptr) noexcept;
+    // Install host callbacks (CHATMGR + GAMEIN
+    // singletons, R-12.x deferred). Pass
+    // nullptr for any callback to fall
+    // through to the legacy no-op /
+    // "singleton not yet ported" path.
+    void SetCallbacks(
+        GetChatMessageFn     getChatMessage,
+        ShowMPNoticeDialogFn showMPNoticeDialog,
+        void*                userData = nullptr) noexcept;
+
 
     // ----- 1:1 with legacy CMPMissionDialog::ActionEvent -----
 
@@ -188,6 +241,13 @@ private:
 
     MpClockFn m_getCurrentTimeFn = nullptr;
     void*     m_clockUserData    = nullptr;
+
+    // 1:1 host callback pointers (replaces
+    // CHATMGR + GAMEIN globals, R-12.x
+    // deferred).
+    GetChatMessageFn     m_getChatMessage     = nullptr;
+    ShowMPNoticeDialogFn m_showMPNoticeDialog = nullptr;
+    void*                m_callbackUserData   = nullptr;
 };
 
 }  // namespace mxh::ui
