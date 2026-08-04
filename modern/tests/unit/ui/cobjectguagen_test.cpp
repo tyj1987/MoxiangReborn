@@ -9,13 +9,13 @@
 //   - SetValue clamps val > 1 to 1
 //   - SetValue updates m_fCurPercentRate (via cGuagen)
 //   - SetValue updates m_fOldPercentRate + m_fIncAmount
-//     when estTime != 0
+//     when estTime != 0 and stamps the injected clock
 //   - SetValue with estTime = 0 sets m_fCurPercentRate
 //     directly
 //   - SetValue before Init does not crash
 //   - ActionEvent returns 0 (WE_NULL)
 //   - ActionEvent before Init does not crash
-//   - Render is no-op
+//   - Render advances effect-time interpolation with the injected clock
 //   - Render before Init does not crash
 //   - GetOldPercentRate / GetCurPercentRate /
 //     GetIncAmount / GetEffectTime / GetStartTime
@@ -37,6 +37,20 @@ using mxh::ui::cGuagen;
 using mxh::ui::cObjectGuagen;
 using mxh::ui::cWindow;
 using mxh::ui::GUAGEVAL;
+
+namespace {
+struct ClockCapture {
+    int calls = 0;
+    std::uint32_t now = 0;
+};
+
+std::uint32_t StubClock(void* userData) {
+    auto* capture = static_cast<ClockCapture*>(userData);
+    if (!capture) return 0u;
+    ++capture->calls;
+    return capture->now;
+}
+}  // namespace
 
 // ---------- ctor / dtor ----------
 
@@ -157,6 +171,97 @@ TEST(CObjectGuagenTest, SetValueWithNegativeValIsSafe) {
     // cGuagen::SetValue may or may not clamp negatives;
     // the test just ensures no crash.
     SUCCEED();
+}
+
+TEST(CObjectGuagenTest, CurrentTimeProviderStampsEffectStart) {
+    cObjectGuagen gauge;
+    gauge.Init(0, 0, 100, 20, nullptr, 0);
+    ClockCapture capture;
+    capture.now = 1234u;
+    gauge.SetCurrentTimeProvider(StubClock, &capture);
+    gauge.SetValue(0.0f, 0);
+    gauge.SetValue(1.0f, 1000u);
+
+    EXPECT_EQ(capture.calls, 1);
+    EXPECT_EQ(gauge.GetStartTime(), 1234u);
+}
+
+TEST(CObjectGuagenTest, RenderInterpolatesActiveEffect) {
+    cObjectGuagen gauge;
+    gauge.Init(0, 0, 100, 20, nullptr, 0);
+    ClockCapture capture;
+    capture.now = 1000u;
+    gauge.SetCurrentTimeProvider(StubClock, &capture);
+    gauge.SetValue(0.0f, 0);
+    gauge.SetValue(1.0f, 1000u);
+    gauge.SetActive(true);
+    capture.now = 1500u;
+
+    gauge.Render();
+
+    EXPECT_FLOAT_EQ(gauge.GetCurPercentRate(), 0.5f);
+    EXPECT_EQ(gauge.GetEffectTime(), 1000u);
+    EXPECT_EQ(gauge.GetStartTime(), 1000u);
+}
+
+TEST(CObjectGuagenTest, RenderCompletesEffectAtBoundary) {
+    cObjectGuagen gauge;
+    gauge.Init(0, 0, 100, 20, nullptr, 0);
+    ClockCapture capture;
+    capture.now = 1000u;
+    gauge.SetCurrentTimeProvider(StubClock, &capture);
+    gauge.SetValue(0.0f, 0);
+    gauge.SetValue(1.0f, 1000u);
+    gauge.SetActive(true);
+    capture.now = 2000u;
+
+    gauge.Render();
+
+    EXPECT_FLOAT_EQ(gauge.GetCurPercentRate(), 1.0f);
+    EXPECT_EQ(gauge.GetEffectTime(), 0u);
+    EXPECT_EQ(gauge.GetStartTime(), 0u);
+}
+
+TEST(CObjectGuagenTest, RenderInterpolatesDecreasingEffect) {
+    cObjectGuagen gauge;
+    gauge.Init(0, 0, 100, 20, nullptr, 0);
+    ClockCapture capture;
+    capture.now = 1000u;
+    gauge.SetCurrentTimeProvider(StubClock, &capture);
+    gauge.SetValue(1.0f, 0);
+    gauge.SetValue(0.0f, 1000u);
+    gauge.SetActive(true);
+    capture.now = 1250u;
+
+    gauge.Render();
+
+    EXPECT_FLOAT_EQ(gauge.GetCurPercentRate(), 0.75f);
+}
+
+TEST(CObjectGuagenTest, RenderUsesDwordTimeWrapAround) {
+    cObjectGuagen gauge;
+    gauge.Init(0, 0, 100, 20, nullptr, 0);
+    ClockCapture capture;
+    capture.now = 0xFFFFFFF0u;
+    gauge.SetCurrentTimeProvider(StubClock, &capture);
+    gauge.SetValue(0.0f, 0);
+    gauge.SetValue(1.0f, 1000u);
+    gauge.SetActive(true);
+    capture.now = 100u;
+
+    gauge.Render();
+
+    EXPECT_FLOAT_EQ(gauge.GetCurPercentRate(), 0.116f);
+    EXPECT_EQ(gauge.GetEffectTime(), 1000u);
+}
+
+TEST(CObjectGuagenTest, NullCurrentTimeProviderKeepsSafeZeroStart) {
+    cObjectGuagen gauge;
+    gauge.Init(0, 0, 100, 20, nullptr, 0);
+    gauge.SetCurrentTimeProvider(nullptr);
+    gauge.SetValue(1.0f, 1000u);
+
+    EXPECT_EQ(gauge.GetStartTime(), 0u);
 }
 
 // ---------- ActionEvent ----------

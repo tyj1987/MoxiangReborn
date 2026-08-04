@@ -29,6 +29,12 @@ cObjectGuagen::cObjectGuagen() {
 
 cObjectGuagen::~cObjectGuagen() = default;
 
+void cObjectGuagen::SetCurrentTimeProvider(
+    GetCurrentTimeFn getCurrentTime, void* userData) noexcept {
+    m_getCurrentTimeFn = getCurrentTime;
+    m_clockUserData = userData;
+}
+
 void cObjectGuagen::SetValue(GUAGEVAL val, std::uint32_t estTime) {
     // 1:1 with legacy CObjectGuagen::SetValue. The
     // legacy is:
@@ -68,9 +74,11 @@ void cObjectGuagen::SetValue(GUAGEVAL val, std::uint32_t estTime) {
     if (m_dwEffectTime) {
         m_fIncAmount = (val - m_fOldPercentRate) /
                         static_cast<float>(m_dwEffectTime);
-        // TODO: 1:1 with legacy m_dwStartTime = gCurTime;
-        //       gCurTime not ported (R-12.x deferred).
-        m_dwStartTime = 0;
+        // Legacy stamps the effect with gCurTime. The host provider
+        // supplies the same DWORD millisecond value when wired.
+        m_dwStartTime = m_getCurrentTimeFn
+            ? m_getCurrentTimeFn(m_clockUserData)
+            : 0u;
     } else {
         m_fCurPercentRate = val;
     }
@@ -95,38 +103,28 @@ std::uint32_t cObjectGuagen::ActionEvent() noexcept {
 }
 
 void cObjectGuagen::Render() {
-    // 1:1 with legacy CObjectGuagen::Render. The
-    // legacy is:
-    //   cGuagen::Render();
-    //   if (m_bActive) {
-    //     VECTOR2 imgPosRect = ...;
-    //     VECTOR2 scaleRate;
-    //     float per = m_fPercentRate;
-    //     if (m_dwEffectTime) {
-    //       if (gCurTime - m_dwStartTime < m_dwEffectTime) {
-    //         m_fCurPercentRate = ...;
-    //         per = m_fCurPercentRate;
-    //         if (per > 1.0) per = 1.0;
-    //       } else {
-    //         m_fCurPercentRate = per;
-    //         m_dwEffectTime = 0;
-    //         m_dwStartTime = 0;
-    //       }
-    //     }
-    //     scaleRate.x = m_fGuageWidth * per / m_fGuageEffectPieceWidth;
-    //     scaleRate.y = m_fGuageEffectPieceHeightScaleY;
-    //     // (commented out blink + RGBA_MERGE render)
-    //   }
-    //
-    // The modern port: the effect-time interp +
-    // VECTOR2 + RGBA_MERGE render is TODO (R-12.x
-    // deferred). Modern port calls base cGuagen::Render.
     cGuagen::Render();
-    // TODO: VECTOR2 + cImage::RenderSprite + RGBA_MERGE
-    //       + gCurTime not ported (R-12.x deferred).
-    //       When ported, the body becomes the legacy
-    //       code with the effect-time interp + RGBA_MERGE
-    //       render.
+
+    // Preserve the legacy effect-time interpolation state even though
+    // the modern renderer does not yet draw the overlay sprite.
+    if (!isActive() || !m_dwEffectTime || !m_getCurrentTimeFn) {
+        return;
+    }
+    const std::uint32_t currentTime =
+        m_getCurrentTimeFn(m_clockUserData);
+    const std::uint32_t elapsedTime = currentTime - m_dwStartTime;
+    if (elapsedTime < m_dwEffectTime) {
+        m_fCurPercentRate = m_fOldPercentRate
+            + static_cast<float>(elapsedTime) * m_fIncAmount;
+        if (m_fCurPercentRate > 1.0f) {
+            m_fCurPercentRate = 1.0f;
+        }
+        return;
+    }
+
+    m_fCurPercentRate = GetValue();
+    m_dwEffectTime = 0;
+    m_dwStartTime = 0;
 }
 
 }  // namespace mxh::ui

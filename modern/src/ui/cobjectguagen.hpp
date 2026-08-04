@@ -69,6 +69,8 @@ using GUAGEVAL = float;
 
 class cObjectGuagen : public cGuagen {
 public:
+    using GetCurrentTimeFn = std::uint32_t (*)(void* userData);
+
     cObjectGuagen();
     ~cObjectGuagen() override;
 
@@ -83,6 +85,11 @@ public:
     // is preserved as documented field, not
     // activated.
     void SetValue(GUAGEVAL val, std::uint32_t estTime);
+
+    // Replace the legacy gCurTime read for SetValue/Render.
+    // A null provider preserves the safe zero-time fallback.
+    void SetCurrentTimeProvider(GetCurrentTimeFn getCurrentTime,
+                                void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy CObjectGuagen::ActionEvent -----
 
@@ -165,6 +172,9 @@ private:
     bool m_bBlink = false;
     std::uint32_t m_dwStartBlinkTime = 0;
     float m_fGuageEffectPieceHeightScaleY = 1.0f;
+
+    GetCurrentTimeFn m_getCurrentTimeFn = nullptr;
+    void* m_clockUserData = nullptr;
 };
 
 }  // namespace mxh::ui
