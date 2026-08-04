@@ -185,12 +185,34 @@ TEST(CGuildNickNameDialogTest, LinkingBeforeInitDoesNotCrash) {
     SUCCEED();
 }
 
+namespace {
+
+struct GuildNickCallbackState {
+    std::uint32_t memberId = 7;
+    std::string memberName = "SelectedHero";
+    std::string format = "Change nickname for %s";
+    int messageCalls = 0;
+    std::int32_t lastMessageId = 0;
+};
+std::uint32_t GetGuildNickMemberId(void* data){return static_cast<GuildNickCallbackState*>(data)->memberId;}
+const char* GetGuildNickMemberName(void* data){return static_cast<GuildNickCallbackState*>(data)->memberName.c_str();}
+void AddGuildNickMessage(std::int32_t id,void* data){auto& state=*static_cast<GuildNickCallbackState*>(data);++state.messageCalls;state.lastMessageId=id;}
+const char* GetGuildNickChatMessage(std::int32_t,void* data){return static_cast<GuildNickCallbackState*>(data)->format.c_str();}
+void InstallGuildNickCallbacks(cGuildNickNameDialog& dlg,GuildNickCallbackState& state){
+ dlg.SetCallbacks(GetGuildNickMemberId,GetGuildNickMemberName,AddGuildNickMessage,
+                  GetGuildNickChatMessage,&state);
+}
+
+}  // namespace
+
 // ===========================================================================
 // SetActive override
 // ===========================================================================
 
 TEST(CGuildNickNameDialogTest, SetActiveTrueUpdatesBaseState) {
+    GuildNickCallbackState callbackState;
     cGuildNickNameDialog dlg;
+    InstallGuildNickCallbacks(dlg, callbackState);
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     EXPECT_FALSE(dlg.isActive());
     dlg.SetActive(true);
@@ -198,10 +220,12 @@ TEST(CGuildNickNameDialogTest, SetActiveTrueUpdatesBaseState) {
 }
 
 TEST(CGuildNickNameDialogTest, SetActiveFalseUpdatesBaseStateAndClearsFocus) {
+    GuildNickCallbackState callbackState;
     // 1:1 with legacy val == FALSE: calls
     // m_pNickName->SetFocusEdit(false) on the
     // cEditBox, then cDialog::SetActive(false).
     cGuildNickNameDialog dlg;
+    InstallGuildNickCallbacks(dlg, callbackState);
     cTextArea* pText = nullptr;
     cEditBox* pEdit = nullptr;
     BuildDlgWithChildren(dlg, &pText, &pEdit);
@@ -219,7 +243,9 @@ TEST(CGuildNickNameDialogTest, SetActiveFalseUpdatesBaseStateAndClearsFocus) {
 }
 
 TEST(CGuildNickNameDialogTest, SetActiveToggleRoundTrip) {
+    GuildNickCallbackState callbackState;
     cGuildNickNameDialog dlg;
+    InstallGuildNickCallbacks(dlg, callbackState);
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetActive(true);
     EXPECT_TRUE(dlg.isActive());
@@ -230,7 +256,9 @@ TEST(CGuildNickNameDialogTest, SetActiveToggleRoundTrip) {
 }
 
 TEST(CGuildNickNameDialogTest, SetActiveWithoutLinkIsSafe) {
+    GuildNickCallbackState callbackState;
     cGuildNickNameDialog dlg;
+    InstallGuildNickCallbacks(dlg, callbackState);
     dlg.Init(0, 0, 400, 400, nullptr, 0);
     dlg.SetActive(true);
     dlg.SetActive(false);
@@ -238,7 +266,9 @@ TEST(CGuildNickNameDialogTest, SetActiveWithoutLinkIsSafe) {
 }
 
 TEST(CGuildNickNameDialogTest, SetActiveBeforeInitDoesNotCrash) {
+    GuildNickCallbackState callbackState;
     cGuildNickNameDialog dlg;
+    InstallGuildNickCallbacks(dlg, callbackState);
     dlg.SetActive(true);
     dlg.SetActive(false);
     SUCCEED();
@@ -304,6 +334,73 @@ TEST(CGuildNickNameDialogTest, SetNickMsgBeforeInitDoesNotCrash) {
     cGuildNickNameDialog dlg;
     dlg.SetNickMsg("test");
     SUCCEED();
+}
+
+
+TEST(CGuildNickNameDialogTest, LegacyMessageConstantsMatchSource) {
+    EXPECT_EQ(cGuildNickNameDialog::kNoSelectionMessageId,714);
+    EXPECT_EQ(cGuildNickNameDialog::kNickPromptMessageId,704);
+}
+
+TEST(CGuildNickNameDialogTest, SetActiveWithoutSelectionStaysClosedAndEmits714) {
+    cGuildNickNameDialog dlg;
+    GuildNickCallbackState state;
+    state.memberId=0;
+    InstallGuildNickCallbacks(dlg,state);
+    dlg.SetActive(true);
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_EQ(state.messageCalls,1);
+    EXPECT_EQ(state.lastMessageId,714);
+}
+
+TEST(CGuildNickNameDialogTest, SetActiveValidSelectionClearsEditAndFormatsPrompt) {
+    cGuildNickNameDialog dlg;
+    cTextArea* text=nullptr;
+    cEditBox* edit=nullptr;
+    BuildDlgWithChildren(dlg,&text,&edit);
+    GuildNickCallbackState state;
+    InstallGuildNickCallbacks(dlg,state);
+    edit->SetEditText("stale");
+    dlg.SetActive(true);
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_TRUE(edit->editText().empty());
+    EXPECT_EQ(text->GetScriptText(),"Change nickname for SelectedHero");
+}
+
+TEST(CGuildNickNameDialogTest, SetNickMsgUsesMessage704Format) {
+    cGuildNickNameDialog dlg;
+    cTextArea* text=nullptr;
+    cEditBox* edit=nullptr;
+    BuildDlgWithChildren(dlg,&text,&edit);
+    GuildNickCallbackState state;
+    state.format="[%s] nickname";
+    InstallGuildNickCallbacks(dlg,state);
+    dlg.SetNickMsg("Alice");
+    EXPECT_EQ(text->GetScriptText(),"[Alice] nickname");
+}
+
+TEST(CGuildNickNameDialogTest, MissingFormatFallsBackSafely) {
+    cGuildNickNameDialog dlg;
+    cTextArea* text=nullptr;
+    cEditBox* edit=nullptr;
+    BuildDlgWithChildren(dlg,&text,&edit);
+    GuildNickCallbackState state;
+    dlg.SetCallbacks(GetGuildNickMemberId,GetGuildNickMemberName,
+                     AddGuildNickMessage,nullptr,&state);
+    dlg.SetNickMsg("Alice");
+    EXPECT_EQ(text->GetScriptText(),"GUILD_NICK_MSG_FORMAT Alice");
+}
+
+TEST(CGuildNickNameDialogTest, SetCallbacksReplacesDispatch) {
+    cGuildNickNameDialog dlg;
+    GuildNickCallbackState first;
+    GuildNickCallbackState second;
+    first.memberId=0;
+    InstallGuildNickCallbacks(dlg,first);
+    InstallGuildNickCallbacks(dlg,second);
+    dlg.SetActive(true);
+    EXPECT_EQ(first.messageCalls,0);
+    EXPECT_TRUE(dlg.isActive());
 }
 
 }  // namespace mxh::ui::test

@@ -80,6 +80,19 @@ public:
 
     // ----- 1:1 with legacy CGuildNickNameDialog::SetActive override -----
 
+    using GetSelectedMemberIdFn = std::uint32_t (*)(void* userData);
+    using GetSelectedMemberNameFn = const char* (*)(void* userData);
+    using AddSystemMessageFn = void (*)(std::int32_t messageId,
+                                        void* userData);
+    using GetChatMessageFn = const char* (*)(std::int32_t messageId,
+                                             void* userData);
+
+    void SetCallbacks(GetSelectedMemberIdFn getSelectedMemberId,
+                      GetSelectedMemberNameFn getSelectedMemberName,
+                      AddSystemMessageFn addSystemMessage,
+                      GetChatMessageFn getChatMessage,
+                      void* userData = nullptr) noexcept;
+
     // 1:1 with legacy SetActive override. The
     // GUILDMGR + CHATMGR dispatch is TODO (R-12.x
     // deferred). The base SetActive is always
@@ -119,8 +132,16 @@ public:
     // directly (the legacy's VCM_* enum values are
     // 0/1/2 for SPACE/NUMBER/CHARNAME).
     static constexpr int kVcmSpace = 0;
+    static constexpr std::int32_t kNoSelectionMessageId = 714;
+    static constexpr std::int32_t kNickPromptMessageId = 704;
 
 private:
+    GetSelectedMemberIdFn m_getSelectedMemberId = nullptr;
+    GetSelectedMemberNameFn m_getSelectedMemberName = nullptr;
+    AddSystemMessageFn m_addSystemMessage = nullptr;
+    GetChatMessageFn m_getChatMessage = nullptr;
+    void* m_callbackUserData = nullptr;
+
     // 1:1 with legacy m_pNickMsg (resolved in
     // Linking by GD_NICKTEXTAREA id).
     cTextArea* m_pNickMsg = nullptr;

@@ -890,6 +890,12 @@ gtest_add_tests(TARGET mxh_ui_tests
     CGuildNickNameDialogTest.SetNickMsgWithNullIsSafe
     CGuildNickNameDialogTest.SetNickMsgWithoutLinkIsSafe
     CGuildNickNameDialogTest.SetNickMsgBeforeInitDoesNotCrash
+    CGuildNickNameDialogTest.LegacyMessageConstantsMatchSource
+    CGuildNickNameDialogTest.SetActiveWithoutSelectionStaysClosedAndEmits714
+    CGuildNickNameDialogTest.SetActiveValidSelectionClearsEditAndFormatsPrompt
+    CGuildNickNameDialogTest.SetNickMsgUsesMessage704Format
+    CGuildNickNameDialogTest.MissingFormatFallsBackSafely
+    CGuildNickNameDialogTest.SetCallbacksReplacesDispatch
     # Phase C 1:1 port (dialog): cPartyInviteDlg (party invitation)
     CPartyInviteDlgTest.DefaultConstructionIsValid
     CPartyInviteDlgTest.InheritsDialogTreeManagement
