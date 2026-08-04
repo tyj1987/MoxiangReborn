@@ -34,6 +34,10 @@ namespace mxh::ui::test {
 // Construction
 // ===========================================================================
 
+TEST(CSOSDialogTest, LeftButtonEventMatchesCanonicalLegacyValue) {
+    EXPECT_EQ(cSOSDialog::kWeLeftButtonClick, mxh::ui::legacy_window_event::kLeftButtonClick);
+}
+
 TEST(CSOSDialogTest, DefaultConstructionHasNullPointers) {
     cSOSDialog dlg;
     EXPECT_EQ(dlg.GetMemberList(), nullptr);

@@ -49,6 +49,7 @@
 #pragma once
 
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -161,7 +162,7 @@ public:
 
     static constexpr std::int32_t kMemberListId = 230;  // was SOS_MEMBERLIST
     static constexpr std::int32_t kOkBtnId      = 231;  // was SOS_OKBTN
-    static constexpr std::uint32_t kWeLeftButtonClick = 0x0002u;
+    static constexpr std::uint32_t kWeLeftButtonClick = legacy_window_event::kLeftButtonClick;
     static constexpr std::int32_t kSelfTargetMessageId = 1631;
     static constexpr std::int32_t kOfflineTargetMessageId = 1632;
     static constexpr std::uint32_t kOnlineColor = 0xFFFFFFFFu;
