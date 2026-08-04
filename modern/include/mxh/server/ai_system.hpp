@@ -26,9 +26,11 @@
 // Transition graph (legacy) pinned by AiSystemTransitionsArePinned.
 
 #include <cstdint>
+#include <filesystem>
 #include <vector>
 
 #include "mxh/server/ai_define.hpp"
+#include "mxh/server/ai_group_loader.hpp"
 
 namespace mxh::server {
 
@@ -102,6 +104,7 @@ public:
     // the agent server on map boot; RemoveAllList drops every
     // tracked object.
     void load_ai_group_list();
+    bool load_ai_group_list(const std::filesystem::path& path);
     void remove_all_list();
 
     // ---- Inspection helpers (test only) ----
@@ -109,6 +112,7 @@ public:
     bool is_tracked(Object* obj) const;
     AiState last_transition_for(Object* obj) const;
     std::uint32_t next_monster_id() const { return next_monster_id_; }
+    const AiGroupList& group_list() const noexcept { return group_list_; }
 
     // ---- Singleton ----
     static AISystem& instance();
@@ -117,6 +121,7 @@ private:
     std::vector<Object*>       objects_{};
     std::uint32_t              next_monster_id_ = 1;
     std::vector<std::uint32_t> released_ids_{};
+    AiGroupList group_list_{};
 
     // Last transition record per-object (sparse: index aligned with objects_).
     std::vector<AiState>       last_transitions_{};

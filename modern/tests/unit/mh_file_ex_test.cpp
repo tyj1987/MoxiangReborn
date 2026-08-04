@@ -67,6 +67,12 @@ TEST(MhFileEx, Crc8Basic) {
     EXPECT_EQ(compute_crc8(data), 15);
 }
 
+TEST(MhFileEx, WriteAndReadEmptyPayload) {
+    const std::vector<std::uint8_t> payload;
+    const auto encrypted = encrypt_bin_payload(payload, 1);
+    EXPECT_TRUE(encrypted.empty());
+}
+
 TEST(MhFileEx, WriteAndReadBack) {
     // Write a small .bin to a temp file and read it back.
     auto tmp = std::filesystem::temp_directory_path() / "mxh_test_roundtrip.bin";

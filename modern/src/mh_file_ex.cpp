@@ -126,7 +126,7 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
     // Real-world: dwVersion is NOT validated (CheckHeader is commented out in
     // original code). We only sanity-check dwDataSize.
     constexpr std::uint32_t kMaxFileSize = 256u * 1024u * 1024u;  // 256 MB cap
-    if (file.header.file_size == 0 || file.header.file_size > kMaxFileSize) {
+    if (file.header.file_size > kMaxFileSize) {
         r.error = MhError::InvalidHeader;
         return r;
     }

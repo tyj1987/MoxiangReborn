@@ -5,6 +5,7 @@
 #include "mxh/server/object.hpp"
 
 #include <algorithm>
+#include <utility>
 
 namespace mxh::server {
 
@@ -95,11 +96,18 @@ void AISystem::send_msg(std::uint16_t /*msg_kind*/, std::uint32_t /*src*/,
 }
 
 void AISystem::load_ai_group_list() {
-    // Legacy LoadAIGroupList reloads AIGroupManager from disk.
-    // The group manager is ported separately; this entry point
-    // clears the bookkeeping for now.
     objects_.clear();
     last_transitions_.clear();
+    group_list_ = {};
+}
+
+bool AISystem::load_ai_group_list(const std::filesystem::path& path) {
+    auto loaded = load_ai_group_list_bin(path);
+    if (!loaded.has_value()) return false;
+    objects_.clear();
+    last_transitions_.clear();
+    group_list_ = std::move(*loaded);
+    return true;
 }
 
 void AISystem::remove_all_list() {

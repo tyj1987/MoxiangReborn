@@ -203,6 +203,7 @@ add_library(mxh_server STATIC
     server/attack_manager.cpp
     server/object_event.cpp
     server/object.cpp
+    server/ai_group_loader.cpp
     server/ai_system.cpp
     server/map_object.cpp
     server/object_state_manager.cpp
