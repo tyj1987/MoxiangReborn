@@ -216,3 +216,108 @@ TEST(CMPMissionDialogTest, LoadMissionMsgIsIdempotent) {
     dlg.LoadMissionMsg();
     SUCCEED();
 }
+
+
+// ---------- Clock provider + SetActive + ActionEvent body ----------
+
+struct MpClockCapture {
+    std::uint32_t value = 0;
+    int calls = 0;
+    static std::uint32_t Get(void* userData) {
+        auto* self = static_cast<MpClockCapture*>(userData);
+        ++self->calls;
+        return self->value;
+    }
+};
+
+TEST(CMPMissionDialogTest, SetActiveTrueStampsStartTimeFromClock) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    ld.dlg.SetActive(true);
+    EXPECT_EQ(ld.dlg.GetStartTime(), 1000u);
+}
+
+TEST(CMPMissionDialogTest, SetActiveTrueWithoutProviderUsesZeroClock) {
+    LinkedDialog ld;
+    ld.dlg.SetActive(true);
+    EXPECT_EQ(ld.dlg.GetStartTime(), 0u);
+}
+
+TEST(CMPMissionDialogTest, SetActiveFalseDoesNotStampStartTime) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 5000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    ld.dlg.SetActive(false);
+    // SetActive(false) does not stamp m_dwStartTime per legacy.
+    EXPECT_EQ(ld.dlg.GetStartTime(), 0u);
+}
+
+TEST(CMPMissionDialogTest, ActionEventBefore5SecKeepsDialogActive) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    ld.dlg.SetActive(true);
+    clock.value = 4000u;  // 3 seconds elapsed
+    std::uint32_t we = ld.dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_TRUE(ld.dlg.isActive());
+}
+
+TEST(CMPMissionDialogTest, ActionEventAfter5SecAutoClosesDialog) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    ld.dlg.SetActive(true);
+    clock.value = 7000u;  // 6 seconds elapsed >= 5s
+    std::uint32_t we = ld.dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_FALSE(ld.dlg.isActive());
+}
+
+TEST(CMPMissionDialogTest, ActionEventAtExactly5SecAutoCloses) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    ld.dlg.SetActive(true);
+    clock.value = 6000u;  // exactly 5 seconds elapsed
+    ld.dlg.ActionEvent();
+    EXPECT_FALSE(ld.dlg.isActive());
+}
+
+TEST(CMPMissionDialogTest, ActionEventWithoutClockProviderIsNoOp) {
+    LinkedDialog ld;
+    ld.dlg.SetActive(true);
+    std::uint32_t we = ld.dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_TRUE(ld.dlg.isActive());
+}
+
+TEST(CMPMissionDialogTest, ActionEventWhenNotActiveIsNoOp) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    // Dialog is not active.
+    std::uint32_t we = ld.dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_EQ(clock.calls, 0);
+}
+
+TEST(CMPMissionDialogTest, ActionEventUsesLegacyDwordWrap) {
+    LinkedDialog ld;
+    MpClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&MpClockCapture::Get, &clock);
+    ld.dlg.SetActive(true);
+    // Advance clock to wrap-around time (DWORD max).
+    clock.value = 0xFFFFFF00u;
+    ld.dlg.ActionEvent();
+    // curTime - startTime = 0xFFFFFF00 - 1000 = wrap, huge. Auto-closes.
+    EXPECT_FALSE(ld.dlg.isActive());
+}

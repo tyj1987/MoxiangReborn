@@ -23,6 +23,28 @@ cShoutchatDialog::cShoutchatDialog() {
 
 cShoutchatDialog::~cShoutchatDialog() = default;
 
+void cShoutchatDialog::SetCurrentTimeProvider(
+    ScClockFn getCurrentTime, void* userData) noexcept {
+    m_getCurrentTimeFn = getCurrentTime;
+    m_clockUserData = userData;
+}
+
+void cShoutchatDialog::Process() {
+    // 1:1 with legacy CShoutchatDialog::Process. The
+    // legacy is:
+    //   if (gCurTime - m_LastMsgTime < 5000) return;
+    //   m_LastMsgTime = gCurTime;
+    //
+    // The modern port: the gCurTime-based 5 sec
+    // throttle is REAL via OPTIONAL host clock provider.
+    // A null provider falls through to the legacy no-op
+    // behavior (caller can call without restriction).
+    if (!m_getCurrentTimeFn) return;
+    const std::uint32_t curTime = m_getCurrentTimeFn(m_clockUserData);
+    if (curTime - m_LastMsgTime < kMsgThrottleMs) return;
+    m_LastMsgTime = curTime;
+}
+
 void cShoutchatDialog::Linking() {
     // 1:1 with legacy CShoutchatDialog::Linking. The
     // legacy is:

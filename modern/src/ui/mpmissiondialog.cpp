@@ -25,6 +25,12 @@ cMPMissionDialog::cMPMissionDialog() {
 
 cMPMissionDialog::~cMPMissionDialog() = default;
 
+void cMPMissionDialog::SetCurrentTimeProvider(
+    MpClockFn getCurrentTime, void* userData) noexcept {
+    m_getCurrentTimeFn = getCurrentTime;
+    m_clockUserData = userData;
+}
+
 void cMPMissionDialog::Linking() {
     // 1:1 with legacy CMPMissionDialog::Linking.
     // The legacy is:
@@ -98,17 +104,18 @@ void cMPMissionDialog::SetActive(bool val) noexcept {
     //   cDialog::SetActive(val);
     //
     // The modern port:
-    //   - The val == FALSE GAMEIN->GetMPNoticeDialog
-    //     dispatch is TODO (R-12.x deferred).
-    //   - The val == TRUE gCurTime init is TODO
-    //     (gCurTime not ported, R-12.x deferred).
+    //   - val==TRUE gCurTime stamp is REAL via
+    //     OPTIONAL host clock provider (zero-clock
+    //     fallback when null).
+    //   - val==FALSE GAMEIN->GetMPNoticeDialog dispatch
+    //     is TODO (R-12.x deferred).
     //   - Always calls base SetActive(val) (matches
     //     legacy call order).
-    // TODO: 1:1 with legacy val == FALSE path:
-    //   GAMEIN->GetMPNoticeDialog()->SetActive(TRUE);
-    //
-    // TODO: 1:1 with legacy val == TRUE path:
-    //   m_dwStartTime = gCurTime;
+    if (val) {
+        m_dwStartTime = m_getCurrentTimeFn
+            ? m_getCurrentTimeFn(m_clockUserData)
+            : 0u;
+    }
     cDialog::SetActive(val);
 }
 
@@ -123,14 +130,19 @@ std::uint32_t cMPMissionDialog::ActionEvent() {
     //   }
     //   return we;
     //
-    // The modern port: the whole method is TODO
-    // (CMouse + gCurTime not ported, R-12.x
-    // deferred). Modern port returns WE_NULL
-    // (matching the legacy "no event" path).
-    // TODO: CMouse + gCurTime not ported (R-12.x
-    //       deferred). When ported, the body
-    //       becomes the legacy code with the
-    //       m_dwStartTime / 5 sec gate.
+    // The modern port: the 5 sec auto-close gate is
+    // REAL via the OPTIONAL host clock provider.
+    // CMouse-based cDialog::ActionEvent dispatch is
+    // TODO (CMouse not ported, R-12.x deferred).
+    // Modern port returns WE_NULL matching the
+    // legacy no-event path (DWORD wrap-around
+    // preserved).
+    if (isActive() && m_getCurrentTimeFn) {
+        const std::uint32_t curTime = m_getCurrentTimeFn(m_clockUserData);
+        if (curTime - m_dwStartTime >= 5000u) {
+            SetActive(false);
+        }
+    }
     return 0;  // WE_NULL
 }
 

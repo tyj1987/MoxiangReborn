@@ -77,6 +77,9 @@ namespace mxh::ui {
 class cStatic;
 class cEditBox;
 
+// Shared clock provider signature (replaces legacy gCurTime global).
+using WgClockFn = std::uint32_t (*)(void* userData);
+
 class cWantRegistDialog : public cDialog {
 public:
     cWantRegistDialog();
@@ -103,12 +106,19 @@ public:
 
     // ----- 1:1 with legacy CWantRegistDialog::SetActive override -----
 
-    // 1:1 with legacy SetActive override. The
-    // gCurTime + HERO + NETWORK dispatch is TODO
-    // (R-12.x deferred). Modern port calls base
-    // SetActive + the val == FALSE SetFocusEdit(false)
-    // call. The MSGBASE NETWORK send is TODO.
+    // 1:1 with legacy SetActive override.
+    // val==TRUE: stamp m_dwStartShowTime via
+    // OPTIONAL host clock provider (legacy gCurTime).
+    // val==FALSE: SetFocusEdit(false) is REAL;
+    // the MSGBASE NETWORK send is TODO
+    // (HERO + NETWORK singletons).
     void SetActive(bool val) noexcept override;
+
+    // Replace the legacy gCurTime read for SetActive +
+    // ActionEvent. A null provider preserves the
+    // safe zero-clock fallback.
+    void SetCurrentTimeProvider(WgClockFn getCurrentTime,
+                                void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy CWantRegistDialog::ActionEvent -----
 
@@ -132,6 +142,12 @@ public:
     // valid-check enum: digits-only valid check).
     static constexpr int kVcmNumber = 1;
 
+    // 1:1 with legacy m_dwStartShowTime getter (test-only).
+    std::uint32_t GetStartShowTime() const noexcept { return m_dwStartShowTime; }
+
+    // 1:1 with legacy m_bShow getter (test-only).
+    bool IsShow() const noexcept { return m_bShow; }
+
 private:
     // 1:1 with legacy m_WantedName (resolved in
     // Linking by WANTREG_WANTEDNAME id).
@@ -140,6 +156,15 @@ private:
     // 1:1 with legacy m_PrizeEdit (resolved in
     // Linking by WANTREG_PRIZEEDIT id).
     cEditBox* m_PrizeEdit = nullptr;
+
+    // 1:1 with legacy m_bShow gating state.
+    bool m_bShow = false;
+
+    // 1:1 with legacy m_dwStartShowTime.
+    std::uint32_t m_dwStartShowTime = 0;
+
+    WgClockFn m_getCurrentTimeFn = nullptr;
+    void*     m_clockUserData    = nullptr;
 };
 
 }  // namespace mxh::ui

@@ -24,6 +24,12 @@ cWantRegistDialog::cWantRegistDialog() {
 
 cWantRegistDialog::~cWantRegistDialog() = default;
 
+void cWantRegistDialog::SetCurrentTimeProvider(
+    WgClockFn getCurrentTime, void* userData) noexcept {
+    m_getCurrentTimeFn = getCurrentTime;
+    m_clockUserData = userData;
+}
+
 void cWantRegistDialog::Linking() {
     // 1:1 with legacy CWantRegistDialog::Linking.
     // The legacy is:
@@ -94,10 +100,20 @@ void cWantRegistDialog::SetActive(bool val) noexcept {
     //     in the Phase 12.x minimal port).
     //   - Always calls base SetActive(val) (matches
     //     legacy call order).
-    if (!val) {
+    if (val) {
+        // 1:1 with legacy: m_dwStartShowTime = gCurTime.
+        // m_bShow gates ActionEvent so the dialog stays
+        // invisible until 3 sec have passed.
+        m_bShow = false;
+        m_dwStartShowTime = m_getCurrentTimeFn
+            ? m_getCurrentTimeFn(m_clockUserData)
+            : 0u;
+    } else {
         if (m_PrizeEdit) {
             m_PrizeEdit->SetFocusEdit(false);
         }
+        m_bShow = false;
+        m_dwStartShowTime = 0;
         // TODO: 1:1 with legacy val == FALSE path:
         //   MSGBASE msg;
         //   msg.Category = MP_WANTED;
@@ -127,17 +143,21 @@ std::uint32_t cWantRegistDialog::ActionEvent() {
     //   we = cDialog::ActionEvent(mouseInfo);
     //   return we;
     //
-    // The modern port: the whole method is TODO
-    // (CMouse + gCurTime not ported, R-12.x
-    // deferred). Modern port returns WE_NULL
-    // (matching the legacy "early return" path when
-    // m_bShow is false). The CMouse parameter is
-    // omitted in the modern port (CMouse not
-    // ported).
-    // TODO: CMouse + gCurTime not ported (R-12.x
-    //       deferred). When ported, the body
-    //       becomes the legacy code with the
-    //       m_bShow / m_dwStartShowTime gating.
+    // The modern port: the gCurTime-based
+    // m_bShow / m_dwStartShowTime gating is REAL via
+    // OPTIONAL host clock provider. The CMouse-based
+    // cDialog::ActionEvent dispatch is TODO (CMouse
+    // not ported, R-12.x deferred). Modern port
+    // returns WE_NULL matching the legacy early
+    // return path (DWORD wrap-around preserved).
+    if (m_getCurrentTimeFn && !m_bShow) {
+        const std::uint32_t curTime = m_getCurrentTimeFn(m_clockUserData);
+        if (curTime - m_dwStartShowTime >= 3000u) {
+            m_bShow = true;
+        } else {
+            return 0;  // WE_NULL (early return)
+        }
+    }
     return 0;  // WE_NULL
 }
 

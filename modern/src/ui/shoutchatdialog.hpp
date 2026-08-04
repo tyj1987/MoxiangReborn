@@ -28,8 +28,10 @@
 //   - Dtor: empty (no-op).
 //   - Linking: REAL — resolve cListDialog by id.
 //     The GAMERESRCMNGR + GAMEIN dispatch is TODO.
-//   - Process: TODO (gCurTime not ported, R-12.x
-//     deferred). Modern port is no-op.
+//   - Process: 1:1 with legacy 5 sec throttle
+//     (gCurTime - m_LastMsgTime < kMsgThrottleMs
+//     early return; else update m_LastMsgTime)
+//     via OPTIONAL host clock provider.
 //   - SetActive override: TODO (RefreshPosition is
 //     TODO). Modern port always base SetActive.
 //   - AddMsg: REAL — strncpy 60-char buf + AddItem
@@ -54,6 +56,9 @@ namespace mxh::ui {
 
 class cListDialog;
 
+// Shared clock provider signature (replaces legacy gCurTime global).
+using ScClockFn = std::uint32_t (*)(void* userData);
+
 class cShoutchatDialog : public cDialog {
 public:
     cShoutchatDialog();
@@ -69,9 +74,14 @@ public:
     // ----- 1:1 with legacy CShoutchatDialog::Process -----
 
     // 1:1 with legacy Process. The gCurTime-based
-    // 5 sec timer is TODO (R-12.x deferred). Modern
-    // port is no-op.
-    void Process() {}
+    // 5 sec throttle is REAL via OPTIONAL host clock
+    // provider. A null provider preserves the safe
+    // no-throttle fallback.
+    void Process();
+
+    // Replace the legacy gCurTime read for Process.
+    void SetCurrentTimeProvider(ScClockFn getCurrentTime,
+                                void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy CShoutchatDialog::SetActive override -----
 
@@ -111,6 +121,9 @@ public:
     // 1:1 with legacy strncpy 60-char buf (60+1 for null).
     static constexpr std::size_t kMaxMsgLen = 60;
 
+    // 1:1 with legacy m_LastMsgTime getter (test-only).
+    std::uint32_t GetLastMsgTime() const noexcept { return m_LastMsgTime; }
+
 private:
     // 1:1 with legacy m_pMsgListDlg (resolved in
     // Linking by CHA_LIST id).
@@ -119,6 +132,9 @@ private:
     // 1:1 with legacy m_LastMsgTime (DWORD; init 0
     // in ctor). Modern port uses std::uint32_t.
     std::uint32_t m_LastMsgTime = 0;
+
+    ScClockFn m_getCurrentTimeFn = nullptr;
+    void*     m_clockUserData    = nullptr;
 };
 
 }  // namespace mxh::ui

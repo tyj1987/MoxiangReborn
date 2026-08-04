@@ -83,6 +83,10 @@
 
 namespace mxh::ui::test {
 
+using mxh::ui::cEditBox;
+using mxh::ui::cStatic;
+using mxh::ui::cWantRegistDialog;
+
 // ===========================================================================
 // Construction + state
 // ===========================================================================
@@ -312,4 +316,100 @@ TEST(CWantRegistDialogTest, ActionEventBeforeInitDoesNotCrash) {
     EXPECT_EQ(dlg.ActionEvent(), 0u);
 }
 
+
+
 }  // namespace mxh::ui::test
+
+// Global using for the appended clock-provider test block.
+using mxh::ui::cWantRegistDialog;
+
+// ===========================================================================
+// Clock provider + SetActive/ActionEvent body
+// ===========================================================================
+
+struct WgClockCapture {
+    std::uint32_t value = 0;
+    int calls = 0;
+    static std::uint32_t Get(void* userData) {
+        auto* self = static_cast<WgClockCapture*>(userData);
+        ++self->calls;
+        return self->value;
+    }
+};
+
+TEST(CWantRegistDialogTest, SetActiveTrueStampsStartShowTimeFromClock) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    EXPECT_EQ(dlg.GetStartShowTime(), 1000u);
+    EXPECT_FALSE(dlg.IsShow());
+}
+
+TEST(CWantRegistDialogTest, SetActiveTrueWithoutProviderUsesZeroClock) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    EXPECT_EQ(dlg.GetStartShowTime(), 0u);
+}
+
+TEST(CWantRegistDialogTest, SetActiveFalseResetsShowState) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 5000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    dlg.SetActive(false);
+    EXPECT_FALSE(dlg.IsShow());
+    EXPECT_EQ(dlg.GetStartShowTime(), 0u);
+}
+
+TEST(CWantRegistDialogTest, ActionEventBefore3SecKeepsShowFalse) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    clock.value = 3000u;  // 2 seconds elapsed < 3 sec
+    std::uint32_t we = dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_FALSE(dlg.IsShow());
+}
+
+TEST(CWantRegistDialogTest, ActionEventAt3SecFlipsShowTrue) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    clock.value = 4000u;  // exactly 3 seconds elapsed
+    std::uint32_t we = dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_TRUE(dlg.IsShow());
+}
+
+TEST(CWantRegistDialogTest, ActionEventWithoutProviderIsNoOp) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetActive(true);
+    std::uint32_t we = dlg.ActionEvent();
+    EXPECT_EQ(we, 0u);
+    EXPECT_FALSE(dlg.IsShow());
+}
+
+TEST(CWantRegistDialogTest, ActionEventUsesLegacyDwordWrap) {
+    cWantRegistDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    WgClockCapture clock;
+    clock.value = 1000u;
+    dlg.SetCurrentTimeProvider(&WgClockCapture::Get, &clock);
+    dlg.SetActive(true);
+    clock.value = 0xFFFFFFF0u;  // DWORD wrap-around distance
+    dlg.ActionEvent();
+    EXPECT_TRUE(dlg.IsShow());
+}

@@ -50,13 +50,15 @@
 //     CHATMGR->GetChatMsg(665/666).
 //   - SetMissionInfo: REAL (defensive bounds-check
 //     returns without action if msgnum OOB).
-//   - SetActive override: TODO (GAMEIN + gCurTime
-//     not ported, R-12.x deferred). Modern port
-//     calls base SetActive + does NOT call
-//     GAMEIN->GetMPNoticeDialog()->SetActive.
-//   - ActionEvent: TODO (CMouse + gCurTime not
-//     ported, R-12.x deferred). Modern port returns
-//     WE_NULL.
+//   - SetActive override: 1:1 with legacy val==TRUE
+//     gCurTime stamp via OPTIONAL host clock
+//     provider; the val==FALSE
+//     GAMEIN->GetMPNoticeDialog dispatch is TODO.
+//   - ActionEvent: 1:1 with legacy 5 sec gate
+//     (auto-close when
+//     gCurTime - m_dwStartTime >= kAutoCloseMs);
+//     the base cDialog::ActionEvent dispatch is
+//     TODO (CMouse not ported, R-12.x deferred).
 //   - 1:1 quirk: legacy cpp's LoadMissionMsg body
 //     is empty (just opens a file and returns). The
 //     m_pMissionMsg/m_pCautionMsg arrays stay
@@ -75,6 +77,9 @@
 namespace mxh::ui {
 
 class cTextArea;
+
+// Shared clock provider signature (replaces legacy `gCurTime` global).
+using MpClockFn = std::uint32_t (*)(void* userData);
 
 class cMPMissionDialog : public cDialog {
 public:
@@ -101,19 +106,31 @@ public:
     // (m_pCautionMsg[msgnum]).
     void SetMissionInfo(int msgnum);
 
+    // 1:1 with legacy m_dwStartTime getter (test-only).
+    std::uint32_t GetStartTime() const noexcept { return m_dwStartTime; }
+
     // ----- 1:1 with legacy CMPMissionDialog::SetActive override -----
 
-    // 1:1 with legacy SetActive override. The
-    // GAMEIN + gCurTime dispatch is TODO (R-12.x
-    // deferred). Modern port calls base SetActive.
+    // 1:1 with legacy SetActive override.
+    // val==TRUE: stamp m_dwStartTime via OPTIONAL
+    // host clock provider (legacy gCurTime).
+    // val==FALSE: GAMEIN->GetMPNoticeDialog dispatch
+    // is TODO (R-12.x deferred).
     void SetActive(bool val) noexcept override;
+
+    // Replace the legacy gCurTime read for SetActive +
+    // ActionEvent. A null provider preserves the
+    // safe zero-clock fallback.
+    void SetCurrentTimeProvider(MpClockFn getCurrentTime,
+                                void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy CMPMissionDialog::ActionEvent -----
 
-    // 1:1 with legacy ActionEvent. The whole
-    // method is TODO (CMouse + gCurTime not ported,
-    // R-12.x deferred). Modern port returns
-    // WE_NULL.
+    // 1:1 with legacy ActionEvent. The gCurTime-
+    // based 5 sec auto-close gate is REAL (via
+    // OPTIONAL host clock provider). The CMouse-
+    // based cDialog::ActionEvent dispatch is
+    // TODO (CMouse not ported, R-12.x deferred).
     std::uint32_t ActionEvent();
 
     // ----- 1:1 with legacy CMPMissionDialog::LoadMissionMsg -----
@@ -168,6 +185,9 @@ private:
     // 1:1 with legacy m_dwStartTime (DWORD; init 0
     // in Linking). Modern port uses std::uint32_t.
     std::uint32_t m_dwStartTime = 0;
+
+    MpClockFn m_getCurrentTimeFn = nullptr;
+    void*     m_clockUserData    = nullptr;
 };
 
 }  // namespace mxh::ui

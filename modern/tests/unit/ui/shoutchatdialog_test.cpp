@@ -165,3 +165,75 @@ TEST(CShoutchatDialogTest, RefreshPositionIsNoOp) {
     ld.dlg.RefreshPosition();
     SUCCEED();
 }
+
+
+// ===========================================================================
+// Clock provider + Process body
+// ===========================================================================
+
+struct ScClockCapture {
+    std::uint32_t value = 0;
+    int calls = 0;
+    static std::uint32_t Get(void* userData) {
+        auto* self = static_cast<ScClockCapture*>(userData);
+        ++self->calls;
+        return self->value;
+    }
+};
+
+TEST(CShoutchatDialogTest, ProcessWithoutProviderIsNoOp) {
+    LinkedDialog ld;
+    ld.dlg.Process();
+    SUCCEED();
+}
+
+TEST(CShoutchatDialogTest, ProcessFirstCallUpdatesLastMsgTime) {
+    LinkedDialog ld;
+    ScClockCapture clock;
+    clock.value = 1000u;
+    ld.dlg.SetCurrentTimeProvider(&ScClockCapture::Get, &clock);
+    ld.dlg.Process();
+    // First call: m_LastMsgTime = 0; curTime = 1000; 1000 - 0 = 1000 >= 5000? No.
+    // So m_LastMsgTime remains 0 (legacy throttles itself out).
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 0u);
+}
+
+TEST(CShoutchatDialogTest, ProcessUpdatesLastMsgTimeAfterThrottleWindow) {
+    LinkedDialog ld;
+    ScClockCapture clock;
+    clock.value = 10000u;
+    ld.dlg.SetCurrentTimeProvider(&ScClockCapture::Get, &clock);
+    ld.dlg.Process();
+    // m_LastMsgTime = 0; 10000 - 0 = 10000 >= 5000 -> update.
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 10000u);
+}
+
+TEST(CShoutchatDialogTest, ProcessThrottlesWithin5SecWindow) {
+    LinkedDialog ld;
+    ScClockCapture clock;
+    clock.value = 10000u;
+    ld.dlg.SetCurrentTimeProvider(&ScClockCapture::Get, &clock);
+    ld.dlg.Process();
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 10000u);
+    clock.value = 14000u;  // 4 seconds later, < 5s
+    ld.dlg.Process();
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 10000u);
+    clock.value = 15001u;  // just past 5s
+    ld.dlg.Process();
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 15001u);
+}
+
+TEST(CShoutchatDialogTest, ProcessUsesLegacyDwordWrap) {
+    LinkedDialog ld;
+    ScClockCapture clock;
+    // Initial call at 6000ms: 6000 - 0 = 6000 >= 5000 -> update.
+    clock.value = 6000u;
+    ld.dlg.SetCurrentTimeProvider(&ScClockCapture::Get, &clock);
+    ld.dlg.Process();
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 6000u);
+    // Advance clock to wrap-around distance.
+    clock.value = 0xFFFFFFF0u;
+    ld.dlg.Process();
+    // 0xFFFFFFF0 - 6000 = wrap distance, huge -> update.
+    EXPECT_EQ(ld.dlg.GetLastMsgTime(), 0xFFFFFFF0u);
+}
