@@ -51,6 +51,7 @@
 #pragma once
 
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -66,8 +67,8 @@ public:
     using PlayMacroCallback = void (*)(int macroEvent, void* userData);
     using TogglePkCallback = void (*)(void* userData);
 
-    static constexpr std::uint32_t kWePushUp = 0x0001u;
-    static constexpr std::uint32_t kWePushDown = 0x0002u;
+    static constexpr std::uint32_t kWePushUp = legacy_window_event::kPushUp;
+    static constexpr std::uint32_t kWePushDown = legacy_window_event::kPushDown;
     static constexpr int kMacroToggleMove = 12;
     static constexpr int kMacroTogglePeaceWar = 13;
 

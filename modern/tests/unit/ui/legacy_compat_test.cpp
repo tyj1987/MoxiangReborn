@@ -24,16 +24,17 @@ std::function<void(std::int32_t, void*, std::uint32_t)> s_fn;
 void shim(std::int32_t id, void* p, std::uint32_t we) { s_fn(id, p, we); }
 } // namespace
 
-TEST(LegacyCompat, WE_ConstantsMatchModern) {
-    // The legacy WE_* constants must match the modern WindowEvent codes
-    // bit-for-bit so legacy code that compares against them keeps
-    // working when the modern dispatcher emits events.
-    EXPECT_EQ(mxh::ui::legacy::WE_NULL,      static_cast<std::uint32_t>(cWindow::WindowEvent::Null));
-    EXPECT_EQ(mxh::ui::legacy::WE_MOUSEOVER, static_cast<std::uint32_t>(cWindow::WindowEvent::MouseMove));
-    EXPECT_EQ(mxh::ui::legacy::WE_LBTNCLICK, static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
-    EXPECT_EQ(mxh::ui::legacy::WE_RBTNCLICK, static_cast<std::uint32_t>(cWindow::WindowEvent::RButtonClick));
-    EXPECT_EQ(mxh::ui::legacy::WE_KEYDOWN,   static_cast<std::uint32_t>(cWindow::WindowEvent::KeyDown));
-    EXPECT_EQ(mxh::ui::legacy::WE_CHAR,      static_cast<std::uint32_t>(cWindow::WindowEvent::Char_));
+TEST(LegacyCompat, WE_ConstantsMatchLegacy) {
+    EXPECT_EQ(mxh::ui::legacy::WE_NULL, 0u);
+    EXPECT_EQ(mxh::ui::legacy::WE_PUSHUP, 16u);
+    EXPECT_EQ(mxh::ui::legacy::WE_PUSHDOWN, 32u);
+    EXPECT_EQ(mxh::ui::legacy::WE_BTNCLICK, 64u);
+    EXPECT_EQ(mxh::ui::legacy::WE_RBTNCLICK, 512u);
+    EXPECT_EQ(mxh::ui::legacy::WE_LBTNCLICK, 1024u);
+    EXPECT_EQ(mxh::ui::legacy::WE_ROWCLICK, 4096u);
+    EXPECT_EQ(mxh::ui::legacy::WE_LBTNDBLCLICK, 65536u);
+    EXPECT_EQ(mxh::ui::legacy::WE_MOUSEOVER, 1048576u);
+    EXPECT_EQ(mxh::ui::legacy::WE_ROWDBLCLICK, 4194304u);
 }
 
 TEST(LegacyCompat, LegacyCbWindowFuncIsCallable) {
@@ -70,7 +71,7 @@ TEST(LegacyCompat, BinderWrapsButtonClick) {
     btn.ActionEvent(50, 50, 0);                          // release -> click
     EXPECT_EQ(s_legacyCount, 1);
     EXPECT_EQ(s_legacyId, 7);
-    EXPECT_EQ(s_legacyWe, mxh::ui::legacy::WE_LBTNCLICK);
+    EXPECT_EQ(s_legacyWe, mxh::ui::legacy::WE_BTNCLICK);
 }
 
 TEST(LegacyCompat, DialogChildAddWorksThroughShimTypes) {
@@ -113,11 +114,24 @@ TEST(LegacyCompat, ListCtrlRowClickUsesLegacyCode) {
     EXPECT_EQ(clickCount, 1);
 }
 
-TEST(LegacyCompat, ModernEnumRoundTripsThroughUint32) {
-    // The legacy engine dispatches via DWORD we; the modern code emits
-    // uint32_t events. They must be value-compatible.
-    const auto ev = cWindow::WindowEvent::LButtonClick;
-    const std::uint32_t raw = static_cast<std::uint32_t>(ev);
-    EXPECT_EQ(raw, mxh::ui::legacy::WE_LBTNCLICK);
-    EXPECT_EQ(static_cast<cWindow::WindowEvent>(raw), cWindow::WindowEvent::LButtonClick);
+TEST(LegacyCompat, ModernEventsConvertExplicitlyToLegacy) {
+    EXPECT_EQ(mxh::ui::legacy::modernEventToLegacy(cWindow::WindowEvent::Null),
+              mxh::ui::legacy::WE_NULL);
+    EXPECT_EQ(mxh::ui::legacy::modernEventToLegacy(cWindow::WindowEvent::MouseMove),
+              mxh::ui::legacy::WE_MOUSEOVER);
+    EXPECT_EQ(mxh::ui::legacy::modernEventToLegacy(cWindow::WindowEvent::LButtonDown),
+              mxh::ui::legacy::WE_LBTNCLICK);
+    EXPECT_EQ(mxh::ui::legacy::modernEventToLegacy(cWindow::WindowEvent::LButtonClick),
+              mxh::ui::legacy::WE_BTNCLICK);
+}
+
+TEST(LegacyCompat, LegacyEventsConvertExplicitlyToModern) {
+    EXPECT_EQ(mxh::ui::legacy::legacyEventToModern(mxh::ui::legacy::WE_MOUSEOVER),
+              cWindow::WindowEvent::MouseMove);
+    EXPECT_EQ(mxh::ui::legacy::legacyEventToModern(mxh::ui::legacy::WE_LBTNCLICK),
+              cWindow::WindowEvent::LButtonDown);
+    EXPECT_EQ(mxh::ui::legacy::legacyEventToModern(mxh::ui::legacy::WE_BTNCLICK),
+              cWindow::WindowEvent::LButtonClick);
+    EXPECT_EQ(mxh::ui::legacy::legacyEventToModern(0xDEADBEEFu),
+              cWindow::WindowEvent::Null);
 }

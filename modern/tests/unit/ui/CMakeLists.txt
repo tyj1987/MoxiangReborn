@@ -164,6 +164,7 @@ add_executable(mxh_ui_tests
     fortwartimedialog_test.cpp
     skillpointnotify_test.cpp
     legacy_compat_test.cpp
+    legacy_window_event_test.cpp
     ime_test.cpp
     cspin_test.cpp
     moneydlg_test.cpp
@@ -327,12 +328,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWindowManager.KeyboardRoutedToTopmostActive
     CWindowManager.NoActiveDialogsInputIsNull
     CWindowManager.RenderAllWalksBackToFront
-    LegacyCompat.WE_ConstantsMatchModern
+    LegacyCompat.WE_ConstantsMatchLegacy
+    LegacyWindowEventTest.ValuesMatchLegacyCWindowDef
+    LegacyWindowEventTest.NonNullValuesAreDistinctPowersOfTwo
     LegacyCompat.LegacyCbWindowFuncIsCallable
     LegacyCompat.BinderWrapsButtonClick
     LegacyCompat.DialogChildAddWorksThroughShimTypes
     LegacyCompat.ListCtrlRowClickUsesLegacyCode
-    LegacyCompat.ModernEnumRoundTripsThroughUint32
+    LegacyCompat.ModernEventsConvertExplicitlyToLegacy
+    LegacyCompat.LegacyEventsConvertExplicitlyToModern
     CMsgBox.InitMsgBoxOnceNoOp
     CMsgBox.DefaultConstruction
     CMsgBox.MsgBoxOkBuildsOneButton

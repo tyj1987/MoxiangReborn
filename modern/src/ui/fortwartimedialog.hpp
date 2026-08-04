@@ -14,12 +14,13 @@
 // per-second refresh body, gated on an OPTIONAL host clock provider
 // (replaces the gCurTime global) and an OPTIONAL host chat message
 // function (replaces the CHATMGR->GetChatMsg(1043) call in
-// CFWEngraveDialog).  OnActionEvent (FW_ENGRAVECANCEL -> NETWORK->Send)
-// remains a TODO because NETWORK + HERO + MP_FORTWAR are not ported.
+// CFWEngraveDialog). OnActionEvent routes FW_ENGRAVECANCEL through an
+// optional host callback that replaces NETWORK + HERO + MP_FORTWAR.
 
 #pragma once
 
 #include "cDialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -60,9 +61,8 @@ public:
     // ids above.
     static constexpr int kEngraveCancelId = 784;
 
-    // 1:1 with legacy WE_BTNCLICK bit (0x0001) used by the
-    // OnActionEvent guard.
-    static constexpr std::uint32_t kWeBtnClick = 0x0001u;
+    // 1:1 with legacy WE_BTNCLICK=64 used by the OnActionEvent guard.
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     cFWEngraveDialog();
     ~cFWEngraveDialog() override;

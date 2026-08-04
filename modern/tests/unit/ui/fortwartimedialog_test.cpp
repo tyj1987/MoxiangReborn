@@ -178,7 +178,7 @@ TEST(CFWEngraveDialog, SendEngraveCancelCallbackInitiallyNull) {
     EXPECT_EQ(d->GetSendEngraveCancelForTest(), nullptr);
     EXPECT_EQ(d->GetCallbackUserDataForTest(), nullptr);
     EXPECT_EQ(d->GetEngraveCancelIdForTest(), 784);
-    EXPECT_EQ(d->GetWeBtnClickForTest(), 0x0001u);
+    EXPECT_EQ(d->GetWeBtnClickForTest(), 64u);
 }
 
 TEST(CFWEngraveDialog, SetFwEngraveCancelCallbackStoresPointer) {

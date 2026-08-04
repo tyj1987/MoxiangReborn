@@ -288,8 +288,8 @@ TEST(CCharStateDialogTest, AllFiveSetXxxModeIndependently) {
 // ===========================================================================
 
 TEST(CCharStateDialogTest, ActionConstantsMatchLegacySurface) {
-    EXPECT_EQ(cCharStateDialog::kWePushUp, 0x0001u);
-    EXPECT_EQ(cCharStateDialog::kWePushDown, 0x0002u);
+    EXPECT_EQ(cCharStateDialog::kWePushUp, 16u);
+    EXPECT_EQ(cCharStateDialog::kWePushDown, 32u);
     EXPECT_EQ(cCharStateDialog::kMacroToggleMove, 12);
     EXPECT_EQ(cCharStateDialog::kMacroTogglePeaceWar, 13);
 }

@@ -93,6 +93,7 @@
 
 #include "cdialog.hpp"
 #include "cwindow.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 
@@ -284,7 +285,7 @@ public:
     static constexpr std::int32_t kIdRegistEndBtn = 249;
     static constexpr std::int32_t kIdCloseBtn     = 250;
 
-    static constexpr std::uint32_t kWeBtnClick = 64u;
+    static constexpr std::uint32_t kWeBtnClick = legacy_window_event::kButtonClick;
 
     // ---- Test hooks ----
     void SetStallGridForTest(cIconGridDialog* g) noexcept;
