@@ -30,6 +30,7 @@
 //     host integration, same as cGuagen's RenderIsNoop).
 
 #include "cListDialogEx.hpp"
+#include "../../../src/ui/legacy_window_event.hpp"
 
 #include <gtest/gtest.h>
 
@@ -42,6 +43,11 @@ namespace mxh::ui::test {
 // ===========================================================================
 // Construction + init
 // ===========================================================================
+
+TEST(CListDialogExTest, WindowEventsMatchCanonicalLegacyValues) {
+    EXPECT_EQ(WE_LBTNCLICK, mxh::ui::legacy_window_event::kLeftButtonClick);
+    EXPECT_EQ(WE_ROWCLICK, mxh::ui::legacy_window_event::kRowClick);
+}
 
 TEST(CListDialogExTest, DefaultConstructionIsEmpty) {
     cListDialogEx dlg;

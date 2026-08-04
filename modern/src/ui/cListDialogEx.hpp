@@ -44,6 +44,7 @@
 #pragma once
 
 #include "cListDialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -58,8 +59,8 @@ namespace mxh::ui {
 // to avoid pulling in the full WindowIDEnum surface. The full
 // enum will land in modern/include/mxh/ui/WindowIDEnum.hpp when
 // the first P2-12 dialog port needs it (P2-12 Tier 1.5 work).
-constexpr std::uint32_t WE_LBTNCLICK = 0x00000001;  // left mouse button click
-constexpr std::uint32_t WE_ROWCLICK  = 0x00000100;  // link item row clicked (set by cListDialogEx for host dispatch)
+constexpr std::uint32_t WE_LBTNCLICK = legacy_window_event::kLeftButtonClick;
+constexpr std::uint32_t WE_ROWCLICK = legacy_window_event::kRowClick;
 
 class cListDialogEx : public cListDialog {
 public:
