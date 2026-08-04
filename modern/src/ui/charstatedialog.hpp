@@ -31,8 +31,9 @@
 //
 // The modern port covers everything that doesn't need
 // a singleton: Linking (real), 5 SetXxxMode methods
-// (real — pure widget state). OnActionEvent is a no-op
-// (4-singleton dispatch deferred). Refresh is a no-op
+// (real — pure widget state). OnActionEvent dispatches
+// through optional host callbacks for the 3 implemented
+// legacy branches. Refresh is a no-op
 // (4-singleton tooltip rebuild deferred).
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md),
@@ -62,6 +63,14 @@ public:
     cCharStateDialog();
     ~cCharStateDialog() override;
 
+    using PlayMacroCallback = void (*)(int macroEvent, void* userData);
+    using TogglePkCallback = void (*)(void* userData);
+
+    static constexpr std::uint32_t kWePushUp = 0x0001u;
+    static constexpr std::uint32_t kWePushDown = 0x0002u;
+    static constexpr int kMacroToggleMove = 12;
+    static constexpr int kMacroTogglePeaceWar = 13;
+
     // ----- 1:1 with legacy CCharStateDialog::Linking -----
 
     // Resolves 5 cPushupButton children (PK / Move /
@@ -75,12 +84,14 @@ public:
 
     // ----- 1:1 with legacy CCharStateDialog::OnActionEvent -----
 
-    // Dispatch a button click. The legacy handles
-    // WE_PUSHUP + WE_PUSHDOWN for 5 button ids. The
-    // modern port is a no-op until MACROMGR + PKMGR are
-    // ported. See the TODO in charstatedialog.cpp for
-    // the exact dispatch logic.
+    // Dispatch a pushup/pushdown event through optional
+    // host callbacks for Move, PeaceWar, and PK. The
+    // legacy KyungGong and Ungi branches are commented out.
     void OnActionEvent(std::int32_t lId, void* p, std::uint32_t we);
+
+    void SetActionCallbacks(PlayMacroCallback playMacro,
+                          TogglePkCallback togglePk,
+                          void* userData = nullptr) noexcept;
 
     // ----- 1:1 with legacy 5 SetXxxMode methods (REAL, no singleton) -----
 
@@ -99,6 +110,10 @@ public:
     // rebuild logic.
     void Refresh();
 
+    PlayMacroCallback GetPlayMacroCallbackForTest() const noexcept { return m_playMacroCb; }
+    TogglePkCallback GetTogglePkCallbackForTest() const noexcept { return m_togglePkCb; }
+    void* GetActionCallbackUserDataForTest() const noexcept { return m_actionCallbackUserData; }
+
     // ----- Accessors (used by tests + future singleton bridge) -----
 
     cPushupButton* GetPKBtn()         const noexcept { return m_pBtnPK; }
@@ -116,6 +131,10 @@ public:
     static constexpr std::int32_t kBtnUngiId      = 224;  // was CSS_BTN_UNGI
 
 private:
+    PlayMacroCallback m_playMacroCb = nullptr;
+    TogglePkCallback m_togglePkCb = nullptr;
+    void* m_actionCallbackUserData = nullptr;
+
     cPushupButton* m_pBtnPK        = nullptr;
     cPushupButton* m_pBtnMove      = nullptr;
     cPushupButton* m_pBtnKyungGong = nullptr;

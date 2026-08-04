@@ -576,8 +576,18 @@ gtest_add_tests(TARGET mxh_ui_tests
     CCharStateDialogTest.SetXxxModeOnlyAffectsTargetButton
     CCharStateDialogTest.SetXxxModeWithoutLinksIsSafe
     CCharStateDialogTest.AllFiveSetXxxModeIndependently
-    CCharStateDialogTest.OnActionEventIsNoOpUntilMacroManagerPort
-    CCharStateDialogTest.OnActionEventUnknownIdIsNoOp
+    CCharStateDialogTest.ActionConstantsMatchLegacySurface
+    CCharStateDialogTest.ActionCallbacksInitiallyNull
+    CCharStateDialogTest.SetActionCallbacksStoresCallbacksAndUserData
+    CCharStateDialogTest.SetActionCallbacksReplacesAndClears
+    CCharStateDialogTest.MovePushupDispatchesMoveMacro
+    CCharStateDialogTest.PeaceWarPushdownDispatchesPeaceWarMacro
+    CCharStateDialogTest.PkPushupDispatchesPkToggle
+    CCharStateDialogTest.KyungGongAndUngiRemainLegacyNoOps
+    CCharStateDialogTest.ActionWithoutPushFlagsIsNoOp
+    CCharStateDialogTest.ExtraEventFlagsStillDispatch
+    CCharStateDialogTest.ActionWithoutCallbacksIsSafe
+    CCharStateDialogTest.UnknownActionIdIsNoOp
     CCharStateDialogTest.RefreshIsNoOpUntilScriptManagerPort
     CCharStateDialogTest.RefreshBeforeLinkingIsSafe
     # Phase C 1:1 port (dialog): cSOSDialog (guild SOS)

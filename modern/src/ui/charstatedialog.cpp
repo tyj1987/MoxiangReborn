@@ -11,6 +11,14 @@ cCharStateDialog::cCharStateDialog() = default;
 
 cCharStateDialog::~cCharStateDialog() = default;
 
+void cCharStateDialog::SetActionCallbacks(PlayMacroCallback playMacro,
+                                           TogglePkCallback togglePk,
+                                           void* userData) noexcept {
+    m_playMacroCb = playMacro;
+    m_togglePkCb = togglePk;
+    m_actionCallbackUserData = userData;
+}
+
 void cCharStateDialog::Linking() {
     // 1:1 with legacy CCharStateDialog::Linking. Resolve
     // 5 cPushupButton children by id and SetPassive(TRUE)
@@ -35,34 +43,32 @@ void cCharStateDialog::Linking() {
     if (m_pBtnUngi)      m_pBtnUngi->SetPassive(true);
 }
 
-void cCharStateDialog::OnActionEvent(std::int32_t lId, void* /*p*/,
+void cCharStateDialog::OnActionEvent(std::int32_t lId, void* p,
                                      std::uint32_t we) {
-    // 1:1 with legacy CCharStateDialog::OnActionEvent. The
-    // legacy dispatches 5 button ids to MACROMGR +
-    // PKMGR singletons:
-    //
-    //   if (we & WE_PUSHUP || we & WE_PUSHDOWN) {
-    //       switch (lId) {
-    //       case CSS_BTN_MOVE:     MACROMGR->PlayMacro(ME_TOGGLE_MOVEMODE); break;
-    //       case CSS_BTN_KYUNGGONG:// MACROMGR->PlayMacro(ME_TOGGLE_KYUNGGONG); break;
-    //       case CSS_BTN_PEACEWAR: MACROMGR->PlayMacro(ME_TOGGLE_PEACEWARMODE); break;
-    //       case CSS_BTN_UNGI:     // MACROMGR->PlayMacro(ME_TOGGLE_UNGIMODE); break;
-    //       case CSS_BTN_PK:       PKMGR->ToggleHeroPKMode(); break;
-    //       }
-    //   }
-    //
-    // The KyungGong + Ungi branches are commented out
-    // in the legacy (1:1 quirk: those macros were not
-    // implemented in the legacy engine). The modern
-    // port preserves the state-machine shape (5 ids
-    // distinguished) so a future port can wire the
-    // dispatch without breaking the public API. Until
-    // MACROMGR + PKMGR are ported, the body is a no-op.
-    (void)lId;
-    (void)we;
-    // TODO: dispatch to MACROMGR + PKMGR once those
-    //       singletons are ported. See header docstring
-    //       for the exact dispatch logic.
+    (void)p;
+    if ((we & kWePushUp) == 0 && (we & kWePushDown) == 0) {
+        return;
+    }
+
+    switch (lId) {
+    case kBtnMoveId:
+        if (m_playMacroCb) {
+            m_playMacroCb(kMacroToggleMove, m_actionCallbackUserData);
+        }
+        break;
+    case kBtnPeaceWarId:
+        if (m_playMacroCb) {
+            m_playMacroCb(kMacroTogglePeaceWar, m_actionCallbackUserData);
+        }
+        break;
+    case kBtnPKId:
+        if (m_togglePkCb) {
+            m_togglePkCb(m_actionCallbackUserData);
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 void cCharStateDialog::SetPKMode(bool bPKMode) noexcept {

@@ -20,9 +20,9 @@
 //     flag, so SetPush(!bPeace)).
 //   - SetXxxMode with unlinked children is safe (no crash, no
 //     state change).
-//   - OnActionEvent is a no-op until MACROMGR + PKMGR are ported
-//     (4 button ids + WE_PUSHUP/ WE_PUSHDOWN state-machine shape
-//     preserved).
+//   - OnActionEvent dispatches Move, PeaceWar, and PK through
+//     optional host callbacks; KyungGong and Ungi remain no-ops
+//     because their legacy branches are commented out.
 //   - Refresh is a no-op until SCRIPTMGR + RESRCMGR + MACROMGR +
 //     GAMEIN are ported.
 //   - Accessors return the linked cPushupButton pointers.
@@ -111,6 +111,23 @@ void BuildDlgWithPushups(cCharStateDialog& dlg, std::vector<cPushupButton*>& raw
     }
     dlg.Linking();
 }
+
+struct ActionHostCalls {
+    int playCalls = 0;
+    int lastMacroEvent = -1;
+    int togglePkCalls = 0;
+
+    static void PlayMacro(int macroEvent, void* userData) {
+        auto* self = static_cast<ActionHostCalls*>(userData);
+        ++self->playCalls;
+        self->lastMacroEvent = macroEvent;
+    }
+
+    static void TogglePk(void* userData) {
+        auto* self = static_cast<ActionHostCalls*>(userData);
+        ++self->togglePkCalls;
+    }
+};
 
 }  // namespace
 
@@ -267,42 +284,127 @@ TEST(CCharStateDialogTest, AllFiveSetXxxModeIndependently) {
 }
 
 // ===========================================================================
-// OnActionEvent (deferred to MACROMGR + PKMGR port)
+// OnActionEvent host dispatch
 // ===========================================================================
 
-TEST(CCharStateDialogTest, OnActionEventIsNoOpUntilMacroManagerPort) {
-    // 1:1 quirk: OnActionEvent in the modern port is a
-    // no-op until MACROMGR + PKMGR singletons are
-    // ported. The 5 button ids + WE_PUSHUP/ WE_PUSHDOWN
-    // state-machine shape is preserved.
-    cCharStateDialog dlg;
-    std::vector<cPushupButton*> raws;
-    BuildDlgWithPushups(dlg, raws);
-    for (auto* btn : raws) ASSERT_NE(btn, nullptr);
-
-    // Test all 5 button ids with WE_PUSHUP + WE_PUSHDOWN.
-    const std::uint32_t we_pushup   = 0x01;  // legacy WE_PUSHUP
-    const std::uint32_t we_pushdown = 0x02;  // legacy WE_PUSHDOWN
-    dlg.OnActionEvent(cCharStateDialog::kBtnPKId,        nullptr, we_pushup);
-    dlg.OnActionEvent(cCharStateDialog::kBtnMoveId,      nullptr, we_pushup);
-    dlg.OnActionEvent(cCharStateDialog::kBtnKyungGongId, nullptr, we_pushup);
-    dlg.OnActionEvent(cCharStateDialog::kBtnPeaceWarId,  nullptr, we_pushdown);
-    dlg.OnActionEvent(cCharStateDialog::kBtnUngiId,      nullptr, we_pushdown);
-    // No observable state change (the OnActionEvent
-    // body is a no-op).
-    EXPECT_FALSE(dlg.GetPKBtn()->IsPushed());
-    EXPECT_FALSE(dlg.GetMoveBtn()->IsPushed());
-    EXPECT_FALSE(dlg.GetKyungGongBtn()->IsPushed());
-    EXPECT_FALSE(dlg.GetPeaceWarBtn()->IsPushed());
-    EXPECT_FALSE(dlg.GetUngiBtn()->IsPushed());
+TEST(CCharStateDialogTest, ActionConstantsMatchLegacySurface) {
+    EXPECT_EQ(cCharStateDialog::kWePushUp, 0x0001u);
+    EXPECT_EQ(cCharStateDialog::kWePushDown, 0x0002u);
+    EXPECT_EQ(cCharStateDialog::kMacroToggleMove, 12);
+    EXPECT_EQ(cCharStateDialog::kMacroTogglePeaceWar, 13);
 }
 
-TEST(CCharStateDialogTest, OnActionEventUnknownIdIsNoOp) {
+TEST(CCharStateDialogTest, ActionCallbacksInitiallyNull) {
     cCharStateDialog dlg;
-    std::vector<cPushupButton*> raws;
-    BuildDlgWithPushups(dlg, raws);
-    dlg.OnActionEvent(/*unknown=*/99999, nullptr, /*we=*/0x01);
+    EXPECT_EQ(dlg.GetPlayMacroCallbackForTest(), nullptr);
+    EXPECT_EQ(dlg.GetTogglePkCallbackForTest(), nullptr);
+    EXPECT_EQ(dlg.GetActionCallbackUserDataForTest(), nullptr);
+}
+
+TEST(CCharStateDialogTest, SetActionCallbacksStoresCallbacksAndUserData) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro,
+                            &ActionHostCalls::TogglePk,
+                            &calls);
+    EXPECT_EQ(dlg.GetPlayMacroCallbackForTest(), &ActionHostCalls::PlayMacro);
+    EXPECT_EQ(dlg.GetTogglePkCallbackForTest(), &ActionHostCalls::TogglePk);
+    EXPECT_EQ(dlg.GetActionCallbackUserDataForTest(), &calls);
+}
+
+TEST(CCharStateDialogTest, SetActionCallbacksReplacesAndClears) {
+    cCharStateDialog dlg;
+    ActionHostCalls first;
+    ActionHostCalls second;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro,
+                            &ActionHostCalls::TogglePk,
+                            &first);
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro,
+                            nullptr,
+                            &second);
+    EXPECT_EQ(dlg.GetTogglePkCallbackForTest(), nullptr);
+    EXPECT_EQ(dlg.GetActionCallbackUserDataForTest(), &second);
+    dlg.SetActionCallbacks(nullptr, nullptr);
+    EXPECT_EQ(dlg.GetPlayMacroCallbackForTest(), nullptr);
+    EXPECT_EQ(dlg.GetActionCallbackUserDataForTest(), nullptr);
+}
+
+TEST(CCharStateDialogTest, MovePushupDispatchesMoveMacro) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro, nullptr, &calls);
+    dlg.OnActionEvent(cCharStateDialog::kBtnMoveId, nullptr,
+                       cCharStateDialog::kWePushUp);
+    EXPECT_EQ(calls.playCalls, 1);
+    EXPECT_EQ(calls.lastMacroEvent, cCharStateDialog::kMacroToggleMove);
+}
+
+TEST(CCharStateDialogTest, PeaceWarPushdownDispatchesPeaceWarMacro) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro, nullptr, &calls);
+    dlg.OnActionEvent(cCharStateDialog::kBtnPeaceWarId, nullptr,
+                       cCharStateDialog::kWePushDown);
+    EXPECT_EQ(calls.playCalls, 1);
+    EXPECT_EQ(calls.lastMacroEvent, cCharStateDialog::kMacroTogglePeaceWar);
+}
+
+TEST(CCharStateDialogTest, PkPushupDispatchesPkToggle) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(nullptr, &ActionHostCalls::TogglePk, &calls);
+    dlg.OnActionEvent(cCharStateDialog::kBtnPKId, nullptr,
+                       cCharStateDialog::kWePushUp);
+    EXPECT_EQ(calls.togglePkCalls, 1);
+}
+
+TEST(CCharStateDialogTest, KyungGongAndUngiRemainLegacyNoOps) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro, &ActionHostCalls::TogglePk, &calls);
+    dlg.OnActionEvent(cCharStateDialog::kBtnKyungGongId, nullptr,
+                       cCharStateDialog::kWePushUp);
+    dlg.OnActionEvent(cCharStateDialog::kBtnUngiId, nullptr,
+                       cCharStateDialog::kWePushDown);
+    EXPECT_EQ(calls.playCalls, 0);
+    EXPECT_EQ(calls.togglePkCalls, 0);
+}
+
+TEST(CCharStateDialogTest, ActionWithoutPushFlagsIsNoOp) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro, &ActionHostCalls::TogglePk, &calls);
+    dlg.OnActionEvent(cCharStateDialog::kBtnMoveId, nullptr, 0);
+    dlg.OnActionEvent(cCharStateDialog::kBtnPKId, nullptr, 0);
+    EXPECT_EQ(calls.playCalls, 0);
+    EXPECT_EQ(calls.togglePkCalls, 0);
+}
+
+TEST(CCharStateDialogTest, ExtraEventFlagsStillDispatch) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro, nullptr, &calls);
+    dlg.OnActionEvent(cCharStateDialog::kBtnMoveId, nullptr,
+                       cCharStateDialog::kWePushUp | 0x80u);
+    EXPECT_EQ(calls.playCalls, 1);
+}
+
+TEST(CCharStateDialogTest, ActionWithoutCallbacksIsSafe) {
+    cCharStateDialog dlg;
+    dlg.OnActionEvent(cCharStateDialog::kBtnPKId, nullptr,
+                       cCharStateDialog::kWePushUp);
+    dlg.OnActionEvent(cCharStateDialog::kBtnMoveId, nullptr,
+                       cCharStateDialog::kWePushDown);
     SUCCEED();
+}
+
+TEST(CCharStateDialogTest, UnknownActionIdIsNoOp) {
+    cCharStateDialog dlg;
+    ActionHostCalls calls;
+    dlg.SetActionCallbacks(&ActionHostCalls::PlayMacro, &ActionHostCalls::TogglePk, &calls);
+    dlg.OnActionEvent(99999, nullptr, cCharStateDialog::kWePushUp);
+    EXPECT_EQ(calls.playCalls, 0);
+    EXPECT_EQ(calls.togglePkCalls, 0);
 }
 
 // ===========================================================================
