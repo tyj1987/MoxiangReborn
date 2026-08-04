@@ -1935,8 +1935,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPointSaveDialogTest.SetItemToMapServerUpdatesItemPos
     CPointSaveDialogTest.SetItemToMapServerMultipleCalls
     CPointSaveDialogTest.SetDialogStatusToggles
-    CPointSaveDialogTest.ChangePointNameIsNoOp
-    CPointSaveDialogTest.CancelPointNameIsNoOp
+    CPointSaveDialogTest.LegacyMessageAndStateConstantsMatchSource
+    CPointSaveDialogTest.ChangePointNameEmptyNameEnablesTablesAndCloses
+    CPointSaveDialogTest.ChangePointNameSameNameEmitsMsgAndEndsDealState
+    CPointSaveDialogTest.ChangePointNameSameNameNoDealStateSkipsEndObject
+    CPointSaveDialogTest.ChangePointNameNewPointDispatchesAddSynAndCloses
+    CPointSaveDialogTest.ChangePointNameExistingPointDispatchesUpdateSynAndCloses
+    CPointSaveDialogTest.ChangePointNameNoCallbacksIsSafe
+    CPointSaveDialogTest.CancelPointNameEnablesTablesAndCloses
+    CPointSaveDialogTest.CancelPointNameWithoutCallbacksClosesDialog
+    CPointSaveDialogTest.SetCallbacksReplacesExistingHostDispatch
     # Phase C 1:1 port (dialog): cSurvivalCountDialog (survival-mode alive counter)
     CSurvivalCountDialogTest.CtorDoesNotCrash
     CSurvivalCountDialogTest.DtorDoesNotCrash
