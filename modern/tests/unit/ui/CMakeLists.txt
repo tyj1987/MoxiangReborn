@@ -788,6 +788,12 @@ gtest_add_tests(TARGET mxh_ui_tests
     CPetWearedExDialogTest.GetBlankPositionRestrictRefReturnsFirstAddable
     CPetWearedExDialogTest.CheckDuplicationReturnsFalse
     CPetWearedExDialogTest.CheckDuplicationEmptyDialogReturnsFalse
+    CPetWearedExDialogTest.CheckDuplicationWithHostCallbackFindsMatch
+    CPetWearedExDialogTest.CheckDuplicationReturnsFalseOnNoMatch
+    CPetWearedExDialogTest.CheckDuplicationSkipsNullCells
+    CPetWearedExDialogTest.CheckDuplicationReturnsTrueOnFirstMatch
+    CPetWearedExDialogTest.CheckDuplicationCallbackReplacementSwap
+    CPetWearedExDialogTest.CheckDuplicationCallbacksAllowNullUserData
     # Phase C 1:1 port (dialog): cGuildNoticeDlg (guild notice editor)
     CGuildNoticeDlgTest.DefaultConstructionHasNullPointer
     CGuildNoticeDlgTest.InheritsDialogTreeManagement

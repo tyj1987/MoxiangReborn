@@ -121,20 +121,30 @@ public:
 
     // 1:1 with legacy CheckDuplication(DWORD ItemIdx).
     // Scan cells [0, kSlotPetWearNum) and check whether
-    // any cell holds a CItem whose GetItemIdx() ==
-    // ItemIdx. The cItem class is not yet ported
-    // (R-12.x deferred, same constraint as
-    // cWearedExDialog), so the modern port returns
-    // false unconditionally with a TODO marker. When
-    // cItem is ported, this becomes:
+    // any cell holds a CItem whose GetItemIdx() == ItemIdx.
+    // The cItem class is not yet ported (R-12.x deferred,
+    // same constraint as cWearedExDialog). The modern port
+    // delegates the icon-to-item-index extraction to an
+    // OPTIONAL host callback so the dialog stays decoupled
+    // from the cItem port:
     //   for (int i = 0; i < kSlotPetWearNum; ++i) {
     //     auto* icon = GetIconForIdx(i);
     //     if (!icon) continue;
-    //     auto* item = static_cast<cItem*>(icon);
-    //     if (item->GetItemIdx() == ItemIdx) return true;
+    //     if (!m_getItemIdxFn) return false;
+    //     if (m_getItemIdxFn(icon, userData) == ItemIdx) return true;
     //   }
     //   return false;
     bool CheckDuplication(std::uint32_t itemIdx);
+
+    using GetItemIdxFn = std::uint32_t (*)(cIcon* icon, void* userData);
+
+    // Replaces legacy cItem::GetItemIdx() calls. The host
+    // receives each in-use cIcon* and returns the item idx
+    // stored in it. OPTIONAL: when no callback is registered
+    // CheckDuplication returns false (1:1 with the prior
+    // cItem-not-ported TODO state).
+    void SetItemIdxCallback(GetItemIdxFn getItemIdx,
+                            void* userData = nullptr) noexcept;
 
     // ----- Constants from legacy [CC]Header/CommonGameDefine.h -----
 
@@ -149,6 +159,9 @@ public:
     // (rather than including the shared header) to keep
     // the 1:1 shared-header constraint per AGENTS.md.
     static constexpr std::uint16_t kTpPetWearStart = 490;
+
+    GetItemIdxFn m_getItemIdxFn = nullptr;
+    void* m_callbackUserData = nullptr;
 };
 
 }  // namespace mxh::ui

@@ -379,4 +379,102 @@ TEST(CPetWearedExDialogTest, CheckDuplicationEmptyDialogReturnsFalse) {
     EXPECT_FALSE(dlg.CheckDuplication(/*ItemIdx=*/42u));
 }
 
+
+// ===========================================================================
+// C-Batch-2.51: CheckDuplication host GetItemIdxFn dispatch
+// ===========================================================================
+
+namespace {
+
+std::uint32_t TagGetItemIdx(cIcon* icon, void* userData) {
+    auto* table = static_cast<std::map<cIcon*, std::uint32_t>*>(userData);
+    auto it = table->find(icon);
+    if (it == table->end()) return 0xDEADBEEFu;
+    return it->second;
+}
+
+}  // namespace
+
+TEST(CPetWearedExDialogTest, CheckDuplicationWithHostCallbackFindsMatch) {
+    cPetWearedExDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetCellNum(3);
+    ASSERT_TRUE(dlg.AddItem(0, MakeOpaqueIcon()));
+    ASSERT_TRUE(dlg.AddItem(1, MakeOpaqueIconAlt()));
+    std::map<cIcon*, std::uint32_t> tag = {
+        {MakeOpaqueIcon(),     0xAAAAAAAAu},
+        {MakeOpaqueIconAlt(),  0xBBBBBBBBu},
+    };
+    dlg.SetItemIdxCallback(&TagGetItemIdx, &tag);
+    EXPECT_TRUE(dlg.CheckDuplication(0xAAAAAAAAu));
+    EXPECT_TRUE(dlg.CheckDuplication(0xBBBBBBBBu));
+}
+
+TEST(CPetWearedExDialogTest, CheckDuplicationReturnsFalseOnNoMatch) {
+    cPetWearedExDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetCellNum(3);
+    ASSERT_TRUE(dlg.AddItem(0, MakeOpaqueIcon()));
+    std::map<cIcon*, std::uint32_t> tag = {
+        {MakeOpaqueIcon(), 0xAAAAAAAAu},
+    };
+    dlg.SetItemIdxCallback(&TagGetItemIdx, &tag);
+    EXPECT_FALSE(dlg.CheckDuplication(0x11111111u));
+    EXPECT_FALSE(dlg.CheckDuplication(0xFFFFFFFFu));
+}
+
+TEST(CPetWearedExDialogTest, CheckDuplicationSkipsNullCells) {
+    cPetWearedExDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetCellNum(3);
+    ASSERT_TRUE(dlg.AddItem(0, MakeOpaqueIcon()));
+    std::map<cIcon*, std::uint32_t> tag = {
+        {MakeOpaqueIcon(), 0xAAAAAAAAu},
+    };
+    dlg.SetItemIdxCallback(&TagGetItemIdx, &tag);
+    EXPECT_TRUE(dlg.CheckDuplication(0xAAAAAAAAu));
+    EXPECT_FALSE(dlg.CheckDuplication(0xDEADBEEFu));
+}
+
+TEST(CPetWearedExDialogTest, CheckDuplicationReturnsTrueOnFirstMatch) {
+    cPetWearedExDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetCellNum(3);
+    ASSERT_TRUE(dlg.AddItem(0, MakeOpaqueIcon()));
+    ASSERT_TRUE(dlg.AddItem(1, MakeOpaqueIcon()));
+    ASSERT_TRUE(dlg.AddItem(2, MakeOpaqueIcon()));
+    std::map<cIcon*, std::uint32_t> tag = {
+        {MakeOpaqueIcon(), 0xCAFEu},
+    };
+    dlg.SetItemIdxCallback(&TagGetItemIdx, &tag);
+    EXPECT_TRUE(dlg.CheckDuplication(0xCAFEu));
+}
+
+TEST(CPetWearedExDialogTest, CheckDuplicationCallbackReplacementSwap) {
+    cPetWearedExDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetCellNum(3);
+    ASSERT_TRUE(dlg.AddItem(0, MakeOpaqueIcon()));
+    std::map<cIcon*, std::uint32_t> tagA = {
+        {MakeOpaqueIcon(), 0x111u},
+    };
+    std::map<cIcon*, std::uint32_t> tagB = {
+        {MakeOpaqueIcon(), 0x222u},
+    };
+    dlg.SetItemIdxCallback(&TagGetItemIdx, &tagA);
+    EXPECT_TRUE(dlg.CheckDuplication(0x111u));
+    dlg.SetItemIdxCallback(&TagGetItemIdx, &tagB);
+    EXPECT_FALSE(dlg.CheckDuplication(0x111u));
+    EXPECT_TRUE(dlg.CheckDuplication(0x222u));
+}
+
+TEST(CPetWearedExDialogTest, CheckDuplicationCallbacksAllowNullUserData) {
+    cPetWearedExDialog dlg;
+    dlg.Init(0, 0, 400, 400, nullptr, 0);
+    dlg.SetCellNum(3);
+    ASSERT_TRUE(dlg.AddItem(0, MakeOpaqueIcon()));
+    auto getIdx = [](cIcon*, void*) -> std::uint32_t { return 0xCAFEu; };
+    dlg.SetItemIdxCallback(getIdx);
+    EXPECT_TRUE(dlg.CheckDuplication(0xCAFEu));
+}
 }  // namespace mxh::ui::test

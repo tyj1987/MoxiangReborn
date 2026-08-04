@@ -82,6 +82,12 @@ bool cPetWearedExDialog::GetBlankPositionRestrictRef(std::uint16_t& absPos) {
     return false;
 }
 
+void cPetWearedExDialog::SetItemIdxCallback(
+    GetItemIdxFn getItemIdx, void* userData) noexcept {
+    m_getItemIdxFn = getItemIdx;
+    m_callbackUserData = userData;
+}
+
 bool cPetWearedExDialog::CheckDuplication(std::uint32_t itemIdx) {
     // 1:1 with legacy CPetWearedExDialog::CheckDuplication.
     // The legacy is:
@@ -116,9 +122,20 @@ bool cPetWearedExDialog::CheckDuplication(std::uint32_t itemIdx) {
     //     }
     //   }
     //   return false;
-    (void)itemIdx;
-    // TODO: cItem not ported (R-12.x deferred). When
-    //       ported, scan cells and compare GetItemIdx().
+    if (!m_getItemIdxFn) {
+        // 1:1 with the prior cItem-not-ported TODO state:
+        // with no host callback registered, return false.
+        return false;
+    }
+    for (std::uint16_t i = 0; i < kSlotPetWearNum; ++i) {
+        cIcon* icon = cIconDialog::GetIconForIdx(i);
+        if (!icon) continue;
+        const std::uint32_t thisItemIdx =
+            m_getItemIdxFn(icon, m_callbackUserData);
+        if (thisItemIdx == itemIdx) {
+            return true;
+        }
+    }
     return false;
 }
 
