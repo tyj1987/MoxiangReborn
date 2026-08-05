@@ -2086,6 +2086,45 @@ gtest_add_tests(TARGET mxh_ui_tests
     CMNChannelDialog.SetChannelModeActivatesSelectedList
     CMNChannelDialog.SetChannelModeRejectsOutOfRange
     CMNChannelDialog.SetChannelModeSwitchesMode
+    # Phase C 1:1 port (dialog): cMNPlayRoomDialog (MurimNet play-room)
+    CMNPlayRoomDialogTest.NumTeamsMatchesLegacyEnum
+    CMNPlayRoomDialogTest.ButtonIdsInExpectedRange
+    CMNPlayRoomDialogTest.ListAndChatIdsInExpectedRange
+    CMNPlayRoomDialogTest.AllIdsAreDistinct
+    CMNPlayRoomDialogTest.DefaultConstructionHasNullPointers
+    CMNPlayRoomDialogTest.LinkingMaterializesAllChildren
+    CMNPlayRoomDialogTest.LinkingSetsChildIds
+    CMNPlayRoomDialogTest.LinkingDisablesStartButtonByDefault
+    CMNPlayRoomDialogTest.LinkingIdempotent
+    CMNPlayRoomDialogTest.NoCallbacksByDefault
+    CMNPlayRoomDialogTest.ClearCallbacksRemovesAll
+    CMNPlayRoomDialogTest.OnActionEventMoveToAFiresTeamChangeA
+    CMNPlayRoomDialogTest.OnActionEventMoveToBFiresTeamChangeB
+    CMNPlayRoomDialogTest.OnActionEventMoveToOBIsNoOp
+    CMNPlayRoomDialogTest.OnActionEventExitFiresExitCallback
+    CMNPlayRoomDialogTest.OnActionEventStartFiresStartCallback
+    CMNPlayRoomDialogTest.OnActionEventUnknownIdIsNoOp
+    CMNPlayRoomDialogTest.OnActionEventNonButtonEventIsNoOp
+    CMNPlayRoomDialogTest.OnActionEventWithoutLinkingIsSafe
+    CMNPlayRoomDialogTest.AddPlayerAppendsToCorrectTeam
+    CMNPlayRoomDialogTest.AddPlayerInvalidTeamIsNoOp
+    CMNPlayRoomDialogTest.RemovePlayerRemovesFromTeam
+    CMNPlayRoomDialogTest.RemovePlayerNotFoundIsNoOp
+    CMNPlayRoomDialogTest.RemoveAllPlayerClearsAllTeams
+    CMNPlayRoomDialogTest.TeamChangeMovesPlayer
+    CMNPlayRoomDialogTest.TeamChangeSameTeamIsNoOp
+    CMNPlayRoomDialogTest.SetCaptainTrueActivatesStartButton
+    CMNPlayRoomDialogTest.SetCaptainFalseDeactivatesStartButton
+    CMNPlayRoomDialogTest.SetCaptainBeforeLinkingIsSafe
+    CMNPlayRoomDialogTest.SetPlayRoomInfoUpdatesTitle
+    CMNPlayRoomDialogTest.SetPlayRoomInfoDefensiveBeforeLinking
+    CMNPlayRoomDialogTest.SetPlayRoomInfoEmptyTitleKeepsDefault
+    CMNPlayRoomDialogTest.ChatMsgWholeFormatsNameAndPushesChatLine
+    CMNPlayRoomDialogTest.ChatMsgTeamAndWhisperAreSilentlyDropped
+    CMNPlayRoomDialogTest.PrintMsgAddsRawString
+    CMNPlayRoomDialogTest.ChatMixedSourcesPreserveOrder
+    CMNPlayRoomDialogTest.GetChatLineOutOfRangeThrows
+    CMNPlayRoomDialogTest.PlayerAtOutOfRangeReturnsEmpty
     # Phase C 1:1 port (dialog): CFWEngraveDialog + CFWTimeDialog (FortWar)
     CFWEngraveDialog.DefaultProcessTimeIsZero
     CFWEngraveDialog.ChildrenNullBeforeLinking
