@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "mxh/server/quest_trigger.hpp"
+
 namespace mxh::server {
 
 inline constexpr std::size_t MAX_QUEST = 1000u;
@@ -358,4 +360,60 @@ inline bool quest_group_save_login_point(std::uint32_t mapNum,
     return ok;
 }
 
+
+
+// ---- D3.8 quest_group_run_pending ----
+//
+// Legacy CQuestGroup::Process() (called once per tick from the MapServer
+// scheduler) walks the queued CQuestEvent entries, finds every quest in
+// the group that has a matching CQuestCondition, and dispatches the
+// CQuestTrigger::OnQuestEvent chain. The modern port splits that into
+// two pieces:
+//   1. quest_group_process(state) -- emits one QuestGroupDispatch per
+//      (quest, event) pair (legacy `for (quest) for (event)` nesting).
+//   2. quest_group_run_pending -- consumes the dispatch list, picks the
+//      first trigger for each quest that matches the event, and applies
+//      its executes. This is exactly what legacy CQuestTrigger::
+//      OnQuestEvent did: find the first matching condition, run its
+//      executes, and report the result.
+//
+// Trigger table layout mirrors the legacy CQuestInfo trigger list:
+//   std::unordered_map<quest_idx, std::vector<QuestTrigger>>.
+//
+// Returns one entry per dispatched quest, in dispatch order. The caller
+// is responsible for the DB flush + MP_QUEST_* network notification; the
+// data plane stops at having applied the executes to QuestGroupState.
+struct QuestGroupApplyResult final {
+    std::uint32_t quest_idx = 0;
+    std::uint32_t subquest_idx = 0;
+    QuestTriggerApplyStatus status = QuestTriggerApplyStatus::Applied;
+    bool changed = false;
+};
+
+inline std::vector<QuestGroupApplyResult> quest_group_run_pending(
+    QuestGroupState& state,
+    const std::unordered_map<std::uint32_t, std::vector<QuestTrigger>>& triggers_by_quest) noexcept {
+    std::vector<QuestGroupApplyResult> out;
+    const auto dispatches = quest_group_process(state);
+    if (dispatches.empty()) return out;
+    for (const auto& d : dispatches) {
+        auto it = triggers_by_quest.find(d.targetQuestIdx);
+        if (it == triggers_by_quest.end()) continue;
+        const QuestEventSpec runtime{
+            static_cast<QuestEventKind>(d.event.kind),
+            d.event.param1, d.event.param2};
+        for (const auto& trigger : it->second) {
+            if (trigger.quest_idx != d.targetQuestIdx) continue;
+            const auto apply = quest_trigger_run(
+                trigger, runtime, state, 0, 0, 0);
+            if (apply.status == QuestTriggerApplyStatus::ConditionFailed)
+                continue;
+            out.push_back({trigger.quest_idx, trigger.subquest_idx,
+                           apply.status, apply.changed});
+            break;  // legacy fires only the first matching trigger per quest-event pair.
+        }
+    }
+    return out;
 }
+
+}  // namespace mxh::server

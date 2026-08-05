@@ -1,6 +1,8 @@
 #include <mxh/server/quest_group.hpp>
 #include <gtest/gtest.h>
 
+#include <mxh/server/quest_trigger.hpp>
+
 using namespace mxh::server;
 
 TEST(QuestGroupConstants, MatchLegacy) {
@@ -203,4 +205,141 @@ TEST(QuestGroupExecution, MoneyPerCountConsumesQuestItem) {
     EXPECT_EQ(quest_group_take_money_per_count(state, 42, 17), 51u);
     EXPECT_EQ(state.m_QuestItemTable.count(42), 0u);
     EXPECT_EQ(quest_group_take_money_per_count(state, 42, 17), 0u);
+}
+
+
+// ---- D3.8 quest_group_run_pending (legacy CQuestGroup::Process link) ----
+TEST(QuestGroupRunPending, NoEventsProducesEmptyResult) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 1);
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;
+    const auto out = quest_group_run_pending(state, table);
+    EXPECT_TRUE(out.empty());
+}
+
+TEST(QuestGroupRunPending, AppliesFirstMatchingTriggerAndAdvancesSubCount) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    const std::string src = "&LEVEL 1 99 @HUNT 1 10 *ADDCOUNT 2 3";
+    const auto line = parse_quest_script_line(src, 7, 2);
+    ASSERT_TRUE(line.has_value());
+    QuestTrigger trigger = quest_trigger_from_script_line(*line);
+
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;
+    table[7] = {trigger};
+
+    // Stage the runtime event: legacy eQuestEvent_Hunt with kind=2 param1=1 param2=10.
+    state.m_QuestEvent.push_back({7u, static_cast<std::uint32_t>(QuestEventKind::Hunt), 1u, 10});
+
+    const auto out = quest_group_run_pending(state, table);
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0].quest_idx, 7u);
+    EXPECT_EQ(out[0].subquest_idx, 2u);
+    EXPECT_EQ(out[0].status, QuestTriggerApplyStatus::Applied);
+    EXPECT_TRUE(out[0].changed);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(2u), 1u);
+    // Events consumed exactly once (legacy Process clears m_QuestEvent).
+    EXPECT_TRUE(state.m_QuestEvent.empty());
+}
+
+TEST(QuestGroupRunPending, SkipsQuestWithNoTriggerEntry) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 7);
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;  // empty
+    state.m_QuestEvent.push_back({7u, static_cast<std::uint32_t>(QuestEventKind::Hunt), 1u, 10});
+    const auto out = quest_group_run_pending(state, table);
+    EXPECT_TRUE(out.empty());
+    EXPECT_TRUE(state.m_QuestEvent.empty());  // still drained
+}
+
+TEST(QuestGroupRunPending, FiresFirstConditionMatchAndIgnoresTheRest) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+
+    QuestTrigger non_matching;
+    non_matching.quest_idx = 7;
+    non_matching.subquest_idx = 2;
+    non_matching.event = {QuestEventKind::NpcTalk, 99u, 99};  // won't match
+    const std::string match_src = "&LEVEL 1 99 @HUNT 1 10 *ADDCOUNT 2 3";
+    const auto match_line = parse_quest_script_line(match_src, 7, 2);
+    QuestTrigger matching = quest_trigger_from_script_line(*match_line);
+
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;
+    table[7] = {non_matching, matching};
+
+    state.m_QuestEvent.push_back({7u, static_cast<std::uint32_t>(QuestEventKind::Hunt), 1u, 10});
+
+    const auto out = quest_group_run_pending(state, table);
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0].subquest_idx, 2u);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(2u), 1u);
+}
+
+TEST(QuestGroupRunPending, FansOutAcrossMultipleQuests) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 7);
+    quest_group_create_quest(state, 8);
+    quest_group_start_subquest(state, 7, 2, 0);
+    quest_group_start_subquest(state, 8, 3, 0);
+
+    const std::string src7 = "&LEVEL 1 99 @HUNT 1 10 *ADDCOUNT 2 3";
+    const std::string src8 = "&LEVEL 1 99 @HUNT 1 10 *ADDCOUNT 3 3";
+    QuestTrigger t7 = quest_trigger_from_script_line(*parse_quest_script_line(src7, 7, 2));
+    QuestTrigger t8 = quest_trigger_from_script_line(*parse_quest_script_line(src8, 8, 3));
+
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;
+    table[7] = {t7};
+    table[8] = {t8};
+
+    state.m_QuestEvent.push_back({0u, static_cast<std::uint32_t>(QuestEventKind::Hunt), 1u, 10});
+
+    const auto out = quest_group_run_pending(state, table);
+    EXPECT_EQ(out.size(), 2u);
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(2u), 1u);
+    EXPECT_EQ(state.m_QuestTable.at(8u).subQuestData.at(3u), 1u);
+}
+
+TEST(QuestGroupRunPending, ConditionFailedLeavesQuestUntouched) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    // start_subquest initializes subQuestData[2]=0 -- that is the legacy
+    // baseline. After a condition-failed dispatch, that 0 must stay 0
+    // (no ADDCOUNT ever ran).
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData[2u], 0u);
+    const std::string src = "&LEVEL 1 99 @HUNT 5 5 *ADDCOUNT 2 3";
+    QuestTrigger t = quest_trigger_from_script_line(*parse_quest_script_line(src, 7, 2));
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;
+    table[7] = {t};
+    // Mismatched runtime: kind matches, but param1 differs.
+    state.m_QuestEvent.push_back({7u, static_cast<std::uint32_t>(QuestEventKind::Hunt), 1u, 5});
+    const auto out = quest_group_run_pending(state, table);
+    EXPECT_TRUE(out.empty());
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData[2u], 0u);
+    EXPECT_EQ(state.m_QuestEvent.empty(), true);
+}
+
+TEST(QuestGroupRunPending, IdempotentAfterEventsDrained) {
+    auto state = make_quest_group();
+    quest_group_initialize(state, 9);
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    const std::string src = "&LEVEL 1 99 @HUNT 1 10 *ADDCOUNT 2 3";
+    QuestTrigger t = quest_trigger_from_script_line(*parse_quest_script_line(src, 7, 2));
+    std::unordered_map<std::uint32_t, std::vector<QuestTrigger>> table;
+    table[7] = {t};
+    state.m_QuestEvent.push_back({7u, static_cast<std::uint32_t>(QuestEventKind::Hunt), 1u, 10});
+    auto out1 = quest_group_run_pending(state, table);
+    auto out2 = quest_group_run_pending(state, table);
+    EXPECT_EQ(out1.size(), 1u);
+    EXPECT_TRUE(out2.empty());
+    EXPECT_EQ(state.m_QuestTable.at(7u).subQuestData.at(2u), 1u);  // not re-applied
 }
