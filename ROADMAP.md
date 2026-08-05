@@ -42,7 +42,7 @@
 | T1 资源字节兼容 | **LOCKED** | 303 records SHA-256 locked (deploy 180 [Server/ + QuestScript/] + PlayDH 94 + PlayDH/Client 29) ; 268 parse test entries verified (89 -> 268 across 5 suites) |
 | T2 协议字节兼容 | **95.1%** | 84 wire-format goldens round-trip byte-equal (95 mxh_wire_format_tests = 11 wire invariants + 84 golden), 77/81 legacy MP_* categories |
 | T3 UI 1:1 port | **PORTING** | 109/158 dialog hpp，2500+ ui tests PASS |
-| T3 玩法数值 1:1 | **PARTIAL** | D1 SkillList ✓ D2 BattleFactory ✓ D3 QuestManager runtime bridge ✓ D4 UseShopItem decision ✓ D5 MurimNet ✓ D6.1-D6.7 ✓; D4 商城剩余 CheckEndTime/CheckAvatarEndtime/CalcAvatarOption 待 |
+| T3 玩法数值 1:1 | **PARTIAL** | D1 SkillList ✓ D2 BattleFactory ✓ D3 QuestManager runtime bridge ✓ D4.20 UseShopItem decision ✓ D4.21 CheckEndTime realtime branch ✓ D5 MurimNet ✓ D6.1-D6.7 ✓; D4 商城剩余 CheckAvatarEndtime/CalcAvatarOption 待 |
 | 客户端运行时 | **Phase A + B.2 done** | MoxianClient + 3/9 state 真接 net + CMainGame 1:1 |
 | 服务端运行时 | **Phase B done** | LoginServer + AgentServer + MapServer 3 进程 E2E PASS |
 | 渲染后端 | STUB | DX11 + BC1-5 + MotionCache，drawBox stub |
@@ -75,7 +75,7 @@
 - 验证：202/202 + 每个 >=1 行为断言
 
 ### Phase D - 玩法/数值 1:1
-- [x] D1 SkillList + D2 BattleFactory + D3 QuestManager runtime bridge + D4.20 UseShopItem decision + D5 MurimNet + D6.1-D6.7
+- [x] D1 SkillList + D2 BattleFactory + D3 QuestManager runtime bridge + D4.20 UseShopItem decision + D4.21 CheckEndTime realtime + D5 MurimNet + D6.1-D6.7
 - [x] R-8 item_effects + D6.x ItemList parser
 - [ ] **D4 商城/物品/仓库/邮件/帮派/队伍** (UseShopItem 等真逻辑)
 - 验证：side-by-side 5 段 diff=0
@@ -101,7 +101,7 @@
 | P0 | **MSSQL 真起 + 端到端** | B5 已写, 待本地 MSSQL | DbThread + 3 server + 真 client 跑通 |
 | P0 | **E2 T2 wire SHA-256 replay** | 缺 capture harness | 1000+ 真包重放 diff = 0 |
 | P1 | **C-Batch 2.81+** dialog ports | 余 49 个 | 每个 >=1 行为断言 test |
-| P1 | **D4 商城剩余真逻辑** | commit dcb05173 UseShopItem decision ✓, 商城 stub 仍在 | CheckEndTime / CheckAvatarEndtime / CalcAvatarOption legacy path |
+| P1 | **D4 商城剩余真逻辑** | commits dcb05173 + 3e21470e (UseShopItem + CheckEndTime realtime) ✓ | CheckAvatarEndtime + CalcAvatarOption legacy path |
 
 | P2 | **E3 T3 行为 side-by-side** | T1/T2 后 | 5 段操作录像 + 行为 diff = 0 |
 | P2 | **R-9 drawBox 修复** | 数学约定已锁, 剩真实 2D transform | prim_render 渲染人物站帧 |

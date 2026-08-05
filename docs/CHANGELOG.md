@@ -108,3 +108,11 @@
 - 注释解释：legacy UseShopItem 整段被 `/* ... */` 注释（"임시로 놈음 - 성대"），不可 1:1 复现；本函数只覆盖能落到 SHOPITEMWITHTIME 行的 guard + BeginTime/Remaintime 部分。
 - 见 commit dcb05173: server: D4 use_shop_item_decision data plane (legacy UseShopItem guard + BeginTime/Remaintime)。
 
+
+
+### D4.21 CheckEndTime realtime branch data plane (2026-08-06)
+
+- D4.21 CheckEndTime realtime branch - 把 legacy CShopItemManager::CheckEndTime 中 Realtime 模式 (`SellPrice == eShopItemUseParam_Realtime`) 的数据面 1:1 提取为 modern 方法: collect_realtime_expired(PackedTime now, out) / consume_realtime_expired(PackedTime now)。predicate 与 legacy `curtime > stTIME(Remaintime)` 严格一致；只扫描 `Param == SHOP_ITEM_PARAM_STORED_TIME` 的行（playtime/continue/one-shot 跳过）。
+- 7 个新行为锁定测试: NoRowsNoExpirations / PlaytimeRowsAreSkipped / FutureEndTimeIsNotExpired / EqualEndTimeIsNotExpired / PastEndTimeIsCollected / MixedRowsSelectsOnlyStoredTimeExpired / ConsumeIsIdempotentOnAlreadyExpiredRows。mxh_shop_item_manager_tests: 99 -> 106 tests PASS, 0 regressions。
+- 见 commit 3e21470e: server: D4.21 CheckEndTime realtime branch data plane (legacy SellPrice==Realtime sweep)。
+
