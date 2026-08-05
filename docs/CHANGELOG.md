@@ -1,4 +1,4 @@
-﻿# CHANGELOG - 历史完成项
+# CHANGELOG - 历史完成项
 
 > 完整 commit 历史: git log --oneline (1 commit = 1 sub-deliverable)。
 > 本文件保留 2026-08 重构前 ROADMAP 的关键历史 [x] 项摘要, 用于回溯。
@@ -97,4 +97,14 @@
 - D3 runtime bridge - 把 legacy CQuestManager::AddQuestEvent -> CQuestGroup::AddQuestEvent -> sub-condition 匹配 1:1 移植到 modern runtime。新增 mxh::server::QuestEvent {kind,target_id,delta} + dispatch_quest_event(QuestLog&, const QuestEvent&)，按 QuestLog 顺序遍历，只修改 Accepted 状态（与 legacy group 对 terminal quest 的 guard 一致），每个匹配 sub-quest 累加 delta 并 clamp 到 target，返回 std::vector<QuestEventChange> {quest_id, previous_state, state, updated_subs}。
 - 6 个新行为锁定测试：DispatchQuestEvent.UpdatesEveryMatchingActiveQuestInLogOrder / CompletesQuestWhenFinalConditionMatches / UpdatesAllMatchingSubsWithinQuest / IgnoresNonMatchingAndTerminalQuests / ZeroDeltaAndNoneKindAreNoOps / DoesNotMutateOtherQuests。mxh_quest_manager_tests: 37 -> 43 tests PASS, 0 regressions; 服务端 ctest 313 项中 2 flaky (LoginServerFixture Weather/GuildFieldWar) 重跑 100% 通过。
 - 见 commit 9512a082: server: D3 quest event dispatcher bridge (legacy AddQuestEvent->QuestGroup semantics)。
+
+
+
+### D4 use_shop_item_decision data plane (2026-08-06)
+
+- D4.20 use_shop_item_decision - 把 legacy CShopItemManager::UseShopItem 中*实际*落到 SHOPITEMBASE 字节上的部分 1:1 提取为 modern 自由函数：InvalidIcon / ItemInfoMissing / AlreadyInUse 三道 guard + Realtime/Playtime/Continue/SellPrice==0 四个 BeginTime/Remaintime 分支 + ItemKind 到 dup counter (Incantation/Charm/Herb/Sundries/PetEquip) 的路由。
+- 新增 inline 常量 SHOP_ITEM_USE_PARAM_REALTIME/PLAYTIME/CONTINUE + LEGACY_SHOP_ITEM_* (257/258/259/260/261/262/263/264/300/310，1:1 引用 [CC]Header/CommonGameDefine.h:698-713)。
+- 8 个新行为锁定测试：RejectsEmptyIcon / RejectsMissingItemInfo / RejectsAlreadyInUse / RealtimeBranchEncodesEndTimeInRemaintime / PlaytimeBranchConvertsRarityToMilliseconds / ContinueBranchHasNoExpiry / ZeroSellPriceRoutesSundriesAndNoTimer / RoutesHerbToHerbDup。mxh_shop_item_manager_tests: 91 -> 99 tests PASS, 0 regressions (ctest -R ShopItemManager|UseShopItemDecision 100% 通过)。
+- 注释解释：legacy UseShopItem 整段被 `/* ... */` 注释（"임시로 놈음 - 성대"），不可 1:1 复现；本函数只覆盖能落到 SHOPITEMWITHTIME 行的 guard + BeginTime/Remaintime 部分。
+- 见 commit dcb05173: server: D4 use_shop_item_decision data plane (legacy UseShopItem guard + BeginTime/Remaintime)。
 
