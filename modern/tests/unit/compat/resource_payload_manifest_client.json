@@ -1,0 +1,180 @@
+{
+    "format": "moxian-payload-sha256-v1",
+    "source": "PlayDH/Resource/Client",
+    "files": [
+        {
+            "name": "AvatarItemException.bin",
+            "type": 157,
+            "size": 178,
+            "sha256": "21c73b4c2b93ab848666b24584a45d26399f70fd5e565ca8c0420c39abffbc4f"
+        },
+        {
+            "name": "BRList.bin",
+            "type": 6709,
+            "size": 11759,
+            "sha256": "23de4226660a13d341773121ed41a0f0f7f9c0f02110450731a03f73255bfdf5"
+        },
+        {
+            "name": "BRTList.bin",
+            "type": 18,
+            "size": 42,
+            "sha256": "5217bef6f6005b3601cf46502ac5476e81ccbd615a255a94e87c08075c33aa42"
+        },
+        {
+            "name": "CharMake_SelectOption.bin",
+            "type": 557,
+            "size": 642,
+            "sha256": "63bf98630685e68760e03dba173fffd80318c623d89946eadf48a78ff2cdda60"
+        },
+        {
+            "name": "EffectList.bin",
+            "type": 1115,
+            "size": 2591,
+            "sha256": "a762d5b14d7f2e0a70b4380cb02930c909728317cedf9c73c84dab3925ff33b3"
+        },
+        {
+            "name": "FaceList_M.bin",
+            "type": 18,
+            "size": 75,
+            "sha256": "315f7e9b3812ed2d5a13bdf377b51593eac9b12af55b3553cb1a0dc074ce2720"
+        },
+        {
+            "name": "FaceList_W.bin",
+            "type": 35,
+            "size": 75,
+            "sha256": "e5d257d84cc58610971d7b9805927a168a4f1e06690bf2a8b12611bac8887cd6"
+        },
+        {
+            "name": "HairList_M.bin",
+            "type": 57,
+            "size": 73,
+            "sha256": "9ce94a9a7cfe9a0d639c367f559adc712283f0c3fdd6fd064259aa915aa9abc0"
+        },
+        {
+            "name": "HairList_W.bin",
+            "type": 2,
+            "size": 73,
+            "sha256": "232775a8be018677e8b443ae9497f9d493122e9b10ddef18bc1ee5d515e8f7aa"
+        },
+        {
+            "name": "IllusionMaterial.bin",
+            "type": 42,
+            "size": 87,
+            "sha256": "2df00255693fc46881faac4c4c782d70114c0a39fe91f29b1a5ab1249158ec9b"
+        },
+        {
+            "name": "ItemChxList.bin",
+            "type": 22,
+            "size": 33,
+            "sha256": "441687dad8083d6d48174a2394412f9097c7b1b24e64ce1858228c7f82bd2fc7"
+        },
+        {
+            "name": "ModList_M.bin",
+            "type": 5437,
+            "size": 5911,
+            "sha256": "49c9d671cf5782109bfe9e9ec1278bcde19fe73bc973b4ba3d4a3ac853f84803"
+        },
+        {
+            "name": "ModList_T.bin",
+            "type": 521,
+            "size": 646,
+            "sha256": "78b934564d9bd4785684ea5058c515c537e3b868297a539115952cb4c58e0989"
+        },
+        {
+            "name": "ModList_W.bin",
+            "type": 4828,
+            "size": 6243,
+            "sha256": "0bcfcf4623841544b9f3bdb0582beb584f0d1ea5119b6d0f792ab672322143c5"
+        },
+        {
+            "name": "MonsterInfoInMap.bin",
+            "type": 189,
+            "size": 253,
+            "sha256": "03ee167209b5d5a03e14b55cd7d48647ba8272e9d9ae1f58bfe38f2cd1d50b48"
+        },
+        {
+            "name": "MonsterSpeechList.bin",
+            "type": 4828,
+            "size": 93791,
+            "sha256": "457293e78036c44cf3824bca937a7b025f1ce73433306bd672d838d27549e397"
+        },
+        {
+            "name": "NpcChxList.bin",
+            "type": 182,
+            "size": 879,
+            "sha256": "ebe618e26a3e50bf01ed178939d395d93921bad34a9dea2cf60d9b4207535c45"
+        },
+        {
+            "name": "PetSpeechList.bin",
+            "type": 42,
+            "size": 14831,
+            "sha256": "0afd096957944e74ca8a73caedb8c3cb36dc41a47e9bd7fa9438283d531544ac"
+        },
+        {
+            "name": "PhysiqueHairList.bin",
+            "type": 64,
+            "size": 82,
+            "sha256": "426929b13c1deee458761ac0e3ddec9f5d2b0285d3761c2bc2f66d7377897e9c"
+        },
+        {
+            "name": "PlusItemEffect.bin",
+            "type": 13,
+            "size": 86,
+            "sha256": "35417f3743a95f72816a110ae5f947a2eb232c59fcd13d5cdefb50bff9b28168"
+        },
+        {
+            "name": "PreLoadData.bin",
+            "type": 1163,
+            "size": 2150,
+            "sha256": "dfd638b556b6caef68ccfeebf52a0b35f1d53e479638a50bac6230a6a48ec259"
+        },
+        {
+            "name": "PremierSkill.bin",
+            "type": 353,
+            "size": 366,
+            "sha256": "b0bf972683f0ff8d7988c3e2daaff3764459556bc454dbf0753b538c87b38d9d"
+        },
+        {
+            "name": "SFList.bin",
+            "type": 3748,
+            "size": 14720,
+            "sha256": "d9a7b4802df27d44c3da63a77139c9b7147e2bf6c8bad3684fa5f1746a983ed6"
+        },
+        {
+            "name": "Tooltipinfo.bin",
+            "type": 42,
+            "size": 291250,
+            "sha256": "ff9f99a3298babedec9a70bd321fae202aaf72cb7fc7ee48e2068f9b5552fb0b"
+        },
+        {
+            "name": "UserCommandList.bin",
+            "type": 6,
+            "size": 36,
+            "sha256": "b2156b7221c1ed4d159bdee75040688126f478354a645f910045410dc02c7e62"
+        },
+        {
+            "name": "WeatherEffect.bin",
+            "type": 7,
+            "size": 8,
+            "sha256": "11fc15680a5ca63c37d01c96065cf9ada341daab8d83273831f653df90d04335"
+        },
+        {
+            "name": "default.bin",
+            "type": 42,
+            "size": 191,
+            "sha256": "ab7caf195a2b7f8eb6e2c0c5d269435ec828f96dc4924d5037d51d136e8babfd"
+        },
+        {
+            "name": "motionList.bin",
+            "type": 17,
+            "size": 51,
+            "sha256": "9204e37c28b596349609b2cd70cbf6497b1d3fad927751396ba497996e3badac"
+        },
+        {
+            "name": "shadowGhost.bin",
+            "type": 203,
+            "size": 219,
+            "sha256": "e5bab679fc52b832087145bcf5ae1da6e778c477836c991cc66d241d77d69e3e"
+        }
+    ]
+}

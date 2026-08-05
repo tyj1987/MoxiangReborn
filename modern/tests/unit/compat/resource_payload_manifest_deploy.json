@@ -1,0 +1,360 @@
+{
+    "format": "moxian-payload-sha256-v1",
+    "source": "deploy/server/Distribute/Resource",
+    "files": [
+        {
+            "name": "AbilityBaseInfo.bin",
+            "type": 1147,
+            "size": 12672,
+            "sha256": "8a2e0deccd9ad2cc7cb76a117ae1d38cf1d64572de2b3f1565d779ac0a1bed6a"
+        },
+        {
+            "name": "AbilityCalcInfo.bin",
+            "type": 988,
+            "size": 1748,
+            "sha256": "41b0c7644dc8db8760dc8807ffcecb419090f286a61d53b1df2fa31ce1419f05"
+        },
+        {
+            "name": "AvatarEquip.bin",
+            "type": 2246,
+            "size": 26737,
+            "sha256": "15651784103d8c508a61e64cdd56e3c5986da8d256f8e5e032a55473d631777d"
+        },
+        {
+            "name": "BobusangInfo.bin",
+            "type": 167,
+            "size": 613,
+            "sha256": "51f5d47287e96258117bafb3425db8bae5f1aa4feabab503309a43d01ec2a377"
+        },
+        {
+            "name": "CastleGateList.bin",
+            "type": 48,
+            "size": 307,
+            "sha256": "931e19322821489f52ff601b491a8a2dcca9c3f7615feb1b1592873516d466eb"
+        },
+        {
+            "name": "CharacterExpPoint.bin",
+            "type": 2682,
+            "size": 3653,
+            "sha256": "edf25e9661c2c265f931cf40228d6589c90b38c78e5e44fbce79ee4612c6f688"
+        },
+        {
+            "name": "CostumeSkinItemList.bin",
+            "type": 42,
+            "size": 820,
+            "sha256": "7efc258acef28c546e85cd3baac33ec8458917bd9339ac2298a16f4967b10a39"
+        },
+        {
+            "name": "Dealitem.bin",
+            "type": 42,
+            "size": 166925,
+            "sha256": "0806509975c1ed852ff15a0912188e0a6eb05f5501c869bfd791664585739848"
+        },
+        {
+            "name": "FilterWord.bin",
+            "type": 293,
+            "size": 1153,
+            "sha256": "beda83f39ba45e62c1c211c29099f3ddf0acad792c37f9b7d8c00f003f76a5db"
+        },
+        {
+            "name": "FlagNpcInfo.bin",
+            "type": 30,
+            "size": 66,
+            "sha256": "9d0cf1ecaa73b7026fdd23c53dcac725c6ada2b8b4d6d4bac6eac6a6c74dcdc1"
+        },
+        {
+            "name": "GuildLevel.bin",
+            "type": 11,
+            "size": 31,
+            "sha256": "20b2415432aad060ee821fdedd51968fcf10482b0fed7a7ea89df73172bccac5"
+        },
+        {
+            "name": "GuildPointPlustimeList.bin",
+            "type": 28,
+            "size": 119,
+            "sha256": "7cea285f3dc609f894eef9cdd9124721c93cb1bd5bab18ccb56bb81cf9a2f01a"
+        },
+        {
+            "name": "ItemList.bin",
+            "type": 2996,
+            "size": 1510474,
+            "sha256": "ccca7fad362f8d3ede3b93487285f900e902e4914cc8cc4697a9c94bd6227f44"
+        },
+        {
+            "name": "ItemMixList.bin",
+            "type": 18468,
+            "size": 430230,
+            "sha256": "d7aefae249834cffcc66f197cadf25d5187c5c9552af7763c57842d0334739ec"
+        },
+        {
+            "name": "Item_RareItemInfo.bin",
+            "type": 42,
+            "size": 7713,
+            "sha256": "a4a43b3eab2933b42f57c4820494d36093272da794f44f80c644fb0b735f9048"
+        },
+        {
+            "name": "ItemdupOption.bin",
+            "type": 6335,
+            "size": 7065,
+            "sha256": "9bd14c73778cfcd64fe359feba176db89aec55708e5cfa9276cf333760377101"
+        },
+        {
+            "name": "JobSkillList.bin",
+            "type": 252,
+            "size": 264,
+            "sha256": "fff9c15008643b30a8988d06d9d395b350d9994ff1d64ce07e15877490d26df0"
+        },
+        {
+            "name": "Jobskill.bin",
+            "type": 42,
+            "size": 452,
+            "sha256": "f943f2509d0be5edece8fbae40627ac4c2f0d628b7b5a9c8b6454065e0d86659"
+        },
+        {
+            "name": "KyungGongInfo.bin",
+            "type": 3,
+            "size": 194,
+            "sha256": "9a9e6a78594adada35bbd935754d52ff01144ad4df12ba259e0a0c20370209b2"
+        },
+        {
+            "name": "MapChange.bin",
+            "type": 7784,
+            "size": 9680,
+            "sha256": "01b314360d8fd8d22ae4d62a6d7ec05b9fb4bffab834320caeced6b30c65636b"
+        },
+        {
+            "name": "MapKindInfo.bin",
+            "type": 1083,
+            "size": 1159,
+            "sha256": "5535f0d3552946f0fc0273b004ba349e288c86871f81ac8d46f0320c2bb06b94"
+        },
+        {
+            "name": "MonsterDropItemList.bin",
+            "type": 19170,
+            "size": 196239,
+            "sha256": "b1580e7bd8ffc8c68b68d3e6a49b08dace0ec59424f1b190bcdcb22150cea593"
+        },
+        {
+            "name": "MonsterList.bin",
+            "type": 6335,
+            "size": 141014,
+            "sha256": "9fa6c7fbb41f03875b4cfffc8baeb586cd26af833e1367aa1d076750f7cb3ba5"
+        },
+        {
+            "name": "NpcList.bin",
+            "type": 1957,
+            "size": 2189,
+            "sha256": "7b6987f3f09cc041628ec2d3e8a574f6574b250dcd1c3242bf5eff6a1e202565"
+        },
+        {
+            "name": "PaneltyTime.bin",
+            "type": 2,
+            "size": 4,
+            "sha256": "81a83544cf93c245178cbc1620030f1123f435af867c79d87135983c52ab39d9"
+        },
+        {
+            "name": "PartyPlustimeInfo.bin",
+            "type": 35,
+            "size": 126,
+            "sha256": "be30b0dbea8ea7d6e7a6c313b2a0d819c0f59405b5629b6768bb035ac7a9d1c8"
+        },
+        {
+            "name": "PenaltyTime.bin",
+            "type": 2,
+            "size": 4,
+            "sha256": "81a83544cf93c245178cbc1620030f1123f435af867c79d87135983c52ab39d9"
+        },
+        {
+            "name": "PetBuffList.bin",
+            "type": 252,
+            "size": 828,
+            "sha256": "68c327250ab51a800c99da5e3ad85ac7e26eecab4deafe88054199bf0caddad5"
+        },
+        {
+            "name": "PetList.bin",
+            "type": 221,
+            "size": 2038,
+            "sha256": "6057855bd2573fb815bfb7cb4fda24716bb0c8c7b099d56a70b6a7868b0aac78"
+        },
+        {
+            "name": "PetRule.bin",
+            "type": 62,
+            "size": 427,
+            "sha256": "ebd162e345e0714ae84ecf81417bffe527769fa03fb291bacf2f8fac260c2759"
+        },
+        {
+            "name": "PyogukListInfo.bin",
+            "type": 68,
+            "size": 92,
+            "sha256": "a20b710a23a5500c1c6030e6399b2613ad92ba8ff9dea2b2852c417527fe8ef9"
+        },
+        {
+            "name": "SiegeWarMapInfo.bin",
+            "type": 21,
+            "size": 82,
+            "sha256": "2a403d93473202af9cc2ab960031265709424af60ab6b292a80f80d0bc6b7ad1"
+        },
+        {
+            "name": "SkillAreaList.bin",
+            "type": 17,
+            "size": 123,
+            "sha256": "0b17225ab719e15ffb213547acc9a7019bd386cdc990c78e118734467d1e94d8"
+        },
+        {
+            "name": "SkillList.bin",
+            "type": 679173,
+            "size": 769637,
+            "sha256": "90b5132b060219bac87f1f9f377c87f785a09b69e31bb5ec53b8d4be041d1f59"
+        },
+        {
+            "name": "SkillOptionList.bin",
+            "type": 15,
+            "size": 1580,
+            "sha256": "f7e8e4c512233a9be60bc206de36e14ef3622e6b853306c007ea53321ce5718c"
+        },
+        {
+            "name": "SkillTree.bin",
+            "type": 42,
+            "size": 778,
+            "sha256": "e330173563af1625d0ef6ba885aa7bb418f5d1ca59e2dbcce68de8c202e281c4"
+        },
+        {
+            "name": "SkillchangeList.bin",
+            "type": 351,
+            "size": 544,
+            "sha256": "e4a853402c8eba86be2c8de402babcf5f8e28dae6faafc7f2c2e61b4ccc75a18"
+        },
+        {
+            "name": "SkinSelectItemList.bin",
+            "type": 42,
+            "size": 1053,
+            "sha256": "36d1857add5630098f40dd04bf3b7a833577de4963b94a78557fb73f7242d342"
+        },
+        {
+            "name": "StateInfo.bin",
+            "type": 54,
+            "size": 66,
+            "sha256": "cf79091799fa96026082a06e01f65a5410e012e93e7d5f6a71a745cb452191bb"
+        },
+        {
+            "name": "StaticNpc.bin",
+            "type": 2571,
+            "size": 11842,
+            "sha256": "89c16fd0447f16ea9dcd32595ddbd8b3d93ec798ed9907bfdfd99d075afbb80f"
+        },
+        {
+            "name": "SuryunLevelChange.bin",
+            "type": 554,
+            "size": 1432,
+            "sha256": "232d8f1ea216dd1a2de0a256692be0201ced61d347caf2a32ee22e4f15e1679e"
+        },
+        {
+            "name": "SuryunMonster.bin",
+            "type": 3062,
+            "size": 4221,
+            "sha256": "981f2c69947138cdcf26d3bdb77e0d5ab3f9a64a6afc4d8a372d17e6d52bab86"
+        },
+        {
+            "name": "Suryundata.bin",
+            "type": 6335,
+            "size": 8480,
+            "sha256": "127458e925d1338d6f16bf536a917da03c7cd4dc6ffc4111c2ddb6ade2e0f6ca"
+        },
+        {
+            "name": "TitanBreakList.bin",
+            "type": 779,
+            "size": 1852,
+            "sha256": "cc3a0324aebc5bb6a8096ab431d09e77e97eb725d2bd611060ddb5f97e16a1e9"
+        },
+        {
+            "name": "TitanList.bin",
+            "type": 24,
+            "size": 348,
+            "sha256": "ec50d4b95998db4a7e217723546f3e4921417323f7e4192de1d15079acc410a2"
+        },
+        {
+            "name": "TitanMapDropInfo.bin",
+            "type": 5717,
+            "size": 12751,
+            "sha256": "b67e59da0858a0d151d4ffc1b0420e6c144a0047eb1f7a623bb0332192313ed9"
+        },
+        {
+            "name": "TitanMixList.bin",
+            "type": 18468,
+            "size": 185747,
+            "sha256": "7340f00a3e02aefb40ccd98a652dd3f5f945fdc0debce72b925c7e499c2138bd"
+        },
+        {
+            "name": "TitanPartsKind.bin",
+            "type": 35,
+            "size": 60,
+            "sha256": "1bfe207291e2651d70cada75d6310adc53ed1eec861175d2209380347ee4f375"
+        },
+        {
+            "name": "TitanRule.bin",
+            "type": 436,
+            "size": 487,
+            "sha256": "6ca6d10b6ee316d87f3c4e0c1b32edd6fc55e24d7e673b9a43f4492fad29a9cc"
+        },
+        {
+            "name": "TitanUpgradeInfo.bin",
+            "type": 81,
+            "size": 118,
+            "sha256": "47f3cbd0b95f67f86e2f3075a5b6fd676f8b1b10b997c2c3176a71262fc192e6"
+        },
+        {
+            "name": "UniqueItemMixList.bin",
+            "type": 1209,
+            "size": 5126,
+            "sha256": "09a2f0c2bc259473ff9515503e531a0e80f682218df740c5b93c38e42da6da5c"
+        },
+        {
+            "name": "UniqueItemOptionList.bin",
+            "type": 6335,
+            "size": 20096,
+            "sha256": "fbb6edaea543203e478aaefd01641078ac04395905b15a74d14c297d48dfbbc3"
+        },
+        {
+            "name": "hideitemlock.bin",
+            "type": 103,
+            "size": 152,
+            "sha256": "5ffcaa18c2cf50fdfbee150c086a7b2aff527ca5645793f77f703fb90bded689"
+        },
+        {
+            "name": "itemReinforceList.bin",
+            "type": 157,
+            "size": 356,
+            "sha256": "bce4d2339bde18a01e9e1ec9630a8688e6ffea6aac06a5e9086e0bbb14812932"
+        },
+        {
+            "name": "item_RareReinforceList.bin",
+            "type": 236,
+            "size": 424,
+            "sha256": "04c14a1b150057adb71d16f8dfa1f2a19dab82d2d600ab1087f92a4152724d08"
+        },
+        {
+            "name": "itembreak.bin",
+            "type": 6335,
+            "size": 11259,
+            "sha256": "f3979c0015b07be818883151d4941bb41d0fda002eb68a2f29a21e8c975dc6dc"
+        },
+        {
+            "name": "sat.bin",
+            "type": 6335,
+            "size": 13981,
+            "sha256": "e71d9f1579c85b56a08e3ffd95d09c05ae90f7da7bdad9f48607cb1bea984e38"
+        },
+        {
+            "name": "setitem_opt.bin",
+            "type": 740,
+            "size": 1865,
+            "sha256": "030098cfd8530c6a4178f6463010041ac16dd058b072ba3bfe40b4a8b2204e68"
+        },
+        {
+            "name": "tacticstartinfo.bin",
+            "type": 1170,
+            "size": 1500,
+            "sha256": "e9c2a49b64e4de264d0928409a42f9cb248ae52dab692c70ef253b3625a3b701"
+        }
+    ]
+}

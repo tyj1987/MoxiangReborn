@@ -83,3 +83,12 @@ gtest_add_tests(TARGET mxh_resource_parse_all_bin_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
+
+# T1 payload SHA-256 byte-level verification - Phase E1.
+# Verifies modern read_mh_bin() produces payload bytes matching manifest JSON SHA-256s.
+add_executable(mxh_resource_payload_sha256_tests resource_payload_sha256_test.cpp)
+target_link_libraries(mxh_resource_payload_sha256_tests PRIVATE mxh_compat gtest_main bcrypt)
+target_include_directories(mxh_resource_payload_sha256_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_resource_payload_sha256_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
