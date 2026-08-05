@@ -8,6 +8,7 @@
 
 #include "mxh/compat/mh_file_ex.hpp"
 
+#define _SILENCE_CXX20_U8PATH_DEPRECATION_WARNING
 #include <gtest/gtest.h>
 
 #include <filesystem>
@@ -37,6 +38,32 @@ fs::path find_resource_dir() {
         if (base == base.root_path()) break;
     }
     return {};
+}
+
+
+// PlayDH/Resource helpers.
+// PlayDH is the canonical full-resource tree; Distribute/Resource is the deploy subset.
+// Tests for PlayDH-only files (TitanSpellCostPerMap.bin etc.) and Client/ subdir
+// files (HairList_M.bin etc.) use find_playdh_dir / find_client_resource_dir.
+static const char kPlayDH_u8[] = "\xE5\xA2\xA8\xE9\xA6\x99\xE3\x80\x90\xE6\xBA\x90\xE7\xA0\x81\xE9\x85\x8D\xE5\xA5\x97\xE8\xB5\x84\xE6\xBA\x90\xE3\x80\x91/PlayDH/Resource";
+static const char kClient_u8[] = "Client";
+fs::path find_playdh_dir() {
+    fs::path cwd;
+    try { cwd = fs::current_path(); } catch (...) { return {}; }
+    for (fs::path base = cwd; !base.empty(); base = base.parent_path()) {
+        std::error_code ec;
+        fs::path candidate = base / fs::u8path(kPlayDH_u8);
+        if (fs::is_directory(candidate, ec)) return candidate;
+        if (base == base.root_path()) break;
+    }
+    return {};
+}
+fs::path find_client_resource_dir() {
+    const fs::path playdh = find_playdh_dir();
+    if (playdh.empty()) return {};
+    const fs::path client = playdh / fs::u8path(kClient_u8);
+    std::error_code ec;
+    return fs::is_directory(client, ec) ? client : fs::path{};
 }
 
 }  // namespace
@@ -867,3 +894,453 @@ TEST(MxhResourceParse, ReadMhBin_tacticstartinfo_bin) {
     EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
 }
 
+
+
+TEST(MxhResourceParseClient, ReadMhBin_AvatarItemException_bin) {
+    static const char* kName = "AvatarItemException.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_BRList_bin) {
+    static const char* kName = "BRList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_BRTList_bin) {
+    static const char* kName = "BRTList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_CharMake_SelectOption_bin) {
+    static const char* kName = "CharMake_SelectOption.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_default_bin) {
+    static const char* kName = "default.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_EffectList_bin) {
+    static const char* kName = "EffectList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_FaceList_M_bin) {
+    static const char* kName = "FaceList_M.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_FaceList_W_bin) {
+    static const char* kName = "FaceList_W.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_HairList_M_bin) {
+    static const char* kName = "HairList_M.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_HairList_W_bin) {
+    static const char* kName = "HairList_W.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_IllusionMaterial_bin) {
+    static const char* kName = "IllusionMaterial.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_ItemChxList_bin) {
+    static const char* kName = "ItemChxList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_ModList_M_bin) {
+    static const char* kName = "ModList_M.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_ModList_T_bin) {
+    static const char* kName = "ModList_T.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_ModList_W_bin) {
+    static const char* kName = "ModList_W.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_MonsterInfoInMap_bin) {
+    static const char* kName = "MonsterInfoInMap.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_MonsterSpeechList_bin) {
+    static const char* kName = "MonsterSpeechList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_motionList_bin) {
+    static const char* kName = "motionList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_NpcChxList_bin) {
+    static const char* kName = "NpcChxList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_PetSpeechList_bin) {
+    static const char* kName = "PetSpeechList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_PhysiqueHairList_bin) {
+    static const char* kName = "PhysiqueHairList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_PlusItemEffect_bin) {
+    static const char* kName = "PlusItemEffect.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_PreLoadData_bin) {
+    static const char* kName = "PreLoadData.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_PremierSkill_bin) {
+    static const char* kName = "PremierSkill.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_SFList_bin) {
+    static const char* kName = "SFList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_shadowGhost_bin) {
+    static const char* kName = "shadowGhost.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_Tooltipinfo_bin) {
+    static const char* kName = "Tooltipinfo.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_UserCommandList_bin) {
+    static const char* kName = "UserCommandList.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParseClient, ReadMhBin_WeatherEffect_bin) {
+    static const char* kName = "WeatherEffect.bin";
+    const auto dir = find_client_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH/Resource/Client not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
+
+
+TEST(MxhResourceParse, ReadMhBin_TitanSpellCostPerMap_bin) {
+    static const char* kName = "TitanSpellCostPerMap.bin";
+    const auto dir = find_playdh_dir();
+    if (dir.empty()) GTEST_SKIP() << "PlayDH not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    const auto r = mxh::compat::read_mh_bin(p);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
+        << kName << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << kName;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+}
