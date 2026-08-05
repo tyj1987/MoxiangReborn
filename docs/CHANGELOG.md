@@ -90,3 +90,11 @@
 ## 老 ROADMAP 中的 Phase 0-12 噪音
 
 凡旧词提及"Phase 0-12 已完成""35.1% complete""Qoder IDE Quest" 等, 全部废弃。参见 ROADMAP §6。
+
+
+### D3 quest event dispatcher bridge (2026-08-06)
+
+- D3 runtime bridge - 把 legacy CQuestManager::AddQuestEvent -> CQuestGroup::AddQuestEvent -> sub-condition 匹配 1:1 移植到 modern runtime。新增 mxh::server::QuestEvent {kind,target_id,delta} + dispatch_quest_event(QuestLog&, const QuestEvent&)，按 QuestLog 顺序遍历，只修改 Accepted 状态（与 legacy group 对 terminal quest 的 guard 一致），每个匹配 sub-quest 累加 delta 并 clamp 到 target，返回 std::vector<QuestEventChange> {quest_id, previous_state, state, updated_subs}。
+- 6 个新行为锁定测试：DispatchQuestEvent.UpdatesEveryMatchingActiveQuestInLogOrder / CompletesQuestWhenFinalConditionMatches / UpdatesAllMatchingSubsWithinQuest / IgnoresNonMatchingAndTerminalQuests / ZeroDeltaAndNoneKindAreNoOps / DoesNotMutateOtherQuests。mxh_quest_manager_tests: 37 -> 43 tests PASS, 0 regressions; 服务端 ctest 313 项中 2 flaky (LoginServerFixture Weather/GuildFieldWar) 重跑 100% 通过。
+- 见 commit 9512a082: server: D3 quest event dispatcher bridge (legacy AddQuestEvent->QuestGroup semantics)。
+
