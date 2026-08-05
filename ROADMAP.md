@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **本文档替代**：老的 `MODERNIZATION_PLAN.md` / `ROADMAP_2026.md` / `P2-12_DIALOGS_ROADMAP.md` / `AI_TASK_QUEUE.md`。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
-> **最近一次状态刷新**：2026-08-05 — D6.2 Distributer recipient + party-exp pure decisions (legacy null-party tie no-op, 50/50 tie, float allocation and zero-send gate; 10 new tests, 45/45 focused PASS; Debug build PASS; two known intermittent Login fixture misses in full ctest, isolated rerun PASS).
+> **最近一次状态刷新**：2026-08-05 — D6.x ItemList.bin 1:1 parser (legacy ITEM_INFO 77 fields with AttrRegist/AttrAttack 5 floats, MHFile packed-text 56-token common row / 60-token JAPAN_LOCAL opt-in, shared mxh::compat::detail::decode_mhfile_text_payload helper, real PlayDH ItemList.bin 9887 rows 0 parse errors; 11 new tests PASS); previously D6.2 Distributer recipient + party-exp pure decisions (legacy null-party tie no-op, 50/50 tie, float allocation and zero-send gate; 10 new tests, 45/45 focused PASS; Debug build PASS; two known intermittent Login fixture misses in full ctest, isolated rerun PASS).
 
 ---
 
@@ -54,6 +54,7 @@
 | 服务端运行时 | **3 server E2E 全 PASS** | Phase B: LoginServer + AgentServer + MapServer 3 进程 + Python 模拟 + C++ 状态机双重 E2E | Phase B ✅ |
 | 玩法数值 baseline | **D6.1 + T2 item wire 锁死** | 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 124 槽、2728B ItemTotalInfo / 3775B GameInAck hero payload / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁定 | T2/T3 wire 与数值回归 baseline |
 | D6.2 experience reward | **1:1 locked** | CharacterExpPoint.bin + PlayerxMonsterPoint.bin loaders; Distributer reward bands, ability-exp, recipient tie semantics, SetPlusTotalDamage accumulation, and party-exp float allocation | 45 focused tests PASS |
+| D6.x ItemList.bin 1:1 parser | **1:1 locked** | ItemInfo = 1:1 legacy ITEM_INFO (77 fields with AttrRegist 5 floats, AttrAttack 5 floats, LimitJob..LimitSimMek, equip combat, plus mugong block, mugongbook, potion recovery, etc.); ItemListParser decodes MHFile packed-text (shared mxh::compat::detail::decode_mhfile_text_payload); load_item_list 1:1 end-to-end against the real PlayDH ItemList.bin (1510488 B, SHA-256 07d25fb9...; 9887 rows of 56 tokens per row, 0 parse errors). 56-token common row / 60-token JAPAN_LOCAL opt-in (4 extra fields: wItemAttr, wAcquireSkillIdx1, wAcquireSkillIdx2, wDeleteSkillIdx). | 11 ItemListParser tests PASS (10 synthesized + 1 real-bin) |
 | **SkillList.bin 解析** | ** D1.2 reinforcement | MugongManager.clear() fix (idx_ now resets; pre-fix left stale indices causing vector subscript OOB on find after clear()). 14 new 1:1 lock tests for MugongManager (OwnerIdDefaultZero, SetOwnerIdRoundTrip, ClearResetsSlotsAndIndex regression, RemoveMissingReturnsFalse, FindConstReturnsSameValue, SlotsVectorReturnsAllInInsertionOrder, TotalSpOnEmptyManagerIsZero, MaxSlotConstantIsLegacyHundred, UpdatePreservesPositionInVector) and SkillManager (ReRegisterSameSkillIdxUpdatesInPlace, SkillsVectorPreservesInsertionOrder, EmptyManagerReturnsZeroForAllAccessors, FindReturnsNullForUnknownSkill, Level1AccessorsPullArrayIndexZero). 21 tests total (was 7).
 D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段含 7×[12] 数组）；SkillListParser 解码 MHFile packed-text；SkillManager::init_from_bin() 装真 bin（1817 entries）；端到端 test 锁首行 | 11 SkillListParser test + 13 SkillManager test PASS |
 | **BattleFactory 1:1** | **D2 完成** | 14 compute_* 函数（critical/decisive/player-phy/player-attr/player-exp/player-point/phy-defence/received-dmg/monster-phy/monster-attr/titan-phy/titan-attr）+ 13 新 1:1 unit test（attack_calc legacy_* 系列保持 API 兼容） | T2 数值公式回归
@@ -239,6 +240,7 @@ D1.1+D1.2+D1.3 全完成** | SkillInfo 扩到 1:1 legacy SKILLINFO（60+ 字段�
  FindReturnsConstPointer, RollIsIdempotent, DropTableDefaultsZeroEntry, DropItemEntryDefaultsAreOne,
  MaxDropPerMonsterConstantIsLegacyTen, AddDoesNotDeduplicateAcrossKind.
 D6 经验曲线 / 伤害公式 / 爆率 / Boss 刷新回归测试
+- [x] **D6.x ItemList.bin 1:1 parser** (2026-08-05) | ItemInfo struct 1:1 legacy ITEM_INFO (77 fields with AttrRegist 5 floats + AttrAttack 5 floats + Limit* stat block + equip combat + plus mugong + recovery + etc.); ItemListParser decodes MHFile packed-text via shared mxh::compat::detail::decode_mhfile_text_payload helper; load_item_list parses the real PlayDH ItemList.bin (1510488 B, SHA-256 07d25fb9...) end-to-end with 0 parse errors across 9887 rows of 56 tokens. 56-token common row / 60-token JAPAN_LOCAL opt-in (4 extra fields: wItemAttr, wAcquireSkillIdx1, wAcquireSkillIdx2, wDeleteSkillIdx). | 11 ItemListParser tests PASS (10 synthesized + 1 real-bin)
 - [ ] 验证：side-by-side 跑原版和 modern，截日志 diff = 0
 
 ### Phase E —— 1:1 复现 E2E 验证（2 周）
