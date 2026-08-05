@@ -6,6 +6,7 @@
 #include <cstring>
 #include <optional>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace mxh::server {
@@ -151,6 +152,117 @@ inline std::uint32_t calc_obtain_ability_exp(std::uint32_t monster_level,
     if (monster_level + 5u < killer_level) return 0u;
     if (killer_level + 9u < monster_level) monster_level = killer_level + 9u;
     return (monster_level - killer_level + 5u) * 10u;
+}
+
+// ---- Recipient decision (Distributer.cpp L195-220, 1:1 lock) ----
+//
+// Legacy CDistributer::Distribute picks the recipient of the post-kill
+// ability / item drop from BigPlayerID (winner of the solo table) and
+// BigPartyID (winner of the party table). The decision tree is:
+//
+//   if (BigPartyDamage <  BigPlayerDamage) -> Personal
+//   else if (BigPartyDamage == BigPlayerDamage) {
+//       if (pParty && pParty->IsPartyMember(BigPlayerID))
+//           -> Party    // 1:1 quirk: tie + member -> Party
+//       else if (rand_0_1 == 0) -> Personal
+//       else                    -> Party
+//   }
+//   else    // BigPartyDamage > BigPlayerDamage
+//       -> Party
+//
+// `party_contains_big_player` is the host-resolved `IsPartyMember(...)`
+// bit (party tables are userdata outside this header). Null means pParty is absent.
+// `rand_0_1` is the integer sample in [0, 2).
+enum class DistributeRecipient { None, Personal, Party };
+struct RecipientDecision {
+    DistributeRecipient kind = DistributeRecipient::None;
+    std::uint32_t party_id;
+    std::uint32_t player_id;
+};
+inline RecipientDecision distribute_decide_recipient(
+    std::uint32_t big_player_id, std::uint32_t big_player_damage,
+    std::uint32_t big_party_id, std::uint32_t big_party_damage,
+    std::optional<bool> party_contains_big_player, int rand_0_1 = 0) {
+    RecipientDecision r{};
+    if (big_party_damage < big_player_damage) {
+        r = {DistributeRecipient::Personal, 0u, big_player_id};
+    } else if (big_party_damage == big_player_damage) {
+        if (!party_contains_big_player.has_value()) {
+            // Legacy outer if (pParty) has no else: a missing party
+            // sends nothing in the tie branch, even after the coin is drawn.
+            r = {DistributeRecipient::None, 0u, 0u};
+        } else if (*party_contains_big_player) {
+            r = {DistributeRecipient::Party, big_party_id, 0u};
+        } else if ((rand_0_1 & 1) == 0) {
+            r = {DistributeRecipient::Personal, 0u, big_player_id};
+        } else {
+            r = {DistributeRecipient::Party, big_party_id, 0u};
+        }
+    } else {
+        r = {DistributeRecipient::Party, big_party_id, 0u};
+    }
+    return r;
+}
+
+// ---- Party experience allocation (Distributer.cpp L257-298, 1:1 lock) ----
+//
+// Legacy CalcAndSendPartyExp does two passes:
+//   (1) walk party members, collect per-member level + max level +
+//       online count + level average;
+//   (2) for each online member, allocate
+//         exp = (partyexp * curlevel * (10 + online) / 9 / levelavg)
+//               / online
+//       with the singular `online == 1` quirk: the whole partyexp goes
+//       to that one member unchanged.
+//
+// The legacy `(curlevel * (10 + online) / 9.f / levelavg) / online` step
+// runs in float on the legacy build; the modern port keeps the same float
+// operations and truncates back to uint32. The host-side `gEventRate[eEvent_PartyExpRate]`
+// multiplier is intentionally NOT applied here -- callers fold it in
+// after this pure function returns so the rate can be host-driven.
+struct PartyMemberExp {
+    std::uint32_t member_id = 0;
+    std::uint32_t exp = 0;
+};
+struct PartyExpAllocation {
+    std::uint32_t online_count = 0;
+    std::uint32_t max_level = 0;
+    float level_average = 0.0f;
+    std::vector<PartyMemberExp> members;
+};
+inline PartyExpAllocation allocate_party_exp_per_member(
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>>& online_members,
+    std::uint32_t partyexp) {
+    PartyExpAllocation out{};
+    if (partyexp == 0u) return out;
+    float level_sum = 0.0f;
+    std::uint32_t max_level = 0u;
+    for (const auto& m : online_members) {
+        if (m.first == 0u) continue;
+        ++out.online_count;
+        level_sum += static_cast<float>(m.second);
+        if (max_level < m.second) max_level = m.second;
+    }
+    out.max_level = max_level;
+    out.level_average = out.online_count > 0u
+        ? level_sum / static_cast<float>(out.online_count)
+        : 0.0f;
+    out.members.reserve(out.online_count);
+    for (const auto& m : online_members) {
+        if (m.first == 0u) continue;
+        std::uint32_t exp = 0u;
+        if (out.online_count != 1u) {
+            const auto product = m.second * (10u + out.online_count);
+            const float scaled = static_cast<float>(product) / 9.0f /
+                                 out.level_average /
+                                 static_cast<float>(out.online_count);
+            exp = static_cast<std::uint32_t>(static_cast<float>(partyexp) * scaled);
+        } else {
+            exp = partyexp;
+        }
+        if (exp != 0u) out.members.push_back({m.first, exp});
+    }
+    return out;
 }
 
 // Legacy MP_CHAR_EXPPOINT_ACK wire: MSGBASE + EXPTYPE + BYTE. EXPTYPE is

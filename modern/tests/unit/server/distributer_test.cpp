@@ -20,6 +20,9 @@ using mxh::server::calc_obtain_exp;
 using mxh::server::calc_obtain_ability_exp;
 using mxh::server::serialize_exp_point_wire;
 using mxh::server::serialize_ability_exp_point_wire;
+using mxh::server::DistributeRecipient;
+using mxh::server::distribute_decide_recipient;
+using mxh::server::allocate_party_exp_per_member;
 }
 
 mxh::server::PlayerMonsterPointTable test_point_table() {
@@ -337,4 +340,112 @@ TEST(DistributerExpWire, AbilityExpPointUsesLegacyDwordLayout) {
     EXPECT_EQ(wire[8], 0x04u);
     EXPECT_EQ(wire[11], 0x01u);
     EXPECT_EQ(wire[12], 0u);
+}
+
+// ---- distribute_decide_recipient 1:1 lock ----
+TEST(DistributerRecipient, PartyDamageLessGivesPersonalToBigPlayer) {
+    const auto d = distribute_decide_recipient(
+        /*big_player_id*/ 11u, /*big_player_damage*/ 200u,
+        /*big_party_id*/ 22u, /*big_party_damage*/ 100u,
+        /*party_contains_big_player*/ false);
+    EXPECT_EQ(d.kind, DistributeRecipient::Personal);
+    EXPECT_EQ(d.player_id, 11u);
+    EXPECT_EQ(d.party_id, 0u);
+}
+
+TEST(DistributerRecipient, PartyDamageGreaterGivesParty) {
+    const auto d = distribute_decide_recipient(
+        11u, 50u, 22u, 300u, false);
+    EXPECT_EQ(d.kind, DistributeRecipient::Party);
+    EXPECT_EQ(d.party_id, 22u);
+    EXPECT_EQ(d.player_id, 0u);
+}
+
+TEST(DistributerRecipient, TieWithBigPlayerInPartySkipsCoinFlip) {
+    // 1:1 quirk: tie + member -> Party; the host still draws rand() first.
+    const auto d = distribute_decide_recipient(
+        11u, 100u, 22u, 100u, /*party_contains_big_player*/ true, 0);
+    EXPECT_EQ(d.kind, DistributeRecipient::Party);
+    EXPECT_EQ(d.party_id, 22u);
+}
+
+TEST(DistributerRecipient, MissingPartyDoesNotDispatchOnTie) {
+    const auto d = distribute_decide_recipient(
+        11u, 100u, 22u, 100u, std::nullopt, 1);
+    EXPECT_EQ(d.kind, DistributeRecipient::None);
+    EXPECT_EQ(d.party_id, 0u);
+    EXPECT_EQ(d.player_id, 0u);
+}
+
+TEST(DistributerRecipient, TieWithBigPlayerNotInPartyUsesCoin) {
+    const auto d_personal = distribute_decide_recipient(
+        11u, 100u, 22u, 100u, /*party_contains_big_player*/ false, 0);
+    EXPECT_EQ(d_personal.kind, DistributeRecipient::Personal);
+    EXPECT_EQ(d_personal.player_id, 11u);
+    const auto d_party = distribute_decide_recipient(
+        11u, 100u, 22u, 100u, false, 1);
+    EXPECT_EQ(d_party.kind, DistributeRecipient::Party);
+    EXPECT_EQ(d_party.party_id, 22u);
+}
+
+// ---- allocate_party_exp_per_member 1:1 lock ----
+TEST(DistributerPartyExp, ZeroPartyExpIsNoOp) {
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>> members{
+        {1u, 50u}, {2u, 60u}};
+    const auto out = allocate_party_exp_per_member(members, 0u);
+    EXPECT_EQ(out.online_count, 0u);
+    EXPECT_TRUE(out.members.empty());
+}
+
+TEST(DistributerPartyExp, SingleMemberGetsEntirePartyExp) {
+    // online == 1 -> the whole partyexp goes to that one member
+    // unchanged (legacy `if (onlinenumconfirm != 1) ... else exp =
+    // partyexp;` quirk).
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>> members{{7u, 45u}};
+    const auto out = allocate_party_exp_per_member(members, 1000u);
+    ASSERT_EQ(out.online_count, 1u);
+    EXPECT_EQ(out.max_level, 45u);
+    EXPECT_FLOAT_EQ(out.level_average, 45.0f);
+    ASSERT_EQ(out.members.size(), 1u);
+    EXPECT_EQ(out.members[0].member_id, 7u);
+    EXPECT_EQ(out.members[0].exp, 1000u);
+}
+
+TEST(DistributerPartyExp, TwoMembersShareByLevelWeight) {
+    // online=2, levelavg=(50+70)/2=60, multiplier=(cur*12/9/avg)/2.
+    //   member 50: 50*12/9/60/2 = 600/1080 = 0.5555...; * 1000 = 555.
+    //   member 70: 70*12/9/60/2 = 840/1080 = 0.7777...; * 1000 = 777.
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>> members{
+        {1u, 50u}, {2u, 70u}};
+    const auto out = allocate_party_exp_per_member(members, 1000u);
+    ASSERT_EQ(out.online_count, 2u);
+    EXPECT_EQ(out.max_level, 70u);
+    EXPECT_FLOAT_EQ(out.level_average, 60.0f);
+    ASSERT_EQ(out.members.size(), 2u);
+    EXPECT_EQ(out.members[0].member_id, 1u);
+    EXPECT_EQ(out.members[0].exp, 555u);
+    EXPECT_EQ(out.members[1].member_id, 2u);
+    EXPECT_EQ(out.members[1].exp, 777u);
+}
+
+TEST(DistributerPartyExp, ZeroComputedExpIsNotSent) {
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>> members{
+        {1u, 1u}, {2u, 1u}};
+    const auto out = allocate_party_exp_per_member(members, 1u);
+    EXPECT_EQ(out.online_count, 2u);
+    EXPECT_TRUE(out.members.empty());
+}
+
+TEST(DistributerPartyExp, ZeroMemberIdIsSkipped) {
+    // legacy loop: `if (PlayerID == 0) continue;` so an empty slot in
+    // the party array must be ignored entirely.
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>> members{
+        {0u, 0u}, {1u, 60u}, {0u, 0u}, {2u, 90u}};
+    const auto out = allocate_party_exp_per_member(members, 600u);
+    EXPECT_EQ(out.online_count, 2u);
+    EXPECT_EQ(out.max_level, 90u);
+    EXPECT_FLOAT_EQ(out.level_average, 75.0f);
+    ASSERT_EQ(out.members.size(), 2u);
+    EXPECT_EQ(out.members[0].member_id, 1u);
+    EXPECT_EQ(out.members[1].member_id, 2u);
 }
