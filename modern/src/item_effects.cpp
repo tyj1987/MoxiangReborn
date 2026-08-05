@@ -6,6 +6,7 @@
 // ItemList.bin parser will replace this with a real table lookup.
 
 #include "mxh/game/item_effects.hpp"
+#include "mxh/game/item_manager.hpp"
 
 namespace mxh::game {
 
@@ -48,6 +49,32 @@ ItemEffect resolve_item_effect(std::uint16_t w_icon_idx) noexcept {
             break;
     }
     return e;
+}
+
+
+// resolve_item_effect_with_manager: looks up ItemInfo from a real
+// ItemManager (loaded from ItemList.bin) and reads real LifeRecover /
+// LifeRecoverRate / NaeRyukRecover / NaeRyukRecoverRate fields.  Falls
+// back to the linear-scale placeholder when the manager is empty or the
+// w_icon_idx is not in the table.  1:1 with [Server]Map/ItemManager.cpp
+// ::UseItemEffect behavior for known item indices.
+ItemEffect resolve_item_effect_with_manager(
+    std::uint16_t w_icon_idx, const ItemManager& mgr) noexcept {
+    ItemInfo info;
+    if (mgr.try_get(static_cast<std::uint32_t>(w_icon_idx), info)) {
+        ItemEffect e{};
+        // Real bin entries: pump amount is sum of fixed recover + max_hp * rate.
+        e.hp_delta = static_cast<std::int32_t>(info.LifeRecover)
+                   + static_cast<std::int32_t>(info.LifeRecoverRate * 10000.0f);
+        e.mp_delta = static_cast<std::int32_t>(info.NaeRyukRecover)
+                   + static_cast<std::int32_t>(info.NaeRyukRecoverRate * 10000.0f);
+        // buff field is left 0 for now (buff durations come from
+        // BuffPotion tables which are a separate resource).
+        return e;
+    }
+    // Manager has no row for this w_icon_idx -- fall back to the
+    // original range-based linear scale so legacy tests keep passing.
+    return resolve_item_effect(w_icon_idx);
 }
 
 }  // namespace mxh::game

@@ -86,4 +86,17 @@ enum class ItemEffectKind {
 [[nodiscard]] ItemEffect resolve_item_effect(
     std::uint16_t w_icon_idx) noexcept;
 
+// ItemManager overload of resolve_item_effect: looks up the actual
+// ItemInfo by w_icon_idx and reads the real LifeRecover /
+// LifeRecoverRate / NaeRyukRecover / NaeRyukRecoverRate fields.
+// This is the R-8 path: replacing the linear-scale placeholder with
+// a real 1:1 table read.
+//
+// Falls back to the legacy w_icon_idx <= 399 range mapping when the
+// manager is empty (no .bin loaded yet) or w_icon_idx is not in the
+// table -- this preserves tests / offline runs where ItemList.bin
+// has not been mounted yet.
+[[nodiscard]] ItemEffect resolve_item_effect_with_manager(
+    std::uint16_t w_icon_idx, const class ItemManager& mgr) noexcept;
+
 }  // namespace mxh::game
