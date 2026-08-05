@@ -13,6 +13,7 @@
 #include "mxh/game/item_manager.hpp"
 #include "mxh/game/monster_types.hpp"
 #include "mxh/game/skill_types.hpp"
+#include "mxh/game/skill_manager.hpp"
 #include "mxh/server/player.hpp"
 #include "mxh/server/drop_item.hpp"
 #include "mxh/server/quest_manager.hpp"
@@ -267,6 +268,19 @@ public:
     // Test-only read-only accessor for item_manager_.
     const mxh::game::ItemManager& item_manager_for_test() const noexcept { return item_manager_; }
 
+    // D1.3 call-site hook: load the real SkillList.bin into skill_manager_
+    // so init_skill_table() / find_skill() resolve from the real
+    // SKILLINFO rows (SkillIdx / SkillName / SkillKind / SkillRange /
+    // WeaponKind / UpPhyAttack[0] / NeedNaeRyuk[0] / etc.) instead of
+    // the 4-skill hardcoded placeholder.  Errors per row are logged
+    // to stdout and skipped; a hard I/O failure leaves skill_manager_
+    // empty so the hardcoded path remains intact.
+    void load_skill_list(const std::string& path);
+
+    // Test-only read-only accessor for skill_manager_.
+    const mxh::game::SkillManager& skill_manager_for_test() const noexcept { return skill_manager_; }
+    const mxh::game::SkillInfo* find_skill(std::uint32_t skill_idx) const;
+
     bool set_player_vitals_for_test(std::uint32_t player_id, std::uint32_t hp, std::uint32_t mp);
     bool add_player_item_for_test(std::uint32_t player_id, const mxh::game::ItemBase& item);
     std::optional<GroundDrop> create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z);
@@ -350,7 +364,6 @@ private:
 
     // Phase 10d: Skill management
     void init_skill_table();
-    const mxh::game::SkillInfo* find_skill(std::uint32_t skill_idx) const;
     mxh::game::DamageResult calculate_damage(
         const mxh::game::PlayerCombatStats& attacker,
         const mxh::game::PlayerCombatStats& defender,
@@ -418,6 +431,12 @@ private:
     // the linear-scale fallback through
     // resolve_item_effect_with_manager().
     mxh::game::ItemManager item_manager_;
+
+    // D1.3: SkillManager for real-bin skill lookup.  Default-constructed
+    // (empty); production callers invoke load_skill_list() at startup,
+    // offline / test code keeps the 4-skill hardcoded fallback in
+    // init_skill_table().  find_skill() checks this manager first.
+    mxh::game::SkillManager skill_manager_;
 };
 
 }  // namespace mxh::server

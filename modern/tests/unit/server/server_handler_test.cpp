@@ -1321,4 +1321,84 @@ TEST(MapHandlerTest, UseAckReadsHpDeltaFromLoadedItemListBin) {
     EXPECT_EQ(hp_delta, 999);
 }
 
+
+// D1.3 call-site: synthesize a valid SkillList.bin row (1:1 with the 150-token
+// legacy SKILLINFO layout).  Returns a tab-separated string.
+std::string build_test_skill_row_150(std::uint16_t skill_idx,
+                                std::uint16_t weapon_kind,
+                                std::uint16_t first_phy) {
+    std::vector<std::string> toks(150u, "0");
+    toks[0] = std::to_string(skill_idx);
+    toks[1] = "TestSkill";
+    toks[7] = std::to_string(weapon_kind);
+    toks[8] = "230";
+    toks[16] = "0.0";
+    toks[20] = "1";
+    toks[25] = "1";
+    toks[29] = "1000";
+    toks[69] = "12";
+    toks[70] = std::to_string(first_phy);
+    for (std::size_t i = 71; i < 82; ++i) toks[i] = "0";
+    for (std::size_t seg = 1; seg < 6; ++seg) {
+        toks[69 + seg * 13] = "0";
+    }
+    toks[149] = "10001";
+    std::ostringstream row;
+    for (std::size_t i = 0; i < toks.size(); ++i) {
+        if (i != 0) row << "	";
+        row << toks[i];
+    }
+    return row.str();
+}
+
+TEST(MapHandlerTest, SkillManagerEmptyByDefault) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    EXPECT_EQ(handler.skill_manager_for_test().size(), 0u);
+    EXPECT_FALSE(handler.skill_manager_for_test().exists(1u));
+}
+
+TEST(MapHandlerTest, LoadSkillListPopulatesManagerFromBin) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    ASSERT_EQ(handler.skill_manager_for_test().size(), 0u);
+    const auto row_text = build_test_skill_row_150(1u, 2u, 777u);
+    const auto bin = synthesize_itemlist_bin(row_text);
+    const auto path = write_temp_bin(bin);
+    handler.load_skill_list(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    ASSERT_EQ(handler.skill_manager_for_test().size(), 1u);
+    ASSERT_TRUE(handler.skill_manager_for_test().exists(1u));
+    mxh::game::SkillInfo info{};
+    ASSERT_TRUE(handler.skill_manager_for_test().try_get(1u, info));
+    EXPECT_EQ(info.SkillIdx, 1u);
+    EXPECT_EQ(info.WeaponKind, 2u);
+    EXPECT_FLOAT_EQ(info.UpPhyAttack[0], 777.0f);
+    const mxh::game::SkillInfo* found = handler.find_skill(1u);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->SkillIdx, 1u);
+    EXPECT_EQ(found->WeaponKind, 2u);
+}
+
+TEST(MapHandlerTest, FindSkillReadsFromLoadedSkillListBin) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto row_text = build_test_skill_row_150(42u, 5u, 1234u);
+    const auto bin = synthesize_itemlist_bin(row_text);
+    const auto path = write_temp_bin(bin);
+    handler.load_skill_list(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    const mxh::game::SkillInfo* s42 = handler.find_skill(42u);
+    ASSERT_NE(s42, nullptr);
+    EXPECT_EQ(s42->SkillIdx, 42u);
+    EXPECT_EQ(s42->WeaponKind, 5u);
+    EXPECT_FLOAT_EQ(s42->UpPhyAttack[0], 1234.0f);
+    const mxh::game::SkillInfo* s1 = handler.find_skill(1u);
+    EXPECT_EQ(s1, nullptr);
+}
 }  // namespace mxh::server::test
