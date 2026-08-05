@@ -39,7 +39,7 @@
 
 | 维度 | 状态 | 验证 |
 |---|---|---|
-| T1 资源字节兼容 | **LOCKED** | 89 .bin SHA-256 verified（deploy 117 + PlayDH 25 + PlayDH/Client 28） |
+| T1 资源字节兼容 | **LOCKED** | 303 records SHA-256 locked (deploy 180 [Server/ + QuestScript/] + PlayDH 94 + PlayDH/Client 29) |
 | T2 协议字节兼容 | **95.1%** | 84 wire-format goldens，77/81 legacy MP_* categories |
 | T3 UI 1:1 port | **PORTING** | 109/158 dialog hpp，2500+ ui tests PASS |
 | T3 玩法数值 1:1 | **PARTIAL** | D1 SkillList ✓ D2 BattleFactory ✓ D5 MurimNet ✓ D6.1-D6.7 ✓；D3 Quest + D4 商城待 |
@@ -82,7 +82,7 @@
 - 验证：side-by-side 5 段 diff=0
 
 ### Phase E - 1:1 复现 E2E
-- [x] **E1 T1**: 89 .bin SHA-256 locked (deploy + PlayDH)
+- [x] **E1 T1**: 303 records SHA-256 locked (deploy 180 [+ Server/ + QuestScript/] + PlayDH 94 + PlayDH/Client 29)
 - [ ] **E2 T2** 协议 SHA-256 replay
 - [ ] **E3 T3** 行为 side-by-side
 - [ ] **E4** 1.0 tag
