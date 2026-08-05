@@ -1,4 +1,4 @@
-// quest_manager.hpp - 1:1 port of legacy [Server]Map/QuestManager.h
+﻿// quest_manager.hpp - 1:1 port of legacy [Server]Map/QuestManager.h
 // (CQuestManager + CQuestBase + CQuestGroup). Modern port models the
 // state machine + tracker interfaces as POD structs + free functions.
 
@@ -108,6 +108,39 @@ struct QuestLog final {
     std::uint32_t player_id = 0;
     std::vector<QuestProgress> quests;
 };
+
+// ---- In-game event to dispatch into a player's quest log. ----
+// Models the legacy eQuestEvent (NpcTalk / Hunt / UseItem / MapChange /
+// Die / Time / GameEnter / Level / Count / HuntAll / EndSub) at the
+// granularity needed to drive QuestProgress counters.  Only Kill /
+// Collect sub kinds are supported by the in-process bridge right now;
+// ReachMap / TalkNpc / Survive will be added when their sub-kind
+// counters get real legacy semantics ported in.
+struct QuestEvent final {
+    QuestSubKind kind      = QuestSubKind::None;
+    std::uint32_t target_id = 0;   // monster_kind / item_idx / map_num / npc_idx
+    std::uint32_t delta     = 1;   // amount to add (1 = single kill / pickup)
+};
+
+// ---- Per-quest effect of dispatch_quest_event. ----
+// `previous_state` is the QuestState before the event was applied.
+// `state` is the state after evaluation.  `updated_subs` is the
+// number of sub-conditions whose counters changed for this quest.
+struct QuestEventChange final {
+    std::uint32_t quest_id        = 0;
+    QuestState    previous_state  = QuestState::None;
+    QuestState    state           = QuestState::None;
+    std::size_t   updated_subs    = 0;
+};
+
+// ---- Event dispatcher (legacy CQuestManager::AddQuestEvent ->
+// CQuestGroup::AddQuestEvent -> sub-condition matching) ----
+// Returns one QuestEventChange per active quest whose subs matched,
+// in QuestLog order.  Terminal quests (Complete / Rewarded / Failed)
+// are never touched, matching the legacy guard.
+std::vector<QuestEventChange> dispatch_quest_event(
+    QuestLog& log,
+    const QuestEvent& event) noexcept;
 
 std::optional<QuestProgress*> find_quest(QuestLog& log, std::uint32_t quest_id) noexcept;
 bool accept_quest(QuestLog& log, const QuestDefinition& def, std::uint32_t now_ms) noexcept;

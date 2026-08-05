@@ -407,3 +407,94 @@ TEST(QuestReward, AlreadyRewardedIsIdempotentlyRejected) {
     ASSERT_EQ(claim_quest_reward(progress, def, player, 1000).status, QuestRewardStatus::Granted);
     EXPECT_EQ(claim_quest_reward(progress, def, player, 1000).status, QuestRewardStatus::NotComplete);
 }
+
+// ---- dispatch_quest_event (legacy CQuestManager::AddQuestEvent -> QuestGroup bridge) ----
+using mxh::server::QuestEvent;
+using mxh::server::QuestEventChange;
+using mxh::server::dispatch_quest_event;
+
+TEST(DispatchQuestEvent, UpdatesEveryMatchingActiveQuestInLogOrder) {
+    QuestLog log; log.player_id = 1001;
+    accept_quest(log, make_kill_quest(101, 200, 2), 0);
+    accept_quest(log, make_kill_quest(102, 200, 3), 0);
+
+    const auto changes = dispatch_quest_event(log, QuestEvent{QuestSubKind::Kill, 200, 1});
+
+    ASSERT_EQ(changes.size(), 2u);
+    EXPECT_EQ(changes[0].quest_id, 101u);
+    EXPECT_EQ(changes[1].quest_id, 102u);
+    EXPECT_EQ(changes[0].previous_state, QuestState::Accepted);
+    EXPECT_EQ(changes[0].state, QuestState::Accepted);
+    EXPECT_EQ(changes[0].updated_subs, 1u);
+    EXPECT_EQ(log.quests[0].subs[0].count, 1u);
+    EXPECT_EQ(log.quests[1].subs[0].count, 1u);
+}
+
+TEST(DispatchQuestEvent, CompletesQuestWhenFinalConditionMatches) {
+    QuestLog log; log.player_id = 1001;
+    accept_quest(log, make_kill_quest(101, 200, 2), 0);
+
+    const auto changes = dispatch_quest_event(log, QuestEvent{QuestSubKind::Kill, 200, 2});
+
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(changes[0].previous_state, QuestState::Accepted);
+    EXPECT_EQ(changes[0].state, QuestState::Complete);
+    EXPECT_EQ(changes[0].updated_subs, 1u);
+    EXPECT_EQ(log.quests[0].state, QuestState::Complete);
+    EXPECT_EQ(log.quests[0].subs[0].count, 2u);
+}
+
+TEST(DispatchQuestEvent, UpdatesAllMatchingSubsWithinQuest) {
+    QuestDefinition definition;
+    definition.quest_id = 101;
+    definition.subs.push_back(QuestSub{QuestSubKind::Collect, 42, 0, 2});
+    definition.subs.push_back(QuestSub{QuestSubKind::Collect, 42, 0, 3});
+    QuestLog log; log.player_id = 1001;
+    accept_quest(log, definition, 0);
+
+    const auto changes = dispatch_quest_event(log, QuestEvent{QuestSubKind::Collect, 42, 1});
+
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(changes[0].updated_subs, 2u);
+    EXPECT_EQ(log.quests[0].subs[0].count, 1u);
+    EXPECT_EQ(log.quests[0].subs[1].count, 1u);
+    EXPECT_EQ(log.quests[0].state, QuestState::Accepted);
+}
+
+TEST(DispatchQuestEvent, IgnoresNonMatchingAndTerminalQuests) {
+    QuestLog log; log.player_id = 1001;
+    accept_quest(log, make_kill_quest(101, 200, 1), 0);
+    accept_quest(log, make_kill_quest(102, 201, 1), 0);
+    fail_quest(log.quests[0]);
+
+    // Failed quest: must not be touched.
+    EXPECT_TRUE(dispatch_quest_event(log, QuestEvent{QuestSubKind::Kill, 200, 1}).empty());
+    // Different target_id: must not be touched.
+    EXPECT_TRUE(dispatch_quest_event(log, QuestEvent{QuestSubKind::Kill, 999, 1}).empty());
+    EXPECT_EQ(log.quests[0].subs[0].count, 0u);
+    EXPECT_EQ(log.quests[1].subs[0].count, 0u);
+    EXPECT_EQ(log.quests[0].state, QuestState::Failed);
+}
+
+TEST(DispatchQuestEvent, ZeroDeltaAndNoneKindAreNoOps) {
+    QuestLog log; log.player_id = 1001;
+    accept_quest(log, make_kill_quest(101, 200, 1), 0);
+
+    EXPECT_TRUE(dispatch_quest_event(log, QuestEvent{QuestSubKind::Kill, 200, 0}).empty());
+    EXPECT_TRUE(dispatch_quest_event(log, QuestEvent{QuestSubKind::None, 200, 1}).empty());
+    EXPECT_EQ(log.quests[0].subs[0].count, 0u);
+    EXPECT_EQ(log.quests[0].state, QuestState::Accepted);
+}
+
+TEST(DispatchQuestEvent, DoesNotMutateOtherQuests) {
+    QuestLog log; log.player_id = 1001;
+    accept_quest(log, make_kill_quest(101, 200, 5), 0);   // matched quest
+    accept_quest(log, make_kill_quest(102, 999, 5), 0);   // different target
+
+    const auto changes = dispatch_quest_event(log, QuestEvent{QuestSubKind::Kill, 200, 1});
+
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(changes[0].quest_id, 101u);
+    EXPECT_EQ(log.quests[0].subs[0].count, 1u);
+    EXPECT_EQ(log.quests[1].subs[0].count, 0u);
+}

@@ -1,4 +1,6 @@
-// quest_manager.cpp - implementation for QuestManager port.
+﻿// quest_manager.cpp - implementation for QuestManager port.
+// 1:1 semantics with legacy [Server]Map/QuestManager.cpp + QuestGroup.cpp
+// (state machine + tracker + quest event dispatch).
 
 #include "mxh/server/quest_manager.hpp"
 #include <algorithm>
@@ -116,6 +118,38 @@ std::size_t active_quest_count(const QuestLog& log) noexcept {
         if (quest.state == QuestState::Accepted) ++count;
     }
     return count;
+}
+
+std::vector<QuestEventChange> dispatch_quest_event(
+    QuestLog& log,
+    const QuestEvent& event) noexcept {
+    std::vector<QuestEventChange> changes;
+    if (event.kind == QuestSubKind::None || event.delta == 0u) return changes;
+
+    for (auto& quest : log.quests) {
+        // Legacy CQuestGroup::AddQuestEvent only updates sub-progress on
+        // accepted quests.  Once a quest is Complete / Rewarded / Failed
+        // the legacy group refuses further mutations, so we mirror that
+        // here to keep behavior byte-equal.
+        if (quest.state != QuestState::Accepted) continue;
+
+        QuestEventChange change;
+        change.quest_id = quest.quest_id;
+        change.previous_state = quest.state;
+        for (auto& sub : quest.subs) {
+            if (sub.kind != event.kind || sub.target_id != event.target_id) continue;
+            const auto previous_count = sub.count;
+            const auto remaining = std::numeric_limits<std::uint32_t>::max() - sub.count;
+            sub.count += std::min(event.delta, remaining);
+            if (sub.count > sub.target) sub.count = sub.target;
+            if (sub.count != previous_count) ++change.updated_subs;
+        }
+        if (change.updated_subs == 0u) continue;
+
+        change.state = evaluate_quest_state(quest);
+        changes.push_back(change);
+    }
+    return changes;
 }
 
 bool can_accept_quest(const QuestDefinition& def,
