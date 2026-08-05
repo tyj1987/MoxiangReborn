@@ -1,4 +1,4 @@
-﻿// shop_item_manager.hpp
+// shop_item_manager.hpp
 //
 // 1:1 port of legacy [Server]Map/ShopItemManager.h CShopItemManager.
 // Manages per-player shop-item accounting: in-flight using-items (time-bound
@@ -295,5 +295,110 @@ private:
     std::unordered_map<std::uint64_t, UsingShopItemEntry> m_usingItems;
     std::unordered_map<std::uint32_t, MovePointEntry>     m_movePoints;
 };
+
+// ---- D4.19 use_shop_item_decision (legacy CShopItemManager::UseShopItem guard + BeginTime/Remaintime write) ----
+//
+// The legacy CShopItemManager::UseShopItem body is disabled at the source
+// level (the whole function is wrapped in /* ... */ comments in the modern
+// reference, with a marker noting legacy Korean /'temporary commented by SungDae/')
+// and depends on Player, ItemManager, Battle, ChangeItemMgr, AbilityManager,
+// StatsCalcManager and the event-map gate. To stay 1:1 with the data plane
+// that *is* observable on the wire (the SHOPITEMWITHTIME row that lands in
+// the using-items table), this module factors the deterministic decision
+// into a free function that:
+//
+//   1. Rejects ItemInfo-less / IconIdx==0 / dwDBIdx==0 inputs.
+//   2. Rejects rows whose wIconIdx is already in the using-items table.
+//   3. Computes BeginTime from now_packed (legacy stTIME encoding) and
+//      Remaintime from the ItemInfo.SellPrice + Rarity combination, using
+//      the same three branches as legacy eShopItemUseParam_*:
+//        - SellPrice == SHOP_ITEM_USE_PARAM_REALTIME:  endtime = now + Rarity minutes.
+//        - SellPrice == SHOP_ITEM_USE_PARAM_PLAYTIME:  remain = Rarity * 60_000 ms.
+//        - SellPrice == SHOP_ITEM_USE_PARAM_CONTINUE:  remain = 0 (forever).
+//        - SellPrice == 0:                            remain = 0, BeginTime = 0 (no timer).
+//   4. Picks which legacy dup counter the call should bump (incantation /
+//      charm / herb / sundries / pet-equip) based on ItemInfo.ItemKind /
+//      ItemInfo.ItemType. The caller is responsible for invoking the
+//      corresponding bump_dup_* helper after the row is added.
+//
+// This split keeps the decision free of side effects (no DB writes, no
+// Player/Battle lookups) and exactly matches the bytes the legacy server
+// wrote into SHOPITEMBASE before it inserted the row via AddShopItemUse().
+
+inline constexpr std::uint32_t SHOP_ITEM_USE_PARAM_REALTIME =
+    mxh::game::SHOP_ITEM_PARAM_STORED_TIME;   // 1 -- store with BeginTime / EndTime
+inline constexpr std::uint32_t SHOP_ITEM_USE_PARAM_PLAYTIME =
+    mxh::game::SHOP_ITEM_PARAM_PLAY_TIME;     // 2 -- countdown by elapsed play time
+inline constexpr std::uint32_t SHOP_ITEM_USE_PARAM_CONTINUE = 3u;  // permanent (no expiry)
+
+// Legacy eSHOP_ITEM_* values that drive the dup-counter dispatch
+// (1:1 with legacy [CC]Header/CommonGameDefine.h:698-713). Defined here
+// so the decision does not need to drag in the full CommonGameDefine
+// header chain.
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PREMIUM      = 257u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_CHARM         = 258u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_HERB          = 259u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_INCANTATION   = 260u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_MAKEUP        = 261u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_DECORATION    = 262u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_SUNDRIES      = 263u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_EQUIP         = 264u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PET           = 300u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PET_EQUIP     = 310u;
+
+// ItemInfo surface area that the decision needs. The legacy ITEM_INFO is a
+// 200+ field struct owned by the resource manager; the modern port does
+// not load that table yet, so callers pass a slim view with the four fields
+// the decision actually consults (SellPrice, Rarity, ItemKind, ItemType).
+struct ItemInfoView {
+    std::uint32_t SellPrice = 0;  // eShopItemUseParam_* discriminator
+    std::uint32_t Rarity    = 0;  // minutes (legacy Rarity = day*1440 + hour*60 + min)
+    std::uint16_t ItemKind  = 0;  // eSHOP_ITEM_* discriminator
+    std::uint16_t ItemType  = 0;  // 10 = buff / 11 = avatar etc.
+};
+
+// Which legacy dup counter the call should bump after a successful use.
+// The mapping mirrors legacy m_DupIncantation/Charm/Herb/Sundries/PetEquip
+// routed by ItemKind (and ItemType for the pet-equip edge case).
+enum class ShopItemDupSlot : std::uint8_t {
+    None        = 0,
+    Incantation = 1,
+    Charm       = 2,
+    Herb        = 3,
+    Sundries    = 4,
+    PetEquip    = 5,
+};
+
+// Result of a use_shop_item_decision call. status is the legacy error
+// code (mapped to a small enum). When status == Ok the caller may insert
+// shop_item via add_shop_item_use() and bump the dup counter indicated
+// by dup_slot.
+enum class UseShopItemStatus : std::uint8_t {
+    Ok              = 0,
+    InvalidIcon     = 1,  // legacy eItemUseErr_Err -- empty slot
+    ItemInfoMissing = 2,  // legacy eItemUseErr_Err -- ITEMMGR->GetItemInfo failed
+    AlreadyInUse    = 3,  // legacy eItemUseErr_AlreadyUse
+};
+
+struct UseShopItemDecision final {
+    UseShopItemStatus   status        = UseShopItemStatus::InvalidIcon;
+    ShopItemDupSlot     dup_slot      = ShopItemDupSlot::None;
+    game::ShopItemBase  shop_item{};
+    std::uint32_t       last_check_ms = 0;  // gCurTime analogue to write into LastCheckTime
+};
+
+// Compute the deterministic use-shop-item plan. Does not mutate the
+// manager. The caller is expected to:
+//   - if decision.status == Ok:
+//       1. add_shop_item_use(decision.shop_item, decision.last_check_ms)
+//       2. bump the dup counter named by decision.dup_slot
+//     and then write the new row to DB / update the client.
+//   - else: surface decision.status as the eItemUseErr_* result code.
+UseShopItemDecision use_shop_item_decision(
+    const ShopItemManager& mgr,
+    const game::ItemBase& item_base,
+    const ItemInfoView& info,
+    game::PackedTime now_packed,
+    std::uint32_t now_ms) noexcept;
 
 } // namespace mxh::server

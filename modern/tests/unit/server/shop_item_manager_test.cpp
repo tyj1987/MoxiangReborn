@@ -1298,3 +1298,118 @@ TEST(ShopItemManagerAccessor, UsingItemsReflectsDeleteAndRelease) {
 TEST(ShopItemManagerConstants, DupNoneIsZero) {
     EXPECT_EQ(SHOP_ITEM_DUP_NONE, 0u);
 }
+
+
+// ---- D4.20 use_shop_item_decision (legacy CShopItemManager::UseShopItem data-plane) ----
+using mxh::server::use_shop_item_decision;
+using mxh::server::ItemInfoView;
+using mxh::server::ShopItemDupSlot;
+using mxh::server::UseShopItemStatus;
+using mxh::server::UseShopItemDecision;
+using mxh::server::SHOP_ITEM_USE_PARAM_REALTIME;
+using mxh::server::SHOP_ITEM_USE_PARAM_PLAYTIME;
+using mxh::server::SHOP_ITEM_USE_PARAM_CONTINUE;
+using mxh::server::LEGACY_SHOP_ITEM_INCANTATION;
+using mxh::server::LEGACY_SHOP_ITEM_CHARM;
+using mxh::server::LEGACY_SHOP_ITEM_HERB;
+using mxh::server::LEGACY_SHOP_ITEM_SUNDRIES;
+using mxh::server::LEGACY_SHOP_ITEM_PET_EQUIP;
+
+TEST(UseShopItemDecision, RejectsEmptyIcon) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info; info.SellPrice = SHOP_ITEM_USE_PARAM_PLAYTIME; info.Rarity = 30; info.ItemKind = LEGACY_SHOP_ITEM_INCANTATION; info.ItemType = 10;
+    auto ib = make_item_base(0);  // empty slot
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x12345678u}, 1000u);
+    EXPECT_EQ(d.status, UseShopItemStatus::InvalidIcon);
+}
+
+TEST(UseShopItemDecision, RejectsMissingItemInfo) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info;  // all zeros -> legacy ITEMMGR->GetItemInfo returned null
+    auto ib = make_item_base(55134);
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x12345678u}, 1000u);
+    EXPECT_EQ(d.status, UseShopItemStatus::ItemInfoMissing);
+}
+
+TEST(UseShopItemDecision, RejectsAlreadyInUse) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    auto ib = make_item_base(55134);
+    ASSERT_TRUE(m.used_shop_item(ib, SHOP_ITEM_USE_PARAM_PLAYTIME, PackedTime{0x12345678u}, 60000u, 1000u));
+    ItemInfoView info; info.SellPrice = SHOP_ITEM_USE_PARAM_PLAYTIME; info.Rarity = 30; info.ItemKind = LEGACY_SHOP_ITEM_INCANTATION; info.ItemType = 10;
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x12345678u}, 1000u);
+    EXPECT_EQ(d.status, UseShopItemStatus::AlreadyInUse);
+}
+
+TEST(UseShopItemDecision, RealtimeBranchEncodesEndTimeInRemaintime) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info; info.SellPrice = SHOP_ITEM_USE_PARAM_REALTIME; info.Rarity = 60;  // 60 min = 1h
+    info.ItemKind = LEGACY_SHOP_ITEM_CHARM; info.ItemType = 10;
+    auto ib = make_item_base(55134);
+    // start = 2026-08-06 14:30:00 (year=26, month=8, day=6, hour=14, minute=30, second=0)
+    PackedTime start{0u};
+    start = PackedTime{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (30u << 6) | 0u};
+    auto d = use_shop_item_decision(m, ib, info, start, 1000u);
+    ASSERT_EQ(d.status, UseShopItemStatus::Ok);
+    EXPECT_EQ(d.shop_item.Param, SHOP_ITEM_USE_PARAM_REALTIME);
+    EXPECT_EQ(d.shop_item.BeginTime.value, start.value);
+    // EndTime = start + 60 min = 15:30:00 same day
+    PackedTime expected_end{0u};
+    expected_end = PackedTime{(26u << 28) | (8u << 24) | (6u << 18) | (15u << 12) | (30u << 6) | 0u};
+    EXPECT_EQ(d.shop_item.Remaintime, expected_end.value);
+    EXPECT_EQ(d.dup_slot, ShopItemDupSlot::Charm);
+    EXPECT_EQ(d.last_check_ms, 1000u);
+}
+
+TEST(UseShopItemDecision, PlaytimeBranchConvertsRarityToMilliseconds) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info; info.SellPrice = SHOP_ITEM_USE_PARAM_PLAYTIME; info.Rarity = 30;  // 30 minutes
+    info.ItemKind = LEGACY_SHOP_ITEM_INCANTATION; info.ItemType = 10;
+    auto ib = make_item_base(55134);
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x12345678u}, 1000u);
+    ASSERT_EQ(d.status, UseShopItemStatus::Ok);
+    EXPECT_EQ(d.shop_item.Remaintime, 30u * 60000u);
+    EXPECT_EQ(d.dup_slot, ShopItemDupSlot::Incantation);
+}
+
+TEST(UseShopItemDecision, ContinueBranchHasNoExpiry) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info; info.SellPrice = SHOP_ITEM_USE_PARAM_CONTINUE; info.Rarity = 0;
+    info.ItemKind = LEGACY_SHOP_ITEM_PET_EQUIP; info.ItemType = 10;
+    auto ib = make_item_base(55134);
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x99999999u}, 1000u);
+    ASSERT_EQ(d.status, UseShopItemStatus::Ok);
+    EXPECT_EQ(d.shop_item.BeginTime.value, 0u);
+    EXPECT_EQ(d.shop_item.Remaintime, 0u);
+    EXPECT_EQ(d.last_check_ms, 0u);
+    EXPECT_EQ(d.dup_slot, ShopItemDupSlot::PetEquip);
+}
+
+TEST(UseShopItemDecision, ZeroSellPriceRoutesSundriesAndNoTimer) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info; info.SellPrice = 0u; info.Rarity = 0u;
+    info.ItemKind = LEGACY_SHOP_ITEM_SUNDRIES; info.ItemType = 10;
+    auto ib = make_item_base(55134);
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x12345678u}, 1000u);
+    ASSERT_EQ(d.status, UseShopItemStatus::Ok);
+    EXPECT_EQ(d.shop_item.BeginTime.value, 0u);
+    EXPECT_EQ(d.shop_item.Remaintime, 0u);
+    EXPECT_EQ(d.dup_slot, ShopItemDupSlot::Sundries);
+}
+
+TEST(UseShopItemDecision, RoutesHerbToHerbDup) {
+    ShopItemManager m;
+    int s = 0; m.init(&s);
+    ItemInfoView info; info.SellPrice = SHOP_ITEM_USE_PARAM_PLAYTIME; info.Rarity = 60;
+    info.ItemKind = LEGACY_SHOP_ITEM_HERB; info.ItemType = 10;
+    auto ib = make_item_base(55134);
+    auto d = use_shop_item_decision(m, ib, info, PackedTime{0x12345678u}, 1000u);
+    ASSERT_EQ(d.status, UseShopItemStatus::Ok);
+    EXPECT_EQ(d.dup_slot, ShopItemDupSlot::Herb);
+}

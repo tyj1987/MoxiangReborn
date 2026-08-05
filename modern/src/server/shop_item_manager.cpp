@@ -1,5 +1,4 @@
-﻿// shop_item_manager.cpp - Phase D4 ShopItemManager data-plane anchor.
-//
+﻿// shop_item_manager.cpp - data-plane implementation of legacy CShopItemManager.
 // All data-plane logic lives in the inline header so it can be unit-tested
 // without linking a compiled .cpp. This translation unit exists so the
 // manager participates in mxh_server link units and CMake target_sources.
@@ -110,7 +109,7 @@ bool ShopItemManager::is_using_item_active(std::uint16_t icon_idx,
     const std::uint64_t deadline =
         static_cast<std::uint64_t>(e->Data.LastCheckTime)
         + static_cast<std::uint64_t>(e->Data.ShopItem.Remaintime);
-    return deadline > now_ms;  // strict > matches legacy 'still active'
+    return deadline > static_cast<std::uint64_t>(now_ms);
 }
 
 bool ShopItemManager::is_memory_move_extend_icon(std::uint16_t icon_idx) noexcept {
@@ -122,11 +121,10 @@ bool ShopItemManager::is_memory_move_extend_icon(std::uint16_t icon_idx) noexcep
 
 std::size_t ShopItemManager::move_point_capacity() const noexcept {
     // Legacy: capacity is MAX_MOVEDATA_PER_PAGE (10) unless any of the 4
-    // MemoryMove incantation items is in the using-item table; then it
-    // doubles to MAX_MOVEDATA_PER_PAGE*MAX_MOVEPOINT_PAGE (20).
+    // MemoryMove incantations is currently in the using-items table, in
+    // which case it doubles to MAX_MOVEDATA_PER_PAGE*MAX_MOVEPOINT_PAGE (20).
     for (const auto& kv : m_usingItems) {
-        const auto icon = static_cast<std::uint16_t>(kv.first & 0xFFFFu);
-        if (is_memory_move_extend_icon(icon)) {
+        if (is_memory_move_extend_icon(static_cast<std::uint16_t>(kv.first))) {
             return MAX_MOVEDATA_PER_PAGE_MODERN * game::MAX_MOVEPOINT_PAGE_MODERN;
         }
     }
@@ -136,8 +134,6 @@ std::size_t ShopItemManager::move_point_capacity() const noexcept {
 bool ShopItemManager::add_move_point(const MovePointEntry& entry) noexcept {
     if (entry.DBIdx == 0) return false;  // legacy refused DBIdx == 0
     if (m_movePoints.find(entry.DBIdx) != m_movePoints.end()) return false;
-    // Legacy capacity gate: rejecting on `>=` so a full table refuses the
-    // next insert without overshooting.
     if (m_movePoints.size() >= move_point_capacity()) return false;
     m_movePoints.emplace(entry.DBIdx, entry);
     return true;
@@ -154,10 +150,6 @@ bool ShopItemManager::delete_move_point(std::uint32_t db_idx) noexcept {
 }
 
 bool ShopItemManager::tick(std::uint32_t delta_ms) noexcept {
-    if (delta_ms == 0) return false;
-    // Use DWORD arithmetic to match legacy (no overflow checks). The legacy
-    // code uses gTickTime which is bounded (~10s max), so practical overflow
-    // never happens, but the data plane preserves the legacy shape.
     m_Updatetime += delta_ms;
     if (m_Updatetime > SHOP_ITEM_UPDATE_INTERVAL_MS) {
         m_Updatetime = 0;
@@ -261,7 +253,7 @@ bool ShopItemManager::add_shop_item_use(const game::ShopItemBase& shop_item,
     UsingShopItemEntry e{};
     e.ItemIdx = key;
     e.Data.ShopItem = shop_item;
-    e.Data.LastCheckTime = now_ms;  // legacy gCurTime
+    e.Data.LastCheckTime = now_ms;
     m_usingItems.emplace(key, e);
     return true;
 }
@@ -279,6 +271,139 @@ bool ShopItemManager::rename_move_point(std::uint32_t db_idx,
 
 void ShopItemManager::release_move_points() noexcept {
     m_movePoints.clear();
+}
+
+// ---- D4.19 use_shop_item_decision (free function) ----
+//
+// Implements the data-plane portion of legacy
+// CShopItemManager::UseShopItem that *is* observable on the wire: the
+// guard sequence at the top of the function (empty-slot reject,
+// ITEMMGR->GetItemInfo reject, table-already-has-wIconIdx reject) and
+// the BeginTime/Remaintime computation in the middle. Player/Battle/
+// event-map/ItemManager side effects are not in scope here; they are
+// driven by the Agent/Map handlers in a follow-up commit.
+
+namespace {
+
+// Encode a PackedTime offset (in minutes) using the legacy stTIME bit
+// layout so that adding minutes crosses the day boundary the same way
+// legacy did.  We only support up to ~25 hours of offset because the
+// SHOPITEMBASE EndTime field is a packed 32-bit calendar value, just
+// like BeginTime.
+game::PackedTime add_minutes_to_packed(game::PackedTime start, std::uint32_t minutes) {
+    auto clamp6 = [](std::uint32_t v) -> std::uint32_t {
+        return v & 0x3Fu;
+    };
+    auto clamp4 = [](std::uint32_t v) -> std::uint32_t {
+        return v & 0x0Fu;
+    };
+
+    std::uint32_t year   = start.year();
+    std::uint32_t month  = start.month();
+    std::uint32_t day    = start.day();
+    std::uint32_t hour   = start.hour();
+    std::uint32_t minute = start.minute();
+
+    // legacy Rarity encodes day*1440 + hour*60 + min; we accept the same
+    // shape and decompose here.  Anything beyond 6 bits is silently
+    // truncated, matching the legacy packed-time field width.
+    const std::uint32_t add_day    = (minutes / (24u * 60u)) & 0x3Fu;
+    const std::uint32_t add_hour   = ((minutes % (24u * 60u)) / 60u) & 0x3Fu;
+    const std::uint32_t add_minute = (minutes % 60u) & 0x3Fu;
+
+    day   = clamp6(day   + add_day);
+    hour  = clamp6(hour  + add_hour);
+    minute = clamp6(minute + add_minute);
+    (void)clamp4(year);
+    (void)clamp4(month);
+
+    return game::PackedTime{
+        (year   << 28)
+      | (month  << 24)
+      | (day    << 18)
+      | (hour   << 12)
+      | (minute << 6)
+      | start.second()};
+}
+
+// Route an ItemInfo.ItemKind to the matching dup counter. 1:1 with
+// legacy m_DupIncantation / m_DupCharm / m_DupHerb / m_DupSundries /
+// m_DupPetEquip selections inside CShopItemManager::UseShopItem.
+ShopItemDupSlot route_dup_slot(std::uint16_t item_kind) noexcept {
+    switch (item_kind) {
+        case LEGACY_SHOP_ITEM_INCANTATION: return ShopItemDupSlot::Incantation;
+        case LEGACY_SHOP_ITEM_CHARM:       return ShopItemDupSlot::Charm;
+        case LEGACY_SHOP_ITEM_HERB:        return ShopItemDupSlot::Herb;
+        case LEGACY_SHOP_ITEM_SUNDRIES:    return ShopItemDupSlot::Sundries;
+        case LEGACY_SHOP_ITEM_PET_EQUIP:   return ShopItemDupSlot::PetEquip;
+        default:                           return ShopItemDupSlot::None;
+    }
+}
+
+} // namespace
+
+UseShopItemDecision use_shop_item_decision(
+    const ShopItemManager& mgr,
+    const game::ItemBase& item_base,
+    const ItemInfoView& info,
+    game::PackedTime now_packed,
+    std::uint32_t now_ms) noexcept {
+    UseShopItemDecision out;
+
+    // 1. Empty-slot guard: legacy CShopItemManager::UseShopItem returns
+    //    eItemUseErr_Err when pItemBase is null OR wIconIdx is 0.
+    if (item_base.wIconIdx == 0u) {
+        out.status = UseShopItemStatus::InvalidIcon;
+        return out;
+    }
+
+    // 2. ItemInfo guard: legacy returns eItemUseErr_Err when ITEMMGR->
+    //    GetItemInfo(UseBaseInfo.ShopItemIdx) is null. Our Slim view
+    //    expresses that with all four fields zero.
+    if (info.SellPrice == 0u && info.Rarity == 0u && info.ItemKind == 0u
+        && info.ItemType == 0u) {
+        out.status = UseShopItemStatus::ItemInfoMissing;
+        return out;
+    }
+
+    // 3. Already-in-use guard: legacy m_UsingItemTable.GetData(wIconIdx)
+    //    returning non-null -> eItemUseErr_AlreadyUse.
+    if (mgr.has_using_item_by_icon_idx(item_base.wIconIdx)) {
+        out.status = UseShopItemStatus::AlreadyInUse;
+        return out;
+    }
+
+    // 4. Compute BeginTime / Remaintime + dup slot, mirroring the legacy
+    //    SHOP_ITEM_PARAM_STORED_TIME / SHOP_ITEM_PARAM_PLAY_TIME /
+    //    SHOP_ITEM_USE_PARAM_CONTINUE / SellPrice==0 branches.
+    out.shop_item.ItemBase = item_base;
+    out.shop_item.Param    = info.SellPrice;
+    out.shop_item.BeginTime = game::PackedTime{0};
+    out.shop_item.Remaintime = 0u;
+    out.last_check_ms = now_ms;
+    out.dup_slot = route_dup_slot(info.ItemKind);
+
+    if (info.SellPrice == SHOP_ITEM_USE_PARAM_REALTIME) {
+        // legacy: endtime = startime + Rarity (minutes), Remaintime = endtime.value
+        out.shop_item.BeginTime = now_packed;
+        out.shop_item.Remaintime = add_minutes_to_packed(now_packed, info.Rarity).value;
+    } else if (info.SellPrice == SHOP_ITEM_USE_PARAM_PLAYTIME) {
+        // legacy: Remaintime = Rarity * 60_000 ms
+        out.shop_item.BeginTime = now_packed;
+        out.shop_item.Remaintime = info.Rarity * 60000u;
+    } else if (info.SellPrice == SHOP_ITEM_USE_PARAM_CONTINUE) {
+        // legacy: Remaintime = 0, LastCheckTime = 0 (timer never expires)
+        out.shop_item.BeginTime = game::PackedTime{0};
+        out.shop_item.Remaintime = 0u;
+        out.last_check_ms = 0u;
+    } else {
+        // legacy: SellPrice == 0 (one-shot buff). No timer, BeginTime = 0.
+        out.shop_item.BeginTime = game::PackedTime{0};
+        out.shop_item.Remaintime = 0u;
+    }
+
+    out.status = UseShopItemStatus::Ok;
+    return out;
 }
 
 [[maybe_unused]] constexpr int shop_item_manager_translation_unit_anchor = 0;
