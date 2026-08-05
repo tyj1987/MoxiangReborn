@@ -66,3 +66,20 @@ target_link_libraries(mxh_resource_reference_tests PRIVATE gtest_main bcrypt)
 target_include_directories(mxh_resource_reference_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_resource_reference_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
+
+# T1 mechanical expansion - Phase E1: read_mh_bin coverage for all 59
+# deploy/server/Distribute/Resource/*.bin files. Each .bin is opened via
+# read_mh_bin, header parsed, payload size asserted vs header.file_size.
+add_executable(mxh_resource_parse_all_bin_tests
+    resource_parse_all_bin_test.cpp
+)
+target_link_libraries(mxh_resource_parse_all_bin_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_resource_parse_all_bin_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_resource_parse_all_bin_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
