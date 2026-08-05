@@ -5,6 +5,14 @@
 
 最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
 
+### E1 T1 parse test subdir expansion (2026-08-06)
+
+- E1 T1 parse test subdir expansion - deploy Server/ + QuestScript/ + PlayDH non-Client (top-level + EffectScript/Map/QuestScript/SkillArea) 全部 read_mh_bin parse ok = true + size match + 256MB 限。
+- 总数 89 -> 268 parse test entries across 5 suites (MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65). 7 个 14-byte placeholder stub 被过滤 (header.file_size = 0 会失败 EXPECT_GT)。
+- 与 SHA-256 manifest 锁定的 303 records 严格对齐：每个有 SHA-256 记录的 .bin 都有对应 parse test。
+
+
+
 ---
 
 ## 截止 2026-08-06 已完成项
