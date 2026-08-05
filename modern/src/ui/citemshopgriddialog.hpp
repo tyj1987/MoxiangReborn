@@ -1,6 +1,69 @@
-﻿#pragma once
-#include "mxh/ui/cDialog.hpp"
+#pragma once
+
+#include "cIconGridDialog.hpp"
+
+#include "mxh/game/item_types.hpp"
+
 #include <cstdint>
-#include <optional>
-#include <vector>
-namespace mxh::ui {struct ShopGridItem{std::uint32_t id{};std::uint32_t price{};std::uint16_t stock{};};class cItemShopGridDialog final:public cDialog{public:static constexpr std::size_t kColumns=5,kRows=4,kPageSize=kColumns*kRows;void SetItems(std::vector<ShopGridItem> items){m_items=std::move(items);m_page=0;m_selected=static_cast<std::size_t>(-1);}void SelectPage(std::size_t page)noexcept{if(page<PageCount())m_page=page;m_selected=static_cast<std::size_t>(-1);}std::size_t PageCount()const noexcept{return (m_items.size()+kPageSize-1)/kPageSize;}bool Select(std::size_t cell)noexcept;std::optional<ShopGridItem> Selected()const;bool CanBuy(std::uint16_t quantity=1)const noexcept;const std::vector<ShopGridItem>& Items()const noexcept{return m_items;}private:std::vector<ShopGridItem>m_items;std::size_t m_page{},m_selected{static_cast<std::size_t>(-1)};};}
+#include <functional>
+
+namespace mxh::ui {
+
+class cIcon;
+
+struct ItemShopGridMovePayload {
+    std::uint16_t fromPos      = 0;
+    std::uint16_t wFromItemIdx = 0;
+    std::uint16_t toPos        = 0;
+    std::uint16_t wToItemIdx   = 0;
+};
+using SendMoveSynFn = std::function<bool(const ItemShopGridMovePayload&)>;
+
+class cItemShopGridDialog : public cIconGridDialog {
+public:
+    static constexpr std::uint16_t kShopTabCount   = 5;
+    static constexpr std::uint16_t kShopCellPerTab = 30;
+    static constexpr std::uint32_t IG_SHOPITEM_MAXINDEX = 999;
+
+    cItemShopGridDialog();
+    ~cItemShopGridDialog() override;
+
+    cItemShopGridDialog(const cItemShopGridDialog&)            = delete;
+    cItemShopGridDialog& operator=(const cItemShopGridDialog&) = delete;
+
+    void Init(std::int32_t x = 0, std::int32_t y = 0,
+              std::uint16_t wid = 0, std::uint16_t hei = 0,
+              void* basicImage = nullptr,
+              std::int32_t id = 0);
+
+    bool AddItem(cIcon* pIcon);
+    bool DeleteItem(std::uint16_t pos, cIcon** ppIcon);
+
+    void ShopItemDelete(std::uint32_t, std::uint16_t,
+                        std::uint32_t) noexcept {}
+
+    static std::uint16_t GetRelativePosition(std::uint16_t absPos) noexcept;
+
+    cIcon* GetItemForPos(std::uint16_t absPos);
+
+    bool FakeMoveItem(std::int32_t mouseX, std::int32_t mouseY,
+                      cIcon* pSrcIcon);
+    bool FakeGeneralItemMove(std::uint16_t toPos,
+                             cIcon* pFromIcon, cIcon* pToIcon);
+    bool CanBeMoved(cIcon* pIcon, std::uint16_t pos) noexcept;
+
+    void SetTabNumber(std::uint32_t number) noexcept { m_TabNumber = number; }
+    std::uint32_t GetTabNumber() const noexcept { return m_TabNumber; }
+
+    void SetSendMoveSynFn(SendMoveSynFn fn) noexcept { m_sendMoveSyn = std::move(fn); }
+
+    std::uint16_t CellCount() const noexcept { return GetCellNum(); }
+
+private:
+    std::uint32_t m_TabNumber = 0;
+    SendMoveSynFn m_sendMoveSyn;
+
+    static bool IsShopAbsoluteRange(std::uint16_t absPos) noexcept;
+};
+
+}  // namespace mxh::ui
