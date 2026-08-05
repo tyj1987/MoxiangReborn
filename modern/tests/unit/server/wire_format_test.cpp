@@ -16,8 +16,35 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <vector>
+#include <filesystem>
+#include <fstream>
+#include <string>
 
 namespace {
+
+namespace fs = std::filesystem;
+
+fs::path find_golden_dir() {
+    fs::path cwd;
+    try { cwd = fs::current_path(); } catch (...) { return {}; }
+    const std::vector<std::wstring> sub_paths = {
+        L"server/golden",
+        L"server\\golden",
+        L"../server/golden",
+        L"modern/tests/unit/server/golden",
+        L"tests/unit/server/golden",
+    };
+    for (fs::path base = cwd; !base.empty(); base = base.parent_path()) {
+        for (const auto& sub : sub_paths) {
+            std::error_code ec;
+            fs::path candidate = base / sub;
+            if (fs::is_directory(candidate, ec)) return candidate;
+        }
+        if (base == base.root_path()) break;
+    }
+    return {};
+}
+
 using mxh::tools::sidebyside::Packet;
 
 // Helper: build a deterministic Packet for round-trip tests.
@@ -211,3 +238,1851 @@ TEST(WireFormat, WireFormatIsConsistentWithNetLegacyHeader) {
     EXPECT_EQ(bytes[11], 0x22);
     EXPECT_EQ(bytes[12], 0x33);
 }
+TEST(WireFormatGolden, RoundTrip_auction_request) {
+    static const char* kName = "auction_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "auction_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "auction_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "auction_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_auctionboard_request) {
+    static const char* kName = "auctionboard_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "auctionboard_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "auctionboard_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "auctionboard_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_autonote_v2_request) {
+    static const char* kName = "autonote_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "autonote_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "autonote_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "autonote_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_autopatch_request) {
+    static const char* kName = "autopatch_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "autopatch_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "autopatch_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "autopatch_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_battle_request) {
+    static const char* kName = "battle_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "battle_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "battle_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "battle_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_bobusang_v2_request) {
+    static const char* kName = "bobusang_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "bobusang_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "bobusang_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "bobusang_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_bossmonster_request) {
+    static const char* kName = "bossmonster_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "bossmonster_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "bossmonster_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "bossmonster_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_char_request) {
+    static const char* kName = "char_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "char_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "char_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "char_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_char_revive_request) {
+    static const char* kName = "char_revive_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "char_revive_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "char_revive_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "char_revive_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_cheat_request) {
+    static const char* kName = "cheat_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "cheat_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "cheat_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "cheat_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_debug_request) {
+    static const char* kName = "debug_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "debug_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "debug_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "debug_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_dist_connect_success) {
+    static const char* kName = "dist_connect_success.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "dist_connect_success.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "dist_connect_success.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "dist_connect_success.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_exchange_request) {
+    static const char* kName = "exchange_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "exchange_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "exchange_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "exchange_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_fortwar_v2_request) {
+    static const char* kName = "fortwar_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "fortwar_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "fortwar_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "fortwar_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_friend_request) {
+    static const char* kName = "friend_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "friend_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "friend_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "friend_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_gtournament_v2_request) {
+    static const char* kName = "gtournament_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "gtournament_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "gtournament_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "gtournament_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_guild_fieldwar_request) {
+    static const char* kName = "guild_fieldwar_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "guild_fieldwar_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "guild_fieldwar_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "guild_fieldwar_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_guild_request) {
+    static const char* kName = "guild_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "guild_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "guild_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "guild_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_guild_v2_request) {
+    static const char* kName = "guild_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "guild_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "guild_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "guild_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_guildunion_v2_request) {
+    static const char* kName = "guildunion_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "guildunion_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "guildunion_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "guildunion_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_hackcheck_request) {
+    static const char* kName = "hackcheck_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "hackcheck_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "hackcheck_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "hackcheck_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_hackshield_request) {
+    static const char* kName = "hackshield_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "hackshield_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "hackshield_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "hackshield_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_item_request) {
+    static const char* kName = "item_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "item_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "item_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "item_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_itemext_request) {
+    static const char* kName = "itemext_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "itemext_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "itemext_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "itemext_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_itemlimit_v2_request) {
+    static const char* kName = "itemlimit_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "itemlimit_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "itemlimit_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "itemlimit_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_jackpot_request) {
+    static const char* kName = "jackpot_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "jackpot_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "jackpot_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "jackpot_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_journal_request) {
+    static const char* kName = "journal_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "journal_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "journal_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "journal_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_kyunggong_request) {
+    static const char* kName = "kyunggong_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "kyunggong_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "kyunggong_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "kyunggong_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_large_payload_cat8_request) {
+    static const char* kName = "large_payload_cat8_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "large_payload_cat8_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "large_payload_cat8_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "large_payload_cat8_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_login_ack) {
+    static const char* kName = "login_ack.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "login_ack.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "login_ack.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "login_ack.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_login_ack_enc) {
+    static const char* kName = "login_ack_enc.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "login_ack_enc.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "login_ack_enc.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "login_ack_enc.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_login_nack) {
+    static const char* kName = "login_nack.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "login_nack.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "login_nack.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "login_nack.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_login_request) {
+    static const char* kName = "login_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "login_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "login_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "login_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_monster_request) {
+    static const char* kName = "monster_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "monster_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "monster_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "monster_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_mornitormapserver_request) {
+    static const char* kName = "mornitormapserver_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "mornitormapserver_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "mornitormapserver_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "mornitormapserver_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_mornitorserver_request) {
+    static const char* kName = "mornitorserver_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "mornitorserver_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "mornitorserver_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "mornitorserver_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_mornitortool_request) {
+    static const char* kName = "mornitortool_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "mornitortool_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "mornitortool_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "mornitortool_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_mugong_request) {
+    static const char* kName = "mugong_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "mugong_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "mugong_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "mugong_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_munpa_request) {
+    static const char* kName = "munpa_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "munpa_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "munpa_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "munpa_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_murimnet_request) {
+    static const char* kName = "murimnet_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "murimnet_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "murimnet_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "murimnet_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_note_request) {
+    static const char* kName = "note_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "note_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "note_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "note_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_npc_request) {
+    static const char* kName = "npc_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "npc_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "npc_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "npc_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_option_request) {
+    static const char* kName = "option_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "option_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "option_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "option_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_packeddata_request) {
+    static const char* kName = "packeddata_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "packeddata_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "packeddata_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "packeddata_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_party_request) {
+    static const char* kName = "party_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "party_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "party_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "party_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_partywar_request) {
+    static const char* kName = "partywar_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "partywar_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "partywar_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "partywar_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_partywar_v2_request) {
+    static const char* kName = "partywar_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "partywar_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "partywar_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "partywar_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_peacewarmode_request) {
+    static const char* kName = "peacewarmode_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "peacewarmode_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "peacewarmode_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "peacewarmode_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_pet_request) {
+    static const char* kName = "pet_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "pet_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "pet_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "pet_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_pet_v2_request) {
+    static const char* kName = "pet_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "pet_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "pet_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "pet_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_pk_request) {
+    static const char* kName = "pk_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "pk_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "pk_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "pk_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_powerup_request) {
+    static const char* kName = "powerup_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "powerup_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "powerup_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "powerup_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_pyoguk_request) {
+    static const char* kName = "pyoguk_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "pyoguk_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "pyoguk_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "pyoguk_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_quest_request) {
+    static const char* kName = "quest_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "quest_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "quest_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "quest_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_quick_request) {
+    static const char* kName = "quick_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "quick_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "quick_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "quick_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_admin_request) {
+    static const char* kName = "rmtool_admin_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_admin_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_admin_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_admin_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_character_request) {
+    static const char* kName = "rmtool_character_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_character_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_character_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_character_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_connect_request) {
+    static const char* kName = "rmtool_connect_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_connect_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_connect_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_connect_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_gamelog_request) {
+    static const char* kName = "rmtool_gamelog_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_gamelog_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_gamelog_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_gamelog_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_item_request) {
+    static const char* kName = "rmtool_item_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_item_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_item_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_item_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_munpa_request) {
+    static const char* kName = "rmtool_munpa_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_munpa_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_munpa_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_munpa_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_operlog_request) {
+    static const char* kName = "rmtool_operlog_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_operlog_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_operlog_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_operlog_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_pet_request) {
+    static const char* kName = "rmtool_pet_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_pet_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_pet_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_pet_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_statistics_request) {
+    static const char* kName = "rmtool_statistics_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_statistics_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_statistics_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_statistics_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_rmtool_user_request) {
+    static const char* kName = "rmtool_user_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "rmtool_user_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "rmtool_user_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "rmtool_user_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_server_request) {
+    static const char* kName = "server_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "server_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "server_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "server_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_siegewar_castle_request) {
+    static const char* kName = "siegewar_castle_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "siegewar_castle_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "siegewar_castle_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "siegewar_castle_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_siegewar_profit_request) {
+    static const char* kName = "siegewar_profit_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "siegewar_profit_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "siegewar_profit_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "siegewar_profit_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_siegewar_request) {
+    static const char* kName = "siegewar_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "siegewar_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "siegewar_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "siegewar_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_signal_request) {
+    static const char* kName = "signal_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "signal_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "signal_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "signal_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_sim_bub_request) {
+    static const char* kName = "sim_bub_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "sim_bub_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "sim_bub_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "sim_bub_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_skill_request) {
+    static const char* kName = "skill_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "skill_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "skill_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "skill_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_societyact_request) {
+    static const char* kName = "societyact_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "societyact_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "societyact_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "societyact_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_streetstall_request) {
+    static const char* kName = "streetstall_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "streetstall_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "streetstall_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "streetstall_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_suryun_request) {
+    static const char* kName = "suryun_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "suryun_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "suryun_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "suryun_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_suryun_v2_request) {
+    static const char* kName = "suryun_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "suryun_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "suryun_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "suryun_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_tactic_request) {
+    static const char* kName = "tactic_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "tactic_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "tactic_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "tactic_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_ungijosik_request) {
+    static const char* kName = "ungijosik_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "ungijosik_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "ungijosik_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "ungijosik_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_unknown_category_cat4_request) {
+    static const char* kName = "unknown_category_cat4_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "unknown_category_cat4_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "unknown_category_cat4_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "unknown_category_cat4_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_unknown_category_cat6_request) {
+    static const char* kName = "unknown_category_cat6_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "unknown_category_cat6_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "unknown_category_cat6_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "unknown_category_cat6_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_unknown_category_request) {
+    static const char* kName = "unknown_category_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "unknown_category_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "unknown_category_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "unknown_category_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_wanted_request) {
+    static const char* kName = "wanted_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "wanted_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "wanted_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "wanted_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_wanted_v2_request) {
+    static const char* kName = "wanted_v2_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "wanted_v2_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "wanted_v2_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "wanted_v2_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
+TEST(WireFormatGolden, RoundTrip_weather_request) {
+    static const char* kName = "weather_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "weather_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "weather_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "weather_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+}
+
