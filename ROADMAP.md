@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
 > **最近一次重构**：2026-08-06 — 把 434 行 ROADMAP 砍成可执行的规划文档；历史 [x] 项迁移到 docs/CHANGELOG.md。
-> **最近一次状态刷新**：2026-08-06 — D1.3 call-site MapHandler.load_skill_list (3 tests PASS)；R-8 call-site MapHandler.load_item_list (3 tests)；R-8 item_effects 1:1 real lookup (12 tests)；D6.x ItemList.bin 1:1 parser (11 tests, 9887 rows 0 errors)；E1 T1 payload SHA-256 byte-level verification (146 records locked across 117 .bin files)；E1 T1 parse test subdir expansion (89 -> 268 entries across 5 suites; 7 14-byte stubs filtered, MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65 = 268)。
+> **最近一次状态刷新**：2026-08-06 — D1.3 call-site MapHandler.load_skill_list (3 tests PASS)；R-8 call-site MapHandler.load_item_list (3 tests)；R-8 item_effects 1:1 real lookup (12 tests)；D6.x ItemList.bin 1:1 parser (11 tests, 9887 rows 0 errors)；E1 T1 payload SHA-256 byte-level verification (146 records locked across 117 .bin files)；E1 T1 parse test subdir expansion (89 -> 268 entries across 5 suites; 7 14-byte stubs filtered, MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65 = 268)。E2 T2 wire golden round-trip 84 TESTs (parse + re-encode byte-equal, 0 fail, 95 total mxh_wire_format_tests)。
 
 ---
 
@@ -40,7 +40,7 @@
 | 维度 | 状态 | 验证 |
 |---|---|---|
 | T1 资源字节兼容 | **LOCKED** | 303 records SHA-256 locked (deploy 180 [Server/ + QuestScript/] + PlayDH 94 + PlayDH/Client 29) ; 268 parse test entries verified (89 -> 268 across 5 suites) |
-| T2 协议字节兼容 | **95.1%** | 84 wire-format goldens，77/81 legacy MP_* categories |
+| T2 协议字节兼容 | **95.1%** | 84 wire-format goldens round-trip byte-equal (95 mxh_wire_format_tests = 11 wire invariants + 84 golden), 77/81 legacy MP_* categories |
 | T3 UI 1:1 port | **PORTING** | 109/158 dialog hpp，2500+ ui tests PASS |
 | T3 玩法数值 1:1 | **PARTIAL** | D1 SkillList ✓ D2 BattleFactory ✓ D5 MurimNet ✓ D6.1-D6.7 ✓；D3 Quest + D4 商城待 |
 | 客户端运行时 | **Phase A + B.2 done** | MoxianClient + 3/9 state 真接 net + CMainGame 1:1 |
