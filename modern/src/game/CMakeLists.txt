@@ -17,6 +17,7 @@ add_library(mxh_game STATIC
     ${CMAKE_SOURCE_DIR}/src/item_effects.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/skill_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/skill_list_parser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/item_list_parser.cpp
     battle_factory.cpp
     attack_calc.cpp
     battle.cpp

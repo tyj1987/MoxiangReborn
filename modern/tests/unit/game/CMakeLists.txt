@@ -2,6 +2,7 @@ add_executable(mxh_game_tests
     game_types_test.cpp
     skill_manager_test.cpp
     skill_list_parser_test.cpp
+    item_list_parser_test.cpp
     battle_factory_test.cpp
     battle_runtime_test.cpp
     attack_loop_test.cpp

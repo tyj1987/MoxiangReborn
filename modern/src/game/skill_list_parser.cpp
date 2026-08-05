@@ -4,6 +4,7 @@
 // file.  See skill_list_parser.hpp for the file format spec.
 
 #include "mxh/game/skill_list_parser.hpp"
+#include "mxh/compat/detail/text_parse.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -205,21 +206,11 @@ bool apply_additive_attr(SkillInfo& s, int disc,
 }  // namespace
 
 // ---------------------------------------------------------------------------
-// decode_mhfile_payload
+// decode_mhfile_payload (thin wrapper around mxh::compat::detail).
 // ---------------------------------------------------------------------------
 std::uint8_t decode_mhfile_payload(std::uint32_t dwType,
                                    std::vector<std::uint8_t>& payload) {
-    std::uint8_t crc = static_cast<std::uint8_t>(dwType & 0xFFu);
-    const std::uint8_t type_byte = static_cast<std::uint8_t>(dwType & 0xFFu);
-    for (std::uint32_t i = 0; i < payload.size(); ++i) {
-        crc = static_cast<std::uint8_t>((crc + payload[i]) & 0xFFu);
-        std::uint8_t b = static_cast<std::uint8_t>((payload[i] - static_cast<std::uint8_t>(i & 0xFFu)) & 0xFFu);
-        if (i % dwType == 0) {
-            b = static_cast<std::uint8_t>((b - type_byte) & 0xFFu);
-        }
-        payload[i] = b;
-    }
-    return crc;
+    return mxh::compat::detail::decode_mhfile_text_payload(dwType, payload);
 }
 
 // ---------------------------------------------------------------------------

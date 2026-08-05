@@ -32,6 +32,29 @@ namespace mxh::compat::detail {
     return s.substr(b, e - b);
 }
 
+// MHFile packed-text payload decode (1:1 with [Client]MH/MHFile.cpp::CheckCRC
+// lines 188-197). Used by SkillListParser / ItemListParser / etc.
+// 1:1 with CMHFile::CheckCRC():
+//   char crc = (char)m_Header.dwType;
+//   for (DWORD i = 0; i < FileSize; ++i) {
+//     crc += m_pData[i];
+//     m_pData[i] -= (char)i;
+//     if (i % m_Header.dwType == 0) m_pData[i] -= (char)m_Header.dwType;
+//   }
+// Decodes the buffer in place; returns the computed CRC byte.
+inline std::uint8_t decode_mhfile_text_payload(std::uint32_t dwType,
+                                              std::vector<std::uint8_t>& payload) {
+    std::uint8_t crc = static_cast<std::uint8_t>(dwType & 0xFFu);
+    const auto type_byte = static_cast<std::uint8_t>(dwType & 0xFFu);
+    for (std::uint32_t i = 0; i < payload.size(); ++i) {
+        crc = static_cast<std::uint8_t>(crc + payload[i]);
+        auto b = static_cast<std::int32_t>(payload[i]) - static_cast<std::int32_t>(i & 0xFFu);
+        if (dwType != 0u && (i % dwType) == 0u) b -= type_byte;
+        payload[i] = static_cast<std::uint8_t>(b & 0xFF);
+    }
+    return crc;
+}
+
 // Split a line by ASCII whitespace into tokens, preserving tokens and
 // ignoring empty runs. Whitespace here is ' ' and '\t' only (no
 // newline — caller splits lines first).
