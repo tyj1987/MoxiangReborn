@@ -1,4 +1,4 @@
-﻿// shop_item_manager.cpp - data-plane implementation of legacy CShopItemManager.
+// shop_item_manager.cpp - data-plane implementation of legacy CShopItemManager.
 // All data-plane logic lives in the inline header so it can be unit-tested
 // without linking a compiled .cpp. This translation unit exists so the
 // manager participates in mxh_server link units and CMake target_sources.
@@ -183,6 +183,35 @@ std::size_t ShopItemManager::tick_and_collect_expired(std::uint32_t delta_ms,
     const std::size_t before = out.size();
     collect_expired(now_ms, out);
     return out.size() - before;
+}
+
+std::size_t ShopItemManager::collect_realtime_expired(
+    game::PackedTime now, std::vector<std::uint64_t>& out) const {
+    const std::size_t before = out.size();
+    for (const auto& kv : m_usingItems) {
+        const auto& entry = kv.second;
+        // Stored-time branch only (legacy SellPrice == eShopItemUseParam_Realtime).
+        // Playtime / Continue / one-shot rows never trigger this sweep.
+        if (entry.Data.ShopItem.Param != mxh::game::SHOP_ITEM_PARAM_STORED_TIME) continue;
+        const std::uint32_t end_time = entry.Data.ShopItem.Remaintime;
+        if (end_time == 0u) continue;  // defensive: avoid 0 sentinel matching everything
+        if (now.value > end_time) out.push_back(kv.first);
+    }
+    return out.size() - before;
+}
+
+std::size_t ShopItemManager::consume_realtime_expired(game::PackedTime now) {
+    std::vector<std::uint64_t> expired;
+    collect_realtime_expired(now, expired);
+    for (const auto& idx : expired) {
+        auto it = m_usingItems.find(idx);
+        if (it == m_usingItems.end()) continue;
+        // Legacy DeleteUsingShopItem semantics: remove from table and
+        // clear Remaintime so a subsequent re-use repopulates cleanly.
+        it->second.Data.ShopItem.Remaintime = 0u;
+        m_usingItems.erase(it);
+    }
+    return expired.size();
 }
 
 std::vector<std::uint8_t> ShopItemManager::serialize_using_items(

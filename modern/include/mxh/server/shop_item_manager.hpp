@@ -269,6 +269,26 @@ public:
     std::size_t tick_and_collect_expired(uint32_t delta_ms, uint32_t now_ms,
                                           std::vector<std::uint64_t>& out);
 
+    // ---- D4.21 CheckEndTime realtime branch ----
+    //
+    // Legacy CShopItemManager::CheckEndTime scans m_UsingItemTable and
+    // deletes every row whose SellPrice == eShopItemUseParam_Realtime
+    // (= SHOP_ITEM_PARAM_STORED_TIME) AND whose packed EndTime
+    // (stored in Remaintime by use_shop_item_decision Realtime branch)
+    // is earlier than the current packed stTIME. This is the data-plane
+    // half of that sweep, with the same predicate: only stored-time
+    // rows are considered, and the comparison is now.value > end_time.
+    // Returns the number of new indices appended to out.
+    std::size_t collect_realtime_expired(game::PackedTime now,
+                                         std::vector<std::uint64_t>& out) const;
+
+    // Same as collect_realtime_expired but also removes the matching
+    // rows from the table and zeroes their Remaintime, matching the
+    // legacy DeleteUsingShopItem + Remaintime=0 sequence at the end of
+    // CheckEndTime. Use the const collect_realtime_expired first if the
+    // caller needs to surface each row to the wire before deletion.
+    std::size_t consume_realtime_expired(game::PackedTime now);
+
     // Reset m_Checktime after a check sweep so the next 30-second window
     // begins. Legacy resets to 0 unconditionally.
     void clear_check_time() noexcept { m_Checktime = 0; }
