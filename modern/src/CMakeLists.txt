@@ -314,7 +314,7 @@ target_include_directories(mxh_server PUBLIC
 )
 
 target_compile_features(mxh_server PUBLIC cxx_std_20)
-target_link_libraries(mxh_server PUBLIC mxh_net mxh_crypto mxh_db mxh_monitor)
+target_link_libraries(mxh_server PUBLIC mxh_net mxh_crypto mxh_db mxh_monitor mxh_game)
 
 install(TARGETS mxh_server ARCHIVE DESTINATION lib)
 

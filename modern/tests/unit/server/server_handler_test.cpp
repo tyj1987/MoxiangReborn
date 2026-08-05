@@ -21,6 +21,13 @@
 
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/server/server.hpp"
+#include "mxh/game/item_manager.hpp"
+#include "mxh/game/item_list_parser.hpp"
+#include "cstdint"
+#include "filesystem"
+#include "fstream"
+#include "sstream"
+#include "vector"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/net/net.hpp"
 
@@ -1168,6 +1175,150 @@ TEST(MapHandlerTest, OnDisconnectDoesNotCrash) {
     mxh::server::MapHandler handler(db, /*map_num=*/7, make_reply_spy(reply));
     handler.on_disconnect({}, mxh::net::NetError::Disconnected);
     EXPECT_EQ(reply.call_count.load(), 0);
+}
+
+namespace {
+// Synthesize a minimal valid ItemList.bin (1:1 with legacy MHFile packed-text format)
+// containing a single row.  Used by MapHandler R-8 tests below.
+std::vector<std::uint8_t> synthesize_itemlist_bin(const std::string& single_row_text) {
+    constexpr std::uint8_t type_byte = 1u;
+    std::vector<std::uint8_t> decoded;
+    decoded.reserve(single_row_text.size() + 2);
+    for (char c : single_row_text) decoded.push_back(static_cast<std::uint8_t>(c));
+    decoded.push_back(13);  // CR
+    decoded.push_back(10);  // LF
+    std::vector<std::uint8_t> encoded;
+    encoded.reserve(decoded.size());
+    for (std::size_t i = 0; i < decoded.size(); ++i) {
+        const int adjusted = static_cast<int>(decoded[i])
+            + static_cast<int>(i & 0xFFu)
+            + static_cast<int>(type_byte);
+        encoded.push_back(static_cast<std::uint8_t>(adjusted & 0xFFu));
+    }
+    std::uint8_t crc1 = type_byte;
+    for (std::uint8_t b : encoded) crc1 = static_cast<std::uint8_t>(crc1 + b);
+    const std::uint32_t file_size = static_cast<std::uint32_t>(encoded.size());
+    std::vector<std::uint8_t> out;
+    out.reserve(12 + 2 + encoded.size());
+    auto append_u32 = [&out](std::uint32_t v) {
+        for (int i = 0; i < 4; ++i) out.push_back(static_cast<std::uint8_t>((v >> (i * 8)) & 0xFFu));
+    };
+    append_u32(1u);  // dwVersion
+    append_u32(1u);  // dwType
+    append_u32(file_size);
+    out.push_back(crc1);
+    out.insert(out.end(), encoded.begin(), encoded.end());
+    out.push_back(0u);  // crc2 - unused by load_item_list
+    return out;
+}
+std::filesystem::path write_temp_bin(const std::vector<std::uint8_t>& bytes) {
+    const auto path = std::filesystem::temp_directory_path() / "mxh_map_handler_load_test.bin";
+    std::ofstream ofs(path, std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+    return path;
+}
+std::string build_test_row_56(std::uint16_t item_idx, std::uint16_t life_recover) {
+    // 56 columns matching ItemList.bin common-row layout (D6.x field order).
+    std::vector<std::string> toks(56u);
+    toks[0] = std::to_string(item_idx);
+    toks[1] = "HpPotion";
+    toks[2] = "0";
+    toks[3] = "0";
+    toks[4] = "0";;  // ItemKind
+    for (std::size_t i = 5; i < 50; ++i) toks[i] = "0";
+    for (std::size_t i = 16; i <= 20; ++i) toks[i] = "0.0";
+    for (std::size_t i = 38; i <= 42; ++i) toks[i] = "0.0";
+    toks[50] = std::to_string(life_recover);  // LifeRecover
+    toks[51] = "0.0";
+    toks[52] = "0";
+    toks[53] = "0.0";
+    toks[54] = "0";
+    toks[55] = "1";
+    std::ostringstream row;
+    for (std::size_t i = 0; i < toks.size(); ++i) {
+        if (i != 0) row << "	";
+        row << toks[i];
+    }
+    return row.str();
+}
+}  // anonymous namespace
+
+TEST(MapHandlerTest, ItemManagerEmptyByDefault) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    EXPECT_EQ(handler.item_manager_for_test().size(), 0u);
+    EXPECT_FALSE(handler.item_manager_for_test().exists(1u));
+}
+
+TEST(MapHandlerTest, LoadItemListPopulatesManagerFromBin) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    ASSERT_EQ(handler.item_manager_for_test().size(), 0u);
+    const auto row_text = build_test_row_56(1u, 999u);
+    const auto bin = synthesize_itemlist_bin(row_text);
+    const auto path = write_temp_bin(bin);
+    handler.load_item_list(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    EXPECT_EQ(handler.item_manager_for_test().size(), 1u);
+    EXPECT_TRUE(handler.item_manager_for_test().exists(1u));
+    mxh::game::ItemInfo info{};
+    ASSERT_TRUE(handler.item_manager_for_test().try_get(1u, info));
+    EXPECT_EQ(info.ItemIdx, 1u);
+    EXPECT_EQ(info.LifeRecover, 999u);
+    EXPECT_FLOAT_EQ(info.LifeRecoverRate, 0.0f);
+}
+
+TEST(MapHandlerTest, UseAckReadsHpDeltaFromLoadedItemListBin) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    // Step 1: load a 1-row ItemList.bin with ItemIdx=1, LifeRecover=999.
+    const auto row_text = build_test_row_56(1u, 999u);
+    const auto bin = synthesize_itemlist_bin(row_text);
+    const auto path = write_temp_bin(bin);
+    handler.load_item_list(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    // Step 2: enter map, set HP=1 MP=1, add inventory item with wIconIdx=1.
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 1u, 1u));
+    ASSERT_TRUE(handler.add_player_item_for_test(
+        123u, mxh::game::make_item(9002u, 1u, 0u)));
+    // Step 3: fire UseSyn, capture UseAck reply.
+    mxh::net::Message use;
+    use.header.object_id = 123u;
+    use.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    use.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseSyn);
+    use.payload.resize(2);
+    const std::uint16_t pos = 0u;
+    std::memcpy(use.payload.data(), &pos, sizeof(pos));
+    handler.on_message(connection, use);
+    // UseAck is the last Item-category reply; GameInAck was sent earlier.
+    ASSERT_GE(reply.messages.size(), 1u);
+    const mxh::net::Message* ack = nullptr;
+    for (const auto& m : reply.messages) {
+        if (m.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item)
+            && m.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseAck)) {
+            ack = &m;
+            break;
+        }
+    }
+    ASSERT_NE(ack, nullptr);
+    ASSERT_EQ(ack->payload.size(), 20u);
+    // Layout (LE): u16 pos | u16 wIconIdx | i32 hp_delta | i32 mp_delta
+    //              | u32 new_hp | u32 new_mp
+    std::int32_t hp_delta = 0;
+    std::memcpy(&hp_delta, ack->payload.data() + 4, 4);
+    EXPECT_EQ(hp_delta, 999);
 }
 
 }  // namespace mxh::server::test

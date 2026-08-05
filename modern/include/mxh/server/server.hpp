@@ -9,6 +9,8 @@
 #include "mxh/net/net.hpp"
 #include "mxh/proto/protocol.hpp"
 #include "mxh/game/item_types.hpp"
+#include "mxh/game/item_effects.hpp"
+#include "mxh/game/item_manager.hpp"
 #include "mxh/game/monster_types.hpp"
 #include "mxh/game/skill_types.hpp"
 #include "mxh/server/player.hpp"
@@ -252,6 +254,19 @@ public:
 
     std::optional<PlayerRuntimeSnapshot> player_runtime_snapshot(std::uint32_t player_id);
     std::size_t player_runtime_count();
+    // R-8 call-site hook: load the real ItemList.bin into item_manager_
+    // so handle_item()s UseSyn path resolves the effect from
+    // real ITEM_INFO rows (LifeRecover / LifeRecoverRate /
+    // NaeRyukRecover / NaeRyukRecoverRate) instead of the
+    // hardcoded linear-scale placeholder.
+    // Errors per row are logged to stdout and skipped; a hard
+    // I/O failure leaves item_manager_ empty so the placeholder
+    // path remains intact.
+    void load_item_list(const std::string& path);
+
+    // Test-only read-only accessor for item_manager_.
+    const mxh::game::ItemManager& item_manager_for_test() const noexcept { return item_manager_; }
+
     bool set_player_vitals_for_test(std::uint32_t player_id, std::uint32_t hp, std::uint32_t mp);
     bool add_player_item_for_test(std::uint32_t player_id, const mxh::game::ItemBase& item);
     std::optional<GroundDrop> create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z);
@@ -396,6 +411,13 @@ private:
     std::mutex skills_mu_;
     std::vector<mxh::game::SkillInstance> active_skills_;
     std::uint32_t next_skill_obj_id_ = 80000;  // reserved range for skill objects
+
+    // R-8: ItemManager for real-bin item-effect resolution.
+    // Default-constructed (empty); production callers invoke
+    // load_item_list() at startup, offline / test code keeps
+    // the linear-scale fallback through
+    // resolve_item_effect_with_manager().
+    mxh::game::ItemManager item_manager_;
 };
 
 }  // namespace mxh::server
