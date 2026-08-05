@@ -50,7 +50,12 @@ inline void damage_init(DistributerState& s) {
 
 inline void set_plus_total_damage(DistributerState& s, std::uint32_t damage) {
     s.m_PlusDamage = damage;
-    s.m_TotalDamage = s.m_PlusDamage;
+    // Legacy [Server]Map/Distributer.cpp::SetPlusTotalDamage uses +=, not =.
+    // 1:1 with `m_TotalDamage += Damage; m_PlusDamage = Damage;` from
+    // the original. Modern port had been assigning m_TotalDamage directly,
+    // which dropped cumulative plus damage (e.g. back-to-back crit
+    // SetPlusTotalDamage calls in the legacy boss/field-boss reward path).
+    s.m_TotalDamage += damage;
 }
 
 inline std::uint32_t get_total_damage(const DistributerState& s) {
@@ -70,14 +75,26 @@ inline void add_damage_object(DistributerState& s, std::uint32_t player_id,
 }
 
 inline std::optional<std::uint32_t> choose_one(const DistributerState& s,
-                                               bool in_party) {
+                                               bool in_party,
+                                               int rand_0_1 = 0) {
     const auto& table = in_party ? s.m_DamageObjectTableParty : s.m_DamageObjectTableSolo;
     std::uint32_t big_damage = 0u;
     std::uint32_t big_id = 0u;
     for (const auto& kv : table) {
-        if (kv.second.dwData > big_damage) {
-            big_damage = kv.second.dwData;
-            big_id = kv.second.dwID;
+        const auto damage = kv.second.dwData;
+        const auto id = kv.second.dwID;
+        if (damage > big_damage) {
+            big_damage = damage;
+            big_id = id;
+        } else if (damage == big_damage && big_id != 0u) {
+            // Legacy 1:1 tie-break: when two attackers deal identical
+            // damage, legacy ChooseOne flips a `rand()%2 == 1` coin to
+            // decide whether the later entry replaces the current big.
+            // `rand_0_1` is the integer sample in [0, 2); pass 1 to
+            // force a replacement, 0 to keep the first winner.
+            if ((rand_0_1 & 1) == 1) {
+                big_id = id;
+            }
         }
     }
     if (big_id == 0u) return std::nullopt;

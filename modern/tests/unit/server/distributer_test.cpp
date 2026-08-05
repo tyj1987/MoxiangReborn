@@ -112,6 +112,34 @@ TEST(DistributerPlus, SetPlusStoresAndUpdatesTotal) {
     EXPECT_EQ(get_total_damage(s), 500u);
 }
 
+// Legacy 1:1 lock: SetPlusTotalDamage uses `m_TotalDamage += Damage;`
+// rather than assignment. The modern port had been assigning, which
+// silently dropped cumulative plus damage when a second crit hit landed
+// while the previous plus damage was still in flight (e.g. back-to-back
+// SetPlusTotalDamage in the field-boss reward path). Pin the += form
+// for both the empty state and the additive case.
+TEST(DistributerPlus, SetPlusAccumulatesOnExistingTotal) {
+    auto s = make_distributer();
+    set_plus_total_damage(s, 100u);
+    EXPECT_EQ(s.m_TotalDamage, 100u);
+    set_plus_total_damage(s, 250u);
+    // Legacy: m_TotalDamage += 250 -> 350. m_PlusDamage overwrites.
+    EXPECT_EQ(s.m_TotalDamage, 350u);
+    EXPECT_EQ(s.m_PlusDamage, 250u);
+}
+
+TEST(DistributerPlus, SetPlusAccumulatesOverSoloDamage) {
+    // Mimics the legacy flow: a player hits, AddDamageObject records the
+    // base damage into m_TotalDamage, then SetPlusTotalDamage folds the
+    // crit/plus on top. The new code must keep both, not overwrite.
+    auto s = make_distributer();
+    add_damage_object(s, 7u, 400u, false);
+    EXPECT_EQ(s.m_TotalDamage, 400u);
+    set_plus_total_damage(s, 150u);
+    EXPECT_EQ(s.m_TotalDamage, 550u);
+    EXPECT_EQ(s.m_PlusDamage, 150u);
+}
+
 // ---- ChooseOne ----
 
 TEST(DistributerChooseOne, SoloPicksBiggest) {
@@ -133,6 +161,54 @@ TEST(DistributerChooseOne, EmptyReturnsNullopt) {
     auto s = make_distributer();
     EXPECT_FALSE(choose_one(s, false).has_value());
     EXPECT_FALSE(choose_one(s, true).has_value());
+}
+
+// Legacy 1:1 tie-break: identical damage triggers a `rand()%2 == 1` flip
+// in CDistributer::ChooseOne. We pin the two outcomes below by passing
+// `rand_0_1` directly (0 keeps the first winner, 1 replaces it).
+TEST(DistributerChooseOne, TieKeepsFirstWinnerWhenRandIsZero) {
+    auto s = make_distributer();
+    add_damage_object(s, 1u, 100u, false);
+    add_damage_object(s, 2u, 100u, false);
+    add_damage_object(s, 3u, 100u, false);
+    // Default rand_0_1 = 0: every tie is a no-op, so the iteration-order
+    // first id (1) wins. This matches the legacy behaviour for the head
+    // of the legacy hash bucket (the first inserted id won when the coin
+    // flip returned 0).
+    EXPECT_EQ(choose_one(s, false), 1u);
+    // Explicitly passing 0 must yield the same outcome as the default.
+    EXPECT_EQ(choose_one(s, false, 0), 1u);
+}
+
+TEST(DistributerChooseOne, TieReplacesWithLastIdWhenRandIsOne) {
+    auto s = make_distributer();
+    add_damage_object(s, 1u, 100u, false);
+    add_damage_object(s, 2u, 100u, false);
+    add_damage_object(s, 3u, 100u, false);
+    // rand_0_1 = 1 (== legacy rand()%2 == 1): every tie replaces, so the
+    // iteration-order last id (3) wins. The legacy ChooseOne logic is
+    // `if (BigDamage < obj.dwData) replace; else if equal && rand%2==1
+    // replace;` -- chaining it on a triple-tie flips the winner twice
+    // and lands on the final id seen in iteration order.
+    EXPECT_EQ(choose_one(s, false, 1), 3u);
+}
+
+TEST(DistributerChooseOne, TieReplacesOnlyEqualEntries) {
+    auto s = make_distributer();
+    add_damage_object(s, 1u, 200u, false);
+    add_damage_object(s, 2u, 100u, false);
+    add_damage_object(s, 3u, 100u, false);
+    // Damage 200 beats 100 outright; the tie-break is only consulted
+    // between the two 100-damage entries, leaving id=1 as the winner.
+    EXPECT_EQ(choose_one(s, false, 1), 1u);
+}
+
+TEST(DistributerChooseOne, PartyTableAppliesTieBreak) {
+    auto s = make_distributer();
+    add_damage_object(s, 10u, 50u, true);
+    add_damage_object(s, 20u, 50u, true);
+    EXPECT_EQ(choose_one(s, true, 0), 10u);
+    EXPECT_EQ(choose_one(s, true, 1), 20u);
 }
 
 // ---- DeleteDamagedPlayer ----
