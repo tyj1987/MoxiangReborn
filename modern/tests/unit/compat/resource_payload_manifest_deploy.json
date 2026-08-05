@@ -1,6 +1,6 @@
 {
     "format": "moxian-payload-sha256-v1",
-    "source": "deploy/server/Distribute/Resource",
+    "source": "C:\\moxiang\\deploy\\server\\Distribute\\Resource",
     "files": [
         {
             "name": "AbilityBaseInfo.bin",
@@ -355,6 +355,732 @@
             "type": 1170,
             "size": 1500,
             "sha256": "e9c2a49b64e4de264d0928409a42f9cb248ae52dab692c70ef253b3625a3b701"
+        },
+        {
+            "name": "QuestScript/NewbieGuide.bin",
+            "type": 767,
+            "size": 1662,
+            "sha256": "c080b5297bd670923e59739827c06e70fb357c26960554fb4e21af447796da38"
+        },
+        {
+            "name": "QuestScript/QuestItemList.bin",
+            "type": 23282,
+            "size": 38677,
+            "sha256": "627703c5511fbbcba7febb2b86ef7f0e79a49d07d4e6beccbb73b00b116bdd3c"
+        },
+        {
+            "name": "QuestScript/QuestRegen.bin",
+            "type": 42,
+            "size": 2061,
+            "sha256": "fef7da8448ada8a23e379780bdeee133938022c1a841031d42d39cbf6eba8bea"
+        },
+        {
+            "name": "QuestScript/QuestScript.bin",
+            "type": 6335,
+            "size": 240539,
+            "sha256": "b58e29f6bc25e28db812c1ea0c37ca5eba7dd2f0418d2c3658cbbea2fc927f68"
+        },
+        {
+            "name": "QuestScript/QuestString.bin",
+            "type": 19170,
+            "size": 146348,
+            "sha256": "675db311d808fd1ecff43aa2680685349b2282ec8504f6a884299faff0e9a226"
+        },
+        {
+            "name": "QuestScript/questnpclist.bin",
+            "type": 42,
+            "size": 3507,
+            "sha256": "41228f68d3c076b55bc1306fc1ad72a6ea61baa9deb515808872f3fe2db0f12f"
+        },
+        {
+            "name": "Server/AttribItemChangeRato.bin",
+            "type": 8054,
+            "size": 10414,
+            "sha256": "9f5627125a3502a90579a652a63ff41ae163900892f9456ddfc9052fdb933908"
+        },
+        {
+            "name": "Server/BobusangInfo.bin",
+            "type": 4,
+            "size": 1369,
+            "sha256": "97bb5d495db872f876b3174c32dc9170f0a65ff9ef46054fb56d568c67ec27ff"
+        },
+        {
+            "name": "Server/BossMonsterfileList.bin",
+            "type": 31,
+            "size": 179,
+            "sha256": "5964d2d0cb9618f604ec2e37b595c8a54f631237d7f80ad1cc4270265b3bdd95"
+        },
+        {
+            "name": "Server/BossReward.bin",
+            "type": 42,
+            "size": 738,
+            "sha256": "2bf3bd44fab1dfc8b5aff693a23f4cd910660c894395a8acc85e9b6100b08e4b"
+        },
+        {
+            "name": "Server/Boss_CowI.bin",
+            "type": 204,
+            "size": 913,
+            "sha256": "2a7df8ba716c87336edc1f1840265022477b96d4d128906e1b9b6a481f83671b"
+        },
+        {
+            "name": "Server/Boss_Cowf.bin",
+            "type": 143,
+            "size": 913,
+            "sha256": "475017bc76c8f41f87fafd7f98f737952d5fd2d37578ec0253752a10a91dfa20"
+        },
+        {
+            "name": "Server/Boss_Cowking.bin",
+            "type": 42,
+            "size": 2719,
+            "sha256": "9d302110e0f76c59a441865a33f42bf9f3dd49d645367a531175fab71d5442e5"
+        },
+        {
+            "name": "Server/Boss_Emperor.bin",
+            "type": 853,
+            "size": 1355,
+            "sha256": "84e45f4b86f689f1d7d219a44e3c38c8d6c3be57b42b67bb77670f7bf396fe15"
+        },
+        {
+            "name": "Server/Boss_EmperorJr.bin",
+            "type": 324,
+            "size": 1134,
+            "sha256": "f9a85d7f57bcfeede254ad3d1cade3095cd7ed6a57ba4c11b3f0cb7940a1b41c"
+        },
+        {
+            "name": "Server/DropRate.bin",
+            "type": 167,
+            "size": 167,
+            "sha256": "2a9eaabac7d4204f9048be1db31afde59b9ae736c3d594597c5946f9b11f25f1"
+        },
+        {
+            "name": "Server/ExpPenalty.bin",
+            "type": 450,
+            "size": 1001,
+            "sha256": "079b66fcee10abd4aa3620716099e5abcce6bc6ce3058d4cc6c92a9430536d4b"
+        },
+        {
+            "name": "Server/FieldBossDropItemList.bin",
+            "type": 5582,
+            "size": 6794,
+            "sha256": "4d499957a2ddc650e1b7dc37c70b1c342e6f5fe039b2b161f5a2d1efe7775475"
+        },
+        {
+            "name": "Server/FieldBossList.bin",
+            "type": 107,
+            "size": 1282,
+            "sha256": "458eedc12e0b658eb2cd50f054eae9ea6319f76e320d44c4e776702f736660b4"
+        },
+        {
+            "name": "Server/FortWarInfo.bin",
+            "type": 162,
+            "size": 864,
+            "sha256": "f2f35eb03d22e6e211eccefc0c4d8a1172950123f6241331f31839e41558ec64"
+        },
+        {
+            "name": "Server/GameEventInfo.bin",
+            "type": 142,
+            "size": 154,
+            "sha256": "36cebe3456911765ddc387b8b0bd455e28843675cb124bc11bdca017e53df360"
+        },
+        {
+            "name": "Server/GuildPointRule.bin",
+            "type": 386,
+            "size": 587,
+            "sha256": "36fcc90615c9d4aabb6ea2f0dc1dc05956710b1cd3fae34d5f6985e668f55a7e"
+        },
+        {
+            "name": "Server/GuildTournamentInfo.bin",
+            "type": 265,
+            "size": 623,
+            "sha256": "980282708f099cb2a7f04a24e799a42deb9d5155794ce21dd17398355a58babb"
+        },
+        {
+            "name": "Server/HiLevelItemMixRate.bin",
+            "type": 7,
+            "size": 113,
+            "sha256": "2788498c9ce2995c858b2e1056d3a01ac03387198e9c479763733d0ae8851de5"
+        },
+        {
+            "name": "Server/HideNpcList.bin",
+            "type": 45,
+            "size": 85,
+            "sha256": "3597d343b2877daf7d0cfa75e24cee1438227527ce76bfc61cc676be6c414a86"
+        },
+        {
+            "name": "Server/ItemChangeList.bin",
+            "type": 42,
+            "size": 14678,
+            "sha256": "274bd13b4c192c11595ed8f8fd96fbc587a7bc9c6dd8fafb3cb06f0b774c6fa6"
+        },
+        {
+            "name": "Server/ItemChangeListMulti.bin",
+            "type": 6661,
+            "size": 11807,
+            "sha256": "e154a1879a60416e00b4f7b908238456bbe904e5e343991e44ffe1fb277a6fca"
+        },
+        {
+            "name": "Server/ItemChangeRateofLv.bin",
+            "type": 992,
+            "size": 4369,
+            "sha256": "abd6ecc1b86e95fa2fc43a6d4a9ccfd36548089c433277400f20aff626c644f6"
+        },
+        {
+            "name": "Server/ItemLimitInfo.bin",
+            "type": 42,
+            "size": 72,
+            "sha256": "786645983537d3a1240024e2ca91cf619ba2a6cedfcd68b58dc36df5b80a6e49"
+        },
+        {
+            "name": "Server/ItemMixList.bin",
+            "type": 18468,
+            "size": 430230,
+            "sha256": "7f40669fc55dd9241bac26abd3851983f46a46bbf23fab2208fbf959d6f5fead"
+        },
+        {
+            "name": "Server/Item_RareOptionInfo.bin",
+            "type": 1556,
+            "size": 1663,
+            "sha256": "367fd0203e535182a4169c221834bcc3884768e54d620acc6c369577c506bd81"
+        },
+        {
+            "name": "Server/Item_RareStatSetRate.bin",
+            "type": 450,
+            "size": 1177,
+            "sha256": "044afe50f0a8e9210c3168d5c105200132b03dd5f70c2b37c6e8e53dfd1ef9ba"
+        },
+        {
+            "name": "Server/Jackpot_Info.bin",
+            "type": 159,
+            "size": 193,
+            "sha256": "c290633268efb48c6d0c48750b06c95d6498dc621c548ae517aa729685494239"
+        },
+        {
+            "name": "Server/LoginPoint.bin",
+            "type": 318,
+            "size": 825,
+            "sha256": "9f222d64c729054a1c6ecde79a4138c2a0418e287be5460a81200ff2d68274f0"
+        },
+        {
+            "name": "Server/MapDropItemList.bin",
+            "type": 1920,
+            "size": 5516,
+            "sha256": "51986bc0fc640348027d69cc93a6e8caaa07c0f0a4ce0c567503d0eec737cd19"
+        },
+        {
+            "name": "Server/MapDropListInitDate.bin",
+            "type": 3,
+            "size": 3,
+            "sha256": "3297c8b4a595c4a469ee93b2d23af105085d242942ace80647625f84be249fdf"
+        },
+        {
+            "name": "Server/MonsterDropItemList.bin",
+            "type": 18468,
+            "size": 202029,
+            "sha256": "da558e28d24deb99b03ab4ae3a31239f77b22cd4bd9876d0641e542b78960d41"
+        },
+        {
+            "name": "Server/MonsterSpeechInfoList.bin",
+            "type": 6335,
+            "size": 115461,
+            "sha256": "ac343797d883daae3362fb9eea7138fe48ad2c468a96c3566f07ce525ff999c2"
+        },
+        {
+            "name": "Server/Monster_01.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_02.bin",
+            "type": 42,
+            "size": 9061,
+            "sha256": "b39046e7916476c74238ceb0d7c7163726fefbf8d40f7cbbae6e97da3adfc80d"
+        },
+        {
+            "name": "Server/Monster_04.bin",
+            "type": 4990,
+            "size": 9146,
+            "sha256": "4e7dfed066c9d5b546da943eb9175b7491abf42d98ce8b718c4d0b7d2fb5a296"
+        },
+        {
+            "name": "Server/Monster_06.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_07.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_08.bin",
+            "type": 42,
+            "size": 15445,
+            "sha256": "6fb09c5ac5b77c31995c6ab08b9c389e2074625d20c8a2099292be5291a00fe1"
+        },
+        {
+            "name": "Server/Monster_09.bin",
+            "type": 42,
+            "size": 17530,
+            "sha256": "ee70a0ffdd3b0d8420bbaad4360f89949b36036b34593eb2d6ac9a46d9dbdc81"
+        },
+        {
+            "name": "Server/Monster_10.bin",
+            "type": 42,
+            "size": 22749,
+            "sha256": "edfd4a5534fcb3ec5f3266f8691a3a709d660ae4648cbc49bd043d249b4f3c80"
+        },
+        {
+            "name": "Server/Monster_101.bin",
+            "type": 42,
+            "size": 8300,
+            "sha256": "3e5a6a019ce922ed70f87734b93d60fe0a639874bdd50c2e63587e79f8bee693"
+        },
+        {
+            "name": "Server/Monster_102.bin",
+            "type": 42,
+            "size": 7342,
+            "sha256": "75e3c379f07d97c5fc159d578a82da0f43d8c947f719f8c07b4af08e6f80abf7"
+        },
+        {
+            "name": "Server/Monster_104.bin",
+            "type": 8527,
+            "size": 9941,
+            "sha256": "f297f18a3eaa52e456439130b0c3f77bbc7c56477f8f24daaaf82c14f0dfd950"
+        },
+        {
+            "name": "Server/Monster_105.bin",
+            "type": 161,
+            "size": 882,
+            "sha256": "caef4d3ce2632ba698385e926886e5b85688cc17e2caad2d97ad5e361450cbf2"
+        },
+        {
+            "name": "Server/Monster_106.bin",
+            "type": 42,
+            "size": 9244,
+            "sha256": "fc7877f2964736889cffd5015f812d4e21b7778e5636ee31842256bfe15b998e"
+        },
+        {
+            "name": "Server/Monster_108.bin",
+            "type": 8548,
+            "size": 9920,
+            "sha256": "fa9e51f7e3a7075e9539e776d5a06e0eebbb1ad2c1b7f73bcb71b816422a7acb"
+        },
+        {
+            "name": "Server/Monster_11.bin",
+            "type": 42,
+            "size": 18355,
+            "sha256": "faf0cd6a3182f6b9c56a9f2e5eff4537e358fc4b8c8bc17a286bcc74e0bfd673"
+        },
+        {
+            "name": "Server/Monster_12.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_13.bin",
+            "type": 5254,
+            "size": 13214,
+            "sha256": "6c2b708c0a132a450950dc007a9ef3727e4aa70a47b51101af57386a69c763ac"
+        },
+        {
+            "name": "Server/Monster_14.bin",
+            "type": 18468,
+            "size": 19085,
+            "sha256": "3569b77f123737dfced1d45341fbfe8667d278be0f3b25537a9919ad9ccaa31f"
+        },
+        {
+            "name": "Server/Monster_15.bin",
+            "type": 42,
+            "size": 16354,
+            "sha256": "5413a6b6c50c451830d2220cbeb187e0c79a925f9cd3e94a9a6515131af2827c"
+        },
+        {
+            "name": "Server/Monster_17.bin",
+            "type": 42,
+            "size": 16539,
+            "sha256": "050b149dd732c1cd0e6e3800eb82864a9baff6fd7d00b858bf05d2cb5e6d7132"
+        },
+        {
+            "name": "Server/Monster_18.bin",
+            "type": 42,
+            "size": 16352,
+            "sha256": "c0c88baf446ea5bc6e03ee4e1946f66b539e13dbf792b45a121a351d7f8ceeaf"
+        },
+        {
+            "name": "Server/Monster_19.bin",
+            "type": 42,
+            "size": 15643,
+            "sha256": "2fa7998bc15026a7655c4648b88ee18466ae41518c397b3bdb2807d955a2243c"
+        },
+        {
+            "name": "Server/Monster_20.bin",
+            "type": 6335,
+            "size": 17753,
+            "sha256": "0f9b162d16ca431a3b55c6965e16a7436243c3e9f0bfdc2f3d1a2a0807057f6f"
+        },
+        {
+            "name": "Server/Monster_21.bin",
+            "type": 18468,
+            "size": 19314,
+            "sha256": "25676c623f6e1adb32e2f5928390345de7bb7fa34b9d775fd069cb000e9bdbe3"
+        },
+        {
+            "name": "Server/Monster_22.bin",
+            "type": 3201,
+            "size": 15267,
+            "sha256": "fafd3d98fc997652277538b9c6f6721fbf07502b5335e18b49e895bba9991e24"
+        },
+        {
+            "name": "Server/Monster_23.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_24.bin",
+            "type": 3903,
+            "size": 6063,
+            "sha256": "646c78ade48ca8ed862360dd998052def342ca193b5a07cb3ef9e5eb13fcc392"
+        },
+        {
+            "name": "Server/Monster_25.bin",
+            "type": 2132,
+            "size": 16336,
+            "sha256": "0456afbc547d79643215c14a5efb7b18ac87a394d3ace6988a71a77531046f91"
+        },
+        {
+            "name": "Server/Monster_26.bin",
+            "type": 293,
+            "size": 6062,
+            "sha256": "9c02f1d71771cceb7b5c492656ae51b8b8c17eb27f572aed52c99e3ed03e421f"
+        },
+        {
+            "name": "Server/Monster_27.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_32.bin",
+            "type": 4799,
+            "size": 7584,
+            "sha256": "c3b79344ad40c5ed2b6b4b37577779e84b6e3a273c87a826c7b45728741e7461"
+        },
+        {
+            "name": "Server/Monster_33.bin",
+            "type": 1,
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "name": "Server/Monster_34.bin",
+            "type": 5296,
+            "size": 6063,
+            "sha256": "9fa69d9e20c3b5b3bdfb2194d946415f2b1bdf2bff80cb7ad07cf41493a4c205"
+        },
+        {
+            "name": "Server/Monster_35.bin",
+            "type": 42,
+            "size": 17128,
+            "sha256": "a05f815a371713e42c2ae05806ecfcb90ca22654f73423ccb3f198a93725c41f"
+        },
+        {
+            "name": "Server/Monster_39.bin",
+            "type": 42,
+            "size": 15496,
+            "sha256": "257d58685535fc9ede015655a529163f12bcb3dc064fbd7d7352938822168816"
+        },
+        {
+            "name": "Server/Monster_40.bin",
+            "type": 42,
+            "size": 13118,
+            "sha256": "45c6df33c81a4c5861e96c816a5a4d65dec90e00058875e4d3ed9e59586bfa16"
+        },
+        {
+            "name": "Server/Monster_59.bin",
+            "type": 42,
+            "size": 18605,
+            "sha256": "59df356ab87ce934393e4fb8dfcd8eb968ec8a8401e43a7b2b072ae82db7e96d"
+        },
+        {
+            "name": "Server/Monster_60.bin",
+            "type": 42,
+            "size": 18860,
+            "sha256": "e84ba1fbed633a9e2013645944c0aec8354ddedec1c9cb59004ff8ff8e32debc"
+        },
+        {
+            "name": "Server/Monster_61.bin",
+            "type": 930,
+            "size": 5846,
+            "sha256": "80f50db540adfdb93090bc7d6818821e89112057bfa88362d522971b9caeb9d8"
+        },
+        {
+            "name": "Server/Monster_65.bin",
+            "type": 15351,
+            "size": 16428,
+            "sha256": "f5fd019f5b8a8938609a0ce56c7c77fb8d55e05c14ea809a4ca58053124e51f6"
+        },
+        {
+            "name": "Server/Monster_66.bin",
+            "type": 6335,
+            "size": 20313,
+            "sha256": "0036c41a12986917c29076c9db9ea583da8ef22ca86db9c6893d714dd6e0da25"
+        },
+        {
+            "name": "Server/Monster_67.bin",
+            "type": 479,
+            "size": 17989,
+            "sha256": "dc1c2e6b462cf6f4288e079b9f6346f350233902062ed0e231ba3ccc93360da8"
+        },
+        {
+            "name": "Server/Monster_68.bin",
+            "type": 6223,
+            "size": 12245,
+            "sha256": "9c8d182c72d7428905f22f1c97d50efa57c279750a41cf2057bc7eaab60a3239"
+        },
+        {
+            "name": "Server/Monster_69.bin",
+            "type": 42,
+            "size": 18871,
+            "sha256": "ffce510dae8d44e78ea0526b2f27fa18465b2ba9bf226ba3a75b5cb70e95ef23"
+        },
+        {
+            "name": "Server/Monster_70.bin",
+            "type": 6335,
+            "size": 18524,
+            "sha256": "9f0d345f2ccb594d60971698210a126495fe672d13aca2a4d69e50288cbc4369"
+        },
+        {
+            "name": "Server/Monster_72.bin",
+            "type": 398,
+            "size": 695,
+            "sha256": "60b6fe07932c19e75e4761d2a1e3093e407328c3e7156fb55f5f7660dd402e3b"
+        },
+        {
+            "name": "Server/Monster_75.bin",
+            "type": 182,
+            "size": 446,
+            "sha256": "06a20bcf61c2ca9d60775646206551b29c4508ca0a7e534439d1888f8c40ea08"
+        },
+        {
+            "name": "Server/Mooun.bin",
+            "type": 350,
+            "size": 441,
+            "sha256": "b9bd5de114bd83e96a4e688690fb564deee488abcf690c425d0a61621845d375"
+        },
+        {
+            "name": "Server/PaneltyTime.bin",
+            "type": 2,
+            "size": 4,
+            "sha256": "5a0b83e19c5750eed6d8d46cb858d15c956a657093c08afa53133c0fbe5f04fb"
+        },
+        {
+            "name": "Server/PetSpeechInfoList.bin",
+            "type": 7080,
+            "size": 11388,
+            "sha256": "6ca0a8c9acf9714f9c40af5b595dc8b189b9f332c611ccc1f2a9f66c9c5b233d"
+        },
+        {
+            "name": "Server/PlayerxMonsterPoint.bin",
+            "type": 5313,
+            "size": 6630,
+            "sha256": "6f198fc505f3f8d3c2a9d107fcd35c99689addc40a8b946579a7601cdbdbf4ec"
+        },
+        {
+            "name": "Server/PlustimeInfo_N.bin",
+            "type": 42,
+            "size": 866,
+            "sha256": "0b3d8a9b5847059b76b4a5c26e968c9c7df37af49f068038d7cf3095a506bcf9"
+        },
+        {
+            "name": "Server/PlustimeInfo__.bin",
+            "type": 42,
+            "size": 848,
+            "sha256": "166e01b27dc521c12aeb358ec83ee1a64545a4fc766f954c522477fe62447969"
+        },
+        {
+            "name": "Server/RegenType1.bin",
+            "type": 42,
+            "size": 3033,
+            "sha256": "077dbb1fce6283e06103089f61724ae9347c13a62aa8e66cdb9398f04bc4c963"
+        },
+        {
+            "name": "Server/RegenType11.bin",
+            "type": 42,
+            "size": 3033,
+            "sha256": "34c30df6dd5f632bc7d9f06329b84d231f2f267c2ab73ee3468f50f75465822d"
+        },
+        {
+            "name": "Server/RegenType12.bin",
+            "type": 3013,
+            "size": 3091,
+            "sha256": "8394bde72d76b9b81cd4bf1470a8caca949a2f75c9dcde2fd4ec25413d81cccc"
+        },
+        {
+            "name": "Server/RegenType13.bin",
+            "type": 2918,
+            "size": 3369,
+            "sha256": "2b0c368c2ce7f5b4e3be72a9d1a540540310a963092b7f78c3ed109da3e95c0a"
+        },
+        {
+            "name": "Server/RegenType14.bin",
+            "type": 2635,
+            "size": 3307,
+            "sha256": "48a291ee9a898b8a177783da2eb1fa0398c3a782e457c4f3cc069c743fff8e89"
+        },
+        {
+            "name": "Server/RegenType15.bin",
+            "type": 137,
+            "size": 3897,
+            "sha256": "219950312f6f64b6469195509736669e93d5f8c26eb0e03cc985ea1c07865d88"
+        },
+        {
+            "name": "Server/RegenType16.bin",
+            "type": 367,
+            "size": 5556,
+            "sha256": "bac3e8a64ca6b390f8c09136ea51222cb053694aed1ff4db04dc769e78b3860e"
+        },
+        {
+            "name": "Server/RegenType17.bin",
+            "type": 6286,
+            "size": 7691,
+            "sha256": "b75a369bb9d026b9efde807df4b96fb4db31db6011d052432b2d588e35d0481a"
+        },
+        {
+            "name": "Server/RegenType18.bin",
+            "type": 2069,
+            "size": 4149,
+            "sha256": "c169213693cee98f66ff3bffac21bb670d92db58d76d18665a641a00cd08b27e"
+        },
+        {
+            "name": "Server/RegenType2.bin",
+            "type": 30,
+            "size": 3073,
+            "sha256": "423002d7d31b5e7f5cc8f6e5f2b2f1233b9c43097c5e75b16df5710e927f6c6f"
+        },
+        {
+            "name": "Server/RegenType3.bin",
+            "type": 2365,
+            "size": 3970,
+            "sha256": "280c37bd7febe30addeb171be7fb28b6e108fc877be600df8eb2af05485c21f1"
+        },
+        {
+            "name": "Server/RegenType4.bin",
+            "type": 42,
+            "size": 3416,
+            "sha256": "e69bc9d7b1797b6b540de480bf1113a2755d1e9d47e626bfaed905854718d4b8"
+        },
+        {
+            "name": "Server/RegenType5.bin",
+            "type": 203,
+            "size": 6132,
+            "sha256": "1b10587bd9343f46d435ae827e04d2722523cd02085d8ce3f27f17c1cdce14e8"
+        },
+        {
+            "name": "Server/RegenType6.bin",
+            "type": 42,
+            "size": 5314,
+            "sha256": "63eafc71ac92102da23ccd6a6a15f6773aeb28d3ce06ee3f4d326c624a59e0fe"
+        },
+        {
+            "name": "Server/RegenType7.bin",
+            "type": 42,
+            "size": 7678,
+            "sha256": "484e8f9638366f825b4f83edf82534993858db955c9652d409b3237445e0f352"
+        },
+        {
+            "name": "Server/RegenType8.bin",
+            "type": 1856,
+            "size": 4153,
+            "sha256": "031fa83914b89dfe5f59c128ffcf70be173204bfe9ed303904cd6d4604b42865"
+        },
+        {
+            "name": "Server/RegenType9.bin",
+            "type": 42,
+            "size": 4867,
+            "sha256": "e59b0dd27e818eaa5f9e2dfcf8eaa30c41caf62c6f6437495527c441e8f77bf0"
+        },
+        {
+            "name": "Server/SWRelationMap.bin",
+            "type": 35,
+            "size": 63,
+            "sha256": "b36e16d69a8f4472f4f7e82747808a4e80ba8c3dcd124f9e1550cf2ea1a8e317"
+        },
+        {
+            "name": "Server/SiegeWarStartTime.bin",
+            "type": 1,
+            "size": 59,
+            "sha256": "fcb4e508852bbacde510827416fdc4f64b6c6f23309efba7914e1c9e8c85b152"
+        },
+        {
+            "name": "Server/Summon1.bin",
+            "type": 821,
+            "size": 1605,
+            "sha256": "df1e1150b83564642e504566d21a7dbae20c0dd874f86d65f47293048bbb83e3"
+        },
+        {
+            "name": "Server/Summon2.bin",
+            "type": 174,
+            "size": 444,
+            "sha256": "614da2d44b5e1238f1f0e2c0431282e5c109ada2c46373c3298ca7629a282488"
+        },
+        {
+            "name": "Server/Summon3.bin",
+            "type": 365,
+            "size": 726,
+            "sha256": "66fd21369635518ff8bf87a8a1a2c8d70d1824cd795a565a0ead8b2b40d9f186"
+        },
+        {
+            "name": "Server/Summon4.bin",
+            "type": 1391,
+            "size": 1648,
+            "sha256": "66968049c9795d312b703059621805fea601fe78a7af1133f91489489ca7a241"
+        },
+        {
+            "name": "Server/SummonList.bin",
+            "type": 71,
+            "size": 108,
+            "sha256": "4d8f9e95c1c49da76a23ce19e2eca93c633edae9c0b2151d9586fafd18dcdb0d"
+        },
+        {
+            "name": "Server/SuryunRegenList.bin",
+            "type": 333,
+            "size": 592,
+            "sha256": "15fadaae68feaef337706a2f9e487689203bbea9bc038fd4730495948fa729ce"
+        },
+        {
+            "name": "Server/TacticAbilityInfo.bin",
+            "type": 236,
+            "size": 344,
+            "sha256": "c6d7803bae44174bf1ecc7bf0f50f914d55284d90db9561778112523ddfcc3bd"
+        },
+        {
+            "name": "Server/TitanMapDropInfo.bin",
+            "type": 1495,
+            "size": 12503,
+            "sha256": "58fa1c6292d4c97ac81037debeeb817f91fb04c21ec4daa28bc6fb49efc38954"
+        },
+        {
+            "name": "Server/TitanServer.bin",
+            "type": 35,
+            "size": 42,
+            "sha256": "6afab77e1f5d1b98f5fe85a4beabb9925d201a3795ab500c3022af6855bf19e8"
+        },
+        {
+            "name": "Server/TitanSpellCostPerMap.bin",
+            "type": 54,
+            "size": 297,
+            "sha256": "08e8a795e5425c4c3450daf1c15991027b6cb011df08935c6359381e75c71bdc"
+        },
+        {
+            "name": "Server/Weather.bin",
+            "type": 1,
+            "size": 1,
+            "sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
         }
     ]
 }
