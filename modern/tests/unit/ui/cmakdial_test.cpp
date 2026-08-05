@@ -37,6 +37,7 @@
 #include "cmakdial.hpp"
 #include "cstatic.hpp"
 #include "cdialog.hpp"
+#include "legacy_window_event.hpp"
 
 #include <gtest/gtest.h>
 
@@ -218,5 +219,304 @@ TEST(CCharMakeDlgTest, OnActionEventIsNoOpUntilManagerPort) {
     SUCCEED();
 }
 
-}  // namespace mxh::ui::test
 
+// ===========================================================================
+// Phase C-Batch-2.78 extension: OnActionEvent full dispatch
+// (sex / hair / face / cloth / boot / weapon / attrib rotation).
+// ===========================================================================
+
+namespace {
+
+struct RotateSink {
+    int calls = 0;
+    CharMakeCategory last_cat{};
+    std::int32_t last_dir = -1;
+    bool OnRotate(CharMakeCategory cat, std::int32_t dir) {
+        ++calls;
+        last_cat = cat;
+        last_dir = dir;
+        return true;
+    }
+};
+
+}  // namespace
+
+TEST(CCharMakeDlgTest, OnActionEventSexLeftDispatchesSexPrev) {
+    cCharMakeDlg dlg;
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.calls, 1);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Sex);
+    EXPECT_EQ(sink.last_dir, kCharMakePrev);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventSexRightDispatchesSexNext) {
+    cCharMakeDlg dlg;
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+    dlg.OnActionEvent(cCharMakeDlg::kSexRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Sex);
+    EXPECT_EQ(sink.last_dir, kCharMakeNext);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventClothBootWeaponDispatchDirectly) {
+    cCharMakeDlg dlg;
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kClothLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Wear);
+    EXPECT_EQ(sink.last_dir, kCharMakePrev);
+
+    dlg.OnActionEvent(cCharMakeDlg::kBootRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Boot);
+    EXPECT_EQ(sink.last_dir, kCharMakeNext);
+
+    dlg.OnActionEvent(cCharMakeDlg::kWeaponLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Weapon);
+    EXPECT_EQ(sink.last_dir, kCharMakePrev);
+
+    EXPECT_EQ(sink.calls, 3);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventAttribEnabledDefaultsTrueAndDispatches) {
+    cCharMakeDlg dlg;
+    EXPECT_TRUE(dlg.attribEnabled());
+
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kAttribLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Attribute);
+    EXPECT_EQ(sink.last_dir, kCharMakePrev);
+
+    dlg.OnActionEvent(cCharMakeDlg::kAttribRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::Attribute);
+    EXPECT_EQ(sink.last_dir, kCharMakeNext);
+    EXPECT_EQ(sink.calls, 2);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventAttribDisabledSkipsDispatch) {
+    cCharMakeDlg dlg;
+    dlg.SetAttribEnabled(false);
+
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kAttribLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    dlg.OnActionEvent(cCharMakeDlg::kAttribRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.calls, 0);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventHairLeftRoutesToMHairWhenManVisible) {
+    cCharMakeDlg dlg;
+    std::vector<cStatic*> statics;
+    BuildDlgWithStatics(dlg, statics);
+    dlg.ChangeComboStatus(0);  // man
+
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kHairLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::MHair);
+    EXPECT_EQ(sink.last_dir, kCharMakePrev);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventHairLeftRoutesToWMHairWhenWomanVisible) {
+    cCharMakeDlg dlg;
+    std::vector<cStatic*> statics;
+    BuildDlgWithStatics(dlg, statics);
+    dlg.ChangeComboStatus(1);  // woman
+
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kHairLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::WMHair);
+    EXPECT_EQ(sink.last_dir, kCharMakePrev);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventFaceRightRoutesToMFaceWhenManVisible) {
+    cCharMakeDlg dlg;
+    std::vector<cStatic*> statics;
+    BuildDlgWithStatics(dlg, statics);
+    dlg.ChangeComboStatus(0);
+
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kFaceRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::MFace);
+    EXPECT_EQ(sink.last_dir, kCharMakeNext);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventFaceRightRoutesToWMFaceWhenWomanVisible) {
+    cCharMakeDlg dlg;
+    std::vector<cStatic*> statics;
+    BuildDlgWithStatics(dlg, statics);
+    dlg.ChangeComboStatus(1);
+
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kFaceRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.last_cat, CharMakeCategory::WMFace);
+    EXPECT_EQ(sink.last_dir, kCharMakeNext);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventNonBtnClickIsNoOp) {
+    cCharMakeDlg dlg;
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr,
+                      legacy_window_event::kPushUp);
+    EXPECT_EQ(sink.calls, 0);
+
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr, 0);
+    EXPECT_EQ(sink.calls, 0);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventUnknownIdIsNoOp) {
+    cCharMakeDlg dlg;
+    RotateSink sink;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink.OnRotate(cat, dir);
+    });
+
+    dlg.OnActionEvent(9999, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink.calls, 0);
+}
+
+TEST(CCharMakeDlgTest, RotateCallbackReplaceAndClear) {
+    cCharMakeDlg dlg;
+    RotateSink sink1;
+    RotateSink sink2;
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink1.OnRotate(cat, dir);
+    });
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink1.calls, 1);
+    EXPECT_EQ(sink2.calls, 0);
+
+    dlg.SetRotateCallback([&](CharMakeCategory cat, std::int32_t dir) {
+        return sink2.OnRotate(cat, dir);
+    });
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink1.calls, 1);
+    EXPECT_EQ(sink2.calls, 1);
+
+    dlg.SetRotateCallback({});
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    EXPECT_EQ(sink1.calls, 1);
+    EXPECT_EQ(sink2.calls, 1);
+}
+
+TEST(CCharMakeDlgTest, OnActionEventWithoutCallbackIsSafe) {
+    cCharMakeDlg dlg;
+    // No SetRotateCallback. All dispatches must be no-ops,
+    // not crashes.
+    dlg.OnActionEvent(cCharMakeDlg::kSexLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    dlg.OnActionEvent(cCharMakeDlg::kClothRightId, nullptr,
+                      legacy_window_event::kButtonClick);
+    dlg.OnActionEvent(cCharMakeDlg::kAttribLeftId, nullptr,
+                      legacy_window_event::kButtonClick);
+    SUCCEED();
+}
+
+TEST(CCharMakeDlgTest, IdConstantsAreDistinct) {
+    int ids[14] = {
+        cCharMakeDlg::kSexLeftId,
+        cCharMakeDlg::kSexRightId,
+        cCharMakeDlg::kHairLeftId,
+        cCharMakeDlg::kHairRightId,
+        cCharMakeDlg::kFaceLeftId,
+        cCharMakeDlg::kFaceRightId,
+        cCharMakeDlg::kClothLeftId,
+        cCharMakeDlg::kClothRightId,
+        cCharMakeDlg::kBootLeftId,
+        cCharMakeDlg::kBootRightId,
+        cCharMakeDlg::kWeaponLeftId,
+        cCharMakeDlg::kWeaponRightId,
+        cCharMakeDlg::kAttribLeftId,
+        cCharMakeDlg::kAttribRightId,
+    };
+    for (int i = 0; i < 14; ++i) {
+        for (int j = i + 1; j < 14; ++j) {
+            EXPECT_NE(ids[i], ids[j]);
+        }
+    }
+}
+
+TEST(CCharMakeDlgTest, IdConstantsMatchExpectedLocalRange) {
+    EXPECT_EQ(cCharMakeDlg::kSexLeftId,      204);
+    EXPECT_EQ(cCharMakeDlg::kSexRightId,     205);
+    EXPECT_EQ(cCharMakeDlg::kHairLeftId,     206);
+    EXPECT_EQ(cCharMakeDlg::kHairRightId,    207);
+    EXPECT_EQ(cCharMakeDlg::kFaceLeftId,     208);
+    EXPECT_EQ(cCharMakeDlg::kFaceRightId,    209);
+    EXPECT_EQ(cCharMakeDlg::kClothLeftId,    210);
+    EXPECT_EQ(cCharMakeDlg::kClothRightId,   211);
+    EXPECT_EQ(cCharMakeDlg::kBootLeftId,     212);
+    EXPECT_EQ(cCharMakeDlg::kBootRightId,    213);
+    EXPECT_EQ(cCharMakeDlg::kWeaponLeftId,   214);
+    EXPECT_EQ(cCharMakeDlg::kWeaponRightId,  215);
+    EXPECT_EQ(cCharMakeDlg::kAttribLeftId,   216);
+    EXPECT_EQ(cCharMakeDlg::kAttribRightId,  217);
+}
+
+TEST(CCharMakeDlgTest, CharMakeCategoryEnumMatchesLegacy) {
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::Sex),       0);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::MHair),     1);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::WMHair),    2);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::MFace),     3);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::WMFace),    4);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::Wear),      5);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::Boot),      6);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::Weapon),    7);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::Attribute), 8);
+    EXPECT_EQ(static_cast<int>(CharMakeCategory::Max),       9);
+    EXPECT_EQ(kCharMakePrev, 0);
+    EXPECT_EQ(kCharMakeNext, 1);
+}
+
+}  // namespace mxh::ui::test

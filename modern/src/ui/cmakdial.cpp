@@ -4,6 +4,7 @@
 
 #include "cmakdial.hpp"
 #include "cstatic.hpp"
+#include "legacy_window_event.hpp"
 
 namespace mxh::ui {
 
@@ -62,34 +63,87 @@ void cCharMakeDlg::ChangeComboStatus(std::uint16_t wSex) {
     }
 }
 
-void cCharMakeDlg::OnActionEvent(std::int32_t /*lId*/, void* /*p*/,
-                                 std::uint32_t /*we*/) {
-    // TODO: dispatch to CharMakeManager once that singleton
-    // is ported. The legacy calls
-    //   CHARMAKEMGR->RotateSelection(CE_SEX,        CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_MHAIR,      CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_WMHAIR,     CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_MFACE,      CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_WMFACE,     CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_WEAR,       CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_BOOT,       CM_PREV/NEXT)
-    //   CHARMAKEMGR->RotateSelection(CE_WEAPON,     CM_PREV/NEXT)
-    // for 8 button ids (CMID_SexLeft/Right, CMID_HairLeft/Right,
-    // CMID_FaceLeft/Right, CMID_ClothLeft/Right,
-    // CMID_BootLeft/Right, CMID_WeaponLeft/Right). The
-    // CharMakeManager port is tracked separately; until
-    // then, OnActionEvent is a no-op (the dialog's UI state
-    // can still be observed through Linking +
-    // ChangeComboStatus, which is the testable surface).
-    //
-    // When CharMakeManager is ported, the implementation
-    // will be:
-    //   if (we & WE_BTNCLICK) {
-    //       if      (lId == CMID_SexLeft)        rotate(CE_SEX,    CM_PREV);
-    //       else if (lId == CMID_SexRight)       rotate(CE_SEX,    CM_NEXT);
-    //       else if (lId == CMID_HairLeft  && m_pMHair ->IsActive()) rotate(CE_MHAIR,  CM_PREV);
-    //       ... etc.
-    //   }
+void cCharMakeDlg::OnActionEvent(std::int32_t lId, void* /*p*/, std::uint32_t we) {
+    // 1:1 with legacy cCharMakeDlg::OnActionEvent. The legacy
+    // dispatches WE_BTNCLICK to CHARMAKEMGR->RotateSelection
+    // for each button id. The modern port routes through an
+    // injected RotateCallback (the host wires it to
+    // CHARMAKEMGR->RotateSelection in the future singleton
+    // bridge). Until the host injects a callback, OnActionEvent
+    // is effectively a no-op (matches the pre-bridge state).
+    if ((we & legacy_window_event::kButtonClick) == 0) return;
+
+    switch (lId) {
+    case kSexLeftId:
+        Rotate(CharMakeCategory::Sex, kCharMakePrev);
+        break;
+    case kSexRightId:
+        Rotate(CharMakeCategory::Sex, kCharMakeNext);
+        break;
+    case kHairLeftId:
+        if (m_pMHair && m_pMHair->isVisible())
+            Rotate(CharMakeCategory::MHair, kCharMakePrev);
+        else if (m_pWMHair && m_pWMHair->isVisible())
+            Rotate(CharMakeCategory::WMHair, kCharMakePrev);
+        break;
+    case kHairRightId:
+        if (m_pMHair && m_pMHair->isVisible())
+            Rotate(CharMakeCategory::MHair, kCharMakeNext);
+        else if (m_pWMHair && m_pWMHair->isVisible())
+            Rotate(CharMakeCategory::WMHair, kCharMakeNext);
+        break;
+    case kFaceLeftId:
+        if (m_pMHair && m_pMHair->isVisible())
+            Rotate(CharMakeCategory::MFace, kCharMakePrev);
+        else if (m_pWMHair && m_pWMHair->isVisible())
+            Rotate(CharMakeCategory::WMFace, kCharMakePrev);
+        break;
+    case kFaceRightId:
+        if (m_pMHair && m_pMHair->isVisible())
+            Rotate(CharMakeCategory::MFace, kCharMakeNext);
+        else if (m_pWMHair && m_pWMHair->isVisible())
+            Rotate(CharMakeCategory::WMFace, kCharMakeNext);
+        break;
+    case kClothLeftId:
+        Rotate(CharMakeCategory::Wear, kCharMakePrev);
+        break;
+    case kClothRightId:
+        Rotate(CharMakeCategory::Wear, kCharMakeNext);
+        break;
+    case kBootLeftId:
+        Rotate(CharMakeCategory::Boot, kCharMakePrev);
+        break;
+    case kBootRightId:
+        Rotate(CharMakeCategory::Boot, kCharMakeNext);
+        break;
+    case kWeaponLeftId:
+        Rotate(CharMakeCategory::Weapon, kCharMakePrev);
+        break;
+    case kWeaponRightId:
+        Rotate(CharMakeCategory::Weapon, kCharMakeNext);
+        break;
+    case kAttribLeftId:
+        if (m_attribEnabled)
+            Rotate(CharMakeCategory::Attribute, kCharMakePrev);
+        break;
+    case kAttribRightId:
+        if (m_attribEnabled)
+            Rotate(CharMakeCategory::Attribute, kCharMakeNext);
+        break;
+    default:
+        break;
+    }
+}
+
+void cCharMakeDlg::Rotate(CharMakeCategory cat, std::int32_t dir) noexcept {
+    // 1:1 with legacy CHARMAKEMGR->RotateSelection dispatch.
+    // The modern port defers the actual rotation logic to the
+    // host (which calls into the future CharMakeManager
+    // singleton bridge); the dialog itself only forwards the
+    // request.
+    if (m_rotate) {
+        m_rotate(cat, dir);
+    }
 }
 
 }  // namespace mxh::ui

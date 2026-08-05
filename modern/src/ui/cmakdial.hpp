@@ -36,10 +36,32 @@
 #pragma once
 
 #include "cDialog.hpp"
+#include "legacy_window_event.hpp"
+
+#include <cstdint>
+#include <functional>
 
 namespace mxh::ui {
 
 class cStatic;
+
+// 1:1 with legacy CHAR_M enum. Attribute is always present as a category; OnActionEvent only dispatches it when AttribEnabled is true (matches the legacy _JAPAN_LOCAL_ build-flag gate).
+enum class CharMakeCategory : std::int32_t {
+    Sex       = 0,
+    MHair     = 1,
+    WMHair    = 2,
+    MFace     = 3,
+    WMFace    = 4,
+    Wear      = 5,
+    Boot      = 6,
+    Weapon    = 7,
+    Attribute = 8,
+    Max       = 9,
+};
+
+// 1:1 with legacy CM_PREV / CM_NEXT constants.
+inline constexpr std::int32_t kCharMakePrev = 0;
+inline constexpr std::int32_t kCharMakeNext = 1;
 
 class cCharMakeDlg : public cDialog {
 public:
@@ -80,7 +102,42 @@ public:
     cStatic* GetManFace()   const noexcept { return m_pMFace; }
     cStatic* GetWomanFace() const noexcept { return m_pWMFace; }
 
+// ----- Local id range (matches modern test convention) -----
+
+    // 1:1 with legacy CMID_SexLeft / CMID_SexRight / CMID_HairLeft /
+    // CMID_HairRight / CMID_FaceLeft / CMID_FaceRight / CMID_ClothLeft /
+    // CMID_ClothRight / CMID_BootLeft / CMID_BootRight /
+    // CMID_WeaponLeft / CMID_WeaponRight / CMID_AttribLeft /
+    // CMID_AttribRight. Local range 204-217 (avoids collision with
+    // the 4 static IDs 200-203 used by Linking).
+    static constexpr std::int32_t kSexLeftId      = 204;
+    static constexpr std::int32_t kSexRightId     = 205;
+    static constexpr std::int32_t kHairLeftId     = 206;
+    static constexpr std::int32_t kHairRightId    = 207;
+    static constexpr std::int32_t kFaceLeftId     = 208;
+    static constexpr std::int32_t kFaceRightId    = 209;
+    static constexpr std::int32_t kClothLeftId    = 210;
+    static constexpr std::int32_t kClothRightId   = 211;
+    static constexpr std::int32_t kBootLeftId     = 212;
+    static constexpr std::int32_t kBootRightId    = 213;
+    static constexpr std::int32_t kWeaponLeftId   = 214;
+    static constexpr std::int32_t kWeaponRightId  = 215;
+    static constexpr std::int32_t kAttribLeftId   = 216;
+    static constexpr std::int32_t kAttribRightId  = 217;
+
+    // ----- Test introspection (additional to Get* static accessors) -----
+
+    using RotateCallback = std::function<bool(CharMakeCategory, std::int32_t)>;
+
+    void SetRotateCallback(RotateCallback cb) noexcept { m_rotate = std::move(cb); }
+    void SetAttribEnabled(bool enabled) noexcept { m_attribEnabled = enabled; }
+    bool attribEnabled() const noexcept { return m_attribEnabled; }
+
 private:
+    void Rotate(CharMakeCategory cat, std::int32_t dir) noexcept;
+
+    RotateCallback m_rotate;
+    bool m_attribEnabled = true;
     cStatic* m_pMHair  = nullptr;
     cStatic* m_pWMHair = nullptr;
     cStatic* m_pMFace  = nullptr;
