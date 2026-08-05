@@ -5,6 +5,11 @@
 
 最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
 
+### E2 T2 wire golden round-trip coverage (2026-08-06)
+
+- E2 T2 wire golden round-trip - 对所有 84 个 golden .bin 文件各加一个 TEST(WireFormatGolden, RoundTrip_X)，解析字节到 Packet struct，再 wire_bytes() 重编码，断言字节完全相同。 11 个原 wire format 测试 + 84 个 golden round-trip = 95 tests, 95 PASSED, 0 FAILED。 锁住现代 wire encoder 与 legacy [Server]*/4DyuchiNET_Latest 字节级 1:1。
+- 加 find_golden_dir() helper (server/golden 等路径候选) + filesystem/fstream/string 头文件。
+
 ### E1 T1 parse test subdir expansion (2026-08-06)
 
 - E1 T1 parse test subdir expansion - deploy Server/ + QuestScript/ + PlayDH non-Client (top-level + EffectScript/Map/QuestScript/SkillArea) 全部 read_mh_bin parse ok = true + size match + 256MB 限。
