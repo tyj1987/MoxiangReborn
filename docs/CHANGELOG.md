@@ -143,3 +143,14 @@
 - ? commit 3616baac: server: D3.10 lock legacy EndQuest + EndSubQuest semantics (7 lifecycle tests)?
 
 
+
+
+
+### D3.11 weapon-filtered AddCount (2026-08-06)
+
+- D3.11 weapon-filtered AddCount - ? legacy CQuestGroup::AddCountFromWeapon + AddCountFromQWeapon ???? 1:1 ??? modern ????:add_count_from_weapon(state, questIdx, subIdx, max, requiredWeaponKind, playerWeaponKind) ? `playerWeaponKind == requiredWeaponKind` ???? quest_group_add_count;add_count_from_q_weapon(state, ...) ??????? weapon item-idx???????????? false ??? counter(legacy "???" 1:1 quirk)?
+- ????????? quest_group_add_count ? max-bound clamp ??,?? + ???????
+- 6 ????????:AddCountFromWeaponMismatchedKindDoesNothing / AddCountFromWeaponMatchingKindIncrements / AddCountFromWeaponClampsAtMax / AddCountFromQWeaponMismatchedItemDoesNothing / AddCountFromQWeaponMatchingItemIncrements / AddCountFromWeaponMissingQuestReturnsFalse?mxh_quest_group_tests: 45 -> 51 tests PASS, 0 regressions?
+- ? commit 67dcac95: server: D3.11 weapon-filtered AddCount (legacy AddCountFromWeapon + AddCountFromQWeapon data plane)?
+
+
