@@ -1917,6 +1917,7 @@ gtest_add_tests(TARGET mxh_tactic_ability_info_tests
 
 add_executable(mxh_agent_itemlimit_tests
     agent_itemlimit_test.cpp
+    agent_itemlimit_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_itemlimit_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_itemlimit_tests
