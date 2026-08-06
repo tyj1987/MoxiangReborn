@@ -303,6 +303,7 @@ add_library(mxh_server STATIC
     server/punish_manager.cpp
     server/shout_manager.cpp
     server/shop_item_manager.cpp
+    server/calc_shop_item_option.cpp
     server/gm_power_list.cpp
     server/hackshield_manager.cpp
     server/nprotect_manager.cpp

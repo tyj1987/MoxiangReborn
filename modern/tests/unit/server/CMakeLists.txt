@@ -1,4 +1,4 @@
-# Server handler tests - Phase 10.17
+﻿# Server handler tests - Phase 10.17
 # Smoke tests for the 3 game-server handlers (Login / Agent / Map).
 
 add_executable(mxh_server_handler_tests
@@ -2145,6 +2145,7 @@ gtest_add_tests(TARGET mxh_c_monster_speech_manager_tests
 add_executable(mxh_shop_item_manager_tests
     shop_item_manager_test.cpp
     shop_item_update_sql_test.cpp
+    calc_shop_item_option_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
