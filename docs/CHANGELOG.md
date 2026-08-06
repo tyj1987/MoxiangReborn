@@ -165,3 +165,16 @@
 - ? commit c197573b: server: D3.12 weapon-filtered TakeQuestItem (legacy TakeQuestItemFromWeapon + TakeQuestItemFromQWeapon)?
 
 
+
+
+
+### D3.13 weapon-filtered execute dispatch (2026-08-06)
+
+- D3.13 weapon-filtered execute dispatch - ? D3.11/12 ? quest_group_add_count_from_weapon / quest_group_add_count_from_q_weapon / quest_group_take_quest_item_from_weapon / quest_group_take_quest_item_from_q_weapon ????? apply_count_execute / apply_item_execute ? QuestScriptLoader dispatch ??:
+  - apply_count_execute ?? player_weapon_kind / player_weapon_item ???? 0 ??;AddCountFQW / AddCountFW ?? case ???? UnsupportedContext,????????????(?? 0 ?? "? context" -> gate ???? -> ???? Applied + changed=false,? legacy "missing context ? no-op" ??)?
+  - apply_item_execute ??? player_weapon_kind / player_weapon_item;TakeQuestItemFQW / TakeQuestItemFW ?? case ??????,?? GiveItem/TakeItem/GiveMoney/TakeMoney/TakeExp/TakeSExp/RandomTakeItem ??? UnsupportedContext(?? player inventory / ?? / ?? context,??? quest_group ???)?
+- ???? MissingQuestAndWeaponContextAreExplicit ??:`*ADDCOUNTFW 1 2 3` ?? 0 context ??? Applied + changed=false;???? "match context ? changed=true" ? sanity check?
+- mxh_quest_execute_tests + mxh_quest_group_tests ????(77/77),0 regressions?
+- ? commit e6dfaf1a: server: D3.13 extend apply_count_execute / apply_item_execute with player weapon context (D3.11/12 wiring)?
+
+
