@@ -1,4 +1,4 @@
-// wire_format_coverage_test.cpp
+﻿// wire_format_coverage_test.cpp
 //
 // M18 -- wire-format golden coverage audit (C 协议扩展 foundation).
 //
@@ -9,7 +9,7 @@
 //
 // Baseline (M18, 2026-07-30):
 //   9 wire-format goldens, 4 distinct categories covered (cat=4, 6, 7, 8).
-//   77 of 81 categories have no wire-format golden.
+//   77 of 77 categories have no wire-format golden.
 //
 // Why a coverage audit before more goldens:
 //   1. Catches accidental golden deletion (regression detector).
@@ -77,9 +77,9 @@ std::optional<GoldenHeader> read_golden_header(const std::filesystem::path& p) {
 const std::filesystem::path kGoldenDir =
     std::filesystem::path(__FILE__).parent_path() / "golden";
 
-// All 81 category byte values (1..81) that the legacy protocol defines.
-// mxh::proto::Category::Max is a terminator (=82), not a real category.
-constexpr int kTotalCategories = 81;
+// All 77 category byte values (1..77) that the legacy protocol defines.
+// mxh::proto::Category::Max is a terminator (=78), not a real category.
+constexpr int kTotalCategories = 77;
 
 // Encrypted goldens (e.g. login_ack_enc.bin) have their body encrypted --
 // the category byte is not recoverable from the header. For those files
@@ -355,14 +355,14 @@ TEST(WireFormatCoverage, EachGoldenIsValidWireHeader) {
             << " file_size=" << h->file_size << " mismatch";
         // For unencrypted files, the category byte must be a valid protocol
         // category. Encrypted files have encrypted body so the 5th byte is
-        // ciphertext and is allowed to fall outside 1..81.
+        // ciphertext and is allowed to fall outside 1..77.
         const bool name_says_enc = entry.path().filename().string().find("_enc")
                                    != std::string::npos;
         if (!name_says_enc) {
             EXPECT_GE(h->category, 1u)
                 << "golden " << entry.path().filename()
                 << " category=" << static_cast<int>(h->category)
-                << " must be in 1..81";
+                << " must be in 1..77";
             EXPECT_LE(h->category, static_cast<std::uint8_t>(kTotalCategories))
                 << "golden " << entry.path().filename()
                 << " category byte out of legacy protocol range";
