@@ -528,6 +528,7 @@ gtest_add_tests(TARGET mxh_pyo_guk_manager_tests
 )
 add_executable(mxh_friend_manager_tests
     friend_manager_test.cpp
+    friend_manager_data_plane_test.cpp
 )
 target_link_libraries(mxh_friend_manager_tests PRIVATE
     mxh_server gtest_main
