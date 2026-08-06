@@ -1,10 +1,16 @@
-# CHANGELOG - 历史完成项
+﻿# CHANGELOG - åŽ†å²å®Œæˆé¡¹
 
-> 完整 commit 历史: git log --oneline (1 commit = 1 sub-deliverable)。
-> 本文件保留 2026-08 重构前 ROADMAP 的关键历史 [x] 项摘要, 用于回溯。
+> å®Œæ•´ commit åŽ†å²: git log --oneline (1 commit = 1 sub-deliverable)ã€‚
+> æœ¬æ–‡ä»¶ä¿ç•™ 2026-08 é‡æž„å‰ ROADMAP çš„å…³é”®åŽ†å² [x] é¡¹æ‘˜è¦, ç”¨äºŽå›žæº¯ã€‚
 
-最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
-### D4.27 DiscardAvatarItem data plane (2026-08-06)
+æœ€è¿‘é‡æž„: 2026-08-06 - æŠŠè€ ROADMAP (434 è¡Œ) ç æˆè§„åˆ’æ–‡æ¡£ (158 è¡Œ) + æœ¬ CHANGELOGã€‚
+
+### D4.31 PutOnAvatarItem / TakeOffAvatarItem data plane (2026-08-06)
+
+- D4.31 - 1:1 ports of the validation + mutation + side-effect-emission halves of legacy CShopItemManager::PutOnAvatarItem and ::TakeOffAvatarItem from [Server]Map/ShopItemManager.cpp:1792-2021.
+- Adds modern/include/mxh/server/avatar_equip_transition.hpp: free functions put_on_avatar_item / take_off_avatar_item. The data plane captures 13 mutually exclusive failure modes (AvatarMissing / PositionOutOfRange / ItemBaseMissing / UsingItemMissing / ItemBaseMismatch / AvatarEquipMissing / ItemInfoMissing / AvatarMismatch / HatBlockedByDress / WeaponSlotMismatch / ExistingItemInfoMissing / DressEquipMissing / DependentItemInfoMissing) plus the new avatar[24] state and a side-effect list (ShopItemUseParamUpdateToDB + ParamUpdateInMemory) so the orchestrator can dispatch DB writes + m_UsingItemTable mutations.
+- 27 tests in modern/tests/unit/server/avatar_equip_transition_test.cpp: every status + the hat/dress interaction, weapon-slot guard (player_inited gate), default-fill mask (new equip's mask overrides weared slots 12..17), dependent-removal mask (old equip mask drives fill on slot clearing), broadcast suppression on item_pos==0, avatar-mismatch + cosmetic take-off default fill, weapon-slot dress replacement, dependent-item info miss, weapon-slot clear.
+- See commit <commit hash TBD>.`n`n### D4.27 DiscardAvatarItem data plane (2026-08-06)
 
 - D4.27 - 1:1 port of the data-plane half of legacy CShopItemManager::DiscardAvatarItem(WORD ItemIdx, WORD ItemPos) from [Server]Map/ShopItemManager.cpp.
 - Adds modern/include/mxh/server/discard_avatar_item.hpp: AvatarEquipRow struct (Position + Item[24] mask, mirrors legacy AVATARITEM) + kAvatarDefaultFillStart/End constants (12..18 = [Weared_Hair, Weared_Gum)) + free function discard_avatar_item(equip, idx, current_avatar) -> new_avatar. The 4 no-op conditions are: missing equip, position out of range, avatar[pos] != item_idx, position at sentinel.
@@ -62,114 +68,114 @@
 
 ### E2 T2 wire golden round-trip coverage (2026-08-06)
 
-- E2 T2 wire golden round-trip - 对所有 84 个 golden .bin 文件各加一个 TEST(WireFormatGolden, RoundTrip_X)，解析字节到 Packet struct，再 wire_bytes() 重编码，断言字节完全相同。 11 个原 wire format 测试 + 84 个 golden round-trip = 95 tests, 95 PASSED, 0 FAILED。 锁住现代 wire encoder 与 legacy [Server]*/4DyuchiNET_Latest 字节级 1:1。
-- 加 find_golden_dir() helper (server/golden 等路径候选) + filesystem/fstream/string 头文件。
+- E2 T2 wire golden round-trip - å¯¹æ‰€æœ‰ 84 ä¸ª golden .bin æ–‡ä»¶å„åŠ ä¸€ä¸ª TEST(WireFormatGolden, RoundTrip_X)ï¼Œè§£æžå­—èŠ‚åˆ° Packet structï¼Œå† wire_bytes() é‡ç¼–ç ï¼Œæ–­è¨€å­—èŠ‚å®Œå…¨ç›¸åŒã€‚ 11 ä¸ªåŽŸ wire format æµ‹è¯• + 84 ä¸ª golden round-trip = 95 tests, 95 PASSED, 0 FAILEDã€‚ é”ä½çŽ°ä»£ wire encoder ä¸Ž legacy [Server]*/4DyuchiNET_Latest å­—èŠ‚çº§ 1:1ã€‚
+- åŠ  find_golden_dir() helper (server/golden ç­‰è·¯å¾„å€™é€‰) + filesystem/fstream/string å¤´æ–‡ä»¶ã€‚
 
 ### E1 T1 parse test subdir expansion (2026-08-06)
 
-- E1 T1 parse test subdir expansion - deploy Server/ + QuestScript/ + PlayDH non-Client (top-level + EffectScript/Map/QuestScript/SkillArea) 全部 read_mh_bin parse ok = true + size match + 256MB 限。
-- 总数 89 -> 268 parse test entries across 5 suites (MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65). 7 个 14-byte placeholder stub 被过滤 (header.file_size = 0 会失败 EXPECT_GT)。
-- 与 SHA-256 manifest 锁定的 303 records 严格对齐：每个有 SHA-256 记录的 .bin 都有对应 parse test。
+- E1 T1 parse test subdir expansion - deploy Server/ + QuestScript/ + PlayDH non-Client (top-level + EffectScript/Map/QuestScript/SkillArea) å…¨éƒ¨ read_mh_bin parse ok = true + size match + 256MB é™ã€‚
+- æ€»æ•° 89 -> 268 parse test entries across 5 suites (MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65). 7 ä¸ª 14-byte placeholder stub è¢«è¿‡æ»¤ (header.file_size = 0 ä¼šå¤±è´¥ EXPECT_GT)ã€‚
+- ä¸Ž SHA-256 manifest é”å®šçš„ 303 records ä¸¥æ ¼å¯¹é½ï¼šæ¯ä¸ªæœ‰ SHA-256 è®°å½•çš„ .bin éƒ½æœ‰å¯¹åº” parse testã€‚
 
 
 
 ---
 
-## 截止 2026-08-06 已完成项
+## æˆªæ­¢ 2026-08-06 å·²å®Œæˆé¡¹
 
-### E1 T1 资源字节级验证 (2026-08-05)
+### E1 T1 èµ„æºå­—èŠ‚çº§éªŒè¯ (2026-08-05)
 
-- E1 T1 payload SHA-256 byte-level verification - 3 个 manifest (deploy + PlayDH + PlayDH/Client), 146 records, 117 .bin 文件 SHA-256 + byte-size + header.type 锁定。3/3 VerifyManifest_* PASS。
-- E1 T1 mechanical expansion - 89 deploy/Resource .bin 全部 read_mh_bin parse ok = true + size match + 256MB 限。
+- E1 T1 payload SHA-256 byte-level verification - 3 ä¸ª manifest (deploy + PlayDH + PlayDH/Client), 146 records, 117 .bin æ–‡ä»¶ SHA-256 + byte-size + header.type é”å®šã€‚3/3 VerifyManifest_* PASSã€‚
+- E1 T1 mechanical expansion - 89 deploy/Resource .bin å…¨éƒ¨ read_mh_bin parse ok = true + size match + 256MB é™ã€‚
 
-### Phase D 玩法/数值 1:1
+### Phase D çŽ©æ³•/æ•°å€¼ 1:1
 
-- D1.1 + D1.2 + D1.3 SkillList.bin parser + call-site - SkillInfo 扩到 60+ 字段 1:1 legacy SKILLINFO, SkillListParser 解码 MHFile packed-text, 1817 entries load 成功 0 parse_errors。MapHandler 用真 SkillList.bin 而非 4-skill hardcode。
-- D2 BattleFactory 1:1 - 14 compute_* 函数 (critical/decisive/player-phy/player-attr/exp/point/phy-defence/received-dmg/monster-phy/monster-attr/titan-phy/titan-attr) + 13 legacy_* 测试。
+- D1.1 + D1.2 + D1.3 SkillList.bin parser + call-site - SkillInfo æ‰©åˆ° 60+ å­—æ®µ 1:1 legacy SKILLINFO, SkillListParser è§£ç  MHFile packed-text, 1817 entries load æˆåŠŸ 0 parse_errorsã€‚MapHandler ç”¨çœŸ SkillList.bin è€Œéž 4-skill hardcodeã€‚
+- D2 BattleFactory 1:1 - 14 compute_* å‡½æ•° (critical/decisive/player-phy/player-attr/exp/point/phy-defence/received-dmg/monster-phy/monster-attr/titan-phy/titan-attr) + 13 legacy_* æµ‹è¯•ã€‚
 - D3.x QuestManager (D3.5-D3.7):
-  - D3.5 QuestScriptLine 端到端 parser - 9 event tokens + 6 limit tokens + &Limit + @Event + *Execute layout
-  - D3.6 QuestTrigger runtime evaluator - 10 tests, EndQuest fix (args[0] 1-arg subquest 索引)
+  - D3.5 QuestScriptLine ç«¯åˆ°ç«¯ parser - 9 event tokens + 6 limit tokens + &Limit + @Event + *Execute layout
+  - D3.6 QuestTrigger runtime evaluator - 10 tests, EndQuest fix (args[0] 1-arg subquest ç´¢å¼•)
   - D3.7 QuestScript subquest block parser - 12 tests
   - D3.3 / D3.4 QuestExecute data-plane dispatch (5+4 QuestGroup + 4 dispatch tests)
-- D5 MurimNet 1:1 wire - Channel + PlayRoom + 60 协议代码 + 9 wire serializer + 7 short wire + runtime.broadcast_chat sink + MurimNetCrypt + 139 tests。
-- D6.1 数值 baseline - 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 124 槽 / 2728B ItemTotalInfo / 3775B GameInAck hero payload / 4 ItemEffect 公式 / 3 default MonsterTemplate 全部 1:1 锁死。
-- D6.2 Distributer recipient + party-exp pure decisions - legacy null-party tie no-op, 50/50 tie, float allocation, zero-send gate. 10 new tests, 45/45 focused PASS。
-- D6.2 FieldBossMonsterManager 1:1 - 19 tests (channel 配置/出怪/重置/单飞/限频)。
-- D6.2 ChooseOne tie-break + SetPlusTotalDamage += semantics。
-- D6.3 BossMonsterManager 1:1 - 19 tests (register/spawn/erase/damage/live_count)。
-- D6.4 cMonsterSpeechManager 1:1 - 15 tests。
-- D6.5 ExperienceCurve 1:1 - 15 tests (CharacterExpPoint.bin reader, add_exp 限一次升级)。
-- D6.6 state_param + summon_monster + titan_item_manager 1:1 - 31 tests。
-- D6.7 distribute_network_msg_parser + common_network_msg_parser 1:1 - 19 tests。
-- D6.x ItemList.bin 1:1 parser - ITEM_INFO 77 fields, 56/60 token MHFile packed-text, 9887 rows 0 parse errors。Shared decode_mhfile_text_payload helper。
-- R-8 item_effects real lookup via ItemManager - ItemManager.init_from_bin / get / try_get / exists / size。resolve_item_effect_with_manager 读 LifeRecover / LifeRecoverRate / NaeRyukRecover / NaeRyukRecoverRate。12 tests PASS。
-- R-8 call-site MapHandler.load_item_list - 3 tests。
-- B6.1 HSEL YHLibrary ABI 校正 - 79 crypto tests, non-virtual dtor / 2 const virtual getters / protected version/type fields / non-virtual CHSEL_STREAM。
+- D5 MurimNet 1:1 wire - Channel + PlayRoom + 60 åè®®ä»£ç  + 9 wire serializer + 7 short wire + runtime.broadcast_chat sink + MurimNetCrypt + 139 testsã€‚
+- D6.1 æ•°å€¼ baseline - 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 124 æ§½ / 2728B ItemTotalInfo / 3775B GameInAck hero payload / 4 ItemEffect å…¬å¼ / 3 default MonsterTemplate å…¨éƒ¨ 1:1 é”æ­»ã€‚
+- D6.2 Distributer recipient + party-exp pure decisions - legacy null-party tie no-op, 50/50 tie, float allocation, zero-send gate. 10 new tests, 45/45 focused PASSã€‚
+- D6.2 FieldBossMonsterManager 1:1 - 19 tests (channel é…ç½®/å‡ºæ€ª/é‡ç½®/å•é£ž/é™é¢‘)ã€‚
+- D6.2 ChooseOne tie-break + SetPlusTotalDamage += semanticsã€‚
+- D6.3 BossMonsterManager 1:1 - 19 tests (register/spawn/erase/damage/live_count)ã€‚
+- D6.4 cMonsterSpeechManager 1:1 - 15 testsã€‚
+- D6.5 ExperienceCurve 1:1 - 15 tests (CharacterExpPoint.bin reader, add_exp é™ä¸€æ¬¡å‡çº§)ã€‚
+- D6.6 state_param + summon_monster + titan_item_manager 1:1 - 31 testsã€‚
+- D6.7 distribute_network_msg_parser + common_network_msg_parser 1:1 - 19 testsã€‚
+- D6.x ItemList.bin 1:1 parser - ITEM_INFO 77 fields, 56/60 token MHFile packed-text, 9887 rows 0 parse errorsã€‚Shared decode_mhfile_text_payload helperã€‚
+- R-8 item_effects real lookup via ItemManager - ItemManager.init_from_bin / get / try_get / exists / sizeã€‚resolve_item_effect_with_manager è¯» LifeRecover / LifeRecoverRate / NaeRyukRecover / NaeRyukRecoverRateã€‚12 tests PASSã€‚
+- R-8 call-site MapHandler.load_item_list - 3 testsã€‚
+- B6.1 HSEL YHLibrary ABI æ ¡æ­£ - 79 crypto tests, non-virtual dtor / 2 const virtual getters / protected version/type fields / non-virtual CHSEL_STREAMã€‚
 
-### R-2 HackShield 路由 + tick
+### R-2 HackShield è·¯ç”± + tick
 
-- R-2 AgentHandler HackShield routing - cat==HackShield (67) 通过 mxh::server::parse_hackshield_message, conn_user_levels_ + conn_hs_states_ + hackshield_disconnect_pending_, superuser (>=5) 立即 send_guid_req。10 tests。
-- R-2.1 AgentHandler auto-populate user_level from chr_log_info (proto=9) - 3 tests。
-- R-2.2 AgentHandler::tick_hackshield() server-side periodic recheck - 4 tests (empty/grace/non-superuser/mixed)。
-- bug: Crypt::encrypt_crc/decrypt_crc 返回 0 而非 HselStream CRC char - fixed + 4 tests。
+- R-2 AgentHandler HackShield routing - cat==HackShield (67) é€šè¿‡ mxh::server::parse_hackshield_message, conn_user_levels_ + conn_hs_states_ + hackshield_disconnect_pending_, superuser (>=5) ç«‹å³ send_guid_reqã€‚10 testsã€‚
+- R-2.1 AgentHandler auto-populate user_level from chr_log_info (proto=9) - 3 testsã€‚
+- R-2.2 AgentHandler::tick_hackshield() server-side periodic recheck - 4 tests (empty/grace/non-superuser/mixed)ã€‚
+- bug: Crypt::encrypt_crc/decrypt_crc è¿”å›ž 0 è€Œéž HselStream CRC char - fixed + 4 testsã€‚
 
-### MurimNet 1:1 关键
+### MurimNet 1:1 å…³é”®
 
 - commit 83d53c1b - MurimNetChannel.for_each_channel + PlayRoomManager.for_each_room + SendMsg_ChannelList/PlayRoomList
-- commit ce931c51 - wire-byte serializer (MSG_CHANNEL_BASEINFO/MSG_PLAYROOM_BASEINFO/#pragma pack(1) 9 size 锁定)
-- commit 845294ec - SendMsg_ChannelList/PlayRoomList 8 tests (size = GetMsgLength, Category=38, Protocol=34/35, title 63 字节)
+- commit ce931c51 - wire-byte serializer (MSG_CHANNEL_BASEINFO/MSG_PLAYROOM_BASEINFO/#pragma pack(1) 9 size é”å®š)
+- commit 845294ec - SendMsg_ChannelList/PlayRoomList 8 tests (size = GetMsgLength, Category=38, Protocol=34/35, title 63 å­—èŠ‚)
 
-### Phase C UI 1:1 port - 主要 batches (Batch 1.1-1.10 + Batch 2.1-2.80)
+### Phase C UI 1:1 port - ä¸»è¦ batches (Batch 1.1-1.10 + Batch 2.1-2.80)
 
-完整 109 dialog 列表 (按 phase commit 索引):
+å®Œæ•´ 109 dialog åˆ—è¡¨ (æŒ‰ phase commit ç´¢å¼•):
 - Batch 1.1 - 1.10 (10 dialog): cNumberPadDialog / cPartyWarDialog / cWantedDialog / cMPNoticeDialog / cReviveDialog / cMiniFriendDialog / cGuildInviteDialog / cChatOptionDialog / cStallKindSelectDlg / cDebugDlg (331 tests)
 - Batch 2.1 - 2.7 (7 dialog): cMPGuageDialog / cAlertDlg / cChinaAdviceDlg / cLoadingDlg / cKeySettingTipDlg / cIntroReplayDlg / cNameChangeNotifyDlg (210 tests)
-- Batch 2.32 - 2.80: 30+ dialog (cCharChangeDlg, cBailDialog, cChaseInputDialog, cObjectStateManager 等, 每 dialog 10-25 tests)
-- 收口 fixes: cChatOption checked event bits, cListDialogEx legacy event bits, cPushupButton sticky click state, cListItem m_maxLine=0 inconsistency。
+- Batch 2.32 - 2.80: 30+ dialog (cCharChangeDlg, cBailDialog, cChaseInputDialog, cObjectStateManager ç­‰, æ¯ dialog 10-25 tests)
+- æ”¶å£ fixes: cChatOption checked event bits, cListDialogEx legacy event bits, cPushupButton sticky click state, cListItem m_maxLine=0 inconsistencyã€‚
 
-### Phase B 服务端 E2E
+### Phase B æœåŠ¡ç«¯ E2E
 
-- B.2.1 CLoginState - 38B legacy payload 字节级
-- B.2.2 CCharSelectState - 8B ListSyn + 889B ListAck + 自动选第一个 + SelectSyn
+- B.2.1 CLoginState - 38B legacy payload å­—èŠ‚çº§
+- B.2.2 CCharSelectState - 8B ListSyn + 889B ListAck + è‡ªåŠ¨é€‰ç¬¬ä¸€ä¸ª + SelectSyn
 - B.2.3 CInGameState - 3775B SEND_HERO_TOTALINFO GameInAck
-- B.2.4 state machine 真接 net 事件
-- B.2.5 MoxianClientE2E headless tool - CreateProcessW 启 3 server + C++ 状态机跑 Login -> CharSelect -> InGame (60s timeout)
+- B.2.4 state machine çœŸæŽ¥ net äº‹ä»¶
+- B.2.5 MoxianClientE2E headless tool - CreateProcessW å¯ 3 server + C++ çŠ¶æ€æœºè·‘ Login -> CharSelect -> InGame (60s timeout)
 
-### Phase A 客户端
+### Phase A å®¢æˆ·ç«¯
 
 - f80f6e0 - MoxianClient skeleton (DX11 + WinMain + 4 sprite + cImage <-> IDISpriteObject)
-- CMainGame 1:1 port - eGAMESTATE 0..9 byte-for-byte + 9 state stub + CMainTitle (14 字段 1:1 surface + Init 读 MHVerInfo.ver)
+- CMainGame 1:1 port - eGAMESTATE 0..9 byte-for-byte + 9 state stub + CMainTitle (14 å­—æ®µ 1:1 surface + Init è¯» MHVerInfo.ver)
 
 ---
 
-## 老 ROADMAP 中的 Phase 0-12 噪音
+## è€ ROADMAP ä¸­çš„ Phase 0-12 å™ªéŸ³
 
-凡旧词提及"Phase 0-12 已完成""35.1% complete""Qoder IDE Quest" 等, 全部废弃。参见 ROADMAP §6。
+å‡¡æ—§è¯æåŠ"Phase 0-12 å·²å®Œæˆ""35.1% complete""Qoder IDE Quest" ç­‰, å…¨éƒ¨åºŸå¼ƒã€‚å‚è§ ROADMAP Â§6ã€‚
 
 
 ### D3 quest event dispatcher bridge (2026-08-06)
 
-- D3 runtime bridge - 把 legacy CQuestManager::AddQuestEvent -> CQuestGroup::AddQuestEvent -> sub-condition 匹配 1:1 移植到 modern runtime。新增 mxh::server::QuestEvent {kind,target_id,delta} + dispatch_quest_event(QuestLog&, const QuestEvent&)，按 QuestLog 顺序遍历，只修改 Accepted 状态（与 legacy group 对 terminal quest 的 guard 一致），每个匹配 sub-quest 累加 delta 并 clamp 到 target，返回 std::vector<QuestEventChange> {quest_id, previous_state, state, updated_subs}。
-- 6 个新行为锁定测试：DispatchQuestEvent.UpdatesEveryMatchingActiveQuestInLogOrder / CompletesQuestWhenFinalConditionMatches / UpdatesAllMatchingSubsWithinQuest / IgnoresNonMatchingAndTerminalQuests / ZeroDeltaAndNoneKindAreNoOps / DoesNotMutateOtherQuests。mxh_quest_manager_tests: 37 -> 43 tests PASS, 0 regressions; 服务端 ctest 313 项中 2 flaky (LoginServerFixture Weather/GuildFieldWar) 重跑 100% 通过。
-- 见 commit 9512a082: server: D3 quest event dispatcher bridge (legacy AddQuestEvent->QuestGroup semantics)。
+- D3 runtime bridge - æŠŠ legacy CQuestManager::AddQuestEvent -> CQuestGroup::AddQuestEvent -> sub-condition åŒ¹é… 1:1 ç§»æ¤åˆ° modern runtimeã€‚æ–°å¢ž mxh::server::QuestEvent {kind,target_id,delta} + dispatch_quest_event(QuestLog&, const QuestEvent&)ï¼ŒæŒ‰ QuestLog é¡ºåºéåŽ†ï¼Œåªä¿®æ”¹ Accepted çŠ¶æ€ï¼ˆä¸Ž legacy group å¯¹ terminal quest çš„ guard ä¸€è‡´ï¼‰ï¼Œæ¯ä¸ªåŒ¹é… sub-quest ç´¯åŠ  delta å¹¶ clamp åˆ° targetï¼Œè¿”å›ž std::vector<QuestEventChange> {quest_id, previous_state, state, updated_subs}ã€‚
+- 6 ä¸ªæ–°è¡Œä¸ºé”å®šæµ‹è¯•ï¼šDispatchQuestEvent.UpdatesEveryMatchingActiveQuestInLogOrder / CompletesQuestWhenFinalConditionMatches / UpdatesAllMatchingSubsWithinQuest / IgnoresNonMatchingAndTerminalQuests / ZeroDeltaAndNoneKindAreNoOps / DoesNotMutateOtherQuestsã€‚mxh_quest_manager_tests: 37 -> 43 tests PASS, 0 regressions; æœåŠ¡ç«¯ ctest 313 é¡¹ä¸­ 2 flaky (LoginServerFixture Weather/GuildFieldWar) é‡è·‘ 100% é€šè¿‡ã€‚
+- è§ commit 9512a082: server: D3 quest event dispatcher bridge (legacy AddQuestEvent->QuestGroup semantics)ã€‚
 
 
 
 ### D4 use_shop_item_decision data plane (2026-08-06)
 
-- D4.20 use_shop_item_decision - 把 legacy CShopItemManager::UseShopItem 中*实际*落到 SHOPITEMBASE 字节上的部分 1:1 提取为 modern 自由函数：InvalidIcon / ItemInfoMissing / AlreadyInUse 三道 guard + Realtime/Playtime/Continue/SellPrice==0 四个 BeginTime/Remaintime 分支 + ItemKind 到 dup counter (Incantation/Charm/Herb/Sundries/PetEquip) 的路由。
-- 新增 inline 常量 SHOP_ITEM_USE_PARAM_REALTIME/PLAYTIME/CONTINUE + LEGACY_SHOP_ITEM_* (257/258/259/260/261/262/263/264/300/310，1:1 引用 [CC]Header/CommonGameDefine.h:698-713)。
-- 8 个新行为锁定测试：RejectsEmptyIcon / RejectsMissingItemInfo / RejectsAlreadyInUse / RealtimeBranchEncodesEndTimeInRemaintime / PlaytimeBranchConvertsRarityToMilliseconds / ContinueBranchHasNoExpiry / ZeroSellPriceRoutesSundriesAndNoTimer / RoutesHerbToHerbDup。mxh_shop_item_manager_tests: 91 -> 99 tests PASS, 0 regressions (ctest -R ShopItemManager|UseShopItemDecision 100% 通过)。
-- 注释解释：legacy UseShopItem 整段被 `/* ... */` 注释（"임시로 놈음 - 성대"），不可 1:1 复现；本函数只覆盖能落到 SHOPITEMWITHTIME 行的 guard + BeginTime/Remaintime 部分。
-- 见 commit dcb05173: server: D4 use_shop_item_decision data plane (legacy UseShopItem guard + BeginTime/Remaintime)。
+- D4.20 use_shop_item_decision - æŠŠ legacy CShopItemManager::UseShopItem ä¸­*å®žé™…*è½åˆ° SHOPITEMBASE å­—èŠ‚ä¸Šçš„éƒ¨åˆ† 1:1 æå–ä¸º modern è‡ªç”±å‡½æ•°ï¼šInvalidIcon / ItemInfoMissing / AlreadyInUse ä¸‰é“ guard + Realtime/Playtime/Continue/SellPrice==0 å››ä¸ª BeginTime/Remaintime åˆ†æ”¯ + ItemKind åˆ° dup counter (Incantation/Charm/Herb/Sundries/PetEquip) çš„è·¯ç”±ã€‚
+- æ–°å¢ž inline å¸¸é‡ SHOP_ITEM_USE_PARAM_REALTIME/PLAYTIME/CONTINUE + LEGACY_SHOP_ITEM_* (257/258/259/260/261/262/263/264/300/310ï¼Œ1:1 å¼•ç”¨ [CC]Header/CommonGameDefine.h:698-713)ã€‚
+- 8 ä¸ªæ–°è¡Œä¸ºé”å®šæµ‹è¯•ï¼šRejectsEmptyIcon / RejectsMissingItemInfo / RejectsAlreadyInUse / RealtimeBranchEncodesEndTimeInRemaintime / PlaytimeBranchConvertsRarityToMilliseconds / ContinueBranchHasNoExpiry / ZeroSellPriceRoutesSundriesAndNoTimer / RoutesHerbToHerbDupã€‚mxh_shop_item_manager_tests: 91 -> 99 tests PASS, 0 regressions (ctest -R ShopItemManager|UseShopItemDecision 100% é€šè¿‡)ã€‚
+- æ³¨é‡Šè§£é‡Šï¼šlegacy UseShopItem æ•´æ®µè¢« `/* ... */` æ³¨é‡Šï¼ˆ"ìž„ì‹œë¡œ ë†ˆìŒ - ì„±ëŒ€"ï¼‰ï¼Œä¸å¯ 1:1 å¤çŽ°ï¼›æœ¬å‡½æ•°åªè¦†ç›–èƒ½è½åˆ° SHOPITEMWITHTIME è¡Œçš„ guard + BeginTime/Remaintime éƒ¨åˆ†ã€‚
+- è§ commit dcb05173: server: D4 use_shop_item_decision data plane (legacy UseShopItem guard + BeginTime/Remaintime)ã€‚
 
 
 
 ### D4.21 CheckEndTime realtime branch data plane (2026-08-06)
 
-- D4.21 CheckEndTime realtime branch - 把 legacy CShopItemManager::CheckEndTime 中 Realtime 模式 (`SellPrice == eShopItemUseParam_Realtime`) 的数据面 1:1 提取为 modern 方法: collect_realtime_expired(PackedTime now, out) / consume_realtime_expired(PackedTime now)。predicate 与 legacy `curtime > stTIME(Remaintime)` 严格一致；只扫描 `Param == SHOP_ITEM_PARAM_STORED_TIME` 的行（playtime/continue/one-shot 跳过）。
-- 7 个新行为锁定测试: NoRowsNoExpirations / PlaytimeRowsAreSkipped / FutureEndTimeIsNotExpired / EqualEndTimeIsNotExpired / PastEndTimeIsCollected / MixedRowsSelectsOnlyStoredTimeExpired / ConsumeIsIdempotentOnAlreadyExpiredRows。mxh_shop_item_manager_tests: 99 -> 106 tests PASS, 0 regressions。
-- 见 commit 3e21470e: server: D4.21 CheckEndTime realtime branch data plane (legacy SellPrice==Realtime sweep)。
+- D4.21 CheckEndTime realtime branch - æŠŠ legacy CShopItemManager::CheckEndTime ä¸­ Realtime æ¨¡å¼ (`SellPrice == eShopItemUseParam_Realtime`) çš„æ•°æ®é¢ 1:1 æå–ä¸º modern æ–¹æ³•: collect_realtime_expired(PackedTime now, out) / consume_realtime_expired(PackedTime now)ã€‚predicate ä¸Ž legacy `curtime > stTIME(Remaintime)` ä¸¥æ ¼ä¸€è‡´ï¼›åªæ‰«æ `Param == SHOP_ITEM_PARAM_STORED_TIME` çš„è¡Œï¼ˆplaytime/continue/one-shot è·³è¿‡ï¼‰ã€‚
+- 7 ä¸ªæ–°è¡Œä¸ºé”å®šæµ‹è¯•: NoRowsNoExpirations / PlaytimeRowsAreSkipped / FutureEndTimeIsNotExpired / EqualEndTimeIsNotExpired / PastEndTimeIsCollected / MixedRowsSelectsOnlyStoredTimeExpired / ConsumeIsIdempotentOnAlreadyExpiredRowsã€‚mxh_shop_item_manager_tests: 99 -> 106 tests PASS, 0 regressionsã€‚
+- è§ commit 3e21470e: server: D4.21 CheckEndTime realtime branch data plane (legacy SellPrice==Realtime sweep)ã€‚
 
 
 
@@ -260,3 +266,5 @@
 - Adds modern/src/server/update_logout_to_db.cpp: 1:1 implementation of the per-row legacy logic -- drop non-PLAYTIME rows, plustime gate (Charm + MeleeAttackMin + env.event_rate_active), clamp checktime to 30000 ms, decrement Remaintime with underflow-clamp-to-zero.
 - 12 tests in modern/tests/unit/server/update_logout_to_db_test.cpp: RealTimeItemIsDropped / PlayTimeDecrementsByElapsedTime / RemaintimeUnderflowClampsToZero / PlustimeActiveDecrementsNormally / PlustimeInactiveSkipsRemaintimeUpdate / PlustimeRemaintimeZeroAlwaysDrops / PlustimeDisabledWhenMeleeAttackMinZero / CheckTimeCapClampsToThirtySeconds / ClockSkewYieldsZeroChecktime / PlustimeRemaintimeZeroWithActiveRateDrops + 2 integration tests.
 - See commit cb30fba6: server: D4 UpdateLogoutToDB data plane - per-row PLAYTIME decrement + plustime gate + 12 tests.
+
+

@@ -2156,6 +2156,7 @@ add_executable(mxh_shop_item_manager_tests
     calc_plus_time_test.cpp
     extra_slot_count_test.cpp
     looting_thresholds_test.cpp
+    avatar_equip_transition_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
@@ -2168,5 +2169,7 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
+
 
 
