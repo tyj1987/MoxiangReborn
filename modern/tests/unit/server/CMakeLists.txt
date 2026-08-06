@@ -1968,6 +1968,7 @@ gtest_add_tests(TARGET mxh_agent_bobusang_user_tests
 
 add_executable(mxh_agent_gtournament_tests
     agent_gtournament_test.cpp
+    agent_gtournament_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_gtournament_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_gtournament_tests
