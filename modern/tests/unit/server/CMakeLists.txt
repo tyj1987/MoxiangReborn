@@ -2213,6 +2213,7 @@ add_executable(mxh_shop_item_manager_tests
     titan_delegate_side_effect_test.cpp
     revive_other_nack_side_effect_test.cpp
     curse_cancellation_side_effect_test.cpp
+    additem_slot_lock_side_effect_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
@@ -2225,6 +2226,7 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
 
 
 
