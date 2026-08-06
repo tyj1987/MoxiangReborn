@@ -278,6 +278,82 @@ TEST(QuestGroupChangeSubQuestValue, MissingQuestReturnsFalse) {
 
 
 
+// ---- D3.10 quest end lifecycle tests (lock legacy EndQuest + EndSubQuest semantics) ----
+TEST(QuestGroupEndQuest, MissingQuestReturnsFalse) {
+    auto state = make_quest_group();
+    EXPECT_FALSE(quest_group_end_quest(state, 99, 0, 12345u));
+}
+
+TEST(QuestGroupEndQuest, NonRepeatMarksCompleteAndClearsSubquests) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 100);
+    quest_group_start_subquest(state, 7, 3, 100);
+    quest_group_set_main_data(state, 7, 0xFFu, 0, 100, 0, 0);
+    EXPECT_TRUE(quest_group_end_quest(state, 7, 0, 5000u));
+    const auto* quest = quest_group_get_quest(state, 7);
+    ASSERT_NE(quest, nullptr);
+    EXPECT_TRUE(quest->complete);
+    EXPECT_EQ(quest->data, 1u);
+    EXPECT_EQ(quest->time, 5000u);
+    EXPECT_EQ(quest->subQuestFlag, 0u);
+    EXPECT_TRUE(quest->activeSubquests.empty());
+    EXPECT_TRUE(quest->subQuestData.empty());
+}
+
+TEST(QuestGroupEndQuest, RepeatLeavesQuestOpenAndResetsCounter) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    EXPECT_TRUE(quest_group_end_quest(state, 7, 1, 9000u));
+    const auto* quest = quest_group_get_quest(state, 7);
+    ASSERT_NE(quest, nullptr);
+    EXPECT_FALSE(quest->complete);
+    EXPECT_EQ(quest->data, 0u);
+    EXPECT_EQ(quest->time, 9000u);
+}
+
+TEST(QuestGroupEndSubQuest, MissingQuestReturnsFalse) {
+    auto state = make_quest_group();
+    EXPECT_FALSE(quest_group_end_subquest(state, 99, 2, 12345u));
+}
+
+TEST(QuestGroupEndSubQuest, NotActiveReturnsFalse) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    // Subquest 2 was never started, so erase(2) returns 0.
+    EXPECT_FALSE(quest_group_end_subquest(state, 7, 2, 12345u));
+}
+
+TEST(QuestGroupEndSubQuest, ActiveSetsFlagBitAndClearsTime) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 100);
+    EXPECT_TRUE(quest_group_end_subquest(state, 7, 2, 5000u));
+    const auto* quest = quest_group_get_quest(state, 7);
+    ASSERT_NE(quest, nullptr);
+    EXPECT_EQ(quest->subQuestTime.at(2), 5000u);
+    EXPECT_EQ(quest->subQuestData.at(2), 0u);
+    // subQuestFlag bit for idx 2 is bit (31-2) = 29, so 0x20000000.
+    EXPECT_EQ(quest->subQuestFlag, 0x20000000u);
+    EXPECT_FALSE(quest->activeSubquests.count(2));
+}
+
+TEST(QuestGroupEndSubQuest, ZeroIdxResetsQuestDataAndTime) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_set_main_data(state, 7, 0, 9999, 100, 0, 0);
+    quest_group_start_subquest(state, 7, 0, 100);
+    EXPECT_TRUE(quest_group_end_subquest(state, 7, 0, 5000u));
+    const auto* quest = quest_group_get_quest(state, 7);
+    ASSERT_NE(quest, nullptr);
+    // Ending the main (idx 0) subquest also resets quest->data / quest->time,
+    // matching the legacy `if (dwSubQuestIdx == 0) { dwData=0; dwTime=... }`
+    // branch in CQuest::EndQuest / CQuestGroup::EndSubQuest.
+    EXPECT_EQ(quest->data, 0u);
+    EXPECT_EQ(quest->time, 5000u);
+}
+
+
 
 // ---- D3.8 quest_group_run_pending (legacy CQuestGroup::Process link) ----
 TEST(QuestGroupRunPending, NoEventsProducesEmptyResult) {
