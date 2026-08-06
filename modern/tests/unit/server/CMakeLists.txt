@@ -1316,6 +1316,7 @@ gtest_add_tests(TARGET mxh_agent_powerup_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_cheat_tests
     agent_cheat_test.cpp
+    agent_cheat_data_plane_test.cpp
     agent_cheat_side_effect_plan_test.cpp
 )
 target_link_libraries(mxh_agent_cheat_tests PRIVATE mxh_server GTest::gtest_main)
