@@ -2191,6 +2191,8 @@ add_executable(mxh_shop_item_manager_tests
     guild_warehouse_info_side_effect_test.cpp
     guild_warehouse_leave_side_effect_test.cpp
     guild_move_side_effect_test.cpp
+    avatar_takeoff_side_effect_test.cpp
+    avatar_change_side_effect_test.cpp
     item_unseal_side_effect_test.cpp
     revive_other_side_effect_test.cpp
 )
@@ -2205,6 +2207,7 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
 
 
 
