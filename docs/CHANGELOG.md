@@ -4,6 +4,14 @@
 > 本文件保留 2026-08 重构前 ROADMAP 的关键历史 [x] 项摘要, 用于回溯。
 
 最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
+### D4.27 DiscardAvatarItem data plane (2026-08-06)
+
+- D4.27 - 1:1 port of the data-plane half of legacy CShopItemManager::DiscardAvatarItem(WORD ItemIdx, WORD ItemPos) from [Server]Map/ShopItemManager.cpp.
+- Adds modern/include/mxh/server/discard_avatar_item.hpp: AvatarEquipRow struct (Position + Item[24] mask, mirrors legacy AVATARITEM) + kAvatarDefaultFillStart/End constants (12..18 = [Weared_Hair, Weared_Gum)) + free function discard_avatar_item(equip, idx, current_avatar) -> new_avatar. The 4 no-op conditions are: missing equip, position out of range, avatar[pos] != item_idx, position at sentinel.
+- Adds modern/src/server/discard_avatar_item.cpp: implementation with the clear-and-default-fill loop matching the legacy collapsed iteration.
+- 11 tests in modern/tests/unit/server/discard_avatar_item_test.cpp: 4 no-op conditions + matching-slot clear + default-fill zeros->ones + non-zero masked slots preserved + all masked slots preserved + non-weared slots untouched + Weared_Gwun boundary check + position-at-Max sentinel test.
+- See commit a96c6547: server: D4 discard_avatar_item data plane - AvatarEquip clear + default-fill + 11 tests.
+
 ### D4.26 IsPetSummonItem/IsTitanCallItem/IsTitanEquipItem + GetItemKindType + playtime_decrement (2026-08-06)
 
 - D4.26 - 1:1 ports of three ItemKind predicates + GetItemKindType + the CheckEndTime PLAYTIME decrement arithmetic, all as pure data-plane free functions.
