@@ -305,6 +305,7 @@ add_library(mxh_server STATIC
     server/shop_item_manager.cpp
     server/calc_shop_item_option.cpp
     server/update_logout_to_db.cpp
+    server/dup_param.cpp
     server/gm_power_list.cpp
     server/hackshield_manager.cpp
     server/nprotect_manager.cpp
