@@ -4,6 +4,15 @@
 > 本文件保留 2026-08 重构前 ROADMAP 的关键历史 [x] 项摘要, 用于回溯。
 
 最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
+
+### D4.24 AddDupParam/DeleteDupParam/IsDupAble data plane (2026-08-06)
+
+- D4.24 - 1:1 port of legacy CShopItemManager::AddDupParam / DeleteDupParam / IsDupAble from [Server]Map/ShopItemManager.cpp:2286-2620. Splits the legacy per-bit OR / XOR-when-both-set / block semantics across 5 dup categories (charm / herb / incantation / sundries / pet_equip) into a pure data plane.
+- Adds modern/include/mxh/server/dup_param.hpp: DupCounters struct (5 counter fields) + DupParamIndices struct (5 index fields) + DupParamLookup virtual class (returns 0 by default) + SundrySideEffects struct (set/clear bStreetStall booleans) + 5 inner namespaces (charm_dup / herb_dup / incantation_dup / sundries_dup / pet_equip_dup) with bit constants matching [CC]Header/CommonGameDefine.h:2874-2930 (DONTDUP_* flag values 1:1 with legacy) + 3 free functions (add_dup_param, delete_dup_param, is_dup_able).
+- Adds modern/src/server/dup_param.cpp: implementation with apply_or (OR, idempotent for Add) and apply_delete (XOR-when-both-set, clears bit only if both counter and dup_param have it). Sundries street-stall side effect captured in SundrySideEffects struct.
+- 33 tests in modern/tests/unit/server/dup_param_test.cpp: 32 named tests covering AddDupParam (NoIndices, CharmBitsOrIntoCounter, CharmOrIsIdempotent, IncantationBitsOrIntoCounter, SundriesBitsOrAndTriggersStreetStall, SundriesBitsWithoutStreetStallHasNoSideEffect, PetEquipBitsOrIntoCounter, AllFiveCategoriesTogether, LookupReturnsZeroIsNoOp) + DeleteDupParam (NoIndices, CharmBitsClearedWhenBothSet, CharmBitsUntouchedWhenCounterEmpty, IncantationBitsClearedWhenBothSet, SundriesClearsAndTriggersClearStreetStall, SundriesNoClearWhenCounterEmpty, PetEquipBitsClearedWhenBothSet, AllFiveCategoriesTogether) + IsDupAble (EmptyCountersAllDupEnabled, CharmOverlapBlocks, CharmNoOverlapAllows, HerbOverlapBlocks, IncantationOverlapBlocks, SundriesOverlapBlocks, PetEquipOverlapBlocks, NoIndicesReturnsTrue, LookupReturnsZeroIsTrue, AnyCategoryOverlapBlocks, NoOverlapReturnsTrueWithAllIndicesSet, DisjointBitsAllAcrossFiveCategoriesReturnsTrue).
+- See commit 529e1843: server: D4 AddDupParam/DeleteDupParam/IsDupAble data plane - 5 dup categories + 33 tests.
+
 ### D4.23 CalcAvatarOption data plane (2026-08-06)
 
 - D4.23 CalcAvatarOption - 1:1 port of legacy CShopItemManager::CalcAvatarOption() from [Server]Map/ShopItemManager.cpp:2024-2183 (avatar stat accumulator).
