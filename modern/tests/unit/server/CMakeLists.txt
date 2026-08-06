@@ -1110,6 +1110,7 @@ gtest_add_tests(TARGET mxh_ai_group_prototype_tests
 
 add_executable(mxh_agent_guild_tests
     agent_guild_test.cpp
+    agent_guild_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_guild_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_guild_tests
