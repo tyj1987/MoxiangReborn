@@ -2204,6 +2204,7 @@ add_executable(mxh_shop_item_manager_tests
     revive_other_side_effect_test.cpp
     revive_other_ack_side_effect_test.cpp
     avatar_use_side_effect_test.cpp
+    job_change_side_effect_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
@@ -2216,6 +2217,7 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
 
 
 
