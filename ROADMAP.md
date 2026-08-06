@@ -156,3 +156,4 @@
 **下一步**: 清理老的 14 份干扰性文档 (docs/PHASE_6_*.md, docs/PLAN_2026Q3.md 等), 重写 AGENTS.md + README.md。
 
 **2026-08-06 状态刷新**: D4 UseShopItemUpdateToDB data plane (3 SQL builders + 14 tests, commit bbebdb18)。累计 7821 tests PASS (was 7807)。
+**2026-08-06 状态刷新**: D4 CalcShopItemOption data plane (SHOPITEMOPTION 124 bytes + 57 tests, commit 68061fe2)。累计 7878 tests PASS (was 7821)。
