@@ -34,7 +34,13 @@
 - D4.35 - 1:1 port of the per-row side-effect chain that legacy CShopItemManager::CheckEndTime applies to each expired shop item in [Server]Map/ShopItemManager.cpp (steps: DiscardItemAttempt + BumpDup + BroadcastUseEnd + ShopItemDeleteToDB + LogItemMoney in legacy order).
 - Adds modern/include/mxh/server/check_end_time_side_effect.hpp: free function check_end_time_side_effect(row, player_id, dup_slot) -> vector<CheckEndTimeStep>. Each step carries the kind + w_icon_idx + item_pos + db_idx + dup_slot the legacy code would have read out of the SHOPITEMWITHTIME row. The orchestrator applies each step to its respective subsystem (ITEMMGR / ShopItemManager / NetBase / DBThread / LogManager) without re-reading the legacy body.
 - 4 tests in modern/tests/unit/server/check_end_time_side_effect_test.cpp: 4-step chain when dup_slot==None + 5-step chain with BumpDup inserted after DiscardItemAttempt + db_idx flows through every step + all 5 dup slots (Incantation/Charm/Herb/Sundries/PetEquip) are accepted.
-- See commit 1730a8c2.### D4.27 DiscardAvatarItem data plane (2026-08-06)
+- See commit 1730a8c2.
+### D4.36 PutOnAvatarItem side-effect dispatcher (2026-08-06)
+
+- D4.36 - 1:1 port of the tail-side-effects that legacy CShopItemManager::PutOnAvatarItem applies after mutating avatar[] in [Server]Map/ShopItemManager.cpp:1792-1922 (the SEND_AVATARITEM_INFO broadcast gated by ItemPos != 0 + the CalcAvatarOption(bCalcStats) recompute).
+- Adds modern/include/mxh/server/put_on_avatar_side_effect.hpp: free function put_on_avatar_side_effect_plan(transition, dw_item_index) -> plan { effects }. Maps the AvatarEquipTransition.send_avatar_info + recalculate_avatar_option + calc_stats flags into the ordered PutOnAvatarSideEffect list (BroadcastAvatarInfo, RecomputeAvatarOption) so the orchestrator can apply them via PACKEDDATA_OBJ->QuickSend + the runtime player stat recompute hook without re-reading the legacy body.
+- 5 tests in modern/tests/unit/server/put_on_avatar_side_effect_test.cpp: broadcast-only when send_info true + recompute-only when recalc true + both when both flags set + empty plan when no flags + calc_stats=false propagates to both effects.
+- See commit <TBD>.### D4.27 DiscardAvatarItem data plane (2026-08-06)
 
 - D4.27 - 1:1 port of the data-plane half of legacy CShopItemManager::DiscardAvatarItem(WORD ItemIdx, WORD ItemPos) from [Server]Map/ShopItemManager.cpp.
 - Adds modern/include/mxh/server/discard_avatar_item.hpp: AvatarEquipRow struct (Position + Item[24] mask, mirrors legacy AVATARITEM) + kAvatarDefaultFillStart/End constants (12..18 = [Weared_Hair, Weared_Gum)) + free function discard_avatar_item(equip, idx, current_avatar) -> new_avatar. The 4 no-op conditions are: missing equip, position out of range, avatar[pos] != item_idx, position at sentinel.
@@ -290,6 +296,7 @@
 - Adds modern/src/server/update_logout_to_db.cpp: 1:1 implementation of the per-row legacy logic -- drop non-PLAYTIME rows, plustime gate (Charm + MeleeAttackMin + env.event_rate_active), clamp checktime to 30000 ms, decrement Remaintime with underflow-clamp-to-zero.
 - 12 tests in modern/tests/unit/server/update_logout_to_db_test.cpp: RealTimeItemIsDropped / PlayTimeDecrementsByElapsedTime / RemaintimeUnderflowClampsToZero / PlustimeActiveDecrementsNormally / PlustimeInactiveSkipsRemaintimeUpdate / PlustimeRemaintimeZeroAlwaysDrops / PlustimeDisabledWhenMeleeAttackMinZero / CheckTimeCapClampsToThirtySeconds / ClockSkewYieldsZeroChecktime / PlustimeRemaintimeZeroWithActiveRateDrops + 2 integration tests.
 - See commit cb30fba6: server: D4 UpdateLogoutToDB data plane - per-row PLAYTIME decrement + plustime gate + 12 tests.
+
 
 
 
