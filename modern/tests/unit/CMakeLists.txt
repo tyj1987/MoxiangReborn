@@ -10,7 +10,7 @@ add_executable(mxh_compat_tests
     item_effects_test.cpp
 )
 
-target_link_libraries(mxh_compat_tests PRIVATE mxh_compat gtest_main)
+target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_game gtest_main)
 
 include(GoogleTest)
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
