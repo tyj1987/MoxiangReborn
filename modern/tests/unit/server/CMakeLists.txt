@@ -2149,6 +2149,7 @@ add_executable(mxh_shop_item_manager_tests
     update_logout_to_db_test.cpp
     dup_param_test.cpp
     is_dup_item_test.cpp
+    item_kind_predicates_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
