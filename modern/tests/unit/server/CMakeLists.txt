@@ -2355,6 +2355,7 @@ add_executable(mxh_shop_item_manager_tests
     item_kind_predicates_test.cpp
     get_item_kind_type_test.cpp
     playtime_decrement_test.cpp
+    get_item_kind_type_data_plane_test.cpp
     discard_avatar_item_test.cpp
     calc_plus_time_test.cpp
     calc_avatar_option_test.cpp
