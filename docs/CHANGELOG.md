@@ -199,3 +199,10 @@
 - ? commit e6dfaf1a: server: D3.13 extend apply_count_execute / apply_item_execute with player weapon context (D3.11/12 wiring)?
 
 
+
+### D4 UseShopItemUpdateToDB data plane (2026-08-06)
+
+- D4 UseShopItemUpdateToDB - 1:1 port of the SQL builders from legacy [Server]Map/MapDBMsgParser.cpp:676-706 (ShopItemUpdatetimeToDB / ShopItemUpdateUseInfoToDB / ShopItemParamUpdateToDB). Splits the legacy sprintf-then-Query monolith into a pure data plane (this header) + a DbThread::execute_async dispatch layer (orchestrator), so the SQL format is testable in isolation and byte-equal to the legacy sprintf output.
+- Adds modern/include/mxh/server/shop_item_update_sql.hpp: STORED_SHOPITEM_UPDATETIME / UPDATEUSEINFO / UPDATEPARAM constants matching the legacy MapDBMsgParser.h STORED_SHOPITEM_* macros (verbatim "dbo.MP_SHOPITEM_*") plus three inline SQL builders: build_shop_item_update_time_sql(chid, item, remain_ms) -> "EXEC dbo.MP_SHOPITEM_Updatetime ..." (3 args), build_shop_item_update_use_info_sql(chid, dbidx, param, remain_ms) -> "EXEC dbo.MP_SHOPITEM_UpdateUseInfo ..." (4 args), build_shop_item_update_param_sql(chid, dbidx, param) -> "EXEC dbo.MP_SHOPITEM_UpdateParam ..." (3 args).
+- 14 tests in modern/tests/unit/server/shop_item_update_sql_test.cpp: BasicFormat / ZeroArguments / LargeUnsignedArguments / StoredProcedureNameMatchesLegacy / TwoCommasImpliesThreeArguments / HasExecPrefix (for the time_sql builder); BasicFormat / FourArgumentsThreeCommas / ZeroParamAndRemain (for the use_info_sql builder); BasicFormat / ThreeArgumentsTwoCommas (for the param_sql builder); NoHexPrefix / NoLeadingZeros / Deterministic (cross-builder invariants).
+- See commit bbebdb18: server: D4 UseShopItemUpdateToDB data plane - 3 SQL builders + 14 tests.
