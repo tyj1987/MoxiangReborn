@@ -209,6 +209,7 @@ gtest_add_tests(TARGET mxh_mn_server_tests
 )
 add_executable(mxh_distribute_server_tests
     distribute_server_test.cpp
+    distribute_server_data_plane_test.cpp
 )
 target_link_libraries(mxh_distribute_server_tests PRIVATE
     mxh_server gtest_main
