@@ -1270,6 +1270,7 @@ add_executable(mxh_agent_userconn_tests
 target_link_libraries(mxh_agent_userconn_tests PRIVATE mxh_server GTest::gtest_main)
 add_executable(mxh_agent_battle_tests
     agent_battle_test.cpp
+    agent_battle_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_battle_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_battle_tests
