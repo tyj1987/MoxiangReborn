@@ -154,3 +154,14 @@
 - ? commit 67dcac95: server: D3.11 weapon-filtered AddCount (legacy AddCountFromWeapon + AddCountFromQWeapon data plane)?
 
 
+
+
+
+### D3.12 weapon-filtered TakeQuestItem (2026-08-06)
+
+- D3.12 weapon-filtered TakeQuestItem - ? legacy CQuestGroup::TakeQuestItemFromWeapon + TakeQuestItemFromQWeapon ???? 1:1 ??? modern ????:take_quest_item_from_weapon(state, quest, sub, item, num, prob, requiredKind, playerKind) ? `playerKind == requiredKind` ?????? quest_group_take_quest_item;take_quest_item_from_q_weapon(state, ...) ????? weapon item-idx????????? false ??? m_QuestItemTable(1:1 quirk)?
+- ? D3.11 ? AddCount weapon-filtered ??:????? `*TAKEQUESTITEMFW` / `*TAKEQUESTITEMFQW` QuestScriptLoader execute ??,?? runtime hook (QUESTMGR->TakeQuestItem) ? caller ???
+- 5 ????????:TakeQuestItemFromWeaponMismatchedKindDoesNothing / TakeQuestItemFromWeaponMatchingKindInserts (+1 sub increment + m_QuestItemTable ????) / TakeQuestItemFromQWeaponMismatchedItemDoesNothing / TakeQuestItemFromQWeaponMatchingItemInserts (+1 sub increment) / TakeQuestItemFromWeaponMissingQuestStillInsertsItem (legacy "? item table ? ChangeSubQuestValue" 1:1 quirk, add_count return void-cast)?mxh_quest_group_tests: 51 -> 56 tests PASS, 0 regressions?
+- ? commit c197573b: server: D3.12 weapon-filtered TakeQuestItem (legacy TakeQuestItemFromWeapon + TakeQuestItemFromQWeapon)?
+
+
