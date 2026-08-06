@@ -1934,6 +1934,7 @@ gtest_add_tests(TARGET mxh_agent_itemlimit_tests
 
 add_executable(mxh_agent_fortwar_tests
     agent_fortwar_test.cpp
+    agent_fortwar_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_fortwar_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_fortwar_tests
