@@ -131,7 +131,8 @@ std::optional<QuestExecuteSpec> parse_quest_execute(
 
 QuestExecuteApplyResult apply_count_execute(
     QuestGroupState& state, const QuestExecuteSpec& spec,
-    std::int32_t player_level, std::int32_t monster_level) noexcept {
+    std::int32_t player_level, std::int32_t monster_level,
+    std::uint32_t player_weapon_kind, std::uint32_t player_weapon_item) noexcept {
     const auto* quest = quest_group_get_quest(state, spec.quest_idx);
     if (quest == nullptr)
         return {QuestExecuteApplyStatus::MissingQuest, false};
@@ -154,8 +155,17 @@ QuestExecuteApplyResult apply_count_execute(
                     state, spec.quest_idx, spec.args[0], spec.args[1], spec.args[2],
                     spec.args[3], static_cast<std::uint32_t>(monster_level))};
     case QuestExecuteKind::AddCountFQW:
+        if (spec.args.size() != 3u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_add_count_from_q_weapon(
+                    state, spec.quest_idx, spec.args[0], spec.args[1],
+                    spec.args[2], player_weapon_item)};
     case QuestExecuteKind::AddCountFW:
-        return {QuestExecuteApplyStatus::UnsupportedContext, false};
+        if (spec.args.size() != 3u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_add_count_from_weapon(
+                    state, spec.quest_idx, spec.args[0], spec.args[1],
+                    spec.args[2], player_weapon_kind)};
     default:
         return {QuestExecuteApplyStatus::InvalidSpec, false};
     }
@@ -219,7 +229,8 @@ QuestExecuteApplyResult apply_time_execute(
 }
 
 QuestExecuteApplyResult apply_item_execute(
-    QuestGroupState& state, const QuestExecuteSpec& spec) noexcept {
+    QuestGroupState& state, const QuestExecuteSpec& spec,
+    std::uint32_t player_weapon_kind, std::uint32_t player_weapon_item) noexcept {
     switch (spec.kind) {
     case QuestExecuteKind::GiveQuestItem:
         if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
@@ -236,14 +247,26 @@ QuestExecuteApplyResult apply_item_execute(
         if (spec.args.size() != 2u) return {QuestExecuteApplyStatus::InvalidSpec, false};
         return {QuestExecuteApplyStatus::Applied,
                 quest_group_take_money_per_count(state, spec.args[0], spec.args[1]) > 0u};
+    case QuestExecuteKind::TakeQuestItemFQW:
+        if (spec.args.size() != 4u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_take_quest_item_from_q_weapon(
+                    state, spec.quest_idx, spec.subquest_idx,
+                    spec.args[0], spec.args[1], spec.args[2],
+                    spec.args[3], player_weapon_item)};
+    case QuestExecuteKind::TakeQuestItemFW:
+        if (spec.args.size() != 4u) return {QuestExecuteApplyStatus::InvalidSpec, false};
+        return {QuestExecuteApplyStatus::Applied,
+                quest_group_take_quest_item_from_weapon(
+                    state, spec.quest_idx, spec.subquest_idx,
+                    spec.args[0], spec.args[1], spec.args[2],
+                    player_weapon_kind, player_weapon_kind)};
     case QuestExecuteKind::GiveItem:
     case QuestExecuteKind::TakeItem:
     case QuestExecuteKind::GiveMoney:
     case QuestExecuteKind::TakeMoney:
     case QuestExecuteKind::TakeExp:
     case QuestExecuteKind::TakeSExp:
-    case QuestExecuteKind::TakeQuestItemFQW:
-    case QuestExecuteKind::TakeQuestItemFW:
     case QuestExecuteKind::RandomTakeItem:
         return {QuestExecuteApplyStatus::UnsupportedContext, false};
     default:

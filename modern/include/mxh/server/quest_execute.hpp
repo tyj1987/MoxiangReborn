@@ -95,12 +95,17 @@ std::optional<QuestExecuteKind> quest_execute_kind_from_token(
     std::string_view token) noexcept;
 
 // Apply the count-family executors whose legacy inputs are fully represented
-// by QuestGroupState. Weapon-filtered variants deliberately return
-// UnsupportedContext until a real player equipment view is supplied.
+// by QuestGroupState. Weapon-filtered variants (AddCountFQW / AddCountFW)
+// route through quest_group_add_count_from_q_weapon /
+// quest_group_add_count_from_weapon using player_weapon_kind /
+// player_weapon_item; default 0 disables the gate (no weapon ever matches
+// so the call is a no-op, preserving legacy "missing context" semantics).
 QuestExecuteApplyResult apply_count_execute(
     QuestGroupState& state, const QuestExecuteSpec& spec,
     std::int32_t player_level = 0,
-    std::int32_t monster_level = 0) noexcept;
+    std::int32_t monster_level = 0,
+    std::uint32_t player_weapon_kind = 0,
+    std::uint32_t player_weapon_item = 0) noexcept;
 
 // Apply the quest-family executors (StartSub / EndSub / EndQuest / EndOther
 // Sub / EndOtherQuest / MapChange / SaveLoginPoint). Each entry requires the
@@ -116,11 +121,17 @@ QuestExecuteApplyResult apply_time_execute(
     QuestGroupState& state, const QuestExecuteSpec& spec) noexcept;
 
 // Apply the item-family executors whose legacy inputs are fully represented
-// by QuestGroupState (GiveQuestItem, TakeQuestItem, TakeMoneyPerCount). All
-// other Item executors (GiveItem / TakeItem / GiveMoney / TakeMoney / TakeExp
-// / TakeSExp / RandomTakeItem weapon-filtered) return UnsupportedContext
-// until a real player inventory / network / random context is available.
+// by QuestGroupState (GiveQuestItem, TakeQuestItem, TakeMoneyPerCount). The
+// weapon-filtered TakeQuestItem variants (TakeQuestItemFW / FQW) route
+// through quest_group_take_quest_item_from_weapon / _from_q_weapon using
+// player_weapon_kind / player_weapon_item; default 0 keeps the legacy "no
+// context" no-op behavior.  All other Item executors (GiveItem / TakeItem /
+// GiveMoney / TakeMoney / TakeExp / TakeSExp / RandomTakeItem) still
+// return UnsupportedContext until a real player inventory / network /
+// random context is available.
 QuestExecuteApplyResult apply_item_execute(
-    QuestGroupState& state, const QuestExecuteSpec& spec) noexcept;
+    QuestGroupState& state, const QuestExecuteSpec& spec,
+    std::uint32_t player_weapon_kind = 0,
+    std::uint32_t player_weapon_item = 0) noexcept;
 
 }  // namespace mxh::server

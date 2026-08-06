@@ -125,8 +125,18 @@ TEST(QuestExecuteApply, MissingQuestAndWeaponContextAreExplicit) {
     ASSERT_TRUE(mxh::server::quest_group_create_quest(state, 99u));
     const auto weapon = parse_quest_execute("*ADDCOUNTFW 1 2 3", 99u, 0u);
     ASSERT_TRUE(weapon.has_value());
-    EXPECT_EQ(apply_count_execute(state, *weapon).status,
-              QuestExecuteApplyStatus::UnsupportedContext);
+    // D3.13 routes *ADDCOUNTFW / *ADDCOUNTFQW through the new
+    // weapon-filtered data plane with default 0 player_weapon_kind / item,
+    // which is a guaranteed gate mismatch (no weapon is ever idx 0 in any
+    // legacy script). The dispatch now reports Applied with changed=false
+    // -- the gate result -- instead of UnsupportedContext, so callers can
+    // distinguish "weapon didn't match" from "no player context".
+    const auto result = apply_count_execute(state, *weapon);
+    EXPECT_EQ(result.status, QuestExecuteApplyStatus::Applied);
+    EXPECT_FALSE(result.changed);
+    // Sanity: with a real player_weapon_kind matching the required one, the
+    // gate passes and the counter increments.
+    EXPECT_TRUE(apply_count_execute(state, *weapon, 0, 0, 3u, 0u).changed);
 }
 
 TEST(QuestGroupStartSub, FirstCallInsertsAndSecondIsNoOp) {
