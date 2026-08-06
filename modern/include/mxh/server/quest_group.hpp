@@ -432,6 +432,44 @@ inline bool quest_group_change_sub_quest_value(
             return false;
     }
 }
+
+
+// ---- D3.11 weapon-filtered AddCount (legacy CQuestGroup::AddCountFromWeapon
+// + AddCountFromQWeapon data plane) ----
+//
+// Legacy CQuestGroup::AddCountFromWeapon(quest, sub, max, weaponKind) gates
+// on `ITEMMGR->GetWeaponKind(player_weapon) == weaponKind` BEFORE calling
+// AddCount.  Legacy CQuestGroup::AddCountFromQWeapon(quest, sub, max,
+// weaponItem) gates on `player_weapon == weaponItem`.  Both fall through to
+// the same AddCount body once the gate passes; the data plane of the gate
+// is the only thing modern needs (the increment is already a separate call).
+//
+// In modern the player's equipped weapon comes from a runtime hook, so the
+// gate takes both the required and actual values.  Returns true iff the
+// gate passed AND quest_group_add_count mutated the counter (max-bound
+// clamp applies via the existing add_count implementation).
+inline bool quest_group_add_count_from_weapon(
+    QuestGroupState& state,
+    std::uint32_t questIdx,
+    std::uint32_t subQuestIdx,
+    std::uint32_t maxCount,
+    std::uint32_t requiredWeaponKind,
+    std::uint32_t playerWeaponKind) noexcept {
+    if (playerWeaponKind != requiredWeaponKind) return false;
+    return quest_group_add_count(state, questIdx, subQuestIdx, maxCount);
+}
+
+// Same gate logic, but on weapon item-idx (legacy AddCountFromQWeapon).
+inline bool quest_group_add_count_from_q_weapon(
+    QuestGroupState& state,
+    std::uint32_t questIdx,
+    std::uint32_t subQuestIdx,
+    std::uint32_t maxCount,
+    std::uint32_t requiredWeaponItem,
+    std::uint32_t playerWeaponItem) noexcept {
+    if (playerWeaponItem != requiredWeaponItem) return false;
+    return quest_group_add_count(state, questIdx, subQuestIdx, maxCount);
+}
 // ---- D3.8 quest_group_run_pending ----
 //
 // Legacy CQuestGroup::Process() (called once per tick from the MapServer

@@ -354,6 +354,62 @@ TEST(QuestGroupEndSubQuest, ZeroIdxResetsQuestDataAndTime) {
 }
 
 
+// ---- D3.11 weapon-filtered AddCount (legacy AddCountFromWeapon + AddCountFromQWeapon) ----
+TEST(QuestGroupWeaponFilter, AddCountFromWeaponMismatchedKindDoesNothing) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_FALSE(quest_group_add_count_from_weapon(state, 7, 2, 3, 5u, 99u));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+}
+
+TEST(QuestGroupWeaponFilter, AddCountFromWeaponMatchingKindIncrements) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_TRUE(quest_group_add_count_from_weapon(state, 7, 2, 5u, 17u, 17u));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 1u);
+    EXPECT_TRUE(quest_group_add_count_from_weapon(state, 7, 2, 5u, 17u, 17u));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 2u);
+}
+
+TEST(QuestGroupWeaponFilter, AddCountFromWeaponClampsAtMax) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    quest_group_add_count_from_weapon(state, 7, 2, 2u, 5u, 5u);
+    quest_group_add_count_from_weapon(state, 7, 2, 2u, 5u, 5u);
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 2u);
+    // Third call still passes the gate but max already reached -- returns
+    // true but does not further increment (quest_group_add_count returns
+    // true with no-op clamp).
+    EXPECT_TRUE(quest_group_add_count_from_weapon(state, 7, 2, 2u, 5u, 5u));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 2u);
+}
+
+TEST(QuestGroupWeaponFilter, AddCountFromQWeaponMismatchedItemDoesNothing) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_FALSE(quest_group_add_count_from_q_weapon(state, 7, 2, 3u, 50001u, 99999u));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+}
+
+TEST(QuestGroupWeaponFilter, AddCountFromQWeaponMatchingItemIncrements) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_TRUE(quest_group_add_count_from_q_weapon(state, 7, 2, 5u, 50001u, 50001u));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 1u);
+}
+
+TEST(QuestGroupWeaponFilter, AddCountFromWeaponMissingQuestReturnsFalse) {
+    auto state = make_quest_group();
+    EXPECT_FALSE(quest_group_add_count_from_weapon(state, 99, 2, 3u, 5u, 5u));
+    EXPECT_FALSE(quest_group_add_count_from_q_weapon(state, 99, 2, 3u, 5u, 5u));
+}
+
+
 
 // ---- D3.8 quest_group_run_pending (legacy CQuestGroup::Process link) ----
 TEST(QuestGroupRunPending, NoEventsProducesEmptyResult) {
