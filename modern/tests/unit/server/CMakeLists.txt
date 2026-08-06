@@ -1212,6 +1212,7 @@ gtest_add_tests(TARGET mxh_summon_monster_tests
 
 add_executable(mxh_agent_note_tests
     agent_note_test.cpp
+    agent_note_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_note_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_note_tests
