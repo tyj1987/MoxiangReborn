@@ -2150,6 +2150,7 @@ add_executable(mxh_shop_item_manager_tests
     dup_param_test.cpp
     is_dup_item_test.cpp
     item_kind_predicates_test.cpp
+    get_item_kind_type_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
