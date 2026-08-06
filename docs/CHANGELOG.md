@@ -46,7 +46,7 @@
 - D4.37 - 1:1 port of the tail-side-effects that legacy CShopItemManager::TakeOffAvatarItem applies after mutating avatar[] in [Server]Map/ShopItemManager.cpp:1925-2021 (the SEND_AVATARITEM_INFO broadcast + CalcAvatarOption(bCalcStats) recompute).
 - Adds modern/include/mxh/server/take_off_avatar_side_effect.hpp: free function take_off_avatar_side_effect_plan(transition, dw_item_index) -> plan { effects }. Maps the AvatarEquipTransition.send_avatar_info + recalculate_avatar_option + calc_stats flags into the ordered TakeOffAvatarSideEffect list (BroadcastAvatarInfo, RecomputeAvatarOption) so the orchestrator can apply them via PACKEDDATA_OBJ->QuickSend + the runtime player stat recompute hook without re-reading the legacy body. Mirrors the PutOnAvatarItem dispatcher except the broadcast is unconditional on success in the legacy code.
 - 5 tests in modern/tests/unit/server/take_off_avatar_side_effect_test.cpp: both effects on success + broadcast-only + recompute-only + empty when no flags + calc_stats=false propagation.
-- See commit <TBD>.### D4.27 DiscardAvatarItem data plane (2026-08-06)
+- See commit 01360adf.### D4.27 DiscardAvatarItem data plane (2026-08-06)
 
 - D4.27 - 1:1 port of the data-plane half of legacy CShopItemManager::DiscardAvatarItem(WORD ItemIdx, WORD ItemPos) from [Server]Map/ShopItemManager.cpp.
 - Adds modern/include/mxh/server/discard_avatar_item.hpp: AvatarEquipRow struct (Position + Item[24] mask, mirrors legacy AVATARITEM) + kAvatarDefaultFillStart/End constants (12..18 = [Weared_Hair, Weared_Gum)) + free function discard_avatar_item(equip, idx, current_avatar) -> new_avatar. The 4 no-op conditions are: missing equip, position out of range, avatar[pos] != item_idx, position at sentinel.
@@ -302,6 +302,7 @@
 - Adds modern/src/server/update_logout_to_db.cpp: 1:1 implementation of the per-row legacy logic -- drop non-PLAYTIME rows, plustime gate (Charm + MeleeAttackMin + env.event_rate_active), clamp checktime to 30000 ms, decrement Remaintime with underflow-clamp-to-zero.
 - 12 tests in modern/tests/unit/server/update_logout_to_db_test.cpp: RealTimeItemIsDropped / PlayTimeDecrementsByElapsedTime / RemaintimeUnderflowClampsToZero / PlustimeActiveDecrementsNormally / PlustimeInactiveSkipsRemaintimeUpdate / PlustimeRemaintimeZeroAlwaysDrops / PlustimeDisabledWhenMeleeAttackMinZero / CheckTimeCapClampsToThirtySeconds / ClockSkewYieldsZeroChecktime / PlustimeRemaintimeZeroWithActiveRateDrops + 2 integration tests.
 - See commit cb30fba6: server: D4 UpdateLogoutToDB data plane - per-row PLAYTIME decrement + plustime gate + 12 tests.
+
 
 
 
