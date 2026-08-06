@@ -1080,6 +1080,7 @@ gtest_add_tests(TARGET mxh_ai_param_tests
 
 add_executable(mxh_agent_chat_tests
     agent_chat_test.cpp
+    agent_chat_side_effect_plan_test.cpp
 )
 target_link_libraries(mxh_agent_chat_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_chat_tests
