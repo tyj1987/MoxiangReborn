@@ -2218,6 +2218,7 @@ add_executable(mxh_shop_item_manager_tests
     unique_item_mix_side_effect_test.cpp
     decoration_on_side_effect_test.cpp
     agent_note_side_effect_test.cpp
+    agent_guild_notify_side_effect_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
