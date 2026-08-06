@@ -1253,6 +1253,7 @@ target_link_libraries(mxh_tactic_ability_info_tests PRIVATE mxh_server GTest::gt
 
 add_executable(mxh_agent_userconn_tests
     agent_userconn_test.cpp
+    agent_userconn_side_effect_plan_test.cpp
 )
 target_link_libraries(mxh_agent_userconn_tests PRIVATE mxh_server GTest::gtest_main)
 add_executable(mxh_agent_battle_tests
@@ -1295,6 +1296,7 @@ gtest_add_tests(TARGET mxh_agent_powerup_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_cheat_tests
     agent_cheat_test.cpp
+    agent_cheat_side_effect_plan_test.cpp
 )
 target_link_libraries(mxh_agent_cheat_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_cheat_tests
