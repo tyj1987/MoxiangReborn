@@ -2196,6 +2196,8 @@ add_executable(mxh_shop_item_manager_tests
     chase_use_side_effect_test.cpp
     shop_item_seal_side_effect_test.cpp
     shop_item_shout_side_effect_test.cpp
+    item_upgrade_side_effect_test.cpp
+    item_reinforce_side_effect_test.cpp
     item_unseal_side_effect_test.cpp
     revive_other_side_effect_test.cpp
 )
@@ -2210,6 +2212,7 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
 
 
 
