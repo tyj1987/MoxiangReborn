@@ -7,7 +7,7 @@ WantedAction classify_wanted(const WantedRequest& r){
         return {WantedServerActionKind::broadcast_to_other_maps,r.protocol,0};
     case wanted_notcomplete_to_agent:
         if(!r.user_found){return {WantedServerActionKind::drop_no_user,wanted_notcomplete_to_agent,r.object_id};}
-        return {WantedServerActionKind::complete_notcomplete_send_to_map,wanted_notcomplete_by_delchr,r.object_id};
+        return {WantedServerActionKind::complete_notcomplete_send_to_map,wanted_notcomplete_by_delchr,r.object_id,r.target_map_connection_index};
     default:
         return {WantedServerActionKind::default_forward_to_client,r.protocol,0};
     }

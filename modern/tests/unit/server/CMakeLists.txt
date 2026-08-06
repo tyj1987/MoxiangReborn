@@ -1971,6 +1971,13 @@ target_link_libraries(mxh_agent_guild_union_side_effect_plan_tests PRIVATE mxh_s
 gtest_add_tests(TARGET mxh_agent_guild_union_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_agent_wanted_side_effect_plan_tests
+    agent_wanted_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_wanted_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_wanted_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 add_executable(mxh_agent_siegewar_tests
     agent_siegewar_test.cpp
 )
