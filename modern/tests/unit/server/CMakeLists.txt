@@ -1970,6 +1970,7 @@ gtest_add_tests(TARGET mxh_agent_gtournament_tests
 
 add_executable(mxh_agent_siegewarprofit_tests
     agent_siegewarprofit_test.cpp
+    agent_siegewarprofit_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_siegewarprofit_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_siegewarprofit_tests
