@@ -28,7 +28,7 @@
 - D4.34 - 1:1 port of the data-plane half of legacy CShopItemManager::AddUsingShopItem from [Server]Map/ShopItemManager.cpp:2775-2781.
 - Adds modern/include/mxh/server/add_using_shop_item.hpp: free function add_using_shop_item_decision(row, dw_item_index, already_present) -> decision { status, entry }. The data plane captures the 3 mutually exclusive failure modes (KeyZero / AlreadyPresent / Ok) plus the constructed UsingShopItemEntry that the legacy code would have written into the pool + table. The orchestrator applies the decision via ShopItemManager::add_using_item(entry).
 - 4 tests in modern/tests/unit/server/add_using_shop_item_test.cpp: zero-key reject, already-present reject, ok + key recorded, key-may-differ-from-icon (legacy: AddShopItem.ShopItem.ItemBase.wIconIdx is the canonical key but the legacy signature accepts an arbitrary dwItemIndex).
-- See commit <TBD>.### D4.27 DiscardAvatarItem data plane (2026-08-06)
+- See commit 61cf965c.### D4.27 DiscardAvatarItem data plane (2026-08-06)
 
 - D4.27 - 1:1 port of the data-plane half of legacy CShopItemManager::DiscardAvatarItem(WORD ItemIdx, WORD ItemPos) from [Server]Map/ShopItemManager.cpp.
 - Adds modern/include/mxh/server/discard_avatar_item.hpp: AvatarEquipRow struct (Position + Item[24] mask, mirrors legacy AVATARITEM) + kAvatarDefaultFillStart/End constants (12..18 = [Weared_Hair, Weared_Gum)) + free function discard_avatar_item(equip, idx, current_avatar) -> new_avatar. The 4 no-op conditions are: missing equip, position out of range, avatar[pos] != item_idx, position at sentinel.
@@ -284,6 +284,7 @@
 - Adds modern/src/server/update_logout_to_db.cpp: 1:1 implementation of the per-row legacy logic -- drop non-PLAYTIME rows, plustime gate (Charm + MeleeAttackMin + env.event_rate_active), clamp checktime to 30000 ms, decrement Remaintime with underflow-clamp-to-zero.
 - 12 tests in modern/tests/unit/server/update_logout_to_db_test.cpp: RealTimeItemIsDropped / PlayTimeDecrementsByElapsedTime / RemaintimeUnderflowClampsToZero / PlustimeActiveDecrementsNormally / PlustimeInactiveSkipsRemaintimeUpdate / PlustimeRemaintimeZeroAlwaysDrops / PlustimeDisabledWhenMeleeAttackMinZero / CheckTimeCapClampsToThirtySeconds / ClockSkewYieldsZeroChecktime / PlustimeRemaintimeZeroWithActiveRateDrops + 2 integration tests.
 - See commit cb30fba6: server: D4 UpdateLogoutToDB data plane - per-row PLAYTIME decrement + plustime gate + 12 tests.
+
 
 
 
