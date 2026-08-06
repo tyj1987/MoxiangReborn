@@ -1220,6 +1220,7 @@ gtest_add_tests(TARGET mxh_agent_friend_tests
 
 add_executable(mxh_fixed_tile_tests
     fixed_tile_test.cpp
+    fixed_tile_data_plane_test.cpp
 )
 target_link_libraries(mxh_fixed_tile_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_fixed_tile_tests
