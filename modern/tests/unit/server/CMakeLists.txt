@@ -1069,6 +1069,7 @@ gtest_add_tests(TARGET mxh_object_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_ai_define_tests
     ai_define_test.cpp
+    ai_define_data_plane_test.cpp
 )
 target_link_libraries(mxh_ai_define_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_ai_define_tests
