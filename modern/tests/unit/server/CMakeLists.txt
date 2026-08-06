@@ -2076,6 +2076,13 @@ target_link_libraries(mxh_agent_powerup_side_effect_plan_tests PRIVATE mxh_serve
 gtest_add_tests(TARGET mxh_agent_powerup_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_agent_mugong_side_effect_plan_tests
+    agent_mugong_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_mugong_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_mugong_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 add_executable(mxh_agent_siegewar_tests
     agent_siegewar_test.cpp
 )
