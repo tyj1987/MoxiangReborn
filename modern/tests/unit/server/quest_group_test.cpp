@@ -207,6 +207,77 @@ TEST(QuestGroupExecution, MoneyPerCountConsumesQuestItem) {
     EXPECT_EQ(quest_group_take_money_per_count(state, 42, 17), 0u);
 }
 
+// ---- D3.9 subquest counter access (legacy GetSubQuestValue + ChangeSubQuestValue) ----
+TEST(QuestGroupSubQuestValue, GetMissingQuestReturnsSentinel) {
+    auto state = make_quest_group();
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 99, 0), QUEST_SUB_QUEST_VALUE_NOT_FOUND);
+}
+
+TEST(QuestGroupSubQuestValue, GetExistingButUnsetSubQuestReturnsZero) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    // CQuest::GetSubQuestData on an un-set index reads as 0 in legacy.
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+}
+
+TEST(QuestGroupSubQuestValue, GetReturnsStoredCount) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    // add_count(state, quest, sub, max) increments by 1 each call until
+    // the count reaches max -- mirrors legacy CQuestGroup::AddCount's
+    // bound-clamp semantics. Three Add calls == count 3.
+    quest_group_add_count(state, 7, 2, 5);
+    quest_group_add_count(state, 7, 2, 5);
+    quest_group_add_count(state, 7, 2, 5);
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 3u);
+}
+
+TEST(QuestGroupChangeSubQuestValue, AddIncrementsCount) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    EXPECT_TRUE(quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_ADD));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 1u);
+    EXPECT_TRUE(quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_ADD));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 2u);
+}
+
+TEST(QuestGroupChangeSubQuestValue, MinusDecrementsCount) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_ADD);
+    quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_ADD);
+    EXPECT_TRUE(quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_MINUS));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 1u);
+}
+
+TEST(QuestGroupChangeSubQuestValue, MinusClampsAtZero) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    // No prior Add -- count is 0. Legacy CQuest::ChangeSubQuestValue Minus branch
+    // takes the `else pSubQuest->dwData = 0` path, leaving the value at 0.
+    EXPECT_TRUE(quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_MINUS));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+    // Twice in a row stays at 0 (no underflow).
+    EXPECT_TRUE(quest_group_change_sub_quest_value(state, 7, 2, QUEST_VALUE_MINUS));
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+}
+
+TEST(QuestGroupChangeSubQuestValue, UnknownKindIsRejected) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    EXPECT_FALSE(quest_group_change_sub_quest_value(state, 7, 2, 99u));
+    // Counter unchanged on rejection.
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+}
+
+TEST(QuestGroupChangeSubQuestValue, MissingQuestReturnsFalse) {
+    auto state = make_quest_group();
+    EXPECT_FALSE(quest_group_change_sub_quest_value(state, 99, 2, QUEST_VALUE_ADD));
+}
+
+
+
 
 // ---- D3.8 quest_group_run_pending (legacy CQuestGroup::Process link) ----
 TEST(QuestGroupRunPending, NoEventsProducesEmptyResult) {

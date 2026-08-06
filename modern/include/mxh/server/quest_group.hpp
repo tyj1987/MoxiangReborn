@@ -15,6 +15,17 @@ inline constexpr std::size_t MAX_QUESTEVENT_PLAYER = 100u;
 inline constexpr std::size_t MAX_QUESTITEM = 100u;
 inline constexpr std::uint32_t MAX_QUEST_PROBABILITY = 10000u;
 
+// Legacy eQuestValue (mirror of QuestDefines.h) -- what to do to a
+// subquest counter. ChangeSubQuestValue routes on these values.
+inline constexpr std::uint32_t QUEST_VALUE_ADD   = 0u;
+inline constexpr std::uint32_t QUEST_VALUE_MINUS = 1u;
+
+// Sentinel returned by quest_group_get_sub_quest_value when the quest
+// row is missing (legacy CQuestGroup::GetSubQuestValue returns -1 cast
+// to DWORD, i.e. 0xFFFFFFFFu, so callers compare against this constant).
+inline constexpr std::uint32_t QUEST_SUB_QUEST_VALUE_NOT_FOUND = 0xFFFFFFFFu;
+
+
 struct QuestGroupQuest {
     std::uint32_t questIdx = 0;
     std::uint32_t subQuestFlag = 0;
@@ -93,6 +104,12 @@ inline bool quest_group_create_quest(QuestGroupState& state, std::uint32_t quest
 
 inline QuestGroupQuest* quest_group_get_quest(QuestGroupState& state,
                                               std::uint32_t questIdx) {
+    const auto it = state.m_QuestTable.find(questIdx);
+    return it == state.m_QuestTable.end() ? nullptr : &it->second;
+}
+
+inline const QuestGroupQuest* quest_group_get_quest(const QuestGroupState& state,
+                                                    std::uint32_t questIdx) {
     const auto it = state.m_QuestTable.find(questIdx);
     return it == state.m_QuestTable.end() ? nullptr : &it->second;
 }
@@ -362,6 +379,59 @@ inline bool quest_group_save_login_point(std::uint32_t mapNum,
 
 
 
+
+
+// ---- D3.9 subquest counter access (legacy CQuestGroup::GetSubQuestValue
+// + CQuestGroup::ChangeSubQuestValue data plane) ----
+//
+// Legacy CQuest::GetSubQuestData returns m_SubQuestTable[idx].dwData; an
+// index that was never written reads as 0. Legacy CQuestGroup::GetSubQuestValue
+// then adds a sentinel for the missing-quest case (returns -1 cast to DWORD,
+// i.e. 0xFFFFFFFFu) so callers can distinguish "no such quest" from a
+// legitimate 0 subquest value.
+//
+// Legacy CQuestGroup::ChangeSubQuestValue(questIdx, subIdx, kind) routes
+// on eQuestValue_Add / eQuestValue_Minus (QuestDefines.h:128-129):
+//   - Add:   ++m_SubQuestTable[idx].dwData
+//   - Minus: --m_SubQuestTable[idx].dwData, clamped at 0
+// Both branches return BOOL (TRUE = applied); the runtime side (DB write
+// + re-fire eQuestEvent_Count) lives outside the data plane and is the
+// callers responsibility.
+inline std::uint32_t quest_group_get_sub_quest_value(
+    const QuestGroupState& state,
+    std::uint32_t questIdx,
+    std::uint32_t subQuestIdx) noexcept {
+    const auto* quest = quest_group_get_quest(state, questIdx);
+    if (quest == nullptr) return QUEST_SUB_QUEST_VALUE_NOT_FOUND;
+    const auto it = quest->subQuestData.find(subQuestIdx);
+    if (it == quest->subQuestData.end()) return 0u;
+    return it->second;
+}
+
+// Returns true iff the count was actually mutated. Unknown kind is rejected
+// (legacy CQuest::ChangeSubQuestValue only switches on Add / Minus).
+// Note: legacy does NOT update dwTime on this path; we mirror that exactly.
+// AddQuestEvent with eQuestEvent_Count is the callers job to re-fire after
+// the runtime hook (QUESTMGR->UpdateSubQuestData + AddQuestEvent) succeeds.
+inline bool quest_group_change_sub_quest_value(
+    QuestGroupState& state,
+    std::uint32_t questIdx,
+    std::uint32_t subQuestIdx,
+    std::uint32_t kind) noexcept {
+    auto* quest = quest_group_get_quest(state, questIdx);
+    if (quest == nullptr) return false;
+    auto& count = quest->subQuestData[subQuestIdx];
+    switch (kind) {
+        case QUEST_VALUE_ADD:
+            ++count;
+            return true;
+        case QUEST_VALUE_MINUS:
+            if (count > 0u) --count;
+            return true;
+        default:
+            return false;
+    }
+}
 // ---- D3.8 quest_group_run_pending ----
 //
 // Legacy CQuestGroup::Process() (called once per tick from the MapServer
