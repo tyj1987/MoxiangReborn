@@ -1288,6 +1288,7 @@ gtest_add_tests(TARGET mxh_agent_mugong_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_agent_move_tests
     agent_move_test.cpp
+    agent_move_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_move_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_move_tests
