@@ -213,3 +213,40 @@ TEST(IsDupItem, SundriesCheRyukCheckedSecondIgnoresShout) {
 TEST(IsDupItem, SundriesShoutConstantMatchesLegacy) {
     EXPECT_EQ(LEGACY_SUNDRIES_SHOUT, 55631u);
 }
+
+// ----- Rare-option / Option-item wrappers (legacy IsRareOptionItem /
+//        IsOptionItem, both tiny wrappers over IsDupItem) -----
+TEST(IsRareOptionItem, RequiresRareDbIdxAndNonDup) {
+    ItemInfo info;
+    make_info(info, LEGACY_ITEM_KIND_YOUNGYAK_ITEM);  // dup-able
+    // rare_db_idx = 0 -> never rare
+    EXPECT_FALSE(is_rare_option_item(1, /*rare_db_idx=*/0, &info));
+    // non-dup item (skin) + rare_db_idx != 0 -> rare
+    make_info(info, LEGACY_ITEM_KIND_SHOP_NOMALCLOTHES_SKIN);
+    EXPECT_TRUE(is_rare_option_item(1, /*rare_db_idx=*/100, &info));
+    // dup-able item + rare_db_idx != 0 -> not rare (dup takes precedence)
+    make_info(info, LEGACY_ITEM_KIND_YOUNGYAK_ITEM);
+    EXPECT_FALSE(is_rare_option_item(1, /*rare_db_idx=*/100, &info));
+}
+
+TEST(IsOptionItem, RequiresDurabilityAndNonDup) {
+    ItemInfo info;
+    make_info(info, LEGACY_ITEM_KIND_YOUNGYAK_ITEM);  // dup-able
+    // durability = 0 -> never option
+    EXPECT_FALSE(is_option_item(1, /*durability=*/0, &info));
+    // non-dup item + durability != 0 -> option
+    make_info(info, LEGACY_ITEM_KIND_SHOP_NOMALCLOTHES_SKIN);
+    EXPECT_TRUE(is_option_item(1, /*durability=*/50, &info));
+    // dup-able item + durability != 0 -> not option
+    make_info(info, LEGACY_ITEM_KIND_YOUNGYAK_ITEM);
+    EXPECT_FALSE(is_option_item(1, /*durability=*/50, &info));
+}
+
+TEST(IsRareOptionItem, NullInfoTreatedAsNotDup) {
+    // Lookup miss: legacy IsDupItem returns false (nullptr -> false).
+    // Therefore !IsDupItem == true, so a non-zero rare_db_idx makes the
+    // item count as rare even without an ItemInfo row. (rare_db_idx=0
+    // still blocks via the first conjunct.)
+    EXPECT_FALSE(is_rare_option_item(1, /*rare_db_idx=*/0, nullptr));
+    EXPECT_TRUE(is_rare_option_item(1, /*rare_db_idx=*/100, nullptr));
+}

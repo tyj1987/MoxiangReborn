@@ -111,4 +111,22 @@ inline constexpr std::uint16_t LEGACY_INCANTATION_CHARACTER_SLOT_2        = 5795
 bool is_dup_item(std::uint16_t wItemIdx,
                  const game::ItemInfo* info_or_null) noexcept;
 
+// 1:1 with legacy CItemManager::IsRareOptionItem. A rare option
+// item is one whose rare-DB-idx is non-zero AND the item itself
+// is not dup-able. Legacy: dwRareDBIdx != 0 AND !IsDupItem(idx).
+inline bool is_rare_option_item(std::uint16_t wItemIdx,
+                                std::uint32_t dw_rare_db_idx,
+                                const game::ItemInfo* info_or_null) noexcept {
+    return (dw_rare_db_idx != 0) && !is_dup_item(wItemIdx, info_or_null);
+}
+
+// 1:1 with legacy CItemManager::IsOptionItem. An option item is
+// one whose durability is non-zero AND the item itself is not
+// dup-able. Legacy: wDurability != 0 AND !IsDupItem(idx).
+inline bool is_option_item(std::uint16_t wItemIdx,
+                           std::uint32_t w_durability,
+                           const game::ItemInfo* info_or_null) noexcept {
+    return (w_durability != 0) && !is_dup_item(wItemIdx, info_or_null);
+}
+
 }  // namespace mxh::server
