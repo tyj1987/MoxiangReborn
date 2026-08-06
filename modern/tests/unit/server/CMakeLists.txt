@@ -2170,6 +2170,7 @@ add_executable(mxh_shop_item_manager_tests
     item_move_side_effect_test.cpp
     pyoguk_money_side_effect_test.cpp
     buy_pyoguk_side_effect_test.cpp
+    item_discard_side_effect_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
@@ -2182,6 +2183,7 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
 
 
 
