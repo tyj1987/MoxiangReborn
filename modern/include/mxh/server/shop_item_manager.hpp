@@ -289,6 +289,33 @@ public:
     // caller needs to surface each row to the wire before deletion.
     std::size_t consume_realtime_expired(game::PackedTime now);
 
+    // ---- D4.22 CheckAvatarEndtime data plane ----
+    //
+    // Legacy CShopItemManager::CheckAvatarEndtime() in
+    // [Server]Map/ShopItemManager.cpp:1142-1180 is the avatar-only
+    // counterpart to CheckEndTime(). It is invoked from the avatar /
+    // weather event loop (e.g. avatar equip / unequip) and shares the
+    // same data-plane predicate as CheckEndTime but a simpler
+    // side-effect chain. Specifically:
+    //
+    //   predicate  : SellPrice == eShopItemUseParam_Realtime (= SHOP_ITEM_PARAM_STORED_TIME)
+    //             AND Remaintime (packed stTIME end-time) < curtime
+    //   skip       : ItemInfo lookup miss (item info not found)
+    //   no-timer   : legacy has no m_Checktime gate -- CheckAvatarEndtime
+    //             runs unconditionally every tick it is called.
+    //
+    // The data-plane half lives here. The 4-step side-effect chain
+    // (legacy CheckAvatarEndtime body) is the orchestrator's
+    // responsibility and is documented in ShopItemEndSideEffect (D4.22).
+    //
+    // Returns the number of new indices appended to out. Predicate is
+    // byte-identical to collect_realtime_expired; this entry point is
+    // kept distinct so call sites that wire to the avatar-specific
+    // side-effect chain (DiscardItem + SendMsgDwordToPlayer(USEEND)
+    // + ShopItemDeleteToDB + LogItemMoney) can document the intent.
+    std::size_t collect_avatar_realtime_expired(
+        game::PackedTime now, std::vector<std::uint64_t>& out) const;
+
     // Reset m_Checktime after a check sweep so the next 30-second window
     // begins. Legacy resets to 0 unconditionally.
     void clear_check_time() noexcept { m_Checktime = 0; }

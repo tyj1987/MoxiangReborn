@@ -214,6 +214,30 @@ std::size_t ShopItemManager::consume_realtime_expired(game::PackedTime now) {
     return expired.size();
 }
 
+
+// D4.22 CheckAvatarEndtime data plane. Predicate is identical to
+// collect_realtime_expired (filter by stored-time EndTime < now); we
+// expose it as a distinct entry point so the avatar-specific orchestrator
+// can document intent. The orchestrator is responsible for performing
+// the 4-step legacy CheckAvatarEndtime side-effect chain on each
+// collected index in this exact order:
+//   1. ITEMMGR->DiscardItem(player, Position, wIconIdx, 1)
+//      On failure, the legacy code ASSERTs and skips.
+//   2. SendMsgDwordToPlayer(MP_ITEM_SHOPITEM_USEEND, wIconIdx)
+//   3. ShopItemDeleteToDB(player_id, dwDBIdx)
+//   4. LogItemMoney(player_id, name, 0, chr(34),
+//                   eLog_ShopItemUseEnd,
+//                   inventory_money,
+//                   BeginTime.value, Remaintime,
+//                   wIconIdx, dwDBIdx, Position, 0,
+//                   Durability, player_exp_point)
+std::size_t ShopItemManager::collect_avatar_realtime_expired(
+    game::PackedTime now, std::vector<std::uint64_t>& out) const {
+    // Same predicate as collect_realtime_expired, but no timer gate and
+    // documented for the avatar-event loop. Reuses the same code path.
+    return collect_realtime_expired(now, out);
+}
+
 std::vector<std::uint8_t> ShopItemManager::serialize_using_items(
     std::uint8_t category, std::uint8_t protocol) const {
     if (m_usingItems.size() > 100u) return {};  // legacy max

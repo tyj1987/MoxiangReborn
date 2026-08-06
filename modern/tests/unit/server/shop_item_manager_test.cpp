@@ -1509,3 +1509,119 @@ TEST(ShopItemManagerCheckEndTime, ConsumeIsIdempotentOnAlreadyExpiredRows) {
     EXPECT_EQ(m.consume_realtime_expired(now), 1u);
     EXPECT_EQ(m.consume_realtime_expired(now), 0u);  // already gone
 }
+
+// ---- D4.22 CheckAvatarEndtime data plane (legacy CShopItemManager::CheckAvatarEndTime) ----
+//
+// The data-plane predicate is identical to D4.21 collect_realtime_expired
+// (SellPrice == eShopItemUseParam_Realtime AND EndTime < curtime), but
+// the legacy CheckAvatarEndtime body is reached from the avatar-event
+// loop and runs unconditionally (no m_Checktime gate). The orchestrator
+// must perform the 4-step side-effect chain on each collected index.
+//
+// These tests verify the data-plane half: the predicate matches legacy
+// exactly and the collect_* entry point does not mutate the table.
+
+TEST(ShopItemManagerCheckAvatarEndTime, NoRowsNoExpirations) {
+    ShopItemManager m; int s = 0; m.init(&s);
+    std::vector<std::uint64_t> out;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(PackedTime{0xFFFFFFFFu}, out), 0u);
+    EXPECT_TRUE(out.empty());
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, PlaytimeRowsAreSkipped) {
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto ib = make_item_base(55134);
+    // Param = 2 (PLAY_TIME) -> realtime sweep must ignore it.
+    ASSERT_TRUE(m.used_shop_item(ib, mxh::game::SHOP_ITEM_PARAM_PLAY_TIME, PackedTime{0x12345678u}, 60000u, 1000u));
+    std::vector<std::uint64_t> out;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(PackedTime{0xFFFFFFFFu}, out), 0u);
+    EXPECT_EQ(m.using_item_count(), 1u);
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, FutureEndTimeIsNotExpired) {
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto ib = make_item_base(55134);
+    PackedTime end{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (29u << 6) | 0u};
+    ASSERT_TRUE(m.used_shop_item(ib, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x11111111u}, end.value, 1000u));
+    // now is 1 minute BEFORE end -> not expired.
+    PackedTime now{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (28u << 6) | 0u};
+    std::vector<std::uint64_t> out;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(now, out), 0u);
+    EXPECT_EQ(m.using_item_count(), 1u);
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, EqualEndTimeIsNotExpired) {
+    // Legacy comparison is strict (curtime > EndTime), so an exact match does not expire.
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto ib = make_item_base(55134);
+    PackedTime end{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (30u << 6) | 0u};
+    ASSERT_TRUE(m.used_shop_item(ib, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x11111111u}, end.value, 1000u));
+    std::vector<std::uint64_t> out;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(end, out), 0u);
+    EXPECT_EQ(m.using_item_count(), 1u);
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, PastEndTimeIsCollected) {
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto ib = make_item_base(55134);
+    PackedTime end{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (30u << 6) | 0u};
+    ASSERT_TRUE(m.used_shop_item(ib, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x11111111u}, end.value, 1000u));
+    PackedTime now{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (31u << 6) | 0u};
+    std::vector<std::uint64_t> out;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(now, out), 1u);
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0], 55134u);
+    EXPECT_EQ(m.using_item_count(), 1u);  // collect does not erase (orchestrator owns the side-effects)
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, MixedRowsSelectsOnlyStoredTimeExpired) {
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto a = make_item_base(55134);
+    auto b = make_item_base(55135);
+    auto c = make_item_base(55136);
+    PackedTime end{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (30u << 6) | 0u};
+    PackedTime now{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (31u << 6) | 0u};
+    ASSERT_TRUE(m.used_shop_item(a, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x11111111u}, end.value, 1000u));
+    ASSERT_TRUE(m.used_shop_item(b, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x22222222u}, end.value, 1000u));
+    ASSERT_TRUE(m.used_shop_item(c, mxh::game::SHOP_ITEM_PARAM_PLAY_TIME,  PackedTime{0x33333333u}, 60000u, 1000u));
+    std::vector<std::uint64_t> out;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(now, out), 2u);
+    ASSERT_EQ(out.size(), 2u);
+    // Both stored-time rows must be present (PLAY_TIME row excluded).
+    EXPECT_NE(std::find(out.begin(), out.end(), 55134u), out.end());
+    EXPECT_NE(std::find(out.begin(), out.end(), 55135u), out.end());
+    EXPECT_EQ(std::find(out.begin(), out.end(), 55136u), out.end());
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, DoesNotMutateTable) {
+    // The data-plane half of CheckAvatarEndtime is observation-only.
+    // The orchestrator is responsible for the DiscardItem / DB delete /
+    // send / log chain. After collect_* the table size must be unchanged.
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto ib = make_item_base(55134);
+    PackedTime end{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (30u << 6) | 0u};
+    ASSERT_TRUE(m.used_shop_item(ib, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x11111111u}, end.value, 1000u));
+    PackedTime now{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (31u << 6) | 0u};
+    std::vector<std::uint64_t> out;
+    m.collect_avatar_realtime_expired(now, out);
+    EXPECT_EQ(m.using_item_count(), 1u);
+}
+
+TEST(ShopItemManagerCheckAvatarEndTime, MatchesCollectRealtimeExpiredExactly) {
+    // D4.22 explicitly delegates to D4.21 internally; the data plane must
+    // be byte-identical. Pin a full sweep and assert both entry points
+    // produce the same indices in the same order.
+    ShopItemManager m; int s = 0; m.init(&s);
+    auto a = make_item_base(55134);
+    auto b = make_item_base(55135);
+    PackedTime end{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (30u << 6) | 0u};
+    PackedTime now{(26u << 28) | (8u << 24) | (6u << 18) | (14u << 12) | (31u << 6) | 0u};
+    ASSERT_TRUE(m.used_shop_item(a, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x11111111u}, end.value, 1000u));
+    ASSERT_TRUE(m.used_shop_item(b, mxh::game::SHOP_ITEM_PARAM_STORED_TIME, PackedTime{0x22222222u}, end.value, 1000u));
+
+    std::vector<std::uint64_t> out_av;
+    std::vector<std::uint64_t> out_rt;
+    EXPECT_EQ(m.collect_avatar_realtime_expired(now, out_av), 2u);
+    EXPECT_EQ(m.collect_realtime_expired(now, out_rt), 2u);
+    EXPECT_EQ(out_av, out_rt);
+}
