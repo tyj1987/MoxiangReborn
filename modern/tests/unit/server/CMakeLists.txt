@@ -166,6 +166,7 @@ gtest_add_tests(TARGET mxh_distribute_network_msg_parser_tests
 )
 add_executable(mxh_server_list_tests
     server_list_test.cpp
+    server_list_data_plane_test.cpp
 )
 target_link_libraries(mxh_server_list_tests PRIVATE
     mxh_server gtest_main
