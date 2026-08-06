@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
 > **最近一次重构**：2026-08-06 — 把 434 行 ROADMAP 砍成可执行的规划文档；历史 [x] 项迁移到 docs/CHANGELOG.md。
-> **最近一次状态刷新**：2026-08-06 — D1.3 call-site MapHandler.load_skill_list (3 tests PASS)；R-8 call-site MapHandler.load_item_list (3 tests)；R-8 item_effects 1:1 real lookup (12 tests)；D6.x ItemList.bin 1:1 parser (11 tests, 9887 rows 0 errors)；E1 T1 payload SHA-256 byte-level verification (146 records locked across 117 .bin files)；E1 T1 parse test subdir expansion (89 -> 268 entries across 5 suites; 7 14-byte stubs filtered, MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65 = 268)。E2 T2 wire golden round-trip 84 TESTs (parse + re-encode byte-equal, 0 fail, 95 total mxh_wire_format_tests)。
+> **最近一次状态刷新**：2026-08-06 — D1.3 call-site MapHandler.load_skill_list (3 tests PASS)；R-8 call-site MapHandler.load_item_list (3 tests)；R-8 item_effects 1:1 real lookup (12 tests)；D6.x ItemList.bin 1:1 parser (11 tests, 9887 rows 0 errors)；E1 T1 payload SHA-256 byte-level verification (146 records locked across 117 .bin files)；E1 T1 parse test subdir expansion (89 -> 268 entries across 5 suites; 7 14-byte stubs filtered, MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65 = 268)。E2 T2 wire golden round-trip 84 TESTs (parse + re-encode byte-equal, 0 fail, 95 total mxh_wire_format_tests)。。D4.23 CalcAvatarOption data plane (AVATARITEMOPTION 25 fields 39 bytes + 24 tests PASS)。D4.22 CheckAvatarEndtime data plane (collect_avatar_realtime_expired + 8 tests PASS)。mxh_compat_tests linker fix (link mxh_game, 81 Not Run -> 81 PASS)。
 
 ---
 
@@ -42,7 +42,7 @@
 | T1 资源字节兼容 | **LOCKED** | 303 records SHA-256 locked (deploy 180 [Server/ + QuestScript/] + PlayDH 94 + PlayDH/Client 29) ; 268 parse test entries verified (89 -> 268 across 5 suites) |
 | T2 协议字节兼容 | **95.1%** | 84 wire-format goldens round-trip byte-equal (95 mxh_wire_format_tests = 11 wire invariants + 84 golden), 77/81 legacy MP_* categories |
 | T3 UI 1:1 port | **PORTING** | 109/158 dialog hpp，2500+ ui tests PASS |
-| T3 玩法数值 1:1 | **PARTIAL** | D1 SkillList ✓ D2 BattleFactory ✓ D3 QuestManager runtime bridge ✓ D4.20 UseShopItem decision ✓ D4.21 CheckEndTime realtime branch ✓ D5 MurimNet ✓ D6.1-D6.7 ✓; D4 商城剩余 CheckAvatarEndtime/CalcAvatarOption 待 |
+| T3 玩法数值 1:1 | **PARTIAL** | D1 SkillList ✓ D2 BattleFactory ✓ D3 QuestManager runtime bridge ✓ D4.20 UseShopItem decision ✓ D4.21 CheckEndTime realtime branch ✓ D4.22 CheckAvatarEndtime data plane ✓ D4.23 CalcAvatarOption data plane (AVATARITEMOPTION 39 bytes, 25 fields, 24 tests) ✓ D5 MurimNet ✓ D6.1-D6.7 ✓; D4 商城剩余 UseShopItemUpdateToDB + CalcShopItemOption 待 |
 | 客户端运行时 | **Phase A + B.2 done** | MoxianClient + 3/9 state 真接 net + CMainGame 1:1 |
 | 服务端运行时 | **Phase B done** | LoginServer + AgentServer + MapServer 3 进程 E2E PASS |
 | 渲染后端 | STUB | DX11 + BC1-5 + MotionCache，drawBox stub |
@@ -101,8 +101,7 @@
 | P0 | **MSSQL 真起 + 端到端** | B5 已写, 待本地 MSSQL | DbThread + 3 server + 真 client 跑通 |
 | P0 | **E2 T2 wire SHA-256 replay** | 缺 capture harness | 1000+ 真包重放 diff = 0 |
 | P1 | **C-Batch 2.81+** dialog ports | 余 49 个 | 每个 >=1 行为断言 test |
-| P1 | **D4 商城剩余真逻辑** | commits dcb05173 + 3e21470e (UseShopItem + CheckEndTime realtime) ✓ | CheckAvatarEndtime + CalcAvatarOption legacy path |
-
+| P1 | **D4 商城剩余真逻辑** | commits dcb05173 + 3e21470e (UseShopItem + CheckEndTime realtime) + 668ec566 (CheckAvatarEndtime) + 7e49a5a5 (CalcAvatarOption) ✓ | UseShopItemUpdateToDB + CalcShopItemOption legacy path |
 | P2 | **E3 T3 行为 side-by-side** | T1/T2 后 | 5 段操作录像 + 行为 diff = 0 |
 | P2 | **R-9 drawBox 修复** | 数学约定已锁, 剩真实 2D transform | prim_render 渲染人物站帧 |
 

@@ -4,6 +4,27 @@
 > 本文件保留 2026-08 重构前 ROADMAP 的关键历史 [x] 项摘要, 用于回溯。
 
 最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
+### D4.23 CalcAvatarOption data plane (2026-08-06)
+
+- D4.23 CalcAvatarOption - 1:1 port of legacy CShopItemManager::CalcAvatarOption() from [Server]Map/ShopItemManager.cpp:2024-2183 (avatar stat accumulator).
+- Adds modern/include/mxh/game/avatar_item_option.hpp: AvatarItemOption struct (25 fields, 39 bytes under pack(1), byte-identical to legacy AVATARITEMOPTION) + AvatarSlot enum (eAvatar_Hat..WeeMaxAmgi, Max=24) + EAvatarCount=24 constant.
+- Adds modern/include/mxh/server/avatar_calc.hpp: calc_avatar_option(avatar[24], ItemManager&) - walks 24 slots, skips wIconIdx<2 (cosmetic empty/base-skin) and ItemInfo misses, accumulates 25 field deltas with the legacy >0 / ==1 predicates and uint16->uint8 narrow casts.
+- 24 tests in modern/tests/unit/game/avatar_calc_test.cpp: layout size + enum indices + empty/cosmetic-base/unknown slots + single-field accumulator + 25-field all-fields pass + multi-slot accumulator + bKyungGong/NaeruykspendbyKG flag-only semantics + LimitSimMek truthy predicate + uint16->uint8 truncation + 24-slot full sweep.
+- See commit 7e49a5a5: server: D4.23 CalcAvatarOption data plane + AVATARITEMOPTION struct + 24 tests.
+
+### D4.22 CheckAvatarEndtime data plane (2026-08-06)
+
+- D4.22 CheckAvatarEndtime - 1:1 port of legacy CShopItemManager::CheckAvatarEndtime() from [Server]Map/ShopItemManager.cpp:1142-1180 (avatar-only counterpart to CheckEndTime, runs unconditionally every tick the avatar-event loop calls it).
+- Adds modern collect_avatar_realtime_expired(PackedTime now, out) data plane function (header in modern/include/mxh/server/shop_item_manager.hpp, impl in modern/src/server/shop_item_manager.cpp). Predicate is byte-identical to collect_realtime_expired (SellPrice == eShopItemUseParam_Realtime AND curtime > EndTime); the side-effect chain (DiscardItem + SendMsgDwordToPlayer(MP_ITEM_SHOPITEM_USEEND) + ShopItemDeleteToDB + LogItemMoney) is the orchestrator's responsibility and is documented in the implementation comment.
+- 8 tests in modern/tests/unit/server/shop_item_manager_test.cpp ShopItemManagerCheckAvatarEndTime suite: NoRows / PlaytimeRowsSkipped / FutureEndTime / EqualEndTime / PastEndTime / MixedRows / DoesNotMutateTable / MatchesCollectRealtimeExpiredExactly.
+- See commit 668ec566: server: D4.22 CheckAvatarEndtime data plane + 8 tests (legacy 4-step side-effect chain documented).
+
+### build: mxh_compat_tests linker fix (2026-08-06)
+
+- mxh_compat_tests previously failed to link because item_effects.cpp (in mxh_compat) references mxh::game::ItemManager::try_get, which lives in src/game/item_manager.cpp. The test target linked mxh_compat + gtest_main but not mxh_game, leaving 81 tests Not Run.
+- Fix: add mxh_game to mxh_compat_tests target_link_libraries in modern/tests/unit/CMakeLists.txt. 1 line change. 81 previously Not-Run compat tests now run + pass.
+- See commit f385b8d7: build: fix mxh_compat_tests linker error - link mxh_game (ItemManager::try_get).
+
 
 ### E2 T2 wire golden round-trip coverage (2026-08-06)
 
