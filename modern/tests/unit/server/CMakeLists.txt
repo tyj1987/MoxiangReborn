@@ -2146,6 +2146,7 @@ add_executable(mxh_shop_item_manager_tests
     shop_item_manager_test.cpp
     shop_item_update_sql_test.cpp
     calc_shop_item_option_test.cpp
+    update_logout_to_db_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
