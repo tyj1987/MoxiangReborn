@@ -470,6 +470,45 @@ inline bool quest_group_add_count_from_q_weapon(
     if (playerWeaponItem != requiredWeaponItem) return false;
     return quest_group_add_count(state, questIdx, subQuestIdx, maxCount);
 }
+
+
+// ---- D3.12 weapon-filtered TakeQuestItem (legacy CQuestGroup::
+// TakeQuestItemFromWeapon + TakeQuestItemFromQWeapon data plane) ----
+//
+// Legacy CQuestGroup::TakeQuestItemFromWeapon(quest, sub, item, num,
+// probability, weaponKind) gates on `ITEMMGR->GetWeaponKind(player_weapon)
+// == weaponKind` BEFORE delegating to TakeQuestItem.  Legacy CQuestGroup::
+// TakeQuestItemFromQWeapon gates on `player_weapon == weaponItem` (specific
+// item idx).  Both delegate to TakeQuestItem once the gate passes; modern
+// already has quest_group_take_quest_item as that delegate.
+inline bool quest_group_take_quest_item_from_weapon(
+    QuestGroupState& state,
+    std::uint32_t questIdx,
+    std::uint32_t subQuestIdx,
+    std::uint32_t itemIdx,
+    std::uint32_t itemNum,
+    std::uint32_t probability,
+    std::uint32_t requiredWeaponKind,
+    std::uint32_t playerWeaponKind) noexcept {
+    if (playerWeaponKind != requiredWeaponKind) return false;
+    return quest_group_take_quest_item(
+        state, questIdx, subQuestIdx, itemIdx, itemNum, probability);
+}
+
+// Same gate logic, but on weapon item-idx (legacy TakeQuestItemFromQWeapon).
+inline bool quest_group_take_quest_item_from_q_weapon(
+    QuestGroupState& state,
+    std::uint32_t questIdx,
+    std::uint32_t subQuestIdx,
+    std::uint32_t itemIdx,
+    std::uint32_t itemNum,
+    std::uint32_t probability,
+    std::uint32_t requiredWeaponItem,
+    std::uint32_t playerWeaponItem) noexcept {
+    if (playerWeaponItem != requiredWeaponItem) return false;
+    return quest_group_take_quest_item(
+        state, questIdx, subQuestIdx, itemIdx, itemNum, probability);
+}
 // ---- D3.8 quest_group_run_pending ----
 //
 // Legacy CQuestGroup::Process() (called once per tick from the MapServer

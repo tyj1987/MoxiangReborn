@@ -410,6 +410,73 @@ TEST(QuestGroupWeaponFilter, AddCountFromWeaponMissingQuestReturnsFalse) {
 }
 
 
+// ---- D3.12 weapon-filtered TakeQuestItem (legacy TakeQuestItemFromWeapon + TakeQuestItemFromQWeapon) ----
+TEST(QuestGroupWeaponFilter, TakeQuestItemFromWeaponMismatchedKindDoesNothing) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    // Required kind=5, player kind=99 -> gate fails, no item, no count.
+    EXPECT_FALSE(quest_group_take_quest_item_from_weapon(
+        state, 7, 2, 42u, 3u, MAX_QUEST_PROBABILITY, 5u, 99u));
+    EXPECT_EQ(state.m_QuestItemTable.count(42u), 0u);
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 0u);
+}
+
+TEST(QuestGroupWeaponFilter, TakeQuestItemFromWeaponMatchingKindInserts) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_TRUE(quest_group_take_quest_item_from_weapon(
+        state, 7, 2, 42u, 3u, MAX_QUEST_PROBABILITY, 17u, 17u));
+    EXPECT_EQ(state.m_QuestItemTable.count(42u), 1u);
+    EXPECT_EQ(state.m_QuestItemTable.at(42u).dwItemNum, 3u);
+    EXPECT_EQ(state.m_QuestItemTable.at(42u).dwQuestIdx, 7u);
+    // Legacy CQuestGroup::TakeQuestItem delegates to
+    // CQuest::ChangeSubQuestValue(eQuestValue_Add) which only ++dwData by 1
+    // (mirrors the legacy SubQuest table increment by 1, not by itemNum).
+    // add_count(state, 7, 2, 3) on a fresh slot clamps to 1, then we leave it.
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 1u);
+}
+
+TEST(QuestGroupWeaponFilter, TakeQuestItemFromQWeaponMismatchedItemDoesNothing) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_FALSE(quest_group_take_quest_item_from_q_weapon(
+        state, 7, 2, 42u, 3u, MAX_QUEST_PROBABILITY, 50001u, 99999u));
+    EXPECT_EQ(state.m_QuestItemTable.count(42u), 0u);
+}
+
+TEST(QuestGroupWeaponFilter, TakeQuestItemFromQWeaponMatchingItemInserts) {
+    auto state = make_quest_group();
+    quest_group_create_quest(state, 7);
+    quest_group_start_subquest(state, 7, 2, 0);
+    EXPECT_TRUE(quest_group_take_quest_item_from_q_weapon(
+        state, 7, 2, 42u, 5u, MAX_QUEST_PROBABILITY, 50001u, 50001u));
+    EXPECT_EQ(state.m_QuestItemTable.count(42u), 1u);
+    EXPECT_EQ(state.m_QuestItemTable.at(42u).dwItemNum, 5u);
+    // Same +1 increment semantics as the FromWeapon variant above.
+    EXPECT_EQ(quest_group_get_sub_quest_value(state, 7, 2), 1u);
+}
+
+TEST(QuestGroupWeaponFilter, TakeQuestItemFromWeaponMissingQuestStillInsertsItem) {
+    // Legacy CQuestGroup::TakeQuestItem delegates to m_QuestItemTable.Add
+    // BEFORE CQuest::ChangeSubQuestValue, and legacy CQuestGroup::
+    // TakeQuestItemFromWeapon/TakeQuestItemFromQWeapon do not bail out when
+    // the quest is missing -- they simply never call ChangeSubQuestValue.
+    // The modern quest_group_take_quest_item mirrors that: it inserts the
+    // item row regardless of quest existence, returns true if the gate +
+    // probability check pass. add_count's return is deliberately void-cast.
+    auto state = make_quest_group();
+    EXPECT_TRUE(quest_group_take_quest_item_from_weapon(
+        state, 99, 2, 42u, 3u, MAX_QUEST_PROBABILITY, 5u, 5u));
+    EXPECT_EQ(state.m_QuestItemTable.count(42u), 1u);
+    EXPECT_TRUE(quest_group_take_quest_item_from_q_weapon(
+        state, 99, 2, 43u, 3u, MAX_QUEST_PROBABILITY, 5u, 5u));
+    EXPECT_EQ(state.m_QuestItemTable.count(43u), 1u);
+}
+
+
 
 // ---- D3.8 quest_group_run_pending (legacy CQuestGroup::Process link) ----
 TEST(QuestGroupRunPending, NoEventsProducesEmptyResult) {
