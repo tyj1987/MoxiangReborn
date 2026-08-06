@@ -181,6 +181,7 @@ gtest_add_tests(TARGET mxh_server_list_tests
 )
 add_executable(mxh_login_server_db_msg_parser_tests
     login_server_db_msg_parser_test.cpp
+    login_server_db_msg_parser_data_plane_test.cpp
 )
 target_link_libraries(mxh_login_server_db_msg_parser_tests PRIVATE
     mxh_server mxh_db gtest_main
