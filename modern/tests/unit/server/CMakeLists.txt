@@ -2154,6 +2154,7 @@ add_executable(mxh_shop_item_manager_tests
     playtime_decrement_test.cpp
     discard_avatar_item_test.cpp
     calc_plus_time_test.cpp
+    extra_slot_count_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
     mxh_server gtest_main
