@@ -10,7 +10,13 @@
 - D4.31 - 1:1 ports of the validation + mutation + side-effect-emission halves of legacy CShopItemManager::PutOnAvatarItem and ::TakeOffAvatarItem from [Server]Map/ShopItemManager.cpp:1792-2021.
 - Adds modern/include/mxh/server/avatar_equip_transition.hpp: free functions put_on_avatar_item / take_off_avatar_item. The data plane captures 13 mutually exclusive failure modes (AvatarMissing / PositionOutOfRange / ItemBaseMissing / UsingItemMissing / ItemBaseMismatch / AvatarEquipMissing / ItemInfoMissing / AvatarMismatch / HatBlockedByDress / WeaponSlotMismatch / ExistingItemInfoMissing / DressEquipMissing / DependentItemInfoMissing) plus the new avatar[24] state and a side-effect list (ShopItemUseParamUpdateToDB + ParamUpdateInMemory) so the orchestrator can dispatch DB writes + m_UsingItemTable mutations.
 - 27 tests in modern/tests/unit/server/avatar_equip_transition_test.cpp: every status + the hat/dress interaction, weapon-slot guard (player_inited gate), default-fill mask (new equip's mask overrides weared slots 12..17), dependent-removal mask (old equip mask drives fill on slot clearing), broadcast suppression on item_pos==0, avatar-mismatch + cosmetic take-off default fill, weapon-slot dress replacement, dependent-item info miss, weapon-slot clear.
-- See commit <commit d24f1c9b>.`n`n### D4.27 DiscardAvatarItem data plane (2026-08-06)
+- See commit <commit d24f1c9b>.`n`n
+### D4.32 PutSkinSelectItem data plane (2026-08-06)
+
+- D4.32 - 1:1 port of the data-plane half of legacy CShopItemManager::PutSkinSelectItem from [Server]Map/ShopItemManager.cpp:2638-2704.
+- Adds modern/include/mxh/server/skin_select_transition.hpp: SkinEquipSlot enum (Hat=0/Mask/Dress/Shoulder/Shoes=4, Max=5) + kSkinItemListMax=3 + LEGACY_SHOP_ITEM_NOMALCLOTHES_SKIN=265 / COSTUME_SKIN=266 + LEGACY_PART3D_HEADBAND=6 + free function put_skin_select_item(env, current_skin, dw_skin_index, dw_skin_kind, player_level, skin_delay_active). The data plane captures: (a) NullSkinSlots/Fail status when current_skin==nullptr, (b) dwSkinIndex==0 -> Fail, (c) find_skin miss -> Fail, (d) NOMALCLOTHES_SKIN && player_level < skin.dwLimitLevel -> LevelFail (costume-skin bypasses), (e) skin_delay_active -> DelayFail, (f) success path that walks skin.equip_item[0..3] and writes skin_item[Part3DType map] = item_idx with the costume-dress shoes override + headband Part3DType=6 -> Hat special case + unmapped Part3DType -> Hat slot default.
+- 13 tests in modern/tests/unit/server/skin_select_transition_test.cpp: every status + the headband/hat special-case + costume-dress shoes override + nomal-clothes no-shoes-override + zero-equip skip + unknown Part3DType default + missing item info skip.
+- See commit <TBD>.### D4.27 DiscardAvatarItem data plane (2026-08-06)
 
 - D4.27 - 1:1 port of the data-plane half of legacy CShopItemManager::DiscardAvatarItem(WORD ItemIdx, WORD ItemPos) from [Server]Map/ShopItemManager.cpp.
 - Adds modern/include/mxh/server/discard_avatar_item.hpp: AvatarEquipRow struct (Position + Item[24] mask, mirrors legacy AVATARITEM) + kAvatarDefaultFillStart/End constants (12..18 = [Weared_Hair, Weared_Gum)) + free function discard_avatar_item(equip, idx, current_avatar) -> new_avatar. The 4 no-op conditions are: missing equip, position out of range, avatar[pos] != item_idx, position at sentinel.
@@ -266,6 +272,7 @@
 - Adds modern/src/server/update_logout_to_db.cpp: 1:1 implementation of the per-row legacy logic -- drop non-PLAYTIME rows, plustime gate (Charm + MeleeAttackMin + env.event_rate_active), clamp checktime to 30000 ms, decrement Remaintime with underflow-clamp-to-zero.
 - 12 tests in modern/tests/unit/server/update_logout_to_db_test.cpp: RealTimeItemIsDropped / PlayTimeDecrementsByElapsedTime / RemaintimeUnderflowClampsToZero / PlustimeActiveDecrementsNormally / PlustimeInactiveSkipsRemaintimeUpdate / PlustimeRemaintimeZeroAlwaysDrops / PlustimeDisabledWhenMeleeAttackMinZero / CheckTimeCapClampsToThirtySeconds / ClockSkewYieldsZeroChecktime / PlustimeRemaintimeZeroWithActiveRateDrops + 2 integration tests.
 - See commit cb30fba6: server: D4 UpdateLogoutToDB data plane - per-row PLAYTIME decrement + plustime gate + 12 tests.
+
 
 
 
