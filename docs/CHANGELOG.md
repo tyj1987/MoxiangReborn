@@ -4,6 +4,23 @@
 > 本文件保留 2026-08 重构前 ROADMAP 的关键历史 [x] 项摘要, 用于回溯。
 
 最近重构: 2026-08-06 - 把老 ROADMAP (434 行) 砍成规划文档 (158 行) + 本 CHANGELOG。
+### D4.26 IsPetSummonItem/IsTitanCallItem/IsTitanEquipItem + GetItemKindType + playtime_decrement (2026-08-06)
+
+- D4.26 - 1:1 ports of three ItemKind predicates + GetItemKindType + the CheckEndTime PLAYTIME decrement arithmetic, all as pure data-plane free functions.
+- Adds modern/include/mxh/server/item_kind_predicates.hpp: is_pet_summon_item (ItemKind == QUEST_PET or SHOP_PET), is_titan_call_item (ItemKind == TITAN_PAPER), is_titan_equip_item (ItemKind & TITAN_EQUIP_UMBRELLA = bit 7), all with nullptr -> false.
+- Adds modern/include/mxh/server/get_item_kind_type.hpp: get_item_kind_type(info, kind_out, type_out) - writes (ItemKind, ItemType) on hit, zeros on miss.
+- Adds modern/include/mxh/server/playtime_decrement.hpp: playtime_decrement(remtime, last_check, now) -> {new_remaintime, elapsed_clamped_ms} with the 30s clamp + underflow-to-zero arithmetic.
+- 22 tests across modern/tests/unit/server/item_kind_predicates_test.cpp (10) + get_item_kind_type_test.cpp (3) + playtime_decrement_test.cpp (9).
+- See commits e5b27b1c (item_kind_predicates) + 2dab9b8d (get_item_kind_type) + c26c1d72 (playtime_decrement).
+
+### D4.25 IsDupItem data plane (2026-08-06)
+
+- D4.25 - 1:1 port of legacy CItemManager::IsDupItem(WORD wItemIdx) from [Server]Map/ItemManager.cpp. Pure data plane: returns true iff the inventory is allowed to stack duplicates of the item.
+- Adds modern/include/mxh/server/is_dup_item.hpp: legacy item-kind constants (13 always-dup kinds: YOUNGYAK*4 + EXTRA*7 + SHOP_CHARM + SHOP_HERB), Sundries exception (SimMek / CheRyuk / Shout idx), 30-entry Incantation non-dup list (TownMove15 / MemoryMove15 / MemoryMoveExtend* / ShowPyoguk* / Tracking* / Extend* / CharacterSlot*), Skin no-dup (NOMALCLOTHES_SKIN / COSTUME_SKIN), free function is_dup_item + inline wrappers is_rare_option_item (legacy IsRareOptionItem) and is_option_item (legacy IsOptionItem).
+- Adds modern/src/server/is_dup_item.cpp: implementation with incantation_is_non_dup helper for the 30-entry switch.
+- 19 tests in modern/tests/unit/server/is_dup_item_test.cpp: 4 always-dup kinds + 7 extra kinds + shop charm/herb + Sundries 5 branches + 30-entry Incantation non-dup list + Incantation LimitLevel+SellPrice gate + Skin 3 branches + NullInfo + UnknownKind + 2 precedence tests + 3 IsRareOptionItem/IsOptionItem wrapper tests.
+- See commits 535742c2 (16 tests) + 56637dfb (3 wrapper tests).
+
 
 ### D4.24 AddDupParam/DeleteDupParam/IsDupAble data plane (2026-08-06)
 
