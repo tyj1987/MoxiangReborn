@@ -951,6 +951,7 @@ gtest_add_tests(TARGET mxh_agent_network_msg_parser_tests
 
 add_executable(mxh_agent_db_msg_parser_tests
     agent_db_msg_parser_test.cpp
+    agent_db_msg_parser_data_plane_test.cpp
 )
 target_link_libraries(mxh_agent_db_msg_parser_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_db_msg_parser_tests
