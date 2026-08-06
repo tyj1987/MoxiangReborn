@@ -116,3 +116,30 @@
 - 7 个新行为锁定测试: NoRowsNoExpirations / PlaytimeRowsAreSkipped / FutureEndTimeIsNotExpired / EqualEndTimeIsNotExpired / PastEndTimeIsCollected / MixedRowsSelectsOnlyStoredTimeExpired / ConsumeIsIdempotentOnAlreadyExpiredRows。mxh_shop_item_manager_tests: 99 -> 106 tests PASS, 0 regressions。
 - 见 commit 3e21470e: server: D4.21 CheckEndTime realtime branch data plane (legacy SellPrice==Realtime sweep)。
 
+
+
+
+### D3.8 quest_group_run_pending (2026-08-06)
+
+- D3.8 quest_group_run_pending - ? legacy CQuestGroup::Process() ???? 1:1 ??? modern ????:?? quest_group_process(state) ? dispatch list,? (quest, event) ??? triggers_by_quest ?,??? quest ?????? trigger (legacy CQuestTrigger::OnQuestEvent ? "first matching condition wins" ??),?? std::vector<QuestGroupApplyResult> {quest_idx, subquest_idx, status, changed}?
+- 7 ????????:NoEventsProducesEmptyResult / AppliesFirstMatchingTriggerAndAdvancesSubCount / SkipsQuestWithNoTriggerEntry / FiresFirstConditionMatchAndIgnoresTheRest / FansOutAcrossMultipleQuests / ConditionFailedLeavesQuestUntouched / IdempotentAfterEventsDrained?mxh_quest_group_tests: 23 -> 30 tests PASS, 0 regressions?
+- ? commit 9e5ba572: server: D3.8 quest_group_run_pending (legacy CQuestGroup::Process tick link)?
+
+
+
+### D3.9 subquest counter access (2026-08-06)
+
+- D3.9 subquest counter access - ? legacy CQuestGroup::GetSubQuestValue + CQuestGroup::ChangeSubQuestValue ???? 1:1 ??? modern ????:get_sub_quest_value(state, questIdx, subIdx) ?? subQuestData[subIdx] ? 0xFFFFFFFFu sentinel(legacy "no such quest" marker),change_sub_quest_value(state, questIdx, subIdx, kind) ?? QUEST_VALUE_ADD/MINUS(legacy eQuestValue_Add/Minus from QuestDefines.h:128-129),Minus clamp ? 0,unknown kind ???
+- ?? inline ?? QUEST_VALUE_ADD=0u / QUEST_VALUE_MINUS=1u / QUEST_SUB_QUEST_VALUE_NOT_FOUND=0xFFFFFFFFu?get_quest ? const ??????? lookup?
+- 8 ????????:GetMissingQuestReturnsSentinel / GetExistingButUnsetSubQuestReturnsZero / GetReturnsStoredCount / AddIncrementsCount / MinusDecrementsCount / MinusClampsAtZero / UnknownKindIsRejected / MissingQuestReturnsFalse?mxh_quest_group_tests: 30 -> 38 tests PASS, 0 regressions?
+- ? commit f5a7d89b: server: D3.9 subquest counter access (legacy GetSubQuestValue + ChangeSubQuestValue data plane)?
+
+
+
+### D3.10 quest end lifecycle tests (2026-08-06)
+
+- D3.10 quest end lifecycle tests - ????? quest_group_end_quest / quest_group_end_subquest ? 7 ???????,?? legacy CQuestGroup::EndQuest(questIdx, subQuestIdx) + CQuestGroup::EndSubQuest ??????:missing-quest ?? false?repeat=0 ?? complete / clear active subs / ? subQuestData?repeat=1 ?? quest ??? reset counter?idx==0 ? end_subquest ??? quest->data + quest->time?
+- mxh_quest_group_tests: 38 -> 45 tests PASS, 0 regressions?
+- ? commit 3616baac: server: D3.10 lock legacy EndQuest + EndSubQuest semantics (7 lifecycle tests)?
+
+
