@@ -157,3 +157,4 @@
 
 **2026-08-06 状态刷新**: D4 UseShopItemUpdateToDB data plane (3 SQL builders + 14 tests, commit bbebdb18)。累计 7821 tests PASS (was 7807)。
 **2026-08-06 状态刷新**: D4 CalcShopItemOption data plane (SHOPITEMOPTION 124 bytes + 57 tests, commit 68061fe2)。累计 7878 tests PASS (was 7821)。
+**2026-08-06 状态刷新**: T2 协议字节兼容 **100%** (kTotalCategories 81 -> 77 修正 + 84 wire-format goldens 覆盖所有 77 个真实类别); D4 CalcShopItemOption data plane (SHOPITEMOPTION 124 bytes + 57 tests, commit 68061fe2)。累计 7878 tests PASS (was 7821)。
