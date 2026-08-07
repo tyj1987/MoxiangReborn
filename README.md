@@ -4,6 +4,19 @@
 
 ---
 
+
+## Commercial smoke gate
+
+After configuring `modern/build`, run:
+
+```powershell
+powershell -File scripts\commercial-smoke.ps1 -BuildDir modern\build
+```
+
+The gate runs 33 focused checks covering legacy login ACK/NACK, encrypted login,
+wire goldens, resource byte-level parsing and SHA-256 manifests, plus client login E2E.
+Use `-RepeatFlaky` when validating timing-sensitive changes.
+
 ## 上手 5 分钟
 
 ### 1. 读 3 件事
