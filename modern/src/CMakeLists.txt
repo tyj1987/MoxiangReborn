@@ -275,6 +275,7 @@ add_library(mxh_server STATIC
     server/agent_item.cpp
     server/agent_packed.cpp
     server/agent_note.cpp
+    server/agent_note_side_effect_plan.cpp
     server/fixed_tile.cpp
     server/fixed_tile_info.cpp
     server/tile.cpp
