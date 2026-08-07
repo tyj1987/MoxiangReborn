@@ -2952,3 +2952,11 @@ add_executable(mxh_agent_tactic_side_effect_plan_tests
 target_link_libraries(mxh_agent_tactic_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_tactic_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# D4.R1 -- side-effect dispatcher runtime + dispatch tests for 23 agent-no-handler categories.
+add_executable(mxh_agent_dispatch_tests
+    agent_dispatch_test.cpp
+)
+target_link_libraries(mxh_agent_dispatch_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_dispatch_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)

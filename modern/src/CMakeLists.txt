@@ -267,6 +267,7 @@ add_library(mxh_server STATIC
     server/agent_signal_side_effect_plan.cpp
     server/agent_tactic.cpp
     server/agent_tactic_side_effect_plan.cpp
+    server/agent_dispatch.cpp
     server/agent_option.cpp
     server/agent_debug.cpp
     server/agent_option_side_effect_plan.cpp
