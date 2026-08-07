@@ -249,6 +249,24 @@ add_library(mxh_server STATIC
     server/agent_bossmonster_side_effect_plan.cpp
     server/agent_monster.cpp
     server/agent_monster_side_effect_plan.cpp
+    server/agent_char.cpp
+    server/agent_char_side_effect_plan.cpp
+    server/agent_auctionboard.cpp
+    server/agent_auctionboard_side_effect_plan.cpp
+    server/agent_quick.cpp
+    server/agent_quick_side_effect_plan.cpp
+    server/agent_peacewarmode.cpp
+    server/agent_peacewarmode_side_effect_plan.cpp
+    server/agent_ungijosik.cpp
+    server/agent_ungijosik_side_effect_plan.cpp
+    server/agent_auction.cpp
+    server/agent_auction_side_effect_plan.cpp
+    server/agent_autopatch.cpp
+    server/agent_autopatch_side_effect_plan.cpp
+    server/agent_signal.cpp
+    server/agent_signal_side_effect_plan.cpp
+    server/agent_tactic.cpp
+    server/agent_tactic_side_effect_plan.cpp
     server/agent_option.cpp
     server/agent_debug.cpp
     server/agent_option_side_effect_plan.cpp

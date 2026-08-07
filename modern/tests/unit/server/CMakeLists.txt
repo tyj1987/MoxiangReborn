@@ -2827,3 +2827,128 @@ add_executable(mxh_agent_monster_side_effect_plan_tests
 target_link_libraries(mxh_agent_monster_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_monster_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_char_tests
+    agent_char_test.cpp
+)
+target_link_libraries(mxh_agent_char_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_char_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_char_side_effect_plan_tests
+    agent_char_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_char_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_char_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_auctionboard_tests
+    agent_auctionboard_test.cpp
+)
+target_link_libraries(mxh_agent_auctionboard_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_auctionboard_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_auctionboard_side_effect_plan_tests
+    agent_auctionboard_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_auctionboard_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_auctionboard_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_quick_tests
+    agent_quick_test.cpp
+)
+target_link_libraries(mxh_agent_quick_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_quick_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_quick_side_effect_plan_tests
+    agent_quick_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_quick_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_quick_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_peacewarmode_tests
+    agent_peacewarmode_test.cpp
+)
+target_link_libraries(mxh_agent_peacewarmode_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_peacewarmode_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_peacewarmode_side_effect_plan_tests
+    agent_peacewarmode_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_peacewarmode_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_peacewarmode_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_ungijosik_tests
+    agent_ungijosik_test.cpp
+)
+target_link_libraries(mxh_agent_ungijosik_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_ungijosik_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_ungijosik_side_effect_plan_tests
+    agent_ungijosik_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_ungijosik_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_ungijosik_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_auction_tests
+    agent_auction_test.cpp
+)
+target_link_libraries(mxh_agent_auction_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_auction_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_auction_side_effect_plan_tests
+    agent_auction_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_auction_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_auction_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_autopatch_tests
+    agent_autopatch_test.cpp
+)
+target_link_libraries(mxh_agent_autopatch_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_autopatch_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_autopatch_side_effect_plan_tests
+    agent_autopatch_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_autopatch_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_autopatch_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_signal_tests
+    agent_signal_test.cpp
+)
+target_link_libraries(mxh_agent_signal_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_signal_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_signal_side_effect_plan_tests
+    agent_signal_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_signal_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_signal_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_tactic_tests
+    agent_tactic_test.cpp
+)
+target_link_libraries(mxh_agent_tactic_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_tactic_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_tactic_side_effect_plan_tests
+    agent_tactic_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_tactic_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_tactic_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
