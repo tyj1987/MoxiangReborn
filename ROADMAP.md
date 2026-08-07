@@ -46,7 +46,7 @@
 | 客户端运行时 | **Phase A + B.2 done** | MoxianClient + 3/9 state 真接 net + CMainGame 1:1；`mxh_client_e2e.exe` 三步 Login/CharSelect/GameIn 全部 PASS |
 | 服务端运行时 | **Phase B done** | LoginServer + AgentServer + MapServer 3 进程 E2E PASS；`deploy/scripts/start_modern.ps1` 启动/状态/停止与客户端三步 E2E 已验证 |
 | 渲染后端 | **PARTIAL** | DX11 + BC1-5 + MotionCache；drawBox 已接入 3D Solid shader、12 边 LINELIST 与 3 个纯几何测试，渲染专项 96/96 PASS；`run_demo_smoke.ps1` PASS-A 自然退出；完整场景截图仍待 |
-| HSEL 硬件狗 | **95% (三阶段已接)** | HselStream 字节兼容已锁 + CHSEL/CHSEL_STREAM ABI + HselStreamCipher IEncryptor + Login/Agent/Map 三个 handler 与客户端三状态真实接入（共享 HselSessionManager，kModernHselKey=203 明文先行握手 → 全链路 HSEL 加密；登录/Agent/Map 三 E2E PASS；R-1 余：三进程真跑 + 真 .bin 验收） |
+| HSEL 硬件狗 | **100% (软件路径)** | HselStream 字节兼容已锁 + CHSEL/CHSEL_STREAM ABI + HselStreamCipher IEncryptor + Login/Agent/Map 三 handler 与客户端三状态接入（共享 HselSessionManager）+ **三进程 --use-hsel 全链路 E2E PASS（login→charselect→gamein 全加密，commit d31b4e00）**；真 .bin 硬件验收依赖实体狗（外部） |
 | HackShield 路由 | **DONE** | AgentHandlerHackShieldTest 17/17，R-2 关闭 |
 | SQL Server 集成 | **60%** | Schema + restore + ODBC adapter，本地 MSSQL 待起 |
 
@@ -64,7 +64,7 @@
 
 ### Phase B - 服务端能跑起来
 - [x] B1-B5 + B6.1 HSEL ABI 校正
-- [ ] **B6** HSEL stub 100% (R-1)
+- [ ] **B6** HSEL stub 100% (R-1) — 软件路径已完成（三进程 --use-hsel 全加密 E2E PASS，d31b4e00）；真 .bin 硬件验收待实体狗
 - [ ] **B7** MSSQL 真起端到端
 - 验证：登录看到空场景
 
@@ -97,7 +97,7 @@
 
 | 优先级 | 子任务 | 阻塞 | 验收 |
 |---|---|---|---|
-| P0 | **R-1 HSEL stub 100%** | 三阶段已接（commit d989567c：共享 HselSessionManager + Agent/Map handler + CCharSelect/CInGame 状态 + tool --use-hsel + 2 E2E + TcpServer::stop 死锁修复）；余：三进程真跑 + 真 .bin 验收 | Crypto::Encrypt/Decrypt 跑通真 .bin；登录→空场景全链路加密 |
+| P0 | **R-1 HSEL stub 100%** | 软件路径完成（d31b4e00：mxh_client_e2e --use-hsel + start_modern.ps1 -UseHsel，三进程全加密 E2E PASS）；余：真 .bin 交叉验收（实体狗，外部依赖） | Crypto::Encrypt/Decrypt 跑通真 .bin；登录→空场景全链路加密 |
 | P0 | **MSSQL 真起 + 端到端** | B5 已写, 待本地 MSSQL；modern SQLite 发布启动链已完成，MSSQL `-DryRun` 参数链已验证 | DbThread + 3 server + 真 client 跑通，随后切换 MSSQL |
 | P0 | **E2 T2 wire SHA-256 replay** | 缺 capture harness | 1000+ 真包重放 diff = 0；当前 commercial smoke gate 已覆盖 33 项关键登录/资源/协议验收 |
 | P1 | **C-Batch 2.81+** dialog ports | 余 49 个 | 每个 >=1 行为断言 test |
