@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
 > **最近一次重构**：2026-08-06 — 把 434 行 ROADMAP 砍成可执行的规划文档；历史 [x] 项迁移到 docs/CHANGELOG.md。
-> **最近一次状态刷新**：2026-08-07 — D4.165-171 side-effect plans (+64 tests: agent_option+agent_debug+agent_jackpot+agent_bobusang+agent_guild_fieldwar+agent_streetstall+agent_exchange); cumulative **~10760 tests 99% PASS** (was 10696, 5 known LoginServerFixture timing flakes retry-PASS; commercial smoke gate 33/33).
+> **最近一次状态刷新**：2026-08-07 — D4.47 ItemSell side-effect runtime orchestrator (+7 tests: ACK/NACK/NPC-gate wire-through dispatch); cumulative **~11,382 tests 99% PASS** (was 11,375; known LoginServerFixture timing flakes retry-PASS incl. WireFingerprintIsDeterministicAcrossRuns; commercial smoke gate 33/33).
 
 ---
 
@@ -265,3 +265,7 @@ mxh_side_by_side now supports --modern-only --golden PATH for regression testing
 - **E2 T2 wire SHA-256 fingerprint lock** (commit 13f9871f) -- mxh_login_wire_sha256_tests drives a real LoginHandler on pinned port 54322 through connect + login + ack, computes SHA-256 over server->client wire bytes via CaptureHandler. Locked golden hash: abe6cc6c6ce823c04b53eed1a9a7badb7f24c51c5434baef9146373c3a7cf3c2. Any wire-format drift -> fingerprint changes -> test fails.
 - **agent_chat runtime dispatcher** (commit f0b7fd61) -- IChatWireSink (8 methods) + dispatch_agent_chat_plan() walks the 12 ChatSideEffectKind values; 12 dispatch tests cover broadcast / whisper-happy / whisper-blocked (nack_code=2) / whisper-gm / ack / nack / party / guild / guild-union / unknown-protocol / null-sink / empty-plan paths.
 累计 +33 tests, 现 **11,302 tests** (was 11,269 baseline + 33). E2 T2 wire SHA-256 replay anchor locked; agent_chat side-effect plan runtime executor complete.
+
+**2026-08-07 状态刷新 (D4.47 ItemSell runtime)**: cumulative **11,382 tests** (was 11,375: 11,371 from D4.38/D4.40 note + 4 from D4.48 ItemUse runtime fab79d65 + 7 new).
+
+- **D4.47 ItemSell side-effect runtime orchestrator** (commit 3b9d76e7) -- apply_item_sell_side_effects() walks the single-step plan emitted by item_sell_side_effect_plan() and dispatches BroadcastSellAck / BroadcastSellNack to a virtual ItemSellSideEffectSink. 1:1 with legacy CItemManager::MP_ITEM_SELL_SYN ([Server]Map/ItemManager.cpp:4205-4240): SellItem rt==0 -> ACK echo (target_pos/item_idx/item_num/dealer_idx preserved); rt!=0 -> MSG_ITEM_ERROR with ECode=rt; CheckHackNpc gate failure -> NACK with ECode=NOT_EXIST(103) + original_rt=-1 sentinel (no SellItem call). 7 wire-through tests cover success-ack + failure-nack-with-rt + npc-gate-nack-with-not-exist + empty-plan-noop + failure-code sweep (incl. negative rt) + ack-does-not-touch-nack-state + nack field passthrough. Full build 0 errors; shop_item_manager suite +7 all PASS; only known LoginServerFixture timing flakes flake (retry-PASS).
