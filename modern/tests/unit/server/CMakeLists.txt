@@ -2430,6 +2430,7 @@ add_executable(mxh_shop_item_manager_tests
     save_point_add_side_effect_test.cpp
     save_point_mutate_side_effect_test.cpp
     item_move_side_effect_test.cpp
+    item_move_side_effect_runtime_test.cpp
     pyoguk_money_side_effect_test.cpp
     buy_pyoguk_side_effect_test.cpp
     item_discard_side_effect_test.cpp
