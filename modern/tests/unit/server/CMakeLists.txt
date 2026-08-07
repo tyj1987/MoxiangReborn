@@ -2513,6 +2513,7 @@ add_executable(mxh_shop_item_manager_tests
     char_change_side_effect_test.cpp
     char_change_side_effect_runtime_test.cpp
     reinforce_with_shop_item_side_effect_test.cpp
+    reinforce_with_shop_item_side_effect_runtime_test.cpp
     titan_delegate_side_effect_test.cpp
     revive_other_nack_side_effect_test.cpp
     curse_cancellation_side_effect_test.cpp
