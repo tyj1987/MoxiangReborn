@@ -2497,6 +2497,7 @@ add_executable(mxh_shop_item_manager_tests
     revive_other_ack_side_effect_test.cpp
     revive_other_ack_side_effect_runtime_test.cpp
     avatar_use_side_effect_test.cpp
+    avatar_use_side_effect_runtime_test.cpp
     job_change_side_effect_test.cpp
     reinforce_reset_side_effect_test.cpp
     rare_create_side_effect_test.cpp
