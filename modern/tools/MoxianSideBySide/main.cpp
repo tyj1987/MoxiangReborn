@@ -52,6 +52,8 @@ struct Args {
     bool modern_legacy = false;
     bool allow_empty = false;
     bool ignore_trace_length = false;
+    bool modern_only = false;
+    std::string golden_path;
 };
 
 bool parse_args(int argc, char** argv, Args& a) {
@@ -80,8 +82,10 @@ bool parse_args(int argc, char** argv, Args& a) {
         else if (s == "--modern-legacy") a.modern_legacy = true;
         else if (s == "--allow-empty") a.allow_empty = true;
         else if (s == "--ignore-trace-length") a.ignore_trace_length = true;
+        else if (s == "--modern-only") a.modern_only = true;
+        else if (s == "--golden") a.golden_path = next("--golden");
         else if (s == "--help" || s == "-h") {
-            std::cout << "mxh_side_by_side [--scenario NAME] [--legacy-exe PATH] ...\n";
+            std::cout << "mxh_side_by_side [--scenario NAME] [--legacy-exe PATH] ...\n  [--modern-only] [--golden PATH]\n";
             return false;
         } else {
             std::cerr << "unknown arg: " << s << "\n";
@@ -316,15 +320,26 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
                   << mxh::tools::sidebyside::endpoint_name(scenario.endpoint)
                   << " legacy_port=" << legacyPort
                   << " modern_port=" << modernPort << " running...\n";
-        const auto legacyTrace = run_scenario(legacyPort, scenario, a.timeout_sec);
+        std::vector<mxh::tools::sidebyside::Packet> legacyTrace;
+        if (a.modern_only && !a.golden_path.empty()) {
+            legacyTrace = mxh::tools::sidebyside::load_capture(a.golden_path);
+            std::cout << "[" << scenario.name << "] modern-only golden=" << a.golden_path
+                      << " loaded=" << legacyTrace.size() << " (expected)" << "\n";
+        } else if (a.modern_only) {
+            std::cout << "[" << scenario.name << "] modern-only (no golden) skipping legacy" << "\n";
+        } else {
+            legacyTrace = run_scenario(legacyPort, scenario, a.timeout_sec);
+        }
         const auto modernTrace = run_scenario(modernPort, scenario, a.timeout_sec);
         const auto legacyPath = a.capture_dir + "/legacy_" + scenario.name + ".cap";
         const auto modernPath = a.capture_dir + "/modern_" + scenario.name + ".cap";
-        mxh::tools::sidebyside::save_capture(legacyTrace, legacyPath);
+        if (!a.modern_only) {
+            mxh::tools::sidebyside::save_capture(legacyTrace, legacyPath);
+        }
         mxh::tools::sidebyside::save_capture(modernTrace, modernPath);
         const auto diffs = mxh::tools::sidebyside::diff_traces(legacyTrace, modernTrace, options);
         const bool missingTrace = legacyTrace.empty() || modernTrace.empty();
-        std::cout << "  legacy=" << legacyTrace.size() << " modern="
+        std::cout << "  expected=" << legacyTrace.size() << " modern="
                   << modernTrace.size() << " diff=" << diffs.size();
         if (missingTrace) std::cout << " missing_trace=true";
         std::cout << "\n";
