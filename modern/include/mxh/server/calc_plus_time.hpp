@@ -37,11 +37,11 @@
 
 #include <cstdint>
 
+#include <mxh/server/legacy_shop_item_kind.hpp>
+
 namespace mxh::server {
 
-// 1:1 with eSHOP_ITEM_CHARM.
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_CHARM = 258u;
-
+// 1:1 with eSHOP_ITEM_CHARM. See legacy_shop_item_kind.hpp.
 // 1:1 with [CC]Header/Protocol.h MP_CHEAT_PLUSTIME_* enum members.
 // dwType == 0 is the legacy default sentinel.
 inline constexpr std::uint32_t LEGACY_MP_CHEAT_PLUSTIME_ALLOFF_VAL = 0u;

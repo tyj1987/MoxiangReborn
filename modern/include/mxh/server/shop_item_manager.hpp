@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "mxh/game/shop_item_types.hpp"
+#include <mxh/server/legacy_shop_item_kind.hpp>
 
 namespace mxh::server {
 
@@ -378,20 +379,7 @@ inline constexpr std::uint32_t SHOP_ITEM_USE_PARAM_PLAYTIME =
     mxh::game::SHOP_ITEM_PARAM_PLAY_TIME;     // 2 -- countdown by elapsed play time
 inline constexpr std::uint32_t SHOP_ITEM_USE_PARAM_CONTINUE = 3u;  // permanent (no expiry)
 
-// Legacy eSHOP_ITEM_* values that drive the dup-counter dispatch
-// (1:1 with legacy [CC]Header/CommonGameDefine.h:698-713). Defined here
-// so the decision does not need to drag in the full CommonGameDefine
-// header chain.
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PREMIUM      = 257u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_CHARM         = 258u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_HERB          = 259u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_INCANTATION   = 260u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_MAKEUP        = 261u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_DECORATION    = 262u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_SUNDRIES      = 263u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_EQUIP         = 264u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PET           = 300u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PET_EQUIP     = 310u;
+// Legacy eSHOP_ITEM_* constants live in legacy_shop_item_kind.hpp.
 
 // ItemInfo surface area that the decision needs. The legacy ITEM_INFO is a
 // 200+ field struct owned by the resource manager; the modern port does

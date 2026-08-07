@@ -31,6 +31,8 @@
 
 #pragma once
 
+#include <mxh/server/legacy_shop_item_kind.hpp>
+
 #include <cstdint>
 
 #include "mxh/game/shop_item_option.hpp"
@@ -39,14 +41,7 @@ namespace mxh::server {
 
 // ---- 1:1 legacy enums ----
 
-// Legacy eSHOP_ITEM_* values from [CC]Header/CommonGameDefine.h.
-// Inlined here so the data plane does not depend on the legacy header.
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_CHARM        = 258u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_HERB         = 259u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_INCANTATION  = 260u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_MAKEUP       = 261u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_DECORATION   = 262u;
-inline constexpr std::uint16_t LEGACY_SHOP_ITEM_SUNDRIES     = 263u;
+// Legacy eSHOP_ITEM_* constants live in legacy_shop_item_kind.hpp.
 
 // Legacy eIncantation_* values from [CC]Header/CommonGameDefine.h:2755-2815.
 // Only the ones referenced by CalcShopItemOption are exposed.

@@ -2398,6 +2398,7 @@ add_executable(mxh_shop_item_manager_tests
     get_item_kind_type_data_plane_test.cpp
     discard_avatar_item_test.cpp
     calc_plus_time_test.cpp
+    calc_plus_time_runtime_test.cpp
     calc_avatar_option_test.cpp
     extra_slot_count_test.cpp
     looting_thresholds_test.cpp
