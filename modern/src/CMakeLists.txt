@@ -147,6 +147,7 @@ install(TARGETS mxh_crypto ARCHIVE DESTINATION lib)
 add_library(mxh_server STATIC
     server/help_request_manager.cpp
     server/login_handler.cpp
+    server/hsel_session.cpp
     server/agent_handler.cpp
     server/map_handler.cpp
     server/character_calc_manager.cpp
@@ -447,7 +448,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 

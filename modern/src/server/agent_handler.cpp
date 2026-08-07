@@ -163,9 +163,17 @@ std::string get_str(const mxh::db::ResultSet& rs, std::size_t row, const char* c
 // ============================================================================
 
 AgentHandler::AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
-                           bool use_legacy_framing)
+                           bool use_legacy_framing,
+                           bool use_hsel,
+                           HselSessionManager::DirectSendFn direct_send)
     : db_(db), reply_(std::move(reply)),
-      use_legacy_framing_(use_legacy_framing) {}
+      use_legacy_framing_(use_legacy_framing),
+      use_hsel_(use_hsel), hsel_(use_hsel, std::move(direct_send)) {}
+
+mxh::net::IEncryptor* AgentHandler::encryptor_for(
+    mxh::net::ConnectionId id) {
+    return hsel_.encryptor_for(id);
+}
 
 bool AgentHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
@@ -173,6 +181,10 @@ bool AgentHandler::on_connect(mxh::net::ConnectionId id,
 
     // Phase 7.6: In legacy mode, immediately send AGENT_CONNECTSUCCESS.
     if (use_legacy_framing_) {
+        if (use_hsel_) {
+            hsel_.handshake(id, static_cast<std::uint8_t>(
+                                    mxh::proto::Category::UserConn));
+        }
         static std::mt19937 rng{std::random_device{}()};
         std::uniform_int_distribution<std::uint32_t> dist(50000, 99999);
         std::uint32_t agent_auth_key = dist(rng);
@@ -187,6 +199,7 @@ void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
     std::cout << "[Agent] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << "\n";
+    hsel_.on_disconnect(id);
     // Clean up connection state.
     std::uint32_t removed_char_id = 0;
     std::uint16_t removed_map_num = 0;

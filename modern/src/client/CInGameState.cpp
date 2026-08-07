@@ -135,13 +135,18 @@ void CInGameState::Process() {
 }
 
 void CInGameState::Start(CEngine* engine, std::string host,
-                          std::uint16_t port,
-                          std::uint32_t player_id, std::uint16_t map_num) {
+                         std::uint16_t port,
+                         std::uint32_t player_id, std::uint16_t map_num,
+                         bool use_hsel) {
     m_pEngine = engine;
     m_host    = std::move(host);
     m_port    = port;
     m_playerId = player_id;
     m_mapNum   = map_num;
+    m_useHsel = use_hsel;
+    if (m_useHsel) {
+        m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
+    }
     if (m_started) return;
     m_started = true;
     MLOG_INFO("CInGameState connecting to %s:%u (player_id=%u, map=%u)",
@@ -153,13 +158,18 @@ void CInGameState::Start(CEngine* engine, std::string host,
     cfg.remote_address     = m_host;
     cfg.port               = m_port;
     cfg.use_legacy_framing = true;
-    cfg.use_encryption     = false;
+    cfg.use_encryption     = m_useHsel;  // Phase R-1: HSEL map session
     cfg.connect_timeout    = std::chrono::milliseconds(3000);
     auto e = m_client->connect(cfg);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("TcpClient::connect to MapServer failed: ") +
                   mxh::net::to_string(e));
     }
+}
+
+mxh::net::IEncryptor* CInGameState::encryptor_for(
+    mxh::net::ConnectionId) {
+    return m_hsel ? m_hsel.get() : nullptr;
 }
 
 bool CInGameState::is_connected() const noexcept {
@@ -236,6 +246,21 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
             break;
         }
         default:
+            if (proto == static_cast<UserConnProtocol>(
+                             mxh::proto::kModernHselKey)) {
+                if (msg.payload.size() < sizeof(mxh::crypto::HselInit)) {
+                    fail_with("HselKey payload too short");
+                    break;
+                }
+                mxh::crypto::HselInit init{};
+                std::memcpy(&init, msg.payload.data(), sizeof(init));
+                if (!m_hsel || !m_hsel->import_init(init)) {
+                    fail_with("HselKey import failed");
+                    break;
+                }
+                MLOG_INFO("CInGameState: HSEL map session key imported");
+                break;
+            }
             MLOG_WARN("CInGameState: unhandled userconn proto=%d",
                       static_cast<int>(proto));
             break;

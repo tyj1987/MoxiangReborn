@@ -22,6 +22,7 @@
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/game/hero_total_layout.hpp"
 
 #include <gtest/gtest.h>
 
@@ -812,6 +813,175 @@ TEST_F(HselLoginFixture, HselEncryptedLoginFlow) {
     EXPECT_EQ(ack.payload[20], 0);
     EXPECT_EQ(ack.payload[21], 0);
     EXPECT_EQ(ack.payload[22], 2);
+    tcp.disconnect();
+}
+
+// =============================================================================
+// Phase R-1 -- HSEL-encrypted Agent / Map sessions. Each server handler
+// runs the same key-first handshake (kModernHselKey plaintext, then every
+// subsequent frame HSEL-encrypted). The Agent test proves the handshake +
+// AgentConnectSuccess; the Map test proves a full request/response round
+// trip (GameInSyn -> GameInAck) over the encrypted channel.
+// =============================================================================
+
+class HselAgentFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        WSADATA wsa{};
+        ASSERT_EQ(WSAStartup(MAKEWORD(2, 2), &wsa), 0);
+        auto tmp = std::filesystem::temp_directory_path();
+        db_path_ = (tmp / (
+            std::string("hsel_agent_e2e_") +
+            std::to_string(static_cast<long long>(::GetCurrentProcessId())) +
+            "_" + std::to_string(test_id_++) + ".db")).string();
+        std::remove(db_path_.c_str());
+        db_ = std::make_unique<mxh::db::SqliteAdapter>();
+        mxh::db::ConnectionConfig cfg;
+        cfg.path = db_path_;
+        ASSERT_TRUE(db_->connect(cfg));
+
+        port_ = find_free_port();
+        ASSERT_GT(port_, 0);
+
+        handler_ = std::make_unique<mxh::server::AgentHandler>(
+            *db_,
+            [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+                if (server_) server_->send(id, m);
+            },
+            /*use_legacy_framing=*/true, /*use_hsel=*/true,
+            [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+                if (server_) server_->send(id, m);
+            });
+
+        server_ = std::make_unique<mxh::net::TcpServer>(*handler_);
+        mxh::net::ServerConfig scfg;
+        scfg.port = static_cast<std::uint16_t>(port_);
+        scfg.bind_address = "127.0.0.1";
+        scfg.use_legacy_framing = true;
+        scfg.use_encryption = true;
+        const auto sr = server_->start(scfg);
+        ASSERT_EQ(sr, mxh::net::NetError::Ok) << mxh::net::to_string(sr);
+    }
+
+    void TearDown() override {
+        if (server_) server_->stop();
+        server_.reset();
+        handler_.reset();
+        db_.reset();
+    }
+
+    int port_ = 0;
+    std::string db_path_;
+    std::unique_ptr<mxh::db::IDbAdapter> db_;
+    std::unique_ptr<mxh::server::AgentHandler> handler_;
+    std::unique_ptr<mxh::net::TcpServer> server_;
+    static inline int test_id_ = 0;
+};
+
+TEST_F(HselAgentFixture, HselEncryptedAgentConnect) {
+    HselClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), mxh::net::NetError::Ok);
+
+    // Key message first, then the (encrypted) AgentConnectSuccess.
+    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 2u);
+    EXPECT_EQ(msgs[0].header.protocol, mxh::proto::kModernHselKey);
+    ASSERT_EQ(msgs[0].payload.size(), sizeof(mxh::crypto::HselInit));
+    EXPECT_EQ(msgs[1].header.protocol, 8);  // AgentConnectSuccess
+    EXPECT_TRUE(client.cipher_.initialized());
+    tcp.disconnect();
+}
+
+class HselMapFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        WSADATA wsa{};
+        ASSERT_EQ(WSAStartup(MAKEWORD(2, 2), &wsa), 0);
+        auto tmp = std::filesystem::temp_directory_path();
+        db_path_ = (tmp / (
+            std::string("hsel_map_e2e_") +
+            std::to_string(static_cast<long long>(::GetCurrentProcessId())) +
+            "_" + std::to_string(test_id_++) + ".db")).string();
+        std::remove(db_path_.c_str());
+        db_ = std::make_unique<mxh::db::SqliteAdapter>();
+        mxh::db::ConnectionConfig cfg;
+        cfg.path = db_path_;
+        ASSERT_TRUE(db_->connect(cfg));
+
+        port_ = find_free_port();
+        ASSERT_GT(port_, 0);
+
+        handler_ = std::make_unique<mxh::server::MapHandler>(
+            *db_, /*map_num=*/0,
+            [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+                if (server_) server_->send(id, m);
+            },
+            /*use_legacy_framing=*/true, /*use_hsel=*/true,
+            [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+                if (server_) server_->send(id, m);
+            });
+
+        server_ = std::make_unique<mxh::net::TcpServer>(*handler_);
+        mxh::net::ServerConfig scfg;
+        scfg.port = static_cast<std::uint16_t>(port_);
+        scfg.bind_address = "127.0.0.1";
+        scfg.use_legacy_framing = true;
+        scfg.use_encryption = true;
+        const auto sr = server_->start(scfg);
+        ASSERT_EQ(sr, mxh::net::NetError::Ok) << mxh::net::to_string(sr);
+    }
+
+    void TearDown() override {
+        if (server_) server_->stop();
+        server_.reset();
+        handler_.reset();
+        db_.reset();
+    }
+
+    int port_ = 0;
+    std::string db_path_;
+    std::unique_ptr<mxh::db::IDbAdapter> db_;
+    std::unique_ptr<mxh::server::MapHandler> handler_;
+    std::unique_ptr<mxh::net::TcpServer> server_;
+    static inline int test_id_ = 0;
+};
+
+TEST_F(HselMapFixture, HselEncryptedGameInRoundTrip) {
+    HselClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), mxh::net::NetError::Ok);
+
+    // Key message first (plaintext phase), then the client is armed.
+    ASSERT_TRUE(client.wait_for(1, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 1u);
+    EXPECT_EQ(msgs[0].header.protocol, mxh::proto::kModernHselKey);
+    EXPECT_TRUE(client.cipher_.initialized());
+
+    // GameInSyn goes out encrypted; GameInAck comes back encrypted.
+    mxh::net::Message syn;
+    syn.header.category = 7;
+    syn.header.protocol = 28;  // GameInSyn
+    syn.header.object_id = 100;
+    ASSERT_EQ(tcp.send(syn), mxh::net::NetError::Ok);
+    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    msgs = client.snapshot();
+    ASSERT_GE(msgs.size(), 2u);
+    EXPECT_EQ(msgs[1].header.protocol, 29);  // GameInAck
+    EXPECT_GE(msgs[1].payload.size(),
+              mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE);
     tcp.disconnect();
 }
 

@@ -38,6 +38,7 @@
 #include <string>
 
 #include "mxh/net/net.hpp"
+#include "mxh/crypto/hsel_encryptor.hpp"
 
 namespace mxh::client {
 
@@ -108,13 +109,15 @@ public:
                     const std::string& remote_addr) override;
     void on_message(mxh::net::ConnectionId id,
                     const mxh::net::Message& msg) override;
-    void on_disconnect(mxh::net::ConnectionId id,
-                       mxh::net::NetError reason) override;
+void on_disconnect(mxh::net::ConnectionId id,
+                   mxh::net::NetError reason) override;
+mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
     // Public start hook.  MapServer is reached directly (bypassing
     // Agent's Phase 9 forwarding).  Idempotent.
     void Start(CEngine* engine, std::string host, std::uint16_t port,
-               std::uint32_t player_id, std::uint16_t map_num);
+               std::uint32_t player_id, std::uint16_t map_num,
+               bool use_hsel = false);
 
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
@@ -141,6 +144,8 @@ private:
     bool                     m_inGame     = false;
     bool                     m_failed     = false;
     bool                     m_sentGameInSyn = false;  // gate for Process() retry
+    bool                     m_useHsel = false;
+    std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
     std::string              m_failureReason;
 };
 

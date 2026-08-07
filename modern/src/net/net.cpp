@@ -437,16 +437,33 @@ void TcpServer::stop() {
 
     if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
 
-    // Phase 10e: Join sender threads first (they own socket close), then recv threads.
+    // Phase 10e + R-1 fix: move the per-connection threads out and join
+    // them WITHOUT holding connections_mu. A handler that is still inside
+    // on_message and calling server->send() needs connections_mu to
+    // resolve its connection; joining under the lock would deadlock the
+    // shutdown (the recv thread waits for the lock stop() holds).
+    std::vector<std::thread> sender_handles;
+    std::vector<std::thread> recv_handles;
     {
         std::lock_guard<std::mutex> lk(impl_->connections_mu);
         for (auto& [_, conn] : impl_->connections) {
-            if (conn->sender_thread.joinable()) conn->sender_thread.join();
+            if (conn->sender_thread.joinable()) {
+                sender_handles.push_back(std::move(conn->sender_thread));
+            }
         }
         for (auto& t : impl_->recv_threads) {
-            if (t.joinable()) t.join();
+            if (t.joinable()) recv_handles.push_back(std::move(t));
         }
         impl_->recv_threads.clear();
+    }
+    for (auto& t : sender_handles) {
+        if (t.joinable()) t.join();
+    }
+    for (auto& t : recv_handles) {
+        if (t.joinable()) t.join();
+    }
+    {
+        std::lock_guard<std::mutex> lk(impl_->connections_mu);
         impl_->connections.clear();
     }
 

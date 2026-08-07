@@ -43,6 +43,7 @@ struct Args {
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path = "./moxian_map.db";
     bool          use_legacy = true;  // always legacy for MapServer
+    bool          use_hsel   = false;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -59,6 +60,8 @@ Args parse_args(int argc, char** argv) {
             a.db_backend = argv[++i];
         else if (s == "--no-legacy")
             a.use_legacy = false;
+        else if (s == "--use-hsel")
+            a.use_hsel = true;
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
@@ -193,13 +196,18 @@ int main(int argc, char** argv) {
     // 2. Build reply queue + handler + server.
     auto queue = std::make_shared<ReplyQueue>();
 
+    mxh::net::TcpServer* server_ptr = nullptr;
     mxh::server::MapHandler handler(*db, args.map_num,
         [queue](mxh::net::ConnectionId id, const mxh::net::Message& m) {
             queue->push(id.value, m);
         },
-        args.use_legacy);
+        args.use_legacy, args.use_hsel,
+        [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+            if (server_ptr) server_ptr->send(id, m);
+        });
 
     mxh::net::TcpServer server(handler);
+    server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
     scfg.bind_address = "0.0.0.0";

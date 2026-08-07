@@ -40,6 +40,7 @@
 #include <vector>
 
 #include "mxh/net/net.hpp"
+#include "mxh/crypto/hsel_encryptor.hpp"
 
 namespace mxh::client {
 
@@ -109,8 +110,9 @@ public:
                     const std::string& remote_addr) override;
     void on_message(mxh::net::ConnectionId id,
                     const mxh::net::Message& msg) override;
-    void on_disconnect(mxh::net::ConnectionId id,
-                       mxh::net::NetError reason) override;
+void on_disconnect(mxh::net::ConnectionId id,
+                    mxh::net::NetError reason) override;
+mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
     // Host bridge: receive the LoginResult captured by CLoginState.
     // Must be called before Start().
@@ -118,7 +120,7 @@ public:
 
     // Public start hook.  Begins TCP connect to AgentServer.
     // Idempotent (second call is a no-op).
-    void Start(CEngine* engine);
+    void Start(CEngine* engine, bool use_hsel = false);
 
     // Override auto-select.  Default behaviour after ListAck is to send
     // CharacterSelectSyn for the first valid slot; the host can call
@@ -142,6 +144,8 @@ private:
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
     LoginResult              m_login;
+    bool                     m_useHsel = false;
+    std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
 
     std::vector<CharacterSlot> m_characters;   // populated by ListAck
     std::uint32_t            m_selectedChrid = 0;
