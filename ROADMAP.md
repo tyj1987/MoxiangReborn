@@ -208,7 +208,18 @@
 
 ---
 
-**2026-08-07 状态刷新**: D4.173-180 agent_* data plane + side-effect plan (8 categories total) -- the missing gent no handler categories that follow the implicit default-branch behavior in legacy [Server]Agent/AgentNetworkMsgParser.cpp:
+**2026-08-07 状态刷新**: **2026-08-07 ????** (session ?): D4 shop-item runtime orchestrators -- closing out 4 of the remaining D4 ??????? items. 4 commits / +43 tests:
+
+- **D4.28 CalcPlusTime runtime** (commit b0047d43) -- apply_calc_plus_time() walks manager.using_items(), dispatches per-row data-plane decisions to a PlustimeCalcCallback + mutates entry->Data.LastCheckTime via find_using_item_by_icon_idx_mutable. 13 tests cover DefaultSentinel/PlustimeOn/PlustimeOff/PlustimeAllOff + CHARM gate + ItemInfo lookup miss + stop_iteration break. Also extracted LEGACY_SHOP_ITEM_* constants into legacy_shop_item_kind.hpp (single source of truth) to fix MSVC C2374 (multiple init in same TU).
+- **D4.25 CalcShopItemOption runtime** (commit a2139282) -- apply_calc_shop_item_option() calls the data plane + applies 5 side effects: ProtectItemIdx update on manager + 4 SetExtra*SlotCount hooks (InvenExtend / PyogukExtend / MugongExtend / CharacterSlot + HK_LOCAL variants). 14 tests cover Charm stat mutation + CheRyuk incantation (set/clear ProtectItemIdx) + 4 locale-bounded incantation hooks + early-return on InvalidIcon/ItemInfoMissing.
+- **D4.* UpdateLogoutToDB runtime** (commit 0845d193) -- apply_update_logout_to_db() walks manager.using_items(), builds UpdateLogoutToDBInfo per row via info provider, dispatches per-row Action (Persist / Skip / Drop) to ShopItemManager mutations + virtual SQL dispatch hook (3-arg signature matching legacy ShopItemUpdatetimeToDB). 8 tests cover Drop (non-PLAYTIME / no info), Skip (plustime + inactive rate), Persist (with 30s clamp + clamp-to-zero).
+- **D4.35 CheckEndTime side-effect runtime** (commit cb46f9af) -- apply_check_end_time_side_effects() walks the 5-step chain emitted by check_end_time_side_effect() and dispatches each step (DiscardItemAttempt / BumpDupCounter / BroadcastUseEnd / ShopItemDeleteToDB / LogItemMoney) to a virtual CheckEndTimeSideEffectSink. 8 tests cover full 5-step chain in legacy order + discard-failure-continues invariant + empty step list + single-step kinds.
+
+?? +43 tests, ? **~11,346 tests** (was 11,302 baseline + 43). All 4 runtime orchestrators follow the same pattern: data plane in *_data_plane*.hpp (already locked), runtime orchestrator also inline in this header, tests verify behavior through the public surface (ShopItemManager + virtual callback interfaces). No regressions: full shop_item_manager suite 1082/1082 PASS.
+
+D4 shop-item remaining gaps after this session: per the data plane headers, the only remaining unwired side-effect chain is the per-row discard / dup-bump / broadcast / DB-delete / log dispatcher which is now plumbed end-to-end via this session's CheckEndTime runtime. Other D4 side-effect data planes (PutOnAvatarItem / TakeOffAvatarItem / SkinSelect / DiscardSkinItem) have data-plane side-effect headers but no runtime orchestrator yet -- those follow the same pattern as CheckEndTime but are out of scope for this session (ROADMAP P1 batch).
+
+D4.173-180 agent_* data plane + side-effect plan (8 categories total) -- the missing gent no handler categories that follow the implicit default-branch behavior in legacy [Server]Agent/AgentNetworkMsgParser.cpp:
 
 - **D4.173 agent_npc** (category 37, 13 protocols, ForwardToUser/DropNoUser) + 19 tests (commit 4cbd7980)
 - **D4.174 agent_pk** (category 41, 22 protocols, ForwardToUser/DropNoUser) + 19 tests (commit bd54c842)
