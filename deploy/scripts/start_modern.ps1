@@ -8,6 +8,10 @@ param(
     [int]$AgentPort = 17001,
     [int]$MapPort = 18001,
     [int]$MapNumber = 12,
+    [ValidateSet("sqlite", "mssql_odbc")]
+    [string]$Backend = "sqlite",
+    [string]$DbRoot = "",
+    [switch]$DryRun,
     [string]$DataDir = ""
 )
 $ErrorActionPreference = "Stop"
@@ -15,6 +19,8 @@ $deployRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $buildRoot = Join-Path $deployRoot "modern\build\tools"
 $stateDir = Join-Path $deployRoot "deploy\runtime\modern"
 if ([string]::IsNullOrWhiteSpace($DataDir)) { $DataDir = Join-Path $stateDir "data" }
+if ([string]::IsNullOrWhiteSpace($DbRoot)) { $DbRoot = $DataDir }
+if ($Backend -eq "mssql_odbc" -and [string]::IsNullOrWhiteSpace($DbRoot)) { throw "DbRoot must be an MSSQL connection string" }
 $pidFile = Join-Path $stateDir "pids.json"
 New-Item -ItemType Directory -Force -Path $stateDir,$DataDir | Out-Null
 function Read-State { if (Test-Path -LiteralPath $pidFile) { $json = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json; return @($json) } return @() }
@@ -28,11 +34,20 @@ function Test-Port([int]$port) { $client = [Net.Sockets.TcpClient]::new(); try {
 if ($Mode -eq "stop") { Stop-Modern; exit 0 }
 if ($Mode -eq "restart") { Stop-Modern; Start-Sleep -Seconds 1 }
 if ($Mode -eq "status") { $statusState = @(Read-State); foreach ($entry in $statusState) { $p = Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue; Write-Host "$($entry.name): $(if ($p) { 'running' } else { 'stopped' }) pid=$($entry.pid)" }; foreach ($port in @($LoginPort,$AgentPort,$MapPort)) { Write-Host "port ${port}: $(Test-Port $port)" }; exit 0 }
+$loginInitArgs = if ($Backend -eq "sqlite") { @("--init-schema") } else { @() }
 $bins = @(
-    @{ name = "login"; exe = Join-Path $buildRoot "MoxianLoginServer\Debug\mxh_login_server.exe"; args = @("--port",$LoginPort,"--backend","sqlite","--db",(Join-Path $DataDir "login.db"),"--agent-addr","127.0.0.1","--agent-port",$AgentPort,"--legacy","--init-schema") },
-    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend","sqlite","--db",(Join-Path $DataDir "agent.db"),"--legacy","--map-server","127.0.0.1:$MapPort") },
-    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; args = @("--port",$MapPort,"--map",$MapNumber,"--backend","sqlite","--db",(Join-Path $DataDir "map.db"),"--legacy") }
+    @{ name = "login"; exe = Join-Path $buildRoot "MoxianLoginServer\Debug\mxh_login_server.exe"; args = @("--port",$LoginPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "login.db" } else { $DbRoot }),"--agent-addr","127.0.0.1","--agent-port",$AgentPort,"--legacy") + $loginInitArgs },
+    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "agent.db" } else { $DbRoot }),"--legacy","--map-server","127.0.0.1:$MapPort") },
+    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; args = @("--port",$MapPort,"--map",$MapNumber,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "map.db" } else { $DbRoot }),"--legacy") }
 )
+if ($DryRun) {
+    Write-Host "Modern server dry-run (backend=$Backend locale=$Locale)" -ForegroundColor Cyan
+    foreach ($item in $bins) {
+        if (-not (Test-Path -LiteralPath $item.exe)) { throw "Missing modern server executable: $($item.exe)" }
+        Write-Host "$($item.name): $($item.exe) $($item.args -join ' ')"
+    }
+    exit 0
+}
 $state = @()
 foreach ($item in $bins) {
     if (-not (Test-Path -LiteralPath $item.exe)) { throw "Missing modern server executable: $($item.exe)" }

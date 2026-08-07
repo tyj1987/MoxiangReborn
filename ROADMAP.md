@@ -98,7 +98,7 @@
 | 优先级 | 子任务 | 阻塞 | 验收 |
 |---|---|---|---|
 | P0 | **R-1 HSEL stub 100%** | YHLibrary ABI OK, 缺真 bin E2E | Crypto::Encrypt/Decrypt 跑通真 .bin |
-| P0 | **MSSQL 真起 + 端到端** | B5 已写, 待本地 MSSQL；modern SQLite 发布启动链已完成并验证 | DbThread + 3 server + 真 client 跑通，随后切换 MSSQL |
+| P0 | **MSSQL 真起 + 端到端** | B5 已写, 待本地 MSSQL；modern SQLite 发布启动链已完成，MSSQL `-DryRun` 参数链已验证 | DbThread + 3 server + 真 client 跑通，随后切换 MSSQL |
 | P0 | **E2 T2 wire SHA-256 replay** | 缺 capture harness | 1000+ 真包重放 diff = 0；当前 commercial smoke gate 已覆盖 33 项关键登录/资源/协议验收 |
 | P1 | **C-Batch 2.81+** dialog ports | 余 49 个 | 每个 >=1 行为断言 test |
 | P1 | **D4 商城剩余真逻辑** | commits dcb05173 + 3e21470e (UseShopItem + CheckEndTime realtime) + 668ec566 (CheckAvatarEndtime) + 7e49a5a5 (CalcAvatarOption) + bbebdb18 (UseShopItemUpdateToDB) + 68061fe2 (CalcShopItemOption) + cb30fba6 (UpdateLogoutToDB) + 529e1843 (AddDupParam/DeleteDupParam/IsDupAble) ✓ | AddUsingShopItem + CalcPlusTime + avatar/skin + side-effect dispatchers |

@@ -12,6 +12,14 @@ powershell -File deploy\scripts\start_modern.ps1 -Mode status
 powershell -File deploy\scripts\start_modern.ps1 -Mode stop
 ```
 
+For production MSSQL configuration, validate the generated command line without starting processes:
+
+```powershell
+powershell -File deploy\scripts\start_modern.ps1 -Mode start -Backend mssql_odbc -DbRoot "backend=mssql_odbc;host=127.0.0.1;database=Moxiang;user=sa;password=..." -DryRun
+```
+
+`-DryRun` verifies all three modern executables and confirms that MSSQL mode does not pass the SQLite-only schema initialization flag.
+
 The launcher starts modern Login/Agent/Map on ports `16001/17001/18001`, stores runtime data under `deploy/runtime/modern`, initializes the SQLite demo account on first start, writes per-service logs, records PIDs, performs port health checks, and supports safe stop/restart. Production deployment still requires MSSQL and the production configuration path below.
 
 ## 目录
