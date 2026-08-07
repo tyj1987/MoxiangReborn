@@ -48,7 +48,7 @@
 | 渲染后端 | **PARTIAL** | DX11 + BC1-5 + MotionCache；drawBox 已接入 3D Solid shader、12 边 LINELIST 与 3 个纯几何测试，渲染专项 96/96 PASS；`run_demo_smoke.ps1` PASS-A 自然退出；完整场景截图仍待 |
 | HSEL 硬件狗 | **100% (软件路径)** | HselStream 字节兼容已锁 + CHSEL/CHSEL_STREAM ABI + HselStreamCipher IEncryptor + Login/Agent/Map 三 handler 与客户端三状态接入（共享 HselSessionManager）+ **三进程 --use-hsel 全链路 E2E PASS（login→charselect→gamein 全加密，commit d31b4e00）**；真 .bin 硬件验收依赖实体狗（外部） |
 | HackShield 路由 | **DONE** | AgentHandlerHackShieldTest 17/17，R-2 关闭 |
-| SQL Server 集成 | **60%** | Schema + restore + ODBC adapter，本地 MSSQL 待起 |
+| SQL Server 集成 | **真起 E2E PASS（LocalDB）** | 本地 SQL Server 2019 LocalDB 真起：现代 schema 脚本（deploy/database/mx_modern_schema_mssql.sql）+ 三进程 --backend mssql_odbc + 客户端三步 E2E PASS（--use-hsel）+ 真库 roundtrip 测试（MXH_MSSQL_E2E 门控，commit f5400bdc）；余：legacy .bak 恢复（MHGAME/LogMoney 真库验收，备份文件在外部） |
 
 历史详细：[docs/CHANGELOG.md](docs/CHANGELOG.md)。
 
@@ -98,7 +98,7 @@
 | 优先级 | 子任务 | 阻塞 | 验收 |
 |---|---|---|---|
 | P0 | **R-1 HSEL stub 100%** | 软件路径完成（d31b4e00：mxh_client_e2e --use-hsel + start_modern.ps1 -UseHsel，三进程全加密 E2E PASS）；余：真 .bin 交叉验收（实体狗，外部依赖） | Crypto::Encrypt/Decrypt 跑通真 .bin；登录→空场景全链路加密 |
-| P0 | **MSSQL 真起 + 端到端** | B5 已写, 待本地 MSSQL；modern SQLite 发布启动链已完成，MSSQL `-DryRun` 参数链已验证 | DbThread + 3 server + 真 client 跑通，随后切换 MSSQL |
+| P0 | **MSSQL 真起 + 端到端** | 已达成（f5400bdc）：LocalDB 真起 + 现代 schema + 三进程 mssql_odbc + 客户端三步 E2E PASS + 真库 roundtrip 测试；余：生产 SQL Server 实例 + legacy .bak 恢复验收 | DbThread + 3 server + 真 client 跑通，随后切换 MSSQL |
 | P0 | **E2 T2 wire SHA-256 replay** | 缺 capture harness | 1000+ 真包重放 diff = 0；当前 commercial smoke gate 已覆盖 33 项关键登录/资源/协议验收 |
 | P1 | **C-Batch 2.81+** dialog ports | 余 49 个 | 每个 >=1 行为断言 test |
 | P1 | **D4 商城剩余真逻辑** | commits dcb05173 + 3e21470e (UseShopItem + CheckEndTime realtime) + 668ec566 (CheckAvatarEndtime) + 7e49a5a5 (CalcAvatarOption) + bbebdb18 (UseShopItemUpdateToDB) + 68061fe2 (CalcShopItemOption) + cb30fba6 (UpdateLogoutToDB) + 529e1843 (AddDupParam/DeleteDupParam/IsDupAble) ✓ | AddUsingShopItem + CalcPlusTime + avatar/skin + side-effect dispatchers |
