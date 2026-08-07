@@ -207,3 +207,22 @@
 - E2 T2 wire SHA-256 replay (缺 capture harness)。commercial smoke gate 33/33 PASS 持续覆盖关键登录/资源/协议验收。
 
 ---
+
+**2026-08-07 状态刷新**: D4.173-180 agent_* data plane + side-effect plan (8 categories total) -- the missing gent no handler categories that follow the implicit default-branch behavior in legacy [Server]Agent/AgentNetworkMsgParser.cpp:
+
+- **D4.173 agent_npc** (category 37, 13 protocols, ForwardToUser/DropNoUser) + 19 tests (commit 4cbd7980)
+- **D4.174 agent_pk** (category 41, 22 protocols, ForwardToUser/DropNoUser) + 19 tests (commit bd54c842)
+- **D4.175 agent_journal** (category 53, 8 protocols) + 19 tests
+- **D4.176 agent_suryun** (category 54, 11 protocols) + 19 tests
+- **D4.177 agent_societyact** (category 55, 2 protocols) + 19 tests
+- **D4.178 agent_partywar** (category 59, 21 protocols) + 19 tests
+- **D4.179 agent_titan** (category 72, 23 protocols) + 19 tests
+- **D4.180 agent_itemext** (category 73, 21 protocols) + 19 tests
+
+Cumulative +152 tests, **10,926 tests 99% PASS** (1-5 known LoginServerFixture timing flakes retry-PASS; MoxianClientE2E E2E flake persistent; commercial smoke gate 32/33 PASS).
+
+All 77 gameplay categories now have both a data plane header and a side-effect plan header in modern/include/mxh/server/. Only MP_RMTOOL_* (43-51, 68, 70) categories and gameplay-non-critical categories remain uncovered; these are tooling/admin-only paths.
+
+### Side-by-side modern-only + golden mode (commit 409f87dc)
+
+mxh_side_by_side now supports --modern-only --golden PATH for regression testing without a running legacy server. Captures stay byte-stable so future drift in modern-only mode is caught immediately. Useful when only the modern server is available.
