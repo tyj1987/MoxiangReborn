@@ -12,6 +12,7 @@ param(
     [string]$Backend = "sqlite",
     [string]$DbRoot = "",
     [switch]$DryRun,
+    [switch]$UseHsel,
     [string]$DataDir = ""
 )
 $ErrorActionPreference = "Stop"
@@ -35,10 +36,11 @@ if ($Mode -eq "stop") { Stop-Modern; exit 0 }
 if ($Mode -eq "restart") { Stop-Modern; Start-Sleep -Seconds 1 }
 if ($Mode -eq "status") { $statusState = @(Read-State); foreach ($entry in $statusState) { $p = Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue; Write-Host "$($entry.name): $(if ($p) { 'running' } else { 'stopped' }) pid=$($entry.pid)" }; foreach ($port in @($LoginPort,$AgentPort,$MapPort)) { Write-Host "port ${port}: $(Test-Port $port)" }; exit 0 }
 $loginInitArgs = if ($Backend -eq "sqlite") { @("--init-schema") } else { @() }
+$hselArgs = if ($UseHsel) { @("--use-hsel") } else { @() }
 $bins = @(
-    @{ name = "login"; exe = Join-Path $buildRoot "MoxianLoginServer\Debug\mxh_login_server.exe"; args = @("--port",$LoginPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "login.db" } else { $DbRoot }),"--agent-addr","127.0.0.1","--agent-port",$AgentPort,"--legacy") + $loginInitArgs },
-    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "agent.db" } else { $DbRoot }),"--legacy","--map-server","127.0.0.1:$MapPort") },
-    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; args = @("--port",$MapPort,"--map",$MapNumber,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "map.db" } else { $DbRoot }),"--legacy") }
+    @{ name = "login"; exe = Join-Path $buildRoot "MoxianLoginServer\Debug\mxh_login_server.exe"; args = @("--port",$LoginPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "login.db" } else { $DbRoot }),"--agent-addr","127.0.0.1","--agent-port",$AgentPort,"--legacy") + $loginInitArgs + $hselArgs },
+    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "agent.db" } else { $DbRoot }),"--legacy","--map-server","127.0.0.1:$MapPort") + $hselArgs },
+    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; args = @("--port",$MapPort,"--map",$MapNumber,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "map.db" } else { $DbRoot }),"--legacy") + $hselArgs }
 )
 if ($DryRun) {
     Write-Host "Modern server dry-run (backend=$Backend locale=$Locale)" -ForegroundColor Cyan

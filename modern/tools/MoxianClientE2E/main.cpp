@@ -86,6 +86,7 @@ struct CliArgs {
     std::string map_exe;
     bool no_spawn = false;
     int  timeout_s = 10;
+    bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
 };
 
 CliArgs parse_cli(int argc, char** argv) {
@@ -103,6 +104,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--map-exe"   && i + 1 < argc) a.map_exe   = argv[++i];
         else if (s == "--no-spawn") a.no_spawn = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
+        else if (s == "--use-hsel")  a.use_hsel = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
             std::exit(3);
@@ -237,7 +239,8 @@ int run_e2e(const CliArgs& cli) {
             "--agent-addr", "127.0.0.1",
             "--agent-port", "17001",
             "--init-schema",
-            "--legacy"});
+            "--legacy",
+            (cli.use_hsel ? "--use-hsel" : "")});
 
         // AgentServer
         procs.push_back(std::make_unique<ServerProc>());
@@ -247,7 +250,8 @@ int run_e2e(const CliArgs& cli) {
             "--port", "17001",
             "--db", agent_db,
             "--legacy",
-            "--map-server", "127.0.0.1:18001"});
+            "--map-server", "127.0.0.1:18001",
+            (cli.use_hsel ? "--use-hsel" : "")});
 
         // MapServer
         procs.push_back(std::make_unique<ServerProc>());
@@ -257,7 +261,8 @@ int run_e2e(const CliArgs& cli) {
             "--port", "18001",
             "--map", "12",
             "--db", map_db,
-            "--legacy"});
+            "--legacy",
+            (cli.use_hsel ? "--use-hsel" : "")});
 
         // Wait for the three ports.
         if (!wait_for_port(16001, cli.timeout_s)) {
@@ -286,7 +291,8 @@ int run_e2e(const CliArgs& cli) {
     // ---- Step 1: Login ----
     LOG("[1/3] Login: CLoginState connecting to 127.0.0.1:16001 ...");
     mxh::client::CLoginState login;
-    login.Start(&engine, "127.0.0.1", 16001, "test", "test");
+    login.Start(&engine, "127.0.0.1", 16001, "test", "test",
+                cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
@@ -325,7 +331,7 @@ int run_e2e(const CliArgs& cli) {
     // Override the port the LoginAck would have told us.
     login_result.agent_port = 17001;
     chsel.SetLoginResult(login_result);
-    chsel.Start(&engine);
+    chsel.Start(&engine, cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
@@ -362,7 +368,8 @@ int run_e2e(const CliArgs& cli) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     });
-    game.Start(&engine, "127.0.0.1", 18001, login_result.user_idx, 12);
+    game.Start(&engine, "127.0.0.1", 18001, login_result.user_idx, 12,
+               cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
