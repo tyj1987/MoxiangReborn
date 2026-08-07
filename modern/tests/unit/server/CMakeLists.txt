@@ -2529,3 +2529,17 @@ gtest_add_tests(TARGET mxh_shop_item_manager_tests
 
 
 
+
+add_executable(mxh_agent_option_tests
+    agent_option_test.cpp
+)
+target_link_libraries(mxh_agent_option_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_option_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_debug_tests
+    agent_debug_test.cpp
+)
+target_link_libraries(mxh_agent_debug_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_debug_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
