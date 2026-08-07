@@ -2469,6 +2469,7 @@ add_executable(mxh_shop_item_manager_tests
     shop_item_mpinfo_side_effect_test.cpp
     shop_item_mpinfo_side_effect_runtime_test.cpp
     guild_warehouse_info_side_effect_test.cpp
+    guild_warehouse_info_side_effect_runtime_test.cpp
     guild_warehouse_leave_side_effect_test.cpp
     guild_move_side_effect_test.cpp
     avatar_takeoff_side_effect_test.cpp
