@@ -226,3 +226,15 @@ All 77 gameplay categories now have both a data plane header and a side-effect p
 ### Side-by-side modern-only + golden mode (commit 409f87dc)
 
 mxh_side_by_side now supports --modern-only --golden PATH for regression testing without a running legacy server. Captures stay byte-stable so future drift in modern-only mode is caught immediately. Useful when only the modern server is available.
+
+
+### D4.R1-R3 (2026-08-07 续) -- dispatcher runtime + wire-format integration
+
+续 session 019fd2d9-fbdb-7581-984c-ef049a4a0dce 状态 (11,211 tests baseline)。本 session 4 commits / +58 tests:
+
+- **D4.R1 side-effect dispatcher runtime** (commit 51f8d1b4) -- IAgentWireSink interface + 23 dispatcher wrappers + generic dispatch_forward_drop_plan template + 33 tests (mock sink + null safety + forward sweep + drop sweep + multi-effect order). **修复了原 dispatch header 的模板 bug** (`Plan::value_type` 不存在, 改用 `std::decay_t<decltype(plan.effects)>::value_type`)。
+- **D4.R2 titan_request.bin golden** (commit 775ebff5) -- 23 "agent no handler" categories 全部覆盖 wire-format golden (补 cat=72 titan); +1 RoundTrip test; 100% wire-format coverage locks to 77/77 categories.
+- **D4.R3 wire-format -> dispatcher integration** (commit 6c01ff47) -- 24 tests, 每个 agent no handler category 加载真实 golden .bin, decode 出 (cat, proto, obj_id), 构造 Request -> Plan -> dispatch, assert sink 收到的 (conn, proto, obj_id) 与 wire bytes 一致。locks 1:1 invariant "dispatcher preserves legacy default-branch semantics"。
+- **Floor bump 84 -> 85** (commit fe3d4c25) -- wire_format_coverage_test.cpp LocksCurrentCoverageCount 从 84 改 85 (D4.R2 加了 titan_request.bin)。
+
+累计 +58 tests, 现 **11,269 tests** (was 11,211 baseline + 58). D4 商城剩余真逻辑中 "side-effect dispatchers" 部分完成 (runtime 已建, 但 shop-item 的 DB-touching effect 还没接)。
