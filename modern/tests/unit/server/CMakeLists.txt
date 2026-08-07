@@ -2521,6 +2521,7 @@ add_executable(mxh_shop_item_manager_tests
     curse_cancellation_side_effect_test.cpp
     curse_cancellation_side_effect_runtime_test.cpp
     additem_slot_lock_side_effect_test.cpp
+    additem_slot_lock_side_effect_runtime_test.cpp
     release_slot_lock_side_effect_test.cpp
     unique_item_mix_side_effect_test.cpp
     decoration_on_side_effect_test.cpp
