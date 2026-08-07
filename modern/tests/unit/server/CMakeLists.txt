@@ -2507,6 +2507,7 @@ add_executable(mxh_shop_item_manager_tests
     reinforce_reset_side_effect_test.cpp
     reinforce_reset_side_effect_runtime_test.cpp
     rare_create_side_effect_test.cpp
+    rare_create_side_effect_runtime_test.cpp
     shout_pass_through_side_effect_test.cpp
     char_change_side_effect_test.cpp
     reinforce_with_shop_item_side_effect_test.cpp
