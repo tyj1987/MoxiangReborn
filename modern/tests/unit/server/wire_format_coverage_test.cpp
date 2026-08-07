@@ -177,9 +177,9 @@ TEST(WireFormatCoverage, LocksCurrentCoverageCount) {
     const auto by_cat = golden_by_category();
     int total_goldens = 0;
     for (const auto& kv : by_cat) total_goldens += static_cast<int>(kv.second.size());
-    EXPECT_EQ(total_goldens, 84)
+    EXPECT_EQ(total_goldens, 85)
         << "Golden file count regressed. Re-add the missing golden or "
-           "bump the floor if intentional.";
+           "bump the floor if intentional. (D4.R2 added titan_request.bin.)";
     EXPECT_EQ(by_cat.size(), 77u)
         << "Distinct category count regressed. C 协议扩展 should only "
            "grow this number, never shrink.";
