@@ -39,6 +39,7 @@
 #include <string>
 
 #include "mxh/net/net.hpp"
+#include "mxh/crypto/hsel_encryptor.hpp"
 
 namespace mxh::client {
 
@@ -92,12 +93,14 @@ public:
                     const mxh::net::Message& msg) override;
     void on_disconnect(mxh::net::ConnectionId id,
                        mxh::net::NetError reason) override;
+    mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
     // Public start hook.  Host calls this right after SetGameState()
     // to begin the connection.  Idempotent — calling twice is a no-op
     // (the existing TcpClient is reused).
     void Start(CEngine* engine, std::string host, std::uint16_t port,
-               std::string user_id, std::string password);
+               std::string user_id, std::string password,
+               bool use_hsel = false);
 
     // Inspectors (test + diagnostics).  All public accessors return
     // values written by the TcpClient recv thread; we use std::atomic
@@ -131,6 +134,8 @@ private:
     std::uint16_t            m_port       = 6001;
     std::string              m_userId;
     std::string              m_password;
+    bool                     m_useHsel = false;
+    std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
 
     // Cross-thread fields — written by TcpClient recv thread, read by
     // host's main thread (e.g. B.2.5 E2E poll loop).  std::atomic

@@ -129,12 +129,17 @@ void CLoginState::Process() {
 
 void CLoginState::Start(CEngine* engine, std::string host,
                         std::uint16_t port,
-                        std::string user_id, std::string password) {
+                        std::string user_id, std::string password,
+                        bool use_hsel) {
     m_pEngine = engine;
     m_host    = std::move(host);
     m_port    = port;
     m_userId  = std::move(user_id);
     m_password = std::move(password);
+    m_useHsel = use_hsel;
+    if (m_useHsel) {
+        m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
+    }
 
     if (m_started.load(std::memory_order_acquire)) {
         MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
@@ -150,13 +155,18 @@ void CLoginState::Start(CEngine* engine, std::string host,
     cfg.remote_address      = m_host;
     cfg.port                = m_port;
     cfg.use_legacy_framing  = true;  // 4DyuchiNET 2B length prefix
-    cfg.use_encryption      = false; // Phase R-1 stub: no HSEL yet
+    cfg.use_encryption      = m_useHsel;  // Phase R-1: HSEL via HselStreamCipher
     cfg.connect_timeout     = std::chrono::milliseconds(3000);
     auto e = m_client->connect(cfg);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("TcpClient::connect failed: ") +
                   mxh::net::to_string(e));
     }
+}
+
+mxh::net::IEncryptor* CLoginState::encryptor_for(
+    mxh::net::ConnectionId) {
+    return m_hsel ? m_hsel.get() : nullptr;
 }
 
 bool CLoginState::is_connected() const noexcept {
@@ -257,7 +267,31 @@ void CLoginState::on_message(mxh::net::ConnectionId id,
             fail_with("LoginNack received (bad credentials?)");
             break;
         }
+        case UserConnProtocol::NotifyUserLoginSyn:
+        case UserConnProtocol::NotifyUserLoginAck2:
+        case UserConnProtocol::NotifyUserLoginNack2:
+        case UserConnProtocol::NotifyOverlappedLogin:
+            // Server-to-agent notifications are not expected on a client
+            // connection; ignore silently (legacy client does the same).
+            break;
         default:
+            if (proto == static_cast<UserConnProtocol>(
+                             mxh::proto::kModernHselKey)) {
+                // Phase R-1: HSEL session key from the LoginServer.
+                if (msg.payload.size() < sizeof(mxh::crypto::HselInit)) {
+                    fail_with("HselKey payload too short");
+                    break;
+                }
+                mxh::crypto::HselInit init{};
+                std::memcpy(&init, msg.payload.data(), sizeof(init));
+                if (!m_hsel || !m_hsel->import_init(init)) {
+                    fail_with("HselKey import failed");
+                    break;
+                }
+                MLOG_INFO("CLoginState: HSEL session key imported; "
+                          "subsequent traffic encrypted");
+                break;
+            }
             MLOG_WARN("CLoginState: unhandled userconn proto=%d",
                       static_cast<int>(proto));
             break;

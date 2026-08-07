@@ -58,6 +58,11 @@ public:
     bool export_init(HselInit& out) const;
     bool import_init(const HselInit& init);
 
+    // Drop the session and return to the unseeded pass-through state.
+    // Used by the key-delivery handshake: seed -> export -> reset ->
+    // send key message (plaintext) -> import (re-arm with same keys).
+    void reset() noexcept;
+
     bool initialized() const noexcept { return ready_; }
     const HselInit& init() const noexcept { return init_; }
 

@@ -361,6 +361,7 @@ enum class ServerProtocol : std::uint8_t {
 constexpr std::uint8_t kModernCheckVersion      = 200;  // C → D: version check
 constexpr std::uint8_t kModernNotifyVersionAck  = 201;  // D → C: version ack
 constexpr std::uint8_t kModernNotifyVersionNack = 202;  // D → C: version nack
+constexpr std::uint8_t kModernHselKey           = 203;  // D → C: HSEL session key (64B HselInit)
 
 // ============================================================================
 // Move sub-protocols (MP_MOVE_*).

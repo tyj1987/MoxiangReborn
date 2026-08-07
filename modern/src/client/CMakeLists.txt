@@ -17,7 +17,7 @@ add_library(mxh_client_lib STATIC
 target_include_directories(mxh_client_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
-target_link_libraries(mxh_client_lib PUBLIC mxh_render mxh_log mxh_net)
+target_link_libraries(mxh_client_lib PUBLIC mxh_render mxh_log mxh_net mxh_crypto)
 if(MSVC)
     target_compile_options(mxh_client_lib PRIVATE /W3 /utf-8)
 endif()

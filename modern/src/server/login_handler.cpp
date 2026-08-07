@@ -85,10 +85,48 @@ LoginHandler::LoginHandler(mxh::db::IDbAdapter& db,
                            std::string agent_addr,
                            std::uint16_t agent_port,
                            ReplyFn reply,
-                           bool use_legacy_framing)
+                           bool use_legacy_framing,
+                           bool use_hsel,
+                           std::function<void(mxh::net::ConnectionId,
+                                              const mxh::net::Message&)>
+                               direct_send)
     : db_(db), agent_addr_(std::move(agent_addr)),
       agent_port_(agent_port), reply_(std::move(reply)),
-      use_legacy_framing_(use_legacy_framing) {}
+      use_legacy_framing_(use_legacy_framing),
+      use_hsel_(use_hsel), direct_send_(std::move(direct_send)) {}
+
+namespace {
+
+// Serialize the fully-resolved HselInit (16 x int32 = 64 bytes) for the
+// key-delivery message payload.
+std::vector<std::uint8_t> serialize_hsel_init(
+    const mxh::crypto::HselInit& init) {
+    static_assert(sizeof(mxh::crypto::HselInit) == 64u,
+                  "HselInit must be 64 bytes on the key-delivery wire");
+    std::vector<std::uint8_t> out(sizeof(init));
+    std::memcpy(out.data(), &init, sizeof(init));
+    return out;
+}
+
+}  // namespace
+
+mxh::net::IEncryptor* LoginHandler::encryptor_for(
+    mxh::net::ConnectionId id) {
+    if (!use_hsel_) {
+        return nullptr;
+    }
+    std::lock_guard<std::mutex> lk(hsel_mu_);
+    auto it = hsel_ciphers_.find(id.value);
+    if (it == hsel_ciphers_.end()) {
+        // Create unseeded (legacy pass-through) so the key-delivery
+        // message can ride the plaintext phase of the handshake.
+        auto cipher = std::make_unique<mxh::crypto::HselStreamCipher>();
+        mxh::crypto::HselStreamCipher* raw = cipher.get();
+        hsel_ciphers_.emplace(id.value, std::move(cipher));
+        return raw;
+    }
+    return it->second.get();
+}
 
 bool LoginHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
@@ -105,6 +143,37 @@ bool LoginHandler::on_connect(mxh::net::ConnectionId id,
             std::lock_guard<std::mutex> lk(auth_mu_);
             auth_key = next_auth_key_++;
             auth_keys_[id.value] = auth_key;
+        }
+        if (use_hsel_) {
+            // Phase R-1 handshake: seed a per-connection HSEL session,
+            // deliver the resolved HselInit FIRST in plaintext (the
+            // cipher is reset to pass-through for that send), then
+            // re-arm so every subsequent reply is HSEL-encrypted.
+            if (!direct_send_) {
+                std::cout << "[Login] use_hsel requires a direct_send "
+                             "hook; falling back to plaintext session\n";
+                use_hsel_ = false;
+            } else {
+            mxh::crypto::HselStreamCipher* cipher =
+                static_cast<mxh::crypto::HselStreamCipher*>(
+                    encryptor_for(id));
+            cipher->seed();
+            mxh::crypto::HselInit init{};
+            if (cipher->export_init(init)) {
+                cipher->reset();  // key message must be plaintext
+                mxh::net::Message key_msg;
+                key_msg.header.category = static_cast<std::uint8_t>(
+                    mxh::proto::Category::UserConn);
+                key_msg.header.protocol = mxh::proto::kModernHselKey;
+                key_msg.header.object_id = 0;
+                key_msg.payload = serialize_hsel_init(init);
+                direct_send_(id, key_msg);
+                cipher->import_init(init);  // re-arm with exported keys
+            } else {
+                std::cout << "[Login] HSEL seed failed; falling back to "
+                             "plaintext session\n";
+            }
+            }
         }
         mxh::net::Message msg;
         msg.header.category = static_cast<std::uint8_t>(
@@ -126,6 +195,10 @@ void LoginHandler::on_disconnect(mxh::net::ConnectionId id,
     // Clean up version state.
     std::lock_guard<std::mutex> lk(version_mu_);
     version_verified_.erase(id.value);
+    {
+        std::lock_guard<std::mutex> hl(hsel_mu_);
+        hsel_ciphers_.erase(id.value);
+    }
 }
 
 void LoginHandler::on_message(mxh::net::ConnectionId id,

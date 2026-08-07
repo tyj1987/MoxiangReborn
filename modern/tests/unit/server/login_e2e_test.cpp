@@ -165,6 +165,9 @@ protected:
         ASSERT_GT(port_, 0);
         agent_port_for_ack_ = static_cast<std::uint16_t>(port_ + 1);
 
+        WSADATA wsa{};
+        ASSERT_EQ(WSAStartup(MAKEWORD(2, 2), &wsa), 0);
+
         handler_ = std::make_unique<mxh::server::LoginHandler>(
             *db_, "127.0.0.1", agent_port_for_ack_,
             [this](ConnectionId id, const Message& m) {
@@ -661,6 +664,155 @@ TEST_F(EncryptedLoginFixture, EncryptedLoginAckMatchesGolden) {
     const auto actual = reconstruct_wire(ack);
     const auto plain_golden = read_golden_bytes("login_ack.bin");
     EXPECT_EQ(actual, plain_golden);
+}
+
+// =============================================================================
+// Phase R-1 -- HSEL-encrypted login E2E. Uses the real HselStreamCipher on
+// both ends: LoginHandler(use_hsel=true) seeds a per-connection session and
+// delivers the resolved HselInit first (plaintext, riding the legacy
+// not-inited pass-through phase), then every subsequent frame is
+// HSEL-encrypted. The client imports the key from the kModernHselKey message
+// and completes the legacy 4DyuchiNET login handshake.
+// =============================================================================
+
+struct HselClientHandler final : public CapturingClientHandler {
+    mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId) override {
+        return &cipher_;
+    }
+    void on_message(mxh::net::ConnectionId id,
+                    const mxh::net::Message& msg) override {
+        if (msg.header.protocol == mxh::proto::kModernHselKey) {
+            if (msg.payload.size() >= sizeof(mxh::crypto::HselInit)) {
+                mxh::crypto::HselInit init{};
+                std::memcpy(&init, msg.payload.data(), sizeof(init));
+                cipher_.import_init(init);
+            }
+        }
+        CapturingClientHandler::on_message(id, msg);
+    }
+    mxh::crypto::HselStreamCipher cipher_;
+};
+
+class HselLoginFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        auto tmp = std::filesystem::temp_directory_path();
+        db_path_ = (tmp / (
+            std::string("hsel_login_e2e_") +
+            std::to_string(static_cast<long long>(::GetCurrentProcessId())) +
+            "_" + std::to_string(test_id_++) + ".db")).string();
+        std::remove(db_path_.c_str());
+        db_ = std::make_unique<mxh::db::SqliteAdapter>();
+        mxh::db::ConnectionConfig cfg;
+        cfg.path = db_path_;
+        ASSERT_TRUE(db_->connect(cfg));
+        std::string schema;
+        schema += "CREATE TABLE IF NOT EXISTS chr_log_info (";
+        schema += " id TEXT PRIMARY KEY,";
+        schema += " pw TEXT NOT NULL,";
+        schema += " userlevel INTEGER NOT NULL DEFAULT 0);";
+        schema += "INSERT INTO chr_log_info (id, pw, userlevel) "
+                  "VALUES ('test', 'test', 2);";
+        auto* sa = static_cast<mxh::db::SqliteAdapter*>(db_.get());
+        ASSERT_TRUE(sa->exec_multi(schema));
+
+        port_ = find_free_port();
+        ASSERT_GT(port_, 0);
+        agent_port_for_ack_ = static_cast<std::uint16_t>(port_ + 1);
+
+        handler_ = std::make_unique<mxh::server::LoginHandler>(
+            *db_, "127.0.0.1", agent_port_for_ack_,
+            [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+                // Replies go through the direct_send hook so the HSEL key
+                // message reaches the wire synchronously BEFORE the (now
+                // encrypted) DistConnectSuccess.
+                if (server_) server_->send(id, m);
+            },
+            /*use_legacy_framing=*/true, /*use_hsel=*/true,
+            [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+                if (server_) server_->send(id, m);
+            });
+
+        server_ = std::make_unique<mxh::net::TcpServer>(*handler_);
+        mxh::net::ServerConfig scfg;
+        scfg.port = static_cast<std::uint16_t>(port_);
+        scfg.bind_address = "127.0.0.1";
+        scfg.use_legacy_framing = true;
+        scfg.use_encryption = true;
+        const auto sr = server_->start(scfg);
+        ASSERT_EQ(sr, mxh::net::NetError::Ok)
+            << mxh::net::to_string(sr);
+    }
+
+    void TearDown() override {
+        if (server_) server_->stop();
+        server_.reset();
+        handler_.reset();
+        db_.reset();
+    }
+
+    int port_ = 0;
+    std::uint16_t agent_port_for_ack_ = 0;
+    std::string db_path_;
+    std::unique_ptr<mxh::db::IDbAdapter> db_;
+    std::unique_ptr<mxh::server::LoginHandler> handler_;
+    std::unique_ptr<mxh::net::TcpServer> server_;
+    static inline int test_id_ = 0;
+};
+
+TEST_F(HselLoginFixture, HselEncryptedLoginFlow) {
+    HselClientHandler client;
+    mxh::net::TcpClient tcp(client);
+    mxh::net::ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port_);
+    ccfg.use_legacy_framing = true;
+    ccfg.use_encryption = true;
+    ASSERT_EQ(tcp.connect(ccfg), mxh::net::NetError::Ok);
+
+    // Key message + DistConnectSuccess (encrypted) arrive in order.
+    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    auto msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 2u);
+
+    const auto& key = msgs[0];
+    EXPECT_EQ(key.header.category, 7);
+    EXPECT_EQ(key.header.protocol, mxh::proto::kModernHselKey);
+    ASSERT_EQ(key.payload.size(), sizeof(mxh::crypto::HselInit));
+
+    const auto& dcs = msgs[1];
+    EXPECT_EQ(dcs.header.protocol, 0);
+    const std::uint32_t auth_key = dcs.header.object_id;
+    ASSERT_EQ(auth_key, 1000u);
+
+    // The imported cipher is ready; RequestLogin goes out encrypted.
+    EXPECT_TRUE(client.cipher_.initialized());
+    mxh::net::Message login;
+    login.header.category = 7;
+    login.header.protocol = 1;
+    login.header.object_id = 0;
+    login.payload = make_legacy_login_payload(auth_key, "test", "test");
+    ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
+
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
+    msgs = client.snapshot();
+    ASSERT_EQ(msgs.size(), 3u);
+    const auto& ack = msgs[2];
+    EXPECT_EQ(ack.header.protocol, 2);
+    EXPECT_EQ(ack.header.category, 7);
+    EXPECT_EQ(ack.header.object_id, 0u);
+    ASSERT_EQ(ack.payload.size(), 23u);
+    std::string agentip(reinterpret_cast<const char*>(ack.payload.data()), 16);
+    EXPECT_EQ(agentip, std::string("127.0.0.1") + std::string(7, 0x00));
+    std::uint16_t port_be = static_cast<std::uint16_t>(ack.payload[16]) |
+                            (static_cast<std::uint16_t>(ack.payload[17]) << 8);
+    EXPECT_EQ(port_be, agent_port_for_ack_);
+    EXPECT_EQ(ack.payload[18], 1);
+    EXPECT_EQ(ack.payload[19], 0);
+    EXPECT_EQ(ack.payload[20], 0);
+    EXPECT_EQ(ack.payload[21], 0);
+    EXPECT_EQ(ack.payload[22], 2);
+    tcp.disconnect();
 }
 
 // =============================================================================
@@ -7126,4 +7278,3 @@ TEST_F(LoginServerFixture, UnknownCategoryFortWarV2RequestIsDroppedWithoutRespon
     EXPECT_EQ(client.snapshot().size(), 1u);
     tcp.disconnect();
 }
-

@@ -201,13 +201,21 @@ NetError TcpServer::start(const ServerConfig& cfg) {
             conn->encryptor = handler_.encryptor_for(ConnectionId{id});
 
             ConnectionId cid{id};
-            if (!handler_.on_connect(cid, remote)) {
-                closesocket(client);
-                continue;
-            }
+            // Register the connection BEFORE on_connect so replies sent
+            // synchronously from the handler (e.g. the HSEL key-delivery
+            // handshake) resolve to this connection instead of being
+            // dropped with Disconnected.
             {
                 std::lock_guard<std::mutex> lk(impl_->connections_mu);
                 impl_->connections[id] = std::move(conn);
+            }
+            if (!handler_.on_connect(cid, remote)) {
+                {
+                    std::lock_guard<std::mutex> lk(impl_->connections_mu);
+                    impl_->connections.erase(id);
+                }
+                closesocket(client);
+                continue;
             }
 
             // Spawn worker for this connection.

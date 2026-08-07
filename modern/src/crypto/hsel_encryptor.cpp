@@ -100,4 +100,10 @@ bool HselStreamCipher::import_init(const HselInit& init) {
     return ready_;
 }
 
+void HselStreamCipher::reset() noexcept {
+    stream_ = HselStream{};
+    init_ = HselInit{};
+    ready_ = false;
+}
+
 }  // namespace mxh::crypto

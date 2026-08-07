@@ -6,6 +6,7 @@
 #pragma once
 
 #include "mxh/db/db_adapter.hpp"
+#include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/proto/protocol.hpp"
 #include "mxh/game/item_types.hpp"
@@ -49,7 +50,11 @@ public:
                  std::string agent_addr,
                  std::uint16_t agent_port,
                  ReplyFn reply,
-                 bool use_legacy_framing = false);
+                 bool use_legacy_framing = false,
+                 bool use_hsel = false,
+                 std::function<void(mxh::net::ConnectionId,
+                                    const mxh::net::Message&)>
+                     direct_send = {});
     ~LoginHandler() override = default;
 
     bool on_connect(mxh::net::ConnectionId id,
@@ -58,6 +63,7 @@ public:
                     const mxh::net::Message& msg) override;
     void on_disconnect(mxh::net::ConnectionId id,
                        mxh::net::NetError reason) override;
+    mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
 private:
     void handle_userconn(mxh::net::ConnectionId id,
@@ -74,6 +80,21 @@ private:
     std::uint16_t agent_port_;
     ReplyFn reply_;
     bool use_legacy_framing_;
+    bool use_hsel_;
+    // Optional synchronous send path used for the HSEL key-delivery
+    // message (must reach the wire before any encrypted frame).
+    std::function<void(mxh::net::ConnectionId,
+                       const mxh::net::Message&)>
+        direct_send_;
+
+    // Phase R-1: per-connection HSEL session cipher. The cipher is
+    // created (unseeded -> legacy pass-through) at accept time so the
+    // key-delivery message rides the plaintext phase; on_connect then
+    // seeds it before any encrypted traffic flows.
+    std::mutex hsel_mu_;
+    std::unordered_map<std::uint64_t,
+                       std::unique_ptr<mxh::crypto::HselStreamCipher>>
+        hsel_ciphers_;
 
     // Phase 4.3: track connections that passed version check.
     std::mutex version_mu_;

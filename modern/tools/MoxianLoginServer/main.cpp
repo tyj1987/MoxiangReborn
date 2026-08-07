@@ -37,6 +37,7 @@ struct Args {
     std::uint16_t agent_port = 7001;
     bool init_schema = false;
     bool use_legacy = false;  // Phase 7.6: 4DyuchiNET compatibility
+    bool use_hsel   = false;  // Phase R-1: HSEL-encrypted legacy session
 };
 
 Args parse_args(int argc, char** argv) {
@@ -57,6 +58,8 @@ Args parse_args(int argc, char** argv) {
             a.init_schema = true;
         else if (s == "--legacy")
             a.use_legacy = true;
+        else if (s == "--use-hsel")
+            a.use_hsel = true;
         else if (s == "--help") {
             std::cout << "Usage: mxh_login_server [options]\n"
                       << "  --port N          listen port (default 6001)\n"
@@ -65,7 +68,8 @@ Args parse_args(int argc, char** argv) {
                       << "  --agent-addr ADDR AgentServer address\n"
                       << "  --agent-port N    AgentServer port\n"
                       << "  --init-schema     create tables before serving\n"
-                      << "  --legacy          enable 4DyuchiNET legacy protocol framing\n";
+                      << "  --legacy          enable 4DyuchiNET legacy protocol framing\n"
+                      << "  --use-hsel        encrypt the legacy session with the HSEL stream cipher\n";
             std::exit(0);
         }
     }
@@ -179,12 +183,18 @@ INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderl
     // 3. Build reply queue + handler + server.
     auto queue = std::make_shared<ReplyQueue>();
 
+    mxh::net::TcpServer* server_ptr = nullptr;
     mxh::server::LoginHandler handler(*db, args.agent_addr, args.agent_port,
         [queue](mxh::net::ConnectionId id, const mxh::net::Message& m) {
             queue->push(id.value, m);
-        }, args.use_legacy);
+        },
+        args.use_legacy, args.use_hsel,
+        [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
+            if (server_ptr) server_ptr->send(id, m);
+        });
 
     mxh::net::TcpServer server(handler);
+    server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
     scfg.bind_address = "0.0.0.0";
