@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
 > **最近一次重构**：2026-08-06 — 把 434 行 ROADMAP 砍成可执行的规划文档；历史 [x] 项迁移到 docs/CHANGELOG.md。
-> **最近一次状态刷新**：2026-08-07 — D4.160-164 agent data planes (jackpot+fieldwar+bobusang+streetstall+exchange, +80 tests); cumulative **~10696 tests 100% PASS** (was 10616).
+> **最近一次状态刷新**：2026-08-07 — D4.165-171 side-effect plans (+64 tests: agent_option+agent_debug+agent_jackpot+agent_bobusang+agent_guild_fieldwar+agent_streetstall+agent_exchange); cumulative **~10760 tests 99% PASS** (was 10696, 5 known LoginServerFixture timing flakes retry-PASS; commercial smoke gate 33/33).
 
 ---
 
@@ -178,6 +178,20 @@
 - **D4.164 agent_exchange** — MP_EXCHANGE (28) 40+ protocols, 与 streetstall 镜像的简单用户侧 gate, 9 tests。
 
 累计 +80 tests, 现 **10,696 tests 100% PASS** (was 10,616 baseline + 80)。
+
+### 续：2026-08-07 第二批 -- D4.165-171 side-effect plans
+
+本 session 续做 side-effect plan（接 D4.160-164 data plane 之后的下游 orchestrator 编排层）：
+
+- **D4.165 agent_option side-effect plan** -- 5 plans (Drop/ApplyCheatFlag/ApplyFriendFlag/ApplyWhisperFlag/ApplyGameOption) + bNoFriend/bNoWhisper 4 bit flags 隔离, 10 tests
+- **D4.166 agent_debug side-effect plan** -- 2 plans (LogAssert/Drop) over MP_DEBUG_CLIENTASSERT, 8 tests
+- **D4.167 agent_jackpot side-effect plan** -- 4 plans (SetJackpotTotalMoney/BroadcastAllUsers/BroadcastInMapUsers/ForwardToOriginatingClient/Drop), 10 tests (commit 63e2c416)
+- **D4.168 agent_bobusang side-effect plan** -- 4 plans (Drop/ForwardToMapServer/SetChannelState/ForwardToOriginatingClient) over user GM-gate + server APPEAR/DISAPPEAR, 11 tests (commit 1c8a3c09)
+- **D4.169 agent_guild_fieldwar side-effect plan** -- 10 plans (Drop/ForwardToMapServer/ForwardToMapServerNoUser/CheckGuildMasterLogin/CheckGuildFieldWarMoney/BroadcastToMapServersExceptSource/SendToTargetUserIfFound/AddGuildFieldWarMoney/BroadcastToAllUsers/ForwardToOriginatingClient) over 28 protocols, 13 tests (commit af4b6707)
+- **D4.170 agent_streetstall side-effect plan** -- 2 plans (Drop/ForwardToMapServer) over user-found+objectid-mismatch gates, 6 tests (commit e73a8477)
+- **D4.171 agent_exchange side-effect plan** -- 2 plans (Drop/ForwardToMapServer) (mirror of D4.170), 6 tests (commit dff44308)
+
+累计 +64 tests, 现 **10,760 tests 99% PASS** (5 个 LoginServerFixture.UnknownCategory* 已知 timing flake 重试 PASS; commercial smoke gate 33/33 PASS)。
 
 ### 仍未覆盖的 category data plane（按优先级）
 
