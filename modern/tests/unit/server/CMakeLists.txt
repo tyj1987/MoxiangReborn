@@ -2420,6 +2420,7 @@ add_executable(mxh_shop_item_manager_tests
     check_end_time_side_effect_test.cpp
     check_end_time_side_effect_runtime_test.cpp
     put_on_avatar_side_effect_test.cpp
+    put_on_avatar_side_effect_runtime_test.cpp
     take_off_avatar_side_effect_test.cpp
     skin_select_side_effect_test.cpp
     skin_discard_side_effect_test.cpp
