@@ -2261,6 +2261,14 @@ endif()
 gtest_add_tests(TARGET mxh_login_wire_sha256_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_agent_wire_first_packet_tests agent_wire_first_packet_test.cpp)
+target_link_libraries(mxh_agent_wire_first_packet_tests PRIVATE mxh_server mxh_db GTest::gtest_main)
+if(WIN32)
+    target_link_libraries(mxh_agent_wire_first_packet_tests PRIVATE Ws2_32)
+endif()
+gtest_add_tests(TARGET mxh_agent_wire_first_packet_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 # M18 wire-format coverage audit (C 协议扩展 foundation).
 # Pure header-only test that reads golden/ files and asserts the floor.
 add_executable(mxh_wire_format_coverage_tests wire_format_coverage_test.cpp)
