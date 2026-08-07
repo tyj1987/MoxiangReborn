@@ -2461,6 +2461,7 @@ add_executable(mxh_shop_item_manager_tests
     dealer_open_side_effect_test.cpp
     dealer_open_side_effect_runtime_test.cpp
     pyoguk_item_info_side_effect_test.cpp
+    pyoguk_item_info_side_effect_runtime_test.cpp
     pet_inven_info_side_effect_test.cpp
     shop_item_info_side_effect_test.cpp
     shop_item_info_side_effect_runtime_test.cpp
