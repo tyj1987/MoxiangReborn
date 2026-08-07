@@ -225,6 +225,18 @@ add_library(mxh_server STATIC
     server/agent_npc_side_effect_plan.cpp
     server/agent_pk.cpp
     server/agent_pk_side_effect_plan.cpp
+    server/agent_journal.cpp
+    server/agent_journal_side_effect_plan.cpp
+    server/agent_suryun.cpp
+    server/agent_suryun_side_effect_plan.cpp
+    server/agent_societyact.cpp
+    server/agent_societyact_side_effect_plan.cpp
+    server/agent_partywar.cpp
+    server/agent_partywar_side_effect_plan.cpp
+    server/agent_titan.cpp
+    server/agent_titan_side_effect_plan.cpp
+    server/agent_itemext.cpp
+    server/agent_itemext_side_effect_plan.cpp
     server/agent_option.cpp
     server/agent_debug.cpp
     server/agent_option_side_effect_plan.cpp
