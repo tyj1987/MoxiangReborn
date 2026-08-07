@@ -2428,6 +2428,7 @@ add_executable(mxh_shop_item_manager_tests
     skin_discard_side_effect_test.cpp
     skin_discard_side_effect_runtime_test.cpp
     save_point_add_side_effect_test.cpp
+    save_point_add_side_effect_runtime_test.cpp
     save_point_mutate_side_effect_test.cpp
     item_move_side_effect_test.cpp
     item_move_side_effect_runtime_test.cpp
