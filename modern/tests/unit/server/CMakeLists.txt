@@ -2455,6 +2455,7 @@ add_executable(mxh_shop_item_manager_tests
     use_for_quest_start_side_effect_test.cpp
     use_for_quest_start_side_effect_runtime_test.cpp
     shop_item_change_map_side_effect_test.cpp
+    shop_item_change_map_side_effect_runtime_test.cpp
     use_change_item_side_effect_test.cpp
     dealer_open_side_effect_test.cpp
     pyoguk_item_info_side_effect_test.cpp
