@@ -2503,6 +2503,7 @@ add_executable(mxh_shop_item_manager_tests
     avatar_use_side_effect_test.cpp
     avatar_use_side_effect_runtime_test.cpp
     job_change_side_effect_test.cpp
+    job_change_side_effect_runtime_test.cpp
     reinforce_reset_side_effect_test.cpp
     rare_create_side_effect_test.cpp
     shout_pass_through_side_effect_test.cpp
