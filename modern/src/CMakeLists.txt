@@ -224,6 +224,7 @@ add_library(mxh_server STATIC
     server/agent_option.cpp
     server/agent_debug.cpp
     server/agent_jackpot.cpp
+    server/agent_guild_fieldwar.cpp
     server/fixed_tile.cpp
     server/fixed_tile_info.cpp
     server/tile.cpp

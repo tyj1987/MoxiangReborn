@@ -2550,3 +2550,10 @@ add_executable(mxh_agent_jackpot_tests
 target_link_libraries(mxh_agent_jackpot_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_jackpot_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_guild_fieldwar_tests
+    agent_guild_fieldwar_test.cpp
+)
+target_link_libraries(mxh_agent_guild_fieldwar_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_guild_fieldwar_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
