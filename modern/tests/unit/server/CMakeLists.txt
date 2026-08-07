@@ -2434,6 +2434,7 @@ add_executable(mxh_shop_item_manager_tests
     pyoguk_money_side_effect_test.cpp
     buy_pyoguk_side_effect_test.cpp
     item_discard_side_effect_test.cpp
+    item_discard_side_effect_runtime_test.cpp
     item_sell_side_effect_test.cpp
     item_sell_side_effect_runtime_test.cpp
     item_use_side_effect_test.cpp
