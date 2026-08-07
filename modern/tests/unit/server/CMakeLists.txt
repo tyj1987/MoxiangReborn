@@ -2472,6 +2472,7 @@ add_executable(mxh_shop_item_manager_tests
     shop_item_name_change_side_effect_test.cpp
     shop_item_chase_side_effect_test.cpp
     item_unseal_side_effect_test.cpp
+    item_unseal_side_effect_runtime_test.cpp
     revive_other_side_effect_test.cpp
     revive_other_ack_side_effect_test.cpp
     avatar_use_side_effect_test.cpp
