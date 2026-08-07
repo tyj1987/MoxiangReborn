@@ -1,5 +1,19 @@
 # 墨香Reborn - 完整部署指南
 
+
+## Modern local commercial smoke
+
+For a reproducible local three-server run without SQL Server, use the modern launcher:
+
+```powershell
+powershell -File deploy\scripts\start_modern.ps1 -Mode start -Locale CHINA
+powershell -File deploy\scripts\start_modern.ps1 -Mode status
+# run modern/build/tools/MoxianClientE2E/Debug/mxh_client_e2e.exe
+powershell -File deploy\scripts\start_modern.ps1 -Mode stop
+```
+
+The launcher starts modern Login/Agent/Map on ports `16001/17001/18001`, stores runtime data under `deploy/runtime/modern`, initializes the SQLite demo account on first start, writes per-service logs, records PIDs, performs port health checks, and supports safe stop/restart. Production deployment still requires MSSQL and the production configuration path below.
+
 ## 目录
 
 1. [环境要求](#环境要求)
