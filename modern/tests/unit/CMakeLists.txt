@@ -25,11 +25,12 @@ gtest_add_tests(TARGET mxh_compat_tests)
 add_executable(mxh_crypto_tests
     hsel_stream_test.cpp
     hsel_class_test.cpp
+    hsel_encryptor_test.cpp
     hackshield_stub_test.cpp
     aes_gcm_test.cpp
 )
 
-target_link_libraries(mxh_crypto_tests PRIVATE mxh_crypto gtest_main)
+target_link_libraries(mxh_crypto_tests PRIVATE mxh_crypto mxh_net gtest_main)
 
 # Use add_test (not gtest_add_tests) to run ALL tests in the binary,
 # including parameterized tests (AllTypesSizes/HselRoundTripTest.*).

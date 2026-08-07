@@ -125,6 +125,7 @@ add_library(mxh_crypto STATIC
     crypto/crypto.cpp
     crypto/hsel_stream.cpp
     crypto/hsel_class.cpp
+    crypto/hsel_encryptor.cpp
     crypto/hackshield_stub.cpp
     crypto/ggsrv25_vendor_stub.cpp
 )
@@ -446,7 +447,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 
