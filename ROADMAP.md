@@ -238,3 +238,9 @@ mxh_side_by_side now supports --modern-only --golden PATH for regression testing
 - **Floor bump 84 -> 85** (commit fe3d4c25) -- wire_format_coverage_test.cpp LocksCurrentCoverageCount 从 84 改 85 (D4.R2 加了 titan_request.bin)。
 
 累计 +58 tests, 现 **11,269 tests** (was 11,211 baseline + 58). D4 商城剩余真逻辑中 "side-effect dispatchers" 部分完成 (runtime 已建, 但 shop-item 的 DB-touching effect 还没接)。
+
+**2026-08-07 状态刷新**: E2 T2 wire SHA-256 capture harness + agent_chat runtime dispatcher; cumulative 11,302 tests (was 11,269).
+- **E2 T2 capture_handler** (commit 65cd5cd4) -- mxh::net::CaptureHandler IConnectionHandler decorator + pure-C++ SHA-256 (FIPS 180-4) + sha256() / sha256_concat() + save/load line-based format. 18 tests lock: FIPS empty/abc vectors + wire-byte round-trip + order/swap detection + concurrent 4-thread x 25-message safety.
+- **E2 T2 wire SHA-256 fingerprint lock** (commit 13f9871f) -- mxh_login_wire_sha256_tests drives a real LoginHandler on pinned port 54322 through connect + login + ack, computes SHA-256 over server->client wire bytes via CaptureHandler. Locked golden hash: abe6cc6c6ce823c04b53eed1a9a7badb7f24c51c5434baef9146373c3a7cf3c2. Any wire-format drift -> fingerprint changes -> test fails.
+- **agent_chat runtime dispatcher** (commit f0b7fd61) -- IChatWireSink (8 methods) + dispatch_agent_chat_plan() walks the 12 ChatSideEffectKind values; 12 dispatch tests cover broadcast / whisper-happy / whisper-blocked (nack_code=2) / whisper-gm / ack / nack / party / guild / guild-union / unknown-protocol / null-sink / empty-plan paths.
+累计 +33 tests, 现 **11,302 tests** (was 11,269 baseline + 33). E2 T2 wire SHA-256 replay anchor locked; agent_chat side-effect plan runtime executor complete.
