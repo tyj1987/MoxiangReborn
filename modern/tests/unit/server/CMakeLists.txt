@@ -2486,6 +2486,7 @@ add_executable(mxh_shop_item_manager_tests
     item_upgrade_side_effect_test.cpp
     item_upgrade_side_effect_runtime_test.cpp
     item_reinforce_side_effect_test.cpp
+    item_reinforce_side_effect_runtime_test.cpp
     shop_item_name_change_side_effect_test.cpp
     shop_item_chase_side_effect_test.cpp
     item_unseal_side_effect_test.cpp
