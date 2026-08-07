@@ -47,11 +47,27 @@ std::string build_conn_string(const ConnectionConfig& cfg) {
     if (!cfg.path.empty() && cfg.host.empty() && cfg.database.empty()) {
         return "DSN=" + cfg.path + ";";
     }
+    // Named-pipe / LocalDB endpoints like (localdb)\\MSSQLLocalDB have no
+    // TCP listener; omit the ",port" suffix for them (also when the kv
+    // string explicitly sets port=0).
+    std::string server = cfg.host;
+    const bool pipe_style = cfg.host.find('(') != std::string::npos ||
+                            cfg.host.find('\\') != std::string::npos;
+    if (cfg.port != 0 && !pipe_style) {
+        server += "," + std::to_string(cfg.port);
+    }
+    std::string auth;
+    if (cfg.user.empty()) {
+        // Windows integrated auth (LocalDB / domain setups): the process
+        // identity connects directly.
+        auth = "Trusted_Connection=yes;";
+    } else {
+        auth = "Uid=" + cfg.user + ";Pwd=" + cfg.password + ";";
+    }
     std::string s = "Driver={ODBC Driver 17 for SQL Server};"
-                    "Server=" + cfg.host + "," + std::to_string(cfg.port) + ";"
-                    "Database=" + cfg.database + ";"
-                    "Uid=" + cfg.user + ";"
-                    "Pwd=" + cfg.password + ";";
+                    "Server=" + server + ";"
+                    "Database=" + cfg.database + ";" +
+                    auth;
     return s;
 }
 
