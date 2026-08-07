@@ -149,6 +149,8 @@ static IDIFontObject*      g_hudFont    = nullptr;  // 2D HUD font   (Phase 6+)
 static ComPtr<ID3D11ShaderResourceView> g_cubeSRV;
 static float               g_angle      = 0.0f;
 static std::uint32_t       g_frames     = 0;
+static const char*         g_saveFramePath = nullptr;  // --save-frame <path>
+static std::uint32_t       g_saveFrameCount = 30u;     // --frame-count N
 
 void renderFrame(HWND h) {
     if (!g_renderer) return;
@@ -228,6 +230,15 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 }
 
 int main(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--save-frame") == 0 && i + 1 < argc) {
+            g_saveFramePath = argv[++i];
+        } else if (std::strcmp(argv[i], "--frame-count") == 0 && i + 1 < argc) {
+            g_saveFrameCount =
+                static_cast<std::uint32_t>(std::atoi(argv[++i]));
+        }
+    }
+
     HINSTANCE hInst = GetModuleHandle(nullptr);
 
     WNDCLASSW wc{};
@@ -423,7 +434,19 @@ int main(int argc, char** argv) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        if (g_saveFramePath && g_frames >= g_saveFrameCount) {
+            std::printf("[demo] capturing frame %u to '%s'\n",
+                        static_cast<unsigned>(g_frames), g_saveFramePath);
+            g_renderer->CaptureScreen(const_cast<char*>(g_saveFramePath));
+            g_running = false;
+            break;
+        }
         if (GetTickCount() - startTick > 5000) {
+            if (g_saveFramePath && g_frames > 0u) {
+                std::printf("[demo] 5s cap reached at %u frames; capturing\n",
+                            static_cast<unsigned>(g_frames));
+                g_renderer->CaptureScreen(const_cast<char*>(g_saveFramePath));
+            }
             g_running = false;  // 5 s cap — checked BEFORE any render call
             break;
         }
