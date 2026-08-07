@@ -1844,6 +1844,33 @@ TEST(WireFormatGolden, RoundTrip_societyact_request) {
     EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
 }
 
+TEST(WireFormatGolden, RoundTrip_titan_request) {
+    // D4.R2 gap-fill: titan (cat=72) had a side-effect plan and data
+    // plane but no wire-format golden. Locks the 18-byte legacy frame
+    // shape (2B length + 8B header + 8B payload) so any drift in the
+    // modern Packet::wire_bytes() encoder is caught by round-trip.
+    static const char* kName = "titan_request.bin";
+    const auto dir = find_golden_dir();
+    if (dir.empty()) GTEST_SKIP() << "titan_request.bin base not available";
+    const auto p = dir / kName;
+    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    std::ifstream in(p, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    ASSERT_GE(bytes.size(), 10u) << "titan_request.bin too small";
+    Packet p_in;
+    p_in.checksum  = bytes[2];
+    p_in.code      = static_cast<std::int8_t>(bytes[3]);
+    p_in.category  = bytes[4];
+    p_in.protocol  = bytes[5];
+    p_in.object_id = static_cast<std::uint32_t>(bytes[6]) | (static_cast<std::uint32_t>(bytes[7]) << 8) | (static_cast<std::uint32_t>(bytes[8]) << 16) | (static_cast<std::uint32_t>(bytes[9]) << 24);
+    p_in.payload.assign(bytes.begin() + 10, bytes.end());
+    auto reencoded = p_in.wire_bytes();
+    EXPECT_EQ(reencoded, bytes) << "titan_request.bin round-trip failed";
+    EXPECT_EQ(reencoded.size(), bytes.size());
+    EXPECT_EQ(p_in.payload.size() + 10u, reencoded.size());
+    EXPECT_EQ(p_in.category, 72u);
+}
+
 TEST(WireFormatGolden, RoundTrip_streetstall_request) {
     static const char* kName = "streetstall_request.bin";
     const auto dir = find_golden_dir();
