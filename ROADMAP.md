@@ -5,7 +5,7 @@
 > 玩法、数值、协议、资源、UI 全部和原版一致；只在底层换技术栈。
 > **最近一次重置**：2026-07-25（清掉所有历史 session 噪音、重新对齐到终极目标）。
 > **最近一次重构**：2026-08-06 — 把 434 行 ROADMAP 砍成可执行的规划文档；历史 [x] 项迁移到 docs/CHANGELOG.md。
-> **最近一次状态刷新**：2026-08-07 — D4.157 agent_cheat data plane (9 tests); cumulative **~10578 tests 100% PASS** (was 10569).
+> **最近一次状态刷新**：2026-08-07 — D4.160-164 agent data planes (jackpot+fieldwar+bobusang+streetstall+exchange, +80 tests); cumulative **~10696 tests 100% PASS** (was 10616).
 
 ---
 
@@ -167,3 +167,29 @@
 
 **2026-08-07 状态刷新**: D4.158 agent_option data plane (category 36, 4 MP_OPTION protocols, bNoWhisper/bNoFriend bit flags, user_found guard, TransToMapServer forward, 16 tests) + D4.159 agent_debug data plane (category 40, MP_DEBUG_CLIENTASSERT, payload_present guard, legacy coffee tools watermark log, 10 tests). Cumulative ~10604 tests 100% PASS (was 10578).
 
+## 6. Session 2026-08-07 续 — D4.160-164 进展
+
+延续 session 019fd2d9 状态 (10,616 tests baseline)。本 session 新增 5 个 data plane：
+
+- **D4.160 agent_jackpot** — MP_JACKPOT (61) 5 protocols, PRIZE_NOTIFY 广播全用户、TOTALMONEY_NOTIFY_TO_AGENT 改协议并仅向在图用户广播, 25 tests。
+- **D4.161 agent_guild_fieldwar** — MP_GUILD_FIELDWAR (57) 28 protocols, 7 NOTIFY_TOMAP 广播到除源外所有 map server + DECLARE_NACK 单发 + RESULT_TOALLUSER 全广播 + 默认 forward, 21 tests。
+- **D4.162 agent_bobusang** — MP_BOBUSANG (74) 13 protocols, 用户侧按 GM POWER 过滤 + 服务侧 APPEAR/DISAPPEAR MAP_TO_AGENT 设 channel state, 16 tests。
+- **D4.163 agent_streetstall** — MP_STREETSTALL (29) 50+ protocols, 仅用户侧 user-found + dwObjectID 一致性检查后 TransToMapServerMsgParser, 9 tests。
+- **D4.164 agent_exchange** — MP_EXCHANGE (28) 40+ protocols, 与 streetstall 镜像的简单用户侧 gate, 9 tests。
+
+累计 +80 tests, 现 **10,696 tests 100% PASS** (was 10,616 baseline + 80)。
+
+### 仍未覆盖的 category data plane（按优先级）
+
+- MP_NPC (37) — 客户端送 NPC chat/script, agent 无 handler（仅转发或忽略）。
+- MP_PK (41), MP_JOURNAL (53), MP_SURYUN (54), MP_SOCIETYACT (55), MP_PARTYWAR (59) — agent 无 handler (LoginServerFixture 已覆盖 drop-without-response)。
+- MP_TITAN (72), MP_ITEMEXT (73) — agent 无 handler。
+- MP_RMTOOL_* (43-51, 68, 70) — 仅 RMTOOL_CONNECT entry, 非 gameplay 关键路径。
+
+### P0 blockers 状态（与上 session 一致）
+
+- R-1 HSEL E2E (缺真实 .bin)
+- B7 MSSQL 真起端到端 (缺本地 MSSQL)
+- E2 T2 wire SHA-256 replay (缺 capture harness)。commercial smoke gate 33/33 PASS 持续覆盖关键登录/资源/协议验收。
+
+---
