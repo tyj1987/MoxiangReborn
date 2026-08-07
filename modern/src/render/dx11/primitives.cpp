@@ -3,6 +3,7 @@
 #include "primitives.hpp"
 #include "primitives_shader_source.hpp"
 #include "device.hpp"
+#include "box_geometry.hpp"
 
 #include <d3dcompiler.h>
 #include <vector>
@@ -206,37 +207,18 @@ void PrimitiveDrawer::drawBox(const VECTOR3* oct, std::uint32_t color) {
     auto* ctx = m_dev->rawContext();
     updateViewProj();
 
-    // 12 edges 鈫?24 vertices.
-    const int edges[12][2] = {
-        {0,1},{1,2},{2,3},{3,0},  // bottom
-        {4,5},{5,6},{6,7},{7,4},  // top
-        {0,4},{1,5},{2,6},{3,7},  // verticals
-    };
-
-    // R-9.x: 3D vertex struct (float3 pos + packed RGBA byte).
-    // Previously used float2 + 2D shader + 2D input layout and
-    // degraded the box to the XZ plane (v.y = oct[i].z). The
-    // 3D upgrade uses all 3 of oct[i]'s components, so a box
-    // at (0,1,0)..(1,2,1) is now a 1x1x1 cube at y in [1,2]
-    // rather than a flat square on the ground plane.
+    // R-9.x: build a real 3D wireframe from all eight corners.
     struct V3D { float x, y, z; std::uint32_t c; };
-    std::vector<V3D> verts(24);
-    for (int i = 0; i < 12; ++i) {
-        V3D v{};
-        v.x = oct[edges[i][0]].x;
-        v.y = oct[edges[i][0]].y;
-        v.z = oct[edges[i][0]].z;
-        v.c = color;
-        verts[i*2] = v;
-        v.x = oct[edges[i][1]].x;
-        v.y = oct[edges[i][1]].y;
-        v.z = oct[edges[i][1]].z;
-        verts[i*2 + 1] = v;
+    const auto source = make_box_line_vertices(oct, color);
+    std::array<V3D, 24> verts{};
+    for (std::size_t i = 0; i < source.size(); ++i) {
+        verts[i] = {source[i].position.x, source[i].position.y,
+                    source[i].position.z, source[i].color};
     }
 
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(ctx->Map(m_shaders.vbSolid.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
-    std::memcpy(mapped.pData, verts.data(), verts.size() * sizeof(V3D));
+    std::memcpy(mapped.pData, verts.data(), sizeof(verts));
     ctx->Unmap(m_shaders.vbSolid.Get(), 0);
 
     UINT stride = sizeof(V3D), offset = 0;
