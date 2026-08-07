@@ -2960,3 +2960,13 @@ add_executable(mxh_agent_dispatch_tests
 target_link_libraries(mxh_agent_dispatch_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_dispatch_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# D4.R3 -- wire-format -> dispatcher integration. Locks the 1:1 invariant that the
+# modern dispatcher preserves the (cat, proto, object_id) extracted from a real
+# wire-format golden .bin and echoed via the legacy default-branch semantics.
+add_executable(mxh_agent_dispatch_wire_integration_tests
+    agent_dispatch_wire_integration_test.cpp
+)
+target_link_libraries(mxh_agent_dispatch_wire_integration_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_dispatch_wire_integration_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
