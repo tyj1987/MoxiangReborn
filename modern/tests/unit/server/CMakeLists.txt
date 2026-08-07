@@ -2551,6 +2551,13 @@ target_link_libraries(mxh_agent_option_side_effect_plan_tests PRIVATE mxh_server
 gtest_add_tests(TARGET mxh_agent_option_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_agent_debug_side_effect_plan_tests
+    agent_debug_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_debug_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_debug_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 add_executable(mxh_agent_jackpot_tests
     agent_jackpot_test.cpp
 )
