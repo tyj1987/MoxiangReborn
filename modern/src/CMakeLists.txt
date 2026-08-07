@@ -225,6 +225,7 @@ add_library(mxh_server STATIC
     server/agent_debug.cpp
     server/agent_option_side_effect_plan.cpp
     server/agent_debug_side_effect_plan.cpp
+    server/agent_jackpot_side_effect_plan.cpp
     server/agent_jackpot.cpp
     server/agent_guild_fieldwar.cpp
     server/agent_bobusang.cpp
