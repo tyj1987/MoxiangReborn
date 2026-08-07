@@ -50,7 +50,8 @@ void HselStreamCipher::seed() {
 mxh::net::NetError HselStreamCipher::encrypt(
     std::span<std::uint8_t> data) {
     if (!ready_) {
-        return mxh::net::NetError::EncryptionFailed;
+        // 1:1 with legacy CCrypt::Encrypt: not inited -> pass through.
+        return mxh::net::NetError::Ok;
     }
     if (data.empty()) {
         return mxh::net::NetError::Ok;
@@ -68,7 +69,8 @@ mxh::net::NetError HselStreamCipher::encrypt(
 mxh::net::NetError HselStreamCipher::decrypt(
     std::span<std::uint8_t> data) {
     if (!ready_) {
-        return mxh::net::NetError::DecryptionFailed;
+        // 1:1 with legacy CCrypt::Decrypt: not inited -> pass through.
+        return mxh::net::NetError::Ok;
     }
     if (data.empty()) {
         return mxh::net::NetError::Ok;

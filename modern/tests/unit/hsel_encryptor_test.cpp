@@ -146,11 +146,16 @@ TEST(HselStreamCipher, PeerRoundTripPreservesSize) {
     }
 }
 
-TEST(HselStreamCipher, UninitializedEncryptDecryptFail) {
+TEST(HselStreamCipher, UninitializedPassThroughMatchesLegacy) {
     HselStreamCipher c;
     auto buf = make_buf(16, 1u);
-    EXPECT_EQ(c.encrypt(buf), NetError::EncryptionFailed);
-    EXPECT_EQ(c.decrypt(buf), NetError::DecryptionFailed);
+    const auto orig = buf;
+    // Legacy CCrypt::Encrypt/Decrypt return TRUE (pass-through) when not
+    // inited; the key-delivery message rides this plaintext phase.
+    EXPECT_EQ(c.encrypt(buf), NetError::Ok);
+    EXPECT_EQ(buf, orig);
+    EXPECT_EQ(c.decrypt(buf), NetError::Ok);
+    EXPECT_EQ(buf, orig);
     HselInit init{};
     EXPECT_FALSE(c.export_init(init));
 }

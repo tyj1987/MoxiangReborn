@@ -45,8 +45,11 @@ public:
     void seed() override;
 
     // In-place size-preserving encrypt/decrypt. Returns Ok on success,
-    // EncryptionFailed/DecryptionFailed when not seeded or on a stream
-    // error. Empty spans are a no-op Ok (matches legacy zero-size skip).
+    // EncryptionFailed/DecryptionFailed on a stream error. Before
+    // seed()/import_init() the calls are pass-through Ok -- 1:1 with
+    // legacy CCrypt::Encrypt/Decrypt (`if (!m_bInited) return TRUE`),
+    // which lets the key-delivery message ride the plaintext phase.
+    // Empty spans are a no-op Ok (matches legacy zero-size skip).
     mxh::net::NetError encrypt(std::span<std::uint8_t> data) override;
     mxh::net::NetError decrypt(std::span<std::uint8_t> data) override;
 
