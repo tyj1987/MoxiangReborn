@@ -221,6 +221,8 @@ add_library(mxh_server STATIC
     server/state_param.cpp
     server/summon_monster.cpp
     server/agent_note.cpp
+    server/agent_npc.cpp
+    server/agent_npc_side_effect_plan.cpp
     server/agent_option.cpp
     server/agent_debug.cpp
     server/agent_option_side_effect_plan.cpp

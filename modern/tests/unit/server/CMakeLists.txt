@@ -2635,3 +2635,16 @@ add_executable(mxh_agent_note_side_effect_plan_tests
 target_link_libraries(mxh_agent_note_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_note_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_npc_tests
+    agent_npc_test.cpp
+)
+target_link_libraries(mxh_agent_npc_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_npc_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_npc_side_effect_plan_tests
+    agent_npc_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_npc_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_npc_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
