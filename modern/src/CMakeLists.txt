@@ -96,6 +96,7 @@ add_library(mxh_net STATIC
     net/net.cpp
     net/socket.cpp
     net/iocp/iocp.cpp
+    net/capture_handler.cpp
 )
 
 target_include_directories(mxh_net PUBLIC

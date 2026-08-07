@@ -53,3 +53,17 @@ gtest_add_tests(TARGET mxh_message_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+# E2 T2 capture handler -- SHA-256 fingerprint + on_message recorder
+# used by wire SHA-256 replay (E2 T2) and side-by-side behavior diff (E3 T3).
+add_executable(mxh_capture_handler_tests
+    capture_handler_test.cpp
+)
+target_link_libraries(mxh_capture_handler_tests PRIVATE mxh_net gtest_main)
+target_include_directories(mxh_capture_handler_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_capture_handler_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
