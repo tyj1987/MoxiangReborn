@@ -2439,6 +2439,7 @@ add_executable(mxh_shop_item_manager_tests
     item_use_side_effect_test.cpp
     item_use_side_effect_runtime_test.cpp
     item_divide_side_effect_test.cpp
+    item_divide_side_effect_runtime_test.cpp
     item_combine_side_effect_test.cpp
     item_buy_side_effect_test.cpp
     item_mix_side_effect_test.cpp
