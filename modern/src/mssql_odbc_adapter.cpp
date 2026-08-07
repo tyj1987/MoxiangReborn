@@ -100,6 +100,10 @@ DbResult MssqlOdbcAdapter::connect(const ConnectionConfig& cfg) {
 
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         DbResult error = translate_error(dbc_, SQL_HANDLE_DBC, "SQLDriverConnect");
+        // Any ODBC failure while establishing the connection (DNS
+        // resolution, driver auth, network timeout, ...) is a connection
+        // failure, regardless of the driver's exact SQLSTATE.
+        error.error = DbError::ConnectionFailed;
         SQLFreeHandle(SQL_HANDLE_DBC, dbc_);
         dbc_ = SQL_NULL_HANDLE;
         in_txn_ = false;
