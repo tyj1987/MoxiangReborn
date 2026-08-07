@@ -2475,6 +2475,7 @@ add_executable(mxh_shop_item_manager_tests
     guild_move_side_effect_test.cpp
     guild_move_side_effect_runtime_test.cpp
     avatar_takeoff_side_effect_test.cpp
+    avatar_takeoff_side_effect_runtime_test.cpp
     avatar_change_side_effect_test.cpp
     chase_use_side_effect_test.cpp
     shop_item_seal_side_effect_test.cpp
