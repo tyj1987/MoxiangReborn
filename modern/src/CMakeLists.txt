@@ -234,6 +234,7 @@ add_library(mxh_server STATIC
     server/agent_streetstall.cpp
     server/agent_streetstall_side_effect_plan.cpp
     server/agent_exchange.cpp
+    server/agent_exchange_side_effect_plan.cpp
     server/fixed_tile.cpp
     server/fixed_tile_info.cpp
     server/tile.cpp

@@ -2621,3 +2621,10 @@ add_executable(mxh_agent_streetstall_side_effect_plan_tests
 target_link_libraries(mxh_agent_streetstall_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_streetstall_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_exchange_side_effect_plan_tests
+    agent_exchange_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_exchange_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_exchange_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
