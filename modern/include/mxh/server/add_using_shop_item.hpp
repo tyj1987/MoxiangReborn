@@ -25,6 +25,7 @@
 #include <cstdint>
 
 #include <mxh/game/shop_item_types.hpp>
+#include <mxh/server/shop_item_manager.hpp>
 
 namespace mxh::server {
 
@@ -76,6 +77,30 @@ inline AddUsingShopItemDecision add_using_shop_item_decision(
     out.entry.item_idx = static_cast<std::uint64_t>(dw_item_index);
     out.entry.data = row;
     return out;
+}
+
+// Runtime orchestrator: applies the data-plane decision to a ShopItemManager.
+// 1:1 with legacy CShopItemManager::AddUsingShopItem: looks up the key,
+// runs the data-plane decision, and on Ok inserts the entry via
+// ShopItemManager::add_using_item. Returns the decision status.
+//
+// Production callers pass the live ShopItemManager; tests pass a fresh
+// one so each test starts with an empty using-items table.
+inline AddUsingShopItemStatus apply_add_using_shop_item(
+    ShopItemManager& mgr,
+    const game::ShopItemWithTime& row,
+    std::uint16_t dw_item_index) {
+    const bool already_present = mgr.has_using_item(dw_item_index);
+    auto decision = add_using_shop_item_decision(row, dw_item_index, already_present);
+    if (decision.status == AddUsingShopItemStatus::Ok) {
+        // Translate the data-plane AddUsingShopItemEntry to the manager
+        // UsingShopItemEntry (PascalCase field names match legacy ShopItemBase.h).
+        UsingShopItemEntry entry;
+        entry.ItemIdx = decision.entry.item_idx;
+        entry.Data = decision.entry.data;
+        mgr.add_using_item(entry);
+    }
+    return decision.status;
 }
 
 }  // namespace mxh::server
