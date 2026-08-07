@@ -2391,6 +2391,7 @@ add_executable(mxh_shop_item_manager_tests
     calc_shop_item_option_test.cpp
     calc_shop_item_option_runtime_test.cpp
     update_logout_to_db_test.cpp
+    update_logout_to_db_runtime_test.cpp
     dup_param_test.cpp
     is_dup_item_test.cpp
     item_kind_predicates_test.cpp
