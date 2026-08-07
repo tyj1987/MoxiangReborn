@@ -92,4 +92,21 @@ private:
     std::atomic<std::uint64_t> ts_counter_{0};
 };
 
+// Decode a captured packet's wire bytes back into its Message (the
+// inverse of the on-wire 2B length prefix + 8B MSGBASE + payload
+// layout). Returns false if the buffer is shorter than the 10-byte
+// header.
+[[nodiscard]] bool decode_captured_wire(const CapturedPacket& p,
+                                        Message& out);
+
+// Replay a capture sequence into a target handler: on_connect is
+// invoked once per connection (on first sight), on_message in capture
+// order, and on_disconnect per connection at the end. Returns the
+// number of messages delivered. This is the E2 T2 replay harness --
+// wrap the target in a CaptureHandler and compare fingerprints to prove
+// byte-identical behavior across runs (or against legacy captures).
+[[nodiscard]] std::size_t replay_capture(
+    std::span<const CapturedPacket> capture,
+    IConnectionHandler& target);
+
 }  // namespace mxh::net

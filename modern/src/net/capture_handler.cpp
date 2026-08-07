@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <fstream>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 namespace mxh::net {
@@ -278,6 +279,41 @@ bool CaptureHandler::load(std::string_view path) {
         ts_counter_.store(captured_.empty() ? 0 : captured_.back().timestamp_ns);
     }
     return true;
+}
+
+bool decode_captured_wire(const CapturedPacket& p, Message& out) {
+    const auto& bytes = p.wire_bytes;
+    if (bytes.size() < 10u) return false;  // 2B length + 8B MSGBASE
+    out.header.checksum = bytes[2];
+    out.header.code = static_cast<std::int8_t>(bytes[3]);
+    out.header.category = bytes[4];
+    out.header.protocol = bytes[5];
+    out.header.object_id =
+        static_cast<std::uint32_t>(bytes[6]) |
+        (static_cast<std::uint32_t>(bytes[7]) << 8) |
+        (static_cast<std::uint32_t>(bytes[8]) << 16) |
+        (static_cast<std::uint32_t>(bytes[9]) << 24);
+    out.payload.assign(bytes.begin() + 10, bytes.end());
+    return true;
+}
+
+std::size_t replay_capture(std::span<const CapturedPacket> capture,
+                           IConnectionHandler& target) {
+    std::unordered_set<std::uint64_t> seen;
+    std::size_t delivered = 0;
+    for (const auto& p : capture) {
+        if (seen.insert(p.connection.value).second) {
+            target.on_connect(p.connection, "replay");
+        }
+        Message m;
+        if (!decode_captured_wire(p, m)) continue;
+        target.on_message(p.connection, m);
+        ++delivered;
+    }
+    for (const auto conn_val : seen) {
+        target.on_disconnect(make_connection_id(conn_val), NetError::Disconnected);
+    }
+    return delivered;
 }
 
 }  // namespace mxh::net

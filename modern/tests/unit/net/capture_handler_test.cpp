@@ -9,6 +9,14 @@
 //
 // All tests use mock IConnectionHandlers so we never bind a socket;
 // the wrapper's contract is pure (record -> forward).
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #ifndef socklen_t
+        using socklen_t = int;
+    #endif
+#endif
+
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -337,4 +345,113 @@ TEST(CaptureHandler, ConcurrentOnMessageCapturesAllPacketsInOrder) {
     EXPECT_EQ(inner.message_count, kThreads * kPerThread);
     const auto fp1 = cap.fingerprint();
     const auto fp2 = cap.fingerprint();
+}
+
+// ===== E2 T2: 1000+ real-packet replay, SHA-256 must be byte-stable =====
+
+namespace {
+
+int capture_find_free_port() {
+    SOCKET tmp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (tmp == INVALID_SOCKET) return 0;
+    struct sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    socklen_t len = sizeof(addr);
+    if (bind(tmp, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        closesocket(tmp);
+        return 0;
+    }
+    if (getsockname(tmp, reinterpret_cast<sockaddr*>(&addr), &len) != 0) {
+        closesocket(tmp);
+        return 0;
+    }
+    int port = ntohs(addr.sin_port);
+    closesocket(tmp);
+    return port;
+}
+
+}  // namespace
+
+TEST(CaptureHandler, BulkReplayFingerprintStableAcrossThousandPackets) {
+    constexpr int kPacketCount = 1001;
+
+    MockInner server_inner;
+    CaptureHandler server_capture(server_inner);
+    TcpServer server(server_capture);
+    const int port = capture_find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig scfg;
+    scfg.port = static_cast<std::uint16_t>(port);
+    scfg.worker_thread_count = 1;
+    scfg.use_legacy_framing = true;
+    ASSERT_EQ(server.start(scfg), NetError::Ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    MockInner client_inner;
+    TcpClient client(client_inner);
+    ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port);
+    ccfg.use_legacy_framing = true;
+    ASSERT_EQ(client.connect(ccfg), NetError::Ok);
+
+    // 1001 messages spanning all 96 categories with varied protocols and
+    // payload sizes (0..255 bytes) -- a realistic cross-category sweep.
+    for (int i = 0; i < kPacketCount; ++i) {
+        const std::uint8_t cat = static_cast<std::uint8_t>(i % 96);
+        const std::uint8_t proto = static_cast<std::uint8_t>((i * 7) % 256);
+        const std::uint32_t obj = static_cast<std::uint32_t>(i * 2654435761u);
+        std::vector<std::uint8_t> payload(static_cast<std::size_t>(i % 256));
+        for (std::size_t k = 0; k < payload.size(); ++k) {
+            payload[k] = static_cast<std::uint8_t>(i + k);
+        }
+        Message m = make_msg(cat, proto, obj, std::move(payload));
+        ASSERT_EQ(client.send(m), NetError::Ok);
+    }
+
+    for (int i = 0; i < 200 && server_capture.size() < kPacketCount; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    ASSERT_EQ(server_capture.size(), static_cast<std::size_t>(kPacketCount));
+    EXPECT_EQ(server_inner.message_count, kPacketCount);
+
+    const auto fp_original = server_capture.fingerprint();
+    const auto cap_path = scratch_dir() / "bulk_replay_capture.txt";
+    ASSERT_TRUE(server_capture.save(cap_path.string()));
+
+    // Replay into a fresh handler: fingerprint and bytes must match
+    // exactly (diff = 0).
+    MockInner loaded_inner;
+    CaptureHandler loaded_handler(loaded_inner);
+    ASSERT_TRUE(loaded_handler.load(cap_path.string()));
+    EXPECT_EQ(loaded_handler.size(), static_cast<std::size_t>(kPacketCount));
+
+    // Replay the loaded capture into a FRESH handler; the replayed run's
+    // fingerprint and wire bytes must equal the original run (diff = 0).
+    MockInner replay_inner;
+    CaptureHandler replay_handler(replay_inner);
+    const auto delivered = replay_capture(
+        loaded_handler.snapshot(), replay_handler);
+    EXPECT_EQ(delivered, static_cast<std::size_t>(kPacketCount));
+    EXPECT_EQ(replay_inner.message_count, kPacketCount);
+    EXPECT_EQ(replay_handler.fingerprint(), fp_original);
+
+    // Byte-for-byte wire equality across the original and replayed runs.
+    const auto orig_packets = server_capture.snapshot();
+    const auto replay_packets = replay_handler.snapshot();
+    ASSERT_EQ(orig_packets.size(), replay_packets.size());
+    for (std::size_t i = 0; i < orig_packets.size(); ++i) {
+        EXPECT_EQ(orig_packets[i].wire_bytes, replay_packets[i].wire_bytes);
+        EXPECT_EQ(orig_packets[i].message.header.category,
+                  replay_packets[i].message.header.category);
+        EXPECT_EQ(orig_packets[i].message.header.protocol,
+                  replay_packets[i].message.header.protocol);
+        EXPECT_EQ(orig_packets[i].message.header.object_id,
+                  replay_packets[i].message.header.object_id);
+    }
+
+    client.disconnect();
+    server.stop();
 }
