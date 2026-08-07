@@ -2744,3 +2744,86 @@ add_executable(mxh_agent_itemext_side_effect_plan_tests
 target_link_libraries(mxh_agent_itemext_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_itemext_side_effect_plan_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_agent_kyunggong_tests
+    agent_kyunggong_test.cpp
+)
+target_link_libraries(mxh_agent_kyunggong_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_kyunggong_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_kyunggong_side_effect_plan_tests
+    agent_kyunggong_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_kyunggong_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_kyunggong_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_simbub_tests
+    agent_simbub_test.cpp
+)
+target_link_libraries(mxh_agent_simbub_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_simbub_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_simbub_side_effect_plan_tests
+    agent_simbub_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_simbub_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_simbub_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_pyoguk_tests
+    agent_pyoguk_test.cpp
+)
+target_link_libraries(mxh_agent_pyoguk_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_pyoguk_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_pyoguk_side_effect_plan_tests
+    agent_pyoguk_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_pyoguk_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_pyoguk_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_charrevive_tests
+    agent_charrevive_test.cpp
+)
+target_link_libraries(mxh_agent_charrevive_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_charrevive_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_charrevive_side_effect_plan_tests
+    agent_charrevive_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_charrevive_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_charrevive_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_bossmonster_tests
+    agent_bossmonster_test.cpp
+)
+target_link_libraries(mxh_agent_bossmonster_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_bossmonster_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_bossmonster_side_effect_plan_tests
+    agent_bossmonster_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_bossmonster_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_bossmonster_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_monster_tests
+    agent_monster_test.cpp
+)
+target_link_libraries(mxh_agent_monster_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_monster_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_agent_monster_side_effect_plan_tests
+    agent_monster_side_effect_plan_test.cpp
+)
+target_link_libraries(mxh_agent_monster_side_effect_plan_tests PRIVATE mxh_server GTest::gtest_main)
+gtest_add_tests(TARGET mxh_agent_monster_side_effect_plan_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)

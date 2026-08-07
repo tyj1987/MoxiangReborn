@@ -237,6 +237,18 @@ add_library(mxh_server STATIC
     server/agent_titan_side_effect_plan.cpp
     server/agent_itemext.cpp
     server/agent_itemext_side_effect_plan.cpp
+    server/agent_kyunggong.cpp
+    server/agent_kyunggong_side_effect_plan.cpp
+    server/agent_simbub.cpp
+    server/agent_simbub_side_effect_plan.cpp
+    server/agent_pyoguk.cpp
+    server/agent_pyoguk_side_effect_plan.cpp
+    server/agent_charrevive.cpp
+    server/agent_charrevive_side_effect_plan.cpp
+    server/agent_bossmonster.cpp
+    server/agent_bossmonster_side_effect_plan.cpp
+    server/agent_monster.cpp
+    server/agent_monster_side_effect_plan.cpp
     server/agent_option.cpp
     server/agent_debug.cpp
     server/agent_option_side_effect_plan.cpp
