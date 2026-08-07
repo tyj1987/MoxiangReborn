@@ -2536,6 +2536,7 @@ add_executable(mxh_shop_item_manager_tests
     agent_guild_notify_side_effect_test.cpp
     agent_guild_notify_side_effect_runtime_test.cpp
     agent_party_side_effect_test.cpp
+    agent_party_side_effect_runtime_test.cpp
     agent_friend_side_effect_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
