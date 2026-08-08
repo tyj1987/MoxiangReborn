@@ -59,6 +59,7 @@ public:
     // Public DX11 access (for advanced callers needing raw ID3D11Device).
     ID3D11Device*           rawDevice()  const { return m_device.Get(); }
     ID3D11DeviceContext*    rawContext() const { return m_context.Get(); }
+    ID3D11SamplerState*     samplerPointAddress() const { return m_samplerPoint.Get(); }
     IDXGISwapChain*         rawSwapChain() const { return m_swapChain.Get(); }
     ID3D11RenderTargetView* backBufferRTV() const { return m_backBufferRTV.Get(); }
     ID3D11DepthStencilView* depthStencilView() const { return m_dsv.Get(); }

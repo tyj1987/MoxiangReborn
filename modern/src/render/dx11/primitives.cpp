@@ -295,11 +295,14 @@ void PrimitiveDrawer::drawGrid(const VECTOR3* quad, std::uint32_t color) {
     auto* ctx = m_dev->rawContext();
     updateViewProj();
 
-    // 4 corners 鈫?4 edges as 8 vertices (LINELIST).
-    struct V { float x, y; std::uint32_t c; };
-    V verts[8];
+    // 4 corners -> 4 edges as 8 vertices (LINELIST).  The ground grid is
+    // a 3D quad, so use the 3D solid path (float3 + color, viewProj
+    // transform) exactly like drawBox; the old 2D float2 path fed a 3D
+    // camera matrix into the 2D VS, which sent the lines off-screen.
+    struct V3D { float x, y, z; std::uint32_t c; };
+    V3D verts[8];
     auto push = [&](int idx, const VECTOR3& p) {
-        verts[idx] = { p.x, p.z, color };
+        verts[idx] = { p.x, p.y, p.z, color };
     };
     push(0, quad[0]); push(1, quad[1]);
     push(2, quad[1]); push(3, quad[2]);
@@ -311,11 +314,11 @@ void PrimitiveDrawer::drawGrid(const VECTOR3* quad, std::uint32_t color) {
     std::memcpy(mapped.pData, verts, sizeof(verts));
     ctx->Unmap(m_shaders.vbSolid.Get(), 0);
 
-    UINT stride = sizeof(V), offset = 0;
+    UINT stride = sizeof(V3D), offset = 0;
     ctx->IASetVertexBuffers(0, 1, m_shaders.vbSolid.GetAddressOf(), &stride, &offset);
-    ctx->IASetInputLayout(m_shaders.ilSolid.Get());
+    ctx->IASetInputLayout(m_shaders.ilSolid3D.Get());
     ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-    ctx->VSSetShader(m_shaders.vsSolid.Get(), nullptr, 0);
+    ctx->VSSetShader(m_shaders.vsSolid3D.Get(), nullptr, 0);
     ctx->PSSetShader(m_shaders.psSolid.Get(), nullptr, 0);
     ctx->VSSetConstantBuffers(0, 1, m_cbViewProj.GetAddressOf());
     ctx->Draw(8, 0);

@@ -45,6 +45,10 @@ public:
                                     IGeometryControllerStatic* pControlStatic) override;
     void __stdcall EndInitialize() override;
     BOOL __stdcall InsertFaceGroup(FACE_DESC* pDesc) override;
+    void __stdcall SetFaceGroupDiffuseSRV(std::uint32_t groupIndex,
+                                          void* srv) override {
+        setDiffuseSRV(groupIndex, static_cast<ID3D11ShaderResourceView*>(srv));
+    }
     BOOL __stdcall Render(std::uint32_t dwRefIndex, std::uint32_t dwAlpha,
                            LIGHT_INDEX_DESC* pDynamicLightIndexList, std::uint32_t dwLightNum,
                            LIGHT_INDEX_DESC* pSpotLightIndexList, std::uint32_t dwSpotLightNum,

@@ -23,6 +23,10 @@ interface IDIMeshObject : public IUnknown {
                                             IGeometryControllerStatic* pControlStatic) = 0;
     virtual void __stdcall EndInitialize() = 0;
     virtual BOOL __stdcall InsertFaceGroup(FACE_DESC* pDesc) = 0;
+    // Modern extension: bind a texture to a face group (the legacy mtrl
+    // system did this server-side; the renderer's PS samples t0).
+    virtual void __stdcall SetFaceGroupDiffuseSRV(std::uint32_t groupIndex,
+                                                  void* srv) = 0;
     virtual BOOL __stdcall Render(std::uint32_t dwRefIndex, std::uint32_t dwAlpha,
                                    LIGHT_INDEX_DESC* pDynamicLightIndexList, std::uint32_t dwLightNum,
                                    LIGHT_INDEX_DESC* pSpotLightIndexList, std::uint32_t dwSpotLightNum,

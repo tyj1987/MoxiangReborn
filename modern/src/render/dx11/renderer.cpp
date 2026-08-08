@@ -331,6 +331,11 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
     ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
     ctx->PSSetConstantBuffers(0, 1, m_meshShaders.cbLight.GetAddressOf());
+    // Bind the point sampler: the lit PS samples the diffuse texture at
+    // t0/s0; without an explicit sampler state the default (possibly
+    // undefined) state is used and the sample can produce black.
+    ID3D11SamplerState* sampler = m_dev->samplerPointAddress();
+    ctx->PSSetSamplers(0, 1, &sampler);
 
     for (const auto& fg : mesh->faceGroups()) {
         if (!fg.diffuseSRV) {

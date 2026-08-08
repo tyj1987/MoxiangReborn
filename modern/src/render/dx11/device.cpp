@@ -59,10 +59,15 @@ bool Device::initialize(HWND hWnd, const DISPLAY_INFO& info) {
     m_context->OMSetDepthStencilState(m_depthStateDefault.Get(), 0);
 
     // Default rasterizer: back-face culling, fill solid, no scissor.
+    // FrontCounterClockwise = TRUE matches the legacy engine's winding
+    // convention: the modern renderer's geometry (cube faces, grids,
+    // debug triangles) is emitted counter-clockwise, so with the D3D11
+    // default (clockwise = front) every triangle was culled and frames
+    // came out as pure clear color.
     D3D11_RASTERIZER_DESC rd{};
     rd.FillMode = D3D11_FILL_SOLID;
     rd.CullMode = D3D11_CULL_BACK;
-    rd.FrontCounterClockwise = FALSE;
+    rd.FrontCounterClockwise = TRUE;
     rd.DepthClipEnable = TRUE;
     if (FAILED(m_device->CreateRasterizerState(&rd, &m_rasterizerDefault))) {
         MLOG_ERROR("[dx11] CreateRasterizerState failed");

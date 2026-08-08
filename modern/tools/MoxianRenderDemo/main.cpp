@@ -15,6 +15,12 @@
 //   - Effect+Material path (Phase 7): effect palette + material set
 //     markers: "[effect] palette built", "[material] MaterialSet created"
 // The smoke harness (run_demo_smoke.py) verifies all three init paths.
+//
+// Headless frame capture (R-9):
+//   mxh_render_demo --headless --save-frame <path.tga> --frame-count N
+//   Renders N frames straight into the swap-chain back buffer (no
+//   WM_PAINT dependency), then CaptureScreen writes a TGA.  Works on
+//   display-less / Session 0 hosts where UpdateWindow would block.
 #include <windows.h>
 
 #include <cstdio>
@@ -151,6 +157,7 @@ static float               g_angle      = 0.0f;
 static std::uint32_t       g_frames     = 0;
 static const char*         g_saveFramePath = nullptr;  // --save-frame <path>
 static std::uint32_t       g_saveFrameCount = 30u;     // --frame-count N
+static bool                g_headless   = false;  // --headless: no window paint
 
 void renderFrame(HWND h) {
     if (!g_renderer) return;
@@ -188,25 +195,11 @@ void renderFrame(HWND h) {
                                      0, 0, 0);
     }
 
-    // 4. 2D HUD overlay (Phase 6+). Sprite + font live in screen space, so
-    // they don't need a view/proj — RenderSprite/RenderFont are pixel-coord
-    // calls that go through the SpriteObject/FontObject internal pipeline.
-    if (g_hudSprite) {
-        VECTOR2 scale{ 1.0f, 1.0f };
-        VECTOR2 trans{ 10.0f, 10.0f };
-        RECT     rc  { 0, 0, 128, 64 };
-        g_renderer->RenderSprite(g_hudSprite, &scale, 0.0f, &trans, &rc,
-                                 0xffffffffu, /*iZOrder=*/0, /*dwFlag=*/0);
-    }
-    if (g_hudFont) {
-        const char* text = "Moxian Render Demo (HUD)";
-        RECT trc{ 150, 10, 800, 50 };
-        g_renderer->RenderFont(g_hudFont,
-                               reinterpret_cast<TCHAR*>(const_cast<char*>(text)),
-                               static_cast<std::uint32_t>(std::strlen(text)),
-                               &trc, 0xffffffffu,
-                               CHAR_CODE_TYPE_ASCII, /*iZOrder=*/0, /*dwFlag=*/0);
-    }
+    // 4. 2D HUD overlay (Phase 6+) is deferred: the sprite/font paths
+    // feed pixel coordinates through the camera view-proj (3D), which
+    // sends them off-screen.  Fixing that needs an orthographic 2D
+    // transform in the renderer (tracked separately); the 3D frame is
+    // the R-9 acceptance target.
 
     g_renderer->EndRender();
     g_renderer->Present(h);
@@ -236,6 +229,8 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--frame-count") == 0 && i + 1 < argc) {
             g_saveFrameCount =
                 static_cast<std::uint32_t>(std::atoi(argv[++i]));
+        } else if (std::strcmp(argv[i], "--headless") == 0) {
+            g_headless = true;
         }
     }
 
@@ -289,6 +284,12 @@ int main(int argc, char** argv) {
         // GetD3DDevice.
         if (renderer->GetD3DDevice(__uuidof(IUnknown), reinterpret_cast<void**>(&dev))) {
             g_cubeSRV = makeCheckerSRV(dev, 64);
+            if (g_cubeSRV && g_cube) {
+                // Bind the checker texture to face group 0 so the lit PS
+                // samples a real texture (an unbound t0 returns black and
+                // the cube becomes invisible).
+                g_cube->SetFaceGroupDiffuseSRV(0, g_cubeSRV.Get());
+            }
             // Texture binding: rely on RenderMeshObject's default white/no-texture path
             // (the real game uses mtrl system; demo skips it for simplicity)
         }
@@ -434,13 +435,6 @@ int main(int argc, char** argv) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        if (g_saveFramePath && g_frames >= g_saveFrameCount) {
-            std::printf("[demo] capturing frame %u to '%s'\n",
-                        static_cast<unsigned>(g_frames), g_saveFramePath);
-            g_renderer->CaptureScreen(const_cast<char*>(g_saveFramePath));
-            g_running = false;
-            break;
-        }
         if (GetTickCount() - startTick > 5000) {
             if (g_saveFramePath && g_frames > 0u) {
                 std::printf("[demo] 5s cap reached at %u frames; capturing\n",
@@ -450,8 +444,28 @@ int main(int argc, char** argv) {
             g_running = false;  // 5 s cap — checked BEFORE any render call
             break;
         }
-        InvalidateRect(hwnd, nullptr, FALSE);
-        UpdateWindow(hwnd);
+        // Headless hosts (no display server / Session 0) have no WM_PAINT
+        // source, so UpdateWindow can block forever waiting for a paint
+        // that never arrives.  The DX11 renderer draws straight into the
+        // swap-chain back buffer and Present() does not require a window
+        // paint, so --headless calls renderFrame() directly (pumping
+        // messages first) and drives frames purely by the frame-count
+        // cap (used with --save-frame).  Windowed mode keeps the legacy
+        // WM_PAINT-driven behaviour.
+        if (g_headless) {
+            renderFrame(hwnd);
+            ++g_frames;
+        } else {
+            InvalidateRect(hwnd, nullptr, FALSE);
+            UpdateWindow(hwnd);
+        }
+        if (g_saveFramePath && g_frames >= g_saveFrameCount) {
+            std::printf("[demo] capturing frame %u to '%s'\n",
+                        static_cast<unsigned>(g_frames), g_saveFramePath);
+            g_renderer->CaptureScreen(const_cast<char*>(g_saveFramePath));
+            g_running = false;
+            break;
+        }
         Sleep(16);
     }
 
