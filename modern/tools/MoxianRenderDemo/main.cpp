@@ -139,8 +139,8 @@ void buildViewProj(MATRIX4& view, MATRIX4& proj) {
     float pc[16] = {
         f/aspect, 0.0f, 0.0f,             0.0f,
         0.0f,     f,    0.0f,             0.0f,
-        0.0f,     0.0f, zf/(zf-zn),       1.0f,
-        0.0f,     0.0f, -zn*zf/(zf-zn),   0.0f,
+        0.0f,     0.0f, zf/(zf-zn),       -zn*zf/(zf-zn),
+        0.0f,     0.0f, 1.0f,             0.0f,
     };
     proj = fromColMajor(pc);
 }
@@ -181,7 +181,7 @@ void renderFrame(HWND h) {
     // 1. Clear to dark blue.
     g_renderer->BeginRender(nullptr, 0xff202080, 0);
 
-    // 2. Draw a wireframe ground grid (ortho-ish top-down).
+    // 2. Draw a wireframe ground grid.
     VECTOR3 grid[4] = {
         { -3.0f, -1.0f, -3.0f }, {  3.0f, -1.0f, -3.0f },
         {  3.0f, -1.0f,  3.0f }, { -3.0f, -1.0f,  3.0f },
@@ -284,12 +284,6 @@ int main(int argc, char** argv) {
         // GetD3DDevice.
         if (renderer->GetD3DDevice(__uuidof(IUnknown), reinterpret_cast<void**>(&dev))) {
             g_cubeSRV = makeCheckerSRV(dev, 64);
-            if (g_cubeSRV && g_cube) {
-                // Bind the checker texture to face group 0 so the lit PS
-                // samples a real texture (an unbound t0 returns black and
-                // the cube becomes invisible).
-                g_cube->SetFaceGroupDiffuseSRV(0, g_cubeSRV.Get());
-            }
             // Texture binding: rely on RenderMeshObject's default white/no-texture path
             // (the real game uses mtrl system; demo skips it for simplicity)
         }
@@ -339,13 +333,23 @@ int main(int argc, char** argv) {
         fd.dwMtlIndex = 0;
         g_cube->InsertFaceGroup(&fd);
         g_cube->EndInitialize();
+        if (g_cubeSRV) {
+            // Bind the checker texture to face group 0 AFTER the face
+            // groups exist (EndInitialize) so the lit PS samples a real
+            // texture; an unbound t0 returns black and the cube becomes
+            // invisible.
+            g_cube->SetFaceGroupDiffuseSRV(0, g_cubeSRV.Get());
+        }
         // Checker texture created but not bound to mesh face groups directly.
         // RenderMeshObject will use the default lighting path (no texture needed for demo).
         (void)g_cubeSRV;
     }
 
-    // Optional fog.
-    renderer->EnableFog(3.0f, 8.0f, 1.0f, 0xff101030, 0);
+    // Optional fog.  Start beyond the scene so the cube stays fully
+    // visible (the old start=3/end=8 at cube distance ~4.3 blended the
+    // mesh ~25% toward the dark fog color, making it indistinguishable
+    // from the clear color).
+    renderer->EnableFog(10.0f, 15.0f, 1.0f, 0xff101030, 0);
 
     // === Phase 6+: 2D HUD pipeline (sprite + font) ===========================
     // Create a 128x64 empty sprite (no pixels — the smoke only verifies the
