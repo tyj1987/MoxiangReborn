@@ -39,6 +39,12 @@ if (Test-Path -LiteralPath $e2eExe) {
         throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
     }
     Write-Host "MSSQL_E2E PASS (LocalDB, one command)" -ForegroundColor Green
+    # The E2E tool terminates its own server children, but a flake can
+    # leave orphaned mxh_* processes holding the redirected output pipes
+    # open, which keeps this host from exiting.  Clean them up so the
+    # gate always terminates.
+    Get-Process -Name 'mxh_login_server','mxh_agent_server_CHINA','mxh_agent_server_KOR','mxh_map_server_CHINA','mxh_map_server_KOR' -ErrorAction SilentlyContinue |
+        Stop-Process -Force -ErrorAction SilentlyContinue
 } else {
     Write-Host "MSSQL_E2E SKIPPED (mxh_client_e2e not built)" -ForegroundColor Yellow
 }
