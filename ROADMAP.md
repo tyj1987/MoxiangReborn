@@ -103,7 +103,7 @@
 | P1 | **C-Batch 2.81+** dialog ports | 余 49 个 | 每个 >=1 行为断言 test |
 | P1 | **D4 商城剩余真逻辑** | commits dcb05173 + 3e21470e (UseShopItem + CheckEndTime realtime) + 668ec566 (CheckAvatarEndtime) + 7e49a5a5 (CalcAvatarOption) + bbebdb18 (UseShopItemUpdateToDB) + 68061fe2 (CalcShopItemOption) + cb30fba6 (UpdateLogoutToDB) + 529e1843 (AddDupParam/DeleteDupParam/IsDupAble) ✓ | AddUsingShopItem + CalcPlusTime + avatar/skin + side-effect dispatchers |
 | P2 | **E3 T3 行为 side-by-side** | T1/T2 后 | 5 段操作录像 + 行为 diff = 0 |
-| P2 | **R-9 drawBox 场景验收** | 本机已能出帧：demo `--headless --save-frame`（直接驱动 renderFrame，绕过无显示会话的 UpdateWindow 阻塞）+ 修复 3 个渲染 bug（rasterizer FrontCounterClockwise 让 CCW 几何不被剔除、drawGrid 改走 3D solid shader 使网格可见、lit mesh 绑定 sampler 防采样黑化）；800x600 TGA 已捕获（蓝底+绿色网格），渲染专项 96/96 PASS；余：cube 光照纹理路径 + 2D HUD 正交变换（待修），再与原版截图对比 | prim_render 渲染人物站帧并与原版截图对比 |
+| P2 | **R-9 drawBox 场景验收** | 本机已能出帧：demo `--headless --save-frame`（直接驱动 renderFrame，绕过无显示会话的 UpdateWindow 阻塞）+ 修复 4 个渲染 bug（rasterizer FrontCounterClockwise 让 CCW 几何不被剔除、drawGrid 改走 3D solid shader、lit mesh 绑定 sampler、**demo 透视矩阵行列写反（zf/(zf-zn) 与 1/w 分量错位）导致整个场景被近平面裁剪——修正后网格按正确投影渲染**）；800x600 TGA 已捕获（蓝底+绿色网格，网格位置与投影数学一致），渲染专项 96/96 PASS；余：cube 光照纹理网格路径仍不产出像素 + 2D HUD 正交变换（待修），再与原版截图对比 | prim_render 渲染人物站帧并与原版截图对比 |
 
 > 详细分批计划与历史 [x] 项 -> docs/CHANGELOG.md。
 
