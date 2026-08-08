@@ -48,7 +48,7 @@
 | 渲染后端 | **PARTIAL** | DX11 + BC1-5 + MotionCache；drawBox 已接入 3D Solid shader、12 边 LINELIST 与 3 个纯几何测试，渲染专项 96/96 PASS；`run_demo_smoke.ps1` PASS-A 自然退出；完整场景截图仍待 |
 | HSEL 硬件狗 | **100% (软件路径)** | HselStream 字节兼容已锁 + CHSEL/CHSEL_STREAM ABI + HselStreamCipher IEncryptor + Login/Agent/Map 三 handler 与客户端三状态接入（共享 HselSessionManager）+ **三进程 --use-hsel 全链路 E2E PASS（login→charselect→gamein 全加密，commit d31b4e00）**；真 .bin 硬件验收依赖实体狗（外部） |
 | HackShield 路由 | **DONE** | AgentHandlerHackShieldTest 17/17，R-2 关闭 |
-| SQL Server 集成 | **真起 E2E PASS（LocalDB）** | 本地 SQL Server 2019 LocalDB 真起：现代 schema 脚本（deploy/database/mx_modern_schema_mssql.sql）+ 三进程 --backend mssql_odbc + 客户端三步 E2E PASS（--use-hsel）+ 真库 roundtrip 测试（MXH_MSSQL_E2E 门控，commit f5400bdc）；余：legacy .bak 恢复（MHGAME/LogMoney 真库验收，备份文件在外部） |
+| SQL Server 集成 | **一条命令全链路 E2E PASS（LocalDB）** | 本地 SQL Server 2019 LocalDB 真起：`mxh_client_e2e --backend mssql_odbc --init-schema` 单命令可复现全链路（工具内嵌 schema 引导：建库→chr_log_info/character_info→test 账号，无需 sqlcmd）+ 三进程共享 Moxiang 库 + 客户端三步 E2E PASS + 真库 roundtrip 测试（MXH_MSSQL_E2E 门控）；Agent/Map server 对非 SQLite 后端跳过 SQLite-only DDL；余：legacy .bak 恢复（MHGAME/LogMoney 真库验收，备份文件在外部） |
 
 历史详细：[docs/CHANGELOG.md](docs/CHANGELOG.md)。
 
