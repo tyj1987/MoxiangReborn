@@ -27,4 +27,20 @@ $args = @('-C','Debug','--test-dir',$BuildDir,'-R',$pattern,'--output-on-failure
 if ($RepeatFlaky) { $args += @('--repeat','until-fail:3') }
 & ctest @args
 if ($LASTEXITCODE -ne 0) { throw "Commercial smoke failed with exit code $LASTEXITCODE" }
+
+# P0 gate: one-command MSSQL full-chain E2E on SQL Server LocalDB.
+# mxh_client_e2e --backend mssql_odbc --init-schema bootstraps the modern
+# schema (creates Moxiang DB + chr_log_info/character_info + test account)
+# and drives the 3-process Login/Agent/Map chain over real SQL Server.
+$e2eExe = Join-Path $BuildDir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
+if (Test-Path -LiteralPath $e2eExe) {
+    & $e2eExe --backend mssql_odbc --init-schema
+    if ($LASTEXITCODE -ne 0) {
+        throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
+    }
+    Write-Host "MSSQL_E2E PASS (LocalDB, one command)" -ForegroundColor Green
+} else {
+    Write-Host "MSSQL_E2E SKIPPED (mxh_client_e2e not built)" -ForegroundColor Yellow
+}
+
 Write-Host "COMMERCIAL_SMOKE PASS" -ForegroundColor Green
