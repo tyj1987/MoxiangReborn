@@ -220,35 +220,44 @@ int main(int argc, char** argv) {
     // Phase 8: ensure character_info table exists with all needed columns.
     // CREATE TABLE IF NOT EXISTS is idempotent. ALTER TABLE ADD COLUMN is
     // also idempotent (silently fails if column already exists).
-    static const char* kSchemaInit =
-        "CREATE TABLE IF NOT EXISTS character_info ("
-        "    charname     TEXT PRIMARY KEY,"
-        "    chrid        INTEGER NOT NULL UNIQUE,"
-        "    userid       TEXT NOT NULL,"
-        "    character_data BLOB"
-        ");";
-    auto schema_result = db->execute(kSchemaInit);
-    if (!schema_result.ok()) {
-        std::cerr << "[main] schema init warning: "
-                  << schema_result.error_message << "\n";
-    }
+    // SQLite-only DDL: skip for non-SQLite backends (MSSQL schema is
+    // created out-of-band, e.g. deploy/database/mx_modern_schema_mssql.sql
+    // or mxh_client_e2e --backend mssql_odbc --init-schema).
+    if (db->backend_name() == "sqlite") {
+        static const char* kSchemaInit =
+            "CREATE TABLE IF NOT EXISTS character_info ("
+            "    charname     TEXT PRIMARY KEY,"
+            "    chrid        INTEGER NOT NULL UNIQUE,"
+            "    userid       TEXT NOT NULL,"
+            "    character_data BLOB"
+            ");";
+        auto schema_result = db->execute(kSchemaInit);
+        if (!schema_result.ok()) {
+            std::cerr << "[main] schema init warning: "
+                      << schema_result.error_message << "\n";
+        }
 
-    static const char* kSchemaAlters[] = {
-        "ALTER TABLE character_info ADD COLUMN sex_type INTEGER DEFAULT 0",
-        "ALTER TABLE character_info ADD COLUMN hair_type INTEGER DEFAULT 0",
-        "ALTER TABLE character_info ADD COLUMN face_type INTEGER DEFAULT 0",
-        "ALTER TABLE character_info ADD COLUMN body_type INTEGER DEFAULT 0",
-        "ALTER TABLE character_info ADD COLUMN start_area INTEGER DEFAULT 0",
-        "ALTER TABLE character_info ADD COLUMN height REAL DEFAULT 1.0",
-        "ALTER TABLE character_info ADD COLUMN width REAL DEFAULT 1.0",
-        "ALTER TABLE character_info ADD COLUMN level INTEGER DEFAULT 1",
-        "ALTER TABLE character_info ADD COLUMN map_num INTEGER DEFAULT 12",
-        "ALTER TABLE character_info ADD COLUMN standing_idx INTEGER DEFAULT 0",
-    };
-    for (const auto* sql : kSchemaAlters) {
-        auto sr2 = db->execute(sql);
-        // Ignore errors (column already exists).
-        (void)sr2;
+        static const char* kSchemaAlters[] = {
+            "ALTER TABLE character_info ADD COLUMN sex_type INTEGER DEFAULT 0",
+            "ALTER TABLE character_info ADD COLUMN hair_type INTEGER DEFAULT 0",
+            "ALTER TABLE character_info ADD COLUMN face_type INTEGER DEFAULT 0",
+            "ALTER TABLE character_info ADD COLUMN body_type INTEGER DEFAULT 0",
+            "ALTER TABLE character_info ADD COLUMN start_area INTEGER DEFAULT 0",
+            "ALTER TABLE character_info ADD COLUMN height REAL DEFAULT 1.0",
+            "ALTER TABLE character_info ADD COLUMN width REAL DEFAULT 1.0",
+            "ALTER TABLE character_info ADD COLUMN level INTEGER DEFAULT 1",
+            "ALTER TABLE character_info ADD COLUMN map_num INTEGER DEFAULT 12",
+            "ALTER TABLE character_info ADD COLUMN standing_idx INTEGER DEFAULT 0",
+        };
+        for (const auto* sql : kSchemaAlters) {
+            auto sr2 = db->execute(sql);
+            // Ignore errors (column already exists).
+            (void)sr2;
+        }
+    } else {
+        std::cout << "[main] schema for backend '"
+                  << db->backend_name()
+                  << "' is managed out-of-band; skipping SQLite DDL\n";
     }
     std::cout << "[main] DB schema initialized (backend=" << db->backend_name() << ")\n";
 

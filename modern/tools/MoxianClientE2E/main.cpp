@@ -27,6 +27,20 @@
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
 //                  [--no-spawn]  # assume servers are already running
 //                  [--timeout N] # per-step timeout in seconds (default 10)
+//                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
+//                  [--db DB]          SQLite file or MSSQL kv string
+//                  [--init-schema]    apply schema before spawning
+//                  [--use-hsel]       run the whole chain HSEL-encrypted
+//
+// MSSQL single-command example (Phase P0; LocalDB):
+//   mxh_client_e2e --backend mssql_odbc --init-schema
+//   (defaults to host=(localdb)\MSSQLLocalDB, database=Moxiang)
+//
+// With --backend mssql_odbc all three servers share one SQL Server
+// database (the kv string passed via --db).  --init-schema bootstraps
+// the modern schema directly through the ODBC adapter (creates the DB if
+// missing, then the chr_log_info / character_info tables + test account),
+// so the whole chain is reproducible with one command and no sqlcmd.
 //
 // Exit codes:
 //   0  - all 3 protocol steps passed
@@ -52,6 +66,9 @@
 #include "CCharSelectState.hpp"
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
+
+#include "mxh/db/db_adapter.hpp"
+#include "mxh/db/mssql_odbc_adapter.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -84,9 +101,17 @@ struct CliArgs {
     std::string login_exe;
     std::string agent_exe;
     std::string map_exe;
+    std::string db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
+    std::string db;                     // SQLite file path or MSSQL kv string
     bool no_spawn = false;
     int  timeout_s = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
+    bool init_schema = true;   // Phase P0: apply the modern schema before
+                               // spawning.  SQLite: always safe (idempotent
+                               // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
+                               // the legacy default, pass --init-schema only
+                               // when the caller wants the E2E tool to
+                               // bootstrap the shared DB itself.
 };
 
 CliArgs parse_cli(int argc, char** argv) {
@@ -97,14 +122,20 @@ CliArgs parse_cli(int argc, char** argv) {
     a.login_exe = build_dir + "/MoxianLoginServer/Debug/mxh_login_server.exe";
     a.agent_exe = build_dir + "/MoxianAgentServer/Debug/mxh_agent_server_CHINA.exe";
     a.map_exe   = build_dir + "/MoxianMapServer/Debug/mxh_map_server_CHINA.exe";
+    // MSSQL default matches the verified LocalDB command from the P0 E2E:
+    //   --backend mssql_odbc --db "backend=mssql_odbc;host=(localdb)\MSSQLLocalDB;database=Moxiang;"
+    a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;";
     for (int i = 1; i < argc; ++i) {
         const std::string_view s = argv[i];
         if      (s == "--login-exe" && i + 1 < argc) a.login_exe = argv[++i];
         else if (s == "--agent-exe" && i + 1 < argc) a.agent_exe = argv[++i];
         else if (s == "--map-exe"   && i + 1 < argc) a.map_exe   = argv[++i];
+        else if (s == "--backend"   && i + 1 < argc) a.db_backend = argv[++i];
+        else if (s == "--db"        && i + 1 < argc) a.db = argv[++i];
         else if (s == "--no-spawn") a.no_spawn = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
+        else if (s == "--init-schema") a.init_schema = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
             std::exit(3);
@@ -201,6 +232,96 @@ bool wait_for_port(int port, int timeout_s) {
     }
     return false;
 }
+
+// Phase P0: bootstrap the modern MSSQL schema before spawning the three
+// servers.  The LoginServer --init-schema path is SQLite-only DDL, so for
+// mssql_odbc the E2E tool applies the schema itself (mirrors
+// deploy/database/mx_modern_schema_mssql.sql, which needs sqlcmd + a GO
+// batch splitter; the embedded subset below is exactly what the three
+// modern servers query).  Idempotent: safe to run over an existing DB.
+//
+// Returns 0 on success (schema ready), nonzero on failure.
+int ensure_mssql_schema(const CliArgs& cli) {
+    auto cfg = mxh::db::ConnectionConfig::from_kv_string(cli.db);
+    if (cfg.database.empty()) {
+        LOG("MSSQL schema init: --db must contain 'database=...'");
+        return 3;
+    }
+    const std::string target_db = cfg.database;
+
+    // 1. Connect to [master] and create the target database if missing.
+    auto master_cfg = cfg;
+    master_cfg.database = "master";
+    auto master = mxh::db::make_adapter("mssql_odbc");
+    auto mr = master->connect(master_cfg);
+    if (!mr) {
+        LOG("MSSQL schema init: cannot connect to master (host='%s'): %s",
+            cfg.host.c_str(), mr.error_message.c_str());
+        return 1;
+    }
+    std::string create_db =
+        "IF DB_ID(N'" + target_db + "') IS NULL EXEC('CREATE DATABASE [" +
+        target_db + "]');";
+    auto cdr = master->execute(create_db);
+    if (!cdr) {
+        LOG("MSSQL schema init: CREATE DATABASE %s failed: %s",
+            target_db.c_str(), cdr.error_message.c_str());
+        return 1;
+    }
+    master->disconnect();
+    LOG("MSSQL schema init: database '%s' ready", target_db.c_str());
+
+    // 2. Connect to the target DB and create the two tables the modern
+    //    servers use (chr_log_info for login, character_info for the
+    //    agent/map servers), then seed the E2E test account.
+    auto db = mxh::db::make_adapter("mssql_odbc");
+    auto cr = db->connect(cfg);
+    if (!cr) {
+        LOG("MSSQL schema init: cannot connect to '%s': %s",
+            target_db.c_str(), cr.error_message.c_str());
+        return 1;
+    }
+
+    const char* kChrLogInfo =
+        "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL "
+        "CREATE TABLE dbo.chr_log_info ("
+        " id NVARCHAR(50) NOT NULL PRIMARY KEY,"
+        " pw NVARCHAR(50) NOT NULL,"
+        " userlevel INT NOT NULL DEFAULT 0);";
+    const char* kCharacterInfo =
+        "IF OBJECT_ID(N'dbo.character_info', N'U') IS NULL "
+        "CREATE TABLE dbo.character_info ("
+        " chrid BIGINT NOT NULL PRIMARY KEY,"
+        " charname NVARCHAR(50) NOT NULL,"
+        " userid BIGINT NOT NULL,"
+        " sex_type TINYINT NOT NULL DEFAULT 0,"
+        " hair_type TINYINT NOT NULL DEFAULT 0,"
+        " face_type TINYINT NOT NULL DEFAULT 0,"
+        " body_type TINYINT NOT NULL DEFAULT 0,"
+        " start_area INT NOT NULL DEFAULT 0,"
+        " height FLOAT NOT NULL DEFAULT 1.0,"
+        " width FLOAT NOT NULL DEFAULT 1.0,"
+        " level INT NOT NULL DEFAULT 1,"
+        " map_num INT NOT NULL DEFAULT 0,"
+        " standing_idx INT NOT NULL DEFAULT 0);";
+    const char* kSeedAccount =
+        "IF NOT EXISTS (SELECT 1 FROM dbo.chr_log_info WHERE id = N'test') "
+        "INSERT INTO dbo.chr_log_info (id, pw, userlevel) "
+        "VALUES (N'test', N'test', 2);";
+
+    const char* statements[] = {kChrLogInfo, kCharacterInfo, kSeedAccount};
+    for (const char* sql : statements) {
+        auto er = db->execute(sql);
+        if (!er) {
+            LOG("MSSQL schema init: statement failed: %s",
+                er.error_message.c_str());
+            return 1;
+        }
+    }
+    db->disconnect();
+    LOG("MSSQL schema init: tables ready + test account seeded ('test'/'test')");
+    return 0;
+}
 #endif  // _WIN32
 
 // ---------------------------------------------------------------------------
@@ -220,14 +341,41 @@ int run_e2e(const CliArgs& cli) {
     // ---- spawn servers (unless --no-spawn) ----
     std::vector<std::unique_ptr<ServerProc>> procs;
     if (!cli.no_spawn) {
+        // Phase P0: mssql_odbc needs the shared SQL Server schema before
+        // any of the three processes start (LoginServer --init-schema is
+        // SQLite-only DDL).  SQLite files are created below per server.
+        if (cli.db_backend == "mssql_odbc") {
+            if (cli.init_schema) {
+                const int schema_rc = ensure_mssql_schema(cli);
+                if (schema_rc != 0) {
+                    LOG("MSSQL schema init failed (rc=%d)", schema_rc);
+                    return schema_rc;
+                }
+            } else {
+                LOG("WARN: --backend mssql_odbc without --init-schema; "
+                    "assumes schema already exists in the target DB");
+            }
+        }
+
         // DB files go in modern/scratch/e2e_client/ so they auto-clean
         // (we delete the dir on success; verify_servers_e2e.py uses
         // a similar pattern).
-        const std::string scratch = "C:\\moxiang\\modern\\scratch\\e2e_client";
-        CreateDirectoryA(scratch.c_str(), nullptr);
-        const std::string login_db = scratch + "\\login.db";
-        const std::string agent_db = scratch + "\\agent.db";
-        const std::string map_db   = scratch + "\\map.db";
+        std::string scratch, login_db, agent_db, map_db;
+        if (cli.db_backend == "mssql_odbc") {
+            // All three servers share the same SQL Server database.
+            login_db = agent_db = map_db = cli.db;
+        } else {
+            scratch = "C:\\moxiang\\modern\\scratch\\e2e_client";
+            CreateDirectoryA(scratch.c_str(), nullptr);
+            login_db = scratch + "\\login.db";
+            agent_db = scratch + "\\agent.db";
+            map_db   = scratch + "\\map.db";
+        }
+
+        const std::string backend_flag =
+            cli.db_backend == "mssql_odbc" ? "mssql_odbc" : "sqlite";
+        const std::string init_schema_flag =
+            (cli.db_backend == "sqlite" && cli.init_schema) ? "--init-schema" : "";
 
         // LoginServer
         procs.push_back(std::make_unique<ServerProc>());
@@ -235,10 +383,11 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->exe  = cli.login_exe;
         procs.back()->spawn_with_args("", {
             "--port", "16001",
+            "--backend", backend_flag,
             "--db", login_db,
             "--agent-addr", "127.0.0.1",
             "--agent-port", "17001",
-            "--init-schema",
+            init_schema_flag,
             "--legacy",
             (cli.use_hsel ? "--use-hsel" : "")});
 
@@ -248,6 +397,7 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->exe  = cli.agent_exe;
         procs.back()->spawn_with_args("", {
             "--port", "17001",
+            "--backend", backend_flag,
             "--db", agent_db,
             "--legacy",
             "--map-server", "127.0.0.1:18001",
@@ -259,6 +409,7 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->exe  = cli.map_exe;
         procs.back()->spawn_with_args("", {
             "--port", "18001",
+            "--backend", backend_flag,
             "--map", "12",
             "--db", map_db,
             "--legacy",

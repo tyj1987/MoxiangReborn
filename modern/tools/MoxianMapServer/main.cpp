@@ -170,27 +170,36 @@ int main(int argc, char** argv) {
 
     // Phase 9.1: Ensure character_info table exists with all needed columns.
     // Same schema as AgentServer - MapServer queries it for GameIn data.
-    static const char* kSchemaInit =
-        "CREATE TABLE IF NOT EXISTS character_info ("
-        "    charname     TEXT PRIMARY KEY,"
-        "    chrid        INTEGER NOT NULL UNIQUE,"
-        "    userid       TEXT NOT NULL,"
-        "    sex_type     INTEGER DEFAULT 0,"
-        "    hair_type    INTEGER DEFAULT 0,"
-        "    face_type    INTEGER DEFAULT 0,"
-        "    body_type    INTEGER DEFAULT 0,"
-        "    start_area   INTEGER DEFAULT 12,"
-        "    height       REAL DEFAULT 1.0,"
-        "    width        REAL DEFAULT 1.0,"
-        "    level        INTEGER DEFAULT 1,"
-        "    map_num      INTEGER DEFAULT 12,"
-        "    standing_idx INTEGER DEFAULT 0,"
-        "    character_data BLOB"
-        ");";
-    auto schema_result = db->execute(kSchemaInit);
-    if (!schema_result.ok()) {
-        std::cerr << "[main] schema init warning: "
-                  << schema_result.error_message << "\n";
+    // SQLite-only DDL: skip for non-SQLite backends (MSSQL schema is
+    // created out-of-band, e.g. deploy/database/mx_modern_schema_mssql.sql
+    // or mxh_client_e2e --backend mssql_odbc --init-schema).
+    if (db->backend_name() == "sqlite") {
+        static const char* kSchemaInit =
+            "CREATE TABLE IF NOT EXISTS character_info ("
+            "    charname     TEXT PRIMARY KEY,"
+            "    chrid        INTEGER NOT NULL UNIQUE,"
+            "    userid       TEXT NOT NULL,"
+            "    sex_type     INTEGER DEFAULT 0,"
+            "    hair_type    INTEGER DEFAULT 0,"
+            "    face_type    INTEGER DEFAULT 0,"
+            "    body_type    INTEGER DEFAULT 0,"
+            "    start_area   INTEGER DEFAULT 12,"
+            "    height       REAL DEFAULT 1.0,"
+            "    width        REAL DEFAULT 1.0,"
+            "    level        INTEGER DEFAULT 1,"
+            "    map_num      INTEGER DEFAULT 12,"
+            "    standing_idx INTEGER DEFAULT 0,"
+            "    character_data BLOB"
+            ");";
+        auto schema_result = db->execute(kSchemaInit);
+        if (!schema_result.ok()) {
+            std::cerr << "[main] schema init warning: "
+                      << schema_result.error_message << "\n";
+        }
+    } else {
+        std::cout << "[main] schema for backend '"
+                  << db->backend_name()
+                  << "' is managed out-of-band; skipping SQLite DDL\n";
     }
 
     // 2. Build reply queue + handler + server.
