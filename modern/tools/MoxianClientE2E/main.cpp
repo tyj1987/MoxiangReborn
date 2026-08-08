@@ -182,6 +182,15 @@ struct ServerProc {
 
         STARTUPINFOW si{};
         si.cb = sizeof(si);
+        // Do not inherit our redirected stdout/stderr handles: the three
+        // servers hold the pipes open for their whole lifetime, which
+        // would keep a parent that waits on the tool from ever seeing
+        // EOF (the commercial smoke gate hangs at exit).  Null handles
+        // give the children their own console-less std streams.
+        si.dwFlags = STARTF_USESTDHANDLES;
+        si.hStdInput  = nullptr;
+        si.hStdOutput = nullptr;
+        si.hStdError  = nullptr;
         PROCESS_INFORMATION pi{};
         std::wstring wcmd(line.begin(), line.end());
         std::wstring wdir;
