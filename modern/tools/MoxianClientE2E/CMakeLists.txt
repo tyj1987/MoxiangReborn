@@ -30,6 +30,6 @@ add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e)
 set_tests_properties(MoxianClientE2E PROPERTIES
     TIMEOUT 60
     LABELS "e2e;client;server"
-    PASS_REGULAR_EXPRESSION "all 3 protocol steps passed"
+    PASS_REGULAR_EXPRESSION "all 5 protocol steps passed"
     FAIL_REGULAR_EXPRESSION "FAIL|FAIL: timed out"
 )

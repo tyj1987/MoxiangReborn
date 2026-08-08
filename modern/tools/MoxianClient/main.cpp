@@ -43,6 +43,7 @@
 #include "mxh/log/mlog.hpp"
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
+#include "CCharMake.hpp"
 #include "GameStateStubs.hpp"
 
 #pragma comment(lib, "user32.lib")

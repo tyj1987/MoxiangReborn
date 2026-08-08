@@ -43,17 +43,11 @@ public:
 // see CCharSelectState.hpp) which drives the real character-list +
 // character-select handshake against MoxianAgentServer.  The CCharSelect
 // stub class is gone.
+//
+// CCharMake (eGS_CHARMAKE = 5) is now CCharMake (Phase B.4, see
+// CCharMake.hpp) which drives the real character-creation handshake
+// against MoxianAgentServer.  The CCharMake stub class is gone.
 // -------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------
-// CCharMake — character creation.  Lands in A.2+.
-// -------------------------------------------------------------------------
-class CCharMake : public CGameState {
-public:
-    void Init(void* p) override;
-    void Release() override;
-    void Process() override;
-};
 
 // -------------------------------------------------------------------------
 // CGameLoading — "Loading map..." screen with progress bar.  Lands in

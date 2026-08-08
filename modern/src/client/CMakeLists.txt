@@ -11,6 +11,7 @@ add_library(mxh_client_lib STATIC
     CMainTitle.cpp
     CLoginState.cpp
     CCharSelectState.cpp
+    CCharMake.cpp
     CInGameState.cpp
     GameStateStubs.cpp
 )

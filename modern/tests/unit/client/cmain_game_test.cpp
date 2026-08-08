@@ -15,6 +15,7 @@
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
 #include "CGameState.hpp"
+#include "CCharMake.hpp"
 #include "GameStateStubs.hpp"
 
 #include <gtest/gtest.h>

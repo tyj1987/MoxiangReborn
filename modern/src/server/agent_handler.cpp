@@ -962,8 +962,14 @@ void AgentHandler::handle_legacy_name_check(
 void AgentHandler::handle_legacy_character_make(
     mxh::net::ConnectionId id, const mxh::net::Message& msg) {
 
-    // Get stored user_id for this connection.
+    // Get stored user_id for this connection.  A client that goes
+    // straight into character creation (legacy CharMake state) may not
+    // have sent a list request first, so fall back to the UserID field
+    // the client embedded in CHARACTERMAKEINFO (offset 17, u32 LE).
     std::uint32_t user_id = get_user_id(id);
+    if (user_id == 0 && msg.payload.size() >= 59) {
+        std::memcpy(&user_id, msg.payload.data() + 17, 4);
+    }
 
     // Parse CHARACTERMAKEINFO payload.
     constexpr std::size_t kMinPayload = 59;  // minimum required bytes

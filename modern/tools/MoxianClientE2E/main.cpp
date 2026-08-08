@@ -13,12 +13,19 @@
 //   2. Agent:    CCharSelectState connects to AgentServer (:7001),
 //                receives AgentConnectSuccess, sends CharacterListSyn,
 //                parses CharacterListAck.  No character exists in the
-//                DB, so we do NOT issue CharacterSelectSyn (we expect
-//                Nack anyway).
-//   3. Map:      CInGameState connects to MapServer (:8001), sends
-//                GameInSyn, parses GameInAck (3000B SEND_HERO_TOTALINFO).
+//                DB, so we create one via CCharMake (CharacterMakeSyn)
+//                and then re-enter CharSelect to verify the refreshed
+//                list, which also exercises the real DB insert path.
+//   3. CharMake: CCharMake submits CharacterMakeSyn (59B legacy payload),
+//                the agent inserts into character_info and re-sends the
+//                refreshed CharacterListAck (creation success).
+//   4. Re-list:  A fresh CCharSelectState re-fetches the list and must
+//                see the created character (real DB round-trip).
+//   5. Map:      CInGameState connects to MapServer (:8001) with the
+//                created chrid, sends GameInSyn, parses GameInAck
+//                (3000B SEND_HERO_TOTALINFO).
 //
-// All three steps must PASS for the tool to exit 0.
+// All five steps must PASS for the tool to exit 0.
 //
 // Build:
 //   cmake --build modern/build --config Debug --target mxh_client_e2e
@@ -43,7 +50,7 @@
 // so the whole chain is reproducible with one command and no sqlcmd.
 //
 // Exit codes:
-//   0  - all 3 protocol steps passed
+//   0  - all 5 protocol steps passed
 //   1  - server failed to spawn
 //   2  - protocol step failed
 //   3  - usage error / server exe not found
@@ -64,8 +71,10 @@
 
 #include "CLoginState.hpp"
 #include "CCharSelectState.hpp"
+#include "CCharMake.hpp"
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
+#include "CMainGame.hpp"
 
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/mssql_odbc_adapter.hpp"
@@ -440,7 +449,7 @@ int run_e2e(const CliArgs& cli) {
     // headless flow (each state is started in sequence directly).
 
     // ---- Step 1: Login ----
-    LOG("[1/3] Login: CLoginState connecting to 127.0.0.1:16001 ...");
+    LOG("[1/5] Login: CLoginState connecting to 127.0.0.1:16001 ...");
     mxh::client::CLoginState login;
     login.Start(&engine, "127.0.0.1", 16001, "test", "test",
                 cli.use_hsel);
@@ -455,21 +464,21 @@ int run_e2e(const CliArgs& cli) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (login.is_failed()) {
-            LOG("[1/3] FAIL: %s", login.failure_reason().c_str());
+            LOG("[1/5] FAIL: %s", login.failure_reason().c_str());
             return 2;
         }
         if (!login.is_ack_received()) {
-            LOG("[1/3] FAIL: timed out waiting for LoginAck (auth_key=%u)",
+            LOG("[1/5] FAIL: timed out waiting for LoginAck (auth_key=%u)",
                 login.auth_key());
             return 2;
         }
     }
     auto login_result = login.TakeLoginResult();
-    LOG("[1/3] OK: LoginAck received, user_idx=%u agent=%s:%u",
+    LOG("[1/5] OK: LoginAck received, user_idx=%u agent=%s:%u",
         login_result.user_idx, login_result.agent_addr.c_str(),
         static_cast<unsigned>(login_result.agent_port));
     if (login_result.user_idx == 0) {
-        LOG("[1/3] FAIL: TakeLoginResult returned user_idx=0");
+        LOG("[1/5] FAIL: TakeLoginResult returned user_idx=0");
         return 2;
     }
 
@@ -477,12 +486,19 @@ int run_e2e(const CliArgs& cli) {
     // We bypass the agent port returned in LoginAck (it would be
     // 7001 by default; for the spawned servers it's 17001).  Use
     // the spawned server's actual port.
-    LOG("[2/3] CharSelect: CCharSelectState connecting to 127.0.0.1:17001 ...");
+    LOG("[2/5] CharSelect: CCharSelectState connecting to 127.0.0.1:17001 ...");
     mxh::client::CCharSelectState chsel;
     // Override the port the LoginAck would have told us.
     login_result.agent_port = 17001;
     chsel.SetLoginResult(login_result);
     chsel.Start(&engine, cli.use_hsel);
+    bool char_select_done = false;
+    engine.SetStateChangeRequestFn(
+        [&char_select_done](int state_id) {
+            if (state_id == static_cast<int>(mxh::client::GameStateId::CharSelect)) {
+                char_select_done = true;
+            }
+        });
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
@@ -491,23 +507,125 @@ int run_e2e(const CliArgs& cli) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (chsel.character_list().empty()) {
-            LOG("[2/3] FAIL: timed out waiting for CharacterListAck");
+            LOG("[2/5] FAIL: timed out waiting for CharacterListAck");
             return 2;
         }
         const auto valid_count =
             std::count_if(chsel.character_list().begin(),
                           chsel.character_list().end(),
                           [](const auto& s) { return s.valid; });
-        LOG("[2/3] OK: CharacterListAck received, %zu valid slot(s)",
+        LOG("[2/5] OK: CharacterListAck received, %zu valid slot(s)",
             static_cast<std::size_t>(valid_count));
     }
-    // DB is empty so no valid slot exists; we don't issue
-    // CharacterSelectSyn.  Move on to the in-game state with the
-    // login-ack user_idx as chrid (the server treats it as
-    // MSGBASE.object_id regardless of character_info state).
 
-    // ---- Step 3: InGame ----
-    LOG("[3/3] InGame: CInGameState connecting to 127.0.0.1:18001 ...");
+    // ---- Step 3: CharMake (character creation) ----
+    // The fresh DB has no characters, so we create one through the real
+    // agent CharacterMakeSyn path.  The agent inserts into character_info
+    // and re-sends the refreshed CharacterListAck; CCharMake then
+    // requests the CharSelect state (same as the legacy client).
+    LOG("[3/5] CharMake: creating character via CCharMake ...");
+    mxh::client::CCharMake charmake;
+    charmake.SetLoginResult(login_result);
+    charmake.Start(&engine, cli.use_hsel);
+    {
+        // Wait for the agent connection, then submit the creation form.
+        auto deadline = std::chrono::steady_clock::now() +
+                       std::chrono::seconds(cli.timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            if (charmake.is_connected()) break;
+            if (charmake.is_failed()) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (!charmake.is_connected()) {
+            LOG("[3/5] FAIL: CCharMake never connected to AgentServer (%s)",
+                charmake.failure_reason().c_str());
+            return 2;
+        }
+        // Unique per-run name so repeated runs on a persistent MSSQL DB
+        // never collide (the agent rejects duplicate charnames).
+        const auto now = std::chrono::steady_clock::now()
+                         .time_since_epoch()
+                         .count();
+        char name_buf[17] = {};
+        std::snprintf(name_buf, sizeof(name_buf), "E2E%lld",
+                      static_cast<long long>(now % 100000000LL));
+        mxh::client::CharacterMakeParams params;
+        params.name       = name_buf;
+        params.sex_type   = 1;
+        params.body_type  = 0;
+        params.hair_type  = 1;
+        params.face_type  = 1;
+        params.start_area = 18;
+        params.height     = 1.0f;
+        params.width      = 0.9f;
+        if (!charmake.SubmitCharacter(params)) {
+            LOG("[3/5] FAIL: SubmitCharacter rejected: %s",
+                charmake.failure_reason().c_str());
+            return 2;
+        }
+        LOG("[3/5] submitting CharacterMakeSyn name='%s'", name_buf);
+    }
+    {
+        // Success = the agent re-sent CharacterListAck and CCharMake
+        // requested the CharSelect transition (legacy client behaviour).
+        auto deadline = std::chrono::steady_clock::now() +
+                       std::chrono::seconds(cli.timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            if (char_select_done) break;
+            if (charmake.is_failed()) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (charmake.is_failed()) {
+            LOG("[3/5] FAIL: character creation rejected: %s",
+                charmake.failure_reason().c_str());
+            return 2;
+        }
+        if (!char_select_done) {
+            LOG("[3/5] FAIL: timed out waiting for ListAck after create");
+            return 2;
+        }
+        LOG("[3/5] OK: character created, agent re-sent CharacterListAck");
+    }
+    charmake.Release();
+
+    // ---- Step 4: re-enter CharSelect to verify the created char ----
+    // The agent's refreshed list must now contain the character we just
+    // created.  We do not auto-select here; the fresh state stays idle.
+    LOG("[4/5] CharSelect: re-fetching list after create ...");
+    mxh::client::CCharSelectState chsel2;
+    chsel2.SetLoginResult(login_result);
+    chsel2.Start(&engine, cli.use_hsel);
+    std::uint32_t created_chrid = 0;
+    {
+        auto deadline = std::chrono::steady_clock::now() +
+                       std::chrono::seconds(cli.timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            if (!chsel2.character_list().empty()) break;  // ListAck received
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (chsel2.character_list().empty()) {
+            LOG("[4/5] FAIL: timed out waiting for CharacterListAck after create");
+            return 2;
+        }
+        std::uint32_t valid_count = 0;
+        for (const auto& s : chsel2.character_list()) {
+            if (s.valid) {
+                ++valid_count;
+                if (created_chrid == 0) created_chrid = s.chrid;
+            }
+        }
+        if (valid_count == 0) {
+            LOG("[4/5] FAIL: list after create has no valid slot");
+            return 2;
+        }
+        LOG("[4/5] OK: created character present (chrid=%u, %u valid slot(s))",
+            static_cast<unsigned>(created_chrid),
+            static_cast<unsigned>(valid_count));
+    }
+    chsel2.Release();
+
+    // ---- Step 5: InGame ----
+    LOG("[5/5] InGame: CInGameState connecting to 127.0.0.1:18001 ...");
     mxh::client::CInGameState game;
     // Start a per-tick thread that calls Process() every 50ms; this
     // gives the in-game state a chance to retry the GameInSyn send
@@ -519,7 +637,7 @@ int run_e2e(const CliArgs& cli) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     });
-    game.Start(&engine, "127.0.0.1", 18001, login_result.user_idx, 12,
+    game.Start(&engine, "127.0.0.1", 18001, created_chrid, 12,
                cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
@@ -529,13 +647,13 @@ int run_e2e(const CliArgs& cli) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (!game.is_in_game()) {
-            LOG("[3/3] FAIL: timed out waiting for GameInAck");
+            LOG("[5/5] FAIL: timed out waiting for GameInAck");
             tick_stop.store(true, std::memory_order_release);
             tick_thread.join();
             return 2;
         }
         const auto& info = game.game_info();
-        LOG("[3/3] OK: GameInAck received, player_id=%u name='%s' "
+        LOG("[5/5] OK: GameInAck received, player_id=%u name='%s' "
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
@@ -546,11 +664,10 @@ int run_e2e(const CliArgs& cli) {
     // Clean shutdown — release states (disconnects TcpClient) and
     // kill server procs (ServerProc dtor calls TerminateProcess).
     login.Release();
-    chsel.Release();
     game.Release();
     procs.clear();
     ::WSACleanup();
-    LOG("Phase B.2.5 e2e: all 3 protocol steps passed");
+    LOG("Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)");
     return 0;
 #else
     LOG("MoxianClientE2E is Windows-only (uses CreateProcessW + Winsock).");

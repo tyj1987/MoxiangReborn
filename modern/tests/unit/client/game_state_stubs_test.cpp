@@ -33,7 +33,6 @@ TEST(CIntroReplay, Lifecycle) { CheckStubLifecycle<CIntroReplay>(); }
 TEST(CMainTitle, Lifecycle)   { CheckStubLifecycle<CMainTitle>(); }
 TEST(CLoginState, Lifecycle)  { CheckStubLifecycle<CLoginState>(); }
 TEST(CCharSelectState, Lifecycle)  { CheckStubLifecycle<CCharSelectState>(); }
-TEST(CCharMake, Lifecycle)    { CheckStubLifecycle<CCharMake>(); }
 TEST(CGameLoading, Lifecycle) { CheckStubLifecycle<CGameLoading>(); }
 TEST(CInGameState, Lifecycle) { CheckStubLifecycle<CInGameState>(); }
 TEST(CMapChange, Lifecycle)   { CheckStubLifecycle<CMapChange>(); }

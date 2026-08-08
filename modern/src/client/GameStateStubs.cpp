@@ -40,7 +40,6 @@ MXH_STATE_STUB_IMPL(CIntroReplay)
 // MoxianAgentServer.
 // CGameIn (eGS_GAMEIN = 7) is now CInGameState (Phase B.2.3) —
 // drives the GameIn handshake against MoxianMapServer.
-MXH_STATE_STUB_IMPL(CCharMake)
 MXH_STATE_STUB_IMPL(CGameLoading)
 MXH_STATE_STUB_IMPL(CMapChange)
 MXH_STATE_STUB_IMPL(CMurimNet)
