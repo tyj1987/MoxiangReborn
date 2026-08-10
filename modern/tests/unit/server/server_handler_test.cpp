@@ -1636,4 +1636,140 @@ TEST(MapHandlerTest, PersistPlayerMoneyForTestHitsDb) {
     EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 4242);
 }
 
+
+// M3 D-stage: StartSyn quest_log persistence to modern_player_quest_log.
+// End-to-end: real SqliteAdapter (in-memory) + inline CREATE TABLE +
+// StartSyn Ok arm + SELECT verification.  Validates that the
+// orchestrator actually hits the DB (not just a mock) and that
+// the row is readable after the wire reply.
+TEST(MapHandlerTest, StartSynOkArmPersistsQuestLogToSqliteMemory) {
+    // 1) Real in-memory SQLite.
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+
+    // 2) Inline CREATE TABLE (same shape as the production schema in
+    //    deploy/database/mx_modern_schema_mssql.sql + MoxianDbTool
+    //    moxian_schema_sql()).
+    auto ct = db.exec_multi(
+        "CREATE TABLE modern_player_quest_log ("
+        " player_id        INTEGER NOT NULL,"
+        " quest_id         INTEGER NOT NULL,"
+        " state            INTEGER NOT NULL DEFAULT 0,"
+        " accepted_time_ms INTEGER NOT NULL DEFAULT 0,"
+        " updated_at       TEXT    NOT NULL,"
+        " PRIMARY KEY (player_id, quest_id));");
+    ASSERT_TRUE(ct.ok()) << ct.error_message;
+
+    // 3) Build a MapHandler around the live db.  ReplySpy captures
+    //    the StartAck so we can confirm the wire shape did not change.
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+
+    mxh::net::Message game_in;
+    game_in.header.object_id = 456u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    // 4) Load a quest script definition so StartSyn Ok arm fires.
+    const std::string quest_text = "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 1 10 *ADDCOUNT 1 1 } }";
+    const auto qbin = synthesize_dealitem_bin(quest_text);
+    const auto qpath = write_temp_bin(qbin);
+    handler.load_quest_script(qpath.string());
+    std::error_code ec_q; std::filesystem::remove(qpath, ec_q);
+    ASSERT_EQ(handler.quest_definitions_for_test().quests.size(), 1u);
+
+    // 5) Send StartSyn for quest 99.
+    mxh::net::Message start;
+    start.header.object_id = 456u;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t qid = 99u;
+    std::memcpy(start.payload.data(), &qid, sizeof(qid));
+    handler.on_message(connection, start);
+
+    // 6) Wire shape: a StartAck must have been sent.
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartAck));
+
+    // 7) DB verification: a row for (player_id=456, quest_id=99)
+    //    must exist with state != 0 (Accepted/Active).
+    mxh::db::ResultSet rs;
+    std::vector<mxh::db::Bind> qp = { mxh::db::bind(static_cast<std::int64_t>(456)) };
+    auto sel = db.query(
+        "SELECT quest_id, state FROM modern_player_quest_log WHERE player_id = ?",
+        qp, rs);
+    ASSERT_TRUE(sel.ok()) << sel.error_message;
+    ASSERT_EQ(rs.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 99);
+    const auto state_value = std::get<std::int64_t>(rs.rows[0][1]);
+    EXPECT_NE(state_value, 0) << "expected state != 0 (None) after StartSyn Ok";
+}
+
+// M3 D-stage: persist_quest_log_for_test must hit the DB on every
+// call.  This pins the helper in isolation (no wire traffic).
+TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE modern_player_quest_log ("
+        " player_id        INTEGER NOT NULL,"
+        " quest_id         INTEGER NOT NULL,"
+        " state            INTEGER NOT NULL DEFAULT 0,"
+        " accepted_time_ms INTEGER NOT NULL DEFAULT 0,"
+        " updated_at       TEXT    NOT NULL,"
+        " PRIMARY KEY (player_id, quest_id));").ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 888u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    // Inject one quest into the player's quest_log via StartSyn Ok.
+    const std::string quest_text = "$QUEST 7 { $SUBQUEST 1 { #TRIGGER @HUNT 1 10 *ADDCOUNT 1 1 } }";
+    const auto qbin = synthesize_dealitem_bin(quest_text);
+    const auto qpath = write_temp_bin(qbin);
+    handler.load_quest_script(qpath.string());
+    std::error_code ec_q; std::filesystem::remove(qpath, ec_q);
+    ASSERT_EQ(handler.quest_definitions_for_test().quests.size(), 1u);
+    mxh::net::Message start;
+    start.header.object_id = 888u;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t qid = 7u;
+    std::memcpy(start.payload.data(), &qid, sizeof(qid));
+    handler.on_message(connection, start);
+    ASSERT_EQ(handler.persisted_quest_count_for_test(888u), 1u);
+
+    // Clear the row and verify persist_quest_log_for_test rewrites it.
+    ASSERT_TRUE(db.exec_multi("DELETE FROM modern_player_quest_log WHERE player_id = 888").ok());
+    mxh::db::ResultSet rs0;
+    std::vector<mxh::db::Bind> qp0 = { mxh::db::bind(static_cast<std::int64_t>(888)) };
+    ASSERT_TRUE(db.query("SELECT COUNT(*) FROM modern_player_quest_log WHERE player_id = ?", qp0, rs0).ok());
+    ASSERT_EQ(rs0.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rs0.rows[0][0]), 0);
+
+    EXPECT_TRUE(handler.persist_quest_log_for_test(888u));
+
+    mxh::db::ResultSet rs;
+    std::vector<mxh::db::Bind> qp = { mxh::db::bind(static_cast<std::int64_t>(888)) };
+    ASSERT_TRUE(db.query(
+        "SELECT quest_id FROM modern_player_quest_log WHERE player_id = ?", qp, rs).ok());
+    ASSERT_EQ(rs.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 7);
+}
 }  // namespace mxh::server::test

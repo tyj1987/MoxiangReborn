@@ -348,6 +348,15 @@ public:
     // SqliteAdapter (see buy_money_persistence_test.cpp).
     bool persist_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
     std::uint32_t persisted_money_for_test(std::uint32_t player_id) noexcept;
+
+    // M3 D-stage: StartSyn quest_log persistence to `modern_player_quest_log`.
+    // The orchestrator (handle_quest StartSyn Ok arm) calls the private
+    // persist_quest_log() automatically.  Test-only hooks let unit tests
+    // trigger the same write path or read back the live quest log count.
+    // End-to-end DB verification uses a real SqliteAdapter
+    // (see start_quest_persistence_test.cpp).
+    bool persist_quest_log_for_test(std::uint32_t player_id);
+    std::size_t persisted_quest_count_for_test(std::uint32_t player_id) noexcept;
     std::optional<GroundDrop> create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z);
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);
@@ -452,6 +461,14 @@ private:
     // wire reply (the wire reply has already been sent before the
     // write is attempted; the next BuySyn will overwrite the row).
     void persist_player_money(std::uint32_t player_id, std::uint32_t money);
+
+    // M3 D-stage: upsert every active quest in the player's quest_log to
+    // the modern_player_quest_log table via the db_ adapter.  Called
+    // automatically by the StartSyn Ok arm in handle_quest().  Failure
+    // is logged but does not fail the wire reply.  The function is
+    // safe to call with a freshly-loaded quest_log (one quest per row)
+    // or a fully populated one (N quests, N rows).
+    void persist_quest_log(std::uint32_t player_id);
     void send_skill_single_result(
         std::uint32_t target_player_id,
         std::uint32_t target_id,

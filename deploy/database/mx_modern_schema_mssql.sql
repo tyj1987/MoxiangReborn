@@ -78,5 +78,29 @@ BEGIN
 END
 GO
 
+-- M3 D-stage: modern player quest log (StartSyn Ok persistence target).
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_quest_log')
+BEGIN
+    CREATE TABLE [dbo].[modern_player_quest_log] (
+        [player_id]        BIGINT NOT NULL,
+        [quest_id]         BIGINT NOT NULL,
+        [state]            TINYINT NOT NULL DEFAULT 0,
+        [accepted_time_ms] BIGINT NOT NULL DEFAULT 0,
+        [updated_at]       NVARCHAR(32) NOT NULL,
+        CONSTRAINT [pk_modern_player_quest_log] PRIMARY KEY CLUSTERED
+            ([player_id], [quest_id])
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'idx_modern_player_quest_log_player'
+                 AND object_id = OBJECT_ID(N'modern_player_quest_log'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [idx_modern_player_quest_log_player]
+        ON [dbo].[modern_player_quest_log] ([player_id]);
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 GO

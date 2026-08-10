@@ -133,6 +133,18 @@ CREATE TABLE IF NOT EXISTS modern_player_state (
 
 CREATE INDEX IF NOT EXISTS idx_modern_player_state_updated_at
     ON modern_player_state(updated_at);
+
+CREATE TABLE IF NOT EXISTS modern_player_quest_log (
+    player_id        INTEGER NOT NULL,
+    quest_id         INTEGER NOT NULL,
+    state            INTEGER NOT NULL DEFAULT 0,
+    accepted_time_ms INTEGER NOT NULL DEFAULT 0,
+    updated_at       TEXT    NOT NULL,
+    PRIMARY KEY (player_id, quest_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_player_quest_log_player
+    ON modern_player_quest_log(player_id);
 )SQL";
 }
 
