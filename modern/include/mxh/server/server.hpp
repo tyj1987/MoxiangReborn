@@ -366,6 +366,8 @@ private:
     // Phase 10d: Skill/Battle protocol handling
     void handle_skill(mxh::net::ConnectionId id,
                       const mxh::net::Message& msg);
+    void handle_quest(mxh::net::ConnectionId id,
+                      const mxh::net::Message& msg);
     void handle_battle(mxh::net::ConnectionId id,
                        const mxh::net::Message& msg);
 
