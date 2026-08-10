@@ -23,6 +23,15 @@
 - 4 new behavior tests in `cfrienddialog_test.cpp` covering the service-mode contract: roster-driven `IsFriendOnline`, whisper gating on roster membership, clean fall-back to local snapshot when the service pointer is cleared, and live presence reflection after service mutation. Existing 3 local-mode tests remain unchanged.
 - 11787 unit tests now pass (was 11783 + 4 new).
 
+
+
+## 2026-08-10 - cMoveDialog IMoveService + cExchangeDialog IInventoryService/ITradeService wiring (M2 advance)
+
+- New service interface `mxh::services::IMoveService` (teleport catalog + town/saved discriminators) so the modern dialog reads the player's known teleport points through an injected service rather than via legacy singletons (MAPINFO / GameIn->GetMoveDialog()). Includes a `MovePoint` struct shared with `cMoveDialog` via type alias.
+- `cMoveDialog` now takes an optional `IMoveService*` via `SetMoveService()`. When bound: `PointCount()` reads `service->pointCount()` (live catalog), `SelectMoveIdx()` consults `service->hasTownPoint()` / `hasSavedPoint()` so empty tabs are hidden, and `MapMoveOK()` gates the teleport dispatch on `service->isKnownPoint(db_id)` so an unlocked point never reaches the wire. 4 new behavior tests cover the service-mode contract.
+- `cExchangeDialog` now takes optional `IInventoryService*` (own-side item validation, mirroring cDealDialog) and `ITradeService*` (atomic commit) via the existing service interfaces (no new service interface needed). `SetOwn()` rejects items not in `service->hasItem()`, and `Complete()` delegates to `service->completeTrade()` with own/other item lists derived from the slots. 4 new behavior tests cover the service-mode contract.
+- 11795 unit tests now pass (was 11787 + 8 new).
+
 ## 2026-08-09 - tooling hygiene: verify-state-frames.py + gitignore deploy/runtime
 
 - `scripts/verify-state-frames.py` was referenced by `gui-client-smoke.ps1` since 2026-08-09 but had not been committed (prior session oversight). Now tracked so the GUI smoke gate is reproducible from a fresh checkout.
