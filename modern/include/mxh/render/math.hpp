@@ -174,6 +174,26 @@ inline void MatrixLookAtLH(MATRIX4* pOut, const VECTOR3* pEye,
     pOut->_44 = 1.0f;
 }
 
+// Row-major screen-space orthographic projection: maps pixel coordinates
+// (x in [0, width], y in [0, height]) to NDC ([-1, 1] x [1, -1]). The matrix
+// uses the same row-major layout as MatrixOrthographicLH: diagonal scale on
+// rows 0 and 1, translation on the BOTTOM row (_14, _24, _44=1). Combined
+// with the HLSL primitive VS (mul(row, M) with default column-major packing
+// of row-major cbuffer data), this turns into the desired -1/+1 pixel-to-NDC
+// translation. width and height are clamped to >= 1 to avoid divide-by-zero
+// when a window has not yet been sized.
+inline void MatrixScreenOrtho(MATRIX4* pOut, float width, float height) {
+    if (!pOut) return;
+    if (width  < 1.0f) width  = 1.0f;
+    if (height < 1.0f) height = 1.0f;
+    *pOut = MatrixIdentity();
+    pOut->_11 =  2.0f / width;
+    pOut->_22 = -2.0f / height;
+    pOut->_14 = -1.0f;
+    pOut->_24 =  1.0f;
+    pOut->_44 =  1.0f;
+}
+
 // Set column j (j=0..3) of a row-major matrix to a 4-element vector.
 inline void setMatrixColumn(MATRIX4* m, int j, float x, float y, float z, float w) {
     if (!m || j < 0 || j > 3) return;

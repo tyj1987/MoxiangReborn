@@ -104,6 +104,7 @@ struct ClientOptions {
     std::string character_name = "ModernHero";
     std::filesystem::path resource_root;
     std::string save_frame;
+    std::string state_frames_dir;
 };
 
 std::string narrow_ascii(const wchar_t* value) {
@@ -144,6 +145,7 @@ ClientOptions parse_client_options() {
             options.resource_root = argv[++i];
         }
         else if (arg == L"--save-frame") take(options.save_frame);
+        else if (arg == L"--state-frames-dir") take(options.state_frames_dir);
     }
     LocalFree(argv);
     return options;
@@ -241,6 +243,9 @@ std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
 bool g_renderTerrain = false;
 std::string g_captureTerrainFrame;
 bool g_overviewCamera = false;
+std::string __g_stateFramesDir;
+int __g_currentState = -1;
+std::string __g_pendingStateFrame;
 
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
@@ -393,8 +398,8 @@ void renderFrame(HWND h) {
         VECTOR2 trans{ 0.0f, 0.0f };
         RECT     rc{ 0, 0, static_cast<LONG>(image.dwWidth),
                      static_cast<LONG>(image.dwHeight) };
-        g_renderer->RenderSprite(g_sprites[0].sprite, &scale, 0.0f, &trans,
-                                 &rc, 0xFFFFFFFFu, 0, 0);
+        { BOOL _bg_ok = g_renderer->RenderSprite(g_sprites[0].sprite, &scale, 0.0f, &trans,
+                                 &rc, 0xFFFFFFFFu, 0, 0); MLOG_DEBUG("mxh_client: bg draw sprite=%p ok=%d", (void*)g_sprites[0].sprite, (int)_bg_ok); }
     }
 
     // 3 demo cImages at the bottom.  In A.1.5 these come from a real
@@ -421,6 +426,27 @@ void renderFrame(HWND h) {
     }
 
     g_renderer->EndRender();
+    if (!__g_stateFramesDir.empty() && __g_currentState >= 0 &&
+        __g_pendingStateFrame.empty()) {
+        // Build per-state frame path on first frame in this state.
+        static const char* kStateNames[] = {
+            "end", "intro", "connect", "login", "charselect",
+            "charmake", "gameloading", "gamein", "mapchange", "murimnet"
+        };
+        const auto idx = static_cast<std::size_t>(__g_currentState);
+        const char* name = (idx < std::size(kStateNames))
+                                ? kStateNames[idx] : "unknown";
+        std::string p = __g_stateFramesDir + "/state-" + name + ".tga";
+        __g_pendingStateFrame = p;
+    }
+    if (!__g_pendingStateFrame.empty()) {
+        std::string mutable_fname = __g_pendingStateFrame;
+        __g_pendingStateFrame.clear();
+        if (g_renderer->CaptureScreen(mutable_fname.data())) {
+            MLOG_INFO("mxh_client: state frame saved state=%d path=%s",
+                      __g_currentState, mutable_fname.c_str());
+        }
+    }
     if (g_renderTerrain && !g_captureTerrainFrame.empty()) {
         if (g_renderer->CaptureScreen(g_captureTerrainFrame.data()))
             MLOG_INFO("mxh_client: terrain frame saved");
@@ -469,6 +495,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*show*/) {
     ClientOptions options = parse_client_options();
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
+    __g_stateFramesDir = options.state_frames_dir;
+    if (!__g_stateFramesDir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(__g_stateFramesDir), ec);
+    }
     MLOG_INFO("mxh_client: booting version %s", mxh::client::g_CLIENTVERSION);
     MLOG_INFO("mxh_client: login=%s:%u map-port=%u user=%s",
               options.login_host.c_str(), options.login_port,
@@ -547,6 +578,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                               reinterpret_cast<void**>(&dev))) {
         g_sprites[0].sprite = renderer->CreateSpriteObject(
             const_cast<char*>("Image/2D/login.dds"), 0);
+        MLOG_INFO("mxh_client: sprite[0] login.dds sprite=%p", (void*)g_sprites[0].sprite);
         g_sprites[1].sprite = renderer->CreateSpriteObject(
             const_cast<char*>("Image/MunpaMark/02_1000.tga"), 0);
         g_sprites[2].sprite = renderer->CreateSpriteObject(
@@ -651,7 +683,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // states that have an external Start() hook.
             const auto cur_state = mainGame.GetCurStateNum();
             if (cur_state != prev_state) {
-                if (cur_state == mxh::client::GameStateId::CharSelect) {
+                // Phase B.2.5: skip past the manual login form (CMainTitle)
+            // when running in headless smoke mode. The 1:1 flow goes
+            // Connect -> Distribute -> Title(login form) -> CharSelect;
+            // CLoginState now requests Title so the GUI smoke test can
+            // capture state-login.tga, and the host main loop
+            // immediately auto-redirects Title to CharSelect on the
+            // rising edge. The LoginResult transfer slot (set by
+            // CLoginState::dispatch_login_ack) is consumed by
+            // CCharSelectState::Init() when CharSelect is entered.
+            if (cur_state == mxh::client::GameStateId::Title) {
+                mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
+            } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
                         cs->Start(mainGame.GetEngine());
@@ -791,6 +834,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             static_cast<float>(info.position_z)});
                     }
                 }
+            }
+            __g_currentState = static_cast<int>(mainGame.GetCurStateNum());
+            if (cur_state != prev_state) {
+                __g_pendingStateFrame.clear();
             }
             mainGame.BeforeRender();
             renderFrame(hwnd);

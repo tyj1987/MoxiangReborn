@@ -10,7 +10,7 @@
 - **验收**：modern 自动化门禁已完成；剩余要求为与原版登录/空场景截图的差异有明确结论。
 - **外部依赖**：需要可运行原版客户端的对照环境。
 
-## CLIENT-RUNTIME：GUI 客户端仍未加载真实场景与完整交互
+## CLIENT-RUNTIME：GUI 客户端 2D 精灵渲染已完成，剩全场景与完整交互
 
 - **状态**：活动中；GUI 已能使用可配置端口登录 modern LoginServer、转入 AgentServer 并取得角色列表。已修复未安装状态回调和 WM_PAINT 持续占用消息泵导致状态机不运行的问题。
 - **复现**：启动 `deploy/scripts/start_modern.ps1` 后运行 `mxh_client.exe --login-port 16001 --map-port 18001`；空账号会停在无可见交互的角色列表阶段，画面仍为程序化占位 sprite。

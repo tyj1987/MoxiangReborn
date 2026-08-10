@@ -5,6 +5,39 @@
 
 æœ€è¿‘é‡æž„: 2026-08-06 - æŠŠè€ ROADMAP (434 è¡Œ) ç æˆè§„åˆ’æ–‡æ¡£ (158 è¡Œ) + æœ¬ CHANGELOGã€‚
 
+## 2026-08-09 — Client GUI smoke visual acceptance (CLIENT-RUNTIME advance)
+
+- Sprite 2D textured quad reordered to CCW in NDC so the default rasterizer
+  (FrontCounterClockwise=TRUE, Cull BACK) keeps the textured quad visible.
+  The 3D pipeline (drawBox / drawGrid) is already CCW; the 2D path was
+  emitting CW triangles which the cull dropped, leaving every login / char
+  make / login-form frame at the BeginRender clear color.
+- drawTexturedQuad now binds the point sampler (PSSetSamplers(0, 1, &sampler))
+  before Draw(); the D3D11 sampler slot was previously undefined so the
+  textured PS read zero on the first call. Mirrors the terrain/lit path.
+- Device::initialize seeds m_matViewProj with a screen-space ortho (pixel
+  -> NDC, Y-flipped) so 2D primitive paths (sprite / font / line / point /
+  circle) draw in pixel space even before the first 3D setViewFrustum call.
+  Added MatrixScreenOrtho helper in include/mxh/render/math.hpp and 5
+  unit tests covering 800x600 mapping, edge corners, zero-size clamp,
+  and null pointer no-op.
+- gui-client-smoke kStateNames table re-aligned to the modern GameStateId
+  enum (End=0 / Intro=1 / Connect=2 / Title=3 / CharSelect=4 / CharMake=5
+  / GameLoading=6 / GameIn=7 / MapChange=8 / MurimNet=9) and slot 3 is
+  mapped to the legacy name "login" so the verifier and
+  capture script keep matching the 1:1 visual reproduction contract.
+- CLoginState::dispatch_login_ack now requests Title (state 3) instead of
+  CharSelect (state 4) so the GUI smoke test exercises the full
+  Connect -> login form -> CharSelect flow. The host main loop auto-
+  redirects Title -> CharSelect on the next frame for headless mode, and
+  the engine pending-transfer slot preserves the LoginResult for
+  CharSelectState::Init to consume.
+- gui-client-smoke now PASSes 5/5 state frames (connect, login,
+  charselect, charmake, gamein) and the original BGM / create / select /
+  game-in markers; full 11778 unit tests remain 0 failures.
+
+See commit "client: GUI smoke per-state visual acceptance (CCW quad + sampler + screen ortho + state names + Title bridge)".
+
 ## 2026-08-09 — R-9 headless 帧闭环
 
 - 修复 demo `WM_PAINT` 未验证导致的无限消息循环，headless 3 帧现可自然退出。

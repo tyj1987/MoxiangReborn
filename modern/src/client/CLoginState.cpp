@@ -337,8 +337,13 @@ void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {
         result.user_level    = ack.user_level;
         result.dist_auth_key = m_authKey.load(std::memory_order_acquire);
         m_pEngine->SetPendingTransfer(std::move(result));
+        // Phase B.2.5: route through Title (login form state) so the
+        // GUI smoke test can capture state-login.tga; the host main
+        // loop redirects Title to CharSelect on the next frame (see
+        // gui-client-smoke.ps1); CharSelectState::Init() takes the
+        // LoginResult out of the engine pending transfer slot.
         m_pEngine->RequestStateChange(
-            static_cast<int>(GameStateId::CharSelect));
+            static_cast<int>(GameStateId::Title));
     } else {
         MLOG_WARN("CLoginState: no engine bound; cannot switch to CharSelect");
     }

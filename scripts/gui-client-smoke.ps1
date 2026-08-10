@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$BuildDir = '',
     [int]$TimeoutSeconds = 20,
@@ -34,6 +34,7 @@ try {
         '--auto-create',
         '--character-name', $characterName,
         '--save-frame', $frame,
+        '--state-frames-dir', (Join-Path $runRoot 'state-frames'),
         '--exit-after-gamein'
     )
     if ($FollowCamera) { $arguments += '--follow-camera' }
@@ -63,6 +64,10 @@ try {
         }
     }
     if (-not (Test-Path -LiteralPath $frame)) { throw "GUI smoke missing terrain frame: $frame" }
+    $stateFramesDir = Join-Path $runRoot "state-frames"
+    if (-not (Test-Path -LiteralPath $stateFramesDir)) { throw "GUI smoke missing state-frames dir: $stateFramesDir" }
+    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir
+    if ($LASTEXITCODE -ne 0) { throw "GUI state frames validation failed: $stateFramesDir" }
     if (-not $FollowCamera) {
         & python (Join-Path $repoRoot 'scripts\verify-terrain-frame.py') $frame
         if ($LASTEXITCODE -ne 0) { throw "GUI terrain frame validation failed: $frame" }
@@ -78,3 +83,4 @@ finally {
     }
     & $serverScript -Mode stop
 }
+

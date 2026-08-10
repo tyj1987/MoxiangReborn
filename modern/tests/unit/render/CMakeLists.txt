@@ -196,6 +196,11 @@ gtest_add_tests(TARGET mxh_render_tests
     MatrixOrthoTest.TwoByTwoUnitBox
     MatrixOrthoTest.WiderBoxScalesX
     MatrixOrthoTest.NullPointerIsNoOp
+    MatrixScreenOrthoTest.EightHundredBySixHundredMapsEdges
+    MatrixScreenOrthoTest.TopLeftPixelMapsToNdcMinusOnePlusOne
+    MatrixScreenOrthoTest.BottomRightPixelMapsToNdcPlusOneMinusOne
+    MatrixScreenOrthoTest.ZeroSizeClampsToOne
+    MatrixScreenOrthoTest.NullPointerIsNoOp
     MatrixLookAtTest.StandardForwardView
     MatrixLookAtTest.EyeMapsToOrigin
     MatrixLookAtTest.TargetMapsToNegativeZ

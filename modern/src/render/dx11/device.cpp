@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "mxh/log/mlog.hpp"
+#include "mxh/render/math.hpp"
 
 namespace mxh::gx::dx11 {
 
@@ -104,9 +105,33 @@ bool Device::initialize(HWND hWnd, const DISPLAY_INFO& info) {
         MLOG_ERROR("[dx11] CreateSamplerState(linear) failed");
     }
 
+    buildScreenOrtho();
+
     MLOG_INFO("[dx11] Device initialized %ux%u (bps=%u, refresh=%u)",
               info.dwWidth, info.dwHeight, info.dwBPS, info.dwRefreshRate);
     return true;
+}
+
+// Build a 2D screen-space orthographic projection that maps pixel
+// coordinates (x in [0, width], y in [0, height]) to NDC ([-1, 1] x [1, -1]).
+// Row-major layout:
+//   _11=2/w  _12=0    _13=0  _14=-1
+//   _21=0    _22=-2/h _23=0  _24=1
+//   _31=0    _32=0    _33=1  _34=0
+//   _41=0    _42=0    _43=0  _44=1
+// Combined with the HLSL primitive VS (mul(row, M) with default column-major
+// packing of row-major cbuffer data, this turns into the desired -1/+1
+// screen-to-NDC translation. Seeds m_matViewProj so 2D primitive paths
+// (sprite / font / line / point / circle) draw in pixel space even before
+// any 3D setViewFrustum call.
+void Device::buildScreenOrtho() {
+    MatrixScreenOrtho(&m_matScreenOrtho,
+                       static_cast<float>(m_width),
+                       static_cast<float>(m_height));
+    // Seed m_matViewProj with the screen ortho so 2D primitive paths
+    // (sprite / font / line / point / circle) draw in pixel space even
+    // before any 3D setViewFrustum call.
+    m_matViewProj = m_matScreenOrtho;
 }
 
 void Device::shutdown() {

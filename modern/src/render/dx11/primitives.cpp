@@ -329,6 +329,8 @@ void PrimitiveDrawer::drawTexturedQuad(ID3D11ShaderResourceView* srv,
                                        float u0, float v0, float u1, float v1,
                                        std::uint32_t color, float rotation, int /*zOrder*/) {
     if (!m_dev || !srv) return;
+    MLOG_DEBUG("[primitives] drawTexturedQuad srv=%p dev=%p m_viewProj._11=%f _14=%f _22=%f _24=%f",
+               (void*)srv, (void*)m_dev, m_viewProj._11, m_viewProj._14, m_viewProj._22, m_viewProj._24);
     auto* ctx = m_dev->rawContext();
     updateViewProj();
 
@@ -350,19 +352,29 @@ void PrimitiveDrawer::drawTexturedQuad(ID3D11ShaderResourceView* srv,
     auto [x3, y3] = rot(x,       y + h);
 
     struct V { float x, y, u, v; std::uint32_t c; };
+    // CCW in NDC for FrontCounterClockwise=TRUE rasterizer.
     V verts[6] = {
         { x0, y0, u0, v0, color },
-        { x1, y1, u1, v0, color },
+        { x3, y3, u0, v1, color },
         { x2, y2, u1, v1, color },
         { x0, y0, u0, v0, color },
         { x2, y2, u1, v1, color },
-        { x3, y3, u0, v1, color },
+        { x1, y1, u1, v0, color },
     };
 
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(ctx->Map(m_shaders.vbSolid.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
     std::memcpy(mapped.pData, verts, sizeof(verts));
     ctx->Unmap(m_shaders.vbSolid.Get(), 0);
+
+    // The textured PS samples a Texture2D at s0 and a SamplerState at s0.
+    // The sampler must be explicitly bound; without an explicit PSSetSamplers
+    // call D3D11 leaves the slot in an undefined state and the sample can
+    // return 0 (which would make every textured draw disappear after alpha
+    // blending against the cleared color). The terrain/lit path already
+    // binds the point sampler; we do the same here so the textured path is
+    // self-contained and works on the first call (no prior 3D draw required).
+    ID3D11SamplerState* sampler = m_dev->samplerPointAddress();
 
     UINT stride = sizeof(V), offset = 0;
     ctx->IASetVertexBuffers(0, 1, m_shaders.vbSolid.GetAddressOf(), &stride, &offset);
@@ -371,12 +383,15 @@ void PrimitiveDrawer::drawTexturedQuad(ID3D11ShaderResourceView* srv,
     ctx->VSSetShader(m_shaders.vsTextured.Get(), nullptr, 0);
     ctx->PSSetShader(m_shaders.psTextured.Get(), nullptr, 0);
     ctx->PSSetShaderResources(0, 1, &srv);
+    ctx->PSSetSamplers(0, 1, &sampler);
     ctx->VSSetConstantBuffers(0, 1, m_cbViewProj.GetAddressOf());
     ctx->Draw(6, 0);
 
     // Unbind SRV to avoid D3D11 warnings.
     ID3D11ShaderResourceView* nullSRV = nullptr;
     ctx->PSSetShaderResources(0, 1, &nullSRV);
+    ID3D11SamplerState* nullSampler = nullptr;
+    ctx->PSSetSamplers(0, 1, &nullSampler);
 }
 
 } // namespace mxh::gx::dx11

@@ -69,6 +69,13 @@ public:
     const MATRIX4& projMatrix()        const { return m_matProj; }
     const MATRIX4& viewProjMatrix()    const { return m_matViewProj; }
     const MATRIX4& billboardMatrix()   const { return m_matBillboard; }
+    // 2D screen-space orthographic projection that maps pixel coordinates
+    // (x in [0, width], y in [0, height]) to NDC ([-1, 1] x [1, -1]). Built in
+    // Device::initialize() from the swap-chain size and remains stable for the
+    // lifetime of the device. Used by 2D primitive paths (sprite / font /
+    // line / point / circle) which need a screen-space projection independent
+    // of the 3D camera frustum.
+    const MATRIX4& screenOrthoMatrix() const { return m_matScreenOrtho; }
 
     std::uint32_t ambientColor()       const { return m_ambientColor; }
     std::uint32_t emissiveColor()      const { return m_emissiveColor; }
@@ -104,6 +111,8 @@ private:
     bool createSwapChain(HWND hWnd, const DISPLAY_INFO& info);
     bool createRenderTargets();
     void releaseRenderTargets();
+    // Build m_matScreenOrtho (pixel -> NDC) and seed m_matViewProj with it.
+    void buildScreenOrtho();
 
     Microsoft::WRL::ComPtr<ID3D11Device>           m_device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext>    m_context;
@@ -127,6 +136,10 @@ private:
     MATRIX4 m_matProj{};
     MATRIX4 m_matViewProj{};
     MATRIX4 m_matBillboard{};
+    // Screen-space 2D ortho (pixel to NDC). Built in initialize() from the
+    // swap-chain width and height. m_matViewProj is also seeded with this
+    // value so the 2D primitive paths work before any 3D camera setup.
+    MATRIX4 m_matScreenOrtho{};
 
     std::uint32_t                          m_ambientColor  = DEFAULT_AMBIENT_COLOR;
     std::uint32_t                          m_emissiveColor = 0xff000000;

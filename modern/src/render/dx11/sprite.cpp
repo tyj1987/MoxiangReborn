@@ -121,6 +121,11 @@ SpriteObject* SpriteObject::createFromFile(Device* dev, I4DyuchiFileStorage* sto
         return nullptr;
     }
     LoadedTexture t = loadTextureFromMemory(buf.data(), read);
+    fprintf(stderr,
+            "[sprite] loaded %s %ux%u px=%zu first_px rgba=(%u,%u,%u,%u)",
+            szFileName, t.width, t.height, t.pixels.size() / 4,
+            static_cast<unsigned>(t.pixels[0]), static_cast<unsigned>(t.pixels[1]),
+            static_cast<unsigned>(t.pixels[2]), static_cast<unsigned>(t.pixels[3]));
     if (t.pixels.empty()) return nullptr;
     return create(dev, t.width, t.height, TEXTURE_FORMAT_A8R8G8B8, t.pixels.data());
 }
