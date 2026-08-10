@@ -25,6 +25,7 @@
 #include "mxh/game/item_list_parser.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/server/dealitem_parser.hpp"
+#include "mxh/server/quest_script_loader.hpp"
 #include "cstdint"
 #include "filesystem"
 #include "fstream"
@@ -1450,4 +1451,22 @@ TEST(MapHandlerTest, LoadDealitemPopulatesCatalogFromBin) {
     EXPECT_EQ(npc->tabs[1][0].item_idx, 200u);
 }
 
+TEST(MapHandlerTest, LoadQuestScriptPopulatesDefinitionsFromBin) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    ASSERT_EQ(handler.quest_definitions_for_test().quests.size(), 0u);
+    const std::string text =
+        "$QUEST 1 { $SUBQUEST 1 { #TRIGGER @HUNT 1 10 *ADDCOUNT 1 1 } }";
+    const auto raw = synthesize_dealitem_bin(text);
+    const auto path = write_temp_bin(raw);
+    handler.load_quest_script(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    ASSERT_EQ(handler.quest_definitions_for_test().quests.size(), 1u);
+    const auto* def = handler.quest_definitions_for_test().find_quest(1u);
+    ASSERT_NE(def, nullptr);
+    ASSERT_EQ(def->subquests.size(), 1u);
+    EXPECT_EQ(def->subquests[0].triggers.size(), 1u);
+}
 }  // namespace mxh::server::test

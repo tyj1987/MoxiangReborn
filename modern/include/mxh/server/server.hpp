@@ -18,6 +18,7 @@
 #include "mxh/server/player.hpp"
 #include "mxh/server/drop_item.hpp"
 #include "mxh/server/quest_manager.hpp"
+#include "mxh/server/quest_script_loader.hpp"
 #include "mxh/server/dealitem_parser.hpp"
 #include "mxh/server/pet_manager.hpp"
 #include "mxh/server/titan_manager.hpp"
@@ -302,6 +303,20 @@ public:
     // diff=0 (same as the npc_id=0 + empty catalog pre-loader arm).
     void load_dealitem(const std::string& path);
 
+    // M3-MAP quest script loader: load the real QuestScript.bin
+    // into quest_definitions_ so the StartSyn arm of
+    // handle_quest() can resolve quest definitions and accept
+    // the quest.  Errors per row are logged to stdout and
+    // skipped; a hard I/O failure leaves quest_definitions_
+    // empty so the wire shape stays StartNack + 2B quest_id
+    // echo and side-by-side 5/5 capture stays diff=0 (same as
+    // the pre-loader arm).
+    void load_quest_script(const std::string& path);
+
+    // Test-only read-only accessor for the loaded quest
+    // definition table.
+    const mxh::server::QuestScriptParseResult& quest_definitions_for_test() const noexcept { return quest_definitions_; }
+
     // Test-only read-only accessor for the loaded dealitem catalog.
     const mxh::server::DealItemParseResult& dealitem_catalog_for_test() const noexcept { return dealitem_catalog_; }
 
@@ -488,7 +503,11 @@ private:
     mxh::server::DealItemParseResult dealitem_catalog_;
     std::mutex dealitem_mu_;
 
-
+    // M3-MAP QuestScript.bin -> per-quest definition snapshot.
+    // Empty by default so the StartSyn arm falls through to
+    // StartNack and the side-by-side 5/5 capture stays diff=0.
+    mxh::server::QuestScriptParseResult quest_definitions_;
+    std::mutex quest_mu_;
 
     bool use_hsel_;
     HselSessionManager hsel_;
