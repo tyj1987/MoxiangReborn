@@ -116,7 +116,9 @@ void buildViewProj(MATRIX4& view, MATRIX4& proj) {
     VECTOR3 eye{ 0.0f, 1.5f, -4.0f };
     VECTOR3 tgt{ 0.0f, 0.0f,  0.0f };
     VECTOR3 up { 0.0f, 1.0f,  0.0f };
-    VECTOR3 z{ eye.x - tgt.x, eye.y - tgt.y, eye.z - tgt.z };  // forward
+    // D3D's left-handed projection expects visible geometry at positive view
+    // Z.  Using eye-target put the entire scene behind the near plane.
+    VECTOR3 z{ tgt.x - eye.x, tgt.y - eye.y, tgt.z - eye.z };  // forward
     float zl = std::sqrt(z.x*z.x + z.y*z.y + z.z*z.z);
     z = { z.x/zl, z.y/zl, z.z/zl };
     VECTOR3 x{ up.y*z.z - up.z*z.y, up.z*z.x - up.x*z.z, up.x*z.y - up.y*z.x };
@@ -182,9 +184,11 @@ void renderFrame(HWND h) {
     g_renderer->BeginRender(nullptr, 0xff202080, 0);
 
     // 2. Draw a wireframe ground grid.
+    // A crossed quad behind the cube makes the headless frame prove depth
+    // occlusion instead of merely drawing a perimeter around the cube.
     VECTOR3 grid[4] = {
-        { -3.0f, -1.0f, -3.0f }, {  3.0f, -1.0f, -3.0f },
-        {  3.0f, -1.0f,  3.0f }, { -3.0f, -1.0f,  3.0f },
+        { -3.0f, -1.0f, 2.0f }, {  3.0f, 1.0f, 2.0f },
+        { -3.0f, 1.0f, 2.0f }, {  3.0f, -1.0f, 2.0f },
     };
     g_renderer->RenderGrid(grid, 0xff00ff00);
 
@@ -202,7 +206,11 @@ void renderFrame(HWND h) {
     // the R-9 acceptance target.
 
     g_renderer->EndRender();
-    g_renderer->Present(h);
+    // Session-0/headless hosts may block indefinitely in Present even though
+    // the back buffer is complete and available to CaptureScreen.
+    if (!g_headless) {
+        g_renderer->Present(h);
+    }
     ++g_frames;
 }
 
@@ -214,7 +222,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         PostQuitMessage(0);
         return 0;
     case WM_PAINT: {
-        renderFrame(h);
+        PAINTSTRUCT ps{};
+        BeginPaint(h, &ps);
+        if (!g_headless) {
+            renderFrame(h);
+        }
+        EndPaint(h, &ps);
         return 0;
     }
     default:
@@ -325,8 +338,15 @@ int main(int argc, char** argv) {
         md.meshFlag        = CMeshFlag();
 
         g_cube->StartInitialize(&md, nullptr, nullptr);
-        std::vector<std::uint16_t> idx(36);
-        for (std::uint32_t i = 0; i < 36; ++i) idx[i] = static_cast<std::uint16_t>(i);
+        std::vector<std::uint16_t> idx;
+        idx.reserve(36);
+        for (std::uint16_t face = 0; face < 6; ++face) {
+            const std::uint16_t base = static_cast<std::uint16_t>(face * 4);
+            idx.insert(idx.end(), {base, static_cast<std::uint16_t>(base + 1),
+                                   static_cast<std::uint16_t>(base + 2), base,
+                                   static_cast<std::uint16_t>(base + 2),
+                                   static_cast<std::uint16_t>(base + 3)});
+        }
         FACE_DESC fd{};
         fd.pIndex     = idx.data();
         fd.dwFacesNum = 12;
@@ -458,7 +478,6 @@ int main(int argc, char** argv) {
         // WM_PAINT-driven behaviour.
         if (g_headless) {
             renderFrame(hwnd);
-            ++g_frames;
         } else {
             InvalidateRect(hwnd, nullptr, FALSE);
             UpdateWindow(hwnd);

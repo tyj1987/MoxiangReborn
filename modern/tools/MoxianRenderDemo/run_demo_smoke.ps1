@@ -1,26 +1,57 @@
-<#!
-MoxianRenderDemo DX11 smoke harness.
-PASS-A: natural exit with a demo summary.
-PASS-B: headless timeout after all renderer init markers are present.
-#>
+param(
+    [string]$DemoExe = "",
+    [string]$Verifier = ""
+)
+
 $ErrorActionPreference = "Stop"
+$effectivePath = [Environment]::GetEnvironmentVariable('Path', 'Process')
+Remove-Item -LiteralPath Env:Path -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath Env:PATH -ErrorAction SilentlyContinue
+[Environment]::SetEnvironmentVariable('Path', $effectivePath, 'Process')
+
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..\.." )).Path
-$demoExe = Join-Path $repo "modern\build\tools\MoxianRenderDemo\Debug\mxh_render_demo.exe"
-$demoDir = Split-Path -Parent $demoExe
+if (-not $DemoExe) {
+    $DemoExe = Join-Path $repo "modern\build\tools\MoxianRenderDemo\Debug\mxh_render_demo.exe"
+}
+if (-not $Verifier) {
+    $Verifier = Join-Path $repo "scripts\verify-render-frame.py"
+}
+if (-not (Test-Path -LiteralPath $DemoExe)) {
+    Write-Host "FAIL: demo executable not found: $DemoExe"
+    exit 2
+}
+if (-not (Test-Path -LiteralPath $Verifier)) {
+    Write-Host "FAIL: frame verifier not found: $Verifier"
+    exit 2
+}
+
+$demoDir = Split-Path -Parent $DemoExe
 $outLog = Join-Path $demoDir "run_demo_stdout.txt"
 $errLog = Join-Path $demoDir "run_demo_stderr.txt"
-if (-not (Test-Path -LiteralPath $demoExe)) { Write-Host "FAIL-B: demo executable not found: $demoExe"; exit 2 }
-Remove-Item -LiteralPath $outLog,$errLog -Force -ErrorAction SilentlyContinue
-$proc = Start-Process -FilePath $demoExe -WorkingDirectory $demoDir -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
-$waitSeconds = 10
-$exited = $proc.WaitForExit($waitSeconds * 1000)
-if (Test-Path -LiteralPath $errLog) { $stderrText = Get-Content -LiteralPath $errLog -Raw -Encoding UTF8 } else { $stderrText = "" }
-if (Test-Path -LiteralPath $outLog) { $stdoutText = Get-Content -LiteralPath $outLog -Raw -Encoding UTF8 } else { $stdoutText = "" }
-if (-not $exited) { $proc | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 300 }
-if ($exited -and $stdoutText -match "Demo ran for") { Write-Host "PASS-A (natural exit)"; exit 0 }
-$markers = @("Created feature level", "Device initialized", "CoD3DDeviceDX11 created", "Fog enabled")
-$missing = @($markers | Where-Object { $stderrText -notmatch [regex]::Escape($_) })
-if ($missing.Count -eq 0) { Write-Host "PASS-B (headless timeout after renderer init)"; exit 0 }
-Write-Host "FAIL-A: renderer initialization incomplete; missing=$($missing -join ', ')"
-if ($stderrText) { Write-Host $stderrText }
-exit 1
+$frame = Join-Path $demoDir "run_demo_frame.tga"
+Remove-Item -LiteralPath $outLog,$errLog,$frame -Force -ErrorAction SilentlyContinue
+
+$arguments = @("--headless", "--save-frame", $frame, "--frame-count", "3")
+$proc = Start-Process -FilePath $DemoExe -ArgumentList $arguments -WorkingDirectory $demoDir -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
+$exited = $proc.WaitForExit(10000)
+if (-not $exited) {
+    $proc | Stop-Process -Force -ErrorAction SilentlyContinue
+    Write-Host "FAIL: headless render did not exit within 10 seconds"
+    exit 1
+}
+$proc.WaitForExit()
+$stdoutText = if (Test-Path -LiteralPath $outLog) { Get-Content -LiteralPath $outLog -Raw -Encoding UTF8 } else { "" }
+if ($stdoutText -notmatch "Demo ran for") {
+    Write-Host "FAIL: demo did not report a clean shutdown"
+    if (Test-Path -LiteralPath $errLog) { Get-Content -LiteralPath $errLog }
+    exit 1
+}
+
+& python $Verifier $frame
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAIL: saved frame did not meet the R-9 pixel contract"
+    exit 1
+}
+
+Write-Host "PASS: headless render exited naturally and frame content is valid"
+exit 0
