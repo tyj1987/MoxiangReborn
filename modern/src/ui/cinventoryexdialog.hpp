@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/services/IInventoryService.hpp"
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -23,10 +24,15 @@ public:
  void SetState(InventoryState state) noexcept { m_state=state; }
  InventoryState GetState() const noexcept { return m_state; }
  void ReleaseInventory() noexcept;
+ void SetInventoryService(const mxh::services::IInventoryService* service) noexcept { m_inventory=service; }
+ const mxh::services::IInventoryService* inventoryService() const noexcept { return m_inventory; }
+ // Refresh the visible 60-slot panel from the live inventory snapshot.
+ void RefreshFromInventoryService();
 private:
  std::vector<std::optional<InventoryItem>> m_slots;
  std::uint32_t m_money{};
  InventoryState m_state{InventoryState::Default};
+ const mxh::services::IInventoryService* m_inventory{};
 };
 }
 

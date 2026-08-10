@@ -10,6 +10,14 @@ std::optional<InventoryItem> cInventoryExDialog::GetItemForPos(std::size_t p)con
 std::size_t cInventoryExDialog::GetBlankNum()const noexcept{std::size_t n=0;for(const auto& s:m_slots)n+=!s.has_value();return n;}
 bool cInventoryExDialog::SetItemLocked(std::size_t p,bool locked)noexcept{if(p>=m_slots.size()||!m_slots[p])return false;m_slots[p]->locked=locked;return true;}
 bool cInventoryExDialog::UpdateItemDurabilityAdd(std::size_t p,int d){if(p>=m_slots.size()||!m_slots[p])return false;m_slots[p]->durability+=d;return true;}
+void cInventoryExDialog::RefreshFromInventoryService(){
+ if(!m_inventory) return;
+ for(std::size_t p=0;p<m_slots.size();++p){
+  const auto* item=m_inventory->getItem(static_cast<std::uint16_t>(p));
+  if(!item || item->dwDBIdx==0 || item->wIconIdx==0){m_slots[p].reset();continue;}
+  m_slots[p]=InventoryItem{item->wIconIdx,static_cast<std::int32_t>(item->Durability),false};
+ }
+}
 void cInventoryExDialog::ReleaseInventory()noexcept{for(auto& s:m_slots)s.reset();m_money=0;m_state=InventoryState::Default;}
 }
 
