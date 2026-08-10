@@ -3060,3 +3060,16 @@ add_executable(mxh_agent_dispatch_wire_integration_tests
 target_link_libraries(mxh_agent_dispatch_wire_integration_tests PRIVATE mxh_server GTest::gtest_main)
 gtest_add_tests(TARGET mxh_agent_dispatch_wire_integration_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+add_executable(mxh_npc_shop_tests
+    npc_shop_test.cpp
+)
+target_link_libraries(mxh_npc_shop_tests PRIVATE mxh_server GTest::gtest_main)
+target_include_directories(mxh_npc_shop_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_npc_shop_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)

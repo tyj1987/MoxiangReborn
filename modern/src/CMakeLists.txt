@@ -393,6 +393,7 @@ add_library(mxh_server STATIC
     server/hackshield_manager.cpp
     server/nprotect_manager.cpp
     server/quest_group.cpp
+    server/npc_shop.cpp
 )
 
 target_include_directories(mxh_server PUBLIC
@@ -464,6 +465,7 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
+
 
 
 
