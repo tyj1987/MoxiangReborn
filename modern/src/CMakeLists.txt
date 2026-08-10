@@ -394,6 +394,8 @@ add_library(mxh_server STATIC
     server/nprotect_manager.cpp
     server/quest_group.cpp
     server/npc_shop.cpp
+    server/dealitem_parser.cpp
+    server/quest_script_loader.cpp
 )
 
 target_include_directories(mxh_server PUBLIC

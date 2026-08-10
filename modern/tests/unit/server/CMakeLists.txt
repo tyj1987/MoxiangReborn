@@ -1,4 +1,4 @@
-﻿# Server handler tests - Phase 10.17
+# Server handler tests - Phase 10.17
 # Smoke tests for the 3 game-server handlers (Login / Agent / Map).
 
 add_executable(mxh_server_handler_tests
@@ -2269,7 +2269,7 @@ endif()
 gtest_add_tests(TARGET mxh_agent_wire_first_packet_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
-# M18 wire-format coverage audit (C 协议扩展 foundation).
+# M18 wire-format coverage audit (C ???? foundation).
 # Pure header-only test that reads golden/ files and asserts the floor.
 add_executable(mxh_wire_format_coverage_tests wire_format_coverage_test.cpp)
 target_link_libraries(mxh_wire_format_coverage_tests PRIVATE mxh_server GTest::gtest_main)
@@ -3070,6 +3070,21 @@ target_include_directories(mxh_npc_shop_tests PRIVATE
 )
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_npc_shop_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
+add_executable(mxh_dealitem_parser_tests dealitem_parser_test.cpp)
+target_link_libraries(mxh_dealitem_parser_tests PRIVATE mxh_server GTest::gtest_main)
+target_include_directories(mxh_dealitem_parser_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_dealitem_parser_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+add_executable(mxh_quest_script_loader_tests quest_script_loader_test.cpp)
+target_link_libraries(mxh_quest_script_loader_tests PRIVATE mxh_server GTest::gtest_main)
+target_include_directories(mxh_quest_script_loader_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_quest_script_loader_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
