@@ -27,7 +27,7 @@
 
 ## DEPLOY-MSSQL：生产部署环境尚未验收
 
-- **状态**：本机 modern 路径完成；ODBC Driver 18 已安装，适配器默认优先 18 并仅在 `IM002` 时回退 17。LocalDB 初始化、真实 schema roundtrip，以及客户端/Login/Agent/Map 五步 MSSQL E2E 已通过。
+- **状态**：本机 modern 路径完成；ODBC Driver 18 已安装，适配器默认优先 18 并仅在 `IM002` 时回退 17。LocalDB 初始化、真实 schema roundtrip，以及客户端/Login/Agent/Map 五步 MSSQL E2E 已通过。modern schema 加了 `modern_player_state` 表（commit 5b0c91d1）支持 BuySyn money 持久化，由 `MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip` + `ModernSchemaLoginAndCharacterRoundTrip` 跳过测试覆盖（解 skip 需要真实 MSSQL 环境 + `MXH_MSSQL_E2E` env）。
 - **复现**：在干净 Windows/SQL Server 环境安装并运行商业冒烟。
 - **影响**：不阻塞本机开发，阻塞商业部署声明。
 - **验收**：无人值守安装、建库、登录、建角、进图、数据库 roundtrip、升级和回滚全部通过且无 schema 漂移。

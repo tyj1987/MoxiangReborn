@@ -1,4 +1,16 @@
 
+## 2026-08-10 - server: BuySyn money persistence to modern_player_state (SQLite + MSSQL UPSERT) + 2 e2e tests
+
+modern/src/server/map_handler.cpp adds `MapHandler::persist_player_money(player_id, money)` private method that runs `INSERT INTO modern_player_state (player_id, money, updated_at) VALUES (?, ?, strftime(...)) ON CONFLICT (player_id) DO UPDATE SET money = excluded.money, updated_at = excluded.updated_at` via the existing `IDbAdapter& db_` reference. The BuySyn Ok arm in `handle_item()` now calls this method right after `reply_(id, reply_msg)` so the new money is upserted into the modern schema and survives a server restart. The SQL is portable: SQLite (3.24+ ON CONFLICT) and MSSQL (2016+ INSERT...ON CONFLICT) both accept the UPSERT form.
+
+modern/include/mxh/server/server.hpp adds two test-only hooks: `persist_player_money_for_test(player_id, money)` and `persisted_money_for_test(player_id)` (reads back the live in-memory money value). modern/tests/unit/server/server_handler_test.cpp adds 2 new tests:
+ * `MapHandlerTest.BuySynOkArmPersistsMoneyToSqliteMemory` builds a real `mxh::db::SqliteAdapter` with `:memory:`, runs an inline `CREATE TABLE modern_player_state`, drives a BuySyn through the Ok arm, then `SELECT money FROM modern_player_state WHERE player_id = ?` and asserts the row exists with the new money value.
+ * `MapHandlerTest.PersistPlayerMoneyForTestHitsDb` pins the helper in isolation (no GameInSyn, no in-memory player) and verifies the DB write path is decoupled from in-memory state.
+
+deploy/database/mx_modern_schema_mssql.sql + modern/tools/MoxianDbTool/main.cpp (`moxian_schema_sql()`) both add the `modern_player_state` table with identical columns (`player_id BIGINT/INTEGER PRIMARY KEY, money BIGINT/INTEGER NOT NULL, level INT NOT NULL, exp BIGINT/INTEGER NOT NULL, updated_at NVARCHAR(32)/TEXT NOT NULL`) + an index on `updated_at`. MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip + ModernSchemaLoginAndCharacterRoundTrip can now use `modern_player_state` once `MXH_MSSQL_LEGACY_E2E` / `MXH_MSSQL_E2E` are configured on a real SQL Server.
+
+11861/11861 ctest PASS (was 11859 + 2 new); `scripts/commercial-smoke.ps1` PASS; `python scripts/check-project-governance.py` PASS. ROADMAP.md updated to reflect the new commit. See git log 5b0c91d1.
+
 ## 2026-08-10 - server: SkillCaster data plane module (1:1 damage + decision chain) + 15 tests
 
 modern/include/mxh/server/skill_caster.hpp + modern/src/server/skill_caster.cpp add a new pure-function data plane mirroring the npc_shop / quest_manager shape. The module exposes:
