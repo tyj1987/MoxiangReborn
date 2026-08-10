@@ -2,6 +2,16 @@
 
 > 仅记录仍影响当前里程碑的事项。已解决和历史调查见 [KNOWN_BUGS_ARCHIVE.md](KNOWN_BUGS_ARCHIVE.md)，完成记录见 [CHANGELOG.md](CHANGELOG.md)。
 
+
+
+## M4: PlayDH èµ„æº?å…¨é‡?è¦†ç›–å·²è¾¾ 99.77%ï¼ˆ433/434 OKï¼‰
+
+- **çŠ¶æ€?**: 2026-08-10 å½“æ—¥æ–°å»º `modern/tools/audit_resource_coverage.py`ï¼Œèµ° PlayDH å…¨é‡?èµ„æº‹å¹¶è°ƒç”¨ modern `MoxianResourceExplorer` çš„ `info`/`list`/`map`/`bsad` å­?å‘½ä»¤éªŒè¯?è§£æž?èƒ½åŠ›ã€‚å½“å‰?ç»“æž?: .bin 334/335 ï¼›.bmhm 81/81 ï¼›.bsad 11/11 ï¼›.pak 7/7 ï¼›å…± 433/434 (99.77%)ã€‚
+- **å¤?çŽ°**: è¿�è¡Œ `python modern/tools/audit_resource_coverage.py "C:\\moxiang\\墨香【源码配套资源】\\PlayDH" --output modern/build/coverage_manifest.txt`ã€‚
+- **å½±å“?**: éªŒè¯? T1 èµ„æº‹å­—èŠ‚ä¸€è‡´å’Œ modern è§£æž?å™¨å¯¹æ‰€æœ‰çœŸå®?èµ„æº‹çš„è¦†ç›–çŽ‡ã€‚
+- **éªŒæ”¶**: å…¨é‡?è¦†ç›–è¾¾ 100%ï¼Œä¸” 1 é¡„å¤„çš„ `Ini\\GameDesc.bin` è¢«è¯†åˆ«ä¸º plaintext å‡é˜‘æ€?ã€‚
+- **å¤–éƒ¨ä¾èµ–**: PlayDH æº?èµ„æº‹ç›®å½•éœ€è¦?å­˜åœ¨ã€‚
+
 ## R-9：DX11 完整场景尚未完成原版对照
 
 - **状态**：modern 闭环完成、legacy 视觉待验收；headless 3 帧可自然退出，像素门禁已锁定 grid、cube、checker 纹理与深度遮挡。

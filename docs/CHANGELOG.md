@@ -1,3 +1,14 @@
+
+
+## 2026-08-10 - bsad skill-area parser: real MHFile text format + PlayDH coverage tool (M4 advance)
+
+- The on-disk `.bsad` (skill area) format is NOT a binary width/height/cells blob as previously assumed. Real files are standard MHFile `.bin` containers (12-byte header + 1-byte CRC + XOR-encrypted payload). After the standard MHFile decryption (`decrypt_bin_payload`), the payload is a text file: `<radius>\r\n` followed by `W*H` ASCII digit tokens (W = H = 2*radius + 1; cells are "0"=Empty / "1"=Hit / "2"=Block). The legacy `CSkillAreaData::LoadAreaData()` calls `pFile->GetByte()` (which is `atoi(GetString())`), so each cell is read as one whitespace-separated decimal token.
+- `mxh::compat::BsadArea::parse` now detects the MHFile shape (`is_bsad`), runs the same XOR decryption as `read_mh_bin`, and tokenizes the resulting text on whitespace. The 4-byte `BsadHeader` is retained on the in-memory struct (width/height/reserved) so the existing `header.width/header.height` consumers + the explorer's `bsad` viz keep working unchanged. `BsadArea::load()` and the explorer's `bsad <file>` command now decode every real PlayDH file: `3x3_Blank`/`5x5_Blank`/.../`17x17_lineAttack` (11/11 files).
+- `tests/unit/bsad_area_test.cpp` rewritten to match the real format: 8 tests including 3x3 empty, 5x5 center cross, 13x13 spikewall shape (mirrors the real `13x13_Spikewall.bsad`), MHFile header rejection (too small / missing CRC), out-of-bounds query safety, type=0 payload, and a regression that walks all 11 real PlayDH skill-area files to ensure none parse as empty.
+- New tool: `modern/tools/audit_resource_coverage.py` walks a PlayDH root, runs the modern `MoxianResourceExplorer` against every recognized resource (`.bin`/`.pak`/`.bmhm`/`.bsad`), and emits a coverage manifest documenting which files the modern code can parse and which fail. This is the M4 resource-coverage gate. Auto-creates an ASCII-named junction for the PlayDH root because the explorer mangles non-ASCII path bytes in argv. Companion README in `modern/tools/README.md`.
+- Bug fix in audit script (this session): `discover_resources()` was walking the original CJK path instead of the ASCII junction, causing all 434 files to be reported as FAIL even when `info`/`list`/`map` succeeded on the same paths via the junction. Now correctly walks the junction; 433/434 files (99.77%) parse OK. The 1 remaining "failure" is `Ini\GameDesc.bin` which is plaintext (`*DISPWIDTH 1024`), not a real `.bin` resource - false positive.
+- 11799 unit tests now pass (was 11795 + 4 new bsad tests net).
+
 ﻿# CHANGELOG - åŽ†å²å®Œæˆé¡¹
 
 > å®Œæ•´ commit åŽ†å²: git log --oneline (1 commit = 1 sub-deliverable)ã€‚
@@ -31,6 +42,7 @@
 - `cMoveDialog` now takes an optional `IMoveService*` via `SetMoveService()`. When bound: `PointCount()` reads `service->pointCount()` (live catalog), `SelectMoveIdx()` consults `service->hasTownPoint()` / `hasSavedPoint()` so empty tabs are hidden, and `MapMoveOK()` gates the teleport dispatch on `service->isKnownPoint(db_id)` so an unlocked point never reaches the wire. 4 new behavior tests cover the service-mode contract.
 - `cExchangeDialog` now takes optional `IInventoryService*` (own-side item validation, mirroring cDealDialog) and `ITradeService*` (atomic commit) via the existing service interfaces (no new service interface needed). `SetOwn()` rejects items not in `service->hasItem()`, and `Complete()` delegates to `service->completeTrade()` with own/other item lists derived from the slots. 4 new behavior tests cover the service-mode contract.
 - 11795 unit tests now pass (was 11787 + 8 new).
+
 
 ## 2026-08-09 - tooling hygiene: verify-state-frames.py + gitignore deploy/runtime
 
