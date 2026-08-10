@@ -1,3 +1,9 @@
+
+## 2026-08-10 - docs: KNOWN_BUGS sync + ROADMAP M4 GREEN refresh
+
+docs/KNOWN_BUGS.md closes stale entries (M4 PlayDH 99.77% mojibake + duplicate E3 + M3-MAP + the SESSION-2026-08-10-#2 placeholder + the now-resolved CLIENT-RUNTIME) and refreshes C-Tier-3 (12/12 service wiring, list of dialogs) + E3 (modern 5/5 diff=0 intentional Nack trace). docs/KNOWN_BUGS_ARCHIVE.md gains CLIENT-RUNTIME / M3-MAP / M4 PlayDH 100% (433/433 OK) as the canonical record of what was closed. ROADMAP.md §1 M3 进展 row adds M2 12/12 + commercial-smoke + PlayDH 100% + M4 GREEN conclusion; §2 UI / 玩法 / 数值 / T1 资源 rows reflect current evidence; §3 marks M2 完成 / M3 modern 闭环完成 / M4 门禁 GREEN; baseline test count updates 11749 → 11841.
+
+No modern/ code change; CMake / ctest baseline untouched. 11841/11841 unit tests pass; scripts/commercial-smoke.ps1 PASS; python scripts/check-project-governance.py PASS. See git log d8dbb08d + 5ce8191f.
 ## 2026-08-10 - server: MapHandler routes BuySyn through npc_shop data plane and QuestSyn through quest_manager 
  
 modern/src/server/map_handler.cpp BuySyn arm now calls parse_npc_shop_buy_request + npc_shop_buy_decision under players_mu_ to fill the player's money. Currently the per-NPC DealerCatalog is empty (ShopList.bin / DealItem.bin loader not yet landed) so every request resolves to NpcMismatch and the wire shape stays a 4B BuyNack echo - the side-by-side 5/5 capture stays diff=0. When the loader lands only the Ok arm changes to emit BuyAck + apply inventory/money mutation. 
