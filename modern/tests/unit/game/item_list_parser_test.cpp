@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <array>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -261,4 +262,21 @@ if (!result.items.empty()) {
 const ItemInfo& first = result.items.front();
 EXPECT_GE(first.ItemIdx, 1u);
 }
+}
+TEST(ItemListParser, ResolvesEquippedCharacterPartsAndWeapon) {
+    const std::vector<std::string> base{"hair", "face", "body", "hand", "foot"};
+    const std::vector<std::string> mods{"unused", "armor.mod", "sword.mod"};
+    std::vector<mxh::game::ItemInfo> catalog(2);
+    catalog[0].ItemIdx = 100;
+    catalog[0].Part3DType = 2;
+    catalog[0].Part3DModelNum = 1;
+    catalog[1].ItemIdx = 200;
+    catalog[1].Part3DType = 5;
+    catalog[1].Part3DModelNum = 2;
+    const std::array<std::uint16_t, 10> worn{0, 200, 100};
+    const auto resolved = mxh::game::resolve_equipped_character_mods(base, mods, catalog, worn);
+    ASSERT_EQ(resolved.size(), 6u);
+    EXPECT_EQ(resolved[2], "armor.mod");
+    EXPECT_EQ(resolved[5], "sword.mod");
+    EXPECT_EQ(resolved[0], "hair");
 }

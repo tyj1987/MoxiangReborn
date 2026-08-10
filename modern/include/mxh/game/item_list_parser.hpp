@@ -86,6 +86,7 @@
 
 #include <cstdint>
 #include <string>
+#include <span>
 #include <vector>
 
 namespace mxh::game {
@@ -100,6 +101,15 @@ struct ItemListParseResult {
 };
 
 ItemListParseResult load_item_list(const std::string& path);
+ItemListParseResult parse_item_list_bytes(std::span<const std::uint8_t> raw);
+
+// Reproduce AppearanceManager::ChangePart: Part3DType 0..4 replaces
+// hair/face/body/hand/foot, while type 5 adds the weapon model.
+std::vector<std::string> resolve_equipped_character_mods(
+    std::span<const std::string> base_mods,
+    std::span<const std::string> appearance_mods,
+    std::span<const ItemInfo> item_catalog,
+    std::span<const std::uint16_t> weared_item_idx);
 
 bool parse_item_row(const std::vector<std::string>& tokens,
                     ItemInfo& out,

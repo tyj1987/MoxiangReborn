@@ -171,10 +171,10 @@ inline MonsterTotalInfo make_monster_totalinfo(const MonsterInstance& m) {
 inline std::vector<MonsterTemplate> get_default_templates() {
     std::vector<MonsterTemplate> templates;
 
-    // Template 0: weak training dummy monster
+    // The original MonsterList is 1-based (kind 0 has no CHX entry).
     {
         MonsterTemplate t;
-        t.MonsterKind = 0;
+        t.MonsterKind = 1;
         t.ObjectKind  = OBJECTKIND_MONSTER;
         std::strncpy(t.Name, "Doksa", 16);
         t.Level       = 1;
@@ -194,7 +194,7 @@ inline std::vector<MonsterTemplate> get_default_templates() {
     // Template 1: aggressive wild animal
     {
         MonsterTemplate t;
-        t.MonsterKind = 1;
+        t.MonsterKind = 2;
         t.ObjectKind  = OBJECTKIND_MONSTER;
         std::strncpy(t.Name, "Langdu", 16);
         t.Level       = 3;
@@ -214,7 +214,7 @@ inline std::vector<MonsterTemplate> get_default_templates() {
     // Template 2: strong elite monster
     {
         MonsterTemplate t;
-        t.MonsterKind = 2;
+        t.MonsterKind = 3;
         t.ObjectKind  = OBJECTKIND_MONSTER;
         std::strncpy(t.Name, "Heifeng", 16);
         t.Level       = 10;
@@ -238,14 +238,17 @@ inline std::vector<MonsterTemplate> get_default_templates() {
 // In the future these will be loaded from map regen files
 inline std::vector<NpcRegen> get_default_spawn_points(std::uint16_t map_num) {
     std::vector<NpcRegen> spawns;
-    // Spawn 5 monsters around the map center
-    const float cx = 150.0f, cz = 150.0f;
-    const float radius = 30.0f;
+    // Map 12 login point 2012 from the shipped Server/LoginPoint.bin.
+    // This replaces the old 150,150 test coordinate, which was outside the
+    // actual 51,200-unit map gameplay area used by the client camera.
+    const float cx = map_num == 12 ? 27189.0f : 25000.0f;
+    const float cz = map_num == 12 ? 27361.0f : 25000.0f;
+    const float radius = 300.0f;
     for (int i = 0; i < 5; ++i) {
         NpcRegen r{};
         r.dwObjectID = 50000 + i;  // reserved range for monsters
         r.MapNum     = map_num;
-        r.NpcKind    = static_cast<std::uint16_t>(i % 3);  // cycle templates
+        r.NpcKind    = static_cast<std::uint16_t>(i % 3 + 1);  // MonsterList is 1-based
         std::snprintf(r.Name, sizeof(r.Name), "Monster%d", i);
         r.NpcIndex   = static_cast<std::uint16_t>(i);
         float ang = static_cast<float>(i) * 2.0f * 3.14159f / 5.0f;

@@ -180,17 +180,9 @@ bool parse_item_row(const std::vector<std::string>& tokens,
 // ---------------------------------------------------------------------------
 // load_item_list
 // ---------------------------------------------------------------------------
-ItemListParseResult load_item_list(const std::string& path) {
+ItemListParseResult parse_item_list_bytes(std::span<const std::uint8_t> raw) {
     ItemListParseResult result;
     try {
-        std::ifstream ifs(path, std::ios::binary);
-        if (!ifs) {
-            result.error_message = "cannot open file: " + path;
-            return result;
-        }
-        std::vector<std::uint8_t> raw((std::istreambuf_iterator<char>(ifs)),
-                                       std::istreambuf_iterator<char>());
-        ifs.close();
         if (raw.size() < kHeaderSize + 2 * kCrcSize) {
             result.error_message = "file too small for MHFile header";
             return result;
@@ -291,6 +283,36 @@ ItemListParseResult load_item_list(const std::string& path) {
                               + std::string(e.what(), 0, 64);
     } catch (...) {
         result.error_message = "outer unknown exception";
+    }
+    return result;
+}
+
+ItemListParseResult load_item_list(const std::string& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        ItemListParseResult result;
+        result.error_message = "cannot open file: " + path;
+        return result;
+    }
+    const std::vector<std::uint8_t> raw((std::istreambuf_iterator<char>(input)),
+                                         std::istreambuf_iterator<char>());
+    return parse_item_list_bytes(raw);
+}
+
+std::vector<std::string> resolve_equipped_character_mods(
+    std::span<const std::string> base_mods,
+    std::span<const std::string> appearance_mods,
+    std::span<const ItemInfo> item_catalog,
+    std::span<const std::uint16_t> weared_item_idx) {
+    std::vector<std::string> result(base_mods.begin(), base_mods.end());
+    for (const auto itemIndex : weared_item_idx) {
+        if (!itemIndex) continue;
+        const auto item = std::find_if(item_catalog.begin(), item_catalog.end(),
+            [&](const ItemInfo& value) { return value.ItemIdx == itemIndex; });
+        if (item == item_catalog.end() || item->Part3DModelNum >= appearance_mods.size()) continue;
+        const auto part = static_cast<std::size_t>(item->Part3DType);
+        if (part < 5u && part < result.size()) result[part] = appearance_mods[item->Part3DModelNum];
+        else if (part == 5u) result.push_back(appearance_mods[item->Part3DModelNum]);
     }
     return result;
 }

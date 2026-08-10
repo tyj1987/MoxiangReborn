@@ -254,7 +254,7 @@ TEST(GameMonsterTemplate, DefaultTemplatesHaveThreeEntries) {
 
 TEST(GameMonsterTemplate, Template0DoksaLevel1) {
     auto t = get_default_templates();
-    EXPECT_EQ(t[0].MonsterKind, 0);
+    EXPECT_EQ(t[0].MonsterKind, 1);
     EXPECT_EQ(t[0].Level,       1);
     EXPECT_EQ(t[0].Life,        80);
     EXPECT_EQ(t[0].Shield,      0);
@@ -267,7 +267,7 @@ TEST(GameMonsterTemplate, Template0DoksaLevel1) {
 
 TEST(GameMonsterTemplate, Template1LangduLevel3Aggressive) {
     auto t = get_default_templates();
-    EXPECT_EQ(t[1].MonsterKind, 1);
+    EXPECT_EQ(t[1].MonsterKind, 2);
     EXPECT_EQ(t[1].Level,       3);
     EXPECT_EQ(t[1].Life,        150);
     EXPECT_EQ(t[1].Shield,      10);
@@ -280,7 +280,7 @@ TEST(GameMonsterTemplate, Template1LangduLevel3Aggressive) {
 
 TEST(GameMonsterTemplate, Template2HeifengLevel10) {
     auto t = get_default_templates();
-    EXPECT_EQ(t[2].MonsterKind, 2);
+    EXPECT_EQ(t[2].MonsterKind, 3);
     EXPECT_EQ(t[2].Level,       10);
     EXPECT_EQ(t[2].Life,        500);
     EXPECT_EQ(t[2].Shield,      50);
@@ -314,7 +314,7 @@ TEST(GameMonsterTemplate, DefaultSpawnPointsHasFiveForMap12) {
         EXPECT_EQ(s[i].dwObjectID, 50000u + i);
         EXPECT_EQ(s[i].MapNum,     12u);
         // Cycle through 3 templates.
-        EXPECT_EQ(s[i].NpcKind, static_cast<std::uint16_t>(i % 3));
+        EXPECT_EQ(s[i].NpcKind, static_cast<std::uint16_t>(i % 3 + 1));
     }
 }
 
@@ -325,23 +325,23 @@ TEST(GameMonsterTemplate, DefaultSpawnPointsHasFiveForMap12) {
 // future change to the spawn pattern is visible.
 // -------------------------------------------------------------------------
 
-TEST(GameSpawnGeometry, CenterIs150x150Radius30) {
-    // cx=150, cz=150, radius=30.  These are the constants the
+TEST(GameSpawnGeometry, Map12UsesOriginalLoginPointRadius300) {
+    // Center is LoginPoint 2012 from the shipped original resource.
     // default-spawn loop uses; if they change, the AI pathing test
     // (Phase D2) and MapServer respawn (Phase B.5) must both be
     // re-verified.
     auto s = get_default_spawn_points(12);
     ASSERT_EQ(s.size(), 5u);
     // Every spawn must lie on the ring of radius 30 around (150, 150).
-    constexpr float cx   = 150.0f;
-    constexpr float cz   = 150.0f;
-    constexpr float r    = 30.0f;
+    constexpr float cx   = 27189.0f;
+    constexpr float cz   = 27361.0f;
+    constexpr float r    = 300.0f;
     constexpr float r_sq = r * r;
     for (const auto& sp : s) {
         const float dx = sp.PosX - cx;
         const float dz = sp.PosZ - cz;
         // distance_sq_2d should be exactly r*r.
-        EXPECT_NEAR(dx * dx + dz * dz, r_sq, 0.01f);
+        EXPECT_NEAR(dx * dx + dz * dz, r_sq, 1.0f);
         // Y always 0 (ground level).
         EXPECT_FLOAT_EQ(sp.PosY, 0.0f);
     }
