@@ -177,9 +177,86 @@ TEST(SideBySideReplay, ScenariosRouteToExpectedServer) {
 }
 
 TEST(SideBySideReplay, AttackShopQuestScenariosHaveFixedSizes) {
-    EXPECT_EQ(attack_scenario().client_packets.front().payload.size(), 6u);  // skill+u16+target+u32
-    EXPECT_EQ(shop_scenario().client_packets.front().payload.size(), 4u);    // item+u16+qty+u16
-    EXPECT_EQ(quest_scenario().client_packets.front().payload.size(), 2u);   // quest+u16
+    // attack: cat=Skill(22), proto=StartSyn(0),
+    //   payload=[skill_idx:u32][main_target:u32][target_x:f32][target_z:f32] = 16B.
+    EXPECT_EQ(attack_scenario().client_packets.front().category, 22u);
+    EXPECT_EQ(attack_scenario().client_packets.front().protocol, 0u);
+    EXPECT_EQ(attack_scenario().client_packets.front().payload.size(), 16u);
+    // shop: cat=Item(5), proto=BuySyn(22), payload=[item:u16][qty:u16] = 4B.
+    EXPECT_EQ(shop_scenario().client_packets.front().category, 5u);
+    EXPECT_EQ(shop_scenario().client_packets.front().protocol, 22u);
+    EXPECT_EQ(shop_scenario().client_packets.front().payload.size(), 4u);
+    // quest: cat=Quest(39), proto=StartSyn(9), payload=[quest:u16] = 2B.
+    EXPECT_EQ(quest_scenario().client_packets.front().category, 39u);
+    EXPECT_EQ(quest_scenario().client_packets.front().protocol, 9u);
+    EXPECT_EQ(quest_scenario().client_packets.front().payload.size(), 2u);
+}
+
+// Modern-only golden captures live in modern/tests/fixtures/sbs_captures_modern/.
+// They are produced by running mxh_side_by_side --modern-only --start and
+// verified here so the modern MapServer protocol coverage does not regress.
+TEST(SideBySideModernGolden, AllFiveScenariosHaveFixtures) {
+    const std::filesystem::path dir =
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern";
+    for (const char* name : {"modern_login.cap", "modern_enter_game.cap",
+                             "modern_attack.cap", "modern_shop.cap",
+                             "modern_quest.cap"}) {
+        const auto p = dir / name;
+        ASSERT_TRUE(std::filesystem::exists(p)) << "missing fixture " << name;
+        const auto trace = load_capture(p.string());
+        ASSERT_FALSE(trace.empty()) << "empty fixture " << name;
+    }
+}
+
+TEST(SideBySideModernGolden, LoginTraceIsDistSuccessThenAck) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_login.cap");
+    ASSERT_EQ(trace.size(), 2u);
+    EXPECT_EQ(trace[0].category, 7u);   // UserConn
+    EXPECT_EQ(trace[0].protocol, 0u);   // DistConnectSuccess
+    EXPECT_EQ(trace[0].object_id, 1000u);
+    EXPECT_EQ(trace[1].category, 7u);   // UserConn
+    EXPECT_EQ(trace[1].protocol, 2u);   // NotifyUserLoginAck
+}
+
+TEST(SideBySideModernGolden, EnterGameTraceIsAgentConnectThenNack) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_enter_game.cap");
+    ASSERT_EQ(trace.size(), 2u);
+    EXPECT_EQ(trace[0].category, 7u);   // UserConn
+    EXPECT_EQ(trace[0].protocol, 8u);   // AgentConnectSuccess
+    EXPECT_EQ(trace[1].category, 7u);
+    EXPECT_EQ(trace[1].protocol, 18u);  // GameInNack (no character selected)
+}
+
+TEST(SideBySideModernGolden, AttackTraceIsSkillStartNack) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_attack.cap");
+    ASSERT_EQ(trace.size(), 1u);
+    EXPECT_EQ(trace[0].category, 22u);  // Skill
+    EXPECT_EQ(trace[0].protocol, 2u);   // StartNack
+    ASSERT_GE(trace[0].payload.size(), 1u);
+    EXPECT_EQ(trace[0].payload[0], 3u); // err=3 unknown caster
+}
+
+TEST(SideBySideModernGolden, ShopTraceIsItemBuyNack) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_shop.cap");
+    ASSERT_EQ(trace.size(), 1u);
+    EXPECT_EQ(trace[0].category, 5u);   // Item
+    EXPECT_EQ(trace[0].protocol, 24u);  // BuyNack
+    // Payload echoes the request [item:u16][qty:u16].
+    EXPECT_EQ(trace[0].payload.size(), 4u);
+}
+
+TEST(SideBySideModernGolden, QuestTraceIsQuestStartNack) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_quest.cap");
+    ASSERT_EQ(trace.size(), 1u);
+    EXPECT_EQ(trace[0].category, 39u);  // Quest
+    EXPECT_EQ(trace[0].protocol, 11u);  // StartNack
+    // Payload echoes quest_id (u16).
+    EXPECT_EQ(trace[0].payload.size(), 2u);
 }
 
 }
