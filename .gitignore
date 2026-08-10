@@ -355,3 +355,8 @@ modern/scratch/
 # wrappers) are session-only and should never enter the repo.
 # Use scripts/ for anything that needs to persist.
 /scratch_*.py
+
+# Phase M3 (2026-08-10) - playdh_link_for_audit/ is a session-local symlink
+# to the 1.3GB PlayDH resource directory used by audit_resource_coverage.py.
+# Never tracked (machine-specific path, binary content).
+modern/tools/playdh_link_for_audit/
