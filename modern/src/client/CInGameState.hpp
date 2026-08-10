@@ -33,9 +33,11 @@
 #include "CGameState.hpp"
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
@@ -56,6 +58,11 @@ struct GameInInfo {
     std::uint16_t  life         = 0;
     std::uint16_t  max_life     = 0;
     std::uint8_t   gender       = 0;
+    std::uint8_t   face_type    = 0;
+    std::uint8_t   hair_type    = 0;
+    std::array<std::uint16_t, 10> weared_item_idx{};
+    std::uint16_t  position_x   = 0;
+    std::uint16_t  position_z   = 0;
     // Server-time stamp from SYSTEMTIME (year/month/wday/day/hour).
     std::uint16_t  server_year  = 0;
     std::uint16_t  server_month = 0;
@@ -82,6 +89,8 @@ struct MonsterAddInfo {
     std::uint16_t monster_kind = 0;
     std::uint16_t group = 0;
     std::uint16_t map_num = 0;
+    std::uint16_t position_x = 0;
+    std::uint16_t position_z = 0;
 };
 
 std::optional<MonsterAddInfo>
@@ -125,6 +134,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t player_id()   const noexcept { return m_playerId; }
     std::uint16_t map_num()     const noexcept { return m_mapNum; }
     const GameInInfo& game_info() const noexcept { return m_info; }
+    const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
 
 private:
     void send_gamein_syn();
@@ -144,6 +154,7 @@ private:
     bool                     m_inGame     = false;
     bool                     m_failed     = false;
     bool                     m_sentGameInSyn = false;  // gate for Process() retry
+    bool                     m_releasing = false;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
     std::string              m_failureReason;

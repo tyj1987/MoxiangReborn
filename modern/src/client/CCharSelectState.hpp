@@ -58,6 +58,11 @@ struct LoginResult {
     std::uint32_t dist_auth_key = 0;  // from DistConnectSuccess, needed by Agent's ListSyn
 };
 
+struct GameEntryRequest {
+    std::uint32_t character_id = 0;
+    std::uint16_t map_num = 0;
+};
+
 // One slot in the legacy CharacterListAck SEND_CHARSELECT_INFO.
 // We parse the minimum needed to auto-select: chrid (u32) per slot.
 struct CharacterSlot {
@@ -131,6 +136,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool        is_connected() const noexcept;
     std::uint16_t selected_map() const noexcept { return m_selectedMap; }
     std::uint32_t selected_chrid() const noexcept { return m_selectedChrid; }
+    bool has_character_list() const noexcept { return m_listReceived; }
+    const LoginResult& login_result() const noexcept { return m_login; }
     const std::vector<CharacterSlot>& character_list() const noexcept {
         return m_characters;
     }
@@ -154,6 +161,7 @@ private:
     bool                     m_started     = false;
     bool                     m_listReceived = false;
     bool                     m_selectSent   = false;
+    bool                     m_releasing    = false;
     bool                     m_failed      = false;
     std::string              m_failureReason;
 };

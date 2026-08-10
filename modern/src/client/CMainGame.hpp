@@ -110,7 +110,7 @@ public:
     bool isPaused() const noexcept                        { return m_bPauseRender; }
 
     CEngine* GetEngine() const noexcept                    { return m_pEngine.get(); }
-    void SetEngine(std::unique_ptr<CEngine> e) noexcept    { m_pEngine = std::move(e); }
+    void SetEngine(std::unique_ptr<CEngine> e) noexcept;
 
 private:
     // Forward-declared CEngine held via unique_ptr to keep the include

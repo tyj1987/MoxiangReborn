@@ -19,14 +19,24 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     const std::uint32_t max_life = 1000;
     const std::uint16_t level = 33;
     const std::uint16_t map_num = 12;
+    const std::uint16_t position_x = 25000;
+    const std::uint16_t position_z = 25000;
     std::memcpy(payload.data(), &player_id, sizeof(player_id));
     std::memcpy(payload.data() + 4, &user_id, sizeof(user_id));
     std::memcpy(payload.data() + 8, "Hero", 5);
     std::memcpy(payload.data() + 35, &life, sizeof(life));
     std::memcpy(payload.data() + 39, &max_life, sizeof(max_life));
     payload[51] = 1;
+    payload[52] = 3;
+    payload[53] = 4;
+    for (std::size_t slot = 0; slot < 10; ++slot) {
+        const auto value = static_cast<std::uint16_t>(1000 + slot);
+        std::memcpy(payload.data() + 54 + slot * 2, &value, sizeof(value));
+    }
     std::memcpy(payload.data() + 75, &level, sizeof(level));
     std::memcpy(payload.data() + 77, &map_num, sizeof(map_num));
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, &position_x, sizeof(position_x));
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, &position_z, sizeof(position_z));
 
     const std::uint16_t year = 2026;
     const std::uint16_t month = 8;
@@ -47,8 +57,14 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     EXPECT_EQ(info->life, 900u);
     EXPECT_EQ(info->max_life, 1000u);
     EXPECT_EQ(info->gender, 1u);
+    EXPECT_EQ(info->face_type, 3u);
+    EXPECT_EQ(info->hair_type, 4u);
+    EXPECT_EQ(info->weared_item_idx.front(), 1000u);
+    EXPECT_EQ(info->weared_item_idx.back(), 1009u);
     EXPECT_EQ(info->level, level);
     EXPECT_EQ(info->map_num, map_num);
+    EXPECT_EQ(info->position_x, position_x);
+    EXPECT_EQ(info->position_z, position_z);
     EXPECT_EQ(info->server_year, year);
     EXPECT_EQ(info->server_month, month);
     EXPECT_EQ(info->server_day, day);
@@ -68,6 +84,10 @@ TEST(InGameMonsterAdd, DecodesServerPushedMonsterPayload) {
     payload[35] = 0x64;
     payload[43] = 0x07;
     payload[47] = 12;
+    payload[49] = 0x34;
+    payload[50] = 0x12;
+    payload[51] = 0x78;
+    payload[52] = 0x56;
     const auto info = parse_legacy_monster_add(payload);
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(info->object_id, 0x10u);
@@ -76,6 +96,8 @@ TEST(InGameMonsterAdd, DecodesServerPushedMonsterPayload) {
     EXPECT_EQ(info->current_life, 100u);
     EXPECT_EQ(info->monster_kind, 7u);
     EXPECT_EQ(info->map_num, 12u);
+    EXPECT_EQ(info->position_x, 0x1234u);
+    EXPECT_EQ(info->position_z, 0x5678u);
 }
 
 TEST(InGameMonsterAdd, RejectsShortPayload) {

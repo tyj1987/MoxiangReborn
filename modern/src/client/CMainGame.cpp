@@ -50,6 +50,16 @@ void CMainGame::Init(void* /*hMainWnd*/) {
     }
 }
 
+void CMainGame::SetEngine(std::unique_ptr<CEngine> engine) noexcept {
+    m_pEngine = std::move(engine);
+    if (m_pEngine) {
+        m_pEngine->SetStateChangeRequestFn(
+            [this](int state_id) {
+                this->SetGameState(static_cast<GameStateId>(state_id));
+            });
+    }
+}
+
 void CMainGame::Release() {
     if (m_pCurrentGameState && m_pCurrentGameState->isInitialized()) {
         m_pCurrentGameState->Release();

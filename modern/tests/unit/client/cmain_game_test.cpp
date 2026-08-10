@@ -28,6 +28,17 @@ using mxh::client::GameStateId;
 using mxh::client::kStateCount;
 using mxh::client::CMainTitle;
 
+TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
+    CMainGame game;
+    game.Init(nullptr);
+    auto engine = std::make_unique<mxh::client::CEngine>();
+    auto* observer = engine.get();
+    game.SetEngine(std::move(engine));
+
+    observer->RequestStateChange(static_cast<int>(GameStateId::Intro));
+    EXPECT_TRUE(game.IsChangeState());
+}
+
 namespace {
 
 // Helper: a state subclass that records Init/Release calls and bumps

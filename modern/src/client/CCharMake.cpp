@@ -196,6 +196,7 @@ void CCharMake::on_message(mxh::net::ConnectionId id,
             MLOG_INFO("CCharMake: CharacterListAck received after create; "
                       "switching to CharSelect");
             if (m_pEngine) {
+                m_pEngine->SetPendingTransfer(m_login);
                 m_pEngine->RequestStateChange(
                     static_cast<int>(GameStateId::CharSelect));
             } else {

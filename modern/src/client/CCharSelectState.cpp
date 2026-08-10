@@ -149,6 +149,7 @@ mxh::net::IEncryptor* CCharSelectState::encryptor_for(
 
 void CCharSelectState::Release() {
     MLOG_DEBUG("CCharSelectState::Release");
+    m_releasing = true;
     if (m_client) {
         if (m_client->is_connected()) m_client->disconnect();
         m_client.reset();
@@ -159,6 +160,7 @@ void CCharSelectState::Release() {
     m_started       = false;
     m_listReceived  = false;
     m_selectSent    = false;
+    m_releasing     = false;
     m_failed        = false;
     m_failureReason.clear();
     setInitialized(false);
@@ -265,7 +267,7 @@ void CCharSelectState::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CCharSelectState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
-    if (!m_selectSent && !m_failed) {
+    if (!m_releasing && !m_selectSent && !m_failed) {
         fail_with(std::string("disconnected before CharacterSelectAck: ") +
                   mxh::net::to_string(reason));
     }
@@ -340,6 +342,8 @@ void CCharSelectState::dispatch_select_ack(std::uint16_t map_num) {
               static_cast<unsigned>(m_selectedChrid),
               static_cast<unsigned>(map_num));
     if (m_pEngine) {
+        m_pEngine->SetPendingTransfer(GameEntryRequest{
+            m_selectedChrid, map_num});
         m_pEngine->RequestStateChange(
             static_cast<int>(GameStateId::GameLoading));
     } else {

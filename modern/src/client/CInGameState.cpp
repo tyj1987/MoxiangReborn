@@ -49,6 +49,8 @@ parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
     info.monster_kind = get_u16(payload.data() + 43);
     info.group = get_u16(payload.data() + 45);
     info.map_num = get_u16(payload.data() + 47);
+    info.position_x = get_u16(payload.data() + 49);
+    info.position_z = get_u16(payload.data() + 51);
     return info;
 }
 
@@ -79,8 +81,14 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     info.max_life = static_cast<std::uint16_t>(
                         get_u32(payload.data() + 35 + 4)  & 0xFFFFu);
     info.gender   = payload[35 + 16];
+    info.face_type = payload[35 + 17];
+    info.hair_type = payload[35 + 18];
+    for (std::size_t slot = 0; slot < info.weared_item_idx.size(); ++slot)
+        info.weared_item_idx[slot] = get_u16(payload.data() + 35 + 19 + slot * 2);
     info.level    = get_u16(payload.data() + 35 + 40);
     info.map_num  = get_u16(payload.data() + 35 + 42);
+    info.position_x = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET);
+    info.position_z = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2);
 
     // SYSTEMTIME ServerTime at HERO_TOTAL_SERVER_TIME_OFFSET â€” 5 little-endian u16s:
     //   +0 year, +2 month, +4 wday, +6 day, +8 hour
@@ -110,6 +118,7 @@ void CInGameState::Init(void* /*pInitParam*/) {
 
 void CInGameState::Release() {
     MLOG_DEBUG("CInGameState::Release");
+    m_releasing = true;
     if (m_client) {
         if (m_client->is_connected()) m_client->disconnect();
         m_client.reset();
@@ -117,9 +126,11 @@ void CInGameState::Release() {
     m_info = GameInInfo{};
     m_inGame   = false;
     m_started  = false;
+    m_sentGameInSyn = false;
     m_failed   = false;
     m_failureReason.clear();
     setInitialized(false);
+    m_releasing = false;
 }
 
 void CInGameState::Process() {
@@ -233,10 +244,12 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
                 break;
             }
             monsters_.push_back(*info);
-            MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u name=%.16s",
+            MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u pos=(%u,%u) name=%.16s",
                        static_cast<unsigned>(info->object_id),
                        static_cast<unsigned>(info->monster_kind),
-                       static_cast<unsigned>(info->current_life), info->name);
+                       static_cast<unsigned>(info->current_life),
+                       static_cast<unsigned>(info->position_x),
+                       static_cast<unsigned>(info->position_z), info->name);
             break;
         }
         case UserConnProtocol::ConnectionCheckOk: {
@@ -272,7 +285,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CInGameState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
-    if (m_inGame && !m_failed) {
+    if (!m_releasing && m_inGame && !m_failed) {
         MLOG_WARN("CInGameState: disconnected after entering game (in_game=%d)",
                   m_inGame ? 1 : 0);
     }
