@@ -4,9 +4,15 @@
     bmhm_map.cpp
     ttb_tile_table.cpp
     chx_model.cpp
+    monster_catalog.cpp
+    character_appearance_catalog.cpp
     chr_motion.cpp
+    anm_motion.cpp
     bsad_area.cpp
     item_effects.cpp
+    sound_list.cpp
+    hfl_height_field.cpp
+    stm_static_model.cpp
 )
 
 target_include_directories(mxh_compat PUBLIC
@@ -24,6 +30,16 @@ endif()
 install(TARGETS mxh_compat
     ARCHIVE DESTINATION lib
 )
+
+add_library(mxh_audio STATIC
+    audio/bgm_player.cpp
+)
+target_include_directories(mxh_audio PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_compile_features(mxh_audio PUBLIC cxx_std_20)
+target_link_libraries(mxh_audio PUBLIC mxh_compat mxh_log)
+if(WIN32)
+    target_link_libraries(mxh_audio PRIVATE winmm)
+endif()
 
 # -----------------------------------------------------------------------------
 # mxh_db: Database abstraction layer (Phase 2)
@@ -448,13 +464,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
-
-
-
-
-
-
 
 
 
