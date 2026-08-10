@@ -38,6 +38,13 @@ mxh::gx::dx11::LoadedTexture makeCheckerTexture() {
 
 }  // namespace
 
+TEST(TextureLoader, ResolvesLegacyTgaReferencesToCompiledDds) {
+    using mxh::gx::dx11::compiledTextureName;
+    EXPECT_EQ(compiledTextureName("m_nude.tga"), "m_nude.dds");
+    EXPECT_EQ(compiledTextureName("M_HAIR01.TGA"), "M_HAIR01.dds");
+    EXPECT_EQ(compiledTextureName("m_face01.tif"), "m_face01.tif");
+}
+
 
 std::uint32_t read_u32(const std::uint8_t* p) {
     return static_cast<std::uint32_t>(p[0])
@@ -165,6 +172,37 @@ TEST(TextureLoaderDDS, SaveDDSPixelDataIsBGRA) {
     EXPECT_EQ(pixelStart[1], 0x80);  // G
     EXPECT_EQ(pixelStart[2], 0xFF);  // R
     EXPECT_EQ(pixelStart[3], 0xFF);  // A
+}
+
+TEST(TextureLoaderDDS, UncompressedRoundTripPreservesPixels) {
+    const auto in = makeCheckerTexture();
+    const auto bytes = mxh::gx::dx11::saveDDS(in);
+    const auto out = mxh::gx::dx11::loadDDS(bytes.data(), static_cast<std::uint32_t>(bytes.size()));
+    EXPECT_EQ(out.width, in.width);
+    EXPECT_EQ(out.height, in.height);
+    EXPECT_EQ(out.pixels, in.pixels);
+}
+
+TEST(TextureLoaderDDS, DXT1RoundTripDecodesSolidColor) {
+    const auto in = make_solid(255, 0, 0, 255);
+    const auto bytes = mxh::gx::dx11::saveDDS_BC(in, mxh::gx::dx11::BCFormat::BC1);
+    const auto out = mxh::gx::dx11::loadDDS(bytes.data(), static_cast<std::uint32_t>(bytes.size()));
+    ASSERT_EQ(out.pixels.size(), in.pixels.size());
+    EXPECT_GT(out.pixels[0], 245);
+    EXPECT_LT(out.pixels[1], 10);
+    EXPECT_LT(out.pixels[2], 10);
+    EXPECT_EQ(out.pixels[3], 255);
+}
+
+TEST(TextureLoaderDDS, DXT5RoundTripRetainsAlpha) {
+    const auto in = make_solid(32, 64, 128, 96);
+    const auto bytes = mxh::gx::dx11::saveDDS_BC(in, mxh::gx::dx11::BCFormat::BC3);
+    const auto out = mxh::gx::dx11::loadTextureFromMemory(bytes.data(), static_cast<std::uint32_t>(bytes.size()));
+    ASSERT_EQ(out.pixels.size(), in.pixels.size());
+    EXPECT_NEAR(out.pixels[0], 32, 8);
+    EXPECT_NEAR(out.pixels[1], 64, 8);
+    EXPECT_NEAR(out.pixels[2], 128, 8);
+    EXPECT_EQ(out.pixels[3], 96);
 }
 
 TEST(TextureLoaderDDS, SaveDDSRejectsEmptyTexture) {

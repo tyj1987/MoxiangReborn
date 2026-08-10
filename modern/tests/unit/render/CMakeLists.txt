@@ -20,6 +20,7 @@ add_executable(mxh_render_tests
     motion_flag_test.cpp
     file_storage_typedef_test.cpp
     primitives_3d_shader_test.cpp
+    filesystem_file_storage_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -99,8 +100,13 @@ gtest_add_tests(TARGET mxh_render_tests
     TextureLoaderTGA.SaveTGARejectsEmptyTexture
     TextureLoaderDDS.SaveDDSMagicAndHeaderLayout
     TextureLoaderDDS.SaveDDSPixelDataIsBGRA
+    TextureLoaderDDS.UncompressedRoundTripPreservesPixels
+    TextureLoaderDDS.DXT1RoundTripDecodesSolidColor
+    TextureLoaderDDS.DXT5RoundTripRetainsAlpha
     TextureLoaderDDS.SaveDDSRejectsEmptyTexture
     TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
+    FilesystemFileStorage.MountsOriginalMapPack
+    FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
     HFieldObjectDefaults.ConstructWithoutDeviceDoesNotCrash
     HFieldObjectDefaults.QueryInterfaceIUnknownReturnsSelf
     HFieldObjectDefaults.QueryInterfaceUnknownIIDReturnsENoInterface

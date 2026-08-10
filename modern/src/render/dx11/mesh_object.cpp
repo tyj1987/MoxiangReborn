@@ -66,6 +66,42 @@ bool MeshObject::finalizeVB() {
     return true;
 }
 
+bool MeshObject::updateVertices(std::span<const VECTOR3> positions,
+                                std::span<const VECTOR3> normals) {
+    if (!m_dev || positions.size() != m_vertices.size() ||
+        (!normals.empty() && normals.size() != m_vertices.size())) return false;
+    for (std::size_t i = 0; i < m_vertices.size(); ++i) {
+        m_vertices[i].x = positions[i].x;
+        m_vertices[i].y = positions[i].y;
+        m_vertices[i].z = positions[i].z;
+        if (!normals.empty()) {
+            m_vertices[i].nx = normals[i].x;
+            m_vertices[i].ny = normals[i].y;
+            m_vertices[i].nz = normals[i].z;
+        }
+    }
+    if (!m_dynamicVertices) {
+        D3D11_BUFFER_DESC desc{};
+        desc.Usage = D3D11_USAGE_DYNAMIC;
+        desc.ByteWidth = static_cast<UINT>(m_vertices.size() * sizeof(Vertex));
+        desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        D3D11_SUBRESOURCE_DATA initial{};
+        initial.pSysMem = m_vertices.data();
+        Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+        if (FAILED(m_dev->rawDevice()->CreateBuffer(&desc, &initial, &buffer))) return false;
+        m_vertexBuffer = std::move(buffer);
+        m_dynamicVertices = true;
+        return true;
+    }
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_dev->rawContext()->Map(m_vertexBuffer.Get(), 0,
+            D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return false;
+    std::memcpy(mapped.pData, m_vertices.data(), m_vertices.size() * sizeof(Vertex));
+    m_dev->rawContext()->Unmap(m_vertexBuffer.Get(), 0);
+    return true;
+}
+
 MeshObject* MeshObject::createEmpty(Device* dev, CMeshFlag /*flag*/) {
     auto* m = new MeshObject();
     m->m_dev = dev;

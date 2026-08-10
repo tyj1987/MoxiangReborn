@@ -21,10 +21,10 @@ struct VSOutput {
     float3 worldP : TEXCOORD2;
 };
 cbuffer CBWorld : register(b0) {
-    float4x4 world;
+    row_major float4x4 world;
 };
 cbuffer CBViewProj : register(b1) {
-    float4x4 viewProj;
+    row_major float4x4 viewProj;
 };
 VSOutput main(VSInput i) {
     VSOutput o;

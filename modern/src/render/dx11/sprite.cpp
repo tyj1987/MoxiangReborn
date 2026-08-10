@@ -106,33 +106,23 @@ SpriteObject* SpriteObject::createFromFile(Device* dev, I4DyuchiFileStorage* sto
         return nullptr;
     }
 
-    std::uint32_t fileSize = 0;
-    {
-        // Seek to end -> get size
-        std::uint32_t hi = 0;
-        // We rely on FSRead returning the size when called with len=0:
-        // Actually use the original pack offset to get file size. Fall back to
-        // a 256 KB read if size unknown.
-        fileSize = 0;
-        (void)hi;
-    }
+    const std::uint32_t fileSize = storage->FSSeek(fp, 0, FSFILE_SEEK_END);
+    storage->FSSeek(fp, 0, FSFILE_SEEK_SET);
     if (fileSize == 0) {
-        // No size query API; load up to 4 MB.
-        constexpr std::uint32_t kMaxGuess = 4 * 1024 * 1024;
-        std::vector<std::uint8_t> buf(kMaxGuess);
-        std::uint32_t read = storage->FSRead(fp, buf.data(), kMaxGuess);
         storage->FSCloseFile(fp);
-        if (read == 0) {
-            MLOG_WARN("[sprite] empty file '%s'", szFileName);
-            return nullptr;
-        }
-        LoadedTexture t = loadTextureFromMemory(buf.data(), read);
-        if (t.pixels.empty()) return nullptr;
-        auto* s = create(dev, t.width, t.height, TEXTURE_FORMAT_A8R8G8B8, t.pixels.data());
-        return s;
+        MLOG_WARN("[sprite] empty file '%s'", szFileName);
+        return nullptr;
     }
+    std::vector<std::uint8_t> buf(fileSize);
+    const std::uint32_t read = storage->FSRead(fp, buf.data(), fileSize);
     storage->FSCloseFile(fp);
-    return nullptr;
+    if (read != fileSize) {
+        MLOG_WARN("[sprite] incomplete read for '%s' (%u/%u)", szFileName, read, fileSize);
+        return nullptr;
+    }
+    LoadedTexture t = loadTextureFromMemory(buf.data(), read);
+    if (t.pixels.empty()) return nullptr;
+    return create(dev, t.width, t.height, TEXTURE_FORMAT_A8R8G8B8, t.pixels.data());
 }
 
 BOOL __stdcall SpriteObject::Draw(VECTOR2* pv2Scaling, float fRot, VECTOR2* pv2Trans,

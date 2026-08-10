@@ -1,12 +1,18 @@
 // mxh/render/dx11/texture_loader.hpp
-// Loads textures from raw bytes (TGA / BMP / bmhm).
+// Loads textures from raw bytes (TGA / DDS).
 // Used by both SpriteObject and Material manager.
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace mxh::gx::dx11 {
+
+// The legacy renderer compiled authoring-time .tga references to same-stem
+// .dds files before opening the resource pack.
+std::string compiledTextureName(std::string_view name);
 
 struct LoadedTexture {
     std::uint32_t        width  = 0;
@@ -17,6 +23,10 @@ struct LoadedTexture {
 
 // Decode TGA (type 2 = uncompressed RGB, type 10 = RLE RGB) to RGBA8.
 LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size);
+
+// Decode legacy DDS textures used by PlayDH (BGRA/RGBA, DXT1 and DXT5)
+// to RGBA8. Only the top mip level is returned.
+LoadedTexture loadDDS(const std::uint8_t* data, std::uint32_t size);
 
 // Auto-detect format and decode.
 LoadedTexture loadTextureFromMemory(const std::uint8_t* data, std::uint32_t size);

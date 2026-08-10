@@ -283,7 +283,7 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
 
     // Constant buffer: world matrix (identity for now — caller-driven transforms
     // would come via the Executive path in a full port).
-    MATRIX4 world = MatrixIdentity();
+    const MATRIX4& world = mesh->worldTransform();
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (SUCCEEDED(ctx->Map(m_meshShaders.cbWorld.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
         std::memcpy(mapped.pData, &world, sizeof(MATRIX4));

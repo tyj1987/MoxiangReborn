@@ -3,7 +3,16 @@
 #include "texture_loader.hpp"
 
 #include <algorithm>
+#include <bit>
+#include <cctype>
 #include <cstring>
+#include <limits>
+
+#ifdef _WIN32
+#include <objbase.h>
+#include <wincodec.h>
+#include <wrl/client.h>
+#endif
 
 #include "mxh/log/mlog.hpp"
 
@@ -82,7 +91,56 @@ struct DdsHeaderDxt10 {
 };
 #pragma pack(pop)
 
+namespace {
+
+std::uint8_t expandMask(std::uint32_t value, std::uint32_t mask, std::uint8_t fallback) {
+    if (mask == 0) return fallback;
+    const auto shift = static_cast<unsigned>(std::countr_zero(mask));
+    const std::uint32_t componentMask = mask >> shift;
+    const std::uint32_t component = (value & mask) >> shift;
+    return static_cast<std::uint8_t>((component * 255u + componentMask / 2u) / componentMask);
+}
+
+void decode565(std::uint16_t color, std::uint8_t* rgba) {
+    rgba[0] = static_cast<std::uint8_t>(((color >> 11) & 31u) * 255u / 31u);
+    rgba[1] = static_cast<std::uint8_t>(((color >> 5) & 63u) * 255u / 63u);
+    rgba[2] = static_cast<std::uint8_t>((color & 31u) * 255u / 31u);
+    rgba[3] = 255;
+}
+
+void decodeBcColorBlock(const std::uint8_t* block, bool allowTransparent,
+                        std::uint8_t colors[4][4]) {
+    const std::uint16_t c0 = static_cast<std::uint16_t>(block[0] | block[1] << 8);
+    const std::uint16_t c1 = static_cast<std::uint16_t>(block[2] | block[3] << 8);
+    decode565(c0, colors[0]);
+    decode565(c1, colors[1]);
+    if (!allowTransparent || c0 > c1) {
+        for (int channel = 0; channel < 3; ++channel) {
+            colors[2][channel] = static_cast<std::uint8_t>((2u * colors[0][channel] + colors[1][channel]) / 3u);
+            colors[3][channel] = static_cast<std::uint8_t>((colors[0][channel] + 2u * colors[1][channel]) / 3u);
+        }
+        colors[2][3] = colors[3][3] = 255;
+    } else {
+        for (int channel = 0; channel < 3; ++channel)
+            colors[2][channel] = static_cast<std::uint8_t>((colors[0][channel] + colors[1][channel]) / 2u);
+        colors[2][3] = 255;
+        std::memset(colors[3], 0, 4);
+    }
+}
+
+} // namespace
+
 namespace mxh::gx::dx11 {
+
+std::string compiledTextureName(std::string_view name) {
+    std::string result(name);
+    if (result.size() < 4) return result;
+    std::string extension = result.substr(result.size() - 4);
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (extension == ".tga") result.replace(result.size() - 4, 4, ".dds");
+    return result;
+}
 
 LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size) {
     LoadedTexture out;
@@ -167,12 +225,145 @@ LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size) {
     return out;
 }
 
+LoadedTexture loadDDS(const std::uint8_t* data, std::uint32_t size) {
+    LoadedTexture out;
+    constexpr std::uint32_t kDdsMagic = MAKEFOURCC('D', 'D', 'S', ' ');
+    constexpr std::uint32_t kDdpfFourCc = 0x4;
+    constexpr std::uint32_t kDxt1 = MAKEFOURCC('D', 'X', 'T', '1');
+    constexpr std::uint32_t kDxt5 = MAKEFOURCC('D', 'X', 'T', '5');
+    if (!data || size < 4 + sizeof(DdsHeader)) return out;
+
+    std::uint32_t magic = 0;
+    DdsHeader header{};
+    std::memcpy(&magic, data, sizeof(magic));
+    std::memcpy(&header, data + 4, sizeof(header));
+    if (magic != kDdsMagic || header.dwSize != sizeof(DdsHeader) ||
+        header.ddspf.dwSize != sizeof(DdsPixelFormat) ||
+        header.dwWidth == 0 || header.dwHeight == 0) return out;
+    const std::uint64_t pixelCount = static_cast<std::uint64_t>(header.dwWidth) * header.dwHeight;
+    if (pixelCount > std::numeric_limits<std::size_t>::max() / 4u) return out;
+
+    out.width = header.dwWidth;
+    out.height = header.dwHeight;
+    out.bps = 32;
+    out.pixels.assign(static_cast<std::size_t>(pixelCount) * 4u, 0);
+    const std::uint8_t* payload = data + 4 + sizeof(DdsHeader);
+    std::size_t payloadSize = size - 4 - sizeof(DdsHeader);
+
+    if ((header.ddspf.dwFlags & kDdpfFourCc) == 0) {
+        const std::uint32_t bytesPerPixel = header.ddspf.dwRGBBitCount / 8u;
+        if ((bytesPerPixel != 3 && bytesPerPixel != 4) ||
+            pixelCount * bytesPerPixel > payloadSize) return {};
+        for (std::size_t i = 0; i < pixelCount; ++i) {
+            std::uint32_t value = 0;
+            std::memcpy(&value, payload + i * bytesPerPixel, bytesPerPixel);
+            auto* dst = out.pixels.data() + i * 4u;
+            dst[0] = expandMask(value, header.ddspf.dwRBitMask, 0);
+            dst[1] = expandMask(value, header.ddspf.dwGBitMask, 0);
+            dst[2] = expandMask(value, header.ddspf.dwBBitMask, 0);
+            dst[3] = expandMask(value, header.ddspf.dwABitMask, 255);
+        }
+        return out;
+    }
+
+    const bool isDxt1 = header.ddspf.dwFourCC == kDxt1;
+    const bool isDxt5 = header.ddspf.dwFourCC == kDxt5;
+    if (!isDxt1 && !isDxt5) return {};
+    const std::size_t blockBytes = isDxt1 ? 8u : 16u;
+    const std::size_t blockWidth = (out.width + 3u) / 4u;
+    const std::size_t blockHeight = (out.height + 3u) / 4u;
+    if (blockWidth * blockHeight > payloadSize / blockBytes) return {};
+
+    for (std::size_t by = 0; by < blockHeight; ++by) {
+        for (std::size_t bx = 0; bx < blockWidth; ++bx) {
+            const auto* block = payload + (by * blockWidth + bx) * blockBytes;
+            const auto* colorBlock = block + (isDxt5 ? 8 : 0);
+            std::uint8_t colors[4][4]{};
+            decodeBcColorBlock(colorBlock, isDxt1, colors);
+            std::uint32_t colorIndices = 0;
+            std::memcpy(&colorIndices, colorBlock + 4, sizeof(colorIndices));
+
+            std::uint8_t alpha[8]{};
+            std::uint64_t alphaIndices = 0;
+            if (isDxt5) {
+                alpha[0] = block[0]; alpha[1] = block[1];
+                if (alpha[0] > alpha[1]) {
+                    for (int i = 1; i <= 6; ++i)
+                        alpha[i + 1] = static_cast<std::uint8_t>(((7 - i) * alpha[0] + i * alpha[1]) / 7);
+                } else {
+                    for (int i = 1; i <= 4; ++i)
+                        alpha[i + 1] = static_cast<std::uint8_t>(((5 - i) * alpha[0] + i * alpha[1]) / 5);
+                    alpha[6] = 0; alpha[7] = 255;
+                }
+                for (int i = 0; i < 6; ++i)
+                    alphaIndices |= static_cast<std::uint64_t>(block[2 + i]) << (i * 8);
+            }
+
+            for (std::size_t py = 0; py < 4; ++py) {
+                for (std::size_t px = 0; px < 4; ++px) {
+                    const std::size_t x = bx * 4 + px, y = by * 4 + py;
+                    if (x >= out.width || y >= out.height) continue;
+                    const std::size_t index = py * 4 + px;
+                    const auto colorIndex = (colorIndices >> (index * 2)) & 3u;
+                    auto* dst = out.pixels.data() + (y * out.width + x) * 4u;
+                    std::memcpy(dst, colors[colorIndex], 4);
+                    if (isDxt5) dst[3] = alpha[(alphaIndices >> (index * 3)) & 7u];
+                }
+            }
+        }
+    }
+    return out;
+}
+
 LoadedTexture loadTextureFromMemory(const std::uint8_t* data, std::uint32_t size) {
     if (size < 4) return {};
+    if (std::memcmp(data, "DDS ", 4) == 0) return loadDDS(data, size);
     // Auto-detect: TGA footer "TRUEVISION-XFILE.\0" at end, or by imageType byte.
     if (size >= sizeof(TgaHeader) && data[2] >= 1 && data[2] <= 11) {
         return loadTGA(data, size);
     }
+#ifdef _WIN32
+    // Shipped assets also contain TIFF/JPEG/PNG authoring files. WIC keeps
+    // those original files usable without converting or modifying PlayDH.
+    const HRESULT comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool uninitialize = SUCCEEDED(comResult);
+    Microsoft::WRL::ComPtr<IWICImagingFactory> factory;
+    Microsoft::WRL::ComPtr<IWICStream> stream;
+    Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
+    Microsoft::WRL::ComPtr<IWICBitmapFrameDecode> frame;
+    Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+    LoadedTexture result;
+    HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr,
+        CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
+    if (SUCCEEDED(hr)) hr = factory->CreateStream(&stream);
+    if (SUCCEEDED(hr)) hr = stream->InitializeFromMemory(
+        const_cast<BYTE*>(reinterpret_cast<const BYTE*>(data)), size);
+    if (SUCCEEDED(hr)) hr = factory->CreateDecoderFromStream(stream.Get(), nullptr,
+        WICDecodeMetadataCacheOnLoad, &decoder);
+    if (SUCCEEDED(hr)) hr = decoder->GetFrame(0, &frame);
+    if (SUCCEEDED(hr)) hr = factory->CreateFormatConverter(&converter);
+    if (SUCCEEDED(hr)) hr = converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA,
+        WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
+    UINT width = 0, height = 0;
+    if (SUCCEEDED(hr)) hr = converter->GetSize(&width, &height);
+    if (SUCCEEDED(hr) && width && height &&
+        static_cast<std::uint64_t>(width) * height <= 268'435'456u) {
+        result.width = width; result.height = height;
+        result.pixels.resize(static_cast<std::size_t>(width) * height * 4u);
+        hr = converter->CopyPixels(nullptr, width * 4u,
+            static_cast<UINT>(result.pixels.size()), result.pixels.data());
+        if (FAILED(hr)) result = {};
+    }
+    // Release every WIC COM object while the apartment is still active. Some
+    // codecs touch apartment state from Release(), including failed decoders.
+    converter.Reset();
+    frame.Reset();
+    decoder.Reset();
+    stream.Reset();
+    factory.Reset();
+    if (uninitialize) CoUninitialize();
+    if (!result.pixels.empty()) return result;
+#endif
     MLOG_WARN("[tex] unknown image format, magic bytes: %02x %02x %02x %02x",
               data[0], data[1], data[2], data[3]);
     return {};

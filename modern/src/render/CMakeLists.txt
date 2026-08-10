@@ -2,6 +2,11 @@
 # 1:1 method signatures with original DX8 IRenderer; DX11 backend.
 
 add_library(mxh_render STATIC
+    filesystem_file_storage.cpp
+    terrain_scene.cpp
+    static_scene.cpp
+    sky_scene.cpp
+    entity_scene.cpp
     dx11/device.cpp
     dx11/primitives.cpp
     dx11/sprite.cpp
@@ -24,10 +29,12 @@ target_include_directories(mxh_render PUBLIC
 target_link_libraries(mxh_render
     PUBLIC
         mxh_compat     # for I4DyuchiFileStorage implementation (Phase 5: pack files)
+        mxh_game       # original ItemList -> equipped character MOD mapping
         mxh_log
         d3d11
         dxgi
         d3dcompiler
+        windowscodecs
 )
 
 if(MSVC)

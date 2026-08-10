@@ -6,6 +6,7 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "mxh/render/IRenderer.hpp"
@@ -49,6 +50,9 @@ public:
                                           void* srv) override {
         setDiffuseSRV(groupIndex, static_cast<ID3D11ShaderResourceView*>(srv));
     }
+    void __stdcall SetWorldTransform(const MATRIX4* world) override {
+        m_world = world ? *world : MatrixIdentity();
+    }
     BOOL __stdcall Render(std::uint32_t dwRefIndex, std::uint32_t dwAlpha,
                            LIGHT_INDEX_DESC* pDynamicLightIndexList, std::uint32_t dwLightNum,
                            LIGHT_INDEX_DESC* pSpotLightIndexList, std::uint32_t dwSpotLightNum,
@@ -72,6 +76,12 @@ public:
     void setEffectPalette(class EffectShaderPalette* palette);
     void releaseBuffers();
 
+    // Modern internal path used by CPU-skinned legacy ANM models. Static
+    // meshes keep their immutable buffer; the first update promotes only this
+    // vertex buffer to D3D11_USAGE_DYNAMIC.
+    bool updateVertices(std::span<const VECTOR3> positions,
+                        std::span<const VECTOR3> normals);
+
     // Render using an effect entry (sphere-map / wave). Called by the renderer's
     // RenderMeshObject when dwFlag & RENDER_TYPE_USE_EFFECT.
     // matWorld: object's world matrix (used for sphere-map texgen).
@@ -84,6 +94,7 @@ public:
     ID3D11Buffer*          vertexBuffer() const { return m_vertexBuffer.Get(); }
     ID3D11Buffer*          indexBuffer()  const { return m_indexBuffer.Get(); }
     const std::vector<FaceGroup>& faceGroups() const { return m_faceGroups; }
+    const MATRIX4& worldTransform() const noexcept { return m_world; }
 
 private:
     MeshObject() = default;
@@ -91,6 +102,7 @@ public:
     ~MeshObject();
 
     bool finalizeVB();
+    bool                                m_dynamicVertices = false;
 
     Device*                                m_dev = nullptr;
     class EffectShaderPalette*             m_effectPalette = nullptr;
@@ -104,6 +116,7 @@ public:
     std::uint32_t                          m_vertexCount = 0;
     std::uint32_t                          m_indexCount  = 0;
     std::uint32_t                          m_refCount    = 1;
+    MATRIX4                                m_world = MatrixIdentity();
 };
 
 } // namespace mxh::gx::dx11

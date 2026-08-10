@@ -28,7 +28,7 @@ struct VSOutput {
     float4 col : COLOR0;
 };
 cbuffer CBuf : register(b0) {
-    float4x4 viewProj;
+    row_major float4x4 viewProj;
 };
 VSOutput main(VSInput i) {
     VSOutput o;

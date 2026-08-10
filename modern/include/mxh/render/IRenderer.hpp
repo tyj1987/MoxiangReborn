@@ -27,6 +27,9 @@ interface IDIMeshObject : public IUnknown {
     // system did this server-side; the renderer's PS samples t0).
     virtual void __stdcall SetFaceGroupDiffuseSRV(std::uint32_t groupIndex,
                                                   void* srv) = 0;
+    // Modern internal scene bridge for the transform formerly supplied by
+    // the legacy Executive render walk.
+    virtual void __stdcall SetWorldTransform(const MATRIX4* world) = 0;
     virtual BOOL __stdcall Render(std::uint32_t dwRefIndex, std::uint32_t dwAlpha,
                                    LIGHT_INDEX_DESC* pDynamicLightIndexList, std::uint32_t dwLightNum,
                                    LIGHT_INDEX_DESC* pSpotLightIndexList, std::uint32_t dwSpotLightNum,
