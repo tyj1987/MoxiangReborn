@@ -1,5 +1,7 @@
 ﻿#pragma once
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/services/IInventoryService.hpp"
+#include "mxh/services/ITradeService.hpp"
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -11,13 +13,13 @@ public:
  bool AddOwnItem(DealItem item); bool AddOtherItem(DealItem item);
  void SetOtherMoney(std::uint32_t money) noexcept {m_other_money=money;}
  void SetOwnMoney(std::uint32_t money) noexcept {m_own_money=money;}
- void SetCompleteCallback(CompleteCallback cb){m_complete=std::move(cb);}
+ void SetCompleteCallback(CompleteCallback cb){m_complete=std::move(cb);} void SetInventoryService(mxh::services::IInventoryService* service) noexcept {m_inventory_service=service;} void SetTradeService(mxh::services::ITradeService* service) noexcept {m_trade_service=service;}
  bool Confirm(); void Cancel() noexcept;
  bool IsConfirmed() const noexcept{return m_confirmed;} bool IsCancelled() const noexcept{return m_cancelled;}
  std::uint32_t NetMoney() const noexcept{return m_other_money>m_own_money?m_other_money-m_own_money:0;}
  const std::vector<DealItem>& OwnItems()const noexcept{return m_own_items;}
  const std::vector<DealItem>& OtherItems()const noexcept{return m_other_items;}
 private:
- std::vector<DealItem> m_own_items,m_other_items; std::uint32_t m_own_money{},m_other_money{}; bool m_confirmed{},m_cancelled{}; CompleteCallback m_complete;
+ std::vector<DealItem> m_own_items,m_other_items; std::uint32_t m_own_money{},m_other_money{}; bool m_confirmed{},m_cancelled{}; CompleteCallback m_complete; mxh::services::IInventoryService* m_inventory_service{}; mxh::services::ITradeService* m_trade_service{};
 };
 }
