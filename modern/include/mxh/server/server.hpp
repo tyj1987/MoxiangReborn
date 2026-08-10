@@ -292,6 +292,16 @@ public:
     // empty so the hardcoded path remains intact.
     void load_skill_list(const std::string& path);
 
+    // M3 dev-stub-caster: when enabled, handle_skill() will inject a
+    // minimal PlayerInfo + PlayerRuntime stub into connected_players_ /
+    // player_runtimes_ if the Skill.StartSyn caster_id is not in state,
+    // then continue to the normal StartAck + damage path.  This lets the
+    // side-by-side harness drive an attack scenario against a MapServer
+    // that has not been through GameInSyn without producing a Nack.
+    // Production MapServer deployments must leave this OFF (default).
+    void set_dev_stub_caster(bool on) noexcept { dev_stub_caster_ = on; }
+    bool dev_stub_caster() const noexcept { return dev_stub_caster_; }
+
     // Test-only read-only accessor for skill_manager_.
     const mxh::game::SkillManager& skill_manager_for_test() const noexcept { return skill_manager_; }
     const mxh::game::SkillInfo* find_skill(std::uint32_t skill_idx) const;
@@ -460,6 +470,10 @@ private:
 
     bool use_hsel_;
     HselSessionManager hsel_;
+
+    // M3 dev-stub-caster.  See set_dev_stub_caster() above for the
+    // production-safety rationale.  Default false.
+    bool dev_stub_caster_ = false;
 };
 
 }  // namespace mxh::server
