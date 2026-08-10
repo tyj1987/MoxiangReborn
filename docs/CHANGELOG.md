@@ -1,4 +1,17 @@
 
+## 2026-08-10 - server: SkillCaster data plane module (1:1 damage + decision chain) + 15 tests
+
+modern/include/mxh/server/skill_caster.hpp + modern/src/server/skill_caster.cpp add a new pure-function data plane mirroring the npc_shop / quest_manager shape. The module exposes:
+ * `SkillCasterStatus { Ok, UnknownSkill, DeadCaster, NotEnoughMp, OutOfRange, WrongKind }` 1:1 with legacy `CObjectManager::UseSkill` guards.
+ * `SkillCasterRequest { caster combat+pos, target combat+pos+present, SkillInfoSimple }`.
+ * `skill_caster_decide_use(req, rng) -> SkillCasterDecision` runs the full guard chain (alive -> skill_idx -> kind -> MP -> target present+range -> damage formula).
+ * `skill_caster_calculate_damage(attacker, defender, skill, rng)` is a 1:1 extract of `MapHandler::calculate_damage` (dodge `rng()%100 < dodge_rate` / phy `phy_attack + phy_attack - phy_defence clamped to 1` / attr clamped to 0 / crit `crit_roll < (skill.crit + attacker.crit)` then `* 1.5`).
+ * `skill_caster_heal_amount(caster, skill) = phy_attack + level * 5` 1:1 with the in-line heal in `handle_skill`.
+
+modern/tests/unit/server/skill_caster_test.cpp adds 15 gtest cases covering all 6 status paths (UnknownSkill / DeadCaster hp==0 / DeadCaster flag / NotEnoughMp / OutOfRange / WrongKind / DeadTarget), the 1:1 damage formula (base clamped to 1 / attr clamped to 0 / crit x1.5 / dodge miss), the end-to-end decision (Combo skill positive damage), and the heal amount. modern/src/CMakeLists.txt + modern/tests/unit/server/CMakeLists.txt register the new sources + the `mxh_skill_caster_tests` exe. `MapHandler::calculate_damage` is NOT rewired yet; 5/5 attack capture wire shape stays byte-for-byte stable while the data plane is validated independently.
+
+11859/11859 ctest PASS (was 11844 + 15 new); `scripts/commercial-smoke.ps1` PASS; `python scripts/check-project-governance.py` PASS. See git log 4deb5529.
+
 ## 2026-08-10 - server: BuySyn/StartSyn OK arm applies money+inventory+quest side effects
 
 modern/src/server/map_handler.cpp BuySyn handler now drives a real 1:1 decision via the dealitem catalog: when `npc_shop_buy_decision().status == Ok` it auto-infers `npc_id` from the loaded `dealitem_catalog_`, deducts `qty*price` from `PlayerInfo.money` and inserts `qty` `ItemBase` entries into the actor inventory (mirroring back to `PlayerInfo.items.Inventory`); failure paths (catalog miss / inventory full / insufficient money) roll back the money mutation and emit `BuyNack`. The wire contract for the Ok path is `BuyAck` (4B item+qty echo); the Nack path stays byte-for-byte identical with the existing 4B echo so the side-by-side 5/5 capture keeps diff=0.
