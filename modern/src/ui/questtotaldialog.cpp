@@ -2,7 +2,7 @@
 
 #include "mxh/ui/cJournalDialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
-#include "mxh/ui/cQuestDialog.hpp"
+#include "mxh/ui/cquestdialog.hpp"
 #include "mxh/ui/cWantedDialog.hpp"
 
 namespace mxh::ui {
@@ -121,6 +121,10 @@ std::uint32_t cQuestTotalDialog::GetSelectedQuestID() const {
     }
     const auto* sel = m_pQuestDlg->Selected();
     return sel ? sel->id : kNoSelectedQuestId;
+}
+
+bool cQuestTotalDialog::ClaimSelectedQuest() {
+    return m_pQuestDlg && m_pQuestDlg->ClaimSelected();
 }
 
 void cQuestTotalDialog::CloseMsgBox() {

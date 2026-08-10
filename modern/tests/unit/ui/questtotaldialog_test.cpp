@@ -1,8 +1,8 @@
 #include "questtotaldialog.hpp"
+#include "mxh/ui/cquestdialog.hpp"
 
 #include "mxh/ui/cJournalDialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
-#include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cTabDialog.hpp"
 #include "mxh/ui/cWantedDialog.hpp"
 
@@ -17,6 +17,7 @@ using mxh::ui::cJournalDialog;
 using mxh::ui::cPushupButton;
 using mxh::ui::cQuestDialog;
 using mxh::ui::cQuestTotalDialog;
+using mxh::ui::QuestStatus;
 using mxh::ui::cTabDialog;
 using mxh::ui::cWantedDialog;
 
@@ -189,6 +190,22 @@ TEST(QuestTotalDialogTest, GetSelectedQuestIDReturnsSelectedId) {
     quest.Select(0);
     dialog.SetSubDialogsForTest(nullptr, &quest, nullptr);
     EXPECT_EQ(dialog.GetSelectedQuestID(), 42u);
+}
+
+TEST(QuestTotalDialogTest, ClaimSelectedQuestDelegatesToQuestService) {
+    cQuestTotalDialog dialog;
+    cQuestDialog quest;
+    struct Service final : mxh::services::IQuestService {
+        std::uint32_t claimed{};
+        bool claimQuest(std::uint32_t id) override { claimed = id; return true; }
+    } service;
+    quest.SetQuestService(&service);
+    quest.AddQuest({42, "Claimable", QuestStatus::Completed, 10});
+    ASSERT_TRUE(quest.Select(0));
+    dialog.SetSubDialogsForTest(nullptr, &quest, nullptr);
+    EXPECT_TRUE(dialog.ClaimSelectedQuest());
+    EXPECT_EQ(service.claimed, 42u);
+    EXPECT_EQ(quest.Selected()->status, QuestStatus::Claimed);
 }
 
 TEST(QuestTotalDialogTest, DelegationMethodsTolerateNullSubDialogs) {

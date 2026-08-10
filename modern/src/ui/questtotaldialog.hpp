@@ -69,6 +69,7 @@ public:
                                   std::uint32_t data);
 
     std::uint32_t GetSelectedQuestID() const;
+    bool ClaimSelectedQuest();
     void CloseMsgBox();
     void GiveupQuestDelete(std::uint32_t questIdx);
 
