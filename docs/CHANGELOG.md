@@ -1,5 +1,13 @@
 
 
+## 2026-08-10 - BgmPlayer playback loop verification (M4 advance)
+
+- `tests/unit/audio/bgm_player_test.cpp` adds 3 tests beyond the existing 2 resolve tests: `PlaybackLoopReportsCurrentId` (play + stop), `PlaybackReplacesCurrentBgm` (call play(A) then play(B), verify B replaces A in `currentSoundId`), and `VolumeClampIsApplied` (call `setVolume()` with out-of-range values; must not crash). On Windows the MCI commands drive real playback so the test runs end-to-end; on non-Windows the player refuses and the test asserts the refusal, keeping the suite portable.
+- Confirms the original BGM (login music id=1667 / `bg_login.mp3` and field music id=1663 / `bg_field.mp3`) can be opened and played through the modern playback loop, replacing each other in sequence. Audio log line `[audio] playing original BGM id=N` confirms the MCI open succeeds.
+- 11802 unit tests now pass (was 11799 + 3 new BGM tests).
+
+
+
 ## 2026-08-10 - bsad skill-area parser: real MHFile text format + PlayDH coverage tool (M4 advance)
 
 - The on-disk `.bsad` (skill area) format is NOT a binary width/height/cells blob as previously assumed. Real files are standard MHFile `.bin` containers (12-byte header + 1-byte CRC + XOR-encrypted payload). After the standard MHFile decryption (`decrypt_bin_payload`), the payload is a text file: `<radius>\r\n` followed by `W*H` ASCII digit tokens (W = H = 2*radius + 1; cells are "0"=Empty / "1"=Hit / "2"=Block). The legacy `CSkillAreaData::LoadAreaData()` calls `pFile->GetByte()` (which is `atoi(GetString())`), so each cell is read as one whitespace-separated decimal token.
