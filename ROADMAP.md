@@ -27,7 +27,7 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 |---|---|---|---|
 | T1 资源 | 303 条 SHA-256 锁定；268 个真实解析入口 | 基准来自原始 PlayDH/deploy | **完成** |
 | T2 协议 | 85 个 wire golden、96 类 dispatcher 覆盖、1001 包 replay 稳定；modern 客户端与三服务端五步 E2E 通过 | 不要求新旧互通；后续以真实玩法闭环覆盖 modern 消息路径 | **RC 基础闭环完成** |
-| 客户端/服务端运行时 | Login/Agent/Map 三进程和五步无头客户端 E2E 可运行；GUI 客户端已修复端口配置、WM_PAINT 饥饿和状态回调，可登录并取得角色列表 | GUI 仍使用占位 sprite/file storage，空账号缺少建角交互，尚未显示真实地图与完整 UI | **协议闭环完成，图形客户端未完成** |
+| 客户端/服务端运行时 | Login/Agent/Map 三进程和五步无头客户端 E2E 可运行；gui-client-smoke 五个状态帧全过；gui-client-smoke -FollowCamera 5/5 entity-frame 像素检测全过（原版地图 + CharacterAppearance hero + 5 只 MonsterList monster + 原版 BGM 均验证，详见 docs/COMMERCIAL_RC_VISUAL_VERIFICATION.md） | 以上仅为 modern 侧视觉验收；in-game HUD（HP/MP/quick slot）仍未接入，跨实现对照仍需 legacy 运行环境 | **协议闭环完成 + modern 侧图形客户端 1:1 视觉验收完成** |
 | UI | 165 个 legacy dialog 头均已有 modern port；198 个 UI 头、3314 个测试；Quest/Deal/仓库已有真实 service wiring | 9 个业务 Tier-3 dialog（历史重点为 Quest/Deal 类）仍需完整 service 接线和截图对比；当前 3 个核心业务 dialog 有 service 行为验收 | **port 完成，业务集成待验收** |
 | 玩法/数值 | D1-D6 数据面与 side-effect runtime 已形成广泛单测覆盖 | 五段核心玩法 side-by-side 尚未全部 diff=0 | **部分完成** |
 | DX11 渲染 | headless 3 帧可自然退出；像素门禁锁定 grid、cube、checker 纹理与深度遮挡 | 仍需与原版登录/空场景截图对比 | **modern 闭环完成，legacy 视觉待验收** |
