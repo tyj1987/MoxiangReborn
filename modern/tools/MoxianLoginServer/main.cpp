@@ -11,6 +11,7 @@
 #include <csignal>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -32,7 +33,7 @@ namespace {
 struct Args {
     std::uint16_t port = 6001;
     std::string db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
-    std::string db_path = "./moxian.db";
+    std::string db_path = "modern/build/runtime/moxian.db";
     std::string agent_addr = "127.0.0.1";
     std::uint16_t agent_port = 7001;
     bool init_schema = false;
@@ -144,6 +145,10 @@ int main(int argc, char** argv) {
     auto db_cfg = mxh::db::ConnectionConfig::from_kv_string(args.db_path);
     if (db_cfg.path.empty()) db_cfg.path = args.db_path;  // raw path fallback
     if (db_cfg.backend.empty()) db_cfg.backend = args.db_backend;
+    if (db_cfg.backend == "sqlite") {
+        const auto parent = std::filesystem::path(db_cfg.path).parent_path();
+        if (!parent.empty()) std::filesystem::create_directories(parent);
+    }
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect (backend='" << db_cfg.backend
                        << "' path='" << db_cfg.path

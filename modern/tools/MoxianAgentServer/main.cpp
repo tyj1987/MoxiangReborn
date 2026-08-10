@@ -31,6 +31,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -42,7 +43,7 @@ namespace {
 struct Args {
     std::uint16_t port       = 7001;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
-    std::string   db_path    = "./moxian_agent.db";
+    std::string   db_path    = "modern/build/runtime/moxian_agent.db";
     bool          use_legacy = false;
     bool          use_hsel   = false;
     // Phase 9: optional MapServer connection for GameIn forwarding.
@@ -214,6 +215,10 @@ int main(int argc, char** argv) {
     if (db_cfg.path.empty()) db_cfg.path = args.db_path;  // raw path fallback
     if (db_cfg.backend.empty()) db_cfg.backend = args.db_backend;
     if (db_cfg.backend.empty()) db_cfg.backend = "sqlite";
+    if (db_cfg.backend == "sqlite") {
+        const auto parent = std::filesystem::path(db_cfg.path).parent_path();
+        if (!parent.empty()) std::filesystem::create_directories(parent);
+    }
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect: " << cr.error_message << "\n"; return 1; }
 

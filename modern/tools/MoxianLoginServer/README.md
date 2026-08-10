@@ -8,5 +8,5 @@ implements the Distribute phase of the login flow:
         → returns AgentServer address
 
 Usage:
-  mxh_login_server --port 6001 --db "sqlite;path=./moxian.db" \
+  mxh_login_server --port 6001 --db "sqlite;path=modern/build/runtime/moxian.db" \
                     --agent-addr 127.0.0.1 --agent-port 7001

@@ -29,6 +29,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -41,7 +42,7 @@ struct Args {
     std::uint16_t port    = 8001;
     std::uint16_t map_num = 0;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
-    std::string   db_path = "./moxian_map.db";
+    std::string   db_path = "modern/build/runtime/moxian_map.db";
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
 };
@@ -150,6 +151,10 @@ int main(int argc, char** argv) {
     auto db_cfg = mxh::db::ConnectionConfig::from_kv_string(args.db_path);
     if (db_cfg.path.empty()) db_cfg.path = args.db_path;  // raw path fallback
     if (db_cfg.backend.empty()) db_cfg.backend = args.db_backend;
+    if (db_cfg.backend == "sqlite") {
+        const auto parent = std::filesystem::path(db_cfg.path).parent_path();
+        if (!parent.empty()) std::filesystem::create_directories(parent);
+    }
     auto cr = db->connect(db_cfg);
     std::filesystem::path ai_groups_path =
         std::filesystem::path("Resource/Server") /

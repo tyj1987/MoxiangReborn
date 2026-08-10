@@ -4,8 +4,12 @@
 #include "mxh/compat/bmhm_map.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/compat/pack_file.hpp"
+#include "mxh/compat/sound_list.hpp"
+#include "mxh/compat/hfl_height_field.hpp"
+#include "mxh/compat/stm_static_model.hpp"
 
 #include <cstdlib>
+#include <cfloat>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -34,6 +38,9 @@ COMMANDS:
                                   Extract one entry from a .pak
     bsad       <file.bsad>         Visualize a skill area
     map        <file.bmhm>         Show map header info
+    sound-list <SoundList.bin>     List original audio IDs and playback metadata
+    hfl        <file.hfl>          Show terrain dimensions and texture palette
+    stm        <file.stm>          Show static scene materials and mesh totals
 
 OPTIONS:
     -o, --output DIR    Output directory
@@ -65,6 +72,96 @@ int cmd_info(const fs::path& path) {
         }
         std::cout << std::dec << "\n";
     }
+    return 0;
+}
+
+int cmd_sound_list(const fs::path& path) {
+    mxh::compat::SoundList list;
+    std::string error;
+    if (!mxh::compat::load_sound_list(path, list, &error)) {
+        std::cerr << "ERROR: " << error << ": " << path << "\n";
+        return 1;
+    }
+    std::size_t available = 0;
+    for (const auto& entry : list.entries) {
+        if (entry.available) ++available;
+        std::cout << entry.index << '\t' << entry.file_name
+                  << "\tloop=" << entry.loop
+                  << "\tstream=" << entry.streaming
+                  << "\tmin=" << entry.min_distance
+                  << "\tmax=" << entry.max_distance
+                  << "\tvolume=" << entry.volume
+                  << "\tavailable=" << entry.available << '\n';
+    }
+    std::cerr << "SoundList: entries=" << list.entries.size()
+              << " available=" << available
+              << " null=" << (list.entries.size() - available) << '\n';
+    return 0;
+}
+
+int cmd_hfl(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) { std::cerr << "ERROR: cannot open " << path << "\n"; return 1; }
+    const auto size = static_cast<std::size_t>(input.tellg());
+    input.seekg(0);
+    std::vector<std::uint8_t> bytes(size);
+    if (!input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size))) return 1;
+    mxh::compat::HflHeightField hfl;
+    std::string error;
+    if (!mxh::compat::parse_hfl(bytes, hfl, &error)) {
+        std::cerr << "ERROR: " << error << "\n"; return 1;
+    }
+    std::vector<bool> used(hfl.textures.size(), false);
+    for (const auto tile : hfl.tiles) if ((tile & 0x3fffu) < used.size()) used[tile & 0x3fffu] = true;
+    std::cout << "HFL version=" << hfl.version << " heights=" << hfl.desc.height_count_x << 'x'
+              << hfl.desc.height_count_z << " tiles=" << hfl.desc.tile_count_x << 'x'
+              << hfl.desc.tile_count_z << " textures=" << hfl.textures.size() << "\n";
+    for (std::size_t i = 0; i < hfl.textures.size(); ++i)
+        std::cout << i << '\t' << hfl.textures[i].index << '\t' << hfl.textures[i].name
+                  << "\tused=" << used[i] << '\n';
+    return 0;
+}
+
+int cmd_stm(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) { std::cerr << "ERROR: cannot open " << path << "\n"; return 1; }
+    const auto size = static_cast<std::size_t>(input.tellg());
+    input.seekg(0);
+    std::vector<std::uint8_t> bytes(size);
+    if (!input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size))) return 1;
+    mxh::compat::StmStaticModel stm;
+    std::string error;
+    const bool parsed = path.extension() == ".mod"
+        ? mxh::compat::parse_mod(bytes, stm, &error)
+        : mxh::compat::parse_stm(bytes, stm, &error);
+    if (!parsed) {
+        std::cerr << "ERROR: " << error << "\n"; return 1;
+    }
+    std::size_t vertices = 0, faces = 0;
+    std::array<float, 3> low{FLT_MAX, FLT_MAX, FLT_MAX};
+    std::array<float, 3> high{-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    for (const auto& mesh : stm.meshes) {
+        vertices += mesh.positions.size();
+        for (const auto& position : mesh.positions)
+            for (int axis = 0; axis < 3; ++axis) {
+                low[axis] = std::min(low[axis], position[axis]);
+                high[axis] = std::max(high[axis], position[axis]);
+            }
+        for (const auto& group : mesh.face_groups) faces += group.indices.size() / 3;
+    }
+    std::cout << "STM version=" << stm.version << " materials=" << stm.materials.size()
+              << " meshes=" << stm.meshes.size() << " vertices=" << vertices
+              << " faces=" << faces << " collision_offset=" << stm.collision_offset << "\n";
+    std::cout << "bounds=(" << low[0] << ',' << low[1] << ',' << low[2] << ")..("
+              << high[0] << ',' << high[1] << ',' << high[2] << ")\n";
+    if (!stm.meshes.empty()) {
+        const auto& t = stm.meshes.front().transform;
+        std::cout << "first_transform=(" << t[0] << ',' << t[5] << ',' << t[10]
+                  << "; " << t[12] << ',' << t[13] << ',' << t[14] << ")\n";
+    }
+    for (const auto& material : stm.materials)
+        std::cout << material.index << '\t' << material.texture_name << '\t'
+                  << "alpha=" << material.transparency << " flags=" << material.flags << '\n';
     return 0;
 }
 
@@ -249,6 +346,15 @@ int main(int argc, char** argv) {
         }
         if (cmd == "map" && positional.size() == 1) {
             return cmd_map(positional[0]);
+        }
+        if (cmd == "sound-list" && positional.size() == 1) {
+            return cmd_sound_list(positional[0]);
+        }
+        if (cmd == "hfl" && positional.size() == 1) {
+            return cmd_hfl(positional[0]);
+        }
+        if (cmd == "stm" && positional.size() == 1) {
+            return cmd_stm(positional[0]);
         }
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << "\n";

@@ -923,6 +923,8 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     ASSERT_TRUE(snapshot.has_value());
     EXPECT_EQ(snapshot->player_id, 123u);
     EXPECT_EQ(snapshot->map_num, 7u);
+    EXPECT_FLOAT_EQ(snapshot->pos_x, 25000.0f);
+    EXPECT_FLOAT_EQ(snapshot->pos_z, 25000.0f);
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
 }
 
@@ -945,6 +947,11 @@ TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
     EXPECT_EQ(ack.header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck));
     ASSERT_EQ(ack.payload.size(), mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE);
+    std::uint16_t spawn_x = 0, spawn_z = 0;
+    std::memcpy(&spawn_x, ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, sizeof(spawn_x));
+    std::memcpy(&spawn_z, ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, sizeof(spawn_z));
+    EXPECT_EQ(spawn_x, 25000u);
+    EXPECT_EQ(spawn_z, 25000u);
     for (std::size_t offset = mxh::game::HERO_TOTAL_ITEM_OFFSET;
          offset < mxh::game::HERO_TOTAL_OPTION_COUNTS_OFFSET; ++offset) {
         EXPECT_EQ(ack.payload[offset], 0u);
