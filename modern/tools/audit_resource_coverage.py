@@ -65,12 +65,38 @@ def run_explorer(explorer: Path, cmd_args, timeout=30):
         return -1, [str(exc)]
 
 
+def is_plaintext_ini(path: Path, sniff_bytes: int = 256) -> bool:
+    """Heuristic: legacy ships some .bin files that are actually plaintext
+    ini configs (e.g. Ini/GameDesc.bin = *DISPWIDTH 1024 ...).  Sniff the
+    first sniff_bytes bytes: if every non-empty byte is printable ASCII
+    (no NUL, no high-bit) the file is treated as plaintext."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(sniff_bytes)
+    except OSError:
+        return False
+    if not head:
+        return False
+    if b"\x00" in head:
+        return False  # NUL => binary
+    printable = set(range(0x09, 0x0D)) | set(range(0x20, 0x7F))
+    for b in head:
+        if b not in printable:
+            return False
+    return True
+
+
 def audit_file(explorer: Path, rel: Path, full: Path):
     """Return (status, size_bytes, note) for a single resource."""
     ext = full.suffix.lower()
     size = full.stat().st_size
     cmd = None
     timeout = 30
+    # AGENTS.md constitution §0: only binary .bin resources count
+    # toward coverage.  Sniff plaintext ini-config .bin files and tag
+    # them n/a so they do not pollute the coverage gate.
+    if ext == ".bin" and is_plaintext_ini(full):
+        return ("n/a", size, "plaintext config (not a binary .bin resource)")
     if ext == ".bin":
         cmd = ["info", str(full)]
     elif ext == ".pak":
@@ -142,6 +168,13 @@ def main():
         ext = full.suffix.lower()
         status, size, note = audit_file(explorer, rel, full)
         s = summary[ext]
+        # `n/a` (plaintext .bin ini configs) is tracked in the per-file
+        # report for transparency but excluded from the coverage total --
+        # AGENTS.md constitution §0 only counts binary resources.
+        if status == "n/a":
+            line = "%s\t%s\t%d\t%s" % (ext, rel, size, "N/A  " + note)
+            all_lines.append(line)
+            continue
         s["total"] += 1
         s[status] += 1
         s["bytes"] += size
@@ -202,3 +235,6 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+

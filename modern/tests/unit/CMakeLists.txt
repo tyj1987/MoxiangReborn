@@ -1,4 +1,4 @@
-add_executable(mxh_compat_tests
+﻿add_executable(mxh_compat_tests
     mh_file_ex_test.cpp
     mh_file_ex_utf8_test.cpp
     pack_file_test.cpp
@@ -179,3 +179,17 @@ target_include_directories(mxh_login_sbs_e2e_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_login_sbs_e2e_tests)
+
+
+# Phase 13.4 / M4 resource-coverage gate regression test.
+# Pins the is_plaintext_ini() heuristic in
+# modern/tools/audit_resource_coverage.py so the T1 coverage gate stays at
+# 100% even when legacy ships additional plaintext-config .bin files.
+add_test(NAME AuditResourceCoveragePlaintextDetection
+    COMMAND python
+        ${CMAKE_CURRENT_SOURCE_DIR}/compat/audit_resource_coverage_plaintext_test.py
+)
+set_tests_properties(AuditResourceCoveragePlaintextDetection PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
