@@ -1,3 +1,17 @@
+## 2026-08-10 - services: M2 real Quest/Trade/Move impl + src/ui include + 13 behavior tests
+
+Header-only real implementations for IQuestService / ITradeService / IMoveService under modern/include/mxh/services/.  Per-player state mutation helpers (QuestServiceImpl::claim, TradeServiceImpl::commit, MoveServiceImpl::teleport) plug into MapHandler dialog dispatch via the existing IInventoryService / ISkillService pattern.  modern/src/services/CMakeLists.txt adds src/ui to the INTERFACE include path so TradeServiceImpl can include cdealdialog.hpp for the complete DealItem POD; this keeps services header-only while still consuming UI-side data shapes.
+modern/tests/unit/CMakeLists.txt links mxh_services_real_tests against mxh_server so the new behavior tests can exercise server-side helpers.  services_real_test.cpp adds 13 new behavior assertions covering quest claim, trade commit boundary, and per-player teleport catalog.  See git log 726939f7.
+
+## 2026-08-10 - client: MoxianClient auto_create default true (CharSelect->CharMake bypass)
+
+modern/tools/MoxianClient/main.cpp flips ClientOptions::auto_create default from false to true.  A blank --login-port test account with no characters now flows through the existing CharSelect->CharMake state machine instead of getting stuck on the empty character list.  Existing accounts with characters are unaffected (the auto-route only triggers when !has_character).  Also normalizes the file BOM and fixes mojibake UTF-8 chars in the surrounding comments so the source reads correctly under modern editors.  See git log e0f3774d.
+
+## 2026-08-10 - server: npc_shop data plane module (Phase 13.4 / M3-MAP manager landing prep)
+
+Adds the npc_shop data plane under mxh::server::* so MapHandler BuySyn can stop being a BuyNack echo and start running a real decision.  DealerItem + DealerCatalog POD types match legacy CShopItemManager layout (Tab u8 / Pos u8 / ItemIdx u16 / ItemCount i32; -1 = unlimited, 0 = not sold, 1..5 = Bobusang stock).  parse_npc_shop_buy_request validates the 4B BuySyn payload.  npc_shop_buy_decision is the full 1:1 port of legacy CShopItemManager::ItemBuyAsk guard chain (NPC mismatch / qty<=0 / Bobusang limit / MAX_ITEMBUY_NUM cap / info lookup / village 1.2x / SWPROFIT / FORTWAR / GetCanBuyNumInMoney / GetCanBuyNumInSpace) returning a Decision struct so callers (MapHandler, future Bobusang / StreetStall) can apply mutations under their own players_mu_.
+deal_catalog_for(npc_id) returns a per-NPC DealerCatalog handle.  Currently the ShopList.bin / DealItem.bin loader has not landed so the catalog is empty by construction and every request resolves to NpcMismatch; the data-plane API is shaped so the loader drop-in only needs to populate the catalog.  modern/src/CMakeLists.txt adds server/npc_shop.cpp to the mxh_server target.  modern/tests/unit/server/CMakeLists.txt adds mxh_npc_shop_tests with 14 behavior assertions covering payload parsing, Bobusang stock, MAX_ITEMBUY_NUM, price formula, partial-purchase split, and NpcMismatch on empty catalog.  See git log 05eedf1d.
+
 
 
 ## 2026-08-10 - M3 attack D-stage Ack upgrade (caster dev-stub) + 5/5 modern goldens
