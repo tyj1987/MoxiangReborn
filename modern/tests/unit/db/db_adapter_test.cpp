@@ -25,6 +25,29 @@ TEST(DbAdapter, ConnectionConfigRoundTrip) {
     EXPECT_NE(str.find("host=localhost"), std::string::npos);
 }
 
+TEST(DbAdapter, SqlServerEncryptionPolicyRoundTripsExplicitOverrides) {
+    auto cfg = ConnectionConfig::from_kv_string(
+        "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=master;"
+        "encrypt=no;trust_server_certificate=yes;");
+    EXPECT_FALSE(cfg.encrypt);
+    EXPECT_TRUE(cfg.trust_server_certificate);
+
+    const auto serialized = cfg.to_kv_string();
+    EXPECT_NE(serialized.find("encrypt=no"), std::string::npos);
+    EXPECT_NE(serialized.find("trust_server_certificate=yes"), std::string::npos);
+}
+
+TEST(DbAdapter, SqlServerOdbcDriverPinRoundTrips) {
+    auto cfg = ConnectionConfig::from_kv_string(
+        "backend=mssql_odbc;host=localhost;database=MHGame;"
+        "odbc_driver=ODBC Driver 18 for SQL Server;");
+    EXPECT_EQ(cfg.odbc_driver, "ODBC Driver 18 for SQL Server");
+
+    const auto serialized = cfg.to_kv_string();
+    EXPECT_NE(serialized.find("odbc_driver=ODBC Driver 18 for SQL Server"),
+              std::string::npos);
+}
+
 TEST(DbAdapter, MakeAdapterReturnsNonNullForSqlite) {
     auto a = make_adapter("sqlite");
     ASSERT_NE(a, nullptr);

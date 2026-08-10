@@ -33,6 +33,13 @@ struct ConnectionConfig {
     std::string database;                  // MSSQL only
     std::string user;                      // MSSQL only
     std::string password;                  // MSSQL only
+    // Empty selects the newest installed Microsoft SQL Server ODBC driver
+    // (18, then 17). Set an exact registered driver name to pin deployment.
+    std::string odbc_driver;
+    // Production defaults remain encrypted; LocalDB smoke can explicitly
+    // opt out when the installed ODBC driver lacks TLS support.
+    bool encrypt = true;
+    bool trust_server_certificate = false;
 
     // Construct from a simple "key=value" string for tooling.
     static ConnectionConfig from_kv_string(std::string_view s);

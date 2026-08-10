@@ -4,8 +4,10 @@
 using namespace mxh::db;
 namespace {
 TEST(MssqlRealE2E, LoginCharacterAndLogMoneyRoundTrip) {
- const char* raw = std::getenv("MXH_MSSQL_E2E");
- if (!raw || !*raw) GTEST_SKIP() << "set MXH_MSSQL_E2E=backend=mssql_odbc;host=...;database=Moxiang;user=...;password=...";
+ const char* raw = std::getenv("MXH_MSSQL_LEGACY_E2E");
+ if (!raw || !*raw) GTEST_SKIP()
+     << "set MXH_MSSQL_LEGACY_E2E only after restoring a legacy .bak "
+        "containing CharacterInfo and LogMoney";
  auto cfg = ConnectionConfig::from_kv_string(raw);
  cfg.backend = "mssql_odbc";
  auto db = make_adapter(cfg.backend);

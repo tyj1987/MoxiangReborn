@@ -42,7 +42,8 @@ DbResult alloc_handle(SQLSMALLINT handle_type, SQLHANDLE input_handle,
 // Equivalent to what `mxh_db_tool --db "mssql_odbc;..."` would parse.
 //
 //   "mssql_odbc;host=...;port=...;database=...;user=...;password=...;dsn=...;"
-std::string build_conn_string(const ConnectionConfig& cfg) {
+std::string build_conn_string(const ConnectionConfig& cfg,
+                              std::string_view driver) {
     // If user supplied a DSN name, prefer that.
     if (!cfg.path.empty() && cfg.host.empty() && cfg.database.empty()) {
         return "DSN=" + cfg.path + ";";
@@ -64,11 +65,26 @@ std::string build_conn_string(const ConnectionConfig& cfg) {
     } else {
         auth = "Uid=" + cfg.user + ";Pwd=" + cfg.password + ";";
     }
-    std::string s = "Driver={ODBC Driver 17 for SQL Server};"
+    std::string s = "Driver={" + std::string(driver) + "};"
                     "Server=" + server + ";"
                     "Database=" + cfg.database + ";" +
-                    auth;
+                    auth +
+                    "Encrypt=" + std::string(cfg.encrypt ? "Yes" : "No") + ";" +
+                    "TrustServerCertificate=" +
+                    std::string(cfg.trust_server_certificate ? "Yes" : "No") + ";";
     return s;
+}
+
+bool driver_not_found(SQLHDBC dbc) {
+    SQLCHAR state[6] = {};
+    SQLINTEGER native = 0;
+    SQLCHAR message[2] = {};
+    SQLSMALLINT message_length = 0;
+    const SQLRETURN rc = SQLGetDiagRecA(
+        SQL_HANDLE_DBC, dbc, 1, state, &native, message,
+        static_cast<SQLSMALLINT>(sizeof(message)), &message_length);
+    return (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) &&
+           std::strcmp(reinterpret_cast<const char*>(state), "IM002") == 0;
 }
 
 }  // namespace
@@ -107,12 +123,21 @@ DbResult MssqlOdbcAdapter::connect(const ConnectionConfig& cfg) {
     // Connection timeout 5 s — keep login snappy.
     SQLSetConnectAttr(dbc_, SQL_LOGIN_TIMEOUT, reinterpret_cast<SQLPOINTER>(5), 0);
 
-    std::string conn_str = build_conn_string(cfg);
-    SQLRETURN rc = SQLDriverConnectA(
-        dbc_, nullptr,
-        reinterpret_cast<SQLCHAR*>(conn_str.data()),
-        static_cast<SQLSMALLINT>(conn_str.size()),
-        nullptr, 0, nullptr, SQL_DRIVER_NOPROMPT);
+    const std::vector<std::string> drivers = cfg.odbc_driver.empty()
+        ? std::vector<std::string>{"ODBC Driver 18 for SQL Server",
+                                  "ODBC Driver 17 for SQL Server"}
+        : std::vector<std::string>{cfg.odbc_driver};
+    SQLRETURN rc = SQL_ERROR;
+    for (std::size_t i = 0; i < drivers.size(); ++i) {
+        std::string conn_str = build_conn_string(cfg, drivers[i]);
+        rc = SQLDriverConnectA(
+            dbc_, nullptr,
+            reinterpret_cast<SQLCHAR*>(conn_str.data()),
+            static_cast<SQLSMALLINT>(conn_str.size()),
+            nullptr, 0, nullptr, SQL_DRIVER_NOPROMPT);
+        if (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) break;
+        if (i + 1 == drivers.size() || !driver_not_found(dbc_)) break;
+    }
 
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         DbResult error = translate_error(dbc_, SQL_HANDLE_DBC, "SQLDriverConnect");
