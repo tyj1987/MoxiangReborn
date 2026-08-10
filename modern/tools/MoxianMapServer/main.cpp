@@ -45,6 +45,7 @@ struct Args {
     std::string   db_path = "modern/build/runtime/moxian_map.db";
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
+    bool          dev_stub_caster = false;  // M3 side-by-side only
 };
 
 Args parse_args(int argc, char** argv) {
@@ -63,6 +64,8 @@ Args parse_args(int argc, char** argv) {
             a.use_legacy = false;
         else if (s == "--use-hsel")
             a.use_hsel = true;
+        else if (s == "--dev-stub-caster")
+            a.dev_stub_caster = true;  // M3 side-by-side only
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
@@ -219,6 +222,9 @@ int main(int argc, char** argv) {
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
             if (server_ptr) server_ptr->send(id, m);
         });
+
+    // M3 dev-stub-caster (side-by-side harness only).
+    handler.set_dev_stub_caster(args.dev_stub_caster);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;

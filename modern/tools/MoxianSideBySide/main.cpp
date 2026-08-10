@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
                                                 "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
 if (a.modern_legacy) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
-            ServerLaunch mm{mapPath, {"--port", std::to_string(a.modern_map_port), "--map", "12"}};
+            ServerLaunch mm{mapPath, {"--port", std::to_string(a.modern_map_port), "--map", "12", "--dev-stub-caster"}};
             modern_login = start_process(ml);
             modern_agent = start_process(ma);
             modern_map   = start_process(mm);

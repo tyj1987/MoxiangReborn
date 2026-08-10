@@ -95,7 +95,13 @@ ReplayScenario attack_scenario() {
     put_u32(p.data() + 4, 2);  // main_target
     put_u32(p.data() + 8, 0);  // target_x (f32 zero)
     put_u32(p.data() + 12, 0); // target_z (f32 zero)
-    s.client_packets.push_back(mk(22, 0, 0, std::move(p)));
+    // caster_id=1001 (matches enter_game_scenario) so the M3 dev-stub-caster
+    // on the modern MapServer can inject a real PlayerInfo + PlayerRuntime
+    // and we exercise the full StartAck + damage path instead of the
+    // deterministic Nack trace.  main_target=2 (must be a real monster on
+    // map 12; the spawn list uses object_ids >= 50000 so target 2 will
+    // miss the monster branch and the caster-only damage ack is emitted).
+    s.client_packets.push_back(mk(22, 0, 1001u, std::move(p)));
     return s;
 }
 
