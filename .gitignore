@@ -254,6 +254,8 @@ deploy/server/Agent/
 deploy/server/Map/
 deploy/server/Monitoring/
 deploy/server/RMTool/
+# deploy/runtime/ per-process runtime data + logs from start_modern.ps1.
+deploy/runtime/
 
 # Whitelist: keep the operational deploy/ subdirectories (override above).
 !deploy/DEPLOY_GUIDE.md
