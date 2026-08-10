@@ -92,3 +92,21 @@ target_link_libraries(mxh_resource_payload_sha256_tests PRIVATE mxh_compat gtest
 target_include_directories(mxh_resource_payload_sha256_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_resource_payload_sha256_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
+add_executable(mxh_monster_catalog_tests monster_catalog_test.cpp)
+target_link_libraries(mxh_monster_catalog_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_monster_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_monster_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
+add_executable(mxh_character_appearance_catalog_tests character_appearance_catalog_test.cpp)
+target_link_libraries(mxh_character_appearance_catalog_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_character_appearance_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_character_appearance_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
+add_executable(mxh_anm_motion_tests anm_motion_test.cpp)
+target_link_libraries(mxh_anm_motion_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_anm_motion_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_anm_motion_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)

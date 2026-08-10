@@ -8,9 +8,13 @@ add_executable(mxh_compat_tests
     chx_model_test.cpp
     compat/chr_motion_test.cpp
     item_effects_test.cpp
+    sound_list_test.cpp
+    audio/bgm_player_test.cpp
+    hfl_height_field_test.cpp
+    stm_static_model_test.cpp
 )
 
-target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_game gtest_main)
+target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_audio mxh_game gtest_main)
 
 include(GoogleTest)
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
