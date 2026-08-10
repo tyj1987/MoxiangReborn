@@ -396,6 +396,7 @@ add_library(mxh_server STATIC
     server/npc_shop.cpp
     server/dealitem_parser.cpp
     server/quest_script_loader.cpp
+    server/skill_caster.cpp
 )
 
 target_include_directories(mxh_server PUBLIC

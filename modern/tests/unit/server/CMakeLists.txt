@@ -3088,3 +3088,19 @@ gtest_add_tests(TARGET mxh_quest_script_loader_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
+# Skill caster data plane tests - Phase 13.4
+add_executable(mxh_skill_caster_tests
+    skill_caster_test.cpp
+)
+target_link_libraries(mxh_skill_caster_tests PRIVATE
+    mxh_server mxh_game gtest_main
+)
+target_include_directories(mxh_skill_caster_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_skill_caster_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
