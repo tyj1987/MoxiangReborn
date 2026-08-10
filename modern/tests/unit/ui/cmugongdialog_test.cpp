@@ -1,6 +1,8 @@
 ﻿#include "cmugongdialog.hpp"
 #include <gtest/gtest.h>
 using namespace mxh::ui;
+class MugongSkills final:public mxh::services::ISkillService{public:bool learned=false;std::uint32_t learnedSkillCount()const noexcept override{return learned?1:0;}std::uint32_t getLearnedSkillAt(std::uint32_t)const noexcept override{return 100;}bool isLearned(std::uint32_t id)const noexcept override{return learned&&id==100;}std::optional<std::uint8_t> getSkillLevel(std::uint32_t id)const noexcept override{return isLearned(id)?std::optional<std::uint8_t>(2):std::nullopt;}std::optional<std::uint8_t> getQuickSlotBinding(std::uint32_t)const noexcept override{return std::nullopt;}};
 TEST(MugongDialog, SetsSelectsAndEnablesSkill){cMugongDialog d;EXPECT_TRUE(d.SetSlot(0,{100,"Slash",false}));EXPECT_TRUE(d.Select(0));EXPECT_TRUE(d.SetEnabled(0,true));ASSERT_NE(d.Selected(),nullptr);EXPECT_TRUE(d.Selected()->enabled);}
 TEST(MugongDialog, RejectsInvalidSlotsAndEntries){cMugongDialog d;EXPECT_FALSE(d.SetSlot(12,{1,"Bad",true}));EXPECT_FALSE(d.SetSlot(0,{0,"",true}));EXPECT_FALSE(d.Select(0));}
 TEST(MugongDialog, ClearsSelectedSlot){cMugongDialog d;d.SetSlot(0,{1,"Slash",true});d.Select(0);EXPECT_TRUE(d.ClearSlot(0));EXPECT_EQ(d.Selected(),nullptr);EXPECT_FALSE(d.ClearSlot(0));}
+TEST(MugongDialog, RefreshesEnabledStateFromSkillService){cMugongDialog d;MugongSkills skills;d.SetSlot(0,{100,"Slash",true});d.SetSlot(1,{101,"Guard",true});d.SetSkillService(&skills);d.RefreshEnabledFromSkillService();EXPECT_FALSE(d.Slots()[0].enabled);EXPECT_FALSE(d.Slots()[1].enabled);skills.learned=true;d.RefreshEnabledFromSkillService();EXPECT_TRUE(d.Slots()[0].enabled);EXPECT_FALSE(d.Slots()[1].enabled);}
