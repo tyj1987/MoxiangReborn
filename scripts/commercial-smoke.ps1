@@ -1,8 +1,11 @@
 param(
-    [string]$BuildDir = "$PSScriptRoot\..\..\build",
-    [switch]$RepeatFlaky
+    [string]$BuildDir = '',
+    [switch]$RepeatFlaky,
+    [switch]$SkipMssql,
+    [switch]$SkipGui
 )
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $PSScriptRoot '..\modern\build' }
 $ctest = Join-Path $BuildDir 'CTestTestfile.cmake'
 if (-not (Test-Path -LiteralPath $ctest)) { throw "Build directory is not configured: $BuildDir" }
 $filters = @(
@@ -33,7 +36,9 @@ if ($LASTEXITCODE -ne 0) { throw "Commercial smoke failed with exit code $LASTEX
 # schema (creates Moxiang DB + chr_log_info/character_info + test account)
 # and drives the 3-process Login/Agent/Map chain over real SQL Server.
 $e2eExe = Join-Path $BuildDir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
-if (Test-Path -LiteralPath $e2eExe) {
+if ($SkipMssql) {
+    Write-Host "MSSQL_E2E SKIPPED (explicit -SkipMssql; external prerequisite not satisfied)" -ForegroundColor Yellow
+} elseif (Test-Path -LiteralPath $e2eExe) {
     & $e2eExe --backend mssql_odbc --init-schema
     if ($LASTEXITCODE -ne 0) {
         throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
@@ -47,6 +52,15 @@ if (Test-Path -LiteralPath $e2eExe) {
         Stop-Process -Force -ErrorAction SilentlyContinue
 } else {
     Write-Host "MSSQL_E2E SKIPPED (mxh_client_e2e not built)" -ForegroundColor Yellow
+}
+
+if ($SkipGui) {
+    Write-Host "GUI_CLIENT_SMOKE SKIPPED (explicit -SkipGui)" -ForegroundColor Yellow
+} else {
+    & (Join-Path $PSScriptRoot 'gui-client-smoke.ps1') -BuildDir $BuildDir
+    if ($LASTEXITCODE -ne 0) {
+        throw "GUI client smoke failed with exit code $LASTEXITCODE"
+    }
 }
 
 Write-Host "COMMERCIAL_SMOKE PASS" -ForegroundColor Green

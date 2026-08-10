@@ -23,6 +23,7 @@
 
 [CmdletBinding()]
 param(
+    [switch]$CleanKnownArtifacts,
     [switch]$SkipClean,
     [switch]$SkipWorkingTree,
     [switch]$Quiet
@@ -77,8 +78,9 @@ function Write-Summary {
     Write-Host '' -ForegroundColor Cyan
 }
 
-# Step 1: 清根目录散落
-if (-not $SkipClean) {
+# Step 1: 默认只审计根目录散落；显式 -CleanKnownArtifacts 才删除已知模式。
+# 这避免 bootstrap 在用户未看到清单时静默删除根目录文件。
+if ($CleanKnownArtifacts -and -not $SkipClean) {
     $cleaned = 0
     Get-ChildItem -LiteralPath $RepoRoot -Filter 'scratch_*.py' -File -ErrorAction SilentlyContinue | ForEach-Object {
         Remove-Item -LiteralPath $_.FullName -Force
@@ -103,6 +105,13 @@ if (-not $SkipClean) {
         }
     }
     $results.Step1_CleanRoot = if ($cleaned -eq 0) { 'CLEAN' } else { "OK ($cleaned items)" }
+} elseif (-not $SkipClean) {
+    $candidates = @()
+    foreach ($pattern in @('scratch_*.py', '*.log', '*.obj', '*.db', '*.db-shm', '*.db-wal', 'test_*.txt')) {
+        $candidates += Get-ChildItem -LiteralPath $RepoRoot -Filter $pattern -File -ErrorAction SilentlyContinue
+    }
+    $candidateCount = @($candidates | Sort-Object FullName -Unique).Count
+    $results.Step1_CleanRoot = if ($candidateCount -eq 0) { 'CLEAN' } else { "WARN ($candidateCount candidates; rerun with -CleanKnownArtifacts after review)" }
 }
 
 # Step 2: working tree
@@ -164,6 +173,6 @@ if ($blocking) {
 } else {
     $results.Step4_Confirm = 'READY'
     Write-Summary
-    Write-Host 'AGENTS.md OK | scratch CLEAN | bootstrap LOADED | ready.' -ForegroundColor Green
+    Write-Host 'AGENTS.md OK | scratch AUDITED | bootstrap LOADED | ready.' -ForegroundColor Green
     exit 0
 }
