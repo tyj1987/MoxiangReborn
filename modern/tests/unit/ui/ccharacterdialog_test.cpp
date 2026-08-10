@@ -50,6 +50,26 @@ using mxh::ui::cStatic;
 using mxh::ui::cGuagen;
 using mxh::ui::cButton;
 
+struct CharacterStats final : mxh::services::IPlayerStatsService {
+    std::uint16_t level = 1;
+    std::uint32_t hp = 0;
+    std::uint32_t mp = 0;
+    std::uint16_t getStr() const noexcept override { return 0; }
+    std::uint16_t getAgi() const noexcept override { return 0; }
+    std::uint16_t getInt() const noexcept override { return 0; }
+    std::uint16_t getWis() const noexcept override { return 0; }
+    std::uint16_t getDex() const noexcept override { return 0; }
+    std::uint16_t getLevel() const noexcept override { return level; }
+    std::uint32_t getLevelExp() const noexcept override { return 0; }
+    std::uint32_t getExpForNextLevel() const noexcept override { return 0; }
+    std::uint32_t getCurrentHp() const noexcept override { return hp; }
+    std::uint32_t getMaxHp() const noexcept override { return 0; }
+    std::uint32_t getCurrentMp() const noexcept override { return mp; }
+    std::uint32_t getMaxMp() const noexcept override { return 0; }
+    float getHpFraction() const noexcept override { return 0.0f; }
+    float getMpFraction() const noexcept override { return 0.0f; }
+};
+
 namespace test_chardlg {
 
 struct CapturedSet {
@@ -325,6 +345,25 @@ TEST(CCharacterDialog, RefreshInfoRoutesThroughUpdateData) {
     EXPECT_GT(test_chardlg::g_setCalls.size(), 0u);
     EXPECT_EQ(test_chardlg::g_attrCalls.size(), 4u);
     EXPECT_EQ(test_chardlg::g_guageCalls.size(), 4u);
+}
+
+TEST(CCharacterDialog, RefreshFromPlayerStatsWritesMappedLiveFields) {
+    test_chardlg::g_setCalls.clear();
+    cCharacterDialog d;
+    CharacterStats stats;
+    stats.level = 33;
+    stats.hp = 1200;
+    stats.mp = 450;
+    d.SetSetStaticTextCallbackForTest(&test_chardlg::faSetText, nullptr);
+    d.SetPlayerStatsService(&stats);
+    d.RefreshFromPlayerStats();
+    ASSERT_EQ(test_chardlg::g_setCalls.size(), 3u);
+    EXPECT_EQ(test_chardlg::g_setCalls[0].field, "level");
+    EXPECT_EQ(test_chardlg::g_setCalls[0].text, "33");
+    EXPECT_EQ(test_chardlg::g_setCalls[1].field, "life");
+    EXPECT_EQ(test_chardlg::g_setCalls[1].text, "1200");
+    EXPECT_EQ(test_chardlg::g_setCalls[2].field, "naeryuk");
+    EXPECT_EQ(test_chardlg::g_setCalls[2].text, "450");
 }
 
 TEST(CCharacterDialog, RefreshGuildInfoRoutesThroughCallback) {

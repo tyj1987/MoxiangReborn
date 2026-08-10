@@ -30,6 +30,7 @@
 #pragma once
 
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/services/IPlayerStatsService.hpp"
 #include "mxh/ui/cstatic.hpp"
 #include "mxh/ui/cwindow.hpp"
 
@@ -129,6 +130,12 @@ public:
     void UpdateData();
     void UpdateForStageAbility();
     void RefreshInfo();
+    // Refresh only fields with an unambiguous IPlayerStatsService mapping:
+    // level, current HP (life), and current MP (naeryuk).
+    void RefreshFromPlayerStats();
+    void SetPlayerStatsService(const mxh::services::IPlayerStatsService* service) noexcept {
+        m_playerStatsService = service;
+    }
     void RefreshGuildInfo();
     void RefreshPointInfo();
 
@@ -266,6 +273,7 @@ private:
     void*                 m_setStageUser      = nullptr;
     SetLevelCallback      m_setLevelCb        = nullptr;
     void*                 m_setLevelUser      = nullptr;
+    const mxh::services::IPlayerStatsService* m_playerStatsService = nullptr;
     MainBarIconCallback   m_mainBarCb         = nullptr;
     void*                 m_mainBarUser       = nullptr;
 };

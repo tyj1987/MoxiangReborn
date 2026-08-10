@@ -120,6 +120,13 @@ void cCharacterDialog::RefreshInfo() {
     UpdateForStageAbility();
 }
 
+void cCharacterDialog::RefreshFromPlayerStats() {
+    if (!m_playerStatsService) return;
+    SetLevel(m_playerStatsService->getLevel());
+    SetLife(m_playerStatsService->getCurrentHp());
+    SetNaeRyuk(m_playerStatsService->getCurrentMp());
+}
+
 void cCharacterDialog::RefreshGuildInfo() {
     // 1:1 with legacy RefreshGuildInfo.  Writes the
     // guild name + jikwe into m_ppStatic.munpa / jikwe.
