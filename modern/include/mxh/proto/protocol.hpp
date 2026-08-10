@@ -597,4 +597,18 @@ enum class BattleProtocol : std::uint8_t {
     Result                = 16,  // S->C: battle result
 };
 
+// Quest protocol (Category = Quest = 39, MP_QUEST).
+// Matches [CC]Header/Protocol.h MP_PROTOCOL_QUEST offsets 1:1. Only the
+// Start / End sub-protocols used by the T3 side-by-side replay harness
+// are defined here; legacy also has TotalInfo / ChangeState / Notify
+// sub-protocols that will be added when the modern quest manager lands.
+enum class QuestProtocol : std::uint8_t {
+    StartSyn              = 9,   // C -> S: start (accept) quest
+    StartAck              = 10,  // S -> C: quest accepted
+    StartNack             = 11,  // S -> C: quest rejected
+    EndSyn                = 12,  // C -> S: complete quest
+    EndAck                = 13,
+    EndNack               = 14,
+};
+
 }  // namespace mxh::proto
