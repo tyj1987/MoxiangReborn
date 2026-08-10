@@ -23,6 +23,8 @@
 #include "mxh/server/server.hpp"
 #include "mxh/game/item_manager.hpp"
 #include "mxh/game/item_list_parser.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
+#include "mxh/server/dealitem_parser.hpp"
 #include "cstdint"
 #include "filesystem"
 #include "fstream"
@@ -1408,4 +1410,44 @@ TEST(MapHandlerTest, FindSkillReadsFromLoadedSkillListBin) {
     const mxh::game::SkillInfo* s1 = handler.find_skill(1u);
     EXPECT_EQ(s1, nullptr);
 }
+
+namespace {
+std::vector<std::uint8_t> synthesize_dealitem_bin(const std::string& text) {
+    std::vector<std::uint8_t> payload(text.begin(), text.end());
+    const auto encrypted = mxh::compat::encrypt_bin_payload(payload, 42);
+    mxh::compat::MhFileHeader header{1, 42, static_cast<std::uint32_t>(payload.size())};
+    std::vector<std::uint8_t> raw(sizeof(header) + 1 + encrypted.size() + 1);
+    std::memcpy(raw.data(), &header, sizeof(header));
+    std::copy(encrypted.begin(), encrypted.end(), raw.begin() + sizeof(header) + 1);
+    return raw;
+}
+std::vector<std::uint8_t> synthesize_quest_text_bin(const std::string& text) {
+    return synthesize_dealitem_bin(text);
+}
+}  // namespace
+
+TEST(MapHandlerTest, LoadDealitemPopulatesCatalogFromBin) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    ASSERT_EQ(handler.dealitem_catalog_for_test().npcs.size(), 0u);
+    const std::string text =
+        "1 map 2 npc 7 10 20 0 1 tab 100 3 tab 101 -1\n"
+        "1 map 2 npc 7 10 20 0 2 tab 200 0\n";
+    const auto bin = synthesize_dealitem_bin(text);
+    const auto path = write_temp_bin(bin);
+    handler.load_dealitem(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    EXPECT_EQ(handler.dealitem_catalog_for_test().npcs.size(), 1u);
+    const auto* npc = handler.dealitem_catalog_for_test().find_npc(7);
+    ASSERT_NE(npc, nullptr);
+    ASSERT_EQ(npc->tabs.size(), 2u);
+    EXPECT_EQ(npc->tabs[0].size(), 2u);
+    EXPECT_EQ(npc->tabs[0][0].item_idx, 100u);
+    EXPECT_EQ(npc->tabs[0][1].item_count, std::numeric_limits<std::uint32_t>::max());
+    EXPECT_EQ(npc->tabs[1].size(), 1u);
+    EXPECT_EQ(npc->tabs[1][0].item_idx, 200u);
+}
+
 }  // namespace mxh::server::test

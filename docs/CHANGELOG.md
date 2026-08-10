@@ -500,4 +500,10 @@ See commit "client: GUI smoke per-state visual acceptance (CCW quad + sampler + 
 
 
 
+## 2026-08-10 - server: DealItem.bin 1:1 parser and NPC catalog adapter
+
+Adds the MHFile header/CRC/XOR-compatible DealItem.bin loader, aggregation of repeated NPC tabs, legacy item-count handling, and an adapter into NpcShopCatalog. Registers the parser and focused unit coverage in the modern build; Debug build and governance checks pass.
+## 2026-08-10 - server: DealItem.bin loader wired into MapHandler BuySyn
+
+MapHandler now exposes `load_dealitem(path)` which parses a real `Resource/DealItem.bin` and caches a per-NPC `DealItemParseResult` snapshot. The `BuySyn` arm of `handle_item` resolves the per-NPC `NpcShopCatalog` from this snapshot (entries + price hints) and feeds it into `npc_shop_buy_decision`. When the loader is not invoked the catalog stays empty and the existing 4B BuyNack echo / NpcMismatch side-by-side behavior is preserved. Hard I/O failures are logged to stdout and leave the catalog empty so the wire shape stays diff=0. `mxh_server_handler_tests` gains `MapHandlerTest.LoadDealitemPopulatesCatalogFromBin` covering a synthesized two-tab two-row DealItem.bin; all 35 DealItem / NpcShop / MapHandler tests pass and `python scripts/check-project-governance.py` PASS.
 

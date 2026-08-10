@@ -18,6 +18,7 @@
 #include "mxh/server/player.hpp"
 #include "mxh/server/drop_item.hpp"
 #include "mxh/server/quest_manager.hpp"
+#include "mxh/server/dealitem_parser.hpp"
 #include "mxh/server/pet_manager.hpp"
 #include "mxh/server/titan_manager.hpp"
 #include "mxh/server/ai_group_loader.hpp"
@@ -292,6 +293,18 @@ public:
     // empty so the hardcoded path remains intact.
     void load_skill_list(const std::string& path);
 
+    // M3-MAP dealitem loader: load the real DealItem.bin into
+    // dealitem_catalog_ so the BuySyn arm of handle_item() can resolve
+    // a per-NPC NpcShopCatalog instead of falling through to
+    // NpcMismatch.  Errors per row are logged to stdout and skipped; a
+    // hard I/O failure leaves dealitem_catalog_ empty so the wire
+    // shape stays a 4B BuyNack echo and side-by-side 5/5 capture stays
+    // diff=0 (same as the npc_id=0 + empty catalog pre-loader arm).
+    void load_dealitem(const std::string& path);
+
+    // Test-only read-only accessor for the loaded dealitem catalog.
+    const mxh::server::DealItemParseResult& dealitem_catalog_for_test() const noexcept { return dealitem_catalog_; }
+
     // M3 dev-stub-caster: when enabled, handle_skill() will inject a
     // minimal PlayerInfo + PlayerRuntime stub into connected_players_ /
     // player_runtimes_ if the Skill.StartSyn caster_id is not in state,
@@ -467,6 +480,15 @@ private:
     // offline / test code keeps the 4-skill hardcoded fallback in
     // init_skill_table().  find_skill() checks this manager first.
     mxh::game::SkillManager skill_manager_;
+
+    // M3-MAP DealItem.bin -> per-NPC catalog snapshot.  Empty by
+    // default so the BuySyn arm falls through to NpcMismatch and the
+    // side-by-side 5/5 capture stays diff=0.  load_dealitem() fills it
+    // from a real Resource/DealItem.bin at server startup.
+    mxh::server::DealItemParseResult dealitem_catalog_;
+    std::mutex dealitem_mu_;
+
+
 
     bool use_hsel_;
     HselSessionManager hsel_;
