@@ -5,6 +5,37 @@
 
 æœ€è¿‘é‡æž„: 2026-08-06 - æŠŠè€ ROADMAP (434 è¡Œ) ç æˆè§„åˆ’æ–‡æ¡£ (158 è¡Œ) + æœ¬ CHANGELOGã€‚
 
+## 2026-08-09 — R-9 headless 帧闭环
+
+- 修复 demo `WM_PAINT` 未验证导致的无限消息循环，headless 3 帧现可自然退出。
+- 修复 cube 索引越界及左手坐标系相机方向错误。
+- 新增 `RenderDemo.HeadlessFrameAcceptance`，锁定 grid、cube、checker 纹理和深度遮挡。
+
+## 2026-08-09 — C-Tier-3 service wiring progress
+
+- `cMPGuageDialog` now consumes `IPlayerStatsService` for live EXP progress with max-level and overrun handling.
+- `cQuickDialog` now validates item and skill bindings through `IInventoryService` and `ISkillService`.
+- `cInventoryExDialog` now refreshes its 60-slot view from `IInventoryService` item snapshots.
+- `cMugongDialog` now refreshes slot enabled state from `ISkillService` learned-skill state.
+- `cCharacterDialog` now refreshes level, current HP, and current MP from `IPlayerStatsService` without guessing shield/attribute mappings.
+- Added 6 service-backed UI behavior tests; existing dialog contracts remain green.
+
+## 2026-08-09 — runtime database path hardening
+
+- Login, Agent, and Map server defaults now write SQLite runtime databases under `modern/build/runtime/` instead of the repository root.
+- Each server creates the selected SQLite database's parent directory before connecting; explicitly supplied `--db` paths remain supported.
+- This prevents future smoke runs from regenerating root `moxian.db*` pollution; existing historical files remain listed for user-confirmed cleanup.
+
+## 2026-08-09 — C-Tier-3 scope correction
+
+- Reconciled the historical Phase C definition: Tier-3 refers to business dialogs that depend on Phase B quest/trade services (historical candidates include QuestDialog, QuestTotalDialog, and DealDialog).
+- Existing inventory/skill/player wiring remains valid reusable progress, but is no longer counted as proof of the nine-dialog Tier-3 business acceptance.
+- Added `IQuestService` and wired `cQuestDialog::ClaimSelected()` through it; service rejection leaves the quest in `Completed` state. Two UI behavior tests lock the acceptance/rejection paths.
+- Added inventory-backed validation to `cDealDialog::AddOwnItem()` through `IInventoryService`; unknown owned items are rejected before entering a trade. One UI behavior test locks the path.
+- Added `cQuestTotalDialog::ClaimSelectedQuest()` as the service-backed orchestration path over `cQuestDialog`; the forwarding behavior is covered by a UI test.
+- Added inventory-backed validation to `cGuildWarehouseDialog::Store()`; warehouse storage now rejects items absent from the player's inventory when an inventory service is attached.
+- Added `ITradeService` as the atomic trade-commit boundary; `cDealDialog::Confirm()` now honors service rejection before marking a deal confirmed, with a dedicated behavior test.
+
 ### D4.31 PutOnAvatarItem / TakeOffAvatarItem data plane (2026-08-06)
 
 - D4.31 - 1:1 ports of the validation + mutation + side-effect-emission halves of legacy CShopItemManager::PutOnAvatarItem and ::TakeOffAvatarItem from [Server]Map/ShopItemManager.cpp:1792-2021.

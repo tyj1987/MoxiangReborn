@@ -1,104 +1,44 @@
 # Moxian-Reborn（墨香重生）
 
-> 1:1 完美复现 2003-2010 韩国 2D MMORPG《墨香》—— 玩法、数值、协议、资源、UI 全部和原版一致；底层换现代 C++17/20 + DX11 + Asio + AES-256-GCM。
+在现代 Windows 环境中 1:1 复现 2003–2010 韩国 MMORPG《墨香》。资源、地图、音乐、视觉、玩法数值和 UI 以原版为准；modern 客户端与 modern 服务端完整互通，不强制兼容旧网络端点。
 
----
+## 五分钟开始
 
-
-## Commercial smoke gate
-
-After configuring `modern/build`, run:
+要求：Visual Studio 2022 C++ 工具链、CMake、Python 3，以及 Windows PowerShell 5.1 或 PowerShell 7。
 
 ```powershell
-powershell -File scripts\commercial-smoke.ps1 -BuildDir modern\build
+# 在 C:\moxiang 运行。PowerShell 7 可将 powershell 换成 pwsh。
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/session-bootstrap.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-modern.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-modern.ps1 -Config Debug
+ctest -C Debug --test-dir modern/build --output-on-failure
+python scripts/check-project-governance.py
 ```
 
-The gate runs 33 focused checks covering legacy login ACK/NACK, encrypted login,
-wire goldens, resource byte-level parsing and SHA-256 manifests, plus client login E2E.
-Use `-RepeatFlaky` when validating timing-sensitive changes.
+当前 CMake 发现基线为 11,733 项测试。完整状态以 [ROADMAP.md](ROADMAP.md) 为准，数字变化必须由构建目录中的 `ctest -N` 重新生成。
 
-## 上手 5 分钟
-
-### 1. 读 3 件事
-
-- [`ROADMAP.md`](./ROADMAP.md) — 1:1 复现路线图（**主文档**）
-- [`AGENTS.md`](./AGENTS.md) — 协作指南 + 真实陷阱
-- [`docs/RESOURCE_FORMATS.md`](./docs/RESOURCE_FORMATS.md) — 资源格式
-
-### 2. 构建 modern 代码
+## 常用验证
 
 ```powershell
-# 在 C:\moxiang\ 下
-.\scripts\setup-modern.ps1
-cmake --build modern/build --config Debug
-ctest -C Debug --output-on-failure
+# 资源/协议/登录关键路径
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/commercial-smoke.ps1 -BuildDir modern/build
+
+# DX11 demo；可保存 headless 帧
+modern\build\tools\MoxianRenderDemo\Debug\mxh_render_demo.exe --headless --save-frame modern\build\r9-frame.tga --frame-count 3
+
+# 启动 modern 三进程（参数见脚本帮助）
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/start_modern.ps1 -Mode status
 ```
 
-期望：0 编译错误 / 2380 测试通过（部分 dialog 测试在 Debug 下可能因 vcpkg 缺包 skip，可忽略）。
+商业门禁默认还运行 LocalDB E2E。没有兼容 SQL Server/ODBC 环境时可显式增加 `-SkipMssql`；这只验证 33 项核心门禁，不代表 MSSQL 外部验收完成。
 
-### 3. 用资源浏览器验证 1:1 资源读取
+## 项目入口
 
-```powershell
-.\modern\build\Debug\mxh_explorer.exe info "墨香【源码配套资源】\PlayDH\Resource\ItemList.bin"
-.\modern\build\Debug\mxh_explorer.exe list "墨香【源码配套资源】\PlayDH\Resource\Effect.pak"
-.\modern\build\Debug\mxh_explorer.exe bsad "墨香【源码配套资源】\PlayDH\Resource\SkillArea\9x9_Blank.bsad"
-```
+- [ROADMAP.md](ROADMAP.md)：当前状态、里程碑和完成判据。
+- [AGENTS.md](AGENTS.md)：不可破坏约束与协作规范。
+- [docs/RESOURCE_FORMATS.md](docs/RESOURCE_FORMATS.md)：资源格式。
+- [docs/MoxianProtocolDoc.md](docs/MoxianProtocolDoc.md)：协议说明。
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)：数据库结构。
+- [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md)：仍在活动的缺陷。
 
-### 4. 跑老服务端（参考用）
-
-```powershell
-.\scripts\start-server.ps1 -Mode start
-.\scripts\start-server.ps1 -Mode status
-.\scripts\start-server.ps1 -Mode stop
-```
-
-### 5. modern 工具一览
-
-| 工具 | 用途 |
-|---|---|
-| `mxh_explorer` | 资源浏览器（`.bin/.pak/.bmhm/.ttb/.bsad`） |
-| `mxh_packer` | BIN 打包（替代老 PackingTool） |
-| `mxh_gmtool` | GM 工具（HTTP API） |
-| `mxh_mapeditor` | 地图编辑器（CLI） |
-| `mxh_autopatcher` | 自动更新器（HTTPS + bsdiff） |
-| `mxh_protocol_doc` | 协议文档生成器 |
-| `mxh_dbtool` | 数据库工具（restore/query） |
-| `mxh_loginserver` | 登录服（modern） |
-| `mxh_agentserver` | 代理服（modern） |
-| `mxh_mapserver` | 地图服（modern） |
-| `mxh_render_demo` | DX11 渲染 demo |
-
-全部 11 个工具的 build 命令在 `modern/CMakeLists.txt`。
-
----
-
-## 项目体量
-
-| 维度 | 数据 |
-|---|---|
-| 原始源码 | ~1500 文件 / 100+ 万行 / 不动 |
-| 资源 | 1.3 GB 客户端 + 29 MB 服务端 |
-| 现代代码 | 254 src + 153 test + 11 工具 |
-| 测试 | 2380 用例 / 全过 |
-| 文档 | 7 份（路线图 + 协作 + 资源 + 协议 + 数据库 + bug + 上手） |
-
----
-
-## 进度（1:1 复现视角）
-
-| 1:1 复现目标 | 完成度 | 阻塞 |
-|---|---|---|
-| 资源字节级一致（T1） | 100% | – |
-| 协议字节级一致（T2） | 100% | – |
-| 行为 1:1（T3） | 35%（UI 部分） | 服务端运行时 |
-| 客户端能启动 | 0% | Phase A 未开始 |
-| 服务端能 listen | 0% | Phase B 未开始 |
-| 1.0 release | 0% | 上述全过 |
-
-详见 `ROADMAP.md` §2。
-
----
-
-## 许可
-
-代码仅供学习研究使用，请勿用于商业目的。原游戏版权归 eSofnet / Yedang Entertainment 所有。
+原始源码和配套资源是只读基准；新开发仅进入 `modern/`、`deploy/`、`scripts/` 和治理文档。项目仅供学习研究，原游戏版权归其权利人所有。

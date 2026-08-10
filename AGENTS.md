@@ -11,7 +11,7 @@
 违反任何一条 = 1:1 复现失败。这 4 条是项目宪法：
 
 1. **资源格式二进制兼容** —— `.bin` / `.pak` / `.bmhm` / `.ttb` / `.chl` / `.chx` / `.chr` / `.mon` / `.bsad` 必须能被现代代码读到和老码完全一致的字节
-2. **网络协议字节级兼容** —— `[CC]Header/Protocol.h` 的 96 类 Category + `CommonStruct.h` 网络包结构（含 `#pragma pack(push,1)`）**绝对不能改字段**
+2. **modern 网络闭环稳定** —— 原 `[CC]Header/Protocol.h` 与 `CommonStruct.h` 不修改并继续作为参考；商业 RC 只要求 modern 客户端/服务端互通，不强制新旧互通
 3. **玩法/数值 1:1 锁定** —— 经验曲线、伤害公式、爆率、Boss 刷新、商城、MurimNet PvP 不能动
 4. **HSEL/HackShield/nProtect 接口签名保持** —— 实现可换，签名不能换
 
@@ -68,8 +68,8 @@ C:\moxiang\
 
 每次开 Mavis session，**先读**：
 
-0. `pwsh -File scripts\session-bootstrap.ps1` —— 见 §2.5（清污染 + 加载反 JSON 截断工具箱）
-1. `ROADMAP.md` §0-3 —— 当前在哪个阶段，下一步是什么
+0. `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\session-bootstrap.ps1` —— 见 §2.5（PowerShell 7 可将 `powershell` 换成 `pwsh`）
+1. `ROADMAP.md` §0-3 —— 当前在哪个里程碑，下一步是什么
 2. `AGENTS.md` 本文件 —— 约束 + 陷阱
 3. `docs/KNOWN_BUGS.md` —— 待修 bug（挑不会破坏 1:1 的来修）
 
@@ -78,7 +78,7 @@ C:\moxiang\
 - 改 `modern/src/` 或 `modern/tests/` 或 `modern/tools/`
 - 写或更新测试
 - 跑 `cmake --build modern/build --config Debug` + `ctest -C Debug`
-- 更新 `ROADMAP.md` §2 现状表（如果完成度变了）
+- 仅在可复现证据改变模块状态时更新 `ROADMAP.md` §2；完成明细写入 `docs/CHANGELOG.md`
 
 **不要做**：
 
@@ -181,8 +181,8 @@ A：能读，不要被"Phase 12 已完成"误导。那是 35% 完成的过度表
 **Q：能直接用 `SWorking/` 启动老服吗？**
 A：能，那里有完整编译产物。`scripts/start-server.ps1` 还在。
 
-**Q：modern 代码能和老客户端/老服务端互通吗？**
-A：目前不能，modern 客户端/服务端运行时还没接（Phase A/B）。老资源/老协议 100% 兼容。
+**Q：modern 代码需要和老客户端/老服务端互通吗？**
+A：商业 RC 不强制新旧互通；modern 客户端必须和 modern Login/Agent/Map 完整互通。原协议仍用于结构与行为参考，资源、视觉、音频、地图、玩法和数值继续要求 1:1。
 
 **Q：HSEL 硬件狗真没了怎么办？**
 A：用 `modern/src/crypto/` 的 stub 跑，能进登录但有些功能受限。要真上线得补完 stub（参 ROADMAP §2 R-1）。
@@ -197,8 +197,10 @@ A：挑 `ROADMAP.md` §3 当前阶段的一个 task → 改 modern/ → 测试�
 **每个新 Mavis session 在读 ROADMAP / AGENTS / KNOWN_BUGS 之前，先跑**：
 
 ```powershell
-pwsh -File C:\moxiang\scripts\session-bootstrap.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\moxiang\scripts\session-bootstrap.ps1
 ```
+
+默认只审计并列出污染数量，不静默删除。查看 `docs/CLEANUP_MANIFEST.md` 并确认目标后，才可显式增加 `-CleanKnownArtifacts`。
 
 脚本会做 4 件事，**全部通过才能继续**：
 
