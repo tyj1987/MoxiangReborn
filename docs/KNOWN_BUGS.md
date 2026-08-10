@@ -68,3 +68,10 @@
 - **影响**：不阻塞本机开发，阻塞商业部署声明。
 - **验收**：无人值守安装、建库、登录、建角、进图、数据库 roundtrip、升级和回滚全部通过且无 schema 漂移。
 - **外部依赖**：一套干净机或等价隔离环境；legacy `.bak` 不属于强制门禁。
+
+## SESSION-2026-08-10-#2: MapHandler hook split + commercial RC smoke green
+
+- **??**: ???(2026-08-10 ??? 2 ? session)?
+- **??**: ??? session ??? dealitem+quest ????? diff ???? AGENTS ?? commit(47673229 + 1d22df67),?? .gitignore ?? playdh_link_for_audit ????(e346a950)??? commit ?? 1 ?????(LoadDealitemPopulatesCatalogFromBin + LoadQuestScriptPopulatesDefinitionsFromBin),?? mxh::compat::encrypt_bin_payload XOR ??? .bin?
+- **??**: 11841/11841 unit tests pass;python check-project-governance.py PASS;scripts/commercial-smoke.ps1 PASS(? MSSQL_E2E LocalDB + GUI_CLIENT_SMOKE 5/5 state frames + 30.1% terrain + original BGM)?PlayDH ?????? 433/433 = 100% OK?
+- **??**: ?? M4 ?? RC ????;?? legacy SWorking ??? modern ?????? E2E?
