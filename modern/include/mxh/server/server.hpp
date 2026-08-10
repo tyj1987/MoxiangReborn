@@ -336,6 +336,9 @@ public:
 
     bool set_player_vitals_for_test(std::uint32_t player_id, std::uint32_t hp, std::uint32_t mp);
     bool add_player_item_for_test(std::uint32_t player_id, const mxh::game::ItemBase& item);
+    bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
+    std::uint32_t player_money_for_test(std::uint32_t player_id) noexcept;
+    std::size_t player_quest_count_for_test(std::uint32_t player_id) noexcept;
     std::optional<GroundDrop> create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z);
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);

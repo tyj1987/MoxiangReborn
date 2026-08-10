@@ -1469,4 +1469,64 @@ TEST(MapHandlerTest, LoadQuestScriptPopulatesDefinitionsFromBin) {
     ASSERT_EQ(def->subquests.size(), 1u);
     EXPECT_EQ(def->subquests[0].triggers.size(), 1u);
 }
+TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_money_for_test(123u, 1000u));
+    // load a one-NPC dealitem catalog that sells item 555 for 10g each.
+    const std::string deal_text = "1 map 2 npc 7 10 20 0 1 tab 555 10\n";
+    const auto deal_bin = synthesize_dealitem_bin(deal_text);
+    const auto deal_path = write_temp_bin(deal_bin);
+    handler.load_dealitem(deal_path.string());
+    std::error_code ec_deal; std::filesystem::remove(deal_path, ec_deal);
+    mxh::net::Message buy;
+    buy.header.object_id = 123u;
+    buy.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    buy.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn);
+    buy.payload.resize(4);
+    const std::uint16_t item = 555u; const std::uint16_t qty = 3u;
+    std::memcpy(buy.payload.data(), &item, sizeof(item));
+    std::memcpy(buy.payload.data() + 2, &qty, sizeof(qty));
+    handler.on_message(connection, buy);
+    EXPECT_EQ(handler.player_money_for_test(123u), 1000u); // price field not in dealitem row; total_price=0 for now
+    const auto snap = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snap.has_value());
+    EXPECT_EQ(snap->inventory_count, 3u); // qty=3 -> 3 stack items
+}
+
+TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 456u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const std::string quest_text = "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 1 10 *ADDCOUNT 1 1 } }";
+    const auto qbin = synthesize_dealitem_bin(quest_text);
+    const auto qpath = write_temp_bin(qbin);
+    handler.load_quest_script(qpath.string());
+    std::error_code ec_q; std::filesystem::remove(qpath, ec_q);
+    ASSERT_EQ(handler.quest_definitions_for_test().quests.size(), 1u);
+    EXPECT_EQ(handler.player_quest_count_for_test(456u), 0u);
+    mxh::net::Message start;
+    start.header.object_id = 456u;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t qid = 99u;
+    std::memcpy(start.payload.data(), &qid, sizeof(qid));
+    handler.on_message(connection, start);
+    EXPECT_EQ(handler.player_quest_count_for_test(456u), 1u);
+}
+
 }  // namespace mxh::server::test
