@@ -19,9 +19,10 @@
 - **外部依赖**：无。
 
 
+
 ## C-Tier-3: 九个业务 dialog 尚未完成真实 service 集成
 
-- **状态**: 活动中; 历史路线将 Quest/Deal 等依赖 Phase B 的业务 dialog 定义为 Tier-3。`cQuestDialog`、`cQuestTotalDialog` 已通过 `IQuestService` 接入领取路径, `cDealDialog` 已通过 `IInventoryService` 校验自有物品, `cItemShopDialog` 已通过新增 `IItemShopService` 接入商城目录与玩家经济 (2026-08-10), 均有行为测试; 其余业务 dialog 与 9 项截图验收仍未完成。既有 inventory/skill/player wiring 属于可复用进展, 不能替代完整业务验收。
+- **状态**: 活动中; 历史路线将 Quest/Deal 等依赖 Phase B 的业务 dialog 定义为 Tier-3。`cQuestDialog`、`cQuestTotalDialog` 已通过 `IQuestService` 接入领取路径, `cDealDialog` 已通过 `IInventoryService` 校验自有物品, `cItemShopDialog` 已通过新增 `IItemShopService` 接入商城目录与玩家经济, `cFriendDialog` 已通过新增 `IFriendService` 接入好友名册与在线状态 (2026-08-10), 均有行为测试; 其余业务 dialog 与 9 项截图验收仍未完成。既有 inventory/skill/player wiring 属于可复用进展, 不能替代完整业务验收。
 - **复现**: 启动真实 inventory/skill/player service 路径, 逐项打开 Tier-3 dialog。
 - **影响**: 阻塞 UI 1:1 集成验收, 不能仅用"hpp 已 port"判定完成。
 - **验收**: 9/9 接线完成, 每项至少一个真实服务行为断言并有原版/modern 截图。

@@ -15,6 +15,14 @@
 - `scripts/commercial-smoke.ps1` gate stays GREEN: MSSQL_E2E PASS, GUI_CLIENT_SMOKE PASS (all 5 state frames + terrain frame).
 
 
+
+## 2026-08-10 - cFriendDialog IFriendService wiring + 4 service-mode tests (M2 advance)
+
+- New service interface `mxh::services::IFriendService` (roster + presence queries; mirrors the legacy FRIENDMGR layout) so the modern dialog code reads the friend list through an injected service rather than via legacy singletons (FRIENDMGR / CHATMGR). Includes a `FriendStatus` enum and `FriendEntry` struct shared with the dialog via type alias (the dialog's `FriendStatus` is now an alias for the service enum so there is one canonical definition).
+- `cFriendDialog` now takes an optional `IFriendService*` via `SetFriendService()`. When bound: `IsFriendOnline(id)` reads `service->getStatus(id)` (live presence) and `WhisperSelected()` gates the whisper dispatch on `service->isFriend(id)` so an offline or removed friend cannot be whispered to. The local `m_friends` snapshot remains a fallback for unit tests + legacy NPC types not yet wired.
+- 4 new behavior tests in `cfrienddialog_test.cpp` covering the service-mode contract: roster-driven `IsFriendOnline`, whisper gating on roster membership, clean fall-back to local snapshot when the service pointer is cleared, and live presence reflection after service mutation. Existing 3 local-mode tests remain unchanged.
+- 11787 unit tests now pass (was 11783 + 4 new).
+
 ## 2026-08-09 - tooling hygiene: verify-state-frames.py + gitignore deploy/runtime
 
 - `scripts/verify-state-frames.py` was referenced by `gui-client-smoke.ps1` since 2026-08-09 but had not been committed (prior session oversight). Now tracked so the GUI smoke gate is reproducible from a fresh checkout.
