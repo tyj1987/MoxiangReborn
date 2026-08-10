@@ -1,6 +1,6 @@
-// MoxianClient: modern Moxian (DarkStory) client main entry.
+﻿// MoxianClient: modern Moxian (DarkStory) client main entry.
 //
-// Phase A.1 — minimal skeleton that exercises the entire UI ↔ GPU seam
+// Phase A.1 â€” minimal skeleton that exercises the entire UI â†” GPU seam
 // end-to-end so the Phase 6.4 cImage::bindRenderer adapter gets a real
 // render path instead of a no-op stub. Subsequent phases (A.1.6+) layer
 // CMainGame + eGAMESTATE on top of this skeleton.
@@ -19,8 +19,8 @@
 //   - g_DistributeAddr / g_DistributePort / g_AgentAddr / g_AgentPort
 //     globals (parsed from MHVerInfo.ver in B.1+) live at file scope so
 //     MainTitle (A.1.8) can read them without touching the message pump.
-//   - The legacy WinMain order — instance handle → class register →
-//     window create → renderer init → message loop — is preserved.
+//   - The legacy WinMain order â€” instance handle â†’ class register â†’
+//     window create â†’ renderer init â†’ message loop â€” is preserved.
 
 #include <cstdio>
 #include <cstring>
@@ -98,7 +98,7 @@ struct ClientOptions {
     std::uint16_t map_port = 18001;
     std::string username = "test";
     std::string password = "test";
-    bool auto_create = false;
+    bool auto_create = true;  // default true: see message-pump CharSelect->CharMake branch
     bool exit_after_gamein = false;
     bool follow_camera = false;
     std::string character_name = "ModernHero";
@@ -174,7 +174,7 @@ class StubFileStorage : public I4DyuchiFileStorage {
 public:
     StubFileStorage() = default;
     // I4DyuchiFileStorage has no virtual destructor (legacy COM-style
-    // interface), so we don't add one — Release() owns the deletion
+    // interface), so we don't add one â€” Release() owns the deletion
     // contract. Destruction happens via the IUnknown refcount.
 
     ULONG refCount_ = 1;
@@ -215,7 +215,7 @@ public:
 } // namespace
 
 // ---------------------------------------------------------------------------
-// Render adapter — bridges cImage (Phase 6.4) to IDISpriteObject (Phase 5).
+// Render adapter â€” bridges cImage (Phase 6.4) to IDISpriteObject (Phase 5).
 //
 // cImage::render(x, y, w, h, color, zOrder) calls back into the host with
 // UVs derived from the image's source rect, plus the borrowed sprite
@@ -299,7 +299,7 @@ ComPtr<ID3D11ShaderResourceView> makeSolidSRV(ID3D11Device* dev,
     return srv;
 }
 
-// "Moxian-flavored" gradient (dark navy → bright cyan) used as the
+// "Moxian-flavored" gradient (dark navy â†’ bright cyan) used as the
 // bootscreen background in A.1.3.  Kept for compatibility.
 ComPtr<ID3D11ShaderResourceView> makeBootSRV(ID3D11Device* dev) {
     constexpr std::uint32_t kSize = 64;
@@ -369,7 +369,7 @@ std::array<SpriteEntry, 4> g_sprites{};  // 4 demo slots: bg/red/green/blue
 
 // ---------------------------------------------------------------------------
 // Frame loop. A.1.4 draws the boot background (full-window sprite) and
-// 3 small "dialog tile" sprites laid out in a row — enough to visually
+// 3 small "dialog tile" sprites laid out in a row â€” enough to visually
 // confirm per-cImage sprite binding (different colors, different sprites)
 // on screen. CMainGame's Process() replaces this in A.1.6.
 // ---------------------------------------------------------------------------
@@ -458,7 +458,7 @@ void renderFrame(HWND h) {
 } // namespace
 
 // ---------------------------------------------------------------------------
-// Window procedure. Mirrors the legacy MHClient.cpp WndProc surface — only
+// Window procedure. Mirrors the legacy MHClient.cpp WndProc surface â€” only
 // the messages the A.1 skeleton needs are handled.  Phase A.1.6+ extends
 // this with IME, mouse, keyboard, and the game-state dispatch.
 // ---------------------------------------------------------------------------
@@ -553,7 +553,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     }
 
     // Renderer. The factory is implemented in modern/src/render (DX11
-    // backend). The pointer is borrowed — the factory retains ownership.
+    // backend). The pointer is borrowed â€” the factory retains ownership.
     I4DyuchiGXRenderer* renderer = nullptr;
     CreateGXRendererInstance(reinterpret_cast<void**>(&renderer));
 
@@ -591,7 +591,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         MLOG_WARN("mxh_client: GetD3DDevice failed, no sprites created");
     }
 
-    // Install the cImage ↔ renderer adapter.  After this call every
+    // Install the cImage â†” renderer adapter.  After this call every
     // cImage::render() forwards to renderAdapter() which casts the
     // opaque sprite back to IDISpriteObject* and draws it through
     // the HUD pass.
@@ -604,12 +604,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     (void)placeholder;  // not yet rendered (Render is a no-op stub today)
 
     // -------------------------------------------------------------------------
-    // Phase A.1.6 — wire CMainGame + CEngine + the 9 eGAMESTATE stubs.
+    // Phase A.1.6 â€” wire CMainGame + CEngine + the 9 eGAMESTATE stubs.
     //
     // CEngine gets the HWND and the IRenderer so future states can
     // look them up. CMainGame owns the state table; we register the
     // 9 concrete stubs from GameStateStubs.hpp.  The boot transition
-    // (Engine → CMainTitle) goes through CMainGame::SetGameState so
+    // (Engine â†’ CMainTitle) goes through CMainGame::SetGameState so
     // the legacy "delayed transition on next Process()" semantics are
     // preserved.
     // -------------------------------------------------------------------------
@@ -640,7 +640,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // dev-mode shortcut; that path will move to a button in B.2.5+.
     mainGame.SetGameState(mxh::client::GameStateId::Connect);
     MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
-              "boot → GameStateId::Connect");
+              "boot â†’ GameStateId::Connect");
 
     // Phase B.2.1: kick off the CLoginState connect (host-driven; the
     // state can't self-start because it doesn't know the login address
@@ -656,7 +656,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     MLOG_INFO("mxh_client: entering message loop");
 
     // Standard Win32 message pump + CMainGame driver.  The legacy
-    // engine did "Process() → render() → flip" once per frame; we
+    // engine did "Process() â†’ render() â†’ flip" once per frame; we
     // mirror that here.  CMainGame::BeforeRender/AfterRender fan out
     // to the current state and respect the pause-render flag.
     //
@@ -717,7 +717,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
                     // Phase B.2.3: dev-mode direct-connect to MapServer.
-                    // The full CharSelect → GameLoading → GameIn path
+                    // The full CharSelect â†’ GameLoading â†’ GameIn path
                     // requires a character in character_info (Phase B.4+);
                     // for now we jump straight to MapServer with the
                     // login ack user_idx as chrid.
@@ -867,3 +867,5 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     return 0;
 }
+
+
