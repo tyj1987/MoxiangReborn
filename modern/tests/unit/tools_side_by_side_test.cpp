@@ -229,14 +229,30 @@ TEST(SideBySideModernGolden, EnterGameTraceIsAgentConnectThenNack) {
     EXPECT_EQ(trace[1].protocol, 18u);  // GameInNack (no character selected)
 }
 
-TEST(SideBySideModernGolden, AttackTraceIsSkillStartNack) {
+// M3 D-stage Ack upgrade: the modern MapServer is started with
+// --dev-stub-caster (side-by-side harness only), so handle_skill()
+// injects a minimal PlayerInfo when the StartSyn caster_id is not in
+// state and continues to the real StartAck + SkillObjectAdd +
+// SkillObjectRemove path.  The capture is now 3 frames instead of
+// 1 Nack.  See docs/SIDE_BY_SIDE_T3.md for the M3 D-stage rationale.
+TEST(SideBySideModernGolden, AttackTraceIsSkillStartAck) {
     const auto trace = load_capture(
         "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_attack.cap");
-    ASSERT_EQ(trace.size(), 1u);
-    EXPECT_EQ(trace[0].category, 22u);  // Skill
-    EXPECT_EQ(trace[0].protocol, 2u);   // StartNack
-    ASSERT_GE(trace[0].payload.size(), 1u);
-    EXPECT_EQ(trace[0].payload[0], 3u); // err=3 unknown caster
+    ASSERT_EQ(trace.size(), 3u);
+    // Frame 0: Skill.StartAck (cat=22, proto=1) for caster_id=1001.
+    EXPECT_EQ(trace[0].category, 22u);
+    EXPECT_EQ(trace[0].protocol, 1u);
+    EXPECT_EQ(trace[0].object_id, 1001u);
+    // payload: [skill_idx:u32=1][skill_obj_id:u32]
+    ASSERT_EQ(trace[0].payload.size(), 8u);
+    EXPECT_EQ(trace[0].payload[0], 1u);  // skill_idx low byte
+    // Frame 1: SkillObjectAdd (cat=22, proto=3), 22-byte payload.
+    EXPECT_EQ(trace[1].category, 22u);
+    EXPECT_EQ(trace[1].protocol, 3u);
+    // Frame 2: SkillObjectRemove (cat=22, proto=4), empty payload.
+    EXPECT_EQ(trace[2].category, 22u);
+    EXPECT_EQ(trace[2].protocol, 4u);
+    EXPECT_EQ(trace[2].payload.size(), 0u);
 }
 
 TEST(SideBySideModernGolden, ShopTraceIsItemBuyNack) {
