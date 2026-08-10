@@ -5,6 +5,21 @@
 
 æœ€è¿‘é‡æž„: 2026-08-06 - æŠŠè€ ROADMAP (434 è¡Œ) ç æˆè§„åˆ’æ–‡æ¡£ (158 è¡Œ) + æœ¬ CHANGELOGã€‚
 
+﻿
+## 2026-08-10 - cItemShopDialog IItemShopService wiring + 5 service-mode tests (M2 advance)
+
+- New service interface `mxh::services::IItemShopService` (catalog + money queries; mirrors the legacy NPC shop table layout) so the modern dialog code reads shop state through an injected service rather than via legacy singletons (ITEMMGR / GameIn->GetCharacterDialog()). Includes a `ShopEntry` value struct (item_id, price, quantity) shared with the dialog via type alias.
+- `cItemShopDialog` now takes an optional `IItemShopService*` via `SetShopService()`. When bound: `GetMoney()` reads `service->playerMoney()` (live economy), `TotalPrice()` resolves the entry through `service->getShopEntry(i)` (live catalog), and `Buy()` validates via `service->hasEnoughMoney()` instead of the local `m_money` snapshot. The existing `m_entries` + `m_money` fallback path is preserved so legacy NPC types + unit tests without a service continue to work unchanged.
+- 5 new behavior tests in `citemshopdialog_test.cpp` covering the service-mode contract: catalog+money consultation, insufficient funds rejection (no callback fired), out-of-range index rejection (no callback fired), live economy reflection after service mutation, and clean fall-back to local snapshot when the service pointer is cleared. Existing 3 local-mode tests remain unchanged.
+- 11783 unit tests now pass (was 11778 + 5 new).
+- `scripts/commercial-smoke.ps1` gate stays GREEN: MSSQL_E2E PASS, GUI_CLIENT_SMOKE PASS (all 5 state frames + terrain frame).
+
+
+## 2026-08-09 - tooling hygiene: verify-state-frames.py + gitignore deploy/runtime
+
+- `scripts/verify-state-frames.py` was referenced by `gui-client-smoke.ps1` since 2026-08-09 but had not been committed (prior session oversight). Now tracked so the GUI smoke gate is reproducible from a fresh checkout.
+- `deploy/runtime/` (per-process runtime data + logs from `deploy/scripts/start_modern.ps1`) is now in `.gitignore` so the SQLite `*.db` and per-service `*.log` artifacts stay out of the working tree after the smoke runs (matching the other deploy/ subtrees that are already ignored).
+
 ## 2026-08-09 — Client GUI smoke visual acceptance (CLIENT-RUNTIME advance)
 
 - Sprite 2D textured quad reordered to CCW in NDC so the default rasterizer
