@@ -1,13 +1,25 @@
 // BsadArea.hpp - .bsad battle skill area descriptor parser.
 //
-// Original: 墨香【源码】\[CC]Skill\SkillArea*.cpp
+// Original: [CC]Skill/SkillArea*.cpp
 // Used to describe skill hit zones (e.g. "9x9_Blank", "13x13_Spikewall").
 //
-// Format (reverse-engineered from skill area files):
-//   [u16 width]
-//   [u16 height]
-//   [u32 reserved]
-//   [u8 cells[width*height]]   // cell type: 0=empty, 1=hit, 2=block
+// ACTUAL on-disk format (reverse-engineered from SkillAreaManager.cpp + real
+// files): the .bsad file is a standard Moxiang MHFile .bin (12-byte header +
+// 1-byte CRC + encrypted payload). After the standard MHFile XOR decryption
+// (decrypt_bin_payload), the payload is a TEXT payload laid out as:
+//
+//     <radius>\r\n
+//     <cell00> <cell01> ... <cell0(W-1)>\r\n
+//     ...
+//     <cell(H-1)0> ... <cell(H-1)(W-1)>\r\n
+//
+// where W = H = 2 * radius + 1, and each <cellXY> is "0"|"1"|"2"
+// (consumed via legacy pFile->GetByte() -> atoi(GetString())). Cell types:
+//   0 = Empty, 1 = Hit, 2 = Block.
+//
+// We retain a 4-byte legacy BsadHeader (width/height/reserved) on the parsed
+// in-memory struct so downstream consumers (game logic, debug viz) can still
+// use header.width/height, but on-disk it's purely MHFile.
 
 #pragma once
 
