@@ -1,4 +1,4 @@
-// services_real_test.cpp - Phase 13.2 real service implementation
+﻿// services_real_test.cpp - Phase 13.2 real service implementation
 // contract test (vs. the mock test in services_test.cpp).
 //
 // Covers the three real service impls under
@@ -16,9 +16,9 @@
 //
 // What's tested:
 //   - InventoryServiceImpl: getItem / getWearedItem / occupied /
-//     totalCapacity / findItemByIconIdx / hasItem — all backed by
+//     totalCapacity / findItemByIconIdx / hasItem â€” all backed by
 //     the same wire-format ItemTotalInfo the MapHandler uses.
-//   - PlayerStatsServiceImpl: HP / MP / level / fraction — backed
+//   - PlayerStatsServiceImpl: HP / MP / level / fraction â€” backed
 //     by PlayerCombatStats. Includes the div-by-zero guard for
 //     max_hp == 0 (the freshly-loaded player case).
 //   - SkillServiceImpl: enumeration, level lookup, quick-slot
@@ -34,6 +34,13 @@
 #include "PlayerStatsServiceImpl.hpp"
 #include "SkillServiceImpl.hpp"
 
+#include "mxh/services/IQuestService.hpp"
+#include "mxh/services/ITradeService.hpp"
+#include "mxh/services/IMoveService.hpp"
+
+#include "QuestServiceImpl.hpp"
+#include "TradeServiceImpl.hpp"
+#include "MoveServiceImpl.hpp"
 #include "mxh/game/item_types.hpp"
 #include "mxh/game/skill_types.hpp"
 
@@ -272,4 +279,235 @@ TEST(RealServiceCompositionTest, CharacterDialogShapedRefresh) {
     EXPECT_FLOAT_EQ(stats_svc.getMpFraction(), 0.5f);
 }
 
+
+// ===========================================================================
+// QuestServiceImpl -- per-player quest claim transitions Complete -> Rewarded
+// ===========================================================================
+
+TEST(RealQuestServiceTest, ClaimTransitionsCompleteToRewarded) {
+    mxh::server::PlayerSpawnInfo info{};
+    info.player_id = 1001;
+    info.level = 10;
+    mxh::server::Player player;
+    ASSERT_TRUE(player.initialize(info));
+    ASSERT_TRUE(player.activate());
+    mxh::server::QuestLog log;
+    log.player_id = 1001;
+    mxh::server::QuestDefinition def{};
+    def.quest_id = 7;
+    def.title = "Slay 5 Wolves";
+    def.reward_money = 100;
+    def.reward_exp = 50;
+    // Seed an Accepted quest and advance it to Complete via the
+    // public quest_manager API so the test mirrors the runtime path.
+    mxh::server::QuestProgress progress =
+        mxh::server::start_quest(1001, def, 0u);
+    progress.state = mxh::server::QuestState::Complete;
+    log.quests.push_back(progress);
+
+    mxh::services::QuestServiceImpl svc(player, log);
+    EXPECT_TRUE(svc.claimQuest(7));
+    // 1:1 quirk: claimQuest only flips the state machine; reward
+    // application (money / exp) is the orchestrator's job. The
+    // service must not mutate player.money itself.
+    EXPECT_EQ(player.state().progress.money, 0u);
+    EXPECT_EQ(log.quests[0].state, mxh::server::QuestState::Rewarded);
+}
+
+TEST(RealQuestServiceTest, ClaimRejectsUnknownAndNonComplete) {
+    mxh::server::PlayerSpawnInfo info{};
+    info.player_id = 1002;
+    mxh::server::Player player;
+    ASSERT_TRUE(player.initialize(info));
+    ASSERT_TRUE(player.activate());
+    mxh::server::QuestLog log;
+    log.player_id = 1002;
+    mxh::server::QuestDefinition def{};
+    def.quest_id = 9;
+    mxh::server::QuestProgress accepted =
+        mxh::server::start_quest(1002, def, 0u);
+    log.quests.push_back(accepted);
+
+    mxh::services::QuestServiceImpl svc(player, log);
+    // Unknown quest -> false (legacy guard).
+    EXPECT_FALSE(svc.claimQuest(999));
+    // Accepted (not Complete) -> false (must finish subs first).
+    EXPECT_FALSE(svc.claimQuest(9));
+    // State unchanged.
+    EXPECT_EQ(log.quests[0].state, mxh::server::QuestState::Accepted);
+}
+
+TEST(RealQuestServiceTest, ClaimIsIdempotentlyRejectedOnceRewarded) {
+    mxh::server::PlayerSpawnInfo info{};
+    info.player_id = 1003;
+    mxh::server::Player player;
+    ASSERT_TRUE(player.initialize(info));
+    ASSERT_TRUE(player.activate());
+    mxh::server::QuestLog log;
+    log.player_id = 1003;
+    mxh::server::QuestDefinition def{};
+    def.quest_id = 11;
+    mxh::server::QuestProgress progress =
+        mxh::server::start_quest(1003, def, 0u);
+    progress.state = mxh::server::QuestState::Complete;
+    log.quests.push_back(progress);
+
+    mxh::services::QuestServiceImpl svc(player, log);
+    EXPECT_TRUE(svc.claimQuest(11));
+    EXPECT_EQ(log.quests[0].state, mxh::server::QuestState::Rewarded);
+    // Second claim -> false (already Rewarded, no longer Complete).
+    EXPECT_FALSE(svc.claimQuest(11));
+}
+
+// ===========================================================================
+// TradeServiceImpl -- commit callback boundary
+// ===========================================================================
+
+TEST(RealTradeServiceTest, DefaultRejectWithoutCommitter) {
+    // 1:1 quirk: with no committer wired, completeTrade() returns
+    // false so the dialog stays unconfirmed (matches the legacy
+    // CDealDialog::OnAction guard when the trade dispatcher is not
+    // yet wired).
+    mxh::services::TradeServiceImpl svc;
+    EXPECT_FALSE(svc.hasCommitter());
+    std::vector<mxh::ui::DealItem> own{{1, 2}};
+    std::vector<mxh::ui::DealItem> other{{3, 1}};
+    EXPECT_FALSE(svc.completeTrade(own, other, 50));
+}
+
+TEST(RealTradeServiceTest, CommitterAcceptsForwardAllArguments) {
+    bool called = false;
+    std::vector<mxh::ui::DealItem> got_own;
+    std::vector<mxh::ui::DealItem> got_other;
+    std::uint32_t got_money = 0;
+    mxh::services::TradeServiceImpl svc(
+        [&](const std::vector<mxh::ui::DealItem>& o,
+            const std::vector<mxh::ui::DealItem>& p,
+            std::uint32_t m) {
+            called = true;
+            got_own = o;
+            got_other = p;
+            got_money = m;
+            return true;
+        });
+    EXPECT_TRUE(svc.hasCommitter());
+    std::vector<mxh::ui::DealItem> own{{1, 2}, {2, 1}};
+    std::vector<mxh::ui::DealItem> other{{3, 1}};
+    EXPECT_TRUE(svc.completeTrade(own, other, 99));
+    EXPECT_TRUE(called);
+    EXPECT_EQ(got_own.size(), 2u);
+    EXPECT_EQ(got_other.size(), 1u);
+    EXPECT_EQ(got_money, 99u);
+}
+
+TEST(RealTradeServiceTest, CommitterRejectionRollsBackDialog) {
+    mxh::services::TradeServiceImpl svc(
+        [](const std::vector<mxh::ui::DealItem>&,
+           const std::vector<mxh::ui::DealItem>&,
+           std::uint32_t) { return false; });
+    std::vector<mxh::ui::DealItem> own{{1, 1}};
+    std::vector<mxh::ui::DealItem> other{{2, 1}};
+    EXPECT_FALSE(svc.completeTrade(own, other, 0));
+}
+
+TEST(RealTradeServiceTest, SetCommitterReplacesPrevious) {
+    mxh::services::TradeServiceImpl svc(
+        [](const std::vector<mxh::ui::DealItem>&,
+           const std::vector<mxh::ui::DealItem>&,
+           std::uint32_t) { return true; });
+    EXPECT_TRUE(svc.hasCommitter());
+    int second_calls = 0;
+    svc.setCommitter(
+        [&](const std::vector<mxh::ui::DealItem>&,
+            const std::vector<mxh::ui::DealItem>&,
+            std::uint32_t) { ++second_calls; return true; });
+    std::vector<mxh::ui::DealItem> own{{1, 1}};
+    std::vector<mxh::ui::DealItem> other{{2, 1}};
+    EXPECT_TRUE(svc.completeTrade(own, other, 0));
+    EXPECT_EQ(second_calls, 1);
+}
+
+// ===========================================================================
+// MoveServiceImpl -- per-player teleport catalog
+// ===========================================================================
+
+TEST(RealMoveServiceTest, EmptyCatalogReportsZero) {
+    mxh::services::MoveServiceImpl svc;
+    EXPECT_EQ(svc.pointCount(), 0u);
+    EXPECT_FALSE(svc.getPoint(0).has_value());
+    EXPECT_FALSE(svc.isKnownPoint(1));
+    EXPECT_FALSE(svc.hasTownPoint());
+    EXPECT_FALSE(svc.hasSavedPoint());
+}
+
+TEST(RealMoveServiceTest, SeededCatalogExposesTownAndSaved) {
+    mxh::services::MoveServiceImpl svc({
+        {1, "Village", true},
+        {2, "Hidden",  false},
+    });
+    EXPECT_EQ(svc.pointCount(), 2u);
+    auto p0 = svc.getPoint(0);
+    ASSERT_TRUE(p0.has_value());
+    EXPECT_EQ(p0->db_id, 1u);
+    EXPECT_TRUE(p0->town);
+    auto p1 = svc.getPoint(1);
+    ASSERT_TRUE(p1.has_value());
+    EXPECT_FALSE(p1->town);
+    EXPECT_TRUE(svc.isKnownPoint(1));
+    EXPECT_TRUE(svc.isKnownPoint(2));
+    EXPECT_FALSE(svc.isKnownPoint(99));
+    EXPECT_TRUE(svc.hasTownPoint());
+    EXPECT_TRUE(svc.hasSavedPoint());
+}
+
+TEST(RealMoveServiceTest, AddPointReplacesDuplicateDbId) {
+    mxh::services::MoveServiceImpl svc;
+    svc.addPoint({1, "Old", true});
+    svc.addPoint({1, "New", false});  // same db_id, replaces
+    EXPECT_EQ(svc.pointCount(), 1u);
+    auto p = svc.getPoint(0);
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->name, "New");
+    EXPECT_FALSE(p->town);
+}
+
+TEST(RealMoveServiceTest, AddPointIgnoresZeroDbId) {
+    mxh::services::MoveServiceImpl svc;
+    svc.addPoint({0, "Bogus", true});  // db_id 0 reserved -> skip
+    EXPECT_EQ(svc.pointCount(), 0u);
+}
+
+TEST(RealMoveServiceTest, HasTownOrSavedReflectsCatalogShape) {
+    // Only town points -> hasSavedPoint is false.
+    mxh::services::MoveServiceImpl svc({
+        {1, "A", true},
+        {2, "B", true},
+    });
+    EXPECT_TRUE(svc.hasTownPoint());
+    EXPECT_FALSE(svc.hasSavedPoint());
+
+    // Add a saved point.
+    svc.addPoint({3, "C", false});
+    EXPECT_TRUE(svc.hasSavedPoint());
+
+    // Drop all towns by clearing and re-seeding with only saved.
+    svc.setPoints({{4, "Saved A", false}});
+    EXPECT_FALSE(svc.hasTownPoint());
+    EXPECT_TRUE(svc.hasSavedPoint());
+
+    svc.clear();
+    EXPECT_FALSE(svc.hasTownPoint());
+    EXPECT_FALSE(svc.hasSavedPoint());
+}
+
+TEST(RealMoveServiceTest, OutOfRangeIndexReturnsNullopt) {
+    mxh::services::MoveServiceImpl svc({{1, "A", true}});
+    EXPECT_FALSE(svc.getPoint(1).has_value());
+    EXPECT_FALSE(svc.getPoint(99).has_value());
+}
+
 }  // namespace mxh::services::real_test
+
+
+
+

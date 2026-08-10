@@ -146,7 +146,7 @@ add_executable(mxh_services_real_tests
 )
 
 target_link_libraries(mxh_services_real_tests PRIVATE
-    mxh_services gtest_main)
+    mxh_services mxh_server gtest_main)
 target_include_directories(mxh_services_real_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src/services
