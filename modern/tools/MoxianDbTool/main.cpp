@@ -119,6 +119,20 @@ CREATE TABLE IF NOT EXISTS log_chat (
     message  TEXT,
     logtime  TEXT
 );
+
+-- ============================================================================
+-- M3 D-stage: modern player state (upsert target for BuySyn money persistence)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS modern_player_state (
+    player_id  INTEGER PRIMARY KEY,
+    money      INTEGER NOT NULL DEFAULT 0,
+    level      INTEGER NOT NULL DEFAULT 1,
+    exp        INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_player_state_updated_at
+    ON modern_player_state(updated_at);
 )SQL";
 }
 

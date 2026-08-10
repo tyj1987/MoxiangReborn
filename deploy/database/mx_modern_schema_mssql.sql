@@ -55,5 +55,28 @@ BEGIN
 END
 GO
 
+
+-- M3 D-stage: modern player state (upsert target for BuySyn money persistence).
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_state')
+BEGIN
+    CREATE TABLE [dbo].[modern_player_state] (
+        [player_id]  BIGINT        NOT NULL PRIMARY KEY,
+        [money]      BIGINT        NOT NULL DEFAULT 0,
+        [level]      INT           NOT NULL DEFAULT 1,
+        [exp]        BIGINT        NOT NULL DEFAULT 0,
+        [updated_at] NVARCHAR(32)  NOT NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'idx_modern_player_state_updated_at'
+                 AND object_id = OBJECT_ID(N'modern_player_state'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [idx_modern_player_state_updated_at]
+        ON [dbo].[modern_player_state] ([updated_at]);
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 GO

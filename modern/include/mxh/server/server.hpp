@@ -339,6 +339,15 @@ public:
     bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
     std::uint32_t player_money_for_test(std::uint32_t player_id) noexcept;
     std::size_t player_quest_count_for_test(std::uint32_t player_id) noexcept;
+
+    // M3 D-stage: BuySyn money persistence to `modern_player_state`.
+    // The orchestrator (handle_item BuySyn Ok arm) calls the private
+    // persist_player_money() automatically; these test-only hooks let
+    // unit tests trigger the same write path or read back the live
+    // in-memory money value.  End-to-end DB verification uses a real
+    // SqliteAdapter (see buy_money_persistence_test.cpp).
+    bool persist_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
+    std::uint32_t persisted_money_for_test(std::uint32_t player_id) noexcept;
     std::optional<GroundDrop> create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z);
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);
@@ -436,6 +445,13 @@ private:
     void broadcast_skill_object_remove(
         std::uint32_t except_player_id,
         std::uint32_t skill_object_id);
+
+    // M3 D-stage: write a single player money to the modern_player_state
+    // table via the db_ adapter.  Called automatically by the BuySyn
+    // Ok arm in handle_item().  Failure is logged but does not fail the
+    // wire reply (the wire reply has already been sent before the
+    // write is attempted; the next BuySyn will overwrite the row).
+    void persist_player_money(std::uint32_t player_id, std::uint32_t money);
     void send_skill_single_result(
         std::uint32_t target_player_id,
         std::uint32_t target_id,

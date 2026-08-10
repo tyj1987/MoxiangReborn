@@ -32,6 +32,7 @@
 #include "sstream"
 #include "vector"
 #include "mxh/db/db_adapter.hpp"
+#include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
@@ -1527,6 +1528,112 @@ TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
     std::memcpy(start.payload.data(), &qid, sizeof(qid));
     handler.on_message(connection, start);
     EXPECT_EQ(handler.player_quest_count_for_test(456u), 1u);
+}
+
+
+// M3 D-stage: BuySyn money persistence to modern_player_state.
+// End-to-end: real SqliteAdapter (in-memory) + inline CREATE TABLE +
+// BuySyn Ok arm + SELECT verification.  Validates that the orchestrator
+// actually hits the DB (not just a mock) and that the row is readable
+// after the wire reply.
+TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
+    // 1) Real in-memory SQLite.
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+
+    // 2) Inline CREATE TABLE (same shape as the production schema in
+    //    deploy/database/mx_modern_schema_mssql.sql + MoxianDbTool
+    //    moxian_schema_sql()).
+    auto ct = db.exec_multi(
+        "CREATE TABLE modern_player_state ("
+        " player_id  INTEGER PRIMARY KEY,"
+        " money      INTEGER NOT NULL DEFAULT 0,"
+        " level      INTEGER NOT NULL DEFAULT 1,"
+        " exp        INTEGER NOT NULL DEFAULT 0,"
+        " updated_at TEXT    NOT NULL"
+        ");");
+    ASSERT_TRUE(ct.ok()) << ct.error_message;
+
+    // 3) Build a MapHandler around the live db.  ReplySpy captures
+    //    the BuyAck so we can confirm the wire shape did not change.
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    ASSERT_TRUE(handler.set_player_money_for_test(123u, 1000u));
+
+    // 4) Load a one-NPC dealitem catalog and send a BuySyn Ok path.
+    const std::string deal_text = "1 map 2 npc 7 10 20 0 1 tab 555 10\n";
+    const auto deal_bin = synthesize_dealitem_bin(deal_text);
+    const auto deal_path = write_temp_bin(deal_bin);
+    handler.load_dealitem(deal_path.string());
+    std::error_code ec_deal; std::filesystem::remove(deal_path, ec_deal);
+
+    mxh::net::Message buy;
+    buy.header.object_id = 123u;
+    buy.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    buy.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn);
+    buy.payload.resize(4);
+    const std::uint16_t item = 555u; const std::uint16_t qty = 3u;
+    std::memcpy(buy.payload.data(), &item, sizeof(item));
+    std::memcpy(buy.payload.data() + 2, &qty, sizeof(qty));
+    handler.on_message(connection, buy);
+
+    // 5) Wire shape: a BuyAck must have been sent.
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck));
+
+    // 6) DB verification: a row for player_id=123 must exist with
+    //    money=1000 (dealitem has no price field yet so total_price=0
+    //    and the new money equals the old money).
+    mxh::db::ResultSet rs;
+    std::vector<mxh::db::Bind> qp = { mxh::db::bind(static_cast<std::int64_t>(123)) };
+    auto sel = db.query(
+        "SELECT money, updated_at FROM modern_player_state WHERE player_id = ?",
+        qp, rs);
+    ASSERT_TRUE(sel.ok()) << sel.error_message;
+    ASSERT_EQ(rs.rows.size(), 1u);
+    ASSERT_TRUE(std::holds_alternative<std::int64_t>(rs.rows[0][0]));
+    EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 1000);
+}
+
+// M3 D-stage: persist_player_money_for_test must hit the DB on
+// every call, even when the wire-level BuySyn does not (no player
+// connected).  This pins the helper in isolation.
+TEST(MapHandlerTest, PersistPlayerMoneyForTestHitsDb) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE modern_player_state ("
+        " player_id INTEGER PRIMARY KEY, money INTEGER NOT NULL DEFAULT 0,"
+        " level INTEGER NOT NULL DEFAULT 1, exp INTEGER NOT NULL DEFAULT 0,"
+        " updated_at TEXT NOT NULL);").ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    // No GameInSyn; no player in state.  The helper must still write
+    // the row (DB persistence is decoupled from in-memory state).
+    EXPECT_TRUE(handler.persist_player_money_for_test(777u, 4242u));
+
+    mxh::db::ResultSet rs;
+    std::vector<mxh::db::Bind> qp = { mxh::db::bind(static_cast<std::int64_t>(777)) };
+    ASSERT_TRUE(db.query(
+        "SELECT money FROM modern_player_state WHERE player_id = ?", qp, rs).ok());
+    ASSERT_EQ(rs.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 4242);
 }
 
 }  // namespace mxh::server::test
