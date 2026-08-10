@@ -1,3 +1,10 @@
+## 2026-08-10 - server: MapHandler routes BuySyn through npc_shop data plane and QuestSyn through quest_manager 
+ 
+modern/src/server/map_handler.cpp BuySyn arm now calls parse_npc_shop_buy_request + npc_shop_buy_decision under players_mu_ to fill the player's money. Currently the per-NPC DealerCatalog is empty (ShopList.bin / DealItem.bin loader not yet landed) so every request resolves to NpcMismatch and the wire shape stays a 4B BuyNack echo - the side-by-side 5/5 capture stays diff=0. When the loader lands only the Ok arm changes to emit BuyAck + apply inventory/money mutation. 
+ 
+handle_quest StartSyn arm now queries the per-player quest_log under players_mu_ and calls mxh::server::active_quest_count. QuestScript.bin / QuestInfo.bin loader not yet landed so the response is still StartNack + 2B quest_id echo - the side-by-side 5/5 capture stays diff=0. When the loader lands only the Ok arm changes to emit StartAck + apply accept_quest to player_runtimes_[pid].quest_log. 
+ 
+11836 unit tests pass; 6/6 SideBySideModernGolden.* pass; commercial-smoke.ps1 -SkipMssql PASS; python scripts/check-project-governance.py PASS. See git log 1a2411cd. 
 ## 2026-08-10 - services: M2 real Quest/Trade/Move impl + src/ui include + 13 behavior tests
 
 Header-only real implementations for IQuestService / ITradeService / IMoveService under modern/include/mxh/services/.  Per-player state mutation helpers (QuestServiceImpl::claim, TradeServiceImpl::commit, MoveServiceImpl::teleport) plug into MapHandler dialog dispatch via the existing IInventoryService / ISkillService pattern.  modern/src/services/CMakeLists.txt adds src/ui to the INTERFACE include path so TradeServiceImpl can include cdealdialog.hpp for the complete DealItem POD; this keeps services header-only while still consuming UI-side data shapes.
