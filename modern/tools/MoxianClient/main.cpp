@@ -7,9 +7,7 @@
 //
 // Bootstrap order (matches what the legacy MHClient.cpp does at WinMain):
 //   1. Register window class + create HWND (the host surface for DX11).
-//   2. Build a minimal I4DyuchiFileStorage (the legacy engine always has
-//      one; we use a stub here because the resource cache is empty until
-//      Phase B.1+ wires MoxianResourceExplorer into the live tree).
+//   2. Mount the original PlayDH resource tree through I4DyuchiFileStorage.
 //   3. Create + initialise the IRenderer (DX11 backend).
 //   4. Install the cImage render adapter (the Phase 6.4 seam).
 //   5. Run the Win32 message pump. On each WM_PAINT we tick the game
@@ -28,19 +26,29 @@
 #include <cstring>
 #include <cstdint>
 #include <array>
+#include <string>
+#include <filesystem>
+#include <memory>
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <shellapi.h>
 
 #include <d3d11.h>
 #include <wrl/client.h>
 
 #include "mxh/render/IRenderer.hpp"
 #include "mxh/render/IFileStorage.hpp"
+#include "mxh/render/FilesystemFileStorage.hpp"
+#include "mxh/render/TerrainScene.hpp"
+#include "mxh/render/StaticScene.hpp"
+#include "mxh/render/SkyScene.hpp"
+#include "mxh/render/EntityScene.hpp"
 #include "mxh/render/render_typedef.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/audio/bgm_player.hpp"
+#include "mxh/compat/bmhm_map.hpp"
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
 #include "CCharMake.hpp"
@@ -80,14 +88,85 @@ bool g_running = true;
 } // namespace mxh::client
 
 // ---------------------------------------------------------------------------
-// Stub I4DyuchiFileStorage.
-//
-// A.1 ships with no on-disk resource cache (MoxianResourceExplorer runs as
-// a stand-alone CLI today; wiring it into the live client is B.1+).  The
-// legacy engine requires an I4DyuchiFileStorage pointer at IRenderer::Create
-// time, so we hand it a no-op stub.
+// Client host configuration and PlayDH discovery.
 // ---------------------------------------------------------------------------
 namespace {
+
+struct ClientOptions {
+    std::string login_host = "127.0.0.1";
+    std::uint16_t login_port = 16001;
+    std::uint16_t map_port = 18001;
+    std::string username = "test";
+    std::string password = "test";
+    bool auto_create = false;
+    bool exit_after_gamein = false;
+    bool follow_camera = false;
+    std::string character_name = "ModernHero";
+    std::filesystem::path resource_root;
+    std::string save_frame;
+};
+
+std::string narrow_ascii(const wchar_t* value) {
+    std::string out;
+    if (!value) return out;
+    while (*value) out.push_back(static_cast<char>(*value++ & 0x7f));
+    return out;
+}
+
+ClientOptions parse_client_options() {
+    ClientOptions options;
+    int argc = 0;
+    wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (!argv) return options;
+    for (int i = 1; i < argc; ++i) {
+        const std::wstring_view arg(argv[i]);
+        const auto take = [&](std::string& target) {
+            if (i + 1 < argc) target = narrow_ascii(argv[++i]);
+        };
+        const auto take_port = [&](std::uint16_t& target) {
+            if (i + 1 < argc) {
+                const unsigned long value = std::wcstoul(argv[++i], nullptr, 10);
+                if (value > 0 && value <= 65535) {
+                    target = static_cast<std::uint16_t>(value);
+                }
+            }
+        };
+        if (arg == L"--login-host") take(options.login_host);
+        else if (arg == L"--login-port") take_port(options.login_port);
+        else if (arg == L"--map-port") take_port(options.map_port);
+        else if (arg == L"--username") take(options.username);
+        else if (arg == L"--password") take(options.password);
+        else if (arg == L"--auto-create") options.auto_create = true;
+        else if (arg == L"--exit-after-gamein") options.exit_after_gamein = true;
+        else if (arg == L"--follow-camera") options.follow_camera = true;
+        else if (arg == L"--character-name") take(options.character_name);
+        else if (arg == L"--resource-root" && i + 1 < argc) {
+            options.resource_root = argv[++i];
+        }
+        else if (arg == L"--save-frame") take(options.save_frame);
+    }
+    LocalFree(argv);
+    return options;
+}
+
+std::filesystem::path find_playdh_root() {
+    std::error_code ec;
+    auto base = std::filesystem::current_path(ec);
+    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
+        const auto direct = base / "PlayDH";
+        if (std::filesystem::is_directory(direct, ec)) return direct;
+        for (std::filesystem::directory_iterator it(base, ec), end;
+             !ec && it != end; it.increment(ec)) {
+            if (!it->is_directory(ec)) continue;
+            const auto nested = it->path() / "PlayDH";
+            if (std::filesystem::is_directory(nested, ec)) return nested;
+        }
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
+    }
+    return {};
+}
 
 class StubFileStorage : public I4DyuchiFileStorage {
 public:
@@ -155,6 +234,13 @@ public:
 namespace {
 
 I4DyuchiGXRenderer* g_renderer = nullptr;
+std::unique_ptr<mxh::gx::TerrainScene> g_terrain;
+std::unique_ptr<mxh::gx::StaticScene> g_staticScene;
+std::unique_ptr<mxh::gx::SkyScene> g_skyScene;
+std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
+bool g_renderTerrain = false;
+std::string g_captureTerrainFrame;
+bool g_overviewCamera = false;
 
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
@@ -289,11 +375,24 @@ void renderFrame(HWND h) {
 
     g_renderer->BeginRender(nullptr, 0xff101830, 0);
 
-    // Background tile (slot 0 = boot gradient).
-    if (g_sprites[0].sprite) {
-        VECTOR2 scale{ 800.0f, 600.0f };
+    if (g_renderTerrain && g_terrain) {
+        g_terrain->configureCamera(800.0f / 600.0f);
+        if (!g_overviewCamera && g_skyScene) g_skyScene->render();
+        g_terrain->render();
+        if (g_staticScene) g_staticScene->render();
+        if (g_entityScene) g_entityScene->render();
+    }
+
+    // Background tile during login/character states.
+    if (!g_renderTerrain && g_sprites[0].sprite) {
+        IMAGE_HEADER image{};
+        g_sprites[0].sprite->GetImageHeader(&image, 0);
+        VECTOR2 scale{
+            image.dwWidth ? 800.0f / static_cast<float>(image.dwWidth) : 1.0f,
+            image.dwHeight ? 600.0f / static_cast<float>(image.dwHeight) : 1.0f };
         VECTOR2 trans{ 0.0f, 0.0f };
-        RECT     rc{ 0, 0, 64, 64 };
+        RECT     rc{ 0, 0, static_cast<LONG>(image.dwWidth),
+                     static_cast<LONG>(image.dwHeight) };
         g_renderer->RenderSprite(g_sprites[0].sprite, &scale, 0.0f, &trans,
                                  &rc, 0xFFFFFFFFu, 0, 0);
     }
@@ -306,17 +405,27 @@ void renderFrame(HWND h) {
     constexpr float kTileY = 480.0f;
     constexpr float kGapX  = 20.0f;
     constexpr float kStartX = (800.0f - (3.0f * kTileW + 2.0f * kGapX)) * 0.5f;
-    for (std::uint32_t i = 1; i <= 3; ++i) {
+    for (std::uint32_t i = 1; !g_renderTerrain && i <= 3; ++i) {
         if (!g_sprites[i].sprite) continue;
-        VECTOR2 scale{ kTileW, kTileH };
+        IMAGE_HEADER image{};
+        g_sprites[i].sprite->GetImageHeader(&image, 0);
+        VECTOR2 scale{
+            image.dwWidth ? kTileW / static_cast<float>(image.dwWidth) : 1.0f,
+            image.dwHeight ? kTileH / static_cast<float>(image.dwHeight) : 1.0f };
         VECTOR2 trans{ kStartX + (i - 1) * (kTileW + kGapX), kTileY };
-        RECT     rc{ 0, 0, 64, 64 };
+        RECT     rc{ 0, 0, static_cast<LONG>(image.dwWidth),
+                     static_cast<LONG>(image.dwHeight) };
         g_renderer->RenderSprite(g_sprites[i].sprite, &scale, 0.0f, &trans,
                                  &rc, 0xFFFFFFFFu,
                                  /*iZOrder=*/static_cast<int>(i), 0);
     }
 
     g_renderer->EndRender();
+    if (g_renderTerrain && !g_captureTerrainFrame.empty()) {
+        if (g_renderer->CaptureScreen(g_captureTerrainFrame.data()))
+            MLOG_INFO("mxh_client: terrain frame saved");
+        g_captureTerrainFrame.clear();
+    }
     g_renderer->Present(h);
 }
 
@@ -335,7 +444,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         PostQuitMessage(0);
         return 0;
     case WM_PAINT: {
+        PAINTSTRUCT paint{};
+        BeginPaint(h, &paint);
         renderFrame(h);
+        EndPaint(h, &paint);
         return 0;
     }
     case WM_KEYDOWN:
@@ -355,7 +467,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // WinMain. 1:1 mirrors MHClient.cpp's WinMain order.
 // ---------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*show*/) {
+    ClientOptions options = parse_client_options();
+    g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     MLOG_INFO("mxh_client: booting version %s", mxh::client::g_CLIENTVERSION);
+    MLOG_INFO("mxh_client: login=%s:%u map-port=%u user=%s",
+              options.login_host.c_str(), options.login_port,
+              options.map_port, options.username.c_str());
 
     WNDCLASSW wc{};
     wc.style         = CS_HREDRAW | CS_VREDRAW;
@@ -381,9 +498,28 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         return 1;
     }
 
-    // Resource storage. Stub for A.1; MoxianResourceExplorer integration is
-    // a Phase B.1 task.
-    StubFileStorage* storage = new StubFileStorage();
+    if (options.resource_root.empty()) options.resource_root = find_playdh_root();
+    if (options.resource_root.empty()) {
+        std::fprintf(stderr, "mxh_client: PlayDH resource root not found\n");
+        return 1;
+    }
+    auto* storage = new mxh::gx::FilesystemFileStorage(options.resource_root);
+    if (!storage->Initialize(0, 0, 0, FILE_ACCESS_METHOD_ONLY_FILE)) {
+        std::fprintf(stderr, "mxh_client: invalid resource root\n");
+        storage->Release();
+        return 1;
+    }
+    MLOG_INFO("mxh_client: PlayDH root loaded");
+
+    mxh::audio::BgmPlayer bgm;
+    std::string audio_error;
+    if (bgm.initialize(options.resource_root / "Sound", &audio_error)) {
+        // 1667 is the original login theme in SoundList.bin.
+        if (!bgm.play(1667, &audio_error))
+            MLOG_WARN("mxh_client: login BGM unavailable: %s", audio_error.c_str());
+    } else {
+        MLOG_WARN("mxh_client: SoundList unavailable: %s", audio_error.c_str());
+    }
 
     // Renderer. The factory is implemented in modern/src/render (DX11
     // backend). The pointer is borrowed — the factory retains ownership.
@@ -409,14 +545,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     ID3D11Device* dev = nullptr;
     if (renderer->GetD3DDevice(__uuidof(IUnknown),
                               reinterpret_cast<void**>(&dev))) {
-        g_sprites[0].srv    = makeBootSRV(dev);
-        g_sprites[1].srv    = makeSolidSRV(dev, 0xFFB04040u);  // red
-        g_sprites[2].srv    = makeSolidSRV(dev, 0xFF40B040u);  // green
-        g_sprites[3].srv    = makeSolidSRV(dev, 0xFF4060B0u);  // blue
-        g_sprites[0].sprite = makeSpriteFromSRV(renderer, g_sprites[0].srv, "bg");
-        g_sprites[1].sprite = makeSpriteFromSRV(renderer, g_sprites[1].srv, "tile_red");
-        g_sprites[2].sprite = makeSpriteFromSRV(renderer, g_sprites[2].srv, "tile_green");
-        g_sprites[3].sprite = makeSpriteFromSRV(renderer, g_sprites[3].srv, "tile_blue");
+        g_sprites[0].sprite = renderer->CreateSpriteObject(
+            const_cast<char*>("Image/2D/login.dds"), 0);
+        g_sprites[1].sprite = renderer->CreateSpriteObject(
+            const_cast<char*>("Image/MunpaMark/02_1000.tga"), 0);
+        g_sprites[2].sprite = renderer->CreateSpriteObject(
+            const_cast<char*>("Image/MunpaMark/02_1003.tga"), 0);
+        g_sprites[3].sprite = renderer->CreateSpriteObject(
+            const_cast<char*>("Image/MunpaMark/02_1008.tga"), 0);
         MLOG_INFO("mxh_client: %u sprites registered (1 background + 3 tiles)",
                   static_cast<unsigned>(g_sprites.size()));
     } else {
@@ -479,8 +615,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // until MHVerInfo.ver parsing lands in B.2.5).
     if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
             mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
-        login->Start(mainGame.GetEngine(),
-                     "127.0.0.1", 6001, "test", "test");
+        login->Start(mainGame.GetEngine(), options.login_host,
+                     options.login_port, options.username, options.password);
     } else {
         MLOG_ERROR("Connect slot is not a CLoginState; cannot start login");
     }
@@ -497,6 +633,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // Process() call after SetGameState), so we track the previous
     // state number and drive Start() on the rising edge.
     auto prev_state = mxh::client::GameStateId::End;
+    std::uint32_t pending_character_id = 0;
+    std::uint16_t pending_map_num = 0;
+    bool auto_create_requested = false;
+    bool follow_frame_captured = false;
+    unsigned follow_settle_frames = 0;
     MSG msg{};
     while (mxh::client::g_running) {
         if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -515,6 +656,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             mainGame.GetGameState(cur_state))) {
                         cs->Start(mainGame.GetEngine());
                     }
+                } else if (cur_state == mxh::client::GameStateId::CharMake) {
+                    if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
+                            mainGame.GetGameState(cur_state))) {
+                        cm->Start(mainGame.GetEngine());
+                    }
+                } else if (cur_state == mxh::client::GameStateId::GameLoading) {
+                    auto transfer = mainGame.GetEngine()->TakePendingTransfer();
+                    if (transfer.type() == typeid(mxh::client::GameEntryRequest)) {
+                        const auto request =
+                            std::any_cast<mxh::client::GameEntryRequest>(transfer);
+                        pending_character_id = request.character_id;
+                        pending_map_num = request.map_num;
+                        mainGame.SetGameState(mxh::client::GameStateId::GameIn);
+                    } else {
+                        MLOG_ERROR("GameLoading: missing GameEntryRequest");
+                    }
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
                     // Phase B.2.3: dev-mode direct-connect to MapServer.
                     // The full CharSelect → GameLoading → GameIn path
@@ -523,11 +680,117 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     // login ack user_idx as chrid.
                     if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
                             mainGame.GetGameState(cur_state))) {
-                        g->Start(mainGame.GetEngine(), "127.0.0.1", 8001,
-                                 /*player_id=*/1, /*map_num=*/12);
+                        const auto descriptorPath = options.resource_root / "Resource" / "Map" /
+                            ("Map" + std::to_string(pending_map_num) + ".bmhm");
+                        if (const auto descriptor = mxh::compat::BmhmMap::load(descriptorPath)) {
+                            audio_error.clear();
+                            if (!bgm.play(descriptor->desc().bgm_sound_num, &audio_error))
+                                MLOG_WARN("mxh_client: map BGM unavailable: %s", audio_error.c_str());
+                            if (!g_terrain) g_terrain = std::make_unique<mxh::gx::TerrainScene>();
+                            const std::string hflName = std::to_string(pending_map_num) + ".hfl";
+                            std::string terrainError;
+                            if (g_terrain->load(renderer, storage, hflName.c_str(), &terrainError)) {
+                                g_renderTerrain = true;
+                                if (g_overviewCamera)
+                                    g_captureTerrainFrame = options.save_frame;
+                                if (!g_staticScene) g_staticScene = std::make_unique<mxh::gx::StaticScene>();
+                                const std::string stmName = std::to_string(pending_map_num) + ".stm";
+                                std::string staticError;
+                                if (!g_staticScene->load(renderer, storage, stmName.c_str(), &staticError))
+                                    MLOG_WARN("mxh_client: static scene unavailable: %s", staticError.c_str());
+                                if (descriptor->desc().sky_mod[0]) {
+                                    if (!g_skyScene) g_skyScene = std::make_unique<mxh::gx::SkyScene>();
+                                    std::string skyError;
+                                    if (!g_skyScene->load(renderer, storage,
+                                                          descriptor->desc().sky_mod, &skyError))
+                                        MLOG_WARN("mxh_client: sky scene unavailable: %s", skyError.c_str());
+                                }
+                                if (!g_entityScene) {
+                                    g_entityScene = std::make_unique<mxh::gx::EntityScene>();
+                                    std::string entityError;
+                                    if (!g_entityScene->load(renderer, storage, &entityError))
+                                        MLOG_WARN("mxh_client: entity scene unavailable: %s", entityError.c_str());
+                                }
+                            } else {
+                                MLOG_ERROR("mxh_client: terrain load failed: %s", terrainError.c_str());
+                            }
+                        } else {
+                            MLOG_WARN("mxh_client: map descriptor unavailable for map=%u", pending_map_num);
+                        }
+                        g->Start(mainGame.GetEngine(), options.login_host,
+                                 options.map_port, pending_character_id,
+                                 pending_map_num);
                     }
                 }
                 prev_state = cur_state;
+            }
+            if (cur_state == mxh::client::GameStateId::CharSelect &&
+                options.auto_create && !auto_create_requested) {
+                if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
+                        mainGame.GetGameState(cur_state));
+                    cs && cs->has_character_list()) {
+                    bool has_character = false;
+                    for (const auto& slot : cs->character_list()) {
+                        has_character = has_character || slot.valid;
+                    }
+                    if (!has_character) {
+                        mainGame.GetEngine()->SetPendingTransfer(cs->login_result());
+                        mainGame.SetGameState(mxh::client::GameStateId::CharMake);
+                        auto_create_requested = true;
+                    }
+                }
+            } else if (cur_state == mxh::client::GameStateId::CharMake &&
+                       options.auto_create) {
+                if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
+                        mainGame.GetGameState(cur_state));
+                    cm && cm->is_connected() && !cm->is_submitted() &&
+                    !cm->is_failed()) {
+                    mxh::client::CharacterMakeParams params;
+                    params.name = options.character_name;
+                    (void)cm->SubmitCharacter(params);
+                }
+            } else if (cur_state == mxh::client::GameStateId::GameIn &&
+                       options.exit_after_gamein) {
+                if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
+                        mainGame.GetGameState(cur_state));
+                    game_in && game_in->is_in_game() &&
+                    (!options.follow_camera || !game_in->monsters().empty())) {
+                    if (!options.follow_camera || ++follow_settle_frames >= 20u) {
+                        MLOG_INFO("mxh_client: GUI_SMOKE_PASS player_id=%u map=%u",
+                                  game_in->player_id(), game_in->map_num());
+                        mxh::client::g_running = false;
+                    }
+                }
+            }
+            if (!g_overviewCamera && cur_state == mxh::client::GameStateId::GameIn) {
+                if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
+                        mainGame.GetGameState(cur_state)); game_in && game_in->is_in_game()) {
+                    const auto& info = game_in->game_info();
+                    if (g_terrain) {
+                        g_terrain->followPlayer(info.position_x, info.position_z);
+                        if (!follow_frame_captured && !options.save_frame.empty() &&
+                            (!options.follow_camera || follow_settle_frames >= 20u)) {
+                            g_captureTerrainFrame = options.save_frame;
+                            follow_frame_captured = true;
+                        }
+                    }
+                    if (g_entityScene && g_terrain) {
+                        std::vector<mxh::gx::SceneEntity> entities;
+                        entities.reserve(game_in->monsters().size());
+                        for (const auto& monster : game_in->monsters()) {
+                            entities.push_back({monster.object_id, monster.monster_kind,
+                                static_cast<float>(monster.position_x),
+                                g_terrain->heightAt(monster.position_x, monster.position_z),
+                                static_cast<float>(monster.position_z)});
+                        }
+                        g_entityScene->synchronize(entities);
+                        g_entityScene->synchronizePlayer({info.player_id, info.gender,
+                            info.face_type, info.hair_type, info.weared_item_idx,
+                            static_cast<float>(info.position_x),
+                            g_terrain->heightAt(info.position_x, info.position_z),
+                            static_cast<float>(info.position_z)});
+                    }
+                }
             }
             mainGame.BeforeRender();
             renderFrame(hwnd);
@@ -539,6 +802,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     MLOG_INFO("mxh_client: shutting down");
 
     mainGame.Release();
+    g_renderTerrain = false;
+    g_terrain.reset();
+    g_staticScene.reset();
+    g_skyScene.reset();
+    g_entityScene.reset();
 
     // Cleanup. The SpriteObject* are owned by us; the renderer factory
     // will release them when renderer is destroyed. SRVs are released

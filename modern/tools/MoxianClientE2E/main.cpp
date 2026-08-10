@@ -133,7 +133,7 @@ CliArgs parse_cli(int argc, char** argv) {
     a.map_exe   = build_dir + "/MoxianMapServer/Debug/mxh_map_server_CHINA.exe";
     // MSSQL default matches the verified LocalDB command from the P0 E2E:
     //   --backend mssql_odbc --db "backend=mssql_odbc;host=(localdb)\MSSQLLocalDB;database=Moxiang;"
-    a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;";
+    a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;encrypt=no;trust_server_certificate=yes;";
     for (int i = 1; i < argc; ++i) {
         const std::string_view s = argv[i];
         if      (s == "--login-exe" && i + 1 < argc) a.login_exe = argv[++i];
