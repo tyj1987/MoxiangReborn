@@ -20,9 +20,9 @@
 
 ## E3：五段核心玩法行为尚未全部 diff=0
 
-- **状态**: modern 侧 5/5 已 diff=0；2026-08-10 五段场景 modern capture 全部 byte-for-byte 匹配 modern golden：`login` (dist+login Ack), `enter_game` 2 帧 (AgentConnectSuccess + GameInNack), `attack` (Skill StartNack err=3 unknown caster), `shop` (Item BuyNack 4B echo), `quest` (Quest StartNack 2B echo). Nack 是有意为之：modern 没有完整 NPC shop / quest manager / skill caster 解析，所以服务端按"老客户端契约：服务端必须回应 StartSyn"返回稳定的 Nack trace, side-by-side harness 才能持续 diff=0。
+- **状态**: modern 侧 5/5 已 diff=0；2026-08-10 五段场景 modern capture 全部 byte-for-byte 匹配 modern golden：`login` (dist+login Ack), `enter_game` 2 帧 (AgentConnectSuccess + GameInNack), `attack` (Skill StartNack err=3 unknown caster), `shop` (Item BuyNack 4B echo), `quest` (Quest StartNack 2B echo). 5/5 capture 走 Nack 路径（无 dealitem/quest 加载），保持 diff=0。BuySyn / StartSyn 的 Ok 路径已在 commit 229bde0d 落地：dealitem catalog 命中 → 扣 money + 插 inventory + BuyAck；quest script 命中 → accept_quest + StartAck。Ok 路径由新单测 `MapHandlerTest.BuySynOkArmDeductsMoneyAndInsertsInventory` + `MapHandlerTest.StartSynOkArmAddsQuestToPlayerLog` 端到端覆盖（回滚分支同时验证 inventory 满 / 资金不足）。Nack 仍是 catalog/script 未加载时的回退路径，与 5/5 modern capture 兼容。
 - **影响**：阻碍 T3 和 1.0 跨实现对照。
-- **验收**：副作用顺序、网络包、数据库变化、数值和 UI 状态逐项一致。**当前 5/5 段在 modern 侧达到 diff=0, 剩余跨实现证据需要 legacy client / server 对照环境（不是阻塞项，可与商业冒烟并行推进）**。
+- **验收**：副作用顺序、网络包、数据库变化、数值和 UI 状态逐项一致。**当前 5/5 段在 modern 侧达到 diff=0; BuySyn/StartSyn 的 Ok 路径已在 modern 单测中验证 (commit 229bde0d). 剩余跨实现证据需要 legacy client / server 对照环境（不是阻塞项，可与商业冒烟并行推进）**。
 - **外部依赖**: 原版客户端/服务端对照环境。
 
 ## DEPLOY-MSSQL：生产部署环境尚未验收

@@ -1,4 +1,14 @@
 
+## 2026-08-10 - server: BuySyn/StartSyn OK arm applies money+inventory+quest side effects
+
+modern/src/server/map_handler.cpp BuySyn handler now drives a real 1:1 decision via the dealitem catalog: when `npc_shop_buy_decision().status == Ok` it auto-infers `npc_id` from the loaded `dealitem_catalog_`, deducts `qty*price` from `PlayerInfo.money` and inserts `qty` `ItemBase` entries into the actor inventory (mirroring back to `PlayerInfo.items.Inventory`); failure paths (catalog miss / inventory full / insufficient money) roll back the money mutation and emit `BuyNack`. The wire contract for the Ok path is `BuyAck` (4B item+qty echo); the Nack path stays byte-for-byte identical with the existing 4B echo so the side-by-side 5/5 capture keeps diff=0.
+
+handle_quest StartSyn now consults `quest_definitions_.find_quest(quest_id)`. Hit -> `accept_quest` writes a `QuestProgress` into `player_runtimes_[pid].quest_log` and emits `StartAck`; miss -> still emits `StartNack` 2B echo. The Nack path shape is unchanged (preserves side-by-side golden).
+
+modern/include/mxh/server/server.hpp adds 3 test-only API hooks: `set_player_money_for_test`, `player_money_for_test`, `player_quest_count_for_test`. modern/tests/unit/server/server_handler_test.cpp adds 2 new behavior tests under `players_mu_` + dealitem/quest load paths: `BuySynOkArmDeductsMoneyAndInsertsInventory` and `StartSynOkArmAddsQuestToPlayerLog`.
+
+11842/11844 unit tests pass (2 SKIPPED); 6/6 SideBySideModernGolden.* pass; commercial-smoke.ps1 PASS; python scripts/check-project-governance.py PASS; PlayDH 433/433 OK. ROADMAP.md / KNOWN_BUGS.md sync. See git log 229bde0d.
+
 ## 2026-08-10 - docs: KNOWN_BUGS sync + ROADMAP M4 GREEN refresh
 
 docs/KNOWN_BUGS.md closes stale entries (M4 PlayDH 99.77% mojibake + duplicate E3 + M3-MAP + the SESSION-2026-08-10-#2 placeholder + the now-resolved CLIENT-RUNTIME) and refreshes C-Tier-3 (12/12 service wiring, list of dialogs) + E3 (modern 5/5 diff=0 intentional Nack trace). docs/KNOWN_BUGS_ARCHIVE.md gains CLIENT-RUNTIME / M3-MAP / M4 PlayDH 100% (433/433 OK) as the canonical record of what was closed. ROADMAP.md §1 M3 进展 row adds M2 12/12 + commercial-smoke + PlayDH 100% + M4 GREEN conclusion; §2 UI / 玩法 / 数值 / T1 资源 rows reflect current evidence; §3 marks M2 完成 / M3 modern 闭环完成 / M4 门禁 GREEN; baseline test count updates 11749 → 11841.
