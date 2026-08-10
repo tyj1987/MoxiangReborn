@@ -39,6 +39,16 @@ void cMPGuageDialog::SetExpGuage(float percent) {
     }
 }
 
+void cMPGuageDialog::RefreshFromPlayerStats() {
+    if (!m_playerStatsService) return;
+    const auto needed = m_playerStatsService->getExpForNextLevel();
+    const float percent = needed == 0
+        ? 0.0f
+        : static_cast<float>(m_playerStatsService->getLevelExp()) /
+          static_cast<float>(needed);
+    SetExpGuage(percent > 1.0f ? 1.0f : percent);
+}
+
 void cMPGuageDialog::SetTime(std::uint32_t remainTime) {
     if (m_Time) {
         if (remainTime < kRedTextThreshold) {

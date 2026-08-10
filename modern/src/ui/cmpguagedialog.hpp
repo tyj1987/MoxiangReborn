@@ -52,6 +52,7 @@
 #pragma once
 
 #include "cDialog.hpp"
+#include "mxh/services/IPlayerStatsService.hpp"
 
 #include <cstdint>
 
@@ -76,6 +77,13 @@ public:
     // Calls m_ExpGuage callback + sprintf "%4.2f%%"
     // -> m_ExpPercent->SetStaticText.
     void SetExpGuage(float percent);
+    void SetPlayerStatsService(const mxh::services::IPlayerStatsService* service) noexcept {
+        m_playerStatsService = service;
+    }
+    const mxh::services::IPlayerStatsService* playerStatsService() const noexcept {
+        return m_playerStatsService;
+    }
+    void RefreshFromPlayerStats();
 
     // 1:1 with legacy CMPGuageDialog::SetTime.
     // If RemainTime < 30000 -> m_Time->SetFGColor
@@ -149,6 +157,7 @@ private:
     void*               m_setExpGuageUser = nullptr;
     ChatMsgCallback     m_chatMsgCb       = nullptr;
     void*               m_chatMsgUser     = nullptr;
+    const mxh::services::IPlayerStatsService* m_playerStatsService = nullptr;
 };
 
 } // namespace mxh::ui

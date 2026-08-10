@@ -35,6 +35,26 @@
 using mxh::ui::cMPGuageDialog;
 using mxh::ui::cStatic;
 
+class FakePlayerStats final : public mxh::services::IPlayerStatsService {
+public:
+    std::uint32_t levelExp = 0;
+    std::uint32_t nextExp = 1;
+    std::uint16_t getStr() const noexcept override { return 0; }
+    std::uint16_t getAgi() const noexcept override { return 0; }
+    std::uint16_t getInt() const noexcept override { return 0; }
+    std::uint16_t getWis() const noexcept override { return 0; }
+    std::uint16_t getDex() const noexcept override { return 0; }
+    std::uint16_t getLevel() const noexcept override { return 1; }
+    std::uint32_t getLevelExp() const noexcept override { return levelExp; }
+    std::uint32_t getExpForNextLevel() const noexcept override { return nextExp; }
+    std::uint32_t getCurrentHp() const noexcept override { return 0; }
+    std::uint32_t getMaxHp() const noexcept override { return 0; }
+    std::uint32_t getCurrentMp() const noexcept override { return 0; }
+    std::uint32_t getMaxMp() const noexcept override { return 0; }
+    float getHpFraction() const noexcept override { return 0.0f; }
+    float getMpFraction() const noexcept override { return 0.0f; }
+};
+
 namespace {
 
 struct Harness {
@@ -152,6 +172,29 @@ TEST(CMPGuageDialog, SetExpGuageWithoutCallbackIsSafe) {
     ResetCbState();
     h.dlg.SetExpGuage(0.42f);
     EXPECT_EQ(h.expPercentStc.GetStaticText(), "42.00%");
+}
+
+TEST(CMPGuageDialog, RefreshFromPlayerStatsUsesLiveExpSnapshot) {
+    Harness h;
+    FakePlayerStats stats;
+    stats.levelExp = 25;
+    stats.nextExp = 100;
+    h.dlg.SetPlayerStatsService(&stats);
+    h.dlg.RefreshFromPlayerStats();
+    EXPECT_EQ(h.expPercentStc.GetStaticText(), "25.00%");
+}
+
+TEST(CMPGuageDialog, RefreshFromPlayerStatsClampsAndHandlesMaxLevel) {
+    Harness h;
+    FakePlayerStats stats;
+    stats.levelExp = 200;
+    stats.nextExp = 100;
+    h.dlg.SetPlayerStatsService(&stats);
+    h.dlg.RefreshFromPlayerStats();
+    EXPECT_EQ(h.expPercentStc.GetStaticText(), "100.00%");
+    stats.nextExp = 0;
+    h.dlg.RefreshFromPlayerStats();
+    EXPECT_EQ(h.expPercentStc.GetStaticText(), "0.00%");
 }
 
 TEST(CMPGuageDialog, SetExpGuageWithoutExpPercentIsSafe) {
