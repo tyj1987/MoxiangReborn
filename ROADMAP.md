@@ -17,6 +17,7 @@
 | T1 资源字节一致 | 真实资源清单、解析结果和 SHA-256 基线全部稳定 |
 | T2 modern 协议闭环 | modern 客户端与 Login/Agent/Map 的登录、选角、建角、进图和玩法消息可重复互通；结构尺寸、边界与重放稳定 |
 | T3 行为一致 | 登录、进图、战斗/任务、商城/物品、PK 五段 side-by-side diff 为零，UI 状态与原版一致 |
+| **M3 进展 (2026-08-10)** | T3 五段 modern 5/5 diff=0；现代金色锁像锁定在 modern/tests/fixtures/sbs_captures_modern/ 与 SideBySideModernGolden.* 单测中 | 副作用顺序 / 数值 / DB 这 3 项需 modern manager (caster / npc_shop / quest_manager) 落地后才能达到 diff=0；跨实现证据仍需 legacy SWorking 运行环境 | **M3 modern 闭环完成** |
 
 T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。legacy 网络互通只作参考，不是发布门禁。
 
