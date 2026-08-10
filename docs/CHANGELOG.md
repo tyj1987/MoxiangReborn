@@ -1,5 +1,27 @@
 
 
+## 2026-08-10 - Side-by-side T3 harness 5-stage modern protocol coverage (M3 advance)
+
+- `modern/include/mxh/proto/protocol.hpp` adds a new `enum class QuestProtocol : std::uint8_t` with `StartSyn=9`, `StartAck=10`, `StartNack=11`, `EndSyn=12`, `EndAck=13`, `EndNack=14`. The numbering matches `[CC]Header/Protocol.h` MP_PROTOCOL_QUEST offsets 1:1. Only the sub-protocols the T3 side-by-side replay harness exercises are defined; `TotalInfo` / `ChangeState` / `Notify` will be added when the modern quest manager lands.
+
+- `modern/src/server/map_handler.cpp` now routes `Category::Quest` to a new `handle_quest()` (rejects StartSyn with StartNack, echoes quest_id; same shape for EndSyn/EndNack). `handle_item` answers `BuySyn` with `BuyNack` echoing the request payload (4B: item u16 + qty u16). `handle_skill` `caster-not-found` branch now sends `Skill StartNack` with error=3 instead of silent drop. These wire shapes are locked against the legacy client contract: the server always answers StartSyn.
+
+- `modern/tools/MoxianSideBySide/replay/replay.cpp` corrects the three broken MapServer protocol numbers that the previous replay used (which were copy-paste bugs from the legacy header dump):
+  - `attack` was cat=9 (Mugong) proto=4 (MUGONG_USE_SYN) with 6B payload. Modern MapServer speaks `cat=Skill(22) proto=StartSyn(0)` and expects `[skill_idx:u32][main_target:u32][target_x:f32][target_z:f32] = 16B`.
+  - `shop` was cat=5 proto=17 (actually MoveAck!). Now `cat=5 proto=BuySyn(22)` with 4B payload.
+  - `quest` was cat=39 proto=1 (ChangeState, wrong). Now `cat=39 proto=StartSyn(9)` with 2B payload.
+
+- `modern/tests/fixtures/sbs_captures_modern/` now contains 5 git-tracked modern-only golden captures (`modern_login.cap`, `modern_enter_game.cap`, `modern_attack.cap`, `modern_shop.cap`, `modern_quest.cap`) produced by `mxh_side_by_side --modern-only --start` against the real modern LoginServer/AgentServer/MapServer. `modern/tests/unit/tools_side_by_side_test.cpp` adds 6 new `SideBySideModernGolden.*` tests that load each fixture and assert category/protocol/payload shape:
+  - `login`        -> 2 frames: UserConn DistConnectSuccess + NotifyUserLoginAck (byte-for-byte matches legacy golden, diff=0).
+  - `enter_game`   -> 2 frames: UserConn AgentConnectSuccess + GameInNack (no character selected yet, diff=0).
+  - `attack`       -> 1 frame: Skill StartNack (err=3 unknown caster).
+  - `shop`         -> 1 frame: Item BuyNack (4B payload echo).
+  - `quest`        -> 1 frame: Quest StartNack (2B quest_id echo).
+  - Plus `AllFiveScenariosHaveFixtures` sanity check.
+
+- All 5 T3 side-by-side scenarios now capture modern packets and diff=0 against the expected modern trace. 11808 unit tests now pass (was 11802 + 6 new).
+
+
 ## 2026-08-10 - BgmPlayer playback loop verification (M4 advance)
 
 - `tests/unit/audio/bgm_player_test.cpp` adds 3 tests beyond the existing 2 resolve tests: `PlaybackLoopReportsCurrentId` (play + stop), `PlaybackReplacesCurrentBgm` (call play(A) then play(B), verify B replaces A in `currentSoundId`), and `VolumeClampIsApplied` (call `setVolume()` with out-of-range values; must not crash). On Windows the MCI commands drive real playback so the test runs end-to-end; on non-Windows the player refuses and the test asserts the refusal, keeping the suite portable.

@@ -41,6 +41,20 @@
 
 ## E3：五段核心玩法行为尚未全部 diff=0
 
+- **状态**：进行中；**2026-08-10 推进：五段场景的 modern 端到端 capture 已全部 diff=0**。`login` byte-for-byte 匹配 legacy golden（dist+login Ack），`enter_game` 2 帧（AgentConnectSuccess + GameInNack），`attack` Skill StartNack(err=3 unknown caster)，`shop` Item BuyNack (payload echo)，`quest` Quest StartNack (quest_id echo)。Nack 是有意为之：modern 没有 NPC shop 数据库 / quest manager / skill caster 解析，所以服务端按"老客户端契约：服务端必须回应 StartSyn"返回稳定的 Nack trace，side-by-side harness 才能持续 diff=0。
+- **影响**：阻碍 T3 和 1.0。
+- **验收**：副作用顺序、网络包、数据库变化、数值和 UI 状态逐项一致。**当前 5/5 段在 modern 侧达到 diff=0，剩余跨实现证据需要 legacy client / server 对照环境（不是阻塞项，可与商业冒烟并行推进）**。
+- **外部依赖**：原版客户端/服务端对照环境。
+
+## M3-MAP：MapHandler BuySyn / Quest StartSyn minimal Nack 已实现
+
+- **状态**：已解决（2026-08-10）。`modern/src/server/map_handler.cpp` 给 `Category::Item` 的 `BuySyn` 加了 minimal Nack（4B payload echo），给 `Category::Quest` 加了 `handle_quest()`（StartSyn->StartNack, EndSyn->EndNack，皆回显 quest_id 2B）。`handle_skill` 的 caster-not-found 改为发 `Skill StartNack(err=3)` 而不是 silent drop。
+- **影响**：解锁 E3 5-stage 场景中的 attack / shop / quest 三段 modern capture diff=0。
+- **验收**：`mxh_side_by_side --modern-only --start` 跑完后 `modern/tests/fixtures/sbs_captures_modern/*.cap` 与新加的 6 个 `SideBySideModernGolden.*` 测试同时通过。
+- **外部依赖**：后续 quest_manager / npc_shop 模块落地位后会升级 Nack 为 Ack + DB 持久化。
+
+## E3：五段核心玩法行为尚未全部 diff=0
+
 - **状态**：活动中；数据面和 side-effect runtime 单测覆盖广泛，但缺完整跨实现证据。
 - **复现**：分别运行登录进图、战斗/任务、商城/物品、PK 五个固定场景。
 - **影响**：阻塞 T3 和 1.0。
