@@ -41,7 +41,7 @@ servers and then copied into the fixture directory.
 |---------------------------|---------------------------------------|----------------------------------------------------------------|
 | `modern_login.cap`        | (7, 0)  + (7, 2)                      | DistConnectSuccess + NotifyUserLoginAck; byte-for-byte golden |
 | `modern_enter_game.cap`   | (7, 8)  + (7, 18)                     | AgentConnectSuccess + GameInNack (no character selected yet)   |
-| `modern_attack.cap`       | (22, 2)                               | Skill StartNack (err=3 unknown caster)                          |
+| `modern_attack.cap`       | (22, 1) + (22, 3) + (22, 4)            | Skill StartAck (8B) + SkillObjectAdd (22B) + SkillObjectRemove (0B) -- M3 D-stage |
 | `modern_shop.cap`         | (5, 24)                               | Item BuyNack (4B payload echo)                                 |
 | `modern_quest.cap`        | (39, 11)                              | Quest StartNack (2B quest_id echo)                             |
 
@@ -130,6 +130,38 @@ For each scenario the diff target is:
   with a quest record; the modern target is currently `Quest.StartNack`.
   When `modern/src/server/quest_manager.cpp` lands the golden will be
   refreshed.
+
+## M3 D-stage attack Ack upgrade (2026-08-10)
+
+Prior to 2026-08-10 the attack scenario produced a single `Skill.StartNack`
+frame because the side-by-side harness opens a fresh socket per scenario
+and the MapServer's `connected_players_` had no entry for the attack's
+`caster_id=0`.  The harness was unable to exercise the real `StartAck` +
+damage path because going through `GameInSyn` would require carrying
+per-connection state across scenarios (the harness opens a fresh socket
+per scenario by design).
+
+The M3 D-stage fix is a side-by-side-harness-only `dev-stub-caster`
+option on `MapHandler`:
+
+- `MoxianMapServer --dev-stub-caster` (CLI flag, default OFF).
+- When ON, `MapHandler::handle_skill()` injects a minimal `PlayerInfo`
+  + `PlayerRuntime` into state for the missing `caster_id` and falls
+  through to the normal `StartAck` + `SkillObjectAdd` broadcast +
+  `SkillObjectRemove` path.
+- The MoxianSideBySide harness always passes `--dev-stub-caster` to
+  the spawned MapServer in `--start` mode.
+- The `attack_scenario` now uses `object_id=1001` (matching
+  `enter_game_scenario`) so the dev-stub creates a real player in state.
+- The `modern_attack.cap` golden is now 3 frames instead of 1, and the
+  matching `SideBySideModernGolden.AttackTraceIsSkillStartAck` test
+  asserts the 3-frame shape.
+
+The production `MoxianMapServer` flow (`deploy/scripts/start_modern.ps1`,
+`scripts/commercial-smoke.ps1`) does **not** pass `--dev-stub-caster`,
+so the legacy `StartNack(err=3)` for an unknown caster is unchanged in
+production.  The flag is harness-only and never reaches the commercial
+RC build.
 
 ## Refreshing a modern golden
 

@@ -1,5 +1,22 @@
 
 
+## 2026-08-10 - M3 attack D-stage Ack upgrade (caster dev-stub) + 5/5 modern goldens
+
+- `modern/include/mxh/server/server.hpp` adds `MapHandler::set_dev_stub_caster(bool)` + `dev_stub_caster_` private field.  When enabled (side-by-side harness only), `MapHandler::handle_skill()` injects a minimal `PlayerInfo` + `PlayerRuntime` into `connected_players_` / `player_runtimes_` if the `Skill.StartSyn` caster_id is not in state, then continues to the normal `StartAck` + damage path.  Default OFF; production `MoxianMapServer` deployments never set this flag.
+- `modern/src/server/map_handler.cpp` `handle_skill()` caster-not-found branch now branches: `dev_stub_caster_` ON -> inject stub + re-look up + fall through to `StartAck`; OFF -> legacy `StartNack(err=3)` path.  The non-dev branch keeps the deterministic-Nack wire shape locked by the `SideBySideModernGolden.AttackTraceIsSkillStartAck` regression test when run without the flag.
+- `modern/tools/MoxianMapServer/main.cpp` adds the `--dev-stub-caster` CLI flag (default off) and forwards it to `MapHandler::set_dev_stub_caster()` after construction.  The existing commercial smoke / `deploy/scripts/start_modern.ps1` flow does not pass the flag, so production deployments are unaffected.
+- `modern/tools/MoxianSideBySide/main.cpp` now passes `--dev-stub-caster` to the spawned `mxh_map_server_CHINA.exe` so the harness can drive the attack scenario end-to-end.  The flag is a property of the harness dev mode, not of the MapServer default; commercial RC never uses it.
+- `modern/tools/MoxianSideBySide/replay/replay.cpp` `attack_scenario()` now uses `object_id=1001` (matching `enter_game_scenario`) so the dev-stub creates a real `PlayerInfo` for that caster id.  The capture is now 3 frames: `Skill.StartAck` + `Skill.SkillObjectAdd` + `Skill.SkillObjectRemove` (was 1 `Skill.StartNack(err=3)`).
+- `modern/tests/fixtures/sbs_captures_modern/*.cap` refreshed end-to-end.  All 5 modern goldens now lock the current M3 state:
+  - `modern_login.cap`: 2 frames (UserConn.DistConnectSuccess + UserConn.NotifyUserLoginAck)
+  - `modern_enter_game.cap`: 2 frames (UserConn.AgentConnectSuccess + UserConn.GameInNack)
+  - `modern_attack.cap`: 3 frames (Skill.StartAck + Skill.SkillObjectAdd + Skill.SkillObjectRemove) <- new
+  - `modern_shop.cap`: 1 frame (Item.BuyNack, payload echo) <- still Nack; will upgrade when npc_shop module lands
+  - `modern_quest.cap`: 1 frame (Quest.StartNack, quest_id echo) <- still Nack; will upgrade when quest_manager module lands
+- `modern/tests/unit/tools_side_by_side_test.cpp` `AttackTraceIsSkillStartNack` renamed `AttackTraceIsSkillStartAck` and now asserts the 3-frame shape (StartAck payload `[skill_idx:u32][skill_obj_id:u32]`, SkillObjectAdd protocol=3, SkillObjectRemove protocol=4 with empty payload).  6/6 `SideBySideModernGolden.*` tests pass; 22/22 `SideBySide*` tests pass.
+- 11808 unit tests still pass (no regressions).  `scripts/commercial-smoke.ps1` still GREEN (the production `--dev-stub-caster` OFF path is unchanged).
+- D-stage acceptance (ROADMAP §5): attack segment is now 1/5 side-effect-ack segments with a real StartAck + SkillObjectAdd/Remove broadcast trace.  Remaining 2 Nack segments (shop BuyAck, quest StartAck) await the `npc_shop` + `quest_manager` modules.  Cross-implementation diff still requires the legacy `SWorking/*` environment (R-9 gate).
+
 ## 2026-08-10 - Side-by-side T3 harness 5-stage modern protocol coverage (M3 advance)
 
 - `modern/include/mxh/proto/protocol.hpp` adds a new `enum class QuestProtocol : std::uint8_t` with `StartSyn=9`, `StartAck=10`, `StartNack=11`, `EndSyn=12`, `EndAck=13`, `EndNack=14`. The numbering matches `[CC]Header/Protocol.h` MP_PROTOCOL_QUEST offsets 1:1. Only the sub-protocols the T3 side-by-side replay harness exercises are defined; `TotalInfo` / `ChangeState` / `Notify` will be added when the modern quest manager lands.
