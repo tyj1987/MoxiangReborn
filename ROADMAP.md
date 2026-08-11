@@ -1,4 +1,4 @@
-# Moxian-Reborn 路线图：1:1 完美复现
+﻿# Moxian-Reborn 路线图：1:1 完美复现
 
 > 状态日期：2026-08-10。完成历史与测试累计见 [docs/CHANGELOG.md](docs/CHANGELOG.md)，活动缺陷见 [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md)。本文件只记录目标、当前事实和下一里程碑，不追加 session 日志。
 
@@ -17,7 +17,7 @@
 | T1 资源字节一致 | 真实资源清单、解析结果和 SHA-256 基线全部稳定 |
 | T2 modern 协议闭环 | modern 客户端与 Login/Agent/Map 的登录、选角、建角、进图和玩法消息可重复互通；结构尺寸、边界与重放稳定 |
 | T3 行为一致 | 登录、进图、战斗/任务、商城/物品、PK 五段 side-by-side diff 为零，UI 状态与原版一致 |
-| **M3 进展 (2026-08-10)** | T3 五段 modern 5/5 diff=0；现代金色锁像锁定在 modern/tests/fixtures/sbs_captures_modern/ 与 SideBySideModernGolden.* 单测中；M2 C-Tier-3 服务接线 12/12 完成（超出原 9 项目标）；`scripts/commercial-smoke.ps1` PASS（MSSQL_E2E LocalDB + GUI_CLIENT_SMOKE 5/5 状态帧 + 30.1% terrain + 原版 BGM + 11863/11863 单元测试）；PlayDH 资源全量审计 433/433=100% OK；BuySyn 货币扣减 + 库存插入、StartSyn 任务接取 + quest_log 写入 已在 modern 单测中验证（含 dealitem/quest 加载路径）；modern caster data plane (`mxh::server::skill_caster` 纯函数模块) 已独立 + 15 单测覆盖全部 6 个 status 路径 + 1:1 damage 公式；BuySyn money 已落地持久化到 `modern_player_state` 表（SQLite + MSSQL 通用 UPSERT）+ 2 个真实 SqliteAdapter 单测验证 | 副作用顺序 / 数值 / DB 的跨实现 diff=0 仍需 MapHandler 接线 skill_caster + legacy SWorking 对照环境 | **M3 modern 闭环完成（含 caster + BuySyn/StartSyn DB 持久化） + M4 商业 RC 门禁 GREEN (modern 单侧)** |
+| **M3 进展 (2026-08-10)** | T3 五段 modern 5/5 diff=0；现代金色锁像锁定在 modern/tests/fixtures/sbs_captures_modern/ 与 SideBySideModernGolden.* 单测中；M2 C-Tier-3 服务接线 12/12 完成（超出原 9 项目标）；`scripts/commercial-smoke.ps1` PASS（MSSQL_E2E LocalDB + GUI_CLIENT_SMOKE 5/5 状态帧 + 30.1% terrain + 原版 BGM + 11863/11863 单元测试）；PlayDH 资源全量审计 433/433=100% OK；BuySyn 货币扣减 + 库存插入、StartSyn 任务接取 + quest_log 写入 已在 modern 单测中验证（含 dealitem/quest 加载路径）；modern caster data plane (`mxh::server::skill_caster` 纯函数模块) 已独立 + 15 单测覆盖全部 6 个 status 路径 + 1:1 damage 公式；BuySyn money 已落地持久化到 `modern_player_state` 表（SQLite + MSSQL 通用 UPSERT）+ 2 个真实 SqliteAdapter 单测验证 | 副作用顺序 / 数值 / DB 的跨实现 diff=0 仍需 legacy SWorking 对照环境 (MapHandler.calc_damage + handle_skill.heal 已接线 skill_caster @ 8612f203; 11863 ctest PASS 锁行为 + 5/5 attack capture diff=0 维持) | **M3 modern 闭环完成（含 caster + BuySyn/StartSyn DB 持久化） + M4 商业 RC 门禁 GREEN (modern 单侧)** |
 
 T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。legacy 网络互通只作参考，不是发布门禁。
 
@@ -57,7 +57,7 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 - modern caster data plane (`mxh::server::skill_caster`) 已在 commit 4deb5529 独立模块化，6 个 status 路径 (Ok / UnknownSkill / DeadCaster / NotEnoughMp / OutOfRange / WrongKind) + 1:1 damage 公式 + heal 量的 15 个单测全部通过；MapHandler::calculate_damage 仍内联，5/5 attack capture 维持 diff=0。
 - BuySyn money DB 持久化在 commit 5b0c91d1 落地：`MapHandler::persist_player_money()` 私有方法 + BuySyn Ok 后调 + `INSERT INTO modern_player_state (...) ON CONFLICT (player_id) DO UPDATE` 通用 UPSERT (SQLite 3.24+ + MSSQL 2016+ 兼容)；`modern_player_state` 表加到 `deploy/database/mx_modern_schema_mssql.sql` + `MoxianDbTool moxian_schema_sql()`；2 个真实 `SqliteAdapter(:memory:)` 集成测试 `BuySynOkArmPersistsMoneyToSqliteMemory` + `PersistPlayerMoneyForTestHitsDb` 端到端覆盖 SELECT 验证。
 - StartSyn quest_log DB 持久化在 commit efe045fc 落地：MapHandler::persist_quest_log(player_id) 私有方法 + StartSyn Ok 后调 + INSERT INTO modern_player_quest_log (player_id, quest_id, state, accepted_time_ms, updated_at) ON CONFLICT (player_id, quest_id) DO UPDATE 通用 UPSERT；modern_player_quest_log 表（PK (player_id, quest_id)）加到 deploy/database/mx_modern_schema_mssql.sql + MoxianDbTool moxian_schema_sql() + 索引 idx_modern_player_quest_log_player；2 个真实 SqliteAdapter(:memory:) 集成测试 StartSynOkArmPersistsQuestLogToSqliteMemory + PersistQuestLogForTestHitsDb 端到端覆盖（SELECT 验证 quest_id + state 非 0；DELETE 后 persist_quest_log_for_test 重写）。wire shape 不变（StartAck 仍 2B quest_id echo），5/5 side-by-side capture 维持 diff=0。
-- 副作用顺序 / 数值 / DB 完整 diff=0 仍需 MapHandler 接线 skill_caster + legacy SWorking 对照环境。
+- 副作用顺序 / 数值 / DB 完整 diff=0 仍需 legacy SWorking 对照环境 (MapHandler.calc_damage + handle_skill.heal 已接线 skill_caster @ 8612f203; 11863 ctest PASS 锁行为 + 5/5 attack capture diff=0 维持)。
 
 ### M4：部署与商业 RC 验收 — 门禁 GREEN (modern 单侧)
 
