@@ -10,6 +10,8 @@
 
 using mxh::client::parse_legacy_gamein_ack;
 using mxh::client::parse_legacy_monster_add;
+using mxh::client::parse_legacy_mugong_total;
+using mxh::client::parse_legacy_item_total;
 
 TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     std::vector<std::uint8_t> payload(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
@@ -119,4 +121,66 @@ TEST(InGameMonsterAdd, DecodesServerPushedMonsterPayload) {
 TEST(InGameMonsterAdd, RejectsShortPayload) {
     std::array<std::uint8_t, 32> payload{};
     EXPECT_FALSE(parse_legacy_monster_add(payload).has_value());
+}
+
+TEST(InGameMugong, DecodesMugongTotalFromGameInAck) {
+    std::vector<std::uint8_t> payload(
+        mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
+    const auto off = mxh::game::HERO_TOTAL_MUGONG_OFFSET;
+    const std::uint32_t db_idx = 9001;
+    const std::uint16_t icon_idx = 7;
+    const std::uint16_t position = 3;
+    const std::uint32_t exp = 100;
+    payload[off + 0] = db_idx & 0xFF;
+    payload[off + 1] = (db_idx >> 8) & 0xFF;
+    payload[off + 4] = icon_idx & 0xFF;
+    payload[off + 5] = (icon_idx >> 8) & 0xFF;
+    payload[off + 6] = position & 0xFF;
+    payload[off + 8] = exp & 0xFF;
+    payload[off + 12] = 1;  // sung
+    payload[off + 13] = 1;  // wear
+    payload[off + 14] = 5;  // quick_position
+    payload[off + 16] = 9;  // option_idx
+
+    const auto mugong = parse_legacy_mugong_total(payload);
+    EXPECT_EQ(mugong[0].db_idx, db_idx);
+    EXPECT_EQ(mugong[0].icon_idx, icon_idx);
+    EXPECT_EQ(mugong[0].position, position);
+    EXPECT_EQ(mugong[0].exp, exp);
+    EXPECT_EQ(mugong[0].sung, 1u);
+    EXPECT_EQ(mugong[0].wear, 1u);
+    EXPECT_EQ(mugong[0].quick_position, 5u);
+    EXPECT_EQ(mugong[0].option_idx, 9u);
+    EXPECT_EQ(mugong[1].db_idx, 0u);  // untouched slot stays zero
+}
+
+TEST(InGameMugong, ShortPayloadReturnsZeros) {
+    std::array<std::uint8_t, 64> payload{};
+    const auto mugong = parse_legacy_mugong_total(payload);
+    EXPECT_EQ(mugong[0].db_idx, 0u);
+}
+
+TEST(InGameItem, DecodesItemTotalFromGameInAck) {
+    std::vector<std::uint8_t> payload(
+        mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
+    const auto off = mxh::game::HERO_TOTAL_ITEM_OFFSET;
+    const std::uint32_t db_idx = 123;
+    const std::uint16_t icon_idx = 456;
+    std::memcpy(payload.data() + off + 0, &db_idx, sizeof(db_idx));
+    std::memcpy(payload.data() + off + 4, &icon_idx, sizeof(icon_idx));
+    const std::uint32_t dur = 50;
+    std::memcpy(payload.data() + off + 8, &dur, sizeof(dur));
+
+    const auto items = parse_legacy_item_total(payload);
+    EXPECT_FALSE(mxh::game::is_empty_slot(items.Inventory[0]));
+    EXPECT_EQ(items.Inventory[0].dwDBIdx, db_idx);
+    EXPECT_EQ(items.Inventory[0].wIconIdx, icon_idx);
+    EXPECT_EQ(items.Inventory[0].Durability, dur);
+    EXPECT_TRUE(mxh::game::is_empty_slot(items.Inventory[1]));
+}
+
+TEST(InGameItem, ShortPayloadReturnsEmptyItems) {
+    std::array<std::uint8_t, 64> payload{};
+    const auto items = parse_legacy_item_total(payload);
+    EXPECT_TRUE(mxh::game::is_empty_slot(items.Inventory[0]));
 }

@@ -44,10 +44,26 @@
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/game/item_types.hpp"
 
 namespace mxh::client {
 
 class CEngine;
+
+// 1:1 with legacy MUGONGBASE (packed 18 bytes).
+struct MugongInfo {
+    std::uint32_t db_idx       = 0;
+    std::uint16_t icon_idx     = 0;  // mugong/skill idx
+    std::uint16_t position     = 0;
+    std::uint32_t exp          = 0;
+    std::uint8_t  sung         = 0;
+    std::uint8_t  wear         = 0;
+    std::uint16_t quick_position = 0;
+    std::uint16_t option_idx   = 0;
+};
+
+inline constexpr std::size_t kMugongSlotCount = 25;  // 20 mugong + 5 jinbub
+inline constexpr std::size_t kQuickSlotCount  = 8;
 
 // 1:1 with the SEND_HERO_TOTALINFO layout in map_handler.cpp
 // (kPayloadBaseObjOff/kPayloadCharTotalOff/...).  We expose the
@@ -75,6 +91,8 @@ struct GameInInfo {
     std::uint16_t  server_month = 0;
     std::uint16_t  server_day   = 0;
     std::uint16_t  server_hour  = 0;
+    std::array<MugongInfo, kMugongSlotCount> mugong{};
+    mxh::game::ItemTotalInfo items{};
 };
 
 // Parse the legacy GameInAck payload (map_handler.cpp
@@ -82,6 +100,18 @@ struct GameInInfo {
 // to safely read BASEOBJECT_INFO / CHARACTER_TOTALINFO / ServerTime.
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload);
+
+std::array<MugongInfo, kMugongSlotCount>
+parse_legacy_mugong_total(std::span<const std::uint8_t> payload);
+
+mxh::game::ItemTotalInfo
+parse_legacy_item_total(std::span<const std::uint8_t> payload);
+
+// Quick-slot skill for a slot index. Uses parsed mugong data when present,
+// otherwise the level-1 starter set [1,2,3,10] until the server sends real
+// per-character skills.
+std::uint32_t quick_skill_for_slot(const GameInInfo& info,
+                                   std::size_t slot) noexcept;
 
 // Server-pushed monster state received after GameInAck.
 // Mirrors the wire layout written by map_handler.cpp::broadcast_monster_add:
@@ -221,6 +251,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnChar(std::uint32_t ch);
     void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     void OnMouseMove(std::int32_t x, std::int32_t y);
+    void use_quick_slot(std::size_t slot);
+    void toggle_inventory() noexcept { m_inventoryOpen = !m_inventoryOpen; }
 
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
@@ -231,6 +263,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
     float camera_yaw() const noexcept { return m_cameraYaw; }
     bool chat_open() const noexcept { return m_chatOpen; }
+    bool inventory_open() const noexcept { return m_inventoryOpen; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
     const std::vector<std::string>& chat_lines() const noexcept {
         return m_chatLines;
@@ -294,6 +327,7 @@ private:
     bool                 m_chatOpen   = false;
     std::string          m_chatBuffer;
     std::vector<std::string> m_chatLines;
+    bool                 m_inventoryOpen = false;
 };
 
 } // namespace mxh::client

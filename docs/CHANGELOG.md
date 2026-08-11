@@ -1,4 +1,14 @@
 
+## 2026-08-11 - client: quick slot bar（F1-F8 施法）+ 背包网格 + MUGONG/ITEM 解析（+6 tests）
+
+`CInGameState::parse_legacy_gamein_ack` now decodes MUGONG_TOTALINFO (25 × 18B packed MUGONGBASE at HERO_TOTAL_MUGONG_OFFSET) and ITEM_TOTALINFO (2728B at HERO_TOTAL_ITEM_OFFSET, memcpy into the 1:1 `mxh::game::ItemTotalInfo`) into `GameInInfo` — exposed as `parse_legacy_mugong_total` / `parse_legacy_item_total` pure functions. `quick_skill_for_slot` maps slots 0..7 to parsed mugong skill idx or the level-1 starter set [1,2,3,10] until the server sends real per-character skills.
+
+modern/tools/MoxianClient/main.cpp renders an 8-slot quick bar at the bottom-center (dark slot tiles + skill idx + F1..F8 labels) and an inventory panel toggled with 'I' (10×8 grid of 22B ItemBase slots; filled slots drawn blue with icon idx, empty slots dark). `CInGameState::OnKeyEvent` routes F1..F8 to `use_quick_slot` (Skill StartSyn: attack skills target the nearest monster, Heal skill 3 self-casts) and 'I' to the inventory toggle.
+
+Verified in-window: F2 → log `quick slot 1 skill=2 target=50002` → server `SkillStartAck skill=2`; 'I' toggles the inventory grid (region mean 133→73, 74% of pixels darkened by the grid). 6 new unit tests cover mugong/item decode, short-payload fallback, and quick-slot mapping.
+
+11882/11882 ctest PASS. See git log (client quick slot commit).
+
 ## 2026-08-11 - client: in-game chat（Enter 输入/发送/广播/显示）+ 3 tests
 
 modern/src/client/CInGameState gains the chat input + wire loop: Enter toggles the input line, WM_CHAR appends printable characters (Backspace deletes, Esc closes), Enter sends `Category::Chat / ChatProtocol::All` with the raw message payload (server handle_chat broadcasts it as-is). Received chat (object_id != self) is appended to a 50-line log; own sends are echoed locally to avoid duplicates. Pure helpers `make_chat_message` / `parse_chat_payload` are unit-tested (cingame_input_test.cpp, 3 new tests).

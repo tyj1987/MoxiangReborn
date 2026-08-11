@@ -17,6 +17,7 @@ using mxh::client::parse_monster_life_payload;
 using mxh::client::parse_chat_payload;
 using mxh::client::parse_move_payload;
 using mxh::client::pick_attack_target;
+using mxh::client::quick_skill_for_slot;
 using mxh::client::step_movement;
 using mxh::client::kMoveSpeed;
 using mxh::client::kWorldLimit;
@@ -127,6 +128,22 @@ TEST(InGameAttack, ReturnsNulloptWhenOutOfRange) {
 
 TEST(InGameAttack, ReturnsNulloptForEmptyList) {
     EXPECT_FALSE(pick_attack_target({}, 0.0f, 0.0f, 500.0f).has_value());
+}
+
+TEST(InGameQuickSlot, StarterSetWhenMugongEmpty) {
+    mxh::client::GameInInfo info;
+    EXPECT_EQ(quick_skill_for_slot(info, 0), 1u);
+    EXPECT_EQ(quick_skill_for_slot(info, 1), 2u);
+    EXPECT_EQ(quick_skill_for_slot(info, 2), 3u);
+    EXPECT_EQ(quick_skill_for_slot(info, 3), 10u);
+    EXPECT_EQ(quick_skill_for_slot(info, 4), 0u);
+    EXPECT_EQ(quick_skill_for_slot(info, 8), 0u);  // out of range
+}
+
+TEST(InGameQuickSlot, ParsedMugongWinsOverStarter) {
+    mxh::client::GameInInfo info;
+    info.mugong[0].icon_idx = 42;
+    EXPECT_EQ(quick_skill_for_slot(info, 0), 42u);
 }
 
 TEST(InGameWire, MoveMessageMatchesModernServerLayout) {

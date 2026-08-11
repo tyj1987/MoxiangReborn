@@ -291,7 +291,57 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     info.server_day   = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 6);
     info.server_hour  = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 8);
 
+    info.mugong = parse_legacy_mugong_total(payload);
+    info.items  = parse_legacy_item_total(payload);
+
     return info;
+}
+
+std::array<MugongInfo, kMugongSlotCount>
+parse_legacy_mugong_total(std::span<const std::uint8_t> payload) {
+    std::array<MugongInfo, kMugongSlotCount> out{};
+    constexpr std::size_t kSlotBytes = 18;
+    if (payload.size() < mxh::game::HERO_TOTAL_MUGONG_OFFSET +
+                             kMugongSlotCount * kSlotBytes) {
+        return out;
+    }
+    const auto* p = payload.data() + mxh::game::HERO_TOTAL_MUGONG_OFFSET;
+    for (std::size_t i = 0; i < kMugongSlotCount; ++i) {
+        const std::size_t off = i * kSlotBytes;
+        out[i].db_idx       = get_u32(p + off + 0);
+        out[i].icon_idx     = get_u16(p + off + 4);
+        out[i].position     = get_u16(p + off + 6);
+        out[i].exp          = get_u32(p + off + 8);
+        out[i].sung         = p[off + 12];
+        out[i].wear         = p[off + 13];
+        out[i].quick_position = get_u16(p + off + 14);
+        out[i].option_idx   = get_u16(p + off + 16);
+    }
+    return out;
+}
+
+mxh::game::ItemTotalInfo
+parse_legacy_item_total(std::span<const std::uint8_t> payload) {
+    mxh::game::ItemTotalInfo out{};
+    if (payload.size() <
+        mxh::game::HERO_TOTAL_ITEM_OFFSET + sizeof(out)) {
+        return out;
+    }
+    std::memcpy(&out, payload.data() + mxh::game::HERO_TOTAL_ITEM_OFFSET,
+                sizeof(out));
+    return out;
+}
+
+std::uint32_t quick_skill_for_slot(const GameInInfo& info,
+                                   std::size_t slot) noexcept {
+    if (slot >= kQuickSlotCount) return 0;
+    if (info.mugong[slot].icon_idx != 0) {
+        return info.mugong[slot].icon_idx;
+    }
+    // Level-1 starter set until the server sends real per-character skills.
+    static constexpr std::uint32_t kStarter[kQuickSlotCount] =
+        {1, 2, 3, 10, 0, 0, 0, 0};
+    return kStarter[slot];
 }
 
 // -------------------------------------------------------------------------
@@ -676,6 +726,17 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     }
     if (m_chatOpen) return;  // typing: consume everything else
 
+    if (pressed) {
+        if (vk >= 0x70 && vk <= 0x77) {  // F1..F8 quick slots
+            use_quick_slot(static_cast<std::size_t>(vk - 0x70));
+            return;
+        }
+        if (vk == 0x49) {  // 'I' toggles the inventory panel
+            toggle_inventory();
+            return;
+        }
+    }
+
     const std::uint32_t mask = key_mask_for_vk(vk);
     if (mask == 0) return;
     if (pressed) {
@@ -785,6 +846,46 @@ void CInGameState::try_attack() {
         m_lastAttackMs = now;
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
+    }
+}
+
+void CInGameState::use_quick_slot(std::size_t slot) {
+    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    const auto skill = quick_skill_for_slot(m_info, slot);
+    if (skill == 0) return;
+    const auto now = steady_now_ms();
+    if (now - m_lastAttackMs <
+        static_cast<std::uint64_t>(kAttackCooldownMs)) {
+        return;
+    }
+
+    std::uint32_t target = 0;
+    float target_x = 0;
+    float target_z = 0;
+    if (skill == 3u) {  // Heal: self-cast
+        target = m_playerId;
+        target_x = m_localX;
+        target_z = m_localZ;
+    } else {
+        const auto t = pick_attack_target(
+            monsters_, m_localX, m_localZ, kAttackRange);
+        if (!t) return;
+        target = *t;
+        for (const auto& monster : monsters_) {
+            if (monster.object_id == *t) {
+                target_x = static_cast<float>(monster.position_x);
+                target_z = static_cast<float>(monster.position_z);
+                break;
+            }
+        }
+    }
+
+    const auto e = m_client->send(
+        make_attack_message(m_playerId, skill, target, target_x, target_z));
+    if (e == mxh::net::NetError::Ok) {
+        m_lastAttackMs = now;
+        MLOG_INFO("CInGameState: quick slot %zu skill=%u target=%u",
+                  slot, skill, target);
     }
 }
 

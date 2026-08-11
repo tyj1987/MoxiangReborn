@@ -466,6 +466,77 @@ void renderFrame(HWND h) {
                         0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
                 }
             }
+
+            // Quick slot bar (F1..F8). Skill idx from parsed mugong data,
+            // falling back to the level-1 starter set.
+            {
+                constexpr float kSlotW = 44.0f;
+                constexpr float kSlotH = 44.0f;
+                constexpr float kGap   = 6.0f;
+                const float totalW = static_cast<float>(mxh::client::kQuickSlotCount) *
+                                     kSlotW + (static_cast<float>(mxh::client::kQuickSlotCount) - 1.0f) * kGap;
+                const float barX = (800.0f - totalW) * 0.5f;
+                const float barY = 470.0f;
+                for (std::size_t i = 0; i < mxh::client::kQuickSlotCount; ++i) {
+                    const float x = barX + static_cast<float>(i) * (kSlotW + kGap);
+                    drawSpriteQuad(g_renderer, g_hud.barBg, x, barY,
+                                   kSlotW, kSlotH, 0xFFFFFFFFu);
+                    if (!g_hudFont) continue;
+                    const auto skill = mxh::client::quick_skill_for_slot(info, i);
+                    const std::string label =
+                        skill == 0 ? "-" : std::to_string(skill);
+                    RECT rc{static_cast<LONG>(x) + 4, static_cast<LONG>(barY) + 4,
+                            static_cast<LONG>(x) + static_cast<LONG>(kSlotW) - 4,
+                            static_cast<LONG>(barY) + 20};
+                    g_renderer->RenderFont(
+                        g_hudFont, const_cast<char*>(label.data()),
+                        static_cast<std::uint32_t>(label.size()), &rc,
+                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                    const std::string key = "F" + std::to_string(i + 1);
+                    RECT rcKey{static_cast<LONG>(x), static_cast<LONG>(barY) + 26,
+                               static_cast<LONG>(x) + static_cast<LONG>(kSlotW),
+                               static_cast<LONG>(barY) + static_cast<LONG>(kSlotH)};
+                    g_renderer->RenderFont(
+                        g_hudFont, const_cast<char*>(key.data()),
+                        static_cast<std::uint32_t>(key.size()), &rcKey,
+                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                }
+            }
+
+            // Inventory panel (I key toggles).
+            if (g_inputTarget->inventory_open()) {
+                constexpr float kCell = 34.0f;
+                constexpr float kInvGap = 3.0f;
+                constexpr float invX = 20.0f;
+                constexpr float invY = 84.0f;
+                const auto& inventory = info.items.Inventory;
+                for (int row = 0; row < 8; ++row) {
+                    for (int col = 0; col < 10; ++col) {
+                        const int idx = row * 10 + col;
+                        const float x = invX + static_cast<float>(col) * (kCell + kInvGap);
+                        const float y = invY + static_cast<float>(row) * (kCell + kInvGap);
+                        if (!mxh::game::is_empty_slot(inventory[idx])) {
+                            drawSpriteQuad(g_renderer, g_hud.mpFill, x, y,
+                                           kCell, kCell, 0xFFFFFFFFu);
+                            if (g_hudFont) {
+                                const std::string t =
+                                    std::to_string(inventory[idx].wIconIdx);
+                                RECT rc{static_cast<LONG>(x),
+                                        static_cast<LONG>(y),
+                                        static_cast<LONG>(x) + static_cast<LONG>(kCell),
+                                        static_cast<LONG>(y) + 16};
+                                g_renderer->RenderFont(
+                                    g_hudFont, const_cast<char*>(t.data()),
+                                    static_cast<std::uint32_t>(t.size()), &rc,
+                                    0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                            }
+                        } else {
+                            drawSpriteQuad(g_renderer, g_hud.barBg, x, y,
+                                           kCell, kCell, 0xFFFFFFFFu);
+                        }
+                    }
+                }
+            }
         }
     }
 
