@@ -201,6 +201,28 @@ parse_monster_life_payload(std::span<const std::uint8_t> payload) {
     return std::make_pair(life, shield);
 }
 
+mxh::net::Message make_chat_message(std::uint32_t player_id,
+                                    const std::string& text) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Chat);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ChatProtocol::All);
+    message.header.object_id = player_id;
+    message.payload.assign(text.begin(), text.end());
+    return message;
+}
+
+std::string parse_chat_payload(std::span<const std::uint8_t> payload) {
+    std::string out;
+    out.reserve(payload.size());
+    for (const auto b : payload) {
+        if (b == 0) break;  // null-terminated legacy chat string
+        out.push_back(static_cast<char>(b));
+    }
+    return out;
+}
+
 std::optional<MonsterAddInfo>
 parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
     if (payload.size() < 64) return std::nullopt;
@@ -396,6 +418,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
             break;
         case Category::Skill:
             handle_skill_broadcast(msg);
+            break;
+        case Category::Chat:
+            handle_chat_broadcast(msg);
             break;
         default:
             // Phase 10b: MapServer may also push ITEM_TOTALINFO_LOCAL
@@ -615,7 +640,42 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
     }
 }
 
+void CInGameState::handle_chat_broadcast(const mxh::net::Message& msg) {
+    const auto text = parse_chat_payload(msg.payload);
+    if (text.empty()) return;
+    if (msg.header.object_id == m_playerId) return;  // own echo
+    m_chatLines.push_back(text);
+    if (m_chatLines.size() > 50) {
+        m_chatLines.erase(m_chatLines.begin(),
+                          m_chatLines.begin() +
+                          static_cast<std::ptrdiff_t>(m_chatLines.size() - 50));
+    }
+    MLOG_INFO("CInGameState: chat from=%u: %s",
+              msg.header.object_id, text.c_str());
+}
+
 void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
+    if (vk == kVkReturn) {
+        if (pressed) {
+            if (m_chatOpen) {
+                send_chat();
+            } else {
+                m_chatOpen = true;
+            }
+        }
+        return;
+    }
+    if (vk == kVkEscape && pressed && m_chatOpen) {
+        m_chatOpen = false;
+        m_chatBuffer.clear();
+        return;
+    }
+    if (vk == kVkBack && pressed && m_chatOpen) {
+        if (!m_chatBuffer.empty()) m_chatBuffer.pop_back();
+        return;
+    }
+    if (m_chatOpen) return;  // typing: consume everything else
+
     const std::uint32_t mask = key_mask_for_vk(vk);
     if (mask == 0) return;
     if (pressed) {
@@ -623,6 +683,13 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     } else {
         m_keyMask &= ~mask;
     }
+}
+
+void CInGameState::OnChar(std::uint32_t ch) {
+    if (!m_chatOpen) return;
+    if (ch < 0x20 || ch == 0x7F) return;
+    if (m_chatBuffer.size() >= 200) return;
+    m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
 }
 
 void CInGameState::OnMouseButton(bool left, bool down,
@@ -719,6 +786,27 @@ void CInGameState::try_attack() {
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
+}
+
+void CInGameState::send_chat() {
+    const auto text = m_chatBuffer;
+    m_chatBuffer.clear();
+    m_chatOpen = false;
+    if (text.empty()) return;
+    if (!m_client || !m_client->is_connected()) return;
+    const auto e = m_client->send(make_chat_message(m_playerId, text));
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_WARN("CInGameState: send_chat failed: %s",
+                  mxh::net::to_string(e));
+        return;
+    }
+    m_chatLines.push_back(text);
+    if (m_chatLines.size() > 50) {
+        m_chatLines.erase(m_chatLines.begin(),
+                          m_chatLines.begin() +
+                          static_cast<std::ptrdiff_t>(m_chatLines.size() - 50));
+    }
+    MLOG_INFO("CInGameState: chat sent: %s", text.c_str());
 }
 
 void CInGameState::fail_with(const std::string& reason) {

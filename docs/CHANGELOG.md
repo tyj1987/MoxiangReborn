@@ -1,4 +1,23 @@
 
+## 2026-08-11 - client: in-game chat（Enter 输入/发送/广播/显示）+ 3 tests
+
+modern/src/client/CInGameState gains the chat input + wire loop: Enter toggles the input line, WM_CHAR appends printable characters (Backspace deletes, Esc closes), Enter sends `Category::Chat / ChatProtocol::All` with the raw message payload (server handle_chat broadcasts it as-is). Received chat (object_id != self) is appended to a 50-line log; own sends are echoed locally to avoid duplicates. Pure helpers `make_chat_message` / `parse_chat_payload` are unit-tested (cingame_input_test.cpp, 3 new tests).
+
+modern/tools/MoxianClient/main.cpp forwards WM_CHAR to the active game state and renders the last 6 chat lines (14px Arial via the renderer font pipeline) at the bottom-left plus the `> ..._` input line while typing. Verified end-to-end with synthetic input: Enter → 'hello' → Enter → client log `chat sent: hello`, server log `Chat(All) from player=240366 len=5` + broadcast; back-buffer frame capture shows the glyph pixels at the expected rect.
+
+11879/11879 ctest PASS. See git log (client chat commit).
+
+## 2026-08-11 - render: font atlas default usage + GGO_GRAY8 coverage normalize
+
+The DX11 FontObject never produced visible text. Two root causes fixed in modern/src/render/dx11/font_object.cpp:
+
+1. The glyph atlas was created `D3D11_USAGE_DYNAMIC` but glyphs are uploaded with `UpdateSubresource` (only valid for DEFAULT usage on DX11), so every glyph update was dropped and the atlas stayed black.
+2. `GGO_GRAY8_BITMAP` coverage values are 0..64 (4-bit antialiasing), not 0..255; the alpha was packed raw, making glyphs ~25% opacity and invisible over dark scenes. Coverage is now normalized (cov*4, clamped).
+
+Verified: a 48px "HELLO123" diagnostic and 14px chat-line text render as pure white pixels in back-buffer captures (bbox x13..79 y536..560 for the chat rect).
+
+11879/11879 ctest PASS. See git log (render font fix commit).
+
 ## 2026-08-11 - client: in-game HUD（HP/MP 条）+ GameInAck MP/经验/金钱解析
 
 modern/tools/MoxianClient/main.cpp renders an in-game HUD pass on top of the terrain: HP bar (red) and MP bar (blue) with a translucent dark frame at the top-left (placeholder geometry; the original InterfaceScript art + exact layout land with the UI runtime). The bars are fed from the GameInAck totalinfo: `CInGameState::parse_legacy_gamein_ack` now decodes HERO_TOTALINFO naeryuk (mp/max_mp at +8/+12), exp (+20) and money (+30) into `GameInInfo` (life/max_life were already parsed). The HUD pass switches the device to a corrected screen-space ortho projection before drawing sprites.

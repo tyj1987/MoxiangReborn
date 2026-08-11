@@ -10,9 +10,11 @@
 
 using mxh::client::key_mask_for_vk;
 using mxh::client::make_attack_message;
+using mxh::client::make_chat_message;
 using mxh::client::make_move_message;
 using mxh::client::MoveKey;
 using mxh::client::parse_monster_life_payload;
+using mxh::client::parse_chat_payload;
 using mxh::client::parse_move_payload;
 using mxh::client::pick_attack_target;
 using mxh::client::step_movement;
@@ -190,4 +192,25 @@ TEST(InGameWire, ParseMonsterLifePayloadDecodes) {
 TEST(InGameWire, ParseMonsterLifePayloadRejectsShort) {
     const std::array<std::uint8_t, 7> bytes{};
     EXPECT_FALSE(parse_monster_life_payload(bytes).has_value());
+}
+
+TEST(InGameWire, ChatMessageMatchesModernServerLayout) {
+    const auto m = make_chat_message(240366u, "hello world");
+    EXPECT_EQ(m.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Chat));
+    EXPECT_EQ(m.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ChatProtocol::All));
+    EXPECT_EQ(m.header.object_id, 240366u);
+    EXPECT_EQ(m.payload.size(), 11u);
+    EXPECT_EQ(parse_chat_payload(m.payload), "hello world");
+}
+
+TEST(InGameWire, ParseChatPayloadStopsAtNul) {
+    const std::array<std::uint8_t, 6> bytes{
+        'a', 'b', 'c', 0, 'x', 'y'};
+    EXPECT_EQ(parse_chat_payload(bytes), "abc");
+}
+
+TEST(InGameWire, ParseChatPayloadEmpty) {
+    EXPECT_EQ(parse_chat_payload(std::span<const std::uint8_t>{}), "");
 }

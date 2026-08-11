@@ -134,6 +134,9 @@ inline constexpr std::uint32_t kVkS      = 0x53;
 inline constexpr std::uint32_t kVkD      = 0x44;
 inline constexpr std::uint32_t kVkQ      = 0x51;
 inline constexpr std::uint32_t kVkE      = 0x45;
+inline constexpr std::uint32_t kVkReturn = 0x0D;
+inline constexpr std::uint32_t kVkEscape = 0x1B;
+inline constexpr std::uint32_t kVkBack   = 0x08;
 inline constexpr std::uint32_t kVkUp     = 0x26;
 inline constexpr std::uint32_t kVkDown   = 0x28;
 inline constexpr std::uint32_t kVkLeft   = 0x25;
@@ -175,6 +178,12 @@ parse_move_payload(std::span<const std::uint8_t> payload);
 std::optional<std::pair<std::uint32_t, std::uint32_t>>
 parse_monster_life_payload(std::span<const std::uint8_t> payload);
 
+// Build the modern MapServer Chat All packet (payload = message bytes).
+mxh::net::Message make_chat_message(std::uint32_t player_id,
+                                    const std::string& text);
+
+std::string parse_chat_payload(std::span<const std::uint8_t> payload);
+
 // -------------------------------------------------------------------------
 // CInGameState â€” eGS_GAMEIN state.
 // -------------------------------------------------------------------------
@@ -209,6 +218,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
     // Input hooks driven by the host Win32 message pump (in-game only).
     void OnKeyEvent(bool pressed, std::uint32_t vk);
+    void OnChar(std::uint32_t ch);
     void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     void OnMouseMove(std::int32_t x, std::int32_t y);
 
@@ -220,6 +230,11 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const GameInInfo& game_info() const noexcept { return m_info; }
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
     float camera_yaw() const noexcept { return m_cameraYaw; }
+    bool chat_open() const noexcept { return m_chatOpen; }
+    const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
+    const std::vector<std::string>& chat_lines() const noexcept {
+        return m_chatLines;
+    }
     std::uint16_t local_x() const noexcept {
         return static_cast<std::uint16_t>(m_localX);
     }
@@ -235,10 +250,12 @@ private:
     void send_move(std::uint16_t x, std::uint16_t z,
                    mxh::proto::MoveProtocol proto);
     void try_attack();
+    void send_chat();
     void handle_userconn_message(const mxh::net::Message& msg);
     void handle_move_broadcast(const mxh::net::Message& msg);
     void handle_monster_broadcast(const mxh::net::Message& msg);
     void handle_skill_broadcast(const mxh::net::Message& msg);
+    void handle_chat_broadcast(const mxh::net::Message& msg);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -272,6 +289,11 @@ private:
     std::int32_t   m_lastMouseX   = 0;
     std::int32_t   m_lastMouseY   = 0;
     bool           m_cameraDrag   = false;
+
+    // Chat state (in-game).
+    bool                 m_chatOpen   = false;
+    std::string          m_chatBuffer;
+    std::vector<std::string> m_chatLines;
 };
 
 } // namespace mxh::client

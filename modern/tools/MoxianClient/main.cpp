@@ -260,6 +260,7 @@ struct HudSprites {
     IDISpriteObject* mpFill = nullptr;
 };
 HudSprites g_hud;
+IDIFontObject* g_hudFont = nullptr;
 
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
@@ -438,6 +439,33 @@ void renderFrame(HWND h) {
                        20.0f, 44.0f, 180.0f, 12.0f, hpFrac);
             drawHudBar(g_renderer, g_hud.barBg, g_hud.mpFill,
                        20.0f, 62.0f, 180.0f, 12.0f, mpFrac);
+
+            // Chat log (last 6 lines) + input line.
+            if (g_hudFont) {
+                const auto& lines = g_inputTarget->chat_lines();
+                int y = 556;
+                const std::size_t start =
+                    lines.size() > 6 ? lines.size() - 6 : 0;
+                for (std::size_t i = start; i < lines.size(); ++i) {
+                    const std::string& line = lines[i];
+                    if (line.empty()) continue;
+                    RECT rc{12, y, 780, y + 20};
+                    g_renderer->RenderFont(
+                        g_hudFont, const_cast<char*>(line.data()),
+                        static_cast<std::uint32_t>(line.size()), &rc,
+                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                    y -= 18;
+                }
+                if (g_inputTarget->chat_open()) {
+                    const std::string prompt =
+                        "> " + g_inputTarget->chat_buffer() + "_";
+                    RECT rc{12, y, 780, y + 20};
+                    g_renderer->RenderFont(
+                        g_hudFont, const_cast<char*>(prompt.data()),
+                        static_cast<std::uint32_t>(prompt.size()), &rc,
+                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                }
+            }
         }
     }
 
@@ -544,6 +572,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     case WM_KEYUP:
         if (g_inputTarget) {
             g_inputTarget->OnKeyEvent(false, static_cast<std::uint32_t>(w));
+        }
+        return 0;
+    case WM_CHAR:
+        if (g_inputTarget) {
+            g_inputTarget->OnChar(static_cast<std::uint32_t>(w));
         }
         return 0;
     case WM_LBUTTONDOWN:
@@ -658,6 +691,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_hud.barBg  = renderer->CreateSolidSpriteObject(0xAA181010u, 1, 1);
     g_hud.hpFill = renderer->CreateSolidSpriteObject(0xFF4040FFu, 1, 1);
     g_hud.mpFill = renderer->CreateSolidSpriteObject(0xFFFF9040u, 1, 1);
+    LOGFONT hudLf{};
+    hudLf.lfHeight = -14;
+    hudLf.lfWeight = FW_NORMAL;
+    hudLf.lfCharSet = DEFAULT_CHARSET;
+    hudLf.lfQuality = ANTIALIASED_QUALITY;
+    std::strncpy(hudLf.lfFaceName, "Arial", LF_FACESIZE - 1);
+    g_hudFont = renderer->CreateFontObject(&hudLf, 0);
+    MLOG_INFO("mxh_client: hud font=%p", (void*)g_hudFont);
 
     // Build per-cImage sprite registry.  A.1.4 ships with 4 demo
     // sprites: one gradient background + three solid-colour "dialog
