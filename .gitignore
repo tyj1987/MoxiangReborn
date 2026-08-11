@@ -1,4 +1,4 @@
-# 临时文件 / 编译产物
+﻿# 临时文件 / 编译产物
 *.ncb
 *.opt
 *.aps
@@ -231,8 +231,7 @@ plans/
 AI_*.md
 .agents/
 *.iml
-# GitHub workflows can land later via a dedicated PR if useful
-.github/
+# GitHub workflows are tracked: .github/workflows/ci.yml gates the M5 wiring + RC packager/
 
 # SQL Server Express installer (~300 MB) — too large for git, downloaded
 # from Microsoft and installed via the docker/init-db/init.sh path.

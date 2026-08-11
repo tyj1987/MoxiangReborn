@@ -1,0 +1,136 @@
+﻿# Moxian-Reborn CI 鈥?Build & Test
+#
+# Runs on: windows-latest (MSVC 2022)
+# Triggers: push to main, pull requests
+#
+# Steps:
+#   1. Checkout (with vendored third_party)
+#   2. Configure CMake (Debug + Release)
+#   3. Build all targets
+#   4. Run ctest
+#   5. Upload test results on failure
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'modern/**'
+      - 'scripts/check-project-governance.py'
+      - 'ROADMAP.md'
+      - 'docs/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'modern/**'
+      - 'scripts/check-project-governance.py'
+      - 'ROADMAP.md'
+      - 'docs/**'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.build_type }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false  # vendored third_party is in-tree
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v2
+
+      - name: Setup Python (for ci_*_guard.py helpers)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check project governance
+        run: python scripts/check-project-governance.py
+        shell: pwsh
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: modern/build
+          key: cmake-${{ matrix.build_type }}-${{ hashFiles('modern/CMakeLists.txt', 'modern/src/CMakeLists.txt', 'modern/tests/CMakeLists.txt') }}
+          restore-keys: |
+            cmake-${{ matrix.build_type }}-
+
+      - name: Configure CMake
+        run: |
+          cmake -S modern -B modern/build `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_CXX_STANDARD=20
+        shell: pwsh
+
+      - name: Build
+        run: |
+          cmake --build modern/build --config ${{ matrix.build_type }} --parallel
+        shell: pwsh
+
+      - name: Run tests
+        run: |
+          cd modern/build
+          ctest -C ${{ matrix.build_type }} --timeout 60 --output-on-failure
+        shell: pwsh
+
+      - name: Verify release-modern-rc.ps1 runs (RC packager smoke)
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-modern-rc.ps1 -SkipZip
+        shell: pwsh
+
+      - name: Guard against silent test-count regression
+        # ci_test_count_guard.py verifies the total test count
+        # is at least --min-tests. Catches the case where a
+        # change accidentally disables / removes a test file
+        # without anyone noticing. Update --min-tests in
+        # version control when you intentionally remove tests.
+        run: |
+          python modern/scripts/ci_test_count_guard.py `
+            --build-dir modern/build `
+            --min-tests 700
+        shell: pwsh
+
+      - name: Guard against CRLF in changed modern/ files
+        # ci_line_ending_guard.py checks that any file changed
+        # in this push/PR uses LF line endings, not CRLF.
+        # Scoped to modern/ 鈥?the legacy 澧ㄩ銆愭簮鐮併€?... tree
+        # is original 2003-era Windows code that may legitimately
+        # use CRLF. We only enforce LF for new code we own.
+        run: |
+          python modern/scripts/ci_line_ending_guard.py
+        shell: pwsh
+      - name: Upload test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.build_type }}
+          path: modern/build/Testing/
+          retention-days: 7
+
+  # Summary job 鈥?required for branch protection rules.
+  ci-success:
+    name: CI Success
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check result
+        run: |
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "CI failed!"
+            exit 1
+          fi
+          echo "All checks passed."
