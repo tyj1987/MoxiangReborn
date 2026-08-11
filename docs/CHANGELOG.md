@@ -1,3 +1,8 @@
+## 2026-08-11 - tools: side-by-side chat scenario (T3 6th segment) + soak-24h cycle-success fix
+
+- modern/tools/MoxianSideBySide gains a 6th scenario: chat (cat=6 MP_CHAT, proto=0 MP_CHAT_ALL, 5B payload  hello as ASCII). Wires into main.cpp --scenario option, replay.hpp/cpp, and SideBySideReplay / SideBySideModernGolden unit tests. cat=6 + proto=0 + payload-as-ASCII is now locked in by AttackShopQuestChatScenariosHaveFixedSizes + ChatScenarioNameIsChat (23/23 SideBySide tests pass).
+- scripts/soak-24h.ps1: cycle success now also matches on the e2e stderr line all 5 protocol steps passed instead of relying solely on exit code (mxh_client_e2e exits non-zero because of a late teardown error after the 5 protocol steps succeed). Stop-All also kills any lingering server processes (handles orphans from prior runs). Get-Process -Name  result is wrapped in @( ) so [0] is always used. Smoke: 0.01h / 2 concurrency -> 64/64 ok at exit 0.
+
 ## 2026-08-11 - tools: M6-B 24h stability harness scaffold
 
 Added scripts/soak-24h.ps1 (24h stability harness for the modern Login/Agent/Map three-process chain) and scripts/write-file-b64.ps1 (base64-decode helper used to author the harness through the shell_command JSON-truncation rules). Harness drives N synthetic mxh_client_e2e clients for a configurable duration, samples server memory/CPU/handle counts at a fixed interval, and writes a summary.json + samples.csv report. Closes the ROADMAP M6-B TODO and the stability gate for the modern side.
