@@ -173,10 +173,11 @@ TEST(SideBySideReplay, ScenariosRouteToExpectedServer) {
     EXPECT_EQ(attack_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_EQ(shop_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_EQ(quest_scenario().endpoint, ReplayEndpoint::Map);
+    EXPECT_EQ(chat_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_STREQ(endpoint_name(ReplayEndpoint::Agent), "agent");
 }
 
-TEST(SideBySideReplay, AttackShopQuestScenariosHaveFixedSizes) {
+TEST(SideBySideReplay, AttackShopQuestChatScenariosHaveFixedSizes) {
     // attack: cat=Skill(22), proto=StartSyn(0),
     //   payload=[skill_idx:u32][main_target:u32][target_x:f32][target_z:f32] = 16B.
     EXPECT_EQ(attack_scenario().client_packets.front().category, 22u);
@@ -190,11 +191,27 @@ TEST(SideBySideReplay, AttackShopQuestScenariosHaveFixedSizes) {
     EXPECT_EQ(quest_scenario().client_packets.front().category, 39u);
     EXPECT_EQ(quest_scenario().client_packets.front().protocol, 9u);
     EXPECT_EQ(quest_scenario().client_packets.front().payload.size(), 2u);
+    // chat: cat=Chat(6), proto=All(0), payload="hello" = 5B.
+    EXPECT_EQ(chat_scenario().client_packets.front().category, 6u);
+    EXPECT_EQ(chat_scenario().client_packets.front().protocol, 0u);
+    EXPECT_EQ(chat_scenario().client_packets.front().payload.size(), 5u);
+    // Wire-bytes check: "hello" as ASCII (0x68 0x65 0x6c 0x6c 0x6f).
+    const auto chatPayload = chat_scenario().client_packets.front().payload;
+    ASSERT_EQ(chatPayload.size(), 5u);
+    EXPECT_EQ(chatPayload[0], 0x68u);
+    EXPECT_EQ(chatPayload[1], 0x65u);
+    EXPECT_EQ(chatPayload[2], 0x6cu);
+    EXPECT_EQ(chatPayload[3], 0x6cu);
+    EXPECT_EQ(chatPayload[4], 0x6fu);
 }
 
 // Modern-only golden captures live in modern/tests/fixtures/sbs_captures_modern/.
 // They are produced by running mxh_side_by_side --modern-only --start and
 // verified here so the modern MapServer protocol coverage does not regress.
+TEST(SideBySideModernGolden, ChatScenarioNameIsChat) {
+    EXPECT_STREQ(chat_scenario().name.c_str(), "chat");
+}
+
 TEST(SideBySideModernGolden, AllFiveScenariosHaveFixtures) {
     const std::filesystem::path dir =
         "C:/moxiang/modern/tests/fixtures/sbs_captures_modern";

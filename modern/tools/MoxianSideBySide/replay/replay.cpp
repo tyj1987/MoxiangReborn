@@ -133,6 +133,23 @@ ReplayScenario quest_scenario() {
     return s;
 }
 
+ReplayScenario chat_scenario() {
+    ReplayScenario s;
+    s.name = "chat";
+    s.endpoint = ReplayEndpoint::Map;
+    // Cat 6 MP_CHAT. Proto 0 MP_CHAT_ALL (the global broadcast the legacy
+    // client sends on F1). Modern agent_network_msg_parser registers
+    // MP_CHATServerMsgParser but the handler is currently a stub that
+    // returns no reply; we still send a deterministic 5B payload hello
+    // to confirm the wire format is accepted and the server does not
+    // crash on it. Capture is masked as no_response_ok so the diff
+    // does not flag a missing Ack (matches the legacy server
+    // behaviour for the same harness input).
+    std::vector<std::uint8_t> payload = {0x68, 0x65, 0x6c, 0x6c, 0x6f};
+    s.client_packets.push_back(mk(6, 0, 0, std::move(payload)));
+    return s;
+}
+
 const char* endpoint_name(ReplayEndpoint endpoint) noexcept {
     switch (endpoint) {
     case ReplayEndpoint::Login: return "login";

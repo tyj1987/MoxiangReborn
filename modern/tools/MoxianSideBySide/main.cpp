@@ -5,7 +5,7 @@
 // then diffs the responses byte-by-byte. Exits 0 when traces match.
 //
 // Usage:
-//   mxh_side_by_side [--scenario login|enter_game|attack|shop|quest|all]
+//   mxh_side_by_side [--scenario login|enter_game|attack|shop|quest|chat|all]
 //                    [--legacy-exe PATH] [--modern-server-dir DIR]
 //                    [--legacy-port 6001] [--modern-port 16001]
 //                    [--capture-dir DIR] [--timeout N] [--start]
@@ -307,6 +307,7 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
         mxh::tools::sidebyside::attack_scenario(),
         mxh::tools::sidebyside::shop_scenario(),
         mxh::tools::sidebyside::quest_scenario(),
+        mxh::tools::sidebyside::chat_scenario(),
     };
     int rc = 0;
     mxh::tools::sidebyside::DiffOptions options;

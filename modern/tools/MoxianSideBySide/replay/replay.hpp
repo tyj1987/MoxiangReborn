@@ -29,5 +29,6 @@ ReplayScenario enter_game_scenario();
 ReplayScenario attack_scenario();
 ReplayScenario shop_scenario();
 ReplayScenario quest_scenario();
+ReplayScenario chat_scenario();
 
 }  // namespace mxh::tools::sidebyside
