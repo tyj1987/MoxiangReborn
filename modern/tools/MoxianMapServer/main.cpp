@@ -236,6 +236,7 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::path(args.resource_root);
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
+        handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
         handler.load_quest_script(
             (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
     }

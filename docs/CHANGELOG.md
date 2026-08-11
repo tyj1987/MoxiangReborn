@@ -1,4 +1,16 @@
 
+## 2026-08-11 - server: ItemList.bin 真实价格表接入（9887 件物品）
+
+MapHandler gains `load_item_prices(path)` + `fill_catalog_prices(catalog)`: the real `Resource/ItemList.bin` (via the existing 1:1 `mxh::game::load_item_list` parser) populates an `item_idx -> BuyPrice` table; every resolved `NpcShopCatalog` (SpeechSyn ShopList and BuySyn decision) has its prices filled from it. The map server `--resource-root` path now calls it after `load_dealitem`.
+
+Verified at runtime: `item prices loaded 9887 items`; ShopList carries real prices and BuySyn deducts real money (new test `MapHandlerTest.ItemPricesFillCatalogAndDeductRealMoney`: item 555 @ 12345, money 20000 → 7655, ShopList first-entry price asserted). 11888+ ctest PASS. See git log (item prices commit).
+
+## 2026-08-11 - server: QuestScript 多行格式解析修复（0 → 143 任务）
+
+The shipped `QuestScript.bin` stanzas span multiple lines with tab indentation; `parse_quest_script_text` previously parsed line-by-line so every quest failed (8817 errors). It now accumulates lines into a `$QUEST ... { ... }` stanza until the brace depth closes (`stanza_open` guards against flushing before the opening brace line). `parse_quest_subquest_block` also skips unknown directives (`#NPCSCRIPT` and friends are client-side presentation data) instead of failing the whole quest.
+
+Verified at runtime: `quest_definitions loaded 143 quests (143 rows, 95 parse errors)` — from 0 to 143 quests (the remaining 95 stanzas use sub-features still unsupported, tracked). New tests: `QuestScriptLoader.ParsesMultiLineRealFileFormat` and `QuestSubquestBlock.SkipsUnknownDirectivesAndRejectsMalformedOnes`. See git log (quest script commit).
+
 ## 2026-08-11 - server: NPC 商店闭环（真实资源加载 + ShopList + 购买后库存刷新）
 
 modern/tools/MoxianMapServer/main.cpp gains `--resource-root <PlayDH>`: when supplied, the map server loads the real data tables instead of the hardcoded fallbacks — `SkillList.bin` (1817 skills), `Dealitem.bin` (165 NPCs / 1162 catalog rows), and `QuestScript.bin` (parser mismatch on this file, 0 rows — tracked). `Resource/Server/Monster_<map>.bin` AIGroup loading also resolves under the root.

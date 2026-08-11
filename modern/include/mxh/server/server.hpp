@@ -313,6 +313,11 @@ public:
     // the pre-loader arm).
     void load_quest_script(const std::string& path);
 
+    // M3-MAP item price loader: parse Resource/ItemList.bin into the
+    // item_idx -> BuyPrice table used to fill NpcShopCatalog prices
+    // (DealItem.bin carries item ids + stock only).
+    void load_item_prices(const std::string& path);
+
     // Test-only read-only accessor for the loaded quest
     // definition table.
     const mxh::server::QuestScriptParseResult& quest_definitions_for_test() const noexcept { return quest_definitions_; }
@@ -434,6 +439,8 @@ private:
     void handle_battle(mxh::net::ConnectionId id,
                        const mxh::net::Message& msg);
 
+    void fill_catalog_prices(mxh::server::NpcShopCatalog& catalog) const;
+
     // Phase 10c: Monster management
     void spawn_monsters();
     void send_monster_add(std::uint32_t player_id,
@@ -542,6 +549,8 @@ private:
     // from a real Resource/DealItem.bin at server startup.
     mxh::server::DealItemParseResult dealitem_catalog_;
     std::mutex dealitem_mu_;
+    std::unordered_map<std::uint32_t, std::uint32_t> item_prices_;
+    mutable std::mutex item_prices_mu_;
 
     // M3-MAP QuestScript.bin -> per-quest definition snapshot.
     // Empty by default so the StartSyn arm falls through to
