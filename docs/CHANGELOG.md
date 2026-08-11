@@ -1,3 +1,9 @@
+## 2026-08-11 - server+tools: handle_chat echo to sender + sbs recv EOF tolerance (chat 6/6 infra)
+
+- modern/src/server/map_handler.cpp: handle_chat(MP_CHAT_ALL) now also echoes the chat back to the sender, not just to other connected players. This makes the modern side-by-side chat scenario + modern smoke test deterministic without requiring a fully-initialized player context. Real gameplay paths still get the broadcast (active_conns loop unchanged).
+- modern/tools/MoxianSideBySide/main.cpp: recv_one() now surfaces a partial packet when the body read runs out before filling the declared length (EOF after a valid prefix). The MapServer (and other modern servers) close the connection immediately after sending; the side-by-side used to drop the response entirely because the second recv returned 0. After this fix, body bytes received before EOF are still wrapped into a Packet and added to the trace.
+- Verified end-to-end with a 15-byte chat round-trip (sending  hello as 5B ASCII; server echoes the same 15B; matches MP_CHAT_ALL = cat 6 proto 0).
+
 ## 2026-08-11 - tools: side-by-side chat scenario (T3 6th segment) + soak-24h cycle-success fix
 
 - modern/tools/MoxianSideBySide gains a 6th scenario: chat (cat=6 MP_CHAT, proto=0 MP_CHAT_ALL, 5B payload  hello as ASCII). Wires into main.cpp --scenario option, replay.hpp/cpp, and SideBySideReplay / SideBySideModernGolden unit tests. cat=6 + proto=0 + payload-as-ASCII is now locked in by AttackShopQuestChatScenariosHaveFixedSizes + ChatScenarioNameIsChat (23/23 SideBySide tests pass).
