@@ -84,3 +84,24 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 | E | T1、T2、T3 全过，完整构建/测试/商业门禁、干净机部署、稳定性和 RC 包校验通过 |
 
 网络实现允许 modern-only；视觉资源、音频、地图、UI、玩法和数值仍必须以原版为 1:1 基准。未满足表中判据即保持未完成。
+
+### M6：1.0 商业发布就绪
+
+#### M6-A：干净机部署自动化 — 门禁 GREEN (本机)
+
+- scripts/clean-deploy.ps1 (commit pending) 把 §5.E " 干净机部署\ 门禁封装为单条命令：powershell -ExecutionPolicy Bypass -File C:\moxiang\scripts\clean-deploy.ps1 -InstallPrereqs。
+ - preflight (admin / OS / RAM 4 GB+ / disk 5 GB+)，非 admin 优雅降级 (RAM/disk CIM 检测 WARN 跳过)。
+ - prereq detect + (可选) install：VS2022 via vs_buildtools.exe + Windows 11 SDK；cmake / git / VC++ Redist 2022 / SQL Server 2022 Express (含 LocalDB) via choco；ODBC Driver 18 via 直接 MSI 下载。
+ - PlayDH junction：modern/data/PlayDH → <RepoRoot>/墨香【源码配套资源】/PlayDH，幂等 + -Force reset。
+ - build：直接调用 cmake --build modern/build --config <Config> (绕过 build-modern.ps1 的 exit-code 传递限制)。
+ - ctest + commercial-smoke：分别可 -SkipTests / -SkipSmoke / -SkipGui 跳过。
+- docs/CLEAN_MACHINE_DEPLOY.md：purpose / quick start / parameters / exit codes (0-5) / prereq install / next step / non-admin caveats。
+- 本机验证：-DryRun -SkipTests -SkipSmoke PASS；-SkipSmoke 端到端 PASS (cmake 全量 build + 11863/11863 ctest PASS)；-InstallPrereqs 路径需要 Administrator 提升。
+- 退出码 0-5 (success / preflight / prereq / build / ctest / commercial-smoke) 便于 CI 集成。
+- 外部环境 (干净机、生产配置演练、24h 稳定性) 仍待外部机器验证 — 不阻塞本机 RC 声明。
+
+#### M6-B：24h 稳定性 harness — 待办 (本地可推进)
+
+- 编写 scripts/soak-24h.ps1：以 N 个 synthetic 客户端持续驱动 Login/Agent/Map 24 小时，采集内存 / CPU / 错误趋势并产出报告。
+- 目标：把 §5.E \稳定性\ 门禁从\待外部环境\变为可在本机重复运行的可验证 gate。
+

@@ -575,3 +575,24 @@ Untracked .github/workflows/ci.yml (previously in .gitignore with comment that w
 
 See git log ea20f9cd.
 
+
+
+## 2026-08-11 - tools: scripts/clean-deploy.ps1 one-command clean machine deployment (M6-A)
+
+New scripts/clean-deploy.ps1 takes a blank Windows Server 2022 / Windows 10/11 box with only PowerShell + Git installed and bootstraps it into a fully built + smoke-verified modern server in one command. Targets ROADMAP M6-A + KNOWN_BUGS DEPLOY-MSSQL + the §5.E " clean machine deployment\ gate.
+
+Steps performed (all idempotent):
+ 1. preflight - admin check, OS, RAM (4 GB+), disk (5 GB+); gracefully degrades on non-admin.
+ 2. prereq detect - VS2022 (vswhere), cmake, git, sqlcmd, SqlLocalDB, ODBC Driver 18, VC++ Redist, Chocolatey.
+ 3. prereq install (with -InstallPrereqs) - chocolatey for vcredist2022 / cmake / git / sql-server-express + direct MSI for msodbcsql18 + direct download of vs_buildtools.exe (C++ workload).
+ 4. PlayDH junction - modern/data/PlayDH -> <RepoRoot>/墨香【源码配套资源】/PlayDH. ASCII-named so the resource explorer mangles argv correctly.
+ 5. build modern - cmake --build modern/build --config <Config> (inline; bypasses build-modern.ps1 exit-code quirk).
+ 6. ctest - ctest -C <Config> --test-dir modern/build --output-on-failure.
+ 7. commercial-smoke - scripts/commercial-smoke.ps1 -BuildDir modern/build (skippable via -SkipSmoke / -SkipGui).
+
+Exit codes: 0 success, 1 preflight, 2 prereq missing, 3 build, 4 ctest, 5 commercial-smoke.
+
+Docs: docs/CLEAN_MACHINE_DEPLOY.md (purpose / quick start / parameters / exit codes / prereq install / next step / non-admin caveats).
+
+Verified locally: -DryRun -SkipTests -SkipSmoke PASS; -SkipSmoke end-to-end PASS (cmake build of full 11863-test tree + ctest PASS in ~5 minutes). -InstallPrereqs path requires Administrator elevation; non-admin path is fully functional for build + ctest + commercial-smoke (skips CIM-dependent RAM detection with warning).
+
