@@ -1,3 +1,9 @@
+## 2026-08-11 - tools: modern_chat.cap golden + ChatTraceIsChatAllEcho test (T3 6/6 capture)
+
+- modern/tools/MoxianSideBySide + handle_chat sender-echo commit: the T3 6th side-by-side segment (chat) is now captured end-to-end. modern_chat.cap is a 1-packet golden (cat=6 MP_CHAT, proto=0 MP_CHAT_ALL, 5B payload  hello = 0x68 0x65 0x6c 0x6c 0x6f) saved to modern/tests/fixtures/sbs_captures_modern/.
+- modern/tests/unit/tools_side_by_side_test.cpp: added ChatTraceIsChatAllEcho + extended AllFiveScenariosHaveFixtures -> AllSixScenariosHaveFixtures to require modern_chat.cap on disk. 24/24 SideBySide tests pass.
+- Production recipe: 1) start modern servers via deploy/scripts/start_modern.ps1 start, 2) run mxh_side_by_side --scenario chat --modern-only --allow-empty --capture-dir <dir> (the harness takes ~7s to fully start the 3-server chain; the sbs wait was 1.5s and is now sufficient once --start is dropped in favor of starting the servers separately), 3) verify the captured modern_chat.cap is a 1-packet MP_CHAT_ALL echo.
+
 ## 2026-08-11 - server+tools: handle_chat echo to sender + sbs recv EOF tolerance (chat 6/6 infra)
 
 - modern/src/server/map_handler.cpp: handle_chat(MP_CHAT_ALL) now also echoes the chat back to the sender, not just to other connected players. This makes the modern side-by-side chat scenario + modern smoke test deterministic without requiring a fully-initialized player context. Real gameplay paths still get the broadcast (active_conns loop unchanged).
