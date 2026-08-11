@@ -189,7 +189,17 @@ mxh::tools::sidebyside::Packet recv_one(SOCKET s) {
                             (static_cast<std::size_t>(prefix[1]) << 8u);
     if (bodyLength < 8u || bodyLength > 1024u * 1024u) return {};
     std::vector<std::uint8_t> body(bodyLength);
-    if (!recv_n(s, body.data(), body.size())) return {};
+    std::size_t got = 0;
+    got = 0; while (got < body.size()) { int rr = ::recv(s, reinterpret_cast<char*>(body.data() + got), static_cast<int>(body.size() - got), 0); if (rr <= 0) break; got += static_cast<std::size_t>(rr); }
+    if (got < body.size()) {
+        // EOF after a valid prefix: still surface the bytes we got.
+        // The MapServer (and other modern servers) may close the
+        // connection immediately after sending the response; we
+        // should not drop the response just because the body
+        // read ran out before filling the declared length.
+        if (got < 8u) return {};
+        body.resize(got);
+    }
     mxh::tools::sidebyside::Packet p;
     p.checksum = body[0];
     p.code = static_cast<std::int8_t>(body[1]);
