@@ -214,6 +214,27 @@ mxh::net::Message make_chat_message(std::uint32_t player_id,
 
 std::string parse_chat_payload(std::span<const std::uint8_t> payload);
 
+// One NPC shop row (modern ShopList payload).
+struct ShopItem {
+    std::uint16_t item_id = 0;
+    std::uint32_t price   = 0;
+};
+
+// Parse the modern ShopList payload:
+// [npc_id:u32][count:u16] + count x [item_id:u16][price:u32].
+std::vector<ShopItem> parse_shop_list(std::span<const std::uint8_t> payload);
+
+// Buy packet: [item_id:u16][qty:u16].
+mxh::net::Message make_buy_message(std::uint32_t player_id,
+                                   std::uint16_t item_id,
+                                   std::uint16_t qty);
+
+// Shop panel layout (shared with the host renderer).
+inline constexpr float kShopPanelX = 200.0f;
+inline constexpr float kShopPanelY = 100.0f;
+inline constexpr float kShopPanelW = 400.0f;
+inline constexpr float kShopRowH   = 26.0f;
+
 // -------------------------------------------------------------------------
 // CInGameState â€” eGS_GAMEIN state.
 // -------------------------------------------------------------------------
@@ -253,6 +274,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept { m_inventoryOpen = !m_inventoryOpen; }
+    void open_shop(std::uint32_t npc_id);
+    void buy_shop_item(std::size_t index);
 
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
@@ -264,6 +287,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     float camera_yaw() const noexcept { return m_cameraYaw; }
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
+    bool shop_open() const noexcept { return m_shopOpen; }
+    const std::vector<ShopItem>& shop_items() const noexcept { return m_shopItems; }
+    std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
     const std::vector<std::string>& chat_lines() const noexcept {
         return m_chatLines;
@@ -289,6 +315,7 @@ private:
     void handle_monster_broadcast(const mxh::net::Message& msg);
     void handle_skill_broadcast(const mxh::net::Message& msg);
     void handle_chat_broadcast(const mxh::net::Message& msg);
+    void handle_item_broadcast(const mxh::net::Message& msg);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -328,6 +355,11 @@ private:
     std::string          m_chatBuffer;
     std::vector<std::string> m_chatLines;
     bool                 m_inventoryOpen = false;
+
+    // NPC shop state.
+    bool                 m_shopOpen  = false;
+    std::uint32_t        m_shopNpcId = 0;
+    std::vector<ShopItem> m_shopItems;
 };
 
 } // namespace mxh::client

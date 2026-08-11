@@ -537,6 +537,51 @@ void renderFrame(HWND h) {
                     }
                 }
             }
+
+            // NPC shop panel (opened with 'B', click a row to buy).
+            if (g_inputTarget->shop_open()) {
+                const auto& shopItems = g_inputTarget->shop_items();
+                constexpr float kTitleH = 28.0f;
+                drawSpriteQuad(g_renderer, g_hud.barBg,
+                               mxh::client::kShopPanelX - 8.0f,
+                               mxh::client::kShopPanelY - kTitleH,
+                               mxh::client::kShopPanelW + 16.0f,
+                               kTitleH, 0xFFFFFFFFu);
+                drawSpriteQuad(g_renderer, g_hud.barBg,
+                               mxh::client::kShopPanelX,
+                               mxh::client::kShopPanelY,
+                               mxh::client::kShopPanelW,
+                               static_cast<float>(shopItems.size()) *
+                                   mxh::client::kShopRowH,
+                               0xFFFFFFFFu);
+                if (g_hudFont) {
+                    const std::string title =
+                        "NPC Shop  (click to buy, B close)";
+                    RECT rcTitle{static_cast<LONG>(mxh::client::kShopPanelX) - 4,
+                                 static_cast<LONG>(mxh::client::kShopPanelY) - kTitleH + 6,
+                                 static_cast<LONG>(mxh::client::kShopPanelX) + 300,
+                                 static_cast<LONG>(mxh::client::kShopPanelY)};
+                    g_renderer->RenderFont(
+                        g_hudFont, const_cast<char*>(title.data()),
+                        static_cast<std::uint32_t>(title.size()), &rcTitle,
+                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                    for (std::size_t i = 0; i < shopItems.size() && i < 12; ++i) {
+                        const float rowY = mxh::client::kShopPanelY +
+                            static_cast<float>(i) * mxh::client::kShopRowH;
+                        const std::string line =
+                            std::to_string(shopItems[i].item_id) +
+                            "   $" + std::to_string(shopItems[i].price);
+                        RECT rc{static_cast<LONG>(mxh::client::kShopPanelX) + 8,
+                                static_cast<LONG>(rowY) + 4,
+                                static_cast<LONG>(mxh::client::kShopPanelX) + 380,
+                                static_cast<LONG>(rowY) + 22};
+                        g_renderer->RenderFont(
+                            g_hudFont, const_cast<char*>(line.data()),
+                            static_cast<std::uint32_t>(line.size()), &rc,
+                            0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                    }
+                }
+            }
         }
     }
 

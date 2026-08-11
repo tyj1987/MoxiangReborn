@@ -10,10 +10,12 @@
 
 using mxh::client::key_mask_for_vk;
 using mxh::client::make_attack_message;
+using mxh::client::make_buy_message;
 using mxh::client::make_chat_message;
 using mxh::client::make_move_message;
 using mxh::client::MoveKey;
 using mxh::client::parse_monster_life_payload;
+using mxh::client::parse_shop_list;
 using mxh::client::parse_chat_payload;
 using mxh::client::parse_move_payload;
 using mxh::client::pick_attack_target;
@@ -230,4 +232,42 @@ TEST(InGameWire, ParseChatPayloadStopsAtNul) {
 
 TEST(InGameWire, ParseChatPayloadEmpty) {
     EXPECT_EQ(parse_chat_payload(std::span<const std::uint8_t>{}), "");
+}
+
+TEST(InGameShop, ParseShopListDecodesRows) {
+    std::vector<std::uint8_t> payload(6 + 2 * 6, 0);
+    payload[0] = 7;                       // npc_id
+    payload[4] = 2;                       // count
+    payload[6] = 0x10; payload[7] = 0;    // item 0x0010
+    payload[8] = 0x64; payload[9] = 0;
+    payload[10] = 0; payload[11] = 0;     // price 100
+    payload[12] = 0x34; payload[13] = 0x12;  // item 0x1234
+    payload[14] = 0xE8; payload[15] = 0x03;
+    payload[16] = 0; payload[17] = 0;     // price 1000
+
+    const auto items = parse_shop_list(payload);
+    ASSERT_EQ(items.size(), 2u);
+    EXPECT_EQ(items[0].item_id, 0x0010u);
+    EXPECT_EQ(items[0].price, 100u);
+    EXPECT_EQ(items[1].item_id, 0x1234u);
+    EXPECT_EQ(items[1].price, 1000u);
+}
+
+TEST(InGameShop, ParseShopListShortPayloadIsEmpty) {
+    std::array<std::uint8_t, 4> payload{};
+    EXPECT_TRUE(parse_shop_list(payload).empty());
+}
+
+TEST(InGameShop, BuyMessageMatchesModernServerLayout) {
+    const auto m = make_buy_message(240366u, 0x1234u, 1u);
+    EXPECT_EQ(m.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Item));
+    EXPECT_EQ(m.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn));
+    EXPECT_EQ(m.header.object_id, 240366u);
+    ASSERT_EQ(m.payload.size(), 4u);
+    EXPECT_EQ(m.payload[0], 0x34);
+    EXPECT_EQ(m.payload[1], 0x12);
+    EXPECT_EQ(m.payload[2], 1u);
+    EXPECT_EQ(m.payload[3], 0u);
 }

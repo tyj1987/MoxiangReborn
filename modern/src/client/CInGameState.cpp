@@ -223,6 +223,40 @@ std::string parse_chat_payload(std::span<const std::uint8_t> payload) {
     return out;
 }
 
+std::vector<ShopItem> parse_shop_list(std::span<const std::uint8_t> payload) {
+    std::vector<ShopItem> out;
+    if (payload.size() < 6) return out;
+    const auto count = static_cast<std::uint16_t>(
+        payload[4] | (static_cast<std::uint16_t>(payload[5]) << 8));
+    out.reserve(count);
+    std::size_t off = 6;
+    for (std::uint16_t i = 0; i < count; ++i) {
+        if (off + 6 > payload.size()) break;
+        ShopItem item;
+        item.item_id = static_cast<std::uint16_t>(
+            payload[off] | (static_cast<std::uint16_t>(payload[off + 1]) << 8));
+        item.price = get_u32(payload.data() + off + 2);
+        out.push_back(item);
+        off += 6;
+    }
+    return out;
+}
+
+mxh::net::Message make_buy_message(std::uint32_t player_id,
+                                   std::uint16_t item_id,
+                                   std::uint16_t qty) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Item);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ItemProtocol::BuySyn);
+    message.header.object_id = player_id;
+    message.payload.resize(4);
+    put_u16(message.payload, 0, item_id);
+    put_u16(message.payload, 2, qty);
+    return message;
+}
+
 std::optional<MonsterAddInfo>
 parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
     if (payload.size() < 64) return std::nullopt;
@@ -472,6 +506,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case Category::Chat:
             handle_chat_broadcast(msg);
             break;
+        case Category::Item:
+            handle_item_broadcast(msg);
+            break;
         default:
             // Phase 10b: MapServer may also push ITEM_TOTALINFO_LOCAL
             // (Category::Item, ItemProtocol::TotalInfoLocal) after the
@@ -704,6 +741,31 @@ void CInGameState::handle_chat_broadcast(const mxh::net::Message& msg) {
               msg.header.object_id, text.c_str());
 }
 
+void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
+    const auto proto = msg.header.protocol;
+    if (proto == mxh::proto::kModernShopList) {
+        m_shopItems = parse_shop_list(msg.payload);
+        m_shopNpcId = 0;
+        m_shopOpen = true;
+        MLOG_INFO("CInGameState: shop list %zu items",
+                  m_shopItems.size());
+    } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::TotalInfoLocal)) {
+        if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
+            std::memcpy(&m_info.items, msg.payload.data(),
+                        sizeof(m_info.items));
+            MLOG_INFO("CInGameState: inventory refreshed");
+        }
+    } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::BuyAck)) {
+        m_shopOpen = false;
+        MLOG_INFO("CInGameState: BuyAck (shop closed)");
+    } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::BuyNack)) {
+        MLOG_WARN("CInGameState: BuyNack");
+    }
+}
+
 void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     if (vk == kVkReturn) {
         if (pressed) {
@@ -720,6 +782,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         m_chatBuffer.clear();
         return;
     }
+    if (vk == kVkEscape && pressed && m_shopOpen) {
+        m_shopOpen = false;
+        return;
+    }
     if (vk == kVkBack && pressed && m_chatOpen) {
         if (!m_chatBuffer.empty()) m_chatBuffer.pop_back();
         return;
@@ -733,6 +799,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         }
         if (vk == 0x49) {  // 'I' toggles the inventory panel
             toggle_inventory();
+            return;
+        }
+        if (vk == 0x42) {  // 'B' opens the NPC shop (npc 0 = first catalog)
+            open_shop(0);
             return;
         }
     }
@@ -757,6 +827,19 @@ void CInGameState::OnMouseButton(bool left, bool down,
                                  std::int32_t x, std::int32_t y) {
     m_lastMouseX = x;
     m_lastMouseY = y;
+    if (left && down && m_shopOpen) {
+        const float fx = static_cast<float>(x);
+        const float fy = static_cast<float>(y);
+        if (fx >= kShopPanelX && fx <= kShopPanelX + kShopPanelW &&
+            fy >= kShopPanelY) {
+            const std::size_t row = static_cast<std::size_t>(
+                (fy - kShopPanelY) / kShopRowH);
+            if (row < m_shopItems.size()) {
+                buy_shop_item(row);
+                return;
+            }
+        }
+    }
     if (left && down) {
         try_attack();
         return;
@@ -886,6 +969,35 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         m_lastAttackMs = now;
         MLOG_INFO("CInGameState: quick slot %zu skill=%u target=%u",
                   slot, skill, target);
+    }
+}
+
+void CInGameState::open_shop(std::uint32_t npc_id) {
+    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    m_shopOpen = false;
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Npc);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::NpcProtocol::SpeechSyn);
+    msg.header.object_id = m_playerId;
+    msg.payload.resize(4);
+    put_u32(msg.payload, 0, npc_id);
+    const auto e = m_client->send(msg);
+    if (e == mxh::net::NetError::Ok) {
+        MLOG_INFO("CInGameState: open_shop npc=%u", npc_id);
+    }
+}
+
+void CInGameState::buy_shop_item(std::size_t index) {
+    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    if (index >= m_shopItems.size()) return;
+    const auto& item = m_shopItems[index];
+    const auto e = m_client->send(
+        make_buy_message(m_playerId, item.item_id, 1u));
+    if (e == mxh::net::NetError::Ok) {
+        MLOG_INFO("CInGameState: buy item=%u price=%u",
+                  item.item_id, item.price);
     }
 }
 
