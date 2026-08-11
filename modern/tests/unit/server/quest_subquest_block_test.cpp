@@ -76,9 +76,14 @@ TEST(QuestSubquestBlock, ParsesMixedDirectivesAndCrlf) {
     EXPECT_EQ(entry->triggers[0].event.kind, QuestEventKind::Count);
 }
 
-TEST(QuestSubquestBlock, RejectsUnknownAndMalformedDirectives) {
-    EXPECT_FALSE(parse_quest_subquest_block(
-        "#NPCSCRIPT @NPC 1", 1u, 0u).has_value());
+TEST(QuestSubquestBlock, SkipsUnknownDirectivesAndRejectsMalformedOnes) {
+    // #NPCSCRIPT is client-side presentation data in the real file; it is
+    // skipped so the quest still loads.
+    const auto entry = parse_quest_subquest_block(
+        "#LIMIT &LEVEL 1 99\n#NPCSCRIPT @NPC 1", 1u, 0u);
+    ASSERT_TRUE(entry.has_value());
+    EXPECT_EQ(entry->limits.size(), 1u);
+    EXPECT_TRUE(entry->triggers.empty());
     EXPECT_FALSE(parse_quest_subquest_block(
         "#LIMIT", 1u, 0u).has_value());
     EXPECT_FALSE(parse_quest_subquest_block(

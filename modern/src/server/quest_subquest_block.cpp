@@ -94,7 +94,10 @@ std::optional<QuestSubquestEntry> parse_quest_subquest_block(
             if (!trigger.has_value()) return std::nullopt;
             entry.triggers.push_back(*trigger);
         } else {
-            return std::nullopt;
+            // Unknown directives (e.g. #NPCSCRIPT / #REWARD) are
+            // client-side presentation data in the shipped QuestScript.bin;
+            // skip them instead of failing the whole quest.
+            continue;
         }
     }
     return entry;

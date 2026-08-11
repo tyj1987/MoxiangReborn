@@ -134,31 +134,72 @@ QuestScriptParseResult parse_quest_script_text(
     std::string_view text) noexcept {
     QuestScriptParseResult result;
     std::size_t cursor = 0;
+    std::string stanza;
+    bool in_stanza = false;
+    bool stanza_open = false;
+    int depth = 0;
+
+    auto flush_stanza = [&]() {
+        if (stanza.empty()) return;
+        ++result.rows_seen;
+        auto def = parse_quest_stanza(stanza);
+        if (!def.has_value()) {
+            ++result.parse_errors;
+        } else {
+            result.quest_index_by_id.emplace(
+                def->quest_idx, result.quests.size());
+            result.quests.push_back(std::move(*def));
+            ++result.rows_parsed;
+        }
+        stanza.clear();
+        in_stanza = false;
+        stanza_open = false;
+        depth = 0;
+    };
+
     while (cursor < text.size()) {
         const auto line_end = text.find('\n', cursor);
         const auto count = line_end == std::string_view::npos
             ? text.size() - cursor
             : line_end - cursor;
-        auto line = trim(text.substr(cursor, count));
+        auto line = text.substr(cursor, count);
         cursor = line_end == std::string_view::npos
             ? text.size()
             : line_end + 1;
-        if (line.empty()) continue;
-        ++result.rows_seen;
-        if (line.front() != '$') {
+
+        if (!in_stanza) {
+            const auto trimmed = trim(line);
+            if (trimmed.empty()) continue;
+            std::size_t token_cursor = 0;
+            std::string_view first;
+            if (next_token(trimmed, token_cursor, first) && first == "$QUEST") {
+                in_stanza = true;
+                stanza.assign(line);
+                stanza.push_back('\n');
+                for (const char ch : line) {
+                    if (ch == '{') ++depth;
+                    else if (ch == '}') --depth;
+                }
+                stanza_open = stanza_open || line.find('{') != std::string_view::npos;
+                if (stanza_open && depth <= 0) flush_stanza();
+                continue;
+            }
+            ++result.rows_seen;
             ++result.parse_errors;
             continue;
         }
-        auto def = parse_quest_stanza(line);
-        if (!def.has_value()) {
-            ++result.parse_errors;
-            continue;
+
+        // Inside a $QUEST stanza: accumulate until brace depth returns to 0.
+        stanza.append(line);
+        stanza.push_back('\n');
+        for (const char ch : line) {
+            if (ch == '{') ++depth;
+            else if (ch == '}') --depth;
         }
-        result.quest_index_by_id.emplace(
-            def->quest_idx, result.quests.size());
-        result.quests.push_back(std::move(*def));
-        ++result.rows_parsed;
+        stanza_open = stanza_open || line.find('{') != std::string_view::npos;
+        if (stanza_open && depth <= 0) flush_stanza();
     }
+    flush_stanza();
     return result;
 }
 
