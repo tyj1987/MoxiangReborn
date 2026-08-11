@@ -251,6 +251,13 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
         info.weared_item_idx[slot] = get_u16(payload.data() + 35 + 19 + slot * 2);
     info.level    = get_u16(payload.data() + 35 + 40);
     info.map_num  = get_u16(payload.data() + 35 + 42);
+
+    // HERO_TOTALINFO [147..206): naeryuk(+8/+12), exp(+20), money(+30).
+    info.mp      = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 8);
+    info.max_mp  = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12);
+    info.exp     = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20);
+    info.money   = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 30);
+
     info.position_x = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET);
     info.position_z = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2);
 

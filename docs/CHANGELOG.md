@@ -1,4 +1,24 @@
 
+## 2026-08-11 - client: in-game HUD（HP/MP 条）+ GameInAck MP/经验/金钱解析
+
+modern/tools/MoxianClient/main.cpp renders an in-game HUD pass on top of the terrain: HP bar (red) and MP bar (blue) with a translucent dark frame at the top-left (placeholder geometry; the original InterfaceScript art + exact layout land with the UI runtime). The bars are fed from the GameInAck totalinfo: `CInGameState::parse_legacy_gamein_ack` now decodes HERO_TOTALINFO naeryuk (mp/max_mp at +8/+12), exp (+20) and money (+30) into `GameInInfo` (life/max_life were already parsed). The HUD pass switches the device to a corrected screen-space ortho projection before drawing sprites.
+
+New renderer surface: `I4DyuchiGXRenderer::CreateSolidSpriteObject(ARGB,w,h)` + `SetScreenSpaceProjection()`, implemented in CoD3DDeviceDX11/Device (`useScreenOrtho` builds an explicit pixel→NDC matrix with translation in `_41/_42`). Verified by frame capture: HP bar (255,64,64) and MP bar (64,144,255) render at the expected pixels; GameInAck log shows `life=100/100 mp=50/50 frac=1.00/1.00`.
+
+11879/11879 ctest PASS. See git log (client HUD commit).
+
+## 2026-08-11 - render: sprite pipeline fix（row_major / culling / depth）+ solid sprite factory
+
+The DX11 textured-quad sprite path never produced visible pixels. Three root causes fixed in modern/src/render/dx11:
+
+1. `kVS_Textured` cbuffer was missing `row_major` (the solid 2D VS has it), so every sprite quad was projected through a transposed matrix and landed off-screen.
+2. `drawTexturedQuad` ran with the default back-face culling; the screen-ortho Y inversion flips the quad winding, culling every sprite. It now binds a cull-none rasterizer state for the draw and restores the caller's state.
+3. Every sprite draw wrote depth 0 and the default LESS depth test rejected later overlapping sprite draws (a bar's fill was invisible under its own background). Sprite draws now run with depth testing disabled (saved/restored around the draw).
+
+Also adds `I4DyuchiGXRenderer::CreateSolidSpriteObject(ARGB,w,h)` + `SetScreenSpaceProjection()` (pixel→NDC ortho with translation in `_41/_42`) as the HUD pass surface. Verified end-to-end: a 400x300 diagnostic quad renders solid red (255,64,64) in the captured frame.
+
+11879/11879 ctest PASS. See git log (render sprite fix commit).
+
 ## 2026-08-11 - server: map monster AI heartbeat + move broadcast
 
 modern/tools/MoxianMapServer/main.cpp now calls `MapHandler::tick_monster_ai()` every 100ms (the internal per-monster gate is 1s), so the Phase 10c monster state machine (aggro → chase → attack → return, 10s respawn) actually runs instead of being dead code. Chase/Return position changes are collected and broadcast as `Category::Move / MoveProtocol::MonsterMoveNotify` (`[x:u16][z:u16]` payload) so every client sees monsters move on the map.

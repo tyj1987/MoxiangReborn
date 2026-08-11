@@ -35,6 +35,18 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     }
     std::memcpy(payload.data() + 75, &level, sizeof(level));
     std::memcpy(payload.data() + 77, &map_num, sizeof(map_num));
+    const std::uint32_t mp = 1200;
+    const std::uint32_t max_mp = 1500;
+    const std::uint32_t exp = 980;
+    const std::uint32_t money = 123456;
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 8,
+                &mp, sizeof(mp));
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12,
+                &max_mp, sizeof(max_mp));
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20,
+                &exp, sizeof(exp));
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 30,
+                &money, sizeof(money));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, &position_x, sizeof(position_x));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, &position_z, sizeof(position_z));
 
@@ -63,6 +75,10 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     EXPECT_EQ(info->weared_item_idx.back(), 1009u);
     EXPECT_EQ(info->level, level);
     EXPECT_EQ(info->map_num, map_num);
+    EXPECT_EQ(info->mp, mp);
+    EXPECT_EQ(info->max_mp, max_mp);
+    EXPECT_EQ(info->exp, exp);
+    EXPECT_EQ(info->money, money);
     EXPECT_EQ(info->position_x, position_x);
     EXPECT_EQ(info->position_z, position_z);
     EXPECT_EQ(info->server_year, year);

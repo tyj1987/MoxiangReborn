@@ -60,6 +60,10 @@ struct GameInInfo {
     std::uint16_t  map_num      = 0;
     std::uint16_t  life         = 0;
     std::uint16_t  max_life     = 0;
+    std::uint32_t  mp           = 0;
+    std::uint32_t  max_mp       = 0;
+    std::uint32_t  exp          = 0;
+    std::uint32_t  money        = 0;
     std::uint8_t   gender       = 0;
     std::uint8_t   face_type    = 0;
     std::uint8_t   hair_type    = 0;

@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <algorithm>
 #include <array>
 #include <string>
 #include <filesystem>
@@ -251,6 +252,15 @@ std::string __g_pendingStateFrame;
 // to the current game state (only CInGameState consumes input today).
 mxh::client::CInGameState* g_inputTarget = nullptr;
 
+// In-game HUD sprites (solid-color quads; original InterfaceScript art is
+// wired in a later phase once the UI runtime lands).
+struct HudSprites {
+    IDISpriteObject* barBg  = nullptr;
+    IDISpriteObject* hpFill = nullptr;
+    IDISpriteObject* mpFill = nullptr;
+};
+HudSprites g_hud;
+
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
 // renderer's RenderSprite.  Earlier A.1.3 had a single g_hudSprite
@@ -379,6 +389,28 @@ std::array<SpriteEntry, 4> g_sprites{};  // 4 demo slots: bg/red/green/blue
 // ---------------------------------------------------------------------------
 namespace {
 
+void drawSpriteQuad(I4DyuchiGXRenderer* r, IDISpriteObject* sprite,
+                    float x, float y, float w, float h,
+                    std::uint32_t color) {
+    if (!r || !sprite) return;
+    VECTOR2 scale{w, h};
+    VECTOR2 trans{x, y};
+    RECT    rc{0, 0, 1, 1};
+    r->RenderSprite(sprite, &scale, 0.0f, &trans, &rc,
+                    color, /*iZOrder=*/1, /*dwFlag=*/0);
+}
+
+void drawHudBar(I4DyuchiGXRenderer* r, IDISpriteObject* bg,
+                IDISpriteObject* fill, float x, float y,
+                float w, float h, float fraction) {
+    drawSpriteQuad(r, bg, x, y, w, h, 0xFFFFFFFFu);
+    const float fillW = (w - 2.0f) * std::clamp(fraction, 0.0f, 1.0f);
+    if (fillW > 0.5f) {
+        drawSpriteQuad(r, fill, x + 1.0f, y + 1.0f, fillW, h - 2.0f,
+                       0xFFFFFFFFu);
+    }
+}
+
 void renderFrame(HWND h) {
     if (!g_renderer) return;
 
@@ -390,6 +422,23 @@ void renderFrame(HWND h) {
         g_terrain->render();
         if (g_staticScene) g_staticScene->render();
         if (g_entityScene) g_entityScene->render();
+
+        // In-game HUD: HP / MP bars fed from the GameInAck totalinfo.
+        if (g_inputTarget && g_inputTarget->is_in_game() && g_hud.barBg &&
+            g_hud.hpFill && g_hud.mpFill) {
+            g_renderer->SetScreenSpaceProjection();
+            const auto& info = g_inputTarget->game_info();
+            const float hpFrac = info.max_life == 0
+                ? 0.0f : static_cast<float>(info.life) /
+                         static_cast<float>(info.max_life);
+            const float mpFrac = info.max_mp == 0
+                ? 0.0f : static_cast<float>(info.mp) /
+                         static_cast<float>(info.max_mp);
+            drawHudBar(g_renderer, g_hud.barBg, g_hud.hpFill,
+                       20.0f, 44.0f, 180.0f, 12.0f, hpFrac);
+            drawHudBar(g_renderer, g_hud.barBg, g_hud.mpFill,
+                       20.0f, 62.0f, 180.0f, 12.0f, mpFrac);
+        }
     }
 
     // Background tile during login/character states.
@@ -606,6 +655,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         return 1;
     }
     g_renderer = renderer;
+    g_hud.barBg  = renderer->CreateSolidSpriteObject(0xAA181010u, 1, 1);
+    g_hud.hpFill = renderer->CreateSolidSpriteObject(0xFF4040FFu, 1, 1);
+    g_hud.mpFill = renderer->CreateSolidSpriteObject(0xFFFF9040u, 1, 1);
 
     // Build per-cImage sprite registry.  A.1.4 ships with 4 demo
     // sprites: one gradient background + three solid-colour "dialog
@@ -891,6 +943,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     MLOG_INFO("mxh_client: shutting down");
 
+    g_inputTarget = nullptr;
     mainGame.Release();
     g_renderTerrain = false;
     g_terrain.reset();
