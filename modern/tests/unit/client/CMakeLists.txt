@@ -6,6 +6,7 @@ add_executable(mxh_client_tests
     ccharselect_state_test.cpp
     cchar_make_state_test.cpp
     cingame_state_test.cpp
+    cingame_input_test.cpp
     client_e2e_flow_test.cpp
 )
 

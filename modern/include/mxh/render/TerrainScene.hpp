@@ -24,6 +24,10 @@ public:
     void render();
     void configureCamera(float aspect);
     void followPlayer(float world_x, float world_z);
+    // Camera yaw (radians, around the world Y axis) used while following
+    // the player. 0 = the legacy default camera facing +Z.
+    void setCameraYaw(float radians) noexcept;
+    [[nodiscard]] float cameraYaw() const noexcept;
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
     [[nodiscard]] std::uint32_t chunkCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;

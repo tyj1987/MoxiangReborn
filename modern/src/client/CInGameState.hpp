@@ -37,10 +37,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "mxh/proto/protocol.hpp"
 
 namespace mxh::client {
 
@@ -97,6 +100,78 @@ std::optional<MonsterAddInfo>
 parse_legacy_monster_add(std::span<const std::uint8_t> payload);
 
 // -------------------------------------------------------------------------
+// In-game input + gameplay wire helpers (pure functions, unit-tested).
+//
+// Movement follows the legacy MHClient bindings: W/S forward/back, Q/E
+// strafe, A/D rotate the camera (arrow keys mirror W/S/A/D), mouse right
+// drag rotates the camera, left click attacks the nearest monster.
+// -------------------------------------------------------------------------
+enum class MoveKey : std::uint32_t {
+    Forward     = 1u << 0,
+    Back        = 1u << 1,
+    StrafeLeft  = 1u << 2,
+    StrafeRight = 1u << 3,
+    RotateLeft  = 1u << 4,
+    RotateRight = 1u << 5,
+};
+
+struct MoveResult {
+    float x = 0;
+    float z = 0;
+    float yaw = 0;
+    bool moving = false;  // position changed this step
+};
+
+// Win32 virtual-key codes (kept local so the client library stays
+// windows-free in tests).
+inline constexpr std::uint32_t kVkW      = 0x57;
+inline constexpr std::uint32_t kVkA      = 0x41;
+inline constexpr std::uint32_t kVkS      = 0x53;
+inline constexpr std::uint32_t kVkD      = 0x44;
+inline constexpr std::uint32_t kVkQ      = 0x51;
+inline constexpr std::uint32_t kVkE      = 0x45;
+inline constexpr std::uint32_t kVkUp     = 0x26;
+inline constexpr std::uint32_t kVkDown   = 0x28;
+inline constexpr std::uint32_t kVkLeft   = 0x25;
+inline constexpr std::uint32_t kVkRight  = 0x27;
+
+inline constexpr float kMoveSpeed       = 220.0f;  // world units / second
+inline constexpr float kRotateSpeed     = 1.6f;    // radians / second
+inline constexpr float kMoveReportEveryMs = 300.0f;  // legacy 300ms notice
+inline constexpr float kAttackCooldownMs = 800.0f;
+inline constexpr float kAttackRange      = 500.0f;
+inline constexpr float kWorldLimit       = 50000.0f;
+
+std::uint32_t key_mask_for_vk(std::uint32_t vk) noexcept;
+
+// Advance position/yaw for one tick given the held key mask.
+MoveResult step_movement(std::uint32_t keyMask, float yaw,
+                         float x, float z, float dt) noexcept;
+
+// Nearest alive monster within range, or std::nullopt.
+std::optional<std::uint32_t>
+pick_attack_target(const std::vector<MonsterAddInfo>& monsters,
+                   float px, float pz, float range) noexcept;
+
+// Build the modern MapServer Move packet (payload = [x:u16][z:u16]).
+mxh::net::Message make_move_message(std::uint32_t player_id,
+                                    mxh::proto::MoveProtocol proto,
+                                    std::uint16_t x, std::uint16_t z);
+
+// Build the modern MapServer Skill StartSyn packet
+// (payload = [skill_idx:u32][main_target:u32][target_x:f32][target_z:f32]).
+mxh::net::Message make_attack_message(std::uint32_t player_id,
+                                      std::uint32_t skill_idx,
+                                      std::uint32_t main_target,
+                                      float target_x, float target_z);
+
+std::optional<std::pair<std::uint16_t, std::uint16_t>>
+parse_move_payload(std::span<const std::uint8_t> payload);
+
+std::optional<std::pair<std::uint32_t, std::uint32_t>>
+parse_monster_life_payload(std::span<const std::uint8_t> payload);
+
+// -------------------------------------------------------------------------
 // CInGameState â€” eGS_GAMEIN state.
 // -------------------------------------------------------------------------
 class CInGameState final : public CGameState,
@@ -128,6 +203,11 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
                std::uint32_t player_id, std::uint16_t map_num,
                bool use_hsel = false);
 
+    // Input hooks driven by the host Win32 message pump (in-game only).
+    void OnKeyEvent(bool pressed, std::uint32_t vk);
+    void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    void OnMouseMove(std::int32_t x, std::int32_t y);
+
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
     bool         is_in_game()   const noexcept { return m_inGame; }
@@ -135,11 +215,26 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint16_t map_num()     const noexcept { return m_mapNum; }
     const GameInInfo& game_info() const noexcept { return m_info; }
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
+    float camera_yaw() const noexcept { return m_cameraYaw; }
+    std::uint16_t local_x() const noexcept {
+        return static_cast<std::uint16_t>(m_localX);
+    }
+    std::uint16_t local_z() const noexcept {
+        return static_cast<std::uint16_t>(m_localZ);
+    }
 
 private:
     void send_gamein_syn();
     void dispatch_gamein_ack(const GameInInfo& info);
     void fail_with(const std::string& reason);
+    void update_movement(std::uint64_t now_ms);
+    void send_move(std::uint16_t x, std::uint16_t z,
+                   mxh::proto::MoveProtocol proto);
+    void try_attack();
+    void handle_userconn_message(const mxh::net::Message& msg);
+    void handle_move_broadcast(const mxh::net::Message& msg);
+    void handle_monster_broadcast(const mxh::net::Message& msg);
+    void handle_skill_broadcast(const mxh::net::Message& msg);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -150,6 +245,8 @@ private:
 
     GameInInfo               m_info;
     std::vector<MonsterAddInfo> monsters_;
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>>
+        m_remotePlayers;
     bool                     m_started    = false;
     bool                     m_inGame     = false;
     bool                     m_failed     = false;
@@ -158,6 +255,19 @@ private:
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
     std::string              m_failureReason;
+
+    // In-game input/movement state.
+    std::uint32_t  m_keyMask      = 0;
+    float          m_localX       = 0;
+    float          m_localZ       = 0;
+    float          m_cameraYaw    = 0;
+    bool           m_moving       = false;
+    std::uint64_t  m_lastTickMs   = 0;
+    std::uint64_t  m_lastMoveSendMs = 0;
+    std::uint64_t  m_lastAttackMs = 0;
+    std::int32_t   m_lastMouseX   = 0;
+    std::int32_t   m_lastMouseY   = 0;
+    bool           m_cameraDrag   = false;
 };
 
 } // namespace mxh::client

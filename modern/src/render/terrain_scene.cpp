@@ -58,6 +58,7 @@ struct TerrainScene::Impl {
     bool follow_player = false;
     float player_x = 0;
     float player_z = 0;
+    float camera_yaw = 0;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -224,8 +225,13 @@ void TerrainScene::configureCamera(float aspect) {
         camera.v3To = {impl_->player_x * kSceneScale - d.width * kSceneScale * 0.5f,
                        y + 0.14f,
                        impl_->player_z * kSceneScale - d.height * kSceneScale * 0.5f};
-        camera.v3From = {camera.v3To.x, camera.v3To.y + 0.5f,
-                         camera.v3To.z - 0.8660254f};
+        // Rotate the camera offset (0, 0.5, -0.866) around the world Y
+        // axis so the view follows the player's yaw. 0 = legacy default.
+        const float c = std::cos(impl_->camera_yaw);
+        const float s = std::sin(impl_->camera_yaw);
+        camera.v3From = {camera.v3To.x - 0.8660254f * s,
+                         camera.v3To.y + 0.5f,
+                         camera.v3To.z - 0.8660254f * c};
         camera.v3Up = {0, 1, 0};
         camera.fFovY = 3.14159265f / 3.0f;
         camera.fFar = 80.0f;
@@ -271,6 +277,14 @@ void TerrainScene::followPlayer(float world_x, float world_z) {
     impl_->follow_player = true;
     impl_->player_x = world_x;
     impl_->player_z = world_z;
+}
+
+void TerrainScene::setCameraYaw(float radians) noexcept {
+    impl_->camera_yaw = radians;
+}
+
+float TerrainScene::cameraYaw() const noexcept {
+    return impl_->camera_yaw;
 }
 
 float TerrainScene::heightAt(float world_x, float world_z) const noexcept {

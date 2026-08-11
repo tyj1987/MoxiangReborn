@@ -5,6 +5,9 @@
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstring>
 #include <utility>
 
@@ -35,7 +38,168 @@ inline std::uint16_t get_u16(const std::uint8_t* p) {
     return  static_cast<std::uint16_t>(p[0])
          | (static_cast<std::uint16_t>(p[1]) << 8);
 }
+
+inline void put_u16(std::vector<std::uint8_t>& dst, std::size_t off,
+                    std::uint16_t v) {
+    dst[off + 0] = static_cast<std::uint8_t>(v & 0xFFu);
+    dst[off + 1] = static_cast<std::uint8_t>((v >> 8) & 0xFFu);
+}
+
+inline void put_u32(std::vector<std::uint8_t>& dst, std::size_t off,
+                    std::uint32_t v) {
+    dst[off + 0] = static_cast<std::uint8_t>(v & 0xFFu);
+    dst[off + 1] = static_cast<std::uint8_t>((v >> 8) & 0xFFu);
+    dst[off + 2] = static_cast<std::uint8_t>((v >> 16) & 0xFFu);
+    dst[off + 3] = static_cast<std::uint8_t>((v >> 24) & 0xFFu);
+}
+
+std::uint64_t steady_now_ms() {
+    return static_cast<std::uint64_t>(std::chrono::duration_cast<
+        std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+}
 } // namespace
+
+// -------------------------------------------------------------------------
+// In-game input + gameplay wire helpers.
+// -------------------------------------------------------------------------
+
+std::uint32_t key_mask_for_vk(std::uint32_t vk) noexcept {
+    switch (vk) {
+        case kVkW:
+        case kVkUp:
+            return static_cast<std::uint32_t>(MoveKey::Forward);
+        case kVkS:
+        case kVkDown:
+            return static_cast<std::uint32_t>(MoveKey::Back);
+        case kVkQ:
+            return static_cast<std::uint32_t>(MoveKey::StrafeLeft);
+        case kVkE:
+            return static_cast<std::uint32_t>(MoveKey::StrafeRight);
+        case kVkA:
+        case kVkLeft:
+            return static_cast<std::uint32_t>(MoveKey::RotateLeft);
+        case kVkD:
+        case kVkRight:
+            return static_cast<std::uint32_t>(MoveKey::RotateRight);
+        default:
+            return 0;
+    }
+}
+
+MoveResult step_movement(std::uint32_t keyMask, float yaw,
+                         float x, float z, float dt) noexcept {
+    MoveResult result;
+    result.x = x;
+    result.z = z;
+    result.yaw = yaw;
+    if (dt <= 0.0f) return result;
+
+    // Camera-relative basis: at yaw=0 the legacy camera faces +Z.
+    const float fwdX = std::sin(yaw);
+    const float fwdZ = std::cos(yaw);
+    const float rightX = std::cos(yaw);
+    const float rightZ = -std::sin(yaw);
+
+    float dx = 0.0f;
+    float dz = 0.0f;
+    if (keyMask & static_cast<std::uint32_t>(MoveKey::Forward)) {
+        dx += fwdX; dz += fwdZ;
+    }
+    if (keyMask & static_cast<std::uint32_t>(MoveKey::Back)) {
+        dx -= fwdX; dz -= fwdZ;
+    }
+    if (keyMask & static_cast<std::uint32_t>(MoveKey::StrafeLeft)) {
+        dx -= rightX; dz -= rightZ;
+    }
+    if (keyMask & static_cast<std::uint32_t>(MoveKey::StrafeRight)) {
+        dx += rightX; dz += rightZ;
+    }
+
+    const float len = std::sqrt(dx * dx + dz * dz);
+    if (len > 0.0001f) {
+        dx /= len;
+        dz /= len;
+        result.x = std::clamp(x + dx * kMoveSpeed * dt, 0.0f, kWorldLimit);
+        result.z = std::clamp(z + dz * kMoveSpeed * dt, 0.0f, kWorldLimit);
+        result.moving = true;
+    }
+    if (keyMask & static_cast<std::uint32_t>(MoveKey::RotateLeft)) {
+        result.yaw -= kRotateSpeed * dt;
+    }
+    if (keyMask & static_cast<std::uint32_t>(MoveKey::RotateRight)) {
+        result.yaw += kRotateSpeed * dt;
+    }
+    return result;
+}
+
+std::optional<std::uint32_t>
+pick_attack_target(const std::vector<MonsterAddInfo>& monsters,
+                   float px, float pz, float range) noexcept {
+    float bestSq = range * range;
+    std::optional<std::uint32_t> best;
+    for (const auto& monster : monsters) {
+        if (monster.current_life == 0) continue;
+        const float dx = static_cast<float>(monster.position_x) - px;
+        const float dz = static_cast<float>(monster.position_z) - pz;
+        const float d2 = dx * dx + dz * dz;
+        if (d2 <= bestSq) {
+            bestSq = d2;
+            best = monster.object_id;
+        }
+    }
+    return best;
+}
+
+mxh::net::Message make_move_message(std::uint32_t player_id,
+                                    mxh::proto::MoveProtocol proto,
+                                    std::uint16_t x, std::uint16_t z) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Move);
+    message.header.protocol = static_cast<std::uint8_t>(proto);
+    message.header.object_id = player_id;
+    message.payload.resize(4);
+    put_u16(message.payload, 0, x);
+    put_u16(message.payload, 2, z);
+    return message;
+}
+
+mxh::net::Message make_attack_message(std::uint32_t player_id,
+                                      std::uint32_t skill_idx,
+                                      std::uint32_t main_target,
+                                      float target_x, float target_z) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Skill);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::SkillProtocol::StartSyn);
+    message.header.object_id = player_id;
+    message.payload.resize(16);
+    put_u32(message.payload, 0, skill_idx);
+    put_u32(message.payload, 4, main_target);
+    std::memcpy(message.payload.data() + 8, &target_x, sizeof(target_x));
+    std::memcpy(message.payload.data() + 12, &target_z, sizeof(target_z));
+    return message;
+}
+
+std::optional<std::pair<std::uint16_t, std::uint16_t>>
+parse_move_payload(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 4) return std::nullopt;
+    const std::uint16_t x = static_cast<std::uint16_t>(
+        payload[0] | (static_cast<std::uint16_t>(payload[1]) << 8));
+    const std::uint16_t z = static_cast<std::uint16_t>(
+        payload[2] | (static_cast<std::uint16_t>(payload[3]) << 8));
+    return std::make_pair(x, z);
+}
+
+std::optional<std::pair<std::uint32_t, std::uint32_t>>
+parse_monster_life_payload(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 8) return std::nullopt;
+    const auto life = get_u32(payload.data() + 0);
+    const auto shield = get_u32(payload.data() + 4);
+    return std::make_pair(life, shield);
+}
 
 std::optional<MonsterAddInfo>
 parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
@@ -135,6 +299,7 @@ void CInGameState::Release() {
 
 void CInGameState::Process() {
     tick();
+    update_movement(steady_now_ms());
     // MapServer doesn't push DistConnectSuccess (unlike Distribute /
     // Agent), so we have to send GameInSyn from the host.  We try
     // in on_connect first (most paths); if that fails or hasn't
@@ -203,79 +368,35 @@ bool CInGameState::on_connect(mxh::net::ConnectionId id,
 void CInGameState::on_message(mxh::net::ConnectionId id,
                                const mxh::net::Message& msg) {
     using mxh::proto::Category;
-    using mxh::proto::UserConnProtocol;
     const auto cat   = static_cast<Category>(msg.header.category);
-    const auto proto = static_cast<UserConnProtocol>(msg.header.protocol);
+    const auto proto = msg.header.protocol;
     MLOG_DEBUG("CInGameState::on_message id=%llu cat=%s proto=%d obj=%u payload=%zu",
                static_cast<unsigned long long>(id.value),
                mxh::proto::category_name(cat),
                static_cast<int>(proto),
                static_cast<unsigned>(msg.header.object_id),
                msg.payload.size());
-    if (cat != Category::UserConn) {
-        // Phase 10b: MapServer may also push ITEM_TOTALINFO_LOCAL
-        // (Category::Item, ItemProtocol::TotalInfoLocal) after the
-        // GameInAck.  Phase B.2.3 logs and ignores it; Phase C+
-        // will plug it into the inventory UI.
-        MLOG_DEBUG("CInGameState: ignoring non-UserConn message (cat=%s, proto=%d)",
-                   mxh::proto::category_name(cat),
-                   static_cast<int>(proto));
-        return;
-    }
-    switch (proto) {
-        case UserConnProtocol::GameInAck: {
-            auto info = parse_legacy_gamein_ack(msg.payload);
-            if (!info) {
-                fail_with("GameInAck payload too short for SEND_HERO_TOTALINFO");
-                return;
-            }
-            dispatch_gamein_ack(*info);
+
+    switch (cat) {
+        case Category::UserConn:
+            handle_userconn_message(msg);
             break;
-        }
-        case UserConnProtocol::GameOutAck: {
-            MLOG_INFO("CInGameState: GameOutAck (server confirmed disconnect)");
+        case Category::Move:
+            handle_move_broadcast(msg);
             break;
-        }
-        case UserConnProtocol::MonsterAdd: {
-            auto info = parse_legacy_monster_add(msg.payload);
-            if (!info) {
-                MLOG_WARN("CInGameState: MonsterAdd payload too short (%zu bytes)",
-                          msg.payload.size());
-                break;
-            }
-            monsters_.push_back(*info);
-            MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u pos=(%u,%u) name=%.16s",
-                       static_cast<unsigned>(info->object_id),
-                       static_cast<unsigned>(info->monster_kind),
-                       static_cast<unsigned>(info->current_life),
-                       static_cast<unsigned>(info->position_x),
-                       static_cast<unsigned>(info->position_z), info->name);
+        case Category::Monster:
+            handle_monster_broadcast(msg);
             break;
-        }
-        case UserConnProtocol::ConnectionCheckOk: {
-            // Phase 10d keep-alive.  Server pushes this every ~10s
-            // once you're in game; we just log.
-            MLOG_DEBUG("CInGameState: ConnectionCheckOk (keep-alive)");
+        case Category::Skill:
+            handle_skill_broadcast(msg);
             break;
-        }
         default:
-            if (proto == static_cast<UserConnProtocol>(
-                             mxh::proto::kModernHselKey)) {
-                if (msg.payload.size() < sizeof(mxh::crypto::HselInit)) {
-                    fail_with("HselKey payload too short");
-                    break;
-                }
-                mxh::crypto::HselInit init{};
-                std::memcpy(&init, msg.payload.data(), sizeof(init));
-                if (!m_hsel || !m_hsel->import_init(init)) {
-                    fail_with("HselKey import failed");
-                    break;
-                }
-                MLOG_INFO("CInGameState: HSEL map session key imported");
-                break;
-            }
-            MLOG_WARN("CInGameState: unhandled userconn proto=%d",
-                      static_cast<int>(proto));
+            // Phase 10b: MapServer may also push ITEM_TOTALINFO_LOCAL
+            // (Category::Item, ItemProtocol::TotalInfoLocal) after the
+            // GameInAck.  Logged and ignored until the inventory UI lands.
+            MLOG_DEBUG("CInGameState: ignoring category=%s proto=%d",
+                       mxh::proto::category_name(cat),
+                       static_cast<int>(msg.header.protocol));
             break;
     }
 }
@@ -317,6 +438,8 @@ void CInGameState::send_gamein_syn() {
 void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     m_info   = info;
     m_inGame = true;
+    m_localX = static_cast<float>(info.position_x);
+    m_localZ = static_cast<float>(info.position_z);
     MLOG_INFO("CInGameState: GameInAck player_id=%u user_id=%u name='%s' "
               "level=%u map=%u life=%u/%u gender=%u "
               "server_time=%u-%u-%u %u:00",
@@ -335,6 +458,260 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     // B.2.3 doesn't switch state â€” the in-game loop is the terminal
     // happy state.  Future Phase D will hook chat/movement/combat
     // handlers here.
+}
+
+void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
+    using mxh::proto::UserConnProtocol;
+    const auto proto = static_cast<UserConnProtocol>(msg.header.protocol);
+    switch (proto) {
+        case UserConnProtocol::GameInAck: {
+            auto info = parse_legacy_gamein_ack(msg.payload);
+            if (!info) {
+                fail_with("GameInAck payload too short for SEND_HERO_TOTALINFO");
+                return;
+            }
+            dispatch_gamein_ack(*info);
+            break;
+        }
+        case UserConnProtocol::GameOutAck: {
+            MLOG_INFO("CInGameState: GameOutAck (server confirmed disconnect)");
+            break;
+        }
+        case UserConnProtocol::MonsterAdd: {
+            auto info = parse_legacy_monster_add(msg.payload);
+            if (!info) {
+                MLOG_WARN("CInGameState: MonsterAdd payload too short (%zu bytes)",
+                          msg.payload.size());
+                break;
+            }
+            monsters_.push_back(*info);
+            MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u pos=(%u,%u) name=%.16s",
+                       static_cast<unsigned>(info->object_id),
+                       static_cast<unsigned>(info->monster_kind),
+                       static_cast<unsigned>(info->current_life),
+                       static_cast<unsigned>(info->position_x),
+                       static_cast<unsigned>(info->position_z), info->name);
+            break;
+        }
+        case UserConnProtocol::ObjectRemove: {
+            if (msg.payload.size() < 4) break;
+            const auto removed = get_u32(msg.payload.data());
+            monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
+                [removed](const MonsterAddInfo& m) {
+                    return m.object_id == removed;
+                }),
+                monsters_.end());
+            m_remotePlayers.erase(removed);
+            MLOG_INFO("CInGameState: ObjectRemove id=%u", removed);
+            break;
+        }
+        case UserConnProtocol::ConnectionCheckOk: {
+            // Phase 10d keep-alive.  Server pushes this every ~10s
+            // once you're in game; we just log.
+            MLOG_DEBUG("CInGameState: ConnectionCheckOk (keep-alive)");
+            break;
+        }
+        default:
+            if (proto == static_cast<UserConnProtocol>(
+                             mxh::proto::kModernHselKey)) {
+                if (msg.payload.size() < sizeof(mxh::crypto::HselInit)) {
+                    fail_with("HselKey payload too short");
+                    break;
+                }
+                mxh::crypto::HselInit init{};
+                std::memcpy(&init, msg.payload.data(), sizeof(init));
+                if (!m_hsel || !m_hsel->import_init(init)) {
+                    fail_with("HselKey import failed");
+                    break;
+                }
+                MLOG_INFO("CInGameState: HSEL map session key imported");
+                break;
+            }
+            MLOG_WARN("CInGameState: unhandled userconn proto=%d",
+                      static_cast<int>(proto));
+            break;
+    }
+}
+
+void CInGameState::handle_move_broadcast(const mxh::net::Message& msg) {
+    const auto pos = parse_move_payload(msg.payload);
+    if (!pos) return;
+    const auto object_id = msg.header.object_id;
+    if (object_id == m_playerId) return;  // own echo (broadcast excludes sender)
+    for (auto& monster : monsters_) {
+        if (monster.object_id == object_id) {
+            monster.position_x = pos->first;
+            monster.position_z = pos->second;
+            MLOG_DEBUG("CInGameState: monster move id=%u pos=(%u,%u)",
+                       object_id, pos->first, pos->second);
+            return;
+        }
+    }
+    m_remotePlayers[object_id] = *pos;
+    MLOG_DEBUG("CInGameState: remote player move id=%u pos=(%u,%u)",
+               object_id, pos->first, pos->second);
+}
+
+void CInGameState::handle_monster_broadcast(const mxh::net::Message& msg) {
+    const auto proto = static_cast<mxh::proto::MonsterProtocol>(
+        msg.header.protocol);
+    if (proto != mxh::proto::MonsterProtocol::LifeNotify) return;
+    const auto life = parse_monster_life_payload(msg.payload);
+    if (!life) return;
+    for (auto& monster : monsters_) {
+        if (monster.object_id == msg.header.object_id) {
+            monster.current_life = life->first;
+            monster.current_shield = life->second;
+            MLOG_DEBUG("CInGameState: monster life id=%u life=%u shield=%u",
+                       msg.header.object_id, life->first, life->second);
+            return;
+        }
+    }
+}
+
+void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
+    using mxh::proto::SkillProtocol;
+    const auto proto = static_cast<SkillProtocol>(msg.header.protocol);
+    switch (proto) {
+        case SkillProtocol::StartAck: {
+            if (msg.payload.size() >= 8) {
+                const auto skill_idx = get_u32(msg.payload.data());
+                const auto skill_object = get_u32(msg.payload.data() + 4);
+                MLOG_INFO("CInGameState: SkillStartAck skill=%u object=%u",
+                          skill_idx, skill_object);
+            }
+            break;
+        }
+        case SkillProtocol::StartNack: {
+            const std::uint8_t err =
+                msg.payload.empty() ? 0xFFu : msg.payload[0];
+            MLOG_WARN("CInGameState: SkillStartNack error=%u",
+                      static_cast<unsigned>(err));
+            break;
+        }
+        case SkillProtocol::SingleResult: {
+            // Payload: [target_id:u32][damage:i32][hit_result:u8].
+            if (msg.payload.size() >= 9) {
+                const auto target = get_u32(msg.payload.data());
+                std::int32_t damage = 0;
+                std::memcpy(&damage, msg.payload.data() + 4, sizeof(damage));
+                const auto hit = msg.payload[8];
+                MLOG_INFO("CInGameState: SkillSingleResult target=%u damage=%d hit=%u",
+                          target, damage, static_cast<unsigned>(hit));
+            }
+            break;
+        }
+        default:
+            MLOG_DEBUG("CInGameState: skill broadcast proto=%d",
+                       static_cast<int>(proto));
+            break;
+    }
+}
+
+void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
+    const std::uint32_t mask = key_mask_for_vk(vk);
+    if (mask == 0) return;
+    if (pressed) {
+        m_keyMask |= mask;
+    } else {
+        m_keyMask &= ~mask;
+    }
+}
+
+void CInGameState::OnMouseButton(bool left, bool down,
+                                 std::int32_t x, std::int32_t y) {
+    m_lastMouseX = x;
+    m_lastMouseY = y;
+    if (left && down) {
+        try_attack();
+        return;
+    }
+    if (!left) m_cameraDrag = down;
+}
+
+void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
+    if (m_cameraDrag) {
+        m_cameraYaw += static_cast<float>(x - m_lastMouseX) * 0.01f;
+    }
+    m_lastMouseX = x;
+    m_lastMouseY = y;
+}
+
+void CInGameState::update_movement(std::uint64_t now_ms) {
+    if (!m_inGame) return;
+    float dt = 0.016f;
+    if (m_lastTickMs != 0) {
+        dt = std::min(0.05f,
+                      static_cast<float>(now_ms - m_lastTickMs) / 1000.0f);
+    }
+    m_lastTickMs = now_ms;
+
+    const auto step = step_movement(m_keyMask, m_cameraYaw,
+                                    m_localX, m_localZ, dt);
+    m_cameraYaw = step.yaw;
+    m_localX = step.x;
+    m_localZ = step.z;
+
+    if (step.moving) {
+        m_info.position_x = static_cast<std::uint16_t>(m_localX);
+        m_info.position_z = static_cast<std::uint16_t>(m_localZ);
+        m_moving = true;
+        if (now_ms - m_lastMoveSendMs >=
+            static_cast<std::uint64_t>(kMoveReportEveryMs)) {
+            send_move(static_cast<std::uint16_t>(m_localX),
+                      static_cast<std::uint16_t>(m_localZ),
+                      mxh::proto::MoveProtocol::OneTarget);
+            m_lastMoveSendMs = now_ms;
+        }
+    } else if (m_moving) {
+        m_moving = false;
+        send_move(static_cast<std::uint16_t>(m_localX),
+                  static_cast<std::uint16_t>(m_localZ),
+                  mxh::proto::MoveProtocol::Stop);
+    }
+}
+
+void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
+                             mxh::proto::MoveProtocol proto) {
+    if (!m_client || !m_client->is_connected()) return;
+    const auto e = m_client->send(
+        make_move_message(m_playerId, proto, x, z));
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_DEBUG("CInGameState: send_move proto=%d failed: %s",
+                   static_cast<int>(proto), mxh::net::to_string(e));
+    } else {
+        MLOG_DEBUG("CInGameState: send_move proto=%d pos=(%u,%u)",
+                   static_cast<int>(proto), x, z);
+    }
+}
+
+void CInGameState::try_attack() {
+    const auto now = steady_now_ms();
+    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    if (now - m_lastAttackMs <
+        static_cast<std::uint64_t>(kAttackCooldownMs)) {
+        return;
+    }
+    const auto target = pick_attack_target(
+        monsters_, m_localX, m_localZ, kAttackRange);
+    if (!target) return;
+
+    float target_x = 0;
+    float target_z = 0;
+    for (const auto& monster : monsters_) {
+        if (monster.object_id == *target) {
+            target_x = static_cast<float>(monster.position_x);
+            target_z = static_cast<float>(monster.position_z);
+            break;
+        }
+    }
+    const auto e = m_client->send(
+        make_attack_message(m_playerId, 1u, *target, target_x, target_z));
+    if (e == mxh::net::NetError::Ok) {
+        m_lastAttackMs = now;
+        MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
+                  *target, target_x, target_z);
+    }
 }
 
 void CInGameState::fail_with(const std::string& reason) {

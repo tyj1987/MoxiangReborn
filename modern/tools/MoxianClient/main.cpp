@@ -247,6 +247,10 @@ std::string __g_stateFramesDir;
 int __g_currentState = -1;
 std::string __g_pendingStateFrame;
 
+// Active in-game input target. The WndProc forwards keyboard/mouse events
+// to the current game state (only CInGameState consumes input today).
+mxh::client::CInGameState* g_inputTarget = nullptr;
+
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
 // renderer's RenderSprite.  Earlier A.1.3 had a single g_hudSprite
@@ -482,6 +486,40 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (w == VK_ESCAPE) {
             mxh::client::g_running = false;
             PostQuitMessage(0);
+            return 0;
+        }
+        if (g_inputTarget) {
+            g_inputTarget->OnKeyEvent(true, static_cast<std::uint32_t>(w));
+        }
+        return 0;
+    case WM_KEYUP:
+        if (g_inputTarget) {
+            g_inputTarget->OnKeyEvent(false, static_cast<std::uint32_t>(w));
+        }
+        return 0;
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+        if (g_inputTarget) {
+            g_inputTarget->OnMouseButton(
+                true, m == WM_LBUTTONDOWN,
+                static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
+                static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        }
+        return 0;
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+        if (g_inputTarget) {
+            g_inputTarget->OnMouseButton(
+                false, m == WM_RBUTTONDOWN,
+                static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
+                static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        }
+        return 0;
+    case WM_MOUSEMOVE:
+        if (g_inputTarget) {
+            g_inputTarget->OnMouseMove(
+                static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
+                static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
         }
         return 0;
     default:
@@ -683,6 +721,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // states that have an external Start() hook.
             const auto cur_state = mainGame.GetCurStateNum();
             if (cur_state != prev_state) {
+                if (prev_state == mxh::client::GameStateId::GameIn) {
+                    g_inputTarget = nullptr;
+                }
                 // Phase B.2.5: skip past the manual login form (CMainTitle)
             // when running in headless smoke mode. The 1:1 flow goes
             // Connect -> Distribute -> Title(login form) -> CharSelect;
@@ -763,6 +804,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         g->Start(mainGame.GetEngine(), options.login_host,
                                  options.map_port, pending_character_id,
                                  pending_map_num);
+                        g_inputTarget = g;
                     }
                 }
                 prev_state = cur_state;
@@ -811,6 +853,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     const auto& info = game_in->game_info();
                     if (g_terrain) {
                         g_terrain->followPlayer(info.position_x, info.position_z);
+                        g_terrain->setCameraYaw(game_in->camera_yaw());
                         if (!follow_frame_captured && !options.save_frame.empty() &&
                             (!options.follow_camera || follow_settle_frames >= 20u)) {
                             g_captureTerrainFrame = options.save_frame;
