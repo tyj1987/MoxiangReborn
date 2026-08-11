@@ -46,7 +46,7 @@ struct VSOutput {
     float4 col : COLOR0;
 };
 cbuffer CBuf : register(b0) {
-    float4x4 viewProj;
+    row_major float4x4 viewProj;
 };
 VSOutput main(VSInput i) {
     VSOutput o;
@@ -172,12 +172,24 @@ bool PrimitiveDrawer::initialize(Device* dev) {
     m_dev = dev;
     if (!m_shaders.init(dev->rawDevice())) return false;
     m_cbViewProj = m_shaders.cbViewProj;
+    D3D11_RASTERIZER_DESC rd{};
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_NONE;
+    rd.FrontCounterClockwise = TRUE;
+    rd.DepthClipEnable = TRUE;
+    dev->rawDevice()->CreateRasterizerState(&rd, &m_rsCullNone);
+    D3D11_DEPTH_STENCIL_DESC dsd{};
+    dsd.DepthEnable = FALSE;
+    dsd.StencilEnable = FALSE;
+    dev->rawDevice()->CreateDepthStencilState(&dsd, &m_dsNoDepth);
     return true;
 }
 
 void PrimitiveDrawer::shutdown() {
     m_shaders.release();
     m_cbViewProj.Reset();
+    m_rsCullNone.Reset();
+    m_dsNoDepth.Reset();
     m_dev = nullptr;
 }
 
@@ -385,7 +397,21 @@ void PrimitiveDrawer::drawTexturedQuad(ID3D11ShaderResourceView* srv,
     ctx->PSSetShaderResources(0, 1, &srv);
     ctx->PSSetSamplers(0, 1, &sampler);
     ctx->VSSetConstantBuffers(0, 1, m_cbViewProj.GetAddressOf());
+
+    // Screen-space sprite quads flip winding when the ortho Y axis is
+    // inverted, so back-face culling would drop every quad. Draw with a
+    // cull-none state and restore the caller's rasterizer afterwards.
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState> prevRS;
+    ctx->RSGetState(&prevRS);
+    ctx->RSSetState(m_rsCullNone.Get());
+    // Sprite/HUD quads must not be depth-rejected by earlier sprite draws
+    // (they all project to z=0 with the screen ortho) or by the 3D scene.
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> prevDS;
+    ctx->OMGetDepthStencilState(&prevDS, nullptr);
+    ctx->OMSetDepthStencilState(m_dsNoDepth.Get(), 0);
     ctx->Draw(6, 0);
+    ctx->RSSetState(prevRS.Get());
+    ctx->OMSetDepthStencilState(prevDS.Get(), 0);
 
     // Unbind SRV to avoid D3D11 warnings.
     ID3D11ShaderResourceView* nullSRV = nullptr;

@@ -96,6 +96,15 @@ IDISpriteObject* __stdcall CoD3DDeviceDX11::CreateEmptySpriteObject(std::uint32_
     return SpriteObject::create(m_dev.get(), dwWidth, dwHeight, fmt, nullptr);
 }
 
+IDISpriteObject* __stdcall CoD3DDeviceDX11::CreateSolidSpriteObject(
+    std::uint32_t dwARGB, std::uint32_t dwWidth, std::uint32_t dwHeight) {
+    if (!m_dev || dwWidth == 0 || dwHeight == 0) return nullptr;
+    std::vector<std::uint32_t> pixels(
+        static_cast<std::size_t>(dwWidth) * dwHeight, dwARGB);
+    return SpriteObject::create(m_dev.get(), dwWidth, dwHeight,
+                                TEXTURE_FORMAT_A8R8G8B8, pixels.data());
+}
+
 IDIMeshObject* __stdcall CoD3DDeviceDX11::CreateMeshObject(CMeshFlag flag) {
     if (!m_dev) return nullptr;
     return MeshObject::createEmpty(m_dev.get(), flag);
@@ -159,6 +168,10 @@ void __stdcall CoD3DDeviceDX11::BeginRender(SHORT_RECT* pRect, std::uint32_t dwC
 void __stdcall CoD3DDeviceDX11::EndRender() {
     if (!m_dev) return;
     m_dev->endFrame();
+}
+
+void __stdcall CoD3DDeviceDX11::SetScreenSpaceProjection() {
+    if (m_dev) m_dev->useScreenOrtho();
 }
 
 // ===== Render flags =====

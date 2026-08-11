@@ -82,6 +82,8 @@ private:
     Device*                                   m_dev = nullptr;
     PrimitiveShaders                          m_shaders;
     Microsoft::WRL::ComPtr<ID3D11Buffer>      m_cbViewProj;
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState> m_rsCullNone;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_dsNoDepth;
 
     // helper: pack color (ARGB) into float4
     static void unpackColor(std::uint32_t argb, float out[4]);

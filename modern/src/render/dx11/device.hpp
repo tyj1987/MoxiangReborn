@@ -68,6 +68,16 @@ public:
     const MATRIX4& viewMatrix()        const { return m_matView; }
     const MATRIX4& projMatrix()        const { return m_matProj; }
     const MATRIX4& viewProjMatrix()    const { return m_matViewProj; }
+    // Explicit screen-space ortho: pixel -> NDC with the row-major
+    // convention used by the primitive VS (mul(v, M)).
+    void useScreenOrtho() noexcept {
+        MATRIX4 m = MatrixIdentity();
+        m._11 = 2.0f / static_cast<float>(m_width);
+        m._22 = -2.0f / static_cast<float>(m_height);
+        m._41 = -1.0f;
+        m._42 = 1.0f;
+        m_matViewProj = m;
+    }
     const MATRIX4& billboardMatrix()   const { return m_matBillboard; }
     // 2D screen-space orthographic projection that maps pixel coordinates
     // (x in [0, width], y in [0, height]) to NDC ([-1, 1] x [1, -1]). Built in

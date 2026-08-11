@@ -109,6 +109,10 @@ interface I4DyuchiGXRenderer : public IUnknown {
                                                            std::uint32_t dwHeight, std::uint32_t dwFlag) = 0;
     virtual IDISpriteObject* __stdcall CreateEmptySpriteObject(std::uint32_t dwWidth, std::uint32_t dwHeight,
                                                                   TEXTURE_FORMAT TexFormat, std::uint32_t dwFlag) = 0;
+    // Solid-color sprite factory (in-game HUD bars etc.).
+    virtual IDISpriteObject* __stdcall CreateSolidSpriteObject(std::uint32_t dwARGB,
+                                                                 std::uint32_t dwWidth,
+                                                                 std::uint32_t dwHeight) = 0;
     virtual IDIMeshObject* __stdcall CreateMeshObject(CMeshFlag flag) = 0;
     virtual IDIFontObject* __stdcall CreateFontObject(LOGFONT* pLogFont, std::uint32_t dwFlag) = 0;
     virtual IDIHeightField* __stdcall CreateHeightField(std::uint32_t dwFlag) = 0;
@@ -117,6 +121,9 @@ interface I4DyuchiGXRenderer : public IUnknown {
 
     virtual void __stdcall BeginRender(SHORT_RECT* pRect, std::uint32_t dwColor, std::uint32_t dwFlag) = 0;
     virtual void __stdcall EndRender() = 0;
+    // Restore the screen-space orthographic projection (pixel -> NDC) so
+    // sprite/font HUD draws are not transformed by the 3D camera matrix.
+    virtual void __stdcall SetScreenSpaceProjection() = 0;
 
     virtual void __stdcall SetShadowFlag(std::uint32_t dwFlag) = 0;
     virtual std::uint32_t __stdcall GetShadowFlag() = 0;

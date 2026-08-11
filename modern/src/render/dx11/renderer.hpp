@@ -44,7 +44,9 @@ public:
                                                    std::uint32_t dwWidth, std::uint32_t dwHeight,
                                                    std::uint32_t dwFlag) override;
     IDISpriteObject* __stdcall CreateEmptySpriteObject(std::uint32_t dwWidth, std::uint32_t dwHeight,
-                                                        TEXTURE_FORMAT TexFormat, std::uint32_t dwFlag) override;
+                                                       TEXTURE_FORMAT TexFormat, std::uint32_t dwFlag) override;
+    IDISpriteObject* __stdcall CreateSolidSpriteObject(std::uint32_t dwARGB, std::uint32_t dwWidth,
+                                                       std::uint32_t dwHeight) override;
     IDIMeshObject* __stdcall CreateMeshObject(CMeshFlag flag) override;
     IDIFontObject* __stdcall CreateFontObject(LOGFONT* pLogFont, std::uint32_t dwFlag) override;
     IDIHeightField* __stdcall CreateHeightField(std::uint32_t dwFlag) override;
@@ -53,6 +55,7 @@ public:
 
     void __stdcall BeginRender(SHORT_RECT* pRect, std::uint32_t dwColor, std::uint32_t dwFlag) override;
     void __stdcall EndRender() override;
+    void __stdcall SetScreenSpaceProjection() override;
     void __stdcall SetShadowFlag(std::uint32_t dwFlag) override;
     std::uint32_t __stdcall GetShadowFlag() override;
     void __stdcall SetLightMapFlag(std::uint32_t dwFlag) override;
