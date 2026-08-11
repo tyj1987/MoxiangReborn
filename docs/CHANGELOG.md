@@ -596,3 +596,13 @@ Docs: docs/CLEAN_MACHINE_DEPLOY.md (purpose / quick start / parameters / exit co
 
 Verified locally: -DryRun -SkipTests -SkipSmoke PASS; -SkipSmoke end-to-end PASS (cmake build of full 11863-test tree + ctest PASS in ~5 minutes). -InstallPrereqs path requires Administrator elevation; non-admin path is fully functional for build + ctest + commercial-smoke (skips CIM-dependent RAM detection with warning).
 
+## 2026-08-11 - docs: LOCAL_E2E_RUN (M6-C local end-to-end run verified on SQLite + MSSQL LocalDB)
+
+docs/LOCAL_E2E_RUN.md records the fully-external end-to-end run: spawn the 3 modern servers (mxh_login_server / mxh_agent_server_CHINA / mxh_map_server_CHINA) in separate processes on 127.0.0.1:16001/17001/18001 with --legacy, then run mxh_client_e2e --no-spawn to walk all 5 protocol steps. Verified PASS on both backends:
+
+* SQLite (3 separate .db files under modern\\scratch\\e2e_local\\) - login server auto-creates schema via --init-schema. 5/5 PASS.
+* MSSQL LocalDB ((localdb)\\MSSQLLocalDB -> Moxiang database) - login server --init-schema skipped for mssql_odbc; client tool bootstraps schema via --init-schema. 5/5 PASS. Real data persisted: chr_log_info (test/test) + 5+ rows in character_info (chrid 240366, 412303, 945025, 953712, 1117800), queryable via ODBC 17 sqlcmd.
+
+Architecture confirmed: server exes under modern\\build\\tools\\*\\Debug\\ are ready for deployment; mxh_client_e2e is the canonical headless protocol test. ROADMAP.md gains a M6-C row noting the local external-run milestone. The wrapper scripts\\local-e2e-run.ps1 was attempted but blocked on PowerShell  automatic-variable shadowing in nested Start-Process calls; manual commands documented instead.
+
+No code changes. 11863/11863 unit tests + commercial-smoke still PASS. Modern schema + real DB write/read proven end-to-end.

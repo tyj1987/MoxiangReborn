@@ -105,3 +105,13 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 - 编写 scripts/soak-24h.ps1：以 N 个 synthetic 客户端持续驱动 Login/Agent/Map 24 小时，采集内存 / CPU / 错误趋势并产出报告。
 - 目标：把 §5.E \稳定性\ 门禁从\待外部环境\变为可在本机重复运行的可验证 gate。
 
+
+#### M6-C：本地端到端启动 + 数据库 + 客户端连接 — 门禁 GREEN
+
+
+- MSSQL 端：LocalDB Moxiang 库有真实数据 — chr_log_info (test/test) + character_info (chrid 240366, 412303, 945025, 953712, 1117800)，可经 ODBC 17 sqlcmd 查询。
+
+
+#### M6-B：24h 稳定性 harness — 待办（本地可推进）
+
+- 目标：把 §5.E " 稳定性\ 门禁从\待外部环境\变为可在本机重复运行、可验证的 gate。
