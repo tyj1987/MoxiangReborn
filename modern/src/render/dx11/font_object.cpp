@@ -91,9 +91,9 @@ bool FontObject::initialize(Device* dev, const LOGFONT* lf, std::uint32_t /*dwFl
     td.ArraySize          = 1;
     td.Format             = DXGI_FORMAT_B8G8R8A8_UNORM;
     td.SampleDesc.Count   = 1;
-    td.Usage              = D3D11_USAGE_DYNAMIC;
+    td.Usage              = D3D11_USAGE_DEFAULT;  // UpdateSubresource path
     td.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
-    td.CPUAccessFlags     = D3D11_CPU_ACCESS_WRITE;
+    td.CPUAccessFlags     = 0;
 
     if (!m_dev || FAILED(m_dev->rawDevice()->CreateTexture2D(&td, nullptr, &m_atlasTex))) {
         MLOG_ERROR("[font] CreateTexture2D atlas failed");
@@ -272,8 +272,11 @@ bool FontObject::uploadGlyph(const GlyphEntry& e, const std::uint8_t* gray,
         const std::uint8_t* srcRow = gray + y * pitch;
         std::uint32_t*       dstRow = bgra.data() + y * e.width;
         for (std::uint32_t x = 0; x < e.width; ++x) {
-            std::uint8_t cov = srcRow[x];
-            dstRow[x] = static_cast<std::uint32_t>(cov) << 24
+            // GGO_GRAY8_BITMAP coverage is 0..64 (4-bit AA), not 0..255.
+            const std::uint8_t cov = srcRow[x];
+            const std::uint8_t alpha = cov >= 64
+                ? 255u : static_cast<std::uint8_t>(cov * 4u);
+            dstRow[x] = static_cast<std::uint32_t>(alpha) << 24
                         | 0x00FFFFFFu;
         }
     }
