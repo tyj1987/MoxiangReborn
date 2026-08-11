@@ -1588,10 +1588,24 @@ TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
     std::memcpy(buy.payload.data() + 2, &qty, sizeof(qty));
     handler.on_message(connection, buy);
 
-    // 5) Wire shape: a BuyAck must have been sent.
-    ASSERT_FALSE(reply.messages.empty());
-    EXPECT_EQ(reply.last_message.header.protocol,
+    // 5) Wire shape: BuyAck followed by an ITEM_TOTALINFO_LOCAL inventory
+    //    refresh for the buyer.
+    ASSERT_GE(reply.messages.size(), 2u);
+    EXPECT_EQ(reply.messages[reply.messages.size() - 2].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck));
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(
+                  mxh::proto::ItemProtocol::TotalInfoLocal));
+    EXPECT_EQ(reply.last_message.payload.size(), sizeof(mxh::game::ItemTotalInfo));
+    bool found_item = false;
+    if (reply.last_message.payload.size() == sizeof(mxh::game::ItemTotalInfo)) {
+        mxh::game::ItemTotalInfo total{};
+        std::memcpy(&total, reply.last_message.payload.data(), sizeof(total));
+        for (const auto& slot : total.Inventory) {
+            found_item = found_item || slot.wIconIdx == item;
+        }
+    }
+    EXPECT_TRUE(found_item) << "bought item must appear in the refreshed inventory";
 
     // 6) DB verification: a row for player_id=123 must exist with
     //    money=1000 (dealitem has no price field yet so total_price=0

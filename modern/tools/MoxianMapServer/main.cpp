@@ -43,6 +43,7 @@ struct Args {
     std::uint16_t map_num = 0;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path = "modern/build/runtime/moxian_map.db";
+    std::string   resource_root;
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
@@ -58,6 +59,8 @@ Args parse_args(int argc, char** argv) {
             a.map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--resource-root" && i + 1 < argc)
+            a.resource_root = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
         else if (s == "--no-legacy")
@@ -71,6 +74,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --port N      listen port (default 8001)\n"
                       << "  --map N       map number (default 0)\n"
                       << "  --db PATH     db path (SQLite file or MSSQL DSN/conn string)\n"
+                      << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
@@ -159,8 +163,10 @@ int main(int argc, char** argv) {
         if (!parent.empty()) std::filesystem::create_directories(parent);
     }
     auto cr = db->connect(db_cfg);
-    std::filesystem::path ai_groups_path =
-        std::filesystem::path("Resource/Server") /
+    std::filesystem::path resource_base = args.resource_root.empty()
+        ? std::filesystem::path("Resource")
+        : (std::filesystem::path(args.resource_root) / "Resource");
+    std::filesystem::path ai_groups_path = resource_base / "Server" /
         (std::string("Monster_") + std::to_string(args.map_num) + ".bin");
     if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
         std::cerr << "[WARN] no AIGroup data at " << ai_groups_path.string()
@@ -222,6 +228,17 @@ int main(int argc, char** argv) {
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
             if (server_ptr) server_ptr->send(id, m);
         });
+
+    // Load the real game data tables when a PlayDH root is supplied.
+    // Falls back to hardcoded tables / empty catalogs otherwise so the
+    // existing e2e and side-by-side paths keep their deterministic traces.
+    if (!args.resource_root.empty()) {
+        const auto root = std::filesystem::path(args.resource_root);
+        handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
+        handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
+        handler.load_quest_script(
+            (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
+    }
 
     // M3 dev-stub-caster (side-by-side harness only).
     handler.set_dev_stub_caster(args.dev_stub_caster);

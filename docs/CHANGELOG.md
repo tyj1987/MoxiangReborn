@@ -1,4 +1,22 @@
 
+## 2026-08-11 - server: NPC 商店闭环（真实资源加载 + ShopList + 购买后库存刷新）
+
+modern/tools/MoxianMapServer/main.cpp gains `--resource-root <PlayDH>`: when supplied, the map server loads the real data tables instead of the hardcoded fallbacks — `SkillList.bin` (1817 skills), `Dealitem.bin` (165 NPCs / 1162 catalog rows), and `QuestScript.bin` (parser mismatch on this file, 0 rows — tracked). `Resource/Server/Monster_<map>.bin` AIGroup loading also resolves under the root.
+
+modern/src/server/map_handler.cpp `handle_npc` SpeechSyn now replies with the legacy SpeechAck echo **plus** a modern ShopList message (`Category::Item`, proto `kModernShopList`=199, payload `[npc_id:u32][count:u16] + count x [item_id:u16][price:u32]`); npc_id=0 auto-resolves to the first catalog NPC. The BuySyn Ok arm now sends `ITEM_TOTALINFO_LOCAL` (full 2728B ItemTotalInfo) to the buyer after a successful purchase so the client inventory grid refreshes without relogin.
+
+modern/include/mxh/proto/protocol.hpp adds `kModernShopList = 199` outside the legacy enum.
+
+Verified end-to-end with real data: client 'B' → SpeechSyn → server `SHOP_LIST npc=1 items=8` → client shop panel; click row → `ITEM_BUY_ACK item=11110` + `inventory refreshed`. 11888+ ctest PASS. See git log (server shop commit).
+
+## 2026-08-11 - client: NPC 商店面板（B 打开/点击购买/Esc 关闭）+ 3 tests
+
+modern/src/client/CInGameState gains the shop loop: `open_shop(npc_id)` sends Npc SpeechSyn; `parse_shop_list` decodes the modern ShopList payload into `ShopItem{item_id, price}`; `buy_shop_item(index)` sends BuySyn `[item_id:u16][qty:u16=1]` via `make_buy_message`; `handle_item_broadcast` dispatches ShopList (opens panel), `ITEM_TOTALINFO_LOCAL` (refreshes `GameInInfo.items`), BuyAck (closes panel) and BuyNack. 'B' opens the shop (npc 0 = first catalog), Esc closes it, and left-click row hit-testing (shared layout constants `kShopPanelX/Y/W/RowH`) buys the clicked item.
+
+modern/tools/MoxianClient/main.cpp renders the shop panel (title bar + up to 12 rows of `item_id  $price`) with the font pipeline. 3 new unit tests cover ShopList decode, short-payload fallback, and the BuySyn wire shape.
+
+Verified in-window: 'B' → `shop list 8 items`; click row → `buy item=11110` → server `ITEM_BUY_ACK` → client `inventory refreshed`. 11888/11888 ctest PASS. See git log (client shop commit).
+
 ## 2026-08-11 - client: quick slot bar（F1-F8 施法）+ 背包网格 + MUGONG/ITEM 解析（+6 tests）
 
 `CInGameState::parse_legacy_gamein_ack` now decodes MUGONG_TOTALINFO (25 × 18B packed MUGONGBASE at HERO_TOTAL_MUGONG_OFFSET) and ITEM_TOTALINFO (2728B at HERO_TOTAL_ITEM_OFFSET, memcpy into the 1:1 `mxh::game::ItemTotalInfo`) into `GameInInfo` — exposed as `parse_legacy_mugong_total` / `parse_legacy_item_total` pure functions. `quick_skill_for_slot` maps slots 0..7 to parsed mugong skill idx or the level-1 starter set [1,2,3,10] until the server sends real per-character skills.

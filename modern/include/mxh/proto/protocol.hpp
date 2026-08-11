@@ -363,6 +363,10 @@ constexpr std::uint8_t kModernNotifyVersionAck  = 201;  // D → C: version ack
 constexpr std::uint8_t kModernNotifyVersionNack = 202;  // D → C: version nack
 constexpr std::uint8_t kModernHselKey           = 203;  // D → C: HSEL session key (64B HselInit)
 
+// Modern-only NPC shop list (S -> C on SpeechSyn), Category::Item.
+// Payload: [npc_id:u32][count:u16] + count x [item_id:u16][price:u32].
+constexpr std::uint8_t kModernShopList          = 199;
+
 // ============================================================================
 // Move sub-protocols (MP_MOVE_*).
 // 1:1 with the original C enum MP_PROTOCOL_MOVE.
