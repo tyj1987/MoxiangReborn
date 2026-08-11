@@ -1,4 +1,10 @@
 
+## 2026-08-11 - server: QuestScript 全量解析（238/238，&QUEST 单值限制）
+
+The remaining 95 failing QuestScript stanzas all used `&QUEST <id>` limits with a single value; `parse_quest_subquest_limit_line` required exactly two values per limit. It now reads one value for `&QUEST` (quest id) and two for the other registered kinds, matching the shipped QuestScript.bin. Verified at runtime: `quest_definitions loaded 238 quests (238 rows, 0 parse errors)` — the full quest table.
+
+Tests updated/added: `QuestSubquestLimitLine.ParsesSingleValueQuestLimit` (new), `ParsesMultipleLimits` now uses the real single-value `&QUEST 7` form. See git log (quest full parse commit).
+
 ## 2026-08-11 - NPC 世界生成 + 点击对话（真实 DealItem 坐标/名称）
 
 modern/src/server/map_handler.cpp spawns the map's static NPCs from the loaded DealItem catalog (`spawn_map_npcs()`: npc_index/kind/map/point_x/point_z/npcname, filtered by the server's map) and sends each entering player a 64B `UserConn::NpcAdd` (`send_npc_add`: BASEOBJECT_INFO + NPC_TOTALINFO + SEND_MOVEINFO + Angle + bLogin). Verified at runtime: `[Map] spawned 15 NPCs for map 12` / `sent 15 npc adds to player=240366`.

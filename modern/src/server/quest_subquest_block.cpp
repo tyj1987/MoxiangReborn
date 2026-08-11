@@ -49,11 +49,19 @@ std::optional<std::vector<QuestLimitSpec>> parse_quest_subquest_limit_line(
         std::string_view value2_token;
         std::uint32_t value1 = 0;
         std::uint32_t value2 = 0;
+        // &QUEST takes a single quest-id value; all other registered
+        // limits take two values (the shipped QuestScript.bin uses
+        // "&QUEST 284").
+        const bool single_value = (*kind == QuestLimitKind::Quest);
         if (!next_token(line, cursor, value1_token) ||
-            !next_token(line, cursor, value2_token) ||
-            !parse_u32(value1_token, value1) ||
-            !parse_u32(value2_token, value2)) {
+            !parse_u32(value1_token, value1)) {
             return std::nullopt;
+        }
+        if (!single_value) {
+            if (!next_token(line, cursor, value2_token) ||
+                !parse_u32(value2_token, value2)) {
+                return std::nullopt;
+            }
         }
         limits.push_back({*kind, value1, value2});
     }

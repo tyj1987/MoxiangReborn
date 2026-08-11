@@ -22,13 +22,14 @@ TEST(QuestSubquestLimitLine, ParsesSingleLimit) {
 
 TEST(QuestSubquestLimitLine, ParsesMultipleLimits) {
     const auto limits = parse_quest_subquest_limit_line(
-        "&LEVEL 1 99 &MONEY 100 500 &QUEST 7 2");
+        "&LEVEL 1 99 &MONEY 100 500 &QUEST 7");
     ASSERT_TRUE(limits.has_value());
     ASSERT_EQ(limits->size(), 3u);
     EXPECT_EQ((*limits)[1].kind, QuestLimitKind::Money);
     EXPECT_EQ((*limits)[1].value1, 100u);
     EXPECT_EQ((*limits)[1].value2, 500u);
     EXPECT_EQ((*limits)[2].kind, QuestLimitKind::Quest);
+    EXPECT_EQ((*limits)[2].value1, 7u);
 }
 
 TEST(QuestSubquestLimitLine, RejectsEventAndExecuteTokens) {
@@ -43,6 +44,16 @@ TEST(QuestSubquestLimitLine, RejectsUnknownAndMalformedClauses) {
     EXPECT_FALSE(parse_quest_subquest_limit_line("&RANK 1 2").has_value());
     EXPECT_FALSE(parse_quest_subquest_limit_line("&LEVEL 1").has_value());
     EXPECT_FALSE(parse_quest_subquest_limit_line("&LEVEL one 99").has_value());
+}
+
+TEST(QuestSubquestLimitLine, ParsesSingleValueQuestLimit) {
+    // The shipped QuestScript.bin uses "&QUEST <id>" with one value.
+    const auto limits = parse_quest_subquest_limit_line("&QUEST 284");
+    ASSERT_TRUE(limits.has_value());
+    ASSERT_EQ(limits->size(), 1u);
+    EXPECT_EQ((*limits)[0].kind, QuestLimitKind::Quest);
+    EXPECT_EQ((*limits)[0].value1, 284u);
+    EXPECT_EQ((*limits)[0].value2, 0u);
 }
 
 TEST(QuestSubquestBlock, ParsesLimitDirectivesByLine) {
