@@ -1772,4 +1772,5 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
     ASSERT_EQ(rs.rows.size(), 1u);
     EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 7);
 }
+
 }  // namespace mxh::server::test
