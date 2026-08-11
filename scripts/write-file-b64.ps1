@@ -1,0 +1,1 @@
+﻿param([string]$Path, [string]$B64); $dir = [System.IO.Path]::GetDirectoryName($Path); if ($dir -and -not [System.IO.Directory]::Exists($dir)) { [System.IO.Directory]::CreateDirectory($dir) | Out-Null }; [System.IO.File]::WriteAllBytes($Path, [Convert]::FromBase64String($B64)); Write-Output 'written: ' + $Path
