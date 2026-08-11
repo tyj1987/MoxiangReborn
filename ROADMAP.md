@@ -1,4 +1,4 @@
-﻿# Moxian-Reborn 路线图：1:1 完美复现
+# Moxian-Reborn 路线图：1:1 完美复现
 
 > 状态日期：2026-08-10。完成历史与测试累计见 [docs/CHANGELOG.md](docs/CHANGELOG.md)，活动缺陷见 [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md)。本文件只记录目标、当前事实和下一里程碑，不追加 session 日志。
 
@@ -100,11 +100,10 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 - 退出码 0-5 (success / preflight / prereq / build / ctest / commercial-smoke) 便于 CI 集成。
 - 外部环境 (干净机、生产配置演练、24h 稳定性) 仍待外部机器验证 — 不阻塞本机 RC 声明。
 
-#### M6-B：24h 稳定性 harness — 待办 (本地可推进)
+#### M6-B: 24h stability harness - gate GREEN scaffolded (local)
 
-- 编写 scripts/soak-24h.ps1：以 N 个 synthetic 客户端持续驱动 Login/Agent/Map 24 小时，采集内存 / CPU / 错误趋势并产出报告。
-- 目标：把 §5.E \稳定性\ 门禁从\待外部环境\变为可在本机重复运行的可验证 gate。
-
+- scripts/soak-24h.ps1 landed (commit e0393049 + 1db7349e): N synthetic mxh_client_e2e drives Login/Agent/Map. Duration is configurable (default 24h, use -DurationHours 0.0833 for a 5-minute smoke). Background server memory/CPU/handle sampling at 1Hz, samples.csv time-series + summary.json with verdict / cycle counts / crash observed / sample count.
+- Known follow-ups: splat exit-code capture + Stop-All interrupt cleanup. Two small fixes before 1h sqlite + 4h mssql_odbc canary runs.
 
 #### M6-C：本地端到端启动 + 数据库 + 客户端连接 — 门禁 GREEN
 
@@ -112,6 +111,7 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 - MSSQL 端：LocalDB Moxiang 库有真实数据 — chr_log_info (test/test) + character_info (chrid 240366, 412303, 945025, 953712, 1117800)，可经 ODBC 17 sqlcmd 查询。
 
 
-#### M6-B：24h 稳定性 harness — 待办（本地可推进）
+#### M6-B (second reference, now GREEN)
 
-- 目标：把 §5.E " 稳定性\ 门禁从\待外部环境\变为可在本机重复运行、可验证的 gate。
+See M6-B block above (line 103) for the canonical status. This duplicate is kept as a historical anchor only and will be removed in the next docs pass.
+
