@@ -559,3 +559,13 @@ Splits the combined MapHandler dealitem+quest hooks (formerly one uncommitted di
 modern/src/server/map_handler.cpp adds `#include "mxh/server/skill_caster.hpp"` after the existing `mxh/server/quest_script_loader.hpp` import so the new data-plane module is reachable. `MapHandler::calculate_damage` body is now a one-line delegation to `mxh::server::skill_caster_calculate_damage(attacker, defender, skill, rng)`. The static `thread_local std::mt19937 rng(std::random_device{}());` is preserved on the function boundary so the 1 dodge + 1 crit draw order matches the legacy inline math byte-for-byte (the 5/5 attack capture diff=0 invariant held under the post-patch ctest run, 11863/11863 PASS). The inline OuterMugong heal formula in `handle_skill` becomes `mxh::server::skill_caster_heal_amount(caster->combat, simple)` so the self/ally heal amount is also data-plane driven.
 
 Behaviour-locking: the 15 `SkillCaster*` tests (commit 4deb5529) cover the 6 status paths + 1:1 damage formula + heal amount, and 11863/11863 ctest PASS confirms the wire preserves the wire shape. Closes ROADMAP §3 M3 "MapHandler wire to skill_caster" gap; the remaining "legacy SWorking cross-implementation diff=0" item still needs the external SWorking environment.
+## 2026-08-10 - tools: scripts/release-modern-rc.ps1 - modern RC assembler + verifier (commit ae189d80)
+
+scripts/release-modern-rc.ps1 (commit ae189d80) is a new internal tool that locks the RC package verifiable step of ROADMAP section 3 M4 / section 5 stage E on the modern single side.
+
+End-to-end smoke (11864 tests >= 11000 floor, 6819 binaries staged from modern/build, 5 capture fixtures, 2874 SHA-256 checksum entries, RELEASE_NOTES.md written) confirms the script works on Debug.
+
+External RC items still pending: clean machine deploy rehearsal, 24h stability soak, legacy client side-by-side diff=0, real SQL Server roundtrip.
+
+See git log ae189d80.
+
