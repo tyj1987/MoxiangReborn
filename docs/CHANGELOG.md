@@ -569,3 +569,9 @@ External RC items still pending: clean machine deploy rehearsal, 24h stability s
 
 See git log ae189d80.
 
+## 2026-08-10 - ci: track .github/workflows/ci.yml + add RC verify step (commit ea20f9cd)
+
+Untracked .github/workflows/ci.yml (previously in .gitignore with comment that workflows can land later via a dedicated PR if useful) and added a Verify release-modern-rc.ps1 runs (RC packager smoke) step to the build-and-test job between Run tests and the test-count guard.  Now release-modern-rc.ps1 (commit ae189d80) runs in CI on every push/PR with -SkipZip to verify the modern single-side RC stage (preflight ctest count >= 11000 floor, stage modern/bin + captures/, SHA-256 checksum.txt + RELEASE_NOTES.md, verify gate) without consuming the ~6GB zip artifact.  External RC items (clean machine deploy, 24h soak, legacy diff=0, real SQL roundtrip) still pending.  See git log ea20f9cd.
+
+See git log ea20f9cd.
+
