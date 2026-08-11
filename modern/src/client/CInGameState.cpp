@@ -274,6 +274,37 @@ parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
     return info;
 }
 
+std::optional<NpcInfo> parse_legacy_npc_add(
+    std::span<const std::uint8_t> payload) {
+    if (payload.size() < 64) return std::nullopt;
+    NpcInfo info;
+    info.npc_id = get_u32(payload.data() + 0);
+    for (std::size_t i = 0; i < 17; ++i) {
+        info.name[i] = static_cast<char>(payload[8 + i]);
+    }
+    info.npc_kind = get_u16(payload.data() + 35);
+    info.position_x = get_u16(payload.data() + 45);
+    info.position_z = get_u16(payload.data() + 47);
+    return info;
+}
+
+bool project_npc_to_screen(float player_x, float player_z, float yaw,
+                           float npc_x, float npc_z,
+                           float& screen_x, float& screen_y) noexcept {
+    // Camera-relative components: forward = (sin yaw, cos yaw),
+    // right = (cos yaw, -sin yaw). World scale 0.001, ~800px visible
+    // over ~1000 world units at the follow-camera distance.
+    const float dx = npc_x - player_x;
+    const float dz = npc_z - player_z;
+    const float forward = dx * std::sin(yaw) + dz * std::cos(yaw);
+    const float right = dx * std::cos(yaw) - dz * std::sin(yaw);
+    if (forward < 0.0f) return false;  // behind the camera
+    constexpr float kPixelsPerUnit = 0.8f;
+    screen_x = 400.0f + right * kPixelsPerUnit;
+    screen_y = 300.0f - forward * kPixelsPerUnit;
+    return true;
+}
+
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     // Need at least the trailing ServerTime block (current fixed payload).
@@ -612,6 +643,21 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                        static_cast<unsigned>(info->position_z), info->name);
             break;
         }
+        case UserConnProtocol::NpcAdd: {
+            auto info = parse_legacy_npc_add(msg.payload);
+            if (!info) {
+                MLOG_WARN("CInGameState: NpcAdd payload too short (%zu bytes)",
+                          msg.payload.size());
+                break;
+            }
+            m_npcs.push_back(*info);
+            MLOG_INFO("CInGameState: NpcAdd id=%u kind=%u pos=(%u,%u) name=%.16s",
+                      static_cast<unsigned>(info->npc_id),
+                      static_cast<unsigned>(info->npc_kind),
+                      static_cast<unsigned>(info->position_x),
+                      static_cast<unsigned>(info->position_z), info->name);
+            break;
+        }
         case UserConnProtocol::ObjectRemove: {
             if (msg.payload.size() < 4) break;
             const auto removed = get_u32(msg.payload.data());
@@ -840,6 +886,16 @@ void CInGameState::OnMouseButton(bool left, bool down,
             }
         }
     }
+    if (left && down && !m_shopOpen) {
+        // Click an NPC marker before falling back to attack.
+        const float fx = static_cast<float>(x);
+        const float fy = static_cast<float>(y);
+        const std::uint32_t npc = pick_npc_at_screen(fx, fy);
+        if (npc != 0) {
+            open_shop(npc);
+            return;
+        }
+    }
     if (left && down) {
         try_attack();
         return;
@@ -930,6 +986,29 @@ void CInGameState::try_attack() {
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
+}
+
+std::uint32_t CInGameState::pick_npc_at_screen(float sx, float sy) const {
+    std::uint32_t best = 0;
+    float best_d2 = 18.0f * 18.0f;
+    for (const auto& npc : m_npcs) {
+        float px = 0;
+        float py = 0;
+        if (!project_npc_to_screen(
+                m_localX, m_localZ, m_cameraYaw,
+                static_cast<float>(npc.position_x),
+                static_cast<float>(npc.position_z), px, py)) {
+            continue;
+        }
+        const float dx = px - sx;
+        const float dy = py - sy;
+        const float d2 = dx * dx + dy * dy;
+        if (d2 <= best_d2) {
+            best_d2 = d2;
+            best = npc.npc_id;
+        }
+    }
+    return best;
 }
 
 void CInGameState::use_quick_slot(std::size_t slot) {

@@ -133,6 +133,24 @@ struct MonsterAddInfo {
 std::optional<MonsterAddInfo>
 parse_legacy_monster_add(std::span<const std::uint8_t> payload);
 
+// One static NPC pushed by the map server (UserConn NpcAdd, 64B payload).
+struct NpcInfo {
+    std::uint32_t npc_id = 0;
+    std::uint16_t npc_kind = 0;
+    char name[17] = {};
+    std::uint16_t position_x = 0;
+    std::uint16_t position_z = 0;
+};
+
+std::optional<NpcInfo> parse_legacy_npc_add(std::span<const std::uint8_t> payload);
+
+// Approximate world -> screen projection for static NPC markers, using the
+// same camera convention as the terrain scene (yaw around Y, forward = +Z at
+// yaw 0). Returns false when the marker is behind the camera.
+bool project_npc_to_screen(float player_x, float player_z, float yaw,
+                           float npc_x, float npc_z,
+                           float& screen_x, float& screen_y) noexcept;
+
 // -------------------------------------------------------------------------
 // In-game input + gameplay wire helpers (pure functions, unit-tested).
 //
@@ -284,6 +302,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint16_t map_num()     const noexcept { return m_mapNum; }
     const GameInInfo& game_info() const noexcept { return m_info; }
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
+    const std::vector<NpcInfo>& npcs() const noexcept { return m_npcs; }
     float camera_yaw() const noexcept { return m_cameraYaw; }
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
@@ -310,6 +329,7 @@ private:
                    mxh::proto::MoveProtocol proto);
     void try_attack();
     void send_chat();
+    std::uint32_t pick_npc_at_screen(float sx, float sy) const;
     void handle_userconn_message(const mxh::net::Message& msg);
     void handle_move_broadcast(const mxh::net::Message& msg);
     void handle_monster_broadcast(const mxh::net::Message& msg);
@@ -326,6 +346,7 @@ private:
 
     GameInInfo               m_info;
     std::vector<MonsterAddInfo> monsters_;
+    std::vector<NpcInfo> m_npcs;
     std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>>
         m_remotePlayers;
     bool                     m_started    = false;

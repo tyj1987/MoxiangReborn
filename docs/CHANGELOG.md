@@ -1,4 +1,12 @@
 
+## 2026-08-11 - NPC 世界生成 + 点击对话（真实 DealItem 坐标/名称）
+
+modern/src/server/map_handler.cpp spawns the map's static NPCs from the loaded DealItem catalog (`spawn_map_npcs()`: npc_index/kind/map/point_x/point_z/npcname, filtered by the server's map) and sends each entering player a 64B `UserConn::NpcAdd` (`send_npc_add`: BASEOBJECT_INFO + NPC_TOTALINFO + SEND_MOVEINFO + Angle + bLogin). Verified at runtime: `[Map] spawned 15 NPCs for map 12` / `sent 15 npc adds to player=240366`.
+
+modern/src/client/CInGameState parses NpcAdd (`parse_legacy_npc_add`) into the in-game NPC list, projects markers to screen space with the camera-relative `project_npc_to_screen` (world→pixel, forward = +Z at yaw 0), and `OnMouseButton` picks the nearest marker within 18px (`pick_npc_at_screen`) before falling back to attack — clicking an NPC calls `open_shop(npc_id)`. main.cpp renders gold 12x12 markers + the NPC name (font) in the HUD.
+
+Verified end-to-end: gold marker (255,215,0) rendered at the projected position; click → `open_shop npc=56` → server `SHOP_LIST npc=56 items=6` → client `shop list 6 items`. 4 new unit tests (NpcAdd decode, short-payload, projection forward/behind). 11893+ ctest PASS. See git log (NPC world commit).
+
 ## 2026-08-11 - server: ItemList.bin 真实价格表接入（9887 件物品）
 
 MapHandler gains `load_item_prices(path)` + `fill_catalog_prices(catalog)`: the real `Resource/ItemList.bin` (via the existing 1:1 `mxh::game::load_item_list` parser) populates an `item_idx -> BuyPrice` table; every resolved `NpcShopCatalog` (SpeechSyn ShopList and BuySyn decision) has its prices filled from it. The map server `--resource-root` path now calls it after `load_dealitem`.

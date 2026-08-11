@@ -451,6 +451,17 @@ private:
     void broadcast_monster_remove(std::uint32_t monster_object_id);
     void broadcast_monster_life(const mxh::game::MonsterInstance& monster);
     void broadcast_monster_move(const mxh::game::MonsterInstance& monster);
+    // Static map NPCs spawned from the dealitem catalog (map-filtered).
+    struct ServerNpc {
+        std::uint32_t npc_id = 0;
+        std::uint16_t npc_kind = 0;
+        std::uint16_t map_num = 0;
+        std::uint16_t pos_x = 0;
+        std::uint16_t pos_z = 0;
+        std::string name;
+    };
+    void spawn_map_npcs();
+    void send_npc_add(mxh::net::ConnectionId id, const ServerNpc& npc);
 
     // Phase 10d: Skill management
     void init_skill_table();
@@ -549,6 +560,8 @@ private:
     // from a real Resource/DealItem.bin at server startup.
     mxh::server::DealItemParseResult dealitem_catalog_;
     std::mutex dealitem_mu_;
+    std::vector<ServerNpc> npcs_;
+    std::mutex npcs_mu_;
     std::unordered_map<std::uint32_t, std::uint32_t> item_prices_;
     mutable std::mutex item_prices_mu_;
 

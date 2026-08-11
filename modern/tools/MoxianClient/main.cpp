@@ -258,6 +258,7 @@ struct HudSprites {
     IDISpriteObject* barBg  = nullptr;
     IDISpriteObject* hpFill = nullptr;
     IDISpriteObject* mpFill = nullptr;
+    IDISpriteObject* npcMark = nullptr;
 };
 HudSprites g_hud;
 IDIFontObject* g_hudFont = nullptr;
@@ -558,7 +559,7 @@ void renderFrame(HWND h) {
                     const std::string title =
                         "NPC Shop  (click to buy, B close)";
                     RECT rcTitle{static_cast<LONG>(mxh::client::kShopPanelX) - 4,
-                                 static_cast<LONG>(mxh::client::kShopPanelY) - kTitleH + 6,
+                                 static_cast<LONG>(mxh::client::kShopPanelY - kTitleH + 6.0f),
                                  static_cast<LONG>(mxh::client::kShopPanelX) + 300,
                                  static_cast<LONG>(mxh::client::kShopPanelY)};
                     g_renderer->RenderFont(
@@ -579,6 +580,45 @@ void renderFrame(HWND h) {
                             g_hudFont, const_cast<char*>(line.data()),
                             static_cast<std::uint32_t>(line.size()), &rc,
                             0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                    }
+                }
+            }
+
+            // Static NPC markers (click to talk / open their shop).
+            if (g_hud.npcMark) {
+                for (const auto& npc : g_inputTarget->npcs()) {
+                    float sx = 0;
+                    float sy = 0;
+                    if (!mxh::client::project_npc_to_screen(
+                            info.position_x, info.position_z,
+                            g_inputTarget->camera_yaw(),
+                            static_cast<float>(npc.position_x),
+                            static_cast<float>(npc.position_z),
+                            sx, sy)) {
+                        continue;
+                    }
+                    if (sx < -20.0f || sx > 820.0f || sy < -20.0f ||
+                        sy > 620.0f) {
+                        continue;
+                    }
+                    drawSpriteQuad(g_renderer, g_hud.npcMark,
+                                   sx - 6.0f, sy - 6.0f, 12.0f, 12.0f,
+                                   0xFFFFFFFFu);
+                    if (g_hudFont && npc.name[0] != '\0') {
+                        const std::string name(npc.name, 17);
+                        const auto nul = name.find('\0');
+                        const std::string label =
+                            nul == std::string::npos ? name : name.substr(0, nul);
+                        if (!label.empty()) {
+                            RECT rc{static_cast<LONG>(sx) - 40,
+                                    static_cast<LONG>(sy) - 20,
+                                    static_cast<LONG>(sx) + 40,
+                                    static_cast<LONG>(sy)};
+                            g_renderer->RenderFont(
+                                g_hudFont, const_cast<char*>(label.data()),
+                                static_cast<std::uint32_t>(label.size()), &rc,
+                                0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                        }
                     }
                 }
             }
@@ -807,6 +847,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_hud.barBg  = renderer->CreateSolidSpriteObject(0xAA181010u, 1, 1);
     g_hud.hpFill = renderer->CreateSolidSpriteObject(0xFF4040FFu, 1, 1);
     g_hud.mpFill = renderer->CreateSolidSpriteObject(0xFFFF9040u, 1, 1);
+    g_hud.npcMark = renderer->CreateSolidSpriteObject(0xFF00D7FFu, 1, 1);
     LOGFONT hudLf{};
     hudLf.lfHeight = -14;
     hudLf.lfWeight = FW_NORMAL;

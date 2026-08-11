@@ -12,6 +12,7 @@ using mxh::client::parse_legacy_gamein_ack;
 using mxh::client::parse_legacy_monster_add;
 using mxh::client::parse_legacy_mugong_total;
 using mxh::client::parse_legacy_item_total;
+using mxh::client::parse_legacy_npc_add;
 
 TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     std::vector<std::uint8_t> payload(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
@@ -183,4 +184,28 @@ TEST(InGameItem, ShortPayloadReturnsEmptyItems) {
     std::array<std::uint8_t, 64> payload{};
     const auto items = parse_legacy_item_total(payload);
     EXPECT_TRUE(mxh::game::is_empty_slot(items.Inventory[0]));
+}
+
+TEST(InGameNpc, DecodesNpcAddPayload) {
+    std::array<std::uint8_t, 64> payload{};
+    payload[0] = 0x2A;
+    std::memcpy(payload.data() + 8, "Merchant", 9);
+    payload[35] = 0x10;
+    payload[45] = 0x34;
+    payload[46] = 0x12;
+    payload[47] = 0x78;
+    payload[48] = 0x56;
+
+    const auto npc = parse_legacy_npc_add(payload);
+    ASSERT_TRUE(npc.has_value());
+    EXPECT_EQ(npc->npc_id, 0x2Au);
+    EXPECT_STREQ(npc->name, "Merchant");
+    EXPECT_EQ(npc->npc_kind, 0x10u);
+    EXPECT_EQ(npc->position_x, 0x1234u);
+    EXPECT_EQ(npc->position_z, 0x5678u);
+}
+
+TEST(InGameNpc, RejectsShortPayload) {
+    std::array<std::uint8_t, 32> payload{};
+    EXPECT_FALSE(parse_legacy_npc_add(payload).has_value());
 }

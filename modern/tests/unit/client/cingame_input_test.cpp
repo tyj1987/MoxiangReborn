@@ -19,6 +19,7 @@ using mxh::client::parse_shop_list;
 using mxh::client::parse_chat_payload;
 using mxh::client::parse_move_payload;
 using mxh::client::pick_attack_target;
+using mxh::client::project_npc_to_screen;
 using mxh::client::quick_skill_for_slot;
 using mxh::client::step_movement;
 using mxh::client::kMoveSpeed;
@@ -146,6 +147,24 @@ TEST(InGameQuickSlot, ParsedMugongWinsOverStarter) {
     mxh::client::GameInInfo info;
     info.mugong[0].icon_idx = 42;
     EXPECT_EQ(quick_skill_for_slot(info, 0), 42u);
+}
+
+TEST(InGameNpcProjection, ForwardNpcIsOnScreenCenter) {
+    float sx = 0;
+    float sy = 0;
+    // NPC 500 world units in front of the player at yaw 0 -> screen center,
+    // 400px up.
+    EXPECT_TRUE(project_npc_to_screen(0.0f, 0.0f, 0.0f,
+                                      0.0f, 500.0f, sx, sy));
+    EXPECT_NEAR(sx, 400.0f, 0.01f);
+    EXPECT_NEAR(sy, 300.0f - 500.0f * 0.8f, 0.01f);
+}
+
+TEST(InGameNpcProjection, BehindNpcIsRejected) {
+    float sx = 0;
+    float sy = 0;
+    EXPECT_FALSE(project_npc_to_screen(0.0f, 0.0f, 0.0f,
+                                       0.0f, -100.0f, sx, sy));
 }
 
 TEST(InGameWire, MoveMessageMatchesModernServerLayout) {
