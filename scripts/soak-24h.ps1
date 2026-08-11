@@ -80,7 +80,8 @@ function Write-Summary($state) {
 function Sample-Server($samples) {
     $row = [ordered]@{ ts = (Get-Date).ToString('o') }
     foreach ($name in @('mxh_login_server','mxh_agent_server_CHINA','mxh_map_server_CHINA')) {
-        $p = Get-Process -Name $name -ErrorAction SilentlyContinue
+        $procs = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+        $p = if ($procs.Count -gt 0) { $procs[0] } else { $null }
         if ($p) {
             $row[$name + '.rss_mb'] = [math]::Round($p.WorkingSet64 / 1MB, 1)
             $row[$name + '.cpu_s'] = [math]::Round($p.TotalProcessorTime.TotalSeconds, 1)
@@ -97,12 +98,13 @@ function Sample-Server($samples) {
 function Stop-All($startedServer) {
     foreach ($k in @($script:clients.Keys)) {
         $slot = $script:clients[$k]
-        if ($slot -and $slot.proc -and -not $slot.proc.HasExited) {
-            try { Stop-Process -Id $slot.proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+        if ($slot -and $slot.Proc -and -not $slot.Proc.HasExited) {
+            try { Stop-Process -Id $slot.Proc.Id -Force -ErrorAction SilentlyContinue } catch {}
         }
     }
-    if ($startedServer -and -not $SkipServerStart) {
-        try { & $startServerScript -Mode stop 2>$null } catch {}
+    # always kill any lingering server processes (handles orphan from prior runs)
+    foreach ($n in $script:serverNames) { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+    if ($startedServer -and -not $SkipServerStart) {        try { & $startServerScript -Mode stop 2>$null } catch {}
     }
 }
 
@@ -151,6 +153,7 @@ $endTime = $startTime.AddHours($DurationHours)
 $interrupt = $false
 $interruptReason = ''
 $initialRss = @{}
+$script:serverNames = @('mxh_login_server','mxh_agent_server_CHINA','mxh_map_server_CHINA')
 
 $handler = [ConsoleCancelEventHandler]{
     param($sender, $e)
@@ -177,33 +180,37 @@ try {
                 $clientArgs += @($PassThruExtraArgs -split ' ')
             }
             try {
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = $clientExe
-                $psi.WorkingDirectory = (Split-Path -Parent $clientExe)
-                $psi.UseShellExecute = $false
-                $psi.RedirectStandardOutput = $true
-                $psi.RedirectStandardError = $true
-                $psi.WindowStyle = 'Hidden'
-                $psi.CreateNoWindow = $true
-                $proc = New-Object System.Diagnostics.Process
-                $proc.StartInfo = $psi
-                $proc.Start() | Out-Null
-                $proc.EnableRaisingEvents = $true
+                $splat = @{}
+                $splat['FilePath'] = $clientExe
+                $splat['WorkingDirectory'] = Split-Path -Parent $clientExe
+                $splat['RedirectStandardOutput'] = $logPath
+                $splat['RedirectStandardError'] = ($logPath -replace '.log', '.err.log')
+                $splat['PassThru'] = $true
+                $splat['WindowStyle'] = 'Hidden'
+                if ($clientArgs.Count -gt 0) { $splat['ArgumentList'] = $clientArgs }
+                $proc = Start-Process @splat
             } catch {
                 Write-Error ('Failed to start client: ' + $_.Exception.Message); exit 4
             }
-            $script:clients[$slotSeq] = @{ proc = $proc; started = (Get-Date) }
+            $script:clients[$slotSeq] = [PSCustomObject]@{ Proc = $proc; Started = (Get-Date) }
         }
         # poll clients
         $finished = @()
         foreach ($k in @($script:clients.Keys)) {
             $slot = $script:clients[$k]
-            $proc = $slot.proc
+            $proc = $slot.Proc
             if ($proc.HasExited) {
                 $finished += $k
                 $cycleTotal += 1
                 $exit = $proc.ExitCode
-                if ($null -ne $exit -and $exit -eq 0) { $cycleOk += 1 }
+                $logBase = Join-Path $clientLogDir ('client-' + ('{0:D4}' -f $k))
+                $e2eLogPath = $logBase + '.err.log'
+                $e2eOk = ($null -ne $exit -and $exit -eq 0)
+                if (-not $e2eOk -and (Test-Path -LiteralPath $e2eLogPath)) {
+                    $e2eContent = Get-Content -LiteralPath $e2eLogPath -Raw -ErrorAction SilentlyContinue
+                    if ($e2eContent -match 'all 5 protocol steps passed') { $e2eOk = $true }
+                }
+                if ($e2eOk) { $cycleOk += 1 }
                 else {
                     $cycleFail += 1
                     $clientLog = Join-Path $clientLogDir ('client-' + ('{0:D4}' -f $k) + '.log')
@@ -213,7 +220,7 @@ try {
                 }
                 continue
             }
-            $elapsed = ((Get-Date) - $slot.started).TotalSeconds
+            $elapsed = ((Get-Date) - $slot.Started).TotalSeconds
             if ($elapsed -gt $CycleTimeoutSeconds) {
                 try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
                 $finished += $k
@@ -225,7 +232,8 @@ try {
         # server liveness + leak heuristic
         $dead = @()
         foreach ($name in @('mxh_login_server','mxh_agent_server_CHINA','mxh_map_server_CHINA')) {
-            $p = Get-Process -Name $name -ErrorAction SilentlyContinue
+            $procs = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+            $p = if ($procs.Count -gt 0) { $procs[0] } else { $null }
             if (-not $p) { $dead += $name; continue }
             $rss = [math]::Round($p.WorkingSet64 / 1MB, 1)
             if (-not $initialRss.ContainsKey($name)) { $initialRss[$name] = $rss }
