@@ -212,12 +212,30 @@ TEST(SideBySideModernGolden, ChatScenarioNameIsChat) {
     EXPECT_STREQ(chat_scenario().name.c_str(), "chat");
 }
 
-TEST(SideBySideModernGolden, AllFiveScenariosHaveFixtures) {
+TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_chat.cap");
+    ASSERT_EQ(trace.size(), 1u);
+    EXPECT_EQ(trace[0].category, 6u);   // Chat
+    EXPECT_EQ(trace[0].protocol, 0u);   // All
+    EXPECT_EQ(trace[0].length, 5u);     // 5B payload
+    EXPECT_EQ(trace[0].payload.size(), 5u);
+    // Payload is the 5 ASCII bytes of  hello (0x68 0x65 0x6c 0x6c 0x6f).
+    ASSERT_GE(trace[0].payload.size(), 5u);
+    EXPECT_EQ(trace[0].payload[0], 0x68u);
+    EXPECT_EQ(trace[0].payload[1], 0x65u);
+    EXPECT_EQ(trace[0].payload[2], 0x6cu);
+    EXPECT_EQ(trace[0].payload[3], 0x6cu);
+    EXPECT_EQ(trace[0].payload[4], 0x6fu);
+}
+
+TEST(SideBySideModernGolden, AllSixScenariosHaveFixtures) {
     const std::filesystem::path dir =
         "C:/moxiang/modern/tests/fixtures/sbs_captures_modern";
     for (const char* name : {"modern_login.cap", "modern_enter_game.cap",
                              "modern_attack.cap", "modern_shop.cap",
-                             "modern_quest.cap"}) {
+                             "modern_quest.cap",
+                             "modern_chat.cap"}) {
         const auto p = dir / name;
         ASSERT_TRUE(std::filesystem::exists(p)) << "missing fixture " << name;
         const auto trace = load_capture(p.string());
