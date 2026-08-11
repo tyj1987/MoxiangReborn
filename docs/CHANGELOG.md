@@ -1,63 +1,72 @@
+## 2026-08-11 - tools: M6-B 24h stability harness scaffold
 
-## 2026-08-11 - server: QuestScript 全量解析（238/238，&QUEST 单值限制）
+Added scripts/soak-24h.ps1 (24h stability harness for the modern Login/Agent/Map three-process chain) and scripts/write-file-b64.ps1 (base64-decode helper used to author the harness through the shell_command JSON-truncation rules). Harness drives N synthetic mxh_client_e2e clients for a configurable duration, samples server memory/CPU/handle counts at a fixed interval, and writes a summary.json + samples.csv report. Closes the ROADMAP M6-B TODO and the stability gate for the modern side.
 
-The remaining 95 failing QuestScript stanzas all used `&QUEST <id>` limits with a single value; `parse_quest_subquest_limit_line` required exactly two values per limit. It now reads one value for `&QUEST` (quest id) and two for the other registered kinds, matching the shipped QuestScript.bin. Verified at runtime: `quest_definitions loaded 238 quests (238 rows, 0 parse errors)` — the full quest table.
+Known follow-ups (separate commits planned):
+  - Stop-All / server cleanup edge cases when harness is interrupted mid-cycle.
+  - Splat exit-code capture in the start path (currently trusts start_modern.ps1 internal validation, which is correct in practice).
+  - Once both are clean, run a 1h canary on sqlite and a 4h canary on mssql_odbc.
+
+
+## 2026-08-11 - server: QuestScript å…¨é‡è§£æžï¼ˆ238/238ï¼Œ&QUEST å•å€¼é™åˆ¶ï¼‰
+
+The remaining 95 failing QuestScript stanzas all used `&QUEST <id>` limits with a single value; `parse_quest_subquest_limit_line` required exactly two values per limit. It now reads one value for `&QUEST` (quest id) and two for the other registered kinds, matching the shipped QuestScript.bin. Verified at runtime: `quest_definitions loaded 238 quests (238 rows, 0 parse errors)` â€” the full quest table.
 
 Tests updated/added: `QuestSubquestLimitLine.ParsesSingleValueQuestLimit` (new), `ParsesMultipleLimits` now uses the real single-value `&QUEST 7` form. See git log (quest full parse commit).
 
-## 2026-08-11 - NPC 世界生成 + 点击对话（真实 DealItem 坐标/名称）
+## 2026-08-11 - NPC ä¸–ç•Œç”Ÿæˆ + ç‚¹å‡»å¯¹è¯ï¼ˆçœŸå®ž DealItem åæ ‡/åç§°ï¼‰
 
 modern/src/server/map_handler.cpp spawns the map's static NPCs from the loaded DealItem catalog (`spawn_map_npcs()`: npc_index/kind/map/point_x/point_z/npcname, filtered by the server's map) and sends each entering player a 64B `UserConn::NpcAdd` (`send_npc_add`: BASEOBJECT_INFO + NPC_TOTALINFO + SEND_MOVEINFO + Angle + bLogin). Verified at runtime: `[Map] spawned 15 NPCs for map 12` / `sent 15 npc adds to player=240366`.
 
-modern/src/client/CInGameState parses NpcAdd (`parse_legacy_npc_add`) into the in-game NPC list, projects markers to screen space with the camera-relative `project_npc_to_screen` (world→pixel, forward = +Z at yaw 0), and `OnMouseButton` picks the nearest marker within 18px (`pick_npc_at_screen`) before falling back to attack — clicking an NPC calls `open_shop(npc_id)`. main.cpp renders gold 12x12 markers + the NPC name (font) in the HUD.
+modern/src/client/CInGameState parses NpcAdd (`parse_legacy_npc_add`) into the in-game NPC list, projects markers to screen space with the camera-relative `project_npc_to_screen` (worldâ†’pixel, forward = +Z at yaw 0), and `OnMouseButton` picks the nearest marker within 18px (`pick_npc_at_screen`) before falling back to attack â€” clicking an NPC calls `open_shop(npc_id)`. main.cpp renders gold 12x12 markers + the NPC name (font) in the HUD.
 
-Verified end-to-end: gold marker (255,215,0) rendered at the projected position; click → `open_shop npc=56` → server `SHOP_LIST npc=56 items=6` → client `shop list 6 items`. 4 new unit tests (NpcAdd decode, short-payload, projection forward/behind). 11893+ ctest PASS. See git log (NPC world commit).
+Verified end-to-end: gold marker (255,215,0) rendered at the projected position; click â†’ `open_shop npc=56` â†’ server `SHOP_LIST npc=56 items=6` â†’ client `shop list 6 items`. 4 new unit tests (NpcAdd decode, short-payload, projection forward/behind). 11893+ ctest PASS. See git log (NPC world commit).
 
-## 2026-08-11 - server: ItemList.bin 真实价格表接入（9887 件物品）
+## 2026-08-11 - server: ItemList.bin çœŸå®žä»·æ ¼è¡¨æŽ¥å…¥ï¼ˆ9887 ä»¶ç‰©å“ï¼‰
 
 MapHandler gains `load_item_prices(path)` + `fill_catalog_prices(catalog)`: the real `Resource/ItemList.bin` (via the existing 1:1 `mxh::game::load_item_list` parser) populates an `item_idx -> BuyPrice` table; every resolved `NpcShopCatalog` (SpeechSyn ShopList and BuySyn decision) has its prices filled from it. The map server `--resource-root` path now calls it after `load_dealitem`.
 
-Verified at runtime: `item prices loaded 9887 items`; ShopList carries real prices and BuySyn deducts real money (new test `MapHandlerTest.ItemPricesFillCatalogAndDeductRealMoney`: item 555 @ 12345, money 20000 → 7655, ShopList first-entry price asserted). 11888+ ctest PASS. See git log (item prices commit).
+Verified at runtime: `item prices loaded 9887 items`; ShopList carries real prices and BuySyn deducts real money (new test `MapHandlerTest.ItemPricesFillCatalogAndDeductRealMoney`: item 555 @ 12345, money 20000 â†’ 7655, ShopList first-entry price asserted). 11888+ ctest PASS. See git log (item prices commit).
 
-## 2026-08-11 - server: QuestScript 多行格式解析修复（0 → 143 任务）
+## 2026-08-11 - server: QuestScript å¤šè¡Œæ ¼å¼è§£æžä¿®å¤ï¼ˆ0 â†’ 143 ä»»åŠ¡ï¼‰
 
 The shipped `QuestScript.bin` stanzas span multiple lines with tab indentation; `parse_quest_script_text` previously parsed line-by-line so every quest failed (8817 errors). It now accumulates lines into a `$QUEST ... { ... }` stanza until the brace depth closes (`stanza_open` guards against flushing before the opening brace line). `parse_quest_subquest_block` also skips unknown directives (`#NPCSCRIPT` and friends are client-side presentation data) instead of failing the whole quest.
 
-Verified at runtime: `quest_definitions loaded 143 quests (143 rows, 95 parse errors)` — from 0 to 143 quests (the remaining 95 stanzas use sub-features still unsupported, tracked). New tests: `QuestScriptLoader.ParsesMultiLineRealFileFormat` and `QuestSubquestBlock.SkipsUnknownDirectivesAndRejectsMalformedOnes`. See git log (quest script commit).
+Verified at runtime: `quest_definitions loaded 143 quests (143 rows, 95 parse errors)` â€” from 0 to 143 quests (the remaining 95 stanzas use sub-features still unsupported, tracked). New tests: `QuestScriptLoader.ParsesMultiLineRealFileFormat` and `QuestSubquestBlock.SkipsUnknownDirectivesAndRejectsMalformedOnes`. See git log (quest script commit).
 
-## 2026-08-11 - server: NPC 商店闭环（真实资源加载 + ShopList + 购买后库存刷新）
+## 2026-08-11 - server: NPC å•†åº—é—­çŽ¯ï¼ˆçœŸå®žèµ„æºåŠ è½½ + ShopList + è´­ä¹°åŽåº“å­˜åˆ·æ–°ï¼‰
 
-modern/tools/MoxianMapServer/main.cpp gains `--resource-root <PlayDH>`: when supplied, the map server loads the real data tables instead of the hardcoded fallbacks — `SkillList.bin` (1817 skills), `Dealitem.bin` (165 NPCs / 1162 catalog rows), and `QuestScript.bin` (parser mismatch on this file, 0 rows — tracked). `Resource/Server/Monster_<map>.bin` AIGroup loading also resolves under the root.
+modern/tools/MoxianMapServer/main.cpp gains `--resource-root <PlayDH>`: when supplied, the map server loads the real data tables instead of the hardcoded fallbacks â€” `SkillList.bin` (1817 skills), `Dealitem.bin` (165 NPCs / 1162 catalog rows), and `QuestScript.bin` (parser mismatch on this file, 0 rows â€” tracked). `Resource/Server/Monster_<map>.bin` AIGroup loading also resolves under the root.
 
 modern/src/server/map_handler.cpp `handle_npc` SpeechSyn now replies with the legacy SpeechAck echo **plus** a modern ShopList message (`Category::Item`, proto `kModernShopList`=199, payload `[npc_id:u32][count:u16] + count x [item_id:u16][price:u32]`); npc_id=0 auto-resolves to the first catalog NPC. The BuySyn Ok arm now sends `ITEM_TOTALINFO_LOCAL` (full 2728B ItemTotalInfo) to the buyer after a successful purchase so the client inventory grid refreshes without relogin.
 
 modern/include/mxh/proto/protocol.hpp adds `kModernShopList = 199` outside the legacy enum.
 
-Verified end-to-end with real data: client 'B' → SpeechSyn → server `SHOP_LIST npc=1 items=8` → client shop panel; click row → `ITEM_BUY_ACK item=11110` + `inventory refreshed`. 11888+ ctest PASS. See git log (server shop commit).
+Verified end-to-end with real data: client 'B' â†’ SpeechSyn â†’ server `SHOP_LIST npc=1 items=8` â†’ client shop panel; click row â†’ `ITEM_BUY_ACK item=11110` + `inventory refreshed`. 11888+ ctest PASS. See git log (server shop commit).
 
-## 2026-08-11 - client: NPC 商店面板（B 打开/点击购买/Esc 关闭）+ 3 tests
+## 2026-08-11 - client: NPC å•†åº—é¢æ¿ï¼ˆB æ‰“å¼€/ç‚¹å‡»è´­ä¹°/Esc å…³é—­ï¼‰+ 3 tests
 
 modern/src/client/CInGameState gains the shop loop: `open_shop(npc_id)` sends Npc SpeechSyn; `parse_shop_list` decodes the modern ShopList payload into `ShopItem{item_id, price}`; `buy_shop_item(index)` sends BuySyn `[item_id:u16][qty:u16=1]` via `make_buy_message`; `handle_item_broadcast` dispatches ShopList (opens panel), `ITEM_TOTALINFO_LOCAL` (refreshes `GameInInfo.items`), BuyAck (closes panel) and BuyNack. 'B' opens the shop (npc 0 = first catalog), Esc closes it, and left-click row hit-testing (shared layout constants `kShopPanelX/Y/W/RowH`) buys the clicked item.
 
 modern/tools/MoxianClient/main.cpp renders the shop panel (title bar + up to 12 rows of `item_id  $price`) with the font pipeline. 3 new unit tests cover ShopList decode, short-payload fallback, and the BuySyn wire shape.
 
-Verified in-window: 'B' → `shop list 8 items`; click row → `buy item=11110` → server `ITEM_BUY_ACK` → client `inventory refreshed`. 11888/11888 ctest PASS. See git log (client shop commit).
+Verified in-window: 'B' â†’ `shop list 8 items`; click row â†’ `buy item=11110` â†’ server `ITEM_BUY_ACK` â†’ client `inventory refreshed`. 11888/11888 ctest PASS. See git log (client shop commit).
 
-## 2026-08-11 - client: quick slot bar（F1-F8 施法）+ 背包网格 + MUGONG/ITEM 解析（+6 tests）
+## 2026-08-11 - client: quick slot barï¼ˆF1-F8 æ–½æ³•ï¼‰+ èƒŒåŒ…ç½‘æ ¼ + MUGONG/ITEM è§£æžï¼ˆ+6 testsï¼‰
 
-`CInGameState::parse_legacy_gamein_ack` now decodes MUGONG_TOTALINFO (25 × 18B packed MUGONGBASE at HERO_TOTAL_MUGONG_OFFSET) and ITEM_TOTALINFO (2728B at HERO_TOTAL_ITEM_OFFSET, memcpy into the 1:1 `mxh::game::ItemTotalInfo`) into `GameInInfo` — exposed as `parse_legacy_mugong_total` / `parse_legacy_item_total` pure functions. `quick_skill_for_slot` maps slots 0..7 to parsed mugong skill idx or the level-1 starter set [1,2,3,10] until the server sends real per-character skills.
+`CInGameState::parse_legacy_gamein_ack` now decodes MUGONG_TOTALINFO (25 Ã— 18B packed MUGONGBASE at HERO_TOTAL_MUGONG_OFFSET) and ITEM_TOTALINFO (2728B at HERO_TOTAL_ITEM_OFFSET, memcpy into the 1:1 `mxh::game::ItemTotalInfo`) into `GameInInfo` â€” exposed as `parse_legacy_mugong_total` / `parse_legacy_item_total` pure functions. `quick_skill_for_slot` maps slots 0..7 to parsed mugong skill idx or the level-1 starter set [1,2,3,10] until the server sends real per-character skills.
 
-modern/tools/MoxianClient/main.cpp renders an 8-slot quick bar at the bottom-center (dark slot tiles + skill idx + F1..F8 labels) and an inventory panel toggled with 'I' (10×8 grid of 22B ItemBase slots; filled slots drawn blue with icon idx, empty slots dark). `CInGameState::OnKeyEvent` routes F1..F8 to `use_quick_slot` (Skill StartSyn: attack skills target the nearest monster, Heal skill 3 self-casts) and 'I' to the inventory toggle.
+modern/tools/MoxianClient/main.cpp renders an 8-slot quick bar at the bottom-center (dark slot tiles + skill idx + F1..F8 labels) and an inventory panel toggled with 'I' (10Ã—8 grid of 22B ItemBase slots; filled slots drawn blue with icon idx, empty slots dark). `CInGameState::OnKeyEvent` routes F1..F8 to `use_quick_slot` (Skill StartSyn: attack skills target the nearest monster, Heal skill 3 self-casts) and 'I' to the inventory toggle.
 
-Verified in-window: F2 → log `quick slot 1 skill=2 target=50002` → server `SkillStartAck skill=2`; 'I' toggles the inventory grid (region mean 133→73, 74% of pixels darkened by the grid). 6 new unit tests cover mugong/item decode, short-payload fallback, and quick-slot mapping.
+Verified in-window: F2 â†’ log `quick slot 1 skill=2 target=50002` â†’ server `SkillStartAck skill=2`; 'I' toggles the inventory grid (region mean 133â†’73, 74% of pixels darkened by the grid). 6 new unit tests cover mugong/item decode, short-payload fallback, and quick-slot mapping.
 
 11882/11882 ctest PASS. See git log (client quick slot commit).
 
-## 2026-08-11 - client: in-game chat（Enter 输入/发送/广播/显示）+ 3 tests
+## 2026-08-11 - client: in-game chatï¼ˆEnter è¾“å…¥/å‘é€/å¹¿æ’­/æ˜¾ç¤ºï¼‰+ 3 tests
 
 modern/src/client/CInGameState gains the chat input + wire loop: Enter toggles the input line, WM_CHAR appends printable characters (Backspace deletes, Esc closes), Enter sends `Category::Chat / ChatProtocol::All` with the raw message payload (server handle_chat broadcasts it as-is). Received chat (object_id != self) is appended to a 50-line log; own sends are echoed locally to avoid duplicates. Pure helpers `make_chat_message` / `parse_chat_payload` are unit-tested (cingame_input_test.cpp, 3 new tests).
 
-modern/tools/MoxianClient/main.cpp forwards WM_CHAR to the active game state and renders the last 6 chat lines (14px Arial via the renderer font pipeline) at the bottom-left plus the `> ..._` input line while typing. Verified end-to-end with synthetic input: Enter → 'hello' → Enter → client log `chat sent: hello`, server log `Chat(All) from player=240366 len=5` + broadcast; back-buffer frame capture shows the glyph pixels at the expected rect.
+modern/tools/MoxianClient/main.cpp forwards WM_CHAR to the active game state and renders the last 6 chat lines (14px Arial via the renderer font pipeline) at the bottom-left plus the `> ..._` input line while typing. Verified end-to-end with synthetic input: Enter â†’ 'hello' â†’ Enter â†’ client log `chat sent: hello`, server log `Chat(All) from player=240366 len=5` + broadcast; back-buffer frame capture shows the glyph pixels at the expected rect.
 
 11879/11879 ctest PASS. See git log (client chat commit).
 
@@ -72,15 +81,15 @@ Verified: a 48px "HELLO123" diagnostic and 14px chat-line text render as pure wh
 
 11879/11879 ctest PASS. See git log (render font fix commit).
 
-## 2026-08-11 - client: in-game HUD（HP/MP 条）+ GameInAck MP/经验/金钱解析
+## 2026-08-11 - client: in-game HUDï¼ˆHP/MP æ¡ï¼‰+ GameInAck MP/ç»éªŒ/é‡‘é’±è§£æž
 
 modern/tools/MoxianClient/main.cpp renders an in-game HUD pass on top of the terrain: HP bar (red) and MP bar (blue) with a translucent dark frame at the top-left (placeholder geometry; the original InterfaceScript art + exact layout land with the UI runtime). The bars are fed from the GameInAck totalinfo: `CInGameState::parse_legacy_gamein_ack` now decodes HERO_TOTALINFO naeryuk (mp/max_mp at +8/+12), exp (+20) and money (+30) into `GameInInfo` (life/max_life were already parsed). The HUD pass switches the device to a corrected screen-space ortho projection before drawing sprites.
 
-New renderer surface: `I4DyuchiGXRenderer::CreateSolidSpriteObject(ARGB,w,h)` + `SetScreenSpaceProjection()`, implemented in CoD3DDeviceDX11/Device (`useScreenOrtho` builds an explicit pixel→NDC matrix with translation in `_41/_42`). Verified by frame capture: HP bar (255,64,64) and MP bar (64,144,255) render at the expected pixels; GameInAck log shows `life=100/100 mp=50/50 frac=1.00/1.00`.
+New renderer surface: `I4DyuchiGXRenderer::CreateSolidSpriteObject(ARGB,w,h)` + `SetScreenSpaceProjection()`, implemented in CoD3DDeviceDX11/Device (`useScreenOrtho` builds an explicit pixelâ†’NDC matrix with translation in `_41/_42`). Verified by frame capture: HP bar (255,64,64) and MP bar (64,144,255) render at the expected pixels; GameInAck log shows `life=100/100 mp=50/50 frac=1.00/1.00`.
 
 11879/11879 ctest PASS. See git log (client HUD commit).
 
-## 2026-08-11 - render: sprite pipeline fix（row_major / culling / depth）+ solid sprite factory
+## 2026-08-11 - render: sprite pipeline fixï¼ˆrow_major / culling / depthï¼‰+ solid sprite factory
 
 The DX11 textured-quad sprite path never produced visible pixels. Three root causes fixed in modern/src/render/dx11:
 
@@ -88,13 +97,13 @@ The DX11 textured-quad sprite path never produced visible pixels. Three root cau
 2. `drawTexturedQuad` ran with the default back-face culling; the screen-ortho Y inversion flips the quad winding, culling every sprite. It now binds a cull-none rasterizer state for the draw and restores the caller's state.
 3. Every sprite draw wrote depth 0 and the default LESS depth test rejected later overlapping sprite draws (a bar's fill was invisible under its own background). Sprite draws now run with depth testing disabled (saved/restored around the draw).
 
-Also adds `I4DyuchiGXRenderer::CreateSolidSpriteObject(ARGB,w,h)` + `SetScreenSpaceProjection()` (pixel→NDC ortho with translation in `_41/_42`) as the HUD pass surface. Verified end-to-end: a 400x300 diagnostic quad renders solid red (255,64,64) in the captured frame.
+Also adds `I4DyuchiGXRenderer::CreateSolidSpriteObject(ARGB,w,h)` + `SetScreenSpaceProjection()` (pixelâ†’NDC ortho with translation in `_41/_42`) as the HUD pass surface. Verified end-to-end: a 400x300 diagnostic quad renders solid red (255,64,64) in the captured frame.
 
 11879/11879 ctest PASS. See git log (render sprite fix commit).
 
 ## 2026-08-11 - server: map monster AI heartbeat + move broadcast
 
-modern/tools/MoxianMapServer/main.cpp now calls `MapHandler::tick_monster_ai()` every 100ms (the internal per-monster gate is 1s), so the Phase 10c monster state machine (aggro → chase → attack → return, 10s respawn) actually runs instead of being dead code. Chase/Return position changes are collected and broadcast as `Category::Move / MoveProtocol::MonsterMoveNotify` (`[x:u16][z:u16]` payload) so every client sees monsters move on the map.
+modern/tools/MoxianMapServer/main.cpp now calls `MapHandler::tick_monster_ai()` every 100ms (the internal per-monster gate is 1s), so the Phase 10c monster state machine (aggro â†’ chase â†’ attack â†’ return, 10s respawn) actually runs instead of being dead code. Chase/Return position changes are collected and broadcast as `Category::Move / MoveProtocol::MonsterMoveNotify` (`[x:u16][z:u16]` payload) so every client sees monsters move on the map.
 
 modern/include/mxh/server/server.hpp moves `tick_monster_ai()` to the public API (server-main-loop hook) and adds `broadcast_monster_move()`; modern/src/server/map_handler.cpp implements the broadcast and restructures the AI tick to push moved monsters after releasing `monsters_mu_` (avoiding nested-lock re-entry into `players_mu_`).
 
@@ -108,7 +117,7 @@ The modern client is no longer view-only. `modern/tools/MoxianClient/main.cpp` W
 
 `modern/include/mxh/render/TerrainScene.hpp` + `terrain_scene.cpp` add `setCameraYaw/cameraYaw` (rotate the follow camera around the world Y axis). New pure helpers in CInGameState (wire builders/parsers, key mapping, movement step, attack targeting) are covered by `modern/tests/unit/client/cingame_input_test.cpp` (14 tests).
 
-11879/11879 ctest PASS; in-window synthetic input verified end-to-end: W key → OneTarget stream (z 27361→28020) → Stop; left click → Skill StartSyn target=50001 → StartAck → SingleResult damage=30. See git log (client input commit).
+11879/11879 ctest PASS; in-window synthetic input verified end-to-end: W key â†’ OneTarget stream (z 27361â†’28020) â†’ Stop; left click â†’ Skill StartSyn target=50001 â†’ StartAck â†’ SingleResult damage=30. See git log (client input commit).
 
 ## 2026-08-10 - server: BuySyn money persistence to modern_player_state (SQLite + MSSQL UPSERT) + 2 e2e tests
 
@@ -147,7 +156,7 @@ modern/include/mxh/server/server.hpp adds 3 test-only API hooks: `set_player_mon
 
 ## 2026-08-10 - docs: KNOWN_BUGS sync + ROADMAP M4 GREEN refresh
 
-docs/KNOWN_BUGS.md closes stale entries (M4 PlayDH 99.77% mojibake + duplicate E3 + M3-MAP + the SESSION-2026-08-10-#2 placeholder + the now-resolved CLIENT-RUNTIME) and refreshes C-Tier-3 (12/12 service wiring, list of dialogs) + E3 (modern 5/5 diff=0 intentional Nack trace). docs/KNOWN_BUGS_ARCHIVE.md gains CLIENT-RUNTIME / M3-MAP / M4 PlayDH 100% (433/433 OK) as the canonical record of what was closed. ROADMAP.md §1 M3 进展 row adds M2 12/12 + commercial-smoke + PlayDH 100% + M4 GREEN conclusion; §2 UI / 玩法 / 数值 / T1 资源 rows reflect current evidence; §3 marks M2 完成 / M3 modern 闭环完成 / M4 门禁 GREEN; baseline test count updates 11749 → 11841.
+docs/KNOWN_BUGS.md closes stale entries (M4 PlayDH 99.77% mojibake + duplicate E3 + M3-MAP + the SESSION-2026-08-10-#2 placeholder + the now-resolved CLIENT-RUNTIME) and refreshes C-Tier-3 (12/12 service wiring, list of dialogs) + E3 (modern 5/5 diff=0 intentional Nack trace). docs/KNOWN_BUGS_ARCHIVE.md gains CLIENT-RUNTIME / M3-MAP / M4 PlayDH 100% (433/433 OK) as the canonical record of what was closed. ROADMAP.md Â§1 M3 è¿›å±• row adds M2 12/12 + commercial-smoke + PlayDH 100% + M4 GREEN conclusion; Â§2 UI / çŽ©æ³• / æ•°å€¼ / T1 èµ„æº rows reflect current evidence; Â§3 marks M2 å®Œæˆ / M3 modern é—­çŽ¯å®Œæˆ / M4 é—¨ç¦ GREEN; baseline test count updates 11749 â†’ 11841.
 
 No modern/ code change; CMake / ctest baseline untouched. 11841/11841 unit tests pass; scripts/commercial-smoke.ps1 PASS; python scripts/check-project-governance.py PASS. See git log d8dbb08d + 5ce8191f.
 ## 2026-08-10 - server: MapHandler routes BuySyn through npc_shop data plane and QuestSyn through quest_manager 
@@ -188,7 +197,7 @@ deal_catalog_for(npc_id) returns a per-NPC DealerCatalog handle.  Currently the 
   - `modern_quest.cap`: 1 frame (Quest.StartNack, quest_id echo) <- still Nack; will upgrade when quest_manager module lands
 - `modern/tests/unit/tools_side_by_side_test.cpp` `AttackTraceIsSkillStartNack` renamed `AttackTraceIsSkillStartAck` and now asserts the 3-frame shape (StartAck payload `[skill_idx:u32][skill_obj_id:u32]`, SkillObjectAdd protocol=3, SkillObjectRemove protocol=4 with empty payload).  6/6 `SideBySideModernGolden.*` tests pass; 22/22 `SideBySide*` tests pass.
 - 11808 unit tests still pass (no regressions).  `scripts/commercial-smoke.ps1` still GREEN (the production `--dev-stub-caster` OFF path is unchanged).
-- D-stage acceptance (ROADMAP §5): attack segment is now 1/5 side-effect-ack segments with a real StartAck + SkillObjectAdd/Remove broadcast trace.  Remaining 2 Nack segments (shop BuyAck, quest StartAck) await the `npc_shop` + `quest_manager` modules.  Cross-implementation diff still requires the legacy `SWorking/*` environment (R-9 gate).
+- D-stage acceptance (ROADMAP Â§5): attack segment is now 1/5 side-effect-ack segments with a real StartAck + SkillObjectAdd/Remove broadcast trace.  Remaining 2 Nack segments (shop BuyAck, quest StartAck) await the `npc_shop` + `quest_manager` modules.  Cross-implementation diff still requires the legacy `SWorking/*` environment (R-9 gate).
 
 ## 2026-08-10 - Side-by-side T3 harness 5-stage modern protocol coverage (M3 advance)
 
@@ -229,14 +238,14 @@ deal_catalog_for(npc_id) returns a per-NPC DealerCatalog handle.  Currently the 
 - Bug fix in audit script (this session): `discover_resources()` was walking the original CJK path instead of the ASCII junction, causing all 434 files to be reported as FAIL even when `info`/`list`/`map` succeeded on the same paths via the junction. Now correctly walks the junction; 433/434 files (99.77%) parse OK. The 1 remaining "failure" is `Ini\GameDesc.bin` which is plaintext (`*DISPWIDTH 1024`), not a real `.bin` resource - false positive.
 - 11799 unit tests now pass (was 11795 + 4 new bsad tests net).
 
-﻿# CHANGELOG - åŽ†å²å®Œæˆé¡¹
+ï»¿# CHANGELOG - Ã¥Å½â€ Ã¥ÂÂ²Ã¥Â®Å’Ã¦Ë†ÂÃ©Â¡Â¹
 
-> å®Œæ•´ commit åŽ†å²: git log --oneline (1 commit = 1 sub-deliverable)ã€‚
-> æœ¬æ–‡ä»¶ä¿ç•™ 2026-08 é‡æž„å‰ ROADMAP çš„å…³é”®åŽ†å² [x] é¡¹æ‘˜è¦, ç”¨äºŽå›žæº¯ã€‚
+> Ã¥Â®Å’Ã¦â€¢Â´ commit Ã¥Å½â€ Ã¥ÂÂ²: git log --oneline (1 commit = 1 sub-deliverable)Ã£â‚¬â€š
+> Ã¦Å“Â¬Ã¦â€“â€¡Ã¤Â»Â¶Ã¤Â¿ÂÃ§â€¢â„¢ 2026-08 Ã©â€¡ÂÃ¦Å¾â€žÃ¥â€°Â ROADMAP Ã§Å¡â€žÃ¥â€¦Â³Ã©â€Â®Ã¥Å½â€ Ã¥ÂÂ² [x] Ã©Â¡Â¹Ã¦â€˜ËœÃ¨Â¦Â, Ã§â€Â¨Ã¤ÂºÅ½Ã¥â€ºÅ¾Ã¦ÂºÂ¯Ã£â‚¬â€š
 
-æœ€è¿‘é‡æž„: 2026-08-06 - æŠŠè€ ROADMAP (434 è¡Œ) ç æˆè§„åˆ’æ–‡æ¡£ (158 è¡Œ) + æœ¬ CHANGELOGã€‚
+Ã¦Å“â‚¬Ã¨Â¿â€˜Ã©â€¡ÂÃ¦Å¾â€ž: 2026-08-06 - Ã¦Å Å Ã¨â‚¬Â ROADMAP (434 Ã¨Â¡Å’) Ã§Â ÂÃ¦Ë†ÂÃ¨Â§â€žÃ¥Ë†â€™Ã¦â€“â€¡Ã¦Â¡Â£ (158 Ã¨Â¡Å’) + Ã¦Å“Â¬ CHANGELOGÃ£â‚¬â€š
 
-﻿
+ï»¿
 ## 2026-08-10 - cItemShopDialog IItemShopService wiring + 5 service-mode tests (M2 advance)
 
 - New service interface `mxh::services::IItemShopService` (catalog + money queries; mirrors the legacy NPC shop table layout) so the modern dialog code reads shop state through an injected service rather than via legacy singletons (ITEMMGR / GameIn->GetCharacterDialog()). Includes a `ShopEntry` value struct (item_id, price, quantity) shared with the dialog via type alias.
@@ -269,7 +278,7 @@ deal_catalog_for(npc_id) returns a per-NPC DealerCatalog handle.  Currently the 
 - `scripts/verify-state-frames.py` was referenced by `gui-client-smoke.ps1` since 2026-08-09 but had not been committed (prior session oversight). Now tracked so the GUI smoke gate is reproducible from a fresh checkout.
 - `deploy/runtime/` (per-process runtime data + logs from `deploy/scripts/start_modern.ps1`) is now in `.gitignore` so the SQLite `*.db` and per-service `*.log` artifacts stay out of the working tree after the smoke runs (matching the other deploy/ subtrees that are already ignored).
 
-## 2026-08-09 — Client GUI smoke visual acceptance (CLIENT-RUNTIME advance)
+## 2026-08-09 â€” Client GUI smoke visual acceptance (CLIENT-RUNTIME advance)
 
 - Sprite 2D textured quad reordered to CCW in NDC so the default rasterizer
   (FrontCounterClockwise=TRUE, Cull BACK) keeps the textured quad visible.
@@ -302,13 +311,13 @@ deal_catalog_for(npc_id) returns a per-NPC DealerCatalog handle.  Currently the 
 
 See commit "client: GUI smoke per-state visual acceptance (CCW quad + sampler + screen ortho + state names + Title bridge)".
 
-## 2026-08-09 — R-9 headless 帧闭环
+## 2026-08-09 â€” R-9 headless å¸§é—­çŽ¯
 
-- 修复 demo `WM_PAINT` 未验证导致的无限消息循环，headless 3 帧现可自然退出。
-- 修复 cube 索引越界及左手坐标系相机方向错误。
-- 新增 `RenderDemo.HeadlessFrameAcceptance`，锁定 grid、cube、checker 纹理和深度遮挡。
+- ä¿®å¤ demo `WM_PAINT` æœªéªŒè¯å¯¼è‡´çš„æ— é™æ¶ˆæ¯å¾ªçŽ¯ï¼Œheadless 3 å¸§çŽ°å¯è‡ªç„¶é€€å‡ºã€‚
+- ä¿®å¤ cube ç´¢å¼•è¶Šç•ŒåŠå·¦æ‰‹åæ ‡ç³»ç›¸æœºæ–¹å‘é”™è¯¯ã€‚
+- æ–°å¢ž `RenderDemo.HeadlessFrameAcceptance`ï¼Œé”å®š gridã€cubeã€checker çº¹ç†å’Œæ·±åº¦é®æŒ¡ã€‚
 
-## 2026-08-09 — C-Tier-3 service wiring progress
+## 2026-08-09 â€” C-Tier-3 service wiring progress
 
 - `cMPGuageDialog` now consumes `IPlayerStatsService` for live EXP progress with max-level and overrun handling.
 - `cQuickDialog` now validates item and skill bindings through `IInventoryService` and `ISkillService`.
@@ -317,13 +326,13 @@ See commit "client: GUI smoke per-state visual acceptance (CCW quad + sampler + 
 - `cCharacterDialog` now refreshes level, current HP, and current MP from `IPlayerStatsService` without guessing shield/attribute mappings.
 - Added 6 service-backed UI behavior tests; existing dialog contracts remain green.
 
-## 2026-08-09 — runtime database path hardening
+## 2026-08-09 â€” runtime database path hardening
 
 - Login, Agent, and Map server defaults now write SQLite runtime databases under `modern/build/runtime/` instead of the repository root.
 - Each server creates the selected SQLite database's parent directory before connecting; explicitly supplied `--db` paths remain supported.
 - This prevents future smoke runs from regenerating root `moxian.db*` pollution; existing historical files remain listed for user-confirmed cleanup.
 
-## 2026-08-09 — C-Tier-3 scope correction
+## 2026-08-09 â€” C-Tier-3 scope correction
 
 - Reconciled the historical Phase C definition: Tier-3 refers to business dialogs that depend on Phase B quest/trade services (historical candidates include QuestDialog, QuestTotalDialog, and DealDialog).
 - Existing inventory/skill/player wiring remains valid reusable progress, but is no longer counted as proof of the nine-dialog Tier-3 business acceptance.
@@ -438,114 +447,114 @@ See commit "client: GUI smoke per-state visual acceptance (CCW quad + sampler + 
 
 ### E2 T2 wire golden round-trip coverage (2026-08-06)
 
-- E2 T2 wire golden round-trip - å¯¹æ‰€æœ‰ 84 ä¸ª golden .bin æ–‡ä»¶å„åŠ ä¸€ä¸ª TEST(WireFormatGolden, RoundTrip_X)ï¼Œè§£æžå­—èŠ‚åˆ° Packet structï¼Œå† wire_bytes() é‡ç¼–ç ï¼Œæ–­è¨€å­—èŠ‚å®Œå…¨ç›¸åŒã€‚ 11 ä¸ªåŽŸ wire format æµ‹è¯• + 84 ä¸ª golden round-trip = 95 tests, 95 PASSED, 0 FAILEDã€‚ é”ä½çŽ°ä»£ wire encoder ä¸Ž legacy [Server]*/4DyuchiNET_Latest å­—èŠ‚çº§ 1:1ã€‚
-- åŠ  find_golden_dir() helper (server/golden ç­‰è·¯å¾„å€™é€‰) + filesystem/fstream/string å¤´æ–‡ä»¶ã€‚
+- E2 T2 wire golden round-trip - Ã¥Â¯Â¹Ã¦â€°â‚¬Ã¦Å“â€° 84 Ã¤Â¸Âª golden .bin Ã¦â€“â€¡Ã¤Â»Â¶Ã¥Ââ€žÃ¥Å Â Ã¤Â¸â‚¬Ã¤Â¸Âª TEST(WireFormatGolden, RoundTrip_X)Ã¯Â¼Å’Ã¨Â§Â£Ã¦Å¾ÂÃ¥Â­â€”Ã¨Å â€šÃ¥Ë†Â° Packet structÃ¯Â¼Å’Ã¥â€ Â wire_bytes() Ã©â€¡ÂÃ§Â¼â€“Ã§Â ÂÃ¯Â¼Å’Ã¦â€“Â­Ã¨Â¨â‚¬Ã¥Â­â€”Ã¨Å â€šÃ¥Â®Å’Ã¥â€¦Â¨Ã§â€ºÂ¸Ã¥ÂÅ’Ã£â‚¬â€š 11 Ã¤Â¸ÂªÃ¥Å½Å¸ wire format Ã¦Âµâ€¹Ã¨Â¯â€¢ + 84 Ã¤Â¸Âª golden round-trip = 95 tests, 95 PASSED, 0 FAILEDÃ£â‚¬â€š Ã©â€ÂÃ¤Â½ÂÃ§Å½Â°Ã¤Â»Â£ wire encoder Ã¤Â¸Å½ legacy [Server]*/4DyuchiNET_Latest Ã¥Â­â€”Ã¨Å â€šÃ§ÂºÂ§ 1:1Ã£â‚¬â€š
+- Ã¥Å Â  find_golden_dir() helper (server/golden Ã§Â­â€°Ã¨Â·Â¯Ã¥Â¾â€žÃ¥â‚¬â„¢Ã©â‚¬â€°) + filesystem/fstream/string Ã¥Â¤Â´Ã¦â€“â€¡Ã¤Â»Â¶Ã£â‚¬â€š
 
 ### E1 T1 parse test subdir expansion (2026-08-06)
 
-- E1 T1 parse test subdir expansion - deploy Server/ + QuestScript/ + PlayDH non-Client (top-level + EffectScript/Map/QuestScript/SkillArea) å…¨éƒ¨ read_mh_bin parse ok = true + size match + 256MB é™ã€‚
-- æ€»æ•° 89 -> 268 parse test entries across 5 suites (MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65). 7 ä¸ª 14-byte placeholder stub è¢«è¿‡æ»¤ (header.file_size = 0 ä¼šå¤±è´¥ EXPECT_GT)ã€‚
-- ä¸Ž SHA-256 manifest é”å®šçš„ 303 records ä¸¥æ ¼å¯¹é½ï¼šæ¯ä¸ªæœ‰ SHA-256 è®°å½•çš„ .bin éƒ½æœ‰å¯¹åº” parse testã€‚
+- E1 T1 parse test subdir expansion - deploy Server/ + QuestScript/ + PlayDH non-Client (top-level + EffectScript/Map/QuestScript/SkillArea) Ã¥â€¦Â¨Ã©Æ’Â¨ read_mh_bin parse ok = true + size match + 256MB Ã©â„¢ÂÃ£â‚¬â€š
+- Ã¦â‚¬Â»Ã¦â€¢Â° 89 -> 268 parse test entries across 5 suites (MxhResourceParse 60 + MxhResourceParseClient 29 + MxhResourceParseServer 108 + MxhResourceParseQuestScript 6 + MxhResourceParsePlayDh 65). 7 Ã¤Â¸Âª 14-byte placeholder stub Ã¨Â¢Â«Ã¨Â¿â€¡Ã¦Â»Â¤ (header.file_size = 0 Ã¤Â¼Å¡Ã¥Â¤Â±Ã¨Â´Â¥ EXPECT_GT)Ã£â‚¬â€š
+- Ã¤Â¸Å½ SHA-256 manifest Ã©â€ÂÃ¥Â®Å¡Ã§Å¡â€ž 303 records Ã¤Â¸Â¥Ã¦Â Â¼Ã¥Â¯Â¹Ã©Â½ÂÃ¯Â¼Å¡Ã¦Â¯ÂÃ¤Â¸ÂªÃ¦Å“â€° SHA-256 Ã¨Â®Â°Ã¥Â½â€¢Ã§Å¡â€ž .bin Ã©Æ’Â½Ã¦Å“â€°Ã¥Â¯Â¹Ã¥Âºâ€ parse testÃ£â‚¬â€š
 
 
 
 ---
 
-## æˆªæ­¢ 2026-08-06 å·²å®Œæˆé¡¹
+## Ã¦Ë†ÂªÃ¦Â­Â¢ 2026-08-06 Ã¥Â·Â²Ã¥Â®Å’Ã¦Ë†ÂÃ©Â¡Â¹
 
-### E1 T1 èµ„æºå­—èŠ‚çº§éªŒè¯ (2026-08-05)
+### E1 T1 Ã¨Âµâ€žÃ¦ÂºÂÃ¥Â­â€”Ã¨Å â€šÃ§ÂºÂ§Ã©ÂªÅ’Ã¨Â¯Â (2026-08-05)
 
-- E1 T1 payload SHA-256 byte-level verification - 3 ä¸ª manifest (deploy + PlayDH + PlayDH/Client), 146 records, 117 .bin æ–‡ä»¶ SHA-256 + byte-size + header.type é”å®šã€‚3/3 VerifyManifest_* PASSã€‚
-- E1 T1 mechanical expansion - 89 deploy/Resource .bin å…¨éƒ¨ read_mh_bin parse ok = true + size match + 256MB é™ã€‚
+- E1 T1 payload SHA-256 byte-level verification - 3 Ã¤Â¸Âª manifest (deploy + PlayDH + PlayDH/Client), 146 records, 117 .bin Ã¦â€“â€¡Ã¤Â»Â¶ SHA-256 + byte-size + header.type Ã©â€ÂÃ¥Â®Å¡Ã£â‚¬â€š3/3 VerifyManifest_* PASSÃ£â‚¬â€š
+- E1 T1 mechanical expansion - 89 deploy/Resource .bin Ã¥â€¦Â¨Ã©Æ’Â¨ read_mh_bin parse ok = true + size match + 256MB Ã©â„¢ÂÃ£â‚¬â€š
 
-### Phase D çŽ©æ³•/æ•°å€¼ 1:1
+### Phase D Ã§Å½Â©Ã¦Â³â€¢/Ã¦â€¢Â°Ã¥â‚¬Â¼ 1:1
 
-- D1.1 + D1.2 + D1.3 SkillList.bin parser + call-site - SkillInfo æ‰©åˆ° 60+ å­—æ®µ 1:1 legacy SKILLINFO, SkillListParser è§£ç  MHFile packed-text, 1817 entries load æˆåŠŸ 0 parse_errorsã€‚MapHandler ç”¨çœŸ SkillList.bin è€Œéž 4-skill hardcodeã€‚
-- D2 BattleFactory 1:1 - 14 compute_* å‡½æ•° (critical/decisive/player-phy/player-attr/exp/point/phy-defence/received-dmg/monster-phy/monster-attr/titan-phy/titan-attr) + 13 legacy_* æµ‹è¯•ã€‚
+- D1.1 + D1.2 + D1.3 SkillList.bin parser + call-site - SkillInfo Ã¦â€°Â©Ã¥Ë†Â° 60+ Ã¥Â­â€”Ã¦Â®Âµ 1:1 legacy SKILLINFO, SkillListParser Ã¨Â§Â£Ã§Â Â MHFile packed-text, 1817 entries load Ã¦Ë†ÂÃ¥Å Å¸ 0 parse_errorsÃ£â‚¬â€šMapHandler Ã§â€Â¨Ã§Å“Å¸ SkillList.bin Ã¨â‚¬Å’Ã©ÂÅ¾ 4-skill hardcodeÃ£â‚¬â€š
+- D2 BattleFactory 1:1 - 14 compute_* Ã¥â€¡Â½Ã¦â€¢Â° (critical/decisive/player-phy/player-attr/exp/point/phy-defence/received-dmg/monster-phy/monster-attr/titan-phy/titan-attr) + 13 legacy_* Ã¦Âµâ€¹Ã¨Â¯â€¢Ã£â‚¬â€š
 - D3.x QuestManager (D3.5-D3.7):
-  - D3.5 QuestScriptLine ç«¯åˆ°ç«¯ parser - 9 event tokens + 6 limit tokens + &Limit + @Event + *Execute layout
-  - D3.6 QuestTrigger runtime evaluator - 10 tests, EndQuest fix (args[0] 1-arg subquest ç´¢å¼•)
+  - D3.5 QuestScriptLine Ã§Â«Â¯Ã¥Ë†Â°Ã§Â«Â¯ parser - 9 event tokens + 6 limit tokens + &Limit + @Event + *Execute layout
+  - D3.6 QuestTrigger runtime evaluator - 10 tests, EndQuest fix (args[0] 1-arg subquest Ã§Â´Â¢Ã¥Â¼â€¢)
   - D3.7 QuestScript subquest block parser - 12 tests
   - D3.3 / D3.4 QuestExecute data-plane dispatch (5+4 QuestGroup + 4 dispatch tests)
-- D5 MurimNet 1:1 wire - Channel + PlayRoom + 60 åè®®ä»£ç  + 9 wire serializer + 7 short wire + runtime.broadcast_chat sink + MurimNetCrypt + 139 testsã€‚
-- D6.1 æ•°å€¼ baseline - 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 124 æ§½ / 2728B ItemTotalInfo / 3775B GameInAck hero payload / 4 ItemEffect å…¬å¼ / 3 default MonsterTemplate å…¨éƒ¨ 1:1 é”æ­»ã€‚
-- D6.2 Distributer recipient + party-exp pure decisions - legacy null-party tie no-op, 50/50 tie, float allocation, zero-send gate. 10 new tests, 45/45 focused PASSã€‚
-- D6.2 FieldBossMonsterManager 1:1 - 19 tests (channel é…ç½®/å‡ºæ€ª/é‡ç½®/å•é£ž/é™é¢‘)ã€‚
-- D6.2 ChooseOne tie-break + SetPlusTotalDamage += semanticsã€‚
-- D6.3 BossMonsterManager 1:1 - 19 tests (register/spawn/erase/damage/live_count)ã€‚
-- D6.4 cMonsterSpeechManager 1:1 - 15 testsã€‚
-- D6.5 ExperienceCurve 1:1 - 15 tests (CharacterExpPoint.bin reader, add_exp é™ä¸€æ¬¡å‡çº§)ã€‚
-- D6.6 state_param + summon_monster + titan_item_manager 1:1 - 31 testsã€‚
-- D6.7 distribute_network_msg_parser + common_network_msg_parser 1:1 - 19 testsã€‚
-- D6.x ItemList.bin 1:1 parser - ITEM_INFO 77 fields, 56/60 token MHFile packed-text, 9887 rows 0 parse errorsã€‚Shared decode_mhfile_text_payload helperã€‚
-- R-8 item_effects real lookup via ItemManager - ItemManager.init_from_bin / get / try_get / exists / sizeã€‚resolve_item_effect_with_manager è¯» LifeRecover / LifeRecoverRate / NaeRyukRecover / NaeRyukRecoverRateã€‚12 tests PASSã€‚
-- R-8 call-site MapHandler.load_item_list - 3 testsã€‚
-- B6.1 HSEL YHLibrary ABI æ ¡æ­£ - 79 crypto tests, non-virtual dtor / 2 const virtual getters / protected version/type fields / non-virtual CHSEL_STREAMã€‚
+- D5 MurimNet 1:1 wire - Channel + PlayRoom + 60 Ã¥ÂÂÃ¨Â®Â®Ã¤Â»Â£Ã§Â Â + 9 wire serializer + 7 short wire + runtime.broadcast_chat sink + MurimNetCrypt + 139 testsÃ£â‚¬â€š
+- D6.1 Ã¦â€¢Â°Ã¥â‚¬Â¼ baseline - 7 OBJECTKIND / 6 MonsterAI / 14B MonsterTotalInfo / 22B ItemBase / 124 Ã¦Â§Â½ / 2728B ItemTotalInfo / 3775B GameInAck hero payload / 4 ItemEffect Ã¥â€¦Â¬Ã¥Â¼Â / 3 default MonsterTemplate Ã¥â€¦Â¨Ã©Æ’Â¨ 1:1 Ã©â€ÂÃ¦Â­Â»Ã£â‚¬â€š
+- D6.2 Distributer recipient + party-exp pure decisions - legacy null-party tie no-op, 50/50 tie, float allocation, zero-send gate. 10 new tests, 45/45 focused PASSÃ£â‚¬â€š
+- D6.2 FieldBossMonsterManager 1:1 - 19 tests (channel Ã©â€¦ÂÃ§Â½Â®/Ã¥â€¡ÂºÃ¦â‚¬Âª/Ã©â€¡ÂÃ§Â½Â®/Ã¥Ââ€¢Ã©Â£Å¾/Ã©â„¢ÂÃ©Â¢â€˜)Ã£â‚¬â€š
+- D6.2 ChooseOne tie-break + SetPlusTotalDamage += semanticsÃ£â‚¬â€š
+- D6.3 BossMonsterManager 1:1 - 19 tests (register/spawn/erase/damage/live_count)Ã£â‚¬â€š
+- D6.4 cMonsterSpeechManager 1:1 - 15 testsÃ£â‚¬â€š
+- D6.5 ExperienceCurve 1:1 - 15 tests (CharacterExpPoint.bin reader, add_exp Ã©â„¢ÂÃ¤Â¸â‚¬Ã¦Â¬Â¡Ã¥Ââ€¡Ã§ÂºÂ§)Ã£â‚¬â€š
+- D6.6 state_param + summon_monster + titan_item_manager 1:1 - 31 testsÃ£â‚¬â€š
+- D6.7 distribute_network_msg_parser + common_network_msg_parser 1:1 - 19 testsÃ£â‚¬â€š
+- D6.x ItemList.bin 1:1 parser - ITEM_INFO 77 fields, 56/60 token MHFile packed-text, 9887 rows 0 parse errorsÃ£â‚¬â€šShared decode_mhfile_text_payload helperÃ£â‚¬â€š
+- R-8 item_effects real lookup via ItemManager - ItemManager.init_from_bin / get / try_get / exists / sizeÃ£â‚¬â€šresolve_item_effect_with_manager Ã¨Â¯Â» LifeRecover / LifeRecoverRate / NaeRyukRecover / NaeRyukRecoverRateÃ£â‚¬â€š12 tests PASSÃ£â‚¬â€š
+- R-8 call-site MapHandler.load_item_list - 3 testsÃ£â‚¬â€š
+- B6.1 HSEL YHLibrary ABI Ã¦Â Â¡Ã¦Â­Â£ - 79 crypto tests, non-virtual dtor / 2 const virtual getters / protected version/type fields / non-virtual CHSEL_STREAMÃ£â‚¬â€š
 
-### R-2 HackShield è·¯ç”± + tick
+### R-2 HackShield Ã¨Â·Â¯Ã§â€Â± + tick
 
-- R-2 AgentHandler HackShield routing - cat==HackShield (67) é€šè¿‡ mxh::server::parse_hackshield_message, conn_user_levels_ + conn_hs_states_ + hackshield_disconnect_pending_, superuser (>=5) ç«‹å³ send_guid_reqã€‚10 testsã€‚
-- R-2.1 AgentHandler auto-populate user_level from chr_log_info (proto=9) - 3 testsã€‚
-- R-2.2 AgentHandler::tick_hackshield() server-side periodic recheck - 4 tests (empty/grace/non-superuser/mixed)ã€‚
-- bug: Crypt::encrypt_crc/decrypt_crc è¿”å›ž 0 è€Œéž HselStream CRC char - fixed + 4 testsã€‚
+- R-2 AgentHandler HackShield routing - cat==HackShield (67) Ã©â‚¬Å¡Ã¨Â¿â€¡ mxh::server::parse_hackshield_message, conn_user_levels_ + conn_hs_states_ + hackshield_disconnect_pending_, superuser (>=5) Ã§Â«â€¹Ã¥ÂÂ³ send_guid_reqÃ£â‚¬â€š10 testsÃ£â‚¬â€š
+- R-2.1 AgentHandler auto-populate user_level from chr_log_info (proto=9) - 3 testsÃ£â‚¬â€š
+- R-2.2 AgentHandler::tick_hackshield() server-side periodic recheck - 4 tests (empty/grace/non-superuser/mixed)Ã£â‚¬â€š
+- bug: Crypt::encrypt_crc/decrypt_crc Ã¨Â¿â€Ã¥â€ºÅ¾ 0 Ã¨â‚¬Å’Ã©ÂÅ¾ HselStream CRC char - fixed + 4 testsÃ£â‚¬â€š
 
-### MurimNet 1:1 å…³é”®
+### MurimNet 1:1 Ã¥â€¦Â³Ã©â€Â®
 
 - commit 83d53c1b - MurimNetChannel.for_each_channel + PlayRoomManager.for_each_room + SendMsg_ChannelList/PlayRoomList
-- commit ce931c51 - wire-byte serializer (MSG_CHANNEL_BASEINFO/MSG_PLAYROOM_BASEINFO/#pragma pack(1) 9 size é”å®š)
-- commit 845294ec - SendMsg_ChannelList/PlayRoomList 8 tests (size = GetMsgLength, Category=38, Protocol=34/35, title 63 å­—èŠ‚)
+- commit ce931c51 - wire-byte serializer (MSG_CHANNEL_BASEINFO/MSG_PLAYROOM_BASEINFO/#pragma pack(1) 9 size Ã©â€ÂÃ¥Â®Å¡)
+- commit 845294ec - SendMsg_ChannelList/PlayRoomList 8 tests (size = GetMsgLength, Category=38, Protocol=34/35, title 63 Ã¥Â­â€”Ã¨Å â€š)
 
-### Phase C UI 1:1 port - ä¸»è¦ batches (Batch 1.1-1.10 + Batch 2.1-2.80)
+### Phase C UI 1:1 port - Ã¤Â¸Â»Ã¨Â¦Â batches (Batch 1.1-1.10 + Batch 2.1-2.80)
 
-å®Œæ•´ 109 dialog åˆ—è¡¨ (æŒ‰ phase commit ç´¢å¼•):
+Ã¥Â®Å’Ã¦â€¢Â´ 109 dialog Ã¥Ë†â€”Ã¨Â¡Â¨ (Ã¦Å’â€° phase commit Ã§Â´Â¢Ã¥Â¼â€¢):
 - Batch 1.1 - 1.10 (10 dialog): cNumberPadDialog / cPartyWarDialog / cWantedDialog / cMPNoticeDialog / cReviveDialog / cMiniFriendDialog / cGuildInviteDialog / cChatOptionDialog / cStallKindSelectDlg / cDebugDlg (331 tests)
 - Batch 2.1 - 2.7 (7 dialog): cMPGuageDialog / cAlertDlg / cChinaAdviceDlg / cLoadingDlg / cKeySettingTipDlg / cIntroReplayDlg / cNameChangeNotifyDlg (210 tests)
-- Batch 2.32 - 2.80: 30+ dialog (cCharChangeDlg, cBailDialog, cChaseInputDialog, cObjectStateManager ç­‰, æ¯ dialog 10-25 tests)
-- æ”¶å£ fixes: cChatOption checked event bits, cListDialogEx legacy event bits, cPushupButton sticky click state, cListItem m_maxLine=0 inconsistencyã€‚
+- Batch 2.32 - 2.80: 30+ dialog (cCharChangeDlg, cBailDialog, cChaseInputDialog, cObjectStateManager Ã§Â­â€°, Ã¦Â¯Â dialog 10-25 tests)
+- Ã¦â€Â¶Ã¥ÂÂ£ fixes: cChatOption checked event bits, cListDialogEx legacy event bits, cPushupButton sticky click state, cListItem m_maxLine=0 inconsistencyÃ£â‚¬â€š
 
-### Phase B æœåŠ¡ç«¯ E2E
+### Phase B Ã¦Å“ÂÃ¥Å Â¡Ã§Â«Â¯ E2E
 
-- B.2.1 CLoginState - 38B legacy payload å­—èŠ‚çº§
-- B.2.2 CCharSelectState - 8B ListSyn + 889B ListAck + è‡ªåŠ¨é€‰ç¬¬ä¸€ä¸ª + SelectSyn
+- B.2.1 CLoginState - 38B legacy payload Ã¥Â­â€”Ã¨Å â€šÃ§ÂºÂ§
+- B.2.2 CCharSelectState - 8B ListSyn + 889B ListAck + Ã¨â€¡ÂªÃ¥Å Â¨Ã©â‚¬â€°Ã§Â¬Â¬Ã¤Â¸â‚¬Ã¤Â¸Âª + SelectSyn
 - B.2.3 CInGameState - 3775B SEND_HERO_TOTALINFO GameInAck
-- B.2.4 state machine çœŸæŽ¥ net äº‹ä»¶
-- B.2.5 MoxianClientE2E headless tool - CreateProcessW å¯ 3 server + C++ çŠ¶æ€æœºè·‘ Login -> CharSelect -> InGame (60s timeout)
+- B.2.4 state machine Ã§Å“Å¸Ã¦Å½Â¥ net Ã¤Âºâ€¹Ã¤Â»Â¶
+- B.2.5 MoxianClientE2E headless tool - CreateProcessW Ã¥ÂÂ¯ 3 server + C++ Ã§Å Â¶Ã¦â‚¬ÂÃ¦Å“ÂºÃ¨Â·â€˜ Login -> CharSelect -> InGame (60s timeout)
 
-### Phase A å®¢æˆ·ç«¯
+### Phase A Ã¥Â®Â¢Ã¦Ë†Â·Ã§Â«Â¯
 
 - f80f6e0 - MoxianClient skeleton (DX11 + WinMain + 4 sprite + cImage <-> IDISpriteObject)
-- CMainGame 1:1 port - eGAMESTATE 0..9 byte-for-byte + 9 state stub + CMainTitle (14 å­—æ®µ 1:1 surface + Init è¯» MHVerInfo.ver)
+- CMainGame 1:1 port - eGAMESTATE 0..9 byte-for-byte + 9 state stub + CMainTitle (14 Ã¥Â­â€”Ã¦Â®Âµ 1:1 surface + Init Ã¨Â¯Â» MHVerInfo.ver)
 
 ---
 
-## è€ ROADMAP ä¸­çš„ Phase 0-12 å™ªéŸ³
+## Ã¨â‚¬Â ROADMAP Ã¤Â¸Â­Ã§Å¡â€ž Phase 0-12 Ã¥â„¢ÂªÃ©Å¸Â³
 
-å‡¡æ—§è¯æåŠ"Phase 0-12 å·²å®Œæˆ""35.1% complete""Qoder IDE Quest" ç­‰, å…¨éƒ¨åºŸå¼ƒã€‚å‚è§ ROADMAP Â§6ã€‚
+Ã¥â€¡Â¡Ã¦â€”Â§Ã¨Â¯ÂÃ¦ÂÂÃ¥ÂÅ "Phase 0-12 Ã¥Â·Â²Ã¥Â®Å’Ã¦Ë†Â""35.1% complete""Qoder IDE Quest" Ã§Â­â€°, Ã¥â€¦Â¨Ã©Æ’Â¨Ã¥ÂºÅ¸Ã¥Â¼Æ’Ã£â‚¬â€šÃ¥Ââ€šÃ¨Â§Â ROADMAP Ã‚Â§6Ã£â‚¬â€š
 
 
 ### D3 quest event dispatcher bridge (2026-08-06)
 
-- D3 runtime bridge - æŠŠ legacy CQuestManager::AddQuestEvent -> CQuestGroup::AddQuestEvent -> sub-condition åŒ¹é… 1:1 ç§»æ¤åˆ° modern runtimeã€‚æ–°å¢ž mxh::server::QuestEvent {kind,target_id,delta} + dispatch_quest_event(QuestLog&, const QuestEvent&)ï¼ŒæŒ‰ QuestLog é¡ºåºéåŽ†ï¼Œåªä¿®æ”¹ Accepted çŠ¶æ€ï¼ˆä¸Ž legacy group å¯¹ terminal quest çš„ guard ä¸€è‡´ï¼‰ï¼Œæ¯ä¸ªåŒ¹é… sub-quest ç´¯åŠ  delta å¹¶ clamp åˆ° targetï¼Œè¿”å›ž std::vector<QuestEventChange> {quest_id, previous_state, state, updated_subs}ã€‚
-- 6 ä¸ªæ–°è¡Œä¸ºé”å®šæµ‹è¯•ï¼šDispatchQuestEvent.UpdatesEveryMatchingActiveQuestInLogOrder / CompletesQuestWhenFinalConditionMatches / UpdatesAllMatchingSubsWithinQuest / IgnoresNonMatchingAndTerminalQuests / ZeroDeltaAndNoneKindAreNoOps / DoesNotMutateOtherQuestsã€‚mxh_quest_manager_tests: 37 -> 43 tests PASS, 0 regressions; æœåŠ¡ç«¯ ctest 313 é¡¹ä¸­ 2 flaky (LoginServerFixture Weather/GuildFieldWar) é‡è·‘ 100% é€šè¿‡ã€‚
-- è§ commit 9512a082: server: D3 quest event dispatcher bridge (legacy AddQuestEvent->QuestGroup semantics)ã€‚
+- D3 runtime bridge - Ã¦Å Å  legacy CQuestManager::AddQuestEvent -> CQuestGroup::AddQuestEvent -> sub-condition Ã¥Å’Â¹Ã©â€¦Â 1:1 Ã§Â§Â»Ã¦Â¤ÂÃ¥Ë†Â° modern runtimeÃ£â‚¬â€šÃ¦â€“Â°Ã¥Â¢Å¾ mxh::server::QuestEvent {kind,target_id,delta} + dispatch_quest_event(QuestLog&, const QuestEvent&)Ã¯Â¼Å’Ã¦Å’â€° QuestLog Ã©Â¡ÂºÃ¥ÂºÂÃ©ÂÂÃ¥Å½â€ Ã¯Â¼Å’Ã¥ÂÂªÃ¤Â¿Â®Ã¦â€Â¹ Accepted Ã§Å Â¶Ã¦â‚¬ÂÃ¯Â¼Ë†Ã¤Â¸Å½ legacy group Ã¥Â¯Â¹ terminal quest Ã§Å¡â€ž guard Ã¤Â¸â‚¬Ã¨â€¡Â´Ã¯Â¼â€°Ã¯Â¼Å’Ã¦Â¯ÂÃ¤Â¸ÂªÃ¥Å’Â¹Ã©â€¦Â sub-quest Ã§Â´Â¯Ã¥Å Â  delta Ã¥Â¹Â¶ clamp Ã¥Ë†Â° targetÃ¯Â¼Å’Ã¨Â¿â€Ã¥â€ºÅ¾ std::vector<QuestEventChange> {quest_id, previous_state, state, updated_subs}Ã£â‚¬â€š
+- 6 Ã¤Â¸ÂªÃ¦â€“Â°Ã¨Â¡Å’Ã¤Â¸ÂºÃ©â€ÂÃ¥Â®Å¡Ã¦Âµâ€¹Ã¨Â¯â€¢Ã¯Â¼Å¡DispatchQuestEvent.UpdatesEveryMatchingActiveQuestInLogOrder / CompletesQuestWhenFinalConditionMatches / UpdatesAllMatchingSubsWithinQuest / IgnoresNonMatchingAndTerminalQuests / ZeroDeltaAndNoneKindAreNoOps / DoesNotMutateOtherQuestsÃ£â‚¬â€šmxh_quest_manager_tests: 37 -> 43 tests PASS, 0 regressions; Ã¦Å“ÂÃ¥Å Â¡Ã§Â«Â¯ ctest 313 Ã©Â¡Â¹Ã¤Â¸Â­ 2 flaky (LoginServerFixture Weather/GuildFieldWar) Ã©â€¡ÂÃ¨Â·â€˜ 100% Ã©â‚¬Å¡Ã¨Â¿â€¡Ã£â‚¬â€š
+- Ã¨Â§Â commit 9512a082: server: D3 quest event dispatcher bridge (legacy AddQuestEvent->QuestGroup semantics)Ã£â‚¬â€š
 
 
 
 ### D4 use_shop_item_decision data plane (2026-08-06)
 
-- D4.20 use_shop_item_decision - æŠŠ legacy CShopItemManager::UseShopItem ä¸­*å®žé™…*è½åˆ° SHOPITEMBASE å­—èŠ‚ä¸Šçš„éƒ¨åˆ† 1:1 æå–ä¸º modern è‡ªç”±å‡½æ•°ï¼šInvalidIcon / ItemInfoMissing / AlreadyInUse ä¸‰é“ guard + Realtime/Playtime/Continue/SellPrice==0 å››ä¸ª BeginTime/Remaintime åˆ†æ”¯ + ItemKind åˆ° dup counter (Incantation/Charm/Herb/Sundries/PetEquip) çš„è·¯ç”±ã€‚
-- æ–°å¢ž inline å¸¸é‡ SHOP_ITEM_USE_PARAM_REALTIME/PLAYTIME/CONTINUE + LEGACY_SHOP_ITEM_* (257/258/259/260/261/262/263/264/300/310ï¼Œ1:1 å¼•ç”¨ [CC]Header/CommonGameDefine.h:698-713)ã€‚
-- 8 ä¸ªæ–°è¡Œä¸ºé”å®šæµ‹è¯•ï¼šRejectsEmptyIcon / RejectsMissingItemInfo / RejectsAlreadyInUse / RealtimeBranchEncodesEndTimeInRemaintime / PlaytimeBranchConvertsRarityToMilliseconds / ContinueBranchHasNoExpiry / ZeroSellPriceRoutesSundriesAndNoTimer / RoutesHerbToHerbDupã€‚mxh_shop_item_manager_tests: 91 -> 99 tests PASS, 0 regressions (ctest -R ShopItemManager|UseShopItemDecision 100% é€šè¿‡)ã€‚
-- æ³¨é‡Šè§£é‡Šï¼šlegacy UseShopItem æ•´æ®µè¢« `/* ... */` æ³¨é‡Šï¼ˆ"ìž„ì‹œë¡œ ë†ˆìŒ - ì„±ëŒ€"ï¼‰ï¼Œä¸å¯ 1:1 å¤çŽ°ï¼›æœ¬å‡½æ•°åªè¦†ç›–èƒ½è½åˆ° SHOPITEMWITHTIME è¡Œçš„ guard + BeginTime/Remaintime éƒ¨åˆ†ã€‚
-- è§ commit dcb05173: server: D4 use_shop_item_decision data plane (legacy UseShopItem guard + BeginTime/Remaintime)ã€‚
+- D4.20 use_shop_item_decision - Ã¦Å Å  legacy CShopItemManager::UseShopItem Ã¤Â¸Â­*Ã¥Â®Å¾Ã©â„¢â€¦*Ã¨ÂÂ½Ã¥Ë†Â° SHOPITEMBASE Ã¥Â­â€”Ã¨Å â€šÃ¤Â¸Å Ã§Å¡â€žÃ©Æ’Â¨Ã¥Ë†â€  1:1 Ã¦ÂÂÃ¥Ââ€“Ã¤Â¸Âº modern Ã¨â€¡ÂªÃ§â€Â±Ã¥â€¡Â½Ã¦â€¢Â°Ã¯Â¼Å¡InvalidIcon / ItemInfoMissing / AlreadyInUse Ã¤Â¸â€°Ã©Ââ€œ guard + Realtime/Playtime/Continue/SellPrice==0 Ã¥â€ºâ€ºÃ¤Â¸Âª BeginTime/Remaintime Ã¥Ë†â€ Ã¦â€Â¯ + ItemKind Ã¥Ë†Â° dup counter (Incantation/Charm/Herb/Sundries/PetEquip) Ã§Å¡â€žÃ¨Â·Â¯Ã§â€Â±Ã£â‚¬â€š
+- Ã¦â€“Â°Ã¥Â¢Å¾ inline Ã¥Â¸Â¸Ã©â€¡Â SHOP_ITEM_USE_PARAM_REALTIME/PLAYTIME/CONTINUE + LEGACY_SHOP_ITEM_* (257/258/259/260/261/262/263/264/300/310Ã¯Â¼Å’1:1 Ã¥Â¼â€¢Ã§â€Â¨ [CC]Header/CommonGameDefine.h:698-713)Ã£â‚¬â€š
+- 8 Ã¤Â¸ÂªÃ¦â€“Â°Ã¨Â¡Å’Ã¤Â¸ÂºÃ©â€ÂÃ¥Â®Å¡Ã¦Âµâ€¹Ã¨Â¯â€¢Ã¯Â¼Å¡RejectsEmptyIcon / RejectsMissingItemInfo / RejectsAlreadyInUse / RealtimeBranchEncodesEndTimeInRemaintime / PlaytimeBranchConvertsRarityToMilliseconds / ContinueBranchHasNoExpiry / ZeroSellPriceRoutesSundriesAndNoTimer / RoutesHerbToHerbDupÃ£â‚¬â€šmxh_shop_item_manager_tests: 91 -> 99 tests PASS, 0 regressions (ctest -R ShopItemManager|UseShopItemDecision 100% Ã©â‚¬Å¡Ã¨Â¿â€¡)Ã£â‚¬â€š
+- Ã¦Â³Â¨Ã©â€¡Å Ã¨Â§Â£Ã©â€¡Å Ã¯Â¼Å¡legacy UseShopItem Ã¦â€¢Â´Ã¦Â®ÂµÃ¨Â¢Â« `/* ... */` Ã¦Â³Â¨Ã©â€¡Å Ã¯Â¼Ë†"Ã¬Å¾â€žÃ¬â€¹Å“Ã«Â¡Å“ Ã«â€ Ë†Ã¬ÂÅ’ - Ã¬â€žÂ±Ã«Å’â‚¬"Ã¯Â¼â€°Ã¯Â¼Å’Ã¤Â¸ÂÃ¥ÂÂ¯ 1:1 Ã¥Â¤ÂÃ§Å½Â°Ã¯Â¼â€ºÃ¦Å“Â¬Ã¥â€¡Â½Ã¦â€¢Â°Ã¥ÂÂªÃ¨Â¦â€ Ã§â€ºâ€“Ã¨Æ’Â½Ã¨ÂÂ½Ã¥Ë†Â° SHOPITEMWITHTIME Ã¨Â¡Å’Ã§Å¡â€ž guard + BeginTime/Remaintime Ã©Æ’Â¨Ã¥Ë†â€ Ã£â‚¬â€š
+- Ã¨Â§Â commit dcb05173: server: D4 use_shop_item_decision data plane (legacy UseShopItem guard + BeginTime/Remaintime)Ã£â‚¬â€š
 
 
 
 ### D4.21 CheckEndTime realtime branch data plane (2026-08-06)
 
-- D4.21 CheckEndTime realtime branch - æŠŠ legacy CShopItemManager::CheckEndTime ä¸­ Realtime æ¨¡å¼ (`SellPrice == eShopItemUseParam_Realtime`) çš„æ•°æ®é¢ 1:1 æå–ä¸º modern æ–¹æ³•: collect_realtime_expired(PackedTime now, out) / consume_realtime_expired(PackedTime now)ã€‚predicate ä¸Ž legacy `curtime > stTIME(Remaintime)` ä¸¥æ ¼ä¸€è‡´ï¼›åªæ‰«æ `Param == SHOP_ITEM_PARAM_STORED_TIME` çš„è¡Œï¼ˆplaytime/continue/one-shot è·³è¿‡ï¼‰ã€‚
-- 7 ä¸ªæ–°è¡Œä¸ºé”å®šæµ‹è¯•: NoRowsNoExpirations / PlaytimeRowsAreSkipped / FutureEndTimeIsNotExpired / EqualEndTimeIsNotExpired / PastEndTimeIsCollected / MixedRowsSelectsOnlyStoredTimeExpired / ConsumeIsIdempotentOnAlreadyExpiredRowsã€‚mxh_shop_item_manager_tests: 99 -> 106 tests PASS, 0 regressionsã€‚
-- è§ commit 3e21470e: server: D4.21 CheckEndTime realtime branch data plane (legacy SellPrice==Realtime sweep)ã€‚
+- D4.21 CheckEndTime realtime branch - Ã¦Å Å  legacy CShopItemManager::CheckEndTime Ã¤Â¸Â­ Realtime Ã¦Â¨Â¡Ã¥Â¼Â (`SellPrice == eShopItemUseParam_Realtime`) Ã§Å¡â€žÃ¦â€¢Â°Ã¦ÂÂ®Ã©ÂÂ¢ 1:1 Ã¦ÂÂÃ¥Ââ€“Ã¤Â¸Âº modern Ã¦â€“Â¹Ã¦Â³â€¢: collect_realtime_expired(PackedTime now, out) / consume_realtime_expired(PackedTime now)Ã£â‚¬â€špredicate Ã¤Â¸Å½ legacy `curtime > stTIME(Remaintime)` Ã¤Â¸Â¥Ã¦Â Â¼Ã¤Â¸â‚¬Ã¨â€¡Â´Ã¯Â¼â€ºÃ¥ÂÂªÃ¦â€°Â«Ã¦ÂÂ `Param == SHOP_ITEM_PARAM_STORED_TIME` Ã§Å¡â€žÃ¨Â¡Å’Ã¯Â¼Ë†playtime/continue/one-shot Ã¨Â·Â³Ã¨Â¿â€¡Ã¯Â¼â€°Ã£â‚¬â€š
+- 7 Ã¤Â¸ÂªÃ¦â€“Â°Ã¨Â¡Å’Ã¤Â¸ÂºÃ©â€ÂÃ¥Â®Å¡Ã¦Âµâ€¹Ã¨Â¯â€¢: NoRowsNoExpirations / PlaytimeRowsAreSkipped / FutureEndTimeIsNotExpired / EqualEndTimeIsNotExpired / PastEndTimeIsCollected / MixedRowsSelectsOnlyStoredTimeExpired / ConsumeIsIdempotentOnAlreadyExpiredRowsÃ£â‚¬â€šmxh_shop_item_manager_tests: 99 -> 106 tests PASS, 0 regressionsÃ£â‚¬â€š
+- Ã¨Â§Â commit 3e21470e: server: D4.21 CheckEndTime realtime branch data plane (legacy SellPrice==Realtime sweep)Ã£â‚¬â€š
 
 
 
@@ -669,7 +678,7 @@ Splits the combined MapHandler dealitem+quest hooks (formerly one uncommitted di
 
 modern/src/server/map_handler.cpp adds `#include "mxh/server/skill_caster.hpp"` after the existing `mxh/server/quest_script_loader.hpp` import so the new data-plane module is reachable. `MapHandler::calculate_damage` body is now a one-line delegation to `mxh::server::skill_caster_calculate_damage(attacker, defender, skill, rng)`. The static `thread_local std::mt19937 rng(std::random_device{}());` is preserved on the function boundary so the 1 dodge + 1 crit draw order matches the legacy inline math byte-for-byte (the 5/5 attack capture diff=0 invariant held under the post-patch ctest run, 11863/11863 PASS). The inline OuterMugong heal formula in `handle_skill` becomes `mxh::server::skill_caster_heal_amount(caster->combat, simple)` so the self/ally heal amount is also data-plane driven.
 
-Behaviour-locking: the 15 `SkillCaster*` tests (commit 4deb5529) cover the 6 status paths + 1:1 damage formula + heal amount, and 11863/11863 ctest PASS confirms the wire preserves the wire shape. Closes ROADMAP §3 M3 "MapHandler wire to skill_caster" gap; the remaining "legacy SWorking cross-implementation diff=0" item still needs the external SWorking environment.
+Behaviour-locking: the 15 `SkillCaster*` tests (commit 4deb5529) cover the 6 status paths + 1:1 damage formula + heal amount, and 11863/11863 ctest PASS confirms the wire preserves the wire shape. Closes ROADMAP Â§3 M3 "MapHandler wire to skill_caster" gap; the remaining "legacy SWorking cross-implementation diff=0" item still needs the external SWorking environment.
 ## 2026-08-10 - tools: scripts/release-modern-rc.ps1 - modern RC assembler + verifier (commit ae189d80)
 
 scripts/release-modern-rc.ps1 (commit ae189d80) is a new internal tool that locks the RC package verifiable step of ROADMAP section 3 M4 / section 5 stage E on the modern single side.
@@ -690,13 +699,13 @@ See git log ea20f9cd.
 
 ## 2026-08-11 - tools: scripts/clean-deploy.ps1 one-command clean machine deployment (M6-A)
 
-New scripts/clean-deploy.ps1 takes a blank Windows Server 2022 / Windows 10/11 box with only PowerShell + Git installed and bootstraps it into a fully built + smoke-verified modern server in one command. Targets ROADMAP M6-A + KNOWN_BUGS DEPLOY-MSSQL + the §5.E " clean machine deployment\ gate.
+New scripts/clean-deploy.ps1 takes a blank Windows Server 2022 / Windows 10/11 box with only PowerShell + Git installed and bootstraps it into a fully built + smoke-verified modern server in one command. Targets ROADMAP M6-A + KNOWN_BUGS DEPLOY-MSSQL + the Â§5.E " clean machine deployment\ gate.
 
 Steps performed (all idempotent):
  1. preflight - admin check, OS, RAM (4 GB+), disk (5 GB+); gracefully degrades on non-admin.
  2. prereq detect - VS2022 (vswhere), cmake, git, sqlcmd, SqlLocalDB, ODBC Driver 18, VC++ Redist, Chocolatey.
  3. prereq install (with -InstallPrereqs) - chocolatey for vcredist2022 / cmake / git / sql-server-express + direct MSI for msodbcsql18 + direct download of vs_buildtools.exe (C++ workload).
- 4. PlayDH junction - modern/data/PlayDH -> <RepoRoot>/墨香【源码配套资源】/PlayDH. ASCII-named so the resource explorer mangles argv correctly.
+ 4. PlayDH junction - modern/data/PlayDH -> <RepoRoot>/å¢¨é¦™ã€æºç é…å¥—èµ„æºã€‘/PlayDH. ASCII-named so the resource explorer mangles argv correctly.
  5. build modern - cmake --build modern/build --config <Config> (inline; bypasses build-modern.ps1 exit-code quirk).
  6. ctest - ctest -C <Config> --test-dir modern/build --output-on-failure.
  7. commercial-smoke - scripts/commercial-smoke.ps1 -BuildDir modern/build (skippable via -SkipSmoke / -SkipGui).
