@@ -241,8 +241,14 @@ int main(int argc, char** argv) {
               << " listening on 0.0.0.0:" << args.port << "\n";
 
     // 3. Main loop: drain reply queue + sleep.
+    auto last_ai_tick = std::chrono::steady_clock::now();
     while (g_running.load()) {
         queue->drain_to(server);
+        const auto now = std::chrono::steady_clock::now();
+        if (now - last_ai_tick >= std::chrono::milliseconds(100)) {
+            handler.tick_monster_ai();
+            last_ai_tick = now;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

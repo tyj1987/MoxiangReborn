@@ -1,4 +1,22 @@
 
+## 2026-08-11 - server: map monster AI heartbeat + move broadcast
+
+modern/tools/MoxianMapServer/main.cpp now calls `MapHandler::tick_monster_ai()` every 100ms (the internal per-monster gate is 1s), so the Phase 10c monster state machine (aggro → chase → attack → return, 10s respawn) actually runs instead of being dead code. Chase/Return position changes are collected and broadcast as `Category::Move / MoveProtocol::MonsterMoveNotify` (`[x:u16][z:u16]` payload) so every client sees monsters move on the map.
+
+modern/include/mxh/server/server.hpp moves `tick_monster_ai()` to the public API (server-main-loop hook) and adds `broadcast_monster_move()`; modern/src/server/map_handler.cpp implements the broadcast and restructures the AI tick to push moved monsters after releasing `monsters_mu_` (avoiding nested-lock re-entry into `players_mu_`).
+
+11879/11879 ctest PASS. See git log (server AI commit).
+
+## 2026-08-11 - client: in-game input closed loop (move / rotate / attack) + 14 tests
+
+The modern client is no longer view-only. `modern/tools/MoxianClient/main.cpp` WndProc forwards WM_KEYDOWN/KEYUP + L/R button + mouse move to the active game state; the message loop routes to `CInGameState` once GameIn starts and pushes the camera yaw to the terrain scene each frame.
+
+`modern/src/client/CInGameState` gains the legacy 1:1 input model: W/S forward/back, Q/E strafe, A/D rotate (arrow keys mirror W/S/A/D), right-drag mouse rotates the camera, left click attacks the nearest alive monster within 500 units (Skill StartSyn skill_idx=1). Movement reports OneTarget every 300ms and Stop on release using the modern MapServer payload `[x:u16][z:u16]`; the local player position drives `TerrainScene::followPlayer` + `EntityScene::synchronizePlayer` so the hero visibly walks and the camera follows. Received Move broadcasts update monsters/remote players, Monster LifeNotify updates HP, ObjectRemove despawns, and Skill StartAck/Nack/SingleResult are dispatched.
+
+`modern/include/mxh/render/TerrainScene.hpp` + `terrain_scene.cpp` add `setCameraYaw/cameraYaw` (rotate the follow camera around the world Y axis). New pure helpers in CInGameState (wire builders/parsers, key mapping, movement step, attack targeting) are covered by `modern/tests/unit/client/cingame_input_test.cpp` (14 tests).
+
+11879/11879 ctest PASS; in-window synthetic input verified end-to-end: W key → OneTarget stream (z 27361→28020) → Stop; left click → Skill StartSyn target=50001 → StartAck → SingleResult damage=30. See git log (client input commit).
+
 ## 2026-08-10 - server: BuySyn money persistence to modern_player_state (SQLite + MSSQL UPSERT) + 2 e2e tests
 
 modern/src/server/map_handler.cpp adds `MapHandler::persist_player_money(player_id, money)` private method that runs `INSERT INTO modern_player_state (player_id, money, updated_at) VALUES (?, ?, strftime(...)) ON CONFLICT (player_id) DO UPDATE SET money = excluded.money, updated_at = excluded.updated_at` via the existing `IDbAdapter& db_` reference. The BuySyn Ok arm in `handle_item()` now calls this method right after `reply_(id, reply_msg)` so the new money is upserted into the modern schema and survives a server restart. The SQL is portable: SQLite (3.24+ ON CONFLICT) and MSSQL (2016+ INSERT...ON CONFLICT) both accept the UPSERT form.

@@ -405,6 +405,10 @@ public:
                        mxh::net::NetError reason) override;
     mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
+    // Server-main-loop hook: advances monster AI (aggro/chase/return) and
+    // broadcasts movement. The map server main loop calls this periodically.
+    void tick_monster_ai();
+
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
@@ -439,7 +443,7 @@ private:
     void broadcast_monster_add(const mxh::game::MonsterInstance& monster);
     void broadcast_monster_remove(std::uint32_t monster_object_id);
     void broadcast_monster_life(const mxh::game::MonsterInstance& monster);
-    void tick_monster_ai();
+    void broadcast_monster_move(const mxh::game::MonsterInstance& monster);
 
     // Phase 10d: Skill management
     void init_skill_table();
