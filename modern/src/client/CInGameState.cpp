@@ -869,8 +869,9 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
             toggle_inventory();
             return;
         }
-        if (vk == 0x42) {  // 'B' opens the NPC shop (npc 0 = first catalog)
-            open_shop(0);
+        if (vk == 0x42) {  // 'B' opens the nearest NPC's shop
+            const auto nearest = pick_nearest_npc();
+            if (nearest != 0) open_shop(nearest);
             return;
         }
         if (vk == 0x51) {  // 'Q' toggles the quest panel
@@ -1053,6 +1054,7 @@ void CInGameState::try_attack() {
         make_attack_message(m_playerId, 1u, *target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_lastAttackMs = now;
+        m_attackFlashMs = now;  // trigger attack visual flash
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
@@ -1079,6 +1081,28 @@ std::uint32_t CInGameState::pick_npc_at_screen(float sx, float sy) const {
         }
     }
     return best;
+}
+
+std::uint32_t CInGameState::pick_nearest_npc() const noexcept {
+    if (m_npcs.empty()) return 0;
+    std::uint32_t bestId = 0;
+    float bestD2 = 500.0f * 500.0f;  // max interaction range 500 world units
+    for (const auto& npc : m_npcs) {
+        const float dx = static_cast<float>(npc.position_x) - m_localX;
+        const float dz = static_cast<float>(npc.position_z) - m_localZ;
+        const float d2 = dx * dx + dz * dz;
+        if (d2 < bestD2) {
+            bestD2 = d2;
+            bestId = npc.npc_id;
+        }
+    }
+    return bestId;
+}
+
+std::uint64_t CInGameState::attack_flash_age_ms() const noexcept {
+    if (m_attackFlashMs == 0) return 0;
+    const auto now = steady_now_ms();
+    return now >= m_attackFlashMs ? (now - m_attackFlashMs) : 0;
 }
 
 void CInGameState::use_quick_slot(std::size_t slot) {

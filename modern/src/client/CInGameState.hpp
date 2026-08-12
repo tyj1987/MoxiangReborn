@@ -297,6 +297,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept { m_inventoryOpen = !m_inventoryOpen; }
+    // Pick the nearest NPC to the player by world distance (max 500 units).
+    std::uint32_t pick_nearest_npc() const noexcept;
     void open_shop(std::uint32_t npc_id);
     void buy_shop_item(std::size_t index);
     void set_quest_catalog(mxh::compat::QuestStringCatalog catalog);
@@ -325,6 +327,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::vector<std::string>& chat_lines() const noexcept {
         return m_chatLines;
     }
+    // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
+    std::uint64_t attack_flash_age_ms() const noexcept;
+
     std::uint16_t local_x() const noexcept {
         return static_cast<std::uint16_t>(m_localX);
     }
@@ -381,6 +386,7 @@ private:
     std::uint64_t  m_lastTickMs   = 0;
     std::uint64_t  m_lastMoveSendMs = 0;
     std::uint64_t  m_lastAttackMs = 0;
+    std::uint64_t  m_attackFlashMs = 0;  // timestamp of last attack for visual flash
     std::int32_t   m_lastMouseX   = 0;
     std::int32_t   m_lastMouseY   = 0;
     bool           m_cameraDrag   = false;

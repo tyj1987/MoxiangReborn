@@ -455,6 +455,15 @@ void renderFrame(HWND h) {
             drawHudBar(g_renderer, g_hud.barBg, g_hud.mpFill,
                        20.0f, 62.0f, 180.0f, 12.0f, mpFrac);
 
+            // Attack visual flash: semi-transparent red screen overlay
+            // (g_hud.hpFill is a 1x1 solid-color sprite; tint it with ARGB 0x40FF0000).
+            const auto flashAge = g_inputTarget->attack_flash_age_ms();
+            if (flashAge > 0 && flashAge <= 200) {
+                drawSpriteQuad(g_renderer, g_hud.hpFill,
+                               0.0f, 0.0f, 800.0f, 600.0f,
+                               0x40FF0000u);  // alpha=0x40 (~25%), red
+            }
+
             // Chat log (last 6 lines) + input line.
             if (g_hudFont) {
                 const auto& lines = g_inputTarget->chat_lines();
