@@ -1,3 +1,13 @@
+## 2026-08-11 - tools: 1h soak-24h canary FAIL at 5.7min (handle leak ~6/cycle, map server OOM)
+
+- Ran soak-24h.ps1 -DurationHours 1.0 -Concurrency 4 against the modern sqlite chain. Canary failed: verdict=FAIL_CRASH_OR_LEAK, exit_code=5. Server crash observed at 21:54:17 (5.7 min in, cycle 1002/4=~250 per slot).
+- Root cause is a handle leak: each e2e cycle creates ~6 OS handles that aren't closed. With concurrency=4, after ~250 cycles per slot, map server had 5998 handles and the next sample showed 88 handles + 0 cpu (= process exited). The 15-min canary at 2414 cycles had 14-19K handles but didn't crash, so the failure threshold is somewhere between 6K and 14K handles (likely a per-process FD limit or page allocator pressure that's run-dependent).
+- Modern-side findings to fix (separate commits):
+  - MapServer: per-cycle handle leak in on_disconnect / connected_players_ / runtime cleanup
+  - AgentServer: similar leak in per-player state cleanup
+  - LoginServer: minor leak
+  - When these land, re-run the 1h canary and bump the threshold to 6h or 24h.
+
 ## 2026-08-11 - tools: 15-min soak-24h canary PASS (2407/2414 cycles, 0 crashes, memory stable)
 
 - Ran soak-24h.ps1 -DurationHours 0.25 -Concurrency 4 against the modern sqlite chain. The 0.25h (15 min) canary is a concrete gate for the M6-B  stability goal. Summary:
