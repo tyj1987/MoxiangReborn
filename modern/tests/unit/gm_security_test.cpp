@@ -70,3 +70,19 @@ TEST(GmRepository, FindsAccountByCharacterId) {
     ASSERT_TRUE(repository.find_account_for_character(8, account).ok());
     EXPECT_TRUE(account.empty());
 }
+
+TEST(GmRepository, ListsAuthoritativeChatNewestFirst) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE log_chat (logid INTEGER PRIMARY KEY, chrname TEXT, channel TEXT, message TEXT, logtime TEXT)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO log_chat VALUES (1, 'Hero', 'all', 'first', '2026-08-12 01:00:00')").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO log_chat VALUES (2, 'Hero', 'all', 'second', '2026-08-12 01:01:00')").ok());
+    mxh::gm::Repository repository(*db);
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(repository.list_chat(rows).ok());
+    ASSERT_EQ(rows.rows.size(), 2u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 2);
+    EXPECT_EQ(std::get<std::string>(rows.rows[0][3]), "second");
+}

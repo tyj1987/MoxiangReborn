@@ -552,8 +552,26 @@ public:
         return not_implemented("item grants are disabled until inventory transactions are authoritative");
     }
 
-    HttpResponse get_chat_logs(const HttpRequest& request) {
-        return not_implemented("chat API is disabled until server-side chat persistence is authoritative");
+    HttpResponse get_chat_logs(const HttpRequest&) {
+        mxh::db::ResultSet rows;
+        const auto query = repository_.list_chat(rows);
+        if (!query.ok()) return database_error(query);
+        JsonValue entries;
+        entries.type = JsonValue::Array;
+        for (const auto& row : rows.rows) {
+            if (row.size() < 5) continue;
+            JsonValue entry;
+            entry.type = JsonValue::Object;
+            entry.object_value["id"] = JsonValue(static_cast<double>(std::get<std::int64_t>(row[0])));
+            entry.object_value["character"] = JsonValue(std::get<std::string>(row[1]));
+            entry.object_value["channel"] = JsonValue(std::get<std::string>(row[2]));
+            entry.object_value["message"] = JsonValue(std::get<std::string>(row[3]));
+            entry.object_value["created_at"] = JsonValue(std::get<std::string>(row[4]));
+            entries.array_value.push_back(std::move(entry));
+        }
+        HttpResponse response;
+        response.body = entries.dump();
+        return response;
     }
 
     HttpResponse create_event(const HttpRequest& request) {

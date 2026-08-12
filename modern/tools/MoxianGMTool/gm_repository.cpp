@@ -48,4 +48,9 @@ mxh::db::DbResult Repository::list_audit(mxh::db::ResultSet& rows) {
     return db_.query("SELECT audit_id, actor, target_account, action, reason, created_at "
                      "FROM modern_gm_audit ORDER BY audit_id DESC", rows);
 }
+
+mxh::db::DbResult Repository::list_chat(mxh::db::ResultSet& rows) {
+    return db_.query("SELECT logid, chrname, channel, message, logtime "
+                     "FROM log_chat ORDER BY logid DESC", rows);
+}
 } // namespace mxh::gm

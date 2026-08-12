@@ -25,6 +25,7 @@ public:
     mxh::db::DbResult find_account_for_character(std::int64_t character_id,
                                                   std::string& account_id);
     mxh::db::DbResult list_audit(mxh::db::ResultSet& rows);
+    mxh::db::DbResult list_chat(mxh::db::ResultSet& rows);
 
 private:
     mxh::db::IDbAdapter& db_;

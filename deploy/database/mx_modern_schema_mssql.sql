@@ -146,5 +146,18 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'log_chat')
+BEGIN
+    CREATE TABLE [dbo].[log_chat] (
+        [logid] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [chrname] NVARCHAR(64) NOT NULL,
+        [channel] NVARCHAR(32) NOT NULL,
+        [message] NVARCHAR(512) NOT NULL,
+        [logtime] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+    CREATE INDEX [idx_log_chat_time] ON [dbo].[log_chat] ([logtime]);
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 GO

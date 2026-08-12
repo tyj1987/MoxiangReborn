@@ -849,3 +849,11 @@ docs/LOCAL_E2E_RUN.md records the fully-external end-to-end run: spawn the 3 mod
 Architecture confirmed: server exes under modern\\build\\tools\\*\\Debug\\ are ready for deployment; mxh_client_e2e is the canonical headless protocol test. ROADMAP.md gains a M6-C row noting the local external-run milestone. The wrapper scripts\\local-e2e-run.ps1 was attempted but blocked on PowerShell  automatic-variable shadowing in nested Start-Process calls; manual commands documented instead.
 
 No code changes. 11863/11863 unit tests + commercial-smoke still PASS. Modern schema + real DB write/read proven end-to-end.
+
+## 2026-08-12 - ops: authoritative chat audit data plane
+
+MapServer now persists actual world-chat messages to `log_chat` using prepared parameters, a 512-byte audit cap, NUL termination, and control-byte filtering. Player-state locking is released before database I/O and network replies; audit failure is reported without interrupting live chat delivery.
+
+MoxianGMTool `/api/chat/logs` now returns newest-first authoritative database rows instead of HTTP 501. SQLite initialization already supplied `log_chat`; the production MSSQL schema now creates the equivalent indexed table.
+
+Added two real SQLite tests covering MapHandler sanitization/persistence and GM newest-first retrieval. Full Debug build passed and ctest passed 11924/11924 (one initial run had three transient login golden failures; all three immediately passed in isolation and the complete rerun passed).

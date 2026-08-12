@@ -904,6 +904,28 @@ TEST(MapHandlerTest, ConstructionWithMapNumDoesNotCrash) {
     SUCCEED();
 }
 
+TEST(MapHandlerTest, AllChatPersistsSanitizedAuditRecord) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE log_chat (logid INTEGER PRIMARY KEY AUTOINCREMENT, chrname TEXT, channel TEXT, message TEXT, logtime TEXT)").ok());
+    ReplySpy reply;
+    mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Chat);
+    msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::ChatProtocol::All);
+    msg.header.object_id = 42;
+    msg.payload = {'h', 'i', 1, '!', 0, 'x'};
+    handler.on_message(mxh::net::make_connection_id(9), msg);
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db->query("SELECT chrname, channel, message FROM log_chat", rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::string>(rows.rows[0][0]), "#42");
+    EXPECT_EQ(std::get<std::string>(rows.rows[0][1]), "all");
+    EXPECT_EQ(std::get<std::string>(rows.rows[0][2]), "hi!");
+}
+
 TEST(MapHandlerTest, OnConnectNonLegacyReturnsTrue) {
     // MapHandler.on_connect accepts all clients (no version
     // negotiation, no auth key ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â those happen on Distribute/Agent).
