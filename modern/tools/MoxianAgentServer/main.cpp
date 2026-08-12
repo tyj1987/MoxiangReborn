@@ -49,6 +49,7 @@ struct Args {
     // Phase 9: optional MapServer connection for GameIn forwarding.
     std::string   map_server_addr;  // empty = no MapServer (stub mode)
     std::uint16_t map_server_port   = 8001;
+    std::uint16_t default_map_num   = 12;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -77,13 +78,16 @@ Args parse_args(int argc, char** argv) {
                 a.map_server_addr = spec;
             }
         }
+        else if (s == "--default-map" && i + 1 < argc)
+            a.default_map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
         else if (s == "--help") {
             std::cout << "Usage: mxh_agent_server [options]\n"
                       << "  --port N              listen port (default 7001)\n"
                       << "  --db PATH             db path (SQLite file or MSSQL DSN)\n"
                       << "  --backend NAME        'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
-                      << "  --map-server H:P      connect to MapServer at H:P\n";
+                      << "  --map-server H:P      connect to MapServer at H:P\n"
+                      << "  --default-map N       map assigned to newly created characters\n";
             std::exit(0);
         }
     }
@@ -277,7 +281,7 @@ int main(int argc, char** argv) {
         args.use_legacy, args.use_hsel,
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
             if (server_ptr) server_ptr->send(id, m);
-        });
+        }, args.default_map_num);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;

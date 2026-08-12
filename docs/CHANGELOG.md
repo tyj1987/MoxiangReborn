@@ -923,3 +923,8 @@ A known Big5 title fragment is locked to its expected Unicode text, all real Que
 Added a semantic loader for the original tab-separated `questnpclist.bin` records: map, NPC kind, Big5 name, NPC index, X/Z, and direction. MapServer now loads this resource at production startup and merges its map-filtered NPCs with DealItem shop NPCs, de-duplicating by the authoritative NPC index. This closes the prior runtime gap where only merchants existed and quest-giver NPCs were absent from the world.
 
 Real-resource tests prove zero parse errors and lock the shipped distribution facts (Map 1 has 5 quest NPCs, Map 13 has 12, Map 12 has none). The existing GUI smoke character is on Map 12, so that smoke proves no regression but is deliberately not claimed as visual quest-NPC evidence. Full Debug build and all 11944 tests pass.
+## 2026-08-12 - server/deploy: 单地图拓扑一致性与 Map1 真实 NPC 闭环
+
+- AgentServer 新增 `--default-map`，部署脚本将同一个 `MapNumber` 同时传给 Agent 与 MapServer；新建角色、CharacterSelectAck 和 GameInAck 不再出现 12/目标地图混用。
+- MapServer 以当前实例地图作为会话权威地图。部署时将工作目录设为 PlayDH，并以 `--resource-root .` 加载资源，避开 Windows 窄字符 argv 对中文路径的损坏。
+- GUI 冒烟支持指定地图、最低 NPC 数及进图稳定帧。隔离 SQLite 的 Map1 验证通过：Map1 地形、BGM 1671、角色/进图地图号一致，客户端收到 22 个真实 NPC（门槛 5）。Debug 全量构建通过；CTest 11,944/11,944 PASS。

@@ -13,7 +13,8 @@ param(
     [string]$DbRoot = "",
     [switch]$DryRun,
     [switch]$UseHsel,
-    [string]$DataDir = ""
+    [string]$DataDir = "",
+    [string]$ResourceRoot = ""
 )
 $ErrorActionPreference = "Stop"
 $deployRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -21,6 +22,7 @@ $buildRoot = Join-Path $deployRoot "modern\build\tools"
 $stateDir = Join-Path $deployRoot "deploy\runtime\modern"
 if ([string]::IsNullOrWhiteSpace($DataDir)) { $DataDir = Join-Path $stateDir "data" }
 if ([string]::IsNullOrWhiteSpace($DbRoot)) { $DbRoot = $DataDir }
+if ([string]::IsNullOrWhiteSpace($ResourceRoot)) { $ResourceRoot = (Resolve-Path (Join-Path $deployRoot "*\PlayDH")).Path }
 if ($Backend -eq "mssql_odbc" -and [string]::IsNullOrWhiteSpace($DbRoot)) { throw "DbRoot must be an MSSQL connection string" }
 $pidFile = Join-Path $stateDir "pids.json"
 New-Item -ItemType Directory -Force -Path $stateDir,$DataDir | Out-Null
@@ -39,8 +41,8 @@ $loginInitArgs = if ($Backend -eq "sqlite") { @("--init-schema") } else { @() }
 $hselArgs = if ($UseHsel) { @("--use-hsel") } else { @() }
 $bins = @(
     @{ name = "login"; exe = Join-Path $buildRoot "MoxianLoginServer\Debug\mxh_login_server.exe"; args = @("--port",$LoginPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "login.db" } else { $DbRoot }),"--agent-addr","127.0.0.1","--agent-port",$AgentPort,"--legacy") + $loginInitArgs + $hselArgs },
-    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "agent.db" } else { $DbRoot }),"--legacy","--map-server","127.0.0.1:$MapPort") + $hselArgs },
-    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; args = @("--port",$MapPort,"--map",$MapNumber,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "map.db" } else { $DbRoot }),"--legacy") + $hselArgs }
+    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "agent.db" } else { $DbRoot }),"--legacy","--map-server","127.0.0.1:$MapPort","--default-map",$MapNumber) + $hselArgs },
+    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; working_dir = $ResourceRoot; args = @("--port",$MapPort,"--map",$MapNumber,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "map.db" } else { $DbRoot }),"--legacy","--resource-root",".") + $hselArgs }
 )
 if ($DryRun) {
     Write-Host "Modern server dry-run (backend=$Backend locale=$Locale)" -ForegroundColor Cyan
@@ -54,7 +56,8 @@ $state = @()
 foreach ($item in $bins) {
     if (-not (Test-Path -LiteralPath $item.exe)) { throw "Missing modern server executable: $($item.exe)" }
     $logDir = Join-Path $stateDir "logs"; New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    $proc = Start-Process -FilePath $item.exe -ArgumentList $item.args -WorkingDirectory (Split-Path -Parent $item.exe) -RedirectStandardOutput (Join-Path $logDir "$($item.name).out.log") -RedirectStandardError (Join-Path $logDir "$($item.name).err.log") -PassThru -WindowStyle Hidden
+    $workingDir = if ($item.working_dir) { $item.working_dir } else { Split-Path -Parent $item.exe }
+    $proc = Start-Process -FilePath $item.exe -ArgumentList $item.args -WorkingDirectory $workingDir -RedirectStandardOutput (Join-Path $logDir "$($item.name).out.log") -RedirectStandardError (Join-Path $logDir "$($item.name).err.log") -PassThru -WindowStyle Hidden
     $state += [ordered]@{ name = $item.name; pid = $proc.Id; port = switch ($item.name) { "login" {$LoginPort}; "agent" {$AgentPort}; "map" {$MapPort} } }
     Start-Sleep -Milliseconds 500
     if ($proc.HasExited) { throw "$($item.name) exited during startup" }

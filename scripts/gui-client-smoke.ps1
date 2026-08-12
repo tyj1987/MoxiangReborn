@@ -2,6 +2,9 @@
 param(
     [string]$BuildDir = '',
     [int]$TimeoutSeconds = 20,
+    [ValidateRange(1, 65535)]
+    [int]$MapNumber = 12,
+    [int]$MinimumNpcCount = 0,
     [switch]$FollowCamera
 )
 
@@ -20,11 +23,11 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $stdout = Join-Path $logDir 'client.out.log'
 $stderr = Join-Path $logDir 'client.err.log'
 $characterName = 'GUI' + $runId.Substring(0, 10)
-$frame = Join-Path $runRoot 'map12.tga'
+$frame = Join-Path $runRoot "map${MapNumber}.tga"
 $client = $null
 
 try {
-    & $serverScript -Mode start -Backend sqlite -DataDir (Join-Path $runRoot 'data')
+    & $serverScript -Mode start -Backend sqlite -DataDir (Join-Path $runRoot 'data') -MapNumber $MapNumber
     $arguments = @(
         '--login-host', '127.0.0.1',
         '--login-port', '16001',
@@ -36,6 +39,7 @@ try {
         '--character-name', $characterName,
         '--save-frame', $frame,
         '--state-frames-dir', (Join-Path $runRoot 'state-frames'),
+        '--smoke-settle-frames', '20',
         '--exit-after-gamein'
     )
     if ($FollowCamera) { $arguments += '--follow-camera' }
@@ -52,14 +56,28 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
-    foreach ($marker in @('playing original BGM id=1667', 'playing original BGM id=1670', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
+    foreach ($marker in @('playing original BGM id=1667', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
         if ($log -notmatch [regex]::Escape($marker)) {
             throw "GUI smoke missing marker '$marker'; log=$stderr"
         }
     }
+    $expectedMapBgm = if ($MapNumber -eq 1) { 1671 } elseif ($MapNumber -eq 12) { 1670 } else { 0 }
+    if ($expectedMapBgm -ne 0 -and $log -notmatch [regex]::Escape("playing original BGM id=$expectedMapBgm")) {
+        throw "GUI smoke missing Map $MapNumber BGM id=$expectedMapBgm; log=$stderr"
+    }
     if ($log -notmatch [regex]::Escape('sent CharacterMakeSyn') -and
         $log -notmatch [regex]::Escape('first valid chrid=')) {
         throw "GUI smoke neither created nor loaded a character; log=$stderr"
+    }
+    if ($log -notmatch "CharacterSelectAck chrid=\d+ map_num=$MapNumber") {
+        throw "GUI smoke character map does not match requested map $MapNumber; log=$stderr"
+    }
+    if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
+        throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
+    }
+    $npcCount = ([regex]::Matches($log, 'CInGameState: NpcAdd ')).Count
+    if ($npcCount -lt $MinimumNpcCount) {
+        throw "GUI smoke received $npcCount NPCs, expected at least $MinimumNpcCount; log=$stderr"
     }
     if ($FollowCamera) {
         foreach ($marker in @('[sky] original MOD loaded meshes=8/8 textures=8/8', '[terrain] player camera active', '[entity] original MonsterList loaded', '[entity] original model kind=65006 chx=man.chx', '[entity] original idle animation active', '[entity] original model kind=1 chx=L001.chx')) {
@@ -80,7 +98,7 @@ try {
         & python (Join-Path $repoRoot 'scripts\verify-entity-frame.py') $frame
         if ($LASTEXITCODE -ne 0) { throw "GUI entity frame validation failed: $frame" }
     }
-    Write-Host "GUI_CLIENT_SMOKE PASS (original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
+    Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
 }
 finally {
     if ($client -and -not $client.HasExited) {

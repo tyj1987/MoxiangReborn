@@ -106,7 +106,8 @@ public:
     AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
                  bool use_legacy_framing = false,
                  bool use_hsel = false,
-                 HselSessionManager::DirectSendFn direct_send = {});
+                 HselSessionManager::DirectSendFn direct_send = {},
+                 std::uint16_t default_map_num = 12);
     ~AgentHandler() override = default;
 
     bool on_connect(mxh::net::ConnectionId id,
@@ -196,6 +197,7 @@ private:
     mxh::db::IDbAdapter& db_;
     ReplyFn reply_;
     bool use_legacy_framing_;
+    std::uint16_t default_map_num_ = 12;
 
     // Track user_id per connection (set during CharacterListSyn).
     mutable std::mutex user_mu_;

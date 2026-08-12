@@ -107,7 +107,6 @@ constexpr int kCharTotalInfoSize  = 140; // KOR version, no extra ifdef fields
 
 // Default starting map (jangan / 长安 = 12, from CommonGameDefine.h enum)
 // NOTE: CharacterSelectAck uses MSG_BYTE (1B), so map numbers must be 0-255.
-constexpr std::uint16_t kDefaultMapNum = 12;
 
 // Build MP_USERCONN_AGENT_CONNECTSUCCESS for legacy client.
 mxh::net::Message make_agent_connect_success(std::uint32_t auth_key) {
@@ -165,9 +164,11 @@ std::string get_str(const mxh::db::ResultSet& rs, std::size_t row, const char* c
 AgentHandler::AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
                            bool use_legacy_framing,
                            bool use_hsel,
-                           HselSessionManager::DirectSendFn direct_send)
+                           HselSessionManager::DirectSendFn direct_send,
+                           std::uint16_t default_map_num)
     : db_(db), reply_(std::move(reply)),
       use_legacy_framing_(use_legacy_framing),
+      default_map_num_(default_map_num),
       use_hsel_(use_hsel), hsel_(use_hsel, std::move(direct_send)) {}
 
 mxh::net::IEncryptor* AgentHandler::encryptor_for(
@@ -844,7 +845,7 @@ void AgentHandler::handle_legacy_character_list(
             put_u8(payload, 0);    // Stage
             put_u16(payload, static_cast<std::uint16_t>(get_int(rs, i, "level", 1)));
             std::uint16_t map_num = static_cast<std::uint16_t>(
-                get_int(rs, i, "map_num", kDefaultMapNum));
+                get_int(rs, i, "map_num", default_map_num_));
             put_u16(payload, map_num);  // CurMapNum
             put_u16(payload, map_num);  // LoginMapNum
 
@@ -1107,7 +1108,7 @@ void AgentHandler::handle_legacy_character_make(
         mxh::db::bind(static_cast<std::int64_t>(start_area)),
         mxh::db::bind(static_cast<double>(height)),
         mxh::db::bind(static_cast<double>(width)),
-        mxh::db::bind(static_cast<std::int64_t>(kDefaultMapNum)),
+        mxh::db::bind(static_cast<std::int64_t>(default_map_num_)),
         mxh::db::bind(static_cast<std::int64_t>(standing_idx))
     };
     auto result = db_.execute(
@@ -1210,7 +1211,7 @@ void AgentHandler::handle_legacy_character_select(
     }
 
     std::uint16_t map_num = static_cast<std::uint16_t>(
-        get_int(rs, 0, "map_num", kDefaultMapNum));
+        get_int(rs, 0, "map_num", default_map_num_));
 
     std::cout << "[Agent] CHARACTERSELECT_ACK chrid=" << character_id
               << " map=" << map_num << " name='"
@@ -1405,7 +1406,7 @@ void AgentHandler::handle_legacy_gamein_syn(
             put_zeros(ack.payload, 20); // WearedItemIdx[10]
             put_u8(ack.payload, 0);     // Stage
             put_u16(ack.payload, static_cast<std::uint16_t>(get_int(ci,0,"level",1)));
-            std::uint16_t m = static_cast<std::uint16_t>(get_int(ci,0,"map_num",kDefaultMapNum));
+            std::uint16_t m = static_cast<std::uint16_t>(get_int(ci,0,"map_num",default_map_num_));
             put_u16(ack.payload, m); put_u16(ack.payload, m); // Cur+Login
             put_u8(ack.payload, 0); put_u16(ack.payload, 0); put_u16(ack.payload, 0);
             put_u32(ack.payload, 0); put_u8(ack.payload, 0); put_u32(ack.payload, 0);
@@ -1416,8 +1417,8 @@ void AgentHandler::handle_legacy_gamein_syn(
         } else {
             put_u8(ack.payload, 0); put_u8(ack.payload, 0); put_u8(ack.payload, 0);
             put_zeros(ack.payload, 20); put_u8(ack.payload, 0);
-            put_u16(ack.payload, 1); put_u16(ack.payload, kDefaultMapNum);
-            put_u16(ack.payload, kDefaultMapNum);
+            put_u16(ack.payload, 1); put_u16(ack.payload, default_map_num_);
+            put_u16(ack.payload, default_map_num_);
             put_u8(ack.payload, 0); put_u16(ack.payload, 0); put_u16(ack.payload, 0);
             put_u32(ack.payload, 0); put_u8(ack.payload, 0); put_u32(ack.payload, 0);
             put_u8(ack.payload, 1); put_u8(ack.payload, 0);

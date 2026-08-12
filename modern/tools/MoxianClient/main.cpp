@@ -102,6 +102,7 @@ struct ClientOptions {
     bool auto_login = false;
     bool auto_create = false;
     bool exit_after_gamein = false;
+    std::uint32_t smoke_settle_frames = 0;
     bool follow_camera = false;
     std::string character_name = "ModernHero";
     std::filesystem::path resource_root;
@@ -142,6 +143,8 @@ ClientOptions parse_client_options() {
         else if (arg == L"--auto-login") options.auto_login = true;
         else if (arg == L"--auto-create") options.auto_create = true;
         else if (arg == L"--exit-after-gamein") options.exit_after_gamein = true;
+        else if (arg == L"--smoke-settle-frames" && i + 1 < argc)
+            options.smoke_settle_frames = static_cast<std::uint32_t>(std::stoul(argv[++i]));
         else if (arg == L"--follow-camera") options.follow_camera = true;
         else if (arg == L"--character-name") take(options.character_name);
         else if (arg == L"--resource-root" && i + 1 < argc) {
@@ -1187,7 +1190,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         mainGame.GetGameState(cur_state));
                     game_in && game_in->is_in_game() &&
                     (!options.follow_camera || !game_in->monsters().empty())) {
-                    if (!options.follow_camera || ++follow_settle_frames >= 20u) {
+                    ++follow_settle_frames;
+                    const auto required_frames = options.follow_camera
+                        ? std::max<std::uint32_t>(20u, options.smoke_settle_frames)
+                        : options.smoke_settle_frames;
+                    if (follow_settle_frames >= required_frames) {
                         MLOG_INFO("mxh_client: GUI_SMOKE_PASS player_id=%u map=%u",
                                   game_in->player_id(), game_in->map_num());
                         mxh::client::g_running = false;
