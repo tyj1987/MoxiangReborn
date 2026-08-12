@@ -637,7 +637,44 @@ public:
     }
 
     HttpResponse give_item(const HttpRequest& request) {
-        return not_implemented("item grants are disabled until inventory transactions are authoritative");
+        size_t pos = 0; JsonValue body;
+        try { body = JsonValue::parse(request.body, pos); }
+        catch (...) { return bad_request("invalid JSON body"); }
+        const auto string_field = [&](const char* name) -> std::string {
+            const auto it = body.object_value.find(name);
+            return it == body.object_value.end() || it->second.type != JsonValue::String ? std::string{} : it->second.string_value;
+        };
+        const auto number_field = [&](const char* name) -> std::int64_t {
+            const auto it = body.object_value.find(name);
+            return it == body.object_value.end() || it->second.type != JsonValue::Number ? 0 : static_cast<std::int64_t>(it->second.number_value);
+        };
+        const auto key = string_field("idempotency_key");
+        const auto actor = string_field("actor");
+        const auto reason = string_field("reason");
+        const auto character_id = number_field("character_id");
+        const auto item_id = number_field("item_id");
+        const auto count = number_field("count");
+        if (key.empty() || actor.empty() || reason.empty() || character_id <= 0 || item_id <= 0 || count <= 0) {
+            return bad_request("idempotency_key, character_id, item_id, count, actor and reason are required");
+        }
+        if (key.size() > 128 || actor.size() > 64 || reason.size() > 256 || count > 9999 || item_id > 65535) {
+            return bad_request("grant field exceeds limit");
+        }
+        bool known_item = false;
+        for (const auto& item : item_catalog_.items()) if (item.ItemIdx == item_id) { known_item = true; break; }
+        if (!known_item) return bad_request("unknown authoritative item id");
+        std::string account;
+        const auto character = repository_.find_account_for_character(character_id, account);
+        if (!character.ok()) return database_error(character);
+        if (account.empty()) { HttpResponse r; r.status=404; r.status_text="Not Found"; r.body="{\"error\":\"character not found\"}"; return r; }
+        bool already_exists = false;
+        const auto result = repository_.enqueue_item_grant(key, character_id, item_id, count, actor, reason, already_exists);
+        if (!result.ok()) return database_error(result);
+        HttpResponse response;
+        response.status = already_exists ? 200 : 202;
+        response.status_text = already_exists ? "OK" : "Accepted";
+        response.body = already_exists ? "{\"status\":\"already_queued\"}" : "{\"status\":\"pending\"}";
+        return response;
     }
 
     HttpResponse get_chat_logs(const HttpRequest&) {

@@ -12,6 +12,7 @@ target_link_libraries(mxh_server_handler_tests PRIVATE
 target_include_directories(mxh_server_handler_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
+target_compile_definitions(mxh_server_handler_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_server_handler_tests

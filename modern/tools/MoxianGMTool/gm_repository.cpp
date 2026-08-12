@@ -102,4 +102,32 @@ mxh::db::DbResult Repository::disable_event(std::int64_t event_id, const std::st
     else (void)db_.rollback();
     return result;
 }
+
+mxh::db::DbResult Repository::enqueue_item_grant(const std::string& idempotency_key,
+        std::int64_t character_id, std::int64_t item_id, std::int64_t count,
+        const std::string& actor, const std::string& reason, bool& already_exists) {
+    mxh::db::ResultSet existing;
+    const std::vector<mxh::db::Bind> key_arg{mxh::db::bind(idempotency_key)};
+    auto result = db_.query("SELECT grant_id FROM modern_item_grant WHERE idempotency_key=?", key_arg, existing);
+    if (!result.ok()) return result;
+    already_exists = !existing.empty();
+    if (already_exists) return result;
+    result = db_.begin_transaction();
+    if (!result.ok()) return result;
+    const std::vector<mxh::db::Bind> args{mxh::db::bind(idempotency_key),
+        mxh::db::bind(character_id), mxh::db::bind(item_id), mxh::db::bind(count),
+        mxh::db::bind(actor), mxh::db::bind(reason)};
+    result = db_.execute("INSERT INTO modern_item_grant "
+        "(idempotency_key,character_id,item_id,item_count,status,created_by,reason) "
+        "VALUES (?,?,?,?,'pending',?,?)", args);
+    if (result.ok()) {
+        const std::vector<mxh::db::Bind> audit_args{mxh::db::bind(actor),
+            mxh::db::bind(std::string("character:") + std::to_string(character_id)), mxh::db::bind(reason)};
+        result = db_.execute("INSERT INTO modern_gm_audit "
+            "(actor,target_account,action,reason,created_at) VALUES (?,?,'item.grant',?,CURRENT_TIMESTAMP)", audit_args);
+    }
+    if (result.ok()) result = db_.commit();
+    else (void)db_.rollback();
+    return result;
+}
 } // namespace mxh::gm

@@ -122,3 +122,19 @@ TEST(GmRepository, CreatesListsAndDisablesAuditedLiveEventAtomically) {
     EXPECT_EQ(std::get<std::string>(audit.rows[0][3]), "event.disable");
     EXPECT_EQ(std::get<std::string>(audit.rows[1][3]), "event.create");
 }
+
+TEST(GmRepository, ItemGrantIsIdempotentAndAuditedOnce) {
+    auto db = mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY AUTOINCREMENT,idempotency_key TEXT UNIQUE,character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,created_by TEXT,reason TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP,claimed_at TEXT,inventory_slot INTEGER)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_gm_audit (audit_id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT,target_account TEXT,action TEXT,reason TEXT,created_at TEXT)").ok());
+    mxh::gm::Repository repository(*db); bool duplicate = false;
+    ASSERT_TRUE(repository.enqueue_item_grant("ticket-42", 7, 8000, 3, "gm", "support", duplicate).ok());
+    EXPECT_FALSE(duplicate);
+    ASSERT_TRUE(repository.enqueue_item_grant("ticket-42", 7, 8000, 3, "gm", "support", duplicate).ok());
+    EXPECT_TRUE(duplicate);
+    mxh::db::ResultSet grants; ASSERT_TRUE(db->query("SELECT status,item_count FROM modern_item_grant", grants).ok());
+    ASSERT_EQ(grants.rows.size(), 1u); EXPECT_EQ(std::get<std::string>(grants.rows[0][0]), "pending");
+    mxh::db::ResultSet audit; ASSERT_TRUE(repository.list_audit(audit).ok()); ASSERT_EQ(audit.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::string>(audit.rows[0][3]), "item.grant");
+}

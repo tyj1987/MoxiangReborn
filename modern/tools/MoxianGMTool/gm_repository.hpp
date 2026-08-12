@@ -33,6 +33,9 @@ public:
                                     const std::string& actor);
     mxh::db::DbResult disable_event(std::int64_t event_id, const std::string& actor,
                                      const std::string& reason);
+    mxh::db::DbResult enqueue_item_grant(const std::string& idempotency_key,
+        std::int64_t character_id, std::int64_t item_id, std::int64_t count,
+        const std::string& actor, const std::string& reason, bool& already_exists);
 
 private:
     mxh::db::IDbAdapter& db_;

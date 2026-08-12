@@ -178,5 +178,25 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_item_grant')
+BEGIN
+    CREATE TABLE [dbo].[modern_item_grant] (
+        [grant_id] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [idempotency_key] NVARCHAR(128) NOT NULL UNIQUE,
+        [character_id] BIGINT NOT NULL,
+        [item_id] INT NOT NULL,
+        [item_count] BIGINT NOT NULL,
+        [status] NVARCHAR(16) NOT NULL DEFAULT N'pending',
+        [inventory_slot] INT NULL,
+        [created_by] NVARCHAR(64) NOT NULL,
+        [reason] NVARCHAR(256) NOT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [claimed_at] DATETIME2 NULL
+    );
+    CREATE INDEX [idx_modern_item_grant_pending]
+        ON [dbo].[modern_item_grant] ([character_id], [status], [grant_id]);
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 GO

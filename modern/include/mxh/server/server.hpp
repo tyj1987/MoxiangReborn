@@ -341,6 +341,7 @@ public:
 
     bool set_player_vitals_for_test(std::uint32_t player_id, std::uint32_t hp, std::uint32_t mp);
     bool add_player_item_for_test(std::uint32_t player_id, const mxh::game::ItemBase& item);
+    std::size_t claim_pending_item_grants_for_test(std::uint32_t player_id);
     bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
     std::uint32_t player_money_for_test(std::uint32_t player_id) noexcept;
     std::size_t player_quest_count_for_test(std::uint32_t player_id) noexcept;
@@ -423,6 +424,7 @@ private:
                      const mxh::net::Message& msg);
     void handle_gamein(mxh::net::ConnectionId id,
                        const mxh::net::Message& msg);
+    std::size_t claim_pending_item_grants(std::uint32_t player_id);
     // Phase 10b: Item protocol handling
     void handle_item(mxh::net::ConnectionId id,
                      const mxh::net::Message& msg);

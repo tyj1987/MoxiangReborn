@@ -954,6 +954,27 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
 }
 
+TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
+    auto db = mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,level INTEGER,gender INTEGER,face INTEGER,hair INTEGER)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES (123,'GrantHero',1,0,0,0)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY,idempotency_key TEXT UNIQUE,character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,inventory_slot INTEGER,created_by TEXT,reason TEXT,created_at TEXT,claimed_at TEXT)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO modern_item_grant VALUES (1,'once',123,8000,3,'pending',NULL,'gm','test',CURRENT_TIMESTAMP,NULL)").ok());
+    ReplySpy reply; mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
+    const std::string item_path = std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/ItemList.bin";
+    handler.load_item_list(item_path);
+    mxh::net::Message game_in; game_in.header.object_id = 123;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    const auto snapshot = handler.player_runtime_snapshot(123); ASSERT_TRUE(snapshot); EXPECT_EQ(snapshot->inventory_count, 1u);
+    EXPECT_EQ(handler.claim_pending_item_grants_for_test(123), 0u);
+    mxh::db::ResultSet rows; ASSERT_TRUE(db->query("SELECT status,inventory_slot FROM modern_item_grant WHERE grant_id=1", rows).ok());
+    EXPECT_EQ(std::get<std::string>(rows.rows[0][0]), "claimed");
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 0);
+}
+
 TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
     MockDbAdapter db;
     ReplySpy reply;

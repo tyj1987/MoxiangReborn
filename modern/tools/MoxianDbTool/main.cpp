@@ -191,6 +191,23 @@ CREATE TABLE IF NOT EXISTS modern_live_event (
 
 CREATE INDEX IF NOT EXISTS idx_modern_live_event_window
     ON modern_live_event(enabled, starts_at, ends_at);
+
+CREATE TABLE IF NOT EXISTS modern_item_grant (
+    grant_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    character_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    item_count INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    inventory_slot INTEGER,
+    created_by TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    claimed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_item_grant_pending
+    ON modern_item_grant(character_id, status, grant_id);
 )SQL";
 }
 
