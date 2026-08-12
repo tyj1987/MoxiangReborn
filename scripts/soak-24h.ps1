@@ -102,6 +102,7 @@ function Stop-All($startedServer) {
             try { Stop-Process -Id $slot.Proc.Id -Force -ErrorAction SilentlyContinue } catch {}
         }
     }
+    $script:clients.Clear()
     # always kill any lingering server processes (handles orphan from prior runs)
     foreach ($n in $script:serverNames) { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
     if ($startedServer -and -not $SkipServerStart) {        try { & $startServerScript -Mode stop 2>$null } catch {}
@@ -150,8 +151,8 @@ $serverCrashObserved = $false
 $samples = New-Object 'System.Collections.Generic.List[object]'
 $startTime = Get-Date
 $endTime = $startTime.AddHours($DurationHours)
-$interrupt = $false
-$interruptReason = ''
+$script:interrupt = $false
+$script:interruptReason = ''
 $initialRss = @{}
 $script:serverNames = @('mxh_login_server','mxh_agent_server_CHINA','mxh_map_server_CHINA')
 
@@ -169,9 +170,9 @@ Write-Host ('  report: ' + $ReportDir)
 # ---- main loop ----
 $nextSample = $startTime
 try {
-    while (($endTime -gt (Get-Date)) -and -not $interrupt -and -not $serverCrashObserved -and ($cycleFail -lt $MaxClientFailures)) {
+    while (($endTime -gt (Get-Date)) -and -not $script:interrupt -and -not $serverCrashObserved -and ($cycleFail -lt $MaxClientFailures)) {
         # refill slots
-        while ($script:clients.Count -lt $Concurrency -and -not $interrupt) {
+        while ($script:clients.Count -lt $Concurrency -and -not $script:interrupt) {
             $slotSeq += 1
             $charName = 'soak' + $runId + ('{0:D5}' -f $slotSeq)
             $logPath = Join-Path $clientLogDir ('client-' + ('{0:D4}' -f $slotSeq) + '.log')
@@ -200,6 +201,8 @@ try {
             $slot = $script:clients[$k]
             $proc = $slot.Proc
             if ($proc.HasExited) {
+                $proc.WaitForExit()
+                $proc.Refresh()
                 $finished += $k
                 $cycleTotal += 1
                 $exit = $proc.ExitCode
@@ -266,6 +269,7 @@ try {
     }
 }
 finally {
+    [Console]::remove_CancelKeyPress($handler)
     Stop-All $startedServer
 }
 
@@ -273,7 +277,7 @@ finally {
 $endStamp = Get-Date
 $verdict = 'PASS'
 $exitCode = 0
-if ($interrupt) { $verdict = 'INTERRUPTED'; $exitCode = 130 }
+if ($script:interrupt) { $verdict = 'INTERRUPTED'; $exitCode = 130 }
 if ($serverCrashObserved) { $verdict = 'FAIL_CRASH_OR_LEAK'; $exitCode = 5 }
 elseif ($cycleFail -ge $MaxClientFailures) { $verdict = 'FAIL_ERROR_RATE'; $exitCode = 5 }
 elseif ($cycleTotal -eq 0) { $verdict = 'FAIL_NO_CYCLES'; $exitCode = 4 }
@@ -294,8 +298,8 @@ $state = [ordered]@{
     cycle_fail = $cycleFail
     cycle_success_rate = if ($cycleTotal -gt 0) { [math]::Round($cycleOk / $cycleTotal, 4) } else { 0 }
     server_crash_observed = $serverCrashObserved
-    interrupt = $interrupt
-    interrupt_reason = $interruptReason
+    interrupt = $script:interrupt
+    interrupt_reason = $script:interruptReason
     initial_rss_mb = $initialRss
     sample_count = $samples.Count
     report_dir = $ReportDir
