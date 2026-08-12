@@ -150,6 +150,24 @@ ReplayScenario chat_scenario() {
     return s;
 }
 
+ReplayScenario move_scenario() {
+    ReplayScenario s;
+    s.name = "move";
+    s.endpoint = ReplayEndpoint::Map;
+    // Cat 8 MP_MOVE. Proto 0 Init (movement initialization). The legacy
+    // client sends 4B target_x:u16 + target_z:u16 (total 4B payload).
+    // Modern handle_move echoes the same packet back to the sender
+    // (see handle_move sender-echo fix), so the capture is a 1-packet
+    // 7B wire frame: 2B length + 1B checksum + 1B code + 1B cat + 1B proto
+    // + 4B object_id + 4B payload. object_id is the player_id (we use
+    // 0 since the side-by-side has no player context).
+    std::vector<std::uint8_t> p(4, 0);
+    put_u16(p.data(), 0x1234);  // target_x
+    put_u16(p.data() + 2, 0x5678);  // target_z
+    s.client_packets.push_back(mk(8, 0, 0, std::move(p)));
+    return s;
+}
+
 const char* endpoint_name(ReplayEndpoint endpoint) noexcept {
     switch (endpoint) {
     case ReplayEndpoint::Login: return "login";

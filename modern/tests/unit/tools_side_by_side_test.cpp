@@ -174,10 +174,11 @@ TEST(SideBySideReplay, ScenariosRouteToExpectedServer) {
     EXPECT_EQ(shop_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_EQ(quest_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_EQ(chat_scenario().endpoint, ReplayEndpoint::Map);
+    EXPECT_EQ(move_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_STREQ(endpoint_name(ReplayEndpoint::Agent), "agent");
 }
 
-TEST(SideBySideReplay, AttackShopQuestChatScenariosHaveFixedSizes) {
+TEST(SideBySideReplay, AllSevenScenariosHaveFixedSizes) {
     // attack: cat=Skill(22), proto=StartSyn(0),
     //   payload=[skill_idx:u32][main_target:u32][target_x:f32][target_z:f32] = 16B.
     EXPECT_EQ(attack_scenario().client_packets.front().category, 22u);
@@ -202,6 +203,18 @@ TEST(SideBySideReplay, AttackShopQuestChatScenariosHaveFixedSizes) {
     EXPECT_EQ(chatPayload[1], 0x65u);
     EXPECT_EQ(chatPayload[2], 0x6cu);
     EXPECT_EQ(chatPayload[3], 0x6cu);
+    // move: cat=Move(8), proto=Init(0), payload=[target_x:u16][target_z:u16] = 4B.
+    EXPECT_EQ(move_scenario().client_packets.front().category, 8u);
+    EXPECT_EQ(move_scenario().client_packets.front().protocol, 0u);
+    EXPECT_EQ(move_scenario().client_packets.front().payload.size(), 4u);
+    const auto movePayload = move_scenario().client_packets.front().payload;
+    ASSERT_EQ(movePayload.size(), 4u);
+    const std::uint16_t mx = static_cast<std::uint16_t>(movePayload[0]) |
+                              (static_cast<std::uint16_t>(movePayload[1]) << 8);
+    EXPECT_EQ(mx, 0x1234u);
+    const std::uint16_t mz = static_cast<std::uint16_t>(movePayload[2]) |
+                              (static_cast<std::uint16_t>(movePayload[3]) << 8);
+    EXPECT_EQ(mz, 0x5678u);
     EXPECT_EQ(chatPayload[4], 0x6fu);
 }
 
@@ -210,6 +223,27 @@ TEST(SideBySideReplay, AttackShopQuestChatScenariosHaveFixedSizes) {
 // verified here so the modern MapServer protocol coverage does not regress.
 TEST(SideBySideModernGolden, ChatScenarioNameIsChat) {
     EXPECT_STREQ(chat_scenario().name.c_str(), "chat");
+}
+
+TEST(SideBySideModernGolden, MoveScenarioNameIsMove) {
+    EXPECT_STREQ(move_scenario().name.c_str(), "move");
+}
+
+TEST(SideBySideModernGolden, MoveTraceIsMoveInitEcho) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_move.cap");
+    ASSERT_EQ(trace.size(), 1u);
+    EXPECT_EQ(trace[0].category, 8u);   // Move
+    EXPECT_EQ(trace[0].protocol, 0u);   // Init
+    EXPECT_EQ(trace[0].length, 4u);
+    EXPECT_EQ(trace[0].payload.size(), 4u);
+    // target_x:u16 (LE 0x1234) + target_z:u16 (LE 0x5678).
+    const std::uint16_t mx2 = static_cast<std::uint16_t>(trace[0].payload[0]) |
+                               (static_cast<std::uint16_t>(trace[0].payload[1]) << 8);
+    EXPECT_EQ(mx2, 0x1234u);
+    const std::uint16_t mz2 = static_cast<std::uint16_t>(trace[0].payload[2]) |
+                               (static_cast<std::uint16_t>(trace[0].payload[3]) << 8);
+    EXPECT_EQ(mz2, 0x5678u);
 }
 
 TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
@@ -229,13 +263,14 @@ TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
     EXPECT_EQ(trace[0].payload[4], 0x6fu);
 }
 
-TEST(SideBySideModernGolden, AllSixScenariosHaveFixtures) {
+TEST(SideBySideModernGolden, AllSevenScenariosHaveFixtures) {
     const std::filesystem::path dir =
         "C:/moxiang/modern/tests/fixtures/sbs_captures_modern";
     for (const char* name : {"modern_login.cap", "modern_enter_game.cap",
                              "modern_attack.cap", "modern_shop.cap",
                              "modern_quest.cap",
-                             "modern_chat.cap"}) {
+                             "modern_chat.cap",
+                             "modern_move.cap"}) {
         const auto p = dir / name;
         ASSERT_TRUE(std::filesystem::exists(p)) << "missing fixture " << name;
         const auto trace = load_capture(p.string());
