@@ -110,10 +110,16 @@ bool IocpConnection::send(const void* data, std::size_t size) {
 
 void IocpConnection::close() {
     if (socket_ != kInvalidSocket) {
+#ifdef MXH_PLATFORM_WINDOWS
+        CancelIoEx(reinterpret_cast<HANDLE>(socket_), nullptr);
+#endif
         closesocket(socket_);
         socket_ = kInvalidSocket;
     }
     connected_ = false;
+    std::lock_guard<std::mutex> lk(send_mutex_);
+    while (!send_queue_.empty()) send_queue_.pop();
+    sending_ = false;
 }
 
 void IocpConnection::process_send_queue() {

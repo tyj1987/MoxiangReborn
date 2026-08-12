@@ -1,3 +1,9 @@
+## 2026-08-12 - server: IocpConnection::close() adds CancelIoEx + send_queue drain (handle leak mitigation, partial)
+
+- modern/src/net/iocp/iocp.cpp: IocpConnection::close() now calls CancelIoEx() before closesocket() and drains send_queue_ under send_mutex_. Partial fix for the 1h soak-24h canary FAIL (5.7 min, 5998 handles, server crash).
+
+- 5-min canary re-run with the fix: verdict=PASS, 954 cycles, 0 server crashes, 99.9% success. Initial handles 88-92, final handles ~5816 on map (still growing). The leak rate is reduced but NOT zero; the 1h canary would still likely FAIL once the threshold is hit. Next pass should find what each cycle is still leaking (likely the IocpConnection shared_ptr is held longer than expected, or per-send / per-recv overlap state lingers).
+
 ## 2026-08-11 - server+tools: side-by-side party+guild 9th/10th segment (T3 9/10 + 10/10 wiring)
 
 - modern/tools/MoxianSideBySide: party_scenario() (cat=14 MP_PARTY, proto=1 MP_PARTY_CREATE_SYN, 20B payload party_name[16] + target_pid:u32) and guild_scenario() (cat=56 MP_GUILD, proto=1 MP_GUILD_CREATE_SYN, 70B payload guild_name[16] + guild_motto[50] + flag:u32). Wired into main.cpp --scenario party|guild|all.
