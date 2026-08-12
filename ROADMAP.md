@@ -33,7 +33,7 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 | DX11 渲染 | headless 3 帧可自然退出；像素门禁锁定 grid、cube、checker 纹理与深度遮挡 | 仍需与原版登录/空场景截图对比 | **modern 闭环完成，legacy 视觉待验收** |
 | HSEL | 软件流、ABI、三进程加密 E2E 已通过 | 商业 RC 按用户决策忽略实体硬件狗，仅保留接口与 wire 兼容 | **RC 范围完成** |
 | MSSQL | ODBC 18/17 自动选择、LocalDB schema 初始化、客户端与三服务端五步 MSSQL E2E 已通过 | 尚需干净机部署和生产配置演练；legacy `.bak` 非强制 | **本机闭环完成，部署待验收** |
-| 账户注册与认证 | `MoxianDbTool register` 从标准输入创建账号；PBKDF2-HMAC-SHA256（随机 16B salt、210,000 次、常量时间校验）；SQLite 注册账号已完成登录→建角→选角→进图真实三服 E2E，错误密码拒绝 | 面向玩家的注册 Web/桌面入口、限流/封禁/审计与密码重置仍待实现 | **安全认证核心闭环完成，运营入口待建** |
+| 账户注册与认证 | `MoxianDbTool register` 从标准输入创建账号；PBKDF2-HMAC-SHA256（随机 16B salt、210,000 次、常量时间校验）；SQLite 注册账号已完成登录→建角→选角→进图真实三服 E2E，错误密码拒绝 | 面向玩家的注册 Web/桌面入口、限流/封禁/审计与密码重置仍待实现 | **安全认证核心闭环完成，运营入口待建（M5 接管）** |
 | GM/运营工具 | GM API 强制认证；玩家、封禁、聊天、物品查询均接权威数据；活动持久化管理；幂等物品投递；MapServer 按 UTC 活动窗实时应用掉落倍率并在进图时发送公告，经验倍率快照已解析并钳制 | 在线领取后的完整角色物品 DB 快照仍需统一持久化；经验奖励实际调用点尚不完整，需随任务结束/击杀经验接线 | **运营控制面、可恢复物品投递、掉落活动与公告闭环完成** |
 | 多账号隔离 | 登录时为每个账号持久化唯一稳定 `user_idx`，角色按该 wire identity 隔离；双账号真实 E2E 各自仅看到自己的角色 | 旧库中此前错误归属为固定 userid=1 的角色需要独立迁移工具 | **新账号隔离闭环完成，旧错误数据待迁移** |
 | 自动补丁 | 已移除模拟版本/假下载；清单与每个文件均做 SHA-256/长度校验，拒绝路径穿越，暂存后原子替换，按清单精确备份并支持恢复新增/覆盖/删除文件 | 生产发布系统仍需生成并安全分发受信任清单摘要，远程 HTTPS 下载尚未接入 | **本地可信发布闭环完成，远程控制面待建** |
@@ -70,6 +70,18 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 - PlayDH 资源审计 433/433=100% OK；DX11 渲染闭环；HSEL 实体设备忽略（用户决策）。
 - scripts/release-modern-rc.ps1 (commit ae189d80) 现 lock 住 "RC package verifiable" internal step：装配现代 (bin + captures) + SHA-256 manifest + RELEASE_NOTES.md + verify gate(11864 tests / 6819 bin / 2874 checksums)。
 - 干净机部署、生产配置演练、24h 长时间稳定性、RC 包在 legacy 侧 cross-impl 仍待外部环境（不阻塞本机 RC 声明）。
+
+### M5：玩家门户站点（Player Portal）— draft，待 M5.1 落地
+
+modern 侧 + 前端 + 单 ECS 部署，覆盖 注册 / 登录 / 商城（展示型）/ 下载 / 新闻 / 服务器状态。
+
+- 复用 `mxh::server::account_service` 做 PBKDF2 注册登录，零密码学重复
+- 引入 cpp-httplib + nlohmann/json + jwt-cpp（均 MIT）作为 portal HTTP 栈
+- 前端 Vue 3 + Vite + TailwindCSS + vue-i18n（zh-CN / en-US）
+- 视觉：古风暗黑金（`#0a0807` 底 + `#c9a76a` 烫金 + `#a8324a` 朱红）
+- 单 ECS 部署 + Cloudflare tunnel 前置（路径 `/portal/*`）
+
+详细方案：`docs/PLAN_PORTAL.md`。完成判据见该文件 §7。
 
 ## 4. 开发与验证门禁
 
