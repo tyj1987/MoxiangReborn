@@ -97,3 +97,28 @@ TEST(GmItemCatalog, LoadsAuthoritativeDeployedItemList) {
     EXPECT_NE(catalog.items().front().ItemIdx, 0u);
     EXPECT_FALSE(mxh::gm::item_name_utf8(catalog.items().front()).empty());
 }
+
+TEST(GmRepository, CreatesListsAndDisablesAuditedLiveEventAtomically) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_live_event (event_id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT, title TEXT, config_json TEXT, starts_at TEXT, ends_at TEXT, enabled INTEGER, created_by TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_gm_audit (audit_id INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT, target_account TEXT, action TEXT, reason TEXT, created_at TEXT)").ok());
+    mxh::gm::Repository repository(*db);
+    ASSERT_TRUE(repository.create_event("experience_multiplier", "Weekend XP", "{\"multiplier\":2}",
+                                        "2026-08-15T00:00:00Z", "2026-08-17T00:00:00Z", "ops").ok());
+    mxh::db::ResultSet events;
+    ASSERT_TRUE(repository.list_events(events).ok());
+    ASSERT_EQ(events.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::string>(events.rows[0][2]), "Weekend XP");
+    EXPECT_EQ(std::get<std::int64_t>(events.rows[0][6]), 1);
+    ASSERT_TRUE(repository.disable_event(1, "ops2", "incident response").ok());
+    events.rows.clear();
+    ASSERT_TRUE(repository.list_events(events).ok());
+    EXPECT_EQ(std::get<std::int64_t>(events.rows[0][6]), 0);
+    mxh::db::ResultSet audit;
+    ASSERT_TRUE(repository.list_audit(audit).ok());
+    ASSERT_EQ(audit.rows.size(), 2u);
+    EXPECT_EQ(std::get<std::string>(audit.rows[0][3]), "event.disable");
+    EXPECT_EQ(std::get<std::string>(audit.rows[1][3]), "event.create");
+}

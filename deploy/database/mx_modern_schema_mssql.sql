@@ -159,5 +159,24 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_live_event')
+BEGIN
+    CREATE TABLE [dbo].[modern_live_event] (
+        [event_id] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [event_type] NVARCHAR(32) NOT NULL,
+        [title] NVARCHAR(128) NOT NULL,
+        [config_json] NVARCHAR(MAX) NOT NULL,
+        [starts_at] DATETIME2 NOT NULL,
+        [ends_at] DATETIME2 NOT NULL,
+        [enabled] INT NOT NULL DEFAULT 1,
+        [created_by] NVARCHAR(64) NOT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [updated_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+    CREATE INDEX [idx_modern_live_event_window]
+        ON [dbo].[modern_live_event] ([enabled], [starts_at], [ends_at]);
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 GO

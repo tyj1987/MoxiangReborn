@@ -342,10 +342,27 @@ private:
     std::map<std::string, RouteHandler> routes_;
 
     void handle_client(socket_handle client_fd) {
-        char buffer[4096] = {0};
-        int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-
-        if (bytes_read <= 0) {
+        std::string raw;
+        raw.reserve(8192);
+        char buffer[4096];
+        std::size_t expected_size = 0;
+        while (raw.size() < 1024 * 1024) {
+            const int bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
+            if (bytes_read <= 0) break;
+            raw.append(buffer, static_cast<std::size_t>(bytes_read));
+            const auto header_end = raw.find("\r\n\r\n");
+            if (header_end != std::string::npos && expected_size == 0) {
+                const auto length_header = raw.find("Content-Length:");
+                std::size_t content_length = 0;
+                if (length_header != std::string::npos && length_header < header_end) {
+                    const auto value_start = length_header + 15;
+                    content_length = std::stoul(raw.substr(value_start));
+                }
+                expected_size = header_end + 4 + content_length;
+            }
+            if (expected_size != 0 && raw.size() >= expected_size) break;
+        }
+        if (raw.empty() || raw.size() >= 1024 * 1024) {
 #ifdef _WIN32
             closesocket(client_fd);
 #else
@@ -354,7 +371,7 @@ private:
             return;
         }
 
-        HttpRequest request = parse_request(std::string(buffer, bytes_read));
+        HttpRequest request = parse_request(raw);
         HttpResponse response = route_request(request);
 
         std::string response_str = build_response(response);
@@ -402,12 +419,8 @@ private:
             }
         }
 
-        // Parse body
-        std::string body;
-        while (std::getline(ss, line)) {
-            body += line;
-        }
-        request.body = body;
+        const auto body_pos = raw.find("\r\n\r\n");
+        if (body_pos != std::string::npos) request.body = raw.substr(body_pos + 4);
 
         return request;
     }
@@ -650,7 +663,87 @@ public:
     }
 
     HttpResponse create_event(const HttpRequest& request) {
-        return not_implemented("event creation is disabled until scheduler persistence is authoritative");
+        size_t pos = 0;
+        JsonValue body;
+        try { body = JsonValue::parse(request.body, pos); }
+        catch (...) { return bad_request("invalid JSON body"); }
+        if (body.type != JsonValue::Object) return bad_request("JSON object is required");
+        const auto field = [&](const char* name) -> std::string {
+            const auto it = body.object_value.find(name);
+            return it == body.object_value.end() || it->second.type != JsonValue::String
+                ? std::string{} : it->second.string_value;
+        };
+        const std::string type = field("type");
+        const std::string title = field("title");
+        const std::string starts_at = field("starts_at");
+        const std::string ends_at = field("ends_at");
+        const std::string actor = field("actor");
+        const auto config_it = body.object_value.find("config");
+        if (type.empty() || title.empty() || starts_at.empty() || ends_at.empty() || actor.empty()
+            || config_it == body.object_value.end() || config_it->second.type != JsonValue::Object) {
+            return bad_request("type, title, starts_at, ends_at, actor and config object are required");
+        }
+        if (type != "experience_multiplier" && type != "drop_multiplier" && type != "announcement") {
+            return bad_request("unsupported event type");
+        }
+        const auto valid_time = [](const std::string& value) {
+            return value.size() == 20 && value[4] == '-' && value[7] == '-'
+                && value[10] == 'T' && value[13] == ':' && value[16] == ':' && value[19] == 'Z';
+        };
+        if (!valid_time(starts_at) || !valid_time(ends_at) || starts_at >= ends_at) {
+            return bad_request("UTC time window must use YYYY-MM-DDTHH:MM:SSZ and start before end");
+        }
+        if (title.size() > 128 || actor.size() > 64 || config_it->second.dump().size() > 4096) {
+            return bad_request("event field exceeds size limit");
+        }
+        const auto created = repository_.create_event(type, title, config_it->second.dump(),
+                                                       starts_at, ends_at, actor);
+        if (!created.ok()) return database_error(created);
+        HttpResponse response;
+        response.status = 201; response.status_text = "Created";
+        response.body = "{\"success\":true}";
+        return response;
+    }
+
+    HttpResponse get_events(const HttpRequest&) {
+        mxh::db::ResultSet rows;
+        const auto result = repository_.list_events(rows);
+        if (!result.ok()) return database_error(result);
+        JsonValue events; events.type = JsonValue::Array;
+        for (const auto& row : rows.rows) {
+            if (row.size() < 10) continue;
+            JsonValue event; event.type = JsonValue::Object;
+            event.object_value["id"] = JsonValue(static_cast<double>(std::get<std::int64_t>(row[0])));
+            event.object_value["type"] = JsonValue(std::get<std::string>(row[1]));
+            event.object_value["title"] = JsonValue(std::get<std::string>(row[2]));
+            event.object_value["config_json"] = JsonValue(std::get<std::string>(row[3]));
+            event.object_value["starts_at"] = JsonValue(std::get<std::string>(row[4]));
+            event.object_value["ends_at"] = JsonValue(std::get<std::string>(row[5]));
+            event.object_value["enabled"] = JsonValue(std::get<std::int64_t>(row[6]) != 0);
+            event.object_value["created_by"] = JsonValue(std::get<std::string>(row[7]));
+            events.array_value.push_back(std::move(event));
+        }
+        HttpResponse response; response.body = events.dump(); return response;
+    }
+
+    HttpResponse event_action(const HttpRequest& request) {
+        const auto action_slash = request.path.rfind('/');
+        const auto id_slash = request.path.rfind('/', action_slash - 1);
+        std::int64_t event_id = 0;
+        try { event_id = std::stoll(request.path.substr(id_slash + 1, action_slash - id_slash - 1)); }
+        catch (...) { return bad_request("invalid event id"); }
+        size_t pos = 0; JsonValue body;
+        try { body = JsonValue::parse(request.body, pos); }
+        catch (...) { return bad_request("invalid JSON body"); }
+        const auto get = [&](const char* name) -> std::string {
+            const auto it = body.object_value.find(name);
+            return it == body.object_value.end() || it->second.type != JsonValue::String ? std::string{} : it->second.string_value;
+        };
+        const auto actor = get("actor"); const auto reason = get("reason");
+        if (actor.empty() || reason.empty()) return bad_request("actor and reason are required");
+        const auto result = repository_.disable_event(event_id, actor, reason);
+        if (!result.ok()) return database_error(result);
+        HttpResponse response; response.body = "{\"success\":true}"; return response;
     }
 
     HttpResponse get_audit(const HttpRequest&) {
@@ -797,6 +890,12 @@ int main(int argc, char* argv[]) {
 
     server.post("/api/events", [&](const HttpRequest& req) {
         return gm_tool.create_event(req);
+    });
+    server.get("/api/events", [&](const HttpRequest& req) {
+        return gm_tool.get_events(req);
+    });
+    server.post("/api/events/:id/disable", [&](const HttpRequest& req) {
+        return gm_tool.event_action(req);
     });
 
     server.get("/api/audit", [&](const HttpRequest& req) {

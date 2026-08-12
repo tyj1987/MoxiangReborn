@@ -26,6 +26,13 @@ public:
                                                   std::string& account_id);
     mxh::db::DbResult list_audit(mxh::db::ResultSet& rows);
     mxh::db::DbResult list_chat(mxh::db::ResultSet& rows);
+    mxh::db::DbResult list_events(mxh::db::ResultSet& rows);
+    mxh::db::DbResult create_event(const std::string& type, const std::string& title,
+                                    const std::string& config_json,
+                                    const std::string& starts_at, const std::string& ends_at,
+                                    const std::string& actor);
+    mxh::db::DbResult disable_event(std::int64_t event_id, const std::string& actor,
+                                     const std::string& reason);
 
 private:
     mxh::db::IDbAdapter& db_;

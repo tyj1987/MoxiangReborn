@@ -53,4 +53,53 @@ mxh::db::DbResult Repository::list_chat(mxh::db::ResultSet& rows) {
     return db_.query("SELECT logid, chrname, channel, message, logtime "
                      "FROM log_chat ORDER BY logid DESC", rows);
 }
+
+mxh::db::DbResult Repository::list_events(mxh::db::ResultSet& rows) {
+    return db_.query("SELECT event_id, event_type, title, config_json, starts_at, ends_at, "
+                     "enabled, created_by, created_at, updated_at "
+                     "FROM modern_live_event ORDER BY event_id DESC", rows);
+}
+
+mxh::db::DbResult Repository::create_event(const std::string& type, const std::string& title,
+                                            const std::string& config_json,
+                                            const std::string& starts_at, const std::string& ends_at,
+                                            const std::string& actor) {
+    const std::vector<mxh::db::Bind> args{mxh::db::bind(type), mxh::db::bind(title),
+        mxh::db::bind(config_json), mxh::db::bind(starts_at), mxh::db::bind(ends_at),
+        mxh::db::bind(actor)};
+    auto result = db_.begin_transaction();
+    if (!result.ok()) return result;
+    result = db_.execute("INSERT INTO modern_live_event "
+                       "(event_type,title,config_json,starts_at,ends_at,enabled,created_by) "
+                       "VALUES (?,?,?,?,?,1,?)", args);
+    if (result.ok()) {
+        const std::vector<mxh::db::Bind> audit_args{mxh::db::bind(actor),
+            mxh::db::bind(std::string("event:") + title), mxh::db::bind(type)};
+        result = db_.execute("INSERT INTO modern_gm_audit "
+            "(actor,target_account,action,reason,created_at) VALUES (?,?,'event.create',?,CURRENT_TIMESTAMP)",
+            audit_args);
+    }
+    if (result.ok()) result = db_.commit();
+    else (void)db_.rollback();
+    return result;
+}
+
+mxh::db::DbResult Repository::disable_event(std::int64_t event_id, const std::string& actor,
+                                             const std::string& reason) {
+    auto result = db_.begin_transaction();
+    if (!result.ok()) return result;
+    const std::vector<mxh::db::Bind> update_args{mxh::db::bind(event_id)};
+    result = db_.execute("UPDATE modern_live_event SET enabled=0, updated_at=CURRENT_TIMESTAMP WHERE event_id=?",
+                         update_args);
+    if (result.ok()) {
+        const std::vector<mxh::db::Bind> audit_args{mxh::db::bind(actor),
+            mxh::db::bind(std::string("event:") + std::to_string(event_id)), mxh::db::bind(reason)};
+        result = db_.execute("INSERT INTO modern_gm_audit "
+            "(actor,target_account,action,reason,created_at) VALUES (?,?,'event.disable',?,CURRENT_TIMESTAMP)",
+            audit_args);
+    }
+    if (result.ok()) result = db_.commit();
+    else (void)db_.rollback();
+    return result;
+}
 } // namespace mxh::gm

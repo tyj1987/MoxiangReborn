@@ -863,3 +863,9 @@ Added two real SQLite tests covering MapHandler sanitization/persistence and GM 
 MoxianGMTool now requires `--item-list` and parses the same binary-compatible ItemList.bin layer used by the modern game server. `/api/items` exposes real item identity, Big5-to-UTF-8 names, classification, prices, rarity, and level requirements, with a default 100 / maximum 500 page size plus `offset` and exact `id` filtering. Missing or invalid authoritative resources fail startup instead of serving fabricated data.
 
 The HTTP request parser now separates query strings before route matching. The JSON serializer now correctly escapes quotes, backslashes, and control bytes; real resource names exposed this pre-existing invalid-JSON defect. Verified through authenticated HTTP against the deployed resource: 9,887 parsed items, a 500-row page, and item 8000 decoded as 肉包. Added a real-resource catalog test.
+
+## 2026-08-12 - ops: persistent live-event management
+
+GM live operations now supports authenticated create/list/disable endpoints backed by `modern_live_event`. Only experience multipliers, drop multipliers, and announcements are accepted; required fields, UTC windows, ordering, and payload sizes are validated. Creation and disable operations each commit their GM audit row in the same database transaction. SQLite initialization and MSSQL deployment schema both include the indexed table.
+
+The GM HTTP server now receives requests until the declared Content-Length is complete, with a 1 MiB hard cap. Real HTTP testing exposed that the previous single 4096-byte recv could parse an empty or truncated POST body under normal TCP segmentation. Verified end-to-end on a newly initialized SQLite database: create HTTP 201, list enabled event, disable it, and retrieve both audit records. Added an atomic repository test.

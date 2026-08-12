@@ -175,6 +175,22 @@ CREATE TABLE IF NOT EXISTS modern_gm_audit (
 
 CREATE INDEX IF NOT EXISTS idx_modern_gm_audit_target
     ON modern_gm_audit(target_account, created_at);
+
+CREATE TABLE IF NOT EXISTS modern_live_event (
+    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    ends_at TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_live_event_window
+    ON modern_live_event(enabled, starts_at, ends_at);
 )SQL";
 }
 
