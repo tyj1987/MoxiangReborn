@@ -181,6 +181,36 @@ ReplayScenario item_use_scenario() {
     return s;
 }
 
+ReplayScenario party_scenario() {
+    ReplayScenario s;
+    s.name = "party";
+    s.endpoint = ReplayEndpoint::Map;
+    // Cat 14 MP_PARTY. Proto 1 MP_PARTY_CREATE_SYN.
+    // Payload: party_name:char[16] + target_pid:u32 = 20B.
+    std::vector<std::uint8_t> p(20, 0);
+    const char name[] = { 'P','A','R','T','Y' };
+    for (int i = 0; i < 5; ++i) p[i] = static_cast<std::uint8_t>(name[i]);
+    put_u32(p.data() + 16, 0xDEADBEEFu);
+    s.client_packets.push_back(mk(14, 1, 0, std::move(p)));
+    return s;
+}
+
+ReplayScenario guild_scenario() {
+    ReplayScenario s;
+    s.name = "guild";
+    s.endpoint = ReplayEndpoint::Map;
+    // Cat 56 MP_GUILD. Proto 1 MP_GUILD_CREATE_SYN.
+    // Payload: guild_name:char[16] + guild_motto:char[50] + flag:u32 = 70B.
+    std::vector<std::uint8_t> p(70, 0);
+    const char n2[] = { 'G','U','I','L','D' };
+    for (int i = 0; i < 5; ++i) p[i] = static_cast<std::uint8_t>(n2[i]);
+    const char m[] = { 'M','O','T','T','O' };
+    for (int i = 0; i < 5; ++i) p[16 + i] = static_cast<std::uint8_t>(m[i]);
+    put_u32(p.data() + 66, 0xCAFEBABEu);
+    s.client_packets.push_back(mk(56, 1, 0, std::move(p)));
+    return s;
+}
+
 const char* endpoint_name(ReplayEndpoint endpoint) noexcept {
     switch (endpoint) {
     case ReplayEndpoint::Login: return "login";

@@ -32,5 +32,7 @@ ReplayScenario quest_scenario();
 ReplayScenario chat_scenario();
 ReplayScenario move_scenario();
 ReplayScenario item_use_scenario();
+ReplayScenario party_scenario();
+ReplayScenario guild_scenario();
 
 }  // namespace mxh::tools::sidebyside
