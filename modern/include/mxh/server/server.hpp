@@ -12,6 +12,7 @@
 #include "mxh/game/item_types.hpp"
 #include "mxh/game/item_effects.hpp"
 #include "mxh/game/item_manager.hpp"
+#include "mxh/game/experience_curve.hpp"
 #include "mxh/game/monster_types.hpp"
 #include "mxh/game/skill_types.hpp"
 #include "mxh/game/skill_manager.hpp"
@@ -268,6 +269,9 @@ public:
         std::uint32_t current_mp = 0;
         std::uint32_t max_mp = 0;
         std::uint32_t inventory_count = 0;
+        std::uint16_t level = 1;
+        std::uint32_t level_exp = 0;
+        std::uint32_t total_exp = 0;
     };
 
     std::optional<PlayerRuntimeSnapshot> player_runtime_snapshot(std::uint32_t player_id);
@@ -281,6 +285,7 @@ public:
     // I/O failure leaves item_manager_ empty so the placeholder
     // path remains intact.
     void load_item_list(const std::string& path);
+    void load_experience_curve(const std::string& path);
 
     // Test-only read-only accessor for item_manager_.
     const mxh::game::ItemManager& item_manager_for_test() const noexcept { return item_manager_; }
@@ -525,6 +530,7 @@ private:
     std::unordered_map<std::uint32_t, PlayerRuntime> player_runtimes_;
     std::unordered_map<std::uint32_t, GroundDrop> ground_drops_;
     std::uint32_t next_ground_drop_id_ = 90000;
+    std::unique_ptr<mxh::game::ExperienceCurve> experience_curve_;
     DropTableRegistry drop_tables_;
 
     // Phase 10c: Monster management

@@ -1086,6 +1086,41 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
 }
 
+TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
+    MockDbAdapter db; std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(db, 7, [&](mxh::net::ConnectionId, const auto& message) { replies.push_back(message); });
+    const std::string exp_path = std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/CharacterExpPoint.bin";
+    handler.load_experience_curve(exp_path);
+    mxh::net::Message game_in; game_in.header.object_id = 123; game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    mxh::game::MonsterInstance monster; monster.object_id=88001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1; monster.exp_reward=123;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
+    const auto exp = std::find_if(replies.begin(), replies.end(), [](const auto& message) { return message.header.category == 3u && message.header.protocol == 13u; });
+    ASSERT_NE(exp, replies.end()); ASSERT_EQ(exp->payload.size(), 9u);
+    std::int64_t amount = 0; std::memcpy(&amount, exp->payload.data(), sizeof(amount)); EXPECT_EQ(amount, 123);
+}
+
+TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
+    auto db = mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path = ":memory:"; ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE character_info(chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES(123,'Hero',0,1,1,1,1,1,7)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_player_state(player_id INTEGER PRIMARY KEY,money INTEGER DEFAULT 0,level INTEGER DEFAULT 1,exp INTEGER DEFAULT 0,updated_at TEXT)").ok());
+    ReplySpy reply;
+    {
+        mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
+        handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/CharacterExpPoint.bin");
+        mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); handler.on_message(mxh::net::make_connection_id(55), in);
+        mxh::game::MonsterInstance monster; monster.object_id=99001; monster.max_life=1; monster.current_life=1; monster.exp_reward=1000000; ASSERT_TRUE(handler.add_monster_instance(monster));
+        (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
+    }
+    mxh::db::ResultSet saved; ASSERT_TRUE(db->query("SELECT level,exp FROM modern_player_state WHERE player_id=123", saved).ok()); ASSERT_EQ(saved.rows.size(),1u);
+    const auto saved_level=std::get<std::int64_t>(saved.rows[0][0]); EXPECT_GT(saved_level,1);
+    mxh::server::MapHandler restored(*db, 7, make_reply_spy(reply)); mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); restored.on_message(mxh::net::make_connection_id(56), in);
+    const auto snapshot=restored.player_runtime_snapshot(123); ASSERT_TRUE(snapshot); EXPECT_EQ(snapshot->level, saved_level);
+}
+
 TEST(MapHandlerTest, UseConsumesActorItemAndUpdatesVitals) {
     MockDbAdapter db;
     ReplySpy reply;

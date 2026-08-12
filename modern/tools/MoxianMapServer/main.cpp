@@ -237,6 +237,8 @@ int main(int argc, char** argv) {
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
         handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
+        handler.load_item_list((root / "Resource" / "ItemList.bin").string());
+        handler.load_experience_curve((root / "Resource" / "CharacterExpPoint.bin").string());
         handler.load_quest_script(
             (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
     }

@@ -881,3 +881,9 @@ MapServer consumes pending grants when the character enters the map. It validate
 MapServer now loads enabled activities against the current UTC interval with 1.0 defaults when the operational table is unavailable. Active drop multipliers change the authoritative monster-drop probability while retaining the original formula at 1.0 and clamping combined operators to 0.1x-10x. Active announcement messages are sent through the existing Chat/All wire shape when a player enters the map. Experience multipliers are parsed into the same bounded snapshot, ready for the still-incomplete quest-end and kill-experience award paths rather than changing unrelated 1:1 values.
 
 Two real SQLite tests prove current-window selection, expiration exclusion, multiplier composition/clamping, announcement extraction, and exact one-to-one defaults without the operations table.
+
+## 2026-08-12 - gameplay: monster experience and relogin level recovery
+
+The production MapServer startup now loads both the authoritative ItemList catalog (previously it only loaded prices, causing valid GM deliveries to remain unknown) and the shipped CharacterExpPoint.bin curve. Monster death awards the template ExpPoint to the attacking player, applies the active experience multiplier, advances the authoritative Player level state, emits the legacy category-3/protocol-13 experience notification, and upserts level/current-level experience into modern_player_state. Character load prefers this persistent level so a fresh MapHandler restores advancement after relogin.
+
+Tests prove the legacy notification amount and a real SQLite lifecycle of kill -> saved level/exp -> destroy MapHandler -> new MapHandler GameIn -> restored level, using the deployed CharacterExpPoint.bin.
