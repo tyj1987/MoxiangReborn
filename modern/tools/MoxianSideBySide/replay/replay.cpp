@@ -168,6 +168,19 @@ ReplayScenario move_scenario() {
     return s;
 }
 
+ReplayScenario item_use_scenario() {
+    ReplayScenario s;
+    s.name = "item";
+    s.endpoint = ReplayEndpoint::Map;
+    // Cat 5 MP_ITEM. Proto 12 DiscardSyn. Modern handle_item looks
+    // up the player; with no player context it sends DiscardNack.
+    // Payload: position:u16 (which slot to discard).
+    std::vector<std::uint8_t> p(2, 0);
+    put_u16(p.data(), 0);
+    s.client_packets.push_back(mk(5, 12, 0, std::move(p)));
+    return s;
+}
+
 const char* endpoint_name(ReplayEndpoint endpoint) noexcept {
     switch (endpoint) {
     case ReplayEndpoint::Login: return "login";

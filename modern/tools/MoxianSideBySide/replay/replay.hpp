@@ -31,5 +31,6 @@ ReplayScenario shop_scenario();
 ReplayScenario quest_scenario();
 ReplayScenario chat_scenario();
 ReplayScenario move_scenario();
+ReplayScenario item_use_scenario();
 
 }  // namespace mxh::tools::sidebyside

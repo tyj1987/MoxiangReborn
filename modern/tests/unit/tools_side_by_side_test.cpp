@@ -175,10 +175,11 @@ TEST(SideBySideReplay, ScenariosRouteToExpectedServer) {
     EXPECT_EQ(quest_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_EQ(chat_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_EQ(move_scenario().endpoint, ReplayEndpoint::Map);
+    EXPECT_EQ(item_use_scenario().endpoint, ReplayEndpoint::Map);
     EXPECT_STREQ(endpoint_name(ReplayEndpoint::Agent), "agent");
 }
 
-TEST(SideBySideReplay, AllSevenScenariosHaveFixedSizes) {
+TEST(SideBySideReplay, AllEightScenariosHaveFixedSizes) {
     // attack: cat=Skill(22), proto=StartSyn(0),
     //   payload=[skill_idx:u32][main_target:u32][target_x:f32][target_z:f32] = 16B.
     EXPECT_EQ(attack_scenario().client_packets.front().category, 22u);
@@ -216,6 +217,10 @@ TEST(SideBySideReplay, AllSevenScenariosHaveFixedSizes) {
                               (static_cast<std::uint16_t>(movePayload[3]) << 8);
     EXPECT_EQ(mz, 0x5678u);
     EXPECT_EQ(chatPayload[4], 0x6fu);
+    // item_use: cat=Item(5), proto=DiscardSyn(12), payload=[position:u16] = 2B.
+    EXPECT_EQ(item_use_scenario().client_packets.front().category, 5u);
+    EXPECT_EQ(item_use_scenario().client_packets.front().protocol, 12u);
+    EXPECT_EQ(item_use_scenario().client_packets.front().payload.size(), 2u);
 }
 
 // Modern-only golden captures live in modern/tests/fixtures/sbs_captures_modern/.
@@ -227,6 +232,10 @@ TEST(SideBySideModernGolden, ChatScenarioNameIsChat) {
 
 TEST(SideBySideModernGolden, MoveScenarioNameIsMove) {
     EXPECT_STREQ(move_scenario().name.c_str(), "move");
+}
+
+TEST(SideBySideModernGolden, ItemScenarioNameIsItem) {
+    EXPECT_STREQ(item_use_scenario().name.c_str(), "item");
 }
 
 TEST(SideBySideModernGolden, MoveTraceIsMoveInitEcho) {
@@ -246,6 +255,19 @@ TEST(SideBySideModernGolden, MoveTraceIsMoveInitEcho) {
     EXPECT_EQ(mz2, 0x5678u);
 }
 
+TEST(SideBySideModernGolden, ItemTraceIsItemDiscardNack) {
+    const auto trace = load_capture(
+        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_item.cap");
+    ASSERT_EQ(trace.size(), 1u);
+    EXPECT_EQ(trace[0].category, 5u);   // Item
+    EXPECT_EQ(trace[0].protocol, 14u);  // DiscardNack (no player context)
+    EXPECT_EQ(trace[0].length, 2u);
+    EXPECT_EQ(trace[0].payload.size(), 2u);
+    // DiscardNack echoes the requested position:u16 = 0.
+    EXPECT_EQ(trace[0].payload[0], 0x00u);
+    EXPECT_EQ(trace[0].payload[1], 0x00u);
+}
+
 TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
     const auto trace = load_capture(
         "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_chat.cap");
@@ -263,14 +285,15 @@ TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
     EXPECT_EQ(trace[0].payload[4], 0x6fu);
 }
 
-TEST(SideBySideModernGolden, AllSevenScenariosHaveFixtures) {
+TEST(SideBySideModernGolden, AllEightScenariosHaveFixtures) {
     const std::filesystem::path dir =
         "C:/moxiang/modern/tests/fixtures/sbs_captures_modern";
     for (const char* name : {"modern_login.cap", "modern_enter_game.cap",
                              "modern_attack.cap", "modern_shop.cap",
                              "modern_quest.cap",
                              "modern_chat.cap",
-                             "modern_move.cap"}) {
+                             "modern_move.cap",
+                             "modern_item.cap"}) {
         const auto p = dir / name;
         ASSERT_TRUE(std::filesystem::exists(p)) << "missing fixture " << name;
         const auto trace = load_capture(p.string());
