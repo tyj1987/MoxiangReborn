@@ -155,6 +155,37 @@ TEST(TcpServerTest, ClientConnects) {
     srv.stop();
 }
 
+TEST(TcpServerTest, CompletedConnectionIsReapedWhileServerRuns) {
+    CountingHandler h;
+    TcpServer srv(h);
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    cfg.worker_thread_count = 1;
+    ASSERT_EQ(srv.start(cfg), NetError::Ok);
+
+    SOCKET csock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    ASSERT_NE(csock, INVALID_SOCKET);
+    sockaddr_in caddr{};
+    caddr.sin_family = AF_INET;
+    caddr.sin_port = htons(static_cast<u_short>(port));
+    caddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    ASSERT_EQ(connect(csock, reinterpret_cast<sockaddr*>(&caddr), sizeof(caddr)), 0);
+    for (int i = 0; i < 50 && srv.connection_count() == 0; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    ASSERT_EQ(srv.connection_count(), 1u);
+
+    closesocket(csock);
+    for (int i = 0; i < 100 && srv.connection_count() != 0; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    EXPECT_EQ(srv.connection_count(), 0u);
+    EXPECT_EQ(h.disconnects.load(), 1u);
+    srv.stop();
+}
+
 TEST(TcpServerTest, ClientSendsMessage) {
     CountingHandler h;
     TcpServer srv(h);

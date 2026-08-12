@@ -103,7 +103,7 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 #### M6-B: 24h stability harness - gate GREEN scaffolded (local)
 
 - scripts/soak-24h.ps1 landed (commit e0393049 + 1db7349e): N synthetic mxh_client_e2e drives Login/Agent/Map. Duration is configurable (default 24h, use -DurationHours 0.0833 for a 5-minute smoke). Background server memory/CPU/handle sampling at 1Hz, samples.csv time-series + summary.json with verdict / cycle counts / crash observed / sample count.
-- Known follow-ups: splat exit-code capture + Stop-All interrupt cleanup. Two small fixes before 1h sqlite + 4h mssql_odbc canary runs.
+- Exit-code capture + Ctrl+C/Stop-All cleanup fixed. The per-cycle server handle leak was traced to `TcpServer` retaining two joinable threads per connection and fixed with runtime connection reaping (2026-08-12). A 5-minute SQLite canary passed 962/962 cycles: Login handles 89→89, Map 77→73, Agent 165→186, eliminating the former ~6 handles/E2E-cycle linear growth. Remaining gates: 1h sqlite + 4h mssql_odbc canaries, then the full 24h run.
 
 #### M6-C：本地端到端启动 + 数据库 + 客户端连接 — 门禁 GREEN
 
@@ -114,4 +114,3 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 #### M6-B (second reference, now GREEN)
 
 See M6-B block above (line 103) for the canonical status. This duplicate is kept as a historical anchor only and will be removed in the next docs pass.
-

@@ -1,3 +1,18 @@
+## 2026-08-12 - net: TcpServer 运行时回收连接线程句柄
+
+- 生产 Login/Agent/Map 实际使用 `mxh::net::TcpServer`：旧实现为每条连接创建 recv + sender 两个 `std::thread`，断开后保留在 `connections`/`recv_threads` 直到进程停止，正好对应每轮三服务约 +6 Windows handles。
+- `Connection` 现同时拥有 recv/sender 线程；后台 reaper 仅在 recv thread 已登记且连接 inactive 后，从表中摘除连接，并在锁外 join 两线程。`send()` 改用 `shared_ptr` 快照防止并发回收悬空；显式 `disconnect()` 统一走 inactive + reaper 生命周期。
+- 新增 `TcpServerTest.CompletedConnectionIsReapedWhileServerRuns`，验证服务不停止时断开的连接会从 `connection_count()` 清零；网络套件 37/37 通过。
+- 5 分钟 SQLite canary（run `5f578d93`）：962/962 cycles，0 failures，0 crashes；Login handles 89→89，Map 77→73，Agent 165→186。相比旧实现约每轮 +6 handles，线性线程句柄泄漏已消除。
+- 构建环境诊断：VS 的 MSBuild 文件访问跟踪器在本机挂起；目标构建加入 `/p:TrackFileAccess=false` 后成功，代码与测试正常编译。
+
+## 2026-08-12 - tools: soak harness 退出码与 Ctrl+C 清理修复
+
+- `scripts/soak-24h.ps1` 统一使用脚本级中断状态，使 `Console.CancelKeyPress` 能可靠终止补槽和主循环；`finally` 注销事件处理器、停止并清空所有客户端槽位及三服务进程。
+- 客户端结束后显式 `WaitForExit()` + `Refresh()` 再读取 `ExitCode`，避免异步重定向尚未完全收尾时误判。
+- 本机 SQLite 真实烟测：`-DurationHours 0.001 -Concurrency 1 -SampleIntervalSeconds 1`，PASS，3/3 cycles，0 failures，服务端正常停止并生成 summary。
+- 回归门禁：`ctest -C Debug --test-dir modern/build --output-on-failure` 11,904/11,904 通过；项目治理检查通过。Debug 全量构建三次均停滞在 0 CPU 的 `cl.exe` 且无诊断输出，已终止本轮残留进程，未据此声明构建门禁通过。
+
 ## 2026-08-12 - server: IocpConnection::close() adds CancelIoEx + send_queue drain (handle leak mitigation, partial)
 
 - modern/src/net/iocp/iocp.cpp: IocpConnection::close() now calls CancelIoEx() before closesocket() and drains send_queue_ under send_mutex_. Partial fix for the 1h soak-24h canary FAIL (5.7 min, 5998 handles, server crash).
