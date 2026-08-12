@@ -875,3 +875,9 @@ The GM HTTP server now receives requests until the declared Content-Length is co
 `POST /api/items/give` now validates the character, authoritative ItemList ID, stack bounds, operator/reason, and required idempotency key before creating a pending grant. Grant creation and its GM audit record commit in one transaction; repeated requests with the same key return the existing outcome without duplicating the item or audit. SQLite and MSSQL schemas include the indexed delivery table.
 
 MapServer consumes pending grants when the character enters the map. It validates the item against the loaded authoritative catalog, inserts it into the authoritative Player inventory only when capacity exists, conditionally changes the pending row to claimed, and rolls the in-memory insert back if the database claim is not exactly one row. Full inventories and invalid catalog entries remain pending for safe retry. Tests use real SQLite and the deployed ItemList.bin to prove one-time delivery into the live runtime inventory and repository-level idempotency/audit behavior.
+
+## 2026-08-12 - ops: MapServer live-event consumption
+
+MapServer now loads enabled activities against the current UTC interval with 1.0 defaults when the operational table is unavailable. Active drop multipliers change the authoritative monster-drop probability while retaining the original formula at 1.0 and clamping combined operators to 0.1x-10x. Active announcement messages are sent through the existing Chat/All wire shape when a player enters the map. Experience multipliers are parsed into the same bounded snapshot, ready for the still-incomplete quest-end and kill-experience award paths rather than changing unrelated 1:1 values.
+
+Two real SQLite tests prove current-window selection, expiration exclusion, multiplier composition/clamping, announcement extraction, and exact one-to-one defaults without the operations table.

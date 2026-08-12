@@ -168,6 +168,7 @@ add_library(mxh_server STATIC
     server/hsel_session.cpp
     server/agent_handler.cpp
     server/map_handler.cpp
+    server/live_events.cpp
     server/character_calc_manager.cpp
     server/player.cpp
     server/player_state.cpp

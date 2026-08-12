@@ -3106,6 +3106,11 @@ gtest_add_tests(TARGET mxh_skill_caster_tests
     PRE_SHIP_BUILD
 )
 
+add_executable(mxh_live_events_tests live_events_test.cpp)
+target_link_libraries(mxh_live_events_tests PRIVATE mxh_server mxh_db gtest_main)
+target_include_directories(mxh_live_events_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_live_events_tests)
+
 add_executable(mxh_account_service_tests account_service_test.cpp)
 target_link_libraries(mxh_account_service_tests PRIVATE mxh_server GTest::gtest_main)
 target_include_directories(mxh_account_service_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
