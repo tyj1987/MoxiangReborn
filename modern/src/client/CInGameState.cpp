@@ -183,6 +183,18 @@ mxh::net::Message make_attack_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_quest_message(std::uint32_t player_id,
+                                     mxh::proto::QuestProtocol protocol,
+                                     std::uint16_t quest_id) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    message.header.protocol = static_cast<std::uint8_t>(protocol);
+    message.header.object_id = player_id;
+    message.payload.resize(2);
+    put_u16(message.payload, 0, quest_id);
+    return message;
+}
+
 std::optional<std::pair<std::uint16_t, std::uint16_t>>
 parse_move_payload(std::span<const std::uint8_t> payload) {
     if (payload.size() < 4) return std::nullopt;
@@ -540,6 +552,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case Category::Item:
             handle_item_broadcast(msg);
             break;
+        case Category::Quest:
+            handle_quest_broadcast(msg);
+            break;
         default:
             // Phase 10b: MapServer may also push ITEM_TOTALINFO_LOCAL
             // (Category::Item, ItemProtocol::TotalInfoLocal) after the
@@ -851,6 +866,18 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
             open_shop(0);
             return;
         }
+        if (vk == 0x51) {  // 'Q' toggles the quest panel
+            m_questOpen = !m_questOpen;
+            return;
+        }
+        if (vk == 0x4A && m_questOpen) {  // 'J' accepts the selected quest
+            send_quest(mxh::proto::QuestProtocol::StartSyn);
+            return;
+        }
+        if (vk == 0x4B && m_questOpen) {  // 'K' claims the selected quest
+            send_quest(mxh::proto::QuestProtocol::EndSyn);
+            return;
+        }
     }
 
     const std::uint32_t mask = key_mask_for_vk(vk);
@@ -860,6 +887,31 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     } else {
         m_keyMask &= ~mask;
     }
+}
+
+void CInGameState::send_quest(mxh::proto::QuestProtocol protocol) {
+    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    const auto result = m_client->send(make_quest_message(m_playerId, protocol, m_questId));
+    if (result == mxh::net::NetError::Ok) {
+        m_questStatus = protocol == mxh::proto::QuestProtocol::StartSyn
+                          ? "Accepting..." : "Claiming...";
+    }
+}
+
+void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
+    if (msg.payload.size() >= 2) {
+        m_questId = static_cast<std::uint16_t>(msg.payload[0] |
+                    (static_cast<std::uint16_t>(msg.payload[1]) << 8));
+    }
+    const auto protocol = static_cast<mxh::proto::QuestProtocol>(msg.header.protocol);
+    switch (protocol) {
+        case mxh::proto::QuestProtocol::StartAck: m_questStatus = "Active - hunt monsters"; break;
+        case mxh::proto::QuestProtocol::StartNack: m_questStatus = "Cannot accept"; break;
+        case mxh::proto::QuestProtocol::EndAck: m_questStatus = "Reward claimed"; break;
+        case mxh::proto::QuestProtocol::EndNack: m_questStatus = "Not complete"; break;
+        default: break;
+    }
+    MLOG_INFO("CInGameState: quest id=%u status=%s", m_questId, m_questStatus.c_str());
 }
 
 void CInGameState::OnChar(std::uint32_t ch) {

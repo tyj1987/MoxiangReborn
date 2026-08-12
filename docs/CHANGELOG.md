@@ -899,3 +899,9 @@ HUNTALL wildcard counters are supported in QuestManager without changing exact m
 The graphical client no longer starts with embedded `test/test` credentials or silently connects and skips the login state. Normal startup renders an account/password panel over the original login resource, masks the password, supports mouse/Tab field selection, Backspace editing, and Enter/button submission. Automated login is now an explicit `--auto-login` mode that rejects missing credentials; automatic character creation is also opt-in.
 
 The GUI smoke harness opts into automation explicitly and now accepts either creation of a new character or selection of an existing persisted character. Optional character-creation frames no longer fail a reused-database run. Verified with a full Debug build, all 11938 tests, and the visible GUI path loading original BGM, Map 12 terrain, 334 static meshes, 8 sky meshes, 9887 item entries, and 499 monster entries before GameIn.
+
+## 2026-08-12 - client: playable quest accept and reward controls
+
+The production graphical client now participates in the Quest protocol instead of leaving the server-only quest loop unreachable. `Q` opens a visible quest panel, `J` sends StartSyn, and `K` sends EndSyn for the selected quest. Requests retain the legacy two-byte quest ID payload and player object ID. StartAck/StartNack/EndAck/EndNack update the visible status so acceptance, hunting, incomplete delivery, and reward success are observable in normal play.
+
+A wire-level client test locks category, protocol, object ID, payload size, and little-endian quest ID. The client test suite passes 92/92, GUI login/create/select/GameIn resource smoke remains green, the full Debug solution builds, and all 11939 CTest cases pass.

@@ -595,6 +595,24 @@ void renderFrame(HWND h) {
                 }
             }
 
+            if (g_inputTarget->quest_open() && g_hudFont) {
+                drawSpriteQuad(g_renderer, g_hud.barBg, 500.0f, 90.0f,
+                               270.0f, 120.0f, 0xFFFFFFFFu);
+                const std::array<std::string, 3> lines{
+                    "Quest " + std::to_string(g_inputTarget->quest_id()),
+                    g_inputTarget->quest_status(),
+                    "J accept   K claim   Q close"};
+                for (std::size_t i = 0; i < lines.size(); ++i) {
+                    RECT rc{515, static_cast<LONG>(108 + i * 30), 755,
+                            static_cast<LONG>(132 + i * 30)};
+                    g_renderer->RenderFont(g_hudFont,
+                        const_cast<char*>(lines[i].data()),
+                        static_cast<std::uint32_t>(lines[i].size()), &rc,
+                        i == 0 ? 0xFFFFD080u : 0xFFFFFFFFu,
+                        CHAR_CODE_TYPE_ASCII, 2, 0);
+                }
+            }
+
             // Static NPC markers (click to talk / open their shop).
             if (g_hud.npcMark) {
                 for (const auto& npc : g_inputTarget->npcs()) {

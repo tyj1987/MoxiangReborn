@@ -220,6 +220,10 @@ mxh::net::Message make_attack_message(std::uint32_t player_id,
                                       std::uint32_t main_target,
                                       float target_x, float target_z);
 
+mxh::net::Message make_quest_message(std::uint32_t player_id,
+                                     mxh::proto::QuestProtocol protocol,
+                                     std::uint16_t quest_id);
+
 std::optional<std::pair<std::uint16_t, std::uint16_t>>
 parse_move_payload(std::span<const std::uint8_t> payload);
 
@@ -307,6 +311,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
     bool shop_open() const noexcept { return m_shopOpen; }
+    bool quest_open() const noexcept { return m_questOpen; }
+    std::uint16_t quest_id() const noexcept { return m_questId; }
+    const std::string& quest_status() const noexcept { return m_questStatus; }
     const std::vector<ShopItem>& shop_items() const noexcept { return m_shopItems; }
     std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
@@ -336,6 +343,8 @@ private:
     void handle_skill_broadcast(const mxh::net::Message& msg);
     void handle_chat_broadcast(const mxh::net::Message& msg);
     void handle_item_broadcast(const mxh::net::Message& msg);
+    void handle_quest_broadcast(const mxh::net::Message& msg);
+    void send_quest(mxh::proto::QuestProtocol protocol);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -381,6 +390,9 @@ private:
     bool                 m_shopOpen  = false;
     std::uint32_t        m_shopNpcId = 0;
     std::vector<ShopItem> m_shopItems;
+    bool                 m_questOpen = false;
+    std::uint16_t        m_questId = 1;
+    std::string          m_questStatus = "Not accepted";
 };
 
 } // namespace mxh::client
