@@ -44,6 +44,7 @@
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/compat/quest_string_catalog.hpp"
 #include "mxh/game/item_types.hpp"
 
 namespace mxh::client {
@@ -298,6 +299,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void toggle_inventory() noexcept { m_inventoryOpen = !m_inventoryOpen; }
     void open_shop(std::uint32_t npc_id);
     void buy_shop_item(std::size_t index);
+    void set_quest_catalog(mxh::compat::QuestStringCatalog catalog);
 
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
@@ -314,6 +316,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool quest_open() const noexcept { return m_questOpen; }
     std::uint16_t quest_id() const noexcept { return m_questId; }
     const std::string& quest_status() const noexcept { return m_questStatus; }
+    const mxh::compat::QuestStringEntry* selected_quest() const noexcept {
+        return m_questSelection < m_mainQuests.size() ? m_mainQuests[m_questSelection] : nullptr;
+    }
     const std::vector<ShopItem>& shop_items() const noexcept { return m_shopItems; }
     std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
@@ -393,6 +398,9 @@ private:
     bool                 m_questOpen = false;
     std::uint16_t        m_questId = 1;
     std::string          m_questStatus = "Not accepted";
+    mxh::compat::QuestStringCatalog m_questCatalog;
+    std::vector<const mxh::compat::QuestStringEntry*> m_mainQuests;
+    std::size_t          m_questSelection = 0;
 };
 
 } // namespace mxh::client

@@ -508,6 +508,13 @@ bool CInGameState::is_connected() const noexcept {
     return m_client && m_client->is_connected();
 }
 
+void CInGameState::set_quest_catalog(mxh::compat::QuestStringCatalog catalog) {
+    m_questCatalog = std::move(catalog);
+    m_mainQuests = m_questCatalog.main_quests();
+    m_questSelection = 0;
+    if (!m_mainQuests.empty()) m_questId = m_mainQuests.front()->quest_id;
+}
+
 bool CInGameState::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
     MLOG_INFO("CInGameState::on_connect id=%llu from %s",
@@ -868,6 +875,17 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         }
         if (vk == 0x51) {  // 'Q' toggles the quest panel
             m_questOpen = !m_questOpen;
+            return;
+        }
+        if (m_questOpen && !m_mainQuests.empty() && (vk == 0x26 || vk == 0x28)) {
+            if (vk == 0x26) {
+                m_questSelection = m_questSelection == 0
+                    ? m_mainQuests.size() - 1 : m_questSelection - 1;
+            } else {
+                m_questSelection = (m_questSelection + 1) % m_mainQuests.size();
+            }
+            m_questId = m_mainQuests[m_questSelection]->quest_id;
+            m_questStatus = "Not accepted";
             return;
         }
         if (vk == 0x4A && m_questOpen) {  // 'J' accepts the selected quest

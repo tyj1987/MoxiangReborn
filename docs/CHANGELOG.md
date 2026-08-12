@@ -905,3 +905,9 @@ The GUI smoke harness opts into automation explicitly and now accepts either cre
 The production graphical client now participates in the Quest protocol instead of leaving the server-only quest loop unreachable. `Q` opens a visible quest panel, `J` sends StartSyn, and `K` sends EndSyn for the selected quest. Requests retain the legacy two-byte quest ID payload and player object ID. StartAck/StartNack/EndAck/EndNack update the visible status so acceptance, hunting, incomplete delivery, and reward success are observable in normal play.
 
 A wire-level client test locks category, protocol, object ID, payload size, and little-endian quest ID. The client test suite passes 92/92, GUI login/create/select/GameIn resource smoke remains green, the full Debug solution builds, and all 11939 CTest cases pass.
+
+## 2026-08-12 - client: real QuestString-driven quest catalog
+
+Added a binary-compatible QuestString catalog parser based on the legacy `$SUBQUESTSTR quest subquest`, `#TITLE`, and `#DESC` grammar. The parser decodes the shipped MHFile container without rewriting resources and retains original title/description bytes for every stage. Client GameIn loads this catalog from PlayDH, builds the selectable main-quest directory from stage 0 entries, shows the real resource title, and lets players browse with Up/Down before accepting or claiming the selected quest.
+
+The shipped `QuestString.bin` is now semantically verified, not merely byte-readable: 1168 stage records and 235 main quests load in the GUI path. Parser tests cover an exact synthetic grammar fixture and the real PlayDH resource. Full Debug build, GUI resource/GameIn smoke, and all 11941 tests pass. Big5-to-Unicode presentation remains a separate rendering task; original resource bytes are preserved.

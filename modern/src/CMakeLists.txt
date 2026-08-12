@@ -11,6 +11,7 @@
     bsad_area.cpp
     item_effects.cpp
     sound_list.cpp
+    quest_string_catalog.cpp
     hfl_height_field.cpp
     stm_static_model.cpp
 )

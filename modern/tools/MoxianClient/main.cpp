@@ -598,10 +598,12 @@ void renderFrame(HWND h) {
             if (g_inputTarget->quest_open() && g_hudFont) {
                 drawSpriteQuad(g_renderer, g_hud.barBg, 500.0f, 90.0f,
                                270.0f, 120.0f, 0xFFFFFFFFu);
-                const std::array<std::string, 3> lines{
-                    "Quest " + std::to_string(g_inputTarget->quest_id()),
+                const auto* selected = g_inputTarget->selected_quest();
+                const std::array<std::string, 4> lines{
+                    selected ? selected->title : "Quest " + std::to_string(g_inputTarget->quest_id()),
                     g_inputTarget->quest_status(),
-                    "J accept   K claim   Q close"};
+                    "Up/Down select   J accept   K claim",
+                    "Q close"};
                 for (std::size_t i = 0; i < lines.size(); ++i) {
                     RECT rc{515, static_cast<LONG>(108 + i * 30), 755,
                             static_cast<LONG>(132 + i * 30)};
@@ -1092,6 +1094,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     // login ack user_idx as chrid.
                     if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
                             mainGame.GetGameState(cur_state))) {
+                        auto questCatalog = mxh::compat::load_quest_string_catalog(
+                            options.resource_root / "Resource" / "QuestScript" / "QuestString.bin");
+                        if (!questCatalog.error_message.empty()) {
+                            MLOG_WARN("mxh_client: QuestString unavailable: %s",
+                                      questCatalog.error_message.c_str());
+                        } else {
+                            MLOG_INFO("mxh_client: original QuestString loaded entries=%zu main=%zu",
+                                      questCatalog.entries.size(), questCatalog.main_quests().size());
+                        }
+                        g->set_quest_catalog(std::move(questCatalog));
                         const auto descriptorPath = options.resource_root / "Resource" / "Map" /
                             ("Map" + std::to_string(pending_map_num) + ".bmhm");
                         if (const auto descriptor = mxh::compat::BmhmMap::load(descriptorPath)) {
