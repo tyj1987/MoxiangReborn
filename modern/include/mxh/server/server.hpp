@@ -492,6 +492,8 @@ private:
     // wire reply (the wire reply has already been sent before the
     // write is attempted; the next BuySyn will overwrite the row).
     void persist_player_money(std::uint32_t player_id, std::uint32_t money);
+    void load_player_items(std::uint32_t player_id, Player& player);
+    void persist_player_items(std::uint32_t player_id);
 
     // M3 D-stage: upsert every active quest in the player's quest_log to
     // the modern_player_quest_log table via the db_ adapter.  Called

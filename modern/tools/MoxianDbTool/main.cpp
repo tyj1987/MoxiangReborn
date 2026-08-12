@@ -140,6 +140,23 @@ CREATE TABLE IF NOT EXISTS modern_player_state (
 CREATE INDEX IF NOT EXISTS idx_modern_player_state_updated_at
     ON modern_player_state(updated_at);
 
+CREATE TABLE IF NOT EXISTS modern_player_item (
+    player_id     INTEGER NOT NULL,
+    container     INTEGER NOT NULL,
+    slot          INTEGER NOT NULL,
+    db_idx        INTEGER NOT NULL,
+    item_idx      INTEGER NOT NULL,
+    durability    INTEGER NOT NULL,
+    rare_idx      INTEGER NOT NULL,
+    quick_position INTEGER NOT NULL,
+    item_param    INTEGER NOT NULL,
+    PRIMARY KEY (player_id, container, slot),
+    UNIQUE (player_id, db_idx)
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_player_item_player
+    ON modern_player_item(player_id);
+
 CREATE TABLE IF NOT EXISTS modern_player_quest_log (
     player_id        INTEGER NOT NULL,
     quest_id         INTEGER NOT NULL,

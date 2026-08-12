@@ -88,6 +88,35 @@ END
 GO
 
 -- M3 D-stage: modern player quest log (StartSyn Ok persistence target).
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_item')
+BEGIN
+    CREATE TABLE [dbo].[modern_player_item] (
+        [player_id] BIGINT NOT NULL,
+        [container] TINYINT NOT NULL,
+        [slot] INT NOT NULL,
+        [db_idx] BIGINT NOT NULL,
+        [item_idx] INT NOT NULL,
+        [durability] BIGINT NOT NULL,
+        [rare_idx] BIGINT NOT NULL,
+        [quick_position] INT NOT NULL,
+        [item_param] BIGINT NOT NULL,
+        CONSTRAINT [pk_modern_player_item] PRIMARY KEY CLUSTERED
+            ([player_id], [container], [slot]),
+        CONSTRAINT [uq_modern_player_item_db_idx] UNIQUE
+            ([player_id], [db_idx])
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'idx_modern_player_item_player'
+                 AND object_id = OBJECT_ID(N'modern_player_item'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [idx_modern_player_item_player]
+        ON [dbo].[modern_player_item] ([player_id]);
+END
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_quest_log')
 BEGIN
     CREATE TABLE [dbo].[modern_player_quest_log] (
