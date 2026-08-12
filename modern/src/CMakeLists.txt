@@ -161,6 +161,7 @@ install(TARGETS mxh_crypto ARCHIVE DESTINATION lib)
 # mxh_server: Minimal game server (Distribute + Agent + Map stubs)
 # -----------------------------------------------------------------------------
 add_library(mxh_server STATIC
+    server/account_service.cpp
     server/help_request_manager.cpp
     server/login_handler.cpp
     server/hsel_session.cpp
@@ -405,6 +406,9 @@ target_include_directories(mxh_server PUBLIC
 
 target_compile_features(mxh_server PUBLIC cxx_std_20)
 target_link_libraries(mxh_server PUBLIC mxh_net mxh_crypto mxh_db mxh_monitor mxh_game)
+if(WIN32)
+    target_link_libraries(mxh_server PUBLIC bcrypt)
+endif()
 
 install(TARGETS mxh_server ARCHIVE DESTINATION lib)
 

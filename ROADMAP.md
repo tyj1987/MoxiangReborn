@@ -1,6 +1,6 @@
 # Moxian-Reborn 路线图：1:1 完美复现
 
-> 状态日期：2026-08-10。完成历史与测试累计见 [docs/CHANGELOG.md](docs/CHANGELOG.md)，活动缺陷见 [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md)。本文件只记录目标、当前事实和下一里程碑，不追加 session 日志。
+> 状态日期：2026-08-12。完成历史与测试累计见 [docs/CHANGELOG.md](docs/CHANGELOG.md)，活动缺陷见 [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md)。本文件只记录目标、当前事实和下一里程碑，不追加 session 日志。
 
 ## 0. 不可破坏的约束
 
@@ -33,8 +33,9 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 | DX11 渲染 | headless 3 帧可自然退出；像素门禁锁定 grid、cube、checker 纹理与深度遮挡 | 仍需与原版登录/空场景截图对比 | **modern 闭环完成，legacy 视觉待验收** |
 | HSEL | 软件流、ABI、三进程加密 E2E 已通过 | 商业 RC 按用户决策忽略实体硬件狗，仅保留接口与 wire 兼容 | **RC 范围完成** |
 | MSSQL | ODBC 18/17 自动选择、LocalDB schema 初始化、客户端与三服务端五步 MSSQL E2E 已通过 | 尚需干净机部署和生产配置演练；legacy `.bak` 非强制 | **本机闭环完成，部署待验收** |
+| 账户注册与认证 | `MoxianDbTool register` 从标准输入创建账号；PBKDF2-HMAC-SHA256（随机 16B salt、210,000 次、常量时间校验）；SQLite 注册账号已完成登录→建角→选角→进图真实三服 E2E，错误密码拒绝 | 面向玩家的注册 Web/桌面入口、限流/封禁/审计与密码重置仍待实现 | **安全认证核心闭环完成，运营入口待建** |
 
-当前 CMake 发现基线：**11,863 tests**；11,863 项 PASSED，全量 CTest 退出码为 0。该数字用于防止测试静默丢失，不代表 T3 已完成。
+当前 CMake 发现基线：**11,910 tests**；11,910 项 PASSED，全量 CTest 退出码为 0。该数字用于防止测试静默丢失，不代表 T3 已完成。
 
 ## 3. 当前里程碑
 

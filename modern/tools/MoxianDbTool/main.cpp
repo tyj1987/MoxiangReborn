@@ -8,8 +8,10 @@
 
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
+#include "mxh/server/account_service.hpp"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -29,6 +31,7 @@ COMMANDS:
     exec    --db <cfg> <sql>       Execute a SQL statement (INSERT/UPDATE/DELETE/DDL)
     query   --db <cfg> <sql>       Execute a query and print result as TSV
     schema  --db <cfg>             List tables
+    register --db <cfg> <account>  Create account; reads password from stdin
 
 EXAMPLE:
     mxh_db_tool init --db "sqlite;path=./moxian.db"
@@ -48,7 +51,7 @@ std::string moxian_schema_sql() {
 -- MHCMEMBER (account/character basic info)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS chr_log_info (
-    id           INTEGER PRIMARY KEY,
+    id           TEXT PRIMARY KEY,
     pw           TEXT NOT NULL,
     userlevel    INTEGER NOT NULL DEFAULT 0,
     registerdate TEXT,
@@ -258,6 +261,27 @@ int cmd_schema(const std::string& cfg_str) {
     return 0;
 }
 
+int cmd_register(const std::string& cfg_str, const std::string& account) {
+    auto cfg = mxh::db::ConnectionConfig::from_kv_string(cfg_str);
+    auto adapter = mxh::db::make_adapter(cfg.backend);
+    if (!adapter) { std::cerr << "ERROR: unknown backend\n"; return 1; }
+    const auto connected = adapter->connect(cfg);
+    if (!connected) { std::cerr << "ERROR connect: " << connected.error_message << "\n"; return 1; }
+    std::string password;
+    if (!std::getline(std::cin, password)) {
+        std::cerr << "ERROR: password must be provided on stdin\n";
+        return 1;
+    }
+    const auto result = mxh::server::create_account(*adapter, account, password);
+    std::fill(password.begin(), password.end(), '\0');
+    if (!result.ok()) {
+        std::cerr << "ERROR: " << result.message << "\n";
+        return 1;
+    }
+    std::cout << "Account created: " << account << "\n";
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -295,6 +319,9 @@ int main(int argc, char** argv) {
         }
         if (cmd == "schema" && positional.empty()) {
             return cmd_schema(cfg_str);
+        }
+        if (cmd == "register" && positional.size() == 1) {
+            return cmd_register(cfg_str, positional[0]);
         }
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << "\n";

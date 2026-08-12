@@ -112,8 +112,11 @@ struct CliArgs {
     std::string map_exe;
     std::string db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string db;                     // SQLite file path or MSSQL kv string
+    bool db_explicit = false;
     bool no_spawn = false;
     std::string character_name;
+    std::string account = "test";
+    std::string password = "test";
     int  timeout_s = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool init_schema = true;   // Phase P0: apply the modern schema before
@@ -141,9 +144,14 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--agent-exe" && i + 1 < argc) a.agent_exe = argv[++i];
         else if (s == "--map-exe"   && i + 1 < argc) a.map_exe   = argv[++i];
         else if (s == "--backend"   && i + 1 < argc) a.db_backend = argv[++i];
-        else if (s == "--db"        && i + 1 < argc) a.db = argv[++i];
+        else if (s == "--db"        && i + 1 < argc) {
+            a.db = argv[++i];
+            a.db_explicit = true;
+        }
         else if (s == "--no-spawn") a.no_spawn = true;
         else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
+        else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
+        else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--init-schema") a.init_schema = true;
@@ -306,8 +314,10 @@ int ensure_mssql_schema(const CliArgs& cli) {
         "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL "
         "CREATE TABLE dbo.chr_log_info ("
         " id NVARCHAR(50) NOT NULL PRIMARY KEY,"
-        " pw NVARCHAR(50) NOT NULL,"
-        " userlevel INT NOT NULL DEFAULT 0);";
+        " pw NVARCHAR(160) NOT NULL,"
+        " userlevel INT NOT NULL DEFAULT 0);"
+        "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 "
+        "ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL;";
     const char* kCharacterInfo =
         "IF OBJECT_ID(N'dbo.character_info', N'U') IS NULL "
         "CREATE TABLE dbo.character_info ("
@@ -381,8 +391,8 @@ int run_e2e(const CliArgs& cli) {
         // (we delete the dir on success; verify_servers_e2e.py uses
         // a similar pattern).
         std::string scratch, login_db, agent_db, map_db;
-        if (cli.db_backend == "mssql_odbc") {
-            // All three servers share the same SQL Server database.
+        if (cli.db_backend == "mssql_odbc" || cli.db_explicit) {
+            // MSSQL and explicitly selected SQLite runs share one database.
             login_db = agent_db = map_db = cli.db;
         } else {
             scratch = "C:\\moxiang\\modern\\scratch\\e2e_client";
@@ -462,7 +472,7 @@ int run_e2e(const CliArgs& cli) {
     // ---- Step 1: Login ----
     LOG("[1/5] Login: CLoginState connecting to 127.0.0.1:16001 ...");
     mxh::client::CLoginState login;
-    login.Start(&engine, "127.0.0.1", 16001, "test", "test",
+    login.Start(&engine, "127.0.0.1", 16001, cli.account, cli.password,
                 cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +

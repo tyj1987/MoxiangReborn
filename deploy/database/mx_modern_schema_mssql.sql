@@ -21,9 +21,18 @@ IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'chr_log_info')
 BEGIN
     CREATE TABLE [dbo].[chr_log_info] (
         [id]         NVARCHAR(50)  NOT NULL PRIMARY KEY,
-        [pw]         NVARCHAR(50)  NOT NULL,
+        [pw]         NVARCHAR(160) NOT NULL,
         [userlevel]  INT           NOT NULL DEFAULT 0
     );
+END
+GO
+
+-- PBKDF2-SHA256 credentials require 118 characters. Upgrade databases
+-- created by older releases without discarding legacy plaintext accounts.
+IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320
+BEGIN
+    ALTER TABLE [dbo].[chr_log_info]
+        ALTER COLUMN [pw] NVARCHAR(160) NOT NULL;
 END
 GO
 

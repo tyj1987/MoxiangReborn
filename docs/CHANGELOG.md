@@ -1,3 +1,10 @@
+## 2026-08-12 - account: PBKDF2 注册认证与真实三服游戏闭环
+
+- 新增 `account_service`：账号为 3-16 位 ASCII 字母/数字/下划线；密码为 8-16 位可打印 ASCII 且至少包含字母和数字。凭据使用 Windows CNG PBKDF2-HMAC-SHA256、16 字节随机盐、210,000 次迭代和 32 字节派生值，采用常量时间比较；保留旧明文账户的只读登录兼容。
+- `MoxianDbTool register --db <cfg> <account>` 从标准输入读取密码并写入哈希，不把密码放入工具参数；修正 SQLite `chr_log_info.id` 为 TEXT。MSSQL `pw` 扩为 NVARCHAR(160)，部署脚本和 E2E schema 均可无损升级旧 50 字符列。
+- 真实共享 SQLite 数据库证据：创建 `player01` 后仅存 `pbkdf2-sha256` 前缀的 118 字符凭据；正确密码完成 LoginAck→CharacterList→CharacterMake→CharacterSelect→GameInAck（角色 `Registered01`、地图 12、5 只怪物同步），错误密码没有 LoginAck。
+- 新增 4 项账户服务单测；Debug 全量构建通过，CTest 11,910/11,910 PASS（退出码 0）。
+
 ## 2026-08-12 - stability: 真实共享三服 1h SQLite soak 11,586/11,586 PASS
 
 - 修正 `scripts/soak-24h.ps1`：所有 E2E client 强制 `--no-spawn`，不再每轮私自启动三服；旧 canary 的多实例采样证据作废。共享三服 1 分钟验证 199/199 后进入长测。

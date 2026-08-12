@@ -5,6 +5,7 @@
 // Phase 4.3: adds version negotiation before login.
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/account_service.hpp"
 
 #include <cstring>
 #include <fstream>
@@ -280,7 +281,7 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
     if (q.ok() && !rs.empty()) {
         const auto& row = rs.rows[0];
         auto db_pw = std::get<std::string>(row[1]);
-        ok = (db_pw == password);
+        ok = verify_account_password(password, db_pw);
     }
 
     if (ok) {
@@ -338,7 +339,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     if (q.ok() && !rs.empty()) {
         const auto& row = rs.rows[0];
         auto db_pw = std::get<std::string>(row[1]);
-        ok = (db_pw == password);
+        ok = verify_account_password(password, db_pw);
         user_level = static_cast<std::uint8_t>(std::get<std::int64_t>(row[2]));
     }
     

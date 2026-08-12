@@ -3104,3 +3104,11 @@ gtest_add_tests(TARGET mxh_skill_caster_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+
+add_executable(mxh_account_service_tests account_service_test.cpp)
+target_link_libraries(mxh_account_service_tests PRIVATE mxh_server GTest::gtest_main)
+target_include_directories(mxh_account_service_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_account_service_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
