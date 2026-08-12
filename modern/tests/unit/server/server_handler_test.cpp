@@ -1910,6 +1910,44 @@ TEST(MapHandlerTest, StartSynOkArmPersistsQuestLogToSqliteMemory) {
     EXPECT_NE(state_value, 0) << "expected state != 0 (None) after StartSyn Ok";
 }
 
+TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE modern_player_quest_log (player_id INTEGER NOT NULL,quest_id INTEGER NOT NULL,"
+        "state INTEGER NOT NULL,accepted_time_ms INTEGER NOT NULL,updated_at TEXT NOT NULL,"
+        "PRIMARY KEY(player_id,quest_id));"
+        "CREATE TABLE modern_player_quest_sub (player_id INTEGER NOT NULL,quest_id INTEGER NOT NULL,"
+        "sub_index INTEGER NOT NULL,kind INTEGER NOT NULL,target_id INTEGER NOT NULL,count INTEGER NOT NULL,"
+        "target_count INTEGER NOT NULL,PRIMARY KEY(player_id,quest_id,sub_index));"
+        "INSERT INTO modern_player_quest_log VALUES(456,99,1,1234,'now');"
+        "INSERT INTO modern_player_quest_sub VALUES(456,99,0,1,10,4,10);").ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const std::string quest_text = "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 10 10 *ADDCOUNT 1 1 } }";
+    const auto qpath = write_temp_bin(synthesize_dealitem_bin(quest_text));
+    handler.load_quest_script(qpath.string());
+    std::error_code ec; std::filesystem::remove(qpath, ec);
+
+    mxh::net::Message game_in;
+    game_in.header.object_id = 456u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+
+    const auto progress = handler.quest_progress_for_test(456u, 99u);
+    ASSERT_TRUE(progress.has_value());
+    ASSERT_EQ(progress->subs.size(), 1u);
+    EXPECT_EQ(progress->accepted_time_ms, 1234u);
+    EXPECT_EQ(progress->state, mxh::server::QuestState::Accepted);
+    EXPECT_EQ(progress->subs[0].count, 4u);
+    EXPECT_EQ(progress->subs[0].target, 10u);
+}
+
 // M3 D-stage: persist_quest_log_for_test must hit the DB on every
 // call.  This pins the helper in isolation (no wire traffic).
 TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {

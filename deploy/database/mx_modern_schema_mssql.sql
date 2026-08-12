@@ -122,6 +122,31 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_quest_sub')
+BEGIN
+    CREATE TABLE [dbo].[modern_player_quest_sub] (
+        [player_id] BIGINT NOT NULL,
+        [quest_id] BIGINT NOT NULL,
+        [sub_index] INT NOT NULL,
+        [kind] TINYINT NOT NULL,
+        [target_id] BIGINT NOT NULL,
+        [count] BIGINT NOT NULL DEFAULT 0,
+        [target_count] BIGINT NOT NULL,
+        CONSTRAINT [pk_modern_player_quest_sub] PRIMARY KEY CLUSTERED
+            ([player_id], [quest_id], [sub_index])
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'idx_modern_player_quest_sub_player'
+                 AND object_id = OBJECT_ID(N'modern_player_quest_sub'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [idx_modern_player_quest_sub_player]
+        ON [dbo].[modern_player_quest_sub] ([player_id]);
+END
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_account_identity')
 BEGIN
     CREATE TABLE [dbo].[modern_account_identity] (

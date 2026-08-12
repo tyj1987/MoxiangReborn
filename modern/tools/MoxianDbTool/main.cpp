@@ -152,6 +152,20 @@ CREATE TABLE IF NOT EXISTS modern_player_quest_log (
 CREATE INDEX IF NOT EXISTS idx_modern_player_quest_log_player
     ON modern_player_quest_log(player_id);
 
+CREATE TABLE IF NOT EXISTS modern_player_quest_sub (
+    player_id    INTEGER NOT NULL,
+    quest_id     INTEGER NOT NULL,
+    sub_index    INTEGER NOT NULL,
+    kind         INTEGER NOT NULL,
+    target_id    INTEGER NOT NULL,
+    count        INTEGER NOT NULL DEFAULT 0,
+    target_count INTEGER NOT NULL,
+    PRIMARY KEY (player_id, quest_id, sub_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_player_quest_sub_player
+    ON modern_player_quest_sub(player_id);
+
 CREATE TABLE IF NOT EXISTS modern_account_status (
     account_id TEXT PRIMARY KEY,
     login_blocked INTEGER NOT NULL DEFAULT 0,

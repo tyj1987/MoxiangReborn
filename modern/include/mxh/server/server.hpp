@@ -350,6 +350,8 @@ public:
     bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
     std::uint32_t player_money_for_test(std::uint32_t player_id) noexcept;
     std::size_t player_quest_count_for_test(std::uint32_t player_id) noexcept;
+    std::optional<QuestProgress> quest_progress_for_test(std::uint32_t player_id,
+                                                         std::uint32_t quest_id) noexcept;
 
     // M3 D-stage: BuySyn money persistence to `modern_player_state`.
     // The orchestrator (handle_item BuySyn Ok arm) calls the private
@@ -498,6 +500,7 @@ private:
     // safe to call with a freshly-loaded quest_log (one quest per row)
     // or a fully populated one (N quests, N rows).
     void persist_quest_log(std::uint32_t player_id);
+    void load_quest_log(std::uint32_t player_id, QuestLog& quest_log);
     void send_skill_single_result(
         std::uint32_t target_player_id,
         std::uint32_t target_id,
