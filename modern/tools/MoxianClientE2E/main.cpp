@@ -113,6 +113,7 @@ struct CliArgs {
     std::string db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string db;                     // SQLite file path or MSSQL kv string
     bool no_spawn = false;
+    std::string character_name;
     int  timeout_s = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool init_schema = true;   // Phase P0: apply the modern schema before
@@ -142,6 +143,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--backend"   && i + 1 < argc) a.db_backend = argv[++i];
         else if (s == "--db"        && i + 1 < argc) a.db = argv[++i];
         else if (s == "--no-spawn") a.no_spawn = true;
+        else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--init-schema") a.init_schema = true;
@@ -552,12 +554,16 @@ int run_e2e(const CliArgs& cli) {
         }
         // Unique per-run name so repeated runs on a persistent MSSQL DB
         // never collide (the agent rejects duplicate charnames).
-        const auto now = std::chrono::steady_clock::now()
-                         .time_since_epoch()
-                         .count();
         char name_buf[17] = {};
-        std::snprintf(name_buf, sizeof(name_buf), "E2E%lld",
-                      static_cast<long long>(now % 100000000LL));
+        if (!cli.character_name.empty()) {
+            std::snprintf(name_buf, sizeof(name_buf), "%s", cli.character_name.c_str());
+        } else {
+            const auto now = std::chrono::steady_clock::now()
+                             .time_since_epoch()
+                             .count();
+            std::snprintf(name_buf, sizeof(name_buf), "E2E%lld",
+                          static_cast<long long>(now % 100000000LL));
+        }
         mxh::client::CharacterMakeParams params;
         params.name       = name_buf;
         params.sex_type   = 1;

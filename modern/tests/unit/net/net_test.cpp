@@ -345,6 +345,31 @@ TEST(TcpClientTest, ConnectSucceeds) {
     server.stop();
 }
 
+TEST(TcpClientTest, RetriesTransientConnectFailureUntilTimeout) {
+    CountingHandler h;
+    TcpServer server(h);
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig server_cfg;
+    server_cfg.port = static_cast<std::uint16_t>(port);
+    server_cfg.worker_thread_count = 1;
+
+    std::thread delayed_start([&]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        EXPECT_EQ(server.start(server_cfg), NetError::Ok);
+    });
+
+    TcpClient client(h);
+    ClientConfig client_cfg;
+    client_cfg.remote_address = "127.0.0.1";
+    client_cfg.port = static_cast<std::uint16_t>(port);
+    client_cfg.connect_timeout = std::chrono::milliseconds(1000);
+    EXPECT_EQ(client.connect(client_cfg), NetError::Ok);
+    delayed_start.join();
+    client.disconnect();
+    server.stop();
+}
+
 TEST(TcpClientTest, DisconnectWhenNotConnected) {
     CountingHandler h;
     TcpClient cli(h);

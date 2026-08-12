@@ -648,22 +648,34 @@ TcpClient::~TcpClient() {
 }
 
 NetError TcpClient::connect(const ClientConfig& cfg) {
-    impl_->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (impl_->sock == INVALID_SOCKET) return NetError::ConnectFailed;
-
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(cfg.port);
     if (inet_pton(AF_INET, cfg.remote_address.c_str(), &addr.sin_addr) != 1) {
-        closesocket(impl_->sock);
-        impl_->sock = INVALID_SOCKET;
         return NetError::ConnectFailed;
     }
 
-    if (::connect(impl_->sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr))
-        == SOCKET_ERROR) {
-        closesocket(impl_->sock);
+    // ClientConfig has always exposed connect_timeout, but the synchronous
+    // implementation previously ignored it and failed after one connect().
+    // Retry with a fresh socket until the deadline so transient accept-backlog
+    // or ephemeral-port pressure does not abort a commercial login flow.
+    const auto deadline = std::chrono::steady_clock::now() + cfg.connect_timeout;
+    do {
+        impl_->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (impl_->sock != INVALID_SOCKET &&
+            ::connect(impl_->sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr))
+                != SOCKET_ERROR) {
+            break;
+        }
+        if (impl_->sock != INVALID_SOCKET) closesocket(impl_->sock);
         impl_->sock = INVALID_SOCKET;
+        if (std::chrono::steady_clock::now() >= deadline) {
+            return NetError::ConnectFailed;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } while (true);
+
+    if (impl_->sock == INVALID_SOCKET) {
         return NetError::ConnectFailed;
     }
     impl_->connected.store(true);

@@ -1035,6 +1035,12 @@ void AgentHandler::handle_legacy_character_make(
         return;
     }
 
+    // Serialize name validation + ID allocation + insert. The previous random
+    // 7-digit chrid allocator develops birthday collisions after only a few
+    // thousand creates and returned CharacterMakeNack for a valid unique name.
+    static std::mutex character_create_mutex;
+    std::lock_guard<std::mutex> create_lock(character_create_mutex);
+
     // Check name uniqueness.
     {
         mxh::db::ResultSet rs;
@@ -1054,10 +1060,40 @@ void AgentHandler::handle_legacy_character_make(
         }
     }
 
-    // Generate unique chrid.
-    static std::mt19937 rng{std::random_device{}()};
-    std::uniform_int_distribution<std::int64_t> dist(100000, 9999999);
-    std::int64_t chrid = dist(rng);
+    // Allocate a monotonic 32-bit chrid from authoritative database state.
+    // The mutex makes MAX+1 atomic for this (single-writer) Agent process;
+    // restart safety comes from reading the persisted maximum every time.
+    std::int64_t chrid = 100000;
+    {
+        mxh::db::ResultSet id_rs;
+        const auto id_result = db_.query(
+            "SELECT MAX(chrid) AS max_chrid FROM character_info", {}, id_rs);
+        if (!id_result.ok()) {
+            std::cerr << "[Agent] AllocateCharacterId DB error: "
+                      << id_result.error_message << "\n";
+            mxh::net::Message m;
+            m.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            m.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::CharacterMakeNack);
+            reply_(id, m);
+            return;
+        }
+        if (!id_rs.empty()) {
+            const auto current_max = get_int(id_rs, 0, "max_chrid");
+            if (current_max >= 100000) chrid = current_max + 1;
+        }
+        if (chrid > static_cast<std::int64_t>(UINT32_MAX)) {
+            std::cerr << "[Agent] Character ID space exhausted\n";
+            mxh::net::Message m;
+            m.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            m.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::CharacterMakeNack);
+            reply_(id, m);
+            return;
+        }
+    }
 
     // Insert into character_info.
     std::vector<mxh::db::Bind> ins_params = {

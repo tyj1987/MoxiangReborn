@@ -1,3 +1,10 @@
+## 2026-08-12 - stability: 真实共享三服 1h SQLite soak 11,586/11,586 PASS
+
+- 修正 `scripts/soak-24h.ps1`：所有 E2E client 强制 `--no-spawn`，不再每轮私自启动三服；旧 canary 的多实例采样证据作废。共享三服 1 分钟验证 199/199 后进入长测。
+- `MoxianClientE2E` 新增 `--character-name`，soak 使用 run-id + 7 位 sequence 的 16 字节唯一名，消除多进程 clock 名称碰撞。
+- 真实长测暴露并修复两个生产缺陷：Agent 的随机 7 位 `chrid` 在数千次创建后生日碰撞，改为串行读取持久化 `MAX(chrid)+1`；`TcpClient` 原先忽略 `ClientConfig.connect_timeout`，现以新 socket 每 50ms 重试瞬时 connect failure 至 deadline。新增延迟启动服务的重试集成测试，网络套件 38/38 PASS。
+- 最终严格门禁（run `c96919d1`, `MaxClientFailures=1`）：共享 Login/Agent/Map，1h，4 并发，11,586/11,586 cycles，0 failure，0 crash。handles 首尾 Login 164→168、Agent 152→176、Map 150→161；RSS 8.4→10.1 MB、8.4→25.6 MB、8.5→10.2 MB，均有界。
+
 ## 2026-08-12 - net: TcpServer 运行时回收连接线程句柄
 
 - 生产 Login/Agent/Map 实际使用 `mxh::net::TcpServer`：旧实现为每条连接创建 recv + sender 两个 `std::thread`，断开后保留在 `connections`/`recv_threads` 直到进程停止，正好对应每轮三服务约 +6 Windows handles。

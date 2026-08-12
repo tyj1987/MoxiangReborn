@@ -174,9 +174,15 @@ try {
         # refill slots
         while ($script:clients.Count -lt $Concurrency -and -not $script:interrupt) {
             $slotSeq += 1
-            $charName = 'soak' + $runId + ('{0:D5}' -f $slotSeq)
+            $charName = 'S' + $runId + ('{0:D7}' -f $slotSeq)
             $logPath = Join-Path $clientLogDir ('client-' + ('{0:D4}' -f $slotSeq) + '.log')
             $clientArgs = @()
+            # The harness owns one shared Login/Agent/Map chain. Without
+            # --no-spawn every client cycle creates another three processes,
+            # so samples target arbitrary PIDs and do not measure server soak.
+            $clientArgs += '--no-spawn'
+            $clientArgs += '--character-name'
+            $clientArgs += $charName
             if (-not [string]::IsNullOrWhiteSpace($PassThruExtraArgs)) {
                 $clientArgs += @($PassThruExtraArgs -split ' ')
             }
