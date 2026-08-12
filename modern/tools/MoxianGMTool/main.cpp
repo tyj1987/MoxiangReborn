@@ -9,7 +9,7 @@
 //   - Event management (create, schedule, monitor)
 //
 // Usage:
-//   MoxianGMTool [--port 8080] [--config config.json]
+//   MoxianGMTool [--bind 127.0.0.1] [--port 8080] --token-file <path>
 //
 // API Endpoints:
 //   GET  /api/status          - Server status
@@ -32,6 +32,9 @@
 #include <filesystem>
 #include <chrono>
 #include <mutex>
+#include <cstdlib>
+
+#include "gm_security.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -225,7 +228,8 @@ using RouteHandler = std::function<HttpResponse(const HttpRequest&)>;
 
 class HttpServer {
 public:
-    HttpServer(int port) : port_(port) {}
+    HttpServer(std::string bind_address, int port, std::string auth_token)
+        : bind_address_(std::move(bind_address)), port_(port), auth_token_(std::move(auth_token)) {}
 
     void get(const std::string& path, RouteHandler handler) {
         routes_["GET:" + path] = handler;
@@ -237,12 +241,17 @@ public:
 
     void start() {
 #ifdef _WIN32
+        using socket_handle = SOCKET;
+        constexpr socket_handle invalid_socket = INVALID_SOCKET;
         WSADATA wsa;
         WSAStartup(MAKEWORD(2, 2), &wsa);
+#else
+        using socket_handle = int;
+        constexpr socket_handle invalid_socket = -1;
 #endif
 
-        int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (server_fd < 0) {
+        socket_handle server_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (server_fd == invalid_socket) {
             std::cerr << "Error creating socket" << std::endl;
             return;
         }
@@ -252,7 +261,10 @@ public:
 
         struct sockaddr_in address;
         address.sin_family = AF_INET;
-        address.sin_addr.s_addr = INADDR_ANY;
+        if (inet_pton(AF_INET, bind_address_.c_str(), &address.sin_addr) != 1) {
+            std::cerr << "Invalid IPv4 bind address: " << bind_address_ << std::endl;
+            return;
+        }
         address.sin_port = htons(port_);
 
         if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
@@ -265,7 +277,7 @@ public:
             return;
         }
 
-        std::cout << "GM Tool server running on http://localhost:" << port_ << std::endl;
+        std::cout << "GM Tool server running on http://" << bind_address_ << ':' << port_ << std::endl;
         std::cout << "API endpoints:" << std::endl;
         std::cout << "  GET  /api/status" << std::endl;
         std::cout << "  GET  /api/players" << std::endl;
@@ -278,9 +290,9 @@ public:
         while (true) {
             struct sockaddr_in client_addr;
             socklen_t client_len = sizeof(client_addr);
-            int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
+            socket_handle client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
 
-            if (client_fd < 0) {
+            if (client_fd == invalid_socket) {
                 std::cerr << "Error accepting connection" << std::endl;
                 continue;
             }
@@ -292,10 +304,17 @@ public:
     }
 
 private:
+#ifdef _WIN32
+    using socket_handle = SOCKET;
+#else
+    using socket_handle = int;
+#endif
+    std::string bind_address_;
     int port_;
+    std::string auth_token_;
     std::map<std::string, RouteHandler> routes_;
 
-    void handle_client(int client_fd) {
+    void handle_client(socket_handle client_fd) {
         char buffer[4096] = {0};
         int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
 
@@ -312,7 +331,7 @@ private:
         HttpResponse response = route_request(request);
 
         std::string response_str = build_response(response);
-        send(client_fd, response_str.c_str(), response_str.size(), 0);
+        send(client_fd, response_str.c_str(), static_cast<int>(response_str.size()), 0);
 
 #ifdef _WIN32
         closesocket(client_fd);
@@ -355,6 +374,14 @@ private:
     }
 
     HttpResponse route_request(const HttpRequest& request) {
+        if (!mxh::gm::authorize_bearer(request.headers, auth_token_)) {
+            HttpResponse response;
+            response.status = 401;
+            response.status_text = "Unauthorized";
+            response.body = "{\"error\":\"unauthorized\"}";
+            response.headers["WWW-Authenticate"] = "Bearer";
+            return response;
+        }
         // Try exact match first
         std::string key = request.method + ":" + request.path;
         if (routes_.count(key)) {
@@ -403,7 +430,8 @@ private:
         ss << "HTTP/1.1 " << response.status << " " << response.status_text << "\r\n";
         ss << "Content-Length: " << response.body.size() << "\r\n";
         ss << "Content-Type: application/json\r\n";
-        ss << "Access-Control-Allow-Origin: *\r\n";
+        ss << "Cache-Control: no-store\r\n";
+        ss << "X-Content-Type-Options: nosniff\r\n";
         for (const auto& [key, value] : response.headers) {
             ss << key << ": " << value << "\r\n";
         }
@@ -662,17 +690,36 @@ private:
 
 int main(int argc, char* argv[]) {
     int port = 8080;
+    std::string bind_address = "127.0.0.1";
+    std::string token;
 
     // Parse command line arguments
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--port" && i + 1 < argc) {
             port = std::stoi(argv[++i]);
+        } else if (arg == "--bind" && i + 1 < argc) {
+            bind_address = argv[++i];
+        } else if (arg == "--token-file" && i + 1 < argc) {
+            std::ifstream input(argv[++i], std::ios::binary);
+            if (!input) {
+                std::cerr << "FATAL: cannot read GM token file" << std::endl;
+                return 2;
+            }
+            std::getline(input, token);
         }
     }
 
+    if (token.empty()) {
+        if (const char* value = std::getenv("MXH_GM_TOKEN")) token = value;
+    }
+    if (token.size() < 32) {
+        std::cerr << "FATAL: MXH_GM_TOKEN or --token-file must provide at least 32 characters" << std::endl;
+        return 2;
+    }
+
     GMTool gm_tool;
-    HttpServer server(port);
+    HttpServer server(bind_address, port, token);
 
     // Register routes
     server.get("/api/status", [&](const HttpRequest& req) {

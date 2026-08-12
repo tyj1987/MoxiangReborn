@@ -1,3 +1,9 @@
+## 2026-08-12 - gm: 管理 API 默认拒绝未认证访问
+
+- `MoxianGMTool` 现在必须由 `MXH_GM_TOKEN` 或 `--token-file` 提供至少 32 字符的 Bearer token；所有路由在分派前鉴权，token 使用常量时间比较。缺失/错误凭据返回 401，正确凭据返回业务响应。
+- 默认绑定由 `0.0.0.0` 收紧到 `127.0.0.1`，只有显式 `--bind` 才会对外监听；移除通配 CORS，增加 `Cache-Control: no-store` 和 `X-Content-Type-Options: nosniff`。
+- 修复 64 位 Windows 把 `SOCKET` 保存为 32 位 `int` 的句柄截断缺陷。真实运行验证监听地址 `127.0.0.1:18080`，无认证 `/api/status` 为 401，正确 Bearer token 为 200；新增 4 项安全单测。Debug 全量构建与 CTest 11,914/11,914 PASS。
+
 ## 2026-08-12 - account: PBKDF2 注册认证与真实三服游戏闭环
 
 - 新增 `account_service`：账号为 3-16 位 ASCII 字母/数字/下划线；密码为 8-16 位可打印 ASCII 且至少包含字母和数字。凭据使用 Windows CNG PBKDF2-HMAC-SHA256、16 字节随机盐、210,000 次迭代和 32 字节派生值，采用常量时间比较；保留旧明文账户的只读登录兼容。

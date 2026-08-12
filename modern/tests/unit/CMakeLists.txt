@@ -170,6 +170,10 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_tools_side_by_side_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_gm_security_tests gm_security_test.cpp)
+target_link_libraries(mxh_gm_security_tests PRIVATE gtest_main)
+gtest_add_tests(TARGET mxh_gm_security_tests)
+
 # mxh_login_sbs_e2e_tests end-to-end smoke for side-by-side login path
 add_executable(mxh_login_sbs_e2e_tests
     login_sbs_e2e_test.cpp
