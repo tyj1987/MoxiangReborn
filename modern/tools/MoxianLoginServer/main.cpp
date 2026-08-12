@@ -166,6 +166,10 @@ CREATE TABLE IF NOT EXISTS chr_log_info (
     lastloginip TEXT,
     usepoint INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS modern_account_identity (
+    account_id TEXT PRIMARY KEY,
+    user_idx INTEGER NOT NULL UNIQUE
+);
 INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('admin', 'admin', 2);
 INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('test', 'test', 2);
 INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderland', 0);
@@ -195,7 +199,10 @@ INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderl
         },
         args.use_legacy, args.use_hsel,
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
-            if (server_ptr) server_ptr->send(id, m);
+            if (server_ptr) {
+                const auto error = server_ptr->send(id, m);
+                (void)error;
+            }
         });
 
     mxh::net::TcpServer server(handler);

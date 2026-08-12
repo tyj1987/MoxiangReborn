@@ -159,6 +159,11 @@ CREATE TABLE IF NOT EXISTS modern_account_status (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS modern_account_identity (
+    account_id TEXT PRIMARY KEY,
+    user_idx INTEGER NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS modern_gm_audit (
     audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
     actor TEXT NOT NULL,

@@ -4,6 +4,7 @@
 
 #include <string>
 #include <string_view>
+#include <cstdint>
 
 namespace mxh::server {
 
@@ -30,5 +31,7 @@ struct AccountCreateResult {
 [[nodiscard]] AccountCreateResult create_account(mxh::db::IDbAdapter& db,
                                                  std::string_view account,
                                                  std::string_view password);
+[[nodiscard]] std::uint32_t ensure_account_user_idx(mxh::db::IDbAdapter& db,
+                                                    std::string_view account);
 
 }  // namespace mxh::server

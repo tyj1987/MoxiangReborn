@@ -1,3 +1,10 @@
+## 2026-08-12 - account/gm: 多账号角色隔离与真实玩家管理 API
+
+- 修复严重账号隔离缺陷：LoginAck 此前为所有账号硬编码 `user_idx=1`，导致角色归属混用。新增 `modern_account_identity(account_id,user_idx)`，登录时串行惰性分配稳定非零 identity，legacy 23B LoginAck 写入完整 u32。
+- 双账号真实 E2E：`alice01` 获得 user_idx=1、角色 AliceH0001/chrid 100000；`bob001` 获得 user_idx=2、角色 BobHero001/chrid 100001；两次初始 CharacterList 均为 0，数据库 join 证明角色各归其账号。
+- GM `/api/players` 改为真实 join character_info + account_identity + player_state + account_status；角色操作按 chrid 反查账号并执行事务封禁/审计，`/api/audit` 返回真实记录。HTTP 封禁 Bob 后其正确密码登录立即被拒绝。
+- 删除玩家/物品/聊天样例数据和虚假成功；尚未连接权威数据面的 item/chat/event API 明确返回 501。新增 3 项 identity/repository 单测；Debug 全量构建与 CTest 11,922/11,922 PASS。
+
 ## 2026-08-12 - ops: SQLite 一致性备份、校验与恢复演练
 
 - 新增 `scripts/sqlite-backup.ps1`：备份前执行 `PRAGMA integrity_check`，用 SQLite `VACUUM INTO` 生成在线一致性快照，备份后再次检查并生成独立 SHA-256 清单。

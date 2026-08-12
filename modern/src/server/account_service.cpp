@@ -11,6 +11,8 @@
 #include <iomanip>
 #include <sstream>
 #include <vector>
+#include <mutex>
+#include <limits>
 
 namespace mxh::server {
 namespace {
@@ -19,6 +21,7 @@ constexpr unsigned long kIterations = 210000;
 constexpr std::size_t kSaltBytes = 16;
 constexpr std::size_t kHashBytes = 32;
 constexpr std::string_view kPrefix = "pbkdf2-sha256$";
+std::mutex g_identity_mutex;
 
 std::string hex_encode(const std::uint8_t* data, std::size_t size) {
     std::ostringstream out;
@@ -147,6 +150,27 @@ AccountCreateResult create_account(mxh::db::IDbAdapter& db,
         "INSERT INTO chr_log_info (id, pw, userlevel) VALUES (?, ?, 0)", insert);
     if (!result.ok()) return {AccountCreateStatus::DatabaseError, result.error_message};
     return {AccountCreateStatus::Ok, "account created"};
+}
+
+std::uint32_t ensure_account_user_idx(mxh::db::IDbAdapter& db, std::string_view account) {
+    std::lock_guard<std::mutex> lock(g_identity_mutex);
+    mxh::db::ResultSet rows;
+    const std::vector<mxh::db::Bind> lookup{mxh::db::bind(std::string(account))};
+    auto result = db.query("SELECT user_idx FROM modern_account_identity WHERE account_id = ?", lookup, rows);
+    if (result.ok() && !rows.empty()) {
+        if (const auto* value = std::get_if<std::int64_t>(&rows.rows[0][0]); value && *value > 0)
+            return static_cast<std::uint32_t>(*value);
+    }
+    rows = {};
+    result = db.query("SELECT COALESCE(MAX(user_idx), 0) + 1 FROM modern_account_identity", rows);
+    if (!result.ok() || rows.empty()) return 0;
+    const auto* value = std::get_if<std::int64_t>(&rows.rows[0][0]);
+    if (!value || *value <= 0 || static_cast<std::uint64_t>(*value) > std::numeric_limits<std::uint32_t>::max()) return 0;
+    const auto identity = static_cast<std::uint32_t>(*value);
+    const std::vector<mxh::db::Bind> insert{mxh::db::bind(std::string(account)),
+                                            mxh::db::bind(static_cast<std::int64_t>(identity))};
+    result = db.execute("INSERT INTO modern_account_identity (account_id, user_idx) VALUES (?, ?)", insert);
+    return result.ok() ? identity : 0;
 }
 
 }  // namespace mxh::server

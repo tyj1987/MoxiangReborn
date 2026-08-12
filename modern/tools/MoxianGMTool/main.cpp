@@ -35,6 +35,8 @@
 #include <cstdlib>
 
 #include "gm_security.hpp"
+#include "gm_repository.hpp"
+#include "mxh/server/account_moderation.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -447,27 +449,16 @@ private:
 
 class GMTool {
 public:
-    GMTool() {
-        // Initialize with sample data
-        players_ = {
-            {1, {1, "Player1", 100, 5000, false, false}},
-            {2, {2, "Player2", 85, 3000, false, false}},
-            {3, {3, "Player3", 120, 8000, false, true}},
-        };
-
-        items_ = {
-            {1001, {1001, "Sword of Light", "Weapon", 100}},
-            {1002, {1002, "Shield of Darkness", "Armor", 80}},
-            {1003, {1003, "Health Potion", "Consumable", 10}},
-        };
-    }
+    explicit GMTool(mxh::db::IDbAdapter& db) : db_(db), repository_(db) {}
 
     HttpResponse get_status(const HttpRequest& request) {
         JsonValue status;
         status.type = JsonValue::Object;
         status.object_value["server_name"] = JsonValue(std::string("Moxian Server"));
-        status.object_value["uptime"] = JsonValue(3600.0);
-        status.object_value["player_count"] = JsonValue(static_cast<double>(players_.size()));
+        std::vector<mxh::gm::PlayerRecord> players;
+        const auto query = repository_.list_players(players);
+        if (!query.ok()) return database_error(query);
+        status.object_value["player_count"] = JsonValue(static_cast<double>(players.size()));
         status.object_value["max_players"] = JsonValue(1000.0);
         status.object_value["status"] = JsonValue(std::string("running"));
 
@@ -481,16 +472,18 @@ public:
         JsonValue players;
         players.type = JsonValue::Array;
 
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto& [id, player] : players_) {
+        std::vector<mxh::gm::PlayerRecord> records;
+        const auto query = repository_.list_players(records);
+        if (!query.ok()) return database_error(query);
+        for (const auto& player : records) {
             JsonValue p;
             p.type = JsonValue::Object;
-            p.object_value["id"] = JsonValue(static_cast<double>(player.id));
-            p.object_value["name"] = JsonValue(player.name);
+            p.object_value["id"] = JsonValue(static_cast<double>(player.character_id));
+            p.object_value["name"] = JsonValue(player.character_name);
+            p.object_value["account_id"] = JsonValue(player.account_id);
             p.object_value["level"] = JsonValue(static_cast<double>(player.level));
-            p.object_value["gold"] = JsonValue(static_cast<double>(player.gold));
-            p.object_value["is_banned"] = JsonValue(player.is_banned);
-            p.object_value["is_muted"] = JsonValue(player.is_muted);
+            p.object_value["gold"] = JsonValue(static_cast<double>(player.money));
+            p.object_value["is_banned"] = JsonValue(player.login_blocked);
             players.array_value.push_back(p);
         }
 
@@ -504,16 +497,20 @@ public:
         // Parse player ID from path
         size_t last_slash = request.path.rfind('/');
         size_t prev_slash = request.path.rfind('/', last_slash - 1);
-        int player_id = std::stoi(request.path.substr(prev_slash + 1, last_slash - prev_slash - 1));
+        std::int64_t player_id = std::stoll(request.path.substr(prev_slash + 1, last_slash - prev_slash - 1));
 
         // Parse action from body
         size_t pos = 0;
         JsonValue body = JsonValue::parse(request.body, pos);
         std::string action = body.object_value.count("action") ? 
                            body.object_value.at("action").string_value : "";
-
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!players_.count(player_id)) {
+        const std::string actor = body.object_value.count("actor") ? body.object_value.at("actor").string_value : "";
+        const std::string reason = body.object_value.count("reason") ? body.object_value.at("reason").string_value : "";
+        if (actor.empty() || reason.empty()) return bad_request("actor and reason are required");
+        std::string account_id;
+        const auto found = repository_.find_account_for_character(player_id, account_id);
+        if (!found.ok()) return database_error(found);
+        if (account_id.empty()) {
             HttpResponse response;
             response.status = 404;
             response.status_text = "Not Found";
@@ -522,30 +519,18 @@ public:
             return response;
         }
 
-        Player& player = players_[player_id];
         std::string result;
 
         if (action == "ban") {
-            player.is_banned = true;
+            const auto update = mxh::server::set_account_login_blocked(db_, account_id, true, actor, reason);
+            if (!update.ok()) return database_error(update);
             result = "Player banned";
         } else if (action == "unban") {
-            player.is_banned = false;
+            const auto update = mxh::server::set_account_login_blocked(db_, account_id, false, actor, reason);
+            if (!update.ok()) return database_error(update);
             result = "Player unbanned";
-        } else if (action == "mute") {
-            player.is_muted = true;
-            result = "Player muted";
-        } else if (action == "unmute") {
-            player.is_muted = false;
-            result = "Player unmuted";
-        } else if (action == "kick") {
-            result = "Player kicked";
         } else {
-            HttpResponse response;
-            response.status = 400;
-            response.status_text = "Bad Request";
-            response.body = "{\"error\": \"Unknown action\"}";
-            response.headers["Content-Type"] = "application/json";
-            return response;
+            return not_implemented("only persistent ban/unban actions are implemented");
         }
 
         JsonValue response_json;
@@ -560,128 +545,67 @@ public:
     }
 
     HttpResponse get_items(const HttpRequest& request) {
-        JsonValue items;
-        items.type = JsonValue::Array;
-
-        for (const auto& [id, item] : items_) {
-            JsonValue i;
-            i.type = JsonValue::Object;
-            i.object_value["id"] = JsonValue(static_cast<double>(item.id));
-            i.object_value["name"] = JsonValue(item.name);
-            i.object_value["type"] = JsonValue(item.type);
-            i.object_value["value"] = JsonValue(static_cast<double>(item.value));
-            items.array_value.push_back(i);
-        }
-
-        HttpResponse response;
-        response.body = items.dump();
-        response.headers["Content-Type"] = "application/json";
-        return response;
+        return not_implemented("item catalog API is not connected to the authoritative resource catalog");
     }
 
     HttpResponse give_item(const HttpRequest& request) {
-        size_t pos = 0;
-        JsonValue body = JsonValue::parse(request.body, pos);
-
-        int player_id = static_cast<int>(body.object_value["player_id"].number_value);
-        int item_id = static_cast<int>(body.object_value["item_id"].number_value);
-        int quantity = body.object_value.count("quantity") ? 
-                      static_cast<int>(body.object_value["quantity"].number_value) : 1;
-
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!players_.count(player_id)) {
-            HttpResponse response;
-            response.status = 404;
-            response.status_text = "Not Found";
-            response.body = "{\"error\": \"Player not found\"}";
-            response.headers["Content-Type"] = "application/json";
-            return response;
-        }
-
-        if (!items_.count(item_id)) {
-            HttpResponse response;
-            response.status = 404;
-            response.status_text = "Not Found";
-            response.body = "{\"error\": \"Item not found\"}";
-            response.headers["Content-Type"] = "application/json";
-            return response;
-        }
-
-        JsonValue response_json;
-        response_json.type = JsonValue::Object;
-        response_json.object_value["success"] = JsonValue(true);
-        response_json.object_value["message"] = JsonValue(std::string("Item given to player"));
-
-        HttpResponse response;
-        response.body = response_json.dump();
-        response.headers["Content-Type"] = "application/json";
-        return response;
+        return not_implemented("item grants are disabled until inventory transactions are authoritative");
     }
 
     HttpResponse get_chat_logs(const HttpRequest& request) {
-        JsonValue logs;
-        logs.type = JsonValue::Array;
-
-        // Sample chat logs
-        JsonValue log1;
-        log1.type = JsonValue::Object;
-        log1.object_value["timestamp"] = JsonValue(std::string("2026-07-10 23:00:00"));
-        log1.object_value["player"] = JsonValue(std::string("Player1"));
-        log1.object_value["message"] = JsonValue(std::string("Hello everyone!"));
-        logs.array_value.push_back(log1);
-
-        JsonValue log2;
-        log2.type = JsonValue::Object;
-        log2.object_value["timestamp"] = JsonValue(std::string("2026-07-10 23:01:00"));
-        log2.object_value["player"] = JsonValue(std::string("Player2"));
-        log2.object_value["message"] = JsonValue(std::string("Anyone want to party?"));
-        logs.array_value.push_back(log2);
-
-        HttpResponse response;
-        response.body = logs.dump();
-        response.headers["Content-Type"] = "application/json";
-        return response;
+        return not_implemented("chat API is disabled until server-side chat persistence is authoritative");
     }
 
     HttpResponse create_event(const HttpRequest& request) {
-        size_t pos = 0;
-        JsonValue body = JsonValue::parse(request.body, pos);
+        return not_implemented("event creation is disabled until scheduler persistence is authoritative");
+    }
 
-        std::string name = body.object_value["name"].string_value;
-        std::string type = body.object_value["type"].string_value;
-
-        JsonValue response_json;
-        response_json.type = JsonValue::Object;
-        response_json.object_value["success"] = JsonValue(true);
-        response_json.object_value["message"] = JsonValue(std::string("Event created: ") + name);
-        response_json.object_value["event_id"] = JsonValue(1.0);
-
+    HttpResponse get_audit(const HttpRequest&) {
+        mxh::db::ResultSet rows;
+        const auto query = repository_.list_audit(rows);
+        if (!query.ok()) return database_error(query);
+        JsonValue entries;
+        entries.type = JsonValue::Array;
+        for (const auto& row : rows.rows) {
+            if (row.size() < 6) continue;
+            JsonValue entry;
+            entry.type = JsonValue::Object;
+            entry.object_value["id"] = JsonValue(static_cast<double>(std::get<std::int64_t>(row[0])));
+            entry.object_value["actor"] = JsonValue(std::get<std::string>(row[1]));
+            entry.object_value["target_account"] = JsonValue(std::get<std::string>(row[2]));
+            entry.object_value["action"] = JsonValue(std::get<std::string>(row[3]));
+            entry.object_value["reason"] = JsonValue(std::get<std::string>(row[4]));
+            entry.object_value["created_at"] = JsonValue(std::get<std::string>(row[5]));
+            entries.array_value.push_back(std::move(entry));
+        }
         HttpResponse response;
-        response.body = response_json.dump();
-        response.headers["Content-Type"] = "application/json";
+        response.body = entries.dump();
         return response;
     }
 
 private:
-    struct Player {
-        int id;
-        std::string name;
-        int level;
-        int gold;
-        bool is_banned;
-        bool is_muted;
-    };
+    static HttpResponse database_error(const mxh::db::DbResult& result) {
+        HttpResponse response;
+        response.status = 500; response.status_text = "Internal Server Error";
+        response.body = "{\"error\":\"database operation failed\"}";
+        std::cerr << "GM database error: " << result.error_message << std::endl;
+        return response;
+    }
+    static HttpResponse bad_request(const std::string& message) {
+        HttpResponse response;
+        response.status = 400; response.status_text = "Bad Request";
+        response.body = "{\"error\":\"" + message + "\"}";
+        return response;
+    }
+    static HttpResponse not_implemented(const std::string& message) {
+        HttpResponse response;
+        response.status = 501; response.status_text = "Not Implemented";
+        response.body = "{\"error\":\"" + message + "\"}";
+        return response;
+    }
 
-    struct Item {
-        int id;
-        std::string name;
-        std::string type;
-        int value;
-    };
-
-    std::map<int, Player> players_;
-    std::map<int, Item> items_;
-    std::mutex mutex_;
+    mxh::db::IDbAdapter& db_;
+    mxh::gm::Repository repository_;
 };
 
 // ============================================================================
@@ -692,6 +616,7 @@ int main(int argc, char* argv[]) {
     int port = 8080;
     std::string bind_address = "127.0.0.1";
     std::string token;
+    std::string db_config;
 
     // Parse command line arguments
     for (int i = 1; i < argc; ++i) {
@@ -707,6 +632,8 @@ int main(int argc, char* argv[]) {
                 return 2;
             }
             std::getline(input, token);
+        } else if (arg == "--db" && i + 1 < argc) {
+            db_config = argv[++i];
         }
     }
 
@@ -717,8 +644,21 @@ int main(int argc, char* argv[]) {
         std::cerr << "FATAL: MXH_GM_TOKEN or --token-file must provide at least 32 characters" << std::endl;
         return 2;
     }
+    if (db_config.empty()) {
+        std::cerr << "FATAL: --db <connection-config> is required" << std::endl;
+        return 2;
+    }
+    auto db_cfg = mxh::db::ConnectionConfig::from_kv_string(db_config);
+    if (db_cfg.path.empty() && db_cfg.backend == "sqlite") db_cfg.path = db_config;
+    auto db = mxh::db::make_adapter(db_cfg.backend);
+    if (!db) { std::cerr << "FATAL: unsupported database backend" << std::endl; return 2; }
+    const auto connected = db->connect(db_cfg);
+    if (!connected.ok()) {
+        std::cerr << "FATAL: database connection failed: " << connected.error_message << std::endl;
+        return 2;
+    }
 
-    GMTool gm_tool;
+    GMTool gm_tool(*db);
     HttpServer server(bind_address, port, token);
 
     // Register routes
@@ -748,6 +688,10 @@ int main(int argc, char* argv[]) {
 
     server.post("/api/events", [&](const HttpRequest& req) {
         return gm_tool.create_event(req);
+    });
+
+    server.get("/api/audit", [&](const HttpRequest& req) {
+        return gm_tool.get_audit(req);
     });
 
     std::cout << "Starting Moxian GM Tool..." << std::endl;

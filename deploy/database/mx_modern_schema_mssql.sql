@@ -122,6 +122,15 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_account_identity')
+BEGIN
+    CREATE TABLE [dbo].[modern_account_identity] (
+        [account_id] NVARCHAR(50) NOT NULL PRIMARY KEY,
+        [user_idx] BIGINT NOT NULL UNIQUE
+    );
+END
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_gm_audit')
 BEGIN
     CREATE TABLE [dbo].[modern_gm_audit] (

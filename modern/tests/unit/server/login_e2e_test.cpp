@@ -153,6 +153,7 @@ protected:
         ASSERT_TRUE(cr) << cr.error_message;
 
         std::string schema;
+        schema += "CREATE TABLE IF NOT EXISTS modern_account_identity (account_id TEXT PRIMARY KEY, user_idx INTEGER UNIQUE);";
         schema += "CREATE TABLE IF NOT EXISTS chr_log_info (";
         schema += " id TEXT PRIMARY KEY,";
         schema += " pw TEXT NOT NULL,";
@@ -544,6 +545,7 @@ protected:
         auto cr = db_->connect(cfg);
         ASSERT_TRUE(cr);
         std::string schema;
+        schema += "CREATE TABLE IF NOT EXISTS modern_account_identity (account_id TEXT PRIMARY KEY, user_idx INTEGER UNIQUE);";
         schema += "CREATE TABLE IF NOT EXISTS chr_log_info (";
         schema += " id TEXT PRIMARY KEY,";
         schema += " pw TEXT NOT NULL,";
@@ -708,6 +710,7 @@ protected:
         cfg.path = db_path_;
         ASSERT_TRUE(db_->connect(cfg));
         std::string schema;
+        schema += "CREATE TABLE IF NOT EXISTS modern_account_identity (account_id TEXT PRIMARY KEY, user_idx INTEGER UNIQUE);";
         schema += "CREATE TABLE IF NOT EXISTS chr_log_info (";
         schema += " id TEXT PRIMARY KEY,";
         schema += " pw TEXT NOT NULL,";

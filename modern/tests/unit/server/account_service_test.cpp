@@ -49,3 +49,17 @@ TEST(AccountService, CreatesHashedAccountAndRejectsDuplicate) {
     EXPECT_EQ(create_account(db, "player_01", "Sword123").status,
               AccountCreateStatus::AlreadyExists);
 }
+
+TEST(AccountService, StableUniqueWireIdentityPerAccount) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_account_identity (account_id TEXT PRIMARY KEY, user_idx INTEGER UNIQUE)").ok());
+    const auto alice = mxh::server::ensure_account_user_idx(*db, "alice");
+    const auto bob = mxh::server::ensure_account_user_idx(*db, "bob");
+    EXPECT_NE(alice, 0u);
+    EXPECT_NE(bob, 0u);
+    EXPECT_NE(alice, bob);
+    EXPECT_EQ(mxh::server::ensure_account_user_idx(*db, "alice"), alice);
+}

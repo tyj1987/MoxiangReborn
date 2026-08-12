@@ -55,14 +55,15 @@ mxh::net::Message make_version_nack(mxh::proto::VersionRejectReason reason) {
 }
 
 mxh::net::Message make_login_ack(std::uint16_t agent_port,
-                                 const std::string& agent_addr) {
+                                 const std::string& agent_addr,
+                                 std::uint32_t user_idx) {
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::UserConn);
     m.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::NotifyUserLoginAck);
     m.payload.resize(1 + 2 + agent_addr.size() + 1);
-    m.payload[0] = 1;
+    m.payload[0] = static_cast<std::uint8_t>(user_idx & 0xFF);
     m.payload[1] = static_cast<std::uint8_t>(agent_port & 0xFF);
     m.payload[2] = static_cast<std::uint8_t>((agent_port >> 8) & 0xFF);
     std::memcpy(m.payload.data() + 3, agent_addr.c_str(), agent_addr.size());
@@ -289,7 +290,9 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
     if (ok) {
         std::cout << "[Login] auth OK for '" << user_id << "', sending ACK ("
                   << agent_addr_ << ":" << agent_port_ << ")\n";
-        reply_(id, make_login_ack(agent_port_, agent_addr_));
+        const auto user_idx = ensure_account_user_idx(db_, user_id);
+        if (user_idx == 0) { reply_(id, make_login_nack()); return; }
+        reply_(id, make_login_ack(agent_port_, agent_addr_, user_idx));
     } else {
         std::cout << "[Login] auth FAIL for '" << user_id << "', sending NACK\n";
         reply_(id, make_login_nack());
@@ -347,6 +350,8 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     }
     
     if (ok) {
+        const auto user_idx = ensure_account_user_idx(db_, user_id);
+        if (user_idx == 0) { reply_(id, make_login_nack()); return; }
         std::cout << "[Login] legacy: auth OK for '" << user_id
                   << "', sending ACK (" << agent_addr_ << ":" << agent_port_ << ")\n";
         // Build MSG_LOGIN_ACK: MSGBASE(8B) + agentip(16B) + agentport(2B) + userIdx(4B) + cbUserLevel(1B)
@@ -370,8 +375,11 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
         reply_msg.payload[16] = static_cast<std::uint8_t>(agent_port_ & 0xFF);
         reply_msg.payload[17] = static_cast<std::uint8_t>((agent_port_ >> 8) & 0xFF);
         
-        // userIdx (4 bytes, little-endian) - placeholder
-        reply_msg.payload[18] = 1;
+        // userIdx (4 bytes, little-endian) - stable account identity
+        reply_msg.payload[18] = static_cast<std::uint8_t>(user_idx & 0xFF);
+        reply_msg.payload[19] = static_cast<std::uint8_t>((user_idx >> 8) & 0xFF);
+        reply_msg.payload[20] = static_cast<std::uint8_t>((user_idx >> 16) & 0xFF);
+        reply_msg.payload[21] = static_cast<std::uint8_t>((user_idx >> 24) & 0xFF);
         
         // cbUserLevel (1 byte)
         reply_msg.payload[22] = user_level;

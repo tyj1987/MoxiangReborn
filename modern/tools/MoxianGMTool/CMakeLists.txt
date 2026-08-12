@@ -2,13 +2,16 @@
 #
 # Replaces legacy DS_RMTool with a modern C++ HTTP server.
 
-add_executable(MoxianGMTool main.cpp)
+add_executable(MoxianGMTool main.cpp gm_repository.cpp)
 
 target_compile_features(MoxianGMTool PRIVATE cxx_std_17)
 
 if(WIN32)
     target_link_libraries(MoxianGMTool PRIVATE ws2_32)
 endif()
+
+target_link_libraries(MoxianGMTool PRIVATE mxh_db mxh_server)
+target_include_directories(MoxianGMTool PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 if(MSVC)
     target_compile_options(MoxianGMTool PRIVATE /W3 /utf-8)
