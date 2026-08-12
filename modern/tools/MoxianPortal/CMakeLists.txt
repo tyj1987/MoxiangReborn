@@ -12,6 +12,8 @@ add_library(mxh_portal_lib STATIC
 target_sources(mxh_portal_lib PRIVATE
     ${CMAKE_SOURCE_DIR}/src/portal/config.cpp
     ${CMAKE_SOURCE_DIR}/src/portal/http_server.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/jwt_token.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/rate_limiter.cpp
 )
 
 target_include_directories(mxh_portal_lib PUBLIC
@@ -25,6 +27,9 @@ target_compile_features(mxh_portal_lib PRIVATE cxx_std_17)
 
 # M5.1: no mxh_server yet (no auth/DB). M5.3 will add it.
 target_link_libraries(mxh_portal_lib PRIVATE mxh_log)
+if(WIN32)
+    target_link_libraries(mxh_portal_lib PRIVATE bcrypt)
+endif()
 
 if(MSVC)
     target_compile_definitions(mxh_portal_lib PRIVATE _CRT_SECURE_NO_WARNINGS)

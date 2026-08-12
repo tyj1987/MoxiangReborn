@@ -2,6 +2,8 @@
 
 #include "portal/http_server.hpp"
 #include "portal/config.hpp"
+#include "portal/jwt_token.hpp"
+#include "portal/rate_limiter.hpp"
 #include "portal/portal_log.hpp"
 
 #include <cpp-httplib/httplib.h>
@@ -9,7 +11,10 @@
 
 #include <csignal>
 #include <chrono>
+#include <cstring>
 #include <fstream>
+#include <mutex>
+#include <shared_mutex>
 #include <thread>
 
 namespace mxh::portal {
@@ -46,14 +51,57 @@ void set_error_json(httplib::Response& res, int status, const std::string& messa
     set_json_response(res, status, nlohmann::json{{"error", message}});
 }
 
+void set_429(httplib::Response& res, std::chrono::seconds retry_after) {
+    res.status = 429;
+    res.set_header("Content-Type", "application/json; charset=utf-8");
+    res.set_header("Retry-After", std::to_string(retry_after.count()));
+    res.set_header("X-Content-Type-Options", "nosniff");
+    set_json_response(res, 429,
+        nlohmann::json{{"error", "rate limit exceeded"},
+                        {"retry_after_seconds", retry_after.count()}});
+}
+
+// Extract client IP from request.
+// Tries X-Forwarded-For first (for Cloudflare/proxy), then remote_addr.
+std::string extract_ip(const httplib::Request& req) {
+    // X-Forwarded-For: first IP (client) in comma-separated list
+    auto xff = req.get_header_value("X-Forwarded-For");
+    if (!xff.empty()) {
+        auto comma = xff.find(',');
+        if (comma != std::string::npos) {
+            return std::string(xff.substr(0, comma));
+        }
+        return std::string(xff);
+    }
+    // X-Real-IP (nginx style)
+    auto xri = req.get_header_value("X-Real-IP");
+    if (!xri.empty()) return std::string(xri);
+    // Fallback to remote IP
+    return req.remote_addr;
+}
+
+// Parse Bearer token from Authorization header.
+std::string_view parse_bearer(const httplib::Request& req) {
+    auto auth = req.get_header_value("Authorization");
+    if (auth.starts_with("Bearer ")) {
+        return std::string_view(auth).substr(7);
+    }
+    return {};
+}
+
 }  // namespace
 
 struct HttpServer::Impl {
     const Config& cfg;
     httplib::Server svr;
     std::atomic<bool> stopping{false};
+    RateLimiter rate_limiter;
+    std::string jwt_secret;
 
-    explicit Impl(const Config& cfg_) : cfg(cfg_) {}
+    explicit Impl(const Config& cfg_)
+        : cfg(cfg_)
+        , rate_limiter(std::chrono::minutes{5})
+        , jwt_secret(cfg_.jwt_secret) {}
 
     static std::string path_join(std::string_view base, std::string_view sub) {
         std::string r;
@@ -63,35 +111,78 @@ struct HttpServer::Impl {
         r += sub;
         return r;
     }
+
+    // Apply rate limit check and send 429 if rejected.
+    // Returns true if the request should be rejected (429 sent).
+    bool check_rate_limit(httplib::Response& res,
+                          const httplib::Request& req,
+                          std::string_view endpoint,
+                          const RateLimitPolicy& policy) {
+        auto ip = extract_ip(req);
+        auto decision = rate_limiter.check(ip, endpoint, policy);
+        if (decision.result == RateLimiter::Result::Rejected) {
+            set_429(res, decision.retry_after);
+            return true;
+        }
+        return false;
+    }
+
+    // Verify JWT Bearer token. Returns nullopt on error with response set.
+    std::optional<AuthContext> authenticate(httplib::Response& res,
+                                             const httplib::Request& req) {
+        if (jwt_secret.empty()) {
+            set_error_json(res, 500, "JWT secret not configured");
+            return std::nullopt;
+        }
+        auto token = parse_bearer(req);
+        if (token.empty()) {
+            set_error_json(res, 401, "missing Authorization header");
+            return std::nullopt;
+        }
+        JwtPayload payload;
+        auto err = verify_jwt(jwt_secret, token, payload);
+        if (err) {
+            set_error_json(res, 401, *err);
+            return std::nullopt;
+        }
+        AuthContext ctx;
+        ctx.account_name = payload.sub;
+        ctx.user_idx = payload.user_idx;
+        return ctx;
+    }
 };
 
 HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
     auto& svr = p_->svr;
     auto& cfg_ = p_->cfg;
 
-    // Health check
+    // ---- Global pre-handler: rate limit ALL requests (generous default) ----
+    svr.set_pre_routing_handler([&](const httplib::Request& req, httplib::Response& res) {
+        // Apply general rate limit to all routes
+        if (p_->check_rate_limit(res, req, req.path, RateLimits::general)) {
+            return httplib::Server::HandlerResponse::Handled;
+        }
+        return httplib::Server::HandlerResponse::Unhandled;
+    });
+
+    // ---- /api/healthz (public, still rate-limited globally) ----
     svr.Get("/api/healthz", [&cfg_](const httplib::Request&, httplib::Response& res) {
         set_json_response(res, 200, nlohmann::json{
             {"status", "ok"},
             {"version", cfg_.version},
-            {"uptime_seconds", 0}  // placeholder; updated per-request
+            {"uptime_seconds", 0}
         });
     });
 
-    // Static file serving — maps /static/* → static_root/
+    // ---- Static file serving ----
     svr.Get("/static/..*", [&](const httplib::Request& req, httplib::Response& res) {
-        // Strip the leading /static/ prefix
         std::string_view target = req.path;
         if (target.starts_with("/static/")) {
-            target.remove_prefix(8);  // len("/static/")
-        } else {
-            target = req.path;  // shouldn't happen
+            target.remove_prefix(8);
         }
-
         std::string rel_path(target.data(), target.size());
         std::string full_path = Impl::path_join(cfg_.static_root, rel_path);
 
-        // Basic path traversal guard
         for (char c : rel_path) {
             if (c == '\\' || c == '\0') {
                 set_error_json(res, 400, "invalid path");
@@ -108,7 +199,6 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
             set_error_json(res, 404, std::string("not found: ") + std::string(rel_path));
             return;
         }
-
         auto size = static_cast<std::streamsize>(ifs.tellg());
         ifs.seekg(0);
         res.body.resize(static_cast<std::size_t>(size));
@@ -118,13 +208,12 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
         res.set_header("Cache-Control", "public, max-age=86400");
     });
 
-    // SPA fallback: non-API, non-static paths → index.html
-    // Match "/" and any path that doesn't start with /api/ or /static/ or /download/
+    // ---- SPA fallback ----
     svr.Get("/", [&](const httplib::Request&, httplib::Response& res) {
         std::string full_path = Impl::path_join(cfg_.static_root, "index.html");
         std::ifstream ifs(full_path, std::ios::binary);
         if (!ifs) {
-            set_error_json(res, 404, std::string("index not found"));
+            set_error_json(res, 404, "index not found");
             return;
         }
         ifs.seekg(0, std::ios::end);
@@ -136,7 +225,7 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
         res.set_header("Content-Type", "text/html; charset=utf-8");
     });
 
-    // Error handler
+    // ---- Error handler ----
     svr.set_error_handler([](const httplib::Request&, httplib::Response& res) {
         if (res.status >= 500) {
             res.status = 500;
@@ -144,13 +233,14 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
         }
     });
 
-    // Catch-all for unknown API routes (registered LAST — specific routes match first)
+    // ---- Catch-all: unknown API routes ----
     svr.Get("/api/..*", [](const httplib::Request& req, httplib::Response& res) {
         set_error_json(res, 404, std::string("not found: ") + req.path);
     });
 
-    MLOG_INFO("[portal] HTTP server configured: bind=%s port=%u static_root=%s",
-              cfg_.bind.c_str(), cfg_.port, cfg_.static_root.c_str());
+    MLOG_INFO("[portal] HTTP server configured: bind=%s port=%u static_root=%s jwt_secret=%s",
+              cfg_.bind.c_str(), cfg_.port, cfg_.static_root.c_str(),
+              cfg_.jwt_secret.empty() ? "(empty)" : "***");
 }
 
 HttpServer::~HttpServer() = default;
@@ -164,34 +254,30 @@ int HttpServer::run() {
     auto& svr = p_->svr;
     auto& cfg_ = p_->cfg;
 
-    // Set up the server
     svr.set_keep_alive_max_count(64);
     svr.set_payload_max_length(10 * 1024 * 1024);  // 10 MB
 
     MLOG_INFO("[portal] starting HTTP server on %s:%u with %u threads",
               cfg_.bind.c_str(), cfg_.port, cfg_.worker_threads);
 
-    // cpp-httplib's threaded server API (v0.15.x)
     std::atomic<bool> running{true};
     std::thread listener([&]() {
         bool ok = svr.listen(cfg_.bind.c_str(), cfg_.port);
         running.store(false);
         if (!ok) {
-            MLOG_ERROR("[portal] listen() returned false on %s:%u", cfg_.bind.c_str(), cfg_.port);
+            MLOG_ERROR("[portal] listen() returned false on %s:%u",
+                       cfg_.bind.c_str(), cfg_.port);
         }
     });
 
-    // Give it a moment to start
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
     if (!running.load()) {
-        MLOG_ERROR("[portal] failed to bind to %s:%u — is something already listening?", cfg_.bind.c_str(), cfg_.port);
+        MLOG_ERROR("[portal] failed to bind to %s:%u", cfg_.bind.c_str(), cfg_.port);
         return 1;
     }
 
     MLOG_INFO("[portal] listening on http://%s:%u", cfg_.bind.c_str(), cfg_.port);
 
-    // Wait for shutdown signal
     while (running.load() && !p_->stopping.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
@@ -208,7 +294,9 @@ int HttpServer::run() {
 
 void HttpServer::get_json(std::string_view path, JsonHandler handler) {
     std::string p(path);
-    p_->svr.Get(p.c_str(), [h = std::move(handler)](const httplib::Request&, httplib::Response& res) {
+    p_->svr.Get(p.c_str(), [h = std::move(handler)](const httplib::Request& req,
+                                                     httplib::Response& res) {
+        // Already rate-limited by global pre_routing_handler
         try {
             auto body = h();
             set_json_response(res, 200, std::move(body));
@@ -216,6 +304,100 @@ void HttpServer::get_json(std::string_view path, JsonHandler handler) {
             set_error_json(res, 500, e.what());
         }
     });
+}
+
+void HttpServer::get_protected(std::string_view path,
+                                const RateLimitPolicy& rate_policy,
+                                AuthenticatedHandler auth_handler) {
+    std::string p(path);
+    p_->svr.Get(p.c_str(), [this, p, rate_policy,
+                             h = std::move(auth_handler)](const httplib::Request& req,
+                                                          httplib::Response& res) {
+        // Rate limit check for this specific endpoint
+        if (p_->check_rate_limit(res, req, p, rate_policy)) return;
+
+        // Authenticate
+        auto ctx = p_->authenticate(res, req);
+        if (!ctx) return;  // authenticate() already set the response
+
+        // Execute handler
+        try {
+            auto body = h(*ctx);
+            set_json_response(res, 200, std::move(body));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+void HttpServer::post_protected(std::string_view path,
+                                 const RateLimitPolicy& rate_policy,
+                                 AuthenticatedPostHandler handler) {
+    std::string p(path);
+    p_->svr.Post(p.c_str(), [this, p, rate_policy,
+                               h = std::move(handler)](const httplib::Request& req,
+                                                        httplib::Response& res) {
+        if (p_->check_rate_limit(res, req, p, rate_policy)) return;
+
+        auto ctx = p_->authenticate(res, req);
+        if (!ctx) return;
+
+        nlohmann::json body;
+        if (!req.body.empty()) {
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (const nlohmann::json::parse_error&) {
+                set_error_json(res, 400, "invalid JSON body");
+                return;
+            }
+        }
+
+        try {
+            auto result = h(*ctx, body);
+            set_json_response(res, 200, std::move(result));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+void HttpServer::post_public(std::string_view path,
+                             const RateLimitPolicy& rate_policy,
+                             PublicPostHandler handler) {
+    std::string p(path);
+    p_->svr.Post(p.c_str(), [this, p, rate_policy,
+                               h = std::move(handler)](const httplib::Request& req,
+                                                        httplib::Response& res) {
+        if (p_->check_rate_limit(res, req, p, rate_policy)) return;
+
+        nlohmann::json body;
+        if (!req.body.empty()) {
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (const nlohmann::json::parse_error&) {
+                set_error_json(res, 400, "invalid JSON body");
+                return;
+            }
+        }
+
+        try {
+            auto result = h(body);
+            set_json_response(res, 200, std::move(result));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+std::optional<std::chrono::seconds>
+HttpServer::rate_check(std::string_view ip,
+                       std::string_view path,
+                       const RateLimitPolicy& policy) {
+    auto decision = p_->rate_limiter.check(ip, path, policy);
+    if (decision.result == RateLimiter::Result::Rejected) {
+        return decision.retry_after;
+    }
+    return std::nullopt;
 }
 
 }  // namespace mxh::portal
