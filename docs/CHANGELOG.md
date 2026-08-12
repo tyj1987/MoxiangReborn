@@ -1,3 +1,9 @@
+## 2026-08-11 - server+tools: side-by-side party+guild 9th/10th segment (T3 9/10 + 10/10 wiring)
+
+- modern/tools/MoxianSideBySide: party_scenario() (cat=14 MP_PARTY, proto=1 MP_PARTY_CREATE_SYN, 20B payload party_name[16] + target_pid:u32) and guild_scenario() (cat=56 MP_GUILD, proto=1 MP_GUILD_CREATE_SYN, 70B payload guild_name[16] + guild_motto[50] + flag:u32). Wired into main.cpp --scenario party|guild|all.
+- modern/src/server/map_handler.cpp: on_message() now also has cases for Category::Party and Category::Guild that call reply_(id, msg) (echo the same packet back to the sender). This mirrors the handle_chat / handle_move sender-echo fix. The modern Party/Guild handler bodies are still stubs (real gameplay goes through the AgentServer port 17001); this is a wire-format + server-not-crash gate for the harness.
+- Note: the side-by-side 1h canary (previous turn) FAILED at 5.7min with handle leak ~6/cycle. The 9/10 + 10/10 segments are wired but their modern goldens are still TODO - the side-by-side tool reported modern=0 captures even though the map server logs show the echo. Looks like a tool-side recv timing or EOF issue, separate from the 1h canary handle leak. Both are open items.
+
 ## 2026-08-11 - tools: 1h soak-24h canary FAIL at 5.7min (handle leak ~6/cycle, map server OOM)
 
 - Ran soak-24h.ps1 -DurationHours 1.0 -Concurrency 4 against the modern sqlite chain. Canary failed: verdict=FAIL_CRASH_OR_LEAK, exit_code=5. Server crash observed at 21:54:17 (5.7 min in, cycle 1002/4=~250 per slot).
