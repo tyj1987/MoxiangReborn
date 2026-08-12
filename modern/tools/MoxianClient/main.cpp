@@ -599,19 +599,26 @@ void renderFrame(HWND h) {
                 drawSpriteQuad(g_renderer, g_hud.barBg, 500.0f, 90.0f,
                                270.0f, 120.0f, 0xFFFFFFFFu);
                 const auto* selected = g_inputTarget->selected_quest();
-                const std::array<std::string, 4> lines{
-                    selected ? selected->title : "Quest " + std::to_string(g_inputTarget->quest_id()),
+                const auto wideTitle = selected
+                    ? mxh::compat::big5_to_utf16(selected->title) : std::wstring{};
+                RECT titleRect{515, 108, 755, 132};
+                if (!wideTitle.empty()) {
+                    g_renderer->RenderFont(g_hudFont,
+                        reinterpret_cast<TCHAR*>(const_cast<wchar_t*>(wideTitle.data())),
+                        static_cast<std::uint32_t>(wideTitle.size()), &titleRect,
+                        0xFFFFD080u, CHAR_CODE_TYPE_UNICODE, 2, 0);
+                }
+                const std::array<std::string, 3> lines{
                     g_inputTarget->quest_status(),
                     "Up/Down select   J accept   K claim",
                     "Q close"};
                 for (std::size_t i = 0; i < lines.size(); ++i) {
-                    RECT rc{515, static_cast<LONG>(108 + i * 30), 755,
-                            static_cast<LONG>(132 + i * 30)};
+                    RECT rc{515, static_cast<LONG>(138 + i * 24), 755,
+                            static_cast<LONG>(162 + i * 24)};
                     g_renderer->RenderFont(g_hudFont,
                         const_cast<char*>(lines[i].data()),
                         static_cast<std::uint32_t>(lines[i].size()), &rc,
-                        i == 0 ? 0xFFFFD080u : 0xFFFFFFFFu,
-                        CHAR_CODE_TYPE_ASCII, 2, 0);
+                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 2, 0);
                 }
             }
 
@@ -916,9 +923,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     LOGFONT hudLf{};
     hudLf.lfHeight = -14;
     hudLf.lfWeight = FW_NORMAL;
-    hudLf.lfCharSet = DEFAULT_CHARSET;
+    hudLf.lfCharSet = CHINESEBIG5_CHARSET;
     hudLf.lfQuality = ANTIALIASED_QUALITY;
-    std::strncpy(hudLf.lfFaceName, "Arial", LF_FACESIZE - 1);
+    std::strncpy(hudLf.lfFaceName, "Microsoft JhengHei", LF_FACESIZE - 1);
     g_hudFont = renderer->CreateFontObject(&hudLf, 0);
     MLOG_INFO("mxh_client: hud font=%p", (void*)g_hudFont);
 

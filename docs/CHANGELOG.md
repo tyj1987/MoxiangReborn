@@ -911,3 +911,9 @@ A wire-level client test locks category, protocol, object ID, payload size, and 
 Added a binary-compatible QuestString catalog parser based on the legacy `$SUBQUESTSTR quest subquest`, `#TITLE`, and `#DESC` grammar. The parser decodes the shipped MHFile container without rewriting resources and retains original title/description bytes for every stage. Client GameIn loads this catalog from PlayDH, builds the selectable main-quest directory from stage 0 entries, shows the real resource title, and lets players browse with Up/Down before accepting or claiming the selected quest.
 
 The shipped `QuestString.bin` is now semantically verified, not merely byte-readable: 1168 stage records and 235 main quests load in the GUI path. Parser tests cover an exact synthetic grammar fixture and the real PlayDH resource. Full Debug build, GUI resource/GameIn smoke, and all 11941 tests pass. Big5-to-Unicode presentation remains a separate rendering task; original resource bytes are preserved.
+
+## 2026-08-12 - render: Unicode glyph path for original Big5 quest text
+
+The DX11 font atlas now keys glyphs by 16-bit code point and rasterizes through `GetGlyphOutlineW`. `CHAR_CODE_TYPE_UNICODE` therefore renders UTF-16 instead of truncating every character to one byte, while the existing ASCII path retains its byte semantics. QuestString display converts the original Big5 bytes with Windows code page 950 only at presentation time and uses Microsoft JhengHei; the shipped resource remains byte-identical.
+
+A known Big5 title fragment is locked to its expected Unicode text, all real QuestString records still parse, the GUI client resource/GameIn smoke passes, the full Debug solution builds, and all 11942 CTest cases pass.

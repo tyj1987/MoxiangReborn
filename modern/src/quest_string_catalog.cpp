@@ -6,6 +6,10 @@
 #include <charconv>
 #include <string_view>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace mxh::compat {
 namespace {
 std::string_view trim(std::string_view value) {
@@ -77,6 +81,21 @@ QuestStringCatalog load_quest_string_catalog(const std::filesystem::path& path) 
     const std::string_view text(reinterpret_cast<const char*>(file.value.data.data()),
                                 file.value.data.size());
     return parse_quest_string_text(text);
+}
+
+std::wstring big5_to_utf16(std::string_view text) {
+    if (text.empty()) return {};
+#ifdef _WIN32
+    const int required = MultiByteToWideChar(950, MB_ERR_INVALID_CHARS,
+        text.data(), static_cast<int>(text.size()), nullptr, 0);
+    if (required <= 0) return {};
+    std::wstring result(static_cast<std::size_t>(required), L'\0');
+    if (MultiByteToWideChar(950, MB_ERR_INVALID_CHARS, text.data(),
+                            static_cast<int>(text.size()), result.data(), required) <= 0) return {};
+    return result;
+#else
+    return std::wstring(text.begin(), text.end());
+#endif
 }
 
 }  // namespace mxh::compat

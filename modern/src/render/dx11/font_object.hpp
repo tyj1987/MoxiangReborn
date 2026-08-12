@@ -70,11 +70,11 @@ public:
     std::uint32_t                atlasWidth()  const { return m_atlasWidth; }
     std::uint32_t                atlasHeight() const { return m_atlasHeight; }
     std::uint32_t                glyphCount()  const { return static_cast<std::uint32_t>(m_glyphs.size()); }
-    const GlyphEntry*             findGlyph(std::uint8_t cp) const;
+    const GlyphEntry*             findGlyph(std::uint16_t cp) const;
 
     // Pure CPU helpers exposed for unit tests (no D3D11 device required).
     // Returns nullptr if the glyph can't fit (atlas full + can't reset).
-    const GlyphEntry* cacheGlyph(std::uint8_t cp);
+    const GlyphEntry* cacheGlyph(std::uint16_t cp);
     std::uint32_t    packGlyph(std::uint16_t w, std::uint16_t h,
                                 GlyphEntry* outEntry);
 
@@ -101,7 +101,7 @@ private:
     HFONT                                        m_hFont   = nullptr;
     HDC                                          m_memDC   = nullptr;
 
-    std::unordered_map<std::uint8_t, GlyphEntry>  m_glyphs;
+    std::unordered_map<std::uint16_t, GlyphEntry> m_glyphs;
 
     // Row-packing state.
     std::uint32_t                                m_packCursorX = 0;

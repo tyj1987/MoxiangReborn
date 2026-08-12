@@ -24,6 +24,8 @@ struct QuestStringCatalog {
     std::vector<const QuestStringEntry*> main_quests() const;
 };
 
+std::wstring big5_to_utf16(std::string_view text);
+
 QuestStringCatalog parse_quest_string_text(std::string_view text) noexcept;
 QuestStringCatalog load_quest_string_catalog(const std::filesystem::path& path);
 

@@ -180,7 +180,7 @@ FontObject* FontObject::create(Device* dev, const LOGFONT* lf, std::uint32_t dwF
     return f;
 }
 
-const GlyphEntry* FontObject::findGlyph(std::uint8_t cp) const {
+const GlyphEntry* FontObject::findGlyph(std::uint16_t cp) const {
     auto it = m_glyphs.find(cp);
     return it != m_glyphs.end() ? &it->second : nullptr;
 }
@@ -212,14 +212,14 @@ std::uint32_t FontObject::packGlyph(std::uint16_t w, std::uint16_t h,
     return 1;
 }
 
-const GlyphEntry* FontObject::cacheGlyph(std::uint8_t cp) {
+const GlyphEntry* FontObject::cacheGlyph(std::uint16_t cp) {
     if (!m_memDC || !m_hFont) return nullptr;
     auto it = m_glyphs.find(cp);
     if (it != m_glyphs.end()) return &it->second;
 
     GLYPHMETRICS gm{};
     MAT2 identity = { {0,1}, {0,0}, {0,0}, {0,1} };
-    DWORD needed = GetGlyphOutlineA(m_memDC, static_cast<UINT>(cp),
+    DWORD needed = GetGlyphOutlineW(m_memDC, static_cast<UINT>(cp),
                                     GGO_GRAY8_BITMAP, &gm, 0, nullptr, &identity);
     if (needed == GDI_ERROR || needed == 0) {
         // Empty glyph (space, etc.) — still cache an entry so we don't re-query.
@@ -231,7 +231,7 @@ const GlyphEntry* FontObject::cacheGlyph(std::uint8_t cp) {
     }
 
     std::vector<std::uint8_t> gray(needed);
-    if (GetGlyphOutlineA(m_memDC, static_cast<UINT>(cp), GGO_GRAY8_BITMAP, &gm,
+    if (GetGlyphOutlineW(m_memDC, static_cast<UINT>(cp), GGO_GRAY8_BITMAP, &gm,
                          needed, gray.data(), &identity) == GDI_ERROR) {
         return nullptr;
     }
@@ -302,7 +302,7 @@ void __stdcall FontObject::EndRender() {
 }
 
 BOOL __stdcall FontObject::DrawText(TCHAR* str, std::uint32_t dwLen, RECT* pRect,
-                                    std::uint32_t dwColor, CHAR_CODE_TYPE /*type*/,
+                                    std::uint32_t dwColor, CHAR_CODE_TYPE type,
                                     std::uint32_t /*dwFlag*/) {
     if (!m_dev || !m_atlasSRV || !str || dwLen == 0 || !pRect) return FALSE;
 
@@ -313,8 +313,12 @@ BOOL __stdcall FontObject::DrawText(TCHAR* str, std::uint32_t dwLen, RECT* pRect
     int penX = pRect->left;
     int penY = pRect->top;
 
+    const bool unicode = type == CHAR_CODE_TYPE_UNICODE;
+    const auto* wide = reinterpret_cast<const wchar_t*>(str);
     for (std::uint32_t i = 0; i < dwLen; ++i) {
-        std::uint8_t cp = static_cast<std::uint8_t>(str[i]);
+        const std::uint16_t cp = unicode
+            ? static_cast<std::uint16_t>(wide[i])
+            : static_cast<std::uint8_t>(str[i]);
         const GlyphEntry* g = cacheGlyph(cp);
         if (!g) continue;
 

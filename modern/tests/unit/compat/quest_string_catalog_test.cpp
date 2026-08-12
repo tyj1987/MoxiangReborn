@@ -14,6 +14,11 @@ TEST(QuestStringCatalog, ParsesMainAndSubquestText) {
     ASSERT_EQ(result.main_quests().size(), 1u);
 }
 
+TEST(QuestStringCatalog, ConvertsKnownBig5TitleToUnicode) {
+    const std::string bytes{"\xA6\xAC\xB6\xB0", 4};
+    EXPECT_EQ(mxh::compat::big5_to_utf16(bytes), L"收集");
+}
+
 TEST(QuestStringCatalog, LoadsRealQuestStringResource) {
     std::filesystem::path path;
     for (const auto& item : std::filesystem::recursive_directory_iterator(
