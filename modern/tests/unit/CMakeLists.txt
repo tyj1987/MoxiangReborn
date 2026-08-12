@@ -171,10 +171,13 @@ gtest_add_tests(TARGET mxh_tools_side_by_side_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 add_executable(mxh_gm_security_tests gm_security_test.cpp
-    ${CMAKE_SOURCE_DIR}/tools/MoxianGMTool/gm_repository.cpp)
-target_link_libraries(mxh_gm_security_tests PRIVATE gtest_main mxh_db)
+    ${CMAKE_SOURCE_DIR}/tools/MoxianGMTool/gm_repository.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianGMTool/gm_item_catalog.cpp)
+target_link_libraries(mxh_gm_security_tests PRIVATE gtest_main mxh_db mxh_game)
 target_include_directories(mxh_gm_security_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/tools/MoxianGMTool)
+target_compile_definitions(mxh_gm_security_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_add_tests(TARGET mxh_gm_security_tests)
 
 add_executable(mxh_patch_security_tests patch_security_test.cpp)

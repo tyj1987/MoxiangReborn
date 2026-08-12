@@ -2,6 +2,7 @@
 
 #include "../../../tools/MoxianGMTool/gm_security.hpp"
 #include "../../../tools/MoxianGMTool/gm_repository.hpp"
+#include "../../../tools/MoxianGMTool/gm_item_catalog.hpp"
 #include "mxh/db/db_adapter.hpp"
 
 TEST(GmSecurity, ConstantTimeEqualityHandlesLengthAndContent) {
@@ -85,4 +86,14 @@ TEST(GmRepository, ListsAuthoritativeChatNewestFirst) {
     ASSERT_EQ(rows.rows.size(), 2u);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 2);
     EXPECT_EQ(std::get<std::string>(rows.rows[0][3]), "second");
+}
+
+TEST(GmItemCatalog, LoadsAuthoritativeDeployedItemList) {
+    mxh::gm::ItemCatalog catalog;
+    std::string error;
+    const std::string path = std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/ItemList.bin";
+    ASSERT_TRUE(catalog.load(path, error)) << error;
+    EXPECT_GT(catalog.items().size(), 100u);
+    EXPECT_NE(catalog.items().front().ItemIdx, 0u);
+    EXPECT_FALSE(mxh::gm::item_name_utf8(catalog.items().front()).empty());
 }

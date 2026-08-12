@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <optional>
 #include <functional>
 #include <thread>
 #include <atomic>
@@ -36,6 +37,7 @@
 
 #include "gm_security.hpp"
 #include "gm_repository.hpp"
+#include "gm_item_catalog.hpp"
 #include "mxh/server/account_moderation.hpp"
 
 #ifdef _WIN32
@@ -176,12 +178,32 @@ private:
         return result;
     }
 
+    static void dump_string(std::ostringstream& ss, const std::string& value) {
+        static constexpr char hex[] = "0123456789abcdef";
+        ss << '"';
+        for (const unsigned char ch : value) {
+            switch (ch) {
+                case '"': ss << "\\\""; break;
+                case '\\': ss << "\\\\"; break;
+                case '\b': ss << "\\b"; break;
+                case '\f': ss << "\\f"; break;
+                case '\n': ss << "\\n"; break;
+                case '\r': ss << "\\r"; break;
+                case '\t': ss << "\\t"; break;
+                default:
+                    if (ch < 0x20) ss << "\\u00" << hex[ch >> 4] << hex[ch & 0x0f];
+                    else ss << static_cast<char>(ch);
+            }
+        }
+        ss << '"';
+    }
+
     void dump_impl(std::ostringstream& ss, int indent) const {
         switch (type) {
             case Null: ss << "null"; break;
             case Bool: ss << (bool_value ? "true" : "false"); break;
             case Number: ss << number_value; break;
-            case String: ss << "\"" << string_value << "\""; break;
+            case String: dump_string(ss, string_value); break;
             case Array:
                 ss << "[\n";
                 for (size_t i = 0; i < array_value.size(); ++i) {
@@ -196,7 +218,9 @@ private:
                 ss << "{\n";
                 size_t i = 0;
                 for (const auto& [key, value] : object_value) {
-                    ss << std::string(indent + 2, ' ') << "\"" << key << "\": ";
+                    ss << std::string(indent + 2, ' ');
+                    dump_string(ss, key);
+                    ss << ": ";
                     value.dump_impl(ss, indent + 2);
                     if (i < object_value.size() - 1) ss << ",";
                     ss << "\n";
@@ -217,6 +241,7 @@ struct HttpRequest {
     std::string path;
     std::map<std::string, std::string> headers;
     std::string body;
+    std::map<std::string, std::string> query;
 };
 
 struct HttpResponse {
@@ -351,6 +376,18 @@ private:
         std::getline(ss, line);
         std::istringstream line_ss(line);
         line_ss >> request.method >> request.path;
+        const auto query_pos = request.path.find('?');
+        if (query_pos != std::string::npos) {
+            std::string query_text = request.path.substr(query_pos + 1);
+            request.path.resize(query_pos);
+            std::istringstream query_stream(query_text);
+            std::string pair;
+            while (std::getline(query_stream, pair, '&')) {
+                const auto equals = pair.find('=');
+                request.query[pair.substr(0, equals)] = equals == std::string::npos
+                    ? std::string{} : pair.substr(equals + 1);
+            }
+        }
 
         // Parse headers
         while (std::getline(ss, line) && line != "\r" && !line.empty()) {
@@ -449,7 +486,8 @@ private:
 
 class GMTool {
 public:
-    explicit GMTool(mxh::db::IDbAdapter& db) : db_(db), repository_(db) {}
+    GMTool(mxh::db::IDbAdapter& db, const mxh::gm::ItemCatalog& item_catalog)
+        : db_(db), repository_(db), item_catalog_(item_catalog) {}
 
     HttpResponse get_status(const HttpRequest& request) {
         JsonValue status;
@@ -545,7 +583,44 @@ public:
     }
 
     HttpResponse get_items(const HttpRequest& request) {
-        return not_implemented("item catalog API is not connected to the authoritative resource catalog");
+        std::size_t offset = 0;
+        std::size_t limit = 100;
+        try {
+            if (const auto it = request.query.find("offset"); it != request.query.end()) offset = std::stoul(it->second);
+            if (const auto it = request.query.find("limit"); it != request.query.end()) limit = std::stoul(it->second);
+        } catch (...) {
+            return bad_request("offset and limit must be non-negative integers");
+        }
+        if (limit == 0 || limit > 500) return bad_request("limit must be between 1 and 500");
+        std::optional<std::uint32_t> requested_id;
+        try {
+            if (const auto it = request.query.find("id"); it != request.query.end()) requested_id = std::stoul(it->second);
+        } catch (...) {
+            return bad_request("id must be an integer");
+        }
+        JsonValue items;
+        items.type = JsonValue::Array;
+        std::size_t matched = 0;
+        for (const auto& item : item_catalog_.items()) {
+            if (requested_id && item.ItemIdx != *requested_id) continue;
+            if (matched++ < offset) continue;
+            if (items.array_value.size() == limit) break;
+            JsonValue entry;
+            entry.type = JsonValue::Object;
+            entry.object_value["id"] = JsonValue(static_cast<double>(item.ItemIdx));
+            entry.object_value["name"] = JsonValue(mxh::gm::item_name_utf8(item));
+            entry.object_value["kind"] = JsonValue(static_cast<double>(item.ItemKind));
+            entry.object_value["type"] = JsonValue(static_cast<double>(item.ItemType));
+            entry.object_value["buy_price"] = JsonValue(static_cast<double>(item.BuyPrice));
+            entry.object_value["sell_price"] = JsonValue(static_cast<double>(item.SellPrice));
+            entry.object_value["rarity"] = JsonValue(static_cast<double>(item.Rarity));
+            entry.object_value["required_level"] = JsonValue(static_cast<double>(item.LimitLevel));
+            items.array_value.push_back(std::move(entry));
+        }
+        HttpResponse response;
+        response.body = items.dump();
+        response.headers["Content-Type"] = "application/json; charset=utf-8";
+        return response;
     }
 
     HttpResponse give_item(const HttpRequest& request) {
@@ -624,6 +699,7 @@ private:
 
     mxh::db::IDbAdapter& db_;
     mxh::gm::Repository repository_;
+    const mxh::gm::ItemCatalog& item_catalog_;
 };
 
 // ============================================================================
@@ -635,6 +711,7 @@ int main(int argc, char* argv[]) {
     std::string bind_address = "127.0.0.1";
     std::string token;
     std::string db_config;
+    std::string item_list_path;
 
     // Parse command line arguments
     for (int i = 1; i < argc; ++i) {
@@ -652,6 +729,8 @@ int main(int argc, char* argv[]) {
             std::getline(input, token);
         } else if (arg == "--db" && i + 1 < argc) {
             db_config = argv[++i];
+        } else if (arg == "--item-list" && i + 1 < argc) {
+            item_list_path = argv[++i];
         }
     }
 
@@ -666,6 +745,10 @@ int main(int argc, char* argv[]) {
         std::cerr << "FATAL: --db <connection-config> is required" << std::endl;
         return 2;
     }
+    if (item_list_path.empty()) {
+        std::cerr << "FATAL: --item-list <ItemList.bin> is required" << std::endl;
+        return 2;
+    }
     auto db_cfg = mxh::db::ConnectionConfig::from_kv_string(db_config);
     if (db_cfg.path.empty() && db_cfg.backend == "sqlite") db_cfg.path = db_config;
     auto db = mxh::db::make_adapter(db_cfg.backend);
@@ -676,7 +759,15 @@ int main(int argc, char* argv[]) {
         return 2;
     }
 
-    GMTool gm_tool(*db);
+    mxh::gm::ItemCatalog item_catalog;
+    std::string item_error;
+    if (!item_catalog.load(item_list_path, item_error)) {
+        std::cerr << "FATAL: authoritative item catalog failed: " << item_error << std::endl;
+        return 2;
+    }
+    std::cout << "Loaded authoritative item catalog: " << item_catalog.items().size()
+              << " items, " << item_catalog.parse_errors() << " rejected rows" << std::endl;
+    GMTool gm_tool(*db, item_catalog);
     HttpServer server(bind_address, port, token);
 
     // Register routes

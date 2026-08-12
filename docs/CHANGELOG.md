@@ -857,3 +857,9 @@ MapServer now persists actual world-chat messages to `log_chat` using prepared p
 MoxianGMTool `/api/chat/logs` now returns newest-first authoritative database rows instead of HTTP 501. SQLite initialization already supplied `log_chat`; the production MSSQL schema now creates the equivalent indexed table.
 
 Added two real SQLite tests covering MapHandler sanitization/persistence and GM newest-first retrieval. Full Debug build passed and ctest passed 11924/11924 (one initial run had three transient login golden failures; all three immediately passed in isolation and the complete rerun passed).
+
+## 2026-08-12 - ops: GM authoritative item catalog
+
+MoxianGMTool now requires `--item-list` and parses the same binary-compatible ItemList.bin layer used by the modern game server. `/api/items` exposes real item identity, Big5-to-UTF-8 names, classification, prices, rarity, and level requirements, with a default 100 / maximum 500 page size plus `offset` and exact `id` filtering. Missing or invalid authoritative resources fail startup instead of serving fabricated data.
+
+The HTTP request parser now separates query strings before route matching. The JSON serializer now correctly escapes quotes, backslashes, and control bytes; real resource names exposed this pre-existing invalid-JSON defect. Verified through authenticated HTTP against the deployed resource: 9,887 parsed items, a 500-row page, and item 8000 decoded as 肉包. Added a real-resource catalog test.

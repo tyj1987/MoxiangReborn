@@ -2,7 +2,7 @@
 #
 # Replaces legacy DS_RMTool with a modern C++ HTTP server.
 
-add_executable(MoxianGMTool main.cpp gm_repository.cpp)
+add_executable(MoxianGMTool main.cpp gm_repository.cpp gm_item_catalog.cpp)
 
 target_compile_features(MoxianGMTool PRIVATE cxx_std_17)
 
