@@ -6,6 +6,7 @@
 
 #include "mxh/server/server.hpp"
 #include "mxh/server/account_service.hpp"
+#include "mxh/server/account_moderation.hpp"
 
 #include <cstring>
 #include <fstream>
@@ -281,7 +282,8 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
     if (q.ok() && !rs.empty()) {
         const auto& row = rs.rows[0];
         auto db_pw = std::get<std::string>(row[1]);
-        ok = verify_account_password(password, db_pw);
+        ok = verify_account_password(password, db_pw)
+          && !is_account_login_blocked(db_, user_id);
     }
 
     if (ok) {
@@ -339,7 +341,8 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     if (q.ok() && !rs.empty()) {
         const auto& row = rs.rows[0];
         auto db_pw = std::get<std::string>(row[1]);
-        ok = verify_account_password(password, db_pw);
+        ok = verify_account_password(password, db_pw)
+          && !is_account_login_blocked(db_, user_id);
         user_level = static_cast<std::uint8_t>(std::get<std::int64_t>(row[2]));
     }
     

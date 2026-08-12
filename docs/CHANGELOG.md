@@ -1,3 +1,10 @@
+## 2026-08-12 - account: 持久化封禁、登录门禁与 GM 审计闭环
+
+- 新增 `modern_account_status` 与 append-only `modern_gm_audit` 双后端 schema；封禁状态写入与审计插入位于同一事务，SQLite 使用 UPSERT、MSSQL 使用 MERGE。
+- LoginHandler 的 modern/legacy 两条认证路径均在密码校验后查询封禁状态；未迁移的 legacy 库保持兼容，缺表时不阻断登录。
+- `MoxianDbTool ban/unban --db <cfg> <account> <actor> <reason>` 在账号存在性检查后持久化操作。真实 SQLite E2E：`player01` 正确密码原可登录；ban 后只收到 LoginNack；unban 后恢复完整 5/5 登录→选角→建角→进图，审计表精确记录 ban/botting 与 unban/appeal 两条记录。
+- 新增 2 项事务/legacy 兼容单测；Debug 全量构建与 CTest 11,916/11,916 PASS。
+
 ## 2026-08-12 - gm: 管理 API 默认拒绝未认证访问
 
 - `MoxianGMTool` 现在必须由 `MXH_GM_TOKEN` 或 `--token-file` 提供至少 32 字符的 Bearer token；所有路由在分派前鉴权，token 使用常量时间比较。缺失/错误凭据返回 401，正确凭据返回业务响应。

@@ -9,6 +9,7 @@
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/server/account_service.hpp"
+#include "mxh/server/account_moderation.hpp"
 
 #include <cstdio>
 #include <algorithm>
@@ -32,6 +33,8 @@ COMMANDS:
     query   --db <cfg> <sql>       Execute a query and print result as TSV
     schema  --db <cfg>             List tables
     register --db <cfg> <account>  Create account; reads password from stdin
+    ban      --db <cfg> <account> <actor> <reason>  Block login and audit
+    unban    --db <cfg> <account> <actor> <reason>  Restore login and audit
 
 EXAMPLE:
     mxh_db_tool init --db "sqlite;path=./moxian.db"
@@ -148,6 +151,25 @@ CREATE TABLE IF NOT EXISTS modern_player_quest_log (
 
 CREATE INDEX IF NOT EXISTS idx_modern_player_quest_log_player
     ON modern_player_quest_log(player_id);
+
+CREATE TABLE IF NOT EXISTS modern_account_status (
+    account_id TEXT PRIMARY KEY,
+    login_blocked INTEGER NOT NULL DEFAULT 0,
+    reason TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS modern_gm_audit (
+    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor TEXT NOT NULL,
+    target_account TEXT NOT NULL,
+    action TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_modern_gm_audit_target
+    ON modern_gm_audit(target_account, created_at);
 )SQL";
 }
 
@@ -282,6 +304,24 @@ int cmd_register(const std::string& cfg_str, const std::string& account) {
     return 0;
 }
 
+int cmd_moderate(const std::string& cfg_str, const std::string& account,
+                 const std::string& actor, const std::string& reason, bool blocked) {
+    auto cfg = mxh::db::ConnectionConfig::from_kv_string(cfg_str);
+    auto adapter = mxh::db::make_adapter(cfg.backend);
+    if (!adapter) { std::cerr << "ERROR: unknown backend\n"; return 1; }
+    const auto connected = adapter->connect(cfg);
+    if (!connected) { std::cerr << "ERROR connect: " << connected.error_message << "\n"; return 1; }
+    mxh::db::ResultSet account_rows;
+    const std::vector<mxh::db::Bind> args{mxh::db::bind(account)};
+    const auto found = adapter->query("SELECT 1 FROM chr_log_info WHERE id = ?", args, account_rows);
+    if (!found.ok() || account_rows.empty()) { std::cerr << "ERROR: account not found\n"; return 1; }
+    const auto result = mxh::server::set_account_login_blocked(
+        *adapter, account, blocked, actor, reason);
+    if (!result.ok()) { std::cerr << "ERROR: " << result.error_message << "\n"; return 1; }
+    std::cout << (blocked ? "Account banned: " : "Account unbanned: ") << account << "\n";
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -322,6 +362,12 @@ int main(int argc, char** argv) {
         }
         if (cmd == "register" && positional.size() == 1) {
             return cmd_register(cfg_str, positional[0]);
+        }
+        if (cmd == "ban" && positional.size() == 3) {
+            return cmd_moderate(cfg_str, positional[0], positional[1], positional[2], true);
+        }
+        if (cmd == "unban" && positional.size() == 3) {
+            return cmd_moderate(cfg_str, positional[0], positional[1], positional[2], false);
         }
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << "\n";

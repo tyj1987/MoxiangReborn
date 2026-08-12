@@ -162,6 +162,7 @@ install(TARGETS mxh_crypto ARCHIVE DESTINATION lib)
 # -----------------------------------------------------------------------------
 add_library(mxh_server STATIC
     server/account_service.cpp
+    server/account_moderation.cpp
     server/help_request_manager.cpp
     server/login_handler.cpp
     server/hsel_session.cpp

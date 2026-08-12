@@ -111,5 +111,31 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_account_status')
+BEGIN
+    CREATE TABLE [dbo].[modern_account_status] (
+        [account_id] NVARCHAR(50) NOT NULL PRIMARY KEY,
+        [login_blocked] INT NOT NULL DEFAULT 0,
+        [reason] NVARCHAR(256) NOT NULL DEFAULT N'',
+        [updated_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_gm_audit')
+BEGIN
+    CREATE TABLE [dbo].[modern_gm_audit] (
+        [audit_id] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [actor] NVARCHAR(64) NOT NULL,
+        [target_account] NVARCHAR(50) NOT NULL,
+        [action] NVARCHAR(32) NOT NULL,
+        [reason] NVARCHAR(256) NOT NULL DEFAULT N'',
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+    CREATE INDEX [idx_modern_gm_audit_target]
+        ON [dbo].[modern_gm_audit] ([target_account], [created_at]);
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 GO
