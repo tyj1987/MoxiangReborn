@@ -1,3 +1,9 @@
+## 2026-08-12 - ops: SQLite 一致性备份、校验与恢复演练
+
+- 新增 `scripts/sqlite-backup.ps1`：备份前执行 `PRAGMA integrity_check`，用 SQLite `VACUUM INTO` 生成在线一致性快照，备份后再次检查并生成独立 SHA-256 清单。
+- Verify 同时验证 SHA-256 与数据库结构完整性；Restore 先复制到 `.restore-new` 并检查后再替换，目标已存在时默认拒绝，只有显式 `-Force` 才允许覆盖。
+- 真实运营库演练：备份包含 PBKDF2 账号 `player01` 和 2 条 GM 审计记录，校验通过，恢复到新库后查询内容一致；第二次恢复被安全门禁拒绝。新增 1 项脚本安全门禁测试；Debug 全量构建与 CTest 11,919/11,919 PASS。
+
 ## 2026-08-12 - patcher: 移除模拟更新并建立可信原子更新/回滚闭环
 
 - `MoxianAutoPatcher` 不再伪造 `1.0.1.0`、`test.txt` 和 dummy content；check/update 必须提供本地清单及受信任 `--manifest-sha256`，清单摘要不匹配即停止。

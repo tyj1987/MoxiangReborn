@@ -181,6 +181,11 @@ if(WIN32)
 endif()
 gtest_add_tests(TARGET mxh_patch_security_tests)
 
+add_executable(mxh_sqlite_backup_script_tests sqlite_backup_script_test.cpp)
+target_link_libraries(mxh_sqlite_backup_script_tests PRIVATE gtest_main)
+target_compile_definitions(mxh_sqlite_backup_script_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_add_tests(TARGET mxh_sqlite_backup_script_tests)
+
 # mxh_login_sbs_e2e_tests end-to-end smoke for side-by-side login path
 add_executable(mxh_login_sbs_e2e_tests
     login_sbs_e2e_test.cpp
