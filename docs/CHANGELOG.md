@@ -887,3 +887,9 @@ Two real SQLite tests prove current-window selection, expiration exclusion, mult
 The production MapServer startup now loads both the authoritative ItemList catalog (previously it only loaded prices, causing valid GM deliveries to remain unknown) and the shipped CharacterExpPoint.bin curve. Monster death awards the template ExpPoint to the attacking player, applies the active experience multiplier, advances the authoritative Player level state, emits the legacy category-3/protocol-13 experience notification, and upserts level/current-level experience into modern_player_state. Character load prefers this persistent level so a fresh MapHandler restores advancement after relogin.
 
 Tests prove the legacy notification amount and a real SQLite lifecycle of kill -> saved level/exp -> destroy MapHandler -> new MapHandler GameIn -> restored level, using the deployed CharacterExpPoint.bin.
+
+## 2026-08-12 - gameplay: QuestScript kill progression and EndSyn rewards
+
+Added an explicit QuestScript-to-runtime adapter. HUNT and HUNTALL triggers become kill counters; GIVEITEM, GIVEMONEY, TAKEEXP, and TAKESEXP rewards are mapped only from their already parsed arguments. Unknown or context-dependent script operations are not fabricated. StartSyn now accepts the adapted definition, monster death dispatches the real monster kind into active quest logs and persists changed states, and EndSyn only ACKs a Complete quest after the existing QuestManager grants its rewards; other states NACK.
+
+HUNTALL wildcard counters are supported in QuestManager without changing exact monster-kind matching. A focused test locks the script mapping and exact reward values. Full sub-condition serialization/recovery and the remaining non-kill event families remain explicit gameplay gaps.

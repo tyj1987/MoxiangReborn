@@ -26,7 +26,7 @@ bool increment_sub(QuestProgress& progress,
                     std::uint32_t target_id,
                     std::uint32_t delta) noexcept {
     for (auto& s : progress.subs) {
-        if (s.kind == kind && s.target_id == target_id) {
+        if (s.kind == kind && (s.target_id == target_id || s.target_id == 0u)) {
             const auto remaining = std::numeric_limits<std::uint32_t>::max() - s.count;
             s.count += std::min(delta, remaining);
             if (s.count >= s.target) {

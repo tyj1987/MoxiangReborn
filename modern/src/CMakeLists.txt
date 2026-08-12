@@ -202,6 +202,7 @@ add_library(mxh_server STATIC
     server/pk_manager.cpp
     server/money_manager.cpp
     server/quest_manager.cpp
+    server/quest_runtime_adapter.cpp
     server/quest_execute.cpp
     server/quest_script_line.cpp
     server/quest_subquest_block.cpp
