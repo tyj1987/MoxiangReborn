@@ -1011,6 +1011,46 @@ TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
     }
 }
 
+TEST(MapHandlerTest, GameInRestoresProgressAndSerializesLegacyHeroOffsets) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,"
+        "face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER);"
+        "CREATE TABLE modern_player_state (player_id INTEGER PRIMARY KEY,money INTEGER NOT NULL,"
+        "level INTEGER NOT NULL,exp INTEGER NOT NULL,updated_at TEXT NOT NULL);"
+        "INSERT INTO character_info VALUES(123,'PersistHero',0,1,1,1.0,1.0,1,7);"
+        "INSERT INTO modern_player_state VALUES(123,7654321,12,34567,'now');").ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->level, 12u);
+    EXPECT_EQ(snapshot->level_exp, 34567u);
+    EXPECT_EQ(handler.player_money_for_test(123u), 7654321u);
+    ASSERT_FALSE(reply.messages.empty());
+    const auto& ack = reply.messages.front();
+    std::uint16_t wire_level = 0;
+    std::int64_t wire_exp = 0;
+    std::uint32_t wire_money = 0;
+    std::memcpy(&wire_level, ack.payload.data() + mxh::game::HERO_TOTAL_CHARACTER_OFFSET + 40, sizeof(wire_level));
+    std::memcpy(&wire_exp, ack.payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 22, sizeof(wire_exp));
+    std::memcpy(&wire_money, ack.payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 36, sizeof(wire_money));
+    EXPECT_EQ(wire_level, 12u);
+    EXPECT_EQ(wire_exp, 34567);
+    EXPECT_EQ(wire_money, 7654321u);
+}
+
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     MockDbAdapter db;
     ReplySpy reply;
