@@ -8,6 +8,11 @@ target_include_directories(mxh_quest_string_catalog_tests PRIVATE ${CMAKE_SOURCE
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_quest_string_catalog_tests PRE_SHIP_BUILD)
 
+add_executable(mxh_quest_npc_catalog_tests quest_npc_catalog_test.cpp)
+target_link_libraries(mxh_quest_npc_catalog_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_quest_npc_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_quest_npc_catalog_tests PRE_SHIP_BUILD)
+
 add_executable(mxh_ttb_tile_table_tests
     ttb_tile_table_test.cpp
 )

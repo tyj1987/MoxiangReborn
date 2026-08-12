@@ -241,6 +241,8 @@ int main(int argc, char** argv) {
         handler.load_experience_curve((root / "Resource" / "CharacterExpPoint.bin").string());
         handler.load_quest_script(
             (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
+        handler.load_quest_npcs(
+            (root / "Resource" / "QuestScript" / "questnpclist.bin").string());
     }
 
     // M3 dev-stub-caster (side-by-side harness only).

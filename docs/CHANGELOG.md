@@ -917,3 +917,9 @@ The shipped `QuestString.bin` is now semantically verified, not merely byte-read
 The DX11 font atlas now keys glyphs by 16-bit code point and rasterizes through `GetGlyphOutlineW`. `CHAR_CODE_TYPE_UNICODE` therefore renders UTF-16 instead of truncating every character to one byte, while the existing ASCII path retains its byte semantics. QuestString display converts the original Big5 bytes with Windows code page 950 only at presentation time and uses Microsoft JhengHei; the shipped resource remains byte-identical.
 
 A known Big5 title fragment is locked to its expected Unicode text, all real QuestString records still parse, the GUI client resource/GameIn smoke passes, the full Debug solution builds, and all 11942 CTest cases pass.
+
+## 2026-08-12 - server: spawn original quest NPC catalog
+
+Added a semantic loader for the original tab-separated `questnpclist.bin` records: map, NPC kind, Big5 name, NPC index, X/Z, and direction. MapServer now loads this resource at production startup and merges its map-filtered NPCs with DealItem shop NPCs, de-duplicating by the authoritative NPC index. This closes the prior runtime gap where only merchants existed and quest-giver NPCs were absent from the world.
+
+Real-resource tests prove zero parse errors and lock the shipped distribution facts (Map 1 has 5 quest NPCs, Map 13 has 12, Map 12 has none). The existing GUI smoke character is on Map 12, so that smoke proves no regression but is deliberately not claimed as visual quest-NPC evidence. Full Debug build and all 11944 tests pass.

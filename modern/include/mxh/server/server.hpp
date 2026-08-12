@@ -26,6 +26,7 @@
 #include "mxh/server/ai_group_loader.hpp"
 #include "mxh/server/hackshield_manager.hpp"
 #include "mxh/server/hsel_session.hpp"
+#include "mxh/compat/quest_npc_catalog.hpp"
 
 #include <functional>
 #include <memory>
@@ -317,6 +318,7 @@ public:
     // echo and side-by-side 5/5 capture stays diff=0 (same as
     // the pre-loader arm).
     void load_quest_script(const std::string& path);
+    void load_quest_npcs(const std::string& path);
 
     // M3-MAP item price loader: parse Resource/ItemList.bin into the
     // item_idx -> BuyPrice table used to fill NpcShopCatalog prices
@@ -583,6 +585,7 @@ private:
     // StartNack and the side-by-side 5/5 capture stays diff=0.
     mxh::server::QuestScriptParseResult quest_definitions_;
     std::mutex quest_mu_;
+    mxh::compat::QuestNpcCatalog quest_npc_catalog_;
 
     bool use_hsel_;
     HselSessionManager hsel_;
