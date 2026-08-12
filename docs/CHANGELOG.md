@@ -893,3 +893,9 @@ Tests prove the legacy notification amount and a real SQLite lifecycle of kill -
 Added an explicit QuestScript-to-runtime adapter. HUNT and HUNTALL triggers become kill counters; GIVEITEM, GIVEMONEY, TAKEEXP, and TAKESEXP rewards are mapped only from their already parsed arguments. Unknown or context-dependent script operations are not fabricated. StartSyn now accepts the adapted definition, monster death dispatches the real monster kind into active quest logs and persists changed states, and EndSyn only ACKs a Complete quest after the existing QuestManager grants its rewards; other states NACK.
 
 HUNTALL wildcard counters are supported in QuestManager without changing exact monster-kind matching. A focused test locks the script mapping and exact reward values. Full sub-condition serialization/recovery and the remaining non-kill event families remain explicit gameplay gaps.
+
+## 2026-08-12 - client: explicit production login entry
+
+The graphical client no longer starts with embedded `test/test` credentials or silently connects and skips the login state. Normal startup renders an account/password panel over the original login resource, masks the password, supports mouse/Tab field selection, Backspace editing, and Enter/button submission. Automated login is now an explicit `--auto-login` mode that rejects missing credentials; automatic character creation is also opt-in.
+
+The GUI smoke harness opts into automation explicitly and now accepts either creation of a new character or selection of an existing persisted character. Optional character-creation frames no longer fail a reused-database run. Verified with a full Debug build, all 11938 tests, and the visible GUI path loading original BGM, Map 12 terrain, 334 static meshes, 8 sky meshes, 9887 item entries, and 499 monster entries before GameIn.

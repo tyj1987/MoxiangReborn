@@ -31,6 +31,7 @@ try {
         '--map-port', '18001',
         '--username', 'test',
         '--password', 'test',
+        '--auto-login',
         '--auto-create',
         '--character-name', $characterName,
         '--save-frame', $frame,
@@ -51,10 +52,14 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
-    foreach ($marker in @('playing original BGM id=1667', 'playing original BGM id=1670', '[terrain] original HFL loaded', '[static] original STM loaded', 'sent CharacterMakeSyn', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
+    foreach ($marker in @('playing original BGM id=1667', 'playing original BGM id=1670', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
         if ($log -notmatch [regex]::Escape($marker)) {
             throw "GUI smoke missing marker '$marker'; log=$stderr"
         }
+    }
+    if ($log -notmatch [regex]::Escape('sent CharacterMakeSyn') -and
+        $log -notmatch [regex]::Escape('first valid chrid=')) {
+        throw "GUI smoke neither created nor loaded a character; log=$stderr"
     }
     if ($FollowCamera) {
         foreach ($marker in @('[sky] original MOD loaded meshes=8/8 textures=8/8', '[terrain] player camera active', '[entity] original MonsterList loaded', '[entity] original model kind=65006 chx=man.chx', '[entity] original idle animation active', '[entity] original model kind=1 chx=L001.chx')) {
@@ -66,7 +71,7 @@ try {
     if (-not (Test-Path -LiteralPath $frame)) { throw "GUI smoke missing terrain frame: $frame" }
     $stateFramesDir = Join-Path $runRoot "state-frames"
     if (-not (Test-Path -LiteralPath $stateFramesDir)) { throw "GUI smoke missing state-frames dir: $stateFramesDir" }
-    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir
+    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir --permissive
     if ($LASTEXITCODE -ne 0) { throw "GUI state frames validation failed: $stateFramesDir" }
     if (-not $FollowCamera) {
         & python (Join-Path $repoRoot 'scripts\verify-terrain-frame.py') $frame

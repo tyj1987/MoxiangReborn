@@ -97,9 +97,10 @@ struct ClientOptions {
     std::string login_host = "127.0.0.1";
     std::uint16_t login_port = 16001;
     std::uint16_t map_port = 18001;
-    std::string username = "test";
-    std::string password = "test";
-    bool auto_create = true;  // default true: see message-pump CharSelect->CharMake branch
+    std::string username;
+    std::string password;
+    bool auto_login = false;
+    bool auto_create = false;
     bool exit_after_gamein = false;
     bool follow_camera = false;
     std::string character_name = "ModernHero";
@@ -138,6 +139,7 @@ ClientOptions parse_client_options() {
         else if (arg == L"--map-port") take_port(options.map_port);
         else if (arg == L"--username") take(options.username);
         else if (arg == L"--password") take(options.password);
+        else if (arg == L"--auto-login") options.auto_login = true;
         else if (arg == L"--auto-create") options.auto_create = true;
         else if (arg == L"--exit-after-gamein") options.exit_after_gamein = true;
         else if (arg == L"--follow-camera") options.follow_camera = true;
@@ -262,6 +264,15 @@ struct HudSprites {
 };
 HudSprites g_hud;
 IDIFontObject* g_hudFont = nullptr;
+
+struct LoginUiState {
+    std::string username;
+    std::string password;
+    bool editingPassword = false;
+    bool submitRequested = false;
+    bool visible = true;
+};
+LoginUiState g_loginUi;
 
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
@@ -639,27 +650,23 @@ void renderFrame(HWND h) {
                                  &rc, 0xFFFFFFFFu, 0, 0); MLOG_DEBUG("mxh_client: bg draw sprite=%p ok=%d", (void*)g_sprites[0].sprite, (int)_bg_ok); }
     }
 
-    // 3 demo cImages at the bottom.  In A.1.5 these come from a real
-    // cDialog tree (the CMainTitle login form); for now we draw them
-    // directly through the renderer's HUD pass using the per-sprite
-    // binding we just registered.
-    constexpr float kTileW = 120.0f, kTileH = 80.0f;
-    constexpr float kTileY = 480.0f;
-    constexpr float kGapX  = 20.0f;
-    constexpr float kStartX = (800.0f - (3.0f * kTileW + 2.0f * kGapX)) * 0.5f;
-    for (std::uint32_t i = 1; !g_renderTerrain && i <= 3; ++i) {
-        if (!g_sprites[i].sprite) continue;
-        IMAGE_HEADER image{};
-        g_sprites[i].sprite->GetImageHeader(&image, 0);
-        VECTOR2 scale{
-            image.dwWidth ? kTileW / static_cast<float>(image.dwWidth) : 1.0f,
-            image.dwHeight ? kTileH / static_cast<float>(image.dwHeight) : 1.0f };
-        VECTOR2 trans{ kStartX + (i - 1) * (kTileW + kGapX), kTileY };
-        RECT     rc{ 0, 0, static_cast<LONG>(image.dwWidth),
-                     static_cast<LONG>(image.dwHeight) };
-        g_renderer->RenderSprite(g_sprites[i].sprite, &scale, 0.0f, &trans,
-                                 &rc, 0xFFFFFFFFu,
-                                 /*iZOrder=*/static_cast<int>(i), 0);
+    if (!g_renderTerrain && g_loginUi.visible && g_hud.barBg && g_hudFont) {
+        drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                   245.0f, 210.0f, 310.0f, 190.0f, 1.0f);
+        const auto drawText = [&](const std::string& value, LONG left, LONG top,
+                                  std::uint32_t color = 0xFFFFFFFFu) {
+            RECT rc{left, top, 535, top + 24};
+            g_renderer->RenderFont(g_hudFont, const_cast<char*>(value.data()),
+                                   static_cast<std::uint32_t>(value.size()), &rc,
+                                   color, CHAR_CODE_TYPE_ASCII, 2, 0);
+        };
+        drawText("MOXIANG", 350, 230, 0xFFFFD080u);
+        drawText("Account", 275, 280);
+        drawText(g_loginUi.username + (!g_loginUi.editingPassword ? "_" : ""), 365, 280);
+        drawText("Password", 275, 320);
+        drawText(std::string(g_loginUi.password.size(), '*') +
+                 (g_loginUi.editingPassword ? "_" : ""), 365, 320);
+        drawText("[ Login ]", 360, 365, 0xFF80FF80u);
     }
 
     g_renderer->EndRender();
@@ -721,6 +728,18 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             PostQuitMessage(0);
             return 0;
         }
+        if (g_loginUi.visible) {
+            if (w == VK_TAB) g_loginUi.editingPassword = !g_loginUi.editingPassword;
+            else if (w == VK_RETURN && !g_loginUi.username.empty() &&
+                     !g_loginUi.password.empty()) g_loginUi.submitRequested = true;
+            else if (w == VK_BACK) {
+                auto& value = g_loginUi.editingPassword
+                                ? g_loginUi.password : g_loginUi.username;
+                if (!value.empty()) value.pop_back();
+            }
+            InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnKeyEvent(true, static_cast<std::uint32_t>(w));
         }
@@ -731,12 +750,31 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         return 0;
     case WM_CHAR:
+        if (g_loginUi.visible && w >= 0x20 && w < 0x7f) {
+            auto& value = g_loginUi.editingPassword
+                            ? g_loginUi.password : g_loginUi.username;
+            if (value.size() < 31) value.push_back(static_cast<char>(w));
+            InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnChar(static_cast<std::uint32_t>(w));
         }
         return 0;
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
+        if (g_loginUi.visible && m == WM_LBUTTONDOWN) {
+            const auto x = static_cast<std::int32_t>(static_cast<short>(LOWORD(l)));
+            const auto y = static_cast<std::int32_t>(static_cast<short>(HIWORD(l)));
+            if (y >= 270 && y < 310) g_loginUi.editingPassword = false;
+            else if (y >= 310 && y < 350) g_loginUi.editingPassword = true;
+            else if (x >= 340 && x <= 465 && y >= 350 && y <= 395 &&
+                     !g_loginUi.username.empty() && !g_loginUi.password.empty()) {
+                g_loginUi.submitRequested = true;
+            }
+            InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 true, m == WM_LBUTTONDOWN,
@@ -770,6 +808,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // ---------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*show*/) {
     ClientOptions options = parse_client_options();
+    if (options.auto_login && (options.username.empty() || options.password.empty())) {
+        std::fprintf(stderr, "mxh_client: --auto-login requires --username and --password\n");
+        return 2;
+    }
+    g_loginUi.username = options.username;
+    g_loginUi.password = options.password;
+    g_loginUi.visible = !options.auto_login;
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     __g_stateFramesDir = options.state_frames_dir;
     if (!__g_stateFramesDir.empty()) {
@@ -926,19 +971,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // click "Connect" to drive CLoginState explicitly.  Until the
     // server-list UI is wired up we still boot into Connect as a
     // dev-mode shortcut; that path will move to a button in B.2.5+.
-    mainGame.SetGameState(mxh::client::GameStateId::Connect);
+    mainGame.SetGameState(options.auto_login ? mxh::client::GameStateId::Connect
+                                             : mxh::client::GameStateId::Title);
     MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
               "boot â†’ GameStateId::Connect");
 
     // Phase B.2.1: kick off the CLoginState connect (host-driven; the
     // state can't self-start because it doesn't know the login address
     // until MHVerInfo.ver parsing lands in B.2.5).
-    if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
-            mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
-        login->Start(mainGame.GetEngine(), options.login_host,
-                     options.login_port, options.username, options.password);
-    } else {
-        MLOG_ERROR("Connect slot is not a CLoginState; cannot start login");
+    if (options.auto_login) {
+        if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
+                mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
+            login->Start(mainGame.GetEngine(), options.login_host,
+                         options.login_port, options.username, options.password);
+        } else {
+            MLOG_ERROR("Connect slot is not a CLoginState; cannot start login");
+        }
     }
 
     MLOG_INFO("mxh_client: entering message loop");
@@ -965,6 +1013,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         } else {
+            if (g_loginUi.submitRequested) {
+                g_loginUi.submitRequested = false;
+                options.username = g_loginUi.username;
+                options.password = g_loginUi.password;
+                g_loginUi.visible = false;
+                mainGame.SetGameState(mxh::client::GameStateId::Connect);
+                if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
+                        mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
+                    login->Start(mainGame.GetEngine(), options.login_host,
+                                 options.login_port, options.username, options.password);
+                }
+            }
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
             // Phase B.2.2: on state-change rising edge, Start() the
@@ -983,7 +1043,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // rising edge. The LoginResult transfer slot (set by
             // CLoginState::dispatch_login_ack) is consumed by
             // CCharSelectState::Init() when CharSelect is entered.
-            if (cur_state == mxh::client::GameStateId::Title) {
+            if (cur_state == mxh::client::GameStateId::Title && options.auto_login) {
                 mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
             } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
