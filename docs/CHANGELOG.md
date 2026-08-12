@@ -1,3 +1,9 @@
+## 2026-08-11 - server+tools: side-by-side move 7th segment (T3 7/7 modern capture)
+
+- modern/tools/MoxianSideBySide: move_scenario() (cat=8 MP_MOVE, proto=0 Init, 4B payload target_x:u16 + target_z:u16 = 0x1234/0x5678). Wired into main.cpp --scenario move|all and the chat/move docs. modern_move.cap is the 1-packet golden (cat=8 proto=0, target_x=0x1234 target_z=0x5678).
+- modern/src/server/map_handler.cpp: handle_move() now also echoes the move back to the sender before broadcast_except() (mirroring the handle_chat fix from the previous commit). Real gameplay paths still get the broadcast to other players.
+- modern/tests/unit/tools_side_by_side_test.cpp: MoveScenarioNameIsMove + MoveTraceIsMoveInitEcho (new), AttackShopQuestChatScenariosHaveFixedSizes -> AllSevenScenariosHaveFixedSizes, AllSixScenariosHaveFixtures -> AllSevenScenariosHaveFixtures, +modern_move.cap to the fixture list. 26/26 SideBySide tests pass; 11,902/11,902 ctest pass.
+
 ## 2026-08-11 - tools: modern_chat.cap golden + ChatTraceIsChatAllEcho test (T3 6/6 capture)
 
 - modern/tools/MoxianSideBySide + handle_chat sender-echo commit: the T3 6th side-by-side segment (chat) is now captured end-to-end. modern_chat.cap is a 1-packet golden (cat=6 MP_CHAT, proto=0 MP_CHAT_ALL, 5B payload  hello = 0x68 0x65 0x6c 0x6c 0x6f) saved to modern/tests/fixtures/sbs_captures_modern/.
