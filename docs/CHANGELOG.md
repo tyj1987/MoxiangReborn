@@ -1,3 +1,8 @@
+## 2026-08-11 - tools: side-by-side item 8th segment (T3 8/8 modern capture)
+
+- modern/tools/MoxianSideBySide: item_use_scenario() (cat=5 MP_ITEM, proto=12 DiscardSyn, 2B payload position:u16 = 0). Wired into main.cpp --scenario item|all. modern_item.cap is the 1-packet golden (cat=5 proto=14 DiscardNack, payload 0x0000 echoed back). The modern handle_item looks up the player and falls into the no-player-context path; with a real player the same wire would route DiscardAck.
+- modern/tests/unit/tools_side_by_side_test.cpp: ItemScenarioNameIsItem + ItemTraceIsItemDiscardNack (new), AllSeven -> AllEight rename, +modern_item.cap to the fixture list. 28/28 SideBySide tests pass; 11,904/11,904 ctest pass.
+
 ## 2026-08-11 - server+tools: side-by-side move 7th segment (T3 7/7 modern capture)
 
 - modern/tools/MoxianSideBySide: move_scenario() (cat=8 MP_MOVE, proto=0 Init, 4B payload target_x:u16 + target_z:u16 = 0x1234/0x5678). Wired into main.cpp --scenario move|all and the chat/move docs. modern_move.cap is the 1-packet golden (cat=8 proto=0, target_x=0x1234 target_z=0x5678).
