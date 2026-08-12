@@ -2068,6 +2068,54 @@ TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
     EXPECT_EQ(progress->subs[0].target, 10u);
 }
 
+TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{}; cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE character_info(chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,face_type INTEGER,"
+        "hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER);"
+        "CREATE TABLE modern_player_state(player_id INTEGER PRIMARY KEY,money INTEGER NOT NULL,level INTEGER NOT NULL,"
+        "exp INTEGER NOT NULL,updated_at TEXT NOT NULL);"
+        "CREATE TABLE modern_player_quest_log(player_id INTEGER NOT NULL,quest_id INTEGER NOT NULL,state INTEGER NOT NULL,"
+        "accepted_time_ms INTEGER NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(player_id,quest_id));"
+        "CREATE TABLE modern_player_quest_sub(player_id INTEGER NOT NULL,quest_id INTEGER NOT NULL,sub_index INTEGER NOT NULL,"
+        "kind INTEGER NOT NULL,target_id INTEGER NOT NULL,count INTEGER NOT NULL,target_count INTEGER NOT NULL,"
+        "PRIMARY KEY(player_id,quest_id,sub_index));"
+        "CREATE TABLE modern_player_item(player_id INTEGER NOT NULL,container INTEGER NOT NULL,slot INTEGER NOT NULL,"
+        "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,rare_idx INTEGER NOT NULL,"
+        "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),UNIQUE(player_id,db_idx));"
+        "INSERT INTO character_info VALUES(123,'QuestHero',0,1,1,1,1,1,7);"
+        "INSERT INTO modern_player_state VALUES(123,100,1,0,'now');").ok());
+    ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/CharacterExpPoint.bin");
+    const std::string quest_text =
+        "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 77 1 *GIVEMONEY 50 *TAKEEXP 25 *GIVEITEM 8000 2 *ENDQUEST 1 } }";
+    const auto qpath = write_temp_bin(synthesize_dealitem_bin(quest_text));
+    handler.load_quest_script(qpath.string()); std::error_code ec; std::filesystem::remove(qpath, ec);
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); handler.on_message(connection,in);
+    mxh::net::Message start; start.header.object_id=123; start.header.category=static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol=static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn); start.payload.resize(2);
+    const std::uint16_t qid=99; std::memcpy(start.payload.data(),&qid,sizeof(qid)); handler.on_message(connection,start);
+    mxh::game::MonsterInstance monster; monster.object_id=99001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1;
+    ASSERT_TRUE(handler.add_monster_instance(monster)); (void)handler.apply_monster_damage(123,monster.object_id,1,99);
+    mxh::net::Message end=start; end.header.protocol=static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndSyn);
+    reply.messages.clear(); handler.on_message(connection,end);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndAck));
+    mxh::db::ResultSet state; const std::vector<mxh::db::Bind> none;
+    ASSERT_TRUE(db.query("SELECT money,exp FROM modern_player_state WHERE player_id=123",none,state).ok());
+    ASSERT_EQ(state.rows.size(),1u); EXPECT_EQ(std::get<std::int64_t>(state.rows[0][0]),150); EXPECT_EQ(std::get<std::int64_t>(state.rows[0][1]),35);
+    mxh::db::ResultSet items; ASSERT_TRUE(db.query("SELECT item_idx,item_param FROM modern_player_item WHERE player_id=123",none,items).ok());
+    ASSERT_EQ(items.rows.size(),1u); EXPECT_EQ(std::get<std::int64_t>(items.rows[0][0]),8000); EXPECT_EQ(std::get<std::int64_t>(items.rows[0][1]),2);
+    mxh::db::ResultSet quest; ASSERT_TRUE(db.query("SELECT state FROM modern_player_quest_log WHERE player_id=123 AND quest_id=99",none,quest).ok());
+    ASSERT_EQ(quest.rows.size(),1u); EXPECT_EQ(std::get<std::int64_t>(quest.rows[0][0]),static_cast<std::int64_t>(mxh::server::QuestState::Rewarded));
+    reply.messages.clear(); handler.on_message(connection,end); ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndNack));
+}
+
 // M3 D-stage: persist_quest_log_for_test must hit the DB on every
 // call.  This pins the helper in isolation (no wire traffic).
 TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
