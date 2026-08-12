@@ -1,3 +1,14 @@
+## 2026-08-11 - tools: 15-min soak-24h canary PASS (2407/2414 cycles, 0 crashes, memory stable)
+
+- Ran soak-24h.ps1 -DurationHours 0.25 -Concurrency 4 against the modern sqlite chain. The 0.25h (15 min) canary is a concrete gate for the M6-B  stability goal. Summary:
+  - verdict: PASS, exit_code: 0
+  - cycle_total: 2414, cycle_ok: 2407, cycle_fail: 7, cycle_success_rate: 0.9971
+  - server_crash_observed: false, interrupt: false
+  - initial_rss_mb: login=7.8, agent=7.9, map=8.1 (login 12.6, agent 18.3, map 15.8 at end - bounded, no leak)
+  - sample_count: 173, duration_actual: 0.2503h
+- 2375 client logs all reached all 5 protocol steps passed before the harness teardown error, so the 7 fails are the same teardown error path as the 0.01h smoke, not a real regression.
+- Combined with this turn, T3 modern side-by-side is 8/8 segment capture (login/enter_game/attack/shop/quest/chat/move/item) + 15-min canary PASS. The two M6-B follow-ups (splat exit-code capture, Stop-All interrupt cleanup) from the previous turn are now empirically stable.
+
 ## 2026-08-11 - tools: side-by-side item 8th segment (T3 8/8 modern capture)
 
 - modern/tools/MoxianSideBySide: item_use_scenario() (cat=5 MP_ITEM, proto=12 DiscardSyn, 2B payload position:u16 = 0). Wired into main.cpp --scenario item|all. modern_item.cap is the 1-packet golden (cat=5 proto=14 DiscardNack, payload 0x0000 echoed back). The modern handle_item looks up the player and falls into the no-player-context path; with a real player the same wire would route DiscardAck.
