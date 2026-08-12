@@ -1,3 +1,10 @@
+## 2026-08-12 - patcher: 移除模拟更新并建立可信原子更新/回滚闭环
+
+- `MoxianAutoPatcher` 不再伪造 `1.0.1.0`、`test.txt` 和 dummy content；check/update 必须提供本地清单及受信任 `--manifest-sha256`，清单摘要不匹配即停止。
+- 清单的 FILE/DELETE 路径必须为无 `.`/`..`/盘符/根目录的相对路径；每个源文件在写入前及暂存后都验证真实 SHA-256 与长度。通过后以 Windows `MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH)` 原子替换。
+- 备份只覆盖本次变更集合，并记录原先不存在的文件；rollback 恢复覆盖文件、被删文件、版本文件，并删除更新新增文件。修复 Windows 回滚时 `.created` 输入流仍占用备份目录的句柄缺陷。
+- 真实磁盘 E2E：`client.dat` v1→v2、删除 `obsolete.dat`、版本 1.0.0.0→1.0.1.0；rollback 后三者逐字节恢复。`../outside.dat` 删除清单被拒绝；新增 2 项路径与真实 SHA-256 单测。Debug 全量构建与 CTest 11,918/11,918 PASS。
+
 ## 2026-08-12 - account: 持久化封禁、登录门禁与 GM 审计闭环
 
 - 新增 `modern_account_status` 与 append-only `modern_gm_audit` 双后端 schema；封禁状态写入与审计插入位于同一事务，SQLite 使用 UPSERT、MSSQL 使用 MERGE。

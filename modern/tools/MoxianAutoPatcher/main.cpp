@@ -31,6 +31,8 @@
 #include <iomanip>
 #include <functional>
 
+#include "patch_security.hpp"
+
 namespace fs = std::filesystem;
 
 // ============================================================================
@@ -117,6 +119,9 @@ public:
         gameDir_ = dir;
     }
 
+    void setManifest(const std::string& path) { manifestPath_ = path; }
+    void setManifestSha256(const std::string& value) { manifestSha256_ = value; }
+
     // Check for updates
     bool checkForUpdates() {
         std::cout << "Checking for updates..." << std::endl;
@@ -129,7 +134,8 @@ public:
         // Fetch latest version from server
         // In real implementation, this would make HTTP request
         // For now, simulate with local file
-        Version latest = getLatestVersion();
+        PatchManifest manifest = getManifest();
+        Version latest = manifest.version;
         std::cout << "  Latest version: " << latest.toString() << std::endl;
 
         if (latest < current || latest == current) {
@@ -160,7 +166,7 @@ public:
         std::cout << "  Files to delete: " << manifest.deleteFiles.size() << std::endl;
 
         // Create backup
-        if (!createBackup()) {
+        if (!createBackup(manifest)) {
             std::cerr << "Failed to create backup" << std::endl;
             return false;
         }
@@ -212,10 +218,22 @@ public:
             return false;
         }
 
+        {
+            std::ifstream created(backupDir / ".created");
+            std::string created_path;
+            while (std::getline(created, created_path)) {
+                if (mxh::patch::is_safe_relative_path(created_path)) {
+                    std::error_code error;
+                    fs::remove(fs::path(gameDir_) / created_path, error);
+                }
+            }
+        }
+
         // Restore files from backup
         for (const auto& entry : fs::recursive_directory_iterator(backupDir)) {
             if (entry.is_regular_file()) {
                 fs::path relative = fs::relative(entry.path(), backupDir);
+                if (relative == ".created") continue;
                 fs::path target = fs::path(gameDir_) / relative;
 
                 fs::create_directories(target.parent_path());
@@ -255,35 +273,47 @@ private:
         return Version{0, 0, 0, 0};
     }
 
-    // Get latest version from server
-    Version getLatestVersion() const {
-        // In real implementation, this would make HTTP request
-        // For now, return a simulated version
-        return Version{1, 0, 1, 0};
-    }
-
-    // Get patch manifest from server
     PatchManifest getManifest() const {
-        // In real implementation, this would parse JSON from server
-        // For now, return a simulated manifest
+        if (manifestPath_.empty()) throw std::runtime_error("--manifest is required (refusing simulated update)");
+        if (manifestSha256_.size() != 64 ||
+            mxh::patch::lower_hex(mxh::patch::sha256_file(manifestPath_)) != mxh::patch::lower_hex(manifestSha256_))
+            throw std::runtime_error("manifest SHA-256 verification failed");
+        std::ifstream input(manifestPath_);
+        if (!input) throw std::runtime_error("cannot read manifest");
         PatchManifest manifest;
-        manifest.version = getLatestVersion();
-        manifest.description = "Test update";
-
-        // Simulate some patch files
-        PatchFile file1;
-        file1.path = "test.txt";
-        file1.url = serverUrl_ + "/patches/test.txt";
-        file1.sha256 = "abc123";
-        file1.size = 1024;
-        file1.isDiff = false;
-        manifest.files.push_back(file1);
-
+        std::string line;
+        bool has_version = false;
+        while (std::getline(input, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("VERSION=", 0) == 0) {
+                manifest.version = Version::fromString(line.substr(8));
+                has_version = true;
+                continue;
+            }
+            std::vector<std::string> fields;
+            std::istringstream row(line);
+            std::string field;
+            while (std::getline(row, field, '\t')) fields.push_back(field);
+            if (fields.size() == 5 && fields[0] == "FILE") {
+                if (!mxh::patch::is_safe_relative_path(fields[1])) throw std::runtime_error("unsafe patch target path");
+                PatchFile file;
+                file.path = fields[1]; file.url = fields[2]; file.sha256 = fields[3];
+                file.size = std::stoull(fields[4]);
+                if (file.sha256.size() != 64) throw std::runtime_error("invalid SHA-256 in manifest");
+                manifest.files.push_back(std::move(file));
+            } else if (fields.size() == 2 && fields[0] == "DELETE") {
+                if (!mxh::patch::is_safe_relative_path(fields[1])) throw std::runtime_error("unsafe delete path");
+                manifest.deleteFiles.push_back(fields[1]);
+            } else {
+                throw std::runtime_error("invalid manifest record");
+            }
+        }
+        if (!has_version) throw std::runtime_error("manifest has no VERSION");
         return manifest;
     }
 
     // Create backup of current files
-    bool createBackup() const {
+    bool createBackup(const PatchManifest& manifest) const {
         fs::path backupDir = fs::path(gameDir_) / "_backup";
 
         // Remove old backup if exists
@@ -294,32 +324,48 @@ private:
         // Create new backup
         fs::create_directories(backupDir);
 
-        // Copy important files
-        // In real implementation, would copy files listed in manifest
+        std::ofstream created(backupDir / ".created", std::ios::binary);
+        std::vector<std::string> paths = manifest.deleteFiles;
+        for (const auto& file : manifest.files) paths.push_back(file.path);
+        paths.push_back("MHVerInfo.ver");
+        for (const auto& relative : paths) {
+            const fs::path source = fs::path(gameDir_) / relative;
+            if (fs::is_regular_file(source)) {
+                const fs::path destination = backupDir / relative;
+                fs::create_directories(destination.parent_path());
+                fs::copy_file(source, destination, fs::copy_options::overwrite_existing);
+            } else {
+                created << relative << '\n';
+            }
+        }
         std::cout << "Backup created" << std::endl;
         return true;
     }
 
     // Download and apply a single patch
     bool downloadAndApplyPatch(const PatchFile& file) {
-        // In real implementation, this would:
-        // 1. Download file from URL
-        // 2. Verify SHA-256
-        // 3. If isDiff, apply binary patch
-        // 4. Otherwise, replace file
-
         fs::path targetPath = fs::path(gameDir_) / file.path;
-
-        // Simulate download
-        std::ofstream out(targetPath, std::ios::binary);
-        if (!out.is_open()) {
+        fs::path sourcePath = file.url.rfind("file://", 0) == 0
+            ? fs::path(file.url.substr(7)) : fs::path(file.url);
+        if (!mxh::patch::verify_file(sourcePath, file.size, file.sha256)) return false;
+        fs::create_directories(targetPath.parent_path());
+        fs::path staged = targetPath;
+        staged += ".mxh-new";
+        std::error_code error;
+        fs::copy_file(sourcePath, staged, fs::copy_options::overwrite_existing, error);
+        if (error || !mxh::patch::verify_file(staged, file.size, file.sha256)) {
+            fs::remove(staged, error);
             return false;
         }
-
-        // Write dummy content
-        out << "Updated content for " << file.path << std::endl;
-        out.close();
-
+#ifdef _WIN32
+        if (!MoveFileExW(staged.c_str(), targetPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            fs::remove(staged, error);
+            return false;
+        }
+#else
+        fs::rename(staged, targetPath, error);
+        if (error) return false;
+#endif
         return true;
     }
 
@@ -359,6 +405,8 @@ private:
 
     std::string serverUrl_;
     std::string gameDir_ = ".";
+    std::string manifestPath_;
+    std::string manifestSha256_;
 };
 
 // ============================================================================
@@ -377,6 +425,8 @@ void printUsage() {
     std::cout << "  --rollback        Rollback to previous version" << std::endl;
     std::cout << "  --version         Show current version" << std::endl;
     std::cout << "  --server <url>    Set update server URL" << std::endl;
+    std::cout << "  --manifest <path> Verified local manifest (required for check/update)" << std::endl;
+    std::cout << "  --manifest-sha256 <hex> Trusted manifest digest (required)" << std::endl;
     std::cout << "  --dir <path>      Set game directory" << std::endl;
     std::cout << "  --help, -h        Show this help" << std::endl;
     std::cout << std::endl;
@@ -412,6 +462,10 @@ int main(int argc, char* argv[]) {
             patcher.setServer(argv[++i]);
         } else if (arg == "--dir" && i + 1 < argc) {
             patcher.setGameDir(argv[++i]);
+        } else if (arg == "--manifest" && i + 1 < argc) {
+            patcher.setManifest(argv[++i]);
+        } else if (arg == "--manifest-sha256" && i + 1 < argc) {
+            patcher.setManifestSha256(argv[++i]);
         } else {
             std::cerr << "Unknown option: " << arg << std::endl;
             printUsage();
@@ -419,6 +473,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    try {
     if (showVersion) {
         patcher.printVersion();
         return 0;
@@ -442,4 +497,8 @@ int main(int argc, char* argv[]) {
     }
 
     return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "FATAL: " << error.what() << std::endl;
+        return 2;
+    }
 }

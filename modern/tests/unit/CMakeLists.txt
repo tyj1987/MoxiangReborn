@@ -174,6 +174,13 @@ add_executable(mxh_gm_security_tests gm_security_test.cpp)
 target_link_libraries(mxh_gm_security_tests PRIVATE gtest_main)
 gtest_add_tests(TARGET mxh_gm_security_tests)
 
+add_executable(mxh_patch_security_tests patch_security_test.cpp)
+target_link_libraries(mxh_patch_security_tests PRIVATE gtest_main)
+if(WIN32)
+    target_link_libraries(mxh_patch_security_tests PRIVATE bcrypt)
+endif()
+gtest_add_tests(TARGET mxh_patch_security_tests)
+
 # mxh_login_sbs_e2e_tests end-to-end smoke for side-by-side login path
 add_executable(mxh_login_sbs_e2e_tests
     login_sbs_e2e_test.cpp

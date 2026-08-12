@@ -7,7 +7,7 @@ add_executable(MoxianAutoPatcher main.cpp)
 target_compile_features(MoxianAutoPatcher PRIVATE cxx_std_17)
 
 if(WIN32)
-    target_link_libraries(MoxianAutoPatcher PRIVATE ws2_32)
+    target_link_libraries(MoxianAutoPatcher PRIVATE ws2_32 bcrypt)
 endif()
 
 if(MSVC)
