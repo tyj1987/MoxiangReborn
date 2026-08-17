@@ -518,4 +518,39 @@ HttpServer::rate_check(std::string_view ip,
     return std::nullopt;
 }
 
+void HttpServer::get_dynamic(std::string_view regex_pattern, DynamicGetHandler handler) {
+    std::string pat(regex_pattern);
+    p_->svr.Get(pat.c_str(), [this, pat, h = std::move(handler)](
+        const httplib::Request& req, httplib::Response& res) {
+        // Rate limit (general) for dynamic reads.
+        if (p_->check_rate_limit(res, req, req.path, RateLimits::general)) return;
+
+        // Authenticate (dynamic GETs are public-by-default unless the per-route
+        // helper opts in; for portal we treat detail endpoints as public).
+        // We intentionally skip JWT here; for protected variants, callers should
+        // authenticate inside the handler using verify_jwt if needed.
+        AuthContext ctx{};
+        try {
+            auto body = h(ctx, req.path);
+            set_json_response(res, 200, std::move(body));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+void HttpServer::get_public_dynamic(std::string_view regex_pattern, PublicDynamicGetHandler handler) {
+    std::string pat(regex_pattern);
+    p_->svr.Get(pat.c_str(), [this, pat, h = std::move(handler)](
+        const httplib::Request& req, httplib::Response& res) {
+        if (p_->check_rate_limit(res, req, req.path, RateLimits::general)) return;
+        try {
+            auto body = h(req.path);
+            set_json_response(res, 200, std::move(body));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
 }  // namespace mxh::portal

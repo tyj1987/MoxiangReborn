@@ -1,0 +1,31 @@
+{
+  "items": [
+    { "idx": 1,  "name_zh": "墨染青丝", "name_en": "Inky Locks",   "category": "hair",       "price_points": 50,   "image_url": "/portal_dist/assets/shop/hair-1.webp",  "description_zh": "墨色长发,带紫色高光", "description_en": "Long ink-black hair with violet highlights" },
+    { "idx": 2,  "name_zh": "白云鬓",   "name_en": "White Cloud",  "category": "hair",       "price_points": 80,   "image_url": "/portal_dist/assets/shop/hair-2.webp",  "description_zh": "白色短鬓,贵气",       "description_en": "Short white sideburns, noble" },
+    { "idx": 3,  "name_zh": "金簪发",   "name_en": "Gold Pin",     "category": "hair",       "price_points": 120,  "image_url": "/portal_dist/assets/shop/hair-3.webp",  "description_zh": "金色发簪,女侠风范", "description_en": "Gold hairpin, heroine style" },
+
+    { "idx": 10, "name_zh": "青云剑",   "name_en": "Qingyun Sword", "category": "weapon",    "price_points": 200,  "image_url": "/portal_dist/assets/shop/weapon-1.webp", "description_zh": "青云派高阶单手剑", "description_en": "Qingyun-faction high-tier one-hand sword" },
+    { "idx": 11, "name_zh": "菩提杖",   "name_en": "Bodhi Staff",   "category": "weapon",    "price_points": 250,  "image_url": "/portal_dist/assets/shop/weapon-2.webp", "description_zh": "佛门法杖,加内功",   "description_en": "Buddhist staff, increases inner power" },
+    { "idx": 12, "name_zh": "屠龙刀",   "name_en": "Dragon Slayer", "category": "weapon",    "price_points": 500,  "image_url": "/portal_dist/assets/shop/weapon-3.webp", "description_zh": "传说武器,极稀有", "description_en": "Legendary weapon, ultra-rare" },
+    { "idx": 13, "name_zh": "寒冰剑",   "name_en": "Frost Sword",   "category": "weapon",    "price_points": 320,  "image_url": "/portal_dist/assets/shop/weapon-4.webp", "description_zh": "冰属性剑,带减速",   "description_en": "Ice-attribute sword with slow" },
+    { "idx": 14, "name_zh": "烈焰刀",   "name_en": "Flame Blade",   "category": "weapon",    "price_points": 360,  "image_url": "/portal_dist/assets/shop/weapon-5.webp", "description_zh": "火属性刀,带灼烧",   "description_en": "Fire-attribute blade with burn" },
+
+    { "idx": 20, "name_zh": "玄铁甲",   "name_en": "Xuan Iron Armor", "category": "armor",   "price_points": 180,  "image_url": "/portal_dist/assets/shop/armor-1.webp",  "description_zh": "高防低敏",       "description_en": "High defense, low agility" },
+    { "idx": 21, "name_zh": "丝绸袍",   "name_en": "Silk Robe",       "category": "armor",   "price_points": 150,  "image_url": "/portal_dist/assets/shop/armor-2.webp",  "description_zh": "加内功减物理", "description_en": "Increases inner power, reduces physical" },
+    { "idx": 22, "name_zh": "黄金战甲", "name_en": "Golden Warplate", "category": "armor",   "price_points": 400,  "image_url": "/portal_dist/assets/shop/armor-3.webp",  "description_zh": "顶级防御,稀有", "description_en": "Top-tier defense, rare" },
+    { "idx": 23, "name_zh": "夜行衣",   "name_en": "Night Suit",      "category": "armor",   "price_points": 220,  "image_url": "/portal_dist/assets/shop/armor-4.webp",  "description_zh": "刺客服装,加敏", "description_en": "Assassin gear, increases agility" },
+    { "idx": 24, "name_zh": "道袍",     "name_en": "Daoist Robe",     "category": "armor",   "price_points": 160,  "image_url": "/portal_dist/assets/shop/armor-5.webp",  "description_zh": "道士专用,加道术", "description_en": "Daoist-only, increases dao arts" },
+    { "idx": 25, "name_zh": "凤羽衣",   "name_en": "Phoenix Garment", "category": "armor",   "price_points": 380,  "image_url": "/portal_dist/assets/shop/armor-6.webp",  "description_zh": "朱红羽衣,女侠", "description_en": "Vermillion feathered dress, heroine" },
+
+    { "idx": 30, "name_zh": "金创药",   "name_en": "Golden Wound Pill", "category": "consumable", "price_points": 5,    "image_url": "/portal_dist/assets/shop/cons-1.webp",   "description_zh": "立即恢复 200 HP", "description_en": "Restores 200 HP instantly" },
+    { "idx": 31, "name_zh": "回蓝丹",   "name_en": "MP Recovery Pill",  "category": "consumable", "price_points": 5,    "image_url": "/portal_dist/assets/shop/cons-2.webp",   "description_zh": "立即恢复 100 MP", "description_en": "Restores 100 MP instantly" },
+    { "idx": 32, "name_zh": "体力丸",   "name_en": "Stamina Pill",      "category": "consumable", "price_points": 3,    "image_url": "/portal_dist/assets/shop/cons-3.webp",   "description_zh": "恢复体力",       "description_en": "Restores stamina" },
+    { "idx": 33, "name_zh": "经验卷轴", "name_en": "EXP Scroll",        "category": "consumable", "price_points": 50,   "image_url": "/portal_dist/assets/shop/cons-4.webp",   "description_zh": "获得 1000 经验", "description_en": "Grants 1000 EXP" },
+    { "idx": 34, "name_zh": "传送符",   "name_en": "Teleport Talisman", "category": "consumable", "price_points": 20,   "image_url": "/portal_dist/assets/shop/cons-5.webp",   "description_zh": "传送至存档点", "description_en": "Teleport to saved point" },
+    { "idx": 35, "name_zh": "复活丹",   "name_en": "Revival Pill",      "category": "consumable", "price_points": 80,   "image_url": "/portal_dist/assets/shop/cons-6.webp",   "description_zh": "死亡时复活",   "description_en": "Revive on death" },
+    { "idx": 36, "name_zh": "双倍丹",   "name_en": "Double EXP Pill",   "category": "consumable", "price_points": 100,  "image_url": "/portal_dist/assets/shop/cons-7.webp",   "description_zh": "1 小时双倍经验", "description_en": "1 hour double EXP" },
+    { "idx": 37, "name_zh": "VIP月卡", "name_en": "VIP Monthly Card",  "category": "consumable", "price_points": 1000, "image_url": "/portal_dist/assets/shop/cons-8.webp",   "description_zh": "30 天 VIP 权益", "description_en": "30 days VIP perks" },
+    { "idx": 38, "name_zh": "改名卡",   "name_en": "Rename Card",       "category": "consumable", "price_points": 300,  "image_url": "/portal_dist/assets/shop/cons-9.webp",   "description_zh": "修改角色名",   "description_en": "Change character name" },
+    { "idx": 39, "name_zh": "洗点丹",   "name_en": "Reset Pill",        "category": "consumable", "price_points": 200,  "image_url": "/portal_dist/assets/shop/cons-10.webp",  "description_zh": "重置属性点",   "description_en": "Reset attribute points" }
+  ]
+}

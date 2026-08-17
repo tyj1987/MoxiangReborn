@@ -1,16 +1,20 @@
-// M5.3: portal binary — loads config, opens DB, registers auth routes, runs.
-// M5.3 closeout: enforces JWT secret presence (exit 6 if empty); allow override
-// via PORTAL_ALLOW_INSECURE_JWT=1 for local development only.
+// M5.3-5.7: portal binary — loads config, opens DB, registers all routes, runs.
 
 #include "portal/auth_routes.hpp"
 #include "portal/config.hpp"
+#include "portal/content_loader.hpp"
+#include "portal/download_routes.hpp"
 #include "portal/http_server.hpp"
+#include "portal/news_routes.hpp"
 #include "portal/portal_log.hpp"
+#include "portal/shop_routes.hpp"
+#include "portal/status_routes.hpp"
 
 #include "mxh/db/db_adapter.hpp"
 
 #include <csignal>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -86,11 +90,27 @@ int main(int argc, char** argv) {
     mxh::portal::HttpServer server(cfg);
     mxh::portal::register_auth_routes(server, *db, cfg.jwt_secret);
 
+    // M5.4: status pinger + /api/status
+    mxh::portal::StatusPinger pinger(cfg);
+    pinger.start();
+    mxh::portal::register_status_routes(server, cfg, pinger);
+
+    // M5.5-5.7: content loader + news/shop/download routes
+    std::filesystem::path content_root(cfg.content_root);
+    std::filesystem::path shop_catalog(cfg.shop_catalog);
+    std::filesystem::path download_root = content_root.parent_path() / "downloads";
+    mxh::portal::ContentLoader content(content_root, shop_catalog);
+    content.reload();
+    mxh::portal::register_news_routes(server, content);
+    mxh::portal::register_shop_routes(server, content);
+    mxh::portal::register_download_routes(server, download_root);
+
     std::thread shutdown_monitor([&]() {
         while (g_running.load()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         server.shutdown();
+        pinger.stop();
     });
 
     int rc = server.run();

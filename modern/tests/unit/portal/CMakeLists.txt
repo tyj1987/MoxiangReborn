@@ -118,3 +118,37 @@ gtest_add_tests(TARGET mxh_portal_auth_route_tests
     AuthRoutesDbTest.LoginValidCredentialsReturnsTokenAndUserIdx
     AuthRoutesDbTest.MeAfterLoginReturnsAccountInfo
 )
+
+# M5.5 news content loader tests
+add_executable(mxh_portal_news_route_tests
+    news_route_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/content_loader.cpp
+)
+target_include_directories(mxh_portal_news_route_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/portal
+)
+target_compile_features(mxh_portal_news_route_tests PRIVATE cxx_std_17)
+target_link_libraries(mxh_portal_news_route_tests PRIVATE
+    mxh_log
+    gtest_main
+)
+if(MSVC)
+    target_compile_definitions(mxh_portal_news_route_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
+# M5.6 shop catalog tests
+add_executable(mxh_portal_shop_route_tests
+    shop_route_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/content_loader.cpp
+)
+target_include_directories(mxh_portal_shop_route_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/portal
+)
+target_compile_features(mxh_portal_shop_route_tests PRIVATE cxx_std_17)
+target_link_libraries(mxh_portal_shop_route_tests PRIVATE
+    mxh_log
+    gtest_main
+)
+if(MSVC)
+    target_compile_definitions(mxh_portal_shop_route_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()

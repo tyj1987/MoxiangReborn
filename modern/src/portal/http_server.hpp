@@ -83,6 +83,16 @@ public:
                                      const RateLimitPolicy& rate_policy,
                                      StatusAuthPostHandler handler);
 
+    // Register a dynamic GET handler with a regex pattern (cpp-httplib R"()" syntax).
+    // Used for /api/news/:slug or similar. The handler receives the auth context
+    // and the full request so it can extract path params.
+    using DynamicGetHandler = std::function<nlohmann::json(const AuthContext&, const std::string& path)>;
+    void get_dynamic(std::string_view regex_pattern, DynamicGetHandler handler);
+
+    // Register a public dynamic GET handler (no JWT required) with a regex pattern.
+    using PublicDynamicGetHandler = std::function<nlohmann::json(const std::string& path)>;
+    void get_public_dynamic(std::string_view regex_pattern, PublicDynamicGetHandler handler);
+
     // Manual rate-limit check for a given IP + path.
     // Returns nullopt if allowed, or seconds until retry if rejected.
     std::optional<std::chrono::seconds> rate_check(std::string_view ip,

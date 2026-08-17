@@ -15,6 +15,11 @@ target_sources(mxh_portal_lib PRIVATE
     ${CMAKE_SOURCE_DIR}/src/portal/jwt_token.cpp
     ${CMAKE_SOURCE_DIR}/src/portal/rate_limiter.cpp
     ${CMAKE_SOURCE_DIR}/src/portal/auth_routes.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/status_routes.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/content_loader.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/news_routes.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/shop_routes.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/download_routes.cpp
 )
 
 target_include_directories(mxh_portal_lib PUBLIC
@@ -31,6 +36,13 @@ target_compile_features(mxh_portal_lib PRIVATE cxx_std_17)
 target_link_libraries(mxh_portal_lib PRIVATE mxh_log mxh_server mxh_db)
 if(WIN32)
     target_link_libraries(mxh_portal_lib PRIVATE bcrypt)
+endif()
+
+# M5.4+ uses raw sockets; no asio dependency.
+find_package(Threads REQUIRED)
+target_link_libraries(mxh_portal_lib PRIVATE Threads::Threads)
+if(WIN32)
+    target_link_libraries(mxh_portal_lib PRIVATE Ws2_32)
 endif()
 
 if(MSVC)
