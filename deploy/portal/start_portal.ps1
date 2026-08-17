@@ -39,7 +39,26 @@ $pidFile = Join-Path $stateDir "pid.txt"
 
 # Environment defaults
 if (-not $env:PORTAL_JWT_SECRET) {
-    Write-Host "WARNING: PORTAL_JWT_SECRET is not set. Set it before production use." -ForegroundColor Yellow
+    # Auto-generate and persist a 64-byte secret if env var is unset.
+    # Persisted at deploy/runtime/portal/jwt.secret (file mode 0600).
+    $secretDir = $stateDir
+    $secretFile = Join-Path $secretDir "jwt.secret"
+    if (Test-Path -LiteralPath $secretFile) {
+        $env:PORTAL_JWT_SECRET = (Get-Content -LiteralPath $secretFile -Raw).Trim()
+        Write-Host "Loaded PORTAL_JWT_SECRET from $secretFile" -ForegroundColor DarkGray
+    } else {
+        $bytes = New-Object byte[] 64
+        (New-Object Random).NextBytes($bytes)
+        $secret = [Convert]::ToBase64String($bytes)
+        Set-Content -LiteralPath $secretFile -Value $secret -Encoding utf8 -NoNewline
+        # Restrict permissions on Windows where possible (icacls)
+        $icacls = Get-Command icacls.exe -ErrorAction SilentlyContinue
+        if ($icacls) {
+            & icacls.exe $secretFile /inheritance:r /grant:r "$env:USERNAME:(R,W)" | Out-Null
+        }
+        $env:PORTAL_JWT_SECRET = $secret
+        Write-Host "Generated new PORTAL_JWT_SECRET and persisted to $secretFile" -ForegroundColor DarkGray
+    }
 }
 if (-not $env:PORTAL_DB_BACKEND) { $env:PORTAL_DB_BACKEND = "sqlite" }
 if (-not $env:PORTAL_DB_PATH) {
