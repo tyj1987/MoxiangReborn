@@ -369,4 +369,26 @@ InterfaceScript parse_interface_script(std::string_view payload) {
     return out;
 }
 
+const InterfaceNode* find_node_by_id(const InterfaceScript& script,
+                                     std::string_view id) {
+    for (const auto& root : script.roots) {
+        if (root->id && *root->id == id) return root.get();
+        for (const auto& child : root->children) {
+            if (child->id && *child->id == id) return child.get();
+            for (const auto& gc : child->children) {
+                if (gc->id && *gc->id == id) return gc.get();
+            }
+        }
+    }
+    return nullptr;
+}
+
+const InterfaceNode* find_root_by_type(const InterfaceScript& script,
+                                       std::string_view type) {
+    for (const auto& root : script.roots) {
+        if (root->type == type) return root.get();
+    }
+    return nullptr;
+}
+
 }  // namespace mxh::ui

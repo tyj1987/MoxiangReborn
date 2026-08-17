@@ -100,4 +100,14 @@ struct InterfaceScript {
 // properties (legacy tolerated them) and skips comment lines.
 InterfaceScript parse_interface_script(std::string_view payload);
 
+// Find the first node in the parsed script whose #ID matches the given
+// name. Walks all root nodes recursively. Returns nullptr if not found.
+const InterfaceNode* find_node_by_id(const InterfaceScript& script,
+                                     std::string_view id);
+
+// Convenience: find the first root node of the given type (e.g.
+// "MAINDLG"). Returns nullptr if no root matches.
+const InterfaceNode* find_root_by_type(const InterfaceScript& script,
+                                       std::string_view type);
+
 }  // namespace mxh::ui

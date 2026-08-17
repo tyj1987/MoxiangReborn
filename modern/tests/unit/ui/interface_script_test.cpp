@@ -206,3 +206,63 @@ $DLG
     EXPECT_EQ(root.alpha, 200);
     EXPECT_TRUE(root.auto_close);
 }
+
+TEST(InterfaceScriptParser, FindNodeByIdReturnsRoot) {
+    auto out = parse_interface_script(kMainDlgSnippet);
+    const auto* n = mxh::ui::find_node_by_id(out, "MI_MAINDLG");
+    ASSERT_NE(n, nullptr);
+    EXPECT_EQ(n->type, "MAINDLG");
+    ASSERT_TRUE(n->point.has_value());
+    EXPECT_EQ(n->point->x, 422);
+}
+
+TEST(InterfaceScriptParser, FindNodeByIdReturnsChild) {
+    auto out = parse_interface_script(kMainDlgSnippet);
+    const auto* n = mxh::ui::find_node_by_id(out, "MI_BTN_SIZE");
+    ASSERT_NE(n, nullptr);
+    EXPECT_EQ(n->type, "BTN");
+    ASSERT_TRUE(n->point.has_value());
+    EXPECT_EQ(n->point->x, 560);
+}
+
+TEST(InterfaceScriptParser, FindNodeByIdReturnsNullForMissing) {
+    auto out = parse_interface_script(kMainDlgSnippet);
+    EXPECT_EQ(mxh::ui::find_node_by_id(out, "NOT_PRESENT"), nullptr);
+}
+
+TEST(InterfaceScriptParser, FindRootByTypeReturnsRoot) {
+    auto out = parse_interface_script(kMainDlgSnippet);
+    const auto* n = mxh::ui::find_root_by_type(out, "MAINDLG");
+    ASSERT_NE(n, nullptr);
+    EXPECT_EQ(n->type, "MAINDLG");
+}
+
+TEST(InterfaceScriptParser, FindRootByTypeReturnsNullForMissing) {
+    auto out = parse_interface_script(kMainDlgSnippet);
+    EXPECT_EQ(mxh::ui::find_root_by_type(out, "NOT_A_TYPE"), nullptr);
+}
+
+TEST(InterfaceScriptParser, WiringAppliesPositionsFromParsed) {
+    // Demonstrates the 1:1 wiring path: parse a legacy .bin payload,
+    // pull #POINT for each node, and verify the values match the
+    // legacy hand-coded positions.
+    auto out = parse_interface_script(kMainDlgSnippet);
+    ASSERT_FALSE(out.empty());
+
+    // Root MAINDLG -> (422, 726, 602, 42) — match exactly.
+    const auto* maindlg = out.roots[0].get();
+    ASSERT_TRUE(maindlg->point.has_value());
+    EXPECT_EQ(maindlg->point->x, 422);
+    EXPECT_EQ(maindlg->point->y, 726);
+    EXPECT_EQ(maindlg->point->w, 602);
+    EXPECT_EQ(maindlg->point->h, 42);
+
+    // BTN child -> (560, 0, 42, 42).
+    ASSERT_EQ(maindlg->children.size(), 2u);
+    const auto& btn = *maindlg->children[0];
+    ASSERT_TRUE(btn.point.has_value());
+    EXPECT_EQ(btn.point->x, 560);
+    EXPECT_EQ(btn.point->y, 0);
+    EXPECT_EQ(btn.point->w, 42);
+    EXPECT_EQ(btn.point->h, 42);
+}

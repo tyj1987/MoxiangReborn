@@ -2321,5 +2321,11 @@ gtest_add_tests(TARGET mxh_ui_tests
     InterfaceScriptParser.ParsesMessageIndexProperties
     InterfaceScriptParser.IgnoresUnknownProperties
     InterfaceScriptParser.ParsesAlphaAndAutoclose
+    InterfaceScriptParser.FindNodeByIdReturnsRoot
+    InterfaceScriptParser.FindNodeByIdReturnsChild
+    InterfaceScriptParser.FindNodeByIdReturnsNullForMissing
+    InterfaceScriptParser.FindRootByTypeReturnsRoot
+    InterfaceScriptParser.FindRootByTypeReturnsNullForMissing
+    InterfaceScriptParser.WiringAppliesPositionsFromParsed
 )
 
