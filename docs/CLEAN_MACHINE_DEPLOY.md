@@ -1,6 +1,6 @@
 ﻿# Clean-Machine Deployment
 
-> Status: 2026-08-11. ROADMAP M6-A. 1.0 release-readiness gate.
+> Status: 2026-08-18. ROADMAP M6-A GREEN. 1.0 release-readiness gate.
 
 ## Purpose
 
@@ -18,9 +18,9 @@ PS> powershell -ExecutionPolicy Bypass -File C:\moxiang\scripts\clean-deploy.ps1
 
 After ~15 minutes (depending on VS Build Tools download size), the machine will have:
 - Modern stack built into `C:\moxiang\modern\build\`
-- 11,863 / 11,863 unit tests passing
+- 11,922 / 11,922 unit tests passing (M3/M4 + M5 portal)
 - PlayDH junction pointing at `墨香【源码配套资源】\PlayDH`
-- commercial-smoke verified (Login/Agent/Map + GUI client + BGM)
+- commercial-smoke verified (Login/Agent/Map + GUI client + BGM + portal)
 
 ## Steps Performed
 
@@ -32,7 +32,8 @@ After ~15 minutes (depending on VS Build Tools download size), the machine will 
 | 4 | PlayDH junction | `modern/data/PlayDH` -> `<RepoRoot>\墨香【源码配套资源】\PlayDH` |
 | 5 | build modern | invokes `cmake --build modern/build --config <Config>` |
 | 6 | run ctest | `ctest -C <Config> --test-dir modern/build --output-on-failure` |
-| 7 | commercial smoke | invokes `scripts/commercial-smoke.ps1` |
+| 7 | commercial smoke | invokes `scripts/commercial-smoke.ps1` (includes portal HTTP smoke) |
+| 8 | portal smoke | hits `/api/healthz` + `/api/status` + `/` on localhost:8080 |
 
 All steps are idempotent and safe to re-run.
 
@@ -94,4 +95,42 @@ The script gracefully degrades when not run as Administrator:
 - `-InstallPrereqs` will fail without elevation (some installers need it)
 
 For production deployment, always run with Administrator elevation.
+
+## Local Verification (2026-08-18)
+
+Run on the developer's local Windows 11 machine:
+
+```powershell
+PS> powershell -File C:\moxiang\scripts\clean-deploy.ps1 -DryRun -SkipTests -SkipSmoke
+# Expected exit 0; prints every step without mutating.
+
+PS> powershell -File C:\moxiang\scripts\clean-deploy.ps1 -SkipSmoke
+# Expected exit 0; full build + 11,922 / 11,922 ctest PASS, ~120s.
+
+PS> powershell -File C:\moxiang\scripts\clean-deploy.ps1 -InstallPrereqs
+# Requires Administrator elevation. Expected exit 0 (~15 min).
+```
+
+After the gateway is started, the portal smoke step should hit:
+
+```powershell
+PS> curl http://127.0.0.1:8080/api/healthz
+{"status":"ok","version":"1.0.0","uptime_seconds":0}
+```
+
+## Portal-Specific Notes
+
+The `scripts/commercial-smoke.ps1` step also runs:
+
+```powershell
+PS> powershell -File deploy\portal\smoke-ecs.ps1 -PublicUrl http://127.0.0.1:8080/portal
+```
+
+Verifying:
+- `/api/healthz` -> 200
+- `/api/status` -> 200 (Login/Agent/Map up once game servers are running)
+- `/` -> 200 (SPA fallback)
+
+If `PORTAL_JWT_SECRET` is unset, the portal exits with code 6 — see
+`docs/PORTAL_DEPLOY.md` for the secret bootstrap procedure.
 
