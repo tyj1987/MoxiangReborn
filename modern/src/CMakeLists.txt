@@ -15,6 +15,7 @@
     quest_npc_catalog.cpp
     hfl_height_field.cpp
     stm_static_model.cpp
+    image_path_table.cpp
 )
 
 target_include_directories(mxh_compat PUBLIC

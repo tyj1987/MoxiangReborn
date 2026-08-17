@@ -121,3 +121,14 @@ target_link_libraries(mxh_anm_motion_tests PRIVATE mxh_compat gtest_main)
 target_include_directories(mxh_anm_motion_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_anm_motion_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
+# Image path table parser (1:1 alignment with legacy PFT_HARDPATH /
+# PFT_ITEMPATH / PFT_MUGONGPATH / PFT_ABILITYPATH / PFT_BUFFPATH / etc).
+add_executable(mxh_image_path_table_tests image_path_table_test.cpp)
+target_link_libraries(mxh_image_path_table_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_image_path_table_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_image_path_table_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
