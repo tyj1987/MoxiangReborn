@@ -540,78 +540,98 @@ int run_e2e(const CliArgs& cli) {
     }
 
     // ---- Step 3: CharMake (character creation) ----
-    // The fresh DB has no characters, so we create one through the real
-    // agent CharacterMakeSyn path.  The agent inserts into character_info
-    // and re-sends the refreshed CharacterListAck; CCharMake then
-    // requests the CharSelect state (same as the legacy client).
-    LOG("[3/5] CharMake: creating character via CCharMake ...");
-    mxh::client::CCharMake charmake;
-    charmake.SetLoginResult(login_result);
-    charmake.Start(&engine, cli.use_hsel);
-    {
-        // Wait for the agent connection, then submit the creation form.
-        auto deadline = std::chrono::steady_clock::now() +
-                       std::chrono::seconds(cli.timeout_s);
-        while (std::chrono::steady_clock::now() < deadline) {
-            if (charmake.is_connected()) break;
-            if (charmake.is_failed()) break;
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // Skip if the user already has a valid character slot — a fresh DB
+    // starts empty, but on subsequent cycles the previous run already
+    // filled one of the 5 slots.  Without this guard the harness would
+    // try to create 6+ characters and fail at the slot-full limit.
+    // Note: count MUST happen BEFORE chsel.Release() — the dtor clears
+    // m_characters, so a post-Release count would always be 0.
+    std::size_t valid_count_existing =
+        std::count_if(chsel.character_list().begin(),
+                      chsel.character_list().end(),
+                      [](const auto& s) { return s.valid; });
+    if (valid_count_existing > 0) char_select_done = true;
+    chsel.Release();
+    if (valid_count_existing == 0) {
+        LOG("[3/5] CharMake: creating character via CCharMake ...");
+        mxh::client::CCharMake charmake;
+        charmake.SetLoginResult(login_result);
+        charmake.Start(&engine, cli.use_hsel);
+        {
+            // Wait for the agent connection, then submit the creation form.
+            auto deadline = std::chrono::steady_clock::now() +
+                           std::chrono::seconds(cli.timeout_s);
+            while (std::chrono::steady_clock::now() < deadline) {
+                if (charmake.is_connected()) break;
+                if (charmake.is_failed()) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            if (!charmake.is_connected()) {
+                LOG("[3/5] FAIL: CCharMake never connected to AgentServer (%s)",
+                    charmake.failure_reason().c_str());
+                return 2;
+            }
+            // Unique per-run name so repeated runs on a persistent MSSQL DB
+            // never collide (the agent rejects duplicate charnames).
+            char name_buf[17] = {};
+            if (!cli.character_name.empty()) {
+                std::snprintf(name_buf, sizeof(name_buf), "%s", cli.character_name.c_str());
+            } else {
+                const auto now = std::chrono::steady_clock::now()
+                                 .time_since_epoch()
+                                 .count();
+                std::snprintf(name_buf, sizeof(name_buf), "E2E%lld",
+                              static_cast<long long>(now % 100000000LL));
+            }
+            mxh::client::CharacterMakeParams params;
+            params.name       = name_buf;
+            params.sex_type   = 1;
+            params.body_type  = 0;
+            params.hair_type  = 1;
+            params.face_type  = 1;
+            params.start_area = 18;
+            params.height     = 1.0f;
+            params.width      = 0.9f;
+            if (!charmake.SubmitCharacter(params)) {
+                LOG("[3/5] FAIL: SubmitCharacter rejected: %s",
+                    charmake.failure_reason().c_str());
+                return 2;
+            }
+            LOG("[3/5] submitting CharacterMakeSyn name='%s'", name_buf);
         }
-        if (!charmake.is_connected()) {
-            LOG("[3/5] FAIL: CCharMake never connected to AgentServer (%s)",
-                charmake.failure_reason().c_str());
-            return 2;
+        {
+            // Success = the agent re-sent CharacterListAck and CCharMake
+            // requested the CharSelect transition (legacy client behaviour).
+            auto deadline = std::chrono::steady_clock::now() +
+                           std::chrono::seconds(cli.timeout_s);
+            while (std::chrono::steady_clock::now() < deadline) {
+                if (charmake.is_failed()) break;
+                // char_select_done is set via the engine callback.
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            if (charmake.is_failed()) {
+                LOG("[3/5] FAIL: character creation rejected: %s",
+                    charmake.failure_reason().c_str());
+                return 2;
+            }
+            // The agent dispatcher transitions CCharMake -> CCharSelect
+            // when ListAck is received; the engine callback flips
+            // char_select_done.  Polled via the state-change fn.
+            int poll_ticks = 0;
+            while (!char_select_done && poll_ticks++ < 200) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            if (!char_select_done) {
+                LOG("[3/5] FAIL: timed out waiting for ListAck after create");
+                return 2;
+            }
+            LOG("[3/5] OK: character created, agent re-sent CharacterListAck");
         }
-        // Unique per-run name so repeated runs on a persistent MSSQL DB
-        // never collide (the agent rejects duplicate charnames).
-        char name_buf[17] = {};
-        if (!cli.character_name.empty()) {
-            std::snprintf(name_buf, sizeof(name_buf), "%s", cli.character_name.c_str());
-        } else {
-            const auto now = std::chrono::steady_clock::now()
-                             .time_since_epoch()
-                             .count();
-            std::snprintf(name_buf, sizeof(name_buf), "E2E%lld",
-                          static_cast<long long>(now % 100000000LL));
-        }
-        mxh::client::CharacterMakeParams params;
-        params.name       = name_buf;
-        params.sex_type   = 1;
-        params.body_type  = 0;
-        params.hair_type  = 1;
-        params.face_type  = 1;
-        params.start_area = 18;
-        params.height     = 1.0f;
-        params.width      = 0.9f;
-        if (!charmake.SubmitCharacter(params)) {
-            LOG("[3/5] FAIL: SubmitCharacter rejected: %s",
-                charmake.failure_reason().c_str());
-            return 2;
-        }
-        LOG("[3/5] submitting CharacterMakeSyn name='%s'", name_buf);
+        charmake.Release();
+    } else {
+        LOG("[3/5] SKIP: %zu valid slot(s) already exist, reusing",
+            valid_count_existing);
     }
-    {
-        // Success = the agent re-sent CharacterListAck and CCharMake
-        // requested the CharSelect transition (legacy client behaviour).
-        auto deadline = std::chrono::steady_clock::now() +
-                       std::chrono::seconds(cli.timeout_s);
-        while (std::chrono::steady_clock::now() < deadline) {
-            if (char_select_done) break;
-            if (charmake.is_failed()) break;
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        }
-        if (charmake.is_failed()) {
-            LOG("[3/5] FAIL: character creation rejected: %s",
-                charmake.failure_reason().c_str());
-            return 2;
-        }
-        if (!char_select_done) {
-            LOG("[3/5] FAIL: timed out waiting for ListAck after create");
-            return 2;
-        }
-        LOG("[3/5] OK: character created, agent re-sent CharacterListAck");
-    }
-    charmake.Release();
 
     // ---- Step 4: re-enter CharSelect to verify the created char ----
     // The agent's refreshed list must now contain the character we just
