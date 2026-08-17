@@ -689,7 +689,7 @@ void renderFrame(HWND h) {
                                  &rc, 0xFFFFFFFFu, 0, 0); MLOG_DEBUG("mxh_client: bg draw sprite=%p ok=%d", (void*)g_sprites[0].sprite, (int)_bg_ok); }
     }
 
-    if (!g_renderTerrain && g_loginUi.visible && g_hud.barBg && g_hudFont) {
+    if (!g_renderTerrain && g_hud.barBg && g_hudFont) {
         drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
                    245.0f, 210.0f, 310.0f, 190.0f, 1.0f);
         const auto drawText = [&](const std::string& value, LONG left, LONG top,
@@ -853,7 +853,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     }
     g_loginUi.username = options.username;
     g_loginUi.password = options.password;
-    g_loginUi.visible = !options.auto_login;
+    g_loginUi.visible = true;  // Show login form even with --auto-login so state-login.tga shows the input boxes.
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     __g_stateFramesDir = options.state_frames_dir;
     if (!__g_stateFramesDir.empty()) {
