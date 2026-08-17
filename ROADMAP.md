@@ -71,15 +71,37 @@ modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless
 - scripts/release-modern-rc.ps1 (commit ae189d80) 现 lock 住 "RC package verifiable" internal step：装配现代 (bin + captures) + SHA-256 manifest + RELEASE_NOTES.md + verify gate(11864 tests / 6819 bin / 2874 checksums)。
 - 干净机部署、生产配置演练、24h 长时间稳定性、RC 包在 legacy 侧 cross-impl 仍待外部环境（不阻塞本机 RC 声明）。
 
-### M5：玩家门户站点（Player Portal）— draft，待 M5.1 落地
+### M5：玩家门户站点（Player Portal）— GREEN (modern 闭环)
 
-modern 侧 + 前端 + 单 ECS 部署，覆盖 注册 / 登录 / 商城（展示型）/ 下载 / 新闻 / 服务器状态。
+modern 侧 + 前端 + 单 ECS 部署,覆盖 注册 / 登录 / 商城（展示型）/ 下载 / 新闻 / 服务器状态。
 
-- 复用 `mxh::server::account_service` 做 PBKDF2 注册登录，零密码学重复
+- 复用 `mxh::server::account_service` 做 PBKDF2 注册登录,零密码学重复
 - 引入 cpp-httplib + nlohmann/json + jwt-cpp（均 MIT）作为 portal HTTP 栈
-- 前端 Vue 3 + Vite + TailwindCSS + vue-i18n（zh-CN / en-US）
+- 前端 Vue 3 + Vite + TailwindCSS 4 + vue-router + pinia（zh-CN / en-US）
 - 视觉：古风暗黑金（`#0a0807` 底 + `#c9a76a` 烫金 + `#a8324a` 朱红）
 - 单 ECS 部署 + Cloudflare tunnel 前置（路径 `/portal/*`）
+
+完整交付清单（12 个子里程碑全部 DONE）：
+- M5.1 portal 骨架（cpp-httplib + /api/healthz + /static/*）+ CMake ✓
+- M5.2 jwt_token + rate_limiter（10 单测）✓
+- M5.3 /api/auth（register/login/me/logout）— 复用 account_service,BCrypt 链接 MSVC,3 个 PBKDF2 happy-path 测试解 SKIP ✓
+- M5.4 /api/status + 后台 TCP ping 线程（Winsock2 / POSIX 5s 间隔）✓
+- M5.5 /api/news + content_loader 扫 markdown（含 front-matter + EN/ZH 分割）✓
+- M5.6 /api/shop/items + 24 件示例目录（3 hair + 5 weapon + 6 armor + 10 consumable）✓
+- M5.7 /download/*（client manifest + checksums）✓
+- M5.8 前端骨架：vite + Vue 3 + TS + Tailwind 4 + vue-router + pinia + axios ✓
+- M5.9 Home + News + NewsDetail + Status View 调真实 API ✓
+- M5.10 Register + Login + Account View,vee-validate/zod 风格前端校验,JWT 存 Pinia + localStorage ✓
+- M5.11 Shop + Download + About + NotFound View 商城卡片栅格 + SHA-256 展示 ✓
+- M5.12 HeroBanner + 3 PlayDH 占位（`modern/tools/extract_hero_images.py`）✓
+- M5.13 ECS 部署：`start_portal.ps1` + `install-cloudflared.ps1` + `smoke-ecs.ps1` ✓
+- M5.14 文档：`docs/PORTAL_API.md` + `docs/PORTAL_DEPLOY.md` + ROADMAP §3 M5 关闭 ✓
+
+门户安全门禁：
+- `PORTAL_JWT_SECRET` 启动时强制(空则 exit 6);`PORTAL_ALLOW_INSECURE_JWT=1` 仅本地 dev
+- `start_portal.ps1` 首次启动自动生成 64-byte secret + 落盘到 `deploy/runtime/portal/jwt.secret` + icacls 锁权限
+- 限流：register 5/min、login 10/min、general 60/min、strict 5/min
+- ban 检查：`mxh::server::is_account_login_blocked` 复用
 
 详细方案：`docs/PLAN_PORTAL.md`。完成判据见该文件 §7。
 
