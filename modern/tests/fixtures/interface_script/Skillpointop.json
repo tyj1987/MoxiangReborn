@@ -1,0 +1,108 @@
+{
+ "file": "Skillpointop.bin",
+ "roots": [
+  {
+   "type": "SKILLPOINTOPDLG",
+   "point": [
+    446,
+    210,
+    197,
+    345
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    345
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "id": "SK_POINTNOTIFYDLG",
+   "func": "SK_DlgBtnFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      5,
+      0,
+      0
+     ],
+     "text_msg_idx": 157,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      22,
+      37,
+      22,
+      11
+     ],
+     "text_msg_idx": 626,
+     "font_idx": 0
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "SK_INFOTEXT1",
+     "point": [
+      8,
+      40,
+      180,
+      120
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "SK_INFOTEXT2",
+     "point": [
+      8,
+      90,
+      180,
+      240
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SK_STARTBTN",
+     "func": "SK_DlgBtnFunc",
+     "point": [
+      50,
+      305,
+      108,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      663,
+      625,
+      770,
+      646
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      663,
+      647,
+      770,
+      668
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      663,
+      669,
+      770,
+      689
+     ],
+     "btntext_msg_idx": 625
+    }
+   ]
+  }
+ ]
+}

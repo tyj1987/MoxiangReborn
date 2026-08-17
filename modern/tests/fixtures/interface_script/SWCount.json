@@ -1,0 +1,135 @@
+{
+ "file": "SWCount.bin",
+ "roots": [
+  {
+   "type": "SWCOUNTDLG",
+   "point": [
+    10,
+    86,
+    0,
+    0
+   ],
+   "point_low": [
+    355,
+    0,
+    252,
+    110
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    786,
+    639,
+    996,
+    661
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "SW_COUNTDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "SWTIME_TITLE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 715,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      25,
+      50,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      994,
+      92,
+      1020,
+      107
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      202,
+      50,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      994,
+      130,
+      1020,
+      145
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_TIME",
+     "point": [
+      65,
+      28,
+      0,
+      0
+     ],
+     "font_idx": 3
+    },
+    {
+     "type": "STATIC"
+    }
+   ]
+  },
+  {
+   "type": "STATIC"
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    10,
+    85,
+    0,
+    0
+   ],
+   "text_msg_idx": 727
+  },
+  {
+   "type": "STATIC",
+   "id": "SWTIME_MUNPA",
+   "point": [
+    125,
+    85,
+    120,
+    20
+   ]
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    0,
+    110,
+    0,
+    0
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    390,
+    505,
+    391
+   ]
+  }
+ ]
+}

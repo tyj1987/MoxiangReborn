@@ -1,0 +1,485 @@
+{
+ "file": "19.bin",
+ "roots": [
+  {
+   "type": "DEALDLG",
+   "point": [
+    446,
+    210,
+    252,
+    391
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    504,
+    0,
+    756,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "DE_DEALERDLG",
+   "func": "DE_DlgFunc",
+   "auto_close": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 174,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      129,
+      331,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "DE_MONEYEDIT",
+     "point": [
+      120,
+      333,
+      107,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      97,
+      733,
+      130,
+      754
+     ],
+     "point": [
+      89,
+      331,
+      33,
+      21
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN1",
+     "btntext_msg_idx": 84,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      13,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN2",
+     "btntext_msg_idx": 85,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      43,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN3",
+     "btntext_msg_idx": 86,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      73,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN4",
+     "btntext_msg_idx": 87,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      103,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN5",
+     "btntext_msg_idx": 88,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      133,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN6",
+     "btntext_msg_idx": 89,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      163,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "DE_TABBTN7",
+     "btntext_msg_idx": 90,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      193,
+      37,
+      22,
+      11
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG1",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG2",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG3",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG4",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG5",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG6",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DE_TABDLG7",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "DE_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "DE_BUYITEM",
+     "point": [
+      147,
+      362,
+      39,
+      19
+     ],
+     "func": "DE_BuyItemFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 233
+    },
+    {
+     "type": "BTN",
+     "id": "DE_SELLITEM",
+     "point": [
+      197,
+      362,
+      39,
+      19
+     ],
+     "func": "DE_SellItemFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 234
+    }
+   ]
+  }
+ ]
+}

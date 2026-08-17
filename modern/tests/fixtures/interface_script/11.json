@@ -1,0 +1,297 @@
+{
+ "file": "11.bin",
+ "roots": [
+  {
+   "type": "INVENTORYDLG",
+   "point": [
+    725,
+    209,
+    252,
+    391
+   ],
+   "point_low": [
+    425,
+    209,
+    252,
+    391
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    252,
+    0,
+    504,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "IN_INVENTORYDLG",
+   "func": "IN_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      3,
+      0,
+      0
+     ],
+     "text_msg_idx": 166,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "IN_MONEYEDIT",
+     "point": [
+      123,
+      363,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ]
+    },
+    {
+     "type": "WEAREDDLG",
+     "id": "IN_WEAREDDLG",
+     "point": [
+      0,
+      0,
+      253,
+      160
+     ],
+     "func": "IN_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "IN_DlgFunc",
+     "id": "IN_TABBTN1",
+     "btntext_msg_idx": 84,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      50,
+      925,
+      74
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      50,
+      912,
+      74
+     ],
+     "point": [
+      234,
+      181,
+      13,
+      24
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "IN_DlgFunc",
+     "id": "IN_TABBTN2",
+     "btntext_msg_idx": 85,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      50,
+      925,
+      74
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      50,
+      912,
+      74
+     ],
+     "point": [
+      234,
+      210,
+      13,
+      24
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "IN_DlgFunc",
+     "id": "IN_TABBTN3",
+     "btntext_msg_idx": 86,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      50,
+      925,
+      74
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      50,
+      912,
+      74
+     ],
+     "point": [
+      234,
+      239,
+      13,
+      24
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "IN_DlgFunc",
+     "id": "IN_TABBTN4",
+     "btntext_msg_idx": 87,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      50,
+      925,
+      74
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      50,
+      912,
+      74
+     ],
+     "point": [
+      234,
+      268,
+      14,
+      24
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "IN_DlgFunc",
+     "id": "IN_SHOPITEMBTN",
+     "btntext_msg_idx": 521,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      50,
+      925,
+      74
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      50,
+      912,
+      74
+     ],
+     "point": [
+      234,
+      298,
+      14,
+      24
+     ],
+     "active": true
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "IN_TABDLG1",
+     "point": [
+      3,
+      176,
+      216,
+      171
+     ],
+     "func": "IN_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "IN_TABDLG2",
+     "point": [
+      3,
+      176,
+      216,
+      171
+     ],
+     "func": "IN_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "IN_TABDLG3",
+     "point": [
+      3,
+      176,
+      216,
+      171
+     ],
+     "func": "IN_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "IN_TABDLG4",
+     "point": [
+      3,
+      176,
+      216,
+      171
+     ],
+     "func": "IN_DlgFunc"
+    },
+    {
+     "type": "SHOPITEMINVENGRID",
+     "id": "IN_SHOPITEMGRID",
+     "point": [
+      3,
+      176,
+      216,
+      171
+     ],
+     "func": "IN_DlgFunc",
+     "active": false
+    }
+   ]
+  }
+ ]
+}

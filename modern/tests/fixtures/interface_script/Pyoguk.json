@@ -1,0 +1,681 @@
+{
+ "file": "Pyoguk.bin",
+ "roots": [
+  {
+   "type": "PYOGUKDLG",
+   "point": [
+    446,
+    209,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "PYO_PYOGUKDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      5,
+      0,
+      0
+     ],
+     "text_msg_idx": 352,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "PYO_PYOGUK1BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      13,
+      37,
+      22,
+      11
+     ],
+     "active": false,
+     "btntext_msg_idx": 84,
+     "font_idx": 0,
+     "func": "PYO_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "PYO_PYOGUK2BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      43,
+      37,
+      22,
+      11
+     ],
+     "active": false,
+     "btntext_msg_idx": 85,
+     "font_idx": 0,
+     "func": "PYO_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "PYO_PYOGUK3BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      73,
+      37,
+      22,
+      11
+     ],
+     "active": false,
+     "btntext_msg_idx": 86,
+     "font_idx": 0,
+     "func": "PYO_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "PYO_PYOGUK4BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      103,
+      37,
+      22,
+      11
+     ],
+     "active": false,
+     "btntext_msg_idx": 87,
+     "font_idx": 0,
+     "func": "PYO_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "PYO_PYOGUK5BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      133,
+      37,
+      22,
+      11
+     ],
+     "active": false,
+     "btntext_msg_idx": 88,
+     "font_idx": 0,
+     "func": "PYO_DlgBtnFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_PYOGUKINFO1",
+     "active": false,
+     "point": [
+      4,
+      40,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 251
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_PYOGUKINFO2",
+     "active": false,
+     "point": [
+      4,
+      60,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 252
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_PYOGUKINFO3",
+     "active": false,
+     "point": [
+      4,
+      80,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 253
+    },
+    {
+     "type": "LISTCTRL",
+     "id": "PYO_PYOGUKLCTRL",
+     "point": [
+      17,
+      130,
+      219,
+      114
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_PYOGUKHAVE",
+     "active": false,
+     "point": [
+      11,
+      271,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 258
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_PYOGUKHAVESTC",
+     "active": false,
+     "point": [
+      115,
+      271,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "point": [
+      110,
+      320,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 263,
+     "func": "PYO_DlgBtnFunc",
+     "id": "PYO_BUYPYOGUKBTN"
+    },
+    {
+     "type": "BTN",
+     "point": [
+      180,
+      320,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 224,
+     "func": "PYO_DlgBtnFunc",
+     "id": "PYO_NOBUYBTN"
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_WAREIMAGE",
+     "point": [
+      13,
+      59,
+      224,
+      269
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      517,
+      59,
+      741,
+      328
+     ],
+     "active": false
+    },
+    {
+     "type": "PRIVATEWAREHOUSEDLG",
+     "id": "PYO_WAREITEM1",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "active": false
+    },
+    {
+     "type": "PRIVATEWAREHOUSEDLG",
+     "id": "PYO_WAREITEM2",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "active": false
+    },
+    {
+     "type": "PRIVATEWAREHOUSEDLG",
+     "id": "PYO_WAREITEM3",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "active": false
+    },
+    {
+     "type": "PRIVATEWAREHOUSEDLG",
+     "id": "PYO_WAREITEM4",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "active": false
+    },
+    {
+     "type": "PRIVATEWAREHOUSEDLG",
+     "id": "PYO_WAREITEM5",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      97,
+      733,
+      130,
+      754
+     ],
+     "point": [
+      89,
+      331,
+      33,
+      21
+     ],
+     "id": "PYO_MONEYIMG",
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_MONEYBACKIMG",
+     "point": [
+      129,
+      331,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_MONEY",
+     "active": false,
+     "point": [
+      134,
+      331,
+      107,
+      21
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "PYO_PUTINMONEYBTN",
+     "point": [
+      147,
+      362,
+      39,
+      19
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 272
+    },
+    {
+     "type": "BTN",
+     "id": "PYO_PUTOUTMONEYBTN",
+     "point": [
+      197,
+      362,
+      39,
+      19
+     ],
+     "func": "PYO_DlgBtnFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 273
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_NOWARE",
+     "point": [
+      12,
+      128,
+      0,
+      0
+     ],
+     "text_msg_idx": 254,
+     "font_idx": 0,
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "PYO_NOWARE1",
+     "point": [
+      12,
+      150,
+      0,
+      0
+     ],
+     "text_msg_idx": 255,
+     "font_idx": 0,
+     "active": false
+    },
+    {
+     "type": "BTN",
+     "point": [
+      110,
+      200,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 222,
+     "func": "PYO_DlgBtnFunc",
+     "id": "PYO_PYOGUKLISTBTN"
+    },
+    {
+     "type": "BTN",
+     "point": [
+      180,
+      200,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 224,
+     "func": "PYO_DlgBtnFunc",
+     "id": "PYO_NOBUYPYOGUKBTN"
+    }
+   ]
+  }
+ ]
+}

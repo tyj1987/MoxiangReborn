@@ -1,0 +1,624 @@
+{
+ "file": "10.bin",
+ "roots": [
+  {
+   "type": "MUGONGSURYUNDLG",
+   "point": [
+    132,
+    0,
+    253,
+    521
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    0,
+    0,
+    253,
+    50
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    253,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "id": "MGI_MUGONGSURYUNDLG",
+   "func": "MGI_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 167,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      232,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "MGI_MUGONGBTN",
+     "point": [
+      8,
+      31,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 185,
+     "func": "MGI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "MGI_SURYUNBTN",
+     "point": [
+      67,
+      31,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 187,
+     "func": "MGI_DlgFunc"
+    },
+    {
+     "type": "MUGONGDLG",
+     "id": "MGI_SHEET1",
+     "point": [
+      0,
+      50,
+      252,
+      471
+     ],
+     "active": false,
+     "func": "MGI_MugongDlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      0,
+      50,
+      253,
+      521
+     ],
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_MUGONG_PUSHUP1",
+       "point": [
+        15,
+        118,
+        50,
+        21
+       ],
+       "func": "MGI_DlgFunc",
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        741,
+        152,
+        791,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        741,
+        190,
+        791,
+        209
+       ],
+       "btntext_msg_idx": 185
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_MUGONG_PUSHUP2",
+       "point": [
+        72,
+        118,
+        50,
+        21
+       ],
+       "func": "MGI_DlgFunc",
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        741,
+        152,
+        791,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        741,
+        190,
+        791,
+        209
+       ],
+       "btntext_msg_idx": 185,
+       "active": false
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_JINBUB_PUSHUP3",
+       "point": [
+        129,
+        118,
+        50,
+        21
+       ],
+       "func": "MGI_DlgFunc",
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        741,
+        152,
+        791,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        741,
+        190,
+        791,
+        209
+       ],
+       "btntext_msg_idx": 186,
+       "active": false
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_MUGONG_TITAN_PUSHUP",
+       "point": [
+        186,
+        118,
+        50,
+        21
+       ],
+       "func": "MGI_DlgFunc",
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        741,
+        152,
+        791,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        741,
+        190,
+        791,
+        209
+       ],
+       "btntext_msg_idx": 956,
+       "active": false
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "func": "MGI_MugongDlgFunc",
+       "point": [
+        11,
+        135,
+        260,
+        300
+       ],
+       "id": "MGI_MUGONG1_GRID1"
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "func": "MGI_MugongDlgFunc",
+       "point": [
+        11,
+        135,
+        260,
+        300
+       ],
+       "id": "MGI_MUGONG1_GRID2"
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "func": "MGI_MugongDlgFunc",
+       "point": [
+        11,
+        135,
+        260,
+        300
+       ],
+       "id": "MGI_JINBUB_GRID"
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "func": "MGI_MugongDlgFunc",
+       "point": [
+        11,
+        135,
+        260,
+        300
+       ],
+       "id": "MGI_TITAN_GRID"
+      },
+      {
+       "type": "ICONDLG",
+       "func": "MGI_MugongDlgFunc",
+       "point": [
+        16,
+        29,
+        40,
+        40
+       ],
+       "id": "MGI_MUGONGJINBUB_WEAR"
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        60,
+        4,
+        0,
+        0
+       ],
+       "text_msg_idx": 259
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        97,
+        27,
+        40,
+        40
+       ],
+       "id": "MGI_MUGONGJINBUB_NAME_STATIC"
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        212,
+        50,
+        40,
+        40
+       ],
+       "id": "MGI_MUGONGJINBUB_LEVEL_STATIC"
+      },
+      {
+       "type": "GUAGENE",
+       "id": "MGI_MUGONGJINBUB_EXP_GUAGE",
+       "point": [
+        93,
+        55,
+        1,
+        10
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        1010,
+        216,
+        1011,
+        226
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        94,
+        65,
+        40,
+        40
+       ],
+       "id": "MGI_MUGONGJINBUB_EXP_STATIC"
+      }
+     ]
+    },
+    {
+     "type": "SURYUNDLG",
+     "id": "MGI_SHEET2",
+     "point": [
+      0,
+      50,
+      252,
+      471
+     ],
+     "active": false,
+     "func": "MGI_SuryunDlgFunc",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      756,
+      50,
+      1009,
+      521
+     ],
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_SURYUN_PUSHUP1",
+       "point": [
+        16,
+        10,
+        39,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        702,
+        152,
+        741,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        702,
+        190,
+        741,
+        209
+       ],
+       "btntext_msg_idx": 198,
+       "func": "MGI_SuryunDlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_SURYUN_PUSHUP2",
+       "point": [
+        59,
+        10,
+        39,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        702,
+        152,
+        741,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        702,
+        190,
+        741,
+        209
+       ],
+       "btntext_msg_idx": 199,
+       "func": "MGI_SuryunDlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_SURYUN_PUSHUP3",
+       "point": [
+        102,
+        10,
+        39,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        702,
+        152,
+        741,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        702,
+        190,
+        741,
+        209
+       ],
+       "btntext_msg_idx": 200,
+       "func": "MGI_SuryunDlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "MGI_SURYUN_PUSHUP4",
+       "point": [
+        145,
+        10,
+        39,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        702,
+        152,
+        741,
+        171
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        702,
+        190,
+        741,
+        209
+       ],
+       "btntext_msg_idx": 201,
+       "func": "MGI_SuryunDlgFun"
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "id": "MGI_SURYUN1_GRID",
+       "func": "MGI_SuryunDlgFunc",
+       "point": [
+        11,
+        29,
+        221,
+        356
+       ]
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "id": "MGI_SURYUN2_GRID",
+       "func": "MGI_SuryunDlgFunc",
+       "point": [
+        11,
+        29,
+        221,
+        356
+       ]
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "id": "MGI_SURYUN3_GRID",
+       "func": "MGI_SuryunDlgFunc",
+       "point": [
+        11,
+        29,
+        221,
+        356
+       ]
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "id": "MGI_SURYUN4_GRID",
+       "func": "MGI_SuryunDlgFunc",
+       "point": [
+        11,
+        29,
+        221,
+        356
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        80,
+        399,
+        40,
+        40
+       ],
+       "id": "MGI_NEEDSURYUN_EXP_STATIC"
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        80,
+        421,
+        40,
+        40
+       ],
+       "id": "MGI_SURYUN_EXP_STATIC"
+      },
+      {
+       "type": "BTN",
+       "id": "MGI_SURYUN_BTN",
+       "point": [
+        188,
+        424,
+        50,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        741,
+        152,
+        791,
+        171
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        741,
+        171,
+        791,
+        190
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        741,
+        190,
+        791,
+        209
+       ],
+       "btntext_msg_idx": 184,
+       "func": "MGI_SuryunDlgFunc"
+      },
+      {
+       "type": "BTN",
+       "id": "MGI_SKPOINTREDIST_BTN",
+       "point": [
+        188,
+        400,
+        50,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        741,
+        152,
+        791,
+        171
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        741,
+        171,
+        791,
+        190
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        741,
+        190,
+        791,
+        209
+       ],
+       "btntext_msg_idx": 627,
+       "func": "MGI_SuryunDlgFunc"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

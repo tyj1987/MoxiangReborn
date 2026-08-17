@@ -80,6 +80,8 @@ add_executable(mxh_ui_tests
     cbutton_test.cpp
     cstreetstall_test.cpp
     cstreetbuystall_test.cpp
+    interface_script_test.cpp
+    interface_script_legacy_test.cpp
     ceditbox_test.cpp
     cdialog_test.cpp
     cimage_test.cpp
@@ -199,7 +201,12 @@ add_executable(mxh_ui_tests
     cskillpointredist_test.cpp
 )
 
-target_link_libraries(mxh_ui_tests PRIVATE mxh_ui gtest_main)
+target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat gtest_main)
+
+# InterfaceScript legacy test uses nlohmann/json for structural compare.
+target_include_directories(mxh_ui_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/nlohmann
+)
 
 # Force /FS so multiple CL.EXE invocations can write to the same PDB
 # without lock contention on the (CJK) build path. MSBuild defaults to
@@ -2302,5 +2309,17 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStreetBuyStallTest.TitleRoundTrip
     CStreetBuyStallTest.CheckCallbacks
     CStreetBuyStallTest.ResetClearsData
+    # InterfaceScript parser (1:1 layout recovery from legacy bin files)
+    InterfaceScriptParser.ParsesSingleRootDialog
+    InterfaceScriptParser.ParsesDialogProperties
+    InterfaceScriptParser.ParsesCommentLines
+    InterfaceScriptParser.ParsesChildrenRecursively
+    InterfaceScriptParser.ParsesBoolProperties
+    InterfaceScriptParser.HandlesEmptyPayload
+    InterfaceScriptParser.HandlesOnlyCommentLines
+    InterfaceScriptParser.ParsesNestedThreeLevels
+    InterfaceScriptParser.ParsesMessageIndexProperties
+    InterfaceScriptParser.IgnoresUnknownProperties
+    InterfaceScriptParser.ParsesAlphaAndAutoclose
 )
 

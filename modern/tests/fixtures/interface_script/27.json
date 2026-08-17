@@ -1,0 +1,307 @@
+{
+ "file": "27.bin",
+ "roots": [
+  {
+   "type": "STREETSTALLDLG",
+   "point": [
+    446,
+    210,
+    252,
+    390
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "SSI_STALLDLG",
+   "func": "SSI_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      4,
+      30,
+      0
+     ],
+     "text_msg_idx": 165,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      517,
+      59,
+      741,
+      283
+     ],
+     "point": [
+      13,
+      94,
+      224,
+      224
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      12,
+      22,
+      0,
+      0
+     ],
+     "text_msg_idx": 735
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      328,
+      33,
+      21
+     ],
+     "text_msg_idx": 183,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      97,
+      733,
+      130,
+      754
+     ],
+     "point": [
+      87,
+      328,
+      33,
+      21
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SSI_TITLEEDIT",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      253,
+      938,
+      459,
+      980
+     ],
+     "point": [
+      14,
+      43,
+      206,
+      42
+     ],
+     "func": "SSI_TitleEditBoxFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "SSI_ENTER",
+     "point": [
+      220,
+      43,
+      17,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      235,
+      521,
+      252,
+      563
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      218,
+      521,
+      235,
+      563
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      201,
+      521,
+      218,
+      563
+     ],
+     "func": "SSI_DlgFunc"
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SSI_MONEYEDIT",
+     "func": "SSI_MoneyEditBoxFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ],
+     "point": [
+      129,
+      328,
+      107,
+      21
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SSI_ICONGRID",
+     "func": "SSI_DlgFunc",
+     "point": [
+      9,
+      91,
+      221,
+      221
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SSI_EDITBTN",
+     "point": [
+      14,
+      359,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "SSI_EditBtnFunc",
+     "btntext_msg_idx": 271
+    },
+    {
+     "type": "BTN",
+     "id": "SSI_CLOSEBTN",
+     "point": [
+      186,
+      359,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "SSI_DlgFunc",
+     "btntext_msg_idx": 159
+    },
+    {
+     "type": "BTN",
+     "id": "SSI_BUYBTN",
+     "point": [
+      126,
+      359,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "SSI_BuyBtnFunc",
+     "btntext_msg_idx": 233
+    }
+   ]
+  }
+ ]
+}

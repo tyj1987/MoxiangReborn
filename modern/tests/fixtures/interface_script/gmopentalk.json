@@ -1,0 +1,60 @@
+{
+ "file": "gmopentalk.bin",
+ "roots": [
+  {
+   "type": "GMOPENTALKDLG",
+   "point": [
+    732,
+    0,
+    142,
+    62
+   ],
+   "point_low": [
+    512,
+    0,
+    142,
+    62
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    199,
+    951,
+    341,
+    1023
+   ],
+   "active": false,
+   "alpha": 255,
+   "movable": true,
+   "caption_rect": [
+    20,
+    0,
+    122,
+    25
+   ],
+   "id": "GMOT_OPENTALKDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "GMOT_STC_TITLE",
+     "point": [
+      0,
+      0,
+      140,
+      21
+     ],
+     "font_idx": 2
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GMOT_TA_CONTEXT",
+     "point": [
+      15,
+      35,
+      133,
+      60
+     ]
+    }
+   ]
+  }
+ ]
+}

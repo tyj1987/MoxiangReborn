@@ -1,0 +1,1384 @@
+{
+ "file": "ItemSearch.bin",
+ "roots": [
+  {
+   "type": "STALLFINDDLG",
+   "point": [
+    192,
+    210,
+    252,
+    390
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "SFR_STALLFINDDLG",
+   "func": "SFR_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 1021,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "func": "SFR_DlgFunc",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      13,
+      50,
+      0,
+      0
+     ],
+     "text_msg_idx": 1022
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      13,
+      153,
+      0,
+      0
+     ],
+     "text_msg_idx": 721
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      195,
+      153,
+      0,
+      0
+     ],
+     "text_msg_idx": 722
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      75,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1010,
+      750
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      75,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      956,
+      750
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      75,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      840,
+      647,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      193,
+      75,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      830,
+      750
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      193,
+      75,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      966,
+      647,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      220,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      939
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      221,
+      132,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      783,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      126,
+      221,
+      132,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      781,
+      420
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "SFR_ITEMLIST",
+     "func": "SFR_DlgFunc",
+     "point": [
+      13,
+      75,
+      100,
+      110
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        157,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        157,
+        97,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        157,
+        12,
+        13,
+        94
+       ],
+       "basic_image_idx": 21,
+       "basic_image_rect": [
+        1010,
+        0,
+        1023,
+        86
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "SFR_CLASSLIST",
+     "func": "SFR_DlgFunc",
+     "point": [
+      193,
+      75,
+      26,
+      110
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        30,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        30,
+        97,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        30,
+        12,
+        13,
+        94
+       ],
+       "basic_image_idx": 21,
+       "basic_image_rect": [
+        1010,
+        0,
+        1023,
+        86
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      24,
+      192,
+      0,
+      0
+     ],
+     "text_msg_idx": 262
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SFR_PB_SELLMODE",
+     "point": [
+      14,
+      198,
+      36,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      952,
+      113,
+      963,
+      124
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      941,
+      113,
+      952,
+      124
+     ],
+     "func": "SFR_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      75,
+      192,
+      0,
+      0
+     ],
+     "text_msg_idx": 263
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SFR_PB_BUYMODE",
+     "point": [
+      65,
+      198,
+      36,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      952,
+      113,
+      963,
+      124
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      941,
+      113,
+      952,
+      124
+     ],
+     "func": "SFR_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "SFR_SEARCHALLBTN",
+     "point": [
+      115,
+      195,
+      56,
+      19
+     ],
+     "btntext_msg_idx": 1028,
+     "font_idx": 0,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "func": "SFR_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "SFR_SEARCHBTN",
+     "point": [
+      180,
+      195,
+      56,
+      19
+     ],
+     "btntext_msg_idx": 318,
+     "font_idx": 0,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "func": "SFR_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      15,
+      221,
+      0,
+      0
+     ],
+     "text_msg_idx": 1025,
+     "id": "SFR_NAMESTATIC"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      125,
+      221,
+      0,
+      0
+     ],
+     "text_msg_idx": 1027,
+     "id": "SFR_PRICESTATIC"
+    },
+    {
+     "type": "LISTDLG",
+     "id": "SFR_RESULTLIST",
+     "func": "SFR_DlgFunc",
+     "point": [
+      13,
+      246,
+      200,
+      110
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ]
+    },
+    {
+     "type": "BTN",
+     "active": false,
+     "point": [
+      13,
+      375,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      898,
+      11,
+      911,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      898,
+      24,
+      911,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      898,
+      37,
+      911,
+      50
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTNUP"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      31,
+      373,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTN1"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      58,
+      373,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTN2"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      85,
+      373,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTN3"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      112,
+      373,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTN4"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      139,
+      373,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTN5"
+    },
+    {
+     "type": "BTN",
+     "active": false,
+     "point": [
+      166,
+      375,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      11,
+      925,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      912,
+      24,
+      925,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      912,
+      37,
+      925,
+      50
+     ],
+     "func": "SFR_DlgFunc",
+     "id": "SFR_RESULTPAGEBTNDOWN"
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_TYPECOMBO",
+     "point": [
+      15,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_TYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_WEAPON_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_CLOTHES_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_ACCESSORY_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_POTION_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_MATERIAL_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_ETC_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "active": false,
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_ITEMMALL_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "SFR_TITAN_DETAILTYPECOMBO",
+     "point": [
+      137,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      952,
+      216
+     ],
+     "func": "SFR_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "SFR_DETAILTYPECOMBOBTN",
+       "point": [
+        82,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "SFR_DlgFunc"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

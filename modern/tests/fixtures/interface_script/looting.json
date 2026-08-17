@@ -1,0 +1,231 @@
+{
+ "file": "looting.bin",
+ "roots": [
+  {
+   "type": "PKLOOTINGDLG",
+   "func": "PLI_DlgFunc",
+   "point": [
+    261,
+    109,
+    252,
+    275
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    252,
+    564,
+    504,
+    839
+   ],
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    251,
+    20
+   ],
+   "auto_close": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 226,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "func": "PLI_DlgFunc",
+     "point": [
+      230,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "PLI_IGD_ITEM",
+     "func": "PLI_DlgFunc",
+     "point": [
+      10,
+      41,
+      224,
+      179
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      23,
+      0,
+      0
+     ],
+     "text_msg_idx": 37,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      145,
+      23,
+      0,
+      0
+     ],
+     "text_msg_idx": 227,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      243,
+      0,
+      0
+     ],
+     "text_msg_idx": 228,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_END",
+     "point": [
+      9,
+      223,
+      0,
+      0
+     ],
+     "text_msg_idx": 229,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_NONE",
+     "point": [
+      100,
+      223,
+      0,
+      0
+     ],
+     "text_msg_idx": 230,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_BADFAME",
+     "point": [
+      178,
+      23,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_TIME",
+     "point": [
+      70,
+      243,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_CHANCE",
+     "point": [
+      70,
+      223,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_TARGETNAME",
+     "point": [
+      40,
+      23,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "PLI_STC_ITEM",
+     "point": [
+      185,
+      223,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "PLI_BTN_CLOSE",
+     "func": "PLI_DlgFunc",
+     "point": [
+      182,
+      246,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 159
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,406 @@
+{
+ "file": "NumberPad.bin",
+ "roots": [
+  {
+   "type": "NUMBERPAD_DLG",
+   "point": [
+    412,
+    379,
+    197,
+    250
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "caption_rect": [
+    412,
+    379,
+    197,
+    250
+   ],
+   "movable": true,
+   "id": "NUMBERPAD_DLG",
+   "active": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 1020,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "point": [
+      27,
+      40,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_7",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 90
+    },
+    {
+     "type": "BTN",
+     "point": [
+      77,
+      40,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_8",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 91
+    },
+    {
+     "type": "BTN",
+     "point": [
+      127,
+      40,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_9",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 96
+    },
+    {
+     "type": "BTN",
+     "point": [
+      27,
+      65,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_4",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 87
+    },
+    {
+     "type": "BTN",
+     "point": [
+      77,
+      65,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_5",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 88
+    },
+    {
+     "type": "BTN",
+     "point": [
+      127,
+      65,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_6",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 89
+    },
+    {
+     "type": "BTN",
+     "point": [
+      27,
+      90,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_1",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 84
+    },
+    {
+     "type": "BTN",
+     "point": [
+      77,
+      90,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_2",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 85
+    },
+    {
+     "type": "BTN",
+     "point": [
+      127,
+      90,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_3",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 86
+    },
+    {
+     "type": "BTN",
+     "point": [
+      27,
+      115,
+      85,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      208,
+      778,
+      227
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      227,
+      778,
+      246
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      247,
+      778,
+      266
+     ],
+     "id": "NUMBERPAD_0",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 97
+    },
+    {
+     "type": "BTN",
+     "point": [
+      127,
+      115,
+      35,
+      23
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      701,
+      151,
+      738,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      701,
+      170,
+      738,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      701,
+      190,
+      738,
+      209
+     ],
+     "id": "NUMBERPAD_BACKSPACE",
+     "func": "NumberPad_DlgFunc",
+     "btntext_msg_idx": 267
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,309 @@
+{
+ "file": "33.bin",
+ "roots": [
+  {
+   "type": "HELPDLG",
+   "point": [
+    132,
+    0,
+    252,
+    387
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    387
+   ],
+   "id": "HI_DLG",
+   "func": "HI_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 180,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      349,
+      505,
+      391
+     ],
+     "point": [
+      0,
+      387,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "HI_QnABTN",
+     "func": "HI_BtnFunc",
+     "point": [
+      54,
+      397,
+      146,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      306,
+      848,
+      325
+     ],
+     "btntext_msg_idx": 588
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "HI_EXPLANBTN",
+     "point": [
+      15,
+      35,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 434,
+     "func": "HI_BtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "HI_HANDLEBTN",
+     "point": [
+      71,
+      35,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 435,
+     "func": "HI_BtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "HI_REARBTN",
+     "point": [
+      127,
+      35,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 436,
+     "func": "HI_BtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "HI_ETCBTN",
+     "point": [
+      183,
+      35,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 437,
+     "func": "HI_BtnFunc"
+    },
+    {
+     "type": "LISTDLGEX",
+     "id": "HI_LISTDLG",
+     "point": [
+      0,
+      35,
+      238,
+      341
+     ],
+     "active": false,
+     "func": "HI_HyperLinkFunc",
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        238,
+        20,
+        13,
+        13
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        238,
+        376,
+        13,
+        13
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        238,
+        32,
+        13,
+        343
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          1,
+          1,
+          13,
+          24
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

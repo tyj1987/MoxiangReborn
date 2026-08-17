@@ -1,0 +1,233 @@
+{
+ "file": "AutoNoteDlg.bin",
+ "roots": [
+  {
+   "type": "AUTONOTEDLG",
+   "id": "AND_DLG",
+   "func": "AutoNoteDlg_Func",
+   "point": [
+    700,
+    250,
+    252,
+    391
+   ],
+   "point_low": [
+    548,
+    209,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 26,
+   "basic_image_rect": [
+    447,
+    0,
+    726,
+    346
+   ],
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      198,
+      42,
+      21,
+      19
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      727,
+      303,
+      756,
+      328
+     ],
+     "overimage_idx": 26,
+     "overimage_rect": [
+      727,
+      251,
+      756,
+      276
+     ],
+     "pressimage_idx": 26,
+     "pressimage_rect": [
+      727,
+      277,
+      756,
+      302
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "AND_TEXTAREA_MANUAL",
+     "point": [
+      52,
+      75,
+      182,
+      185
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "AND_BTN_ASK",
+     "func": "AutoNoteDlg_Func",
+     "point": [
+      100,
+      275,
+      66,
+      43
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      727,
+      87,
+      793,
+      130
+     ],
+     "overimage_idx": 26,
+     "overimage_rect": [
+      727,
+      43,
+      793,
+      86
+     ],
+     "pressimage_idx": 26,
+     "pressimage_rect": [
+      727,
+      0,
+      793,
+      42
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "AND_LIST_AUTO",
+     "point": [
+      45,
+      154,
+      173,
+      254
+     ],
+     "children": [
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        164,
+        11,
+        13,
+        105
+       ],
+       "basic_image_idx": 26,
+       "basic_image_rect": [
+        820,
+        0,
+        839,
+        104
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          1,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 26,
+         "basic_image_rect": [
+          727,
+          332,
+          741,
+          346
+         ],
+         "overimage_idx": 26,
+         "overimage_rect": [
+          727,
+          332,
+          741,
+          346
+         ],
+         "pressimage_idx": 26,
+         "pressimage_rect": [
+          727,
+          332,
+          741,
+          346
+         ]
+        }
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        164,
+        7,
+        17,
+        20
+       ],
+       "basic_image_idx": 26,
+       "basic_image_rect": [
+        789,
+        272,
+        807,
+        292
+       ],
+       "overimage_idx": 26,
+       "overimage_rect": [
+        789,
+        251,
+        807,
+        271
+       ],
+       "pressimage_idx": 26,
+       "pressimage_rect": [
+        789,
+        251,
+        807,
+        271
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        164,
+        111,
+        17,
+        20
+       ],
+       "basic_image_idx": 26,
+       "basic_image_rect": [
+        771,
+        272,
+        788,
+        292
+       ],
+       "overimage_idx": 26,
+       "overimage_rect": [
+        771,
+        251,
+        788,
+        271
+       ],
+       "pressimage_idx": 26,
+       "pressimage_rect": [
+        771,
+        251,
+        788,
+        271
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

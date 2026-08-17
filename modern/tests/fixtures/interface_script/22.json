@@ -1,0 +1,1066 @@
+{
+ "file": "22.bin",
+ "roots": [
+  {
+   "type": "CHATDLG",
+   "id": "CTI_DLG",
+   "point": [
+    0,
+    623,
+    14,
+    152
+   ],
+   "point_low": [
+    0,
+    454,
+    14,
+    152
+   ],
+   "active": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "func": "CTI_DlgFunc",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CTI_BTN_TALLER",
+     "point": [
+      0,
+      105,
+      13,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      60,
+      976,
+      73,
+      986
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      60,
+      976,
+      73,
+      986
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      47,
+      976,
+      60,
+      986
+     ],
+     "func": "CTI_DlgFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 191
+    },
+    {
+     "type": "BTN",
+     "id": "CTI_BTN_SMALLER",
+     "point": [
+      0,
+      115,
+      13,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      60,
+      986,
+      73,
+      996
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      60,
+      986,
+      73,
+      996
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      47,
+      986,
+      60,
+      996
+     ],
+     "func": "CTI_DlgFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 192
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CTI_SHEET1",
+     "point": [
+      0,
+      0,
+      14,
+      0
+     ],
+     "active": true,
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        91,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        0,
+        13,
+        13,
+        78
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CTI_SHEET2",
+     "point": [
+      0,
+      0,
+      14,
+      0
+     ],
+     "active": true,
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        91,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        0,
+        13,
+        13,
+        78
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CTI_SHEET3",
+     "point": [
+      0,
+      0,
+      14,
+      0
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        91,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        0,
+        13,
+        13,
+        78
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CTI_SHEET4",
+     "point": [
+      0,
+      0,
+      14,
+      0
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        91,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        0,
+        13,
+        13,
+        78
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CTI_SHEET5",
+     "point": [
+      0,
+      0,
+      14,
+      0
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        91,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        0,
+        13,
+        13,
+        78
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CTI_SHEET6",
+     "point": [
+      0,
+      0,
+      14,
+      0
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        91,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        0,
+        13,
+        13,
+        78
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CTI_BTN_WHOLE",
+     "point": [
+      12,
+      104,
+      74,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      696,
+      778,
+      770,
+      799
+     ],
+     "btntext_msg_idx": 193,
+     "func": "CTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CTI_BTN_PARTY",
+     "point": [
+      86,
+      104,
+      74,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      696,
+      778,
+      770,
+      799
+     ],
+     "btntext_msg_idx": 194,
+     "func": "CTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CTI_BTN_MUNPA",
+     "point": [
+      160,
+      104,
+      74,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      696,
+      778,
+      770,
+      799
+     ],
+     "btntext_msg_idx": 195,
+     "func": "CTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CTI_BTN_ALLMUNPA",
+     "point": [
+      234,
+      104,
+      74,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      696,
+      778,
+      770,
+      799
+     ],
+     "btntext_msg_idx": 640,
+     "func": "CTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CTI_BTN_WORLD",
+     "point": [
+      308,
+      104,
+      74,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      696,
+      756,
+      770,
+      777
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      696,
+      778,
+      770,
+      799
+     ],
+     "btntext_msg_idx": 639,
+     "func": "CTI_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CTI_BTN_OPTION",
+     "point": [
+      401,
+      105,
+      20,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      180,
+      522,
+      200,
+      542
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      180,
+      522,
+      200,
+      542
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      157,
+      521,
+      178,
+      542
+     ],
+     "func": "CTI_DlgFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 384
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CTI_BTN_ALLWORLD1",
+     "point": [
+      382,
+      105,
+      20,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      158,
+      544,
+      177,
+      564
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      158,
+      544,
+      177,
+      564
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      180,
+      544,
+      199,
+      564
+     ],
+     "func": "CTI_DlgFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 582
+    },
+    {
+     "type": "EDITBOX",
+     "point": [
+      0,
+      125,
+      420,
+      20
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      50,
+      1003,
+      471,
+      1023
+     ],
+     "focusimage_idx": 21,
+     "focusimage_rect": [
+      0,
+      982,
+      421,
+      1002
+     ],
+     "func": "MI_ChatEditBoxFunc",
+     "id": "MI_CHATEDITBOX"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,248 @@
+{
+ "file": "GFWarDeclare.bin",
+ "roots": [
+  {
+   "type": "GFWARDECLAREDLG",
+   "id": "GFW_DECLAREDLG",
+   "point": [
+    387,
+    230,
+    252,
+    392
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "auto_close": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      105,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      912
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      229,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      866,
+      1010,
+      969
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 567,
+     "font_idx": 2
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GFW_DECLARE_MSG",
+     "point": [
+      10,
+      23,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      216,
+      987,
+      237
+     ],
+     "point": [
+      52,
+      75,
+      140,
+      21
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "GFW_DECLARE_EDITBOX",
+     "point": [
+      62,
+      75,
+      140,
+      21
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GFW_MONEY_MSG1",
+     "point": [
+      15,
+      108,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GFW_MONEY_MSG2",
+     "point": [
+      15,
+      145,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GFW_MONEY_MSG3",
+     "point": [
+      15,
+      185,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "GFW_MONEY_EDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      216,
+      987,
+      237
+     ],
+     "point": [
+      65,
+      269,
+      138,
+      21
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      28,
+      271,
+      16,
+      16
+     ],
+     "id": "GFW_MONEY_CHK",
+     "active": true,
+     "func": "GFW_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_MONEY_STATIC",
+     "point": [
+      100,
+      300,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "GFW_DECLARE_OKBTN",
+     "point": [
+      57,
+      349,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "GFW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "GFW_DECLARE_CANCELBTN",
+     "point": [
+      141,
+      349,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "GFW_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

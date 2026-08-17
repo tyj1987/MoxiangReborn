@@ -1,0 +1,148 @@
+{
+ "file": "25.bin",
+ "roots": [
+  {
+   "type": "EXITDLG",
+   "point": [
+    450,
+    248,
+    148,
+    99
+   ],
+   "point_low": [
+    326,
+    249,
+    148,
+    99
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    403,
+    391,
+    551,
+    490
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    148,
+    20
+   ],
+   "auto_close": true,
+   "id": "EXT_DIALOG",
+   "func": "EXT_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 172,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      127,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "EXT_BTN_EXITGAME",
+     "point": [
+      30,
+      34,
+      90,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      266
+     ],
+     "func": "EXT_DlgFunc",
+     "btntext_msg_idx": 231
+    },
+    {
+     "type": "BTN",
+     "id": "EXT_BTN_SELECTCHAR",
+     "point": [
+      30,
+      64,
+      90,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      266
+     ],
+     "func": "EXT_DlgFunc",
+     "btntext_msg_idx": 232
+    }
+   ]
+  }
+ ]
+}

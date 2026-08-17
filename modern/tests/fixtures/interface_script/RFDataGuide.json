@@ -1,0 +1,2183 @@
+{
+ "file": "RFDataGuide.bin",
+ "roots": [
+  {
+   "type": "RFDATAGUIDEDLG",
+   "id": "RFDGUIDE_DLG",
+   "point": [
+    700,
+    250,
+    252,
+    391
+   ],
+   "point_low": [
+    548,
+    209,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 816,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      76,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      968
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      256,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      874,
+      1010,
+      969
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN1",
+     "point": [
+      36,
+      29,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 767,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN2",
+     "point": [
+      82,
+      29,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 768,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN3",
+     "point": [
+      128,
+      29,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 769,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN4",
+     "point": [
+      174,
+      29,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 770,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN5",
+     "point": [
+      13,
+      51,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 771,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN6",
+     "point": [
+      59,
+      51,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 772,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN7",
+     "point": [
+      105,
+      51,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 773,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN8",
+     "point": [
+      151,
+      51,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 774,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "RFDG_BTN9",
+     "point": [
+      197,
+      51,
+      43,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 775,
+     "func": "RFDGUIDE_DlgFunc"
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET1",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        80,
+        40,
+        120,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 777
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        120,
+        40,
+        160,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 778
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 799
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET2",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        0,
+        0,
+        40,
+        40
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 779
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 800
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET3",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        200,
+        40,
+        240,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 780
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        104,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 801
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 802
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        0,
+        80,
+        40,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 781
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        104,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 801
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 803
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        160,
+        40,
+        200,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 782
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 801
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 804
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET4",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        0,
+        40,
+        40,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 783
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 805
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        40,
+        40,
+        80,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 784
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 806
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        40,
+        80,
+        80,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 785
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 807
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        80,
+        80,
+        120,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 786
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 808
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET5",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        80,
+        40,
+        120,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 777
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        120,
+        40,
+        160,
+        80
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 778
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 799
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        120,
+        80,
+        160,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 787
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 809
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        160,
+        80,
+        200,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 788
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 810
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        225,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        200,
+        80,
+        240,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        223,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        220,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 789
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        234,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 811
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        247,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        225,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        0,
+        120,
+        40,
+        160
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        223,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        220,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 790
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        234,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 812
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        247,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        290,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        40,
+        120,
+        80,
+        160
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        288,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        285,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 791
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        299,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 813
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        312,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET6",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        120,
+        80,
+        160,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 787
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        104,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 809
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        160,
+        80,
+        200,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 788
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        104,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 810
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        200,
+        80,
+        240,
+        120
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 789
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 811
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        0,
+        120,
+        40,
+        160
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 790
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 812
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        225,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        40,
+        120,
+        80,
+        160
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        223,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        220,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 791
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        234,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 813
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        247,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 814
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "GUIDE_SHEET7",
+     "point": [
+      0,
+      0,
+      252,
+      351
+     ],
+     "children": [
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        40,
+        0,
+        80,
+        40
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 792
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        104,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 809
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        95,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        80,
+        0,
+        120,
+        40
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        93,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        90,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 793
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        104,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 810
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        117,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        120,
+        0,
+        160,
+        40
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 794
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 811
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        128,
+        160,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        160,
+        0,
+        200,
+        40
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        126,
+        158,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        155,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 795
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        169,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 812
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        171,
+        182,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        27,
+        225,
+        42,
+        42
+       ],
+       "basic_image_idx": 16,
+       "basic_image_rect": [
+        200,
+        0,
+        240,
+        40
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        25,
+        223,
+        43,
+        43
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        52,
+        818,
+        96,
+        862
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        220,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 796
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        234,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 813
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        70,
+        247,
+        0,
+        0
+       ],
+       "font_idx": 0,
+       "text_msg_idx": 798
+      }
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "RFDGUIDE_OKBTN",
+     "point": [
+      184,
+      362,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 159,
+     "func": "RFDGUIDE_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

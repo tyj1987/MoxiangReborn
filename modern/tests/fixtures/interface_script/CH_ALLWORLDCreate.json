@@ -1,0 +1,218 @@
+{
+ "file": "CH_ALLWORLDCreate.bin",
+ "roots": [
+  {
+   "type": "CHALLWORLDCREATEDLG",
+   "id": "CHA_CREATEDLG",
+   "point": [
+    500,
+    250,
+    351,
+    130
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    351,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    493,
+    130
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      244,
+      0,
+      87,
+      137
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      437,
+      0,
+      505,
+      130
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      120,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      310,
+      0,
+      435,
+      18
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      309,
+      22,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      254,
+      22,
+      256,
+      130
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      129,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      388,
+      493,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 582,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      291,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      30,
+      0,
+      0
+     ],
+     "text_msg_idx": 583,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      275,
+      60,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1002,
+      502,
+      1019,
+      525
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "CHA_MSG",
+     "point": [
+      20,
+      60,
+      290,
+      22
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      560,
+      502,
+      815,
+      525
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_CREATEOKBTN",
+     "point": [
+      130,
+      100,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "CTI_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

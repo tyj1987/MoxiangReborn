@@ -1,0 +1,217 @@
+{
+ "file": "UniqueItemMixDlg.bin",
+ "roots": [
+  {
+   "type": "UNIQUEITEMMIX_DLG",
+   "id": "UNIQUEITEMMIX_DLG",
+   "func": "UniqueItemMixDlgFunc",
+   "point": [
+    200,
+    200,
+    252,
+    180
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    180
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 285,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      36,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "UNIQUEITEMMIX_ICON",
+     "point": [
+      15,
+      37,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "UNIQUEITEMMIX_MATERIALS",
+     "point": [
+      69,
+      29,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      621,
+      179,
+      739
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      234,
+      29,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      235,
+      621,
+      237,
+      736
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      234,
+      138,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      235,
+      730,
+      237,
+      761
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "UNIQUEITEMMIX_OKBTN",
+     "point": [
+      119,
+      154,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 287,
+     "func": "UniqueItemMixDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "UNIQUEITEMMIX_CANCELBTN",
+     "point": [
+      181,
+      154,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "UniqueItemMixDlgFunc"
+    }
+   ]
+  }
+ ]
+}

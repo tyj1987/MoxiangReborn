@@ -1,0 +1,259 @@
+{
+ "file": "SaveMove.bin",
+ "roots": [
+  {
+   "type": "SAVEMOVEDLG",
+   "id": "SA_MOVEDLG",
+   "point": [
+    400,
+    200,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      5,
+      0,
+      0
+     ],
+     "text_msg_idx": 562,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "func": "SA_DlgBtnFunc",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "SA_DlgBtnFunc",
+     "id": "SA_MOVETABBTN1",
+     "point": [
+      14,
+      320,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "btntext_msg_idx": 84
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "SA_DlgBtnFunc",
+     "id": "SA_MOVETABBTN2",
+     "point": [
+      41,
+      320,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "btntext_msg_idx": 85,
+     "active": false
+    },
+    {
+     "type": "LISTCTRL",
+     "id": "SA_MOVELIST",
+     "point": [
+      14,
+      43,
+      226,
+      296
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SA_CHANGNAME",
+     "func": "SA_DlgBtnFunc",
+     "point": [
+      33,
+      353,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 560
+    },
+    {
+     "type": "BTN",
+     "id": "SA_MOVEOK",
+     "func": "SA_DlgBtnFunc",
+     "point": [
+      109,
+      353,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 561
+    },
+    {
+     "type": "BTN",
+     "id": "SA_MOVEDEL",
+     "func": "SA_DlgBtnFunc",
+     "point": [
+      171,
+      353,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 267
+    }
+   ]
+  }
+ ]
+}

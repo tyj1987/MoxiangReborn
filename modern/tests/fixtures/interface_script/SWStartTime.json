@@ -1,0 +1,226 @@
+{
+ "file": "SWStartTime.bin",
+ "roots": [
+  {
+   "type": "SWSTARTTIMEDLG",
+   "id": "SW_STARTTIMEDLG",
+   "point": [
+    700,
+    250,
+    252,
+    391
+   ],
+   "point_low": [
+    500,
+    200,
+    252,
+    391
+   ],
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    253,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "func": "SW_DlgFunc",
+   "active": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 728,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      60,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1010,
+      756
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      177,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      809,
+      1010,
+      969
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      30,
+      0,
+      0
+     ],
+     "text_msg_idx": 729
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      80,
+      0,
+      0
+     ],
+     "text_msg_idx": 730
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      150,
+      0,
+      0
+     ],
+     "text_msg_idx": 731
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      235,
+      0,
+      0
+     ],
+     "text_msg_idx": 732
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_STARTTIME",
+     "point": [
+      20,
+      110,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_REGTIMESTART",
+     "point": [
+      20,
+      180,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      200,
+      0,
+      0
+     ],
+     "text_msg_idx": 725
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_REGTIMEEND",
+     "point": [
+      30,
+      200,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_ADMITTIMESTART",
+     "point": [
+      20,
+      260,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      280,
+      0,
+      0
+     ],
+     "text_msg_idx": 725
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_ADMITTIMEEND",
+     "point": [
+      30,
+      280,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SW_STARTTIME_OKBTN",
+     "point": [
+      180,
+      350,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "SW_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

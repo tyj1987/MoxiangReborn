@@ -1,0 +1,152 @@
+{
+ "file": "JoinOption.bin",
+ "roots": [
+  {
+   "type": "JOINOPTIONDLG",
+   "id": "JOIN_OPTIONDLG",
+   "point": [
+    388,
+    230,
+    198,
+    149
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 157,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "JO_CANCELBTN",
+     "point": [
+      177,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ],
+     "func": "JO_DlgFunc"
+    },
+    {
+     "type": "TEXTAREA",
+     "point": [
+      8,
+      25,
+      0,
+      0
+     ],
+     "text_msg_idx": 894
+    },
+    {
+     "type": "BTN",
+     "id": "JO_MEMBERBTN",
+     "point": [
+      32,
+      110,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 175,
+     "func": "JO_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "JO_STUDENTBTN",
+     "point": [
+      102,
+      110,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 893,
+     "func": "JO_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

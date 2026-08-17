@@ -1,0 +1,952 @@
+{
+ "file": "GuildTrainee.bin",
+ "roots": [
+  {
+   "type": "GUILDTRAINEE_DLG",
+   "point": [
+    446,
+    210,
+    400,
+    433
+   ],
+   "point_low": [
+    346,
+    147,
+    400,
+    433
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    399,
+    20
+   ],
+   "auto_close": true,
+   "id": "GU_DLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      399,
+      19
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      880,
+      359,
+      902
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      144,
+      962,
+      163,
+      980
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      0,
+      19,
+      1,
+      433
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      358,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      252,
+      19,
+      253,
+      433
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      432,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      358,
+      1022
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      12,
+      57,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      538,
+      710,
+      540,
+      1023
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      344,
+      57,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      535,
+      710,
+      537,
+      1023
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      368,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1018,
+      333,
+      1020
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      56,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      333,
+      1022
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      338,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      17,
+      70,
+      16,
+      16
+     ],
+     "id": "GU_CHK1",
+     "active": false,
+     "func": "GU_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_lock1",
+     "point": [
+      17,
+      70,
+      16,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      623,
+      426,
+      639,
+      441
+     ],
+     "active": true
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      65,
+      0,
+      0
+     ],
+     "text_msg_idx": 899
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NUMBER1",
+     "font_idx": 0,
+     "point": [
+      130,
+      65,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      79,
+      0,
+      0
+     ],
+     "text_msg_idx": 900
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_MARK1",
+     "font_idx": 0,
+     "point": [
+      135,
+      82,
+      16,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NAME1",
+     "font_idx": 0,
+     "point": [
+      152,
+      79,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      93,
+      0,
+      0
+     ],
+     "text_msg_idx": 901
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GU_BOOK1",
+     "point": [
+      130,
+      93,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      17,
+      143,
+      16,
+      16
+     ],
+     "id": "GU_CHK2",
+     "active": false,
+     "func": "GU_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_lock2",
+     "point": [
+      17,
+      143,
+      16,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      623,
+      426,
+      639,
+      441
+     ],
+     "active": true
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      138,
+      0,
+      0
+     ],
+     "text_msg_idx": 899
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NUMBER2",
+     "font_idx": 0,
+     "point": [
+      130,
+      138,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      154,
+      0,
+      0
+     ],
+     "text_msg_idx": 900
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_MARK2",
+     "font_idx": 0,
+     "point": [
+      135,
+      157,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NAME2",
+     "font_idx": 0,
+     "point": [
+      152,
+      154,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      168,
+      0,
+      0
+     ],
+     "text_msg_idx": 901
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GU_BOOK2",
+     "point": [
+      130,
+      168,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      17,
+      216,
+      16,
+      16
+     ],
+     "id": "GU_CHK3",
+     "active": false,
+     "func": "GU_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_lock3",
+     "point": [
+      17,
+      216,
+      16,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      623,
+      426,
+      639,
+      441
+     ],
+     "active": true
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      211,
+      0,
+      0
+     ],
+     "text_msg_idx": 899
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NUMBER3",
+     "font_idx": 0,
+     "point": [
+      130,
+      211,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      225,
+      0,
+      0
+     ],
+     "text_msg_idx": 900
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_MARK3",
+     "font_idx": 0,
+     "point": [
+      135,
+      231,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NAME3",
+     "font_idx": 0,
+     "point": [
+      152,
+      225,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      238,
+      0,
+      0
+     ],
+     "text_msg_idx": 901
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GU_BOOK3",
+     "point": [
+      130,
+      238,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      17,
+      289,
+      16,
+      16
+     ],
+     "id": "GU_CHK4",
+     "active": false,
+     "func": "GU_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_lock4",
+     "point": [
+      17,
+      289,
+      16,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      623,
+      426,
+      639,
+      441
+     ],
+     "active": true
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      284,
+      0,
+      0
+     ],
+     "text_msg_idx": 899
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NUMBER4",
+     "font_idx": 0,
+     "point": [
+      130,
+      284,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      298,
+      0,
+      0
+     ],
+     "text_msg_idx": 900
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_MARK4",
+     "font_idx": 0,
+     "point": [
+      135,
+      301,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GU_NAME4",
+     "font_idx": 0,
+     "point": [
+      152,
+      298,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      39,
+      312,
+      0,
+      0
+     ],
+     "text_msg_idx": 901
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GU_BOOK4",
+     "point": [
+      130,
+      312,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GU_CHANGEBTN",
+     "func": "GU_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      186,
+      400,
+      56,
+      19
+     ],
+     "btntext_msg_idx": 902,
+     "active": false
+    },
+    {
+     "type": "BTN",
+     "id": "GU_OKBTN",
+     "point": [
+      286,
+      400,
+      56,
+      19
+     ],
+     "func": "GU_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 906
+    },
+    {
+     "type": "BTN",
+     "active": false,
+     "point": [
+      13,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      898,
+      11,
+      911,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      898,
+      24,
+      911,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      898,
+      37,
+      911,
+      50
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCHFRONTLISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      31,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCH1LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      58,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCH2LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      85,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCH3LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      112,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCH4LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      139,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCH5LISTBTN"
+    },
+    {
+     "type": "BTN",
+     "active": false,
+     "point": [
+      166,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      11,
+      925,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      912,
+      24,
+      925,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      912,
+      37,
+      925,
+      50
+     ],
+     "func": "GU_DlgFunc",
+     "id": "GU_SEARCHBACKLISTBTN"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 893,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      15,
+      30,
+      0,
+      0
+     ],
+     "text_msg_idx": 910
+    }
+   ]
+  }
+ ]
+}

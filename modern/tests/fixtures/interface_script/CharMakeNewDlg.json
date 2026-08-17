@@ -1,0 +1,1001 @@
+{
+ "file": "CharMakeNewDlg.bin",
+ "roots": [
+  {
+   "type": "CHARMAKEDLG",
+   "point": [
+    772,
+    0,
+    252,
+    391
+   ],
+   "point_low": [
+    548,
+    0,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "caption_rect": [
+    0,
+    0,
+    252,
+    19
+   ],
+   "movable": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 173,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      58,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      232,
+      1022
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      59,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      538,
+      841,
+      540,
+      1024
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      240,
+      60,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      535,
+      842,
+      537,
+      1023
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      36,
+      22,
+      11
+     ],
+     "text_msg_idx": 38
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      70,
+      22,
+      11
+     ],
+     "text_msg_idx": 51
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      65,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_SexType",
+     "point": [
+      91,
+      70,
+      100,
+      20
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      100,
+      22,
+      11
+     ],
+     "text_msg_idx": 41
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      95,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_ManHairType",
+     "point": [
+      91,
+      100,
+      100,
+      20
+     ],
+     "active": true
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_WomanHairType",
+     "point": [
+      91,
+      100,
+      100,
+      20
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      130,
+      22,
+      11
+     ],
+     "text_msg_idx": 42
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      125,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_ManFaceType",
+     "point": [
+      91,
+      130,
+      100,
+      20
+     ],
+     "active": true
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_WomanFaceType",
+     "point": [
+      91,
+      130,
+      100,
+      20
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      160,
+      22,
+      11
+     ],
+     "text_msg_idx": 40
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      155,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_ClothType",
+     "point": [
+      91,
+      160,
+      100,
+      20
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      190,
+      22,
+      11
+     ],
+     "text_msg_idx": 43
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      185,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_BootType",
+     "point": [
+      91,
+      190,
+      100,
+      20
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      220,
+      22,
+      11
+     ],
+     "text_msg_idx": 44
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      215,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CMID_WeaponType",
+     "point": [
+      91,
+      220,
+      100,
+      20
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      285,
+      22,
+      11
+     ],
+     "text_msg_idx": 52
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      315,
+      22,
+      11
+     ],
+     "text_msg_idx": 53
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      258,
+      22,
+      11
+     ],
+     "text_msg_idx": 45
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      129,
+      258,
+      22,
+      11
+     ],
+     "text_msg_idx": 68
+    },
+    {
+     "type": "EDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      698,
+      376,
+      807,
+      397
+     ],
+     "id": "CMID_IDEDITBOX",
+     "point": [
+      65,
+      30,
+      107,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_OverlapCheck",
+     "point": [
+      184,
+      32,
+      55,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "func": "CM_OverlapCheckBtnFunc",
+     "btntext_msg_idx": 33
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "point": [
+      53,
+      350,
+      56,
+      19
+     ],
+     "id": "CMID_CharMake",
+     "func": "CM_CharMakeBtnFunc",
+     "btntext_msg_idx": 50
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "point": [
+      143,
+      350,
+      56,
+      19
+     ],
+     "id": "CMID_CharCancel",
+     "func": "CM_CharCancelBtnFunc",
+     "btntext_msg_idx": 224
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      85,
+      281,
+      107,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      706,
+      327,
+      813,
+      342
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "id": "CMID_Height",
+     "point": [
+      95,
+      285,
+      157,
+      12
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        12,
+        12
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ]
+      }
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      85,
+      311,
+      107,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      706,
+      327,
+      813,
+      342
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "id": "CMID_Width",
+     "point": [
+      95,
+      315,
+      157,
+      12
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        12,
+        12
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ]
+      }
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_WeaponLeft",
+     "point": [
+      60,
+      217,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_WeaponRight",
+     "point": [
+      200,
+      217,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_BootLeft",
+     "point": [
+      60,
+      186,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_BootRight",
+     "point": [
+      200,
+      186,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_ClothLeft",
+     "point": [
+      60,
+      157,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_ClothRight",
+     "point": [
+      200,
+      157,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_FaceLeft",
+     "point": [
+      60,
+      127,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_FaceRight",
+     "point": [
+      200,
+      127,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_HairLeft",
+     "point": [
+      60,
+      98,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_HairRight",
+     "point": [
+      200,
+      98,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_SexLeft",
+     "point": [
+      60,
+      68,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CMID_SexRight",
+     "point": [
+      200,
+      68,
+      25,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CM_OptionSelectBtnFunc"
+    }
+   ]
+  }
+ ]
+}

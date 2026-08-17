@@ -1,0 +1,161 @@
+{
+ "file": "ChangeName.bin",
+ "roots": [
+  {
+   "type": "CHANGSAVEDLG",
+   "point": [
+    388,
+    230,
+    247,
+    154
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "auto_close": false,
+   "id": "CHA_NAMEDLG",
+   "func": "CHA_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 564,
+     "font_idx": 2
+    },
+    {
+     "type": "EDITBOX",
+     "id": "CHA_NAMEEDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      216,
+      987,
+      237
+     ],
+     "point": [
+      30,
+      50,
+      140,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      25,
+      25,
+      0,
+      0
+     ],
+     "text_msg_idx": 565,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      73,
+      0,
+      0
+     ],
+     "text_msg_idx": 566,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      40,
+      90,
+      0,
+      0
+     ],
+     "text_msg_idx": 580,
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_NAME_OKBTN",
+     "point": [
+      30,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "CHA_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_NAME_CANCELBTN",
+     "point": [
+      110,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "CHA_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

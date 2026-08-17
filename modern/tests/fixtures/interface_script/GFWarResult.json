@@ -1,0 +1,268 @@
+{
+ "file": "GFWarResult.bin",
+ "roots": [
+  {
+   "type": "GFWARRESULTDLG",
+   "id": "GFW_RESULTDLG",
+   "point": [
+    388,
+    230,
+    252,
+    303
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    302
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "auto_close": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      301,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      772,
+      993,
+      1023,
+      994
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_TITILE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 554,
+     "font_idx": 2
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GFW_RESULT_MSG",
+     "point": [
+      9,
+      23,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      107,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      621,
+      236,
+      760
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_0",
+     "point": [
+      26,
+      120,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_1",
+     "point": [
+      26,
+      146,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_2",
+     "point": [
+      26,
+      162,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_3",
+     "point": [
+      26,
+      177,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_4",
+     "point": [
+      26,
+      191,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_RESULT_5",
+     "point": [
+      26,
+      205,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "GFW_RESULT_OKBTN",
+     "point": [
+      57,
+      273,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 158,
+     "func": "GFW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "GFW_RESULT_CANCELBTN",
+     "point": [
+      134,
+      273,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 156,
+     "func": "GFW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "GFW_RESULT_CONFIRMBTN",
+     "point": [
+      94,
+      273,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "GFW_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      298,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      504,
+      391
+     ]
+    }
+   ]
+  }
+ ]
+}

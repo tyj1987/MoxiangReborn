@@ -1,0 +1,65 @@
+{
+ "file": "IntroReplay.bin",
+ "roots": [
+  {
+   "type": "INTROREPLAY_DLG",
+   "point": [
+    0,
+    0,
+    41,
+    41
+   ],
+   "active": false,
+   "auto_close": false,
+   "movable": false,
+   "caption_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "id": "INTRO_DLG",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "INTRO_BTN_REPLAY",
+     "point": [
+      0,
+      0,
+      41,
+      41
+     ],
+     "func": "SL_DlgBtnFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      379,
+      942,
+      419,
+      982
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      419,
+      942,
+      459,
+      982
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      459,
+      942,
+      499,
+      982
+     ]
+    }
+   ]
+  }
+ ]
+}

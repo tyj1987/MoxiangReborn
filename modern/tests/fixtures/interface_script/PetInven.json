@@ -1,0 +1,376 @@
+{
+ "file": "PetInven.bin",
+ "roots": [
+  {
+   "type": "PETINVENTORYDLG",
+   "point": [
+    473,
+    209,
+    252,
+    290
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    290
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "PET_INVENTORYDLG",
+   "func": "PET_InvenDlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      78,
+      252,
+      20
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      770,
+      237,
+      949
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      23,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      664,
+      1009,
+      665
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      24,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      664,
+      786,
+      715
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      237,
+      24,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      1008,
+      664,
+      1009,
+      715
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      74,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      990,
+      1009,
+      991
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      289,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      390,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      3,
+      0,
+      0
+     ],
+     "text_msg_idx": 749,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      19,
+      34,
+      0,
+      0
+     ],
+     "text_msg_idx": 750
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      78,
+      27,
+      44,
+      44
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      266,
+      609,
+      310,
+      653
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      129,
+      27,
+      44,
+      44
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      266,
+      609,
+      310,
+      653
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      180,
+      27,
+      44,
+      44
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      266,
+      609,
+      310,
+      653
+     ]
+    },
+    {
+     "type": "WEAREDDLG",
+     "id": "PET_WEAREDDLG",
+     "point": [
+      0,
+      0,
+      253,
+      160
+     ],
+     "func": "PET_InvenDlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "PET_InvenDlgFunc",
+     "id": "PET_TABBTN1",
+     "btntext_msg_idx": 84,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      13,
+      263,
+      22,
+      17
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "PET_InvenDlgFunc",
+     "id": "PET_TABBTN2",
+     "btntext_msg_idx": 85,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      40,
+      263,
+      22,
+      17
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "func": "PET_InvenDlgFunc",
+     "id": "PET_TABBTN3",
+     "btntext_msg_idx": 86,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      66,
+      263,
+      22,
+      17
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "PET_TABDLG1",
+     "active": false,
+     "point": [
+      10,
+      75,
+      216,
+      171
+     ],
+     "func": "PET_InvenDlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "PET_TABDLG2",
+     "active": false,
+     "point": [
+      10,
+      75,
+      216,
+      171
+     ],
+     "func": "PET_InvenDlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "PET_TABDLG3",
+     "active": false,
+     "point": [
+      10,
+      75,
+      216,
+      171
+     ],
+     "func": "PET_InvenDlgFunc"
+    }
+   ]
+  }
+ ]
+}

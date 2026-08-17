@@ -1,0 +1,219 @@
+{
+ "file": "RareCreate.bin",
+ "roots": [
+  {
+   "type": "RareCreateDlg",
+   "id": "RareCreateDLG",
+   "point": [
+    446,
+    210,
+    253,
+    223
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    170
+   ],
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    202,
+    20
+   ],
+   "auto_close": false,
+   "movable": true,
+   "func": "RareCreate_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 764,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      58,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      147,
+      58,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      130,
+      1021,
+      146
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      25,
+      25,
+      0,
+      0
+     ],
+     "text_msg_idx": 765
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      75,
+      50,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      45,
+      95,
+      0,
+      0
+     ],
+     "text_msg_idx": 744,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      40,
+      112,
+      0,
+      0
+     ],
+     "text_msg_idx": 580,
+     "font_idx": 0
+    },
+    {
+     "type": "ICONDLG",
+     "id": "RareCreate_ICON",
+     "point": [
+      77,
+      52,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "RareCreate_OKBTN",
+     "point": [
+      35,
+      140,
+      50,
+      19
+     ],
+     "func": "RareCreate_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "active": true,
+     "btntext_msg_idx": 181
+    },
+    {
+     "type": "BTN",
+     "id": "RareCreate_CANCERBTN",
+     "point": [
+      113,
+      140,
+      50,
+      19
+     ],
+     "func": "RareCreate_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "active": true,
+     "btntext_msg_idx": 224
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      169,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      505,
+      342,
+      702,
+      343
+     ]
+    }
+   ]
+  }
+ ]
+}

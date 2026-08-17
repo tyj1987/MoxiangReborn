@@ -1,0 +1,279 @@
+{
+ "file": "TitanBreak.bin",
+ "roots": [
+  {
+   "type": "TITANBREAK_DLG",
+   "point": [
+    132,
+    0,
+    252,
+    387
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "id": "TITANBREAK_DLG",
+   "func": "TitanBreak_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 984,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      31,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      850
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      100,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      518,
+      60,
+      741,
+      283
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      23,
+      39,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      15,
+      78,
+      57,
+      120
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "TITANBREAK_TITANICONDLG",
+     "func": "TitanBreak_DlgFunc",
+     "point": [
+      24,
+      40,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      71,
+      62,
+      0,
+      0
+     ],
+     "text_msg_idx": 985
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "TITANBREAK_BREAKICONGRIDDLG",
+     "func": "TitanBreak_DlgFunc",
+     "point": [
+      10,
+      96,
+      224,
+      224
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      332,
+      0,
+      0
+     ],
+     "text_msg_idx": 986
+    },
+    {
+     "type": "STATIC",
+     "id": "TITANBREAK_RFEE",
+     "func": "TitanBreak_RegistDlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      971,
+      215
+     ],
+     "point": [
+      106,
+      333,
+      101,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      222,
+      332,
+      0,
+      0
+     ],
+     "text_msg_idx": 196
+    },
+    {
+     "type": "BTN",
+     "id": "TITANBREAK_BTN_OK",
+     "point": [
+      122,
+      363,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 118,
+     "func": "TitanBreak_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "TITANBREAK_BTN_OK",
+     "point": [
+      182,
+      363,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "TitanBreak_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

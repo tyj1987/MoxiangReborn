@@ -1,0 +1,145 @@
+{
+ "file": "17.bin",
+ "roots": [
+  {
+   "type": "MINIMAPDLG",
+   "point": [
+    874,
+    0,
+    150,
+    209
+   ],
+   "point_low": [
+    602,
+    0,
+    150,
+    209
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    391,
+    403,
+    578
+   ],
+   "active": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    150,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": false,
+   "id": "MNM_DIALOG",
+   "func": "MNM_DlgFunc",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      129,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "MNM_TOGGLEFULL",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      527,
+      356,
+      537,
+      366
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      539,
+      356,
+      549,
+      366
+     ],
+     "point": [
+      132,
+      166,
+      10,
+      10
+     ],
+     "func": "MNM_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "MNM_MAPNAME",
+     "point": [
+      6,
+      1,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 60
+    },
+    {
+     "type": "STATIC",
+     "id": "MNM_POSXY",
+     "point": [
+      0,
+      158,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 60
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      187,
+      150,
+      22
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      426,
+      830,
+      576,
+      852
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 674
+    }
+   ]
+  }
+ ]
+}

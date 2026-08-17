@@ -1,0 +1,144 @@
+{
+ "file": "Revive.bin",
+ "roots": [
+  {
+   "type": "REVIVEDLG",
+   "point": [
+    450,
+    248,
+    148,
+    99
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    403,
+    391,
+    551,
+    490
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    148,
+    20
+   ],
+   "auto_close": false,
+   "id": "CR_DIALOG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "CR_S2",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 354,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CR_PRESENTSPOT",
+     "point": [
+      30,
+      34,
+      90,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      266
+     ],
+     "func": "CR_DlgBtnFunc",
+     "btntext_msg_idx": 356
+    },
+    {
+     "type": "BTN",
+     "id": "CR_LOGINSPOT",
+     "point": [
+      30,
+      64,
+      90,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      266
+     ],
+     "func": "CR_DlgBtnFunc",
+     "btntext_msg_idx": 355
+    },
+    {
+     "type": "BTN",
+     "id": "CR_TOWNSPOT",
+     "point": [
+      30,
+      34,
+      90,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      266
+     ],
+     "func": "CR_DlgBtnFunc",
+     "btntext_msg_idx": 368
+    }
+   ]
+  }
+ ]
+}

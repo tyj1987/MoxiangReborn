@@ -1,0 +1,308 @@
+{
+ "file": "MPRegist.bin",
+ "roots": [
+  {
+   "type": "MPREGISTDLG",
+   "point": [
+    386,
+    218,
+    252,
+    332
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    331
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "MP_REGISTDLG",
+   "func": "MP_RegistDlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 490,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      329,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      388,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      11,
+      30,
+      203,
+      261
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      542,
+      763,
+      772,
+      1024
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      19,
+      45,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "MP_RMUGONGICON",
+     "point": [
+      20,
+      46,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "MP_RMUGONGINFO",
+     "point": [
+      72,
+      45,
+      154,
+      42
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      19,
+      100,
+      215,
+      141
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      664,
+      1000,
+      807
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      19,
+      241,
+      215,
+      1
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      990,
+      1000,
+      991
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      233,
+      100,
+      1,
+      141
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      1008,
+      664,
+      1009,
+      805
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      28,
+      106,
+      0,
+      0
+     ],
+     "text_msg_idx": 491
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "MP_RPRACTICEINFO",
+     "point": [
+      28,
+      135,
+      159,
+      84
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      250,
+      0,
+      0
+     ],
+     "text_msg_idx": 492
+    },
+    {
+     "type": "STATIC",
+     "id": "MP_RFEE",
+     "func": "MP_RegistDlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ],
+     "point": [
+      134,
+      252,
+      101,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "MP_ROKBTN",
+     "point": [
+      135,
+      295,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "MP_RegistDlgFunc",
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "BTN",
+     "id": "MP_RCANCELBTN",
+     "point": [
+      190,
+      295,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "MP_RegistDlgFunc",
+     "btntext_msg_idx": 224
+    }
+   ]
+  }
+ ]
+}

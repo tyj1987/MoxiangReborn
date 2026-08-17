@@ -1,0 +1,446 @@
+{
+ "file": "SOScall.bin",
+ "roots": [
+  {
+   "type": "SOSDLG",
+   "id": "SOS_SOSDLG",
+   "point": [
+    473,
+    209,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    772,
+    603,
+    1024,
+    994
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 994,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      186,
+      130,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      801,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      145,
+      186,
+      1,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      827,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "point": [
+      15,
+      40,
+      225,
+      425
+     ],
+     "text_msg_idx": 996
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      45,
+      185,
+      0,
+      0
+     ],
+     "text_msg_idx": 517,
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "SOS_POSITION",
+     "func": "SOS_DlgFunc",
+     "point": [
+      146,
+      185,
+      47,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      747,
+      712
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      747,
+      734
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      747,
+      756
+     ],
+     "btntext_msg_idx": 518
+    },
+    {
+     "type": "BTN",
+     "id": "SOS_RANK",
+     "func": "SOS_DlgFunc",
+     "point": [
+      193,
+      185,
+      44,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      744,
+      712
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      744,
+      734
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      744,
+      756
+     ],
+     "btntext_msg_idx": 138
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      146,
+      186,
+      47,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      724,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      194,
+      187,
+      44,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      827,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      156,
+      185,
+      0,
+      0
+     ],
+     "text_msg_idx": 518,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      193,
+      186,
+      53,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      715,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      236,
+      186,
+      1,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      827,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      202,
+      185,
+      0,
+      0
+     ],
+     "text_msg_idx": 138,
+     "font_idx": 0
+    },
+    {
+     "type": "LISTDLG",
+     "id": "SOS_MEMBERLIST",
+     "point": [
+      16,
+      207,
+      203,
+      158
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        210,
+        2,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        210,
+        145,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        210,
+        11,
+        13,
+        134
+       ],
+       "basic_image_idx": 21,
+       "basic_image_rect": [
+        1010,
+        0,
+        1023,
+        136
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SOS_OKBTN",
+     "point": [
+      168,
+      160,
+      69,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 995,
+     "func": "SOS_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,476 @@
+{
+ "file": "TipBrowser.bin",
+ "roots": [
+  {
+   "type": "TIPBROWSERDLG",
+   "id": "TIPBROWSER_DLG",
+   "point": [
+    253,
+    96,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "func": "TB_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 301,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      232,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "TB_CANCELBTN",
+     "point": [
+      180,
+      355,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 159,
+     "func": "TB_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      65,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      968
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      245,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      869,
+      1010,
+      969
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "TB_STATE_PUSHUP1",
+     "point": [
+      15,
+      33,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 821,
+     "func": "TB_STATE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "TB_STATE_PUSHUP2",
+     "point": [
+      71,
+      33,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 822,
+     "func": "TB_STATE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "TB_STATE_PUSHUP3",
+     "point": [
+      126,
+      33,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 823,
+     "func": "TB_STATE_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "TB_STATE_PUSHUP4",
+     "point": [
+      181,
+      33,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 824,
+     "func": "TB_STATE_DlgFunc"
+    },
+    {
+     "type": "DLG",
+     "id": "TB_STATE_PO",
+     "point": [
+      10,
+      10,
+      39,
+      19
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        70,
+        200,
+        100
+       ],
+       "text_msg_idx": 834
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        110,
+        200,
+        100
+       ],
+       "text_msg_idx": 835
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        165,
+        200,
+        100
+       ],
+       "text_msg_idx": 836
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "TB_STATE_AG",
+     "point": [
+      10,
+      10,
+      39,
+      19
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        70,
+        200,
+        100
+       ],
+       "text_msg_idx": 837
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        110,
+        200,
+        100
+       ],
+       "text_msg_idx": 838
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        165,
+        200,
+        100
+       ],
+       "text_msg_idx": 839
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "TB_STATE_HE",
+     "point": [
+      10,
+      10,
+      39,
+      19
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        70,
+        200,
+        100
+       ],
+       "text_msg_idx": 840
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        95,
+        200,
+        100
+       ],
+       "text_msg_idx": 841
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        137,
+        200,
+        100
+       ],
+       "text_msg_idx": 842
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        195,
+        200,
+        100
+       ],
+       "text_msg_idx": 843
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        250,
+        200,
+        100
+       ],
+       "text_msg_idx": 844
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "TB_STATE_MA",
+     "point": [
+      10,
+      10,
+      39,
+      19
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        70,
+        200,
+        100
+       ],
+       "text_msg_idx": 845
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        110,
+        200,
+        100
+       ],
+       "text_msg_idx": 846
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        165,
+        200,
+        100
+       ],
+       "text_msg_idx": 847
+      },
+      {
+       "type": "TEXTAREA",
+       "point": [
+        8,
+        205,
+        200,
+        100
+       ],
+       "text_msg_idx": 848
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

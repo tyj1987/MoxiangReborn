@@ -1,0 +1,1039 @@
+{
+ "file": "QuestTotal.bin",
+ "roots": [
+  {
+   "type": "QUESTTOTALDLG",
+   "point": [
+    385,
+    0,
+    252,
+    419
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    0,
+    564,
+    252,
+    619
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    251,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "id": "QUE_TOTALDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 217,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "QUE_QUESTBTN",
+     "point": [
+      14,
+      28,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 217
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "QUE_WANTEDBTN",
+     "point": [
+      80,
+      28,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 218
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "QUE_JOURNALBTN",
+     "point": [
+      146,
+      28,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 219,
+     "func": "QUE_QuestDlgFunc"
+    },
+    {
+     "type": "QUESTDLG",
+     "id": "QUE_QUESTDLG",
+     "point": [
+      0,
+      55,
+      252,
+      365
+     ],
+     "active": true,
+     "func": "QUE_QuestDlgFunc",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      0,
+      618,
+      252,
+      982
+     ],
+     "children": [
+      {
+       "type": "LISTDLG",
+       "id": "QUE_QUESTLIST",
+       "point": [
+        14,
+        1,
+        200,
+        145
+       ],
+       "active": true,
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          210,
+          3,
+          13,
+          13
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          582,
+          441,
+          595,
+          454
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          569,
+          441,
+          582,
+          454
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          556,
+          441,
+          569,
+          454
+         ]
+        },
+        {
+         "type": "BTN",
+         "point": [
+          210,
+          129,
+          13,
+          13
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          582,
+          454,
+          595,
+          467
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          569,
+          454,
+          582,
+          467
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          556,
+          454,
+          569,
+          467
+         ]
+        },
+        {
+         "type": "GUAGEBAR",
+         "point": [
+          210,
+          16,
+          13,
+          112
+         ],
+         "basic_image_idx": 21,
+         "basic_image_rect": [
+          1010,
+          0,
+          1023,
+          112
+         ],
+         "children": [
+          {
+           "type": "BTN",
+           "point": [
+            0,
+            0,
+            13,
+            24
+           ],
+           "basic_image_idx": 0,
+           "basic_image_rect": [
+            912,
+            50,
+            925,
+            74
+           ],
+           "overimage_idx": 0,
+           "overimage_rect": [
+            912,
+            50,
+            925,
+            74
+           ],
+           "pressimage_idx": 0,
+           "pressimage_rect": [
+            912,
+            50,
+            925,
+            74
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "type": "ICONGRIDDLG",
+       "func": "QUE_QuestDlgFunc",
+       "point": [
+        11,
+        149,
+        224,
+        180
+       ],
+       "id": "QUE_ITEM_GRID"
+      },
+      {
+       "type": "BTN",
+       "id": "QUE_TITLEBTN",
+       "point": [
+        185,
+        67,
+        56,
+        19
+       ],
+       "func": "QUE_QuestDlgFunc",
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        500,
+        660,
+        556,
+        679
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        792,
+        171,
+        847,
+        190
+       ],
+       "active": false,
+       "btntext_msg_idx": 220
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        14,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_QuestDlgFunc",
+       "id": "QUE_PAGE1BTN",
+       "btntext_msg_idx": 84
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        41,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_QuestDlgFunc",
+       "id": "QUE_PAGE2BTN",
+       "btntext_msg_idx": 85
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        68,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_QuestDlgFunc",
+       "id": "QUE_PAGE3BTN",
+       "btntext_msg_idx": 86
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        95,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_QuestDlgFunc",
+       "id": "QUE_PAGE4BTN",
+       "btntext_msg_idx": 87
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        122,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_QuestDlgFunc",
+       "id": "QUE_PAGE5BTN",
+       "btntext_msg_idx": 88
+      }
+     ]
+    },
+    {
+     "type": "WANTEDDLG",
+     "id": "QUE_WANTEDDLG",
+     "point": [
+      0,
+      55,
+      252,
+      365
+     ],
+     "active": false,
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      772,
+      661,
+      1024,
+      1025
+     ],
+     "children": [
+      {
+       "type": "LISTDLG",
+       "id": "QUE_WANTEDLDLG",
+       "point": [
+        14,
+        6,
+        0,
+        0
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          210,
+          2,
+          13,
+          13
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          582,
+          441,
+          595,
+          454
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          569,
+          441,
+          582,
+          454
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          556,
+          441,
+          569,
+          454
+         ]
+        },
+        {
+         "type": "BTN",
+         "point": [
+          210,
+          312,
+          13,
+          13
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          582,
+          454,
+          595,
+          467
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          569,
+          454,
+          582,
+          467
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          556,
+          454,
+          569,
+          467
+         ]
+        },
+        {
+         "type": "GUAGEBAR",
+         "point": [
+          210,
+          11,
+          13,
+          300
+         ],
+         "basic_image_idx": 21,
+         "basic_image_rect": [
+          1010,
+          0,
+          1023,
+          300
+         ],
+         "children": [
+          {
+           "type": "BTN",
+           "point": [
+            0,
+            0,
+            13,
+            24
+           ],
+           "basic_image_idx": 0,
+           "basic_image_rect": [
+            912,
+            50,
+            925,
+            74
+           ],
+           "overimage_idx": 0,
+           "overimage_rect": [
+            912,
+            50,
+            925,
+            74
+           ],
+           "pressimage_idx": 0,
+           "pressimage_rect": [
+            912,
+            50,
+            925,
+            74
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "JOURNALDLG",
+     "id": "QUE_JOURNALDLG",
+     "point": [
+      0,
+      55,
+      252,
+      365
+     ],
+     "active": false,
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      772,
+      661,
+      1024,
+      1024
+     ],
+     "children": [
+      {
+       "type": "LISTDLG",
+       "id": "QUE_JOURNALLISTDLG",
+       "point": [
+        14,
+        6,
+        211,
+        110
+       ],
+       "active": true
+      },
+      {
+       "type": "BTN",
+       "point": [
+        17,
+        7,
+        39,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        701,
+        152,
+        739,
+        171
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        701,
+        171,
+        739,
+        190
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        701,
+        190,
+        739,
+        209
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALSAVE",
+       "btntext_msg_idx": 295
+      },
+      {
+       "type": "BTN",
+       "point": [
+        167,
+        7,
+        56,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        791,
+        152,
+        846,
+        171
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        791,
+        171,
+        846,
+        190
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        791,
+        190,
+        846,
+        209
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALSAVEDLIST",
+       "btntext_msg_idx": 296
+      },
+      {
+       "type": "CHECKBOX",
+       "point": [
+        17,
+        30,
+        16,
+        16
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALCHECKBOX1BTN",
+       "active": false
+      },
+      {
+       "type": "CHECKBOX",
+       "point": [
+        17,
+        90,
+        16,
+        16
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALCHECKBOX2BTN",
+       "active": false
+      },
+      {
+       "type": "CHECKBOX",
+       "point": [
+        17,
+        150,
+        16,
+        16
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALCHECKBOX3BTN",
+       "active": false
+      },
+      {
+       "type": "CHECKBOX",
+       "point": [
+        17,
+        210,
+        16,
+        16
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALCHECKBOX4BTN",
+       "active": false
+      },
+      {
+       "type": "CHECKBOX",
+       "point": [
+        17,
+        270,
+        16,
+        16
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALCHECKBOX5BTN",
+       "active": false
+      },
+      {
+       "type": "BTN",
+       "point": [
+        14,
+        338,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        898,
+        11,
+        911,
+        24
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        898,
+        24,
+        911,
+        37
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        898,
+        37,
+        911,
+        50
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALFRONTBTN"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        30,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALPAGE1BTN"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        57,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALPAGE2BTN"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        84,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALPAGE3BTN"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        111,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALPAGE4BTN"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        138,
+        336,
+        22,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        795,
+        246,
+        817,
+        262
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        795,
+        230,
+        817,
+        246
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        817,
+        246,
+        839,
+        262
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALPAGE5BTN"
+      },
+      {
+       "type": "BTN",
+       "point": [
+        165,
+        338,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        912,
+        11,
+        925,
+        24
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        912,
+        24,
+        925,
+        37
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        912,
+        37,
+        925,
+        50
+       ],
+       "func": "QUE_JournalDlgFunc",
+       "id": "QUE_JOURNALBACKBTN"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,146 @@
+{
+ "file": "GuildNickName.bin",
+ "roots": [
+  {
+   "type": "GUILDNICKNAMEDLG",
+   "point": [
+    140,
+    200,
+    198,
+    152
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    253,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "id": "GD_NICKNAMEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 545,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GD_NICKTEXTAREA",
+     "point": [
+      15,
+      10,
+      50,
+      50
+     ],
+     "text_msg_idx": 546
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      280,
+      959,
+      302
+     ],
+     "point": [
+      45,
+      75,
+      108,
+      21
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "GD_NICKNAMEEDIT",
+     "point": [
+      48,
+      75,
+      108,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GD_NREGISTOKBTN",
+     "func": "GD_DlgFunc",
+     "point": [
+      72,
+      113,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      792,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      792,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      792,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221
+    }
+   ]
+  }
+ ]
+}

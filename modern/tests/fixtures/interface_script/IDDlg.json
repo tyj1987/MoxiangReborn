@@ -1,0 +1,261 @@
+{
+ "file": "IDDlg.bin",
+ "roots": [
+  {
+   "type": "DLG",
+   "point": [
+    412,
+    179,
+    197,
+    50
+   ],
+   "point_low": [
+    301,
+    125,
+    197,
+    50
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    504,
+    0,
+    701,
+    180
+   ],
+   "caption_rect": [
+    0,
+    0,
+    197,
+    19
+   ],
+   "movable": true,
+   "id": "MT_LOGINDLG",
+   "active": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 170,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      62,
+      30,
+      18
+     ],
+     "text_msg_idx": 23
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      89,
+      30,
+      18
+     ],
+     "text_msg_idx": 24
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      28,
+      30,
+      18
+     ],
+     "text_msg_idx": 20
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      40,
+      116,
+      30,
+      18
+     ],
+     "text_msg_idx": 1020
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "point": [
+      37,
+      150,
+      56,
+      19
+     ],
+     "id": "MT_OKBTN",
+     "func": "MT_LogInOkBtnFunc",
+     "btntext_msg_idx": 25
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "point": [
+      107,
+      150,
+      56,
+      19
+     ],
+     "id": "MT_ENDBTN",
+     "func": "MT_ExitBtnFunc",
+     "btntext_msg_idx": 224
+    },
+    {
+     "type": "EDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      58,
+      61,
+      120,
+      21
+     ],
+     "id": "MT_IDEDITBOX",
+     "func": "MT_EditReturnFunc"
+    },
+    {
+     "type": "EDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      58,
+      88,
+      120,
+      21
+     ],
+     "id": "MT_PWDEDITBOX",
+     "func": "MT_EditReturnFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "MT_PNSTATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      870,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      75,
+      115,
+      120,
+      21
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": true,
+     "id": "MT_LISTCOMBOBOX",
+     "point": [
+      58,
+      29,
+      127,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "func": "MT_LOGINDLGFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "MT_LISTCOMBOBOXBTN",
+       "point": [
+        100,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "MT_LOGINDLGFunc"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

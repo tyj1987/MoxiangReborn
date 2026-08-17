@@ -1,0 +1,188 @@
+{
+ "file": "DivideBox.bin",
+ "roots": [
+  {
+   "type": "DIVIDEBOX",
+   "point": [
+    400,
+    300,
+    148,
+    80
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    403,
+    490,
+    551,
+    570
+   ],
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    148,
+    20
+   ],
+   "active": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      26,
+      120,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ]
+    },
+    {
+     "type": "SPIN",
+     "id": "CMI_MONEYSPIN",
+     "point": [
+      10,
+      26,
+      120,
+      21
+     ],
+     "func": "DIVIDEBOX_Func",
+     "children": [
+      {
+       "type": "BTN",
+       "id": "CMI_MONEYSPINUP",
+       "point": [
+        120,
+        0,
+        10,
+        10
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        975,
+        13,
+        985,
+        23
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        975,
+        13,
+        985,
+        23
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        970,
+        1,
+        980,
+        11
+       ]
+      },
+      {
+       "type": "BTN",
+       "id": "CMI_MONEYSPINDOWN",
+       "point": [
+        120,
+        10,
+        10,
+        10
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        963,
+        13,
+        973,
+        23
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        963,
+        13,
+        973,
+        23
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        958,
+        1,
+        968,
+        11
+       ]
+      }
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_MONEYOK",
+     "point": [
+      51,
+      55,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_MONEYCANCEL",
+     "point": [
+      96,
+      55,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "font_idx": 0
+    }
+   ]
+  }
+ ]
+}

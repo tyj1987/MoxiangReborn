@@ -1,0 +1,370 @@
+{
+ "file": "GFWarInfo.bin",
+ "roots": [
+  {
+   "type": "GFWARINFODLG",
+   "id": "GFW_INFODLG",
+   "point": [
+    387,
+    230,
+    252,
+    392
+   ],
+   "point_low": [
+    387,
+    108,
+    252,
+    392
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    786,
+    788,
+    1010,
+    912
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "auto_close": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "GFW_INFO_TITLE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 556,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "id": "GFW_INFO_MSG",
+     "point": [
+      12,
+      25,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC"
+    }
+   ]
+  },
+  {
+   "type": "STATIC"
+  },
+  {
+   "type": "LISTDLG",
+   "id": "GFW_INFO_LIST",
+   "point": [
+    17,
+    65,
+    200,
+    70
+   ],
+   "listoverimage_idx": 0,
+   "listoverimage_rect": [
+    1016,
+    257,
+    1017,
+    267
+   ],
+   "children": [
+    {
+     "type": "BTN",
+     "point": [
+      210,
+      2,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      582,
+      441,
+      595,
+      454
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      569,
+      441,
+      582,
+      454
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      556,
+      441,
+      569,
+      454
+     ]
+    },
+    {
+     "type": "BTN",
+     "point": [
+      210,
+      145,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      582,
+      454,
+      595,
+      467
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      569,
+      454,
+      582,
+      467
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      556,
+      454,
+      569,
+      467
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "point": [
+      210,
+      11,
+      13,
+      134
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      1010,
+      0,
+      1023,
+      136
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        24
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        912,
+        50,
+        925,
+        74
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        912,
+        50,
+        925,
+        74
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        912,
+        50,
+        925,
+        74
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "TEXTAREA",
+   "id": "GFW_INFO_TEXT",
+   "point": [
+    5,
+    190,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "STATIC",
+   "id": "GFW_INFO_STATIC_0",
+   "point": [
+    15,
+    290,
+    0,
+    0
+   ],
+   "font_idx": 0
+  },
+  {
+   "type": "STATIC",
+   "id": "GFW_INFO_STATIC_1",
+   "point": [
+    15,
+    315,
+    0,
+    0
+   ],
+   "font_idx": 0
+  },
+  {
+   "type": "STATIC",
+   "id": "GFW_INFO_STATIC_2",
+   "point": [
+    15,
+    330,
+    0,
+    0
+   ],
+   "font_idx": 0
+  },
+  {
+   "type": "BTN",
+   "id": "GFW_INFO_SUGGEST_OKBTN",
+   "point": [
+    60,
+    355,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 221,
+   "func": "GFW_DlgFunc"
+  },
+  {
+   "type": "BTN",
+   "id": "GFW_INFO_SURREND_OKBTN",
+   "point": [
+    60,
+    355,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 221,
+   "func": "GFW_DlgFunc"
+  },
+  {
+   "type": "BTN",
+   "id": "GFW_GDU_REMOVE_OKBTN",
+   "point": [
+    60,
+    355,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 221,
+   "func": "GFW_DlgFunc"
+  },
+  {
+   "type": "BTN",
+   "id": "GFW_INFO_CANCELBTN",
+   "point": [
+    140,
+    355,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 224,
+   "func": "GFW_DlgFunc"
+  }
+ ]
+}

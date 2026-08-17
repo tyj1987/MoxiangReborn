@@ -1,0 +1,208 @@
+{
+ "file": "ItemLock.bin",
+ "roots": [
+  {
+   "type": "ITEMLOCKDLG",
+   "id": "ITEM_LOCKDLG",
+   "point": [
+    446,
+    210,
+    253,
+    223
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    170
+   ],
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    202,
+    20
+   ],
+   "auto_close": false,
+   "movable": true,
+   "func": "IL_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 697,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      48,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      147,
+      48,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      130,
+      1021,
+      146
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      18,
+      92,
+      0,
+      0
+     ],
+     "text_msg_idx": 698
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      40,
+      109,
+      0,
+      0
+     ],
+     "text_msg_idx": 580,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      75,
+      40,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "IT_LOCKICON",
+     "point": [
+      77,
+      42,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "IT_LOCKOKBTN",
+     "point": [
+      35,
+      140,
+      50,
+      19
+     ],
+     "func": "IT_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "active": true,
+     "btntext_msg_idx": 181
+    },
+    {
+     "type": "BTN",
+     "id": "IT_LOCKCANCERBTN",
+     "point": [
+      113,
+      140,
+      50,
+      19
+     ],
+     "func": "IT_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "active": true,
+     "btntext_msg_idx": 224
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      169,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      505,
+      342,
+      702,
+      343
+     ]
+    }
+   ]
+  }
+ ]
+}

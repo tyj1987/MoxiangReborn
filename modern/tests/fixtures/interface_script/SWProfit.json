@@ -1,0 +1,382 @@
+{
+ "file": "SWProfit.bin",
+ "roots": [
+  {
+   "type": "SWPROFITDLG",
+   "id": "SW_PROFITDLG",
+   "point": [
+    400,
+    250,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    772,
+    603,
+    1024,
+    994
+   ],
+   "func": "SW_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 700,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      50,
+      100,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      561,
+      472,
+      661,
+      493
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      150,
+      100,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      969,
+      472,
+      1019,
+      493
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      50,
+      118,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      561,
+      473,
+      661,
+      494
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      150,
+      118,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      969,
+      473,
+      1019,
+      494
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      24,
+      50,
+      0,
+      0
+     ],
+     "text_msg_idx": 701,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      60,
+      73,
+      0,
+      0
+     ],
+     "text_msg_idx": 702,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      205,
+      0,
+      0
+     ],
+     "text_msg_idx": 703,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      265,
+      0,
+      0
+     ],
+     "text_msg_idx": 704,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      143,
+      52,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      787,
+      379,
+      807,
+      397
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_BACIS_TAX",
+     "point": [
+      140,
+      50,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SW_CHANGE_TAX",
+     "point": [
+      65,
+      110,
+      20,
+      22
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      780,
+      377,
+      807,
+      397
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      90,
+      110,
+      0,
+      0
+     ],
+     "text_msg_idx": 705,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      55,
+      230,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      695,
+      376,
+      806,
+      397
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SW_BACIS_MONEY",
+     "point": [
+      55,
+      230,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SW_OUT_MONEY",
+     "point": [
+      55,
+      290,
+      100,
+      22
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      695,
+      376,
+      806,
+      397
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SW_TAXCHANGE_OKBTN",
+     "point": [
+      115,
+      111,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 700,
+     "func": "SW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "SW_PROFIT_OKBTN",
+     "point": [
+      80,
+      330,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 273,
+     "func": "SW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "SW_PROFIT_CANCELBTN",
+     "point": [
+      145,
+      330,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "SW_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

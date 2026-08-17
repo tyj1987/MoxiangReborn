@@ -1,0 +1,348 @@
+{
+ "file": "CharSelectDlg.bin",
+ "roots": [
+  {
+   "type": "DLG",
+   "point": [
+    827,
+    0,
+    197,
+    345
+   ],
+   "point_low": [
+    602,
+    0,
+    197,
+    345
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    345
+   ],
+   "caption_rect": [
+    0,
+    0,
+    197,
+    19
+   ],
+   "movable": true,
+   "id": "CS_CHARSELECTDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 171,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      67,
+      107,
+      61,
+      11
+     ],
+     "text_msg_idx": 27
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      928,
+      88,
+      974,
+      107
+     ],
+     "point": [
+      14,
+      103,
+      46,
+      19
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      943,
+      128,
+      989,
+      147
+     ],
+     "point": [
+      136,
+      103,
+      46,
+      19
+     ]
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      37,
+      146,
+      19
+     ],
+     "func": "CS_BtnFuncCreateChar",
+     "btntext_msg_idx": 26
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      62,
+      146,
+      19
+     ],
+     "func": "CS_BtnFuncDeleteChar",
+     "btntext_msg_idx": 28
+    },
+    {
+     "type": "PUSHUPBTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      130,
+      146,
+      19
+     ],
+     "id": "MT_FIRSTCHOSEBTN",
+     "func": "CS_BtnFuncFirstChar"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      155,
+      146,
+      19
+     ],
+     "id": "MT_SECONDCHOSEBTN",
+     "func": "CS_BtnFuncSecondChar"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      180,
+      146,
+      19
+     ],
+     "id": "MT_THIRDCHOSEBTN",
+     "func": "CS_BtnFuncThirdChar"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      206,
+      146,
+      19
+     ],
+     "id": "MT_FOURTHCHOSEBTN",
+     "func": "CS_BtnFuncFourthchar"
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      259,
+      146,
+      19
+     ],
+     "id": "MT_ENTERBTN",
+     "func": "CS_BtnFuncEnter",
+     "btntext_msg_idx": 29
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      305,
+      848,
+      324
+     ],
+     "point": [
+      24,
+      284,
+      146,
+      19
+     ],
+     "id": "MT_LOGOUTBTN",
+     "func": "CS_BtnFuncLogOut",
+     "btntext_msg_idx": 30
+    }
+   ]
+  }
+ ]
+}

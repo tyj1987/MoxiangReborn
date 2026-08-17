@@ -1,0 +1,86 @@
+{
+ "file": "partymember1dlg.bin",
+ "roots": [
+  {
+   "type": "PA_MEMBER1DLG",
+   "point": [
+    0,
+    211,
+    132,
+    48
+   ],
+   "movable": false,
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    492,
+    391,
+    624,
+    439
+   ],
+   "active": false,
+   "id": "PA_MEMBER1DLG",
+   "caption_rect": [
+    0,
+    0,
+    132,
+    20
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      1,
+      0,
+      0
+     ],
+     "id": "PA_MEMBER1LEVEL"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      9,
+      14,
+      100,
+      13
+     ],
+     "id": "PA_MEMBER1NAME"
+    },
+    {
+     "type": "GUAGENE",
+     "id": "PA_GUAGEMEMBER1LIFE",
+     "point": [
+      6,
+      34,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      186,
+      1011,
+      196
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "PA_GUAGEMEMBER1NAERYUK",
+     "point": [
+      6,
+      40,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      201,
+      1011,
+      210
+     ]
+    }
+   ]
+  }
+ ]
+}

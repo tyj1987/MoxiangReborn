@@ -1,0 +1,247 @@
+{
+ "file": "SWTimeReg.bin",
+ "roots": [
+  {
+   "type": "SEIGEWARTIMEREGDLG",
+   "point": [
+    150,
+    150,
+    253,
+    222
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    222
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    253,
+    20
+   ],
+   "auto_close": true,
+   "id": "SW_TIMEREGDLG",
+   "func": "SW_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      220,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      252,
+      1022
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 679,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      19,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      918,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      918,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      919,
+      113,
+      937,
+      132
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "SW_TIMEREG_TEXT",
+     "point": [
+      5,
+      25,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SW_TIME_YEAR",
+     "point": [
+      17,
+      160,
+      50,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      153,
+      903,
+      174
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      67,
+      160,
+      0,
+      0
+     ],
+     "text_msg_idx": 680,
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SW_TIME_MON",
+     "point": [
+      89,
+      160,
+      29,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      903,
+      153,
+      931,
+      174
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      115,
+      160,
+      0,
+      0
+     ],
+     "text_msg_idx": 681,
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SW_TIME_DAY",
+     "point": [
+      136,
+      160,
+      29,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      903,
+      153,
+      931,
+      174
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      164,
+      160,
+      0,
+      0
+     ],
+     "text_msg_idx": 682,
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "SW_TIME_HOUR",
+     "point": [
+      187,
+      160,
+      29,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      903,
+      153,
+      931,
+      174
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      215,
+      160,
+      0,
+      0
+     ],
+     "text_msg_idx": 683,
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "SW_TIMEREG_OKBTN",
+     "point": [
+      100,
+      195,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "SW_DlgFunc",
+     "btntext_msg_idx": 181
+    }
+   ]
+  }
+ ]
+}

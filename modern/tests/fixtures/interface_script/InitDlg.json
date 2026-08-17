@@ -1,0 +1,29 @@
+{
+ "file": "InitDlg.bin",
+ "roots": [
+  {
+   "type": "DLG",
+   "id": "MT_LOGODLG",
+   "point": [
+    0,
+    0,
+    1024,
+    768
+   ],
+   "point_low": [
+    0,
+    0,
+    800,
+    600
+   ],
+   "basic_image_idx": 23,
+   "basic_image_rect": [
+    0,
+    0,
+    1024,
+    768
+   ],
+   "movable": false
+  }
+ ]
+}

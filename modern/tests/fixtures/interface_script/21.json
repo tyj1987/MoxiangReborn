@@ -1,0 +1,1837 @@
+{
+ "file": "21.bin",
+ "roots": [
+  {
+   "type": "OPTIONDLG",
+   "id": "OTI_TABDLG",
+   "point": [
+    715,
+    219,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "func": "OTI_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      3,
+      0,
+      0
+     ],
+     "text_msg_idx": 429,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "OTI_BTN_RESET",
+     "point": [
+      68,
+      361,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 182,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "OTI_BTN_OK",
+     "point": [
+      128,
+      361,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "OTI_BTN_CANCEL",
+     "point": [
+      188,
+      361,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      20,
+      27,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 428,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      72,
+      27,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 425,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      124,
+      27,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 426,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      176,
+      27,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 427,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      20,
+      49,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 1151,
+     "func": "OTI_DlgFunc"
+    },
+    {
+     "type": "DLG",
+     "id": "OTI_SHEET1",
+     "point": [
+      0,
+      0,
+      252,
+      372
+     ],
+     "active": true,
+     "children": [
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        67,
+        0,
+        0
+       ],
+       "text_msg_idx": 393
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        93,
+        0,
+        0
+       ],
+       "text_msg_idx": 394
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        145,
+        67,
+        0,
+        0
+       ],
+       "text_msg_idx": 395
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        145,
+        93,
+        0,
+        0
+       ],
+       "text_msg_idx": 396
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        132,
+        0,
+        0
+       ],
+       "text_msg_idx": 398
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        156,
+        0,
+        0
+       ],
+       "text_msg_idx": 397
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        180,
+        0,
+        0
+       ],
+       "text_msg_idx": 399
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        204,
+        0,
+        0
+       ],
+       "text_msg_idx": 675
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        228,
+        0,
+        0
+       ],
+       "text_msg_idx": 303
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        252,
+        0,
+        0
+       ],
+       "text_msg_idx": 911
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        288,
+        0,
+        0
+       ],
+       "text_msg_idx": 400
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        312,
+        0,
+        0
+       ],
+       "text_msg_idx": 401
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NODEAL",
+       "point": [
+        19,
+        72,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOPARTY",
+       "point": [
+        19,
+        99,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOFRIEND",
+       "point": [
+        129,
+        72,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOFIGHT",
+       "point": [
+        129,
+        99,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_MUNPANAME",
+       "point": [
+        19,
+        135,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_PARTYNAME",
+       "point": [
+        19,
+        159,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_OTHERSNAME",
+       "point": [
+        19,
+        183,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_MEMBERDAMAGE",
+       "point": [
+        19,
+        207,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_GAMETIP",
+       "point": [
+        19,
+        231,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_MUNPAPR",
+       "point": [
+        19,
+        256,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "OTI_PB_CHATMODE",
+       "point": [
+        23,
+        291,
+        11,
+        11
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        952,
+        113,
+        963,
+        124
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        941,
+        113,
+        952,
+        124
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "OTI_PB_MACROMODE",
+       "point": [
+        23,
+        315,
+        11,
+        11
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        952,
+        113,
+        963,
+        124
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        941,
+        113,
+        952,
+        124
+       ],
+       "func": "OTI_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "OTI_SHEET1",
+     "point": [
+      0,
+      0,
+      252,
+      372
+     ],
+     "active": true,
+     "children": [
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        68,
+        0,
+        0
+       ],
+       "text_msg_idx": 412
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        92,
+        0,
+        0
+       ],
+       "text_msg_idx": 413
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        116,
+        0,
+        0
+       ],
+       "text_msg_idx": 419
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        140,
+        0,
+        0
+       ],
+       "text_msg_idx": 414
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        164,
+        0,
+        0
+       ],
+       "text_msg_idx": 431
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        188,
+        0,
+        0
+       ],
+       "text_msg_idx": 432
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        212,
+        0,
+        0
+       ],
+       "text_msg_idx": 433
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        12,
+        244,
+        0,
+        0
+       ],
+       "text_msg_idx": 415
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        268,
+        0,
+        0
+       ],
+       "text_msg_idx": 416
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        292,
+        0,
+        0
+       ],
+       "text_msg_idx": 417
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        36,
+        316,
+        0,
+        0
+       ],
+       "text_msg_idx": 418
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOWHISPER",
+       "point": [
+        19,
+        72,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOCHATTING",
+       "point": [
+        19,
+        95,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOBALLOON",
+       "point": [
+        19,
+        119,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_AUTOHIDE",
+       "point": [
+        19,
+        143,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_WORLDHIDE",
+       "point": [
+        19,
+        167,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_MUNPAHIDE",
+       "point": [
+        19,
+        191,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_ALLMUNPAHIDE",
+       "point": [
+        19,
+        215,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOSYSTEMMSG",
+       "point": [
+        19,
+        271,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOACQUIREMSG",
+       "point": [
+        19,
+        295,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_NOITEMMSG",
+       "point": [
+        19,
+        319,
+        16,
+        16
+       ]
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "OTI_SHEET2",
+     "point": [
+      0,
+      0,
+      252,
+      372
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_AUTOCONTROL",
+       "font_idx": 0,
+       "point": [
+        37,
+        68,
+        0,
+        0
+       ],
+       "text_msg_idx": 696
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_GAMMA",
+       "font_idx": 0,
+       "point": [
+        10,
+        88,
+        0,
+        0
+       ],
+       "text_msg_idx": 402
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_SIGHT",
+       "font_idx": 0,
+       "point": [
+        10,
+        108,
+        0,
+        0
+       ],
+       "text_msg_idx": 403
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        10,
+        127,
+        0,
+        0
+       ],
+       "text_msg_idx": 897
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        10,
+        149,
+        0,
+        0
+       ],
+       "text_msg_idx": 405
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_HEROSHADOW",
+       "font_idx": 0,
+       "point": [
+        37,
+        172,
+        0,
+        0
+       ],
+       "text_msg_idx": 406
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_MONSTERSHADOW",
+       "font_idx": 0,
+       "point": [
+        37,
+        191,
+        0,
+        0
+       ],
+       "text_msg_idx": 407
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_OTHERSSHADOW",
+       "font_idx": 0,
+       "point": [
+        145,
+        172,
+        0,
+        0
+       ],
+       "text_msg_idx": 408
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        11,
+        218,
+        0,
+        0
+       ],
+       "text_msg_idx": 690
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_BASICGRAPHIC",
+       "font_idx": 0,
+       "point": [
+        37,
+        238,
+        0,
+        0
+       ],
+       "text_msg_idx": 691
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_DOWNGRAPHIC",
+       "font_idx": 0,
+       "point": [
+        37,
+        258,
+        0,
+        0
+       ],
+       "text_msg_idx": 692
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        145,
+        238,
+        0,
+        0
+       ],
+       "text_msg_idx": 997
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        11,
+        281,
+        0,
+        0
+       ],
+       "text_msg_idx": 693
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_BASICEFFECT",
+       "font_idx": 0,
+       "point": [
+        37,
+        305,
+        0,
+        0
+       ],
+       "text_msg_idx": 691
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_TEXT_ONEEFFECT",
+       "font_idx": 0,
+       "point": [
+        37,
+        325,
+        0,
+        0
+       ],
+       "text_msg_idx": 406
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        145,
+        305,
+        0,
+        0
+       ],
+       "text_msg_idx": 762,
+       "active": true
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        130,
+        91,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_GB_GAMMA",
+       "point": [
+        140,
+        95,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        130,
+        111,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_GB_SIGHT",
+       "point": [
+        140,
+        115,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_AUTOCONTROL",
+       "point": [
+        19,
+        72,
+        16,
+        16
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_AMBIENT",
+       "point": [
+        19,
+        131,
+        16,
+        16
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "OTI_PB_BASICGRAPHIC",
+       "point": [
+        19,
+        245,
+        16,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        952,
+        113,
+        963,
+        124
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        941,
+        113,
+        952,
+        124
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "OTI_PB_DOWNGRAPHIC",
+       "point": [
+        19,
+        264,
+        16,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        952,
+        113,
+        963,
+        124
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        941,
+        113,
+        952,
+        124
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_HEROSHADOW",
+       "point": [
+        19,
+        176,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_MONSTERSHADOW",
+       "point": [
+        19,
+        195,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_OTHERSSHADOW",
+       "point": [
+        125,
+        176,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_SNOWEFFECT",
+       "point": [
+        125,
+        307,
+        16,
+        16
+       ],
+       "active": true
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "OTI_PB_BASICEFFECT",
+       "point": [
+        19,
+        309,
+        16,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        952,
+        113,
+        963,
+        124
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        941,
+        113,
+        952,
+        124
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "PUSHUPBTN",
+       "id": "OTI_PB_ONEEFFECT",
+       "point": [
+        19,
+        329,
+        16,
+        16
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        952,
+        113,
+        963,
+        124
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        941,
+        113,
+        952,
+        124
+       ],
+       "func": "OTI_DlgFunc"
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_AVATA",
+       "point": [
+        125,
+        238,
+        16,
+        16
+       ]
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "OTI_SHEET3",
+     "point": [
+      0,
+      0,
+      252,
+      372
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        38,
+        72,
+        0,
+        0
+       ],
+       "text_msg_idx": 409
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        38,
+        101,
+        0,
+        0
+       ],
+       "text_msg_idx": 410
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_BGMSOUND",
+       "point": [
+        19,
+        75,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_ENVSOUND",
+       "point": [
+        19,
+        104,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        130,
+        72,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_GB_BGMSOUND",
+       "point": [
+        140,
+        76,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        130,
+        101,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_GB_ENVSOUND",
+       "point": [
+        140,
+        105,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "DLG",
+     "id": "OTI_SHEET4",
+     "point": [
+      0,
+      0,
+      252,
+      372
+     ],
+     "active": false,
+     "children": [
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        32,
+        72,
+        0,
+        0
+       ],
+       "text_msg_idx": 1152
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        32,
+        90,
+        0,
+        0
+       ],
+       "text_msg_idx": 1153
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        32,
+        108,
+        0,
+        0
+       ],
+       "text_msg_idx": 1154
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_BUHONG",
+       "point": [
+        19,
+        75,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_BULAN",
+       "point": [
+        19,
+        93,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "CHECKBOX",
+       "id": "OTI_CB_BUHUANG",
+       "point": [
+        19,
+        111,
+        16,
+        16
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        90,
+        72,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_IN_BUHONG",
+       "point": [
+        200,
+        70,
+        0,
+        0
+       ]
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        215,
+        70,
+        0,
+        0
+       ],
+       "text_msg_idx": 705
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_CB_BUHONG_VALUE",
+       "point": [
+        100,
+        76,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        90,
+        90,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_IN_BULAN",
+       "point": [
+        200,
+        88,
+        0,
+        0
+       ]
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        215,
+        88,
+        0,
+        0
+       ],
+       "text_msg_idx": 705
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_CB_BULAN_VALUE",
+       "point": [
+        100,
+        94,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      },
+      {
+       "type": "STATIC",
+       "point": [
+        90,
+        108,
+        107,
+        15
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        706,
+        327,
+        813,
+        342
+       ]
+      },
+      {
+       "type": "STATIC",
+       "id": "OTI_IN_BUHUANG",
+       "point": [
+        200,
+        106,
+        0,
+        0
+       ]
+      },
+      {
+       "type": "STATIC",
+       "font_idx": 0,
+       "point": [
+        215,
+        106,
+        0,
+        0
+       ],
+       "text_msg_idx": 705
+      },
+      {
+       "type": "GUAGEBAR",
+       "id": "OTI_CB_BUHUANG_VALUE",
+       "point": [
+        100,
+        112,
+        82,
+        12
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          12,
+          12
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          816,
+          330,
+          828,
+          342
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

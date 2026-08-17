@@ -199,6 +199,7 @@ add_library(mxh_ui STATIC
     cskillpointredist.cpp
     cstreetstall.cpp
     cstreetbuystall.cpp
+    interface_script.cpp
 )
 
 if(WIN32)

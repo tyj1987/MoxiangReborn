@@ -1,0 +1,235 @@
+{
+ "file": "GuildMark.bin",
+ "roots": [
+  {
+   "type": "GUILDMARKDLG",
+   "point": [
+    140,
+    200,
+    253,
+    521
+   ],
+   "point_low": [
+    140,
+    79,
+    253,
+    521
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    235
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    253,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "id": "GDM_MARKREGISTDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      235,
+      253,
+      521
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 509,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      232,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      30,
+      0,
+      0
+     ],
+     "text_msg_idx": 522,
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "GDM_NAMEEDIT",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      216,
+      987,
+      237
+     ],
+     "point": [
+      25,
+      59,
+      135,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GDM_REGISTOKBTN",
+     "func": "GD_DlgFunc",
+     "point": [
+      175,
+      61,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "BTN",
+     "id": "GUM_REGISTOKBTN",
+     "func": "GD_DlgFunc",
+     "point": [
+      175,
+      61,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      95,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      785,
+      638,
+      1010,
+      710
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      166,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      785,
+      702,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GDM_INFOTEXT",
+     "point": [
+      9,
+      60,
+      450,
+      521
+     ],
+     "text_msg_idx": 303
+    }
+   ]
+  }
+ ]
+}

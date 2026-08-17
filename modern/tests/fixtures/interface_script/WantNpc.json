@@ -1,0 +1,1443 @@
+{
+ "file": "WantNpc.bin",
+ "roots": [
+  {
+   "type": "WANTNPCDLG",
+   "point": [
+    446,
+    210,
+    400,
+    433
+   ],
+   "point_low": [
+    246,
+    150,
+    400,
+    433
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    399,
+    20
+   ],
+   "auto_close": true,
+   "id": "WANTNPC_DLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      399,
+      19
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      880,
+      359,
+      902
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      144,
+      962,
+      163,
+      980
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      0,
+      19,
+      1,
+      433
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      358,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      252,
+      19,
+      253,
+      433
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      12,
+      57,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      538,
+      710,
+      540,
+      1023
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      344,
+      57,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      535,
+      710,
+      537,
+      1023
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      56,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      333,
+      1022
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      338,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      3,
+      0,
+      0
+     ],
+     "text_msg_idx": 203,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      26,
+      0,
+      0
+     ],
+     "id": "WANTNPC_BUYPRICE",
+     "text_msg_idx": 197,
+     "font_idx": 0,
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      57,
+      157,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      171,
+      57,
+      108,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      830,
+      399,
+      937,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      278,
+      57,
+      108,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      939,
+      399,
+      1021,
+      420
+     ]
+    },
+    {
+     "type": "LISTCTRL",
+     "id": "WANTNPC_WANTLCTRL",
+     "point": [
+      20,
+      58,
+      377,
+      358
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_SEARCHMODEBTN",
+     "point": [
+      165,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 318
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_BUYNPCBTN",
+     "point": [
+      225,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 210
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_MYWANTBTN",
+     "point": [
+      285,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 211
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_SEARCHBTN",
+     "point": [
+      140,
+      29,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 318
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      28,
+      120,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "WANTNPC_SEARCHEDIT",
+     "point": [
+      18,
+      28,
+      120,
+      21
+     ],
+     "active": false
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_BUYSEARCHBTN",
+     "point": [
+      150,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 210
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_MYWANTSEARCHBTN",
+     "point": [
+      208,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 211
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_SORTBTN",
+     "point": [
+      280,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 216
+    },
+    {
+     "type": "STATIC",
+     "id": "WANTNPC_MYSTC",
+     "point": [
+      23,
+      28,
+      0,
+      0
+     ],
+     "text_msg_idx": 237,
+     "font_idx": 0,
+     "active": false
+    },
+    {
+     "type": "BTN",
+     "id": "WANTNPC_GIVEUPBTN",
+     "point": [
+      208,
+      400,
+      56,
+      19
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 215
+    },
+    {
+     "type": "COMBOBOX",
+     "active": false,
+     "id": "WANTNPC_LISTORDERCOMBOBOX",
+     "point": [
+      238,
+      27,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      830,
+      376,
+      937,
+      397
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "id": "WANTNPC_PMLISTORDERCOMBOBOX",
+       "point": [
+        87,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ],
+       "func": "WANTNPC_DlgFunc"
+      }
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      898,
+      11,
+      911,
+      24
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      898,
+      37,
+      911,
+      50
+     ],
+     "point": [
+      13,
+      378,
+      13,
+      13
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_FRONTLISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      31,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_1LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      58,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_2LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      85,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_3LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      112,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_4LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      139,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_5LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      166,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      11,
+      925,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      912,
+      24,
+      925,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      912,
+      37,
+      925,
+      50
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_BACKLISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      13,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      898,
+      11,
+      911,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      898,
+      24,
+      911,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      898,
+      37,
+      911,
+      50
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCHFRONTLISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      31,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCH1LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      58,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCH2LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      85,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCH3LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      112,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCH4LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      139,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCH5LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      166,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      11,
+      925,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      912,
+      24,
+      925,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      912,
+      37,
+      925,
+      50
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_SEARCHBACKLISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      13,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      898,
+      11,
+      911,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      898,
+      24,
+      911,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      898,
+      37,
+      911,
+      50
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MYFRONTLISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      31,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MY1LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      58,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MY2LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      85,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MY3LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      112,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MY4LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      139,
+      376,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MY5LISTBTN"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "active": false,
+     "point": [
+      166,
+      378,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      11,
+      925,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      912,
+      24,
+      925,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      912,
+      37,
+      925,
+      50
+     ],
+     "func": "WANTNPC_DlgFunc",
+     "id": "WANTNPC_MYBACKLISTBTN"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      21,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      20,
+      453,
+      23
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      200,
+      21,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      346,
+      20,
+      505,
+      23
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      431,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      453,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      200,
+      431,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      346,
+      387,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      24,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      24,
+      256,
+      224
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      224,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      180,
+      256,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      355,
+      24,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      501,
+      24,
+      504,
+      224
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      355,
+      224,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      501,
+      180,
+      504,
+      391
+     ]
+    }
+   ]
+  }
+ ]
+}

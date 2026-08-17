@@ -1,0 +1,232 @@
+{
+ "file": "GuildNotice.bin",
+ "roots": [
+  {
+   "type": "GUILDNOTICEDLG",
+   "id": "GUILDNOTICE_DLG",
+   "point": [
+    419,
+    160,
+    252,
+    200
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    200
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GNotice_TITLE",
+     "text_msg_idx": 520,
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      20,
+      32,
+      0,
+      0
+     ],
+     "text_msg_idx": 536
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      20,
+      55,
+      0,
+      0
+     ],
+     "text_msg_idx": 537
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      199,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      390,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GNotice_TEXTREA",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1001,
+      708
+     ],
+     "point": [
+      19,
+      94,
+      251,
+      69
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GNotice_SENDOKBTN",
+     "point": [
+      145,
+      169,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "font_idx": 0,
+     "func": "GNotice_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "GNotice_CANCELBTN",
+     "point": [
+      196,
+      169,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "font_idx": 0,
+     "func": "GNotice_DlgBtnFunc"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      19,
+      162,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      757,
+      1001,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      234,
+      94,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1009,
+      639,
+      1010,
+      708
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,246 @@
+{
+ "file": "Titan_use.bin",
+ "roots": [
+  {
+   "type": "TITAN_USE_DLG",
+   "point": [
+    132,
+    0,
+    252,
+    249
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    101
+   ],
+   "id": "TITAN_USE_DLG",
+   "func": "titan_Use_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      101,
+      253,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      243,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 973,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      145,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      808,
+      1010,
+      863
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      40,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      334,
+      683,
+      376,
+      724
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "TITAN_USE_SLOT",
+     "func": "titan_Use_DlgFunc",
+     "point": [
+      1,
+      1,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      122,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      941,
+      127,
+      989,
+      147
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      180,
+      122,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      925,
+      85,
+      980,
+      110
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      95,
+      122,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 954
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      92,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 967
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      152,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 968
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      172,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 969
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_USE_OKBTN",
+     "point": [
+      110,
+      215,
+      50,
+      19
+     ],
+     "func": "titan_Use_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      740,
+      151,
+      790,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      740,
+      171,
+      790,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      740,
+      190,
+      790,
+      208
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_USE_CANCELBTN",
+     "point": [
+      175,
+      215,
+      50,
+      19
+     ],
+     "func": "titan_Use_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      740,
+      151,
+      790,
+      170
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      740,
+      171,
+      790,
+      189
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      740,
+      190,
+      790,
+      208
+     ],
+     "btntext_msg_idx": 224
+    }
+   ]
+  }
+ ]
+}

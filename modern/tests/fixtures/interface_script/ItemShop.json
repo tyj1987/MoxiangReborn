@@ -1,0 +1,234 @@
+{
+ "file": "ItemShop.bin",
+ "roots": [
+  {
+   "type": "ITEMALLBASE",
+   "point": [
+    446,
+    210,
+    252,
+    391
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    504,
+    0,
+    756,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "ITMALL_BASEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      5,
+      0,
+      0
+     ],
+     "text_msg_idx": 300,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "ITMALL_BTN1",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      18,
+      37,
+      22,
+      11
+     ],
+     "active": true,
+     "btntext_msg_idx": 84,
+     "font_idx": 0,
+     "func": "ITMALL_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "ITMALL_BTN2",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      48,
+      37,
+      22,
+      11
+     ],
+     "active": true,
+     "btntext_msg_idx": 85,
+     "font_idx": 0,
+     "func": "ITMALL_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "ITMALL_BTN3",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      78,
+      37,
+      22,
+      11
+     ],
+     "active": true,
+     "btntext_msg_idx": 86,
+     "font_idx": 0,
+     "func": "ITMALL_DlgBtnFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "ITMALL_BASE",
+     "point": [
+      13,
+      59,
+      224,
+      269
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      517,
+      59,
+      741,
+      328
+     ],
+     "active": false
+    },
+    {
+     "type": "ITEMSHOPGRIDDLG",
+     "func": "ITMALL_DlgBtnFunc",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "id": "ITMALL_GRID1",
+     "active": true
+    },
+    {
+     "type": "ITEMSHOPGRIDDLG",
+     "func": "ITMALL_DlgBtnFunc",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "id": "ITMALL_GRID2",
+     "active": false
+    },
+    {
+     "type": "ITEMSHOPGRIDDLG",
+     "func": "ITMALL_DlgBtnFunc",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ],
+     "id": "ITMALL_GRID3",
+     "active": false
+    }
+   ]
+  }
+ ]
+}

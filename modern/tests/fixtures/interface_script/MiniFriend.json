@@ -1,0 +1,192 @@
+{
+ "file": "MiniFriend.bin",
+ "roots": [
+  {
+   "type": "MINFRIENDDLG",
+   "point": [
+    350,
+    300,
+    197,
+    150
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": true,
+   "id": "FRI_MINFRIENDDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 277,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "FRI_NAME",
+     "font_idx": 0,
+     "point": [
+      13,
+      30,
+      0,
+      0
+     ],
+     "text_msg_idx": 278
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      13,
+      50,
+      0,
+      0
+     ],
+     "text_msg_idx": 279
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      34,
+      74,
+      157,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      258,
+      1009,
+      279
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "FRI_NAMEEDIT",
+     "point": [
+      38,
+      74,
+      157,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_ADDOKBTN",
+     "point": [
+      43,
+      119,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "font_idx": 0,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_ADDCANCELBTN",
+     "point": [
+      101,
+      119,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "font_idx": 0,
+     "func": "Friend_DlgBtnFunc"
+    }
+   ]
+  }
+ ]
+}

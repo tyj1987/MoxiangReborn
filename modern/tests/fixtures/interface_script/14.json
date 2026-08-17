@@ -1,0 +1,152 @@
+{
+ "file": "14.bin",
+ "roots": [
+  {
+   "type": "QUICKDIALOG",
+   "point": [
+    977,
+    187,
+    47,
+    500
+   ],
+   "point_low": [
+    753,
+    0,
+    47,
+    500
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    0,
+    521,
+    47,
+    1021
+   ],
+   "active": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    47,
+    14
+   ],
+   "id": "QI_QUICKDLG",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "QI_PREVPAGEBTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      898,
+      11,
+      912,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      898,
+      24,
+      912,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      898,
+      37,
+      912,
+      50
+     ],
+     "point": [
+      3,
+      19,
+      13,
+      13
+     ],
+     "func": "QI_QuickDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "QI_NEXTPAGEBTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      912,
+      11,
+      925,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      912,
+      24,
+      925,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      912,
+      37,
+      925,
+      50
+     ],
+     "point": [
+      31,
+      19,
+      13,
+      13
+     ],
+     "func": "QI_QuickDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "QI_SHAPEBTN",
+     "point": [
+      16,
+      16,
+      13,
+      10
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "QI_PAGESHEET1",
+     "point": [
+      3,
+      32,
+      40,
+      446
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "QI_PAGESHEET2",
+     "point": [
+      3,
+      32,
+      40,
+      446
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "QI_PAGESHEET3",
+     "point": [
+      3,
+      32,
+      40,
+      446
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "QI_PAGESHEET4",
+     "point": [
+      3,
+      32,
+      40,
+      446
+     ]
+    }
+   ]
+  }
+ ]
+}

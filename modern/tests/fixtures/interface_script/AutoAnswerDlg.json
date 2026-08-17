@@ -1,0 +1,219 @@
+{
+ "file": "AutoAnswerDlg.bin",
+ "roots": [
+  {
+   "type": "AUTOANSWERDLG",
+   "id": "ASD_DLG",
+   "func": "AutoAnswerDlg_Func",
+   "point": [
+    700,
+    250,
+    252,
+    391
+   ],
+   "point_low": [
+    548,
+    209,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 26,
+   "basic_image_rect": [
+    447,
+    0,
+    726,
+    346
+   ],
+   "children": [
+    {
+     "type": "TEXTAREA",
+     "id": "ASD_TEXTAREA_DESC",
+     "point": [
+      55,
+      90,
+      192,
+      200
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      138,
+      65,
+      0,
+      0
+     ],
+     "text_msg_idx": 1087
+    },
+    {
+     "type": "STATIC",
+     "id": "ASD_STC_QUESTION",
+     "point": [
+      52,
+      240,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "ASD_STC_ANSWER",
+     "point": [
+      52,
+      219,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "ASD_STC_TIME",
+     "point": [
+      193,
+      65,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "ASD_BTN_COLOR1",
+     "func": "AutoAnswerDlg_Func",
+     "point": [
+      47,
+      251,
+      42,
+      29
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      726,
+      132,
+      766,
+      170
+     ],
+     "overimage_idx": 26,
+     "overimage_rect": [
+      770,
+      132,
+      810,
+      170
+     ],
+     "pressimage_idx": 26,
+     "pressimage_rect": [
+      771,
+      293,
+      810,
+      338
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "ASD_BTN_COLOR2",
+     "func": "AutoAnswerDlg_Func",
+     "point": [
+      92,
+      251,
+      42,
+      29
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      726,
+      171,
+      766,
+      210
+     ],
+     "overimage_idx": 26,
+     "overimage_rect": [
+      770,
+      171,
+      810,
+      210
+     ],
+     "pressimage_idx": 26,
+     "pressimage_rect": [
+      771,
+      293,
+      810,
+      338
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "ASD_BTN_COLOR3",
+     "func": "AutoAnswerDlg_Func",
+     "point": [
+      137,
+      251,
+      42,
+      29
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      726,
+      212,
+      766,
+      250
+     ],
+     "overimage_idx": 26,
+     "overimage_rect": [
+      770,
+      212,
+      810,
+      250
+     ],
+     "pressimage_idx": 26,
+     "pressimage_rect": [
+      771,
+      293,
+      810,
+      338
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "ASD_BTN_COLOR4",
+     "func": "AutoAnswerDlg_Func",
+     "point": [
+      182,
+      251,
+      42,
+      29
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      820,
+      212,
+      860,
+      250
+     ],
+     "overimage_idx": 26,
+     "overimage_rect": [
+      860,
+      212,
+      900,
+      250
+     ],
+     "pressimage_idx": 26,
+     "pressimage_rect": [
+      771,
+      293,
+      810,
+      338
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,300 @@
+{
+ "file": "TitanPartsChangePreview.bin",
+ "roots": [
+  {
+   "type": "TITANPARTSCHANGEPREVIEW_DLG",
+   "point": [
+    132,
+    0,
+    252,
+    387
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "id": "TITANPARTSCHANGEPREVIEW_DLG",
+   "func": "TitanPartsChangePreview_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 953,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      70,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      930
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      45,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 938
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      79,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 939
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      96,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 940
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      113,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 941
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      130,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 942
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      147,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 943
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      164,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 944
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      181,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 945
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      240,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 946
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      257,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 947
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      274,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 948
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      291,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 949
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      320,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 950
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      337,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 951
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      354,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 952
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      219,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      941,
+      127,
+      989,
+      147
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      190,
+      219,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      925,
+      85,
+      980,
+      110
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      100,
+      219,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 954
+    }
+   ]
+  }
+ ]
+}

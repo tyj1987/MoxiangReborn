@@ -1,0 +1,15 @@
+{
+ "file": "copyright.bin",
+ "roots": [
+  {
+   "type": "DLG",
+   "point": [
+    0,
+    630,
+    0,
+    0
+   ],
+   "movable": false
+  }
+ ]
+}

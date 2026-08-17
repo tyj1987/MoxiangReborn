@@ -1,0 +1,100 @@
+{
+ "file": "CH_ALLWORLD.bin",
+ "roots": [
+  {
+   "type": "CHATALLDLG",
+   "id": "CHA_DLG",
+   "point": [
+    0,
+    563,
+    0,
+    60
+   ],
+   "active": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "func": "CTW_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      0,
+      982,
+      421,
+      1002
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      0,
+      982,
+      421,
+      1002
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      40,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      0,
+      982,
+      421,
+      1002
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      130,
+      962,
+      142,
+      1020
+     ]
+    },
+    {
+     "type": "LISTDLG",
+     "id": "CHA_LIST",
+     "point": [
+      10,
+      0,
+      420,
+      55
+     ]
+    }
+   ]
+  }
+ ]
+}

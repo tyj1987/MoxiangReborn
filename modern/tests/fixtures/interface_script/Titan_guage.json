@@ -1,0 +1,116 @@
+{
+ "file": "Titan_guage.bin",
+ "roots": [
+  {
+   "type": "TITAN_GUAGE_DLG",
+   "point": [
+    132,
+    30,
+    147,
+    129
+   ],
+   "active": false,
+   "auto_close": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    147,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    402,
+    489,
+    550,
+    570
+   ],
+   "id": "TITAN_GUAGE_DLG",
+   "func": "Titan_guage_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 956,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      0,
+      25,
+      0,
+      0
+     ],
+     "text_msg_idx": 957
+    },
+    {
+     "type": "GUAGENE",
+     "id": "TITAN_GUAGE_CHARLIFE",
+     "point": [
+      38,
+      31,
+      150,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      998,
+      216,
+      999,
+      225
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "TITAN_GUAGE_HPTEXT",
+     "point": [
+      18,
+      24,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_GUAGE_LOOKBTN",
+     "point": [
+      30,
+      55,
+      88,
+      17
+     ],
+     "func": "Titan_guage_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      790,
+      226
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      245
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      246,
+      792,
+      265
+     ],
+     "btntext_msg_idx": 959
+    }
+   ]
+  }
+ ]
+}

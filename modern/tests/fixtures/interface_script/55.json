@@ -1,0 +1,216 @@
+{
+ "file": "55.bin",
+ "roots": [
+  {
+   "type": "UPGRADEDLG",
+   "id": "ITD_UPGRADEDLG",
+   "func": "ITD_DlgFunc",
+   "point": [
+    250,
+    150,
+    197,
+    150
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 286,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      52,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      15,
+      100,
+      57,
+      142
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      65,
+      52,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      15,
+      100,
+      57,
+      142
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      117,
+      67,
+      11,
+      9
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      562,
+      427,
+      575,
+      436
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      147,
+      52,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      15,
+      100,
+      57,
+      142
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "ITD_UPGRADEGRID",
+     "point": [
+      10,
+      52,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "ITD_UPGRADE_OKBTN",
+     "point": [
+      69,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "ITD_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "ITD_UPGRADE_CANCELBTN",
+     "point": [
+      131,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "ITD_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

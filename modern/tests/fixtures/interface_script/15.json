@@ -1,0 +1,71 @@
+{
+ "file": "15.bin",
+ "roots": [
+  {
+   "type": "MAINDLG",
+   "id": "MI_MAINDLG",
+   "func": "MI_DlgFunc",
+   "point": [
+    422,
+    726,
+    602,
+    42
+   ],
+   "point_low": [
+    198,
+    558,
+    602,
+    42
+   ],
+   "caption_rect": [
+    0,
+    0,
+    14,
+    42
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    150,
+    475,
+    164,
+    517
+   ],
+   "active": true,
+   "movable": true,
+   "children": [
+    {
+     "type": "BTN",
+     "id": "MI_BTN_SIZE",
+     "point": [
+      560,
+      0,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      54,
+      528,
+      96,
+      570
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      54,
+      528,
+      96,
+      570
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      101,
+      528,
+      143,
+      570
+     ],
+     "func": "MI_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

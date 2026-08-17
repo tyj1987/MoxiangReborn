@@ -1,0 +1,180 @@
+{
+ "file": "31.bin",
+ "roots": [
+  {
+   "type": "NPCSCRIPTDLG",
+   "point": [
+    132,
+    111,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "id": "NSI_SCRIPTDLG",
+   "func": "NSI_DlgFunc",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "LISTDLGEX",
+     "id": "NSI_LISTDLG",
+     "point": [
+      0,
+      0,
+      238,
+      391
+     ],
+     "active": false,
+     "func": "NSI_HyperLinkFunc",
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        238,
+        20,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        238,
+        376,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        471
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        471
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        471
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        238,
+        32,
+        13,
+        343
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          1,
+          1,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

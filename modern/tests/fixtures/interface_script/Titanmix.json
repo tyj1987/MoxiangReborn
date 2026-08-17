@@ -1,0 +1,807 @@
+{
+ "file": "Titanmix.bin",
+ "roots": [
+  {
+   "type": "TITANMIX_DLG",
+   "point": [
+    132,
+    0,
+    252,
+    387
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "id": "TITANMIX_DLG",
+   "func": "TitanMix_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 980,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      26,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      937
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      104,
+      39,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      109,
+      49,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 913
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      149,
+      83,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      160,
+      93,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 914
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      59,
+      83,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      70,
+      93,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 915
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      104,
+      127,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      110,
+      137,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 916
+    },
+    {
+     "type": "ICONDLG",
+     "id": "TITANMIX_MIXICONDLG",
+     "point": [
+      0,
+      0,
+      89,
+      87
+     ],
+     "func": "TitanMix_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      176,
+      0,
+      0
+     ],
+     "text_msg_idx": 981
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      93,
+      178,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      706,
+      327,
+      813,
+      342
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "id": "TITANMIX_GB_GAMMA",
+     "point": [
+      103,
+      182,
+      82,
+      12
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        12,
+        12
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ]
+      }
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      8,
+      207,
+      0,
+      0
+     ],
+     "text_msg_idx": 920
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      42,
+      210,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      184,
+      52,
+      235,
+      70
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      209,
+      28,
+      12
+     ],
+     "id": "TITANMIX_CHARTYPE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      246,
+      0,
+      0
+     ],
+     "text_msg_idx": 921
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      268,
+      0,
+      0
+     ],
+     "text_msg_idx": 923
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      283,
+      0,
+      0
+     ],
+     "text_msg_idx": 924
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      300,
+      0,
+      0
+     ],
+     "text_msg_idx": 925
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      319,
+      0,
+      0
+     ],
+     "text_msg_idx": 926
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      336,
+      0,
+      0
+     ],
+     "text_msg_idx": 927
+    },
+    {
+     "type": "GUAGEN",
+     "id": "TITANMIX_DEFENCE_HWA",
+     "point": [
+      42,
+      272,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      186,
+      1011,
+      196
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "TITANMIX_DEFENCE_SU",
+     "point": [
+      42,
+      288,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      201,
+      1011,
+      211
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "TITANMIX_DEFENCE_MOK",
+     "point": [
+      42,
+      305,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "TITANMIX_DEFENCE_KUM",
+     "point": [
+      42,
+      322,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      227,
+      1011,
+      237
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "TITANMIX_DEFENCE_TO",
+     "point": [
+      42,
+      339,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      998,
+      216,
+      999,
+      226
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      266,
+      20,
+      30
+     ],
+     "id": "TITANMIX_CHARHWA"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      283,
+      20,
+      30
+     ],
+     "id": "TITANMIX_CHARSU"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      300,
+      20,
+      30
+     ],
+     "id": "TITANMIX_CHARMOK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      318,
+      20,
+      30
+     ],
+     "id": "TITANMIX_CHARKUM"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      334,
+      20,
+      30
+     ],
+     "id": "TITANMIX_CHARTO"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      105,
+      207,
+      0,
+      0
+     ],
+     "text_msg_idx": 928
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      105,
+      224,
+      0,
+      0
+     ],
+     "text_msg_idx": 929
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      171,
+      210,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      170,
+      182,
+      241,
+      217
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      117,
+      246,
+      0,
+      0
+     ],
+     "text_msg_idx": 930
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      141,
+      263,
+      0,
+      0
+     ],
+     "text_msg_idx": 931
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      171,
+      247,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      170,
+      182,
+      241,
+      217
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      117,
+      283,
+      0,
+      0
+     ],
+     "text_msg_idx": 932
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      129,
+      298,
+      0,
+      0
+     ],
+     "text_msg_idx": 933
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      171,
+      284,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      170,
+      182,
+      241,
+      217
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      141,
+      320,
+      0,
+      0
+     ],
+     "text_msg_idx": 957
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      171,
+      321,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      170,
+      182,
+      241,
+      200
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      171,
+      207,
+      69,
+      15
+     ],
+     "id": "TITANMIX_CHARATTACK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      171,
+      224,
+      69,
+      15
+     ],
+     "id": "TITANMIX_LONGATTACK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      171,
+      245,
+      69,
+      15
+     ],
+     "id": "TITANMIX_MAGICATTACK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      171,
+      262,
+      69,
+      15
+     ],
+     "id": "TITANMIX_CRITICAL"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      171,
+      282,
+      69,
+      15
+     ],
+     "id": "TITANMIX_DISTANCE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      171,
+      298,
+      69,
+      15
+     ],
+     "id": "TITANMIX_CHARDEFENSE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      319,
+      69,
+      15
+     ],
+     "id": "TITANMIX_CHARLIFE"
+    },
+    {
+     "type": "BTN",
+     "id": "TITANMIX_LOOKBTN",
+     "point": [
+      26,
+      363,
+      90,
+      19
+     ],
+     "func": "TitanMix_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      267
+     ],
+     "btntext_msg_idx": 982
+    },
+    {
+     "type": "BTN",
+     "id": "TITANMIX_STARTBTN",
+     "point": [
+      137,
+      363,
+      90,
+      19
+     ],
+     "func": "TitanMix_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      792,
+      228
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      228,
+      792,
+      247
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      247,
+      792,
+      267
+     ],
+     "btntext_msg_idx": 983
+    }
+   ]
+  }
+ ]
+}

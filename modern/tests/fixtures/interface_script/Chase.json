@@ -1,0 +1,137 @@
+{
+ "file": "Chase.bin",
+ "roots": [
+  {
+   "type": "CHASEDLG",
+   "id": "CHASEDLG",
+   "point": [
+    388,
+    230,
+    198,
+    149
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": true,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 555,
+     "font_idx": 1
+    },
+    {
+     "type": "TEXTAREA",
+     "point": [
+      8,
+      15,
+      0,
+      0
+     ],
+     "text_msg_idx": 647
+    },
+    {
+     "type": "EDITBOX",
+     "id": "CHASE_EDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      280,
+      959,
+      302
+     ],
+     "point": [
+      42,
+      71,
+      107,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CHASE_OKBTN",
+     "point": [
+      30,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "CHS_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHASE_CANCELBTN",
+     "point": [
+      110,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "CHS_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

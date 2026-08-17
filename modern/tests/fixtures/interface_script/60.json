@@ -1,0 +1,294 @@
+{
+ "file": "60.bin",
+ "roots": [
+  {
+   "type": "TITANPARTSMAKEDLG",
+   "id": "TITAN_TITANPARTSMAKEDLG",
+   "func": "TPMD_DlgFunc",
+   "point": [
+    200,
+    200,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "TITAN_TITANPARTSMAKEICONTITLE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 285,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      36,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      121,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "TITAN_TITANPARTSMAKEICONDLG",
+     "func": "TPMD_DlgFunc",
+     "point": [
+      15,
+      37,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      29,
+      93,
+      11,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      552,
+      427,
+      563,
+      440
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      178,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      770,
+      237,
+      949
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      69,
+      147,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      738,
+      179,
+      761
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "TITAN_TITANPARTSMAKEMATERIALS",
+     "point": [
+      69,
+      29,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      621,
+      179,
+      739
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      234,
+      29,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      235,
+      621,
+      237,
+      736
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      234,
+      138,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      235,
+      730,
+      237,
+      761
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "TITAN_TITANPARTSMAKEICONGRIDDLG",
+     "func": "TPMD_DlgFunc",
+     "point": [
+      10,
+      175,
+      221,
+      176
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_TITANPARTSMAKEOKBTN",
+     "point": [
+      119,
+      364,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 287,
+     "func": "TPMD_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_TITANPARTSMAKECANCELBTN",
+     "point": [
+      181,
+      364,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "TPMD_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

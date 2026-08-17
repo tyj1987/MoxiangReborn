@@ -1,0 +1,25 @@
+{
+ "file": "KeySetting.bin",
+ "roots": [
+  {
+   "type": "KSDLG",
+   "id": "KS_DIALOG",
+   "point": [
+    0,
+    0,
+    1024,
+    768
+   ],
+   "active": false,
+   "movable": false,
+   "caption_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "auto_close": true,
+   "alpha": 180
+  }
+ ]
+}

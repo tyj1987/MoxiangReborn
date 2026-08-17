@@ -1,0 +1,291 @@
+{
+ "file": "GuildWarehouse.bin",
+ "roots": [
+  {
+   "type": "GUILDWAREHOUSEDLG",
+   "point": [
+    446,
+    210,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "GDW_WAREHOUSEDLG",
+   "func": "GD_DlgBtnFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      5,
+      0,
+      0
+     ],
+     "text_msg_idx": 552,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      97,
+      733,
+      130,
+      754
+     ],
+     "point": [
+      89,
+      331,
+      33,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      129,
+      331,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GDW_MONEY",
+     "point": [
+      136,
+      331,
+      107,
+      21
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      59,
+      224,
+      269
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      517,
+      59,
+      741,
+      328
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GDW_PUTINMONEYBTN",
+     "point": [
+      147,
+      362,
+      39,
+      19
+     ],
+     "func": "GD_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 272
+    },
+    {
+     "type": "BTN",
+     "id": "GDW_PUTOUTMONEYBTN",
+     "point": [
+      197,
+      362,
+      39,
+      19
+     ],
+     "func": "GD_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "active": false,
+     "btntext_msg_idx": 273
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "GDW_WAREHOUSE1BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      13,
+      37,
+      22,
+      11
+     ],
+     "btntext_msg_idx": 84,
+     "font_idx": 0,
+     "func": "GD_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "GDW_WAREHOUSE2BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      88,
+      922,
+      99
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      900,
+      101,
+      922,
+      112
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      900,
+      75,
+      922,
+      86
+     ],
+     "point": [
+      43,
+      37,
+      22,
+      11
+     ],
+     "btntext_msg_idx": 85,
+     "font_idx": 0,
+     "func": "GD_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "GDW_TABDLG1",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "GDW_TABDLG2",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    }
+   ]
+  }
+ ]
+}

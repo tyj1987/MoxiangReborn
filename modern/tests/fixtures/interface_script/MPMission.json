@@ -1,0 +1,123 @@
+{
+ "file": "MPMission.bin",
+ "roots": [
+  {
+   "type": "MPMISSIONDLG",
+   "point": [
+    386,
+    218,
+    252,
+    223
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    222
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "MP_MISSIONDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 493,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      3,
+      220,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      256,
+      388,
+      502,
+      391
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "MP_MMISSION",
+     "point": [
+      23,
+      41,
+      206,
+      63
+     ],
+     "text_msg_idx": 491
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      23,
+      111,
+      0,
+      0
+     ],
+     "text_msg_idx": 119,
+     "font_idx": 0
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "MP_MCAUTION",
+     "point": [
+      23,
+      132,
+      206,
+      84
+     ],
+     "text_msg_idx": 492
+    }
+   ]
+  }
+ ]
+}

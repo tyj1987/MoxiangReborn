@@ -1,0 +1,26 @@
+{
+ "file": "NewLoadDlg.bin",
+ "roots": [
+  {
+   "type": "DLG",
+   "point": [
+    0,
+    0,
+    1024,
+    786
+   ],
+   "movable": false,
+   "children": [
+    {
+     "type": "ANI",
+     "point": [
+      975,
+      736,
+      32,
+      32
+     ]
+    }
+   ]
+  }
+ ]
+}

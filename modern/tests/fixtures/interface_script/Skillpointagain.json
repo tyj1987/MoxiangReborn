@@ -1,0 +1,425 @@
+{
+ "file": "Skillpointagain.bin",
+ "roots": [
+  {
+   "type": "SKILLPOINTAGAINDLG",
+   "point": [
+    446,
+    210,
+    252,
+    388
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    388
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "SK_POINTDLG",
+   "func": "SK_DlgBtnFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      3,
+      0,
+      0
+     ],
+     "text_msg_idx": 618,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      517,
+      59,
+      741,
+      328
+     ],
+     "point": [
+      13,
+      59,
+      224,
+      269
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      321,
+      505,
+      391
+     ],
+     "point": [
+      0,
+      388,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SK_UPBTN",
+     "point": [
+      14,
+      419,
+      56,
+      19
+     ],
+     "func": "SK_DlgBtnFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 623
+    },
+    {
+     "type": "BTN",
+     "id": "SK_DOWNBTN",
+     "point": [
+      100,
+      419,
+      56,
+      19
+     ],
+     "func": "SK_DlgBtnFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 624
+    },
+    {
+     "type": "BTN",
+     "id": "SK_OKBTN",
+     "point": [
+      183,
+      419,
+      56,
+      19
+     ],
+     "func": "SK_DlgBtnFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 159
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SK_POINTAGAIN1BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "point": [
+      15,
+      35,
+      56,
+      20
+     ],
+     "btntext_msg_idx": 198,
+     "font_idx": 0,
+     "func": "SK_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SK_POINTAGAIN2BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "point": [
+      75,
+      35,
+      56,
+      20
+     ],
+     "btntext_msg_idx": 199,
+     "font_idx": 0,
+     "func": "SK_DlgBtnFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SK_POINTAGAIN3BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "point": [
+      135,
+      35,
+      56,
+      20
+     ],
+     "btntext_msg_idx": 201,
+     "font_idx": 0,
+     "func": "SK_DlgBtnFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SK_ICONGRID1",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SK_ICONGRID2",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SK_ICONGRID3",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      330,
+      22,
+      11
+     ],
+     "text_msg_idx": 620,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      355,
+      22,
+      11
+     ],
+     "text_msg_idx": 621,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      380,
+      22,
+      11
+     ],
+     "text_msg_idx": 622,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "SK_POINTSTATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      118,
+      333,
+      135,
+      21
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "SK_USESTATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      118,
+      358,
+      135,
+      21
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "SK_ORIGINALSTATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      118,
+      383,
+      135,
+      21
+     ],
+     "font_idx": 0
+    }
+   ]
+  }
+ ]
+}

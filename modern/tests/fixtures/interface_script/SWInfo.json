@@ -1,0 +1,423 @@
+{
+ "file": "SWInfo.bin",
+ "roots": [
+  {
+   "type": "SEIGEWARINFODLG",
+   "id": "SW_INFODLG",
+   "point": [
+    700,
+    250,
+    252,
+    391
+   ],
+   "point_low": [
+    500,
+    200,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "func": "SW_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 686,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      53,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      28,
+      0,
+      0
+     ],
+     "text_msg_idx": 687,
+     "font_idx": 0
+    },
+    {
+     "type": "LISTDLG",
+     "id": "SW_DEFENSE_LIST",
+     "point": [
+      13,
+      59,
+      203,
+      120
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        212,
+        2,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        212,
+        105,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        212,
+        11,
+        13,
+        94
+       ],
+       "basic_image_idx": 21,
+       "basic_image_rect": [
+        1010,
+        0,
+        1023,
+        136
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      209,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      183,
+      0,
+      0
+     ],
+     "text_msg_idx": 688,
+     "font_idx": 0
+    },
+    {
+     "type": "LISTDLG",
+     "id": "SW_OFFENSE_LIST",
+     "point": [
+      14,
+      214,
+      203,
+      120
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        212,
+        4,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        212,
+        103,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        212,
+        9,
+        13,
+        94
+       ],
+       "basic_image_idx": 21,
+       "basic_image_rect": [
+        1010,
+        0,
+        1023,
+        136
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SW_INFOCLOSEBTN",
+     "point": [
+      184,
+      362,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 159,
+     "func": "SW_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

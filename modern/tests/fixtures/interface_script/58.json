@@ -1,0 +1,292 @@
+{
+ "file": "58.bin",
+ "roots": [
+  {
+   "type": "DISSOLUTIONDLG",
+   "id": "DIS_DISSOLUTIONDLG",
+   "point": [
+    200,
+    200,
+    253,
+    391
+   ],
+   "active": false,
+   "auto_close": false,
+   "movable": true,
+   "func": "DIS_DlgFunc",
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 117,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      104,
+      42,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      118,
+      224,
+      179
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      770,
+      237,
+      949
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "DIS_BASEICONDLG",
+     "point": [
+      105,
+      43,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      13,
+      310,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "id": "DIS_NUMBTN1",
+     "btntext_msg_idx": 84
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      45,
+      310,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "id": "DIS_NUMBTN2",
+     "btntext_msg_idx": 85
+    },
+    {
+     "type": "PUSHUPBTN",
+     "point": [
+      77,
+      310,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "id": "DIS_NUMBTN3",
+     "btntext_msg_idx": 86
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DIS_ICONGRIDDLG1",
+     "func": "DIS_DlgFunc",
+     "point": [
+      10,
+      115,
+      221,
+      176
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DIS_ICONGRIDDLG2",
+     "func": "DIS_DlgFunc",
+     "point": [
+      10,
+      115,
+      221,
+      176
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "DIS_ICONGRIDDLG3",
+     "func": "DIS_DlgFunc",
+     "point": [
+      10,
+      115,
+      221,
+      176
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "DIS_OKBTN",
+     "point": [
+      119,
+      364,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 118,
+     "func": "DIS_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "DIS_CANCELBTN",
+     "point": [
+      181,
+      364,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "DIS_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1162 @@
+{
+ "file": "Guild.bin",
+ "roots": [
+  {
+   "type": "GUILDDLG",
+   "id": "GD_GUILDDLG",
+   "point": [
+    473,
+    209,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    772,
+    603,
+    1024,
+    994
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 422,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      35,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_NAMES",
+     "text_msg_idx": 511,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      111,
+      35,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_NAME",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      53,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_LEVELS",
+     "text_msg_idx": 514,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      111,
+      53,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_LEVEL",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      73,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_MASTERS",
+     "text_msg_idx": 515,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      111,
+      73,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_MASTER",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      93,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_MEMBERNUMS",
+     "text_msg_idx": 516,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      111,
+      93,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_MEMBERNUM",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      113,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_LOCATIONS",
+     "text_msg_idx": 512,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      111,
+      113,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_LOCATION",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      26,
+      133,
+      0,
+      0
+     ],
+     "text_msg_idx": 507,
+     "active": true,
+     "id": "GD_UNIONNAMES",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      111,
+      133,
+      0,
+      0
+     ],
+     "active": false,
+     "id": "GD_UNIONNAME",
+     "font_idx": 0
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "GD_MEMBERINFOPUSHUPBTN",
+     "point": [
+      14,
+      160,
+      69,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 386,
+     "func": "GD_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      186,
+      130,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      801,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      145,
+      186,
+      1,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      827,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      45,
+      185,
+      0,
+      0
+     ],
+     "text_msg_idx": 517,
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "GD_POSITION",
+     "func": "GD_DlgFunc",
+     "point": [
+      146,
+      185,
+      47,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      747,
+      712
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      747,
+      734
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      747,
+      756
+     ],
+     "btntext_msg_idx": 518
+    },
+    {
+     "type": "BTN",
+     "id": "GD_RANK",
+     "func": "GD_DlgFunc",
+     "point": [
+      193,
+      185,
+      44,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      744,
+      712
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      744,
+      734
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      744,
+      756
+     ],
+     "btntext_msg_idx": 138
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      146,
+      186,
+      47,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      724,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      194,
+      187,
+      44,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      827,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      156,
+      185,
+      0,
+      0
+     ],
+     "text_msg_idx": 518,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      193,
+      186,
+      53,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      399,
+      715,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      236,
+      186,
+      1,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      827,
+      399,
+      828,
+      420
+     ]
+    },
+    {
+     "type": "STATIC",
+     "active": false,
+     "point": [
+      202,
+      185,
+      0,
+      0
+     ],
+     "text_msg_idx": 138,
+     "font_idx": 0
+    },
+    {
+     "type": "LISTDLG",
+     "id": "GD_MEMBERLIST",
+     "point": [
+      16,
+      207,
+      203,
+      158
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        210,
+        2,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        441,
+        595,
+        454
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        441,
+        582,
+        454
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        441,
+        569,
+        454
+       ]
+      },
+      {
+       "type": "BTN",
+       "point": [
+        210,
+        145,
+        13,
+        13
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        582,
+        454,
+        595,
+        467
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        569,
+        454,
+        582,
+        467
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        556,
+        454,
+        569,
+        467
+       ]
+      },
+      {
+       "type": "GUAGEBAR",
+       "point": [
+        210,
+        11,
+        13,
+        134
+       ],
+       "basic_image_idx": 21,
+       "basic_image_rect": [
+        1010,
+        0,
+        1023,
+        136
+       ],
+       "children": [
+        {
+         "type": "BTN",
+         "point": [
+          0,
+          0,
+          13,
+          24
+         ],
+         "basic_image_idx": 0,
+         "basic_image_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "overimage_idx": 0,
+         "overimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ],
+         "pressimage_idx": 0,
+         "pressimage_rect": [
+          912,
+          50,
+          925,
+          74
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "GD_GUILFUNCPUSHUPBTN",
+     "point": [
+      91,
+      160,
+      69,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 508,
+     "func": "GD_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "GD_BANMEMBER",
+     "func": "GD_DlgFunc",
+     "point": [
+      18,
+      42,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 388
+    },
+    {
+     "type": "BTN",
+     "id": "GD_GIVEMEMBERNICK",
+     "func": "GD_DlgFunc",
+     "point": [
+      91,
+      42,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 390
+    },
+    {
+     "type": "BTN",
+     "id": "GD_GIVEMEMBERRANK",
+     "func": "GD_DlgFunc",
+     "point": [
+      164,
+      42,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 391
+    },
+    {
+     "type": "BTN",
+     "id": "GD_INVITEMEMBER",
+     "func": "GD_DlgFunc",
+     "point": [
+      18,
+      64,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 387
+    },
+    {
+     "type": "BTN",
+     "id": "GD_SECEDE",
+     "func": "GD_DlgFunc",
+     "point": [
+      91,
+      64,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 389
+    },
+    {
+     "type": "BTN",
+     "id": "GD_NOTICE",
+     "func": "GD_DlgFunc",
+     "point": [
+      164,
+      64,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 520
+    },
+    {
+     "type": "BTN",
+     "id": "GD_INVITEUNION",
+     "func": "GD_DlgFunc",
+     "point": [
+      18,
+      86,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 671
+    },
+    {
+     "type": "BTN",
+     "id": "GD_SECEDEUNION",
+     "func": "GD_DlgFunc",
+     "point": [
+      91,
+      86,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 672
+    },
+    {
+     "type": "BTN",
+     "id": "GD_REMOVEUNION",
+     "func": "GD_DlgFunc",
+     "point": [
+      164,
+      86,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 673
+    },
+    {
+     "type": "BTN",
+     "id": "GD_DECLARE",
+     "func": "GD_DlgFunc",
+     "point": [
+      18,
+      108,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 567
+    },
+    {
+     "type": "BTN",
+     "id": "GD_SUGGEST",
+     "func": "GD_DlgFunc",
+     "point": [
+      91,
+      108,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 556
+    },
+    {
+     "type": "BTN",
+     "id": "GD_SURRENDER",
+     "func": "GD_DlgFunc",
+     "point": [
+      164,
+      108,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 557
+    },
+    {
+     "type": "BTN",
+     "id": "GD_PLUSTIME",
+     "func": "GD_DlgFunc",
+     "point": [
+      18,
+      130,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 884
+    },
+    {
+     "type": "BTN",
+     "id": "GD_MUNHA",
+     "func": "GD_DlgFunc",
+     "point": [
+      91,
+      130,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 903
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      130,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      164,
+      130,
+      71,
+      18
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GD_RELATIONBTN",
+     "point": [
+      168,
+      160,
+      69,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      700,
+      691,
+      770,
+      711
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      700,
+      713,
+      770,
+      732
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      700,
+      735,
+      770,
+      755
+     ],
+     "btntext_msg_idx": 575,
+     "func": "GD_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

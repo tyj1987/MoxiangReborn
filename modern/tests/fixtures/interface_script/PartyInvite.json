@@ -1,0 +1,171 @@
+{
+ "file": "PartyInvite.bin",
+ "roots": [
+  {
+   "type": "PA_INVITEDLG",
+   "point": [
+    413,
+    309,
+    197,
+    150
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": true,
+   "id": "PA_INVITEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 487,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "PA_INVITER",
+     "point": [
+      10,
+      35,
+      187,
+      98
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      87,
+      0,
+      0
+     ],
+     "text_msg_idx": 482
+    },
+    {
+     "type": "STATIC",
+     "id": "PA_INVITEDISTRIBUTE",
+     "point": [
+      74,
+      87,
+      69,
+      187
+     ]
+    },
+    {
+     "type": "BTN",
+     "point": [
+      28,
+      124,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      792,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      792,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      792,
+      190,
+      847,
+      209
+     ],
+     "func": "PA_BtnFunc",
+     "id": "PA_INVITEOK",
+     "btntext_msg_idx": 158
+    },
+    {
+     "type": "BTN",
+     "point": [
+      118,
+      124,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      792,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      792,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      792,
+      190,
+      847,
+      209
+     ],
+     "func": "PA_BtnFunc",
+     "id": "PA_INVITECANCEL",
+     "btntext_msg_idx": 224
+    }
+   ]
+  }
+ ]
+}

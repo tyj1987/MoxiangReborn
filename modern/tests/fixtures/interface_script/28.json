@@ -1,0 +1,374 @@
+{
+ "file": "28.bin",
+ "roots": [
+  {
+   "type": "EXCHANGEDLG",
+   "id": "XCI_DIALOG",
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "point": [
+    417,
+    121,
+    252,
+    390
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "func": "XCI_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 169,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "XCI_BTN_CLOSE",
+     "func": "XCI_DlgFunc",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      15,
+      40,
+      0,
+      0
+     ],
+     "text_msg_idx": 188
+    },
+    {
+     "type": "STATIC",
+     "id": "XCI_INFO1",
+     "point": [
+      70,
+      40,
+      135,
+      21
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      15,
+      200,
+      0,
+      0
+     ],
+     "text_msg_idx": 189
+    },
+    {
+     "type": "STATIC",
+     "id": "XCI_INFO2",
+     "point": [
+      70,
+      200,
+      135,
+      21
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      770,
+      237,
+      859
+     ],
+     "point": [
+      13,
+      68,
+      224,
+      89
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      770,
+      237,
+      859
+     ],
+     "point": [
+      13,
+      228,
+      224,
+      89
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      97,
+      733,
+      130,
+      754
+     ],
+     "point": [
+      13,
+      165,
+      33,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      97,
+      733,
+      130,
+      754
+     ],
+     "point": [
+      13,
+      325,
+      33,
+      21
+     ]
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "XCI_BTN_LOCK",
+     "point": [
+      13,
+      361,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 280,
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "XCI_BTN_EXCHANGE",
+     "point": [
+      73,
+      361,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 281,
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "XCI_BTN_EXIT",
+     "point": [
+      187,
+      361,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 282,
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "XCI_BTN_INPUTMONEY",
+     "point": [
+      167,
+      326,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 283,
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "EDITBOX",
+     "id": "XCI_EB_OPMONEY",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ],
+     "point": [
+      54,
+      165,
+      107,
+      21
+     ],
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "EDITBOX",
+     "id": "XCI_EB_MYMONEY",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      281,
+      959,
+      302
+     ],
+     "point": [
+      54,
+      325,
+      107,
+      22
+     ],
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "XCI_ICD_OPPOSITE",
+     "point": [
+      10,
+      65,
+      225,
+      90
+     ],
+     "func": "XCI_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "XCI_ICD_MINE",
+     "point": [
+      10,
+      225,
+      225,
+      90
+     ],
+     "func": "XCI_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,789 @@
+{
+ "file": "Titan_inventory.bin",
+ "roots": [
+  {
+   "type": "TITAN_INVENTORY_DLG",
+   "point": [
+    188,
+    83,
+    0,
+    0
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    334,
+    683,
+    376,
+    724
+   ],
+   "id": "TITAN_INVENTORY_DLG",
+   "func": "titan_inventory_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 955,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      35,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      970
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      74,
+      39,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      79,
+      49,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 913
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      74,
+      83,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      85,
+      93,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 914
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      29,
+      83,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      34,
+      93,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 915
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      74,
+      127,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      80,
+      137,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 916
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      119,
+      83,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      124,
+      93,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 917
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      119,
+      171,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      124,
+      181,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 918
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      29,
+      171,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      380,
+      684,
+      423,
+      727
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      34,
+      181,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 919
+    },
+    {
+     "type": "WEAREDDLG",
+     "id": "TITAN_INVENTORY_WEAREDDLG",
+     "func": "titan_inventory_DlgFunc",
+     "point": [
+      0,
+      0,
+      173,
+      216
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "TITAN_INVENTORY_INVEN_SET_DLG",
+     "func": "titan_inventory_DlgFunc",
+     "point": [
+      2,
+      0,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      188,
+      39,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      334,
+      683,
+      376,
+      724
+     ]
+    },
+    {
+     "type": "STATIC"
+    }
+   ]
+  },
+  {
+   "type": "STATIC"
+  },
+  {
+   "type": "STATIC"
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    8,
+    232,
+    0,
+    0
+   ],
+   "text_msg_idx": 920
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    42,
+    235,
+    0,
+    0
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    184,
+    52,
+    235,
+    70
+   ]
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    42,
+    234,
+    28,
+    12
+   ],
+   "id": "TITAN_INVENTORY_TYPE"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    10,
+    271,
+    0,
+    0
+   ],
+   "text_msg_idx": 921
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    10,
+    293,
+    0,
+    0
+   ],
+   "text_msg_idx": 923
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    10,
+    308,
+    0,
+    0
+   ],
+   "text_msg_idx": 924
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    10,
+    325,
+    0,
+    0
+   ],
+   "text_msg_idx": 925
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    10,
+    344,
+    0,
+    0
+   ],
+   "text_msg_idx": 926
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    10,
+    361,
+    0,
+    0
+   ],
+   "text_msg_idx": 927
+  },
+  {
+   "type": "GUAGEN",
+   "id": "TITAN_INVENTORY_DEFENCE_HWA",
+   "point": [
+    42,
+    297,
+    1,
+    10
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    1010,
+    186,
+    1011,
+    196
+   ]
+  },
+  {
+   "type": "GUAGEN",
+   "id": "TITAN_INVENTORY_DEFENCE_SU",
+   "point": [
+    42,
+    313,
+    1,
+    10
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    1010,
+    201,
+    1011,
+    211
+   ]
+  },
+  {
+   "type": "GUAGEN",
+   "id": "TITAN_INVENTORY_DEFENCE_MOK",
+   "point": [
+    42,
+    330,
+    1,
+    10
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    1010,
+    216,
+    1011,
+    226
+   ]
+  },
+  {
+   "type": "GUAGEN",
+   "id": "TITAN_INVENTORY_DEFENCE_KUM",
+   "point": [
+    42,
+    347,
+    1,
+    10
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    1010,
+    227,
+    1011,
+    237
+   ]
+  },
+  {
+   "type": "GUAGEN",
+   "id": "TITAN_INVENTORY_DEFENCE_TO",
+   "point": [
+    42,
+    364,
+    1,
+    10
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    998,
+    216,
+    999,
+    226
+   ]
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    42,
+    291,
+    20,
+    30
+   ],
+   "id": "TITAN_INVENTORY_CHARHWA"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    42,
+    308,
+    20,
+    30
+   ],
+   "id": "TITAN_INVENTORY_CHARSU"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    42,
+    325,
+    20,
+    30
+   ],
+   "id": "TITAN_INVENTORY_CHARMOK"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    42,
+    343,
+    20,
+    30
+   ],
+   "id": "TITAN_INVENTORY_CHARKUM"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    42,
+    359,
+    20,
+    30
+   ],
+   "id": "TITAN_INVENTORY_CHARTO"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    105,
+    232,
+    0,
+    0
+   ],
+   "text_msg_idx": 928
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    105,
+    249,
+    0,
+    0
+   ],
+   "text_msg_idx": 929
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    171,
+    235,
+    0,
+    0
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    170,
+    182,
+    241,
+    217
+   ]
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    117,
+    271,
+    0,
+    0
+   ],
+   "text_msg_idx": 930
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    141,
+    288,
+    0,
+    0
+   ],
+   "text_msg_idx": 931
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    171,
+    272,
+    0,
+    0
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    170,
+    182,
+    241,
+    217
+   ]
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    117,
+    308,
+    0,
+    0
+   ],
+   "text_msg_idx": 932
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    129,
+    323,
+    0,
+    0
+   ],
+   "text_msg_idx": 933
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    171,
+    309,
+    0,
+    0
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    170,
+    182,
+    241,
+    217
+   ]
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    141,
+    345,
+    0,
+    0
+   ],
+   "text_msg_idx": 957
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    171,
+    346,
+    0,
+    0
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    170,
+    182,
+    241,
+    200
+   ]
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    171,
+    232,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_CHARATTACK"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    171,
+    249,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_LONGATTACK"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    171,
+    270,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_MAGICATTACK"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    171,
+    287,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_CRITICAL"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    171,
+    307,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_DISTANCE"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    171,
+    323,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_CHARDEFENSE"
+  },
+  {
+   "type": "STATIC",
+   "font_idx": 0,
+   "point": [
+    170,
+    344,
+    69,
+    15
+   ],
+   "id": "TITAN_INVENTORY_CHARLIFE"
+  }
+ ]
+}

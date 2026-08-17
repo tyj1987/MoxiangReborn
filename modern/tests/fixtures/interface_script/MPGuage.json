@@ -1,0 +1,130 @@
+{
+ "file": "MPGuage.bin",
+ "roots": [
+  {
+   "type": "MPGUAGEDLG",
+   "point": [
+    772,
+    0,
+    252,
+    106
+   ],
+   "point_low": [
+    448,
+    0,
+    252,
+    106
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    105
+   ],
+   "active": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "MP_GUAGEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "MP_TITLE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 491,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      3,
+      103,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      256,
+      388,
+      502,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      16,
+      34,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      928,
+      88,
+      974,
+      107
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "MP_GTIME",
+     "point": [
+      65,
+      15,
+      0,
+      0
+     ],
+     "font_idx": 3
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      190,
+      34,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      943,
+      128,
+      989,
+      147
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "MP_GEXPGUAGE",
+     "point": [
+      0,
+      73,
+      250,
+      32
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "MP_GEXPERCENT",
+     "point": [
+      104,
+      76,
+      0,
+      0
+     ],
+     "font_idx": 0
+    }
+   ]
+  }
+ ]
+}

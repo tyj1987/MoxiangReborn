@@ -1,0 +1,280 @@
+{
+ "file": "EventMapCount.bin",
+ "roots": [
+  {
+   "type": "EVENTMAPCOUNTDLG",
+   "point": [
+    772,
+    0,
+    252,
+    180
+   ],
+   "point_low": [
+    548,
+    0,
+    252,
+    180
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    90
+   ],
+   "active": false,
+   "movable": false,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "GDT_COUNTDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "GDT_TITLE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 499,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      3,
+      87,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      256,
+      388,
+      502,
+      390
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      315,
+      505,
+      391
+     ],
+     "point": [
+      0,
+      90,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      12,
+      125,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      97,
+      126,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      130,
+      1021,
+      146
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      125,
+      125,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      212,
+      126,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      130,
+      1021,
+      146
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      16,
+      34,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      928,
+      88,
+      974,
+      107
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_GTIME",
+     "point": [
+      65,
+      15,
+      0,
+      0
+     ],
+     "font_idx": 3
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      190,
+      34,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      943,
+      128,
+      989,
+      147
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GDT_OUTBTN",
+     "func": "GDT_DlgFunc",
+     "point": [
+      1,
+      160,
+      251,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      663,
+      625,
+      772,
+      646
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      663,
+      647,
+      772,
+      668
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      663,
+      669,
+      772,
+      689
+     ],
+     "btntext_msg_idx": 500
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_GUILDNAME1",
+     "point": [
+      30,
+      90,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_GUILDMEMBER1",
+     "point": [
+      98,
+      115,
+      0,
+      0
+     ],
+     "font_idx": 3
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_GUILDNAME2",
+     "point": [
+      141,
+      90,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_GUILDMEMBER2",
+     "point": [
+      214,
+      115,
+      0,
+      0
+     ],
+     "font_idx": 3
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      160,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      505,
+      390
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,272 @@
+{
+ "file": "TitanUpgrade.bin",
+ "roots": [
+  {
+   "type": "TITANUPGRADE_DLG",
+   "point": [
+    132,
+    0,
+    252,
+    387
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "id": "TITANUPGRADE_DLG",
+   "func": "TitanUpgrade_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 72,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      31,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      1010,
+      850
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      100,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      518,
+      60,
+      741,
+      283
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      23,
+      39,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      15,
+      78,
+      57,
+      120
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "TITANUPGRADE_TITANICONDLG",
+     "func": "TitanUpgrade_DlgFunc",
+     "point": [
+      24,
+      40,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      73,
+      36,
+      0,
+      0
+     ],
+     "text_msg_idx": 987
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      75,
+      60,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      93,
+      78,
+      237,
+      99
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      75,
+      60,
+      40,
+      40
+     ],
+     "id": "TITANUPGRADE_NAME_STATIC"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "TITANUPGRADE_ICONGRIDDLG",
+     "func": "TitanUpgrade_DlgFunc",
+     "point": [
+      11,
+      96,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      10,
+      332,
+      0,
+      0
+     ],
+     "text_msg_idx": 986
+    },
+    {
+     "type": "STATIC",
+     "id": "TITANUPGRADE_RFEE",
+     "func": "TitanUpgrade_RegistDlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      214
+     ],
+     "point": [
+      101,
+      333,
+      101,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      222,
+      332,
+      0,
+      0
+     ],
+     "text_msg_idx": 196
+    },
+    {
+     "type": "BTN",
+     "id": "TITANUPGRADE_BTN_OK",
+     "point": [
+      102,
+      363,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "TitanUpgrade_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

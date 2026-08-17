@@ -1,0 +1,240 @@
+{
+ "file": "51.bin",
+ "roots": [
+  {
+   "type": "MONSTERGUAGEDLG",
+   "point": [
+    448,
+    0,
+    149,
+    48
+   ],
+   "point_low": [
+    325,
+    0,
+    149,
+    48
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    411,
+    490,
+    551,
+    509
+   ],
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    132,
+    28
+   ],
+   "active": false,
+   "id": "CG_MONSTERGUAGEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      403,
+      490,
+      411,
+      509
+     ],
+     "point": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      406,
+      512,
+      546,
+      550
+     ],
+     "point": [
+      0,
+      19,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      404,
+      510,
+      406,
+      540
+     ],
+     "point": [
+      0,
+      20,
+      0,
+      0
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      404,
+      510,
+      406,
+      540
+     ],
+     "point": [
+      138,
+      20,
+      0,
+      0
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      404,
+      510,
+      540,
+      512
+     ],
+     "point": [
+      2,
+      20,
+      0,
+      0
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      404,
+      510,
+      540,
+      512
+     ],
+     "point": [
+      2,
+      48,
+      0,
+      0
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_MONSTERGUAGENAME",
+     "point": [
+      10,
+      0,
+      121,
+      13
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_MONSTERGUAGELIFEBASE",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      186,
+      1011,
+      196
+     ],
+     "point": [
+      10,
+      25,
+      1,
+      10
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      18,
+      40,
+      40
+     ],
+     "id": "CG_GUILDNAME",
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      34,
+      40,
+      40
+     ],
+     "id": "CG_GUILDUNION_NAME",
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      26,
+      140,
+      40
+     ],
+     "id": "CG_NPCNAME",
+     "active": false
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_MONSTERGUAGELIFE",
+     "point": [
+      10,
+      25,
+      120,
+      10
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_MONSTERGUAGELIFETEXT",
+     "point": [
+      10,
+      19,
+      40,
+      40
+     ],
+     "active": false
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_MONSTERGUAGESHIELD",
+     "point": [
+      10,
+      40,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      226,
+      1011,
+      236
+     ],
+     "active": false
+    }
+   ]
+  }
+ ]
+}

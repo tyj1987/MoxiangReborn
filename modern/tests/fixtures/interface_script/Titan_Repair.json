@@ -1,0 +1,223 @@
+{
+ "file": "Titan_Repair.bin",
+ "roots": [
+  {
+   "type": "TITAN_REPAIR_DLG",
+   "point": [
+    380,
+    267,
+    197,
+    345
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    165
+   ],
+   "id": "TITAN_REPAIR_DLG",
+   "func": "Titan_Repair_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 1003,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      55,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      808,
+      1010,
+      863
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      32,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      941,
+      127,
+      989,
+      147
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      175,
+      32,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      925,
+      85,
+      980,
+      110
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      74,
+      32,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 1003
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      27,
+      62,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 1001
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      27,
+      82,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 1002
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_REPAIR_ALL",
+     "point": [
+      50,
+      130,
+      63,
+      18
+     ],
+     "func": "Titan_Repair_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      765,
+      227
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      227,
+      765,
+      245
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      245,
+      765,
+      263
+     ],
+     "btntext_msg_idx": 988
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_REPAIR_PART",
+     "point": [
+      130,
+      130,
+      63,
+      18
+     ],
+     "func": "Titan_Repair_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      209,
+      765,
+      227
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      227,
+      765,
+      245
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      245,
+      765,
+      263
+     ],
+     "btntext_msg_idx": 989
+    }
+   ]
+  }
+ ]
+}

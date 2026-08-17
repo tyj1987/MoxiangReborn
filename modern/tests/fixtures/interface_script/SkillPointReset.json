@@ -1,0 +1,338 @@
+{
+ "file": "SkillPointReset.bin",
+ "roots": [
+  {
+   "type": "SKILLPOINTRESETDLG",
+   "point": [
+    446,
+    210,
+    252,
+    388
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    388
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "SK_POINT_RESETDLG",
+   "func": "SK_Reset_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      3,
+      0,
+      0
+     ],
+     "text_msg_idx": 1010,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      517,
+      59,
+      741,
+      328
+     ],
+     "point": [
+      13,
+      59,
+      224,
+      269
+     ]
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      321,
+      505,
+      391
+     ],
+     "point": [
+      0,
+      388,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "SK_POINT_RESETBTN",
+     "point": [
+      100,
+      419,
+      56,
+      19
+     ],
+     "func": "SK_Reset_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 1014
+    },
+    {
+     "type": "BTN",
+     "id": "SK_POINT_OKBTN",
+     "point": [
+      183,
+      419,
+      56,
+      19
+     ],
+     "func": "SK_Reset_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 159
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SK_POINT_RESET1BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "point": [
+      15,
+      35,
+      56,
+      20
+     ],
+     "btntext_msg_idx": 198,
+     "font_idx": 0,
+     "func": "SK_Reset_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SK_POINT_RESET2BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "point": [
+      75,
+      35,
+      56,
+      20
+     ],
+     "btntext_msg_idx": 199,
+     "font_idx": 0,
+     "func": "SK_Reset_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "SK_POINT_RESET3BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "point": [
+      135,
+      35,
+      56,
+      20
+     ],
+     "btntext_msg_idx": 201,
+     "font_idx": 0,
+     "func": "SK_Reset_DlgFunc"
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SK_POINT_ICONGRID1",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SK_POINT_ICONGRID2",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "SK_POINT_ICONGRID3",
+     "point": [
+      10,
+      56,
+      230,
+      275
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      23,
+      330,
+      22,
+      11
+     ],
+     "text_msg_idx": 1011,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      23,
+      355,
+      22,
+      11
+     ],
+     "text_msg_idx": 1012,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      28,
+      380,
+      22,
+      11
+     ],
+     "text_msg_idx": 1013,
+     "font_idx": 0
+    }
+   ]
+  }
+ ]
+}

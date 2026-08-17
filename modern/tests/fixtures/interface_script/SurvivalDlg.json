@@ -1,0 +1,94 @@
+{
+ "file": "SurvivalDlg.bin",
+ "roots": [
+  {
+   "type": "SURVCOUNTERDLG",
+   "point": [
+    827,
+    0,
+    252,
+    180
+   ],
+   "point_low": [
+    527,
+    0,
+    252,
+    180
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": false,
+   "id": "SVV_SURVCOUNTERDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 907,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      5,
+      52,
+      0,
+      0
+     ],
+     "text_msg_idx": 908
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      5,
+      99,
+      0,
+      0
+     ],
+     "text_msg_idx": 909
+    },
+    {
+     "type": "STATIC",
+     "id": "SVV_ALIVECOUNTER",
+     "font_idx": 3,
+     "point": [
+      135,
+      32,
+      37,
+      34
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SVV_WINNERNAME",
+     "font_idx": 0,
+     "point": [
+      90,
+      102,
+      95,
+      11
+     ]
+    }
+   ]
+  }
+ ]
+}

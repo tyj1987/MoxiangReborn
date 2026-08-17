@@ -1,0 +1,221 @@
+{
+ "file": "WantRegist.bin",
+ "roots": [
+  {
+   "type": "WANTREGISTDLG",
+   "point": [
+    414,
+    290,
+    197,
+    149
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    898,
+    149
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "WANTREG_DLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 202,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "WANTREG_WANTEDNAME",
+     "point": [
+      23,
+      28,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "WANTREG_INFO1",
+     "point": [
+      120,
+      28,
+      0,
+      0
+     ],
+     "text_msg_idx": 207,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "WANTREG_INFO2",
+     "point": [
+      28,
+      46,
+      0,
+      0
+     ],
+     "text_msg_idx": 208,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "id": "WANTREG_INFO3",
+     "point": [
+      20,
+      67,
+      0,
+      0
+     ],
+     "text_msg_idx": 209,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      98,
+      732,
+      133,
+      754
+     ],
+     "point": [
+      10,
+      94,
+      35,
+      22
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ],
+     "point": [
+      48,
+      95,
+      120,
+      21
+     ],
+     "id": "WANTREG_PRIZEEDIT"
+    },
+    {
+     "type": "BTN",
+     "id": "WANTREG_OK",
+     "point": [
+      55,
+      122,
+      56,
+      19
+     ],
+     "func": "WANTREG_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "BTN",
+     "id": "WANTREG_CANCEL",
+     "point": [
+      120,
+      122,
+      56,
+      19
+     ],
+     "func": "WANTREG_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 224
+    }
+   ]
+  }
+ ]
+}

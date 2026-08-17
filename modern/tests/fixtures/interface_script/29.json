@@ -1,0 +1,185 @@
+{
+ "file": "29.bin",
+ "roots": [
+  {
+   "type": "CHARSTATEDLG",
+   "id": "CSS_DIALOG",
+   "point": [
+    814,
+    726,
+    168,
+    42
+   ],
+   "active": true,
+   "movable": false,
+   "func": "CSS_DlgFunc",
+   "children": [
+    {
+     "type": "PUSHUPBTN",
+     "id": "CSS_BTN_PK",
+     "point": [
+      0,
+      0,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      380,
+      427,
+      422,
+      469
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      338,
+      427,
+      380,
+      469
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 357,
+     "func": "CSS_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CSS_BTN_MOVE",
+     "point": [
+      42,
+      0,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      213,
+      814,
+      255,
+      856
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      213,
+      856,
+      255,
+      898
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 358,
+     "func": "CSS_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CSS_BTN_KYUNGGONG",
+     "point": [
+      84,
+      0,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      171,
+      856,
+      213,
+      898
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      171,
+      814,
+      213,
+      856
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 359,
+     "func": "CSS_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CSS_BTN_PEACEWAR",
+     "point": [
+      126,
+      0,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      255,
+      856,
+      297,
+      898
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      255,
+      814,
+      297,
+      856
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 360,
+     "func": "CSS_DlgFunc"
+    },
+    {
+     "type": "PUSHUPBTN",
+     "id": "CSS_BTN_UNGI",
+     "point": [
+      168,
+      0,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      129,
+      856,
+      171,
+      898
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      129,
+      814,
+      171,
+      856
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 361,
+     "func": "CSS_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

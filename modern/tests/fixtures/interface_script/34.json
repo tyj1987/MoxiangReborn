@@ -1,0 +1,57 @@
+{
+ "file": "34.bin",
+ "roots": [
+  {
+   "type": "HELPERSPEECHDLG",
+   "point": [
+    100,
+    100,
+    225,
+    391
+   ],
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "auto_close": false,
+   "id": "HSI_DLG",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "HSI_EXITBTN",
+     "func": "HSI_ExitBtnFunc",
+     "point": [
+      295,
+      0,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      925,
+      11,
+      938,
+      24
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      925,
+      24,
+      938,
+      37
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      925,
+      37,
+      938,
+      50
+     ]
+    }
+   ]
+  }
+ ]
+}

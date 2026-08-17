@@ -1,0 +1,64 @@
+{
+ "file": "BigMap.bin",
+ "roots": [
+  {
+   "type": "BIGMAPDLG",
+   "id": "BM_DIALOG",
+   "point": [
+    256,
+    51,
+    0,
+    0
+   ],
+   "point_low": [
+    136,
+    31,
+    0,
+    0
+   ],
+   "active": false,
+   "movable": false,
+   "caption_rect": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "auto_close": true,
+   "alpha": 180,
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      491,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      211,
+      653,
+      233,
+      675
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      211,
+      653,
+      233,
+      675
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      211,
+      653,
+      233,
+      675
+     ]
+    }
+   ]
+  }
+ ]
+}

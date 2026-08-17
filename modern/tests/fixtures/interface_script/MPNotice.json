@@ -1,0 +1,309 @@
+{
+ "file": "MPNotice.bin",
+ "roots": [
+  {
+   "type": "MPNOTICEDLG",
+   "point": [
+    386,
+    218,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "MP_NOTICEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 493,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      32,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      28,
+      55,
+      70
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      33,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      381,
+      641,
+      421,
+      681
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      86,
+      42,
+      42
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      28,
+      55,
+      70
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      87,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      342,
+      641,
+      381,
+      681
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      140,
+      40,
+      40
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      28,
+      55,
+      70
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      141,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      302,
+      641,
+      342,
+      681
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      194,
+      40,
+      40
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      28,
+      55,
+      70
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      195,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      262,
+      641,
+      302,
+      681
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      68,
+      47,
+      0,
+      0
+     ],
+     "text_msg_idx": 494,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      68,
+      101,
+      0,
+      0
+     ],
+     "text_msg_idx": 495,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      68,
+      155,
+      0,
+      0
+     ],
+     "text_msg_idx": 496,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      68,
+      209,
+      0,
+      0
+     ],
+     "text_msg_idx": 497,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      246,
+      224,
+      130
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      664,
+      1009,
+      794
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      374,
+      224,
+      1
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      785,
+      990,
+      1009,
+      991
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      248,
+      0,
+      0
+     ],
+     "text_msg_idx": 119,
+     "font_idx": 0
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "MP_NCAUTION",
+     "point": [
+      14,
+      274,
+      224,
+      42
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "MP_NREDCAUTION",
+     "point": [
+      14,
+      310,
+      224,
+      42
+     ]
+    }
+   ]
+  }
+ ]
+}

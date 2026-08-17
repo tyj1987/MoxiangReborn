@@ -1,0 +1,641 @@
+{
+ "file": "CharChange.bin",
+ "roots": [
+  {
+   "type": "CHARCHANGEEDLG",
+   "point": [
+    772,
+    100,
+    252,
+    270
+   ],
+   "point_low": [
+    548,
+    100,
+    252,
+    270
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    261
+   ],
+   "caption_rect": [
+    0,
+    0,
+    252,
+    19
+   ],
+   "movable": true,
+   "active": false,
+   "id": "CHA_CHANGEDLG",
+   "func": "CHA_ChangeDlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      257,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 689,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      259,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      251,
+      1022
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      56,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      621,
+      237,
+      761
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      35,
+      100,
+      20
+     ],
+     "text_msg_idx": 38
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      71,
+      31,
+      100,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      706,
+      376,
+      807,
+      397
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      73,
+      31,
+      100,
+      20
+     ],
+     "id": "CHA_NAME",
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      69,
+      22,
+      11
+     ],
+     "text_msg_idx": 51
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      65,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CHA_SexType",
+     "point": [
+      120,
+      65,
+      100,
+      20
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      99,
+      22,
+      11
+     ],
+     "text_msg_idx": 41
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      95,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CHA_HairType",
+     "point": [
+      120,
+      95,
+      100,
+      20
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      129,
+      22,
+      11
+     ],
+     "text_msg_idx": 42
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      91,
+      125,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CHA_FaceType",
+     "point": [
+      120,
+      125,
+      100,
+      20
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      155,
+      22,
+      11
+     ],
+     "text_msg_idx": 52
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      175,
+      22,
+      11
+     ],
+     "text_msg_idx": 53
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "point": [
+      53,
+      221,
+      56,
+      19
+     ],
+     "id": "CHA_CharMake",
+     "func": "CHA_ChangeDlgFunc",
+     "btntext_msg_idx": 49
+    },
+    {
+     "type": "BTN",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "point": [
+      143,
+      221,
+      56,
+      19
+     ],
+     "id": "CHA_CharCancel",
+     "func": "CHA_ChangeDlgFunc",
+     "btntext_msg_idx": 224
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_SexType1",
+     "point": [
+      65,
+      66,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CHA_ChangeDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_SexType2",
+     "point": [
+      197,
+      66,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CHA_ChangeDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_HairType1",
+     "point": [
+      65,
+      96,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CHA_ChangeDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_HairType2",
+     "point": [
+      197,
+      96,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CHA_ChangeDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_FaceType1",
+     "point": [
+      65,
+      127,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      604,
+      612,
+      626,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      604,
+      631,
+      626,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      604,
+      650,
+      626,
+      669
+     ],
+     "func": "CHA_ChangeDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_FaceType2",
+     "point": [
+      197,
+      127,
+      22,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      627,
+      612,
+      649,
+      631
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      627,
+      631,
+      649,
+      650
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      627,
+      650,
+      649,
+      669
+     ],
+     "func": "CHA_ChangeDlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      84,
+      151,
+      107,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      706,
+      327,
+      813,
+      342
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "id": "CHA_Height",
+     "point": [
+      94,
+      155,
+      157,
+      12
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        12,
+        12
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ]
+      }
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      84,
+      171,
+      107,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      706,
+      327,
+      813,
+      342
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "id": "CHA_Width",
+     "point": [
+      94,
+      175,
+      157,
+      12
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        12,
+        12
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        816,
+        330,
+        828,
+        342
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,270 @@
+{
+ "file": "GuildRank.bin",
+ "roots": [
+  {
+   "type": "GUILDRANKDLG",
+   "point": [
+    140,
+    200,
+    198,
+    152
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    159
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    253,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "id": "GDR_RANKDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 391,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      157,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      505,
+      342,
+      702,
+      345
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GDR_MEMBERNAME",
+     "point": [
+      15,
+      10,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GDR_OKBTN",
+     "func": "GD_DlgFunc",
+     "active": false,
+     "point": [
+      73,
+      120,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "BTN",
+     "id": "GDR_DOKBTN",
+     "func": "GD_DlgFunc",
+     "active": false,
+     "point": [
+      73,
+      120,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      846,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      846,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      846,
+      209
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "COMBOBOX",
+     "active": false,
+     "id": "GDR_DRANKCOMBOBOX",
+     "point": [
+      47,
+      75,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      830,
+      376,
+      937,
+      397
+     ],
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        87,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ]
+      }
+     ]
+    },
+    {
+     "type": "COMBOBOX",
+     "active": false,
+     "id": "GDR_RANKCOMBOBOX",
+     "point": [
+      47,
+      75,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      830,
+      376,
+      937,
+      397
+     ],
+     "children": [
+      {
+       "type": "PUSHUPBTN",
+       "point": [
+        87,
+        1,
+        19,
+        19
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        938,
+        27,
+        957,
+        46
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        938,
+        46,
+        957,
+        65
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        938,
+        65,
+        957,
+        84
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,133 @@
+{
+ "file": "Channel.bin",
+ "roots": [
+  {
+   "type": "CHANNELDLG",
+   "id": "CHA_CHANNELDLG",
+   "point": [
+    380,
+    150,
+    252,
+    391
+   ],
+   "point_low": [
+    274,
+    103,
+    252,
+    391
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 450,
+     "font_idx": 2
+    },
+    {
+     "type": "LISTCTRL",
+     "id": "CHA_CHANNELLIST",
+     "point": [
+      14,
+      43,
+      226,
+      296
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_CONNNECTOK",
+     "func": "CHA_DlgBtnFunc",
+     "point": [
+      114,
+      353,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 29
+    },
+    {
+     "type": "BTN",
+     "id": "CHA_CONNNECTCANCEL",
+     "func": "CHA_DlgBtnFunc",
+     "point": [
+      183,
+      353,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 224
+    }
+   ]
+  }
+ ]
+}

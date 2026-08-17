@@ -1,0 +1,378 @@
+{
+ "file": "MiniNote.bin",
+ "roots": [
+  {
+   "type": "MINNOTEDLG",
+   "point": [
+    350,
+    300,
+    252,
+    170
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    170
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "alpha": 255,
+   "auto_close": true,
+   "id": "NOTE_MINNOTEDLG",
+   "children": [
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "NOTE_MRTITLE",
+     "text_msg_idx": 343,
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "id": "NOTE_MWTITLE",
+     "text_msg_idx": 343,
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      77,
+      34,
+      110,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      671,
+      376,
+      781,
+      397
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      169,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      390,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      19,
+      32,
+      0,
+      0
+     ],
+     "text_msg_idx": 347,
+     "id": "NOTE_MRECEIVER",
+     "active": false
+    },
+    {
+     "type": "EDITBOX",
+     "id": "NOTE_MRECEIVEREDIT",
+     "point": [
+      77,
+      33,
+      101,
+      18
+     ],
+     "active": false
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "NOTE_MWNOTETEXTREA",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1001,
+      708
+     ],
+     "point": [
+      19,
+      68,
+      251,
+      69
+     ],
+     "active": false
+    },
+    {
+     "type": "BTN",
+     "id": "NOTE_MSENDOKBTN",
+     "point": [
+      140,
+      145,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      740,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      740,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      740,
+      209
+     ],
+     "btntext_msg_idx": 349,
+     "font_idx": 0,
+     "active": false,
+     "func": "Note_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "NOTE_MSENDCANCELBTN",
+     "point": [
+      196,
+      145,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "font_idx": 0,
+     "active": false,
+     "func": "Note_DlgBtnFunc"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      77,
+      33,
+      0,
+      0
+     ],
+     "id": "NOTE_MSENDERSTC",
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      19,
+      32,
+      0,
+      0
+     ],
+     "text_msg_idx": 344,
+     "id": "NOTE_MSENDER",
+     "active": false
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "NOTE_MRNOTETEXTREA",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1001,
+      708
+     ],
+     "point": [
+      19,
+      68,
+      251,
+      69
+     ],
+     "active": false
+    },
+    {
+     "type": "BTN",
+     "id": "NOTE_MREPLYBTN",
+     "point": [
+      140,
+      145,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      740,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      740,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      740,
+      209
+     ],
+     "btntext_msg_idx": 377,
+     "font_idx": 0,
+     "active": false,
+     "func": "Note_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "NOTE_MDELETEBTN",
+     "point": [
+      196,
+      145,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 267,
+     "font_idx": 0,
+     "active": false,
+     "func": "Note_DlgBtnFunc"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      19,
+      136,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      757,
+      1001,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      234,
+      68,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1009,
+      639,
+      1010,
+      708
+     ]
+    }
+   ]
+  }
+ ]
+}

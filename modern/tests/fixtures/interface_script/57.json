@@ -1,0 +1,255 @@
+{
+ "file": "57.bin",
+ "roots": [
+  {
+   "type": "REINFORCEDLG",
+   "id": "ITR_REINFORCEDLG",
+   "point": [
+    200,
+    200,
+    253,
+    391
+   ],
+   "active": false,
+   "auto_close": false,
+   "movable": true,
+   "func": "ITR_DlgFunc",
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    391
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "ITR_REINFORCETITLE",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 291,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      104,
+      42,
+      42,
+      42
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      85,
+      772,
+      129,
+      815
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "ITR_REINFORCEICONDLG",
+     "point": [
+      105,
+      43,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      118,
+      224,
+      179
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      13,
+      770,
+      237,
+      949
+     ]
+    },
+    {
+     "type": "ICONGRIDDLG",
+     "id": "ITR_REINFORCEICONGRIDDLG",
+     "point": [
+      10,
+      115,
+      221,
+      176
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      12,
+      341,
+      0,
+      0
+     ],
+     "text_msg_idx": 726
+    },
+    {
+     "type": "STATIC",
+     "id": "ITR_REINFORCEGRAVITY",
+     "point": [
+      13,
+      362,
+      62,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      939,
+      376,
+      1001,
+      397
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "ITR_RFGUIDEBTN",
+     "point": [
+      130,
+      334,
+      106,
+      20
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      664,
+      626,
+      770,
+      646
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      664,
+      648,
+      770,
+      667
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      664,
+      669,
+      770,
+      689
+     ],
+     "btntext_msg_idx": 816,
+     "func": "ITR_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "ITR_REINFORCEOKBTN",
+     "point": [
+      119,
+      364,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 292,
+     "func": "ITR_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "ITR_REINFORCECANCELBTN",
+     "point": [
+      181,
+      364,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "ITR_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

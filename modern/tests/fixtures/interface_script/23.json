@@ -1,0 +1,388 @@
+{
+ "file": "23.bin",
+ "roots": [
+  {
+   "type": "CHARGUAGEDLG",
+   "point": [
+    0,
+    0,
+    132,
+    130
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    624,
+    391,
+    756,
+    485
+   ],
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    132,
+    28
+   ],
+   "id": "CG_GUAGEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "CG_GUAGELEVEL",
+     "point": [
+      12,
+      0,
+      17,
+      17
+     ],
+     "font_idx": 1
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      94,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      624,
+      469,
+      756,
+      486
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_GUAGENAME",
+     "point": [
+      33,
+      4,
+      90,
+      20
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_GUAGELIFE",
+     "point": [
+      6,
+      34,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      186,
+      1011,
+      196
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_GUAGESHIELD",
+     "point": [
+      6,
+      49,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      226,
+      1011,
+      236
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_GUAGENAERYUK",
+     "point": [
+      6,
+      64,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      201,
+      1011,
+      210
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_GUAGEEXPPOINT",
+     "point": [
+      6,
+      79,
+      120,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CG_GUAGEMUSSANG",
+     "point": [
+      6,
+      97,
+      120,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      223
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CG_MUSSANGSTART",
+     "point": [
+      100,
+      92,
+      29,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      520,
+      857,
+      549,
+      872
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      520,
+      857,
+      549,
+      872
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      549,
+      856,
+      579,
+      872
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 867,
+     "func": "CG_DlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_MUSSANG1",
+     "active": false,
+     "point": [
+      6,
+      97,
+      70,
+      7
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      428,
+      858,
+      518,
+      865
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_GUAGEEXPPOINTTEXT",
+     "point": [
+      6,
+      71,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_GUAGELIFETEXT",
+     "point": [
+      6,
+      26,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_GUAGESHIELDTEXT",
+     "point": [
+      6,
+      41,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "CG_GUAGENAERYUKTEXT",
+     "point": [
+      6,
+      56,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      100,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      107,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      114,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      121,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "EXP_POINT1",
+     "point": [
+      100,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1001,
+      216,
+      1002,
+      226
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "EXP_POINT2",
+     "point": [
+      107,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1001,
+      216,
+      1002,
+      226
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "EXP_POINT3",
+     "point": [
+      114,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1001,
+      216,
+      1002,
+      226
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "EXP_POINT4",
+     "point": [
+      121,
+      79,
+      5,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1001,
+      216,
+      1002,
+      226
+     ],
+     "active": false
+    }
+   ]
+  }
+ ]
+}

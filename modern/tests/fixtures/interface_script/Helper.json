@@ -1,0 +1,13 @@
+{
+ "file": "Helper.bin",
+ "roots": [
+  {
+   "type": "HELPER",
+   "children": [
+    {
+     "type": "MOTION"
+    }
+   ]
+  }
+ ]
+}

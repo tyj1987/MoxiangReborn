@@ -1,0 +1,810 @@
+{
+ "file": "PartyWarDlg.bin",
+ "roots": [
+  {
+   "type": "PARTYWARDLG",
+   "id": "PW_DLG",
+   "point": [
+    323,
+    190,
+    400,
+    408
+   ],
+   "active": false,
+   "auto_close": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    391,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    496,
+    391
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 480,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      226,
+      17,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      331,
+      17,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      399,
+      19
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      859,
+      400,
+      879
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      398,
+      20,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      252,
+      19,
+      253,
+      389
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      388,
+      0,
+      0
+     ],
+     "basic_image_idx": 26,
+     "basic_image_rect": [
+      0,
+      1020,
+      398,
+      1022
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      22,
+      120,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      947,
+      964
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      22,
+      296,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      953,
+      947,
+      969
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      182,
+      120,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1005,
+      788,
+      1010,
+      964
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      182,
+      296,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1005,
+      953,
+      1010,
+      969
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      208,
+      120,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      788,
+      947,
+      964
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      208,
+      296,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      953,
+      947,
+      969
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      369,
+      120,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1005,
+      788,
+      1010,
+      964
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      369,
+      296,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1005,
+      953,
+      1010,
+      969
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "PW_BTN_LOCK",
+     "point": [
+      189,
+      353,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 634,
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "PW_BTN_UNLOCK",
+     "point": [
+      254,
+      353,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 635,
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "PW_BTN_START",
+     "point": [
+      319,
+      353,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 636,
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "PW_BTN_CANCEL",
+     "point": [
+      319,
+      353,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "PW_TITLE",
+     "point": [
+      10,
+      25,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      86,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      157,
+      86,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      130,
+      1021,
+      146
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_TEAM1",
+     "font_idx": 0,
+     "point": [
+      102,
+      84,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      202,
+      86,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      344,
+      86,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      130,
+      1021,
+      146
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_TEAM2",
+     "font_idx": 0,
+     "point": [
+      288,
+      84,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      219,
+      320,
+      0,
+      0
+     ],
+     "text_msg_idx": 637
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      274,
+      322,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      882,
+      174,
+      983,
+      195
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_TIME",
+     "font_idx": 0,
+     "point": [
+      320,
+      322,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER0",
+     "font_idx": 0,
+     "point": [
+      50,
+      125,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER1",
+     "font_idx": 0,
+     "point": [
+      50,
+      150,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER2",
+     "font_idx": 0,
+     "point": [
+      50,
+      175,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER3",
+     "font_idx": 0,
+     "point": [
+      50,
+      200,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER4",
+     "font_idx": 0,
+     "point": [
+      50,
+      225,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER5",
+     "font_idx": 0,
+     "point": [
+      50,
+      250,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER6",
+     "font_idx": 0,
+     "point": [
+      50,
+      275,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER7",
+     "font_idx": 0,
+     "point": [
+      237,
+      125,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER8",
+     "font_idx": 0,
+     "point": [
+      237,
+      150,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER9",
+     "font_idx": 0,
+     "point": [
+      237,
+      175,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER10",
+     "font_idx": 0,
+     "point": [
+      237,
+      200,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER11",
+     "font_idx": 0,
+     "point": [
+      237,
+      225,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER12",
+     "font_idx": 0,
+     "point": [
+      237,
+      250,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PW_MEMBER13",
+     "font_idx": 0,
+     "point": [
+      237,
+      275,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER0",
+     "point": [
+      30,
+      130,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER1",
+     "point": [
+      30,
+      155,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER2",
+     "point": [
+      30,
+      180,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER3",
+     "point": [
+      30,
+      205,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER4",
+     "point": [
+      30,
+      230,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER5",
+     "point": [
+      30,
+      255,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER6",
+     "point": [
+      30,
+      280,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER7",
+     "point": [
+      215,
+      130,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER8",
+     "point": [
+      215,
+      155,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER9",
+     "point": [
+      215,
+      180,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER10",
+     "point": [
+      215,
+      205,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER11",
+     "point": [
+      215,
+      230,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER12",
+     "point": [
+      215,
+      255,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    },
+    {
+     "type": "CHECKBOX",
+     "id": "PW_CB_MEMBER13",
+     "point": [
+      215,
+      280,
+      16,
+      16
+     ],
+     "func": "PW_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

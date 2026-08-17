@@ -1,0 +1,241 @@
+{
+ "file": "SEEChase.bin",
+ "roots": [
+  {
+   "type": "SEECHASEDLG",
+   "id": "SEE_CHASEDLG",
+   "point": [
+    388,
+    230,
+    198,
+    280
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    281
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "func": "CH_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      279,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      505,
+      342,
+      702,
+      344
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      33,
+      98,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      903,
+      640
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      33,
+      198,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      726,
+      787,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      33,
+      98,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      787,
+      739
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      33,
+      229,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      900,
+      757,
+      1009,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      150,
+      98,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      995,
+      639,
+      1010,
+      640
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      164,
+      98,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1009,
+      639,
+      1010,
+      739
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      164,
+      198,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1009,
+      726,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      135,
+      229,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      980,
+      757,
+      1009,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 648,
+     "font_idx": 2
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "SEE_CHASE_MSG",
+     "point": [
+      11,
+      17,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "SEE_CHASE_MAP",
+     "point": [
+      35,
+      100,
+      128,
+      128
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CHASE_SEEOKBTN",
+     "point": [
+      70,
+      248,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 181,
+     "func": "CHS_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

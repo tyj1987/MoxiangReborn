@@ -1,0 +1,30 @@
+{
+ "file": "ScreenShotDlg.bin",
+ "roots": [
+  {
+   "type": "SCREENSHOTDLG",
+   "id": "WT_SCREENSHOT_DLG",
+   "point": [
+    695,
+    570,
+    0,
+    0
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    425,
+    877,
+    682,
+    927
+   ],
+   "active": false,
+   "movable": false,
+   "caption_rect": [
+    695,
+    670,
+    0,
+    0
+   ]
+  }
+ ]
+}

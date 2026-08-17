@@ -1,0 +1,118 @@
+{
+ "file": "OPChNameChange.bin",
+ "roots": [
+  {
+   "type": "OPCHNAMECHANGEDLG",
+   "point": [
+    446,
+    210,
+    197,
+    345
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    345
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "id": "CH_NAME_CHANGE_OPDLG",
+   "func": "CHAN_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      5,
+      0,
+      0
+     ],
+     "text_msg_idx": 157,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      20,
+      30,
+      22,
+      11
+     ],
+     "text_msg_idx": 644,
+     "font_idx": 0
+    },
+    {
+     "type": "TEXTAREA",
+     "point": [
+      8,
+      40,
+      180,
+      120
+     ],
+     "text_msg_idx": 650
+    },
+    {
+     "type": "TEXTAREA",
+     "point": [
+      8,
+      70,
+      180,
+      240
+     ],
+     "text_msg_idx": 651
+    },
+    {
+     "type": "TEXTAREA",
+     "point": [
+      8,
+      100,
+      180,
+      240
+     ],
+     "text_msg_idx": 652
+    },
+    {
+     "type": "BTN",
+     "id": "CH_NAME_CHANGE_STARTBTN",
+     "func": "CHAN_DlgFunc",
+     "point": [
+      50,
+      305,
+      108,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      663,
+      625,
+      770,
+      647
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      663,
+      647,
+      770,
+      667
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      663,
+      669,
+      770,
+      687
+     ],
+     "btntext_msg_idx": 645
+    }
+   ]
+  }
+ ]
+}

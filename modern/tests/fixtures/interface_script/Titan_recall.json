@@ -1,0 +1,149 @@
+{
+ "file": "Titan_recall.bin",
+ "roots": [
+  {
+   "type": "TITAN_RECALL_DLG",
+   "id": "TITAN_RECALL_DLG",
+   "func": "Titan_Recall_DlgFunc",
+   "point": [
+    417,
+    130,
+    227,
+    49
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": false,
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 999,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      14,
+      35,
+      0,
+      0
+     ],
+     "text_msg_idx": 1000,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      8,
+      65,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      90,
+      1022,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      157,
+      65,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      128,
+      1022,
+      146
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "TITAN_RECALL_GUAGE",
+     "point": [
+      42,
+      65,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      998,
+      216,
+      999,
+      226
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "TITAN_RECALL_TIME",
+     "point": [
+      49,
+      90,
+      0,
+      0
+     ],
+     "font_idx": 0
+    },
+    {
+     "type": "BTN",
+     "id": "TITAN_RECALL_CANCEL",
+     "point": [
+      72,
+      120,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "Titan_Recall_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

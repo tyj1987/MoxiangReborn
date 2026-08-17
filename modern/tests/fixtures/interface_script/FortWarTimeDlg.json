@@ -1,0 +1,134 @@
+{
+ "file": "FortWarTimeDlg.bin",
+ "roots": [
+  {
+   "type": "FWTIMEDLG",
+   "point": [
+    10,
+    86,
+    0,
+    0
+   ],
+   "point_low": [
+    355,
+    0,
+    252,
+    110
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    786,
+    639,
+    996,
+    661
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "id": "FW_TIMEDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 714,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      25,
+      50,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      994,
+      92,
+      1020,
+      107
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      202,
+      50,
+      46,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      994,
+      130,
+      1020,
+      145
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "FW_TIME",
+     "point": [
+      65,
+      28,
+      0,
+      0
+     ],
+     "font_idx": 3
+    },
+    {
+     "type": "STATIC"
+    }
+   ]
+  },
+  {
+   "type": "STATIC"
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    10,
+    85,
+    0,
+    0
+   ],
+   "text_msg_idx": 1089
+  },
+  {
+   "type": "STATIC",
+   "id": "FW_TIME_CHARACTER",
+   "point": [
+    125,
+    85,
+    120,
+    20
+   ]
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    0,
+    110,
+    0,
+    0
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    390,
+    505,
+    391
+   ]
+  }
+ ]
+}

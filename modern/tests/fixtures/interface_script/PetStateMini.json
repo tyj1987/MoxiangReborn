@@ -1,0 +1,319 @@
+{
+ "file": "PetStateMini.bin",
+ "roots": [
+  {
+   "type": "PETSTATEMINIDLG",
+   "id": "PSMN_DIALOG",
+   "point": [
+    676,
+    0,
+    132,
+    90
+   ],
+   "point_low": [
+    326,
+    0,
+    132,
+    90
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    403,
+    391,
+    535,
+    481
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    132,
+    20
+   ],
+   "func": "PET_MiniDlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      7,
+      4,
+      0,
+      0
+     ],
+     "id": "PSMN_NAME"
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      124,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      543,
+      391,
+      551,
+      410
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      131,
+      19,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      550,
+      411,
+      551,
+      482
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "PSMN_GUAGE1",
+     "point": [
+      6,
+      28,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      186,
+      1011,
+      196
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      6,
+      28,
+      120,
+      10
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      973,
+      164,
+      977,
+      168
+     ],
+     "tooltipmsg_msg_idx": 852
+    },
+    {
+     "type": "GUAGENE",
+     "id": "PSMN_GUAGE2",
+     "point": [
+      6,
+      45,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      226,
+      1011,
+      236
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      6,
+      45,
+      120,
+      10
+     ],
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      973,
+      164,
+      977,
+      168
+     ],
+     "tooltipmsg_msg_idx": 853
+    },
+    {
+     "type": "GUAGENE",
+     "id": "PSMN_GUAGE3",
+     "point": [
+      16,
+      62,
+      100,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      201,
+      1011,
+      210
+     ],
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "id": "PSMN_GUAGETEXT1",
+     "point": [
+      6,
+      22,
+      120,
+      10
+     ]
+    },
+    {
+     "type": "STATIC",
+     "id": "PSMN_GUAGETEXT2",
+     "point": [
+      6,
+      38,
+      120,
+      10
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "PSMN_TOGGLE_B_BTN",
+     "point": [
+      115,
+      2,
+      15,
+      15
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      483,
+      792,
+      498,
+      807
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      483,
+      792,
+      498,
+      807
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      483,
+      792,
+      498,
+      807
+     ],
+     "func": "PET_MiniDlgFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      973,
+      164,
+      977,
+      168
+     ],
+     "tooltipmsg_msg_idx": 851
+    },
+    {
+     "type": "BTN",
+     "id": "PSMN_USEREST_BTN",
+     "point": [
+      8,
+      66,
+      60,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 859,
+     "func": "PET_MiniDlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "PSMN_INVEN_BTN",
+     "point": [
+      75,
+      66,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 860,
+     "func": "PET_MiniDlgFunc"
+    },
+    {
+     "type": "STATIC",
+     "id": "PSMN_STATE",
+     "point": [
+      80,
+      2,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      90,
+      0,
+      0
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      624,
+      485,
+      756,
+      486
+     ]
+    }
+   ]
+  }
+ ]
+}

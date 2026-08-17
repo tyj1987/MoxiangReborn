@@ -1,0 +1,784 @@
+{
+ "file": "24.bin",
+ "roots": [
+  {
+   "type": "CHARINFODLG",
+   "point": [
+    0,
+    111,
+    252,
+    413
+   ],
+   "basic_image_idx": 21,
+   "basic_image_rect": [
+    0,
+    0,
+    252,
+    413
+   ],
+   "movable": true,
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "id": "CI_CHARDLG",
+   "func": "CI_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      2,
+      0,
+      0
+     ],
+     "text_msg_idx": 168,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "CI_DEFENCE_HWA",
+     "point": [
+      70,
+      359,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      186,
+      1011,
+      196
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "CI_DEFENCE_SU",
+     "point": [
+      70,
+      376,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      201,
+      1011,
+      211
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "CI_DEFENCE_MOK",
+     "point": [
+      70,
+      393,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "CI_DEFENCE_KUM",
+     "point": [
+      180,
+      359,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      227,
+      1011,
+      237
+     ]
+    },
+    {
+     "type": "GUAGEN",
+     "id": "CI_DEFENCE_TO",
+     "point": [
+      180,
+      376,
+      1,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      998,
+      216,
+      999,
+      226
+     ]
+    },
+    {
+     "type": "GUAGENE",
+     "id": "CI_EXPPOINTGUAGE",
+     "point": [
+      51,
+      76,
+      120,
+      10
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      1010,
+      216,
+      1011,
+      226
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CI_GENGOL_POINT",
+     "point": [
+      76,
+      189,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      910,
+      0,
+      921,
+      11
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      921,
+      0,
+      932,
+      11
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      0,
+      910,
+      11
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_MINCHUB_POINT",
+     "point": [
+      76,
+      219,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      910,
+      0,
+      921,
+      11
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      921,
+      0,
+      932,
+      11
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      0,
+      910,
+      11
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_CHERYUK_POINT",
+     "point": [
+      76,
+      249,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      910,
+      0,
+      921,
+      11
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      921,
+      0,
+      932,
+      11
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      0,
+      910,
+      11
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_SIMMEK_POINT",
+     "point": [
+      76,
+      279,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      910,
+      0,
+      921,
+      11
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      921,
+      0,
+      932,
+      11
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      899,
+      0,
+      910,
+      11
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_GENGOL_POINT2",
+     "point": [
+      90,
+      189,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      643,
+      412,
+      653,
+      423
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      653,
+      412,
+      665,
+      423
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      631,
+      412,
+      642,
+      423
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_MINCHUB_POINT2",
+     "point": [
+      90,
+      219,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      643,
+      412,
+      653,
+      423
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      653,
+      412,
+      665,
+      423
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      631,
+      412,
+      642,
+      423
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_CHERYUK_POINT2",
+     "point": [
+      90,
+      249,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      643,
+      412,
+      653,
+      423
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      653,
+      412,
+      665,
+      423
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      631,
+      412,
+      642,
+      423
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_SIMMEK_POINT2",
+     "point": [
+      90,
+      279,
+      11,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      643,
+      412,
+      653,
+      423
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      653,
+      412,
+      665,
+      423
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      631,
+      412,
+      642,
+      423
+     ],
+     "active": false,
+     "func": "CI_AddExpPoint"
+    },
+    {
+     "type": "MUNPAMARKDLG",
+     "point": [
+      13,
+      29,
+      44,
+      44
+     ],
+     "active": false,
+     "id": "CI_MUNPAMARK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      110,
+      25,
+      0,
+      0
+     ],
+     "id": "CI_CHARNAME"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      110,
+      50,
+      0,
+      0
+     ],
+     "id": "CI_CHARLEVEL"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      192,
+      50,
+      0,
+      0
+     ],
+     "id": "CI_CHARSTAGE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      45,
+      92,
+      97,
+      14
+     ],
+     "id": "CI_CHARMUNPA"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      45,
+      112,
+      97,
+      14
+     ],
+     "id": "CI_SPCHARNAME"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      45,
+      133,
+      97,
+      14
+     ],
+     "id": "CI_CHARBADFAME"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      183,
+      92,
+      50,
+      14
+     ],
+     "id": "CI_CHARJIKWE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      183,
+      112,
+      50,
+      14
+     ],
+     "id": "CI_CHARFAME"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      184,
+      28,
+      12
+     ],
+     "id": "CI_CHARGENGOAL"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      214,
+      28,
+      12
+     ],
+     "id": "CI_CHARDEX"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      244,
+      28,
+      12
+     ],
+     "id": "CI_CHARSTA"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      42,
+      274,
+      28,
+      12
+     ],
+     "id": "CI_CHARSIMMAK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      64,
+      70,
+      0,
+      0
+     ],
+     "id": "CI_CHAREXPPERCENT"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      79,
+      334,
+      28,
+      12
+     ],
+     "id": "CI_CHARPOINT"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      180,
+      69,
+      15
+     ],
+     "id": "CI_CHARATTACK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      198,
+      69,
+      15
+     ],
+     "id": "CI_CRITICAL"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      216,
+      69,
+      15
+     ],
+     "id": "CI_LONGATTACK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      235,
+      69,
+      15
+     ],
+     "id": "CI_DISTANCE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      254,
+      69,
+      15
+     ],
+     "id": "CI_CHARLIFE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      271,
+      69,
+      15
+     ],
+     "id": "CI_CHARDEFENSE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      290,
+      69,
+      15
+     ],
+     "id": "CI_CHARNAERYUK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      170,
+      308,
+      69,
+      15
+     ],
+     "id": "CI_HOSINDEFENSE"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      75,
+      354,
+      20,
+      30
+     ],
+     "id": "CI_CHARHWA"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      75,
+      372,
+      20,
+      30
+     ],
+     "id": "CI_CHARSU"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      75,
+      390,
+      20,
+      30
+     ],
+     "id": "CI_CHARMOK"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      185,
+      354,
+      20,
+      30
+     ],
+     "id": "CI_CHARKUM"
+    },
+    {
+     "type": "STATIC",
+     "font_idx": 0,
+     "point": [
+      185,
+      372,
+      20,
+      30
+     ],
+     "id": "CI_CHARTO"
+    },
+    {
+     "type": "BTN",
+     "id": "CI_BESTTIP",
+     "point": [
+      14,
+      305,
+      56,
+      19
+     ],
+     "btntext_msg_idx": 301,
+     "font_idx": 0,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      191,
+      847,
+      209
+     ],
+     "func": "CI_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

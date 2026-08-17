@@ -1,0 +1,148 @@
+{
+ "file": "bail.bin",
+ "roots": [
+  {
+   "type": "BAILDLG",
+   "point": [
+    388,
+    230,
+    247,
+    154
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    504,
+    153
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "auto_close": true,
+   "id": "BAIL_DLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      9,
+      2,
+      0,
+      0
+     ],
+     "text_msg_idx": 489,
+     "font_idx": 2
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "BAIL_TEXTAREA",
+     "point": [
+      13,
+      31,
+      225,
+      63
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      87,
+      0,
+      0
+     ],
+     "text_msg_idx": 488,
+     "font_idx": 0
+    },
+    {
+     "type": "EDITBOX",
+     "id": "BAIL_BAILEDITBOX",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      152,
+      903,
+      173
+     ],
+     "point": [
+      170,
+      88,
+      51,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "BAIL_OK",
+     "func": "BAIL_BailDlgFunc",
+     "point": [
+      47,
+      124,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      792,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      792,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      792,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221
+    },
+    {
+     "type": "BTN",
+     "id": "BAIL_CANCEL",
+     "func": "BAIL_BailDlgFunc",
+     "point": [
+      149,
+      124,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      792,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      792,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      792,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224
+    }
+   ]
+  }
+ ]
+}

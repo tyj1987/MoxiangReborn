@@ -1,0 +1,240 @@
+{
+ "file": "GDTENTRY.bin",
+ "roots": [
+  {
+   "type": "GDTENTRYDLG",
+   "id": "GDT_ENTRYDLG",
+   "point": [
+    446,
+    210,
+    253,
+    223
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    222
+   ],
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "auto_close": true,
+   "movable": true,
+   "func": "GDT_DlgFunc",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      222,
+      253,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      390,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      15,
+      65,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      786,
+      639,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 665,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      83,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      133,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      992,
+      91,
+      1021,
+      108
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      21,
+      35,
+      0,
+      0
+     ],
+     "text_msg_idx": 669
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      50,
+      80,
+      0,
+      0
+     ],
+     "text_msg_idx": 661
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_ENTRY1",
+     "point": [
+      200,
+      80,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      50,
+      130,
+      0,
+      0
+     ],
+     "text_msg_idx": 662
+    },
+    {
+     "type": "STATIC",
+     "id": "GDT_ENTRY2",
+     "point": [
+      200,
+      130,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GDT_ENTRYBTN",
+     "point": [
+      55,
+      195,
+      148,
+      19
+     ],
+     "func": "GDT_DlgFunc",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      267,
+      848,
+      286
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      286,
+      848,
+      305
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      306,
+      848,
+      325
+     ],
+     "active": true,
+     "btntext_msg_idx": 665
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      220,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      504,
+      391
+     ]
+    }
+   ]
+  }
+ ]
+}

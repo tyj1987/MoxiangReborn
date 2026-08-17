@@ -1,0 +1,505 @@
+{
+ "file": "SkinSelectDlg.bin",
+ "roots": [
+  {
+   "type": "SKIN_SELECT_DLG",
+   "id": "SKIN_SELECT_DLG",
+   "point": [
+    473,
+    209,
+    252,
+    391
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    772,
+    603,
+    1024,
+    994
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 1007,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      36,
+      86,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      75,
+      686,
+      116,
+      726
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      107,
+      86,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      202,
+      686,
+      243,
+      726
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      178,
+      86,
+      40,
+      40
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      159,
+      686,
+      201,
+      726
+     ]
+    },
+    {
+     "type": "ICONDLG",
+     "id": "SKIN_SELECT_ITEMVIEW",
+     "point": [
+      36,
+      86,
+      40,
+      40
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      35,
+      88,
+      24
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      560,
+      549,
+      636,
+      570
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      88,
+      35,
+      163,
+      24
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      560,
+      549,
+      636,
+      570
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      163,
+      35,
+      239,
+      24
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      560,
+      549,
+      634,
+      570
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      38,
+      35,
+      0,
+      0
+     ],
+     "text_msg_idx": 41,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC"
+    }
+   ],
+   "text_msg_idx": 914,
+   "font_idx": 0
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    186,
+    35,
+    0,
+    0
+   ],
+   "text_msg_idx": 43,
+   "font_idx": 0
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    13,
+    186,
+    166,
+    21
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    560,
+    549,
+    730,
+    570
+   ]
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    181,
+    186,
+    40,
+    21
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    560,
+    549,
+    616,
+    570
+   ]
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    61,
+    185,
+    0,
+    0
+   ],
+   "text_msg_idx": 1007,
+   "font_idx": 0
+  },
+  {
+   "type": "STATIC",
+   "point": [
+    182,
+    185,
+    0,
+    0
+   ],
+   "text_msg_idx": 1008,
+   "font_idx": 0
+  },
+  {
+   "type": "STATIC",
+   "active": false,
+   "point": [
+    146,
+    186,
+    47,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    671,
+    399,
+    724,
+    420
+   ]
+  },
+  {
+   "type": "LISTDLG",
+   "id": "SKIN_SELECTLIST",
+   "point": [
+    16,
+    207,
+    203,
+    158
+   ],
+   "listoverimage_idx": 0,
+   "listoverimage_rect": [
+    1016,
+    257,
+    1017,
+    267
+   ],
+   "children": [
+    {
+     "type": "BTN",
+     "point": [
+      210,
+      2,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      582,
+      441,
+      595,
+      454
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      569,
+      441,
+      582,
+      454
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      556,
+      441,
+      569,
+      454
+     ]
+    },
+    {
+     "type": "BTN",
+     "point": [
+      210,
+      145,
+      13,
+      13
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      582,
+      454,
+      595,
+      467
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      569,
+      454,
+      582,
+      467
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      556,
+      454,
+      569,
+      467
+     ]
+    },
+    {
+     "type": "GUAGEBAR",
+     "point": [
+      210,
+      11,
+      13,
+      134
+     ],
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      1010,
+      0,
+      1023,
+      136
+     ],
+     "children": [
+      {
+       "type": "BTN",
+       "point": [
+        0,
+        0,
+        13,
+        24
+       ],
+       "basic_image_idx": 0,
+       "basic_image_rect": [
+        912,
+        50,
+        925,
+        74
+       ],
+       "overimage_idx": 0,
+       "overimage_rect": [
+        912,
+        50,
+        925,
+        74
+       ],
+       "pressimage_idx": 0,
+       "pressimage_rect": [
+        912,
+        50,
+        925,
+        74
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "type": "BTN",
+   "id": "SKIN_SELECT_OK",
+   "point": [
+    119,
+    370,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 221,
+   "func": "SkinSelect_DlgFunc"
+  },
+  {
+   "type": "BTN",
+   "id": "SKIN_SELECT_CANCEL",
+   "point": [
+    181,
+    370,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 224,
+   "func": "SkinSelect_DlgFunc"
+  },
+  {
+   "type": "BTN",
+   "id": "SKIN_SELECT_RECOVERY",
+   "point": [
+    57,
+    370,
+    56,
+    19
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    791,
+    152,
+    847,
+    171
+   ],
+   "overimage_idx": 0,
+   "overimage_rect": [
+    791,
+    171,
+    847,
+    190
+   ],
+   "pressimage_idx": 0,
+   "pressimage_rect": [
+    791,
+    190,
+    847,
+    209
+   ],
+   "btntext_msg_idx": 1009,
+   "func": "SkinSelect_DlgFunc"
+  }
+ ]
+}

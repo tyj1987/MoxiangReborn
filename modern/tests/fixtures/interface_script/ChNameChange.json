@@ -1,0 +1,146 @@
+{
+ "file": "ChNameChange.bin",
+ "roots": [
+  {
+   "type": "CHNAMECHANGEDLG",
+   "id": "CH_NAME_CHANGE_DLG",
+   "point": [
+    388,
+    230,
+    247,
+    154
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    702,
+    0,
+    899,
+    150
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    247,
+    20
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 157,
+     "font_idx": 2
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      8,
+      35,
+      0,
+      0
+     ],
+     "text_msg_idx": 653,
+     "font_idx": 0
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      42,
+      71,
+      107,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      698,
+      376,
+      807,
+      397
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "CH_NAME_CHANGE_EDITBOX",
+     "point": [
+      43,
+      71,
+      107,
+      21
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "CH_NAME_CHANGE_OKBTN",
+     "point": [
+      30,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 221,
+     "func": "CHAN_DlgFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "CH_NAME_CHANGE_CANCELBTN",
+     "point": [
+      110,
+      118,
+      56,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      791,
+      152,
+      847,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      791,
+      171,
+      847,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      791,
+      190,
+      847,
+      209
+     ],
+     "btntext_msg_idx": 224,
+     "func": "CHAN_DlgFunc"
+    }
+   ]
+  }
+ ]
+}

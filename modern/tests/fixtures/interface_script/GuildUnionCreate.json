@@ -1,0 +1,230 @@
+{
+ "file": "GuildUnionCreate.bin",
+ "roots": [
+  {
+   "type": "GUILDUNIONCREATEDLG",
+   "id": "GDU_CREATEDLG",
+   "point": [
+    500,
+    250,
+    253,
+    223
+   ],
+   "active": false,
+   "auto_close": true,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    252,
+    20
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    253,
+    0,
+    505,
+    222
+   ],
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      222,
+      253,
+      1
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      390,
+      505,
+      391
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 506,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      231,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      22,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 677
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      45,
+      0,
+      0
+     ],
+     "font_idx": 0,
+     "text_msg_idx": 511
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      95,
+      46,
+      120,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      852,
+      195,
+      972,
+      216
+     ]
+    },
+    {
+     "type": "EDITBOX",
+     "id": "GDU_NAME",
+     "point": [
+      97,
+      46,
+      120,
+      21
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      71,
+      50,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      785,
+      639,
+      1010,
+      710
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      13,
+      142,
+      50,
+      11
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      785,
+      715,
+      1010,
+      758
+     ]
+    },
+    {
+     "type": "TEXTAREA",
+     "id": "GDU_TEXT",
+     "point": [
+      13,
+      43,
+      225,
+      428
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "GDU_OKBTN",
+     "point": [
+      90,
+      195,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "func": "GD_DlgFunc",
+     "btntext_msg_idx": 678
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      219,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      253,
+      387,
+      505,
+      390
+     ]
+    }
+   ]
+  }
+ ]
+}

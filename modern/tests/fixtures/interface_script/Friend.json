@@ -1,0 +1,459 @@
+{
+ "file": "Friend.bin",
+ "roots": [
+  {
+   "type": "FRIENDDLG",
+   "point": [
+    385,
+    111,
+    197,
+    345
+   ],
+   "basic_image_idx": 0,
+   "basic_image_rect": [
+    505,
+    0,
+    702,
+    345
+   ],
+   "active": false,
+   "movable": true,
+   "caption_rect": [
+    0,
+    0,
+    197,
+    20
+   ],
+   "auto_close": true,
+   "id": "FRI_FRIENDDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "point": [
+      10,
+      4,
+      0,
+      0
+     ],
+     "text_msg_idx": 350,
+     "font_idx": 2
+    },
+    {
+     "type": "BTN",
+     "id": "CMI_CLOSEBTN",
+     "point": [
+      176,
+      0,
+      21,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      899,
+      133,
+      920,
+      152
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      899,
+      113,
+      920,
+      132
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      920,
+      113,
+      941,
+      132
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_ADDFRIENDBTN",
+     "point": [
+      108,
+      31,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 162,
+     "font_idx": 0,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_DELFRIENDBTN",
+     "point": [
+      43,
+      31,
+      50,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      741,
+      152,
+      791,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      741,
+      171,
+      791,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      741,
+      190,
+      791,
+      209
+     ],
+     "btntext_msg_idx": 267,
+     "font_idx": 0,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "LISTCTRL",
+     "id": "FRI_FRIENDLISTLCTL",
+     "point": [
+      57,
+      62,
+      103,
+      230
+     ],
+     "listoverimage_idx": 0,
+     "listoverimage_rect": [
+      1016,
+      257,
+      1017,
+      267
+     ]
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      64,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK1",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      87,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK2",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      110,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK3",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      133,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK4",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      156,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK5",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      179,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK6",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      202,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK7",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      225,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK8",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      248,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK9",
+     "active": false
+    },
+    {
+     "type": "CHECKBOX",
+     "point": [
+      23,
+      271,
+      16,
+      16
+     ],
+     "id": "FRI_FRIENDLISTCHK10",
+     "active": false
+    },
+    {
+     "type": "STATIC",
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      479,
+      575,
+      642,
+      576
+     ],
+     "point": [
+      17,
+      290,
+      163,
+      1
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_PAGE1BTN",
+     "point": [
+      16,
+      304,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "btntext_msg_idx": 84,
+     "font_idx": 0,
+     "active": false,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_PAGE2BTN",
+     "point": [
+      41,
+      304,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "btntext_msg_idx": 85,
+     "font_idx": 0,
+     "active": false,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_PAGE3BTN",
+     "point": [
+      66,
+      304,
+      22,
+      16
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      795,
+      246,
+      817,
+      262
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      795,
+      230,
+      817,
+      246
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      817,
+      246,
+      839,
+      262
+     ],
+     "btntext_msg_idx": 86,
+     "font_idx": 0,
+     "active": false,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_SENDNOTEBTN",
+     "point": [
+      103,
+      302,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 423,
+     "font_idx": 0,
+     "func": "Friend_DlgBtnFunc"
+    },
+    {
+     "type": "BTN",
+     "id": "FRI_SENDWHISPERBTN",
+     "point": [
+      145,
+      302,
+      39,
+      19
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      702,
+      152,
+      741,
+      171
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      702,
+      171,
+      741,
+      190
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      702,
+      190,
+      741,
+      209
+     ],
+     "btntext_msg_idx": 421,
+     "font_idx": 0,
+     "func": "Friend_DlgBtnFunc"
+    }
+   ]
+  }
+ ]
+}

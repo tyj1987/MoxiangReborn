@@ -1,0 +1,414 @@
+{
+ "file": "PartyBtnDialog.bin",
+ "roots": [
+  {
+   "type": "PA_BTNDLG",
+   "point": [
+    0,
+    111,
+    132,
+    14
+   ],
+   "movable": true,
+   "active": false,
+   "caption_rect": [
+    0,
+    0,
+    130,
+    14
+   ],
+   "id": "PA_BTNDLG",
+   "children": [
+    {
+     "type": "STATIC",
+     "id": "PA_BACKGROUND",
+     "point": [
+      0,
+      33,
+      130,
+      21
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      268,
+      493,
+      399,
+      575
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      130,
+      14
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      412,
+      490,
+      543,
+      504
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      0,
+      1007,
+      7,
+      1021
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      124,
+      0,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      39,
+      1007,
+      47,
+      1021
+     ]
+    },
+    {
+     "type": "STATIC",
+     "point": [
+      0,
+      13,
+      0,
+      0
+     ],
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      403,
+      508,
+      533,
+      509
+     ]
+    },
+    {
+     "type": "BTN",
+     "id": "PA_OPTIONBTN",
+     "point": [
+      1,
+      13,
+      130,
+      21
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      663,
+      625,
+      751,
+      646
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      663,
+      647,
+      751,
+      668
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      663,
+      669,
+      751,
+      689
+     ],
+     "btntext_msg_idx": 641,
+     "func": "PA_BtnFunc"
+    },
+    {
+     "type": "BTN",
+     "point": [
+      10,
+      40,
+      33,
+      33
+     ],
+     "id": "PA_ADDPARTYMEMBERBTN",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      0,
+      413,
+      33,
+      445
+     ],
+     "overimage_idx": 21,
+     "overimage_rect": [
+      0,
+      413,
+      33,
+      445
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      0,
+      413,
+      33,
+      445
+     ],
+     "func": "PA_BtnFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 371
+    },
+    {
+     "type": "BTN",
+     "point": [
+      50,
+      40,
+      33,
+      33
+     ],
+     "id": "PA_FORCEDSECEDEBTN",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      33,
+      413,
+      66,
+      445
+     ],
+     "overimage_idx": 21,
+     "overimage_rect": [
+      33,
+      413,
+      66,
+      445
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      33,
+      413,
+      66,
+      445
+     ],
+     "func": "PA_BtnFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 372
+    },
+    {
+     "type": "BTN",
+     "point": [
+      90,
+      40,
+      33,
+      33
+     ],
+     "id": "PA_TRANSFERBTN",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      132,
+      413,
+      165,
+      445
+     ],
+     "overimage_idx": 21,
+     "overimage_rect": [
+      132,
+      413,
+      165,
+      445
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      132,
+      413,
+      165,
+      445
+     ],
+     "func": "PA_BtnFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 373
+    },
+    {
+     "type": "BTN",
+     "point": [
+      10,
+      75,
+      33,
+      33
+     ],
+     "id": "PA_BREAKUPBTN",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      66,
+      413,
+      99,
+      445
+     ],
+     "overimage_idx": 21,
+     "overimage_rect": [
+      66,
+      413,
+      99,
+      445
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      66,
+      413,
+      99,
+      445
+     ],
+     "func": "PA_BtnFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 374
+    },
+    {
+     "type": "BTN",
+     "point": [
+      50,
+      75,
+      33,
+      33
+     ],
+     "id": "PA_WARSUGGESTBTN",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      165,
+      413,
+      198,
+      445
+     ],
+     "overimage_idx": 21,
+     "overimage_rect": [
+      165,
+      413,
+      198,
+      445
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      165,
+      413,
+      198,
+      445
+     ],
+     "func": "PA_BtnFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 376
+    },
+    {
+     "type": "BTN",
+     "point": [
+      90,
+      75,
+      33,
+      33
+     ],
+     "id": "PA_SECEDEBTN",
+     "basic_image_idx": 21,
+     "basic_image_rect": [
+      99,
+      413,
+      132,
+      445
+     ],
+     "overimage_idx": 21,
+     "overimage_rect": [
+      99,
+      413,
+      132,
+      445
+     ],
+     "pressimage_idx": 21,
+     "pressimage_rect": [
+      99,
+      413,
+      132,
+      445
+     ],
+     "func": "PA_BtnFunc",
+     "tooltipimage_idx": 0,
+     "tooltipimage_rect": [
+      983,
+      174,
+      987,
+      178
+     ],
+     "tooltipmsg_msg_idx": 375
+    },
+    {
+     "type": "BTN",
+     "id": "PA_MEMBERBTN",
+     "point": [
+      1,
+      114,
+      130,
+      21
+     ],
+     "active": false,
+     "basic_image_idx": 0,
+     "basic_image_rect": [
+      663,
+      625,
+      751,
+      646
+     ],
+     "overimage_idx": 0,
+     "overimage_rect": [
+      663,
+      647,
+      751,
+      668
+     ],
+     "pressimage_idx": 0,
+     "pressimage_rect": [
+      663,
+      669,
+      751,
+      689
+     ],
+     "btntext_msg_idx": 642,
+     "func": "PA_BtnFunc"
+    }
+   ]
+  }
+ ]
+}
