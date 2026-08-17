@@ -150,10 +150,12 @@ BOOL __stdcall SpriteObject::Draw(VECTOR2* pv2Scaling, float fRot, VECTOR2* pv2T
         v1 = static_cast<float>(pRect->bottom) / static_cast<float>(m_height);
     }
 
-    // Coordinate space: image origin at top-left, +Y down.  Flip V to match DX11 UV.
-    v0 = 1.0f - v0;
-    v1 = 1.0f - v1;
-    std::swap(v0, v1);
+    // Coordinate space: image origin at top-left, +Y down. The atlas is
+    // loaded top-down (top-left pixel at row 0). DX11 textures default to
+    // top-left origin and V increases downward, so V needs no flip.
+    // (The previous v0=1-v0; v1=1-v1; swap was a no-op that left sprites
+    // rendering correctly for fullscreen but broken for partial draws.)
+    (void)v0; (void)v1;
 
     PrimitiveDrawer drawer;
     drawer.initialize(m_dev);
