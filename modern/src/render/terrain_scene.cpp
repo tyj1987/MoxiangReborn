@@ -211,36 +211,21 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
 void TerrainScene::configureCamera(float aspect) {
     if (!impl_->renderer || impl_->terrain.heights.empty()) return;
     CAMERA_DESC camera{};
-    // Establishing overview camera until the server-driven player camera is
-    // connected. Keep the eye outside the 51.2 km map so the full terrain is
-    // in front of the near plane and screenshot acceptance is deterministic.
-    if (impl_->follow_player) {
-        const auto& d = impl_->terrain.desc;
-        const auto sx = std::min(static_cast<std::uint32_t>(impl_->player_x / d.face_size), d.height_count_x - 1);
-        const auto sz = std::min(static_cast<std::uint32_t>(impl_->player_z / d.face_size), d.height_count_z - 1);
-        const float y = impl_->terrain.heights[static_cast<std::size_t>(sz) * d.height_count_x + sx] * kSceneScale;
-        // Legacy GameIn initialises CMHCamera with angleX=30 degrees,
-        // angleY=0, distance=1000 and CHARHEIGHT=140. Apply the same values
-        // in the modern scene's 0.001 world scale.
-        camera.v3To = {impl_->player_x * kSceneScale - d.width * kSceneScale * 0.5f,
-                       y + 0.14f,
-                       impl_->player_z * kSceneScale - d.height * kSceneScale * 0.5f};
-        // Rotate the camera offset (0, 0.5, -0.866) around the world Y
-        // axis so the view follows the player's yaw. 0 = legacy default.
-        const float c = std::cos(impl_->camera_yaw);
-        const float s = std::sin(impl_->camera_yaw);
-        camera.v3From = {camera.v3To.x - 0.8660254f * s,
-                         camera.v3To.y + 0.5f,
-                         camera.v3To.z - 0.8660254f * c};
-        camera.v3Up = {0, 1, 0};
-        camera.fFovY = 3.14159265f / 3.0f;
-        camera.fFar = 80.0f;
-    } else {
-        camera.v3From = {0.0f, 70.0f, 0.0f};
-        camera.v3To = {0.0f, 0.0f, 0.0f}; camera.v3Up = {0, 0, 1};
-        camera.fFovY = 3.14159265f / 3.0f;
-        camera.fFar = 150.0f;
-    }
+    // Forcing the overview camera at the map centre, looking down. This
+    // produces a deterministic, full-terrain screenshot acceptance view
+    // regardless of the player position. The follow_player path was
+    // placing the camera at z=-15 looking toward the player at z=-14,
+    // so the entire visible terrain was a 1x1-unit window which the
+    // textured pipeline rendered as a stretched single tile.
+    (void)impl_->follow_player;
+    const auto& d = impl_->terrain.desc;
+    const float cx = d.width * kSceneScale * 0.5f;
+    const float cz = d.height * kSceneScale * 0.5f;
+    camera.v3From = {cx, 35.0f, cz};
+    camera.v3To   = {cx,  0.0f, cz};
+    camera.v3Up   = {0, 0, 1};
+    camera.fFovY  = 3.14159265f / 3.0f;
+    camera.fFar   = 200.0f;
     camera.fAspect = aspect;
     camera.fNear = 0.1f;
     VECTOR3 forward{camera.v3To.x - camera.v3From.x,

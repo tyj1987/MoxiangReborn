@@ -333,8 +333,11 @@ BOOL __stdcall FontObject::DrawText(TCHAR* str, std::uint32_t dwLen, RECT* pRect
             float u1 = static_cast<float>(g->atlas_x + g->width)  / static_cast<float>(m_atlasWidth);
             float v1 = static_cast<float>(g->atlas_y + g->height) / static_cast<float>(m_atlasHeight);
 
+            // Font glyph atlas is uploaded top-row-first from GDI
+            // GGO_GRAY8_BITMAP. Empirically the text rendered X-flipped
+            // without this swap; U swap keeps V orientation correct.
             drawer.drawTexturedQuad(m_atlasSRV.Get(), dx, dy, dw, dh,
-                                    u0, v0, u1, v1, dwColor, 0.0f, 0);
+                                    u1, v0, u0, v1, dwColor, 0.0f, 0);
         }
         penX += g->advance;
     }
