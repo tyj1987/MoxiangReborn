@@ -189,8 +189,11 @@ inline void MatrixScreenOrtho(MATRIX4* pOut, float width, float height) {
     *pOut = MatrixIdentity();
     pOut->_11 =  2.0f / width;
     pOut->_22 = -2.0f / height;
-    pOut->_14 = -1.0f;
-    pOut->_24 =  1.0f;
+    // Translation goes in row 3 (column 0 / column 1) so that for row-major
+    // HLSL mul(v, M) the result.x += v.w * M[3][0] and result.y += v.w * M[3][1].
+    // The earlier _14/_24 placement moved the translation into the W component.
+    pOut->_41 = -1.0f;
+    pOut->_42 =  1.0f;
     pOut->_44 =  1.0f;
 }
 
