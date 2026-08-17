@@ -60,6 +60,28 @@ if(MSVC)
     target_compile_definitions(mxh_portal_ratelimit_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
 
+
+# 4. Auth routes unit tests (M5.3)
+# Links mxh_db + mxh_server for handle_register/handle_login/handle_me.
+add_executable(mxh_portal_auth_route_tests
+    auth_route_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/auth_routes.cpp
+    ${CMAKE_SOURCE_DIR}/src/portal/jwt_token.cpp
+)
+target_include_directories(mxh_portal_auth_route_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/portal
+    ${CMAKE_SOURCE_DIR}/third_party
+)
+target_compile_features(mxh_portal_auth_route_tests PRIVATE cxx_std_17)
+target_link_libraries(mxh_portal_auth_route_tests PRIVATE
+    mxh_log mxh_db mxh_server mxh_compat
+    gtest_main
+)
+if(MSVC)
+    target_compile_definitions(mxh_portal_auth_route_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(mxh_portal_auth_route_tests PRIVATE bcrypt)
+endif()
+
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_portal_config_tests
     PortalConfig.DefaultsAreSensible
@@ -76,5 +98,23 @@ if(Python3_FOUND)
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 else()
-    message(STATUS "Python3 not found — skipping PortalIntegrationSmoke")
+    message(STATUS "Python3 not found â€” skipping PortalIntegrationSmoke")
 endif()
+
+gtest_add_tests(TARGET mxh_portal_auth_route_tests
+    AuthRegisterValidation.NonObjectBodyReturns400
+    AuthRegisterValidation.MissingFieldsReturns400
+    AuthRegisterValidation.PasswordMismatchReturns400
+    AuthRegisterValidation.InvalidAccountNameReturns400
+    AuthRegisterValidation.WeakPasswordReturns400
+    AuthLoginValidation.EmptySecretReturns500
+    AuthLoginValidation.NonObjectBodyReturns401
+    AuthLoginValidation.MissingFieldsReturns401
+    AuthLogout.StatelessReturns204
+    AuthRoutesDbTest.RegisterDuplicateAccountReturns409
+    AuthRoutesDbTest.LoginUnknownAccountReturns401
+    AuthRoutesDbTest.MeUnknownAccountReturns404
+    AuthRoutesDbTest.RegisterValidAccountReturns201WithUserIdx
+    AuthRoutesDbTest.LoginValidCredentialsReturnsTokenAndUserIdx
+    AuthRoutesDbTest.MeAfterLoginReturnsAccountInfo
+)

@@ -175,28 +175,26 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
     });
 
     // ---- Static file serving ----
-    svr.Get("/static/..*", [&](const httplib::Request& req, httplib::Response& res) {
-        std::string_view target = req.path;
-        if (target.starts_with("/static/")) {
-            target.remove_prefix(8);
-        }
-        std::string rel_path(target.data(), target.size());
-        std::string full_path = Impl::path_join(cfg_.static_root, rel_path);
+    // /static/*  -> direct file lookup under static_root (raw assets)
+    // /portal_dist/* -> direct file lookup under static_root/dist (Vue build artifacts)
+    // /portal/* -> SPA fallback to static_root/index.html (no path traversal)
+    static constexpr std::string_view kStaticPrefix     = "/static/";
+    static constexpr std::string_view kPortalDistPrefix = "/portal_dist/";
+    static constexpr std::string_view kPortalPrefix     = "/portal";
+    static constexpr std::string_view kPortalSlash      = "/portal/";
 
-        for (char c : rel_path) {
-            if (c == '\\' || c == '\0') {
-                set_error_json(res, 400, "invalid path");
-                return;
-            }
-        }
-        if (rel_path.find("..") != std::string_view::npos) {
+    auto serve_static = [&](const httplib::Request& req, httplib::Response& res,
+                            std::string_view rel) {
+        if (rel.find("..") != std::string_view::npos ||
+            rel.find('\\')  != std::string_view::npos ||
+            rel.find('\0')  != std::string_view::npos) {
             set_error_json(res, 403, "forbidden");
             return;
         }
-
+        std::string full_path = Impl::path_join(cfg_.static_root, std::string(rel));
         std::ifstream ifs(full_path, std::ios::binary | std::ios::ate);
         if (!ifs) {
-            set_error_json(res, 404, std::string("not found: ") + std::string(rel_path));
+            set_error_json(res, 404, std::string("not found: ") + std::string(rel));
             return;
         }
         auto size = static_cast<std::streamsize>(ifs.tellg());
@@ -206,10 +204,28 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
         res.status = 200;
         res.set_header("Content-Type", mime_type(full_path));
         res.set_header("Cache-Control", "public, max-age=86400");
+    };
+
+    svr.Get("/static/..*", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string_view target = req.path;
+        if (target.starts_with(kStaticPrefix)) target.remove_prefix(kStaticPrefix.size());
+        serve_static(req, res, target);
+    });
+
+    // /portal_dist/<path>  -> static_root/dist/<path>  (Vue build artifacts)
+    svr.Get("/portal_dist/..*", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string_view target = req.path;
+        if (target.starts_with(kPortalDistPrefix)) target.remove_prefix(kPortalDistPrefix.size());
+        std::string rel = "dist/";
+        rel.append(std::string(target));
+        serve_static(req, res, std::string_view(rel));
     });
 
     // ---- SPA fallback ----
-    svr.Get("/", [&](const httplib::Request&, httplib::Response& res) {
+    // /              -> static_root/index.html
+    // /portal        -> static_root/index.html
+    // /portal/..*    -> static_root/index.html (Vue Router takes over client-side)
+    auto serve_index = [&](httplib::Response& res) {
         std::string full_path = Impl::path_join(cfg_.static_root, "index.html");
         std::ifstream ifs(full_path, std::ios::binary);
         if (!ifs) {
@@ -223,6 +239,27 @@ HttpServer::HttpServer(const Config& cfg) : p_(std::make_unique<Impl>(cfg)) {
         ifs.read(res.body.data(), sz);
         res.status = 200;
         res.set_header("Content-Type", "text/html; charset=utf-8");
+        res.set_header("Cache-Control", "no-cache");
+    };
+
+    svr.Get("/", [&](const httplib::Request&, httplib::Response& res) {
+        serve_index(res);
+    });
+
+    // SPA routes for /portal and /portal/..* (no API prefixes)
+    svr.Get("/portal", [&](const httplib::Request&, httplib::Response& res) {
+        serve_index(res);
+    });
+    // Match /portal/anything but NOT /portal/api/... (those are handled by route-specific
+    // handlers above). The catch-all here is installed AFTER API routes.
+    svr.Get("/portal/..*", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string_view p = req.path;
+        if (p.starts_with(kPortalSlash) && p.substr(kPortalSlash.size()).starts_with("api/")) {
+            // /portal/api/... is reserved for proxied API path; serve SPA index
+            // so a refresh on /portal/api/* still renders the SPA shell.
+            // (In production, Cloudflare routes /portal/api/* to the gateway /api/*.)
+        }
+        serve_index(res);
     });
 
     // ---- Error handler ----
@@ -383,6 +420,87 @@ void HttpServer::post_public(std::string_view path,
         try {
             auto result = h(body);
             set_json_response(res, 200, std::move(result));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+// Variant: handler returns (status, body).
+void HttpServer::post_public_with_status(std::string_view path,
+                                          const RateLimitPolicy& rate_policy,
+                                          StatusPublicHandler handler) {
+    std::string p(path);
+    p_->svr.Post(p.c_str(), [this, p, rate_policy,
+                               h = std::move(handler)](const httplib::Request& req,
+                                                        httplib::Response& res) {
+        if (p_->check_rate_limit(res, req, p, rate_policy)) return;
+
+        nlohmann::json body;
+        if (!req.body.empty()) {
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (const nlohmann::json::parse_error&) {
+                set_error_json(res, 400, "invalid JSON body");
+                return;
+            }
+        }
+
+        try {
+            auto result = h(body);
+            set_json_response(res, result.first, std::move(result.second));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+void HttpServer::get_protected_with_status(std::string_view path,
+                                            const RateLimitPolicy& rate_policy,
+                                            StatusAuthHandler handler) {
+    std::string p(path);
+    p_->svr.Get(p.c_str(), [this, p, rate_policy,
+                              h = std::move(handler)](const httplib::Request& req,
+                                                       httplib::Response& res) {
+        if (p_->check_rate_limit(res, req, p, rate_policy)) return;
+
+        auto ctx = p_->authenticate(res, req);
+        if (!ctx) return;
+
+        try {
+            auto result = h(*ctx);
+            set_json_response(res, result.first, std::move(result.second));
+        } catch (const std::exception& e) {
+            set_error_json(res, 500, e.what());
+        }
+    });
+}
+
+void HttpServer::post_protected_with_status(std::string_view path,
+                                             const RateLimitPolicy& rate_policy,
+                                             StatusAuthPostHandler handler) {
+    std::string p(path);
+    p_->svr.Post(p.c_str(), [this, p, rate_policy,
+                                h = std::move(handler)](const httplib::Request& req,
+                                                         httplib::Response& res) {
+        if (p_->check_rate_limit(res, req, p, rate_policy)) return;
+
+        auto ctx = p_->authenticate(res, req);
+        if (!ctx) return;
+
+        nlohmann::json body;
+        if (!req.body.empty()) {
+            try {
+                body = nlohmann::json::parse(req.body);
+            } catch (const nlohmann::json::parse_error&) {
+                set_error_json(res, 400, "invalid JSON body");
+                return;
+            }
+        }
+
+        try {
+            auto result = h(*ctx, body);
+            set_json_response(res, result.first, std::move(result.second));
         } catch (const std::exception& e) {
             set_error_json(res, 500, e.what());
         }

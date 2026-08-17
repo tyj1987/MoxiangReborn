@@ -64,6 +64,25 @@ public:
                      const RateLimitPolicy& rate_policy,
                      PublicPostHandler handler);
 
+    // Variant of post_public that lets the handler pick the HTTP
+    // status code (use for 201 Created, 401 Unauthorized, 409 Conflict, etc).
+    using StatusPublicHandler = std::function<std::pair<int, nlohmann::json>(const nlohmann::json& body)>;
+    void post_public_with_status(std::string_view path,
+                                  const RateLimitPolicy& rate_policy,
+                                  StatusPublicHandler handler);
+
+    // Variant of get_protected that lets the handler pick the HTTP status.
+    using StatusAuthHandler = std::function<std::pair<int, nlohmann::json>(const AuthContext&)>;
+    void get_protected_with_status(std::string_view path,
+                                    const RateLimitPolicy& rate_policy,
+                                    StatusAuthHandler handler);
+
+    // Variant of post_protected that lets the handler pick the HTTP status.
+    using StatusAuthPostHandler = std::function<std::pair<int, nlohmann::json>(const AuthContext&, const nlohmann::json& body)>;
+    void post_protected_with_status(std::string_view path,
+                                     const RateLimitPolicy& rate_policy,
+                                     StatusAuthPostHandler handler);
+
     // Manual rate-limit check for a given IP + path.
     // Returns nullopt if allowed, or seconds until retry if rejected.
     std::optional<std::chrono::seconds> rate_check(std::string_view ip,
