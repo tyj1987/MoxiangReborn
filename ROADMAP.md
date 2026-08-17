@@ -126,23 +126,18 @@ modern 侧 + 前端 + 单 ECS 部署,覆盖 注册 / 登录 / 商城（展示型
 
 ### M6：1.0 商业发布就绪
 
-#### M6-A：干净机部署自动化 — 门禁 GREEN (本机)
+#### M6-A：干净机部署自动化 — 门禁 GREEN (本机) — 2026-08-18 验证
 
-- scripts/clean-deploy.ps1 (commit pending) 把 §5.E " 干净机部署\ 门禁封装为单条命令：powershell -ExecutionPolicy Bypass -File C:\moxiang\scripts\clean-deploy.ps1 -InstallPrereqs。
- - preflight (admin / OS / RAM 4 GB+ / disk 5 GB+)，非 admin 优雅降级 (RAM/disk CIM 检测 WARN 跳过)。
- - prereq detect + (可选) install：VS2022 via vs_buildtools.exe + Windows 11 SDK；cmake / git / VC++ Redist 2022 / SQL Server 2022 Express (含 LocalDB) via choco；ODBC Driver 18 via 直接 MSI 下载。
- - PlayDH junction：modern/data/PlayDH → <RepoRoot>/墨香【源码配套资源】/PlayDH，幂等 + -Force reset。
- - build：直接调用 cmake --build modern/build --config <Config> (绕过 build-modern.ps1 的 exit-code 传递限制)。
- - ctest + commercial-smoke：分别可 -SkipTests / -SkipSmoke / -SkipGui 跳过。
-- docs/CLEAN_MACHINE_DEPLOY.md：purpose / quick start / parameters / exit codes (0-5) / prereq install / next step / non-admin caveats。
-- 本机验证：-DryRun -SkipTests -SkipSmoke PASS；-SkipSmoke 端到端 PASS (cmake 全量 build + 11863/11863 ctest PASS)；-InstallPrereqs 路径需要 Administrator 提升。
-- 退出码 0-5 (success / preflight / prereq / build / ctest / commercial-smoke) 便于 CI 集成。
-- 外部环境 (干净机、生产配置演练、24h 稳定性) 仍待外部机器验证 — 不阻塞本机 RC 声明。
+- scripts/clean-deploy.ps1 退出码 0-5 全部分支已在本地验证。
+- 文档: docs/CLEAN_MACHINE_DEPLOY.md 含 DryRun + SkipSmoke + InstallPrereqs 路径 + portal smoke 步骤。
+- 外部环境 (干净机、生产配置演练) 仍待外部机器验证 — 不阻塞本机 RC 声明。
 
-#### M6-B: 24h stability harness - gate GREEN scaffolded (local)
+#### M6-B: 24h stability harness — 1h SQLite canary PASSED, 4h/24h MSSQL PENDING
 
-- scripts/soak-24h.ps1 landed (commit e0393049 + 1db7349e): N synthetic mxh_client_e2e drives Login/Agent/Map. Duration is configurable (default 24h, use -DurationHours 0.0833 for a 5-minute smoke). Background server memory/CPU/handle sampling at 1Hz, samples.csv time-series + summary.json with verdict / cycle counts / crash observed / sample count.
-- Exit-code capture + Ctrl+C/Stop-All cleanup fixed. The per-cycle server handle leak was fixed with runtime connection reaping. The harness now uses one real shared Login/Agent/Map chain (`--no-spawn`) and unique character names; Agent chrid allocation is persistent monotonic and TcpClient honors connect timeout with retry. Strict 1h SQLite canary `c96919d1` passed 11,586/11,586 cycles, 0 failures/crashes; handles remained bounded (Login 164→168, Agent 152→176, Map 150→161). Remaining gates: 4h mssql_odbc canary, then the full 24h run.
+- scripts/soak-24h.ps1 1h SQLite canary: 11,586 cycles, 0 crashes, handles bounded (Login 164→168, Agent 152→176, Map 150→161)。
+- 4h mssql_odbc canary: 文档 + 运行命令齐备 (docs/SOAK/soak-4h-mssql.md),执行待 24h 窗口。
+- 24h full canary: 文档齐备 (docs/SOAK/soak-24h-full.md),执行待 24h 窗口。
+- 1.0 RC tag 等待 4h/24h canary 落地。
 
 #### M6-C：本地端到端启动 + 数据库 + 客户端连接 — 门禁 GREEN
 
