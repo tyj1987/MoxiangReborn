@@ -252,6 +252,7 @@ bool g_overviewCamera = false;
 std::string __g_stateFramesDir;
 int __g_currentState = -1;
 std::string __g_pendingStateFrame;
+int __g_stateCaptureDelay = 0;
 
 // Active in-game input target. The WndProc forwards keyboard/mouse events
 // to the current game state (only CInGameState consumes input today).
@@ -721,13 +722,20 @@ void renderFrame(HWND h) {
                                 ? kStateNames[idx] : "unknown";
         std::string p = __g_stateFramesDir + "/state-" + name + ".tga";
         __g_pendingStateFrame = p;
+        // Wait several frames after state entry so async sprite / font
+        // uploads and the first draw settle before we capture; otherwise
+        // the back buffer at the capture tick is just the clear color.
+        __g_stateCaptureDelay = 8;
     }
-    if (!__g_pendingStateFrame.empty()) {
-        std::string mutable_fname = __g_pendingStateFrame;
-        __g_pendingStateFrame.clear();
-        if (g_renderer->CaptureScreen(mutable_fname.data())) {
-            MLOG_INFO("mxh_client: state frame saved state=%d path=%s",
-                      __g_currentState, mutable_fname.c_str());
+    if (__g_stateCaptureDelay > 0) {
+        --__g_stateCaptureDelay;
+        if (__g_stateCaptureDelay == 0 && !__g_pendingStateFrame.empty()) {
+            std::string mutable_fname = __g_pendingStateFrame;
+            __g_pendingStateFrame.clear();
+            if (g_renderer->CaptureScreen(mutable_fname.data())) {
+                MLOG_INFO("mxh_client: state frame saved state=%d path=%s",
+                          __g_currentState, mutable_fname.c_str());
+            }
         }
     }
     if (g_renderTerrain && !g_captureTerrainFrame.empty()) {
