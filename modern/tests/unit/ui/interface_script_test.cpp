@@ -9,9 +9,15 @@
 #include <string_view>
 
 #include "mxh/ui/interface_script.hpp"
+#include "mxh/ui/cDialog.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
 
+#include <filesystem>
+
+using mxh::ui::cDialog;
 using mxh::ui::InterfaceScript;
 using mxh::ui::InterfaceNode;
+using mxh::ui::apply_legacy_layout;
 using mxh::ui::parse_interface_script;
 
 namespace {
@@ -265,4 +271,76 @@ TEST(InterfaceScriptParser, WiringAppliesPositionsFromParsed) {
     EXPECT_EQ(btn.point->y, 0);
     EXPECT_EQ(btn.point->w, 42);
     EXPECT_EQ(btn.point->h, 42);
+}
+
+TEST(InterfaceScriptParser, ApplyLegacyLayoutAppliesMainDlgPos) {
+    // Demonstrates that apply_legacy_layout feeds the parsed #POINT into
+    // a real cDialog instance — positions/sizes match the legacy values
+    // exactly.
+    auto out = parse_interface_script(kMainDlgSnippet);
+    ASSERT_FALSE(out.empty());
+    int dummyImage = 1;
+    cDialog dlg;
+    ASSERT_TRUE(apply_legacy_layout(dlg, *out.roots[0], &dummyImage));
+    EXPECT_EQ(dlg.absX(), 422);
+    EXPECT_EQ(dlg.absY(), 726);
+    EXPECT_EQ(dlg.width(), 602u);
+    EXPECT_EQ(dlg.height(), 42u);
+    EXPECT_TRUE(dlg.hasCaption());
+    EXPECT_EQ(dlg.captionLeft(), 0);
+    EXPECT_EQ(dlg.captionTop(), 0);
+    EXPECT_EQ(dlg.captionRight(), 14);
+    EXPECT_EQ(dlg.captionBottom(), 42);
+}
+
+TEST(InterfaceScriptParser, ApplyLegacyLayoutReturnsFalseWithoutPoint) {
+    // A node without #POINT cannot be applied.
+    constexpr std::string_view no_point = R"(
+$DLG
+{
+    #ACTIVE 1
+}
+)";
+    auto out = parse_interface_script(no_point);
+    ASSERT_FALSE(out.empty());
+    cDialog dlg;
+    EXPECT_FALSE(apply_legacy_layout(dlg, *out.roots[0], nullptr));
+}
+
+TEST(InterfaceScriptParser, ApplyLegacyLayoutOnRealMainDlgBinFile) {
+    // End-to-end 1:1 wiring: load the real legacy MAINDLG .bin from
+    // PlayDH, parse it, and apply to a cDialog. The dialog's
+    // position/size must match the legacy hand-coded values (422, 726,
+    // 602, 42 — same as our kMainDlgSnippet golden).
+    namespace fs = std::filesystem;
+    const char* candidates[] = {
+        "modern/data/PlayDH",
+        "C:/moxiang/modern/data/PlayDH",
+        "C:/moxiang/墨香【源码配套资源】/PlayDH",
+    };
+    fs::path playdh;
+    for (const auto* c : candidates) {
+        std::error_code ec;
+        if (fs::exists(fs::path(c) / "Image" / "InterfaceScript" / "15.bin", ec)) {
+            playdh = c;
+            break;
+        }
+    }
+    if (playdh.empty()) {
+        GTEST_SKIP() << "PlayDH not available; skipping real-bin wiring test.";
+    }
+    auto read = mxh::compat::read_mh_bin(
+        playdh / "Image" / "InterfaceScript" / "15.bin");
+    ASSERT_TRUE(read.ok());
+    auto parsed = mxh::ui::parse_interface_script(
+        std::string_view(reinterpret_cast<const char*>(read.value.data.data()),
+                         read.value.data.size()));
+    ASSERT_FALSE(parsed.roots.empty());
+    int dummy = 0;
+    cDialog dlg;
+    ASSERT_TRUE(apply_legacy_layout(dlg, *parsed.roots[0], &dummy));
+    EXPECT_EQ(dlg.absX(), 422);
+    EXPECT_EQ(dlg.absY(), 726);
+    EXPECT_EQ(dlg.width(), 602u);
+    EXPECT_EQ(dlg.height(), 42u);
 }

@@ -2327,5 +2327,8 @@ gtest_add_tests(TARGET mxh_ui_tests
     InterfaceScriptParser.FindRootByTypeReturnsRoot
     InterfaceScriptParser.FindRootByTypeReturnsNullForMissing
     InterfaceScriptParser.WiringAppliesPositionsFromParsed
+    InterfaceScriptParser.ApplyLegacyLayoutAppliesMainDlgPos
+    InterfaceScriptParser.ApplyLegacyLayoutReturnsFalseWithoutPoint
+    InterfaceScriptParser.ApplyLegacyLayoutOnRealMainDlgBinFile
 )
 

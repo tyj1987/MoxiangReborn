@@ -391,4 +391,26 @@ const InterfaceNode* find_root_by_type(const InterfaceScript& script,
     return nullptr;
 }
 
+bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
+                         void* basicImage) {
+    if (!node.point.has_value()) return false;
+    const auto& r = *node.point;
+    dlg.Init(static_cast<std::int32_t>(r.x),
+             static_cast<std::int32_t>(r.y),
+             static_cast<std::uint16_t>(r.w),
+             static_cast<std::uint16_t>(r.h),
+             basicImage);
+    if (node.caption_rect) {
+        const auto& c = *node.caption_rect;
+        dlg.SetCaptionRect(c.x, c.y, c.x + c.w, c.y + c.h);
+    }
+    if (node.alpha_set) {
+        dlg.SetAlpha(node.alpha);
+    }
+    if (node.auto_close_set) {
+        dlg.SetAutoClose(node.auto_close);
+    }
+    return true;
+}
+
 }  // namespace mxh::ui
