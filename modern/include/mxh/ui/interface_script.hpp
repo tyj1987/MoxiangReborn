@@ -29,17 +29,12 @@
 #include <vector>
 
 #include "cDialog.hpp"
+#include "cImage.hpp"  // for ImageRect (1:1 with legacy cImageRect)
 
 namespace mxh::ui {
 
-// 1:1 with legacy cPoint { LONG left, top, right, bottom } used for
-// BASICIMAGE source rects and IMAGESRCRECT.
-struct ImageRect {
-    std::int32_t left = 0;
-    std::int32_t top = 0;
-    std::int32_t right = 0;
-    std::int32_t bottom = 0;
-};
+// ImageRect is defined in cImage.hpp (1:1 with legacy cImageRect) — we
+// re-use it here for BASICIMAGE source rects and IMAGESRCRECT.
 
 // 1:1 with legacy cPoint { x, y, w, h } used for #POINT / window rect.
 struct WindowRect {

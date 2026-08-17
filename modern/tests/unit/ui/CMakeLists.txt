@@ -82,6 +82,7 @@ add_executable(mxh_ui_tests
     cstreetbuystall_test.cpp
     interface_script_test.cpp
     interface_script_legacy_test.cpp
+    interface_script_render_test.cpp
     ceditbox_test.cpp
     cdialog_test.cpp
     cimage_test.cpp
@@ -2330,5 +2331,10 @@ gtest_add_tests(TARGET mxh_ui_tests
     InterfaceScriptParser.ApplyLegacyLayoutAppliesMainDlgPos
     InterfaceScriptParser.ApplyLegacyLayoutReturnsFalseWithoutPoint
     InterfaceScriptParser.ApplyLegacyLayoutOnRealMainDlgBinFile
+    # InterfaceScript pixel-level render verification (real PlayDH bin -> real pixels)
+    InterfaceScriptRender.MainDlgRendersAtLegacyPixelPosition
+    InterfaceScriptRender.QuickDialogRendersAtLegacyPixelPosition
+    InterfaceScriptRender.ExitDialogRendersAtLegacyPixelPosition
+    InterfaceScriptRender.MultipleDialogsRenderAtDistinctLegacyPositions
 )
 
