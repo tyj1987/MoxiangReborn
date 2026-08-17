@@ -690,6 +690,7 @@ void renderFrame(HWND h) {
     }
 
     if (!g_renderTerrain && g_hud.barBg && g_hudFont) {
+        g_renderer->SetScreenSpaceProjection();
         drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
                    245.0f, 210.0f, 310.0f, 190.0f, 1.0f);
         const auto drawText = [&](const std::string& value, LONG left, LONG top,
