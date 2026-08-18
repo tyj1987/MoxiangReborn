@@ -14,8 +14,7 @@
 
 [CmdletBinding()]
 param(
-    [switch]$SkipTests,
-    [switch]$Verbose
+    [switch]$SkipTests
 )
 
 $ErrorActionPreference = 'Stop'
