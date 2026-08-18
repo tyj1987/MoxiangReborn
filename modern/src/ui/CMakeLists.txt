@@ -29,6 +29,7 @@ add_library(mxh_ui STATIC
     cchatoptiondialog.cpp
     cImage.cpp
     cResourceManager.cpp
+    cSpriteAtlas.cpp
     cListCtrl.cpp
     cWindowManager.cpp
     cMsgBox.cpp

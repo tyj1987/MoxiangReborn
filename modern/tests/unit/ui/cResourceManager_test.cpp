@@ -2,13 +2,17 @@
 // M-R1 单测: cResourceManager 7 张表装载 + idx 查询
 
 #include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/log/mlog.hpp"
 
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -135,6 +139,114 @@ int main() {
     rm.ReleaseScriptManager();
     EXPECT_EQ(rm.sizeOf(PathFileType::HardPath), 0, "HardPath cleared after Release");
     EXPECT(!rm.allLoaded(), "allLoaded=false after Release");
+
+    // ==================== M-R2: cSpriteAtlas (image list) 装载 ====================
+    // 测试 image_path.bin (老版 cResourceManager::Init 装载的 image list)。
+    // M-R1 + M-R2 集成: cResourceManager.getHardPath(hard_idx, type) → ImageHardPath.atlas_idx
+    //   → cSpriteAtlas.getInfo(atlas_idx) → filename → resolvePath 实际文件
+    auto& atlas = mxh::ui::cSpriteAtlas::getInstance();
+    EXPECT(atlas.Init(playdh), "cSpriteAtlas.Init returns true");
+    EXPECT(atlas.loaded(), "cSpriteAtlas loaded");
+    EXPECT_EQ(atlas.size(), std::size_t{184}, "cSpriteAtlas size == 184 (老版实测)");
+
+    {
+        auto e0 = atlas.getInfo(0);
+        EXPECT(e0.has_value(), "cSpriteAtlas.getInfo(0) ok");
+        if (e0) {
+            EXPECT_EQ(e0->idx, 0, "entry 0 idx");
+            EXPECT_EQ(e0->width,  1024, "entry 0 width");
+            EXPECT_EQ(e0->height, 1024, "entry 0 height");
+            EXPECT_EQ(e0->layer, 1, "entry 0 layer");
+            EXPECT(e0->filename == "./image/2D/1.tif", "entry 0 filename");
+        }
+    }
+    {
+        auto e1 = atlas.getInfo(1);
+        EXPECT(e1.has_value(), "cSpriteAtlas.getInfo(1) ok");
+        if (e1) {
+            EXPECT_EQ(e1->width, 256, "entry 1 width");
+            EXPECT_EQ(e1->height, 256, "entry 1 height");
+        }
+    }
+    {
+        auto e183 = atlas.getInfo(183);
+        EXPECT(e183.has_value(), "cSpriteAtlas.getInfo(183) ok");
+        if (e183) {
+            EXPECT_EQ(e183->width, 1024, "entry 183 width");
+            EXPECT_EQ(e183->filename, "./image/2D/4.tif", "entry 183 filename");
+        }
+    }
+    // 越界 / 负数
+    EXPECT(!atlas.getInfo(-1).has_value(),     "getInfo(-1) returns nullopt");
+    EXPECT(!atlas.getInfo(184).has_value(),    "getInfo(184) out-of-range returns nullopt");
+    EXPECT(!atlas.getInfo(99999).has_value(),  "getInfo(99999) way out-of-range returns nullopt");
+
+    // resolvePath strip "./" prefix (path case-insensitive on Windows)
+    {
+        auto e0 = atlas.getInfo(0);
+        if (e0) {
+            auto resolved = atlas.resolvePath(*e0);
+            auto expected = playdh / "Image" / "2D" / "1.tif";
+            // Windows fs::equivalent is case-insensitive
+            EXPECT(fs::equivalent(resolved, expected) || resolved == expected,
+                   "resolvePath strips './' prefix and points at file");
+        }
+    }
+
+    // Release + re-Init
+    atlas.Release();
+    EXPECT_EQ(atlas.size(), std::size_t{0}, "atlas size=0 after Release");
+    EXPECT(!atlas.loaded(), "atlas loaded=false after Release");
+    EXPECT(atlas.Init(playdh), "atlas re-Init returns true");
+    EXPECT_EQ(atlas.size(), std::size_t{184}, "atlas size still 184 after re-Init");
+
+    // M-R1 + M-R2 集成 cross-check: 7 张 hard path 表 idx=0 的 atlas_idx 都应该
+    // 在 image list 查到, 验证 cResourceManager → cSpriteAtlas 链通
+    rm.InitScriptManager(image_dir);
+    int cross_check_pass = 0;
+    int cross_check_total = 0;
+    for (auto t : {PathFileType::HardPath, PathFileType::ItemPath,
+                   PathFileType::MugongPath, PathFileType::AbilityPath,
+                   PathFileType::BuffPath, PathFileType::JackpotPath}) {
+        auto hp = rm.getHardPath(0, t);
+        if (!hp) continue;
+        auto info = atlas.getInfo(hp->atlas_idx);
+        ++cross_check_total;
+        if (info.has_value() && !info->filename.empty()) {
+            ++cross_check_pass;
+        }
+        std::cout << "[M-R1+2 cross] " << (int)t << " hard_idx=0 atlas_idx="
+                  << hp->atlas_idx << " -> "
+                  << (info ? info->filename : "<MISSING>") << "\n";
+    }
+    EXPECT(cross_check_pass == cross_check_total,
+           "every hard_path[0].atlas_idx resolves to an image list entry");
+
+    // 抽样 5 个 image 验证文件实际存在 + 取 magic bytes
+    std::vector<int> sample_idxs = {0, 1, 17, 20, 87};
+    int files_found = 0;
+    for (int idx : sample_idxs) {
+        auto info = atlas.getInfo(idx);
+        if (!info) continue;
+        auto path = atlas.resolvePath(*info);
+        if (fs::exists(path)) {
+            ++files_found;
+            std::ifstream f(path, std::ios::binary);
+            unsigned char buf[16] = {0};
+            f.read(reinterpret_cast<char*>(buf), 16);
+            std::streamsize got = f.gcount();
+            std::cout << "[sample] idx=" << idx << " " << path.filename().string()
+                      << " size=" << fs::file_size(path) << " magic=";
+            for (int i = 0; i < std::min<std::streamsize>(got, 8); ++i) {
+                std::cout << std::hex << std::setw(2) << std::setfill('0')
+                          << (static_cast<unsigned int>(buf[i]) & 0xFF) << " ";
+            }
+            std::cout << std::dec << "\n";
+        } else {
+            std::cout << "[sample] idx=" << idx << " " << path.filename().string() << " MISSING\n";
+        }
+    }
+    EXPECT(files_found >= 1, "at least one sampled image file exists on disk");
 
     std::cout << "\n[cResourceManager_test] PASS " << g_passes << " / FAIL " << g_failures << "\n";
     return g_failures == 0 ? 0 : 1;
