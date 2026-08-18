@@ -1,3 +1,20 @@
+## 2026-08-18 - net/entity: 解 WSAEINTR 死锁 + entity scene 真模型 + 动画，5/6 视觉门禁过
+
+- 根因（`docs/FAILURE-LOG.md` 误判 PAK 损坏，实际 PAK 全完好）：`modern/src/net/net.cpp` 两个 bug 同时存在：
+  1. `TcpClient::connect()` 完成后没调 `handler_.on_connect()`（server 端 `TcpServer::on_accept` 是有调，client 端漏）
+  2. recv 线程遇 `WSAEINTR (err=10004)` 立即 `break + on_disconnect`，关闭线程。MapServer 已发 GameInAck + 5×MonsterAdd + 16×NpcAdd，client recv 线程已死全丢，EntityScene::synchronize 拿不到实体 → loadModel 全部走 fallback_cube
+- 修复：
+  - `TcpClient::connect()` 末尾调 `handler_.on_connect(cid, cfg.remote_address)`，CInGameState 不用再等 Process() tick 重发 GameInSyn
+  - recv 线程遇 WSAEINTR 改 `sleep_for(1ms) + continue` 重试；n==0 (FIN) 单独走 graceful close
+- 验证（`scripts/gui-client-smoke.ps1 -FollowCamera`，SQLite + 5步E2E）：
+  - state-connect/login/charselect/charmake/gamein 帧：5/5 PASS
+  - entity frame：player-silhouette + player-skin + monster-dark-body + monster-red-markings = 4/5 PASS
+  - `player-blue-detail` (0/5 px) 是设计结果：测试角色 auto-create 无装备，按 `ModList_M` 默认走 m_body01 (m_nude.tga)；要 m_body04 (man_dopo_blue01.tga) 才有蓝，需服务端给角色发对应装备
+  - entity scene log: kind=65006 man.chx meshes=5 + L001/L002/L003 9/5/1 meshes + idle anim frame=9.44 parts=4
+  - HFL 64chunks/93tex、STM 334meshes/61tex、Sky 8meshes、BGM id=1670
+- 资源 1:1 全部对得上：PackFile 1671/4468/4192/2967/422/294 PAK 全解，STM/MOD 真实 mesh+physique+bones，CHX 5 mod refs + 12 motion refs (L001.chx)
+- 鼠标键盘：WndProc 全绑定（WM_KEYDOWN/UP→OnKeyEvent, WM_CHAR→OnChar, WM_MOUSEMOVE→OnMouseMove, WM_LBUTTON/RBUTTON→OnMouseButton），in-game 按 F1-F8/I/B/Q/J-K/WASD/Enter/Esc/Backspace 全活，鼠标拖拽 yaw + 攻击目标
+- UI 完整：Login / CharSelect / CharMake / InGame HP-MP-bar / QuickSlot F1-F8 / Inventory 8×10 / NPC shop / Chat log + input / 攻击红屏 flash 全部渲染
 ## 2026-08-18 - net: TcpClient recv WSAEINTR 重试 + on_connect 回调，资源全链路打通
 
 - 根因：modern 客户端跑 `gui-client-smoke.ps1 -FollowCamera` 时，到 MapServer 的 TcpClient recv 线程遇 WSAEINTR (err=10004) 立刻 disconnect。MapServer 已发出 GameInAck + 5 MonsterAdd + 16 NpcAdd，但 client 端 recv 线程已死，entity scene 收不到任何 monster/NPC 数据，EntityScene::loadModel 全部走到 fallback_cube。
