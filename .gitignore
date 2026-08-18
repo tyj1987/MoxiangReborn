@@ -426,3 +426,11 @@ modern/tools/dialog_children_type_scan/*.py
 # smoke artifacts here in earlier sessions).
 modern/docs/smoke_artifacts/
 
+ 
+ #   P h a s e   2 0 2 6 - 0 8 - 1 9   -   . g i t h u b / w o r k f l o w s /   e x c l u d e d   f r o m   p u s h   u n t i l   g h   C L I   O A u t h   t o k e n   h a s   w o r k f l o w   s c o p e  
+ #   S e e   . g i t h u b / w o r k f l o w s / c i . y m l   i n   w o r k i n g   t r e e ;   a d d   b a c k   v i a :  
+ #       1 .   g h   a u t h   r e f r e s h   - - h o s t n a m e   g i t h u b . c o m   - - s c o p e s   w o r k f l o w     ( a p p r o v e   i n   b r o w s e r )  
+ #       2 .   g i t   a d d   . g i t h u b / w o r k f l o w s / c i . y m l  
+ #       3 .   g i t   c o m m i t   - m   " r e s t o r e   c i . y m l   w o r k f l o w "   & &   g i t   p u s h  
+ . g i t h u b / w o r k f l o w s /  
+ 
