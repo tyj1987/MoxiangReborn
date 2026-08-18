@@ -359,3 +359,22 @@ modern/scratch/
 # to the 1.3GB PlayDH resource directory used by audit_resource_coverage.py.
 # Never tracked (machine-specific path, binary content).
 modern/tools/playdh_link_for_audit/
+
+# Phase 2026-08-19 - cmake configure output accidentally leaking to repo root
+# when build dir is the cwd (vs. cmake -S modern -B modern/build). F-2 trap.
+# These are session-only build artifacts, never tracked.
+/CMakeCache.txt
+/CMakeFiles/
+/CTestTestfile.cmake
+/INSTALL.vcxproj
+/INSTALL.vcxproj.filters
+/RUN_TESTS.vcxproj
+/RUN_TESTS.vcxproj.filters
+/ALL_BUILD.vcxproj
+/ALL_BUILD.vcxproj.filters
+/ZERO_CHECK.vcxproj
+/ZERO_CHECK.vcxproj.filters
+/MoxianReborn.sln
+/cmake_install.cmake
+/_deps/
+/SpecInfo.txt

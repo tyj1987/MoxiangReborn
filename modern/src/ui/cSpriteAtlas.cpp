@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cctype>
 
 namespace mxh::ui {
 
@@ -39,7 +40,16 @@ void cSpriteAtlas::Release() noexcept {
 
 bool cSpriteAtlas::Init(const std::filesystem::path& path_root) {
     Release();
-    m_pathRoot = path_root;
+    // image_path.bin lives under <path_root>/Image/, and its entries carry
+    // PakFile-style filenames like "./image/2D/1.tif" (lowercase + forward
+    // slashes).  The actual PlayDH resources on disk are under the
+    // uppercase "Image/2D/" subdir, and the 4Dyuchi FileStorage index is
+    // case-sensitive, so we point m_pathRoot at the Image/ subtree and
+    // strip the leading "image/" prefix in resolvePath() to land on the
+    // real on-disk file.  Windows FS is case-insensitive (so std::filesystem
+    // ::exists would otherwise return true even for the wrong-cased path),
+    // which is why this was not caught earlier.
+    m_pathRoot = path_root / "Image";
 
     const auto bin_path = path_root / "Image" / "image_path.bin";
     auto res = mxh::compat::read_mh_bin(bin_path);
@@ -108,6 +118,17 @@ std::filesystem::path cSpriteAtlas::resolvePath(const ImageInfo& info) const {
     std::string f = info.filename;
     if (f.rfind("./", 0) == 0) f = f.substr(2);
     if (f.rfind(".\\", 0) == 0) f = f.substr(2);
+    // Strip PakFile-style "image/" prefix (case-insensitive) so the join
+    // m_pathRoot / rest yields <path_root>/Image/2D/1.tif, which matches
+    // the real on-disk path.  See Init() for the case-sensitivity story.
+    constexpr std::string_view kPakPrefix = "image/";
+    if (f.size() > kPakPrefix.size()) {
+        std::string head = f.substr(0, kPakPrefix.size());
+        for (auto& c : head) {
+            c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+        }
+        if (head == kPakPrefix) f = f.substr(kPakPrefix.size());
+    }
     return m_pathRoot / f;
 }
 
