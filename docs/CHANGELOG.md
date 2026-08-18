@@ -1,3 +1,14 @@
+## 2026-08-18 - net: TcpClient recv WSAEINTR 重试 + on_connect 回调，资源全链路打通
+
+- 根因：modern 客户端跑 `gui-client-smoke.ps1 -FollowCamera` 时，到 MapServer 的 TcpClient recv 线程遇 WSAEINTR (err=10004) 立刻 disconnect。MapServer 已发出 GameInAck + 5 MonsterAdd + 16 NpcAdd，但 client 端 recv 线程已死，entity scene 收不到任何 monster/NPC 数据，EntityScene::loadModel 全部走到 fallback_cube。
+- 修复 `modern/src/net/net.cpp`：
+  - `TcpClient::connect()` 在 TCP 握手成功后调用 `handler_.on_connect()`（与 server 端 TcpServer::on_accept 对称），CInGameState 不必再等 `Process()` tick 重发 GameInSyn。
+  - recv 线程遇 `WSAEINTR` 不再 disconnect，改 `sleep_for(1ms)` 后 `continue` 重试；真实断开由 `n==0` (graceful) 或 `WSAECONNABORTED`/`WSAECONNRESET` 走原路径。
+- 验证 (SQLite + 5 步 E2E 真实资源)：
+  - `mxh_compat_tests`：PackFile/StmStaticModel/MonsterCatalog/CharacterAppearanceCatalog/ItemListParser 全 PASS，Effect.pak 1671 / Character.pak 4468 / Map.pak 4192 / monster.pak 2967 / npc.pak 422 / Pet.pak 294 全部解到正确条目数。
+  - 客户端日志现在能跑到 `[entity] original MonsterList loaded entries=499`、`CInGameState: GameInAck player_id=100000 ... map=12 life=100/100`、`MonsterAdd object_id=50000 kind=1 ... name=Monster0` × 5、`NpcAdd id=50 kind=42 ...` × 16。MapServer 日志确认 `GAMEIN_ACK + 5 monster adds + 16 npc adds` 全部发出。
+- 剩余：modern 客户端 headless smoke 主循环在 GameIn 状态首次迭代后不再 tick（renderFrame 后阻塞），需要进一步排查；entity scene 仍会渲染 fallback_cube marker 直到主循环恢复。
+
 ## 2026-08-12 - account/gm: 多账号角色隔离与真实玩家管理 API
 
 - 修复严重账号隔离缺陷：LoginAck 此前为所有账号硬编码 `user_idx=1`，导致角色归属混用。新增 `modern_account_identity(account_id,user_idx)`，登录时串行惰性分配稳定非零 identity，legacy 23B LoginAck 写入完整 u32。

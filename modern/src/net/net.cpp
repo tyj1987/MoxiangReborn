@@ -685,6 +685,12 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
     impl_->encryptor = handler_.encryptor_for(ConnectionId{impl_->id});
     impl_->use_legacy_framing = cfg.use_legacy_framing;
 
+    // Notify the handler the TCP handshake completed. The server side already
+    // calls on_connect in TcpServer::on_accept; the client side was missing
+    // this call, so handlers that send their first message in on_connect (e.g.
+    // CInGameState sending GameInSyn) had to wait for Process() to retry.
+    handler_.on_connect(ConnectionId{impl_->id}, cfg.remote_address);
+
     // Start receive thread.
     impl_->recv_thread = std::thread([this]() {
         std::vector<std::uint8_t> buffer(65536);
@@ -693,8 +699,19 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
         while (impl_->connected.load()) {
             int n = recv(impl_->sock, reinterpret_cast<char*>(buffer.data()),
                          static_cast<int>(buffer.size()), 0);
-            if (n <= 0) {
-                int err = (n == 0) ? 0 : WSAGetLastError();
+            if (n < 0) {
+                int err = WSAGetLastError();
+                // WSAEINTR (10004) is transient: Winsock sometimes returns it
+                // when the socket close races with the recv (e.g. the previous
+                // TcpClient::disconnect() closesocket() while a new connection
+                // is starting up, or when the legacy server briefly cancels a
+                // blocking call to flush its send buffer). Retry instead of
+                // tearing the connection down; real closes come through as
+                // n == 0 (graceful) or err == WSAECONNABORTED/WSAECONNRESET.
+                if (err == WSAEINTR) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
                 int so_err = 0;
                 socklen_t so_len = sizeof(so_err);
                 if (impl_->sock != INVALID_SOCKET) {
@@ -704,6 +721,13 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
                 std::cerr << "[net] client recv n=" << n << " err=" << err
                           << " so_error=" << so_err
                           << " carryover=" << carryover.size() << "B\n";
+                impl_->connected.store(false);
+                handler_.on_disconnect(ConnectionId{impl_->id}, NetError::Disconnected);
+                break;
+            }
+            if (n == 0) {
+                // Graceful close (FIN) from peer.
+                std::cerr << "[net] client recv n=0 carryover=" << carryover.size() << "B\n";
                 impl_->connected.store(false);
                 handler_.on_disconnect(ConnectionId{impl_->id}, NetError::Disconnected);
                 break;
