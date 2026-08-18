@@ -31,12 +31,14 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace mxh::ui {
 
 class cWindowManager;
+class cImage;
 
 // 1 个 .bin 的装载报告
 struct DialogLoadReport {
@@ -52,6 +54,7 @@ struct DialogLoadReport {
     bool ok = false;
     std::string error;              // 失败原因 (XOR 失败 / parse 错误 / 装载到 WM 失败)
     std::size_t dlg_count = 0;      // 实际 AddDialog 成功次数 (root 有 #POINT 才有)
+    std::size_t cimg_count = 0;     // M-R4: 跨表查装老 sprite 绑到 cDialog 的次数
 };
 
 // 装载总体统计
@@ -62,7 +65,22 @@ struct DialogLoadStats {
     std::size_t with_point = 0;     // 至少 1 个 root 有 #POINT
     std::size_t dialogs_added = 0;  // AddDialog 成功次数
     std::size_t roots_total = 0;    // 所有 *.bin 解析出的 root 节点总数
+    std::size_t cimages_loaded = 0; // M-R4: 跨表查装老 sprite 绑到 cDialog 的次数
 };
+
+// M-R4 sprite 装填 hook
+//
+// M-R4.1 决定: cImage 跨表查 cResourceManager (M-R1) + cSpriteAtlas (M-R2)
+// → 拿老 .tif 绝对路径 → 调 hook 转 IDISpriteObject* → 创 cImage +
+// SetSpriteObject(sprite) → cDialog::Init(... cImage, id) 装 cImage 作
+// basicImage. cWindow::Render 已有 cast m_basicImage 为 cImage* + 调
+// cImage::render 通过绑定的 renderAdapter (老 MoxianClient main.cpp 已注册)
+//
+// hook 返回 void* (IDISpriteObject*); 失败返 nullptr (loader 跳过 sprite 装填,
+// 但 cDialog 仍然装入 WM, layout 1:1 保持)
+//
+// ctx 是 MoxianClient 端私有句柄 (renderer + storage), loader 持 void* 不解 ref
+using LoadSpriteFn = void* (*)(void* ctx, const std::string& tif_abs_path);
 
 class cDialogLoader {
 public:
@@ -86,6 +104,15 @@ public:
 
     // 报告统计
     static DialogLoadStats Aggregate(const std::vector<DialogLoadReport>& reports);
+
+    // M-R4.1: 注册 sprite 装填 hook. 调一次 (MoxianClient main 启动时),
+    // 后续所有 LoadAll/LoadOne 都会用 hook 装老 .tif → cImage 绑到 cDialog
+    // basicImage. hook = nullptr 时跳过 sprite 装填 (单测模式).
+    //
+    // 持的所有 cImage 句柄存到内部 vector, 程序退出前不会被释放
+    // (loader 是 stateless 静态类, 进程级 singleton 行为 — 老 client
+    // 整个生命周期都持有这些 cImage, 不在 dialog 销毁时释放).
+    static void SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept;
 };
 
 }  // namespace mxh::ui

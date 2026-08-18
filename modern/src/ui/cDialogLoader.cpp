@@ -12,6 +12,7 @@
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cWindowManager.hpp"
@@ -30,7 +31,21 @@ struct BinLess {
     }
 };
 
+// M-R4.1 sprite 装填 hook + 持 cImage 句柄 (进程级 singleton 行为)
+LoadSpriteFn g_loadSprite = nullptr;
+void*        g_loadSpriteCtx = nullptr;
+// 持所有 cImage 句柄, 程序退出前不会被释放
+std::vector<std::unique_ptr<cImage>> g_cimage_owners;
+
 }  // namespace
+
+void cDialogLoader::SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept {
+    g_loadSprite = fn;
+    g_loadSpriteCtx = ctx;
+    MLOG_INFO("[cDialogLoader] SetSpriteLoader: %s (M-R4 sprite 装填%s)",
+              fn ? "registered" : "cleared",
+              fn ? "启用" : "禁用");
+}
 
 DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                                         cWindowManager& wm) {
@@ -85,9 +100,38 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
             continue;
         }
 
+        // M-R4.1: 如果 hook 注册了, 跨表查 cResourceManager + cSpriteAtlas
+        // → 拿老 .tif → 创 cImage + SetSpriteObject + SetSource rect
+        // → cDialog::Init(..., cImage, id) 装 basicImage.
+        // hook 失败 / basic_image_idx < 0 走 nullptr 路径 (layout-only).
+        cImage* cimg = nullptr;
+        if (g_loadSprite && root->basic_image_idx >= 0 &&
+            root->basic_image_rect.has_value()) {
+            const auto& hp = cResourceManager::getInstance().getHardPath(
+                root->basic_image_idx, PathFileType::HardPath);
+            if (hp.has_value()) {
+                const auto info = cSpriteAtlas::getInstance().getInfo(hp->atlas_idx);
+                if (info.has_value()) {
+                    const auto tif_abs = cSpriteAtlas::getInstance().resolvePath(*info);
+                    if (std::filesystem::exists(tif_abs)) {
+                        void* sprite = g_loadSprite(g_loadSpriteCtx, tif_abs.string());
+                        if (sprite) {
+                            auto owner = std::make_unique<cImage>();
+                            owner->SetSpriteObject(sprite);
+                            const auto& ir = *root->basic_image_rect;
+                            owner->SetSource(ir.left, ir.top, ir.right, ir.bottom,
+                                             info->width, info->height);
+                            cimg = owner.get();
+                            g_cimage_owners.push_back(std::move(owner));
+                        }
+                    }
+                }
+            }
+        }
+
         auto dlg = std::make_unique<cDialog>();
         const bool applied = apply_legacy_layout(*dlg, *root,
-                                                  /*basicImage=*/nullptr);
+                                                  /*basicImage=*/cimg);
         if (!applied) {
             r.error = "apply_legacy_layout failed for root[" +
                       std::to_string(i) + "]";
@@ -102,6 +146,8 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
             r.point_h = p.h;
             first_point_set = true;
         }
+
+        if (cimg) r.cimg_count += 1;  // 跨表查命中统计
 
         wm.AddDialog(std::move(dlg));
         r.dlg_count += 1;  // 用于 stats 统计 AddDialog 成功次数
@@ -181,6 +227,7 @@ DialogLoadStats cDialogLoader::Aggregate(
         if (r.ok) ++s.ok; else ++s.failed;
         s.roots_total += r.root_count;
         s.dialogs_added += r.dlg_count;
+        s.cimages_loaded += r.cimg_count;
         if (r.has_point) ++s.with_point;
     }
     return s;

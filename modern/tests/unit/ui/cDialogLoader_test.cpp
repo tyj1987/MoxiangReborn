@@ -15,6 +15,8 @@
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -199,6 +201,59 @@ int main() {
             }
             EXPECT(checked >= 5, "expected to check at least 5 sample .bin files");
         }
+    }
+
+    // ---- Test 7: M-R4.1 LoadAll With Sprite Hook 跨表查装老 sprite ----
+    // 模拟 hook 接受 .tif 路径, 返回非 nullptr 假装是 IDISpriteObject*
+    // 验证 cimg_count > 0 (loader 调了 hook, 创了 cImage, 持到 g_cimage_owners)
+    {
+        static int g_mock_sprite_calls = 0;
+        static std::string g_mock_last_path;
+        g_mock_sprite_calls = 0;
+        g_mock_last_path.clear();
+        auto mockHook = [](void* /*ctx*/, const std::string& tif_path) -> void* {
+            g_mock_sprite_calls += 1;
+            g_mock_last_path = tif_path;
+            // 假装是 IDISpriteObject* (void*) - 单测不真画, 只验证 hook 被调
+            static char mock_sprite = 'S';
+            return static_cast<void*>(&mock_sprite);
+        };
+        mxh::ui::cDialogLoader::SetSpriteLoader(
+            static_cast<mxh::ui::LoadSpriteFn>(mockHook), nullptr);
+
+        // M-R1 + M-R2 必须装好 (hook 跨表查需要)
+        {
+            const auto image_dir = playdh / "Image";
+            if (!mxh::ui::cResourceManager::getInstance().allLoaded()) {
+                mxh::ui::cResourceManager::getInstance().InitScriptManager(image_dir);
+            }
+            if (!mxh::ui::cSpriteAtlas::getInstance().loaded()) {
+                mxh::ui::cSpriteAtlas::getInstance().Init(playdh);
+            }
+        }
+
+        mxh::ui::cWindowManager wm;
+        auto reports = mxh::ui::cDialogLoader::LoadAll(playdh, wm);
+        auto stats = mxh::ui::cDialogLoader::Aggregate(reports);
+
+        std::cout << "[cDialogLoader_test] M-R4 hook mock_sprite_calls=" << g_mock_sprite_calls
+                  << " cimages_loaded=" << stats.cimages_loaded << "\n";
+
+        EXPECT(stats.ok == stats.total_bins, "all bins still ok after M-R4 hook");
+        EXPECT(g_mock_sprite_calls > 0,
+               "M-R4 sprite hook should be called at least once (root with #BASICIMAGE)");
+        EXPECT(stats.cimages_loaded > 0,
+               "cimages_loaded should track hook hits");
+        EXPECT_EQ(static_cast<int>(stats.cimages_loaded), g_mock_sprite_calls,
+                  "cimages_loaded == mock_sprite_calls (1:1)");
+        EXPECT(!g_mock_last_path.empty(),
+               "mock hook should have received at least 1 .tif path");
+        EXPECT(g_mock_last_path.find(".tif") != std::string::npos ||
+               g_mock_last_path.find(".tga") != std::string::npos,
+               "mock hook path should end with .tif/.tga");
+
+        // 清理 hook (后续测试用回 nullptr)
+        mxh::ui::cDialogLoader::SetSpriteLoader(nullptr, nullptr);
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes
