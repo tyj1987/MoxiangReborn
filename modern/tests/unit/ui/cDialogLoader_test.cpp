@@ -76,7 +76,9 @@ int main() {
         auto rep = mxh::ui::cDialogLoader::LoadOne(is_dir / "15.bin", wm);
         EXPECT(rep.ok, "LoadOne 15.bin ok");
         EXPECT_EQ(rep.bin_name, std::string("15.bin"), "bin_name == 15.bin");
-        EXPECT_EQ(rep.dialog_type, std::string("MAINDLG"), "root type == MAINDLG");
+        // dialog_type 包含 "+Nchild" 后缀 (M-R4.3 装 children cButton)
+        EXPECT(rep.dialog_type.find("MAINDLG") == 0,
+               "dialog_type starts with MAINDLG");
         EXPECT(rep.root_count >= 1, "root_count >= 1");
         EXPECT(rep.has_point, "has_point true");
         EXPECT_EQ(rep.point_x, 422, "MAINDLG #POINT.x == 422");

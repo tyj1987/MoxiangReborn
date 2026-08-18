@@ -11,6 +11,7 @@
 
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
@@ -46,6 +47,37 @@ void cDialogLoader::SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept {
               fn ? "registered" : "cleared",
               fn ? "启用" : "禁用");
 }
+
+namespace {
+
+// M-R4.3 helper: 跨表查 1 张老 .tif 装 cImage. 命中 cimages_owners vector.
+// 失败 (hook 未注册 / image_idx < 0 / rect 缺失 / 跨表查 miss) 返 nullptr.
+// M-R4.1 root basicImage + M-R4.3 children 9 类图都用这个.
+cImage* loadImageForImageIdx(std::int32_t image_idx,
+                              const std::optional<mxh::ui::ImageRect>& rect) {
+    if (!g_loadSprite || image_idx < 0 || !rect.has_value()) {
+        return nullptr;
+    }
+    const auto hp = cResourceManager::getInstance().getHardPath(
+        image_idx, PathFileType::HardPath);
+    if (!hp.has_value()) return nullptr;
+    const auto info = cSpriteAtlas::getInstance().getInfo(hp->atlas_idx);
+    if (!info.has_value()) return nullptr;
+    const auto tif_abs = cSpriteAtlas::getInstance().resolvePath(*info);
+    if (!std::filesystem::exists(tif_abs)) return nullptr;
+    void* sprite = g_loadSprite(g_loadSpriteCtx, tif_abs.string());
+    if (!sprite) return nullptr;
+    auto owner = std::make_unique<cImage>();
+    const auto& ir = *rect;
+    owner->SetSource(ir.left, ir.top, ir.right, ir.bottom,
+                     info->width, info->height);
+    owner->SetSpriteObject(sprite);
+    cImage* out = owner.get();
+    g_cimage_owners.push_back(std::move(owner));
+    return out;
+}
+
+}  // namespace
 
 DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                                         cWindowManager& wm) {
@@ -100,34 +132,10 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
             continue;
         }
 
-        // M-R4.1: 如果 hook 注册了, 跨表查 cResourceManager + cSpriteAtlas
-        // → 拿老 .tif → 创 cImage + SetSpriteObject + SetSource rect
-        // → cDialog::Init(..., cImage, id) 装 basicImage.
-        // hook 失败 / basic_image_idx < 0 走 nullptr 路径 (layout-only).
-        cImage* cimg = nullptr;
-        if (g_loadSprite && root->basic_image_idx >= 0 &&
-            root->basic_image_rect.has_value()) {
-            const auto& hp = cResourceManager::getInstance().getHardPath(
-                root->basic_image_idx, PathFileType::HardPath);
-            if (hp.has_value()) {
-                const auto info = cSpriteAtlas::getInstance().getInfo(hp->atlas_idx);
-                if (info.has_value()) {
-                    const auto tif_abs = cSpriteAtlas::getInstance().resolvePath(*info);
-                    if (std::filesystem::exists(tif_abs)) {
-                        void* sprite = g_loadSprite(g_loadSpriteCtx, tif_abs.string());
-                        if (sprite) {
-                            auto owner = std::make_unique<cImage>();
-                            owner->SetSpriteObject(sprite);
-                            const auto& ir = *root->basic_image_rect;
-                            owner->SetSource(ir.left, ir.top, ir.right, ir.bottom,
-                                             info->width, info->height);
-                            cimg = owner.get();
-                            g_cimage_owners.push_back(std::move(owner));
-                        }
-                    }
-                }
-            }
-        }
+        // M-R4.1: root basicImage 跨表查
+        cImage* cimg = loadImageForImageIdx(root->basic_image_idx,
+                                            root->basic_image_rect);
+        if (cimg) r.cimg_count += 1;
 
         auto dlg = std::make_unique<cDialog>();
         const bool applied = apply_legacy_layout(*dlg, *root,
@@ -147,7 +155,37 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
             first_point_set = true;
         }
 
-        if (cimg) r.cimg_count += 1;  // 跨表查命中统计
+        // M-R4.3: 装 children (1 步跨表查装 3 类图 per cButton + per child type)
+        // 1:1 with 老版 cScriptManager::GetInfoFromFile 递归 + GetImage
+        // 9 类图 (basic/over/press/select/focus/tooltip) 跨表查装
+        std::size_t child_count = 0;
+        for (const auto& child : root->children) {
+            if (!child->point.has_value()) continue;
+            const auto& p = *child->point;
+            // 路由 widget class by type
+            if (child->type == "BTN") {
+                cImage* basic  = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                cImage* over   = loadImageForImageIdx(child->over_image_idx,
+                                                     child->over_image_rect);
+                cImage* press  = loadImageForImageIdx(child->press_image_idx,
+                                                     child->press_image_rect);
+                auto btn = std::make_unique<cButton>();
+                btn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, over, press, /*onClick=*/{}, /*userdata=*/nullptr,
+                          /*id=*/0);
+                if (basic)  ++r.cimg_count;
+                if (over)   ++r.cimg_count;
+                if (press)  ++r.cimg_count;
+                dlg->Add(std::move(btn));
+                ++child_count;
+            }
+            // 其他 type (STATIC/EDITBOX/LISTDIALOG/...) 留给 M-R4.4+
+        }
+        if (child_count > 0) {
+            r.dialog_type += "+" + std::to_string(child_count) + "child";
+        }
 
         wm.AddDialog(std::move(dlg));
         r.dlg_count += 1;  // 用于 stats 统计 AddDialog 成功次数
