@@ -14,10 +14,14 @@
 #include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
+#include "mxh/ui/cGuageBar.hpp"
+#include "mxh/ui/cIconDialog.hpp"
 #include "mxh/ui/cImage.hpp"
+#include "mxh/ui/cListDialog.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cStatic.hpp"
+#include "mxh/ui/cTabDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -205,8 +209,64 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 if (focus) ++r.cimg_count;
                 dlg->Add(std::move(eb));
                 ++child_count;
+            } else if (child->type == "LISTDLG") {
+                // M-R4.5: cListDialog (text list) — basicImage 跨表查装
+                // list_over / select image 留给 M-R4.5+ (基本 layout 1:1 优先)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ld = std::make_unique<cListDialog>();
+                ld->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                // InitList 配置行数 + clip — 用默认 10 行 (无 clip 信息从 .bin)
+                ld->InitList(/*maxLines=*/10,
+                             /*clipX=*/p.x, /*clipY=*/p.y,
+                             /*clipW=*/p.w, /*clipH=*/p.h);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ld));
+                ++child_count;
+            } else if (child->type == "ICONDLG") {
+                // M-R4.5: cIconDialog (icon grid container) — basicImage 跨表查装
+                // cell 数量 留默认 0,AddIconCell 留给 M-R4.5+ (基本 layout 1:1 优先)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ic = std::make_unique<cIconDialog>();
+                ic->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ic));
+                ++child_count;
+            } else if (child->type == "GUAGEBAR") {
+                // M-R4.5: cGuageBar (draggable progress bar) — basicImage 跨表查装
+                // InitGuageBar 默认 horizontal + 100 interval, 跟老版 cGuageBar contract 一致
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto gb = std::make_unique<cGuageBar>();
+                gb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                gb->InitGuageBar(/*interval=*/100, /*vertical=*/false);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(gb));
+                ++child_count;
+            } else if (child->type == "TABDIALOG" || child->type == "TABDLG") {
+                // M-R4.5: cTabDialog (tab container) — 1:1 化但 .bin 中 0 命中
+                // (老版实际是 eCHARGUAGEDLG 路由, 但接口 1:1 保留)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto tb = std::make_unique<cTabDialog>();
+                tb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                tb->InitTab(/*tabNum=*/1);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(tb));
+                ++child_count;
             }
-            // 其他 type (LISTDIALOG/ICONDIALOG/GUAGEBAR/TABDIALOG/...) 留给 M-R4.5+
+            // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
+            // 其他 widget class (CHECKBOX / COMBOBOX / ICONGRIDDLG / LISTCTRL /
+            // TEXTAREA / GUAGENE / PUSHUPBTN / GUAGEN / DLG) 留给 M-R4.6+
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";

@@ -58,6 +58,13 @@ public:
     // Total dialog count (alive).
     std::size_t dialogCount() const noexcept { return m_dialogs.size(); }
 
+    // Read-only access to the dialog vector. Used by tests / inspection
+    // tools that need to walk every alive dialog (e.g. M-R4.5 widget class
+    // child verification). The vector is in z-order (back is top).
+    const std::vector<std::unique_ptr<cDialog>>& dialogs() const noexcept {
+        return m_dialogs;
+    }
+
     // Topmost dialog (the one currently receiving input). null if no
     // active dialogs. Determined by the dialogs' Add() order: the last
     // added is on top.
