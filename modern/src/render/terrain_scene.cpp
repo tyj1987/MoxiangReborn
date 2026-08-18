@@ -211,19 +211,31 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
 void TerrainScene::configureCamera(float aspect) {
     if (!impl_->renderer || impl_->terrain.heights.empty()) return;
     CAMERA_DESC camera{};
-    // Forcing the overview camera at the map centre, looking down. This
-    // produces a deterministic, full-terrain screenshot acceptance view
-    // regardless of the player position. The follow_player path was
-    // placing the camera at z=-15 looking toward the player at z=-14,
-    // so the entire visible terrain was a 1x1-unit window which the
-    // textured pipeline rendered as a stretched single tile.
-    (void)impl_->follow_player;
+    constexpr float kSceneScale = 0.001f;
+    constexpr float kMapCenter = 25.6f;
     const auto& d = impl_->terrain.desc;
     const float cx = d.width * kSceneScale * 0.5f;
     const float cz = d.height * kSceneScale * 0.5f;
-    camera.v3From = {cx, 35.0f, cz};
-    camera.v3To   = {cx,  0.0f, cz};
-    camera.v3Up   = {0, 0, 1};
+    if (impl_->follow_player) {
+        // Third-person player camera. Camera sits 6 units behind and 3
+        // units above the player in scaled world coords, looking at the
+        // player. The view clips everything beyond 200 units, which is
+        // enough for the 512x512-unit world.
+        const float yaw = impl_->camera_yaw;
+        const float px = impl_->player_x * kSceneScale - kMapCenter;
+        const float pz = impl_->player_z * kSceneScale - kMapCenter;
+        const float back = 6.0f, up = 3.0f;
+        camera.v3From = {px - back * std::sin(yaw), up,
+                          pz - back * std::cos(yaw)};
+        camera.v3To   = {px, 0.0f, pz};
+        camera.v3Up   = {0, 0, 1};
+    } else {
+        // Overview camera at the map centre, looking down. Deterministic
+        // full-terrain screenshot view regardless of player position.
+        camera.v3From = {cx, 35.0f, cz};
+        camera.v3To   = {cx,  0.0f, cz};
+        camera.v3Up   = {0, 0, 1};
+    }
     camera.fFovY  = 3.14159265f / 3.0f;
     camera.fFar   = 200.0f;
     camera.fAspect = aspect;

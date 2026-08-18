@@ -1285,7 +1285,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                 }
             }
-            if (!g_overviewCamera && cur_state == mxh::client::GameStateId::GameIn) {
+            if (cur_state == mxh::client::GameStateId::GameIn) {
                 if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(cur_state)); game_in && game_in->is_in_game()) {
                     const auto& info = game_in->game_info();
