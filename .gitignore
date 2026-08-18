@@ -378,3 +378,51 @@ modern/tools/playdh_link_for_audit/
 /cmake_install.cmake
 /_deps/
 /SpecInfo.txt
+
+# Phase 2026-08-19 — prepare for GitHub push
+# PlayDH resource directory: 1.5GB on disk, sourced from
+# 墨香【源码配套资源】/PlayDH/ (a separate git-tracked resource archive
+# that the user copies into modern/data/PlayDH/ to enable visual smoke).
+modern/data/PlayDH/
+
+# Server runtime state (DB, portal generated files, log).
+# modern/data/moxian.db is the SQLite ledger written by the modern
+# Login/Agent/Map servers during smoke + soak runs.
+modern/data/portal/
+modern/data/moxian.db
+modern/data/*.db
+modern/data/*.db-journal
+modern/data/*.db-wal
+modern/data/*.db-shm
+
+# Session-only server runtime artifacts.
+modern/docs/dashboard/
+modern/docs/restoration-plan/baseline/
+modern/docs/restoration-plan/legacy_client.out.log
+modern/docs/restoration-plan/legacy_client.err.log
+
+# Deploy-side backup + built dist.
+deploy/backups/
+deploy/portal/static/dist/
+
+# Root-level cmake configure mirror (AGENTS.md §3 F-2).  When cmake
+# is invoked with cwd=C:\moxiang (instead of cwd=modern\ with -B
+# modern/build), the resulting src/, tests/, tools/ trees mirror
+# modern/src, modern/tests, modern/tools and leak into the repo root.
+# Real source lives under modern/; never commit these root-level mirrors.
+/src/
+/tests/
+/tools/
+
+# Empty stub unit test (M-R2 era; superseded by cResourceManager_test.cpp).
+modern/tests/unit/ui/cSpriteAtlas_test.cpp
+
+# One-off debug Python scripts used during M-R4.5+.6+.7+.8 dialog
+# children type scanning.  Kept in the working tree for reference but
+# not tracked (session-specific).
+modern/tools/dialog_children_type_scan/*.py
+
+# Pre-existing build mirror in modern/docs/ (legacy tests dropped .tga
+# smoke artifacts here in earlier sessions).
+modern/docs/smoke_artifacts/
+
