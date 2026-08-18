@@ -47,6 +47,10 @@
 #include "mxh/render/render_typedef.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/cSpriteAtlas.hpp"
+#include "mxh/ui/cWindowManager.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/audio/bgm_player.hpp"
 #include "mxh/compat/bmhm_map.hpp"
@@ -259,7 +263,7 @@ mxh::client::CInGameState* g_inputTarget = nullptr;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
 
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
-// wired in a later phase once the UI runtime lands).
+// wired in M-R3 via cDialogLoader::LoadAll — see below after bindRenderer()).
 struct HudSprites {
     IDISpriteObject* barBg  = nullptr;
     IDISpriteObject* hpFill = nullptr;
@@ -1019,6 +1023,50 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // opaque sprite back to IDISpriteObject* and draws it through
     // the HUD pass.
     mxh::ui::bindRenderer(&renderAdapter, nullptr);
+
+    // -------------------------------------------------------------------------
+    // M-R1 / M-R2 / M-R3 — full legacy resource + UI load chain.
+    //
+    //   M-R1: cResourceManager 装载 7 张 hard path .bin (image_hard_path,
+    //         image_item_path, image_mugong_path, image_ability_path,
+    //         image_buff_path, image_minimap_path, image_jackpot_path).
+    //   M-R2: cSpriteAtlas 装载 image_path.bin (184 entries, 老版老
+    //         cResourceManager::Init(szImageListPath) 等价物).
+    //   M-R3: cDialogLoader 装载 132 (实测 157) 个 InterfaceScript/*.bin
+    //         → 解析 → 创建 cDialog → cWindowManager::AddDialog. 装载链
+    //         是老版 cScriptManager::GetDlgInfoFromFile 的现代等价物。
+    //
+    // 装载全部在 renderer 启动之后、CMainGame 之前;cDialog 树装到全局
+    // cWindowManager,后面 A.1.6 state machine 跟它交互。
+    // -------------------------------------------------------------------------
+    {
+        using namespace mxh::ui;
+        const auto image_dir = options.resource_root / "Image";
+        if (!cResourceManager::getInstance().allLoaded()) {
+            if (!cResourceManager::getInstance().InitScriptManager(image_dir)) {
+                std::fprintf(stderr, "mxh_client: M-R1 cResourceManager init failed\n");
+            } else {
+                MLOG_INFO("mxh_client: M-R1 cResourceManager loaded (%zu total records)",
+                          cResourceManager::getInstance().sizeOf(PathFileType::HardPath)
+                          + cResourceManager::getInstance().sizeOf(PathFileType::ItemPath)
+                          + cResourceManager::getInstance().sizeOf(PathFileType::MugongPath)
+                          + cResourceManager::getInstance().sizeOf(PathFileType::AbilityPath)
+                          + cResourceManager::getInstance().sizeOf(PathFileType::BuffPath)
+                          + cResourceManager::getInstance().sizeOf(PathFileType::MiniMapPath)
+                          + cResourceManager::getInstance().sizeOf(PathFileType::JackpotPath));
+            }
+        }
+        if (!cSpriteAtlas::getInstance().loaded()) {
+            cSpriteAtlas::getInstance().Init(options.resource_root);
+        }
+        // M-R3: 装载 132 dialog .bin → cWindowManager
+        static cWindowManager g_wm;
+        auto reports = cDialogLoader::LoadAll(options.resource_root, g_wm);
+        auto stats = cDialogLoader::Aggregate(reports);
+        MLOG_INFO("mxh_client: M-R3 cDialogLoader %zu/%zu ok, %zu with #POINT, "
+                  "%zu dialogs added to WM",
+                  stats.ok, stats.total_bins, stats.with_point, stats.dialogs_added);
+    }
 
     // Build a placeholder cDialog centred in the window.  A.1.5 swaps
     // in the real CMainTitle dialog tree.

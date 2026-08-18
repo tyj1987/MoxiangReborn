@@ -202,6 +202,7 @@ add_library(mxh_ui STATIC
     cstreetstall.cpp
     cstreetbuystall.cpp
     interface_script.cpp
+    cDialogLoader.cpp
 )
 
 if(WIN32)

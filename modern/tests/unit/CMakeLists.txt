@@ -215,3 +215,21 @@ set_tests_properties(AuditResourceCoveragePlaintextDetection PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
+# -----------------------------------------------------------------------------
+# M-R3: cDialogLoader — 装载 132 dialog .bin 链 (独立 target, 避免与
+# cResourceManager_test 的 hand-rolled main 在 mxh_ui_tests 里冲突)
+# -----------------------------------------------------------------------------
+add_executable(mxh_dialog_loader_tests
+    ui/cDialogLoader_test.cpp
+)
+target_link_libraries(mxh_dialog_loader_tests PRIVATE
+    mxh_ui mxh_compat mxh_log)
+if(MSVC)
+    target_compile_options(mxh_dialog_loader_tests PRIVATE /FS /Z7 /MP1)
+endif()
+# hand-rolled main: 用 add_test 而不是 gtest_add_tests (后者需 TEST macro + main)
+add_test(NAME mxh_dialog_loader_tests
+    COMMAND $<TARGET_FILE:mxh_dialog_loader_tests>)
+set_tests_properties(mxh_dialog_loader_tests PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+

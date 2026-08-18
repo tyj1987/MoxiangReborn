@@ -2337,5 +2337,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     InterfaceScriptRender.QuickDialogRendersAtLegacyPixelPosition
     InterfaceScriptRender.ExitDialogRendersAtLegacyPixelPosition
     InterfaceScriptRender.MultipleDialogsRenderAtDistinctLegacyPositions
+    # M-R3: cDialogLoader 是 hand-rolled main-style 跟 cResourceManager_test 一起跑 (双 main 冲突),
+    # 不在 gtest_add_tests 列表里 — 它作为 mxh_ui_tests 的 main 调用顺序的一部分.
 )
 
