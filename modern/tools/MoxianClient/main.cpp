@@ -256,6 +256,7 @@ std::string __g_pendingStateFrame;
 // Active in-game input target. The WndProc forwards keyboard/mouse events
 // to the current game state (only CInGameState consumes input today).
 mxh::client::CInGameState* g_inputTarget = nullptr;
+mxh::client::CCharSelectState* g_charSelectState = nullptr;
 
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
 // wired in a later phase once the UI runtime lands).
@@ -700,13 +701,62 @@ void renderFrame(HWND h) {
                                    static_cast<std::uint32_t>(value.size()), &rc,
                                    color, CHAR_CODE_TYPE_ASCII, 2, 0);
         };
-        drawText("MOXIANG", 350, 230, 0xFFFFD080u);
-        drawText("Account", 275, 280);
-        drawText(g_loginUi.username + (!g_loginUi.editingPassword ? "_" : ""), 365, 280);
-        drawText("Password", 275, 320);
-        drawText(std::string(g_loginUi.password.size(), '*') +
-                 (g_loginUi.editingPassword ? "_" : ""), 365, 320);
-        drawText("[ Login ]", 360, 365, 0xFF80FF80u);
+        if (g_loginUi.visible) {
+            drawText("MOXIANG", 350, 230, 0xFFFFD080u);
+            drawText("Account", 275, 280);
+            drawText(g_loginUi.username + (!g_loginUi.editingPassword ? "_" : ""), 365, 280);
+            drawText("Password", 275, 320);
+            drawText(std::string(g_loginUi.password.size(), '*') +
+                     (g_loginUi.editingPassword ? "_" : ""), 365, 320);
+            drawText("[ Login ]", 360, 365, 0xFF80FF80u);
+        } else {
+            // CharSelect / CharMake / GameLoading view.
+            const auto cur_state = __g_currentState;
+            // Quadrant trace for debugging — emits at most once per state.
+            static int last_state_logged = -2;
+            if (cur_state != last_state_logged) {
+                MLOG_INFO("mxh_client: renderFrame state=%d g_charSelectState=%p",
+                          cur_state, (void*)g_charSelectState);
+                last_state_logged = cur_state;
+            }
+            if (cur_state == static_cast<int>(mxh::client::GameStateId::CharSelect)) {
+                drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                           145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
+                drawText("SELECT CHARACTER", 320, 130, 0xFFFFD080u);
+                if (g_charSelectState) {
+                    const std::vector<mxh::client::CharacterSlot>& chars = g_charSelectState->character_list();
+                    if (chars.empty()) {
+                        drawText("Connecting to AgentServer...", 200, 200, 0xFFA0A0A0u);
+                    } else {
+                        LONG y = 200;
+                        for (std::size_t i = 0; i < chars.size(); ++i) {
+                            const auto& s = chars[i];
+                            const std::string label = s.valid
+                                ? ("  [" + std::to_string(i) + "] chrid=" + std::to_string(s.chrid))
+                                : ("  [" + std::to_string(i) + "] (empty)");
+                            const std::uint32_t color = s.valid
+                                ? (s.chrid == g_charSelectState->selected_chrid()
+                                    ? 0xFF80FF80u : 0xFFFFFFFFu)
+                                : 0xFF606060u;
+                            drawText(label, 200, y, color);
+                            y += 28;
+                        }
+                        if (g_charSelectState->selected_chrid() != 0 &&
+                            g_charSelectState->selected_map() == 0) {
+                            drawText("-> awaiting CharacterSelectAck...", 200, y + 12,
+                                     0xFFFFD080u);
+                        }
+                    }
+                }
+            } else if (cur_state == static_cast<int>(mxh::client::GameStateId::CharMake)) {
+                drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                           145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
+                drawText("CREATE CHARACTER", 320, 130, 0xFFFFD080u);
+                drawText("0 slots in use; auto-create kicked in", 200, 200, 0xFFFFFFFFu);
+            } else if (cur_state == static_cast<int>(mxh::client::GameStateId::GameLoading)) {
+                drawText("Entering game...", 290, 240, 0xFF80FF80u);
+            }
+        }
     }
 
     g_renderer->EndRender();
@@ -1013,8 +1063,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // dev-mode shortcut; that path will move to a button in B.2.5+.
     mainGame.SetGameState(options.auto_login ? mxh::client::GameStateId::Connect
                                              : mxh::client::GameStateId::Title);
+    if (options.auto_login) {
+        // Auto-login bypasses the GUI login form entirely.
+        g_loginUi.visible = false;
+    }
+
     MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
-              "boot â†’ GameStateId::Connect");
+              "boot -> GameStateId::Connect");
 
     // Phase B.2.1: kick off the CLoginState connect (host-driven; the
     // state can't self-start because it doesn't know the login address
@@ -1074,6 +1129,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
                 }
+                if (cur_state == mxh::client::GameStateId::CharSelect) {
+                    g_charSelectState = dynamic_cast<mxh::client::CCharSelectState*>(
+                        mainGame.GetGameState(cur_state));
+                } else {
+                    g_charSelectState = nullptr;
+                }
                 // Phase B.2.5: skip past the manual login form (CMainTitle)
             // when running in headless smoke mode. The 1:1 flow goes
             // Connect -> Distribute -> Title(login form) -> CharSelect;
@@ -1083,7 +1144,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // rising edge. The LoginResult transfer slot (set by
             // CLoginState::dispatch_login_ack) is consumed by
             // CCharSelectState::Init() when CharSelect is entered.
-            if (cur_state == mxh::client::GameStateId::Title && options.auto_login) {
+            if (cur_state == mxh::client::GameStateId::Title) {
+                // CLoginState routes through Title after LoginAck and
+                // hands the LoginResult via the engine transfer slot.
+                // The CharSelect state will pull it in its own Init().
+                // Do NOT take it here or CharSelect sees an empty slot.
                 mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
             } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
@@ -1094,17 +1159,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
                             mainGame.GetGameState(cur_state))) {
                         cm->Start(mainGame.GetEngine());
-                    }
-                } else if (cur_state == mxh::client::GameStateId::GameLoading) {
-                    auto transfer = mainGame.GetEngine()->TakePendingTransfer();
-                    if (transfer.type() == typeid(mxh::client::GameEntryRequest)) {
-                        const auto request =
-                            std::any_cast<mxh::client::GameEntryRequest>(transfer);
-                        pending_character_id = request.character_id;
-                        pending_map_num = request.map_num;
-                        mainGame.SetGameState(mxh::client::GameStateId::GameIn);
-                    } else {
-                        MLOG_ERROR("GameLoading: missing GameEntryRequest");
                     }
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
                     // Phase B.2.3: dev-mode direct-connect to MapServer.
@@ -1168,6 +1222,26 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                 }
                 prev_state = cur_state;
+            }
+            // GameLoading consumer must run every frame when the state is
+            // GameLoading, because the CCharSelectState TCP recv thread may
+            // set the GameEntryRequest transfer AFTER the state-transition
+            // edge fires. Restricting to the rising-edge check loses the
+            // transfer and the state machine stalls.
+            if (cur_state == mxh::client::GameStateId::GameLoading) {
+                auto transfer = mainGame.GetEngine()->TakePendingTransfer();
+                if (transfer.type() == typeid(mxh::client::GameEntryRequest)) {
+                    const auto request =
+                        std::any_cast<mxh::client::GameEntryRequest>(transfer);
+                    pending_character_id = request.character_id;
+                    pending_map_num = request.map_num;
+                    mainGame.SetGameState(mxh::client::GameStateId::GameIn);
+                } else if (!transfer.type().name()) {
+                    // Empty transfer — wait for the TCP thread to populate it.
+                } else {
+                    MLOG_ERROR("GameLoading: unexpected transfer type=%s",
+                               transfer.type().name());
+                }
             }
             if (cur_state == mxh::client::GameStateId::CharSelect &&
                 options.auto_create && !auto_create_requested) {
