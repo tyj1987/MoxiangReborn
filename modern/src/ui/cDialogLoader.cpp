@@ -13,9 +13,11 @@
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
+#include "mxh/ui/cStatic.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -180,8 +182,31 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 if (press)  ++r.cimg_count;
                 dlg->Add(std::move(btn));
                 ++child_count;
+            } else if (child->type == "STATIC") {
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto st = std::make_unique<cStatic>();
+                st->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(st));
+                ++child_count;
+            } else if (child->type == "EDITBOX") {
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                cImage* focus = loadImageForImageIdx(child->focus_image_idx,
+                                                     child->focus_image_rect);
+                auto eb = std::make_unique<cEditBox>();
+                eb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, focus, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                if (focus) ++r.cimg_count;
+                dlg->Add(std::move(eb));
+                ++child_count;
             }
-            // 其他 type (STATIC/EDITBOX/LISTDIALOG/...) 留给 M-R4.4+
+            // 其他 type (LISTDIALOG/ICONDIALOG/GUAGEBAR/TABDIALOG/...) 留给 M-R4.5+
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
