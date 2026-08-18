@@ -2,11 +2,22 @@
 // Phase 6.6 — implementation of the modern cWindowManager.
 #include "cWindowManager.hpp"
 
+#include "cButton.hpp"
 #include "cDialog.hpp"
+#include "cEditBox.hpp"
 
 namespace mxh::ui {
 
 cWindowManager::~cWindowManager() {
+    // Clear focus BEFORE destroying dialogs. m_focused is a raw pointer
+    // into the dialog tree; once the unique_ptrs in m_dialogs are
+    // released the pointer would dangle. SetFocus(nullptr) routes
+    // through our null-safe branch.
+    if (m_focused) {
+        m_focused->SetFocus(false);
+        m_focused = nullptr;
+    }
+    m_modalDialog = nullptr;  // raw pointer, not owned — just drop
     m_dialogs.clear();
     m_destroyQueue.clear();
 }
@@ -132,6 +143,106 @@ void cWindowManager::RenderAll() {
     for (const auto& d : m_dialogs) {
         if (d) d->Render();
     }
+}
+
+// ===========================================================================
+// M-R6.2 Focus chain — 1:1 with legacy cWindowManager::SetFocus /
+// TabFocusNext / TabFocusPrev.
+//
+// Legacy semantics:
+//   - One focused window pointer across the whole dialog tree.
+//   - Tab cycles to the next focusable child in the topmost active
+//     dialog's z-order (children added with cDialog::Add are stored
+//     back-to-front; we treat back as z=0 + front as z=N-1 for
+//     purposes of "next").
+//   - Shift+Tab reverses.
+//   - If no candidate exists, focus stays put (no wrap).
+//   - SetFocus on the same window is a no-op (no re-fire).
+// ===========================================================================
+
+namespace {
+
+// True if `w` is a Tab-focus target. 1:1 with legacy cWindow::IsFocusable:
+//   cEditBox  -> focusable
+//   cButton   -> focusable (cPushupButton subclass also focusable)
+//   cStatic / cGuageBar / cGuagen  -> not focusable
+bool is_focusable_class(const cWindow* w) {
+    if (!w) return false;
+    if (dynamic_cast<const cEditBox*>(w)) return true;
+    if (dynamic_cast<const cButton*>(w)) return true;
+    return false;
+}
+
+}  // namespace
+
+bool cWindowManager::isFocusableCandidate(const cWindow* w) noexcept {
+    return is_focusable_class(w);
+}
+
+cWindow* cWindowManager::findFocusableAfter(cDialog* dlg, std::int32_t fromIdx) const {
+    if (!dlg) return nullptr;
+    const std::size_t n = dlg->childCount();
+    for (std::int32_t i = fromIdx + 1; i < static_cast<std::int32_t>(n); ++i) {
+        cWindow* kid = dlg->childAt(static_cast<std::size_t>(i));
+        if (is_focusable_class(kid)) return kid;
+    }
+    return nullptr;
+}
+
+cWindow* cWindowManager::findFocusableBefore(cDialog* dlg, std::int32_t fromIdx) const {
+    if (!dlg) return nullptr;
+    for (std::int32_t i = fromIdx - 1; i >= 0; --i) {
+        cWindow* kid = dlg->childAt(static_cast<std::size_t>(i));
+        if (is_focusable_class(kid)) return kid;
+    }
+    return nullptr;
+}
+
+void cWindowManager::SetFocus(cWindow* w) {
+    if (w == m_focused) return;  // no-op (1:1 legacy)
+    if (m_focused) m_focused->SetFocus(false);
+    m_focused = w;
+    if (m_focused) m_focused->SetFocus(true);
+}
+
+void cWindowManager::TabFocusNext() {
+    cDialog* top = topmostActive();
+    if (!top) return;
+    std::int32_t idx = -1;
+    if (m_focused && m_focused->parent() == top) {
+        const std::size_t n = top->childCount();
+        for (std::size_t i = 0; i < n; ++i) {
+            if (top->childAt(i) == m_focused) {
+                idx = static_cast<std::int32_t>(i);
+                break;
+            }
+        }
+    }
+    cWindow* next = findFocusableAfter(top, idx);
+    if (next) SetFocus(next);
+    // else: no candidate — focus stays put (1:1 with legacy)
+}
+
+void cWindowManager::TabFocusPrev() {
+    cDialog* top = topmostActive();
+    if (!top) return;
+    std::int32_t idx = static_cast<std::int32_t>(top->childCount());
+    if (m_focused && m_focused->parent() == top) {
+        const std::size_t n = top->childCount();
+        for (std::size_t i = 0; i < n; ++i) {
+            if (top->childAt(i) == m_focused) {
+                idx = static_cast<std::int32_t>(i);
+                break;
+            }
+        }
+    }
+    cWindow* prev = findFocusableBefore(top, idx);
+    if (prev) SetFocus(prev);
+}
+
+std::int32_t cWindowManager::focusedId() const noexcept {
+    if (!m_focused) return 0;
+    return m_focused->id();
 }
 
 } // namespace mxh::ui

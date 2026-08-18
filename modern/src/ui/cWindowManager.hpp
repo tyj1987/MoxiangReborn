@@ -29,6 +29,7 @@
 namespace mxh::ui {
 
 class cDialog;
+class cEditBox;
 
 class cWindowManager {
 public:
@@ -81,6 +82,32 @@ public:
     std::uint32_t ActionKeyboardEvent(std::int32_t key, std::int32_t ch);
 
     // -------------------------------------------------------------------------
+    // M-R6.2 Focus chain (1:1 with legacy cWindowManager::SetFocus /
+    // TabFocusNext / TabFocusPrev).
+    //
+    // The legacy engine tracks a single "currently focused" window pointer
+    // across the entire dialog tree. Tab cycles to the next focusable
+    // child in the topmost dialog's z-order; Shift+Tab reverses. Focus
+    // change fires m_bFocus false on the old window and true on the new
+    // (the OnKeyEvent handlers check m_bFocus for IME open/close).
+    //
+    // 1:1 quirks preserved:
+    //   - Tab only walks topmost active dialog (not all dialogs).
+    //   - If no candidate exists, focus stays put (no wrap).
+    //   - SetFocus on the same window is a no-op.
+    //   - cEditBox + cPushupButton + cIconDialog are "focusable"; others
+    //     (cStatic / cPushupButton passive) are skipped.
+    // -------------------------------------------------------------------------
+    void SetFocus(cWindow* w);
+    cWindow* focusedWindow() const noexcept           { return m_focused; }
+    void TabFocusNext();
+    void TabFocusPrev();
+
+    // Test-only inspector (not for production use): the focused
+    // window's id, or 0 if no focus.
+    std::int32_t focusedId() const noexcept;
+
+    // -------------------------------------------------------------------------
     // Modal mode. While a modal dialog is open, all input goes to it
     // regardless of z-order. SetModalDialog(nullptr) clears modal state.
     // -------------------------------------------------------------------------
@@ -98,6 +125,22 @@ public:
     // Test accessors.
     bool destroyQueueEmpty() const noexcept     { return m_destroyQueue.empty(); }
     std::size_t destroyQueueSize() const noexcept { return m_destroyQueue.size(); }
+
+private:
+    // Focus walk helpers — used by TabFocusNext/Prev. Both return the
+    // first focusable window in z-order strictly after (Next) or
+    // strictly before (Prev) `start`. `fromIdx` is the index in the
+    // current dialog's children where the walk resumes; -1 starts at
+    // the top.
+    cWindow* findFocusableAfter(cDialog* dlg, std::int32_t fromIdx) const;
+    cWindow* findFocusableBefore(cDialog* dlg, std::int32_t fromIdx) const;
+    // Is this window a Tab-focus target? 1:1 with legacy
+    // cWindow::IsFocusable() (returns true for cEditBox /
+    // cPushupButton / cIconDialog etc.; false for cStatic /
+    // cPushupButton passive).
+    static bool isFocusableCandidate(const cWindow* w) noexcept;
+
+    cWindow* m_focused = nullptr;  // currently focused window (any dialog)
 
 private:
     // Owned dialogs. Order = z-order: back is index 0, front is back().

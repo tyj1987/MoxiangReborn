@@ -233,3 +233,20 @@ add_test(NAME mxh_dialog_loader_tests
 set_tests_properties(mxh_dialog_loader_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+# -----------------------------------------------------------------------------
+# M-R6.2: cWindowManager focus chain 1:1 验证 (独立 target, 同样避免
+# 跟 mxh_ui_tests 双 main 冲突)
+# -----------------------------------------------------------------------------
+add_executable(mxh_window_manager_focus_tests
+    ui/cWindowManager_focus_test.cpp
+)
+target_link_libraries(mxh_window_manager_focus_tests PRIVATE
+    mxh_ui mxh_compat mxh_log)
+if(MSVC)
+    target_compile_options(mxh_window_manager_focus_tests PRIVATE /FS /Z7 /MP1)
+endif()
+add_test(NAME mxh_window_manager_focus_tests
+    COMMAND $<TARGET_FILE:mxh_window_manager_focus_tests>)
+set_tests_properties(mxh_window_manager_focus_tests PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+

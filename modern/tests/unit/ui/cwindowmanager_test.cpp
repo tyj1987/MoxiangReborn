@@ -230,3 +230,112 @@ TEST(CWindowManager, RenderAllWalksBackToFront) {
     wm.ProcessDestroyQueue();
     wm.RenderAll();   // empty
 }
+
+// ===========================================================================
+// M-R6.2 Focus chain (1:1 with legacy cWindowManager::SetFocus /
+// TabFocusNext / TabFocusPrev).
+// ===========================================================================
+
+TEST(CWindowManagerFocus, SetFocusMarksFocusedAndClearsPrevious) {
+    mxh::ui::cWindowManager wm;
+    auto dlg = std::make_unique<mxh::ui::cDialog>();
+    dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    auto eb1 = std::make_unique<mxh::ui::cEditBox>();
+    eb1->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/1);
+    auto eb2 = std::make_unique<mxh::ui::cEditBox>();
+    eb2->Init(100, 10, 80, 20, nullptr, nullptr, /*id=*/2);
+    cEditBox* raw_eb1 = eb1.get();
+    cEditBox* raw_eb2 = eb2.get();
+    dlg->Add(std::move(eb1));
+    dlg->Add(std::move(eb2));
+    wm.AddDialog(std::move(dlg));
+
+    wm.SetFocus(raw_eb1);
+    EXPECT_TRUE(raw_eb1->hasFocus());
+    EXPECT_FALSE(raw_eb2->hasFocus());
+    EXPECT_EQ(wm.focusedId(), 1);
+
+    wm.SetFocus(raw_eb2);
+    EXPECT_FALSE(raw_eb1->hasFocus());
+    EXPECT_TRUE(raw_eb2->hasFocus());
+    EXPECT_EQ(wm.focusedId(), 2);
+}
+
+TEST(CWindowManagerFocus, SetFocusSameWindowIsNoOp) {
+    mxh::ui::cWindowManager wm;
+    auto dlg = std::make_unique<mxh::ui::cDialog>();
+    dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    auto eb = std::make_unique<mxh::ui::cEditBox>();
+    eb->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/7);
+    cEditBox* raw_eb = eb.get();
+    dlg->Add(std::move(eb));
+    wm.AddDialog(std::move(dlg));
+
+    wm.SetFocus(raw_eb);
+    EXPECT_TRUE(raw_eb->hasFocus());
+    wm.SetFocus(raw_eb);  // same — no re-fire
+    EXPECT_TRUE(raw_eb->hasFocus());
+    EXPECT_EQ(wm.focusedId(), 7);
+}
+
+TEST(CWindowManagerFocus, TabFocusNextCyclesThroughEditBoxes) {
+    mxh::ui::cWindowManager wm;
+    auto dlg = std::make_unique<mxh::ui::cDialog>();
+    dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    auto eb1 = std::make_unique<mxh::ui::cEditBox>();
+    eb1->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/1);
+    auto eb2 = std::make_unique<mxh::ui::cEditBox>();
+    eb2->Init(100, 10, 80, 20, nullptr, nullptr, /*id=*/2);
+    cEditBox* raw_eb1 = eb1.get();
+    cEditBox* raw_eb2 = eb2.get();
+    dlg->Add(std::move(eb1));
+    dlg->Add(std::move(eb2));
+    wm.AddDialog(std::move(dlg));
+
+    // No current focus → Tab → first focusable (raw_eb1)
+    wm.TabFocusNext();
+    EXPECT_EQ(wm.focusedId(), 1);
+    // Tab again → raw_eb2
+    wm.TabFocusNext();
+    EXPECT_EQ(wm.focusedId(), 2);
+    // Tab again → no more focusable, stays on raw_eb2 (no wrap)
+    wm.TabFocusNext();
+    EXPECT_EQ(wm.focusedId(), 2);
+}
+
+TEST(CWindowManagerFocus, TabFocusPrevReversesOrder) {
+    mxh::ui::cWindowManager wm;
+    auto dlg = std::make_unique<mxh::ui::cDialog>();
+    dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    auto eb1 = std::make_unique<mxh::ui::cEditBox>();
+    eb1->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/1);
+    auto eb2 = std::make_unique<mxh::ui::cEditBox>();
+    eb2->Init(100, 10, 80, 20, nullptr, nullptr, /*id=*/2);
+    dlg->Add(std::move(eb1));
+    dlg->Add(std::move(eb2));
+    wm.AddDialog(std::move(dlg));
+    wm.SetFocus(dlg->childAt(1));  // focus eb2 (id=2)
+
+    wm.TabFocusPrev();
+    EXPECT_EQ(wm.focusedId(), 1);
+    wm.TabFocusPrev();  // no more before, stays on eb1
+    EXPECT_EQ(wm.focusedId(), 1);
+}
+
+TEST(CWindowManagerFocus, ButtonsAndEditBoxesAreFocusable) {
+    mxh::ui::cWindowManager wm;
+    auto dlg = std::make_unique<mxh::ui::cDialog>();
+    dlg->Init(0, 0, 300, 100, nullptr, /*id=*/0);
+    auto btn = std::make_unique<mxh::ui::cButton>();
+    btn->Init(10, 10, 30, 30, nullptr, nullptr, nullptr, nullptr, nullptr, /*id=*/10);
+    auto eb = std::make_unique<mxh::ui::cEditBox>();
+    eb->Init(50, 10, 80, 20, nullptr, nullptr, /*id=*/11);
+    dlg->Add(std::move(btn));
+    dlg->Add(std::move(eb));
+    wm.AddDialog(std::move(dlg));
+
+    wm.TabFocusNext();
+    EXPECT_EQ(wm.focusedId(), 10);  // button is focusable
+    wm.TabFocusNext();
+    EXPECT_EQ(wm.focusedId(), 11);  // editbox is focusable
+}
