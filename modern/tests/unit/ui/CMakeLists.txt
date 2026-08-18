@@ -2,6 +2,7 @@ add_executable(mxh_ui_tests
     cobject_test.cpp
     clistitem_test.cpp
     cwindow_test.cpp
+    cResourceManager_test.cpp
     cinventoryexdialog_test.cpp
     citemshopdialog_test.cpp
     cdealdialog_test.cpp
@@ -202,7 +203,7 @@ add_executable(mxh_ui_tests
     cskillpointredist_test.cpp
 )
 
-target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat gtest_main)
+target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat mxh_log gtest_main)
 
 # InterfaceScript legacy test uses nlohmann/json for structural compare.
 target_include_directories(mxh_ui_tests PRIVATE
