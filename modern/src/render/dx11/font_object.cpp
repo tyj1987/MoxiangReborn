@@ -334,10 +334,12 @@ BOOL __stdcall FontObject::DrawText(TCHAR* str, std::uint32_t dwLen, RECT* pRect
             float v1 = static_cast<float>(g->atlas_y + g->height) / static_cast<float>(m_atlasHeight);
 
             // Font glyph atlas is uploaded top-row-first from GDI
-            // GGO_GRAY8_BITMAP. Empirically the text rendered X-flipped
-            // without this swap; U swap keeps V orientation correct.
+            // GGO_GRAY8_BITMAP. Earlier iterations of this code swapped
+            // U (u1/v0/u0/v1) to "fix" X-mirroring, but that swap
+            // actually mirrored the text. The correct UV order is
+            // u0/u1 ascending on the X axis: u0, v0, u1, v1.
             drawer.drawTexturedQuad(m_atlasSRV.Get(), dx, dy, dw, dh,
-                                    u1, v0, u0, v1, dwColor, 0.0f, 0);
+                                    u0, v0, u1, v1, dwColor, 0.0f, 0);
         }
         penX += g->advance;
     }
