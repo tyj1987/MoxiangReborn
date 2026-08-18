@@ -38,6 +38,7 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 | 多账号隔离 | 登录时为每个账号持久化唯一稳定 `user_idx`，角色按该 wire identity 隔离；双账号真实 E2E 各自仅看到自己的角色 | 旧库中此前错误归属为固定 userid=1 的角色需要独立迁移工具 | **新账号隔离闭环完成，旧错误数据待迁移** |
 | 自动补丁 | 已移除模拟版本/假下载；清单与每个文件均做 SHA-256/长度校验，拒绝路径穿越，暂存后原子替换，按清单精确备份并支持恢复新增/覆盖/删除文件 | 生产发布系统仍需生成并安全分发受信任清单摘要，远程 HTTPS 下载尚未接入 | **本地可信发布闭环完成，远程控制面待建** |
 | 数据备份恢复 | SQLite 支持在线一致性 `VACUUM INTO` 备份、SHA-256 清单、双重 integrity_check、暂存恢复；默认拒绝覆盖已有库 | MSSQL 商业备份/恢复脚本仍需重写并完成真实恢复演练 | **SQLite 灾备闭环完成，MSSQL 待建** |
+| **M-R3 渲染+UI 视觉 1:1 还原 (2026-08-18, 装载链段)** | M-R1 7 张 hard path 表 2089 records (M-R1 commit 02890ce7 38/38 PASS) + M-R2 image list 184 entries (M-R2 commit c753a59f 63/63 PASS) + M-R3 cDialogLoader 装载 132/157 InterfaceScript/*.bin 实际 157/157 ok, 0 fail, 153 有 #POINT, 224 dialog 装入 cWindowManager (M-R3 commit f341cbbb 45/45 PASS); MoxianClient main 启动装载链已替换 "wired in a later phase" 承认; 详见 `modern/docs/restoration-plan/00-goal-statement.md` §2 | 视觉 1:1 验证 (5 状态 + 165 dialog 截图 SSIM ≥ 0.95) 待 M-R4 (cImage 真画 + 老 .tif 跨表装载 + 165 dialog golden 截图); 老 client Win11 崩溃无法对照, 改用 modern + 老资源 + sprite SHA-256 byte-compare 替代 | **M-R0→M-R3 装载链完成, 视觉 1:1 待 M-R4** |
 
 当前 CMake 发现基线：**11,922 tests**；11,922 项 PASSED，全量 CTest 退出码为 0。该数字用于防止测试静默丢失，不代表 T3 已完成。
 
