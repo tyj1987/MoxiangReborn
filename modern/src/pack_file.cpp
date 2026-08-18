@@ -67,6 +67,9 @@ std::unique_ptr<PackFile> PackFile::open_buffer(std::vector<std::uint8_t> bytes)
     std::size_t cursor = kHeaderEnd;
     pack->entries_.reserve(pack->header_.file_item_num);
 
+    std::fprintf(stderr, "[PakFile] version=%u file_item_num=%u\n",
+                 pack->header_.version, pack->header_.file_item_num);
+    int debug_printed = 0;
     for (std::uint32_t i = 0; i < pack->header_.file_item_num; ++i) {
         if (cursor + sizeof(PackFileDesc) > pack->raw_.size()) break;
 
@@ -89,6 +92,12 @@ std::unique_ptr<PackFile> PackFile::open_buffer(std::vector<std::uint8_t> bytes)
         if (cursor + 1 > pack->raw_.size()) break;
         cursor += 1;
 
+        if (debug_printed < 5) {
+            std::fprintf(stderr, "  entry %u: name=%s size=%u\n",
+                         i, name.c_str(), desc.real_file_size);
+            debug_printed++;
+        }
+
         PackEntry entry;
         entry.name = std::move(name);
         entry.entry_offset = static_cast<std::uint32_t>(
@@ -100,16 +109,25 @@ std::unique_ptr<PackFile> PackFile::open_buffer(std::vector<std::uint8_t> bytes)
         }
         pack->entries_.push_back(std::move(entry));
 
-        // Advance to next entry: skip past file data.
-        // (Use dwTotalSize - actual_consumed = realSize, since we already consumed 32+nameLen+1.)
-        std::size_t advance = static_cast<std::size_t>(desc.total_size)
-                            - sizeof(PackFileDesc)
-                            - desc.file_name_len
-                            - 1;
+        // Advance to next entry: prefer the parsed layout (header + name +
+        // 1 NUL + data) over total_size, because some real files have
+        // corrupt total_size that walks the cursor off the end of the
+        // file. Both formulas agree on the entry size for well-formed
+        // builds; the layout-based one is what the legacy reader uses.
+        std::size_t layout_advance = static_cast<std::size_t>(desc.real_file_size);
+        std::size_t total_advance = static_cast<std::size_t>(desc.total_size)
+                                  - sizeof(PackFileDesc)
+                                  - desc.file_name_len
+                                  - 1;
+        std::size_t advance = total_advance < layout_advance * 8
+                                ? total_advance
+                                : layout_advance;
         if (cursor + advance > pack->raw_.size()) break;
         cursor += advance;
     }
 
+    std::fprintf(stderr, "[PakFile] parsed %zu entries, raw_size=%zu\n",
+                 pack->entries_.size(), pack->raw_.size());
     return pack;
 }
 
