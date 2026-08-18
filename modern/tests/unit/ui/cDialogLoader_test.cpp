@@ -21,14 +21,21 @@
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cIconDialog.hpp"
 #include "mxh/ui/cIconGridDialog.hpp"
+#include "mxh/ui/cItemShopGridDialog.hpp"
+#include "mxh/ui/cJournalDialog.hpp"
 #include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cListDialog.hpp"
+#include "mxh/ui/cListDialogEx.hpp"
+#include "mxh/ui/cMugongDialog.hpp"
 #include "mxh/ui/cObjectGuagen.hpp"
 #include "mxh/ui/cPushupButton.hpp"
+#include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/cSpin.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cTabDialog.hpp"
 #include "mxh/ui/cTextArea.hpp"
+#include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -272,13 +279,16 @@ int main() {
         mxh::ui::cDialogLoader::SetSpriteLoader(nullptr, nullptr);
     }
 
-    // ---- Test 8: M-R4.5 + M-R4.6 12 widget class children 路由命中 ----
-    // 验证 12 个 widget class 在 165 dialog .bin 中作为 children 出现时, 能被
+    // ---- Test 8: M-R4.5 + M-R4.6 + M-R4.7 20 widget class children 路由命中 ----
+    // 验证 20 个 widget class 在 165 dialog .bin 中作为 children 出现时, 能被
     // cDialogLoader 路由到对应 class instance (而不是默默丢弃).
     //
     // M-R4.5 (4): cListDialog / cIconDialog / cGuageBar / cTabDialog
     // M-R4.6 (8): cCheckBox / cPushupButton / cIconGridDialog / cListCtrl
     //            / cComboBox / cTextArea / cGuagen / cObjectGuagen
+    // M-R4.7 (7 + DLG): cListDialogEx / cMugongDialog / cQuestDialog /
+    //            cWantedDialog / cJournalDialog / cItemShopGridDialog /
+    //            cSpin / DLG (嵌套 cDialog as child)
     //
     // 老版 cScriptManager 行为: children 没 #POINT 也调 Init(0,0,0,0) —
     // 但因为 m_absX=m_absY=0,m_w=m_h=0 不画图, 实际等价于"无 POINT 不挂".
@@ -291,29 +301,56 @@ int main() {
         std::size_t n_listdlg = 0, n_icondlg = 0, n_guagebar = 0, n_tabdlg = 0;
         std::size_t n_checkbox = 0, n_pushup = 0, n_icongrid = 0, n_listctrl = 0;
         std::size_t n_combo = 0, n_textarea = 0, n_guagen = 0, n_guagene = 0;
+        std::size_t n_listdlgex = 0, n_mugong = 0, n_quest = 0, n_wanted = 0;
+        std::size_t n_journal = 0, n_itemshopgrid = 0, n_spin = 0, n_dlg_nested = 0;
         for (const auto& d : wm.dialogs()) {
             if (!d) continue;
-            std::function<void(mxh::ui::cWindow*)> walk = [&](mxh::ui::cWindow* w) {
-                if (!w) return;
-                if (dynamic_cast<mxh::ui::cListDialog*>(w)) ++n_listdlg;
+            std::function<void(mxh::ui::cWindow*, int depth)> walk =
+                [&](mxh::ui::cWindow* w, int depth) {
+                if (!w || depth > 5) return;  // 防递归过深
+                // 嵌套 DLG 计数 — 顶级 dlg 之外的 cDialog children
+                if (depth > 0 && dynamic_cast<mxh::ui::cDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cListDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cListDialogEx*>(w) &&
+                    !dynamic_cast<mxh::ui::cIconDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cIconGridDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cGuageBar*>(w) &&
+                    !dynamic_cast<mxh::ui::cTabDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cTextArea*>(w) &&
+                    !dynamic_cast<mxh::ui::cMugongDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cQuestDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cWantedDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cJournalDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cItemShopGridDialog*>(w)) {
+                    ++n_dlg_nested;
+                }
+                // 注意: 派生类必须在基类之前 cast (dynamic_cast 会匹配派生)
+                if (dynamic_cast<mxh::ui::cListDialogEx*>(w)) ++n_listdlgex;
+                else if (dynamic_cast<mxh::ui::cListDialog*>(w)) ++n_listdlg;
                 else if (dynamic_cast<mxh::ui::cIconDialog*>(w)) ++n_icondlg;
                 else if (dynamic_cast<mxh::ui::cGuageBar*>(w)) ++n_guagebar;
                 else if (dynamic_cast<mxh::ui::cTabDialog*>(w)) ++n_tabdlg;
                 else if (dynamic_cast<mxh::ui::cCheckBox*>(w)) ++n_checkbox;
                 else if (dynamic_cast<mxh::ui::cPushupButton*>(w)) ++n_pushup;
+                else if (dynamic_cast<mxh::ui::cItemShopGridDialog*>(w)) ++n_itemshopgrid;  // 必须在 cIconGridDialog 前
                 else if (dynamic_cast<mxh::ui::cIconGridDialog*>(w)) ++n_icongrid;
                 else if (dynamic_cast<mxh::ui::cListCtrl*>(w)) ++n_listctrl;
                 else if (dynamic_cast<mxh::ui::cComboBox*>(w)) ++n_combo;
                 else if (dynamic_cast<mxh::ui::cTextArea*>(w)) ++n_textarea;
                 else if (dynamic_cast<mxh::ui::cObjectGuagen*>(w)) ++n_guagene;
                 else if (dynamic_cast<mxh::ui::cGuagen*>(w)) ++n_guagen;
+                else if (dynamic_cast<mxh::ui::cMugongDialog*>(w)) ++n_mugong;
+                else if (dynamic_cast<mxh::ui::cQuestDialog*>(w)) ++n_quest;
+                else if (dynamic_cast<mxh::ui::cWantedDialog*>(w)) ++n_wanted;
+                else if (dynamic_cast<mxh::ui::cJournalDialog*>(w)) ++n_journal;
+                else if (dynamic_cast<mxh::ui::cSpin*>(w)) ++n_spin;
                 if (auto* dlg = dynamic_cast<mxh::ui::cDialog*>(w)) {
                     for (std::size_t i = 0; i < dlg->componentCount(); ++i) {
-                        walk(dlg->componentAt(i));
+                        walk(dlg->componentAt(i), depth + 1);
                     }
                 }
             };
-            walk(d.get());
+            walk(d.get(), 0);
         }
 
         std::cout << "[cDialogLoader_test] M-R4 widget class children: "
@@ -328,7 +365,15 @@ int main() {
                   << " COMBOBOX=" << n_combo
                   << " TEXTAREA=" << n_textarea
                   << " GUAGEN=" << n_guagen
-                  << " GUAGENE=" << n_guagene << "\n";
+                  << " GUAGENE=" << n_guagene
+                  << " LISTDLGEX=" << n_listdlgex
+                  << " MUGONGDLG=" << n_mugong
+                  << " QUESTDLG=" << n_quest
+                  << " WANTEDDLG=" << n_wanted
+                  << " JOURNALDLG=" << n_journal
+                  << " ITEMSHOPGRIDDLG=" << n_itemshopgrid
+                  << " SPIN=" << n_spin
+                  << " DLG_NESTED=" << n_dlg_nested << "\n";
 
         EXPECT_EQ(stats.ok, stats.total_bins, "all .bin ok in M-R4 test");
         // M-R4.5: 4 widget class
@@ -336,8 +381,7 @@ int main() {
         EXPECT(n_icondlg  >= 20, "ICONDLG children routed to cIconDialog");
         EXPECT(n_guagebar >= 5,  "GUAGEBAR children routed to cGuageBar");
         EXPECT(n_tabdlg   >= 0,  "TABDLG children routed to cTabDialog");
-        // M-R4.6: 8 widget class — 全部至少 1:1 路由命中 (跟老版
-        // cScriptManager 行为 1:1 — 老版也无 POINT 不挂 widget)
+        // M-R4.6: 8 widget class
         EXPECT(n_checkbox >= 30, "CHECKBOX children routed to cCheckBox (79 树, 42+ 有 #POINT)");
         EXPECT(n_pushup   >= 100, "PUSHUPBTN children routed to cPushupButton (171 树, 132+ 有 #POINT)");
         EXPECT(n_icongrid >= 30, "ICONGRIDDLG children routed to cIconGridDialog (52 树, 43+ 有 #POINT)");
@@ -346,13 +390,24 @@ int main() {
         EXPECT(n_textarea >= 40, "TEXTAREA children routed to cTextArea (65 树, 50+ 有 #POINT)");
         EXPECT(n_guagen   >= 10, "GUAGEN children routed to cGuagen (15 树, 15 有 #POINT)");
         EXPECT(n_guagene  >= 25, "GUAGENE children routed to cObjectGuagen (34 树, 31+ 有 #POINT)");
+        // M-R4.7: 7 widget class + DLG 嵌套
+        EXPECT(n_listdlgex    >= 1,  "LISTDLGEX children routed to cListDialogEx (2 树)");
+        EXPECT(n_mugong       >= 1,  "MUGONGDLG children routed to cMugongDialog (1 树)");
+        EXPECT(n_quest        >= 1,  "QUESTDLG children routed to cQuestDialog (1 树)");
+        EXPECT(n_wanted       >= 1,  "WANTEDDLG children routed to cWantedDialog (1 树)");
+        EXPECT(n_journal      >= 1,  "JOURNALDLG children routed to cJournalDialog (1 树)");
+        EXPECT(n_itemshopgrid >= 1,  "ITEMSHOPGRIDDLG children routed to cItemShopGridDialog (3 树)");
+        EXPECT(n_spin         >= 1,  "SPIN children routed to cSpin (1 树)");
+        EXPECT(n_dlg_nested   >= 10, "DLG children nested as cDialog children (20 树)");
 
-        // 总计 12 class 路由命中累计 ≥ 400 (有 #POINT 子集, 跟老版 1:1)
+        // 总计 20 class 路由命中累计 ≥ 400 (有 #POINT 子集, 跟老版 1:1)
         const std::size_t total =
             n_listdlg + n_icondlg + n_guagebar + n_tabdlg +
             n_checkbox + n_pushup + n_icongrid + n_listctrl +
-            n_combo + n_textarea + n_guagen + n_guagene;
-        EXPECT(total >= 380, "12 widget class total children routed");
+            n_combo + n_textarea + n_guagen + n_guagene +
+            n_listdlgex + n_mugong + n_quest + n_wanted + n_journal +
+            n_itemshopgrid + n_spin + n_dlg_nested;
+        EXPECT(total >= 400, "20 widget class total children routed");
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes

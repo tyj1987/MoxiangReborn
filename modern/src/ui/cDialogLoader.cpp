@@ -21,15 +21,22 @@
 #include "mxh/ui/cIconDialog.hpp"
 #include "mxh/ui/cIconGridDialog.hpp"
 #include "mxh/ui/cImage.hpp"
+#include "mxh/ui/cItemShopGridDialog.hpp"
+#include "mxh/ui/cJournalDialog.hpp"
 #include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cListDialog.hpp"
+#include "mxh/ui/cListDialogEx.hpp"
+#include "mxh/ui/cMugongDialog.hpp"
 #include "mxh/ui/cObjectGuagen.hpp"
 #include "mxh/ui/cPushupButton.hpp"
+#include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/cSpin.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cStatic.hpp"
 #include "mxh/ui/cTabDialog.hpp"
 #include "mxh/ui/cTextArea.hpp"
+#include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -381,12 +388,110 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 if (basic) ++r.cimg_count;
                 dlg->Add(std::move(ogn));
                 ++child_count;
+            } else if (child->type == "LISTDLGEX") {
+                // M-R4.7: cListDialogEx (link-list text) — 1 类图 + InitLinkList
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ld = std::make_unique<cListDialogEx>();
+                ld->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                ld->InitLinkList(/*maxLines=*/10);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ld));
+                ++child_count;
+            } else if (child->type == "MUGONGDLG") {
+                // M-R4.7: cMugongDialog (skill slots) — 1 类图.
+                // 继承 cDialog 没自己 Init, 用 cDialog::Init
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto md = std::make_unique<cMugongDialog>();
+                md->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(md));
+                ++child_count;
+            } else if (child->type == "QUESTDLG") {
+                // M-R4.7: cQuestDialog (quest log) — 1 类图.
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto qd = std::make_unique<cQuestDialog>();
+                qd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(qd));
+                ++child_count;
+            } else if (child->type == "WANTEDDLG") {
+                // M-R4.7: cWantedDialog (wanted list) — 1 类图.
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto wd = std::make_unique<cWantedDialog>();
+                wd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(wd));
+                ++child_count;
+            } else if (child->type == "JOURNALDLG") {
+                // M-R4.7: cJournalDialog (quest journal) — 1 类图.
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto jd = std::make_unique<cJournalDialog>();
+                jd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(jd));
+                ++child_count;
+            } else if (child->type == "ITEMSHOPGRIDDLG") {
+                // M-R4.7: cItemShopGridDialog (item shop drag-drop grid) — 1 类图.
+                // 继承 cIconGridDialog, 用其 Init(x, y, w, h, basic, id)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto isg = std::make_unique<cItemShopGridDialog>();
+                isg->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(isg));
+                ++child_count;
+            } else if (child->type == "SPIN") {
+                // M-R4.7: cSpin (number spinner) — 1 类图 (basic, 继承 cEditBox
+                // 但 cSpin::Init 签名只接 basic + callback, focus 走 cEditBox 默认)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto sp = std::make_unique<cSpin>();
+                sp->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*callback=*/{}, /*id=*/0);
+                sp->InitSpin(/*spinStrSize=*/10, /*strSize=*/10);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(sp));
+                ++child_count;
+            } else if (child->type == "DLG") {
+                // M-R4.7: 嵌套 cDialog as child (老版 eDLG 路由).
+                // 跟 root 一样装 basicImage + apply_legacy_layout
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto nested = std::make_unique<cDialog>();
+                const bool applied = apply_legacy_layout(*nested, *child, basic);
+                if (!applied) {
+                    // nested 没 #POINT — skip, 不挂
+                    continue;
+                }
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(nested));
+                ++child_count;
             }
             // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
-            // 留给 M-R4.7+: LISTDLGEX / WEAREDDLG / DLG / PRIVATEWAREHOUSEDLG
-            // / LIST / ANI / GUAGE / ITEMSHOPGRIDDLG / JOURNALDLG / MUGONGDLG
-            // / MUNPAMARKDLG / QUESTDLG / SHOPITEMINVENGRID / SPIN / SURYUNDLG
-            // / WANTEDDLG (低频 <5 命中)
+            // 留给 M-R4.8+ (modern port 缺): WEAREDDLG / PRIVATEWAREHOUSEDLG
+            // / MUNPAMARKDLG / SHOPITEMINVENGRID / ANI / SURYUNDLG / GUAGE
+            // 这些 type 老版 cScriptManager 路由到 cWearedExDialog /
+            // cPrivateWarehouseDialog / cMunpaMarkDialog / cItemShopInven /
+            // cAni / cSuryunDialog / cGuage, 需要先创建 modern stub
+            // 才能路由
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
