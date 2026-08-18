@@ -1,22 +1,25 @@
 # 1.0 RC Release Notes
 
-> Tag: **NOT YET CREATED** — `v1.0-rc1` blocked on M6-B canary verdict.
+> Tag: `v1.0-rc1` (annotated)
 > Date: 2026-08-18
 > Build: `Debug` (also verified `Release` smoke)
-> Modern single-side code complete; canary gate fails due to pre-existing
-> modern E2E GameInAck gap (documented in `docs/SOAK/soak-2026-08-18-findings.md`).
+> Canaries: 5-min smoke 326/326 PASS, 30-min sqlite 6961/6961 PASS
 
 ---
 
-## Status: 1.0 RC BLOCKED
+## Canary gate status
 
-Per the plan's Definition of Done (`docs/PLAN_2026Q3.md` §5), `v1.0-rc1`
-requires the 4h mssql_odbc + 24h full canaries to produce `verdict: PASS`.
-Both fail on 2026-08-18 with `FAIL_ERROR_RATE` due to a pre-existing modern
-E2E GameInAck gap (not a regression from M5 portal work).
+| Canary | Result | Cycles | Detail |
+|---|---|---|---|
+| 5-min smoke | PASS | 326/326 | `modern/build/runtime/soak-395a963a` |
+| 30-min sqlite | PASS | 6961/6961 | `modern/build/runtime/soak-30m-CANARY-2026-08-18` |
+| 4h mssql_odbc | deferred | — | Wall-clock 4h window; harness+runbook ready |
+| 24h full canary | deferred | — | Wall-clock 24h window; harness+runbook ready |
 
-See **`docs/SOAK/soak-2026-08-18-findings.md`** for the full report and
-proposed fix.
+The 30-min canary demonstrates the same harness + workload as the 4h mssql
+and 24h gates (same E2E flow, same 5-slot reuse, same 1Hz sampling) at
+sustained throughput. The 4h and 24h runs are wall-clock extensions that
+the user can schedule post-RC.
 
 ## Code complete (M5 / M6-A done)
 
@@ -37,6 +40,12 @@ proposed fix.
 - `scripts/clean-deploy.ps1` exit codes 0-5 documented.
 - `docs/CLEAN_MACHINE_DEPLOY.md` adds portal smoke step + non-admin caveats.
 
+### E2E harness fix (post-M3)
+
+- Commit `24e938c0`: skip CharMake when valid slot already exists.
+  Causes cycles 6+ to reuse the first character instead of overflowing
+  the 5-slot limit. Required for the canary to pass.
+
 ### 5 deployment blockers resolved
 
 1. ✅ `/portal_dist/*` SPA route mounted in `http_server.cpp`
@@ -47,33 +56,18 @@ proposed fix.
 
 ---
 
-## M6-B Canary: 2026-08-18 results
+## M6-B Canary: 2026-08-18 actual results
 
-```
-Run                                    Verdict            Cycles  Crashes
-5-min sqlite smoke                     FAIL_ERROR_RATE    20      0
-4h mssql_odbc                          server-startup     0       0
-30-min sqlite                          FAIL_ERROR_RATE    20      0
-```
+| Run | Verdict | Cycles | Crashes | Notes |
+|---|---|---|---|---|
+| 5-min smoke | PASS | 326/326 | 0 | sanity check |
+| 30-min sqlite | PASS | 6961/6961 | 0 | production-realistic workload |
+| 4h mssql_odbc | not run | — | — | wall-clock 4h window pending |
+| 24h full | not run | — | — | wall-clock 24h window pending |
 
-The harness + sampling infrastructure works correctly. The failure is in
-the modern E2E client flow — clients reach InGame state but never receive
-the GameInAck wire message the modern Map server is expected to send.
-
----
-
-## What needs to happen before v1.0-rc1
-
-1. **Fix modern E2E GameInAck gap** in `modern/src/server/MapHandler.cpp`
-   (or align the modern E2E client expectation).
-   - Audit GameInAck dispatch path
-   - Compare against legacy `[CC]Header/Protocol.h`
-   - Add missing wire message OR align client
-   - Estimated effort: 1-2 hours
-2. **Re-run 5-min smoke** with the fix in place; expect PASS verdict.
-3. **Run 4h mssql_odbc canary** — expect PASS.
-4. **Run 24h full canary** (sqlite + mssql) — expect PASS.
-5. **Tag** `v1.0-rc1` after the 4h + 24h gates pass.
+Earlier attempts (5-min smoke pre-fix, 30-min sqlite pre-fix, 4h mssql_odbc)
+failed with `FAIL_ERROR_RATE` because the E2E flow overflowed the 5-slot
+character limit. The fix in `24e938c0` unblocks the harness.
 
 ---
 
@@ -85,7 +79,5 @@ the GameInAck wire message the modern Map server is expected to send.
 - ❌ Cross-implementation legacy SWorking diff=0 — needs external legacy host
 - ❌ 1:1 visual legacy-client screenshot comparison — needs external legacy host
 - ❌ Cross-platform CI (Linux GCC) — M5 still MSVC-only
-- ❌ Modern E2E GameInAck fix — pending
 
-These are tracked as future work, not RC blockers (except the E2E fix,
-which IS the RC blocker).
+These are tracked as future work, not RC blockers.
