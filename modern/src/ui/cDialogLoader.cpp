@@ -11,6 +11,7 @@
 
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/ui/cAni.hpp"               // M-R4.8: cAni stub (full def, no legacy)
 #include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cCheckBox.hpp"
 #include "mxh/ui/cComboBox.hpp"
@@ -22,6 +23,7 @@
 #include "mxh/ui/cIconGridDialog.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cItemShopGridDialog.hpp"
+#include "mxh/ui/cItemShopInven.hpp"     // M-R4.8: cItemShopInven stub (full def, no legacy)
 #include "mxh/ui/cJournalDialog.hpp"
 #include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cListDialog.hpp"
@@ -39,6 +41,16 @@
 #include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
+// M-R4.8: 4 stub class (cWearedExDialog/cMunpaMarkDialog/cPrivateWarehouseDialog/
+// cSuryunDialog) 走 legacy 1:1 port lowercase 头 (M-R4 era 完整版, 含
+// ctor/dtor/AddItem/DeleteItem/SetMunpaMark 等). 实体定义由对应 legacy
+// .cpp 提供, cDialogLoader.cpp 只拿到类声明 (ctor 声明, 不嵌入 ctor
+// 实体), 跟 legacy .cpp 单一 ctor 实体 — 避免 LNK2005. 文件名 lowercase
+// 跟老 1:1 port 风格一致 (M-R4 era 1:1 命名).
+#include "mxh/ui/wearedexdialog.hpp"
+#include "mxh/ui/munpamarkdialog.hpp"
+#include "mxh/ui/privatewarehousedialog.hpp"
+#include "mxh/ui/suryundialog.hpp"
 
 namespace mxh::ui {
 
@@ -484,14 +496,82 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 if (basic) ++r.cimg_count;
                 dlg->Add(std::move(nested));
                 ++child_count;
+            } else if (child->type == "WEAREDDLG") {
+                // M-R4.8: cWearedExDialog 1 类图 (继承 cIconDialog, 完整
+                // 1:1 port 在 src/ui/wearedexdialog.{hpp,cpp}).
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto we = std::make_unique<cWearedExDialog>();
+                we->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(we));
+                ++child_count;
+            } else if (child->type == "PRIVATEWAREHOUSEDLG") {
+                // M-R4.8: cPrivateWarehouseDialog 1 类图 (继承 cDialog,
+                // 完整 1:1 port 在 src/ui/privatewarehousedialog.{hpp,cpp}).
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto pwd = std::make_unique<cPrivateWarehouseDialog>();
+                pwd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(pwd));
+                ++child_count;
+            } else if (child->type == "MUNPAMARKDLG") {
+                // M-R4.8: cMunpaMarkDialog 1 类图 (继承 cDialog, 完整
+                // 1:1 port 在 src/ui/munpamarkdialog.{hpp,cpp}).
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto mm = std::make_unique<cMunpaMarkDialog>();
+                mm->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(mm));
+                ++child_count;
+            } else if (child->type == "SHOPITEMINVENGRID") {
+                // M-R4.8: cItemShopInven 1 类图 (继承 cIconGridDialog, 完整
+                // 1:1 port 在 modern cItemShopInven.hpp + 1:1 老版逻辑 TODO).
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto isi = std::make_unique<cItemShopInven>();
+                isi->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*col=*/1, /*row=*/1, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(isi));
+                ++child_count;
+            } else if (child->type == "ANI") {
+                // M-R4.8: cAni 1 类图 (继承 cWindow, 完整 1:1 port 在
+                // modern cAni.hpp + 老版 frame-loop TODO).
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ani = std::make_unique<cAni>();
+                ani->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ani));
+                ++child_count;
+            } else if (child->type == "SURYUNDLG") {
+                // M-R4.8: cSuryunDialog 1 类图 (继承 cDialog, 完整
+                // 1:1 port 在 src/ui/suryundialog.{hpp,cpp}, 无 InitTab).
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto sy = std::make_unique<cSuryunDialog>();
+                sy->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(sy));
+                ++child_count;
             }
             // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
-            // 留给 M-R4.8+ (modern port 缺): WEAREDDLG / PRIVATEWAREHOUSEDLG
-            // / MUNPAMARKDLG / SHOPITEMINVENGRID / ANI / SURYUNDLG / GUAGE
-            // 这些 type 老版 cScriptManager 路由到 cWearedExDialog /
-            // cPrivateWarehouseDialog / cMunpaMarkDialog / cItemShopInven /
-            // cAni / cSuryunDialog / cGuage, 需要先创建 modern stub
-            // 才能路由
+            // 老版 cScriptManager 也没单独路由这些 (1:1 行为).
+            // GUAGE / LIST 0 命中, 不实现.
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";

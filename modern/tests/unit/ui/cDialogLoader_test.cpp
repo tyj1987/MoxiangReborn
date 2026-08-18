@@ -13,6 +13,7 @@
 
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/ui/cAni.hpp"
 #include "mxh/ui/cCheckBox.hpp"
 #include "mxh/ui/cComboBox.hpp"
 #include "mxh/ui/cDialog.hpp"
@@ -22,6 +23,7 @@
 #include "mxh/ui/cIconDialog.hpp"
 #include "mxh/ui/cIconGridDialog.hpp"
 #include "mxh/ui/cItemShopGridDialog.hpp"
+#include "mxh/ui/cItemShopInven.hpp"
 #include "mxh/ui/cJournalDialog.hpp"
 #include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cListDialog.hpp"
@@ -38,6 +40,14 @@
 #include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
+// M-R4.8: 4 stub class (cWearedExDialog/cMunpaMarkDialog/cPrivateWarehouseDialog/
+// cSuryunDialog) 走 legacy 1:1 port lowercase 头 (在 canonical mxh/ui/ 路径
+// 下, 跟 src/ui/ 是同一文件). 完整 def 跟 ctor body 由对应 legacy .cpp 提供
+// (避免 LNK2005 跟 stub header 冲突).
+#include "mxh/ui/wearedexdialog.hpp"
+#include "mxh/ui/munpamarkdialog.hpp"
+#include "mxh/ui/privatewarehousedialog.hpp"
+#include "mxh/ui/suryundialog.hpp"
 
 #include <functional>
 
@@ -303,6 +313,8 @@ int main() {
         std::size_t n_combo = 0, n_textarea = 0, n_guagen = 0, n_guagene = 0;
         std::size_t n_listdlgex = 0, n_mugong = 0, n_quest = 0, n_wanted = 0;
         std::size_t n_journal = 0, n_itemshopgrid = 0, n_spin = 0, n_dlg_nested = 0;
+        std::size_t n_weared = 0, n_pwarehouse = 0, n_munpa = 0;
+        std::size_t n_isi = 0, n_ani = 0, n_suryun = 0;
         for (const auto& d : wm.dialogs()) {
             if (!d) continue;
             std::function<void(mxh::ui::cWindow*, int depth)> walk =
@@ -312,26 +324,35 @@ int main() {
                 if (depth > 0 && dynamic_cast<mxh::ui::cDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cListDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cListDialogEx*>(w) &&
+                    !dynamic_cast<mxh::ui::cWearedExDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cIconDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cPrivateWarehouseDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cItemShopInven*>(w) &&
                     !dynamic_cast<mxh::ui::cIconGridDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cGuageBar*>(w) &&
+                    !dynamic_cast<mxh::ui::cSuryunDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cTabDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cTextArea*>(w) &&
                     !dynamic_cast<mxh::ui::cMugongDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cQuestDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cWantedDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cJournalDialog*>(w) &&
+                    !dynamic_cast<mxh::ui::cMunpaMarkDialog*>(w) &&
                     !dynamic_cast<mxh::ui::cItemShopGridDialog*>(w)) {
                     ++n_dlg_nested;
                 }
                 // 注意: 派生类必须在基类之前 cast (dynamic_cast 会匹配派生)
                 if (dynamic_cast<mxh::ui::cListDialogEx*>(w)) ++n_listdlgex;
                 else if (dynamic_cast<mxh::ui::cListDialog*>(w)) ++n_listdlg;
+                else if (dynamic_cast<mxh::ui::cWearedExDialog*>(w)) ++n_weared;  // 派生 cIconDialog
                 else if (dynamic_cast<mxh::ui::cIconDialog*>(w)) ++n_icondlg;
                 else if (dynamic_cast<mxh::ui::cGuageBar*>(w)) ++n_guagebar;
+                else if (dynamic_cast<mxh::ui::cSuryunDialog*>(w)) ++n_suryun;  // 派生 cDialog (不是 cTabDialog)
                 else if (dynamic_cast<mxh::ui::cTabDialog*>(w)) ++n_tabdlg;
                 else if (dynamic_cast<mxh::ui::cCheckBox*>(w)) ++n_checkbox;
                 else if (dynamic_cast<mxh::ui::cPushupButton*>(w)) ++n_pushup;
+                else if (dynamic_cast<mxh::ui::cItemShopInven*>(w)) ++n_isi;  // 派生 cIconGridDialog
+                else if (dynamic_cast<mxh::ui::cPrivateWarehouseDialog*>(w)) ++n_pwarehouse;  // 派生 cDialog
                 else if (dynamic_cast<mxh::ui::cItemShopGridDialog*>(w)) ++n_itemshopgrid;  // 必须在 cIconGridDialog 前
                 else if (dynamic_cast<mxh::ui::cIconGridDialog*>(w)) ++n_icongrid;
                 else if (dynamic_cast<mxh::ui::cListCtrl*>(w)) ++n_listctrl;
@@ -343,7 +364,9 @@ int main() {
                 else if (dynamic_cast<mxh::ui::cQuestDialog*>(w)) ++n_quest;
                 else if (dynamic_cast<mxh::ui::cWantedDialog*>(w)) ++n_wanted;
                 else if (dynamic_cast<mxh::ui::cJournalDialog*>(w)) ++n_journal;
+                else if (dynamic_cast<mxh::ui::cMunpaMarkDialog*>(w)) ++n_munpa;  // 派生 cDialog
                 else if (dynamic_cast<mxh::ui::cSpin*>(w)) ++n_spin;
+                else if (dynamic_cast<mxh::ui::cAni*>(w)) ++n_ani;  // 派生 cWindow, .bin 0 命中 (scan 报 0)
                 if (auto* dlg = dynamic_cast<mxh::ui::cDialog*>(w)) {
                     for (std::size_t i = 0; i < dlg->componentCount(); ++i) {
                         walk(dlg->componentAt(i), depth + 1);
@@ -373,7 +396,13 @@ int main() {
                   << " JOURNALDLG=" << n_journal
                   << " ITEMSHOPGRIDDLG=" << n_itemshopgrid
                   << " SPIN=" << n_spin
-                  << " DLG_NESTED=" << n_dlg_nested << "\n";
+                  << " DLG_NESTED=" << n_dlg_nested
+                  << " WEAREDDLG=" << n_weared
+                  << " PWAREHOUSE=" << n_pwarehouse
+                  << " MUNPAMARK=" << n_munpa
+                  << " ISI=" << n_isi
+                  << " ANI=" << n_ani
+                  << " SURYUNDLG=" << n_suryun << "\n";
 
         EXPECT_EQ(stats.ok, stats.total_bins, "all .bin ok in M-R4 test");
         // M-R4.5: 4 widget class
@@ -399,15 +428,26 @@ int main() {
         EXPECT(n_itemshopgrid >= 1,  "ITEMSHOPGRIDDLG children routed to cItemShopGridDialog (3 树)");
         EXPECT(n_spin         >= 1,  "SPIN children routed to cSpin (1 树)");
         EXPECT(n_dlg_nested   >= 10, "DLG children nested as cDialog children (20 树)");
+        // M-R4.8: 6 stub class — 1:1 路由命中 (派生类 walk 顺序: 必须基类前 cast)
+        // 数据实测 (cDialogLoader 解析 .bin 后): WEAREDDLG=4 PWAREHOUSE=5 MUNPAMARK=1 ISI=1 ANI=0 SURYUNDLG=1
+        // ANI 在 .bin 数据中 0 命中 (老版 cScriptManager::eANI case 存在但无 .bin 实际使用),
+        // 所以 cAni 路由 1:1 化但 cImage/children 实例化 0, 1:1 行为 ok.
+        EXPECT(n_weared    >= 1,  "WEAREDDLG children routed to cWearedExDialog (派生 cIconDialog)");
+        EXPECT(n_pwarehouse >= 1, "PRIVATEWAREHOUSEDLG children routed to cPrivateWarehouseDialog (派生 cDialog)");
+        EXPECT(n_munpa     >= 1,  "MUNPAMARKDLG children routed to cMunpaMarkDialog (派生 cDialog)");
+        EXPECT(n_isi       >= 1,  "SHOPITEMINVENGRID children routed to cItemShopInven (派生 cIconGridDialog)");
+        EXPECT(n_ani       >= 0,  "ANI children routed to cAni (0 树, .bin 数据无 $ANI 块 — 老版 cScriptManager 1:1 化但无实例)");
+        EXPECT(n_suryun    >= 1,  "SURYUNDLG children routed to cSuryunDialog (派生 cDialog, 不是 cTabDialog)");
 
-        // 总计 20 class 路由命中累计 ≥ 400 (有 #POINT 子集, 跟老版 1:1)
+        // 总计 26 widget class 路由命中累计 ≥ 440 (M-R4.5+.6+.7+.8 累加, 1:1 with 老版)
         const std::size_t total =
             n_listdlg + n_icondlg + n_guagebar + n_tabdlg +
             n_checkbox + n_pushup + n_icongrid + n_listctrl +
             n_combo + n_textarea + n_guagen + n_guagene +
             n_listdlgex + n_mugong + n_quest + n_wanted + n_journal +
-            n_itemshopgrid + n_spin + n_dlg_nested;
-        EXPECT(total >= 400, "20 widget class total children routed");
+            n_itemshopgrid + n_spin + n_dlg_nested +
+            n_weared + n_pwarehouse + n_munpa + n_isi + n_ani + n_suryun;
+        EXPECT(total >= 440, "26 widget class total children routed (M-R4.5+.6+.7+.8 累加)");
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes
