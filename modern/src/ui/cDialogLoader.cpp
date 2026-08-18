@@ -12,16 +12,24 @@
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cButton.hpp"
+#include "mxh/ui/cCheckBox.hpp"
+#include "mxh/ui/cComboBox.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuageBar.hpp"
+#include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cIconDialog.hpp"
+#include "mxh/ui/cIconGridDialog.hpp"
 #include "mxh/ui/cImage.hpp"
+#include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cListDialog.hpp"
+#include "mxh/ui/cObjectGuagen.hpp"
+#include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cStatic.hpp"
 #include "mxh/ui/cTabDialog.hpp"
+#include "mxh/ui/cTextArea.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -263,10 +271,122 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 if (basic) ++r.cimg_count;
                 dlg->Add(std::move(tb));
                 ++child_count;
+            } else if (child->type == "CHECKBOX") {
+                // M-R4.6: cCheckBox — 3 类图 (basic + checkBox + check).
+                // 1:1 with 老版 cCheckBox::Init(x,y,w,h,basic,checkBox,check,cb,id)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                cImage* checkBoxImg = loadImageForImageIdx(child->select_image_idx,
+                                                         child->select_image_rect);
+                cImage* checkImg = loadImageForImageIdx(child->over_image_idx,
+                                                       child->over_image_rect);
+                auto cb = std::make_unique<cCheckBox>();
+                cb->Init(p.x, p.y, static_cast<std::int16_t>(p.w),
+                          static_cast<std::int32_t>(p.h),
+                          basic, checkBoxImg, checkImg,
+                          /*Func=*/{}, /*ID=*/0);
+                if (basic) ++r.cimg_count;
+                if (checkBoxImg) ++r.cimg_count;
+                if (checkImg) ++r.cimg_count;
+                dlg->Add(std::move(cb));
+                ++child_count;
+            } else if (child->type == "PUSHUPBTN") {
+                // M-R4.6: cPushupButton (toggle button) — 3 类图.
+                // 1:1 with 老版 cPushupButton, 继承 cButton 走 3 类图
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                cImage* over = loadImageForImageIdx(child->over_image_idx,
+                                                     child->over_image_rect);
+                cImage* press = loadImageForImageIdx(child->press_image_idx,
+                                                     child->press_image_rect);
+                auto pb = std::make_unique<cPushupButton>();
+                pb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, over, press, /*onClick=*/{}, /*userdata=*/nullptr,
+                          /*id=*/0);
+                if (basic) ++r.cimg_count;
+                if (over) ++r.cimg_count;
+                if (press) ++r.cimg_count;
+                dlg->Add(std::move(pb));
+                ++child_count;
+            } else if (child->type == "ICONGRIDDLG") {
+                // M-R4.6: cIconGridDialog (drag-drop icon grid) — 1 类图.
+                // Init(x,y,w,h,basic, col, row, id) 老版 cIconGridDialog contract
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ig = std::make_unique<cIconGridDialog>();
+                ig->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*col=*/1, /*row=*/1, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ig));
+                ++child_count;
+            } else if (child->type == "LISTCTRL") {
+                // M-R4.6: cListCtrl (multi-column list) — 1 类图 + InitListCtrl
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto lc = std::make_unique<cListCtrl>();
+                lc->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                // InitListCtrl 默认 1 column + 10 lines per page
+                lc->InitListCtrl(/*wMaxColumns=*/1, /*wLinePerPage=*/10);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(lc));
+                ++child_count;
+            } else if (child->type == "COMBOBOX") {
+                // M-R4.6: cComboBox (dropdown list) — 1 类图 + InitComboList
+                // 4 image slots (top/middle/down/over) 留给 M-R4.6+ (无 #INFO)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto co = std::make_unique<cComboBox>();
+                co->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(co));
+                ++child_count;
+            } else if (child->type == "TEXTAREA") {
+                // M-R4.6: cTextArea (scrollable text) — 继承 cDialog.
+                // InitTextArea 留给 M-R4.6+ (无 textRelRect / bufSize 信息)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ta = std::make_unique<cTextArea>();
+                ta->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ta));
+                ++child_count;
+            } else if (child->type == "GUAGEN") {
+                // M-R4.6: cGuagen (progress bar base) — 1 类图.
+                // SetValue / SetPieceImage 留给 M-R4.6+ (无 piece image 信息)
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto gn = std::make_unique<cGuagen>();
+                gn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(gn));
+                ++child_count;
+            } else if (child->type == "GUAGENE") {
+                // M-R4.6: cObjectGuagen (CObjectGuagen effect/interp gauge) — 1 类图
+                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
+                                                     child->basic_image_rect);
+                auto ogn = std::make_unique<cObjectGuagen>();
+                ogn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++r.cimg_count;
+                dlg->Add(std::move(ogn));
+                ++child_count;
             }
             // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
-            // 其他 widget class (CHECKBOX / COMBOBOX / ICONGRIDDLG / LISTCTRL /
-            // TEXTAREA / GUAGENE / PUSHUPBTN / GUAGEN / DLG) 留给 M-R4.6+
+            // 留给 M-R4.7+: LISTDLGEX / WEAREDDLG / DLG / PRIVATEWAREHOUSEDLG
+            // / LIST / ANI / GUAGE / ITEMSHOPGRIDDLG / JOURNALDLG / MUGONGDLG
+            // / MUNPAMARKDLG / QUESTDLG / SHOPITEMINVENGRID / SPIN / SURYUNDLG
+            // / WANTEDDLG (低频 <5 命中)
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";

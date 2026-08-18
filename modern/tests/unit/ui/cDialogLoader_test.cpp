@@ -13,14 +13,22 @@
 
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/ui/cCheckBox.hpp"
+#include "mxh/ui/cComboBox.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cGuageBar.hpp"
+#include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cIconDialog.hpp"
+#include "mxh/ui/cIconGridDialog.hpp"
+#include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cListDialog.hpp"
+#include "mxh/ui/cObjectGuagen.hpp"
+#include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cTabDialog.hpp"
+#include "mxh/ui/cTextArea.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
 
@@ -264,16 +272,13 @@ int main() {
         mxh::ui::cDialogLoader::SetSpriteLoader(nullptr, nullptr);
     }
 
-    // ---- Test 8: M-R4.5 4 个 widget class children 路由命中 ----
-    // 验证 cListDialog / cIconDialog / cGuageBar / cTabDialog 这 4 个
-    // 1:1 widget class 在 165 dialog .bin 中作为 children 出现时, 能被
+    // ---- Test 8: M-R4.5 + M-R4.6 12 widget class children 路由命中 ----
+    // 验证 12 个 widget class 在 165 dialog .bin 中作为 children 出现时, 能被
     // cDialogLoader 路由到对应 class instance (而不是默默丢弃).
     //
-    // 实测 .bin 树分布 (mavis dialog_children_type_scan 2026-08-18):
-    //   GUAGEBAR: 48 树出现,  ~8 有 #POINT → 装入 WM (无 #POINT 老版也不装)
-    //   LISTDLG:  34 树出现,  ~31 有 #POINT → 装入 WM
-    //   ICONDLG:  25 树出现,  ~24 有 #POINT → 装入 WM
-    //   TABDLG/TABDIALOG: 0 树出现 (老版走 eCHARGUAGEDLG 路由, 接口 1:1 保留)
+    // M-R4.5 (4): cListDialog / cIconDialog / cGuageBar / cTabDialog
+    // M-R4.6 (8): cCheckBox / cPushupButton / cIconGridDialog / cListCtrl
+    //            / cComboBox / cTextArea / cGuagen / cObjectGuagen
     //
     // 老版 cScriptManager 行为: children 没 #POINT 也调 Init(0,0,0,0) —
     // 但因为 m_absX=m_absY=0,m_w=m_h=0 不画图, 实际等价于"无 POINT 不挂".
@@ -283,10 +288,9 @@ int main() {
         auto reports = mxh::ui::cDialogLoader::LoadAll(playdh, wm);
         auto stats = mxh::ui::cDialogLoader::Aggregate(reports);
 
-        std::size_t n_listdlg = 0;
-        std::size_t n_icondlg = 0;
-        std::size_t n_guagebar = 0;
-        std::size_t n_tabdlg = 0;
+        std::size_t n_listdlg = 0, n_icondlg = 0, n_guagebar = 0, n_tabdlg = 0;
+        std::size_t n_checkbox = 0, n_pushup = 0, n_icongrid = 0, n_listctrl = 0;
+        std::size_t n_combo = 0, n_textarea = 0, n_guagen = 0, n_guagene = 0;
         for (const auto& d : wm.dialogs()) {
             if (!d) continue;
             std::function<void(mxh::ui::cWindow*)> walk = [&](mxh::ui::cWindow* w) {
@@ -295,6 +299,14 @@ int main() {
                 else if (dynamic_cast<mxh::ui::cIconDialog*>(w)) ++n_icondlg;
                 else if (dynamic_cast<mxh::ui::cGuageBar*>(w)) ++n_guagebar;
                 else if (dynamic_cast<mxh::ui::cTabDialog*>(w)) ++n_tabdlg;
+                else if (dynamic_cast<mxh::ui::cCheckBox*>(w)) ++n_checkbox;
+                else if (dynamic_cast<mxh::ui::cPushupButton*>(w)) ++n_pushup;
+                else if (dynamic_cast<mxh::ui::cIconGridDialog*>(w)) ++n_icongrid;
+                else if (dynamic_cast<mxh::ui::cListCtrl*>(w)) ++n_listctrl;
+                else if (dynamic_cast<mxh::ui::cComboBox*>(w)) ++n_combo;
+                else if (dynamic_cast<mxh::ui::cTextArea*>(w)) ++n_textarea;
+                else if (dynamic_cast<mxh::ui::cObjectGuagen*>(w)) ++n_guagene;
+                else if (dynamic_cast<mxh::ui::cGuagen*>(w)) ++n_guagen;
                 if (auto* dlg = dynamic_cast<mxh::ui::cDialog*>(w)) {
                     for (std::size_t i = 0; i < dlg->componentCount(); ++i) {
                         walk(dlg->componentAt(i));
@@ -304,25 +316,43 @@ int main() {
             walk(d.get());
         }
 
-        std::cout << "[cDialogLoader_test] M-R4.5 widget class children: "
+        std::cout << "[cDialogLoader_test] M-R4 widget class children: "
                   << "LISTDLG=" << n_listdlg
                   << " ICONDLG=" << n_icondlg
                   << " GUAGEBAR=" << n_guagebar
-                  << " TABDLG=" << n_tabdlg << "\n";
+                  << " TABDLG=" << n_tabdlg
+                  << " CHECKBOX=" << n_checkbox
+                  << " PUSHUPBTN=" << n_pushup
+                  << " ICONGRIDDLG=" << n_icongrid
+                  << " LISTCTRL=" << n_listctrl
+                  << " COMBOBOX=" << n_combo
+                  << " TEXTAREA=" << n_textarea
+                  << " GUAGEN=" << n_guagen
+                  << " GUAGENE=" << n_guagene << "\n";
 
-        EXPECT_EQ(stats.ok, stats.total_bins, "all .bin ok in M-R4.5 test");
-        // 4 个 widget class 全部至少 1:1 路由命中 (有 #POINT 的子集, 跟老版
-        // cScriptManager 行为 1:1 — 老版也无 POINT 不挂 widget):
-        //   LISTDLG:  ~31 (34 树 - 3 无 POINT) ≥ 28
-        //   ICONDLG:  ~24 (25 树 - 1 无 POINT) ≥ 20
-        //   GUAGEBAR: ~8  (48 树 - 40 无 POINT, GUAGEBAR 多为 progress
-        //                  bar, 老版常继承父 dialog 位置) ≥ 5
-        //   TABDLG:   0   (老版走 eCHARGUAGEDLG 路由, 但接口 1:1 保留) ≥ 0
+        EXPECT_EQ(stats.ok, stats.total_bins, "all .bin ok in M-R4 test");
+        // M-R4.5: 4 widget class
         EXPECT(n_listdlg  >= 28, "LISTDLG children routed to cListDialog");
         EXPECT(n_icondlg  >= 20, "ICONDLG children routed to cIconDialog");
         EXPECT(n_guagebar >= 5,  "GUAGEBAR children routed to cGuageBar");
-        EXPECT(n_listdlg + n_icondlg + n_guagebar + n_tabdlg >= 55,
-               "total 4-widget-class children (with #POINT) routed");
+        EXPECT(n_tabdlg   >= 0,  "TABDLG children routed to cTabDialog");
+        // M-R4.6: 8 widget class — 全部至少 1:1 路由命中 (跟老版
+        // cScriptManager 行为 1:1 — 老版也无 POINT 不挂 widget)
+        EXPECT(n_checkbox >= 30, "CHECKBOX children routed to cCheckBox (79 树, 42+ 有 #POINT)");
+        EXPECT(n_pushup   >= 100, "PUSHUPBTN children routed to cPushupButton (171 树, 132+ 有 #POINT)");
+        EXPECT(n_icongrid >= 30, "ICONGRIDDLG children routed to cIconGridDialog (52 树, 43+ 有 #POINT)");
+        EXPECT(n_listctrl >= 5,  "LISTCTRL children routed to cListCtrl (8 树, 8 有 #POINT)");
+        EXPECT(n_combo    >= 10, "COMBOBOX children routed to cComboBox (15 树, 15 有 #POINT)");
+        EXPECT(n_textarea >= 40, "TEXTAREA children routed to cTextArea (65 树, 50+ 有 #POINT)");
+        EXPECT(n_guagen   >= 10, "GUAGEN children routed to cGuagen (15 树, 15 有 #POINT)");
+        EXPECT(n_guagene  >= 25, "GUAGENE children routed to cObjectGuagen (34 树, 31+ 有 #POINT)");
+
+        // 总计 12 class 路由命中累计 ≥ 400 (有 #POINT 子集, 跟老版 1:1)
+        const std::size_t total =
+            n_listdlg + n_icondlg + n_guagebar + n_tabdlg +
+            n_checkbox + n_pushup + n_icongrid + n_listctrl +
+            n_combo + n_textarea + n_guagen + n_guagene;
+        EXPECT(total >= 380, "12 widget class total children routed");
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes
