@@ -21,6 +21,7 @@ add_executable(mxh_render_tests
     file_storage_typedef_test.cpp
     primitives_3d_shader_test.cpp
     filesystem_file_storage_test.cpp
+    frustum_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -255,4 +256,12 @@ gtest_add_tests(TARGET mxh_render_tests
     Primitives3DShader.Solid3DVSInputSignature
     Primitives3DShader.Solid3DVSHasViewProjCBuffer
     Primitives3DShader.SolidPSCompiles
+    # G5 M-R5: frustum culling (header-only Frustum + AABB p-vertex test)
+    FrustumExtract.IdentityLikePlanesAreNormalized
+    FrustumIntersectsAABB.BoxAtOriginInFrontOfCameraIsVisible
+    FrustumIntersectsAABB.BoxFarBehindFarPlaneIsCulled
+    FrustumIntersectsAABB.BoxBehindCameraIsCulled
+    FrustumIntersectsAABB.BoxStraddlingNearPlaneIsVisible
+    FrustumIntersectsAABB.BoxOffToTheLeftOfLeftPlaneIsCulled
+    FrustumIntersectsAABB.EmptyPlanesDontCrash
 )
