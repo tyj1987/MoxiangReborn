@@ -391,9 +391,17 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
         dbg_log("[handle_legacy_login] reply_ returned OK");
     } else {
         std::cout << "[Login] legacy: auth FAIL for '" << user_id << "'\n";
-        // Send NACK with same header, empty payload
+        // Send NACK with the proper UserConn NACK protocol id (3),
+        // not by copying the client's request header (which is
+        // RequestLogin=1, a C->D direction the client won't match
+        // in its on_message switch and would silently warn forever
+        // instead of failing cleanly).
         mxh::net::Message nack_msg;
-        nack_msg.header = msg.header;
+        nack_msg.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack_msg.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::NotifyUserLoginNack);
+        nack_msg.header.object_id = 0;
         reply_(id, nack_msg);
     }
 }

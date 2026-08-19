@@ -337,7 +337,14 @@ TEST_F(LoginServerFixture, LegacyLoginInvalidCredsReceivesNack) {
     ASSERT_EQ(msgs.size(), 2u);
     const auto& nack = msgs[1];
     EXPECT_EQ(nack.header.category, 7);
-    EXPECT_EQ(nack.header.protocol, 1);
+    // Protocol=3 (NotifyUserLoginNack), not the request's protocol=1
+    // (RequestLogin). The legacy Moxian client fails cleanly on proto=3
+    // via CLoginState's switch case NotifyUserLoginNack; the previous
+    // 'reply with the request header' behavior had the client default-
+    // warn forever on an unhandled proto and never reach the failure
+    // state. See protocol.hpp UserConnProtocol enum and CLoginState
+    // case 3.
+    EXPECT_EQ(nack.header.protocol, 3);
     EXPECT_TRUE(nack.payload.empty());
     tcp.disconnect();
 }
@@ -458,7 +465,10 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginNack) {
     auto msgs = client.snapshot();
     ASSERT_EQ(msgs.size(), 2u);
     const auto& nack = msgs[1];
-    EXPECT_EQ(nack.header.protocol, 1);
+    // The server's NACK uses protocol=3 (NotifyUserLoginNack), not the
+    // request's protocol=1 (RequestLogin). Golden login_nack.bin is
+    // regenerated to match the protocol-correct wire bytes.
+    EXPECT_EQ(nack.header.protocol, 3);
     EXPECT_TRUE(nack.payload.empty());
     tcp.disconnect();
     const auto actual = reconstruct_wire(nack);
@@ -1782,7 +1792,7 @@ TEST_F(LoginServerFixture, RetryAfterInvalidCredsSucceeds) {
     ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
     ASSERT_EQ(msgs.size(), 2u);
-    EXPECT_EQ(msgs[1].header.protocol, 1);  // Nack
+    EXPECT_EQ(msgs[1].header.protocol, 3);  // Nack (NotifyUserLoginNack)
 
     // Second attempt on the SAME connection: valid creds.
     Message good;
