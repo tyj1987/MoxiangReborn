@@ -1,4 +1,4 @@
-﻿<#
+<#
 visual-smoke.ps1 — M-R0 视觉基线
 
 自动启动 modern 服务 + MoxianClient，截 6 状态：
@@ -30,7 +30,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
-$clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'
+$clientExe = Join-Path $buildRoot 'tools\MoxianClient\Debug\mxh_client.exe'
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 
 if (-not (Test-Path -LiteralPath $clientExe)) {
@@ -69,7 +69,7 @@ try {
     }
 
     # 注册账号（visualsmoke 之前不存在，auth 会 FAIL 卡在 connect）
-    $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+    $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\Debug\mxh_db_tool.exe'
     if (Test-Path -LiteralPath $dbTool) {
         Write-Host "[visual-smoke] registering account $Username..." -ForegroundColor Cyan
         $dbCfg = "sqlite;path=" + (Join-Path $dataDir 'login.db')
@@ -93,14 +93,12 @@ try {
         '--save-frame', $frame,
         '--state-frames-dir', $stateFramesDir,
         '--smoke-settle-frames', '20',
-        '--exit-after-gamein',
-        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
+        '--exit-after-gamein'
     )
 
     Write-Host "[visual-smoke] launching MoxianClient with smoke-settle-frames=40" -ForegroundColor Cyan
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
-        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
-        -WorkingDirectory (Join-Path $buildRoot 'tools\MoxianClient')
+        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
 
     # 等待 client 进程退出（follow-camera + smoke-settle-frames=40 触发后会自动 exit）
     if (-not $client.WaitForExit($TimeoutSeconds * 1000)) {
