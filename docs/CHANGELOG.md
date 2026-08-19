@@ -1,3 +1,20 @@
+## 2026-08-19 - dialog: G2 verify M-R4.1+ — 169 dialog sprite + 2354 cImage 跨表查装
+
+- **Test 9 完成** (`modern/tests/unit/ui/cDialogLoader_test.cpp`)：modern 装 224 dialog (157 .bin 1:1 解析 + auxiliary)，其中 169 顶层 `m_basicImage != nullptr` (M-R4.1 root 跨表查装命中，老版 1:1 装 root 范围)，55 辅助 dialog 1:1 no-op（`Help_Script.bin` / `Helper.bin` / `Npc_Script.bin` / `barInfo.bin` / `copyright.bin` / `CharSelectDlg.bin` / `InitDlg.bin` / `BigMap.bin` / `FortWarTimeDlg.bin` / `SWCount.bin` / `Titan_inventory.bin` / `ScreenShotDlg.bin` / `IDDlg.bin` / `NewLoadDlg.bin` 等；老版 `cScriptManager::GetDlgInfoFromFile` 对无 `#BASICIMAGE` 的 dialog 也是 no-op）
+- **M-R4.1+ 跨表查装 2354 cImage 命中**：root + 26 widget class (LISTDLG/ICONDLG/GUAGEBAR/TABDLG/CHECKBOX/PUSHUPBTN/ICONGRIDDLG/LISTCTRL/COMBOBOX/TEXTAREA/GUAGEN/GUAGENE/LISTDLGEX/MUGONGDLG/QUESTDLG/WANTEDDLG/JOURNALDLG/ITEMSHOPGRIDDLG/SPIN/DLG_NESTED/WEAREDDLG/PWAREHOUSE/MUNPAMARK/ISI/ANI/SURYUN) 累计 444 children routed，1:1 with 老版
+- **MLOG 链路稳定**：`mock_sprite_calls=2354 = cimages_loaded=2354` 1:1
+- `resolvePlayDHRoot` 加 `modern/data/PlayDH` fallback (M-R2 之后统一)，老路径 `墨香【源码配套资源】/PlayDH` 作 secondary
+- Test 1-9 全 PASS **84/84 / FAIL 0**，0.45s 单测时间，ctest 不破坏
+- commit `42fd4ac5`
+
+## 2026-08-19 - docs: 归档 VM GPU-PV 工具链 — 本机物理 GPU 取代
+
+- 3 件套 (`scripts/vm-gpu-verify.ps1` + `scripts/host-gpu-pv-setup.md` + `modern/docs/restoration-plan/gpu-pv-guide.md`) + 1 报告 (`gpu-pv-report.json`) 全部过时（假设 VM 借 host GPU Hyper-V DDA），本机 = 物理机 + Intel Arc B580 4GB + 2560×1440 不需要任何 host 端配置
+- 4 文件 `git mv` → `docs/archive/vm-gpu-pv/`，新加 `docs/archive/vm-gpu-pv/README.md` 解释过时原因 + 指向 `modern/docs/restoration-plan/04-end-to-end-commercial.md` §0 + 替代方案
+- `README.md` §"物理 GPU 视觉验证（GPU-PV 路径）" 整段过时，重写为 §"本机物理 GPU 路径"（`scripts/visual-smoke.ps1` + `visual-compare.py`），末尾加归档指针
+- `scripts/*` 无任何文件引用 `vm-gpu-verify` / `host-gpu-pv-setup` / `gpu-pv-guide`，build 路径无破坏；`ROADMAP.md` line 50 是历史快照不改
+- commit `3c7544c4`
+
 ## 2026-08-18 - net/entity: 解 WSAEINTR 死锁 + entity scene 真模型 + 动画，5/6 视觉门禁过
 
 - 根因（`docs/FAILURE-LOG.md` 误判 PAK 损坏，实际 PAK 全完好）：`modern/src/net/net.cpp` 两个 bug 同时存在：
