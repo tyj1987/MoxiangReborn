@@ -43,8 +43,21 @@ STDMETHODIMP_(ULONG) FilesystemFileStorage::Release() {
 std::filesystem::path FilesystemFileStorage::resolve(const char* relative) const {
     if (!relative || !*relative) return {};
     std::filesystem::path rel(relative);
-    if (rel.is_absolute()) return {};
-    const auto candidate = std::filesystem::weakly_canonical(root_ / rel);
+    std::filesystem::path candidate;
+    if (rel.is_absolute()) {
+        // Some callers (e.g. cDialogLoader M-R4.1 sprite hook) hand us
+        // already-absolute paths like
+        // "C:\moxiang\modern\data\PlayDH\Image\2D/1.tif" produced by
+        // std::filesystem::path::string() on a path built from
+        // m_pathRoot / "2D/1.tif" (the join preserves the original '/' in
+        // the appended portion).  We canonicalize and only accept the path
+        // if it lives under root_; otherwise it would be an escape attempt.
+        std::error_code ec;
+        candidate = std::filesystem::weakly_canonical(rel, ec);
+        if (candidate.empty() || ec) return {};
+    } else {
+        candidate = std::filesystem::weakly_canonical(root_ / rel);
+    }
     auto root_it = root_.begin();
     auto candidate_it = candidate.begin();
     for (; root_it != root_.end(); ++root_it, ++candidate_it) {
