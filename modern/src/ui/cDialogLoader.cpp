@@ -71,6 +71,30 @@ void*        g_loadSpriteCtx = nullptr;
 // 持所有 cImage 句柄, 程序退出前不会被释放
 std::vector<std::unique_ptr<cImage>> g_cimage_owners;
 
+// G2 follow-up: cache cImage by (image_idx, rect). Without this, 165 dialogs
+// each load 4-20 children from the same 1.tif fallback sprite, allocating
+// 4MB DX11 GPU textures per call (165 * ~10 = 1650+ textures, ~6.6GB GPU,
+// which crashes the driver on a 4GB Intel Arc B580). Cache returns the
+// same cImage for the same image_idx+rect.
+struct ImageKey {
+    std::int32_t idx = 0;
+    std::int32_t l = 0, t = 0, r = 0, b = 0;
+    bool operator==(const ImageKey& o) const noexcept {
+        return idx == o.idx && l == o.l && t == o.t && r == o.r && b == o.b;
+    }
+};
+struct ImageKeyHash {
+    std::size_t operator()(const ImageKey& k) const noexcept {
+        std::size_t h = static_cast<std::size_t>(k.idx);
+        h ^= static_cast<std::size_t>(k.l) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.t) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.r) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.b) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        return h;
+    }
+};
+std::unordered_map<ImageKey, cImage*, ImageKeyHash> g_cimage_cache;
+
 }  // namespace
 
 void cDialogLoader::SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept {
@@ -91,6 +115,11 @@ cImage* loadImageForImageIdx(std::int32_t image_idx,
     if (!g_loadSprite || image_idx < 0 || !rect.has_value()) {
         return nullptr;
     }
+    const auto& ir = *rect;
+    const ImageKey key{image_idx, ir.left, ir.top, ir.right, ir.bottom};
+    if (auto it = g_cimage_cache.find(key); it != g_cimage_cache.end()) {
+        return it->second;
+    }
     const auto hp = cResourceManager::getInstance().getHardPath(
         image_idx, PathFileType::HardPath);
     if (!hp.has_value()) return nullptr;
@@ -101,12 +130,12 @@ cImage* loadImageForImageIdx(std::int32_t image_idx,
     void* sprite = g_loadSprite(g_loadSpriteCtx, tif_abs.string());
     if (!sprite) return nullptr;
     auto owner = std::make_unique<cImage>();
-    const auto& ir = *rect;
     owner->SetSource(ir.left, ir.top, ir.right, ir.bottom,
                      info->width, info->height);
     owner->SetSpriteObject(sprite);
     cImage* out = owner.get();
     g_cimage_owners.push_back(std::move(owner));
+    g_cimage_cache.emplace(key, out);
     return out;
 }
 
