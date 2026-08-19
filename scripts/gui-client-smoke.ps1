@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
-$clientExe = Join-Path $buildRoot 'tools\MoxianClient\Debug\mxh_client.exe'
+$clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 if (-not (Test-Path -LiteralPath $clientExe)) { throw "Missing GUI client: $clientExe" }
 
@@ -40,11 +40,13 @@ try {
         '--save-frame', $frame,
         '--state-frames-dir', (Join-Path $runRoot 'state-frames'),
         '--smoke-settle-frames', '20',
-        '--exit-after-gamein'
+        '--exit-after-gamein',
+        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
     )
     if ($FollowCamera) { $arguments += '--follow-camera' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
-        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
+        -WorkingDirectory (Join-Path $buildRoot 'tools\MoxianClient')
     if (-not $client.WaitForExit($TimeoutSeconds * 1000)) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
         throw "GUI client did not reach GameIn within ${TimeoutSeconds}s; log=$stderr"
