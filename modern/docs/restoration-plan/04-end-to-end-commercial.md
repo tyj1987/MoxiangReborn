@@ -44,7 +44,7 @@
 | M6-B 1h SQLite canary | ✅ | 11,586 cycles, 0 crashes, handles bounded |
 | M6-C 本地端到端启动 | ✅ | LocalDB Moxiang 库真实数据，sqlcmd 查得到 |
 | MSSQL_E2E LocalDB | ✅ | 5 步 E2E + chr_log_info + character_info + 11863 ctest |
-| G2 M-R4 dialog 树接 cResourceManager | ✅ | commit 42fd4ac5，Test 9: 224 dialog 装 / 169 顶层 m_basicImage ≠ nullptr (75.4%, 1:1 装 root) / 55 辅助 no-op (24.5%, 1:1 with 老版) / 2354 cImage 跨表查装 (root + 26 widget class 444 children routed). 84/84 PASS 0.45s |
+| G2 M-R4 dialog 树接 cResourceManager | ✅ | commit 42fd4ac5，Test 9: 224 dialog 装 / 169 顶层 m_basicImage ≠ nullptr (75.4%, 1:1 装 root) / 55 辅助 no-op (24.5%, 1:1 with 老版) / 2354 cImage 跨表查装 (root + 26 widget class 444 children routed). 84/84 PASS 0.45s + commit 1d31c936 (FilesystemFileStorage 绝对路径支持), visual-smoke 6/6 状态 (connect/login/charselect/charmake/gameloading/gamein) 全 save, FSOpenFile failed 几百→0, state-gamein.tga coverage 84.5% (legacy 1:1 range 0.18-0.85) |
 | GPU-PV 工具链 | 🗄️ 已归档 | commit 3c7544c4 — 4 文件 → docs/archive/vm-gpu-pv/，本机物理 GPU (Intel Arc B580) 取代 |
 | 商业冒烟 | ✅ | scripts/commercial-smoke.ps1 PASS |
 
@@ -53,7 +53,7 @@
 | # | gap | 阻塞什么 | 估时 | 依赖 |
 |---|---|---|---|---|
 | **G1** | **CLoginState ↔ modern login server 协议不匹配** | visual-smoke 4/6 黑屏（connect/login/charselect/charmake） | 0.5 天 | 无（纯协议层） |
-| **G2** | **M-R4 dialog 树最后接 cResourceManager**（children 装好但 dialog 自身 Init 不接 sprite，cWindow::Render 走 m_basicImage=nullptr 路径） | visual-smoke 4 黑屏 + M-R4 物理 GPU 截屏 | 1 天 | M-R4.5+.6+.7+.8 ✅ | **🟡 部分闭环** commit 42fd4ac5 (Test 9: 169/224 顶层 m_basicImage ≠ nullptr, 2354 cImage 跨表查装, 84/84 PASS 0.45s). 剩 visual-smoke 4 黑屏 = G1 协议层 |
+| **G2** | **M-R4 dialog 树最后接 cResourceManager**（children 装好但 dialog 自身 Init 不接 sprite，cWindow::Render 走 m_basicImage=nullptr 路径） | visual-smoke 4 黑屏 + M-R4 物理 GPU 截屏 | 1 天 | M-R4.5+.6+.7+.8 ✅ | **✅ 闭环** commit 42fd4ac5 (Test 9 169 sprite) + commit 1d31c936 (FilesystemFileStorage 绝对路径, visual-smoke 6/6 状态全 save + coverage 84.5%) |
 | **G3** | **M-R7 分辨率自适应 800x600/1920x1080/2560x1440** | 用户明确要求"登录后自动调整分辨率" | 1 天 | 无（纯代码） |
 | **G4** | **M-R4 物理 GPU 截屏 SSIM ≥ 0.95** | M-R4 完成判据（goal statement §2） | 0.5 天 | **本机 Intel Arc B580 直接可推** |
 | **G5** | **M-R5 性能 5→30fps**（1920×1080+满 HUD+满 dialog+334 static mesh+30 terrain chunk+16 NPC+5 怪） | 商业化运营标准 + M-R5 完成判据 | 1-2 天 | **本机 Intel Arc B580 物理测试** |

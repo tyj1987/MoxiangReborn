@@ -1,3 +1,15 @@
+## 2026-08-19 - render: FilesystemFileStorage::resolve 接受绝对路径 (M-R4.1+ sprite hook 路径修复)
+
+- **根因**：cDialogLoader M-R4.1 sprite hook 传 `cSpriteAtlas::resolvePath` 返的混合路径（`C:\moxiang\modern\data\PlayDH\Image\2D/1.tif`，backslash + forward slash 混合）给 `renderer->CreateSpriteObject` → `storage->FSOpenFile`。`FilesystemFileStorage::resolve` 看到 `rel.is_absolute()` 早返 `{}`，客户端 log 几百条 `FSOpenFile failed for 'Image/2D/1.tif'`，visual-smoke 4 状态（connect/login/charselect/charmake）黑屏 = 协议 OK 但 UI 看不见
+- **修**：`resolve` 接受绝对路径 → `weakly_canonical` 后检查必须在 `root_` 内（防 escape）→ `is_regular_file` Windows 端 case-insensitive 自动匹配
+- **效果**：
+  - visual-smoke **6/6 状态全 save**（connect/login/charselect/charmake/gameloading/gamein）
+  - `FSOpenFile failed` 几百 → **0**
+  - `state-gamein.tga` coverage **84.5%**（legacy 1:1 range 0.18-0.85）
+  - 4 之前黑屏状态修好（G1 协议早 PASS，黑屏真实根因是 sprite 看不到）
+- 回归：`mxh_dialog_loader_tests` 84/84 PASS 0.47s（用 mock hook 不走 FSOpenFile）
+- commit `1d31c936`
+
 ## 2026-08-19 - dialog: G2 verify M-R4.1+ — 169 dialog sprite + 2354 cImage 跨表查装
 
 - **Test 9 完成** (`modern/tests/unit/ui/cDialogLoader_test.cpp`)：modern 装 224 dialog (157 .bin 1:1 解析 + auxiliary)，其中 169 顶层 `m_basicImage != nullptr` (M-R4.1 root 跨表查装命中，老版 1:1 装 root 范围)，55 辅助 dialog 1:1 no-op（`Help_Script.bin` / `Helper.bin` / `Npc_Script.bin` / `barInfo.bin` / `copyright.bin` / `CharSelectDlg.bin` / `InitDlg.bin` / `BigMap.bin` / `FortWarTimeDlg.bin` / `SWCount.bin` / `Titan_inventory.bin` / `ScreenShotDlg.bin` / `IDDlg.bin` / `NewLoadDlg.bin` 等；老版 `cScriptManager::GetDlgInfoFromFile` 对无 `#BASICIMAGE` 的 dialog 也是 no-op）
