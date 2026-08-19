@@ -465,7 +465,14 @@ void renderFrame(HWND h) {
         if (!g_overviewCamera && g_skyScene) g_skyScene->render();
         g_terrain->render();
         if (g_staticScene) g_staticScene->render();
-        if (g_entityScene) g_entityScene->render();
+        if (g_entityScene) {
+            // Push the terrain's view-projection as a Frustum so the
+            // entity scene can cull NPCs whose world AABB is outside the
+            // view volume. G5 M-R5: see mxh/render/frustum.hpp for the
+            // Gribb-Hartmann plane extraction.
+            g_entityScene->setCameraFrustum(mxh::gx::Frustum(g_terrain->viewProj()));
+            g_entityScene->render();
+        }
 
         // In-game HUD: HP / MP bars fed from the GameInAck totalinfo.
         if (g_inputTarget && g_inputTarget->is_in_game() && g_hud.barBg &&

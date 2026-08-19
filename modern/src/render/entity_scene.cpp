@@ -1,5 +1,7 @@
 #include "mxh/render/EntityScene.hpp"
 
+#include "mxh/render/frustum.hpp"
+
 #include "mxh/compat/chx_model.hpp"
 #include "mxh/compat/anm_motion.hpp"
 #include "mxh/compat/character_appearance_catalog.hpp"
@@ -144,7 +146,8 @@ struct EntityScene::Impl {
     std::unordered_map<std::uint32_t, std::unique_ptr<Model>> playerModels;
     std::vector<SceneEntity> instances;
     std::optional<ScenePlayer> player;
-
+    std::optional<Frustum> frustum;
+    std::uint32_t culled_instances = 0;
     Model* loadModel(std::uint16_t kind, const ScenePlayer* playerInfo = nullptr) {
         if (playerInfo) {
             if (const auto it = playerModels.find(playerInfo->object_id); it != playerModels.end())
@@ -442,7 +445,13 @@ void EntityScene::synchronizePlayer(const ScenePlayer& player) {
 
 void EntityScene::render() {
     if (!impl_->renderer) return;
+    impl_->culled_instances = 0;
     if (impl_->player) {
+        // Player is always rendered: it sits at the camera's focal point
+        // and any p-vertex test would put it right on the near plane,
+        // so a strict frustum check risks culling the player out of its
+        // own view. The cost is negligible (one model) compared to the
+        // NPCs.
         const auto& player = *impl_->player;
         const auto kind = static_cast<std::uint16_t>(65000u + std::min<unsigned>(player.gender, 1u) * 25u +
             std::min<unsigned>(player.face_type, 4u) * 5u + std::min<unsigned>(player.hair_type, 4u));
@@ -461,10 +470,25 @@ void EntityScene::render() {
     for (const auto& entity : impl_->instances) {
         auto* model = impl_->loadModel(entity.visual_kind);
         if (!model) continue;
+        // World transform is a pure translation (no rotation, no scale),
+        // so the world-space AABB is the local AABB translated by the
+        // (x, y, z) world position. Apply the frustum p-vertex test
+        // before pushing draw calls to the renderer.
+        const float tx = entity.world_x * kSceneScale - kMapCenter;
+        const float ty = entity.world_y * kSceneScale - model->minimum.y;
+        const float tz = entity.world_z * kSceneScale - kMapCenter;
+        if (impl_->frustum) {
+            const VECTOR3 wmin{model->minimum.x + tx, model->minimum.y + ty, model->minimum.z + tz};
+            const VECTOR3 wmax{model->maximum.x + tx, model->maximum.y + ty, model->maximum.z + tz};
+            if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                ++impl_->culled_instances;
+                continue;
+            }
+        }
         MATRIX4 world = MatrixIdentity();
-        world._41 = entity.world_x * kSceneScale - kMapCenter;
-        world._42 = entity.world_y * kSceneScale - model->minimum.y;
-        world._43 = entity.world_z * kSceneScale - kMapCenter;
+        world._41 = tx;
+        world._42 = ty;
+        world._43 = tz;
         for (auto* mesh : model->meshes) {
             mesh->SetWorldTransform(&world);
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
@@ -472,10 +496,17 @@ void EntityScene::render() {
     }
 }
 
+void EntityScene::setCameraFrustum(std::optional<Frustum> frustum) noexcept {
+    impl_->frustum = std::move(frustum);
+}
+
 std::uint32_t EntityScene::loadedModelCount() const noexcept {
     return static_cast<std::uint32_t>(impl_->models.size());
 }
 std::uint32_t EntityScene::instanceCount() const noexcept {
     return static_cast<std::uint32_t>(impl_->instances.size());
+}
+std::uint32_t EntityScene::culledInstanceCount() const noexcept {
+    return impl_->culled_instances;
 }
 } // namespace mxh::gx

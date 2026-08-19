@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 
+#include "mxh/render/math.hpp"
+
 namespace mxh::gx {
 struct I4DyuchiGXRenderer;
 struct I4DyuchiFileStorage;
@@ -31,6 +33,11 @@ public:
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
     [[nodiscard]] std::uint32_t chunkCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
+    // The most recent view*projection matrix computed by configureCamera,
+    // or a default-constructed MATRIX4 if configureCamera has not been
+    // called yet. Used by downstream scenes (e.g. EntityScene frustum
+    // culling) to share the same camera state without recomputing it.
+    [[nodiscard]] const MATRIX4& viewProj() const noexcept;
 
 private:
     struct Impl;

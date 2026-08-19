@@ -59,6 +59,8 @@ struct TerrainScene::Impl {
     float player_x = 0;
     float player_z = 0;
     float camera_yaw = 0;
+    MATRIX4 view_proj{};  // last view*projection from configureCamera
+    bool view_proj_valid = false;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -266,6 +268,17 @@ void TerrainScene::configureCamera(float aspect) {
     MATRIX4 billboard = MatrixIdentity(); VIEW_VOLUME volume{};
     volume.From = camera.v3From; volume.fFar = camera.fFar;
     impl_->renderer->SetViewFrusturm(&volume, &camera, &view, &projection, &billboard);
+    // Cache view*projection for downstream consumers (e.g. EntityScene
+    // frustum culling). G5 M-R5: row-vector-times-matrix convention;
+    // Gribb-Hartmann column-based plane extraction handles the result.
+    MATRIX4 vp{};
+    MatrixMultiply2(&vp, &view, &projection);
+    impl_->view_proj = vp;
+    impl_->view_proj_valid = true;
+}
+
+const MATRIX4& TerrainScene::viewProj() const noexcept {
+    return impl_->view_proj;
 }
 
 void TerrainScene::followPlayer(float world_x, float world_z) {
