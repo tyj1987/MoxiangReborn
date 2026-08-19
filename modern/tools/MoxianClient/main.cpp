@@ -45,6 +45,7 @@
 #include "mxh/render/SkyScene.hpp"
 #include "mxh/render/EntityScene.hpp"
 #include "mxh/render/render_typedef.hpp"
+#include "mxh/game/npc_role.hpp"  // M-NPC1: per-role NPC marker slot + quest indicator
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
@@ -264,14 +265,36 @@ mxh::client::CCharSelectState* g_charSelectState = nullptr;
 
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
 // wired in M-R3 via cDialogLoader::LoadAll — see below after bindRenderer()).
+//
+// M-NPC1: NPC markers are now per-role so the player can see at a glance
+// whether a static NPC is a quest giver (yellow "!" above), a shop
+// (cyan), a bounty (orange), or a warp (purple).  Wire order matches
+// the modern NpcRole enum (mxh::game::NpcRole); see npc_role.hpp.
 struct HudSprites {
     IDISpriteObject* barBg  = nullptr;
     IDISpriteObject* hpFill = nullptr;
     IDISpriteObject* mpFill = nullptr;
-    IDISpriteObject* npcMark = nullptr;
+    // npcMarkers[0..4] = Talker, Dealer, Wanted, MapChange, Other
+    // (see kNpcMarkerCount).  Indexed by npc_marker_slot(NpcRole).
+    IDISpriteObject* npcMarkers[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
+    static constexpr std::size_t kNpcMarkerCount = 5;
+    IDISpriteObject* questMark = nullptr;  // "!" indicator above quest NPCs
 };
 HudSprites g_hud;
 IDIFontObject* g_hudFont = nullptr;
+
+// M-NPC1: choose the NPC marker sprite slot for a given wire role.
+// Returns the slot in [0, kNpcMarkerCount).
+static std::size_t npc_marker_slot(std::uint16_t kind) noexcept {
+    using mxh::game::NpcRole;
+    switch (mxh::game::role_from_wire(kind)) {
+        case NpcRole::Talker:    return 0;  // quest giver — yellow
+        case NpcRole::Dealer:    return 1;  // shop — cyan (was the old 0x00D7FF)
+        case NpcRole::Wanted:    return 2;  // bounty — orange
+        case NpcRole::MapChange: return 3;  // warp — purple
+        default:                 return 4;  // everything else — gray
+    }
+}
 
 struct LoginUiState {
     std::string username;
@@ -640,39 +663,72 @@ void renderFrame(HWND h) {
             }
 
             // Static NPC markers (click to talk / open their shop).
-            if (g_hud.npcMark) {
-                for (const auto& npc : g_inputTarget->npcs()) {
-                    float sx = 0;
-                    float sy = 0;
-                    if (!mxh::client::project_npc_to_screen(
-                            info.position_x, info.position_z,
-                            g_inputTarget->camera_yaw(),
-                            static_cast<float>(npc.position_x),
-                            static_cast<float>(npc.position_z),
-                            sx, sy)) {
-                        continue;
-                    }
-                    if (sx < -20.0f || sx > 820.0f || sy < -20.0f ||
-                        sy > 620.0f) {
-                        continue;
-                    }
-                    drawSpriteQuad(g_renderer, g_hud.npcMark,
+            // M-NPC1: per-role colour + "!" quest indicator + Big5 name.
+            for (const auto& npc : g_inputTarget->npcs()) {
+                float sx = 0;
+                float sy = 0;
+                if (!mxh::client::project_npc_to_screen(
+                        info.position_x, info.position_z,
+                        g_inputTarget->camera_yaw(),
+                        static_cast<float>(npc.position_x),
+                        static_cast<float>(npc.position_z),
+                        sx, sy)) {
+                    continue;
+                }
+                if (sx < -20.0f || sx > 820.0f || sy < -20.0f ||
+                    sy > 620.0f) {
+                    continue;
+                }
+                const std::size_t slot = npc_marker_slot(npc.npc_kind);
+                if (slot < HudSprites::kNpcMarkerCount && g_hud.npcMarkers[slot]) {
+                    drawSpriteQuad(g_renderer, g_hud.npcMarkers[slot],
                                    sx - 6.0f, sy - 6.0f, 12.0f, 12.0f,
                                    0xFFFFFFFFu);
-                    if (g_hudFont && npc.name[0] != '\0') {
-                        const std::string name(npc.name, 17);
-                        const auto nul = name.find('\0');
-                        const std::string label =
-                            nul == std::string::npos ? name : name.substr(0, nul);
-                        if (!label.empty()) {
+                }
+                // Quest indicator: yellow "!" 6px above the marker for
+                // TALKER_ROLE / WANTED_ROLE / SURYUN_ROLE NPCs.  Drawn as
+                // a small filled quad + label so it's visible without
+                // needing the original .tga sprite atlas.
+                if (g_hud.questMark && g_hudFont &&
+                    mxh::game::role_has_quest_indicator(
+                        mxh::game::role_from_wire(npc.npc_kind))) {
+                    drawSpriteQuad(g_renderer, g_hud.questMark,
+                                   sx - 3.0f, sy - 18.0f, 6.0f, 6.0f,
+                                   0xFFFFFFFFu);
+                    constexpr const wchar_t kBang = L'!';
+                    RECT bangRc{static_cast<LONG>(sx) - 6,
+                                static_cast<LONG>(sy) - 32,
+                                static_cast<LONG>(sx) + 6,
+                                static_cast<LONG>(sy) - 18};
+                    g_renderer->RenderFont(
+                        g_hudFont,
+                        reinterpret_cast<TCHAR*>(const_cast<wchar_t*>(&kBang)),
+                        1u, &bangRc,
+                        0xFFFFE040u, CHAR_CODE_TYPE_UNICODE, 1, 0);
+                }
+                if (g_hudFont && npc.name[0] != '\0') {
+                    const std::string name(npc.name, 17);
+                    const auto nul = name.find('\0');
+                    const std::string label =
+                        nul == std::string::npos ? name : name.substr(0, nul);
+                    if (!label.empty()) {
+                        // M-NPC1: NPC names in the legacy client are
+                        // Big5-encoded MBCS.  The HUD font (g_hudFont) is
+                        // created with CHINESEBIG5_CHARSET, so render
+                        // through CHAR_CODE_TYPE_UNICODE after a Big5→UTF-16
+                        // conversion; ASCII-only names also work since the
+                        // first 128 codepoints are identical in Big5.
+                        const auto wide = mxh::compat::big5_to_utf16(label);
+                        if (!wide.empty()) {
                             RECT rc{static_cast<LONG>(sx) - 40,
                                     static_cast<LONG>(sy) - 20,
                                     static_cast<LONG>(sx) + 40,
                                     static_cast<LONG>(sy)};
                             g_renderer->RenderFont(
-                                g_hudFont, const_cast<char*>(label.data()),
-                                static_cast<std::uint32_t>(label.size()), &rc,
-                                0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                                g_hudFont,
+                                reinterpret_cast<TCHAR*>(const_cast<wchar_t*>(wide.data())),
+                                static_cast<std::uint32_t>(wide.size()), &rc,
+                                0xFFFFFFFFu, CHAR_CODE_TYPE_UNICODE, 1, 0);
                         }
                     }
                 }
@@ -986,7 +1042,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_hud.barBg  = renderer->CreateSolidSpriteObject(0xAA181010u, 1, 1);
     g_hud.hpFill = renderer->CreateSolidSpriteObject(0xFF4040FFu, 1, 1);
     g_hud.mpFill = renderer->CreateSolidSpriteObject(0xFFFF9040u, 1, 1);
-    g_hud.npcMark = renderer->CreateSolidSpriteObject(0xFF00D7FFu, 1, 1);
+    // M-NPC1: 4-role NPC palette (yellow / cyan / orange / purple) plus
+    // a gray "other" slot.  Slot order = npc_marker_slot(NpcRole).
+    g_hud.npcMarkers[0] = renderer->CreateSolidSpriteObject(0xFFE0E040u, 1, 1);  // Talker    — yellow
+    g_hud.npcMarkers[1] = renderer->CreateSolidSpriteObject(0xFF00D7FFu, 1, 1);  // Dealer    — cyan  (matches old npcMark colour)
+    g_hud.npcMarkers[2] = renderer->CreateSolidSpriteObject(0xFFFF9040u, 1, 1);  // Wanted    — orange
+    g_hud.npcMarkers[3] = renderer->CreateSolidSpriteObject(0xFFB070FFu, 1, 1);  // MapChange — purple
+    g_hud.npcMarkers[4] = renderer->CreateSolidSpriteObject(0xFFB0B0B0u, 1, 1);  // Other     — gray
+    g_hud.questMark = renderer->CreateSolidSpriteObject(0xFFFFE040u, 1, 1);  // "!" tag above quest NPCs
     LOGFONT hudLf{};
     hudLf.lfHeight = -14;
     hudLf.lfWeight = FW_NORMAL;

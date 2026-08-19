@@ -14,6 +14,7 @@
 #include "mxh/game/item_effects.hpp"
 #include "mxh/game/item_types.hpp"
 #include "mxh/game/monster_types.hpp"
+#include "mxh/game/npc_role.hpp"        // M-NPC1
 #include "mxh/game/skill_types.hpp"
 
 #include <gtest/gtest.h>
@@ -551,4 +552,74 @@ TEST(GameSkillTable, SkillIdsAreUnique) {
                 << "duplicate SkillIdx at " << i << " and " << j;
         }
     }
+}
+
+// -------------------------------------------------------------------------
+// M-NPC1: NPC_ROLE enum baseline.  Values are 1:1 with
+// [CC]Header/CommonGameDefine.h:575 enum NPC_ROLE — do not renumber
+// without a wire-compatible server-side change.
+// -------------------------------------------------------------------------
+
+TEST(NpcRole, ObjectIs0)      { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Object),     0u);  }
+TEST(NpcRole, DealerIs1)      { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Dealer),     1u);  }
+TEST(NpcRole, TalkerIs6)      { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Talker),     6u);  }
+TEST(NpcRole, WantedIs9)      { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Wanted),     9u);  }
+TEST(NpcRole, SuryunIs10)     { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Suryun),    10u);  }
+TEST(NpcRole, BobusangIs15)   { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Bobusang),  15u);  }
+TEST(NpcRole, BomulIs23)      { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::Bomul),     23u);  }
+TEST(NpcRole, MapChangeIs27)  { EXPECT_EQ(static_cast<std::uint16_t>(NpcRole::MapChange), 27u);  }
+
+TEST(NpcRole, RoleFromWireKnownValues) {
+    EXPECT_EQ(role_from_wire(0),  NpcRole::Object);
+    EXPECT_EQ(role_from_wire(1),  NpcRole::Dealer);
+    EXPECT_EQ(role_from_wire(6),  NpcRole::Talker);
+    EXPECT_EQ(role_from_wire(9),  NpcRole::Wanted);
+    EXPECT_EQ(role_from_wire(10), NpcRole::Suryun);
+    EXPECT_EQ(role_from_wire(15), NpcRole::Bobusang);
+    EXPECT_EQ(role_from_wire(27), NpcRole::MapChange);
+}
+
+TEST(NpcRole, RoleFromWireUnknownFallsBackToObject) {
+    // The legacy enum is sparse (jumps 6→9, 10→11, 15→16, 16→23, 23→27)
+    // so any non-listed value MUST render with the gray "other" marker
+    // and never crash the client.
+    EXPECT_EQ(role_from_wire(7),  NpcRole::Object);
+    EXPECT_EQ(role_from_wire(8),  NpcRole::Object);
+    EXPECT_EQ(role_from_wire(99), NpcRole::Object);
+    EXPECT_EQ(role_from_wire(0xFFFFu), NpcRole::Object);
+}
+
+TEST(NpcRole, QuestIndicatorRoles) {
+    // Only Talker / Wanted / Suryun grant the "!" tag in the legacy client.
+    EXPECT_TRUE (role_has_quest_indicator(NpcRole::Talker));
+    EXPECT_TRUE (role_has_quest_indicator(NpcRole::Wanted));
+    EXPECT_TRUE (role_has_quest_indicator(NpcRole::Suryun));
+    EXPECT_FALSE(role_has_quest_indicator(NpcRole::Dealer));
+    EXPECT_FALSE(role_has_quest_indicator(NpcRole::MapChange));
+    EXPECT_FALSE(role_has_quest_indicator(NpcRole::Object));
+    EXPECT_FALSE(role_has_quest_indicator(NpcRole::Bobusang));
+    EXPECT_FALSE(role_has_quest_indicator(NpcRole::Bomul));
+}
+
+// Cross-check the modern helper against the legacy wire value lookup
+// — guards against a future enum reorder silently changing the slot.
+TEST(NpcRole, SlotAssignmentMatchesHostMainCppContract) {
+    // Slot 0 = Talker, 1 = Dealer, 2 = Wanted, 3 = MapChange, 4 = Other
+    // (see tools/MoxianClient/main.cpp npc_marker_slot()).
+    auto slot_for = [](std::uint16_t kind) {
+        using mxh::game::NpcRole;
+        switch (mxh::game::role_from_wire(kind)) {
+            case NpcRole::Talker:    return 0u;
+            case NpcRole::Dealer:    return 1u;
+            case NpcRole::Wanted:    return 2u;
+            case NpcRole::MapChange: return 3u;
+            default:                 return 4u;
+        }
+    };
+    EXPECT_EQ(slot_for(6),  0u);  // Talker
+    EXPECT_EQ(slot_for(1),  1u);  // Dealer
+    EXPECT_EQ(slot_for(9),  2u);  // Wanted
+    EXPECT_EQ(slot_for(27), 3u);  // MapChange
+    EXPECT_EQ(slot_for(0),  4u);  // Object
+    EXPECT_EQ(slot_for(8),  4u);  // unknown
 }
