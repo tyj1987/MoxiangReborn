@@ -1,3 +1,32 @@
+## 2026-08-19 - bug: re-apply G1 login_handler NACK fix (642eef56 was a silent revert)
+
+Critical regression caught while landing the G5 follow-ups: commit `642eef56` (the G1 NACK fix, dated 21:51:48) had a diff that was the **exact opposite** of `91eb5543` (the G1 NACK fix, dated 21:51:20, 28 seconds earlier). The two commits share a nearly identical message, so the prior session summary treated `642eef56` as the canonical fix. The working tree followed `642eef56`, which re-introduced:
+
+```cpp
+nack_msg.header = msg.header;   // <-- the bug, server now sends proto=1
+```
+
+`CLoginState::on_message` has no `case 1` (RequestLogin is C→D, the client only ever sees proto=2/3/8 from the server), so the NACK fell into `default: unhandled userconn proto=1` and the client would warn forever instead of reaching `fail_with` cleanly. This is exactly the G1 bug the original fix was supposed to close.
+
+Re-applied the proper NACK construction:
+
+```cpp
+nack_msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+nack_msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginNack);
+nack_msg.header.object_id = 0;
+```
+
+Updated the three test assertions + one golden file that were pinned to the buggy `protocol=1` behavior:
+
+- `LegacyLoginInvalidCredsReceivesNack` — `protocol==1` → `protocol==3`
+- `RetryAfterInvalidCredsSucceeds` — `protocol==1` → `protocol==3`
+- `GoldenCapturesLoginNack` — `protocol==1` → `protocol==3` + comment
+- `modern/tests/unit/server/golden/login_nack.bin` — `08 00 00 00 07 01 00 00 00 00` → `08 00 00 00 07 03 00 00 00 00`
+
+Verification: `mxh_login_e2e_tests` **181/181 PASS** (60s, 6 fixtures, all legacy Moxian cat=7 login NACK + ACK + golden + HSEL + map + gamein E2E paths green). The visual-smoke 5/5 state PASS + 84.5% gamein coverage from the 70b81ee2 baseline run was on the OK path (`test/test` creds work) and never exercised the NACK path, which is why the silent revert went unnoticed for hours.
+
+Lesson learned: when two adjacent commits share a near-identical message, treat the later one as suspect and re-verify the diff direction against the actual symptom. Commit `30d11861`.
+
 ## 2026-08-19 - render: G5 frustum culling (M-R5) skeleton + EntityScene wiring
 
 G5 M-R5 perf slice: off-screen NPC entities no longer reach the GPU. Two commits.
