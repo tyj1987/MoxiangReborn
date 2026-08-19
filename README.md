@@ -67,28 +67,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/visual-smoke.ps1
 
 ---
 
-## 物理 GPU 视觉验证（GPU-PV 路径）
+## 物理 GPU 视觉验证（本机物理 GPU 路径）
 
-M-R4 视觉 1:1 SSIM ≥ 0.95 验证需物理 GPU。在 Win11 + Hyper-V 上：
+M-R4 视觉 1:1 SSIM ≥ 0.95 验证需物理 GPU。**本机 = 物理机 + Intel Arc B580 4GB + 2560×1440**，不需要任何 VM / Hyper-V GPU-PV 配置。
 
-**步骤 A — VM 端自检**（在你 clone 完仓库后跑）：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vm-gpu-verify.ps1
-# 期望：Verdict: PHYSICAL_GPU（绿），JSON 报告写到 modern/docs/restoration-plan/gpu-pv-report.json
-```
-
-**步骤 B — 若 verdict=WARP_ONLY**：在 host 端按
-[`scripts/host-gpu-pv-setup.md`](scripts/host-gpu-pv-setup.md) 操作
-（卸 host 端 GPU 驱动 → Hyper-V Manager 配 GPU-PV → VM 重启），完整
-说明见 [`modern/docs/restoration-plan/gpu-pv-guide.md`](modern/docs/restoration-plan/gpu-pv-guide.md)。
-
-**步骤 C — 配完后**：
+**直接跑**（clone 完仓库后）：
 
 ```powershell
 .\scripts\visual-smoke.ps1
 python scripts\visual-compare.py modern\docs\restoration-plan\baseline\ca64d007\modern-gamein.tga modern\docs\restoration-plan\baseline\NEW\modern-gamein.tga --threshold 0.95
 ```
+
+> **历史归档**（2026-08-19）：原 VM GPU-PV 工具链（`scripts/vm-gpu-verify.ps1` + `scripts/host-gpu-pv-setup.md` + `modern/docs/restoration-plan/gpu-pv-guide.md` + `gpu-pv-report.json`）全部过时（假设 VM 借 host GPU），已搬到 [`docs/archive/vm-gpu-pv/`](docs/archive/vm-gpu-pv/)。本机物理 GPU 直接用。
 
 ---
 
