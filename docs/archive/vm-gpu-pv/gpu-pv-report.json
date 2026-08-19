@@ -1,0 +1,55 @@
+﻿{
+    "generated_at":  "2026-08-19T00:33:56.0111745+08:00",
+    "hostname":  "WINDEV2407EVAL",
+    "username":  "User",
+    "gpus":  [
+                 {
+                     "name":  "Microsoft Hyper-V Video",
+                     "compatibility":  "Microsoft",
+                     "video_mode":  "1024 x 768 x 4294967296 colors",
+                     "driver_version":  "10.0.22621.1",
+                     "driver_date":  "06/21/2006 08:00:00",
+                     "processor":  "",
+                     "pnp_class":  "Display"
+                 },
+                 {
+                     "name":  "Microsoft Remote Display Adapter",
+                     "compatibility":  "Microsoft",
+                     "video_mode":  "2560 x 1440 x 4294967296 colors",
+                     "driver_version":  "10.0.22621.5415",
+                     "driver_date":  "06/21/2006 08:00:00",
+                     "processor":  "",
+                     "pnp_class":  "Display"
+                 }
+             ],
+    "pnp_displays":  [
+                         {
+                             "friendly_name":  "Microsoft Hyper-V Video",
+                             "instance_id":  "VMBUS\\{DA0A7802-E377-4AAC-8E77-0558EB1073F8}\\{5620E0C7-8062-4DCE-AEB7-520C7EF76171}",
+                             "status":  "OK",
+                             "problem":  0,
+                             "is_physical_pci":  false
+                         },
+                         {
+                             "friendly_name":  "Microsoft Remote Display Adapter",
+                             "instance_id":  "SWD\\REMOTEDISPLAYENUM\\RDPIDD_INDIRECTDISPLAY\u0026SESSIONID_0001",
+                             "status":  "OK",
+                             "problem":  0,
+                             "is_physical_pci":  false
+                         }
+                     ],
+    "directx":  {
+                    "version":  "4.09.00.0904",
+                    "max_feature_level":  49408,
+                    "d3d12_max_feature_level":  49408,
+                    "dx_db_version":  "1.8.6"
+                },
+    "vendor_smi":  {
+                       "nvidia_smi":  false,
+                       "amd_adrenalin":  false,
+                       "nvidia_smi_output":  ""
+                   },
+    "verdict":  "WARP_ONLY",
+    "message_zh":  "VM has only Hyper-V soft display WARP -- GPU-PV NOT configured. M-R5/M-R7/M-R4 physical GPU screenshot still blocked",
+    "message_en":  "VM has only Hyper-V soft display WARP -- GPU-PV NOT configured. M-R5/M-R7/M-R4 physical GPU screenshot still blocked"
+}
