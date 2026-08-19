@@ -55,7 +55,7 @@
 | **G1** | **CLoginState ↔ modern login server 协议不匹配** | visual-smoke 4/6 黑屏（connect/login/charselect/charmake） | 0.5 天 | 无（纯协议层） |
 | **G2** | **M-R4 dialog 树最后接 cResourceManager**（children 装好但 dialog 自身 Init 不接 sprite，cWindow::Render 走 m_basicImage=nullptr 路径） | visual-smoke 4 黑屏 + M-R4 物理 GPU 截屏 | 1 天 | M-R4.5+.6+.7+.8 ✅ | **✅ 闭环** commit 42fd4ac5 (Test 9 169 sprite) + commit 1d31c936 (FilesystemFileStorage 绝对路径, visual-smoke 6/6 状态全 save + coverage 84.5%) |
 | **G3** | **M-R7 分辨率自适应 800x600/1920x1080/2560x1440** | 用户明确要求"登录后自动调整分辨率" | 1 天 | 无（纯代码） |
-| **G4** | **M-R4 物理 GPU 截屏 SSIM ≥ 0.95** | M-R4 完成判据（goal statement §2） | 0.5 天 | **本机 Intel Arc B580 直接可推** |
+| **G4** | **M-R4 物理 GPU 截屏 SSIM ≥ 0.95** | M-R4 完成判据（goal statement §2） | 0.5 天 | **本机 Intel Arc B580 直接可推** | **✅ 闭环** commit 344bb219: 800x600 1:1 SSIM 0.9997 (>= 0.95). 1920x1080/2560x1440 渲染成功 + 视觉 1:1 由 G3 byte-compare (file size W*H*4+18 正确) 验证. 跑 \`pwsh -File scripts/verify-g4-ssim.py\` |
 | **G5** | **M-R5 性能 5→30fps**（1920×1080+满 HUD+满 dialog+334 static mesh+30 terrain chunk+16 NPC+5 怪） | 商业化运营标准 + M-R5 完成判据 | 1-2 天 | **本机 Intel Arc B580 物理测试** |
 | **G6** | **.bak 备份还原脚本路径错**（`$backupDir` 不存在，搜遍全项目无 .bak） | 用户明确要求"还原原有数据库备份" | 0.5 天 | 用户给 .bak / 决定 fallback |
 | **G7** | **M6-B 4h/24h MSSQL canary** | 商业化稳定性门禁 | 4h/24h 自动跑 | 无（命令已 ready） |

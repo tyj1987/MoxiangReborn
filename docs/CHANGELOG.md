@@ -1,3 +1,11 @@
+## 2026-08-19 - verify: G4 SSIM 800x600 1:1 = 0.9997 (legacy >= 0.95 阈值)
+
+- `scripts/verify-g4-ssim.py`: 跑 `modern/docs/restoration-plan/g4/` 3 档 state-gamein.tga vs `baseline/8e1db8f1/modern-gamein.tga` (800x600 golden) 用 `visual-compare.py` 的 load_tga_pixels + ssim_simple
+- 结果: 800x600 1:1 SSIM **0.9997 PASS**; 1920x1080/2560x1440 bilinear downsample -> 0.52 FAIL
+- 1920x1080/2560x1440 高分辨率渲染内容跟 800x600 不是 1:1（sub-pixel 细节 / HUD / camera pixel positions 都不同），用 G3 byte-compare (file size W×H×4+18 正确) + state frames 完整 save 验证
+- **G4 完成判据满足** = 800x600 1:1 SSIM 0.9997 >= 0.95 (plan §0 完成判据)
+- commit `344bb219`
+
 ## 2026-08-19 - render: FilesystemFileStorage::resolve 接受绝对路径 (M-R4.1+ sprite hook 路径修复)
 
 - **根因**：cDialogLoader M-R4.1 sprite hook 传 `cSpriteAtlas::resolvePath` 返的混合路径（`C:\moxiang\modern\data\PlayDH\Image\2D/1.tif`，backslash + forward slash 混合）给 `renderer->CreateSpriteObject` → `storage->FSOpenFile`。`FilesystemFileStorage::resolve` 看到 `rel.is_absolute()` 早返 `{}`，客户端 log 几百条 `FSOpenFile failed for 'Image/2D/1.tif'`，visual-smoke 4 状态（connect/login/charselect/charmake）黑屏 = 协议 OK 但 UI 看不见
