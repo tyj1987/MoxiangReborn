@@ -1,3 +1,34 @@
+## 2026-08-19 - scripts: visual-smoke paths fix (Debug/ + resource-root + db tool)
+
+- visual-smoke.ps1 line 33/73 路径写死 'Debug/' 但 modern/build/ 实际 layout 是 no Debug/ (CMake NMake generator 不分 Debug/Release 子目录)，导致 visual-smoke 跑时：
+  - line 37 找不到 mxh_client.exe → 脚本不启动
+  - line 74 找不到 mxh_db_tool.exe → 跳过 register, visualsmoke 账号不创建 → login auth fail (G1 NACK 路径之前卡 state 2)
+- 修：
+  - line 33 改 `'tools/MoxianClient/Debug/mxh_client.exe'` → `'tools/MoxianClient/mxh_client.exe'`
+  - line 73 改 `'tools/MoxianDbTool/Debug/mxh_db_tool.exe'` → `'tools/MoxianDbTool/mxh_db_tool.exe'`
+  - argument 列表加 `'--resource-root'` 指向 `modern/data/PlayDH` (之前缺，client 报 'PlayDH resource root not found' 立即退出, 5 状态全 miss)
+- 效果：visual-smoke 5/5 state PASS + state-gamein.tga coverage **84.5%** (DX11 真渲染地图 + 玩家 + 怪物 + UI)
+- 注：gui-client-smoke.ps1 类似 Debug/ 路径 bug 仍在，那个脚本路径修改属于 user 手动 decision
+- commit `e4f71c6c`
+
+## 2026-08-19 - G2 follow-up: cImage cache by (image_idx, rect)
+
+- **根因**：G2 (commit 1d31c936) 修了 `FSOpenFile failed 几百 → 0` 但 `loadImageForImageIdx` 每次都 `new cImage + new SpriteObject` (调 `CreateSpriteObject` → DX11 SRV 4MB)。165 dialog × ~10 children = **1650+ cImage**，1.tif fallback 1024x1024 RGBA = 1650+ 个 4MB SRV = **~6.6GB GPU 内存**。4GB Intel Arc B580 driver crash `0xC0000005` 在装 dialog 第 1-6 个时
+- **修**：`unordered_map<ImageKey, cImage*>` cache，key = `(image_idx, l, t, r, b)`：
+  - 命中返已有 cImage，跳过 SpriteObject 装填
+  - **1650+ → ~6 个 unique GPU textures** (24MB)
+- **回归**：`mxh_dialog_loader_tests` **84/84 PASS** (cache 没破坏 layout 1:1 行为)
+- 71 high-signal unit tests (含 crypto / dialog / render / db / ui / server / services / compat / resource) **100% PASS** (6 real-resource tests GTEST_SKIP 是 cwd 资源路径，无关 cache)
+- commit `4fc0a2a3`
+
+## 2026-08-19 - G1: login_handler NACK proto=1 → NotifyUserLoginNack (proto=3)
+
+- **根因 (真存在，之前诊断错一半)**：server `login_handler.cpp:396` `nack_msg.header = msg.header;` 复用 client header (proto=1 RequestLogin)。client `CLoginState.cpp:234` switch 没 `case RequestLogin` (RequestLogin 是 C→D 方向，D→C 不应出现)，default 分支打 `unhandled userconn proto=1` warn，**永远卡 state 2 (connect) 循环**。之前看 19:52 log 走 OK 路径 (proto=2) 所以 login 成功，误判 G1 OK；这次 visualsmoke 账号未注册走 NACK 路径重现 bug
+- **修**：NACK 构造 UserConn header, `protocol=NotifyUserLoginNack (3)`，client switch `case 3` 走 `fail_with("LoginNack received (bad credentials?)")` clean 退出
+- **附**：visual-smoke.ps1 line 73 db tool 路径 `Debug/mxh_db_tool.exe` 错 (实际无 `Debug/` 子目录)，改成 `mxh_db_tool.exe`，register 实际跑通
+- **验证**：visual-smoke **5/5 state PASS** + `state-gamein.tga` non_bg_pixels=405418/480000 (**84.5%** 不是背景, DX11 真渲染 gamein 场景含 .hfl 地图 + .chx 角色)
+- 旧 commit `642eef56` (G1) + `91eb5543` (G1 含 pre-existing 混入)
+
 ## 2026-08-19 - verify: G4 SSIM 800x600 1:1 = 0.9997 (legacy >= 0.95 阈值)
 
 - `scripts/verify-g4-ssim.py`: 跑 `modern/docs/restoration-plan/g4/` 3 档 state-gamein.tga vs `baseline/8e1db8f1/modern-gamein.tga` (800x600 golden) 用 `visual-compare.py` 的 load_tga_pixels + ssim_simple
