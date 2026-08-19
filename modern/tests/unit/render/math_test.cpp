@@ -438,34 +438,46 @@ TEST(MatrixScreenOrthoTest, EightHundredBySixHundredMapsEdges) {
     // Standard Moxiang client window size. The matrix should:
     //   _11 =  2/800  =  0.0025
     //   _22 = -2/600  = -0.00333...
-    //   _14 = -1      (so x=0 maps to NDC.x = -1)
-    //   _24 =  1      (so y=0 maps to NDC.y = +1, top of screen)
+    //   _41 = -1      (so x=0 maps to NDC.x = -1)
+    //   _42 =  1      (so y=0 maps to NDC.y = +1, top of screen)
     //   _44 =  1      (w preserved)
+    // Translation lives in row 3 (the bottom row) of the row-major
+    // storage: under v' = v * M (the project's row-vector convention)
+    // and the HLSL `cbuffer float4x4` column-major read of the
+    // row-major CPU storage, result.x += v.w * M[3][0] = m._41 and
+    // result.y += v.w * M[3][1] = m._42. The previous _14/_24 slot
+    // would have moved the translation into the W component and is
+    // intentionally NOT used here (see math.hpp MatrixScreenOrtho
+    // header comment for the full derivation).
     MATRIX4 m{};
     MatrixScreenOrtho(&m, 800.0f, 600.0f);
     EXPECT_FLOAT_EQ(m._11,  2.0f / 800.0f);
     EXPECT_FLOAT_EQ(m._22, -2.0f / 600.0f);
-    EXPECT_FLOAT_EQ(m._14, -1.0f);
-    EXPECT_FLOAT_EQ(m._24,  1.0f);
+    EXPECT_FLOAT_EQ(m._41, -1.0f);
+    EXPECT_FLOAT_EQ(m._42,  1.0f);
     EXPECT_FLOAT_EQ(m._33,  1.0f);
     EXPECT_FLOAT_EQ(m._44,  1.0f);
     // Off-diagonal cells outside the projection are zero.
     EXPECT_FLOAT_EQ(m._12, 0.0f); EXPECT_FLOAT_EQ(m._13, 0.0f);
+    EXPECT_FLOAT_EQ(m._14, 0.0f);
     EXPECT_FLOAT_EQ(m._21, 0.0f); EXPECT_FLOAT_EQ(m._23, 0.0f);
+    EXPECT_FLOAT_EQ(m._24, 0.0f);
     EXPECT_FLOAT_EQ(m._31, 0.0f); EXPECT_FLOAT_EQ(m._32, 0.0f);
     EXPECT_FLOAT_EQ(m._34, 0.0f);
-    EXPECT_FLOAT_EQ(m._41, 0.0f); EXPECT_FLOAT_EQ(m._42, 0.0f); EXPECT_FLOAT_EQ(m._43, 0.0f);
+    EXPECT_FLOAT_EQ(m._43, 0.0f);
 }
 
 TEST(MatrixScreenOrthoTest, TopLeftPixelMapsToNdcMinusOnePlusOne) {
     // Pixel (0, 0) is the top-left corner of the screen. After
     // mul((x, y, 0, 1), M) the row-vector transform yields:
-    //   NDC.x = m._11 * 0 + m._14 * 1 = -1   (left edge)
-    //   NDC.y = m._22 * 0 + m._24 * 1 = +1   (top edge)
+    //   NDC.x = m._11 * 0 + m._41 * 1 = -1   (left edge)
+    //   NDC.y = m._22 * 0 + m._42 * 1 = +1   (top edge)
+    // (Translation is in the bottom row, not the w-column of the
+    // first two rows, per math.hpp MatrixScreenOrtho.)
     MATRIX4 m{};
     MatrixScreenOrtho(&m, 800.0f, 600.0f);
-    const float ndcX = m._11 * 0.0f + m._14 * 1.0f;
-    const float ndcY = m._22 * 0.0f + m._24 * 1.0f;
+    const float ndcX = m._11 * 0.0f + m._41 * 1.0f;
+    const float ndcY = m._22 * 0.0f + m._42 * 1.0f;
     EXPECT_FLOAT_EQ(ndcX, -1.0f);
     EXPECT_FLOAT_EQ(ndcY,  1.0f);
 }
@@ -473,12 +485,12 @@ TEST(MatrixScreenOrthoTest, TopLeftPixelMapsToNdcMinusOnePlusOne) {
 TEST(MatrixScreenOrthoTest, BottomRightPixelMapsToNdcPlusOneMinusOne) {
     // Pixel (width, height) is the bottom-right corner. After
     // mul((w, h, 0, 1), M):
-    //   NDC.x = m._11 * w + m._14 * 1 =  2/w * w - 1 = +1
-    //   NDC.y = m._22 * h + m._24 * 1 = -2/h * h + 1 = -1
+    //   NDC.x = m._11 * w + m._41 * 1 =  2/w * w - 1 = +1
+    //   NDC.y = m._22 * h + m._42 * 1 = -2/h * h + 1 = -1
     MATRIX4 m{};
     MatrixScreenOrtho(&m, 800.0f, 600.0f);
-    const float ndcX = m._11 * 800.0f + m._14 * 1.0f;
-    const float ndcY = m._22 * 600.0f + m._24 * 1.0f;
+    const float ndcX = m._11 * 800.0f + m._41 * 1.0f;
+    const float ndcY = m._22 * 600.0f + m._42 * 1.0f;
     EXPECT_FLOAT_EQ(ndcX,  1.0f);
     EXPECT_FLOAT_EQ(ndcY, -1.0f);
 }
