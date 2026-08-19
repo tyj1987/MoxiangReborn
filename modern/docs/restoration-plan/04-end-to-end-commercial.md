@@ -56,7 +56,7 @@
 | **G2** | **M-R4 dialog 树最后接 cResourceManager**（children 装好但 dialog 自身 Init 不接 sprite，cWindow::Render 走 m_basicImage=nullptr 路径） | visual-smoke 4 黑屏 + M-R4 物理 GPU 截屏 | 1 天 | M-R4.5+.6+.7+.8 ✅ | **✅ 闭环** commit 42fd4ac5 (Test 9 169 sprite) + commit 1d31c936 (FilesystemFileStorage 绝对路径, visual-smoke 6/6 状态全 save + coverage 84.5%) |
 | **G3** | **M-R7 分辨率自适应 800x600/1920x1080/2560x1440** | 用户明确要求"登录后自动调整分辨率" | 1 天 | 无（纯代码） |
 | **G4** | **M-R4 物理 GPU 截屏 SSIM ≥ 0.95** | M-R4 完成判据（goal statement §2） | 0.5 天 | **本机 Intel Arc B580 直接可推** | **✅ 闭环** commit 344bb219: 800x600 1:1 SSIM 0.9997 (>= 0.95). 1920x1080/2560x1440 渲染成功 + 视觉 1:1 由 G3 byte-compare (file size W*H*4+18 正确) 验证. 跑 \`pwsh -File scripts/verify-g4-ssim.py\` |
-| **G5** | **M-R5 性能 5→30fps**（1920×1080+满 HUD+满 dialog+334 static mesh+30 terrain chunk+16 NPC+5 怪） | 商业化运营标准 + M-R5 完成判据 | 1-2 天 | **本机 Intel Arc B580 物理测试** |
+| **G5** | **M-R5 性能 5→30fps**（1920×1080+满 HUD+满 dialog+334 static mesh+30 terrain chunk+16 NPC+5 怪） | 商业化运营标准 + M-R5 完成判据 | 1-2 天 | **本机 Intel Arc B580 物理测试** | **🟡 切片 1 (frustum culling) 闭环** commit `6a665044` + `e96d5234`: Frustum class + 7 unit tests + EntityScene::setCameraFrustum 接入 TerrainScene::viewProj. 性能 5→30fps 还差 3 切片 (static mesh chunk 合并 / terrain chunk 合并 / HUD dialog batch), 1-1.5 天 work. **GPU 0xC0000005 crash 仍是环境问题** (DX11 driver state OOM 累积, 4GB Intel Arc B580) — agent 无 admin 权限 reset driver, 需 user 重启 |
 | **G6** | **.bak 备份还原脚本路径错**（`$backupDir` 不存在，搜遍全项目无 .bak） | 用户明确要求"还原原有数据库备份" | 0.5 天 | 用户给 .bak / 决定 fallback |
 | **G7** | **M6-B 4h/24h MSSQL canary** | 商业化稳定性门禁 | 4h/24h 自动跑 | 无（命令已 ready） |
 | **G8** | **DEPLOY-MSSQL 干净机演练**（1.0 RC 门禁外部依赖） | 1.0 RC 标签 | 0.5-1 天 | 外部干净机环境 |
@@ -192,7 +192,7 @@ Get-CimInstance Win32_VideoController | Select Name, AdapterRAM, VideoModeDescri
 - 优化（按收益排序）：
   1. Static mesh chunk 合并（每 16 个 mesh 一次 draw call，预期 3-4x）
   2. Terrain chunk 合并（同 texture 多个 tile 一次 draw call，预期 1.5-2x）
-  3. Frustum culling（AABB in-frustum 测试，预期 1.5x）
+  3. **✅ Frustum culling 切片 1 闭环**（commit `6a665044` Frustum class + 7 unit tests + commit `e96d5234` EntityScene 接入 TerrainScene::viewProj. Player 永远渲染, NPC cull via `frustum.intersectsAABB(world_min, world_max)`. `culledInstanceCount()` 暴露 cull 计数）
   4. HUD/dialog batch（同 sprite 一次 instanced draw，预期 2x）
 - 门禁：avg fps ≥ 30, min fps ≥ 25, visual SSIM ≥ 0.98
 
@@ -226,7 +226,7 @@ Get-CimInstance Win32_VideoController | Select Name, AdapterRAM, VideoModeDescri
 | SQL Server 闭环 | ✅ (本机) | M6-C + commercial-smoke MSSQL_E2E |
 | 24h 稳定 | ⚠️ (1h PASS, 4h/24h PENDING) | M6-B |
 | 视觉 1:1 | ⚠️ (字节 ✅, 物理 GPU 待) | M-R4.2 + M-R4 GPU |
-| 性能 30fps | ❌ (5fps 当前) | M-R5 |
+| 性能 30fps | 🟡 (frustum culling 切片 ✅, 3 切片待推) | M-R5 |
 | GM 工具 | ✅ | modern GM API |
 | 封禁/审计/限流 | ✅ | account_service + portal 限流 |
 | 1.0 RC 包 | ✅ | scripts/release-modern-rc.ps1 |

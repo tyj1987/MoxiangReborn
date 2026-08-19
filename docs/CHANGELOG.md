@@ -1,3 +1,20 @@
+## 2026-08-19 - render: G5 frustum culling (M-R5) skeleton + EntityScene wiring
+
+G5 M-R5 perf slice: off-screen NPC entities no longer reach the GPU. Two commits.
+
+- **Frustum class + 7 unit tests** (`6a665044`)
+  - `modern/include/mxh/render/frustum.hpp` — header-only `Frustum` (six planes) + `Plane` struct. `extractFromViewProj` is the column-based Gribb-Hartmann variant for the project's row-vector-times-matrix convention (`v' = v * M`, see math.hpp). Each plane is normalized (length 1). `intersectsAABB` is the standard p-vertex (Larsen/Baraff) test.
+  - `modern/tests/unit/render/frustum_test.cpp` — 7 GTest unit tests: plane normalization, in-front visible, far-plane cull, behind-camera cull, **near-plane straddle visible**, off-to-the-left cull, empty-planes no-crash. All 7/7 PASS.
+  - Root cause of the pre-fix `BoxStraddlingNearPlaneIsVisible` failure: the test's OpenGL perspective matrix had `m._34`/`m._43` slots swapped, and the prior extraction combined M's *rows* (column-vector convention) instead of M's *columns* (row-vector). The two errors masked each other for the other 5 tests but exposed themselves on the near plane.
+  - Frustum is header-only on purpose: entity_scene + (future) terrain_scene call sites avoid link overhead.
+
+- **EntityScene + TerrainScene + main.cpp wiring** (`e96d5234`)
+  - `TerrainScene::configureCamera` now caches the `view * projection` product and exposes it via `TerrainScene::viewProj()` so the entity scene can share the exact same camera state the terrain is using (no risk of drift).
+  - `EntityScene::setCameraFrustum(std::optional<Frustum>)` + `culledInstanceCount()`. Player is always rendered (camera-centric, near-plane hazard); each NPC's world AABB is the local model AABB translated by `(world_x*kSceneScale - kMapCenter, world_y*kSceneScale - model->minimum.y, world_z*kSceneScale - kMapCenter)` (pure-translation world transform, no per-frame AABB recompute needed). Cull counter exposed for instrumentation.
+  - `main.cpp` `renderFrame()` builds `Frustum(g_terrain->viewProj())` each frame and pushes it to the entity scene before `render()`.
+
+Build clean (mxh_client + mxh_render_tests link). The 3 `MatrixScreenOrthoTest` failures are pre-existing on `main` (unrelated, verified by stashing this work + re-running). 7/7 Frustum tests pass.
+
 ## 2026-08-19 - scripts: visual-smoke paths fix (Debug/ + resource-root + db tool)
 
 - visual-smoke.ps1 line 33/73 路径写死 'Debug/' 但 modern/build/ 实际 layout 是 no Debug/ (CMake NMake generator 不分 Debug/Release 子目录)，导致 visual-smoke 跑时：
