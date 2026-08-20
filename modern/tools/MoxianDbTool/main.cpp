@@ -7,6 +7,7 @@
 //   schema  --db <cfg>             List tables in database
 
 #include "mxh/db/db_adapter.hpp"
+#include "mxh/db/schema_migration.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/server/account_service.hpp"
 #include "mxh/server/account_moderation.hpp"
@@ -28,7 +29,8 @@ USAGE:
     mxh_db_tool <command> [options]
 
 COMMANDS:
-    init    --db <cfg>             Initialize schema (SQLite only; for MSSQL use scripts/db/*.sql)
+    migrate --db <cfg>             Apply the shared idempotent schema migrations
+    init    --db <cfg>             Alias for migrate
     exec    --db <cfg> <sql>       Execute a SQL statement (INSERT/UPDATE/DELETE/DDL)
     query   --db <cfg> <sql>       Execute a query and print result as TSV
     schema  --db <cfg>             List tables
@@ -41,6 +43,7 @@ EXAMPLE:
     mxh_db_tool query --db "sqlite;path=./moxian.db" "SELECT * FROM CharacterInfo LIMIT 10"
 
 OPTIONS:
+    --db-env <name>                Read database config from an environment variable
     -h, --help                      Show this help
 )";
 }
@@ -254,24 +257,13 @@ int cmd_init(const std::string& cfg_str) {
         std::cerr << "ERROR connect: " << r.error_message << "\n";
         return 1;
     }
-    // The bundled schema uses SQLite-only DDL (INSERT OR IGNORE, AUTOINCREMENT,
-    // sqlite_master). For non-SQLite backends the schema must be created
-    // out-of-band (e.g. by restoring the MSSQL .bak and applying the migration
-    // scripts in scripts/db/).
-    auto* sqlite = dynamic_cast<mxh::db::SqliteAdapter*>(adapter.get());
-    if (!sqlite) {
-        std::cerr << "ERROR init schema: backend '" << adapter->backend_name()
-                  << " is not SQLite. The bundled moxian_schema_sql() contains "
-                  << "SQLite-only DDL (INSERT OR IGNORE, AUTOINCREMENT). "
-                  << "Restore the MSSQL .bak and apply scripts/db/*.sql instead.\n";
-        return 1;
-    }
-    auto er = sqlite->exec_multi(moxian_schema_sql());
+    auto er = mxh::db::migrate_modern_schema(*adapter);
     if (!er) {
-        std::cerr << "ERROR init schema: " << er.error_message << "\n";
+        std::cerr << "ERROR migrate schema: " << er.error_message << "\n";
         return 1;
     }
-    std::cout << "Schema initialized: " << cfg.path << "\n";
+    std::cout << "Schema migrated: backend=" << adapter->backend_name()
+              << " version=" << mxh::db::modern_schema_version(*adapter) << "\n";
     return 0;
 }
 
@@ -400,11 +392,14 @@ int main(int argc, char** argv) {
 
     // Parse --db and positional args.
     std::string cfg_str;
+    std::string cfg_env;
     std::vector<std::string> positional;
     for (int i = 2; i < argc; ++i) {
         std::string_view a = argv[i];
         if (a == "--db") {
             if (i + 1 < argc) cfg_str = argv[++i];
+        } else if (a == "--db-env") {
+            if (i + 1 < argc) cfg_env = argv[++i];
         } else if (a == "-h" || a == "--help") {
             print_usage(); return 0;
         } else {
@@ -413,11 +408,20 @@ int main(int argc, char** argv) {
     }
 
     try {
+        if (!cfg_env.empty()) {
+            const auto* value = std::getenv(cfg_env.c_str());
+            if (value == nullptr || *value == '\0') {
+                std::cerr << "ERROR: database environment variable is not set: "
+                          << cfg_env << "\n";
+                return 1;
+            }
+            cfg_str = value;
+        }
         if (cfg_str.empty()) {
-            std::cerr << "ERROR: --db is required\n";
+            std::cerr << "ERROR: --db or --db-env is required\n";
             return 1;
         }
-        if (cmd == "init" && positional.empty()) {
+        if ((cmd == "init" || cmd == "migrate") && positional.empty()) {
             return cmd_init(cfg_str);
         }
         if (cmd == "exec" && positional.size() == 1) {

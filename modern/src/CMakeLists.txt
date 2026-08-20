@@ -56,6 +56,7 @@ if(SQLite3_FOUND)
     message(STATUS "SQLite3: provided by vcpkg/system (${SQLite3_VERSION})")
     add_library(mxh_db STATIC
         db_adapter.cpp
+        schema_migration.cpp
         sqlite_adapter.cpp
         db_factory.cpp
         db_thread.cpp
@@ -69,6 +70,7 @@ else()
     message(STATUS "SQLite3: vendored amalgamation (third_party/sqlite)")
     add_library(mxh_db STATIC
         db_adapter.cpp
+        schema_migration.cpp
         sqlite_adapter.cpp
         db_factory.cpp
         db_thread.cpp
@@ -478,7 +480,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 

@@ -2,7 +2,6 @@
 
 #include "mxh/crypto/crypto.hpp"
 #include "mxh/db/db_adapter.hpp"
-#include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/server/server.hpp"
 
@@ -32,7 +31,6 @@ struct Args {
     std::string bind_address = "0.0.0.0";
     std::string agent_addr = "127.0.0.1";
     std::uint16_t agent_port = 7001;
-    bool init_schema = false;
     bool use_legacy = false;  // Phase 7.6: 4DyuchiNET compatibility
     bool use_hsel   = false;  // Phase R-1: HSEL-encrypted legacy session
 };
@@ -55,8 +53,6 @@ Args parse_args(int argc, char** argv) {
             a.agent_addr = argv[++i];
         else if (s == "--agent-port" && i + 1 < argc)
             a.agent_port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
-        else if (s == "--init-schema")
-            a.init_schema = true;
         else if (s == "--legacy")
             a.use_legacy = true;
         else if (s == "--use-hsel")
@@ -70,7 +66,6 @@ Args parse_args(int argc, char** argv) {
                       << "  --bind-address IP listen interface (default 0.0.0.0)\n"
                       << "  --agent-addr ADDR advertised AgentServer address in LoginAck\n"
                       << "  --agent-port N    AgentServer port\n"
-                      << "  --init-schema     create tables before serving\n"
                       << "  --legacy          enable 4DyuchiNET legacy protocol framing\n"
                       << "  --use-hsel        encrypt the legacy session with the HSEL stream cipher\n";
             std::exit(0);
@@ -166,42 +161,8 @@ int main(int argc, char** argv) {
     if (!cr) { std::cerr << "FATAL: db connect (backend='" << db_cfg.backend
                        << "'): " << cr.error_message << "\n"; return 1; }
 
-    // 2. Optionally create schema.
-    if (args.init_schema) {
-        const char* schema = R"SQL(
-CREATE TABLE IF NOT EXISTS chr_log_info (
-    id TEXT PRIMARY KEY,
-    pw TEXT NOT NULL,
-    userlevel INTEGER NOT NULL DEFAULT 0,
-    registerdate TEXT,
-    lastlogindate TEXT,
-    lastloginip TEXT,
-    usepoint INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS modern_account_identity (
-    account_id TEXT PRIMARY KEY,
-    user_idx INTEGER NOT NULL UNIQUE
-);
-INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('admin', 'admin', 2);
-INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('test', 'test', 2);
-INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderland', 0);
-)SQL";
-        // The bundled schema uses SQLite-only DDL (INSERT OR IGNORE, no MSSQL
-        // counterpart); only run it when the runtime adapter is actually SQLite.
-        // For MSSQL deployments the schema is created out-of-band by the restore
-        // scripts in scripts/db/.
-        if (auto* sqlite = dynamic_cast<mxh::db::SqliteAdapter*>(db.get())) {
-            auto er = sqlite->exec_multi(schema);
-            if (!er) std::cerr << "WARN: schema init: " << er.error_message << "\n";
-            else std::cout << "[main] schema initialized\n";
-        } else {
-            std::cerr << "WARN: --init-schema skipped: bundled schema uses SQLite-only DDL "
-                      << "(backend='" << db->backend_name() << "'); "
-                      << "create schema out-of-band for non-SQLite backends\n";
-        }
-    }
-
-    // 3. Build reply queue + handler + server.
+    // 2. Build reply queue + handler + server. Schema migrations are a
+    // deployment precondition and are never performed by service processes.
     auto queue = std::make_shared<ReplyQueue>();
 
     mxh::net::TcpServer* server_ptr = nullptr;

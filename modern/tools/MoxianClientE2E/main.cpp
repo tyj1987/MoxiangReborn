@@ -78,6 +78,8 @@
 
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/mssql_odbc_adapter.hpp"
+#include "mxh/db/schema_migration.hpp"
+#include "mxh/server/account_service.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -116,8 +118,8 @@ struct CliArgs {
     bool db_explicit = false;
     bool no_spawn = false;
     std::string character_name;
-    std::string account = "test";
-    std::string password = "test";
+    std::string account = "mxh_e2e";
+    std::string password = "Pass1234";
     int  timeout_s = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool init_schema = true;   // Phase P0: apply the modern schema before
@@ -315,9 +317,8 @@ int ensure_mssql_schema(const CliArgs& cli) {
     master->disconnect();
     LOG("MSSQL schema init: database '%s' ready", target_db.c_str());
 
-    // 2. Connect to the target DB and create the two tables the modern
-    //    servers use (chr_log_info for login, character_info for the
-    //    agent/map servers), then seed the E2E test account.
+    // 2. Connect to the target DB, run the same migration entrypoint used by
+    //    deployment, then create the explicitly requested E2E account.
     auto db = mxh::db::make_adapter("mssql_odbc");
     auto cr = db->connect(cfg);
     if (!cr) {
@@ -326,46 +327,42 @@ int ensure_mssql_schema(const CliArgs& cli) {
         return 1;
     }
 
-    const char* kChrLogInfo =
-        "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL "
-        "CREATE TABLE dbo.chr_log_info ("
-        " id NVARCHAR(50) NOT NULL PRIMARY KEY,"
-        " pw NVARCHAR(160) NOT NULL,"
-        " userlevel INT NOT NULL DEFAULT 0);"
-        "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 "
-        "ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL;";
-    const char* kCharacterInfo =
-        "IF OBJECT_ID(N'dbo.character_info', N'U') IS NULL "
-        "CREATE TABLE dbo.character_info ("
-        " chrid BIGINT NOT NULL PRIMARY KEY,"
-        " charname NVARCHAR(50) NOT NULL,"
-        " userid BIGINT NOT NULL,"
-        " sex_type TINYINT NOT NULL DEFAULT 0,"
-        " hair_type TINYINT NOT NULL DEFAULT 0,"
-        " face_type TINYINT NOT NULL DEFAULT 0,"
-        " body_type TINYINT NOT NULL DEFAULT 0,"
-        " start_area INT NOT NULL DEFAULT 0,"
-        " height FLOAT NOT NULL DEFAULT 1.0,"
-        " width FLOAT NOT NULL DEFAULT 1.0,"
-        " level INT NOT NULL DEFAULT 1,"
-        " map_num INT NOT NULL DEFAULT 0,"
-        " standing_idx INT NOT NULL DEFAULT 0);";
-    const char* kSeedAccount =
-        "IF NOT EXISTS (SELECT 1 FROM dbo.chr_log_info WHERE id = N'test') "
-        "INSERT INTO dbo.chr_log_info (id, pw, userlevel) "
-        "VALUES (N'test', N'test', 2);";
-
-    const char* statements[] = {kChrLogInfo, kCharacterInfo, kSeedAccount};
-    for (const char* sql : statements) {
-        auto er = db->execute(sql);
-        if (!er) {
-            LOG("MSSQL schema init: statement failed: %s",
-                er.error_message.c_str());
-            return 1;
-        }
+    const auto migrated = mxh::db::migrate_modern_schema(*db);
+    if (!migrated.ok()) {
+        LOG("MSSQL schema migration failed: %s", migrated.error_message.c_str());
+        return 1;
+    }
+    const auto account = mxh::server::create_account(
+        *db, cli.account, cli.password);
+    if (!account.ok() && account.status != mxh::server::AccountCreateStatus::AlreadyExists) {
+        LOG("MSSQL E2E account creation failed: %s", account.message.c_str());
+        return 1;
     }
     db->disconnect();
-    LOG("MSSQL schema init: tables ready + test account seeded ('test'/'test')");
+    LOG("MSSQL schema migrated to version %d", mxh::db::kModernSchemaVersion);
+    return 0;
+}
+
+int prepare_sqlite_database(const std::string& path, const CliArgs& cli) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.backend = "sqlite";
+    cfg.path = path;
+    const auto connected = db->connect(cfg);
+    if (!connected.ok()) {
+        LOG("SQLite E2E connect failed: %s", connected.error_message.c_str());
+        return 1;
+    }
+    const auto migrated = mxh::db::migrate_modern_schema(*db);
+    if (!migrated.ok()) {
+        LOG("SQLite schema migration failed: %s", migrated.error_message.c_str());
+        return 1;
+    }
+    const auto account = mxh::server::create_account(*db, cli.account, cli.password);
+    if (!account.ok() && account.status != mxh::server::AccountCreateStatus::AlreadyExists) {
+        LOG("SQLite E2E account creation failed: %s", account.message.c_str());
+        return 1;
+    }
     return 0;
 }
 #endif  // _WIN32
@@ -387,9 +384,7 @@ int run_e2e(const CliArgs& cli) {
     // ---- spawn servers (unless --no-spawn) ----
     std::vector<std::unique_ptr<ServerProc>> procs;
     if (!cli.no_spawn) {
-        // Phase P0: mssql_odbc needs the shared SQL Server schema before
-        // any of the three processes start (LoginServer --init-schema is
-        // SQLite-only DDL).  SQLite files are created below per server.
+        // MSSQL needs its target database before the shared migration runs.
         if (cli.db_backend == "mssql_odbc") {
             if (cli.init_schema) {
                 const int schema_rc = ensure_mssql_schema(cli);
@@ -403,9 +398,7 @@ int run_e2e(const CliArgs& cli) {
             }
         }
 
-        // DB files go in modern/scratch/e2e_client/ so they auto-clean
-        // (we delete the dir on success; verify_servers_e2e.py uses
-        // a similar pattern).
+        // All three processes intentionally share one database.
         std::string scratch, login_db, agent_db, map_db;
         if (cli.db_backend == "mssql_odbc" || cli.db_explicit) {
             // MSSQL and explicitly selected SQLite runs share one database.
@@ -413,16 +406,18 @@ int run_e2e(const CliArgs& cli) {
         } else {
             scratch = "C:\\moxiang\\modern\\scratch\\e2e_client";
             CreateDirectoryA(scratch.c_str(), nullptr);
-            login_db = scratch + "\\login.db";
-            agent_db = scratch + "\\agent.db";
-            map_db   = scratch + "\\map.db";
+            login_db = scratch + "\\moxian.db";
+            agent_db = map_db = login_db;
+            DeleteFileA(login_db.c_str());
+        }
+
+        if (cli.db_backend == "sqlite") {
+            const int schema_rc = prepare_sqlite_database(login_db, cli);
+            if (schema_rc != 0) return schema_rc;
         }
 
         const std::string backend_flag =
             cli.db_backend == "mssql_odbc" ? "mssql_odbc" : "sqlite";
-        const std::string init_schema_flag =
-            (cli.db_backend == "sqlite" && cli.init_schema) ? "--init-schema" : "";
-
         // LoginServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "login";
@@ -433,7 +428,6 @@ int run_e2e(const CliArgs& cli) {
             "--db", login_db,
             "--agent-addr", "127.0.0.1",
             "--agent-port", "17001",
-            init_schema_flag,
             "--legacy",
             (cli.use_hsel ? "--use-hsel" : "")});
 

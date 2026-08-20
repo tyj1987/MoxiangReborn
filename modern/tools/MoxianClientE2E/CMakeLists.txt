@@ -15,7 +15,7 @@ add_executable(mxh_client_e2e main.cpp)
 target_include_directories(mxh_client_e2e PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
 )
-target_link_libraries(mxh_client_e2e PRIVATE mxh_client_lib mxh_db mxh_log)
+target_link_libraries(mxh_client_e2e PRIVATE mxh_client_lib mxh_db mxh_server mxh_log)
 add_dependencies(mxh_client_e2e
     mxh_login_server
     mxh_agent_server_CHINA
