@@ -430,6 +430,10 @@ modern/tools/dialog_children_type_scan/*.py
 # smoke artifacts here in earlier sessions).
 modern/docs/smoke_artifacts/
 
+# GPU smoke test output (test-gpu-smoke.ps1, 2026-08-20+). 1.9MB .tga
+# per state, 60s run = 3-5 frames; not source, regenerated on demand.
+modern/data/screenshots/
+
 
  
  #   P h a s e   2 0 2 6 - 0 8 - 1 9   -   . g i t h u b / w o r k f l o w s /   e x c l u d e d   f r o m   p u s h   u n t i l   g h   C L I   O A u t h   t o k e n   h a s   w o r k f l o w   s c o p e 
