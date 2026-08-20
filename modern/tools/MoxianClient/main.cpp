@@ -1583,6 +1583,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // states that have an external Start() hook.
             const auto cur_state = mainGame.GetCurStateNum();
             if (cur_state != prev_state) {
+                if (cur_state == mxh::client::GameStateId::Title &&
+                    prev_state == mxh::client::GameStateId::CharSelect) {
+                    g_loginUi.visible = true;
+                    g_loginUi.submitRequested = false;
+                    g_loginUi.editingPassword = false;
+                    g_loginUi.password.clear();
+                }
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
                 }

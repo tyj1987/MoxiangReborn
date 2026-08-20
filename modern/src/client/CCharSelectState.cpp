@@ -82,6 +82,15 @@ legacy_character_remove_syn_payload(std::uint32_t character_id) {
     };
 }
 
+mxh::net::Message legacy_character_disconnect_syn_message() {
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectSyn);
+    return out;
+}
+
 std::optional<std::vector<CharacterSlot>>
 parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     // Layout (CHINA locale, no _CRYPTCHECK_):
@@ -218,6 +227,7 @@ void CCharSelectState::Release() {
     m_listReceived  = false;
     m_selectSent    = false;
     m_removeSent    = false;
+    m_logoutSent    = false;
     m_listSynSent   = false;
     m_removeChrid   = 0;
     m_releasing     = false;
@@ -338,6 +348,24 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             if (!m_uiRuntime.showMessage(message_id, message)) {
                 MLOG_WARN("CCharSelectState: CharacterRemoveNack reason=%u",
                           static_cast<unsigned>(reason));
+            }
+            break;
+        }
+        case UserConnProtocol::DisconnectAck: {
+            m_logoutSent = false;
+            if (m_pEngine) {
+                m_pEngine->agent_session().disconnect();
+                m_pEngine->RequestStateChange(
+                    static_cast<int>(GameStateId::Title));
+            } else {
+                MLOG_WARN("CCharSelectState: DisconnectAck without engine");
+            }
+            break;
+        }
+        case UserConnProtocol::DisconnectNack: {
+            m_logoutSent = false;
+            if (!m_uiRuntime.showMessage(25, "Logout failed.")) {
+                MLOG_WARN("CCharSelectState: DisconnectNack received");
             }
             break;
         }
@@ -512,6 +540,22 @@ bool CCharSelectState::RequestCharacterDeletion() {
         });
 }
 
+bool CCharSelectState::RequestLogout() {
+    if (!is_connected() || m_selectSent || m_removeSent || m_logoutSent) {
+        return false;
+    }
+    auto out = legacy_character_disconnect_syn_message();
+    const auto e = m_pEngine->agent_session().send(out);
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_ERROR("CCharSelectState: send DisconnectSyn failed: %s",
+                   mxh::net::to_string(e));
+        return false;
+    }
+    m_logoutSent = true;
+    MLOG_INFO("CCharSelectState: sent DisconnectSyn");
+    return true;
+}
+
 bool CCharSelectState::select_adjacent(int direction) noexcept {
     if (m_characters.empty()) return false;
     std::size_t current = m_characters.size();
@@ -548,8 +592,7 @@ bool CCharSelectState::handle_ui_activation(
         case CharSelectUiCommandKind::Delete:
             return RequestCharacterDeletion();
         case CharSelectUiCommandKind::Logout:
-            MLOG_INFO("CCharSelectState: logout requested; title routing pending");
-            return true;
+            return RequestLogout();
         case CharSelectUiCommandKind::None:
         default:
             return false;

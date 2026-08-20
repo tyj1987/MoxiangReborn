@@ -22,6 +22,7 @@ using mxh::client::CharacterSlot;
 using mxh::client::legacy_character_list_syn_payload;
 using mxh::client::legacy_character_select_syn_payload;
 using mxh::client::legacy_character_remove_syn_payload;
+using mxh::client::legacy_character_disconnect_syn_message;
 using mxh::client::parse_legacy_character_list_ack;
 using mxh::client::parse_legacy_character_select_ack;
 
@@ -76,6 +77,16 @@ TEST(CharSelectWire, RemoveSynPayloadIsLegacyMsgDword) {
     EXPECT_EQ(pl[1], 0x34u);
     EXPECT_EQ(pl[2], 0x56u);
     EXPECT_EQ(pl[3], 0x78u);
+}
+
+TEST(CharSelectWire, DisconnectSynIsEmptyLegacyMessage) {
+    const auto message = legacy_character_disconnect_syn_message();
+    EXPECT_EQ(message.header.category, static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn));
+    EXPECT_EQ(message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectSyn));
+    EXPECT_EQ(message.header.object_id, 0u);
+    EXPECT_TRUE(message.payload.empty());
 }
 
 // -------------------------------------------------------------------------
@@ -213,6 +224,8 @@ TEST(CCharSelectStateDefaults, AllFieldsZero) {
     EXPECT_EQ(s.selected_chrid(), 0u);
     EXPECT_EQ(s.selected_map(),  0u);
     EXPECT_TRUE(s.character_list().empty());
+    EXPECT_FALSE(s.logout_pending());
+    EXPECT_FALSE(s.RequestLogout());
 }
 
 TEST(CharSelectUiCommand, ResolvesLegacyIdsAndFunctions) {

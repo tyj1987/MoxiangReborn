@@ -91,6 +91,9 @@ legacy_character_select_syn_payload(std::uint16_t channel);
 std::vector<std::uint8_t>
 legacy_character_remove_syn_payload(std::uint32_t character_id);
 
+// Build the empty-payload DisconnectSyn packet used to leave Agent cleanly.
+mxh::net::Message legacy_character_disconnect_syn_message();
+
 // Parse the 889-byte legacy CharacterListAck payload (no _CRYPTCHECK_,
 // CHINA locale, kMaxCharSlots=5).  Returns the first 5 slots; valid
 // flag is true for slots 0..char_count-1.  Returns std::nullopt if the
@@ -144,6 +147,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool ConfirmSelection();
     bool RequestCharacterCreation();
     bool RequestCharacterDeletion();
+    bool RequestLogout();
     bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     bool OnMouseMove(std::int32_t x, std::int32_t y);
     bool OnKeyEvent(bool down, std::uint32_t key);
@@ -156,6 +160,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t selected_chrid() const noexcept { return m_selectedChrid; }
     bool has_character_list() const noexcept { return m_listReceived; }
     bool deletion_pending() const noexcept { return m_removeSent; }
+    bool logout_pending() const noexcept { return m_logoutSent; }
     const LoginResult& login_result() const noexcept { return m_login; }
     // M-R7.1 (2026-08-20): host reads the loaded cDialog tree to render
     // the 1:1 UI (CharSelectDlg.bin — 12 child widgets, 5 character
@@ -194,6 +199,7 @@ private:
     bool                     m_listReceived = false;
     bool                     m_selectSent   = false;
     bool                     m_removeSent   = false;
+    bool                     m_logoutSent   = false;
     bool                     m_listSynSent  = false;
     std::uint32_t            m_removeChrid  = 0;
     bool                     m_autoSelectForTest = false;
