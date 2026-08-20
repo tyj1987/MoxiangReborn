@@ -114,6 +114,7 @@ struct ClientOptions {
     bool exit_after_gamein = false;
     std::uint32_t smoke_settle_frames = 0;
     bool follow_camera = false;
+    bool debug_ui_bounds = false;
     std::string character_name = "ModernHero";
     std::filesystem::path resource_root;
     std::string save_frame;
@@ -160,6 +161,7 @@ ClientOptions parse_client_options() {
         else if (arg == L"--smoke-settle-frames" && i + 1 < argc)
             options.smoke_settle_frames = static_cast<std::uint32_t>(std::stoul(argv[++i]));
         else if (arg == L"--follow-camera") options.follow_camera = true;
+        else if (arg == L"--debug-ui-bounds") options.debug_ui_bounds = true;
         else if (arg == L"--character-name") take(options.character_name);
         else if (arg == L"--resource-root" && i + 1 < argc) {
             options.resource_root = argv[++i];
@@ -267,6 +269,7 @@ std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
 bool g_renderTerrain = false;
 std::string g_captureTerrainFrame;
 bool g_overviewCamera = false;
+bool g_debugUiBounds = false;
 std::string __g_stateFramesDir;
 int __g_currentState = -1;
 std::string __g_pendingStateFrame;
@@ -903,8 +906,6 @@ void renderFrame(HWND h) {
 
     if (!g_renderTerrain && g_hud.barBg && g_hudFont) {
         g_renderer->SetScreenSpaceProjection();
-        drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
-                   245.0f, 210.0f, 310.0f, 190.0f, 1.0f);
         const auto drawText = [&](const std::string& value, LONG left, LONG top,
                                   std::uint32_t color = 0xFFFFFFFFu) {
             RECT rc{left, top, 535, top + 24};
@@ -913,6 +914,8 @@ void renderFrame(HWND h) {
                                    color, CHAR_CODE_TYPE_ASCII, 2, 0);
         };
         if (g_loginUi.visible) {
+            drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                       245.0f, 210.0f, 310.0f, 190.0f, 1.0f);
             drawText("MOXIANG", 350, 230, 0xFFFFD080u);
             drawText("Account", 275, 280);
             drawText(g_loginUi.username + (!g_loginUi.editingPassword ? "_" : ""), 365, 280);
@@ -931,9 +934,11 @@ void renderFrame(HWND h) {
                 last_state_logged = cur_state;
             }
             if (cur_state == static_cast<int>(mxh::client::GameStateId::CharSelect)) {
-                drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
-                           145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
-                drawText("SELECT CHARACTER", 320, 130, 0xFFFFD080u);
+                if (g_debugUiBounds) {
+                    drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                               145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
+                    drawText("SELECT CHARACTER", 320, 130, 0xFFFFD080u);
+                }
                 // M-R7.1 (2026-08-20): if CharSelectDlg.bin cDialog tree
                 // is loaded (12 child widgets: 5 char slots, 4 buttons,
                 // 3 statics), draw its bounding rect + child rects so
@@ -942,7 +947,7 @@ void renderFrame(HWND h) {
                 if (g_charSelectState) {
                     g_charSelectState->ui_runtime().render();
                     const auto& dlgs_cs = g_charSelectState->ui_dialogs();
-                    if (!dlgs_cs.empty()) {
+                    if (g_debugUiBounds && !dlgs_cs.empty()) {
                         for (const auto& d : dlgs_cs) {
                             if (!d) continue;
                             drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
@@ -964,7 +969,7 @@ void renderFrame(HWND h) {
                         }
                     }
                 }
-                if (g_charSelectState) {
+                if (g_debugUiBounds && g_charSelectState) {
                     const std::vector<mxh::client::CharacterSlot>& chars = g_charSelectState->character_list();
                     if (chars.empty()) {
                         drawText("Connecting to AgentServer...", 200, 200, 0xFFA0A0A0u);
@@ -990,9 +995,11 @@ void renderFrame(HWND h) {
                     }
                 }
             } else if (cur_state == static_cast<int>(mxh::client::GameStateId::CharMake)) {
-                drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
-                           145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
-                drawText("CREATE CHARACTER", 320, 130, 0xFFFFD080u);
+                if (g_debugUiBounds) {
+                    drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                               145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
+                    drawText("CREATE CHARACTER", 320, 130, 0xFFFFD080u);
+                }
                 // M-R7.1 (2026-08-20): if CharMakeNewDlg.bin cDialog
                 // tree is loaded (49 children: 5 class pages, 12
                 // race toggles, 16 statics), draw its bounding rect +
@@ -1001,7 +1008,7 @@ void renderFrame(HWND h) {
                 if (g_charMakeState) {
                     g_charMakeState->ui_runtime().render();
                     const auto& dlgs = g_charMakeState->ui_dialogs();
-                    if (!dlgs.empty()) {
+                    if (g_debugUiBounds && !dlgs.empty()) {
                         for (const auto& d : dlgs) {
                             if (!d) continue;
                             drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
@@ -1023,7 +1030,10 @@ void renderFrame(HWND h) {
                         }
                     }
                 }
-                drawText("0 slots in use; auto-create kicked in", 200, 200, 0xFFFFFFFFu);
+                if (g_debugUiBounds) {
+                    drawText("0 slots in use; auto-create kicked in", 200, 200,
+                             0xFFFFFFFFu);
+                }
             } else if (cur_state == static_cast<int>(mxh::client::GameStateId::GameLoading)) {
                 drawText("Entering game...", 290, 240, 0xFF80FF80u);
             }
@@ -1263,6 +1273,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_loginUi.password = options.password;
     g_loginUi.visible = true;  // Show login form even with --auto-login so state-login.tga shows the input boxes.
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
+    g_debugUiBounds = options.debug_ui_bounds;
     __g_stateFramesDir = options.state_frames_dir;
     if (!__g_stateFramesDir.empty()) {
         std::error_code ec;
