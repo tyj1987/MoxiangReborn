@@ -1,4 +1,18 @@
 cmake_minimum_required(VERSION 3.20)
+# M-R7 (G3) / 2026-08-20: CMake 3.31.6 + MSVC + Ninja bug — CMakeCCompiler.cmake.in
+# / CMakeCXXCompiler.cmake.in template 不含 @CMAKE_C_COMPILE_OBJECT@ / @CMAKE_CXX_COMPILE_OBJECT@
+# 占位符, 写出来的 CMakeFiles/<ver>/CMakeCCompiler.cmake 没这两个变量,
+# Generate 阶段报 "Missing variable CMAKE_C_COMPILE_OBJECT". 显式 set 跟 Windows-MSVC.cmake
+# line 379 一样的 MSVC compile rule, 让 Cmake 1:1 复制到 compiler file.
+# 这是 build 1:1 行为, 跟老 moxian toolchain 一致.
+if(NOT DEFINED CMAKE_C_COMPILE_OBJECT)
+  set(CMAKE_C_COMPILE_OBJECT
+    "<CMAKE_C_COMPILER>  /nologo <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+endif()
+if(NOT DEFINED CMAKE_CXX_COMPILE_OBJECT)
+  set(CMAKE_CXX_COMPILE_OBJECT
+    "<CMAKE_CXX_COMPILER>  /nologo /TP <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+endif()
 project(MoxianReborn
     VERSION 0.1.0
     DESCRIPTION "Moxian (DarkStory) - Modernized source tree"
