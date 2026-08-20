@@ -30,14 +30,44 @@ using namespace mxh::compat;
 
 namespace {
 
-const std::filesystem::path kCharacterPak = LR"(D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码配套资源】\PlayDH\Character.pak)";
-const std::filesystem::path kMonsterBin   = LR"(D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码配套资源】\PlayDH\Resource\MonsterList.bin)";
+// Walks up to 8 levels from cwd looking for a sibling dir whose PlayDH/ subdir
+// contains Character.pak. Returns the resolved Character.pak path (or empty
+// if not found). Pattern mirrors findMapPack in hfl_height_field_test.cpp so
+// the same scratch symlink layout resolves everywhere.
+std::filesystem::path find_character_pak() {
+    auto root = std::filesystem::current_path();
+    for (int level = 0; level < 8; ++level) {
+        for (const auto& first : std::filesystem::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto candidate = first.path() / "PlayDH" / "Character.pak";
+            if (std::filesystem::exists(candidate)) return candidate;
+        }
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
+    }
+    return {};
+}
+
+std::filesystem::path find_monster_list_bin() {
+    auto root = std::filesystem::current_path();
+    for (int level = 0; level < 8; ++level) {
+        for (const auto& first : std::filesystem::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto candidate = first.path() / "PlayDH" / "Resource" / "MonsterList.bin";
+            if (std::filesystem::exists(candidate)) return candidate;
+        }
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
+    }
+    return {};
+}
 
 }  // namespace
 
 TEST(ChxModelRealResource, ManChxIsTextMetadata) {
     // Read a real .chx from Character.pak.
-    if (!std::filesystem::exists(kCharacterPak)) {
+    const auto kCharacterPak = find_character_pak();
+    if (kCharacterPak.empty()) {
         GTEST_SKIP() << "Character.pak not found";
     }
     auto pack = PackFile::open(kCharacterPak);
@@ -67,7 +97,8 @@ TEST(ChxModelRealResource, ManChxIsTextMetadata) {
 
 TEST(ChxModelRealResource, MonsterBinSmoke) {
     // Sanity: the compat layer can read MonsterList.bin.
-    if (!std::filesystem::exists(kMonsterBin)) {
+    const auto kMonsterBin = find_monster_list_bin();
+    if (kMonsterBin.empty()) {
         GTEST_SKIP() << "MonsterList.bin not found";
     }
     auto result = read_mh_bin(kMonsterBin);
@@ -78,7 +109,8 @@ TEST(ChxModelRealResource, MonsterBinSmoke) {
 }
 
 TEST(ChxModelRealResource, CharacterPakFileCount) {
-    if (!std::filesystem::exists(kCharacterPak)) {
+    const auto kCharacterPak = find_character_pak();
+    if (kCharacterPak.empty()) {
         GTEST_SKIP() << "Character.pak not found";
     }
     auto pack = PackFile::open(kCharacterPak);
@@ -91,7 +123,8 @@ TEST(ChxModelRealResource, CharacterPakFileCount) {
 }
 
 TEST(ChxModelRealResource, ChxModelParseRejectsTextChx) {
-    if (!std::filesystem::exists(kCharacterPak)) {
+    const auto kCharacterPak = find_character_pak();
+    if (kCharacterPak.empty()) {
         GTEST_SKIP() << "Character.pak not found";
     }
     auto pack = PackFile::open(kCharacterPak);

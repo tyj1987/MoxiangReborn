@@ -131,7 +131,9 @@ TEST(BsadArea, ParsesAllRealPlayDhFiles) {
         "17X17_lineAttack.bsad",
     };
     for (const auto& name : kRealFiles) {
-        const std::string path = std::string("C:/moxiang/modern/scratch/2026-08-10-resource-coverage/playdh_link_for_audit/Resource/SkillArea/") + name;
+        // Canonical PlayDH path under modern/data/ (see scratch/2026-08-20-env-sniff
+        // for the junction at C:/moxiang/墨香【源码配套资源】/PlayDH that also resolves).
+        const std::string path = std::string("C:/moxiang/modern/data/PlayDH/Resource/SkillArea/") + name;
         auto area = BsadArea::load(path);
         EXPECT_TRUE(area.cells.size() > 0) << name << " parsed empty";
         EXPECT_EQ(area.header.width, area.header.height) << name << " non-square";

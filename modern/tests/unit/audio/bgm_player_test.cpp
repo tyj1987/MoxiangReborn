@@ -6,10 +6,15 @@
 
 namespace {
 std::filesystem::path findSoundRoot() {
-    for (const auto& first : std::filesystem::directory_iterator(std::filesystem::current_path())) {
-        if (!first.is_directory()) continue;
-        const auto direct = first.path() / "PlayDH" / "Sound";
-        if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
+    auto root = std::filesystem::current_path();
+    for (int level = 0; level < 8; ++level) {
+        for (const auto& first : std::filesystem::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto direct = first.path() / "PlayDH" / "Sound";
+            if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
+        }
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
     }
     return {};
 }

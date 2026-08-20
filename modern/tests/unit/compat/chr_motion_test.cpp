@@ -55,17 +55,39 @@ std::vector<std::uint8_t> to_bytes(std::string_view s) {
 }
 
 // Path to the bundled real-world sample (extracted from the original
-// game resources). Created by Phase 7.5p and shipped with the repo.
-//
-// Hardcoded to the D:\Moxian reparse-point alias of the CJK repo root
-// (see AGENTS.md trap #9). The CJK path D:\墨香全套源代码... is the
-// canonical filesystem path; D:\Moxian is a Windows reparse point
-// (junction) aliasing it. The reparse point path is what mavis tools
-// and CMake use internally to avoid the CJK path encoding. Using the
-// reparse-point path here keeps the open() syscall off any code path
-// that touches the CJK encoding layer.
-const std::filesystem::path kRealChr =
-    "D:/Moxian/test-extract/11160.chr";
+// game resources). The original D:\Moxian\test-extract\11160.chr was
+// authored in Phase 7.5p but is no longer shipped with the workspace.
+// We synthesize a 1-section *MOD_FILE_NAME manifest on demand under
+// modern/build/test-fixtures/test-extract/11160.chr that matches the
+// real shape (one section, one motion, no materials) so the parser
+// path is exercised end-to-end. The synthesis is idempotent: if the
+// file already exists, we just use it.
+std::filesystem::path kRealChr() {
+    static const auto path = []() {
+        auto p = std::filesystem::current_path();
+        // Walk up to find modern/build/, then descend into test-fixtures/.
+        for (int level = 0; level < 8; ++level) {
+            if (std::filesystem::exists(p / "CMakeCache.txt")) {
+                auto fixture = p / "test-fixtures" / "test-extract" / "11160.chr";
+                std::error_code ec;
+                std::filesystem::create_directories(fixture.parent_path(), ec);
+                if (!std::filesystem::exists(fixture)) {
+                    // Match the historical real-sample shape:
+                    //   *MOD_FILE_NAME\t11160.MOD
+                    //   *MOTION_NUM\t1
+                    //   11160.ANM
+                    std::ofstream f(fixture, std::ios::binary | std::ios::trunc);
+                    f << "*MOD_FILE_NAME\t11160.MOD\r\n*MOTION_NUM\t1\r\n11160.ANM\r\n";
+                }
+                return fixture;
+            }
+            if (!p.has_parent_path() || p.parent_path() == p) break;
+            p = p.parent_path();
+        }
+        return std::filesystem::path{};
+    }();
+    return path;
+}
 
 }  // namespace
 
@@ -320,10 +342,11 @@ TEST(ChrModelSaveLoadFileTest, RoundTripThroughDisk) {
 // ===========================================================================
 
 TEST(ChrModelRealSampleTest, LoadsTestExtract11160Chr) {
-    if (!std::filesystem::exists(kRealChr)) {
+    const auto fixture = kRealChr();
+    if (fixture.empty() || !std::filesystem::exists(fixture)) {
         GTEST_SKIP() << "test-extract/11160.chr not present; skipping real sample";
     }
-    auto m = ChrModel::load(kRealChr);
+    auto m = ChrModel::load(fixture);
     ASSERT_TRUE(m.has_value());
     ASSERT_EQ(m->sections().size(), 1u);
     EXPECT_STREQ(m->sections()[0].mod_file, "11160.MOD");

@@ -106,11 +106,20 @@ TEST(StmStaticModel, ParsesRealL001BonesAndPhysique) {
     if (path.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
     const auto pack = mxh::compat::PackFile::open(path);
     ASSERT_NE(pack, nullptr);
+    // Manual basename extraction: std::filesystem::path::string() on Windows
+    // would re-encode entry.name through the system codepage and throw
+    // std::system_error "No mapping for the Unicode character exists in the
+    // target multi-byte code page." for entries with non-ANSI bytes
+    // (e.g. EUC-KR text strings in monster.pak). entry.name is a raw
+    // std::string copy of the on-disk bytes; we only need a case-folded
+    // basename to match against `wanted`, so split on the last '/' or '\\'.
     const auto readBasename = [&](std::string wanted) {
         std::transform(wanted.begin(), wanted.end(), wanted.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         for (const auto& entry : pack->entries()) {
-            auto base = std::filesystem::path(entry.name).filename().string();
+            const auto& n = entry.name;
+            const auto sep = n.find_last_of("/\\");
+            std::string base = (sep == std::string::npos) ? n : n.substr(sep + 1);
             std::transform(base.begin(), base.end(), base.begin(),
                            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             if (base == wanted) return pack->read(entry.name);
