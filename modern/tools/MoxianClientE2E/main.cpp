@@ -459,6 +459,7 @@ int run_e2e(const CliArgs& cli) {
             "--map", "12",
             "--db", map_db,
             "--legacy",
+            "--allow-dev-fallbacks",
             (cli.use_hsel ? "--use-hsel" : "")});
 
         // Wait for the three ports.

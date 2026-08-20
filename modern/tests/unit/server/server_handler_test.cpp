@@ -1378,6 +1378,21 @@ TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
     EXPECT_EQ(handler.monster_count_for_test(), groups.spawn_count());
 }
 
+TEST(MapHandlerTest, ProductionModeKeepsValidEmptyRegenEmpty) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 12, make_reply_spy(reply));
+    handler.set_allow_dev_monster_fallback(false);
+
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+
+    EXPECT_EQ(handler.monster_count_for_test(), 0u);
+}
+
 TEST(MapHandlerTest, OnDisconnectDoesNotCrash) {
     MockDbAdapter db;
     ReplySpy reply;

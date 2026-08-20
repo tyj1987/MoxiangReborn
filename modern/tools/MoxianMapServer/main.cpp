@@ -47,6 +47,7 @@ struct Args {
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
+    bool          allow_dev_fallbacks = false;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -69,6 +70,8 @@ Args parse_args(int argc, char** argv) {
             a.use_hsel = true;
         else if (s == "--dev-stub-caster")
             a.dev_stub_caster = true;  // M3 side-by-side only
+        else if (s == "--allow-dev-fallbacks")
+            a.allow_dev_fallbacks = true;
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
@@ -76,6 +79,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --db PATH     db path (SQLite file or MSSQL DSN/conn string)\n"
                       << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
+                      << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
         }
@@ -169,8 +173,13 @@ int main(int argc, char** argv) {
     std::filesystem::path ai_groups_path = resource_base / "Server" /
         (std::string("Monster_") + std::to_string(args.map_num) + ".bin");
     if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
+        if (!args.allow_dev_fallbacks) {
+            std::cerr << "FATAL: missing or invalid AIGroup data at "
+                      << ai_groups_path.string() << "\n";
+            return 1;
+        }
         std::cerr << "[WARN] no AIGroup data at " << ai_groups_path.string()
-                  << "; using default spawn points\n";
+                  << "; development fallback explicitly enabled\n";
     } else {
         std::cout << "[main] AIGroup data loaded for map " << args.map_num
                   << " (groups="
@@ -247,6 +256,7 @@ int main(int argc, char** argv) {
 
     // M3 dev-stub-caster (side-by-side harness only).
     handler.set_dev_stub_caster(args.dev_stub_caster);
+    handler.set_allow_dev_monster_fallback(args.allow_dev_fallbacks);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;

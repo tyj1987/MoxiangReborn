@@ -1052,9 +1052,16 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
                 install_ai_groups(ai_list);
                 std::cout << "[Map] using " << ai_spawn_overrides_.size()
                           << " ai_group spawns for map " << map_num_ << "\n";
-            } else {
+            } else if (allow_dev_monster_fallback_) {
                 monster_templates_ = mxh::game::get_default_templates();
                 spawn_points_ = mxh::game::get_default_spawn_points(map_num_);
+                std::cout << "[Map] development monster fallback enabled for map "
+                          << map_num_ << "\n";
+            } else {
+                monster_templates_.clear();
+                spawn_points_.clear();
+                std::cout << "[Map] valid empty monster regen for map "
+                          << map_num_ << "; spawning zero monsters\n";
             }
             spawn_monsters();
             monsters_spawned_ = true;
