@@ -46,6 +46,7 @@ struct Args {
     std::string   db_env;
     std::string   bind_address = "0.0.0.0";
     std::string   resource_root;
+    std::string   server_resource_root;
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
@@ -66,6 +67,8 @@ Args parse_args(int argc, char** argv) {
             a.db_env = argv[++i];
         else if (s == "--resource-root" && i + 1 < argc)
             a.resource_root = argv[++i];
+        else if (s == "--server-resource-root" && i + 1 < argc)
+            a.server_resource_root = argv[++i];
         else if (s == "--bind-address" && i + 1 < argc)
             a.bind_address = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
@@ -86,6 +89,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --db-env NAME read database path/DSN from an environment variable\n"
                       << "  --bind-address IP  listen interface (default 0.0.0.0)\n"
                       << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
+                      << "  --server-resource-root DIR  legacy Server resource directory\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
@@ -190,7 +194,10 @@ int main(int argc, char** argv) {
     std::filesystem::path resource_base = args.resource_root.empty()
         ? std::filesystem::path("Resource")
         : (std::filesystem::path(args.resource_root) / "Resource");
-    std::filesystem::path ai_groups_path = resource_base / "Server" /
+    const auto server_resource_base = args.server_resource_root.empty()
+        ? (resource_base / "Server")
+        : std::filesystem::path(args.server_resource_root);
+    std::filesystem::path ai_groups_path = server_resource_base /
         (std::string("Monster_") + std::to_string(args.map_num) + ".bin");
     if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
         if (!args.allow_dev_fallbacks) {

@@ -1,68 +1,233 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("start", "stop", "status", "restart")]
-    [string]$Mode = "start",
-    [ValidateSet("CHINA", "KOR", "HK", "JAPAN", "TL")]
-    [string]$Locale = "CHINA",
+    [ValidateSet('start', 'stop', 'status', 'restart')]
+    [string]$Mode = 'start',
+    [ValidateSet('CHINA', 'KOR', 'HK', 'JAPAN', 'TL')]
+    [string]$Locale = 'CHINA',
+    [ValidateSet('Debug', 'Release')]
+    [string]$Config = 'Debug',
     [int]$LoginPort = 16001,
     [int]$AgentPort = 17001,
     [int]$MapPort = 18001,
     [int]$MapNumber = 12,
-    [ValidateSet("sqlite", "mssql_odbc")]
-    [string]$Backend = "sqlite",
-    [string]$DbRoot = "",
+    [ValidateSet('sqlite', 'mssql_odbc')]
+    [string]$Backend = 'sqlite',
+    [string]$BindAddress = '0.0.0.0',
+    [string]$AdvertisedAgentAddress = '127.0.0.1',
+    [string]$MapBindAddress = '127.0.0.1',
+    [string]$MapEndpointAddress = '127.0.0.1',
+    [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
+    [string]$DataDir = '',
+    [string]$ResourceRoot = '',
+    [string]$ServerResourceRoot = '',
     [switch]$DryRun,
     [switch]$UseHsel,
-    [string]$DataDir = "",
-    [string]$ResourceRoot = ""
+    [switch]$AllowDevFallbacks
 )
-$ErrorActionPreference = "Stop"
-$deployRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$buildRoot = Join-Path $deployRoot "modern\build\tools"
-$stateDir = Join-Path $deployRoot "deploy\runtime\modern"
-if ([string]::IsNullOrWhiteSpace($DataDir)) { $DataDir = Join-Path $stateDir "data" }
-if ([string]::IsNullOrWhiteSpace($DbRoot)) { $DbRoot = $DataDir }
-if ([string]::IsNullOrWhiteSpace($ResourceRoot)) { $ResourceRoot = (Resolve-Path (Join-Path $deployRoot "*\PlayDH")).Path }
-if ($Backend -eq "mssql_odbc" -and [string]::IsNullOrWhiteSpace($DbRoot)) { throw "DbRoot must be an MSSQL connection string" }
-$pidFile = Join-Path $stateDir "pids.json"
-New-Item -ItemType Directory -Force -Path $stateDir,$DataDir | Out-Null
-function Read-State { if (Test-Path -LiteralPath $pidFile) { $json = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json; return @($json) } return @() }
-function Stop-Modern {
-    $state = @(Read-State)
-    foreach ($entry in $state) { $proc = Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue; if ($proc) { Stop-Process -Id $proc.Id -Force } }
-    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
-    Write-Host "Modern servers stopped" -ForegroundColor Green
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$buildRoot = Join-Path $repoRoot 'modern\build\tools'
+$stateDir = Join-Path $repoRoot 'deploy\runtime\modern'
+$pidFile = Join-Path $stateDir 'pids.json'
+$manifestFile = Join-Path $stateDir 'deployment.json'
+$logDir = Join-Path $stateDir 'logs'
+
+if ([string]::IsNullOrWhiteSpace($DataDir)) {
+    $DataDir = Join-Path $stateDir 'data'
 }
-function Test-Port([int]$port) { $client = [Net.Sockets.TcpClient]::new(); try { $task = $client.ConnectAsync("127.0.0.1", $port); if (-not $task.Wait(1000)) { return $false }; return $client.Connected } catch { return $false } finally { $client.Dispose() } }
-if ($Mode -eq "stop") { Stop-Modern; exit 0 }
-if ($Mode -eq "restart") { Stop-Modern; Start-Sleep -Seconds 1 }
-if ($Mode -eq "status") { $statusState = @(Read-State); foreach ($entry in $statusState) { $p = Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue; Write-Host "$($entry.name): $(if ($p) { 'running' } else { 'stopped' }) pid=$($entry.pid)" }; foreach ($port in @($LoginPort,$AgentPort,$MapPort)) { Write-Host "port ${port}: $(Test-Port $port)" }; exit 0 }
-$loginInitArgs = if ($Backend -eq "sqlite") { @("--init-schema") } else { @() }
-$hselArgs = if ($UseHsel) { @("--use-hsel") } else { @() }
-$bins = @(
-    @{ name = "login"; exe = Join-Path $buildRoot "MoxianLoginServer\Debug\mxh_login_server.exe"; args = @("--port",$LoginPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "login.db" } else { $DbRoot }),"--agent-addr","127.0.0.1","--agent-port",$AgentPort,"--legacy") + $loginInitArgs + $hselArgs },
-    @{ name = "agent"; exe = Join-Path $buildRoot "MoxianAgentServer\Debug\mxh_agent_server_$Locale.exe"; args = @("--port",$AgentPort,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "agent.db" } else { $DbRoot }),"--legacy","--map-server","127.0.0.1:$MapPort","--default-map",$MapNumber) + $hselArgs },
-    @{ name = "map"; exe = Join-Path $buildRoot "MoxianMapServer\Debug\mxh_map_server_$Locale.exe"; working_dir = $ResourceRoot; args = @("--port",$MapPort,"--map",$MapNumber,"--backend",$Backend,"--db",$(if ($Backend -eq "sqlite") { Join-Path $DbRoot "map.db" } else { $DbRoot }),"--legacy","--resource-root",".") + $hselArgs }
-)
-if ($DryRun) {
-    Write-Host "Modern server dry-run (backend=$Backend locale=$Locale)" -ForegroundColor Cyan
-    foreach ($item in $bins) {
-        if (-not (Test-Path -LiteralPath $item.exe)) { throw "Missing modern server executable: $($item.exe)" }
-        Write-Host "$($item.name): $($item.exe) $($item.args -join ' ')"
+if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
+    $ResourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
+}
+if ([string]::IsNullOrWhiteSpace($ServerResourceRoot)) {
+    $configuredServerRoot = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT')
+    $recoveredServerRoot = Join-Path $repoRoot 'modern\scratch\2026-08-20-source-recovery\recovered\legacy-source\SWorking\Resource\Server'
+    if (-not [string]::IsNullOrWhiteSpace($configuredServerRoot)) {
+        $ServerResourceRoot = $configuredServerRoot
+    } elseif (Test-Path -LiteralPath $recoveredServerRoot -PathType Container) {
+        $ServerResourceRoot = $recoveredServerRoot
+    } else {
+        $ServerResourceRoot = Join-Path $ResourceRoot 'Resource\Server'
+    }
+}
+
+function Resolve-ModernBinary {
+    param([string]$ToolDirectory, [string]$FileName)
+    $toolRoot = Join-Path $buildRoot $ToolDirectory
+    $candidates = @(
+        (Join-Path $toolRoot $FileName),
+        (Join-Path (Join-Path $toolRoot $Config) $FileName)
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    throw "Missing $Config executable: $FileName (checked single- and multi-config paths under $toolRoot)"
+}
+
+function Read-ModernState {
+    if (-not (Test-Path -LiteralPath $pidFile -PathType Leaf)) { return @() }
+    $parsed = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json
+    if ($parsed -is [Array]) {
+        $parsed | ForEach-Object { Write-Output $_ }
+        return
+    }
+    Write-Output $parsed
+}
+
+function Test-ExpectedProcess {
+    param($Entry)
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId=$([int]$Entry.pid)" -ErrorAction SilentlyContinue
+    if ($null -eq $process) { return $false }
+    return [string]::Equals($process.ExecutablePath, [string]$Entry.exe, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Stop-Modern {
+    $state = @(Read-ModernState)
+    foreach ($entry in $state) {
+        if (Test-ExpectedProcess $entry) {
+            Stop-Process -Id ([int]$entry.pid) -Force
+        } elseif (Get-Process -Id ([int]$entry.pid) -ErrorAction SilentlyContinue) {
+            Write-Warning "Refusing to stop stale PID $($entry.pid): executable path no longer matches $($entry.exe)"
+        }
+    }
+    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+    Write-Host 'Modern servers stopped' -ForegroundColor Green
+}
+
+function Test-LocalPort {
+    param([int]$Port)
+    $client = [Net.Sockets.TcpClient]::new()
+    try {
+        $task = $client.ConnectAsync('127.0.0.1', $Port)
+        if (-not $task.Wait(1000)) { return $false }
+        return $client.Connected
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
+
+if ($Mode -eq 'stop') { Stop-Modern; exit 0 }
+if ($Mode -eq 'restart') { Stop-Modern; Start-Sleep -Seconds 1 }
+if ($Mode -eq 'status') {
+    foreach ($entry in @(Read-ModernState)) {
+        $running = Test-ExpectedProcess $entry
+        Write-Host "$($entry.name): $(if ($running) { 'running' } else { 'stopped' }) pid=$($entry.pid)"
+    }
+    foreach ($port in @($LoginPort, $AgentPort, $MapPort)) {
+        Write-Host "port ${port}: $(Test-LocalPort $port)"
     }
     exit 0
 }
-$state = @()
-foreach ($item in $bins) {
-    if (-not (Test-Path -LiteralPath $item.exe)) { throw "Missing modern server executable: $($item.exe)" }
-    $logDir = Join-Path $stateDir "logs"; New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    $workingDir = if ($item.working_dir) { $item.working_dir } else { Split-Path -Parent $item.exe }
-    $proc = Start-Process -FilePath $item.exe -ArgumentList $item.args -WorkingDirectory $workingDir -RedirectStandardOutput (Join-Path $logDir "$($item.name).out.log") -RedirectStandardError (Join-Path $logDir "$($item.name).err.log") -PassThru -WindowStyle Hidden
-    $state += [ordered]@{ name = $item.name; pid = $proc.Id; port = switch ($item.name) { "login" {$LoginPort}; "agent" {$AgentPort}; "map" {$MapPort} } }
-    Start-Sleep -Milliseconds 500
-    if ($proc.HasExited) { throw "$($item.name) exited during startup" }
+
+New-Item -ItemType Directory -Force -Path $stateDir, $DataDir, $logDir | Out-Null
+$ResourceRoot = (Resolve-Path -LiteralPath $ResourceRoot).Path
+$ServerResourceRoot = (Resolve-Path -LiteralPath $ServerResourceRoot).Path
+
+$requiredResources = @(
+    (Join-Path $ResourceRoot 'Resource\ItemList.bin'),
+    (Join-Path $ResourceRoot 'Resource\CharacterExpPoint.bin'),
+    (Join-Path $ServerResourceRoot "Monster_$MapNumber.bin")
+)
+foreach ($resource in $requiredResources) {
+    if (-not (Test-Path -LiteralPath $resource -PathType Leaf)) {
+        throw "Required runtime resource is missing: $resource"
+    }
 }
-$state | ConvertTo-Json | Set-Content -LiteralPath $pidFile -Encoding utf8
-Start-Sleep -Seconds 1
-foreach ($port in @($LoginPort,$AgentPort,$MapPort)) { if (-not (Test-Port $port)) { Stop-Modern; throw "Modern server port is not healthy: $port" } }
-Write-Host "Modern servers started: Login=$LoginPort Agent=$AgentPort Map=$MapPort" -ForegroundColor Green
+
+$dbTool = Resolve-ModernBinary 'MoxianDbTool' 'mxh_db_tool.exe'
+$loginExe = Resolve-ModernBinary 'MoxianLoginServer' 'mxh_login_server.exe'
+$agentExe = Resolve-ModernBinary 'MoxianAgentServer' "mxh_agent_server_$Locale.exe"
+$mapExe = Resolve-ModernBinary 'MoxianMapServer' "mxh_map_server_$Locale.exe"
+
+$previousDatabaseConfig = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
+if ($Backend -eq 'sqlite') {
+    $databasePath = Join-Path $DataDir 'moxian.db'
+    $databaseConfig = "backend=sqlite;path=$databasePath"
+} else {
+    $databaseConfig = $previousDatabaseConfig
+    if ([string]::IsNullOrWhiteSpace($databaseConfig)) {
+        throw "Set process environment variable $DatabaseConfigEnv to the MSSQL ODBC config before starting"
+    }
+}
+[Environment]::SetEnvironmentVariable($DatabaseConfigEnv, $databaseConfig, 'Process')
+
+$commonDbArgs = @('--backend', $Backend, '--db-env', $DatabaseConfigEnv, '--legacy')
+$hselArgs = if ($UseHsel) { @('--use-hsel') } else { @() }
+$fallbackArgs = if ($AllowDevFallbacks) { @('--allow-dev-fallbacks') } else { @() }
+$processes = @(
+    [ordered]@{
+        name = 'map'; exe = $mapExe; port = $MapPort
+        args = @('--port', $MapPort, '--map', $MapNumber, '--bind-address', $MapBindAddress,
+            '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot) + $commonDbArgs + $hselArgs + $fallbackArgs
+    },
+    [ordered]@{
+        name = 'agent'; exe = $agentExe; port = $AgentPort
+        args = @('--port', $AgentPort, '--bind-address', $BindAddress,
+            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $commonDbArgs + $hselArgs
+    },
+    [ordered]@{
+        name = 'login'; exe = $loginExe; port = $LoginPort
+        args = @('--port', $LoginPort, '--bind-address', $BindAddress,
+            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $commonDbArgs + $hselArgs
+    }
+)
+
+try {
+    if ($DryRun) {
+        Write-Host "Modern server dry-run (backend=$Backend locale=$Locale config=$Config db-env=$DatabaseConfigEnv)" -ForegroundColor Cyan
+        foreach ($item in $processes) {
+            Write-Host "$($item.name): $($item.exe) $($item.args -join ' ')"
+        }
+        exit 0
+    }
+
+    & $dbTool migrate --db-env $DatabaseConfigEnv
+    if ($LASTEXITCODE -ne 0) { throw "Database migration failed with exit code $LASTEXITCODE" }
+
+    $gitCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
+    $manifest = [ordered]@{
+        schema = 1
+        git_commit = $gitCommit
+        locale = $Locale
+        config = $Config
+        backend = $Backend
+        database_source = "environment:$DatabaseConfigEnv"
+        bind_address = $BindAddress
+        advertised_agent_address = $AdvertisedAgentAddress
+        map_bind_address = $MapBindAddress
+        map_endpoint = "${MapEndpointAddress}:$MapPort"
+        map_number = $MapNumber
+        resource_root = $ResourceRoot
+        server_resource_root = $ServerResourceRoot
+        allow_dev_fallbacks = [bool]$AllowDevFallbacks
+        started_at_utc = [DateTime]::UtcNow.ToString('o')
+    }
+    $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestFile -Encoding utf8
+
+    $state = @()
+    foreach ($item in $processes) {
+        $stdout = Join-Path $logDir "$($item.name).out.log"
+        $stderr = Join-Path $logDir "$($item.name).err.log"
+        $process = Start-Process -FilePath $item.exe -ArgumentList $item.args -WorkingDirectory (Split-Path -Parent $item.exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden
+        $entry = [ordered]@{ name = $item.name; pid = $process.Id; port = $item.port; exe = $item.exe }
+        $state += $entry
+        $state | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $pidFile -Encoding utf8
+        Start-Sleep -Milliseconds 500
+        if ($process.HasExited) { throw "$($item.name) exited during startup (see $stderr)" }
+    }
+
+    Start-Sleep -Seconds 1
+    foreach ($port in @($MapPort, $AgentPort, $LoginPort)) {
+        if (-not (Test-LocalPort $port)) { throw "Modern server port is not healthy: $port" }
+    }
+    Write-Host "Modern servers started: Login=$LoginPort Agent=$AgentPort Map=$MapPort" -ForegroundColor Green
+} catch {
+    if (Test-Path -LiteralPath $pidFile) { Stop-Modern }
+    throw
+} finally {
+    [Environment]::SetEnvironmentVariable($DatabaseConfigEnv, $previousDatabaseConfig, 'Process')
+}
