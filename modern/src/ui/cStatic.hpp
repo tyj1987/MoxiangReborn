@@ -11,7 +11,7 @@
 //   - text-position offset + alignment (TXT_LEFT/CENTER/RIGHT)
 //   - a multi-line flag (used by the legacy's cMultiLineText)
 //
-// Render is a no-op (the actual draw goes through the 6.4+ cImage seam).
+// Text rendering is forwarded through the host-bound TextRender adapter.
 
 #pragma once
 
@@ -60,8 +60,7 @@ public:
     void SetAlign(Align a) noexcept                  { m_align = a; }
     Align GetAlign() const noexcept                  { return m_align; }
 
-    // Render placeholder; the real draw goes through the 6.4+ adapter.
-    void Render() override {}
+    void Render() override;
 
 private:
     std::string    m_text;

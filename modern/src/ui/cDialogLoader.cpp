@@ -113,6 +113,15 @@ void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
     if (node.func.has_value()) {
         window.setLegacyFunc(*node.func);
     }
+    if (node.font_idx_set) {
+        const auto font = static_cast<std::uint16_t>(
+            std::clamp(node.font_idx, 0, 0xFFFF));
+        if (auto* label = dynamic_cast<cStatic*>(&window)) {
+            label->SetFontIdx(font);
+        } else if (auto* edit = dynamic_cast<cEditBox*>(&window)) {
+            edit->SetFontIdx(font);
+        }
+    }
 }
 
 }  // namespace

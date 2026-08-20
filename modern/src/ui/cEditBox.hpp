@@ -79,8 +79,7 @@ public:
     // the editbox is used; calling it again resets the buffer.
     void InitEditbox(std::uint16_t /*pixelWidth*/, std::uint16_t bufBytes);
 
-    // Render placeholder (real GPU draw in 6.3).
-    void Render() override {}
+    void Render() override;
 
     // Mouse event: clicking inside the editbox focuses it (focusImage
     // shown); clicking outside blurs it.
@@ -146,6 +145,9 @@ public:
     std::uint32_t activeTextColor() const noexcept    { return m_activeTextColor; }
     std::uint32_t nonactiveTextColor() const noexcept { return m_nonactiveTextColor; }
 
+    void SetFontIdx(std::uint16_t idx) noexcept { m_fontIdx = idx; }
+    std::uint16_t GetFontIdx() const noexcept { return m_fontIdx; }
+
     // Text offsets (legacy: SetTextOffset).
     void SetTextOffset(std::int32_t left, std::int32_t right,
                        std::int32_t top) noexcept;
@@ -186,6 +188,7 @@ private:
     // Style / colors.
     std::uint32_t m_activeTextColor    = 0xFF000000;
     std::uint32_t m_nonactiveTextColor = 0xFF808080;
+    std::uint16_t m_fontIdx            = 0;
     std::int32_t  m_textLeftOffset     = 2;
     std::int32_t  m_textRightOffset    = 2;
     std::int32_t  m_textTopOffset      = 0;

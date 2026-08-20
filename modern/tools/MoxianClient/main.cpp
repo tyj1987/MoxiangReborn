@@ -30,6 +30,8 @@
 #include <string>
 #include <filesystem>
 #include <memory>
+#include <string_view>
+#include <vector>
 
 #include <windows.h>
 #include <shellapi.h>
@@ -52,6 +54,7 @@
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cWindowManager.hpp"
+#include "TextRender.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/audio/bgm_player.hpp"
 #include "mxh/compat/bmhm_map.hpp"
@@ -294,6 +297,7 @@ struct HudSprites {
 };
 HudSprites g_hud;
 IDIFontObject* g_hudFont = nullptr;
+HFONT g_hudMeasureFont = nullptr;
 
 // M-NPC1: choose the NPC marker sprite slot for a given wire role.
 // Returns the slot in [0, kNpcMarkerCount).
@@ -346,6 +350,109 @@ bool renderAdapter(void* /*ctx*/, void* sprite,
     };
     return g_renderer->RenderSprite(sp, &scale, 0.0f, &trans, &rc,
                                     color, zOrder, /*dwFlag=*/0) != FALSE;
+}
+
+std::wstring decodeUiText(std::string_view text) {
+    if (text.empty()) return {};
+    auto decode = [&](UINT code_page, DWORD flags) -> std::wstring {
+        const int count = MultiByteToWideChar(
+            code_page, flags, text.data(), static_cast<int>(text.size()),
+            nullptr, 0);
+        if (count <= 0) return {};
+        std::wstring result(static_cast<std::size_t>(count), L'\0');
+        if (MultiByteToWideChar(code_page, flags, text.data(),
+                                static_cast<int>(text.size()), result.data(),
+                                count) <= 0) {
+            return {};
+        }
+        return result;
+    };
+
+    // The CHINA PlayDH InterfaceScript and option tables use Big5 bytes.
+    // ASCII is a strict subset, so the same path also handles account/name UI.
+    auto result = decode(950, MB_ERR_INVALID_CHARS);
+    if (result.empty()) result = decode(CP_ACP, 0);
+    return result;
+}
+
+SIZE measureUiText(std::wstring_view text) {
+    SIZE size{};
+    if (text.empty()) return size;
+    HDC dc = GetDC(nullptr);
+    if (!dc) return size;
+    HGDIOBJ previous = nullptr;
+    if (g_hudMeasureFont) previous = SelectObject(dc, g_hudMeasureFont);
+    GetTextExtentPoint32W(dc, text.data(), static_cast<int>(text.size()), &size);
+    if (previous) SelectObject(dc, previous);
+    ReleaseDC(nullptr, dc);
+    return size;
+}
+
+bool textRenderAdapter(void* /*context*/,
+                       const mxh::ui::TextRenderRequest& request) {
+    if (!g_renderer || !g_hudFont) return false;
+    if (request.text.empty() &&
+        request.caret_byte == mxh::ui::TextRenderRequest::NoCaret) {
+        return false;
+    }
+
+    const auto draw_line = [&](std::string_view bytes, std::int32_t line_y,
+                               std::size_t caret_byte) {
+        auto wide = decodeUiText(bytes);
+        const SIZE extent = measureUiText(wide);
+        LONG x = request.x + request.left_inset;
+        if (request.align == mxh::ui::TextRenderAlign::Right) {
+            x = request.x + request.width - request.right_inset - extent.cx;
+        } else if (request.align == mxh::ui::TextRenderAlign::Center) {
+            x = request.x + (request.width - extent.cx) / 2;
+        }
+        RECT rect{x, line_y, request.x + request.width,
+                  line_y + request.height};
+        BOOL drawn = FALSE;
+        if (!wide.empty()) {
+            drawn = g_renderer->RenderFont(
+                g_hudFont,
+                reinterpret_cast<TCHAR*>(wide.data()),
+                static_cast<std::uint32_t>(wide.size()), &rect,
+                request.color, CHAR_CODE_TYPE_UNICODE, 2, 0);
+        }
+
+        BOOL caret_drawn = FALSE;
+        if (caret_byte != mxh::ui::TextRenderRequest::NoCaret) {
+            const auto prefix = decodeUiText(
+                bytes.substr(0, std::min(caret_byte, bytes.size())));
+            const SIZE prefix_extent = measureUiText(prefix);
+            wchar_t caret = L'|';
+            RECT caret_rect{x + prefix_extent.cx - 2, line_y,
+                            x + prefix_extent.cx + 8,
+                            line_y + request.height};
+            caret_drawn = g_renderer->RenderFont(
+                g_hudFont, reinterpret_cast<TCHAR*>(&caret), 1, &caret_rect,
+                0xFFFFFFFFu, CHAR_CODE_TYPE_UNICODE, 3, 0);
+        }
+        return drawn != FALSE || caret_drawn != FALSE;
+    };
+
+    if (!request.multiline) {
+        return draw_line(request.text, request.y, request.caret_byte);
+    }
+
+    bool drew_any = false;
+    std::size_t begin = 0;
+    std::int32_t y = request.y;
+    while (begin <= request.text.size()) {
+        const auto end = request.text.find('\n', begin);
+        auto line = request.text.substr(
+            begin, end == std::string_view::npos ? request.text.size() - begin
+                                                  : end - begin);
+        if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+        drew_any = draw_line(line, y,
+            mxh::ui::TextRenderRequest::NoCaret) || drew_any;
+        if (end == std::string_view::npos) break;
+        begin = end + 1;
+        y += 16;
+    }
+    return drew_any;
 }
 
 // ---------------------------------------------------------------------------
@@ -1248,6 +1355,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     hudLf.lfQuality = ANTIALIASED_QUALITY;
     std::strncpy(hudLf.lfFaceName, "Microsoft JhengHei", LF_FACESIZE - 1);
     g_hudFont = renderer->CreateFontObject(&hudLf, 0);
+    LOGFONTW measureLf{};
+    measureLf.lfHeight = -14;
+    measureLf.lfWeight = FW_NORMAL;
+    measureLf.lfCharSet = CHINESEBIG5_CHARSET;
+    measureLf.lfQuality = ANTIALIASED_QUALITY;
+    std::wcsncpy(measureLf.lfFaceName, L"Microsoft JhengHei", LF_FACESIZE - 1);
+    g_hudMeasureFont = CreateFontIndirectW(&measureLf);
     MLOG_INFO("mxh_client: hud font=%p", (void*)g_hudFont);
 
     // Build per-cImage sprite registry.  A.1.4 ships with 4 demo
@@ -1277,6 +1391,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // opaque sprite back to IDISpriteObject* and draws it through
     // the HUD pass.
     mxh::ui::bindRenderer(&renderAdapter, nullptr);
+    mxh::ui::bindTextRenderer(&textRenderAdapter, nullptr);
 
     // -------------------------------------------------------------------------
     // M-R1 / M-R2 / M-R3 — full legacy resource + UI load chain.
@@ -1671,6 +1786,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_staticScene.reset();
     g_skyScene.reset();
     g_entityScene.reset();
+    mxh::ui::bindTextRenderer(nullptr, nullptr);
+    if (g_hudMeasureFont) {
+        DeleteObject(g_hudMeasureFont);
+        g_hudMeasureFont = nullptr;
+    }
 
     // Cleanup. The SpriteObject* are owned by us; the renderer factory
     // will release them when renderer is destroyed. SRVs are released

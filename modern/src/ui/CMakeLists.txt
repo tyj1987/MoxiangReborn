@@ -4,6 +4,7 @@
 # render path, control widgets, and integration with mxh_render land in 6.1+.
 # -----------------------------------------------------------------------------
 add_library(mxh_ui STATIC
+    TextRender.cpp
     cWindow.cpp
     legacy_window_ids.cpp
     cButton.cpp
@@ -224,7 +225,6 @@ if(MSVC)
 endif()
 
 install(TARGETS mxh_ui ARCHIVE DESTINATION lib)
-
 
 
 

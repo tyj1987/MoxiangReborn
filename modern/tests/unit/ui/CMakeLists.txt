@@ -2341,3 +2341,16 @@ gtest_add_tests(TARGET mxh_ui_tests
     # 不在 gtest_add_tests 列表里 — 它作为 mxh_ui_tests 的 main 调用顺序的一部分.
 )
 
+add_executable(mxh_ui_text_render_tests
+    text_render_adapter_test.cpp
+)
+target_link_libraries(mxh_ui_text_render_tests PRIVATE
+    mxh_ui mxh_log gtest_main
+)
+if(MSVC)
+    target_compile_options(mxh_ui_text_render_tests PRIVATE /FS /Z7 /MP1)
+endif()
+gtest_add_tests(TARGET mxh_ui_text_render_tests
+    TextRenderAdapterTest.StaticForwardsLegacyGeometryAndShadow
+    TextRenderAdapterTest.EditBoxForwardsMaskedTextCaretAndStyle
+)

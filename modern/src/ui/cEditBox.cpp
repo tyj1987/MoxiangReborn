@@ -4,6 +4,8 @@
 
 #include <cctype>
 
+#include "TextRender.hpp"
+
 namespace mxh::ui {
 
 void cEditBox::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
@@ -21,6 +23,34 @@ void cEditBox::InitEditbox(std::uint16_t /*pixelWidth*/, std::uint16_t bufBytes)
     m_text.clear();
     m_caret = 0;
     m_bTextChanged = 0;
+}
+
+void cEditBox::Render() {
+    if (!isVisible()) return;
+
+    SetBasicImage(hasFocus() && m_focusImage ? m_focusImage : m_basicImage);
+    cWindow::Render();
+
+    const auto text = displayText();
+    const bool show_caret = hasFocus() && m_bCaret &&
+        (!m_bReadOnly || m_bShowCaretInReadOnly);
+    if (text.empty() && !show_caret) return;
+
+    TextRenderRequest request;
+    request.text = text;
+    request.x = absX();
+    request.y = absY() + m_textTopOffset;
+    request.width = width();
+    request.height = height();
+    request.left_inset = m_textLeftOffset;
+    request.right_inset = m_textRightOffset;
+    request.color = hasFocus() ? m_activeTextColor : m_nonactiveTextColor;
+    request.font_index = m_fontIdx;
+    request.align = static_cast<TextRenderAlign>(m_align);
+    if (show_caret) {
+        request.caret_byte = m_caret;
+    }
+    renderText(request);
 }
 
 void cEditBox::SetEditText(std::string text) {
