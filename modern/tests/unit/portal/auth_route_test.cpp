@@ -61,7 +61,7 @@ protected:
         ASSERT_TRUE(db_->connect(cfg).ok());
         ASSERT_TRUE(db_->exec_multi(kAuthSchema).ok());
     }
-    std::unique_ptr<IDbAdapter> db_;
+    std::unique_ptr<SqliteAdapter> db_;
 };
 
 }  // namespace

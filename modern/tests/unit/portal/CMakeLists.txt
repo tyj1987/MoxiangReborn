@@ -65,8 +65,6 @@ endif()
 # Links mxh_db + mxh_server for handle_register/handle_login/handle_me.
 add_executable(mxh_portal_auth_route_tests
     auth_route_test.cpp
-    ${CMAKE_SOURCE_DIR}/src/portal/auth_routes.cpp
-    ${CMAKE_SOURCE_DIR}/src/portal/jwt_token.cpp
 )
 target_include_directories(mxh_portal_auth_route_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/portal
@@ -74,7 +72,7 @@ target_include_directories(mxh_portal_auth_route_tests PRIVATE
 )
 target_compile_features(mxh_portal_auth_route_tests PRIVATE cxx_std_17)
 target_link_libraries(mxh_portal_auth_route_tests PRIVATE
-    mxh_log mxh_db mxh_server mxh_compat
+    mxh_portal_lib
     gtest_main
 )
 if(MSVC)
@@ -126,6 +124,7 @@ add_executable(mxh_portal_news_route_tests
 )
 target_include_directories(mxh_portal_news_route_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/portal
+    ${CMAKE_SOURCE_DIR}/third_party
 )
 target_compile_features(mxh_portal_news_route_tests PRIVATE cxx_std_17)
 target_link_libraries(mxh_portal_news_route_tests PRIVATE
@@ -143,6 +142,7 @@ add_executable(mxh_portal_shop_route_tests
 )
 target_include_directories(mxh_portal_shop_route_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/portal
+    ${CMAKE_SOURCE_DIR}/third_party
 )
 target_compile_features(mxh_portal_shop_route_tests PRIVATE cxx_std_17)
 target_link_libraries(mxh_portal_shop_route_tests PRIVATE
