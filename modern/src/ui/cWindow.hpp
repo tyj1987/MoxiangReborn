@@ -119,6 +119,13 @@ public:
     bool   isEnabled() const noexcept { return m_bEnabled; }
     void*  basicImage() const noexcept { return m_basicImage; }
 
+    // Source .bin name (or empty). Set by cDialogLoader when it parses
+    // a script and constructs a cDialog; lets downstream screenshot
+    // tooling (e.g. modern/tools/MoxianClient --dialog-screenshot-dir)
+    // find the .bin file the dialog was loaded from.
+    void  setName(std::string n) noexcept { m_name = std::move(n); }
+    const std::string& name() const noexcept { return m_name; }
+
     // Active state. 1:1 with legacy cWindow::SetActive / IsActive --
     // toggles per-child visibility / dispatch for non-dialog
     // children (cStatic / cTextArea / cButton / cEditBox / etc.).
@@ -174,6 +181,7 @@ private:
 
     void* m_basicImage = nullptr;  // opaque in skeleton (cImage* in 6.1.2)
     std::uint32_t m_imageRGB = 0xFFFFFFFFu;
+    std::string m_name;            // set by cDialogLoader; empty otherwise
 
     bool m_bFocus   = false;
     bool m_bMovable = false;

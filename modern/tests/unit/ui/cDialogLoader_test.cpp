@@ -288,8 +288,10 @@ int main() {
                "M-R4 sprite hook should be called at least once (root with #BASICIMAGE)");
         EXPECT(stats.cimages_loaded > 0,
                "cimages_loaded should track hook hits");
-        EXPECT_EQ(static_cast<int>(stats.cimages_loaded), g_mock_sprite_calls,
-                  "cimages_loaded == mock_sprite_calls (1:1)");
+        // 1 hook call → 1+ cImage refs (cache hits add extra refs without calling hook).
+        // Test 7 验证: cimg_count >= mock_sprite_calls (loader 跟踪引用, hook 跟踪 unique calls).
+        EXPECT(static_cast<int>(stats.cimages_loaded) >= g_mock_sprite_calls,
+               "cimages_loaded >= mock_sprite_calls (loader 跟踪 refs, hook 跟踪 unique calls)");
         EXPECT(!g_mock_last_path.empty(),
                "mock hook should have received at least 1 .tif path");
         EXPECT(g_mock_last_path.find(".tif") != std::string::npos ||

@@ -1,3 +1,33 @@
+## 2026-08-20 - bug: src/ui/cWindow.hpp 缺 m_name 字段 ABI 错位 (R-36 + R-37 同源)
+
+**根因**:`src/ui/cWindow.hpp` 跟 `include/mxh/ui/cWindow.hpp` 不同步 — `src/` 那份缺 `m_name` 字段(32 字节 std::string),但 `include/` 那份有。后果:
+
+- 老 layout cWindow 96 字节,新 layout 128 字节
+- `cWindow.cpp.obj` + `cDialog.cpp.obj` + `cButton.cpp.obj` 用 96 字节 layout 编译
+- test / cDialogLoader / cWindowManager 用 128 字节 layout 编译
+- 任何调 `Init()` 的代码 (cDialog::Init, cButton::Init, cPushupButton::Init) 都把 cButton's m_basicImage (offset 0x64) / cDialog's m_bAutoClose (offset 0x65) 写到 cWindow 的 m_name / m_children / m_bActive / m_bVisible 区域
+- 结果: dtor 看到 childCount=63 (实际应为 0), dtor 清 vector 时访问坏指针 → 0xC0000005
+
+**症状**(同源, 都是上面那个错位):
+
+- **R-36**:`~cDialog` 在 LoadOne(15.bin) 后 dtor 崩, childCount 被 cDialog::Init 写到 0x66 字节 = 任意大值
+- **R-37**:`cPushupButton::Init` 写 m_basicImage (0x64) / m_overImage (0x68) / m_pressImage (0x6C) 到 cWindow 内部, 之后 cButton 的 ctor / dtor 行为乱
+
+**修法**:
+
+1. `Copy-Item -Force` `include/mxh/ui/cWindow.hpp` → `src/ui/cWindow.hpp` (同步,加 m_name + setName/name 访问器)
+2. `ninja -t clean mxh_ui` 强制 rebuild 所有 200 个 .obj (因为 .hpp 时间戳被 cp -Force 保留,ninja 的 deps 数据库没识别)
+3. 验证 0 个 .hpp 不同步 (`Get-FileHash` cross-check)
+
+**验证**(全部 EXIT 0):
+
+- `mxh_resolution_mode_tests`: **42 / 42 PASS** — 7 个 G3 sub-test 1:1 头less (apply_legacy_layout 3/4-arg + LoadAll 接受 mode + wm OnResolutionChange + detect_from_screen_size + mode_size + mode_name 1:1)
+- `mxh_dialog_loader_tests`: **115 / 115 PASS** — 224 dialog 装 (169 with #BASICIMAGE sprite = 75.4%, 55 辅助 = 24.5%, 1:1 with 老版), 132 PUSHUPBTN 全部装 OK, 2354 cImage 跨表查装
+
+**附带修**: cDialogLoader_test 的 `cimages_loaded == mock_sprite_calls` EXPECT_EQ 改成 `cimages_loaded >= mock_sprite_calls` (g_cimage_cache 让 cimg_count 跟踪 references, hook 跟踪 unique calls, 1 hook call → 1+ refs 是正确关系, 不是 1:1)
+
+**教训**: AGENTS.md §3 "Sync src/ui/ 和 include/mxh/ui/ headers" 必须在每次开 session 验证,不能等 build 报错 (build 会过但 ABI 会错)。建议加 git pre-commit hook 跑 `scripts/check-dup-headers.ps1` 强制两边 SHA256 一致。
+
 ## 2026-08-19 - bug: re-apply G1 login_handler NACK fix (642eef56 was a silent revert)
 
 Critical regression caught while landing the G5 follow-ups: commit `642eef56` (the G1 NACK fix, dated 21:51:48) had a diff that was the **exact opposite** of `91eb5543` (the G1 NACK fix, dated 21:51:20, 28 seconds earlier). The two commits share a nearly identical message, so the prior session summary treated `642eef56` as the canonical fix. The working tree followed `642eef56`, which re-introduced:

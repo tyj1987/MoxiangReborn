@@ -234,6 +234,25 @@ set_tests_properties(mxh_dialog_loader_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # -----------------------------------------------------------------------------
+# M-R7 (G3): resolution_mode 头less 单测 — 独立 target, 跟 cDialogLoader
+# 拆开因为 1:1 verify 不需要 LoadAll 全部 dialog (15.bin 一个 file 就够).
+# 验证 7 个 sub-test (apply_legacy_layout 3/4 参数 + LoadOne 接受 mode
+# + wm 模式切换 + detect/mode_size/mode_name 1:1). 42/42 PASS.
+# -----------------------------------------------------------------------------
+add_executable(mxh_resolution_mode_tests
+    ui/resolution_mode_test.cpp
+)
+target_link_libraries(mxh_resolution_mode_tests PRIVATE
+    mxh_ui mxh_compat mxh_log)
+if(MSVC)
+    target_compile_options(mxh_resolution_mode_tests PRIVATE /FS /Z7 /MP1)
+endif()
+add_test(NAME mxh_resolution_mode_tests
+    COMMAND $<TARGET_FILE:mxh_resolution_mode_tests>)
+set_tests_properties(mxh_resolution_mode_tests PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# -----------------------------------------------------------------------------
 # M-R6.2: cWindowManager focus chain 1:1 验证 (独立 target, 同样避免
 # 跟 mxh_ui_tests 双 main 冲突)
 # -----------------------------------------------------------------------------

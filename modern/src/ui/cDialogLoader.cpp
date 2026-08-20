@@ -141,11 +141,9 @@ cImage* loadImageForImageIdx(std::int32_t image_idx,
 
 }  // namespace
 
-DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
-                                        cWindowManager& wm) {
-    return LoadOne(bin_path, wm, kDefaultResolutionMode);
-}
-
+// M-R7 (G3): header declares single overload with default arg
+// `ResolutionMode mode = kDefaultResolutionMode`, 所以 callers 传 2/3 arg 都行.
+// 只实现一次, 不写 2-arg wrapper 避免 LNK/overload 冲突.
 DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                                         cWindowManager& wm,
                                         ResolutionMode mode) {
@@ -621,11 +619,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
     return r;
 }
 
-std::vector<DialogLoadReport> cDialogLoader::LoadAll(
-    const std::filesystem::path& playdh_root, cWindowManager& wm) {
-    return LoadAll(playdh_root, wm, kDefaultResolutionMode);
-}
-
+// M-R7 (G3): 单一实现 (default arg 让 2/3 arg call 都走这里)
 std::vector<DialogLoadReport> cDialogLoader::LoadAll(
     const std::filesystem::path& playdh_root, cWindowManager& wm,
     ResolutionMode mode) {
