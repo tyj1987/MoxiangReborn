@@ -58,8 +58,10 @@ public:
     void Init(std::int32_t x, std::int32_t y, std::uint16_t wid, std::uint16_t hei,
               void* basicImage, std::int32_t id = 0);
 
-    // Render placeholder (real GPU draw in 6.4+).
-    void Render() override {}
+    // Draw the dialog chrome and its complete child tree through the base
+    // cWindow render path. Keeping this override empty made every loaded
+    // InterfaceScript dialog invisible even when sprites were valid.
+    void Render() override { cWindow::Render(); }
 
     // ActionEvent: top-down dispatch already in cWindow recurses into
     // children. We keep the override for type identification; the actual

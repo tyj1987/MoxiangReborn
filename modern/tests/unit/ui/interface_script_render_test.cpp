@@ -191,6 +191,35 @@ TEST(InterfaceScriptRender, MainDlgRendersAtLegacyPixelPosition) {
         << dlg.width() << "x" << dlg.height() << ")";
 }
 
+TEST(InterfaceScriptRender, DialogRenderDrawsChromeAndChildTree) {
+    RenderState state;
+    state.fb.resize(64, 64);
+    mxh::ui::bindRenderer(&testDrawFn, &state);
+
+    int rootSprite = 1;
+    int childSprite = 2;
+    mxh::ui::cImage rootImage;
+    rootImage.SetSpriteObject(&rootSprite);
+    mxh::ui::cImage childImage;
+    childImage.SetSpriteObject(&childSprite);
+
+    mxh::ui::cDialog dialog;
+    dialog.Init(2, 3, 20, 10, &rootImage, 1);
+    auto child = std::make_unique<mxh::ui::cWindow>();
+    child->Init(5, 7, 4, 6, &childImage, 2);
+    dialog.Add(std::move(child));
+
+    dialog.Render();
+
+    EXPECT_EQ(state.drawCount, 2u)
+        << "cDialog must not suppress cWindow chrome/child rendering";
+    ASSERT_EQ(state.rects.size(), 2u);
+    EXPECT_EQ(std::get<0>(state.rects[0]), 2);
+    EXPECT_EQ(std::get<1>(state.rects[0]), 3);
+    EXPECT_EQ(std::get<0>(state.rects[1]), 5);
+    EXPECT_EQ(std::get<1>(state.rects[1]), 7);
+}
+
 TEST(InterfaceScriptRender, QuickDialogRendersAtLegacyPixelPosition) {
     // Same as above for QuickDialog (14.bin, QI_QUICKDLG).
     fs::path playdh = locate_playdh();
