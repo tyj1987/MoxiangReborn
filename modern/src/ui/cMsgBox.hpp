@@ -76,6 +76,9 @@ public:
     // -------------------------------------------------------------------------
     void MsgBox(std::int32_t lId, MBType nMBType, const std::string& strMsg,
                 MsgBoxCallback cb = nullptr);
+    void SetButtonImages(void* basic, void* over, void* press) noexcept;
+
+    void Render() override;
 
     // Action overrides — modal behaviour: any click on a button closes
     // the box and fires the callback.
@@ -115,6 +118,9 @@ private:
     MsgBoxCallback   m_callback;
     void*            m_userdata  = nullptr;
     bool             m_closed    = false;
+    void*            m_btnBasicImage = nullptr;
+    void*            m_btnOverImage = nullptr;
+    void*            m_btnPressImage = nullptr;
 
     // Cached button child IDs (1-based for SetAdd via cDialog::Add).
     static constexpr std::int32_t kBtnIdOk     = 1001;

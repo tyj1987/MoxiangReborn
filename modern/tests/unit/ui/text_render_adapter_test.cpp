@@ -5,6 +5,7 @@
 
 #include "cButton.hpp"
 #include "cEditBox.hpp"
+#include "cMsgBox.hpp"
 #include "cStatic.hpp"
 #include "TextRender.hpp"
 
@@ -125,4 +126,24 @@ TEST_F(TextRenderAdapterTest, ButtonForwardsStateColorAlignmentAndShadow) {
     EXPECT_EQ(g_calls[1].request.font_index, 4u);
     EXPECT_EQ(g_calls[1].request.align, mxh::ui::TextRenderAlign::Right);
     EXPECT_EQ(g_calls[1].request.color, 0xFF202020u);
+}
+
+TEST_F(TextRenderAdapterTest, MsgBoxRendersLegacyLabelsAndMultilineBody) {
+    mxh::ui::cMsgBox box;
+    box.Init(301, 225, 197, 150, nullptr, 77);
+    box.MsgBox(77, mxh::ui::cMsgBox::MBType::YesNo, "Delete this character?");
+
+    box.Render();
+
+    ASSERT_EQ(g_calls.size(), 5u);
+    EXPECT_EQ(g_calls[0].text, "Yes");
+    EXPECT_EQ(g_calls[1].text, "No");
+    EXPECT_EQ(g_calls[2].text, "Notice");
+    EXPECT_EQ(g_calls[3].text, "Notice");
+    EXPECT_EQ(g_calls[4].text, "Delete this character?");
+    EXPECT_EQ(g_calls[4].request.x, 316);
+    EXPECT_EQ(g_calls[4].request.y, 275);
+    EXPECT_EQ(g_calls[4].request.width, 167);
+    EXPECT_EQ(g_calls[4].request.height, 90);
+    EXPECT_TRUE(g_calls[4].request.multiline);
 }

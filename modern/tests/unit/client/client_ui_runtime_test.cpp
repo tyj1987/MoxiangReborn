@@ -108,3 +108,29 @@ TEST(ClientUiRuntime, ClearReleasesStateOwnedDialogTree) {
     EXPECT_FALSE(runtime.isActive());
     EXPECT_EQ(runtime.findWindowByLegacyId("CS_CHARSELECTDLG"), nullptr);
 }
+
+TEST(ClientUiRuntime, ConfirmationOwnsModalInputAndCleansUpAfterEnter) {
+    const auto root = find_playdh_root();
+    ASSERT_FALSE(root.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    const auto before = runtime.dialogs().size();
+    bool called = false;
+    bool confirmed = false;
+    ASSERT_TRUE(runtime.showConfirmation(9001, "Delete this character?",
+        [&](bool value) {
+            called = true;
+            confirmed = value;
+        }));
+    EXPECT_TRUE(runtime.hasModal());
+    EXPECT_EQ(runtime.dialogs().size(), before + 1);
+
+    EXPECT_TRUE(runtime.onKey(true, 13));
+
+    EXPECT_TRUE(called);
+    EXPECT_TRUE(confirmed);
+    EXPECT_FALSE(runtime.hasModal());
+    EXPECT_EQ(runtime.dialogs().size(), before);
+}

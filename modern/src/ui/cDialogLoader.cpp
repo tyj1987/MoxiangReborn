@@ -170,6 +170,18 @@ cImage* loadImageForImageIdx(std::int32_t image_idx,
     return out;
 }
 
+} // namespace
+
+cImage* cDialogLoader::LoadLegacyImage(std::int32_t hard_idx) {
+    const auto hard_path = cResourceManager::getInstance().getHardPath(
+        hard_idx, PathFileType::HardPath);
+    if (!hard_path) return nullptr;
+    return loadImageForImageIdx(hard_idx, ImageRect{
+        hard_path->left, hard_path->top, hard_path->right, hard_path->bottom});
+}
+
+namespace {
+
 bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
                       DialogLoadReport& report, ResolutionMode mode) {
             if (!node.point.has_value()) return false;

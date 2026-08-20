@@ -121,6 +121,11 @@ public:
     // (loader 是 stateless 静态类, 进程级 singleton 行为 — 老 client
     // 整个生命周期都持有这些 cImage, 不在 dialog 销毁时释放).
     static void SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept;
+
+    // Load one image through the legacy hard-path table. Used by widgets
+    // such as cMsgBox whose images are addressed by fixed resource indices
+    // instead of an InterfaceScript node.
+    static cImage* LoadLegacyImage(std::int32_t hard_idx);
 };
 
 }  // namespace mxh::ui

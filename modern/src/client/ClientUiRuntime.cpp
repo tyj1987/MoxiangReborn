@@ -6,6 +6,7 @@
 #include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
+#include "mxh/ui/cMsgBox.hpp"
 #include "mxh/ui/cWindow.hpp"
 
 namespace mxh::client {
@@ -127,6 +128,15 @@ ClientUiInputResult ClientUiRuntime::onMouseButton(
     ClientUiInputResult result;
     if (!m_active) return result;
 
+    if (m_windows.isModal()) {
+        const auto flags = left && down ? mxh::ui::cWindow::MouseFlagLButton
+            : (!left && down ? mxh::ui::cWindow::MouseFlagRButton : 0u);
+        m_windows.ActionEvent(x, y, flags);
+        result.consumed = true;
+        collectClosedModal();
+        return result;
+    }
+
     mxh::ui::cWindow* hit = hitTest(x, y);
     if (!left) {
         if (!hit) return result;
@@ -168,6 +178,11 @@ ClientUiInputResult ClientUiRuntime::onMouseButton(
 
 bool ClientUiRuntime::onMouseMove(std::int32_t x, std::int32_t y) {
     if (!m_active) return false;
+    if (m_windows.isModal()) {
+        m_windows.ActionEvent(x, y, 0u);
+        collectClosedModal();
+        return true;
+    }
     if (m_pressedLeft) {
         m_pressedLeft->ActionEvent(
             x, y, mxh::ui::cWindow::MouseFlagLButton);
@@ -182,6 +197,11 @@ bool ClientUiRuntime::onMouseMove(std::int32_t x, std::int32_t y) {
 
 bool ClientUiRuntime::onKey(bool down, std::int32_t key) {
     if (!m_active || !down) return false;
+    if (m_windows.isModal()) {
+        m_windows.ActionKeyboardEvent(key, 0);
+        collectClosedModal();
+        return true;
+    }
     if (key == 9) {
         focusNext();
         return true;
@@ -192,6 +212,7 @@ bool ClientUiRuntime::onKey(bool down, std::int32_t key) {
 }
 
 bool ClientUiRuntime::onChar(std::int32_t ch) {
+    if (m_active && m_windows.isModal()) return true;
     if (!m_active || !m_focused) return false;
     return m_focused->ActionKeyboardEvent(0, ch) !=
            static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::Null);
@@ -199,6 +220,44 @@ bool ClientUiRuntime::onChar(std::int32_t ch) {
 
 void ClientUiRuntime::render() {
     if (m_active) m_windows.RenderAll();
+}
+
+bool ClientUiRuntime::showConfirmation(std::int32_t id, std::string message,
+                                       ConfirmationCallback callback) {
+    if (!m_active || m_windows.isModal()) return false;
+
+    constexpr std::int32_t width = 197;
+    constexpr std::int32_t height = 150;
+    auto box = std::make_unique<mxh::ui::cMsgBox>();
+    box->Init((800 - width) / 2, (600 - height) / 2,
+              static_cast<std::uint16_t>(width),
+              static_cast<std::uint16_t>(height),
+              mxh::ui::cDialogLoader::LoadLegacyImage(30), id);
+    box->SetButtonImages(
+        mxh::ui::cDialogLoader::LoadLegacyImage(31),
+        mxh::ui::cDialogLoader::LoadLegacyImage(32),
+        mxh::ui::cDialogLoader::LoadLegacyImage(33));
+    box->MsgBox(id, mxh::ui::cMsgBox::MBType::YesNo, message,
+        [callback = std::move(callback)](mxh::ui::cMsgBox&,
+                                         mxh::ui::cMsgBox::MBResult result,
+                                         void*) {
+            if (callback) callback(result == mxh::ui::cMsgBox::MBResult::Yes);
+        });
+    auto* modal = box.get();
+    focus(nullptr);
+    m_pressedLeft = nullptr;
+    m_windows.AddDialog(std::move(box));
+    m_windows.SetModalDialog(modal);
+    return true;
+}
+
+void ClientUiRuntime::collectClosedModal() noexcept {
+    auto* modal = m_windows.modalDialog();
+    if (!modal || !modal->closeRequested()) return;
+    focus(nullptr);
+    m_pressedLeft = nullptr;
+    auto retired = m_windows.RemoveDialog(modal);
+    retired.reset();
 }
 
 mxh::ui::cWindow* ClientUiRuntime::findWindowByLegacyId(

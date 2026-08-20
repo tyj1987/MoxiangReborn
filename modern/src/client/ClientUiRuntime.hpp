@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -54,6 +55,11 @@ public:
     bool onKey(bool down, std::int32_t key);
     bool onChar(std::int32_t ch);
 
+    using ConfirmationCallback = std::function<void(bool confirmed)>;
+    bool showConfirmation(std::int32_t id, std::string message,
+                          ConfirmationCallback callback);
+    bool hasModal() const noexcept { return m_windows.isModal(); }
+
     void render();
 
     mxh::ui::cWindow* findWindowByLegacyId(std::string_view id) const;
@@ -66,6 +72,7 @@ private:
     mxh::ui::cWindow* hitTest(std::int32_t x, std::int32_t y) const noexcept;
     void focus(mxh::ui::cWindow* window) noexcept;
     void focusNext() noexcept;
+    void collectClosedModal() noexcept;
 
     mxh::ui::cWindowManager m_windows;
     mxh::ui::cWindow* m_focused = nullptr;
