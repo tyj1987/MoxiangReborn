@@ -120,6 +120,8 @@ void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
             label->SetFontIdx(font);
         } else if (auto* edit = dynamic_cast<cEditBox*>(&window)) {
             edit->SetFontIdx(font);
+        } else if (auto* button = dynamic_cast<cButton*>(&window)) {
+            button->SetFontIdx(font);
         }
     }
 }

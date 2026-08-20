@@ -2353,4 +2353,5 @@ endif()
 gtest_add_tests(TARGET mxh_ui_text_render_tests
     TextRenderAdapterTest.StaticForwardsLegacyGeometryAndShadow
     TextRenderAdapterTest.EditBoxForwardsMaskedTextCaretAndStyle
+    TextRenderAdapterTest.ButtonForwardsStateColorAlignmentAndShadow
 )

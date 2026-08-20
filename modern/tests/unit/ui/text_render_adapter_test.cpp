@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "cButton.hpp"
 #include "cEditBox.hpp"
 #include "cStatic.hpp"
 #include "TextRender.hpp"
@@ -94,4 +95,34 @@ TEST_F(TextRenderAdapterTest, EditBoxForwardsMaskedTextCaretAndStyle) {
     ASSERT_EQ(g_calls.size(), 1u);
     EXPECT_TRUE(g_calls[0].text.empty());
     EXPECT_EQ(g_calls[0].request.caret_byte, 0u);
+}
+
+TEST_F(TextRenderAdapterTest, ButtonForwardsStateColorAlignmentAndShadow) {
+    mxh::ui::cButton button;
+    button.Init(30, 40, 100, 24, nullptr, nullptr, nullptr, {}, nullptr, 9);
+    button.SetText("Enter", 0xFF101010u, 0xFF202020u, 0xFF303030u);
+    button.SetTextXY(5, 6);
+    button.SetFontIdx(4);
+    button.SetTextAlign(mxh::ui::cButton::TextAlign::Right);
+    button.SetShadow(true);
+    button.SetShadowTextXY(1, 2);
+    button.SetShadowColor(0xFF010203u);
+    button.ActionEvent(31, 41, 0);
+
+    button.Render();
+
+    ASSERT_EQ(g_calls.size(), 2u);
+    EXPECT_EQ(g_calls[0].text, "Enter");
+    EXPECT_EQ(g_calls[0].request.x, 31);
+    EXPECT_EQ(g_calls[0].request.y, 48);
+    EXPECT_EQ(g_calls[0].request.color, 0xFF010203u);
+    EXPECT_EQ(g_calls[1].request.x, 30);
+    EXPECT_EQ(g_calls[1].request.y, 46);
+    EXPECT_EQ(g_calls[1].request.width, 100);
+    EXPECT_EQ(g_calls[1].request.height, 24);
+    EXPECT_EQ(g_calls[1].request.left_inset, 5);
+    EXPECT_EQ(g_calls[1].request.right_inset, 5);
+    EXPECT_EQ(g_calls[1].request.font_index, 4u);
+    EXPECT_EQ(g_calls[1].request.align, mxh::ui::TextRenderAlign::Right);
+    EXPECT_EQ(g_calls[1].request.color, 0xFF202020u);
 }

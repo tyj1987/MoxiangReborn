@@ -2,7 +2,36 @@
 // Phase 6.1 — implementation of the modern cButton widget.
 #include "cButton.hpp"
 
+#include "TextRender.hpp"
+
 namespace mxh::ui {
+
+void cButton::Render() {
+    if (!isVisible()) return;
+    cWindow::Render();
+    if (m_text.empty()) return;
+
+    TextRenderRequest request;
+    request.text = m_text;
+    request.x = absX();
+    request.y = absY() + m_textY;
+    request.width = width();
+    request.height = height();
+    request.left_inset = m_textX;
+    request.right_inset = m_textX;
+    request.color = m_fgCurColor;
+    request.font_index = m_fontIdx;
+    request.align = static_cast<TextRenderAlign>(m_align);
+
+    if (m_bShadow) {
+        auto shadow = request;
+        shadow.x += m_shadowTextX;
+        shadow.y += m_shadowTextY;
+        shadow.color = m_shadowColor;
+        renderText(shadow);
+    }
+    renderText(request);
+}
 
 void cButton::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
                    std::uint16_t hei, void* basicImage, void* overImage,
