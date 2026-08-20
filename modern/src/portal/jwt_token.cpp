@@ -16,76 +16,58 @@ namespace mxh::portal {
 namespace {
 
 // ---------------------------------------------------------------------------
-// BCrypt helpers (dynamically loaded, WIN32 only)
+// BCrypt helpers (WIN32 only)
 // ---------------------------------------------------------------------------
 
 #ifdef WIN32
-
-using BCryptOpenAlgorithmProvider_fn = NTSTATUS(NTAPI*)(
-    BCRYPT_ALG_HANDLE*, LPCWSTR, LPCWSTR, ULONG);
-using BCryptCloseAlgorithmProvider_fn = NTSTATUS(NTAPI*)(BCRYPT_ALG_HANDLE, ULONG);
-using BCryptCreateHash_fn = NTSTATUS(NTAPI*)(
-    BCRYPT_ALG_HANDLE, BCRYPT_HASH_HANDLE*, PUCHAR, ULONG,
-    PUCHAR, ULONG, ULONG);
-using BCryptHashData_fn = NTSTATUS(NTAPI*)(
-    BCRYPT_HASH_HANDLE, PUCHAR, ULONG, ULONG);
-using BCryptFinishHash_fn = NTSTATUS(NTAPI*)(
-    BCRYPT_HASH_HANDLE, PUCHAR, ULONG, ULONG);
-using BCryptDestroyHash_fn = NTSTATUS(NTAPI*)(BCRYPT_HASH_HANDLE, ULONG);
-
-static constexpr ULONG KHMAC_FLAG = 0x00000008U;
-
-static BCryptOpenAlgorithmProvider_fn  g_bcrypt_OpenAlg    = nullptr;
-static BCryptCloseAlgorithmProvider_fn g_bcrypt_CloseAlg   = nullptr;
-static BCryptCreateHash_fn           g_bcrypt_CreateHash = nullptr;
-static BCryptHashData_fn             g_bcrypt_HashData   = nullptr;
-static BCryptFinishHash_fn           g_bcrypt_FinishHash = nullptr;
-static BCryptDestroyHash_fn          g_bcrypt_DestroyHash= nullptr;
-static bool g_bcrypt_init = false;
-
-bool init_bcrypt() {
-    if (g_bcrypt_init) return true;
-    auto h = LoadLibraryW(L"bcrypt.dll");
-    if (!h) return false;
-    g_bcrypt_OpenAlg    = (BCryptOpenAlgorithmProvider_fn)
-        GetProcAddress(h, "BCryptOpenAlgorithmProvider");
-    g_bcrypt_CloseAlg   = (BCryptCloseAlgorithmProvider_fn)
-        GetProcAddress(h, "BCryptCloseAlgorithmProvider");
-    g_bcrypt_CreateHash = (BCryptCreateHash_fn)
-        GetProcAddress(h, "BCryptCreateHash");
-    g_bcrypt_HashData   = (BCryptHashData_fn)
-        GetProcAddress(h, "BCryptHashData");
-    g_bcrypt_FinishHash = (BCryptFinishHash_fn)
-        GetProcAddress(h, "BCryptFinishHash");
-    g_bcrypt_DestroyHash= (BCryptDestroyHash_fn)
-        GetProcAddress(h, "BCryptDestroyHash");
-    g_bcrypt_init = true;
-    return g_bcrypt_OpenAlg != nullptr;
-}
 
 // HMAC-SHA256 implementation (called by public hmac_sha256 wrapper).
 bool hmac_sha256_impl(const std::uint8_t* key, std::size_t key_len,
                       const std::uint8_t* data, std::size_t data_len,
                       std::uint8_t out[32]) {
-    if (!init_bcrypt()) return false;
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    NTSTATUS st = BCryptOpenAlgorithmProvider(
+        &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+    if (st < 0) {
+        return false;
+    }
 
-    BCRYPT_ALG_HANDLE h = nullptr;
-    NTSTATUS st = g_bcrypt_OpenAlg(&h, L"HMAC", nullptr, KHMAC_FLAG);
-    if (st < 0) return false;
+    DWORD object_length = 0;
+    DWORD bytes_written = 0;
+    st = BCryptGetProperty(
+        algorithm,
+        BCRYPT_OBJECT_LENGTH,
+        reinterpret_cast<PUCHAR>(&object_length),
+        sizeof(object_length),
+        &bytes_written,
+        0);
+    if (st < 0 || object_length == 0) {
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+        return false;
+    }
 
-    BCRYPT_HASH_HANDLE hh = nullptr;
-    st = g_bcrypt_CreateHash(h, &hh, nullptr, 0,
-                             const_cast<PUCHAR>(key),
-                             static_cast<ULONG>(key_len), 0);
-    if (st < 0) { g_bcrypt_CloseAlg(h, 0); return false; }
+    std::vector<std::uint8_t> hash_object(object_length);
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    st = BCryptCreateHash(
+        algorithm,
+        &hash,
+        hash_object.data(),
+        static_cast<ULONG>(hash_object.size()),
+        const_cast<PUCHAR>(key),
+        static_cast<ULONG>(key_len),
+        0);
+    if (st < 0) {
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+        return false;
+    }
 
-    st = g_bcrypt_HashData(hh, const_cast<PUCHAR>(data),
-                           static_cast<ULONG>(data_len), 0);
-    if (st < 0) { g_bcrypt_DestroyHash(hh, 0); g_bcrypt_CloseAlg(h, 0); return false; }
-
-    st = g_bcrypt_FinishHash(hh, out, 32, 0);
-    g_bcrypt_DestroyHash(hh, 0);
-    g_bcrypt_CloseAlg(h, 0);
+    st = BCryptHashData(
+        hash, const_cast<PUCHAR>(data), static_cast<ULONG>(data_len), 0);
+    if (st >= 0) {
+        st = BCryptFinishHash(hash, out, 32, 0);
+    }
+    BCryptDestroyHash(hash);
+    BCryptCloseAlgorithmProvider(algorithm, 0);
     return st >= 0;
 }
 
@@ -249,12 +231,14 @@ std::optional<std::string> verify_jwt(std::string_view secret,
 
     auto sub_pos = payload_str.find(R"("sub":")");
     if (sub_pos != std::string::npos) {
-        auto q1 = payload_str.find('"', sub_pos + 6);
+        constexpr std::size_t kSubValueOffset = 7;
+        auto q1 = payload_str.find('"', sub_pos + kSubValueOffset);
         if (q1 != std::string::npos)
-            out.sub = payload_str.substr(sub_pos + 6, q1 - (sub_pos + 6));
+            out.sub = payload_str.substr(
+                sub_pos + kSubValueOffset, q1 - (sub_pos + kSubValueOffset));
     }
 
-    auto exp_pos = payload_str.find(R"("exp":")");
+    auto exp_pos = payload_str.find(R"("exp":)");
     if (exp_pos != std::string::npos) {
         auto n1 = payload_str.find_first_of("0123456789", exp_pos + 6);
         auto n2 = payload_str.find_first_not_of("0123456789", n1);
@@ -262,7 +246,7 @@ std::optional<std::string> verify_jwt(std::string_view secret,
             out.exp = payload_str.substr(n1, n2 - n1);
     }
 
-    auto iat_pos = payload_str.find(R"("iat":")");
+    auto iat_pos = payload_str.find(R"("iat":)");
     if (iat_pos != std::string::npos) {
         auto n1 = payload_str.find_first_of("0123456789", iat_pos + 6);
         auto n2 = payload_str.find_first_not_of("0123456789", n1);
@@ -270,7 +254,7 @@ std::optional<std::string> verify_jwt(std::string_view secret,
             out.iat = payload_str.substr(n1, n2 - n1);
     }
 
-    auto uid_pos = payload_str.find(R"("user_idx":")");
+    auto uid_pos = payload_str.find(R"("user_idx":)");
     if (uid_pos != std::string::npos) {
         auto n1 = payload_str.find_first_of("0123456789", uid_pos + 11);
         auto n2 = payload_str.find_first_not_of("0123456789", n1);
