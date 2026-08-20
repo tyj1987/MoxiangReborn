@@ -19,6 +19,9 @@
 
 ## 1. 项目结构（真结构，不是老 session 留下的）
 
+> **最近校准**: 2026-08-20 env sniff 校 (4 turn 累积, 详见 `modern/scratch/2026-08-20-env-sniff/FINAL_REPORT_V2.md`)。
+> 老 §1 把 `compat/` `db/` 写成了 src 子目录，把 src 文件数说成 254，测试用例说成 2380 — **全错**。下面是真结构。
+
 ```
 C:\moxiang\
 ├── 墨香【源码】/                  # 原始源码（不动）
@@ -28,39 +31,64 @@ C:\moxiang\
 │   ├── [Lib]*/                    # 引擎库
 │   ├── 4Dyuchi*/                  # 自研 3D 引擎
 │   └── [Tool]*/                   # 工具链源码
-├── 墨香【源码配套资源】/PlayDH/    # 完整游戏资源（1.3GB）
+├── 墨香【源码配套资源】/           # 见下面"PlayDH 路径歧义"陷阱
 ├── 墨香【教程】/                  # 4 篇中文教程
-├── 墨香【客户端+服务端+工具】/     # 已部署包（参考）
+├── 墨香【客户端+服务端+工具】/     # 已部署包（参考 + D:\[SWorking] 源）
 ├── modern/                        # 现代 C++17/20 重写（**全部在这**）
-│   ├── src/                       # 254 个文件
-│   │   ├── compat/                # 资源兼容层（100%）
-│   │   ├── crypto/                # AES-256-GCM + HSEL
-│   │   ├── db/                    # MSSQL/SQLite
-│   │   ├── net/                   # Asio + IOCP
-│   │   ├── proto/                 # 协议
-│   │   ├── render/                # DX11
-│   │   ├── ui/                    # 70+ dialog（1:1 port）
-│   │   ├── server/                # 服务端核心
-│   │   ├── services/              # service interface
+│   ├── src/                       # 750 个文件, **15 个子目录**:
+│   │   ├── audio/                 # bgm_player (BgmPlayer 5/5 PASS)
+│   │   ├── client/                # 客户端 (CharSelect/Make/InGame state)
+│   │   ├── console_stub/          # 控制台桩
+│   │   ├── crypto/                # AES-256-GCM + HSEL + HackShield (87/87 PASS)
+│   │   ├── game/                  # 数值/战斗/技能/物品 (CalcAvatarOption, BattleFactory)
 │   │   ├── log/                   # MLOG
 │   │   ├── memory/                # ObjectPool
-│   │   └── monitor/               # perf monitor
-│   ├── tests/unit/                # 153 个测试文件 / 2380 用例
-│   ├── tools/                     # 11 个现代工具
+│   │   ├── monitor/               # perf monitor
+│   │   ├── net/                   # net + socket + capture_handler (无 asio, 是 raw socket)
+│   │   ├── portal/                # 站点 API (auth/jwt/news/shop)
+│   │   ├── proto/                 # 协议层 (32/32 PASS)
+│   │   ├── render/                # DX11 (terrain/static/sky/entity_scene)
+│   │   ├── server/                # 220 文件: 99 agent_* + 31 side_effect_plan + 4 distribute + 3 handler + 3 network_msg + 2 login + 2 map + 1 chat + 73 other
+│   │   ├── services/              # service interface
+│   │   ├── ui/                    # 402 文件, 1:1 port dialog 库
+│   │   └── (compat/ + db/ 文件平铺在 src 根)  # 见下面"资源兼容层"陷阱
+│   ├── data/PlayDH/               # 完整游戏资源（1.56 GB / 4,971 文件）
+│   ├── tests/unit/                # 1,018 测试文件 (15 子目录, 镜像 src)
+│   ├── tools/                     # 60 文件 (MoxianLoginServer/AgentServer/MapServer/Client 等 17 子目录 + 6 .py 工具)
 │   ├── include/mxh/               # 公共头
 │   ├── docs/                      # 中间过程文档（逐步清理）
-│   └── build/                     # CMake 构建输出
+│   ├── scratch/<date>-<topic>/    # 临时产物（每次 session 自建, 命名规范）
+│   └── build/                     # CMake 构建输出 (16 exes / 619 PASS / 0 FAIL, 2026-08-20)
 ├── deploy/                        # 现代部署（部分）
 ├── docs/                          # 真实数据文档
 │   ├── RESOURCE_FORMATS.md        # 资源格式
 │   ├── MoxianProtocolDoc.md       # 协议
 │   ├── DATABASE_SCHEMA.md         # 数据库
-│   └── KNOWN_BUGS.md              # bug 清单
+│   ├── KNOWN_BUGS.md              # bug 清单 (R-10/R-11 已修, R-12 active)
+│   └── CHANGELOG.md               # 完成明细
+├── modern/scratch/2026-08-20-env-sniff/  # 本次 session 全部交付
 ├── ROADMAP.md                     # 1:1 复现路线图（**主路线**）
 ├── AGENTS.md                      # 本文件
 ├── README.md                      # 上手指南
-└── scripts/                       # 启动脚本
+└── scripts/                       # 启动脚本 (session-bootstrap, no-truncation, start-server)
 ```
+
+### 1.1 ctest 实测状态 (2026-08-20)
+
+| 维度 | 值 |
+|---|---|
+| ctest 注册 | **12,021** (老 AGENTS.md §3 写的 2,380 是 35% 时的旧数) |
+| 已编译 exes | **16** (2 pre-existing + 14 new in 2026-08-20 session) |
+| 已编译 PASS | **619** (5.15%) |
+| 已编译 FAIL | **0** |
+| 已编译 SKIP | **175** (大部分是缺 D:\[SWorking]\SWorking\Resource\Server 数据) |
+| 仍阻塞 LoginServer.exe build | `mxh_login_sbs_e2e_tests` 1 SKIP (Phase 3) |
+
+### 1.2 关键路径歧义（每次开 session 必看）
+
+- **PlayDH**: 实际位置 `C:\moxiang\modern\data\PlayDH\` (1.56 GB / 4,971 文件)。**不是** `墨香【源码配套资源】\PlayDH\`（那个目录原本是 8-10 资源审计 scratch 留下的，2026-08-20 已建 junction 链过去以兼容 6 个用 `find_playdh_root()` 的旧测试，但 canonical path 仍以 `modern\data\PlayDH` 为准）。
+- **VS BuildTools**: 实际在 `C:\BuildTools\VC\` (vcvarsall.bat x86 跟现有 x86 ninja 配置一致)。**不是** `C:\VS2022\`。**vcvars64.bat** 会触发 LNK4272 (x64 vs x86 arch mismatch)，必须用 **vcvarsall.bat x86**。
+- **SQL Server**: 本机 MSSQLSERVER + SQLEXPRESS 双实例 Running (老 C-32 "缺 SQL Server" 在本机已不存在, 仅 VM 100 winserver 受影响)。
 
 ---
 
@@ -84,7 +112,7 @@ C:\moxiang\
 
 - 改 `墨香【源码】/`（除非改老编译 bug，且不会改变行为）
 - 改 `[CC]Header/Protocol.h` 或 `CommonStruct.h`
-- 改 `墨香【源码配套资源】/PlayDH/`
+- 改 `墨香【源码配套资源】/PlayDH/`（实际 canonical 在 `modern/data/PlayDH/`，junction 已兼容）
 - 写 P0/P1/P2/P3 任务队列（已被 ROADMAP §3 替代）
 - 写 session 交接 log（已废弃）
 - 写到根目录的 `.log / .obj / .db` 等临时文件
@@ -106,7 +134,7 @@ C:\moxiang\
 | 多语言 ifdef (`_KOR_LOCAL_` 等) | 仍存在 | 5 种宏都编，确保每种都能 build |
 | HSEL 硬件狗 | 80% stub | R-1，阻塞运行时 |
 | HackShield 反外挂 | 0% | R-2，阻塞客户端登录 |
-| SQL Server 集成 | 60% | 已写 schema + restore，缺端到端验证 |
+| SQL Server 集成 | **100% 本机 (2026-08-20)** | MSSQLSERVER + SQLEXPRESS 双实例 Running；缺端到端验证，VM 100 winserver 仍受 SQL blocker |
 | **F-1 shell_command JSON 截断** | **每次必踩**（2026-07-30 已根治） | 见 §2.5 + `scripts/no-truncation.ps1`；单行简单 cmdlet，复杂逻辑写到 .ps1 再 `pwsh -File` |
 | F-2 根目录 scratch_*.py 污染 | 反复犯 | `scripts/session-bootstrap.ps1` 第 1 步自动清 |
 
