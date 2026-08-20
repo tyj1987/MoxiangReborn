@@ -12,6 +12,7 @@ add_executable(mxh_client_tests
     state_transfer_test.cpp
     sprite_render_geometry_test.cpp
     logical_viewport_test.cpp
+    client_ui_runtime_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE
