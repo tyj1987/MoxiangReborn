@@ -40,6 +40,7 @@
 #include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
+#include "legacy_window_ids.hpp"
 #include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3)
 // M-R4.8: 4 stub class (cWearedExDialog/cMunpaMarkDialog/cPrivateWarehouseDialog/
 // cSuryunDialog) 走 legacy 1:1 port lowercase 头 (在 canonical mxh/ui/ 路径
@@ -683,6 +684,38 @@ int main() {
         std::cout << "[cDialogLoader_test] M-R7 (G3) Test 10: 4 档 resolution_mode + "
                   << "apply_legacy_layout 3/4 参数 + cWindowManager::OnResolutionChange "
                   << "+ detect_from_screen_size 1:1 切换 PASS\n";
+    }
+
+    // ---- Test 11: InterfaceScript symbolic IDs survive runtime creation ----
+    {
+        mxh::ui::cWindowManager wm;
+        const auto rep = mxh::ui::cDialogLoader::LoadOne(
+            is_dir / "CharSelectDlg.bin", wm,
+            mxh::ui::ResolutionMode::Low800x600);
+        EXPECT(rep.ok, "CharSelectDlg loads for legacy ID test");
+
+        auto* root = wm.findWindowByLegacyId("CS_CHARSELECTDLG");
+        auto* first = wm.findWindowByLegacyId("MT_FIRSTCHOSEBTN");
+        auto* fourth = wm.findWindowByLegacyId("MT_FOURTHCHOSEBTN");
+        EXPECT(root != nullptr, "root #ID is retained");
+        EXPECT(first != nullptr, "first slot #ID is retained");
+        EXPECT(fourth != nullptr, "fourth slot #ID is retained");
+
+        const auto root_id = mxh::ui::resolve_legacy_window_id("CS_CHARSELECTDLG");
+        const auto first_id = mxh::ui::resolve_legacy_window_id("MT_FIRSTCHOSEBTN");
+        const auto fourth_id = mxh::ui::resolve_legacy_window_id("MT_FOURTHCHOSEBTN");
+        EXPECT(root_id.has_value(), "root symbolic ID resolves through legacy table");
+        EXPECT(first_id.has_value(), "first slot symbolic ID resolves through legacy table");
+        EXPECT(fourth_id.has_value(), "fourth slot symbolic ID resolves through legacy table");
+        if (root && root_id) EXPECT_EQ(root->id(), *root_id, "root numeric ID is exact");
+        if (first && first_id) EXPECT_EQ(first->id(), *first_id, "first slot numeric ID is exact");
+        if (fourth && fourth_id) EXPECT_EQ(fourth->id(), *fourth_id, "fourth slot numeric ID is exact");
+        if (first_id && fourth_id) {
+            EXPECT_EQ(*fourth_id - *first_id, 3,
+                      "character slot IDs keep legacy contiguous ordering");
+        }
+        EXPECT(!mxh::ui::resolve_legacy_window_id("NOT_A_LEGACY_ID").has_value(),
+               "unknown symbolic ID is not guessed");
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes

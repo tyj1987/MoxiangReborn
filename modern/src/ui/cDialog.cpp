@@ -105,6 +105,21 @@ cWindow* cDialog::findWindowById(std::int32_t id) const {
     return nullptr;
 }
 
+cWindow* cDialog::findWindowByLegacyId(std::string_view id) const {
+    if (legacyId() == id) return const_cast<cDialog*>(this);
+    for (std::size_t i = 0; i < childCount(); ++i) {
+        cWindow* child = childAt(i);
+        if (!child) continue;
+        if (child->legacyId() == id) return child;
+        if (auto* dialog = dynamic_cast<cDialog*>(child)) {
+            if (cWindow* found = dialog->findWindowByLegacyId(id)) {
+                return found;
+            }
+        }
+    }
+    return nullptr;
+}
+
 void cDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
     const std::int32_t dx = x - absX();
     const std::int32_t dy = y - absY();

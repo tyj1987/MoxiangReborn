@@ -5,6 +5,7 @@
 # -----------------------------------------------------------------------------
 add_library(mxh_ui STATIC
     cWindow.cpp
+    legacy_window_ids.cpp
     cButton.cpp
     cEditBox.cpp
     cDialog.cpp
@@ -223,7 +224,6 @@ if(MSVC)
 endif()
 
 install(TARGETS mxh_ui ARCHIVE DESTINATION lib)
-
 
 
 

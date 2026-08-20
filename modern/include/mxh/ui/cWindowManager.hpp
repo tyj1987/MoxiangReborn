@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "cWindow.hpp"
@@ -78,6 +79,7 @@ public:
     // active dialog whose bounding box contains (x, y).
     // -------------------------------------------------------------------------
     cDialog* findById(std::int32_t id) const;
+    cWindow* findWindowByLegacyId(std::string_view id) const;
     cDialog* findByXY(std::int32_t x, std::int32_t y) const;
 
     // -------------------------------------------------------------------------

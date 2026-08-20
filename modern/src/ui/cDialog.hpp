@@ -28,6 +28,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 
 #include "cWindow.hpp"
 
@@ -158,6 +159,7 @@ public:
     // Legacy: cDialog::FindWindowById / cDialog::GetWindowByID equivalents.
     // -------------------------------------------------------------------------
     cWindow* findWindowById(std::int32_t id) const;
+    cWindow* findWindowByLegacyId(std::string_view id) const;
     // componentCount / componentAt mirror cWindow's child machinery but
     // are spelled with the legacy names to keep the engine-facing API close.
     std::size_t componentCount() const noexcept { return childCount(); }

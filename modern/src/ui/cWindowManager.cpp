@@ -96,6 +96,16 @@ cDialog* cWindowManager::findById(std::int32_t id) const {
     return nullptr;
 }
 
+cWindow* cWindowManager::findWindowByLegacyId(std::string_view id) const {
+    for (auto it = m_dialogs.rbegin(); it != m_dialogs.rend(); ++it) {
+        if (!*it) continue;
+        if (cWindow* found = (*it)->findWindowByLegacyId(id)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
 cDialog* cWindowManager::findByXY(std::int32_t x, std::int32_t y) const {
     // Walk back-to-front; the first dialog that contains (x,y) wins.
     for (auto it = m_dialogs.rbegin(); it != m_dialogs.rend(); ++it) {

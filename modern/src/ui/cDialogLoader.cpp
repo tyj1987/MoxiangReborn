@@ -41,6 +41,7 @@
 #include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
+#include "legacy_window_ids.hpp"
 // M-R4.8: 4 stub class (cWearedExDialog/cMunpaMarkDialog/cPrivateWarehouseDialog/
 // cSuryunDialog) 走 legacy 1:1 port lowercase 头 (M-R4 era 完整版, 含
 // ctor/dtor/AddItem/DeleteItem/SetMunpaMark 等). 实体定义由对应 legacy
@@ -94,6 +95,14 @@ struct ImageKeyHash {
     }
 };
 std::unordered_map<ImageKey, cImage*, ImageKeyHash> g_cimage_cache;
+
+void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
+    if (!node.id.has_value()) return;
+    window.setLegacyId(*node.id);
+    if (const auto numeric = resolve_legacy_window_id(*node.id)) {
+        window.setId(*numeric);
+    }
+}
 
 }  // namespace
 
@@ -212,6 +221,8 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                       std::to_string(i) + "]";
             return r;
         }
+        applyLegacyIdentity(*dlg, *root);
+        dlg->setName(r.bin_name);
         if (!first_point_set) {
             const auto& p = *root->point;
             r.has_point = true;
@@ -229,6 +240,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         for (const auto& child : root->children) {
             if (!child->point.has_value()) continue;
             const auto& p = *child->point;
+            const auto before_count = dlg->childCount();
             // 路由 widget class by type
             if (child->type == "BTN") {
                 cImage* basic  = loadImageForImageIdx(child->basic_image_idx,
@@ -602,6 +614,11 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 if (basic) ++r.cimg_count;
                 dlg->Add(std::move(sy));
                 ++child_count;
+            }
+            if (dlg->childCount() > before_count) {
+                if (cWindow* added = dlg->childAt(dlg->childCount() - 1)) {
+                    applyLegacyIdentity(*added, *child);
+                }
             }
             // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
             // 老版 cScriptManager 也没单独路由这些 (1:1 行为).
