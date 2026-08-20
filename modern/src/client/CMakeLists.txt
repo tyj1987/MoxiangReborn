@@ -9,6 +9,7 @@
 add_library(mxh_client_lib STATIC
     AgentSession.cpp
     ClientUiRuntime.cpp
+    CharMakeOptions.cpp
     LogicalViewport.cpp
     NetworkEventQueue.cpp
     SpriteRenderGeometry.cpp
