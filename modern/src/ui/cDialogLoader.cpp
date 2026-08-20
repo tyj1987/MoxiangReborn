@@ -143,6 +143,12 @@ cImage* loadImageForImageIdx(std::int32_t image_idx,
 
 DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                                         cWindowManager& wm) {
+    return LoadOne(bin_path, wm, kDefaultResolutionMode);
+}
+
+DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
+                                        cWindowManager& wm,
+                                        ResolutionMode mode) {
     DialogLoadReport r;
     r.path = bin_path;
     r.bin_name = bin_path.filename().string();
@@ -201,7 +207,8 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
 
         auto dlg = std::make_unique<cDialog>();
         const bool applied = apply_legacy_layout(*dlg, *root,
-                                                  /*basicImage=*/cimg);
+                                                  /*basicImage=*/cimg,
+                                                  mode);
         if (!applied) {
             r.error = "apply_legacy_layout failed for root[" +
                       std::to_string(i) + "]";
@@ -517,7 +524,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 cImage* basic = loadImageForImageIdx(child->basic_image_idx,
                                                      child->basic_image_rect);
                 auto nested = std::make_unique<cDialog>();
-                const bool applied = apply_legacy_layout(*nested, *child, basic);
+                const bool applied = apply_legacy_layout(*nested, *child, basic, mode);
                 if (!applied) {
                     // nested 没 #POINT — skip, 不挂
                     continue;
@@ -616,6 +623,12 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
 
 std::vector<DialogLoadReport> cDialogLoader::LoadAll(
     const std::filesystem::path& playdh_root, cWindowManager& wm) {
+    return LoadAll(playdh_root, wm, kDefaultResolutionMode);
+}
+
+std::vector<DialogLoadReport> cDialogLoader::LoadAll(
+    const std::filesystem::path& playdh_root, cWindowManager& wm,
+    ResolutionMode mode) {
     std::vector<DialogLoadReport> out;
 
     // 提示 M-R1/M-R2 状态(不强制)

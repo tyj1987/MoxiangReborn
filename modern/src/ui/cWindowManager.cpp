@@ -1,5 +1,6 @@
 // mxh/ui/cWindowManager.cpp
 // Phase 6.6 — implementation of the modern cWindowManager.
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) — must come first for full type
 #include "cWindowManager.hpp"
 
 #include "cButton.hpp"
@@ -143,6 +144,18 @@ void cWindowManager::RenderAll() {
     for (const auto& d : m_dialogs) {
         if (d) d->Render();
     }
+}
+
+// M-R7 (G3) 分辨率自适应 1:1 行为.
+void cWindowManager::SetCurrentResolutionMode(ResolutionMode mode) noexcept {
+    m_resolutionMode = mode;
+}
+
+void cWindowManager::OnResolutionChange(ResolutionMode new_mode) noexcept {
+    // 1:1 老版 cScriptManager 没这个 API. modern 暴露是为了 caller (MoxianClient main)
+    // 切换屏幕尺寸时通知 cWindowManager. 实际重新装载由 caller 决定
+    // (cWindowManager 不持 .bin 路径). 头less 头实现是更新 m_resolutionMode.
+    m_resolutionMode = new_mode;
 }
 
 // ===========================================================================

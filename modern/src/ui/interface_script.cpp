@@ -393,8 +393,22 @@ const InterfaceNode* find_root_by_type(const InterfaceScript& script,
 
 bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
                          void* basicImage) {
+    return apply_legacy_layout(dlg, node, basicImage, kDefaultResolutionMode);
+}
+
+bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
+                         void* basicImage, ResolutionMode mode) {
     if (!node.point.has_value()) return false;
-    const auto& r = *node.point;
+    // M-R7 (G3): #POINT_ low-res variant 1:1 选择. 老版 cScriptManager::
+    // GetDlgInfoFromFile 在 eDLG case 装载 #POINT 时, 如果 #POINT_ 存在且当前
+    // resolution_mode == Low, 用 #POINT_ 覆盖 #POINT 的 x/y/w/h. 头less 实现 —
+    // 不调 GPU/sprite, 单测可断言. 默认 mode (High1920x1080) 走 #POINT 不破坏
+    // 现有 224 dialog + 11863 ctest.
+    const WindowRect* use_rect = &(*node.point);
+    if (mode == ResolutionMode::Low800x600 && node.point_low.has_value()) {
+        use_rect = &(*node.point_low);
+    }
+    const auto& r = *use_rect;
     dlg.Init(static_cast<std::int32_t>(r.x),
              static_cast<std::int32_t>(r.y),
              static_cast<std::uint16_t>(r.w),

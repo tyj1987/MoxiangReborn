@@ -30,6 +30,10 @@
 
 #include "cDialog.hpp"
 #include "cImage.hpp"  // for ImageRect (1:1 with legacy cImageRect)
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) resolution_mode enum
+
+
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) resolution_mode enum
 
 namespace mxh::ui {
 
@@ -113,8 +117,10 @@ const InterfaceNode* find_root_by_type(const InterfaceScript& script,
 // load the bin via parse_interface_script, then call this to feed the
 // parsed #POINT/#CAPTIONRECT/#ALPHA/#AUTOCLOSE into a real cDialog.
 // Returns true if the node had #POINT, false otherwise.
-// ---------------------------------------------------------------------------
+// M-R7 (G3): 重载接 mode — mode=Low + node.point_low 存在时用 #POINT_ 1:1 行为.
 bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
                          void* basicImage = nullptr);
+bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
+                         void* basicImage, ResolutionMode mode);
 
 }  // namespace mxh::ui

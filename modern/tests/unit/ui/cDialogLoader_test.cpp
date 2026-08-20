@@ -40,6 +40,7 @@
 #include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3)
 // M-R4.8: 4 stub class (cWearedExDialog/cMunpaMarkDialog/cPrivateWarehouseDialog/
 // cSuryunDialog) 走 legacy 1:1 port lowercase 头 (在 canonical mxh/ui/ 路径
 // 下, 跟 src/ui/ 是同一文件). 完整 def 跟 ctor body 由对应 legacy .cpp 提供
@@ -543,6 +544,143 @@ int main() {
 
         // 清理 hook
         mxh::ui::cDialogLoader::SetSpriteLoader(nullptr, nullptr);
+    }
+
+    // ---- Test 10: M-R7 (G3) resolution_mode 1:1 行为 + point_low 装载 ----
+    // G3 子目标 A3 (1 天) — cDialog Init 接受 resolution_mode 参数 +
+    // #POINT_ low-res variant 1:1 切换 + 4 档 mode 头less 切换. 头less 端
+    // 验证:
+    //   (1) apply_legacy_layout 3 参数 (default mode = High) 用 #POINT 1:1
+    //   (2) apply_legacy_layout 4 参数 (mode = Low) + node.point_low 存在时用 #POINT_ 1:1
+    //   (3) apply_legacy_layout 4 参数 (mode = Low) + node 无 point_low 时仍用 #POINT 1:1
+    //   (4) apply_legacy_layout 4 参数 (mode = High) + node 有 point_low 时仍用 #POINT 1:1
+    //   (5) LoadAll 接受 mode 参数 + 不同 mode 装载 dialogs
+    //   (6) cWindowManager::OnResolutionChange + SetCurrentResolutionMode 1:1 切换
+    //   (7) detect_from_screen_size + mode_size 1:1 头less 切换
+    {
+        // (1) default 3 参数 apply_legacy_layout 走 #POINT 1:1
+        {
+            mxh::ui::InterfaceNode node;
+            mxh::ui::WindowRect p{100, 200, 300, 400};
+            mxh::ui::WindowRect p_low{50, 100, 150, 200};
+            node.point = p;
+            node.point_low = p_low;
+            mxh::ui::cDialog dlg;
+            EXPECT(mxh::ui::apply_legacy_layout(dlg, node, nullptr),
+                   "default 3-param apply_legacy_layout ok");
+            EXPECT_EQ(dlg.absX(), 100, "default mode uses #POINT.x (not #POINT_)");
+            EXPECT_EQ(dlg.absY(), 200, "default mode uses #POINT.y (not #POINT_)");
+            EXPECT_EQ(dlg.width(), static_cast<std::uint16_t>(300), "default mode uses #POINT.w");
+            EXPECT_EQ(dlg.height(), static_cast<std::uint16_t>(400), "default mode uses #POINT.h");
+        }
+
+        // (2) Low mode + point_low 存在 → 用 #POINT_
+        {
+            mxh::ui::InterfaceNode node;
+            mxh::ui::WindowRect p{100, 200, 300, 400};
+            mxh::ui::WindowRect p_low{50, 100, 150, 200};
+            node.point = p;
+            node.point_low = p_low;
+            mxh::ui::cDialog dlg;
+            EXPECT(mxh::ui::apply_legacy_layout(dlg, node, nullptr,
+                                                mxh::ui::ResolutionMode::Low800x600),
+                   "Low + point_low apply ok");
+            EXPECT_EQ(dlg.absX(), 50, "Low mode + point_low uses #POINT_.x");
+            EXPECT_EQ(dlg.absY(), 100, "Low mode + point_low uses #POINT_.y");
+            EXPECT_EQ(dlg.width(), static_cast<std::uint16_t>(150), "Low mode + point_low uses #POINT_.w");
+            EXPECT_EQ(dlg.height(), static_cast<std::uint16_t>(200), "Low mode + point_low uses #POINT_.h");
+        }
+
+        // (3) Low mode + 无 point_low → 用 #POINT
+        {
+            mxh::ui::InterfaceNode node;
+            mxh::ui::WindowRect p{100, 200, 300, 400};
+            node.point = p;
+            mxh::ui::cDialog dlg;
+            EXPECT(mxh::ui::apply_legacy_layout(dlg, node, nullptr,
+                                                mxh::ui::ResolutionMode::Low800x600),
+                   "Low + no point_low apply ok");
+            EXPECT_EQ(dlg.absX(), 100, "Low + no point_low falls back to #POINT.x");
+        }
+
+        // (4) High mode + point_low 存在 → 用 #POINT (不切)
+        {
+            mxh::ui::InterfaceNode node;
+            mxh::ui::WindowRect p{100, 200, 300, 400};
+            mxh::ui::WindowRect p_low{50, 100, 150, 200};
+            node.point = p;
+            node.point_low = p_low;
+            mxh::ui::cDialog dlg;
+            EXPECT(mxh::ui::apply_legacy_layout(dlg, node, nullptr,
+                                                mxh::ui::ResolutionMode::High1920x1080),
+                   "High + point_low apply ok");
+            EXPECT_EQ(dlg.absX(), 100, "High mode always uses #POINT (point_low 忽略)");
+        }
+
+        // (5) LoadAll 接受 mode + LoadAll(Low) 装载到 wm + 跟 LoadAll(High) 1:1 兼容
+        // 老 1:1 黄金锁像是 High 模式 (11863 ctest + 224 dialog 装载不变).
+        {
+            mxh::ui::cWindowManager wm_high, wm_low;
+            auto reports_high = mxh::ui::cDialogLoader::LoadAll(
+                playdh, wm_high, mxh::ui::ResolutionMode::High1920x1080);
+            auto reports_low = mxh::ui::cDialogLoader::LoadAll(
+                playdh, wm_low, mxh::ui::ResolutionMode::Low800x600);
+            auto stats_high = mxh::ui::cDialogLoader::Aggregate(reports_high);
+            auto stats_low = mxh::ui::cDialogLoader::Aggregate(reports_low);
+            EXPECT_EQ(stats_high.total_bins, stats_low.total_bins,
+                      "LoadAll High vs Low: same total_bins");
+            EXPECT_EQ(stats_high.ok, stats_low.ok,
+                      "LoadAll High vs Low: same ok count");
+            EXPECT_EQ(stats_high.dialogs_added, stats_low.dialogs_added,
+                      "LoadAll High vs Low: same dialogs_added count (1:1 装载完整)");
+            // 默认 mode = High 等价
+            mxh::ui::cWindowManager wm_default;
+            auto reports_default = mxh::ui::cDialogLoader::LoadAll(playdh, wm_default);
+            auto stats_default = mxh::ui::cDialogLoader::Aggregate(reports_default);
+            EXPECT_EQ(stats_default.dialogs_added, stats_high.dialogs_added,
+                      "default mode = High, 1:1 兼容 (11863 ctest 不破坏)");
+        }
+
+        // (6) cWindowManager::OnResolutionChange + SetCurrentResolutionMode 切换
+        {
+            mxh::ui::cWindowManager wm;
+            EXPECT(wm.currentResolutionMode() == mxh::ui::kDefaultResolutionMode,
+                   "default mode = High1920x1080");
+            wm.SetCurrentResolutionMode(mxh::ui::ResolutionMode::Low800x600);
+            EXPECT(wm.currentResolutionMode() == mxh::ui::ResolutionMode::Low800x600,
+                   "SetCurrentResolutionMode(Low) 1:1");
+            wm.OnResolutionChange(mxh::ui::ResolutionMode::Ultra2560x1440);
+            EXPECT(wm.currentResolutionMode() == mxh::ui::ResolutionMode::Ultra2560x1440,
+                   "OnResolutionChange(Ultra) 1:1");
+        }
+
+        // (7) detect_from_screen_size + mode_size 1:1
+        {
+            EXPECT(mxh::ui::detect_from_screen_size(800, 600) == mxh::ui::ResolutionMode::Low800x600,
+                   "detect 800x600 → Low800x600");
+            EXPECT(mxh::ui::detect_from_screen_size(1024, 768) == mxh::ui::ResolutionMode::Mid1024x768,
+                   "detect 1024x768 → Mid1024x768");
+            EXPECT(mxh::ui::detect_from_screen_size(1920, 1080) == mxh::ui::ResolutionMode::High1920x1080,
+                   "detect 1920x1080 → High1920x1080");
+            EXPECT(mxh::ui::detect_from_screen_size(2560, 1440) == mxh::ui::ResolutionMode::Ultra2560x1440,
+                   "detect 2560x1440 → Ultra2560x1440");
+
+            auto sz_low = mxh::ui::mode_size(mxh::ui::ResolutionMode::Low800x600);
+            EXPECT_EQ(sz_low.first, 800, "Low mode_size w=800");
+            EXPECT_EQ(sz_low.second, 600, "Low mode_size h=600");
+            auto sz_ultra = mxh::ui::mode_size(mxh::ui::ResolutionMode::Ultra2560x1440);
+            EXPECT_EQ(sz_ultra.first, 2560, "Ultra mode_size w=2560");
+            EXPECT_EQ(sz_ultra.second, 1440, "Ultra mode_size h=1440");
+
+            EXPECT(std::string(mxh::ui::mode_name(mxh::ui::ResolutionMode::Low800x600))
+                   == "Low800x600", "mode_name Low");
+            EXPECT(std::string(mxh::ui::mode_name(mxh::ui::ResolutionMode::High1920x1080))
+                   == "High1920x1080", "mode_name High");
+        }
+
+        std::cout << "[cDialogLoader_test] M-R7 (G3) Test 10: 4 档 resolution_mode + "
+                  << "apply_legacy_layout 3/4 参数 + cWindowManager::OnResolutionChange "
+                  << "+ detect_from_screen_size 1:1 切换 PASS\n";
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes
