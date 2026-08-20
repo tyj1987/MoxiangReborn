@@ -23,10 +23,8 @@
 //     a header cycle).  The callback is installed by CMainGame::Init
 //     and forwards to SetGameState() with the int -> GameStateId cast.
 //   * Phase B.2.2: SetPendingTransfer / TakePendingTransfer is a
-//     single-slot std::any bridge that lets an outgoing state hand
-//     a typed payload (e.g. LoginResult) to the next state without
-//     a back-reference.  Consumers should std::any_cast to the exact
-//     type they expect; mismatched type returns an empty any.
+//     single-slot typed variant that lets an outgoing state hand a payload
+//     (e.g. LoginResult) to the next state without a back-reference.
 #pragma once
 
 #include <cstdint>
@@ -104,6 +102,10 @@ public:
     }
     bool has_pending_transfer() const noexcept {
         return !std::holds_alternative<std::monostate>(m_pendingTransfer);
+    }
+    template <class T>
+    bool pending_transfer_is() const noexcept {
+        return std::holds_alternative<T>(m_pendingTransfer);
     }
 
     AgentSession& agent_session() noexcept { return m_agentSession; }

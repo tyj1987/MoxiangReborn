@@ -30,4 +30,20 @@ TEST(StateTransfer, DoesNotConfuseGameEntryWithLoginResult) {
     EXPECT_EQ(std::get_if<mxh::client::LoginResult>(&transfer), nullptr);
 }
 
+TEST(StateTransfer, PendingTypeCanBeInspectedWithoutConsumption) {
+    mxh::client::CEngine engine;
+    mxh::client::LoginResult login;
+    login.agent_addr = "192.168.2.117";
+    login.agent_port = 17001;
+    engine.SetPendingTransfer(login);
+
+    EXPECT_TRUE(engine.pending_transfer_is<mxh::client::LoginResult>());
+    EXPECT_FALSE(engine.pending_transfer_is<mxh::client::GameEntryRequest>());
+    EXPECT_TRUE(engine.has_pending_transfer());
+
+    const auto transfer = engine.TakePendingTransfer();
+    ASSERT_TRUE(std::holds_alternative<mxh::client::LoginResult>(transfer));
+    EXPECT_FALSE(engine.has_pending_transfer());
+}
+
 }  // namespace

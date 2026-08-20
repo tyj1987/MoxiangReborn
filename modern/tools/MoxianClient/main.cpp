@@ -1607,7 +1607,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // rising edge. The LoginResult transfer slot (set by
             // CLoginState::dispatch_login_ack) is consumed by
             // CCharSelectState::Init() when CharSelect is entered.
-            if (cur_state == mxh::client::GameStateId::Title) {
+            if (cur_state == mxh::client::GameStateId::Title &&
+                !g_loginUi.visible &&
+                mainGame.GetEngine()->pending_transfer_is<
+                    mxh::client::LoginResult>()) {
                 // CLoginState routes through Title after LoginAck and
                 // hands the LoginResult via the engine transfer slot.
                 // The CharSelect state will pull it in its own Init().
