@@ -113,6 +113,10 @@ struct ClientOptions {
     std::filesystem::path resource_root;
     std::string save_frame;
     std::string state_frames_dir;
+    // M-R7 (G3) 物理 GPU 段: --width/--height 控制 swap chain + 截屏尺寸.
+    // 默认 0 = 用 kDefaultWindowWidth/Height (800x600). 4 档: 800/1024/1920/2560.
+    std::uint32_t window_width = 0;
+    std::uint32_t window_height = 0;
 };
 
 std::string narrow_ascii(const wchar_t* value) {
@@ -157,6 +161,10 @@ ClientOptions parse_client_options() {
         }
         else if (arg == L"--save-frame") take(options.save_frame);
         else if (arg == L"--state-frames-dir") take(options.state_frames_dir);
+        else if (arg == L"--width" && i + 1 < argc)
+            options.window_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+        else if (arg == L"--height" && i + 1 < argc)
+            options.window_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
     }
     LocalFree(argv);
     return options;
@@ -995,12 +1003,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         return 1;
     }
 
+    const std::uint32_t win_w = options.window_width  ? options.window_width  : mxh::client::kDefaultWindowWidth;
+    const std::uint32_t win_h = options.window_height ? options.window_height : mxh::client::kDefaultWindowHeight;
     HWND hwnd = CreateWindowW(
         L"MoxianClientWnd", L"Moxian Client (modern)",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        static_cast<int>(mxh::client::kDefaultWindowWidth),
-        static_cast<int>(mxh::client::kDefaultWindowHeight),
+        static_cast<int>(win_w), static_cast<int>(win_h),
         nullptr, nullptr, hInst, nullptr);
     if (!hwnd) {
         std::fprintf(stderr, "mxh_client: CreateWindow failed\n");
@@ -1037,8 +1046,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     DISPLAY_INFO info{};
     info.dispType      = WINDOW_WITH_BLT;
-    info.dwWidth       = mxh::client::kDefaultWindowWidth;
-    info.dwHeight      = mxh::client::kDefaultWindowHeight;
+    info.dwWidth       = win_w;
+    info.dwHeight      = win_h;
     info.dwBPS         = 32;
     info.dwRefreshRate = 60;
     if (!renderer->Create(hwnd, &info, storage, nullptr)) {

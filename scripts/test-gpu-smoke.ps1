@@ -26,7 +26,9 @@ param(
     [int]$FrameCount = 3,
     [int]$TimeoutSeconds = 60,
     [string]$ResourceRoot = 'C:\moxiang\modern\data\PlayDH',
-    [string]$OutDir = ''
+    [string]$OutDir = '',
+    [int]$Width  = 800,
+    [int]$Height = 600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,6 +46,7 @@ Write-Host "=== test-gpu-smoke.ps1 ==="
 Write-Host "exe       : $exePath"
 Write-Host "resource  : $ResourceRoot"
 Write-Host "out dir   : $OutDir"
+Write-Host "resolution: ${Width}x${Height}"
 Write-Host "frames    : $FrameCount"
 Write-Host "timeout   : ${TimeoutSeconds}s"
 Write-Host ""
@@ -71,7 +74,9 @@ $proc = Start-Process -FilePath $exePath `
         '--resource-root', $ResourceRoot,
         '--headless',
         '--state-frames-dir', $OutDir,
-        '--frame-count', "$FrameCount"
+        '--frame-count', "$FrameCount",
+        '--width', "$Width",
+        '--height', "$Height"
     ) `
     -RedirectStandardOutput $stdoutFile `
     -RedirectStandardError $stderrFile `
@@ -107,11 +112,11 @@ foreach ($t in $tgas) {
         $results += [PSCustomObject]@{ File = $t.Name; Pass = $false; Why = "size<18" }
         continue
     }
-    $width  = $bytes[12] + ($bytes[13] * 256)
-    $height = $bytes[14] + ($bytes[15] * 256)
-    $bpp    = $bytes[16]
-    if ($width -ne 800 -or $height -ne 600 -or $bpp -ne 32) {
-        $results += [PSCustomObject]@{ File = $t.Name; Pass = $false; Why = "${width}x${height}x${bpp}bpp (expect 800x600x32)" }
+    $width_t  = $bytes[12] + ($bytes[13] * 256)
+    $height_t = $bytes[14] + ($bytes[15] * 256)
+    $bpp      = $bytes[16]
+    if ($width_t -ne $Width -or $height_t -ne $Height -or $bpp -ne 32) {
+        $results += [PSCustomObject]@{ File = $t.Name; Pass = $false; Why = "${width_t}x${height_t}x${bpp}bpp (expect ${Width}x${Height}x32)" }
         continue
     }
     $imageData = $bytes[18..($bytes.Length - 1)]
@@ -121,7 +126,7 @@ foreach ($t in $tgas) {
         $results += [PSCustomObject]@{ File = $t.Name; Pass = $false; Why = "$pct% non-zero (<50%)" }
         continue
     }
-    $results += [PSCustomObject]@{ File = $t.Name; Pass = $true; Why = "${width}x${height}x${bpp}bpp, $pct% non-zero" }
+    $results += [PSCustomObject]@{ File = $t.Name; Pass = $true; Why = "${width_t}x${height_t}x${bpp}bpp, $pct% non-zero" }
 }
 
 $results | Format-Table -AutoSize | Out-String | Write-Host
@@ -135,7 +140,7 @@ if ($failed -gt 0) {
 }
 
 Write-Host "OK: GPU smoke PASS"
-Write-Host "  $($results.Count) TGA(s) at 800x600x32bpp, all with ≥50% non-zero pixels"
+Write-Host "  $($results.Count) TGA(s) at ${Width}x${Height}x32bpp, all with ≥50% non-zero pixels"
 Write-Host "  exit code 0, no crash"
 Write-Host "  out: $OutDir"
 exit 0
