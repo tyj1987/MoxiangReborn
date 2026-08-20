@@ -9,6 +9,7 @@
 
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cMsgBox.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 
 namespace mxh::ui {
@@ -58,6 +59,9 @@ public:
     using ConfirmationCallback = std::function<void(bool confirmed)>;
     bool showConfirmation(std::int32_t id, std::string message,
                           ConfirmationCallback callback);
+    using MessageCallback = std::function<void()>;
+    bool showMessage(std::int32_t id, std::string message,
+                     MessageCallback callback = {});
     bool hasModal() const noexcept { return m_windows.isModal(); }
 
     void render();
@@ -73,6 +77,10 @@ private:
     void focus(mxh::ui::cWindow* window) noexcept;
     void focusNext() noexcept;
     void collectClosedModal() noexcept;
+    mxh::ui::cMsgBox* createMessageBox(std::int32_t id,
+                                      std::string message,
+                                      mxh::ui::cMsgBox::MBType type,
+                                      mxh::ui::cMsgBox::MsgBoxCallback callback);
 
     mxh::ui::cWindowManager m_windows;
     mxh::ui::cWindow* m_focused = nullptr;

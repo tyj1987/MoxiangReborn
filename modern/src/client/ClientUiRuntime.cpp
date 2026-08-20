@@ -225,7 +225,29 @@ void ClientUiRuntime::render() {
 bool ClientUiRuntime::showConfirmation(std::int32_t id, std::string message,
                                        ConfirmationCallback callback) {
     if (!m_active || m_windows.isModal()) return false;
+    return createMessageBox(id, std::move(message),
+        mxh::ui::cMsgBox::MBType::YesNo,
+        [callback = std::move(callback)](mxh::ui::cMsgBox&,
+                                         mxh::ui::cMsgBox::MBResult result,
+                                         void*) {
+            if (callback) callback(result == mxh::ui::cMsgBox::MBResult::Yes);
+        }) != nullptr;
+}
 
+bool ClientUiRuntime::showMessage(std::int32_t id, std::string message,
+                                  MessageCallback callback) {
+    if (!m_active || m_windows.isModal()) return false;
+    return createMessageBox(id, std::move(message), mxh::ui::cMsgBox::MBType::Ok,
+        [callback = std::move(callback)](mxh::ui::cMsgBox&,
+                                         mxh::ui::cMsgBox::MBResult,
+                                         void*) {
+            if (callback) callback();
+        }) != nullptr;
+}
+
+mxh::ui::cMsgBox* ClientUiRuntime::createMessageBox(
+    std::int32_t id, std::string message, mxh::ui::cMsgBox::MBType type,
+    mxh::ui::cMsgBox::MsgBoxCallback callback) {
     constexpr std::int32_t width = 197;
     constexpr std::int32_t height = 150;
     auto box = std::make_unique<mxh::ui::cMsgBox>();
@@ -237,18 +259,13 @@ bool ClientUiRuntime::showConfirmation(std::int32_t id, std::string message,
         mxh::ui::cDialogLoader::LoadLegacyImage(31),
         mxh::ui::cDialogLoader::LoadLegacyImage(32),
         mxh::ui::cDialogLoader::LoadLegacyImage(33));
-    box->MsgBox(id, mxh::ui::cMsgBox::MBType::YesNo, message,
-        [callback = std::move(callback)](mxh::ui::cMsgBox&,
-                                         mxh::ui::cMsgBox::MBResult result,
-                                         void*) {
-            if (callback) callback(result == mxh::ui::cMsgBox::MBResult::Yes);
-        });
+    box->MsgBox(id, type, message, std::move(callback));
     auto* modal = box.get();
     focus(nullptr);
     m_pressedLeft = nullptr;
     m_windows.AddDialog(std::move(box));
     m_windows.SetModalDialog(modal);
-    return true;
+    return modal;
 }
 
 void ClientUiRuntime::collectClosedModal() noexcept {

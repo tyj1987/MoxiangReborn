@@ -134,3 +134,23 @@ TEST(ClientUiRuntime, ConfirmationOwnsModalInputAndCleansUpAfterEnter) {
     EXPECT_FALSE(runtime.hasModal());
     EXPECT_EQ(runtime.dialogs().size(), before);
 }
+
+TEST(ClientUiRuntime, MessageBoxClosesOnEscapeAndRunsCallbackOnce) {
+    const auto root = find_playdh_root();
+    ASSERT_FALSE(root.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    const auto before = runtime.dialogs().size();
+    int calls = 0;
+    ASSERT_TRUE(runtime.showMessage(9002, "Character deletion failed.",
+                                    [&] { ++calls; }));
+    ASSERT_TRUE(runtime.hasModal());
+
+    EXPECT_TRUE(runtime.onKey(true, 27));
+
+    EXPECT_EQ(calls, 1);
+    EXPECT_FALSE(runtime.hasModal());
+    EXPECT_EQ(runtime.dialogs().size(), before);
+}
