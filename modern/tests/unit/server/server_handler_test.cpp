@@ -458,6 +458,58 @@ TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
     EXPECT_TRUE(mock.sent_msgs.empty());
 }
 
+TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    const auto connection = mxh::net::make_connection_id(1001);
+    handler.register_session(connection, 3001, 450035712, 12, 5);
+    MockTcpSender map;
+    handler.set_map_server(&map, mxh::net::make_connection_id(42));
+
+    mxh::net::Message disconnect;
+    disconnect.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    disconnect.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectSyn);
+    handler.on_message(connection, disconnect);
+
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectAck));
+    EXPECT_TRUE(reply.last_message.payload.empty());
+    ASSERT_EQ(map.sent_msgs.size(), 1u);
+    EXPECT_EQ(map.sent_msgs[0].header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameOutSyn));
+    EXPECT_EQ(map.sent_msgs[0].header.object_id, 450035712u);
+    EXPECT_EQ(handler.user_level(connection), 0u);
+
+    handler.on_disconnect(connection, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(map.sent_msgs.size(), 1u);
+}
+
+TEST(AgentHandlerTest, DisconnectSynWithoutCharacterDoesNotTouchMap) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    const auto connection = mxh::net::make_connection_id(1002);
+    handler.register_session(connection, 3002, 0, 0);
+    MockTcpSender map;
+    handler.set_map_server(&map, mxh::net::make_connection_id(42));
+
+    mxh::net::Message disconnect;
+    disconnect.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    disconnect.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectSyn);
+    handler.on_message(connection, disconnect);
+
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectAck));
+    EXPECT_TRUE(map.sent_msgs.empty());
+}
+
 // ===========================================================================
 
 // ===========================================================================

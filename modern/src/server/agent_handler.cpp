@@ -203,7 +203,13 @@ void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
     std::cout << "[Agent] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << "\n";
     hsel_.on_disconnect(id);
-    // Clean up connection state.
+    clear_session_routes(id);
+}
+
+void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
+    // Clear logical session state while retaining transport ownership in the
+    // TcpServer. DisconnectSyn uses this after its ACK has been emitted; the
+    // later physical socket close is therefore idempotent.
     std::uint32_t removed_char_id = 0;
     std::uint16_t removed_map_num = 0;
     bool had_map_num = false;
@@ -500,6 +506,11 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
                                    const mxh::net::Message& msg) {
     auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
 
+    if (proto == mxh::proto::UserConnProtocol::DisconnectSyn) {
+        handle_legacy_disconnect(id);
+        return;
+    }
+
     if (use_legacy_framing_) {
         switch (proto) {
         case mxh::proto::UserConnProtocol::CharacterListSyn:
@@ -543,6 +554,21 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
         std::cout << "[Agent] unhandled userconn proto="
                   << static_cast<int>(msg.header.protocol) << "\n";
     }
+}
+
+void AgentHandler::handle_legacy_disconnect(mxh::net::ConnectionId id) {
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectAck);
+
+    // The ACK must be sent while the connection and its HSEL transport state
+    // are still alive. The client owns the subsequent physical disconnect.
+    reply_(id, ack);
+    clear_session_routes(id);
+    std::cout << "[Agent] DisconnectSyn acknowledged for conn="
+              << id.value << "\n";
 }
 
 // ============================================================================

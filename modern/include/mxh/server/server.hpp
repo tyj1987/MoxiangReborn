@@ -173,6 +173,7 @@ public:
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
+    void handle_legacy_disconnect(mxh::net::ConnectionId id);
     void handle_legacy_character_list(mxh::net::ConnectionId id,
                                       const mxh::net::Message& msg);
     void handle_legacy_name_check(mxh::net::ConnectionId id,
@@ -194,6 +195,7 @@ private:
 
     std::uint32_t get_user_id(mxh::net::ConnectionId id);
     std::uint32_t get_char_id(mxh::net::ConnectionId id);
+    void clear_session_routes(mxh::net::ConnectionId id);
 
 
     mxh::db::IDbAdapter& db_;
