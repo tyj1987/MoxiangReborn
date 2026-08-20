@@ -54,17 +54,12 @@ std::string sha256(const fs::path& path) {
 }
 
 fs::path resource_root(const fs::path& root) {
-    std::error_code ec;
-    std::vector<fs::path> candidates;
-    for (auto it = fs::recursive_directory_iterator(
-             root, fs::directory_options::skip_permission_denied, ec);
-         !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
-        if (!it->is_regular_file(ec) || it->path().filename() != L"SkillList.bin") continue;
-        auto pathText = it->path().parent_path().parent_path().wstring();
-        if (pathText.find(L"PlayDH") != std::wstring::npos) return it->path().parent_path();
-        candidates.push_back(it->path().parent_path());
-    }
-    return candidates.empty() ? fs::path{} : candidates.front();
+    return root / "modern" / "data" / "PlayDH" / "Resource";
+}
+
+fs::path recovered_server_root(const fs::path& root) {
+    return root / "modern" / "scratch" / "2026-08-20-source-recovery" /
+           "recovered" / "legacy-source" / "SWorking" / "Resource" / "Server";
 }
 
 fs::path repo_root() {
@@ -80,9 +75,7 @@ struct Ref {
     std::uintmax_t size;
 };
 
-// These are the immutable PlayDH reference bytes used by the 1:1 build.
-// Keep deploy/server variants in the separate manifest below; they are not
-// interchangeable with the original client resource set.
+// These are the immutable canonical PlayDH bytes used by the 1:1 build.
 const Ref refs[] = {
     {L"SkillList.bin",  "9b5d1fac408c610252e419f6c55b12e3bc38f9ed436fdebbdc01ec664da906b7", 769649},
     {L"MonsterList.bin", "fb7ee93e66ea9321577fe4a5031e98689d346b6fdbd5852e05d69ad7a952eebe", 142234},
@@ -115,30 +108,44 @@ TEST(MxhResourceReference, PlayDhFilesMatchReferenceManifest) {
     }
 }
 
-TEST(MxhResourceReference, DeployServerFilesMatchTheirReferenceManifest) {
+TEST(MxhResourceReference, PlayDhServerArchiveFilesMatchReferenceManifest) {
     const auto root = repo_root();
     ASSERT_FALSE(root.empty());
-    struct DeployRef { const char* name; const char* hash; };
-    const DeployRef deploy_refs[] = {
-        {"SkillList.bin", "6727903837346c783d9c6833d2bd9ab94d6fcba4e7e16d07d8bf75c280a2d280"},
-        {"MonsterList.bin", "c4a6174487c4407277710504199da0113580029d4a12c38bc88fc3b4bad3a96e"},
-        {"ItemList.bin", "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd"},
-        {"AvatarEquip.bin", "55c5e8d3c23d24f314ba1a8f703091a9b13f7ed949cd62ebf9ea660040206c08"},
-        {"CharacterExpPoint.bin", "ed581cbdd5ebf33e95c566c25355343a52ad3673066abc1b0118fb15c76cf90a"},
+    struct ServerRef { const char* name; const char* hash; std::uintmax_t size; };
+    const ServerRef server_refs[] = {
+        {"Monster_10.bin", "50033323336100da141443f3b563c62312586d149edf5cfdd78262b26d15cc01", 22766},
+        {"Monster_12.bin", "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966", 14},
+        {"PlayerxMonsterPoint.bin", "7560dd9f486a3d93f1e134f3eaf45ce2264443424526b8b0239928dd53936148", 16403},
     };
-    for (const auto& ref : deploy_refs) {
-        const auto path = root / "deploy" / "server" / "Distribute" / "Resource" / ref.name;
+    for (const auto& ref : server_refs) {
+        const auto path = resource_root(root) / "Server" / ref.name;
         ASSERT_TRUE(fs::exists(path)) << path.string();
+        ASSERT_EQ(fs::file_size(path), ref.size) << path.string();
         EXPECT_EQ(sha256(path), ref.hash) << path.string();
     }
 }
 
-TEST(MxhResourceReference, KnownPlayDhAndDeployVariantsAreNotSilentlyMixed) {
+TEST(MxhResourceReference, RecoveredRuntimeServerFilesMatchReferenceManifest) {
     const auto root = repo_root();
     ASSERT_FALSE(root.empty());
-    const auto play = resource_root(root) / L"SkillList.bin";
-    const auto deploy = root / "deploy" / "server" / "Distribute" / "Resource" / "SkillList.bin";
-    ASSERT_TRUE(fs::exists(play));
-    ASSERT_TRUE(fs::exists(deploy));
-    EXPECT_NE(sha256(play), sha256(deploy));
+    struct RuntimeRef { const char* name; const char* hash; std::uintmax_t size; };
+    const RuntimeRef runtime_refs[] = {
+        {"Monster_10.bin", "a029bd886b503a22af9032a9ae78ac1c37aaa06e058a9ce457caf163a2f01153", 22763},
+        {"Monster_12.bin", "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966", 14},
+        {"PlayerxMonsterPoint.bin", "32b11dc34ae0b16091c37ce31f0115e4f7aee518801957a4e12a1c1a80c9350d", 6644},
+    };
+    for (const auto& ref : runtime_refs) {
+        const auto path = recovered_server_root(root) / ref.name;
+        ASSERT_TRUE(fs::exists(path)) << "required VHD-recovered runtime resource missing: " << path.string();
+        ASSERT_EQ(fs::file_size(path), ref.size) << path.string();
+        EXPECT_EQ(sha256(path), ref.hash) << path.string();
+    }
+}
+
+TEST(MxhResourceReference, CanonicalRootIsExplicitAndDoesNotDependOnTreeOrder) {
+    const auto root = repo_root();
+    ASSERT_FALSE(root.empty());
+    const auto expected = root / "modern" / "data" / "PlayDH" / "Resource";
+    EXPECT_EQ(fs::weakly_canonical(resource_root(root)), fs::weakly_canonical(expected));
+    EXPECT_TRUE(fs::exists(expected / "SkillList.bin"));
 }

@@ -3,11 +3,24 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+
 namespace {
 using mxh::server::AISystem;
 using mxh::server::AiRegenDelayKind;
 using mxh::server::load_ai_group_list_bin;
 using mxh::server::parse_ai_group_list;
+
+std::filesystem::path recovered_runtime_server_resource(const char* name) {
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
+        const auto candidate = root / "modern" / "scratch" / "2026-08-20-source-recovery" /
+                               "recovered" / "legacy-source" / "SWorking" /
+                               "Resource" / "Server" / name;
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+    return {};
+}
 }
 
 TEST(AiGroupLoader, ParsesLegacyGroupFields) {
@@ -127,8 +140,9 @@ TEST(AiGroupLoader, RejectsUnknownCommands) {
 }
 
 TEST(AiGroupLoader, LoadsRealMonster10Bin) {
-    const auto list = load_ai_group_list_bin(
-        "../../../deploy/server/Distribute/Resource/Server/Monster_10.bin");
+    const auto path = recovered_runtime_server_resource("Monster_10.bin");
+    ASSERT_FALSE(path.empty()) << "required VHD-recovered Monster_10.bin missing";
+    const auto list = load_ai_group_list_bin(path);
     ASSERT_TRUE(list.has_value());
     EXPECT_EQ(list->groups.size(), 114u);
     EXPECT_EQ(list->spawn_count(), 228u);
@@ -142,8 +156,9 @@ TEST(AiGroupLoader, LoadsRealMonster10Bin) {
 }
 
 TEST(AiGroupLoader, LoadsRealEmptyMonster12Bin) {
-    const auto list = load_ai_group_list_bin(
-        "../../../deploy/server/Distribute/Resource/Server/Monster_12.bin");
+    const auto path = recovered_runtime_server_resource("Monster_12.bin");
+    ASSERT_FALSE(path.empty()) << "required VHD-recovered Monster_12.bin missing";
+    const auto list = load_ai_group_list_bin(path);
     ASSERT_TRUE(list.has_value());
     EXPECT_TRUE(list->groups.empty());
     EXPECT_EQ(list->spawn_count(), 0u);
@@ -155,8 +170,9 @@ TEST(AiGroupLoader, MissingBinReturnsNullopt) {
 
 TEST(AISystemGroupLoader, ReplacesStateTransactionally) {
     AISystem system;
-    ASSERT_TRUE(system.load_ai_group_list(
-        "../../../deploy/server/Distribute/Resource/Server/Monster_10.bin"));
+    const auto path = recovered_runtime_server_resource("Monster_10.bin");
+    ASSERT_FALSE(path.empty()) << "required VHD-recovered Monster_10.bin missing";
+    ASSERT_TRUE(system.load_ai_group_list(path));
     EXPECT_EQ(system.group_list().groups.size(), 114u);
     EXPECT_EQ(system.group_list().spawn_count(), 228u);
     EXPECT_FALSE(system.load_ai_group_list("missing-monster.bin"));

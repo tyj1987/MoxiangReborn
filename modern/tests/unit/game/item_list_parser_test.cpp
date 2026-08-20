@@ -232,29 +232,23 @@ std::error_code ec;
 std::filesystem::remove(path, ec);
 EXPECT_FALSE(res.error_message.empty());
 }
-// End-to-end test against the real PlayDH/Resource/ItemList.bin.
-// GTEST_SKIPs if the real .bin is missing so CI can still pass.
-
 namespace {
-// The CJK path is stored as bytes via wide-char LR"()".
-const std::filesystem::path kReal =
-LR"(C:\\moxiang\\墨香【源码配套资源】\\PlayDH\\Resource\\ItemList.bin)";
-const std::string kTemp =
-"C:/Users/User/AppData/Local/Temp/mxh_item_list_real_test.bin";
+std::filesystem::path canonical_item_list() {
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" / "Resource" / "ItemList.bin";
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+    return {};
+}
 const std::uintmax_t kExpectedSize = 1510488;
 }
 
 TEST(ItemListParser, RealItemListBinHasNoParseErrors) {
-if (!std::filesystem::exists(kReal)) {
-GTEST_SKIP() << "real ItemList.bin missing";
-}
-// Copy out of the CJK folder so MSVC std::ifstream does not throw
-// system_error(1113, "No mapping for the Unicode character...").
-std::error_code ec;
-std::filesystem::copy(kReal, kTemp,
-    std::filesystem::copy_options::overwrite_existing, ec);
-ASSERT_FALSE(ec) << ec.message();
-auto result = load_item_list(kTemp);
+const auto path = canonical_item_list();
+ASSERT_FALSE(path.empty()) << "canonical PlayDH ItemList.bin missing";
+ASSERT_EQ(std::filesystem::file_size(path), kExpectedSize);
+auto result = load_item_list(path.string());
 EXPECT_TRUE(result.error_message.empty()) << result.error_message;
 EXPECT_EQ(result.parse_errors, 0u);
 EXPECT_GE(result.items.size(), 1u);

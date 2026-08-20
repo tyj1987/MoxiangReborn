@@ -21,18 +21,13 @@ std::string table_text() {
     return text;
 }
 
-std::filesystem::path deploy_table_path() {
+std::filesystem::path recovered_runtime_table_path() {
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
-        if (!std::filesystem::exists(root / "modern") || !std::filesystem::exists(root / "deploy")) continue;
-        std::error_code error;
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(
-                 root, std::filesystem::directory_options::skip_permission_denied, error)) {
-            if (error) break;
-            if (!entry.is_regular_file(error) || entry.path().filename() != L"PlayerxMonsterPoint.bin") continue;
-            const auto parent = entry.path().parent_path().parent_path().parent_path().filename().wstring();
-            if (parent == L"Distribute") return entry.path();
-        }
+        const auto candidate = root / "modern" / "scratch" / "2026-08-20-source-recovery" /
+                               "recovered" / "legacy-source" / "SWorking" /
+                               "Resource" / "Server" / "PlayerxMonsterPoint.bin";
+        if (std::filesystem::exists(candidate)) return candidate;
     }
     return {};
 }
@@ -142,9 +137,9 @@ TEST(PlayerMonsterPoint, RejectsMissingOrInvalidIndexes) {
     EXPECT_THROW(table.get(1, 10), std::out_of_range);
 }
 
-TEST(PlayerMonsterPoint, LoadsDeployBinaryWhenAvailable) {
-    const auto path = deploy_table_path();
-    if (path.empty()) GTEST_SKIP() << "deploy PlayerxMonsterPoint.bin not available";
+TEST(PlayerMonsterPoint, LoadsRecoveredRuntimeBinary) {
+    const auto path = recovered_runtime_table_path();
+    ASSERT_FALSE(path.empty()) << "required VHD-recovered PlayerxMonsterPoint.bin missing";
     const auto table = mxh::server::PlayerMonsterPointTable::load_from_bin(path);
     EXPECT_EQ(table.get(1, -6), 0u);
     EXPECT_EQ(table.get(1, 0), 15u);

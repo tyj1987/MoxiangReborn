@@ -962,7 +962,7 @@ TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
     ASSERT_TRUE(db->execute("CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY,idempotency_key TEXT UNIQUE,character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,inventory_slot INTEGER,created_by TEXT,reason TEXT,created_at TEXT,claimed_at TEXT)").ok());
     ASSERT_TRUE(db->execute("INSERT INTO modern_item_grant VALUES (1,'once',123,8000,3,'pending',NULL,'gm','test',CURRENT_TIMESTAMP,NULL)").ok());
     ReplySpy reply; mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
-    const std::string item_path = std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/ItemList.bin";
+    const std::string item_path = std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/ItemList.bin";
     handler.load_item_list(item_path);
     mxh::net::Message game_in; game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -1209,7 +1209,7 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
 TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     MockDbAdapter db; std::vector<mxh::net::Message> replies;
     mxh::server::MapHandler handler(db, 7, [&](mxh::net::ConnectionId, const auto& message) { replies.push_back(message); });
-    const std::string exp_path = std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/CharacterExpPoint.bin";
+    const std::string exp_path = std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin";
     handler.load_experience_curve(exp_path);
     mxh::net::Message game_in; game_in.header.object_id = 123; game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
@@ -1230,7 +1230,7 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
     ReplySpy reply;
     {
         mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
-        handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/CharacterExpPoint.bin");
+        handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
         mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); handler.on_message(mxh::net::make_connection_id(55), in);
         mxh::game::MonsterInstance monster; monster.object_id=99001; monster.max_life=1; monster.current_life=1; monster.exp_reward=1000000; ASSERT_TRUE(handler.add_monster_instance(monster));
         (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
@@ -2088,7 +2088,7 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
         "INSERT INTO character_info VALUES(123,'QuestHero',0,1,1,1,1,1,7);"
         "INSERT INTO modern_player_state VALUES(123,100,1,0,'now');").ok());
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/CharacterExpPoint.bin");
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
     const std::string quest_text =
         "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 77 1 *GIVEMONEY 50 *TAKEEXP 25 *GIVEITEM 8000 2 *ENDQUEST 1 } }";
     const auto qpath = write_temp_bin(synthesize_dealitem_bin(quest_text));
@@ -2106,8 +2106,14 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndAck));
     mxh::db::ResultSet state; const std::vector<mxh::db::Bind> none;
-    ASSERT_TRUE(db.query("SELECT money,exp FROM modern_player_state WHERE player_id=123",none,state).ok());
-    ASSERT_EQ(state.rows.size(),1u); EXPECT_EQ(std::get<std::int64_t>(state.rows[0][0]),150); EXPECT_EQ(std::get<std::int64_t>(state.rows[0][1]),35);
+    ASSERT_TRUE(db.query("SELECT money,level,exp FROM modern_player_state WHERE player_id=123",none,state).ok());
+    ASSERT_EQ(state.rows.size(),1u);
+    EXPECT_EQ(std::get<std::int64_t>(state.rows[0][0]),150);
+    // Legacy CPlayer::SetPlayerExpPoint subtracts the level threshold on
+    // level-up.  Monster (10) + quest (25) crosses level-1's 20-point
+    // threshold, so the persisted current-level experience is 15 at level 2.
+    EXPECT_EQ(std::get<std::int64_t>(state.rows[0][1]),2);
+    EXPECT_EQ(std::get<std::int64_t>(state.rows[0][2]),15);
     mxh::db::ResultSet items; ASSERT_TRUE(db.query("SELECT item_idx,item_param FROM modern_player_item WHERE player_id=123",none,items).ok());
     ASSERT_EQ(items.rows.size(),1u); EXPECT_EQ(std::get<std::int64_t>(items.rows[0][0]),8000); EXPECT_EQ(std::get<std::int64_t>(items.rows[0][1]),2);
     mxh::db::ResultSet quest; ASSERT_TRUE(db.query("SELECT state FROM modern_player_quest_log WHERE player_id=123 AND quest_id=99",none,quest).ok());
