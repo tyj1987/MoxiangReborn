@@ -39,6 +39,9 @@
 
 #pragma once
 
+#include "CharMakeOptions.hpp"
+#include "ClientUiRuntime.hpp"
+
 #include "CGameState.hpp"
 #include "CCharSelectState.hpp"  // LoginResult
 
@@ -47,12 +50,17 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+
+namespace mxh::ui {
+class cEditBox;
+}
 
 namespace mxh::client {
 
@@ -73,6 +81,44 @@ struct CharacterMakeParams {
     float        height     = 1.0f;
     float        width      = 1.0f;
 };
+
+class CharacterMakeFormModel {
+public:
+    bool initialize(const CharMakeOptionCatalog& catalog) noexcept;
+    bool rotate(CharMakeOptionCategory category, int direction) noexcept;
+    std::size_t selectedIndex(CharMakeOptionCategory category) const noexcept;
+    const CharMakeOption* selectedOption(
+        CharMakeOptionCategory category) const noexcept;
+    const CharacterMakeParams& params() const noexcept { return m_params; }
+    CharacterMakeParams& params() noexcept { return m_params; }
+
+private:
+    bool apply(CharMakeOptionCategory category, std::size_t index) noexcept;
+
+    const CharMakeOptionCatalog* m_catalog = nullptr;
+    std::array<std::size_t, 10> m_indices{};
+    CharacterMakeParams m_params;
+};
+
+enum class CharMakeUiCommandKind : std::uint8_t {
+    None,
+    Rotate,
+    CheckName,
+    Submit,
+    Cancel,
+};
+
+struct CharMakeUiCommand {
+    CharMakeUiCommandKind kind = CharMakeUiCommandKind::None;
+    CharMakeOptionCategory category = CharMakeOptionCategory::Sex;
+    int direction = 0;
+};
+
+CharMakeUiCommand resolve_char_make_ui_command(
+    const ClientUiActivation& activation) noexcept;
+
+std::vector<std::uint8_t> legacy_character_name_check_payload(
+    std::string_view name);
 
 // Build the 59-byte legacy CHARACTERMAKEINFO payload (after MSGBASE) that
 // agent_handler.cpp::handle_legacy_character_make parses:
@@ -129,23 +175,38 @@ public:
     // M-R7.1 (G3 bug fix 2026-08-20): host reads the loaded cDialog
     // tree to render the 1:1 UI (CharMakeNewDlg.bin — 49 children).
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
-        return m_uiDialogs;
+        return m_uiRuntime.dialogs();
     }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
 
     // Submit the creation form: validates + builds the 59-byte
     // CHARACTERMAKEINFO and sends CharacterMakeSyn.  Safe to call once
     // the agent connection is up; returns false if not connected or an
     // identical submit is already in flight.
     bool SubmitCharacter(const CharacterMakeParams& params);
+    bool SubmitCurrentForm();
+    bool CheckCurrentName();
+    bool CancelCreation();
+    bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    bool OnMouseMove(std::int32_t x, std::int32_t y);
+    bool OnKeyEvent(bool down, std::uint32_t key);
+    bool OnChar(std::uint32_t ch);
 
     // Inspectors.
     bool        is_connected() const noexcept;
     bool        is_submitted() const noexcept { return m_makeSent; }
     bool        is_failed() const noexcept { return m_failed; }
     const std::string& failure_reason() const noexcept { return m_failureReason; }
+    const CharacterMakeFormModel& form_model() const noexcept { return m_formModel; }
+    std::optional<bool> name_available() const noexcept { return m_nameAvailable; }
 
 private:
     void send_make_syn();
+    bool handle_ui_activation(const ClientUiActivation& activation);
+    void refresh_option_text(CharMakeOptionCategory category);
+    void refresh_sex_visibility();
+    mxh::ui::cEditBox* name_edit() const noexcept;
+    void invalidate_name_check() noexcept;
     void fail_with(const std::string& reason);
 
     CEngine*                 m_pEngine = nullptr;  // not owned
@@ -153,9 +214,13 @@ private:
     LoginResult              m_login;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
-    // M-R7.1 (G3 bug fix 2026-08-20): load CharMakeNewDlg.bin cDialog
-    // tree at Start() so the user sees the 1:1 UI shape (49 children).
-    std::vector<std::unique_ptr<mxh::ui::cDialog>> m_uiDialogs;
+    ClientUiRuntime          m_uiRuntime;
+    std::optional<CharMakeOptionCatalog> m_optionCatalog;
+    CharacterMakeFormModel  m_formModel;
+    std::optional<bool>      m_nameAvailable;
+    std::string              m_checkedName;
+    bool                     m_nameCheckPending = false;
+    bool                     m_cancelSent = false;
 
     CharacterMakeParams      m_pending;     // captured by SubmitCharacter
     bool                     m_started  = false;

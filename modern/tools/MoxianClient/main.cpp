@@ -892,6 +892,7 @@ void renderFrame(HWND h) {
                 // child rects so the user sees the 1:1 UI shape
                 // instead of an empty bar.
                 if (g_charMakeState) {
+                    g_charMakeState->ui_runtime().render();
                     const auto& dlgs = g_charMakeState->ui_dialogs();
                     if (!dlgs.empty()) {
                         for (const auto& d : dlgs) {
@@ -980,14 +981,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
     case WM_KEYDOWN:
-        // ESC quits in A.1 (the legacy engine uses ESC to open the menu;
-        // for the skeleton we use it as the "exit" hotkey).
-        if (w == VK_ESCAPE) {
-            mxh::client::g_running = false;
-            PostQuitMessage(0);
-            return 0;
-        }
         if (g_loginUi.visible) {
+            if (w == VK_ESCAPE) {
+                mxh::client::g_running = false;
+                PostQuitMessage(0);
+                return 0;
+            }
             if (w == VK_TAB) g_loginUi.editingPassword = !g_loginUi.editingPassword;
             else if (w == VK_RETURN && !g_loginUi.username.empty() &&
                      !g_loginUi.password.empty()) g_loginUi.submitRequested = true;
@@ -1003,6 +1002,15 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             g_charSelectState->OnKeyEvent(true, static_cast<std::uint32_t>(w))) {
             return 0;
         }
+        if (g_charMakeState &&
+            g_charMakeState->OnKeyEvent(true, static_cast<std::uint32_t>(w))) {
+            return 0;
+        }
+        if (w == VK_ESCAPE) {
+            mxh::client::g_running = false;
+            PostQuitMessage(0);
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnKeyEvent(true, static_cast<std::uint32_t>(w));
         }
@@ -1010,6 +1018,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     case WM_KEYUP:
         if (g_charSelectState &&
             g_charSelectState->OnKeyEvent(false, static_cast<std::uint32_t>(w))) {
+            return 0;
+        }
+        if (g_charMakeState &&
+            g_charMakeState->OnKeyEvent(false, static_cast<std::uint32_t>(w))) {
             return 0;
         }
         if (g_inputTarget) {
@@ -1026,6 +1038,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         if (g_charSelectState &&
             g_charSelectState->OnChar(static_cast<std::uint32_t>(w))) {
+            return 0;
+        }
+        if (g_charMakeState &&
+            g_charMakeState->OnChar(static_cast<std::uint32_t>(w))) {
             return 0;
         }
         if (g_inputTarget) {
@@ -1056,6 +1072,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 true, m == WM_LBUTTONDOWN, x, y)) {
             return 0;
         }
+        if (g_charMakeState &&
+            g_charMakeState->OnMouseButton(
+                true, m == WM_LBUTTONDOWN, x, y)) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 true, m == WM_LBUTTONDOWN,
@@ -1077,6 +1098,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 static_cast<std::int32_t>(logical->y))) {
             return 0;
         }
+        if (g_charMakeState &&
+            g_charMakeState->OnMouseButton(
+                false, m == WM_RBUTTONDOWN,
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 false, m == WM_RBUTTONDOWN,
@@ -1093,6 +1121,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (!logical.has_value()) return 0;
         if (g_charSelectState &&
             g_charSelectState->OnMouseMove(
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            return 0;
+        }
+        if (g_charMakeState &&
+            g_charMakeState->OnMouseMove(
                 static_cast<std::int32_t>(logical->x),
                 static_cast<std::int32_t>(logical->y))) {
             return 0;

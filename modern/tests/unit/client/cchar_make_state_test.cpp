@@ -142,6 +142,61 @@ TEST(CharMakeWire, AppearanceBoundaries) {
     EXPECT_EQ(pl[20], 0xDEu);
 }
 
+TEST(CharMakeWire, NameCheckPayloadIsLegacyNameField) {
+    const auto payload = mxh::client::legacy_character_name_check_payload(
+        "1234567890ABCDEFGHIJKLMNOP");
+    ASSERT_EQ(payload.size(), 17u);
+    EXPECT_EQ(std::memcmp(payload.data(), "1234567890ABCDEF", 16), 0);
+    EXPECT_EQ(payload[16], 0u);
+}
+
+TEST(CharacterMakeFormModel, UsesResourceDefaultsAndWrapsSelections) {
+    std::string error;
+    const auto catalog = mxh::client::CharMakeOptionCatalog::load(
+        "C:/moxiang/modern/data/PlayDH", &error);
+    ASSERT_TRUE(catalog.has_value()) << error;
+    mxh::client::CharacterMakeFormModel model;
+    ASSERT_TRUE(model.initialize(*catalog));
+    EXPECT_EQ(model.params().sex_type, 0u);
+    EXPECT_EQ(model.params().hair_type, 0u);
+    EXPECT_EQ(model.params().face_type, 0u);
+    EXPECT_EQ(model.params().start_area, 17u);
+    EXPECT_EQ(model.params().weared_item_idx[1], 11000u);
+    EXPECT_EQ(model.params().weared_item_idx[2], 23000u);
+    EXPECT_EQ(model.params().weared_item_idx[3], 27000u);
+
+    ASSERT_TRUE(model.rotate(mxh::client::CharMakeOptionCategory::Weapon, 1));
+    EXPECT_EQ(model.params().weared_item_idx[1], 13000u);
+    ASSERT_TRUE(model.rotate(mxh::client::CharMakeOptionCategory::Weapon, -1));
+    EXPECT_EQ(model.params().weared_item_idx[1], 11000u);
+    ASSERT_TRUE(model.rotate(mxh::client::CharMakeOptionCategory::Sex, 1));
+    EXPECT_EQ(model.params().sex_type, 1u);
+    EXPECT_EQ(model.params().hair_type, 0u);
+    EXPECT_EQ(model.params().face_type, 0u);
+}
+
+TEST(CharMakeUiCommand, ResolvesLegacyCreationControls) {
+    using Kind = mxh::client::CharMakeUiCommandKind;
+    using Category = mxh::client::CharMakeOptionCategory;
+    mxh::client::ClientUiActivation activation;
+    activation.legacy_id = "CMID_WeaponRight";
+    auto command = mxh::client::resolve_char_make_ui_command(activation);
+    EXPECT_EQ(command.kind, Kind::Rotate);
+    EXPECT_EQ(command.category, Category::Weapon);
+    EXPECT_EQ(command.direction, 1);
+
+    activation = {};
+    activation.legacy_func = "CM_OverlapCheckBtnFunc";
+    EXPECT_EQ(mxh::client::resolve_char_make_ui_command(activation).kind,
+              Kind::CheckName);
+    activation.legacy_func = "CM_CharMakeBtnFunc";
+    EXPECT_EQ(mxh::client::resolve_char_make_ui_command(activation).kind,
+              Kind::Submit);
+    activation.legacy_func = "CM_CharCancelBtnFunc";
+    EXPECT_EQ(mxh::client::resolve_char_make_ui_command(activation).kind,
+              Kind::Cancel);
+}
+
 // -------------------------------------------------------------------------
 // CCharMake state lifecycle (mirrors the shared stub contract).
 // -------------------------------------------------------------------------
