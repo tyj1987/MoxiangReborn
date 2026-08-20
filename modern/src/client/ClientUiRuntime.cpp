@@ -152,12 +152,15 @@ ClientUiInputResult ClientUiRuntime::onMouseButton(
     mxh::ui::cWindow* pressed = m_pressedLeft;
     m_pressedLeft = nullptr;
     if (!pressed) return result;
-    pressed->ActionEvent(x, y, 0u);
+    const auto event = pressed->ActionEvent(x, y, 0u);
     result.consumed = true;
     if (pressed == hit) {
         if (auto* button = dynamic_cast<mxh::ui::cButton*>(pressed);
-            button && button->consumeClickInside()) {
-            result.activation = activation_for(*button);
+            button) {
+            const bool clicked = button->consumeClickInside() ||
+                event == static_cast<std::uint32_t>(
+                    mxh::ui::cWindow::WindowEvent::LButtonClick);
+            if (clicked) result.activation = activation_for(*button);
         }
     }
     return result;
