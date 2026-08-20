@@ -30,6 +30,7 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -44,6 +45,8 @@ struct Args {
     std::uint16_t port       = 7001;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path    = "modern/build/runtime/moxian_agent.db";
+    std::string   db_env;
+    std::string   bind_address = "0.0.0.0";
     bool          use_legacy = false;
     bool          use_hsel   = false;
     // Phase 9: optional MapServer connection for GameIn forwarding.
@@ -60,8 +63,12 @@ Args parse_args(int argc, char** argv) {
             a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--db-env" && i + 1 < argc)
+            a.db_env = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
+        else if (s == "--bind-address" && i + 1 < argc)
+            a.bind_address = argv[++i];
         else if (s == "--legacy")
             a.use_legacy = true;
         else if (s == "--use-hsel")
@@ -84,7 +91,9 @@ Args parse_args(int argc, char** argv) {
             std::cout << "Usage: mxh_agent_server [options]\n"
                       << "  --port N              listen port (default 7001)\n"
                       << "  --db PATH             db path (SQLite file or MSSQL DSN)\n"
+                      << "  --db-env NAME         read database path/DSN from an environment variable\n"
                       << "  --backend NAME        'sqlite' (default) or 'mssql_odbc'\n"
+                      << "  --bind-address IP     listen interface (default 0.0.0.0)\n"
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n"
                       << "  --default-map N       map assigned to newly created characters\n";
@@ -192,6 +201,16 @@ private:
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
 
+    if (!args.db_env.empty()) {
+        const auto* value = std::getenv(args.db_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::cerr << "FATAL: database environment variable is not set: "
+                      << args.db_env << "\n";
+            return 1;
+        }
+        args.db_path = value;
+    }
+
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
 
@@ -206,7 +225,8 @@ int main(int argc, char** argv) {
               << "  locale   = " << locale_name() << "\n"
               << "  port     = " << args.port << "\n"
               << "  db.bk    = " << args.db_backend << "\n"
-              << "  db.path  = " << args.db_path << "\n"
+              << "  db.source= " << (args.db_env.empty() ? "command-line/path" : "environment") << "\n"
+              << "  bind     = " << args.bind_address << "\n"
               << "  legacy   = " << (args.use_legacy ? "YES" : "no") << "\n";
 
     // 1. Connect to database. Backend selected via --backend (sqlite
@@ -287,14 +307,15 @@ int main(int argc, char** argv) {
     server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
-    scfg.bind_address = "0.0.0.0";
+    scfg.bind_address = args.bind_address;
     scfg.use_legacy_framing = args.use_legacy;
     auto sr = server.start(scfg);
     if (sr != mxh::net::NetError::Ok) {
         std::cerr << "FATAL: server start: " << mxh::net::to_string(sr) << "\n";
         return 1;
     }
-    std::cout << "[main] AgentServer[" << locale_name() << "] listening on 0.0.0.0:"
+    std::cout << "[main] AgentServer[" << locale_name() << "] listening on "
+              << args.bind_address << ":"
               << args.port << "\n";
 
     // Phase 9: Connect to MapServer if specified.

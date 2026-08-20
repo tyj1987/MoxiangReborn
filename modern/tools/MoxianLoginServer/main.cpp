@@ -9,8 +9,8 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -18,14 +18,8 @@
 #include <thread>
 #include <unordered_map>
 
-// File-based logging for background process diagnostics.
-static std::ofstream g_log;
 static void log_file(const std::string& msg) {
-    if (!g_log.is_open()) {
-        g_log.open("d:/墨香全套源代码（源码+资源+客户端+服务端+教程）/modern/scratch/login_server.log",
-                   std::ios::app);
-    }
-    g_log << msg << std::endl;
+    std::clog << msg << '\n';
 }
 
 namespace {
@@ -34,6 +28,8 @@ struct Args {
     std::uint16_t port = 6001;
     std::string db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string db_path = "modern/build/runtime/moxian.db";
+    std::string db_env;
+    std::string bind_address = "0.0.0.0";
     std::string agent_addr = "127.0.0.1";
     std::uint16_t agent_port = 7001;
     bool init_schema = false;
@@ -49,8 +45,12 @@ Args parse_args(int argc, char** argv) {
             a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--db-env" && i + 1 < argc)
+            a.db_env = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
+        else if (s == "--bind-address" && i + 1 < argc)
+            a.bind_address = argv[++i];
         else if (s == "--agent-addr" && i + 1 < argc)
             a.agent_addr = argv[++i];
         else if (s == "--agent-port" && i + 1 < argc)
@@ -65,8 +65,10 @@ Args parse_args(int argc, char** argv) {
             std::cout << "Usage: mxh_login_server [options]\n"
                       << "  --port N          listen port (default 6001)\n"
                       << "  --db PATH         database path (SQLite file or MSSQL DSN)\n"
+                      << "  --db-env NAME     read database path/DSN from an environment variable\n"
                       << "  --backend NAME    'sqlite' (default) or 'mssql_odbc'\n"
-                      << "  --agent-addr ADDR AgentServer address\n"
+                      << "  --bind-address IP listen interface (default 0.0.0.0)\n"
+                      << "  --agent-addr ADDR advertised AgentServer address in LoginAck\n"
                       << "  --agent-port N    AgentServer port\n"
                       << "  --init-schema     create tables before serving\n"
                       << "  --legacy          enable 4DyuchiNET legacy protocol framing\n"
@@ -127,13 +129,24 @@ struct ReplyQueue {
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
 
+    if (!args.db_env.empty()) {
+        const auto* value = std::getenv(args.db_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::cerr << "FATAL: database environment variable is not set: "
+                      << args.db_env << "\n";
+            return 1;
+        }
+        args.db_path = value;
+    }
+
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
 
     std::cout << "[main] Moxian LoginServer (Phase 4 demo)\n"
               << "  port       = " << args.port << "\n"
               << "  db.backend = " << args.db_backend << "\n"
-              << "  db.path    = " << args.db_path << "\n"
+              << "  db.source  = " << (args.db_env.empty() ? "command-line/path" : "environment") << "\n"
+              << "  bind       = " << args.bind_address << "\n"
               << "  agent      = " << args.agent_addr << ":" << args.agent_port << "\n"
               << "  legacy     = " << (args.use_legacy ? "yes (4DyuchiNET)" : "no (modern)") << "\n";
 
@@ -151,7 +164,6 @@ int main(int argc, char** argv) {
     }
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect (backend='" << db_cfg.backend
-                       << "' path='" << db_cfg.path
                        << "'): " << cr.error_message << "\n"; return 1; }
 
     // 2. Optionally create schema.
@@ -209,14 +221,15 @@ INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderl
     server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
-    scfg.bind_address = "0.0.0.0";
+    scfg.bind_address = args.bind_address;
     scfg.use_legacy_framing = args.use_legacy;
     auto sr = server.start(scfg);
     if (sr != mxh::net::NetError::Ok) {
         std::cerr << "FATAL: server start: " << mxh::net::to_string(sr) << "\n";
         return 1;
     }
-    std::cout << "[main] LoginServer listening on 0.0.0.0:" << args.port << "\n";
+    std::cout << "[main] LoginServer listening on " << args.bind_address
+              << ":" << args.port << "\n";
 
     // 4. Main loop: drain reply queue + sleep.
     while (g_running.load()) {

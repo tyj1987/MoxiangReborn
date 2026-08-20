@@ -28,6 +28,7 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -43,6 +44,8 @@ struct Args {
     std::uint16_t map_num = 0;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path = "modern/build/runtime/moxian_map.db";
+    std::string   db_env;
+    std::string   bind_address = "0.0.0.0";
     std::string   resource_root;
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
@@ -60,8 +63,12 @@ Args parse_args(int argc, char** argv) {
             a.map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--db-env" && i + 1 < argc)
+            a.db_env = argv[++i];
         else if (s == "--resource-root" && i + 1 < argc)
             a.resource_root = argv[++i];
+        else if (s == "--bind-address" && i + 1 < argc)
+            a.bind_address = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
         else if (s == "--no-legacy")
@@ -77,6 +84,8 @@ Args parse_args(int argc, char** argv) {
                       << "  --port N      listen port (default 8001)\n"
                       << "  --map N       map number (default 0)\n"
                       << "  --db PATH     db path (SQLite file or MSSQL DSN/conn string)\n"
+                      << "  --db-env NAME read database path/DSN from an environment variable\n"
+                      << "  --bind-address IP  listen interface (default 0.0.0.0)\n"
                       << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
@@ -142,6 +151,16 @@ struct ReplyQueue {
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
 
+    if (!args.db_env.empty()) {
+        const auto* value = std::getenv(args.db_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::cerr << "FATAL: database environment variable is not set: "
+                      << args.db_env << "\n";
+            return 1;
+        }
+        args.db_path = value;
+    }
+
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
 
@@ -151,7 +170,9 @@ int main(int argc, char** argv) {
               << "  locale   = " << locale_name() << "\n"
               << "  port     = " << args.port << "\n"
               << "  map      = " << args.map_num << "\n"
-              << "  db       = " << args.db_path << "\n"
+              << "  db.bk    = " << args.db_backend << "\n"
+              << "  db.source= " << (args.db_env.empty() ? "command-line/path" : "environment") << "\n"
+              << "  bind     = " << args.bind_address << "\n"
               << "  legacy   = " << (args.use_legacy ? "YES" : "no") << "\n";
 
     // 1. Connect to database.
@@ -262,7 +283,7 @@ int main(int argc, char** argv) {
     server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
-    scfg.bind_address = "0.0.0.0";
+    scfg.bind_address = args.bind_address;
     scfg.use_legacy_framing = args.use_legacy;
     auto sr = server.start(scfg);
     if (sr != mxh::net::NetError::Ok) {
@@ -270,7 +291,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::cout << "[main] MapServer[" << locale_name() << "] map=" << args.map_num
-              << " listening on 0.0.0.0:" << args.port << "\n";
+              << " listening on " << args.bind_address << ":" << args.port << "\n";
 
     // 3. Main loop: drain reply queue + sleep.
     auto last_ai_tick = std::chrono::steady_clock::now();
