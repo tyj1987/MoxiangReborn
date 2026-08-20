@@ -12,6 +12,7 @@
 
 #include "mxh/log/mlog.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 
 namespace mxh::client {
@@ -71,6 +72,16 @@ legacy_character_select_syn_payload(std::uint16_t channel) {
     };
 }
 
+std::vector<std::uint8_t>
+legacy_character_remove_syn_payload(std::uint32_t character_id) {
+    return {
+        static_cast<std::uint8_t>(character_id & 0xFF),
+        static_cast<std::uint8_t>((character_id >> 8) & 0xFF),
+        static_cast<std::uint8_t>((character_id >> 16) & 0xFF),
+        static_cast<std::uint8_t>((character_id >> 24) & 0xFF)
+    };
+}
+
 std::optional<std::vector<CharacterSlot>>
 parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     // Layout (CHINA locale, no _CRYPTCHECK_):
@@ -81,15 +92,14 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     // = 889 bytes total.
     if (payload.size() < 4) return std::nullopt;
 
-    // Each BaseObjectInfo slot starts with [chrid: u32][user_id: u32][name...].
-    // We only need chrid per slot.  Reading just the first 4 bytes of each
-    // 35-byte slot is enough; if the slot block would read past the end
-    // we return what we have so far (defensive — the modern server
-    // always writes the full 889B).
+    // Each BaseObjectInfo slot starts with
+    // [chrid: u32][user_id: u32][name: char[17]]...
     constexpr std::size_t kMaxSlots   = 5;
     constexpr std::size_t kBaseOff    = 14;             // after CharNum + Standing
     constexpr std::size_t kSlotSize   = 35;
     constexpr std::size_t kChridOff   = 0;              // within a slot
+    constexpr std::size_t kNameOff    = 8;
+    constexpr std::size_t kNameSize   = 17;
 
     std::vector<CharacterSlot> out(kMaxSlots);
     const std::size_t avail_for_slots = (payload.size() >= kBaseOff
@@ -102,6 +112,14 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
         std::memcpy(&chrid, payload.data() + base, 4);
         out[i].chrid = chrid;
         out[i].valid = (chrid != 0);
+        if (out[i].valid) {
+            const auto* name_begin = payload.data() + base + kNameOff;
+            const auto* name_end = std::find(
+                name_begin, name_begin + kNameSize, std::uint8_t{0});
+            out[i].name.assign(
+                reinterpret_cast<const char*>(name_begin),
+                reinterpret_cast<const char*>(name_end));
+        }
     }
     return out;
 }
@@ -199,7 +217,9 @@ void CCharSelectState::Release() {
     m_started       = false;
     m_listReceived  = false;
     m_selectSent    = false;
+    m_removeSent    = false;
     m_listSynSent   = false;
+    m_removeChrid   = 0;
     m_releasing     = false;
     m_failed        = false;
     m_failureReason.clear();
@@ -280,6 +300,7 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
                                             : (m_characters[0].valid
                                                ? m_characters[0].chrid : 0u)));
             auto_select_first();
+            refresh_character_slot_ui();
             break;
         }
         case UserConnProtocol::CharacterListNack: {
@@ -297,6 +318,27 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
         }
         case UserConnProtocol::CharacterSelectNack: {
             fail_with("CharacterSelectNack received (no matching character in DB)");
+            break;
+        }
+        case UserConnProtocol::CharacterRemoveAck: {
+            apply_character_remove_ack();
+            break;
+        }
+        case UserConnProtocol::CharacterRemoveNack: {
+            std::uint32_t reason = 0;
+            if (msg.payload.size() >= sizeof(reason)) {
+                std::memcpy(&reason, msg.payload.data(), sizeof(reason));
+            }
+            m_removeSent = false;
+            m_removeChrid = 0;
+            const auto message = reason == 3
+                ? "Character cannot be deleted right now."
+                : "Character deletion failed.";
+            const auto message_id = reason == 3 ? 995 : 25;
+            if (!m_uiRuntime.showMessage(message_id, message)) {
+                MLOG_WARN("CCharSelectState: CharacterRemoveNack reason=%u",
+                          static_cast<unsigned>(reason));
+            }
             break;
         }
         default:
@@ -353,6 +395,29 @@ void CCharSelectState::send_list_syn() {
     MLOG_INFO("CCharSelectState: sent CharacterListSyn (8B legacy payload)");
 }
 
+bool CCharSelectState::send_remove_syn(std::uint32_t character_id) {
+    if (!is_connected() || m_removeSent || character_id == 0) return false;
+
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveSyn);
+    out.header.object_id = 0;
+    out.payload = legacy_character_remove_syn_payload(character_id);
+    const auto e = m_pEngine->agent_session().send(out);
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_ERROR("CCharSelectState: send CharacterRemoveSyn failed: %s",
+                   mxh::net::to_string(e));
+        return false;
+    }
+    m_removeChrid = character_id;
+    m_removeSent = true;
+    MLOG_INFO("CCharSelectState: sent CharacterRemoveSyn chrid=%u",
+              static_cast<unsigned>(character_id));
+    return true;
+}
+
 void CCharSelectState::auto_select_first() {
     if (!m_autoSelectForTest) {
         m_selectedChrid = 0;
@@ -405,8 +470,9 @@ void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
 
 bool CCharSelectState::SelectSlot(std::size_t slot_index) noexcept {
     if (slot_index >= m_characters.size() || !m_characters[slot_index].valid
-        || m_selectSent) return false;
+        || m_selectSent || m_removeSent) return false;
     m_selectedChrid = m_characters[slot_index].chrid;
+    refresh_character_slot_ui();
     return true;
 }
 
@@ -425,6 +491,25 @@ bool CCharSelectState::RequestCharacterCreation() {
     m_pEngine->SetPendingTransfer(m_login);
     m_pEngine->RequestStateChange(static_cast<int>(GameStateId::CharMake));
     return true;
+}
+
+bool CCharSelectState::RequestCharacterDeletion() {
+    if (m_selectedChrid == 0 || m_selectSent || m_removeSent) return false;
+    const auto character_id = m_selectedChrid;
+    auto selected = std::find_if(
+        m_characters.begin(), m_characters.end(),
+        [character_id](const CharacterSlot& slot) {
+            return slot.valid && slot.chrid == character_id;
+        });
+    if (selected == m_characters.end()) return false;
+
+    std::string prompt = "Delete this character?";
+    if (!selected->name.empty()) prompt = "Delete " + selected->name + "?";
+    return m_uiRuntime.showConfirmation(
+        282, std::move(prompt),
+        [this, character_id](bool confirmed) {
+            if (confirmed) (void)send_remove_syn(character_id);
+        });
 }
 
 bool CCharSelectState::select_adjacent(int direction) noexcept {
@@ -461,14 +546,47 @@ bool CCharSelectState::handle_ui_activation(
         case CharSelectUiCommandKind::Enter:
             return ConfirmSelection();
         case CharSelectUiCommandKind::Delete:
-            MLOG_INFO("CCharSelectState: delete requested; confirmation dialog pending");
-            return m_selectedChrid != 0;
+            return RequestCharacterDeletion();
         case CharSelectUiCommandKind::Logout:
             MLOG_INFO("CCharSelectState: logout requested; title routing pending");
             return true;
         case CharSelectUiCommandKind::None:
         default:
             return false;
+    }
+}
+
+void CCharSelectState::apply_character_remove_ack() {
+    const auto character_id = m_removeChrid != 0
+        ? m_removeChrid : m_selectedChrid;
+    const auto slot = std::find_if(
+        m_characters.begin(), m_characters.end(),
+        [character_id](const CharacterSlot& candidate) {
+            return candidate.valid && candidate.chrid == character_id;
+        });
+    if (slot == m_characters.end()) {
+        MLOG_WARN("CCharSelectState: CharacterRemoveAck for unknown chrid=%u",
+                  static_cast<unsigned>(character_id));
+    } else {
+        *slot = CharacterSlot{};
+    }
+    m_selectedChrid = 0;
+    m_removeChrid = 0;
+    m_removeSent = false;
+    refresh_character_slot_ui();
+}
+
+void CCharSelectState::refresh_character_slot_ui() {
+    static constexpr std::string_view kSlotIds[] = {
+        "MT_FIRSTCHOSEBTN", "MT_SECONDCHOSEBTN", "MT_THIRDCHOSEBTN",
+        "MT_FOURTHCHOSEBTN", "MT_FIFTHCHOSEBTN"};
+    for (std::size_t i = 0; i < std::size(kSlotIds); ++i) {
+        auto* button = dynamic_cast<mxh::ui::cPushupButton*>(
+            m_uiRuntime.findWindowByLegacyId(kSlotIds[i]));
+        if (!button) continue;
+        const bool valid = i < m_characters.size() && m_characters[i].valid;
+        button->SetText(valid ? m_characters[i].name : std::string{});
+        button->SetPushEx(valid && m_characters[i].chrid == m_selectedChrid);
     }
 }
 

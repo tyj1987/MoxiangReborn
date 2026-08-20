@@ -68,9 +68,10 @@ CharSelectUiCommand resolve_char_select_ui_command(
     const ClientUiActivation& activation) noexcept;
 
 // One slot in the legacy CharacterListAck SEND_CHARSELECT_INFO.
-// We parse the minimum needed to auto-select: chrid (u32) per slot.
+// We retain the character id and original 17-byte name used by the slot UI.
 struct CharacterSlot {
     std::uint32_t chrid = 0;
+    std::string   name;
     bool          valid = false;     // false = empty slot (chrid == 0)
 };
 
@@ -84,6 +85,11 @@ legacy_character_list_syn_payload(std::uint32_t user_id,
 //   [channel: u16 LE]  (the chrid is in MSGBASE.object_id, not payload)
 std::vector<std::uint8_t>
 legacy_character_select_syn_payload(std::uint16_t channel);
+
+// Build the 4-byte CharacterRemoveSyn payload (legacy MSG_DWORD):
+//   [character_id: u32 LE]
+std::vector<std::uint8_t>
+legacy_character_remove_syn_payload(std::uint32_t character_id);
 
 // Parse the 889-byte legacy CharacterListAck payload (no _CRYPTCHECK_,
 // CHINA locale, kMaxCharSlots=5).  Returns the first 5 slots; valid
@@ -137,6 +143,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool SelectSlot(std::size_t slot_index) noexcept;
     bool ConfirmSelection();
     bool RequestCharacterCreation();
+    bool RequestCharacterDeletion();
     bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     bool OnMouseMove(std::int32_t x, std::int32_t y);
     bool OnKeyEvent(bool down, std::uint32_t key);
@@ -148,6 +155,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint16_t selected_map() const noexcept { return m_selectedMap; }
     std::uint32_t selected_chrid() const noexcept { return m_selectedChrid; }
     bool has_character_list() const noexcept { return m_listReceived; }
+    bool deletion_pending() const noexcept { return m_removeSent; }
     const LoginResult& login_result() const noexcept { return m_login; }
     // M-R7.1 (2026-08-20): host reads the loaded cDialog tree to render
     // the 1:1 UI (CharSelectDlg.bin — 12 child widgets, 5 character
@@ -162,9 +170,12 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
 private:
     void send_list_syn();
+    bool send_remove_syn(std::uint32_t character_id);
     void auto_select_first();
     bool select_adjacent(int direction) noexcept;
     bool handle_ui_activation(const ClientUiActivation& activation);
+    void apply_character_remove_ack();
+    void refresh_character_slot_ui();
     void dispatch_select_ack(std::uint16_t map_num);
     void fail_with(const std::string& reason);
 
@@ -182,7 +193,9 @@ private:
     bool                     m_started     = false;
     bool                     m_listReceived = false;
     bool                     m_selectSent   = false;
+    bool                     m_removeSent   = false;
     bool                     m_listSynSent  = false;
+    std::uint32_t            m_removeChrid  = 0;
     bool                     m_autoSelectForTest = false;
     bool                     m_releasing    = false;
     bool                     m_failed      = false;

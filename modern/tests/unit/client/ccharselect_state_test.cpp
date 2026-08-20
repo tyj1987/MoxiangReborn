@@ -21,6 +21,7 @@
 using mxh::client::CharacterSlot;
 using mxh::client::legacy_character_list_syn_payload;
 using mxh::client::legacy_character_select_syn_payload;
+using mxh::client::legacy_character_remove_syn_payload;
 using mxh::client::parse_legacy_character_list_ack;
 using mxh::client::parse_legacy_character_select_ack;
 
@@ -68,6 +69,15 @@ TEST(CharSelectWire, SelectSynPayloadNonzeroChannel) {
     EXPECT_EQ(pl[1], 0x01u);
 }
 
+TEST(CharSelectWire, RemoveSynPayloadIsLegacyMsgDword) {
+    const auto pl = legacy_character_remove_syn_payload(0x78563412u);
+    ASSERT_EQ(pl.size(), 4u);
+    EXPECT_EQ(pl[0], 0x12u);
+    EXPECT_EQ(pl[1], 0x34u);
+    EXPECT_EQ(pl[2], 0x56u);
+    EXPECT_EQ(pl[3], 0x78u);
+}
+
 // -------------------------------------------------------------------------
 // parse_legacy_character_list_ack — 1:1 with agent_handler.cpp lines
 // 593-684 (no _CRYPTCHECK_ in CHINA locale, kMaxCharSlots=5).
@@ -98,16 +108,32 @@ TEST(CharSelectWire, ListAckSingleChar) {
     buf[0] = 0x01u; buf[1] = 0x00u; buf[2] = 0x00u; buf[3] = 0x00u;
     // BaseObjectInfo[0].chrid = 42 LE (offset 14 + 0 = 14).
     buf[14] = 0x2Au; buf[15] = 0x00u; buf[16] = 0x00u; buf[17] = 0x00u;
+    constexpr char kName[] = "InkHero";
+    std::memcpy(buf.data() + 22, kName, sizeof(kName));
 
     auto list = parse_legacy_character_list_ack(
         std::span<const std::uint8_t>(buf.data(), buf.size()));
     ASSERT_TRUE(list.has_value());
     EXPECT_TRUE((*list)[0].valid);
     EXPECT_EQ((*list)[0].chrid, 42u);
+    EXPECT_EQ((*list)[0].name, "InkHero");
     for (std::size_t i = 1; i < 5; ++i) {
         EXPECT_FALSE((*list)[i].valid);
         EXPECT_EQ((*list)[i].chrid, 0u);
     }
+}
+
+TEST(CharSelectWire, ListAckNameUsesAllSeventeenBytesWithoutTerminator) {
+    std::array<std::uint8_t, 889> buf{};
+    buf[0] = 1;
+    buf[14] = 1;
+    constexpr char kName[] = "12345678901234567";
+    static_assert(sizeof(kName) - 1 == 17);
+    std::memcpy(buf.data() + 22, kName, 17);
+
+    auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_EQ((*list)[0].name, kName);
 }
 
 TEST(CharSelectWire, ListAckThreeChars) {
@@ -223,4 +249,28 @@ TEST(CCharSelectState, CharacterListDoesNotPreselectWithoutTestFlag) {
     EXPECT_EQ(state.selected_chrid(), 0u);
     ASSERT_TRUE(state.SelectSlot(0));
     EXPECT_EQ(state.selected_chrid(), 42u);
+}
+
+TEST(CCharSelectState, CharacterRemoveAckClearsSelectedSlot) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.on_message({}, list);
+    ASSERT_TRUE(state.SelectSlot(0));
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveAck);
+    state.on_message({}, ack);
+
+    ASSERT_EQ(state.character_list().size(), 5u);
+    EXPECT_FALSE(state.character_list()[0].valid);
+    EXPECT_EQ(state.selected_chrid(), 0u);
+    EXPECT_FALSE(state.deletion_pending());
 }
