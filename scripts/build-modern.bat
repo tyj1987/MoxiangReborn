@@ -33,17 +33,19 @@ if errorlevel 1 (
 
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 
-if not exist "%BUILD_DIR%\CMakeCache.txt" (
-    if not exist "%NINJA%" (
-        echo [ERROR] Ninja not found: %NINJA%
-        exit /b 1
-    )
-    echo [BUILD] CMake configure x86 Ninja %CONFIG%...
-    cmake -S "%REPO_ROOT%\modern" -B "%BUILD_DIR%" -G Ninja -DCMAKE_BUILD_TYPE=%CONFIG% -DCMAKE_MAKE_PROGRAM="%NINJA%"
-    if errorlevel 1 (
-        echo [ERROR] CMake configure failed
-        exit /b 1
-    )
+if not exist "%NINJA%" (
+    echo [ERROR] Ninja not found: %NINJA%
+    exit /b 1
+)
+
+:: Reconfigure on every invocation. This is cheap for the current tree and
+:: repairs a cache that was touched by cmake outside the supported x86
+:: environment (CMAKE_MAKE_PROGRAM-NOTFOUND).
+echo [BUILD] CMake configure x86 Ninja %CONFIG%...
+cmake -S "%REPO_ROOT%\modern" -B "%BUILD_DIR%" -G Ninja -DCMAKE_BUILD_TYPE=%CONFIG% -DCMAKE_MAKE_PROGRAM="%NINJA%"
+if errorlevel 1 (
+    echo [ERROR] CMake configure failed
+    exit /b 1
 )
 
 echo [BUILD] x86 %CONFIG%...
