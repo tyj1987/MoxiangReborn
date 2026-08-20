@@ -718,6 +718,31 @@ int main() {
                "unknown symbolic ID is not guessed");
     }
 
+    // ---- Test 12: nested InterfaceScript controls are created recursively ----
+    {
+        mxh::ui::cWindowManager wm;
+        const auto rep = mxh::ui::cDialogLoader::LoadOne(
+            is_dir / "CharMakeNewDlg.bin", wm,
+            mxh::ui::ResolutionMode::Low800x600);
+        EXPECT(rep.ok, "CharMakeNewDlg loads for recursive tree test");
+
+        auto* height_window = wm.findWindowByLegacyId("CMID_Height");
+        auto* height = dynamic_cast<mxh::ui::cGuageBar*>(height_window);
+        EXPECT(height != nullptr, "CMID_Height retains cGuageBar runtime type");
+        if (height) {
+            EXPECT_EQ(height->childCount(), std::size_t(1),
+                      "nested gauge thumb is instantiated");
+            auto* thumb = dynamic_cast<mxh::ui::cButton*>(height->childAt(0));
+            EXPECT(thumb != nullptr, "nested gauge child retains cButton type");
+            if (thumb) {
+                EXPECT_EQ(thumb->absX(), 643,
+                          "nested thumb x composes root+gauge+thumb coordinates");
+                EXPECT_EQ(thumb->absY(), 285,
+                          "nested thumb y composes root+gauge+thumb coordinates");
+            }
+        }
+    }
+
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes
               << " / FAIL " << g_failures << "\n";
     return g_failures == 0 ? 0 : 1;
