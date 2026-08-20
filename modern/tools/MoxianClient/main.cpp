@@ -833,6 +833,7 @@ void renderFrame(HWND h) {
                 // the user sees the 1:1 UI shape instead of an empty
                 // HUD bar.  Headless 端 — no sprite yet, just outlines.
                 if (g_charSelectState) {
+                    g_charSelectState->ui_runtime().render();
                     const auto& dlgs_cs = g_charSelectState->ui_dialogs();
                     if (!dlgs_cs.empty()) {
                         for (const auto& d : dlgs_cs) {
@@ -998,11 +999,19 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             InvalidateRect(h, nullptr, FALSE);
             return 0;
         }
+        if (g_charSelectState &&
+            g_charSelectState->OnKeyEvent(true, static_cast<std::uint32_t>(w))) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnKeyEvent(true, static_cast<std::uint32_t>(w));
         }
         return 0;
     case WM_KEYUP:
+        if (g_charSelectState &&
+            g_charSelectState->OnKeyEvent(false, static_cast<std::uint32_t>(w))) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnKeyEvent(false, static_cast<std::uint32_t>(w));
         }
@@ -1013,6 +1022,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                             ? g_loginUi.password : g_loginUi.username;
             if (value.size() < 31) value.push_back(static_cast<char>(w));
             InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
+        if (g_charSelectState &&
+            g_charSelectState->OnChar(static_cast<std::uint32_t>(w))) {
             return 0;
         }
         if (g_inputTarget) {
@@ -1038,6 +1051,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             InvalidateRect(h, nullptr, FALSE);
             return 0;
         }
+        if (g_charSelectState &&
+            g_charSelectState->OnMouseButton(
+                true, m == WM_LBUTTONDOWN, x, y)) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 true, m == WM_LBUTTONDOWN,
@@ -1052,6 +1070,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
         if (!logical.has_value()) return 0;
+        if (g_charSelectState &&
+            g_charSelectState->OnMouseButton(
+                false, m == WM_RBUTTONDOWN,
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 false, m == WM_RBUTTONDOWN,
@@ -1066,6 +1091,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
         if (!logical.has_value()) return 0;
+        if (g_charSelectState &&
+            g_charSelectState->OnMouseMove(
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseMove(
                 static_cast<std::int32_t>(logical->x),

@@ -5,6 +5,7 @@
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <utility>
@@ -14,6 +15,32 @@
 #include "mxh/ui/cWindowManager.hpp"
 
 namespace mxh::client {
+
+CharSelectUiCommand resolve_char_select_ui_command(
+    const ClientUiActivation& activation) noexcept {
+    static constexpr std::string_view kSlotIds[] = {
+        "MT_FIRSTCHOSEBTN", "MT_SECONDCHOSEBTN", "MT_THIRDCHOSEBTN",
+        "MT_FOURTHCHOSEBTN", "MT_FIFTHCHOSEBTN"};
+    for (std::size_t i = 0; i < std::size(kSlotIds); ++i) {
+        if (activation.legacy_id == kSlotIds[i]) {
+            return {CharSelectUiCommandKind::SelectSlot, i};
+        }
+    }
+    if (activation.legacy_id == "MT_ENTERBTN" ||
+        activation.legacy_func == "CS_BtnFuncEnter") {
+        return {CharSelectUiCommandKind::Enter, 0};
+    }
+    if (activation.legacy_func == "CS_BtnFuncCreateChar") {
+        return {CharSelectUiCommandKind::Create, 0};
+    }
+    if (activation.legacy_func == "CS_BtnFuncDeleteChar") {
+        return {CharSelectUiCommandKind::Delete, 0};
+    }
+    if (activation.legacy_func == "CS_BtnFuncLogOut") {
+        return {CharSelectUiCommandKind::Logout, 0};
+    }
+    return {};
+}
 
 // -------------------------------------------------------------------------
 // Wire-format helpers (pure functions, unit-tested independently).
@@ -104,37 +131,13 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     m_pEngine = engine;
     m_useHsel = use_hsel;
 
-    // M-R7.1 (G3 bug fix 2026-08-20): load the legacy CharSelectDlg.bin
-    // cDialog tree so the user sees the real 1:1 UI shape (12 child
-    // widgets: 5 character slots + 4 buttons + 3 statics).  Loaded
-    // headless 端 via cDialogLoader; the host renders the tree.
-    if (engine && engine->playdh_root().has_value() && m_uiDialogs.empty()) {
-        const auto root = *engine->playdh_root() / "Image" / "InterfaceScript";
-        const auto path = root / "CharSelectDlg.bin";
-        if (std::filesystem::exists(path)) {
-            // Use a temporary cWindowManager (we don't want to
-            // double-register the dialog with the global WM; the
-            // engine owns the canonical tree).
-            mxh::ui::cWindowManager tmp_wm;
-            auto r = mxh::ui::cDialogLoader::LoadOne(path, tmp_wm);
-            if (r.ok) {
-                // Move out of tmp_wm by stealing the unique_ptr.
-                while (tmp_wm.dialogCount() > 0) {
-                    auto d = tmp_wm.RemoveDialog(tmp_wm.dialogs().front().get());
-                    if (d) m_uiDialogs.push_back(std::move(d));
-                    else break;  // safety: avoid infinite loop
-                }
-                MLOG_INFO("CCharSelectState: loaded %zu dialog(s) from CharSelectDlg.bin "
-                          "(point=(%d,%d,%d,%d), type=%s)",
-                          m_uiDialogs.size(), r.point_x, r.point_y,
-                          r.point_w, r.point_h, r.dialog_type.c_str());
-            } else {
-                MLOG_WARN("CCharSelectState: CharSelectDlg.bin load failed: %s",
-                          r.error.c_str());
-            }
-        } else {
-            MLOG_WARN("CCharSelectState: CharSelectDlg.bin not found at %s",
-                      path.string().c_str());
+    if (engine && engine->playdh_root().has_value() && m_uiRuntime.empty()) {
+        std::string ui_error;
+        if (!m_uiRuntime.load(*engine->playdh_root(), "CharSelectDlg.bin",
+                              mxh::ui::ResolutionMode::Low800x600,
+                              &ui_error)) {
+            MLOG_WARN("CCharSelectState: CharSelectDlg.bin load failed: %s",
+                      ui_error.c_str());
         }
     }
     if (m_useHsel) {
@@ -190,6 +193,7 @@ void CCharSelectState::Release() {
     MLOG_DEBUG("CCharSelectState::Release");
     m_releasing = true;
     m_characters.clear();
+    m_uiRuntime.clear();
     m_selectedChrid = 0;
     m_selectedMap   = 0;
     m_started       = false;
@@ -350,11 +354,15 @@ void CCharSelectState::send_list_syn() {
 }
 
 void CCharSelectState::auto_select_first() {
+    if (!m_autoSelectForTest) {
+        m_selectedChrid = 0;
+        return;
+    }
     for (std::size_t index = 0; index < m_characters.size(); ++index) {
         const auto& slot = m_characters[index];
         if (slot.valid) {
             m_selectedChrid = slot.chrid;
-            if (m_autoSelectForTest) SelectCharacter(slot.chrid);
+            SelectCharacter(slot.chrid);
             return;
         }
     }
@@ -406,6 +414,88 @@ bool CCharSelectState::ConfirmSelection() {
     if (m_selectedChrid == 0 || m_selectSent) return false;
     SelectCharacter(m_selectedChrid);
     return m_selectSent;
+}
+
+bool CCharSelectState::RequestCharacterCreation() {
+    if (!m_pEngine || !m_listReceived) return false;
+    const auto valid_count = static_cast<std::size_t>(std::count_if(
+        m_characters.begin(), m_characters.end(),
+        [](const CharacterSlot& slot) { return slot.valid; }));
+    if (valid_count >= m_characters.size()) return false;
+    m_pEngine->SetPendingTransfer(m_login);
+    m_pEngine->RequestStateChange(static_cast<int>(GameStateId::CharMake));
+    return true;
+}
+
+bool CCharSelectState::select_adjacent(int direction) noexcept {
+    if (m_characters.empty()) return false;
+    std::size_t current = m_characters.size();
+    for (std::size_t i = 0; i < m_characters.size(); ++i) {
+        if (m_characters[i].valid &&
+            m_characters[i].chrid == m_selectedChrid) {
+            current = i;
+            break;
+        }
+    }
+    for (std::size_t step = 0; step < m_characters.size(); ++step) {
+        const auto base = current == m_characters.size()
+            ? (direction > 0 ? m_characters.size() - 1 : 0)
+            : current;
+        const auto offset = direction > 0
+            ? step + 1
+            : m_characters.size() - ((step + 1) % m_characters.size());
+        const auto index = (base + offset) % m_characters.size();
+        if (m_characters[index].valid) return SelectSlot(index);
+    }
+    return false;
+}
+
+bool CCharSelectState::handle_ui_activation(
+    const ClientUiActivation& activation) {
+    const auto command = resolve_char_select_ui_command(activation);
+    switch (command.kind) {
+        case CharSelectUiCommandKind::SelectSlot:
+            return SelectSlot(command.slot_index);
+        case CharSelectUiCommandKind::Create:
+            return RequestCharacterCreation();
+        case CharSelectUiCommandKind::Enter:
+            return ConfirmSelection();
+        case CharSelectUiCommandKind::Delete:
+            MLOG_INFO("CCharSelectState: delete requested; confirmation dialog pending");
+            return m_selectedChrid != 0;
+        case CharSelectUiCommandKind::Logout:
+            MLOG_INFO("CCharSelectState: logout requested; title routing pending");
+            return true;
+        case CharSelectUiCommandKind::None:
+        default:
+            return false;
+    }
+}
+
+bool CCharSelectState::OnMouseButton(bool left, bool down,
+                                     std::int32_t x, std::int32_t y) {
+    auto result = m_uiRuntime.onMouseButton(left, down, x, y);
+    if (result.activation) handle_ui_activation(*result.activation);
+    return result.consumed;
+}
+
+bool CCharSelectState::OnMouseMove(std::int32_t x, std::int32_t y) {
+    return m_uiRuntime.onMouseMove(x, y);
+}
+
+bool CCharSelectState::OnKeyEvent(bool down, std::uint32_t key) {
+    if (m_uiRuntime.onKey(down, static_cast<std::int32_t>(key))) return true;
+    if (!down) return false;
+    switch (key) {
+        case 0x26u: return select_adjacent(-1); // VK_UP
+        case 0x28u: return select_adjacent(1);  // VK_DOWN
+        case 0x0Du: return ConfirmSelection(); // VK_RETURN
+        default: return false;
+    }
+}
+
+bool CCharSelectState::OnChar(std::uint32_t ch) {
+    return m_uiRuntime.onChar(static_cast<std::int32_t>(ch));
 }
 
 void CCharSelectState::dispatch_select_ack(std::uint16_t map_num) {

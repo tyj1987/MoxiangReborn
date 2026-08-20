@@ -32,6 +32,7 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "ClientUiRuntime.hpp"
 #include "StateTransfer.hpp"
 
 #include <cstdint>
@@ -48,6 +49,23 @@
 namespace mxh::client {
 
 class CEngine;
+
+enum class CharSelectUiCommandKind : std::uint8_t {
+    None,
+    SelectSlot,
+    Create,
+    Delete,
+    Enter,
+    Logout,
+};
+
+struct CharSelectUiCommand {
+    CharSelectUiCommandKind kind = CharSelectUiCommandKind::None;
+    std::size_t slot_index = 0;
+};
+
+CharSelectUiCommand resolve_char_select_ui_command(
+    const ClientUiActivation& activation) noexcept;
 
 // One slot in the legacy CharacterListAck SEND_CHARSELECT_INFO.
 // We parse the minimum needed to auto-select: chrid (u32) per slot.
@@ -113,12 +131,16 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // Idempotent (second call is a no-op).
     void Start(CEngine* engine, bool use_hsel = false);
 
-    // Override auto-select.  Default behaviour after ListAck is to send
-    // CharacterSelectSyn for the first valid slot; the host can call
-    // this from UI handlers to pick a different one.
+    // Manual selection is the production default. The test-only switch
+    // preserves deterministic unattended E2E coverage.
     void SelectCharacter(std::uint32_t chrid);
     bool SelectSlot(std::size_t slot_index) noexcept;
     bool ConfirmSelection();
+    bool RequestCharacterCreation();
+    bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    bool OnMouseMove(std::int32_t x, std::int32_t y);
+    bool OnKeyEvent(bool down, std::uint32_t key);
+    bool OnChar(std::uint32_t ch);
     void set_auto_select_for_test(bool enabled) noexcept { m_autoSelectForTest = enabled; }
 
     // Inspectors.
@@ -131,8 +153,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // the 1:1 UI (CharSelectDlg.bin — 12 child widgets, 5 character
     // slots, 4 buttons, 3 statics).
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
-        return m_uiDialogs;
+        return m_uiRuntime.dialogs();
     }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const std::vector<CharacterSlot>& character_list() const noexcept {
         return m_characters;
     }
@@ -140,17 +163,15 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 private:
     void send_list_syn();
     void auto_select_first();
+    bool select_adjacent(int direction) noexcept;
+    bool handle_ui_activation(const ClientUiActivation& activation);
     void dispatch_select_ack(std::uint16_t map_num);
     void fail_with(const std::string& reason);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
     LoginResult              m_login;
-    // M-R7.1 (G3 bug fix 2026-08-20): load the legacy CharSelectDlg.bin
-    // cDialog at Start() so the user sees a real (1:1-shaped) UI
-    // instead of a colored bar with text.  Loading is headless +
-    // 头less 端 (no GPU sprite — the host renders the dialog tree).
-    std::vector<std::unique_ptr<mxh::ui::cDialog>> m_uiDialogs;
+    ClientUiRuntime          m_uiRuntime;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
 

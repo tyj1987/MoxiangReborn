@@ -16,6 +16,8 @@
 #include <cstring>
 #include <span>
 
+#include "mxh/proto/protocol.hpp"
+
 using mxh::client::CharacterSlot;
 using mxh::client::legacy_character_list_syn_payload;
 using mxh::client::legacy_character_select_syn_payload;
@@ -185,4 +187,40 @@ TEST(CCharSelectStateDefaults, AllFieldsZero) {
     EXPECT_EQ(s.selected_chrid(), 0u);
     EXPECT_EQ(s.selected_map(),  0u);
     EXPECT_TRUE(s.character_list().empty());
+}
+
+TEST(CharSelectUiCommand, ResolvesLegacyIdsAndFunctions) {
+    using Kind = mxh::client::CharSelectUiCommandKind;
+    mxh::client::ClientUiActivation activation;
+    activation.legacy_id = "MT_THIRDCHOSEBTN";
+    auto command = mxh::client::resolve_char_select_ui_command(activation);
+    EXPECT_EQ(command.kind, Kind::SelectSlot);
+    EXPECT_EQ(command.slot_index, 2u);
+
+    activation = {};
+    activation.legacy_func = "CS_BtnFuncCreateChar";
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(activation).kind,
+              Kind::Create);
+    activation.legacy_func = "CS_BtnFuncDeleteChar";
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(activation).kind,
+              Kind::Delete);
+    activation.legacy_func = "CS_BtnFuncLogOut";
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(activation).kind,
+              Kind::Logout);
+}
+
+TEST(CCharSelectState, CharacterListDoesNotPreselectWithoutTestFlag) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    message.payload.resize(889);
+    message.payload[0] = 1;
+    message.payload[14] = 42;
+    state.on_message({}, message);
+    ASSERT_TRUE(state.has_character_list());
+    EXPECT_EQ(state.selected_chrid(), 0u);
+    ASSERT_TRUE(state.SelectSlot(0));
+    EXPECT_EQ(state.selected_chrid(), 42u);
 }
