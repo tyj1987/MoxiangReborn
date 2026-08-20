@@ -489,6 +489,7 @@ int run_e2e(const CliArgs& cli) {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            login.Process();
             // TakeLoginResult() is destructive (it zeroes the cached
             // user_idx), so wait for the ack to be *flagged* received
             // first, then drain.
@@ -535,6 +536,7 @@ int run_e2e(const CliArgs& cli) {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            chsel.Process();
             if (!chsel.character_list().empty()) break;  // ListAck received
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -573,6 +575,7 @@ int run_e2e(const CliArgs& cli) {
             auto deadline = std::chrono::steady_clock::now() +
                            std::chrono::seconds(cli.timeout_s);
             while (std::chrono::steady_clock::now() < deadline) {
+                charmake.Process();
                 if (charmake.is_connected()) break;
                 if (charmake.is_failed()) break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -616,7 +619,9 @@ int run_e2e(const CliArgs& cli) {
             auto deadline = std::chrono::steady_clock::now() +
                            std::chrono::seconds(cli.timeout_s);
             while (std::chrono::steady_clock::now() < deadline) {
+                charmake.Process();
                 if (charmake.is_failed()) break;
+                if (char_select_done) break;
                 // char_select_done is set via the engine callback.
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
@@ -630,6 +635,7 @@ int run_e2e(const CliArgs& cli) {
             // char_select_done.  Polled via the state-change fn.
             int poll_ticks = 0;
             while (!char_select_done && poll_ticks++ < 200) {
+                charmake.Process();
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
             if (!char_select_done) {
@@ -652,10 +658,12 @@ int run_e2e(const CliArgs& cli) {
     chsel2.SetLoginResult(login_result);
     chsel2.Start(&engine, cli.use_hsel);
     std::uint32_t created_chrid = 0;
+    std::size_t created_slot = 0;
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            chsel2.Process();
             if (!chsel2.character_list().empty()) break;  // ListAck received
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -664,10 +672,14 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
         std::uint32_t valid_count = 0;
-        for (const auto& s : chsel2.character_list()) {
+        for (std::size_t slot = 0; slot < chsel2.character_list().size(); ++slot) {
+            const auto& s = chsel2.character_list()[slot];
             if (s.valid) {
                 ++valid_count;
-                if (created_chrid == 0) created_chrid = s.chrid;
+                if (created_chrid == 0) {
+                    created_chrid = s.chrid;
+                    created_slot = slot;
+                }
             }
         }
         if (valid_count == 0) {
@@ -678,34 +690,39 @@ int run_e2e(const CliArgs& cli) {
             static_cast<unsigned>(created_chrid),
             static_cast<unsigned>(valid_count));
     }
-    chsel2.Release();
-
-    // ---- Step 5: InGame ----
-    LOG("[5/5] InGame: CInGameState connecting to 127.0.0.1:18001 ...");
-    mxh::client::CInGameState game;
-    // Start a per-tick thread that calls Process() every 50ms; this
-    // gives the in-game state a chance to retry the GameInSyn send
-    // (which may transiently fail during the TCP connect handshake).
-    std::atomic<bool> tick_stop{false};
-    std::thread tick_thread([&game, &tick_stop]() {
-        while (!tick_stop.load(std::memory_order_acquire)) {
-            game.Process();
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        }
-    });
-    game.Start(&engine, "127.0.0.1", 18001, created_chrid, 12,
-               cli.use_hsel);
+    if (!chsel2.SelectSlot(created_slot) || !chsel2.ConfirmSelection()) {
+        LOG("[4/5] FAIL: cannot confirm the first character slot");
+        return 2;
+    }
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            chsel2.Process();
+            if (chsel2.selected_map() != 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (chsel2.selected_map() == 0) {
+            LOG("[4/5] FAIL: timed out waiting for CharacterSelectAck");
+            return 2;
+        }
+    }
+    chsel2.Release();
+
+    // ---- Step 5: InGame ----
+    LOG("[5/5] InGame: sending GameInSyn through persistent AgentSession ...");
+    mxh::client::CInGameState game;
+    game.Start(&engine, created_chrid, 12);
+    {
+        auto deadline = std::chrono::steady_clock::now() +
+                       std::chrono::seconds(cli.timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            game.Process();
             if (game.is_in_game()) break;
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (!game.is_in_game()) {
             LOG("[5/5] FAIL: timed out waiting for GameInAck");
-            tick_stop.store(true, std::memory_order_release);
-            tick_thread.join();
             return 2;
         }
         const auto& info = game.game_info();
@@ -714,13 +731,11 @@ int run_e2e(const CliArgs& cli) {
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
     }
-    tick_stop.store(true, std::memory_order_release);
-    tick_thread.join();
-
-    // Clean shutdown — release states (disconnects TcpClient) and
+    // Clean shutdown — release states and the persistent AgentSession, then
     // kill server procs (ServerProc dtor calls TerminateProcess).
     login.Release();
     game.Release();
+    engine.Release();
     procs.clear();
     ::WSACleanup();
     LOG("Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)");

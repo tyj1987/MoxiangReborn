@@ -427,9 +427,7 @@ std::uint32_t quick_skill_for_slot(const GameInInfo& info,
 
 CInGameState::CInGameState() = default;
 
-CInGameState::~CInGameState() {
-    if (m_client && m_client->is_connected()) m_client->disconnect();
-}
+CInGameState::~CInGameState() = default;
 
 void CInGameState::Init(void* /*pInitParam*/) {
     MLOG_DEBUG("CInGameState::Init (waiting for Start() from host)");
@@ -439,10 +437,6 @@ void CInGameState::Init(void* /*pInitParam*/) {
 void CInGameState::Release() {
     MLOG_DEBUG("CInGameState::Release");
     m_releasing = true;
-    if (m_client) {
-        if (m_client->is_connected()) m_client->disconnect();
-        m_client.reset();
-    }
     m_info = GameInInfo{};
     m_inGame   = false;
     m_started  = false;
@@ -455,13 +449,26 @@ void CInGameState::Release() {
 
 void CInGameState::Process() {
     tick();
+    if (m_pEngine) {
+        for (auto& event : m_pEngine->agent_session().events().drain()) {
+            switch (event.kind) {
+                case ClientRuntimeEventKind::Connected:
+                    on_connect(event.connection, event.detail);
+                    break;
+                case ClientRuntimeEventKind::Message:
+                    on_message(event.connection, event.message);
+                    break;
+                case ClientRuntimeEventKind::Disconnected:
+                    on_disconnect(event.connection, event.network_error);
+                    break;
+                case ClientRuntimeEventKind::Error:
+                    fail_with(event.detail);
+                    break;
+            }
+        }
+    }
     update_movement(steady_now_ms());
-    // MapServer doesn't push DistConnectSuccess (unlike Distribute /
-    // Agent), so we have to send GameInSyn from the host.  We try
-    // in on_connect first (most paths); if that fails or hasn't
-    // happened yet, Process() retries every tick once a connect is
-    // detected.  m_sentGameInSyn is set once the send succeeded.
-    if (m_client && m_client->is_connected() && !m_sentGameInSyn) {
+    if (is_connected() && !m_sentGameInSyn) {
         send_gamein_syn();
     }
 }
@@ -470,33 +477,27 @@ void CInGameState::Start(CEngine* engine, std::string host,
                          std::uint16_t port,
                          std::uint32_t player_id, std::uint16_t map_num,
                          bool use_hsel) {
+    (void)host;
+    (void)port;
+    (void)use_hsel;
+    Start(engine, player_id, map_num);
+}
+
+void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
+                         std::uint16_t map_num) {
     m_pEngine = engine;
-    m_host    = std::move(host);
-    m_port    = port;
     m_playerId = player_id;
-    m_mapNum   = map_num;
-    m_useHsel = use_hsel;
-    if (m_useHsel) {
-        m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
-    }
+    m_mapNum = map_num;
     if (m_started) return;
     m_started = true;
-    MLOG_INFO("CInGameState connecting to %s:%u (player_id=%u, map=%u)",
-              m_host.c_str(), static_cast<unsigned>(m_port),
+    MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
               static_cast<unsigned>(m_playerId),
               static_cast<unsigned>(m_mapNum));
-    m_client = std::make_unique<mxh::net::TcpClient>(*this);
-    mxh::net::ClientConfig cfg;
-    cfg.remote_address     = m_host;
-    cfg.port               = m_port;
-    cfg.use_legacy_framing = true;
-    cfg.use_encryption     = m_useHsel;  // Phase R-1: HSEL map session
-    cfg.connect_timeout    = std::chrono::milliseconds(3000);
-    auto e = m_client->connect(cfg);
-    if (e != mxh::net::NetError::Ok) {
-        fail_with(std::string("TcpClient::connect to MapServer failed: ") +
-                  mxh::net::to_string(e));
+    if (!m_pEngine || !m_pEngine->agent_session().is_connected()) {
+        fail_with("GameIn requires a connected AgentSession");
+        return;
     }
+    send_gamein_syn();
 }
 
 mxh::net::IEncryptor* CInGameState::encryptor_for(
@@ -505,7 +506,7 @@ mxh::net::IEncryptor* CInGameState::encryptor_for(
 }
 
 bool CInGameState::is_connected() const noexcept {
-    return m_client && m_client->is_connected();
+    return m_pEngine && m_pEngine->agent_session().is_connected();
 }
 
 void CInGameState::set_quest_catalog(mxh::compat::QuestStringCatalog catalog) {
@@ -522,8 +523,6 @@ bool CInGameState::on_connect(mxh::net::ConnectionId id,
               remote_addr.c_str());
     (void)id;
     (void)remote_addr;
-    // MapServer's on_connect doesn't push DistConnectSuccess; send
-    // GameInSyn right after TCP accept completes.
     send_gamein_syn();
     return true;
 }
@@ -593,7 +592,7 @@ void CInGameState::send_gamein_syn() {
         mxh::proto::UserConnProtocol::GameInSyn);
     out.header.object_id = m_playerId;   // chrid in MSGBASE
     out.payload          = {};           // empty payload
-    const auto e = m_client->send(out);
+    const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         // Don't fail; Process() will retry on the next tick once the
         // connection is fully up.  TcpClient::send() can transiently
@@ -909,8 +908,8 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
 }
 
 void CInGameState::send_quest(mxh::proto::QuestProtocol protocol) {
-    if (!m_inGame || !m_client || !m_client->is_connected()) return;
-    const auto result = m_client->send(make_quest_message(m_playerId, protocol, m_questId));
+    if (!m_inGame || !is_connected()) return;
+    const auto result = m_pEngine->agent_session().send(make_quest_message(m_playerId, protocol, m_questId));
     if (result == mxh::net::NetError::Ok) {
         m_questStatus = protocol == mxh::proto::QuestProtocol::StartSyn
                           ? "Accepting..." : "Claiming...";
@@ -1018,8 +1017,8 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
 
 void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
                              mxh::proto::MoveProtocol proto) {
-    if (!m_client || !m_client->is_connected()) return;
-    const auto e = m_client->send(
+    if (!is_connected()) return;
+    const auto e = m_pEngine->agent_session().send(
         make_move_message(m_playerId, proto, x, z));
     if (e != mxh::net::NetError::Ok) {
         MLOG_DEBUG("CInGameState: send_move proto=%d failed: %s",
@@ -1032,7 +1031,7 @@ void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
 
 void CInGameState::try_attack() {
     const auto now = steady_now_ms();
-    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    if (!m_inGame || !is_connected()) return;
     if (now - m_lastAttackMs <
         static_cast<std::uint64_t>(kAttackCooldownMs)) {
         return;
@@ -1050,7 +1049,7 @@ void CInGameState::try_attack() {
             break;
         }
     }
-    const auto e = m_client->send(
+    const auto e = m_pEngine->agent_session().send(
         make_attack_message(m_playerId, 1u, *target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_lastAttackMs = now;
@@ -1106,7 +1105,7 @@ std::uint64_t CInGameState::attack_flash_age_ms() const noexcept {
 }
 
 void CInGameState::use_quick_slot(std::size_t slot) {
-    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    if (!m_inGame || !is_connected()) return;
     const auto skill = quick_skill_for_slot(m_info, slot);
     if (skill == 0) return;
     const auto now = steady_now_ms();
@@ -1136,7 +1135,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         }
     }
 
-    const auto e = m_client->send(
+    const auto e = m_pEngine->agent_session().send(
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_lastAttackMs = now;
@@ -1146,7 +1145,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
 }
 
 void CInGameState::open_shop(std::uint32_t npc_id) {
-    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    if (!m_inGame || !is_connected()) return;
     m_shopOpen = false;
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(
@@ -1156,17 +1155,17 @@ void CInGameState::open_shop(std::uint32_t npc_id) {
     msg.header.object_id = m_playerId;
     msg.payload.resize(4);
     put_u32(msg.payload, 0, npc_id);
-    const auto e = m_client->send(msg);
+    const auto e = m_pEngine->agent_session().send(msg);
     if (e == mxh::net::NetError::Ok) {
         MLOG_INFO("CInGameState: open_shop npc=%u", npc_id);
     }
 }
 
 void CInGameState::buy_shop_item(std::size_t index) {
-    if (!m_inGame || !m_client || !m_client->is_connected()) return;
+    if (!m_inGame || !is_connected()) return;
     if (index >= m_shopItems.size()) return;
     const auto& item = m_shopItems[index];
-    const auto e = m_client->send(
+    const auto e = m_pEngine->agent_session().send(
         make_buy_message(m_playerId, item.item_id, 1u));
     if (e == mxh::net::NetError::Ok) {
         MLOG_INFO("CInGameState: buy item=%u price=%u",
@@ -1179,8 +1178,8 @@ void CInGameState::send_chat() {
     m_chatBuffer.clear();
     m_chatOpen = false;
     if (text.empty()) return;
-    if (!m_client || !m_client->is_connected()) return;
-    const auto e = m_client->send(make_chat_message(m_playerId, text));
+    if (!is_connected()) return;
+    const auto e = m_pEngine->agent_session().send(make_chat_message(m_playerId, text));
     if (e != mxh::net::NetError::Ok) {
         MLOG_WARN("CInGameState: send_chat failed: %s",
                   mxh::net::to_string(e));

@@ -117,14 +117,27 @@ void CLoginState::Release() {
     m_ackReceived.store(false, std::memory_order_release);
     m_failed.store(false, std::memory_order_release);
     m_failureReason.clear();
+    m_events.clear();
     setInitialized(false);
 }
 
 void CLoginState::Process() {
     tick();
-    // The TcpClient runs its own recv thread; on_message is invoked from
-    // there.  Nothing for us to do per-frame except keep the tick counter
-    // moving so the host can drive any animation tied to it.
+    for (auto& event : m_events.drain()) {
+        switch (event.kind) {
+            case ClientRuntimeEventKind::Message:
+                handle_message(event.connection, event.message);
+                break;
+            case ClientRuntimeEventKind::Disconnected:
+                handle_disconnect(event.connection, event.network_error);
+                break;
+            case ClientRuntimeEventKind::Error:
+                fail_with(event.detail);
+                break;
+            case ClientRuntimeEventKind::Connected:
+                break;
+        }
+    }
 }
 
 void CLoginState::Start(CEngine* engine, std::string host,
@@ -216,6 +229,24 @@ bool CLoginState::on_connect(mxh::net::ConnectionId id,
 
 void CLoginState::on_message(mxh::net::ConnectionId id,
                               const mxh::net::Message& msg) {
+    if (msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn)
+        && msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::kModernHselKey)) {
+        // Encryption state must be installed before the recv thread decodes
+        // the next packet; this does not mutate gameplay or UI state.
+        handle_message(id, msg);
+        return;
+    }
+    ClientRuntimeEvent event;
+    event.kind = ClientRuntimeEventKind::Message;
+    event.connection = id;
+    event.message = msg;
+    if (!m_events.push(std::move(event))) {
+        MLOG_ERROR("CLoginState event queue overflow; packet dropped");
+    }
+}
+
+void CLoginState::handle_message(mxh::net::ConnectionId id,
+                                  const mxh::net::Message& msg) {
     using mxh::proto::Category;
     using mxh::proto::UserConnProtocol;
     const auto cat   = static_cast<Category>(msg.header.category);
@@ -300,6 +331,15 @@ void CLoginState::on_message(mxh::net::ConnectionId id,
 
 void CLoginState::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
+    ClientRuntimeEvent event;
+    event.kind = ClientRuntimeEventKind::Disconnected;
+    event.connection = id;
+    event.network_error = reason;
+    (void)m_events.push(std::move(event));
+}
+
+void CLoginState::handle_disconnect(mxh::net::ConnectionId id,
+                                     mxh::net::NetError reason) {
     MLOG_INFO("CLoginState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));

@@ -145,8 +145,8 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     // SetLoginResult() explicitly, it overrides what was stashed.
     if (m_pEngine && m_pEngine->has_pending_transfer()) {
         auto v = m_pEngine->TakePendingTransfer();
-        if (v.type() == typeid(LoginResult)) {
-            m_login = std::any_cast<LoginResult>(v);
+        if (auto* login = std::get_if<LoginResult>(&v)) {
+            m_login = std::move(*login);
             MLOG_DEBUG("CCharSelectState: pulled LoginResult from engine transfer slot "
                        "(agent=%s:%u, user_idx=%u)",
                        m_login.agent_addr.c_str(),
@@ -156,6 +156,10 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     }
     if (m_started) return;
     m_started = true;
+    if (!m_pEngine) {
+        fail_with("Start() requires an engine-owned AgentSession");
+        return;
+    }
     if (m_login.agent_addr.empty() || m_login.agent_port == 0) {
         fail_with("Start() called before SetLoginResult() with valid agent address");
         return;
@@ -164,17 +168,16 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
               m_login.agent_addr.c_str(),
               static_cast<unsigned>(m_login.agent_port),
               static_cast<unsigned>(m_login.user_idx));
-    m_client = std::make_unique<mxh::net::TcpClient>(*this);
-    mxh::net::ClientConfig cfg;
-    cfg.remote_address     = m_login.agent_addr;
-    cfg.port               = m_login.agent_port;
-    cfg.use_legacy_framing = true;
-    cfg.use_encryption     = m_useHsel;  // Phase R-1: HSEL agent session
-    cfg.connect_timeout    = std::chrono::milliseconds(3000);
-    auto e = m_client->connect(cfg);
+    auto& session = m_pEngine->agent_session();
+    auto e = mxh::net::NetError::Ok;
+    if (!session.is_connected()) {
+        e = session.connect(m_login.agent_addr, m_login.agent_port, m_useHsel);
+    }
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("TcpClient::connect to AgentServer failed: ") +
                   mxh::net::to_string(e));
+    } else if (session.is_ready()) {
+        send_list_syn();
     }
 }
 
@@ -186,26 +189,42 @@ mxh::net::IEncryptor* CCharSelectState::encryptor_for(
 void CCharSelectState::Release() {
     MLOG_DEBUG("CCharSelectState::Release");
     m_releasing = true;
-    if (m_client) {
-        if (m_client->is_connected()) m_client->disconnect();
-        m_client.reset();
-    }
     m_characters.clear();
     m_selectedChrid = 0;
     m_selectedMap   = 0;
     m_started       = false;
     m_listReceived  = false;
     m_selectSent    = false;
+    m_listSynSent   = false;
     m_releasing     = false;
     m_failed        = false;
     m_failureReason.clear();
     setInitialized(false);
 }
 
-void CCharSelectState::Process() { tick(); }
+void CCharSelectState::Process() {
+    tick();
+    if (!m_pEngine) return;
+    for (auto& event : m_pEngine->agent_session().events().drain()) {
+        switch (event.kind) {
+            case ClientRuntimeEventKind::Connected:
+                on_connect(event.connection, event.detail);
+                break;
+            case ClientRuntimeEventKind::Message:
+                on_message(event.connection, event.message);
+                break;
+            case ClientRuntimeEventKind::Disconnected:
+                on_disconnect(event.connection, event.network_error);
+                break;
+            case ClientRuntimeEventKind::Error:
+                fail_with(event.detail);
+                break;
+        }
+    }
+}
 
 bool CCharSelectState::is_connected() const noexcept {
-    return m_client && m_client->is_connected();
+    return m_pEngine && m_pEngine->agent_session().is_connected();
 }
 
 bool CCharSelectState::on_connect(mxh::net::ConnectionId id,
@@ -310,6 +329,7 @@ void CCharSelectState::on_disconnect(mxh::net::ConnectionId id,
 }
 
 void CCharSelectState::send_list_syn() {
+    if (m_listSynSent) return;
     const auto pl = legacy_character_list_syn_payload(
         m_login.user_idx, m_login.dist_auth_key);
     mxh::net::Message out;
@@ -319,19 +339,22 @@ void CCharSelectState::send_list_syn() {
         mxh::proto::UserConnProtocol::CharacterListSyn);
     out.header.object_id = m_login.user_idx;
     out.payload          = pl;
-    const auto e = m_client->send(out);
+    const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("send CharacterListSyn failed: ") +
                   mxh::net::to_string(e));
         return;
     }
+    m_listSynSent = true;
     MLOG_INFO("CCharSelectState: sent CharacterListSyn (8B legacy payload)");
 }
 
 void CCharSelectState::auto_select_first() {
-    for (const auto& slot : m_characters) {
+    for (std::size_t index = 0; index < m_characters.size(); ++index) {
+        const auto& slot = m_characters[index];
         if (slot.valid) {
-            SelectCharacter(slot.chrid);
+            m_selectedChrid = slot.chrid;
+            if (m_autoSelectForTest) SelectCharacter(slot.chrid);
             return;
         }
     }
@@ -344,7 +367,7 @@ void CCharSelectState::auto_select_first() {
 }
 
 void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
-    if (!m_client || !m_client->is_connected()) {
+    if (!is_connected()) {
         fail_with("SelectCharacter: not connected to AgentServer");
         return;
     }
@@ -361,7 +384,7 @@ void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
         mxh::proto::UserConnProtocol::CharacterSelectSyn);
     out.header.object_id = chrid;
     out.payload          = pl;
-    const auto e = m_client->send(out);
+    const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("send CharacterSelectSyn failed: ") +
                   mxh::net::to_string(e));
@@ -370,6 +393,19 @@ void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
     m_selectSent = true;
     MLOG_INFO("CCharSelectState: sent CharacterSelectSyn chrid=%u",
               static_cast<unsigned>(chrid));
+}
+
+bool CCharSelectState::SelectSlot(std::size_t slot_index) noexcept {
+    if (slot_index >= m_characters.size() || !m_characters[slot_index].valid
+        || m_selectSent) return false;
+    m_selectedChrid = m_characters[slot_index].chrid;
+    return true;
+}
+
+bool CCharSelectState::ConfirmSelection() {
+    if (m_selectedChrid == 0 || m_selectSent) return false;
+    SelectCharacter(m_selectedChrid);
+    return m_selectSent;
 }
 
 void CCharSelectState::dispatch_select_ack(std::uint16_t map_num) {

@@ -8,6 +8,8 @@ add_executable(mxh_client_tests
     cingame_state_test.cpp
     cingame_input_test.cpp
     client_e2e_flow_test.cpp
+    network_event_queue_test.cpp
+    state_transfer_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE
@@ -27,4 +29,3 @@ endif()
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_client_tests)
-

@@ -77,9 +77,7 @@ legacy_character_make_syn_payload(const CharacterMakeParams& params,
 
 CCharMake::CCharMake() = default;
 
-CCharMake::~CCharMake() {
-    if (m_client && m_client->is_connected()) m_client->disconnect();
-}
+CCharMake::~CCharMake() = default;
 
 void CCharMake::Init(void* /*pInitParam*/) {
     MLOG_DEBUG("CCharMake::Init (waiting for Start() + SetLoginResult())");
@@ -125,8 +123,8 @@ void CCharMake::Start(CEngine* engine, bool use_hsel) {
     }
     if (m_pEngine && m_pEngine->has_pending_transfer()) {
         auto v = m_pEngine->TakePendingTransfer();
-        if (v.type() == typeid(LoginResult)) {
-            m_login = std::any_cast<LoginResult>(v);
+        if (auto* login = std::get_if<LoginResult>(&v)) {
+            m_login = std::move(*login);
             MLOG_DEBUG("CCharMake: pulled LoginResult from engine transfer slot "
                        "(agent=%s:%u, user_idx=%u)",
                        m_login.agent_addr.c_str(),
@@ -136,6 +134,10 @@ void CCharMake::Start(CEngine* engine, bool use_hsel) {
     }
     if (m_started) return;
     m_started = true;
+    if (!m_pEngine) {
+        MLOG_WARN("CCharMake: no engine bound; waiting in disconnected state");
+        return;
+    }
     if (m_login.agent_addr.empty() || m_login.agent_port == 0) {
         fail_with("Start() called before SetLoginResult() with valid agent address");
         return;
@@ -144,17 +146,16 @@ void CCharMake::Start(CEngine* engine, bool use_hsel) {
               m_login.agent_addr.c_str(),
               static_cast<unsigned>(m_login.agent_port),
               static_cast<unsigned>(m_login.user_idx));
-    m_client = std::make_unique<mxh::net::TcpClient>(*this);
-    mxh::net::ClientConfig cfg;
-    cfg.remote_address     = m_login.agent_addr;
-    cfg.port               = m_login.agent_port;
-    cfg.use_legacy_framing = true;
-    cfg.use_encryption     = m_useHsel;  // Phase R-1: HSEL agent session
-    cfg.connect_timeout    = std::chrono::milliseconds(3000);
-    auto e = m_client->connect(cfg);
+    auto& session = m_pEngine->agent_session();
+    auto e = mxh::net::NetError::Ok;
+    if (!session.is_connected()) {
+        e = session.connect(m_login.agent_addr, m_login.agent_port, m_useHsel);
+    }
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("TcpClient::connect to AgentServer failed: ") +
                   mxh::net::to_string(e));
+    } else if (session.is_ready()) {
+        m_connectAcked = true;
     }
 }
 
@@ -164,10 +165,6 @@ mxh::net::IEncryptor* CCharMake::encryptor_for(mxh::net::ConnectionId) {
 
 void CCharMake::Release() {
     MLOG_DEBUG("CCharMake::Release");
-    if (m_client) {
-        if (m_client->is_connected()) m_client->disconnect();
-        m_client.reset();
-    }
     m_pending      = CharacterMakeParams{};
     m_started      = false;
     m_connectAcked = false;
@@ -177,10 +174,29 @@ void CCharMake::Release() {
     setInitialized(false);
 }
 
-void CCharMake::Process() { tick(); }
+void CCharMake::Process() {
+    tick();
+    if (!m_pEngine) return;
+    for (auto& event : m_pEngine->agent_session().events().drain()) {
+        switch (event.kind) {
+            case ClientRuntimeEventKind::Connected:
+                on_connect(event.connection, event.detail);
+                break;
+            case ClientRuntimeEventKind::Message:
+                on_message(event.connection, event.message);
+                break;
+            case ClientRuntimeEventKind::Disconnected:
+                on_disconnect(event.connection, event.network_error);
+                break;
+            case ClientRuntimeEventKind::Error:
+                fail_with(event.detail);
+                break;
+        }
+    }
+}
 
 bool CCharMake::is_connected() const noexcept {
-    return m_client && m_client->is_connected();
+    return m_pEngine && m_pEngine->agent_session().is_connected();
 }
 
 bool CCharMake::on_connect(mxh::net::ConnectionId id,
@@ -292,7 +308,7 @@ bool CCharMake::SubmitCharacter(const CharacterMakeParams& params) {
         fail_with("SubmitCharacter: empty name");
         return false;
     }
-    if (!m_client || !m_client->is_connected()) {
+    if (!is_connected()) {
         fail_with("SubmitCharacter: not connected to AgentServer");
         return false;
     }
@@ -316,7 +332,7 @@ void CCharMake::send_make_syn() {
         mxh::proto::UserConnProtocol::CharacterMakeSyn);
     out.header.object_id = m_login.user_idx;
     out.payload          = pl;
-    const auto e = m_client->send(out);
+    const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("send CharacterMakeSyn failed: ") +
                   mxh::net::to_string(e));

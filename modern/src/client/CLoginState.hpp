@@ -40,6 +40,7 @@
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "NetworkEventQueue.hpp"
 
 namespace mxh::client {
 
@@ -125,6 +126,8 @@ public:
     LoginResult TakeLoginResult();
 
 private:
+    void handle_message(mxh::net::ConnectionId id, const mxh::net::Message& msg);
+    void handle_disconnect(mxh::net::ConnectionId id, mxh::net::NetError reason);
     void dispatch_login_ack(const LegacyLoginAck& ack);
     void fail_with(const std::string& reason);
 
@@ -148,6 +151,7 @@ private:
     // lock so the host sees a consistent value.
     mutable std::mutex       m_mu;
     std::string              m_agentAddr;
+    NetworkEventQueue        m_events;
 
     std::atomic<bool>        m_started    {false};
     std::atomic<bool>        m_ackReceived {false};

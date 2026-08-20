@@ -33,10 +33,12 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
-#include <any>
+#include <variant>
 #include <utility>
 
 #include "mxh/render/IRenderer.hpp"
+#include "AgentSession.hpp"
+#include "StateTransfer.hpp"
 
 namespace mxh::client {
 
@@ -68,7 +70,11 @@ public:
     // Lifecycle.  Init is called once at startup; Release once at
     // shutdown.  Both are stubs in A.1.6.
     void Init()    { m_bInitialized = true; }
-    void Release() { m_bInitialized = false; m_pRenderer = nullptr; }
+    void Release() {
+        m_agentSession.disconnect();
+        m_bInitialized = false;
+        m_pRenderer = nullptr;
+    }
     bool isInitialized() const noexcept { return m_bInitialized; }
 
     // ---------------------------------------------------------------------
@@ -90,13 +96,18 @@ public:
     // the next state.  Set overwrites; Take returns and clears.  Both
     // sides type-check with std::any_cast.
     // ---------------------------------------------------------------------
-    void SetPendingTransfer(std::any v) { m_pendingTransfer = std::move(v); }
-    std::any TakePendingTransfer() {
-        std::any out;
-        out.swap(m_pendingTransfer);
+    void SetPendingTransfer(StateTransfer value) { m_pendingTransfer = std::move(value); }
+    StateTransfer TakePendingTransfer() {
+        StateTransfer out = std::move(m_pendingTransfer);
+        m_pendingTransfer = std::monostate{};
         return out;
     }
-    bool has_pending_transfer() const noexcept { return m_pendingTransfer.has_value(); }
+    bool has_pending_transfer() const noexcept {
+        return !std::holds_alternative<std::monostate>(m_pendingTransfer);
+    }
+
+    AgentSession& agent_session() noexcept { return m_agentSession; }
+    const AgentSession& agent_session() const noexcept { return m_agentSession; }
 
 private:
     void*                           m_hWnd         = nullptr;
@@ -104,7 +115,8 @@ private:
     bool                            m_bInitialized = false;
     std::optional<std::filesystem::path> m_playdhRoot;
     StateChangeFn                   m_stateChangeFn;
-    std::any                        m_pendingTransfer;
+    StateTransfer                   m_pendingTransfer;
+    AgentSession                    m_agentSession;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers
     // are wired in.  Kept out of A.1.6 to keep the surface minimal.
 };

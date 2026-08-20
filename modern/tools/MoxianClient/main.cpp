@@ -1313,11 +1313,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     unsigned follow_settle_frames = 0;
     MSG msg{};
     while (mxh::client::g_running) {
-        if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            if (msg.message == WM_QUIT) break;
+        bool quit_requested = false;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                quit_requested = true;
+                break;
+            }
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
-        } else {
+        }
+        if (quit_requested) break;
             if (g_loginUi.submitRequested) {
                 g_loginUi.submitRequested = false;
                 options.username = g_loginUi.username;
@@ -1369,6 +1374,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
+                        cs->set_auto_select_for_test(options.auto_create);
                         cs->Start(mainGame.GetEngine());
                     }
                 } else if (cur_state == mxh::client::GameStateId::CharMake) {
@@ -1431,8 +1437,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         } else {
                             MLOG_WARN("mxh_client: map descriptor unavailable for map=%u", pending_map_num);
                         }
-                        g->Start(mainGame.GetEngine(), options.login_host,
-                                 options.map_port, pending_character_id,
+                        g->Start(mainGame.GetEngine(), pending_character_id,
                                  pending_map_num);
                         g_inputTarget = g;
                     }
@@ -1446,17 +1451,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // transfer and the state machine stalls.
             if (cur_state == mxh::client::GameStateId::GameLoading) {
                 auto transfer = mainGame.GetEngine()->TakePendingTransfer();
-                if (transfer.type() == typeid(mxh::client::GameEntryRequest)) {
-                    const auto request =
-                        std::any_cast<mxh::client::GameEntryRequest>(transfer);
-                    pending_character_id = request.character_id;
-                    pending_map_num = request.map_num;
+                if (const auto* request =
+                        std::get_if<mxh::client::GameEntryRequest>(&transfer)) {
+                    pending_character_id = request->character_id;
+                    pending_map_num = request->map_num;
                     mainGame.SetGameState(mxh::client::GameStateId::GameIn);
-                } else if (!transfer.type().name()) {
+                } else if (std::holds_alternative<std::monostate>(transfer)) {
                     // Empty transfer — wait for the TCP thread to populate it.
                 } else {
-                    MLOG_ERROR("GameLoading: unexpected transfer type=%s",
-                               transfer.type().name());
+                    MLOG_ERROR("GameLoading: unexpected transfer variant index=%zu",
+                               transfer.index());
                 }
             }
             if (cur_state == mxh::client::GameStateId::CharSelect &&
@@ -1540,7 +1544,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             renderFrame(hwnd);
             mainGame.AfterRender();
             Sleep(16);
-        }
     }
 
     MLOG_INFO("mxh_client: shutting down");
@@ -1565,5 +1568,3 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     return 0;
 }
-
-

@@ -284,11 +284,12 @@ void on_disconnect(mxh::net::ConnectionId id,
                    mxh::net::NetError reason) override;
 mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
-    // Public start hook.  MapServer is reached directly (bypassing
-    // Agent's Phase 9 forwarding).  Idempotent.
+    // Compatibility overload: host/port are ignored. GameInSyn always uses
+    // the long-lived AgentSession, which forwards it to MapServer.
     void Start(CEngine* engine, std::string host, std::uint16_t port,
                std::uint32_t player_id, std::uint16_t map_num,
                bool use_hsel = false);
+    void Start(CEngine* engine, std::uint32_t player_id, std::uint16_t map_num);
 
     // Input hooks driven by the host Win32 message pump (in-game only).
     void OnKeyEvent(bool pressed, std::uint32_t vk);

@@ -32,6 +32,7 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "StateTransfer.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -47,23 +48,6 @@
 namespace mxh::client {
 
 class CEngine;
-
-// 1:1 with the legacy LoginAck payload (login_handler.cpp make_login_ack).
-// Bridged from CLoginState::TakeLoginResult() to CCharSelectState via
-// SetLoginResult() so the agent connect address/port + auth keys flow
-// through state boundaries without globals.
-struct LoginResult {
-    std::string  agent_addr;
-    std::uint16_t agent_port = 0;
-    std::uint32_t user_idx   = 0;
-    std::uint8_t  user_level = 0;
-    std::uint32_t dist_auth_key = 0;  // from DistConnectSuccess, needed by Agent's ListSyn
-};
-
-struct GameEntryRequest {
-    std::uint32_t character_id = 0;
-    std::uint16_t map_num = 0;
-};
 
 // One slot in the legacy CharacterListAck SEND_CHARSELECT_INFO.
 // We parse the minimum needed to auto-select: chrid (u32) per slot.
@@ -133,6 +117,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // CharacterSelectSyn for the first valid slot; the host can call
     // this from UI handlers to pick a different one.
     void SelectCharacter(std::uint32_t chrid);
+    bool SelectSlot(std::size_t slot_index) noexcept;
+    bool ConfirmSelection();
+    void set_auto_select_for_test(bool enabled) noexcept { m_autoSelectForTest = enabled; }
 
     // Inspectors.
     bool        is_connected() const noexcept;
@@ -174,6 +161,8 @@ private:
     bool                     m_started     = false;
     bool                     m_listReceived = false;
     bool                     m_selectSent   = false;
+    bool                     m_listSynSent  = false;
+    bool                     m_autoSelectForTest = false;
     bool                     m_releasing    = false;
     bool                     m_failed      = false;
     std::string              m_failureReason;

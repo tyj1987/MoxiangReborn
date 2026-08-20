@@ -7,6 +7,8 @@
 # wires the login handshake (RequestLogin → LoginAck) via mxh::net::TcpClient.
 # -----------------------------------------------------------------------------
 add_library(mxh_client_lib STATIC
+    AgentSession.cpp
+    NetworkEventQueue.cpp
     CMainGame.cpp
     CMainTitle.cpp
     CLoginState.cpp
