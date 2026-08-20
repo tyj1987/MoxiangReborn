@@ -179,6 +179,8 @@ private:
                                   const mxh::net::Message& msg);
     void handle_legacy_character_make(mxh::net::ConnectionId id,
                                       const mxh::net::Message& msg);
+    void handle_legacy_character_remove(mxh::net::ConnectionId id,
+                                        const mxh::net::Message& msg);
     void handle_legacy_character_select(mxh::net::ConnectionId id,
                                         const mxh::net::Message& msg);
     void handle_legacy_gamein_syn(mxh::net::ConnectionId id,

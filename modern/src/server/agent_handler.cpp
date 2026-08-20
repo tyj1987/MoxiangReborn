@@ -25,9 +25,11 @@
 
 #include "mxh/server/server.hpp"
 
+#include <array>
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <string_view>
 #include <vector>
 
 namespace mxh::server {
@@ -509,6 +511,9 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
         case mxh::proto::UserConnProtocol::CharacterMakeSyn:
             handle_legacy_character_make(id, msg);
             break;
+        case mxh::proto::UserConnProtocol::CharacterRemoveSyn:
+            handle_legacy_character_remove(id, msg);
+            break;
         case mxh::proto::UserConnProtocol::CharacterSelectSyn:
             handle_legacy_character_select(id, msg);
             break;
@@ -888,6 +893,113 @@ void AgentHandler::handle_legacy_character_list(
     std::cout << "[Agent] legacy: sending CHARACTERLIST_ACK payload="
               << payload.size() << "B (char_num=" << char_count << ")\n";
     reply_(id, m);
+}
+
+// ============================================================================
+// handle_legacy_character_remove - proto=45
+//
+// Legacy MSG_DWORD payload contains the selected character id. Ownership is
+// verified against the connection's authenticated user before a transaction
+// removes the character and all modern per-character state.
+// ============================================================================
+
+void AgentHandler::handle_legacy_character_remove(
+    mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+    const auto send_result = [&](mxh::proto::UserConnProtocol protocol,
+                                 std::uint32_t reason = 0) {
+        mxh::net::Message reply;
+        reply.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        reply.header.protocol = static_cast<std::uint8_t>(protocol);
+        if (protocol == mxh::proto::UserConnProtocol::CharacterRemoveNack) {
+            put_u32(reply.payload, reason);
+        }
+        reply_(id, reply);
+    };
+
+    std::uint32_t character_id = 0;
+    if (msg.payload.size() < sizeof(character_id)) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+    std::memcpy(&character_id, msg.payload.data(), sizeof(character_id));
+    const std::uint32_t user_id = get_user_id(id);
+    if (character_id == 0 || user_id == 0) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 2);
+        return;
+    }
+
+    mxh::db::ResultSet owned;
+    std::vector<mxh::db::Bind> ownership_params = {
+        mxh::db::bind(static_cast<std::int64_t>(character_id)),
+        mxh::db::bind(std::to_string(user_id)),
+    };
+    const auto ownership = db_.query(
+        "SELECT 1 FROM character_info WHERE chrid = ? AND userid = ?",
+        ownership_params, owned);
+    if (!ownership.ok()) {
+        std::cerr << "[Agent] character remove ownership query failed: "
+                  << ownership.error_message << "\n";
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+    if (owned.empty()) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 2);
+        return;
+    }
+
+    if (!db_.begin_transaction().ok()) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+
+    const std::array<std::string_view, 5> child_tables = {
+        "modern_player_quest_sub",
+        "modern_player_quest_log",
+        "modern_player_item",
+        "modern_player_state",
+        "modern_item_grant",
+    };
+    bool failed = false;
+    for (const auto table : child_tables) {
+        const std::string key = table == "modern_item_grant"
+            ? "character_id" : "player_id";
+        const std::string sql = "DELETE FROM " + std::string(table) +
+                                " WHERE " + key + " = ?";
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(character_id))};
+        const auto result = db_.execute(sql, params);
+        if (!result.ok()) {
+            std::cerr << "[Agent] character remove failed for " << table
+                      << ": " << result.error_message << "\n";
+            failed = true;
+            break;
+        }
+    }
+
+    if (!failed) {
+        const auto result = db_.execute(
+            "DELETE FROM character_info WHERE chrid = ? AND userid = ?",
+            ownership_params);
+        failed = !result.ok() || result.rows_affected != 1;
+    }
+
+    if (failed || !db_.commit().ok()) {
+        (void)db_.rollback();
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(user_mu_);
+        const auto selected = conn_char_ids_.find(id.value);
+        if (selected != conn_char_ids_.end() &&
+            selected->second == character_id) {
+            conn_char_ids_.erase(selected);
+            conn_map_nums_.erase(id.value);
+        }
+    }
+    send_result(mxh::proto::UserConnProtocol::CharacterRemoveAck);
 }
 
 // ============================================================================
@@ -1438,4 +1550,3 @@ void AgentHandler::handle_legacy_gamein_syn(
 }
 
 }  // namespace mxh::server
-

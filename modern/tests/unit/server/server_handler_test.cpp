@@ -890,6 +890,93 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldMixedSuperusersHandlesEach) {
     EXPECT_FALSE(handler.is_hackshield_disconnect_pending(cid_normal));
 }
 
+TEST(AgentHandlerCharacterRemoveTest, DeletesOnlyOwnedCharacterAndDependentState) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,userid TEXT,charname TEXT);"
+        "CREATE TABLE modern_player_state (player_id INTEGER);"
+        "CREATE TABLE modern_player_item (player_id INTEGER);"
+        "CREATE TABLE modern_player_quest_log (player_id INTEGER);"
+        "CREATE TABLE modern_player_quest_sub (player_id INTEGER);"
+        "CREATE TABLE modern_item_grant (character_id INTEGER);"
+        "INSERT INTO character_info VALUES(1001,'42','OwnedHero');"
+        "INSERT INTO character_info VALUES(1002,'99','OtherHero');"
+        "INSERT INTO modern_player_state VALUES(1001);"
+        "INSERT INTO modern_player_item VALUES(1001);"
+        "INSERT INTO modern_player_quest_log VALUES(1001);"
+        "INSERT INTO modern_player_quest_sub VALUES(1001);"
+        "INSERT INTO modern_item_grant VALUES(1001);").ok());
+
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    const auto connection = mxh::net::make_connection_id(501);
+    handler.register_session(connection, 42, 0, 0);
+
+    mxh::net::Message remove;
+    remove.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    remove.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveSyn);
+    remove.payload.resize(sizeof(std::uint32_t));
+    const std::uint32_t character_id = 1001;
+    std::memcpy(remove.payload.data(), &character_id, sizeof(character_id));
+    handler.on_message(connection, remove);
+
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveAck));
+    const std::vector<mxh::db::Bind> no_args;
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT chrid FROM character_info ORDER BY chrid", no_args, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 1002);
+    for (const auto table : {"modern_player_state", "modern_player_item",
+                             "modern_player_quest_log", "modern_player_quest_sub",
+                             "modern_item_grant"}) {
+        rows = {};
+        ASSERT_TRUE(db.query("SELECT * FROM " + std::string(table), no_args, rows).ok());
+        EXPECT_TRUE(rows.empty()) << table;
+    }
+}
+
+TEST(AgentHandlerCharacterRemoveTest, RejectsCharacterOwnedByAnotherUser) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    const std::vector<mxh::db::Bind> no_args;
+    ASSERT_TRUE(db.execute(
+        "CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,userid TEXT,charname TEXT)", no_args).ok());
+    ASSERT_TRUE(db.execute(
+        "INSERT INTO character_info VALUES(1002,'99','OtherHero')", no_args).ok());
+
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    const auto connection = mxh::net::make_connection_id(502);
+    handler.register_session(connection, 42, 0, 0);
+    mxh::net::Message remove;
+    remove.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    remove.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveSyn);
+    remove.payload.resize(sizeof(std::uint32_t));
+    const std::uint32_t character_id = 1002;
+    std::memcpy(remove.payload.data(), &character_id, sizeof(character_id));
+    handler.on_message(connection, remove);
+
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveNack));
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT chrid FROM character_info", no_args, rows).ok());
+    EXPECT_EQ(rows.rows.size(), 1u);
+}
+
 
 // ===========================================================================
 
