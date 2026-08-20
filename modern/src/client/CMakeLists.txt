@@ -9,6 +9,7 @@
 add_library(mxh_client_lib STATIC
     AgentSession.cpp
     NetworkEventQueue.cpp
+    SpriteRenderGeometry.cpp
     CMainGame.cpp
     CMainTitle.cpp
     CLoginState.cpp

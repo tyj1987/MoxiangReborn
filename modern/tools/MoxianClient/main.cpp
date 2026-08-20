@@ -59,6 +59,7 @@
 #include "CEngine.hpp"
 #include "CCharMake.hpp"
 #include "GameStateStubs.hpp"
+#include "SpriteRenderGeometry.hpp"
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -321,19 +322,26 @@ LoginUiState g_loginUi;
 // surface the rest of Phase A will use.
 bool renderAdapter(void* /*ctx*/, void* sprite,
                    float x, float y, float w, float h,
-                   float /*u0*/, float /*v0*/, float /*u1*/, float /*v1*/,
+                   float u0, float v0, float u1, float v1,
                    std::uint32_t color, int zOrder) {
     if (!g_renderer) return false;
     if (!sprite)    return false;
 
-    // Cast back to the typed sprite interface.  A.1.5 will pass UVs
-    // through the source rect (cImage has already computed them at the
-    // call site in cImage::render); the renderer currently treats the
-    // sprite as a flat textured quad so we hand the full rect to it.
     auto* sp = static_cast<IDISpriteObject*>(sprite);
-    VECTOR2 scale{ w, h };
+    IMAGE_HEADER header{};
+    if (!sp->GetImageHeader(&header, 0)) return false;
+    const auto geometry = mxh::client::compute_sprite_render_geometry(
+        header.dwWidth, header.dwHeight, w, h, u0, v0, u1, v1);
+    if (!geometry.has_value()) return false;
+
+    VECTOR2 scale{ geometry->scale_x, geometry->scale_y };
     VECTOR2 trans{ x, y };
-    RECT     rc{ 0, 0, 64, 64 };
+    RECT rc{
+        geometry->source_left,
+        geometry->source_top,
+        geometry->source_right,
+        geometry->source_bottom,
+    };
     return g_renderer->RenderSprite(sp, &scale, 0.0f, &trans, &rc,
                                     color, zOrder, /*dwFlag=*/0) != FALSE;
 }

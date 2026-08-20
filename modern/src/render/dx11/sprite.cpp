@@ -137,8 +137,15 @@ BOOL __stdcall SpriteObject::Draw(VECTOR2* pv2Scaling, float fRot, VECTOR2* pv2T
     // Compute destination rect.
     float dstX = pv2Trans ? pv2Trans->x : 0.0f;
     float dstY = pv2Trans ? pv2Trans->y : 0.0f;
-    float dstW = static_cast<float>(m_width);
-    float dstH = static_cast<float>(m_height);
+    float sourceW = static_cast<float>(m_width);
+    float sourceH = static_cast<float>(m_height);
+    if (pRect) {
+        sourceW = static_cast<float>(pRect->right - pRect->left);
+        sourceH = static_cast<float>(pRect->bottom - pRect->top);
+        if (sourceW <= 0.0f || sourceH <= 0.0f) return FALSE;
+    }
+    float dstW = sourceW;
+    float dstH = sourceH;
     if (pv2Scaling) { dstW *= pv2Scaling->x; dstH *= pv2Scaling->y; }
 
     // Source UV rect from pRect (pixels) 鈫?normalized.

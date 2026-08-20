@@ -10,6 +10,7 @@ add_executable(mxh_client_tests
     client_e2e_flow_test.cpp
     network_event_queue_test.cpp
     state_transfer_test.cpp
+    sprite_render_geometry_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE
