@@ -16,6 +16,15 @@
 // CheckHeader() is COMMENTED OUT in the original (returns TRUE early),
 // so dwVersion is NOT validated. Only dwDataSize is trusted.
 // We replicate that behavior to stay 1:1 compatible.
+//
+// LEGACY 2008 PACKINGMAN FORMAT (R-17, seen in 107 server .bin files):
+//   Layout: [uint32 file_size (= total file size)] [payload bytes]
+//   Payload uses positional XOR (type=0) only. No version/type fields.
+//   Detection: first uint32 equals total file size AND file has at least 5 bytes.
+//   Modern format never satisfies this (modern +0 is a date+type+size hash
+//   like 20040308+type+size, which never equals the file size for non-trivial
+//   payloads). See modern/tests/unit/compat/resource_parse_all_bin_test.cpp
+//   and KNOWN_BUGS.md R-17 for the 107 FAIL -> PASS fix.
 
 #include "mxh/compat/mh_file_ex.hpp"
 
@@ -112,6 +121,27 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
     if (!f.read(reinterpret_cast<char*>(buf.data()), total_size)) {
         r.error = MhError::IoError;
         return r;
+    }
+
+    // Legacy 2008 PackingMan format sniff: first uint32 == total file size.
+    //   layout: [uint32 file_size][payload bytes]
+    //   payload decryption: positional XOR (type=0) only.
+    //   file_size = total_size - 4, type = 0.
+    //   Modern format +0 is a hash like 20040308+type+size, never equals fs.
+    if (buf.size() >= 5) {
+        std::uint32_t legacy_size = 0;
+        std::memcpy(&legacy_size, buf.data(), sizeof(legacy_size));
+        if (legacy_size == static_cast<std::uint32_t>(buf.size())) {
+            MhFile file;
+            file.header.version = 0x00000001;
+            file.header.type = 0;  // positional XOR only
+            file.header.file_size = static_cast<std::uint32_t>(buf.size() - 4);
+            const std::uint8_t* payload = buf.data() + 4;
+            file.data = decrypt_bin_payload(
+                {payload, file.header.file_size}, file.header.type);
+            r.value = std::move(file);
+            return r;
+        }
     }
 
     // Minimum size: header(12) + crc1(1) + payload(0) + crc2(1) = 14 bytes.
