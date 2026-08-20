@@ -104,10 +104,14 @@ struct ImageKeyHash {
 std::unordered_map<ImageKey, cImage*, ImageKeyHash> g_cimage_cache;
 
 void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
-    if (!node.id.has_value()) return;
-    window.setLegacyId(*node.id);
-    if (const auto numeric = resolve_legacy_window_id(*node.id)) {
-        window.setId(*numeric);
+    if (node.id.has_value()) {
+        window.setLegacyId(*node.id);
+        if (const auto numeric = resolve_legacy_window_id(*node.id)) {
+            window.setId(*numeric);
+        }
+    }
+    if (node.func.has_value()) {
+        window.setLegacyFunc(*node.func);
     }
 }
 

@@ -711,9 +711,15 @@ int main() {
         auto* root = wm.findWindowByLegacyId("CS_CHARSELECTDLG");
         auto* first = wm.findWindowByLegacyId("MT_FIRSTCHOSEBTN");
         auto* fourth = wm.findWindowByLegacyId("MT_FOURTHCHOSEBTN");
+        auto* create = wm.findWindowByLegacyFunc("CS_BtnFuncCreateChar");
         EXPECT(root != nullptr, "root #ID is retained");
         EXPECT(first != nullptr, "first slot #ID is retained");
         EXPECT(fourth != nullptr, "fourth slot #ID is retained");
+        EXPECT(create != nullptr, "button without #ID retains #FUNC");
+        if (create) {
+            EXPECT_EQ(create->legacyFunc(), std::string("CS_BtnFuncCreateChar"),
+                      "runtime callback token is byte-identical");
+        }
 
         const auto root_id = mxh::ui::resolve_legacy_window_id("CS_CHARSELECTDLG");
         const auto first_id = mxh::ui::resolve_legacy_window_id("MT_FIRSTCHOSEBTN");

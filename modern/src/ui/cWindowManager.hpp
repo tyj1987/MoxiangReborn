@@ -80,6 +80,7 @@ public:
     // -------------------------------------------------------------------------
     cDialog* findById(std::int32_t id) const;
     cWindow* findWindowByLegacyId(std::string_view id) const;
+    cWindow* findWindowByLegacyFunc(std::string_view func) const;
     cDialog* findByXY(std::int32_t x, std::int32_t y) const;
 
     // -------------------------------------------------------------------------

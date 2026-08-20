@@ -106,18 +106,27 @@ cWindow* cDialog::findWindowById(std::int32_t id) const {
 }
 
 cWindow* cDialog::findWindowByLegacyId(std::string_view id) const {
-    if (legacyId() == id) return const_cast<cDialog*>(this);
-    for (std::size_t i = 0; i < childCount(); ++i) {
-        cWindow* child = childAt(i);
-        if (!child) continue;
-        if (child->legacyId() == id) return child;
-        if (auto* dialog = dynamic_cast<cDialog*>(child)) {
-            if (cWindow* found = dialog->findWindowByLegacyId(id)) {
-                return found;
-            }
+    const auto find = [&](const auto& self, cWindow* window) -> cWindow* {
+        if (!window) return nullptr;
+        if (window->legacyId() == id) return window;
+        for (std::size_t i = 0; i < window->childCount(); ++i) {
+            if (cWindow* found = self(self, window->childAt(i))) return found;
         }
-    }
-    return nullptr;
+        return nullptr;
+    };
+    return find(find, const_cast<cDialog*>(this));
+}
+
+cWindow* cDialog::findWindowByLegacyFunc(std::string_view func) const {
+    const auto find = [&](const auto& self, cWindow* window) -> cWindow* {
+        if (!window) return nullptr;
+        if (window->legacyFunc() == func) return window;
+        for (std::size_t i = 0; i < window->childCount(); ++i) {
+            if (cWindow* found = self(self, window->childAt(i))) return found;
+        }
+        return nullptr;
+    };
+    return find(find, const_cast<cDialog*>(this));
 }
 
 void cDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
