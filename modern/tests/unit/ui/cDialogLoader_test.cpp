@@ -638,6 +638,18 @@ int main() {
                       "LoadAll High vs Low: same ok count");
             EXPECT_EQ(stats_high.dialogs_added, stats_low.dialogs_added,
                       "LoadAll High vs Low: same dialogs_added count (1:1 装载完整)");
+            auto* char_select_high = wm_high.findWindowByLegacyId("CS_CHARSELECTDLG");
+            auto* char_select_low = wm_low.findWindowByLegacyId("CS_CHARSELECTDLG");
+            EXPECT(char_select_high != nullptr,
+                   "LoadAll High retains CharSelect root");
+            EXPECT(char_select_low != nullptr,
+                   "LoadAll Low retains CharSelect root");
+            if (char_select_high && char_select_low) {
+                EXPECT_EQ(char_select_low->absX(), 602,
+                          "LoadAll Low applies the 800x600 CharSelect layout");
+                EXPECT(char_select_high->absX() != char_select_low->absX(),
+                       "LoadAll forwards resolution mode to each LoadOne call");
+            }
             // 默认 mode = High 等价
             mxh::ui::cWindowManager wm_default;
             auto reports_default = mxh::ui::cDialogLoader::LoadAll(playdh, wm_default);

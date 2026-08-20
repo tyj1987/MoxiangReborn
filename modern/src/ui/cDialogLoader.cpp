@@ -720,7 +720,7 @@ std::vector<DialogLoadReport> cDialogLoader::LoadAll(
 
     out.reserve(bins.size());
     for (const auto& bin : bins) {
-        auto rep = LoadOne(bin, wm);
+        auto rep = LoadOne(bin, wm, mode);
         const char* level = rep.ok ? "OK" : "FAIL";
         MLOG_INFO("[cDialogLoader] %-4s %-32s type=%-20s roots=%zu point=(%d,%d,%d,%d)",
                   level, rep.bin_name.c_str(),
