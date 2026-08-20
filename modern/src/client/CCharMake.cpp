@@ -29,6 +29,12 @@ void put_u32(std::vector<std::uint8_t>& out, std::size_t off,
     out[off + 3] = static_cast<std::uint8_t>((v >> 24) & 0xFF);
 }
 
+void put_u16(std::vector<std::uint8_t>& out, std::size_t off,
+             std::uint16_t v) {
+    out[off + 0] = static_cast<std::uint8_t>(v & 0xFFu);
+    out[off + 1] = static_cast<std::uint8_t>((v >> 8) & 0xFFu);
+}
+
 void put_f32(std::vector<std::uint8_t>& out, std::size_t off, float f) {
     std::uint32_t bits = 0;
     std::memcpy(&bits, &f, 4);
@@ -60,10 +66,13 @@ legacy_character_make_syn_payload(const CharacterMakeParams& params,
     out[25] = params.start_area;
 
     // [26..30) bDuplCheck = FALSE (legacy client never set it before send).
-    // [30..50) WearedItemIdx[10] = 0 (no starter items).
+    // [30..50) WearedItemIdx[10], exact legacy equipment slot order.
+    for (std::size_t index = 0; index < params.weared_item_idx.size(); ++index) {
+        put_u16(out, 30 + index * 2, params.weared_item_idx[index]);
+    }
 
-    // [50] StandingArrayNum: legacy client sends -1 (0xFF).
-    out[50] = 0xFF;
+    // [50] StandingArrayNum: defaults to the legacy -1 (0xFF) sentinel.
+    out[50] = params.standing_array_num;
 
     // [51..55) Height, [55..59) Width.
     put_f32(out, 51, params.height);

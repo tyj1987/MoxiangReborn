@@ -29,7 +29,7 @@ using mxh::client::legacy_character_make_syn_payload;
 //   [24]     FaceType
 //   [25]     StartArea
 //   [26..30) bDuplCheck (u32 LE) = FALSE
-//   [30..50) WearedItemIdx[10] (u16 LE) = 0
+//   [30..50) WearedItemIdx[10] (u16 LE)
 //   [50]     StandingArrayNum = 0xFF (legacy sends -1)
 //   [51..55) Height (f32 LE)
 //   [55..59) Width (f32 LE)
@@ -43,6 +43,9 @@ TEST(CharMakeWire, PayloadShape) {
     p.hair_type  = 3;
     p.face_type  = 4;
     p.start_area = 18;
+    p.weared_item_idx[1] = 11000;
+    p.weared_item_idx[2] = 23000;
+    p.weared_item_idx[3] = 27000;
     p.height     = 1.0f;
     p.width      = 0.9f;
 
@@ -70,8 +73,11 @@ TEST(CharMakeWire, PayloadShape) {
     // bDuplCheck = FALSE at [26..30).
     for (std::size_t i = 26; i < 30; ++i) EXPECT_EQ(pl[i], 0u);
 
-    // WearedItemIdx[10] all zero at [30..50).
-    for (std::size_t i = 30; i < 50; ++i) EXPECT_EQ(pl[i], 0u);
+    // WearedItemIdx uses the recovered legacy slot order:
+    // hat=0, weapon=1, dress=2, shoes=3.
+    EXPECT_EQ(pl[32], 0xF8u); EXPECT_EQ(pl[33], 0x2Au); // 11000
+    EXPECT_EQ(pl[34], 0xD8u); EXPECT_EQ(pl[35], 0x59u); // 23000
+    EXPECT_EQ(pl[36], 0x78u); EXPECT_EQ(pl[37], 0x69u); // 27000
 
     // StandingArrayNum = 0xFF (legacy client sends -1).
     EXPECT_EQ(pl[50], 0xFFu);

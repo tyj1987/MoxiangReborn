@@ -42,6 +42,7 @@
 #include "CGameState.hpp"
 #include "CCharSelectState.hpp"  // LoginResult
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -67,6 +68,8 @@ struct CharacterMakeParams {
     std::uint8_t hair_type  = 0;
     std::uint8_t face_type  = 0;
     std::uint8_t start_area = 0;    // user-selected in the legacy client
+    std::array<std::uint16_t, 10> weared_item_idx{};
+    std::uint8_t standing_array_num = 0xFF;
     float        height     = 1.0f;
     float        width      = 1.0f;
 };
@@ -81,8 +84,8 @@ struct CharacterMakeParams {
 //   [24]     FaceType (u8)
 //   [25]     StartArea (u8)
 //   [26..30) bDuplCheck (u32 LE) - 0 (legacy client sends FALSE)
-//   [30..50) WearedItemIdx[10] (10 * u16 LE) - all 0 (no starter items)
-//   [50]     StandingArrayNum (u8) - legacy client sends -1 = 0xFF
+//   [30..50) WearedItemIdx[10] (10 * u16 LE)
+//   [50]     StandingArrayNum (u8)
 //   [51..55) Height (f32 LE)
 //   [55..59) Width (f32 LE)
 std::vector<std::uint8_t>
