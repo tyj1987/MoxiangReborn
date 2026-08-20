@@ -216,8 +216,8 @@ TEST(InterfaceScriptRender, DialogRenderDrawsChromeAndChildTree) {
     ASSERT_EQ(state.rects.size(), 2u);
     EXPECT_EQ(std::get<0>(state.rects[0]), 2);
     EXPECT_EQ(std::get<1>(state.rects[0]), 3);
-    EXPECT_EQ(std::get<0>(state.rects[1]), 5);
-    EXPECT_EQ(std::get<1>(state.rects[1]), 7);
+    EXPECT_EQ(std::get<0>(state.rects[1]), 7);
+    EXPECT_EQ(std::get<1>(state.rects[1]), 10);
 }
 
 TEST(InterfaceScriptRender, QuickDialogRendersAtLegacyPixelPosition) {

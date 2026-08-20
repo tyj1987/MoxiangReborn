@@ -62,12 +62,10 @@ void cWindow::SetWH(std::int32_t w, std::int32_t h) noexcept {
 void cWindow::Add(std::unique_ptr<cWindow> child) {
     if (!child) return;
     child->setParent(this);
-    // Convert the child's absolute coords to be relative to *this* if the
-    // caller has been using SetAbsXY; the legacy engine's default behavior
-    // is "parent's abs + child's rel" = child's abs. We preserve the
-    // child's absX/absY verbatim and just record the parent link — the
-    // rendering layer is responsible for combining absX + parent.absX
-    // when computing screen positions in 6.1.2.
+    // Exact legacy cDialog::Add contract: InterfaceScript child #POINT is
+    // relative to its parent, while hit testing/rendering consume absolute
+    // coordinates. Compose the parent origin exactly once when attaching.
+    child->SetAbsXY(m_absX + child->relX(), m_absY + child->relY());
     m_children.push_back(std::move(child));
 }
 
