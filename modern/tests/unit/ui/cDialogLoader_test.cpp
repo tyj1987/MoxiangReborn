@@ -18,6 +18,8 @@
 #include "mxh/ui/cComboBox.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cmainbardialog.hpp"
+#include "mxh/ui/cmakdial.hpp"
 #include "mxh/ui/cGuageBar.hpp"
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cIconDialog.hpp"
@@ -725,6 +727,8 @@ int main() {
             is_dir / "CharMakeNewDlg.bin", wm,
             mxh::ui::ResolutionMode::Low800x600);
         EXPECT(rep.ok, "CharMakeNewDlg loads for recursive tree test");
+        EXPECT(dynamic_cast<mxh::ui::cCharMakeDlg*>(wm.topmost()) != nullptr,
+               "CHARMAKEDLG root uses recovered dedicated runtime class");
 
         auto* height_window = wm.findWindowByLegacyId("CMID_Height");
         auto* height = dynamic_cast<mxh::ui::cGuageBar*>(height_window);
@@ -741,6 +745,17 @@ int main() {
                           "nested thumb y composes root+gauge+thumb coordinates");
             }
         }
+    }
+
+    // ---- Test 13: known legacy root type uses its dedicated dialog class ----
+    {
+        mxh::ui::cWindowManager wm;
+        const auto rep = mxh::ui::cDialogLoader::LoadOne(
+            is_dir / "15.bin", wm,
+            mxh::ui::ResolutionMode::High1920x1080);
+        EXPECT(rep.ok, "MAINDLG loads for root factory test");
+        EXPECT(dynamic_cast<mxh::ui::cMainBarDialog*>(wm.topmost()) != nullptr,
+               "MAINDLG root uses cMainBarDialog");
     }
 
     std::cout << "\n[cDialogLoader_test] PASS " << g_passes

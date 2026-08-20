@@ -13,6 +13,13 @@
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cAni.hpp"               // M-R4.8: cAni stub (full def, no legacy)
 #include "mxh/ui/cButton.hpp"
+#include "mxh/ui/ccharacterdialog.hpp"
+#include "mxh/ui/cchatdialog.hpp"
+#include "mxh/ui/cinventoryexdialog.hpp"
+#include "mxh/ui/cmainbardialog.hpp"
+#include "mxh/ui/cmakdial.hpp"
+#include "mxh/ui/guagedialog.hpp"
+#include "mxh/ui/mugongsuryundialog.hpp"
 #include "mxh/ui/cCheckBox.hpp"
 #include "mxh/ui/cComboBox.hpp"
 #include "mxh/ui/cDialog.hpp"
@@ -524,6 +531,40 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
     }
     return true;
 }
+
+std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
+    // Exact cases from recovered legacy cScriptManager::GetDlgInfoFromFile.
+    // Keep the generic fallback for root types whose dedicated modern class
+    // has not yet reached runtime parity; never invent a substitute class.
+    if (node.type == "CHARGUAGEDLG") {
+        return std::make_unique<cGuageDialog>();
+    }
+    if (node.type == "LISTDLG") {
+        return std::make_unique<cListDialog>();
+    }
+    if (node.type == "LISTDLGEX") {
+        return std::make_unique<cListDialogEx>();
+    }
+    if (node.type == "CHARINFODLG") {
+        return std::make_unique<cCharacterDialog>();
+    }
+    if (node.type == "MUGONGSURYUNDLG") {
+        return std::make_unique<cMugongSuryunDialog>();
+    }
+    if (node.type == "MAINDLG") {
+        return std::make_unique<cMainBarDialog>();
+    }
+    if (node.type == "INVENTORYDLG") {
+        return std::make_unique<cInventoryExDialog>();
+    }
+    if (node.type == "CHATDLG") {
+        return std::make_unique<cChatDialog>();
+    }
+    if (node.type == "CHARMAKEDLG") {
+        return std::make_unique<cCharMakeDlg>();
+    }
+    return std::make_unique<cDialog>();
+}
 }  // namespace
 
 // M-R7 (G3): header declares single overload with default arg
@@ -588,7 +629,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                                             root->basic_image_rect);
         if (cimg) r.cimg_count += 1;
 
-        auto dlg = std::make_unique<cDialog>();
+        auto dlg = makeDialogRoot(*root);
         const bool applied = apply_legacy_layout(*dlg, *root,
                                                   /*basicImage=*/cimg,
                                                   mode);
