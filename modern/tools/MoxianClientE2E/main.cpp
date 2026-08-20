@@ -85,6 +85,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -127,14 +128,29 @@ struct CliArgs {
                                // bootstrap the shared DB itself.
 };
 
+std::string resolve_server_exe(const char* argv0,
+                               const char* directory,
+                               const char* executable) {
+    std::error_code error;
+    auto tool_dir = std::filesystem::absolute(argv0, error).parent_path().parent_path();
+    if (error) tool_dir = std::filesystem::current_path() / "modern" / "build" / "tools";
+    const auto single_config = tool_dir / directory / executable;
+    if (std::filesystem::exists(single_config)) return single_config.string();
+    const auto multi_config = tool_dir / directory / "Debug" / executable;
+    if (std::filesystem::exists(multi_config)) return multi_config.string();
+    return single_config.string();
+}
+
 CliArgs parse_cli(int argc, char** argv) {
     CliArgs a;
-    // Default exe paths: assume the build dir produced them under
-    // modern/build/tools/MoxianXxxServer/Debug/.
-    const std::string build_dir = "C:/moxiang/modern/build/tools";
-    a.login_exe = build_dir + "/MoxianLoginServer/Debug/mxh_login_server.exe";
-    a.agent_exe = build_dir + "/MoxianAgentServer/Debug/mxh_agent_server_CHINA.exe";
-    a.map_exe   = build_dir + "/MoxianMapServer/Debug/mxh_map_server_CHINA.exe";
+    // Resolve next to this executable so both Ninja single-config and Visual
+    // Studio multi-config build trees work without a machine-specific path.
+    a.login_exe = resolve_server_exe(
+        argv[0], "MoxianLoginServer", "mxh_login_server.exe");
+    a.agent_exe = resolve_server_exe(
+        argv[0], "MoxianAgentServer", "mxh_agent_server_CHINA.exe");
+    a.map_exe = resolve_server_exe(
+        argv[0], "MoxianMapServer", "mxh_map_server_CHINA.exe");
     // MSSQL default matches the verified LocalDB command from the P0 E2E:
     //   --backend mssql_odbc --db "backend=mssql_odbc;host=(localdb)\MSSQLLocalDB;database=Moxiang;"
     a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;encrypt=no;trust_server_certificate=yes;";

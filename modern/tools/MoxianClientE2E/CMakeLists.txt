@@ -16,6 +16,11 @@ target_include_directories(mxh_client_e2e PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
 )
 target_link_libraries(mxh_client_e2e PRIVATE mxh_client_lib mxh_db mxh_log)
+add_dependencies(mxh_client_e2e
+    mxh_login_server
+    mxh_agent_server_CHINA
+    mxh_map_server_CHINA
+)
 if(MSVC)
     target_compile_definitions(mxh_client_e2e PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_options(mxh_client_e2e PRIVATE /W3 /utf-8)
@@ -26,7 +31,11 @@ endif()
 # steps pass, so ctest's pass/fail reflects the E2E result.  We use
 # a 60s timeout because the tool spawns 3 servers (~2s to listen) and
 # then runs the protocol (~1s per step) with up to 10s per-step slack.
-add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e)
+add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e
+    --login-exe $<TARGET_FILE:mxh_login_server>
+    --agent-exe $<TARGET_FILE:mxh_agent_server_CHINA>
+    --map-exe $<TARGET_FILE:mxh_map_server_CHINA>
+)
 set_tests_properties(MoxianClientE2E PROPERTIES
     TIMEOUT 60
     LABELS "e2e;client;server"
