@@ -43,7 +43,7 @@ gtest_add_tests(TARGET mxh_db_tests
     RealResource.PakFileListingToDb
     SchemaMigration.CreatesVersionedSharedSchemaWithoutAccounts
     SchemaMigration.IsIdempotent
+    SchemaMigration.UpgradesLegacyCharacterTableInPlace
 )
 # Real SQL Server test skips unless MXH_MSSQL_E2E is configured.
 add_test(NAME mssql_real_e2e_test COMMAND mxh_db_tests --gtest_filter=MssqlRealE2E.*)
-

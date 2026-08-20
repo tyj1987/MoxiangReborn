@@ -39,4 +39,16 @@ TEST(SchemaMigration, IsIdempotent) {
     EXPECT_EQ(std::get<std::int64_t>(versions.rows[0][0]), mxh::db::kModernSchemaVersion);
 }
 
+TEST(SchemaMigration, UpgradesLegacyCharacterTableInPlace) {
+    mxh::db::SqliteAdapter db;
+    connect_memory_db(db);
+    ASSERT_TRUE(db.execute(
+        "CREATE TABLE character_info (charname TEXT PRIMARY KEY, chrid INTEGER UNIQUE, userid TEXT, character_data BLOB)", {}).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+
+    mxh::db::ResultSet columns;
+    ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
+    EXPECT_EQ(columns.rows.size(), 14u);
+}
+
 }  // namespace

@@ -1,9 +1,8 @@
 -- mx_modern_schema_mssql.sql
 --
 -- Modern (C++17) Moxian server schema for SQL Server.
--- The modern servers skip --init-schema for non-SQLite backends; apply
--- this script out-of-band to the game database before starting the
--- three processes with --backend mssql_odbc.
+-- This file mirrors mxh::db::migrate_modern_schema for environments that
+-- require sqlcmd-based provisioning. It never creates accounts.
 --
 -- Usage (LocalDB example):
 --   sqlcmd -S "(localdb)\MSSQLLocalDB" -E -i mx_modern_schema_mssql.sql
@@ -15,6 +14,15 @@ END
 GO
 
 USE [Moxiang]
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_schema_version')
+BEGIN
+    CREATE TABLE [dbo].[modern_schema_version] (
+        [version] INT NOT NULL PRIMARY KEY,
+        [applied_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'chr_log_info')
@@ -39,9 +47,9 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'character_info')
 BEGIN
     CREATE TABLE [dbo].[character_info] (
-        [chrid]        BIGINT        NOT NULL PRIMARY KEY,
-        [charname]     NVARCHAR(50)  NOT NULL,
-        [userid]       BIGINT        NOT NULL,
+        [charname]     NVARCHAR(50)  NOT NULL PRIMARY KEY,
+        [chrid]        BIGINT        NOT NULL UNIQUE,
+        [userid]       NVARCHAR(50)  NOT NULL,
         [sex_type]     TINYINT       NOT NULL DEFAULT 0,
         [hair_type]    TINYINT       NOT NULL DEFAULT 0,
         [face_type]    TINYINT       NOT NULL DEFAULT 0,
@@ -51,19 +59,40 @@ BEGIN
         [width]        FLOAT         NOT NULL DEFAULT 1.0,
         [level]        INT           NOT NULL DEFAULT 1,
         [map_num]      INT           NOT NULL DEFAULT 0,
-        [standing_idx] INT           NOT NULL DEFAULT 0
+        [standing_idx] INT           NOT NULL DEFAULT 0,
+        [character_data] VARBINARY(MAX) NULL
     );
 END
 GO
 
--- Test account used by the client E2E (id/pw = test/test).
-IF NOT EXISTS (SELECT 1 FROM [dbo].[chr_log_info] WHERE [id] = N'test')
+IF COL_LENGTH(N'dbo.character_info', N'character_data') IS NULL
 BEGIN
-    INSERT INTO [dbo].[chr_log_info] ([id], [pw], [userlevel])
-    VALUES (N'test', N'test', 2);
+    ALTER TABLE [dbo].[character_info]
+        ADD [character_data] VARBINARY(MAX) NULL;
 END
 GO
 
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE [object_id] = OBJECT_ID(N'dbo.character_info')
+      AND [name] = N'userid'
+      AND TYPE_NAME([user_type_id]) <> N'nvarchar'
+)
+BEGIN
+    ALTER TABLE [dbo].[character_info]
+        ALTER COLUMN [userid] NVARCHAR(50) NOT NULL;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'ux_character_info_charname'
+                 AND object_id = OBJECT_ID(N'dbo.character_info'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX [ux_character_info_charname]
+        ON [dbo].[character_info] ([charname]);
+END
+GO
 
 -- M3 D-stage: modern player state (upsert target for BuySyn money persistence).
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_state')
@@ -253,4 +282,8 @@ END
 GO
 
 PRINT 'Moxiang modern schema ready';
+IF NOT EXISTS (SELECT 1 FROM [dbo].[modern_schema_version] WHERE [version] = 1)
+BEGIN
+    INSERT INTO [dbo].[modern_schema_version] ([version]) VALUES (1);
+END
 GO
