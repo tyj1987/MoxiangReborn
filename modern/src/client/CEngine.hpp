@@ -30,7 +30,9 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
+#include <optional>
 #include <any>
 #include <utility>
 
@@ -54,6 +56,14 @@ public:
     // have been called.  CEngine doesn't own it.
     void SetRenderer(mxh::gx::I4DyuchiGXRenderer* r) noexcept { m_pRenderer = r; }
     mxh::gx::I4DyuchiGXRenderer* GetRenderer() const noexcept { return m_pRenderer; }
+
+    // M-R7.1 (G3 bug fix 2026-08-20): host sets the PlayDH resource
+    // root once.  Game states (CCharSelectState / CCharMake) read it
+    // to load their cDialog trees from <root>/Image/InterfaceScript/.
+    void SetPlaydhRoot(std::filesystem::path p) noexcept { m_playdhRoot = std::move(p); }
+    const std::optional<std::filesystem::path>& playdh_root() const noexcept {
+        return m_playdhRoot;
+    }
 
     // Lifecycle.  Init is called once at startup; Release once at
     // shutdown.  Both are stubs in A.1.6.
@@ -92,6 +102,7 @@ private:
     void*                           m_hWnd         = nullptr;
     mxh::gx::I4DyuchiGXRenderer*    m_pRenderer    = nullptr;
     bool                            m_bInitialized = false;
+    std::optional<std::filesystem::path> m_playdhRoot;
     StateChangeFn                   m_stateChangeFn;
     std::any                        m_pendingTransfer;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers

@@ -50,6 +50,8 @@
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cDialogLoader.hpp"
 
 namespace mxh::client {
 
@@ -121,6 +123,12 @@ public:
     // Idempotent (second call is a no-op).
     void Start(CEngine* engine, bool use_hsel = false);
 
+    // M-R7.1 (G3 bug fix 2026-08-20): host reads the loaded cDialog
+    // tree to render the 1:1 UI (CharMakeNewDlg.bin — 49 children).
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiDialogs;
+    }
+
     // Submit the creation form: validates + builds the 59-byte
     // CHARACTERMAKEINFO and sends CharacterMakeSyn.  Safe to call once
     // the agent connection is up; returns false if not connected or an
@@ -142,6 +150,9 @@ private:
     LoginResult              m_login;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
+    // M-R7.1 (G3 bug fix 2026-08-20): load CharMakeNewDlg.bin cDialog
+    // tree at Start() so the user sees the 1:1 UI shape (49 children).
+    std::vector<std::unique_ptr<mxh::ui::cDialog>> m_uiDialogs;
 
     CharacterMakeParams      m_pending;     // captured by SubmitCharacter
     bool                     m_started  = false;

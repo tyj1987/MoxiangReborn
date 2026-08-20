@@ -270,6 +270,7 @@ std::string __g_pendingStateFrame;
 // to the current game state (only CInGameState consumes input today).
 mxh::client::CInGameState* g_inputTarget = nullptr;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
+mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
 
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
 // wired in M-R3 via cDialogLoader::LoadAll — see below after bindRenderer()).
@@ -798,6 +799,35 @@ void renderFrame(HWND h) {
                 drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
                            145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
                 drawText("SELECT CHARACTER", 320, 130, 0xFFFFD080u);
+                // M-R7.1 (2026-08-20): if CharSelectDlg.bin cDialog tree
+                // is loaded (12 child widgets: 5 char slots, 4 buttons,
+                // 3 statics), draw its bounding rect + child rects so
+                // the user sees the 1:1 UI shape instead of an empty
+                // HUD bar.  Headless 端 — no sprite yet, just outlines.
+                if (g_charSelectState) {
+                    const auto& dlgs_cs = g_charSelectState->ui_dialogs();
+                    if (!dlgs_cs.empty()) {
+                        for (const auto& d : dlgs_cs) {
+                            if (!d) continue;
+                            drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                                       static_cast<float>(d->absX()),
+                                       static_cast<float>(d->absY()),
+                                       static_cast<float>(d->width()),
+                                       static_cast<float>(d->height()),
+                                       0.85f);
+                            for (std::size_t i = 0; i < d->childCount(); ++i) {
+                                mxh::ui::cWindow* c = d->childAt(i);
+                                if (!c) continue;
+                                drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                                           static_cast<float>(c->absX()),
+                                           static_cast<float>(c->absY()),
+                                           static_cast<float>(c->width()),
+                                           static_cast<float>(c->height()),
+                                           0.4f);
+                            }
+                        }
+                    }
+                }
                 if (g_charSelectState) {
                     const std::vector<mxh::client::CharacterSlot>& chars = g_charSelectState->character_list();
                     if (chars.empty()) {
@@ -827,6 +857,35 @@ void renderFrame(HWND h) {
                 drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
                            145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
                 drawText("CREATE CHARACTER", 320, 130, 0xFFFFD080u);
+                // M-R7.1 (2026-08-20): if CharMakeNewDlg.bin cDialog
+                // tree is loaded (49 children: 5 class pages, 12
+                // race toggles, 16 statics), draw its bounding rect +
+                // child rects so the user sees the 1:1 UI shape
+                // instead of an empty bar.
+                if (g_charMakeState) {
+                    const auto& dlgs = g_charMakeState->ui_dialogs();
+                    if (!dlgs.empty()) {
+                        for (const auto& d : dlgs) {
+                            if (!d) continue;
+                            drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                                       static_cast<float>(d->absX()),
+                                       static_cast<float>(d->absY()),
+                                       static_cast<float>(d->width()),
+                                       static_cast<float>(d->height()),
+                                       0.85f);
+                            for (std::size_t i = 0; i < d->childCount(); ++i) {
+                                mxh::ui::cWindow* c = d->childAt(i);
+                                if (!c) continue;
+                                drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                                           static_cast<float>(c->absX()),
+                                           static_cast<float>(c->absY()),
+                                           static_cast<float>(c->width()),
+                                           static_cast<float>(c->height()),
+                                           0.4f);
+                            }
+                        }
+                    }
+                }
                 drawText("0 slots in use; auto-create kicked in", 200, 200, 0xFFFFFFFFu);
             } else if (cur_state == static_cast<int>(mxh::client::GameStateId::GameLoading)) {
                 drawText("Entering game...", 290, 240, 0xFF80FF80u);
@@ -1187,6 +1246,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     auto engine = std::make_unique<mxh::client::CEngine>();
     engine->SetHwnd(hwnd);
     engine->SetRenderer(renderer);
+    if (!options.resource_root.empty()) {
+        engine->SetPlaydhRoot(std::filesystem::path(options.resource_root));
+    }
     engine->Init();
 
     mxh::client::CMainGame mainGame;
@@ -1282,6 +1344,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         mainGame.GetGameState(cur_state));
                 } else {
                     g_charSelectState = nullptr;
+                }
+                if (cur_state == mxh::client::GameStateId::CharMake) {
+                    g_charMakeState = dynamic_cast<mxh::client::CCharMake*>(
+                        mainGame.GetGameState(cur_state));
+                } else {
+                    g_charMakeState = nullptr;
                 }
                 // Phase B.2.5: skip past the manual login form (CMainTitle)
             // when running in headless smoke mode. The 1:1 flow goes

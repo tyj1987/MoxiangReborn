@@ -6,7 +6,10 @@
 #include "CMainGame.hpp"
 
 #include <cstring>
+#include <filesystem>
 #include <utility>
+
+#include "mxh/ui/cWindowManager.hpp"
 
 #include "mxh/log/mlog.hpp"
 #include "mxh/proto/protocol.hpp"
@@ -86,6 +89,37 @@ void CCharMake::Init(void* /*pInitParam*/) {
 void CCharMake::Start(CEngine* engine, bool use_hsel) {
     m_pEngine = engine;
     m_useHsel = use_hsel;
+
+    // M-R7.1 (G3 bug fix 2026-08-20): load the legacy CharMakeNewDlg.bin
+    // cDialog tree (49 child widgets: 5 class picker pages, 12 race
+    // toggles, 16 statics, etc.) so the user sees the 1:1 UI shape
+    // instead of a colored bar with text.  Loaded headless 端 via
+    // cDialogLoader; the host renders the tree.
+    if (engine && engine->playdh_root().has_value() && m_uiDialogs.empty()) {
+        const auto root = *engine->playdh_root() / "Image" / "InterfaceScript";
+        const auto path = root / "CharMakeNewDlg.bin";
+        if (std::filesystem::exists(path)) {
+            mxh::ui::cWindowManager tmp_wm;
+            auto r = mxh::ui::cDialogLoader::LoadOne(path, tmp_wm);
+            if (r.ok) {
+                while (tmp_wm.dialogCount() > 0) {
+                    auto d = tmp_wm.RemoveDialog(tmp_wm.dialogs().front().get());
+                    if (d) m_uiDialogs.push_back(std::move(d));
+                    else break;
+                }
+                MLOG_INFO("CCharMake: loaded %zu dialog(s) from CharMakeNewDlg.bin "
+                          "(point=(%d,%d,%d,%d), type=%s)",
+                          m_uiDialogs.size(), r.point_x, r.point_y,
+                          r.point_w, r.point_h, r.dialog_type.c_str());
+            } else {
+                MLOG_WARN("CCharMake: CharMakeNewDlg.bin load failed: %s",
+                          r.error.c_str());
+            }
+        } else {
+            MLOG_WARN("CCharMake: CharMakeNewDlg.bin not found at %s",
+                      path.string().c_str());
+        }
+    }
     if (m_useHsel) {
         m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
     }

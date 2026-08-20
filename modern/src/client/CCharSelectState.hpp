@@ -41,6 +41,8 @@
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cDialogLoader.hpp"
 
 namespace mxh::client {
 
@@ -138,6 +140,12 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t selected_chrid() const noexcept { return m_selectedChrid; }
     bool has_character_list() const noexcept { return m_listReceived; }
     const LoginResult& login_result() const noexcept { return m_login; }
+    // M-R7.1 (2026-08-20): host reads the loaded cDialog tree to render
+    // the 1:1 UI (CharSelectDlg.bin — 12 child widgets, 5 character
+    // slots, 4 buttons, 3 statics).
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiDialogs;
+    }
     const std::vector<CharacterSlot>& character_list() const noexcept {
         return m_characters;
     }
@@ -151,6 +159,11 @@ private:
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
     LoginResult              m_login;
+    // M-R7.1 (G3 bug fix 2026-08-20): load the legacy CharSelectDlg.bin
+    // cDialog at Start() so the user sees a real (1:1-shaped) UI
+    // instead of a colored bar with text.  Loading is headless +
+    // 头less 端 (no GPU sprite — the host renders the dialog tree).
+    std::vector<std::unique_ptr<mxh::ui::cDialog>> m_uiDialogs;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
 

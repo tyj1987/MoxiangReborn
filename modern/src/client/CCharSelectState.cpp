@@ -6,10 +6,12 @@
 #include "CMainGame.hpp"
 
 #include <cstring>
+#include <filesystem>
 #include <utility>
 
 #include "mxh/log/mlog.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/ui/cWindowManager.hpp"
 
 namespace mxh::client {
 
@@ -101,6 +103,40 @@ void CCharSelectState::Init(void* /*pInitParam*/) {
 void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     m_pEngine = engine;
     m_useHsel = use_hsel;
+
+    // M-R7.1 (G3 bug fix 2026-08-20): load the legacy CharSelectDlg.bin
+    // cDialog tree so the user sees the real 1:1 UI shape (12 child
+    // widgets: 5 character slots + 4 buttons + 3 statics).  Loaded
+    // headless 端 via cDialogLoader; the host renders the tree.
+    if (engine && engine->playdh_root().has_value() && m_uiDialogs.empty()) {
+        const auto root = *engine->playdh_root() / "Image" / "InterfaceScript";
+        const auto path = root / "CharSelectDlg.bin";
+        if (std::filesystem::exists(path)) {
+            // Use a temporary cWindowManager (we don't want to
+            // double-register the dialog with the global WM; the
+            // engine owns the canonical tree).
+            mxh::ui::cWindowManager tmp_wm;
+            auto r = mxh::ui::cDialogLoader::LoadOne(path, tmp_wm);
+            if (r.ok) {
+                // Move out of tmp_wm by stealing the unique_ptr.
+                while (tmp_wm.dialogCount() > 0) {
+                    auto d = tmp_wm.RemoveDialog(tmp_wm.dialogs().front().get());
+                    if (d) m_uiDialogs.push_back(std::move(d));
+                    else break;  // safety: avoid infinite loop
+                }
+                MLOG_INFO("CCharSelectState: loaded %zu dialog(s) from CharSelectDlg.bin "
+                          "(point=(%d,%d,%d,%d), type=%s)",
+                          m_uiDialogs.size(), r.point_x, r.point_y,
+                          r.point_w, r.point_h, r.dialog_type.c_str());
+            } else {
+                MLOG_WARN("CCharSelectState: CharSelectDlg.bin load failed: %s",
+                          r.error.c_str());
+            }
+        } else {
+            MLOG_WARN("CCharSelectState: CharSelectDlg.bin not found at %s",
+                      path.string().c_str());
+        }
+    }
     if (m_useHsel) {
         m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
     }
