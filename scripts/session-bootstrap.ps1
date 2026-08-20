@@ -64,6 +64,7 @@ $results = [ordered]@{
     Step2_WorkingTree     = 'SKIP'
     Step3_NoTruncation    = 'SKIP'
     Step5_SafeShell       = 'SKIP'
+    Step6_DupHeaders      = 'SKIP'
     Step4_Confirm         = 'PENDING'
 }
 
@@ -162,6 +163,22 @@ if (Test-Path -LiteralPath $safeShellPath) {
     $results.Step5_SafeShell = 'OK'
 } else {
     $results.Step5_SafeShell = 'MISSING'
+}
+
+# Step 6: 重复 .hpp 同步检查 (R-36 / R-37 防护, 2026-08-20)
+# src/ui/ 跟 include/mxh/ui/ 两边 .hpp SHA256 必须一致, 否则 .obj 用
+# src/ 老 layout 编译, test 用 include/ 新 layout, ABI 错位导致 0xC0000005.
+$dupHppScript = Join-Path $PSScriptRoot 'check-dup-headers.ps1'
+if (Test-Path -LiteralPath $dupHppScript) {
+    $dupOut = & pwsh -NoProfile -ExecutionPolicy Bypass -File $dupHppScript 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $results.Step6_DupHeaders = 'OK'
+    } else {
+        $results.Step6_DupHeaders = "WARN (out-of-sync detected, run: pwsh -File $dupHppScript -Fix)"
+        # 不阻断 -- 防止 commit 流程中临时不对称
+    }
+} else {
+    $results.Step6_DupHeaders = 'SKIP (script missing)'
 }
 
 $blocking = ($results.Step1_CleanRoot.StartsWith('FAIL') -or $results.Step3_NoTruncation -eq 'MISSING' -or $results.Step5_SafeShell -eq 'MISSING' -or $results.Step0_HarnessProbe.StartsWith('FAIL'))
