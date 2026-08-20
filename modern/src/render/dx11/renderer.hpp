@@ -29,6 +29,10 @@ public:
     CoD3DDeviceDX11();
     ~CoD3DDeviceDX11();
 
+    void SetLogicalScreenSize(std::uint16_t width, std::uint16_t height) noexcept {
+        if (m_dev) m_dev->setLogicalScreenSize(width, height);
+    }
+
     // IUnknown
     STDMETHODIMP QueryInterface(REFIID, void**) override;
     STDMETHODIMP_(ULONG) AddRef() override;

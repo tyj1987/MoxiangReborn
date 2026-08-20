@@ -1366,3 +1366,13 @@ extern "C" HRESULT __stdcall CreateGXRendererInstance(void** ppv) {
     *ppv = renderer;
     return S_OK;
 }
+
+extern "C" BOOL __stdcall SetGXLogicalScreenSize(
+    mxh::gx::I4DyuchiGXRenderer* renderer,
+    std::uint16_t logicalWidth,
+    std::uint16_t logicalHeight) {
+    auto* dx11 = dynamic_cast<mxh::gx::dx11::CoD3DDeviceDX11*>(renderer);
+    if (!dx11 || logicalWidth == 0 || logicalHeight == 0) return FALSE;
+    dx11->SetLogicalScreenSize(logicalWidth, logicalHeight);
+    return TRUE;
+}

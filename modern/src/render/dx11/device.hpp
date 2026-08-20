@@ -71,12 +71,22 @@ public:
     // Explicit screen-space ortho: pixel -> NDC with the row-major
     // convention used by the primitive VS (mul(v, M)).
     void useScreenOrtho() noexcept {
+        const float logicalWidth = m_logicalScreenWidth > 0
+            ? static_cast<float>(m_logicalScreenWidth)
+            : static_cast<float>(m_width);
+        const float logicalHeight = m_logicalScreenHeight > 0
+            ? static_cast<float>(m_logicalScreenHeight)
+            : static_cast<float>(m_height);
         MATRIX4 m = MatrixIdentity();
-        m._11 = 2.0f / static_cast<float>(m_width);
-        m._22 = -2.0f / static_cast<float>(m_height);
+        m._11 = 2.0f / logicalWidth;
+        m._22 = -2.0f / logicalHeight;
         m._41 = -1.0f;
         m._42 = 1.0f;
         m_matViewProj = m;
+    }
+    void setLogicalScreenSize(std::uint16_t width, std::uint16_t height) noexcept {
+        m_logicalScreenWidth = width;
+        m_logicalScreenHeight = height;
     }
     const MATRIX4& billboardMatrix()   const { return m_matBillboard; }
     // 2D screen-space orthographic projection that maps pixel coordinates
@@ -139,6 +149,8 @@ private:
     DISPLAY_TYPE m_displayType = WINDOW_WITH_BLT;
     std::uint16_t m_width  = 0;
     std::uint16_t m_height = 0;
+    std::uint16_t m_logicalScreenWidth = 0;
+    std::uint16_t m_logicalScreenHeight = 0;
     HWND         m_hwnd    = nullptr;
     BOOL         m_vsync  = TRUE;   // vertical sync: TRUE=wait, FALSE=immediate
 

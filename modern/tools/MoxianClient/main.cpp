@@ -59,6 +59,7 @@
 #include "CEngine.hpp"
 #include "CCharMake.hpp"
 #include "GameStateStubs.hpp"
+#include "LogicalViewport.hpp"
 #include "SpriteRenderGeometry.hpp"
 
 #pragma comment(lib, "user32.lib")
@@ -272,6 +273,7 @@ std::string __g_pendingStateFrame;
 mxh::client::CInGameState* g_inputTarget = nullptr;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
+mxh::client::LogicalViewport   g_logicalViewport;
 
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
 // wired in M-R3 via cDialogLoader::LoadAll — see below after bindRenderer()).
@@ -475,7 +477,25 @@ void drawHudBar(I4DyuchiGXRenderer* r, IDISpriteObject* bg,
 void renderFrame(HWND h) {
     if (!g_renderer) return;
 
-    g_renderer->BeginRender(nullptr, 0xff101830, 0);
+    g_renderer->UpdateWindowSize();
+    RECT clientRect{};
+    GetClientRect(h, &clientRect);
+    g_logicalViewport.update(clientRect.right - clientRect.left,
+                             clientRect.bottom - clientRect.top);
+    SetGXLogicalScreenSize(
+        g_renderer,
+        static_cast<std::uint16_t>(mxh::client::LogicalViewport::kLogicalWidth),
+        static_cast<std::uint16_t>(mxh::client::LogicalViewport::kLogicalHeight));
+    const auto& content = g_logicalViewport.content_rect();
+    SHORT_RECT contentRect{
+        static_cast<short>(content.x),
+        static_cast<short>(content.y),
+        static_cast<short>(content.x + content.width),
+        static_cast<short>(content.y + content.height),
+    };
+    g_renderer->BeginRender(
+        content.width > 0 && content.height > 0 ? &contentRect : nullptr,
+        0xff000000, 0);
 
     if (g_renderTerrain && g_terrain) {
         g_terrain->configureCamera(800.0f / 600.0f);
@@ -952,6 +972,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         EndPaint(h, &paint);
         return 0;
     }
+    case WM_SIZE:
+        g_logicalViewport.update(
+            static_cast<std::int32_t>(LOWORD(l)),
+            static_cast<std::int32_t>(HIWORD(l)));
+        if (g_renderer) g_renderer->UpdateWindowSize();
+        return 0;
     case WM_KEYDOWN:
         // ESC quits in A.1 (the legacy engine uses ESC to open the menu;
         // for the skeleton we use it as the "exit" hotkey).
@@ -995,9 +1021,14 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         return 0;
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
+        {
+        const auto logical = g_logicalViewport.to_logical(
+            static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
+            static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        if (!logical.has_value()) return 0;
+        const auto x = static_cast<std::int32_t>(logical->x);
+        const auto y = static_cast<std::int32_t>(logical->y);
         if (g_loginUi.visible && m == WM_LBUTTONDOWN) {
-            const auto x = static_cast<std::int32_t>(static_cast<short>(LOWORD(l)));
-            const auto y = static_cast<std::int32_t>(static_cast<short>(HIWORD(l)));
             if (y >= 270 && y < 310) g_loginUi.editingPassword = false;
             else if (y >= 310 && y < 350) g_loginUi.editingPassword = true;
             else if (x >= 340 && x <= 465 && y >= 350 && y <= 395 &&
@@ -1010,26 +1041,38 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 true, m == WM_LBUTTONDOWN,
-                static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
-                static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+                x, y);
         }
         return 0;
+        }
     case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
+        {
+        const auto logical = g_logicalViewport.to_logical(
+            static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
+            static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        if (!logical.has_value()) return 0;
         if (g_inputTarget) {
             g_inputTarget->OnMouseButton(
                 false, m == WM_RBUTTONDOWN,
-                static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
-                static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y));
         }
         return 0;
+        }
     case WM_MOUSEMOVE:
+        {
+        const auto logical = g_logicalViewport.to_logical(
+            static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
+            static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        if (!logical.has_value()) return 0;
         if (g_inputTarget) {
             g_inputTarget->OnMouseMove(
-                static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
-                static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y));
         }
         return 0;
+        }
     default:
         return DefWindowProc(h, m, w, l);
     }

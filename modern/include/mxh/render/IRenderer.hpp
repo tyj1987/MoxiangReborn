@@ -235,4 +235,12 @@ interface I4DyuchiGXRenderer : public IUnknown {
 // Factory function (matches CoD3DDevice::CreateInstance).
 extern "C" HRESULT __stdcall CreateGXRendererInstance(void** ppv);
 
+// Modern extension outside the legacy COM vtable. It preserves every
+// original I4DyuchiGXRenderer signature while allowing a fixed logical UI
+// coordinate space to render inside a letterboxed physical viewport.
+extern "C" BOOL __stdcall SetGXLogicalScreenSize(
+    I4DyuchiGXRenderer* renderer,
+    std::uint16_t logicalWidth,
+    std::uint16_t logicalHeight);
+
 } // namespace mxh::gx
