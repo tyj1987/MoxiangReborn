@@ -29,9 +29,9 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 | T1 资源 | PlayDH 在 `modern/data/PlayDH`；解析/SHA 单测可用 | 资源可读 |
 | T2 协议 | Login/Agent/Map 五步 E2E 在 `--auto-*` 和 `mxh_client_e2e` 下通过；PVE VM 100 + MSSQL `192.168.2.203` 已跑通自动化 | 协议闭环 ≠ 可玩 |
 | 登录 UI | `g_loginUi` 手写 overlay + `login.dds`，不是 `MT_LOGINDLG` | 看起来正常，不是 1:1 |
-| 选角/建角 | 协议有；人类看不见/点不到原版 dialog（P0） | **玩家卡住点** |
-| 进图 | 地形/天空/静态物有 DX11 路径；HUD/人物/NPC 不可靠；Map 12 无野外怪（14 字节 stub） | 能进图，不能当游戏 |
-| 输入 | WndProc 有转发；不可见 dialog 可吞点击；无视觉时 WASD 像失灵 | 未验收 |
+| 选角/建角 | 无 auto 槽位+Enter 两次进 GameIn；hitbox 单测 | **P0 持** |
+| 进图 HUD | 默认四根 HUD 开且 cImage 非空；I 键背包；空隙不 consumed；无 auto GameIn 帧含血条 | **P1 持** |
+| 输入/实体 | `step_movement`；缺 CHX 的 `placeholders()` radius>0 | **P2 占位持**；网格 1:1 后置 |
 | 单测 | 数量大、大量 PASS。只锁解析/dispatcher/公式 | **禁止当可玩证明** |
 | HSEL | 软件流 + 接口签名 | RC 范围保留签名 |
 | 部署 | 客户端 `192.168.2.30`；三服 `192.168.2.107`；SQL `192.168.2.203` | 拓扑可用 |
@@ -43,23 +43,23 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 
 当前只做 **能玩**，顺序锁死。截图必须来自无 `--auto-create` 的真人 `mxh_client`。
 
-### P0：选角 / 建角能看见、能点（进行中）
+### P0：选角 / 建角能看见、能点（持）
 
-- 停止启动时把 157 个 InterfaceScript 装进无用 `g_wm`
-- 同一 `.tif` 只建一份 GPU sprite
-- CharSelect / CharMake load 后激活 root，人类能点创建/进入
-- 门禁：本机登录 `192.168.2.107`，选角和建角各一张能看出按钮的截图
+- 停止启动全量 `LoadAll`；sprite 按路径复用
+- 槽位然后 Enter/Create 真实 hitbox；默认 `auto_select_for_test=false`
+- 无 `--auto-create` 下 VK_DOWN+Enter 两次进 GameIn
 
-### P1：进图 HUD + 键鼠有反馈
+### P1：进图 HUD + 空隙点击穿透（持）
 
-- 默认打开主条/快捷栏/小地图；背包/商店/任务保持关
-- 未命中或全透明区域不 `consumed` 世界点击
-- 门禁：进 Map 12 能看见主 HUD；WASD 有可见位移
+- 默认 `MI_MAINDLG` / `QI_QUICKDLG` / `MNM_DIALOG` / `CG_GUAGEDLG` 开且 cImage 非空
+- I 键开关背包；空隙 `consumed=false`
+- 无 auto GameIn 帧含血条/右上条
 
-### P2：人物与 NPC 可见
+### P2：移动步进 + 可绘制占位（持）
 
-- `EntityScene` 失败要计数，不能静默空场景
-- 门禁：同一帧指出玩家和至少 1 个 NPC
+- `step_movement` / `key_mask_for_vk`
+- 缺 CHX：`failedModelCount` + `placeholders()` radius>0
+- 人物/NPC 网格 1:1 仍后置
 
 ### P3：打怪图可见怪物
 
