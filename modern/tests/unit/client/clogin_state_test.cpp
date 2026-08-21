@@ -78,6 +78,20 @@ TEST(LoginStateWire, RequestLoginPayloadEmptyFields) {
 //   = 23 bytes
 // -------------------------------------------------------------------------
 
+TEST(LoginStateWire, LoginAckAdvertisesConfiguredLanAgent) {
+    std::array<std::uint8_t, 23> buf{};
+    std::memcpy(buf.data(), "192.168.2.107", 13);
+    buf[16] = 0x69;  // 17001 == 0x4269
+    buf[17] = 0x42;
+    buf[18] = 0x2A;
+    buf[22] = 1;
+    auto ack = parse_legacy_login_ack(std::span<const std::uint8_t>(buf.data(), buf.size()));
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->agent_addr, "192.168.2.107");
+    EXPECT_EQ(ack->agent_port, 17001);
+    EXPECT_EQ(ack->user_idx, 42u);
+}
+
 TEST(LoginStateWire, LoginAckHappyPath) {
     std::array<std::uint8_t, 23> buf{};
     // agentip "127.0.0.1\0\0\0\0\0\0\0" (16B)

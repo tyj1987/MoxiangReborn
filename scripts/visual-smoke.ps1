@@ -23,6 +23,7 @@ param(
     [string]$Username = 'visualsmoke',
     [string]$Password = 'V1sualSm0ke',
     [string]$CharacterName = 'VisualSmoke',
+    [string]$LoginHost = '192.168.2.107',
     [switch]$SkipServerStart
 )
 
@@ -61,6 +62,10 @@ $hudOnlyFrame = $null
 $inventoryFrame = $null
 
 try {
+    if (-not $SkipServerStart -and $LoginHost -ne '127.0.0.1' -and $LoginHost -ne 'localhost') {
+        Write-Host "[visual-smoke] LoginHost=$LoginHost — skipping local server spawn" -ForegroundColor Cyan
+        $SkipServerStart = $true
+    }
     if (-not $SkipServerStart) {
         Write-Host "[visual-smoke] starting modern servers..." -ForegroundColor Cyan
         & $serverScript -Mode start -Backend sqlite -DataDir $dataDir -MapNumber $MapNumber 2>&1
@@ -82,7 +87,7 @@ try {
     # 状态 1-4: 5 状态自动截（connect/login/charselect/charmake/gamein）
     # 状态 5-6: 不带 --exit-after-gamein，停留一段时间，让外部触发 HUD 切换
     $arguments = @(
-        '--login-host', '127.0.0.1',
+        '--login-host', $LoginHost,
         '--login-port', '16001',
         '--map-port', '18001',
         '--username', $Username,

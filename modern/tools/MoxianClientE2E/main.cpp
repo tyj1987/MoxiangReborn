@@ -120,6 +120,10 @@ struct CliArgs {
     std::string character_name;
     std::string account = "mxh_e2e";
     std::string password = "Pass1234";
+    std::string login_host = "127.0.0.1";
+    std::string agent_host;  // empty = LoginAck agent_addr, else override
+    std::string map_host;    // reserved; GameIn uses persistent AgentSession
+    bool dump_cli = false;
     int  timeout_s = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool init_schema = true;   // Phase P0: apply the modern schema before
@@ -170,6 +174,10 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
         else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
         else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
+        else if (s == "--login-host" && i + 1 < argc) a.login_host = argv[++i];
+        else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
+        else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
+        else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--init-schema") a.init_schema = true;
@@ -481,9 +489,10 @@ int run_e2e(const CliArgs& cli) {
     // headless flow (each state is started in sequence directly).
 
     // ---- Step 1: Login ----
-    LOG("[1/5] Login: CLoginState connecting to 127.0.0.1:16001 ...");
+    LOG("[1/5] Login: CLoginState connecting to %s:16001 ...",
+        cli.login_host.c_str());
     mxh::client::CLoginState login;
-    login.Start(&engine, "127.0.0.1", 16001, cli.account, cli.password,
+    login.Start(&engine, cli.login_host.c_str(), 16001, cli.account, cli.password,
                 cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
@@ -516,13 +525,17 @@ int run_e2e(const CliArgs& cli) {
     }
 
     // ---- Step 2: CharSelect ----
-    // We bypass the agent port returned in LoginAck (it would be
-    // 7001 by default; for the spawned servers it's 17001).  Use
-    // the spawned server's actual port.
-    LOG("[2/5] CharSelect: CCharSelectState connecting to 127.0.0.1:17001 ...");
-    mxh::client::CCharSelectState chsel;
-    // Override the port the LoginAck would have told us.
+    // LoginAck advertises Agent IP+port. Spawned local servers listen on
+    // 17001 (not the legacy 7001). Remote --no-spawn runs keep LoginAck IP
+    // unless --agent-host overrides it.
     login_result.agent_port = 17001;
+    if (!cli.agent_host.empty()) {
+        login_result.agent_addr = cli.agent_host;
+    }
+    LOG("[2/5] CharSelect: CCharSelectState connecting to %s:%u ...",
+        login_result.agent_addr.c_str(),
+        static_cast<unsigned>(login_result.agent_port));
+    mxh::client::CCharSelectState chsel;
     chsel.SetLoginResult(login_result);
     chsel.Start(&engine, cli.use_hsel);
     bool char_select_done = false;
@@ -750,5 +763,15 @@ int run_e2e(const CliArgs& cli) {
 
 int main(int argc, char** argv) {
     auto cli = parse_cli(argc, argv);
+    if (cli.dump_cli) {
+        std::fprintf(stdout, "login_host=%s\n", cli.login_host.c_str());
+        std::fprintf(stdout, "agent_host=%s\n", cli.agent_host.empty()
+            ? "(loginack)" : cli.agent_host.c_str());
+        std::fprintf(stdout, "map_host=%s\n", cli.map_host.empty()
+            ? "(agentsession)" : cli.map_host.c_str());
+        std::fprintf(stdout, "login_port=16001\nagent_port=17001\nmap_port=18001\n");
+        std::fprintf(stdout, "no_spawn=%s\n", cli.no_spawn ? "true" : "false");
+        return 0;
+    }
     return run_e2e(cli);
 }

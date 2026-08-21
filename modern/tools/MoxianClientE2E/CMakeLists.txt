@@ -42,3 +42,12 @@ set_tests_properties(MoxianClientE2E PROPERTIES
     PASS_REGULAR_EXPRESSION "all 5 protocol steps passed"
     FAIL_REGULAR_EXPRESSION "FAIL|FAIL: timed out"
 )
+
+add_test(NAME MoxianClientE2EDumpCli COMMAND mxh_client_e2e
+    --dump-cli --login-host 192.168.2.107 --no-spawn
+)
+set_tests_properties(MoxianClientE2EDumpCli PROPERTIES
+    TIMEOUT 15
+    LABELS "e2e;client"
+    PASS_REGULAR_EXPRESSION "login_host=192.168.2.107"
+)
