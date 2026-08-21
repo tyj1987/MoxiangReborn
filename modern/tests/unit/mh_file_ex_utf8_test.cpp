@@ -125,18 +125,37 @@ TEST(MhFileExUtf8, C34SentinelWriteAndRead) {
 // decrypts to the EUC-KR rendering of the same Korean text. This protects
 // against accidentally breaking the existing legacy decoder path.
 //
-// The legacy EUC-KR copy lives at
-//   D:\å¢¨é¦™å…¨å¥—æºä»£ç ï¼ˆæºç +èµ„æº+å®¢æˆ·ç«¯+æœåŠ¡ç«¯+æ•™ç¨‹ï¼‰\å¢¨é¦™ã€æºç ã€‘\SWorking\Resource\Server\TitanServer.bin.old_euc_kr
-// (TitanServer.bin itself was re-encoded to UTF-8 in Phase 7.5g; the original
-//  EUC-KR bytes are preserved alongside it for decoder regression checks.)
-// Path is expressed in UTF-8 (modern build uses /utf-8 globally).
+// R-12 (2026-08-22): walk-up search for the legacy EUC-KR copy rather than
+// hard-coding D:\. The file was originally at
+//   D:\xe5��香全套源代码（源码+资源+客户端+服务端+教程）\...
+// but the source-recovery scratch (modern/scratch/2026-08-20-source-recovery/)
+// also has a copy under SWorking/Resource/Server/. Walk up to 8 parent levels
+// looking for any file named "TitanServer.bin.old_euc_kr" (R-12 walk-up
+// pattern, mirror of findMapPack() in hfl_height_field_test.cpp).
 TEST(MhFileExUtf8, LegacyEucKrTitanServerBinDecodesToEucKr) {
     namespace fs = std::filesystem;
-    fs::path legacy =
-        u8"D:\\å¢¨é¦™å…¨å¥—æºä»£ç ï¼ˆæºç +èµ„æº+å®¢æˆ·ç«¯+æœåŠ¡ç«¯+æ•™ç¨‹ï¼‰\\å¢¨é¦™ã€æºç ã€‘\\SWorking\\Resource\\Server\\TitanServer.bin.old_euc_kr";
-    if (!fs::exists(legacy)) {
-        GTEST_SKIP() << "Legacy TitanServer.bin (EUC-KR copy) not found at " << legacy.string()
-                     << " â€” skipping C-34 regression check";
+
+    auto find_legacy_euc_kr = []() -> fs::path {
+        auto root = fs::current_path();
+        for (int level = 0; level < 8; ++level) {
+            std::error_code ec;
+            for (const auto& first : fs::recursive_directory_iterator(
+                     root, fs::directory_options::skip_permission_denied, ec)) {
+                if (ec) break;
+                if (!first.is_regular_file(ec)) continue;
+                if (first.path().filename() != "TitanServer.bin.old_euc_kr") continue;
+                return first.path();
+            }
+            if (!root.has_parent_path() || root.parent_path() == root) break;
+            root = root.parent_path();
+        }
+        return {};
+    };
+
+    fs::path legacy = find_legacy_euc_kr();
+    if (legacy.empty()) {
+        GTEST_SKIP() << "Legacy TitanServer.bin (EUC-KR copy) not found within "
+                     << "8 parent levels of cwd — skipping C-34 regression check";
     }
 
     Result<MhFile> result;
