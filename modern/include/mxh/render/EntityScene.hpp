@@ -93,6 +93,10 @@ public:
     [[nodiscard]] std::uint32_t playerInstanceCount() const noexcept;
     [[nodiscard]] std::uint32_t npcInstanceCount() const noexcept;
     [[nodiscard]] std::uint32_t culledInstanceCount() const noexcept;
+    // Unique visual misses (missing catalog/CHX/device). Not silent:
+    // each miss is counted and kept as a placeholder id for render.
+    [[nodiscard]] std::uint32_t failedModelCount() const noexcept;
+    [[nodiscard]] std::uint32_t placeholderCount() const noexcept;
 
 private:
     struct Impl;

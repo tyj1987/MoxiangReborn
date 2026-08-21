@@ -195,6 +195,8 @@ struct EntityScene::Impl {
     std::vector<ScenePlayer> remote_players;
     std::optional<Frustum> frustum;
     std::uint32_t culled_instances = 0;
+    std::uint32_t failed_load_count = 0;
+    std::unordered_set<std::uint32_t> placeholder_ids;
     Model* loadModel(std::uint16_t kind,
                      const ScenePlayer* playerInfo = nullptr,
                      SceneEntityType type = SceneEntityType::Monster,
@@ -206,7 +208,10 @@ struct EntityScene::Impl {
         } else {
             if (const auto it = models.find(modelKey); it != models.end())
                 return it->second.get();
-            if (failed_models.contains(modelKey)) return nullptr;
+        }
+        if (failed_models.contains(modelKey)) {
+            if (objectId != 0) placeholder_ids.insert(objectId);
+            return nullptr;
         }
 
         const auto fail = [&](const char* stage,
@@ -214,7 +219,9 @@ struct EntityScene::Impl {
             MLOG_WARN("[entity] model unavailable object=%u type=%s kind=%u path=%s stage=%s",
                       objectId, playerInfo ? "player" : entityTypeName(type),
                       static_cast<unsigned>(kind), path.c_str(), stage);
-            if (!playerInfo) failed_models.insert(modelKey);
+            ++failed_load_count;
+            if (objectId != 0) placeholder_ids.insert(objectId);
+            failed_models.insert(modelKey);
             return nullptr;
         };
 
@@ -248,6 +255,7 @@ struct EntityScene::Impl {
             }
         }
         if (!visual) return fail("visual_catalog.lookup");
+        if (!storage || !renderer) return fail("no_device", visual->chx_name);
         std::vector<std::uint8_t> chxBytes;
         if (!readFile(storage, visual->chx_name.c_str(), chxBytes))
             return fail("CHX.read", visual->chx_name);
@@ -595,19 +603,16 @@ void EntityScene::synchronize(const WorldSnapshot& snapshot) {
     impl_->remote_players = snapshot.remote_players;
     impl_->instances = snapshot.entities;
 
-    if (impl_->renderer) {
-        for (const auto& entity : impl_->instances) {
-            impl_->loadModel(entity.visual_kind, nullptr, entity.type,
-                             entity.object_id);
-        }
-        for (const auto& [objectId, player] : nextPlayers) {
-            (void)objectId;
-            const auto kind = static_cast<std::uint16_t>(
-                65000u + std::min<unsigned>(player->gender, 1u) * 25u +
-                std::min<unsigned>(player->face_type, 4u) * 5u +
-                std::min<unsigned>(player->hair_type, 4u));
-            impl_->loadModel(kind, player);
-        }
+    for (const auto& entity : impl_->instances) {
+        impl_->loadModel(entity.visual_kind, nullptr, entity.type,
+                         entity.object_id);
+    }
+    for (const auto& [objectId, player] : nextPlayers) {
+        const auto kind = static_cast<std::uint16_t>(
+            65000u + std::min<unsigned>(player->gender, 1u) * 25u +
+            std::min<unsigned>(player->face_type, 4u) * 5u +
+            std::min<unsigned>(player->hair_type, 4u));
+        impl_->loadModel(kind, player, SceneEntityType::Monster, objectId);
     }
 }
 
@@ -717,5 +722,11 @@ std::uint32_t EntityScene::npcInstanceCount() const noexcept {
 }
 std::uint32_t EntityScene::culledInstanceCount() const noexcept {
     return impl_->culled_instances;
+}
+std::uint32_t EntityScene::failedModelCount() const noexcept {
+    return impl_->failed_load_count;
+}
+std::uint32_t EntityScene::placeholderCount() const noexcept {
+    return static_cast<std::uint32_t>(impl_->placeholder_ids.size());
 }
 } // namespace mxh::gx

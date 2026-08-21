@@ -67,5 +67,18 @@ TEST(EntitySceneSnapshot, EmptySnapshotRemovesLocalAndRemotePlayers) {
     EXPECT_EQ(scene.playerInstanceCount(), 0u);
 }
 
+TEST(EntitySceneSnapshot, MissingVisualIsCountedAsFailedLoadWithPlaceholder) {
+    EntityScene scene;
+    WorldSnapshot snap;
+    snap.local_player = ScenePlayer{7u};
+    snap.entities.push_back(
+        SceneEntity{42u, 9999u, 0, 0, 0, SceneEntityType::Npc});
+    scene.synchronize(snap);
+
+    EXPECT_GE(scene.failedModelCount(), 1u);
+    EXPECT_GE(scene.placeholderCount(), 1u);
+    EXPECT_EQ(scene.loadedModelCount(), 0u);
+}
+
 } // namespace
 } // namespace mxh::gx
