@@ -31,6 +31,11 @@ using mxh::client::parse_legacy_character_select_ack;
 //   [user_id: u32 LE] [dist_auth_key: u32 LE] = 8 bytes
 // -------------------------------------------------------------------------
 
+TEST(CharSelectState, AutoSelectDisabledByDefault) {
+    mxh::client::CCharSelectState state;
+    EXPECT_FALSE(state.auto_select_for_test());
+}
+
 TEST(CharSelectWire, ListSynPayloadShape) {
     const auto pl = legacy_character_list_syn_payload(0x01020304u, 0xDEADBEEFu);
     ASSERT_EQ(pl.size(), 8u);

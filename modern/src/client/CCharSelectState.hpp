@@ -153,6 +153,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool OnKeyEvent(bool down, std::uint32_t key);
     bool OnChar(std::uint32_t ch);
     void set_auto_select_for_test(bool enabled) noexcept { m_autoSelectForTest = enabled; }
+    bool auto_select_for_test() const noexcept { return m_autoSelectForTest; }
 
     // Inspectors.
     bool        is_connected() const noexcept;

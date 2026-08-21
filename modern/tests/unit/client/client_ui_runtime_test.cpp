@@ -386,6 +386,46 @@ mxh::client::ClientUiInputResult click_window_center(
 
 }  // namespace
 
+TEST(ClientUiRuntime, CharSelectSlotThenEnterHitboxesDispatchShippedCommands) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::CCharSelectState select_state;
+    EXPECT_FALSE(select_state.auto_select_for_test());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+
+    auto* slot = runtime.findWindowByLegacyId("MT_FIRSTCHOSEBTN");
+    ASSERT_NE(slot, nullptr);
+    const auto slot_click = click_window_center(runtime, slot);
+    ASSERT_TRUE(slot_click.activation.has_value());
+    const auto slot_cmd =
+        mxh::client::resolve_char_select_ui_command(*slot_click.activation);
+    EXPECT_EQ(slot_cmd.kind, mxh::client::CharSelectUiCommandKind::SelectSlot);
+    EXPECT_EQ(slot_cmd.slot_index, 0u);
+
+    auto* enter = runtime.findWindowByLegacyId("MT_ENTERBTN");
+    if (!enter) enter = runtime.findWindowByLegacyFunc("CS_BtnFuncEnter");
+    ASSERT_NE(enter, nullptr);
+    const auto enter_click = click_window_center(runtime, enter);
+    ASSERT_TRUE(enter_click.activation.has_value());
+    const auto enter_cmd =
+        mxh::client::resolve_char_select_ui_command(*enter_click.activation);
+    EXPECT_EQ(enter_cmd.kind, mxh::client::CharSelectUiCommandKind::Enter);
+
+    auto* create = runtime.findWindowByLegacyFunc("CS_BtnFuncCreateChar");
+    ASSERT_NE(create, nullptr);
+    const auto create_click = click_window_center(runtime, create);
+    ASSERT_TRUE(create_click.activation.has_value());
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(*create_click.activation).kind,
+              mxh::client::CharSelectUiCommandKind::Create);
+}
+
 TEST(ClientUiRuntime, CharSelectCreateAndEnterHitboxesDispatchShippedCommands) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
@@ -496,4 +536,50 @@ TEST(InGameUiRuntime, DefaultHudActiveAndMissClickIsNotConsumed) {
     const auto miss = runtime.onMouseButton(true, true, miss_x, miss_y);
     EXPECT_FALSE(miss.consumed);
     EXPECT_FALSE(miss.activation.has_value());
+}
+
+TEST(InGameUiRuntime, IKeyTogglesInventoryOnShippedGameInTree) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    EXPECT_FALSE(state.inventory_open());
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
+
+    state.OnKeyEvent(true, 0x49);  // VK 'I' — shipped inventory toggle
+    EXPECT_TRUE(state.inventory_open());
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
+
+    state.OnKeyEvent(true, 0x49);
+    EXPECT_FALSE(state.inventory_open());
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
+}
+
+TEST(InGameUiRuntime, DefaultHudRootsBindNonNullSprites) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    static char mock_sprite = 'H';
+    auto hook = [](void*, const std::string& path) -> void* {
+        EXPECT_FALSE(path.empty());
+        return &mock_sprite;
+    };
+    mxh::ui::cDialogLoader::SetSpriteLoader(
+        static_cast<mxh::ui::LoadSpriteFn>(hook), nullptr);
+    const auto image_dir = playdh / "Image";
+    if (!mxh::ui::cResourceManager::getInstance().allLoaded()) {
+        mxh::ui::cResourceManager::getInstance().InitScriptManager(image_dir);
+    }
+    if (!mxh::ui::cSpriteAtlas::getInstance().loaded()) {
+        mxh::ui::cSpriteAtlas::getInstance().Init(playdh);
+    }
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto* root = state.ui_runtime().findWindowByLegacyId("MI_MAINDLG");
+    ASSERT_NE(root, nullptr);
+    auto* image = static_cast<mxh::ui::cImage*>(root->basicImage());
+    ASSERT_NE(image, nullptr);
+    EXPECT_FALSE(image->IsNull());
 }
