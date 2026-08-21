@@ -242,13 +242,25 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
                 parent.Add(std::move(ld));
             } else if (node.type == "ICONDLG") {
                 // M-R4.5: cIconDialog (icon grid container) — basicImage 跨表查装
-                // cell 数量 留默认 0,AddIconCell 留给 M-R4.5+ (基本 layout 1:1 优先)
+                // M-R4.9 (2026-08-22): when no explicit #INFO cell data is in
+                // the .bin, default to one full-area cell matching the dialog
+                // rect. This matches legacy cScriptManager::GetInfoFromFile
+                // eICONDLG behaviour: it always creates at least one cell so
+                // GetCellNum() / PtInCell() / AddIcon() work before explicit
+                // layout data is loaded at runtime.
                 cImage* basic = loadImageForImageIdx(node.basic_image_idx,
                                                      node.basic_image_rect);
                 auto ic = std::make_unique<cIconDialog>();
                 ic->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
                           static_cast<std::uint16_t>(p.h),
                           basic, /*id=*/0);
+                // SetCellNum(1) populates m_cells with one empty cell;
+                // AddIconCell then writes the dialog rect into that cell.
+                // This matches legacy cScriptManager eICONDLG behaviour.
+                ic->SetCellNum(1);
+                ic->AddIconCell(/*x=*/0, /*y=*/0,
+                                static_cast<std::int32_t>(p.w),
+                                static_cast<std::int32_t>(p.h));
                 if (basic) ++report.cimg_count;
                 parent.Add(std::move(ic));
             } else if (node.type == "GUAGEBAR") {
@@ -468,12 +480,18 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
             } else if (node.type == "WEAREDDLG") {
                 // M-R4.8: cWearedExDialog 1 类图 (继承 cIconDialog, 完整
                 // 1:1 port 在 src/ui/wearedexdialog.{hpp,cpp}).
+                // M-R4.9 (2026-08-22): same default cell as ICONDLG so
+                // PtInCell / AddIcon work pre-runtime layout.
                 cImage* basic = loadImageForImageIdx(node.basic_image_idx,
                                                      node.basic_image_rect);
                 auto we = std::make_unique<cWearedExDialog>();
                 we->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
                           static_cast<std::uint16_t>(p.h),
                           basic, /*id=*/0);
+                we->SetCellNum(1);
+                we->AddIconCell(/*x=*/0, /*y=*/0,
+                                static_cast<std::int32_t>(p.w),
+                                static_cast<std::int32_t>(p.h));
                 if (basic) ++report.cimg_count;
                 parent.Add(std::move(we));
             } else if (node.type == "PRIVATEWAREHOUSEDLG") {

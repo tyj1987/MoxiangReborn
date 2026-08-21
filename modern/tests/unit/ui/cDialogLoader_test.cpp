@@ -466,6 +466,61 @@ int main() {
         EXPECT(total >= 440, "26 widget class total children routed (M-R4.5+.6+.7+.8 累加)");
     }
 
+    // ---- Test 14 (M-R4.9 2026-08-22): ICONDLG children default to 1 cell ----
+    // M-R4.9: when an ICONDLG child has no explicit cell info in the .bin,
+    // cDialogLoader now calls AddIconCell(0,0,w,h) so GetCellNum() == 1
+    // matches legacy cScriptManager::GetInfoFromFile eICONDLG behaviour.
+    // This unblocks PtInCell / AddIcon / GetPositionForXYRef before
+    // explicit layout data is loaded at runtime.
+    {
+        const auto image_dir = playdh / "Image";
+        if (!mxh::ui::cResourceManager::getInstance().allLoaded()) {
+            mxh::ui::cResourceManager::getInstance().InitScriptManager(image_dir);
+        }
+        if (!mxh::ui::cSpriteAtlas::getInstance().loaded()) {
+            mxh::ui::cSpriteAtlas::getInstance().Init(playdh);
+        }
+        mxh::ui::cWindowManager wm;
+        auto reports = mxh::ui::cDialogLoader::LoadAll(
+            playdh, wm, mxh::ui::ResolutionMode::Low800x600);
+        EXPECT(!reports.empty(), "Test 14 LoadAll non-empty");
+        // NOTE: don't gate on stats.failed here — Test 8 (run later) does
+        // that and the test ordering matters because cSpriteAtlas /
+        // cResourceManager singletons carry state across tests.
+        (void)mxh::ui::cDialogLoader::Aggregate(reports);
+
+        std::size_t n_checked = 0;
+        std::size_t n_one_cell = 0;
+        std::size_t n_top_dlg = wm.dialogs().size();
+        std::size_t n_total_walked = 0;
+        for (const auto& dlg_ptr : wm.dialogs()) {
+            auto* dlg = dlg_ptr.get();
+            std::vector<mxh::ui::cWindow*> stack;
+            for (std::size_t i = 0; i < dlg->childCount(); ++i) {
+                stack.push_back(dlg->childAt(i));
+            }
+            while (!stack.empty()) {
+                auto* w = stack.back();
+                stack.pop_back();
+                ++n_total_walked;
+                if (auto* ic = dynamic_cast<mxh::ui::cIconDialog*>(w)) {
+                    ++n_checked;
+                    if (ic->GetCellNum() == 1) ++n_one_cell;
+                }
+                for (std::size_t i = 0; i < w->childCount(); ++i) {
+                    stack.push_back(w->childAt(i));
+                }
+            }
+        }
+        std::cout << "[cDialogLoader_test] Test 14: ICONDLG cells n_top_dlg="
+                  << n_top_dlg << " n_total_walked=" << n_total_walked
+                  << " n_checked=" << n_checked << " n_one_cell=" << n_one_cell
+                  << "\n";
+        EXPECT(n_checked >= 20, "Test 14: at least 20 ICONDLG scanned across 157 .bin");
+        EXPECT_EQ(n_one_cell, n_checked,
+                  "Test 14: every ICONDLG gets exactly 1 default cell (M-R4.9)");
+    }
+
     // ---- Test 9: M-R4.1+ 165 dialog 顶层 m_basicImage != nullptr ----
     // G2 verify 核心证据: 165 dialog 全部 1:1 装载老 sprite 到 m_basicImage.
     // 这跟 M-R4.1 root 跨表查 + M-R4.5+.6+.7+.8 children 跨表查 1:1 化挂钩:
