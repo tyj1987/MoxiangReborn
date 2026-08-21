@@ -975,6 +975,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     pi.face_type = cd.face_type;
     pi.hair_type = cd.hair_type;
     pi.money = cd.money;
+    pi.combat.level = cd.level;
 
     // Store player info keyed by player_id (AgentServer multiplexes).
     pi.conn_id = id.value;
@@ -1374,9 +1375,15 @@ void MapHandler::send_character_add_locked(std::uint32_t target_player_id,
     off += 35;
 
     // CHARACTER_TOTALINFO [35..146]
+    put_u32(m.payload, off + 0, info.combat.current_hp);
+    put_u32(m.payload, off + 4, info.combat.max_hp);
     put_u16(m.payload, off + 16, info.gender);
     put_u8(m.payload, off + 17, info.face_type);
     put_u8(m.payload, off + 18, info.hair_type);
+    for (std::size_t slot = 0; slot < std::size(info.items.WearedItem); ++slot) {
+        put_u16(m.payload, off + 19 + slot * 2,
+                info.items.WearedItem[slot].wIconIdx);
+    }
     put_u16(m.payload, off + 40, info.level);
     put_u16(m.payload, off + 42, info.map_num);
     put_u16(m.payload, off + 44, info.map_num);

@@ -9,6 +9,7 @@
 #include <vector>
 
 using mxh::client::parse_legacy_gamein_ack;
+using mxh::client::parse_legacy_character_add;
 using mxh::client::parse_legacy_monster_add;
 using mxh::client::parse_legacy_mugong_total;
 using mxh::client::parse_legacy_item_total;
@@ -137,6 +138,127 @@ TEST(InGameMonsterAdd, RejectsShortPayload) {
     EXPECT_FALSE(parse_legacy_monster_add(payload).has_value());
 }
 
+TEST(InGameCharacterAdd, DecodesServerPushedPlayerPayload) {
+    std::array<std::uint8_t, 288> payload{};
+    const std::uint32_t objectId = 0x12345678u;
+    const std::uint32_t userId = 0x87654321u;
+    const std::uint32_t life = 912u;
+    const std::uint32_t maxLife = 1000u;
+    const std::uint16_t level = 33u;
+    const std::uint16_t mapNum = 12u;
+    const std::uint16_t positionX = 0x2345u;
+    const std::uint16_t positionZ = 0x6789u;
+    const float height = 170.0f;
+    const float width = 60.0f;
+    std::memcpy(payload.data(), &objectId, sizeof(objectId));
+    std::memcpy(payload.data() + 4, &userId, sizeof(userId));
+    std::memcpy(payload.data() + 8, "RemoteHero", 11);
+    std::memcpy(payload.data() + 35, &life, sizeof(life));
+    std::memcpy(payload.data() + 39, &maxLife, sizeof(maxLife));
+    payload[51] = 1;
+    payload[52] = 3;
+    payload[53] = 4;
+    for (std::size_t slot = 0; slot < 10; ++slot) {
+        const auto item = static_cast<std::uint16_t>(1000 + slot);
+        std::memcpy(payload.data() + 54 + slot * 2, &item, sizeof(item));
+    }
+    std::memcpy(payload.data() + 75, &level, sizeof(level));
+    std::memcpy(payload.data() + 77, &mapNum, sizeof(mapNum));
+    payload[95] = 1;
+    std::memcpy(payload.data() + 105, &height, sizeof(height));
+    std::memcpy(payload.data() + 109, &width, sizeof(width));
+    std::memcpy(payload.data() + 147, &positionX, sizeof(positionX));
+    std::memcpy(payload.data() + 149, &positionZ, sizeof(positionZ));
+
+    const auto info = parse_legacy_character_add(payload);
+
+    ASSERT_TRUE(info.has_value());
+    EXPECT_EQ(info->object_id, objectId);
+    EXPECT_EQ(info->user_id, userId);
+    EXPECT_EQ(info->name, "RemoteHero");
+    EXPECT_EQ(info->life, life);
+    EXPECT_EQ(info->max_life, maxLife);
+    EXPECT_EQ(info->gender, 1u);
+    EXPECT_EQ(info->face_type, 3u);
+    EXPECT_EQ(info->hair_type, 4u);
+    EXPECT_EQ(info->weared_item_idx.front(), 1000u);
+    EXPECT_EQ(info->weared_item_idx.back(), 1009u);
+    EXPECT_EQ(info->level, level);
+    EXPECT_EQ(info->map_num, mapNum);
+    EXPECT_EQ(info->position_x, positionX);
+    EXPECT_EQ(info->position_z, positionZ);
+    EXPECT_FLOAT_EQ(info->height, height);
+    EXPECT_FLOAT_EQ(info->width, width);
+    EXPECT_TRUE(info->visible);
+    EXPECT_TRUE(info->appearance_known);
+}
+
+TEST(InGameCharacterAdd, RejectsPayloadWithoutCompleteMoveInfo) {
+    std::array<std::uint8_t, 160> payload{};
+    EXPECT_FALSE(parse_legacy_character_add(payload).has_value());
+}
+
+TEST(InGameCharacterAdd, CreatesMovesAndRemovesRemotePlayerByStableId) {
+    mxh::client::CInGameState state;
+    mxh::net::Message add;
+    add.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    add.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterAdd);
+    add.payload.resize(288);
+    const std::uint32_t objectId = 7001u;
+    const std::uint16_t initialX = 120u;
+    const std::uint16_t initialZ = 220u;
+    std::memcpy(add.payload.data(), &objectId, sizeof(objectId));
+    std::memcpy(add.payload.data() + 8, "VisibleNow", 11);
+    add.payload[51] = 1;
+    add.payload[95] = 1;
+    std::memcpy(add.payload.data() + 147, &initialX, sizeof(initialX));
+    std::memcpy(add.payload.data() + 149, &initialZ, sizeof(initialZ));
+
+    state.on_message({}, add);
+
+    ASSERT_EQ(state.remote_players().size(), 1u);
+    ASSERT_TRUE(state.remote_players().contains(objectId));
+    EXPECT_EQ(state.remote_players().at(objectId).name, "VisibleNow");
+    EXPECT_EQ(state.remote_players().at(objectId).position_x, initialX);
+    EXPECT_TRUE(state.remote_players().at(objectId).appearance_known);
+
+    mxh::net::Message move;
+    move.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    move.header.object_id = objectId;
+    move.payload.resize(4);
+    const std::uint16_t movedX = 320u;
+    const std::uint16_t movedZ = 420u;
+    std::memcpy(move.payload.data(), &movedX, sizeof(movedX));
+    std::memcpy(move.payload.data() + 2, &movedZ, sizeof(movedZ));
+    state.on_message({}, move);
+
+    EXPECT_EQ(state.remote_players().at(objectId).position_x, movedX);
+    EXPECT_EQ(state.remote_players().at(objectId).position_z, movedZ);
+    EXPECT_EQ(state.remote_players().at(objectId).name, "VisibleNow");
+    EXPECT_TRUE(state.remote_players().at(objectId).appearance_known);
+    EXPECT_TRUE(state.remote_players().at(objectId).moving);
+    EXPECT_NEAR(state.remote_players().at(objectId).facing_yaw,
+                0.7853982f, 0.0001f);
+
+    move.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::MoveProtocol::Stop);
+    state.on_message({}, move);
+    EXPECT_FALSE(state.remote_players().at(objectId).moving);
+    EXPECT_NEAR(state.remote_players().at(objectId).facing_yaw,
+                0.7853982f, 0.0001f);
+
+    mxh::net::Message remove;
+    remove.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    remove.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ObjectRemove);
+    remove.payload.resize(4);
+    std::memcpy(remove.payload.data(), &objectId, sizeof(objectId));
+    state.on_message({}, remove);
+
+    EXPECT_TRUE(state.remote_players().empty());
+}
+
 TEST(InGameMugong, DecodesMugongTotalFromGameInAck) {
     std::vector<std::uint8_t> payload(
         mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
@@ -221,4 +343,53 @@ TEST(InGameNpc, DecodesNpcAddPayload) {
 TEST(InGameNpc, RejectsShortPayload) {
     std::array<std::uint8_t, 32> payload{};
     EXPECT_FALSE(parse_legacy_npc_add(payload).has_value());
+}
+
+TEST(InGameEntityLifecycle, RepeatedAddReplacesAndRemoveUsesStableObjectId) {
+    mxh::client::CInGameState state;
+
+    mxh::net::Message monsterAdd;
+    monsterAdd.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    monsterAdd.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::MonsterAdd);
+    monsterAdd.payload.resize(64, 0);
+    const std::uint32_t monsterId = 700u;
+    std::memcpy(monsterAdd.payload.data(), &monsterId, sizeof(monsterId));
+    monsterAdd.payload[43] = 1;
+    state.on_message({}, monsterAdd);
+    monsterAdd.payload[43] = 2;
+    state.on_message({}, monsterAdd);
+    ASSERT_EQ(state.monsters().size(), 1u);
+    EXPECT_EQ(state.monsters().front().monster_kind, 2u);
+
+    mxh::net::Message npcAdd;
+    npcAdd.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    npcAdd.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::NpcAdd);
+    npcAdd.payload.resize(64, 0);
+    const std::uint32_t npcId = 800u;
+    std::memcpy(npcAdd.payload.data(), &npcId, sizeof(npcId));
+    npcAdd.payload[35] = 3;
+    state.on_message({}, npcAdd);
+    npcAdd.payload[35] = 4;
+    state.on_message({}, npcAdd);
+    ASSERT_EQ(state.npcs().size(), 1u);
+    EXPECT_EQ(state.npcs().front().npc_kind, 4u);
+
+    const auto remove = [&](std::uint32_t objectId) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        message.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ObjectRemove);
+        message.payload.resize(4);
+        std::memcpy(message.payload.data(), &objectId, sizeof(objectId));
+        state.on_message({}, message);
+    };
+    remove(monsterId);
+    remove(npcId);
+    EXPECT_TRUE(state.monsters().empty());
+    EXPECT_TRUE(state.npcs().empty());
 }

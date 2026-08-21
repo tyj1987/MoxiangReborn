@@ -5,6 +5,7 @@
     ttb_tile_table.cpp
     chx_model.cpp
     monster_catalog.cpp
+    npc_chx_catalog.cpp
     character_appearance_catalog.cpp
     chr_motion.cpp
     anm_motion.cpp
@@ -480,7 +481,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 

@@ -22,6 +22,7 @@ add_executable(mxh_render_tests
     primitives_3d_shader_test.cpp
     filesystem_file_storage_test.cpp
     frustum_test.cpp
+    entity_scene_snapshot_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -108,6 +109,8 @@ gtest_add_tests(TARGET mxh_render_tests
     TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
     FilesystemFileStorage.MountsOriginalMapPack
     FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
+    EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
+    EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
     HFieldObjectDefaults.ConstructWithoutDeviceDoesNotCrash
     HFieldObjectDefaults.QueryInterfaceIUnknownReturnsSelf
     HFieldObjectDefaults.QueryInterfaceUnknownIIDReturnsENoInterface

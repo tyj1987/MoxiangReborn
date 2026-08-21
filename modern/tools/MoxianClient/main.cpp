@@ -324,6 +324,75 @@ struct LoginUiState {
 };
 LoginUiState g_loginUi;
 
+bool loadGameWorld(const ClientOptions& options,
+                   I4DyuchiGXRenderer* renderer,
+                   I4DyuchiFileStorage* storage,
+                   mxh::audio::BgmPlayer& bgm,
+                   std::uint16_t mapNum,
+                   std::string& error) {
+    error.clear();
+    g_renderTerrain = false;
+    g_captureTerrainFrame.clear();
+
+    const auto descriptorPath = options.resource_root / "Resource" / "Map" /
+        ("Map" + std::to_string(mapNum) + ".bmhm");
+    const auto descriptor = mxh::compat::BmhmMap::load(descriptorPath);
+    if (!descriptor) {
+        error = "Map descriptor unavailable: " + descriptorPath.string();
+        return false;
+    }
+
+    auto terrain = std::make_unique<mxh::gx::TerrainScene>();
+    const std::string hflName = std::to_string(mapNum) + ".hfl";
+    std::string stageError;
+    if (!terrain->load(renderer, storage, hflName.c_str(), &stageError)) {
+        error = "Terrain load failed (" + hflName + "): " + stageError;
+        return false;
+    }
+
+    auto staticScene = std::make_unique<mxh::gx::StaticScene>();
+    const std::string stmName = std::to_string(mapNum) + ".stm";
+    stageError.clear();
+    if (!staticScene->load(renderer, storage, stmName.c_str(), &stageError)) {
+        error = "Static scene load failed (" + stmName + "): " + stageError;
+        return false;
+    }
+
+    std::unique_ptr<mxh::gx::SkyScene> skyScene;
+    if (descriptor->desc().sky_mod[0]) {
+        skyScene = std::make_unique<mxh::gx::SkyScene>();
+        stageError.clear();
+        if (!skyScene->load(renderer, storage, descriptor->desc().sky_mod,
+                            &stageError)) {
+            error = "Sky scene load failed (" +
+                std::string(descriptor->desc().sky_mod) + "): " + stageError;
+            return false;
+        }
+    }
+
+    auto entityScene = std::make_unique<mxh::gx::EntityScene>();
+    stageError.clear();
+    if (!entityScene->load(renderer, storage, &stageError)) {
+        error = "Entity scene load failed: " + stageError;
+        return false;
+    }
+
+    std::string audioError;
+    if (!bgm.play(descriptor->desc().bgm_sound_num, &audioError)) {
+        MLOG_WARN("mxh_client: map BGM unavailable: %s", audioError.c_str());
+    }
+
+    g_terrain = std::move(terrain);
+    g_staticScene = std::move(staticScene);
+    g_skyScene = std::move(skyScene);
+    g_entityScene = std::move(entityScene);
+    g_renderTerrain = true;
+    if (g_overviewCamera) g_captureTerrainFrame = options.save_frame;
+    MLOG_INFO("mxh_client: GameLoading complete map=%u terrain=%s static=%s",
+              static_cast<unsigned>(mapNum), hflName.c_str(), stmName.c_str());
+    return true;
+}
+
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
 // renderer's RenderSprite.  Earlier A.1.3 had a single g_hudSprite
@@ -621,11 +690,13 @@ void renderFrame(HWND h) {
             g_entityScene->render();
         }
 
-        // In-game HUD: HP / MP bars fed from the GameInAck totalinfo.
-        if (g_inputTarget && g_inputTarget->is_in_game() && g_hud.barBg &&
-            g_hud.hpFill && g_hud.mpFill) {
+        // GameIn UI is the original InterfaceScript tree.  The old geometric
+        // placeholder HUD remains available only with --debug-ui-bounds.
+        if (g_inputTarget && g_inputTarget->is_in_game()) {
             g_renderer->SetScreenSpaceProjection();
             const auto& info = g_inputTarget->game_info();
+            if (g_debugUiBounds && g_hud.barBg && g_hud.hpFill &&
+                g_hud.mpFill) {
             const float hpFrac = info.max_life == 0
                 ? 0.0f : static_cast<float>(info.life) /
                          static_cast<float>(info.max_life);
@@ -815,6 +886,7 @@ void renderFrame(HWND h) {
                         0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 2, 0);
                 }
             }
+            }
 
             // Static NPC markers (click to talk / open their shop).
             // M-NPC1: per-role colour + "!" quest indicator + Big5 name.
@@ -887,6 +959,7 @@ void renderFrame(HWND h) {
                     }
                 }
             }
+            g_inputTarget->ui_runtime().render();
         }
     }
 
@@ -1550,6 +1623,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     auto prev_state = mxh::client::GameStateId::End;
     std::uint32_t pending_character_id = 0;
     std::uint16_t pending_map_num = 0;
+    std::string pending_loading_error;
+    bool game_loading_frame_presented = false;
     bool auto_create_requested = false;
     bool follow_frame_captured = false;
     unsigned follow_settle_frames = 0;
@@ -1605,6 +1680,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 } else {
                     g_charMakeState = nullptr;
                 }
+                if (cur_state == mxh::client::GameStateId::GameLoading) {
+                    game_loading_frame_presented = false;
+                    g_renderTerrain = false;
+                }
                 // Phase B.2.5: skip past the manual login form (CMainTitle)
             // when running in headless smoke mode. The 1:1 flow goes
             // Connect -> Distribute -> Title(login form) -> CharSelect;
@@ -1623,11 +1702,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 // The CharSelect state will pull it in its own Init().
                 // Do NOT take it here or CharSelect sees an empty slot.
                 mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
-            } else if (cur_state == mxh::client::GameStateId::CharSelect) {
+                } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
                         cs->set_auto_select_for_test(options.auto_create);
                         cs->Start(mainGame.GetEngine());
+                        if (!pending_loading_error.empty()) {
+                            cs->ui_runtime().showMessage(
+                                0x4D4C4552, pending_loading_error);
+                            pending_loading_error.clear();
+                        }
                     }
                 } else if (cur_state == mxh::client::GameStateId::CharMake) {
                     if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
@@ -1635,11 +1719,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         cm->Start(mainGame.GetEngine());
                     }
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
-                    // Phase B.2.3: dev-mode direct-connect to MapServer.
-                    // The full CharSelect â†’ GameLoading â†’ GameIn path
-                    // requires a character in character_info (Phase B.4+);
-                    // for now we jump straight to MapServer with the
-                    // login ack user_idx as chrid.
                     if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
                             mainGame.GetGameState(cur_state))) {
                         auto questCatalog = mxh::compat::load_quest_string_catalog(
@@ -1652,43 +1731,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                       questCatalog.entries.size(), questCatalog.main_quests().size());
                         }
                         g->set_quest_catalog(std::move(questCatalog));
-                        const auto descriptorPath = options.resource_root / "Resource" / "Map" /
-                            ("Map" + std::to_string(pending_map_num) + ".bmhm");
-                        if (const auto descriptor = mxh::compat::BmhmMap::load(descriptorPath)) {
-                            audio_error.clear();
-                            if (!bgm.play(descriptor->desc().bgm_sound_num, &audio_error))
-                                MLOG_WARN("mxh_client: map BGM unavailable: %s", audio_error.c_str());
-                            if (!g_terrain) g_terrain = std::make_unique<mxh::gx::TerrainScene>();
-                            const std::string hflName = std::to_string(pending_map_num) + ".hfl";
-                            std::string terrainError;
-                            if (g_terrain->load(renderer, storage, hflName.c_str(), &terrainError)) {
-                                g_renderTerrain = true;
-                                if (g_overviewCamera)
-                                    g_captureTerrainFrame = options.save_frame;
-                                if (!g_staticScene) g_staticScene = std::make_unique<mxh::gx::StaticScene>();
-                                const std::string stmName = std::to_string(pending_map_num) + ".stm";
-                                std::string staticError;
-                                if (!g_staticScene->load(renderer, storage, stmName.c_str(), &staticError))
-                                    MLOG_WARN("mxh_client: static scene unavailable: %s", staticError.c_str());
-                                if (descriptor->desc().sky_mod[0]) {
-                                    if (!g_skyScene) g_skyScene = std::make_unique<mxh::gx::SkyScene>();
-                                    std::string skyError;
-                                    if (!g_skyScene->load(renderer, storage,
-                                                          descriptor->desc().sky_mod, &skyError))
-                                        MLOG_WARN("mxh_client: sky scene unavailable: %s", skyError.c_str());
-                                }
-                                if (!g_entityScene) {
-                                    g_entityScene = std::make_unique<mxh::gx::EntityScene>();
-                                    std::string entityError;
-                                    if (!g_entityScene->load(renderer, storage, &entityError))
-                                        MLOG_WARN("mxh_client: entity scene unavailable: %s", entityError.c_str());
-                                }
-                            } else {
-                                MLOG_ERROR("mxh_client: terrain load failed: %s", terrainError.c_str());
-                            }
-                        } else {
-                            MLOG_WARN("mxh_client: map descriptor unavailable for map=%u", pending_map_num);
-                        }
                         g->Start(mainGame.GetEngine(), pending_character_id,
                                  pending_map_num);
                         g_inputTarget = g;
@@ -1702,17 +1744,34 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // edge fires. Restricting to the rising-edge check loses the
             // transfer and the state machine stalls.
             if (cur_state == mxh::client::GameStateId::GameLoading) {
-                auto transfer = mainGame.GetEngine()->TakePendingTransfer();
-                if (const auto* request =
-                        std::get_if<mxh::client::GameEntryRequest>(&transfer)) {
-                    pending_character_id = request->character_id;
-                    pending_map_num = request->map_num;
-                    mainGame.SetGameState(mxh::client::GameStateId::GameIn);
-                } else if (std::holds_alternative<std::monostate>(transfer)) {
-                    // Empty transfer — wait for the TCP thread to populate it.
-                } else {
-                    MLOG_ERROR("GameLoading: unexpected transfer variant index=%zu",
-                               transfer.index());
+                if (!game_loading_frame_presented) {
+                    game_loading_frame_presented = true;
+                } else if (mainGame.GetEngine()->has_pending_transfer()) {
+                    auto transfer = mainGame.GetEngine()->TakePendingTransfer();
+                    if (const auto* request =
+                            std::get_if<mxh::client::GameEntryRequest>(&transfer)) {
+                        std::string loadingError;
+                        if (loadGameWorld(options, renderer, storage, bgm,
+                                          request->map_num, loadingError)) {
+                            pending_character_id = request->character_id;
+                            pending_map_num = request->map_num;
+                            mainGame.SetGameState(mxh::client::GameStateId::GameIn);
+                        } else {
+                            pending_loading_error = "Unable to enter Map " +
+                                std::to_string(request->map_num) + ": " + loadingError;
+                            MLOG_ERROR("GameLoading: %s",
+                                       pending_loading_error.c_str());
+                            mainGame.SetGameState(
+                                mxh::client::GameStateId::CharSelect);
+                        }
+                    } else {
+                        pending_loading_error =
+                            "Game loading received an invalid state transfer.";
+                        MLOG_ERROR("GameLoading: unexpected transfer variant index=%zu",
+                                   transfer.index());
+                        mainGame.SetGameState(
+                            mxh::client::GameStateId::CharSelect);
+                    }
                 }
             }
             if (cur_state == mxh::client::GameStateId::CharSelect &&
@@ -1771,20 +1830,62 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         }
                     }
                     if (g_entityScene && g_terrain) {
-                        std::vector<mxh::gx::SceneEntity> entities;
-                        entities.reserve(game_in->monsters().size());
+                        mxh::gx::WorldSnapshot snapshot;
+                        snapshot.entities.reserve(game_in->monsters().size() +
+                                                  game_in->npcs().size());
                         for (const auto& monster : game_in->monsters()) {
-                            entities.push_back({monster.object_id, monster.monster_kind,
+                            snapshot.entities.push_back({monster.object_id, monster.monster_kind,
                                 static_cast<float>(monster.position_x),
                                 g_terrain->heightAt(monster.position_x, monster.position_z),
-                                static_cast<float>(monster.position_z)});
+                                static_cast<float>(monster.position_z),
+                                mxh::gx::SceneEntityType::Monster,
+                                monster.facing_yaw, monster.current_life, 0,
+                                monster.current_life == 0
+                                    ? mxh::gx::SceneAction::Dead
+                                    : (monster.moving
+                                        ? mxh::gx::SceneAction::Moving
+                                        : mxh::gx::SceneAction::Idle)});
                         }
-                        g_entityScene->synchronize(entities);
-                        g_entityScene->synchronizePlayer({info.player_id, info.gender,
+                        for (const auto& npc : game_in->npcs()) {
+                            snapshot.entities.push_back({npc.npc_id, npc.npc_kind,
+                                static_cast<float>(npc.position_x),
+                                g_terrain->heightAt(npc.position_x, npc.position_z),
+                                static_cast<float>(npc.position_z),
+                                mxh::gx::SceneEntityType::Npc, 0.0f, 0, 0,
+                                mxh::gx::SceneAction::Idle});
+                        }
+                        snapshot.local_player = mxh::gx::ScenePlayer{
+                            info.player_id, info.gender,
                             info.face_type, info.hair_type, info.weared_item_idx,
                             static_cast<float>(info.position_x),
                             g_terrain->heightAt(info.position_x, info.position_z),
-                            static_cast<float>(info.position_z)});
+                            static_cast<float>(info.position_z),
+                            game_in->camera_yaw(), info.life, info.max_life,
+                            info.life == 0
+                                ? mxh::gx::SceneAction::Dead
+                                : (game_in->is_moving()
+                                    ? mxh::gx::SceneAction::Moving
+                                    : mxh::gx::SceneAction::Idle)};
+                        snapshot.remote_players.reserve(
+                            game_in->remote_players().size());
+                        for (const auto& [objectId, remote] :
+                             game_in->remote_players()) {
+                            if (!remote.appearance_known || !remote.visible) continue;
+                            snapshot.remote_players.push_back({
+                                objectId, remote.gender, remote.face_type,
+                                remote.hair_type, remote.weared_item_idx,
+                                static_cast<float>(remote.position_x),
+                                g_terrain->heightAt(remote.position_x,
+                                                    remote.position_z),
+                                static_cast<float>(remote.position_z),
+                                remote.facing_yaw, remote.life, remote.max_life,
+                                remote.life == 0
+                                    ? mxh::gx::SceneAction::Dead
+                                    : (remote.moving
+                                        ? mxh::gx::SceneAction::Moving
+                                        : mxh::gx::SceneAction::Idle)});
+                        }
+                        g_entityScene->synchronize(snapshot);
                     }
                 }
             }

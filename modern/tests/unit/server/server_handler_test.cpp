@@ -1093,6 +1093,42 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
 }
 
+TEST(MapHandlerTest, CharacterAddCarriesVisiblePlayerVitals) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+
+    const auto enter = [&](std::uint32_t playerId, std::uint64_t connectionId) {
+        mxh::net::Message gameIn;
+        gameIn.header.object_id = playerId;
+        gameIn.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        gameIn.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message(mxh::net::make_connection_id(connectionId), gameIn);
+    };
+    enter(101u, 51u);
+    enter(202u, 52u);
+
+    const auto message = std::find_if(
+        reply.messages.begin(), reply.messages.end(),
+        [](const mxh::net::Message& candidate) {
+            return candidate.header.protocol == static_cast<std::uint8_t>(
+                       mxh::proto::UserConnProtocol::CharacterAdd) &&
+                   candidate.header.object_id == 202u;
+        });
+    ASSERT_NE(message, reply.messages.end());
+    ASSERT_EQ(message->payload.size(), 288u);
+    std::uint32_t currentLife = 0;
+    std::uint32_t maxLife = 0;
+    std::memcpy(&currentLife, message->payload.data() + 35,
+                sizeof(currentLife));
+    std::memcpy(&maxLife, message->payload.data() + 39,
+                sizeof(maxLife));
+    EXPECT_EQ(currentLife, 100u);
+    EXPECT_EQ(maxLife, 100u);
+}
+
 TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
     auto db = mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
     ASSERT_TRUE(db->connect(cfg).ok());

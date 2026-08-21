@@ -110,6 +110,12 @@ target_include_directories(mxh_monster_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_monster_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
 
+add_executable(mxh_npc_chx_catalog_tests npc_chx_catalog_test.cpp)
+target_link_libraries(mxh_npc_chx_catalog_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_npc_chx_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_npc_chx_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
 add_executable(mxh_character_appearance_catalog_tests character_appearance_catalog_test.cpp)
 target_link_libraries(mxh_character_appearance_catalog_tests PRIVATE mxh_compat gtest_main)
 target_include_directories(mxh_character_appearance_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
