@@ -264,6 +264,7 @@ void CCharMake::Start(CEngine* engine, bool use_hsel) {
                               &ui_error)) {
             fail_with("CharMakeNewDlg.bin load failed: " + ui_error);
         } else {
+            m_uiRuntime.activateAllLoadedDialogs();
             auto catalog = CharMakeOptionCatalog::load(
                 *engine->playdh_root(), &ui_error);
             if (!catalog || !catalog->hasChinaBaseline()) {

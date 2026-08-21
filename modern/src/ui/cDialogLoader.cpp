@@ -8,6 +8,7 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <unordered_map>
 
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
@@ -102,6 +103,7 @@ struct ImageKeyHash {
     }
 };
 std::unordered_map<ImageKey, cImage*, ImageKeyHash> g_cimage_cache;
+std::unordered_map<std::string, void*> g_sprite_by_path;
 
 void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
     if (node.id.has_value()) {
@@ -158,7 +160,14 @@ cImage* loadImageForImageIdx(std::int32_t image_idx,
     if (!info.has_value()) return nullptr;
     const auto tif_abs = cSpriteAtlas::getInstance().resolvePath(*info);
     if (!std::filesystem::exists(tif_abs)) return nullptr;
-    void* sprite = g_loadSprite(g_loadSpriteCtx, tif_abs.string());
+    const auto tif_key = tif_abs.string();
+    void* sprite = nullptr;
+    if (auto sit = g_sprite_by_path.find(tif_key); sit != g_sprite_by_path.end()) {
+        sprite = sit->second;
+    } else {
+        sprite = g_loadSprite(g_loadSpriteCtx, tif_key);
+        if (sprite) g_sprite_by_path.emplace(tif_key, sprite);
+    }
     if (!sprite) return nullptr;
     auto owner = std::make_unique<cImage>();
     owner->SetSource(ir.left, ir.top, ir.right, ir.bottom,

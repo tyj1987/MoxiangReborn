@@ -7,7 +7,11 @@
 
 #include "ClientUiRuntime.hpp"
 #include "CInGameState.hpp"
+#include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cEditBox.hpp"
+#include "mxh/ui/cImage.hpp"
+#include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/cSpriteAtlas.hpp"
 
 namespace {
 
@@ -291,4 +295,79 @@ TEST(ClientUiRuntime, MessageBoxClosesOnEscapeAndRunsCallbackOnce) {
     EXPECT_EQ(calls, 1);
     EXPECT_FALSE(runtime.hasModal());
     EXPECT_EQ(runtime.dialogs().size(), before);
+}
+
+TEST(ClientUiRuntime, CharSelectActivateAllMakesRootActiveAndCreateClickable) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+    ASSERT_TRUE(runtime.isDialogActive("CS_CHARSELECTDLG"));
+    auto* root = runtime.findWindowByLegacyId("CS_CHARSELECTDLG");
+    ASSERT_NE(root, nullptr);
+    EXPECT_TRUE(root->isVisible());
+
+    auto* create = runtime.findWindowByLegacyFunc("CS_BtnFuncCreateChar");
+    ASSERT_NE(create, nullptr);
+    const auto x = create->absX() + create->width() / 2;
+    const auto y = create->absY() + create->height() / 2;
+    EXPECT_TRUE(runtime.onMouseButton(true, true, x, y).consumed);
+    const auto released = runtime.onMouseButton(true, false, x, y);
+    ASSERT_TRUE(released.activation.has_value());
+    EXPECT_EQ(released.activation->legacy_func, "CS_BtnFuncCreateChar");
+}
+
+TEST(ClientUiRuntime, CharMakeActivateAllMakesEveryRootActive) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharMakeNewDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+    ASSERT_FALSE(runtime.dialogs().empty());
+    for (const auto& dialog : runtime.dialogs()) {
+        ASSERT_NE(dialog, nullptr);
+        EXPECT_TRUE(dialog->isActive()) << dialog->legacyId();
+        EXPECT_TRUE(dialog->isVisible()) << dialog->legacyId();
+    }
+}
+
+TEST(ClientUiRuntime, CharSelectRootBasicImageBoundWhenSpriteHookRegistered) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    static char mock_sprite = 'S';
+    auto hook = [](void*, const std::string& path) -> void* {
+        EXPECT_FALSE(path.empty());
+        return &mock_sprite;
+    };
+    mxh::ui::cDialogLoader::SetSpriteLoader(
+        static_cast<mxh::ui::LoadSpriteFn>(hook), nullptr);
+    const auto image_dir = playdh / "Image";
+    if (!mxh::ui::cResourceManager::getInstance().allLoaded()) {
+        mxh::ui::cResourceManager::getInstance().InitScriptManager(image_dir);
+    }
+    if (!mxh::ui::cSpriteAtlas::getInstance().loaded()) {
+        mxh::ui::cSpriteAtlas::getInstance().Init(playdh);
+    }
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+    auto* root = runtime.findWindowByLegacyId("CS_CHARSELECTDLG");
+    ASSERT_NE(root, nullptr);
+    auto* image = static_cast<mxh::ui::cImage*>(root->basicImage());
+    ASSERT_NE(image, nullptr);
+    EXPECT_FALSE(image->IsNull());
 }

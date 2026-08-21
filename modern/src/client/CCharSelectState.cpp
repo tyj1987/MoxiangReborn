@@ -165,6 +165,11 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
                               &ui_error)) {
             MLOG_WARN("CCharSelectState: CharSelectDlg.bin load failed: %s",
                       ui_error.c_str());
+        } else {
+            m_uiRuntime.activateAllLoadedDialogs();
+            if (!m_uiRuntime.setDialogActive("CS_CHARSELECTDLG", true)) {
+                MLOG_WARN("CCharSelectState: CS_CHARSELECTDLG id not found after load");
+            }
         }
     }
     if (m_useHsel) {

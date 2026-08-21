@@ -1512,11 +1512,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         if (!cSpriteAtlas::getInstance().loaded()) {
             cSpriteAtlas::getInstance().Init(options.resource_root);
         }
-        // M-R3: 装载 132 dialog .bin → cWindowManager
-        static cWindowManager g_wm;
-        // M-R4.1: 注册 sprite 装填 hook — 跨表查 cResourceManager + cSpriteAtlas
-        // 拿到老 .tif 绝对路径后调 renderer->CreateSpriteObject 装老 sprite,
-        // 绑到 cImage, 装作 cDialog basicImage. cWindow::Render 已能画 cImage.
+        // Sprite hook is registered here so CharSelect/CharMake/GameIn
+        // ClientUiRuntime loads can CreateSpriteObject. Do NOT LoadAll
+        // 157 InterfaceScript bins into an unused WindowManager — that
+        // allocates one GPU texture per cImage and exhausts a 4GB Arc
+        // B580 before the player reaches character select.
         struct SpriteLoaderCtx {
             I4DyuchiGXRenderer* renderer;
         };
@@ -1524,8 +1524,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         auto spriteHook = [](void* ctx, const std::string& tif_path) -> void* {
             auto* lc = static_cast<SpriteLoaderCtx*>(ctx);
             if (!lc || !lc->renderer) return nullptr;
-            // 老 .tif 路径是绝对, renderer->CreateSpriteObject 接受相对或绝对
-            // (走 I4DyuchiFileStorage FSOpenFile 解析, FilesystemFileStorage 已装)
             IDISpriteObject* sp = lc->renderer->CreateSpriteObject(
                 const_cast<char*>(tif_path.c_str()), 0);
             if (!sp) return nullptr;
@@ -1534,12 +1532,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         cDialogLoader::SetSpriteLoader(
             static_cast<mxh::ui::LoadSpriteFn>(spriteHook),
             static_cast<void*>(&g_spriteCtx));
-        auto reports = cDialogLoader::LoadAll(options.resource_root, g_wm);
-        auto stats = cDialogLoader::Aggregate(reports);
-        MLOG_INFO("mxh_client: M-R3+M-R4 cDialogLoader %zu/%zu ok, %zu with #POINT, "
-                  "%zu dialogs added, %zu cImages loaded (M-R4)",
-                  stats.ok, stats.total_bins, stats.with_point,
-                  stats.dialogs_added, stats.cimages_loaded);
+        MLOG_INFO("mxh_client: M-R1/M-R2 ready; InterfaceScript loads on demand per state");
     }
 
     // Build a placeholder cDialog centred in the window.  A.1.5 swaps

@@ -64,6 +64,10 @@ public:
 
     bool setDialogActive(std::string_view legacy_id, bool active) noexcept;
     bool isDialogActive(std::string_view legacy_id) const noexcept;
+    // CharSelect / CharMake load a single script whose roots must be
+    // visible and hittable. GameIn must not call this — inventory/shop
+    // stay inactive until I/B/Q.
+    void activateAllLoadedDialogs() noexcept;
 
     using ConfirmationCallback = std::function<void(bool confirmed)>;
     bool showConfirmation(std::int32_t id, std::string message,

@@ -143,6 +143,15 @@ bool ClientUiRuntime::isDialogActive(std::string_view legacy_id) const noexcept 
     return false;
 }
 
+void ClientUiRuntime::activateAllLoadedDialogs() noexcept {
+    m_active = true;
+    for (const auto& dialog : m_windows.dialogs()) {
+        if (!dialog) continue;
+        dialog->SetActive(true);
+        dialog->SetVisible(true);
+    }
+}
+
 mxh::ui::cWindow* ClientUiRuntime::hitTest(std::int32_t x,
                                            std::int32_t y) const noexcept {
     if (!m_active) return nullptr;
