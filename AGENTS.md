@@ -1,8 +1,9 @@
 # AGENTS.md — Mavis 协作指南
 
 > 指导 Mavis（以及任何其他 AI agent）在这个项目上工作。
-> **终极目标**：1:1 完美复现 2003-2010 韩国 2D MMORPG《墨香》。详见 `ROADMAP.md`。
-> **最近一次重置**：2026-07-25。
+> **终极目标**：1:1 完美复现 2003-2010 韩国 2D MMORPG《墨香》。目标见 `ROADMAP.md`。
+> **可玩性以 `docs/PLAYABLE_STATUS.md` 为准**。不要把 ROADMAP 里旧的 M3/M4 GREEN、ctest 全绿、或 `--auto-create` 截图当成玩家能选角/能看见人和 UI。
+> **最近一次重置**：2026-08-22（以代码重写可玩性文档）。
 
 ---
 
@@ -61,11 +62,12 @@ C:\moxiang\
 │   └── build/                     # CMake 构建输出 (16 exes / 619 PASS / 0 FAIL, 2026-08-20)
 ├── deploy/                        # 现代部署（部分）
 ├── docs/                          # 真实数据文档
+│   ├── PLAYABLE_STATUS.md         # **可玩性真理**（2026-08-22 起）
 │   ├── RESOURCE_FORMATS.md        # 资源格式
 │   ├── MoxianProtocolDoc.md       # 协议
 │   ├── DATABASE_SCHEMA.md         # 数据库
-│   ├── KNOWN_BUGS.md              # bug 清单 (R-10/R-11 已修, R-12 active)
-│   └── CHANGELOG.md               # 完成明细
+│   ├── KNOWN_BUGS.md              # bug 清单
+│   └── CHANGELOG.md               # 完成明细（历史，不证明可玩）
 ├── modern/scratch/2026-08-20-env-sniff/  # 本次 session 全部交付
 ├── ROADMAP.md                     # 1:1 复现路线图（**主路线**）
 ├── AGENTS.md                      # 本文件

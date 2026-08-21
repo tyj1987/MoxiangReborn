@@ -1,8 +1,10 @@
 # Goal Statement：Moxiang 渲染 + UI 视觉 1:1 还原
 
+> **2026-08-22：本文过期。** 玩家能不能选角、能不能看见人和 HUD，以仓库根目录 [docs/PLAYABLE_STATUS.md](../../../docs/PLAYABLE_STATUS.md) 为准。
+> M-R4 SSIM ≥ 0.95 与 30fps 是后置视觉里程碑，**不挡** P0「能点选角」。
+>
 > 适用范围：`moxiang` 项目
 > 任务编号：M-R0 → M-R7
-> 文档状态：不可破坏。任何对"完成"的定义有歧义都拿这份文档当裁判
 > 关联：[01-rendering-ui-1to1.md](./01-rendering-ui-1to1.md) 详细还原计划
 
 ---
