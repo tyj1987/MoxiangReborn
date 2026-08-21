@@ -154,6 +154,9 @@ struct ClientConfig {
     std::chrono::milliseconds connect_timeout{5000};
     bool use_encryption = false;
     bool use_legacy_framing = false;  // Phase 7.6: 4DyuchiNET compatibility
+    // Optional local bind (e.g. 192.168.2.30) so Clash TUN cannot steal LAN TCP.
+    // Empty uses MXH_BIND_IP if set, otherwise the OS default source.
+    std::string bind_address;
 };
 
 // Asynchronous TCP server.

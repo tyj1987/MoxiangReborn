@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <mutex>
@@ -659,9 +660,21 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
     // implementation previously ignored it and failed after one connect().
     // Retry with a fresh socket until the deadline so transient accept-backlog
     // or ephemeral-port pressure does not abort a commercial login flow.
+    std::string bind_ip = cfg.bind_address;
+    if (bind_ip.empty()) {
+        if (const char* env = std::getenv("MXH_BIND_IP")) bind_ip = env;
+    }
     const auto deadline = std::chrono::steady_clock::now() + cfg.connect_timeout;
     do {
         impl_->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (impl_->sock != INVALID_SOCKET && !bind_ip.empty()) {
+            sockaddr_in local{};
+            local.sin_family = AF_INET;
+            local.sin_port = 0;
+            if (inet_pton(AF_INET, bind_ip.c_str(), &local.sin_addr) == 1) {
+                ::bind(impl_->sock, reinterpret_cast<sockaddr*>(&local), sizeof(local));
+            }
+        }
         if (impl_->sock != INVALID_SOCKET &&
             ::connect(impl_->sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr))
                 != SOCKET_ERROR) {

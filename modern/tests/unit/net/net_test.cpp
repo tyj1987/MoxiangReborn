@@ -319,6 +319,28 @@ TEST(TcpServerTest, StopClosesAllConnections) {
     closesocket(csock);
 }
 
+TEST(TcpClientTest, BindAddressLoopbackConnects) {
+    CountingHandler sh;
+    TcpServer server(sh);
+    int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    cfg.worker_thread_count = 1;
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    TcpClient cli(sh);
+    ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1";
+    ccfg.port = static_cast<std::uint16_t>(port);
+    ccfg.bind_address = "127.0.0.1";
+    EXPECT_EQ(cli.connect(ccfg), NetError::Ok);
+    EXPECT_TRUE(cli.is_connected());
+    cli.disconnect();
+    server.stop();
+}
+
 TEST(TcpClientTest, ConnectSucceeds) {
     CountingHandler sh;
     TcpServer server(sh);
