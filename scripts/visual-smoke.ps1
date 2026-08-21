@@ -24,6 +24,12 @@ param(
     [string]$Password = 'V1sualSm0ke',
     [string]$CharacterName = 'VisualSmoke',
     [string]$LoginHost = '192.168.2.107',
+    [string]$DbCfg = '',
+    [string]$SqlHost = '192.168.2.203',
+    [string]$SqlDatabase = 'Moxiang',
+    [string]$SqlUser = 'sa',
+    [string]$SqlPassword = '',
+    [string]$SqlOdbcDriver = 'SQL Server',
     [switch]$SkipServerStart
 )
 
@@ -62,7 +68,8 @@ $hudOnlyFrame = $null
 $inventoryFrame = $null
 
 try {
-    if (-not $SkipServerStart -and $LoginHost -ne '127.0.0.1' -and $LoginHost -ne 'localhost') {
+    $remoteLogin = ($LoginHost -ne '127.0.0.1' -and $LoginHost -ne 'localhost')
+    if (-not $SkipServerStart -and $remoteLogin) {
         Write-Host "[visual-smoke] LoginHost=$LoginHost — skipping local server spawn" -ForegroundColor Cyan
         $SkipServerStart = $true
     }
@@ -74,12 +81,38 @@ try {
     }
 
     # 注册账号（visualsmoke 之前不存在，auth 会 FAIL 卡在 connect）
+    # Remote LoginHost talks to VM 100, whose DSN is live MSSQL — do not
+    # register into a throwaway local sqlite file the servers never read.
     $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
     if (Test-Path -LiteralPath $dbTool) {
-        Write-Host "[visual-smoke] registering account $Username..." -ForegroundColor Cyan
-        $dbCfg = "sqlite;path=" + (Join-Path $dataDir 'login.db')
-        Write-Host "[visual-smoke] registering account $Username (db=$dbCfg)..." -ForegroundColor Cyan
-        $Password | & $dbTool register --db $dbCfg $Username 2>&1
+        if ([string]::IsNullOrWhiteSpace($DbCfg)) {
+            if ($remoteLogin) {
+                if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
+                    $SqlPassword = $env:MXH_SQL_PASSWORD
+                }
+                if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
+                    $sqlEnv = Join-Path $repoRoot 'modern\scratch\2026-08-22-live-commercial\sql.env'
+                    if (Test-Path -LiteralPath $sqlEnv) {
+                        foreach ($line in Get-Content -LiteralPath $sqlEnv) {
+                            if ($line -match '^MXH_SQL_PASSWORD=(.*)$') {
+                                $SqlPassword = $Matches[1].Trim()
+                            } elseif ($line -match '^MXH_SQL_HOST=(.*)$' -and $SqlHost -eq '192.168.2.203') {
+                                $SqlHost = $Matches[1].Trim()
+                            }
+                        }
+                    }
+                }
+                if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
+                    throw "remote LoginHost=$LoginHost requires -DbCfg or MXH_SQL_PASSWORD to register on live MSSQL"
+                }
+                $DbCfg = "backend=mssql_odbc;host=$SqlHost;database=$SqlDatabase;user=$SqlUser;password=$SqlPassword;encrypt=no;trust_server_certificate=yes;odbc_driver=$SqlOdbcDriver"
+            } else {
+                $DbCfg = "sqlite;path=" + (Join-Path $dataDir 'login.db')
+            }
+        }
+        $dbCfgLog = [regex]::Replace($DbCfg, 'password=[^;]*', 'password=***')
+        Write-Host "[visual-smoke] registering account $Username (db=$dbCfgLog)..." -ForegroundColor Cyan
+        $Password | & $dbTool register --db $DbCfg $Username 2>&1
     } else {
         Write-Host "[visual-smoke] db tool not found, skipping register: $dbTool" -ForegroundColor Yellow
     }
