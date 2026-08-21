@@ -13,6 +13,7 @@
 // borrowed sprite — matching the modern port's design).
 #include "cWindow.hpp"
 #include "cImage.hpp"
+#include <cstdio>
 
 namespace mxh::ui {
 

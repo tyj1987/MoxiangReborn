@@ -97,8 +97,12 @@ cDialog* cWindowManager::findById(std::int32_t id) const {
 }
 
 cWindow* cWindowManager::findWindowByLegacyId(std::string_view id) const {
+    // Skip inactive dialogs: the legacy engine only routes input to the
+    // active top-level dialog, so lookups must mirror that. Otherwise a
+    // hidden dialog sharing the same legacy id (CMI_CLOSEBTN lives in
+    // many .bin files) shadows the one the player can actually see.
     for (auto it = m_dialogs.rbegin(); it != m_dialogs.rend(); ++it) {
-        if (!*it) continue;
+        if (!*it || !(*it)->isActive()) continue;
         if (cWindow* found = (*it)->findWindowByLegacyId(id)) {
             return found;
         }
@@ -107,8 +111,9 @@ cWindow* cWindowManager::findWindowByLegacyId(std::string_view id) const {
 }
 
 cWindow* cWindowManager::findWindowByLegacyFunc(std::string_view func) const {
+    // See findWindowByLegacyId: the active dialog owns input first.
     for (auto it = m_dialogs.rbegin(); it != m_dialogs.rend(); ++it) {
-        if (!*it) continue;
+        if (!*it || !(*it)->isActive()) continue;
         if (cWindow* found = (*it)->findWindowByLegacyFunc(func)) {
             return found;
         }
@@ -157,12 +162,11 @@ std::uint32_t cWindowManager::ActionKeyboardEvent(std::int32_t key,
 }
 
 void cWindowManager::RenderAll() {
-    // Walk back-to-front so the topmost dialog draws last (over the
-    // others). The actual GPU draw happens inside cDialog::Render()
-    // which is still a placeholder in 6.6; the real draw lands in
-    // 6.8 (MoxianRenderDemo integration).
+    // Walk back-to-front so the topmost active dialog draws last.  Legacy
+    // #ACTIVE 0 roots remain owned by the manager but are neither rendered
+    // nor eligible for input until gameplay explicitly opens them.
     for (const auto& d : m_dialogs) {
-        if (d) d->Render();
+        if (d && d->isActive() && d->isVisible()) d->Render();
     }
 }
 

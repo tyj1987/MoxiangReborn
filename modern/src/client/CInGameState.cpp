@@ -6,10 +6,13 @@
 #include "CMainGame.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
 #include <utility>
+#include <optional>
 
 #include "mxh/log/mlog.hpp"
 #include "mxh/game/hero_total_layout.hpp"
@@ -27,6 +30,14 @@ namespace mxh::client {
 // -------------------------------------------------------------------------
 
 namespace {
+constexpr std::array<std::string_view, 13> kChinaGameInUiScripts{
+    "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
+    "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
+    "QuestTotal.bin", "ItemShop.bin"};
+constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
+constexpr std::string_view kQuestDialogId = "QUE_TOTALDLG";
+constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
+
 // Match map_handler.cpp's put_u32 (LE) layout.
 inline std::uint32_t get_u32(const std::uint8_t* p) {
     return  static_cast<std::uint32_t>(p[0])
@@ -286,6 +297,49 @@ parse_legacy_monster_add(std::span<const std::uint8_t> payload) {
     return info;
 }
 
+std::optional<RemotePlayerInfo>
+parse_legacy_character_add(std::span<const std::uint8_t> payload) {
+    constexpr std::size_t kBaseObjectSize = 35;
+    constexpr std::size_t kCharacterTotalSize = 112;
+    constexpr std::size_t kMoveInfoSize = 14;
+    constexpr std::size_t kRequiredSize =
+        kBaseObjectSize + kCharacterTotalSize + kMoveInfoSize;
+    if (payload.size() < kRequiredSize) return std::nullopt;
+
+    RemotePlayerInfo info;
+    info.object_id = get_u32(payload.data());
+    info.user_id = get_u32(payload.data() + 4);
+    const auto* name = reinterpret_cast<const char*>(payload.data() + 8);
+    const auto nameLength = std::find(name, name + 17, '\0') - name;
+    info.name.assign(name, static_cast<std::size_t>(nameLength));
+
+    const auto characterOffset = kBaseObjectSize;
+    info.life = get_u32(payload.data() + characterOffset);
+    info.max_life = get_u32(payload.data() + characterOffset + 4);
+    info.shield = get_u32(payload.data() + characterOffset + 8);
+    info.max_shield = get_u32(payload.data() + characterOffset + 12);
+    info.gender = payload[characterOffset + 16];
+    info.face_type = payload[characterOffset + 17];
+    info.hair_type = payload[characterOffset + 18];
+    for (std::size_t slot = 0; slot < info.weared_item_idx.size(); ++slot) {
+        info.weared_item_idx[slot] =
+            get_u16(payload.data() + characterOffset + 19 + slot * 2);
+    }
+    info.level = get_u16(payload.data() + characterOffset + 40);
+    info.map_num = get_u16(payload.data() + characterOffset + 42);
+    info.visible = payload[characterOffset + 60] != 0;
+    std::memcpy(&info.height, payload.data() + characterOffset + 70,
+                sizeof(info.height));
+    std::memcpy(&info.width, payload.data() + characterOffset + 74,
+                sizeof(info.width));
+
+    const auto moveOffset = kBaseObjectSize + kCharacterTotalSize;
+    info.position_x = get_u16(payload.data() + moveOffset);
+    info.position_z = get_u16(payload.data() + moveOffset + 2);
+    info.appearance_known = true;
+    return info;
+}
+
 std::optional<NpcInfo> parse_legacy_npc_add(
     std::span<const std::uint8_t> payload) {
     if (payload.size() < 64) return std::nullopt;
@@ -429,9 +483,49 @@ CInGameState::CInGameState() = default;
 
 CInGameState::~CInGameState() = default;
 
-void CInGameState::Init(void* /*pInitParam*/) {
+void CInGameState::Init(void* pInitParam) {
     MLOG_DEBUG("CInGameState::Init (waiting for Start() from host)");
     setInitialized(true);
+
+    // Load the GameIn InterfaceScript tree on Init so the state always
+    // owns its dialog tree, even before the host calls Start(). The
+    // pInitParam may carry the engine (production path) or be nullptr
+    // (unit tests). Fall back to MXH_PLAYDH_ROOT so headless tests
+    // don't need a fully wired CEngine.
+    std::optional<std::filesystem::path> playdh;
+    if (auto* engine = static_cast<CEngine*>(pInitParam)) {
+        playdh = engine->playdh_root();
+    }
+    if (!playdh.has_value()) {
+        if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
+            playdh = std::filesystem::path(env);
+        }
+    }
+    if (!playdh.has_value()) {
+        for (const auto& candidate : {
+                 std::filesystem::path("modern/data/PlayDH"),
+                 std::filesystem::path("data/PlayDH"),
+                 std::filesystem::path("../data/PlayDH"),
+                 std::filesystem::path("../../data/PlayDH"),
+                 std::filesystem::path("../../../../data/PlayDH"),
+                 std::filesystem::path("C:/moxiang/modern/data/PlayDH"),
+                 std::filesystem::path("C:/moxiang/墨香【源码配套资源】/PlayDH")}) {
+            if (std::filesystem::exists(candidate / "Image" / "InterfaceScript" /
+                                          "15.bin")) {
+                playdh = std::filesystem::absolute(candidate);
+                break;
+            }
+        }
+    }
+    if (playdh.has_value() && m_uiRuntime.empty()) {
+        std::string ui_error;
+        if (!m_uiRuntime.loadMany(*playdh, kChinaGameInUiScripts,
+                                  mxh::ui::ResolutionMode::Low800x600,
+                                  &ui_error)) {
+            MLOG_WARN("CInGameState::Init UI load failed: %s",
+                      ui_error.c_str());
+        }
+    }
 }
 
 void CInGameState::Release() {
@@ -443,6 +537,15 @@ void CInGameState::Release() {
     m_sentGameInSyn = false;
     m_failed   = false;
     m_failureReason.clear();
+    m_uiRuntime.clear();
+    m_keyMask = 0;
+    m_moving = false;
+    m_cameraDrag = false;
+    m_chatOpen = false;
+    m_chatBuffer.clear();
+    set_inventory_open(false);
+    set_shop_open(false);
+    set_quest_open(false);
     setInitialized(false);
     m_releasing = false;
 }
@@ -484,12 +587,28 @@ void CInGameState::Start(CEngine* engine, std::string host,
 }
 
 void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
-                         std::uint16_t map_num) {
+                          std::uint16_t map_num) {
     m_pEngine = engine;
     m_playerId = player_id;
     m_mapNum = map_num;
     if (m_started) return;
     m_started = true;
+    if (!m_pEngine || !m_pEngine->playdh_root().has_value()) {
+        fail_with("GameIn requires an explicit PlayDH resource root");
+        return;
+    }
+    if (m_uiRuntime.empty()) {
+        std::string ui_error;
+        if (!m_uiRuntime.loadMany(*m_pEngine->playdh_root(),
+                                  kChinaGameInUiScripts,
+                                  mxh::ui::ResolutionMode::Low800x600,
+                                  &ui_error)) {
+            fail_with("GameIn UI load failed: " + ui_error);
+            return;
+        }
+    } else {
+        m_uiRuntime.setActive(true);
+    }
     MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
               static_cast<unsigned>(m_playerId),
               static_cast<unsigned>(m_mapNum));
@@ -648,6 +767,25 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             MLOG_INFO("CInGameState: GameOutAck (server confirmed disconnect)");
             break;
         }
+        case UserConnProtocol::CharacterAdd: {
+            auto info = parse_legacy_character_add(msg.payload);
+            if (!info) {
+                MLOG_WARN("CInGameState: CharacterAdd payload too short (%zu bytes)",
+                          msg.payload.size());
+                break;
+            }
+            if (info->object_id == m_playerId) break;
+            const auto objectId = info->object_id;
+            m_remotePlayers.insert_or_assign(objectId, std::move(*info));
+            const auto& player = m_remotePlayers.at(objectId);
+            MLOG_INFO("CInGameState: CharacterAdd id=%u gender=%u pos=(%u,%u) name=%s",
+                      static_cast<unsigned>(player.object_id),
+                      static_cast<unsigned>(player.gender),
+                      static_cast<unsigned>(player.position_x),
+                      static_cast<unsigned>(player.position_z),
+                      player.name.c_str());
+            break;
+        }
         case UserConnProtocol::MonsterAdd: {
             auto info = parse_legacy_monster_add(msg.payload);
             if (!info) {
@@ -655,7 +793,13 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                           msg.payload.size());
                 break;
             }
-            monsters_.push_back(*info);
+            const auto existing = std::find_if(
+                monsters_.begin(), monsters_.end(),
+                [&](const MonsterAddInfo& monster) {
+                    return monster.object_id == info->object_id;
+                });
+            if (existing == monsters_.end()) monsters_.push_back(*info);
+            else *existing = *info;
             MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u pos=(%u,%u) name=%.16s",
                        static_cast<unsigned>(info->object_id),
                        static_cast<unsigned>(info->monster_kind),
@@ -671,7 +815,13 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                           msg.payload.size());
                 break;
             }
-            m_npcs.push_back(*info);
+            const auto existing = std::find_if(
+                m_npcs.begin(), m_npcs.end(),
+                [&](const NpcInfo& npc) {
+                    return npc.npc_id == info->npc_id;
+                });
+            if (existing == m_npcs.end()) m_npcs.push_back(*info);
+            else *existing = *info;
             MLOG_INFO("CInGameState: NpcAdd id=%u kind=%u pos=(%u,%u) name=%.16s",
                       static_cast<unsigned>(info->npc_id),
                       static_cast<unsigned>(info->npc_kind),
@@ -687,6 +837,11 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                     return m.object_id == removed;
                 }),
                 monsters_.end());
+            m_npcs.erase(std::remove_if(m_npcs.begin(), m_npcs.end(),
+                [removed](const NpcInfo& npc) {
+                    return npc.npc_id == removed;
+                }),
+                m_npcs.end());
             m_remotePlayers.erase(removed);
             MLOG_INFO("CInGameState: ObjectRemove id=%u", removed);
             break;
@@ -723,17 +878,35 @@ void CInGameState::handle_move_broadcast(const mxh::net::Message& msg) {
     const auto pos = parse_move_payload(msg.payload);
     if (!pos) return;
     const auto object_id = msg.header.object_id;
+    const bool moving = msg.header.protocol != static_cast<std::uint8_t>(
+        mxh::proto::MoveProtocol::Stop);
     if (object_id == m_playerId) return;  // own echo (broadcast excludes sender)
     for (auto& monster : monsters_) {
         if (monster.object_id == object_id) {
+            const float dx = static_cast<float>(pos->first) - monster.position_x;
+            const float dz = static_cast<float>(pos->second) - monster.position_z;
+            if (dx != 0.0f || dz != 0.0f) {
+                monster.facing_yaw = std::atan2(dx, dz);
+            }
             monster.position_x = pos->first;
             monster.position_z = pos->second;
+            monster.moving = moving;
             MLOG_DEBUG("CInGameState: monster move id=%u pos=(%u,%u)",
                        object_id, pos->first, pos->second);
             return;
         }
     }
-    m_remotePlayers[object_id] = *pos;
+    auto [it, inserted] = m_remotePlayers.try_emplace(object_id);
+    auto& player = it->second;
+    if (inserted) player.object_id = object_id;
+    const float dx = static_cast<float>(pos->first) - player.position_x;
+    const float dz = static_cast<float>(pos->second) - player.position_z;
+    if (dx != 0.0f || dz != 0.0f) {
+        player.facing_yaw = std::atan2(dx, dz);
+    }
+    player.position_x = pos->first;
+    player.position_z = pos->second;
+    player.moving = moving;
     MLOG_DEBUG("CInGameState: remote player move id=%u pos=(%u,%u)",
                object_id, pos->first, pos->second);
 }
@@ -748,6 +921,7 @@ void CInGameState::handle_monster_broadcast(const mxh::net::Message& msg) {
         if (monster.object_id == msg.header.object_id) {
             monster.current_life = life->first;
             monster.current_shield = life->second;
+            if (monster.current_life == 0) monster.moving = false;
             MLOG_DEBUG("CInGameState: monster life id=%u life=%u shield=%u",
                        msg.header.object_id, life->first, life->second);
             return;
@@ -813,7 +987,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     if (proto == mxh::proto::kModernShopList) {
         m_shopItems = parse_shop_list(msg.payload);
         m_shopNpcId = 0;
-        m_shopOpen = true;
+        set_shop_open(true);
         MLOG_INFO("CInGameState: shop list %zu items",
                   m_shopItems.size());
     } else if (proto == static_cast<std::uint8_t>(
@@ -825,7 +999,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         }
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyAck)) {
-        m_shopOpen = false;
+        set_shop_open(false);
         MLOG_INFO("CInGameState: BuyAck (shop closed)");
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyNack)) {
@@ -833,7 +1007,45 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     }
 }
 
+void CInGameState::set_inventory_open(bool open) noexcept {
+    m_inventoryOpen = open;
+    m_uiRuntime.setDialogActive(kInventoryDialogId, open);
+}
+
+void CInGameState::toggle_inventory() noexcept {
+    set_inventory_open(!m_inventoryOpen);
+}
+
+void CInGameState::set_shop_open(bool open) noexcept {
+    m_shopOpen = open;
+    m_uiRuntime.setDialogActive(kItemShopDialogId, open);
+}
+
+void CInGameState::set_quest_open(bool open) noexcept {
+    m_questOpen = open;
+    m_uiRuntime.setDialogActive(kQuestDialogId, open);
+}
+
+bool CInGameState::handle_ui_activation(
+    const ClientUiActivation& activation) {
+    if (activation.legacy_id != "CMI_CLOSEBTN") return false;
+    if (activation.dialog_legacy_id == kInventoryDialogId) {
+        set_inventory_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kQuestDialogId) {
+        set_quest_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kItemShopDialogId) {
+        set_shop_open(false);
+        return true;
+    }
+    return false;
+}
+
 void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
+    if (m_uiRuntime.onKey(pressed, static_cast<std::int32_t>(vk))) return;
     if (vk == kVkReturn) {
         if (pressed) {
             if (m_chatOpen) {
@@ -850,7 +1062,15 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         return;
     }
     if (vk == kVkEscape && pressed && m_shopOpen) {
-        m_shopOpen = false;
+        set_shop_open(false);
+        return;
+    }
+    if (vk == kVkEscape && pressed && m_inventoryOpen) {
+        set_inventory_open(false);
+        return;
+    }
+    if (vk == kVkEscape && pressed && m_questOpen) {
+        set_quest_open(false);
         return;
     }
     if (vk == kVkBack && pressed && m_chatOpen) {
@@ -869,12 +1089,16 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
             return;
         }
         if (vk == 0x42) {  // 'B' opens the nearest NPC's shop
+            if (m_shopOpen) {
+                set_shop_open(false);
+                return;
+            }
             const auto nearest = pick_nearest_npc();
             if (nearest != 0) open_shop(nearest);
             return;
         }
         if (vk == 0x51) {  // 'Q' toggles the quest panel
-            m_questOpen = !m_questOpen;
+            set_quest_open(!m_questOpen);
             return;
         }
         if (m_questOpen && !m_mainQuests.empty() && (vk == 0x26 || vk == 0x28)) {
@@ -933,6 +1157,7 @@ void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
 }
 
 void CInGameState::OnChar(std::uint32_t ch) {
+    if (m_uiRuntime.onChar(static_cast<std::int32_t>(ch))) return;
     if (!m_chatOpen) return;
     if (ch < 0x20 || ch == 0x7F) return;
     if (m_chatBuffer.size() >= 200) return;
@@ -940,9 +1165,12 @@ void CInGameState::OnChar(std::uint32_t ch) {
 }
 
 void CInGameState::OnMouseButton(bool left, bool down,
-                                 std::int32_t x, std::int32_t y) {
+                                  std::int32_t x, std::int32_t y) {
     m_lastMouseX = x;
     m_lastMouseY = y;
+    const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
+    if (ui.activation) handle_ui_activation(*ui.activation);
+    if (ui.consumed) return;
     if (left && down && m_shopOpen) {
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);
@@ -974,6 +1202,11 @@ void CInGameState::OnMouseButton(bool left, bool down,
 }
 
 void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
+    if (m_uiRuntime.onMouseMove(x, y)) {
+        m_lastMouseX = x;
+        m_lastMouseY = y;
+        return;
+    }
     if (m_cameraDrag) {
         m_cameraYaw += static_cast<float>(x - m_lastMouseX) * 0.01f;
     }
@@ -1146,7 +1379,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
 
 void CInGameState::open_shop(std::uint32_t npc_id) {
     if (!m_inGame || !is_connected()) return;
-    m_shopOpen = false;
+    set_shop_open(false);
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::Npc);

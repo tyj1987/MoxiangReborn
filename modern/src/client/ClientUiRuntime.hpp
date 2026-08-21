@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -22,6 +23,7 @@ struct ClientUiActivation {
     std::int32_t numeric_id = 0;
     std::string legacy_id;
     std::string legacy_func;
+    std::string dialog_legacy_id;
 };
 
 struct ClientUiInputResult {
@@ -44,6 +46,10 @@ public:
               std::string_view script_name,
               mxh::ui::ResolutionMode mode,
               std::string* error = nullptr);
+    bool loadMany(const std::filesystem::path& playdh_root,
+                  std::span<const std::string_view> script_names,
+                  mxh::ui::ResolutionMode mode,
+                  std::string* error = nullptr);
     void clear() noexcept;
 
     void setActive(bool active) noexcept;
@@ -55,6 +61,9 @@ public:
     bool onMouseMove(std::int32_t x, std::int32_t y);
     bool onKey(bool down, std::int32_t key);
     bool onChar(std::int32_t ch);
+
+    bool setDialogActive(std::string_view legacy_id, bool active) noexcept;
+    bool isDialogActive(std::string_view legacy_id) const noexcept;
 
     using ConfirmationCallback = std::function<void(bool confirmed)>;
     bool showConfirmation(std::int32_t id, std::string message,

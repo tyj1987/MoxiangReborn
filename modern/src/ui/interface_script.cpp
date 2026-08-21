@@ -414,6 +414,12 @@ bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
              static_cast<std::uint16_t>(r.w),
              static_cast<std::uint16_t>(r.h),
              basicImage);
+    // The legacy cScriptManager applies both values for every dialog after
+    // Init(), including their parser defaults.  Keeping the parsed values
+    // only in InterfaceNode made initially-hidden windows (inventory, quest,
+    // item shop, ...) visible as soon as a runtime activated its dialog tree.
+    dlg.SetMovable(node.movable);
+    dlg.SetActive(node.active);
     if (node.caption_rect) {
         const auto& c = *node.caption_rect;
         dlg.SetCaptionRect(c.x, c.y, c.x + c.w, c.y + c.h);

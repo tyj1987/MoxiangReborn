@@ -291,6 +291,26 @@ TEST(InterfaceScriptParser, ApplyLegacyLayoutAppliesMainDlgPos) {
     EXPECT_EQ(dlg.captionTop(), 0);
     EXPECT_EQ(dlg.captionRight(), 14);
     EXPECT_EQ(dlg.captionBottom(), 42);
+    EXPECT_TRUE(dlg.isActive());
+    EXPECT_TRUE(dlg.isMovable());
+}
+
+TEST(InterfaceScriptParser, ApplyLegacyLayoutPreservesHiddenImmovableState) {
+    constexpr std::string_view hidden = R"(
+$DLG
+{
+    #POINT 10 20 30 40
+    #ACTIVE 0
+    #MOVEABLE 0
+}
+)";
+    auto out = parse_interface_script(hidden);
+    ASSERT_EQ(out.roots.size(), 1u);
+
+    cDialog dlg;
+    ASSERT_TRUE(apply_legacy_layout(dlg, *out.roots[0], nullptr));
+    EXPECT_FALSE(dlg.isActive());
+    EXPECT_FALSE(dlg.isMovable());
 }
 
 TEST(InterfaceScriptParser, ApplyLegacyLayoutReturnsFalseWithoutPoint) {

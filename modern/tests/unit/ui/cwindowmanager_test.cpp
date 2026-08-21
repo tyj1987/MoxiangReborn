@@ -18,6 +18,15 @@ using mxh::ui::cWindowManager;
 
 namespace {
 int g_basicImg = 1;
+
+class TrackingDialog final : public cDialog {
+public:
+    explicit TrackingDialog(int& renders) : m_renders(renders) {}
+    void Render() override { ++m_renders; }
+
+private:
+    int& m_renders;
+};
 } // namespace
 
 TEST(CWindowManager, DefaultState) {
@@ -215,17 +224,24 @@ TEST(CWindowManager, NoActiveDialogsInputIsNull) {
               static_cast<std::uint32_t>(cWindow::WindowEvent::Null));
 }
 
-TEST(CWindowManager, RenderAllWalksBackToFront) {
+TEST(CWindowManager, RenderAllSkipsInactiveAndInvisibleDialogs) {
     cWindowManager wm;
-    auto a = std::make_unique<cDialog>();
-    a->Init(0, 0, 100, 100, &g_basicImg, 1);
-    auto b = std::make_unique<cDialog>();
-    b->Init(0, 0, 100, 100, &g_basicImg, 2);
+    int activeRenders = 0;
+    int inactiveRenders = 0;
+    int invisibleRenders = 0;
+    auto a = std::make_unique<TrackingDialog>(activeRenders);
+    a->SetActive(true);
+    auto b = std::make_unique<TrackingDialog>(inactiveRenders);
+    auto c = std::make_unique<TrackingDialog>(invisibleRenders);
+    c->SetActive(true);
+    c->SetVisible(false);
     wm.AddDialog(std::move(a));
     wm.AddDialog(std::move(b));
-    // RenderAll is a placeholder dispatch; it must not crash and must
-    // handle the empty list.
+    wm.AddDialog(std::move(c));
     wm.RenderAll();
+    EXPECT_EQ(activeRenders, 1);
+    EXPECT_EQ(inactiveRenders, 0);
+    EXPECT_EQ(invisibleRenders, 0);
     wm.RemoveAll();
     wm.ProcessDestroyQueue();
     wm.RenderAll();   // empty
@@ -240,6 +256,7 @@ TEST(CWindowManagerFocus, SetFocusMarksFocusedAndClearsPrevious) {
     mxh::ui::cWindowManager wm;
     auto dlg = std::make_unique<mxh::ui::cDialog>();
     dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    dlg->SetActive(true);
     auto eb1 = std::make_unique<mxh::ui::cEditBox>();
     eb1->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/1);
     auto eb2 = std::make_unique<mxh::ui::cEditBox>();
@@ -265,6 +282,7 @@ TEST(CWindowManagerFocus, SetFocusSameWindowIsNoOp) {
     mxh::ui::cWindowManager wm;
     auto dlg = std::make_unique<mxh::ui::cDialog>();
     dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    dlg->SetActive(true);
     auto eb = std::make_unique<mxh::ui::cEditBox>();
     eb->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/7);
     cEditBox* raw_eb = eb.get();
@@ -282,6 +300,7 @@ TEST(CWindowManagerFocus, TabFocusNextCyclesThroughEditBoxes) {
     mxh::ui::cWindowManager wm;
     auto dlg = std::make_unique<mxh::ui::cDialog>();
     dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    dlg->SetActive(true);
     auto eb1 = std::make_unique<mxh::ui::cEditBox>();
     eb1->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/1);
     auto eb2 = std::make_unique<mxh::ui::cEditBox>();
@@ -307,14 +326,16 @@ TEST(CWindowManagerFocus, TabFocusPrevReversesOrder) {
     mxh::ui::cWindowManager wm;
     auto dlg = std::make_unique<mxh::ui::cDialog>();
     dlg->Init(0, 0, 200, 100, nullptr, /*id=*/0);
+    dlg->SetActive(true);
     auto eb1 = std::make_unique<mxh::ui::cEditBox>();
     eb1->Init(10, 10, 80, 20, nullptr, nullptr, /*id=*/1);
     auto eb2 = std::make_unique<mxh::ui::cEditBox>();
     eb2->Init(100, 10, 80, 20, nullptr, nullptr, /*id=*/2);
+    cEditBox* raw_eb2 = eb2.get();
     dlg->Add(std::move(eb1));
     dlg->Add(std::move(eb2));
     wm.AddDialog(std::move(dlg));
-    wm.SetFocus(dlg->childAt(1));  // focus eb2 (id=2)
+    wm.SetFocus(raw_eb2);  // focus eb2 (id=2)
 
     wm.TabFocusPrev();
     EXPECT_EQ(wm.focusedId(), 1);
@@ -326,6 +347,7 @@ TEST(CWindowManagerFocus, ButtonsAndEditBoxesAreFocusable) {
     mxh::ui::cWindowManager wm;
     auto dlg = std::make_unique<mxh::ui::cDialog>();
     dlg->Init(0, 0, 300, 100, nullptr, /*id=*/0);
+    dlg->SetActive(true);
     auto btn = std::make_unique<mxh::ui::cButton>();
     btn->Init(10, 10, 30, 30, nullptr, nullptr, nullptr, nullptr, nullptr, /*id=*/10);
     auto eb = std::make_unique<mxh::ui::cEditBox>();

@@ -31,6 +31,7 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "ClientUiRuntime.hpp"
 
 #include <cstdint>
 #include <array>
@@ -129,10 +130,43 @@ struct MonsterAddInfo {
     std::uint16_t map_num = 0;
     std::uint16_t position_x = 0;
     std::uint16_t position_z = 0;
+    float facing_yaw = 0.0f;
+    bool moving = false;
 };
 
 std::optional<MonsterAddInfo>
 parse_legacy_monster_add(std::span<const std::uint8_t> payload);
+
+// One remote player pushed by MapServer (UserConn CharacterAdd).
+// Mirrors the fixed prefix of legacy SEND_CHARACTER_TOTALINFO:
+//   [BASEOBJECT_INFO: 35 bytes] [CHARACTER_TOTALINFO: 112 bytes]
+//   [SEND_MOVEINFO: 14 bytes]
+struct RemotePlayerInfo {
+    std::uint32_t object_id = 0;
+    std::uint32_t user_id = 0;
+    std::string name;
+    std::uint32_t life = 0;
+    std::uint32_t max_life = 0;
+    std::uint32_t shield = 0;
+    std::uint32_t max_shield = 0;
+    std::uint8_t gender = 0;
+    std::uint8_t face_type = 0;
+    std::uint8_t hair_type = 0;
+    std::array<std::uint16_t, 10> weared_item_idx{};
+    std::uint16_t level = 0;
+    std::uint16_t map_num = 0;
+    std::uint16_t position_x = 0;
+    std::uint16_t position_z = 0;
+    float height = 0.0f;
+    float width = 0.0f;
+    bool visible = false;
+    bool appearance_known = false;
+    float facing_yaw = 0.0f;
+    bool moving = false;
+};
+
+std::optional<RemotePlayerInfo>
+parse_legacy_character_add(std::span<const std::uint8_t> payload);
 
 // One static NPC pushed by the map server (UserConn NpcAdd, 64B payload).
 struct NpcInfo {
@@ -297,7 +331,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void use_quick_slot(std::size_t slot);
-    void toggle_inventory() noexcept { m_inventoryOpen = !m_inventoryOpen; }
+    void toggle_inventory() noexcept;
     // Pick the nearest NPC to the player by world distance (max 500 units).
     std::uint32_t pick_nearest_npc() const noexcept;
     void open_shop(std::uint32_t npc_id);
@@ -312,7 +346,10 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const GameInInfo& game_info() const noexcept { return m_info; }
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
     const std::vector<NpcInfo>& npcs() const noexcept { return m_npcs; }
+    const std::unordered_map<std::uint32_t, RemotePlayerInfo>& remote_players()
+        const noexcept { return m_remotePlayers; }
     float camera_yaw() const noexcept { return m_cameraYaw; }
+    bool is_moving() const noexcept { return m_moving; }
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
     bool shop_open() const noexcept { return m_shopOpen; }
@@ -328,6 +365,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::vector<std::string>& chat_lines() const noexcept {
         return m_chatLines;
     }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
+    const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
     std::uint64_t attack_flash_age_ms() const noexcept;
 
@@ -338,7 +377,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
         return static_cast<std::uint16_t>(m_localZ);
     }
 
-private:
+public:
+    bool handle_ui_activation(const ClientUiActivation& activation);
     void send_gamein_syn();
     void dispatch_gamein_ack(const GameInInfo& info);
     void fail_with(const std::string& reason);
@@ -356,6 +396,9 @@ private:
     void handle_item_broadcast(const mxh::net::Message& msg);
     void handle_quest_broadcast(const mxh::net::Message& msg);
     void send_quest(mxh::proto::QuestProtocol protocol);
+    void set_inventory_open(bool open) noexcept;
+    void set_shop_open(bool open) noexcept;
+    void set_quest_open(bool open) noexcept;
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -367,8 +410,7 @@ private:
     GameInInfo               m_info;
     std::vector<MonsterAddInfo> monsters_;
     std::vector<NpcInfo> m_npcs;
-    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>>
-        m_remotePlayers;
+    std::unordered_map<std::uint32_t, RemotePlayerInfo> m_remotePlayers;
     bool                     m_started    = false;
     bool                     m_inGame     = false;
     bool                     m_failed     = false;
@@ -397,6 +439,7 @@ private:
     std::string          m_chatBuffer;
     std::vector<std::string> m_chatLines;
     bool                 m_inventoryOpen = false;
+    ClientUiRuntime      m_uiRuntime;
 
     // NPC shop state.
     bool                 m_shopOpen  = false;

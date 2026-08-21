@@ -37,8 +37,12 @@ void collect_focusable(mxh::ui::cWindow* window,
 }
 
 ClientUiActivation activation_for(const mxh::ui::cWindow& window) {
+    const mxh::ui::cObject* root = &window;
+    while (root->parent()) root = root->parent();
+    const auto* dialog = dynamic_cast<const mxh::ui::cDialog*>(root);
     return ClientUiActivation{
-        window.id(), window.legacyId(), window.legacyFunc()};
+        window.id(), window.legacyId(), window.legacyFunc(),
+        dialog ? dialog->legacyId() : std::string{}};
 }
 
 } // namespace
@@ -51,20 +55,46 @@ bool ClientUiRuntime::load(const std::filesystem::path& playdh_root,
                            std::string_view script_name,
                            mxh::ui::ResolutionMode mode,
                            std::string* error) {
-    clear();
-    const auto path = playdh_root / "Image" / "InterfaceScript" /
-                      std::filesystem::path(script_name);
-    const auto report = mxh::ui::cDialogLoader::LoadOne(path, m_windows, mode);
-    if (!report.ok || m_windows.dialogCount() == 0) {
-        if (error) {
-            *error = report.error.empty()
-                ? "InterfaceScript produced no dialog roots"
-                : report.error;
-        }
-        clear();
+    const std::string_view scripts[] = {script_name};
+    return loadMany(playdh_root, scripts, mode, error);
+}
+
+bool ClientUiRuntime::loadMany(
+    const std::filesystem::path& playdh_root,
+    std::span<const std::string_view> script_names,
+    mxh::ui::ResolutionMode mode,
+    std::string* error) {
+    if (script_names.empty()) {
+        if (error) *error = "No InterfaceScript names supplied";
         return false;
     }
+
+    // Stage the complete set first.  A missing or malformed required script
+    // must not replace the state's currently-valid UI with a partial tree.
+    mxh::ui::cWindowManager staged;
+    for (const auto script_name : script_names) {
+        const auto before = staged.dialogCount();
+        const auto path = playdh_root / "Image" / "InterfaceScript" /
+                          std::filesystem::path(script_name);
+        const auto report = mxh::ui::cDialogLoader::LoadOne(path, staged, mode);
+        if (!report.ok || staged.dialogCount() == before) {
+            if (error) {
+                *error = std::string(script_name) + ": " +
+                    (report.error.empty()
+                        ? "InterfaceScript produced no dialog roots"
+                        : report.error);
+            }
+            return false;
+        }
+    }
+
+    clear();
+    while (staged.dialogCount() != 0) {
+        auto* first = staged.dialogs().front().get();
+        m_windows.AddDialog(staged.RemoveDialog(first));
+    }
     setActive(true);
+    if (error) error->clear();
     return true;
 }
 
@@ -81,9 +111,36 @@ void ClientUiRuntime::setActive(bool active) noexcept {
         focus(nullptr);
         m_pressedLeft = nullptr;
     }
+}
+
+bool ClientUiRuntime::setDialogActive(std::string_view legacy_id,
+                                      bool active) noexcept {
     for (const auto& dialog : m_windows.dialogs()) {
-        if (dialog) dialog->SetActive(active);
+        if (dialog && dialog->legacyId() == legacy_id) {
+            // Legacy contract: an inactive dialog is hidden from the
+            // renderer and from hit-testing. The cDialog base class
+            // only flips m_bActive; mirror that into visibility so the
+            // dispatcher (which gates on m_bVisible) sees the change.
+            dialog->SetActive(active);
+            dialog->SetVisible(active);
+            if (!active && m_focused) {
+                const mxh::ui::cObject* root = m_focused;
+                while (root->parent()) root = root->parent();
+                if (root == dialog.get()) focus(nullptr);
+            }
+            return true;
+        }
     }
+    return false;
+}
+
+bool ClientUiRuntime::isDialogActive(std::string_view legacy_id) const noexcept {
+    for (const auto& dialog : m_windows.dialogs()) {
+        if (dialog && dialog->legacyId() == legacy_id) {
+            return dialog->isActive();
+        }
+    }
+    return false;
 }
 
 mxh::ui::cWindow* ClientUiRuntime::hitTest(std::int32_t x,
@@ -162,6 +219,7 @@ ClientUiInputResult ClientUiRuntime::onMouseButton(
     mxh::ui::cWindow* pressed = m_pressedLeft;
     m_pressedLeft = nullptr;
     if (!pressed) return result;
+    (void)hit; (void)pressed;
     const auto event = pressed->ActionEvent(x, y, 0u);
     result.consumed = true;
     if (pressed == hit) {

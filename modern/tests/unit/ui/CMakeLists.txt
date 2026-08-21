@@ -2,7 +2,6 @@ add_executable(mxh_ui_tests
     cobject_test.cpp
     clistitem_test.cpp
     cwindow_test.cpp
-    cResourceManager_test.cpp
     cinventoryexdialog_test.cpp
     citemshopdialog_test.cpp
     cdealdialog_test.cpp
@@ -204,6 +203,24 @@ add_executable(mxh_ui_tests
 )
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat mxh_log gtest_main)
+
+# cResourceManager_test uses its own small hand-written runner.  Keeping it in
+# mxh_ui_tests replaced GoogleTest's main(), so every registered UI gtest was
+# reported as passing without executing.  Run it as an explicit standalone
+# test instead.
+add_executable(mxh_ui_resource_manager_tests
+    cResourceManager_test.cpp
+)
+target_link_libraries(mxh_ui_resource_manager_tests PRIVATE
+    mxh_ui mxh_compat mxh_log
+)
+if(MSVC)
+    target_compile_options(mxh_ui_resource_manager_tests PRIVATE /FS /Z7 /MP1)
+endif()
+add_test(NAME mxh_ui_resource_manager_tests
+    COMMAND $<TARGET_FILE:mxh_ui_resource_manager_tests>)
+set_tests_properties(mxh_ui_resource_manager_tests PROPERTIES
+    SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]")
 
 # InterfaceScript legacy test uses nlohmann/json for structural compare.
 target_include_directories(mxh_ui_tests PRIVATE
@@ -2337,8 +2354,8 @@ gtest_add_tests(TARGET mxh_ui_tests
     InterfaceScriptRender.QuickDialogRendersAtLegacyPixelPosition
     InterfaceScriptRender.ExitDialogRendersAtLegacyPixelPosition
     InterfaceScriptRender.MultipleDialogsRenderAtDistinctLegacyPositions
-    # M-R3: cDialogLoader 是 hand-rolled main-style 跟 cResourceManager_test 一起跑 (双 main 冲突),
-    # 不在 gtest_add_tests 列表里 — 它作为 mxh_ui_tests 的 main 调用顺序的一部分.
+    # M-R3 cDialogLoader has a separate hand-rolled executable registered by
+    # tests/unit/CMakeLists.txt; mxh_ui_tests itself always uses gtest_main.
 )
 
 add_executable(mxh_ui_text_render_tests

@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
+#include <cstdio>
 
 #include <cstdlib>
+#include <array>
 #include <filesystem>
 
 #include "ClientUiRuntime.hpp"
+#include "CInGameState.hpp"
 #include "mxh/ui/cEditBox.hpp"
 
 namespace {
@@ -49,6 +52,7 @@ TEST(ClientUiRuntime, DispatchesRealLegacyFunctionButton) {
     ASSERT_TRUE(released.consumed);
     ASSERT_TRUE(released.activation.has_value());
     EXPECT_EQ(released.activation->legacy_func, "CS_BtnFuncCreateChar");
+    EXPECT_EQ(released.activation->dialog_legacy_id, "CS_CHARSELECTDLG");
 }
 
 TEST(ClientUiRuntime, DispatchesRealPushupCharacterSlot) {
@@ -107,6 +111,140 @@ TEST(ClientUiRuntime, ClearReleasesStateOwnedDialogTree) {
     EXPECT_TRUE(runtime.empty());
     EXPECT_FALSE(runtime.isActive());
     EXPECT_EQ(runtime.findWindowByLegacyId("CS_CHARSELECTDLG"), nullptr);
+}
+
+TEST(ClientUiRuntime, LoadsGameDialogsWithoutOverwritingLegacyActiveFlags) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    constexpr std::array<std::string_view, 2> scripts{"15.bin", "11.bin"};
+    std::string error;
+    ASSERT_TRUE(runtime.loadMany(playdh, scripts,
+                                mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    EXPECT_EQ(runtime.dialogs().size(), 2u);
+    EXPECT_TRUE(runtime.isDialogActive("MI_MAINDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("IN_INVENTORYDLG"));
+
+    runtime.setActive(false);
+    runtime.setActive(true);
+    EXPECT_TRUE(runtime.isDialogActive("MI_MAINDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("IN_INVENTORYDLG"));
+
+    EXPECT_TRUE(runtime.setDialogActive("IN_INVENTORYDLG", true));
+    EXPECT_TRUE(runtime.isDialogActive("IN_INVENTORYDLG"));
+}
+
+TEST(ClientUiRuntime, FailedMultiLoadKeepsPreviousTreeIntact) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600));
+    constexpr std::array<std::string_view, 2> scripts{
+        "15.bin", "MissingRequiredGameDialog.bin"};
+    std::string error;
+    EXPECT_FALSE(runtime.loadMany(playdh, scripts,
+                                 mxh::ui::ResolutionMode::Low800x600, &error));
+    EXPECT_NE(error.find("MissingRequiredGameDialog.bin"), std::string::npos);
+    EXPECT_NE(runtime.findWindowByLegacyId("CS_CHARSELECTDLG"), nullptr);
+    EXPECT_EQ(runtime.findWindowByLegacyId("MI_MAINDLG"), nullptr);
+}
+
+TEST(ClientUiRuntime, LoadsLegacyChinaGameInCoreDialogSet) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    constexpr std::array<std::string_view, 13> scripts{
+        "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
+        "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
+        "QuestTotal.bin", "ItemShop.bin"};
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.loadMany(playdh, scripts,
+                                mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    EXPECT_GE(runtime.dialogs().size(), scripts.size());
+    // Verify the dialog tree loaded every requested script. legacy_id
+    // lookup intentionally skips inactive dialogs because CMI_CLOSEBTN
+    // exists in many .bin files; instead, count dialogs by their own
+    // legacyId directly on the dialog vector.
+    std::size_t found_inventory = 0, found_quest = 0, found_itemshop = 0;
+    for (const auto& d : runtime.dialogs()) {
+        if (!d) continue;
+        const auto& id = d->legacyId();
+        if (id == "IN_INVENTORYDLG") ++found_inventory;
+        else if (id == "QUE_TOTALDLG") ++found_quest;
+        else if (id == "ITMALL_BASEDLG") ++found_itemshop;
+    }
+    EXPECT_EQ(found_inventory, 1u);
+    EXPECT_EQ(found_quest, 1u);
+    EXPECT_EQ(found_itemshop, 1u);
+    EXPECT_NE(runtime.findWindowByLegacyId("MI_MAINDLG"), nullptr);
+    EXPECT_NE(runtime.findWindowByLegacyId("CTI_DLG"), nullptr);
+    EXPECT_FALSE(runtime.isDialogActive("IN_INVENTORYDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("QUE_TOTALDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("ITMALL_BASEDLG"));
+}
+
+TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.set_quest_catalog({});
+
+    // 1:1 legacy: `IN_INVENTORYDLG` ships with `#ACTIVE 0`. The player
+    // presses 'I' (toggle_inventory) to flip the dialog active before any
+    // button inside can receive clicks.
+    state.toggle_inventory();
+    ASSERT_TRUE(state.inventory_open());
+    state.ui_runtime().setDialogActive("IN_INVENTORYDLG", true);
+    ASSERT_TRUE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
+
+    // Synthesize the close click activation. Pixel-level hit testing is
+    // covered by the dispatch tests below; here we focus on the activation
+    // funnel that flips state when the player closes the inventory.
+    mxh::client::ClientUiActivation close_click;
+    close_click.legacy_id = "CMI_CLOSEBTN";
+    close_click.dialog_legacy_id = "IN_INVENTORYDLG";
+    EXPECT_TRUE(state.handle_ui_activation(close_click));
+    EXPECT_FALSE(state.inventory_open());
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
+}
+
+TEST(InGameUiRuntime, MainBarButtonConsumesClickInActiveDialog) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.set_quest_catalog({});
+
+    // MAINDLG is active by default; its MI_BTN_SIZE button is reachable
+    // on screen at the bottom of the 800x600 logical viewport.
+    mxh::ui::cWindow* size_btn = nullptr;
+    for (const auto& d : state.ui_runtime().dialogs()) {
+        if (d && d->legacyId() == "MI_MAINDLG") {
+            size_btn = d->findWindowByLegacyId("MI_BTN_SIZE");
+            break;
+        }
+    }
+    ASSERT_NE(size_btn, nullptr);
+
+    const auto cx = size_btn->absX() + size_btn->width() / 2;
+    const auto cy = size_btn->absY() + size_btn->height() / 2;
+    const auto down = state.ui_runtime().onMouseButton(true, true, cx, cy);
+    EXPECT_TRUE(down.consumed);
+    const auto up = state.ui_runtime().onMouseButton(true, false, cx, cy);
+    // cButton with only legacy_id (no legacy_func) is consumed but does
+    // not produce a routed activation — its handler is wired in the
+    // legacy MI_DlgFunc callback, which the modern runtime drives from
+    // `cMainBarDialog::Linking()` (deferred to a follow-up).
+    EXPECT_TRUE(up.consumed);
 }
 
 TEST(ClientUiRuntime, ConfirmationOwnsModalInputAndCleansUpAfterEnter) {
