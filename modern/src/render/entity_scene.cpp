@@ -197,6 +197,7 @@ struct EntityScene::Impl {
     std::uint32_t culled_instances = 0;
     std::uint32_t failed_load_count = 0;
     std::unordered_set<std::uint32_t> placeholder_ids;
+    std::vector<PlaceholderVisual> placeholder_visuals;
     Model* loadModel(std::uint16_t kind,
                      const ScenePlayer* playerInfo = nullptr,
                      SceneEntityType type = SceneEntityType::Monster,
@@ -602,17 +603,31 @@ void EntityScene::synchronize(const WorldSnapshot& snapshot) {
     impl_->local_player = snapshot.local_player;
     impl_->remote_players = snapshot.remote_players;
     impl_->instances = snapshot.entities;
+    impl_->placeholder_visuals.clear();
+    impl_->placeholder_ids.clear();
 
     for (const auto& entity : impl_->instances) {
-        impl_->loadModel(entity.visual_kind, nullptr, entity.type,
-                         entity.object_id);
+        if (!impl_->loadModel(entity.visual_kind, nullptr, entity.type,
+                              entity.object_id)) {
+            impl_->placeholder_visuals.push_back(PlaceholderVisual{
+                entity.object_id, entity.world_x, entity.world_y,
+                entity.world_z, 0.5f});
+            if (entity.object_id != 0) {
+                impl_->placeholder_ids.insert(entity.object_id);
+            }
+        }
     }
     for (const auto& [objectId, player] : nextPlayers) {
         const auto kind = static_cast<std::uint16_t>(
             65000u + std::min<unsigned>(player->gender, 1u) * 25u +
             std::min<unsigned>(player->face_type, 4u) * 5u +
             std::min<unsigned>(player->hair_type, 4u));
-        impl_->loadModel(kind, player, SceneEntityType::Monster, objectId);
+        if (!impl_->loadModel(kind, player, SceneEntityType::Monster, objectId)) {
+            impl_->placeholder_visuals.push_back(PlaceholderVisual{
+                objectId, player->world_x, player->world_y, player->world_z,
+                0.5f});
+            if (objectId != 0) impl_->placeholder_ids.insert(objectId);
+        }
     }
 }
 
@@ -727,6 +742,9 @@ std::uint32_t EntityScene::failedModelCount() const noexcept {
     return impl_->failed_load_count;
 }
 std::uint32_t EntityScene::placeholderCount() const noexcept {
-    return static_cast<std::uint32_t>(impl_->placeholder_ids.size());
+    return static_cast<std::uint32_t>(impl_->placeholder_visuals.size());
+}
+std::span<const PlaceholderVisual> EntityScene::placeholders() const noexcept {
+    return impl_->placeholder_visuals;
 }
 } // namespace mxh::gx

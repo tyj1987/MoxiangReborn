@@ -68,6 +68,16 @@ struct WorldSnapshot {
     std::vector<SceneEntity> entities;
 };
 
+// CPU-side stand-in drawn when CHX/MOD is missing. radius > 0 means the
+// renderer can iterate a box at world_* without a loaded mesh.
+struct PlaceholderVisual {
+    std::uint32_t object_id = 0;
+    float world_x = 0;
+    float world_y = 0;
+    float world_z = 0;
+    float radius = 0.5f;
+};
+
 // Original MonsterList.bin -> CHX -> MOD entity rendering bridge.
 class EntityScene {
 public:
@@ -97,6 +107,7 @@ public:
     // each miss is counted and kept as a placeholder id for render.
     [[nodiscard]] std::uint32_t failedModelCount() const noexcept;
     [[nodiscard]] std::uint32_t placeholderCount() const noexcept;
+    [[nodiscard]] std::span<const PlaceholderVisual> placeholders() const noexcept;
 
 private:
     struct Impl;

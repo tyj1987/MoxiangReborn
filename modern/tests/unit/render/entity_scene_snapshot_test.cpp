@@ -70,14 +70,30 @@ TEST(EntitySceneSnapshot, EmptySnapshotRemovesLocalAndRemotePlayers) {
 TEST(EntitySceneSnapshot, MissingVisualIsCountedAsFailedLoadWithPlaceholder) {
     EntityScene scene;
     WorldSnapshot snap;
-    snap.local_player = ScenePlayer{7u};
+    snap.local_player = ScenePlayer{7u, 0, 0, 0, {}, 12.0f, 3.0f, 8.0f};
     snap.entities.push_back(
-        SceneEntity{42u, 9999u, 0, 0, 0, SceneEntityType::Npc});
+        SceneEntity{42u, 9999u, 1.0f, 2.0f, 3.0f, SceneEntityType::Npc});
     scene.synchronize(snap);
 
+    EXPECT_EQ(scene.playerInstanceCount(), 1u);
+    EXPECT_EQ(scene.npcInstanceCount(), 1u);
     EXPECT_GE(scene.failedModelCount(), 1u);
     EXPECT_GE(scene.placeholderCount(), 1u);
     EXPECT_EQ(scene.loadedModelCount(), 0u);
+
+    bool saw_npc = false;
+    bool saw_player = false;
+    for (const auto& placeholder : scene.placeholders()) {
+        EXPECT_GT(placeholder.radius, 0.0f);
+        if (placeholder.object_id == 42u) {
+            saw_npc = true;
+            EXPECT_EQ(placeholder.world_x, 1.0f);
+            EXPECT_EQ(placeholder.world_z, 3.0f);
+        }
+        if (placeholder.object_id == 7u) saw_player = true;
+    }
+    EXPECT_TRUE(saw_npc);
+    EXPECT_TRUE(saw_player);
 }
 
 } // namespace
