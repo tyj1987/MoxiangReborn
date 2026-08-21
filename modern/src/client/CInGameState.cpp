@@ -37,6 +37,8 @@ constexpr std::array<std::string_view, 13> kChinaGameInUiScripts{
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::string_view kQuestDialogId = "QUE_TOTALDLG";
 constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
+constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
+    "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 
 // Match map_handler.cpp's put_u32 (LE) layout.
 inline std::uint32_t get_u32(const std::uint8_t* p) {
@@ -524,6 +526,8 @@ void CInGameState::Init(void* pInitParam) {
                                   &ui_error)) {
             MLOG_WARN("CInGameState::Init UI load failed: %s",
                       ui_error.c_str());
+        } else {
+            m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
         }
     }
 }
@@ -606,9 +610,8 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
             fail_with("GameIn UI load failed: " + ui_error);
             return;
         }
-    } else {
-        m_uiRuntime.setActive(true);
     }
+    m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
     MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
               static_cast<unsigned>(m_playerId),
               static_cast<unsigned>(m_mapNum));

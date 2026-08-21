@@ -6,6 +6,8 @@
 #include <filesystem>
 
 #include "ClientUiRuntime.hpp"
+#include "CCharMake.hpp"
+#include "CCharSelectState.hpp"
 #include "CInGameState.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cEditBox.hpp"
@@ -370,4 +372,128 @@ TEST(ClientUiRuntime, CharSelectRootBasicImageBoundWhenSpriteHookRegistered) {
     auto* image = static_cast<mxh::ui::cImage*>(root->basicImage());
     ASSERT_NE(image, nullptr);
     EXPECT_FALSE(image->IsNull());
+}
+
+namespace {
+
+mxh::client::ClientUiInputResult click_window_center(
+    mxh::client::ClientUiRuntime& runtime, mxh::ui::cWindow* window) {
+    const auto x = window->absX() + static_cast<std::int32_t>(window->width() / 2);
+    const auto y = window->absY() + static_cast<std::int32_t>(window->height() / 2);
+    runtime.onMouseButton(true, true, x, y);
+    return runtime.onMouseButton(true, false, x, y);
+}
+
+}  // namespace
+
+TEST(ClientUiRuntime, CharSelectCreateAndEnterHitboxesDispatchShippedCommands) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+    ASSERT_TRUE(runtime.isDialogActive("CS_CHARSELECTDLG"));
+
+    auto* create = runtime.findWindowByLegacyFunc("CS_BtnFuncCreateChar");
+    ASSERT_NE(create, nullptr);
+    const auto create_click = click_window_center(runtime, create);
+    ASSERT_TRUE(create_click.activation.has_value());
+    const auto create_cmd =
+        mxh::client::resolve_char_select_ui_command(*create_click.activation);
+    EXPECT_EQ(create_cmd.kind, mxh::client::CharSelectUiCommandKind::Create);
+
+    auto* enter = runtime.findWindowByLegacyId("MT_ENTERBTN");
+    if (!enter) enter = runtime.findWindowByLegacyFunc("CS_BtnFuncEnter");
+    ASSERT_NE(enter, nullptr);
+    const auto enter_click = click_window_center(runtime, enter);
+    ASSERT_TRUE(enter_click.activation.has_value());
+    const auto enter_cmd =
+        mxh::client::resolve_char_select_ui_command(*enter_click.activation);
+    EXPECT_EQ(enter_cmd.kind, mxh::client::CharSelectUiCommandKind::Enter);
+}
+
+TEST(ClientUiRuntime, CharMakeSubmitCancelAndNameHitboxesDispatchShippedCommands) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharMakeNewDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+
+    auto* name = dynamic_cast<mxh::ui::cEditBox*>(
+        runtime.findWindowByLegacyId("CMID_IDEDITBOX"));
+    ASSERT_NE(name, nullptr);
+    name->InitEditbox(static_cast<std::uint16_t>(name->width()), 17);
+    const auto name_down = runtime.onMouseButton(
+        true, true, name->absX() + 1, name->absY() + 1);
+    EXPECT_TRUE(name_down.consumed);
+    EXPECT_TRUE(runtime.onChar('Z'));
+    EXPECT_EQ(name->editText(), "Z");
+
+    auto* submit = runtime.findWindowByLegacyId("CMID_CharMake");
+    if (!submit) submit = runtime.findWindowByLegacyFunc("CM_CharMakeBtnFunc");
+    ASSERT_NE(submit, nullptr);
+    const auto submit_click = click_window_center(runtime, submit);
+    ASSERT_TRUE(submit_click.activation.has_value());
+    const auto submit_cmd =
+        mxh::client::resolve_char_make_ui_command(*submit_click.activation);
+    EXPECT_EQ(submit_cmd.kind, mxh::client::CharMakeUiCommandKind::Submit);
+
+    auto* cancel = runtime.findWindowByLegacyId("CMID_CharCancel");
+    if (!cancel) cancel = runtime.findWindowByLegacyFunc("CM_CharCancelBtnFunc");
+    ASSERT_NE(cancel, nullptr);
+    const auto cancel_click = click_window_center(runtime, cancel);
+    ASSERT_TRUE(cancel_click.activation.has_value());
+    const auto cancel_cmd =
+        mxh::client::resolve_char_make_ui_command(*cancel_click.activation);
+    EXPECT_EQ(cancel_cmd.kind, mxh::client::CharMakeUiCommandKind::Cancel);
+}
+
+TEST(InGameUiRuntime, DefaultHudActiveAndMissClickIsNotConsumed) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto& runtime = state.ui_runtime();
+    ASSERT_FALSE(runtime.empty());
+
+    EXPECT_TRUE(runtime.isDialogActive("MI_MAINDLG"));
+    EXPECT_TRUE(runtime.isDialogActive("QI_QUICKDLG"));
+    EXPECT_TRUE(runtime.isDialogActive("MNM_DIALOG"));
+    EXPECT_TRUE(runtime.isDialogActive("CG_GUAGEDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("IN_INVENTORYDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("QUE_TOTALDLG"));
+    EXPECT_FALSE(runtime.isDialogActive("ITMALL_BASEDLG"));
+
+    int miss_x = -1;
+    int miss_y = -1;
+    for (int y = 8; y < 600 && miss_x < 0; y += 16) {
+        for (int x = 8; x < 800; x += 16) {
+            bool covered = false;
+            for (const auto& dialog : runtime.dialogs()) {
+                if (!dialog || !dialog->isActive()) continue;
+                if (dialog->PtInWindow(x, y)) {
+                    covered = true;
+                    break;
+                }
+            }
+            if (!covered) {
+                miss_x = x;
+                miss_y = y;
+                break;
+            }
+        }
+    }
+    ASSERT_GE(miss_x, 0) << "default HUD covers the entire 800x600 viewport";
+    const auto miss = runtime.onMouseButton(true, true, miss_x, miss_y);
+    EXPECT_FALSE(miss.consumed);
+    EXPECT_FALSE(miss.activation.has_value());
 }

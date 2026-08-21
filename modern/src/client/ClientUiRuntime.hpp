@@ -68,6 +68,9 @@ public:
     // visible and hittable. GameIn must not call this — inventory/shop
     // stay inactive until I/B/Q.
     void activateAllLoadedDialogs() noexcept;
+    // Activate only the listed legacy ids; every other loaded dialog is
+    // hidden so it cannot swallow world clicks.
+    void applyActiveSet(std::span<const std::string_view> active_ids) noexcept;
 
     using ConfirmationCallback = std::function<void(bool confirmed)>;
     bool showConfirmation(std::int32_t id, std::string message,
