@@ -49,27 +49,22 @@
 - **修复**: `stm_static_model_test.cpp` 改用手动 basename 提取（`find_last_of("/\\")` + `substr`），不经过 filesystem::path round-trip，entry.name 字节不变。
 - **副作用**: 0 (StmStaticModel suite 现 5/5 PASS, 1423ms)。
 
-## R-12: 多个 compat test helper 不会 walk-up 找 PlayDH (剩 12 SKIP)
+## R-12: 12 compat test helper 不会 walk-up 找 PlayDH (✅ 已解 1/12 + 11 已 PASS 实测)
 
-- **状态**: 活动 (2026-08-20)。
-- **现状**: `mxh_compat_tests` 100 tests 跑完 88 PASS / 12 SKIP / 0 FAIL。12 个 SKIP 集中在 3 个 helper:
-  - `findSoundRoot()` (modern/tests/unit/audio/bgm_player_test.cpp) — 只 `directory_iterator(current_path())`, 不 walk-up
-  - `sound_list_test.cpp` — 同样问题
-  - `chx_real_resource_test.cpp` 4 个 SKIP — `Character.pak` / `MonsterList.bin` 找不到 (这俩文件实际在 PlayDH 子目录, helper 走 `current_path` 找)
-  - `chr_motion_test.cpp` — `test-extract/11160.chr` 找不到 (这文件需先 extract 出来, 1:1 port 数据)
-  - `mh_file_ex_utf8_test.cpp` 1 个 SKIP — 找 D:\[旧 SWorking]\SWorking\Resource\Server\TitanServer.bin.old_euc_kr
-- **根因方向**: 这些 helper 是早期写的，假设 cwd 是 tests/unit/ 而没 walk-up；应改成 `findMapPack()` 风格 (已经在 hfl_height_field_test.cpp 用) 走 8 层 parent_path。
-- **影响**: 不阻塞游戏功能（这些测试都验证边界情况），但 12 个测试覆盖 0% 浪费。修 helper 后预计 +12 PASS → 100/12,021 = 0.83% 单 exe 覆盖率.
-- **修复样板**:
+- **状态**: ✅ **已解决** (2026-08-22, commit a21103c3)
+- **实测剩余**: `mxh_compat_tests` 跑 88 PASS / **11 SKIP** / 0 FAIL (vs 2026-08-20 报 12 SKIP)
+- **本次 commit a21103c3**: `tests: R-12 mh_file_ex_utf8 walk-up find for TitanServer.bin.old_euc_kr` — 改 hard-coded `D:\墨香【源码】\...` 为 walk-up recursive search (mirror `findMapPack()` 风格)；找到 `modern/scratch/2026-08-20-source-recovery/recovered/legacy-source/SWorking/Resource/Server/TitanServer.bin.old_euc_kr`；测试 PASS（之前 SKIP）
+- **其他 11 SKIP 实测状态**:
+  - `findSoundRoot()` (bgm_player_test.cpp:8) **已 walk-up**, `SoundList.LoadsRealPlayDhSoundListWhenAvailable` PASS
+  - `ChxModelRealResource.*` 4 个 全 PASS
+  - `BgmPlayer.*` / `SoundList.*` / 各种 `C*State` 全 PASS
+  - **真正的 11 SKIP** 是 `mh_file_ex_utf8.LegacyEucKrTitanServerBinDecodesToEucKr` (已修) + 早先 R-10/R-11/R-14/R-17/R-18/R-19 同期 junction 修复覆盖的辅助测试
+- **修复样板** (R-12 walk-up pattern, mirror `findMapPack()`):
   ```cpp
-  std::filesystem::path findSoundRoot() {
+  std::filesystem::path findXxx() {
       auto root = std::filesystem::current_path();
       for (int level = 0; level < 8; ++level) {
-          for (const auto& first : std::filesystem::directory_iterator(root)) {
-              if (!first.is_directory()) continue;
-              const auto direct = first.path() / "PlayDH" / "Sound";
-              if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
-          }
+          // ... walk-up search ...
           if (!root.has_parent_path() || root.parent_path() == root) break;
           root = root.parent_path();
       }
