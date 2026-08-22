@@ -31,7 +31,7 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 | 登录 UI | `g_loginUi` 手写 overlay + `login.dds`，不是 `MT_LOGINDLG` | 看起来正常，不是 1:1 |
 | 选角/建角 | 无 auto 槽位+Enter 两次进 GameIn；hitbox 单测 | **P0 持** |
 | 进图 HUD | 默认四根 HUD 开且 cImage 非空；I 键背包；空隙不 consumed；无 auto GameIn 帧含血条 | **P1 持** |
-| 输入/实体 | `step_movement`；缺 CHX 的 `placeholders()` + `RenderBox` | **P2 占位持**；网格 1:1 后置 |
+| 输入/实体 | `step_movement`；live GameIn `man.chx`+NPC CHX 已加载，缺的才 `RenderBox` | **P2 持**；个别 CHX 仍缺 |
 | 单测 | 数量大、大量 PASS。只锁解析/dispatcher/公式 | **禁止当可玩证明** |
 | HSEL | 软件流 + 接口签名 | RC 范围保留签名 |
 | 部署 | 客户端 `192.168.2.30`；三服 `192.168.2.107`；SQL `192.168.2.203` | 拓扑可用 |
@@ -59,14 +59,14 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 
 - `step_movement` / `key_mask_for_vk`
 - 缺 CHX：`failedModelCount` + `placeholders()` + `RenderBox`
-- 人物/NPC 网格 1:1 仍后置
+- 无 auto GameIn：`loaded=13 failed=1 placeholders=1`；`man.chx`/`N001.chx` 有 mesh
 
-### P3：打怪图可见怪物（占位+刷怪解析持）
+### P3：打怪图可见怪物（刷怪代码持 / live Map 12 无怪）
 
-- 缺 CHX：`EntityScene::render()` 用 `RenderBox` 画占位（玩家青 / NPC 金 / 怪红）
-- recovered `Monster_10.bin`：114 组 / 228 spawn；PlayDH 同名 22766 B 非 stub，SIZE==LEN 打包当前 loader 解不成 AI 组
-- PlayDH `Monster_12.bin` 仍是 14 字节 stub，**不要改**
-- CHX 网格 1:1 仍后置；不要在 Map 12 验收打怪
+- recovered `Monster_10.bin`：`MapHandler` 第一次 GameIn **刷 228**（`RecoveredMonster10BinSpawnsAllGroups`）
+- PlayDH 同名 22766 B 非 stub，SIZE==LEN 打包当前 loader 解不成 AI 组
+- PlayDH `Monster_12.bin` 仍是 14 字节 stub，live `monsters=0`，**不要改**
+- 角色现在在 Map 12；要看野外怪需 MapServer `--map 10` + recovered Server 根，不要改 Map 12
 
 ### P4：原版登录 dialog + 视觉 1:1（后置）
 

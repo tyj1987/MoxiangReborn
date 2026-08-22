@@ -21,6 +21,7 @@
 
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/server/server.hpp"
+#include "mxh/server/ai_system.hpp"
 #include "mxh/game/item_manager.hpp"
 #include "mxh/game/item_list_parser.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
@@ -1551,6 +1552,33 @@ TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
     handler.on_message(mxh::net::make_connection_id(55), game_in);
 
     EXPECT_EQ(handler.monster_count_for_test(), groups.spawn_count());
+}
+
+TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
+    const auto path = std::filesystem::path(MXH_SOURCE_DIR) /
+        "scratch" / "2026-08-20-source-recovery" / "recovered" /
+        "legacy-source" / "SWorking" / "Resource" / "Server" /
+        "Monster_10.bin";
+    ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
+    auto& ai = mxh::server::AISystem::instance();
+    struct RestoreEmptyAi {
+        mxh::server::AISystem& ai;
+        ~RestoreEmptyAi() { ai.load_ai_group_list(); }
+    } restore{ai};
+    ASSERT_TRUE(ai.load_ai_group_list(path));
+    EXPECT_EQ(ai.group_list().spawn_count(), 228u);
+
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_monster_fallback(false);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    EXPECT_EQ(handler.monster_count_for_test(), 228u);
 }
 
 TEST(MapHandlerTest, ProductionModeKeepsValidEmptyRegenEmpty) {

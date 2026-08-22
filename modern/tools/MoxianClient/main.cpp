@@ -1879,6 +1879,25 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                         : mxh::gx::SceneAction::Idle)});
                         }
                         g_entityScene->synchronize(snapshot);
+                        static std::uint32_t last_loaded = ~0u;
+                        static std::uint32_t last_failed = ~0u;
+                        static std::uint32_t last_ph = ~0u;
+                        const auto loaded = g_entityScene->loadedModelCount();
+                        const auto failed = g_entityScene->failedModelCount();
+                        const auto ph = g_entityScene->placeholderCount();
+                        if (loaded != last_loaded || failed != last_failed ||
+                            ph != last_ph) {
+                            last_loaded = loaded;
+                            last_failed = failed;
+                            last_ph = ph;
+                            MLOG_INFO(
+                                "mxh_client: entity loaded=%u failed=%u "
+                                "placeholders=%u monsters=%u npcs=%u players=%u",
+                                loaded, failed, ph,
+                                static_cast<unsigned>(game_in->monsters().size()),
+                                static_cast<unsigned>(game_in->npcs().size()),
+                                g_entityScene->playerInstanceCount());
+                        }
                     }
                 }
             }
