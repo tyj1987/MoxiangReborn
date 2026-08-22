@@ -46,7 +46,7 @@ mxh_client --login-host 192.168.2.107 --login-port 16001 --resource-root C:\moxi
 | 进图地形+HUD | PASS | 两次无 auto GameIn：1508444/1508435 vs 选角 1323220，含血条/右上条 | I 键背包；空隙不 consumed |
 | 本机玩家/NPC 网格 | 协议有 | 无 auto GameIn：`man.chx` 5 mesh；16 NPC 中 15 个 CHX 成功，1 个 `N073.chx` 占位 | — |
 | 野外怪 Map 12 | GameIn `monsters=0` | **资源 stub**：PlayDH `Monster_12.bin` 14 字节，0 spawn | 不要在这张图验收打怪 |
-| 野外怪 Map 10 | recovered `Monster_10.bin`：`MapHandler` GameIn **刷 228** | 未在 live 角色上验收（角色在 Map 12）；PlayDH 同名 22766 B 非 stub，SIZE==LEN 当前 loader 不解 | 不改 PlayDH `Monster_12.bin` |
+| 野外怪 Map 10 | recovered `Monster_10.bin`：MapServer **刷 228** 并声称 send；live 角色 GameIn `map=10` 地形 `10.hfl` | 客户端 `monsters=0`：Agent 只收到 2 条 NpcAdd，0 条 MonsterAdd。`conn_id==0` 丢包已修并单测；live 这次 conn=1，队列/发送仍未到 Agent | 不改 PlayDH `Monster_12.bin` |
 
 ## 3. 代码锚点（修 bug 从这里进）
 
@@ -68,7 +68,7 @@ mxh_client --login-host 192.168.2.107 --login-port 16001 --resource-root C:\moxi
 1. **P0 选角/建角能看见、能点** — **持**（含槽位然后 Enter；无 auto 两次进 GameIn）
 2. **P1 进图默认 HUD + 空隙不吞点击** — **持**（单测 + 无 auto GameIn 帧）
 3. **P2 移动步进 + 可绘制占位** — **持**。Live：CHX 大部分成功；缺的才 `RenderBox`
-4. **P3 打怪图可见怪物** — **刷怪代码持 / live Map 12 无怪**。`RecoveredMonster10BinSpawnsAllGroups` 228；Map 12 GameIn `monsters=0`。不要改 `Monster_12.bin`
+4. **P3 打怪图可见怪物** — **刷怪持 / 发包未到客户端**。Map 10 GameIn 地形通；MapServer 刷 228；Agent 未收到 MonsterAdd。不要改 `Monster_12.bin`
 5. **P4 原版登录 dialog + 视觉 1:1** — 替换 `g_loginUi`；SSIM 后置
 
 约束不变：不改 `[CC]Header`、不改 PlayDH 字节、不改数值公式、不改 HSEL 签名。

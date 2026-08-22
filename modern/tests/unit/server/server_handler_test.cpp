@@ -1581,6 +1581,40 @@ TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
     EXPECT_EQ(handler.monster_count_for_test(), 228u);
 }
 
+TEST(MapHandlerTest, GameInOnConnectionZeroSendsMonsterAdds) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::server::AiGroupList groups;
+    mxh::server::AiGroupDefinition group;
+    group.group_id = 1u;
+    mxh::server::AiSpawnDefinition spawn;
+    spawn.monster_kind = 105u;
+    spawn.pos_x = 100.0f;
+    spawn.pos_z = 200.0f;
+    group.spawns = {spawn, spawn};
+    groups.groups.push_back(group);
+    ASSERT_EQ(handler.install_ai_groups(groups), 2u);
+
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(0), game_in);
+
+    std::size_t monster_adds = 0;
+    for (const auto& message : reply.messages) {
+        if (message.header.category ==
+                static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+            message.header.protocol ==
+                static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd)) {
+            ++monster_adds;
+        }
+    }
+    EXPECT_EQ(monster_adds, 2u);
+}
+
 TEST(MapHandlerTest, ProductionModeKeepsValidEmptyRegenEmpty) {
     MockDbAdapter db;
     ReplySpy reply;

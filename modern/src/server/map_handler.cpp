@@ -41,6 +41,7 @@
 #include <cstring>
 #include <ctime>
 #include <iostream>
+#include <optional>
 #include <random>
 #include <vector>
 
@@ -1977,7 +1978,7 @@ void MapHandler::send_monster_add(std::uint32_t player_id,
                                   const mxh::game::MonsterInstance& monster) {
     // Caller must hold monsters_mu_.
     // Find the player's connection
-    std::uint64_t target_conn = 0;
+    std::optional<std::uint64_t> target_conn;
     {
         std::lock_guard<std::mutex> lk(players_mu_);
         auto it = connected_players_.find(player_id);
@@ -1985,9 +1986,11 @@ void MapHandler::send_monster_add(std::uint32_t player_id,
             target_conn = it->second.conn_id;
         }
     }
-    if (target_conn == 0) return;
+    // ConnectionId 0 is valid: the first MapServer client (usually Agent)
+    // is often id 0. Treating 0 as "missing" dropped every MonsterAdd.
+    if (!target_conn.has_value()) return;
 
-    mxh::net::ConnectionId target{target_conn};
+    mxh::net::ConnectionId target{*target_conn};
     mxh::net::Message m;
     // MonsterAdd is sent via UserConn category (proto=37)
     m.header.category = static_cast<std::uint8_t>(
@@ -2034,7 +2037,7 @@ void MapHandler::send_monster_add(std::uint32_t player_id,
 void MapHandler::send_monster_remove(std::uint32_t player_id,
                                      std::uint32_t monster_object_id) {
     // Find the player's connection
-    std::uint64_t target_conn = 0;
+    std::optional<std::uint64_t> target_conn;
     {
         std::lock_guard<std::mutex> lk(players_mu_);
         auto it = connected_players_.find(player_id);
@@ -2042,9 +2045,9 @@ void MapHandler::send_monster_remove(std::uint32_t player_id,
             target_conn = it->second.conn_id;
         }
     }
-    if (target_conn == 0) return;
+    if (!target_conn.has_value()) return;
 
-    mxh::net::ConnectionId target{target_conn};
+    mxh::net::ConnectionId target{*target_conn};
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::UserConn);

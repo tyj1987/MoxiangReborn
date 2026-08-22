@@ -61,12 +61,12 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 - 缺 CHX：`failedModelCount` + `placeholders()` + `RenderBox`
 - 无 auto GameIn：`loaded=13 failed=1 placeholders=1`；`man.chx`/`N001.chx` 有 mesh
 
-### P3：打怪图可见怪物（刷怪代码持 / live Map 12 无怪）
+### P3：打怪图可见怪物（刷怪持 / MonsterAdd 未到客户端）
 
-- recovered `Monster_10.bin`：`MapHandler` 第一次 GameIn **刷 228**（`RecoveredMonster10BinSpawnsAllGroups`）
-- PlayDH 同名 22766 B 非 stub，SIZE==LEN 打包当前 loader 解不成 AI 组
-- PlayDH `Monster_12.bin` 仍是 14 字节 stub，live `monsters=0`，**不要改**
-- 角色现在在 Map 12；要看野外怪需 MapServer `--map 10` + recovered Server 根，不要改 Map 12
+- recovered `Monster_10.bin`：MapServer GameIn **刷 228**；live 角色已进 Map 10 地形 `10.hfl`
+- `send_monster_add` 把 `conn_id==0` 当缺失会丢掉全部怪（已修，`GameInOnConnectionZeroSendsMonsterAdds`）
+- live 这次 conn=1，Agent 仍只收到 NpcAdd；下一刀是 Map→Agent 的 MonsterAdd 发送/排队
+- PlayDH `Monster_12.bin` **不要改**
 
 ### P4：原版登录 dialog + 视觉 1:1（后置）
 
