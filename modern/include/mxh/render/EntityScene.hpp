@@ -68,15 +68,33 @@ struct WorldSnapshot {
     std::vector<SceneEntity> entities;
 };
 
-// CPU-side stand-in drawn when CHX/MOD is missing. radius > 0 means the
-// renderer can iterate a box at world_* without a loaded mesh.
+enum class PlaceholderKind : std::uint8_t {
+    Player,
+    Npc,
+    Monster,
+};
+
+// CPU-side stand-in drawn when CHX/MOD is missing. world_* are game
+// units (same as SceneEntity). radius is scene-space half-extent
+// (not world cm); default 0.5 is visible to the third-person camera.
 struct PlaceholderVisual {
     std::uint32_t object_id = 0;
     float world_x = 0;
     float world_y = 0;
     float world_z = 0;
     float radius = 0.5f;
+    PlaceholderKind kind = PlaceholderKind::Player;
 };
+
+inline constexpr float kEntitySceneScale = 0.001f;
+inline constexpr float kEntityMapCenter = 25.6f;
+
+// ARGB used by I4DyuchiGXRenderer::RenderBox for each placeholder kind.
+[[nodiscard]] std::uint32_t placeholderArgb(PlaceholderKind kind) noexcept;
+
+// Eight AABB corners in scene space, matching RenderBox's oct layout
+// (bottom 0-3, top 4-7). Box sits on world_y and is 2*radius tall.
+void fillPlaceholderOct(const PlaceholderVisual& visual, VECTOR3 oct[8]) noexcept;
 
 // Original MonsterList.bin -> CHX -> MOD entity rendering bridge.
 class EntityScene {

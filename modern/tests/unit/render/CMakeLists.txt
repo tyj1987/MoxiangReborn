@@ -111,6 +111,10 @@ gtest_add_tests(TARGET mxh_render_tests
     FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
     EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
     EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
+    EntitySceneSnapshot.MissingVisualIsCountedAsFailedLoadWithPlaceholder
+    EntitySceneMotion.MapsLegacyOneBasedActionSlotsToChxIndices
+    EntityScenePlaceholder.FillOctUsesSceneScaleAndKindColor
+    EntityScenePlaceholder.MonsterSpawnStaysDrawableWithoutCatalog
     HFieldObjectDefaults.ConstructWithoutDeviceDoesNotCrash
     HFieldObjectDefaults.QueryInterfaceIUnknownReturnsSelf
     HFieldObjectDefaults.QueryInterfaceUnknownIIDReturnsENoInterface

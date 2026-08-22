@@ -31,8 +31,8 @@
 namespace mxh::gx {
 namespace {
 using Microsoft::WRL::ComPtr;
-constexpr float kSceneScale = 0.001f;
-constexpr float kMapCenter = 25.6f;
+constexpr float kSceneScale = kEntitySceneScale;
+constexpr float kMapCenter = kEntityMapCenter;
 
 std::uint32_t entityModelKey(SceneEntityType type,
                              std::uint16_t kind) noexcept {
@@ -157,6 +157,32 @@ std::size_t chooseSceneMotionIndex(SceneEntityType type, bool player,
         else if (action == SceneAction::Dead) requested = 8;   // Die (9)
     }
     return requested < motionCount ? requested : 0;
+}
+
+std::uint32_t placeholderArgb(PlaceholderKind kind) noexcept {
+    switch (kind) {
+        case PlaceholderKind::Npc: return 0xFFFFD700u;
+        case PlaceholderKind::Monster: return 0xFFFF4040u;
+        case PlaceholderKind::Player:
+        default: return 0xFF40E0FFu;
+    }
+}
+
+void fillPlaceholderOct(const PlaceholderVisual& visual, VECTOR3 oct[8]) noexcept {
+    if (!oct) return;
+    const float tx = visual.world_x * kEntitySceneScale - kEntityMapCenter;
+    const float ty = visual.world_y * kEntitySceneScale;
+    const float tz = visual.world_z * kEntitySceneScale - kEntityMapCenter;
+    const float r = visual.radius > 0.0f ? visual.radius : 0.5f;
+    const float top = ty + 2.0f * r;
+    oct[0] = {tx - r, ty, tz - r};
+    oct[1] = {tx + r, ty, tz - r};
+    oct[2] = {tx + r, ty, tz + r};
+    oct[3] = {tx - r, ty, tz + r};
+    oct[4] = {tx - r, top, tz - r};
+    oct[5] = {tx + r, top, tz - r};
+    oct[6] = {tx + r, top, tz + r};
+    oct[7] = {tx - r, top, tz + r};
 }
 
 struct EntityScene::Impl {
@@ -611,7 +637,10 @@ void EntityScene::synchronize(const WorldSnapshot& snapshot) {
                               entity.object_id)) {
             impl_->placeholder_visuals.push_back(PlaceholderVisual{
                 entity.object_id, entity.world_x, entity.world_y,
-                entity.world_z, 0.5f});
+                entity.world_z, 0.5f,
+                entity.type == SceneEntityType::Npc
+                    ? PlaceholderKind::Npc
+                    : PlaceholderKind::Monster});
             if (entity.object_id != 0) {
                 impl_->placeholder_ids.insert(entity.object_id);
             }
@@ -625,7 +654,7 @@ void EntityScene::synchronize(const WorldSnapshot& snapshot) {
         if (!impl_->loadModel(kind, player, SceneEntityType::Monster, objectId)) {
             impl_->placeholder_visuals.push_back(PlaceholderVisual{
                 objectId, player->world_x, player->world_y, player->world_z,
-                0.5f});
+                0.5f, PlaceholderKind::Player});
             if (objectId != 0) impl_->placeholder_ids.insert(objectId);
         }
     }
@@ -711,6 +740,21 @@ void EntityScene::render() {
             mesh->SetWorldTransform(&world);
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
         }
+    }
+    for (const auto& placeholder : impl_->placeholder_visuals) {
+        VECTOR3 oct[8]{};
+        fillPlaceholderOct(placeholder, oct);
+        const bool alwaysRender = impl_->local_player &&
+            placeholder.object_id == impl_->local_player->object_id;
+        if (!alwaysRender && impl_->frustum) {
+            const VECTOR3 wmin{oct[0].x, oct[0].y, oct[0].z};
+            const VECTOR3 wmax{oct[6].x, oct[6].y, oct[6].z};
+            if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                ++impl_->culled_instances;
+                continue;
+            }
+        }
+        impl_->renderer->RenderBox(oct, placeholderArgb(placeholder.kind));
     }
 }
 

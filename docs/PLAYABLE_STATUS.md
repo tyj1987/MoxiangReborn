@@ -12,7 +12,7 @@
 | 登录后看见选角槽位 / 创建按钮并点进去 | **通**。槽位+Enter/Create 真实 hitbox 单测；无 auto 下 VK_DOWN+Enter 两次进 GameIn。背景 `login.dds` 仍上下颠倒 |
 | 登录后看见建角界面并提交角色 | **单测通**（`CharMakeNewDlg.bin` 提交/取消/名字）。已有角色所以无无-auto 建角停留 |
 | 进图后默认 HUD，点空地不吞世界点击 | **通**。四默认 HUD 根带非空 `cImage`；I 键开关背包；空隙 `consumed=false`。无 auto GameIn 帧有血条/小地图条 |
-| 进图后看见自己 / NPC / 野外怪 | **计数+占位通**。缺 CHX 写入 `placeholders()`（radius>0）。Map 12 仍无野外怪。网格 1:1 未证 |
+| 进图后看见自己 / NPC / 野外怪 | **缺 CHX 时 `RenderBox` 占位通**（玩家青/NPC 金/怪红）。Map 12 仍无野外怪。CHX 网格 1:1 未证 |
 | WASD | **`step_movement` 单测通** |
 
 自动化 `mxh_client_e2e` 与 `mxh_client --auto-login --auto-create --exit-after-gamein` **不能**当作上表通关。
@@ -44,8 +44,9 @@ mxh_client --login-host 192.168.2.107 --login-port 16001 --resource-root C:\moxi
 | 选角 CharSelectDlg | PASS | 两次无 auto：charselect 1323220 vs connect 1229076 | 槽位然后 Enter/Create hitbox；默认无 auto-select |
 | 建角 CharMakeNewDlg | PASS | 无无-auto 停留（已有角色） | Submit/Cancel/名字 hitbox |
 | 进图地形+HUD | PASS | 两次无 auto GameIn：1508444/1508435 vs 选角 1323220，含血条/右上条 | I 键背包；空隙不 consumed |
-| 本机玩家/NPC 网格 | 协议有 | `placeholders()` 带 radius>0，不是只计数 | — |
-| 野外怪 Map 12 | — | **资源 stub**：`Monster_12.bin` 14 字节，0 spawn | 不要在这张图验收打怪 |
+| 本机玩家/NPC 网格 | 协议有 | `placeholders()` + `fillPlaceholderOct` / `RenderBox` | — |
+| 野外怪 Map 12 | — | **资源 stub**：PlayDH `Monster_12.bin` 14 字节，0 spawn | 不要在这张图验收打怪 |
+| 野外怪 Map 10 | recovered `Monster_10.bin` 114 组 / 228 spawn | 缺 CHX 时红盒；PlayDH 同名 22766 B 非 stub，但 SIZE==LEN 打包当前 loader 解不成 AI 组 | 不改 PlayDH `Monster_12.bin` |
 
 ## 3. 代码锚点（修 bug 从这里进）
 
@@ -57,7 +58,8 @@ mxh_client --login-host 192.168.2.107 --login-port 16001 --resource-root C:\moxi
 | 选角/建角激活 + 点击 | `activateAllLoadedDialogs`；hitbox 测试在 `client_ui_runtime_test.cpp` |
 | 进图默认 HUD | `CInGameState` `applyActiveSet(MI_MAINDLG/QI_QUICKDLG/MNM_DIALOG/CG_GUAGEDLG)` |
 | 空隙点击穿透 | `DefaultHudActiveAndMissClickIsNotConsumed` |
-| 3D 实体失败 | `EntityScene::failedModelCount` / `placeholderCount` |
+| 3D 实体失败 | `EntityScene::failedModelCount` / `placeholders()`；`render()` 对每个占位调 `RenderBox` |
+| Map 10 刷怪 | recovered `Monster_10.bin` via `load_ai_group_list_bin`；PlayDH 同名非 stub |
 | GameLoading 空 stub | `GameStateStubs.cpp`；进图仍靠 `main.cpp` 特判 |
 | 登录仍是手写 overlay | `g_loginUi`（P4） |
 
@@ -65,8 +67,8 @@ mxh_client --login-host 192.168.2.107 --login-port 16001 --resource-root C:\moxi
 
 1. **P0 选角/建角能看见、能点** — **持**（含槽位然后 Enter；无 auto 两次进 GameIn）
 2. **P1 进图默认 HUD + 空隙不吞点击** — **持**（单测 + 无 auto GameIn 帧）
-3. **P2 移动步进 + 可绘制占位** — **持**（`step_movement` + `placeholders()`）；CHX 网格 1:1 仍后置
-4. **P3 打怪图可见怪物** — 用非 stub 的 `Monster_*.bin`，不改 Map 12
+3. **P2 移动步进 + 可绘制占位** — **持**（`step_movement` + `placeholders()` + `RenderBox`）；CHX 网格 1:1 仍后置
+4. **P3 打怪图可见怪物** — **占位+刷怪解析持**（`RenderBox`；recovered `Monster_10.bin` 228 spawn）。PlayDH `Monster_10.bin` 非 stub但当前 loader 不解；Map 12 仍 0 spawn。CHX 1:1 后置
 5. **P4 原版登录 dialog + 视觉 1:1** — 替换 `g_loginUi`；SSIM 后置
 
 约束不变：不改 `[CC]Header`、不改 PlayDH 字节、不改数值公式、不改 HSEL 签名。

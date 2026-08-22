@@ -89,11 +89,58 @@ TEST(EntitySceneSnapshot, MissingVisualIsCountedAsFailedLoadWithPlaceholder) {
             saw_npc = true;
             EXPECT_EQ(placeholder.world_x, 1.0f);
             EXPECT_EQ(placeholder.world_z, 3.0f);
+            EXPECT_EQ(placeholder.kind, PlaceholderKind::Npc);
         }
-        if (placeholder.object_id == 7u) saw_player = true;
+        if (placeholder.object_id == 7u) {
+            saw_player = true;
+            EXPECT_EQ(placeholder.kind, PlaceholderKind::Player);
+        }
     }
     EXPECT_TRUE(saw_npc);
     EXPECT_TRUE(saw_player);
+}
+
+TEST(EntityScenePlaceholder, FillOctUsesSceneScaleAndKindColor) {
+    EXPECT_EQ(placeholderArgb(PlaceholderKind::Player), 0xFF40E0FFu);
+    EXPECT_EQ(placeholderArgb(PlaceholderKind::Npc), 0xFFFFD700u);
+    EXPECT_EQ(placeholderArgb(PlaceholderKind::Monster), 0xFFFF4040u);
+
+    // Monster_10.bin group 1 spawn 0: kind 105 at (44653, 7829).
+    PlaceholderVisual visual{
+        100001u, 44653.0f, 0.0f, 7829.0f, 0.5f, PlaceholderKind::Monster};
+    VECTOR3 oct[8]{};
+    fillPlaceholderOct(visual, oct);
+
+    const float tx = 44653.0f * kEntitySceneScale - kEntityMapCenter;
+    const float tz = 7829.0f * kEntitySceneScale - kEntityMapCenter;
+    EXPECT_NEAR(oct[0].x, tx - 0.5f, 1.0e-4f);
+    EXPECT_NEAR(oct[0].y, 0.0f, 1.0e-4f);
+    EXPECT_NEAR(oct[0].z, tz - 0.5f, 1.0e-4f);
+    EXPECT_NEAR(oct[6].x, tx + 0.5f, 1.0e-4f);
+    EXPECT_NEAR(oct[6].y, 1.0f, 1.0e-4f);
+    EXPECT_NEAR(oct[6].z, tz + 0.5f, 1.0e-4f);
+    EXPECT_GT(oct[6].x - oct[0].x, 0.0f);
+    EXPECT_GT(oct[6].y - oct[0].y, 0.0f);
+    EXPECT_GT(oct[6].z - oct[0].z, 0.0f);
+}
+
+TEST(EntityScenePlaceholder, MonsterSpawnStaysDrawableWithoutCatalog) {
+    EntityScene scene;
+    WorldSnapshot snap;
+    snap.entities.push_back(SceneEntity{
+        100001u, 105u, 44653.0f, 0.0f, 7829.0f, SceneEntityType::Monster});
+    scene.synchronize(snap);
+
+    ASSERT_EQ(scene.placeholderCount(), 1u);
+    const auto& placeholder = scene.placeholders().front();
+    EXPECT_EQ(placeholder.object_id, 100001u);
+    EXPECT_EQ(placeholder.kind, PlaceholderKind::Monster);
+    EXPECT_GT(placeholder.radius, 0.0f);
+
+    VECTOR3 oct[8]{};
+    fillPlaceholderOct(placeholder, oct);
+    EXPECT_GT(oct[6].y - oct[0].y, 0.0f);
+    scene.render();
 }
 
 } // namespace
