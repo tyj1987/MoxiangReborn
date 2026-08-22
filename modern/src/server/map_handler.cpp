@@ -1867,6 +1867,15 @@ std::size_t MapHandler::monster_count_for_test() {
     return monsters_.size();
 }
 
+std::size_t MapHandler::live_monster_count_for_test() {
+    std::lock_guard<std::mutex> lk(monsters_mu_);
+    return static_cast<std::size_t>(std::count_if(
+        monsters_.begin(), monsters_.end(),
+        [](const mxh::game::MonsterInstance& monster) {
+            return !monster.is_dead;
+        }));
+}
+
 void MapHandler::spawn_monsters() {
     std::mt19937 rng(static_cast<std::uint32_t>(
         std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -1899,7 +1908,10 @@ void MapHandler::spawn_monsters() {
             m.spawn_z = m.pos_z;
             m.angle   = 0.0f;
             m.ai_state = mxh::game::MonsterAIState::Idle;
-            m.is_dead  = def.initially_dead;
+            // #ADD last field is original ISREGEN: queue the slot for the
+            // regen manager (CAIGroup::Die). Modern GameIn creates the
+            // instance immediately, so the first appearance is alive.
+            m.is_dead  = false;
             monsters_.push_back(m);
             ++spawned_count;
             std::cout << "[Map] ai_spawn monster id=" << m.object_id
@@ -2031,7 +2043,12 @@ void MapHandler::send_monster_add(std::uint32_t player_id,
     // bLogin = 1
     m.payload[off] = 1;
 
-    reply_(target, m);
+    if (reply_) {
+        std::cout << "[Map] reply MonsterAdd oid=" << monster.object_id
+                  << " kind=" << monster.monster_kind
+                  << " conn=" << target.value << "\n";
+        reply_(target, m);
+    }
 }
 
 void MapHandler::send_monster_remove(std::uint32_t player_id,

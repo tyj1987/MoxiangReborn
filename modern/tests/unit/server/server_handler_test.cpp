@@ -22,6 +22,8 @@
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/server/server.hpp"
 #include "mxh/server/ai_system.hpp"
+#include "client/CInGameState.hpp"
+#include "mxh/render/EntityScene.hpp"
 #include "mxh/game/item_manager.hpp"
 #include "mxh/game/item_list_parser.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
@@ -1579,6 +1581,77 @@ TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
         mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(mxh::net::make_connection_id(55), game_in);
     EXPECT_EQ(handler.monster_count_for_test(), 228u);
+    const auto live = handler.live_monster_count_for_test();
+    EXPECT_EQ(live, 228u);
+
+    std::size_t monster_adds = 0;
+    const mxh::net::Message* first_add = nullptr;
+    for (const auto& message : reply.messages) {
+        if (message.header.category ==
+                static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+            message.header.protocol ==
+                static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd)) {
+            if (first_add == nullptr) first_add = &message;
+            ++monster_adds;
+        }
+    }
+    EXPECT_EQ(monster_adds, live);
+    ASSERT_NE(first_add, nullptr);
+    ASSERT_GE(first_add->payload.size(), 64u);
+
+    mxh::client::CInGameState state;
+    state.on_message({}, *first_add);
+    ASSERT_EQ(state.monsters().size(), 1u);
+    EXPECT_EQ(state.monsters().front().object_id, first_add->header.object_id);
+    const auto kind = static_cast<std::uint16_t>(
+        first_add->payload[43] | (static_cast<std::uint16_t>(first_add->payload[44]) << 8));
+    const auto pos_x = static_cast<std::uint16_t>(
+        first_add->payload[49] | (static_cast<std::uint16_t>(first_add->payload[50]) << 8));
+    const auto pos_z = static_cast<std::uint16_t>(
+        first_add->payload[51] | (static_cast<std::uint16_t>(first_add->payload[52]) << 8));
+    EXPECT_EQ(state.monsters().front().monster_kind, kind);
+    EXPECT_EQ(state.monsters().front().position_x, pos_x);
+    EXPECT_EQ(state.monsters().front().position_z, pos_z);
+
+    mxh::gx::EntityScene scene;
+    mxh::gx::WorldSnapshot snapshot;
+    snapshot.entities.push_back(mxh::gx::SceneEntity{
+        state.monsters().front().object_id,
+        state.monsters().front().monster_kind,
+        static_cast<float>(state.monsters().front().position_x),
+        0.0f,
+        static_cast<float>(state.monsters().front().position_z),
+        mxh::gx::SceneEntityType::Monster});
+    scene.synchronize(snapshot);
+    EXPECT_GE(scene.placeholderCount() + scene.loadedModelCount(), 1u);
+    if (!scene.placeholders().empty()) {
+        EXPECT_GT(scene.placeholders().front().radius, 0.0f);
+    }
+}
+
+TEST(AgentHandlerTest, ForwardFromMapMonsterAddReachesRegisteredClient) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.register_session(
+        mxh::net::make_connection_id(7),
+        /*user_id=*/3, /*char_id=*/100003, /*map_num=*/10);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::MonsterAdd);
+    msg.header.object_id = 50000u;
+    msg.payload.assign(64, 0);
+    msg.payload[0] = 0x50;
+    msg.payload[43] = 105;
+    handler.forward_from_map(mxh::net::make_connection_id(42), msg);
+
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_id.value, 7u);
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd));
+    EXPECT_EQ(reply.last_message.header.object_id, 50000u);
 }
 
 TEST(MapHandlerTest, GameInOnConnectionZeroSendsMonsterAdds) {

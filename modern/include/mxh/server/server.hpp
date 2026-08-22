@@ -391,6 +391,7 @@ public:
     bool add_monster_instance(const mxh::game::MonsterInstance& monster);
     std::size_t install_ai_groups(const AiGroupList& groups);
     std::size_t monster_count_for_test();
+    std::size_t live_monster_count_for_test();
     std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id, std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value);
 
 

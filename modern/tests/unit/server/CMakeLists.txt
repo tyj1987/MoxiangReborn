@@ -6,11 +6,12 @@ add_executable(mxh_server_handler_tests
 )
 
 target_link_libraries(mxh_server_handler_tests PRIVATE
-    mxh_server mxh_db gtest_main
+    mxh_server mxh_db mxh_client_lib gtest_main
 )
 
 target_include_directories(mxh_server_handler_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
 )
 target_compile_definitions(mxh_server_handler_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 

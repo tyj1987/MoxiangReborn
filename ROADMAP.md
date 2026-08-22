@@ -61,11 +61,11 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 - 缺 CHX：`failedModelCount` + `placeholders()` + `RenderBox`
 - 无 auto GameIn：`loaded=13 failed=1 placeholders=1`；`man.chx`/`N001.chx` 有 mesh
 
-### P3：打怪图可见怪物（刷怪持 / MonsterAdd 未到客户端）
+### P3：打怪图可见怪物（持）
 
-- recovered `Monster_10.bin`：MapServer GameIn **刷 228**；live 角色已进 Map 10 地形 `10.hfl`
-- `send_monster_add` 把 `conn_id==0` 当缺失会丢掉全部怪（已修，`GameInOnConnectionZeroSendsMonsterAdds`）
-- live 这次 conn=1，Agent 仍只收到 NpcAdd；下一刀是 Map→Agent 的 MonsterAdd 发送/排队
+- recovered `Monster_10.bin`：GameIn 对每只活怪发 `UserConn` `MonsterAdd`（`RecoveredMonster10BinSpawnsAllGroups`）
+- `#ADD` 末字段是原版 ISREGEN，不再把第一次出场标成死
+- 两次无 auto Map 10：`monsters=228`
 - PlayDH `Monster_12.bin` **不要改**
 
 ### P4：原版登录 dialog + 视觉 1:1（后置）
