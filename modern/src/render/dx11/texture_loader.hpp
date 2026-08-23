@@ -28,6 +28,10 @@ LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size);
 // to RGBA8. Only the top mip level is returned.
 LoadedTexture loadDDS(const std::uint8_t* data, std::uint32_t size);
 
+// Swap rows so row 0 becomes the former last row. DX11 samples V-down;
+// PlayDH title `login.dds` is stored with the sky in the last rows.
+void flipVertical(LoadedTexture& tex);
+
 // Auto-detect format and decode.
 LoadedTexture loadTextureFromMemory(const std::uint8_t* data, std::uint32_t size);
 

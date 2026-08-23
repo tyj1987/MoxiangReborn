@@ -106,6 +106,8 @@ gtest_add_tests(TARGET mxh_render_tests
     TextureLoaderDDS.DXT1RoundTripDecodesSolidColor
     TextureLoaderDDS.DXT5RoundTripRetainsAlpha
     TextureLoaderDDS.SaveDDSRejectsEmptyTexture
+    TextureLoader.FlipVerticalSwapsFirstAndLastRow
+    TextureLoader.LoginDdsSkyBandIsOnTopAfterTitleFlip
     TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
     FilesystemFileStorage.MountsOriginalMapPack
     FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
