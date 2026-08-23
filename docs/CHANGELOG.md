@@ -1,3 +1,17 @@
+## 2026-08-22 — P5 进图 WASD / 攻击 / 拾取
+
+- HUD 不再吞 WASD；Q 恢复平移（任务日志改 L）。`InGamePlayable.HudDoesNotSwallowWasdAfterGameInAck` 走真实 `OnKeyEvent`+`Process`。
+- 左键空隙打最近活怪：`try_attack` 在未联网时仍记下 `last_attack_target`，连上再发 `Skill StartSyn`。
+- 地面掉落：`MonsterObtainNotify` 20B → `GroundDropInfo`；`ItemProtocol::PickupSyn/Ack/Nack`（19/20/21）；MapHandler 距离 500 内一次领取。
+- 证据：`mxh_client_tests` 150/150；`MapHandlerTest.PickupSynClaimsNearbyGroundDropOnce` + `MonsterDeathNotifyReachesClientThenPickupSynClaims`。
+
+## 2026-08-22 — P4 原版登录 dialog
+
+- `CMainTitle` 装 PlayDH `IDDlg.bin`（`MT_LOGINDLG`），不再用 `g_loginUi` 手写 overlay。
+- `ClientUiRuntime` hit-test 跟原版 `cDialog::ActionEventComponent`：子控件可落在父 `#POINT` 外（登录框 caption 高 50，OK 在 y=150）。
+- 单测：`LoginDlgOkAndExitHitboxesDispatchShippedCommands`、`LoginIdAndPasswordHitboxesAcceptTypedText`、`CMainTitle.StartLoadsIdDlgAndOkSubmitsCredentials`。`mxh_client_tests` **145/145 PASS**。
+- SSIM / `login.dds` 翻转后置。下一缺口 P5：live WASD / 战斗 / 拾取。
+
 ## 2026-08-20 - turn 14: R-19 ✅ resolved (1 行 path fix) → 17 exes 0 FAIL
 
 **R-19 ✅ 修**:

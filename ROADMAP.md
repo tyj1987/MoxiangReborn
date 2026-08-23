@@ -28,7 +28,7 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 |---|---|---|
 | T1 资源 | PlayDH 在 `modern/data/PlayDH`；解析/SHA 单测可用 | 资源可读 |
 | T2 协议 | Login/Agent/Map 五步 E2E 在 `--auto-*` 和 `mxh_client_e2e` 下通过；PVE VM 100 + MSSQL `192.168.2.203` 已跑通自动化 | 协议闭环 ≠ 可玩 |
-| 登录 UI | `g_loginUi` 手写 overlay + `login.dds`，不是 `MT_LOGINDLG` | 看起来正常，不是 1:1 |
+| 登录 UI | `CMainTitle` 装 `IDDlg.bin` / `MT_LOGINDLG`；不再画 `g_loginUi` | **P4 dialog 持**；SSIM / `login.dds` 翻转后置 |
 | 选角/建角 | 无 auto 槽位+Enter 两次进 GameIn；hitbox 单测 | **P0 持** |
 | 进图 HUD | 默认四根 HUD 开且 cImage 非空；I 键背包；空隙不 consumed；无 auto GameIn 帧含血条 | **P1 持** |
 | 输入/实体 | `step_movement`；live GameIn `man.chx`+NPC CHX 已加载，缺的才 `RenderBox` | **P2 持**；个别 CHX 仍缺 |
@@ -68,11 +68,21 @@ T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。
 - 两次无 auto Map 10：`monsters=228`
 - PlayDH `Monster_12.bin` **不要改**
 
-### P4：原版登录 dialog + 视觉 1:1（后置）
+### P4：原版登录 dialog（持）
 
-- 替换 `g_loginUi`；SSIM / 30fps 放这里，不挡 P0–P3
+- `CMainTitle::Start` 装 PlayDH `Image/InterfaceScript/IDDlg.bin`（`MT_LOGINDLG`）
+- OK / Exit / ID / 密码 hitbox：`ClientUiRuntime.LoginDlgOkAndExitHitboxesDispatchShippedCommands`、`LoginIdAndPasswordHitboxesAcceptTypedText`、`CMainTitle.StartLoadsIdDlgAndOkSubmitsCredentials`
+- `mxh_client_tests` 145/145 PASS
+- SSIM / 30fps / `login.dds` 上下颠倒 **后置**
 
-> 以下 M2–M6 是历史单测 / 门户记录，**不是**当前可玩门禁。当前门禁是上面的 P0–P4。
+### P5：进图可玩（代码路径持）
+
+- WASD：`CInGameState::OnKeyEvent` 不再让 HUD 吞移动键；Q/E 平移；任务日志改 `L`
+- 左键：空隙点击打最近活怪（`InGamePlayable.LeftClickAttacksNearestLiveMonster`）
+- 拾取：死怪 `MonsterObtainNotify` → 地面掉落；`PickupSyn` 一次领取（`MapHandlerTest.MonsterDeathNotifyReachesClientThenPickupSynClaims`）
+- `mxh_client_tests` 150/150 PASS。无 auto 真人录像后置；禁止 `--auto-login`/`--auto-create` 当通关
+
+> 以下 M2–M6 是历史单测 / 门户记录，**不是**当前可玩门禁。当前门禁是上面的 P0–P5。
 
 ### M2：C-Tier-3 UI 集成 — 接线完成（不等同可玩）
 
