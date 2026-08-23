@@ -14,13 +14,16 @@ namespace {
 
 mxh::ui::cWindow* hit_window(mxh::ui::cWindow* window,
                              std::int32_t x, std::int32_t y) noexcept {
-    if (!window || !window->isVisible() || !window->isEnabled() ||
-        !window->PtInWindow(x, y)) {
+    if (!window || !window->isVisible() || !window->isEnabled()) {
         return nullptr;
     }
+    // Original cDialog::ActionEventComponent walks children without
+    // requiring the parent rect to contain the point. IDDlg.bin's
+    // #POINT height is the caption (50) while OK/ID sit at y=150.
     for (std::size_t i = window->childCount(); i > 0; --i) {
         if (auto* hit = hit_window(window->childAt(i - 1), x, y)) return hit;
     }
+    if (!window->PtInWindow(x, y)) return nullptr;
     return window;
 }
 
