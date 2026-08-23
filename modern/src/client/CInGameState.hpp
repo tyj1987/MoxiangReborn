@@ -230,7 +230,10 @@ inline constexpr float kRotateSpeed     = 1.6f;    // radians / second
 inline constexpr float kMoveReportEveryMs = 300.0f;  // legacy 300ms notice
 inline constexpr float kAttackCooldownMs = 800.0f;
 inline constexpr float kAttackRange      = 500.0f;
+inline constexpr float kPickupRange      = 500.0f;
 inline constexpr float kWorldLimit       = 50000.0f;
+inline constexpr std::uint32_t kVkF      = 0x46;
+inline constexpr std::uint32_t kVkL      = 0x4C;
 
 std::uint32_t key_mask_for_vk(std::uint32_t vk) noexcept;
 
@@ -286,6 +289,23 @@ mxh::net::Message make_buy_message(std::uint32_t player_id,
                                    std::uint16_t item_id,
                                    std::uint16_t qty);
 
+// Ground drop pushed after a monster dies (Item MonsterObtainNotify, 20B):
+//   [object_id:u32][source_monster:u32][item_id:u16][count:u16][x:f32][z:f32]
+struct GroundDropInfo {
+    std::uint32_t object_id = 0;
+    std::uint32_t source_monster_id = 0;
+    std::uint16_t item_id = 0;
+    std::uint16_t count = 1;
+    float position_x = 0.0f;
+    float position_z = 0.0f;
+};
+
+std::optional<GroundDropInfo>
+parse_legacy_ground_drop(std::span<const std::uint8_t> payload);
+
+mxh::net::Message make_pickup_message(std::uint32_t player_id,
+                                      std::uint32_t drop_object_id);
+
 // Shop panel layout (shared with the host renderer).
 inline constexpr float kShopPanelX = 200.0f;
 inline constexpr float kShopPanelY = 100.0f;
@@ -332,6 +352,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept;
+    void try_pickup();
     // Pick the nearest NPC to the player by world distance (max 500 units).
     std::uint32_t pick_nearest_npc() const noexcept;
     void open_shop(std::uint32_t npc_id);
@@ -345,6 +366,10 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint16_t map_num()     const noexcept { return m_mapNum; }
     const GameInInfo& game_info() const noexcept { return m_info; }
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }
+    const std::vector<GroundDropInfo>& ground_drops() const noexcept {
+        return m_groundDrops;
+    }
+    std::uint32_t last_attack_target() const noexcept { return m_lastAttackTarget; }
     const std::vector<NpcInfo>& npcs() const noexcept { return m_npcs; }
     const std::unordered_map<std::uint32_t, RemotePlayerInfo>& remote_players()
         const noexcept { return m_remotePlayers; }
@@ -361,6 +386,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     }
     const std::vector<ShopItem>& shop_items() const noexcept { return m_shopItems; }
     std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
+    std::uint32_t last_buy_item_id() const noexcept { return m_lastBuyItemId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
     const std::vector<std::string>& chat_lines() const noexcept {
         return m_chatLines;
@@ -386,6 +412,8 @@ public:
     void send_move(std::uint16_t x, std::uint16_t z,
                    mxh::proto::MoveProtocol proto);
     void try_attack();
+    std::uint32_t pick_drop_at_screen(float sx, float sy) const;
+    std::uint32_t pick_nearest_drop() const noexcept;
     void send_chat();
     std::uint32_t pick_npc_at_screen(float sx, float sy) const;
     void handle_userconn_message(const mxh::net::Message& msg);
@@ -409,6 +437,8 @@ public:
 
     GameInInfo               m_info;
     std::vector<MonsterAddInfo> monsters_;
+    std::vector<GroundDropInfo> m_groundDrops;
+    std::uint32_t            m_lastAttackTarget = 0;
     std::vector<NpcInfo> m_npcs;
     std::unordered_map<std::uint32_t, RemotePlayerInfo> m_remotePlayers;
     bool                     m_started    = false;
@@ -444,6 +474,7 @@ public:
     // NPC shop state.
     bool                 m_shopOpen  = false;
     std::uint32_t        m_shopNpcId = 0;
+    std::uint32_t        m_lastBuyItemId = 0;
     std::vector<ShopItem> m_shopItems;
     bool                 m_questOpen = false;
     std::uint16_t        m_questId = 1;

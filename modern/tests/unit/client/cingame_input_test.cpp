@@ -1,4 +1,6 @@
 #include "CInGameState.hpp"
+#include "mxh/game/hero_total_layout.hpp"
+#include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
 
@@ -13,6 +15,8 @@ using mxh::client::make_attack_message;
 using mxh::client::make_buy_message;
 using mxh::client::make_chat_message;
 using mxh::client::make_move_message;
+using mxh::client::make_pickup_message;
+using mxh::client::parse_legacy_ground_drop;
 using mxh::client::MoveKey;
 using mxh::client::parse_monster_life_payload;
 using mxh::client::parse_shop_list;
@@ -289,4 +293,216 @@ TEST(InGameShop, BuyMessageMatchesModernServerLayout) {
     EXPECT_EQ(m.payload[1], 0x12);
     EXPECT_EQ(m.payload[2], 1u);
     EXPECT_EQ(m.payload[3], 0u);
+}
+
+namespace {
+
+mxh::net::Message make_gamein_ack_at(std::uint16_t x, std::uint16_t z) {
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInAck);
+    ack.payload.assign(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
+    const std::uint32_t player_id = 42;
+    std::memcpy(ack.payload.data(), &player_id, 4);
+    std::memcpy(ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, &x, 2);
+    std::memcpy(ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, &z, 2);
+    return ack;
+}
+
+mxh::net::Message make_monster_add_at(std::uint32_t object_id,
+                                      std::uint16_t x, std::uint16_t z) {
+    mxh::net::Message add;
+    add.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    add.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::MonsterAdd);
+    add.header.object_id = object_id;
+    add.payload.assign(64, 0);
+    std::memcpy(add.payload.data(), &object_id, 4);
+    const std::uint32_t life = 100;
+    std::memcpy(add.payload.data() + 35, &life, 4);
+    std::memcpy(add.payload.data() + 49, &x, 2);
+    std::memcpy(add.payload.data() + 51, &z, 2);
+    return add;
+}
+
+}  // namespace
+
+TEST(InGamePlayable, HudDoesNotSwallowWasdAfterGameInAck) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    ASSERT_TRUE(state.is_in_game());
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
+
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.Process();
+    EXPECT_GT(state.local_z(), 25000u);
+    EXPECT_EQ(state.local_x(), 25000u);
+}
+
+TEST(InGamePlayable, QStrafesInsteadOfOpeningQuestLog) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.OnKeyEvent(true, mxh::client::kVkQ);
+    EXPECT_FALSE(state.quest_open());
+    state.Process();
+    EXPECT_LT(state.local_x(), 25000u);
+}
+
+TEST(InGamePlayable, LeftClickAttacksNearestLiveMonster) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_monster_add_at(50001u, 25000, 25000));
+    ASSERT_EQ(state.monsters().size(), 1u);
+
+    int miss_x = 400;
+    int miss_y = 300;
+    for (int y = 8; y < 600 && miss_x == 400; y += 16) {
+        for (int x = 8; x < 800; x += 16) {
+            bool covered = false;
+            for (const auto& dialog : state.ui_runtime().dialogs()) {
+                if (!dialog || !dialog->isActive()) continue;
+                if (dialog->PtInWindow(x, y)) {
+                    covered = true;
+                    break;
+                }
+            }
+            if (!covered) {
+                miss_x = x;
+                miss_y = y;
+                break;
+            }
+        }
+    }
+    state.OnMouseButton(true, true, miss_x, miss_y);
+    EXPECT_EQ(state.last_attack_target(), 50001u);
+}
+
+TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+
+    mxh::net::Message notify;
+    notify.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Item);
+    notify.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ItemProtocol::MonsterObtainNotify);
+    notify.payload.resize(20, 0);
+    const std::uint32_t drop_id = 9001u;
+    const std::uint32_t source = 50001u;
+    const std::uint16_t item_id = 501u;
+    const std::uint16_t count = 1u;
+    const float px = 25000.0f;
+    const float pz = 25000.0f;
+    std::memcpy(notify.payload.data(), &drop_id, 4);
+    std::memcpy(notify.payload.data() + 4, &source, 4);
+    std::memcpy(notify.payload.data() + 8, &item_id, 2);
+    std::memcpy(notify.payload.data() + 10, &count, 2);
+    std::memcpy(notify.payload.data() + 12, &px, 4);
+    std::memcpy(notify.payload.data() + 16, &pz, 4);
+    state.on_message(mxh::net::make_connection_id(1), notify);
+    ASSERT_EQ(state.ground_drops().size(), 1u);
+    EXPECT_EQ(state.ground_drops()[0].object_id, drop_id);
+    EXPECT_EQ(state.ground_drops()[0].item_id, item_id);
+
+    const auto pickup = make_pickup_message(42u, drop_id);
+    EXPECT_EQ(pickup.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn));
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ItemProtocol::PickupAck);
+    ack.payload.resize(8, 0);
+    std::memcpy(ack.payload.data(), &drop_id, 4);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_TRUE(state.ground_drops().empty());
+}
+
+TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+
+    mxh::net::Message npc;
+    npc.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    npc.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::NpcAdd);
+    npc.payload.assign(64, 0);
+    const std::uint32_t npc_id = 7u;
+    const std::uint16_t pos = 25000;
+    std::memcpy(npc.payload.data(), &npc_id, 4);
+    npc.payload[35] = 1;
+    std::memcpy(npc.payload.data() + 45, &pos, 2);
+    std::memcpy(npc.payload.data() + 47, &pos, 2);
+    state.on_message(mxh::net::make_connection_id(1), npc);
+    ASSERT_EQ(state.npcs().size(), 1u);
+
+    state.OnKeyEvent(true, 0x42);  // B — nearest NPC shop
+    EXPECT_EQ(state.shop_npc_id(), 7u);
+
+    mxh::net::Message shop;
+    shop.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Item);
+    shop.header.protocol = mxh::proto::kModernShopList;
+    shop.payload.resize(12, 0);
+    shop.payload[0] = 7;
+    shop.payload[4] = 1;
+    shop.payload[6] = 0x2B;
+    shop.payload[7] = 0x02;  // item 0x022B
+    shop.payload[8] = 0x39;
+    shop.payload[9] = 0x30;  // price 12345
+    state.on_message(mxh::net::make_connection_id(1), shop);
+    ASSERT_TRUE(state.shop_open());
+    ASSERT_EQ(state.shop_items().size(), 1u);
+    EXPECT_EQ(state.shop_npc_id(), 7u);
+    EXPECT_EQ(state.shop_items()[0].item_id, 0x022Bu);
+
+    state.OnMouseButton(true, true,
+                        static_cast<std::int32_t>(mxh::client::kShopPanelX + 8),
+                        static_cast<std::int32_t>(mxh::client::kShopPanelY + 4));
+    EXPECT_EQ(state.last_buy_item_id(), 0x022Bu);
+}
+
+TEST(InGameWire, PickupMessageAndGroundDropPayloadRoundTrip) {
+    const auto m = make_pickup_message(42u, 9001u);
+    EXPECT_EQ(m.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Item));
+    EXPECT_EQ(m.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn));
+    ASSERT_EQ(m.payload.size(), 4u);
+    EXPECT_EQ(m.payload[0], 0x29);
+    EXPECT_EQ(m.payload[1], 0x23);
+
+    std::vector<std::uint8_t> payload(20, 0);
+    const std::uint32_t drop_id = 7u;
+    const std::uint16_t item_id = 88u;
+    const float x = 10.0f;
+    const float z = 20.0f;
+    std::memcpy(payload.data(), &drop_id, 4);
+    std::memcpy(payload.data() + 8, &item_id, 2);
+    payload[10] = 1;
+    std::memcpy(payload.data() + 12, &x, 4);
+    std::memcpy(payload.data() + 16, &z, 4);
+    const auto drop = parse_legacy_ground_drop(payload);
+    ASSERT_TRUE(drop.has_value());
+    EXPECT_EQ(drop->object_id, 7u);
+    EXPECT_EQ(drop->item_id, 88u);
+    EXPECT_FLOAT_EQ(drop->position_x, 10.0f);
+    EXPECT_FLOAT_EQ(drop->position_z, 20.0f);
 }

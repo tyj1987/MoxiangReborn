@@ -196,6 +196,33 @@ mxh::net::Message make_attack_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_pickup_message(std::uint32_t player_id,
+                                      std::uint32_t drop_object_id) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Item);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ItemProtocol::PickupSyn);
+    message.header.object_id = player_id;
+    message.payload.resize(4);
+    put_u32(message.payload, 0, drop_object_id);
+    return message;
+}
+
+std::optional<GroundDropInfo>
+parse_legacy_ground_drop(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 20) return std::nullopt;
+    GroundDropInfo drop;
+    drop.object_id = get_u32(payload.data());
+    drop.source_monster_id = get_u32(payload.data() + 4);
+    drop.item_id = get_u16(payload.data() + 8);
+    drop.count = get_u16(payload.data() + 10);
+    std::memcpy(&drop.position_x, payload.data() + 12, sizeof(float));
+    std::memcpy(&drop.position_z, payload.data() + 16, sizeof(float));
+    if (drop.object_id == 0 || drop.item_id == 0) return std::nullopt;
+    return drop;
+}
+
 mxh::net::Message make_quest_message(std::uint32_t player_id,
                                      mxh::proto::QuestProtocol protocol,
                                      std::uint16_t quest_id) {
@@ -985,14 +1012,105 @@ void CInGameState::handle_chat_broadcast(const mxh::net::Message& msg) {
               msg.header.object_id, text.c_str());
 }
 
+void CInGameState::try_pickup() {
+    if (!m_inGame) return;
+    const auto drop_id = pick_nearest_drop();
+    if (drop_id == 0) return;
+    if (!is_connected()) return;
+    const auto e = m_pEngine->agent_session().send(
+        make_pickup_message(m_playerId, drop_id));
+    if (e == mxh::net::NetError::Ok) {
+        MLOG_INFO("CInGameState: pickup drop=%u", drop_id);
+    }
+}
+
+std::uint32_t CInGameState::pick_nearest_drop() const noexcept {
+    std::uint32_t best = 0;
+    float best_d2 = kPickupRange * kPickupRange;
+    for (const auto& drop : m_groundDrops) {
+        const float dx = drop.position_x - m_localX;
+        const float dz = drop.position_z - m_localZ;
+        const float d2 = dx * dx + dz * dz;
+        if (d2 <= best_d2) {
+            best_d2 = d2;
+            best = drop.object_id;
+        }
+    }
+    return best;
+}
+
+std::uint32_t CInGameState::pick_drop_at_screen(float sx, float sy) const {
+    std::uint32_t best = 0;
+    float best_d2 = 18.0f * 18.0f;
+    for (const auto& drop : m_groundDrops) {
+        float px = 0;
+        float py = 0;
+        if (!project_npc_to_screen(
+                m_localX, m_localZ, m_cameraYaw,
+                drop.position_x, drop.position_z, px, py)) {
+            continue;
+        }
+        const float dx = px - sx;
+        const float dy = py - sy;
+        const float d2 = dx * dx + dy * dy;
+        if (d2 <= best_d2) {
+            best_d2 = d2;
+            best = drop.object_id;
+        }
+    }
+    return best;
+}
+
 void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     const auto proto = msg.header.protocol;
+    if (proto == static_cast<std::uint8_t>(
+            mxh::proto::ItemProtocol::MonsterObtainNotify)) {
+        auto drop = parse_legacy_ground_drop(msg.payload);
+        if (!drop) {
+            MLOG_WARN("CInGameState: MonsterObtainNotify payload too short (%zu)",
+                      msg.payload.size());
+            return;
+        }
+        const auto existing = std::find_if(
+            m_groundDrops.begin(), m_groundDrops.end(),
+            [&](const GroundDropInfo& candidate) {
+                return candidate.object_id == drop->object_id;
+            });
+        if (existing == m_groundDrops.end()) m_groundDrops.push_back(*drop);
+        else *existing = *drop;
+        MLOG_INFO("CInGameState: ground drop id=%u item=%u pos=(%.0f,%.0f)",
+                  drop->object_id, drop->item_id,
+                  drop->position_x, drop->position_z);
+        return;
+    }
+    if (proto == static_cast<std::uint8_t>(
+            mxh::proto::ItemProtocol::PickupAck)) {
+        if (msg.payload.size() >= 4) {
+            const auto drop_id = get_u32(msg.payload.data());
+            m_groundDrops.erase(
+                std::remove_if(m_groundDrops.begin(), m_groundDrops.end(),
+                    [drop_id](const GroundDropInfo& drop) {
+                        return drop.object_id == drop_id;
+                    }),
+                m_groundDrops.end());
+            MLOG_INFO("CInGameState: picked up drop=%u", drop_id);
+        }
+        return;
+    }
+    if (proto == static_cast<std::uint8_t>(
+            mxh::proto::ItemProtocol::PickupNack)) {
+        MLOG_WARN("CInGameState: PickupNack");
+        return;
+    }
     if (proto == mxh::proto::kModernShopList) {
         m_shopItems = parse_shop_list(msg.payload);
         m_shopNpcId = 0;
+        if (msg.payload.size() >= 4) {
+            m_shopNpcId = get_u32(msg.payload.data());
+        }
         set_shop_open(true);
-        MLOG_INFO("CInGameState: shop list %zu items",
-                  m_shopItems.size());
+        MLOG_INFO("CInGameState: shop list %zu items npc=%u",
+                  m_shopItems.size(), m_shopNpcId);
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::TotalInfoLocal)) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
@@ -1048,6 +1166,13 @@ bool CInGameState::handle_ui_activation(
 }
 
 void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
+    const std::uint32_t move_mask = key_mask_for_vk(vk);
+    if (move_mask != 0 && !m_chatOpen) {
+        // HUD widgets must not swallow WASD/QE. Original Q/E is strafe.
+        if (pressed) m_keyMask |= move_mask;
+        else m_keyMask &= ~move_mask;
+        return;
+    }
     if (m_uiRuntime.onKey(pressed, static_cast<std::int32_t>(vk))) return;
     if (vk == kVkReturn) {
         if (pressed) {
@@ -1100,8 +1225,12 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
             if (nearest != 0) open_shop(nearest);
             return;
         }
-        if (vk == 0x51) {  // 'Q' toggles the quest panel
+        if (vk == kVkL) {  // 'L' toggles the quest log (Q is strafe)
             set_quest_open(!m_questOpen);
+            return;
+        }
+        if (vk == kVkF) {
+            try_pickup();
             return;
         }
         if (m_questOpen && !m_mainQuests.empty() && (vk == 0x26 || vk == 0x28)) {
@@ -1188,9 +1317,16 @@ void CInGameState::OnMouseButton(bool left, bool down,
         }
     }
     if (left && down && !m_shopOpen) {
-        // Click an NPC marker before falling back to attack.
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);
+        const std::uint32_t drop = pick_drop_at_screen(fx, fy);
+        if (drop != 0) {
+            if (is_connected()) {
+                (void)m_pEngine->agent_session().send(
+                    make_pickup_message(m_playerId, drop));
+            }
+            return;
+        }
         const std::uint32_t npc = pick_npc_at_screen(fx, fy);
         if (npc != 0) {
             open_shop(npc);
@@ -1267,7 +1403,7 @@ void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
 
 void CInGameState::try_attack() {
     const auto now = steady_now_ms();
-    if (!m_inGame || !is_connected()) return;
+    if (!m_inGame) return;
     if (now - m_lastAttackMs <
         static_cast<std::uint64_t>(kAttackCooldownMs)) {
         return;
@@ -1285,11 +1421,19 @@ void CInGameState::try_attack() {
             break;
         }
     }
+    m_lastAttackTarget = *target;
+    m_lastAttackMs = now;
+    m_attackFlashMs = now;
+    if (!is_connected()) {
+        MLOG_INFO("CInGameState: attack target=%u (offline)", *target);
+        return;
+    }
     const auto e = m_pEngine->agent_session().send(
         make_attack_message(m_playerId, 1u, *target, target_x, target_z));
-    if (e == mxh::net::NetError::Ok) {
-        m_lastAttackMs = now;
-        m_attackFlashMs = now;  // trigger attack visual flash
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_DEBUG("CInGameState: attack send failed: %s",
+                   mxh::net::to_string(e));
+    } else {
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
@@ -1381,7 +1525,12 @@ void CInGameState::use_quick_slot(std::size_t slot) {
 }
 
 void CInGameState::open_shop(std::uint32_t npc_id) {
-    if (!m_inGame || !is_connected()) return;
+    if (!m_inGame || npc_id == 0) return;
+    m_shopNpcId = npc_id;
+    if (!is_connected()) {
+        MLOG_INFO("CInGameState: open_shop npc=%u (offline)", npc_id);
+        return;
+    }
     set_shop_open(false);
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(
@@ -1398,9 +1547,14 @@ void CInGameState::open_shop(std::uint32_t npc_id) {
 }
 
 void CInGameState::buy_shop_item(std::size_t index) {
-    if (!m_inGame || !is_connected()) return;
+    if (!m_inGame) return;
     if (index >= m_shopItems.size()) return;
     const auto& item = m_shopItems[index];
+    m_lastBuyItemId = item.item_id;
+    if (!is_connected()) {
+        MLOG_INFO("CInGameState: buy item=%u (offline)", item.item_id);
+        return;
+    }
     const auto e = m_pEngine->agent_session().send(
         make_buy_message(m_playerId, item.item_id, 1u));
     if (e == mxh::net::NetError::Ok) {
