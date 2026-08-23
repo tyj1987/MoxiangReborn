@@ -451,6 +451,12 @@ enum class ItemProtocol : std::uint8_t {
     MoveAck              = 17,  // S -> C: move success
     MoveNack             = 18,
 
+    // Modern-only ground-drop claim. Original skipped these numbers
+    // (commented YY_MOVE). Commercial RC is modern↔modern.
+    PickupSyn            = 19,  // C -> S: claim ground drop [object_id:u32]
+    PickupAck            = 20,  // S -> C: [object_id:u32][item_id:u16][count:u16]
+    PickupNack           = 21,  // S -> C: claim failed
+
     BuySyn               = 22,  // C -> S: buy from NPC
     BuyAck               = 23,  // S -> C: buy success
     BuyNack              = 24,
