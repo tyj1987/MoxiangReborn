@@ -1479,6 +1479,54 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
               << " payload=" << msg.payload.size() << "B\n";
 
     switch (proto) {
+        case mxh::proto::ItemProtocol::PickupSyn: {
+            if (msg.payload.size() < 4) {
+                std::cout << "[Map] ITEM_PICKUP_SYN: payload too small\n";
+                break;
+            }
+            std::uint32_t drop_id = 0;
+            std::memcpy(&drop_id, msg.payload.data(), 4);
+            bool claimed = false;
+            {
+                std::lock_guard<std::mutex> lock(players_mu_);
+                const auto drop_it = ground_drops_.find(drop_id);
+                const auto player_it = connected_players_.find(player_id);
+                if (drop_it != ground_drops_.end() && player_it != connected_players_.end() &&
+                    !drop_it->second.claimed) {
+                    const float dx = drop_it->second.pos_x - player_it->second.pos_x;
+                    const float dz = drop_it->second.pos_z - player_it->second.pos_z;
+                    if (dx * dx + dz * dz <= 500.0f * 500.0f) {
+                        claimed = true;
+                    }
+                }
+            }
+            if (claimed) {
+                claimed = claim_ground_drop_for_test(player_id, drop_id);
+            }
+            mxh::net::Message reply;
+            reply.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::Item);
+            reply.header.protocol = static_cast<std::uint8_t>(
+                claimed ? mxh::proto::ItemProtocol::PickupAck
+                        : mxh::proto::ItemProtocol::PickupNack);
+            reply.header.object_id = player_id;
+            reply.payload.resize(8, 0);
+            std::memcpy(reply.payload.data(), &drop_id, 4);
+            if (claimed) {
+                std::lock_guard<std::mutex> lock(players_mu_);
+                const auto drop_it = ground_drops_.find(drop_id);
+                if (drop_it != ground_drops_.end()) {
+                    std::memcpy(reply.payload.data() + 4, &drop_it->second.item_id, 2);
+                    std::memcpy(reply.payload.data() + 6, &drop_it->second.count, 2);
+                }
+            }
+            reply_(id, reply);
+            std::cout << "[Map] sent ITEM_PICKUP_"
+                      << (claimed ? "ACK" : "NACK")
+                      << " drop=" << drop_id << "\n";
+            break;
+        }
+
         // --- C -> S: Move item within inventory ---
         case mxh::proto::ItemProtocol::MoveSyn: {
             // Payload: ITEMBASE(22B) of the item being moved + target position(2B)

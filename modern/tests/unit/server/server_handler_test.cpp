@@ -1309,6 +1309,236 @@ TEST(MapHandlerTest, MoveSynSwapsAuthoritativeSlotsAndPersistsDestination) {
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 555);
 }
 
+TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    mxh::server::DropTable table;
+    table.drop_id = 9u;
+    table.monster_kind = 77u;
+    table.entries.push_back(mxh::server::DropItemEntry{501u, 10000u, 1u, 1u});
+    handler.register_drop_table(table);
+
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 88002u;
+    monster.monster_kind = 77u;
+    monster.map_num = 7u;
+    monster.max_life = 1u;
+    monster.current_life = 1u;
+    monster.drop_item_id = 9u;
+    monster.drop_item_ratio = 100u;
+    monster.pos_x = 25000.0f;
+    monster.pos_z = 25000.0f;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u);
+    ASSERT_TRUE(drop.has_value());
+    const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol ==
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    });
+    ASSERT_NE(notify, replies.end());
+
+    mxh::client::CInGameState state;
+    state.on_message(mxh::net::make_connection_id(1), *notify);
+    ASSERT_EQ(state.ground_drops().size(), 1u);
+    EXPECT_EQ(state.ground_drops()[0].item_id, 501u);
+
+    replies.clear();
+    handler.on_message(connection, mxh::client::make_pickup_message(123u, drop->object_id));
+    const auto ack = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol ==
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
+    });
+    ASSERT_NE(ack, replies.end());
+    state.on_message(mxh::net::make_connection_id(1), *ack);
+    EXPECT_TRUE(state.ground_drops().empty());
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+}
+
+namespace {
+// Hoisted bin-file helpers used by SpeechSynShopListFeedsClientThenBuySynDebitsMoney
+// (and the late R-8 / dealitem / quest tests further below). Kept here so the
+// SpeechSynShopList test can resolve them in source order. The original
+// definitions lived further down (line ~1908/2100/2310); they were moved here
+// to avoid a forward-declaration-to-anonymous-namespace mismatch (each anonymous
+// namespace in a TU has a unique generated name).
+std::filesystem::path write_temp_bin(const std::vector<std::uint8_t>& bytes) {
+    const auto path = std::filesystem::temp_directory_path() / "mxh_map_handler_load_test.bin";
+    std::ofstream ofs(path, std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+    return path;
+}
+std::vector<std::uint8_t> synthesize_dealitem_bin(const std::string& text) {
+    std::vector<std::uint8_t> payload(text.begin(), text.end());
+    const auto encrypted = mxh::compat::encrypt_bin_payload(payload, 42);
+    mxh::compat::MhFileHeader header{1, 42, static_cast<std::uint32_t>(payload.size())};
+    std::vector<std::uint8_t> raw(sizeof(header) + 1 + encrypted.size() + 1);
+    std::memcpy(raw.data(), &header, sizeof(header));
+    std::copy(encrypted.begin(), encrypted.end(), raw.begin() + sizeof(header) + 1);
+    return raw;
+}
+std::vector<std::uint8_t> synthesize_item_list_bin(const std::string& text) {
+    std::vector<std::uint8_t> out;
+    const std::uint32_t version = 1;
+    const std::uint32_t type = 3;
+    const std::uint32_t file_size = static_cast<std::uint32_t>(text.size());
+    auto put_u32le = [&out](std::uint32_t v) {
+        out.push_back(static_cast<std::uint8_t>(v & 0xFFu));
+        out.push_back(static_cast<std::uint8_t>((v >> 8) & 0xFFu));
+        out.push_back(static_cast<std::uint8_t>((v >> 16) & 0xFFu));
+        out.push_back(static_cast<std::uint8_t>((v >> 24) & 0xFFu));
+    };
+    put_u32le(version);
+    put_u32le(type);
+    put_u32le(file_size);
+    out.push_back(0);  // crc1 (not validated)
+
+    std::vector<std::uint8_t> payload(text.begin(), text.end());
+    std::uint8_t crc = static_cast<std::uint8_t>(type);
+    for (std::uint32_t i = 0; i < payload.size(); ++i) {
+        crc = static_cast<std::uint8_t>(crc + payload[i]);
+        std::int32_t b = static_cast<std::int32_t>(payload[i])
+                       + static_cast<std::int32_t>(i & 0xFFu);
+        if (type != 0u && (i % type) == 0u) b += static_cast<std::int32_t>(type);
+        payload[i] = static_cast<std::uint8_t>(b & 0xFF);
+    }
+    out.insert(out.end(), payload.begin(), payload.end());
+    out.push_back(crc);  // crc2 (not validated by the parser)
+    return out;
+}
+std::string build_test_row_56(std::uint16_t item_idx, std::uint16_t life_recover) {
+    // 56 columns matching ItemList.bin common-row layout (D6.x field order).
+    std::vector<std::string> toks(56u);
+    toks[0] = std::to_string(item_idx);
+    toks[1] = "HpPotion";
+    toks[2] = "0";
+    toks[3] = "0";
+    toks[4] = "0";;  // ItemKind
+    for (std::size_t i = 5; i < 50; ++i) toks[i] = "0";
+    for (std::size_t i = 16; i <= 20; ++i) toks[i] = "0.0";
+    for (std::size_t i = 38; i <= 42; ++i) toks[i] = "0.0";
+    toks[50] = std::to_string(life_recover);  // LifeRecover
+    toks[51] = "0.0";
+    toks[52] = "0";
+    toks[53] = "0.0";
+    toks[54] = "0";
+    toks[55] = "1";
+    std::ostringstream row;
+    for (std::size_t i = 0; i < toks.size(); ++i) {
+        if (i != 0) row << "\t";
+        row << toks[i];
+    }
+    return row.str();
+}
+}  // namespace
+
+TEST(MapHandlerTest, SpeechSynShopListFeedsClientThenBuySynDebitsMoney) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_money_for_test(123u, 20000u));
+
+    const std::string deal_text = "1 map 2 npc 7 10 20 0 1 tab 555 10\n";
+    const auto deal_path = write_temp_bin(synthesize_dealitem_bin(deal_text));
+    handler.load_dealitem(deal_path.string());
+    std::error_code ec_deal; std::filesystem::remove(deal_path, ec_deal);
+    std::vector<std::string> tokens(56u, "0");
+    tokens[0] = "555"; tokens[1] = "Potion"; tokens[5] = "12345";
+    std::string row;
+    for (const auto& t : tokens) { row += t; row.push_back('\t'); }
+    row.push_back('\r'); row.push_back('\n');
+    const auto item_path = write_temp_bin(synthesize_item_list_bin(row));
+    handler.load_item_prices(item_path.string());
+    std::error_code ec_item; std::filesystem::remove(item_path, ec_item);
+
+    mxh::net::Message talk;
+    talk.header.object_id = 123u;
+    talk.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+    talk.header.protocol = static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn);
+    talk.payload.resize(4);
+    const std::uint32_t npc_id = 7u;
+    std::memcpy(talk.payload.data(), &npc_id, sizeof(npc_id));
+    replies.clear();
+    handler.on_message(connection, talk);
+    const auto shop = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol == mxh::proto::kModernShopList;
+    });
+    ASSERT_NE(shop, replies.end());
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    ack.payload.assign(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
+    const std::uint32_t pid = 123;
+    std::memcpy(ack.payload.data(), &pid, 4);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    state.on_message(mxh::net::make_connection_id(1), *shop);
+    ASSERT_TRUE(state.shop_open());
+    ASSERT_FALSE(state.shop_items().empty());
+    EXPECT_EQ(state.shop_npc_id(), 7u);
+
+    replies.clear();
+    handler.on_message(connection,
+                       mxh::client::make_buy_message(123u, state.shop_items()[0].item_id, 1u));
+    EXPECT_EQ(handler.player_money_for_test(123u), 7655u);
+}
+
+TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const auto drop = handler.create_ground_drop_for_test(50000u, 77u, 1u, 25000.0f, 25000.0f);
+    ASSERT_TRUE(drop.has_value());
+
+    const auto pickup = mxh::client::make_pickup_message(123u, drop->object_id);
+    handler.on_message(connection, pickup);
+    const auto ack = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
+    });
+    ASSERT_NE(ack, replies.end());
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+
+    replies.clear();
+    handler.on_message(connection, pickup);
+    const auto nack = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol ==
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack);
+    });
+    ASSERT_NE(nack, replies.end());
+}
+
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     MockDbAdapter db;
     ReplySpy reply;
@@ -1745,37 +1975,6 @@ std::vector<std::uint8_t> synthesize_itemlist_bin(const std::string& single_row_
     out.push_back(0u);  // crc2 - unused by load_item_list
     return out;
 }
-std::filesystem::path write_temp_bin(const std::vector<std::uint8_t>& bytes) {
-    const auto path = std::filesystem::temp_directory_path() / "mxh_map_handler_load_test.bin";
-    std::ofstream ofs(path, std::ios::binary);
-    ofs.write(reinterpret_cast<const char*>(bytes.data()),
-               static_cast<std::streamsize>(bytes.size()));
-    return path;
-}
-std::string build_test_row_56(std::uint16_t item_idx, std::uint16_t life_recover) {
-    // 56 columns matching ItemList.bin common-row layout (D6.x field order).
-    std::vector<std::string> toks(56u);
-    toks[0] = std::to_string(item_idx);
-    toks[1] = "HpPotion";
-    toks[2] = "0";
-    toks[3] = "0";
-    toks[4] = "0";;  // ItemKind
-    for (std::size_t i = 5; i < 50; ++i) toks[i] = "0";
-    for (std::size_t i = 16; i <= 20; ++i) toks[i] = "0.0";
-    for (std::size_t i = 38; i <= 42; ++i) toks[i] = "0.0";
-    toks[50] = std::to_string(life_recover);  // LifeRecover
-    toks[51] = "0.0";
-    toks[52] = "0";
-    toks[53] = "0.0";
-    toks[54] = "0";
-    toks[55] = "1";
-    std::ostringstream row;
-    for (std::size_t i = 0; i < toks.size(); ++i) {
-        if (i != 0) row << "	";
-        row << toks[i];
-    }
-    return row.str();
-}
 }  // anonymous namespace
 
 TEST(MapHandlerTest, ItemManagerEmptyByDefault) {
@@ -1937,15 +2136,6 @@ TEST(MapHandlerTest, FindSkillReadsFromLoadedSkillListBin) {
 }
 
 namespace {
-std::vector<std::uint8_t> synthesize_dealitem_bin(const std::string& text) {
-    std::vector<std::uint8_t> payload(text.begin(), text.end());
-    const auto encrypted = mxh::compat::encrypt_bin_payload(payload, 42);
-    mxh::compat::MhFileHeader header{1, 42, static_cast<std::uint32_t>(payload.size())};
-    std::vector<std::uint8_t> raw(sizeof(header) + 1 + encrypted.size() + 1);
-    std::memcpy(raw.data(), &header, sizeof(header));
-    std::copy(encrypted.begin(), encrypted.end(), raw.begin() + sizeof(header) + 1);
-    return raw;
-}
 std::vector<std::uint8_t> synthesize_quest_text_bin(const std::string& text) {
     return synthesize_dealitem_bin(text);
 }
@@ -2143,41 +2333,6 @@ TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
     ASSERT_TRUE(std::holds_alternative<std::int64_t>(rs.rows[0][0]));
     EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 1000);
 }
-
-namespace {
-
-// Encode a text row set into an MHFile ItemList.bin byte blob.
-std::vector<std::uint8_t> synthesize_item_list_bin(const std::string& text) {
-    std::vector<std::uint8_t> out;
-    const std::uint32_t version = 1;
-    const std::uint32_t type = 3;
-    const std::uint32_t file_size = static_cast<std::uint32_t>(text.size());
-    auto put_u32le = [&out](std::uint32_t v) {
-        out.push_back(static_cast<std::uint8_t>(v & 0xFFu));
-        out.push_back(static_cast<std::uint8_t>((v >> 8) & 0xFFu));
-        out.push_back(static_cast<std::uint8_t>((v >> 16) & 0xFFu));
-        out.push_back(static_cast<std::uint8_t>((v >> 24) & 0xFFu));
-    };
-    put_u32le(version);
-    put_u32le(type);
-    put_u32le(file_size);
-    out.push_back(0);  // crc1 (not validated)
-
-    std::vector<std::uint8_t> payload(text.begin(), text.end());
-    std::uint8_t crc = static_cast<std::uint8_t>(type);
-    for (std::uint32_t i = 0; i < payload.size(); ++i) {
-        crc = static_cast<std::uint8_t>(crc + payload[i]);
-        std::int32_t b = static_cast<std::int32_t>(payload[i])
-                       + static_cast<std::int32_t>(i & 0xFFu);
-        if (type != 0u && (i % type) == 0u) b += static_cast<std::int32_t>(type);
-        payload[i] = static_cast<std::uint8_t>(b & 0xFF);
-    }
-    out.insert(out.end(), payload.begin(), payload.end());
-    out.push_back(crc);  // crc2 (not validated by the parser)
-    return out;
-}
-
-}  // namespace
 
 TEST(MapHandlerTest, ItemPricesFillCatalogAndDeductRealMoney) {
     mxh::db::SqliteAdapter db;
