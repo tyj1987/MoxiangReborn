@@ -279,6 +279,7 @@ std::string __g_pendingStateFrame;
 mxh::client::CInGameState* g_inputTarget = nullptr;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
+mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
@@ -314,15 +315,6 @@ static std::size_t npc_marker_slot(std::uint16_t kind) noexcept {
         default:                 return 4;  // everything else — gray
     }
 }
-
-struct LoginUiState {
-    std::string username;
-    std::string password;
-    bool editingPassword = false;
-    bool submitRequested = false;
-    bool visible = true;
-};
-LoginUiState g_loginUi;
 
 bool loadGameWorld(const ClientOptions& options,
                    I4DyuchiGXRenderer* renderer,
@@ -986,16 +978,19 @@ void renderFrame(HWND h) {
                                    static_cast<std::uint32_t>(value.size()), &rc,
                                    color, CHAR_CODE_TYPE_ASCII, 2, 0);
         };
-        if (g_loginUi.visible) {
-            drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
-                       245.0f, 210.0f, 310.0f, 190.0f, 1.0f);
-            drawText("MOXIANG", 350, 230, 0xFFFFD080u);
-            drawText("Account", 275, 280);
-            drawText(g_loginUi.username + (!g_loginUi.editingPassword ? "_" : ""), 365, 280);
-            drawText("Password", 275, 320);
-            drawText(std::string(g_loginUi.password.size(), '*') +
-                     (g_loginUi.editingPassword ? "_" : ""), 365, 320);
-            drawText("[ Login ]", 360, 365, 0xFF80FF80u);
+        if (g_mainTitle) {
+            g_mainTitle->ui_runtime().render();
+            if (g_debugUiBounds) {
+                for (const auto& d : g_mainTitle->ui_dialogs()) {
+                    if (!d) continue;
+                    drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                               static_cast<float>(d->absX()),
+                               static_cast<float>(d->absY()),
+                               static_cast<float>(d->width()),
+                               static_cast<float>(d->height()),
+                               0.85f);
+                }
+            }
         } else {
             // CharSelect / CharMake / GameLoading view.
             const auto cur_state = __g_currentState;
@@ -1171,22 +1166,16 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
     case WM_KEYDOWN:
-        if (g_loginUi.visible) {
+        if (g_mainTitle) {
             if (w == VK_ESCAPE) {
                 mxh::client::g_running = false;
                 PostQuitMessage(0);
                 return 0;
             }
-            if (w == VK_TAB) g_loginUi.editingPassword = !g_loginUi.editingPassword;
-            else if (w == VK_RETURN && !g_loginUi.username.empty() &&
-                     !g_loginUi.password.empty()) g_loginUi.submitRequested = true;
-            else if (w == VK_BACK) {
-                auto& value = g_loginUi.editingPassword
-                                ? g_loginUi.password : g_loginUi.username;
-                if (!value.empty()) value.pop_back();
+            if (g_mainTitle->OnKeyEvent(true, static_cast<std::uint32_t>(w))) {
+                InvalidateRect(h, nullptr, FALSE);
+                return 0;
             }
-            InvalidateRect(h, nullptr, FALSE);
-            return 0;
         }
         if (g_charSelectState &&
             g_charSelectState->OnKeyEvent(true, static_cast<std::uint32_t>(w))) {
@@ -1219,10 +1208,8 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         return 0;
     case WM_CHAR:
-        if (g_loginUi.visible && w >= 0x20 && w < 0x7f) {
-            auto& value = g_loginUi.editingPassword
-                            ? g_loginUi.password : g_loginUi.username;
-            if (value.size() < 31) value.push_back(static_cast<char>(w));
+        if (g_mainTitle &&
+            g_mainTitle->OnChar(static_cast<std::uint32_t>(w))) {
             InvalidateRect(h, nullptr, FALSE);
             return 0;
         }
@@ -1247,13 +1234,8 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (!logical.has_value()) return 0;
         const auto x = static_cast<std::int32_t>(logical->x);
         const auto y = static_cast<std::int32_t>(logical->y);
-        if (g_loginUi.visible && m == WM_LBUTTONDOWN) {
-            if (y >= 270 && y < 310) g_loginUi.editingPassword = false;
-            else if (y >= 310 && y < 350) g_loginUi.editingPassword = true;
-            else if (x >= 340 && x <= 465 && y >= 350 && y <= 395 &&
-                     !g_loginUi.username.empty() && !g_loginUi.password.empty()) {
-                g_loginUi.submitRequested = true;
-            }
+        if (g_mainTitle &&
+            g_mainTitle->OnMouseButton(true, m == WM_LBUTTONDOWN, x, y)) {
             InvalidateRect(h, nullptr, FALSE);
             return 0;
         }
@@ -1309,6 +1291,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
         if (!logical.has_value()) return 0;
+        if (g_mainTitle &&
+            g_mainTitle->OnMouseMove(
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            return 0;
+        }
         if (g_charSelectState &&
             g_charSelectState->OnMouseMove(
                 static_cast<std::int32_t>(logical->x),
@@ -1342,9 +1330,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         std::fprintf(stderr, "mxh_client: --auto-login requires --username and --password\n");
         return 2;
     }
-    g_loginUi.username = options.username;
-    g_loginUi.password = options.password;
-    g_loginUi.visible = true;  // Show login form even with --auto-login so state-login.tga shows the input boxes.
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     g_debugUiBounds = options.debug_ui_bounds;
     __g_stateFramesDir = options.state_frames_dir;
@@ -1581,10 +1566,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // dev-mode shortcut; that path will move to a button in B.2.5+.
     mainGame.SetGameState(options.auto_login ? mxh::client::GameStateId::Connect
                                              : mxh::client::GameStateId::Title);
-    if (options.auto_login) {
-        // Auto-login bypasses the GUI login form entirely.
-        g_loginUi.visible = false;
-    }
 
     MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
               "boot -> GameStateId::Connect");
@@ -1633,11 +1614,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             DispatchMessageW(&msg);
         }
         if (quit_requested) break;
-            if (g_loginUi.submitRequested) {
-                g_loginUi.submitRequested = false;
-                options.username = g_loginUi.username;
-                options.password = g_loginUi.password;
-                g_loginUi.visible = false;
+            if (g_mainTitle && g_mainTitle->consumeSubmit()) {
+                options.username = g_mainTitle->username();
+                options.password = g_mainTitle->password();
                 mainGame.SetGameState(mxh::client::GameStateId::Connect);
                 if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
                         mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
@@ -1651,15 +1630,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // states that have an external Start() hook.
             const auto cur_state = mainGame.GetCurStateNum();
             if (cur_state != prev_state) {
-                if (cur_state == mxh::client::GameStateId::Title &&
-                    prev_state == mxh::client::GameStateId::CharSelect) {
-                    g_loginUi.visible = true;
-                    g_loginUi.submitRequested = false;
-                    g_loginUi.editingPassword = false;
-                    g_loginUi.password.clear();
-                }
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
+                }
+                if (cur_state == mxh::client::GameStateId::Title) {
+                    g_mainTitle = dynamic_cast<mxh::client::CMainTitle*>(
+                        mainGame.GetGameState(cur_state));
+                } else {
+                    g_mainTitle = nullptr;
                 }
                 if (cur_state == mxh::client::GameStateId::CharSelect) {
                     g_charSelectState = dynamic_cast<mxh::client::CCharSelectState*>(
@@ -1687,14 +1665,21 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // CLoginState::dispatch_login_ack) is consumed by
             // CCharSelectState::Init() when CharSelect is entered.
             if (cur_state == mxh::client::GameStateId::Title &&
-                !g_loginUi.visible &&
                 mainGame.GetEngine()->pending_transfer_is<
                     mxh::client::LoginResult>()) {
                 // CLoginState routes through Title after LoginAck and
                 // hands the LoginResult via the engine transfer slot.
                 // The CharSelect state will pull it in its own Init().
                 // Do NOT take it here or CharSelect sees an empty slot.
+                g_mainTitle = nullptr;
                 mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
+                } else if (cur_state == mxh::client::GameStateId::Title) {
+                    if (auto* title = dynamic_cast<mxh::client::CMainTitle*>(
+                            mainGame.GetGameState(cur_state))) {
+                        title->Start(mainGame.GetEngine(),
+                                     options.username, options.password);
+                        g_mainTitle = title;
+                    }
                 } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
