@@ -8,7 +8,9 @@
 #include "ClientUiRuntime.hpp"
 #include "CCharMake.hpp"
 #include "CCharSelectState.hpp"
+#include "CEngine.hpp"
 #include "CInGameState.hpp"
+#include "CMainTitle.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cImage.hpp"
@@ -582,4 +584,128 @@ TEST(InGameUiRuntime, DefaultHudRootsBindNonNullSprites) {
     auto* image = static_cast<mxh::ui::cImage*>(root->basicImage());
     ASSERT_NE(image, nullptr);
     EXPECT_FALSE(image->IsNull());
+}
+
+TEST(ClientUiRuntime, LoginDlgOkAndExitHitboxesDispatchShippedCommands) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "IDDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+    ASSERT_TRUE(runtime.isDialogActive("MT_LOGINDLG"));
+
+    auto* dlg = runtime.findWindowByLegacyId("MT_LOGINDLG");
+    ASSERT_NE(dlg, nullptr);
+    EXPECT_TRUE(dlg->isVisible());
+
+    auto* ok = runtime.findWindowByLegacyId("MT_OKBTN");
+    if (!ok) ok = runtime.findWindowByLegacyFunc("MT_LogInOkBtnFunc");
+    ASSERT_NE(ok, nullptr);
+    EXPECT_GT(ok->absY() + static_cast<std::int32_t>(ok->height()),
+              dlg->absY() + static_cast<std::int32_t>(dlg->height()))
+        << "IDDlg #POINT is the caption; OK sits below it";
+    const auto ok_click = click_window_center(runtime, ok);
+    ASSERT_TRUE(ok_click.activation.has_value());
+    EXPECT_EQ(mxh::client::resolve_login_ui_command(*ok_click.activation).kind,
+              mxh::client::LoginUiCommandKind::Submit);
+
+    auto* end = runtime.findWindowByLegacyId("MT_ENDBTN");
+    if (!end) end = runtime.findWindowByLegacyFunc("MT_ExitBtnFunc");
+    ASSERT_NE(end, nullptr);
+    const auto end_click = click_window_center(runtime, end);
+    ASSERT_TRUE(end_click.activation.has_value());
+    EXPECT_EQ(mxh::client::resolve_login_ui_command(*end_click.activation).kind,
+              mxh::client::LoginUiCommandKind::Exit);
+}
+
+TEST(ClientUiRuntime, LoginIdAndPasswordHitboxesAcceptTypedText) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "IDDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    runtime.activateAllLoadedDialogs();
+
+    auto* id = dynamic_cast<mxh::ui::cEditBox*>(
+        runtime.findWindowByLegacyId("MT_IDEDITBOX"));
+    ASSERT_NE(id, nullptr);
+    id->InitEditbox(static_cast<std::uint16_t>(id->width()), 17);
+    const auto id_down = runtime.onMouseButton(
+        true, true, id->absX() + 1, id->absY() + 1);
+    EXPECT_TRUE(id_down.consumed);
+    EXPECT_TRUE(runtime.onChar('A'));
+    EXPECT_EQ(id->editText(), "A");
+
+    auto* pwd = dynamic_cast<mxh::ui::cEditBox*>(
+        runtime.findWindowByLegacyId("MT_PWDEDITBOX"));
+    ASSERT_NE(pwd, nullptr);
+    pwd->InitEditbox(static_cast<std::uint16_t>(pwd->width()), 17);
+    pwd->SetSecret(true);
+    const auto pwd_down = runtime.onMouseButton(
+        true, true, pwd->absX() + 1, pwd->absY() + 1);
+    EXPECT_TRUE(pwd_down.consumed);
+    EXPECT_TRUE(runtime.onChar('B'));
+    EXPECT_EQ(pwd->editText(), "B");
+    EXPECT_EQ(pwd->displayText(), "*");
+}
+
+TEST(CMainTitle, StartLoadsIdDlgAndOkSubmitsCredentials) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::CEngine engine;
+    engine.SetPlaydhRoot(playdh);
+
+    mxh::client::CMainTitle title;
+    title.Init(nullptr);
+    title.Start(&engine, "acct", "secret");
+    ASSERT_FALSE(title.ui_runtime().empty());
+    ASSERT_TRUE(title.ui_runtime().isDialogActive("MT_LOGINDLG"));
+    EXPECT_EQ(title.username(), "acct");
+    EXPECT_EQ(title.password(), "secret");
+
+    auto* id = dynamic_cast<mxh::ui::cEditBox*>(
+        title.ui_runtime().findWindowByLegacyId("MT_IDEDITBOX"));
+    ASSERT_NE(id, nullptr);
+    EXPECT_EQ(id->editText(), "acct");
+
+    auto* pwd = dynamic_cast<mxh::ui::cEditBox*>(
+        title.ui_runtime().findWindowByLegacyId("MT_PWDEDITBOX"));
+    ASSERT_NE(pwd, nullptr);
+    EXPECT_TRUE(pwd->IsSecret());
+    EXPECT_EQ(pwd->editText(), "secret");
+
+    auto* ok = title.ui_runtime().findWindowByLegacyId("MT_OKBTN");
+    if (!ok) ok = title.ui_runtime().findWindowByLegacyFunc("MT_LogInOkBtnFunc");
+    ASSERT_NE(ok, nullptr);
+    title.OnMouseButton(true, true,
+                        ok->absX() + static_cast<std::int32_t>(ok->width() / 2),
+                        ok->absY() + static_cast<std::int32_t>(ok->height() / 2));
+    title.OnMouseButton(true, false,
+                        ok->absX() + static_cast<std::int32_t>(ok->width() / 2),
+                        ok->absY() + static_cast<std::int32_t>(ok->height() / 2));
+    EXPECT_TRUE(title.consumeSubmit());
+    EXPECT_EQ(title.username(), "acct");
+    EXPECT_EQ(title.password(), "secret");
+    EXPECT_FALSE(title.consumeSubmit());
+
+    auto* end = title.ui_runtime().findWindowByLegacyId("MT_ENDBTN");
+    if (!end) end = title.ui_runtime().findWindowByLegacyFunc("MT_ExitBtnFunc");
+    ASSERT_NE(end, nullptr);
+    title.OnMouseButton(true, true,
+                        end->absX() + static_cast<std::int32_t>(end->width() / 2),
+                        end->absY() + static_cast<std::int32_t>(end->height() / 2));
+    title.OnMouseButton(true, false,
+                        end->absX() + static_cast<std::int32_t>(end->width() / 2),
+                        end->absY() + static_cast<std::int32_t>(end->height() / 2));
+    EXPECT_TRUE(title.username().empty());
+    EXPECT_TRUE(title.password().empty());
+    title.Release();
 }

@@ -27,10 +27,37 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "ClientUiRuntime.hpp"
 
 #include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace mxh::ui {
+class cDialog;
+class cEditBox;
+}
 
 namespace mxh::client {
+
+class CEngine;
+
+enum class LoginUiCommandKind : std::uint8_t {
+    None,
+    Submit,
+    Exit,
+};
+
+struct LoginUiCommand {
+    LoginUiCommandKind kind = LoginUiCommandKind::None;
+};
+
+// 1:1 with recovered GlobalEventFunc.cpp:
+//   MT_OKBTN / MT_LogInOkBtnFunc -> login
+//   MT_ENDBTN / MT_ExitBtnFunc   -> clear fields (server list later)
+LoginUiCommand resolve_login_ui_command(
+    const ClientUiActivation& activation) noexcept;
 
 // Forward-declared classes (legacy MainTitle.h's dependencies) are
 // kept as opaque `void*` for now.  This matches the Phase 6.4
@@ -65,6 +92,28 @@ public:
 
     void OnLoginError(std::uint32_t errorcode, std::uint32_t dwParam);
     void OnDisconnect();
+
+    // Load IDDlg.bin (MT_LOGINDLG) and seed the ID/password edit boxes.
+    // Idempotent for the dialog tree; credentials are applied every call.
+    void Start(CEngine* engine,
+               std::string username = {},
+               std::string password = {});
+
+    bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    bool OnMouseMove(std::int32_t x, std::int32_t y);
+    bool OnKeyEvent(bool down, std::uint32_t key);
+    bool OnChar(std::uint32_t ch);
+
+    bool trySubmit();
+    void clearFields();
+    bool consumeSubmit() noexcept;
+    const std::string& username() const noexcept { return m_username; }
+    const std::string& password() const noexcept { return m_password; }
+
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiRuntime.dialogs();
+    }
 
     // 1:1 quirk: m_DistAuthKey and m_UserIdx are populated by the
     // Distribute server's response to MP_USERCONN.  A.1.8 leaves them
@@ -115,6 +164,18 @@ private:
     // (B.1) can include it in MP_USERCONN_REQUEST_LOGIN.  Matches
     // the legacy MHClient.cpp g_CLIENTVERSION[] global.
     char                  m_ClientVersion[32]       = {0};
+
+    void bind_login_edits();
+    void sync_credentials_from_edits();
+    bool handle_ui_activation(const ClientUiActivation& activation);
+    bool handle_edit_return();
+    mxh::ui::cEditBox* id_edit() const;
+    mxh::ui::cEditBox* password_edit() const;
+
+    ClientUiRuntime m_uiRuntime;
+    std::string     m_username;
+    std::string     m_password;
+    bool            m_submitRequested = false;
 };
 
 } // namespace mxh::client
