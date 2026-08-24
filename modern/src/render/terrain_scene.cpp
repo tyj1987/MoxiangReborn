@@ -88,7 +88,13 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
         return false;
     impl_->textures.resize(impl_->terrain.textures.size());
     std::uint32_t placeholderTextures = 0;
+    std::vector<bool> usedTextures(impl_->terrain.textures.size(), false);
+    for (const auto integrated : impl_->terrain.tiles) {
+        const auto textureIndex = integrated & 0x3fffu;
+        if (textureIndex < usedTextures.size()) usedTextures[textureIndex] = true;
+    }
     for (std::size_t i = 0; i < impl_->terrain.textures.size(); ++i) {
+        if (!usedTextures[i]) continue;
         std::vector<std::uint8_t> encoded;
         std::string textureName = impl_->terrain.textures[i].name;
         if (!readStorageFile(storage, textureName.c_str(), encoded)) {
