@@ -61,6 +61,7 @@ struct TerrainScene::Impl {
     float camera_yaw = 0;
     MATRIX4 view_proj{};  // last view*projection from configureCamera
     bool view_proj_valid = false;
+    std::uint32_t placeholder_textures = 0;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -75,6 +76,7 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     if (!renderer || !storage || !hfl_name) return false;
     for (auto* chunk : impl_->chunks) if (chunk) chunk->Release();
     impl_->chunks.clear(); impl_->textures.clear(); impl_->renderer = renderer;
+    impl_->placeholder_textures = 0;
     std::vector<std::uint8_t> hflBytes;
     if (!readStorageFile(storage, hfl_name, hflBytes) ||
         !mxh::compat::parse_hfl(hflBytes, impl_->terrain, error)) return false;
@@ -207,6 +209,7 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
               terrain.desc.height_count_z, terrain.desc.tile_count_x, terrain.desc.tile_count_z);
     if (placeholderTextures)
         MLOG_INFO("[terrain] palette placeholders=%u (legacy name '1')", placeholderTextures);
+    impl_->placeholder_textures = placeholderTextures;
     return !impl_->chunks.empty();
 }
 
@@ -315,5 +318,9 @@ std::uint32_t TerrainScene::chunkCount() const noexcept { return static_cast<std
 std::uint32_t TerrainScene::loadedTextureCount() const noexcept {
     return static_cast<std::uint32_t>(std::count_if(impl_->textures.begin(), impl_->textures.end(),
         [](const auto& texture) { return texture != nullptr; }));
+}
+
+std::uint32_t TerrainScene::placeholderTextureCount() const noexcept {
+    return impl_ ? impl_->placeholder_textures : 0;
 }
 } // namespace mxh::gx

@@ -33,6 +33,7 @@ public:
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
     [[nodiscard]] std::uint32_t chunkCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
+    [[nodiscard]] std::uint32_t placeholderTextureCount() const noexcept;
     // The most recent view*projection matrix computed by configureCamera,
     // or a default-constructed MATRIX4 if configureCamera has not been
     // called yet. Used by downstream scenes (e.g. EntityScene frustum

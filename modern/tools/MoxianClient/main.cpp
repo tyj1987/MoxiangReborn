@@ -378,6 +378,13 @@ bool loadGameWorld(const ClientOptions& options,
         error = "Terrain load failed (" + hflName + "): " + stageError;
         return false;
     }
+    if (terrain->placeholderTextureCount() != 0 && !g_debugUiBounds) {
+        error = "Terrain contains " +
+            std::to_string(terrain->placeholderTextureCount()) +
+            " unresolved texture palette entries";
+        MLOG_ERROR("mxh_client: %s", error.c_str());
+        return false;
+    }
 
     auto staticScene = std::make_unique<mxh::gx::StaticScene>();
     const std::string stmName = std::to_string(mapNum) + ".stm";
@@ -1991,6 +1998,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                 static_cast<unsigned>(game_in->monsters().size()),
                                 static_cast<unsigned>(game_in->npcs().size()),
                                 g_entityScene->playerInstanceCount());
+                            if (ph != 0 && !g_debugUiBounds) {
+                                MLOG_ERROR("mxh_client: release visual gate failed: "
+                                           "placeholderCount=%u failedModelCount=%u",
+                                           ph, failed);
+                                mxh::client::g_running = false;
+                            }
                         }
                     }
                 }
