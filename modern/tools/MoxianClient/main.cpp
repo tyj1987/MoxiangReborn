@@ -1,4 +1,4 @@
-﻿// MoxianClient: modern Moxian (DarkStory) client main entry.
+// MoxianClient: modern Moxian (DarkStory) client main entry.
 //
 // Phase A.1 â€” minimal skeleton that exercises the entire UI â†” GPU seam
 // end-to-end so the Phase 6.4 cImage::bindRenderer adapter gets a real
@@ -1136,6 +1136,33 @@ void renderFrame(HWND h) {
         g_captureTerrainFrame.clear();
     }
     g_renderer->Present(h);
+
+    // Lightweight FPS probe: log every 60 frames (≈1 s at the 60 fps
+    // target).  Used by the manual render benchmark for the title/login
+    // path so we can verify the login.dds V-flip doesn't cost us frame
+    // budget.
+    static std::uint32_t kFpsLogInterval = 60u;
+    static std::uint32_t s_frame_count = 0;
+    static std::uint64_t s_fps_window_start_ms = 0;
+    ++s_frame_count;
+    if (s_fps_window_start_ms == 0) {
+        s_fps_window_start_ms = GetTickCount64();
+        return;
+    }
+    if (s_frame_count >= kFpsLogInterval) {
+        const auto now = GetTickCount64();
+        const auto elapsed_ms = now - s_fps_window_start_ms;
+        const double fps = (elapsed_ms > 0)
+            ? (1000.0 * static_cast<double>(s_frame_count) /
+               static_cast<double>(elapsed_ms))
+            : 0.0;
+        MLOG_INFO("mxh_client: render fps=%.1f frames=%u elapsed_ms=%llu state=%d",
+                  fps, s_frame_count,
+                  static_cast<unsigned long long>(elapsed_ms),
+                  __g_currentState);
+        s_frame_count = 0;
+        s_fps_window_start_ms = now;
+    }
 }
 
 } // namespace
