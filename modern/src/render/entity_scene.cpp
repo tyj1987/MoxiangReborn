@@ -785,6 +785,19 @@ std::uint32_t EntityScene::culledInstanceCount() const noexcept {
 std::uint32_t EntityScene::failedModelCount() const noexcept {
     return impl_->failed_load_count;
 }
+std::uint32_t EntityScene::unresolvedTextureCount() const noexcept {
+    if (!impl_) return 0;
+    std::uint32_t count = 0;
+    const auto countModel = [&count](const auto& entry) {
+        if (!entry.second) return;
+        count += static_cast<std::uint32_t>(std::count_if(
+            entry.second->textures.begin(), entry.second->textures.end(),
+            [](const auto& texture) { return texture == nullptr; }));
+    };
+    for (const auto& entry : impl_->models) countModel(entry);
+    for (const auto& entry : impl_->playerModels) countModel(entry);
+    return count;
+}
 std::uint32_t EntityScene::placeholderCount() const noexcept {
     return static_cast<std::uint32_t>(impl_->placeholder_visuals.size());
 }

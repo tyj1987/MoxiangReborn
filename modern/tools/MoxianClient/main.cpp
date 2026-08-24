@@ -2011,14 +2011,19 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         static std::uint32_t last_loaded = ~0u;
                         static std::uint32_t last_failed = ~0u;
                         static std::uint32_t last_ph = ~0u;
+                        static std::uint32_t last_unresolved_textures = ~0u;
                         const auto loaded = g_entityScene->loadedModelCount();
                         const auto failed = g_entityScene->failedModelCount();
                         const auto ph = g_entityScene->placeholderCount();
+                        const auto unresolvedTextures =
+                            g_entityScene->unresolvedTextureCount();
                         if (loaded != last_loaded || failed != last_failed ||
-                            ph != last_ph) {
+                            ph != last_ph ||
+                            unresolvedTextures != last_unresolved_textures) {
                             last_loaded = loaded;
                             last_failed = failed;
                             last_ph = ph;
+                            last_unresolved_textures = unresolvedTextures;
                             MLOG_INFO(
                                 "mxh_client: entity loaded=%u failed=%u "
                                 "placeholders=%u monsters=%u npcs=%u players=%u",
@@ -2030,6 +2035,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                 MLOG_ERROR("mxh_client: release visual gate failed: "
                                            "placeholderCount=%u failedModelCount=%u",
                                            ph, failed);
+                                mxh::client::g_running = false;
+                            }
+                            if (unresolvedTextures != 0 && !g_debugUiBounds) {
+                                MLOG_ERROR(
+                                    "mxh_client: release visual gate failed: "
+                                    "unresolvedEntityTextures=%u",
+                                    unresolvedTextures);
                                 mxh::client::g_running = false;
                             }
                         }
