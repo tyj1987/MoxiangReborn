@@ -19,8 +19,10 @@
 #include "mxh/server/server.hpp"
 #include "mxh/server/ai_system.hpp"
 #include "mxh/server/ai_group_loader.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
 
 #include <filesystem>
+#include <fstream>
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/net/net.hpp"
 
@@ -37,6 +39,7 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -210,8 +213,28 @@ int main(int argc, char** argv) {
     const std::filesystem::path ai_groups_path = server_resource_base / monster_name.str();
     if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
         if (!args.allow_dev_fallbacks) {
-            std::cerr << "FATAL: missing or invalid AIGroup data at "
-                      << ai_groups_path.string() << "\n";
+            std::ifstream resource_file(ai_groups_path, std::ios::binary | std::ios::ate);
+            bool opaque_server_profile = false;
+            if (resource_file) {
+                const auto size = resource_file.tellg();
+                if (size > 0) {
+                    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+                    resource_file.seekg(0);
+                    if (resource_file.read(reinterpret_cast<char*>(bytes.data()), size)) {
+                        opaque_server_profile =
+                            mxh::compat::is_size_prefixed_opaque_server_profile(bytes);
+                    }
+                }
+            }
+            if (opaque_server_profile) {
+                std::cerr << "FATAL: unsupported resource encoding "
+                          << "server-size-prefixed-opaque-v1 at "
+                          << ai_groups_path.string()
+                          << "; refusing positional MHFileEx decode\n";
+            } else {
+                std::cerr << "FATAL: missing or invalid AIGroup data at "
+                          << ai_groups_path.string() << "\n";
+            }
             return 1;
         }
         std::cerr << "[WARN] no AIGroup data at " << ai_groups_path.string()
