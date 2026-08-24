@@ -8,11 +8,18 @@ param(
     [string]$SourceDir = "",
     [string]$DeployDir = "",
     [string]$ResourceDir = "",
-    [string]$ServerIP = "127.0.0.1"
+    [string]$ServerIP = "127.0.0.1",
+    [ValidateSet('playdh-current', 'sworking-2008-reference')]
+    [string]$ResourceProfileId = 'playdh-current'
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
+$profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
+$profileProperty = $profileManifest.profiles.PSObject.Properties[$ResourceProfileId]
+if ($null -eq $profileProperty) { throw "Unknown resource profile: $ResourceProfileId" }
+$profile = $profileProperty.Value
 if ([string]::IsNullOrWhiteSpace($SourceDir)) {
     $SourceDir = Join-Path $repoRoot 'modern\build\tools\MoxianClient'
 }
@@ -20,7 +27,18 @@ if ([string]::IsNullOrWhiteSpace($DeployDir)) {
     $DeployDir = Join-Path $repoRoot 'deploy\client'
 }
 if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
-    $ResourceDir = Join-Path $repoRoot 'modern\data\PlayDH'
+    $ResourceDir = Join-Path $repoRoot ([string]$profile.source)
+}
+$ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+foreach ($entry in @($profile.required)) {
+    $requiredPath = Join-Path $ResourceDir ([string]$entry.path)
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Profile resource missing: $requiredPath"
+    }
+    $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $requiredPath).Hash.ToLowerInvariant()
+    if ($actualHash -ne ([string]$entry.sha256).ToLowerInvariant()) {
+        throw "Profile resource hash mismatch: $requiredPath"
+    }
 }
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -87,6 +105,10 @@ foreach ($res in $resourceDirs) {
         Write-Host "  复制: $($res.Source)" -ForegroundColor Gray
     }
 }
+
+# 保留运行时 profile 清单，供启动器/客户端做一致性诊断
+Copy-Item -LiteralPath $profileManifestPath -Destination (Join-Path $DeployDir 'resource-profiles.json') -Force
+Write-Host "  复制: resource-profiles.json ($ResourceProfileId)" -ForegroundColor Gray
 
 # 生成客户端配置文件
 Write-Host "[4/5] 生成客户端配置文件..." -ForegroundColor Yellow
