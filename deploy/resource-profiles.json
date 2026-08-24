@@ -4,6 +4,7 @@
     "playdh-current": {
       "source": "modern/data/PlayDH",
       "releaseAllowed": true,
+      "encoding": "server-size-prefixed-opaque-v1",
       "serverSource": "Resource/Server",
       "required": [
         {
@@ -23,6 +24,7 @@
     "sworking-2008-reference": {
       "source": "reference/legacy-source/4dddd9a6/SWorking",
       "releaseAllowed": false,
+      "encoding": "mhfileex-classic-rxmso",
       "serverSource": "Resource/Server",
       "required": []
     }

@@ -17,7 +17,7 @@ Only unresolved issues belong here. Resolved history is available through Git.
 - Movement, targeting, collision, NPC routing, loot and map transition are simplified.
 - BEFF/BEFL/Effect.pak triggers and WAV/3D SFX are not fully wired.
 - Full-map, full-resource and genuine legacy/modern visual evidence is incomplete.
-- `playdh-current` `Resource/Server/Monster_10.bin` is a distinct 22,766-byte variant that the current AIGroup decoder rejects; the modern three-server Map10 startup therefore fails closed until this variant is decoded 1:1. The 2008 reference variant remains read-only and must not be silently substituted.
+- `playdh-current` `Resource/Server` uses the distinct `server-size-prefixed-opaque-v1` profile encoding (Map10 is 22,766 bytes); the current AIGroup decoder rejects this family, so the modern three-server Map10 startup fails closed until the variant is decoded 1:1. The 2008 `mhfileex-classic-rxmso` profile remains read-only and must not be silently substituted.
 
 ## Governance blockers
 
