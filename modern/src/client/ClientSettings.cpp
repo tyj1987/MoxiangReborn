@@ -140,14 +140,39 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
            << "  \"lastAccount\": \"" << escape_json(settings.last_account) << "\"\n}\n";
     output.close();
     if (!output) { if (error) *error = "failed writing settings"; return false; }
-    std::filesystem::rename(temp, path, ec);
-    if (ec) {
-        std::filesystem::remove(path, ec);
-        ec.clear();
-        std::filesystem::rename(temp, path, ec);
+
+    // Make the temporary file durable before publishing it.  A successful
+    // rename alone only protects atomicity; it does not guarantee that the
+    // newly selected display/audio settings survive a power loss.
+    const auto temp_path = std::filesystem::path(temp);
+    const auto temp_wide = temp_path.wstring();
+    HANDLE temp_handle = CreateFileW(
+        temp_wide.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (temp_handle == INVALID_HANDLE_VALUE) {
+        if (error) *error = "cannot reopen temporary settings file for flush";
+        std::filesystem::remove(temp, ec);
+        return false;
     }
-    if (ec && error) *error = ec.message();
-    return !ec;
+    const bool flushed = FlushFileBuffers(temp_handle) != FALSE;
+    const DWORD flush_error = flushed ? ERROR_SUCCESS : GetLastError();
+    CloseHandle(temp_handle);
+    if (!flushed) {
+        if (error) *error = "FlushFileBuffers failed: " + std::to_string(flush_error);
+        std::filesystem::remove(temp, ec);
+        return false;
+    }
+
+    const auto path_wide = path.wstring();
+    if (!MoveFileExW(temp_wide.c_str(), path_wide.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        const DWORD move_error = GetLastError();
+        if (error) *error = "MoveFileExW failed: " + std::to_string(move_error);
+        std::filesystem::remove(temp, ec);
+        return false;
+    }
+    return true;
 }
 
 } // namespace mxh::client
