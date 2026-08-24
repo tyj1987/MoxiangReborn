@@ -388,6 +388,23 @@ TEST(InGamePlayable, LeftClickAttacksNearestLiveMonster) {
     EXPECT_EQ(state.last_attack_target(), 50001u);
 }
 
+TEST(InGamePlayable, LeftClickPrefersMonsterUnderCursor) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    // At yaw 0, a monster 100 world units in front projects to the logical
+    // centre line.  A second, closer monster is deliberately off-screen so
+    // nearest-target fallback would choose the wrong object.
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_monster_add_at(50001u, 25000, 25100));
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_monster_add_at(50002u, 25100, 25000));
+
+    state.OnMouseButton(true, true, 400, 220);
+    EXPECT_EQ(state.last_attack_target(), 50001u);
+}
+
 TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

@@ -1334,6 +1334,12 @@ void CInGameState::OnMouseButton(bool left, bool down,
             open_shop(npc);
             return;
         }
+        const std::uint32_t monster = pick_monster_at_screen(fx, fy);
+        if (monster != 0) {
+            m_pendingAttackTarget = monster;
+            try_attack();
+            return;
+        }
     }
     if (left && down) {
         try_attack();
@@ -1410,8 +1416,21 @@ void CInGameState::try_attack() {
         static_cast<std::uint64_t>(kAttackCooldownMs)) {
         return;
     }
-    const auto target = pick_attack_target(
-        monsters_, m_localX, m_localZ, kAttackRange);
+    std::optional<std::uint32_t> target;
+    if (m_pendingAttackTarget != 0) {
+        const auto it = std::find_if(
+            monsters_.begin(), monsters_.end(),
+            [this](const MonsterAddInfo& monster) {
+                return monster.object_id == m_pendingAttackTarget &&
+                       monster.current_life != 0;
+            });
+        if (it != monsters_.end()) target = it->object_id;
+    }
+    m_pendingAttackTarget = 0;
+    if (!target) {
+        target = pick_attack_target(
+            monsters_, m_localX, m_localZ, kAttackRange);
+    }
     if (!target) return;
 
     float target_x = 0;
@@ -1459,6 +1478,30 @@ std::uint32_t CInGameState::pick_npc_at_screen(float sx, float sy) const {
         if (d2 <= best_d2) {
             best_d2 = d2;
             best = npc.npc_id;
+        }
+    }
+    return best;
+}
+
+std::uint32_t CInGameState::pick_monster_at_screen(float sx, float sy) const {
+    std::uint32_t best = 0;
+    float best_d2 = 24.0f * 24.0f;
+    for (const auto& monster : monsters_) {
+        if (monster.current_life == 0) continue;
+        float px = 0;
+        float py = 0;
+        if (!project_npc_to_screen(
+                m_localX, m_localZ, m_cameraYaw,
+                static_cast<float>(monster.position_x),
+                static_cast<float>(monster.position_z), px, py)) {
+            continue;
+        }
+        const float dx = px - sx;
+        const float dy = py - sy;
+        const float d2 = dx * dx + dy * dy;
+        if (d2 <= best_d2) {
+            best_d2 = d2;
+            best = monster.object_id;
         }
     }
     return best;
