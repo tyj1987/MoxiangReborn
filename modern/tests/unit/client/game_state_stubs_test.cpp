@@ -67,6 +67,36 @@ TEST(CGameLoading, RejectsInvalidContext) {
     EXPECT_EQ(state.error(), "loading context has zero steps");
 }
 
+TEST(CMapChange, TracksProgressCancellationAndFailure) {
+    LoadStateContext context;
+    context.completed_steps = 4;
+    context.total_steps = 10;
+    CMapChange state;
+    state.Init(&context);
+    EXPECT_FLOAT_EQ(state.progress(), 0.4f);
+
+    context.completed_steps = 7;
+    context.cancelled = true;
+    state.Process();
+    EXPECT_FLOAT_EQ(state.progress(), 0.7f);
+    EXPECT_TRUE(state.cancelled());
+
+    context.failed = true;
+    context.error = "target map unavailable";
+    state.Process();
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "target map unavailable");
+}
+
+TEST(CMapChange, RejectsInvalidContext) {
+    LoadStateContext context;
+    context.total_steps = 0;
+    CMapChange state;
+    state.Init(&context);
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "map change context has zero steps");
+}
+
 TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {
     CEngine engine;
     GameLoadingCoordinator coordinator;

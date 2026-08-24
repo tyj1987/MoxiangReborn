@@ -100,8 +100,14 @@ public:
     void Release() override;
     void Process() override;
     float progress() const noexcept { return m_progress; }
+    bool failed() const noexcept { return m_failed; }
+    bool cancelled() const noexcept { return m_cancelled; }
+    const std::string& error() const noexcept { return m_error; }
 private:
     float m_progress = 0.0f;
+    bool m_failed = false;
+    bool m_cancelled = false;
+    std::string m_error;
 };
 
 // -------------------------------------------------------------------------

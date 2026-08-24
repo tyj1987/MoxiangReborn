@@ -90,10 +90,23 @@ void CGameLoading::Process() {
 void CMapChange::Init(void* param) {
     SetInitParam(param);
     m_progress = 0.0f;
+    m_failed = false;
+    m_cancelled = false;
+    m_error.clear();
     const auto* context = static_cast<const LoadStateContext*>(param);
-    if (context && context->total_steps != 0) {
-        m_progress = std::clamp(static_cast<float>(context->completed_steps) /
-                                static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    if (context) {
+        if (context->total_steps == 0) {
+            m_failed = true;
+            m_error = "map change context has zero steps";
+        } else {
+            m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                    static_cast<float>(context->total_steps), 0.0f, 1.0f);
+        }
+        m_cancelled = context->cancelled;
+        if (context->failed) {
+            m_failed = true;
+            m_error = context->error ? context->error : "map change failed";
+        }
     }
     setInitialized(true);
     MLOG_INFO("CMapChange::Init progress=%.3f", m_progress);
@@ -107,9 +120,18 @@ void CMapChange::Release() {
 void CMapChange::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
-    if (context && context->total_steps != 0) {
+    if (!context) return;
+    if (context->total_steps != 0) {
         m_progress = std::clamp(static_cast<float>(context->completed_steps) /
                                 static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    } else {
+        m_failed = true;
+        m_error = "map change context has zero steps";
+    }
+    m_cancelled = context->cancelled;
+    if (context->failed) {
+        m_failed = true;
+        m_error = context->error ? context->error : "map change failed";
     }
 }
 MXH_STATE_STUB_IMPL(CMurimNet)
