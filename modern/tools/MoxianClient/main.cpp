@@ -198,13 +198,17 @@ std::filesystem::path find_playdh_root() {
     std::error_code ec;
     auto base = std::filesystem::current_path(ec);
     for (int depth = 0; !base.empty() && depth < 8; ++depth) {
-        const auto direct = base / "PlayDH";
-        if (std::filesystem::is_directory(direct, ec)) return direct;
-        for (std::filesystem::directory_iterator it(base, ec), end;
-             !ec && it != end; it.increment(ec)) {
-            if (!it->is_directory(ec)) continue;
-            const auto nested = it->path() / "PlayDH";
-            if (std::filesystem::is_directory(nested, ec)) return nested;
+        // Only accept canonical runtime locations.  Walking arbitrary child
+        // directories can select the compatibility junction under
+        // 墨香【源码配套资源】 instead of modern/data/PlayDH, silently mixing
+        // a reference profile into a production run.
+        const std::filesystem::path candidates[] = {
+            base / "modern" / "data" / "PlayDH",
+            base / "data" / "PlayDH",
+            base / "PlayDH",
+        };
+        for (const auto& candidate : candidates) {
+            if (std::filesystem::is_directory(candidate, ec)) return candidate;
         }
         const auto parent = base.parent_path();
         if (parent == base) break;
@@ -220,7 +224,10 @@ bool validate_runtime_resources(const std::filesystem::path& root,
         "Resource/MonsterList.bin",
         "Resource/Client/NpcChxList.bin",
         "Image/InterfaceScript/CharSelectDlg.bin",
-        "Image/InterfaceScript/CharMakeDlg.bin",
+        // The current PlayDH profile ships the production character-creation
+        // tree as CharMakeNewDlg.bin; CharMakeDlg.bin is a historical name
+        // from a different resource generation and must not block startup.
+        "Image/InterfaceScript/CharMakeNewDlg.bin",
         "Sound/SoundList.bin"
     };
     for (const auto* relative : required) {
