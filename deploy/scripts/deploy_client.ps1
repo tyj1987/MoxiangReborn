@@ -5,13 +5,23 @@
 # ============================================================================
 
 param(
-    [string]$SourceDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\cworking",
-    [string]$DeployDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\client",
-    [string]$ResourceDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码配套资源】\PlayDH",
+    [string]$SourceDir = "",
+    [string]$DeployDir = "",
+    [string]$ResourceDir = "",
     [string]$ServerIP = "127.0.0.1"
 )
 
 $ErrorActionPreference = "Stop"
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+    $SourceDir = Join-Path $repoRoot 'modern\build\tools\MoxianClient'
+}
+if ([string]::IsNullOrWhiteSpace($DeployDir)) {
+    $DeployDir = Join-Path $repoRoot 'deploy\client'
+}
+if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
+    $ResourceDir = Join-Path $repoRoot 'modern\data\PlayDH'
+}
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  墨香Reborn - 客户端部署脚本" -ForegroundColor Cyan
@@ -43,10 +53,10 @@ Write-Host "  目录结构创建完成" -ForegroundColor Green
 
 # 复制客户端可执行文件
 Write-Host "[2/5] 复制客户端可执行文件..." -ForegroundColor Yellow
-$clientExe = Join-Path $SourceDir "MHClient-Connect.exe"
+$clientExe = Join-Path $SourceDir "mxh_client.exe"
 if (Test-Path $clientExe) {
-    Copy-Item -Path $clientExe -Destination "$DeployDir\MoxianReborn.exe" -Force
-    Write-Host "  复制: MHClient-Connect.exe -> MoxianReborn.exe" -ForegroundColor Gray
+    Copy-Item -Path $clientExe -Destination "$DeployDir\MoxianClient.exe" -Force
+    Write-Host "  复制: mxh_client.exe -> MoxianClient.exe" -ForegroundColor Gray
 } else {
     Write-Host "  [错误] 未找到客户端可执行文件" -ForegroundColor Red
     exit 1
@@ -169,7 +179,7 @@ if errorlevel 1 (
 )
 
 :: 启动游戏
-start "" "%~dp0MoxianReborn.exe"
+    start "" "%~dp0MoxianClient.exe"
 
 echo 游戏已启动
 echo.
