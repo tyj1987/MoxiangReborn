@@ -1894,6 +1894,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                    static_cast<unsigned long>(transition.win32_error));
                     } else {
                         post_login_display_applied = true;
+                        mainGame.GetEngine()->SetUiResolutionMode(
+                            mxh::ui::detect_from_screen_size(
+                                static_cast<int>(post_login_w),
+                                static_cast<int>(post_login_h)));
                         InvalidateRect(hwnd, nullptr, FALSE);
                         MLOG_INFO("mxh_client: post-login display transition client=%ux%u",
                                   transition.client_width, transition.client_height);

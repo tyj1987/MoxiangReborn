@@ -549,7 +549,9 @@ void CInGameState::Init(void* pInitParam) {
     if (playdh.has_value() && m_uiRuntime.empty()) {
         std::string ui_error;
         if (!m_uiRuntime.loadMany(*playdh, kChinaGameInUiScripts,
-                                  mxh::ui::ResolutionMode::Low800x600,
+                                  m_pEngine
+                                      ? m_pEngine->ui_resolution_mode()
+                                      : mxh::ui::ResolutionMode::Low800x600,
                                   &ui_error)) {
             MLOG_WARN("CInGameState::Init UI load failed: %s",
                       ui_error.c_str());
@@ -632,7 +634,7 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         std::string ui_error;
         if (!m_uiRuntime.loadMany(*m_pEngine->playdh_root(),
                                   kChinaGameInUiScripts,
-                                  mxh::ui::ResolutionMode::Low800x600,
+                                  m_pEngine->ui_resolution_mode(),
                                   &ui_error)) {
             fail_with("GameIn UI load failed: " + ui_error);
             return;

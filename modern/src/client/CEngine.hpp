@@ -35,6 +35,7 @@
 #include <utility>
 
 #include "mxh/render/IRenderer.hpp"
+#include "mxh/ui/resolution_mode.hpp"
 #include "AgentSession.hpp"
 #include "StateTransfer.hpp"
 
@@ -63,6 +64,13 @@ public:
     void SetPlaydhRoot(std::filesystem::path p) noexcept { m_playdhRoot = std::move(p); }
     const std::optional<std::filesystem::path>& playdh_root() const noexcept {
         return m_playdhRoot;
+    }
+
+    void SetUiResolutionMode(mxh::ui::ResolutionMode mode) noexcept {
+        m_uiResolutionMode = mode;
+    }
+    mxh::ui::ResolutionMode ui_resolution_mode() const noexcept {
+        return m_uiResolutionMode;
     }
 
     // Lifecycle.  Init is called once at startup; Release once at
@@ -116,6 +124,8 @@ private:
     mxh::gx::I4DyuchiGXRenderer*    m_pRenderer    = nullptr;
     bool                            m_bInitialized = false;
     std::optional<std::filesystem::path> m_playdhRoot;
+    mxh::ui::ResolutionMode m_uiResolutionMode =
+        mxh::ui::ResolutionMode::Low800x600;
     StateChangeFn                   m_stateChangeFn;
     StateTransfer                   m_pendingTransfer;
     AgentSession                    m_agentSession;

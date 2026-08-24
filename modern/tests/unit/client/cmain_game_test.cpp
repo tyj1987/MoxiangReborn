@@ -28,6 +28,13 @@ using mxh::client::GameStateId;
 using mxh::client::kStateCount;
 using mxh::client::CMainTitle;
 
+TEST(CEngine, UiResolutionModeStartsAtLoginAndCanBePromotedAfterDisplayCommit) {
+    mxh::client::CEngine engine;
+    EXPECT_EQ(engine.ui_resolution_mode(), mxh::ui::ResolutionMode::Low800x600);
+    engine.SetUiResolutionMode(mxh::ui::ResolutionMode::Mid1024x768);
+    EXPECT_EQ(engine.ui_resolution_mode(), mxh::ui::ResolutionMode::Mid1024x768);
+}
+
 TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
     CMainGame game;
     game.Init(nullptr);

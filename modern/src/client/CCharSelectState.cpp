@@ -196,7 +196,7 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     if (engine && engine->playdh_root().has_value() && m_uiRuntime.empty()) {
         std::string ui_error;
         if (!m_uiRuntime.load(*engine->playdh_root(), "CharSelectDlg.bin",
-                              mxh::ui::ResolutionMode::Low800x600,
+                              engine->ui_resolution_mode(),
                               &ui_error)) {
             MLOG_WARN("CCharSelectState: CharSelectDlg.bin load failed: %s",
                       ui_error.c_str());

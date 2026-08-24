@@ -260,7 +260,7 @@ void CCharMake::Start(CEngine* engine, bool use_hsel) {
     if (engine && engine->playdh_root().has_value() && m_uiRuntime.empty()) {
         std::string ui_error;
         if (!m_uiRuntime.load(*engine->playdh_root(), "CharMakeNewDlg.bin",
-                              mxh::ui::ResolutionMode::Low800x600,
+                              engine->ui_resolution_mode(),
                               &ui_error)) {
             fail_with("CharMakeNewDlg.bin load failed: " + ui_error);
         } else {
