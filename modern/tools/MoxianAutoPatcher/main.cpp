@@ -344,6 +344,16 @@ private:
 
     // Download and apply a single patch
     bool downloadAndApplyPatch(const PatchFile& file) {
+        // The current offline updater intentionally accepts only a local staging
+        // file.  Never reinterpret an https:// URL as a Windows relative path;
+        // a network transport must be added together with certificate and
+        // signed-manifest verification before remote patching is enabled.
+        if (file.url.find("://") != std::string::npos &&
+            file.url.rfind("file://", 0) != 0) {
+            std::cerr << "remote patch transport is not enabled; refusing "
+                      << file.path << std::endl;
+            return false;
+        }
         fs::path targetPath = fs::path(gameDir_) / file.path;
         fs::path sourcePath = file.url.rfind("file://", 0) == 0
             ? fs::path(file.url.substr(7)) : fs::path(file.url);
