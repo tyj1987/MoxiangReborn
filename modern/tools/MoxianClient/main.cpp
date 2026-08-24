@@ -23,6 +23,7 @@
 //     window create â†’ renderer init â†’ message loop â€” is preserved.
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cstdint>
 #include <algorithm>
@@ -123,7 +124,21 @@ struct ClientOptions {
     // 默认 0 = 用 kDefaultWindowWidth/Height (800x600). 4 档: 800/1024/1920/2560.
     std::uint32_t window_width = 0;
     std::uint32_t window_height = 0;
+    std::uint32_t post_login_width = 1024;
+    std::uint32_t post_login_height = 768;
 };
+
+std::uint32_t read_dimension_env(const wchar_t* name,
+                                 std::uint32_t fallback,
+                                 std::uint32_t minimum,
+                                 std::uint32_t maximum) {
+    wchar_t value[32]{};
+    const auto length = GetEnvironmentVariableW(name, value, 32);
+    if (length == 0 || length >= 32) return fallback;
+    const auto parsed = std::wcstoul(value, nullptr, 10);
+    if (parsed < minimum || parsed > maximum) return fallback;
+    return static_cast<std::uint32_t>(parsed);
+}
 
 std::string narrow_ascii(const wchar_t* value) {
     std::string out;
@@ -1383,11 +1398,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     const std::uint32_t win_w = options.window_width  ? options.window_width  : mxh::client::kDefaultWindowWidth;
     const std::uint32_t win_h = options.window_height ? options.window_height : mxh::client::kDefaultWindowHeight;
+    const std::uint32_t post_login_w = read_dimension_env(
+        L"MXH_POST_LOGIN_WIDTH", options.post_login_width, 800, 7680);
+    const std::uint32_t post_login_h = read_dimension_env(
+        L"MXH_POST_LOGIN_HEIGHT", options.post_login_height, 600, 4320);
+    RECT initial_rect{0, 0, static_cast<LONG>(win_w), static_cast<LONG>(win_h)};
+    AdjustWindowRectEx(&initial_rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
     HWND hwnd = CreateWindowW(
         L"MoxianClientWnd", L"Moxian Client (modern)",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        static_cast<int>(win_w), static_cast<int>(win_h),
+        initial_rect.right - initial_rect.left,
+        initial_rect.bottom - initial_rect.top,
         nullptr, nullptr, hInst, nullptr);
     if (!hwnd) {
         std::fprintf(stderr, "mxh_client: CreateWindow failed\n");
@@ -1626,6 +1648,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::uint16_t pending_map_num = 0;
     std::string pending_loading_error;
     bool game_loading_frame_presented = false;
+    bool post_login_display_applied = false;
     bool auto_create_requested = false;
     bool follow_frame_captured = false;
     unsigned follow_settle_frames = 0;
@@ -1698,6 +1721,29 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 // hands the LoginResult via the engine transfer slot.
                 // The CharSelect state will pull it in its own Init().
                 // Do NOT take it here or CharSelect sees an empty slot.
+                if (!post_login_display_applied) {
+                    RECT target{0, 0, static_cast<LONG>(post_login_w),
+                                static_cast<LONG>(post_login_h)};
+                    AdjustWindowRectEx(&target, WS_OVERLAPPEDWINDOW, FALSE, 0);
+                    const auto resized = SetWindowPos(
+                        hwnd, nullptr, 0, 0,
+                        target.right - target.left,
+                        target.bottom - target.top,
+                        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+                    if (!resized) {
+                        MLOG_ERROR("mxh_client: post-login display transition failed error=%lu",
+                                   GetLastError());
+                    } else {
+                        post_login_display_applied = true;
+                        g_logicalViewport.update(
+                            static_cast<std::int32_t>(post_login_w),
+                            static_cast<std::int32_t>(post_login_h));
+                        if (g_renderer) g_renderer->UpdateWindowSize();
+                        InvalidateRect(hwnd, nullptr, FALSE);
+                        MLOG_INFO("mxh_client: post-login display transition client=%ux%u",
+                                  post_login_w, post_login_h);
+                    }
+                }
                 g_mainTitle = nullptr;
                 mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
                 } else if (cur_state == mxh::client::GameStateId::Title) {

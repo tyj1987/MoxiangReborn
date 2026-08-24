@@ -9,6 +9,7 @@
 #include "mxh/server/account_moderation.hpp"
 
 #include <cstring>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 
@@ -16,9 +17,11 @@
 static std::ofstream g_dbg_log;
 static void dbg_log(const std::string& msg) {
     if (!g_dbg_log.is_open()) {
-        g_dbg_log.open("d:/墨香全套源代码（源码+资源+客户端+服务端+教程）/modern/scratch/login_debug.log",
-                      std::ios::app);
+        const char* configured = std::getenv("MXH_LOGIN_DEBUG_LOG");
+        if (configured == nullptr || configured[0] == '\0') return;
+        g_dbg_log.open(configured, std::ios::app);
     }
+    if (!g_dbg_log.is_open()) return;
     g_dbg_log << msg << std::endl;
 }
 

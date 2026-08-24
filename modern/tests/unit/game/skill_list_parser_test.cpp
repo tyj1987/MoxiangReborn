@@ -45,8 +45,14 @@ namespace {
 // name; the conversion would otherwise throw system_error(1113,
 // "No mapping for the Unicode character exists in the target
 // multi-byte code page") on the test fixture's first access.
-const std::filesystem::path kRealSkillList =
-    LR"(C:\moxiang\墨香【源码】\SWorking\Resource\SkillList.bin)";
+const std::filesystem::path kRealSkillList = [] {
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" / "Resource" / "SkillList.bin";
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+    return std::filesystem::path{};
+}();
 
 // MSVC's narrow-stream constructors run a MultiByteToWideChar on
 // the path's narrow form, which throws system_error(1113) for the

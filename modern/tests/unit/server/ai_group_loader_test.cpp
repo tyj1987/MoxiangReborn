@@ -14,8 +14,8 @@ using mxh::server::parse_ai_group_list;
 std::filesystem::path recovered_runtime_server_resource(const char* name) {
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
-        const auto candidate = root / "modern" / "scratch" / "2026-08-20-source-recovery" /
-                               "recovered" / "legacy-source" / "SWorking" /
+        const auto candidate = root / "reference" / "legacy-source" / "4dddd9a6" /
+                               "SWorking" /
                                "Resource" / "Server" / name;
         if (std::filesystem::exists(candidate)) return candidate;
     }

@@ -1787,9 +1787,9 @@ TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
 }
 
 TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
-    const auto path = std::filesystem::path(MXH_SOURCE_DIR) /
-        "scratch" / "2026-08-20-source-recovery" / "recovered" /
-        "legacy-source" / "SWorking" / "Resource" / "Server" /
+    const auto path = std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
+        "reference" / "legacy-source" / "4dddd9a6" /
+        "SWorking" / "Resource" / "Server" /
         "Monster_10.bin";
     ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
     auto& ai = mxh::server::AISystem::instance();

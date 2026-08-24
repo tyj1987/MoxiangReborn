@@ -46,7 +46,7 @@ struct Args {
     int modern_port = 16001;
     int modern_agent_port = 17001;
     int modern_map_port = 18001;
-    std::string capture_dir = "modern/scratch/sbs_captures";
+    std::string capture_dir = "modern/out/runs/side-by-side-captures";
     int timeout_sec = 10;
     bool start_processes = false;
     bool modern_legacy = false;

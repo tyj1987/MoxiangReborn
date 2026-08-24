@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "playdh-current",
+  "displayName": "PlayDH current canonical resources",
+  "root": "modern/data/PlayDH",
+  "serverRoot": "modern/data/PlayDH/Resource/Server",
+  "runtimeAllowed": true,
+  "referenceOnly": false,
+  "encoding": "Big5",
+  "source": "local canonical PlayDH distribution",
+  "hashManifest": "reference/manifests/playdh-current.sha256.json",
+  "inventory": {
+    "fileCount": 5141,
+    "byteCount": 1681195227,
+    "knownDerivedPaths": [
+      "Log/",
+      "modern/",
+      "Character_unpacked/",
+      "monster_unpacked/",
+      "npc_unpacked/",
+      "moxian_*.db",
+      "moxian_*.db-wal",
+      "moxian_*.db-shm",
+      "*.broken_patches",
+      "*.bak*"
+    ]
+  }
+}

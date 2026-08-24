@@ -91,16 +91,7 @@ try {
                     $SqlPassword = $env:MXH_SQL_PASSWORD
                 }
                 if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
-                    $sqlEnv = Join-Path $repoRoot 'modern\scratch\2026-08-22-live-commercial\sql.env'
-                    if (Test-Path -LiteralPath $sqlEnv) {
-                        foreach ($line in Get-Content -LiteralPath $sqlEnv) {
-                            if ($line -match '^MXH_SQL_PASSWORD=(.*)$') {
-                                $SqlPassword = $Matches[1].Trim()
-                            } elseif ($line -match '^MXH_SQL_HOST=(.*)$' -and $SqlHost -eq '192.168.2.203') {
-                                $SqlHost = $Matches[1].Trim()
-                            }
-                        }
-                    }
+                    throw "remote LoginHost=$LoginHost requires -DbCfg or MXH_SQL_PASSWORD; credentials are never read from scratch files"
                 }
                 if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
                     throw "remote LoginHost=$LoginHost requires -DbCfg or MXH_SQL_PASSWORD to register on live MSSQL"

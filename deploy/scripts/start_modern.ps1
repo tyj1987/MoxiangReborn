@@ -9,7 +9,7 @@ param(
     [int]$LoginPort = 16001,
     [int]$AgentPort = 17001,
     [int]$MapPort = 18001,
-    [int]$MapNumber = 12,
+    [int]$MapNumber = 10,
     [ValidateSet('sqlite', 'mssql_odbc')]
     [string]$Backend = 'sqlite',
     [string]$BindAddress = '0.0.0.0',
@@ -18,6 +18,8 @@ param(
     [string]$MapEndpointAddress = '127.0.0.1',
     [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
     [string]$DataDir = '',
+    [ValidateSet('playdh-current', 'sworking-2008-reference')]
+    [string]$ResourceProfileId = 'playdh-current',
     [string]$ResourceRoot = '',
     [string]$ServerResourceRoot = '',
     [switch]$DryRun,
@@ -37,15 +39,16 @@ if ([string]::IsNullOrWhiteSpace($DataDir)) {
     $DataDir = Join-Path $stateDir 'data'
 }
 if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
-    $ResourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
+    if ($ResourceProfileId -eq 'playdh-current') {
+        $ResourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
+    } else {
+        $ResourceRoot = Join-Path $repoRoot 'reference\legacy-source\4dddd9a6\SWorking'
+    }
 }
 if ([string]::IsNullOrWhiteSpace($ServerResourceRoot)) {
     $configuredServerRoot = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT')
-    $recoveredServerRoot = Join-Path $repoRoot 'modern\scratch\2026-08-20-source-recovery\recovered\legacy-source\SWorking\Resource\Server'
     if (-not [string]::IsNullOrWhiteSpace($configuredServerRoot)) {
         $ServerResourceRoot = $configuredServerRoot
-    } elseif (Test-Path -LiteralPath $recoveredServerRoot -PathType Container) {
-        $ServerResourceRoot = $recoveredServerRoot
     } else {
         $ServerResourceRoot = Join-Path $ResourceRoot 'Resource\Server'
     }
@@ -201,6 +204,7 @@ try {
         map_bind_address = $MapBindAddress
         map_endpoint = "${MapEndpointAddress}:$MapPort"
         map_number = $MapNumber
+        resource_profile_id = $ResourceProfileId
         resource_root = $ResourceRoot
         server_resource_root = $ServerResourceRoot
         allow_dev_fallbacks = [bool]$AllowDevFallbacks

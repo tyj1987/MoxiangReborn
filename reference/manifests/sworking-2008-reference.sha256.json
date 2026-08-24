@@ -1,0 +1,2356 @@
+{
+    "schemaVersion":  1,
+    "profileId":  "sworking-2008-reference",
+    "source":  "recovered SWorking from VHD Git HEAD 4dddd9a6",
+    "root":  "C:\\moxiang\\reference\\legacy-source\\4dddd9a6\\SWorking",
+    "generatedAtUtc":  "2026-08-24T19:49:57.1767595Z",
+    "fileCount":  469,
+    "byteCount":  146900343,
+    "files":  [
+                  {
+                      "path":  "_backup_msvc2022/DistributeServer.exe.msvc2022",
+                      "bytes":  1324544,
+                      "sha256":  "13315e1de5060617facac5305bcef41314927cd07f7cc62cb3c6bf82b2dff2bf"
+                  },
+                  {
+                      "path":  "_backup_msvc2022/DistributeServer_KOR.exe.msvc2022",
+                      "bytes":  1324544,
+                      "sha256":  "13315e1de5060617facac5305bcef41314927cd07f7cc62cb3c6bf82b2dff2bf"
+                  },
+                  {
+                      "path":  "_debug_dlls_bak/MFC42D.DLL",
+                      "bytes":  929844,
+                      "sha256":  "3a3fa253ce80cf55027abc7918f8984057a94d1832302fb9893402aba9d35dff"
+                  },
+                  {
+                      "path":  "_debug_dlls_bak/mfco42d.dll",
+                      "bytes":  798773,
+                      "sha256":  "dcb52a1db8cb5daaebdf900bb5f667f1660cac1e5827cf8904bc45da20abac46"
+                  },
+                  {
+                      "path":  "_debug_dlls_bak/MSVCP60D.DLL",
+                      "bytes":  516173,
+                      "sha256":  "68deb8cad3c055beebd3748aaed06e8ad4a365c18ac198ac6bc7c3ac7cd3496f"
+                  },
+                  {
+                      "path":  "_debug_dlls_bak/msvcp71d.dll",
+                      "bytes":  765952,
+                      "sha256":  "c19c69ead56b16a8bbc81cb8067e1cbe43c3c2c44c7f1fe8438bd9357fa90918"
+                  },
+                  {
+                      "path":  "_debug_dlls_bak/msvcr71d.dll",
+                      "bytes":  544768,
+                      "sha256":  "cd20e6ccf6ce1d7f968dbf24040c365f53e7b5e868dbb0df5009698b2aa8963a"
+                  },
+                  {
+                      "path":  "_debug_dlls_bak/MSVCRTD.DLL",
+                      "bytes":  434252,
+                      "sha256":  "9ccc9526a034e337c1db7f4afb60d88130ebca9327287915ed50e87c873e44f2"
+                  },
+                  {
+                      "path":  "105.lnk",
+                      "bytes":  685,
+                      "sha256":  "23582e408a34c88fce54e019c6481815e2a338014640e2b0763b1e4e66410125"
+                  },
+                  {
+                      "path":  "108.lnk",
+                      "bytes":  685,
+                      "sha256":  "6435e0e94a02aaa96bcdf5e1af20546234edd9745655c029724559411d803626"
+                  },
+                  {
+                      "path":  "12.lnk",
+                      "bytes":  683,
+                      "sha256":  "e42e3cef3353d0898c8a600ee01361963145b9bb8035dd9d51d4f352f1a5bbee"
+                  },
+                  {
+                      "path":  "17.lnk",
+                      "bytes":  683,
+                      "sha256":  "6bc7baa1235af2f2d3366436a8753a8e84aa79fc6c077efa4c1b36f3aecb698f"
+                  },
+                  {
+                      "path":  "4DyuchiGXGFunc.dll",
+                      "bytes":  102400,
+                      "sha256":  "a8d86d41308dc1f183bd845fe643959d4a4699a2d4ee3d25e59a5aa495d65f79"
+                  },
+                  {
+                      "path":  "95.lnk",
+                      "bytes":  938,
+                      "sha256":  "b271f4293c00e069742015d2472699b65069940f862eb4c5b9b08ad935f07df4"
+                  },
+                  {
+                      "path":  "96.lnk",
+                      "bytes":  683,
+                      "sha256":  "3edd76620d65cd25cec7ff8d1411016e530c7e039a117240837ddee14f467d34"
+                  },
+                  {
+                      "path":  "agent_kor_stderr.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "agent_kor_stdout.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "AgentDBInfo.txt",
+                      "bytes":  5,
+                      "sha256":  "e6c32127c68797ee3cf9c371fa1de1f13b7d2cca928333cc665c3ebaba3768a5"
+                  },
+                  {
+                      "path":  "AgentServer.exe",
+                      "bytes":  1496576,
+                      "sha256":  "057c6e800048b799c9c94e25bcc1a3c9cb15706f23469ed19e659c7380303aa8"
+                  },
+                  {
+                      "path":  "AgentServer.ini",
+                      "bytes":  235,
+                      "sha256":  "a7a4d5be197cb32870b743391947fe853c56420489794d21c3895ccc4f664ce3"
+                  },
+                  {
+                      "path":  "AgentServer_KOR.exe",
+                      "bytes":  1496576,
+                      "sha256":  "057c6e800048b799c9c94e25bcc1a3c9cb15706f23469ed19e659c7380303aa8"
+                  },
+                  {
+                      "path":  "AntiCpSvr.dll",
+                      "bytes":  82026,
+                      "sha256":  "f0ed063f3e9a154131d719a75816ca3f67e2c4fcc2e22ff34c4a3ffa3ae1ec72"
+                  },
+                  {
+                      "path":  "AutoNoteImage/00BG.bmp",
+                      "bytes":  12344,
+                      "sha256":  "48af10af3edfb7895e32470f1e9314e36c0f0572c61174ae9c8ed823d811f0d9"
+                  },
+                  {
+                      "path":  "AutoNoteImage/00Noise.bmp",
+                      "bytes":  822,
+                      "sha256":  "0f5d1986d2c10efed8bd1028d183dff3802d8be457496e08b5232b5ed5b75108"
+                  },
+                  {
+                      "path":  "AutoNoteImage/01Red.bmp",
+                      "bytes":  822,
+                      "sha256":  "eada8b6937d08e1b5e3a537ce708d0c6894ff2f50706baf816ce4c353fabb552"
+                  },
+                  {
+                      "path":  "AutoNoteImage/02Yellow.bmp",
+                      "bytes":  822,
+                      "sha256":  "876144e90b812b207681c3cbd37f4bc266b247be16c125bcb846802c3ab0f534"
+                  },
+                  {
+                      "path":  "AutoNoteImage/03Blue.bmp",
+                      "bytes":  822,
+                      "sha256":  "41001231025caa9efced26efc44fc77c658eca1b7a3cb6abb89c2394d878656c"
+                  },
+                  {
+                      "path":  "AutoNoteImage/04Black.bmp",
+                      "bytes":  822,
+                      "sha256":  "5f146bb4f40a824aa3ce7a913e43dd5dff9ee6bf914bc6ce8d21d67eac30e1b0"
+                  },
+                  {
+                      "path":  "BaseNetwork.dll",
+                      "bytes":  794747,
+                      "sha256":  "374b29ac3e1a2522f73bc23262f163f5cbbcf1343e55c49023a273beb83d1dee"
+                  },
+                  {
+                      "path":  "ClientVerInfo.ver",
+                      "bytes":  12,
+                      "sha256":  "062f86f92ec59cfe832b0398381680550e84abecdf6b80e0a809b24f4d9c2ac7"
+                  },
+                  {
+                      "path":  "ConsoleStub.dll",
+                      "bytes":  129024,
+                      "sha256":  "ac4d913f8e8d74227d4d172183f5c7e64ed640699c41fe383bf2e725030acc4a"
+                  },
+                  {
+                      "path":  "dbghelp.dll",
+                      "bytes":  764928,
+                      "sha256":  "21d573ba3b4afaac6a1a49573d921a88f809dc0daa5c857661beb689b8654ef6"
+                  },
+                  {
+                      "path":  "DBTHREAD.dll",
+                      "bytes":  1392692,
+                      "sha256":  "1cbd54375387dfc3af2288eeaeed9ed0af5e80325105257e71bc1c1b997696ca"
+                  },
+                  {
+                      "path":  "distribute_direct_stderr.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_direct_stdout.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_kor_stderr.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_kor_stdout.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_orig_stderr.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_orig_stdout.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_stderr.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "distribute_stdout.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "DistributeDBInfo.txt",
+                      "bytes":  5,
+                      "sha256":  "e6c32127c68797ee3cf9c371fa1de1f13b7d2cca928333cc665c3ebaba3768a5"
+                  },
+                  {
+                      "path":  "DistributeServer.exe",
+                      "bytes":  1324544,
+                      "sha256":  "4649266232165ed18f0c7c58d5551379b978f7c101de4b5c3ee608587699a529"
+                  },
+                  {
+                      "path":  "DistributeServer.exe.bak",
+                      "bytes":  1324544,
+                      "sha256":  "13315e1de5060617facac5305bcef41314927cd07f7cc62cb3c6bf82b2dff2bf"
+                  },
+                  {
+                      "path":  "DistributeServer.ini",
+                      "bytes":  216,
+                      "sha256":  "43913d2d458475c08410fb9b0ad7959bae9a244414dc916e36c6c9475e5af4bc"
+                  },
+                  {
+                      "path":  "DistributeServer.opt",
+                      "bytes":  43520,
+                      "sha256":  "4a25314e1227ef931f1327763238c9f92763bec5f93c336195acb02b11db01c5"
+                  },
+                  {
+                      "path":  "DistributeServer_KOR.exe",
+                      "bytes":  1324544,
+                      "sha256":  "13315e1de5060617facac5305bcef41314927cd07f7cc62cb3c6bf82b2dff2bf"
+                  },
+                  {
+                      "path":  "DistributeServer_new.exe",
+                      "bytes":  205312,
+                      "sha256":  "9b3d0cdd7d48f0195c8c5a638eaf9629fbdbd67e8ff3071cf634f79990dd9d80"
+                  },
+                  {
+                      "path":  "DLL/_backup_old/INetwork_2008_orig.dll",
+                      "bytes":  193087,
+                      "sha256":  "589813fcee21cbf72abb1314c0ded20701820edbd4d16e9c393141077547b2d3"
+                  },
+                  {
+                      "path":  "DLL/_backup_old/INetwork_2008_orig_unpatched.dll",
+                      "bytes":  193087,
+                      "sha256":  "589813fcee21cbf72abb1314c0ded20701820edbd4d16e9c393141077547b2d3"
+                  },
+                  {
+                      "path":  "DLL/_backup_old/INetwork_patched_NOP.dll",
+                      "bytes":  193087,
+                      "sha256":  "d67eea2155c431c2d1c6cfdae0e563d1da9f47c39b3d293b9d10c687031955a5"
+                  },
+                  {
+                      "path":  "DLL/code.dll",
+                      "bytes":  1323054,
+                      "sha256":  "8e1c34cdae61f14c2380e520fdd9df4a2f0c0c05a51fcf2fa22368234df2e165"
+                  },
+                  {
+                      "path":  "DLL/ConsoleStub.dll",
+                      "bytes":  83968,
+                      "sha256":  "2b2a51dce848093b1807729e3edeb1e98e04424a7cb88346b8d403354fa11580"
+                  },
+                  {
+                      "path":  "DLL/DBTHREAD.dll",
+                      "bytes":  1392692,
+                      "sha256":  "1cbd54375387dfc3af2288eeaeed9ed0af5e80325105257e71bc1c1b997696ca"
+                  },
+                  {
+                      "path":  "DLL/FTP_DownLoader.dll",
+                      "bytes":  61440,
+                      "sha256":  "414f94080b845f07208b2e7a31d9c3a467c7ebab18615166d2cb4b6fd5fa7f92"
+                  },
+                  {
+                      "path":  "DLL/IConsole.dll",
+                      "bytes":  154995,
+                      "sha256":  "6176de9843958b6df76eafa7e645bbf390685c42cef8d555b3d103b87dfcbbb2"
+                  },
+                  {
+                      "path":  "DLL/INetwork.dll",
+                      "bytes":  193087,
+                      "sha256":  "589813fcee21cbf72abb1314c0ded20701820edbd4d16e9c393141077547b2d3"
+                  },
+                  {
+                      "path":  "DLL/INetwork.dll.bak",
+                      "bytes":  193087,
+                      "sha256":  "589813fcee21cbf72abb1314c0ded20701820edbd4d16e9c393141077547b2d3"
+                  },
+                  {
+                      "path":  "DLL/INetwork_2026_modern.dll",
+                      "bytes":  150016,
+                      "sha256":  "e9355069e94554bc7d936b8e2e0e23d2d10f750f1957b19b27f60974ea6d6e05"
+                  },
+                  {
+                      "path":  "DLL/MHConsole.dll",
+                      "bytes":  73728,
+                      "sha256":  "3a96aa79d3ecfbccd23a35c15e81017c9449c1e7654af62588ce5577bf70bf66"
+                  },
+                  {
+                      "path":  "DLL/ODBC.exe",
+                      "bytes":  20480,
+                      "sha256":  "ad5707ac11aaccc4d2f5b2c7a39e23b7c398ff1a3a8e87ee5ffc6afcf00c5071"
+                  },
+                  {
+                      "path":  "DLL/regbat.bat",
+                      "bytes":  83,
+                      "sha256":  "896554addbffa52e44014c2377e41d2fb571ceb70f21c8b4af78f5c3017c2d10"
+                  },
+                  {
+                      "path":  "DLL/regdll.exe",
+                      "bytes":  40960,
+                      "sha256":  "6b360d5317504a86072306089dad2a7d2b5bf087f4603ab90cdc64fb45e24b13"
+                  },
+                  {
+                      "path":  "FreeImage.dll",
+                      "bytes":  663552,
+                      "sha256":  "f90472bec5aeaee95b152d0c7bdd7afbb29ea91a11b865d6d5b6c520eafa2a90"
+                  },
+                  {
+                      "path":  "IConsole.dll",
+                      "bytes":  154995,
+                      "sha256":  "6176de9843958b6df76eafa7e645bbf390685c42cef8d555b3d103b87dfcbbb2"
+                  },
+                  {
+                      "path":  "INetwork.dll",
+                      "bytes":  193087,
+                      "sha256":  "589813fcee21cbf72abb1314c0ded20701820edbd4d16e9c393141077547b2d3"
+                  },
+                  {
+                      "path":  "InitedDate",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "InitedDate.txt",
+                      "bytes":  23,
+                      "sha256":  "be65ca297509839e1508d0f669d55dee94649341d67c29e7eecf3cd9633783e5"
+                  },
+                  {
+                      "path":  "Log/AgentServer.err.log",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/AgentServer.out.log",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/Assert_101_20090527.txt",
+                      "bytes":  577,
+                      "sha256":  "2e8bb6b5d797438a1fb8bcfc4c5fb303219e4daa2b68facd96cb817b46a82c72"
+                  },
+                  {
+                      "path":  "Log/Assert_103_20090527.txt",
+                      "bytes":  628,
+                      "sha256":  "5efe792f708c92b6e8a7e3ac298ea0d18bbc7244c0a75de3b57df583eef0f6f1"
+                  },
+                  {
+                      "path":  "Log/Assert_105_20090526.txt",
+                      "bytes":  782,
+                      "sha256":  "f62fb096fee5bf90d88e458efa3af181a2b3c3e5d4c3b186f0bc20a7320c237a"
+                  },
+                  {
+                      "path":  "Log/Assert_108_20090526.txt",
+                      "bytes":  577,
+                      "sha256":  "3469a7a12613363243571db8b2035235ffae600e1283e17338d25d0789593fe1"
+                  },
+                  {
+                      "path":  "Log/Assert_12_20090526.txt",
+                      "bytes":  2097,
+                      "sha256":  "c78198a6c0a6dcaa5c8c3c892cdfc56b4574dac862712011555c8b85a20d5b2f"
+                  },
+                  {
+                      "path":  "Log/Assert_12_20090527.txt",
+                      "bytes":  1914,
+                      "sha256":  "33093529408e63d6c9649e7a4669421bcc8bfd7471c074a4b0ac4351bf0926f5"
+                  },
+                  {
+                      "path":  "Log/Assert_13_20090526.txt",
+                      "bytes":  1159,
+                      "sha256":  "f8c9c11533248e62786a1c147a3d8ee6c1b979552a6bc545fdd756b5714a605f"
+                  },
+                  {
+                      "path":  "Log/Assert_17_20090526.txt",
+                      "bytes":  51466,
+                      "sha256":  "336c6a661c38af76f9a184ab1e9f8fe8f3cc00c2f546c35bd2bbe806932bd4f1"
+                  },
+                  {
+                      "path":  "Log/Assert_17_20090527.txt",
+                      "bytes":  5306,
+                      "sha256":  "1551bd683cd229515a00213d4c1d8552a20d04375e72e2701d08937aef27c5d9"
+                  },
+                  {
+                      "path":  "Log/Assert_17_20260711.txt",
+                      "bytes":  6833,
+                      "sha256":  "7498b3710344f80a0c7b1774534cc713aadad1001a6a61a767e94e1412fca851"
+                  },
+                  {
+                      "path":  "Log/Assert_17_20260715.txt",
+                      "bytes":  710,
+                      "sha256":  "3fc99c1a97ead7a8edad6f51b377f9930e13d4633602a8c714aee6e7a3e370bb"
+                  },
+                  {
+                      "path":  "Log/Assert_20090526.txt",
+                      "bytes":  3900,
+                      "sha256":  "73be8d63c15e0d5896a2f29b81ca98c9e75d5c3144c7ae1e2af1fef70be44c5d"
+                  },
+                  {
+                      "path":  "Log/Assert_20090527.txt",
+                      "bytes":  3080,
+                      "sha256":  "5c33542d1f30008b92052e7eba5b9521138e90638e8414717937a844c71b9e13"
+                  },
+                  {
+                      "path":  "Log/Assert_95_20090526.txt",
+                      "bytes":  1358,
+                      "sha256":  "6cce77619e6e4fc37ba9e4b5c6c634cfe251dfb5ab373ca6ff1b94bc34adf27b"
+                  },
+                  {
+                      "path":  "Log/Assert_95_20260820.txt",
+                      "bytes":  710,
+                      "sha256":  "67a5156fc28a2e96bc7cae4afbaaa29c5b9fdb60e457fdd54d9eee1d65ba1f0d"
+                  },
+                  {
+                      "path":  "Log/Assert_96_20090526.txt",
+                      "bytes":  2252,
+                      "sha256":  "e2d37ede9eca46713eb9f10a71a3eac46d115529b7ed3c4a493e0a5963b57bdb"
+                  },
+                  {
+                      "path":  "Log/Assert_96_20090527.txt",
+                      "bytes":  677,
+                      "sha256":  "f3191deebe8d9460ba40600ed87013fff66e4065793f788c3655d14b7e16ce9b"
+                  },
+                  {
+                      "path":  "Log/ConsoleLog.txt",
+                      "bytes":  53705,
+                      "sha256":  "802f78f87dd012844ffa5b906f3ca0b8c8a5736714657d293f3624d5a618e4b7"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_101_20090527.txt",
+                      "bytes":  85,
+                      "sha256":  "844a337eec8a6857a56e3791b00d1f1fba9290fe72dbe83ae41ae4d806f98bd4"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_105_20090526.txt",
+                      "bytes":  88,
+                      "sha256":  "66cfeb40356c77f69197e2045e7b54a369ddc15cb36d6800db21dd6077602618"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_108_20090526.txt",
+                      "bytes":  86,
+                      "sha256":  "2d308e456009b2daa98e035e8006dd3df71337cea2195c61b99dbe46d9515ab5"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_12_20090526.txt",
+                      "bytes":  260,
+                      "sha256":  "501daa8e64a2e9b38600dfa67f8a124b5478c46012fa43dd2b634e8666ddc3fc"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_12_20090527.txt",
+                      "bytes":  252,
+                      "sha256":  "e04ec12c55890ea7b937db8402173bbe4dc60d8aabf6a4bda770b406ba52d1c9"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_13_20090526.txt",
+                      "bytes":  174,
+                      "sha256":  "638211efc783cc0d4b438ce333168056c4076b679d243afabcba044e7f222ff9"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_17_20090526.txt",
+                      "bytes":  25911,
+                      "sha256":  "77fe655ce266f1d47b3271dc4d75193c1a9dd5b03ceba72044e7d34a794a8aa3"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_17_20090527.txt",
+                      "bytes":  681,
+                      "sha256":  "f43bd821a8327c28e55a22350a5e7d7a64a312b1bc5d404fd0bbf219cbdde98b"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_20090526.txt",
+                      "bytes":  3212,
+                      "sha256":  "150a240591063225c4eb89571908aa30ef432d310f999a655d91a2669fc43a57"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_20090527.txt",
+                      "bytes":  1639,
+                      "sha256":  "bdbf416c0ecba2595566bcc40b154e07abadd30a43f81493524c6d989bc4dcbb"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_95_20090526.txt",
+                      "bytes":  172,
+                      "sha256":  "1d90b9253e62c310428a67f49053a60dd57093be2175e38e6b579c5b9e62d535"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_96_20090526.txt",
+                      "bytes":  348,
+                      "sha256":  "5198985ffe4d495b67a51277b453d0b863ba1ad7c53370be47f97741e46b566d"
+                  },
+                  {
+                      "path":  "Log/DB_ERROR_LOG_96_20090527.txt",
+                      "bytes":  86,
+                      "sha256":  "6a689cb127bb951c45c97f6fc6179fb06f49926256ed852863a356ed874f11b3"
+                  },
+                  {
+                      "path":  "Log/Debug_17_20090526.txt",
+                      "bytes":  97541,
+                      "sha256":  "a7c7887fdba642b1272e80af82999c359def3f0b95875cba8c6fbbef971522f1"
+                  },
+                  {
+                      "path":  "Log/dist_test_err.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/dist_test_out.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/DistributeServer.err.log",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/DistributeServer.out.log",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/FieldBoss_13_20090526.txt",
+                      "bytes":  3217,
+                      "sha256":  "9cf7f36e07f7d58854df78cd94d39ddcaaeb6e98a2d9d059af912f427067846c"
+                  },
+                  {
+                      "path":  "Log/FieldBoss_17_20090526.txt",
+                      "bytes":  970,
+                      "sha256":  "f0207138344e041bf4d16cbdaf865c493873118b63859890b360dcba97d58b66"
+                  },
+                  {
+                      "path":  "Log/MapServer.err.log",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/MapServer.out.log",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "Log/ServerStart.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "map_stderr.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "map_stdout.txt",
+                      "bytes":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "mapchangefail.txt",
+                      "bytes":  99,
+                      "sha256":  "bc74860da3760492ceb9aead0f67fa564103e3dae9f61c1067aedc7c8e4d3e12"
+                  },
+                  {
+                      "path":  "MapDBInfo.txt",
+                      "bytes":  6,
+                      "sha256":  "7c2c1befd3caf92efbc4dd99c66732cbc6167d247dadef32da96226a4be63cf8"
+                  },
+                  {
+                      "path":  "MapServer.exe",
+                      "bytes":  1289728,
+                      "sha256":  "eb30dc991696732b2d2bc3efa9d457315d5eefcddf68f11345adb644ee5a0ebb"
+                  },
+                  {
+                      "path":  "MapServer.ini",
+                      "bytes":  293,
+                      "sha256":  "19fa081e4382c0bb4f5421ae715bbe5d6381dccd84d1d8507edef39fd508e857"
+                  },
+                  {
+                      "path":  "MapServer_KOR_test.exe",
+                      "bytes":  3852288,
+                      "sha256":  "a476f3e7957e456ca7ef9d08458cfbadd8e73267844ebfd54973193bdfd95f65"
+                  },
+                  {
+                      "path":  "MapServer_orig.exe",
+                      "bytes":  2555904,
+                      "sha256":  "c9c7d3c8f5f5bf6674ec9ee99c7343cf5ed5e3db434aea949d598c6fab219e16"
+                  },
+                  {
+                      "path":  "MFC42D.DLL",
+                      "bytes":  929844,
+                      "sha256":  "3a3fa253ce80cf55027abc7918f8984057a94d1832302fb9893402aba9d35dff"
+                  },
+                  {
+                      "path":  "mfc71.dll",
+                      "bytes":  1060864,
+                      "sha256":  "385ea2a454172e3f9b1b18778d4d29318a12be9f0c0c0602db72e2cce136e823"
+                  },
+                  {
+                      "path":  "mfco42d.dll",
+                      "bytes":  798773,
+                      "sha256":  "dcb52a1db8cb5daaebdf900bb5f667f1660cac1e5827cf8904bc45da20abac46"
+                  },
+                  {
+                      "path":  "MHConsole.dll",
+                      "bytes":  73728,
+                      "sha256":  "3a96aa79d3ecfbccd23a35c15e81017c9449c1e7654af62588ce5577bf70bf66"
+                  },
+                  {
+                      "path":  "MHVerInfo.ver",
+                      "bytes":  12,
+                      "sha256":  "062f86f92ec59cfe832b0398381680550e84abecdf6b80e0a809b24f4d9c2ac7"
+                  },
+                  {
+                      "path":  "MonitoringServer.exe",
+                      "bytes":  188416,
+                      "sha256":  "b9a1941840ce3306ea72c639c97e035c87826023b57fb50b6743f5e7fe13408d"
+                  },
+                  {
+                      "path":  "MonitoringServer.exe.b00",
+                      "bytes":  188416,
+                      "sha256":  "bebbdbe139f3b66ed2c38eedb75276a60a66880b1ad30aa7a0274c3e2b9260ca"
+                  },
+                  {
+                      "path":  "MS_Debug.txt",
+                      "bytes":  16,
+                      "sha256":  "8d77f069da8177288339f832e0d224e68e35c3a0d3ba4593f88715d88ba16277"
+                  },
+                  {
+                      "path":  "mss32.dll",
+                      "bytes":  370688,
+                      "sha256":  "7855b8fbae917cb8449f2d4361ab61b5ecec4df0a11130d797cb0aa99b4260ea"
+                  },
+                  {
+                      "path":  "msvcp60.dll",
+                      "bytes":  401462,
+                      "sha256":  "f1fd0f1a54f196b19a6f21044092c89c02353dad173c236d80f6474cb8a7ea7f"
+                  },
+                  {
+                      "path":  "MSVCP60D.DLL",
+                      "bytes":  516173,
+                      "sha256":  "68deb8cad3c055beebd3748aaed06e8ad4a365c18ac198ac6bc7c3ac7cd3496f"
+                  },
+                  {
+                      "path":  "msvcp71.dll",
+                      "bytes":  499712,
+                      "sha256":  "df96156f6a548fd6fe5672918de5ae4509d3c810a57bffd2a91de45a3ed5b23b"
+                  },
+                  {
+                      "path":  "msvcp71d.dll",
+                      "bytes":  765952,
+                      "sha256":  "c19c69ead56b16a8bbc81cb8067e1cbe43c3c2c44c7f1fe8438bd9357fa90918"
+                  },
+                  {
+                      "path":  "msvcr71.dll",
+                      "bytes":  348160,
+                      "sha256":  "8094af5ee310714caebccaeee7769ffb08048503ba478b879edfef5f1a24fefe"
+                  },
+                  {
+                      "path":  "msvcr71d.dll",
+                      "bytes":  544768,
+                      "sha256":  "cd20e6ccf6ce1d7f968dbf24040c365f53e7b5e868dbb0df5009698b2aa8963a"
+                  },
+                  {
+                      "path":  "MSVCRTD.DLL",
+                      "bytes":  434252,
+                      "sha256":  "9ccc9526a034e337c1db7f4afb60d88130ebca9327287915ed50e87c873e44f2"
+                  },
+                  {
+                      "path":  "RainFTP.dll",
+                      "bytes":  278593,
+                      "sha256":  "9325f80ae20b8acf49bf20fcf1cfe9c6488fd6f601c5caba887fd0fd1bcc4fe6"
+                  },
+                  {
+                      "path":  "Resource/AbilityBaseInfo.bin",
+                      "bytes":  12686,
+                      "sha256":  "72fccf37a4e8fa329f9f002db6d1bce6304d04b61f9f713e49e6e1c16bcb8155"
+                  },
+                  {
+                      "path":  "Resource/AbilityCalcInfo.bin",
+                      "bytes":  1762,
+                      "sha256":  "9d99f93a5643a2510e7939939c707000f353eea0df990aaf430edc370b09855a"
+                  },
+                  {
+                      "path":  "Resource/AvatarEquip.bin",
+                      "bytes":  26751,
+                      "sha256":  "55c5e8d3c23d24f314ba1a8f703091a9b13f7ed949cd62ebf9ea660040206c08"
+                  },
+                  {
+                      "path":  "Resource/BobusangInfo.bin",
+                      "bytes":  627,
+                      "sha256":  "2a360db7fd0f7f312f5f56aca26503c24efb7ffeeb63a43b59ad40d5826068e5"
+                  },
+                  {
+                      "path":  "Resource/CastleGateList.bin",
+                      "bytes":  321,
+                      "sha256":  "20d60ff4071e3c1b056c72654ebdacb7c665b6bf53276bf7d1d44a6ce45e4ed2"
+                  },
+                  {
+                      "path":  "Resource/CharacterExpPoint.bin",
+                      "bytes":  3667,
+                      "sha256":  "ed581cbdd5ebf33e95c566c25355343a52ad3673066abc1b0118fb15c76cf90a"
+                  },
+                  {
+                      "path":  "Resource/CostumeSkinItemList.bin",
+                      "bytes":  834,
+                      "sha256":  "eea955ea3c893e820d1df63e42e74bba3167ab1314caa3e898c09bc2413c0fa9"
+                  },
+                  {
+                      "path":  "Resource/Dealitem.bin",
+                      "bytes":  166939,
+                      "sha256":  "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a"
+                  },
+                  {
+                      "path":  "Resource/FilterWord.bin",
+                      "bytes":  1167,
+                      "sha256":  "15cbe70983278e67ba4096b33d968df4823d0bd00c9a13ad69856c128b6a9a73"
+                  },
+                  {
+                      "path":  "Resource/FlagNpcInfo.bin",
+                      "bytes":  80,
+                      "sha256":  "a3fdb4dbeca6fcbe63668fa6af3d0bd1cc89cb456071f2f3fbae26738454ce7c"
+                  },
+                  {
+                      "path":  "Resource/GuildLevel.bin",
+                      "bytes":  45,
+                      "sha256":  "b88fc3af86e32a96135a7efefd15920a5674c623eb262f7257f6030500fac6b3"
+                  },
+                  {
+                      "path":  "Resource/GuildPointPlustimeList.bin",
+                      "bytes":  133,
+                      "sha256":  "4c8b1e61c20ff1d8f8080f891611ca57cd76ee82a4ed731ce2e789cc3f4a6da1"
+                  },
+                  {
+                      "path":  "Resource/hideitemlock.bin",
+                      "bytes":  166,
+                      "sha256":  "c8f025a9a712dc98ecb381bf5589fef8fc80a0f99682d5c1a5c0d02f22317e1a"
+                  },
+                  {
+                      "path":  "Resource/Item_RareItemInfo.bin",
+                      "bytes":  7727,
+                      "sha256":  "dd6dc937a30419068ad5fd31a2f21477a23da564ddfcb79d70b77d315e7b94e4"
+                  },
+                  {
+                      "path":  "Resource/item_RareReinforceList.bin",
+                      "bytes":  438,
+                      "sha256":  "2d7c7136e824c93d897c811165daf151c4587c975fcbe53c4c7d29757cc6b0d8"
+                  },
+                  {
+                      "path":  "Resource/itembreak.bin",
+                      "bytes":  11273,
+                      "sha256":  "41c3bb6a245c54df3f7ff5a5ab75c2202f212a8dcf438911ad0c3ab4ff1f8025"
+                  },
+                  {
+                      "path":  "Resource/ItemdupOption.bin",
+                      "bytes":  7079,
+                      "sha256":  "3936cd18714165febe6126ee649a9310ebcb80a63123888b71f0927a3d7809e3"
+                  },
+                  {
+                      "path":  "Resource/ItemList.bin",
+                      "bytes":  1510488,
+                      "sha256":  "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd"
+                  },
+                  {
+                      "path":  "Resource/ItemList.rar",
+                      "bytes":  566979,
+                      "sha256":  "013635d05c1870ebc30274fb9556c9e257fc48bc61faf11530d1bf2b262ed6d0"
+                  },
+                  {
+                      "path":  "Resource/ItemMixList.bin",
+                      "bytes":  430244,
+                      "sha256":  "d07fdea65f28cca18d0ab919c8c2c2b49bf067e26eb0b4725944d9e607334566"
+                  },
+                  {
+                      "path":  "Resource/itemReinforceList.bin",
+                      "bytes":  370,
+                      "sha256":  "7f1214c3f3d15420079700796562764b655f8cb956229917c3dd15bdb64667d0"
+                  },
+                  {
+                      "path":  "Resource/Jobskill.bin",
+                      "bytes":  466,
+                      "sha256":  "6301726d0ada62b1a0295ec8c4e60ae5f957811cd7ba192e5f354a64f3b4dfe8"
+                  },
+                  {
+                      "path":  "Resource/JobSkillList.bin",
+                      "bytes":  278,
+                      "sha256":  "7b306270acc1a67d2025c80b11582dfa125afc1442310354636133ef41ab8864"
+                  },
+                  {
+                      "path":  "Resource/KyungGongInfo.bin",
+                      "bytes":  208,
+                      "sha256":  "65bebd576f930a9b73c0aa802d590a742fd4c5084babd82e9e5c6c3620305f62"
+                  },
+                  {
+                      "path":  "Resource/Map/1.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "a59444183f34a40aa8d2ee44693e1399a5d3a31dbf394893ecc27ad407a1e894"
+                  },
+                  {
+                      "path":  "Resource/Map/10.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "6b1cc9a83d79aa7f764e1d19446ee3aff6d9625f7d8a52b02ffa8be7e4b78f5b"
+                  },
+                  {
+                      "path":  "Resource/Map/101.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "b7bf296d8715bbf127c3a4602ac2f4323f06d2d5a71e1254f3330d619926f6c7"
+                  },
+                  {
+                      "path":  "Resource/Map/102.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "aa8be13c0a899d7c00632c685f3594af685c441077a1749229879eb754bc8092"
+                  },
+                  {
+                      "path":  "Resource/Map/104.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "3ef166567912d9e38e121b48f906350c7cbf1d961cd8b26cceab035368221cc5"
+                  },
+                  {
+                      "path":  "Resource/Map/105.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "616dddbf709727f67dd21e88223f94067102d0a566a89ba8169cc8574b69800b"
+                  },
+                  {
+                      "path":  "Resource/Map/106.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "9a2b9eafa721a4666f22029d38cd07a41e0f7ab9aef982016ccedbc21e24516e"
+                  },
+                  {
+                      "path":  "Resource/Map/108.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "d81398e5cc76bc9ec9f9ad3dc64a958fc6d9cc9cc35e19b7455a635f84d793fd"
+                  },
+                  {
+                      "path":  "Resource/Map/11.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "1a951c469efb3fb7b7e85d99dea288774d36c8a3536984b7ce0b767989980aca"
+                  },
+                  {
+                      "path":  "Resource/Map/12.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "51359d8caf3278aaa63e0e0ccc5af3a1a3fe42c6612d68372f892c3e57da66b8"
+                  },
+                  {
+                      "path":  "Resource/Map/13.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "8d888079cc50abb60a8124d45dde3a270145ebd82bc9374d4efc2e18af1e7af5"
+                  },
+                  {
+                      "path":  "Resource/Map/14.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "09c8b643a8e24ac9845983650bf5dbb7a8ab5a04e0f369c7409240f622523d08"
+                  },
+                  {
+                      "path":  "Resource/Map/15.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "579e8d97c943e7d5b648b001b3983bfdb586d6d10a16bd1386737eebd85db4c0"
+                  },
+                  {
+                      "path":  "Resource/Map/17.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "e6e85c1736a5ae0b0ef49bc91baa3eb3626e6ab51cd76a9e2521215b310106ec"
+                  },
+                  {
+                      "path":  "Resource/Map/18.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "d7aa5344aabf32e1f2663581c3f9b61d48628493bccf4fcb8a52c197946be082"
+                  },
+                  {
+                      "path":  "Resource/Map/19.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "5eff73b7d2e195e8e3c65d6ab9d6ad7a36fd5ad9b05e8a6c9b66714e224b33d0"
+                  },
+                  {
+                      "path":  "Resource/Map/2.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "0bf670b3121a2d25b3db76ec94782ac6e583319751ab0fec670caff4fb406de5"
+                  },
+                  {
+                      "path":  "Resource/Map/20.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "7c1e160a852f4ccba2e43e6fb9bd9635736fd105a01b412d67cf218c0f3ed819"
+                  },
+                  {
+                      "path":  "Resource/Map/21.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "aa0417aab668f4ca66adee41aaaeb71e70baaf6cc71633db94a15f9f721e26ba"
+                  },
+                  {
+                      "path":  "Resource/Map/22.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "39f0a33588c5a0c753b82e6c7abf281f11e2a4ea03c8b9cce15c8b50bc078714"
+                  },
+                  {
+                      "path":  "Resource/Map/25.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "8c918225e208786785c2775b851c44d28461a8bbe1ce740c70898404c00e0df2"
+                  },
+                  {
+                      "path":  "Resource/Map/27.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "d32fbaa1fea6c9de4fbdb86e45a136acacb4a9df1b3a6584c8a231784a9c9fdb"
+                  },
+                  {
+                      "path":  "Resource/Map/28.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "a90dd1a2386ed72fe12727cffb74871abb9c52fc0e32d7a8a75f6432db2657dd"
+                  },
+                  {
+                      "path":  "Resource/Map/35.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "3b84b03331c7767acd5ba34401844cc2dd594a5b9a7e06fbd0a0e7d901c5ed7b"
+                  },
+                  {
+                      "path":  "Resource/Map/39.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "5701963d340009eaa3e51f04c7ec0d5530917c1af2292a8952f5ce81b397189a"
+                  },
+                  {
+                      "path":  "Resource/Map/40.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "20482a386dca4c7e1946e63ce4bdbbe559390db5313916aa9c5827a0f5b28642"
+                  },
+                  {
+                      "path":  "Resource/Map/44.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "6e936bc95cc95a3a070df6d20106337d699da6c8d3e65c08b6c049f4bf9d9cfb"
+                  },
+                  {
+                      "path":  "Resource/Map/5.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "727a30587d85c122d088f23cd0eb063690a5856b1436a9ce36edcb3807822ee0"
+                  },
+                  {
+                      "path":  "Resource/Map/54.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "123a2e4b7129aedf750de48773498ece5d79ca4ff36380bf194689a396aed57c"
+                  },
+                  {
+                      "path":  "Resource/Map/55.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "a90dd1a2386ed72fe12727cffb74871abb9c52fc0e32d7a8a75f6432db2657dd"
+                  },
+                  {
+                      "path":  "Resource/Map/58.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "a90dd1a2386ed72fe12727cffb74871abb9c52fc0e32d7a8a75f6432db2657dd"
+                  },
+                  {
+                      "path":  "Resource/Map/59.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "3be8a8b838848048d51dbfb7cd89f2272773a0f5b72d62870dcea60e49d0729c"
+                  },
+                  {
+                      "path":  "Resource/Map/6.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "f5b79937d9041ff835b03202df3cf7dc53afd569047feed2b22d0709ca258014"
+                  },
+                  {
+                      "path":  "Resource/Map/60.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "73978e2d3cb6d706f442b4ffb0f9d744816aa3102a6f086742289ddd749be513"
+                  },
+                  {
+                      "path":  "Resource/Map/65.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "1d1bfc9498168dd121fbac251a08ad293e012b664d8c883e31d6ee618d922cb7"
+                  },
+                  {
+                      "path":  "Resource/Map/66.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "4a8fe6603f539dc2e20a1ccb70307847f9615640958f7acc78185fbb800327ce"
+                  },
+                  {
+                      "path":  "Resource/Map/67.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "e6045eb44ddb0181fc77d79ebe5e4b346b0c2eaa344b90eda396fb56f1f63d6e"
+                  },
+                  {
+                      "path":  "Resource/Map/68.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "80bc5ee0bce50448eb846524787f3890d1babe97628630e959e8d1b442ef4a55"
+                  },
+                  {
+                      "path":  "Resource/Map/69.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "21f7b8ed2e2b77ac8b74e0aa394227660f848bfc8d1f07ccdd8f9cb2b22b6bf0"
+                  },
+                  {
+                      "path":  "Resource/Map/7.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "4846e9003ed6a6daaaf31eaaf54d327f3858460619a997d92ef1e2d85bd67628"
+                  },
+                  {
+                      "path":  "Resource/Map/70.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "4b92bbc9e0c145c8a139228cf7e9e15c9bbca948e5e2ae7814d046d0fd8f36a7"
+                  },
+                  {
+                      "path":  "Resource/Map/72.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "042c25e9bcfa59ec7d355059ec358228906be43e7814b3fa47e9e6faa765a708"
+                  },
+                  {
+                      "path":  "Resource/Map/73.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "2c684df191b93f296794d8b2c4107f89092f819c3d1ef425cec3e0ea4e4194f0"
+                  },
+                  {
+                      "path":  "Resource/Map/75.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "49f0e3d4f362db40c208e80b35b2d4121baf695067a9abe2dd8aa0614a04266d"
+                  },
+                  {
+                      "path":  "Resource/Map/8.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "4cc7f11efa9dc0fa02b40434225154f0b66f9bcbc0b5d96ad8d4aa2221b4edfa"
+                  },
+                  {
+                      "path":  "Resource/Map/9.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "bfd72c09e44f455d9cb1352d218fbb6ad3e43d8efd2daa3de82560774e8557f2"
+                  },
+                  {
+                      "path":  "Resource/Map/95.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "c05aaa7c10c9edaf3cd485dd6f4b9bf893ae0fd34b2f8f74d164430931b5681d"
+                  },
+                  {
+                      "path":  "Resource/Map/96.ttb",
+                      "bytes":  2097160,
+                      "sha256":  "16f6c3da2474a6e9225951ee98da8cdc35719defb6dbb4fa291d66ccb5c66b0d"
+                  },
+                  {
+                      "path":  "Resource/Map/Map0.bmhm",
+                      "bytes":  191,
+                      "sha256":  "8edca8453009d1fd70ce4eded244a195ab3ba6b3fa16e6b98f4c561af200b14d"
+                  },
+                  {
+                      "path":  "Resource/Map/Map1.bmhm",
+                      "bytes":  282,
+                      "sha256":  "11f3b14bbdc9f2756bacb4267f086c9b9b60baaee2b1123e1d99a9f18fe73462"
+                  },
+                  {
+                      "path":  "Resource/Map/Map10.bmhm",
+                      "bytes":  271,
+                      "sha256":  "01d53ffb669ca30d32836930ee65ef391988e9747b7261af64da0aecb345843b"
+                  },
+                  {
+                      "path":  "Resource/Map/Map100.bmhm",
+                      "bytes":  263,
+                      "sha256":  "7fe9a783d4f2170412683ec3e1a49bbcc1eeddc55bb07b30275204e7df7cab71"
+                  },
+                  {
+                      "path":  "Resource/Map/Map101.bmhm",
+                      "bytes":  517,
+                      "sha256":  "ff8f11f58990fc2dccb629612e1b32108057d09c2c8c9e2241af1a8bad198d52"
+                  },
+                  {
+                      "path":  "Resource/Map/Map102.bmhm",
+                      "bytes":  362,
+                      "sha256":  "fb961c9d3530d016daf6ea87bfd08379026ca63762f4e04f0ffcf246965705eb"
+                  },
+                  {
+                      "path":  "Resource/Map/Map103.bmhm",
+                      "bytes":  307,
+                      "sha256":  "245b9cb43d65b2cff0408b3ca1f7ba509c1dce619dad1ea76fa686816603914a"
+                  },
+                  {
+                      "path":  "Resource/Map/Map104.bmhm",
+                      "bytes":  310,
+                      "sha256":  "9bd4f0b53fcfce4d4608ecdad745ffcf10453798a532fb3302d9ff17c79be5c3"
+                  },
+                  {
+                      "path":  "Resource/Map/Map105.bmhm",
+                      "bytes":  436,
+                      "sha256":  "46497967e61943f8ccde2b5eaab980df4e3942a7fc76c68669a67f39dea6591f"
+                  },
+                  {
+                      "path":  "Resource/Map/Map106.bmhm",
+                      "bytes":  344,
+                      "sha256":  "ed35aeacdb09947459686f3f79298928266d01e82017520405e6fd4c024a3dfe"
+                  },
+                  {
+                      "path":  "Resource/Map/Map108.bmhm",
+                      "bytes":  324,
+                      "sha256":  "b362799db30087a51920ca9711f48c7bb1a6214941f6e9179cd013203ff279fc"
+                  },
+                  {
+                      "path":  "Resource/Map/Map11.bmhm",
+                      "bytes":  276,
+                      "sha256":  "646c2d8cd9c90d3d84ff9dc1f4dd2067af703a6586ab76575c72e6af1f632f32"
+                  },
+                  {
+                      "path":  "Resource/Map/Map12.bmhm",
+                      "bytes":  367,
+                      "sha256":  "b23455fd05b7b6cb8006e8f76854f46cfcc92a421e6d63ae817c9336823557fa"
+                  },
+                  {
+                      "path":  "Resource/Map/Map13.bmhm",
+                      "bytes":  352,
+                      "sha256":  "947357836fab7911786bdc5572e7b8b579ec08578c335ee18d3b45a87c7aecaf"
+                  },
+                  {
+                      "path":  "Resource/Map/Map14.bmhm",
+                      "bytes":  319,
+                      "sha256":  "f3047a1e6cc02e2e60ca943d112659dc491ee2f762c558d4a055100605b58a64"
+                  },
+                  {
+                      "path":  "Resource/Map/Map15.bmhm",
+                      "bytes":  291,
+                      "sha256":  "3345f17187343e23586da18443754914ab84eb0169f9f749eec9104e2edf19ca"
+                  },
+                  {
+                      "path":  "Resource/Map/Map17.bmhm",
+                      "bytes":  298,
+                      "sha256":  "f0ee8696e92b987305bcd06d99bc84e38d155046f37c15c39983b1a64a8a0ad7"
+                  },
+                  {
+                      "path":  "Resource/Map/Map18.bmhm",
+                      "bytes":  280,
+                      "sha256":  "35c441ca45908fbafc6f4be4be20cb02d075d0a4865d5701f3144866e10317a6"
+                  },
+                  {
+                      "path":  "Resource/Map/Map19.bmhm",
+                      "bytes":  297,
+                      "sha256":  "69135c0dcfa1df93a68b2f610f2a8aa7b70d1681d5188571713f86f3b4a63957"
+                  },
+                  {
+                      "path":  "Resource/Map/Map2.bmhm",
+                      "bytes":  282,
+                      "sha256":  "360fdbe80913a4017589854a54f06fb9b3277dbe11e53eaed6a728b90e368d2c"
+                  },
+                  {
+                      "path":  "Resource/Map/Map20.bmhm",
+                      "bytes":  318,
+                      "sha256":  "b57abc168eccb2e8a57dc3ab65979fe3b30a56331e815e4e3d45c70815c8ad03"
+                  },
+                  {
+                      "path":  "Resource/Map/Map21.bmhm",
+                      "bytes":  239,
+                      "sha256":  "3b4fd697276fce93712d3f2c12ef6db1e6a5e41ec057cebecca47a3be7fcc2b7"
+                  },
+                  {
+                      "path":  "Resource/Map/Map22.bmhm",
+                      "bytes":  238,
+                      "sha256":  "c43f25d459470fd61a20f0013e58def613b9b14a6eadcc3ce6c2522ddc93cdef"
+                  },
+                  {
+                      "path":  "Resource/Map/Map23.bmhm",
+                      "bytes":  224,
+                      "sha256":  "dcc087b06a19719f9a50274345f08e22f6051555ac2236152e7df80fa17f7815"
+                  },
+                  {
+                      "path":  "Resource/Map/Map24.bmhm",
+                      "bytes":  224,
+                      "sha256":  "2e59a01cd04e3f231c2f76a71f9e412349865da934386f0740b7441efb7484ec"
+                  },
+                  {
+                      "path":  "Resource/Map/Map25.bmhm",
+                      "bytes":  279,
+                      "sha256":  "309a8c0397519fb9e0768f5c2f1eb3d6dbc176b61a54020371aaf7bf5a887986"
+                  },
+                  {
+                      "path":  "Resource/Map/Map26.bmhm",
+                      "bytes":  224,
+                      "sha256":  "6dca6685fe8c7eebc599e7b8959d088e2877d1f225f1745f7a48acc59500bc82"
+                  },
+                  {
+                      "path":  "Resource/Map/Map27.bmhm",
+                      "bytes":  214,
+                      "sha256":  "5ff28218667c90d97e4e58d2ee9382f2d19e52d1e50f372408dff19296ace615"
+                  },
+                  {
+                      "path":  "Resource/Map/Map28.bmhm",
+                      "bytes":  318,
+                      "sha256":  "a8595d1f1075f72f15cecc5bdc202f7571191a8ed9480ee52ac1e6e8988a23a6"
+                  },
+                  {
+                      "path":  "Resource/Map/Map3.bmhm",
+                      "bytes":  215,
+                      "sha256":  "579d9b2eb2a21d94471ea14f274fe1b3f9da2cf85c7bfc1141a7e567da4e89de"
+                  },
+                  {
+                      "path":  "Resource/Map/Map32.bmhm",
+                      "bytes":  224,
+                      "sha256":  "52a44e647b165cae0e3fca5210b2e96df5ceee1e8c843e3b6992ac58f6761049"
+                  },
+                  {
+                      "path":  "Resource/Map/Map33.bmhm",
+                      "bytes":  224,
+                      "sha256":  "546aa949dbce6e143b9c1a30842e6b9f535c96cbbd522ef43f3e35581c41c170"
+                  },
+                  {
+                      "path":  "Resource/Map/Map34.bmhm",
+                      "bytes":  224,
+                      "sha256":  "4a979e86dbf358bb9628084d105bf12aa6b2c7c89c7423adcaac4e240c22983d"
+                  },
+                  {
+                      "path":  "Resource/Map/Map35.bmhm",
+                      "bytes":  380,
+                      "sha256":  "ca06ce4e745e22580f511de6fc856fc26dba050bde770d5753fe74e187d53795"
+                  },
+                  {
+                      "path":  "Resource/Map/Map37.bmhm",
+                      "bytes":  324,
+                      "sha256":  "8ec16f22bc470ede6c8392cbf215e0e88f807494e3de19a66414b29b156ee395"
+                  },
+                  {
+                      "path":  "Resource/Map/Map39.bmhm",
+                      "bytes":  288,
+                      "sha256":  "077718df885c9c62be21485c2813bf0817e84f6b1142a21a31311e009d305761"
+                  },
+                  {
+                      "path":  "Resource/Map/Map4.bmhm",
+                      "bytes":  224,
+                      "sha256":  "4d5d10220380869400843740ee7ac4760d414bcb55c94d0f09c3c5552f0d805b"
+                  },
+                  {
+                      "path":  "Resource/Map/Map40.bmhm",
+                      "bytes":  320,
+                      "sha256":  "b797cffd2153068add6f5f9504af2250227a4e993c7751a2f77ca35785ff7b95"
+                  },
+                  {
+                      "path":  "Resource/Map/Map42.bmhm",
+                      "bytes":  266,
+                      "sha256":  "af6f89bd9c94aaec6cb1c2573f0e4638715f55e4e7068269018b14918bf570d2"
+                  },
+                  {
+                      "path":  "Resource/Map/Map44.bmhm",
+                      "bytes":  391,
+                      "sha256":  "612882ae08f5d81ec6e0016e704e7af8181facbaf7e7056e4a5419969b7e354d"
+                  },
+                  {
+                      "path":  "Resource/Map/Map5.bmhm",
+                      "bytes":  364,
+                      "sha256":  "0550118577644aecc8676803b58b4c54d34208a7e8e81e4cd9c97d9098e42dd8"
+                  },
+                  {
+                      "path":  "Resource/Map/Map55.bmhm",
+                      "bytes":  318,
+                      "sha256":  "ea2e40b56e694796e7f3eb70a368c7401ed47cff5ca743372dc22a074b756771"
+                  },
+                  {
+                      "path":  "Resource/Map/Map58.bmhm",
+                      "bytes":  318,
+                      "sha256":  "d0dd1e50ef33dcf7402f1a19cf684b4a75244b8cc50fbab1f44bc235d08cf7c7"
+                  },
+                  {
+                      "path":  "Resource/Map/map59.bmhm",
+                      "bytes":  296,
+                      "sha256":  "93918d7ec33032a5823c2c32db753e22feeb48281471c554f8dca748b5055032"
+                  },
+                  {
+                      "path":  "Resource/Map/Map6.bmhm",
+                      "bytes":  300,
+                      "sha256":  "0fb63654f5756a3c17d1f8df4162e43b53426dd2c425d74ae5f0dcbb1898448c"
+                  },
+                  {
+                      "path":  "Resource/Map/Map60.bmhm",
+                      "bytes":  287,
+                      "sha256":  "6f4ef290040f436c79cd40da53ec5f1ba1ba69e8083b1d5da218443b123f938a"
+                  },
+                  {
+                      "path":  "Resource/Map/map61.bmhm",
+                      "bytes":  296,
+                      "sha256":  "93b9890deb5f1f325320c1e6f45c47fdfe4aa7e287dfa77b32d47eec2eb8d090"
+                  },
+                  {
+                      "path":  "Resource/Map/Map65.bmhm",
+                      "bytes":  312,
+                      "sha256":  "d6bfffd824baf5ba88649a2900651770828e3a34a857e553154b5f77583b6b51"
+                  },
+                  {
+                      "path":  "Resource/Map/Map66.bmhm",
+                      "bytes":  287,
+                      "sha256":  "41ec67ed040efc4cce1fe2465c420853d01212e7f4881d21973a28f31ad77f0e"
+                  },
+                  {
+                      "path":  "Resource/Map/Map67.bmhm",
+                      "bytes":  278,
+                      "sha256":  "999d19467e51201342a1923056daa5402c8e47882ce37bd9a025d4c766273167"
+                  },
+                  {
+                      "path":  "Resource/Map/Map68.bmhm",
+                      "bytes":  271,
+                      "sha256":  "4cf51f9a61bf623104a97a3fbfca6f82cf2980b49656a38c186cdb32476cc304"
+                  },
+                  {
+                      "path":  "Resource/Map/Map69.bmhm",
+                      "bytes":  353,
+                      "sha256":  "735268d3f575675da90043873872d730c4cb3a946b7cf1e62184ecfdb3a74692"
+                  },
+                  {
+                      "path":  "Resource/Map/Map7.bmhm",
+                      "bytes":  334,
+                      "sha256":  "eebdeacd7e96be0bbb60853c1b26a6f959dcca544f11bd311fd2adf7015117b7"
+                  },
+                  {
+                      "path":  "Resource/Map/Map70.bmhm",
+                      "bytes":  307,
+                      "sha256":  "2c82f675264c2d0fa108adcfb31be7ed749410b2aa3872bbef5a2fdbdb9219bd"
+                  },
+                  {
+                      "path":  "Resource/Map/Map72.bmhm",
+                      "bytes":  266,
+                      "sha256":  "4093684a9599ef31b457883baa42a798e7375eb9aa36e5d6b03bba25cd340e6e"
+                  },
+                  {
+                      "path":  "Resource/Map/Map73.bmhm",
+                      "bytes":  324,
+                      "sha256":  "8ec16f22bc470ede6c8392cbf215e0e88f807494e3de19a66414b29b156ee395"
+                  },
+                  {
+                      "path":  "Resource/Map/Map75.bmhm",
+                      "bytes":  266,
+                      "sha256":  "af6f89bd9c94aaec6cb1c2573f0e4638715f55e4e7068269018b14918bf570d2"
+                  },
+                  {
+                      "path":  "Resource/Map/Map8.bmhm",
+                      "bytes":  261,
+                      "sha256":  "4bbcdc6619562d2b9622e53736afd155d4b54799aaca50e1cf3e7262c61f0381"
+                  },
+                  {
+                      "path":  "Resource/Map/Map9.bmhm",
+                      "bytes":  271,
+                      "sha256":  "2df3566bdb016ea78584514c736bbeabd3c8f1b34628fe9eeea1c27016c4c7ee"
+                  },
+                  {
+                      "path":  "Resource/Map/Map94.bmhm",
+                      "bytes":  305,
+                      "sha256":  "6ba1c34ea6c938f443989c5afb8d6b8dc2239a0230ce540c6026054125c893b2"
+                  },
+                  {
+                      "path":  "Resource/Map/Map95.bmhm",
+                      "bytes":  347,
+                      "sha256":  "3d402070c126540a2435d6a88959ba6ca93e32e5a55f32e4359b559d08fbcc99"
+                  },
+                  {
+                      "path":  "Resource/Map/Map96.bmhm",
+                      "bytes":  346,
+                      "sha256":  "ab7b52d206164e94d9b85f18c1642615e063bf7f766430c733a43a7f63a46c2c"
+                  },
+                  {
+                      "path":  "Resource/Map/Map97.bmhm",
+                      "bytes":  305,
+                      "sha256":  "74735eb738027d5b8cd56515ead52e7f0e4a972743028064d89ecab88dc319da"
+                  },
+                  {
+                      "path":  "Resource/Map/Map99.bmhm",
+                      "bytes":  262,
+                      "sha256":  "a3c3cab3feabe36df17a40d78fea9b4982e9f6c4b26b1fbcdaaafe5950330609"
+                  },
+                  {
+                      "path":  "Resource/MapChange.bin",
+                      "bytes":  9694,
+                      "sha256":  "17bde357391695f1a7916abca538040e8b5384a9a41b340dde826ef9eb2b08b2"
+                  },
+                  {
+                      "path":  "Resource/MapKindInfo.bin",
+                      "bytes":  1173,
+                      "sha256":  "6a22b6402b10c58e45f94982a287d240f7dc5570aacc9efce10356ec7535aa12"
+                  },
+                  {
+                      "path":  "Resource/MonsterDropItemList.bin",
+                      "bytes":  196253,
+                      "sha256":  "a65baf6ec5ffae8e3af8ec2c9fd9a4878a8773f69624aea1cafa594fc07e858e"
+                  },
+                  {
+                      "path":  "Resource/MonsterList.bin",
+                      "bytes":  141028,
+                      "sha256":  "c4a6174487c4407277710504199da0113580029d4a12c38bc88fc3b4bad3a96e"
+                  },
+                  {
+                      "path":  "Resource/NpcList.bin",
+                      "bytes":  2203,
+                      "sha256":  "072fbe4d4e597061a16303f9cffc23cba7568fdcbd3ab03503812d7a506eae9a"
+                  },
+                  {
+                      "path":  "Resource/PaneltyTime.bin",
+                      "bytes":  18,
+                      "sha256":  "c325790c750cd5f60099c1130446eccaed76fd91dc530cc204d1394c98007e4a"
+                  },
+                  {
+                      "path":  "Resource/PartyPlustimeInfo.bin",
+                      "bytes":  140,
+                      "sha256":  "8d2a03c04543541b8b67242780609fb29a189a516e96315a3f00dd01b1b6e426"
+                  },
+                  {
+                      "path":  "Resource/PenaltyTime.bin",
+                      "bytes":  18,
+                      "sha256":  "c325790c750cd5f60099c1130446eccaed76fd91dc530cc204d1394c98007e4a"
+                  },
+                  {
+                      "path":  "Resource/PetBuffList.bin",
+                      "bytes":  842,
+                      "sha256":  "7ab97421b003a27287994e33dda9356f899abe6b9e0efcba841b3e0af1414f75"
+                  },
+                  {
+                      "path":  "Resource/PetList.bin",
+                      "bytes":  2052,
+                      "sha256":  "eb00eaa5bc3aa4fb98efcdeb038544b649bd758a689dbf09574be8f120fee5cf"
+                  },
+                  {
+                      "path":  "Resource/PetRule.bin",
+                      "bytes":  441,
+                      "sha256":  "64aaa3cab2125fc586565e9fecfa6ae83ff70a611a96167b2b3734b4c9bfeff7"
+                  },
+                  {
+                      "path":  "Resource/PyogukListInfo.bin",
+                      "bytes":  106,
+                      "sha256":  "59efce6fb60ecf142d5ef913b6ca136664e8421924273d3c8f00482b235d7c4e"
+                  },
+                  {
+                      "path":  "Resource/QuestScript/NewbieGuide.bin",
+                      "bytes":  1676,
+                      "sha256":  "04730ab61858ea15358e0c6ede125f5b0578eaae206b52b0c8f1b47f6f9a243f"
+                  },
+                  {
+                      "path":  "Resource/QuestScript/QuestItemList.bin",
+                      "bytes":  38691,
+                      "sha256":  "2945012ef8ddfcf38f04317f6d972128ab2cdc95d9bd1999b1fe7fa3ee8c0abe"
+                  },
+                  {
+                      "path":  "Resource/QuestScript/questnpclist.bin",
+                      "bytes":  3521,
+                      "sha256":  "743368838344e9d3cb570acbfdb09f0c4012b30c2e30fc3424356dde9771c9c9"
+                  },
+                  {
+                      "path":  "Resource/QuestScript/QuestRegen.bin",
+                      "bytes":  2075,
+                      "sha256":  "f5f11d46b47298c7307521e4257f7199d119ad0eff0feceeaf980b7091d59365"
+                  },
+                  {
+                      "path":  "Resource/QuestScript/QuestScript.bin",
+                      "bytes":  240553,
+                      "sha256":  "304c272c46139dff3a3de2ea1ebfe59f1357772c1a41ba44aff4a25f6d3b24a9"
+                  },
+                  {
+                      "path":  "Resource/QuestScript/QuestString.bin",
+                      "bytes":  146362,
+                      "sha256":  "3ac196c4b57af2377fa37836ebaf23336b2f6a748daf5d5bb29e9b1e3f118a44"
+                  },
+                  {
+                      "path":  "Resource/sat.bin",
+                      "bytes":  13995,
+                      "sha256":  "1683ac377b7eda7078a543e83d31f1616f5564f4ef0a41322be1ae1a31c7b5c8"
+                  },
+                  {
+                      "path":  "Resource/Server/AttribItemChangeRato.bin",
+                      "bytes":  10428,
+                      "sha256":  "0b7b6889329210a999013df4d4c64595ea812ffcf12ff3fc3d378001089f1587"
+                  },
+                  {
+                      "path":  "Resource/Server/BobusangInfo.bin",
+                      "bytes":  1383,
+                      "sha256":  "7fad87b6f0ffa6a926ecf8a437ed15ca1f4ace7ccf77bc63950120854807be5e"
+                  },
+                  {
+                      "path":  "Resource/Server/Boss_Cowf.bin",
+                      "bytes":  927,
+                      "sha256":  "0faca62449a6afb54f6f221c4ba92ca8b522fd62333ba99141684af5348f6cad"
+                  },
+                  {
+                      "path":  "Resource/Server/Boss_CowI.bin",
+                      "bytes":  927,
+                      "sha256":  "6faa1a41e1384c633a7c50dd1502f32390bd5a4500a2cb695c184b79f2b75058"
+                  },
+                  {
+                      "path":  "Resource/Server/Boss_Cowking.bin",
+                      "bytes":  2733,
+                      "sha256":  "27c0eb756a017c8438a105b82bc6a6281e5f5d2eeb4d0472212957ad20f90ebd"
+                  },
+                  {
+                      "path":  "Resource/Server/Boss_Emperor.bin",
+                      "bytes":  1369,
+                      "sha256":  "1077758ea42d457e139599b29542edc1002710cab87fea8794da158af0ed645f"
+                  },
+                  {
+                      "path":  "Resource/Server/Boss_EmperorJr.bin",
+                      "bytes":  1148,
+                      "sha256":  "038ebce5c9e92d4e8f54fdd6828f0504b85ee1592ad3ecb88226ec5d1fb7be45"
+                  },
+                  {
+                      "path":  "Resource/Server/BossMonsterfileList.bin",
+                      "bytes":  193,
+                      "sha256":  "1664ed0b6627257067ec9b209a2f0c1df3421134936408d641681c12e5cd9ebc"
+                  },
+                  {
+                      "path":  "Resource/Server/BossReward.bin",
+                      "bytes":  752,
+                      "sha256":  "73a612ae04b0241c6d54f6b2c8e35eddd6a75bc8a271ff371a23b604f35e8255"
+                  },
+                  {
+                      "path":  "Resource/Server/DropRate.bin",
+                      "bytes":  181,
+                      "sha256":  "ed0a1315dcd0c696b84957d783f12f27a2bfbdb274769905ac37ad13e341f38c"
+                  },
+                  {
+                      "path":  "Resource/Server/ExpPenalty.bin",
+                      "bytes":  1015,
+                      "sha256":  "f39c4d312788fbb66f7eecf798e33bb82a9e2f5a647b31e300cf2db19d396a19"
+                  },
+                  {
+                      "path":  "Resource/Server/FieldBossDropItemList.bin",
+                      "bytes":  6808,
+                      "sha256":  "6720ac3c5023d2b0437223b419956022f41a4e579d955d5e387b67b6835c5213"
+                  },
+                  {
+                      "path":  "Resource/Server/FieldBossList.bin",
+                      "bytes":  1296,
+                      "sha256":  "08ff2ef9e1458304fbf88dd4cf021f09f155c0f0079d5030e95f98a21bd50ff8"
+                  },
+                  {
+                      "path":  "Resource/Server/FortWarInfo.bin",
+                      "bytes":  878,
+                      "sha256":  "71396be7913a16d691f48826fdc3741e2c9822851023045a1b667599a017bf83"
+                  },
+                  {
+                      "path":  "Resource/Server/GameEventInfo.bin",
+                      "bytes":  168,
+                      "sha256":  "a9e1c8cdab2b92f6c4df9ebbaa790621e834821a2e703a43a79f6065f1bd7442"
+                  },
+                  {
+                      "path":  "Resource/Server/GuildPointRule.bin",
+                      "bytes":  601,
+                      "sha256":  "5eca7df720b123270ce01123d65853254d697fbbf72c06493bdba5c274332dbf"
+                  },
+                  {
+                      "path":  "Resource/Server/GuildTournamentInfo.bin",
+                      "bytes":  637,
+                      "sha256":  "1d11a45ec92b75322e085bdd06e9c7dd3f1b4c9d3aa84cdac9ac5f88473970d9"
+                  },
+                  {
+                      "path":  "Resource/Server/HideNpcList.bin",
+                      "bytes":  99,
+                      "sha256":  "fd52d7cffb74363634e2939c60b4ca5298489e6dec5ef62096f5decc23472346"
+                  },
+                  {
+                      "path":  "Resource/Server/HiLevelItemMixRate.bin",
+                      "bytes":  127,
+                      "sha256":  "a57f6e2e4b87a77bc411e7b2bc6fa5c221717a20e6104c9c638725af4bc913f9"
+                  },
+                  {
+                      "path":  "Resource/Server/Item_RareOptionInfo.bin",
+                      "bytes":  1677,
+                      "sha256":  "4d94c6b216a740f222685f1f13b18fe248753d2fcf872dc3dcc420474d95ae42"
+                  },
+                  {
+                      "path":  "Resource/Server/Item_RareStatSetRate.bin",
+                      "bytes":  1191,
+                      "sha256":  "7716133ac1dd30d1e6fdda7e49cb37890ada0a4bde20465aec853e197162b4fd"
+                  },
+                  {
+                      "path":  "Resource/Server/ItemChangeList.bin",
+                      "bytes":  14692,
+                      "sha256":  "0d980b0893f788fcf8f8faa4c5d0ed6262c0230c0f9047dccfa745d722ab91fe"
+                  },
+                  {
+                      "path":  "Resource/Server/ItemChangeListMulti.bin",
+                      "bytes":  11821,
+                      "sha256":  "64456fb8139a726d1684645e2a5467d8a968b7ad6e259d9cce7386d9067054dd"
+                  },
+                  {
+                      "path":  "Resource/Server/ItemChangeRateofLv.bin",
+                      "bytes":  4383,
+                      "sha256":  "830bc06a5e7f19a91149e43f0512ea903390524a4057b0d763023ab553bfba65"
+                  },
+                  {
+                      "path":  "Resource/Server/ItemLimitInfo.bin",
+                      "bytes":  86,
+                      "sha256":  "5dc6ae9b84b1b794a2cb73b6534bfdc93d98ee0c2c7d4fc2c03b0d6f9dd2fcee"
+                  },
+                  {
+                      "path":  "Resource/Server/ItemMixList.bin",
+                      "bytes":  430244,
+                      "sha256":  "3182e3d1436f2561ef72163f47c466f2818026195639a81169783d98da398c99"
+                  },
+                  {
+                      "path":  "Resource/Server/Jackpot_Info.bin",
+                      "bytes":  207,
+                      "sha256":  "fbdffd68e94b0d7d28c0c39523dd3ab3d0f69bd94f831711fbaaf222ca0853c0"
+                  },
+                  {
+                      "path":  "Resource/Server/LoginPoint.bin",
+                      "bytes":  839,
+                      "sha256":  "19ae7df6504ebd20949e41b8eb1f64c5c52fff0a5d87596755357b4500b879ab"
+                  },
+                  {
+                      "path":  "Resource/Server/MapDropItemList.bin",
+                      "bytes":  5530,
+                      "sha256":  "cad64846b09e3f0bce1fe2783be13f8c1d068b39ba6d8be051b1c00f059c1fb6"
+                  },
+                  {
+                      "path":  "Resource/Server/MapDropListInitDate.bin",
+                      "bytes":  17,
+                      "sha256":  "085a998652d957b128030a3cc1808af982f45f47e7772ea22feec97f947da15b"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_01.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_02.bin",
+                      "bytes":  9075,
+                      "sha256":  "9a2b16d7f58bdff77756417fe8730ea5184b0240362d2e00ca19a475c7268517"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_04.bin",
+                      "bytes":  9160,
+                      "sha256":  "cced7e0e8a3a224d3d2ab82e0498f53a50ff4a19fc1ced47672598736f0e16a1"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_06.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_07.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_08.bin",
+                      "bytes":  15459,
+                      "sha256":  "246d907e6693852178bd38026767b724ac8e04ff05d17745afdc8940eaef7b3c"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_09.bin",
+                      "bytes":  17544,
+                      "sha256":  "1be4a3ada2c29f15ec4b56244315f145cc072e0b2c64c64c343beca87e008508"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_10.bin",
+                      "bytes":  22763,
+                      "sha256":  "a029bd886b503a22af9032a9ae78ac1c37aaa06e058a9ce457caf163a2f01153"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_101.bin",
+                      "bytes":  8314,
+                      "sha256":  "04bb720e105d9bd37d86f6adcb1b046e79742df9962a3770f7783e3225e2a33e"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_102.bin",
+                      "bytes":  7356,
+                      "sha256":  "dbb6a2898d7d44cded80390214a301e1b17dad62f3f2d65492d039e2bc44b39e"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_104.bin",
+                      "bytes":  9955,
+                      "sha256":  "9e95df555933c34adb1dd44a1670f93d8032395b85816632788fe662b0932339"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_105.bin",
+                      "bytes":  896,
+                      "sha256":  "213cfb91e33e8d7713ff2d13f355f7b832b575c2156a0d0c75b1c6e03a85e978"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_106.bin",
+                      "bytes":  9258,
+                      "sha256":  "1b3eb74285c989aa5bc8637940d7eef126cf8ac4659bf9f4e67f55b525fa6ed5"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_108.bin",
+                      "bytes":  9934,
+                      "sha256":  "95d8a655f9dcdcc85e9a786b0ae7b448754469ef9db079002c740d912d804580"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_11.bin",
+                      "bytes":  18369,
+                      "sha256":  "26f1df332d9e38c4f8fa2bda3f89708d214134f266a365fb554e4e73cc520de9"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_12.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_13.bin",
+                      "bytes":  13228,
+                      "sha256":  "76471dba05bd6eac20d949efa08e643bd4f4a2c74ae99fe0e338b3cb77c3be35"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_14.bin",
+                      "bytes":  19099,
+                      "sha256":  "c3d09f7f3e6f43ade286ea31270b414f38ff543e175f144da84d2d3f040b9240"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_15.bin",
+                      "bytes":  16368,
+                      "sha256":  "9d525df12267c077fdba76d8a71a261a688cfa5b41ab9df2066a1f52d4f3c8f7"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_17.bin",
+                      "bytes":  16553,
+                      "sha256":  "2d9b59ba5d8a5673f0b06a3f0aabd5ab45cc220c9b2adbecc678f334ae45a863"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_18.bin",
+                      "bytes":  16366,
+                      "sha256":  "adc7c13a52143add961139b97bea56387bc9abf8a10d562c1d13cc0e8a8b4fe7"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_19.bin",
+                      "bytes":  15657,
+                      "sha256":  "9634dfecd0e6acf12f444628fb629dbcb2dfd375ea5df00816459c37896574ce"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_20.bin",
+                      "bytes":  17767,
+                      "sha256":  "9c1313df60aac9fd3837e3e1446f1c9f0ad40dbc52a3ff2228866502a4213cab"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_21.bin",
+                      "bytes":  19328,
+                      "sha256":  "2056e4d2e3d16d294b188a5e82a0c2742a3d0843798eae676bcd92d1503a69b4"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_22.bin",
+                      "bytes":  15281,
+                      "sha256":  "8078d1caf6158e1a4b101cd059aa004a6b0c80d9e0c7656380bdaf9bccedcc71"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_23.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_24.bin",
+                      "bytes":  6077,
+                      "sha256":  "5be6d21a4f265c8338ee5ecb7ebb05211edef27d28d39e308c3be3ca143adb70"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_25.bin",
+                      "bytes":  16350,
+                      "sha256":  "253cd8fdb5d554840b224e1cc367bad079c9385cd1e317828eba690317ec1d60"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_26.bin",
+                      "bytes":  6076,
+                      "sha256":  "85633a37c07438db10a2079419bdf5017c18e56e2954e3951ead21cb94d11285"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_27.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_32.bin",
+                      "bytes":  7598,
+                      "sha256":  "66784de15b60a2257568f40ca77c1fe7b85ee0fbad0c6ada907f2c39499fb05d"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_33.bin",
+                      "bytes":  14,
+                      "sha256":  "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_34.bin",
+                      "bytes":  6077,
+                      "sha256":  "2087b65727ed91cf533651935fe8c0c9b739b888be9655a54f0e5d9821cadbb8"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_35.bin",
+                      "bytes":  17142,
+                      "sha256":  "9988aab36394900f5f6a56b6b4904a9bde6c598625399eb1b2e5e0ceab83b89a"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_39.bin",
+                      "bytes":  15510,
+                      "sha256":  "bc59364456d18cea98fa6467be91d96abb9fc044b275a27eab6b1e8737751f7a"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_40.bin",
+                      "bytes":  13132,
+                      "sha256":  "a7019bc994698cbc1e3bda08bece850a512cec75001ddfb4f2eb5d3e9d16a783"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_59.bin",
+                      "bytes":  18619,
+                      "sha256":  "c7fbb9f23f1e88a2cc67aff388a6d1de5919c2ea0f7f08c6c81ea62e77b16dba"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_60.bin",
+                      "bytes":  18874,
+                      "sha256":  "5595e743b8dd1de4da9c96c36043073f1668dbe8e24b396de74ec7035c7a94eb"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_61.bin",
+                      "bytes":  5860,
+                      "sha256":  "dfff22a8bbf05b0ef250fa52215b775b125db8cd1c62662da800186b068746fe"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_65.bin",
+                      "bytes":  16442,
+                      "sha256":  "64d822bf49a19101a32b16e75431e4cad3f1b0591ea8663cf641b1c8b0952cc3"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_66.bin",
+                      "bytes":  20327,
+                      "sha256":  "3b6a28ef34daf5454d4d13cc197a7a29b0f9d605e5f3321bb94471c596b4136c"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_67.bin",
+                      "bytes":  18003,
+                      "sha256":  "67071639fa953a1a3a904222ca572bbf35146e6636eeec8c6e55af9508dcf4c6"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_68.bin",
+                      "bytes":  12259,
+                      "sha256":  "9a65a5ab8434daeb0b4baa36c377c25073ad34ab65ee6867d33a097cba05ad0e"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_69.bin",
+                      "bytes":  18885,
+                      "sha256":  "9bbdf603a0eed72b9a1ceb798fb3b296ca95981a984bb4accdf8b25952189b44"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_70.bin",
+                      "bytes":  18538,
+                      "sha256":  "7c69a5270044137a79ad80774650a16466a8b62f8680be5aadfaa3206ef30727"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_72.bin",
+                      "bytes":  709,
+                      "sha256":  "bf8154e9cb90648d272aab9967eb770f12db83045bbb3e57647464ed6687a193"
+                  },
+                  {
+                      "path":  "Resource/Server/Monster_75.bin",
+                      "bytes":  460,
+                      "sha256":  "a25e41317b478404e6dcf291fc4f609698b1233e44ebca24eefdaf1c815fd525"
+                  },
+                  {
+                      "path":  "Resource/Server/MonsterDropItemList.bin",
+                      "bytes":  202043,
+                      "sha256":  "e4ae1c2588668b7d8222a82a5ec9846b939d5eababa4df4e12be1266bb5f2409"
+                  },
+                  {
+                      "path":  "Resource/Server/MonsterSpeechInfoList.bin",
+                      "bytes":  115475,
+                      "sha256":  "f8d227128ac51b57df730c10fee35b6dc2373eef8259507bad846c02e25b3e82"
+                  },
+                  {
+                      "path":  "Resource/Server/Mooun.bin",
+                      "bytes":  455,
+                      "sha256":  "d4e2621020353799eaad32264238ebdbc00efa55bb3d961f8b5638b20f0177ef"
+                  },
+                  {
+                      "path":  "Resource/Server/PaneltyTime.bin",
+                      "bytes":  18,
+                      "sha256":  "b635dc5a752c342fccc816a98ae639a57dda62bbf577e6f7e9a0d225860967a0"
+                  },
+                  {
+                      "path":  "Resource/Server/PetSpeechInfoList.bin",
+                      "bytes":  11402,
+                      "sha256":  "7f6194ab850c30a5262b298ba630e799bbd8dd89add7c44ffdc3e2a884bc774e"
+                  },
+                  {
+                      "path":  "Resource/Server/PlayerxMonsterPoint.bin",
+                      "bytes":  6644,
+                      "sha256":  "32b11dc34ae0b16091c37ce31f0115e4f7aee518801957a4e12a1c1a80c9350d"
+                  },
+                  {
+                      "path":  "Resource/Server/PlustimeInfo__.bin",
+                      "bytes":  862,
+                      "sha256":  "f9b9a2cb85ac9a60334f973ebc47bb3827176bf0a9e267a7b2eee09335f31851"
+                  },
+                  {
+                      "path":  "Resource/Server/PlustimeInfo_N.bin",
+                      "bytes":  880,
+                      "sha256":  "ab7560504b5f38c0eab4e39c996d80e4781031353bbf64746fbadeb864b83161"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType1.bin",
+                      "bytes":  3047,
+                      "sha256":  "68ed4c5dcc711398c87e413e6846473a62533ffffe16caada58b27eca3c51274"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType11.bin",
+                      "bytes":  3047,
+                      "sha256":  "587c80ead9a0c8136050e33a98fc8b9541d91152db40abd1f8f94ce6dce6c164"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType12.bin",
+                      "bytes":  3105,
+                      "sha256":  "3ebd7542416451afb4939d29d12453055fc79c0bd485f70e1acb53a41c05478b"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType13.bin",
+                      "bytes":  3383,
+                      "sha256":  "e8301c660dee5d004c4d17d27f2e5be3ca929edfa543a4fdc1b7dfd26126a192"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType14.bin",
+                      "bytes":  3321,
+                      "sha256":  "ba21bd7101e5337015b574b1a2ec56f11ee22dab854f6396a10bda1132667266"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType15.bin",
+                      "bytes":  3911,
+                      "sha256":  "0ef502e02e26fb56d13dd5b14539f0e471fa8b9082830380a55b9714332dce0d"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType16.bin",
+                      "bytes":  5570,
+                      "sha256":  "e2a4bc3e37b27841b2fd90c77554581694ad90d53e8ae35b22f8534f34bee5aa"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType17.bin",
+                      "bytes":  7705,
+                      "sha256":  "7bc108896d0753701768888bb97b1f0b5cb34bf680f4d027f58156bfe00fc64d"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType18.bin",
+                      "bytes":  4163,
+                      "sha256":  "19e0c6422748794ed1078c35bbb1f9fc17bd17a665ed777d1afa4dacf711f761"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType2.bin",
+                      "bytes":  3087,
+                      "sha256":  "5c1ec9ec4e2f082b1131e63d50cb6e35458ce444d6a93fa3be6ac417830d55de"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType3.bin",
+                      "bytes":  3984,
+                      "sha256":  "fadff5ff1d21f76bcbab16155146a8c18bc093c102875a25be5d9a07deb1442d"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType4.bin",
+                      "bytes":  3430,
+                      "sha256":  "59d3d24fca0f111a2fcc982e8e76be35ae3f30692ddd5f7d8e5fa696ce75e4af"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType5.bin",
+                      "bytes":  6146,
+                      "sha256":  "c461ffae5f1aef266d4c14625595a366256a8c2b81008b5a97c4fc5a7eaf57c8"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType6.bin",
+                      "bytes":  5328,
+                      "sha256":  "aa9f1ea4d10dc87aed43630dc7e23afc50df36159ca3f4a631d808061e5a4aa7"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType7.bin",
+                      "bytes":  7692,
+                      "sha256":  "842a0cd265d4777d2d4e3534d0a9d49444db005a9e2ca3f710c9be3c24b9cee1"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType8.bin",
+                      "bytes":  4167,
+                      "sha256":  "8882c2d1f2fb4b63347adc03f0ecea375129adb4eb8713a0f61fbd3d68f4305e"
+                  },
+                  {
+                      "path":  "Resource/Server/RegenType9.bin",
+                      "bytes":  4881,
+                      "sha256":  "02d3200b18a04a4ad4a1d51f55da96a49eafb475ab4bc9b93548fc7ae0d39ed2"
+                  },
+                  {
+                      "path":  "Resource/Server/SiegeWarStartTime.bin",
+                      "bytes":  73,
+                      "sha256":  "6c8d0f6d66151a494c4f4c1dbaedcaed2e494d6b9c4161f744cb008c3cd3c8be"
+                  },
+                  {
+                      "path":  "Resource/Server/Summon1.bin",
+                      "bytes":  1619,
+                      "sha256":  "0bc8678f88e720c45f650106f924c613d50e173649ec43fb9aaa5c3af7888736"
+                  },
+                  {
+                      "path":  "Resource/Server/Summon2.bin",
+                      "bytes":  458,
+                      "sha256":  "c5f5f5dc66cc3708cd70d7da069d6b1233beee00ce5fcc4a90d9697c695fb061"
+                  },
+                  {
+                      "path":  "Resource/Server/Summon3.bin",
+                      "bytes":  740,
+                      "sha256":  "b02e8f9c4d2d7168489e68364b3d26dbc92cf54d6282cb0c160fa3bfac9681f3"
+                  },
+                  {
+                      "path":  "Resource/Server/Summon4.bin",
+                      "bytes":  1662,
+                      "sha256":  "ea18a985d144c0bcd64132cdc3728cfc9abf09a2e273932df9f96b9dd8adf9fd"
+                  },
+                  {
+                      "path":  "Resource/Server/SummonList.bin",
+                      "bytes":  122,
+                      "sha256":  "9397b69e74879f38075df9720931b259329c25409a3f27f599619ce5375cc4b4"
+                  },
+                  {
+                      "path":  "Resource/Server/SuryunRegenList.bin",
+                      "bytes":  606,
+                      "sha256":  "aa6a5e35de90725752236d2029051dd64d30a4505460ce5e9575ad2ec44bc806"
+                  },
+                  {
+                      "path":  "Resource/Server/SWRelationMap.bin",
+                      "bytes":  77,
+                      "sha256":  "0fbbd5a9e47f8e179a7551715ba6b70ca066d8028accd1777d0d7f66851fbe23"
+                  },
+                  {
+                      "path":  "Resource/Server/TacticAbilityInfo.bin",
+                      "bytes":  358,
+                      "sha256":  "520b93650475e21e6b3d9134a32da18c0a45c66b66068d0dbe65dcd1626ce928"
+                  },
+                  {
+                      "path":  "Resource/Server/TitanMapDropInfo.bin",
+                      "bytes":  12517,
+                      "sha256":  "6d82a52e986ef226bab16e62cd9f1ddba3bb055064d3d15e28375c1a7a8737cd"
+                  },
+                  {
+                      "path":  "Resource/Server/TitanServer.bin",
+                      "bytes":  73,
+                      "sha256":  "6e734d5e09a5e7385fd33b96c619da994e0a3b3e0e450572e7d2de3f712d85dd"
+                  },
+                  {
+                      "path":  "Resource/Server/TitanServer.bin.old_euc_kr",
+                      "bytes":  56,
+                      "sha256":  "a6c09222b302bd72e6768556b6598ae2be3e86ec735c73e23bb4f04b77662737"
+                  },
+                  {
+                      "path":  "Resource/Server/TitanServer.old_euc_kr",
+                      "bytes":  71,
+                      "sha256":  "d3fd4618521c2718b15a4f302014ea2bb103366f9f0b2a3f0b4b43da2015c709"
+                  },
+                  {
+                      "path":  "Resource/Server/TitanSpellCostPerMap.bin",
+                      "bytes":  311,
+                      "sha256":  "067d3b5cd86396af382f49edc49dbe936ae64d56265a70f1c24a24524036ba45"
+                  },
+                  {
+                      "path":  "Resource/Server/Weather.bin",
+                      "bytes":  15,
+                      "sha256":  "4e64119dc2957026590b0dece4e4acf742b38cf7ad4adb79861be73e51c7e426"
+                  },
+                  {
+                      "path":  "Resource/setitem_opt.bin",
+                      "bytes":  1879,
+                      "sha256":  "93e0bc38064c1ad2c7769b81b4b003aba3bbd27ab3ca4d14f175d036ee0040f2"
+                  },
+                  {
+                      "path":  "Resource/SiegeWarMapInfo.bin",
+                      "bytes":  96,
+                      "sha256":  "1c25ef76a22fb69271bcfb8200999445036c5e3249320221476a629d3172560c"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/11x11_Blank.bsad",
+                      "bytes":  279,
+                      "sha256":  "3950167c08f06d044dd36b047d5209e7ec6d4e2c18a23c408430d210581d076f"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/11x11_wall.bsad",
+                      "bytes":  279,
+                      "sha256":  "c682409a1f86bc9cc655a479e3a153f85afa7fe3598df93a4fc7e4133a4fb8f5"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/13x13_Blank.bsad",
+                      "bytes":  379,
+                      "sha256":  "7f17e1801964030916dd18aa06823cd277568346aa5cd9a56f71b7ccedd998c6"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/13x13_Spikewall.bsad",
+                      "bytes":  373,
+                      "sha256":  "1553fd195c09fa6ac7448a7bbe1a0f3ce8415bf21fed95e0d3ff29503a7e2760"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/15x15_Blank.bsad",
+                      "bytes":  495,
+                      "sha256":  "68f10cd67b24c3043b35f116a5c42b27e59f625333b2b6f1280d2d9d0256037e"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/17X17_Blank.bsad",
+                      "bytes":  610,
+                      "sha256":  "3e22b3800be139db126cf99f26c0da01863280a8622fbf74c1f4bcd9a00d35c5"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/17X17_lineAttack.bsad",
+                      "bytes":  610,
+                      "sha256":  "d12bfeba6eb67c158c5639a3fc6dea834165bc226c9000ffe99bd7157b135b5c"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/3x3_Blank.bsad",
+                      "bytes":  36,
+                      "sha256":  "a0e0eaa69892c90cf63c7e9027e75b33588d49ae3448413164be97823344b518"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/5x5_Blank.bsad",
+                      "bytes":  70,
+                      "sha256":  "ea668a5a4ec91e2f72b859a4db53874f4ad2c39882e0e50d4835eec383f5d174"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/7x7_Blank.bsad",
+                      "bytes":  120,
+                      "sha256":  "c74fbadb5bf33a20ccd5f7071f0c8db458f33fdbb16c199b009ebe3ec973b989"
+                  },
+                  {
+                      "path":  "Resource/SkillArea/9x9_Blank.bsad",
+                      "bytes":  195,
+                      "sha256":  "93d6402dc1f0defd7c93dd671cf38143b003c908d1f7dc2bdd23008cf460afa3"
+                  },
+                  {
+                      "path":  "Resource/SkillAreaList.bin",
+                      "bytes":  137,
+                      "sha256":  "0f6b9189f8aa5257daf4af4bde4273c900cf4ad417c28dd2170f678df2ce2fa4"
+                  },
+                  {
+                      "path":  "Resource/SkillchangeList.bin",
+                      "bytes":  558,
+                      "sha256":  "7c0a19115d71b15947741b6a7b2f569e15ff63e4d4f90a98bf9403993260e254"
+                  },
+                  {
+                      "path":  "Resource/SkillList.bin",
+                      "bytes":  769651,
+                      "sha256":  "6727903837346c783d9c6833d2bd9ab94d6fcba4e7e16d07d8bf75c280a2d280"
+                  },
+                  {
+                      "path":  "Resource/SkillOptionList.bin",
+                      "bytes":  1594,
+                      "sha256":  "4e53592f37d5e73284566b91ebbd35d6e329721ea98f17d4587f8f62c9840de8"
+                  },
+                  {
+                      "path":  "Resource/SkillTree.bin",
+                      "bytes":  792,
+                      "sha256":  "3d691d137ae659ff478cc120137411699d0af17ccc93384f322932418ae6713a"
+                  },
+                  {
+                      "path":  "Resource/SkinSelectItemList.bin",
+                      "bytes":  1067,
+                      "sha256":  "dcbc7923fe448de60519b6e725bd47c0d9c0d468a0f925c126377e051178c161"
+                  },
+                  {
+                      "path":  "Resource/StateInfo.bin",
+                      "bytes":  80,
+                      "sha256":  "63c8fef9507d63c0493d988183d9498e7c4677915c2c2eff93631a0a18c9b3c7"
+                  },
+                  {
+                      "path":  "Resource/StaticNpc.bin",
+                      "bytes":  11856,
+                      "sha256":  "30c3d2cd28e4a441e6fcdb82f52a0abbd40a6c247479a8c2a6a77213d01943a0"
+                  },
+                  {
+                      "path":  "Resource/Suryundata.bin",
+                      "bytes":  8494,
+                      "sha256":  "6544fe39c92563861c113a7ac0eeef125a620efa759a88a24ab06bed888188fc"
+                  },
+                  {
+                      "path":  "Resource/SuryunLevelChange.bin",
+                      "bytes":  1446,
+                      "sha256":  "c3e32c3a0de57a2ff6a471d7301a47e64cf4afc06258b9ba3faa1cb6f1c58c63"
+                  },
+                  {
+                      "path":  "Resource/SuryunMonster.bin",
+                      "bytes":  4235,
+                      "sha256":  "995f7abaa2104048861430ad550d6284087570fc6cb6b49f1055cd44200e7071"
+                  },
+                  {
+                      "path":  "Resource/tacticstartinfo.bin",
+                      "bytes":  1514,
+                      "sha256":  "2fa652d7429be2ae860f46beeaf0212ad109b203fa4e123a9350d458c67d7000"
+                  },
+                  {
+                      "path":  "Resource/TitanBreakList.bin",
+                      "bytes":  1866,
+                      "sha256":  "8215917cea08c3ea526e40e03d328687e54dfb492ef3a600e4af1dc44448acb3"
+                  },
+                  {
+                      "path":  "Resource/TitanList.bin",
+                      "bytes":  362,
+                      "sha256":  "8a7ff80ec1cafcdbf343d30bedb866715e4391293c1667bec388a6cae8f07a8d"
+                  },
+                  {
+                      "path":  "Resource/TitanMapDropInfo.bin",
+                      "bytes":  12765,
+                      "sha256":  "2963a9c501803828b7a70770ae2d4ae13433e35cf6868408eff7138637965d69"
+                  },
+                  {
+                      "path":  "Resource/TitanMixList.bin",
+                      "bytes":  185761,
+                      "sha256":  "d54403c33f8a4f04a74ce361d9ee59c179c5b2fa62384db1861aaef7a88b9d2a"
+                  },
+                  {
+                      "path":  "Resource/TitanPartsKind.bin",
+                      "bytes":  74,
+                      "sha256":  "ef9167573c969652784357945a3e29680871768a9ecd3990330ce0f40dfb047d"
+                  },
+                  {
+                      "path":  "Resource/TitanRule.bin",
+                      "bytes":  501,
+                      "sha256":  "c07e4e2ee73f7bea4fdf66ccbceda1898556a16336afd954da0aa349c498bad5"
+                  },
+                  {
+                      "path":  "Resource/TitanUpgradeInfo.bin",
+                      "bytes":  132,
+                      "sha256":  "1f012e153d340ceb0def25451264ac5e5e6eb2fdb714da8985b338d25573fdbd"
+                  },
+                  {
+                      "path":  "Resource/UniqueItemMixList.bin",
+                      "bytes":  5140,
+                      "sha256":  "a3b17315da1630c814d9a58be689ce66fb17e9315757c9413204fbbca30d26cf"
+                  },
+                  {
+                      "path":  "Resource/UniqueItemOptionList.bin",
+                      "bytes":  20110,
+                      "sha256":  "d44a2d5b928d627086ea5a27fa5e6877ad947e8537a966c3013fef52c3b37375"
+                  },
+                  {
+                      "path":  "RMToolServer.exe",
+                      "bytes":  188416,
+                      "sha256":  "f21dc457fa9aff72accc34e30fe99909e4c259d170f4f3a9d81c85c0f466d384"
+                  },
+                  {
+                      "path":  "RMToolServer.exe.b00",
+                      "bytes":  188416,
+                      "sha256":  "9e31318e269a515c9d2d3eb47a11cb1e36c3f01d6c9b274008e0ec49ac5a49f1"
+                  },
+                  {
+                      "path":  "run_server.bat",
+                      "bytes":  178,
+                      "sha256":  "999b06f525fcf7b197fc18e241cc49e13445f479fbae1814e1419f5506918a08"
+                  },
+                  {
+                      "path":  "serverset.txt",
+                      "bytes":  1,
+                      "sha256":  "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                  },
+                  {
+                      "path":  "ServerSet/1/ChannelInfo.bin",
+                      "bytes":  481,
+                      "sha256":  "f903548d4ba4f6c318751247da44642668bcbbc73f34c2a3f132d8f00080f2a2"
+                  },
+                  {
+                      "path":  "ServerSet/1/DistributeDesc.txt",
+                      "bytes":  12,
+                      "sha256":  "daf13eb3a49ce49c4ef0cc056a9cd4fcc52727ab0ad87ebcc86349e2eccea203"
+                  },
+                  {
+                      "path":  "ServerSet/1/MapServerDesc.txt",
+                      "bytes":  2415,
+                      "sha256":  "5d96a0b17b14d1d0a48c76ef737ff71cd025a06a69976351d5b936caa2e6723d"
+                  },
+                  {
+                      "path":  "ServerSet/1/serverlist.msl",
+                      "bytes":  2488,
+                      "sha256":  "622fb974d76d12627f1538ba54c727a96a578b2381c96e09ac979dded38aa89e"
+                  },
+                  {
+                      "path":  "ServerSet/1/serverlist.msl.bak",
+                      "bytes":  2488,
+                      "sha256":  "68adc67ed2cb816fe5e3552bb9a7685f17297ea559f945d9c04b83fb086097c8"
+                  },
+                  {
+                      "path":  "ServerSet/1/serverlist_Public.msl",
+                      "bytes":  142,
+                      "sha256":  "52cb93471b28e8e6e837adaff698bc9a89397fac252c6f909624040a5f1b6d8c"
+                  },
+                  {
+                      "path":  "ServerSet/HackCheck.txt",
+                      "bytes":  40,
+                      "sha256":  "2ce13f2d2026e86076a753209c540d6f8ab56b67d78f0836b6975ef295225db1"
+                  },
+                  {
+                      "path":  "SoundLib.dll",
+                      "bytes":  163840,
+                      "sha256":  "d6acf1b4e99985dbd3de60c947d154bf9b87455f5b32d09f14eb92c7e6316321"
+                  },
+                  {
+                      "path":  "SS3DAudio_muk.dll",
+                      "bytes":  172095,
+                      "sha256":  "e8bb93f99a4f4c1adf8c918c2ec41777caa6a4944f93a93ab4d582fd853cf927"
+                  },
+                  {
+                      "path":  "SS3DExecutiveForMuk.dll",
+                      "bytes":  184320,
+                      "sha256":  "2317c65f6dffc21ccc899fc278d36af8412a92689832c46fea6833652d420314"
+                  },
+                  {
+                      "path":  "SS3DFileStorage.dll",
+                      "bytes":  196608,
+                      "sha256":  "fef9dc653acbf5e559983b772b5d9df4c7a94f1a483d065a1cc13fa0dd3092d8"
+                  },
+                  {
+                      "path":  "SS3DGeometryForMuk.dll",
+                      "bytes":  258048,
+                      "sha256":  "e4c4361e4e16b27e0eca11fa5b3768b1942cd8cb71bb0a6f9c0888ddd1fd4c9a"
+                  },
+                  {
+                      "path":  "SS3DGFunc.dll",
+                      "bytes":  122880,
+                      "sha256":  "f87933eeeffdf820d35a1d7e37745e901db1d78e7b0d9fee3d80b5916cd796da"
+                  },
+                  {
+                      "path":  "SS3DGFunc1.dll",
+                      "bytes":  106496,
+                      "sha256":  "205e526b51167551a6fc2b9931adaef559b08ee8e8a286422c5c1953c4ecded8"
+                  },
+                  {
+                      "path":  "SS3DGFuncN.dll",
+                      "bytes":  122880,
+                      "sha256":  "1b20a2308313b030dc2289685108282ef381e6482274562f93383936cf27967e"
+                  },
+                  {
+                      "path":  "SS3DGFuncSSE.dll",
+                      "bytes":  122880,
+                      "sha256":  "f87933eeeffdf820d35a1d7e37745e901db1d78e7b0d9fee3d80b5916cd796da"
+                  },
+                  {
+                      "path":  "SS3DRendererForMuk.dll",
+                      "bytes":  540672,
+                      "sha256":  "67e62bd12dfa2587ac039322b2cf292461c93bc2b26151b68cf98cb7adfa345f"
+                  },
+                  {
+                      "path":  "test_check.cpp",
+                      "bytes":  1260,
+                      "sha256":  "b1eaed886db50d0859c7bda76214291ac6d00872366b3457070eb67ebb13d4e9"
+                  },
+                  {
+                      "path":  "test_decode.cpp",
+                      "bytes":  2366,
+                      "sha256":  "36dfb8db3e775f5c42fc0193227b35dedfc7f6f4f0f6e3b65dda1fd45d616bf4"
+                  },
+                  {
+                      "path":  "复件 105.lnk",
+                      "bytes":  685,
+                      "sha256":  "7aaf49e2c7f1b77d00449fd32c130ca3c917eb12d1b3a3fb954a261ce31f4ea7"
+                  },
+                  {
+                      "path":  "快捷方式 (2) 到 MonitoringServer.exe.lnk",
+                      "bytes":  716,
+                      "sha256":  "730c0b4bad3928ca7a0c74b9dcd115f193e6e086613735f73518120406f777cc"
+                  },
+                  {
+                      "path":  "快捷方式 到 MonitoringServer.exe.lnk",
+                      "bytes":  716,
+                      "sha256":  "ca92876f1f9e4098a1ab87cd4129b53b901cc3e8e14d760642e5cccd7ae3cfae"
+                  },
+                  {
+                      "path":  "快捷方式 到 RMToolServer.exe.lnk",
+                      "bytes":  696,
+                      "sha256":  "78a7e21784b0f11da7563fea72ac2bb97aee41063ff1279a6cf1046881e4b665"
+                  }
+              ]
+}

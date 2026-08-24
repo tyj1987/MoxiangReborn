@@ -58,8 +58,8 @@ fs::path resource_root(const fs::path& root) {
 }
 
 fs::path recovered_server_root(const fs::path& root) {
-    return root / "modern" / "scratch" / "2026-08-20-source-recovery" /
-           "recovered" / "legacy-source" / "SWorking" / "Resource" / "Server";
+    return root / "reference" / "legacy-source" / "4dddd9a6" /
+           "SWorking" / "Resource" / "Server";
 }
 
 fs::path repo_root() {
