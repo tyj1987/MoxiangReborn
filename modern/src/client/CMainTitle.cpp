@@ -37,6 +37,14 @@
 namespace mxh::client {
 
 namespace {
+void clear_secret(std::string& value) noexcept {
+    volatile char* bytes = value.empty() ? nullptr : value.data();
+    for (std::size_t i = 0; bytes && i < value.size(); ++i) bytes[i] = '\0';
+    value.clear();
+}
+}
+
+namespace {
 
 // 1:1 quirk: the legacy MHClient.cpp reads MHVerInfo.ver as a plain
 // text file whose first line is the client version string (e.g.
@@ -251,7 +259,7 @@ bool CMainTitle::trySubmit() {
 
 void CMainTitle::clearFields() {
     m_username.clear();
-    m_password.clear();
+    clearPassword();
     m_submitRequested = false;
     if (auto* id = id_edit()) id->SetEditText("");
     if (auto* pwd = password_edit()) pwd->SetEditText("");
@@ -259,6 +267,11 @@ void CMainTitle::clearFields() {
         m_uiRuntime.onMouseButton(true, true, id->absX() + 1, id->absY() + 1);
         m_uiRuntime.onMouseButton(true, false, id->absX() + 1, id->absY() + 1);
     }
+}
+
+void CMainTitle::clearPassword() {
+    clear_secret(m_password);
+    if (auto* pwd = password_edit()) pwd->SetEditText("");
 }
 
 bool CMainTitle::consumeSubmit() noexcept {

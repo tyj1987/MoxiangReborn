@@ -106,6 +106,10 @@ public:
 
     bool trySubmit();
     void clearFields();
+    // Preserve the account name while erasing the password after an
+    // authentication attempt.  The edit control is cleared as well so a
+    // failed login can return to an editable, non-secret state.
+    void clearPassword();
     bool consumeSubmit() noexcept;
     const std::string& username() const noexcept { return m_username; }
     const std::string& password() const noexcept { return m_password; }

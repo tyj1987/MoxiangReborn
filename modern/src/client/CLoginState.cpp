@@ -39,6 +39,14 @@
 
 namespace mxh::client {
 
+namespace {
+void clear_secret(std::string& value) noexcept {
+    volatile char* bytes = value.empty() ? nullptr : value.data();
+    for (std::size_t i = 0; bytes && i < value.size(); ++i) bytes[i] = '\0';
+    value.clear();
+}
+}
+
 // -------------------------------------------------------------------------
 // Wire-format helpers (pure functions, unit-tested independently).
 // -------------------------------------------------------------------------
@@ -117,6 +125,7 @@ void CLoginState::Release() {
     m_ackReceived.store(false, std::memory_order_release);
     m_failed.store(false, std::memory_order_release);
     m_failureReason.clear();
+    clear_secret(m_password);
     m_events.clear();
     setInitialized(false);
 }
@@ -277,6 +286,7 @@ void CLoginState::handle_message(mxh::net::ConnectionId id,
             out.header.object_id = 0;
             out.payload          = pl;
             const auto e = m_client->send(out);
+            clear_secret(m_password);
             if (e != mxh::net::NetError::Ok) {
                 fail_with(std::string("send RequestLogin failed: ") +
                           mxh::net::to_string(e));
@@ -394,6 +404,7 @@ void CLoginState::fail_with(const std::string& reason) {
     if (!m_failed.compare_exchange_strong(expected, true,
             std::memory_order_acq_rel)) return;
     m_failureReason = reason;
+    clear_secret(m_password);
     MLOG_ERROR("CLoginState: %s", reason.c_str());
 }
 

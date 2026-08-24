@@ -329,6 +329,12 @@ mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 
+void clear_secret(std::string& value) noexcept {
+    volatile char* bytes = value.empty() ? nullptr : value.data();
+    for (std::size_t i = 0; bytes && i < value.size(); ++i) bytes[i] = '\0';
+    value.clear();
+}
+
 // In-game HUD sprites (solid-color quads; original InterfaceScript art is
 // wired in M-R3 via cDialogLoader::LoadAll — see below after bindRenderer()).
 //
@@ -1764,6 +1770,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
             login->Start(mainGame.GetEngine(), options.login_host,
                          options.login_port, options.username, options.password);
+            clear_secret(options.password);
         } else {
             MLOG_ERROR("Connect slot is not a CLoginState; cannot start login");
         }
@@ -1787,6 +1794,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mxh::client::GameLoadingCoordinator loadingCoordinator;
     bool game_loading_frame_presented = false;
     bool post_login_display_applied = false;
+    bool login_failure_presented = false;
     bool auto_create_requested = false;
     bool follow_frame_captured = false;
     unsigned follow_settle_frames = 0;
@@ -1810,6 +1818,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
                     login->Start(mainGame.GetEngine(), options.login_host,
                                  options.login_port, options.username, options.password);
+                    clear_secret(options.password);
+                    login_failure_presented = false;
                 }
             }
             // Idle: drive CMainGame + render a frame.
@@ -1817,6 +1827,20 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // Phase B.2.2: on state-change rising edge, Start() the
             // states that have an external Start() hook.
             const auto cur_state = mainGame.GetCurStateNum();
+            if (cur_state == mxh::client::GameStateId::Connect) {
+                if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
+                        mainGame.GetGameState(cur_state));
+                    login && login->is_failed() && !login_failure_presented) {
+                    if (auto* title = dynamic_cast<mxh::client::CMainTitle*>(
+                            mainGame.GetGameState(mxh::client::GameStateId::Title))) {
+                        title->clearPassword();
+                    }
+                    clear_secret(options.password);
+                    pending_loading_error = login->failure_reason();
+                    login_failure_presented = true;
+                    mainGame.SetGameState(mxh::client::GameStateId::Title);
+                }
+            }
             if (cur_state != prev_state) {
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
@@ -1876,6 +1900,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                 }
                 if (display_transition_ok) {
+                    if (auto* title = dynamic_cast<mxh::client::CMainTitle*>(
+                            mainGame.GetGameState(mxh::client::GameStateId::Title))) {
+                        title->clearPassword();
+                    }
+                    clear_secret(options.password);
                     g_mainTitle = nullptr;
                     mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
                 } else {
@@ -1889,6 +1918,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             mainGame.GetGameState(cur_state))) {
                         title->Start(mainGame.GetEngine(),
                                      options.username, options.password);
+                        if (!pending_loading_error.empty()) {
+                            title->ui_runtime().showMessage(0x4D4C4552,
+                                                            pending_loading_error);
+                            pending_loading_error.clear();
+                        }
                         g_mainTitle = title;
                     }
                 } else if (cur_state == mxh::client::GameStateId::CharSelect) {
