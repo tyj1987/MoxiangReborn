@@ -13,7 +13,7 @@ using namespace mxh::compat;
 
 namespace {
 
-// Returns the absolute path to the "墨香【源码配套资源】\PlayDH" directory,
+// Returns the canonical modern/data/PlayDH directory,
 // locating the workspace by walking up from the test executable's path.
 std::filesystem::path find_playdh_root() {
     wchar_t buf[MAX_PATH];
@@ -22,11 +22,11 @@ std::filesystem::path find_playdh_root() {
     if (n == 0) return {};
 
     std::filesystem::path p(buf);
-    // Walk up looking for "墨香【源码配套资源】" sibling dir.
+    // Walk up looking for the canonical modern resource tree.
     for (int i = 0; i < 6; ++i) {
         p = p.parent_path();
         if (p.empty()) break;
-        auto candidate = p / L"墨香【源码配套资源】" / L"PlayDH";
+        auto candidate = p / L"modern" / L"data" / L"PlayDH";
         if (std::filesystem::exists(candidate)) return candidate;
     }
     return {};

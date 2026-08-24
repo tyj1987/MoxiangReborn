@@ -45,14 +45,13 @@ fs::path find_resource_dir() {
 // PlayDH is the canonical full-resource tree; Distribute/Resource is the deploy subset.
 // Tests for PlayDH-only files (TitanSpellCostPerMap.bin etc.) and Client/ subdir
 // files (HairList_M.bin etc.) use find_playdh_dir / find_client_resource_dir.
-static const char kPlayDH_u8[] = "\xE5\xA2\xA8\xE9\xA6\x99\xE3\x80\x90\xE6\xBA\x90\xE7\xA0\x81\xE9\x85\x8D\xE5\xA5\x97\xE8\xB5\x84\xE6\xBA\x90\xE3\x80\x91/PlayDH/Resource";
 static const char kClient_u8[] = "Client";
 fs::path find_playdh_dir() {
     fs::path cwd;
     try { cwd = fs::current_path(); } catch (...) { return {}; }
     for (fs::path base = cwd; !base.empty(); base = base.parent_path()) {
         std::error_code ec;
-        fs::path candidate = base / fs::u8path(kPlayDH_u8);
+        fs::path candidate = base / "modern" / "data" / "PlayDH" / "Resource";
         if (fs::is_directory(candidate, ec)) return candidate;
         if (base == base.root_path()) break;
     }
@@ -4390,5 +4389,4 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_questnpclist) {
     // are valid empty PackingMan outputs and the test should pass for them.
     EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
 }
-
 
