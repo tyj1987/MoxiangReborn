@@ -51,10 +51,21 @@ bool read_bool(const std::string& text, const char* key, bool fallback) {
     const std::string marker = std::string("\"") + key + "\":";
     const auto start = text.find(marker);
     if (start == std::string::npos) return fallback;
-    const auto value = text.substr(start + marker.size(), 5);
+    auto offset = start + marker.size();
+    while (offset < text.size() && (text[offset] == ' ' || text[offset] == '\t')) ++offset;
+    const auto value = text.substr(offset, 5);
     if (value.rfind("true", 0) == 0) return true;
     if (value.rfind("false", 0) == 0) return false;
     return fallback;
+}
+
+float read_float(const std::string& text, const char* key, float fallback) {
+    const std::string marker = std::string("\"") + key + "\":";
+    const auto start = text.find(marker);
+    if (start == std::string::npos) return fallback;
+    auto offset = start + marker.size();
+    while (offset < text.size() && (text[offset] == ' ' || text[offset] == '\t')) ++offset;
+    try { return std::stof(text.substr(offset)); } catch (...) { return fallback; }
 }
 
 float clamp_volume(float value) {
@@ -85,6 +96,10 @@ ClientSettingsV1 ClientSettingsStore::load(const std::filesystem::path& path,
     settings.post_login_height = read_uint(text, "postLoginHeight", settings.post_login_height);
     settings.borderless = read_bool(text, "borderless", settings.borderless);
     settings.vsync = read_bool(text, "vsync", settings.vsync);
+    settings.bgm_volume = clamp_volume(read_float(text, "bgmVolume", settings.bgm_volume));
+    settings.sfx_volume = clamp_volume(read_float(text, "sfxVolume", settings.sfx_volume));
+    settings.ui_volume = clamp_volume(read_float(text, "uiVolume", settings.ui_volume));
+    settings.ambient_volume = clamp_volume(read_float(text, "ambientVolume", settings.ambient_volume));
     settings.last_account = read_string(text, "lastAccount", {});
     settings.post_login_width = std::clamp(settings.post_login_width, 800u, 7680u);
     settings.post_login_height = std::clamp(settings.post_login_height, 600u, 4320u);
@@ -118,6 +133,10 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
            << "  \"postLoginHeight\": " << settings.post_login_height << ",\n"
            << "  \"borderless\": " << (settings.borderless ? "true" : "false") << ",\n"
            << "  \"vsync\": " << (settings.vsync ? "true" : "false") << ",\n"
+           << "  \"bgmVolume\": " << settings.bgm_volume << ",\n"
+           << "  \"sfxVolume\": " << settings.sfx_volume << ",\n"
+           << "  \"uiVolume\": " << settings.ui_volume << ",\n"
+           << "  \"ambientVolume\": " << settings.ambient_volume << ",\n"
            << "  \"lastAccount\": \"" << escape_json(settings.last_account) << "\"\n}\n";
     output.close();
     if (!output) { if (error) *error = "failed writing settings"; return false; }
