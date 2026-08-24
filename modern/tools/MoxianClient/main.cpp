@@ -699,6 +699,79 @@ void drawHudBar(I4DyuchiGXRenderer* r, IDISpriteObject* bg,
     }
 }
 
+struct DisplayTransitionResult {
+    bool committed = false;
+    DWORD win32_error = ERROR_SUCCESS;
+    std::uint32_t client_width = 0;
+    std::uint32_t client_height = 0;
+};
+
+// Apply a client-size change as one transaction.  Login must not leave the
+// process with a resized HWND and an old swap-chain/viewport if any step
+// fails.  The 4:3 logical canvas remains owned by LogicalViewport; physical
+// client pixels are never used as logical UI coordinates.
+DisplayTransitionResult applyDisplayTransition(
+    HWND hwnd, I4DyuchiGXRenderer* renderer,
+    mxh::client::LogicalViewport& viewport,
+    std::uint32_t requested_width, std::uint32_t requested_height) {
+    DisplayTransitionResult result{};
+    if (!hwnd || requested_width < 800 || requested_height < 600) {
+        result.win32_error = ERROR_INVALID_PARAMETER;
+        return result;
+    }
+
+    RECT old_window{};
+    RECT old_client{};
+    if (!GetWindowRect(hwnd, &old_window) || !GetClientRect(hwnd, &old_client)) {
+        result.win32_error = GetLastError();
+        return result;
+    }
+    const LONG old_outer_width = old_window.right - old_window.left;
+    const LONG old_outer_height = old_window.bottom - old_window.top;
+    const LONG old_client_width = old_client.right - old_client.left;
+    const LONG old_client_height = old_client.bottom - old_client.top;
+
+    RECT desired{0, 0, static_cast<LONG>(requested_width),
+                 static_cast<LONG>(requested_height)};
+    if (!AdjustWindowRectEx(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0)) {
+        result.win32_error = GetLastError();
+        return result;
+    }
+    const LONG desired_outer_width = desired.right - desired.left;
+    const LONG desired_outer_height = desired.bottom - desired.top;
+    if (!SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
+                      desired_outer_width, desired_outer_height,
+                      SWP_NOZORDER | SWP_NOACTIVATE)) {
+        result.win32_error = GetLastError();
+        return result;
+    }
+
+    RECT actual_client{};
+    const bool sized = GetClientRect(hwnd, &actual_client);
+    const LONG actual_width = sized ? actual_client.right - actual_client.left : 0;
+    const LONG actual_height = sized ? actual_client.bottom - actual_client.top : 0;
+    if (!sized || actual_width <= 0 || actual_height <= 0) {
+        result.win32_error = GetLastError();
+    } else {
+        viewport.update(actual_width, actual_height);
+        if (renderer) renderer->UpdateWindowSize();
+        result.client_width = static_cast<std::uint32_t>(actual_width);
+        result.client_height = static_cast<std::uint32_t>(actual_height);
+        result.committed = true;
+        return result;
+    }
+
+    // Roll back the outer window and the logical viewport.  A failed
+    // post-login transition must remain a login-screen failure, never a
+    // partially applied display mode.
+    SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
+                 old_outer_width, old_outer_height,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+    viewport.update(old_client_width, old_client_height);
+    if (renderer) renderer->UpdateWindowSize();
+    return result;
+}
+
 void renderFrame(HWND h) {
     if (!g_renderer) return;
 
@@ -1781,27 +1854,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 // Do NOT take it here or CharSelect sees an empty slot.
                 bool display_transition_ok = true;
                 if (!post_login_display_applied) {
-                    RECT target{0, 0, static_cast<LONG>(post_login_w),
-                                static_cast<LONG>(post_login_h)};
-                    AdjustWindowRectEx(&target, WS_OVERLAPPEDWINDOW, FALSE, 0);
-                    const auto resized = SetWindowPos(
-                        hwnd, nullptr, 0, 0,
-                        target.right - target.left,
-                        target.bottom - target.top,
-                        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-                    if (!resized) {
+                    const auto transition = applyDisplayTransition(
+                        hwnd, renderer, g_logicalViewport,
+                        post_login_w, post_login_h);
+                    if (!transition.committed) {
                         display_transition_ok = false;
                         MLOG_ERROR("mxh_client: post-login display transition failed error=%lu",
-                                   GetLastError());
+                                   static_cast<unsigned long>(transition.win32_error));
                     } else {
                         post_login_display_applied = true;
-                        g_logicalViewport.update(
-                            static_cast<std::int32_t>(post_login_w),
-                            static_cast<std::int32_t>(post_login_h));
-                        if (g_renderer) g_renderer->UpdateWindowSize();
                         InvalidateRect(hwnd, nullptr, FALSE);
                         MLOG_INFO("mxh_client: post-login display transition client=%ux%u",
-                                  post_login_w, post_login_h);
+                                  transition.client_width, transition.client_height);
                     }
                 }
                 if (display_transition_ok) {
