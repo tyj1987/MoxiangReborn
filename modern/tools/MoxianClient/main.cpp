@@ -233,7 +233,9 @@ bool validate_runtime_resources(const std::filesystem::path& root,
     return true;
 }
 
-class StubFileStorage : public I4DyuchiFileStorage {
+#if 0 // historical null storage retained only as an audit reference; never compiled
+/* Legacy null storage removed: production mounts FilesystemFileStorage. */
+class StubFileStorage_REMOVED : public I4DyuchiFileStorage {
 public:
     StubFileStorage() = default;
     // I4DyuchiFileStorage has no virtual destructor (legacy COM-style
@@ -274,6 +276,7 @@ public:
     BOOL __stdcall BeginLogging(char*, std::uint32_t) override { return FALSE; }
     BOOL __stdcall EndLogging() override { return FALSE; }
 };
+#endif
 
 } // namespace
 
