@@ -1577,11 +1577,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         MLOG_INFO("mxh_client: M-R1/M-R2 ready; InterfaceScript loads on demand per state");
     }
 
-    // Build a placeholder cDialog centred in the window.  A.1.5 swaps
-    // in the real CMainTitle dialog tree.
-    cDialog placeholder;
-    placeholder.Init(280, 240, 240, 120, /*basicImage=*/nullptr, /*id=*/0);
-    (void)placeholder;  // not yet rendered (Render is a no-op stub today)
+    // All visible dialogs are owned by the active state/UI runtime.  Do not
+    // create a synthetic placeholder dialog in the product path.
 
     // -------------------------------------------------------------------------
     // Phase A.1.6 â€” wire CMainGame + CEngine + the 9 eGAMESTATE stubs.
