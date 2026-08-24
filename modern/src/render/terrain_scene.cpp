@@ -59,6 +59,7 @@ struct TerrainScene::Impl {
     float player_x = 0;
     float player_z = 0;
     float camera_yaw = 0;
+    float camera_distance = 6.0f;
     MATRIX4 view_proj{};  // last view*projection from configureCamera
     bool view_proj_valid = false;
     std::uint32_t placeholder_textures = 0;
@@ -241,7 +242,8 @@ void TerrainScene::configureCamera(float aspect) {
         const float yaw = impl_->camera_yaw;
         const float px = impl_->player_x * kSceneScale - kMapCenter;
         const float pz = impl_->player_z * kSceneScale - kMapCenter;
-        const float back = 6.0f, up = 3.0f;
+        const float back = impl_->camera_distance;
+        const float up = impl_->camera_distance * 0.5f;
         camera.v3From = {px - back * std::sin(yaw), up,
                           pz - back * std::cos(yaw)};
         camera.v3To   = {px, 0.0f, pz};
@@ -310,6 +312,14 @@ void TerrainScene::setCameraYaw(float radians) noexcept {
 
 float TerrainScene::cameraYaw() const noexcept {
     return impl_->camera_yaw;
+}
+
+void TerrainScene::setCameraDistance(float distance) noexcept {
+    impl_->camera_distance = std::clamp(distance, 3.0f, 12.0f);
+}
+
+float TerrainScene::cameraDistance() const noexcept {
+    return impl_->camera_distance;
 }
 
 float TerrainScene::heightAt(float world_x, float world_z) const noexcept {

@@ -405,6 +405,20 @@ TEST(InGamePlayable, LeftClickPrefersMonsterUnderCursor) {
     EXPECT_EQ(state.last_attack_target(), 50001u);
 }
 
+TEST(InGamePlayable, MouseWheelZoomIsBounded) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    EXPECT_FLOAT_EQ(state.camera_distance(), 6.0f);
+    for (int i = 0; i < 20; ++i) state.OnMouseWheel(120);
+    EXPECT_FLOAT_EQ(state.camera_distance(), 3.0f);
+    for (int i = 0; i < 40; ++i) state.OnMouseWheel(-120);
+    EXPECT_FLOAT_EQ(state.camera_distance(), 12.0f);
+    state.OnMouseWheel(0);
+    EXPECT_FLOAT_EQ(state.camera_distance(), 12.0f);
+}
+
 TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

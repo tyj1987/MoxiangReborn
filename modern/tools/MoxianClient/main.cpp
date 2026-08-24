@@ -809,6 +809,10 @@ void renderFrame(HWND h) {
         0xff000000, 0);
 
     if (g_renderTerrain && g_terrain) {
+        if (g_inputTarget) {
+            g_terrain->setCameraDistance(g_inputTarget->camera_distance());
+            g_terrain->setCameraYaw(g_inputTarget->camera_yaw());
+        }
         g_terrain->configureCamera(800.0f / 600.0f);
         if (!g_overviewCamera && g_skyScene) g_skyScene->render();
         g_terrain->render();
@@ -1497,6 +1501,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         return 0;
         }
+    case WM_MOUSEWHEEL:
+        if (g_inputTarget) {
+            g_inputTarget->OnMouseWheel(
+                static_cast<std::int32_t>(static_cast<short>(HIWORD(w))));
+            InvalidateRect(h, nullptr, FALSE);
+        }
+        return 0;
     default:
         return DefWindowProc(h, m, w, l);
     }

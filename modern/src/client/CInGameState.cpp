@@ -1361,6 +1361,14 @@ void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
     m_lastMouseY = y;
 }
 
+void CInGameState::OnMouseWheel(std::int32_t delta) {
+    if (!m_inGame || delta == 0) return;
+    constexpr float kWheelStep = 0.75f;
+    const float direction = delta > 0 ? -1.0f : 1.0f;
+    m_cameraDistance = std::clamp(
+        m_cameraDistance + direction * kWheelStep, 3.0f, 12.0f);
+}
+
 void CInGameState::update_movement(std::uint64_t now_ms) {
     if (!m_inGame) return;
     float dt = 0.016f;

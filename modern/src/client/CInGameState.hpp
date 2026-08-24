@@ -351,6 +351,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnChar(std::uint32_t ch);
     void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     void OnMouseMove(std::int32_t x, std::int32_t y);
+    void OnMouseWheel(std::int32_t delta);
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept;
     void try_pickup();
@@ -375,6 +376,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::unordered_map<std::uint32_t, RemotePlayerInfo>& remote_players()
         const noexcept { return m_remotePlayers; }
     float camera_yaw() const noexcept { return m_cameraYaw; }
+    float camera_distance() const noexcept { return m_cameraDistance; }
     bool is_moving() const noexcept { return m_moving; }
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
@@ -458,6 +460,7 @@ public:
     float          m_localX       = 0;
     float          m_localZ       = 0;
     float          m_cameraYaw    = 0;
+    float          m_cameraDistance = 6.0f;
     bool           m_moving       = false;
     std::uint64_t  m_lastTickMs   = 0;
     std::uint64_t  m_lastMoveSendMs = 0;

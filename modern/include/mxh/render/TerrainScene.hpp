@@ -30,6 +30,8 @@ public:
     // the player. 0 = the legacy default camera facing +Z.
     void setCameraYaw(float radians) noexcept;
     [[nodiscard]] float cameraYaw() const noexcept;
+    void setCameraDistance(float distance) noexcept;
+    [[nodiscard]] float cameraDistance() const noexcept;
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
     [[nodiscard]] std::uint32_t chunkCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
