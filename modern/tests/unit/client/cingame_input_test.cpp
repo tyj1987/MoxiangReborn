@@ -90,6 +90,13 @@ TEST(InGameMovement, PositionClampsToWorldLimit) {
     EXPECT_EQ(r.z, kWorldLimit);
 }
 
+TEST(InGameMovement, UsesMapSpecificWorldBounds) {
+    const auto r = step_movement(kForward, 0.0f,
+                                 10.0f, 90.0f, 1.0f, 120.0f, 100.0f);
+    EXPECT_EQ(r.x, 10.0f);
+    EXPECT_EQ(r.z, 100.0f);
+}
+
 TEST(InGameMovement, ZeroDtDoesNotMove) {
     const auto r = step_movement(kForward, 0.0f, 1.0f, 2.0f, 0.0f);
     EXPECT_EQ(r.x, 1.0f);

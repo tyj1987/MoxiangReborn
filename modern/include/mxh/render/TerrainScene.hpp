@@ -33,6 +33,8 @@ public:
     void setCameraDistance(float distance) noexcept;
     [[nodiscard]] float cameraDistance() const noexcept;
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
+    [[nodiscard]] float worldWidth() const noexcept;
+    [[nodiscard]] float worldHeight() const noexcept;
     [[nodiscard]] std::uint32_t chunkCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
     [[nodiscard]] std::uint32_t placeholderTextureCount() const noexcept;

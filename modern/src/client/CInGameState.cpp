@@ -101,7 +101,8 @@ std::uint32_t key_mask_for_vk(std::uint32_t vk) noexcept {
 }
 
 MoveResult step_movement(std::uint32_t keyMask, float yaw,
-                         float x, float z, float dt) noexcept {
+                         float x, float z, float dt,
+                         float max_x, float max_z) noexcept {
     MoveResult result;
     result.x = x;
     result.z = z;
@@ -133,8 +134,10 @@ MoveResult step_movement(std::uint32_t keyMask, float yaw,
     if (len > 0.0001f) {
         dx /= len;
         dz /= len;
-        result.x = std::clamp(x + dx * kMoveSpeed * dt, 0.0f, kWorldLimit);
-        result.z = std::clamp(z + dz * kMoveSpeed * dt, 0.0f, kWorldLimit);
+        result.x = std::clamp(x + dx * kMoveSpeed * dt, 0.0f,
+                              std::max(0.0f, max_x));
+        result.z = std::clamp(z + dz * kMoveSpeed * dt, 0.0f,
+                              std::max(0.0f, max_z));
         result.moving = true;
     }
     if (keyMask & static_cast<std::uint32_t>(MoveKey::RotateLeft)) {
@@ -1369,6 +1372,13 @@ void CInGameState::OnMouseWheel(std::int32_t delta) {
         m_cameraDistance + direction * kWheelStep, 3.0f, 12.0f);
 }
 
+void CInGameState::set_world_bounds(float max_x, float max_z) noexcept {
+    m_worldLimitX = std::max(1.0f, max_x);
+    m_worldLimitZ = std::max(1.0f, max_z);
+    m_localX = std::clamp(m_localX, 0.0f, m_worldLimitX);
+    m_localZ = std::clamp(m_localZ, 0.0f, m_worldLimitZ);
+}
+
 void CInGameState::update_movement(std::uint64_t now_ms) {
     if (!m_inGame) return;
     float dt = 0.016f;
@@ -1379,7 +1389,8 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
     m_lastTickMs = now_ms;
 
     const auto step = step_movement(m_keyMask, m_cameraYaw,
-                                    m_localX, m_localZ, dt);
+                                    m_localX, m_localZ, dt,
+                                    m_worldLimitX, m_worldLimitZ);
     m_cameraYaw = step.yaw;
     m_localX = step.x;
     m_localZ = step.z;

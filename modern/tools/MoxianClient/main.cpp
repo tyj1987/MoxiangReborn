@@ -442,6 +442,10 @@ bool loadGameWorld(const ClientOptions& options,
     }
 
     g_terrain = std::move(terrain);
+    if (g_inputTarget) {
+        g_inputTarget->set_world_bounds(g_terrain->worldWidth(),
+                                        g_terrain->worldHeight());
+    }
     g_staticScene = std::move(staticScene);
     g_skyScene = std::move(skyScene);
     g_entityScene = std::move(entityScene);

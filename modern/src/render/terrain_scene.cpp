@@ -330,6 +330,14 @@ float TerrainScene::heightAt(float world_x, float world_z) const noexcept {
     return impl_->terrain.heights[static_cast<std::size_t>(sz) * d.height_count_x + sx];
 }
 
+float TerrainScene::worldWidth() const noexcept {
+    return static_cast<float>(impl_->terrain.desc.width);
+}
+
+float TerrainScene::worldHeight() const noexcept {
+    return static_cast<float>(impl_->terrain.desc.height);
+}
+
 void TerrainScene::render() {
     if (!impl_->renderer) return;
     for (auto* chunk : impl_->chunks)

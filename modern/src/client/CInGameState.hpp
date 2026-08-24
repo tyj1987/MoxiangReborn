@@ -240,7 +240,9 @@ std::uint32_t key_mask_for_vk(std::uint32_t vk) noexcept;
 
 // Advance position/yaw for one tick given the held key mask.
 MoveResult step_movement(std::uint32_t keyMask, float yaw,
-                         float x, float z, float dt) noexcept;
+                         float x, float z, float dt,
+                         float max_x = kWorldLimit,
+                         float max_z = kWorldLimit) noexcept;
 
 // Nearest alive monster within range, or std::nullopt.
 std::optional<std::uint32_t>
@@ -352,6 +354,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void OnMouseWheel(std::int32_t delta);
+    void set_world_bounds(float max_x, float max_z) noexcept;
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept;
     void try_pickup();
@@ -461,6 +464,8 @@ public:
     float          m_localZ       = 0;
     float          m_cameraYaw    = 0;
     float          m_cameraDistance = 6.0f;
+    float          m_worldLimitX = kWorldLimit;
+    float          m_worldLimitZ = kWorldLimit;
     bool           m_moving       = false;
     std::uint64_t  m_lastTickMs   = 0;
     std::uint64_t  m_lastMoveSendMs = 0;
