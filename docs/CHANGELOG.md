@@ -1,9 +1,10 @@
-## 2026-08-23 — 轴 C MSSQL 端到端 + 轴 D login.dds 翻转 runtime 验收 + 轴 E HUD byte-level wiring
+## 2026-08-23 — 轴 C MSSQL 端到端 + 轴 D login.dds 翻转 runtime 验收 + 轴 E HUD byte-level wiring + 轴 F Map 10 稳态 + N073
 
 - **轴 C (MSSQL BuySyn → modern_player_state)**: 新增 `MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState` (commit `5cd272da`)。本地 MSSQLSERVER over ODBC Driver 18 named pipe (`host=(local);database=Moxiang;encrypt=no;trust_server_certificate=yes`)，`MERGE` UPSERT 验证 1000 + 250 = 1250 单行累计。`ctest -E MssqlRealE2E`：**12118/12118 PASS** in 355s。
 - **轴 D (login.dds V-flip runtime)**: 在 `renderFrame` 末尾追加静态 frame 计数器 (commit `aa4a4efc`)，每 60 帧 log 一次 `render fps=X.X frames=60 elapsed_ms=NNNN state=N`。Release build 实测 fps=10.9 @ state=3 (Login, 1024×768)。`modern/scratch/2026-08-23-axis-d/smoke_login_fps.ps1` 抓 `state-login.tga` 解析顶/底 luma 差 = 6583.7 > 1.0，runtime sky-band-on-top 确认 V-flip 路径生效。
 - 旧的 `MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip` 在本机失败（NVARCHAR 参数绑定问题，pre-existing，不在本次提交范围）。
 - **轴 E (HUD 真 sprite byte-level)**: 新增 `InterfaceScript.LoadsPlayDhMPGuageBinAndFindsExpGuageChild` + `InterfaceScript.LoadsPlayDhTitanInventoryBinAndHasInventoryCells` (commit `f3d62efc`)。证明 `compat::read_mh_bin` + `parse_interface_script` 能把真实 `MPGuage.bin` / `Titan_inventory.bin` 解到 cMPGuageDialog / cInventoryExDialog 期望的 layout（HP/MP/Exp bar 节点 + 8×10 cell 节点）。**渲染仍走 main.cpp 的 `CreateSolidSpriteObject` 占位**——把实 sprite 切到 HUD 路径需要 #BASICIMAGE idx → .dds 切片映射表，下一 commit 闭环。
+- **轴 F (Map 10 稳态 + N073 不占位)**: 新增 `NpcChxCatalog.AllCanonicalSlotsResolveToChxFilename` (commit `8fe226c4`)。采样 [1, 10, 25, 50, 73, 80, 86] NPC slot 区间，断言每一项都非空 .chx。**N073.chx 显式覆盖**——它是 `PLAYABLE_STATUS.md §0` 提到的「1 个 N073.chx 占位」对应 slot。结合已有 `MapHandlerTest.RecoveredMonster10BinSpawnsAllGroups`（228 MonsterAdd），轴 F 的两个不变量都用纯单测钉死。`ctest -E MssqlRealE2E`：**12121/12121 PASS** in 347s。
 
 ## 2026-08-22 — P5 进图 WASD / 攻击 / 拾取
 
