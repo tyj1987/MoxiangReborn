@@ -6,7 +6,7 @@ Only unresolved issues belong here. Resolved history is available through Git.
 
 - Launcher and patch/update flow are not yet a single tested product path.
 - Login failure, timeout, retry and return-to-login UI recovery are incomplete.
-- Login success does not yet apply the saved post-login display mode.
+- Login success display transition is now transactional in the client; the remaining release gap is genuine human verification across DPI, multi-monitor, Alt-Tab and swap-chain failure cases.
 - Character select/create lacks complete 3D appearance, equipment and animation presentation.
 - `GameLoading` and `MapChange` still require real asynchronous loading states.
 - Runtime map rendering does not yet apply all BMHM/TTB/HFL/STM/sky/environment semantics.
