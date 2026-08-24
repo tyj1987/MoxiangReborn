@@ -140,7 +140,7 @@ public:
 
         if (latest < current || latest == current) {
             std::cout << "No updates available." << std::endl;
-            return false;
+            return true;
         }
 
         std::cout << "Update available: " << current.toString() << " -> " << latest.toString() << std::endl;
