@@ -5,12 +5,22 @@
 # ============================================================================
 
 param(
-    [string]$SourceDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\SWorking",
-    [string]$DeployDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\server",
-    [string]$ResourceDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码配套资源】\PlayDH"
+    [string]$SourceDir = "",
+    [string]$DeployDir = "",
+    [string]$ResourceDir = ""
 )
 
 $ErrorActionPreference = "Stop"
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+    $SourceDir = Join-Path $repoRoot 'modern\build\tools'
+}
+if ([string]::IsNullOrWhiteSpace($DeployDir)) {
+    $DeployDir = Join-Path $repoRoot 'deploy\server'
+}
+if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
+    $ResourceDir = Join-Path $repoRoot 'modern\data\PlayDH'
+}
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  墨香Reborn - 服务端部署脚本" -ForegroundColor Cyan

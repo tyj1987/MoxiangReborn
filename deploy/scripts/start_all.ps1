@@ -5,11 +5,15 @@
 # ============================================================================
 
 param(
-    [string]$ServerDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\server",
+    [string]$ServerDir = "",
     [switch]$Stop
 )
 
 $ErrorActionPreference = "Stop"
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($ServerDir)) {
+    $ServerDir = Join-Path $repoRoot 'deploy\server'
+}
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  墨香Reborn - 服务管理器" -ForegroundColor Cyan
@@ -18,20 +22,22 @@ Write-Host ""
 
 # 停止所有服务
 if ($Stop) {
-    Write-Host "正在停止所有服务..." -ForegroundColor Yellow
-    
-    $processes = @("DistributeServer", "AgentServer", "MapServer", "RMToolServer", "MonitoringServer")
-    foreach ($proc in $processes) {
-        $running = Get-Process -Name $proc -ErrorAction SilentlyContinue
-        if ($running) {
-            Stop-Process -Name $proc -Force
-            Write-Host "  已停止: $proc" -ForegroundColor Gray
-        }
+    $modernLauncher = Join-Path $PSScriptRoot 'start_modern.ps1'
+    if (-not (Test-Path -LiteralPath $modernLauncher)) {
+        throw "modern launcher not found: $modernLauncher"
     }
-    
-    Write-Host "所有服务已停止" -ForegroundColor Green
-    exit 0
+    & $modernLauncher -Mode stop
+    exit $LASTEXITCODE
 }
+
+# The legacy executable fan-out below is retained only as historical reference.
+# Normal execution delegates to the PID-tracked modern three-service launcher.
+$modernLauncher = Join-Path $PSScriptRoot 'start_modern.ps1'
+if (-not (Test-Path -LiteralPath $modernLauncher)) {
+    throw "modern launcher not found: $modernLauncher"
+}
+& $modernLauncher -Mode start
+exit $LASTEXITCODE
 
 # 检查数据库连接
 Write-Host "[1/5] 检查数据库连接..." -ForegroundColor Yellow
