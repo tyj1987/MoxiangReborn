@@ -98,7 +98,7 @@ Write-Host "  生成: MHVerInfo.ver" -ForegroundColor Gray
 
 # MHVerInfo.bin - 服务器列表（二进制格式，这里用文本模拟）
 $serverList = @"
-[MoxianReborn]
+[MoxianClient]
 IP=$ServerIP
 Port=9000
 "@
@@ -196,7 +196,7 @@ Write-Host ""
 Write-Host "部署目录: $DeployDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "文件结构：" -ForegroundColor Yellow
-Write-Host "  MoxianReborn.exe    - 游戏主程序" -ForegroundColor White
+Write-Host "  MoxianClient.exe    - 游戏主程序" -ForegroundColor White
 Write-Host "  启动游戏.bat        - 游戏启动器" -ForegroundColor White
 Write-Host "  MHVerInfo.ver       - 版本信息" -ForegroundColor White
 Write-Host "  Resource\           - 游戏资源" -ForegroundColor White
@@ -209,4 +209,4 @@ Write-Host "服务器地址: $ServerIP:9000" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "下一步：" -ForegroundColor Yellow
 Write-Host "  1. 确保服务器已启动" -ForegroundColor White
-Write-Host "  2. 双击 启动游戏.bat 或运行 MoxianReborn.exe" -ForegroundColor White
+Write-Host "  2. 双击 启动游戏.bat 或运行 MoxianClient.exe" -ForegroundColor White

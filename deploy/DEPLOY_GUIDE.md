@@ -60,7 +60,7 @@ The launcher starts modern Login/Agent/Map on ports `16001/17001/18001`, stores 
 
 ```powershell
 # 以管理员身份运行 PowerShell
-cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\scripts"
+cd "<repo-root>\deploy\scripts"
 
 # 完整部署
 .\deploy_all.ps1
@@ -109,7 +109,7 @@ cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deplo
 
 ```powershell
 # 以管理员身份运行
-cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\database"
+cd "<repo-root>\deploy\database"
 .\install_database.ps1
 ```
 
@@ -132,21 +132,21 @@ cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deplo
 ### 步骤四：部署服务端
 
 ```powershell
-cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\scripts"
+cd "<repo-root>\deploy\scripts"
 .\deploy_server.ps1
 ```
 
 ### 步骤五：部署客户端
 
 ```powershell
-cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\scripts"
+cd "<repo-root>\deploy\scripts"
 .\deploy_client.ps1 -ServerIP "127.0.0.1"
 ```
 
 ### 步骤六：启动服务
 
 ```powershell
-cd "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\scripts"
+cd "<repo-root>\deploy\scripts"
 .\start_all.ps1
 ```
 
@@ -246,7 +246,7 @@ ExpRate=1.0             # 经验倍率
 
 | 文件 | 说明 |
 |------|------|
-| MoxianReborn.exe | 游戏主程序 |
+| MoxianClient.exe | 游戏主程序 |
 | MHVerInfo.ver | 版本信息文件 |
 | MHVerInfo.bin | 服务器列表 |
 | Resource\ | 游戏资源文件 |
