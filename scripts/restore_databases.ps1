@@ -1,10 +1,13 @@
 # 还原墨香游戏数据库备份到SQL Server
 # 使用方法: .\restore_databases.ps1
+param([string]$BackupDir = '')
 
 $ErrorActionPreference = "Stop"
 
 # 数据库备份文件路径
-$backupDir = "D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\数据库"
+if ([string]::IsNullOrWhiteSpace($BackupDir)) {
+    $BackupDir = Join-Path (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path 'reference\databases'
+}
 $databases = @(
     @{Name="MHCMEMBER"; BakFile="$backupDir\MHCMEMBER.bak"},
     @{Name="MHGAME"; BakFile="$backupDir\MHGAME.bak"},

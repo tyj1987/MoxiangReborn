@@ -21,8 +21,8 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）")
-DEMO_EXE = REPO / "modern" / "build" / "tools" / "MoxianRenderDemo" / "Debug" / "mxh_render_demo.exe"
+REPO = Path(__file__).resolve().parents[3]
+DEMO_EXE = REPO / "modern" / "build" / "tools" / "MoxianRenderDemo" / "mxh_render_demo.exe"
 DEMO_DIR = DEMO_EXE.parent
 OUT_LOG = DEMO_DIR / "run_demo_stdout.txt"
 ERR_LOG = DEMO_DIR / "run_demo_stderr.txt"

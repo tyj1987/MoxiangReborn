@@ -4,14 +4,13 @@ verify_real_resources.py
 直接调用编译好的 mxh_explorer.exe。
 """
 
-import os
 import subprocess
 import sys
 from pathlib import Path
 
-WORKSPACE = Path(r"D:\Moxian")
-EXPLORER = WORKSPACE / "modern" / "build" / "tools" / "MoxianResourceExplorer" / "Release" / "mxh_explorer.exe"
-RES = WORKSPACE / "墨香【源码配套资源】" / "PlayDH"
+WORKSPACE = Path(__file__).resolve().parents[1]
+EXPLORER = WORKSPACE / "modern" / "build" / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe"
+RES = WORKSPACE / "modern" / "data" / "PlayDH"
 
 
 def run(args, timeout=60):
@@ -89,8 +88,8 @@ for p in pak_files:
 
 # --- Test 4: extract-pak to get a real file ---
 section("Test 4: Extract tile_201_wall04.dds from Map.pak")
-extract_dir = WORKSPACE / "test-extract"
-extract_dir.mkdir(exist_ok=True)
+extract_dir = WORKSPACE / "modern" / "out" / "runs" / "resource-verify"
+extract_dir.mkdir(parents=True, exist_ok=True)
 rc, out, err = run(["extract-pak", str(RES / "Map.pak"), "tile_201_wall04.dds", "-o", str(extract_dir)])
 print(out)
 # DDS file is 2856 bytes, magic 'DDS '
@@ -105,7 +104,7 @@ if extracted.exists():
 
 # --- Test 5: Extract from Effect.pak ---
 section("Test 5: Extract titan_portal_eff.mod from Effect.pak")
-extract_dir2 = WORKSPACE / "test-extract"
+extract_dir2 = extract_dir
 rc, out, err = run(["extract-pak", str(RES / "Effect.pak"), "titan_portal_eff.mod", "-o", str(extract_dir2)])
 print(out)
 extracted = extract_dir2 / "titan_portal_eff.mod"
