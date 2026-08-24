@@ -159,6 +159,25 @@ TEST(CharSelectWire, ListAckCarriesAppearanceAndMapData) {
     EXPECT_EQ((*list)[0].map_num, 10);
 }
 
+TEST(CharSelectWire, CharacterPreviewUsesServerAppearance) {
+    mxh::client::CharacterSlot slot;
+    slot.valid = true;
+    slot.chrid = 99;
+    slot.gender = 1;
+    slot.face_type = 2;
+    slot.hair_type = 4;
+    slot.weared_item_idx[3] = 777;
+    const auto preview = mxh::client::make_character_preview(slot, 1.0f, 2.0f, 3.0f);
+    ASSERT_TRUE(preview.has_value());
+    EXPECT_EQ(preview->object_id, 99u);
+    EXPECT_EQ(preview->gender, 1);
+    EXPECT_EQ(preview->face_type, 2);
+    EXPECT_EQ(preview->hair_type, 4);
+    EXPECT_EQ(preview->weared_item_idx[3], 777);
+    EXPECT_FLOAT_EQ(preview->world_x, 1.0f);
+    EXPECT_FALSE(mxh::client::make_character_preview({}));
+}
+
 TEST(CharSelectWire, ListAckNameUsesAllSeventeenBytesWithoutTerminator) {
     std::array<std::uint8_t, 889> buf{};
     buf[0] = 1;

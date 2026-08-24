@@ -46,6 +46,7 @@
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/render/EntityScene.hpp"
 
 namespace mxh::client {
 
@@ -81,6 +82,13 @@ struct CharacterSlot {
     std::uint16_t map_num = 0;
     std::array<std::uint16_t, 10> weared_item_idx{};
 };
+
+// Converts the server's complete character slot into the renderer's stable
+// appearance payload. The preview scene can place this at any camera anchor
+// without inventing appearance defaults or touching protocol data.
+std::optional<mxh::gx::ScenePlayer> make_character_preview(
+    const CharacterSlot& slot, float world_x = 25600.0f,
+    float world_y = 0.0f, float world_z = 25600.0f);
 
 // Build the 8-byte CharacterListSyn payload (agent_handler.cpp:526-538):
 //   [user_id: u32 LE] [dist_auth_key: u32 LE]

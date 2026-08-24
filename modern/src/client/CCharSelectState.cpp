@@ -17,6 +17,24 @@
 
 namespace mxh::client {
 
+std::optional<mxh::gx::ScenePlayer> make_character_preview(
+    const CharacterSlot& slot, float world_x, float world_y, float world_z) {
+    if (!slot.valid || slot.chrid == 0) return std::nullopt;
+    mxh::gx::ScenePlayer preview;
+    preview.object_id = slot.chrid;
+    preview.gender = slot.gender;
+    preview.face_type = slot.face_type;
+    preview.hair_type = slot.hair_type;
+    preview.weared_item_idx = slot.weared_item_idx;
+    preview.world_x = world_x;
+    preview.world_y = world_y;
+    preview.world_z = world_z;
+    preview.current_life = 1;
+    preview.max_life = 1;
+    preview.action = mxh::gx::SceneAction::Idle;
+    return preview;
+}
+
 CharSelectUiCommand resolve_char_select_ui_command(
     const ClientUiActivation& activation) noexcept {
     static constexpr std::string_view kSlotIds[] = {
