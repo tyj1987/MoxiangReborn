@@ -1408,6 +1408,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         std::fprintf(stderr, "mxh_client: --auto-login requires --username and --password\n");
         return 2;
     }
+#ifdef NDEBUG
+    if (options.auto_login || options.auto_create || !options.username.empty() ||
+        !options.password.empty() || options.exit_after_gamein ||
+        options.smoke_settle_frames != 0 || !options.state_frames_dir.empty()) {
+        std::fprintf(stderr,
+                     "mxh_client: automation and credential command-line options are disabled in release builds\n");
+        return 2;
+    }
+#endif
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     g_debugUiBounds = options.debug_ui_bounds;
     __g_stateFramesDir = options.state_frames_dir;
