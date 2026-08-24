@@ -42,7 +42,7 @@ target_include_directories(mxh_audio PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_features(mxh_audio PUBLIC cxx_std_20)
 target_link_libraries(mxh_audio PUBLIC mxh_compat mxh_log)
 if(WIN32)
-    target_link_libraries(mxh_audio PRIVATE winmm)
+    target_link_libraries(mxh_audio PRIVATE mfplat mfreadwrite mfuuid xaudio2)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -481,7 +481,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 

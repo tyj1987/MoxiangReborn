@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <memory>
 
 namespace mxh::audio {
 
@@ -13,7 +14,10 @@ namespace mxh::audio {
 // is intentional and matches its state-driven playback model.
 class BgmPlayer {
 public:
-    BgmPlayer() = default;
+#ifdef _WIN32
+    struct MediaState;
+#endif
+    BgmPlayer();
     ~BgmPlayer();
     BgmPlayer(const BgmPlayer&) = delete;
     BgmPlayer& operator=(const BgmPlayer&) = delete;
@@ -30,6 +34,9 @@ public:
     [[nodiscard]] const mxh::compat::SoundList& manifest() const noexcept { return manifest_; }
 
 private:
+#ifdef _WIN32
+    std::unique_ptr<MediaState> media_;
+#endif
     bool ready_ = false;
     float volume_ = 1.0f;
     std::uint16_t current_id_ = 0xffffu;
