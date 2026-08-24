@@ -29,6 +29,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
+$profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
 $buildRoot = Join-Path $repoRoot 'modern\build\tools'
 $stateDir = Join-Path $repoRoot 'deploy\runtime\modern'
 $pidFile = Join-Path $stateDir 'pids.json'
@@ -38,12 +40,15 @@ $logDir = Join-Path $stateDir 'logs'
 if ([string]::IsNullOrWhiteSpace($DataDir)) {
     $DataDir = Join-Path $stateDir 'data'
 }
+if ($null -eq $profileManifest.profiles.PSObject.Properties[$ResourceProfileId]) {
+    throw "Unknown resource profile '$ResourceProfileId' (manifest: $profileManifestPath)"
+}
+$profile = $profileManifest.profiles.$ResourceProfileId
+if (-not [bool]$profile.releaseAllowed -and -not $AllowDevFallbacks) {
+    throw "Profile '$ResourceProfileId' is not release-enabled"
+}
 if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
-    if ($ResourceProfileId -eq 'playdh-current') {
-        $ResourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
-    } else {
-        $ResourceRoot = Join-Path $repoRoot 'reference\legacy-source\4dddd9a6\SWorking'
-    }
+    $ResourceRoot = Join-Path $repoRoot ([string]$profile.source)
 }
 if ([string]::IsNullOrWhiteSpace($ServerResourceRoot)) {
     $configuredServerRoot = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT')
@@ -129,6 +134,17 @@ if ($Mode -eq 'status') {
 New-Item -ItemType Directory -Force -Path $stateDir, $DataDir, $logDir | Out-Null
 $ResourceRoot = (Resolve-Path -LiteralPath $ResourceRoot).Path
 $ServerResourceRoot = (Resolve-Path -LiteralPath $ServerResourceRoot).Path
+
+foreach ($entry in @($profile.required)) {
+    $requiredPath = Join-Path $ResourceRoot ([string]$entry.path)
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Profile '$ResourceProfileId' is missing manifest resource: $requiredPath"
+    }
+    $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $requiredPath).Hash.ToLowerInvariant()
+    if ($actualHash -ne ([string]$entry.sha256).ToLowerInvariant()) {
+        throw "Profile '$ResourceProfileId' hash mismatch: $requiredPath"
+    }
+}
 
 $requiredResources = @(
     (Join-Path $ResourceRoot 'Resource\ItemList.bin'),

@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "profiles": {
+    "playdh-current": {
+      "source": "modern/data/PlayDH",
+      "releaseAllowed": true,
+      "serverSource": "Resource/Server",
+      "required": [
+        {
+          "path": "Resource/ItemList.bin",
+          "sha256": "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd"
+        },
+        {
+          "path": "Resource/CharacterExpPoint.bin",
+          "sha256": "8010160a2ed9a7e0bac91c73eb31efa43d25d101200d1cb149be5e8083305f59"
+        },
+        {
+          "path": "Resource/Server/Monster_10.bin",
+          "sha256": "50033323336100da141443f3b563c62312586d149edf5cfdd78262b26d15cc01"
+        }
+      ]
+    },
+    "sworking-2008-reference": {
+      "source": "reference/legacy-source/4dddd9a6/SWorking",
+      "releaseAllowed": false,
+      "serverSource": "Resource/Server",
+      "required": []
+    }
+  }
+}
