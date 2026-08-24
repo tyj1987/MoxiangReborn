@@ -9,6 +9,8 @@
 
 #include "GameStateStubs.hpp"
 #include "CGameState.hpp"
+#include "GameLoadingCoordinator.hpp"
+#include "CEngine.hpp"
 
 #include <gtest/gtest.h>
 
@@ -63,4 +65,17 @@ TEST(CGameLoading, RejectsInvalidContext) {
     state.Init(&context);
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "loading context has zero steps");
+}
+
+TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{42, 10});
+    std::string error;
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine, &error)) << error;
+    EXPECT_EQ(coordinator.request().character_id, 42u);
+    EXPECT_EQ(coordinator.request().map_num, 10u);
+    EXPECT_EQ(coordinator.context().completed_steps, 0u);
+    coordinator.mark_completed(100);
+    EXPECT_EQ(coordinator.context().completed_steps, 10u);
 }

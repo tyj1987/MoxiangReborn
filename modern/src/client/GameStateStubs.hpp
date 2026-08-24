@@ -74,6 +74,9 @@ public:
     bool failed() const noexcept { return m_failed; }
     bool cancelled() const noexcept { return m_cancelled; }
     const std::string& error() const noexcept { return m_error; }
+    void set_context(const LoadStateContext* context) noexcept {
+        SetInitParam(const_cast<LoadStateContext*>(context));
+    }
 private:
     float m_progress = 0.0f;
     bool m_failed = false;

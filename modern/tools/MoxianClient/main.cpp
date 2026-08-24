@@ -64,6 +64,7 @@
 #include "CCharMake.hpp"
 #include "GameStateStubs.hpp"
 #include "ClientSettings.hpp"
+#include "GameLoadingCoordinator.hpp"
 #include "LogicalViewport.hpp"
 #include "SpriteRenderGeometry.hpp"
 
@@ -1652,6 +1653,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::uint32_t pending_character_id = 0;
     std::uint16_t pending_map_num = 0;
     std::string pending_loading_error;
+    mxh::client::GameLoadingCoordinator loadingCoordinator;
     bool game_loading_frame_presented = false;
     bool post_login_display_applied = false;
     bool auto_create_requested = false;
@@ -1802,29 +1804,33 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (cur_state == mxh::client::GameStateId::GameLoading) {
                 if (!game_loading_frame_presented) {
                     game_loading_frame_presented = true;
-                } else if (mainGame.GetEngine()->has_pending_transfer()) {
-                    auto transfer = mainGame.GetEngine()->TakePendingTransfer();
-                    if (const auto* request =
-                            std::get_if<mxh::client::GameEntryRequest>(&transfer)) {
+                } else if (!loadingCoordinator.has_request()) {
+                    std::string transferError;
+                    if (loadingCoordinator.consume_pending_transfer(
+                            *mainGame.GetEngine(), &transferError)) {
+                        if (auto* loading = dynamic_cast<mxh::client::CGameLoading*>(
+                                mainGame.GetGameState(cur_state))) {
+                            loading->set_context(&loadingCoordinator.context());
+                        }
                         std::string loadingError;
                         if (loadGameWorld(options, renderer, storage, bgm,
-                                          request->map_num, loadingError)) {
-                            pending_character_id = request->character_id;
-                            pending_map_num = request->map_num;
+                                          loadingCoordinator.request().map_num, loadingError)) {
+                            loadingCoordinator.mark_completed(10);
+                            pending_character_id = loadingCoordinator.request().character_id;
+                            pending_map_num = loadingCoordinator.request().map_num;
                             mainGame.SetGameState(mxh::client::GameStateId::GameIn);
                         } else {
                             pending_loading_error = "Unable to enter Map " +
-                                std::to_string(request->map_num) + ": " + loadingError;
+                                std::to_string(loadingCoordinator.request().map_num) + ": " + loadingError;
+                            loadingCoordinator.mark_failed(pending_loading_error);
                             MLOG_ERROR("GameLoading: %s",
                                        pending_loading_error.c_str());
                             mainGame.SetGameState(
                                 mxh::client::GameStateId::CharSelect);
                         }
-                    } else {
-                        pending_loading_error =
-                            "Game loading received an invalid state transfer.";
-                        MLOG_ERROR("GameLoading: unexpected transfer variant index=%zu",
-                                   transfer.index());
+                    } else if (transferError != "waiting for GameEntryRequest") {
+                        pending_loading_error = transferError;
+                        MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
                         mainGame.SetGameState(
                             mxh::client::GameStateId::CharSelect);
                     }
