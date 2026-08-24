@@ -59,6 +59,7 @@ struct StaticScene::Impl {
     I4DyuchiGXRenderer* renderer = nullptr;
     std::vector<IDIMeshObject*> meshes;
     std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
+    std::uint32_t unresolved_textures = 0;
     ~Impl() { for (auto* mesh : meshes) if (mesh) mesh->Release(); }
 };
 
@@ -70,6 +71,7 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     if (!renderer || !storage || !stm_name) return false;
     for (auto* mesh : impl_->meshes) if (mesh) mesh->Release();
     impl_->meshes.clear(); impl_->textures.clear(); impl_->renderer = renderer;
+    impl_->unresolved_textures = 0;
     std::vector<std::uint8_t> bytes;
     mxh::compat::StmStaticModel scene;
     if (!readStorageFile(storage, stm_name, bytes) ||
@@ -79,8 +81,14 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     if (!renderer->GetD3DDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)) || !device)
         return false;
     impl_->textures.resize(scene.materials.size());
-    for (std::size_t i = 0; i < scene.materials.size(); ++i)
-        loadTexture(storage, device, scene.materials[i].texture_name, impl_->textures[i]);
+    for (std::size_t i = 0; i < scene.materials.size(); ++i) {
+        if (!loadTexture(storage, device, scene.materials[i].texture_name,
+                         impl_->textures[i])) {
+            ++impl_->unresolved_textures;
+            MLOG_WARN("[static] texture unavailable: %s",
+                      scene.materials[i].texture_name.c_str());
+        }
+    }
 
     for (const auto& source : scene.meshes) {
         if (source.positions.empty() || source.positions.size() > 65535u) continue;
@@ -141,5 +149,8 @@ std::uint32_t StaticScene::meshCount() const noexcept {
 std::uint32_t StaticScene::loadedTextureCount() const noexcept {
     return static_cast<std::uint32_t>(std::count_if(impl_->textures.begin(), impl_->textures.end(),
         [](const auto& texture) { return texture != nullptr; }));
+}
+std::uint32_t StaticScene::unresolvedTextureCount() const noexcept {
+    return impl_ ? impl_->unresolved_textures : 0;
 }
 } // namespace mxh::gx

@@ -62,6 +62,7 @@ struct TerrainScene::Impl {
     MATRIX4 view_proj{};  // last view*projection from configureCamera
     bool view_proj_valid = false;
     std::uint32_t placeholder_textures = 0;
+    std::uint32_t unresolved_textures = 0;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -77,6 +78,7 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     for (auto* chunk : impl_->chunks) if (chunk) chunk->Release();
     impl_->chunks.clear(); impl_->textures.clear(); impl_->renderer = renderer;
     impl_->placeholder_textures = 0;
+    impl_->unresolved_textures = 0;
     std::vector<std::uint8_t> hflBytes;
     if (!readStorageFile(storage, hfl_name, hflBytes) ||
         !mxh::compat::parse_hfl(hflBytes, impl_->terrain, error)) return false;
@@ -95,17 +97,20 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
             const auto dot = textureName.find_last_of('.');
             if (dot == std::string::npos) {
                 ++placeholderTextures;
+                ++impl_->unresolved_textures;
                 continue;
             }
             textureName.replace(dot, std::string::npos, ".dds");
             if (!readStorageFile(storage, textureName.c_str(), encoded)) {
                 MLOG_WARN("[terrain] texture missing: %s", textureName.c_str());
+                ++impl_->unresolved_textures;
                 continue;
             }
         }
         const auto decoded = dx11::loadTextureFromMemory(encoded.data(), static_cast<std::uint32_t>(encoded.size()));
         if (decoded.pixels.empty()) {
             MLOG_WARN("[terrain] texture decode failed: %s", textureName.c_str());
+            ++impl_->unresolved_textures;
             continue;
         }
         D3D11_TEXTURE2D_DESC desc{};
@@ -117,6 +122,7 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
         ComPtr<ID3D11Texture2D> texture;
         if (SUCCEEDED(device->CreateTexture2D(&desc, &initial, &texture)))
             device->CreateShaderResourceView(texture.Get(), nullptr, &impl_->textures[i]);
+        if (!impl_->textures[i]) ++impl_->unresolved_textures;
     }
 
     const auto& terrain = impl_->terrain;
@@ -322,5 +328,9 @@ std::uint32_t TerrainScene::loadedTextureCount() const noexcept {
 
 std::uint32_t TerrainScene::placeholderTextureCount() const noexcept {
     return impl_ ? impl_->placeholder_textures : 0;
+}
+
+std::uint32_t TerrainScene::unresolvedTextureCount() const noexcept {
+    return impl_ ? impl_->unresolved_textures : 0;
 }
 } // namespace mxh::gx

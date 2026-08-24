@@ -378,10 +378,10 @@ bool loadGameWorld(const ClientOptions& options,
         error = "Terrain load failed (" + hflName + "): " + stageError;
         return false;
     }
-    if (terrain->placeholderTextureCount() != 0 && !g_debugUiBounds) {
+    if (terrain->unresolvedTextureCount() != 0 && !g_debugUiBounds) {
         error = "Terrain contains " +
-            std::to_string(terrain->placeholderTextureCount()) +
-            " unresolved texture palette entries";
+            std::to_string(terrain->unresolvedTextureCount()) +
+            " unresolved textures";
         MLOG_ERROR("mxh_client: %s", error.c_str());
         return false;
     }
@@ -391,6 +391,13 @@ bool loadGameWorld(const ClientOptions& options,
     stageError.clear();
     if (!staticScene->load(renderer, storage, stmName.c_str(), &stageError)) {
         error = "Static scene load failed (" + stmName + "): " + stageError;
+        return false;
+    }
+    if (staticScene->unresolvedTextureCount() != 0 && !g_debugUiBounds) {
+        error = "Static scene contains " +
+            std::to_string(staticScene->unresolvedTextureCount()) +
+            " unresolved textures";
+        MLOG_ERROR("mxh_client: %s", error.c_str());
         return false;
     }
 

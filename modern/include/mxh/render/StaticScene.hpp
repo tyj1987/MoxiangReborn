@@ -23,6 +23,7 @@ public:
     void render();
     [[nodiscard]] std::uint32_t meshCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
+    [[nodiscard]] std::uint32_t unresolvedTextureCount() const noexcept;
 
 private:
     struct Impl;
