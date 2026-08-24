@@ -109,6 +109,8 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     constexpr std::size_t kChridOff   = 0;              // within a slot
     constexpr std::size_t kNameOff    = 8;
     constexpr std::size_t kNameSize   = 17;
+    constexpr std::size_t kTotalOff   = 189;
+    constexpr std::size_t kTotalSize  = 140;
 
     std::vector<CharacterSlot> out(kMaxSlots);
     const std::size_t avail_for_slots = (payload.size() >= kBaseOff
@@ -128,6 +130,21 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
             out[i].name.assign(
                 reinterpret_cast<const char*>(name_begin),
                 reinterpret_cast<const char*>(name_end));
+            const auto total = kTotalOff + i * kTotalSize;
+            if (payload.size() >= total + kTotalSize) {
+                out[i].gender = payload[total + 16];
+                out[i].face_type = payload[total + 17];
+                out[i].hair_type = payload[total + 18];
+                for (std::size_t item = 0; item < out[i].weared_item_idx.size(); ++item) {
+                    const auto offset = total + 19 + item * 2;
+                    out[i].weared_item_idx[item] = static_cast<std::uint16_t>(
+                        payload[offset] | (static_cast<std::uint16_t>(payload[offset + 1]) << 8));
+                }
+                out[i].level = static_cast<std::uint16_t>(
+                    payload[total + 40] | (static_cast<std::uint16_t>(payload[total + 41]) << 8));
+                out[i].map_num = static_cast<std::uint16_t>(
+                    payload[total + 42] | (static_cast<std::uint16_t>(payload[total + 43]) << 8));
+            }
         }
     }
     return out;

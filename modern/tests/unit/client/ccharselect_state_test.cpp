@@ -139,6 +139,26 @@ TEST(CharSelectWire, ListAckSingleChar) {
     }
 }
 
+TEST(CharSelectWire, ListAckCarriesAppearanceAndMapData) {
+    std::array<std::uint8_t, 889> buf{};
+    buf[0] = 1;
+    buf[14] = 0x2A;
+    buf[189 + 16] = 1; // female
+    buf[189 + 17] = 3; // face
+    buf[189 + 18] = 4; // hair
+    buf[189 + 19] = 0x34; buf[189 + 20] = 0x12;
+    buf[189 + 40] = 12; // level
+    buf[189 + 42] = 10; // map
+    const auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_EQ((*list)[0].gender, 1);
+    EXPECT_EQ((*list)[0].face_type, 3);
+    EXPECT_EQ((*list)[0].hair_type, 4);
+    EXPECT_EQ((*list)[0].weared_item_idx[0], 0x1234);
+    EXPECT_EQ((*list)[0].level, 12);
+    EXPECT_EQ((*list)[0].map_num, 10);
+}
+
 TEST(CharSelectWire, ListAckNameUsesAllSeventeenBytesWithoutTerminator) {
     std::array<std::uint8_t, 889> buf{};
     buf[0] = 1;

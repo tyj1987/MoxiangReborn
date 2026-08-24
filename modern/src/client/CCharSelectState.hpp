@@ -36,6 +36,7 @@
 #include "StateTransfer.hpp"
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -73,6 +74,12 @@ struct CharacterSlot {
     std::uint32_t chrid = 0;
     std::string   name;
     bool          valid = false;     // false = empty slot (chrid == 0)
+    std::uint8_t gender = 0;
+    std::uint8_t face_type = 0;
+    std::uint8_t hair_type = 0;
+    std::uint16_t level = 0;
+    std::uint16_t map_num = 0;
+    std::array<std::uint16_t, 10> weared_item_idx{};
 };
 
 // Build the 8-byte CharacterListSyn payload (agent_handler.cpp:526-538):
