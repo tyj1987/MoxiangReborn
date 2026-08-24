@@ -16,6 +16,11 @@
 - Added explicit `playdh-current` and `sworking-2008-reference` resource profiles.
 - Removed the server launcher’s implicit source-recovery scratch fallback.
 - Changed the local acceptance server default map to Map10.
+- Added atomic client settings persistence for display, audio and last-account preferences.
+- Added typed GameLoadingCoordinator transfer handling and progress/error state.
+- Character-list parsing now retains appearance, equipment, level and map fields.
+- Client startup now rejects a profile missing required Map10, entity, UI or audio resources.
+- Removed the synthetic placeholder dialog from the product path.
 
 ### Still in progress
 

@@ -17,11 +17,12 @@ This is the single current evidence index. A row is complete only when it has a 
 
 | Gate | Scope | Status | Required evidence |
 |---|---|---|---|
-| G0 | Git/source/resource protection | In progress | bundle, backup refs, dual-copy hash report |
-| G1 | Profiles, paths, secrets | In progress | governance scan, profile hash manifests |
-| G2 | Clean tree and current docs | In progress | clean status, clean build, no self-junction |
-| G4 | Launcher/login/display transition | Not started | human 800×600 → 1024×768 run |
-| G5 | Character and loading path | Not started | fresh/existing account video and logs |
+| G0 | Git/source/resource protection | PASS (42d14756) | governance bundle + backup refs + dual-copy hash report |
+| G1 | Profiles, paths, secrets | PASS (42d14756) | explicit profiles, path scan, secret fallback removed |
+| G2 | Clean tree and current docs | PASS (42d14756) | clean status, successful Debug build, historical docs removed |
+| G3 | Client state/display/loading foundation | PASS (77e598cb,339351a0) | 155 client tests, typed loading coordinator, atomic settings |
+| G4 | Launcher/login/display transition | Partial | human 800×600 → 1024×768 run still required |
+| G5 | Character and loading path | Partial | appearance fields and typed loading path; 3D preview/video still required |
 | G6 | Map10 world presentation | Not started | legacy/modern goldens, zero placeholders |
 | G7 | Core UI live binding | Not started | per-dialog action/error/close evidence |
 | G8 | Movement/combat/loot/map change | Not started | two-client human scenario |
