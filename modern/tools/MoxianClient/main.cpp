@@ -213,6 +213,26 @@ std::filesystem::path find_playdh_root() {
     return {};
 }
 
+bool validate_runtime_resources(const std::filesystem::path& root,
+                                std::string* error) {
+    static constexpr const char* required[] = {
+        "Resource/Map/Map10.bmhm",
+        "Resource/MonsterList.bin",
+        "Resource/Client/NpcChxList.bin",
+        "Image/InterfaceScript/CharSelectDlg.bin",
+        "Image/InterfaceScript/CharMakeDlg.bin",
+        "Sound/SoundList.bin"
+    };
+    for (const auto* relative : required) {
+        std::error_code ec;
+        if (!std::filesystem::is_regular_file(root / relative, ec) || ec) {
+            if (error) *error = std::string("missing required runtime resource: ") + relative;
+            return false;
+        }
+    }
+    return true;
+}
+
 class StubFileStorage : public I4DyuchiFileStorage {
 public:
     StubFileStorage() = default;
@@ -1428,6 +1448,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     if (options.resource_root.empty()) options.resource_root = find_playdh_root();
     if (options.resource_root.empty()) {
         std::fprintf(stderr, "mxh_client: PlayDH resource root not found\n");
+        return 1;
+    }
+    std::string resource_error;
+    if (!validate_runtime_resources(options.resource_root, &resource_error)) {
+        std::fprintf(stderr, "mxh_client: %s\n", resource_error.c_str());
         return 1;
     }
     auto* storage = new mxh::gx::FilesystemFileStorage(options.resource_root);
