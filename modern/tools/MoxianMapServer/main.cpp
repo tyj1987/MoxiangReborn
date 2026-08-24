@@ -33,6 +33,8 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <iomanip>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 
@@ -197,8 +199,15 @@ int main(int argc, char** argv) {
     const auto server_resource_base = args.server_resource_root.empty()
         ? (resource_base / "Server")
         : std::filesystem::path(args.server_resource_root);
-    std::filesystem::path ai_groups_path = server_resource_base /
-        (std::string("Monster_") + std::to_string(args.map_num) + ".bin");
+    // The legacy server formats ordinary map numbers with two digits
+    // (Monster_02.bin), while special maps use their full number
+    // (Monster_101.bin).  Keep this spelling exact so a real profile is
+    // never mistaken for a missing AIGroup resource.
+    std::ostringstream monster_name;
+    monster_name << "Monster_";
+    if (args.map_num < 100) monster_name << std::setw(2) << std::setfill('0');
+    monster_name << args.map_num << ".bin";
+    const std::filesystem::path ai_groups_path = server_resource_base / monster_name.str();
     if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
         if (!args.allow_dev_fallbacks) {
             std::cerr << "FATAL: missing or invalid AIGroup data at "
