@@ -1395,6 +1395,15 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
         {
+        // Keep drag/rotation gestures owned by this window until the button
+        // is released.  Without capture, moving across the client edge (or
+        // a pillarbox boundary) strands the pressed state and the next click
+        // is interpreted as a fresh gesture by the legacy-style controls.
+        if (m == WM_LBUTTONDOWN) {
+            SetCapture(h);
+        } else if (GetCapture() == h) {
+            ReleaseCapture();
+        }
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
@@ -1426,6 +1435,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
         {
+        if (m == WM_RBUTTONDOWN) {
+            SetCapture(h);
+        } else if (GetCapture() == h) {
+            ReleaseCapture();
+        }
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
