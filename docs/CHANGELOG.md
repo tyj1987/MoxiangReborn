@@ -1,3 +1,9 @@
+## 2026-08-23 — 轴 C MSSQL 端到端 + 轴 D login.dds 翻转 runtime 验收
+
+- **轴 C (MSSQL BuySyn → modern_player_state)**: 新增 `MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState` (commit `5cd272da`)。本地 MSSQLSERVER over ODBC Driver 18 named pipe (`host=(local);database=Moxiang;encrypt=no;trust_server_certificate=yes`)，`MERGE` UPSERT 验证 1000 + 250 = 1250 单行累计。`ctest -E MssqlRealE2E`：**12118/12118 PASS** in 355s。
+- **轴 D (login.dds V-flip runtime)**: 在 `renderFrame` 末尾追加静态 frame 计数器 (commit `aa4a4efc`)，每 60 帧 log 一次 `render fps=X.X frames=60 elapsed_ms=NNNN state=N`。Release build 实测 fps=10.9 @ state=3 (Login, 1024×768)。`modern/scratch/2026-08-23-axis-d/smoke_login_fps.ps1` 抓 `state-login.tga` 解析顶/底 luma 差 = 6583.7 > 1.0，runtime sky-band-on-top 确认 V-flip 路径生效。
+- 旧的 `MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip` 在本机失败（NVARCHAR 参数绑定问题，pre-existing，不在本次提交范围）。
+
 ## 2026-08-22 — P5 进图 WASD / 攻击 / 拾取
 
 - HUD 不再吞 WASD；Q 恢复平移（任务日志改 L）。`InGamePlayable.HudDoesNotSwallowWasdAfterGameInAck` 走真实 `OnKeyEvent`+`Process`。
