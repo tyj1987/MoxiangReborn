@@ -1760,6 +1760,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 // hands the LoginResult via the engine transfer slot.
                 // The CharSelect state will pull it in its own Init().
                 // Do NOT take it here or CharSelect sees an empty slot.
+                bool display_transition_ok = true;
                 if (!post_login_display_applied) {
                     RECT target{0, 0, static_cast<LONG>(post_login_w),
                                 static_cast<LONG>(post_login_h)};
@@ -1770,6 +1771,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         target.bottom - target.top,
                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
                     if (!resized) {
+                        display_transition_ok = false;
                         MLOG_ERROR("mxh_client: post-login display transition failed error=%lu",
                                    GetLastError());
                     } else {
@@ -1783,8 +1785,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                   post_login_w, post_login_h);
                     }
                 }
-                g_mainTitle = nullptr;
-                mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
+                if (display_transition_ok) {
+                    g_mainTitle = nullptr;
+                    mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
+                } else {
+                    // Keep the LoginResult pending and remain on the login
+                    // screen.  This is a recoverable display failure, not a
+                    // successful login followed by a mismatched viewport.
+                    pending_loading_error = "无法切换到保存的显示模式";
+                }
                 } else if (cur_state == mxh::client::GameStateId::Title) {
                     if (auto* title = dynamic_cast<mxh::client::CMainTitle*>(
                             mainGame.GetGameState(cur_state))) {
