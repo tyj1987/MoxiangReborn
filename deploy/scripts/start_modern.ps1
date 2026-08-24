@@ -87,8 +87,23 @@ function Read-ModernState {
 function Test-ExpectedProcess {
     param($Entry)
     $process = Get-CimInstance Win32_Process -Filter "ProcessId=$([int]$Entry.pid)" -ErrorAction SilentlyContinue
-    if ($null -eq $process) { return $false }
-    return [string]::Equals($process.ExecutablePath, [string]$Entry.exe, [StringComparison]::OrdinalIgnoreCase)
+    if ($null -eq $process -or [string]::IsNullOrWhiteSpace([string]$process.ExecutablePath)) {
+        # Some managed Windows environments deny CIM process-path queries.
+        # Process.Path still gives us an exact executable identity without
+        # falling back to a dangerous process-name kill.
+        $process = Get-Process -Id ([int]$Entry.pid) -ErrorAction SilentlyContinue
+        if ($null -eq $process -or [string]::IsNullOrWhiteSpace([string]$process.Path)) { return $false }
+        $processPath = [string]$process.Path
+    } else {
+        $processPath = [string]$process.ExecutablePath
+    }
+    try {
+        $actual = (Resolve-Path -LiteralPath $processPath -ErrorAction Stop).Path
+        $expected = (Resolve-Path -LiteralPath ([string]$Entry.exe) -ErrorAction Stop).Path
+        return [string]::Equals($actual, $expected, [StringComparison]::OrdinalIgnoreCase)
+    } catch {
+        return $false
+    }
 }
 
 function Stop-Modern {
