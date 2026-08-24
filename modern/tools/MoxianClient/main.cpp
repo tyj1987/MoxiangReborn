@@ -63,6 +63,7 @@
 #include "CEngine.hpp"
 #include "CCharMake.hpp"
 #include "GameStateStubs.hpp"
+#include "ClientSettings.hpp"
 #include "LogicalViewport.hpp"
 #include "SpriteRenderGeometry.hpp"
 
@@ -1368,6 +1369,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // ---------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*show*/) {
     ClientOptions options = parse_client_options();
+    const auto settings_path = mxh::client::ClientSettingsStore::default_path();
+    std::string settings_warning;
+    const auto persisted_settings = mxh::client::ClientSettingsStore::load(
+        settings_path, &settings_warning);
+    if (!settings_warning.empty()) MLOG_WARN("mxh_client: %s", settings_warning.c_str());
+    if (options.post_login_width == 1024) options.post_login_width = persisted_settings.post_login_width;
+    if (options.post_login_height == 768) options.post_login_height = persisted_settings.post_login_height;
     if (options.auto_login && (options.username.empty() || options.password.empty())) {
         std::fprintf(stderr, "mxh_client: --auto-login requires --username and --password\n");
         return 2;
@@ -1970,6 +1978,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     }
 
     MLOG_INFO("mxh_client: shutting down");
+
+    if (!settings_path.empty()) {
+        auto settings = persisted_settings;
+        settings.post_login_width = post_login_w;
+        settings.post_login_height = post_login_h;
+        settings.last_account = options.username;
+        std::string settings_error;
+        if (!mxh::client::ClientSettingsStore::save_atomic(settings_path, settings,
+                                                           &settings_error)) {
+            MLOG_WARN("mxh_client: settings save failed: %s", settings_error.c_str());
+        }
+    }
 
     g_inputTarget = nullptr;
     mainGame.Release();

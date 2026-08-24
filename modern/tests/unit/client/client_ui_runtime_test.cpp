@@ -1,4 +1,8 @@
 #include <gtest/gtest.h>
+
+#include "ClientSettings.hpp"
+
+#include <filesystem>
 #include <cstdio>
 
 #include <cstdlib>
@@ -18,6 +22,22 @@
 #include "mxh/ui/cSpriteAtlas.hpp"
 
 namespace {
+
+TEST(ClientSettings, AtomicRoundTripAndValidation) {
+    const auto path = std::filesystem::temp_directory_path() / "mxh-settings-roundtrip.json";
+    mxh::client::ClientSettingsV1 expected;
+    expected.resource_profile_id = "playdh-current";
+    expected.post_login_width = 1920;
+    expected.post_login_height = 1080;
+    expected.last_account = "测试账号";
+    std::string error;
+    ASSERT_TRUE(mxh::client::ClientSettingsStore::save_atomic(path, expected, &error)) << error;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &error);
+    EXPECT_EQ(actual.post_login_width, 1920u);
+    EXPECT_EQ(actual.post_login_height, 1080u);
+    EXPECT_EQ(actual.last_account, "测试账号");
+    std::filesystem::remove(path);
+}
 
 std::filesystem::path find_playdh_root() {
     if (const char* configured = std::getenv("MXH_PLAYDH_ROOT")) {

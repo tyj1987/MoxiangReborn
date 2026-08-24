@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "CGameState.hpp"
 #include "CMainTitle.hpp"
 #include "CLoginState.hpp"
@@ -22,6 +24,16 @@
 #include "CInGameState.hpp"
 
 namespace mxh::client {
+
+struct LoadStateContext {
+    std::uint16_t map_num = 0;
+    std::uint32_t character_id = 0;
+    std::uint32_t completed_steps = 0;
+    std::uint32_t total_steps = 10;
+    bool cancelled = false;
+    bool failed = false;
+    const char* error = nullptr;
+};
 
 // -------------------------------------------------------------------------
 // CIntroReplay (legacy: CIntroReplayDlg) — Phase A.1.7 stub
@@ -58,6 +70,15 @@ public:
     void Init(void* p) override;
     void Release() override;
     void Process() override;
+    float progress() const noexcept { return m_progress; }
+    bool failed() const noexcept { return m_failed; }
+    bool cancelled() const noexcept { return m_cancelled; }
+    const std::string& error() const noexcept { return m_error; }
+private:
+    float m_progress = 0.0f;
+    bool m_failed = false;
+    bool m_cancelled = false;
+    std::string m_error;
 };
 
 // -------------------------------------------------------------------------
@@ -75,6 +96,9 @@ public:
     void Init(void* p) override;
     void Release() override;
     void Process() override;
+    float progress() const noexcept { return m_progress; }
+private:
+    float m_progress = 0.0f;
 };
 
 // -------------------------------------------------------------------------

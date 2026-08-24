@@ -23,6 +23,8 @@
 
 namespace mxh::client {
 
+class CMainGame;
+
 class CGameState {
 public:
     CGameState() = default;
@@ -77,6 +79,7 @@ protected:
     }
 
 private:
+    friend class CMainGame;
     void*           m_pInitParam                = nullptr;
     bool            m_bStateInitialized         = false;
     std::uint32_t   m_dwDialogProcessTickCount  = 0;

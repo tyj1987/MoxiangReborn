@@ -16,6 +16,8 @@
 
 #include "mxh/log/mlog.hpp"
 
+#include <algorithm>
+
 namespace mxh::client {
 
 #define MXH_STATE_STUB_IMPL(klass)                                          \
@@ -40,8 +42,76 @@ MXH_STATE_STUB_IMPL(CIntroReplay)
 // MoxianAgentServer.
 // CGameIn (eGS_GAMEIN = 7) is now CInGameState (Phase B.2.3) —
 // drives the GameIn handshake against MoxianMapServer.
-MXH_STATE_STUB_IMPL(CGameLoading)
-MXH_STATE_STUB_IMPL(CMapChange)
+void CGameLoading::Init(void* param) {
+    SetInitParam(param);
+    m_progress = 0.0f;
+    m_failed = false;
+    m_cancelled = false;
+    m_error.clear();
+    const auto* context = static_cast<const LoadStateContext*>(param);
+    if (context) {
+        if (context->total_steps == 0) {
+            m_failed = true;
+            m_error = "loading context has zero steps";
+        } else {
+            m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                    static_cast<float>(context->total_steps), 0.0f, 1.0f);
+        }
+        m_cancelled = context->cancelled;
+        if (context->failed) {
+            m_failed = true;
+            m_error = context->error ? context->error : "map loading failed";
+        }
+    }
+    setInitialized(true);
+    MLOG_INFO("CGameLoading::Init progress=%.3f failed=%d", m_progress, m_failed);
+}
+
+void CGameLoading::Release() {
+    setInitialized(false);
+    MLOG_DEBUG("CGameLoading::Release");
+}
+
+void CGameLoading::Process() {
+    tick();
+    const auto* context = static_cast<const LoadStateContext*>(initParam());
+    if (!context) return;
+    if (context->total_steps != 0) {
+        m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    }
+    m_cancelled = context->cancelled;
+    if (context->failed) {
+        m_failed = true;
+        m_error = context->error ? context->error : "map loading failed";
+    }
+}
+
+void CMapChange::Init(void* param) {
+    SetInitParam(param);
+    m_progress = 0.0f;
+    const auto* context = static_cast<const LoadStateContext*>(param);
+    if (context && context->total_steps != 0) {
+        m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    }
+    setInitialized(true);
+    MLOG_INFO("CMapChange::Init progress=%.3f", m_progress);
+}
+
+void CMapChange::Release() {
+    setInitialized(false);
+    MLOG_DEBUG("CMapChange::Release");
+}
+
+void CMapChange::Process() {
+    tick();
+    const auto* context = static_cast<const LoadStateContext*>(initParam());
+    if (context && context->total_steps != 0) {
+        m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    }
+}
 MXH_STATE_STUB_IMPL(CMurimNet)
 
 } // namespace mxh::client

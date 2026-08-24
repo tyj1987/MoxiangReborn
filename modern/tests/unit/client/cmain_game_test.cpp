@@ -110,6 +110,22 @@ TEST(CMainGameStateIds, IsDelayedTransition) {
     game.Release();
 }
 
+TEST(CMainGameStateIds, PassesStateInitParamToNextState) {
+    CMainGame game;
+    game.Init(nullptr);
+    auto loading = std::make_unique<mxh::client::CGameLoading>();
+    auto* raw = loading.get();
+    game.RegisterState(GameStateId::GameLoading, std::move(loading));
+    mxh::client::LoadStateContext context;
+    context.completed_steps = 4;
+    context.total_steps = 8;
+    game.SetGameState(GameStateId::GameLoading, &context);
+    game.Process();
+    ASSERT_EQ(game.GetCurGameState(), raw);
+    EXPECT_FLOAT_EQ(raw->progress(), 0.5f);
+    game.Release();
+}
+
 TEST(CMainGameStateIds, ProcessDelegatesToCurrent) {
     CMainGame game;
     game.Init(nullptr);

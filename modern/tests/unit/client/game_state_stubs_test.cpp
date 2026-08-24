@@ -37,3 +37,30 @@ TEST(CGameLoading, Lifecycle) { CheckStubLifecycle<CGameLoading>(); }
 TEST(CInGameState, Lifecycle) { CheckStubLifecycle<CInGameState>(); }
 TEST(CMapChange, Lifecycle)   { CheckStubLifecycle<CMapChange>(); }
 TEST(CMurimNet, Lifecycle)    { CheckStubLifecycle<CMurimNet>(); }
+
+TEST(CGameLoading, TracksCoordinatorContext) {
+    LoadStateContext context;
+    context.completed_steps = 3;
+    context.total_steps = 10;
+    CGameLoading state;
+    state.Init(&context);
+    EXPECT_FLOAT_EQ(state.progress(), 0.3f);
+    context.completed_steps = 8;
+    state.Process();
+    EXPECT_FLOAT_EQ(state.progress(), 0.8f);
+    context.failed = true;
+    context.error = "missing map asset";
+    state.Process();
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "missing map asset");
+    state.Release();
+}
+
+TEST(CGameLoading, RejectsInvalidContext) {
+    LoadStateContext context;
+    context.total_steps = 0;
+    CGameLoading state;
+    state.Init(&context);
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "loading context has zero steps");
+}

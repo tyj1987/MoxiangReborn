@@ -135,6 +135,7 @@ private:
     bool        m_bPauseRender     = false;
     GameStateId m_nCurStateNum      = GameStateId::End;
     GameStateId m_nNextStateNum     = GameStateId::End;
+    void*       m_pNextStateInitParam = nullptr;
     int         m_nUserLevel       = 0;  // 0 = normal user; >0 = GM
 };
 

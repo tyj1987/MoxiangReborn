@@ -37,6 +37,7 @@ void CMainGame::Init(void* /*hMainWnd*/) {
     m_bPauseRender = false;
     m_nCurStateNum = GameStateId::End;
     m_nNextStateNum = GameStateId::End;
+    m_pNextStateInitParam = nullptr;
     m_pCurrentGameState = nullptr;
 
     // Phase B.2.1: install the state-change callback on the engine so
@@ -105,6 +106,7 @@ void CMainGame::SetGameState(GameStateId state, void* pStateInitParam,
     // destructor ran on its members.  We preserve that.
     m_nNextStateNum  = state;
     m_bChangeState   = true;
+    m_pNextStateInitParam = pStateInitParam;
 
     // Stash the param on the next state so its Init() can pick it up
     // when the swap happens.  The legacy engine passed the param
@@ -156,11 +158,13 @@ void CMainGame::Process() {
                 // that need to receive a param (e.g. CMainTitle
                 // needs the server list) set it via a public setter
                 // after SetGameState returns.
-                next->Init(nullptr);
+                next->SetInitParam(m_pNextStateInitParam);
+                next->Init(m_pNextStateInitParam);
                 next->setInitialized(true);
             }
         }
         m_bChangeState = false;
+        m_pNextStateInitParam = nullptr;
     }
 
     if (!m_bEndGame && m_pCurrentGameState) {
