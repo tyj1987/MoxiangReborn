@@ -5,7 +5,9 @@ Only unresolved issues belong here. Resolved history is available through Git.
 ## Blocking the playable release
 
 - Launcher and patch/update flow are not yet a single tested product path.
-- Login failure, timeout, retry and return-to-login UI recovery are incomplete.
+- Login failure/timeout now return to the editable login dialog with the account
+  retained and password cleared; remaining release gap is genuine human
+  verification of every legacy error-code/message variant and retry timing.
 - Login success display transition is now transactional in the client; the remaining release gap is genuine human verification across DPI, multi-monitor, Alt-Tab and swap-chain failure cases.
 - Character select/create lacks complete 3D appearance, equipment and animation presentation.
 - `GameLoading` and `MapChange` still require real asynchronous loading states.
