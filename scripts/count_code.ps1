@@ -1,4 +1,10 @@
-$root = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】"
+param(
+    [string]$Root = (Join-Path (Split-Path -Parent $PSScriptRoot) '墨香【源码】')
+)
+
+if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+    throw "Legacy source root not found: $Root. Pass -Root explicitly."
+}
 
 $dirs = Get-ChildItem $root -Directory
 foreach ($d in $dirs) {

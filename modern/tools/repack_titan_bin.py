@@ -227,7 +227,11 @@ def main(argv: list[str] | None = None) -> int:
     # C-34 specific
     sub.add_parser(
         "fix-titan",
-        help="Re-encode SWorking/Resource/Server/TitanServer.bin to UTF-8.",
+        help="Re-encode an explicitly supplied TitanServer.bin to UTF-8.",
+    )
+    sub.choices["fix-titan"].add_argument(
+        "--target", required=True, type=Path,
+        help="Path to the writable TitanServer.bin copy (never modifies canonical resources).",
     )
 
     # Generic
@@ -251,10 +255,14 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    if args.cmd is None or args.cmd == "fix-titan":
-        target = Path(r"D:\smoke_test_full\Resource\Server\TitanServer.bin")
+    if args.cmd == "fix-titan":
+        target = args.target
         fix_titan_server_bin(target)
         return 0
+
+    if args.cmd is None:
+        parser.print_help()
+        return 2
 
     if args.cmd == "encode":
         if args.text is not None:

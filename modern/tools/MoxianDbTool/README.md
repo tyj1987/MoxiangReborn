@@ -18,5 +18,5 @@ mxh_db_tool migrate --src-mssql-bak MHCMEMBER.bak --dst-sqlite ./moxian.db
 ## 构建
 
 ```powershell
-cmake --build D:\Moxian\modern\build --config Release --target mxh_db_tool
+cmake --build <repo-root>\modern\build --config Release --target mxh_db_tool
 ```

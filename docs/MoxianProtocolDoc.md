@@ -180,7 +180,7 @@ The full per-enum value breakdown (3,458 individual `MP_*` constants) is generat
 To regenerate one enum at a time, you can manually split Protocol.h and call:
 
 ```bash
-D:\Moxian\modern\build\tools\MoxianProtocolDoc\Release\MoxianProtocolDoc.exe <single-enum.h> --output <output.md>
+<repo-root>\modern\build\tools\MoxianProtocolDoc\MoxianProtocolDoc.exe <single-enum.h> --output <output.md>
 ```
 
 Or fix the C++ tool's generateMarkdown() bug (likely an O(N×M) nested loop that explodes for 124×64) and re-run the full generation.
@@ -193,4 +193,3 @@ Or fix the C++ tool's generateMarkdown() bug (likely an O(N×M) nested loop that
 - Network struct definitions: `墨香【源码】\[CC]Header\CommonStruct.h`
 - Client-side message handlers: `墨香【源码】\[Client]MH\MHNetworkMsgParser.cpp`
 - Server-side message handlers: `墨香【源码】\[Server]Agent\AgentNetworkMsgParser.cpp` + `墨香【源码】\[Server]Map\MapNetworkMsgParser.cpp` + `墨香【源码】\[Server]Distribute\DistributeNetworkMsgParser.cpp`
-

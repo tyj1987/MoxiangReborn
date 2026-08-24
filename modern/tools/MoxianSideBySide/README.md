@@ -75,7 +75,7 @@ mxh_side_by_side [options]
   --modern-agent-port N      Agent port (default 17001).
   --modern-map-port N        Map port (default 18001).
   --capture-dir DIR          Where to write *.cap files (default
-                             modern/scratch/sbs_captures/).
+                             modern/out/runs/side-by-side-captures/).
   --timeout N                Per-scenario timeout in seconds (default 10).
   --ignore-trace-length      Diff content-only; do not require identical
                              packet counts. Useful when the legacy server
@@ -139,7 +139,7 @@ lands and `attack` now returns `Skill.StartAck`):
 1. Update `modern/src/server/map_handler.cpp` so the modern reply
    matches the legacy wire shape byte-for-byte.
 2. Re-run the harness with `--modern-only --start` and a fresh
-   `--capture-dir` (e.g. `modern/scratch/sbs_captures_next/`).
+   `--capture-dir` (e.g. `modern/out/runs/side-by-side-captures-next/`).
 3. Diff the new captures against the existing golden with
    `git diff -- modern/tests/fixtures/sbs_captures_modern/`; every
    change must be explained by a corresponding code change in
@@ -156,4 +156,3 @@ lands and `attack` now returns `Skill.StartAck`):
 `scripts/commercial-smoke.ps1` runs the 5-stage harness as part of the
 RC gate. Failure exits non-zero. The `SideBySideModernGolden.*` unit
 tests run in `ctest` and lock the goldens against drift.
-

@@ -44,7 +44,7 @@ python modern/tools/audit_resource_coverage.py \
 ### Notes
 
 - The script auto-creates an ASCII-named junction for the PlayDH root
-  (under `modern/scratch/<date>-resource-coverage/playdh_link_for_audit`)
+  (under the ignored run-output directory `modern/out/runs/resource-coverage/`)
   because the explorer mangles non-ASCII path bytes in argv.
 - Large files (>50 MB) get a 120s timeout; default 30s.
 - Exit code is always 0; check the manifest for actual coverage.

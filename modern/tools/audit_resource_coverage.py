@@ -132,7 +132,7 @@ def main():
     args = p.parse_args()
 
     # CJK path workaround: if the PlayDH root contains non-ASCII characters,
-    # create a junction under modern/scratch/ with an ASCII name and audit that
+    # create an isolated run-output link under modern/out/runs/ with an ASCII name and audit that
     # instead. The explorer.exe argv parser mangles non-ASCII path bytes when
     # invoked through PowerShell.
     import subprocess as _sp
@@ -235,6 +235,5 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
 
 
