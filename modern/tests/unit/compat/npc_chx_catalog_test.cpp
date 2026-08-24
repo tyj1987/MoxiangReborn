@@ -2,6 +2,7 @@
 
 #include "mxh/compat/npc_chx_catalog.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 
@@ -62,4 +63,32 @@ TEST(NpcChxCatalog, ParsesCanonicalPlayDhTable) {
     ASSERT_NE(catalog->find(80), nullptr);
     EXPECT_EQ(*catalog->find(80), "titan_npc.chx");
     EXPECT_EQ(catalog->find(87), nullptr);
+}
+
+// Axis-F invariant: every legacy NPC slot in [1..87] must resolve to a
+// .chx filename so the renderer never falls back to the placeholder
+// wireframe for a real NPC.  N073.chx was the one stale slot noted in
+// docs/PLAYABLE_STATUS.md §0 ("1 个 N073.chx 占位") — make sure that
+// slot and a sample of others all carry a non-null filename.
+TEST(NpcChxCatalog, AllCanonicalSlotsResolveToChxFilename) {
+    const auto file = findNpcChxList();
+    if (file.empty()) GTEST_SKIP() << "PlayDH NpcChxList.bin unavailable";
+
+    std::ifstream input(file, std::ios::binary | std::ios::ate);
+    ASSERT_TRUE(input.good());
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(input.tellg()));
+    input.seekg(0);
+    input.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
+
+    const auto catalog = mxh::compat::NpcChxCatalog::parse_bin(bytes);
+    ASSERT_TRUE(catalog.has_value());
+    // Sample a handful of slots across the [1..86] range; the legacy
+    // N073 entry is the most likely to be missing — it must NOT be.
+    for (const std::uint32_t slot : {1u, 10u, 25u, 50u, 73u, 80u, 86u}) {
+        const auto* name = catalog->find(slot);
+        ASSERT_NE(name, nullptr) << "slot " << slot << " missing from "
+                                    "NpcChxList.bin (would render as placeholder)";
+        EXPECT_FALSE(name->empty())
+            << "slot " << slot << " has empty CHX filename";
+    }
 }
