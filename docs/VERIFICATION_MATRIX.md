@@ -43,5 +43,6 @@ The following are never sufficient for an E5 claim: parser totals, CTest totals,
 | `EVID-20260825-governance` | `f8ffa596` | repository manifests | `python scripts/check-project-governance.py` | passed |
 | `EVID-20260825-release-client` | `dc5b567a` | `playdh-current` | `scripts\\build-modern.bat Release mxh_client` | x86 Release build passed; automation/credential CLI rejected under `NDEBUG` |
 | `EVID-20260825-render-texture-gate` | `11539716` | `playdh-current` | `modern/build/tests/unit/render/mxh_render_tests.exe --gtest_brief=1` | 282/282 passed; Release world loading now rejects unresolved terrain/STM textures |
+| `EVID-20260825-map10-closure` | `999b8965` | `playdh-current` | `modern/build/tests/unit/render/mxh_render_tests.exe --gtest_brief=1` | 283/283 passed; real Map10 HFL/STM and texture dependencies resolve through filesystem/PAK storage |
 
 These are E1–E3 engineering gates only. They do not upgrade G4–G11 to E5 and do not replace a genuine legacy-client human run.
