@@ -47,6 +47,9 @@ $profile = $profileManifest.profiles.$ResourceProfileId
 if (-not [bool]$profile.releaseAllowed -and -not $AllowDevFallbacks) {
     throw "Profile '$ResourceProfileId' is not release-enabled"
 }
+if ([string]::IsNullOrWhiteSpace([string]$profile.encoding)) {
+    throw "Profile '$ResourceProfileId' has no declared resource encoding"
+}
 if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
     $ResourceRoot = Join-Path $repoRoot ([string]$profile.source)
 }
@@ -212,7 +215,7 @@ $processes = @(
 
 try {
     if ($DryRun) {
-        Write-Host "Modern server dry-run (backend=$Backend locale=$Locale config=$Config db-env=$DatabaseConfigEnv)" -ForegroundColor Cyan
+        Write-Host "Modern server dry-run (backend=$Backend locale=$Locale config=$Config profile=$ResourceProfileId encoding=$($profile.encoding) db-env=$DatabaseConfigEnv)" -ForegroundColor Cyan
         foreach ($item in $processes) {
             Write-Host "$($item.name): $($item.exe) $($item.args -join ' ')"
         }
@@ -236,6 +239,7 @@ try {
         map_endpoint = "${MapEndpointAddress}:$MapPort"
         map_number = $MapNumber
         resource_profile_id = $ResourceProfileId
+        resource_encoding = [string]$profile.encoding
         resource_root = $ResourceRoot
         server_resource_root = $ServerResourceRoot
         allow_dev_fallbacks = [bool]$AllowDevFallbacks
