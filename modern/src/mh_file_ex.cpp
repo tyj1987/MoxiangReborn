@@ -53,6 +53,18 @@ bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept {
     return h.file_size > 0 && h.file_size <= (1u << 28);  // 256 MB cap
 }
 
+bool is_size_prefixed_opaque_server_profile(
+    std::span<const std::uint8_t> bytes) noexcept {
+    if (bytes.size() < 5 || bytes.size() > 256u * 1024u * 1024u) {
+        return false;
+    }
+    std::uint32_t total_size = 0;
+    std::memcpy(&total_size, bytes.data(), sizeof(total_size));
+    // The marker is structural, not a decoder claim: callers still need a
+    // profile manifest to establish that this is a Server resource.
+    return total_size == bytes.size();
+}
+
 std::uint8_t compute_crc8(std::span<const std::uint8_t> bytes) noexcept {
     std::uint8_t sum = 0;
     for (auto b : bytes) {
@@ -123,7 +135,10 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
         return r;
     }
 
-    // Legacy 2008 PackingMan format sniff: first uint32 == total file size.
+    // Legacy 2008 size-prefixed resources use positional decoding.  The same
+    // structural marker is also used by the newer opaque server profile; the
+    // caller must select the profile explicitly before treating the result as
+    // gameplay data.  Keep this compatibility behavior for existing fixtures.
     //   layout: [uint32 file_size][payload bytes]
     //   payload decryption: positional XOR (type=0) only.
     //   file_size = total_size - 4, type = 0.
@@ -134,7 +149,7 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
         if (legacy_size == static_cast<std::uint32_t>(buf.size())) {
             MhFile file;
             file.header.version = 0x00000001;
-            file.header.type = 0;  // positional XOR only
+            file.header.type = 0;
             file.header.file_size = static_cast<std::uint32_t>(buf.size() - 4);
             const std::uint8_t* payload = buf.data() + 4;
             file.data = decrypt_bin_payload(

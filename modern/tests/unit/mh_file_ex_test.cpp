@@ -10,6 +10,14 @@
 
 using namespace mxh::compat;
 
+TEST(MhFileEx, DetectsSizePrefixedServerContainerWithoutCallingItClassic) {
+    const std::array<std::uint8_t, 9> blob = {
+        9, 0, 0, 0, 0xDD, 0x3A, 0xF2, 0xF2, 0xC1
+    };
+    EXPECT_TRUE(is_size_prefixed_opaque_server_profile(blob));
+    EXPECT_FALSE(is_mh_bin(blob));
+}
+
 TEST(MhFileEx, RoundtripBasicType0) {
     // Build a payload: "Hello Moxian!" (13 bytes).
     const std::array<std::uint8_t, 13> payload = {

@@ -50,7 +50,17 @@ enum class MhError {
     InvalidHeader,
     UnsupportedVersion,
     CrcMismatch,
+    // The current PlayDH server profile uses a size-prefixed opaque container
+    // which is not the classic MHFileEx wire format.  Keep it explicit so a
+    // caller cannot mistake an undecoded payload for valid game data.
+    UnsupportedOpaqueServerProfile,
 };
+
+// Detect the current PlayDH server container without attempting to decode it.
+// Layout: [uint32 total_file_size][opaque payload].  This is deliberately
+// separate from the classic reader until its transform is recovered exactly.
+[[nodiscard]] bool is_size_prefixed_opaque_server_profile(
+    std::span<const std::uint8_t> bytes) noexcept;
 
 // Decode a .bin file from disk into a freshly allocated byte buffer.
 // The returned vector contains the decrypted (raw) payload bytes.
