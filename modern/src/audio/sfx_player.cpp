@@ -71,6 +71,8 @@ std::filesystem::path SfxPlayer::resolve(std::uint16_t id) const {
 bool SfxPlayer::play(std::uint16_t id, std::string* out) {
     const auto path = resolve(id);
     if (path.empty()) { error(out, "SFX sound ID is missing or not a WAV entry"); return false; }
+    const auto& entry = manifest_.entries[id];
+    current_entry_volume_ = entry.volume > 0.0f ? entry.volume : 1.0f;
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
     if (!ensure_media(*media_, out)) return false;
@@ -106,7 +108,8 @@ bool SfxPlayer::play(std::uint16_t id, std::string* out) {
     media_->format.nBlockAlign = static_cast<WORD>(channels * bits / 8); media_->format.nAvgBytesPerSec = rate * media_->format.nBlockAlign;
     if (media_->pcm.empty() || FAILED(media_->engine->CreateSourceVoice(&media_->source, &media_->format))) { error(out, "SFX source voice creation failed"); return false; }
     XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size()); buffer.pAudioData = media_->pcm.data(); buffer.Flags = XAUDIO2_END_OF_STREAM;
-    hr = media_->source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = media_->source->SetVolume(std::clamp(volume_, 0.0f, 1.0f)); if (SUCCEEDED(hr)) hr = media_->source->Start(0);
+    const float gain = std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f);
+    hr = media_->source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = media_->source->SetVolume(gain); if (SUCCEEDED(hr)) hr = media_->source->Start(0);
     if (FAILED(hr)) { stop_media(*media_); error(out, "SFX playback failed"); return false; }
     current_id_ = id; MLOG_DEBUG("[audio] playing SFX id=%u", id); return true;
 #else
@@ -116,6 +119,7 @@ bool SfxPlayer::play(std::uint16_t id, std::string* out) {
 
 void SfxPlayer::stop() noexcept {
     current_id_ = 0xffffu;
+    current_entry_volume_ = 1.0f;
 #ifdef _WIN32
     if (media_) stop_media(*media_);
 #endif
@@ -123,7 +127,8 @@ void SfxPlayer::stop() noexcept {
 void SfxPlayer::setVolume(float value) noexcept {
     volume_ = std::clamp(value, 0.0f, 1.0f);
 #ifdef _WIN32
-    if (media_ && media_->source) media_->source->SetVolume(volume_);
+    if (media_ && media_->source) media_->source->SetVolume(
+        std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));
 #endif
 }
 
