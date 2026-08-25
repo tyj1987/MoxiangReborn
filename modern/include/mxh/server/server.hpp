@@ -18,6 +18,7 @@
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/server/player.hpp"
 #include "mxh/server/party_manager.hpp"
+#include "mxh/server/guild_manager.hpp"
 #include "mxh/server/drop_item.hpp"
 #include "mxh/server/quest_manager.hpp"
 #include "mxh/server/quest_script_loader.hpp"
@@ -470,6 +471,8 @@ private:
                      const mxh::net::Message& msg);
     void handle_party(mxh::net::ConnectionId id,
                       const mxh::net::Message& msg);
+    void handle_guild(mxh::net::ConnectionId id,
+                      const mxh::net::Message& msg);
     void handle_gamein(mxh::net::ConnectionId id,
                        const mxh::net::Message& msg);
     std::size_t claim_pending_item_grants(std::uint32_t player_id);
@@ -578,6 +581,7 @@ private:
     // notifications remain Agent responsibilities, but map gameplay must not
     // echo party packets without mutating authoritative membership.
     PartyLog party_log_;
+    GuildLog guild_log_;
     std::unordered_map<std::uint32_t, GroundDrop> ground_drops_;
     std::uint32_t next_ground_drop_id_ = 90000;
     std::unique_ptr<mxh::game::ExperienceCurve> experience_curve_;

@@ -299,6 +299,16 @@ TEST(PartyProtocolTest, CreateAndBreakupValuesMatchLegacy) {
     EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupNack), 30u);
 }
 
+TEST(GuildProtocolTest, CreateAndBreakupValuesMatchLegacy) {
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::CreateSyn), 0u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::CreateAck), 1u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::CreateNack), 2u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::BreakupSyn), 4u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::BreakupAck), 5u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::BreakupNack), 6u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::Info), 24u);
+}
+
 TEST(CategoryTest, CompleteLegacyCategoryTableIsSequential) {
     constexpr Category categories[] = {
         Category::Server, Category::PowerUp, Category::Character,

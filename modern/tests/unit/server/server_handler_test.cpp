@@ -1300,6 +1300,31 @@ TEST(MapHandlerTest, PartyCreateAndBreakupMutateAuthoritativeMapState) {
     handler.on_message(connection, breakup);
     EXPECT_EQ(reply.messages.back().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::PartyProtocol::BreakupAck));
+
+    mxh::net::Message guild_create;
+    guild_create.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Guild);
+    guild_create.header.protocol = static_cast<std::uint8_t>(mxh::proto::GuildProtocol::CreateSyn);
+    guild_create.header.object_id = 123u;
+    guild_create.payload = {'K', 'n', 'i', 'g', 'h', 't', 's'};
+    handler.on_message(connection, guild_create);
+    ASSERT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::GuildProtocol::CreateAck));
+    ASSERT_GE(reply.messages.back().payload.size(), 5u);
+    std::uint32_t guild_id = 0;
+    std::memcpy(&guild_id, reply.messages.back().payload.data(), sizeof(guild_id));
+    EXPECT_EQ(reply.messages.back().payload[4], 1u);
+
+    handler.on_message(connection, guild_create);
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::GuildProtocol::CreateNack));
+
+    mxh::net::Message guild_breakup = guild_create;
+    guild_breakup.header.protocol = static_cast<std::uint8_t>(mxh::proto::GuildProtocol::BreakupSyn);
+    guild_breakup.payload.resize(sizeof(guild_id));
+    std::memcpy(guild_breakup.payload.data(), &guild_id, sizeof(guild_id));
+    handler.on_message(connection, guild_breakup);
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::GuildProtocol::BreakupAck));
 }
 
 TEST(MapHandlerTest, AllChatPersistsSanitizedAuditRecord) {

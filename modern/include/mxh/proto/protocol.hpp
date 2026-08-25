@@ -442,6 +442,16 @@ enum class PartyProtocol : std::uint8_t {
     BreakupNack = 30,
 };
 
+// Guild data-plane values from MP_PROTOCOL_GUILD. Kept separate from the
+// legacy header so modern handlers can use typed values without changing it.
+enum class GuildProtocol : std::uint8_t {
+    CreateSyn = 0, CreateAck = 1, CreateNack = 2,
+    BreakupSyn = 4, BreakupAck = 5, BreakupNack = 6,
+    AddMemberSyn = 8, AddMemberInvite = 9, AddMemberAck = 10,
+    AddMemberNack = 11, Invite = 13, InviteAccept = 14,
+    InviteAcceptNack = 15, Info = 24,
+};
+
 // ============================================================================
 // Item sub-protocols (MP_ITEM_*).
 // 1:1 with the original C enum MP_PROTOCOL_ITEM.

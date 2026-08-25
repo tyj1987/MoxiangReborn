@@ -348,6 +348,17 @@ mxh::net::Message make_party_request_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_guild_request_message(std::uint32_t player_id,
+                                              mxh::proto::GuildProtocol protocol,
+                                              std::span<const std::uint8_t> payload) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Guild);
+    message.header.protocol = static_cast<std::uint8_t>(protocol);
+    message.header.object_id = player_id;
+    message.payload.assign(payload.begin(), payload.end());
+    return message;
+}
+
 std::string parse_chat_payload(std::span<const std::uint8_t> payload) {
     std::string out;
     out.reserve(payload.size());
@@ -904,6 +915,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case Category::Party:
             handle_party_message(msg);
             break;
+        case Category::Guild:
+            handle_guild_message(msg);
+            break;
         case Category::Item:
             handle_item_broadcast(msg);
             break;
@@ -1357,6 +1371,29 @@ void CInGameState::handle_party_message(const mxh::net::Message& msg) {
     if (proto == PartyProtocol::CreateNack || proto == PartyProtocol::AddNack ||
         proto == PartyProtocol::InviteAcceptNack || proto == PartyProtocol::BreakupNack) {
         m_uiRuntime.showMessage(9103, "Party action failed.");
+    }
+}
+
+void CInGameState::handle_guild_message(const mxh::net::Message& msg) {
+    using mxh::proto::GuildProtocol;
+    const auto proto = static_cast<GuildProtocol>(msg.header.protocol);
+    if ((proto == GuildProtocol::CreateAck || proto == GuildProtocol::Info) &&
+        msg.payload.size() >= 5) {
+        std::memcpy(&m_guildId, msg.payload.data(), sizeof(m_guildId));
+        m_guildMemberCount = msg.payload[4];
+        if (proto == GuildProtocol::CreateAck) {
+            m_uiRuntime.showMessage(9110, "Guild created.");
+        }
+        return;
+    }
+    if (proto == GuildProtocol::BreakupAck) {
+        m_guildId = 0;
+        m_guildMemberCount = 0;
+        m_uiRuntime.showMessage(9111, "Guild disbanded.");
+        return;
+    }
+    if (proto == GuildProtocol::CreateNack || proto == GuildProtocol::BreakupNack) {
+        m_uiRuntime.showMessage(9112, "Guild action failed.");
     }
 }
 
@@ -2503,6 +2540,16 @@ bool CInGameState::accept_party_invite() {
     std::memcpy(payload.data(), &m_pendingPartyInviteId, sizeof(m_pendingPartyInviteId));
     return m_pEngine->agent_session().send(make_party_request_message(
                m_playerId, mxh::proto::PartyProtocol::InviteAcceptSyn, payload)) ==
+           mxh::net::NetError::Ok;
+}
+
+bool CInGameState::request_guild_create(std::string_view name) {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || name.empty() || name.size() > 16) {
+        return false;
+    }
+    std::vector<std::uint8_t> payload(name.begin(), name.end());
+    return m_pEngine->agent_session().send(make_guild_request_message(
+               m_playerId, mxh::proto::GuildProtocol::CreateSyn, payload)) ==
            mxh::net::NetError::Ok;
 }
 

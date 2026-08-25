@@ -970,7 +970,7 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
             handle_party(id, msg);
             break;
         case mxh::proto::Category::Guild:
-            reply_(id, msg);
+            handle_guild(id, msg);
             break;
         default:
             std::cout << "[Map] unhandled category="
@@ -1598,6 +1598,104 @@ void MapHandler::handle_party(mxh::net::ConnectionId id,
     nack.payload.resize(4);
     const std::uint32_t error = 3; // unsupported party action in this map build
     std::memcpy(nack.payload.data(), &error, sizeof(error));
+    reply_(id, nack);
+}
+
+void MapHandler::handle_guild(mxh::net::ConnectionId id,
+                              const mxh::net::Message& msg) {
+    using mxh::proto::GuildProtocol;
+    const auto proto = static_cast<GuildProtocol>(msg.header.protocol);
+    const auto player_id = msg.header.object_id;
+    std::string player_name;
+    std::uint16_t player_level = 1;
+    {
+        std::lock_guard<std::mutex> lk(players_mu_);
+        const auto it = connected_players_.find(player_id);
+        if (it == connected_players_.end()) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::CreateNack);
+            nack.payload = {1, 0, 0, 0};
+            reply_(id, nack);
+            return;
+        }
+        player_name.assign(it->second.name,
+                           strnlen(it->second.name, sizeof(it->second.name)));
+        player_level = it->second.level;
+    }
+
+    const auto make_snapshot = [](const Guild& guild) {
+        std::vector<std::uint8_t> payload(5u +
+            static_cast<std::size_t>(guild.member_count) * 23u, 0);
+        std::memcpy(payload.data(), &guild.guild_id, 4);
+        payload[4] = guild.member_count;
+        std::size_t off = 5;
+        for (std::uint8_t i = 0; i < guild.member_count; ++i) {
+            const auto& member = guild.members[i];
+            std::memcpy(payload.data() + off, &member.member_id, 4); off += 4;
+            std::memcpy(payload.data() + off, &member.level, 2); off += 2;
+            std::memcpy(payload.data() + off, member.name.data(), 17); off += 17;
+        }
+        return payload;
+    };
+
+    if (proto == GuildProtocol::CreateSyn) {
+        if (find_guild_of_member(guild_log_, player_id).has_value()) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::CreateNack);
+            nack.payload = {2, 0, 0, 0};
+            reply_(id, nack);
+            return;
+        }
+        std::string guild_name;
+        for (const auto byte : msg.payload) {
+            if (guild_name.size() == 16) break;
+            if (byte >= 0x21 && byte != '"' && byte != '\\') {
+                guild_name.push_back(static_cast<char>(byte));
+            }
+        }
+        if (guild_name.empty()) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::CreateNack);
+            nack.payload = {3, 0, 0, 0};
+            reply_(id, nack);
+            return;
+        }
+        const auto guild_id = guild_log_.next_guild_id++;
+        guild_log_.guilds.push_back(create_guild(guild_id, guild_name, player_id));
+        auto& guild = guild_log_.guilds.back();
+        guild.members[0].level = player_level;
+        guild.members[0].name.fill(0);
+        std::memcpy(guild.members[0].name.data(), player_name.data(),
+                    std::min<std::size_t>(player_name.size(), 16));
+        mxh::net::Message ack = msg;
+        ack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::CreateAck);
+        ack.payload = make_snapshot(guild);
+        reply_(id, ack);
+        return;
+    }
+
+    if (proto == GuildProtocol::BreakupSyn) {
+        std::uint32_t guild_id = 0;
+        if (msg.payload.size() >= 4) std::memcpy(&guild_id, msg.payload.data(), 4);
+        auto guild = find_guild_by_id(guild_log_, guild_id);
+        const bool allowed = guild.has_value() && (*guild)->master_id == player_id;
+        mxh::net::Message response = msg;
+        response.header.protocol = static_cast<std::uint8_t>(
+            allowed ? GuildProtocol::BreakupAck : GuildProtocol::BreakupNack);
+        response.payload.resize(4);
+        std::memcpy(response.payload.data(), &guild_id, 4);
+        if (allowed) {
+            const auto it = std::find_if(guild_log_.guilds.begin(), guild_log_.guilds.end(),
+                [guild_id](const Guild& candidate) { return candidate.guild_id == guild_id; });
+            if (it != guild_log_.guilds.end()) guild_log_.guilds.erase(it);
+        }
+        reply_(id, response);
+        return;
+    }
+
+    mxh::net::Message nack = msg;
+    nack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::CreateNack);
+    nack.payload = {4, 0, 0, 0};
     reply_(id, nack);
 }
 
