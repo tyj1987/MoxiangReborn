@@ -10,6 +10,7 @@ The modern client has protocol and partial rendering foundations, but it is not 
 
 - Login, character-list/create protocol paths and several UI parser tests exist.
 - Map10 has real monster data and its current opaque AIGroup resource now decodes into 114 groups / 228 spawns; it remains the first combat acceptance map, but no human combat E5 has been recorded yet.
+- The headless client E2E can now explicitly target Map10: a fresh SQLite run completes LoginAck, character creation/selection, GameInAck(map=10), effect/skill catalog loading, and MonsterAdd events with the canonical PlayDH root. This is protocol/resource integration evidence, not a visible or human-playable acceptance.
 - The runtime still contains simplified state transitions, incomplete live UI service binding, placeholder entity paths, incomplete map environment/collision, and missing effect/SFX runtime coverage.
 - Login failure recovery, launcher/update integration and post-LoginAck display transition require implementation.
 - Automated/headless E2E and unit tests do not prove a visible, human-playable game.

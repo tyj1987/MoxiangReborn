@@ -32,6 +32,7 @@
 //
 // Usage:
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
+//                  [--map-number N]
 //                  [--no-spawn]  # assume servers are already running
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
@@ -82,6 +83,7 @@
 #include "mxh/server/account_service.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -125,6 +127,7 @@ struct CliArgs {
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
     bool dump_cli = false;
     int  timeout_s = 10;
+    int  map_number = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
@@ -177,6 +180,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--login-host" && i + 1 < argc) a.login_host = argv[++i];
         else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
         else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
+        else if (s == "--map-number" && i + 1 < argc) a.map_number = std::atoi(argv[++i]);
         else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
@@ -459,6 +463,7 @@ int run_e2e(const CliArgs& cli) {
             "--db", agent_db,
             "--legacy",
             "--map-server", "127.0.0.1:18001",
+            "--default-map", std::to_string(cli.map_number),
             (cli.use_hsel ? "--use-hsel" : "")});
 
         // MapServer
@@ -468,7 +473,7 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->spawn_with_args("", {
             "--port", "18001",
             "--backend", backend_flag,
-            "--map", "12",
+            "--map", std::to_string(cli.map_number),
             "--db", map_db,
             "--legacy",
             "--allow-dev-fallbacks",
@@ -497,6 +502,27 @@ int run_e2e(const CliArgs& cli) {
     // CEngine will accept state-change requests without a CMainGame
     // callback; we don't actually drive state transitions in this
     // headless flow (each state is started in sequence directly).
+    // Give the client states the same explicit profile root used by the
+    // servers so GameIn exercises the real UI/effect dependency gate rather
+    // than falling back to a headless "root missing" path.
+    {
+        std::error_code root_error;
+        const std::array<std::filesystem::path, 4> roots = {
+            std::filesystem::current_path(root_error) / "modern" / "data" / "PlayDH",
+            std::filesystem::current_path(root_error) / "data" / "PlayDH",
+            std::filesystem::path(cli.map_exe).parent_path().parent_path().parent_path() /
+                "data" / "PlayDH",
+            std::filesystem::path("modern/data/PlayDH")};
+        for (const auto& root : roots) {
+            if (std::filesystem::exists(root / "Image") &&
+                std::filesystem::exists(root / "Resource")) {
+                engine.SetPlaydhRoot(std::filesystem::absolute(root));
+                LOG("using explicit PlayDH root: %s",
+                    engine.playdh_root()->string().c_str());
+                break;
+            }
+        }
+    }
 
     // ---- Step 1: Login ----
     LOG("[1/5] Login: CLoginState connecting to %s:16001 ...",
@@ -735,7 +761,8 @@ int run_e2e(const CliArgs& cli) {
     // ---- Step 5: InGame ----
     LOG("[5/5] InGame: sending GameInSyn through persistent AgentSession ...");
     mxh::client::CInGameState game;
-    game.Start(&engine, created_chrid, 12);
+    game.Start(&engine, created_chrid,
+               static_cast<std::uint16_t>(cli.map_number));
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
