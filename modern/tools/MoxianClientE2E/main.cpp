@@ -1021,6 +1021,44 @@ int run_e2e(const CliArgs& cli) {
             LOG("[5/5] OK: combat hit/effect/life/drop/pickup target=%u "
                 "alive=%zu->%zu", observed_target, initial_alive, alive_after);
 
+            // Exercise the same authoritative inventory move used by the
+            // GUI drag/drop path.  Select the slot containing the picked
+            // item, move it to a different inventory slot, and wait for the
+            // server's MoveAck before testing relog persistence.
+            bool observed_move = false;
+            std::size_t move_source = mxh::game::SLOT_INVENTORY_NUM;
+            for (std::size_t slot = 0;
+                 slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+                if (game.game_info().items.Inventory[slot].wIconIdx ==
+                    observed_item_id) {
+                    move_source = slot;
+                    break;
+                }
+            }
+            const std::size_t move_target = move_source == 79u ? 78u : 79u;
+            if (move_source < mxh::game::SLOT_INVENTORY_NUM &&
+                game.request_inventory_move(move_source, move_target)) {
+                const auto move_deadline = std::chrono::steady_clock::now() +
+                                           std::chrono::seconds(cli.timeout_s);
+                while (std::chrono::steady_clock::now() < move_deadline) {
+                    game.Process();
+                    if (game.game_info().items.Inventory[move_target].wIconIdx ==
+                        observed_item_id) {
+                        observed_move = true;
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+            }
+            if (!observed_move) {
+                LOG("[5/5] FAIL: inventory MoveSyn/MoveAck item=%u source=%zu target=%zu",
+                    static_cast<unsigned>(observed_item_id), move_source,
+                    move_target);
+                return 2;
+            }
+            LOG("[5/5] OK: inventory MoveAck item=%u source=%zu target=%zu",
+                static_cast<unsigned>(observed_item_id), move_source, move_target);
+
             // Close the live session and re-enter through a fresh state.  The
             // server must flush the picked item on GameOutSyn; merely seeing it
             // in the old state's inventory is not persistence evidence.
