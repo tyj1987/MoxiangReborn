@@ -807,6 +807,10 @@ struct EffectVisualOverlay {
         IDISpriteObject* sprite = nullptr;
         std::string texture_name;
         std::string chx_name;
+        std::array<float, 3> position{};
+        float radius = 0.0f;
+        std::uint32_t color_index = 0;
+        bool light = false;
     };
     std::vector<Instance> active;
 
@@ -822,14 +826,15 @@ struct EffectVisualOverlay {
     void consume(const mxh::client::RuntimeEffectEvent& event,
                  I4DyuchiGXRenderer* renderer) {
         if (event.unit_kind == "SOUND") return;
+        const bool light = event.unit_kind == "LIGHT";
         const bool mesh = event.unit_kind == "OBJECT" &&
                           !event.object_name.empty();
-        if ((!renderer && !mesh) || (!mesh && event.texture_name.empty())) return;
+        if ((!renderer && !mesh) || (!mesh && !light && event.texture_name.empty())) return;
         const std::string key = event.effect_name + ":" +
             std::to_string(event.source_object_id) + ":" +
             std::to_string(event.target_object_id) + ":" +
             std::to_string(event.trigger.trigger.unit) + ":" +
-            (mesh ? event.object_name : event.texture_name);
+            (mesh ? event.object_name : (light ? "LIGHT" : event.texture_name));
         if (event.trigger.trigger.kind == "OFF") {
             for (auto it = active.begin(); it != active.end(); ++it) {
                 if (it->key == key) {
@@ -846,6 +851,12 @@ struct EffectVisualOverlay {
                 != active.end()) return;
         IDISpriteObject* sprite = nullptr;
         if (!mesh) {
+            if (light) {
+                active.push_back({key, event.source_object_id, event.target_object_id,
+                                  nullptr, {}, {}, event.position, event.radius,
+                                  event.color_index, true});
+                return;
+            }
             sprite = renderer->CreateSpriteObject(
                 const_cast<char*>(event.texture_name.c_str()), 0);
             if (!sprite) {
@@ -860,7 +871,55 @@ struct EffectVisualOverlay {
         }
         active.push_back({key, event.source_object_id, event.target_object_id,
                           sprite, event.texture_name,
-                          mesh ? event.object_name : std::string{}});
+                          mesh ? event.object_name : std::string{},
+                          event.position, event.radius, event.color_index, false});
+    }
+
+    void synchronizeLights(const mxh::client::CInGameState& game,
+                           I4DyuchiGXRenderer* renderer) const {
+        if (!renderer) return;
+        std::uint32_t slot = 0;
+        const auto& info = game.game_info();
+        for (const auto& item : active) {
+            if (!item.light || slot >= 8u) continue;
+            float world_x = static_cast<float>(info.position_x);
+            float world_z = static_cast<float>(info.position_z);
+            if (item.target_id != info.player_id && item.source_id != info.player_id) {
+                for (const auto& monster : game.monsters()) {
+                    if (monster.object_id != item.target_id &&
+                        monster.object_id != item.source_id) continue;
+                    world_x = static_cast<float>(monster.position_x);
+                    world_z = static_cast<float>(monster.position_z);
+                    break;
+                }
+            }
+            LIGHT_DESC light{};
+            light.dwDiffuse = item.color_index == 0u ? 0xffffffffu : 0u;
+            light.dwAmbient = 0u;
+            light.dwSpecular = 0u;
+            light.v3Point = {world_x * mxh::gx::kEntitySceneScale -
+                             mxh::gx::kEntityMapCenter + item.position[0] *
+                             mxh::gx::kEntitySceneScale,
+                             item.position[1] * mxh::gx::kEntitySceneScale,
+                             world_z * mxh::gx::kEntitySceneScale -
+                             mxh::gx::kEntityMapCenter + item.position[2] *
+                             mxh::gx::kEntitySceneScale};
+            light.fRs = item.radius > 0.0f ? item.radius *
+                        mxh::gx::kEntitySceneScale : 2.0f;
+            renderer->SetRTLight(&light, slot++, 0);
+        }
+        for (; slot < 8u; ++slot) {
+            LIGHT_DESC clear{};
+            renderer->SetRTLight(&clear, slot, 0);
+        }
+    }
+
+    static void clearLights(I4DyuchiGXRenderer* renderer) {
+        if (!renderer) return;
+        for (std::uint32_t slot = 0; slot < 8u; ++slot) {
+            LIGHT_DESC clear{};
+            renderer->SetRTLight(&clear, slot, 0);
+        }
     }
 
     void synchronizeMeshes(const mxh::client::CInGameState& game,
@@ -1072,8 +1131,10 @@ void renderFrame(HWND h) {
             if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
                 g_effectVisuals->synchronizeMeshes(*g_inputTarget, *g_terrain,
                                                    g_entityScene.get());
+                g_effectVisuals->synchronizeLights(*g_inputTarget, g_renderer);
             } else {
                 g_entityScene->clearEffects();
+                EffectVisualOverlay::clearLights(g_renderer);
             }
             // Push the terrain's view-projection as a Frustum so the
             // entity scene can cull NPCs whose world AABB is outside the
