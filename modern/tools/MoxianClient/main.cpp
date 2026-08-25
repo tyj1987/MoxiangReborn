@@ -2757,9 +2757,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             effect.unit_kind != "SOUND") {
                             continue;
                         }
+                        const auto distance = game_in->distance_to_object(
+                            effect.source_object_id);
+                        if (!distance.has_value()) {
+                            MLOG_WARN("mxh_client: effect sound source unavailable effect=%s source=%u",
+                                      effect.effect_name.c_str(),
+                                      static_cast<unsigned>(effect.source_object_id));
+                            continue;
+                        }
                         std::string effect_audio_error;
-                        if (!sfx.play(static_cast<std::uint16_t>(effect.sound_id),
-                                      &effect_audio_error)) {
+                        if (!sfx.playAt(static_cast<std::uint16_t>(effect.sound_id),
+                                        *distance, &effect_audio_error)) {
                             MLOG_WARN("mxh_client: effect sound unavailable effect=%s id=%u: %s",
                                       effect.effect_name.c_str(),
                                       static_cast<unsigned>(effect.sound_id),

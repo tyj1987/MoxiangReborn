@@ -389,6 +389,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool         is_connected() const noexcept;
     bool         is_in_game()   const noexcept { return m_inGame; }
     std::uint32_t player_id()   const noexcept { return m_playerId; }
+    // Resolve an authoritative world distance for effect/audio consumers.
+    // Unknown IDs remain absent so remote sounds do not become local 2D cues.
+    std::optional<float> distance_to_object(std::uint32_t object_id) const noexcept;
     std::uint16_t map_num()     const noexcept { return m_mapNum; }
     const GameInInfo& game_info() const noexcept { return m_info; }
     const std::vector<MonsterAddInfo>& monsters() const noexcept { return monsters_; }

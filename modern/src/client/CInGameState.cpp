@@ -703,6 +703,34 @@ bool CInGameState::is_connected() const noexcept {
     return m_pEngine && m_pEngine->agent_session().is_connected();
 }
 
+std::optional<float> CInGameState::distance_to_object(
+    std::uint32_t object_id) const noexcept {
+    if (object_id == 0) return std::nullopt;
+    if (object_id == m_playerId || object_id == m_info.player_id) return 0.0f;
+    const auto distance = [this](float x, float z) {
+        return std::hypot(x - m_info.position_x, z - m_info.position_z);
+    };
+    for (const auto& monster : monsters_) {
+        if (monster.object_id == object_id) {
+            return distance(static_cast<float>(monster.position_x),
+                            static_cast<float>(monster.position_z));
+        }
+    }
+    for (const auto& npc : m_npcs) {
+        if (npc.npc_id == object_id) {
+            return distance(static_cast<float>(npc.position_x),
+                            static_cast<float>(npc.position_z));
+        }
+    }
+    for (const auto& [id, player] : m_remotePlayers) {
+        if (id == object_id) {
+            return distance(static_cast<float>(player.position_x),
+                            static_cast<float>(player.position_z));
+        }
+    }
+    return std::nullopt;
+}
+
 void CInGameState::set_quest_catalog(mxh::compat::QuestStringCatalog catalog) {
     m_questCatalog = std::move(catalog);
     m_mainQuests = m_questCatalog.main_quests();

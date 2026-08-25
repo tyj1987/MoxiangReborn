@@ -115,6 +115,22 @@ TEST(InGamePlayable, StaticCollisionQueryRejectsCandidateStep) {
     EXPECT_EQ(state.local_z(), 1000u);
 }
 
+TEST(InGamePlayable, EffectAudioDistanceUsesAuthoritativeObjectIdentity) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::client::GameInInfo info;
+    info.player_id = 42;
+    info.position_x = 1000;
+    info.position_z = 1000;
+    info.map_num = 10;
+    state.dispatch_gamein_ack(info);
+
+    const auto local = state.distance_to_object(42);
+    ASSERT_TRUE(local.has_value());
+    EXPECT_FLOAT_EQ(*local, 0.0f);
+    EXPECT_FALSE(state.distance_to_object(999999u).has_value());
+}
+
 TEST(InGameMovement, ZeroDtDoesNotMove) {
     const auto r = step_movement(kForward, 0.0f, 1.0f, 2.0f, 0.0f);
     EXPECT_EQ(r.x, 1.0f);
