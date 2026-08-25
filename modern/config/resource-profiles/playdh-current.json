@@ -11,8 +11,8 @@
   "source": "local canonical PlayDH distribution",
   "hashManifest": "reference/manifests/playdh-current.sha256.json",
   "inventory": {
-    "fileCount": 5141,
-    "byteCount": 1681195227,
+    "fileCount": 5135,
+    "byteCount": 1681141995,
     "knownDerivedPaths": [
       "Log/",
       "modern/",
