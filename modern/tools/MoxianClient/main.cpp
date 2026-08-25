@@ -775,7 +775,22 @@ DisplayTransitionResult applyDisplayTransition(
 
     RECT desired{0, 0, static_cast<LONG>(requested_width),
                  static_cast<LONG>(requested_height)};
-    if (!AdjustWindowRectEx(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0)) {
+    // The login/post-login dimensions are client-area dimensions.  On a
+    // per-monitor-DPI process the non-client frame is DPI-scaled, so using
+    // AdjustWindowRectEx without the current monitor DPI produces a client
+    // area smaller than the requested logical canvas (and shifts hitboxes).
+    // Keep the Win10+ API behind a runtime lookup for older supported hosts.
+    using AdjustWindowRectExForDpiFn = BOOL (WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    static const auto adjust_for_dpi = []() -> AdjustWindowRectExForDpiFn {
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        return user32 ? reinterpret_cast<AdjustWindowRectExForDpiFn>(
+            GetProcAddress(user32, "AdjustWindowRectExForDpi")) : nullptr;
+    }();
+    const UINT dpi = GetDpiForWindow(hwnd);
+    const bool adjusted = adjust_for_dpi
+        ? adjust_for_dpi(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi)
+        : AdjustWindowRectEx(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0);
+    if (!adjusted) {
         result.win32_error = GetLastError();
         return result;
     }
