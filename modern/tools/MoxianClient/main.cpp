@@ -118,6 +118,7 @@ struct ClientOptions {
     std::string password;
     bool auto_login = false;
     bool auto_create = false;
+    bool release_automation_requested = false;
     bool exit_after_gamein = false;
     std::uint32_t smoke_settle_frames = 0;
     bool follow_camera = false;
@@ -176,6 +177,7 @@ ClientOptions parse_client_options() {
         if (arg == L"--login-host") take(options.login_host);
         else if (arg == L"--login-port") take_port(options.login_port);
         else if (arg == L"--map-port") take_port(options.map_port);
+#if defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--username") take(options.username);
         else if (arg == L"--password") take(options.password);
         else if (arg == L"--auto-login") options.auto_login = true;
@@ -186,19 +188,38 @@ ClientOptions parse_client_options() {
         else if (arg == L"--follow-camera") options.follow_camera = true;
         else if (arg == L"--debug-ui-bounds") options.debug_ui_bounds = true;
         else if (arg == L"--character-name") take(options.character_name);
+#endif
         else if (arg == L"--resource-root" && i + 1 < argc) {
             options.resource_root = argv[++i];
         }
         else if (arg == L"--resource-profile" && i + 1 < argc) {
             take(options.resource_profile_id);
         }
+#if defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--save-frame") take(options.save_frame);
         else if (arg == L"--state-frames-dir") take(options.state_frames_dir);
         else if (arg == L"--evidence-dir") take(options.evidence_dir);
+#endif
         else if (arg == L"--width" && i + 1 < argc)
             options.window_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
         else if (arg == L"--height" && i + 1 < argc)
             options.window_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+#if !defined(MXH_DEV_AUTOMATION)
+        else if (arg == L"--auto-login" || arg == L"--auto-create" ||
+                 arg == L"--username" || arg == L"--password" ||
+                 arg == L"--character-name" || arg == L"--exit-after-gamein" ||
+                 arg == L"--smoke-settle-frames" || arg == L"--follow-camera" ||
+                 arg == L"--debug-ui-bounds" || arg == L"--save-frame" ||
+                 arg == L"--state-frames-dir" || arg == L"--evidence-dir") {
+            options.release_automation_requested = true;
+            if ((arg == L"--username" || arg == L"--password" ||
+                 arg == L"--character-name" || arg == L"--smoke-settle-frames" ||
+                 arg == L"--save-frame" || arg == L"--state-frames-dir" ||
+                 arg == L"--evidence-dir") && i + 1 < argc) {
+                ++i;
+            }
+        }
+#endif
     }
     LocalFree(argv);
     return options;
@@ -2106,6 +2127,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     if (!settings_warning.empty()) MLOG_WARN("mxh_client: %s", settings_warning.c_str());
     if (options.post_login_width == 1024) options.post_login_width = persisted_settings.post_login_width;
     if (options.post_login_height == 768) options.post_login_height = persisted_settings.post_login_height;
+#if !defined(MXH_DEV_AUTOMATION)
+    if (options.release_automation_requested) {
+        std::fprintf(stderr,
+                     "mxh_client: automation and credential command-line options are disabled in release builds\n");
+        return 2;
+    }
+#endif
     if (options.auto_login && (options.username.empty() || options.password.empty())) {
         std::fprintf(stderr, "mxh_client: --auto-login requires --username and --password\n");
         return 2;

@@ -6,6 +6,9 @@
 # main.cpp and the linked client libraries.
 # -----------------------------------------------------------------------------
 add_executable(mxh_client WIN32 main.cpp)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(mxh_client PRIVATE MXH_DEV_AUTOMATION=1)
+endif()
 target_include_directories(mxh_client PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
 )
