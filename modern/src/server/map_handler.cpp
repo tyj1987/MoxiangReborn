@@ -779,6 +779,32 @@ void MapHandler::persist_quest_log(std::uint32_t player_id) {
     }
 }
 
+void MapHandler::notify_quest_changes(
+    std::uint32_t player_id,
+    const std::vector<QuestEventChange>& changes) {
+    if (changes.empty()) return;
+    std::uint64_t connection = 0;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto it = connected_players_.find(player_id);
+        if (it != connected_players_.end()) connection = it->second.conn_id;
+    }
+    if (connection == 0) return;
+    for (const auto& change : changes) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::Quest);
+        message.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::QuestProtocol::ChangeState);
+        message.header.object_id = player_id;
+        message.payload.resize(8, 0);
+        std::memcpy(message.payload.data(), &change.quest_id, 4);
+        const auto state = static_cast<std::uint32_t>(change.state);
+        std::memcpy(message.payload.data() + 4, &state, 4);
+        reply_(mxh::net::ConnectionId{connection}, message);
+    }
+}
+
 void MapHandler::load_quest_log(std::uint32_t player_id, QuestLog& quest_log) {
     quest_log.player_id = player_id;
     mxh::db::ResultSet rows;
@@ -857,17 +883,20 @@ bool MapHandler::claim_ground_drop_for_test(std::uint32_t player_id, std::uint32
     // Collection is an authoritative quest event, not a client-side label.
     // Dispatch after releasing players_mu_ so persistence can take its own
     // snapshot lock without deadlocking the pickup path.
-    bool quest_changed = false;
+    std::vector<QuestEventChange> quest_changes;
     {
         std::lock_guard<std::mutex> lock(players_mu_);
         const auto runtime_it = player_runtimes_.find(player_id);
         if (runtime_it != player_runtimes_.end()) {
-            quest_changed = !dispatch_quest_event(
+            quest_changes = dispatch_quest_event(
                 runtime_it->second.quest_log,
-                QuestEvent{QuestSubKind::Collect, item_id, item_count}).empty();
+                QuestEvent{QuestSubKind::Collect, item_id, item_count});
         }
     }
-    if (quest_changed) persist_quest_log(player_id);
+    if (!quest_changes.empty()) {
+        persist_quest_log(player_id);
+        notify_quest_changes(player_id, quest_changes);
+    }
     return true;
 }
 
@@ -961,17 +990,19 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     }
 
     if (updated_monster.is_dead) {
-        bool quest_changed = false;
+        std::vector<QuestEventChange> quest_changes;
         {
             std::lock_guard<std::mutex> player_lock(players_mu_);
             const auto player = player_runtimes_.find(attacker_player_id);
             if (player != player_runtimes_.end()) {
-                const auto changes = dispatch_quest_event(player->second.quest_log,
+                quest_changes = dispatch_quest_event(player->second.quest_log,
                     QuestEvent{QuestSubKind::Kill, updated_monster.monster_kind, 1u});
-                quest_changed = !changes.empty();
             }
         }
-        if (quest_changed) persist_quest_log(attacker_player_id);
+        if (!quest_changes.empty()) {
+            persist_quest_log(attacker_player_id);
+            notify_quest_changes(attacker_player_id, quest_changes);
+        }
     }
 
     broadcast_monster_life(updated_monster);
@@ -3255,19 +3286,19 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
             // a quest substep can advance without inventing a second NPC
             // protocol.  The quest manager decides whether this NPC matches
             // any active sub-condition; unmatched speeches are harmless.
-            bool quest_changed = false;
+            std::vector<QuestEventChange> quest_changes;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 const auto player = player_runtimes_.find(player_id);
                 if (player != player_runtimes_.end()) {
-                    const auto changes = dispatch_quest_event(
+                    quest_changes = dispatch_quest_event(
                         player->second.quest_log,
                         QuestEvent{QuestSubKind::TalkNpc, npc_id, 1u});
-                    quest_changed = !changes.empty();
                 }
             }
-            if (quest_changed) {
+            if (!quest_changes.empty()) {
                 persist_quest_log(player_id);
+                notify_quest_changes(player_id, quest_changes);
                 std::cout << "[Map] quest NPC speech advanced player="
                           << player_id << " npc=" << npc_id << "\n";
             }

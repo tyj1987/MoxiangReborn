@@ -1956,11 +1956,50 @@ void CInGameState::send_quest(mxh::proto::QuestProtocol protocol) {
 }
 
 void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
+    const auto protocol = static_cast<mxh::proto::QuestProtocol>(msg.header.protocol);
+    if (protocol == mxh::proto::QuestProtocol::ChangeState && msg.payload.size() >= 8) {
+        const auto read_u32 = [&msg](std::size_t offset) {
+            return static_cast<std::uint32_t>(msg.payload[offset]) |
+                   (static_cast<std::uint32_t>(msg.payload[offset + 1]) << 8) |
+                   (static_cast<std::uint32_t>(msg.payload[offset + 2]) << 16) |
+                   (static_cast<std::uint32_t>(msg.payload[offset + 3]) << 24);
+        };
+        m_questId = static_cast<std::uint16_t>(read_u32(0));
+        const auto state = read_u32(4);
+        mxh::ui::QuestStatus ui_status = mxh::ui::QuestStatus::Available;
+        switch (state) {
+            case 1u:
+                m_questStatus = "Active - hunt monsters";
+                ui_status = mxh::ui::QuestStatus::Active;
+                break;
+            case 2u:
+                m_questStatus = "Ready to claim";
+                ui_status = mxh::ui::QuestStatus::Completed;
+                break;
+            case 3u:
+                m_questStatus = "Reward claimed";
+                ui_status = mxh::ui::QuestStatus::Claimed;
+                break;
+            case 4u:
+                m_questStatus = "Failed";
+                break;
+            default:
+                m_questStatus = "Available";
+                break;
+        }
+        if (auto* window = m_uiRuntime.findWindowByLegacyId(kQuestDialogId)) {
+            if (auto* dialog = dynamic_cast<mxh::ui::cQuestDialog*>(window)) {
+                (void)dialog->UpdateQuest(m_questId, ui_status);
+            }
+        }
+        MLOG_INFO("CInGameState: quest id=%u state=%u status=%s",
+                  m_questId, state, m_questStatus.c_str());
+        return;
+    }
     if (msg.payload.size() >= 2) {
         m_questId = static_cast<std::uint16_t>(msg.payload[0] |
                     (static_cast<std::uint16_t>(msg.payload[1]) << 8));
     }
-    const auto protocol = static_cast<mxh::proto::QuestProtocol>(msg.header.protocol);
     switch (protocol) {
         case mxh::proto::QuestProtocol::StartAck:
             m_questStatus = "Active - hunt monsters";

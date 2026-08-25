@@ -639,10 +639,12 @@ enum class BattleProtocol : std::uint8_t {
 
 // Quest protocol (Category = Quest = 39, MP_QUEST).
 // Matches [CC]Header/Protocol.h MP_PROTOCOL_QUEST offsets 1:1. Only the
-// Start / End sub-protocols used by the T3 side-by-side replay harness
-// are defined here; legacy also has TotalInfo / ChangeState / Notify
-// sub-protocols that will be added when the modern quest manager lands.
+// Start / End plus the legacy state-notification sub-protocols used by the
+// live quest manager are defined here with their original numeric offsets.
 enum class QuestProtocol : std::uint8_t {
+    TotalInfo             = 0,   // S -> C: quest state snapshot/change
+    ChangeState           = 1,   // S -> C: quest state changed
+    RemoveNotify          = 2,   // S -> C: quest removed
     StartSyn              = 9,   // C -> S: start (accept) quest
     StartAck              = 10,  // S -> C: quest accepted
     StartNack             = 11,  // S -> C: quest rejected

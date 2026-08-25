@@ -553,6 +553,9 @@ private:
     // safe to call with a freshly-loaded quest_log (one quest per row)
     // or a fully populated one (N quests, N rows).
     void persist_quest_log(std::uint32_t player_id);
+    void notify_quest_changes(
+        std::uint32_t player_id,
+        const std::vector<QuestEventChange>& changes);
     void load_quest_log(std::uint32_t player_id, QuestLog& quest_log);
     void persist_party(const Party& party);
     void persist_guild(const Guild& guild);
