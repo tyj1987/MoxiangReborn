@@ -3241,8 +3241,16 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
             // not silently turn it into a quest/dialog request.
             if (!dealer) {
                 std::lock_guard<std::mutex> lk(dealitem_mu_);
-                dealer = mxh::server::catalog_for_npc(
-                    dealitem_catalog_, npc_id).has_value();
+                // npc_id=0 is the explicit auto-resolve request used by the
+                // modern client when the live NPC list has not yet exposed a
+                // dealer. Treat it as a dealer only when the canonical
+                // catalog actually contains at least one resolvable NPC.
+                if (npc_id == 0u && !dealitem_catalog_.npcs.empty()) {
+                    dealer = true;
+                } else {
+                    dealer = mxh::server::catalog_for_npc(
+                        dealitem_catalog_, npc_id).has_value();
+                }
             }
             if (!dealer) break;
 
