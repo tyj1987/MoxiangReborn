@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <shellapi.h>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <regex>
@@ -54,8 +55,10 @@ static void saveSettings(const LauncherSettings& s) {
         else {
             const auto close = text.rfind('}');
             if (close == std::string::npos) { text = "{\n  \"" + key + "\": " + value + "\n}\n"; return; }
-            const bool has_field = text.find(':') != std::string::npos;
-            text.insert(close, std::string(has_field ? "  \"" : "  \"") + key + "\": " + value + (has_field ? ",\n" : "\n"));
+            auto insert_at = close;
+            while (insert_at > 0 && std::isspace(static_cast<unsigned char>(text[insert_at - 1]))) --insert_at;
+            const bool has_field = insert_at > 0 && text[insert_at - 1] != '{' && text[insert_at - 1] != ',';
+            text.insert(insert_at, std::string(has_field ? ",\n  \"" : "  \"") + key + "\": " + value + "\n");
         }
     };
     replace_or_insert("resourceProfileId", "\"" + profile + "\"");
