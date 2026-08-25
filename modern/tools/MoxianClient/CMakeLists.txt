@@ -1,11 +1,9 @@
 # mxh_client: Modern Moxian client main executable
 # -----------------------------------------------------------------------------
-# Phase A.1 skeleton — boots a Windows window, initialises the DX11 renderer
-# via the 4Dyuchi IRenderer interface, installs the cImage render adapter
-# (so the Phase 6.4 UI framework can draw), and runs a frame loop driven by
-# the Win32 message pump. Game state machine wiring (CMainGame + 8 eGAMESTATE
-# classes) lands in A.1.6+; for now the host renders a single placeholder
-# cDialog so the render seam is exercised end-to-end.
+# Windows client composition target. The executable owns the Win32 message
+# pump and composes the modern state, UI, renderer, audio, and resource
+# profile seams; staged world loading and state transitions are implemented in
+# main.cpp and the linked client libraries.
 # -----------------------------------------------------------------------------
 add_executable(mxh_client WIN32 main.cpp)
 target_include_directories(mxh_client PRIVATE
