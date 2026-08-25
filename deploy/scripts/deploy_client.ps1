@@ -30,6 +30,42 @@ if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
     $ResourceDir = Join-Path $repoRoot ([string]$profile.source)
 }
 $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+$hashManifestPath = Join-Path $repoRoot ([string]$profile.hashManifest)
+if (-not (Test-Path -LiteralPath $hashManifestPath -PathType Leaf)) {
+    throw "Profile hash manifest missing: $hashManifestPath"
+}
+$hashManifest = Get-Content -LiteralPath $hashManifestPath -Raw | ConvertFrom-Json
+if ([string]$hashManifest.profileId -ne $ResourceProfileId) {
+    throw "Profile hash manifest mismatch: expected $ResourceProfileId"
+}
+if ([int64]$hashManifest.fileCount -ne [int64]$profile.inventory.fileCount -or
+    [int64]$hashManifest.byteCount -ne [int64]$profile.inventory.byteCount) {
+    throw "Profile inventory does not match its hash manifest"
+}
+$expected = @{}
+foreach ($entry in @($hashManifest.files)) {
+    $relative = ([string]$entry.path).Replace('/', '\')
+    if ([string]::IsNullOrWhiteSpace($relative) -or [IO.Path]::IsPathRooted($relative) -or $relative.Split('\') -contains '..') {
+        throw "Unsafe profile manifest path: $relative"
+    }
+    $key = $relative.Replace('\', '/').ToLowerInvariant()
+    if ($expected.ContainsKey($key)) { throw "Duplicate profile manifest path: $relative" }
+    $expected[$key] = [pscustomobject]@{ bytes = [int64]$entry.bytes; sha256 = ([string]$entry.sha256).ToLowerInvariant() }
+}
+$actualFiles = @(Get-ChildItem -LiteralPath $ResourceDir -File -Recurse)
+if ($actualFiles.Count -ne [int64]$hashManifest.fileCount) { throw "Profile file count mismatch: expected $($hashManifest.fileCount), found $($actualFiles.Count)" }
+$actualBytes = [int64](($actualFiles | Measure-Object -Property Length -Sum).Sum)
+if ($actualBytes -ne [int64]$hashManifest.byteCount) { throw "Profile byte count mismatch: expected $($hashManifest.byteCount), found $actualBytes" }
+foreach ($file in $actualFiles) {
+    $relative = $file.FullName.Substring($ResourceDir.Length + 1).Replace('\', '/')
+    $key = $relative.ToLowerInvariant()
+    if (-not $expected.ContainsKey($key)) { throw "Unregistered profile resource: $relative" }
+    $entry = $expected[$key]
+    if ([int64]$file.Length -ne $entry.bytes) { throw "Profile size mismatch: $relative" }
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant() -ne $entry.sha256) { throw "Profile hash mismatch: $relative" }
+    $expected.Remove($key)
+}
+if ($expected.Count -ne 0) { throw "Profile manifest contains missing files: $($expected.Keys -join ', ')" }
 foreach ($entry in @($profile.required)) {
     $requiredPath = Join-Path $ResourceDir ([string]$entry.path)
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
@@ -40,6 +76,7 @@ foreach ($entry in @($profile.required)) {
         throw "Profile resource hash mismatch: $requiredPath"
     }
 }
+$profileDataRoot = Join-Path $DeployDir 'data\PlayDH'
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  墨香Reborn - 客户端部署脚本" -ForegroundColor Cyan
@@ -59,7 +96,8 @@ $dirs = @(
     "$DeployDir\Sound",
     "$DeployDir\Data",
     "$DeployDir\Ini",
-    "$DeployDir\Log"
+    "$DeployDir\Log",
+    $profileDataRoot
 )
 
 foreach ($dir in $dirs) {
@@ -105,6 +143,13 @@ foreach ($res in $resourceDirs) {
         Write-Host "  复制: $($res.Source)" -ForegroundColor Gray
     }
 }
+
+# The launcher and client use the profile root as one atomic tree.  Keep the
+# legacy top-level copies above for tools that still expect them, but always
+# stage the complete verified profile under data\PlayDH so no resource class
+# is silently omitted from a clean deployment.
+Write-Host "  复制完整资源 profile: $ResourceProfileId" -ForegroundColor Gray
+Get-ChildItem -LiteralPath $ResourceDir -Force | Copy-Item -Destination $profileDataRoot -Recurse -Force
 
 # 保留运行时 profile 清单，供启动器/客户端做一致性诊断
 Copy-Item -LiteralPath $profileManifestPath -Destination (Join-Path $DeployDir 'resource-profiles.json') -Force
