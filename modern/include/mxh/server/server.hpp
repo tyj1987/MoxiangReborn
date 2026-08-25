@@ -307,6 +307,8 @@ public:
     // I/O failure leaves item_manager_ empty so the placeholder
     // path remains intact.
     void load_item_list(const std::string& path);
+    void load_drop_item_list(const std::string& path,
+                             std::string_view resource_profile_id);
     void load_experience_curve(const std::string& path);
 
     // Test-only read-only accessor for item_manager_.

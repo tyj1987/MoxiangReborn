@@ -650,6 +650,23 @@ void MapHandler::register_drop_table(const DropTable& table) {
     drop_tables_.add(table);
 }
 
+void MapHandler::load_drop_item_list(const std::string& path,
+                                     std::string_view resource_profile_id) {
+    std::string error;
+    const auto tables = load_drop_item_tables(path, resource_profile_id, &error);
+    if (tables.empty()) {
+        std::cout << "[Map] MonsterDropItemList unavailable: " << error << "\n";
+        return;
+    }
+    std::lock_guard<std::mutex> lock(monsters_mu_);
+    for (const auto& table : tables) drop_tables_.add(table);
+    std::cout << "[Map] loaded MonsterDropItemList tables=" << tables.size()
+              << " entries=";
+    std::size_t entries = 0;
+    for (const auto& table : tables) entries += table.entries.size();
+    std::cout << entries << "\n";
+}
+
 bool MapHandler::add_monster_instance(const mxh::game::MonsterInstance& monster) {
     if (monster.object_id == 0u || monster.max_life == 0u) return false;
     std::lock_guard<std::mutex> lock(monsters_mu_);

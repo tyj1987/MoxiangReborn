@@ -672,6 +672,7 @@ gtest_add_tests(TARGET mxh_item_drop_tests
 )
 add_executable(mxh_drop_item_tests
     drop_item_test.cpp
+    drop_item_loader_test.cpp
 )
 target_link_libraries(mxh_drop_item_tests PRIVATE
     mxh_server gtest_main
