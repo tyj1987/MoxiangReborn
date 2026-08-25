@@ -119,11 +119,16 @@ try {
         if ($log -notmatch '\[entity\] original model object=\d+ type=player kind=\d+ chx=man\.chx') {
             throw "GUI player-view smoke did not resolve the local player model; log=$stderr"
         }
-        if ($log -notmatch '\[entity\] original model object=\d+ type=monster kind=\d+ chx=L\d+\.chx') {
-            throw "GUI player-view smoke did not resolve a monster model; log=$stderr"
+        if ($MapNumber -eq 10 -and
+            $log -notmatch '\[entity\] original model object=\d+ type=monster kind=\d+ chx=L\d+\.chx') {
+            throw "GUI player-view smoke did not resolve a Map10 monster model; log=$stderr"
         }
-        if ($log -notmatch 'entity loaded=\d+ failed=0 placeholders=0 monsters=228') {
-            throw "GUI player-view smoke reported missing/placeholder Map10 entities; log=$stderr"
+        if ($MapNumber -ne 10 -and
+            $log -notmatch '\[entity\] original model object=\d+ type=npc kind=\d+ chx=N\d+\.chx') {
+            throw "GUI player-view smoke did not resolve an NPC model for Map $MapNumber; log=$stderr"
+        }
+        if ($log -notmatch 'entity loaded=\d+ failed=0 placeholders=0 monsters=\d+ npcs=\d+') {
+            throw "GUI player-view smoke reported missing/placeholder entities for Map $MapNumber; log=$stderr"
         }
     }
     if (-not (Test-Path -LiteralPath $frame)) { throw "GUI smoke missing terrain frame: $frame" }
