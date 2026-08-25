@@ -8,6 +8,7 @@
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cmpguagedialog.hpp"
+#include "mxh/ui/cQuestDialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -916,6 +917,18 @@ void CInGameState::set_quest_catalog(mxh::compat::QuestStringCatalog catalog) {
     m_mainQuests = m_questCatalog.main_quests();
     m_questSelection = 0;
     if (!m_mainQuests.empty()) m_questId = m_mainQuests.front()->quest_id;
+    if (auto* window = m_uiRuntime.findWindowByLegacyId(kQuestDialogId)) {
+        if (auto* dialog = dynamic_cast<mxh::ui::cQuestDialog*>(window)) {
+            for (const auto* quest : m_mainQuests) {
+                if (!quest) continue;
+                mxh::ui::QuestEntry entry;
+                entry.id = quest->quest_id;
+                entry.title = quest->title;
+                entry.status = mxh::ui::QuestStatus::Available;
+                dialog->AddQuest(std::move(entry));
+            }
+        }
+    }
 }
 
 bool CInGameState::on_connect(mxh::net::ConnectionId id,
@@ -1949,11 +1962,31 @@ void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
     }
     const auto protocol = static_cast<mxh::proto::QuestProtocol>(msg.header.protocol);
     switch (protocol) {
-        case mxh::proto::QuestProtocol::StartAck: m_questStatus = "Active - hunt monsters"; break;
-        case mxh::proto::QuestProtocol::StartNack: m_questStatus = "Cannot accept"; break;
-        case mxh::proto::QuestProtocol::EndAck: m_questStatus = "Reward claimed"; break;
-        case mxh::proto::QuestProtocol::EndNack: m_questStatus = "Not complete"; break;
+        case mxh::proto::QuestProtocol::StartAck:
+            m_questStatus = "Active - hunt monsters";
+            break;
+        case mxh::proto::QuestProtocol::StartNack:
+            m_questStatus = "Cannot accept";
+            break;
+        case mxh::proto::QuestProtocol::EndAck:
+            m_questStatus = "Reward claimed";
+            break;
+        case mxh::proto::QuestProtocol::EndNack:
+            m_questStatus = "Not complete";
+            break;
         default: break;
+    }
+    if (auto* window = m_uiRuntime.findWindowByLegacyId(kQuestDialogId)) {
+        if (auto* dialog = dynamic_cast<mxh::ui::cQuestDialog*>(window)) {
+            const auto status = protocol == mxh::proto::QuestProtocol::StartAck
+                ? mxh::ui::QuestStatus::Active
+                : protocol == mxh::proto::QuestProtocol::EndAck
+                    ? mxh::ui::QuestStatus::Claimed
+                    : protocol == mxh::proto::QuestProtocol::EndNack
+                        ? mxh::ui::QuestStatus::Active
+                        : mxh::ui::QuestStatus::Available;
+            (void)dialog->UpdateQuest(m_questId, status);
+        }
     }
     MLOG_INFO("CInGameState: quest id=%u status=%s", m_questId, m_questStatus.c_str());
 }
