@@ -7,6 +7,7 @@
 #include "mxh/compat/sound_list.hpp"
 #include "mxh/compat/hfl_height_field.hpp"
 #include "mxh/compat/stm_static_model.hpp"
+#include "mxh/compat/npc_chx_catalog.hpp"
 
 #include <cstdlib>
 #include <cfloat>
@@ -41,6 +42,7 @@ COMMANDS:
     sound-list <SoundList.bin>     List original audio IDs and playback metadata
     hfl        <file.hfl>          Show terrain dimensions and texture palette
     stm        <file.stm>          Show static scene materials and mesh totals
+    npc-chx    <NpcChxList.bin>    Show NPC kind-to-CHX catalog entries
 
 OPTIONS:
     -o, --output DIR    Output directory
@@ -96,6 +98,27 @@ int cmd_sound_list(const fs::path& path) {
     std::cerr << "SoundList: entries=" << list.entries.size()
               << " available=" << available
               << " null=" << (list.entries.size() - available) << '\n';
+    return 0;
+}
+
+int cmd_npc_chx(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) { std::cerr << "ERROR: cannot open " << path << "\n"; return 1; }
+    const auto size = static_cast<std::size_t>(input.tellg());
+    input.seekg(0);
+    std::vector<std::uint8_t> bytes(size);
+    if (!input.read(reinterpret_cast<char*>(bytes.data()),
+                   static_cast<std::streamsize>(size))) return 1;
+    const auto catalog = mxh::compat::NpcChxCatalog::parse_bin(
+        std::span<const std::uint8_t>(bytes.data(), bytes.size()));
+    if (!catalog) {
+        std::cerr << "ERROR: NpcChxList payload could not be parsed\n";
+        return 1;
+    }
+    std::cout << "NpcChxList entries=" << catalog->entries().size() << "\n";
+    for (std::size_t index = 1; index < catalog->entries().size(); ++index) {
+        std::cout << index << '\t' << catalog->entries()[index] << '\n';
+    }
     return 0;
 }
 
@@ -349,6 +372,9 @@ int main(int argc, char** argv) {
         }
         if (cmd == "sound-list" && positional.size() == 1) {
             return cmd_sound_list(positional[0]);
+        }
+        if (cmd == "npc-chx" && positional.size() == 1) {
+            return cmd_npc_chx(positional[0]);
         }
         if (cmd == "hfl" && positional.size() == 1) {
             return cmd_hfl(positional[0]);

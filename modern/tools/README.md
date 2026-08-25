@@ -23,6 +23,7 @@ Loose Python tools (audit/repack) live here directly.
 | `repack_titan_bin.py` | Python | repack MHFile payload utility |
 | `audit_resource_coverage.py` | Python | PlayDH resource coverage audit |
 | `audit_map_dependencies.py` | Python | HFL used-texture to Map.pak dependency closure audit |
+| `MoxianResourceExplorer npc-chx` | C++ command | NpcChxList kind-to-CHX catalog inspection |
 
 ## Resource Coverage Audit
 
