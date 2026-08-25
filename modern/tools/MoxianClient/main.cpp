@@ -2639,7 +2639,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             mainGame.Process();
             if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
                     mainGame.GetGameState(mxh::client::GameStateId::GameIn));
-                smoke_game && smoke_game->smoke_exit_ready()) {
+                smoke_game && !options.follow_camera && smoke_game->smoke_exit_ready()) {
                 mxh::client::g_running = false;
             }
             if (!mxh::client::g_running) break;
@@ -3019,7 +3019,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                     const bool gui_smoke_exit = [] {
                         const char* value = std::getenv("MXH_GUI_SMOKE_EXIT");
-                        return value && *value == '1';
+                        const char* render = std::getenv("MXH_GUI_SMOKE_RENDER_ENTITIES");
+                        return value && *value == '1' && !(render && *render == '1');
                     }();
                     if (g_entityScene && g_terrain && !gui_smoke_exit) {
                         mxh::gx::WorldSnapshot snapshot;

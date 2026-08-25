@@ -28,6 +28,7 @@ $dataRoot = Join-Path $runRoot 'data'
 $client = $null
 $previousGuiSmokePassword = $env:MXH_GUI_SMOKE_PASSWORD
 $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
+$previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 
 try {
     & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
@@ -56,6 +57,7 @@ try {
     if ($FollowCamera) { $arguments += '--follow-camera' }
     $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
     $env:MXH_GUI_SMOKE_EXIT = '1'
+    if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
         -WorkingDirectory (Join-Path $buildRoot 'tools\MoxianClient')
@@ -98,10 +100,16 @@ try {
         throw "GUI smoke received $monsterCount Map10 monsters, expected exactly 228; log=$stderr"
     }
     if ($FollowCamera) {
-        foreach ($marker in @('[sky] original MOD loaded meshes=8/8 textures=8/8', '[terrain] player camera active', '[entity] original MonsterList loaded', '[entity] original model kind=65006 chx=man.chx', '[entity] original idle animation active', '[entity] original model kind=1 chx=L001.chx')) {
+        foreach ($marker in @('[sky] original MOD loaded meshes=8/8 textures=8/8', '[terrain] player camera active', '[entity] original MonsterList loaded', '[entity] original animation active')) {
             if ($log -notmatch [regex]::Escape($marker)) {
                 throw "GUI player-view smoke missing marker '$marker'; log=$stderr"
             }
+        }
+        if ($log -notmatch '\[entity\] original model object=\d+ type=player kind=\d+ chx=man\.chx') {
+            throw "GUI player-view smoke did not resolve the local player model; log=$stderr"
+        }
+        if ($log -notmatch '\[entity\] original model object=\d+ type=monster kind=\d+ chx=L\d+\.chx') {
+            throw "GUI player-view smoke did not resolve a monster model; log=$stderr"
         }
     }
     if (-not (Test-Path -LiteralPath $frame)) { throw "GUI smoke missing terrain frame: $frame" }
@@ -128,6 +136,11 @@ finally {
         Remove-Item Env:MXH_GUI_SMOKE_EXIT -ErrorAction SilentlyContinue
     } else {
         $env:MXH_GUI_SMOKE_EXIT = $previousGuiSmokeExit
+    }
+    if ($null -eq $previousGuiSmokeRenderEntities) {
+        Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue
+    } else {
+        $env:MXH_GUI_SMOKE_RENDER_ENTITIES = $previousGuiSmokeRenderEntities
     }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
