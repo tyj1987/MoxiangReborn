@@ -607,13 +607,7 @@ parse_legacy_item_total(std::span<const std::uint8_t> payload) {
 std::uint32_t quick_skill_for_slot(const GameInInfo& info,
                                    std::size_t slot) noexcept {
     if (slot >= kQuickSlotCount) return 0;
-    if (info.mugong[slot].icon_idx != 0) {
-        return info.mugong[slot].icon_idx;
-    }
-    // Level-1 starter set until the server sends real per-character skills.
-    static constexpr std::uint32_t kStarter[kQuickSlotCount] =
-        {1, 2, 3, 10, 0, 0, 0, 0};
-    return kStarter[slot];
+    return info.mugong[slot].icon_idx;
 }
 
 // -------------------------------------------------------------------------

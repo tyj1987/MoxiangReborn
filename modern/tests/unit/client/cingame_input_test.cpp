@@ -180,10 +180,10 @@ TEST(InGameAttack, ReturnsNulloptForEmptyList) {
 
 TEST(InGameQuickSlot, StarterSetWhenMugongEmpty) {
     mxh::client::GameInInfo info;
-    EXPECT_EQ(quick_skill_for_slot(info, 0), 1u);
-    EXPECT_EQ(quick_skill_for_slot(info, 1), 2u);
-    EXPECT_EQ(quick_skill_for_slot(info, 2), 3u);
-    EXPECT_EQ(quick_skill_for_slot(info, 3), 10u);
+    EXPECT_EQ(quick_skill_for_slot(info, 0), 0u);
+    EXPECT_EQ(quick_skill_for_slot(info, 1), 0u);
+    EXPECT_EQ(quick_skill_for_slot(info, 2), 0u);
+    EXPECT_EQ(quick_skill_for_slot(info, 3), 0u);
     EXPECT_EQ(quick_skill_for_slot(info, 4), 0u);
     EXPECT_EQ(quick_skill_for_slot(info, 8), 0u);  // out of range
 }

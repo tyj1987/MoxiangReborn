@@ -270,6 +270,18 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
     put_u32(m.payload, kPayloadHeroTotalOff + 36, cd.money);
     put_u16(m.payload, kPayloadHeroTotalOff + 56, 1);
 
+    // The GameIn wire image is authoritative for the quick bar.  Keep the
+    // four legacy level-1 bindings here until character_mugong persistence is
+    // connected; the client must never invent bindings locally.
+    constexpr std::array<std::uint32_t, 4> kInitialSkills{1, 2, 3, 10};
+    for (std::size_t slot = 0; slot < kInitialSkills.size(); ++slot) {
+        const auto off = kPayloadMugongOff + slot * 18;
+        put_u32(m.payload, off + 0, kInitialSkills[slot]);
+        put_u16(m.payload, off + 4,
+                static_cast<std::uint16_t>(kInitialSkills[slot]));
+        put_u16(m.payload, off + 14, static_cast<std::uint16_t>(slot));
+    }
+
     // --- SEND_MOVEINFO [207..220] ---
     put_u16(m.payload, kPayloadMoveInfoOff + 0, static_cast<std::uint16_t>(position_x));
     put_u16(m.payload, kPayloadMoveInfoOff + 2, static_cast<std::uint16_t>(position_z));
