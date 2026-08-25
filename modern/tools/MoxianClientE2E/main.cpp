@@ -150,6 +150,30 @@ std::string resolve_server_exe(const char* argv0,
     return single_config.string();
 }
 
+std::filesystem::path find_e2e_playdh_root(const std::string& map_exe) {
+    std::error_code ec;
+    std::vector<std::filesystem::path> bases;
+    bases.push_back(std::filesystem::current_path(ec));
+    auto base = std::filesystem::absolute(std::filesystem::path(map_exe), ec).parent_path();
+    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
+        bases.push_back(base);
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
+    }
+    for (const auto& candidate_base : bases) {
+        for (const auto& root : {
+                 candidate_base / "modern" / "data" / "PlayDH",
+                 candidate_base / "data" / "PlayDH"}) {
+            if (std::filesystem::exists(root / "Resource" / "Server") &&
+                std::filesystem::exists(root / "Image" / "InterfaceScript")) {
+                return std::filesystem::weakly_canonical(root, ec);
+            }
+        }
+    }
+    return {};
+}
+
 CliArgs parse_cli(int argc, char** argv) {
     CliArgs a;
     // Resolve next to this executable so both Ninja single-config and Visual
@@ -440,11 +464,10 @@ int run_e2e(const CliArgs& cli) {
 
         const std::string backend_flag =
             cli.db_backend == "mssql_odbc" ? "mssql_odbc" : "sqlite";
-        std::error_code resource_error;
-        auto e2e_playdh_root = std::filesystem::current_path(resource_error) /
-                               "modern" / "data" / "PlayDH";
-        if (!std::filesystem::exists(e2e_playdh_root / "Resource" / "Server")) {
-            e2e_playdh_root = std::filesystem::path("modern/data/PlayDH");
+        const auto e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+        if (e2e_playdh_root.empty()) {
+            LOG("unable to locate canonical PlayDH root for MapServer");
+            return 3;
         }
         // LoginServer
         procs.push_back(std::make_unique<ServerProc>());
@@ -514,21 +537,11 @@ int run_e2e(const CliArgs& cli) {
     // servers so GameIn exercises the real UI/effect dependency gate rather
     // than falling back to a headless "root missing" path.
     {
-        std::error_code root_error;
-        const std::array<std::filesystem::path, 4> roots = {
-            std::filesystem::current_path(root_error) / "modern" / "data" / "PlayDH",
-            std::filesystem::current_path(root_error) / "data" / "PlayDH",
-            std::filesystem::path(cli.map_exe).parent_path().parent_path().parent_path() /
-                "data" / "PlayDH",
-            std::filesystem::path("modern/data/PlayDH")};
-        for (const auto& root : roots) {
-            if (std::filesystem::exists(root / "Image") &&
-                std::filesystem::exists(root / "Resource")) {
-                engine.SetPlaydhRoot(std::filesystem::absolute(root));
-                LOG("using explicit PlayDH root: %s",
-                    engine.playdh_root()->string().c_str());
-                break;
-            }
+        const auto root = find_e2e_playdh_root(cli.map_exe);
+        if (!root.empty()) {
+            engine.SetPlaydhRoot(root);
+            LOG("using explicit PlayDH root: %s",
+                engine.playdh_root()->string().c_str());
         }
     }
 
