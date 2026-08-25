@@ -2474,7 +2474,7 @@ std::vector<RuntimeEffectEvent> CInGameState::drain_runtime_effect_events() noex
 }
 
 void CInGameState::open_shop(std::uint32_t npc_id) {
-    if (!m_inGame || npc_id == 0) return;
+    if (!m_inGame || (npc_id == 0 && !is_connected())) return;
     m_shopNpcId = npc_id;
     if (!is_connected()) {
         MLOG_INFO("CInGameState: open_shop npc=%u (offline)", npc_id);

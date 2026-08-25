@@ -34,6 +34,7 @@
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
 //                  [--map-number N]
 //                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
+//                  [--exercise-shop]    # Live NPC shop catalog/buy gate
 //                  [--no-spawn]  # assume servers are already running
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
@@ -132,6 +133,7 @@ struct CliArgs {
     int  map_number = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool exercise_combat = false; // opt-in live combat gate; never implicit
+    bool exercise_shop = false; // opt-in live NPC shop catalog/buy gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool exercise_mapchange = false; // opt-in cross-map route/load gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
@@ -214,6 +216,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--exercise-combat") a.exercise_combat = true;
+        else if (s == "--exercise-shop") a.exercise_shop = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
         else if (s == "--init-schema") a.init_schema = true;
@@ -860,6 +863,54 @@ int run_e2e(const CliArgs& cli) {
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
+
+        if (cli.exercise_shop) {
+            // npc_id=0 is an explicit server-side catalog resolution path;
+            // it is not a fabricated NPC. The MapHandler resolves it against
+            // the canonical DealItem catalog before emitting ShopList.
+            LOG("[5/5] Shop: requesting canonical NPC shop catalog ...");
+            game.open_shop(0);
+            const auto shop_deadline = std::chrono::steady_clock::now() +
+                                       std::chrono::seconds(cli.timeout_s);
+            while (!game.shop_open() &&
+                   std::chrono::steady_clock::now() < shop_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!game.shop_open() || game.shop_items().empty()) {
+                LOG("[5/5] FAIL: canonical NPC shop catalog unavailable");
+                return 2;
+            }
+            const auto item_id = game.shop_items().front().item_id;
+            const auto count_item = [&game, item_id]() {
+                std::uint64_t total = 0;
+                for (const auto& item : game.game_info().items.Inventory) {
+                    if (item.wIconIdx == item_id) total += item.ItemParam;
+                }
+                return total;
+            };
+            const auto before = count_item();
+            game.buy_shop_item(0);
+            const auto buy_deadline = std::chrono::steady_clock::now() +
+                                      std::chrono::seconds(cli.timeout_s);
+            while ((game.shop_open() || count_item() <= before) &&
+                   std::chrono::steady_clock::now() < buy_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.shop_open() || count_item() <= before) {
+                LOG("[5/5] FAIL: shop BuyAck/inventory update item=%u before=%llu after=%llu",
+                    static_cast<unsigned>(item_id),
+                    static_cast<unsigned long long>(before),
+                    static_cast<unsigned long long>(count_item()));
+                return 2;
+            }
+            LOG("[5/5] OK: shop BuyAck item=%u count=%llu->%llu npc=%u",
+                static_cast<unsigned>(item_id),
+                static_cast<unsigned long long>(before),
+                static_cast<unsigned long long>(count_item()),
+                static_cast<unsigned>(game.shop_npc_id()));
+        }
 
         if (cli.exercise_mapchange) {
             constexpr std::uint16_t target_map = 12;
