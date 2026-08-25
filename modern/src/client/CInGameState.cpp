@@ -1813,6 +1813,57 @@ void CInGameState::OnMouseButton(bool left, bool down,
     m_lastMouseX = x;
     m_lastMouseY = y;
     if (left && m_inventoryOpen) {
+        auto inventory_slot_at = [&](std::int32_t px, std::int32_t py)
+            -> std::optional<std::size_t> {
+            const auto* grid = m_uiRuntime.findWindowByLegacyId(
+                kInventoryTabDialogIds[m_inventoryTab]);
+            if (!grid) return std::nullopt;
+            const auto local_x = px - grid->absX();
+            const auto local_y = py - grid->absY();
+            constexpr std::int32_t cell = 40;
+            constexpr std::int32_t gap = 5;
+            const auto col = local_x / (cell + gap);
+            const auto row = local_y / (cell + gap);
+            const auto in_cell_x = local_x % (cell + gap);
+            const auto in_cell_y = local_y % (cell + gap);
+            if (col < 0 || col >= 5 || row < 0 || row >= 4 ||
+                in_cell_x >= cell || in_cell_y >= cell) return std::nullopt;
+            return m_inventoryTab * 20u + static_cast<std::size_t>(row * 5 + col);
+        };
+        auto equipment_slot_at = [&](std::int32_t px, std::int32_t py)
+            -> std::optional<std::size_t> {
+            const auto* wear = m_uiRuntime.findWindowByLegacyId("IN_WEAREDDLG");
+            if (!wear) return std::nullopt;
+            static constexpr std::array<std::array<std::int32_t, 2>, 10> cells{{
+                {{53, 28}}, {{8, 73}}, {{98, 73}}, {{53, 118}},
+                {{143, 28}}, {{188, 28}}, {{143, 73}}, {{188, 73}},
+                {{143, 118}}, {{188, 118}}}};
+            const auto local_x = px - wear->absX();
+            const auto local_y = py - wear->absY();
+            for (std::size_t i = 0; i < cells.size(); ++i) {
+                if (local_x >= cells[i][0] && local_x < cells[i][0] + 42 &&
+                    local_y >= cells[i][1] && local_y < cells[i][1] + 42) {
+                    return mxh::game::TP_WEAREDITEM_START + i;
+                }
+            }
+            return std::nullopt;
+        };
+        const auto inventory_slot = inventory_slot_at(x, y);
+        const auto equipment_slot = equipment_slot_at(x, y);
+        const auto hit_slot = inventory_slot ? inventory_slot : equipment_slot;
+        if (down && hit_slot) {
+            const auto* item = *hit_slot < mxh::game::SLOT_INVENTORY_NUM
+                ? &m_info.items.Inventory[*hit_slot]
+                : &m_info.items.WearedItem[*hit_slot - mxh::game::TP_WEAREDITEM_START];
+            if (!mxh::game::is_empty_slot(*item)) m_inventoryDragSource = *hit_slot;
+            return;
+        }
+        if (!down && m_inventoryDragSource && hit_slot) {
+            const auto source = *m_inventoryDragSource;
+            m_inventoryDragSource.reset();
+            if (source != *hit_slot) (void)request_inventory_move(source, *hit_slot);
+            return;
+        }
         const auto grid_id = kInventoryTabDialogIds[m_inventoryTab];
         auto* grid = m_uiRuntime.findWindowByLegacyId(grid_id);
         if (grid) {
@@ -1899,11 +1950,14 @@ void CInGameState::OnMouseButton(bool left, bool down,
 
 bool CInGameState::request_inventory_move(std::size_t source,
                                           std::size_t target) {
-    if (!m_inGame || !is_connected() || source >= mxh::game::SLOT_INVENTORY_NUM ||
-        target >= mxh::game::SLOT_INVENTORY_NUM || source == target) {
+    if (!m_inGame || !is_connected() ||
+        source >= mxh::game::TP_WEAREDITEM_END ||
+        target >= mxh::game::TP_WEAREDITEM_END || source == target) {
         return false;
     }
-    const auto& item = m_info.items.Inventory[source];
+    const auto& item = source < mxh::game::SLOT_INVENTORY_NUM
+        ? m_info.items.Inventory[source]
+        : m_info.items.WearedItem[source - mxh::game::TP_WEAREDITEM_START];
     if (mxh::game::is_empty_slot(item)) return false;
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
