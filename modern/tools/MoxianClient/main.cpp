@@ -913,7 +913,7 @@ struct ItemIconEntry {
     IDISpriteObject* sprite = nullptr;
     RECT source{0, 0, 0, 0};
 };
-std::unordered_map<std::int32_t, ItemIconEntry> g_item_icons;
+std::unordered_map<std::uint64_t, ItemIconEntry> g_atlas_icons;
 
 // ---------------------------------------------------------------------------
 // Frame loop. A.1.4 draws the boot background (full-window sprite) and
@@ -957,37 +957,40 @@ bool drawSpriteRegion(I4DyuchiGXRenderer* r, IDISpriteObject* sprite,
                            color, /*iZOrder=*/1, /*dwFlag=*/0) != FALSE;
 }
 
-ItemIconEntry* loadItemIcon(I4DyuchiGXRenderer* renderer,
-                            std::int32_t item_id) {
-    if (!renderer || item_id <= 0) return nullptr;
-    if (auto it = g_item_icons.find(item_id); it != g_item_icons.end()) {
+ItemIconEntry* loadAtlasIcon(I4DyuchiGXRenderer* renderer,
+                             std::int32_t icon_id,
+                             mxh::ui::PathFileType path_type) {
+    if (!renderer || icon_id <= 0) return nullptr;
+    const auto cache_key = (static_cast<std::uint64_t>(path_type) << 32) |
+                           static_cast<std::uint32_t>(icon_id);
+    if (auto it = g_atlas_icons.find(cache_key); it != g_atlas_icons.end()) {
         return it->second.sprite ? &it->second : nullptr;
     }
     ItemIconEntry entry;
     const auto hard = mxh::ui::cResourceManager::getInstance().getHardPath(
-        item_id, mxh::ui::PathFileType::ItemPath);
+        icon_id, path_type);
     if (!hard) {
-        g_item_icons.emplace(item_id, entry);
+        g_atlas_icons.emplace(cache_key, entry);
         return nullptr;
     }
     const auto atlas = mxh::ui::cSpriteAtlas::getInstance().getInfo(hard->atlas_idx);
     if (!atlas) {
-        g_item_icons.emplace(item_id, entry);
+        g_atlas_icons.emplace(cache_key, entry);
         return nullptr;
     }
     const auto path = mxh::ui::cSpriteAtlas::getInstance().resolvePath(*atlas);
     if (path.empty() || !std::filesystem::exists(path)) {
-        g_item_icons.emplace(item_id, entry);
+        g_atlas_icons.emplace(cache_key, entry);
         return nullptr;
     }
     auto* sprite = renderer->CreateSpriteObject(const_cast<char*>(path.string().c_str()), 0);
     if (!sprite) {
-        g_item_icons.emplace(item_id, entry);
+        g_atlas_icons.emplace(cache_key, entry);
         return nullptr;
     }
     entry.sprite = sprite;
     entry.source = RECT{hard->left, hard->top, hard->right, hard->bottom};
-    auto [it, inserted] = g_item_icons.emplace(item_id, entry);
+    auto [it, inserted] = g_atlas_icons.emplace(cache_key, entry);
     if (!inserted && entry.sprite) entry.sprite->Release();
     return it->second.sprite ? &it->second : nullptr;
 }
@@ -1587,6 +1590,16 @@ void renderFrame(HWND h) {
                     const auto skill = mxh::client::quick_skill_for_slot(info, i);
                     const std::string label =
                         skill == 0 ? "-" : std::to_string(skill);
+                    if (skill != 0 && skill <= 0x7fffffffu) {
+                        if (auto* icon = loadAtlasIcon(
+                                g_renderer, static_cast<std::int32_t>(skill),
+                                mxh::ui::PathFileType::MugongPath)) {
+                            (void)drawSpriteRegion(g_renderer, icon->sprite,
+                                                   icon->source, x + 3.0f,
+                                                   barY + 3.0f, kSlotW - 6.0f,
+                                                   kSlotH - 6.0f, 0xFFFFFFFFu);
+                        }
+                    }
                     RECT rc{static_cast<LONG>(x) + 4, static_cast<LONG>(barY) + 4,
                             static_cast<LONG>(x) + static_cast<LONG>(kSlotW) - 4,
                             static_cast<LONG>(barY) + 20};
@@ -1620,7 +1633,9 @@ void renderFrame(HWND h) {
                         if (!mxh::game::is_empty_slot(inventory[idx])) {
                             const auto icon_id = static_cast<std::int32_t>(
                                 inventory[idx].wIconIdx);
-                            if (auto* icon = loadItemIcon(g_renderer, icon_id)) {
+                            if (auto* icon = loadAtlasIcon(
+                                    g_renderer, icon_id,
+                                    mxh::ui::PathFileType::ItemPath)) {
                                 (void)drawSpriteRegion(g_renderer, icon->sprite,
                                                        icon->source, x, y,
                                                        kCell, kCell,
@@ -3410,11 +3425,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // Cleanup. The SpriteObject* are owned by us; the renderer factory
     // will release them when renderer is destroyed. SRVs are released
     // by the ComPtr destructor.
-    for (auto& [item_id, icon] : g_item_icons) {
+    for (auto& [cache_key, icon] : g_atlas_icons) {
         if (icon.sprite) icon.sprite->Release();
         icon.sprite = nullptr;
     }
-    g_item_icons.clear();
+    g_atlas_icons.clear();
     for (auto& e : g_sprites) {
         if (e.sprite) e.sprite->Release();
         e.sprite = nullptr;
