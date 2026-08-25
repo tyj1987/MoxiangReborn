@@ -50,6 +50,7 @@
 #include "mxh/render/StaticScene.hpp"
 #include "mxh/render/SkyScene.hpp"
 #include "mxh/render/EntityScene.hpp"
+#include "mxh/compat/map_change_catalog.hpp"
 #include "mxh/render/render_typedef.hpp"
 #include "mxh/game/npc_role.hpp"  // M-NPC1: per-role NPC marker slot + quest indicator
 #include "mxh/ui/cImage.hpp"
@@ -361,6 +362,7 @@ std::uint64_t g_evidenceFrameSequence = 0;
 // Active in-game input target. The WndProc forwards keyboard/mouse events
 // to the current game state (only CInGameState consumes input today).
 mxh::client::CInGameState* g_inputTarget = nullptr;
+std::optional<mxh::compat::MapChangeCatalog> g_mapChangeCatalog;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
 mxh::client::CGameLoading*     g_gameLoadingState = nullptr;
@@ -2229,6 +2231,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         std::fprintf(stderr, "mxh_client: %s\n", resource_error.c_str());
         return 1;
     }
+    g_mapChangeCatalog = mxh::compat::load_map_change_bin(
+        options.resource_root / "Resource" / "MapChange.bin");
+    if (!g_mapChangeCatalog) {
+        MLOG_WARN("mxh_client: MapChange.bin unavailable or invalid; NPC warp interaction will remain disabled");
+    } else {
+        MLOG_INFO("mxh_client: MapChange.bin loaded entries=%u",
+                  static_cast<unsigned>(g_mapChangeCatalog->entries.size()));
+    }
     auto* storage = new mxh::gx::FilesystemFileStorage(options.resource_root);
     if (!storage->Initialize(0, 0, 0, FILE_ACCESS_METHOD_ONLY_FILE)) {
         std::fprintf(stderr, "mxh_client: invalid resource root\n");
@@ -2736,6 +2746,29 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         g->Start(mainGame.GetEngine(), pending_character_id,
                                  pending_map_num);
                         g_inputTarget = g;
+                        g->set_map_change_target_resolver(
+                            [](std::uint32_t npc_id, std::uint16_t current_map)
+                                -> std::optional<std::uint16_t> {
+                                if (!g_mapChangeCatalog || !g_inputTarget) return std::nullopt;
+                                const auto npc = std::find_if(
+                                    g_inputTarget->npcs().begin(),
+                                    g_inputTarget->npcs().end(),
+                                    [npc_id](const auto& value) {
+                                        return value.npc_id == npc_id;
+                                    });
+                                if (npc == g_inputTarget->npcs().end()) return std::nullopt;
+                                // MapChange.bin stores the legacy object name;
+                                // match it against the live NPC name and current
+                                // map so the destination comes from profile data.
+                                for (const auto& route : g_mapChangeCatalog->entries) {
+                                    if (route.current_map_num != current_map) continue;
+                                    if (!route.object_name.empty() &&
+                                        route.object_name == npc->name) {
+                                        return route.move_map_num;
+                                    }
+                                }
+                                return std::nullopt;
+                            });
                     }
                 }
                 prev_state = cur_state;
