@@ -4078,8 +4078,11 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                 }
             }
             reply.header.protocol = static_cast<std::uint8_t>(rewarded ? mxh::proto::QuestProtocol::EndAck : mxh::proto::QuestProtocol::EndNack);
-            reply_(id, reply);
+            if (!rewarded) reply_(id, reply);
             if (rewarded) {
+                mxh::game::ItemTotalInfo updated_items{};
+                std::uint32_t updated_money = 0;
+                std::optional<PlayerInfo> reward_appearance;
                 persist_quest_log(msg.header.object_id);
                 persist_player_items(msg.header.object_id);
                 const std::vector<mxh::db::Bind> args{
@@ -4090,6 +4093,48 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                 const auto saved = db_.execute(
                     "UPDATE modern_player_state SET level=?,exp=?,money=?,updated_at=CURRENT_TIMESTAMP WHERE player_id=?", args);
                 if (!saved.ok()) std::cerr << "[Map] quest reward state persistence failed: " << saved.error_message << "\n";
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    const auto runtime = player_runtimes_.find(msg.header.object_id);
+                    if (runtime != player_runtimes_.end()) {
+                        updated_money = runtime->second.actor.state().progress.money;
+                        for (std::size_t i = 0; i < runtime->second.actor.state().inventory.items.size(); ++i) {
+                            updated_items.Inventory[i] = runtime->second.actor.state().inventory.items[i];
+                        }
+                        const auto info = connected_players_.find(msg.header.object_id);
+                        if (info != connected_players_.end()) {
+                            info->second.level = runtime->second.actor.state().progress.level;
+                            info->second.money = updated_money;
+                            info->second.combat.current_hp = runtime->second.actor.state().vitals.current_hp;
+                            info->second.combat.max_hp = runtime->second.actor.state().vitals.max_hp;
+                            info->second.combat.current_mp = runtime->second.actor.state().vitals.current_mp;
+                            info->second.combat.max_mp = runtime->second.actor.state().vitals.max_mp;
+                            info->second.items = updated_items;
+                            reward_appearance = info->second;
+                        }
+                    }
+                }
+                mxh::net::Message money;
+                money.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                money.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+                money.header.object_id = msg.header.object_id;
+                money.payload.resize(sizeof(updated_money));
+                std::memcpy(money.payload.data(), &updated_money, sizeof(updated_money));
+                reply_(id, money);
+                mxh::net::Message total;
+                total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                total.header.object_id = msg.header.object_id;
+                total.payload.resize(sizeof(updated_items));
+                std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+                reply_(id, total);
+                if (reward_appearance) {
+                    send_character_add(msg.header.object_id, *reward_appearance);
+                }
+                // EndAck is deliberately last so the client treats the
+                // preceding money/item/appearance packets as part of the
+                // same authoritative reward transaction.
+                reply_(id, reply);
             }
             break;
         }
