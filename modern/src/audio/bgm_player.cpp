@@ -120,7 +120,9 @@ bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
         setError(error, "BGM sound ID is missing or is not a streaming entry");
         return false;
     }
-    const bool loop = manifest_.entries[sound_id].loop;
+    const auto& entry = manifest_.entries[sound_id];
+    const bool loop = entry.loop;
+    current_entry_volume_ = entry.volume > 0.0f ? entry.volume : 1.0f;
     stop();
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
@@ -206,7 +208,8 @@ bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
         buffer.Flags = XAUDIO2_END_OF_STREAM;
     }
     hr = media_->source->SubmitSourceBuffer(&buffer);
-    if (SUCCEEDED(hr)) hr = media_->source->SetVolume(std::clamp(volume_, 0.0f, 1.0f));
+    if (SUCCEEDED(hr)) hr = media_->source->SetVolume(
+        std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));
     if (SUCCEEDED(hr)) hr = media_->source->Start(0);
     if (FAILED(hr)) {
         stop_media(*media_);
@@ -227,12 +230,14 @@ void BgmPlayer::stop() noexcept {
     if (media_) stop_media(*media_);
 #endif
     current_id_ = kNoSound;
+    current_entry_volume_ = 1.0f;
 }
 
 void BgmPlayer::setVolume(float normalized) noexcept {
     volume_ = std::clamp(normalized, 0.0f, 1.0f);
 #ifdef _WIN32
-    if (media_ && media_->source) media_->source->SetVolume(volume_);
+    if (media_ && media_->source) media_->source->SetVolume(
+        std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));
 #endif
 }
 

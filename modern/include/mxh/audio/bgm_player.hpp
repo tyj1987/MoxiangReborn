@@ -39,6 +39,7 @@ private:
 #endif
     bool ready_ = false;
     float volume_ = 1.0f;
+    float current_entry_volume_ = 1.0f;
     std::uint16_t current_id_ = 0xffffu;
     std::filesystem::path sound_root_;
     mxh::compat::SoundList manifest_;
