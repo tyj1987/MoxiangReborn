@@ -2573,6 +2573,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::uint32_t new_hp = 0;
             std::uint32_t new_mp = 0;
             bool consumed = false;
+            std::vector<QuestEventChange> quest_changes;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 auto info_it = connected_players_.find(player_id);
@@ -2591,6 +2592,11 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         }
                         info_it->second.combat.current_hp = new_hp;
                         info_it->second.combat.current_mp = new_mp;
+                        quest_changes = dispatch_quest_event(
+                            runtime_it->second.quest_log,
+                            QuestEvent{QuestSubKind::Collect,
+                                       static_cast<std::uint32_t>(used_item.wIconIdx),
+                                       1u});
                     }
                 }
             }
@@ -2632,6 +2638,10 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::memcpy(reply.payload.data() + off, &new_mp, 4);          off += 4;
             reply_(id, reply);
             persist_player_items(player_id);
+            if (!quest_changes.empty()) {
+                persist_quest_log(player_id);
+                notify_quest_changes(player_id, quest_changes);
+            }
             std::cout << "[Map] sent ITEM_USE_ACK pos=" << pos
                       << " wIconIdx=" << used_item.wIconIdx
                       << " hp+=" << effect.hp_delta

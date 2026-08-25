@@ -8,13 +8,13 @@ QuestDefinition make_runtime_quest_definition(const QuestScriptDefinition& scrip
             subquest.subquest_idx == script.end_param;
         for (const auto& trigger : subquest.triggers) {
             if (trigger.event.kind == QuestEventKind::Hunt || trigger.event.kind == QuestEventKind::HuntAll) {
-                QuestSub sub; sub.kind = QuestSubKind::Kill;
+                QuestSub sub; sub.stage = subquest.subquest_idx; sub.kind = QuestSubKind::Kill;
                 sub.target_id = trigger.event.kind == QuestEventKind::HuntAll ? 0u : trigger.event.param1;
                 sub.target = static_cast<std::uint32_t>(std::max(1, trigger.event.param2));
                 out.subs.push_back(sub);
             }
             if (trigger.event.kind == QuestEventKind::NpcTalk) {
-                QuestSub sub;
+                QuestSub sub; sub.stage = subquest.subquest_idx;
                 sub.kind = QuestSubKind::TalkNpc;
                 sub.target_id = trigger.event.param1;
                 sub.target = static_cast<std::uint32_t>(
@@ -22,7 +22,7 @@ QuestDefinition make_runtime_quest_definition(const QuestScriptDefinition& scrip
                 out.subs.push_back(sub);
             }
             if (trigger.event.kind == QuestEventKind::UseItem) {
-                QuestSub sub;
+                QuestSub sub; sub.stage = subquest.subquest_idx;
                 sub.kind = QuestSubKind::Collect;
                 sub.target_id = trigger.event.param1;
                 sub.target = static_cast<std::uint32_t>(

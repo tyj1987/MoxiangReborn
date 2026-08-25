@@ -43,3 +43,33 @@ TEST(QuestRuntimeAdapter, MapsUseItemToAuthoritativeCollectSubcondition) {
     EXPECT_EQ(runtime.subs[0].target_id, 147u);
     EXPECT_EQ(runtime.subs[0].target, 2u);
 }
+
+TEST(QuestRuntimeAdapter, DispatchesOnlyCurrentSubquestStage) {
+    const auto parsed = mxh::server::parse_quest_script_text(
+        "$QUEST 12 { $SUBQUEST 0 { #TRIGGER @TALKTONPC 10 1 *STARTSUB 12 1 }"
+        " $SUBQUEST 1 { #TRIGGER @HUNT 99 2 *ENDQUEST 0 } }");
+    ASSERT_EQ(parsed.quests.size(), 1u);
+    const auto definition = mxh::server::make_runtime_quest_definition(parsed.quests[0]);
+    ASSERT_EQ(definition.subs.size(), 2u);
+    EXPECT_EQ(definition.subs[0].stage, 0u);
+    EXPECT_EQ(definition.subs[1].stage, 1u);
+    mxh::server::QuestLog log;
+    ASSERT_TRUE(mxh::server::accept_quest(log, definition, 1u));
+
+    const auto blocked_kill = mxh::server::dispatch_quest_event(
+        log, {mxh::server::QuestSubKind::Kill, 99u, 2u});
+    EXPECT_TRUE(blocked_kill.empty());
+    const auto talked = mxh::server::dispatch_quest_event(
+        log, {mxh::server::QuestSubKind::TalkNpc, 10u, 1u});
+    ASSERT_EQ(talked.size(), 1u);
+    EXPECT_EQ(talked[0].state, mxh::server::QuestState::Accepted);
+
+    const auto first_kill = mxh::server::dispatch_quest_event(
+        log, {mxh::server::QuestSubKind::Kill, 99u, 1u});
+    ASSERT_EQ(first_kill.size(), 1u);
+    EXPECT_EQ(first_kill[0].state, mxh::server::QuestState::Accepted);
+    const auto second_kill = mxh::server::dispatch_quest_event(
+        log, {mxh::server::QuestSubKind::Kill, 99u, 1u});
+    ASSERT_EQ(second_kill.size(), 1u);
+    EXPECT_EQ(second_kill[0].state, mxh::server::QuestState::Complete);
+}

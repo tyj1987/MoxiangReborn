@@ -38,6 +38,9 @@ struct QuestSub final {
     std::uint32_t target_id  = 0;     // monster_kind / item_idx / npc_idx / map_num
     std::uint32_t count      = 0;     // current progress
     std::uint32_t target     = 0;     // required count
+    // Legacy $SUBQUEST index.  It is runtime-only metadata; persistence keeps
+    // the flattened sub rows and reconstructs this value from QuestScript.bin.
+    std::uint32_t stage      = 0;
 };
 
 // ---- Quest definition (loaded from QuestScript.bin / QuestInfo.bin) ----
