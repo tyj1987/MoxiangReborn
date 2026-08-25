@@ -141,6 +141,31 @@ private:
     bool connected = true;
 };
 
+class MapHandlerForwardingSender final : public mxh::net::ITcpSender {
+public:
+    MapHandlerForwardingSender(mxh::server::MapHandler& target,
+                               mxh::net::ConnectionId connection)
+        : target_(target), connection_(connection) {}
+
+    [[nodiscard]] mxh::net::NetError send(
+        const mxh::net::Message& msg) override {
+        if (!connected) return mxh::net::NetError::SendFailed;
+        ++send_count;
+        target_.on_message(connection_, msg);
+        return mxh::net::NetError::Ok;
+    }
+    [[nodiscard]] bool is_connected() const noexcept override {
+        return connected;
+    }
+
+    bool connected = true;
+    std::atomic<int> send_count{0};
+
+private:
+    mxh::server::MapHandler& target_;
+    mxh::net::ConnectionId connection_;
+};
+
 // ===========================================================================
 // LoginHandler
 // ===========================================================================
@@ -554,6 +579,60 @@ TEST(AgentHandlerTest, ChangeMapWithoutTargetRouteReturnsNackAndKeepsCurrentMap)
     ASSERT_EQ(reply.messages.size(), 1u);
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapNack));
+}
+
+TEST(AgentHandlerTest, ChangeMapBootstrapsTargetMapHandlerAndRelaysGameInAck) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true,
+                                      false, {}, /*default_map_num=*/7);
+    const auto client_connection = mxh::net::make_connection_id(1103);
+    const auto target_connection = mxh::net::make_connection_id(1010);
+    constexpr std::uint32_t char_id = 450035715u;
+    constexpr std::uint16_t target_map = 10u;
+    handler.register_session(client_connection, 3001u, char_id, 7u);
+
+    MockTcpSender current_map;
+    handler.set_map_server(&current_map, mxh::net::make_connection_id(7));
+    mxh::server::MapHandler target_handler(
+        db, target_map,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            handler.forward_from_map(id, msg);
+        });
+    MapHandlerForwardingSender target_map_sender(target_handler,
+                                                 target_connection);
+    handler.set_map_server_for_map(target_map, &target_map_sender,
+                                   target_connection);
+
+    mxh::net::Message change;
+    change.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    change.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapSyn);
+    change.header.object_id = char_id;
+    change.payload.resize(4, 0);
+    std::memcpy(change.payload.data(), &target_map, sizeof(target_map));
+    handler.on_message(client_connection, change);
+
+    const auto snapshot = target_handler.player_runtime_snapshot(char_id);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(snapshot->map_num, target_map);
+    EXPECT_EQ(target_map_sender.send_count.load(), 1);
+    ASSERT_FALSE(current_map.sent_msgs.empty());
+    EXPECT_EQ(current_map.sent_msgs.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn));
+
+    bool saw_game_in_ack = false;
+    bool saw_change_map_ack = false;
+    for (const auto& message : reply.messages) {
+        saw_game_in_ack |= message.header.protocol == static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameInAck);
+        saw_change_map_ack |= message.header.protocol == static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapAck);
+    }
+    EXPECT_TRUE(saw_game_in_ack);
+    EXPECT_TRUE(saw_change_map_ack);
 }
 
 TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
