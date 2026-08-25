@@ -19,6 +19,11 @@ std::filesystem::path find_playdh_drop_file() {
     return {};
 }
 
+std::filesystem::path find_playdh_root() {
+    const auto file = find_playdh_drop_file();
+    return file.empty() ? std::filesystem::path{} : file.parent_path();
+}
+
 }  // namespace
 
 TEST(DropItemLoaderTest, RejectsMislabeledCanonicalPayloadFailClosed) {
@@ -33,4 +38,20 @@ TEST(DropItemLoaderTest, RejectsMislabeledCanonicalPayloadFailClosed) {
     // silently treating it as a drop table would corrupt gameplay.
     EXPECT_TRUE(tables.empty());
     EXPECT_NE(error.find("$Group"), std::string::npos);
+}
+
+TEST(DropItemLoaderTest, AuditsBundledDropVariants) {
+    const auto root = find_playdh_root();
+    if (root.empty()) GTEST_SKIP() << "canonical PlayDH not available";
+    for (const auto name : {"MonsterDropItemList.bin",
+                            "MonsterDropItemList-922.bin",
+                            "MonsterDropItemList-9-30.bin"}) {
+        std::string error;
+        const auto tables = mxh::server::load_drop_item_tables(
+            root / name, "playdh-current", &error);
+        std::cout << "drop-variant " << name << " tables=" << tables.size()
+                  << " error=" << error << "\n";
+        EXPECT_TRUE(tables.empty());
+        EXPECT_NE(error.find("$Group"), std::string::npos);
+    }
 }
