@@ -525,6 +525,29 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
         case mxh::proto::UserConnProtocol::GameInSyn:
             handle_legacy_gamein_syn(id, msg);
             break;
+        case mxh::proto::UserConnProtocol::GameOutSyn: {
+            // GameOut is an explicit client lifecycle message, not only a
+            // socket-disconnect side effect. Forward it while the character
+            // route is still live so MapServer can flush the runtime and
+            // return GameOutAck before a subsequent GameIn.
+            const auto route = route_for_connection(id);
+            if (route.client && route.client->is_connected()) {
+                mxh::net::Message fwd = msg;
+                fwd.header.object_id = get_char_id(id);
+                if (fwd.payload.empty()) fwd.payload.resize(8, 0);
+                const auto err = route.client->send(fwd);
+                if (err != mxh::net::NetError::Ok) {
+                    std::cerr << "[Agent] failed to forward GAMEOUT_SYN: "
+                              << mxh::net::to_string(err) << "\n";
+                } else {
+                    std::cout << "[Agent] forwarded GAMEOUT_SYN charid="
+                              << fwd.header.object_id << "\n";
+                }
+            } else {
+                std::cout << "[Agent] no MapServer route for GAMEOUT_SYN\n";
+            }
+            break;
+        }
         case mxh::proto::UserConnProtocol::ChangeMapSyn:
             handle_legacy_change_map_syn(id, msg);
             break;

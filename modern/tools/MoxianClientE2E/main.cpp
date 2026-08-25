@@ -841,6 +841,7 @@ int run_e2e(const CliArgs& cli) {
             bool observed_life_change = false;
             bool observed_drop = false;
             bool observed_pickup = false;
+            std::uint16_t observed_item_id = 0;
             std::unordered_map<std::uint32_t, std::uint32_t> life_before;
             for (const auto& monster : game.monsters()) {
                 life_before.emplace(monster.object_id, monster.current_life);
@@ -902,6 +903,8 @@ int run_e2e(const CliArgs& cli) {
                 }
                 if (!game.ground_drops().empty()) {
                     observed_drop = true;
+                    if (observed_item_id == 0)
+                        observed_item_id = game.ground_drops().front().item_id;
                     game.try_pickup();
                 }
                 std::size_t inventory_now = 0;
@@ -929,12 +932,46 @@ int run_e2e(const CliArgs& cli) {
             }
             LOG("[5/5] OK: combat hit/effect/life/drop/pickup target=%u "
                 "alive=%zu->%zu", observed_target, initial_alive, alive_after);
+
+            // Close the live session and re-enter through a fresh state.  The
+            // server must flush the picked item on GameOutSyn; merely seeing it
+            // in the old state's inventory is not persistence evidence.
+            game.Release();
+            mxh::client::CInGameState relog;
+            relog.Start(&engine, created_chrid,
+                        static_cast<std::uint16_t>(cli.map_number));
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (!relog.is_in_game() &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!relog.is_in_game()) {
+                LOG("[5/5] FAIL: re-login GameInAck after GameOutSyn timed out");
+                return 2;
+            }
+            bool persisted_item = false;
+            for (const auto& item : relog.game_info().items.Inventory) {
+                if (item.wIconIdx == observed_item_id) {
+                    persisted_item = true;
+                    break;
+                }
+            }
+            if (!persisted_item) {
+                LOG("[5/5] FAIL: picked item=%u missing after fresh GameIn",
+                    static_cast<unsigned>(observed_item_id));
+                return 2;
+            }
+            LOG("[5/5] OK: GameOutSyn persistence re-login item=%u",
+                static_cast<unsigned>(observed_item_id));
+            relog.Release();
         }
     }
     // Clean shutdown — release states and the persistent AgentSession, then
     // kill server procs (ServerProc dtor calls TerminateProcess).
-    login.Release();
     game.Release();
+    login.Release();
     engine.Release();
     procs.clear();
     ::WSACleanup();
