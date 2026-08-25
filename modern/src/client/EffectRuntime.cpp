@@ -48,6 +48,8 @@ void EffectRuntime::advance(
                                         trigger.sound_name, trigger.texture_name,
                                         trigger.position, trigger.radius,
                                         trigger.color_index, trigger.coordinate,
+                                        trigger.motion_index, trigger.percent,
+                                        trigger.duration_ms, trigger.damage_kind,
                                         trigger.sound_id});
             }
         }

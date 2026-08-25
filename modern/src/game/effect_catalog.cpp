@@ -34,6 +34,20 @@ void scan_script(EffectScriptSummary& summary,
             const auto last = line.find_last_not_of(" \t\r");
             return line.substr(first, last - first + 1);
         }();
+        if (!summary.units.empty() && !trim.empty() && trim.front() == '#') {
+            std::istringstream fields(trim);
+            std::string directive;
+            fields >> directive;
+            std::string value;
+            std::getline(fields, value);
+            const auto first = value.find_first_not_of(" \t");
+            if (first != std::string::npos) value.erase(0, first);
+            if (directive != "#NEWEFFECTUNIT" && directive != "#TRIGGER" &&
+                directive != "#MAXEFFECTUNIT" && directive != "#MAXTRIGGER") {
+                summary.units.back().properties.emplace_back(
+                    std::move(directive), std::move(value));
+            }
+        }
         if (trim.rfind("#MAXEFFECTUNIT", 0) == 0) {
             std::istringstream fields(trim.substr(14));
             fields >> summary.effect_unit_count;
@@ -64,6 +78,18 @@ void scan_script(EffectScriptSummary& summary,
         } else if (trim.rfind("#COORDINATE", 0) == 0 && !summary.units.empty()) {
             std::istringstream fields(trim.substr(11));
             fields >> summary.units.back().coordinate;
+        } else if (trim.rfind("#MOTION", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(7));
+            fields >> summary.units.back().motion_index;
+        } else if (trim.rfind("#PERCENT", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(8));
+            fields >> summary.units.back().percent;
+        } else if (trim.rfind("#DURATION", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(9));
+            fields >> summary.units.back().duration_ms;
+        } else if (trim.rfind("#DAMAGEKIND", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(11));
+            fields >> summary.units.back().damage_kind;
         } else if (trim.rfind("#TRIGGER", 0) == 0) {
             std::istringstream fields(trim);
             std::string directive;

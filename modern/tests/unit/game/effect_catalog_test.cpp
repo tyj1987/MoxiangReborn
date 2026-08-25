@@ -56,6 +56,22 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_TRUE(kinds.contains("MOVE"));
     EXPECT_TRUE(kinds.contains("OBJECT"));
     EXPECT_TRUE(kinds.contains("SOUND"));
+    bool hasAnimationMotion = false;
+    bool hasDamageKind = false;
+    bool hasMoveDuration = false;
+    for (const auto& summary : catalog.scripts()) {
+        for (const auto& unit : summary.units) {
+            hasAnimationMotion = hasAnimationMotion ||
+                (unit.kind == "ANIMATION" && unit.motion_index != 0u);
+            hasDamageKind = hasDamageKind ||
+                (unit.kind == "DAMAGE" && !unit.damage_kind.empty());
+            hasMoveDuration = hasMoveDuration ||
+                (unit.kind == "MOVE" && unit.duration_ms != 0u);
+        }
+    }
+    EXPECT_TRUE(hasAnimationMotion);
+    EXPECT_TRUE(hasDamageKind);
+    EXPECT_TRUE(hasMoveDuration);
 }
 
 TEST(EffectCatalog, RejectsMissingRoot) {

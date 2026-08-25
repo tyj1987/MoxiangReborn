@@ -25,6 +25,10 @@ struct RuntimeEffectEvent {
     float radius = 0.0f;
     std::uint32_t color_index = 0;
     std::uint32_t coordinate = 0;
+    std::uint32_t motion_index = 0;
+    float percent = 0.0f;
+    std::uint32_t duration_ms = 0;
+    std::string damage_kind;
     std::uint32_t sound_id = 0;
 };
 
