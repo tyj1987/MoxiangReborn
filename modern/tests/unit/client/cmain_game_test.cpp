@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <vector>
 
 using mxh::client::CMainGame;
 using mxh::client::CGameState;
@@ -33,6 +34,19 @@ TEST(CEngine, UiResolutionModeStartsAtLoginAndCanBePromotedAfterDisplayCommit) {
     EXPECT_EQ(engine.ui_resolution_mode(), mxh::ui::ResolutionMode::Low800x600);
     engine.SetUiResolutionMode(mxh::ui::ResolutionMode::Mid1024x768);
     EXPECT_EQ(engine.ui_resolution_mode(), mxh::ui::ResolutionMode::Mid1024x768);
+}
+
+TEST(CEngine, EmitsSemanticAudioCuesToHost) {
+    mxh::client::CEngine engine;
+    std::vector<mxh::client::CEngine::AudioCue> cues;
+    engine.SetAudioEventFn([&](mxh::client::CEngine::AudioCue cue) { cues.push_back(cue); });
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::Attack);
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::Skill);
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::UiClick);
+    ASSERT_EQ(cues.size(), 3u);
+    EXPECT_EQ(cues[0], mxh::client::CEngine::AudioCue::Attack);
+    EXPECT_EQ(cues[1], mxh::client::CEngine::AudioCue::Skill);
+    EXPECT_EQ(cues[2], mxh::client::CEngine::AudioCue::UiClick);
 }
 
 TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
