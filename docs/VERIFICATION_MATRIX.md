@@ -23,10 +23,10 @@ This is the single current evidence index. A row is complete only when it has a 
 | G3 | Client state/display/loading foundation | PASS (77e598cb,339351a0, b2993ae4) | client state tests, typed loading coordinator, atomic settings, explicit runtime profile validation |
 | G4 | Launcher/login/display transition | Partial | transactional 800×600 → saved post-login mode is implemented; genuine human run, updater GUI and failure matrix still required |
 | G5 | Character and loading path | Partial | appearance fields and typed loading path; 3D preview/video still required |
-| G6 | Map10 world presentation | Not started | legacy/modern goldens, zero placeholders |
-| G7 | Core UI live binding | Not started | per-dialog action/error/close evidence |
-| G8 | Movement/combat/loot/map change | Not started | two-client human scenario |
-| G9 | Effects and audio | Not started | event timelines, video and audio trace |
+| G6 | Map10 world presentation | Partial | Map10 GUI/entity/loading path is E3; legacy/modern goldens and final zero-placeholder review remain |
+| G7 | Core UI live binding | Partial | live stats, inventory, shop, quest and character-info HUD paths have E3/E4 evidence; per-dialog action/error/close coverage remains |
+| G8 | Movement/combat/loot/map change | Partial | Map10 combat/loot/relog and Map10→Map12 route probes are E3/E4; two-client human scenario remains |
+| G9 | Effects and audio | Partial | skill EffectRuntime/audio cue probe and manifest are E3/E4; event video/audio trace and legacy comparison remain |
 | G10 | Full assets/maps/UI | Not started | coverage matrix with no unexplained gaps |
 | G11 | RC stability | Not started | clean-machine, fault injection, 24-hour soak |
 
