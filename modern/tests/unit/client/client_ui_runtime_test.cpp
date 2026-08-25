@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <cstdio>
+#include <fstream>
 
 #include <cstdlib>
 #include <array>
@@ -37,6 +38,37 @@ TEST(ClientSettings, AtomicRoundTripAndValidation) {
     EXPECT_EQ(actual.post_login_height, 1080u);
     EXPECT_EQ(actual.last_account, "测试账号");
     std::filesystem::remove(path);
+}
+
+TEST(ClientSettings, InvalidFileIsBackedUpBeforeDefaults) {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "mxh-settings-invalid.json";
+    for (const auto& entry : std::filesystem::directory_iterator(path.parent_path())) {
+        const auto name = entry.path().filename().string();
+        if (name.rfind("mxh-settings-invalid.json.corrupt", 0) == 0) {
+            std::error_code ignored;
+            std::filesystem::remove(entry.path(), ignored);
+        }
+    }
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << "{ not valid settings";
+    }
+    std::string warning;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &warning);
+    EXPECT_EQ(actual.post_login_width, 1024u);
+    EXPECT_EQ(actual.post_login_height, 768u);
+    EXPECT_NE(warning.find("moved to"), std::string::npos);
+    EXPECT_FALSE(std::filesystem::exists(path));
+    bool found_backup = false;
+    for (const auto& entry : std::filesystem::directory_iterator(path.parent_path())) {
+        if (entry.path().filename().string().rfind(
+                "mxh-settings-invalid.json.corrupt", 0) == 0) {
+            found_backup = true;
+            std::filesystem::remove(entry.path());
+        }
+    }
+    EXPECT_TRUE(found_backup);
 }
 
 std::filesystem::path find_playdh_root() {

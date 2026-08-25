@@ -72,6 +72,27 @@ float clamp_volume(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+void backup_corrupt_settings(const std::filesystem::path& path,
+                             std::string* warning) {
+    std::error_code ec;
+    for (std::uint32_t index = 0; index < 1000; ++index) {
+        auto backup = path;
+        backup += ".corrupt";
+        if (index != 0) backup += "." + std::to_string(index);
+        if (std::filesystem::exists(backup, ec)) {
+            ec.clear();
+            continue;
+        }
+        std::filesystem::rename(path, backup, ec);
+        if (!ec) {
+            if (warning) *warning = "settings file was invalid; moved to " + backup.string();
+            return;
+        }
+        ec.clear();
+    }
+    if (warning) *warning = "settings file was invalid; defaults were used (backup failed)";
+}
+
 } // namespace
 
 ClientSettingsV1 ClientSettingsStore::defaults() noexcept { return {}; }
@@ -89,6 +110,18 @@ ClientSettingsV1 ClientSettingsStore::load(const std::filesystem::path& path,
     std::ifstream input(path, std::ios::binary);
     if (!input) return settings;
     const std::string text((std::istreambuf_iterator<char>(input)), {});
+    input.close();
+    const bool has_object = text.find('{') != std::string::npos &&
+                            text.rfind('}') != std::string::npos &&
+                            text.find('{') < text.rfind('}');
+    const bool has_required_keys = text.find("\"schemaVersion\"") != std::string::npos &&
+                                   text.find("\"resourceProfileId\"") != std::string::npos &&
+                                   text.find("\"postLoginWidth\"") != std::string::npos &&
+                                   text.find("\"postLoginHeight\"") != std::string::npos;
+    if (!has_object || !has_required_keys) {
+        backup_corrupt_settings(path, warning);
+        return settings;
+    }
     settings.schema_version = read_uint(text, "schemaVersion", 1);
     settings.resource_profile_id = read_string(text, "resourceProfileId", settings.resource_profile_id);
     settings.locale = read_string(text, "locale", settings.locale);
