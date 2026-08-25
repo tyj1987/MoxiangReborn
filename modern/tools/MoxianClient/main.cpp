@@ -2264,6 +2264,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (cur_state != prev_state) {
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
+                    if (g_effectVisuals) g_effectVisuals->clear();
                 }
                 if (cur_state == mxh::client::GameStateId::Title) {
                     g_mainTitle = dynamic_cast<mxh::client::CMainTitle*>(
