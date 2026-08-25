@@ -1538,16 +1538,30 @@ void renderFrame(HWND h) {
                             drawSpriteQuad(g_renderer, g_hud.mpFill, x, y,
                                            kCell, kCell, 0xFFFFFFFFu);
                             if (g_hudFont) {
-                                const std::string t =
-                                    std::to_string(inventory[idx].wIconIdx);
+                                auto t = g_entityScene
+                                    ? g_entityScene->itemDisplayName(
+                                          inventory[idx].wIconIdx)
+                                    : std::string{};
+                                if (t.empty()) {
+                                    t = "#" + std::to_string(
+                                        inventory[idx].wIconIdx);
+                                }
+                                if (inventory[idx].ItemParam > 1) {
+                                    t += " x" + std::to_string(
+                                        inventory[idx].ItemParam);
+                                }
+                                const auto wide = mxh::compat::big5_to_utf16(t);
                                 RECT rc{static_cast<LONG>(x),
                                         static_cast<LONG>(y),
                                         static_cast<LONG>(x) + static_cast<LONG>(kCell),
                                         static_cast<LONG>(y) + 16};
-                                g_renderer->RenderFont(
-                                    g_hudFont, const_cast<char*>(t.data()),
-                                    static_cast<std::uint32_t>(t.size()), &rc,
-                                    0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                                if (!wide.empty()) {
+                                    g_renderer->RenderFont(
+                                        g_hudFont,
+                                        reinterpret_cast<TCHAR*>(const_cast<wchar_t*>(wide.data())),
+                                        static_cast<std::uint32_t>(wide.size()), &rc,
+                                        0xFFFFFFFFu, CHAR_CODE_TYPE_UNICODE, 1, 0);
+                                }
                             }
                         } else {
                             drawSpriteQuad(g_renderer, g_hud.barBg, x, y,
@@ -1587,17 +1601,26 @@ void renderFrame(HWND h) {
                     for (std::size_t i = 0; i < shopItems.size() && i < 12; ++i) {
                         const float rowY = mxh::client::kShopPanelY +
                             static_cast<float>(i) * mxh::client::kShopRowH;
-                        const std::string line =
-                            std::to_string(shopItems[i].item_id) +
-                            "   $" + std::to_string(shopItems[i].price);
+                        auto itemName = g_entityScene
+                            ? g_entityScene->itemDisplayName(shopItems[i].item_id)
+                            : std::string{};
+                        if (itemName.empty()) {
+                            itemName = "Item#" +
+                                       std::to_string(shopItems[i].item_id);
+                        }
+                        itemName += "   $" + std::to_string(shopItems[i].price);
+                        const auto wide = mxh::compat::big5_to_utf16(itemName);
                         RECT rc{static_cast<LONG>(mxh::client::kShopPanelX) + 8,
                                 static_cast<LONG>(rowY) + 4,
                                 static_cast<LONG>(mxh::client::kShopPanelX) + 380,
                                 static_cast<LONG>(rowY) + 22};
-                        g_renderer->RenderFont(
-                            g_hudFont, const_cast<char*>(line.data()),
-                            static_cast<std::uint32_t>(line.size()), &rc,
-                            0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
+                        if (!wide.empty()) {
+                            g_renderer->RenderFont(
+                                g_hudFont,
+                                reinterpret_cast<TCHAR*>(const_cast<wchar_t*>(wide.data())),
+                                static_cast<std::uint32_t>(wide.size()), &rc,
+                                0xFFFFFFFFu, CHAR_CODE_TYPE_UNICODE, 1, 0);
+                        }
                     }
                 }
             }
