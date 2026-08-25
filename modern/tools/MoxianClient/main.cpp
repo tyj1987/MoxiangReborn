@@ -139,6 +139,10 @@ struct ClientOptions {
     std::uint32_t post_login_width = 1024;
     std::uint32_t post_login_height = 768;
     bool borderless = false;
+    bool resource_profile_overridden = false;
+    bool post_login_width_overridden = false;
+    bool post_login_height_overridden = false;
+    bool borderless_overridden = false;
 };
 
 std::uint32_t read_dimension_env(const wchar_t* name,
@@ -200,6 +204,7 @@ ClientOptions parse_client_options() {
         }
         else if (arg == L"--resource-profile" && i + 1 < argc) {
             take(options.resource_profile_id);
+            options.resource_profile_overridden = true;
         }
 #if defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--save-frame") take(options.save_frame);
@@ -215,10 +220,19 @@ ClientOptions parse_client_options() {
         else if (arg == L"--login-height" && i + 1 < argc)
             options.window_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
         else if (arg == L"--post-width" && i + 1 < argc)
+        {
             options.post_login_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+            options.post_login_width_overridden = true;
+        }
         else if (arg == L"--post-height" && i + 1 < argc)
+        {
             options.post_login_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
-        else if (arg == L"--borderless") options.borderless = true;
+            options.post_login_height_overridden = true;
+        }
+        else if (arg == L"--borderless") {
+            options.borderless = true;
+            options.borderless_overridden = true;
+        }
 #if !defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--auto-login" || arg == L"--auto-create" ||
                  arg == L"--username" || arg == L"--password" ||
@@ -2184,12 +2198,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // production client must carry the selected profile and borderless mode
     // into the LoginAck display transition instead of silently reverting to
     // hard-coded defaults.
-    if (options.resource_profile_id == "playdh-current") {
+    if (!options.resource_profile_overridden) {
         options.resource_profile_id = persisted_settings.resource_profile_id;
     }
-    if (!options.borderless) options.borderless = persisted_settings.borderless;
-    if (options.post_login_width == 1024) options.post_login_width = persisted_settings.post_login_width;
-    if (options.post_login_height == 768) options.post_login_height = persisted_settings.post_login_height;
+    if (!options.borderless_overridden) options.borderless = persisted_settings.borderless;
+    if (!options.post_login_width_overridden) options.post_login_width = persisted_settings.post_login_width;
+    if (!options.post_login_height_overridden) options.post_login_height = persisted_settings.post_login_height;
 #if !defined(MXH_DEV_AUTOMATION)
     if (options.release_automation_requested) {
         std::fprintf(stderr,
