@@ -542,9 +542,7 @@ void CInGameState::Init(void* pInitParam) {
                  std::filesystem::path("data/PlayDH"),
                  std::filesystem::path("../data/PlayDH"),
                  std::filesystem::path("../../data/PlayDH"),
-                 std::filesystem::path("../../../../data/PlayDH"),
-                 std::filesystem::path("C:/moxiang/modern/data/PlayDH"),
-                 std::filesystem::path("C:/moxiang/墨香【源码配套资源】/PlayDH")}) {
+                 std::filesystem::path("../../../../data/PlayDH")}) {
             if (std::filesystem::exists(candidate / "Image" / "InterfaceScript" /
                                           "15.bin")) {
                 playdh = std::filesystem::absolute(candidate);

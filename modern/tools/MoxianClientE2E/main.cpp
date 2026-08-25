@@ -412,8 +412,18 @@ int run_e2e(const CliArgs& cli) {
             // MSSQL and explicitly selected SQLite runs share one database.
             login_db = agent_db = map_db = cli.db;
         } else {
-            scratch = "C:\\moxiang\\modern\\scratch\\e2e_client";
-            CreateDirectoryA(scratch.c_str(), nullptr);
+            std::error_code temp_error;
+            const auto temp_root = std::filesystem::temp_directory_path(temp_error);
+            if (temp_error || temp_root.empty()) {
+                LOG("unable to resolve temporary directory for SQLite E2E");
+                return 1;
+            }
+            scratch = (temp_root / "moxian-e2e-client").string();
+            std::filesystem::create_directories(scratch, temp_error);
+            if (temp_error) {
+                LOG("unable to create SQLite E2E directory: %s", scratch.c_str());
+                return 1;
+            }
             login_db = scratch + "\\moxian.db";
             agent_db = map_db = login_db;
             DeleteFileA(login_db.c_str());
