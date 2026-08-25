@@ -83,6 +83,9 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
+    if ($log -match 'GameLoading: Unable to enter Map \d+: (.+)') {
+        throw "GUI smoke map load failed: $($Matches[1]); log=$stderr"
+    }
     foreach ($marker in @('playing original BGM id=1667', 'SFX manifest ready', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
         if ($log -notmatch [regex]::Escape($marker)) {
             throw "GUI smoke missing marker '$marker'; log=$stderr"

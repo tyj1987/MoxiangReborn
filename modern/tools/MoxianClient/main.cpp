@@ -2722,6 +2722,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool charselect_failure_presented = false;
     bool charmake_failure_presented = false;
     bool auto_create_requested = false;
+    bool loading_failure_latched = false;
     bool follow_frame_captured = false;
     unsigned follow_settle_frames = 0;
     MSG msg{};
@@ -2754,6 +2755,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (g_mainTitle && g_mainTitle->consumeSubmit()) {
                 options.username = g_mainTitle->username();
                 options.password = g_mainTitle->password();
+                loading_failure_latched = false;
+                auto_create_requested = false;
                 mainGame.SetGameState(mxh::client::GameStateId::Connect);
                 if (auto* login = dynamic_cast<mxh::client::CLoginState*>(
                         mainGame.GetGameState(mxh::client::GameStateId::Connect))) {
@@ -2902,7 +2905,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
                         charselect_failure_presented = false;
-                        cs->set_auto_select_for_test(options.auto_create);
+                        cs->set_auto_select_for_test(
+                            options.auto_create && !loading_failure_latched);
                         cs->Start(mainGame.GetEngine());
                         if (!pending_loading_error.empty()) {
                             cs->ui_runtime().showMessage(
@@ -3051,6 +3055,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             pending_loading_error = "Unable to enter Map " +
                                 std::to_string(loadingCoordinator.request().map_num) + ": " + loadingError;
                             loadingCoordinator.mark_failed(pending_loading_error);
+                            loading_failure_latched = true;
                             MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
                             const bool restore_existing_game =
                                 mxh::client::can_restore_previous_game_after_map_change(
@@ -3072,12 +3077,19 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                     : mxh::client::GameStateId::CharSelect);
                             map_change_from_game = false;
                             worldLoadSession.reset();
+                            if (options.exit_after_gamein) {
+                                // Automated smoke runs must report the
+                                // authoritative failure immediately instead
+                                // of entering the manual-recovery loop.
+                                mxh::client::g_running = false;
+                            }
                         }
                     }
                 }
             }
             if (cur_state == mxh::client::GameStateId::CharSelect &&
-                options.auto_create && !auto_create_requested) {
+                options.auto_create && !auto_create_requested &&
+                !loading_failure_latched) {
                 if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                         mainGame.GetGameState(cur_state));
                     cs && cs->has_character_list()) {
