@@ -103,6 +103,14 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
             // old HFL descriptors retain their authoring-time .tga names.
             const auto dot = textureName.find_last_of('.');
             if (dot == std::string::npos) {
+                // Legacy HFL uses the literal name "1" for an intentionally
+                // untextured palette entry. It is not a missing asset and
+                // must not be replaced with a debug texture or counted as an
+                // unresolved resource.
+                if (textureName == "1") {
+                    ++placeholderTextures;
+                    continue;
+                }
                 ++placeholderTextures;
                 ++impl_->unresolved_textures;
                 continue;

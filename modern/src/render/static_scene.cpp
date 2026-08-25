@@ -95,6 +95,11 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         return false;
     impl_->textures.resize(scene.materials.size());
     for (std::size_t i = 0; i < scene.materials.size(); ++i) {
+        // STM permits an empty material texture for geometry that is
+        // intentionally vertex-colored/untextured. It is a valid legacy
+        // material, not a missing asset and must not trigger a placeholder
+        // or release-load failure.
+        if (scene.materials[i].texture_name.empty()) continue;
         if (!loadTexture(storage, device, scene.materials[i].texture_name,
                          impl_->textures[i])) {
             ++impl_->unresolved_textures;
