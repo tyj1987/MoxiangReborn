@@ -50,6 +50,23 @@ if (-not [bool]$profile.releaseAllowed -and -not $AllowDevFallbacks) {
 if ([string]::IsNullOrWhiteSpace([string]$profile.encoding)) {
     throw "Profile '$ResourceProfileId' has no declared resource encoding"
 }
+if ($null -eq $profile.required) {
+    throw "Profile '$ResourceProfileId' has no required-resource list"
+}
+$seenProfilePaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($entry in @($profile.required)) {
+    $manifestPath = [string]$entry.path
+    $manifestHash = [string]$entry.sha256
+    if ([string]::IsNullOrWhiteSpace($manifestPath) -or [IO.Path]::IsPathRooted($manifestPath) -or $manifestPath.Replace('\', '/').Split('/') -contains '..') {
+        throw "Profile '$ResourceProfileId' contains an unsafe manifest path: '$manifestPath'"
+    }
+    if ($manifestHash -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "Profile '$ResourceProfileId' contains an invalid SHA-256 for '$manifestPath'"
+    }
+    if (-not $seenProfilePaths.Add($manifestPath)) {
+        throw "Profile '$ResourceProfileId' contains a duplicate manifest path: '$manifestPath'"
+    }
+}
 if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
     $ResourceRoot = Join-Path $repoRoot ([string]$profile.source)
 }
