@@ -1377,6 +1377,11 @@ void renderFrame(HWND h) {
         if (g_inputTarget && g_inputTarget->is_in_game()) {
             g_renderer->SetScreenSpaceProjection();
             const auto& info = g_inputTarget->game_info();
+            // The shipped InterfaceScript tree is the release HUD.  The
+            // solid 1x1 sprites below are diagnostic geometry only; keeping
+            // them behind the explicit bounds flag prevents a debug overlay
+            // from masquerading as original UI in normal builds.
+            if (g_debugUiBounds) {
             if (g_debugUiBounds && g_hud.barBg && g_hud.hpFill &&
                 g_hud.mpFill) {
             const float hpFrac = info.max_life == 0
@@ -1640,6 +1645,7 @@ void renderFrame(HWND h) {
                         }
                     }
                 }
+            }
             }
             g_inputTarget->ui_runtime().render();
         }
