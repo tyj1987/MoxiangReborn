@@ -10,6 +10,16 @@ namespace mxh::client {
 
 class CEngine;
 
+// A MapChange request may be rejected after staged loading has already
+// hidden the old world. Restoration is safe only when the request came from
+// GameIn and every retained scene component is still available.
+constexpr bool can_restore_previous_game_after_map_change(
+    bool originated_in_game, bool has_terrain, bool has_static_scene,
+    bool has_entity_scene) noexcept {
+    return originated_in_game && has_terrain && has_static_scene &&
+           has_entity_scene;
+}
+
 class GameLoadingCoordinator {
 public:
     bool consume_pending_transfer(CEngine& engine, std::string* error = nullptr);

@@ -2978,8 +2978,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             loadingCoordinator.mark_failed(pending_loading_error);
                             MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
                             const bool restore_existing_game =
-                                map_change_from_game && g_terrain &&
-                                g_staticScene && g_entityScene;
+                                mxh::client::can_restore_previous_game_after_map_change(
+                                    map_change_from_game,
+                                    static_cast<bool>(g_terrain),
+                                    static_cast<bool>(g_staticScene),
+                                    static_cast<bool>(g_entityScene));
                             if (restore_existing_game) {
                                 if (auto* previous_game =
                                         dynamic_cast<mxh::client::CInGameState*>(

@@ -141,3 +141,11 @@ TEST(GameLoadingCoordinator, ConsumesASecondEntryAfterFirstRequestCompletes) {
     EXPECT_EQ(coordinator.context().completed_steps, 0u);
     EXPECT_FALSE(coordinator.context().failed);
 }
+
+TEST(GameLoadingCoordinator, RestoresPreviousGameOnlyWithCompleteScene) {
+    EXPECT_TRUE(can_restore_previous_game_after_map_change(true, true, true, true));
+    EXPECT_FALSE(can_restore_previous_game_after_map_change(false, true, true, true));
+    EXPECT_FALSE(can_restore_previous_game_after_map_change(true, false, true, true));
+    EXPECT_FALSE(can_restore_previous_game_after_map_change(true, true, false, true));
+    EXPECT_FALSE(can_restore_previous_game_after_map_change(true, true, true, false));
+}
