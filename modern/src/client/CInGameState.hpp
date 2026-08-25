@@ -92,6 +92,10 @@ struct GameInInfo {
     std::uint8_t   gender       = 0;
     std::uint8_t   face_type    = 0;
     std::uint8_t   hair_type    = 0;
+    std::uint16_t  gen_gol      = 0;
+    std::uint16_t  min_chub     = 0;
+    std::uint16_t  che_ryuk     = 0;
+    std::uint16_t  sim_mek      = 0;
     std::array<std::uint16_t, 10> weared_item_idx{};
     std::uint16_t  position_x   = 0;
     std::uint16_t  position_z   = 0;

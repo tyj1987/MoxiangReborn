@@ -114,6 +114,10 @@ public:
     std::uint16_t getInt() const noexcept override { return 0; }
     std::uint16_t getWis() const noexcept override { return 0; }
     std::uint16_t getDex() const noexcept override { return 0; }
+    std::uint16_t getGenGol() const noexcept override { return m_info ? m_info->gen_gol : 0; }
+    std::uint16_t getMinChub() const noexcept override { return m_info ? m_info->min_chub : 0; }
+    std::uint16_t getCheRyuk() const noexcept override { return m_info ? m_info->che_ryuk : 0; }
+    std::uint16_t getSimMek() const noexcept override { return m_info ? m_info->sim_mek : 0; }
     std::uint16_t getLevel() const noexcept override { return m_info ? m_info->level : 0; }
     std::uint32_t getLevelExp() const noexcept override { return m_info ? m_info->exp : 0; }
     std::uint32_t getExpForNextLevel() const noexcept override {
@@ -538,6 +542,10 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     info.map_num  = get_u16(payload.data() + 35 + 42);
 
     // HERO_TOTALINFO [147..206): naeryuk(+8/+12), exp(+20), money(+30).
+    info.gen_gol  = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 0);
+    info.min_chub = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 2);
+    info.che_ryuk = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 4);
+    info.sim_mek  = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 6);
     info.mp      = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 8);
     info.max_mp  = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12);
     info.exp     = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20);

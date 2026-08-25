@@ -56,6 +56,11 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     const std::uint32_t max_mp = 1500;
     const std::uint32_t exp = 980;
     const std::uint32_t money = 123456;
+    const std::array<std::uint16_t, 4> attributes{111, 222, 333, 444};
+    for (std::size_t i = 0; i < attributes.size(); ++i) {
+        std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + i * 2,
+                    &attributes[i], sizeof(attributes[i]));
+    }
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 8,
                 &mp, sizeof(mp));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12,
@@ -94,6 +99,10 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     EXPECT_EQ(info->map_num, map_num);
     EXPECT_EQ(info->mp, mp);
     EXPECT_EQ(info->max_mp, max_mp);
+    EXPECT_EQ(info->gen_gol, attributes[0]);
+    EXPECT_EQ(info->min_chub, attributes[1]);
+    EXPECT_EQ(info->che_ryuk, attributes[2]);
+    EXPECT_EQ(info->sim_mek, attributes[3]);
     EXPECT_EQ(info->exp, exp);
     EXPECT_EQ(info->money, money);
     EXPECT_EQ(info->position_x, position_x);

@@ -125,6 +125,15 @@ void cCharacterDialog::RefreshFromPlayerStats() {
     SetLevel(m_playerStatsService->getLevel());
     SetLife(m_playerStatsService->getCurrentHp());
     SetNaeRyuk(m_playerStatsService->getCurrentMp());
+    const auto setAttribute = [this](const char* field, std::uint16_t value) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%u", static_cast<unsigned>(value));
+        SetStaticTextByField(field, buf);
+    };
+    setAttribute("genGoal", m_playerStatsService->getGenGol());
+    setAttribute("minchub", m_playerStatsService->getMinChub());
+    setAttribute("cheryuk", m_playerStatsService->getCheRyuk());
+    setAttribute("simmak", m_playerStatsService->getSimMek());
 }
 
 void cCharacterDialog::RefreshGuildInfo() {

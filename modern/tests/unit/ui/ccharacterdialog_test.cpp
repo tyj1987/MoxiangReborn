@@ -59,6 +59,10 @@ struct CharacterStats final : mxh::services::IPlayerStatsService {
     std::uint16_t getInt() const noexcept override { return 0; }
     std::uint16_t getWis() const noexcept override { return 0; }
     std::uint16_t getDex() const noexcept override { return 0; }
+    std::uint16_t getGenGol() const noexcept override { return 11; }
+    std::uint16_t getMinChub() const noexcept override { return 22; }
+    std::uint16_t getCheRyuk() const noexcept override { return 33; }
+    std::uint16_t getSimMek() const noexcept override { return 44; }
     std::uint16_t getLevel() const noexcept override { return level; }
     std::uint32_t getLevelExp() const noexcept override { return 0; }
     std::uint32_t getExpForNextLevel() const noexcept override { return 0; }
@@ -248,7 +252,7 @@ TEST(CCharacterDialog, SetDefenseRateCriticalAttackRangeResetToZero) {
     d.SetDefenseRate();
     d.SetCritical();
     d.SetAttackRange();
-    ASSERT_EQ(test_chardlg::g_setCalls.size(), 3u);
+    ASSERT_EQ(test_chardlg::g_setCalls.size(), 7u);
     EXPECT_EQ(test_chardlg::g_setCalls[0].field, "defense");
     EXPECT_EQ(test_chardlg::g_setCalls[1].field, "critical");
     EXPECT_EQ(test_chardlg::g_setCalls[2].field, "attackdistance");
@@ -364,6 +368,14 @@ TEST(CCharacterDialog, RefreshFromPlayerStatsWritesMappedLiveFields) {
     EXPECT_EQ(test_chardlg::g_setCalls[1].text, "1200");
     EXPECT_EQ(test_chardlg::g_setCalls[2].field, "naeryuk");
     EXPECT_EQ(test_chardlg::g_setCalls[2].text, "450");
+    EXPECT_EQ(test_chardlg::g_setCalls[3].field, "genGoal");
+    EXPECT_EQ(test_chardlg::g_setCalls[3].text, "11");
+    EXPECT_EQ(test_chardlg::g_setCalls[4].field, "minchub");
+    EXPECT_EQ(test_chardlg::g_setCalls[4].text, "22");
+    EXPECT_EQ(test_chardlg::g_setCalls[5].field, "cheryuk");
+    EXPECT_EQ(test_chardlg::g_setCalls[5].text, "33");
+    EXPECT_EQ(test_chardlg::g_setCalls[6].field, "simmak");
+    EXPECT_EQ(test_chardlg::g_setCalls[6].text, "44");
 }
 
 TEST(CCharacterDialog, RefreshGuildInfoRoutesThroughCallback) {
