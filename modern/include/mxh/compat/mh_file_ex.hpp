@@ -92,6 +92,14 @@ struct Result {
     [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
 };
 
+// Decode the current server-size-prefixed-opaque-v1 container. The
+// container has a 20-byte profile header followed by an AIGroup text body
+// encrypted with an eight-byte repeating XOR key. The key is recovered from
+// the format's mandatory "$Group 1" preamble and the decoded body is
+// structurally validated before it is exposed to gameplay parsers.
+[[nodiscard]] Result<std::vector<std::uint8_t>> decode_opaque_server_payload(
+    std::span<const std::uint8_t> payload) noexcept;
+
 // Sniff first 12 bytes: returns true if it looks like a .bin file.
 // Heuristic: version is 1 (most common), type is one of {0,1,2,3,4}, file_size is plausible.
 [[nodiscard]] bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept;
@@ -99,10 +107,10 @@ struct Result {
 // Load a .bin file from disk, performing XOR decryption.
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path);
 
-// Profile-aware server resource entry point.  The current PlayDH server
-// profile is intentionally fail-closed until its opaque transform is
-// recovered; it must never be passed through the classic positional decoder.
-// The 2008 reference profile uses the recovered MHFileEx layout.
+// Profile-aware server resource entry point. The current PlayDH server
+// profile uses its recovered opaque AIGroup transform; the 2008 reference
+// profile uses the recovered MHFileEx layout. Profiles remain explicit and
+// are never silently substituted.
 [[nodiscard]] Result<MhFile> read_server_mh_bin(
     const std::filesystem::path& path, std::string_view profile_id);
 

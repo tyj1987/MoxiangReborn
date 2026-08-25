@@ -231,7 +231,13 @@ function Get-ServerResourceProfileDiagnostic {
     }
     $info.size_prefixed_marker = ($bytes.Length -ge 5 -and $bytes.Length -le (256MB) -and $info.first_u32_le -eq $bytes.Length)
     if ($Encoding -eq 'server-size-prefixed-opaque-v1') {
-        $info.status = if ($info.size_prefixed_marker) { 'decoder-unavailable' } else { 'profile-format-mismatch' }
+        $info.status = if (-not $info.size_prefixed_marker) {
+            'profile-format-mismatch'
+        } elseif ($bytes.Length -lt 32) {
+            'decoder-invalid'
+        } else {
+            'decoder-ready'
+        }
     } else {
         $info.status = 'present-unverified'
     }
@@ -243,8 +249,8 @@ $serverResourceDiagnostic = Get-ServerResourceProfileDiagnostic -ResourcePath $m
 if ($serverResourceDiagnostic.status -eq 'profile-format-mismatch') {
     throw "Profile '$ResourceProfileId' declares '$($profile.encoding)' but $mapResourcePath has no size-prefixed marker (bytes=$($serverResourceDiagnostic.byte_length), first_u32_le=$($serverResourceDiagnostic.first_u32_le)); refusing positional decode"
 }
-if ($serverResourceDiagnostic.status -eq 'decoder-unavailable' -and -not $DryRun) {
-    throw "Profile '$ResourceProfileId' resource encoding '$($profile.encoding)' is structurally detected at $mapResourcePath (bytes=$($serverResourceDiagnostic.byte_length), first_u32_le=$($serverResourceDiagnostic.first_u32_le)) but its 1:1 decoder is unavailable; refusing to start and refusing reference-profile fallback"
+if ($serverResourceDiagnostic.status -eq 'decoder-invalid') {
+    throw "Profile '$ResourceProfileId' resource encoding '$($profile.encoding)' is structurally detected at $mapResourcePath but is too short for the recovered opaque container header (bytes=$($serverResourceDiagnostic.byte_length)); refusing to start"
 }
 
 $dbTool = Resolve-ModernBinary 'MoxianDbTool' 'mxh_db_tool.exe'

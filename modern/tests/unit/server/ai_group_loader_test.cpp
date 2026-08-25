@@ -176,12 +176,8 @@ TEST(AiGroupLoader, PlayDhMonster10BinIsNonStub) {
 TEST(AiGroupLoader, LoadsPlayDhMonster10Bin) {
     const auto path = playdh_server_resource("Monster_10.bin");
     ASSERT_FALSE(path.empty()) << "PlayDH Resource/Server/Monster_10.bin missing";
-    const auto list = load_ai_group_list_bin(path);
-    if (!list.has_value()) {
-        GTEST_SKIP() << "PlayDH Monster_10.bin uses SIZE==LEN packing the "
-                        "current mh.bin loader does not turn into AI groups; "
-                        "recovered Monster_10.bin remains the spawn authority";
-    }
+    const auto list = load_ai_group_list_bin(path, "playdh-current");
+    ASSERT_TRUE(list.has_value());
     EXPECT_EQ(list->groups.size(), 114u);
     EXPECT_EQ(list->spawn_count(), 228u);
     const auto* group = list->find_group(1u);

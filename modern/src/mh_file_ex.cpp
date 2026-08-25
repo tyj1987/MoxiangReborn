@@ -29,6 +29,7 @@
 #include "mxh/compat/mh_file_ex.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -207,23 +208,69 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
 Result<MhFile> read_server_mh_bin(
     const std::filesystem::path& path, std::string_view profile_id) {
     if (profile_id == "playdh-current") {
-        std::ifstream f(path, std::ios::binary | std::ios::ate);
-        if (!f) return Result<MhFile>{{}, MhError::FileNotFound};
-        const auto size = static_cast<std::size_t>(f.tellg());
-        if (size < 5) return read_mh_bin(path);
-        std::vector<std::uint8_t> bytes(size);
-        f.seekg(0);
-        if (!f.read(reinterpret_cast<char*>(bytes.data()),
-                   static_cast<std::streamsize>(bytes.size()))) {
-            return Result<MhFile>{{}, MhError::IoError};
+        const auto container = read_opaque_server_container(path);
+        if (container.ok()) {
+            const auto decoded = decode_opaque_server_payload(
+                container.value.payload);
+            if (!decoded.ok()) {
+                return Result<MhFile>{{}, MhError::UnsupportedOpaqueServerProfile};
+            }
+            MhFile file;
+            file.header.version = 0x00000001u;
+            file.header.type = 0;
+            file.header.file_size = static_cast<std::uint32_t>(decoded.value.size());
+            file.data = decoded.value;
+            return Result<MhFile>{std::move(file), MhError::Ok};
         }
-        if (is_size_prefixed_opaque_server_profile(bytes)) {
-            return Result<MhFile>{{}, MhError::UnsupportedOpaqueServerProfile};
+        // Non-opaque files in the current profile still use the classic
+        // reader. A malformed size-prefixed marker must not be reinterpreted
+        // as a classic file.
+        if (container.error == MhError::UnsupportedOpaqueServerProfile) {
+            return read_mh_bin(path);
         }
-        return read_mh_bin(path);
+        return Result<MhFile>{{}, container.error};
     }
     if (profile_id == "sworking-2008-reference") return read_mh_bin(path);
     return Result<MhFile>{{}, MhError::UnsupportedVersion};
+}
+
+Result<std::vector<std::uint8_t>> decode_opaque_server_payload(
+    std::span<const std::uint8_t> payload) noexcept {
+    constexpr std::size_t kOpaqueHeaderBytes = 20;
+    constexpr std::array<std::uint8_t, 8> kPreamble = {
+        '$', 'G', 'r', 'o', 'u', 'p', ' ', '1'};
+    if (payload.size() < kOpaqueHeaderBytes + kPreamble.size()) {
+        return Result<std::vector<std::uint8_t>>{{}, MhError::UnsupportedOpaqueServerProfile};
+    }
+    try {
+        const auto body = payload.subspan(kOpaqueHeaderBytes);
+        std::array<std::uint8_t, kPreamble.size()> key{};
+        for (std::size_t i = 0; i < key.size(); ++i) {
+            key[i] = static_cast<std::uint8_t>(body[i] ^ kPreamble[i]);
+        }
+        std::vector<std::uint8_t> decoded(body.size());
+        for (std::size_t i = 0; i < body.size(); ++i) {
+            decoded[i] = static_cast<std::uint8_t>(body[i] ^ key[i % key.size()]);
+        }
+        if (!std::equal(kPreamble.begin(), kPreamble.end(), decoded.begin()) ||
+            std::find(decoded.begin(), decoded.end(),
+                      static_cast<std::uint8_t>('$')) == decoded.end()) {
+            return Result<std::vector<std::uint8_t>>{{}, MhError::UnsupportedOpaqueServerProfile};
+        }
+        const auto has_group = std::search(
+            decoded.begin(), decoded.end(), kPreamble.begin(), kPreamble.end()) !=
+            decoded.end();
+        const auto has_open = std::find(decoded.begin(), decoded.end(),
+                                        static_cast<std::uint8_t>('{')) != decoded.end();
+        const auto has_close = std::find(decoded.begin(), decoded.end(),
+                                         static_cast<std::uint8_t>('}')) != decoded.end();
+        if (!has_group || !has_open || !has_close) {
+            return Result<std::vector<std::uint8_t>>{{}, MhError::UnsupportedOpaqueServerProfile};
+        }
+        return Result<std::vector<std::uint8_t>>{std::move(decoded), MhError::Ok};
+    } catch (...) {
+        return Result<std::vector<std::uint8_t>>{{}, MhError::IoError};
+    }
 }
 
 Result<OpaqueServerContainer> read_opaque_server_container(

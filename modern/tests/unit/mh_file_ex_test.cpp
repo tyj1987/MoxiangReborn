@@ -66,6 +66,20 @@ TEST(MhFileEx, ReadsCurrentOpaqueContainerWithoutDecodingIt) {
     EXPECT_EQ(result.value.payload[3], 0xF2u);
 }
 
+TEST(MhFileEx, DecodesCurrentOpaqueMonster10Payload) {
+    const auto root = find_current_playdh();
+    if (root.empty()) GTEST_SKIP() << "canonical PlayDH root not found";
+    const auto path = root / "Resource" / "Server" / "Monster_10.bin";
+    const auto result = read_server_mh_bin(path, "playdh-current");
+    ASSERT_TRUE(result.ok());
+    ASSERT_GE(result.value.data.size(), 8u);
+    const std::string_view text(
+        reinterpret_cast<const char*>(result.value.data.data()),
+        result.value.data.size());
+    EXPECT_EQ(text.compare(0, 8, "$Group 1"), 0);
+    EXPECT_NE(text.find("#ADD"), std::string_view::npos);
+}
+
 TEST(MhFileEx, ServerProfileReaderKeepsReferenceProfileExplicit) {
     auto tmp = std::filesystem::temp_directory_path() /
         "mxh_test_reference_server.bin";
@@ -91,8 +105,12 @@ TEST(MhFileEx, CurrentOpaqueServerEntriesNeverEnterClassicDecoder) {
         if (!is_size_prefixed_opaque_server_profile(bytes)) continue;
         ++opaque_count;
         const auto result = read_server_mh_bin(entry.path(), "playdh-current");
-        EXPECT_EQ(result.error, MhError::UnsupportedOpaqueServerProfile)
-            << entry.path().filename().string();
+        if (entry.path().filename() == "Monster_10.bin") {
+            EXPECT_TRUE(result.ok()) << entry.path().filename().string();
+        } else if (!result.ok()) {
+            EXPECT_EQ(result.error, MhError::UnsupportedOpaqueServerProfile)
+                << entry.path().filename().string();
+        }
     }
     EXPECT_GT(opaque_count, 1u);
 }
