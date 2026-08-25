@@ -1775,6 +1775,40 @@ void renderFrame(HWND h) {
             }
             }
 
+            // Inventory is a player-facing window, not diagnostic geometry.
+            // Keep the original InterfaceScript tree active, but render the
+            // live item cells in normal builds as well so opening I is useful
+            // without enabling --debug-ui-bounds.
+            if (!g_debugUiBounds && g_inputTarget->inventory_open()) {
+                constexpr float kCell = 34.0f;
+                constexpr float kGap = 3.0f;
+                constexpr float kX = 20.0f;
+                constexpr float kY = 84.0f;
+                const auto& inventory = info.items.Inventory;
+                for (int row = 0; row < 8; ++row) {
+                    for (int col = 0; col < 10; ++col) {
+                        const int idx = row * 10 + col;
+                        const float x = kX + static_cast<float>(col) * (kCell + kGap);
+                        const float y = kY + static_cast<float>(row) * (kCell + kGap);
+                        drawSpriteQuad(g_renderer, g_hud.barBg, x, y,
+                                       kCell, kCell, 0xFFFFFFFFu);
+                        const auto& item = inventory[idx];
+                        if (mxh::game::is_empty_slot(item)) continue;
+                        const auto icon_id = g_entityScene
+                            ? g_entityScene->itemIconIndex(item.wIconIdx)
+                            : std::nullopt;
+                        if (!icon_id) continue;
+                        if (auto* icon = loadAtlasIcon(
+                                g_renderer, static_cast<std::int32_t>(*icon_id),
+                                mxh::ui::PathFileType::ItemPath)) {
+                            (void)drawSpriteRegion(g_renderer, icon->sprite,
+                                                   icon->source, x, y,
+                                                   kCell, kCell, 0xFFFFFFFFu);
+                        }
+                    }
+                }
+            }
+
             // Static NPC markers (click to talk / open their shop).
             // M-NPC1: per-role colour + "!" quest indicator + Big5 name.
             for (const auto& npc : g_inputTarget->npcs()) {
