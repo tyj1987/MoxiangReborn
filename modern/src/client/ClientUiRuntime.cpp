@@ -75,6 +75,7 @@ bool ClientUiRuntime::loadMany(
     // Stage the complete set first.  A missing or malformed required script
     // must not replace the state's currently-valid UI with a partial tree.
     mxh::ui::cWindowManager staged;
+    staged.SetCurrentResolutionMode(mode);
     for (const auto script_name : script_names) {
         const auto before = staged.dialogCount();
         const auto path = playdh_root / "Image" / "InterfaceScript" /
@@ -96,6 +97,7 @@ bool ClientUiRuntime::loadMany(
         auto* first = staged.dialogs().front().get();
         m_windows.AddDialog(staged.RemoveDialog(first));
     }
+    m_windows.SetCurrentResolutionMode(mode);
     setActive(true);
     if (error) error->clear();
     return true;
@@ -337,8 +339,10 @@ mxh::ui::cMsgBox* ClientUiRuntime::createMessageBox(
     mxh::ui::cMsgBox::MsgBoxCallback callback) {
     constexpr std::int32_t width = 197;
     constexpr std::int32_t height = 150;
+    const auto [screen_width, screen_height] = mxh::ui::mode_size(
+        m_windows.currentResolutionMode());
     auto box = std::make_unique<mxh::ui::cMsgBox>();
-    box->Init((800 - width) / 2, (600 - height) / 2,
+    box->Init((screen_width - width) / 2, (screen_height - height) / 2,
               static_cast<std::uint16_t>(width),
               static_cast<std::uint16_t>(height),
               mxh::ui::cDialogLoader::LoadLegacyImage(30), id);

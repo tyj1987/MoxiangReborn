@@ -321,6 +321,21 @@ TEST(ClientUiRuntime, MessageBoxClosesOnEscapeAndRunsCallbackOnce) {
     EXPECT_EQ(runtime.dialogs().size(), before);
 }
 
+TEST(ClientUiRuntime, MessageBoxCentersInCommittedResolutionMode) {
+    const auto root = find_playdh_root();
+    ASSERT_FALSE(root.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Mid1024x768, &error)) << error;
+    ASSERT_TRUE(runtime.showMessage(9003, "Resolution-aware message"));
+    ASSERT_FALSE(runtime.dialogs().empty());
+    const auto* modal = runtime.dialogs().back().get();
+    ASSERT_NE(modal, nullptr);
+    EXPECT_EQ(modal->absX(), (1024 - 197) / 2);
+    EXPECT_EQ(modal->absY(), (768 - 150) / 2);
+}
+
 TEST(ClientUiRuntime, CharSelectActivateAllMakesRootActiveAndCreateClickable) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
