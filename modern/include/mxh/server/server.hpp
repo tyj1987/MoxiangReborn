@@ -378,6 +378,9 @@ public:
 
     bool set_player_vitals_for_test(std::uint32_t player_id, std::uint32_t hp, std::uint32_t mp);
     bool add_player_item_for_test(std::uint32_t player_id, const mxh::game::ItemBase& item);
+    bool add_player_equipment_for_test(std::uint32_t player_id,
+                                       std::size_t slot,
+                                       const mxh::game::ItemBase& item);
     std::size_t claim_pending_item_grants_for_test(std::uint32_t player_id);
     bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
     bool set_player_position_for_test(std::uint32_t player_id, float x, float z);

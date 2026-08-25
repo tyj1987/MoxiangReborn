@@ -340,6 +340,22 @@ bool MapHandler::add_player_item_for_test(std::uint32_t player_id, const mxh::ga
     return it->second.actor.insert_inventory_item(item).has_value();
 }
 
+bool MapHandler::add_player_equipment_for_test(std::uint32_t player_id,
+                                               std::size_t slot,
+                                               const mxh::game::ItemBase& item) {
+    if (slot >= mxh::game::WEARED_ITEM_MAX) return false;
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto it = player_runtimes_.find(player_id);
+    const auto info = connected_players_.find(player_id);
+    if (it == player_runtimes_.end() || info == connected_players_.end()) return false;
+    auto equipped = item;
+    equipped.Position = static_cast<std::uint16_t>(
+        mxh::game::TP_WEAREDITEM_START + slot);
+    it->second.actor.state().equipment.items[slot] = equipped;
+    info->second.items.WearedItem[slot] = equipped;
+    return true;
+}
+
 bool MapHandler::set_player_money_for_test(std::uint32_t player_id, std::uint32_t money) {
     std::lock_guard<std::mutex> lock(players_mu_);
     auto info_it = connected_players_.find(player_id);
@@ -1592,20 +1608,47 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                 auto info_it = connected_players_.find(player_id);
                 auto runtime_it = player_runtimes_.find(player_id);
                 if (info_it != connected_players_.end() && runtime_it != player_runtimes_.end()) {
-                    auto& actor_items = runtime_it->second.actor.state().inventory.items;
-                    if (new_pos < actor_items.size()) {
-                        for (std::size_t source = 0; source < actor_items.size(); ++source) {
-                            if (actor_items[source].dwDBIdx != item_db_idx) continue;
-                            std::swap(actor_items[source], actor_items[new_pos]);
-                            actor_items[source].Position = static_cast<std::uint16_t>(source);
-                            actor_items[new_pos].Position = new_pos;
-                            found = true;
+                    auto& actor_state = runtime_it->second.actor.state();
+                    auto item_at = [&](std::uint16_t position) -> mxh::game::ItemBase* {
+                        if (position < mxh::game::SLOT_INVENTORY_NUM) {
+                            return &actor_state.inventory.items[position];
+                        }
+                        if (position >= mxh::game::TP_WEAREDITEM_START &&
+                            position < mxh::game::TP_WEAREDITEM_END) {
+                            return &actor_state.equipment.items[
+                                position - mxh::game::TP_WEAREDITEM_START];
+                        }
+                        return nullptr;
+                    };
+                    mxh::game::ItemBase* source_item = nullptr;
+                    for (auto& item : actor_state.inventory.items) {
+                        if (item.dwDBIdx == item_db_idx) {
+                            source_item = &item;
                             break;
                         }
                     }
+                    if (!source_item) {
+                        for (auto& item : actor_state.equipment.items) {
+                            if (item.dwDBIdx == item_db_idx) {
+                                source_item = &item;
+                                break;
+                            }
+                        }
+                    }
+                    auto* target_item = item_at(new_pos);
+                    if (source_item && target_item && source_item != target_item) {
+                        const auto source_pos = source_item->Position;
+                        std::swap(*source_item, *target_item);
+                        source_item->Position = source_pos;
+                        target_item->Position = new_pos;
+                        found = true;
+                    }
                     if (found) {
-                        for (std::size_t i = 0; i < actor_items.size(); ++i) {
-                            info_it->second.items.Inventory[i] = actor_items[i];
+                        for (std::size_t i = 0; i < actor_state.inventory.items.size(); ++i) {
+                            info_it->second.items.Inventory[i] = actor_state.inventory.items[i];
+                        }
+                        for (std::size_t i = 0; i < actor_state.equipment.items.size(); ++i) {
+                            info_it->second.items.WearedItem[i] = actor_state.equipment.items[i];
                         }
                     }
                 }
