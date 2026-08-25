@@ -1490,7 +1490,12 @@ void CInGameState::try_attack() {
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
-    if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Attack);
+    if (m_pEngine) {
+        const float dx = target_x - m_localX;
+        const float dz = target_z - m_localZ;
+        m_pEngine->EmitAudioAt(CEngine::AudioCue::Attack,
+                               std::sqrt(dx * dx + dz * dz));
+    }
 }
 
 std::uint32_t CInGameState::pick_npc_at_screen(float sx, float sy) const {
@@ -1599,7 +1604,12 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         m_lastAttackMs = now;
         MLOG_INFO("CInGameState: quick slot %zu skill=%u target=%u",
                   slot, skill, target);
-        if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Skill);
+        if (m_pEngine) {
+            const float dx = target_x - m_localX;
+            const float dz = target_z - m_localZ;
+            m_pEngine->EmitAudioAt(CEngine::AudioCue::Skill,
+                                   std::sqrt(dx * dx + dz * dz));
+        }
     }
 }
 

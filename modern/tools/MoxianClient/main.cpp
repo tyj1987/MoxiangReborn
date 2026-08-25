@@ -1884,6 +1884,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             std::string audio_error;
             (void)sfx.play(sound, &audio_error);
         });
+    mainGame.GetEngine()->SetSpatialAudioEventFn(
+        [&sfx](mxh::client::CEngine::AudioCue cue, float distance) {
+            const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
+                ? g_attackSound : g_skillSound;
+            if (sound == 0xffffu) return;
+            std::string audio_error;
+            (void)sfx.playAt(sound, distance, &audio_error);
+        });
     mainGame.RegisterState(mxh::client::GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
     mainGame.RegisterState(mxh::client::GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
     mainGame.RegisterState(mxh::client::GameStateId::Title,      std::make_unique<mxh::client::CMainTitle>());

@@ -28,6 +28,7 @@
 #pragma once
 
 #include <cstdint>
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -45,6 +46,7 @@ class CEngine {
 public:
     enum class AudioCue : std::uint8_t { Attack, Skill, UiClick };
     using AudioEventFn = std::function<void(AudioCue)>;
+    using SpatialAudioEventFn = std::function<void(AudioCue, float)>;
     CEngine() = default;
     ~CEngine() = default;
 
@@ -122,6 +124,11 @@ public:
     const AgentSession& agent_session() const noexcept { return m_agentSession; }
     void SetAudioEventFn(AudioEventFn fn) noexcept { m_audioEventFn = std::move(fn); }
     void EmitAudio(AudioCue cue) const { if (m_audioEventFn) m_audioEventFn(cue); }
+    void SetSpatialAudioEventFn(SpatialAudioEventFn fn) noexcept { m_spatialAudioEventFn = std::move(fn); }
+    void EmitAudioAt(AudioCue cue, float distance) const {
+        if (m_spatialAudioEventFn) m_spatialAudioEventFn(cue, std::max(0.0f, distance));
+        else EmitAudio(cue);
+    }
 
 private:
     void*                           m_hWnd         = nullptr;
@@ -134,6 +141,7 @@ private:
     StateTransfer                   m_pendingTransfer;
     AgentSession                    m_agentSession;
     AudioEventFn                    m_audioEventFn;
+    SpatialAudioEventFn             m_spatialAudioEventFn;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers
     // are wired in.  Kept out of A.1.6 to keep the surface minimal.
 };
