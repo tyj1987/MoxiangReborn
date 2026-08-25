@@ -24,13 +24,15 @@ static fs::path settingsPath() {
 
 static LauncherSettings loadSettings() {
     LauncherSettings s;
-    std::wifstream in(settingsPath());
-    std::wstring text((std::istreambuf_iterator<wchar_t>(in)), {});
-    std::wsmatch match;
-    if (std::regex_search(text, match, std::wregex(LR"REGEX("profile"\s*:\s*"([^"]+)")REGEX"))) s.profile = match[1].str();
-    if (std::regex_search(text, match, std::wregex(LR"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = _wtoi(match[1].str().c_str());
-    if (std::regex_search(text, match, std::wregex(LR"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = _wtoi(match[1].str().c_str());
-    if (std::regex_search(text, match, std::wregex(LR"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == L"true";
+    std::ifstream in(settingsPath(), std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(in)), {});
+    std::smatch match;
+    if (std::regex_search(text, match, std::regex(R"REGEX("resourceProfileId"\s*:\s*"([^"]+)")REGEX")) ||
+        std::regex_search(text, match, std::regex(R"REGEX("profile"\s*:\s*"([^"]+)")REGEX")))
+        s.profile = std::wstring(match[1].str().begin(), match[1].str().end());
+    if (std::regex_search(text, match, std::regex(R"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = std::stoi(match[1].str());
+    if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = std::stoi(match[1].str());
+    if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
     if (s.postWidth < 640 || s.postHeight < 480) { s.postWidth = 1024; s.postHeight = 768; }
     return s;
@@ -40,12 +42,29 @@ static void saveSettings(const LauncherSettings& s) {
     std::error_code ec;
     fs::create_directories(settingsPath().parent_path(), ec);
     fs::path temp = settingsPath(); temp += L".tmp";
-    std::wofstream out(temp, std::ios::trunc);
+    std::ifstream existing(settingsPath(), std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(existing)), {});
+    if (text.empty()) text = "{\n}\n";
+    std::string profile;
+    profile.reserve(s.profile.size());
+    for (const auto c : s.profile) profile.push_back(static_cast<char>(c));
+    const auto replace_or_insert = [&text](const std::string& key, const std::string& value) {
+        const std::regex pattern("(\\\"" + key + "\\\"\\s*:\\s*)[^,}]+", std::regex::ECMAScript);
+        if (std::regex_search(text, pattern)) text = std::regex_replace(text, pattern, "$1" + value);
+        else {
+            const auto close = text.rfind('}');
+            if (close == std::string::npos) { text = "{\n  \"" + key + "\": " + value + "\n}\n"; return; }
+            const bool has_field = text.find(':') != std::string::npos;
+            text.insert(close, std::string(has_field ? "  \"" : "  \"") + key + "\": " + value + (has_field ? ",\n" : "\n"));
+        }
+    };
+    replace_or_insert("resourceProfileId", "\"" + profile + "\"");
+    replace_or_insert("postLoginWidth", std::to_string(s.postWidth));
+    replace_or_insert("postLoginHeight", std::to_string(s.postHeight));
+    replace_or_insert("borderless", s.borderless ? "true" : "false");
+    std::ofstream out(temp, std::ios::binary | std::ios::trunc);
     if (!out) return;
-    out << L"{\n  \"schemaVersion\": 1,\n  \"profile\": \"" << s.profile
-        << L"\",\n  \"postLoginWidth\": " << s.postWidth
-        << L",\n  \"postLoginHeight\": " << s.postHeight
-        << L",\n  \"borderless\": " << (s.borderless ? L"true" : L"false") << L"\n}\n";
+    out << text;
     out.close();
     MoveFileExW(temp.c_str(), settingsPath().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
 }
