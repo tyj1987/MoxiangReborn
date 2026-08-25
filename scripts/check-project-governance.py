@@ -15,6 +15,11 @@ SOURCE_ROOTS = (ROOT / "modern" / "src", ROOT / "modern" / "tools")
 ROOT_ARTIFACT_PATTERNS = ("*.log", "*.obj", "*.db", "*.db-shm", "*.db-wal", "test_*.txt", "scratch_*.py")
 FORBIDDEN_ROADMAP_TERMS = ("Session 20", "状态刷新：", "cumulative ~", "tests PASS (was")
 TEMP_SOURCE_MARKERS = ("TEMP diag", "mesh-probe", "mesh-dump", "removed before commit")
+HUMAN_RUNNER_FORBIDDEN = (
+    "--auto-login", "--auto-create", "--password", "--username",
+    "SendKeys", "mouse_event", "keybd_event", "taskkill",
+    "Stop-Process -Name", "Get-Process -Name",
+)
 
 
 def markdown_heading_errors(path: Path) -> list[str]:
@@ -31,6 +36,22 @@ def markdown_heading_errors(path: Path) -> list[str]:
     return errors
 
 
+def human_runner_errors() -> list[str]:
+    path = ROOT / "scripts" / "run-human-acceptance.ps1"
+    if not path.is_file():
+        return ["scripts/run-human-acceptance.ps1: tracked human runner is missing"]
+    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    errors: list[str] = []
+    for marker in HUMAN_RUNNER_FORBIDDEN:
+        if marker.lower() in text.lower():
+            errors.append(f"scripts/run-human-acceptance.ps1: forbidden automation/secret marker {marker!r}")
+    if "Stop-OwnedProcess" not in text or "Test-ExactProcess" not in text:
+        errors.append("scripts/run-human-acceptance.ps1: exact owned-process shutdown guards are required")
+    if "runId" not in text or "evidence" not in text:
+        errors.append("scripts/run-human-acceptance.ps1: unique run/evidence output is required")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -40,6 +61,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     errors = markdown_heading_errors(ROADMAP)
+    errors.extend(human_runner_errors())
     roadmap_text = ROADMAP.read_text(encoding="utf-8-sig")
     for term in FORBIDDEN_ROADMAP_TERMS:
         if term in roadmap_text:
