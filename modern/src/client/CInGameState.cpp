@@ -45,6 +45,25 @@ constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
 constexpr std::string_view kChatDialogId = "CTI_DLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
+constexpr float kQuickSlotW = 44.0f;
+constexpr float kQuickSlotH = 44.0f;
+constexpr float kQuickSlotGap = 6.0f;
+constexpr float kQuickSlotY = 470.0f;
+
+std::optional<std::size_t> quick_slot_at_screen(float x, float y) {
+    const float total = static_cast<float>(kQuickSlotCount) * kQuickSlotW +
+        static_cast<float>(kQuickSlotCount - 1) * kQuickSlotGap;
+    const float start = (800.0f - total) * 0.5f;
+    if (y < kQuickSlotY || y >= kQuickSlotY + kQuickSlotH || x < start) {
+        return std::nullopt;
+    }
+    const float stride = kQuickSlotW + kQuickSlotGap;
+    const auto slot = static_cast<std::size_t>((x - start) / stride);
+    if (slot >= kQuickSlotCount) return std::nullopt;
+    const float local = x - (start + static_cast<float>(slot) * stride);
+    if (local >= kQuickSlotW) return std::nullopt;
+    return slot;
+}
 
 // Match map_handler.cpp's put_u32 (LE) layout.
 inline std::uint32_t get_u32(const std::uint8_t* p) {
@@ -1680,6 +1699,13 @@ void CInGameState::OnMouseButton(bool left, bool down,
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
     if (ui.activation) handle_ui_activation(*ui.activation);
     if (ui.consumed) return;
+    if (left && down) {
+        if (const auto slot = quick_slot_at_screen(static_cast<float>(x),
+                                                   static_cast<float>(y))) {
+            use_quick_slot(*slot);
+            return;
+        }
+    }
     if (left && down && m_shopOpen) {
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);
