@@ -7,9 +7,25 @@
 #include <array>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
+#include <iterator>
 #include <vector>
 
 using namespace mxh::compat;
+
+namespace {
+std::filesystem::path find_current_playdh() {
+    auto cursor = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+        const auto candidate = cursor / "modern" / "data" / "PlayDH";
+        if (std::filesystem::is_directory(candidate)) return candidate;
+        const auto parent = cursor.parent_path();
+        if (parent == cursor) break;
+        cursor = parent;
+    }
+    return {};
+}
+}  // namespace
 
 TEST(MhFileEx, DetectsSizePrefixedServerContainerWithoutCallingItClassic) {
     const std::array<std::uint8_t, 9> blob = {
@@ -44,6 +60,26 @@ TEST(MhFileEx, ServerProfileReaderKeepsReferenceProfileExplicit) {
     ASSERT_TRUE(result.ok());
     EXPECT_EQ(result.value.data, payload);
     std::filesystem::remove(tmp);
+}
+
+TEST(MhFileEx, CurrentOpaqueServerEntriesNeverEnterClassicDecoder) {
+    const auto root = find_current_playdh();
+    if (root.empty()) GTEST_SKIP() << "canonical PlayDH root not found";
+    const auto server = root / "Resource" / "Server";
+    ASSERT_TRUE(std::filesystem::is_directory(server));
+    std::size_t opaque_count = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(server)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".bin") continue;
+        std::ifstream input(entry.path(), std::ios::binary);
+        const std::vector<std::uint8_t> bytes(
+            std::istreambuf_iterator<char>(input), {});
+        if (!is_size_prefixed_opaque_server_profile(bytes)) continue;
+        ++opaque_count;
+        const auto result = read_server_mh_bin(entry.path(), "playdh-current");
+        EXPECT_EQ(result.error, MhError::UnsupportedOpaqueServerProfile)
+            << entry.path().filename().string();
+    }
+    EXPECT_GT(opaque_count, 1u);
 }
 
 TEST(MhFileEx, RoundtripBasicType0) {
