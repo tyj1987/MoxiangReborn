@@ -29,6 +29,7 @@
 #include "mxh/game/item_manager.hpp"
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/game/hero_total_layout.hpp"
+#include "mxh/game/npc_role.hpp"
 #include "mxh/server/player.hpp"
 #include "mxh/server/quest_manager.hpp"
 #include "mxh/server/npc_shop.hpp"
@@ -2485,6 +2486,28 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
             reply.payload = msg.payload;
             reply_(id, reply);
             std::cout << "[Map] sent NPC_SPEECH_ACK\n";
+
+            bool dealer = false;
+            {
+                std::lock_guard<std::mutex> lk(npcs_mu_);
+                const auto npc = std::find_if(npcs_.begin(), npcs_.end(),
+                    [npc_id](const ServerNpc& n) { return n.npc_id == npc_id; });
+                if (npc != npcs_.end()) {
+                    const auto role = mxh::game::role_from_wire(npc->npc_kind);
+                    dealer = role == mxh::game::NpcRole::Dealer ||
+                             role == mxh::game::NpcRole::Bobusang;
+                }
+            }
+            // Offline/unit flows can open a catalog before NPC_ADD has been
+            // replayed.  A formal DealItem catalog is still authoritative
+            // evidence that this interaction is a dealer interaction; do
+            // not silently turn it into a quest/dialog request.
+            if (!dealer) {
+                std::lock_guard<std::mutex> lk(dealitem_mu_);
+                dealer = mxh::server::catalog_for_npc(
+                    dealitem_catalog_, npc_id).has_value();
+            }
+            if (!dealer) break;
 
             // Modern ShopList: send the resolved NPC catalog so the client
             // can render the shop panel.  npc_id=0 auto-resolves to the

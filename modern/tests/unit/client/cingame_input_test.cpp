@@ -540,6 +540,31 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     EXPECT_EQ(state.last_buy_item_id(), 0x022Bu);
 }
 
+TEST(InGamePlayable, BKeyDoesNotOpenShopForQuestNpc) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+
+    mxh::net::Message npc;
+    npc.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    npc.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::NpcAdd);
+    npc.payload.assign(64, 0);
+    const std::uint32_t npc_id = 8u;
+    const std::uint16_t pos = 25000;
+    std::memcpy(npc.payload.data(), &npc_id, sizeof(npc_id));
+    npc.payload[35] = 6;  // legacy TALKER_ROLE
+    std::memcpy(npc.payload.data() + 45, &pos, sizeof(pos));
+    std::memcpy(npc.payload.data() + 47, &pos, sizeof(pos));
+    state.on_message(mxh::net::make_connection_id(1), npc);
+
+    state.OnKeyEvent(true, 0x42);  // B must not treat a quest NPC as a shop.
+    EXPECT_FALSE(state.shop_open());
+    EXPECT_EQ(state.shop_npc_id(), 0u);
+}
+
 TEST(InGamePlayable, MoneyUpdateFromShopAckFeedsLiveHudState) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

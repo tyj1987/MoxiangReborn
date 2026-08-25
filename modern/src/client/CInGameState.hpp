@@ -418,6 +418,7 @@ public:
     void dispatch_gamein_ack(const GameInInfo& info);
     void fail_with(const std::string& reason);
     void update_movement(std::uint64_t now_ms);
+    void interact_with_npc(std::uint32_t npc_id);
     void send_move(std::uint16_t x, std::uint16_t z,
                    mxh::proto::MoveProtocol proto);
     void try_attack();

@@ -17,6 +17,7 @@
 
 #include "mxh/log/mlog.hpp"
 #include "mxh/game/hero_total_layout.hpp"
+#include "mxh/game/npc_role.hpp"
 #include "mxh/proto/protocol.hpp"
 
 namespace mxh::client {
@@ -1337,7 +1338,7 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
                 return;
             }
             const auto nearest = pick_nearest_npc();
-            if (nearest != 0) open_shop(nearest);
+            if (nearest != 0) interact_with_npc(nearest);
             return;
         }
         if (vk == kVkL) {  // 'L' toggles the quest log (Q is strafe)
@@ -1444,7 +1445,7 @@ void CInGameState::OnMouseButton(bool left, bool down,
         }
         const std::uint32_t npc = pick_npc_at_screen(fx, fy);
         if (npc != 0) {
-            open_shop(npc);
+            interact_with_npc(npc);
             return;
         }
         const std::uint32_t monster = pick_monster_at_screen(fx, fy);
@@ -1742,6 +1743,40 @@ void CInGameState::open_shop(std::uint32_t npc_id) {
     const auto e = m_pEngine->agent_session().send(msg);
     if (e == mxh::net::NetError::Ok) {
         MLOG_INFO("CInGameState: open_shop npc=%u", npc_id);
+    }
+}
+
+void CInGameState::interact_with_npc(std::uint32_t npc_id) {
+    if (!m_inGame || npc_id == 0) return;
+    const auto it = std::find_if(m_npcs.begin(), m_npcs.end(),
+        [npc_id](const NpcInfo& npc) { return npc.npc_id == npc_id; });
+    if (it == m_npcs.end()) return;
+
+    const auto role = mxh::game::role_from_wire(it->npc_kind);
+    if (role == mxh::game::NpcRole::Dealer ||
+        role == mxh::game::NpcRole::Bobusang) {
+        open_shop(npc_id);
+        return;
+    }
+    if (!is_connected()) {
+        MLOG_INFO("CInGameState: NPC interaction npc=%u role=%u (offline)",
+                  npc_id, static_cast<unsigned>(it->npc_kind));
+        return;
+    }
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        role == mxh::game::NpcRole::MapChange
+            ? mxh::proto::NpcProtocol::DoJobSyn
+            : mxh::proto::NpcProtocol::SpeechSyn);
+    msg.header.object_id = m_playerId;
+    msg.payload.resize(sizeof(npc_id));
+    put_u32(msg.payload, 0, npc_id);
+    if (m_pEngine->agent_session().send(msg) == mxh::net::NetError::Ok) {
+        MLOG_INFO("CInGameState: NPC interaction npc=%u role=%u protocol=%u",
+                  npc_id, static_cast<unsigned>(it->npc_kind),
+                  static_cast<unsigned>(msg.header.protocol));
     }
 }
 
