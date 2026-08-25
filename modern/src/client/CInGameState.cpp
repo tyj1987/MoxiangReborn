@@ -891,7 +891,17 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             break;
         }
         case UserConnProtocol::ChangeMapAck:
-            MLOG_INFO("CInGameState: ChangeMapAck received; waiting for target GameInAck");
+            if (msg.payload.size() >= sizeof(std::uint16_t) && m_pEngine) {
+                const auto target_map = get_u16(msg.payload.data());
+                if (target_map != 0u && target_map != m_mapNum) {
+                    m_pEngine->SetPendingTransfer(
+                        GameEntryRequest{m_playerId, target_map});
+                    m_pEngine->RequestStateChange(
+                        static_cast<int>(GameStateId::GameLoading));
+                    MLOG_INFO("CInGameState: ChangeMapAck map=%u -> GameLoading",
+                              static_cast<unsigned>(target_map));
+                }
+            }
             break;
         case UserConnProtocol::ChangeMapNack:
             MLOG_WARN("CInGameState: ChangeMapNack; current scene remains active");

@@ -2157,8 +2157,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             loadingCoordinator.mark_failed(pending_loading_error);
                             MLOG_ERROR("GameLoading: %s",
                                        pending_loading_error.c_str());
+                            // MapChange must preserve the old playable scene
+                            // when target activation fails. Initial entry has
+                            // no active in-game target and still returns to
+                            // CharSelect as before.
                             mainGame.SetGameState(
-                                mxh::client::GameStateId::CharSelect);
+                                (g_inputTarget && g_inputTarget->is_in_game())
+                                    ? mxh::client::GameStateId::GameIn
+                                    : mxh::client::GameStateId::CharSelect);
                         }
                     } else if (transferError != "waiting for GameEntryRequest") {
                         pending_loading_error = transferError;
