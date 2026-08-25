@@ -226,6 +226,37 @@ Result<MhFile> read_server_mh_bin(
     return Result<MhFile>{{}, MhError::UnsupportedVersion};
 }
 
+Result<OpaqueServerContainer> read_opaque_server_container(
+    const std::filesystem::path& path) {
+    Result<OpaqueServerContainer> result;
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) {
+        result.error = MhError::FileNotFound;
+        return result;
+    }
+    const auto size = static_cast<std::size_t>(f.tellg());
+    if (size < 5 || size > 256u * 1024u * 1024u) {
+        result.error = MhError::UnsupportedOpaqueServerProfile;
+        return result;
+    }
+    std::vector<std::uint8_t> bytes(size);
+    f.seekg(0);
+    if (!f.read(reinterpret_cast<char*>(bytes.data()),
+                static_cast<std::streamsize>(bytes.size()))) {
+        result.error = MhError::IoError;
+        return result;
+    }
+    if (!is_size_prefixed_opaque_server_profile(bytes)) {
+        result.error = MhError::UnsupportedOpaqueServerProfile;
+        return result;
+    }
+    OpaqueServerContainer container;
+    std::memcpy(&container.total_size, bytes.data(), sizeof(container.total_size));
+    container.payload.assign(bytes.begin() + sizeof(container.total_size), bytes.end());
+    result.value = std::move(container);
+    return result;
+}
+
 MhError write_mh_bin(const std::filesystem::path& path,
                      std::span<const std::uint8_t> data,
                      std::uint32_t type) {

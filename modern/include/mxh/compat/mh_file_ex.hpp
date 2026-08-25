@@ -72,6 +72,16 @@ struct MhFile {
     std::uint32_t crc2 = 0;
 };
 
+// Raw container for the current PlayDH server variant.  This API deliberately
+// performs no transform: it exposes the bytes after the size prefix so a
+// future decoder can be implemented and verified independently from the
+// classic MHFileEx reader.  It must never be passed to gameplay parsers as
+// decoded text.
+struct OpaqueServerContainer {
+    std::uint32_t total_size = 0;
+    std::vector<std::uint8_t> payload;
+};
+
 // Result<T> for value-or-error pattern (compatible with old-style API).
 template <typename T>
 struct Result {
@@ -95,6 +105,11 @@ struct Result {
 // The 2008 reference profile uses the recovered MHFileEx layout.
 [[nodiscard]] Result<MhFile> read_server_mh_bin(
     const std::filesystem::path& path, std::string_view profile_id);
+
+// Read the raw size-prefixed payload of a server profile without decoding it.
+// Returns UnsupportedOpaqueServerProfile when the structural marker is absent.
+[[nodiscard]] Result<OpaqueServerContainer> read_opaque_server_container(
+    const std::filesystem::path& path);
 
 // Save raw bytes to .bin file (with the XOR encryption applied).
 [[nodiscard]] MhError write_mh_bin(const std::filesystem::path& path,

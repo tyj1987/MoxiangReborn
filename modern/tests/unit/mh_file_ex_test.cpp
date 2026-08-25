@@ -51,6 +51,21 @@ TEST(MhFileEx, ServerProfileReaderFailsClosedForCurrentOpaqueContainer) {
     std::filesystem::remove(tmp);
 }
 
+TEST(MhFileEx, ReadsCurrentOpaqueContainerWithoutDecodingIt) {
+    const auto root = find_current_playdh();
+    if (root.empty()) GTEST_SKIP() << "canonical PlayDH root not found";
+    const auto path = root / "Resource" / "Server" / "Monster_10.bin";
+    const auto result = read_opaque_server_container(path);
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(result.value.total_size, 22766u);
+    EXPECT_EQ(result.value.payload.size(), 22762u);
+    ASSERT_GE(result.value.payload.size(), 4u);
+    EXPECT_EQ(result.value.payload[0], 0xDDu);
+    EXPECT_EQ(result.value.payload[1], 0x3Au);
+    EXPECT_EQ(result.value.payload[2], 0xF2u);
+    EXPECT_EQ(result.value.payload[3], 0xF2u);
+}
+
 TEST(MhFileEx, ServerProfileReaderKeepsReferenceProfileExplicit) {
     auto tmp = std::filesystem::temp_directory_path() /
         "mxh_test_reference_server.bin";
