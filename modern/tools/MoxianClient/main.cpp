@@ -2345,10 +2345,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         // Prefer a named UI/button entry when the profile provides one; use
         // the first real WAV otherwise.  The choice is data-driven and never
         // invents a sound ID or touches resource bytes.
-        std::uint16_t fallback_sound = 0xffffu;
         for (const auto& entry : sfx.manifest().entries) {
             if (!entry.available || entry.streaming) continue;
-            if (fallback_sound == 0xffffu) fallback_sound = entry.index;
             const auto name = entry.file_name;
             std::string lower_name = name;
             std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
@@ -2368,10 +2366,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (skill && g_skillSound == 0xffffu) g_skillSound = entry.index;
             if (pickup && g_pickupSound == 0xffffu) g_pickupSound = entry.index;
         }
-        if (g_uiClickSound == 0xffffu) g_uiClickSound = fallback_sound;
-        if (g_attackSound == 0xffffu) g_attackSound = fallback_sound;
-        if (g_skillSound == 0xffffu) g_skillSound = fallback_sound;
-        if (g_pickupSound == 0xffffu) g_pickupSound = fallback_sound;
         const auto wav_count = static_cast<std::size_t>(std::count_if(
             sfx.manifest().entries.begin(), sfx.manifest().entries.end(),
             [](const auto& entry) { return entry.available && !entry.streaming; }));
@@ -2381,6 +2375,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                   static_cast<unsigned>(g_attackSound),
                   static_cast<unsigned>(g_skillSound),
                   static_cast<unsigned>(g_pickupSound));
+        if (!g_debugUiBounds && (g_uiClickSound == 0xffffu ||
+                                 g_attackSound == 0xffffu ||
+                                 g_skillSound == 0xffffu ||
+                                 g_pickupSound == 0xffffu)) {
+            MLOG_ERROR("mxh_client: required semantic SFX mapping is incomplete");
+            storage->Release();
+            return 1;
+        }
     } else {
         MLOG_WARN("mxh_client: SFX unavailable: %s", audio_error.c_str());
     }
