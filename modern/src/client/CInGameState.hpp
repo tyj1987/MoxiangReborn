@@ -422,6 +422,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool is_moving() const noexcept { return m_moving; }
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
+    std::size_t inventory_tab() const noexcept { return m_inventoryTab; }
     bool shop_open() const noexcept { return m_shopOpen; }
     bool quest_open() const noexcept { return m_questOpen; }
     bool character_open() const noexcept { return m_characterOpen; }
@@ -497,6 +498,7 @@ public:
     void set_character_open(bool open) noexcept;
     void set_chat_open(bool open) noexcept;
     bool select_quest_index(std::size_t index) noexcept;
+    bool select_inventory_tab(std::size_t tab) noexcept;
     void push_effect_event(EffectEvent event) noexcept;
     void start_skill_effect(std::uint32_t skill_id,
                             std::uint32_t target_object_id,
@@ -554,6 +556,7 @@ public:
     std::string          m_chatBuffer;
     std::vector<std::string> m_chatLines;
     bool                 m_inventoryOpen = false;
+    std::size_t          m_inventoryTab = 0;
     ClientUiRuntime      m_uiRuntime;
 
     // NPC shop state.

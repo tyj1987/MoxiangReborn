@@ -40,6 +40,10 @@ constexpr std::array<std::string_view, 13> kChinaGameInUiScripts{
     "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
     "QuestTotal.bin", "ItemShop.bin"};
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
+constexpr std::array<std::string_view, 4> kInventoryTabButtonIds{
+    "IN_TABBTN1", "IN_TABBTN2", "IN_TABBTN3", "IN_TABBTN4"};
+constexpr std::array<std::string_view, 4> kInventoryTabDialogIds{
+    "IN_TABDLG1", "IN_TABDLG2", "IN_TABDLG3", "IN_TABDLG4"};
 constexpr std::string_view kQuestDialogId = "QUE_TOTALDLG";
 constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
 constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
@@ -638,6 +642,7 @@ void CInGameState::Release() {
     m_moving = false;
     m_cameraDrag = false;
     m_inventoryDragSource.reset();
+    m_inventoryTab = 0;
     m_chatOpen = false;
     m_chatBuffer.clear();
     m_effectEvents.clear();
@@ -1492,6 +1497,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
 void CInGameState::set_inventory_open(bool open) noexcept {
     m_inventoryOpen = open;
     m_uiRuntime.setDialogActive(kInventoryDialogId, open);
+    if (open) (void)select_inventory_tab(m_inventoryTab);
     if (!open || !m_inventoryService) return;
     for (auto& dialog : m_uiRuntime.dialogsMutable()) {
         if (!dialog || dialog->legacyId() != kInventoryDialogId) continue;
@@ -1502,6 +1508,20 @@ void CInGameState::set_inventory_open(bool open) noexcept {
         inventory->RefreshFromInventoryService();
         break;
     }
+}
+
+bool CInGameState::select_inventory_tab(std::size_t tab) noexcept {
+    if (tab >= kInventoryTabDialogIds.size()) return false;
+    m_inventoryTab = tab;
+    if (!m_inventoryOpen) return true;
+    for (std::size_t i = 0; i < kInventoryTabDialogIds.size(); ++i) {
+        if (auto* grid = m_uiRuntime.findWindowByLegacyId(kInventoryTabDialogIds[i])) {
+            grid->SetDisable(false);
+            grid->SetActive(i == tab);
+        }
+    }
+    m_inventoryDragSource.reset();
+    return true;
 }
 
 void CInGameState::toggle_inventory() noexcept {
@@ -1554,6 +1574,11 @@ bool CInGameState::handle_ui_activation(
     if (activation.legacy_id == "CI_BESTTIP") {
         set_character_open(!m_characterOpen);
         return true;
+    }
+    for (std::size_t i = 0; i < kInventoryTabButtonIds.size(); ++i) {
+        if (activation.legacy_id == kInventoryTabButtonIds[i]) {
+            return select_inventory_tab(i);
+        }
     }
     if (activation.legacy_id.rfind("QUE_PAGE", 0) == 0 &&
         activation.legacy_id.size() == 12 &&
@@ -1788,7 +1813,8 @@ void CInGameState::OnMouseButton(bool left, bool down,
     m_lastMouseX = x;
     m_lastMouseY = y;
     if (left && m_inventoryOpen) {
-        auto* grid = m_uiRuntime.findWindowByLegacyId("IN_TABDLG1");
+        const auto grid_id = kInventoryTabDialogIds[m_inventoryTab];
+        auto* grid = m_uiRuntime.findWindowByLegacyId(grid_id);
         if (grid) {
             const auto local_x = x - grid->absX();
             const auto local_y = y - grid->absY();
@@ -1800,7 +1826,8 @@ void CInGameState::OnMouseButton(bool left, bool down,
             const auto in_cell_y = local_y % (cell + gap);
             if (col >= 0 && col < 5 && row >= 0 && row < 4 &&
                 in_cell_x < cell && in_cell_y < cell) {
-                const std::size_t slot = static_cast<std::size_t>(row * 5 + col);
+                const std::size_t slot = m_inventoryTab * 20u +
+                    static_cast<std::size_t>(row * 5 + col);
                 if (down) {
                     if (slot < mxh::game::SLOT_INVENTORY_NUM &&
                         !mxh::game::is_empty_slot(m_info.items.Inventory[slot])) {

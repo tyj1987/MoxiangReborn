@@ -276,6 +276,21 @@ TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
 }
 
+TEST(InGameUiRuntime, InventoryTabButtonsSwitchRealGridDialog) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.toggle_inventory();
+    ASSERT_TRUE(state.inventory_open());
+    EXPECT_EQ(state.inventory_tab(), 0u);
+    ASSERT_NE(state.ui_runtime().findWindowByLegacyId("IN_TABDLG1"), nullptr);
+
+    mxh::client::ClientUiActivation tab;
+    tab.legacy_id = "IN_TABBTN3";
+    EXPECT_TRUE(state.handle_ui_activation(tab));
+    EXPECT_EQ(state.inventory_tab(), 2u);
+    EXPECT_NE(state.ui_runtime().findWindowByLegacyId("IN_TABDLG3"), nullptr);
+}
+
 TEST(InGameUiRuntime, CharacterInfoHudButtonTogglesLiveDialog) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
