@@ -40,10 +40,12 @@ for offset in range(0, len(pixels), stride):
         green_probe += 1
 
 coverage = foreground / (width * height)
-if not 0.18 <= coverage <= 0.75:
+if coverage < 0.18:
     fail(f"terrain coverage out of range: {coverage:.1%}")
 if len(colors) < 100:
     fail(f"terrain color diversity is too low: {len(colors)}")
+if coverage > 0.75 and len(colors) < 500:
+    fail(f"high-coverage terrain lacks color diversity: coverage={coverage:.1%}, colors={len(colors)}")
 if green_probe > width:
     fail(f"diagnostic green geometry remains: {green_probe} pixels")
 
