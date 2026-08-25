@@ -248,10 +248,20 @@ foreach ($entry in @($profile.required)) {
     }
 }
 
+$mapResourcePath = Join-Path $ServerResourceRoot "Monster_$MapNumber.bin"
+if (-not (Test-Path -LiteralPath $mapResourcePath -PathType Leaf) -and
+    $MapNumber -ge 0 -and $MapNumber -le 99) {
+    $legacyPaddedPath = Join-Path $ServerResourceRoot (
+        "Monster_{0:D2}.bin" -f $MapNumber)
+    if (Test-Path -LiteralPath $legacyPaddedPath -PathType Leaf) {
+        $mapResourcePath = $legacyPaddedPath
+    }
+}
+
 $requiredResources = @(
     (Join-Path $ResourceRoot 'Resource\ItemList.bin'),
     (Join-Path $ResourceRoot 'Resource\CharacterExpPoint.bin'),
-    (Join-Path $ServerResourceRoot "Monster_$MapNumber.bin")
+    $mapResourcePath
 )
 foreach ($resource in $requiredResources) {
     if (-not (Test-Path -LiteralPath $resource -PathType Leaf)) {
@@ -295,10 +305,8 @@ function Get-ServerResourceProfileDiagnostic {
     return [pscustomobject]$info
 }
 
-$mapResourcePath = Join-Path $ServerResourceRoot "Monster_$MapNumber.bin"
 $serverResourceDiagnostic = Get-ServerResourceProfileDiagnostic -ResourcePath $mapResourcePath -ProfileId $ResourceProfileId -Encoding ([string]$profile.encoding)
-$knownEmptyMonsterMap = $MapNumber -eq 12 -and
-    $serverResourceDiagnostic.byte_length -eq 14 -and
+$knownEmptyMonsterMap = $serverResourceDiagnostic.byte_length -eq 14 -and
     $serverResourceDiagnostic.first_u32_le -eq 20040309
 if ($serverResourceDiagnostic.status -eq 'profile-format-mismatch' -and -not $knownEmptyMonsterMap) {
     throw "Profile '$ResourceProfileId' declares '$($profile.encoding)' but $mapResourcePath has no size-prefixed marker (bytes=$($serverResourceDiagnostic.byte_length), first_u32_le=$($serverResourceDiagnostic.first_u32_le)); refusing positional decode"
