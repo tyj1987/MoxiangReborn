@@ -1630,6 +1630,37 @@ TEST(MapHandlerTest, MoveSynRejectsEquipmentInWrongWearSlot) {
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
 }
 
+TEST(MapHandlerTest, MoveSynRejectsEquipmentAbovePlayerLevelLimit) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::game::ItemInfo item_info{};
+    item_info.ItemIdx = 603u;
+    item_info.ItemKind = 2048u;
+    item_info.EquipKind = 0u;
+    item_info.LimitLevel = 5u;
+    handler.add_item_info_for_test(item_info);
+    mxh::net::Message game_in; game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    const auto connection = mxh::net::make_connection_id(55);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.add_player_item_for_test(123u, mxh::game::make_item(9103u, 603u, 0u)));
+
+    mxh::net::Message move; move.header.object_id = 123u;
+    move.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    move.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveSyn);
+    move.payload.resize(24u, 0u);
+    const std::uint32_t db_idx = 9103u;
+    const std::uint16_t destination = mxh::game::TP_WEAREDITEM_START;
+    std::memcpy(move.payload.data(), &db_idx, sizeof(db_idx));
+    std::memcpy(move.payload.data() + 22u, &destination, sizeof(destination));
+    handler.on_message(connection, move);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
+}
+
 TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
     MockDbAdapter db;
     std::vector<mxh::net::Message> replies;

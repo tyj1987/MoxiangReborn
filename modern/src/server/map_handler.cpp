@@ -74,6 +74,17 @@ bool legacy_item_can_equip_in_slot(const mxh::game::ItemInfo& info,
     }
     return slot == info.EquipKind;
 }
+
+bool legacy_item_meets_player_limits(const mxh::game::ItemInfo& info,
+                                     const mxh::server::PlayerState& state) noexcept {
+    // Mirrors CItemManager::CanEquip's level and four base-attribute gates.
+    // A zero limit is the legacy "no requirement" value.
+    return info.LimitLevel <= state.progress.level &&
+           info.LimitGenGol <= state.attributes.gengol &&
+           info.LimitMinChub <= state.attributes.minchub &&
+           info.LimitSimMek <= state.attributes.simmek &&
+           info.LimitCheRyuk <= state.attributes.cheryuk;
+}
 }  // namespace
 
 // ============================================================================
@@ -1668,9 +1679,10 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     if (source_item && new_pos >= mxh::game::TP_WEAREDITEM_START &&
                         new_pos < mxh::game::TP_WEAREDITEM_END) {
                         mxh::game::ItemInfo item_info{};
-                        if (item_manager_.try_get(source_item->wIconIdx, item_info) &&
-                            !legacy_item_can_equip_in_slot(item_info, new_pos)) {
-                            legal_equipment = false;
+                        if (item_manager_.try_get(source_item->wIconIdx, item_info)) {
+                            legal_equipment =
+                                legacy_item_can_equip_in_slot(item_info, new_pos) &&
+                                legacy_item_meets_player_limits(item_info, actor_state);
                         }
                     }
                     if (source_item && target_item && source_item != target_item &&
