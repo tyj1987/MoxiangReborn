@@ -191,6 +191,8 @@ private:
                                         const mxh::net::Message& msg);
     void handle_legacy_gamein_syn(mxh::net::ConnectionId id,
                                    const mxh::net::Message& msg);
+    void handle_legacy_change_map_syn(mxh::net::ConnectionId id,
+                                      const mxh::net::Message& msg);
     // R-2: route cat==HackShield messages through the HackShieldManager
     // state machine. Pure data-plane: only mutates per-connection state,
     // replies via reply_() when the action is Send, and marks the

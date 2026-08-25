@@ -525,6 +525,9 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
         case mxh::proto::UserConnProtocol::GameInSyn:
             handle_legacy_gamein_syn(id, msg);
             break;
+        case mxh::proto::UserConnProtocol::ChangeMapSyn:
+            handle_legacy_change_map_syn(id, msg);
+            break;
         default:
             std::cout << "[Agent] legacy: unhandled proto="
                       << static_cast<int>(proto) << "\n";
@@ -1595,6 +1598,58 @@ void AgentHandler::handle_legacy_gamein_syn(
     std::cout << "[Agent] GAMEIN_ACK stub (" << ack.payload.size()
               << "B) chrid=" << char_id << "\n";
     reply_(id, ack);
+}
+
+void AgentHandler::handle_legacy_change_map_syn(
+    mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+    const auto char_id = get_char_id(id);
+    if (char_id == 0u || msg.payload.size() < 2u) return;
+
+    // Legacy MSG_DWORD4 carries the destination map in dwData1. Accept the
+    // low WORD so both the packed legacy form and the modern compact test
+    // form route to the same endpoint without changing the wire payload.
+    std::uint16_t target_map = 0;
+    std::memcpy(&target_map, msg.payload.data(), sizeof(target_map));
+    const auto target = route_for_map(target_map);
+    if (!target.client || !target.client->is_connected()) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        nack.payload.resize(2, 0);
+        std::memcpy(nack.payload.data(), &target_map, sizeof(target_map));
+        reply_(id, nack);
+        return;
+    }
+
+    const auto current = route_for_connection(id);
+    if (current.client && current.client->is_connected() &&
+        current.client != target.client) {
+        mxh::net::Message out;
+        out.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        out.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameOutSyn);
+        out.header.object_id = char_id;
+        out.payload.resize(8, 0);
+        std::memcpy(out.payload.data(), &target_map, sizeof(target_map));
+        out.payload[2] = 0; // channel/map transfer, not a hard logout
+        (void)current.client->send(out);
+    }
+
+    mxh::net::Message fwd = msg;
+    fwd.header.object_id = char_id;
+    if (target.client->send(fwd) != mxh::net::NetError::Ok) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        reply_(id, nack);
+    }
 }
 
 }  // namespace mxh::server
