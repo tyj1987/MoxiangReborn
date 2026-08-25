@@ -1099,6 +1099,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                     }),
                 m_groundDrops.end());
             MLOG_INFO("CInGameState: picked up drop=%u", drop_id);
+            if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Pickup);
         }
         return;
     }

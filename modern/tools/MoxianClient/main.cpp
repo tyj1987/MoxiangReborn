@@ -339,6 +339,7 @@ mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
 std::uint16_t g_uiClickSound = 0xffffu;
 std::uint16_t g_attackSound = 0xffffu;
 std::uint16_t g_skillSound = 0xffffu;
+std::uint16_t g_pickupSound = 0xffffu;
 
 void clear_secret(std::string& value) noexcept {
     volatile char* bytes = value.empty() ? nullptr : value.data();
@@ -1708,15 +1709,19 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 lower_name.find("swing") != std::string::npos || lower_name.find("weapon") != std::string::npos;
             const bool skill = lower_name.find("skill") != std::string::npos ||
                 lower_name.find("magic") != std::string::npos || lower_name.find("mugong") != std::string::npos;
+            const bool pickup = lower_name.find("pickup") != std::string::npos ||
+                lower_name.find("loot") != std::string::npos || lower_name.find("item") != std::string::npos;
             if (ui && g_uiClickSound == 0xffffu) {
                 g_uiClickSound = entry.index;
             }
             if (attack && g_attackSound == 0xffffu) g_attackSound = entry.index;
             if (skill && g_skillSound == 0xffffu) g_skillSound = entry.index;
+            if (pickup && g_pickupSound == 0xffffu) g_pickupSound = entry.index;
         }
         if (g_uiClickSound == 0xffffu) g_uiClickSound = fallback_sound;
         if (g_attackSound == 0xffffu) g_attackSound = fallback_sound;
         if (g_skillSound == 0xffffu) g_skillSound = fallback_sound;
+        if (g_pickupSound == 0xffffu) g_pickupSound = fallback_sound;
     } else {
         MLOG_WARN("mxh_client: SFX unavailable: %s", audio_error.c_str());
     }
@@ -1879,7 +1884,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         [&sfx](mxh::client::CEngine::AudioCue cue) {
             if (cue == mxh::client::CEngine::AudioCue::UiClick) return;
             const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
-                ? g_attackSound : g_skillSound;
+                ? g_attackSound
+                : (cue == mxh::client::CEngine::AudioCue::Pickup ? g_pickupSound : g_skillSound);
             if (sound == 0xffffu) return;
             std::string audio_error;
             (void)sfx.play(sound, &audio_error);
@@ -1887,7 +1893,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.GetEngine()->SetSpatialAudioEventFn(
         [&sfx](mxh::client::CEngine::AudioCue cue, float distance) {
             const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
-                ? g_attackSound : g_skillSound;
+                ? g_attackSound
+                : (cue == mxh::client::CEngine::AudioCue::Pickup ? g_pickupSound : g_skillSound);
             if (sound == 0xffffu) return;
             std::string audio_error;
             (void)sfx.playAt(sound, distance, &audio_error);

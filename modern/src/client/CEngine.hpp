@@ -44,7 +44,7 @@ namespace mxh::client {
 
 class CEngine {
 public:
-    enum class AudioCue : std::uint8_t { Attack, Skill, UiClick };
+    enum class AudioCue : std::uint8_t { Attack, Skill, UiClick, Pickup };
     using AudioEventFn = std::function<void(AudioCue)>;
     using SpatialAudioEventFn = std::function<void(AudioCue, float)>;
     CEngine() = default;

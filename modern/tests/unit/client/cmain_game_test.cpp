@@ -43,10 +43,12 @@ TEST(CEngine, EmitsSemanticAudioCuesToHost) {
     engine.EmitAudio(mxh::client::CEngine::AudioCue::Attack);
     engine.EmitAudio(mxh::client::CEngine::AudioCue::Skill);
     engine.EmitAudio(mxh::client::CEngine::AudioCue::UiClick);
-    ASSERT_EQ(cues.size(), 3u);
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::Pickup);
+    ASSERT_EQ(cues.size(), 4u);
     EXPECT_EQ(cues[0], mxh::client::CEngine::AudioCue::Attack);
     EXPECT_EQ(cues[1], mxh::client::CEngine::AudioCue::Skill);
     EXPECT_EQ(cues[2], mxh::client::CEngine::AudioCue::UiClick);
+    EXPECT_EQ(cues[3], mxh::client::CEngine::AudioCue::Pickup);
 }
 
 TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
