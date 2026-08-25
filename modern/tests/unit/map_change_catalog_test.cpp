@@ -29,6 +29,9 @@ TEST(MapChangeCatalog, ParsesTextFieldsAndFindsRoute) {
     ASSERT_NE(entry, nullptr);
     EXPECT_EQ(entry->kind, 1002u);
     EXPECT_FLOAT_EQ(entry->move_x, 3.5f);
+    ASSERT_NE(parsed->find_object_destination(10, "Npc"), nullptr);
+    EXPECT_EQ(parsed->find_object_destination(10, "Npc")->move_map_num, 12u);
+    EXPECT_EQ(parsed->find_object_destination(12, "Npc"), nullptr);
 }
 
 TEST(MapChangeCatalog, LoadsCanonicalPlayDhResource) {

@@ -30,6 +30,8 @@ struct MapChangeCatalog final {
         std::uint16_t kind) const noexcept;
     [[nodiscard]] const MapChangeEntry* find_destination(
         std::uint16_t current_map, std::uint16_t destination_map) const noexcept;
+    [[nodiscard]] const MapChangeEntry* find_object_destination(
+        std::uint16_t current_map, std::string_view object_name) const noexcept;
 };
 
 [[nodiscard]] std::optional<MapChangeCatalog> parse_map_change_text(

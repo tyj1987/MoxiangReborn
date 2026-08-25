@@ -2760,15 +2760,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                 // MapChange.bin stores the legacy object name;
                                 // match it against the live NPC name and current
                                 // map so the destination comes from profile data.
-                                for (const auto& route : g_mapChangeCatalog->entries) {
-                                    if (route.current_map_num != current_map) continue;
-                                    if (!route.object_name.empty() &&
-                                        route.object_name == npc->name) {
-                                        return route.move_map_num;
-                                    }
-                                }
-                                return std::nullopt;
-                            });
+            const auto* route = g_mapChangeCatalog->find_object_destination(
+                current_map, npc->name);
+            return route ? std::optional<std::uint16_t>(route->move_map_num)
+                         : std::nullopt;
+        });
                     }
                 }
                 prev_state = cur_state;

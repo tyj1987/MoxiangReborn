@@ -56,6 +56,18 @@ const MapChangeEntry* MapChangeCatalog::find_destination(
     return nullptr;
 }
 
+const MapChangeEntry* MapChangeCatalog::find_object_destination(
+    std::uint16_t current_map, std::string_view object_name) const noexcept {
+    if (object_name.empty()) return nullptr;
+    for (const auto& entry : entries) {
+        if (entry.current_map_num == current_map &&
+            entry.object_name == object_name && entry.move_map_num != 0) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
 std::optional<MapChangeCatalog> parse_map_change_text(
     std::string_view text) noexcept {
     MapChangeCatalog result;
