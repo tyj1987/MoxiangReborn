@@ -119,7 +119,9 @@ bool SfxPlayer::playAt(std::uint16_t id, float distance, std::string* out) {
     media_->format.nSamplesPerSec = rate; media_->format.wBitsPerSample = static_cast<WORD>(bits);
     media_->format.nBlockAlign = static_cast<WORD>(channels * bits / 8); media_->format.nAvgBytesPerSec = rate * media_->format.nBlockAlign;
     if (media_->pcm.empty() || FAILED(media_->engine->CreateSourceVoice(&media_->source, &media_->format))) { error(out, "SFX source voice creation failed"); return false; }
-    XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size()); buffer.pAudioData = media_->pcm.data(); buffer.Flags = XAUDIO2_END_OF_STREAM;
+    XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size()); buffer.pAudioData = media_->pcm.data();
+    if (entry.loop) buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+    else buffer.Flags = XAUDIO2_END_OF_STREAM;
     const float gain = std::clamp(volume_ * current_entry_volume_ *
         distanceGain(distance, entry.min_distance, entry.max_distance), 0.0f, 1.0f);
     hr = media_->source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = media_->source->SetVolume(gain); if (SUCCEEDED(hr)) hr = media_->source->Start(0);
