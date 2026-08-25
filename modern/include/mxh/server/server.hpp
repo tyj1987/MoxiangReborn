@@ -313,6 +313,7 @@ public:
 
     // Test-only read-only accessor for item_manager_.
     const mxh::game::ItemManager& item_manager_for_test() const noexcept { return item_manager_; }
+    void add_item_info_for_test(const mxh::game::ItemInfo& info) { item_manager_.add(info); }
 
     // D1.3 call-site hook: load the real SkillList.bin into skill_manager_
     // so init_skill_table() / find_skill() resolve from the real

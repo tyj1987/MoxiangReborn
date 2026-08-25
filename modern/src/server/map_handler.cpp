@@ -1636,7 +1636,17 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         }
                     }
                     auto* target_item = item_at(new_pos);
-                    if (source_item && target_item && source_item != target_item) {
+                    bool legal_equipment = true;
+                    if (source_item && new_pos >= mxh::game::TP_WEAREDITEM_START &&
+                        new_pos < mxh::game::TP_WEAREDITEM_END) {
+                        mxh::game::ItemInfo item_info{};
+                        if (item_manager_.try_get(source_item->wIconIdx, item_info) &&
+                            item_info.ItemKind != 2u) {
+                            legal_equipment = false;
+                        }
+                    }
+                    if (source_item && target_item && source_item != target_item &&
+                        legal_equipment) {
                         const auto source_pos = source_item->Position;
                         std::swap(*source_item, *target_item);
                         source_item->Position = source_pos;
