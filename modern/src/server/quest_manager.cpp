@@ -76,6 +76,9 @@ QuestRewardResult claim_quest_reward(QuestProgress& progress,
         result.status = QuestRewardStatus::PlayerInactive;
         return result;
     }
+    if (def.money_cost != 0u && !player.spend_money(def.money_cost)) {
+        return result;
+    }
     const auto money_before = player.state().progress.money;
     const auto exp_before = player.state().progress.total_exp;
     if (def.reward_money != 0u) player.add_money(def.reward_money);

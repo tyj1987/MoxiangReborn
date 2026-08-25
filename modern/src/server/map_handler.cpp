@@ -840,13 +840,34 @@ std::optional<MapHandler::GroundDrop> MapHandler::create_ground_drop_for_test(st
 }
 
 bool MapHandler::claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id) {
-    std::lock_guard<std::mutex> lock(players_mu_);
-    const auto drop_it = ground_drops_.find(drop_object_id);
-    const auto runtime_it = player_runtimes_.find(player_id);
-    if (drop_it == ground_drops_.end() || runtime_it == player_runtimes_.end() || drop_it->second.claimed) return false;
-    auto item = mxh::game::make_item(static_cast<std::uint32_t>(drop_object_id), drop_it->second.item_id, 0u, 100u, drop_it->second.count);
-    if (!runtime_it->second.actor.insert_inventory_item(item)) return false;
-    drop_it->second.claimed = true;
+    std::uint16_t item_id = 0;
+    std::uint16_t item_count = 0;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto drop_it = ground_drops_.find(drop_object_id);
+        const auto runtime_it = player_runtimes_.find(player_id);
+        if (drop_it == ground_drops_.end() || runtime_it == player_runtimes_.end() || drop_it->second.claimed) return false;
+        item_id = drop_it->second.item_id;
+        item_count = drop_it->second.count;
+        auto item = mxh::game::make_item(static_cast<std::uint32_t>(drop_object_id), item_id, 0u, 100u, item_count);
+        if (!runtime_it->second.actor.insert_inventory_item(item)) return false;
+        drop_it->second.claimed = true;
+    }
+
+    // Collection is an authoritative quest event, not a client-side label.
+    // Dispatch after releasing players_mu_ so persistence can take its own
+    // snapshot lock without deadlocking the pickup path.
+    bool quest_changed = false;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto runtime_it = player_runtimes_.find(player_id);
+        if (runtime_it != player_runtimes_.end()) {
+            quest_changed = !dispatch_quest_event(
+                runtime_it->second.quest_log,
+                QuestEvent{QuestSubKind::Collect, item_id, item_count}).empty();
+        }
+    }
+    if (quest_changed) persist_quest_log(player_id);
     return true;
 }
 

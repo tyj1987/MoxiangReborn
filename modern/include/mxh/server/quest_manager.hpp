@@ -48,6 +48,7 @@ struct QuestDefinition final {
     std::uint16_t max_level       = 99;
     std::uint32_t reward_exp      = 0;
     std::uint32_t reward_money    = 0;
+    std::uint32_t money_cost      = 0;
     std::uint32_t reward_item_idx = 0;     // 0 = no item
     std::uint32_t reward_item_qty = 0;
     std::uint32_t timer_seconds   = 0;     // 0 = no timer
