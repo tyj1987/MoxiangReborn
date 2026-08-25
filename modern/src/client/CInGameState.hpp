@@ -494,6 +494,7 @@ public:
     void set_shop_open(bool open) noexcept;
     void set_quest_open(bool open) noexcept;
     void set_character_open(bool open) noexcept;
+    void set_chat_open(bool open) noexcept;
     void push_effect_event(EffectEvent event) noexcept;
     void start_skill_effect(std::uint32_t skill_id,
                             std::uint32_t target_object_id,

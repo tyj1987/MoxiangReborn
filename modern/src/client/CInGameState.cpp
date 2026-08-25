@@ -42,6 +42,7 @@ constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::string_view kQuestDialogId = "QUE_TOTALDLG";
 constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
 constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
+constexpr std::string_view kChatDialogId = "CTI_DLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 
@@ -628,6 +629,7 @@ void CInGameState::Release() {
     set_shop_open(false);
     set_quest_open(false);
     set_character_open(false);
+    set_chat_open(false);
     setInitialized(false);
     m_releasing = false;
 }
@@ -1501,6 +1503,12 @@ void CInGameState::set_character_open(bool open) noexcept {
     if (open) refresh_live_ui_bindings();
 }
 
+void CInGameState::set_chat_open(bool open) noexcept {
+    m_chatOpen = open;
+    m_uiRuntime.setDialogActive(kChatDialogId, open);
+    if (!open) m_uiRuntime.setDialogActive(kChatDialogId, false);
+}
+
 bool CInGameState::handle_ui_activation(
     const ClientUiActivation& activation) {
     // CI_BESTTIP is the original character-information button in the HUD.
@@ -1544,13 +1552,13 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
             if (m_chatOpen) {
                 send_chat();
             } else {
-                m_chatOpen = true;
+                set_chat_open(true);
             }
         }
         return;
     }
     if (vk == kVkEscape && pressed && m_chatOpen) {
-        m_chatOpen = false;
+        set_chat_open(false);
         m_chatBuffer.clear();
         return;
     }
@@ -2113,7 +2121,7 @@ void CInGameState::buy_shop_item(std::size_t index) {
 void CInGameState::send_chat() {
     const auto text = m_chatBuffer;
     m_chatBuffer.clear();
-    m_chatOpen = false;
+    set_chat_open(false);
     if (text.empty()) return;
     if (!is_connected()) return;
     const auto e = m_pEngine->agent_session().send(make_chat_message(m_playerId, text));

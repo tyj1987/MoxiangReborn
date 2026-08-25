@@ -293,6 +293,19 @@ TEST(InGameUiRuntime, CharacterInfoHudButtonTogglesLiveDialog) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("CI_CHARDLG"));
 }
 
+TEST(InGameUiRuntime, EnterAndEscapeOwnRealChatDialog) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+
+    state.OnKeyEvent(true, mxh::client::kVkReturn);
+    EXPECT_TRUE(state.chat_open());
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("CTI_DLG"));
+
+    state.OnKeyEvent(true, mxh::client::kVkEscape);
+    EXPECT_FALSE(state.chat_open());
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CTI_DLG"));
+}
+
 TEST(InGameUiRuntime, MainBarButtonConsumesClickInActiveDialog) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
