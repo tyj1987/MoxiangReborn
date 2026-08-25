@@ -1162,6 +1162,41 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
 }
 
+TEST(MapHandlerTest, TargetMapGameInUsesTargetMapAndEmitsAck) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    constexpr std::uint32_t char_id = 450035713u;
+    constexpr std::uint16_t target_map = 10u;
+    const auto map_connection = mxh::net::make_connection_id(2010);
+    mxh::server::MapHandler target(db, target_map, make_reply_spy(reply));
+
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = char_id;
+    game_in.payload.resize(16, 0);
+    std::uint32_t user_id = 3001u;
+    std::memcpy(game_in.payload.data(), &user_id, sizeof(user_id));
+
+    target.on_message(map_connection, game_in);
+
+    const auto snapshot = target.player_runtime_snapshot(char_id);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(snapshot->map_num, target_map);
+    EXPECT_EQ(snapshot->player_id, char_id);
+
+    const auto ack = std::find_if(reply.messages.begin(), reply.messages.end(),
+        [](const mxh::net::Message& message) {
+            return message.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInAck);
+        });
+    ASSERT_NE(ack, reply.messages.end());
+    EXPECT_EQ(ack->header.object_id, char_id);
+}
+
 TEST(MapHandlerTest, CharacterAddCarriesVisiblePlayerVitals) {
     MockDbAdapter db;
     ReplySpy reply;
