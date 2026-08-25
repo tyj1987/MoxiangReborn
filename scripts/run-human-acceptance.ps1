@@ -14,7 +14,9 @@ $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $runId = Get-Date -Format 'yyyyMMdd-HHmmss'
 $runRoot = Join-Path $repoRoot "modern\out\runs\human\$runId"
 $logRoot = Join-Path $runRoot 'logs'
+$evidenceRoot = Join-Path $runRoot 'evidence'
 $null = New-Item -ItemType Directory -Force -Path $logRoot
+$null = New-Item -ItemType Directory -Force -Path $evidenceRoot
 $owned = [System.Collections.Generic.List[object]]::new()
 $serverPids = [System.Collections.Generic.List[int]]::new()
 
@@ -95,7 +97,7 @@ try {
 
     $clientArgs = @('--login-port', $LoginPort, '--map-port', $MapPort,
         '--resource-profile', $ResourceProfileId, '--resource-root', $resourceRoot,
-        '--width', 800, '--height', 600)
+        '--width', 800, '--height', 600, '--evidence-dir', $evidenceRoot)
     $client = Start-Process -FilePath $clientExe -ArgumentList $clientArgs -WorkingDirectory $repoRoot -PassThru -RedirectStandardOutput (Join-Path $logRoot 'client.stdout.log') -RedirectStandardError (Join-Path $logRoot 'client.stderr.log')
     $owned.Add([pscustomobject]@{ pid = $client.Id; exe = $clientExe; name = 'client' })
 
@@ -103,6 +105,8 @@ try {
     Write-Host "Artifacts: $runRoot"
     Write-Host 'Credentials are entered manually in the client. This script supplies no username, password, mouse or keyboard input.'
     Write-Host 'Complete the scenario: launcher/settings -> login -> display transition -> select/create -> Map10 -> movement -> NPC/UI -> combat/skill -> loot/pickup -> map change -> relog.'
+    Write-Host 'Press F12 after each settled checkpoint to capture a TGA in the evidence folder.'
+    Write-Host 'Checkpoints: login, display-transition, char-select-or-create, loading, map10, combat-and-loot, map-change, relog.'
     Write-Host 'Press Enter when finished, or Ctrl+C to abort.'
     [Console]::ReadLine() | Out-Null
 } catch {
@@ -123,6 +127,8 @@ try {
         map = $MapNumber
         clientPid = if ($null -ne $client) { $client.Id } else { $null }
         serverPids = @($serverPids)
+        evidenceDir = $evidenceRoot
+        evidenceFrames = @(Get-ChildItem -LiteralPath $evidenceRoot -Filter '*.tga' -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
         exitCode = $exitCode
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runRoot 'run.json') -Encoding utf8
 }

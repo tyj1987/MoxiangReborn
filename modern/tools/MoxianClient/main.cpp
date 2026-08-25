@@ -127,6 +127,7 @@ struct ClientOptions {
     std::filesystem::path resource_root;
     std::string save_frame;
     std::string state_frames_dir;
+    std::string evidence_dir;
     // M-R7 (G3) 物理 GPU 段: --width/--height 控制 swap chain + 截屏尺寸.
     // 默认 0 = 用 kDefaultWindowWidth/Height (800x600). 4 档: 800/1024/1920/2560.
     std::uint32_t window_width = 0;
@@ -193,6 +194,7 @@ ClientOptions parse_client_options() {
         }
         else if (arg == L"--save-frame") take(options.save_frame);
         else if (arg == L"--state-frames-dir") take(options.state_frames_dir);
+        else if (arg == L"--evidence-dir") take(options.evidence_dir);
         else if (arg == L"--width" && i + 1 < argc)
             options.window_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
         else if (arg == L"--height" && i + 1 < argc)
@@ -332,6 +334,8 @@ bool g_debugUiBounds = false;
 std::string __g_stateFramesDir;
 int __g_currentState = -1;
 std::string __g_pendingStateFrame;
+std::string g_evidenceDir;
+std::uint64_t g_evidenceFrameSequence = 0;
 
 // Active in-game input target. The WndProc forwards keyboard/mouse events
 // to the current game state (only CInGameState consumes input today).
@@ -1813,6 +1817,26 @@ void renderFrame(HWND h) {
 } // namespace
 
 // ---------------------------------------------------------------------------
+void captureHumanEvidenceFrame() {
+    if (g_evidenceDir.empty() || g_renderer == nullptr) return;
+    std::error_code ec;
+    std::filesystem::create_directories(std::filesystem::path(g_evidenceDir), ec);
+    if (ec) {
+        MLOG_WARN("mxh_client: evidence directory unavailable path=%s error=%s",
+                  g_evidenceDir.c_str(), ec.message().c_str());
+        return;
+    }
+    ++g_evidenceFrameSequence;
+    const auto path = std::filesystem::path(g_evidenceDir) /
+        ("screenshot-" + std::to_string(g_evidenceFrameSequence) + ".tga");
+    auto mutablePath = path.string();
+    if (g_renderer->CaptureScreen(mutablePath.data())) {
+        MLOG_INFO("mxh_client: human evidence frame saved path=%s", mutablePath.c_str());
+    } else {
+        MLOG_WARN("mxh_client: human evidence frame capture failed path=%s", mutablePath.c_str());
+    }
+}
+
 // Window procedure. Mirrors the legacy MHClient.cpp WndProc surface â€” only
 // the messages the A.1 skeleton needs are handled.  Phase A.1.6+ extends
 // this with IME, mouse, keyboard, and the game-state dispatch.
@@ -1838,6 +1862,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
     case WM_KEYDOWN:
+        if (w == VK_F12) {
+            captureHumanEvidenceFrame();
+            return 0;
+        }
         if (g_mainTitle) {
             if (w == VK_ESCAPE) {
                 mxh::client::g_running = false;
@@ -2056,6 +2084,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     g_debugUiBounds = options.debug_ui_bounds;
     __g_stateFramesDir = options.state_frames_dir;
+    g_evidenceDir = options.evidence_dir;
     if (!__g_stateFramesDir.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(std::filesystem::path(__g_stateFramesDir), ec);
@@ -2064,6 +2093,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     MLOG_INFO("mxh_client: login=%s:%u map-port=%u user=%s",
               options.login_host.c_str(), options.login_port,
               options.map_port, options.username.c_str());
+    if (!g_evidenceDir.empty()) {
+        MLOG_INFO("mxh_client: F12 human evidence capture directory=%s", g_evidenceDir.c_str());
+    }
 
     WNDCLASSW wc{};
     wc.style         = CS_HREDRAW | CS_VREDRAW;
