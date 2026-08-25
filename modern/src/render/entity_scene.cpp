@@ -323,15 +323,19 @@ struct EntityScene::Impl {
                 const auto& appearance = *appearances[std::min<unsigned>(playerInfo->gender, 1u)];
                 modFiles = mxh::game::resolve_equipped_character_mods(
                     modFiles, appearance.body.mod_files, item_catalog,
-                    playerInfo->weared_item_idx);
+                playerInfo->weared_item_idx);
             }
         }
+        if (modFiles.empty()) return fail("CHX.mod_list.empty", visual->chx_name);
+        std::size_t loadedModCount = 0;
         for (const auto& modName : modFiles) {
             std::vector<std::uint8_t> modBytes;
             mxh::compat::StmStaticModel mod;
             std::string error;
             if (!readFile(storage, modName.c_str(), modBytes) ||
-                !mxh::compat::parse_mod(modBytes, mod, &error)) continue;
+                !mxh::compat::parse_mod(modBytes, mod, &error))
+                return fail("MOD.load", modName);
+            ++loadedModCount;
             std::unordered_map<std::uint32_t, std::array<float, 16>> boneWorld;
             std::function<std::array<float, 16>(const mxh::compat::StmBone&)> resolveBone;
             resolveBone = [&](const mxh::compat::StmBone& bone) {
@@ -351,9 +355,13 @@ struct EntityScene::Impl {
             for (const auto& bone : mod.bones) resolveBone(bone);
             const auto materialBase = model->textures.size();
             model->textures.resize(materialBase + mod.materials.size());
-            for (std::size_t i = 0; i < mod.materials.size(); ++i)
-                loadTexture(storage, device, mod.materials[i].texture_name,
-                            model->textures[materialBase + i]);
+            for (std::size_t i = 0; i < mod.materials.size(); ++i) {
+                const auto& material = mod.materials[i];
+                if (!material.texture_name.empty() &&
+                    !loadTexture(storage, device, material.texture_name,
+                                 model->textures[materialBase + i]))
+                    return fail("texture.load", material.texture_name);
+            }
             for (const auto& source : mod.meshes) {
                 if (source.positions.empty() || source.positions.size() > 65535u) continue;
                 std::vector<VECTOR3> positions(source.positions.size());
@@ -425,6 +433,8 @@ struct EntityScene::Impl {
                 }
             }
         }
+        if (loadedModCount != modFiles.size())
+            return fail("MOD.count", visual->chx_name);
         if (model->meshes.empty()) return fail("MOD.mesh_build", visual->chx_name);
         auto* result = model.get();
         if (playerInfo) playerModels.emplace(playerInfo->object_id, std::move(model));
