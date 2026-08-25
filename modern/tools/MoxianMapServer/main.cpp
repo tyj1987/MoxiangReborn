@@ -57,6 +57,7 @@ struct Args {
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
     bool          allow_dev_fallbacks = false;
+    std::uint32_t dev_initial_money = 0;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -89,6 +90,8 @@ Args parse_args(int argc, char** argv) {
             a.dev_stub_caster = true;  // M3 side-by-side only
         else if (s == "--allow-dev-fallbacks")
             a.allow_dev_fallbacks = true;
+        else if (s == "--dev-initial-money" && i + 1 < argc)
+            a.dev_initial_money = static_cast<std::uint32_t>(std::stoul(argv[++i]));
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
@@ -101,6 +104,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --resource-profile ID  playdh-current or sworking-2008-reference\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
+                      << "  --dev-initial-money N  test-only starting money fixture\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
         }
@@ -292,6 +296,7 @@ int main(int argc, char** argv) {
     // M3 dev-stub-caster (side-by-side harness only).
     handler.set_dev_stub_caster(args.dev_stub_caster);
     handler.set_allow_dev_monster_fallback(args.allow_dev_fallbacks);
+    handler.set_dev_initial_money(args.dev_initial_money);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;

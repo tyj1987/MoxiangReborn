@@ -376,6 +376,12 @@ public:
         allow_dev_monster_fallback_ = on;
     }
 
+    // Test-only fixture.  A non-zero value is applied when a player enters
+    // the map and is never enabled by production launchers.
+    void set_dev_initial_money(std::uint32_t money) noexcept {
+        dev_initial_money_ = money;
+    }
+
     // Test-only read-only accessor for skill_manager_.
     const mxh::game::SkillManager& skill_manager_for_test() const noexcept { return skill_manager_; }
     const mxh::game::SkillInfo* find_skill(std::uint32_t skill_idx) const;
@@ -603,6 +609,7 @@ private:
     std::uint32_t next_monster_id_ = 50000;  // reserved range for monsters
     bool monsters_spawned_ = false;
     bool allow_dev_monster_fallback_ = true;
+    std::uint32_t dev_initial_money_ = 0;
     std::vector<AiSpawnDefinition> ai_spawn_overrides_;
     std::unordered_map<std::uint32_t, mxh::game::MonsterTemplate> ai_template_overrides_;
 

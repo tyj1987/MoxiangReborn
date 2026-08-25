@@ -1193,6 +1193,11 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
 
     // Phase 9.1: Load real character data from DB.
     CharData cd = load_char_data(db_, player_id);
+    if (dev_initial_money_ != 0) {
+        cd.money = dev_initial_money_;
+        std::cout << "[Map] DEV initial money fixture applied player="
+                  << player_id << " amount=" << dev_initial_money_ << "\n";
+    }
     // Agent and MapServer use separate databases in the deploy topology.  The
     // selected MapServer is authoritative for this session's map identity.
     cd.map_num = map_num_;

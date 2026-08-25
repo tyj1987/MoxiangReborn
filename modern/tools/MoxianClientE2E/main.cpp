@@ -521,6 +521,8 @@ int run_e2e(const CliArgs& cli) {
             "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
             "--resource-profile", "playdh-current",
             "--legacy",
+            (cli.exercise_shop ? "--dev-initial-money" : ""),
+            (cli.exercise_shop ? "10000000" : ""),
             (cli.use_hsel ? "--use-hsel" : "")});
 
         if (cli.exercise_mapchange) {
