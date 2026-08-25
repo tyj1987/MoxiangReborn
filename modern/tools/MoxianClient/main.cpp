@@ -2535,6 +2535,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool game_loading_frame_presented = false;
     bool post_login_display_applied = false;
     bool login_failure_presented = false;
+    bool charselect_failure_presented = false;
     bool auto_create_requested = false;
     bool follow_frame_captured = false;
     unsigned follow_settle_frames = 0;
@@ -2692,6 +2693,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 } else if (cur_state == mxh::client::GameStateId::CharSelect) {
                     if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
                             mainGame.GetGameState(cur_state))) {
+                        charselect_failure_presented = false;
                         cs->set_auto_select_for_test(options.auto_create);
                         cs->Start(mainGame.GetEngine());
                         if (!pending_loading_error.empty()) {
@@ -2735,6 +2737,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                 }
                 prev_state = cur_state;
+            }
+            if (cur_state == mxh::client::GameStateId::CharSelect) {
+                if (auto* cs = dynamic_cast<mxh::client::CCharSelectState*>(
+                        mainGame.GetGameState(cur_state));
+                    cs && cs->is_failed() && !charselect_failure_presented) {
+                    charselect_failure_presented = true;
+                    pending_loading_error = cs->failure_reason();
+                    MLOG_ERROR("CharSelect: %s", pending_loading_error.c_str());
+                    mainGame.SetGameState(mxh::client::GameStateId::Title);
+                }
             }
             // GameLoading consumer must run every frame when the state is
             // GameLoading, because the CCharSelectState TCP recv thread may

@@ -265,11 +265,24 @@ TEST(CharSelectWire, SelectAckEmptyPayload) {
 TEST(CCharSelectStateDefaults, AllFieldsZero) {
     mxh::client::CCharSelectState s;
     EXPECT_FALSE(s.is_connected());
+    EXPECT_FALSE(s.is_failed());
+    EXPECT_TRUE(s.failure_reason().empty());
     EXPECT_EQ(s.selected_chrid(), 0u);
     EXPECT_EQ(s.selected_map(),  0u);
     EXPECT_TRUE(s.character_list().empty());
     EXPECT_FALSE(s.logout_pending());
     EXPECT_FALSE(s.RequestLogout());
+}
+
+TEST(CCharSelectState, CharacterListNackExposesRecoverableFailure) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListNack);
+    state.on_message({}, message);
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_EQ(state.failure_reason(), "CharacterListNack received");
 }
 
 TEST(CharSelectUiCommand, ResolvesLegacyIdsAndFunctions) {

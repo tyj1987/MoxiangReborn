@@ -172,6 +172,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 
     // Inspectors.
     bool        is_connected() const noexcept;
+    bool        is_failed() const noexcept { return m_failed; }
+    const std::string& failure_reason() const noexcept { return m_failureReason; }
     std::uint16_t selected_map() const noexcept { return m_selectedMap; }
     std::uint32_t selected_chrid() const noexcept { return m_selectedChrid; }
     bool has_character_list() const noexcept { return m_listReceived; }
