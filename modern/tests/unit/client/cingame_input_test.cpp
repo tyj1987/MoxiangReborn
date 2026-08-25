@@ -716,6 +716,56 @@ TEST(InGamePlayable, MoveAckUpdatesEquipmentAppearanceSlots) {
     EXPECT_EQ(state.game_info().weared_item_idx[2], 401u);
 }
 
+TEST(InGamePlayable, QuestChangeStateUpdatesLiveQuestStatus) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message change;
+    change.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    change.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::ChangeState);
+    change.payload.resize(8, 0);
+    const std::uint32_t quest_id = 1u;
+    const std::uint32_t complete = 2u;
+    std::memcpy(change.payload.data(), &quest_id, 4);
+    std::memcpy(change.payload.data() + 4, &complete, 4);
+    state.on_message(mxh::net::make_connection_id(1), change);
+    EXPECT_EQ(state.quest_id(), 1u);
+    EXPECT_EQ(state.quest_status(), "Ready to claim");
+}
+
+TEST(InGamePlayable, QuestRewardPacketsRefreshMoneyAndInventoryBeforeEndAck) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message money;
+    money.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    money.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+    const std::uint32_t updated_money = 12345u;
+    money.payload.resize(4);
+    std::memcpy(money.payload.data(), &updated_money, 4);
+    state.on_message(mxh::net::make_connection_id(1), money);
+
+    mxh::game::ItemTotalInfo items{};
+    items.Inventory[0] = mxh::game::make_item(7401u, 8000u, 0u, 100u, 2u);
+    mxh::net::Message total;
+    total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    total.payload.resize(sizeof(items));
+    std::memcpy(total.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), total);
+
+    mxh::net::Message end_ack;
+    end_ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    end_ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndAck);
+    end_ack.payload.resize(2, 0);
+    state.on_message(mxh::net::make_connection_id(1), end_ack);
+    EXPECT_EQ(state.game_info().money, updated_money);
+    EXPECT_EQ(state.game_info().items.Inventory[0].dwDBIdx, 7401u);
+    EXPECT_EQ(state.quest_status(), "Reward claimed");
+}
+
 TEST(InGamePlayable, SellAckRemovesSoldQuantityFromLiveInventory) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
