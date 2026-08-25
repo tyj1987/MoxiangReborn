@@ -199,7 +199,8 @@ $processes = @(
     [ordered]@{
         name = 'map'; exe = $mapExe; port = $MapPort
         args = @('--port', $MapPort, '--map', $MapNumber, '--bind-address', $MapBindAddress,
-            '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot) + $commonDbArgs + $hselArgs + $fallbackArgs
+            '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot,
+            '--resource-profile', $ResourceProfileId) + $commonDbArgs + $hselArgs + $fallbackArgs
     },
     [ordered]@{
         name = 'agent'; exe = $agentExe; port = $AgentPort

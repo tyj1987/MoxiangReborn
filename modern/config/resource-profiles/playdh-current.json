@@ -6,7 +6,8 @@
   "serverRoot": "modern/data/PlayDH/Resource/Server",
   "runtimeAllowed": true,
   "referenceOnly": false,
-  "encoding": "Big5",
+  "encoding": "server-size-prefixed-opaque-v1",
+  "textEncoding": "Big5",
   "source": "local canonical PlayDH distribution",
   "hashManifest": "reference/manifests/playdh-current.sha256.json",
   "inventory": {
