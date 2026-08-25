@@ -1356,6 +1356,29 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
             }
             break;
         }
+        case SkillProtocol::SkillObjectAdd: {
+            // Remote players' projectile/channel objects carry the same
+            // legacy 22-byte payload as the old client: skill id, object id,
+            // caster id, world position and direction.  They must enter the
+            // local effect runtime too; otherwise only the caster sees BEFF.
+            if (msg.payload.size() >= 22) {
+                const auto skill_idx = get_u32(msg.payload.data());
+                const auto skill_object = get_u32(msg.payload.data() + 4);
+                const auto caster = get_u32(msg.payload.data() + 8);
+                start_skill_effect(skill_idx, skill_object, m_lastTickMs, caster);
+                push_effect_event(EffectEvent{
+                    EffectEventKind::CastStart, m_lastTickMs, caster,
+                    skill_object, skill_idx, skill_idx, 0, 0, 0});
+            }
+            break;
+        }
+        case SkillProtocol::SkillObjectRemove: {
+            const auto skill_object = msg.header.object_id;
+            push_effect_event(EffectEvent{
+                EffectEventKind::End, m_lastTickMs, 0, skill_object,
+                0, 0, 0, 0, 0});
+            break;
+        }
         default:
             MLOG_DEBUG("CInGameState: skill broadcast proto=%d",
                        static_cast<int>(proto));

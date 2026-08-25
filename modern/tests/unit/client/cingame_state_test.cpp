@@ -193,6 +193,39 @@ TEST(InGameEffects, ConfirmedSkillMessagesProduceDeterministicTimeline) {
     EXPECT_TRUE(state.effect_events().empty());
 }
 
+TEST(InGameEffects, RemoteSkillObjectBroadcastProducesCastTimeline) {
+    mxh::client::CInGameState state;
+    mxh::net::Message add;
+    add.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    add.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::SkillProtocol::SkillObjectAdd);
+    add.payload.resize(22, 0);
+    const std::uint32_t skill_id = 43u;
+    const std::uint32_t object_id = 70002u;
+    const std::uint32_t caster_id = 90002u;
+    std::memcpy(add.payload.data(), &skill_id, 4);
+    std::memcpy(add.payload.data() + 4, &object_id, 4);
+    std::memcpy(add.payload.data() + 8, &caster_id, 4);
+    state.on_message({}, add);
+    ASSERT_EQ(state.effect_events().size(), 1u);
+    EXPECT_EQ(state.effect_events()[0].kind,
+              mxh::client::EffectEventKind::CastStart);
+    EXPECT_EQ(state.effect_events()[0].skill_id, skill_id);
+    EXPECT_EQ(state.effect_events()[0].source_object_id, caster_id);
+    EXPECT_EQ(state.effect_events()[0].target_object_id, object_id);
+
+    mxh::net::Message remove;
+    remove.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    remove.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::SkillProtocol::SkillObjectRemove);
+    remove.header.object_id = object_id;
+    state.on_message({}, remove);
+    ASSERT_EQ(state.effect_events().size(), 2u);
+    EXPECT_EQ(state.effect_events()[1].kind,
+              mxh::client::EffectEventKind::End);
+    EXPECT_EQ(state.effect_events()[1].target_object_id, object_id);
+}
+
 TEST(InGameCharacterAdd, DecodesServerPushedPlayerPayload) {
     std::array<std::uint8_t, 288> payload{};
     const std::uint32_t objectId = 0x12345678u;
