@@ -317,6 +317,12 @@ TEST(SkillListParser, LoadRealSkillListFirstEntry) {
             EXPECT_EQ(s.NeedNaeRyuk[i], 0u);
         }
         EXPECT_EQ(s.LinkSkillIdx, 10001u);
+        const auto parsed = load_skill_list(kTempSkillList);
+        ASSERT_FALSE(parsed.skills.empty());
+        ASSERT_FALSE(parsed.effect_refs.empty());
+        EXPECT_EQ(parsed.effect_refs.front().skill_id, 1u);
+        EXPECT_TRUE(parsed.effect_refs.front().effect_start.empty());
+        EXPECT_EQ(parsed.effect_refs.front().effect_use, "m_combo_gum01.beff");
     } catch (const std::system_error& e) {
         GTEST_FAIL() << "system_error code=" << e.code().value();
     } catch (const std::exception& e) {

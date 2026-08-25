@@ -442,6 +442,18 @@ SkillListParseResult load_skill_list(const std::string& path) {
                     }
                     continue;
                 }
+                if (tokens.size() > 28) {
+                    auto preserve_effect = [](const std::string& value) {
+                        return value == "0" ? std::string{} : value;
+                    };
+                    result.effect_refs.push_back(SkillEffectRefs{
+                        s.SkillIdx,
+                        preserve_effect(tokens[24]),
+                        preserve_effect(tokens[25]),
+                        preserve_effect(tokens[26]),
+                        preserve_effect(tokens[27]),
+                        preserve_effect(tokens[28])});
+                }
                 result.skills.push_back(std::move(s));
             } catch (const std::system_error& e) {
                 ++result.parse_errors;
