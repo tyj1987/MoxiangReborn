@@ -540,6 +540,161 @@ bool loadGameWorld(const ClientOptions& options,
     return true;
 }
 
+// Main-thread staged world activation.  CPU descriptors and GPU resources
+// are intentionally committed one dependency stage per frame so the real
+// loading dialog keeps receiving/process­ing window messages.  The old
+// scene remains live until the final commit, which is required for MapChange
+// rollback and avoids exposing half-built render state.
+class GameWorldLoadSession {
+public:
+    enum class Result { Pending, Complete, Failed };
+
+    GameWorldLoadSession(const ClientOptions& options,
+                         I4DyuchiGXRenderer* renderer,
+                         I4DyuchiFileStorage* storage,
+                         mxh::audio::BgmPlayer& bgm,
+                         std::uint16_t map_num)
+        : options_(options), renderer_(renderer), storage_(storage),
+          bgm_(bgm), map_num_(map_num),
+          previous_render_terrain_(g_renderTerrain),
+          previous_capture_frame_(g_captureTerrainFrame) {
+        g_renderTerrain = false;
+        g_captureTerrainFrame.clear();
+    }
+
+    ~GameWorldLoadSession() {
+        if (!complete_ && !failed_) cancel();
+    }
+
+    Result advance(const std::function<void(std::uint32_t)>& progress,
+                   std::string& error) {
+        error.clear();
+        if (failed_) {
+            error = error_;
+            return Result::Failed;
+        }
+        if (stage_ == 0) {
+            const auto descriptor_path = options_.resource_root / "Resource" / "Map" /
+                ("Map" + std::to_string(map_num_) + ".bmhm");
+            descriptor_ = mxh::compat::BmhmMap::load(descriptor_path);
+            if (!descriptor_) return fail("Map descriptor unavailable: " + descriptor_path.string(), error);
+            mark(progress, 1);
+            ++stage_;
+            return Result::Pending;
+        }
+        if (stage_ == 1) {
+            terrain_ = std::make_unique<mxh::gx::TerrainScene>();
+            const auto name = std::to_string(map_num_) + ".hfl";
+            if (!terrain_->load(renderer_, storage_, name.c_str(), &stage_error_))
+                return fail("Terrain load failed (" + name + "): " + stage_error_, error);
+            if (terrain_->unresolvedTextureCount() != 0 && !g_debugUiBounds)
+                return fail("Terrain contains " + std::to_string(terrain_->unresolvedTextureCount()) + " unresolved textures", error);
+            mark(progress, 3);
+            ++stage_;
+            return Result::Pending;
+        }
+        if (stage_ == 2) {
+            static_scene_ = std::make_unique<mxh::gx::StaticScene>();
+            const auto name = std::to_string(map_num_) + ".stm";
+            if (!static_scene_->load(renderer_, storage_, name.c_str(), &stage_error_))
+                return fail("Static scene load failed (" + name + "): " + stage_error_, error);
+            if (static_scene_->unresolvedTextureCount() != 0 && !g_debugUiBounds)
+                return fail("Static scene contains " + std::to_string(static_scene_->unresolvedTextureCount()) + " unresolved textures", error);
+            mark(progress, 5);
+            ++stage_;
+            return Result::Pending;
+        }
+        if (stage_ == 3) {
+            if (descriptor_->desc().sky_mod[0]) {
+                sky_scene_ = std::make_unique<mxh::gx::SkyScene>();
+                if (!sky_scene_->load(renderer_, storage_, descriptor_->desc().sky_mod, &stage_error_))
+                    return fail("Sky scene load failed (" + std::string(descriptor_->desc().sky_mod) + "): " + stage_error_, error);
+            }
+            mark(progress, 6);
+            ++stage_;
+            return Result::Pending;
+        }
+        if (stage_ == 4) {
+            entity_scene_ = std::make_unique<mxh::gx::EntityScene>();
+            if (!entity_scene_->load(renderer_, storage_, &stage_error_))
+                return fail("Entity scene load failed: " + stage_error_, error);
+            entity_scene_->setPlaceholderRenderingEnabled(g_debugUiBounds);
+            mark(progress, 8);
+            ++stage_;
+            return Result::Pending;
+        }
+        if (stage_ == 5) {
+            std::string audio_error;
+            if (!bgm_.play(descriptor_->desc().bgm_sound_num, &audio_error))
+                MLOG_WARN("mxh_client: map BGM unavailable: %s", audio_error.c_str());
+            mark(progress, 9);
+            ++stage_;
+            return Result::Pending;
+        }
+
+        g_terrain = std::move(terrain_);
+        if (g_inputTarget) {
+            g_inputTarget->set_world_bounds(g_terrain->worldWidth(), g_terrain->worldHeight());
+        }
+        g_staticScene = std::move(static_scene_);
+        g_skyScene = std::move(sky_scene_);
+        g_entityScene = std::move(entity_scene_);
+        if (g_inputTarget && g_staticScene) {
+            auto* static_scene = g_staticScene.get();
+            g_inputTarget->set_collision_query(
+                [static_scene](float x, float z, float radius) {
+                    return static_scene->blocksPoint(x, z, radius);
+                });
+        }
+        g_renderTerrain = true;
+        if (g_overviewCamera) g_captureTerrainFrame = options_.save_frame;
+        mark(progress, 10);
+        complete_ = true;
+        MLOG_INFO("mxh_client: staged GameLoading complete map=%u", static_cast<unsigned>(map_num_));
+        return Result::Complete;
+    }
+
+    void cancel() noexcept {
+        if (complete_) return;
+        failed_ = true;
+        error_ = "world loading cancelled";
+        g_renderTerrain = previous_render_terrain_;
+        g_captureTerrainFrame = previous_capture_frame_;
+    }
+
+private:
+    void mark(const std::function<void(std::uint32_t)>& progress, std::uint32_t value) {
+        if (progress) progress(value);
+    }
+
+    Result fail(std::string message, std::string& error) {
+        failed_ = true;
+        error_ = std::move(message);
+        g_renderTerrain = previous_render_terrain_;
+        g_captureTerrainFrame = previous_capture_frame_;
+        error = error_;
+        return Result::Failed;
+    }
+
+    const ClientOptions& options_;
+    I4DyuchiGXRenderer* renderer_ = nullptr;
+    I4DyuchiFileStorage* storage_ = nullptr;
+    mxh::audio::BgmPlayer& bgm_;
+    std::uint16_t map_num_ = 0;
+    std::uint32_t stage_ = 0;
+    bool complete_ = false;
+    bool failed_ = false;
+    bool previous_render_terrain_ = false;
+    std::string previous_capture_frame_;
+    std::string stage_error_;
+    std::string error_;
+    std::optional<mxh::compat::BmhmMap> descriptor_;
+    std::unique_ptr<mxh::gx::TerrainScene> terrain_;
+    std::unique_ptr<mxh::gx::StaticScene> static_scene_;
+    std::unique_ptr<mxh::gx::SkyScene> sky_scene_;
+    std::unique_ptr<mxh::gx::EntityScene> entity_scene_;
+};
+
 // Phase A.1.4: per-cImage sprite. cImage holds an opaque void* (its
 // IDISpriteObject*). The adapter casts back and forwards to the
 // renderer's RenderSprite.  Earlier A.1.3 had a single g_hudSprite
@@ -2455,6 +2610,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::uint16_t pending_map_num = 0;
     std::string pending_loading_error;
     mxh::client::GameLoadingCoordinator loadingCoordinator;
+    std::unique_ptr<GameWorldLoadSession> worldLoadSession;
     bool game_loading_frame_presented = false;
     bool post_login_display_applied = false;
     bool login_failure_presented = false;
@@ -2658,9 +2814,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 cur_state == mxh::client::GameStateId::MapChange) {
                 if (!game_loading_frame_presented) {
                     game_loading_frame_presented = true;
-                    } else if (mainGame.GetEngine()->has_pending_transfer()) {
+                } else {
                     std::string transferError;
-                    if (loadingCoordinator.consume_pending_transfer(
+                    if (!worldLoadSession && mainGame.GetEngine()->has_pending_transfer() &&
+                        loadingCoordinator.consume_pending_transfer(
                             *mainGame.GetEngine(), &transferError)) {
                         if (cur_state == mxh::client::GameStateId::GameLoading) {
                             if (auto* loading = dynamic_cast<mxh::client::CGameLoading*>(
@@ -2671,36 +2828,38 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                        mainGame.GetGameState(cur_state))) {
                             change->set_context(&loadingCoordinator.context());
                         }
-                        std::string loadingError;
-                        if (loadGameWorld(options, renderer, storage, bgm,
-                                          loadingCoordinator.request().map_num,
-                                          loadingError,
-                                          [&loadingCoordinator](std::uint32_t step) {
-                                              loadingCoordinator.mark_completed(step);
-                                          })) {
-                            pending_character_id = loadingCoordinator.request().character_id;
-                            pending_map_num = loadingCoordinator.request().map_num;
-                            mainGame.SetGameState(mxh::client::GameStateId::GameIn);
-                        } else {
-                            pending_loading_error = "Unable to enter Map " +
-                                std::to_string(loadingCoordinator.request().map_num) + ": " + loadingError;
-                            loadingCoordinator.mark_failed(pending_loading_error);
-                            MLOG_ERROR("GameLoading: %s",
-                                       pending_loading_error.c_str());
-                            // MapChange must preserve the old playable scene
-                            // when target activation fails. Initial entry has
-                            // no active in-game target and still returns to
-                            // CharSelect as before.
-                            mainGame.SetGameState(
-                                (g_inputTarget && g_inputTarget->is_in_game())
-                                    ? mxh::client::GameStateId::GameIn
-                                    : mxh::client::GameStateId::CharSelect);
-                        }
-                    } else if (transferError != "waiting for GameEntryRequest") {
+                        worldLoadSession = std::make_unique<GameWorldLoadSession>(
+                            options, renderer, storage, bgm,
+                            loadingCoordinator.request().map_num);
+                    } else if (!worldLoadSession && !transferError.empty() &&
+                               transferError != "waiting for GameEntryRequest") {
                         pending_loading_error = transferError;
                         MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
                         mainGame.SetGameState(
                             mxh::client::GameStateId::CharSelect);
+                    }
+                    if (worldLoadSession) {
+                        std::string loadingError;
+                        const auto result = worldLoadSession->advance(
+                            [&loadingCoordinator](std::uint32_t step) {
+                                loadingCoordinator.mark_completed(step);
+                            }, loadingError);
+                        if (result == GameWorldLoadSession::Result::Complete) {
+                            pending_character_id = loadingCoordinator.request().character_id;
+                            pending_map_num = loadingCoordinator.request().map_num;
+                            worldLoadSession.reset();
+                            mainGame.SetGameState(mxh::client::GameStateId::GameIn);
+                        } else if (result == GameWorldLoadSession::Result::Failed) {
+                            pending_loading_error = "Unable to enter Map " +
+                                std::to_string(loadingCoordinator.request().map_num) + ": " + loadingError;
+                            loadingCoordinator.mark_failed(pending_loading_error);
+                            MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
+                            mainGame.SetGameState(
+                                (g_inputTarget && g_inputTarget->is_in_game())
+                                    ? mxh::client::GameStateId::GameIn
+                                    : mxh::client::GameStateId::CharSelect);
+                            worldLoadSession.reset();
+                        }
                     }
                 }
             }
