@@ -2,6 +2,7 @@
 #include <shellapi.h>
 #include <filesystem>
 #include <fstream>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -18,19 +19,18 @@ static fs::path settingsPath() {
     wchar_t buffer[MAX_PATH]{};
     DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer, MAX_PATH);
     fs::path root = n ? fs::path(buffer) : fs::temp_directory_path();
-    return root / L"Moxian" / L"launcher-settings.txt";
+    return root / L"Moxian" / L"settings.json";
 }
 
 static LauncherSettings loadSettings() {
     LauncherSettings s;
     std::wifstream in(settingsPath());
-    std::wstring key, value;
-    while (in >> key >> value) {
-        if (key == L"profile") s.profile = value;
-        else if (key == L"post_width") s.postWidth = _wtoi(value.c_str());
-        else if (key == L"post_height") s.postHeight = _wtoi(value.c_str());
-        else if (key == L"borderless") s.borderless = value == L"1";
-    }
+    std::wstring text((std::istreambuf_iterator<wchar_t>(in)), {});
+    std::wsmatch match;
+    if (std::regex_search(text, match, std::wregex(LR"REGEX("profile"\s*:\s*"([^"]+)")REGEX"))) s.profile = match[1].str();
+    if (std::regex_search(text, match, std::wregex(LR"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = _wtoi(match[1].str().c_str());
+    if (std::regex_search(text, match, std::wregex(LR"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = _wtoi(match[1].str().c_str());
+    if (std::regex_search(text, match, std::wregex(LR"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == L"true";
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
     if (s.postWidth < 640 || s.postHeight < 480) { s.postWidth = 1024; s.postHeight = 768; }
     return s;
@@ -42,8 +42,10 @@ static void saveSettings(const LauncherSettings& s) {
     fs::path temp = settingsPath(); temp += L".tmp";
     std::wofstream out(temp, std::ios::trunc);
     if (!out) return;
-    out << L"profile " << s.profile << L"\npost_width " << s.postWidth
-        << L"\npost_height " << s.postHeight << L"\nborderless " << (s.borderless ? 1 : 0) << L"\n";
+    out << L"{\n  \"schemaVersion\": 1,\n  \"profile\": \"" << s.profile
+        << L"\",\n  \"postLoginWidth\": " << s.postWidth
+        << L",\n  \"postLoginHeight\": " << s.postHeight
+        << L",\n  \"borderless\": " << (s.borderless ? L"true" : L"false") << L"\n}\n";
     out.close();
     MoveFileExW(temp.c_str(), settingsPath().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
 }
