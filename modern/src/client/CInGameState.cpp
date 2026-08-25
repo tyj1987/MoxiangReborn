@@ -1379,6 +1379,11 @@ void CInGameState::set_world_bounds(float max_x, float max_z) noexcept {
     m_localZ = std::clamp(m_localZ, 0.0f, m_worldLimitZ);
 }
 
+void CInGameState::set_collision_query(
+    std::function<bool(float, float, float)> query) {
+    m_collisionQuery = std::move(query);
+}
+
 void CInGameState::update_movement(std::uint64_t now_ms) {
     if (!m_inGame) return;
     float dt = 0.016f;
@@ -1391,6 +1396,13 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
     const auto step = step_movement(m_keyMask, m_cameraYaw,
                                     m_localX, m_localZ, dt,
                                     m_worldLimitX, m_worldLimitZ);
+    if (step.moving && m_collisionQuery &&
+        m_collisionQuery(step.x, step.z, 24.0f)) {
+        // Keep the last valid position and let the next tick retry.  The
+        // server remains authoritative; this only prevents the local avatar
+        // from visibly tunnelling through loaded static geometry.
+        return;
+    }
     m_cameraYaw = step.yaw;
     m_localX = step.x;
     m_localZ = step.z;

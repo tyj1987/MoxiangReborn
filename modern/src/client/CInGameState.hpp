@@ -34,6 +34,7 @@
 #include "ClientUiRuntime.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <array>
 #include <memory>
 #include <optional>
@@ -355,6 +356,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void OnMouseWheel(std::int32_t delta);
     void set_world_bounds(float max_x, float max_z) noexcept;
+    void set_collision_query(std::function<bool(float, float, float)> query);
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept;
     void try_pickup();
@@ -466,6 +468,7 @@ public:
     float          m_cameraDistance = 6.0f;
     float          m_worldLimitX = kWorldLimit;
     float          m_worldLimitZ = kWorldLimit;
+    std::function<bool(float, float, float)> m_collisionQuery;
     bool           m_moving       = false;
     std::uint64_t  m_lastTickMs   = 0;
     std::uint64_t  m_lastMoveSendMs = 0;

@@ -24,6 +24,11 @@ public:
     [[nodiscard]] std::uint32_t meshCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
     [[nodiscard]] std::uint32_t unresolvedTextureCount() const noexcept;
+    // Conservative XZ collision query over loaded STM mesh bounds.  It is
+    // intentionally separate from rendering so movement can fail closed when
+    // a map has no static geometry.
+    [[nodiscard]] bool blocksPoint(float world_x, float world_z,
+                                   float radius = 0.0f) const noexcept;
 
 private:
     struct Impl;

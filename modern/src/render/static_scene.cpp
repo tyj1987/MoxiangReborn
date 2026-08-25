@@ -7,6 +7,7 @@
 #include "dx11/texture_loader.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 #include <d3d11.h>
@@ -56,10 +57,12 @@ bool loadTexture(I4DyuchiFileStorage* storage, ID3D11Device* device,
 }
 
 struct StaticScene::Impl {
+    struct Bounds { float min_x, max_x, min_z, max_z; };
     I4DyuchiGXRenderer* renderer = nullptr;
     std::vector<IDIMeshObject*> meshes;
     std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
     std::uint32_t unresolved_textures = 0;
+    std::vector<Bounds> collision_bounds;
     ~Impl() { for (auto* mesh : meshes) if (mesh) mesh->Release(); }
 };
 
@@ -70,7 +73,9 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
                        const char* stm_name, std::string* error) {
     if (!renderer || !storage || !stm_name) return false;
     for (auto* mesh : impl_->meshes) if (mesh) mesh->Release();
-    impl_->meshes.clear(); impl_->textures.clear(); impl_->renderer = renderer;
+    impl_->meshes.clear(); impl_->textures.clear();
+    impl_->collision_bounds.clear();
+    impl_->renderer = renderer;
     impl_->unresolved_textures = 0;
     std::vector<std::uint8_t> bytes;
     mxh::compat::StmStaticModel scene;
@@ -92,6 +97,11 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
 
     for (const auto& source : scene.meshes) {
         if (source.positions.empty() || source.positions.size() > 65535u) continue;
+        Impl::Bounds bounds{
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::lowest(),
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::lowest()};
         std::vector<VECTOR3> positions(source.positions.size());
         std::vector<VECTOR3> normals(source.positions.size(), VECTOR3{0, 1, 0});
         std::vector<TVERTEX> texcoords(source.positions.size());
@@ -99,6 +109,10 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
             positions[i] = {source.positions[i][0] * kSceneScale - kMapCenter,
                             source.positions[i][1] * kSceneScale,
                             source.positions[i][2] * kSceneScale - kMapCenter};
+            bounds.min_x = std::min(bounds.min_x, positions[i].x);
+            bounds.max_x = std::max(bounds.max_x, positions[i].x);
+            bounds.min_z = std::min(bounds.min_z, positions[i].z);
+            bounds.max_z = std::max(bounds.max_z, positions[i].z);
             if (i < source.normals.size())
                 normals[i] = {source.normals[i][0], source.normals[i][1], source.normals[i][2]};
             if (i < source.texcoords.size())
@@ -130,6 +144,7 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
             if (materials[group] < impl_->textures.size())
                 mesh->SetFaceGroupDiffuseSRV(group, impl_->textures[materials[group]].Get());
         impl_->meshes.push_back(mesh);
+        impl_->collision_bounds.push_back(bounds);
     }
     MLOG_INFO("[static] original STM loaded meshes=%u/%u textures=%u/%u",
               meshCount(), static_cast<unsigned>(scene.meshes.size()), loadedTextureCount(),
@@ -152,5 +167,19 @@ std::uint32_t StaticScene::loadedTextureCount() const noexcept {
 }
 std::uint32_t StaticScene::unresolvedTextureCount() const noexcept {
     return impl_ ? impl_->unresolved_textures : 0;
+}
+
+bool StaticScene::blocksPoint(float world_x, float world_z,
+                              float radius) const noexcept {
+    if (!impl_ || impl_->collision_bounds.empty()) return false;
+    const float scene_x = world_x * kSceneScale - kMapCenter;
+    const float scene_z = world_z * kSceneScale - kMapCenter;
+    const float r = std::max(0.0f, radius) * kSceneScale;
+    return std::any_of(impl_->collision_bounds.begin(),
+                       impl_->collision_bounds.end(),
+                       [scene_x, scene_z, r](const Impl::Bounds& b) {
+        return scene_x >= b.min_x - r && scene_x <= b.max_x + r &&
+               scene_z >= b.min_z - r && scene_z <= b.max_z + r;
+    });
 }
 } // namespace mxh::gx

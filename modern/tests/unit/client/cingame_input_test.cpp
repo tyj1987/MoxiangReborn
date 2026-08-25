@@ -97,6 +97,24 @@ TEST(InGameMovement, UsesMapSpecificWorldBounds) {
     EXPECT_EQ(r.z, 100.0f);
 }
 
+TEST(InGamePlayable, StaticCollisionQueryRejectsCandidateStep) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::client::GameInInfo info;
+    info.player_id = 42;
+    info.position_x = 1000;
+    info.position_z = 1000;
+    info.map_num = 10;
+    state.dispatch_gamein_ack(info);
+    state.set_collision_query([](float x, float z, float) {
+        return x >= 900.0f && z >= 900.0f;
+    });
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.Process();
+    EXPECT_EQ(state.local_x(), 1000u);
+    EXPECT_EQ(state.local_z(), 1000u);
+}
+
 TEST(InGameMovement, ZeroDtDoesNotMove) {
     const auto r = step_movement(kForward, 0.0f, 1.0f, 2.0f, 0.0f);
     EXPECT_EQ(r.x, 1.0f);

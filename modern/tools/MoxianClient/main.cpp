@@ -449,6 +449,13 @@ bool loadGameWorld(const ClientOptions& options,
     g_staticScene = std::move(staticScene);
     g_skyScene = std::move(skyScene);
     g_entityScene = std::move(entityScene);
+    if (g_inputTarget && g_staticScene) {
+        auto* staticScenePtr = g_staticScene.get();
+        g_inputTarget->set_collision_query(
+            [staticScenePtr](float x, float z, float radius) {
+                return staticScenePtr->blocksPoint(x, z, radius);
+            });
+    }
     g_renderTerrain = true;
     if (g_overviewCamera) g_captureTerrainFrame = options.save_frame;
     MLOG_INFO("mxh_client: GameLoading complete map=%u terrain=%s static=%s",
