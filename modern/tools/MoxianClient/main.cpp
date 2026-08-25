@@ -27,6 +27,7 @@
 #include <cstring>
 #include <cstdint>
 #include <algorithm>
+#include <cctype>
 #include <array>
 #include <string>
 #include <filesystem>
@@ -1698,12 +1699,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (!entry.available || entry.streaming) continue;
             if (fallback_sound == 0xffffu) fallback_sound = entry.index;
             const auto name = entry.file_name;
-            const bool ui = name.find("click") != std::string::npos ||
-                name.find("button") != std::string::npos || name.find("ui") != std::string::npos;
-            const bool attack = name.find("attack") != std::string::npos ||
-                name.find("swing") != std::string::npos || name.find("weapon") != std::string::npos;
-            const bool skill = name.find("skill") != std::string::npos ||
-                name.find("magic") != std::string::npos || name.find("mugong") != std::string::npos;
+            std::string lower_name = name;
+            std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            const bool ui = lower_name.find("click") != std::string::npos ||
+                lower_name.find("button") != std::string::npos || lower_name.find("ui") != std::string::npos;
+            const bool attack = lower_name.find("attack") != std::string::npos ||
+                lower_name.find("swing") != std::string::npos || lower_name.find("weapon") != std::string::npos;
+            const bool skill = lower_name.find("skill") != std::string::npos ||
+                lower_name.find("magic") != std::string::npos || lower_name.find("mugong") != std::string::npos;
             if (ui && g_uiClickSound == 0xffffu) {
                 g_uiClickSound = entry.index;
             }
