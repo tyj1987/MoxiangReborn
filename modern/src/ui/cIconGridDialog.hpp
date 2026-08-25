@@ -233,6 +233,8 @@ private:
 
     // Selection + drag state.
     std::int32_t     m_lCurSelCellPos   = -1;
+    std::int32_t     m_pressedCellPos  = -1;
+    std::uint32_t    m_pressedButton   = 0;
     std::int32_t     m_lCurDragOverPos  = -1;
     bool             m_bItemDraged      = false;
     bool             m_bShowGrid        = false;

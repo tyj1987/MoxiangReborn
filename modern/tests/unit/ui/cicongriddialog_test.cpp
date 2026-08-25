@@ -241,6 +241,18 @@ TEST(CIconGridDialog, SelectionSetterGetter) {
     EXPECT_EQ(d.GetCurSelCellPos(), -1);
 }
 
+TEST(CIconGridDialog, ActionEventSelectsCellAndReportsClick) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 200, 200, nullptr, 4, 3);
+    d.InitGrid(0, 0, 40, 40, 4, 4);
+    EXPECT_EQ(d.ActionEvent(20, 20, mxh::ui::cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonDown));
+    EXPECT_EQ(d.GetCurSelCellPos(), 0);
+    EXPECT_EQ(d.ActionEvent(20, 20, 0),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonClick));
+    EXPECT_EQ(d.GetCurSelCellPos(), 0);
+}
+
 TEST(CIconGridDialog, ShowGridFlag) {
     mxh::ui::cIconGridDialog d;
     EXPECT_FALSE(d.IsShowGrid());

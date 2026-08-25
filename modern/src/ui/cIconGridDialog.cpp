@@ -128,6 +128,8 @@ void cIconGridDialog::SetActive(bool val) noexcept {
     if (!isEnabled()) return;
     cDialog::SetActive(val);
     m_lCurSelCellPos = -1;
+    m_pressedCellPos = -1;
+    m_pressedButton = 0;
 }
 
 void cIconGridDialog::SetDisable(bool val) noexcept {
@@ -303,16 +305,39 @@ bool cIconGridDialog::MoveIcon(std::uint16_t cellX, std::uint16_t cellY, cIcon* 
     return false;
 }
 
-std::uint32_t cIconGridDialog::ActionEvent(std::int32_t /*mouseX*/,
-                                           std::int32_t /*mouseY*/,
-                                           std::uint32_t /*mouseFlags*/) {
-    // 1:1 with legacy cIconGridDialog::ActionEvent. The legacy
-    // dispatches click / drag / dblclick through cbWindowFunc, which
-    // has no modern equivalent (the dispatcher integration lands in
-    // 6.6). For now we expose a no-op stub; the full ActionEvent
-    // behavior (drag, IsDragOverDraw, the cbWindowFunc dispatch)
-    // lands with the 6.6 cWindowManager integration.
-    return 0;
+std::uint32_t cIconGridDialog::ActionEvent(std::int32_t mouseX,
+                                           std::int32_t mouseY,
+                                           std::uint32_t mouseFlags) {
+    std::uint16_t cell = 0;
+    if (!GetPositionForXYRef(mouseX, mouseY, cell)) {
+        if (mouseFlags == 0) {
+            m_pressedCellPos = -1;
+            m_pressedButton = 0;
+        }
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool left = (mouseFlags & MouseFlagLButton) != 0;
+    const bool right = (mouseFlags & MouseFlagRButton) != 0;
+    if (left || right) {
+        m_lCurSelCellPos = static_cast<std::int32_t>(cell);
+        m_pressedCellPos = static_cast<std::int32_t>(cell);
+        m_pressedButton = left ? MouseFlagLButton : MouseFlagRButton;
+        return static_cast<std::uint32_t>(left
+            ? WindowEvent::LButtonDown : WindowEvent::RButtonDown);
+    }
+    if (m_pressedCellPos < 0) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool same = m_pressedCellPos == static_cast<std::int32_t>(cell);
+    const auto button = m_pressedButton;
+    m_pressedCellPos = -1;
+    m_pressedButton = 0;
+    if (!same) {
+        return static_cast<std::uint32_t>(button == MouseFlagRButton
+            ? WindowEvent::RButtonUp : WindowEvent::LButtonUp);
+    }
+    return static_cast<std::uint32_t>(button == MouseFlagRButton
+        ? WindowEvent::RButtonClick : WindowEvent::LButtonClick);
 }
 
 void cIconGridDialog::SetCellRect(std::int32_t l, std::int32_t t,
