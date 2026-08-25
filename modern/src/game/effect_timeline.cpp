@@ -65,6 +65,9 @@ std::vector<EffectTimelineEvent> EffectTimeline::advance(std::uint64_t now_ms) n
         EffectTimelineEvent event{item.due_ms, item.index, item.trigger};
         if (item.trigger.unit < m_units.size()) {
             event.unit_kind = m_units[item.trigger.unit].kind;
+            event.object_name = m_units[item.trigger.unit].object_name;
+            event.sound_name = m_units[item.trigger.unit].sound_name;
+            event.texture_name = m_units[item.trigger.unit].texture_name;
             event.sound_id = m_units[item.trigger.unit].sound_id;
         }
         out.push_back(std::move(event));

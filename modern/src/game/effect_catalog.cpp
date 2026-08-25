@@ -63,7 +63,15 @@ void scan_script(EffectScriptSummary& summary,
             std::string directive;
             std::string dependency;
             fields >> directive >> dependency;
-            if (!dependency.empty()) summary.dependencies.push_back(dependency);
+            if (!dependency.empty()) {
+                summary.dependencies.push_back(dependency);
+                if (!summary.units.empty()) {
+                    auto& unit = summary.units.back();
+                    if (directive == "#OBJECTNAME") unit.object_name = dependency;
+                    else if (directive == "#SOUNDNAME") unit.sound_name = dependency;
+                    else if (directive == "#TEXTURE") unit.texture_name = dependency;
+                }
+            }
         }
     }
     summary.decoded = summary.effect_unit_count != 0 || summary.trigger_count != 0;

@@ -18,6 +18,9 @@ struct RuntimeEffectEvent {
     std::uint32_t target_object_id = 0;
     mxh::game::EffectTimelineEvent trigger;
     std::string unit_kind;
+    std::string object_name;
+    std::string sound_name;
+    std::string texture_name;
     std::uint32_t sound_id = 0;
 };
 

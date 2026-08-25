@@ -44,7 +44,9 @@ void EffectRuntime::advance(
                 emit(RuntimeEffectEvent{it->effect_name,
                                         it->source_object_id,
                                         it->target_object_id, trigger,
-                                        trigger.unit_kind, trigger.sound_id});
+                                        trigger.unit_kind, trigger.object_name,
+                                        trigger.sound_name, trigger.texture_name,
+                                        trigger.sound_id});
             }
         }
         if (!it->timeline.active()) it = m_instances.erase(it);
