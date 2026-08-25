@@ -47,3 +47,9 @@ TEST(EffectRuntime, RunsDecodedRealEffectWithObjectContext) {
     EXPECT_EQ(emitted.front().source_object_id, 101u);
     EXPECT_EQ(emitted.front().target_object_id, 202u);
 }
+
+TEST(EffectRuntime, MissingIdFailsWithoutGuessingAnotherEffect) {
+    mxh::client::EffectRuntime runtime;
+    EXPECT_FALSE(runtime.start_by_id(999999u, false, 1, 2, 0, 16));
+    EXPECT_EQ(runtime.active_count(), 0u);
+}

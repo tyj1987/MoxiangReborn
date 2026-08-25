@@ -28,6 +28,12 @@ public:
                std::uint32_t target_object_id,
                std::uint64_t now_ms,
                std::uint32_t tick_per_frame_ms);
+    bool start_by_id(std::uint32_t effect_id,
+                     bool female,
+                     std::uint32_t source_object_id,
+                     std::uint32_t target_object_id,
+                     std::uint64_t now_ms,
+                     std::uint32_t tick_per_frame_ms);
     void advance(std::uint64_t now_ms,
                  const std::function<void(const RuntimeEffectEvent&)>& emit);
     void clear() noexcept;
