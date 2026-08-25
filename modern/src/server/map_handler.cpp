@@ -1713,13 +1713,16 @@ void MapHandler::handle_party(mxh::net::ConnectionId id,
                 const auto member = connected_players_.find(member_id);
                 if (member != connected_players_.end()) member_conn = member->second.conn_id;
             }
-            if (member_conn == 0) continue;
             mxh::net::Message info;
             info.header.category = msg.header.category;
             info.header.protocol = static_cast<std::uint8_t>(PartyProtocol::Info);
             info.header.object_id = member_id;
             info.payload = snapshot;
-            reply_(mxh::net::ConnectionId{member_conn}, info);
+            // If the member is on another MapServer, the local map has no
+            // client connection entry. Sending through the current
+            // MapServer link with object_id=member_id lets Agent route the
+            // snapshot to that member's active session.
+            reply_(member_conn == 0 ? id : mxh::net::ConnectionId{member_conn}, info);
         }
         return;
     }
@@ -1906,13 +1909,12 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
                 const auto online = connected_players_.find(member_id);
                 if (online != connected_players_.end()) member_conn = online->second.conn_id;
             }
-            if (member_conn == 0) continue;
             mxh::net::Message info;
             info.header.category = msg.header.category;
             info.header.protocol = static_cast<std::uint8_t>(GuildProtocol::Info);
             info.header.object_id = member_id;
             info.payload = snapshot;
-            reply_(mxh::net::ConnectionId{member_conn}, info);
+            reply_(member_conn == 0 ? id : mxh::net::ConnectionId{member_conn}, info);
         }
         return;
     }
