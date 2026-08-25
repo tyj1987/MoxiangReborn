@@ -175,6 +175,45 @@ foreach ($resource in $requiredResources) {
     }
 }
 
+function Get-ServerResourceProfileDiagnostic {
+    param([string]$ResourcePath, [string]$ProfileId, [string]$Encoding)
+    $info = [ordered]@{
+        profile_id = $ProfileId
+        encoding = $Encoding
+        path = $ResourcePath
+        exists = $false
+        byte_length = 0
+        first_u32_le = $null
+        size_prefixed_marker = $false
+        status = 'missing'
+    }
+    if (-not (Test-Path -LiteralPath $ResourcePath -PathType Leaf)) {
+        return [pscustomobject]$info
+    }
+    $bytes = [IO.File]::ReadAllBytes($ResourcePath)
+    $info.exists = $true
+    $info.byte_length = $bytes.Length
+    if ($bytes.Length -ge 4) {
+        $info.first_u32_le = [BitConverter]::ToUInt32($bytes, 0)
+    }
+    $info.size_prefixed_marker = ($bytes.Length -ge 5 -and $bytes.Length -le (256MB) -and $info.first_u32_le -eq $bytes.Length)
+    if ($Encoding -eq 'server-size-prefixed-opaque-v1') {
+        $info.status = if ($info.size_prefixed_marker) { 'decoder-unavailable' } else { 'profile-format-mismatch' }
+    } else {
+        $info.status = 'present-unverified'
+    }
+    return [pscustomobject]$info
+}
+
+$mapResourcePath = Join-Path $ServerResourceRoot "Monster_$MapNumber.bin"
+$serverResourceDiagnostic = Get-ServerResourceProfileDiagnostic -ResourcePath $mapResourcePath -ProfileId $ResourceProfileId -Encoding ([string]$profile.encoding)
+if ($serverResourceDiagnostic.status -eq 'profile-format-mismatch') {
+    throw "Profile '$ResourceProfileId' declares '$($profile.encoding)' but $mapResourcePath has no size-prefixed marker (bytes=$($serverResourceDiagnostic.byte_length), first_u32_le=$($serverResourceDiagnostic.first_u32_le)); refusing positional decode"
+}
+if ($serverResourceDiagnostic.status -eq 'decoder-unavailable' -and -not $DryRun) {
+    throw "Profile '$ResourceProfileId' resource encoding '$($profile.encoding)' is structurally detected at $mapResourcePath (bytes=$($serverResourceDiagnostic.byte_length), first_u32_le=$($serverResourceDiagnostic.first_u32_le)) but its 1:1 decoder is unavailable; refusing to start and refusing reference-profile fallback"
+}
+
 $dbTool = Resolve-ModernBinary 'MoxianDbTool' 'mxh_db_tool.exe'
 $loginExe = Resolve-ModernBinary 'MoxianLoginServer' 'mxh_login_server.exe'
 $agentExe = Resolve-ModernBinary 'MoxianAgentServer' "mxh_agent_server_$Locale.exe"
@@ -217,6 +256,7 @@ $processes = @(
 try {
     if ($DryRun) {
         Write-Host "Modern server dry-run (backend=$Backend locale=$Locale config=$Config profile=$ResourceProfileId encoding=$($profile.encoding) db-env=$DatabaseConfigEnv)" -ForegroundColor Cyan
+        Write-Host "server-resource preflight: status=$($serverResourceDiagnostic.status) bytes=$($serverResourceDiagnostic.byte_length) first_u32_le=$($serverResourceDiagnostic.first_u32_le) path=$($serverResourceDiagnostic.path)" -ForegroundColor Yellow
         foreach ($item in $processes) {
             Write-Host "$($item.name): $($item.exe) $($item.args -join ' ')"
         }
