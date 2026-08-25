@@ -132,6 +132,7 @@ struct CliArgs {
     int  map_number = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool exercise_combat = false; // opt-in live combat gate; never implicit
+    bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
                                // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
@@ -212,6 +213,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--exercise-combat") a.exercise_combat = true;
+        else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
@@ -966,6 +968,61 @@ int run_e2e(const CliArgs& cli) {
             LOG("[5/5] OK: GameOutSyn persistence re-login item=%u",
                 static_cast<unsigned>(observed_item_id));
             relog.Release();
+        }
+        if (cli.exercise_skills) {
+            LOG("[5/5] Skills: exercising quick-slot skill/effect path ...");
+            std::size_t casts = 0;
+            std::size_t life_changes = 0;
+            std::unordered_map<std::uint32_t, std::uint32_t> skill_life;
+            for (const auto& monster : game.monsters()) {
+                if (monster.current_life != 0) skill_life.emplace(
+                    monster.object_id, monster.current_life);
+            }
+            if (!skill_life.empty()) {
+                const auto target = std::find_if(
+                    game.monsters().begin(), game.monsters().end(),
+                    [](const auto& monster) { return monster.current_life != 0; });
+                if (target != game.monsters().end()) {
+                    game.send_move(target->position_x, target->position_z,
+                                   mxh::proto::MoveProtocol::OneTarget);
+                    const auto move_until = std::chrono::steady_clock::now() +
+                                            std::chrono::seconds(3);
+                    while (std::chrono::steady_clock::now() < move_until) {
+                        game.Process();
+                        const auto dx = static_cast<float>(target->position_x) - game.local_x();
+                        const auto dz = static_cast<float>(target->position_z) - game.local_z();
+                        if (dx * dx + dz * dz <= 500.0f * 500.0f) break;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                    }
+                }
+            }
+            for (std::size_t slot = 0; slot < 4; ++slot) {
+                game.use_quick_slot(slot);
+                const auto until = std::chrono::steady_clock::now() +
+                                   std::chrono::milliseconds(1100);
+                while (std::chrono::steady_clock::now() < until) {
+                    game.Process();
+                    for (const auto& event : game.drain_effect_events()) {
+                        if (event.kind == mxh::client::EffectEventKind::CastStart)
+                            ++casts;
+                    }
+                    for (const auto& monster : game.monsters()) {
+                        const auto it = skill_life.find(monster.object_id);
+                        if (it != skill_life.end() && monster.current_life < it->second) {
+                            ++life_changes;
+                            it->second = monster.current_life;
+                        }
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+            }
+            if (casts == 0 || life_changes == 0) {
+                LOG("[5/5] FAIL: skill gate casts=%zu life_changes=%zu",
+                    casts, life_changes);
+                return 2;
+            }
+            LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu",
+                casts, life_changes);
         }
     }
     // Clean shutdown — release states and the persistent AgentSession, then
