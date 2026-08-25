@@ -49,6 +49,33 @@
 
 namespace mxh::server {
 
+namespace {
+// Legacy ItemKind/EquipKind values from CommonGameDefine.h.  These are
+// resource semantics, not new protocol values: ItemKind identifies the
+// category and EquipKind identifies the ten player wear slots.
+constexpr std::uint16_t kLegacyEquipItem = 2048u;
+constexpr std::uint16_t kLegacyQuestItem = 16384u;
+constexpr std::uint16_t kLegacyShopEquip = 264u;
+constexpr std::uint16_t kLegacyRing1 = 4u;
+
+bool legacy_item_can_equip_in_slot(const mxh::game::ItemInfo& info,
+                                   std::uint16_t target_position) noexcept {
+    const auto kind = info.ItemKind;
+    const bool normal_equip = (kind & kLegacyEquipItem) != 0u;
+    const bool quest_or_shop_equip = (kind & kLegacyQuestItem) != 0u ||
+                                     kind == kLegacyShopEquip;
+    if (!normal_equip && !quest_or_shop_equip) return false;
+    const auto slot = static_cast<std::uint16_t>(
+        target_position - mxh::game::TP_WEAREDITEM_START);
+    // Legacy permits either ring cell for a Ring1 item; every other item
+    // must land in its declared EquipKind slot.
+    if (info.EquipKind == kLegacyRing1) {
+        return slot == kLegacyRing1 || slot == kLegacyRing1 + 1u;
+    }
+    return slot == info.EquipKind;
+}
+}  // namespace
+
 // ============================================================================
 // Binary payload helpers (usable by both free functions and member functions)
 // ============================================================================
@@ -1642,7 +1669,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         new_pos < mxh::game::TP_WEAREDITEM_END) {
                         mxh::game::ItemInfo item_info{};
                         if (item_manager_.try_get(source_item->wIconIdx, item_info) &&
-                            item_info.ItemKind != 2u) {
+                            !legacy_item_can_equip_in_slot(item_info, new_pos)) {
                             legal_equipment = false;
                         }
                     }
