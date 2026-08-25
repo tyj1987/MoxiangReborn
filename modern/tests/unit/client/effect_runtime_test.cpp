@@ -55,6 +55,16 @@ TEST(EffectRuntime, RunsDecodedRealEffectWithObjectContext) {
                 sound->sound_id == 407u || sound->sound_id == 408u);
 }
 
+TEST(EffectRuntime, RunsAuthoritativeCombatEffectFromSkillList) {
+    const auto root = find_playdh_root();
+    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
+    mxh::client::EffectRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, &error)) << error;
+    ASSERT_TRUE(runtime.start("m_combo_gum01.beff", 101, 202, 1000, 16));
+    EXPECT_GT(runtime.active_count(), 0u);
+}
+
 TEST(EffectRuntime, MissingIdFailsWithoutGuessingAnotherEffect) {
     mxh::client::EffectRuntime runtime;
     EXPECT_FALSE(runtime.start_by_id(999999u, false, 1, 2, 0, 16));

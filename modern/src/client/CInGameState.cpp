@@ -695,6 +695,8 @@ void CInGameState::Release() {
     m_chatOpen = false;
     m_chatBuffer.clear();
     m_effectEvents.clear();
+    m_pendingSkillEffects.clear();
+    m_effectRuntime.clear();
     m_playerStatsService.reset();
     if (m_effectCatalogLoad.valid()) {
         m_effectCatalogLoad.wait();
@@ -745,6 +747,17 @@ void CInGameState::Process() {
                       m_effectRuntime.catalog().befl_count(),
                       m_effectRuntime.catalog().packed_count(),
                       m_effectRuntime.catalog().loose_count());
+            // Network replies can arrive before the asynchronous effect
+            // index is ready. Replay those authoritative skill events now;
+            // dropping them would make the first attacks visibly silent.
+            auto pending = std::move(m_pendingSkillEffects);
+            m_pendingSkillEffects.clear();
+            for (const auto& request : pending) {
+                start_skill_effect(request.skill_id,
+                                   request.target_object_id,
+                                   request.timestamp_ms,
+                                   request.source_object_id);
+            }
         } else {
             MLOG_WARN("CInGameState effect catalog unavailable: %s", result.second.c_str());
         }
@@ -2436,6 +2449,16 @@ void CInGameState::start_skill_effect(std::uint32_t skill_id,
     if (source_object_id == 0) source_object_id = m_playerId;
     const auto refs = m_skillManager.effect_names(skill_id);
     if (!refs || refs->effect_use.empty()) return;
+    if (m_effectCatalogLoading &&
+        !m_effectRuntime.catalog().script(refs->effect_use)) {
+        constexpr std::size_t kMaxPendingSkillEffects = 64;
+        if (m_pendingSkillEffects.size() >= kMaxPendingSkillEffects) {
+            m_pendingSkillEffects.erase(m_pendingSkillEffects.begin());
+        }
+        m_pendingSkillEffects.push_back(PendingSkillEffect{
+            skill_id, target_object_id, now_ms, source_object_id});
+        return;
+    }
     if (!m_effectRuntime.start(refs->effect_use, source_object_id,
                                target_object_id, now_ms,
                                m_effectTickPerFrameMs)) {

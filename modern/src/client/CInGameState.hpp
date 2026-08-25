@@ -600,6 +600,13 @@ public:
     std::optional<std::size_t> m_inventoryDragSource;
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
+    struct PendingSkillEffect {
+        std::uint32_t skill_id = 0;
+        std::uint32_t target_object_id = 0;
+        std::uint64_t timestamp_ms = 0;
+        std::uint32_t source_object_id = 0;
+    };
+    std::vector<PendingSkillEffect> m_pendingSkillEffects;
     std::future<std::pair<mxh::game::EffectCatalog, std::string>> m_effectCatalogLoad;
     bool m_effectCatalogLoading = false;
     bool m_smokeExitRequested = false;
