@@ -37,8 +37,19 @@ try {
         throw "Missing database tool required for isolated GUI smoke: $dbTool"
     }
     $dbConfig = 'sqlite;path=' + (Join-Path $dataRoot 'moxian.db')
-    'Test1234' | & $dbTool register --db $dbConfig test 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "GUI smoke test account registration failed" }
+    # PowerShell's native stdin pipeline can encode the string as UTF-16 on
+    # some hosts, which makes the DB tool receive embedded NULs and reject an
+    # otherwise valid password.  Use an explicit ASCII fixture and redirect
+    # stdin so the account bootstrap is byte-stable across shells.
+    $registerInput = Join-Path $runRoot 'register.stdin'
+    [System.IO.File]::WriteAllText(
+        $registerInput, "Test1234`n",
+        [System.Text.Encoding]::ASCII)
+    $register = Start-Process -FilePath $dbTool `
+        -ArgumentList @('register', '--db', $dbConfig, 'test') `
+        -RedirectStandardInput $registerInput -NoNewWindow -Wait -PassThru
+    if ($register.ExitCode -ne 0) { throw "GUI smoke test account registration failed" }
+    Remove-Item -LiteralPath $registerInput -Force -ErrorAction SilentlyContinue
     $arguments = @(
         '--login-host', '127.0.0.1',
         '--login-port', '16001',
@@ -130,6 +141,8 @@ try {
     Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, monsters=$monsterCount, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
 }
 finally {
+    $registerInput = Join-Path $runRoot 'register.stdin'
+    Remove-Item -LiteralPath $registerInput -Force -ErrorAction SilentlyContinue
     if ($null -eq $previousGuiSmokePassword) {
         Remove-Item Env:MXH_GUI_SMOKE_PASSWORD -ErrorAction SilentlyContinue
     } else {
