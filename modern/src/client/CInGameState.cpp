@@ -1168,6 +1168,15 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: item used pos=%u hp=%u mp=%u",
                   pos, current_hp, current_mp);
     } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::DiscardAck)) {
+        if (msg.payload.size() < sizeof(std::uint16_t)) return;
+        const auto pos = get_u16(msg.payload.data());
+        if (pos >= mxh::game::SLOT_INVENTORY_NUM) return;
+        m_info.items.Inventory[pos] = mxh::game::make_empty_item();
+        m_info.items.Inventory[pos].Position = pos;
+        if (m_inventoryOpen) set_inventory_open(true);
+        MLOG_INFO("CInGameState: item discarded pos=%u", pos);
+    } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::TotalInfoLocal)) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
             std::memcpy(&m_info.items, msg.payload.data(),
