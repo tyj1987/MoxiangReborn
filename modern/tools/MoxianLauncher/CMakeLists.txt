@@ -1,0 +1,8 @@
+add_executable(MoxianLauncher WIN32 main.cpp)
+target_compile_features(MoxianLauncher PRIVATE cxx_std_17)
+target_include_directories(MoxianLauncher PRIVATE ${CMAKE_SOURCE_DIR}/include)
+if (WIN32)
+  target_link_libraries(MoxianLauncher PRIVATE user32 gdi32 shell32)
+  target_compile_definitions(MoxianLauncher PRIVATE UNICODE _UNICODE)
+endif()
+install(TARGETS MoxianLauncher RUNTIME DESTINATION bin)
