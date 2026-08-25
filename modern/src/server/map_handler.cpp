@@ -1234,6 +1234,43 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     }
     // Send GAMEIN_ACK to this player (full self info from DB).
     reply_(id, make_gamein_ack(player_id, cd, pi.items, pi.pos_x, pi.pos_z));
+    // Rehydrate the player's social state on the client as part of GameIn;
+    // persistence without this explicit snapshot would leave the HUD stale
+    // until another party/guild mutation occurs.
+    if (const auto party = find_party_of_player(party_log_, player_id)) {
+        const auto& value = **party;
+        mxh::net::Message info;
+        info.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+        info.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::Info);
+        info.header.object_id = player_id;
+        info.payload.resize(5u + static_cast<std::size_t>(value.member_count) * 23u, 0);
+        std::memcpy(info.payload.data(), &value.party_id, 4); info.payload[4] = value.member_count;
+        std::size_t off = 5;
+        for (std::uint8_t i = 0; i < value.member_count; ++i) {
+            const auto& member = value.members[i];
+            std::memcpy(info.payload.data() + off, &member.member_id, 4); off += 4;
+            std::memcpy(info.payload.data() + off, &member.level, 2); off += 2;
+            std::memcpy(info.payload.data() + off, member.name.data(), 17); off += 17;
+        }
+        reply_(id, info);
+    }
+    if (const auto guild = find_guild_of_member(guild_log_, player_id)) {
+        const auto& value = **guild;
+        mxh::net::Message info;
+        info.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Guild);
+        info.header.protocol = static_cast<std::uint8_t>(mxh::proto::GuildProtocol::Info);
+        info.header.object_id = player_id;
+        info.payload.resize(5u + static_cast<std::size_t>(value.member_count) * 23u, 0);
+        std::memcpy(info.payload.data(), &value.guild_id, 4); info.payload[4] = value.member_count;
+        std::size_t off = 5;
+        for (std::uint8_t i = 0; i < value.member_count; ++i) {
+            const auto& member = value.members[i];
+            std::memcpy(info.payload.data() + off, &member.member_id, 4); off += 4;
+            std::memcpy(info.payload.data() + off, &member.level, 2); off += 2;
+            std::memcpy(info.payload.data() + off, member.name.data(), 17); off += 17;
+        }
+        reply_(id, info);
+    }
     std::cout << "[Map] sent GAMEIN_ACK to player=" << player_id
               << " name='" << cd.name << "' level=" << cd.level
               << " (connected=" << connected_players_.size() << ")\n";
