@@ -336,6 +336,8 @@ mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
 std::uint16_t g_uiClickSound = 0xffffu;
+std::uint16_t g_attackSound = 0xffffu;
+std::uint16_t g_skillSound = 0xffffu;
 
 void clear_secret(std::string& value) noexcept {
     volatile char* bytes = value.empty() ? nullptr : value.data();
@@ -1691,17 +1693,26 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         // Prefer a named UI/button entry when the profile provides one; use
         // the first real WAV otherwise.  The choice is data-driven and never
         // invents a sound ID or touches resource bytes.
+        std::uint16_t fallback_sound = 0xffffu;
         for (const auto& entry : sfx.manifest().entries) {
             if (!entry.available || entry.streaming) continue;
+            if (fallback_sound == 0xffffu) fallback_sound = entry.index;
             const auto name = entry.file_name;
-            if (name.find("click") != std::string::npos ||
-                name.find("button") != std::string::npos ||
-                name.find("ui") != std::string::npos) {
+            const bool ui = name.find("click") != std::string::npos ||
+                name.find("button") != std::string::npos || name.find("ui") != std::string::npos;
+            const bool attack = name.find("attack") != std::string::npos ||
+                name.find("swing") != std::string::npos || name.find("weapon") != std::string::npos;
+            const bool skill = name.find("skill") != std::string::npos ||
+                name.find("magic") != std::string::npos || name.find("mugong") != std::string::npos;
+            if (ui && g_uiClickSound == 0xffffu) {
                 g_uiClickSound = entry.index;
-                break;
             }
-            if (g_uiClickSound == 0xffffu) g_uiClickSound = entry.index;
+            if (attack && g_attackSound == 0xffffu) g_attackSound = entry.index;
+            if (skill && g_skillSound == 0xffffu) g_skillSound = entry.index;
         }
+        if (g_uiClickSound == 0xffffu) g_uiClickSound = fallback_sound;
+        if (g_attackSound == 0xffffu) g_attackSound = fallback_sound;
+        if (g_skillSound == 0xffffu) g_skillSound = fallback_sound;
     } else {
         MLOG_WARN("mxh_client: SFX unavailable: %s", audio_error.c_str());
     }
@@ -1863,9 +1874,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.GetEngine()->SetAudioEventFn(
         [&sfx](mxh::client::CEngine::AudioCue cue) {
             if (cue == mxh::client::CEngine::AudioCue::UiClick) return;
-            if (g_uiClickSound == 0xffffu) return;
+            const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
+                ? g_attackSound : g_skillSound;
+            if (sound == 0xffffu) return;
             std::string audio_error;
-            (void)sfx.play(g_uiClickSound, &audio_error);
+            (void)sfx.play(sound, &audio_error);
         });
     mainGame.RegisterState(mxh::client::GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
     mainGame.RegisterState(mxh::client::GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
