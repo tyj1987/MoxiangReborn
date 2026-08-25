@@ -16,9 +16,22 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
+#include <optional>
 #include <vector>
 
 namespace mxh::server {
+
+// Computes a sell payout from the authoritative ItemInfo.SellPrice.  The
+// caller must obtain sell_price from ItemManager; this helper deliberately
+// never derives it from a buy price or catalog heuristic.
+inline std::optional<std::uint32_t> sell_payout(
+    std::uint32_t sell_price, std::uint16_t quantity) noexcept {
+    if (sell_price == 0u || quantity == 0u) return std::nullopt;
+    const auto total = static_cast<std::uint64_t>(sell_price) * quantity;
+    if (total > std::numeric_limits<std::uint32_t>::max()) return std::nullopt;
+    return static_cast<std::uint32_t>(total);
+}
 
 // 1:1 with legacy [CC]Header/CommonGameDefine.h DEAL_BUY_ERROR enum.
 inline constexpr int LEGACY_NOT_EXIST      = 103;
