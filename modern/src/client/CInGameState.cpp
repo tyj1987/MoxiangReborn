@@ -1983,7 +1983,9 @@ void CInGameState::send_quest(mxh::proto::QuestProtocol protocol) {
 
 void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
     const auto protocol = static_cast<mxh::proto::QuestProtocol>(msg.header.protocol);
-    if (protocol == mxh::proto::QuestProtocol::ChangeState && msg.payload.size() >= 8) {
+    if ((protocol == mxh::proto::QuestProtocol::ChangeState ||
+         protocol == mxh::proto::QuestProtocol::TotalInfo) &&
+        msg.payload.size() >= 8) {
         const auto read_u32 = [&msg](std::size_t offset) {
             return static_cast<std::uint32_t>(msg.payload[offset]) |
                    (static_cast<std::uint32_t>(msg.payload[offset + 1]) << 8) |

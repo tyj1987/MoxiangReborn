@@ -1327,6 +1327,31 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     }
     // Send GAMEIN_ACK to this player (full self info from DB).
     reply_(id, make_gamein_ack(player_id, cd, pi.items, pi.pos_x, pi.pos_z));
+    // Rehydrate the quest dialog from the authoritative persisted log before
+    // any new interaction.  The legacy client receives one TotalInfo record
+    // per quest; the modern client uses the same 8-byte state shape as
+    // ChangeState so relogin cannot silently reset the HUD to Available.
+    std::vector<std::pair<std::uint32_t, QuestState>> quest_snapshot;
+    {
+        std::lock_guard<std::mutex> lk(players_mu_);
+        const auto live_runtime = player_runtimes_.find(player_id);
+        if (live_runtime != player_runtimes_.end()) {
+            for (const auto& quest : live_runtime->second.quest_log.quests) {
+                quest_snapshot.emplace_back(quest.quest_id, quest.state);
+            }
+        }
+    }
+    for (const auto& [quest_id, state] : quest_snapshot) {
+        mxh::net::Message quest_info;
+        quest_info.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+        quest_info.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::TotalInfo);
+        quest_info.header.object_id = player_id;
+        quest_info.payload.resize(8, 0);
+        const auto state_value = static_cast<std::uint32_t>(state);
+        std::memcpy(quest_info.payload.data(), &quest_id, 4);
+        std::memcpy(quest_info.payload.data() + 4, &state_value, 4);
+        reply_(id, quest_info);
+    }
     // Rehydrate the player's social state on the client as part of GameIn;
     // persistence without this explicit snapshot would leave the HUD stale
     // until another party/guild mutation occurs.

@@ -732,6 +732,11 @@ TEST(InGamePlayable, QuestChangeStateUpdatesLiveQuestStatus) {
     state.on_message(mxh::net::make_connection_id(1), change);
     EXPECT_EQ(state.quest_id(), 1u);
     EXPECT_EQ(state.quest_status(), "Ready to claim");
+    change.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::TotalInfo);
+    const std::uint32_t rewarded = 3u;
+    std::memcpy(change.payload.data() + 4, &rewarded, 4);
+    state.on_message(mxh::net::make_connection_id(1), change);
+    EXPECT_EQ(state.quest_status(), "Reward claimed");
 }
 
 TEST(InGamePlayable, QuestRewardPacketsRefreshMoneyAndInventoryBeforeEndAck) {
