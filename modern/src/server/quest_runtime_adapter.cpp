@@ -11,6 +11,14 @@ QuestDefinition make_runtime_quest_definition(const QuestScriptDefinition& scrip
                 sub.target = static_cast<std::uint32_t>(std::max(1, trigger.event.param2));
                 out.subs.push_back(sub);
             }
+            if (trigger.event.kind == QuestEventKind::NpcTalk) {
+                QuestSub sub;
+                sub.kind = QuestSubKind::TalkNpc;
+                sub.target_id = trigger.event.param1;
+                sub.target = static_cast<std::uint32_t>(
+                    std::max(1, trigger.event.param2));
+                out.subs.push_back(sub);
+            }
             for (const auto& execute : trigger.executes) {
                 if (execute.kind == QuestExecuteKind::GiveMoney && !execute.args.empty()) out.reward_money += execute.args[0];
                 else if ((execute.kind == QuestExecuteKind::TakeExp || execute.kind == QuestExecuteKind::TakeSExp) && !execute.args.empty()) out.reward_exp += execute.args[0];

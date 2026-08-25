@@ -3229,6 +3229,28 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
             reply_(id, reply);
             std::cout << "[Map] sent NPC_SPEECH_ACK\n";
 
+            // Quest scripts use the same authoritative NPC speech event as
+            // the legacy map server.  Feed the event after the speech ack so
+            // a quest substep can advance without inventing a second NPC
+            // protocol.  The quest manager decides whether this NPC matches
+            // any active sub-condition; unmatched speeches are harmless.
+            bool quest_changed = false;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto player = player_runtimes_.find(player_id);
+                if (player != player_runtimes_.end()) {
+                    const auto changes = dispatch_quest_event(
+                        player->second.quest_log,
+                        QuestEvent{QuestSubKind::TalkNpc, npc_id, 1u});
+                    quest_changed = !changes.empty();
+                }
+            }
+            if (quest_changed) {
+                persist_quest_log(player_id);
+                std::cout << "[Map] quest NPC speech advanced player="
+                          << player_id << " npc=" << npc_id << "\n";
+            }
+
             bool dealer = false;
             {
                 std::lock_guard<std::mutex> lk(npcs_mu_);

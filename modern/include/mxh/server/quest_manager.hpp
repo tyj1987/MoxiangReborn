@@ -112,10 +112,9 @@ struct QuestLog final {
 // ---- In-game event to dispatch into a player's quest log. ----
 // Models the legacy eQuestEvent (NpcTalk / Hunt / UseItem / MapChange /
 // Die / Time / GameEnter / Level / Count / HuntAll / EndSub) at the
-// granularity needed to drive QuestProgress counters.  Only Kill /
-// Collect sub kinds are supported by the in-process bridge right now;
-// ReachMap / TalkNpc / Survive will be added when their sub-kind
-// counters get real legacy semantics ported in.
+// granularity needed to drive QuestProgress counters.  Kill, Collect and
+// TalkNpc are wired through the modern map event bridge; ReachMap and
+// Survive remain pending until their legacy counters are ported in.
 struct QuestEvent final {
     QuestSubKind kind      = QuestSubKind::None;
     std::uint32_t target_id = 0;   // monster_kind / item_idx / map_num / npc_idx
