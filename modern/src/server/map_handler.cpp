@@ -465,6 +465,16 @@ void MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t mon
 }
 
 void MapHandler::persist_party(const Party& party) {
+    std::unordered_map<std::uint32_t, std::uint16_t> prior_maps;
+    mxh::db::ResultSet prior_rows;
+    if (db_.query("SELECT player_id,map_num FROM modern_party_member WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party.party_id))}, prior_rows).ok()) {
+        for (const auto& row : prior_rows.rows) {
+            if (row.size() < 2) continue;
+            const auto* member_id = std::get_if<std::int64_t>(&row[0]);
+            const auto* map_num = std::get_if<std::int64_t>(&row[1]);
+            if (member_id && map_num) prior_maps[static_cast<std::uint32_t>(*member_id)] = static_cast<std::uint16_t>(*map_num);
+        }
+    }
     db_.execute("DELETE FROM modern_party_member WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party.party_id))});
     db_.execute("DELETE FROM modern_party WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party.party_id))});
     db_.execute("INSERT INTO modern_party(party_id,option) VALUES(?,?)",
@@ -472,10 +482,17 @@ void MapHandler::persist_party(const Party& party) {
     for (std::uint8_t i = 0; i < party.member_count; ++i) {
         const auto& m = party.members[i];
         const std::string name(m.name.data(), strnlen(m.name.data(), m.name.size()));
+        const auto map_it = prior_maps.find(m.member_id);
+        bool local_member = false;
+        {
+            std::lock_guard<std::mutex> lock(players_mu_);
+            local_member = connected_players_.contains(m.member_id);
+        }
+        const auto member_map = local_member || map_it == prior_maps.end() ? map_num_ : map_it->second;
         db_.execute("INSERT INTO modern_party_member(party_id,player_id,name,level,master,map_num) VALUES(?,?,?,?,?,?)",
                     {mxh::db::bind(static_cast<std::int64_t>(party.party_id)), mxh::db::bind(static_cast<std::int64_t>(m.member_id)),
                      mxh::db::bind(name), mxh::db::bind(static_cast<std::int64_t>(m.level)),
-                     mxh::db::bind(m.member_id == party.master_id ? 1LL : 0LL), mxh::db::bind(static_cast<std::int64_t>(map_num_))});
+                     mxh::db::bind(m.member_id == party.master_id ? 1LL : 0LL), mxh::db::bind(static_cast<std::int64_t>(member_map))});
     }
 }
 
@@ -486,6 +503,16 @@ void MapHandler::clear_party(std::uint32_t party_id) {
 
 void MapHandler::persist_guild(const Guild& guild) {
     const std::string name(guild.name.data(), strnlen(guild.name.data(), guild.name.size()));
+    std::unordered_map<std::uint32_t, std::uint16_t> prior_maps;
+    mxh::db::ResultSet prior_rows;
+    if (db_.query("SELECT player_id,map_num FROM modern_guild_member WHERE guild_id=?", {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id))}, prior_rows).ok()) {
+        for (const auto& row : prior_rows.rows) {
+            if (row.size() < 2) continue;
+            const auto* member_id = std::get_if<std::int64_t>(&row[0]);
+            const auto* map_num = std::get_if<std::int64_t>(&row[1]);
+            if (member_id && map_num) prior_maps[static_cast<std::uint32_t>(*member_id)] = static_cast<std::uint16_t>(*map_num);
+        }
+    }
     db_.execute("DELETE FROM modern_guild_member WHERE guild_id=?", {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id))});
     db_.execute("DELETE FROM modern_guild WHERE guild_id=?", {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id))});
     db_.execute("INSERT INTO modern_guild(guild_id,name,master_id,level) VALUES(?,?,?,?)",
@@ -493,10 +520,17 @@ void MapHandler::persist_guild(const Guild& guild) {
     for (std::uint8_t i = 0; i < guild.member_count; ++i) {
         const auto& m = guild.members[i];
         const std::string member_name(m.name.data(), strnlen(m.name.data(), m.name.size()));
+        const auto map_it = prior_maps.find(m.member_id);
+        bool local_member = false;
+        {
+            std::lock_guard<std::mutex> lock(players_mu_);
+            local_member = connected_players_.contains(m.member_id);
+        }
+        const auto member_map = local_member || map_it == prior_maps.end() ? map_num_ : map_it->second;
         db_.execute("INSERT INTO modern_guild_member(guild_id,player_id,name,level,rank,map_num) VALUES(?,?,?,?,?,?)",
                     {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id)), mxh::db::bind(static_cast<std::int64_t>(m.member_id)),
                      mxh::db::bind(member_name), mxh::db::bind(static_cast<std::int64_t>(m.level)), mxh::db::bind(static_cast<std::int64_t>(m.rank)),
-                     mxh::db::bind(static_cast<std::int64_t>(m.connected_map_num))});
+                     mxh::db::bind(static_cast<std::int64_t>(member_map))});
     }
 }
 
@@ -556,19 +590,21 @@ void MapHandler::load_membership_state(std::uint32_t player_id, std::string_view
             auto guild = create_guild(guild_id, *guild_name, static_cast<std::uint32_t>(*master_id));
             guild.level = static_cast<std::uint8_t>(*guild_level);
             mxh::db::ResultSet members;
-            if (db_.query("SELECT player_id,name,level,rank FROM modern_guild_member WHERE guild_id=? ORDER BY rank DESC,player_id", {mxh::db::bind(static_cast<std::int64_t>(guild_id))}, members).ok()) {
+            if (db_.query("SELECT player_id,name,level,rank,map_num FROM modern_guild_member WHERE guild_id=? ORDER BY rank DESC,player_id", {mxh::db::bind(static_cast<std::int64_t>(guild_id))}, members).ok()) {
                 for (const auto& member_row : members.rows) {
-                    if (member_row.size() < 4) continue;
+                    if (member_row.size() < 5) continue;
                     const auto* member_id = std::get_if<std::int64_t>(&member_row[0]);
                     const auto* member_name = std::get_if<std::string>(&member_row[1]);
                     const auto* member_level = std::get_if<std::int64_t>(&member_row[2]);
                     const auto* rank = std::get_if<std::int64_t>(&member_row[3]);
-                    if (!member_id || !member_name || !member_level || !rank) continue;
+                    const auto* map_num = std::get_if<std::int64_t>(&member_row[4]);
+                    if (!member_id || !member_name || !member_level || !rank || !map_num) continue;
                     GuildMember member{};
                     member.member_id = static_cast<std::uint32_t>(*member_id);
                     member.level = static_cast<std::uint16_t>(*member_level);
                     member.rank = static_cast<std::uint8_t>(*rank);
                     member.is_student = member.rank == 0;
+                    member.connected_map_num = static_cast<std::uint32_t>(*map_num);
                     std::memcpy(member.name.data(), member_name->data(), std::min(member_name->size(), member.name.size() - 1));
                     add_member(guild, member);
                 }
@@ -1823,6 +1859,7 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
         guild_log_.guilds.push_back(create_guild(guild_id, guild_name, player_id));
         auto& guild = guild_log_.guilds.back();
         guild.members[0].level = player_level;
+        guild.members[0].connected_map_num = map_num_;
         guild.members[0].name.fill(0);
         std::memcpy(guild.members[0].name.data(), player_name.data(),
                     std::min<std::size_t>(player_name.size(), 16));
@@ -1884,6 +1921,7 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
         member.level = player_level;
         member.rank = 0;
         member.is_student = true;
+        member.connected_map_num = map_num_;
         std::memcpy(member.name.data(), player_name.data(),
                     std::min<std::size_t>(player_name.size(), 16));
         const bool added = guild.has_value() && !is_member(**guild, player_id) &&
