@@ -6,6 +6,7 @@ param(
     [ValidateRange(1, 65535)] [int]$AgentPort = 27101,
     [ValidateRange(1, 65535)] [int]$MapPort = 28101,
     [ValidateRange(0, 255)] [int]$MapNumber = 10,
+    [ValidateRange(0, 64)] [int]$MinimumEvidenceFrames = 8,
     [switch]$SkipServers
 )
 
@@ -109,6 +110,10 @@ try {
     Write-Host 'Checkpoints: login, display-transition, char-select-or-create, loading, map10, combat-and-loot, map-change, relog.'
     Write-Host 'Press Enter when finished, or Ctrl+C to abort.'
     [Console]::ReadLine() | Out-Null
+    $captured = @(Get-ChildItem -LiteralPath $evidenceRoot -Filter '*.tga' -File -ErrorAction SilentlyContinue)
+    if ($captured.Count -lt $MinimumEvidenceFrames) {
+        throw "Human acceptance produced $($captured.Count) evidence frame(s); minimum is $MinimumEvidenceFrames. Capture settled checkpoints with F12 before finishing."
+    }
 } catch {
     $exitCode = 1
     Write-Error $_
