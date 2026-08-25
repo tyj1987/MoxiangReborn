@@ -583,8 +583,15 @@ public:
         }
         if (stage_ == 5) {
             std::string audio_error;
-            if (!bgm_.play(descriptor_->desc().bgm_sound_num, &audio_error))
-                MLOG_WARN("mxh_client: map BGM unavailable: %s", audio_error.c_str());
+            if (!bgm_.play(descriptor_->desc().bgm_sound_num, &audio_error)) {
+                if (!g_debugUiBounds) {
+                    return fail("Map BGM unavailable (sound " +
+                                    std::to_string(descriptor_->desc().bgm_sound_num) +
+                                    "): " + audio_error, error);
+                }
+                MLOG_WARN("mxh_client: map BGM unavailable in debug mode: %s",
+                          audio_error.c_str());
+            }
             mark(progress, 9);
             ++stage_;
             return Result::Pending;
