@@ -32,6 +32,7 @@
 
 #include "CGameState.hpp"
 #include "EffectRuntime.hpp"
+#include "mxh/game/skill_manager.hpp"
 #include "ClientUiRuntime.hpp"
 
 #include <cstdint>
@@ -417,6 +418,13 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
         return m_effectRuntime.catalog();
     }
     EffectRuntime& effect_runtime() noexcept { return m_effectRuntime; }
+    void set_effect_tick_per_frame_ms(std::uint32_t value) noexcept {
+        m_effectTickPerFrameMs = value;
+    }
+    std::vector<RuntimeEffectEvent> drain_runtime_effect_events() noexcept;
+    const mxh::game::SkillManager& skill_manager() const noexcept {
+        return m_skillManager;
+    }
     std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
     std::uint32_t last_buy_item_id() const noexcept { return m_lastBuyItemId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
@@ -465,6 +473,9 @@ public:
     void set_shop_open(bool open) noexcept;
     void set_quest_open(bool open) noexcept;
     void push_effect_event(EffectEvent event) noexcept;
+    void start_skill_effect(std::uint32_t skill_id,
+                            std::uint32_t target_object_id,
+                            std::uint64_t now_ms);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -528,6 +539,9 @@ public:
     std::size_t          m_questSelection = 0;
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
+    mxh::game::SkillManager m_skillManager;
+    std::uint32_t m_effectTickPerFrameMs = 0;
+    std::vector<RuntimeEffectEvent> m_runtimeEffectEvents;
 };
 
 } // namespace mxh::client

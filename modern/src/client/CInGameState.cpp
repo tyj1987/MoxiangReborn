@@ -611,6 +611,14 @@ void CInGameState::Process() {
         }
     }
     update_movement(steady_now_ms());
+    const auto now_ms = steady_now_ms();
+    m_effectRuntime.advance(now_ms, [this](const RuntimeEffectEvent& event) {
+        constexpr std::size_t kMaxRuntimeEvents = 256;
+        if (m_runtimeEffectEvents.size() >= kMaxRuntimeEvents) {
+            m_runtimeEffectEvents.erase(m_runtimeEffectEvents.begin());
+        }
+        m_runtimeEffectEvents.push_back(event);
+    });
     if (is_connected() && !m_sentGameInSyn) {
         send_gamein_syn();
     }
@@ -664,6 +672,16 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
             fail_with("GameIn UI load failed: " + ui_error);
             return;
         }
+    }
+    const auto skillPath = *m_pEngine->playdh_root() / "Resource" / "SkillList.bin";
+    try {
+        std::uint32_t skillErrors = 0;
+        m_skillManager.init_from_bin(skillPath.string(), &skillErrors);
+        MLOG_INFO("CInGameState skill list loaded skills=%zu errors=%u",
+                  m_skillManager.size(),
+                  static_cast<unsigned>(skillErrors));
+    } catch (const std::exception& ex) {
+        MLOG_WARN("CInGameState skill list unavailable: %s", ex.what());
     }
     m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
     MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
@@ -1782,6 +1800,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_lastAttackMs = now;
+        start_skill_effect(skill, target, now);
         push_effect_event(EffectEvent{
             EffectEventKind::CastStart, now, m_playerId, target,
             skill, skill, 0, 0, 0});
@@ -1794,6 +1813,26 @@ void CInGameState::use_quick_slot(std::size_t slot) {
                                    std::sqrt(dx * dx + dz * dz));
         }
     }
+}
+
+void CInGameState::start_skill_effect(std::uint32_t skill_id,
+                                      std::uint32_t target_object_id,
+                                      std::uint64_t now_ms) {
+    if (m_effectTickPerFrameMs == 0) return;
+    const auto refs = m_skillManager.effect_names(skill_id);
+    if (!refs || refs->effect_use.empty()) return;
+    if (!m_effectRuntime.start(refs->effect_use, m_playerId,
+                               target_object_id, now_ms,
+                               m_effectTickPerFrameMs)) {
+        MLOG_WARN("CInGameState effect start rejected skill=%u effect=%s",
+                  static_cast<unsigned>(skill_id), refs->effect_use.c_str());
+    }
+}
+
+std::vector<RuntimeEffectEvent> CInGameState::drain_runtime_effect_events() noexcept {
+    std::vector<RuntimeEffectEvent> events;
+    events.swap(m_runtimeEffectEvents);
+    return events;
 }
 
 void CInGameState::open_shop(std::uint32_t npc_id) {
