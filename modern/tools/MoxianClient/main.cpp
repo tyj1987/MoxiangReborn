@@ -320,6 +320,10 @@ std::unique_ptr<mxh::gx::TerrainScene> g_terrain;
 std::unique_ptr<mxh::gx::StaticScene> g_staticScene;
 std::unique_ptr<mxh::gx::SkyScene> g_skyScene;
 std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
+// Character-select uses the same real model/catalog pipeline as GameIn, but
+// with a dedicated camera and no map dependency.  Keeping it separate avoids
+// a RenderBox/debug avatar and lets the map scene be replaced transactionally.
+std::unique_ptr<mxh::gx::EntityScene> g_charPreviewScene;
 bool g_renderTerrain = false;
 std::string g_captureTerrainFrame;
 bool g_overviewCamera = false;
@@ -340,6 +344,45 @@ std::uint16_t g_uiClickSound = 0xffffu;
 std::uint16_t g_attackSound = 0xffffu;
 std::uint16_t g_skillSound = 0xffffu;
 std::uint16_t g_pickupSound = 0xffffu;
+
+void configureCharacterPreviewCamera(I4DyuchiGXRenderer* renderer,
+                                     float aspect) {
+    if (!renderer) return;
+    mxh::gx::CAMERA_DESC camera{};
+    camera.v3From = {0.0f, 1.8f, -4.8f};
+    camera.v3To = {0.0f, 1.0f, 0.0f};
+    camera.v3Up = {0.0f, 1.0f, 0.0f};
+    camera.fFovY = mxh::gx::PI / 3.0f;
+    camera.fAspect = aspect > 0.01f ? aspect : (4.0f / 3.0f);
+    camera.fNear = 0.1f;
+    camera.fFar = 100.0f;
+    mxh::gx::VECTOR3 forward{
+        camera.v3To.x - camera.v3From.x,
+        camera.v3To.y - camera.v3From.y,
+        camera.v3To.z - camera.v3From.z};
+    const float length = std::sqrt(forward.x * forward.x +
+                                   forward.y * forward.y +
+                                   forward.z * forward.z);
+    if (length <= 0.001f) return;
+    forward.x /= length; forward.y /= length; forward.z /= length;
+    mxh::gx::MATRIX4 view{}, projection{}, billboard{};
+    mxh::gx::MatrixLookAtLH(&view, &camera.v3From, &camera.v3To,
+                             &camera.v3Up);
+    const float f = 1.0f / std::tan(camera.fFovY * 0.5f);
+    projection = mxh::gx::MatrixIdentity();
+    projection._11 = f / camera.fAspect;
+    projection._22 = f;
+    projection._33 = camera.fFar / (camera.fFar - camera.fNear);
+    projection._43 = -camera.fNear * camera.fFar /
+                     (camera.fFar - camera.fNear);
+    projection._34 = 1.0f;
+    billboard = mxh::gx::MatrixIdentity();
+    mxh::gx::VIEW_VOLUME volume{};
+    volume.From = camera.v3From;
+    volume.fFar = camera.fFar;
+    renderer->SetViewFrusturm(&volume, &camera, &view, &projection,
+                              &billboard);
+}
 
 void clear_secret(std::string& value) noexcept {
     volatile char* bytes = value.empty() ? nullptr : value.data();
@@ -1164,6 +1207,29 @@ void renderFrame(HWND h) {
                                  &rc, 0xFFFFFFFFu, 0, 0); MLOG_DEBUG("mxh_client: bg draw sprite=%p ok=%d", (void*)g_sprites[0].sprite, (int)_bg_ok); }
     }
 
+    // Character select is a real 3D presentation scene.  It intentionally
+    // runs after the login background and before screen-space UI so the
+    // original dialog remains clickable while the selected model is drawn
+    // in the central preview area.  The model payload comes directly from
+    // ChrTotalInfo; no appearance defaults or debug geometry are invented.
+    if (!g_renderTerrain &&
+        __g_currentState == static_cast<int>(mxh::client::GameStateId::CharSelect) &&
+        g_charPreviewScene && g_charSelectState) {
+        std::optional<mxh::gx::ScenePlayer> preview;
+        for (const auto& slot : g_charSelectState->character_list()) {
+            if (slot.valid && slot.chrid == g_charSelectState->selected_chrid()) {
+                preview = mxh::client::make_character_preview(slot);
+                break;
+            }
+        }
+        mxh::gx::WorldSnapshot snapshot;
+        snapshot.local_player = std::move(preview);
+        g_charPreviewScene->synchronize(snapshot);
+        g_charPreviewScene->setCameraFrustum(std::nullopt);
+        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
+        g_charPreviewScene->render();
+    }
+
     if (!g_renderTerrain && g_hud.barBg && g_hudFont) {
         g_renderer->SetScreenSpaceProjection();
         const auto drawText = [&](const std::string& value, LONG left, LONG top,
@@ -1742,6 +1808,20 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         return 1;
     }
     g_renderer = renderer;
+    {
+        auto preview = std::make_unique<mxh::gx::EntityScene>();
+        std::string preview_error;
+        if (preview->load(renderer, storage, &preview_error)) {
+            // A missing appearance is a hard, visible failure in release;
+            // placeholder boxes remain disabled for this product path.
+            preview->setPlaceholderRenderingEnabled(false);
+            g_charPreviewScene = std::move(preview);
+            MLOG_INFO("mxh_client: character preview scene ready");
+        } else {
+            MLOG_ERROR("mxh_client: character preview scene unavailable: %s",
+                       preview_error.c_str());
+        }
+    }
     g_hud.barBg  = renderer->CreateSolidSpriteObject(0xAA181010u, 1, 1);
     g_hud.hpFill = renderer->CreateSolidSpriteObject(0xFF4040FFu, 1, 1);
     g_hud.mpFill = renderer->CreateSolidSpriteObject(0xFFFF9040u, 1, 1);
