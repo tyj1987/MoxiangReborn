@@ -635,6 +635,32 @@ TEST(InGamePlayable, MoveAckReordersLiveInventorySlots) {
     EXPECT_EQ(state.game_info().items.Inventory[5].Position, 5u);
 }
 
+TEST(InGamePlayable, SellAckRemovesSoldQuantityFromLiveInventory) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::game::ItemTotalInfo items{};
+    items.Inventory[6] = mxh::game::make_item(7201u, 301u, 6u, 100u, 3u);
+    mxh::net::Message inventory;
+    inventory.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    inventory.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    inventory.payload.resize(sizeof(items));
+    std::memcpy(inventory.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), inventory);
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellAck);
+    ack.payload.resize(8, 0);
+    const std::uint16_t pos = 6u, item_idx = 301u, quantity = 2u, dealer = 7u;
+    std::memcpy(ack.payload.data(), &pos, 2);
+    std::memcpy(ack.payload.data() + 2, &item_idx, 2);
+    std::memcpy(ack.payload.data() + 4, &quantity, 2);
+    std::memcpy(ack.payload.data() + 6, &dealer, 2);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_EQ(state.game_info().items.Inventory[6].ItemParam, 1u);
+}
+
 TEST(InGameWire, PickupMessageAndGroundDropPayloadRoundTrip) {
     const auto m = make_pickup_message(42u, 9001u);
     EXPECT_EQ(m.header.category,

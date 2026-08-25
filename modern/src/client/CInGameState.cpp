@@ -1198,6 +1198,25 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: item moved db=%u source=%zu target=%u",
                   db_idx, source, target);
     } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::SellAck)) {
+        // SellAck echoes [target_pos][item_idx][item_num][dealer_idx].
+        if (msg.payload.size() < 8) return;
+        const auto pos = get_u16(msg.payload.data());
+        const auto item_idx = get_u16(msg.payload.data() + 2);
+        const auto quantity = get_u16(msg.payload.data() + 4);
+        if (pos >= mxh::game::SLOT_INVENTORY_NUM || quantity == 0u) return;
+        auto& item = m_info.items.Inventory[pos];
+        if (item.wIconIdx != item_idx || item.ItemParam < quantity) return;
+        if (item.ItemParam == quantity) {
+            item = mxh::game::make_empty_item();
+            item.Position = pos;
+        } else {
+            item.ItemParam -= quantity;
+        }
+        if (m_inventoryOpen) set_inventory_open(true);
+        MLOG_INFO("CInGameState: item sold pos=%u item=%u qty=%u",
+                  pos, item_idx, quantity);
+    } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::TotalInfoLocal)) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
             std::memcpy(&m_info.items, msg.payload.data(),

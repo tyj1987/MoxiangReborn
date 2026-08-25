@@ -32,6 +32,7 @@
 #include "mxh/server/player.hpp"
 #include "mxh/server/quest_manager.hpp"
 #include "mxh/server/npc_shop.hpp"
+#include "mxh/server/item_sell_side_effect.hpp"
 #include "mxh/server/dealitem_parser.hpp"
 #include "mxh/server/quest_script_loader.hpp"
 #include "mxh/server/skill_caster.hpp"
@@ -1624,6 +1625,96 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             if (found) persist_player_items(player_id);
             std::cout << "[Map] sent ITEM_DISCARD_"
                       << (found ? "ACK" : "NACK") << "\n";
+            break;
+        }
+
+        // --- C -> S: Sell item to a nearby NPC ---
+        case mxh::proto::ItemProtocol::SellSyn: {
+            // Modern wire layout mirrors the legacy sell request:
+            // [target_pos:u16][item_idx:u16][item_num:u16][dealer_idx:u16].
+            if (msg.payload.size() < 8) {
+                std::cout << "[Map] ITEM_SELL_SYN: payload too small\n";
+                break;
+            }
+            std::uint16_t target_pos = 0, item_idx = 0, item_num = 0, dealer_idx = 0;
+            std::memcpy(&target_pos, msg.payload.data(), 2);
+            std::memcpy(&item_idx, msg.payload.data() + 2, 2);
+            std::memcpy(&item_num, msg.payload.data() + 4, 2);
+            std::memcpy(&dealer_idx, msg.payload.data() + 6, 2);
+
+            bool ok = false;
+            std::uint32_t new_money = 0;
+            mxh::game::ItemTotalInfo updated_items{};
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                auto info_it = connected_players_.find(player_id);
+                auto runtime_it = player_runtimes_.find(player_id);
+                bool npc_ok = false;
+                if (info_it != connected_players_.end()) {
+                    std::lock_guard<std::mutex> npc_lk(npcs_mu_);
+                    for (const auto& npc : npcs_) {
+                        if (npc.npc_id != dealer_idx || npc.map_num != info_it->second.map_num) continue;
+                        const float dx = info_it->second.pos_x - npc.pos_x;
+                        const float dz = info_it->second.pos_z - npc.pos_z;
+                        npc_ok = dx * dx + dz * dz <= 500.0f * 500.0f;
+                        break;
+                    }
+                }
+                if (npc_ok && info_it != connected_players_.end() &&
+                    runtime_it != player_runtimes_.end() &&
+                    target_pos < mxh::game::SLOT_INVENTORY_NUM && item_num != 0u) {
+                    auto& item = runtime_it->second.actor.state().inventory.items[target_pos];
+                    mxh::game::ItemInfo item_info{};
+                    const bool valid_info = item_manager_.try_get(item_idx, item_info);
+                    const auto payout = valid_info ? mxh::server::sell_payout(item_info.SellPrice, item_num) : std::nullopt;
+                    const bool valid_item = item.dwDBIdx != 0u && item.wIconIdx == item_idx &&
+                        item.ItemParam >= item_num && payout.has_value() &&
+                        static_cast<std::uint64_t>(info_it->second.money) + *payout <=
+                            std::numeric_limits<std::uint32_t>::max();
+                    if (valid_item) {
+                        if (item.ItemParam == item_num) {
+                            item = mxh::game::make_empty_item();
+                            item.Position = target_pos;
+                        } else {
+                            item.ItemParam -= item_num;
+                        }
+                        info_it->second.money += *payout;
+                        runtime_it->second.actor.set_money(info_it->second.money);
+                        for (std::size_t i = 0; i < mxh::game::SLOT_INVENTORY_NUM; ++i) {
+                            info_it->second.items.Inventory[i] = runtime_it->second.actor.state().inventory.items[i];
+                        }
+                        updated_items = info_it->second.items;
+                        new_money = info_it->second.money;
+                        ok = true;
+                    }
+                }
+            }
+            mxh::net::Message reply;
+            reply.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+            reply.header.protocol = static_cast<std::uint8_t>(ok ? mxh::proto::ItemProtocol::SellAck : mxh::proto::ItemProtocol::SellNack);
+            reply.header.object_id = player_id;
+            reply.payload = msg.payload;
+            reply_(id, reply);
+            if (ok) {
+                persist_player_items(player_id);
+                persist_player_money(player_id, new_money);
+                mxh::net::Message money;
+                money.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                money.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+                money.header.object_id = player_id;
+                money.payload.resize(sizeof(new_money));
+                std::memcpy(money.payload.data(), &new_money, sizeof(new_money));
+                reply_(id, money);
+                mxh::net::Message total;
+                total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                total.header.object_id = player_id;
+                total.payload.resize(sizeof(updated_items));
+                std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+                reply_(id, total);
+            }
+            std::cout << "[Map] sent ITEM_SELL_" << (ok ? "ACK" : "NACK")
+                      << " pos=" << target_pos << " item=" << item_idx << " qty=" << item_num << "\n";
             break;
         }
 
