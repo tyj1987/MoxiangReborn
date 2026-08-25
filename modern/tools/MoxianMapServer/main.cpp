@@ -275,9 +275,10 @@ int main(int argc, char** argv) {
     if (!args.resource_root.empty()) {
         const auto root = std::filesystem::path(args.resource_root);
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
-        handler.load_drop_item_list(
-            (root / "Resource" / "Server" / "MonsterDropItemList.bin").string(),
-            args.resource_profile);
+        const auto drop_path = args.resource_profile == "playdh-current"
+            ? (root / "Resource" / "MonsterDropItemList.bin")
+            : (root / "Resource" / "Server" / "MonsterDropItemList.bin");
+        handler.load_drop_item_list(drop_path.string(), args.resource_profile);
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
         handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
         handler.load_item_list((root / "Resource" / "ItemList.bin").string());

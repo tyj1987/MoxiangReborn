@@ -2092,6 +2092,15 @@ void MapHandler::spawn_monsters() {
             // regen manager (CAIGroup::Die). Modern GameIn creates the
             // instance immediately, so the first appearance is alive.
             m.is_dead  = false;
+            // In the current PlayDH profile the drop-list index is the
+            // monster kind.  Only enable the relation when a real table is
+            // present; missing data remains a no-drop state instead of
+            // inventing an item id.  The read-only SWorking profile keeps
+            // its explicit legacy drop-id path.
+            if (drop_tables_.find(m.monster_kind, m.monster_kind) != nullptr) {
+                m.drop_item_id = m.monster_kind;
+                m.drop_item_ratio = 100;
+            }
             monsters_.push_back(m);
             ++spawned_count;
             std::cout << "[Map] ai_spawn monster id=" << m.object_id

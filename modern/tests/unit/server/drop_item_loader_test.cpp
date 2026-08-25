@@ -70,6 +70,30 @@ TEST(DropItemLoaderTest, AuditsBundledDropVariants) {
         EXPECT_TRUE(tables.empty());
         EXPECT_NE(error.find("$Group"), std::string::npos);
     }
+    std::string root_error;
+    const auto root_tables = mxh::server::load_drop_item_tables(
+        root.parent_path() / "MonsterDropItemList.bin",
+        "playdh-current", &root_error);
+    std::cout << "drop-variant Resource/MonsterDropItemList.bin tables="
+              << root_tables.size() << " error=" << root_error << "\n";
+    EXPECT_GT(root_tables.size(), 0u);
+    for (std::size_t i = 0; i < std::min<std::size_t>(root_tables.size(), 5u); ++i) {
+        std::cout << "drop-table id=" << root_tables[i].drop_id
+                  << " entries=" << root_tables[i].entries.size();
+        if (!root_tables[i].entries.empty()) {
+            std::cout << " first_item=" << root_tables[i].entries.front().item_id;
+        }
+        std::cout << "\n";
+    }
+    for (const auto wanted : {102u, 104u, 105u, 219u}) {
+        const auto it = std::find_if(root_tables.begin(), root_tables.end(),
+            [wanted](const auto& table) { return table.drop_id == wanted; });
+        ASSERT_NE(it, root_tables.end()) << "missing table " << wanted;
+        std::cout << "monster-kind-candidate id=" << wanted
+                  << " entries=" << it->entries.size();
+        if (!it->entries.empty()) std::cout << " first_item=" << it->entries.front().item_id;
+        std::cout << "\n";
+    }
 }
 
 TEST(DropItemLoaderTest, ParsesReadOnlySworkingReference) {
