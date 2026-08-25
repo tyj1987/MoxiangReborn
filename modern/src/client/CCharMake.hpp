@@ -197,6 +197,7 @@ public:
     bool        is_submitted() const noexcept { return m_makeSent; }
     bool        is_failed() const noexcept { return m_failed; }
     const std::string& failure_reason() const noexcept { return m_failureReason; }
+    const LoginResult& login_result() const noexcept { return m_login; }
     const CharacterMakeFormModel& form_model() const noexcept { return m_formModel; }
     std::optional<bool> name_available() const noexcept { return m_nameAvailable; }
 

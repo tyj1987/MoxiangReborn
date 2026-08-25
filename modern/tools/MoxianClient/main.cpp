@@ -2536,6 +2536,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool post_login_display_applied = false;
     bool login_failure_presented = false;
     bool charselect_failure_presented = false;
+    bool charmake_failure_presented = false;
     bool auto_create_requested = false;
     bool follow_frame_captured = false;
     unsigned follow_settle_frames = 0;
@@ -2702,9 +2703,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             pending_loading_error.clear();
                         }
                     }
-            } else if (cur_state == mxh::client::GameStateId::CharMake) {
+                } else if (cur_state == mxh::client::GameStateId::CharMake) {
                     if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
                             mainGame.GetGameState(cur_state))) {
+                        charmake_failure_presented = false;
                         cm->Start(mainGame.GetEngine());
                     }
                 } else if (cur_state == mxh::client::GameStateId::GameLoading) {
@@ -2746,6 +2748,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     pending_loading_error = cs->failure_reason();
                     MLOG_ERROR("CharSelect: %s", pending_loading_error.c_str());
                     mainGame.SetGameState(mxh::client::GameStateId::Title);
+                }
+            }
+            if (cur_state == mxh::client::GameStateId::CharMake) {
+                if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
+                        mainGame.GetGameState(cur_state));
+                    cm && cm->is_failed() && !charmake_failure_presented) {
+                    charmake_failure_presented = true;
+                    pending_loading_error = cm->failure_reason();
+                    MLOG_ERROR("CharMake: %s", pending_loading_error.c_str());
+                    mainGame.GetEngine()->SetPendingTransfer(cm->login_result());
+                    mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
                 }
             }
             // GameLoading consumer must run every frame when the state is
