@@ -70,10 +70,15 @@ public:
     void Init(void* p) override;
     void Release() override;
     void Process() override;
+    void Start(CEngine* engine);
     float progress() const noexcept { return m_progress; }
     bool failed() const noexcept { return m_failed; }
     bool cancelled() const noexcept { return m_cancelled; }
     const std::string& error() const noexcept { return m_error; }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiRuntime.dialogs();
+    }
     void set_context(const LoadStateContext* context) noexcept {
         SetInitParam(const_cast<LoadStateContext*>(context));
     }
@@ -82,6 +87,7 @@ private:
     bool m_failed = false;
     bool m_cancelled = false;
     std::string m_error;
+    ClientUiRuntime m_uiRuntime;
 };
 
 // -------------------------------------------------------------------------

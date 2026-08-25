@@ -13,6 +13,7 @@
 // don't override them here.
 
 #include "GameStateStubs.hpp"
+#include "CEngine.hpp"
 
 #include "mxh/log/mlog.hpp"
 
@@ -67,7 +68,20 @@ void CGameLoading::Init(void* param) {
     MLOG_INFO("CGameLoading::Init progress=%.3f failed=%d", m_progress, m_failed);
 }
 
+void CGameLoading::Start(CEngine* engine) {
+    if (!engine || !engine->playdh_root() || !m_uiRuntime.empty()) return;
+    std::string error;
+    if (!m_uiRuntime.load(*engine->playdh_root(), "NewLoadDlg.bin",
+                          engine->ui_resolution_mode(), &error)) {
+        MLOG_WARN("CGameLoading: NewLoadDlg.bin unavailable: %s", error.c_str());
+        return;
+    }
+    m_uiRuntime.activateAllLoadedDialogs();
+    MLOG_INFO("CGameLoading: loaded real NewLoadDlg.bin UI");
+}
+
 void CGameLoading::Release() {
+    m_uiRuntime.clear();
     setInitialized(false);
     MLOG_DEBUG("CGameLoading::Release");
 }

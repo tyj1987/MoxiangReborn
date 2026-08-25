@@ -337,6 +337,7 @@ std::string __g_pendingStateFrame;
 mxh::client::CInGameState* g_inputTarget = nullptr;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
+mxh::client::CGameLoading*     g_gameLoadingState = nullptr;
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
@@ -1386,7 +1387,23 @@ void renderFrame(HWND h) {
                              0xFFFFFFFFu);
                 }
             } else if (cur_state == static_cast<int>(mxh::client::GameStateId::GameLoading)) {
-                drawText("Entering game...", 290, 240, 0xFF80FF80u);
+                if (auto* loading = g_gameLoadingState) {
+                    loading->ui_runtime().render();
+                    if (g_debugUiBounds) {
+                        const auto& dialogs = loading->ui_dialogs();
+                        for (const auto& d : dialogs) {
+                            if (!d) continue;
+                            drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                                       static_cast<float>(d->absX()),
+                                       static_cast<float>(d->absY()),
+                                       static_cast<float>(d->width()),
+                                       static_cast<float>(d->height()), 0.85f);
+                        }
+                        drawText("Loading progress: " +
+                                     std::to_string(static_cast<int>(loading->progress() * 100.0f)) + "%",
+                                 290, 540, 0xFF80FF80u);
+                    }
+                }
             }
         }
     }
@@ -2202,10 +2219,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             pending_loading_error.clear();
                         }
                     }
-                } else if (cur_state == mxh::client::GameStateId::CharMake) {
+            } else if (cur_state == mxh::client::GameStateId::CharMake) {
                     if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
                             mainGame.GetGameState(cur_state))) {
                         cm->Start(mainGame.GetEngine());
+                    }
+                } else if (cur_state == mxh::client::GameStateId::GameLoading) {
+                    if (auto* loading = dynamic_cast<mxh::client::CGameLoading*>(
+                            mainGame.GetGameState(cur_state))) {
+                        loading->Start(mainGame.GetEngine());
+                        g_gameLoadingState = loading;
                     }
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
                     if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
