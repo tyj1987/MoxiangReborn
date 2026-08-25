@@ -81,6 +81,14 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     mxh::compat::StmStaticModel scene;
     if (!readStorageFile(storage, stm_name, bytes) ||
         !mxh::compat::parse_stm(bytes, scene, error)) return false;
+    impl_->collision_bounds.reserve(scene.collision_bounds.size());
+    for (const auto& source : scene.collision_bounds) {
+        impl_->collision_bounds.push_back({
+            source.min[0] * kSceneScale - kMapCenter,
+            source.max[0] * kSceneScale - kMapCenter,
+            source.min[2] * kSceneScale - kMapCenter,
+            source.max[2] * kSceneScale - kMapCenter});
+    }
 
     ID3D11Device* device = nullptr;
     if (!renderer->GetD3DDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)) || !device)
@@ -97,11 +105,6 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
 
     for (const auto& source : scene.meshes) {
         if (source.positions.empty() || source.positions.size() > 65535u) continue;
-        Impl::Bounds bounds{
-            std::numeric_limits<float>::max(),
-            std::numeric_limits<float>::lowest(),
-            std::numeric_limits<float>::max(),
-            std::numeric_limits<float>::lowest()};
         std::vector<VECTOR3> positions(source.positions.size());
         std::vector<VECTOR3> normals(source.positions.size(), VECTOR3{0, 1, 0});
         std::vector<TVERTEX> texcoords(source.positions.size());
@@ -109,10 +112,6 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
             positions[i] = {source.positions[i][0] * kSceneScale - kMapCenter,
                             source.positions[i][1] * kSceneScale,
                             source.positions[i][2] * kSceneScale - kMapCenter};
-            bounds.min_x = std::min(bounds.min_x, positions[i].x);
-            bounds.max_x = std::max(bounds.max_x, positions[i].x);
-            bounds.min_z = std::min(bounds.min_z, positions[i].z);
-            bounds.max_z = std::max(bounds.max_z, positions[i].z);
             if (i < source.normals.size())
                 normals[i] = {source.normals[i][0], source.normals[i][1], source.normals[i][2]};
             if (i < source.texcoords.size())
@@ -144,7 +143,6 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
             if (materials[group] < impl_->textures.size())
                 mesh->SetFaceGroupDiffuseSRV(group, impl_->textures[materials[group]].Get());
         impl_->meshes.push_back(mesh);
-        impl_->collision_bounds.push_back(bounds);
     }
     MLOG_INFO("[static] original STM loaded meshes=%u/%u textures=%u/%u",
               meshCount(), static_cast<unsigned>(scene.meshes.size()), loadedTextureCount(),

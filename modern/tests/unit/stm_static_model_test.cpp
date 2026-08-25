@@ -79,6 +79,12 @@ TEST(StmStaticModel, ParsesRealMap12Scene) {
     EXPECT_EQ(faces, 58601u);
     EXPECT_EQ(model.collision_offset, 4624722u);
     EXPECT_LT(model.collision_offset, bytes.size());
+    ASSERT_FALSE(model.collision_bounds.empty());
+    for (const auto& bounds : model.collision_bounds) {
+        EXPECT_LE(bounds.min[0], bounds.max[0]);
+        EXPECT_LE(bounds.min[1], bounds.max[1]);
+        EXPECT_LE(bounds.min[2], bounds.max[2]);
+    }
 }
 
 TEST(StmStaticModel, RejectsTruncatedData) {

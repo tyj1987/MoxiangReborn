@@ -51,11 +51,17 @@ struct StmMesh {
     std::vector<std::vector<StmInfluence>> physique;
 };
 
+struct StmCollisionBounds {
+    std::array<float, 3> min{};
+    std::array<float, 3> max{};
+};
+
 struct StmStaticModel {
     std::uint32_t version = 0;
     std::vector<StmMaterial> materials;
     std::vector<StmMesh> meshes;
     std::vector<StmBone> bones;
+    std::vector<StmCollisionBounds> collision_bounds;
     std::size_t collision_offset = 0;
 };
 
