@@ -308,7 +308,9 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                cat == mxh::proto::Category::Monster ||
                cat == mxh::proto::Category::Npc ||
                cat == mxh::proto::Category::Skill ||
-               cat == mxh::proto::Category::Battle) {
+               cat == mxh::proto::Category::Battle ||
+               cat == mxh::proto::Category::Party ||
+               cat == mxh::proto::Category::Guild) {
         std::cout << "[Agent] " << mxh::proto::category_name(cat)
                   << " proto=" << (int)msg.header.protocol
                   << " from conn=" << id.value << "\n";

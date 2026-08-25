@@ -1220,6 +1220,49 @@ TEST(MapHandlerTest, ConstructionWithMapNumDoesNotCrash) {
     SUCCEED();
 }
 
+TEST(MapHandlerTest, PartyCreateAndBreakupMutateAuthoritativeMapState) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(77);
+
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = 123u;
+    handler.on_message(connection, game_in);
+
+    mxh::net::Message create;
+    create.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    create.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::CreateSyn);
+    create.header.object_id = 123u;
+    create.payload = {0};
+    handler.on_message(connection, create);
+    ASSERT_GE(reply.messages.size(), 2u); // GameInAck + PartyCreateAck
+    const auto& created = reply.messages.back();
+    EXPECT_EQ(created.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::PartyProtocol::CreateAck));
+    ASSERT_EQ(created.payload.size(), 28u);
+    std::uint32_t party_id = 0;
+    std::memcpy(&party_id, created.payload.data(), sizeof(party_id));
+    EXPECT_EQ(party_id, 1u);
+    EXPECT_EQ(created.payload[4], 1u);
+
+    handler.on_message(connection, create);
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::PartyProtocol::CreateNack));
+
+    mxh::net::Message breakup;
+    breakup.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    breakup.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::BreakupSyn);
+    breakup.header.object_id = 123u;
+    breakup.payload.resize(sizeof(party_id));
+    std::memcpy(breakup.payload.data(), &party_id, sizeof(party_id));
+    handler.on_message(connection, breakup);
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::PartyProtocol::BreakupAck));
+}
+
 TEST(MapHandlerTest, AllChatPersistsSanitizedAuditRecord) {
     auto db = mxh::db::make_adapter("sqlite");
     mxh::db::ConnectionConfig cfg;
