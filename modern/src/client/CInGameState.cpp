@@ -599,10 +599,15 @@ void CInGameState::Init(void* pInitParam) {
 void CInGameState::Release() {
     MLOG_DEBUG("CInGameState::Release");
     m_releasing = true;
+    if (m_inGame && !m_sentGameOutSyn && m_pEngine &&
+        m_pEngine->agent_session().is_connected()) {
+        send_gameout_syn();
+    }
     m_info = GameInInfo{};
     m_inGame   = false;
     m_started  = false;
     m_sentGameInSyn = false;
+    m_sentGameOutSyn = false;
     m_failed   = false;
     m_failureReason.clear();
     m_uiRuntime.clear();
@@ -892,6 +897,26 @@ void CInGameState::send_gamein_syn() {
     }
     m_sentGameInSyn = true;
     MLOG_INFO("CInGameState: sent GameInSyn player_id=%u (empty payload)",
+              static_cast<unsigned>(m_playerId));
+}
+
+void CInGameState::send_gameout_syn() {
+    if (m_sentGameOutSyn || !m_pEngine || m_playerId == 0) return;
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameOutSyn);
+    out.header.object_id = m_playerId;
+    out.payload = {};
+    const auto e = m_pEngine->agent_session().send(out);
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_WARN("CInGameState: send GameOutSyn failed: %s",
+                  mxh::net::to_string(e));
+        return;
+    }
+    m_sentGameOutSyn = true;
+    MLOG_INFO("CInGameState: sent GameOutSyn player_id=%u",
               static_cast<unsigned>(m_playerId));
 }
 

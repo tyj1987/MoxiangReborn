@@ -942,6 +942,18 @@ void MapHandler::handle_userconn(mxh::net::ConnectionId id,
         case mxh::proto::UserConnProtocol::GameOutSyn: {
             std::uint32_t player_id = msg.header.object_id;
             std::cout << "[Map] GameOutSyn from player=" << player_id << "\n";
+            // Persist the complete live snapshot before removing the runtime.
+            // Each writer takes its own short lock and therefore must run
+            // before the maps are erased.
+            std::uint32_t money = 0;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto it = connected_players_.find(player_id);
+                if (it != connected_players_.end()) money = it->second.money;
+            }
+            persist_player_items(player_id);
+            persist_player_money(player_id, money);
+            persist_quest_log(player_id);
             std::vector<std::uint32_t> remaining_pids;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);

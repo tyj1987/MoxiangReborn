@@ -464,6 +464,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
 public:
     bool handle_ui_activation(const ClientUiActivation& activation);
     void send_gamein_syn();
+    void send_gameout_syn();
     void dispatch_gamein_ack(const GameInInfo& info);
     void fail_with(const std::string& reason);
     void update_movement(std::uint64_t now_ms);
@@ -517,6 +518,7 @@ public:
     bool                     m_inGame     = false;
     bool                     m_failed     = false;
     bool                     m_sentGameInSyn = false;  // gate for Process() retry
+    bool                     m_sentGameOutSyn = false;
     bool                     m_releasing = false;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;

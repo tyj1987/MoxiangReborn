@@ -2933,4 +2933,50 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
     EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 7);
 }
 
+// GameOut is the authoritative session boundary: live money must be flushed
+// before the player runtime is removed, so a subsequent GameIn can observe it.
+TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE modern_player_state ("
+        " player_id INTEGER PRIMARY KEY, money INTEGER NOT NULL DEFAULT 0,"
+        " level INTEGER NOT NULL DEFAULT 1, exp INTEGER NOT NULL DEFAULT 0,"
+        " updated_at TEXT NOT NULL);"
+        "CREATE TABLE modern_player_item ("
+        " player_id INTEGER NOT NULL, container INTEGER NOT NULL, slot INTEGER NOT NULL,"
+        " db_idx INTEGER NOT NULL, item_idx INTEGER NOT NULL, durability INTEGER NOT NULL,"
+        " rare_idx INTEGER NOT NULL, quick_position INTEGER NOT NULL, item_param INTEGER NOT NULL);"
+    ).ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(99);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 777u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_money_for_test(777u, 4242u));
+
+    mxh::net::Message game_out;
+    game_out.header.object_id = 777u;
+    game_out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_out.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+    handler.on_message(connection, game_out);
+
+    mxh::db::ResultSet rows;
+    const std::vector<mxh::db::Bind> args{mxh::db::bind(static_cast<std::int64_t>(777))};
+    ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=?", args, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 4242);
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+}
+
 }  // namespace mxh::server::test
