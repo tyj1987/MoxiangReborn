@@ -1552,6 +1552,10 @@ TEST(MapHandlerTest, MoveSynMovesInventoryItemIntoEquipmentAndPersistsContainer)
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 1);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 0);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 601);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+    EXPECT_EQ(reply.messages.back().payload.size(), sizeof(mxh::game::ItemTotalInfo));
 }
 
 TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {

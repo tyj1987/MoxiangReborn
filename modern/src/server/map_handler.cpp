@@ -1664,7 +1664,24 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             reply.header.object_id = player_id;
             reply.payload = msg.payload; // echo back the item data
             reply_(id, reply);
-            if (found) persist_player_items(player_id);
+            if (found) {
+                persist_player_items(player_id);
+                mxh::game::ItemTotalInfo updated_items{};
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    const auto info_it = connected_players_.find(player_id);
+                    if (info_it != connected_players_.end()) {
+                        updated_items = info_it->second.items;
+                    }
+                }
+                mxh::net::Message total;
+                total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                total.header.object_id = player_id;
+                total.payload.resize(sizeof(updated_items));
+                std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+                reply_(id, total);
+            }
             std::cout << "[Map] sent ITEM_MOVE_"
                       << (found ? "ACK" : "NACK") << "\n";
             break;
