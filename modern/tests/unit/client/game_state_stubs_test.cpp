@@ -149,3 +149,18 @@ TEST(GameLoadingCoordinator, RestoresPreviousGameOnlyWithCompleteScene) {
     EXPECT_FALSE(can_restore_previous_game_after_map_change(true, true, false, true));
     EXPECT_FALSE(can_restore_previous_game_after_map_change(true, true, true, false));
 }
+
+TEST(GameLoadingCoordinator, RepeatedMapRequestsResetProgressForSoakLoop) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    for (std::uint32_t iteration = 0; iteration < 50; ++iteration) {
+        engine.SetPendingTransfer(GameEntryRequest{1000u + iteration,
+                                                   static_cast<std::uint16_t>(
+                                                       iteration % 3 == 0 ? 10 : 12)});
+        ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+        coordinator.mark_completed(10);
+        EXPECT_EQ(coordinator.context().completed_steps, 10u);
+        EXPECT_FALSE(coordinator.context().failed);
+        EXPECT_FALSE(coordinator.context().cancelled);
+    }
+}
