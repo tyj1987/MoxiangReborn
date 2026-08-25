@@ -411,6 +411,24 @@ TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
     EXPECT_EQ(reply.call_count.load(), 2);
 }
 
+TEST(AgentHandlerTest, DisconnectRemovesOffMapSocialRoute) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 12u);
+    MockTcpSender map_sender;
+    handler.set_map_server(&map_sender, mxh::net::make_connection_id(77));
+    handler.on_disconnect(mxh::net::make_connection_id(101), mxh::net::NetError::Disconnected);
+
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::Info);
+    msg.header.object_id = 456u;
+    msg.payload = {0x2a, 0x00, 0x00, 0x00, 0x01};
+    handler.forward_from_map(mxh::net::make_connection_id(77), msg);
+    EXPECT_EQ(reply.call_count.load(), 0);
+}
+
 TEST(AgentHandlerTest, SetMapServerAcceptsITcpSender) {
     // Phase 12.1 P2-13: set_map_server now takes ITcpSender* (was
     // TcpClient*). A MockTcpSender must be accepted without conversion
