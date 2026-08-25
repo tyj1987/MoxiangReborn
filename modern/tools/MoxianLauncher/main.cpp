@@ -96,6 +96,10 @@ private:
             return;
         }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
+        const fs::path roots[] = {bin / L"data" / L"PlayDH", bin.parent_path() / L"data" / L"PlayDH", bin.parent_path() / L"modern" / L"data" / L"PlayDH"};
+        for (const auto& root : roots) {
+            if (fs::is_directory(root)) { command += L" --resource-root \"" + root.wstring() + L"\""; break; }
+        }
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
     }
