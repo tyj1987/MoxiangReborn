@@ -454,6 +454,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t party_id() const noexcept { return m_partyId; }
     std::uint8_t party_member_count() const noexcept { return m_partyMemberCount; }
     bool request_party_create(std::uint8_t option = 0);
+    bool request_party_invite(std::uint32_t target_player_id);
+    bool accept_party_invite();
+    std::uint32_t pending_party_invite_id() const noexcept { return m_pendingPartyInviteId; }
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
@@ -561,6 +564,7 @@ public:
     std::vector<std::string> m_chatLines;
     std::uint32_t m_partyId = 0;
     std::uint8_t m_partyMemberCount = 0;
+    std::uint32_t m_pendingPartyInviteId = 0;
     bool                 m_inventoryOpen = false;
     std::size_t          m_inventoryTab = 0;
     ClientUiRuntime      m_uiRuntime;

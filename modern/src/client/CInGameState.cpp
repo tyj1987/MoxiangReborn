@@ -337,6 +337,17 @@ mxh::net::Message make_party_create_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_party_request_message(std::uint32_t player_id,
+                                              mxh::proto::PartyProtocol protocol,
+                                              std::span<const std::uint8_t> payload) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    message.header.protocol = static_cast<std::uint8_t>(protocol);
+    message.header.object_id = player_id;
+    message.payload.assign(payload.begin(), payload.end());
+    return message;
+}
+
 std::string parse_chat_payload(std::span<const std::uint8_t> payload) {
     std::string out;
     out.reserve(payload.size());
@@ -1320,13 +1331,31 @@ void CInGameState::handle_party_message(const mxh::net::Message& msg) {
         m_uiRuntime.showMessage(9101, "Party created.");
         return;
     }
+    if (proto == PartyProtocol::AddInvite && msg.payload.size() >= 4) {
+        std::memcpy(&m_pendingPartyInviteId, msg.payload.data(), sizeof(m_pendingPartyInviteId));
+        m_uiRuntime.showMessage(9104, "You received a party invitation.");
+        return;
+    }
+    if (proto == PartyProtocol::InviteAcceptAck && msg.payload.size() >= 5) {
+        std::memcpy(&m_partyId, msg.payload.data(), sizeof(m_partyId));
+        m_partyMemberCount = msg.payload[4];
+        m_pendingPartyInviteId = 0;
+        m_uiRuntime.showMessage(9105, "Joined party.");
+        return;
+    }
+    if (proto == PartyProtocol::Info && msg.payload.size() >= 5) {
+        std::memcpy(&m_partyId, msg.payload.data(), sizeof(m_partyId));
+        m_partyMemberCount = msg.payload[4];
+        return;
+    }
     if (proto == PartyProtocol::BreakupAck && msg.payload.size() >= 4) {
         m_partyId = 0;
         m_partyMemberCount = 0;
         m_uiRuntime.showMessage(9102, "Party disbanded.");
         return;
     }
-    if (proto == PartyProtocol::CreateNack || proto == PartyProtocol::BreakupNack) {
+    if (proto == PartyProtocol::CreateNack || proto == PartyProtocol::AddNack ||
+        proto == PartyProtocol::InviteAcceptNack || proto == PartyProtocol::BreakupNack) {
         m_uiRuntime.showMessage(9103, "Party action failed.");
     }
 }
@@ -2454,6 +2483,27 @@ bool CInGameState::request_party_create(std::uint8_t option) {
     if (!m_inGame || !is_connected() || m_playerId == 0) return false;
     return m_pEngine->agent_session().send(
                make_party_create_message(m_playerId, option)) == mxh::net::NetError::Ok;
+}
+
+bool CInGameState::request_party_invite(std::uint32_t target_player_id) {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || m_partyId == 0 ||
+        target_player_id == 0) return false;
+    std::array<std::uint8_t, 8> payload{};
+    std::memcpy(payload.data(), &m_partyId, sizeof(m_partyId));
+    std::memcpy(payload.data() + 4, &target_player_id, sizeof(target_player_id));
+    return m_pEngine->agent_session().send(make_party_request_message(
+               m_playerId, mxh::proto::PartyProtocol::AddSyn, payload)) ==
+           mxh::net::NetError::Ok;
+}
+
+bool CInGameState::accept_party_invite() {
+    if (!m_inGame || !is_connected() || m_playerId == 0 ||
+        m_pendingPartyInviteId == 0) return false;
+    std::array<std::uint8_t, 4> payload{};
+    std::memcpy(payload.data(), &m_pendingPartyInviteId, sizeof(m_pendingPartyInviteId));
+    return m_pEngine->agent_session().send(make_party_request_message(
+               m_playerId, mxh::proto::PartyProtocol::InviteAcceptSyn, payload)) ==
+           mxh::net::NetError::Ok;
 }
 
 void CInGameState::fail_with(const std::string& reason) {

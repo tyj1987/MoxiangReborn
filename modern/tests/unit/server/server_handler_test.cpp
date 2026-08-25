@@ -1248,6 +1248,45 @@ TEST(MapHandlerTest, PartyCreateAndBreakupMutateAuthoritativeMapState) {
     EXPECT_EQ(party_id, 1u);
     EXPECT_EQ(created.payload[4], 1u);
 
+    mxh::net::Message second_game_in = game_in;
+    second_game_in.header.object_id = 456u;
+    const auto second_connection = mxh::net::make_connection_id(78);
+    handler.on_message(second_connection, second_game_in);
+
+    mxh::net::Message invite = create;
+    invite.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::AddSyn);
+    invite.payload.resize(8);
+    std::memcpy(invite.payload.data(), &party_id, sizeof(party_id));
+    const std::uint32_t target_id = 456u;
+    std::memcpy(invite.payload.data() + 4, &target_id, sizeof(target_id));
+    handler.on_message(connection, invite);
+    bool saw_invite = false;
+    for (const auto& message : reply.messages) {
+        saw_invite |= message.header.protocol ==
+                      static_cast<std::uint8_t>(mxh::proto::PartyProtocol::AddInvite) &&
+                      message.header.object_id == target_id;
+    }
+    EXPECT_TRUE(saw_invite);
+
+    mxh::net::Message accept;
+    accept.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    accept.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::InviteAcceptSyn);
+    accept.header.object_id = target_id;
+    accept.payload.resize(sizeof(party_id));
+    std::memcpy(accept.payload.data(), &party_id, sizeof(party_id));
+    handler.on_message(second_connection, accept);
+    bool saw_join_ack = false;
+    for (const auto& message : reply.messages) {
+        if (message.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::PartyProtocol::InviteAcceptAck) &&
+            message.header.object_id == target_id) {
+            saw_join_ack = true;
+            ASSERT_GE(message.payload.size(), 5u);
+            EXPECT_EQ(message.payload[4], 2u);
+        }
+    }
+    EXPECT_TRUE(saw_join_ack);
+
     handler.on_message(connection, create);
     EXPECT_EQ(reply.messages.back().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::PartyProtocol::CreateNack));

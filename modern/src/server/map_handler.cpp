@@ -1465,6 +1465,110 @@ void MapHandler::handle_party(mxh::net::ConnectionId id,
         return;
     }
 
+    const auto make_party_payload = [](const Party& party) {
+        // [party_id:u32][member_count:u8] + member slots
+        // [member_id:u32][level:u16][name:17] for each live member.
+        std::vector<std::uint8_t> payload(5u +
+            static_cast<std::size_t>(party.member_count) * 23u, 0);
+        std::memcpy(payload.data(), &party.party_id, sizeof(party.party_id));
+        payload[4] = party.member_count;
+        std::size_t off = 5;
+        for (std::uint8_t i = 0; i < party.member_count; ++i) {
+            const auto& member = party.members[i];
+            std::memcpy(payload.data() + off, &member.member_id, 4); off += 4;
+            std::memcpy(payload.data() + off, &member.level, 2); off += 2;
+            std::memcpy(payload.data() + off, member.name.data(), 17); off += 17;
+        }
+        return payload;
+    };
+
+    if (proto == PartyProtocol::AddSyn) {
+        std::uint32_t requested_party = 0;
+        std::uint32_t target_id = 0;
+        if (msg.payload.size() >= 8) {
+            std::memcpy(&requested_party, msg.payload.data(), 4);
+            std::memcpy(&target_id, msg.payload.data() + 4, 4);
+        }
+        auto party = find_party_by_id(party_log_, requested_party);
+        std::uint64_t target_conn = 0;
+        bool valid_target = false;
+        {
+            std::lock_guard<std::mutex> lk(players_mu_);
+            const auto target = connected_players_.find(target_id);
+            valid_target = target != connected_players_.end();
+            if (valid_target) target_conn = target->second.conn_id;
+        }
+        const bool allowed = party.has_value() && (*party)->master_id == player_id &&
+                             target_id != player_id && valid_target &&
+                             !is_party_member(**party, target_id);
+        if (!allowed) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::AddNack);
+            nack.payload.resize(4);
+            const std::uint32_t error = 4;
+            std::memcpy(nack.payload.data(), &error, 4);
+            reply_(id, nack);
+            return;
+        }
+        mxh::net::Message invite;
+        invite.header.category = msg.header.category;
+        invite.header.protocol = static_cast<std::uint8_t>(PartyProtocol::AddInvite);
+        invite.header.object_id = target_id;
+        invite.payload.resize(8);
+        std::memcpy(invite.payload.data(), &requested_party, 4);
+        std::memcpy(invite.payload.data() + 4, &player_id, 4);
+        reply_(mxh::net::ConnectionId{target_conn}, invite);
+
+        mxh::net::Message ack = msg;
+        ack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::AddAck);
+        ack.payload = invite.payload;
+        reply_(id, ack);
+        return;
+    }
+
+    if (proto == PartyProtocol::InviteAcceptSyn) {
+        std::uint32_t requested_party = 0;
+        if (msg.payload.size() >= 4) {
+            std::memcpy(&requested_party, msg.payload.data(), 4);
+        }
+        auto party = find_party_by_id(party_log_, requested_party);
+        bool added = false;
+        if (party.has_value() && !is_party_member(**party, player_id)) {
+            added = add_member(**party, player_id, player_name, player_level);
+        }
+        if (!added) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::InviteAcceptNack);
+            nack.payload.resize(4);
+            const std::uint32_t error = 5;
+            std::memcpy(nack.payload.data(), &error, 4);
+            reply_(id, nack);
+            return;
+        }
+        const auto snapshot = make_party_payload(**party);
+        mxh::net::Message ack = msg;
+        ack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::InviteAcceptAck);
+        ack.payload = snapshot;
+        reply_(id, ack);
+        for (std::uint8_t i = 0; i < (*party)->member_count; ++i) {
+            const auto member_id = (*party)->members[i].member_id;
+            std::uint64_t member_conn = 0;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto member = connected_players_.find(member_id);
+                if (member != connected_players_.end()) member_conn = member->second.conn_id;
+            }
+            if (member_conn == 0) continue;
+            mxh::net::Message info;
+            info.header.category = msg.header.category;
+            info.header.protocol = static_cast<std::uint8_t>(PartyProtocol::Info);
+            info.header.object_id = member_id;
+            info.payload = snapshot;
+            reply_(mxh::net::ConnectionId{member_conn}, info);
+        }
+        return;
+    }
+
     if (proto == PartyProtocol::BreakupSyn) {
         std::uint32_t requested_party = 0;
         if (msg.payload.size() >= sizeof(requested_party)) {
