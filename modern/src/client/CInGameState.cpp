@@ -1033,6 +1033,11 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
             if (msg.payload.size() >= 8) {
                 const auto skill_idx = get_u32(msg.payload.data());
                 const auto skill_object = get_u32(msg.payload.data() + 4);
+                // The server acknowledgement is the presentation authority:
+                // do not start a BEFF timeline merely because the client
+                // write succeeded.  This also prevents a rejected or
+                // duplicated request from producing a phantom effect.
+                start_skill_effect(skill_idx, skill_object, m_lastTickMs);
                 push_effect_event(EffectEvent{
                     EffectEventKind::CastRelease, m_lastTickMs, m_playerId,
                     skill_object, skill_idx, skill_idx, 0, 0, 0});
@@ -1800,7 +1805,6 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_lastAttackMs = now;
-        start_skill_effect(skill, target, now);
         push_effect_event(EffectEvent{
             EffectEventKind::CastStart, now, m_playerId, target,
             skill, skill, 0, 0, 0});
