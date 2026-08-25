@@ -43,6 +43,8 @@ namespace mxh::client {
 
 class CEngine {
 public:
+    enum class AudioCue : std::uint8_t { Attack, Skill, UiClick };
+    using AudioEventFn = std::function<void(AudioCue)>;
     CEngine() = default;
     ~CEngine() = default;
 
@@ -118,6 +120,8 @@ public:
 
     AgentSession& agent_session() noexcept { return m_agentSession; }
     const AgentSession& agent_session() const noexcept { return m_agentSession; }
+    void SetAudioEventFn(AudioEventFn fn) noexcept { m_audioEventFn = std::move(fn); }
+    void EmitAudio(AudioCue cue) const { if (m_audioEventFn) m_audioEventFn(cue); }
 
 private:
     void*                           m_hWnd         = nullptr;
@@ -129,6 +133,7 @@ private:
     StateChangeFn                   m_stateChangeFn;
     StateTransfer                   m_pendingTransfer;
     AgentSession                    m_agentSession;
+    AudioEventFn                    m_audioEventFn;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers
     // are wired in.  Kept out of A.1.6 to keep the surface minimal.
 };

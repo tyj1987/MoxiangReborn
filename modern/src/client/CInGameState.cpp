@@ -1478,6 +1478,7 @@ void CInGameState::try_attack() {
     m_attackFlashMs = now;
     if (!is_connected()) {
         MLOG_INFO("CInGameState: attack target=%u (offline)", *target);
+        if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Attack);
         return;
     }
     const auto e = m_pEngine->agent_session().send(
@@ -1489,6 +1490,7 @@ void CInGameState::try_attack() {
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
+    if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Attack);
 }
 
 std::uint32_t CInGameState::pick_npc_at_screen(float sx, float sy) const {
@@ -1597,6 +1599,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         m_lastAttackMs = now;
         MLOG_INFO("CInGameState: quick slot %zu skill=%u target=%u",
                   slot, skill, target);
+        if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Skill);
     }
 }
 

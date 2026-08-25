@@ -1860,6 +1860,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mxh::client::CMainGame mainGame;
     mainGame.Init(hwnd);
     mainGame.SetEngine(std::move(engine));
+    mainGame.GetEngine()->SetAudioEventFn(
+        [&sfx](mxh::client::CEngine::AudioCue cue) {
+            if (cue == mxh::client::CEngine::AudioCue::UiClick) return;
+            if (g_uiClickSound == 0xffffu) return;
+            std::string audio_error;
+            (void)sfx.play(g_uiClickSound, &audio_error);
+        });
     mainGame.RegisterState(mxh::client::GameStateId::Intro,      std::make_unique<mxh::client::CIntroReplay>());
     mainGame.RegisterState(mxh::client::GameStateId::Connect,    std::make_unique<mxh::client::CLoginState>());
     mainGame.RegisterState(mxh::client::GameStateId::Title,      std::make_unique<mxh::client::CMainTitle>());
