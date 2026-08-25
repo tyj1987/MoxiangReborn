@@ -133,6 +133,7 @@ struct CliArgs {
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool exercise_combat = false; // opt-in live combat gate; never implicit
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
+    bool exercise_mapchange = false; // opt-in cross-map route/load gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
                                // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
@@ -214,6 +215,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--exercise-combat") a.exercise_combat = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
+        else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
@@ -499,6 +501,8 @@ int run_e2e(const CliArgs& cli) {
             "--legacy",
             "--map-server", "127.0.0.1:18001",
             "--default-map", std::to_string(cli.map_number),
+            (cli.exercise_mapchange ? "--map-server-map" : ""),
+            (cli.exercise_mapchange ? "12=127.0.0.1:18002" : ""),
             (cli.use_hsel ? "--use-hsel" : "")});
 
         // MapServer
@@ -516,6 +520,22 @@ int run_e2e(const CliArgs& cli) {
             "--legacy",
             (cli.use_hsel ? "--use-hsel" : "")});
 
+        if (cli.exercise_mapchange) {
+            procs.push_back(std::make_unique<ServerProc>());
+            procs.back()->name = "map12";
+            procs.back()->exe = cli.map_exe;
+            procs.back()->spawn_with_args("", {
+                "--port", "18002",
+                "--backend", backend_flag,
+                "--map", "12",
+                "--db", map_db,
+                "--resource-root", e2e_playdh_root.string(),
+                "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
+                "--resource-profile", "playdh-current",
+                "--legacy",
+                (cli.use_hsel ? "--use-hsel" : "")});
+        }
+
         // Wait for the three ports.
         if (!wait_for_port(16001, cli.timeout_s)) {
             LOG("LoginServer failed to listen on :16001 within %ds", cli.timeout_s);
@@ -527,6 +547,10 @@ int run_e2e(const CliArgs& cli) {
         }
         if (!wait_for_port(18001, cli.timeout_s)) {
             LOG("MapServer failed to listen on :18001 within %ds", cli.timeout_s);
+            return 1;
+        }
+        if (cli.exercise_mapchange && !wait_for_port(18002, cli.timeout_s)) {
+            LOG("MapServer[12] failed to listen on :18002 within %ds", cli.timeout_s);
             return 1;
         }
         LOG("all 3 servers listening (login:16001, agent:17001, map:18001)");
@@ -836,6 +860,40 @@ int run_e2e(const CliArgs& cli) {
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
+
+        if (cli.exercise_mapchange) {
+            constexpr std::uint16_t target_map = 12;
+            LOG("[5/5] MapChange: requesting authoritative map=%u ...",
+                static_cast<unsigned>(target_map));
+            mxh::net::Message change;
+            change.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            change.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::ChangeMapSyn);
+            change.header.object_id = created_chrid;
+            change.payload.resize(4, 0);
+            std::memcpy(change.payload.data(), &target_map, sizeof(target_map));
+            if (engine.agent_session().send(change) != mxh::net::NetError::Ok) {
+                LOG("[5/5] FAIL: ChangeMapSyn send failed");
+                return 2;
+            }
+            const auto change_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(cli.timeout_s * 3);
+            while (game.game_info().map_num != target_map &&
+                   std::chrono::steady_clock::now() < change_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.game_info().map_num != target_map) {
+                LOG("[5/5] FAIL: target GameInAck map=%u expected=%u",
+                    static_cast<unsigned>(game.game_info().map_num),
+                    static_cast<unsigned>(target_map));
+                return 2;
+            }
+            LOG("[5/5] OK: MapChange target GameInAck map=%u monsters=%zu npcs=%zu",
+                static_cast<unsigned>(game.game_info().map_num),
+                game.monsters().size(), game.npcs().size());
+        }
 
         if (cli.exercise_combat) {
             // This is deliberately opt-in: it exercises the real client

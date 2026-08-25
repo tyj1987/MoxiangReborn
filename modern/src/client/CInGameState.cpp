@@ -924,6 +924,7 @@ void CInGameState::send_gameout_syn() {
 void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     m_info   = info;
     m_inGame = true;
+    if (info.map_num != 0) m_mapNum = info.map_num;
     m_localX = static_cast<float>(info.position_x);
     m_localZ = static_cast<float>(info.position_z);
     MLOG_INFO("CInGameState: GameInAck player_id=%u user_id=%u name='%s' "
