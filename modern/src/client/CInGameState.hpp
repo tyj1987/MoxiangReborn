@@ -431,6 +431,9 @@ public:
     void handle_skill_broadcast(const mxh::net::Message& msg);
     void handle_chat_broadcast(const mxh::net::Message& msg);
     void handle_item_broadcast(const mxh::net::Message& msg);
+    bool apply_pickup_to_inventory(std::uint32_t drop_id,
+                                   std::uint16_t item_id,
+                                   std::uint16_t count) noexcept;
     void handle_quest_broadcast(const mxh::net::Message& msg);
     void send_quest(mxh::proto::QuestProtocol protocol);
     void set_inventory_open(bool open) noexcept;

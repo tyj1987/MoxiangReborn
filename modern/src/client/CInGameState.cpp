@@ -1066,6 +1066,20 @@ std::uint32_t CInGameState::pick_drop_at_screen(float sx, float sy) const {
     return best;
 }
 
+bool CInGameState::apply_pickup_to_inventory(std::uint32_t drop_id,
+                                             std::uint16_t item_id,
+                                             std::uint16_t count) noexcept {
+    if (drop_id == 0u || item_id == 0u || count == 0u) return false;
+    for (std::uint16_t slot = 0;
+         slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+        auto& item = m_info.items.Inventory[slot];
+        if (!mxh::game::is_empty_slot(item)) continue;
+        item = mxh::game::make_item(drop_id, item_id, slot, 100u, count);
+        return true;
+    }
+    return false;
+}
+
 void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     const auto proto = msg.header.protocol;
     if (proto == static_cast<std::uint8_t>(
@@ -1098,8 +1112,18 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                         return drop.object_id == drop_id;
                     }),
                 m_groundDrops.end());
-            MLOG_INFO("CInGameState: picked up drop=%u", drop_id);
-            if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Pickup);
+            const auto item_id = msg.payload.size() >= 6
+                ? get_u16(msg.payload.data() + 4) : 0u;
+            const auto count = msg.payload.size() >= 8
+                ? get_u16(msg.payload.data() + 6) : 0u;
+            const bool inventory_updated =
+                apply_pickup_to_inventory(drop_id, item_id, count);
+            MLOG_INFO("CInGameState: picked up drop=%u item=%u count=%u inventory=%s",
+                      drop_id, item_id, count,
+                      inventory_updated ? "updated" : "full-or-invalid");
+            if (inventory_updated && m_pEngine) {
+                m_pEngine->EmitAudio(CEngine::AudioCue::Pickup);
+            }
         }
         return;
     }

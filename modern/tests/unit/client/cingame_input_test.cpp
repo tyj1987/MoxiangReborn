@@ -484,8 +484,13 @@ TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
         mxh::proto::ItemProtocol::PickupAck);
     ack.payload.resize(8, 0);
     std::memcpy(ack.payload.data(), &drop_id, 4);
+    std::memcpy(ack.payload.data() + 4, &item_id, 2);
+    std::memcpy(ack.payload.data() + 6, &count, 2);
     state.on_message(mxh::net::make_connection_id(1), ack);
     EXPECT_TRUE(state.ground_drops().empty());
+    EXPECT_EQ(state.game_info().items.Inventory[0].dwDBIdx, drop_id);
+    EXPECT_EQ(state.game_info().items.Inventory[0].wIconIdx, item_id);
+    EXPECT_EQ(state.game_info().items.Inventory[0].ItemParam, count);
 }
 
 TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
