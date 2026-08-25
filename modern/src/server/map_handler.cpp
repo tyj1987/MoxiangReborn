@@ -1675,16 +1675,24 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         }
                     }
                     auto* target_item = item_at(new_pos);
-                    bool legal_equipment = true;
-                    if (source_item && new_pos >= mxh::game::TP_WEAREDITEM_START &&
-                        new_pos < mxh::game::TP_WEAREDITEM_END) {
-                        mxh::game::ItemInfo item_info{};
-                        if (item_manager_.try_get(source_item->wIconIdx, item_info)) {
-                            legal_equipment =
-                                legacy_item_can_equip_in_slot(item_info, new_pos) &&
-                                legacy_item_meets_player_limits(item_info, actor_state);
+                    const auto legal_for_position = [&](const mxh::game::ItemBase* item,
+                                                        std::uint16_t position) {
+                        if (!item || item->dwDBIdx == 0u ||
+                            position < mxh::game::TP_WEAREDITEM_START ||
+                            position >= mxh::game::TP_WEAREDITEM_END) {
+                            return true;
                         }
-                    }
+                        mxh::game::ItemInfo item_info{};
+                        if (!item_manager_.try_get(item->wIconIdx, item_info)) {
+                            return true;  // incomplete profile: preserve fail-open contract
+                        }
+                        return legacy_item_can_equip_in_slot(item_info, position) &&
+                               legacy_item_meets_player_limits(item_info, actor_state);
+                    };
+                    const bool legal_equipment =
+                        legal_for_position(source_item, new_pos) &&
+                        legal_for_position(target_item,
+                                           source_item ? source_item->Position : new_pos);
                     if (source_item && target_item && source_item != target_item &&
                         legal_equipment) {
                         const auto source_pos = source_item->Position;
