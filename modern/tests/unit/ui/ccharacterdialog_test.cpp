@@ -252,7 +252,7 @@ TEST(CCharacterDialog, SetDefenseRateCriticalAttackRangeResetToZero) {
     d.SetDefenseRate();
     d.SetCritical();
     d.SetAttackRange();
-    ASSERT_EQ(test_chardlg::g_setCalls.size(), 7u);
+    ASSERT_EQ(test_chardlg::g_setCalls.size(), 3u);
     EXPECT_EQ(test_chardlg::g_setCalls[0].field, "defense");
     EXPECT_EQ(test_chardlg::g_setCalls[1].field, "critical");
     EXPECT_EQ(test_chardlg::g_setCalls[2].field, "attackdistance");
@@ -361,7 +361,7 @@ TEST(CCharacterDialog, RefreshFromPlayerStatsWritesMappedLiveFields) {
     d.SetSetStaticTextCallbackForTest(&test_chardlg::faSetText, nullptr);
     d.SetPlayerStatsService(&stats);
     d.RefreshFromPlayerStats();
-    ASSERT_EQ(test_chardlg::g_setCalls.size(), 3u);
+    ASSERT_EQ(test_chardlg::g_setCalls.size(), 7u);
     EXPECT_EQ(test_chardlg::g_setCalls[0].field, "level");
     EXPECT_EQ(test_chardlg::g_setCalls[0].text, "33");
     EXPECT_EQ(test_chardlg::g_setCalls[1].field, "life");
