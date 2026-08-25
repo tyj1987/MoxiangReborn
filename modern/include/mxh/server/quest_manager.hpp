@@ -43,6 +43,11 @@ struct QuestSub final {
     std::uint32_t stage      = 0;
 };
 
+struct QuestItemCost final {
+    std::uint16_t item_idx = 0;
+    std::uint32_t quantity = 0;
+};
+
 // ---- Quest definition (loaded from QuestScript.bin / QuestInfo.bin) ----
 struct QuestDefinition final {
     std::uint32_t quest_id        = 0;
@@ -56,6 +61,7 @@ struct QuestDefinition final {
     std::uint32_t reward_item_qty = 0;
     std::uint32_t timer_seconds   = 0;     // 0 = no timer
     std::vector<QuestSub> subs;
+    std::vector<QuestItemCost> item_costs;
 };
 
 // ---- Quest runtime progress (one player x one quest) ----
@@ -91,6 +97,7 @@ enum class QuestRewardStatus : std::uint8_t {
     Granted = 0,
     NotComplete = 1,
     PlayerInactive = 2,
+    MissingItem = 3,
 };
 
 struct QuestRewardResult final {

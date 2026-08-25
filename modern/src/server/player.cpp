@@ -129,6 +129,36 @@ std::optional<mxh::game::ItemBase> Player::remove_inventory_item(std::uint16_t s
     return item;
 }
 
+std::uint32_t Player::count_inventory_item(std::uint16_t item_idx) const noexcept {
+    if (!is_active() || item_idx == 0u) return 0u;
+    std::uint64_t total = 0;
+    for (const auto& item : state_.inventory.items) {
+        if (item.wIconIdx != item_idx || item.dwDBIdx == 0u) continue;
+        total += item.ItemParam;
+    }
+    return static_cast<std::uint32_t>(std::min<std::uint64_t>(total, 0xffffffffu));
+}
+
+bool Player::remove_inventory_item_by_icon(std::uint16_t item_idx,
+                                            std::uint32_t quantity) noexcept {
+    if (!is_active() || item_idx == 0u || quantity == 0u ||
+        count_inventory_item(item_idx) < quantity) return false;
+    auto remaining = quantity;
+    for (auto& item : state_.inventory.items) {
+        if (remaining == 0u) break;
+        if (item.wIconIdx != item_idx || item.dwDBIdx == 0u) continue;
+        const auto consumed = std::min<std::uint32_t>(item.ItemParam, remaining);
+        item.ItemParam = static_cast<std::uint16_t>(item.ItemParam - consumed);
+        remaining -= consumed;
+        if (item.ItemParam == 0u) {
+            const auto position = item.Position;
+            item = mxh::game::make_empty_item();
+            item.Position = position;
+        }
+    }
+    return remaining == 0u;
+}
+
 bool Player::equip_inventory_item(std::uint16_t inventory_slot,
                                   std::uint8_t equipment_slot) noexcept {
     if (!is_active() || inventory_slot >= kInventorySlots ||
@@ -204,5 +234,4 @@ void Player::heal_full() noexcept {
 }
 
 }
-
 

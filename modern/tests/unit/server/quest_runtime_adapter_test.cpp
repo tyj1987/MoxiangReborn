@@ -22,6 +22,17 @@ TEST(QuestRuntimeAdapter, RestrictsRewardsAndCostsToEndQuestSubquest) {
     EXPECT_EQ(runtime.money_cost, 7000u);
 }
 
+TEST(QuestRuntimeAdapter, ExtractsFinalSubquestItemCosts) {
+    const auto parsed = mxh::server::parse_quest_script_text(
+        "$QUEST 13 { $SUBQUEST 0 { #TRIGGER @TALKTONPC 1 1 *STARTSUB 13 1 }"
+        " $SUBQUEST 1 { #TRIGGER @TALKTONPC 2 1 *TAKEQUESTITEM 147 2 10000 *ENDQUEST 0 } }");
+    ASSERT_EQ(parsed.quests.size(), 1u);
+    const auto runtime = mxh::server::make_runtime_quest_definition(parsed.quests[0]);
+    ASSERT_EQ(runtime.item_costs.size(), 1u);
+    EXPECT_EQ(runtime.item_costs[0].item_idx, 147u);
+    EXPECT_EQ(runtime.item_costs[0].quantity, 2u);
+}
+
 TEST(QuestRuntimeAdapter, MapsNpcTalkToAuthoritativeTalkSubcondition) {
     const auto parsed = mxh::server::parse_quest_script_text(
         "$QUEST 9 { $SUBQUEST 0 { #TRIGGER @TALKTONPC 77 1 *ENDQUEST 0 } }");

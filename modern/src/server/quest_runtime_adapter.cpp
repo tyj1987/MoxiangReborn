@@ -31,6 +31,13 @@ QuestDefinition make_runtime_quest_definition(const QuestScriptDefinition& scrip
             }
             for (const auto& execute : trigger.executes) {
                 if (!final_subquest) continue;
+                if (execute.kind == QuestExecuteKind::TakeQuestItem && execute.args.size() >= 2) {
+                    out.item_costs.push_back(QuestItemCost{
+                        static_cast<std::uint16_t>(execute.args[0]), execute.args[1]});
+                } else if (execute.kind == QuestExecuteKind::TakeQuestItemFQW && execute.args.size() >= 2) {
+                    out.item_costs.push_back(QuestItemCost{
+                        static_cast<std::uint16_t>(execute.args[0]), execute.args[1]});
+                }
                 if (execute.kind == QuestExecuteKind::GiveMoney && !execute.args.empty()) out.reward_money += execute.args[0];
                 else if (execute.kind == QuestExecuteKind::TakeMoney && !execute.args.empty()) out.money_cost += execute.args[0];
                 else if ((execute.kind == QuestExecuteKind::TakeExp || execute.kind == QuestExecuteKind::TakeSExp) && !execute.args.empty()) out.reward_exp += execute.args[0];

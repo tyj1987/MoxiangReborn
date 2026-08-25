@@ -80,6 +80,22 @@ QuestRewardResult claim_quest_reward(QuestProgress& progress,
         result.status = QuestRewardStatus::PlayerInactive;
         return result;
     }
+    if (def.money_cost != 0u && player.state().progress.money < def.money_cost) {
+        return result;
+    }
+    for (const auto& cost : def.item_costs) {
+        if (cost.item_idx == 0u || cost.quantity == 0u ||
+            player.count_inventory_item(cost.item_idx) < cost.quantity) {
+            result.status = QuestRewardStatus::MissingItem;
+            return result;
+        }
+    }
+    for (const auto& cost : def.item_costs) {
+        if (!player.remove_inventory_item_by_icon(cost.item_idx, cost.quantity)) {
+            result.status = QuestRewardStatus::MissingItem;
+            return result;
+        }
+    }
     if (def.money_cost != 0u && !player.spend_money(def.money_cost)) {
         return result;
     }

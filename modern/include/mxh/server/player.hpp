@@ -60,6 +60,9 @@ public:
 
     std::optional<std::uint16_t> insert_inventory_item(mxh::game::ItemBase item) noexcept;
     std::optional<mxh::game::ItemBase> remove_inventory_item(std::uint16_t slot) noexcept;
+    std::uint32_t count_inventory_item(std::uint16_t item_idx) const noexcept;
+    bool remove_inventory_item_by_icon(std::uint16_t item_idx,
+                                       std::uint32_t quantity) noexcept;
     bool equip_inventory_item(std::uint16_t inventory_slot,
                               std::uint8_t equipment_slot) noexcept;
     bool unequip_item(std::uint8_t equipment_slot,
