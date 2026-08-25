@@ -24,6 +24,10 @@ public:
     [[nodiscard]] bool initialize(const std::filesystem::path& sound_root,
                                   std::string* error = nullptr);
     [[nodiscard]] bool play(std::uint16_t sound_id, std::string* error = nullptr);
+    [[nodiscard]] bool playAt(std::uint16_t sound_id, float distance,
+                              std::string* error = nullptr);
+    [[nodiscard]] static float distanceGain(float distance, float min_distance,
+                                             float max_distance) noexcept;
     void stop() noexcept;
     void setVolume(float normalized) noexcept;
     [[nodiscard]] bool ready() const noexcept { return ready_; }

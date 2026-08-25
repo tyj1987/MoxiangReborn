@@ -68,7 +68,19 @@ std::filesystem::path SfxPlayer::resolve(std::uint16_t id) const {
     return std::filesystem::is_regular_file(path) ? path : std::filesystem::path{};
 }
 
+float SfxPlayer::distanceGain(float distance, float min_distance,
+                              float max_distance) noexcept {
+    if (distance <= min_distance || max_distance <= min_distance) return 1.0f;
+    if (distance >= max_distance) return 0.0f;
+    return std::clamp(1.0f - (distance - min_distance) /
+        (max_distance - min_distance), 0.0f, 1.0f);
+}
+
 bool SfxPlayer::play(std::uint16_t id, std::string* out) {
+    return playAt(id, 0.0f, out);
+}
+
+bool SfxPlayer::playAt(std::uint16_t id, float distance, std::string* out) {
     const auto path = resolve(id);
     if (path.empty()) { error(out, "SFX sound ID is missing or not a WAV entry"); return false; }
     const auto& entry = manifest_.entries[id];
@@ -108,7 +120,8 @@ bool SfxPlayer::play(std::uint16_t id, std::string* out) {
     media_->format.nBlockAlign = static_cast<WORD>(channels * bits / 8); media_->format.nAvgBytesPerSec = rate * media_->format.nBlockAlign;
     if (media_->pcm.empty() || FAILED(media_->engine->CreateSourceVoice(&media_->source, &media_->format))) { error(out, "SFX source voice creation failed"); return false; }
     XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size()); buffer.pAudioData = media_->pcm.data(); buffer.Flags = XAUDIO2_END_OF_STREAM;
-    const float gain = std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f);
+    const float gain = std::clamp(volume_ * current_entry_volume_ *
+        distanceGain(distance, entry.min_distance, entry.max_distance), 0.0f, 1.0f);
     hr = media_->source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = media_->source->SetVolume(gain); if (SUCCEEDED(hr)) hr = media_->source->Start(0);
     if (FAILED(hr)) { stop_media(*media_); error(out, "SFX playback failed"); return false; }
     current_id_ = id; MLOG_DEBUG("[audio] playing SFX id=%u", id); return true;

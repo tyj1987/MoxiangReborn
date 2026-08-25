@@ -39,3 +39,9 @@ TEST(SfxPlayer, MissingSoundFailsClosed) {
     EXPECT_FALSE(player.play(1, &error));
     EXPECT_FALSE(error.empty());
 }
+
+TEST(SfxPlayer, DistanceGainHonorsSoundListRange) {
+    EXPECT_FLOAT_EQ(mxh::audio::SfxPlayer::distanceGain(0.0f, 10.0f, 100.0f), 1.0f);
+    EXPECT_FLOAT_EQ(mxh::audio::SfxPlayer::distanceGain(100.0f, 10.0f, 100.0f), 0.0f);
+    EXPECT_NEAR(mxh::audio::SfxPlayer::distanceGain(55.0f, 10.0f, 100.0f), 0.5f, 0.001f);
+}
