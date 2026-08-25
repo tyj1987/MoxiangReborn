@@ -1644,6 +1644,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         found = true;
                     }
                     if (found) {
+                        actor_state.recompute_max_stats();
                         for (std::size_t i = 0; i < actor_state.inventory.items.size(); ++i) {
                             info_it->second.items.Inventory[i] = actor_state.inventory.items[i];
                         }
