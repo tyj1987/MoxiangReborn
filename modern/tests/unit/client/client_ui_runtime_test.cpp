@@ -276,6 +276,23 @@ TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("IN_INVENTORYDLG"));
 }
 
+TEST(InGameUiRuntime, CharacterInfoHudButtonTogglesLiveDialog) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+
+    mxh::client::ClientUiActivation click;
+    click.legacy_id = "CI_BESTTIP";
+    EXPECT_TRUE(state.handle_ui_activation(click));
+    EXPECT_TRUE(state.character_open());
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("CI_CHARDLG"));
+
+    click.legacy_id = "CMI_CLOSEBTN";
+    click.dialog_legacy_id = "CI_CHARDLG";
+    EXPECT_TRUE(state.handle_ui_activation(click));
+    EXPECT_FALSE(state.character_open());
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CI_CHARDLG"));
+}
+
 TEST(InGameUiRuntime, MainBarButtonConsumesClickInActiveDialog) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

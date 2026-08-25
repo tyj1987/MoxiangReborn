@@ -41,6 +41,7 @@ constexpr std::array<std::string_view, 13> kChinaGameInUiScripts{
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::string_view kQuestDialogId = "QUE_TOTALDLG";
 constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
+constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 
@@ -626,6 +627,7 @@ void CInGameState::Release() {
     set_inventory_open(false);
     set_shop_open(false);
     set_quest_open(false);
+    set_character_open(false);
     setInitialized(false);
     m_releasing = false;
 }
@@ -1493,8 +1495,21 @@ void CInGameState::set_quest_open(bool open) noexcept {
     m_uiRuntime.setDialogActive(kQuestDialogId, open);
 }
 
+void CInGameState::set_character_open(bool open) noexcept {
+    m_characterOpen = open;
+    m_uiRuntime.setDialogActive(kCharacterDialogId, open);
+    if (open) refresh_live_ui_bindings();
+}
+
 bool CInGameState::handle_ui_activation(
     const ClientUiActivation& activation) {
+    // CI_BESTTIP is the original character-information button in the HUD.
+    // Dispatch it by legacy ID so layout changes do not turn into a coordinate
+    // based shortcut and the real stats dialog receives live state.
+    if (activation.legacy_id == "CI_BESTTIP") {
+        set_character_open(!m_characterOpen);
+        return true;
+    }
     if (activation.legacy_id != "CMI_CLOSEBTN") return false;
     if (activation.dialog_legacy_id == kInventoryDialogId) {
         set_inventory_open(false);
@@ -1506,6 +1521,10 @@ bool CInGameState::handle_ui_activation(
     }
     if (activation.dialog_legacy_id == kItemShopDialogId) {
         set_shop_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kCharacterDialogId) {
+        set_character_open(false);
         return true;
     }
     return false;
@@ -1545,6 +1564,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     }
     if (vk == kVkEscape && pressed && m_questOpen) {
         set_quest_open(false);
+        return;
+    }
+    if (vk == kVkEscape && pressed && m_characterOpen) {
+        set_character_open(false);
         return;
     }
     if (vk == kVkBack && pressed && m_chatOpen) {
