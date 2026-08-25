@@ -11,6 +11,7 @@ add_executable(mxh_game_tests
     experience_curve_test.cpp
     hero_total_layout_test.cpp
     effect_catalog_test.cpp
+    effect_timeline_test.cpp
 )
 target_include_directories(mxh_game_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include

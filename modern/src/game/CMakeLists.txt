@@ -24,6 +24,7 @@ add_library(mxh_game STATIC
     battle.cpp
     experience_curve.cpp
     effect_catalog.cpp
+    effect_timeline.cpp
 )
 target_include_directories(mxh_game PUBLIC
     ${CMAKE_SOURCE_DIR}/include
