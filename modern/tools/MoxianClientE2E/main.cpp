@@ -893,6 +893,23 @@ int run_e2e(const CliArgs& cli) {
             LOG("[5/5] OK: MapChange target GameInAck map=%u monsters=%zu npcs=%zu",
                 static_cast<unsigned>(game.game_info().map_num),
                 game.monsters().size(), game.npcs().size());
+            game.Release();
+            mxh::client::CInGameState relog_after_change;
+            relog_after_change.Start(&engine, created_chrid, target_map);
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (relog_after_change.game_info().map_num != target_map &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog_after_change.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (relog_after_change.game_info().map_num != target_map) {
+                LOG("[5/5] FAIL: target route did not survive relog");
+                return 2;
+            }
+            LOG("[5/5] OK: MapChange target route survives fresh GameIn map=%u",
+                static_cast<unsigned>(relog_after_change.game_info().map_num));
+            relog_after_change.Release();
         }
 
         if (cli.exercise_combat) {
