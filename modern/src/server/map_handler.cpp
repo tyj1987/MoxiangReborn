@@ -39,6 +39,7 @@
 #include "mxh/server/skill_caster.hpp"
 #include "mxh/game/item_list_parser.hpp"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <ctime>
@@ -223,6 +224,7 @@ CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
 
 mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
                                   const mxh::game::ItemTotalInfo& items,
+                                  const std::array<std::uint32_t, 8>& skills,
                                   float position_x, float position_z) {
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
@@ -273,12 +275,12 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
     // The GameIn wire image is authoritative for the quick bar.  Keep the
     // four legacy level-1 bindings here until character_mugong persistence is
     // connected; the client must never invent bindings locally.
-    constexpr std::array<std::uint32_t, 4> kInitialSkills{1, 2, 3, 10};
-    for (std::size_t slot = 0; slot < kInitialSkills.size(); ++slot) {
+    for (std::size_t slot = 0; slot < skills.size(); ++slot) {
+        if (skills[slot] == 0) continue;
         const auto off = kPayloadMugongOff + slot * 18;
-        put_u32(m.payload, off + 0, kInitialSkills[slot]);
+        put_u32(m.payload, off + 0, skills[slot]);
         put_u16(m.payload, off + 4,
-                static_cast<std::uint16_t>(kInitialSkills[slot]));
+                static_cast<std::uint16_t>(skills[slot]));
         put_u16(m.payload, off + 14, static_cast<std::uint16_t>(slot));
     }
 
@@ -308,6 +310,23 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
     }
 
     return m;
+}
+
+std::array<std::uint32_t, 8> load_quick_skills(mxh::db::IDbAdapter& db,
+                                               std::uint32_t player_id) {
+    std::array<std::uint32_t, 8> out{};
+    mxh::db::ResultSet rows;
+    const auto result = db.query(
+        "SELECT slot,skill_idx FROM modern_player_skill WHERE player_id=? AND slot BETWEEN 0 AND 7 ORDER BY slot",
+        {mxh::db::bind(static_cast<std::int64_t>(player_id))}, rows);
+    if (!result.ok()) return out;
+    for (const auto& row : rows.rows) {
+        if (row.size() < 2 || !std::holds_alternative<std::int64_t>(row[0]) ||
+            !std::holds_alternative<std::int64_t>(row[1])) continue;
+        const auto slot = static_cast<std::size_t>(std::get<std::int64_t>(row[0]));
+        if (slot < out.size()) out[slot] = static_cast<std::uint32_t>(std::get<std::int64_t>(row[1]));
+    }
+    return out;
 }
 
 mxh::net::Message make_gameout_ack() {
@@ -1347,7 +1366,16 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         reply_(id, notice);
     }
     // Send GAMEIN_ACK to this player (full self info from DB).
-    reply_(id, make_gamein_ack(player_id, cd, pi.items, pi.pos_x, pi.pos_z));
+    auto quick_skills = load_quick_skills(db_, player_id);
+    if (std::all_of(quick_skills.begin(), quick_skills.begin() + 4,
+                    [](std::uint32_t skill) { return skill == 0; })) {
+        quick_skills[0] = 1;
+        quick_skills[1] = 2;
+        quick_skills[2] = 3;
+        quick_skills[3] = 10;
+    }
+    reply_(id, make_gamein_ack(player_id, cd, pi.items, quick_skills,
+                               pi.pos_x, pi.pos_z));
     // Rehydrate the quest dialog from the authoritative persisted log before
     // any new interaction.  The legacy client receives one TotalInfo record
     // per quest; the modern client uses the same 8-byte state shape as
