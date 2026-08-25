@@ -59,6 +59,7 @@
 #include "TextRender.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/audio/bgm_player.hpp"
+#include "mxh/audio/sfx_player.hpp"
 #include "mxh/compat/bmhm_map.hpp"
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
@@ -333,6 +334,8 @@ mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
+mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
+std::uint16_t g_uiClickSound = 0xffffu;
 
 void clear_secret(std::string& value) noexcept {
     volatile char* bytes = value.empty() ? nullptr : value.data();
@@ -1452,6 +1455,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         } else if (GetCapture() == h) {
             ReleaseCapture();
         }
+        if (m == WM_LBUTTONUP && g_sfxPlayer && g_uiClickSound != 0xffffu) {
+            std::string audio_error;
+            (void)g_sfxPlayer->play(g_uiClickSound, &audio_error);
+        }
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
@@ -1670,6 +1677,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
               options.resource_profile_id.c_str());
 
     mxh::audio::BgmPlayer bgm;
+    mxh::audio::SfxPlayer sfx;
+    g_sfxPlayer = &sfx;
     std::string audio_error;
     if (bgm.initialize(options.resource_root / "Sound", &audio_error)) {
         // 1667 is the original login theme in SoundList.bin.
@@ -1677,6 +1686,24 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             MLOG_WARN("mxh_client: login BGM unavailable: %s", audio_error.c_str());
     } else {
         MLOG_WARN("mxh_client: SoundList unavailable: %s", audio_error.c_str());
+    }
+    if (sfx.initialize(options.resource_root / "Sound", &audio_error)) {
+        // Prefer a named UI/button entry when the profile provides one; use
+        // the first real WAV otherwise.  The choice is data-driven and never
+        // invents a sound ID or touches resource bytes.
+        for (const auto& entry : sfx.manifest().entries) {
+            if (!entry.available || entry.streaming) continue;
+            const auto name = entry.file_name;
+            if (name.find("click") != std::string::npos ||
+                name.find("button") != std::string::npos ||
+                name.find("ui") != std::string::npos) {
+                g_uiClickSound = entry.index;
+                break;
+            }
+            if (g_uiClickSound == 0xffffu) g_uiClickSound = entry.index;
+        }
+    } else {
+        MLOG_WARN("mxh_client: SFX unavailable: %s", audio_error.c_str());
     }
 
     // Renderer. The factory is implemented in modern/src/render (DX11
