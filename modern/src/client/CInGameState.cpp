@@ -952,6 +952,10 @@ void CInGameState::send_gameout_syn() {
 }
 
 void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
+    // The server's GameInAck is authoritative for the character object ID.
+    // Normally the host already assigned it before sending GameInSyn, but
+    // accepting it here also keeps reconnect/map-change paths consistent.
+    if (info.player_id != 0u) m_playerId = info.player_id;
     m_info   = info;
     m_inGame = true;
     if (info.map_num != 0) m_mapNum = info.map_num;
@@ -1011,7 +1015,21 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                           msg.payload.size());
                 break;
             }
-            if (info->object_id == m_playerId) break;
+            if (info->object_id == m_playerId) {
+                m_info.life = static_cast<std::uint16_t>(
+                    std::min(info->life, std::uint32_t{0xffffu}));
+                m_info.max_life = static_cast<std::uint16_t>(
+                    std::min(info->max_life, std::uint32_t{0xffffu}));
+                m_info.gender = info->gender;
+                m_info.face_type = info->face_type;
+                m_info.hair_type = info->hair_type;
+                m_info.weared_item_idx = info->weared_item_idx;
+                refresh_live_ui_bindings();
+                MLOG_INFO("CInGameState: self CharacterAdd refresh life=%u/%u",
+                          static_cast<unsigned>(m_info.life),
+                          static_cast<unsigned>(m_info.max_life));
+                break;
+            }
             const auto objectId = info->object_id;
             m_remotePlayers.insert_or_assign(objectId, std::move(*info));
             const auto& player = m_remotePlayers.at(objectId);

@@ -1603,6 +1603,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
 
             // Update the authoritative Player actor inventory and mirror it to the wire view.
             bool found = false;
+            std::optional<PlayerInfo> appearance_update;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 auto info_it = connected_players_.find(player_id);
@@ -1655,12 +1656,19 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     }
                     if (found) {
                         actor_state.recompute_max_stats();
+                        info_it->second.combat.level = actor_state.progress.level;
+                        info_it->second.combat.max_hp = actor_state.vitals.max_hp;
+                        info_it->second.combat.current_hp = actor_state.vitals.current_hp;
+                        info_it->second.combat.max_mp = actor_state.vitals.max_mp;
+                        info_it->second.combat.current_mp = actor_state.vitals.current_mp;
+                        info_it->second.level = actor_state.progress.level;
                         for (std::size_t i = 0; i < actor_state.inventory.items.size(); ++i) {
                             info_it->second.items.Inventory[i] = actor_state.inventory.items[i];
                         }
                         for (std::size_t i = 0; i < actor_state.equipment.items.size(); ++i) {
                             info_it->second.items.WearedItem[i] = actor_state.equipment.items[i];
                         }
+                        appearance_update = info_it->second;
                     }
                 }
             }
@@ -1676,6 +1684,11 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             reply_(id, reply);
             if (found) {
                 persist_player_items(player_id);
+                // CharacterAdd is the legacy live appearance/stat broadcast.
+                // Sending the authoritative update before TotalInfoLocal lets
+                // the local client and every observer refresh model, HP/MP and
+                // equipment without inventing a new protocol packet.
+                if (appearance_update) send_character_add(player_id, *appearance_update);
                 mxh::game::ItemTotalInfo updated_items{};
                 {
                     std::lock_guard<std::mutex> lk(players_mu_);

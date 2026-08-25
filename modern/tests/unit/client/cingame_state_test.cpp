@@ -305,6 +305,43 @@ TEST(InGameCharacterAdd, CreatesMovesAndRemovesRemotePlayerByStableId) {
     EXPECT_TRUE(state.remote_players().empty());
 }
 
+TEST(InGameCharacterAdd, SelfRefreshUpdatesLiveVitalsAndEquipment) {
+    mxh::client::CInGameState state;
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    game_in.payload.resize(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
+    const std::uint32_t player_id = 123u;
+    std::memcpy(game_in.payload.data(), &player_id, sizeof(player_id));
+    state.on_message({}, game_in);
+    ASSERT_EQ(state.game_info().player_id, player_id);
+
+    mxh::net::Message refresh;
+    refresh.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    refresh.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterAdd);
+    refresh.header.object_id = player_id;
+    refresh.payload.resize(288, 0);
+    std::memcpy(refresh.payload.data(), &player_id, sizeof(player_id));
+    const std::uint32_t life = 77u;
+    const std::uint32_t max_life = 155u;
+    std::memcpy(refresh.payload.data() + 35, &life, sizeof(life));
+    std::memcpy(refresh.payload.data() + 39, &max_life, sizeof(max_life));
+    const std::uint16_t equipped = 777u;
+    std::memcpy(refresh.payload.data() + 54, &equipped, sizeof(equipped));
+    refresh.payload[51] = 1;
+    refresh.payload[52] = 2;
+    refresh.payload[53] = 3;
+    state.on_message({}, refresh);
+
+    EXPECT_EQ(state.game_info().life, 77u);
+    EXPECT_EQ(state.game_info().max_life, 155u);
+    EXPECT_EQ(state.game_info().gender, 1u);
+    EXPECT_EQ(state.game_info().face_type, 2u);
+    EXPECT_EQ(state.game_info().hair_type, 3u);
+    EXPECT_EQ(state.game_info().weared_item_idx.front(), equipped);
+    EXPECT_TRUE(state.remote_players().empty());
+}
+
 TEST(InGameMugong, DecodesMugongTotalFromGameInAck) {
     std::vector<std::uint8_t> payload(
         mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
