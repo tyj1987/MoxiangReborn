@@ -117,6 +117,8 @@ struct ClientOptions {
     std::uint16_t map_port = 18001;
     std::string username;
     std::string password;
+    std::string username_env;
+    std::string password_env;
     bool auto_login = false;
     bool auto_create = false;
     bool release_automation_requested = false;
@@ -182,6 +184,8 @@ ClientOptions parse_client_options() {
 #if defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--username") take(options.username);
         else if (arg == L"--password") take(options.password);
+        else if (arg == L"--username-env") take(options.username_env);
+        else if (arg == L"--password-env") take(options.password_env);
         else if (arg == L"--auto-login") options.auto_login = true;
         else if (arg == L"--auto-create") options.auto_create = true;
         else if (arg == L"--exit-after-gamein") options.exit_after_gamein = true;
@@ -218,12 +222,14 @@ ClientOptions parse_client_options() {
 #if !defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--auto-login" || arg == L"--auto-create" ||
                  arg == L"--username" || arg == L"--password" ||
+                 arg == L"--username-env" || arg == L"--password-env" ||
                  arg == L"--character-name" || arg == L"--exit-after-gamein" ||
                  arg == L"--smoke-settle-frames" || arg == L"--follow-camera" ||
                  arg == L"--debug-ui-bounds" || arg == L"--save-frame" ||
                  arg == L"--state-frames-dir" || arg == L"--evidence-dir") {
             options.release_automation_requested = true;
             if ((arg == L"--username" || arg == L"--password" ||
+                 arg == L"--username-env" || arg == L"--password-env" ||
                  arg == L"--character-name" || arg == L"--smoke-settle-frames" ||
                  arg == L"--save-frame" || arg == L"--state-frames-dir" ||
                  arg == L"--evidence-dir") && i + 1 < argc) {
@@ -233,6 +239,18 @@ ClientOptions parse_client_options() {
 #endif
     }
     LocalFree(argv);
+    const auto read_env = [](const std::string& name) {
+        if (name.empty()) return std::string{};
+        const auto wide_name = std::wstring(name.begin(), name.end());
+        wchar_t value[4096]{};
+        const auto length = GetEnvironmentVariableW(
+            wide_name.c_str(), value, static_cast<DWORD>(std::size(value)));
+        return length == 0 || length >= std::size(value)
+            ? std::string{}
+            : narrow_ascii(value);
+    };
+    if (!options.username_env.empty()) options.username = read_env(options.username_env);
+    if (!options.password_env.empty()) options.password = read_env(options.password_env);
     return options;
 }
 
@@ -2590,6 +2608,21 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             DispatchMessageW(&msg);
         }
         if (quit_requested) break;
+        // A headless/GUI smoke run must be able to finish immediately after
+        // the authoritative GameInAck.  The first in-game render can lazily
+        // resolve hundreds of legacy model dependencies; do not let that
+        // presentation work mask a successful network/state transition.
+        if (options.exit_after_gamein && !options.follow_camera &&
+            mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
+            if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
+                    mainGame.GetGameState(mxh::client::GameStateId::GameIn));
+                game_in && game_in->is_in_game()) {
+                MLOG_INFO("mxh_client: GUI_SMOKE_PASS player_id=%u map=%u",
+                          game_in->player_id(), game_in->map_num());
+                mxh::client::g_running = false;
+                break;
+            }
+        }
             if (g_mainTitle && g_mainTitle->consumeSubmit()) {
                 options.username = g_mainTitle->username();
                 options.password = g_mainTitle->password();
@@ -2604,6 +2637,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             }
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
+            if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
+                    mainGame.GetGameState(mxh::client::GameStateId::GameIn));
+                smoke_game && smoke_game->smoke_exit_requested()) {
+                mxh::client::g_running = false;
+            }
+            if (!mxh::client::g_running) break;
             // Phase B.2.2: on state-change rising edge, Start() the
             // states that have an external Start() hook.
             const auto cur_state = mainGame.GetCurStateNum();

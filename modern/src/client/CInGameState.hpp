@@ -37,6 +37,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <array>
 #include <memory>
 #include <optional>
@@ -395,6 +396,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
     bool         is_in_game()   const noexcept { return m_inGame; }
+    bool smoke_exit_requested() const noexcept { return m_smokeExitRequested; }
     std::uint32_t player_id()   const noexcept { return m_playerId; }
     // Resolve an authoritative world distance for effect/audio consumers.
     // Unknown IDs remain absent so remote sounds do not become local 2D cues.
@@ -551,6 +553,9 @@ public:
     std::size_t          m_questSelection = 0;
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
+    std::future<std::pair<mxh::game::EffectCatalog, std::string>> m_effectCatalogLoad;
+    bool m_effectCatalogLoading = false;
+    bool m_smokeExitRequested = false;
     mxh::game::SkillManager m_skillManager;
     float m_effectTickPerFrameMs = 1000.0f / 30.0f;
     std::vector<RuntimeEffectEvent> m_runtimeEffectEvents;

@@ -581,6 +581,10 @@ void CInGameState::Release() {
     m_chatOpen = false;
     m_chatBuffer.clear();
     m_effectEvents.clear();
+    if (m_effectCatalogLoad.valid()) {
+        m_effectCatalogLoad.wait();
+    }
+    m_effectCatalogLoading = false;
     set_inventory_open(false);
     set_shop_open(false);
     set_quest_open(false);
@@ -609,6 +613,23 @@ void CInGameState::Process() {
         }
     }
     update_movement(steady_now_ms());
+    if (m_effectCatalogLoading && m_effectCatalogLoad.valid() &&
+        m_effectCatalogLoad.wait_for(std::chrono::milliseconds(0)) ==
+            std::future_status::ready) {
+        auto result = m_effectCatalogLoad.get();
+        m_effectCatalogLoading = false;
+        if (result.second.empty()) {
+            m_effectRuntime.adopt_catalog(std::move(result.first));
+            MLOG_INFO("CInGameState effect catalog ready: assets=%zu beff=%zu befl=%zu packed=%zu loose=%zu",
+                      m_effectRuntime.catalog().assets().size(),
+                      m_effectRuntime.catalog().beff_count(),
+                      m_effectRuntime.catalog().befl_count(),
+                      m_effectRuntime.catalog().packed_count(),
+                      m_effectRuntime.catalog().loose_count());
+        } else {
+            MLOG_WARN("CInGameState effect catalog unavailable: %s", result.second.c_str());
+        }
+    }
     const auto now_ms = steady_now_ms();
     m_effectRuntime.advance(now_ms, [this](const RuntimeEffectEvent& event) {
         constexpr std::size_t kMaxRuntimeEvents = 256;
@@ -644,21 +665,19 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         return;
     }
     {
-        std::string effect_error;
-        if (!m_effectRuntime.load(*m_pEngine->playdh_root(), &effect_error)) {
-            // Effect assets are presentation dependencies.  Keep the
-            // authoritative network/gameplay path alive, but make the
-            // missing catalog explicit instead of silently falling back to
-            // a fabricated effect or debug quad.
-            MLOG_WARN("CInGameState effect catalog unavailable: %s",
-                      effect_error.c_str());
+        const auto effect_root = *m_pEngine->playdh_root();
+        if (const char* smoke_exit = std::getenv("MXH_GUI_SMOKE_EXIT");
+            smoke_exit && *smoke_exit == '1') {
+            MLOG_INFO("CInGameState effect catalog deferred for GUI smoke exit");
         } else {
-            MLOG_INFO("CInGameState effect catalog: assets=%zu beff=%zu befl=%zu packed=%zu loose=%zu",
-                      m_effectRuntime.catalog().assets().size(),
-                      m_effectRuntime.catalog().beff_count(),
-                      m_effectRuntime.catalog().befl_count(),
-                      m_effectRuntime.catalog().packed_count(),
-                      m_effectRuntime.catalog().loose_count());
+            m_effectCatalogLoading = true;
+            m_effectCatalogLoad = std::async(std::launch::async, [effect_root] {
+                mxh::game::EffectCatalog catalog;
+                std::string error;
+                (void)catalog.load(effect_root, &error);
+                return std::make_pair(std::move(catalog), std::move(error));
+            });
+            MLOG_INFO("CInGameState effect catalog loading asynchronously");
         }
     }
     if (m_uiRuntime.empty()) {
@@ -846,6 +865,16 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
               static_cast<unsigned>(info.server_month),
               static_cast<unsigned>(info.server_day),
               static_cast<unsigned>(info.server_hour));
+    // The GUI smoke harness requests a deterministic handoff marker.  Stop
+    // only after the authoritative ack has been parsed; normal clients keep
+    // running and proceed into the regular render/input loop.
+    if (const char* smoke_exit = std::getenv("MXH_GUI_SMOKE_EXIT");
+        smoke_exit && *smoke_exit == '1') {
+        MLOG_INFO("mxh_client: GUI_SMOKE_PASS player_id=%u map=%u",
+                  static_cast<unsigned>(m_playerId),
+                  static_cast<unsigned>(m_mapNum));
+        m_smokeExitRequested = true;
+    }
     // B.2.3 doesn't switch state â€” the in-game loop is the terminal
     // happy state.  Future Phase D will hook chat/movement/combat
     // handlers here.

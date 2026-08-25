@@ -7,6 +7,10 @@ bool EffectRuntime::load(const std::filesystem::path& root, std::string* error) 
     return m_catalog.load(root, error);
 }
 
+void EffectRuntime::adopt_catalog(mxh::game::EffectCatalog catalog) noexcept {
+    m_catalog = std::move(catalog);
+}
+
 bool EffectRuntime::start(std::string_view effect_name,
                           std::uint32_t source_object_id,
                           std::uint32_t target_object_id,

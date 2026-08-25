@@ -36,6 +36,7 @@ class EffectRuntime {
 public:
     bool load(const std::filesystem::path& playdh_root,
               std::string* error = nullptr);
+    void adopt_catalog(mxh::game::EffectCatalog catalog) noexcept;
     bool start(std::string_view effect_name,
                std::uint32_t source_object_id,
                std::uint32_t target_object_id,

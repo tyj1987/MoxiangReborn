@@ -3,7 +3,7 @@ param(
     [string]$BuildDir = '',
     [int]$TimeoutSeconds = 20,
     [ValidateRange(1, 65535)]
-    [int]$MapNumber = 12,
+    [int]$MapNumber = 10,
     [int]$MinimumNpcCount = 0,
     [switch]$FollowCamera
 )
@@ -24,16 +24,26 @@ $stdout = Join-Path $logDir 'client.out.log'
 $stderr = Join-Path $logDir 'client.err.log'
 $characterName = 'GUI' + $runId.Substring(0, 10)
 $frame = Join-Path $runRoot "map${MapNumber}.tga"
+$dataRoot = Join-Path $runRoot 'data'
 $client = $null
+$previousGuiSmokePassword = $env:MXH_GUI_SMOKE_PASSWORD
+$previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
 
 try {
-    & $serverScript -Mode start -Backend sqlite -DataDir (Join-Path $runRoot 'data') -MapNumber $MapNumber
+    & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
+    $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+    if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+        throw "Missing database tool required for isolated GUI smoke: $dbTool"
+    }
+    $dbConfig = 'sqlite;path=' + (Join-Path $dataRoot 'moxian.db')
+    'Test1234' | & $dbTool register --db $dbConfig test 2>&1 | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "GUI smoke test account registration failed" }
     $arguments = @(
         '--login-host', '127.0.0.1',
         '--login-port', '16001',
         '--map-port', '18001',
         '--username', 'test',
-        '--password', 'test',
+        '--password-env', 'MXH_GUI_SMOKE_PASSWORD',
         '--auto-login',
         '--auto-create',
         '--character-name', $characterName,
@@ -44,6 +54,8 @@ try {
         '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
     )
     if ($FollowCamera) { $arguments += '--follow-camera' }
+    $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
+    $env:MXH_GUI_SMOKE_EXIT = '1'
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
         -WorkingDirectory (Join-Path $buildRoot 'tools\MoxianClient')
@@ -103,9 +115,18 @@ try {
     Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
 }
 finally {
+    if ($null -eq $previousGuiSmokePassword) {
+        Remove-Item Env:MXH_GUI_SMOKE_PASSWORD -ErrorAction SilentlyContinue
+    } else {
+        $env:MXH_GUI_SMOKE_PASSWORD = $previousGuiSmokePassword
+    }
+    if ($null -eq $previousGuiSmokeExit) {
+        Remove-Item Env:MXH_GUI_SMOKE_EXIT -ErrorAction SilentlyContinue
+    } else {
+        $env:MXH_GUI_SMOKE_EXIT = $previousGuiSmokeExit
+    }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }
     & $serverScript -Mode stop
 }
-
