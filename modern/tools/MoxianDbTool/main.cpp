@@ -137,11 +137,44 @@ CREATE TABLE IF NOT EXISTS modern_player_state (
     money      INTEGER NOT NULL DEFAULT 0,
     level      INTEGER NOT NULL DEFAULT 1,
     exp        INTEGER NOT NULL DEFAULT 0,
+    party_id   INTEGER NOT NULL DEFAULT 0,
+    guild_id   INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT    NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_modern_player_state_updated_at
     ON modern_player_state(updated_at);
+
+CREATE TABLE IF NOT EXISTS modern_party (
+    party_id INTEGER PRIMARY KEY,
+    option INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS modern_party_member (
+    party_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    level INTEGER NOT NULL DEFAULT 1,
+    master INTEGER NOT NULL DEFAULT 0,
+    map_num INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (party_id, player_id)
+);
+CREATE TABLE IF NOT EXISTS modern_guild (
+    guild_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    master_id INTEGER NOT NULL,
+    level INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS modern_guild_member (
+    guild_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    level INTEGER NOT NULL DEFAULT 1,
+    rank INTEGER NOT NULL DEFAULT 0,
+    map_num INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (guild_id, player_id)
+);
 
 CREATE TABLE IF NOT EXISTS modern_player_item (
     player_id     INTEGER NOT NULL,

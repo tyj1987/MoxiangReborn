@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <span>
 #include <string>
@@ -111,11 +112,20 @@ public:
     // Execute a statement that returns no rows (INSERT/UPDATE/DELETE/DDL).
     [[nodiscard]] virtual DbResult execute(std::string_view sql,
                                            std::span<const Bind> params = {}) = 0;
+    [[nodiscard]] DbResult execute(std::string_view sql,
+                                   std::initializer_list<Bind> params) {
+        return execute(sql, std::span<const Bind>(params.begin(), params.size()));
+    }
 
     // Execute a query and return rows.
     [[nodiscard]] virtual DbResult query(std::string_view sql,
                                          std::span<const Bind> params,
                                          ResultSet& out) = 0;
+    [[nodiscard]] DbResult query(std::string_view sql,
+                                 std::initializer_list<Bind> params,
+                                 ResultSet& out) {
+        return query(sql, std::span<const Bind>(params.begin(), params.size()), out);
+    }
 
     // Convenience overload: query with no params.
     [[nodiscard]] DbResult query(std::string_view sql, ResultSet& out) {

@@ -464,6 +464,71 @@ void MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t mon
     }
 }
 
+void MapHandler::persist_party(const Party& party) {
+    db_.execute("INSERT INTO modern_party(party_id,option) VALUES(?,?) ON CONFLICT(party_id) DO UPDATE SET option=excluded.option",
+                {mxh::db::bind(static_cast<std::int64_t>(party.party_id)), mxh::db::bind(static_cast<std::int64_t>(party.option))});
+    db_.execute("DELETE FROM modern_party_member WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party.party_id))});
+    for (std::uint8_t i = 0; i < party.member_count; ++i) {
+        const auto& m = party.members[i];
+        const std::string name(m.name.data(), strnlen(m.name.data(), m.name.size()));
+        db_.execute("INSERT INTO modern_party_member(party_id,player_id,name,level,master,map_num) VALUES(?,?,?,?,?,?)",
+                    {mxh::db::bind(static_cast<std::int64_t>(party.party_id)), mxh::db::bind(static_cast<std::int64_t>(m.member_id)),
+                     mxh::db::bind(name), mxh::db::bind(static_cast<std::int64_t>(m.level)),
+                     mxh::db::bind(m.member_id == party.master_id ? 1LL : 0LL), mxh::db::bind(static_cast<std::int64_t>(map_num_))});
+    }
+}
+
+void MapHandler::clear_party(std::uint32_t party_id) {
+    db_.execute("DELETE FROM modern_party_member WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party_id))});
+    db_.execute("DELETE FROM modern_party WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party_id))});
+}
+
+void MapHandler::persist_guild(const Guild& guild) {
+    const std::string name(guild.name.data(), strnlen(guild.name.data(), guild.name.size()));
+    db_.execute("INSERT INTO modern_guild(guild_id,name,master_id,level) VALUES(?,?,?,?) ON CONFLICT(guild_id) DO UPDATE SET name=excluded.name,master_id=excluded.master_id,level=excluded.level",
+                {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id)), mxh::db::bind(name), mxh::db::bind(static_cast<std::int64_t>(guild.master_id)), mxh::db::bind(static_cast<std::int64_t>(guild.level))});
+    db_.execute("DELETE FROM modern_guild_member WHERE guild_id=?", {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id))});
+    for (std::uint8_t i = 0; i < guild.member_count; ++i) {
+        const auto& m = guild.members[i];
+        const std::string member_name(m.name.data(), strnlen(m.name.data(), m.name.size()));
+        db_.execute("INSERT INTO modern_guild_member(guild_id,player_id,name,level,rank,map_num) VALUES(?,?,?,?,?,?)",
+                    {mxh::db::bind(static_cast<std::int64_t>(guild.guild_id)), mxh::db::bind(static_cast<std::int64_t>(m.member_id)),
+                     mxh::db::bind(member_name), mxh::db::bind(static_cast<std::int64_t>(m.level)), mxh::db::bind(static_cast<std::int64_t>(m.rank)),
+                     mxh::db::bind(static_cast<std::int64_t>(m.connected_map_num))});
+    }
+}
+
+void MapHandler::clear_guild(std::uint32_t guild_id) {
+    db_.execute("DELETE FROM modern_guild_member WHERE guild_id=?", {mxh::db::bind(static_cast<std::int64_t>(guild_id))});
+    db_.execute("DELETE FROM modern_guild WHERE guild_id=?", {mxh::db::bind(static_cast<std::int64_t>(guild_id))});
+}
+
+void MapHandler::load_membership_state(std::uint32_t player_id, std::string_view player_name,
+                                       std::uint16_t player_level) {
+    mxh::db::ResultSet rows;
+    if (db_.query("SELECT party_id FROM modern_party_member WHERE player_id=?", {mxh::db::bind(static_cast<std::int64_t>(player_id))}, rows).ok() && !rows.empty() && !rows.rows[0].empty()) {
+        if (const auto* id = std::get_if<std::int64_t>(&rows.rows[0][0]); id && *id > 0 && !find_party_by_id(party_log_, static_cast<std::uint32_t>(*id))) {
+            const auto party_id = static_cast<std::uint32_t>(*id);
+            party_log_.parties.push_back(create_party(party_id, player_id, std::string(player_name), player_level));
+            party_log_.next_party_id = std::max(party_log_.next_party_id, party_id + 1);
+        }
+    }
+    rows.rows.clear();
+    if (db_.query("SELECT guild_id,name,master_id,level FROM modern_guild_member gm JOIN modern_guild g USING(guild_id) WHERE gm.player_id=?", {mxh::db::bind(static_cast<std::int64_t>(player_id))}, rows).ok() && !rows.empty() && rows.rows[0].size() >= 4) {
+        const auto* gid = std::get_if<std::int64_t>(&rows.rows[0][0]);
+        const auto* name = std::get_if<std::string>(&rows.rows[0][1]);
+        const auto* master = std::get_if<std::int64_t>(&rows.rows[0][2]);
+        const auto* level = std::get_if<std::int64_t>(&rows.rows[0][3]);
+        if (gid && name && master && level && !find_guild_by_id(guild_log_, static_cast<std::uint32_t>(*gid))) {
+            auto guild = create_guild(static_cast<std::uint32_t>(*gid), *name, static_cast<std::uint32_t>(*master));
+            guild.level = static_cast<std::uint8_t>(*level);
+            GuildMember member{}; member.member_id = player_id; member.level = player_level; std::memcpy(member.name.data(), player_name.data(), std::min(player_name.size(), member.name.size() - 1));
+            add_member(guild, member); guild_log_.guilds.push_back(guild);
+            guild_log_.next_guild_id = std::max(guild_log_.next_guild_id, static_cast<std::uint32_t>(*gid) + 1);
+        }
+    }
+}
+
 void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
     mxh::db::ResultSet rows;
     const std::vector<mxh::db::Bind> args{mxh::db::bind(static_cast<std::int64_t>(player_id))};
@@ -1091,6 +1156,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     runtime.actor.state().progress.total_exp = cd.exp;
     runtime.actor.state().progress.money = cd.money;
     load_player_items(player_id, runtime.actor);
+    load_membership_state(player_id, cd.name, cd.level);
     for (std::size_t i = 0; i < runtime.actor.state().inventory.items.size(); ++i)
         pi.items.Inventory[i] = runtime.actor.state().inventory.items[i];
     for (std::size_t i = 0; i < runtime.actor.state().equipment.items.size(); ++i)
@@ -1452,6 +1518,7 @@ void MapHandler::handle_party(mxh::net::ConnectionId id,
             party_id, player_id, player_name, player_level,
             static_cast<std::uint8_t>(option)));
         const auto& party = party_log_.parties.back();
+        persist_party(party);
 
         mxh::net::Message ack = msg;
         ack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::CreateAck);
@@ -1546,6 +1613,7 @@ void MapHandler::handle_party(mxh::net::ConnectionId id,
             return;
         }
         const auto snapshot = make_party_payload(**party);
+        persist_party(**party);
         mxh::net::Message ack = msg;
         ack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::InviteAcceptAck);
         ack.payload = snapshot;
@@ -1588,6 +1656,7 @@ void MapHandler::handle_party(mxh::net::ConnectionId id,
                     return candidate.party_id == requested_party;
                 });
             if (it != party_log_.parties.end()) party_log_.parties.erase(it);
+            clear_party(requested_party);
         }
         reply_(id, response);
         return;
@@ -1667,6 +1736,7 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
         guild.members[0].name.fill(0);
         std::memcpy(guild.members[0].name.data(), player_name.data(),
                     std::min<std::size_t>(player_name.size(), 16));
+        persist_guild(guild);
         mxh::net::Message ack = msg;
         ack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::CreateAck);
         ack.payload = make_snapshot(guild);
@@ -1736,6 +1806,7 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
             return;
         }
         const auto snapshot = make_snapshot(**guild);
+        persist_guild(**guild);
         mxh::net::Message ack = msg;
         ack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::InviteAccept);
         ack.payload = snapshot;
@@ -1773,6 +1844,7 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
             const auto it = std::find_if(guild_log_.guilds.begin(), guild_log_.guilds.end(),
                 [guild_id](const Guild& candidate) { return candidate.guild_id == guild_id; });
             if (it != guild_log_.guilds.end()) guild_log_.guilds.erase(it);
+            clear_guild(guild_id);
         }
         reply_(id, response);
         return;

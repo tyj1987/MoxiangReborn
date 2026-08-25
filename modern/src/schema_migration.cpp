@@ -47,9 +47,43 @@ CREATE TABLE IF NOT EXISTS modern_player_state (
     money INTEGER NOT NULL DEFAULT 0,
     level INTEGER NOT NULL DEFAULT 1,
     exp INTEGER NOT NULL DEFAULT 0,
+    party_id INTEGER NOT NULL DEFAULT 0,
+    guild_id INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_modern_player_state_updated_at ON modern_player_state(updated_at);
+CREATE TABLE IF NOT EXISTS modern_party (
+    party_id INTEGER PRIMARY KEY,
+    option INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS modern_party_member (
+    party_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    level INTEGER NOT NULL DEFAULT 1,
+    master INTEGER NOT NULL DEFAULT 0,
+    map_num INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (party_id, player_id)
+);
+CREATE INDEX IF NOT EXISTS idx_modern_party_member_player ON modern_party_member(player_id);
+CREATE TABLE IF NOT EXISTS modern_guild (
+    guild_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    master_id INTEGER NOT NULL,
+    level INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS modern_guild_member (
+    guild_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    level INTEGER NOT NULL DEFAULT 1,
+    rank INTEGER NOT NULL DEFAULT 0,
+    map_num INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (guild_id, player_id)
+);
+CREATE INDEX IF NOT EXISTS idx_modern_guild_member_player ON modern_guild_member(player_id);
 CREATE TABLE IF NOT EXISTS modern_player_item (
     player_id INTEGER NOT NULL,
     container INTEGER NOT NULL,
@@ -140,7 +174,7 @@ CREATE TABLE IF NOT EXISTS log_chat (
 INSERT OR IGNORE INTO modern_schema_version(version) VALUES (1);
 )SQL";
 
-constexpr std::array<std::string_view, 18> kMssqlSchema = {
+constexpr std::array<std::string_view, 24> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.modern_schema_version', N'U') IS NULL CREATE TABLE dbo.modern_schema_version (version INT NOT NULL PRIMARY KEY, applied_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL CREATE TABLE dbo.chr_log_info (id NVARCHAR(50) NOT NULL PRIMARY KEY, pw NVARCHAR(160) NOT NULL, userlevel INT NOT NULL DEFAULT 0, registerdate NVARCHAR(32) NULL, lastlogindate NVARCHAR(32) NULL, lastloginip NVARCHAR(64) NULL, usepoint BIGINT NOT NULL DEFAULT 0)",
     "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL",
@@ -148,7 +182,13 @@ constexpr std::array<std::string_view, 18> kMssqlSchema = {
     "IF COL_LENGTH(N'dbo.character_info', N'character_data') IS NULL ALTER TABLE dbo.character_info ADD character_data VARBINARY(MAX) NULL",
     "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.character_info') AND name=N'userid' AND TYPE_NAME(user_type_id)<>N'nvarchar') ALTER TABLE dbo.character_info ALTER COLUMN userid NVARCHAR(50) NOT NULL",
     "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'ux_character_info_charname' AND object_id=OBJECT_ID(N'dbo.character_info')) CREATE UNIQUE NONCLUSTERED INDEX ux_character_info_charname ON dbo.character_info(charname)",
-    "IF OBJECT_ID(N'dbo.modern_player_state', N'U') IS NULL CREATE TABLE dbo.modern_player_state (player_id BIGINT NOT NULL PRIMARY KEY, money BIGINT NOT NULL DEFAULT 0, level INT NOT NULL DEFAULT 1, exp BIGINT NOT NULL DEFAULT 0, updated_at NVARCHAR(32) NOT NULL)",
+    "IF OBJECT_ID(N'dbo.modern_player_state', N'U') IS NULL CREATE TABLE dbo.modern_player_state (player_id BIGINT NOT NULL PRIMARY KEY, money BIGINT NOT NULL DEFAULT 0, level INT NOT NULL DEFAULT 1, exp BIGINT NOT NULL DEFAULT 0, party_id BIGINT NOT NULL DEFAULT 0, guild_id BIGINT NOT NULL DEFAULT 0, updated_at NVARCHAR(32) NOT NULL)",
+    "IF COL_LENGTH(N'dbo.modern_player_state', N'party_id') IS NULL ALTER TABLE dbo.modern_player_state ADD party_id BIGINT NOT NULL DEFAULT 0",
+    "IF COL_LENGTH(N'dbo.modern_player_state', N'guild_id') IS NULL ALTER TABLE dbo.modern_player_state ADD guild_id BIGINT NOT NULL DEFAULT 0",
+    "IF OBJECT_ID(N'dbo.modern_party', N'U') IS NULL CREATE TABLE dbo.modern_party (party_id BIGINT NOT NULL PRIMARY KEY, option TINYINT NOT NULL DEFAULT 0, created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
+    "IF OBJECT_ID(N'dbo.modern_party_member', N'U') IS NULL CREATE TABLE dbo.modern_party_member (party_id BIGINT NOT NULL, player_id BIGINT NOT NULL, name NVARCHAR(64) NOT NULL DEFAULT N'', level INT NOT NULL DEFAULT 1, master INT NOT NULL DEFAULT 0, map_num INT NOT NULL DEFAULT 0, CONSTRAINT pk_modern_party_member PRIMARY KEY (party_id,player_id))",
+    "IF OBJECT_ID(N'dbo.modern_guild', N'U') IS NULL CREATE TABLE dbo.modern_guild (guild_id BIGINT NOT NULL PRIMARY KEY, name NVARCHAR(64) NOT NULL, master_id BIGINT NOT NULL, level INT NOT NULL DEFAULT 1, created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
+    "IF OBJECT_ID(N'dbo.modern_guild_member', N'U') IS NULL CREATE TABLE dbo.modern_guild_member (guild_id BIGINT NOT NULL, player_id BIGINT NOT NULL, name NVARCHAR(64) NOT NULL DEFAULT N'', level INT NOT NULL DEFAULT 1, rank INT NOT NULL DEFAULT 0, map_num INT NOT NULL DEFAULT 0, CONSTRAINT pk_modern_guild_member PRIMARY KEY (guild_id,player_id))",
     "IF OBJECT_ID(N'dbo.modern_player_item', N'U') IS NULL CREATE TABLE dbo.modern_player_item (player_id BIGINT NOT NULL, container TINYINT NOT NULL, slot INT NOT NULL, db_idx BIGINT NOT NULL, item_idx INT NOT NULL, durability BIGINT NOT NULL, rare_idx BIGINT NOT NULL, quick_position INT NOT NULL, item_param BIGINT NOT NULL, CONSTRAINT pk_modern_player_item PRIMARY KEY (player_id,container,slot), CONSTRAINT uq_modern_player_item_db_idx UNIQUE (player_id,db_idx))",
     "IF OBJECT_ID(N'dbo.modern_player_quest_log', N'U') IS NULL CREATE TABLE dbo.modern_player_quest_log (player_id BIGINT NOT NULL, quest_id BIGINT NOT NULL, state TINYINT NOT NULL DEFAULT 0, accepted_time_ms BIGINT NOT NULL DEFAULT 0, updated_at NVARCHAR(32) NOT NULL, CONSTRAINT pk_modern_player_quest_log PRIMARY KEY (player_id,quest_id))",
     "IF OBJECT_ID(N'dbo.modern_player_quest_sub', N'U') IS NULL CREATE TABLE dbo.modern_player_quest_sub (player_id BIGINT NOT NULL, quest_id BIGINT NOT NULL, sub_index INT NOT NULL, kind TINYINT NOT NULL, target_id BIGINT NOT NULL, count BIGINT NOT NULL DEFAULT 0, target_count BIGINT NOT NULL, CONSTRAINT pk_modern_player_quest_sub PRIMARY KEY (player_id,quest_id,sub_index))",

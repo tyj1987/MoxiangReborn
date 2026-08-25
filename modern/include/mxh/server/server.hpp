@@ -35,6 +35,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -547,6 +548,13 @@ private:
     // or a fully populated one (N quests, N rows).
     void persist_quest_log(std::uint32_t player_id);
     void load_quest_log(std::uint32_t player_id, QuestLog& quest_log);
+    void persist_party(const Party& party);
+    void persist_guild(const Guild& guild);
+    void clear_party(std::uint32_t party_id);
+    void clear_guild(std::uint32_t guild_id);
+    void load_membership_state(std::uint32_t player_id,
+                               std::string_view player_name,
+                               std::uint16_t player_level);
     void send_skill_single_result(
         std::uint32_t target_player_id,
         std::uint32_t target_id,
