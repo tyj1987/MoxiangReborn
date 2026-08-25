@@ -582,6 +582,7 @@ void CInGameState::Release() {
     m_cameraDrag = false;
     m_chatOpen = false;
     m_chatBuffer.clear();
+    m_effectEvents.clear();
     set_inventory_open(false);
     set_shop_open(false);
     set_quest_open(false);
@@ -975,7 +976,12 @@ void CInGameState::handle_monster_broadcast(const mxh::net::Message& msg) {
         if (monster.object_id == msg.header.object_id) {
             monster.current_life = life->first;
             monster.current_shield = life->second;
-            if (monster.current_life == 0) monster.moving = false;
+            if (monster.current_life == 0) {
+                monster.moving = false;
+                push_effect_event(EffectEvent{
+                    EffectEventKind::Death, m_lastTickMs, m_playerId,
+                    monster.object_id, 0, 0, 0, 0, 0});
+            }
             MLOG_DEBUG("CInGameState: monster life id=%u life=%u shield=%u",
                        msg.header.object_id, life->first, life->second);
             return;
@@ -991,6 +997,9 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
             if (msg.payload.size() >= 8) {
                 const auto skill_idx = get_u32(msg.payload.data());
                 const auto skill_object = get_u32(msg.payload.data() + 4);
+                push_effect_event(EffectEvent{
+                    EffectEventKind::CastRelease, m_lastTickMs, m_playerId,
+                    skill_object, skill_idx, skill_idx, 0, 0, 0});
                 MLOG_INFO("CInGameState: SkillStartAck skill=%u object=%u",
                           skill_idx, skill_object);
             }
@@ -1010,6 +1019,12 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 std::int32_t damage = 0;
                 std::memcpy(&damage, msg.payload.data() + 4, sizeof(damage));
                 const auto hit = msg.payload[8];
+                push_effect_event(EffectEvent{
+                    EffectEventKind::Hit, m_lastTickMs, m_playerId, target,
+                    0, 0, 0, damage, hit});
+                push_effect_event(EffectEvent{
+                    EffectEventKind::End, m_lastTickMs, m_playerId, target,
+                    0, 0, 0, damage, hit});
                 MLOG_INFO("CInGameState: SkillSingleResult target=%u damage=%d hit=%u",
                           target, damage, static_cast<unsigned>(hit));
             }
@@ -1019,6 +1034,17 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
             MLOG_DEBUG("CInGameState: skill broadcast proto=%d",
                        static_cast<int>(proto));
             break;
+    }
+}
+
+void CInGameState::push_effect_event(EffectEvent event) noexcept {
+    if (event.timestamp_ms == 0) event.timestamp_ms = m_lastTickMs;
+    m_effectEvents.push_back(event);
+    constexpr std::size_t kMaxEffectEvents = 256;
+    if (m_effectEvents.size() > kMaxEffectEvents) {
+        m_effectEvents.erase(m_effectEvents.begin(),
+                             m_effectEvents.begin() +
+                                 (m_effectEvents.size() - kMaxEffectEvents));
     }
 }
 
@@ -1603,6 +1629,9 @@ void CInGameState::try_attack() {
     m_lastAttackTarget = *target;
     m_lastAttackMs = now;
     m_attackFlashMs = now;
+    push_effect_event(EffectEvent{
+        EffectEventKind::CastStart, now, m_playerId, *target,
+        1u, 1u, 0, 0, 0});
     if (!is_connected()) {
         MLOG_INFO("CInGameState: attack target=%u (offline)", *target);
         if (m_pEngine) m_pEngine->EmitAudio(CEngine::AudioCue::Attack);
@@ -1729,6 +1758,9 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_lastAttackMs = now;
+        push_effect_event(EffectEvent{
+            EffectEventKind::CastStart, now, m_playerId, target,
+            skill, skill, 0, 0, 0});
         MLOG_INFO("CInGameState: quick slot %zu skill=%u target=%u",
                   slot, skill, target);
         if (m_pEngine) {

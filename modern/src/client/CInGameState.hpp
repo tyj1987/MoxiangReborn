@@ -179,6 +179,22 @@ struct NpcInfo {
     std::uint16_t position_z = 0;
 };
 
+// Server-confirmed presentation event. Gameplay remains authoritative on the
+// server; BEFF, animation and audio consumers subscribe to this timeline.
+enum class EffectEventKind : std::uint8_t { CastStart, CastRelease, Hit, End, Death };
+
+struct EffectEvent {
+    EffectEventKind kind = EffectEventKind::CastStart;
+    std::uint64_t timestamp_ms = 0;
+    std::uint32_t source_object_id = 0;
+    std::uint32_t target_object_id = 0;
+    std::uint32_t skill_id = 0;
+    std::uint32_t effect_id = 0;
+    std::uint32_t sound_id = 0;
+    std::int32_t damage = 0;
+    std::uint8_t hit_result = 0;
+};
+
 std::optional<NpcInfo> parse_legacy_npc_add(std::span<const std::uint8_t> payload);
 
 // Approximate world -> screen projection for static NPC markers, using the
@@ -394,6 +410,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
         return m_questSelection < m_mainQuests.size() ? m_mainQuests[m_questSelection] : nullptr;
     }
     const std::vector<ShopItem>& shop_items() const noexcept { return m_shopItems; }
+    const std::vector<EffectEvent>& effect_events() const noexcept { return m_effectEvents; }
     std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
     std::uint32_t last_buy_item_id() const noexcept { return m_lastBuyItemId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }
@@ -441,6 +458,7 @@ public:
     void set_inventory_open(bool open) noexcept;
     void set_shop_open(bool open) noexcept;
     void set_quest_open(bool open) noexcept;
+    void push_effect_event(EffectEvent event) noexcept;
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
@@ -502,6 +520,7 @@ public:
     mxh::compat::QuestStringCatalog m_questCatalog;
     std::vector<const mxh::compat::QuestStringEntry*> m_mainQuests;
     std::size_t          m_questSelection = 0;
+    std::vector<EffectEvent> m_effectEvents;
 };
 
 } // namespace mxh::client

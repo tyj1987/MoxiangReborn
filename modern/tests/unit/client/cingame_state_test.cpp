@@ -138,6 +138,45 @@ TEST(InGameMonsterAdd, RejectsShortPayload) {
     EXPECT_FALSE(parse_legacy_monster_add(payload).has_value());
 }
 
+TEST(InGameEffects, ConfirmedSkillMessagesProduceDeterministicTimeline) {
+    mxh::client::CInGameState state;
+
+    mxh::net::Message start;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    start.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::SkillProtocol::StartAck);
+    start.payload.resize(8);
+    const std::uint32_t skill_id = 42u;
+    const std::uint32_t skill_object = 70001u;
+    std::memcpy(start.payload.data(), &skill_id, sizeof(skill_id));
+    std::memcpy(start.payload.data() + 4, &skill_object, sizeof(skill_object));
+    state.on_message({}, start);
+
+    mxh::net::Message result;
+    result.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    result.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::SkillProtocol::SingleResult);
+    result.payload.resize(9);
+    const std::uint32_t target = 50001u;
+    const std::int32_t damage = 123;
+    std::memcpy(result.payload.data(), &target, sizeof(target));
+    std::memcpy(result.payload.data() + 4, &damage, sizeof(damage));
+    result.payload[8] = 1u;
+    state.on_message({}, result);
+
+    ASSERT_EQ(state.effect_events().size(), 3u);
+    EXPECT_EQ(state.effect_events()[0].kind,
+              mxh::client::EffectEventKind::CastRelease);
+    EXPECT_EQ(state.effect_events()[0].skill_id, skill_id);
+    EXPECT_EQ(state.effect_events()[0].target_object_id, skill_object);
+    EXPECT_EQ(state.effect_events()[1].kind,
+              mxh::client::EffectEventKind::Hit);
+    EXPECT_EQ(state.effect_events()[1].target_object_id, target);
+    EXPECT_EQ(state.effect_events()[1].damage, damage);
+    EXPECT_EQ(state.effect_events()[2].kind,
+              mxh::client::EffectEventKind::End);
+}
+
 TEST(InGameCharacterAdd, DecodesServerPushedPlayerPayload) {
     std::array<std::uint8_t, 288> payload{};
     const std::uint32_t objectId = 0x12345678u;
