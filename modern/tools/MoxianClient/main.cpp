@@ -2316,7 +2316,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_mapChangeCatalog = mxh::compat::load_map_change_bin(
         options.resource_root / "Resource" / "MapChange.bin");
     if (!g_mapChangeCatalog) {
-        MLOG_WARN("mxh_client: MapChange.bin unavailable or invalid; NPC warp interaction will remain disabled");
+        if (!g_debugUiBounds) {
+            std::fprintf(stderr,
+                         "mxh_client: MapChange.bin unavailable or invalid\n");
+            return 1;
+        }
+        MLOG_WARN("mxh_client: MapChange.bin unavailable in debug mode; NPC warp interaction disabled");
     } else {
         MLOG_INFO("mxh_client: MapChange.bin loaded entries=%u",
                   static_cast<unsigned>(g_mapChangeCatalog->entries.size()));
