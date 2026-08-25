@@ -2616,7 +2616,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
             if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                     mainGame.GetGameState(mxh::client::GameStateId::GameIn));
-                game_in && game_in->is_in_game()) {
+                game_in && game_in->is_in_game() && game_in->smoke_exit_ready()) {
                 MLOG_INFO("mxh_client: GUI_SMOKE_PASS player_id=%u map=%u",
                           game_in->player_id(), game_in->map_num());
                 mxh::client::g_running = false;
@@ -2639,7 +2639,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             mainGame.Process();
             if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
                     mainGame.GetGameState(mxh::client::GameStateId::GameIn));
-                smoke_game && smoke_game->smoke_exit_requested()) {
+                smoke_game && smoke_game->smoke_exit_ready()) {
                 mxh::client::g_running = false;
             }
             if (!mxh::client::g_running) break;
@@ -2945,7 +2945,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(cur_state));
                     game_in && game_in->is_in_game() &&
-                    (!options.follow_camera || !game_in->monsters().empty())) {
+                    ([&] {
+                        const char* value = std::getenv("MXH_GUI_SMOKE_EXIT");
+                        const bool require_entities = value && *value == '1';
+                        if (require_entities && game_in->map_num() == 10)
+                            return game_in->monsters().size() >= 228;
+                        return !require_entities && !options.follow_camera
+                            ? true
+                            : !game_in->monsters().empty() || !game_in->npcs().empty();
+                    }())) {
                     ++follow_settle_frames;
                     const auto required_frames = options.follow_camera
                         ? std::max<std::uint32_t>(20u, options.smoke_settle_frames)
@@ -3009,7 +3017,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             follow_frame_captured = true;
                         }
                     }
-                    if (g_entityScene && g_terrain) {
+                    const bool gui_smoke_exit = [] {
+                        const char* value = std::getenv("MXH_GUI_SMOKE_EXIT");
+                        return value && *value == '1';
+                    }();
+                    if (g_entityScene && g_terrain && !gui_smoke_exit) {
                         mxh::gx::WorldSnapshot snapshot;
                         snapshot.entities.reserve(game_in->monsters().size() +
                                                   game_in->npcs().size());

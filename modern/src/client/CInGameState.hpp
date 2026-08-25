@@ -397,6 +397,11 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool         is_connected() const noexcept;
     bool         is_in_game()   const noexcept { return m_inGame; }
     bool smoke_exit_requested() const noexcept { return m_smokeExitRequested; }
+    bool smoke_exit_ready() const noexcept {
+        if (!m_smokeExitRequested) return false;
+        if (m_mapNum == 10) return monsters_.size() >= 228;
+        return !monsters_.empty() || !m_npcs.empty();
+    }
     std::uint32_t player_id()   const noexcept { return m_playerId; }
     // Resolve an authoritative world distance for effect/audio consumers.
     // Unknown IDs remain absent so remote sounds do not become local 2D cues.

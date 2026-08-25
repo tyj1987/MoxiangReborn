@@ -93,6 +93,10 @@ try {
     if ($npcCount -lt $MinimumNpcCount) {
         throw "GUI smoke received $npcCount NPCs, expected at least $MinimumNpcCount; log=$stderr"
     }
+    $monsterCount = ([regex]::Matches($log, 'CInGameState: MonsterAdd object_id=')).Count
+    if ($MapNumber -eq 10 -and $monsterCount -ne 228) {
+        throw "GUI smoke received $monsterCount Map10 monsters, expected exactly 228; log=$stderr"
+    }
     if ($FollowCamera) {
         foreach ($marker in @('[sky] original MOD loaded meshes=8/8 textures=8/8', '[terrain] player camera active', '[entity] original MonsterList loaded', '[entity] original model kind=65006 chx=man.chx', '[entity] original idle animation active', '[entity] original model kind=1 chx=L001.chx')) {
             if ($log -notmatch [regex]::Escape($marker)) {
@@ -112,7 +116,7 @@ try {
         & python (Join-Path $repoRoot 'scripts\verify-entity-frame.py') $frame
         if ($LASTEXITCODE -ne 0) { throw "GUI entity frame validation failed: $frame" }
     }
-    Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
+    Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, monsters=$monsterCount, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
 }
 finally {
     if ($null -eq $previousGuiSmokePassword) {
