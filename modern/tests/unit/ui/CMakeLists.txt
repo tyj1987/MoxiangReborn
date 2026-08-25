@@ -347,6 +347,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWindowManager.RemoveDialogByIdDeferDestroys
     CWindowManager.RemoveDialogByIdUnknownIsNoop
     CWindowManager.RemoveAllDefersAll
+    CWindowManager.AbandonAllForProcessExitReleasesOwnership
     CWindowManager.FindByIdRecursesIntoDialogs
     CWindowManager.FindByXYReturnsTopmostHit
     CWindowManager.ModalDialogSteersAllInput

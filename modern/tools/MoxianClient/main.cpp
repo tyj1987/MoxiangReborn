@@ -3317,6 +3317,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     }
 
     g_inputTarget = nullptr;
+    mainGame.PrepareForProcessExit();
     mainGame.Release();
     g_renderTerrain = false;
     g_terrain.reset();

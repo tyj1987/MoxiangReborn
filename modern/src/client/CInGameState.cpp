@@ -735,6 +735,10 @@ void CInGameState::Release() {
     m_releasing = false;
 }
 
+void CInGameState::PrepareForProcessExit() noexcept {
+    m_uiRuntime.abandon_for_process_exit();
+}
+
 void CInGameState::Process() {
     tick();
     if (m_pEngine) {

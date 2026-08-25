@@ -51,6 +51,7 @@ public:
     std::unique_ptr<cDialog> RemoveDialog(cDialog* dlg);
     bool RemoveDialogById(std::int32_t id);
     void RemoveAll();
+    void AbandonAllForProcessExit() noexcept;
 
     // Process destroy queue (call once per frame). Dialogs marked
     // closeRequested() are removed and destroyed here, not at the

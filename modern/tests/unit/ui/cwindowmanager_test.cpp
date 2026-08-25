@@ -101,6 +101,19 @@ TEST(CWindowManager, RemoveAllDefersAll) {
     EXPECT_EQ(wm.destroyQueueSize(), 0u);
 }
 
+TEST(CWindowManager, AbandonAllForProcessExitReleasesOwnership) {
+    cWindowManager wm;
+    auto dialog = std::make_unique<cDialog>();
+    dialog->Init(0, 0, 100, 100, nullptr, 7);
+    wm.AddDialog(std::move(dialog));
+    wm.RemoveAll();
+    ASSERT_EQ(wm.dialogCount(), 0u);
+    ASSERT_EQ(wm.destroyQueueSize(), 1u);
+    wm.AbandonAllForProcessExit();
+    EXPECT_EQ(wm.dialogCount(), 0u);
+    EXPECT_EQ(wm.destroyQueueSize(), 0u);
+}
+
 TEST(CWindowManager, FindByIdRecursesIntoDialogs) {
     cWindowManager wm;
     auto d = std::make_unique<cDialog>();

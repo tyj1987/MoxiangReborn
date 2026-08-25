@@ -70,6 +70,12 @@ void CMainGame::Release() {
     m_pEngine.reset();
 }
 
+void CMainGame::PrepareForProcessExit() noexcept {
+    if (m_pCurrentGameState) {
+        m_pCurrentGameState->PrepareForProcessExit();
+    }
+}
+
 void CMainGame::RegisterState(GameStateId id, std::unique_ptr<CGameState> state) {
     const auto idx = static_cast<std::size_t>(id);
     if (idx >= kStateCount || !state) return;

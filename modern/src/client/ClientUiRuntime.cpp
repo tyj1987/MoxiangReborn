@@ -110,6 +110,13 @@ void ClientUiRuntime::clear() noexcept {
     m_windows.ProcessDestroyQueue();
 }
 
+void ClientUiRuntime::abandon_for_process_exit() noexcept {
+    m_active = false;
+    m_focused = nullptr;
+    m_pressedLeft = nullptr;
+    m_windows.AbandonAllForProcessExit();
+}
+
 void ClientUiRuntime::setActive(bool active) noexcept {
     m_active = active;
     if (!active) {

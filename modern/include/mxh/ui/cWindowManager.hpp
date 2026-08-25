@@ -52,6 +52,12 @@ public:
     bool RemoveDialogById(std::int32_t id);
     void RemoveAll();
 
+    // Process-exit teardown: release ownership without running widget
+    // destructors. The operating system reclaims the process heap after the
+    // renderer/network shutdown; this avoids executing callbacks or legacy
+    // widget cleanup while the host is already leaving the message loop.
+    void AbandonAllForProcessExit() noexcept;
+
     // Process destroy queue (call once per frame). Dialogs marked
     // closeRequested() are removed and destroyed here, not at the
     // close() call site, to avoid mid-event use-after-free.

@@ -62,6 +62,7 @@ public:
     // -------------------------------------------------------------------------
     void Init(void* hMainWnd);
     void Release();
+    void PrepareForProcessExit() noexcept;
 
     // -------------------------------------------------------------------------
     // State transitions.  SetGameState triggers:

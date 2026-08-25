@@ -51,6 +51,7 @@ public:
                   mxh::ui::ResolutionMode mode,
                   std::string* error = nullptr);
     void clear() noexcept;
+    void abandon_for_process_exit() noexcept;
 
     void setActive(bool active) noexcept;
     bool isActive() const noexcept { return m_active; }

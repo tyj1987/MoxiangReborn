@@ -62,6 +62,19 @@ void cWindowManager::RemoveAll() {
     m_modalDialog = nullptr;
 }
 
+void cWindowManager::AbandonAllForProcessExit() noexcept {
+    m_focused = nullptr;
+    m_modalDialog = nullptr;
+    for (auto& dialog : m_dialogs) {
+        (void)dialog.release();
+    }
+    m_dialogs.clear();
+    for (auto& dialog : m_destroyQueue) {
+        (void)dialog.release();
+    }
+    m_destroyQueue.clear();
+}
+
 void cWindowManager::ProcessDestroyQueue() {
     m_destroyQueue.clear();
 }

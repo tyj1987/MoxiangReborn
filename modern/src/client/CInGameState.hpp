@@ -357,6 +357,7 @@ public:
     // CGameState
     void Init(void* pInitParam) override;
     void Release() override;
+    void PrepareForProcessExit() noexcept override;
     void Process() override;
 
     // mxh::net::IConnectionHandler

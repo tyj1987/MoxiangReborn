@@ -42,6 +42,7 @@ public:
     // -------------------------------------------------------------------------
     virtual void Init(void* pInitParam) = 0;
     virtual void Release() = 0;
+    virtual void PrepareForProcessExit() noexcept {}
 
     // -------------------------------------------------------------------------
     // Per-frame steps.  Process() is the main tick (input, network
