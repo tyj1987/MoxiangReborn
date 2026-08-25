@@ -1150,6 +1150,24 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         if (m_inventoryOpen) set_inventory_open(true);
         MLOG_INFO("CInGameState: money updated=%u", m_info.money);
     } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::UseAck)) {
+        // UseAck: [pos:u16][icon:u16][hp_delta:i32][mp_delta:i32]
+        //          [current_hp:u32][current_mp:u32].
+        if (msg.payload.size() < 20) return;
+        const auto pos = get_u16(msg.payload.data());
+        const auto current_hp = get_u32(msg.payload.data() + 12);
+        const auto current_mp = get_u32(msg.payload.data() + 16);
+        if (pos < mxh::game::SLOT_INVENTORY_NUM) {
+            m_info.items.Inventory[pos] = mxh::game::make_empty_item();
+            m_info.items.Inventory[pos].Position = pos;
+        }
+        m_info.life = static_cast<std::uint16_t>(
+            std::min<std::uint32_t>(current_hp, 0xffffu));
+        m_info.mp = current_mp;
+        if (m_inventoryOpen) set_inventory_open(true);
+        MLOG_INFO("CInGameState: item used pos=%u hp=%u mp=%u",
+                  pos, current_hp, current_mp);
+    } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::TotalInfoLocal)) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
             std::memcpy(&m_info.items, msg.payload.data(),

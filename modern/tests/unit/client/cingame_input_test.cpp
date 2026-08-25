@@ -555,6 +555,35 @@ TEST(InGamePlayable, MoneyUpdateFromShopAckFeedsLiveHudState) {
     EXPECT_EQ(state.game_info().money, money);
 }
 
+TEST(InGamePlayable, UseAckConsumesLiveInventorySlotAndUpdatesVitals) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::game::ItemTotalInfo items{};
+    items.Inventory[3] = mxh::game::make_item(7001u, 101u, 3u, 100u, 1u);
+    mxh::net::Message inventory;
+    inventory.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    inventory.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    inventory.payload.resize(sizeof(items));
+    std::memcpy(inventory.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), inventory);
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseAck);
+    ack.payload.resize(20, 0);
+    const std::uint16_t pos = 3u;
+    const std::uint32_t hp = 777u;
+    const std::uint32_t mp = 555u;
+    std::memcpy(ack.payload.data(), &pos, 2);
+    std::memcpy(ack.payload.data() + 12, &hp, 4);
+    std::memcpy(ack.payload.data() + 16, &mp, 4);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[3]));
+    EXPECT_EQ(state.game_info().life, hp);
+    EXPECT_EQ(state.game_info().mp, mp);
+}
+
 TEST(InGameWire, PickupMessageAndGroundDropPayloadRoundTrip) {
     const auto m = make_pickup_message(42u, 9001u);
     EXPECT_EQ(m.header.category,
