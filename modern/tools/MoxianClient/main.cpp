@@ -338,6 +338,7 @@ mxh::client::CInGameState* g_inputTarget = nullptr;
 mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
 mxh::client::CGameLoading*     g_gameLoadingState = nullptr;
+mxh::client::CMapChange*       g_mapChangeState = nullptr;
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
@@ -1404,6 +1405,21 @@ void renderFrame(HWND h) {
                                  290, 540, 0xFF80FF80u);
                     }
                 }
+            } else if (cur_state == static_cast<int>(mxh::client::GameStateId::MapChange)) {
+                if (g_mapChangeState) {
+                    g_mapChangeState->ui_runtime().render();
+                    if (g_debugUiBounds) {
+                        for (const auto& d : g_mapChangeState->ui_dialogs()) {
+                            if (!d) continue;
+                            drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
+                                       static_cast<float>(d->absX()),
+                                       static_cast<float>(d->absY()),
+                                       static_cast<float>(d->width()),
+                                       static_cast<float>(d->height()), 0.85f);
+                        }
+                        drawText("Changing map...", 290, 540, 0xFF80FF80u);
+                    }
+                }
             }
         }
     }
@@ -2142,9 +2158,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 } else {
                     g_charMakeState = nullptr;
                 }
-                if (cur_state == mxh::client::GameStateId::GameLoading) {
+                if (cur_state == mxh::client::GameStateId::GameLoading ||
+                    cur_state == mxh::client::GameStateId::MapChange) {
                     game_loading_frame_presented = false;
                     g_renderTerrain = false;
+                }
+                if (cur_state == mxh::client::GameStateId::MapChange) {
+                    g_mapChangeState = dynamic_cast<mxh::client::CMapChange*>(
+                        mainGame.GetGameState(cur_state));
+                    g_renderTerrain = false;
+                } else {
+                    g_mapChangeState = nullptr;
                 }
                 // Phase B.2.5: skip past the manual login form (CMainTitle)
             // when running in headless smoke mode. The 1:1 flow goes
@@ -2230,6 +2254,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         loading->Start(mainGame.GetEngine());
                         g_gameLoadingState = loading;
                     }
+                } else if (cur_state == mxh::client::GameStateId::MapChange) {
+                    if (auto* change = dynamic_cast<mxh::client::CMapChange*>(
+                            mainGame.GetGameState(cur_state))) {
+                        change->Start(mainGame.GetEngine());
+                    }
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
                     if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
                             mainGame.GetGameState(cur_state))) {
@@ -2255,16 +2284,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // set the GameEntryRequest transfer AFTER the state-transition
             // edge fires. Restricting to the rising-edge check loses the
             // transfer and the state machine stalls.
-            if (cur_state == mxh::client::GameStateId::GameLoading) {
+            if (cur_state == mxh::client::GameStateId::GameLoading ||
+                cur_state == mxh::client::GameStateId::MapChange) {
                 if (!game_loading_frame_presented) {
                     game_loading_frame_presented = true;
                     } else if (mainGame.GetEngine()->has_pending_transfer()) {
                     std::string transferError;
                     if (loadingCoordinator.consume_pending_transfer(
                             *mainGame.GetEngine(), &transferError)) {
-                        if (auto* loading = dynamic_cast<mxh::client::CGameLoading*>(
-                                mainGame.GetGameState(cur_state))) {
-                            loading->set_context(&loadingCoordinator.context());
+                        if (cur_state == mxh::client::GameStateId::GameLoading) {
+                            if (auto* loading = dynamic_cast<mxh::client::CGameLoading*>(
+                                    mainGame.GetGameState(cur_state))) {
+                                loading->set_context(&loadingCoordinator.context());
+                            }
+                        } else if (auto* change = dynamic_cast<mxh::client::CMapChange*>(
+                                       mainGame.GetGameState(cur_state))) {
+                            change->set_context(&loadingCoordinator.context());
                         }
                         std::string loadingError;
                         if (loadGameWorld(options, renderer, storage, bgm,

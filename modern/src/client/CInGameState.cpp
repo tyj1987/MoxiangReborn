@@ -898,8 +898,8 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                     m_pEngine->SetPendingTransfer(
                         GameEntryRequest{m_playerId, target_map});
                     m_pEngine->RequestStateChange(
-                        static_cast<int>(GameStateId::GameLoading));
-                    MLOG_INFO("CInGameState: ChangeMapAck map=%u -> GameLoading",
+                        static_cast<int>(GameStateId::MapChange));
+                    MLOG_INFO("CInGameState: ChangeMapAck map=%u -> MapChange",
                               static_cast<unsigned>(target_map));
                 }
             }

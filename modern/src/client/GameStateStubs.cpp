@@ -127,8 +127,21 @@ void CMapChange::Init(void* param) {
 }
 
 void CMapChange::Release() {
+    m_uiRuntime.clear();
     setInitialized(false);
     MLOG_DEBUG("CMapChange::Release");
+}
+
+void CMapChange::Start(CEngine* engine) {
+    if (!engine || !engine->playdh_root() || !m_uiRuntime.empty()) return;
+    std::string error;
+    if (!m_uiRuntime.load(*engine->playdh_root(), "NewLoadDlg.bin",
+                          engine->ui_resolution_mode(), &error)) {
+        MLOG_WARN("CMapChange: NewLoadDlg.bin unavailable: %s", error.c_str());
+        return;
+    }
+    m_uiRuntime.activateAllLoadedDialogs();
+    MLOG_INFO("CMapChange: loaded real NewLoadDlg.bin UI");
 }
 
 void CMapChange::Process() {
