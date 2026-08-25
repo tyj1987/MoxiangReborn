@@ -475,7 +475,8 @@ public:
     void push_effect_event(EffectEvent event) noexcept;
     void start_skill_effect(std::uint32_t skill_id,
                             std::uint32_t target_object_id,
-                            std::uint64_t now_ms);
+                            std::uint64_t now_ms,
+                            std::uint32_t source_object_id = 0);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;

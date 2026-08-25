@@ -145,6 +145,7 @@ TEST(InGameEffects, ConfirmedSkillMessagesProduceDeterministicTimeline) {
     start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
     start.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::SkillProtocol::StartAck);
+    start.header.object_id = 90001u;
     start.payload.resize(8);
     const std::uint32_t skill_id = 42u;
     const std::uint32_t skill_object = 70001u;
@@ -168,6 +169,7 @@ TEST(InGameEffects, ConfirmedSkillMessagesProduceDeterministicTimeline) {
     EXPECT_EQ(state.effect_events()[0].kind,
               mxh::client::EffectEventKind::CastRelease);
     EXPECT_EQ(state.effect_events()[0].skill_id, skill_id);
+    EXPECT_EQ(state.effect_events()[0].source_object_id, 90001u);
     EXPECT_EQ(state.effect_events()[0].target_object_id, skill_object);
     EXPECT_EQ(state.effect_events()[1].kind,
               mxh::client::EffectEventKind::Hit);

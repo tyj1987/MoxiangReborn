@@ -1033,13 +1033,16 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
             if (msg.payload.size() >= 8) {
                 const auto skill_idx = get_u32(msg.payload.data());
                 const auto skill_object = get_u32(msg.payload.data() + 4);
+                const auto source_object = msg.header.object_id != 0
+                    ? msg.header.object_id : m_playerId;
                 // The server acknowledgement is the presentation authority:
                 // do not start a BEFF timeline merely because the client
                 // write succeeded.  This also prevents a rejected or
                 // duplicated request from producing a phantom effect.
-                start_skill_effect(skill_idx, skill_object, m_lastTickMs);
+                start_skill_effect(skill_idx, skill_object, m_lastTickMs,
+                                   source_object);
                 push_effect_event(EffectEvent{
-                    EffectEventKind::CastRelease, m_lastTickMs, m_playerId,
+                    EffectEventKind::CastRelease, m_lastTickMs, source_object,
                     skill_object, skill_idx, skill_idx, 0, 0, 0});
                 MLOG_INFO("CInGameState: SkillStartAck skill=%u object=%u",
                           skill_idx, skill_object);
@@ -1821,11 +1824,13 @@ void CInGameState::use_quick_slot(std::size_t slot) {
 
 void CInGameState::start_skill_effect(std::uint32_t skill_id,
                                       std::uint32_t target_object_id,
-                                      std::uint64_t now_ms) {
+                                      std::uint64_t now_ms,
+                                      std::uint32_t source_object_id) {
     if (m_effectTickPerFrameMs == 0) return;
+    if (source_object_id == 0) source_object_id = m_playerId;
     const auto refs = m_skillManager.effect_names(skill_id);
     if (!refs || refs->effect_use.empty()) return;
-    if (!m_effectRuntime.start(refs->effect_use, m_playerId,
+    if (!m_effectRuntime.start(refs->effect_use, source_object_id,
                                target_object_id, now_ms,
                                m_effectTickPerFrameMs)) {
         MLOG_WARN("CInGameState effect start rejected skill=%u effect=%s",
