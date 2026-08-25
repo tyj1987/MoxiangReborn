@@ -70,6 +70,23 @@ TEST(TtbTileTableTest, ParseHeadered2x2) {
     EXPECT_EQ(t.tiles[3], 3u);
 }
 
+TEST(TtbTileTableTest, ParseLegacyHeaderedU16Grid) {
+    std::vector<std::uint8_t> buf(8 + 6 * 2, 0);
+    const std::uint32_t width = 3;
+    const std::uint32_t height = 2;
+    std::memcpy(buf.data(), &width, sizeof(width));
+    std::memcpy(buf.data() + 4, &height, sizeof(height));
+    const std::uint16_t values[] = {0u, 1u, 0x1234u, 0xFFFFu, 7u, 9u};
+    std::memcpy(buf.data() + 8, values, sizeof(values));
+    const auto t = TtbTileTable::parse(buf);
+    ASSERT_EQ(t.width, 3u);
+    ASSERT_EQ(t.height, 2u);
+    ASSERT_EQ(t.tiles.size(), 6u);
+    EXPECT_EQ(t.tiles[2], 0x1234u);
+    EXPECT_EQ(t.tiles[3], 0xFFFFu);
+    EXPECT_EQ(t.tiles[5], 9u);
+}
+
 TEST(TtbTileTableTest, ParseHeadered10x10NonZeroTiles) {
     // 10x10 grid filled with a non-trivial pattern. Pin a few
     // specific entries to make sure row-major layout is preserved.
@@ -182,17 +199,14 @@ TEST(TtbTileTableTest, ParseHeaderedZeroWidthFails) {
 }
 
 TEST(TtbTileTableTest, ParseHeaderedMismatchedSizeFails) {
-    // Header says 2x2 (needs 8 + 4*4 = 24 bytes) but we provide
-    // only 16 bytes. Headered path fails, 16 bytes is not a
-    // multiple of 4 (16 is a multiple actually, 16/4=4), so raw
-    // grid path picks it up.
+    // Header says 2x2 but provide a size that matches neither the
+    // legacy u16 grid nor the compatibility u32 grid.
     auto buf = make_headered_ttb(2, 2, {0, 1, 2, 3});
-    buf.resize(16);  // truncate to 16 bytes
+    buf.resize(14);
     TtbTileTable t = TtbTileTable::parse(buf);
-    // Falls through to raw grid (4 u32 values).
-    EXPECT_EQ(t.width, 4u);
-    EXPECT_EQ(t.height, 1u);
-    EXPECT_EQ(t.tiles.size(), 4u);
+    EXPECT_EQ(t.width, 0u);
+    EXPECT_EQ(t.height, 0u);
+    EXPECT_TRUE(t.tiles.empty());
 }
 
 }  // namespace mxh::compat::test

@@ -1,4 +1,4 @@
-// TtbTileTable.cpp - Skeleton .ttb parser.
+// TtbTileTable.cpp - legacy .ttb tile table parser.
 
 #include "mxh/compat/ttb_tile_table.hpp"
 
@@ -13,16 +13,32 @@ TtbTileTable TtbTileTable::parse(std::span<const std::uint8_t> bytes) {
     TtbTileTable t;
     if (bytes.size() < 8) return t;
 
-    // Try header: { u32 width, u32 height, u32[N] tiles }.
+    // The shipped maps use {u32 width, u32 height, u16[N] tiles}.  Older
+    // tools emitted a u32 tile array, so accept that byte-exact variant too;
+    // both are normalized to the public u32 tile index vector.
     std::uint32_t w = 0, h = 0;
     std::memcpy(&w, bytes.data() + 0, 4);
     std::memcpy(&h, bytes.data() + 4, 4);
 
-    const std::size_t expected = 8ull + static_cast<std::size_t>(w) * h * 4ull;
-    if (w > 0 && w < 10000 && h > 0 && h < 10000 && expected == bytes.size()) {
+    const auto valid_dimensions = w > 0 && w < 10000 && h > 0 && h < 10000;
+    const auto count = static_cast<std::size_t>(w) * h;
+    const std::size_t expected16 = 8ull + count * 2ull;
+    if (valid_dimensions && expected16 == bytes.size()) {
         t.width = w;
         t.height = h;
-        t.tiles.resize(static_cast<std::size_t>(w) * h);
+        t.tiles.resize(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            const auto* p = bytes.data() + 8 + i * 2;
+            t.tiles[i] = static_cast<std::uint32_t>(p[0]) |
+                         (static_cast<std::uint32_t>(p[1]) << 8);
+        }
+        return t;
+    }
+    const std::size_t expected32 = 8ull + count * 4ull;
+    if (valid_dimensions && expected32 == bytes.size()) {
+        t.width = w;
+        t.height = h;
+        t.tiles.resize(count);
         std::memcpy(t.tiles.data(), bytes.data() + 8, t.tiles.size() * 4);
         return t;
     }

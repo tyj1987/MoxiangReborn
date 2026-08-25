@@ -64,6 +64,7 @@
 #include "mxh/audio/bgm_player.hpp"
 #include "mxh/audio/sfx_player.hpp"
 #include "mxh/compat/bmhm_map.hpp"
+#include "mxh/compat/ttb_tile_table.hpp"
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
 #include "CCharMake.hpp"
@@ -541,6 +542,22 @@ public:
             return Result::Pending;
         }
         if (stage_ == 1) {
+            if (descriptor_->desc().tile_file_name[0] == '\0')
+                return fail("Map descriptor has no tile table", error);
+            const auto tile_path = options_.resource_root / "Resource" /
+                descriptor_->desc().tile_file_name;
+            tile_table_ = mxh::compat::TtbTileTable::load(tile_path);
+            if (!tile_table_ || tile_table_->tiles.empty())
+                return fail("Tile table unavailable: " + tile_path.string(), error);
+            MLOG_INFO("mxh_client: loaded TTB %s (%ux%u tiles)",
+                      tile_path.string().c_str(),
+                      static_cast<unsigned>(tile_table_->width),
+                      static_cast<unsigned>(tile_table_->height));
+            mark(progress, 2);
+            ++stage_;
+            return Result::Pending;
+        }
+        if (stage_ == 2) {
             terrain_ = std::make_unique<mxh::gx::TerrainScene>();
             const auto name = std::to_string(map_num_) + ".hfl";
             if (!terrain_->load(renderer_, storage_, name.c_str(), &stage_error_))
@@ -551,7 +568,7 @@ public:
             ++stage_;
             return Result::Pending;
         }
-        if (stage_ == 2) {
+        if (stage_ == 3) {
             static_scene_ = std::make_unique<mxh::gx::StaticScene>();
             const auto name = std::to_string(map_num_) + ".stm";
             if (!static_scene_->load(renderer_, storage_, name.c_str(), &stage_error_))
@@ -562,7 +579,7 @@ public:
             ++stage_;
             return Result::Pending;
         }
-        if (stage_ == 3) {
+        if (stage_ == 4) {
             if (descriptor_->desc().sky_mod[0]) {
                 sky_scene_ = std::make_unique<mxh::gx::SkyScene>();
                 if (!sky_scene_->load(renderer_, storage_, descriptor_->desc().sky_mod, &stage_error_))
@@ -572,7 +589,7 @@ public:
             ++stage_;
             return Result::Pending;
         }
-        if (stage_ == 4) {
+        if (stage_ == 5) {
             entity_scene_ = std::make_unique<mxh::gx::EntityScene>();
             if (!entity_scene_->load(renderer_, storage_, &stage_error_))
                 return fail("Entity scene load failed: " + stage_error_, error);
@@ -581,7 +598,7 @@ public:
             ++stage_;
             return Result::Pending;
         }
-        if (stage_ == 5) {
+        if (stage_ == 6) {
             std::string audio_error;
             if (!bgm_.play(descriptor_->desc().bgm_sound_num, &audio_error)) {
                 if (!g_debugUiBounds) {
@@ -654,6 +671,7 @@ private:
     std::string stage_error_;
     std::string error_;
     std::optional<mxh::compat::BmhmMap> descriptor_;
+    std::optional<mxh::compat::TtbTileTable> tile_table_;
     std::unique_ptr<mxh::gx::TerrainScene> terrain_;
     std::unique_ptr<mxh::gx::StaticScene> static_scene_;
     std::unique_ptr<mxh::gx::SkyScene> sky_scene_;
