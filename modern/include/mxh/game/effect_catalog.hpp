@@ -34,6 +34,7 @@ struct EffectScriptSummary {
     struct Unit {
         std::size_t index = 0;
         std::string kind;
+        std::uint32_t sound_id = 0;
     };
     struct Trigger {
         std::string time_token;

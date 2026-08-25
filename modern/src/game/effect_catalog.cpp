@@ -47,6 +47,9 @@ void scan_script(EffectScriptSummary& summary,
             std::string ignored_bool;
             fields >> directive >> unit.index >> unit.kind >> ignored_bool;
             if (!unit.kind.empty()) summary.units.push_back(std::move(unit));
+        } else if (trim.rfind("#SOUNDNUM", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(9));
+            fields >> summary.units.back().sound_id;
         } else if (trim.rfind("#TRIGGER", 0) == 0) {
             std::istringstream fields(trim);
             std::string directive;

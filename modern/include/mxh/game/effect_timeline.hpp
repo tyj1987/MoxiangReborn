@@ -11,6 +11,8 @@ struct EffectTimelineEvent {
     std::uint64_t due_ms = 0;
     std::size_t trigger_index = 0;
     EffectScriptSummary::Trigger trigger;
+    std::string unit_kind;
+    std::uint32_t sound_id = 0;
 };
 
 // Deterministic execution clock for a decoded BEFF script.  The caller owns
@@ -35,6 +37,7 @@ private:
         EffectScriptSummary::Trigger trigger;
     };
     std::vector<Scheduled> m_schedule;
+    std::vector<EffectScriptSummary::Unit> m_units;
     std::size_t m_nextTrigger = 0;
     std::uint64_t m_startMs = 0;
     std::uint64_t m_lastNowMs = 0;

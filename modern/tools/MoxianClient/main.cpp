@@ -2017,7 +2017,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.SetEngine(std::move(engine));
     mainGame.GetEngine()->SetAudioEventFn(
         [&sfx](mxh::client::CEngine::AudioCue cue) {
-            if (cue == mxh::client::CEngine::AudioCue::UiClick) return;
+            // Skill sounds are emitted by the decoded BEFF timeline below;
+            // keeping this generic cue would play a guessed fallback in
+            // parallel with the authoritative SoundList id.
+            if (cue == mxh::client::CEngine::AudioCue::UiClick ||
+                cue == mxh::client::CEngine::AudioCue::Skill) return;
             const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
                 ? g_attackSound
                 : (cue == mxh::client::CEngine::AudioCue::Pickup ? g_pickupSound : g_skillSound);
@@ -2027,6 +2031,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         });
     mainGame.GetEngine()->SetSpatialAudioEventFn(
         [&sfx](mxh::client::CEngine::AudioCue cue, float distance) {
+            if (cue == mxh::client::CEngine::AudioCue::Skill) return;
             const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
                 ? g_attackSound
                 : (cue == mxh::client::CEngine::AudioCue::Pickup ? g_pickupSound : g_skillSound);
@@ -2379,6 +2384,24 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (cur_state == mxh::client::GameStateId::GameIn) {
                 if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(cur_state)); game_in && game_in->is_in_game()) {
+                    for (const auto& effect : game_in->drain_runtime_effect_events()) {
+                        if (effect.sound_id > 0xffffu || !sfx.ready() ||
+                            effect.unit_kind != "SOUND") {
+                            continue;
+                        }
+                        std::string effect_audio_error;
+                        if (!sfx.play(static_cast<std::uint16_t>(effect.sound_id),
+                                      &effect_audio_error)) {
+                            MLOG_WARN("mxh_client: effect sound unavailable effect=%s id=%u: %s",
+                                      effect.effect_name.c_str(),
+                                      static_cast<unsigned>(effect.sound_id),
+                                      effect_audio_error.c_str());
+                        } else {
+                            MLOG_DEBUG("mxh_client: effect sound id=%u effect=%s",
+                                       static_cast<unsigned>(effect.sound_id),
+                                       effect.effect_name.c_str());
+                        }
+                    }
                     const auto& info = game_in->game_info();
                     if (g_terrain) {
                         g_terrain->followPlayer(info.position_x, info.position_z);

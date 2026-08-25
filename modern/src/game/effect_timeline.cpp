@@ -32,6 +32,7 @@ bool EffectTimeline::start(const EffectScriptSummary& script,
     if (!script.decoded || tick_per_frame_ms == 0 ||
         script.triggers.size() != script.trigger_count) return false;
     m_schedule.reserve(script.triggers.size());
+    m_units = script.units;
     for (std::size_t i = 0; i < script.triggers.size(); ++i) {
         std::uint64_t delay = 0;
         if (!parse_delay(script.triggers[i].time_token, tick_per_frame_ms, delay)) {
@@ -61,7 +62,12 @@ std::vector<EffectTimelineEvent> EffectTimeline::advance(std::uint64_t now_ms) n
     while (m_nextTrigger < m_schedule.size() &&
            m_schedule[m_nextTrigger].due_ms <= now_ms) {
         const auto& item = m_schedule[m_nextTrigger++];
-        out.push_back({item.due_ms, item.index, item.trigger});
+        EffectTimelineEvent event{item.due_ms, item.index, item.trigger};
+        if (item.trigger.unit < m_units.size()) {
+            event.unit_kind = m_units[item.trigger.unit].kind;
+            event.sound_id = m_units[item.trigger.unit].sound_id;
+        }
+        out.push_back(std::move(event));
     }
     if (m_nextTrigger == m_schedule.size()) m_active = false;
     return out;
@@ -69,6 +75,7 @@ std::vector<EffectTimelineEvent> EffectTimeline::advance(std::uint64_t now_ms) n
 
 void EffectTimeline::reset() noexcept {
     m_schedule.clear();
+    m_units.clear();
     m_nextTrigger = 0;
     m_startMs = 0;
     m_lastNowMs = 0;

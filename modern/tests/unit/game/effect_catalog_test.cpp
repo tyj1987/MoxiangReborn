@@ -42,6 +42,7 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_EQ(script->triggers.front().time_token, "f0");
     EXPECT_EQ(script->triggers.front().kind, "ON");
     EXPECT_FALSE(script->units.front().kind.empty());
+    EXPECT_EQ(script->units[2].sound_id, 405u);
 }
 
 TEST(EffectCatalog, RejectsMissingRoot) {

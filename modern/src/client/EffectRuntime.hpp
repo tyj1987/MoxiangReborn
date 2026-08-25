@@ -17,6 +17,8 @@ struct RuntimeEffectEvent {
     std::uint32_t source_object_id = 0;
     std::uint32_t target_object_id = 0;
     mxh::game::EffectTimelineEvent trigger;
+    std::string unit_kind;
+    std::uint32_t sound_id = 0;
 };
 
 class EffectRuntime {
