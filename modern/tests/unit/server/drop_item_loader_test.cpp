@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
 
 namespace {
@@ -22,6 +23,21 @@ std::filesystem::path find_playdh_drop_file() {
 std::filesystem::path find_playdh_root() {
     const auto file = find_playdh_drop_file();
     return file.empty() ? std::filesystem::path{} : file.parent_path();
+}
+
+std::filesystem::path find_reference_drop_file() {
+    auto base = std::filesystem::current_path();
+    for (int depth = 0; depth < 8; ++depth) {
+        const auto candidate = base / "modern" / "scratch" /
+            "2026-08-20-source-recovery" / "recovered" / "legacy-source" /
+            "SWorking" / "Resource" / "Server" /
+            "MonsterDropItemList.bin";
+        if (std::filesystem::exists(candidate)) return candidate;
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
+    }
+    return {};
 }
 
 }  // namespace
@@ -54,4 +70,16 @@ TEST(DropItemLoaderTest, AuditsBundledDropVariants) {
         EXPECT_TRUE(tables.empty());
         EXPECT_NE(error.find("$Group"), std::string::npos);
     }
+}
+
+TEST(DropItemLoaderTest, ParsesReadOnlySworkingReference) {
+    const auto path = find_reference_drop_file();
+    if (path.empty()) GTEST_SKIP() << "read-only SWorking reference not available";
+    std::string error;
+    const auto tables = mxh::server::load_drop_item_tables(
+        path, "sworking-2008-reference", &error);
+    ASSERT_FALSE(tables.empty()) << error;
+    EXPECT_GT(tables.size(), 0u);
+    EXPECT_GT(std::count_if(tables.begin(), tables.end(),
+        [](const auto& table) { return !table.entries.empty(); }), 0);
 }

@@ -16,7 +16,10 @@
 namespace mxh::server {
 
 // Maximum drops per monster.
-inline constexpr std::uint8_t MAX_DROP_PER_MONSTER = 10;
+// Legacy MAX_DROPITEM_NUM is 20 (CommonGameDefine.h).  The previous modern
+// value of 10 desynchronized every record after the first one and surfaced as
+// mojibake "invalid drop index" tokens on the reference profile.
+inline constexpr std::uint8_t MAX_DROP_PER_MONSTER = 20;
 
 // One drop entry (legacy CItemDrop::stDrop).
 struct DropItemEntry final {
@@ -53,7 +56,7 @@ private:
     std::vector<DropTable> tables_;
 };
 
-// Read the legacy MonsterDropItemList.bin (one index followed by ten
+// Read the legacy MonsterDropItemList.bin (one index followed by twenty
 // name/item/ratio triples).  The loader preserves the original item ids and
 // ratios; it does not invent a fallback item when a table is empty.
 std::vector<DropTable> load_drop_item_tables(
