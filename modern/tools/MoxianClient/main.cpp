@@ -30,6 +30,7 @@
 #include <array>
 #include <string>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -374,7 +375,21 @@ bool loadGameWorld(const ClientOptions& options,
                    I4DyuchiFileStorage* storage,
                    mxh::audio::BgmPlayer& bgm,
                    std::uint16_t mapNum,
-                   std::string& error) {
+                   std::string& error,
+                   const std::function<void(std::uint32_t)>& progress = {}) {
+    const bool previousRenderTerrain = g_renderTerrain;
+    const std::string previousCaptureTerrainFrame = g_captureTerrainFrame;
+    const auto fail = [&](std::string message) {
+        error = std::move(message);
+        // Scene activation is transactional: until all stages succeed, keep
+        // the previous world available for MapChange rollback.
+        g_renderTerrain = previousRenderTerrain;
+        g_captureTerrainFrame = previousCaptureTerrainFrame;
+        return false;
+    };
+    const auto mark = [&](std::uint32_t step) {
+        if (progress) progress(step);
+    };
     error.clear();
     g_renderTerrain = false;
     g_captureTerrainFrame.clear();
@@ -383,39 +398,35 @@ bool loadGameWorld(const ClientOptions& options,
         ("Map" + std::to_string(mapNum) + ".bmhm");
     const auto descriptor = mxh::compat::BmhmMap::load(descriptorPath);
     if (!descriptor) {
-        error = "Map descriptor unavailable: " + descriptorPath.string();
-        return false;
+        return fail("Map descriptor unavailable: " + descriptorPath.string());
     }
+    mark(1);
 
     auto terrain = std::make_unique<mxh::gx::TerrainScene>();
     const std::string hflName = std::to_string(mapNum) + ".hfl";
     std::string stageError;
     if (!terrain->load(renderer, storage, hflName.c_str(), &stageError)) {
-        error = "Terrain load failed (" + hflName + "): " + stageError;
-        return false;
+        return fail("Terrain load failed (" + hflName + "): " + stageError);
     }
     if (terrain->unresolvedTextureCount() != 0 && !g_debugUiBounds) {
-        error = "Terrain contains " +
+        return fail("Terrain contains " +
             std::to_string(terrain->unresolvedTextureCount()) +
-            " unresolved textures";
-        MLOG_ERROR("mxh_client: %s", error.c_str());
-        return false;
+            " unresolved textures");
     }
+    mark(3);
 
     auto staticScene = std::make_unique<mxh::gx::StaticScene>();
     const std::string stmName = std::to_string(mapNum) + ".stm";
     stageError.clear();
     if (!staticScene->load(renderer, storage, stmName.c_str(), &stageError)) {
-        error = "Static scene load failed (" + stmName + "): " + stageError;
-        return false;
+        return fail("Static scene load failed (" + stmName + "): " + stageError);
     }
     if (staticScene->unresolvedTextureCount() != 0 && !g_debugUiBounds) {
-        error = "Static scene contains " +
+        return fail("Static scene contains " +
             std::to_string(staticScene->unresolvedTextureCount()) +
-            " unresolved textures";
-        MLOG_ERROR("mxh_client: %s", error.c_str());
-        return false;
+            " unresolved textures");
     }
+    mark(5);
 
     std::unique_ptr<mxh::gx::SkyScene> skyScene;
     if (descriptor->desc().sky_mod[0]) {
@@ -423,24 +434,25 @@ bool loadGameWorld(const ClientOptions& options,
         stageError.clear();
         if (!skyScene->load(renderer, storage, descriptor->desc().sky_mod,
                             &stageError)) {
-            error = "Sky scene load failed (" +
-                std::string(descriptor->desc().sky_mod) + "): " + stageError;
-            return false;
+            return fail("Sky scene load failed (" +
+                std::string(descriptor->desc().sky_mod) + "): " + stageError);
         }
     }
+    mark(6);
 
     auto entityScene = std::make_unique<mxh::gx::EntityScene>();
     stageError.clear();
     if (!entityScene->load(renderer, storage, &stageError)) {
-        error = "Entity scene load failed: " + stageError;
-        return false;
+        return fail("Entity scene load failed: " + stageError);
     }
     entityScene->setPlaceholderRenderingEnabled(g_debugUiBounds);
+    mark(8);
 
     std::string audioError;
     if (!bgm.play(descriptor->desc().bgm_sound_num, &audioError)) {
         MLOG_WARN("mxh_client: map BGM unavailable: %s", audioError.c_str());
     }
+    mark(9);
 
     g_terrain = std::move(terrain);
     if (g_inputTarget) {
@@ -459,6 +471,7 @@ bool loadGameWorld(const ClientOptions& options,
     }
     g_renderTerrain = true;
     if (g_overviewCamera) g_captureTerrainFrame = options.save_frame;
+    mark(10);
     MLOG_INFO("mxh_client: GameLoading complete map=%u terrain=%s static=%s",
               static_cast<unsigned>(mapNum), hflName.c_str(), stmName.c_str());
     return true;
@@ -2020,8 +2033,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         }
                         std::string loadingError;
                         if (loadGameWorld(options, renderer, storage, bgm,
-                                          loadingCoordinator.request().map_num, loadingError)) {
-                            loadingCoordinator.mark_completed(10);
+                                          loadingCoordinator.request().map_num,
+                                          loadingError,
+                                          [&loadingCoordinator](std::uint32_t step) {
+                                              loadingCoordinator.mark_completed(step);
+                                          })) {
                             pending_character_id = loadingCoordinator.request().character_id;
                             pending_map_num = loadingCoordinator.request().map_num;
                             mainGame.SetGameState(mxh::client::GameStateId::GameIn);

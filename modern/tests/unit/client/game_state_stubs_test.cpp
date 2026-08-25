@@ -109,3 +109,16 @@ TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {
     coordinator.mark_completed(100);
     EXPECT_EQ(coordinator.context().completed_steps, 10u);
 }
+
+TEST(GameLoadingCoordinator, ProgressDoesNotRegressFromLateStageCallback) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{7, 10});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    coordinator.mark_completed(6);
+    coordinator.mark_completed(3);
+    EXPECT_EQ(coordinator.context().completed_steps, 6u);
+    coordinator.mark_completed(10);
+    coordinator.mark_completed(8);
+    EXPECT_EQ(coordinator.context().completed_steps, 10u);
+}
