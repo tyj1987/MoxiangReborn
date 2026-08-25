@@ -1576,52 +1576,6 @@ void renderFrame(HWND h) {
                 }
             }
 
-            // Quick slot bar (F1..F8). Skill idx from parsed mugong data,
-            // falling back to the level-1 starter set.
-            {
-                constexpr float kSlotW = 44.0f;
-                constexpr float kSlotH = 44.0f;
-                constexpr float kGap   = 6.0f;
-                const float totalW = static_cast<float>(mxh::client::kQuickSlotCount) *
-                                     kSlotW + (static_cast<float>(mxh::client::kQuickSlotCount) - 1.0f) * kGap;
-                const float barX = (800.0f - totalW) * 0.5f;
-                const float barY = 470.0f;
-                for (std::size_t i = 0; i < mxh::client::kQuickSlotCount; ++i) {
-                    const float x = barX + static_cast<float>(i) * (kSlotW + kGap);
-                    drawSpriteQuad(g_renderer, g_hud.barBg, x, barY,
-                                   kSlotW, kSlotH, 0xFFFFFFFFu);
-                    if (!g_hudFont) continue;
-                    const auto skill = mxh::client::quick_skill_for_slot(info, i);
-                    const std::string label =
-                        skill == 0 ? "-" : std::to_string(skill);
-                    if (skill != 0 && skill <= 0x7fffffffu) {
-                        if (auto* icon = loadAtlasIcon(
-                                g_renderer, static_cast<std::int32_t>(skill),
-                                mxh::ui::PathFileType::MugongPath)) {
-                            (void)drawSpriteRegion(g_renderer, icon->sprite,
-                                                   icon->source, x + 3.0f,
-                                                   barY + 3.0f, kSlotW - 6.0f,
-                                                   kSlotH - 6.0f, 0xFFFFFFFFu);
-                        }
-                    }
-                    RECT rc{static_cast<LONG>(x) + 4, static_cast<LONG>(barY) + 4,
-                            static_cast<LONG>(x) + static_cast<LONG>(kSlotW) - 4,
-                            static_cast<LONG>(barY) + 20};
-                    g_renderer->RenderFont(
-                        g_hudFont, const_cast<char*>(label.data()),
-                        static_cast<std::uint32_t>(label.size()), &rc,
-                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
-                    const std::string key = "F" + std::to_string(i + 1);
-                    RECT rcKey{static_cast<LONG>(x), static_cast<LONG>(barY) + 26,
-                               static_cast<LONG>(x) + static_cast<LONG>(kSlotW),
-                               static_cast<LONG>(barY) + static_cast<LONG>(kSlotH)};
-                    g_renderer->RenderFont(
-                        g_hudFont, const_cast<char*>(key.data()),
-                        static_cast<std::uint32_t>(key.size()), &rcKey,
-                        0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
-                }
-            }
-
             // Inventory panel (I key toggles).
             if (g_inputTarget->inventory_open()) {
                 constexpr float kCell = 34.0f;
@@ -1882,6 +1836,44 @@ void renderFrame(HWND h) {
                                            kCell, kCell, 0xFFFFFFFFu);
                 }
             }
+        }
+    }
+
+    // The quick-slot bar is part of the normal player HUD, not debug
+    // geometry.  It consumes the authoritative GameIn mugong snapshot and
+    // resolves each icon through the canonical MugongPath atlas.
+    if (g_renderTerrain && g_inputTarget && g_inputTarget->is_in_game()) {
+        constexpr float kSlotW = 44.0f;
+        constexpr float kSlotH = 44.0f;
+        constexpr float kGap = 6.0f;
+        const float totalW = static_cast<float>(mxh::client::kQuickSlotCount) *
+            kSlotW + (static_cast<float>(mxh::client::kQuickSlotCount) - 1.0f) * kGap;
+        const float barX = (800.0f - totalW) * 0.5f;
+        const float barY = 470.0f;
+        const auto& info = g_inputTarget->game_info();
+        for (std::size_t i = 0; i < mxh::client::kQuickSlotCount; ++i) {
+            const float x = barX + static_cast<float>(i) * (kSlotW + kGap);
+            drawSpriteQuad(g_renderer, g_hud.barBg, x, barY,
+                           kSlotW, kSlotH, 0xFFFFFFFFu);
+            if (!g_hudFont) continue;
+            const auto skill = mxh::client::quick_skill_for_slot(info, i);
+            if (skill != 0) {
+                if (auto* icon = loadAtlasIcon(
+                        g_renderer, static_cast<std::int32_t>(skill),
+                        mxh::ui::PathFileType::MugongPath)) {
+                    (void)drawSpriteRegion(g_renderer, icon->sprite,
+                                           icon->source, x + 3.0f,
+                                           barY + 3.0f, kSlotW - 6.0f,
+                                           kSlotH - 6.0f, 0xFFFFFFFFu);
+                }
+            }
+            const std::string key = "F" + std::to_string(i + 1);
+            RECT rcKey{static_cast<LONG>(x), static_cast<LONG>(barY) + 26,
+                       static_cast<LONG>(x) + static_cast<LONG>(kSlotW),
+                       static_cast<LONG>(barY) + static_cast<LONG>(kSlotH)};
+            g_renderer->RenderFont(g_hudFont, const_cast<char*>(key.data()),
+                                   static_cast<std::uint32_t>(key.size()),
+                                   &rcKey, 0xFFFFFFFFu, CHAR_CODE_TYPE_ASCII, 1, 0);
         }
     }
 
