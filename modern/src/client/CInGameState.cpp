@@ -5,6 +5,7 @@
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 #include "cinventoryexdialog.hpp"
+#include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cmpguagedialog.hpp"
 
@@ -1525,7 +1526,14 @@ void CInGameState::set_character_open(bool open) noexcept {
 void CInGameState::set_chat_open(bool open) noexcept {
     m_chatOpen = open;
     m_uiRuntime.setDialogActive(kChatDialogId, open);
-    if (!open) m_uiRuntime.setDialogActive(kChatDialogId, false);
+    if (open) {
+        if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
+            if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
+                if (edit->maxBytes() == 0) edit->InitEditbox(420, 68);
+                edit->SetEditText(m_chatBuffer);
+            }
+        }
+    }
 }
 
 bool CInGameState::select_quest_index(std::size_t index) noexcept {
@@ -1582,7 +1590,42 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         else m_keyMask &= ~move_mask;
         return;
     }
-    if (m_uiRuntime.onKey(pressed, static_cast<std::int32_t>(vk))) return;
+    // The real chat editbox owns keyboard focus while the chat dialog is
+    // active, but Enter/Escape are state-level submit/cancel actions. Handle
+    // them before the generic UI dispatcher so focus cannot swallow them.
+    if (m_chatOpen && pressed && vk == kVkReturn) {
+        send_chat();
+        return;
+    }
+    if (m_chatOpen && pressed && vk == kVkEscape) {
+        set_chat_open(false);
+        m_chatBuffer.clear();
+        return;
+    }
+    if (m_chatOpen && pressed && vk == kVkBack) {
+        if (!m_chatBuffer.empty()) m_chatBuffer.pop_back();
+        if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
+            if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
+                edit->SetEditText(m_chatBuffer);
+            }
+        }
+        return;
+    }
+    if (m_uiRuntime.onKey(pressed, static_cast<std::int32_t>(vk))) {
+        if (m_chatOpen) {
+            if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
+                if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
+                    if (edit->editText() != m_chatBuffer) {
+                        m_chatBuffer = edit->editText();
+                    } else if (vk == kVkBack && !m_chatBuffer.empty()) {
+                        m_chatBuffer.pop_back();
+                        edit->SetEditText(m_chatBuffer);
+                    }
+                }
+            }
+        }
+        return;
+    }
     if (vk == kVkReturn) {
         if (pressed) {
             if (m_chatOpen) {
@@ -1702,11 +1745,41 @@ void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
 }
 
 void CInGameState::OnChar(std::uint32_t ch) {
-    if (m_uiRuntime.onChar(static_cast<std::int32_t>(ch))) return;
+    if (m_chatOpen) {
+        if (ch < 0x20 || ch == 0x7F || m_chatBuffer.size() >= 200) return;
+        m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
+        if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
+            if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
+                edit->SetEditText(m_chatBuffer);
+            }
+        }
+        return;
+    }
+    if (m_uiRuntime.onChar(static_cast<std::int32_t>(ch))) {
+        if (m_chatOpen) {
+            if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
+                if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
+                    if (edit->editText() != m_chatBuffer) {
+                        m_chatBuffer = edit->editText();
+                    } else if (ch >= 0x20 && ch != 0x7F &&
+                               m_chatBuffer.size() < 200) {
+                        m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
+                        edit->SetEditText(m_chatBuffer);
+                    }
+                }
+            }
+        }
+        return;
+    }
     if (!m_chatOpen) return;
     if (ch < 0x20 || ch == 0x7F) return;
     if (m_chatBuffer.size() >= 200) return;
     m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
+    if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
+        if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
+            edit->SetEditText(m_chatBuffer);
+        }
+    }
 }
 
 void CInGameState::OnMouseButton(bool left, bool down,

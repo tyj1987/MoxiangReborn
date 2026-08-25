@@ -306,6 +306,31 @@ TEST(InGameUiRuntime, EnterAndEscapeOwnRealChatDialog) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("CTI_DLG"));
 }
 
+TEST(InGameUiRuntime, FocusedChatEditboxSynchronizesAndEnterSubmits) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.OnKeyEvent(true, mxh::client::kVkReturn);
+    ASSERT_TRUE(state.chat_open());
+
+    auto* edit = state.ui_runtime().findWindowByLegacyId("MI_CHATEDITBOX");
+    ASSERT_NE(edit, nullptr);
+    auto* edit_box = dynamic_cast<mxh::ui::cEditBox*>(edit);
+    ASSERT_NE(edit_box, nullptr);
+    const auto x = edit->absX() + edit->width() / 2;
+    const auto y = edit->absY() + edit->height() / 2;
+    state.OnMouseButton(true, true, x, y);
+    EXPECT_TRUE(edit_box->hasFocus());
+    EXPECT_TRUE(state.chat_open());
+    state.OnChar('H');
+    state.OnChar('i');
+    EXPECT_EQ(edit_box->editText(), "Hi");
+    EXPECT_EQ(state.chat_buffer(), "Hi");
+
+    state.OnKeyEvent(true, mxh::client::kVkReturn);
+    EXPECT_FALSE(state.chat_open());
+    EXPECT_TRUE(state.chat_buffer().empty());
+}
+
 TEST(InGameUiRuntime, QuestPageButtonsSelectLiveQuestEntry) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
