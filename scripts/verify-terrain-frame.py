@@ -12,6 +12,7 @@ def fail(message: str) -> None:
 
 
 path = Path(sys.argv[1])
+allow_ui_overlay = "--allow-ui-overlay" in sys.argv[2:]
 data = path.read_bytes()
 if len(data) < 18:
     fail("short TGA header")
@@ -44,7 +45,7 @@ if coverage < 0.18:
     fail(f"terrain coverage out of range: {coverage:.1%}")
 if len(colors) < 100:
     fail(f"terrain color diversity is too low: {len(colors)}")
-if coverage > 0.75 and len(colors) < 500:
+if coverage > 0.75 and len(colors) < 500 and not allow_ui_overlay:
     fail(f"high-coverage terrain lacks color diversity: coverage={coverage:.1%}, colors={len(colors)}")
 if green_probe > width:
     fail(f"diagnostic green geometry remains: {green_probe} pixels")

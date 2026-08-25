@@ -194,7 +194,9 @@ try {
     & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir --permissive
     if ($LASTEXITCODE -ne 0) { throw "GUI state frames validation failed: $stateFramesDir" }
     if (-not $FollowCamera) {
-        & python (Join-Path $repoRoot 'scripts\verify-terrain-frame.py') $frame
+        $terrainArgs = @($frame)
+        if ($ExerciseInventory) { $terrainArgs += '--allow-ui-overlay' }
+        & python (Join-Path $repoRoot 'scripts\verify-terrain-frame.py') @terrainArgs
         if ($LASTEXITCODE -ne 0) { throw "GUI terrain frame validation failed: $frame" }
     } else {
         & python (Join-Path $repoRoot 'scripts\verify-entity-frame.py') $frame
