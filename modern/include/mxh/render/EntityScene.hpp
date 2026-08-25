@@ -109,6 +109,10 @@ public:
                             std::string* error = nullptr);
     void synchronize(const WorldSnapshot& snapshot);
     void render();
+    // Debug-only opt-in for drawing RenderBox stand-ins when a model is
+    // missing. Release/client runs keep this disabled so placeholders cannot
+    // be mistaken for real game visuals.
+    void setPlaceholderRenderingEnabled(bool enabled) noexcept;
     // Push a fresh camera frustum to the scene. Pass the view*projection
     // matrix from the same camera that drives the terrain (e.g. via
     // TerrainScene::viewProj()). The next render() call will skip any

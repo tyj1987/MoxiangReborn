@@ -222,6 +222,7 @@ struct EntityScene::Impl {
     std::optional<Frustum> frustum;
     std::uint32_t culled_instances = 0;
     std::uint32_t failed_load_count = 0;
+    bool placeholder_rendering_enabled = false;
     std::unordered_set<std::uint32_t> placeholder_ids;
     std::vector<PlaceholderVisual> placeholder_visuals;
     Model* loadModel(std::uint16_t kind,
@@ -741,6 +742,7 @@ void EntityScene::render() {
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
         }
     }
+    if (!impl_->placeholder_rendering_enabled) return;
     for (const auto& placeholder : impl_->placeholder_visuals) {
         VECTOR3 oct[8]{};
         fillPlaceholderOct(placeholder, oct);
@@ -756,6 +758,10 @@ void EntityScene::render() {
         }
         impl_->renderer->RenderBox(oct, placeholderArgb(placeholder.kind));
     }
+}
+
+void EntityScene::setPlaceholderRenderingEnabled(bool enabled) noexcept {
+    impl_->placeholder_rendering_enabled = enabled;
 }
 
 void EntityScene::setCameraFrustum(std::optional<Frustum> frustum) noexcept {

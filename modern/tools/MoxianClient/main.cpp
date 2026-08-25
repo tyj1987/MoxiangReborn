@@ -435,6 +435,7 @@ bool loadGameWorld(const ClientOptions& options,
         error = "Entity scene load failed: " + stageError;
         return false;
     }
+    entityScene->setPlaceholderRenderingEnabled(g_debugUiBounds);
 
     std::string audioError;
     if (!bgm.play(descriptor->desc().bgm_sound_num, &audioError)) {
