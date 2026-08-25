@@ -4,6 +4,8 @@
 
 #include <windows.h>
 
+#include <algorithm>
+
 namespace {
 std::filesystem::path find_playdh_root() {
     wchar_t buf[MAX_PATH]{};
@@ -46,6 +48,11 @@ TEST(EffectRuntime, RunsDecodedRealEffectWithObjectContext) {
     EXPECT_EQ(emitted.front().effect_name, "become_h.beff");
     EXPECT_EQ(emitted.front().source_object_id, 101u);
     EXPECT_EQ(emitted.front().target_object_id, 202u);
+    const auto sound = std::find_if(emitted.begin(), emitted.end(),
+        [](const auto& event) { return event.unit_kind == "SOUND"; });
+    ASSERT_NE(sound, emitted.end());
+    EXPECT_TRUE(sound->sound_id == 405u || sound->sound_id == 409u ||
+                sound->sound_id == 407u || sound->sound_id == 408u);
 }
 
 TEST(EffectRuntime, MissingIdFailsWithoutGuessingAnotherEffect) {
