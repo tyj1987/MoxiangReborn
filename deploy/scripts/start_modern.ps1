@@ -24,7 +24,8 @@ param(
     [string]$ServerResourceRoot = '',
     [switch]$DryRun,
     [switch]$UseHsel,
-    [switch]$AllowDevFallbacks
+    [switch]$AllowDevFallbacks,
+    [switch]$SkipResourceIntegrity
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,6 +94,50 @@ if ([string]::IsNullOrWhiteSpace($ServerResourceRoot)) {
     } else {
         $ServerResourceRoot = Join-Path $ResourceRoot 'Resource\Server'
     }
+}
+
+if ($SkipResourceIntegrity -and -not $AllowDevFallbacks) {
+    throw '-SkipResourceIntegrity is only permitted together with -AllowDevFallbacks; release startup must verify the complete profile'
+}
+
+function Assert-ResourceProfileIntegrity {
+    param([string]$Root, $Manifest, [string]$ProfileId)
+    if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+        throw "Profile '$ProfileId' resource root is missing: $Root"
+    }
+    if ($null -eq $Manifest.files -or @($Manifest.files).Count -eq 0) {
+        throw "Profile '$ProfileId' hash manifest has no file entries"
+    }
+    $expected = @{}
+    foreach ($entry in @($Manifest.files)) {
+        $relative = ([string]$entry.path).Replace('/', '\\')
+        if ([string]::IsNullOrWhiteSpace($relative) -or [IO.Path]::IsPathRooted($relative) -or $relative.Split('\\') -contains '..') {
+            throw "Profile '$ProfileId' hash manifest contains an unsafe path: $($entry.path)"
+        }
+        $key = $relative.Replace('\\', '/').ToLowerInvariant()
+        if ($expected.ContainsKey($key)) { throw "Profile '$ProfileId' hash manifest contains duplicate path: $relative" }
+        if ([string]$entry.sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw "Profile '$ProfileId' hash manifest contains invalid SHA-256: $relative" }
+        $expected[$key] = [pscustomobject]@{ path = $relative; bytes = [int64]$entry.bytes; sha256 = ([string]$entry.sha256).ToLowerInvariant() }
+    }
+    $actualFiles = @(Get-ChildItem -LiteralPath $Root -File -Recurse)
+    if ($actualFiles.Count -ne [int64]$Manifest.fileCount) {
+        throw "Profile '$ProfileId' file count mismatch: expected $($Manifest.fileCount), found $($actualFiles.Count)"
+    }
+    $actualBytes = [int64](($actualFiles | Measure-Object -Property Length -Sum).Sum)
+    if ($actualBytes -ne [int64]$Manifest.byteCount) {
+        throw "Profile '$ProfileId' byte count mismatch: expected $($Manifest.byteCount), found $actualBytes"
+    }
+    foreach ($file in $actualFiles) {
+        $relative = $file.FullName.Substring($Root.Length + 1).Replace('\\', '/')
+        $key = $relative.ToLowerInvariant()
+        if (-not $expected.ContainsKey($key)) { throw "Profile '$ProfileId' contains an unregistered resource: $relative" }
+        $entry = $expected[$key]
+        if ([int64]$file.Length -ne $entry.bytes) { throw "Profile '$ProfileId' size mismatch: $relative" }
+        $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+        if ($hash -ne $entry.sha256) { throw "Profile '$ProfileId' hash mismatch: $relative" }
+        $expected.Remove($key)
+    }
+    if ($expected.Count -ne 0) { throw "Profile '$ProfileId' hash manifest contains files missing from the resource root: $($expected.Values.path -join ', ')" }
 }
 
 function Resolve-ModernBinary {
@@ -185,6 +230,12 @@ if ($Mode -eq 'status') {
 New-Item -ItemType Directory -Force -Path $stateDir, $DataDir, $logDir | Out-Null
 $ResourceRoot = (Resolve-Path -LiteralPath $ResourceRoot).Path
 $ServerResourceRoot = (Resolve-Path -LiteralPath $ServerResourceRoot).Path
+
+if (-not $SkipResourceIntegrity) {
+    Assert-ResourceProfileIntegrity -Root $ResourceRoot -Manifest $hashManifest -ProfileId $ResourceProfileId
+} else {
+    Write-Warning "Skipping complete resource integrity verification for development fallback profile '$ResourceProfileId'"
+}
 
 foreach ($entry in @($profile.required)) {
     $requiredPath = Join-Path $ResourceRoot ([string]$entry.path)
