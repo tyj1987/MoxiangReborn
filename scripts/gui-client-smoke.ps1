@@ -2,7 +2,7 @@
 param(
     [string]$BuildDir = '',
     [int]$TimeoutSeconds = 20,
-    [ValidateRange(1, 65535)]
+    [ValidateRange(0, 65535)]
     [int]$MapNumber = 10,
     [int]$MinimumNpcCount = 0,
     [switch]$FollowCamera
