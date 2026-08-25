@@ -136,6 +136,7 @@ struct ClientOptions {
     std::uint32_t window_height = 0;
     std::uint32_t post_login_width = 1024;
     std::uint32_t post_login_height = 768;
+    bool borderless = false;
 };
 
 std::uint32_t read_dimension_env(const wchar_t* name,
@@ -205,6 +206,15 @@ ClientOptions parse_client_options() {
             options.window_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
         else if (arg == L"--height" && i + 1 < argc)
             options.window_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+        else if (arg == L"--login-width" && i + 1 < argc)
+            options.window_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+        else if (arg == L"--login-height" && i + 1 < argc)
+            options.window_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+        else if (arg == L"--post-width" && i + 1 < argc)
+            options.post_login_width = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+        else if (arg == L"--post-height" && i + 1 < argc)
+            options.post_login_height = static_cast<std::uint32_t>(std::wcstoul(argv[++i], nullptr, 10));
+        else if (arg == L"--borderless") options.borderless = true;
 #if !defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--auto-login" || arg == L"--auto-create" ||
                  arg == L"--username" || arg == L"--password" ||
@@ -1158,7 +1168,8 @@ struct DisplayTransitionResult {
 DisplayTransitionResult applyDisplayTransition(
     HWND hwnd, I4DyuchiGXRenderer* renderer,
     mxh::client::LogicalViewport& viewport,
-    std::uint32_t requested_width, std::uint32_t requested_height) {
+    std::uint32_t requested_width, std::uint32_t requested_height,
+    bool borderless) {
     DisplayTransitionResult result{};
     if (!hwnd || requested_width < 800 || requested_height < 600) {
         result.win32_error = ERROR_INVALID_PARAMETER;
@@ -1175,6 +1186,11 @@ DisplayTransitionResult applyDisplayTransition(
     const LONG old_outer_height = old_window.bottom - old_window.top;
     const LONG old_client_width = old_client.right - old_client.left;
     const LONG old_client_height = old_client.bottom - old_client.top;
+    const LONG_PTR old_style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const LONG_PTR new_style = borderless
+        ? (old_style & ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU))
+        : (old_style | WS_OVERLAPPEDWINDOW);
+    if (new_style != old_style) SetWindowLongPtrW(hwnd, GWL_STYLE, new_style);
 
     RECT desired{0, 0, static_cast<LONG>(requested_width),
                  static_cast<LONG>(requested_height)};
@@ -1190,9 +1206,10 @@ DisplayTransitionResult applyDisplayTransition(
             GetProcAddress(user32, "AdjustWindowRectExForDpi")) : nullptr;
     }();
     const UINT dpi = GetDpiForWindow(hwnd);
+    const DWORD frame_style = static_cast<DWORD>(new_style);
     const bool adjusted = adjust_for_dpi
-        ? adjust_for_dpi(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi)
-        : AdjustWindowRectEx(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0);
+        ? adjust_for_dpi(&desired, frame_style, FALSE, 0, dpi)
+        : AdjustWindowRectEx(&desired, frame_style, FALSE, 0);
     if (!adjusted) {
         result.win32_error = GetLastError();
         return result;
@@ -1201,8 +1218,15 @@ DisplayTransitionResult applyDisplayTransition(
     const LONG desired_outer_height = desired.bottom - desired.top;
     if (!SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
                       desired_outer_width, desired_outer_height,
-                      SWP_NOZORDER | SWP_NOACTIVATE)) {
+                      SWP_NOZORDER | SWP_NOACTIVATE |
+                          (new_style != old_style ? SWP_FRAMECHANGED : 0))) {
         result.win32_error = GetLastError();
+        if (new_style != old_style) {
+            SetWindowLongPtrW(hwnd, GWL_STYLE, old_style);
+            SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
+                         old_outer_width, old_outer_height,
+                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
         return result;
     }
 
@@ -1227,6 +1251,10 @@ DisplayTransitionResult applyDisplayTransition(
     SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
                  old_outer_width, old_outer_height,
                  SWP_NOZORDER | SWP_NOACTIVATE);
+    if (new_style != old_style) SetWindowLongPtrW(hwnd, GWL_STYLE, old_style);
+    SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
+                 old_outer_width, old_outer_height,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     viewport.update(old_client_width, old_client_height);
     if (renderer) renderer->UpdateWindowSize();
     return result;
@@ -2659,7 +2687,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 if (!post_login_display_applied) {
                     const auto transition = applyDisplayTransition(
                         hwnd, renderer, g_logicalViewport,
-                        post_login_w, post_login_h);
+                        post_login_w, post_login_h, options.borderless);
                     if (!transition.committed) {
                         display_transition_ok = false;
                         MLOG_ERROR("mxh_client: post-login display transition failed error=%lu",

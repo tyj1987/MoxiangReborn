@@ -86,6 +86,9 @@ public:
     }
     int run() { ShowWindow(hwnd_, SW_SHOW); UpdateWindow(hwnd_); MSG msg{}; while (GetMessageW(&msg, nullptr, 0, 0) > 0) { TranslateMessage(&msg); DispatchMessageW(&msg); } return static_cast<int>(msg.wParam); }
 private:
+    static constexpr int kPostWidthEdit = 10;
+    static constexpr int kPostHeightEdit = 11;
+    static constexpr int kBorderlessCheck = 12;
     static LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         auto* self = reinterpret_cast<LauncherWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (msg == WM_NCCREATE) { self = static_cast<LauncherWindow*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams); SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self)); self->hwnd_ = hwnd; }
@@ -96,11 +99,40 @@ private:
             CreateWindowW(L"STATIC", L"资源 profile: playdh-current\n账号密码在客户端登录界面输入，启动器不会接触凭据。", WS_CHILD | WS_VISIBLE, 20, 20, 430, 45, hwnd_, nullptr, nullptr, nullptr);
             CreateWindowW(L"BUTTON", L"检查/修复", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 85, 120, 32, hwnd_, reinterpret_cast<HMENU>(1), nullptr, nullptr);
             CreateWindowW(L"BUTTON", L"启动游戏", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 155, 85, 120, 32, hwnd_, reinterpret_cast<HMENU>(2), nullptr, nullptr);
-            CreateWindowW(L"STATIC", L"登录窗口 800×600；登录成功后切换为 1024×768。", WS_CHILD | WS_VISIBLE, 20, 140, 430, 30, hwnd_, nullptr, nullptr, nullptr);
+            CreateWindowW(L"STATIC", L"登录窗口 800×600；登录成功后切换为：", WS_CHILD | WS_VISIBLE, 20, 140, 300, 22, hwnd_, nullptr, nullptr, nullptr);
+            CreateWindowW(L"STATIC", L"宽", WS_CHILD | WS_VISIBLE, 20, 168, 20, 22, hwnd_, nullptr, nullptr, nullptr);
+            CreateWindowW(L"EDIT", std::to_wstring(settings_.postWidth).c_str(),
+                          WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+                          45, 165, 75, 24, hwnd_, reinterpret_cast<HMENU>(kPostWidthEdit), nullptr, nullptr);
+            CreateWindowW(L"STATIC", L"高", WS_CHILD | WS_VISIBLE, 130, 168, 20, 22, hwnd_, nullptr, nullptr, nullptr);
+            CreateWindowW(L"EDIT", std::to_wstring(settings_.postHeight).c_str(),
+                          WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+                          155, 165, 75, 24, hwnd_, reinterpret_cast<HMENU>(kPostHeightEdit), nullptr, nullptr);
+            CreateWindowW(L"BUTTON", L"无边框窗口", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+                          250, 165, 120, 24, hwnd_, reinterpret_cast<HMENU>(kBorderlessCheck), nullptr, nullptr);
+            if (settings_.borderless) {
+                SendDlgItemMessageW(hwnd_, kBorderlessCheck, BM_SETCHECK, BST_CHECKED, 0);
+            }
             return 0;
         }
         if (msg == WM_COMMAND && LOWORD(wp) == 1) { MessageBoxW(hwnd_, L"未配置经过签名校验的补丁 manifest。为避免不安全更新，检查/修复已安全阻止。", L"检查/修复", MB_ICONWARNING); return 0; }
-        if (msg == WM_COMMAND && LOWORD(wp) == 2) { saveSettings(settings_); launchClient(); return 0; }
+        if (msg == WM_COMMAND && LOWORD(wp) == 2) {
+            BOOL width_ok = FALSE;
+            BOOL height_ok = FALSE;
+            const auto width = GetDlgItemInt(hwnd_, kPostWidthEdit, &width_ok, FALSE);
+            const auto height = GetDlgItemInt(hwnd_, kPostHeightEdit, &height_ok, FALSE);
+            if (!width_ok || !height_ok || width < 800 || height < 600 || width > 7680 || height > 4320) {
+                MessageBoxW(hwnd_, L"分辨率必须是 800×600 到 7680×4320 之间的整数。", L"设置无效", MB_ICONWARNING);
+                return 0;
+            }
+            settings_.postWidth = static_cast<int>(width);
+            settings_.postHeight = static_cast<int>(height);
+            settings_.borderless = SendDlgItemMessageW(
+                hwnd_, kBorderlessCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+            saveSettings(settings_);
+            launchClient();
+            return 0;
+        }
         if (msg == WM_DESTROY) { PostQuitMessage(0); return 0; }
         return DefWindowProcW(hwnd_, msg, wp, 0);
     }
@@ -118,6 +150,7 @@ private:
             return;
         }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
+        if (settings_.borderless) command += L" --borderless";
         const fs::path roots[] = {bin / L"data" / L"PlayDH", bin.parent_path() / L"data" / L"PlayDH", bin.parent_path() / L"modern" / L"data" / L"PlayDH"};
         for (const auto& root : roots) {
             if (fs::is_directory(root)) { command += L" --resource-root \"" + root.wstring() + L"\""; break; }
