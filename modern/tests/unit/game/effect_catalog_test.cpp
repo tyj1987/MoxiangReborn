@@ -28,6 +28,12 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_GT(catalog.beff_count(), 1000u);
     EXPECT_GT(catalog.packed_count(), 1000u);
     EXPECT_NE(catalog.find("m_combo_gum01.beff"), nullptr);
+    EXPECT_GT(catalog.decoded_beff_count(), 1000u);
+    const auto* script = catalog.script("become_h.beff");
+    ASSERT_NE(script, nullptr);
+    EXPECT_TRUE(script->decoded);
+    EXPECT_GT(script->effect_unit_count, 0u);
+    EXPECT_GT(script->trigger_count, 0u);
 }
 
 TEST(EffectCatalog, RejectsMissingRoot) {
