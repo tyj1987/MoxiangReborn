@@ -4,6 +4,8 @@
 #include "mxh/compat/mh_file_ex.hpp"
 
 #include <algorithm>
+#include <array>
+#include <charconv>
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -64,6 +66,25 @@ void scan_script(EffectScriptSummary& summary,
     summary.decoded = summary.effect_unit_count != 0 || summary.trigger_count != 0;
 }
 
+void scan_effect_list(std::vector<EffectListEntry>& out,
+                      std::span<const std::uint8_t> bytes) {
+    const std::string text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    std::istringstream in(text);
+    std::string line;
+    while (std::getline(in, line)) {
+        const auto tab = line.find('\t');
+        if (tab == std::string::npos) continue;
+        std::uint32_t id = 0;
+        const auto idText = std::string_view(line).substr(0, tab);
+        const auto parsed = std::from_chars(idText.data(), idText.data() + idText.size(), id);
+        if (parsed.ec != std::errc{} || parsed.ptr != idText.data() + idText.size()) continue;
+        auto name = line.substr(tab + 1);
+        while (!name.empty() && (name.back() == '\r' || name.back() == ' ' || name.back() == '\t')) name.pop_back();
+        if (name.empty() || name == "NULL") continue;
+        out.push_back({id, std::move(name)});
+    }
+}
+
 bool is_effect_name(std::string_view name, bool& beff, bool& befl) {
     const auto dot = name.find_last_of('.');
     if (dot == std::string_view::npos) return false;
@@ -83,6 +104,8 @@ bool EffectCatalog::load(const std::filesystem::path& root, std::string* error) 
     m_beffCount = m_beflCount = m_packedCount = m_looseCount = 0;
     m_decodedBeffCount = m_invalidBeffCount = 0;
     m_scripts.clear();
+    m_maleEffects.clear();
+    m_femaleEffects.clear();
     if (!std::filesystem::exists(root)) {
         if (error) *error = "effect resource root does not exist";
         return false;
@@ -148,6 +171,16 @@ bool EffectCatalog::load(const std::filesystem::path& root, std::string* error) 
         else ++m_invalidBeffCount;
         m_scripts.push_back(std::move(summary));
     }
+
+    for (const auto& [file, target] :
+         std::array<std::pair<const char*, std::vector<EffectListEntry>*> , 2>{
+             std::pair{"List_M.befl", &m_maleEffects},
+             std::pair{"List_W.befl", &m_femaleEffects}}) {
+        const auto path = root / "Resource" / "EffectScript" / file;
+        if (!std::filesystem::exists(path)) continue;
+        const auto decoded = mxh::compat::read_mh_bin(path);
+        if (decoded.ok()) scan_effect_list(*target, decoded.value.data);
+    }
     return true;
 }
 
@@ -165,6 +198,13 @@ const EffectScriptSummary* EffectCatalog::script(std::string_view name) const no
         if (lower(summary.name) == wanted) return &summary;
     }
     return nullptr;
+}
+
+const std::string* EffectCatalog::effect_name(std::uint32_t id, bool female) const noexcept {
+    const auto& entries = female ? m_femaleEffects : m_maleEffects;
+    const auto it = std::find_if(entries.begin(), entries.end(),
+        [id](const EffectListEntry& entry) { return entry.id == id; });
+    return it == entries.end() ? nullptr : &it->name;
 }
 
 } // namespace mxh::game

@@ -20,6 +20,11 @@ struct EffectAsset {
     bool packed = false;
 };
 
+struct EffectListEntry {
+    std::uint32_t id = 0;
+    std::string name;
+};
+
 struct EffectScriptSummary {
     std::string name;
     std::size_t decoded_size = 0;
@@ -47,6 +52,7 @@ public:
 
     const EffectAsset* find(std::string_view name) const noexcept;
     const EffectScriptSummary* script(std::string_view name) const noexcept;
+    const std::string* effect_name(std::uint32_t id, bool female = false) const noexcept;
     const std::vector<EffectAsset>& assets() const noexcept { return m_assets; }
     std::size_t beff_count() const noexcept { return m_beffCount; }
     std::size_t befl_count() const noexcept { return m_beflCount; }
@@ -64,6 +70,8 @@ private:
     std::size_t m_decodedBeffCount = 0;
     std::size_t m_invalidBeffCount = 0;
     std::vector<EffectScriptSummary> m_scripts;
+    std::vector<EffectListEntry> m_maleEffects;
+    std::vector<EffectListEntry> m_femaleEffects;
 };
 
 } // namespace mxh::game

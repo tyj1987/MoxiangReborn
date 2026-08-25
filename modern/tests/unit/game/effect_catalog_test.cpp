@@ -28,6 +28,9 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_GT(catalog.beff_count(), 1000u);
     EXPECT_GT(catalog.packed_count(), 1000u);
     EXPECT_NE(catalog.find("m_combo_gum01.beff"), nullptr);
+    ASSERT_NE(catalog.effect_name(0), nullptr);
+    EXPECT_EQ(*catalog.effect_name(0), "shadow.beff");
+    ASSERT_NE(catalog.effect_name(1, true), nullptr);
     EXPECT_GT(catalog.decoded_beff_count(), 1000u);
     const auto* script = catalog.script("become_h.beff");
     ASSERT_NE(script, nullptr);
