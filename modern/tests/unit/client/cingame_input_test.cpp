@@ -676,6 +676,16 @@ TEST(InGamePlayable, MoveAckReordersLiveInventorySlots) {
     EXPECT_EQ(state.game_info().items.Inventory[5].Position, 5u);
 }
 
+TEST(InGamePlayable, MoveNackShowsVisibleItemMoveMessage) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack);
+    state.on_message({}, nack);
+    EXPECT_TRUE(state.ui_runtime().hasModal());
+}
+
 TEST(InGamePlayable, SellAckRemovesSoldQuantityFromLiveInventory) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

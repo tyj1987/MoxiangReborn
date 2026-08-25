@@ -1477,6 +1477,13 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: item moved db=%u source=%zu target=%u",
                   db_idx, source, target);
     } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::MoveNack)) {
+        // Keep the authoritative rejection visible to the player.  The
+        // server deliberately does not encode a new error protocol here;
+        // the legacy client presents a modal item-move failure message.
+        (void)m_uiRuntime.showMessage(9101, "Cannot equip or move this item.");
+        MLOG_WARN("CInGameState: item move rejected by server");
+    } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::SellAck)) {
         // SellAck echoes [target_pos][item_idx][item_num][dealer_idx].
         if (msg.payload.size() < 8) return;
