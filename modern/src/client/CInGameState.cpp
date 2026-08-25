@@ -1632,20 +1632,46 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         if (msg.payload.size() < 24) return;
         const auto db_idx = get_u32(msg.payload.data());
         const auto target = get_u16(msg.payload.data() + 22);
-        if (db_idx == 0u || target >= mxh::game::SLOT_INVENTORY_NUM) return;
-        std::size_t source = mxh::game::SLOT_INVENTORY_NUM;
+        if (db_idx == 0u || target >= mxh::game::TP_WEAREDITEM_END) return;
+        const auto is_inventory = [](std::uint16_t position) {
+            return position < mxh::game::SLOT_INVENTORY_NUM;
+        };
+        const auto is_equipment = [](std::uint16_t position) {
+            return position >= mxh::game::TP_WEAREDITEM_START &&
+                   position < mxh::game::TP_WEAREDITEM_END;
+        };
+        std::uint16_t source = mxh::game::TP_WEAREDITEM_END;
         for (std::size_t i = 0; i < mxh::game::SLOT_INVENTORY_NUM; ++i) {
             if (m_info.items.Inventory[i].dwDBIdx == db_idx) {
-                source = i;
+                source = static_cast<std::uint16_t>(i);
                 break;
             }
         }
-        if (source == mxh::game::SLOT_INVENTORY_NUM) return;
-        std::swap(m_info.items.Inventory[source], m_info.items.Inventory[target]);
-        m_info.items.Inventory[source].Position = static_cast<std::uint16_t>(source);
-        m_info.items.Inventory[target].Position = target;
+        if (source == mxh::game::TP_WEAREDITEM_END) {
+            for (std::size_t i = 0; i < mxh::game::WEARED_ITEM_MAX; ++i) {
+                if (m_info.items.WearedItem[i].dwDBIdx == db_idx) {
+                    source = static_cast<std::uint16_t>(
+                        mxh::game::TP_WEAREDITEM_START + i);
+                    break;
+                }
+            }
+        }
+        if ((!is_inventory(source) && !is_equipment(source)) ||
+            (!is_inventory(target) && !is_equipment(target))) return;
+        auto& source_item = is_inventory(source)
+            ? m_info.items.Inventory[source]
+            : m_info.items.WearedItem[source - mxh::game::TP_WEAREDITEM_START];
+        auto& target_item = is_inventory(target)
+            ? m_info.items.Inventory[target]
+            : m_info.items.WearedItem[target - mxh::game::TP_WEAREDITEM_START];
+        std::swap(source_item, target_item);
+        source_item.Position = source;
+        target_item.Position = target;
         if (m_inventoryOpen) set_inventory_open(true);
-        MLOG_INFO("CInGameState: item moved db=%u source=%zu target=%u",
+        for (std::size_t slot = 0; slot < m_info.weared_item_idx.size(); ++slot) {
+            m_info.weared_item_idx[slot] = m_info.items.WearedItem[slot].wIconIdx;
+        }
+        MLOG_INFO("CInGameState: item moved db=%u source=%u target=%u",
                   db_idx, source, target);
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::MoveNack)) {

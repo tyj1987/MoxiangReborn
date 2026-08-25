@@ -686,6 +686,36 @@ TEST(InGamePlayable, MoveNackShowsVisibleItemMoveMessage) {
     EXPECT_TRUE(state.ui_runtime().hasModal());
 }
 
+TEST(InGamePlayable, MoveAckUpdatesEquipmentAppearanceSlots) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::game::ItemTotalInfo items{};
+    items.Inventory[2] = mxh::game::make_item(7301u, 401u, 2u, 100u, 1u);
+    mxh::net::Message inventory;
+    inventory.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    inventory.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    inventory.payload.resize(sizeof(items));
+    std::memcpy(inventory.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), inventory);
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveAck);
+    ack.payload.resize(24, 0);
+    const std::uint32_t db_idx = 7301u;
+    const std::uint16_t target = mxh::game::TP_WEAREDITEM_START + 2u;
+    std::memcpy(ack.payload.data(), &db_idx, 4);
+    std::memcpy(ack.payload.data() + 22, &target, 2);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[2]));
+    EXPECT_EQ(state.game_info().items.WearedItem[2].dwDBIdx, db_idx);
+    EXPECT_EQ(state.game_info().items.WearedItem[2].Position, target);
+    EXPECT_EQ(state.game_info().weared_item_idx[2], 401u);
+}
+
 TEST(InGamePlayable, SellAckRemovesSoldQuantityFromLiveInventory) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
