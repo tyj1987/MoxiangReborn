@@ -30,12 +30,20 @@ TEST(ClientSettings, AtomicRoundTripAndValidation) {
     expected.resource_profile_id = "playdh-current";
     expected.post_login_width = 1920;
     expected.post_login_height = 1080;
+    expected.borderless = true;
+    expected.vsync = false;
+    expected.bgm_volume = 0.25f;
+    expected.sfx_volume = 0.75f;
     expected.last_account = "测试账号";
     std::string error;
     ASSERT_TRUE(mxh::client::ClientSettingsStore::save_atomic(path, expected, &error)) << error;
     const auto actual = mxh::client::ClientSettingsStore::load(path, &error);
     EXPECT_EQ(actual.post_login_width, 1920u);
     EXPECT_EQ(actual.post_login_height, 1080u);
+    EXPECT_TRUE(actual.borderless);
+    EXPECT_FALSE(actual.vsync);
+    EXPECT_FLOAT_EQ(actual.bgm_volume, 0.25f);
+    EXPECT_FLOAT_EQ(actual.sfx_volume, 0.75f);
     EXPECT_EQ(actual.last_account, "测试账号");
     std::filesystem::remove(path);
 }

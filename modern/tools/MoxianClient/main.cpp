@@ -2179,6 +2179,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     const auto persisted_settings = mxh::client::ClientSettingsStore::load(
         settings_path, &settings_warning);
     if (!settings_warning.empty()) MLOG_WARN("mxh_client: %s", settings_warning.c_str());
+    // Launcher-owned settings are the source of truth for a normal start.
+    // Command-line overrides remain available for development, but the
+    // production client must carry the selected profile and borderless mode
+    // into the LoginAck display transition instead of silently reverting to
+    // hard-coded defaults.
+    if (options.resource_profile_id == "playdh-current") {
+        options.resource_profile_id = persisted_settings.resource_profile_id;
+    }
+    if (!options.borderless) options.borderless = persisted_settings.borderless;
     if (options.post_login_width == 1024) options.post_login_width = persisted_settings.post_login_width;
     if (options.post_login_height == 768) options.post_login_height = persisted_settings.post_login_height;
 #if !defined(MXH_DEV_AUTOMATION)
