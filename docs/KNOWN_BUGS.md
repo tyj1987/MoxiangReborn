@@ -18,6 +18,7 @@ Only unresolved issues belong here. Resolved history is available through Git.
 - BEFF/BEFL/Effect.pak triggers and WAV/3D SFX are not fully wired.
 - Full-map, full-resource and genuine legacy/modern visual evidence is incomplete.
 - `playdh-current` `Resource/Server` uses the distinct `server-size-prefixed-opaque-v1` profile encoding. Map10 (22,766 bytes) now decodes through the recovered 20-byte container header and eight-byte XOR body transform, and the three-server Map10 startup is operational. Full all-map coverage is still open for small/nonstandard opaque entries; the 2008 `mhfileex-classic-rxmso` profile remains read-only and must not be silently substituted.
+- The canonical `playdh-current/Resource/Server/MonsterDropItemList.bin` is byte-readable but its decoded payload begins with the `$Group` AIGroup grammar, not the legacy 10-entry drop-table grammar. The new loader fails closed and the live combat probe therefore receives no `MonsterObtainNotify`; the correct drop-table variant/profile must be recovered before loot/pickup can be marked playable.
 
 ## Governance blockers
 
