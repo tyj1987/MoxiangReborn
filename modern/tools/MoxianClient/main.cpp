@@ -806,6 +806,7 @@ struct EffectVisualOverlay {
         std::uint32_t target_id = 0;
         IDISpriteObject* sprite = nullptr;
         std::string texture_name;
+        std::string chx_name;
     };
     std::vector<Instance> active;
 
@@ -820,13 +821,15 @@ struct EffectVisualOverlay {
 
     void consume(const mxh::client::RuntimeEffectEvent& event,
                  I4DyuchiGXRenderer* renderer) {
-        if (!renderer || event.unit_kind == "SOUND" ||
-            event.texture_name.empty()) return;
+        if (event.unit_kind == "SOUND") return;
+        const bool mesh = event.unit_kind == "OBJECT" &&
+                          !event.object_name.empty();
+        if ((!renderer && !mesh) || (!mesh && event.texture_name.empty())) return;
         const std::string key = event.effect_name + ":" +
             std::to_string(event.source_object_id) + ":" +
             std::to_string(event.target_object_id) + ":" +
             std::to_string(event.trigger.trigger.unit) + ":" +
-            event.texture_name;
+            (mesh ? event.object_name : event.texture_name);
         if (event.trigger.trigger.kind == "OFF") {
             for (auto it = active.begin(); it != active.end(); ++it) {
                 if (it->key == key) {
@@ -841,19 +844,56 @@ struct EffectVisualOverlay {
         if (std::find_if(active.begin(), active.end(),
                          [&key](const Instance& item) { return item.key == key; })
                 != active.end()) return;
-        auto* sprite = renderer->CreateSpriteObject(
-            const_cast<char*>(event.texture_name.c_str()), 0);
-        if (!sprite) {
-            MLOG_WARN("mxh_client: BEFF visual asset unavailable effect=%s texture=%s",
-                      event.effect_name.c_str(), event.texture_name.c_str());
-            return;
+        IDISpriteObject* sprite = nullptr;
+        if (!mesh) {
+            sprite = renderer->CreateSpriteObject(
+                const_cast<char*>(event.texture_name.c_str()), 0);
+            if (!sprite) {
+                MLOG_WARN("mxh_client: BEFF visual asset unavailable effect=%s texture=%s",
+                          event.effect_name.c_str(), event.texture_name.c_str());
+                return;
+            }
         }
         if (active.size() >= 128) {
             if (active.front().sprite) active.front().sprite->Release();
             active.erase(active.begin());
         }
         active.push_back({key, event.source_object_id, event.target_object_id,
-                          sprite, event.texture_name});
+                          sprite, event.texture_name,
+                          mesh ? event.object_name : std::string{}});
+    }
+
+    void synchronizeMeshes(const mxh::client::CInGameState& game,
+                           const mxh::gx::TerrainScene& terrain,
+                           mxh::gx::EntityScene* scene) const {
+        if (!scene) return;
+        std::vector<mxh::gx::EffectObject> objects;
+        const auto& info = game.game_info();
+        for (const auto& item : active) {
+            if (item.chx_name.empty()) continue;
+            mxh::gx::EffectObject object;
+            object.object_id = item.source_id ^ item.target_id ^
+                               static_cast<std::uint32_t>(
+                                   std::hash<std::string>{}(item.key));
+            object.chx_name = item.chx_name;
+            if (item.target_id == info.player_id || item.source_id == info.player_id) {
+                object.world_x = info.position_x;
+                object.world_z = info.position_z;
+                object.world_y = terrain.heightAt(info.position_x, info.position_z);
+                objects.push_back(std::move(object));
+                continue;
+            }
+            for (const auto& monster : game.monsters()) {
+                if (monster.object_id != item.target_id &&
+                    monster.object_id != item.source_id) continue;
+                object.world_x = monster.position_x;
+                object.world_z = monster.position_z;
+                object.world_y = terrain.heightAt(monster.position_x, monster.position_z);
+                objects.push_back(std::move(object));
+                break;
+            }
+        }
+        scene->synchronizeEffects(objects);
     }
 
     static bool project(const mxh::gx::MATRIX4& matrix,
@@ -1029,6 +1069,12 @@ void renderFrame(HWND h) {
         g_terrain->render();
         if (g_staticScene) g_staticScene->render();
         if (g_entityScene) {
+            if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
+                g_effectVisuals->synchronizeMeshes(*g_inputTarget, *g_terrain,
+                                                   g_entityScene.get());
+            } else {
+                g_entityScene->clearEffects();
+            }
             // Push the terrain's view-projection as a Frustum so the
             // entity scene can cull NPCs whose world AABB is outside the
             // view volume. G5 M-R5: see mxh/render/frustum.hpp for the

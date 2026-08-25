@@ -214,9 +214,11 @@ struct EntityScene::Impl {
     std::array<std::optional<mxh::compat::CharacterAppearanceCatalog>, 2> appearances;
     std::vector<mxh::game::ItemInfo> item_catalog;
     std::unordered_map<std::uint32_t, std::unique_ptr<Model>> models;
+    std::unordered_map<std::uint32_t, std::unique_ptr<Model>> effectModels;
     std::unordered_set<std::uint32_t> failed_models;
     std::unordered_map<std::uint32_t, std::unique_ptr<Model>> playerModels;
     std::vector<SceneEntity> instances;
+    std::vector<EffectObject> effect_instances;
     std::optional<ScenePlayer> local_player;
     std::vector<ScenePlayer> remote_players;
     std::optional<Frustum> frustum;
@@ -228,16 +230,21 @@ struct EntityScene::Impl {
     Model* loadModel(std::uint16_t kind,
                      const ScenePlayer* playerInfo = nullptr,
                      SceneEntityType type = SceneEntityType::Monster,
-                     std::uint32_t objectId = 0) {
+                     std::uint32_t objectId = 0,
+                     std::string_view explicitChx = {}) {
         const auto modelKey = entityModelKey(type, kind);
+        const bool effectModel = !explicitChx.empty();
         if (playerInfo) {
             if (const auto it = playerModels.find(playerInfo->object_id); it != playerModels.end())
+                return it->second.get();
+        } else if (effectModel) {
+            if (const auto it = effectModels.find(objectId); it != effectModels.end())
                 return it->second.get();
         } else {
             if (const auto it = models.find(modelKey); it != models.end())
                 return it->second.get();
         }
-        if (failed_models.contains(modelKey)) {
+        if (!effectModel && failed_models.contains(modelKey)) {
             if (objectId != 0) placeholder_ids.insert(objectId);
             return nullptr;
         }
@@ -249,14 +256,19 @@ struct EntityScene::Impl {
                       static_cast<unsigned>(kind), path.c_str(), stage);
             ++failed_load_count;
             if (objectId != 0) placeholder_ids.insert(objectId);
-            failed_models.insert(modelKey);
+            if (!effectModel) failed_models.insert(modelKey);
             return nullptr;
         };
 
         mxh::compat::MonsterVisual playerVisual;
         std::string faceMod, hairMod;
         const mxh::compat::MonsterVisual* visual = nullptr;
-        if (!playerInfo && type == SceneEntityType::Npc) {
+        if (effectModel) {
+            playerVisual.kind = kind;
+            playerVisual.chx_name = std::string(explicitChx);
+            playerVisual.scale = 1.0f;
+            visual = &playerVisual;
+        } else if (!playerInfo && type == SceneEntityType::Npc) {
             const auto* chxName = npc_catalog ? npc_catalog->find(kind) : nullptr;
             if (!chxName) return fail("NpcChxList.lookup");
             playerVisual.kind = kind;
@@ -416,6 +428,7 @@ struct EntityScene::Impl {
         if (model->meshes.empty()) return fail("MOD.mesh_build", visual->chx_name);
         auto* result = model.get();
         if (playerInfo) playerModels.emplace(playerInfo->object_id, std::move(model));
+        else if (effectModel) effectModels.emplace(objectId, std::move(model));
         else models.emplace(modelKey, std::move(model));
         MLOG_INFO("[entity] original model object=%u type=%s kind=%u chx=%s meshes=%u bounds=(%.3f,%.3f,%.3f)",
                   objectId, playerInfo ? "player" : entityTypeName(type),
@@ -661,6 +674,22 @@ void EntityScene::synchronize(const WorldSnapshot& snapshot) {
     }
 }
 
+void EntityScene::synchronizeEffects(std::span<const EffectObject> effects) {
+    std::unordered_set<std::uint32_t> next_ids;
+    next_ids.reserve(effects.size());
+    for (const auto& effect : effects) next_ids.insert(effect.object_id);
+    for (auto it = impl_->effectModels.begin(); it != impl_->effectModels.end();) {
+        if (!next_ids.contains(it->first)) it = impl_->effectModels.erase(it);
+        else ++it;
+    }
+    impl_->effect_instances.assign(effects.begin(), effects.end());
+}
+
+void EntityScene::clearEffects() noexcept {
+    impl_->effect_instances.clear();
+    impl_->effectModels.clear();
+}
+
 void EntityScene::render() {
     if (!impl_->renderer) return;
     impl_->culled_instances = 0;
@@ -742,6 +771,34 @@ void EntityScene::render() {
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
         }
     }
+    for (const auto& effect : impl_->effect_instances) {
+        if (effect.chx_name.empty()) continue;
+        auto* model = impl_->loadModel(0, nullptr, SceneEntityType::Monster,
+                                       effect.object_id, effect.chx_name);
+        if (!model) continue;
+        const float tx = effect.world_x * kSceneScale - kMapCenter;
+        const float ty = effect.world_y * kSceneScale - model->minimum.y;
+        const float tz = effect.world_z * kSceneScale - kMapCenter;
+        if (impl_->frustum) {
+            const float radius = std::max({
+                std::abs(model->minimum.x), std::abs(model->maximum.x),
+                std::abs(model->minimum.z), std::abs(model->maximum.z)});
+            const VECTOR3 wmin{tx - radius, model->minimum.y + ty, tz - radius};
+            const VECTOR3 wmax{tx + radius, model->maximum.y + ty, tz + radius};
+            if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                ++impl_->culled_instances;
+                continue;
+            }
+        }
+        impl_->updateAnimation(*model, SceneEntityType::Monster, false,
+                               SceneAction::Idle);
+        const MATRIX4 world = makeWorldMatrix(tx, ty, tz, effect.facing_yaw);
+        for (auto* mesh : model->meshes) {
+            mesh->SetWorldTransform(&world);
+            impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0,
+                                              nullptr, 0, 0, 0, 0);
+        }
+    }
     if (!impl_->placeholder_rendering_enabled) return;
     for (const auto& placeholder : impl_->placeholder_visuals) {
         VECTOR3 oct[8]{};
@@ -769,7 +826,8 @@ void EntityScene::setCameraFrustum(std::optional<Frustum> frustum) noexcept {
 }
 
 std::uint32_t EntityScene::loadedModelCount() const noexcept {
-    return static_cast<std::uint32_t>(impl_->models.size());
+    return static_cast<std::uint32_t>(impl_->models.size() +
+                                      impl_->effectModels.size());
 }
 std::uint32_t EntityScene::instanceCount() const noexcept {
     return static_cast<std::uint32_t>(impl_->instances.size());

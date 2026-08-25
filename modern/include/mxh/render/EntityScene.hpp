@@ -7,6 +7,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "mxh/render/frustum.hpp"
@@ -68,6 +69,18 @@ struct WorldSnapshot {
     std::vector<SceneEntity> entities;
 };
 
+// A resource-backed object unit emitted by a BEFF script.  Unlike a
+// PlaceholderVisual this always names the original CHX asset and is rendered
+// through the same MOD/ANM mesh path as world entities.
+struct EffectObject {
+    std::uint32_t object_id = 0;
+    std::string chx_name;
+    float world_x = 0;
+    float world_y = 0;
+    float world_z = 0;
+    float facing_yaw = 0;
+};
+
 enum class PlaceholderKind : std::uint8_t {
     Player,
     Npc,
@@ -108,6 +121,8 @@ public:
                             I4DyuchiFileStorage* storage,
                             std::string* error = nullptr);
     void synchronize(const WorldSnapshot& snapshot);
+    void synchronizeEffects(std::span<const EffectObject> effects);
+    void clearEffects() noexcept;
     void render();
     // Debug-only opt-in for drawing RenderBox stand-ins when a model is
     // missing. Release/client runs keep this disabled so placeholders cannot
