@@ -10,6 +10,7 @@
     item_effects_test.cpp
     sound_list_test.cpp
     audio/bgm_player_test.cpp
+    audio/sfx_player_test.cpp
     hfl_height_field_test.cpp
     stm_static_model_test.cpp
 )
@@ -268,4 +269,3 @@ add_test(NAME mxh_window_manager_focus_tests
     COMMAND $<TARGET_FILE:mxh_window_manager_focus_tests>)
 set_tests_properties(mxh_window_manager_focus_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-

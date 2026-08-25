@@ -37,6 +37,7 @@ install(TARGETS mxh_compat
 
 add_library(mxh_audio STATIC
     audio/bgm_player.cpp
+    audio/sfx_player.cpp
 )
 target_include_directories(mxh_audio PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_features(mxh_audio PUBLIC cxx_std_20)
@@ -481,7 +482,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 
