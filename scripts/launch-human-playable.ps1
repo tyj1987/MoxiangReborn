@@ -57,6 +57,7 @@ try {
     $clientArgs = @(
         '--login-port', $LoginPort,
         '--map-port', $MapPort,
+        '--resource-profile', $ResourceProfileId,
         '--resource-root', $resourceRoot,
         '--width', 800,
         '--height', 600

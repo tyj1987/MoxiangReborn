@@ -120,6 +120,7 @@ struct ClientOptions {
     bool follow_camera = false;
     bool debug_ui_bounds = false;
     std::string character_name = "ModernHero";
+    std::string resource_profile_id = "playdh-current";
     std::filesystem::path resource_root;
     std::string save_frame;
     std::string state_frames_dir;
@@ -183,6 +184,9 @@ ClientOptions parse_client_options() {
         else if (arg == L"--character-name") take(options.character_name);
         else if (arg == L"--resource-root" && i + 1 < argc) {
             options.resource_root = argv[++i];
+        }
+        else if (arg == L"--resource-profile" && i + 1 < argc) {
+            take(options.resource_profile_id);
         }
         else if (arg == L"--save-frame") take(options.save_frame);
         else if (arg == L"--state-frames-dir") take(options.state_frames_dir);
@@ -1562,7 +1566,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                      "mxh_client: automation and credential command-line options are disabled in release builds\n");
         return 2;
     }
+    if (options.resource_profile_id == "sworking-2008-reference") {
+        std::fprintf(stderr, "mxh_client: reference resource profiles are development-only\n");
+        return 2;
+    }
 #endif
+    if (options.resource_profile_id != "playdh-current" &&
+        options.resource_profile_id != "sworking-2008-reference") {
+        std::fprintf(stderr, "mxh_client: unknown resource profile '%s'\n",
+                     options.resource_profile_id.c_str());
+        return 2;
+    }
     g_overviewCamera = !options.save_frame.empty() && !options.follow_camera;
     g_debugUiBounds = options.debug_ui_bounds;
     __g_stateFramesDir = options.state_frames_dir;
@@ -1612,6 +1626,20 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         std::fprintf(stderr, "mxh_client: PlayDH resource root not found\n");
         return 1;
     }
+    {
+        std::error_code profile_ec;
+        const auto canonical_root = std::filesystem::weakly_canonical(
+            options.resource_root, profile_ec).generic_string();
+        const bool is_reference = canonical_root.find("reference/legacy-source/") !=
+            std::string::npos;
+        if ((options.resource_profile_id == "playdh-current" && is_reference) ||
+            (options.resource_profile_id == "sworking-2008-reference" && !is_reference)) {
+            std::fprintf(stderr,
+                         "mxh_client: resource root does not match profile '%s'\n",
+                         options.resource_profile_id.c_str());
+            return 1;
+        }
+    }
     std::string resource_error;
     if (!validate_runtime_resources(options.resource_root, &resource_error)) {
         std::fprintf(stderr, "mxh_client: %s\n", resource_error.c_str());
@@ -1623,7 +1651,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         storage->Release();
         return 1;
     }
-    MLOG_INFO("mxh_client: PlayDH root loaded");
+    MLOG_INFO("mxh_client: resource profile=%s root loaded",
+              options.resource_profile_id.c_str());
 
     mxh::audio::BgmPlayer bgm;
     std::string audio_error;
