@@ -3985,8 +3985,14 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             break;
         }
         case mxh::proto::SkillProtocol::OperateSyn: {
-            // Continuous skill operate - treat like StartSyn for now
-            std::cout << "[Map] Skill OperateSyn (not implemented)\n";
+            // Continuous skills reuse the legacy StartSyn payload and
+            // authoritative validation/damage path.  Do not merely log and
+            // drop the packet: the old client sends OperateSyn for the
+            // subsequent ticks of channelled skills.
+            mxh::net::Message start = msg;
+            start.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::SkillProtocol::StartSyn);
+            handle_skill(id, start);
             break;
         }
         default:
