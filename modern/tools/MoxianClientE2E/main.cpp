@@ -440,6 +440,12 @@ int run_e2e(const CliArgs& cli) {
 
         const std::string backend_flag =
             cli.db_backend == "mssql_odbc" ? "mssql_odbc" : "sqlite";
+        std::error_code resource_error;
+        auto e2e_playdh_root = std::filesystem::current_path(resource_error) /
+                               "modern" / "data" / "PlayDH";
+        if (!std::filesystem::exists(e2e_playdh_root / "Resource" / "Server")) {
+            e2e_playdh_root = std::filesystem::path("modern/data/PlayDH");
+        }
         // LoginServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "login";
@@ -475,8 +481,10 @@ int run_e2e(const CliArgs& cli) {
             "--backend", backend_flag,
             "--map", std::to_string(cli.map_number),
             "--db", map_db,
+            "--resource-root", e2e_playdh_root.string(),
+            "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
+            "--resource-profile", "playdh-current",
             "--legacy",
-            "--allow-dev-fallbacks",
             (cli.use_hsel ? "--use-hsel" : "")});
 
         // Wait for the three ports.
@@ -774,6 +782,24 @@ int run_e2e(const CliArgs& cli) {
         if (!game.is_in_game()) {
             LOG("[5/5] FAIL: timed out waiting for GameInAck");
             return 2;
+        }
+        // Map10 is the first vertical-slice gate.  Let the receive thread
+        // drain the server's initial spawn burst, then require the complete
+        // decoded AIGroup population rather than merely the first packet.
+        if (cli.map_number == 10) {
+            const auto spawn_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(2);
+            while (game.monsters().size() < 228 &&
+                   std::chrono::steady_clock::now() < spawn_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.monsters().size() != 228) {
+                LOG("[5/5] FAIL: Map10 monster population=%zu, expected 228",
+                    game.monsters().size());
+                return 2;
+            }
+            LOG("[5/5] OK: Map10 initial monster population=%zu", game.monsters().size());
         }
         const auto& info = game.game_info();
         LOG("[5/5] OK: GameInAck received, player_id=%u name='%s' "
