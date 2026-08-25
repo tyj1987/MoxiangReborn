@@ -36,6 +36,7 @@
 #include <string_view>
 #include <chrono>
 #include <vector>
+#include <unordered_map>
 
 #include <windows.h>
 #include <shellapi.h>
@@ -908,6 +909,12 @@ struct SpriteEntry {
 };
 std::array<SpriteEntry, 4> g_sprites{};  // 4 demo slots: bg/red/green/blue
 
+struct ItemIconEntry {
+    IDISpriteObject* sprite = nullptr;
+    RECT source{0, 0, 0, 0};
+};
+std::unordered_map<std::int32_t, ItemIconEntry> g_item_icons;
+
 // ---------------------------------------------------------------------------
 // Frame loop. A.1.4 draws the boot background (full-window sprite) and
 // 3 small "dialog tile" sprites laid out in a row â€” enough to visually
@@ -925,6 +932,64 @@ void drawSpriteQuad(I4DyuchiGXRenderer* r, IDISpriteObject* sprite,
     RECT    rc{0, 0, 1, 1};
     r->RenderSprite(sprite, &scale, 0.0f, &trans, &rc,
                     color, /*iZOrder=*/1, /*dwFlag=*/0);
+}
+
+bool drawSpriteRegion(I4DyuchiGXRenderer* r, IDISpriteObject* sprite,
+                      const RECT& source, float x, float y, float w, float h,
+                      std::uint32_t color) {
+    if (!r || !sprite || source.right <= source.left || source.bottom <= source.top) {
+        return false;
+    }
+    IMAGE_HEADER header{};
+    if (!sprite->GetImageHeader(&header, 0)) return false;
+    const auto geometry = mxh::client::compute_sprite_render_geometry(
+        header.dwWidth, header.dwHeight, w, h,
+        static_cast<float>(source.left) / static_cast<float>(header.dwWidth),
+        static_cast<float>(source.top) / static_cast<float>(header.dwHeight),
+        static_cast<float>(source.right) / static_cast<float>(header.dwWidth),
+        static_cast<float>(source.bottom) / static_cast<float>(header.dwHeight));
+    if (!geometry.has_value()) return false;
+    VECTOR2 scale{geometry->scale_x, geometry->scale_y};
+    VECTOR2 trans{x, y};
+    RECT rc{geometry->source_left, geometry->source_top,
+            geometry->source_right, geometry->source_bottom};
+    return r->RenderSprite(sprite, &scale, 0.0f, &trans, &rc,
+                           color, /*iZOrder=*/1, /*dwFlag=*/0) != FALSE;
+}
+
+ItemIconEntry* loadItemIcon(I4DyuchiGXRenderer* renderer,
+                            std::int32_t item_id) {
+    if (!renderer || item_id <= 0) return nullptr;
+    if (auto it = g_item_icons.find(item_id); it != g_item_icons.end()) {
+        return it->second.sprite ? &it->second : nullptr;
+    }
+    ItemIconEntry entry;
+    const auto hard = mxh::ui::cResourceManager::getInstance().getHardPath(
+        item_id, mxh::ui::PathFileType::ItemPath);
+    if (!hard) {
+        g_item_icons.emplace(item_id, entry);
+        return nullptr;
+    }
+    const auto atlas = mxh::ui::cSpriteAtlas::getInstance().getInfo(hard->atlas_idx);
+    if (!atlas) {
+        g_item_icons.emplace(item_id, entry);
+        return nullptr;
+    }
+    const auto path = mxh::ui::cSpriteAtlas::getInstance().resolvePath(*atlas);
+    if (path.empty() || !std::filesystem::exists(path)) {
+        g_item_icons.emplace(item_id, entry);
+        return nullptr;
+    }
+    auto* sprite = renderer->CreateSpriteObject(const_cast<char*>(path.string().c_str()), 0);
+    if (!sprite) {
+        g_item_icons.emplace(item_id, entry);
+        return nullptr;
+    }
+    entry.sprite = sprite;
+    entry.source = RECT{hard->left, hard->top, hard->right, hard->bottom};
+    auto [it, inserted] = g_item_icons.emplace(item_id, entry);
+    if (!inserted && entry.sprite) entry.sprite->Release();
+    return it->second.sprite ? &it->second : nullptr;
 }
 
 void drawHudBar(I4DyuchiGXRenderer* r, IDISpriteObject* bg,
@@ -1553,8 +1618,20 @@ void renderFrame(HWND h) {
                         const float x = invX + static_cast<float>(col) * (kCell + kInvGap);
                         const float y = invY + static_cast<float>(row) * (kCell + kInvGap);
                         if (!mxh::game::is_empty_slot(inventory[idx])) {
-                            drawSpriteQuad(g_renderer, g_hud.mpFill, x, y,
-                                           kCell, kCell, 0xFFFFFFFFu);
+                            const auto icon_id = static_cast<std::int32_t>(
+                                inventory[idx].wIconIdx);
+                            if (auto* icon = loadItemIcon(g_renderer, icon_id)) {
+                                (void)drawSpriteRegion(g_renderer, icon->sprite,
+                                                       icon->source, x, y,
+                                                       kCell, kCell,
+                                                       0xFFFFFFFFu);
+                            } else {
+                                // Keep the slot chrome visible while making
+                                // a missing profile mapping explicit; no
+                                // synthetic item art is generated.
+                                drawSpriteQuad(g_renderer, g_hud.barBg, x, y,
+                                               kCell, kCell, 0xFFFFFFFFu);
+                            }
                             if (g_hudFont) {
                                 auto t = g_entityScene
                                     ? g_entityScene->itemDisplayName(
@@ -3333,6 +3410,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // Cleanup. The SpriteObject* are owned by us; the renderer factory
     // will release them when renderer is destroyed. SRVs are released
     // by the ComPtr destructor.
+    for (auto& [item_id, icon] : g_item_icons) {
+        if (icon.sprite) icon.sprite->Release();
+        icon.sprite = nullptr;
+    }
+    g_item_icons.clear();
     for (auto& e : g_sprites) {
         if (e.sprite) e.sprite->Release();
         e.sprite = nullptr;
