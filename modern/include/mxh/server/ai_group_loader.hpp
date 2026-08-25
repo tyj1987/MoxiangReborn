@@ -65,6 +65,7 @@ struct AiGroupList final {
 
 std::optional<AiGroupList> parse_ai_group_list(std::string_view text) noexcept;
 std::optional<AiGroupList> load_ai_group_list_bin(
-    const std::filesystem::path& path) noexcept;
+    const std::filesystem::path& path,
+    std::string_view resource_profile_id = "sworking-2008-reference") noexcept;
 
 }  // namespace mxh::server

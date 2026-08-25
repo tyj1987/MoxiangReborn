@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstring>
+#include <fstream>
 #include <vector>
 
 using namespace mxh::compat;
@@ -16,6 +17,33 @@ TEST(MhFileEx, DetectsSizePrefixedServerContainerWithoutCallingItClassic) {
     };
     EXPECT_TRUE(is_size_prefixed_opaque_server_profile(blob));
     EXPECT_FALSE(is_mh_bin(blob));
+}
+
+TEST(MhFileEx, ServerProfileReaderFailsClosedForCurrentOpaqueContainer) {
+    auto tmp = std::filesystem::temp_directory_path() /
+        "mxh_test_current_server_opaque.bin";
+    const std::array<std::uint8_t, 9> blob = {
+        9, 0, 0, 0, 0xDD, 0x3A, 0xF2, 0xF2, 0xC1
+    };
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        out.write(reinterpret_cast<const char*>(blob.data()),
+                  static_cast<std::streamsize>(blob.size()));
+    }
+    const auto result = read_server_mh_bin(tmp, "playdh-current");
+    EXPECT_EQ(result.error, MhError::UnsupportedOpaqueServerProfile);
+    std::filesystem::remove(tmp);
+}
+
+TEST(MhFileEx, ServerProfileReaderKeepsReferenceProfileExplicit) {
+    auto tmp = std::filesystem::temp_directory_path() /
+        "mxh_test_reference_server.bin";
+    const std::vector<std::uint8_t> payload = {'$', 'G', 'R', 'O', 'U', 'P'};
+    ASSERT_EQ(write_mh_bin(tmp, payload, 0), MhError::Ok);
+    const auto result = read_server_mh_bin(tmp, "sworking-2008-reference");
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(result.value.data, payload);
+    std::filesystem::remove(tmp);
 }
 
 TEST(MhFileEx, RoundtripBasicType0) {

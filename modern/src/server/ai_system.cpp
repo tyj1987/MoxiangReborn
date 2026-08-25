@@ -101,8 +101,10 @@ void AISystem::load_ai_group_list() {
     group_list_ = {};
 }
 
-bool AISystem::load_ai_group_list(const std::filesystem::path& path) {
-    auto loaded = load_ai_group_list_bin(path);
+bool AISystem::load_ai_group_list(
+    const std::filesystem::path& path,
+    std::string_view resource_profile_id) {
+    auto loaded = load_ai_group_list_bin(path, resource_profile_id);
     if (!loaded.has_value()) return false;
     objects_.clear();
     last_transitions_.clear();

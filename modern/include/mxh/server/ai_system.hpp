@@ -104,7 +104,9 @@ public:
     // the agent server on map boot; RemoveAllList drops every
     // tracked object.
     void load_ai_group_list();
-    bool load_ai_group_list(const std::filesystem::path& path);
+    bool load_ai_group_list(
+        const std::filesystem::path& path,
+        std::string_view resource_profile_id = "sworking-2008-reference");
     void remove_all_list();
 
     // ---- Inspection helpers (test only) ----

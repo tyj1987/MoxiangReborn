@@ -204,6 +204,28 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
     return r;
 }
 
+Result<MhFile> read_server_mh_bin(
+    const std::filesystem::path& path, std::string_view profile_id) {
+    if (profile_id == "playdh-current") {
+        std::ifstream f(path, std::ios::binary | std::ios::ate);
+        if (!f) return Result<MhFile>{{}, MhError::FileNotFound};
+        const auto size = static_cast<std::size_t>(f.tellg());
+        if (size < 5) return read_mh_bin(path);
+        std::vector<std::uint8_t> bytes(size);
+        f.seekg(0);
+        if (!f.read(reinterpret_cast<char*>(bytes.data()),
+                   static_cast<std::streamsize>(bytes.size()))) {
+            return Result<MhFile>{{}, MhError::IoError};
+        }
+        if (is_size_prefixed_opaque_server_profile(bytes)) {
+            return Result<MhFile>{{}, MhError::UnsupportedOpaqueServerProfile};
+        }
+        return read_mh_bin(path);
+    }
+    if (profile_id == "sworking-2008-reference") return read_mh_bin(path);
+    return Result<MhFile>{{}, MhError::UnsupportedVersion};
+}
+
 MhError write_mh_bin(const std::filesystem::path& path,
                      std::span<const std::uint8_t> data,
                      std::uint32_t type) {

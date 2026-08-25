@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mxh::compat {
@@ -87,6 +88,13 @@ struct Result {
 
 // Load a .bin file from disk, performing XOR decryption.
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path);
+
+// Profile-aware server resource entry point.  The current PlayDH server
+// profile is intentionally fail-closed until its opaque transform is
+// recovered; it must never be passed through the classic positional decoder.
+// The 2008 reference profile uses the recovered MHFileEx layout.
+[[nodiscard]] Result<MhFile> read_server_mh_bin(
+    const std::filesystem::path& path, std::string_view profile_id);
 
 // Save raw bytes to .bin file (with the XOR encryption applied).
 [[nodiscard]] MhError write_mh_bin(const std::filesystem::path& path,

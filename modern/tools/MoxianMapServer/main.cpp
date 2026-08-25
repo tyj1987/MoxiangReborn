@@ -52,6 +52,7 @@ struct Args {
     std::string   bind_address = "0.0.0.0";
     std::string   resource_root;
     std::string   server_resource_root;
+    std::string   resource_profile = "playdh-current";
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
@@ -74,6 +75,8 @@ Args parse_args(int argc, char** argv) {
             a.resource_root = argv[++i];
         else if (s == "--server-resource-root" && i + 1 < argc)
             a.server_resource_root = argv[++i];
+        else if (s == "--resource-profile" && i + 1 < argc)
+            a.resource_profile = argv[++i];
         else if (s == "--bind-address" && i + 1 < argc)
             a.bind_address = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
@@ -95,6 +98,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --bind-address IP  listen interface (default 0.0.0.0)\n"
                       << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
                       << "  --server-resource-root DIR  legacy Server resource directory\n"
+                      << "  --resource-profile ID  playdh-current or sworking-2008-reference\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
@@ -211,7 +215,8 @@ int main(int argc, char** argv) {
     if (args.map_num < 100) monster_name << std::setw(2) << std::setfill('0');
     monster_name << args.map_num << ".bin";
     const std::filesystem::path ai_groups_path = server_resource_base / monster_name.str();
-    if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
+    if (!mxh::server::AISystem::instance().load_ai_group_list(
+            ai_groups_path, args.resource_profile)) {
         if (!args.allow_dev_fallbacks) {
             std::ifstream resource_file(ai_groups_path, std::ios::binary | std::ios::ate);
             bool opaque_server_profile = false;
