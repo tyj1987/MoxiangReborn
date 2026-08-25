@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <windows.h>
+#include <set>
 
 namespace {
 std::filesystem::path find_playdh_root() {
@@ -42,7 +43,19 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_EQ(script->triggers.front().time_token, "f0");
     EXPECT_EQ(script->triggers.front().kind, "ON");
     EXPECT_FALSE(script->units.front().kind.empty());
+    EXPECT_FLOAT_EQ(script->units.front().radius, 120.0f);
+    EXPECT_EQ(script->units.front().color_index, 0u);
+    EXPECT_EQ(script->units.front().coordinate, 0u);
     EXPECT_EQ(script->units[2].sound_id, 405u);
+    std::set<std::string> kinds;
+    for (const auto& summary : catalog.scripts())
+        for (const auto& unit : summary.units) kinds.insert(unit.kind);
+    EXPECT_TRUE(kinds.contains("ANIMATION"));
+    EXPECT_TRUE(kinds.contains("DAMAGE"));
+    EXPECT_TRUE(kinds.contains("LIGHT"));
+    EXPECT_TRUE(kinds.contains("MOVE"));
+    EXPECT_TRUE(kinds.contains("OBJECT"));
+    EXPECT_TRUE(kinds.contains("SOUND"));
 }
 
 TEST(EffectCatalog, RejectsMissingRoot) {

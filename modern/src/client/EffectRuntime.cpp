@@ -46,6 +46,8 @@ void EffectRuntime::advance(
                                         it->target_object_id, trigger,
                                         trigger.unit_kind, trigger.object_name,
                                         trigger.sound_name, trigger.texture_name,
+                                        trigger.position, trigger.radius,
+                                        trigger.color_index, trigger.coordinate,
                                         trigger.sound_id});
             }
         }

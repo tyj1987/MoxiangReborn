@@ -68,6 +68,10 @@ std::vector<EffectTimelineEvent> EffectTimeline::advance(std::uint64_t now_ms) n
             event.object_name = m_units[item.trigger.unit].object_name;
             event.sound_name = m_units[item.trigger.unit].sound_name;
             event.texture_name = m_units[item.trigger.unit].texture_name;
+            event.position = m_units[item.trigger.unit].position;
+            event.radius = m_units[item.trigger.unit].radius;
+            event.color_index = m_units[item.trigger.unit].color_index;
+            event.coordinate = m_units[item.trigger.unit].coordinate;
             event.sound_id = m_units[item.trigger.unit].sound_id;
         }
         out.push_back(std::move(event));

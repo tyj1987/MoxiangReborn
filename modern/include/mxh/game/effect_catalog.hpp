@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <array>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -37,6 +39,10 @@ struct EffectScriptSummary {
         std::string object_name;
         std::string sound_name;
         std::string texture_name;
+        std::array<float, 3> position{};
+        float radius = 0.0f;
+        std::uint32_t color_index = 0;
+        std::uint32_t coordinate = 0;
         std::uint32_t sound_id = 0;
     };
     struct Trigger {
@@ -58,6 +64,7 @@ public:
     const EffectScriptSummary* script(std::string_view name) const noexcept;
     const std::string* effect_name(std::uint32_t id, bool female = false) const noexcept;
     const std::vector<EffectAsset>& assets() const noexcept { return m_assets; }
+    const std::vector<EffectScriptSummary>& scripts() const noexcept { return m_scripts; }
     std::size_t beff_count() const noexcept { return m_beffCount; }
     std::size_t befl_count() const noexcept { return m_beflCount; }
     std::size_t packed_count() const noexcept { return m_packedCount; }

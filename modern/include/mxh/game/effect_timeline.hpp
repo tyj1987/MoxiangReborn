@@ -15,6 +15,10 @@ struct EffectTimelineEvent {
     std::string object_name;
     std::string sound_name;
     std::string texture_name;
+    std::array<float, 3> position{};
+    float radius = 0.0f;
+    std::uint32_t color_index = 0;
+    std::uint32_t coordinate = 0;
     std::uint32_t sound_id = 0;
 };
 

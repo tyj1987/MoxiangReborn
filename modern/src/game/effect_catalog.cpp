@@ -50,6 +50,20 @@ void scan_script(EffectScriptSummary& summary,
         } else if (trim.rfind("#SOUNDNUM", 0) == 0 && !summary.units.empty()) {
             std::istringstream fields(trim.substr(9));
             fields >> summary.units.back().sound_id;
+        } else if (trim.rfind("#POSITION", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(9));
+            fields >> summary.units.back().position[0]
+                   >> summary.units.back().position[1]
+                   >> summary.units.back().position[2];
+        } else if (trim.rfind("#RADIUS", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(7));
+            fields >> summary.units.back().radius;
+        } else if (trim.rfind("#COLORINDEX", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(11));
+            fields >> summary.units.back().color_index;
+        } else if (trim.rfind("#COORDINATE", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(11));
+            fields >> summary.units.back().coordinate;
         } else if (trim.rfind("#TRIGGER", 0) == 0) {
             std::istringstream fields(trim);
             std::string directive;
