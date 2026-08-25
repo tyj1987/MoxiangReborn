@@ -890,6 +890,12 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             MLOG_DEBUG("CInGameState: ConnectionCheckOk (keep-alive)");
             break;
         }
+        case UserConnProtocol::ChangeMapAck:
+            MLOG_INFO("CInGameState: ChangeMapAck received; waiting for target GameInAck");
+            break;
+        case UserConnProtocol::ChangeMapNack:
+            MLOG_WARN("CInGameState: ChangeMapNack; current scene remains active");
+            break;
         default:
             if (proto == static_cast<UserConnProtocol>(
                              mxh::proto::kModernHselKey)) {
@@ -1766,13 +1772,22 @@ void CInGameState::interact_with_npc(std::uint32_t npc_id) {
 
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
-    msg.header.protocol = static_cast<std::uint8_t>(
-        role == mxh::game::NpcRole::MapChange
-            ? mxh::proto::NpcProtocol::DoJobSyn
-            : mxh::proto::NpcProtocol::SpeechSyn);
+    msg.header.protocol = role == mxh::game::NpcRole::MapChange
+        ? static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapSyn)
+        : static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn);
     msg.header.object_id = m_playerId;
-    msg.payload.resize(sizeof(npc_id));
-    put_u32(msg.payload, 0, npc_id);
+    if (role == mxh::game::NpcRole::MapChange) {
+        // Legacy MapChangeRole selects the configured destination (the
+        // original baseline NPC sends the Jang Ahn map, 12). The server
+        // validates the target route and may reject it; no local scene is
+        // discarded until that handoff is acknowledged.
+        msg.payload.resize(4, 0);
+        const std::uint16_t target_map = 12u;
+        put_u16(msg.payload, 0, target_map);
+    } else {
+        msg.payload.resize(sizeof(npc_id));
+        put_u32(msg.payload, 0, npc_id);
+    }
     if (m_pEngine->agent_session().send(msg) == mxh::net::NetError::Ok) {
         MLOG_INFO("CInGameState: NPC interaction npc=%u role=%u protocol=%u",
                   npc_id, static_cast<unsigned>(it->npc_kind),
