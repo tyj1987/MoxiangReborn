@@ -79,6 +79,8 @@ struct EffectObject {
     float world_y = 0;
     float world_z = 0;
     float facing_yaw = 0;
+    std::size_t motion_index = 0;
+    bool has_motion_index = false;
 };
 
 enum class PlaceholderKind : std::uint8_t {

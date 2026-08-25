@@ -811,6 +811,8 @@ struct EffectVisualOverlay {
         float radius = 0.0f;
         std::uint32_t color_index = 0;
         bool light = false;
+        std::size_t motion_index = 0;
+        bool has_motion_index = false;
     };
     std::vector<Instance> active;
 
@@ -827,6 +829,18 @@ struct EffectVisualOverlay {
                  I4DyuchiGXRenderer* renderer) {
         if (event.unit_kind == "SOUND") return;
         const bool light = event.unit_kind == "LIGHT";
+        if (event.unit_kind == "ANIMATION" &&
+            event.trigger.trigger.kind == "ON") {
+            for (auto& item : active) {
+                if (item.source_id == event.source_object_id &&
+                    item.target_id == event.target_object_id &&
+                    !item.chx_name.empty()) {
+                    item.motion_index = event.motion_index;
+                    item.has_motion_index = true;
+                }
+            }
+            return;
+        }
         const bool mesh = event.unit_kind == "OBJECT" &&
                           !event.object_name.empty();
         if ((!renderer && !mesh) || (!mesh && !light && event.texture_name.empty())) return;
@@ -872,7 +886,8 @@ struct EffectVisualOverlay {
         active.push_back({key, event.source_object_id, event.target_object_id,
                           sprite, event.texture_name,
                           mesh ? event.object_name : std::string{},
-                          event.position, event.radius, event.color_index, false});
+                          event.position, event.radius, event.color_index, false,
+                          0u, false});
     }
 
     void synchronizeLights(const mxh::client::CInGameState& game,
@@ -935,6 +950,8 @@ struct EffectVisualOverlay {
                                static_cast<std::uint32_t>(
                                    std::hash<std::string>{}(item.key));
             object.chx_name = item.chx_name;
+            object.motion_index = item.motion_index;
+            object.has_motion_index = item.has_motion_index;
             if (item.target_id == info.player_id || item.source_id == info.player_id) {
                 object.world_x = info.position_x;
                 object.world_z = info.position_z;

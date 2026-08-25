@@ -441,10 +441,12 @@ struct EntityScene::Impl {
     }
 
     void updateAnimation(Model& model, SceneEntityType type,
-                         bool player, SceneAction action) {
+                         bool player, SceneAction action,
+                         std::optional<std::size_t> forcedMotion = std::nullopt) {
         if (model.motion_files.empty() || model.animated_parts.empty()) return;
-        auto motionIndex = chooseSceneMotionIndex(
-            type, player, action, model.motion_files.size());
+        auto motionIndex = forcedMotion
+            ? (*forcedMotion < model.motion_files.size() ? *forcedMotion : 0u)
+            : chooseSceneMotionIndex(type, player, action, model.motion_files.size());
         const auto loadMotion = [&](std::size_t index)
                 -> const mxh::compat::AnmMotion* {
             if (index >= model.motion_files.size()) return nullptr;
@@ -791,7 +793,10 @@ void EntityScene::render() {
             }
         }
         impl_->updateAnimation(*model, SceneEntityType::Monster, false,
-                               SceneAction::Idle);
+                               SceneAction::Idle,
+                               effect.has_motion_index
+                                   ? std::optional<std::size_t>(effect.motion_index)
+                                   : std::nullopt);
         const MATRIX4 world = makeWorldMatrix(tx, ty, tz, effect.facing_yaw);
         for (auto* mesh : model->meshes) {
             mesh->SetWorldTransform(&world);
