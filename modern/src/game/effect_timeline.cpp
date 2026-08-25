@@ -7,7 +7,7 @@
 namespace mxh::game {
 namespace {
 
-bool parse_delay(std::string_view token, std::uint32_t tick_ms,
+bool parse_delay(std::string_view token, float tick_ms,
                  std::uint64_t& out) noexcept {
     if (token.empty()) return false;
     std::uint64_t value = 0;
@@ -17,7 +17,7 @@ bool parse_delay(std::string_view token, std::uint32_t tick_ms,
     const auto result = std::from_chars(first.data(), first.data() + first.size(), value);
     if (result.ec != std::errc{} || result.ptr != first.data() + first.size()) return false;
     if (token.front() == 'f' || token.front() == 'F') {
-        value *= tick_ms;
+        value = static_cast<std::uint64_t>(static_cast<double>(value) * tick_ms);
     }
     out = value;
     return true;
@@ -27,7 +27,7 @@ bool parse_delay(std::string_view token, std::uint32_t tick_ms,
 
 bool EffectTimeline::start(const EffectScriptSummary& script,
                            std::uint64_t start_ms,
-                           std::uint32_t tick_per_frame_ms) noexcept {
+                           float tick_per_frame_ms) noexcept {
     reset();
     if (!script.decoded || tick_per_frame_ms == 0 ||
         script.triggers.size() != script.trigger_count) return false;

@@ -418,7 +418,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
         return m_effectRuntime.catalog();
     }
     EffectRuntime& effect_runtime() noexcept { return m_effectRuntime; }
-    void set_effect_tick_per_frame_ms(std::uint32_t value) noexcept {
+    void set_effect_tick_per_frame_ms(float value) noexcept {
         m_effectTickPerFrameMs = value;
     }
     std::vector<RuntimeEffectEvent> drain_runtime_effect_events() noexcept;
@@ -540,7 +540,7 @@ public:
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
     mxh::game::SkillManager m_skillManager;
-    std::uint32_t m_effectTickPerFrameMs = 0;
+    float m_effectTickPerFrameMs = 1000.0f / 30.0f;
     std::vector<RuntimeEffectEvent> m_runtimeEffectEvents;
 };
 

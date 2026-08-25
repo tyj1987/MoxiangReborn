@@ -20,7 +20,7 @@ class EffectTimeline {
 public:
     bool start(const EffectScriptSummary& script,
                std::uint64_t start_ms,
-               std::uint32_t tick_per_frame_ms) noexcept;
+               float tick_per_frame_ms) noexcept;
     std::vector<EffectTimelineEvent> advance(std::uint64_t now_ms) noexcept;
     void reset() noexcept;
 

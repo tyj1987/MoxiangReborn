@@ -11,7 +11,7 @@ bool EffectRuntime::start(std::string_view effect_name,
                           std::uint32_t source_object_id,
                           std::uint32_t target_object_id,
                           std::uint64_t now_ms,
-                          std::uint32_t tick_per_frame_ms) {
+                          float tick_per_frame_ms) {
     const auto* summary = m_catalog.script(effect_name);
     if (!summary) return false;
     Instance instance;
@@ -28,7 +28,7 @@ bool EffectRuntime::start_by_id(std::uint32_t effect_id,
                                 std::uint32_t source_object_id,
                                 std::uint32_t target_object_id,
                                 std::uint64_t now_ms,
-                                std::uint32_t tick_per_frame_ms) {
+                                float tick_per_frame_ms) {
     const auto* name = m_catalog.effect_name(effect_id, female);
     return name && start(*name, source_object_id, target_object_id,
                          now_ms, tick_per_frame_ms);
