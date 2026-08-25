@@ -37,6 +37,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -52,6 +53,12 @@ struct Args {
     std::string   map_server_addr;  // empty = no MapServer (stub mode)
     std::uint16_t map_server_port   = 8001;
     std::uint16_t default_map_num   = 12;
+    struct MapRouteSpec {
+        std::uint16_t map_num = 0;
+        std::string address;
+        std::uint16_t port = 0;
+    };
+    std::vector<MapRouteSpec> map_routes;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -86,6 +93,28 @@ Args parse_args(int argc, char** argv) {
         }
         else if (s == "--default-map" && i + 1 < argc)
             a.default_map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+        else if (s == "--map-server-map" && i + 1 < argc) {
+            // Parse MAP=HOST:PORT. This is explicit so a production run
+            // cannot silently infer a destination from the process name.
+            const std::string spec = argv[++i];
+            const auto equals = spec.find('=');
+            const auto colon = spec.rfind(':');
+            if (equals == std::string::npos || colon <= equals + 1 ||
+                colon + 1 >= spec.size()) {
+                std::cerr << "invalid --map-server-map (expected MAP=HOST:PORT): "
+                          << spec << "\n";
+                std::exit(2);
+            }
+            Args::MapRouteSpec route;
+            route.map_num = static_cast<std::uint16_t>(
+                std::stoi(spec.substr(0, equals)));
+            route.address = spec.substr(equals + 1, colon - equals - 1);
+            route.port = static_cast<std::uint16_t>(
+                std::stoi(spec.substr(colon + 1)));
+            if (route.map_num == 0 || route.port == 0 || route.address.empty())
+                std::exit(2);
+            a.map_routes.push_back(std::move(route));
+        }
         else if (s == "--help") {
             std::cout << "Usage: mxh_agent_server [options]\n"
                       << "  --port N              listen port (default 7001)\n"
@@ -95,6 +124,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --bind-address IP     listen interface (default 0.0.0.0)\n"
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n"
+                      << "  --map-server-map M=H:P register an additional map route\n"
                       << "  --default-map N       map assigned to newly created characters\n";
             std::exit(0);
         }
@@ -279,6 +309,12 @@ int main(int argc, char** argv) {
     // Phase 9: Connect to MapServer if specified.
     std::unique_ptr<MapClientHandler> map_handler;
     std::unique_ptr<mxh::net::TcpClient> map_client;
+    struct MapRouteConnection {
+        Args::MapRouteSpec spec;
+        std::unique_ptr<MapClientHandler> handler;
+        std::unique_ptr<mxh::net::TcpClient> client;
+    };
+    std::vector<std::unique_ptr<MapRouteConnection>> map_route_connections;
     auto next_map_reconnect = std::chrono::steady_clock::now();
 
     const auto connect_map_server = [&]() -> bool {
@@ -314,6 +350,34 @@ int main(int argc, char** argv) {
         std::cout << "[main] no --map-server specified, GameInSyn will use stub mode\n";
     }
 
+    // Additional map endpoints are explicit and independent of the default
+    // connection. They are kept alive for the lifetime of AgentServer; a
+    // failed endpoint is reported and remains unavailable rather than being
+    // replaced by another map's connection.
+    for (const auto& spec : args.map_routes) {
+        auto route = std::make_unique<MapRouteConnection>();
+        route->spec = spec;
+        route->handler = std::make_unique<MapClientHandler>(handler);
+        route->client = std::make_unique<mxh::net::TcpClient>(*route->handler);
+        mxh::net::ClientConfig ccfg;
+        ccfg.remote_address = spec.address;
+        ccfg.port = spec.port;
+        ccfg.use_legacy_framing = true;
+        ccfg.connect_timeout = std::chrono::milliseconds(500);
+        const auto error = route->client->connect(ccfg);
+        if (error != mxh::net::NetError::Ok) {
+            std::cerr << "[main] cannot connect map=" << spec.map_num
+                      << " MapServer at " << spec.address << ":" << spec.port
+                      << " (" << mxh::net::to_string(error) << ")\n";
+            continue;
+        }
+        handler.set_map_server_for_map(spec.map_num, route->client.get(),
+                                       route->handler->get_map_conn_id());
+        std::cout << "[main] connected map=" << spec.map_num
+                  << " MapServer at " << spec.address << ":" << spec.port << "\n";
+        map_route_connections.push_back(std::move(route));
+    }
+
     // 3. Main loop: drain reply queue + sleep + auto-reconnect MapClient.
     while (g_running.load()) {
         queue->drain_to(server);
@@ -343,6 +407,13 @@ int main(int argc, char** argv) {
         map_client->disconnect();
         map_client.reset();
         map_handler.reset();
+    }
+    for (auto& route : map_route_connections) {
+        handler.set_map_server_for_map(route->spec.map_num, nullptr,
+                                       mxh::net::ConnectionId{});
+        route->client->disconnect();
+        route->client.reset();
+        route->handler.reset();
     }
     server.stop();
     return 0;
