@@ -466,6 +466,7 @@ public:
     bool handle_ui_activation(const ClientUiActivation& activation);
     void send_gamein_syn();
     void send_gameout_syn();
+    bool request_inventory_move(std::size_t source, std::size_t target);
     void dispatch_gamein_ack(const GameInInfo& info);
     void fail_with(const std::string& reason);
     void update_movement(std::uint64_t now_ms);
@@ -567,6 +568,7 @@ public:
     mxh::compat::QuestStringCatalog m_questCatalog;
     std::vector<const mxh::compat::QuestStringEntry*> m_mainQuests;
     std::size_t          m_questSelection = 0;
+    std::optional<std::size_t> m_inventoryDragSource;
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
     std::future<std::pair<mxh::game::EffectCatalog, std::string>> m_effectCatalogLoad;

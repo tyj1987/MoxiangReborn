@@ -637,6 +637,7 @@ void CInGameState::Release() {
     m_keyMask = 0;
     m_moving = false;
     m_cameraDrag = false;
+    m_inventoryDragSource.reset();
     m_chatOpen = false;
     m_chatBuffer.clear();
     m_effectEvents.clear();
@@ -1786,6 +1787,36 @@ void CInGameState::OnMouseButton(bool left, bool down,
                                   std::int32_t x, std::int32_t y) {
     m_lastMouseX = x;
     m_lastMouseY = y;
+    if (left && m_inventoryOpen) {
+        auto* grid = m_uiRuntime.findWindowByLegacyId("IN_TABDLG1");
+        if (grid) {
+            const auto local_x = x - grid->absX();
+            const auto local_y = y - grid->absY();
+            constexpr std::int32_t cell = 40;
+            constexpr std::int32_t gap = 5;
+            const auto col = local_x / (cell + gap);
+            const auto row = local_y / (cell + gap);
+            const auto in_cell_x = local_x % (cell + gap);
+            const auto in_cell_y = local_y % (cell + gap);
+            if (col >= 0 && col < 5 && row >= 0 && row < 4 &&
+                in_cell_x < cell && in_cell_y < cell) {
+                const std::size_t slot = static_cast<std::size_t>(row * 5 + col);
+                if (down) {
+                    if (slot < mxh::game::SLOT_INVENTORY_NUM &&
+                        !mxh::game::is_empty_slot(m_info.items.Inventory[slot])) {
+                        m_inventoryDragSource = slot;
+                    }
+                    return;
+                }
+                if (m_inventoryDragSource) {
+                    const auto source = *m_inventoryDragSource;
+                    m_inventoryDragSource.reset();
+                    if (source != slot) (void)request_inventory_move(source, slot);
+                    return;
+                }
+            }
+        }
+    }
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
     if (ui.activation) handle_ui_activation(*ui.activation);
     if (ui.consumed) return;
@@ -1837,6 +1868,26 @@ void CInGameState::OnMouseButton(bool left, bool down,
         return;
     }
     if (!left) m_cameraDrag = down;
+}
+
+bool CInGameState::request_inventory_move(std::size_t source,
+                                          std::size_t target) {
+    if (!m_inGame || !is_connected() || source >= mxh::game::SLOT_INVENTORY_NUM ||
+        target >= mxh::game::SLOT_INVENTORY_NUM || source == target) {
+        return false;
+    }
+    const auto& item = m_info.items.Inventory[source];
+    if (mxh::game::is_empty_slot(item)) return false;
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveSyn);
+    msg.header.object_id = m_playerId;
+    msg.payload.resize(sizeof(mxh::game::ItemBase) + sizeof(std::uint16_t));
+    std::memcpy(msg.payload.data(), &item, sizeof(mxh::game::ItemBase));
+    const auto target16 = static_cast<std::uint16_t>(target);
+    std::memcpy(msg.payload.data() + sizeof(mxh::game::ItemBase), &target16,
+                sizeof(target16));
+    return m_pEngine->agent_session().send(msg) == mxh::net::NetError::Ok;
 }
 
 void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
