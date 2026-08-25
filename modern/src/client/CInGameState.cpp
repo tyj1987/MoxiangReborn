@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <limits>
 #include <utility>
 #include <optional>
 
@@ -105,7 +106,9 @@ std::uint64_t steady_now_ms() {
 
 class GameInPlayerStatsService final : public mxh::services::IPlayerStatsService {
 public:
-    explicit GameInPlayerStatsService(const GameInInfo* info) noexcept : m_info(info) {}
+    GameInPlayerStatsService(const GameInInfo* info,
+                             const mxh::game::ExperienceCurve* curve) noexcept
+        : m_info(info), m_curve(curve) {}
     std::uint16_t getStr() const noexcept override { return 0; }
     std::uint16_t getAgi() const noexcept override { return 0; }
     std::uint16_t getInt() const noexcept override { return 0; }
@@ -114,7 +117,12 @@ public:
     std::uint16_t getLevel() const noexcept override { return m_info ? m_info->level : 0; }
     std::uint32_t getLevelExp() const noexcept override { return m_info ? m_info->exp : 0; }
     std::uint32_t getExpForNextLevel() const noexcept override {
-        return m_info ? 100u * static_cast<std::uint32_t>(m_info->level) : 0;
+        if (!m_info || !m_curve || m_info->level == 0 ||
+            m_info->level >= m_curve->size()) return 0;
+        const auto threshold = m_curve->max_exp_point(m_info->level);
+        return threshold > std::numeric_limits<std::uint32_t>::max()
+            ? std::numeric_limits<std::uint32_t>::max()
+            : static_cast<std::uint32_t>(threshold);
     }
     std::uint32_t getCurrentHp() const noexcept override { return m_info ? m_info->life : 0; }
     std::uint32_t getMaxHp() const noexcept override { return m_info ? m_info->max_life : 0; }
@@ -130,6 +138,7 @@ public:
     }
 private:
     const GameInInfo* m_info = nullptr;
+    const mxh::game::ExperienceCurve* m_curve = nullptr;
 };
 
 // -------------------------------------------------------------------------
@@ -683,6 +692,7 @@ void CInGameState::Release() {
         m_effectCatalogLoad.wait();
     }
     m_effectCatalogLoading = false;
+    m_experienceCurve.reset();
     set_inventory_open(false);
     set_shop_open(false);
     set_quest_open(false);
@@ -801,8 +811,22 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
     } catch (const std::exception& ex) {
         MLOG_WARN("CInGameState skill list unavailable: %s", ex.what());
     }
+    const auto experiencePath = *m_pEngine->playdh_root() / "Resource" /
+        "CharacterExpPoint.bin";
+    try {
+        m_experienceCurve = std::make_unique<mxh::game::ExperienceCurve>(
+            mxh::game::ExperienceCurve::load_from_bin(experiencePath));
+        MLOG_INFO("CInGameState experience curve loaded levels=%zu",
+                  m_experienceCurve->size());
+    } catch (const std::exception& ex) {
+        m_experienceCurve.reset();
+        MLOG_ERROR("CInGameState experience curve unavailable: %s", ex.what());
+        fail_with("GameIn experience curve unavailable: " + experiencePath.string());
+        return;
+    }
     m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
-    m_playerStatsService = std::make_unique<GameInPlayerStatsService>(&m_info);
+    m_playerStatsService = std::make_unique<GameInPlayerStatsService>(
+        &m_info, m_experienceCurve.get());
     refresh_live_ui_bindings();
     MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
               static_cast<unsigned>(m_playerId),

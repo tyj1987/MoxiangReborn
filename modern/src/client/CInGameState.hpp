@@ -33,6 +33,7 @@
 #include "CGameState.hpp"
 #include "EffectRuntime.hpp"
 #include "mxh/game/skill_manager.hpp"
+#include "mxh/game/experience_curve.hpp"
 #include "ClientUiRuntime.hpp"
 
 #include <cstdint>
@@ -529,6 +530,7 @@ public:
     GameInInfo               m_info;
     std::unique_ptr<mxh::services::InventoryServiceImpl> m_inventoryService;
     std::unique_ptr<mxh::services::IPlayerStatsService> m_playerStatsService;
+    std::unique_ptr<mxh::game::ExperienceCurve> m_experienceCurve;
     std::vector<MonsterAddInfo> monsters_;
     std::vector<GroundDropInfo> m_groundDrops;
     std::uint32_t            m_lastAttackTarget = 0;
