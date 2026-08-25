@@ -325,9 +325,35 @@ float TerrainScene::cameraDistance() const noexcept {
 float TerrainScene::heightAt(float world_x, float world_z) const noexcept {
     if (impl_->terrain.heights.empty()) return 0.0f;
     const auto& d = impl_->terrain.desc;
-    const auto sx = std::min(static_cast<std::uint32_t>(std::max(0.0f, world_x) / d.face_size), d.height_count_x - 1);
-    const auto sz = std::min(static_cast<std::uint32_t>(std::max(0.0f, world_z) / d.face_size), d.height_count_z - 1);
-    return impl_->terrain.heights[static_cast<std::size_t>(sz) * d.height_count_x + sx];
+    if (d.height_count_x == 0 || d.height_count_z == 0 ||
+        d.face_size <= 0.0f) return 0.0f;
+
+    // HFL stores samples on the face grid.  Sampling the lower-left sample
+    // (the previous behavior) made the player and every projected entity
+    // visibly pop at each face boundary.  Preserve the original world-space
+    // origin while interpolating the four surrounding samples exactly like
+    // the DX11 height-field path.
+    const float gx = std::max(0.0f, world_x) / d.face_size;
+    const float gz = std::max(0.0f, world_z) / d.face_size;
+    const float max_x = static_cast<float>(d.height_count_x - 1);
+    const float max_z = static_cast<float>(d.height_count_z - 1);
+    const float clamped_x = std::min(gx, max_x);
+    const float clamped_z = std::min(gz, max_z);
+    const auto x0 = static_cast<std::uint32_t>(std::floor(clamped_x));
+    const auto z0 = static_cast<std::uint32_t>(std::floor(clamped_z));
+    const auto x1 = std::min(x0 + 1, d.height_count_x - 1);
+    const auto z1 = std::min(z0 + 1, d.height_count_z - 1);
+    const float fx = clamped_x - static_cast<float>(x0);
+    const float fz = clamped_z - static_cast<float>(z0);
+    const auto& heights = impl_->terrain.heights;
+    const float h00 = heights[static_cast<std::size_t>(z0) * d.height_count_x + x0];
+    const float h10 = heights[static_cast<std::size_t>(z0) * d.height_count_x + x1];
+    const float h01 = heights[static_cast<std::size_t>(z1) * d.height_count_x + x0];
+    const float h11 = heights[static_cast<std::size_t>(z1) * d.height_count_x + x1];
+    return h00 * (1.0f - fx) * (1.0f - fz)
+         + h10 * fx * (1.0f - fz)
+         + h01 * (1.0f - fx) * fz
+         + h11 * fx * fz;
 }
 
 float TerrainScene::worldWidth() const noexcept {
