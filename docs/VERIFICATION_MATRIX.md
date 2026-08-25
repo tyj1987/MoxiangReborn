@@ -66,5 +66,6 @@ The following are never sufficient for an E5 claim: parser totals, CTest totals,
 
 | `EVID-20260825-launcher-shell` | `d2d5a525` | `playdh-current` | `cmd /c scripts\\build-modern.bat` + `python scripts/check-project-governance.py` | New Win32 launcher builds in the clean Debug graph. It persists only non-secret launch settings, passes explicit profile/display parameters to the client, never accepts credentials, and blocks check/repair until a signed manifest transport is configured. |
 | `EVID-20260825-display-dpi-transition` | `1d8c6e06` | client display path | `cmd /c scripts\\build-modern.bat` + `modern/build/tests/unit/client/mxh_client_tests.exe --gtest_brief=1` | x86 Debug build and 167/167 client tests passed; post-login client-area sizing now uses the current monitor DPI when available and retains rollback behavior on failure. |
+| `EVID-20260825-launcher-settings-json` | `472c656d` | launcher settings | `cmd /c scripts\\build-modern.bat` + `python scripts/check-project-governance.py` | Launcher settings now use `%LOCALAPPDATA%\\Moxian\\settings.json`, validate the profile and dimensions on load, and atomically replace the file on save; no credential field or command-line credential path exists. |
 
 These are E1–E3 engineering gates only. They do not upgrade G4–G11 to E5 and do not replace a genuine legacy-client human run.
