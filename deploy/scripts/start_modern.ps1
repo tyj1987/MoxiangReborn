@@ -297,11 +297,17 @@ function Get-ServerResourceProfileDiagnostic {
 
 $mapResourcePath = Join-Path $ServerResourceRoot "Monster_$MapNumber.bin"
 $serverResourceDiagnostic = Get-ServerResourceProfileDiagnostic -ResourcePath $mapResourcePath -ProfileId $ResourceProfileId -Encoding ([string]$profile.encoding)
-if ($serverResourceDiagnostic.status -eq 'profile-format-mismatch') {
+$knownEmptyMonsterMap = $MapNumber -eq 12 -and
+    $serverResourceDiagnostic.byte_length -eq 14 -and
+    $serverResourceDiagnostic.first_u32_le -eq 20040309
+if ($serverResourceDiagnostic.status -eq 'profile-format-mismatch' -and -not $knownEmptyMonsterMap) {
     throw "Profile '$ResourceProfileId' declares '$($profile.encoding)' but $mapResourcePath has no size-prefixed marker (bytes=$($serverResourceDiagnostic.byte_length), first_u32_le=$($serverResourceDiagnostic.first_u32_le)); refusing positional decode"
 }
-if ($serverResourceDiagnostic.status -eq 'decoder-invalid') {
+if ($serverResourceDiagnostic.status -eq 'decoder-invalid' -and -not $knownEmptyMonsterMap) {
     throw "Profile '$ResourceProfileId' resource encoding '$($profile.encoding)' is structurally detected at $mapResourcePath but is too short for the recovered opaque container header (bytes=$($serverResourceDiagnostic.byte_length)); refusing to start"
+}
+if ($knownEmptyMonsterMap) {
+    Write-Host "Map $MapNumber uses the canonical 14-byte empty monster table; battle spawn validation is disabled for this map."
 }
 
 $dbTool = Resolve-ModernBinary 'MoxianDbTool' 'mxh_db_tool.exe'
