@@ -110,11 +110,11 @@ function Assert-ResourceProfileIntegrity {
     }
     $expected = @{}
     foreach ($entry in @($Manifest.files)) {
-        $relative = ([string]$entry.path).Replace('/', '\\')
-        if ([string]::IsNullOrWhiteSpace($relative) -or [IO.Path]::IsPathRooted($relative) -or $relative.Split('\\') -contains '..') {
+        $relative = ([string]$entry.path).Replace('/', '\')
+        if ([string]::IsNullOrWhiteSpace($relative) -or [IO.Path]::IsPathRooted($relative) -or $relative.Split('\') -contains '..') {
             throw "Profile '$ProfileId' hash manifest contains an unsafe path: $($entry.path)"
         }
-        $key = $relative.Replace('\\', '/').ToLowerInvariant()
+        $key = $relative.Replace('\', '/').ToLowerInvariant()
         if ($expected.ContainsKey($key)) { throw "Profile '$ProfileId' hash manifest contains duplicate path: $relative" }
         if ([string]$entry.sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw "Profile '$ProfileId' hash manifest contains invalid SHA-256: $relative" }
         $expected[$key] = [pscustomobject]@{ path = $relative; bytes = [int64]$entry.bytes; sha256 = ([string]$entry.sha256).ToLowerInvariant() }
@@ -128,7 +128,7 @@ function Assert-ResourceProfileIntegrity {
         throw "Profile '$ProfileId' byte count mismatch: expected $($Manifest.byteCount), found $actualBytes"
     }
     foreach ($file in $actualFiles) {
-        $relative = $file.FullName.Substring($Root.Length + 1).Replace('\\', '/')
+        $relative = $file.FullName.Substring($Root.Length + 1).Replace('\', '/')
         $key = $relative.ToLowerInvariant()
         if (-not $expected.ContainsKey($key)) { throw "Profile '$ProfileId' contains an unregistered resource: $relative" }
         $entry = $expected[$key]

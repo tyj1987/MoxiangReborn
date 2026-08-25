@@ -4,8 +4,8 @@
   "source": "canonical PlayDH current resource tree (derived runtime files excluded)",
   "root": "C:\\moxiang\\modern\\data\\PlayDH",
   "generatedAtUtc": "2026-08-25T00:49:35.7063415Z",
-  "fileCount": 5135,
-  "byteCount": 1681141995.0,
+  "fileCount": 5132,
+  "byteCount": 1681047275.0,
   "files": [
     {
       "path": "ANRaster.tga",
@@ -713,11 +713,6 @@
       "sha256": "6b332b32da21ffe82fce9d742f43b60b63ccfe8a86a6fac040520cbe28ec595c"
     },
     {
-      "path": "Image/Autopatch/Thumbs.db",
-      "bytes": 53760,
-      "sha256": "bc38061141a35d010598000fdb9072c3a159c6caedd4b7f03f8b6f6a3c15bc0b"
-    },
-    {
       "path": "Image/buf_msg.bin",
       "bytes": 884,
       "sha256": "bf117d82763ef0f1a0f1484eef66dfc47fd5f88783d0daba1120f9ad1b66171d"
@@ -856,11 +851,6 @@
       "path": "Image/Damage/r9.TIF",
       "bytes": 11172,
       "sha256": "2e279dd45691b7803a2859b1683d227a6889fe40d23c36caabe1d68d29069872"
-    },
-    {
-      "path": "Image/Damage/Thumbs.db",
-      "bytes": 35328,
-      "sha256": "2e02824798c9087adad3df33b04e853697a7a85a4ac7e964de12ace91dbd6d05"
     },
     {
       "path": "Image/Damage/y0.TIF",
@@ -4746,11 +4736,6 @@
       "path": "Image/ParseTypeList.bin",
       "bytes": 5443,
       "sha256": "82a9053be2b6e411245d2751d34233ec9636ac40083223aa531fb452c9a0b14e"
-    },
-    {
-      "path": "Image/Thumbs.db",
-      "bytes": 5632,
-      "sha256": "40372b972f117b68727cb61fc713575b9830f82c34878cfa3584e293abcc83f5"
     },
     {
       "path": "Image/UnionMark/02_1000.tga",
