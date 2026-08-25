@@ -1,0 +1,48 @@
+#include "EffectRuntime.hpp"
+
+namespace mxh::client {
+
+bool EffectRuntime::load(const std::filesystem::path& root, std::string* error) {
+    clear();
+    return m_catalog.load(root, error);
+}
+
+bool EffectRuntime::start(std::string_view effect_name,
+                          std::uint32_t source_object_id,
+                          std::uint32_t target_object_id,
+                          std::uint64_t now_ms,
+                          std::uint32_t tick_per_frame_ms) {
+    const auto* summary = m_catalog.script(effect_name);
+    if (!summary) return false;
+    Instance instance;
+    instance.effect_name = std::string(effect_name);
+    instance.source_object_id = source_object_id;
+    instance.target_object_id = target_object_id;
+    if (!instance.timeline.start(*summary, now_ms, tick_per_frame_ms)) return false;
+    m_instances.push_back(std::move(instance));
+    return true;
+}
+
+void EffectRuntime::advance(
+    std::uint64_t now_ms,
+    const std::function<void(const RuntimeEffectEvent&)>& emit) {
+    for (auto it = m_instances.begin(); it != m_instances.end();) {
+        const auto events = it->timeline.advance(now_ms);
+        if (emit) {
+            for (const auto& trigger : events) {
+                emit(RuntimeEffectEvent{it->effect_name,
+                                        it->source_object_id,
+                                        it->target_object_id, trigger});
+            }
+        }
+        if (!it->timeline.active()) it = m_instances.erase(it);
+        else ++it;
+    }
+}
+
+void EffectRuntime::clear() noexcept {
+    m_instances.clear();
+    m_catalog = {};
+}
+
+} // namespace mxh::client

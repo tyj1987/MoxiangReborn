@@ -10,6 +10,7 @@ add_library(mxh_client_lib STATIC
     AgentSession.cpp
     ClientSettings.cpp
     GameLoadingCoordinator.cpp
+    EffectRuntime.cpp
     ClientUiRuntime.cpp
     CharMakeOptions.cpp
     LogicalViewport.cpp
