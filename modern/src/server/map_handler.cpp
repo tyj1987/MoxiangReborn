@@ -966,13 +966,9 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
         case mxh::proto::Category::Quest:
             handle_quest(id, msg);
             break;
-        // --- T3 side-by-side 9th/10th segments: party/guild ---
-        // Modern handle_party/handle_guild is a stub today. For the
-        // side-by-side harness we just need a deterministic response
-        // (the wire-format is what we are testing). We echo the same
-        // packet back to the sender. Real gameplay paths still go
-        // through the AgentServer (port 17001) via forward_to_map.
         case mxh::proto::Category::Party:
+            handle_party(id, msg);
+            break;
         case mxh::proto::Category::Guild:
             reply_(id, msg);
             break;
@@ -1413,6 +1409,92 @@ void MapHandler::handle_chat(mxh::net::ConnectionId id,
         std::cout << "[Map] chat proto=" << (int)proto
                   << " from player=" << sender_pid << "\n";
     }
+}
+
+void MapHandler::handle_party(mxh::net::ConnectionId id,
+                              const mxh::net::Message& msg) {
+    using mxh::proto::PartyProtocol;
+    const auto proto = static_cast<PartyProtocol>(msg.header.protocol);
+    const auto player_id = msg.header.object_id;
+
+    std::string player_name;
+    std::uint16_t player_level = 1;
+    {
+        std::lock_guard<std::mutex> lk(players_mu_);
+        const auto it = connected_players_.find(player_id);
+        if (it == connected_players_.end()) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::CreateNack);
+            nack.payload.resize(4);
+            const std::uint32_t error = 1; // player is not in the map session
+            std::memcpy(nack.payload.data(), &error, sizeof(error));
+            reply_(id, nack);
+            return;
+        }
+        player_name.assign(it->second.name,
+                          strnlen(it->second.name, sizeof(it->second.name)));
+        player_level = it->second.level;
+    }
+
+    if (proto == PartyProtocol::CreateSyn) {
+        if (find_party_of_player(party_log_, player_id).has_value()) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::CreateNack);
+            nack.payload.resize(4);
+            const std::uint32_t error = 2; // already in a party
+            std::memcpy(nack.payload.data(), &error, sizeof(error));
+            reply_(id, nack);
+            return;
+        }
+        const auto option = msg.payload.empty() ? 0u : msg.payload.front();
+        const auto party_id = party_log_.next_party_id++;
+        party_log_.parties.push_back(create_party(
+            party_id, player_id, player_name, player_level,
+            static_cast<std::uint8_t>(option)));
+        const auto& party = party_log_.parties.back();
+
+        mxh::net::Message ack = msg;
+        ack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::CreateAck);
+        ack.payload.resize(5 + 4 + 2 + 17, 0);
+        std::memcpy(ack.payload.data(), &party.party_id, 4);
+        ack.payload[4] = party.member_count;
+        std::memcpy(ack.payload.data() + 5, &party.members[0].member_id, 4);
+        std::memcpy(ack.payload.data() + 9, &party.members[0].level, 2);
+        std::memcpy(ack.payload.data() + 11, party.members[0].name.data(), 17);
+        reply_(id, ack);
+        return;
+    }
+
+    if (proto == PartyProtocol::BreakupSyn) {
+        std::uint32_t requested_party = 0;
+        if (msg.payload.size() >= sizeof(requested_party)) {
+            std::memcpy(&requested_party, msg.payload.data(), sizeof(requested_party));
+        }
+        auto party = find_party_by_id(party_log_, requested_party);
+        const bool allowed = party.has_value() && (*party)->master_id == player_id;
+        mxh::net::Message response = msg;
+        response.header.protocol = static_cast<std::uint8_t>(
+            allowed ? PartyProtocol::BreakupAck : PartyProtocol::BreakupNack);
+        response.payload.resize(4);
+        std::memcpy(response.payload.data(), &requested_party, 4);
+        if (allowed) {
+            const auto it = std::find_if(
+                party_log_.parties.begin(), party_log_.parties.end(),
+                [requested_party](const Party& candidate) {
+                    return candidate.party_id == requested_party;
+                });
+            if (it != party_log_.parties.end()) party_log_.parties.erase(it);
+        }
+        reply_(id, response);
+        return;
+    }
+
+    mxh::net::Message nack = msg;
+    nack.header.protocol = static_cast<std::uint8_t>(PartyProtocol::CreateNack);
+    nack.payload.resize(4);
+    const std::uint32_t error = 3; // unsupported party action in this map build
+    std::memcpy(nack.payload.data(), &error, sizeof(error));
+    reply_(id, nack);
 }
 
 // ============================================================================

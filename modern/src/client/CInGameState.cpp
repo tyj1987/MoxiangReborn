@@ -327,6 +327,16 @@ mxh::net::Message make_chat_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_party_create_message(std::uint32_t player_id,
+                                             std::uint8_t option) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::CreateSyn);
+    message.header.object_id = player_id;
+    message.payload = {option};
+    return message;
+}
+
 std::string parse_chat_payload(std::span<const std::uint8_t> payload) {
     std::string out;
     out.reserve(payload.size());
@@ -880,6 +890,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case Category::Chat:
             handle_chat_broadcast(msg);
             break;
+        case Category::Party:
+            handle_party_message(msg);
+            break;
         case Category::Item:
             handle_item_broadcast(msg);
             break;
@@ -1296,6 +1309,26 @@ void CInGameState::handle_chat_broadcast(const mxh::net::Message& msg) {
     }
     MLOG_INFO("CInGameState: chat from=%u: %s",
               msg.header.object_id, text.c_str());
+}
+
+void CInGameState::handle_party_message(const mxh::net::Message& msg) {
+    using mxh::proto::PartyProtocol;
+    const auto proto = static_cast<PartyProtocol>(msg.header.protocol);
+    if (proto == PartyProtocol::CreateAck && msg.payload.size() >= 5) {
+        std::memcpy(&m_partyId, msg.payload.data(), sizeof(m_partyId));
+        m_partyMemberCount = msg.payload[4];
+        m_uiRuntime.showMessage(9101, "Party created.");
+        return;
+    }
+    if (proto == PartyProtocol::BreakupAck && msg.payload.size() >= 4) {
+        m_partyId = 0;
+        m_partyMemberCount = 0;
+        m_uiRuntime.showMessage(9102, "Party disbanded.");
+        return;
+    }
+    if (proto == PartyProtocol::CreateNack || proto == PartyProtocol::BreakupNack) {
+        m_uiRuntime.showMessage(9103, "Party action failed.");
+    }
 }
 
 void CInGameState::try_pickup() {
@@ -2415,6 +2448,12 @@ void CInGameState::send_chat() {
                           static_cast<std::ptrdiff_t>(m_chatLines.size() - 50));
     }
     MLOG_INFO("CInGameState: chat sent: %s", text.c_str());
+}
+
+bool CInGameState::request_party_create(std::uint8_t option) {
+    if (!m_inGame || !is_connected() || m_playerId == 0) return false;
+    return m_pEngine->agent_session().send(
+               make_party_create_message(m_playerId, option)) == mxh::net::NetError::Ok;
 }
 
 void CInGameState::fail_with(const std::string& reason) {

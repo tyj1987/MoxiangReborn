@@ -422,6 +422,19 @@ enum class ChatProtocol : std::uint8_t {
     GuildUnion          = 20,  // guild union chat
 };
 
+// Party messages used by the live map data-plane.  These values mirror the
+// protected legacy protocol numbering; the modern enum keeps the runtime
+// code type-safe without editing the original header.
+enum class PartyProtocol : std::uint8_t {
+    Info       = 0,
+    CreateSyn  = 1,
+    CreateAck  = 2,
+    CreateNack = 3,
+    BreakupSyn = 28,
+    BreakupAck = 29,
+    BreakupNack = 30,
+};
+
 // ============================================================================
 // Item sub-protocols (MP_ITEM_*).
 // 1:1 with the original C enum MP_PROTOCOL_ITEM.

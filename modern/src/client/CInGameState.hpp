@@ -451,6 +451,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::vector<std::string>& chat_lines() const noexcept {
         return m_chatLines;
     }
+    std::uint32_t party_id() const noexcept { return m_partyId; }
+    std::uint8_t party_member_count() const noexcept { return m_partyMemberCount; }
+    bool request_party_create(std::uint8_t option = 0);
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
@@ -485,6 +488,7 @@ public:
     void handle_monster_broadcast(const mxh::net::Message& msg);
     void handle_skill_broadcast(const mxh::net::Message& msg);
     void handle_chat_broadcast(const mxh::net::Message& msg);
+    void handle_party_message(const mxh::net::Message& msg);
     void handle_item_broadcast(const mxh::net::Message& msg);
     bool apply_pickup_to_inventory(std::uint32_t drop_id,
                                    std::uint16_t item_id,
@@ -555,6 +559,8 @@ public:
     bool                 m_chatOpen   = false;
     std::string          m_chatBuffer;
     std::vector<std::string> m_chatLines;
+    std::uint32_t m_partyId = 0;
+    std::uint8_t m_partyMemberCount = 0;
     bool                 m_inventoryOpen = false;
     std::size_t          m_inventoryTab = 0;
     ClientUiRuntime      m_uiRuntime;

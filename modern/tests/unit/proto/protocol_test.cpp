@@ -285,6 +285,16 @@ TEST(CategoryTest, CategoryNamesIdentifySecurityCategories) {
     EXPECT_STREQ(category_name(Category::HackCheck), "HackCheck");
 }
 
+TEST(PartyProtocolTest, CreateAndBreakupValuesMatchLegacy) {
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::Info), 0u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::CreateSyn), 1u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::CreateAck), 2u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::CreateNack), 3u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupSyn), 28u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupAck), 29u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupNack), 30u);
+}
+
 TEST(CategoryTest, CompleteLegacyCategoryTableIsSequential) {
     constexpr Category categories[] = {
         Category::Server, Category::PowerUp, Category::Character,
