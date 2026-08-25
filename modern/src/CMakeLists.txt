@@ -17,6 +17,7 @@
     hfl_height_field.cpp
     stm_static_model.cpp
     image_path_table.cpp
+    map_change_catalog.cpp
 )
 
 target_include_directories(mxh_compat PUBLIC
@@ -482,7 +483,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
 
 
 
