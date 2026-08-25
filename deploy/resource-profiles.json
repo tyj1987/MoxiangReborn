@@ -6,6 +6,11 @@
       "releaseAllowed": true,
       "encoding": "server-size-prefixed-opaque-v1",
       "serverSource": "Resource/Server",
+      "hashManifest": "reference/manifests/playdh-current.sha256.json",
+      "inventory": {
+        "fileCount": 5135,
+        "byteCount": 1681141995
+      },
       "required": [
         {
           "path": "Resource/ItemList.bin",
@@ -26,6 +31,11 @@
       "releaseAllowed": false,
       "encoding": "mhfileex-classic-rxmso",
       "serverSource": "Resource/Server",
+      "hashManifest": "reference/manifests/sworking-2008-reference.sha256.json",
+      "inventory": {
+        "fileCount": 469,
+        "byteCount": 146900343
+      },
       "required": []
     }
   }

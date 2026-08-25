@@ -67,6 +67,22 @@ foreach ($entry in @($profile.required)) {
         throw "Profile '$ResourceProfileId' contains a duplicate manifest path: '$manifestPath'"
     }
 }
+if ([string]::IsNullOrWhiteSpace([string]$profile.hashManifest)) {
+    throw "Profile '$ResourceProfileId' has no hash manifest"
+}
+$hashManifestPath = Join-Path $repoRoot ([string]$profile.hashManifest)
+if (-not (Test-Path -LiteralPath $hashManifestPath -PathType Leaf)) {
+    throw "Profile '$ResourceProfileId' hash manifest is missing: $hashManifestPath"
+}
+$hashManifest = Get-Content -LiteralPath $hashManifestPath -Raw | ConvertFrom-Json
+if ([string]$hashManifest.profileId -ne $ResourceProfileId) {
+    throw "Profile '$ResourceProfileId' hash manifest profile mismatch: $hashManifestPath"
+}
+if ($null -eq $profile.inventory -or
+    [int64]$hashManifest.fileCount -ne [int64]$profile.inventory.fileCount -or
+    [int64]$hashManifest.byteCount -ne [int64]$profile.inventory.byteCount) {
+    throw "Profile '$ResourceProfileId' inventory mismatch between resource profile and $hashManifestPath"
+}
 if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
     $ResourceRoot = Join-Path $repoRoot ([string]$profile.source)
 }
