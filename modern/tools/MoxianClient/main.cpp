@@ -2828,6 +2828,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         g->Start(mainGame.GetEngine(), pending_character_id,
                                  pending_map_num);
                         g_inputTarget = g;
+                        // World loading commits before the new GameIn state
+                        // is constructed. Rebind authoritative terrain bounds
+                        // and static collision to this fresh input target;
+                        // otherwise MapChange would leave the new player with
+                        // the old state's default 0..50000 movement limits.
+                        if (g_terrain) {
+                            g->set_world_bounds(g_terrain->worldWidth(),
+                                                g_terrain->worldHeight());
+                        }
+                        if (g_staticScene) {
+                            auto* static_scene = g_staticScene.get();
+                            g->set_collision_query(
+                                [static_scene](float x, float z, float radius) {
+                                    return static_scene->blocksPoint(x, z, radius);
+                                });
+                        }
                         g->set_map_change_target_resolver(
                             [](std::uint32_t npc_id, std::uint16_t current_map)
                                 -> std::optional<std::uint16_t> {
