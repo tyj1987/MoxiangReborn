@@ -460,6 +460,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t guild_id() const noexcept { return m_guildId; }
     std::uint8_t guild_member_count() const noexcept { return m_guildMemberCount; }
     bool request_guild_create(std::string_view name);
+    bool request_guild_invite(std::uint32_t target_player_id);
+    bool accept_guild_invite();
+    std::uint32_t pending_guild_invite_id() const noexcept { return m_pendingGuildInviteId; }
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
@@ -571,6 +574,7 @@ public:
     std::uint32_t m_pendingPartyInviteId = 0;
     std::uint32_t m_guildId = 0;
     std::uint8_t m_guildMemberCount = 0;
+    std::uint32_t m_pendingGuildInviteId = 0;
     bool                 m_inventoryOpen = false;
     std::size_t          m_inventoryTab = 0;
     ClientUiRuntime      m_uiRuntime;

@@ -1386,13 +1386,27 @@ void CInGameState::handle_guild_message(const mxh::net::Message& msg) {
         }
         return;
     }
+    if (proto == GuildProtocol::AddMemberInvite && msg.payload.size() >= 4) {
+        std::memcpy(&m_pendingGuildInviteId, msg.payload.data(),
+                    sizeof(m_pendingGuildInviteId));
+        m_uiRuntime.showMessage(9113, "You received a guild invitation.");
+        return;
+    }
+    if (proto == GuildProtocol::InviteAccept && msg.payload.size() >= 5) {
+        std::memcpy(&m_guildId, msg.payload.data(), sizeof(m_guildId));
+        m_guildMemberCount = msg.payload[4];
+        m_pendingGuildInviteId = 0;
+        m_uiRuntime.showMessage(9114, "Joined guild.");
+        return;
+    }
     if (proto == GuildProtocol::BreakupAck) {
         m_guildId = 0;
         m_guildMemberCount = 0;
         m_uiRuntime.showMessage(9111, "Guild disbanded.");
         return;
     }
-    if (proto == GuildProtocol::CreateNack || proto == GuildProtocol::BreakupNack) {
+    if (proto == GuildProtocol::CreateNack || proto == GuildProtocol::AddMemberNack ||
+        proto == GuildProtocol::InviteAcceptNack || proto == GuildProtocol::BreakupNack) {
         m_uiRuntime.showMessage(9112, "Guild action failed.");
     }
 }
@@ -2550,6 +2564,28 @@ bool CInGameState::request_guild_create(std::string_view name) {
     std::vector<std::uint8_t> payload(name.begin(), name.end());
     return m_pEngine->agent_session().send(make_guild_request_message(
                m_playerId, mxh::proto::GuildProtocol::CreateSyn, payload)) ==
+           mxh::net::NetError::Ok;
+}
+
+bool CInGameState::request_guild_invite(std::uint32_t target_player_id) {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || m_guildId == 0 ||
+        target_player_id == 0) return false;
+    std::array<std::uint8_t, 8> payload{};
+    std::memcpy(payload.data(), &m_guildId, sizeof(m_guildId));
+    std::memcpy(payload.data() + 4, &target_player_id, sizeof(target_player_id));
+    return m_pEngine->agent_session().send(make_guild_request_message(
+               m_playerId, mxh::proto::GuildProtocol::AddMemberSyn, payload)) ==
+           mxh::net::NetError::Ok;
+}
+
+bool CInGameState::accept_guild_invite() {
+    if (!m_inGame || !is_connected() || m_playerId == 0 ||
+        m_pendingGuildInviteId == 0) return false;
+    std::array<std::uint8_t, 4> payload{};
+    std::memcpy(payload.data(), &m_pendingGuildInviteId,
+                sizeof(m_pendingGuildInviteId));
+    return m_pEngine->agent_session().send(make_guild_request_message(
+               m_playerId, mxh::proto::GuildProtocol::InviteAccept, payload)) ==
            mxh::net::NetError::Ok;
 }
 

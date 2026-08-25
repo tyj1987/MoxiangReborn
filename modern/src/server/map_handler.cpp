@@ -1674,6 +1674,91 @@ void MapHandler::handle_guild(mxh::net::ConnectionId id,
         return;
     }
 
+    if (proto == GuildProtocol::AddMemberSyn) {
+        std::uint32_t guild_id = 0;
+        std::uint32_t target_id = 0;
+        if (msg.payload.size() >= 8) {
+            std::memcpy(&guild_id, msg.payload.data(), 4);
+            std::memcpy(&target_id, msg.payload.data() + 4, 4);
+        }
+        auto guild = find_guild_by_id(guild_log_, guild_id);
+        std::uint64_t target_conn = 0;
+        bool target_online = false;
+        {
+            std::lock_guard<std::mutex> lk(players_mu_);
+            const auto target = connected_players_.find(target_id);
+            target_online = target != connected_players_.end();
+            if (target_online) target_conn = target->second.conn_id;
+        }
+        const bool allowed = guild.has_value() && (*guild)->master_id == player_id &&
+                             target_id != player_id && target_online &&
+                             !is_member(**guild, target_id);
+        if (!allowed) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::AddMemberNack);
+            nack.payload = {1, 0, 0, 0};
+            reply_(id, nack);
+            return;
+        }
+        mxh::net::Message invite;
+        invite.header.category = msg.header.category;
+        invite.header.protocol = static_cast<std::uint8_t>(GuildProtocol::AddMemberInvite);
+        invite.header.object_id = target_id;
+        invite.payload.resize(8);
+        std::memcpy(invite.payload.data(), &guild_id, 4);
+        std::memcpy(invite.payload.data() + 4, &player_id, 4);
+        reply_(mxh::net::ConnectionId{target_conn}, invite);
+        mxh::net::Message ack = msg;
+        ack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::AddMemberAck);
+        ack.payload = invite.payload;
+        reply_(id, ack);
+        return;
+    }
+
+    if (proto == GuildProtocol::InviteAccept) {
+        std::uint32_t guild_id = 0;
+        if (msg.payload.size() >= 4) std::memcpy(&guild_id, msg.payload.data(), 4);
+        auto guild = find_guild_by_id(guild_log_, guild_id);
+        GuildMember member;
+        member.member_id = player_id;
+        member.level = player_level;
+        member.rank = 0;
+        member.is_student = true;
+        std::memcpy(member.name.data(), player_name.data(),
+                    std::min<std::size_t>(player_name.size(), 16));
+        const bool added = guild.has_value() && !is_member(**guild, player_id) &&
+                           add_member(**guild, member);
+        if (!added) {
+            mxh::net::Message nack = msg;
+            nack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::InviteAcceptNack);
+            nack.payload = {2, 0, 0, 0};
+            reply_(id, nack);
+            return;
+        }
+        const auto snapshot = make_snapshot(**guild);
+        mxh::net::Message ack = msg;
+        ack.header.protocol = static_cast<std::uint8_t>(GuildProtocol::InviteAccept);
+        ack.payload = snapshot;
+        reply_(id, ack);
+        for (std::uint8_t i = 0; i < (*guild)->member_count; ++i) {
+            const auto member_id = (*guild)->members[i].member_id;
+            std::uint64_t member_conn = 0;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto online = connected_players_.find(member_id);
+                if (online != connected_players_.end()) member_conn = online->second.conn_id;
+            }
+            if (member_conn == 0) continue;
+            mxh::net::Message info;
+            info.header.category = msg.header.category;
+            info.header.protocol = static_cast<std::uint8_t>(GuildProtocol::Info);
+            info.header.object_id = member_id;
+            info.payload = snapshot;
+            reply_(mxh::net::ConnectionId{member_conn}, info);
+        }
+        return;
+    }
+
     if (proto == GuildProtocol::BreakupSyn) {
         std::uint32_t guild_id = 0;
         if (msg.payload.size() >= 4) std::memcpy(&guild_id, msg.payload.data(), 4);

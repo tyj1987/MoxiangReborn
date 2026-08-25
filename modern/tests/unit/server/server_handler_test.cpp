@@ -1314,6 +1314,39 @@ TEST(MapHandlerTest, PartyCreateAndBreakupMutateAuthoritativeMapState) {
     std::memcpy(&guild_id, reply.messages.back().payload.data(), sizeof(guild_id));
     EXPECT_EQ(reply.messages.back().payload[4], 1u);
 
+    mxh::net::Message guild_invite = guild_create;
+    guild_invite.header.protocol = static_cast<std::uint8_t>(mxh::proto::GuildProtocol::AddMemberSyn);
+    guild_invite.payload.resize(8);
+    std::memcpy(guild_invite.payload.data(), &guild_id, sizeof(guild_id));
+    std::memcpy(guild_invite.payload.data() + 4, &target_id, sizeof(target_id));
+    handler.on_message(connection, guild_invite);
+    bool saw_guild_invite = false;
+    for (const auto& message : reply.messages) {
+        saw_guild_invite |= message.header.protocol == static_cast<std::uint8_t>(
+                                mxh::proto::GuildProtocol::AddMemberInvite) &&
+                            message.header.object_id == target_id;
+    }
+    EXPECT_TRUE(saw_guild_invite);
+
+    mxh::net::Message guild_accept;
+    guild_accept.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Guild);
+    guild_accept.header.protocol = static_cast<std::uint8_t>(mxh::proto::GuildProtocol::InviteAccept);
+    guild_accept.header.object_id = target_id;
+    guild_accept.payload.resize(sizeof(guild_id));
+    std::memcpy(guild_accept.payload.data(), &guild_id, sizeof(guild_id));
+    handler.on_message(second_connection, guild_accept);
+    bool saw_guild_join = false;
+    for (const auto& message : reply.messages) {
+        if (message.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::GuildProtocol::InviteAccept) &&
+            message.header.object_id == target_id) {
+            saw_guild_join = true;
+            ASSERT_GE(message.payload.size(), 5u);
+            EXPECT_EQ(message.payload[4], 2u);
+        }
+    }
+    EXPECT_TRUE(saw_guild_join);
+
     handler.on_message(connection, guild_create);
     EXPECT_EQ(reply.messages.back().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::GuildProtocol::CreateNack));
