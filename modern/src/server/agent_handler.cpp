@@ -1639,8 +1639,27 @@ void AgentHandler::handle_legacy_change_map_syn(
         (void)current.client->send(out);
     }
 
-    mxh::net::Message fwd = msg;
+    // A target MapServer accepts the same authoritative GameInSyn entry
+    // contract as initial login. Rebuild that envelope here so the target
+    // map can create the player and emit a normal GameInAck; the original
+    // ChangeMapSyn remains an Agent-side routing command.
+    std::uint32_t user_id = get_user_id(id);
+    std::uint32_t user_level = 0;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        if (const auto it = conn_user_levels_.find(id.value);
+            it != conn_user_levels_.end()) user_level = it->second;
+    }
+    mxh::net::Message fwd;
+    fwd.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    fwd.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
     fwd.header.object_id = char_id;
+    fwd.payload.resize(16, 0);
+    std::memcpy(fwd.payload.data() + 0, &user_id, sizeof(user_id));
+    std::memcpy(fwd.payload.data() + 8, &user_level, sizeof(user_level));
+    std::memcpy(fwd.payload.data() + 12, &target_map, sizeof(target_map));
     if (target.client->send(fwd) != mxh::net::NetError::Ok) {
         mxh::net::Message nack;
         nack.header.category = static_cast<std::uint8_t>(
@@ -1649,7 +1668,18 @@ void AgentHandler::handle_legacy_change_map_syn(
             mxh::proto::UserConnProtocol::ChangeMapNack);
         nack.header.object_id = char_id;
         reply_(id, nack);
+        return;
     }
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapAck);
+    ack.header.object_id = char_id;
+    ack.payload.resize(2, 0);
+    std::memcpy(ack.payload.data(), &target_map, sizeof(target_map));
+    reply_(id, ack);
 }
 
 }  // namespace mxh::server

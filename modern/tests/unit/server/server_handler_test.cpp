@@ -520,9 +520,11 @@ TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn));
     ASSERT_EQ(target_map.sent_msgs.size(), 1u);
     EXPECT_EQ(target_map.sent_msgs.front().header.protocol,
-              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapSyn));
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn));
     EXPECT_EQ(target_map.sent_msgs.front().header.object_id, 450035713u);
-    EXPECT_TRUE(reply.messages.empty());
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck));
 }
 
 TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
