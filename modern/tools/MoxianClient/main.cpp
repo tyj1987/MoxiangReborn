@@ -342,6 +342,8 @@ mxh::client::CMapChange*       g_mapChangeState = nullptr;
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
+struct EffectVisualOverlay;
+EffectVisualOverlay* g_effectVisuals = nullptr;
 std::uint16_t g_uiClickSound = 0xffffu;
 std::uint16_t g_attackSound = 0xffffu;
 std::uint16_t g_skillSound = 0xffffu;
@@ -793,6 +795,119 @@ void drawHudBar(I4DyuchiGXRenderer* r, IDISpriteObject* bg,
     }
 }
 
+// Asset-backed BEFF billboard consumer.  This is deliberately separate from
+// the debug HUD: it only creates a sprite when the decoded BEFF event names a
+// real texture/object asset, and it fails closed when that asset cannot be
+// created.  The authoritative effect clock remains owned by CInGameState.
+struct EffectVisualOverlay {
+    struct Instance {
+        std::string key;
+        std::uint32_t source_id = 0;
+        std::uint32_t target_id = 0;
+        IDISpriteObject* sprite = nullptr;
+        std::string texture_name;
+    };
+    std::vector<Instance> active;
+
+    ~EffectVisualOverlay() { clear(); }
+
+    void clear() noexcept {
+        for (auto& item : active) {
+            if (item.sprite) item.sprite->Release();
+        }
+        active.clear();
+    }
+
+    void consume(const mxh::client::RuntimeEffectEvent& event,
+                 I4DyuchiGXRenderer* renderer) {
+        if (!renderer || event.unit_kind == "SOUND" ||
+            event.texture_name.empty()) return;
+        const std::string key = event.effect_name + ":" +
+            std::to_string(event.source_object_id) + ":" +
+            std::to_string(event.target_object_id) + ":" +
+            std::to_string(event.trigger.trigger.unit) + ":" +
+            event.texture_name;
+        if (event.trigger.trigger.kind == "OFF") {
+            for (auto it = active.begin(); it != active.end(); ++it) {
+                if (it->key == key) {
+                    if (it->sprite) it->sprite->Release();
+                    active.erase(it);
+                    return;
+                }
+            }
+            return;
+        }
+        if (event.trigger.trigger.kind != "ON") return;
+        if (std::find_if(active.begin(), active.end(),
+                         [&key](const Instance& item) { return item.key == key; })
+                != active.end()) return;
+        auto* sprite = renderer->CreateSpriteObject(
+            const_cast<char*>(event.texture_name.c_str()), 0);
+        if (!sprite) {
+            MLOG_WARN("mxh_client: BEFF visual asset unavailable effect=%s texture=%s",
+                      event.effect_name.c_str(), event.texture_name.c_str());
+            return;
+        }
+        if (active.size() >= 128) {
+            if (active.front().sprite) active.front().sprite->Release();
+            active.erase(active.begin());
+        }
+        active.push_back({key, event.source_object_id, event.target_object_id,
+                          sprite, event.texture_name});
+    }
+
+    static bool project(const mxh::gx::MATRIX4& matrix,
+                        float world_x, float world_y, float world_z,
+                        float& screen_x, float& screen_y) noexcept {
+        const float x = world_x * mxh::gx::kEntitySceneScale -
+                        mxh::gx::kEntityMapCenter;
+        const float y = world_y * mxh::gx::kEntitySceneScale;
+        const float z = world_z * mxh::gx::kEntitySceneScale -
+                        mxh::gx::kEntityMapCenter;
+        const float clip_x = x * matrix._11 + y * matrix._21 +
+                             z * matrix._31 + matrix._41;
+        const float clip_y = x * matrix._12 + y * matrix._22 +
+                             z * matrix._32 + matrix._42;
+        const float clip_w = x * matrix._14 + y * matrix._24 +
+                             z * matrix._34 + matrix._44;
+        if (clip_w <= 0.001f) return false;
+        screen_x = (clip_x / clip_w + 1.0f) * 400.0f;
+        screen_y = (1.0f - clip_y / clip_w) * 300.0f;
+        return screen_x >= -128.0f && screen_x <= 928.0f &&
+               screen_y >= -128.0f && screen_y <= 728.0f;
+    }
+
+    void render(const mxh::client::CInGameState& game,
+                const mxh::gx::TerrainScene& terrain,
+                I4DyuchiGXRenderer* renderer) const {
+        if (!renderer) return;
+        renderer->SetScreenSpaceProjection();
+        for (const auto& item : active) {
+            float x = 0.0f, y = 0.0f;
+            bool found = false;
+            const auto& info = game.game_info();
+            if (item.target_id == info.player_id || item.source_id == info.player_id) {
+                found = project(terrain.viewProj(), info.position_x,
+                                terrain.heightAt(info.position_x, info.position_z) + 120.0f,
+                                info.position_z, x, y);
+            }
+            if (!found) {
+                for (const auto& monster : game.monsters()) {
+                    if (monster.object_id != item.target_id &&
+                        monster.object_id != item.source_id) continue;
+                    found = project(terrain.viewProj(), monster.position_x,
+                                    terrain.heightAt(monster.position_x, monster.position_z) + 120.0f,
+                                    monster.position_z, x, y);
+                    break;
+                }
+            }
+            if (!found) continue;
+            drawSpriteQuad(renderer, item.sprite, x - 32.0f, y - 64.0f,
+                           64.0f, 64.0f, 0xD0FFFFFFu);
+        }
+    }
+};
+
 struct DisplayTransitionResult {
     bool committed = false;
     DWORD win32_error = ERROR_SUCCESS;
@@ -920,6 +1035,9 @@ void renderFrame(HWND h) {
             // Gribb-Hartmann plane extraction.
             g_entityScene->setCameraFrustum(mxh::gx::Frustum(g_terrain->viewProj()));
             g_entityScene->render();
+        }
+        if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
+            g_effectVisuals->render(*g_inputTarget, *g_terrain, g_renderer);
         }
 
         // GameIn UI is the original InterfaceScript tree.  The old geometric
@@ -2088,6 +2206,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // Process() call after SetGameState), so we track the previous
     // state number and drive Start() on the rising edge.
     auto prev_state = mxh::client::GameStateId::End;
+    EffectVisualOverlay effectVisuals;
+    g_effectVisuals = &effectVisuals;
     std::uint32_t pending_character_id = 0;
     std::uint16_t pending_map_num = 0;
     std::string pending_loading_error;
@@ -2385,6 +2505,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(cur_state)); game_in && game_in->is_in_game()) {
                     for (const auto& effect : game_in->drain_runtime_effect_events()) {
+                        if (g_effectVisuals) {
+                            g_effectVisuals->consume(effect, renderer);
+                        }
                         if (effect.sound_id > 0xffffu || !sfx.ready() ||
                             effect.unit_kind != "SOUND") {
                             continue;
