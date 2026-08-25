@@ -2625,6 +2625,55 @@ TEST(MapHandlerTest, UseAckReadsHpDeltaFromLoadedItemListBin) {
     EXPECT_EQ(hp_delta, 999);
 }
 
+TEST(MapHandlerTest, UseSynConsumesItemAndAdvancesUseItemQuest) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+
+    const auto item_path = write_temp_bin(synthesize_itemlist_bin(build_test_row_56(1u, 999u)));
+    handler.load_item_list(item_path.string());
+    std::error_code ec;
+    std::filesystem::remove(item_path, ec);
+
+    const auto quest_path = write_temp_bin(synthesize_dealitem_bin(
+        "$QUEST 88 { $SUBQUEST 0 { #TRIGGER @USEITEM 1 1 *ENDQUEST 0 } }"));
+    handler.load_quest_script(quest_path.string());
+    std::filesystem::remove(quest_path, ec);
+
+    mxh::net::Message start;
+    start.header.object_id = 123u;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t quest_id = 88u;
+    std::memcpy(start.payload.data(), &quest_id, sizeof(quest_id));
+    handler.on_message(connection, start);
+    ASSERT_EQ(handler.player_quest_count_for_test(123u), 1u);
+    ASSERT_TRUE(handler.add_player_item_for_test(123u, mxh::game::make_item(9002u, 1u, 0u)));
+
+    mxh::net::Message use;
+    use.header.object_id = 123u;
+    use.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    use.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseSyn);
+    use.payload.resize(2);
+    const std::uint16_t slot = 0u;
+    std::memcpy(use.payload.data(), &slot, sizeof(slot));
+    handler.on_message(connection, use);
+
+    const auto progress = handler.quest_progress_for_test(123u, quest_id);
+    ASSERT_TRUE(progress.has_value());
+    ASSERT_EQ(progress->subs.size(), 1u);
+    EXPECT_EQ(progress->subs[0].count, 1u);
+    EXPECT_EQ(progress->state, mxh::server::QuestState::Complete);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+}
+
 
 // D1.3 call-site: synthesize a valid SkillList.bin row (1:1 with the 150-token
 // legacy SKILLINFO layout).  Returns a tab-separated string.
