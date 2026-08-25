@@ -8,7 +8,8 @@ param(
     [switch]$FollowCamera,
     [switch]$AuditMapDependencies,
     [switch]$AuditNpcDependencies,
-    [switch]$ExerciseInventory
+    [switch]$ExerciseInventory,
+    [switch]$ExerciseSkills
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,6 +34,7 @@ $previousGuiSmokePassword = $env:MXH_GUI_SMOKE_PASSWORD
 $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
 $previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 $previousGuiSmokeOpenInventory = $env:MXH_GUI_SMOKE_OPEN_INVENTORY
+$previousGuiSmokeSkills = $env:MXH_GUI_SMOKE_SKILLS
 
 try {
     if ($AuditMapDependencies) {
@@ -68,6 +70,14 @@ try {
         & $dbTool exec --db $dbConfig $grantSql
         if ($LASTEXITCODE -ne 0) { throw "GUI smoke inventory grant setup failed" }
     }
+    if ($ExerciseSkills) {
+        $skillSchemaSql = "CREATE TABLE IF NOT EXISTS modern_player_skill(player_id INTEGER NOT NULL,slot INTEGER NOT NULL,skill_idx INTEGER NOT NULL,level INTEGER NOT NULL DEFAULT 1,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(player_id,slot))"
+        & $dbTool exec --db $dbConfig $skillSchemaSql
+        if ($LASTEXITCODE -ne 0) { throw "GUI smoke skill schema setup failed" }
+        $skillSql = "INSERT INTO modern_player_skill(player_id,slot,skill_idx,level)VALUES(100000,0,10,1)"
+        & $dbTool exec --db $dbConfig $skillSql
+        if ($LASTEXITCODE -ne 0) { throw "GUI smoke skill setup failed" }
+    }
     $arguments = @(
         '--login-host', '127.0.0.1',
         '--login-port', '16001',
@@ -87,6 +97,7 @@ try {
     $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
     $env:MXH_GUI_SMOKE_EXIT = '1'
     if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
+    if ($ExerciseSkills) { $env:MXH_GUI_SMOKE_SKILLS = '1' }
     if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
@@ -152,6 +163,9 @@ try {
     }
     if ($ExerciseInventory -and $log -notmatch 'GUI_SMOKE_INVENTORY_OPEN') {
         throw "GUI smoke inventory exercise did not open the live inventory UI; log=$stderr"
+    }
+    if ($ExerciseSkills -and $log -notmatch 'GUI_SMOKE_SKILLS=10') {
+        throw "GUI smoke skill exercise did not receive persisted skill 10; log=$stderr"
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
@@ -227,6 +241,9 @@ finally {
     } else {
         $env:MXH_GUI_SMOKE_OPEN_INVENTORY = $previousGuiSmokeOpenInventory
     }
+    if ($null -eq $previousGuiSmokeSkills) {
+        Remove-Item Env:MXH_GUI_SMOKE_SKILLS -ErrorAction SilentlyContinue
+    } else { $env:MXH_GUI_SMOKE_SKILLS = $previousGuiSmokeSkills }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }

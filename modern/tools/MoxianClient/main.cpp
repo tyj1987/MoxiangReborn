@@ -2855,6 +2855,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool loading_failure_latched = false;
     bool follow_frame_captured = false;
     bool smoke_inventory_opened = false;
+    bool smoke_skill_logged = false;
     unsigned smoke_inventory_settle_frames = 0;
     unsigned follow_settle_frames = 0;
     MSG msg{};
@@ -2928,6 +2929,27 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                               smoke_inventory_opened ? "true" : "false");
                     MLOG_INFO("mxh_client: GUI_SMOKE_INVENTORY_ITEMS=%zu first_item=%u",
                               occupied_slots, static_cast<unsigned>(first_item_icon));
+                    if (std::getenv("MXH_GUI_SMOKE_SKILLS") != nullptr) {
+                        MLOG_INFO("mxh_client: GUI_SMOKE_SKILLS=%u,%u,%u,%u",
+                                  static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 0)),
+                                  static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 1)),
+                                  static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 2)),
+                                  static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 3)));
+                    }
+                }
+            }
+            if (!smoke_skill_logged &&
+                std::getenv("MXH_GUI_SMOKE_SKILLS") != nullptr &&
+                mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
+                if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
+                        mainGame.GetGameState(mxh::client::GameStateId::GameIn));
+                    smoke_game && smoke_game->is_in_game()) {
+                    MLOG_INFO("mxh_client: GUI_SMOKE_SKILLS=%u,%u,%u,%u",
+                              static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 0)),
+                              static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 1)),
+                              static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 2)),
+                              static_cast<unsigned>(quick_skill_for_slot(smoke_game->game_info(), 3)));
+                    smoke_skill_logged = true;
                 }
             }
             if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
