@@ -387,6 +387,30 @@ TEST(AgentHandlerTest, ForwardFromMapWithMockSenderNoRoute) {
     EXPECT_EQ(reply.call_count.load(), 0);
 }
 
+TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
+    handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 12u);
+
+    for (const auto category : {mxh::proto::Category::Party,
+                                mxh::proto::Category::Guild}) {
+        mxh::net::Message msg;
+        msg.header.category = static_cast<std::uint8_t>(category);
+        msg.header.protocol = 0; // Info
+        msg.header.object_id = 456u;
+        msg.payload = {0x2a, 0x00, 0x00, 0x00, 0x01};
+        handler.forward_from_map(mxh::net::make_connection_id(77), msg);
+        ASSERT_EQ(reply.last_id.value, 101u);
+        EXPECT_EQ(reply.last_message.header.category,
+                  static_cast<std::uint8_t>(category));
+        EXPECT_EQ(reply.last_message.header.object_id, 456u);
+        EXPECT_EQ(reply.last_message.payload.size(), 5u);
+    }
+    EXPECT_EQ(reply.call_count.load(), 2);
+}
+
 TEST(AgentHandlerTest, SetMapServerAcceptsITcpSender) {
     // Phase 12.1 P2-13: set_map_server now takes ITcpSender* (was
     // TcpClient*). A MockTcpSender must be accepted without conversion
