@@ -1393,6 +1393,40 @@ void renderFrame(HWND h) {
                     }), g_damageFeedback.end());
         }
 
+        // Ground drops are live world objects, not a log-only event.  Use the
+        // original ItemList name and the same camera projection as entity
+        // labels so the player can see and click the item before picking it
+        // up.  There is deliberately no synthetic icon or coloured quad
+        // fallback: an unknown item is shown by its authoritative numeric ID.
+        if (g_inputTarget && g_inputTarget->is_in_game() && g_hudFont &&
+            g_entityScene) {
+            for (const auto& drop : g_inputTarget->ground_drops()) {
+                float sx = 0.0f, sy = 0.0f;
+                if (!EffectVisualOverlay::project(
+                        g_terrain->viewProj(), drop.position_x,
+                        g_terrain->heightAt(drop.position_x, drop.position_z) +
+                            100.0f,
+                        drop.position_z, sx, sy)) {
+                    continue;
+                }
+                auto name = g_entityScene->itemDisplayName(drop.item_id);
+                if (name.empty()) {
+                    name = "Item#" + std::to_string(drop.item_id);
+                }
+                if (drop.count > 1) {
+                    name += " x" + std::to_string(drop.count);
+                }
+                RECT rc{static_cast<LONG>(sx - 90.0f),
+                        static_cast<LONG>(sy - 18.0f),
+                        static_cast<LONG>(sx + 90.0f),
+                        static_cast<LONG>(sy + 4.0f)};
+                g_renderer->RenderFont(
+                    g_hudFont, name.data(),
+                    static_cast<std::uint32_t>(name.size()), &rc,
+                    0xFFFFE080u, CHAR_CODE_TYPE_ASCII, 1, 0);
+            }
+        }
+
         // GameIn UI is the original InterfaceScript tree.  The old geometric
         // placeholder HUD remains available only with --debug-ui-bounds.
         if (g_inputTarget && g_inputTarget->is_in_game()) {

@@ -148,6 +148,10 @@ public:
     [[nodiscard]] std::uint32_t unresolvedTextureCount() const noexcept;
     [[nodiscard]] std::uint32_t placeholderCount() const noexcept;
     [[nodiscard]] std::span<const PlaceholderVisual> placeholders() const noexcept;
+    // Resolve the original ItemList display name for world-drop labels.
+    // Empty means the profile has no matching item entry; callers must then
+    // show an explicit numeric fallback rather than inventing a name.
+    [[nodiscard]] std::string itemDisplayName(std::uint16_t item_id) const;
 
 private:
     struct Impl;
