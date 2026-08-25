@@ -34,6 +34,7 @@
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <chrono>
 #include <vector>
 
 #include <windows.h>
@@ -813,6 +814,9 @@ struct EffectVisualOverlay {
         bool light = false;
         std::size_t motion_index = 0;
         bool has_motion_index = false;
+        std::array<float, 3> move_offset{};
+        std::uint64_t move_start_ms = 0;
+        std::uint32_t move_duration_ms = 0;
     };
     std::vector<Instance> active;
 
@@ -837,6 +841,23 @@ struct EffectVisualOverlay {
                     !item.chx_name.empty()) {
                     item.motion_index = event.motion_index;
                     item.has_motion_index = true;
+                }
+            }
+            return;
+        }
+        if (event.unit_kind == "MOVE") {
+            for (auto& item : active) {
+                if (item.source_id != event.source_object_id ||
+                    item.target_id != event.target_object_id ||
+                    item.chx_name.empty()) continue;
+                if (event.trigger.trigger.kind == "OFF") {
+                    item.move_offset = {};
+                    item.move_start_ms = 0;
+                    item.move_duration_ms = 0;
+                } else if (event.trigger.trigger.kind == "ON") {
+                    item.move_offset = event.position;
+                    item.move_start_ms = event.trigger.due_ms;
+                    item.move_duration_ms = event.duration_ms;
                 }
             }
             return;
@@ -868,7 +889,8 @@ struct EffectVisualOverlay {
             if (light) {
                 active.push_back({key, event.source_object_id, event.target_object_id,
                                   nullptr, {}, {}, event.position, event.radius,
-                                  event.color_index, true});
+                                  event.color_index, true, 0u, false,
+                                  {}, 0u, 0u});
                 return;
             }
             sprite = renderer->CreateSpriteObject(
@@ -887,7 +909,7 @@ struct EffectVisualOverlay {
                           sprite, event.texture_name,
                           mesh ? event.object_name : std::string{},
                           event.position, event.radius, event.color_index, false,
-                          0u, false});
+                          0u, false, {}, 0u, 0u});
     }
 
     void synchronizeLights(const mxh::client::CInGameState& game,
@@ -941,6 +963,9 @@ struct EffectVisualOverlay {
                            const mxh::gx::TerrainScene& terrain,
                            mxh::gx::EntityScene* scene) const {
         if (!scene) return;
+        const auto now = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count());
         std::vector<mxh::gx::EffectObject> objects;
         const auto& info = game.game_info();
         for (const auto& item : active) {
@@ -956,18 +981,29 @@ struct EffectVisualOverlay {
                 object.world_x = info.position_x;
                 object.world_z = info.position_z;
                 object.world_y = terrain.heightAt(info.position_x, info.position_z);
-                objects.push_back(std::move(object));
-                continue;
+            } else {
+                bool found = false;
+                for (const auto& monster : game.monsters()) {
+                    if (monster.object_id != item.target_id &&
+                        monster.object_id != item.source_id) continue;
+                    object.world_x = monster.position_x;
+                    object.world_z = monster.position_z;
+                    object.world_y = terrain.heightAt(monster.position_x, monster.position_z);
+                    found = true;
+                    break;
+                }
+                if (!found) continue;
             }
-            for (const auto& monster : game.monsters()) {
-                if (monster.object_id != item.target_id &&
-                    monster.object_id != item.source_id) continue;
-                object.world_x = monster.position_x;
-                object.world_z = monster.position_z;
-                object.world_y = terrain.heightAt(monster.position_x, monster.position_z);
-                objects.push_back(std::move(object));
-                break;
+            float progress = 1.0f;
+            if (item.move_duration_ms != 0u && now >= item.move_start_ms) {
+                progress = std::clamp(
+                    static_cast<float>(now - item.move_start_ms) /
+                        static_cast<float>(item.move_duration_ms), 0.0f, 1.0f);
             }
+            object.world_x += item.move_offset[0] * progress;
+            object.world_y += item.move_offset[1] * progress;
+            object.world_z += item.move_offset[2] * progress;
+            objects.push_back(std::move(object));
         }
         scene->synchronizeEffects(objects);
     }
