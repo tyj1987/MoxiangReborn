@@ -512,6 +512,7 @@ public:
     std::vector<GroundDropInfo> m_groundDrops;
     std::uint32_t            m_lastAttackTarget = 0;
     std::uint32_t            m_pendingAttackTarget = 0;
+    std::uint32_t            m_pendingSkillId = 0;
     std::vector<NpcInfo> m_npcs;
     std::unordered_map<std::uint32_t, RemotePlayerInfo> m_remotePlayers;
     bool                     m_started    = false;

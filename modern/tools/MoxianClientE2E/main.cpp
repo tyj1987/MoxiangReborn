@@ -973,6 +973,7 @@ int run_e2e(const CliArgs& cli) {
             LOG("[5/5] Skills: exercising quick-slot skill/effect path ...");
             std::size_t casts = 0;
             std::size_t life_changes = 0;
+            std::size_t runtime_effect_events = 0;
             std::unordered_map<std::uint32_t, std::uint32_t> skill_life;
             for (const auto& monster : game.monsters()) {
                 if (monster.current_life != 0) skill_life.emplace(
@@ -1006,6 +1007,7 @@ int run_e2e(const CliArgs& cli) {
                         if (event.kind == mxh::client::EffectEventKind::CastStart)
                             ++casts;
                     }
+                    runtime_effect_events += game.drain_runtime_effect_events().size();
                     for (const auto& monster : game.monsters()) {
                         const auto it = skill_life.find(monster.object_id);
                         if (it != skill_life.end() && monster.current_life < it->second) {
@@ -1016,13 +1018,13 @@ int run_e2e(const CliArgs& cli) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
             }
-            if (casts == 0 || life_changes == 0) {
-                LOG("[5/5] FAIL: skill gate casts=%zu life_changes=%zu",
-                    casts, life_changes);
+            if (casts == 0 || life_changes == 0 || runtime_effect_events == 0) {
+                LOG("[5/5] FAIL: skill gate casts=%zu life_changes=%zu runtime_effect_events=%zu",
+                    casts, life_changes, runtime_effect_events);
                 return 2;
             }
-            LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu",
-                casts, life_changes);
+            LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu runtime_effect_events=%zu",
+                casts, life_changes, runtime_effect_events);
         }
     }
     // Clean shutdown — release states and the persistent AgentSession, then

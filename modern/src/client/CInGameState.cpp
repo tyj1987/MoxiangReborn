@@ -608,6 +608,7 @@ void CInGameState::Release() {
     m_started  = false;
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
+    m_pendingSkillId = 0;
     m_failed   = false;
     m_failureReason.clear();
     m_uiRuntime.clear();
@@ -1195,6 +1196,10 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 const auto hit = msg.payload[8];
                 const auto source_object = msg.header.object_id != 0
                     ? msg.header.object_id : m_playerId;
+                if (m_pendingSkillId != 0) {
+                    start_skill_effect(m_pendingSkillId, target, m_lastTickMs,
+                                       source_object);
+                }
                 push_effect_event(EffectEvent{
                     EffectEventKind::Hit, m_lastTickMs, source_object, target,
                     0, 0, 0, damage, hit});
@@ -1837,6 +1842,7 @@ void CInGameState::try_attack() {
         MLOG_DEBUG("CInGameState: attack send failed: %s",
                    mxh::net::to_string(e));
     } else {
+        m_pendingSkillId = 1u;
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
@@ -1951,6 +1957,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
     const auto e = m_pEngine->agent_session().send(
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
+        m_pendingSkillId = skill;
         m_lastAttackMs = now;
         push_effect_event(EffectEvent{
             EffectEventKind::CastStart, now, m_playerId, target,
