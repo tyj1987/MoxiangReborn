@@ -6,7 +6,8 @@ param(
     [int]$MapNumber = 10,
     [int]$MinimumNpcCount = 0,
     [switch]$FollowCamera,
-    [switch]$AuditMapDependencies
+    [switch]$AuditMapDependencies,
+    [switch]$AuditNpcDependencies
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,6 +94,35 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
+    if ($AuditNpcDependencies) {
+        $explorer = Join-Path $buildRoot 'tools\MoxianResourceExplorer\mxh_explorer.exe'
+        if (-not (Test-Path -LiteralPath $explorer -PathType Leaf)) {
+            throw "Missing resource explorer required for NPC dependency gate: $explorer"
+        }
+        $catalogLines = & $explorer npc-chx (Join-Path $repoRoot 'modern\data\PlayDH\Resource\Client\NpcChxList.bin')
+        $catalog = @{}
+        foreach ($line in $catalogLines) {
+            if ($line -match '^([0-9]+)\s+(.+)$') { $catalog[[int]$Matches[1]] = $Matches[2].Trim() }
+        }
+        $packLines = & $explorer list (Join-Path $repoRoot 'modern\data\PlayDH\npc.pak')
+        $packNames = @($packLines | ForEach-Object {
+            if ($_ -match '^\s*[0-9]+\s+(.+)$') { $Matches[1].Trim() }
+        })
+        $missingNpcAssets = @{}
+        foreach ($match in [regex]::Matches($log, 'NpcAdd id=\d+ kind=(\d+)')) {
+            $kind = [int]$match.Groups[1].Value
+            if (-not $catalog.ContainsKey($kind)) {
+                $missingNpcAssets["kind=$kind"] = 'catalog-entry-missing'
+                continue
+            }
+            $asset = [string]$catalog[$kind]
+            if (-not ($packNames -contains $asset)) { $missingNpcAssets["kind=$kind"] = $asset }
+        }
+        if ($missingNpcAssets.Count -gt 0) {
+            $details = ($missingNpcAssets.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) -join ', '
+            throw "GUI smoke NPC dependency gate failed for Map ${MapNumber}: $details; log=$stderr"
+        }
+    }
     if ($log -match 'GameLoading: Unable to enter Map \d+: (.+)') {
         throw "GUI smoke map load failed: $($Matches[1]); log=$stderr"
     }
