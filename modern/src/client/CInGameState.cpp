@@ -639,7 +639,7 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
     }
     {
         std::string effect_error;
-        if (!m_effectCatalog.load(*m_pEngine->playdh_root(), &effect_error)) {
+        if (!m_effectRuntime.load(*m_pEngine->playdh_root(), &effect_error)) {
             // Effect assets are presentation dependencies.  Keep the
             // authoritative network/gameplay path alive, but make the
             // missing catalog explicit instead of silently falling back to
@@ -648,11 +648,11 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
                       effect_error.c_str());
         } else {
             MLOG_INFO("CInGameState effect catalog: assets=%zu beff=%zu befl=%zu packed=%zu loose=%zu",
-                      m_effectCatalog.assets().size(),
-                      m_effectCatalog.beff_count(),
-                      m_effectCatalog.befl_count(),
-                      m_effectCatalog.packed_count(),
-                      m_effectCatalog.loose_count());
+                      m_effectRuntime.catalog().assets().size(),
+                      m_effectRuntime.catalog().beff_count(),
+                      m_effectRuntime.catalog().befl_count(),
+                      m_effectRuntime.catalog().packed_count(),
+                      m_effectRuntime.catalog().loose_count());
         }
     }
     if (m_uiRuntime.empty()) {
