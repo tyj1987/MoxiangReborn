@@ -1528,6 +1528,15 @@ void CInGameState::set_chat_open(bool open) noexcept {
     if (!open) m_uiRuntime.setDialogActive(kChatDialogId, false);
 }
 
+bool CInGameState::select_quest_index(std::size_t index) noexcept {
+    if (index >= m_mainQuests.size() || m_mainQuests[index] == nullptr) {
+        return false;
+    }
+    m_questSelection = index;
+    m_questId = m_mainQuests[index]->quest_id;
+    return true;
+}
+
 bool CInGameState::handle_ui_activation(
     const ClientUiActivation& activation) {
     // CI_BESTTIP is the original character-information button in the HUD.
@@ -1536,6 +1545,14 @@ bool CInGameState::handle_ui_activation(
     if (activation.legacy_id == "CI_BESTTIP") {
         set_character_open(!m_characterOpen);
         return true;
+    }
+    if (activation.legacy_id.rfind("QUE_PAGE", 0) == 0 &&
+        activation.legacy_id.size() == 12 &&
+        activation.legacy_id[8] >= '1' &&
+        activation.legacy_id[8] <= '5') {
+        const auto page = static_cast<std::size_t>(
+            activation.legacy_id[8] - '1');
+        return select_quest_index(page);
     }
     if (activation.legacy_id != "CMI_CLOSEBTN") return false;
     if (activation.dialog_legacy_id == kInventoryDialogId) {
@@ -1631,12 +1648,12 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         }
         if (m_questOpen && !m_mainQuests.empty() && (vk == 0x26 || vk == 0x28)) {
             if (vk == 0x26) {
-                m_questSelection = m_questSelection == 0
-                    ? m_mainQuests.size() - 1 : m_questSelection - 1;
+            m_questSelection = m_questSelection == 0
+                ? m_mainQuests.size() - 1 : m_questSelection - 1;
             } else {
                 m_questSelection = (m_questSelection + 1) % m_mainQuests.size();
             }
-            m_questId = m_mainQuests[m_questSelection]->quest_id;
+            (void)select_quest_index(m_questSelection);
             m_questStatus = "Not accepted";
             return;
         }

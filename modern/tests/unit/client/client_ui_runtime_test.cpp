@@ -306,6 +306,27 @@ TEST(InGameUiRuntime, EnterAndEscapeOwnRealChatDialog) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("CTI_DLG"));
 }
 
+TEST(InGameUiRuntime, QuestPageButtonsSelectLiveQuestEntry) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto catalog = mxh::compat::parse_quest_string_text(
+        "$SUBQUESTSTR 10 0\n{\n#TITLE One\n}\n"
+        "$SUBQUESTSTR 20 0\n{\n#TITLE Two\n}\n"
+        "$SUBQUESTSTR 30 0\n{\n#TITLE Three\n}\n");
+    state.set_quest_catalog(std::move(catalog));
+
+    mxh::client::ClientUiActivation page;
+    page.legacy_id = "QUE_PAGE2BTN";
+    EXPECT_TRUE(state.handle_ui_activation(page));
+    ASSERT_NE(state.selected_quest(), nullptr);
+    EXPECT_EQ(state.selected_quest()->quest_id, 20u);
+    EXPECT_EQ(state.quest_id(), 20u);
+
+    page.legacy_id = "QUE_PAGE5BTN";
+    EXPECT_FALSE(state.handle_ui_activation(page));
+    EXPECT_EQ(state.quest_id(), 20u);
+}
+
 TEST(InGameUiRuntime, MainBarButtonConsumesClickInActiveDialog) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
