@@ -35,6 +35,7 @@
 //                  [--map-number N]
 //                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
 //                  [--exercise-shop]    # Live NPC shop catalog/buy gate
+//                  [--exercise-quest]   # Live QuestScript accept/claim gate
 //                  [--no-spawn]  # assume servers are already running
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
@@ -78,6 +79,7 @@
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
+#include "mxh/compat/quest_string_catalog.hpp"
 
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/mssql_odbc_adapter.hpp"
@@ -134,6 +136,7 @@ struct CliArgs {
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool exercise_combat = false; // opt-in live combat gate; never implicit
     bool exercise_shop = false; // opt-in live NPC shop catalog/buy gate
+    bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool exercise_mapchange = false; // opt-in cross-map route/load gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
@@ -217,6 +220,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--exercise-combat") a.exercise_combat = true;
         else if (s == "--exercise-shop") a.exercise_shop = true;
+        else if (s == "--exercise-quest") a.exercise_quest = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
         else if (s == "--init-schema") a.init_schema = true;
@@ -427,6 +431,11 @@ int run_e2e(const CliArgs& cli) {
         LOG("WSAStartup failed (err=%d)", rc);
         return 1;
     }
+    const auto e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+    if (e2e_playdh_root.empty()) {
+        LOG("unable to locate canonical PlayDH root for MapServer");
+        return 3;
+    }
 
     // ---- spawn servers (unless --no-spawn) ----
     std::vector<std::unique_ptr<ServerProc>> procs;
@@ -475,11 +484,6 @@ int run_e2e(const CliArgs& cli) {
 
         const std::string backend_flag =
             cli.db_backend == "mssql_odbc" ? "mssql_odbc" : "sqlite";
-        const auto e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
-        if (e2e_playdh_root.empty()) {
-            LOG("unable to locate canonical PlayDH root for MapServer");
-            return 3;
-        }
         // LoginServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "login";
@@ -865,6 +869,50 @@ int run_e2e(const CliArgs& cli) {
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
+
+        if (cli.exercise_quest) {
+            const auto quest_path = e2e_playdh_root / "Resource" / "QuestScript" / "QuestString.bin";
+            auto quest_catalog = mxh::compat::load_quest_string_catalog(quest_path);
+            game.set_quest_catalog(std::move(quest_catalog));
+            const auto* selected = game.selected_quest();
+            if (selected == nullptr || selected->quest_id == 0u) {
+                LOG("[5/5] FAIL: canonical quest catalog has no selectable main quest");
+                return 2;
+            }
+            game.set_quest_open(true);
+            LOG("[5/5] Quest: accepting canonical quest=%u ...",
+                static_cast<unsigned>(game.quest_id()));
+            game.send_quest(mxh::proto::QuestProtocol::StartSyn);
+            const auto quest_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(cli.timeout_s);
+            while (game.quest_status() != "Active - hunt monsters" &&
+                   std::chrono::steady_clock::now() < quest_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.quest_status() != "Active - hunt monsters") {
+                LOG("[5/5] FAIL: Quest StartAck status='%s' quest=%u",
+                    game.quest_status().c_str(), static_cast<unsigned>(game.quest_id()));
+                return 2;
+            }
+            LOG("[5/5] OK: Quest StartAck quest=%u status=%s",
+                static_cast<unsigned>(game.quest_id()), game.quest_status().c_str());
+            game.send_quest(mxh::proto::QuestProtocol::EndSyn);
+            const auto end_deadline = std::chrono::steady_clock::now() +
+                                      std::chrono::seconds(cli.timeout_s);
+            while (game.quest_status() != "Not complete" &&
+                   std::chrono::steady_clock::now() < end_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.quest_status() != "Not complete") {
+                LOG("[5/5] FAIL: incomplete Quest EndNack status='%s'",
+                    game.quest_status().c_str());
+                return 2;
+            }
+            LOG("[5/5] OK: incomplete Quest EndNack recovery quest=%u",
+                static_cast<unsigned>(game.quest_id()));
+        }
 
         if (cli.exercise_shop) {
             // npc_id=0 is an explicit server-side catalog resolution path;
