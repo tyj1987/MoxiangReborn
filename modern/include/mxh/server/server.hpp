@@ -209,6 +209,7 @@ private:
     };
     MapRoute route_for_connection(mxh::net::ConnectionId id) const;
     MapRoute route_for_map(std::uint16_t map_num) const;
+    MapRoute route_for_map_exact(std::uint16_t map_num) const;
 
 
     mxh::db::IDbAdapter& db_;

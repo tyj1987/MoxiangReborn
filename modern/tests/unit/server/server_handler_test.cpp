@@ -527,6 +527,35 @@ TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck));
 }
 
+TEST(AgentHandlerTest, ChangeMapWithoutTargetRouteReturnsNackAndKeepsCurrentMap) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true,
+                                      false, {}, /*default_map_num=*/12);
+    const auto connection = mxh::net::make_connection_id(1102);
+    handler.register_session(connection, 3001u, 450035714u, 7u);
+
+    MockTcpSender current_map;
+    handler.set_map_server(&current_map, mxh::net::make_connection_id(7));
+
+    mxh::net::Message change;
+    change.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    change.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapSyn);
+    change.header.object_id = 450035714u;
+    change.payload.resize(4, 0);
+    const std::uint16_t unavailable_map = 99u;
+    std::memcpy(change.payload.data(), &unavailable_map,
+                sizeof(unavailable_map));
+    handler.on_message(connection, change);
+
+    EXPECT_TRUE(current_map.sent_msgs.empty());
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapNack));
+}
+
 TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
     MockDbAdapter db;
     ReplySpy reply;

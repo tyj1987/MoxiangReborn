@@ -628,6 +628,15 @@ AgentHandler::MapRoute AgentHandler::route_for_map(
     return MapRoute{map_client_, map_conn_id_};
 }
 
+AgentHandler::MapRoute AgentHandler::route_for_map_exact(
+    std::uint16_t map_num) const {
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    if (const auto it = map_routes_.find(map_num); it != map_routes_.end()) {
+        return it->second;
+    }
+    return {};
+}
+
 mxh::net::ConnectionId AgentHandler::get_map_connection() const {
     return map_conn_id_;
 }
@@ -1610,7 +1619,10 @@ void AgentHandler::handle_legacy_change_map_syn(
     // form route to the same endpoint without changing the wire payload.
     std::uint16_t target_map = 0;
     std::memcpy(&target_map, msg.payload.data(), sizeof(target_map));
-    const auto target = route_for_map(target_map);
+    // A requested destination must be explicitly configured. Falling back to
+    // the default map would acknowledge a transfer while leaving the player
+    // on the wrong world server.
+    const auto target = route_for_map_exact(target_map);
     if (!target.client || !target.client->is_connected()) {
         mxh::net::Message nack;
         nack.header.category = static_cast<std::uint8_t>(
