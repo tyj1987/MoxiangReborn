@@ -536,6 +536,17 @@ int run_e2e(const CliArgs& cli) {
 
     // ---- CEngine + state machine ----
     mxh::client::CEngine engine;
+    std::size_t audio_skill_cues = 0;
+    std::size_t audio_attack_cues = 0;
+    engine.SetAudioEventFn([&](mxh::client::CEngine::AudioCue cue) {
+        if (cue == mxh::client::CEngine::AudioCue::Skill) ++audio_skill_cues;
+        if (cue == mxh::client::CEngine::AudioCue::Attack) ++audio_attack_cues;
+    });
+    engine.SetSpatialAudioEventFn(
+        [&](mxh::client::CEngine::AudioCue cue, float) {
+            if (cue == mxh::client::CEngine::AudioCue::Skill) ++audio_skill_cues;
+            if (cue == mxh::client::CEngine::AudioCue::Attack) ++audio_attack_cues;
+        });
     // CEngine will accept state-change requests without a CMainGame
     // callback; we don't actually drive state transitions in this
     // headless flow (each state is started in sequence directly).
@@ -1018,13 +1029,14 @@ int run_e2e(const CliArgs& cli) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
             }
-            if (casts == 0 || life_changes == 0 || runtime_effect_events == 0) {
-                LOG("[5/5] FAIL: skill gate casts=%zu life_changes=%zu runtime_effect_events=%zu",
-                    casts, life_changes, runtime_effect_events);
+            if (casts == 0 || life_changes == 0 || runtime_effect_events == 0 ||
+                audio_skill_cues == 0) {
+                LOG("[5/5] FAIL: skill gate casts=%zu life_changes=%zu runtime_effect_events=%zu audio_skill_cues=%zu",
+                    casts, life_changes, runtime_effect_events, audio_skill_cues);
                 return 2;
             }
-            LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu runtime_effect_events=%zu",
-                casts, life_changes, runtime_effect_events);
+            LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu runtime_effect_events=%zu audio_skill_cues=%zu",
+                casts, life_changes, runtime_effect_events, audio_skill_cues);
         }
     }
     // Clean shutdown — release states and the persistent AgentSession, then
