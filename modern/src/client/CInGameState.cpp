@@ -5,6 +5,8 @@
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 #include "cinventoryexdialog.hpp"
+#include "mxh/ui/ccharacterdialog.hpp"
+#include "mxh/ui/cmpguagedialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -74,6 +76,35 @@ std::uint64_t steady_now_ms() {
             std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 } // namespace
+
+class GameInPlayerStatsService final : public mxh::services::IPlayerStatsService {
+public:
+    explicit GameInPlayerStatsService(const GameInInfo* info) noexcept : m_info(info) {}
+    std::uint16_t getStr() const noexcept override { return 0; }
+    std::uint16_t getAgi() const noexcept override { return 0; }
+    std::uint16_t getInt() const noexcept override { return 0; }
+    std::uint16_t getWis() const noexcept override { return 0; }
+    std::uint16_t getDex() const noexcept override { return 0; }
+    std::uint16_t getLevel() const noexcept override { return m_info ? m_info->level : 0; }
+    std::uint32_t getLevelExp() const noexcept override { return m_info ? m_info->exp : 0; }
+    std::uint32_t getExpForNextLevel() const noexcept override {
+        return m_info ? 100u * static_cast<std::uint32_t>(m_info->level) : 0;
+    }
+    std::uint32_t getCurrentHp() const noexcept override { return m_info ? m_info->life : 0; }
+    std::uint32_t getMaxHp() const noexcept override { return m_info ? m_info->max_life : 0; }
+    std::uint32_t getCurrentMp() const noexcept override { return m_info ? m_info->mp : 0; }
+    std::uint32_t getMaxMp() const noexcept override { return m_info ? m_info->max_mp : 0; }
+    float getHpFraction() const noexcept override {
+        return !m_info || m_info->max_life == 0 ? 0.0f
+            : static_cast<float>(m_info->life) / static_cast<float>(m_info->max_life);
+    }
+    float getMpFraction() const noexcept override {
+        return !m_info || m_info->max_mp == 0 ? 0.0f
+            : static_cast<float>(m_info->mp) / static_cast<float>(m_info->max_mp);
+    }
+private:
+    const GameInInfo* m_info = nullptr;
+};
 
 // -------------------------------------------------------------------------
 // In-game input + gameplay wire helpers.
@@ -581,6 +612,7 @@ void CInGameState::Release() {
     m_chatOpen = false;
     m_chatBuffer.clear();
     m_effectEvents.clear();
+    m_playerStatsService.reset();
     if (m_effectCatalogLoad.valid()) {
         m_effectCatalogLoad.wait();
     }
@@ -613,6 +645,7 @@ void CInGameState::Process() {
         }
     }
     update_movement(steady_now_ms());
+    refresh_live_ui_bindings();
     if (m_effectCatalogLoading && m_effectCatalogLoad.valid() &&
         m_effectCatalogLoad.wait_for(std::chrono::milliseconds(0)) ==
             std::future_status::ready) {
@@ -701,6 +734,8 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         MLOG_WARN("CInGameState skill list unavailable: %s", ex.what());
     }
     m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
+    m_playerStatsService = std::make_unique<GameInPlayerStatsService>(&m_info);
+    refresh_live_ui_bindings();
     MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
               static_cast<unsigned>(m_playerId),
               static_cast<unsigned>(m_mapNum));
@@ -709,6 +744,21 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         return;
     }
     send_gamein_syn();
+}
+
+void CInGameState::refresh_live_ui_bindings() {
+    if (!m_playerStatsService) return;
+    for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+        if (!dialog) continue;
+        if (auto* character = dynamic_cast<mxh::ui::cCharacterDialog*>(dialog.get())) {
+            character->SetPlayerStatsService(m_playerStatsService.get());
+            character->RefreshFromPlayerStats();
+        }
+        if (auto* mp = dynamic_cast<mxh::ui::cMPGuageDialog*>(dialog.get())) {
+            mp->SetPlayerStatsService(m_playerStatsService.get());
+            mp->RefreshFromPlayerStats();
+        }
+    }
 }
 
 mxh::net::IEncryptor* CInGameState::encryptor_for(

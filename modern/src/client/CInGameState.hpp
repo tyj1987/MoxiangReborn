@@ -52,6 +52,7 @@
 #include "mxh/compat/quest_string_catalog.hpp"
 #include "mxh/game/item_types.hpp"
 #include "services/InventoryServiceImpl.hpp"
+#include "mxh/services/IPlayerStatsService.hpp"
 
 namespace mxh::client {
 
@@ -486,6 +487,7 @@ public:
                                    std::uint16_t count) noexcept;
     void handle_quest_broadcast(const mxh::net::Message& msg);
     void send_quest(mxh::proto::QuestProtocol protocol);
+    void refresh_live_ui_bindings();
     void set_inventory_open(bool open) noexcept;
     void set_shop_open(bool open) noexcept;
     void set_quest_open(bool open) noexcept;
@@ -504,6 +506,7 @@ public:
 
     GameInInfo               m_info;
     std::unique_ptr<mxh::services::InventoryServiceImpl> m_inventoryService;
+    std::unique_ptr<mxh::services::IPlayerStatsService> m_playerStatsService;
     std::vector<MonsterAddInfo> monsters_;
     std::vector<GroundDropInfo> m_groundDrops;
     std::uint32_t            m_lastAttackTarget = 0;
