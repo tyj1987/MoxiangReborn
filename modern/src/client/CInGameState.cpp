@@ -1482,6 +1482,11 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
             std::memcpy(&m_info.items, msg.payload.data(),
                         sizeof(m_info.items));
+            for (std::size_t slot = 0; slot < m_info.weared_item_idx.size(); ++slot) {
+                m_info.weared_item_idx[slot] = m_info.items.WearedItem[slot].wIconIdx;
+            }
+            if (m_inventoryOpen) set_inventory_open(true);
+            refresh_live_ui_bindings();
             MLOG_INFO("CInGameState: inventory refreshed");
         }
     } else if (proto == static_cast<std::uint8_t>(

@@ -291,6 +291,22 @@ TEST(InGameUiRuntime, InventoryTabButtonsSwitchRealGridDialog) {
     EXPECT_NE(state.ui_runtime().findWindowByLegacyId("IN_TABDLG3"), nullptr);
 }
 
+TEST(InGameUiRuntime, TotalInfoLocalRefreshesEquipmentAppearance) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message total;
+    total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    mxh::game::ItemTotalInfo items{};
+    items.WearedItem[0] = mxh::game::make_item(9901u, 777u,
+                                                mxh::game::TP_WEAREDITEM_START);
+    total.payload.resize(sizeof(items));
+    std::memcpy(total.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), total);
+    EXPECT_EQ(state.game_info().items.WearedItem[0].wIconIdx, 777u);
+    EXPECT_EQ(state.game_info().weared_item_idx[0], 777u);
+}
+
 TEST(InGameUiRuntime, CharacterInfoHudButtonTogglesLiveDialog) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
