@@ -363,6 +363,7 @@ public:
     bool add_player_item_for_test(std::uint32_t player_id, const mxh::game::ItemBase& item);
     std::size_t claim_pending_item_grants_for_test(std::uint32_t player_id);
     bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
+    bool set_player_position_for_test(std::uint32_t player_id, float x, float z);
     std::uint32_t player_money_for_test(std::uint32_t player_id) noexcept;
     std::size_t player_quest_count_for_test(std::uint32_t player_id) noexcept;
     std::optional<QuestProgress> quest_progress_for_test(std::uint32_t player_id,

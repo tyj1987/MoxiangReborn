@@ -349,6 +349,15 @@ bool MapHandler::set_player_money_for_test(std::uint32_t player_id, std::uint32_
     return true;
 }
 
+bool MapHandler::set_player_position_for_test(std::uint32_t player_id, float x, float z) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto it = connected_players_.find(player_id);
+    if (it == connected_players_.end()) return false;
+    it->second.pos_x = x;
+    it->second.pos_z = z;
+    return true;
+}
+
 std::uint32_t MapHandler::player_money_for_test(std::uint32_t player_id) noexcept {
     std::lock_guard<std::mutex> lock(players_mu_);
     const auto it = connected_players_.find(player_id);

@@ -2215,6 +2215,67 @@ TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
     EXPECT_EQ(snap->inventory_count, 3u); // qty=3 -> 3 stack items
 }
 
+TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    const std::string deal_text = "7 map 2 npc 7 25000 25000 0 1 tab 555 10\n";
+    const auto deal_path = write_temp_bin(synthesize_dealitem_bin(deal_text));
+    handler.load_dealitem(deal_path.string());
+    std::error_code ec_deal; std::filesystem::remove(deal_path, ec_deal);
+    std::vector<std::string> tokens(56u, "0");
+    tokens[0] = "555"; tokens[1] = "Potion"; tokens[5] = "0"; tokens[6] = "100";
+    std::string row;
+    for (const auto& token : tokens) { row += token; row.push_back('\t'); }
+    row.push_back('\r'); row.push_back('\n');
+    const auto item_path = write_temp_bin(synthesize_item_list_bin(row));
+    handler.load_item_list(item_path.string());
+    std::error_code ec_item; std::filesystem::remove(item_path, ec_item);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_money_for_test(123u, 1000u));
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 25000.0f, 25000.0f));
+
+    mxh::net::Message buy;
+    buy.header.object_id = 123u;
+    buy.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    buy.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn);
+    buy.payload.resize(4);
+    const std::uint16_t item = 555u, qty = 1u;
+    std::memcpy(buy.payload.data(), &item, 2);
+    std::memcpy(buy.payload.data() + 2, &qty, 2);
+    handler.on_message(connection, buy);
+    ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
+    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    reply.messages.clear();
+
+    mxh::net::Message sell;
+    sell.header.object_id = 123u;
+    sell.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    sell.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellSyn);
+    sell.payload.resize(8);
+    const std::uint16_t pos = 0u, dealer = 7u;
+    std::memcpy(sell.payload.data(), &pos, 2);
+    std::memcpy(sell.payload.data() + 2, &item, 2);
+    std::memcpy(sell.payload.data() + 4, &qty, 2);
+    std::memcpy(sell.payload.data() + 6, &dealer, 2);
+    handler.on_message(connection, sell);
+
+    ASSERT_GE(reply.messages.size(), 3u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellAck));
+    EXPECT_EQ(reply.messages[1].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money));
+    EXPECT_EQ(reply.messages[2].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+    EXPECT_EQ(handler.player_money_for_test(123u), 1100u);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+}
+
 TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
     MockDbAdapter db;
     ReplySpy reply;
