@@ -637,6 +637,24 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         fail_with("GameIn requires an explicit PlayDH resource root");
         return;
     }
+    {
+        std::string effect_error;
+        if (!m_effectCatalog.load(*m_pEngine->playdh_root(), &effect_error)) {
+            // Effect assets are presentation dependencies.  Keep the
+            // authoritative network/gameplay path alive, but make the
+            // missing catalog explicit instead of silently falling back to
+            // a fabricated effect or debug quad.
+            MLOG_WARN("CInGameState effect catalog unavailable: %s",
+                      effect_error.c_str());
+        } else {
+            MLOG_INFO("CInGameState effect catalog: assets=%zu beff=%zu befl=%zu packed=%zu loose=%zu",
+                      m_effectCatalog.assets().size(),
+                      m_effectCatalog.beff_count(),
+                      m_effectCatalog.befl_count(),
+                      m_effectCatalog.packed_count(),
+                      m_effectCatalog.loose_count());
+        }
+    }
     if (m_uiRuntime.empty()) {
         std::string ui_error;
         if (!m_uiRuntime.loadMany(*m_pEngine->playdh_root(),
