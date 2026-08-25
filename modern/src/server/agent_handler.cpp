@@ -252,11 +252,8 @@ void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
     // We snapshot the TcpClient* under map_route_mu_ so a concurrent
     // set_map_server() doesn't race the send.
     if (removed_char_id != 0 && had_map_num) {
-        mxh::net::ITcpSender* mc = nullptr;
-        {
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            mc = map_client_;
-        }
+        const auto route = route_for_map(removed_map_num);
+        mxh::net::ITcpSender* mc = route.client;
         if (mc && mc->is_connected()) {
             mxh::net::Message fwd;
             fwd.header.category = static_cast<std::uint8_t>(
@@ -316,11 +313,8 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                   << " proto=" << (int)msg.header.protocol
                   << " from conn=" << id.value << "\n";
         // Snapshot map_client_ under lock to avoid race with set_map_server().
-        mxh::net::ITcpSender* mc = nullptr;
-        {
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            mc = map_client_;
-        }
+        const auto route = route_for_connection(id);
+        mxh::net::ITcpSender* mc = route.client;
         if (mc && mc->is_connected()) {
             std::uint32_t char_id = get_char_id(id);
             if (char_id != 0) {
@@ -598,6 +592,37 @@ void AgentHandler::set_map_server(mxh::net::ITcpSender* client,
     std::lock_guard<std::mutex> lk(map_route_mu_);
     map_client_ = client;
     map_conn_id_ = map_conn_id;
+    map_routes_[default_map_num_] = MapRoute{client, map_conn_id};
+}
+
+void AgentHandler::set_map_server_for_map(
+    std::uint16_t map_num, mxh::net::ITcpSender* client,
+    mxh::net::ConnectionId map_conn_id) {
+    if (map_num == 0u) return;
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    map_routes_[map_num] = MapRoute{client, map_conn_id};
+}
+
+AgentHandler::MapRoute AgentHandler::route_for_connection(
+    mxh::net::ConnectionId id) const {
+    std::uint16_t map_num = default_map_num_;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        if (const auto it = conn_map_nums_.find(id.value);
+            it != conn_map_nums_.end() && it->second != 0u) {
+            map_num = it->second;
+        }
+    }
+    return route_for_map(map_num);
+}
+
+AgentHandler::MapRoute AgentHandler::route_for_map(
+    std::uint16_t map_num) const {
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    if (const auto it = map_routes_.find(map_num); it != map_routes_.end()) {
+        return it->second;
+    }
+    return MapRoute{map_client_, map_conn_id_};
 }
 
 mxh::net::ConnectionId AgentHandler::get_map_connection() const {
@@ -1468,11 +1493,8 @@ void AgentHandler::handle_legacy_gamein_syn(
 
     // Phase 9: Forward GameInSyn to MapServer if connected.
     // Snapshot map_client_ under lock to avoid race with set_map_server().
-    mxh::net::ITcpSender* mc = nullptr;
-    {
-        std::lock_guard<std::mutex> lk(map_route_mu_);
-        mc = map_client_;
-    }
+    const auto route = route_for_connection(id);
+    mxh::net::ITcpSender* mc = route.client;
     if (mc && mc->is_connected()) {
         std::cout << "[Agent] forwarding GAMEIN_SYN to MapServer\n";
 

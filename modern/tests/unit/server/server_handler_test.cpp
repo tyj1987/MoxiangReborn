@@ -461,6 +461,35 @@ TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
     EXPECT_TRUE(mock.sent_msgs.empty());
 }
 
+TEST(AgentHandlerTest, GameInUsesMapSpecificServerRoute) {
+    MockDbAdapter db;
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, true,
+                                      false, {}, /*default_map_num=*/12);
+    const auto connection = mxh::net::make_connection_id(1100);
+    handler.register_session(connection, 3001u, 450035712u, 10u);
+
+    MockTcpSender default_map;
+    MockTcpSender target_map;
+    handler.set_map_server(&default_map, mxh::net::make_connection_id(12));
+    handler.set_map_server_for_map(10u, &target_map,
+                                   mxh::net::make_connection_id(10));
+
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = 450035712u;
+    game_in.payload.resize(8, 0);
+    handler.on_message(connection, game_in);
+
+    ASSERT_EQ(target_map.sent_msgs.size(), 1u);
+    EXPECT_TRUE(default_map.sent_msgs.empty());
+    EXPECT_EQ(target_map.sent_msgs.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn));
+    EXPECT_EQ(target_map.sent_msgs.front().header.object_id, 450035712u);
+}
+
 TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
     MockDbAdapter db;
     ReplySpy reply;
