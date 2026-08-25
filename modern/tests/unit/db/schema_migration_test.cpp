@@ -2,6 +2,8 @@
 #include "mxh/db/sqlite_adapter.hpp"
 
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <vector>
 
 namespace {
 
@@ -49,6 +51,22 @@ TEST(SchemaMigration, UpgradesLegacyCharacterTableInPlace) {
     mxh::db::ResultSet columns;
     ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
     EXPECT_EQ(columns.rows.size(), 14u);
+}
+
+TEST(SchemaMigration, UpgradesLegacyPlayerStateWithSocialColumns) {
+    mxh::db::SqliteAdapter db;
+    connect_memory_db(db);
+    ASSERT_TRUE(db.execute(
+        "CREATE TABLE modern_player_state (player_id INTEGER PRIMARY KEY, money INTEGER NOT NULL DEFAULT 0, level INTEGER NOT NULL DEFAULT 1, exp INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL)", {}).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+
+    mxh::db::ResultSet columns;
+    ASSERT_TRUE(db.query("PRAGMA table_info(modern_player_state)", {}, columns).ok());
+    ASSERT_EQ(columns.rows.size(), 7u);
+    std::vector<std::string> names;
+    for (const auto& row : columns.rows) names.push_back(std::get<std::string>(row[1]));
+    EXPECT_NE(std::find(names.begin(), names.end(), "party_id"), names.end());
+    EXPECT_NE(std::find(names.begin(), names.end(), "guild_id"), names.end());
 }
 
 }  // namespace

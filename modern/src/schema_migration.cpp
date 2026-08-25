@@ -235,6 +235,28 @@ DbResult add_missing_sqlite_character_columns(IDbAdapter& db) {
     return {};
 }
 
+DbResult add_missing_sqlite_player_state_columns(IDbAdapter& db) {
+    ResultSet rows;
+    auto result = db.query("PRAGMA table_info(modern_player_state)", rows);
+    if (!result.ok()) return result;
+    std::unordered_set<std::string> columns;
+    for (const auto& row : rows.rows) {
+        if (row.size() > 1) {
+            if (const auto* name = std::get_if<std::string>(&row[1])) columns.insert(*name);
+        }
+    }
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 2> additions = {{
+        {"party_id", "ALTER TABLE modern_player_state ADD COLUMN party_id INTEGER NOT NULL DEFAULT 0"},
+        {"guild_id", "ALTER TABLE modern_player_state ADD COLUMN guild_id INTEGER NOT NULL DEFAULT 0"}
+    }};
+    for (const auto& [name, sql] : additions) {
+        if (columns.contains(std::string(name))) continue;
+        result = db.execute(sql);
+        if (!result.ok()) return result;
+    }
+    return {};
+}
+
 }  // namespace
 
 DbResult migrate_modern_schema(IDbAdapter& db) {
@@ -244,7 +266,9 @@ DbResult migrate_modern_schema(IDbAdapter& db) {
         if (sqlite == nullptr) return not_supported(db.backend_name());
         auto result = sqlite->exec_multi(kSqliteSchema);
         if (!result.ok()) return result;
-        return add_missing_sqlite_character_columns(db);
+        result = add_missing_sqlite_character_columns(db);
+        if (!result.ok()) return result;
+        return add_missing_sqlite_player_state_columns(db);
     }
     if (db.backend_name() == "mssql_odbc") {
         for (const auto sql : kMssqlSchema) {
