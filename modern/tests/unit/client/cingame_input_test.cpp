@@ -607,6 +607,34 @@ TEST(InGamePlayable, DiscardAckClearsLiveInventorySlot) {
     EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[4]));
 }
 
+TEST(InGamePlayable, MoveAckReordersLiveInventorySlots) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::game::ItemTotalInfo items{};
+    items.Inventory[1] = mxh::game::make_item(7101u, 201u, 1u, 100u, 1u);
+    items.Inventory[5] = mxh::game::make_item(7102u, 202u, 5u, 100u, 1u);
+    mxh::net::Message inventory;
+    inventory.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    inventory.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    inventory.payload.resize(sizeof(items));
+    std::memcpy(inventory.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), inventory);
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveAck);
+    ack.payload.resize(24, 0);
+    const std::uint32_t db_idx = 7101u;
+    const std::uint16_t target = 5u;
+    std::memcpy(ack.payload.data(), &db_idx, 4);
+    std::memcpy(ack.payload.data() + 22, &target, 2);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_EQ(state.game_info().items.Inventory[1].dwDBIdx, 7102u);
+    EXPECT_EQ(state.game_info().items.Inventory[5].dwDBIdx, 7101u);
+    EXPECT_EQ(state.game_info().items.Inventory[5].Position, 5u);
+}
+
 TEST(InGameWire, PickupMessageAndGroundDropPayloadRoundTrip) {
     const auto m = make_pickup_message(42u, 9001u);
     EXPECT_EQ(m.header.category,

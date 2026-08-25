@@ -1177,6 +1177,27 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         if (m_inventoryOpen) set_inventory_open(true);
         MLOG_INFO("CInGameState: item discarded pos=%u", pos);
     } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::MoveAck)) {
+        // MoveAck echoes ITEMBASE(22B) + target position(u16).
+        if (msg.payload.size() < 24) return;
+        const auto db_idx = get_u32(msg.payload.data());
+        const auto target = get_u16(msg.payload.data() + 22);
+        if (db_idx == 0u || target >= mxh::game::SLOT_INVENTORY_NUM) return;
+        std::size_t source = mxh::game::SLOT_INVENTORY_NUM;
+        for (std::size_t i = 0; i < mxh::game::SLOT_INVENTORY_NUM; ++i) {
+            if (m_info.items.Inventory[i].dwDBIdx == db_idx) {
+                source = i;
+                break;
+            }
+        }
+        if (source == mxh::game::SLOT_INVENTORY_NUM) return;
+        std::swap(m_info.items.Inventory[source], m_info.items.Inventory[target]);
+        m_info.items.Inventory[source].Position = static_cast<std::uint16_t>(source);
+        m_info.items.Inventory[target].Position = target;
+        if (m_inventoryOpen) set_inventory_open(true);
+        MLOG_INFO("CInGameState: item moved db=%u source=%zu target=%u",
+                  db_idx, source, target);
+    } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::TotalInfoLocal)) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
             std::memcpy(&m_info.items, msg.payload.data(),
