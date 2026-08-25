@@ -2342,6 +2342,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         if (g_attackSound == 0xffffu) g_attackSound = fallback_sound;
         if (g_skillSound == 0xffffu) g_skillSound = fallback_sound;
         if (g_pickupSound == 0xffffu) g_pickupSound = fallback_sound;
+        const auto wav_count = static_cast<std::size_t>(std::count_if(
+            sfx.manifest().entries.begin(), sfx.manifest().entries.end(),
+            [](const auto& entry) { return entry.available && !entry.streaming; }));
+        MLOG_INFO("mxh_client: SFX manifest ready entries=%zu wav=%zu ui=%u attack=%u skill=%u pickup=%u",
+                  sfx.manifest().entries.size(), wav_count,
+                  static_cast<unsigned>(g_uiClickSound),
+                  static_cast<unsigned>(g_attackSound),
+                  static_cast<unsigned>(g_skillSound),
+                  static_cast<unsigned>(g_pickupSound));
     } else {
         MLOG_WARN("mxh_client: SFX unavailable: %s", audio_error.c_str());
     }

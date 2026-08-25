@@ -72,7 +72,7 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
-    foreach ($marker in @('playing original BGM id=1667', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
+    foreach ($marker in @('playing original BGM id=1667', 'SFX manifest ready', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
         if ($log -notmatch [regex]::Escape($marker)) {
             throw "GUI smoke missing marker '$marker'; log=$stderr"
         }
