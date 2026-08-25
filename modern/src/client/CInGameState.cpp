@@ -1048,6 +1048,12 @@ void CInGameState::push_effect_event(EffectEvent event) noexcept {
     }
 }
 
+std::vector<EffectEvent> CInGameState::drain_effect_events() noexcept {
+    std::vector<EffectEvent> pending;
+    pending.swap(m_effectEvents);
+    return pending;
+}
+
 void CInGameState::handle_chat_broadcast(const mxh::net::Message& msg) {
     const auto text = parse_chat_payload(msg.payload);
     if (text.empty()) return;

@@ -411,6 +411,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     }
     const std::vector<ShopItem>& shop_items() const noexcept { return m_shopItems; }
     const std::vector<EffectEvent>& effect_events() const noexcept { return m_effectEvents; }
+    std::vector<EffectEvent> drain_effect_events() noexcept;
     std::uint32_t shop_npc_id() const noexcept { return m_shopNpcId; }
     std::uint32_t last_buy_item_id() const noexcept { return m_lastBuyItemId; }
     const std::string& chat_buffer() const noexcept { return m_chatBuffer; }

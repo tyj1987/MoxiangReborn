@@ -175,6 +175,9 @@ TEST(InGameEffects, ConfirmedSkillMessagesProduceDeterministicTimeline) {
     EXPECT_EQ(state.effect_events()[1].damage, damage);
     EXPECT_EQ(state.effect_events()[2].kind,
               mxh::client::EffectEventKind::End);
+    const auto drained = state.drain_effect_events();
+    ASSERT_EQ(drained.size(), 3u);
+    EXPECT_TRUE(state.effect_events().empty());
 }
 
 TEST(InGameCharacterAdd, DecodesServerPushedPlayerPayload) {
