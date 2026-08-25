@@ -376,6 +376,13 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseWheel(std::int32_t delta);
     void set_world_bounds(float max_x, float max_z) noexcept;
     void set_collision_query(std::function<bool(float, float, float)> query);
+    // Resolve a MapChange-role NPC to its authoritative destination.  The
+    // client must not invent a map number when the server/resource route is
+    // unavailable; an empty result leaves the current scene untouched.
+    using MapChangeTargetResolver =
+        std::function<std::optional<std::uint16_t>(std::uint32_t npc_id,
+                                                    std::uint16_t current_map)>;
+    void set_map_change_target_resolver(MapChangeTargetResolver resolver);
     void use_quick_slot(std::size_t slot);
     void toggle_inventory() noexcept;
     void try_pickup();
@@ -514,6 +521,7 @@ public:
     float          m_worldLimitX = kWorldLimit;
     float          m_worldLimitZ = kWorldLimit;
     std::function<bool(float, float, float)> m_collisionQuery;
+    MapChangeTargetResolver m_mapChangeTargetResolver;
     bool           m_moving       = false;
     std::uint64_t  m_lastTickMs   = 0;
     std::uint64_t  m_lastMoveSendMs = 0;

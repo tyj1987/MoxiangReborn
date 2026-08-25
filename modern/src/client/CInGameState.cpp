@@ -1617,6 +1617,11 @@ void CInGameState::set_collision_query(
     m_collisionQuery = std::move(query);
 }
 
+void CInGameState::set_map_change_target_resolver(
+    MapChangeTargetResolver resolver) {
+    m_mapChangeTargetResolver = std::move(resolver);
+}
+
 void CInGameState::update_movement(std::uint64_t now_ms) {
     if (!m_inGame) return;
     float dt = 0.016f;
@@ -1921,13 +1926,22 @@ void CInGameState::interact_with_npc(std::uint32_t npc_id) {
         : static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn);
     msg.header.object_id = m_playerId;
     if (role == mxh::game::NpcRole::MapChange) {
-        // Legacy MapChangeRole selects the configured destination (the
-        // original baseline NPC sends the Jang Ahn map, 12). The server
-        // validates the target route and may reject it; no local scene is
-        // discarded until that handoff is acknowledged.
+        // The destination is route data, not a client-side constant.  Do not
+        // send a fabricated map number when the selected profile has not
+        // supplied the authoritative MapChange table.
+        if (!m_mapChangeTargetResolver) {
+            MLOG_WARN("CInGameState: MapChange NPC %u has no route resolver",
+                      npc_id);
+            return;
+        }
+        const auto target = m_mapChangeTargetResolver(npc_id, m_mapNum);
+        if (!target || *target == 0 || *target == m_mapNum) {
+            MLOG_WARN("CInGameState: MapChange NPC %u has no valid destination",
+                      npc_id);
+            return;
+        }
         msg.payload.resize(4, 0);
-        const std::uint16_t target_map = 12u;
-        put_u16(msg.payload, 0, target_map);
+        put_u16(msg.payload, 0, *target);
     } else {
         msg.payload.resize(sizeof(npc_id));
         put_u32(msg.payload, 0, npc_id);
