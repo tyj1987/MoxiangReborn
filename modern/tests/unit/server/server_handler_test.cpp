@@ -3171,6 +3171,17 @@ TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(mxh::net::make_connection_id(55), game_in);
 
+    const auto quest_snapshot = std::find_if(reply.messages.begin(), reply.messages.end(),
+        [](const mxh::net::Message& message) {
+            return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Quest) &&
+                   message.header.protocol == static_cast<std::uint8_t>(mxh::proto::QuestProtocol::TotalInfo) &&
+                   message.payload.size() >= 8u;
+        });
+    ASSERT_NE(quest_snapshot, reply.messages.end());
+    std::uint32_t snapshot_state = 0;
+    std::memcpy(&snapshot_state, quest_snapshot->payload.data() + 4, 4);
+    EXPECT_EQ(snapshot_state, static_cast<std::uint32_t>(mxh::server::QuestState::Accepted));
+
     const auto progress = handler.quest_progress_for_test(456u, 99u);
     ASSERT_TRUE(progress.has_value());
     ASSERT_EQ(progress->subs.size(), 1u);
