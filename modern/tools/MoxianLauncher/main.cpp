@@ -84,7 +84,17 @@ private:
     }
     void launchClient() {
         wchar_t module[MAX_PATH]{}; GetModuleFileNameW(nullptr, module, MAX_PATH);
-        fs::path client = fs::path(module).parent_path() / L"MoxianClient.exe";
+        const fs::path bin = fs::path(module).parent_path();
+        // Release packages may rename the binary to MoxianClient.exe while
+        // the modern build emits mxh_client.exe.  Probe only these two
+        // explicit names; never search arbitrary executables or accept a
+        // user-controlled command line.
+        fs::path client = bin / L"MoxianClient.exe";
+        if (!fs::is_regular_file(client)) client = bin / L"mxh_client.exe";
+        if (!fs::is_regular_file(client)) {
+            MessageBoxW(hwnd_, L"未找到 MoxianClient.exe 或 mxh_client.exe，请先完成客户端安装。", L"启动失败", MB_ICONERROR);
+            return;
+        }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
