@@ -518,3 +518,30 @@ TEST(InGameEntityLifecycle, RepeatedAddReplacesAndRemoveUsesStableObjectId) {
     EXPECT_TRUE(state.monsters().empty());
     EXPECT_TRUE(state.npcs().empty());
 }
+
+TEST(InGameEntityLifecycle, ReleaseClearsWorldOwnedStateBeforeMapChange) {
+    mxh::client::CInGameState state;
+
+    mxh::net::Message monster;
+    monster.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    monster.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd);
+    monster.payload.resize(64, 0);
+    const std::uint32_t monster_id = 701u;
+    std::memcpy(monster.payload.data(), &monster_id, sizeof(monster_id));
+    state.on_message({}, monster);
+
+    mxh::net::Message npc;
+    npc.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    npc.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NpcAdd);
+    npc.payload.resize(64, 0);
+    const std::uint32_t npc_id = 801u;
+    std::memcpy(npc.payload.data(), &npc_id, sizeof(npc_id));
+    state.on_message({}, npc);
+
+    ASSERT_FALSE(state.monsters().empty());
+    ASSERT_FALSE(state.npcs().empty());
+    state.Release();
+    EXPECT_TRUE(state.monsters().empty());
+    EXPECT_TRUE(state.npcs().empty());
+    EXPECT_TRUE(state.ground_drops().empty());
+}

@@ -685,6 +685,28 @@ void CInGameState::Release() {
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
     m_pendingSkillId = 0;
+    // A single CInGameState instance is reused across GameIn -> MapChange ->
+    // GameIn transitions.  World entities are owned by the state, so they
+    // must be discarded at the release boundary; otherwise the next map
+    // inherits stale monsters/NPCs/drops and can report false population or
+    // render objects from the previous scene.
+    monsters_.clear();
+    m_npcs.clear();
+    m_remotePlayers.clear();
+    m_groundDrops.clear();
+    m_shopItems.clear();
+    m_shopNpcId = 0;
+    m_lastBuyItemId = 0;
+    m_lastAttackTarget = 0;
+    m_pendingAttackTarget = 0;
+    m_partyId = 0;
+    m_partyMemberCount = 0;
+    m_pendingPartyInviteId = 0;
+    m_guildId = 0;
+    m_guildMemberCount = 0;
+    m_pendingGuildInviteId = 0;
+    m_questSelection = 0;
+    m_questStatus = "Not accepted";
     m_failed   = false;
     m_failureReason.clear();
     m_uiRuntime.clear();
