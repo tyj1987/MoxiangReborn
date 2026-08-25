@@ -10,7 +10,7 @@ Only unresolved issues belong here. Resolved history is available through Git.
   verification of every legacy error-code/message variant and retry timing.
 - Login success display transition is now transactional in the client; the remaining release gap is genuine human verification across DPI, multi-monitor, Alt-Tab and swap-chain failure cases.
 - Character select/create lacks complete 3D appearance, equipment and animation presentation.
-- `GameLoading` and `MapChange` still require real asynchronous loading states.
+- `GameLoading` and `MapChange` now use the staged runtime load pipeline and have a Map10→Map12 E4 E2E gate; remaining release gap is GUI/human visual verification and failure-injection coverage across every map/profile.
 - Runtime map rendering does not yet apply all BMHM/TTB/HFL/STM/sky/environment semantics.
 - Entity rendering still has placeholder fallback paths and incomplete action/equipment coverage.
 - Only a subset of InterfaceScript roots is live-bound to client services.
