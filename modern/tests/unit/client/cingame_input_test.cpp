@@ -540,6 +540,21 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     EXPECT_EQ(state.last_buy_item_id(), 0x022Bu);
 }
 
+TEST(InGamePlayable, MoneyUpdateFromShopAckFeedsLiveHudState) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    const std::uint32_t money = 4321u;
+    mxh::net::Message update;
+    update.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    update.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+    update.payload.resize(sizeof(money));
+    std::memcpy(update.payload.data(), &money, sizeof(money));
+    state.on_message(mxh::net::make_connection_id(1), update);
+    EXPECT_EQ(state.game_info().money, money);
+}
+
 TEST(InGameWire, PickupMessageAndGroundDropPayloadRoundTrip) {
     const auto m = make_pickup_message(42u, 9001u);
     EXPECT_EQ(m.header.category,

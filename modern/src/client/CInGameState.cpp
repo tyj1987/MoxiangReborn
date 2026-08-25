@@ -1144,6 +1144,12 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: shop list %zu items npc=%u",
                   m_shopItems.size(), m_shopNpcId);
     } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::Money)) {
+        if (msg.payload.size() < sizeof(std::uint32_t)) return;
+        m_info.money = get_u32(msg.payload.data());
+        if (m_inventoryOpen) set_inventory_open(true);
+        MLOG_INFO("CInGameState: money updated=%u", m_info.money);
+    } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::TotalInfoLocal)) {
         if (msg.payload.size() >= sizeof(mxh::game::ItemTotalInfo)) {
             std::memcpy(&m_info.items, msg.payload.data(),

@@ -1852,6 +1852,20 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     }
                 }
                 if (ok) {
+                    // Publish the authoritative money before the existing
+                    // BuyAck/TotalInfoLocal pair so clients can update HUD
+                    // and inventory bindings without changing either legacy
+                    // payload shape.
+                    mxh::net::Message money;
+                    money.header.category = static_cast<std::uint8_t>(
+                        mxh::proto::Category::Item);
+                    money.header.protocol = static_cast<std::uint8_t>(
+                        mxh::proto::ItemProtocol::Money);
+                    money.header.object_id = player_id;
+                    money.payload.resize(sizeof(decision.new_money));
+                    std::memcpy(money.payload.data(), &decision.new_money,
+                                sizeof(decision.new_money));
+                    reply_(id, money);
                     reply_msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck);
                     reply_(id, reply_msg);
                     // M3 D-stage: persist the new money to modern_player_state
