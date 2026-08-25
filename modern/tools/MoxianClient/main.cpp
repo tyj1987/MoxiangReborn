@@ -1229,6 +1229,28 @@ void renderFrame(HWND h) {
         configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
         g_charPreviewScene->render();
     }
+    if (!g_renderTerrain &&
+        __g_currentState == static_cast<int>(mxh::client::GameStateId::CharMake) &&
+        g_charPreviewScene && g_charMakeState) {
+        const auto& params = g_charMakeState->form_model().params();
+        mxh::gx::ScenePlayer preview{};
+        preview.object_id = 0;
+        preview.gender = params.sex_type;
+        preview.face_type = params.face_type;
+        preview.hair_type = params.hair_type;
+        preview.weared_item_idx = params.weared_item_idx;
+        preview.world_x = 25600.0f;
+        preview.world_y = 0.0f;
+        preview.world_z = 25600.0f;
+        preview.current_life = preview.max_life = 1;
+        preview.action = mxh::gx::SceneAction::Idle;
+        mxh::gx::WorldSnapshot snapshot;
+        snapshot.local_player = preview;
+        g_charPreviewScene->synchronize(snapshot);
+        g_charPreviewScene->setCameraFrustum(std::nullopt);
+        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
+        g_charPreviewScene->render();
+    }
 
     if (!g_renderTerrain && g_hud.barBg && g_hudFont) {
         g_renderer->SetScreenSpaceProjection();
