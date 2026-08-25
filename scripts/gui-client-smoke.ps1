@@ -111,6 +111,9 @@ try {
         if ($log -notmatch '\[entity\] original model object=\d+ type=monster kind=\d+ chx=L\d+\.chx') {
             throw "GUI player-view smoke did not resolve a monster model; log=$stderr"
         }
+        if ($log -notmatch 'entity loaded=\d+ failed=0 placeholders=0 monsters=228') {
+            throw "GUI player-view smoke reported missing/placeholder Map10 entities; log=$stderr"
+        }
     }
     if (-not (Test-Path -LiteralPath $frame)) { throw "GUI smoke missing terrain frame: $frame" }
     $stateFramesDir = Join-Path $runRoot "state-frames"
