@@ -2640,6 +2640,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::string pending_loading_error;
     mxh::client::GameLoadingCoordinator loadingCoordinator;
     std::unique_ptr<GameWorldLoadSession> worldLoadSession;
+    bool map_change_from_game = false;
     bool game_loading_frame_presented = false;
     bool post_login_display_applied = false;
     bool login_failure_presented = false;
@@ -2724,6 +2725,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     worldLoadSession.reset();
                 }
                 if (prev_state == mxh::client::GameStateId::GameIn) {
+                    map_change_from_game =
+                        cur_state == mxh::client::GameStateId::MapChange;
                     g_inputTarget = nullptr;
                     if (g_effectVisuals) g_effectVisuals->clear();
                     g_damageFeedback.clear();
@@ -2974,10 +2977,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                 std::to_string(loadingCoordinator.request().map_num) + ": " + loadingError;
                             loadingCoordinator.mark_failed(pending_loading_error);
                             MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
+                            const bool restore_existing_game =
+                                map_change_from_game && g_terrain &&
+                                g_staticScene && g_entityScene;
+                            if (restore_existing_game) {
+                                if (auto* previous_game =
+                                        dynamic_cast<mxh::client::CInGameState*>(
+                                            mainGame.GetGameState(
+                                                mxh::client::GameStateId::GameIn))) {
+                                    g_inputTarget = previous_game;
+                                }
+                            }
                             mainGame.SetGameState(
-                                (g_inputTarget && g_inputTarget->is_in_game())
+                                restore_existing_game
                                     ? mxh::client::GameStateId::GameIn
                                     : mxh::client::GameStateId::CharSelect);
+                            map_change_from_game = false;
                             worldLoadSession.reset();
                         }
                     }
