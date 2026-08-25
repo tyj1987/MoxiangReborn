@@ -22,6 +22,7 @@ Loose Python tools (audit/repack) live here directly.
 | `gen_protocol_doc.py` | Python | protocol doc fallback (used when C++ tool crashes) |
 | `repack_titan_bin.py` | Python | repack MHFile payload utility |
 | `audit_resource_coverage.py` | Python | PlayDH resource coverage audit |
+| `audit_map_dependencies.py` | Python | HFL used-texture to Map.pak dependency closure audit |
 
 ## Resource Coverage Audit
 
@@ -50,3 +51,14 @@ python modern/tools/audit_resource_coverage.py \
 - Exit code is always 0; check the manifest for actual coverage.
 - Per-file status uses the explorer subcommands: `info` (`.bin`),
   `list` (`.pak`), `map` (`.bmhm`), `bsad` (`.bsad`).
+
+For a runtime map gate, audit the HFL texture closure without modifying the
+pack:
+
+```bash
+python modern/tools/audit_map_dependencies.py 10 modern/data/PlayDH \
+    --build-dir modern/build
+```
+
+The command exits non-zero and lists every missing converted DDS for a map
+whose HFL references assets absent from `Map.pak`.

@@ -5,7 +5,8 @@ param(
     [ValidateRange(0, 65535)]
     [int]$MapNumber = 10,
     [int]$MinimumNpcCount = 0,
-    [switch]$FollowCamera
+    [switch]$FollowCamera,
+    [switch]$AuditMapDependencies
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +32,15 @@ $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
 $previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 
 try {
+    if ($AuditMapDependencies) {
+        $dependencyAudit = Join-Path $repoRoot 'modern\tools\audit_map_dependencies.py'
+        $dependencyOutput = Join-Path $runRoot 'map-dependencies.txt'
+        & python $dependencyAudit $MapNumber (Join-Path $repoRoot 'modern\data\PlayDH') `
+            --build-dir $buildRoot --output $dependencyOutput
+        if ($LASTEXITCODE -ne 0) {
+            throw "GUI smoke static map dependency gate failed for Map $MapNumber; report=$dependencyOutput"
+        }
+    }
     & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
     $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
     if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
