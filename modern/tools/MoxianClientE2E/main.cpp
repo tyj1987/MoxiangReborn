@@ -33,6 +33,7 @@
 // Usage:
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
 //                  [--map-number N]
+//                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
 //                  [--no-spawn]  # assume servers are already running
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
@@ -93,6 +94,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #ifdef _WIN32
@@ -129,6 +131,7 @@ struct CliArgs {
     int  timeout_s = 10;
     int  map_number = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
+    bool exercise_combat = false; // opt-in live combat gate; never implicit
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
                                // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
@@ -208,6 +211,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
+        else if (s == "--exercise-combat") a.exercise_combat = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
@@ -819,6 +823,113 @@ int run_e2e(const CliArgs& cli) {
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
+
+        if (cli.exercise_combat) {
+            // This is deliberately opt-in: it exercises the real client
+            // request path and waits only for server-authoritative replies.
+            // No damage, life, drop, or inventory value is synthesized here.
+            LOG("[5/5] Combat: exercising server-authoritative attack/effect/drop path ...");
+            std::size_t initial_alive = 0;
+            for (const auto& monster : game.monsters()) {
+                if (monster.current_life != 0) ++initial_alive;
+            }
+            const auto combat_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(cli.timeout_s * 15);
+            std::uint32_t observed_target = 0;
+            std::uint32_t initial_life = 0;
+            bool observed_hit = false;
+            bool observed_life_change = false;
+            bool observed_drop = false;
+            bool observed_pickup = false;
+            std::unordered_map<std::uint32_t, std::uint32_t> life_before;
+            for (const auto& monster : game.monsters()) {
+                life_before.emplace(monster.object_id, monster.current_life);
+            }
+            std::size_t inventory_before = 0;
+            for (const auto& item : info.items.Inventory) {
+                if (!mxh::game::is_empty_slot(item)) ++inventory_before;
+            }
+            // Use the same authoritative movement path as the player client
+            // before attacking.  Map10's spawn groups are intentionally
+            // spread across the map, so an attack-only probe would otherwise
+            // prove only the range guard rather than combat.
+            if (!game.monsters().empty()) {
+                const auto nearest = std::min_element(
+                    game.monsters().begin(), game.monsters().end(),
+                    [&game](const auto& lhs, const auto& rhs) {
+                        const auto dx1 = static_cast<float>(lhs.position_x) - game.local_x();
+                        const auto dz1 = static_cast<float>(lhs.position_z) - game.local_z();
+                        const auto dx2 = static_cast<float>(rhs.position_x) - game.local_x();
+                        const auto dz2 = static_cast<float>(rhs.position_z) - game.local_z();
+                        return dx1 * dx1 + dz1 * dz1 < dx2 * dx2 + dz2 * dz2;
+                    });
+                game.send_move(nearest->position_x, nearest->position_z,
+                               mxh::proto::MoveProtocol::OneTarget);
+                const auto move_deadline = std::chrono::steady_clock::now() +
+                                           std::chrono::seconds(3);
+                while (std::chrono::steady_clock::now() < move_deadline) {
+                    game.Process();
+                    const auto dx = static_cast<float>(nearest->position_x) - game.local_x();
+                    const auto dz = static_cast<float>(nearest->position_z) - game.local_z();
+                    if (dx * dx + dz * dz <= 500.0f * 500.0f) break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+            }
+            auto next_attack = std::chrono::steady_clock::now();
+            while (std::chrono::steady_clock::now() < combat_deadline) {
+                game.Process();
+                if (std::chrono::steady_clock::now() >= next_attack) {
+                    game.try_attack();
+                    next_attack = std::chrono::steady_clock::now() +
+                                  std::chrono::milliseconds(850);
+                }
+                for (const auto& event : game.drain_effect_events()) {
+                    if (event.kind == mxh::client::EffectEventKind::Hit) {
+                        observed_hit = true;
+                        observed_target = event.target_object_id;
+                    }
+                }
+                for (const auto& monster : game.monsters()) {
+                    const auto prior = life_before.find(monster.object_id);
+                    if (prior != life_before.end() &&
+                        monster.current_life < prior->second) {
+                        observed_life_change = true;
+                    }
+                    if (monster.object_id == observed_target && initial_life == 0) {
+                        initial_life = prior == life_before.end()
+                            ? monster.current_life : prior->second;
+                    }
+                }
+                if (!game.ground_drops().empty()) {
+                    observed_drop = true;
+                    game.try_pickup();
+                }
+                std::size_t inventory_now = 0;
+                for (const auto& item : game.game_info().items.Inventory) {
+                    if (!mxh::game::is_empty_slot(item)) ++inventory_now;
+                }
+                if (inventory_now > inventory_before) observed_pickup = true;
+                if (observed_hit && observed_life_change && observed_drop &&
+                    observed_pickup) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            const std::size_t alive_after = std::count_if(
+                game.monsters().begin(), game.monsters().end(),
+                [](const auto& monster) { return monster.current_life != 0; });
+            if (!observed_hit || !observed_life_change || !observed_drop ||
+                !observed_pickup) {
+                LOG("[5/5] FAIL: combat gate hit=%s life_change=%s drop=%s "
+                    "pickup=%s alive=%zu->%zu target=%u",
+                    observed_hit ? "yes" : "no",
+                    observed_life_change ? "yes" : "no",
+                    observed_drop ? "yes" : "no",
+                    observed_pickup ? "yes" : "no",
+                    initial_alive, alive_after, observed_target);
+                return 2;
+            }
+            LOG("[5/5] OK: combat hit/effect/life/drop/pickup target=%u "
+                "alive=%zu->%zu", observed_target, initial_alive, alive_after);
+        }
     }
     // Clean shutdown — release states and the persistent AgentSession, then
     // kill server procs (ServerProc dtor calls TerminateProcess).

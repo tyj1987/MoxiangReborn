@@ -1750,6 +1750,13 @@ void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
         MLOG_DEBUG("CInGameState: send_move proto=%d failed: %s",
                    static_cast<int>(proto), mxh::net::to_string(e));
     } else {
+        // Keep the local presentation in sync with the accepted movement
+        // request.  The server remains authoritative and subsequent move
+        // notifications can correct this prediction, but without this
+        // immediate update a click-to-move followed by an attack can never
+        // enter the real range gate in a headless or high-latency session.
+        m_localX = static_cast<float>(x);
+        m_localZ = static_cast<float>(z);
         MLOG_DEBUG("CInGameState: send_move proto=%d pos=(%u,%u)",
                    static_cast<int>(proto), x, z);
     }
