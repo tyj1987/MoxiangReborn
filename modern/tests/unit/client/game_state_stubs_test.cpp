@@ -122,3 +122,22 @@ TEST(GameLoadingCoordinator, ProgressDoesNotRegressFromLateStageCallback) {
     coordinator.mark_completed(8);
     EXPECT_EQ(coordinator.context().completed_steps, 10u);
 }
+
+TEST(GameLoadingCoordinator, ConsumesASecondEntryAfterFirstRequestCompletes) {
+    mxh::client::CEngine engine;
+    mxh::client::GameLoadingCoordinator coordinator;
+
+    engine.SetPendingTransfer(mxh::client::GameEntryRequest{101u, 10u});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    EXPECT_EQ(coordinator.request().character_id, 101u);
+    EXPECT_EQ(coordinator.request().map_num, 10u);
+
+    // The first request remains available for evidence while the engine's
+    // transfer slot is empty; a new transfer must still be consumable.
+    engine.SetPendingTransfer(mxh::client::GameEntryRequest{202u, 12u});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    EXPECT_EQ(coordinator.request().character_id, 202u);
+    EXPECT_EQ(coordinator.request().map_num, 12u);
+    EXPECT_EQ(coordinator.context().completed_steps, 0u);
+    EXPECT_FALSE(coordinator.context().failed);
+}

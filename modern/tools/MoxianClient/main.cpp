@@ -2133,7 +2133,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (cur_state == mxh::client::GameStateId::GameLoading) {
                 if (!game_loading_frame_presented) {
                     game_loading_frame_presented = true;
-                } else if (!loadingCoordinator.has_request()) {
+                    } else if (mainGame.GetEngine()->has_pending_transfer()) {
                     std::string transferError;
                     if (loadingCoordinator.consume_pending_transfer(
                             *mainGame.GetEngine(), &transferError)) {
