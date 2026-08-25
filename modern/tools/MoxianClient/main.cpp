@@ -2661,6 +2661,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 }
             }
             if (cur_state != prev_state) {
+                if ((prev_state == mxh::client::GameStateId::GameLoading ||
+                     prev_state == mxh::client::GameStateId::MapChange) &&
+                    cur_state != mxh::client::GameStateId::GameLoading &&
+                    cur_state != mxh::client::GameStateId::MapChange) {
+                    // A disconnect, cancel or external state transition can
+                    // leave a staged session between frames. Resetting the
+                    // owner here invokes its rollback destructor before the
+                    // next state renders, so no half-built scene survives.
+                    worldLoadSession.reset();
+                }
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
                     if (g_effectVisuals) g_effectVisuals->clear();
