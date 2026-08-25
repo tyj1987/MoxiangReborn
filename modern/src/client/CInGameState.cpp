@@ -1520,9 +1520,9 @@ bool CInGameState::select_inventory_tab(std::size_t tab) noexcept {
     m_inventoryTab = tab;
     if (!m_inventoryOpen) return true;
     for (std::size_t i = 0; i < kInventoryTabDialogIds.size(); ++i) {
+        m_uiRuntime.setDialogActive(kInventoryTabDialogIds[i], i == tab);
         if (auto* grid = m_uiRuntime.findWindowByLegacyId(kInventoryTabDialogIds[i])) {
             grid->SetDisable(false);
-            grid->SetActive(i == tab);
         }
     }
     m_inventoryDragSource.reset();

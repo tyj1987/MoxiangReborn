@@ -136,13 +136,29 @@ bool ClientUiRuntime::setDialogActive(std::string_view legacy_id,
             return true;
         }
     }
+    // InterfaceScript tab sheets and embedded panels are not top-level
+    // dialogs.  They still carry their own legacy IDs and must participate
+    // in the same visibility/hit-test contract when a client state switches
+    // tabs at runtime.
+    for (const auto& dialog : m_windows.dialogs()) {
+        if (!dialog) continue;
+        if (auto* window = dialog->findWindowByLegacyId(legacy_id)) {
+            window->SetActive(active);
+            window->SetVisible(active);
+            return true;
+        }
+    }
     return false;
 }
 
 bool ClientUiRuntime::isDialogActive(std::string_view legacy_id) const noexcept {
+    // This is an inspection API, not an input-routing lookup: inactive tab
+    // sheets must remain discoverable so callers can verify their state.
     for (const auto& dialog : m_windows.dialogs()) {
-        if (dialog && dialog->legacyId() == legacy_id) {
-            return dialog->isActive();
+        if (!dialog) continue;
+        if (dialog->legacyId() == legacy_id) return dialog->isActive();
+        if (const auto* window = dialog->findWindowByLegacyId(legacy_id)) {
+            return window->isActive();
         }
     }
     return false;
