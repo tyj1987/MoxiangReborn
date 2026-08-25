@@ -1705,6 +1705,13 @@ void AgentHandler::handle_legacy_change_map_syn(
         reply_(id, nack);
         return;
     }
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        // Subsequent explicit GameOutSyn and disconnect cleanup must target
+        // the new map route, otherwise the old map retains no-op cleanup
+        // while the destination runtime remains active.
+        conn_map_nums_[id.value] = target_map;
+    }
 
     mxh::net::Message ack;
     ack.header.category = static_cast<std::uint8_t>(
