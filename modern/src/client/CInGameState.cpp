@@ -4,6 +4,7 @@
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
+#include "cinventoryexdialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -511,7 +512,8 @@ std::uint32_t quick_skill_for_slot(const GameInInfo& info,
 // CInGameState
 // -------------------------------------------------------------------------
 
-CInGameState::CInGameState() = default;
+CInGameState::CInGameState()
+    : m_inventoryService(std::make_unique<mxh::services::InventoryServiceImpl>(m_info.items)) {}
 
 CInGameState::~CInGameState() = default;
 
@@ -1161,6 +1163,16 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
 void CInGameState::set_inventory_open(bool open) noexcept {
     m_inventoryOpen = open;
     m_uiRuntime.setDialogActive(kInventoryDialogId, open);
+    if (!open || !m_inventoryService) return;
+    for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+        if (!dialog || dialog->legacyId() != kInventoryDialogId) continue;
+        auto* inventory = dynamic_cast<mxh::ui::cInventoryExDialog*>(dialog.get());
+        if (!inventory) continue;
+        inventory->SetInventoryService(m_inventoryService.get());
+        inventory->SetMoney(m_info.money);
+        inventory->RefreshFromInventoryService();
+        break;
+    }
 }
 
 void CInGameState::toggle_inventory() noexcept {

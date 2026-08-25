@@ -48,6 +48,7 @@
 #include "mxh/proto/protocol.hpp"
 #include "mxh/compat/quest_string_catalog.hpp"
 #include "mxh/game/item_types.hpp"
+#include "services/InventoryServiceImpl.hpp"
 
 namespace mxh::client {
 
@@ -448,6 +449,7 @@ public:
     std::uint16_t            m_mapNum     = 0;
 
     GameInInfo               m_info;
+    std::unique_ptr<mxh::services::InventoryServiceImpl> m_inventoryService;
     std::vector<MonsterAddInfo> monsters_;
     std::vector<GroundDropInfo> m_groundDrops;
     std::uint32_t            m_lastAttackTarget = 0;

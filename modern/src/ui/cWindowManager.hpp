@@ -66,6 +66,9 @@ public:
     const std::vector<std::unique_ptr<cDialog>>& dialogs() const noexcept {
         return m_dialogs;
     }
+    std::vector<std::unique_ptr<cDialog>>& dialogs() noexcept {
+        return m_dialogs;
+    }
 
     // Topmost dialog (the one currently receiving input). null if no
     // active dialogs. Determined by the dialogs' Add() order: the last

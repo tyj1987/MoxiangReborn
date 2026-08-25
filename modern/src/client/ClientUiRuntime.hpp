@@ -87,6 +87,9 @@ public:
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& dialogs() const noexcept {
         return m_windows.dialogs();
     }
+    std::vector<std::unique_ptr<mxh::ui::cDialog>>& dialogsMutable() noexcept {
+        return m_windows.dialogs();
+    }
 
 private:
     mxh::ui::cWindow* hitTest(std::int32_t x, std::int32_t y) const noexcept;
