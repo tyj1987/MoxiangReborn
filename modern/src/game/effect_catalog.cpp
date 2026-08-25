@@ -38,6 +38,19 @@ void scan_script(EffectScriptSummary& summary,
         } else if (trim.rfind("#MAXTRIGGER", 0) == 0) {
             std::istringstream fields(trim.substr(12));
             fields >> summary.trigger_count;
+        } else if (trim.rfind("#NEWEFFECTUNIT", 0) == 0) {
+            std::istringstream fields(trim);
+            std::string directive;
+            EffectScriptSummary::Unit unit;
+            std::string ignored_bool;
+            fields >> directive >> unit.index >> unit.kind >> ignored_bool;
+            if (!unit.kind.empty()) summary.units.push_back(std::move(unit));
+        } else if (trim.rfind("#TRIGGER", 0) == 0) {
+            std::istringstream fields(trim);
+            std::string directive;
+            EffectScriptSummary::Trigger trigger;
+            fields >> directive >> trigger.time_token >> trigger.unit >> trigger.kind;
+            if (!trigger.kind.empty()) summary.triggers.push_back(std::move(trigger));
         } else if (trim.rfind("#OBJECTNAME", 0) == 0 ||
                    trim.rfind("#SOUNDNAME", 0) == 0 ||
                    trim.rfind("#TEXTURE", 0) == 0) {

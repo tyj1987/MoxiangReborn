@@ -26,6 +26,17 @@ struct EffectScriptSummary {
     std::size_t effect_unit_count = 0;
     std::size_t trigger_count = 0;
     std::vector<std::string> dependencies;
+    struct Unit {
+        std::size_t index = 0;
+        std::string kind;
+    };
+    struct Trigger {
+        std::string time_token;
+        std::size_t unit = 0;
+        std::string kind;
+    };
+    std::vector<Unit> units;
+    std::vector<Trigger> triggers;
     bool decoded = false;
 };
 

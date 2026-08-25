@@ -34,6 +34,11 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_TRUE(script->decoded);
     EXPECT_GT(script->effect_unit_count, 0u);
     EXPECT_GT(script->trigger_count, 0u);
+    ASSERT_EQ(script->trigger_count, script->triggers.size());
+    ASSERT_EQ(script->effect_unit_count, script->units.size());
+    EXPECT_EQ(script->triggers.front().time_token, "f0");
+    EXPECT_EQ(script->triggers.front().kind, "ON");
+    EXPECT_FALSE(script->units.front().kind.empty());
 }
 
 TEST(EffectCatalog, RejectsMissingRoot) {
