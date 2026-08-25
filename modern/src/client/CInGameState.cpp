@@ -1063,11 +1063,13 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 std::int32_t damage = 0;
                 std::memcpy(&damage, msg.payload.data() + 4, sizeof(damage));
                 const auto hit = msg.payload[8];
+                const auto source_object = msg.header.object_id != 0
+                    ? msg.header.object_id : m_playerId;
                 push_effect_event(EffectEvent{
-                    EffectEventKind::Hit, m_lastTickMs, m_playerId, target,
+                    EffectEventKind::Hit, m_lastTickMs, source_object, target,
                     0, 0, 0, damage, hit});
                 push_effect_event(EffectEvent{
-                    EffectEventKind::End, m_lastTickMs, m_playerId, target,
+                    EffectEventKind::End, m_lastTickMs, source_object, target,
                     0, 0, 0, damage, hit});
                 MLOG_INFO("CInGameState: SkillSingleResult target=%u damage=%d hit=%u",
                           target, damage, static_cast<unsigned>(hit));
