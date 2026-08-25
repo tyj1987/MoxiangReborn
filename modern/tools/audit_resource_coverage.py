@@ -31,6 +31,11 @@ LARGE_FILE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 def find_explorer(build_dir: Path) -> Path:
     candidates = [
+        # The repository's current Ninja configuration emits single-config
+        # tools directly under the target directory.  Keep the multi-config
+        # locations below for older/Visual Studio builds, but do not make a
+        # valid fresh build look absent merely because it has no Debug folder.
+        build_dir / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe",
         build_dir / "tools" / "MoxianResourceExplorer" / "Debug" / "mxh_explorer.exe",
         build_dir / "tools" / "MoxianResourceExplorer" / "Release" / "mxh_explorer.exe",
     ]
@@ -92,6 +97,12 @@ def audit_file(explorer: Path, rel: Path, full: Path):
     size = full.stat().st_size
     cmd = None
     timeout = 30
+    # Character_unpacked is an extracted/derived inventory used by older
+    # audits, not a shipped resource-format payload.  It is deliberately
+    # reported as present so the coverage report exposes it without asking
+    # the .bin metadata parser to interpret arbitrary extracted bytes.
+    if any(part.lower().endswith("_unpacked") for part in rel.parts):
+        return ("present", size, "derived unpacked payload; byte inventory only")
     # AGENTS.md constitution §0: only binary .bin resources count
     # toward coverage.  Sniff plaintext ini-config .bin files and tag
     # them n/a so they do not pollute the coverage gate.
@@ -235,5 +246,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
