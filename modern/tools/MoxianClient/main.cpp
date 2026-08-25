@@ -1060,6 +1060,15 @@ struct EffectVisualOverlay {
     }
 };
 
+struct DamageFeedback {
+    std::uint32_t target_id = 0;
+    std::int32_t amount = 0;
+    std::uint64_t start_ms = 0;
+    std::uint32_t duration_ms = 900;
+};
+
+std::vector<DamageFeedback> g_damageFeedback;
+
 struct DisplayTransitionResult {
     bool committed = false;
     DWORD win32_error = ERROR_SUCCESS;
@@ -1198,6 +1207,48 @@ void renderFrame(HWND h) {
         }
         if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
             g_effectVisuals->render(*g_inputTarget, *g_terrain, g_renderer);
+        }
+        if (g_inputTarget && g_inputTarget->is_in_game() && !g_damageFeedback.empty()) {
+            const auto now = static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()).count());
+            const auto& info = g_inputTarget->game_info();
+            for (const auto& feedback : g_damageFeedback) {
+                if (now < feedback.start_ms ||
+                    now - feedback.start_ms >= feedback.duration_ms) continue;
+                float sx = 0.0f, sy = 0.0f;
+                bool found = false;
+                if (feedback.target_id == info.player_id) {
+                    found = EffectVisualOverlay::project(
+                        g_terrain->viewProj(), info.position_x,
+                        g_terrain->heightAt(info.position_x, info.position_z) + 140.0f,
+                        info.position_z, sx, sy);
+                } else {
+                    for (const auto& monster : g_inputTarget->monsters()) {
+                        if (monster.object_id != feedback.target_id) continue;
+                        found = EffectVisualOverlay::project(
+                            g_terrain->viewProj(), monster.position_x,
+                            g_terrain->heightAt(monster.position_x, monster.position_z) + 140.0f,
+                            monster.position_z, sx, sy);
+                        break;
+                    }
+                }
+                if (!found) continue;
+                const auto age = static_cast<float>(now - feedback.start_ms);
+                const auto text = std::to_string(feedback.amount);
+                mxh::ui::renderText(mxh::ui::TextRenderRequest{
+                    text, static_cast<std::int32_t>(sx - 32.0f),
+                    static_cast<std::int32_t>(sy - 70.0f - age * 0.02f),
+                    64, 24, 0, 0,
+                    feedback.amount < 0 ? 0xFF70FF70u : 0xFFFF6060u,
+                    0, mxh::ui::TextRenderAlign::Center, false});
+            }
+            g_damageFeedback.erase(
+                std::remove_if(g_damageFeedback.begin(), g_damageFeedback.end(),
+                    [now](const DamageFeedback& value) {
+                        return now >= value.start_ms &&
+                               now - value.start_ms >= value.duration_ms;
+                    }), g_damageFeedback.end());
         }
 
         // GameIn UI is the original InterfaceScript tree.  The old geometric
@@ -2425,6 +2476,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 if (prev_state == mxh::client::GameStateId::GameIn) {
                     g_inputTarget = nullptr;
                     if (g_effectVisuals) g_effectVisuals->clear();
+                    g_damageFeedback.clear();
                 }
                 if (cur_state == mxh::client::GameStateId::Title) {
                     g_mainTitle = dynamic_cast<mxh::client::CMainTitle*>(
@@ -2685,6 +2737,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                        static_cast<unsigned>(effect.sound_id),
                                        effect.effect_name.c_str());
                         }
+                    }
+                    for (const auto& effect : game_in->drain_effect_events()) {
+                        if (effect.kind != mxh::client::EffectEventKind::Hit ||
+                            effect.damage == 0) continue;
+                        if (g_damageFeedback.size() >= 256u)
+                            g_damageFeedback.erase(g_damageFeedback.begin());
+                        g_damageFeedback.push_back({effect.target_object_id,
+                                                    effect.damage,
+                                                    effect.timestamp_ms,
+                                                    900u});
                     }
                     const auto& info = game_in->game_info();
                     if (g_terrain) {
