@@ -896,4 +896,18 @@ std::string EntityScene::itemDisplayName(std::uint16_t item_id) const {
     const auto* end = std::find(begin, begin + mxh::game::ITEM_MAX_NAME, '\0');
     return std::string(begin, end);
 }
+
+std::optional<std::uint16_t> EntityScene::itemIconIndex(
+    std::uint16_t item_id) const {
+    if (!impl_ || item_id == 0) return std::nullopt;
+    const auto it = std::find_if(
+        impl_->item_catalog.begin(), impl_->item_catalog.end(),
+        [item_id](const mxh::game::ItemInfo& item) {
+            return item.ItemIdx == item_id;
+        });
+    if (it == impl_->item_catalog.end() || it->Image2DNum == 0) {
+        return std::nullopt;
+    }
+    return it->Image2DNum;
+}
 } // namespace mxh::gx

@@ -990,6 +990,10 @@ ItemIconEntry* loadAtlasIcon(I4DyuchiGXRenderer* renderer,
     }
     entry.sprite = sprite;
     entry.source = RECT{hard->left, hard->top, hard->right, hard->bottom};
+    MLOG_INFO("mxh_client: atlas icon loaded type=%u id=%d atlas=%d rect=%ld,%ld,%ld,%ld",
+              static_cast<unsigned>(path_type), icon_id, hard->atlas_idx,
+              entry.source.left, entry.source.top,
+              entry.source.right, entry.source.bottom);
     auto [it, inserted] = g_atlas_icons.emplace(cache_key, entry);
     if (!inserted && entry.sprite) entry.sprite->Release();
     return it->second.sprite ? &it->second : nullptr;
@@ -1631,15 +1635,23 @@ void renderFrame(HWND h) {
                         const float x = invX + static_cast<float>(col) * (kCell + kInvGap);
                         const float y = invY + static_cast<float>(row) * (kCell + kInvGap);
                         if (!mxh::game::is_empty_slot(inventory[idx])) {
-                            const auto icon_id = static_cast<std::int32_t>(
-                                inventory[idx].wIconIdx);
-                            if (auto* icon = loadAtlasIcon(
-                                    g_renderer, icon_id,
+                            const auto item_icon = g_entityScene
+                                ? g_entityScene->itemIconIndex(
+                                      inventory[idx].wIconIdx)
+                                : std::nullopt;
+                            if (item_icon.has_value()) {
+                                if (auto* icon = loadAtlasIcon(
+                                        g_renderer,
+                                        static_cast<std::int32_t>(*item_icon),
                                     mxh::ui::PathFileType::ItemPath)) {
-                                (void)drawSpriteRegion(g_renderer, icon->sprite,
-                                                       icon->source, x, y,
-                                                       kCell, kCell,
-                                                       0xFFFFFFFFu);
+                                    (void)drawSpriteRegion(g_renderer, icon->sprite,
+                                                           icon->source, x, y,
+                                                           kCell, kCell,
+                                                           0xFFFFFFFFu);
+                                } else {
+                                    drawSpriteQuad(g_renderer, g_hud.barBg, x, y,
+                                                   kCell, kCell, 0xFFFFFFFFu);
+                                }
                             } else {
                                 // Keep the slot chrome visible while making
                                 // a missing profile mapping explicit; no
@@ -2816,6 +2828,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool auto_create_requested = false;
     bool loading_failure_latched = false;
     bool follow_frame_captured = false;
+    bool smoke_inventory_opened = false;
+    unsigned smoke_inventory_settle_frames = 0;
     unsigned follow_settle_frames = 0;
     MSG msg{};
     while (mxh::client::g_running) {
@@ -2833,7 +2847,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         // the authoritative GameInAck.  The first in-game render can lazily
         // resolve hundreds of legacy model dependencies; do not let that
         // presentation work mask a successful network/state transition.
+        const bool smoke_open_inventory = std::getenv("MXH_GUI_SMOKE_OPEN_INVENTORY") != nullptr;
+        if (smoke_open_inventory && smoke_inventory_opened) {
+            ++smoke_inventory_settle_frames;
+        }
         if (options.exit_after_gamein && !options.follow_camera &&
+            (!smoke_open_inventory ||
+             (smoke_inventory_opened && smoke_inventory_settle_frames >= 5u)) &&
             mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
             if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                     mainGame.GetGameState(mxh::client::GameStateId::GameIn));
@@ -2860,9 +2880,36 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             }
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
+            if (!smoke_inventory_opened &&
+                std::getenv("MXH_GUI_SMOKE_OPEN_INVENTORY") != nullptr &&
+                mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
+                if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
+                        mainGame.GetGameState(mxh::client::GameStateId::GameIn));
+                    smoke_game && smoke_game->is_in_game()) {
+                    smoke_game->OnKeyEvent(true, 0x49u);
+                    smoke_game->OnKeyEvent(false, 0x49u);
+                    g_inputTarget = smoke_game;
+                    smoke_inventory_opened = smoke_game->inventory_open();
+                    std::size_t occupied_slots = 0;
+                    std::uint16_t first_item_icon = 0;
+                    for (const auto& item : smoke_game->game_info().items.Inventory) {
+                        if (!mxh::game::is_empty_slot(item)) {
+                            ++occupied_slots;
+                            if (first_item_icon == 0) first_item_icon = item.wIconIdx;
+                        }
+                    }
+                    MLOG_INFO("mxh_client: GUI_SMOKE_INVENTORY_OPEN=%s",
+                              smoke_inventory_opened ? "true" : "false");
+                    MLOG_INFO("mxh_client: GUI_SMOKE_INVENTORY_ITEMS=%zu first_item=%u",
+                              occupied_slots, static_cast<unsigned>(first_item_icon));
+                }
+            }
             if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
                     mainGame.GetGameState(mxh::client::GameStateId::GameIn));
-                smoke_game && !options.follow_camera && smoke_game->smoke_exit_ready()) {
+                smoke_game && !options.follow_camera &&
+                (!smoke_open_inventory || smoke_inventory_opened) &&
+                (!smoke_open_inventory || smoke_inventory_settle_frames >= 5u) &&
+                smoke_game->smoke_exit_ready()) {
                 mxh::client::g_running = false;
             }
             if (!mxh::client::g_running) break;

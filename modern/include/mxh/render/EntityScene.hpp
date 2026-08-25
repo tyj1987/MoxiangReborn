@@ -152,6 +152,9 @@ public:
     // Empty means the profile has no matching item entry; callers must then
     // show an explicit numeric fallback rather than inventing a name.
     [[nodiscard]] std::string itemDisplayName(std::uint16_t item_id) const;
+    // Resolve ItemList.ItemIdx to the corresponding image_item_path index.
+    [[nodiscard]] std::optional<std::uint16_t> itemIconIndex(
+        std::uint16_t item_id) const;
 
 private:
     struct Impl;

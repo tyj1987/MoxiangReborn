@@ -7,7 +7,8 @@ param(
     [int]$MinimumNpcCount = 0,
     [switch]$FollowCamera,
     [switch]$AuditMapDependencies,
-    [switch]$AuditNpcDependencies
+    [switch]$AuditNpcDependencies,
+    [switch]$ExerciseInventory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +32,7 @@ $client = $null
 $previousGuiSmokePassword = $env:MXH_GUI_SMOKE_PASSWORD
 $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
 $previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
+$previousGuiSmokeOpenInventory = $env:MXH_GUI_SMOKE_OPEN_INVENTORY
 
 try {
     if ($AuditMapDependencies) {
@@ -61,6 +63,11 @@ try {
         -RedirectStandardInput $registerInput -NoNewWindow -Wait -PassThru
     if ($register.ExitCode -ne 0) { throw "GUI smoke test account registration failed" }
     Remove-Item -LiteralPath $registerInput -Force -ErrorAction SilentlyContinue
+    if ($ExerciseInventory) {
+        $grantSql = "INSERT INTO modern_item_grant(idempotency_key,character_id,item_id,item_count,status,created_by,reason)VALUES('gui-smoke-$runId',100000,8000,3,'pending','gui-smoke','inventory-visual-gate')"
+        & $dbTool exec --db $dbConfig $grantSql
+        if ($LASTEXITCODE -ne 0) { throw "GUI smoke inventory grant setup failed" }
+    }
     $arguments = @(
         '--login-host', '127.0.0.1',
         '--login-port', '16001',
@@ -79,6 +86,7 @@ try {
     if ($FollowCamera) { $arguments += '--follow-camera' }
     $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
     $env:MXH_GUI_SMOKE_EXIT = '1'
+    if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
     if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
@@ -141,6 +149,9 @@ try {
     }
     if ($log -notmatch "CharacterSelectAck chrid=\d+ map_num=$MapNumber") {
         throw "GUI smoke character map does not match requested map $MapNumber; log=$stderr"
+    }
+    if ($ExerciseInventory -and $log -notmatch 'GUI_SMOKE_INVENTORY_OPEN') {
+        throw "GUI smoke inventory exercise did not open the live inventory UI; log=$stderr"
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
@@ -208,6 +219,11 @@ finally {
         Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue
     } else {
         $env:MXH_GUI_SMOKE_RENDER_ENTITIES = $previousGuiSmokeRenderEntities
+    }
+    if ($null -eq $previousGuiSmokeOpenInventory) {
+        Remove-Item Env:MXH_GUI_SMOKE_OPEN_INVENTORY -ErrorAction SilentlyContinue
+    } else {
+        $env:MXH_GUI_SMOKE_OPEN_INVENTORY = $previousGuiSmokeOpenInventory
     }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue

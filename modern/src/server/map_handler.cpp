@@ -1314,6 +1314,15 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     const auto grants_claimed = claim_pending_item_grants(player_id);
     if (grants_claimed != 0) {
         std::cout << "[Map] claimed " << grants_claimed << " GM item grants for player=" << player_id << "\n";
+        // claim_pending_item_grants updates the authoritative connected
+        // snapshot after the initial DB load. Refresh the local snapshot
+        // before serialising GameInAck, otherwise the client would receive
+        // an empty inventory until a later item broadcast.
+        std::lock_guard<std::mutex> lk(players_mu_);
+        if (const auto live = connected_players_.find(player_id);
+            live != connected_players_.end()) {
+            pi.items = live->second.items;
+        }
     }
     const auto active_events = load_active_live_events(db_, utc_now_iso8601());
     for (const auto& announcement : active_events.announcements) {
