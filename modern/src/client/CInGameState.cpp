@@ -1434,6 +1434,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 : err == 2u ? "Not enough MP."
                 : err == 4u ? "Target is out of range."
                 : "Skill could not be used.";
+            m_pendingSkillId = 0;
             (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
             MLOG_WARN("CInGameState: SkillStartNack error=%u",
                       static_cast<unsigned>(err));
@@ -1451,6 +1452,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 if (m_pendingSkillId != 0) {
                     start_skill_effect(m_pendingSkillId, target, m_lastTickMs,
                                        source_object);
+                    m_pendingSkillId = 0;
                 }
                 push_effect_event(EffectEvent{
                     EffectEventKind::Hit, m_lastTickMs, source_object, target,
