@@ -3264,6 +3264,36 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     game_loading_frame_presented = true;
                 } else {
                     std::string transferError;
+                    const auto state_start_failure = [&]() -> std::optional<std::string> {
+                        if (cur_state == mxh::client::GameStateId::GameLoading) {
+                            if (const auto* loading = dynamic_cast<const mxh::client::CGameLoading*>(
+                                    mainGame.GetGameState(cur_state));
+                                loading && loading->failed()) {
+                                return loading->error();
+                            }
+                        } else if (const auto* change = dynamic_cast<const mxh::client::CMapChange*>(
+                                       mainGame.GetGameState(cur_state));
+                                   change && change->failed()) {
+                            return change->error();
+                        }
+                        return std::nullopt;
+                    }();
+                    if (!worldLoadSession && state_start_failure) {
+                        pending_loading_error = *state_start_failure;
+                        MLOG_ERROR("GameLoading: %s", pending_loading_error.c_str());
+                        const bool restore_existing_game =
+                            mxh::client::can_restore_previous_game_after_map_change(
+                                map_change_from_game,
+                                static_cast<bool>(g_terrain),
+                                static_cast<bool>(g_staticScene),
+                                static_cast<bool>(g_entityScene));
+                        mainGame.SetGameState(
+                            restore_existing_game
+                                ? mxh::client::GameStateId::GameIn
+                                : mxh::client::GameStateId::CharSelect);
+                        map_change_from_game = false;
+                        continue;
+                    }
                     if (!worldLoadSession && mainGame.GetEngine()->has_pending_transfer() &&
                         loadingCoordinator.consume_pending_transfer(
                             *mainGame.GetEngine(), &transferError)) {
