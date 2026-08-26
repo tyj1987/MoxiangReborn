@@ -229,7 +229,16 @@ public:
         for (const auto& path : manifest.deleteFiles) {
             fs::path fullPath = fs::path(gameDir_) / path;
             if (fs::exists(fullPath)) {
-                fs::remove(fullPath);
+                std::error_code delete_error;
+                if (!fs::remove(fullPath, delete_error) || delete_error) {
+                    std::cerr << "  Failed to delete " << path << ": "
+                              << (delete_error ? delete_error.message() : "file was not removed")
+                              << std::endl;
+                    if (!rollback()) {
+                        std::cerr << "  CRITICAL: update rollback also failed" << std::endl;
+                    }
+                    return false;
+                }
                 std::cout << "  Deleted: " << path << std::endl;
             }
         }
@@ -264,31 +273,67 @@ public:
 
         {
             std::ifstream created(backupDir / ".created");
+            if (!created) {
+                std::cerr << "Backup metadata is unreadable" << std::endl;
+                return false;
+            }
             std::string created_path;
             while (std::getline(created, created_path)) {
                 if (mxh::patch::is_safe_relative_path(created_path)) {
                     std::error_code error;
                     fs::remove(fs::path(gameDir_) / created_path, error);
+                    if (error) {
+                        std::cerr << "Failed to remove created file " << created_path
+                                  << ": " << error.message() << std::endl;
+                        return false;
+                    }
                 }
+            }
+            if (!created.eof()) {
+                std::cerr << "Backup metadata read failed" << std::endl;
+                return false;
             }
         }
 
         // Restore files from backup
-        for (const auto& entry : fs::recursive_directory_iterator(backupDir)) {
+        std::error_code iterator_error;
+        fs::recursive_directory_iterator entries(backupDir, iterator_error);
+        if (iterator_error) {
+            std::cerr << "Cannot enumerate backup: " << iterator_error.message() << std::endl;
+            return false;
+        }
+        for (const auto& entry : entries) {
             if (entry.is_regular_file()) {
                 fs::path relative = fs::relative(entry.path(), backupDir);
                 if (relative == ".created") continue;
                 fs::path target = fs::path(gameDir_) / relative;
 
-                fs::create_directories(target.parent_path());
-                fs::copy_file(entry.path(), target, fs::copy_options::overwrite_existing);
+                std::error_code restore_error;
+                fs::create_directories(target.parent_path(), restore_error);
+                if (restore_error ||
+                    !fs::copy_file(entry.path(), target, fs::copy_options::overwrite_existing,
+                                   restore_error) || restore_error) {
+                    std::cerr << "Failed to restore " << relative << ": "
+                              << (restore_error ? restore_error.message() : "copy failed")
+                              << std::endl;
+                    return false;
+                }
             }
         }
 
         // Remove backup
-        fs::remove_all(backupDir);
+        std::error_code cleanup_error;
+        fs::remove_all(backupDir, cleanup_error);
+        if (cleanup_error) {
+            std::cerr << "Failed to remove backup: " << cleanup_error.message() << std::endl;
+            return false;
+        }
         std::error_code journal_error;
         fs::remove(journalPath(), journal_error);
+        if (journal_error) {
+            std::cerr << "Failed to remove update journal: " << journal_error.message() << std::endl;
+            return false;
+        }
 
         std::cout << "Rollback completed" << std::endl;
         return true;
