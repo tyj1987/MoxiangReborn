@@ -58,6 +58,18 @@ TEST(CGameLoading, TracksCoordinatorContext) {
     state.Release();
 }
 
+TEST(CGameLoading, ReportsCompletionOnlyAfterAllSteps) {
+    LoadStateContext context{};
+    context.total_steps = 4;
+    context.completed_steps = 3;
+    CGameLoading state;
+    state.Init(&context);
+    EXPECT_FALSE(state.completed());
+    context.completed_steps = 4;
+    state.Process();
+    EXPECT_TRUE(state.completed());
+}
+
 TEST(CGameLoading, RejectsInvalidContext) {
     LoadStateContext context;
     context.total_steps = 0;
@@ -86,6 +98,16 @@ TEST(CMapChange, TracksProgressCancellationAndFailure) {
     state.Process();
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "target map unavailable");
+}
+
+TEST(CMapChange, FailureAndCancellationNeverReportCompletion) {
+    LoadStateContext context{};
+    context.total_steps = 1;
+    context.completed_steps = 1;
+    context.cancelled = true;
+    CMapChange state;
+    state.Init(&context);
+    EXPECT_FALSE(state.completed());
 }
 
 TEST(CMapChange, RejectsInvalidContext) {

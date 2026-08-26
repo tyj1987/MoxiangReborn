@@ -74,6 +74,7 @@ public:
     float progress() const noexcept { return m_progress; }
     bool failed() const noexcept { return m_failed; }
     bool cancelled() const noexcept { return m_cancelled; }
+    bool completed() const noexcept { return !m_failed && !m_cancelled && m_progress >= 1.0f; }
     const std::string& error() const noexcept { return m_error; }
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
@@ -108,6 +109,7 @@ public:
     float progress() const noexcept { return m_progress; }
     bool failed() const noexcept { return m_failed; }
     bool cancelled() const noexcept { return m_cancelled; }
+    bool completed() const noexcept { return !m_failed && !m_cancelled && m_progress >= 1.0f; }
     const std::string& error() const noexcept { return m_error; }
     void Start(CEngine* engine);
     void set_context(const LoadStateContext* context) noexcept {
