@@ -9,6 +9,7 @@ TEST(PatchSecurity, AcceptsOnlyContainedRelativePaths) {
     EXPECT_FALSE(mxh::patch::is_safe_relative_path("Data/../outside.exe"));
     EXPECT_FALSE(mxh::patch::is_safe_relative_path("C:/Windows/file"));
     EXPECT_FALSE(mxh::patch::is_safe_relative_path("/absolute/file"));
+    EXPECT_FALSE(mxh::patch::is_safe_relative_path("bin/client.exe:payload"));
 }
 
 TEST(PatchSecurity, Sha256AndSizeVerificationUseRealBytes) {

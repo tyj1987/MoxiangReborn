@@ -23,6 +23,12 @@ inline bool is_safe_relative_path(const fs::path& path) {
         return false;
     for (const auto& part : path) {
         if (part == ".." || part == "." || part.empty()) return false;
+        // Windows alternate data streams (for example `client.exe:stream`)
+        // are not ordinary patch files and can bypass an apparent directory
+        // boundary.  Reject any colon in a manifest component, including a
+        // drive-like prefix that some path implementations do not classify
+        // as a root name until it is combined with another path.
+        if (part.native().find(':') != std::string::npos) return false;
     }
     return true;
 }
