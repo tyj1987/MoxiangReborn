@@ -100,6 +100,30 @@ std::uint32_t cCheckBox::ActionEvent(CMouse* /*mouseInfo*/) {
     return we;
 }
 
+std::uint32_t cCheckBox::ActionEvent(std::int32_t mouseX,
+                                     std::int32_t mouseY,
+                                     std::uint32_t mouseFlags) {
+    if (!isEnabled()) {
+        m_pressed = false;
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool inside = PtInWindow(mouseX, mouseY);
+    const bool left = (mouseFlags & MouseFlagLButton) != 0;
+    if (left && inside) {
+        m_pressed = true;
+        return static_cast<std::uint32_t>(WindowEvent::LButtonDown);
+    }
+    if (!left) {
+        const bool clicked = m_pressed && inside;
+        m_pressed = false;
+        if (clicked) {
+            ToggleForTesting();
+            return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
+        }
+    }
+    return static_cast<std::uint32_t>(WindowEvent::Null);
+}
+
 void cCheckBox::Render() {
     // 1:1 with legacy Render — see legacy code for the full
     // sprite + font dispatch. Modern port: no-op stub
