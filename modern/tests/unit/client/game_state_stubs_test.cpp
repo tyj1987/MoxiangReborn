@@ -135,6 +135,17 @@ TEST(GameLoadingCoordinator, ClearsPreviousRequestWhenTransferIsInvalid) {
     EXPECT_NE(error.find("invalid"), std::string::npos);
 }
 
+TEST(GameLoadingCoordinator, ClearsPreviousRequestWhenNoTransferIsPending) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{56u, 10u});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    std::string error;
+    EXPECT_FALSE(coordinator.consume_pending_transfer(engine, &error));
+    EXPECT_FALSE(coordinator.has_request());
+    EXPECT_NE(error.find("waiting"), std::string::npos);
+}
+
 TEST(GameLoadingCoordinator, ProgressDoesNotRegressFromLateStageCallback) {
     CEngine engine;
     GameLoadingCoordinator coordinator;
