@@ -3,6 +3,7 @@
 #include "cListCtrl.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace mxh::ui {
 
@@ -174,7 +175,12 @@ std::uint32_t cListCtrl::ActionKeyboardEvent(std::int32_t key,
 
 bool cListCtrl::OnMouseWheel(std::int32_t wheelDelta) noexcept {
     if (!isEnabled() || !isVisible() || wheelDelta == 0) return false;
-    const int step = wheelDelta > 0 ? -1 : 1;
+    // Win32 can coalesce multiple detents into one message (for example
+    // +/-240). Preserve that distance instead of silently dropping input.
+    constexpr std::int32_t kWheelDelta = 120;
+    const auto detents = std::max<std::int32_t>(
+        1, std::abs(wheelDelta) / kWheelDelta);
+    const int step = wheelDelta > 0 ? -detents : detents;
     const int oldTop = m_topItemIdx;
     SetTopItemIdx(m_topItemIdx + step);
     return oldTop != m_topItemIdx;

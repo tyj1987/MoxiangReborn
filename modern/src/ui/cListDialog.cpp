@@ -3,6 +3,7 @@
 #include "cListDialog.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace mxh::ui {
 
@@ -139,7 +140,10 @@ std::uint32_t cListDialog::ActionKeyboardEvent(std::int32_t key,
 
 bool cListDialog::OnMouseWheel(std::int32_t wheelDelta) noexcept {
     if (!isEnabled() || !isVisible() || wheelDelta == 0) return false;
-    const int step = wheelDelta > 0 ? -1 : 1;
+    constexpr std::int32_t kWheelDelta = 120;
+    const auto detents = std::max<std::int32_t>(
+        1, std::abs(wheelDelta) / kWheelDelta);
+    const int step = wheelDelta > 0 ? -detents : detents;
     const int oldTop = m_topRow;
     const int visible = (m_lineHeight > 0 && m_clipH > 0)
         ? std::max(1, m_clipH / m_lineHeight) : 1;

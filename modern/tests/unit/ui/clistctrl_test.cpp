@@ -2,6 +2,7 @@
 // Phase 6.5 unit tests for the modern mxh::ui::cListCtrl widget.
 #include <gtest/gtest.h>
 
+#include <string>
 #include <vector>
 
 #include "cListCtrl.hpp"
@@ -278,6 +279,18 @@ TEST(CListCtrl, MouseWheelScrollsAndClamps) {
     for (int i = 0; i < 8; ++i) l.OnMouseWheel(-120);
     EXPECT_EQ(l.topItemIdx(), 3);
     EXPECT_FALSE(l.OnMouseWheel(-120));
+}
+
+TEST(CListCtrl, MouseWheelHonorsCoalescedDetents) {
+    cListCtrl l;
+    l.Init(0, 0, 200, 100, nullptr, 1);
+    l.InitListCtrl(1, 1);
+    for (int i = 0; i < 6; ++i) l.AddRow({{std::to_string(i)}});
+
+    EXPECT_TRUE(l.OnMouseWheel(-240));
+    EXPECT_EQ(l.topItemIdx(), 2);
+    EXPECT_TRUE(l.OnMouseWheel(240));
+    EXPECT_EQ(l.topItemIdx(), 0);
 }
 
 TEST(CListCtrl, SetColumnsCapsRowVectors) {
