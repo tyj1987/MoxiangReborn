@@ -110,6 +110,17 @@ TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {
     EXPECT_EQ(coordinator.context().completed_steps, 10u);
 }
 
+TEST(GameLoadingCoordinator, AcceptsShippedMapZero) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{77u, 0u});
+    std::string error;
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine, &error)) << error;
+    EXPECT_EQ(coordinator.request().character_id, 77u);
+    EXPECT_EQ(coordinator.request().map_num, 0u);
+    EXPECT_FALSE(coordinator.context().failed);
+}
+
 TEST(GameLoadingCoordinator, ProgressDoesNotRegressFromLateStageCallback) {
     CEngine engine;
     GameLoadingCoordinator coordinator;
