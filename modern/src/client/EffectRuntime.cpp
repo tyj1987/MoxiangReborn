@@ -1,5 +1,7 @@
 #include "EffectRuntime.hpp"
 
+#include <algorithm>
+
 namespace mxh::client {
 
 bool EffectRuntime::load(const std::filesystem::path& root, std::string* error) {
@@ -60,6 +62,17 @@ void EffectRuntime::advance(
         if (!it->timeline.active()) it = m_instances.erase(it);
         else ++it;
     }
+}
+
+std::size_t EffectRuntime::stop_object(std::uint32_t object_id) noexcept {
+    if (object_id == 0) return 0;
+    const auto before = m_instances.size();
+    m_instances.erase(std::remove_if(m_instances.begin(), m_instances.end(),
+        [object_id](const Instance& instance) {
+            return instance.source_object_id == object_id ||
+                   instance.target_object_id == object_id;
+        }), m_instances.end());
+    return before - m_instances.size();
 }
 
 void EffectRuntime::clear() noexcept {

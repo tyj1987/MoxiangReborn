@@ -50,6 +50,9 @@ public:
                      float tick_per_frame_ms);
     void advance(std::uint64_t now_ms,
                  const std::function<void(const RuntimeEffectEvent&)>& emit);
+    // Stop all active instances owned by a server skill object (or target
+    // object when the protocol carries that identity).
+    std::size_t stop_object(std::uint32_t object_id) noexcept;
     void clear() noexcept;
     const mxh::game::EffectCatalog& catalog() const noexcept { return m_catalog; }
     std::size_t active_count() const noexcept { return m_instances.size(); }

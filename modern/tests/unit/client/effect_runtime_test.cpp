@@ -65,6 +65,21 @@ TEST(EffectRuntime, RunsAuthoritativeCombatEffectFromSkillList) {
     EXPECT_GT(runtime.active_count(), 0u);
 }
 
+TEST(EffectRuntime, StopObjectRemovesMatchingSourceAndTargetInstances) {
+    const auto root = find_playdh_root();
+    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
+    mxh::client::EffectRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, &error)) << error;
+    ASSERT_TRUE(runtime.start("m_combo_gum01.beff", 101, 202, 1000, 16));
+    ASSERT_TRUE(runtime.start("m_combo_gum01.beff", 303, 404, 1000, 16));
+    EXPECT_EQ(runtime.stop_object(202), 1u);
+    EXPECT_EQ(runtime.active_count(), 1u);
+    EXPECT_EQ(runtime.stop_object(303), 1u);
+    EXPECT_EQ(runtime.active_count(), 0u);
+    EXPECT_EQ(runtime.stop_object(0), 0u);
+}
+
 TEST(EffectRuntime, MissingIdFailsWithoutGuessingAnotherEffect) {
     mxh::client::EffectRuntime runtime;
     EXPECT_FALSE(runtime.start_by_id(999999u, false, 1, 2, 0, 16));

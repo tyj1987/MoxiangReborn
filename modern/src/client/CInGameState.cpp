@@ -1483,9 +1483,12 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
         }
         case SkillProtocol::SkillObjectRemove: {
             const auto skill_object = msg.header.object_id;
+            const auto stopped = m_effectRuntime.stop_object(skill_object);
             push_effect_event(EffectEvent{
                 EffectEventKind::End, m_lastTickMs, 0, skill_object,
                 0, 0, 0, 0, 0});
+            MLOG_INFO("CInGameState: SkillObjectRemove object=%u stopped=%zu",
+                      skill_object, stopped);
             break;
         }
         default:
