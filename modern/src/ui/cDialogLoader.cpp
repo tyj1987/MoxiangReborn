@@ -14,6 +14,7 @@
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cAni.hpp"               // M-R4.8: cAni stub (full def, no legacy)
 #include "mxh/ui/cButton.hpp"
+#include "mxh/ui/bigmapdlg.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
 #include "mxh/ui/cinventoryexdialog.hpp"
@@ -635,6 +636,9 @@ std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
     if (node.type == "CHATDLG") {
         return std::make_unique<cChatDialog>();
     }
+    if (node.type == "BIGMAPDLG") {
+        return std::make_unique<cBigMapDlg>();
+    }
     if (node.type == "CHARMAKEDLG") {
         return std::make_unique<cCharMakeDlg>();
     }
@@ -714,6 +718,13 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
             return r;
         }
         applyLegacyIdentity(*dlg, *root);
+        // BigMap.bin identifies its root by type rather than an explicit
+        // #ID token.  Preserve the legacy root name so runtime activation
+        // can address the shipped map dialog just like other InterfaceScript
+        // roots.
+        if (root->type == "BIGMAPDLG" && !root->id.has_value()) {
+            dlg->setLegacyId("BIGMAPDLG");
+        }
         dlg->setName(r.bin_name);
         if (!first_point_set) {
             const auto& p = *root->point;
