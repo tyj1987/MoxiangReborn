@@ -2927,6 +2927,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool follow_frame_captured = false;
     bool smoke_inventory_opened = false;
     bool smoke_skill_logged = false;
+    bool smoke_appearance_rotated = false;
     unsigned smoke_inventory_settle_frames = 0;
     unsigned follow_settle_frames = 0;
     MSG msg{};
@@ -2978,6 +2979,29 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             }
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
+            if (!smoke_appearance_rotated &&
+                std::getenv("MXH_GUI_SMOKE_ROTATE_APPEARANCE") != nullptr &&
+                mainGame.GetCurStateNum() == mxh::client::GameStateId::CharMake) {
+                if (auto* make = dynamic_cast<mxh::client::CCharMake*>(
+                        mainGame.GetGameState(mxh::client::GameStateId::CharMake));
+                    make) {
+                    const bool sex = make->RotateAppearanceOption(mxh::client::CharMakeOptionCategory::Sex, 1);
+                    const bool face = make->RotateAppearanceOption(mxh::client::CharMakeOptionCategory::MaleFace, 1);
+                    const bool hair = make->RotateAppearanceOption(mxh::client::CharMakeOptionCategory::MaleHair, 1);
+                    const bool cloth = make->RotateAppearanceOption(mxh::client::CharMakeOptionCategory::Cloth, 1);
+                    const bool weapon = make->RotateAppearanceOption(mxh::client::CharMakeOptionCategory::Weapon, 1);
+                    const auto& p = make->form_model().params();
+                    MLOG_INFO("mxh_client: GUI_SMOKE_APPEARANCE_ROTATED sex=%u face=%u hair=%u cloth=%u weapon=%u applied=%d%d%d%d%d",
+                              static_cast<unsigned>(p.sex_type),
+                              static_cast<unsigned>(p.face_type),
+                              static_cast<unsigned>(p.hair_type),
+                              static_cast<unsigned>(p.weared_item_idx[2]),
+                              static_cast<unsigned>(p.weared_item_idx[5]),
+                              sex ? 1 : 0, face ? 1 : 0, hair ? 1 : 0,
+                              cloth ? 1 : 0, weapon ? 1 : 0);
+                    smoke_appearance_rotated = sex || face || hair || cloth || weapon;
+                }
+            }
             if (!smoke_inventory_opened &&
                 std::getenv("MXH_GUI_SMOKE_OPEN_INVENTORY") != nullptr &&
                 mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {

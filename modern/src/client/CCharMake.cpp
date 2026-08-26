@@ -649,6 +649,15 @@ bool CCharMake::OnMouseMove(std::int32_t x, std::int32_t y) {
     return m_uiRuntime.onMouseMove(x, y);
 }
 
+bool CCharMake::RotateAppearanceOption(CharMakeOptionCategory category,
+                                       int direction) {
+    if (!m_optionCatalog.has_value() || direction == 0) return false;
+    if (!m_formModel.rotate(category, direction)) return false;
+    refresh_option_text(category);
+    refresh_sex_visibility();
+    return true;
+}
+
 bool CCharMake::OnKeyEvent(bool down, std::uint32_t key) {
     const bool consumed = m_uiRuntime.onKey(down, static_cast<std::int32_t>(key));
     if (!down) return consumed;

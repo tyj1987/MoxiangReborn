@@ -9,7 +9,8 @@ param(
     [switch]$AuditMapDependencies,
     [switch]$AuditNpcDependencies,
     [switch]$ExerciseInventory,
-    [switch]$ExerciseSkills
+    [switch]$ExerciseSkills,
+    [switch]$RotateAppearance
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +36,7 @@ $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
 $previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 $previousGuiSmokeOpenInventory = $env:MXH_GUI_SMOKE_OPEN_INVENTORY
 $previousGuiSmokeSkills = $env:MXH_GUI_SMOKE_SKILLS
+$previousGuiSmokeRotateAppearance = $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE
 
 try {
     if ($AuditMapDependencies) {
@@ -98,6 +100,7 @@ try {
     $env:MXH_GUI_SMOKE_EXIT = '1'
     if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
     if ($ExerciseSkills) { $env:MXH_GUI_SMOKE_SKILLS = '1' }
+    if ($RotateAppearance) { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = '1' }
     if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
@@ -166,6 +169,9 @@ try {
     }
     if ($ExerciseSkills -and $log -notmatch 'GUI_SMOKE_SKILLS=10') {
         throw "GUI smoke skill exercise did not receive persisted skill 10; log=$stderr"
+    }
+    if ($RotateAppearance -and $log -notmatch 'GUI_SMOKE_APPEARANCE_ROTATED') {
+        throw "GUI smoke appearance rotation did not reach CharMake; log=$stderr"
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
@@ -244,6 +250,9 @@ finally {
     if ($null -eq $previousGuiSmokeSkills) {
         Remove-Item Env:MXH_GUI_SMOKE_SKILLS -ErrorAction SilentlyContinue
     } else { $env:MXH_GUI_SMOKE_SKILLS = $previousGuiSmokeSkills }
+    if ($null -eq $previousGuiSmokeRotateAppearance) {
+        Remove-Item Env:MXH_GUI_SMOKE_ROTATE_APPEARANCE -ErrorAction SilentlyContinue
+    } else { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = $previousGuiSmokeRotateAppearance }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }

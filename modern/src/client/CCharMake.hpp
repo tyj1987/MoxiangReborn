@@ -185,6 +185,7 @@ public:
     // identical submit is already in flight.
     bool SubmitCharacter(const CharacterMakeParams& params);
     bool SubmitCurrentForm();
+    bool RotateAppearanceOption(CharMakeOptionCategory category, int direction);
     bool CheckCurrentName();
     bool CancelCreation();
     bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
