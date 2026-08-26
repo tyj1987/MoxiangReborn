@@ -192,7 +192,16 @@ cImage* cDialogLoader::LoadLegacyImage(std::int32_t hard_idx) {
 namespace {
 
 bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
-                      DialogLoadReport& report, ResolutionMode mode) {
+                      DialogLoadReport& report, ResolutionMode mode,
+                      std::size_t depth = 0) {
+            // InterfaceScript is untrusted profile data.  A malformed
+            // nested tree must fail fast instead of exhausting the stack or
+            // hanging the client during GameLoading/UI startup.
+            constexpr std::size_t kMaxInterfaceDepth = 128;
+            if (depth > kMaxInterfaceDepth) {
+                report.error = "InterfaceScript nesting exceeds safety limit";
+                return false;
+            }
             if (!node.point.has_value()) return false;
             const auto& p = *node.point;
             const auto before_count = parent.childCount();
@@ -574,7 +583,7 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
 
     for (const auto& nested : node.children) {
         const auto nested_before = added->childCount();
-        if (!addInterfaceNode(*added, *nested, report, mode)) continue;
+        if (!addInterfaceNode(*added, *nested, report, mode, depth + 1)) continue;
         if (auto* gauge = dynamic_cast<cGuageBar*>(added)) {
             if (cWindow* gauge_child = added->childAt(nested_before)) {
                 if (dynamic_cast<cButton*>(gauge_child)) {
@@ -713,6 +722,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                 ++child_count;
             }
         }
+        if (!r.error.empty()) return r;
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
         }

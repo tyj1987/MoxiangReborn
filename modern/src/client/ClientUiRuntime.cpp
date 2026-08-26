@@ -183,7 +183,9 @@ bool ClientUiRuntime::isDialogActive(std::string_view legacy_id) const noexcept 
     // sheets must remain discoverable so callers can verify their state.
     for (const auto& dialog : m_windows.dialogs()) {
         if (!dialog) continue;
-        if (dialog->legacyId() == legacy_id) return dialog->isActive();
+        if (dialog->legacyId() == legacy_id) {
+            return dialog->isActive();
+        }
         if (const auto* window = dialog->findWindowByLegacyId(legacy_id)) {
             return window->isActive();
         }
