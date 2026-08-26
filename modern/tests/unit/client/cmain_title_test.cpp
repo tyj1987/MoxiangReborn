@@ -160,3 +160,12 @@ TEST(CMainTitle, ClearPasswordPreservesAccountAndEditState) {
     EXPECT_TRUE(pwd->editText().empty());
     title.Release();
 }
+
+TEST(CMainTitle, ReleaseClearsPasswordState) {
+    CMainTitle title;
+    title.Init(nullptr);
+    title.Start(nullptr, "acct", "secret");
+    ASSERT_EQ(title.password(), "secret");
+    title.Release();
+    EXPECT_TRUE(title.password().empty());
+}

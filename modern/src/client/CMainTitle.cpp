@@ -129,7 +129,9 @@ LoginUiCommand resolve_login_ui_command(
 }
 
 CMainTitle::CMainTitle() = default;
-CMainTitle::~CMainTitle() = default;
+CMainTitle::~CMainTitle() {
+    clear_secret(m_password);
+}
 
 void CMainTitle::Init(void* /*pInitParam*/) {
     MLOG_INFO("CMainTitle::Init — booting into the login flow");
@@ -147,6 +149,7 @@ void CMainTitle::Init(void* /*pInitParam*/) {
 
 void CMainTitle::Release() {
     MLOG_INFO("CMainTitle::Release");
+    clearPassword();
     m_uiRuntime.clear();
     m_submitRequested = false;
     m_pCamera         = nullptr;
