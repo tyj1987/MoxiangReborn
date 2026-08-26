@@ -126,16 +126,20 @@ std::uint32_t cListCtrl::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
     if (!isEnabled() || !isVisible()) {
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
-    const std::uint16_t row = PtIdxInRow(mouseX, mouseY);
-    if (row <= m_linePerPage) {
-        m_overRowIdx = static_cast<std::int32_t>(row);
+    const std::uint16_t visibleRow = PtIdxInRow(mouseX, mouseY);
+    const bool insideRow = visibleRow < m_linePerPage;
+    const std::int32_t row = insideRow
+        ? m_topItemIdx + static_cast<std::int32_t>(visibleRow)
+        : -1;
+    if (insideRow && row >= 0 && row < static_cast<std::int32_t>(m_rows.size())) {
+        m_overRowIdx = row;
     } else {
         m_overRowIdx = -1;
     }
     // Click: select the row + invoke the click callback.
     if (mouseFlags & MouseFlagLButton) {
-        if (row <= m_linePerPage) {
-            m_selectedRowIdx = static_cast<std::int32_t>(row);
+        if (insideRow && row >= 0 && row < static_cast<std::int32_t>(m_rows.size())) {
+            m_selectedRowIdx = row;
             if (m_onClick) m_onClick(*this, m_selectedRowIdx, m_userdata);
             return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
         }

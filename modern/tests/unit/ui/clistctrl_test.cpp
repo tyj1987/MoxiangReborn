@@ -194,6 +194,32 @@ TEST(CListCtrl, ActionEventClickOutsideClearsSelection) {
     EXPECT_EQ(l.selectedRowIdx(), -1);
 }
 
+TEST(CListCtrl, ActionEventUsesTopItemOffsetForScrolledRows) {
+    cListCtrl l;
+    l.Init(10, 20, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    l.AddRow({{"a"}}); l.AddRow({{"b"}}); l.AddRow({{"c"}});
+    l.SetTopItemIdx(1);
+    l.ActionEvent(50, 50, cWindow::MouseFlagLButton);
+    EXPECT_EQ(l.overRowIdx(), 1);
+    EXPECT_EQ(l.selectedRowIdx(), 1);
+}
+
+TEST(CListCtrl, ActionEventEmptyListDoesNotSelectPhantomRow) {
+    cListCtrl l;
+    l.Init(10, 20, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    l.SetSelectedRowIdx(-1);
+    int clickCount = 0;
+    l.SetClickFunc([&](cListCtrl&, std::int32_t, void*) { ++clickCount; });
+    l.ActionEvent(50, 50, cWindow::MouseFlagLButton);
+    EXPECT_EQ(l.selectedRowIdx(), -1);
+    EXPECT_EQ(clickCount, 0);
+    EXPECT_EQ(l.overRowIdx(), -1);
+}
+
 TEST(CListCtrl, SetSelectOptionSwitchesHighlightMode) {
     cListCtrl l;
     l.Init(0, 0, 200, 300, &g_basicImg);
