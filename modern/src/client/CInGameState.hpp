@@ -259,6 +259,7 @@ inline constexpr float kMoveReportEveryMs = 300.0f;  // legacy 300ms notice
 inline constexpr float kAttackCooldownMs = 800.0f;
 inline constexpr float kAttackRange      = 500.0f;
 inline constexpr float kPickupRange      = 500.0f;
+inline constexpr float kNpcInteractionRange = 500.0f;
 inline constexpr float kWorldLimit       = 50000.0f;
 inline constexpr std::uint32_t kVkF      = 0x46;
 inline constexpr std::uint32_t kVkL      = 0x4C;

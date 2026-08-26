@@ -634,6 +634,27 @@ TEST(InGamePlayable, BKeyDoesNotOpenShopForQuestNpc) {
     EXPECT_EQ(state.shop_npc_id(), 0u);
 }
 
+TEST(InGamePlayable, DistantNpcDoesNotTriggerInteraction) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message npc;
+    npc.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    npc.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NpcAdd);
+    npc.payload.assign(64, 0);
+    const std::uint32_t npc_id = 99u;
+    const std::uint16_t far = 30000u;
+    std::memcpy(npc.payload.data(), &npc_id, sizeof(npc_id));
+    npc.payload[35] = 1; // dealer, but outside the authoritative interaction radius
+    std::memcpy(npc.payload.data() + 45, &far, sizeof(far));
+    std::memcpy(npc.payload.data() + 47, &far, sizeof(far));
+    state.on_message(mxh::net::make_connection_id(1), npc);
+    state.OnKeyEvent(true, 0x42);
+    EXPECT_FALSE(state.shop_open());
+    EXPECT_EQ(state.shop_npc_id(), 0u);
+}
+
 TEST(InGamePlayable, MoneyUpdateFromShopAckFeedsLiveHudState) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

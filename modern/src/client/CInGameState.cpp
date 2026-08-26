@@ -2714,6 +2714,12 @@ void CInGameState::interact_with_npc(std::uint32_t npc_id) {
     if (it == m_npcs.end()) return;
 
     const auto role = mxh::game::role_from_wire(it->npc_kind);
+    const float dx = static_cast<float>(it->position_x) - m_localX;
+    const float dz = static_cast<float>(it->position_z) - m_localZ;
+    if (dx * dx + dz * dz > kNpcInteractionRange * kNpcInteractionRange) {
+        MLOG_DEBUG("CInGameState: NPC interaction npc=%u out of range", npc_id);
+        return;
+    }
     if (role == mxh::game::NpcRole::Dealer ||
         role == mxh::game::NpcRole::Bobusang) {
         open_shop(npc_id);
