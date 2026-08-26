@@ -166,6 +166,23 @@ public:
         std::cout << "  Files to update: " << manifest.files.size() << std::endl;
         std::cout << "  Files to delete: " << manifest.deleteFiles.size() << std::endl;
 
+        std::uintmax_t required_bytes = 64u * 1024u * 1024u; // journal/staging headroom
+        for (const auto& file : manifest.files) {
+            required_bytes += file.size;
+            const auto existing = fs::path(gameDir_) / file.path;
+            std::error_code size_error;
+            if (fs::is_regular_file(existing, size_error)) {
+                required_bytes += fs::file_size(existing, size_error);
+            }
+        }
+        std::error_code space_error;
+        const auto available = fs::space(fs::path(gameDir_), space_error).available;
+        if (space_error || available < required_bytes) {
+            std::cerr << "Insufficient disk space for update (required="
+                      << required_bytes << ", available=" << available << ")" << std::endl;
+            return false;
+        }
+
         std::set<std::string> completed_paths;
         const bool resuming = loadJournal(manifest.version, completed_paths) &&
                                fs::is_directory(fs::path(gameDir_) / "_backup");
