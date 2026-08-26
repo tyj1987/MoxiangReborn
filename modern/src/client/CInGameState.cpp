@@ -739,6 +739,7 @@ void CInGameState::Release() {
     m_failed   = false;
     m_failureReason.clear();
     m_lastItemError.clear();
+    m_lastNpcError.clear();
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -1035,6 +1036,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case Category::Item:
             handle_item_broadcast(msg);
             break;
+        case Category::Npc:
+            handle_npc_message(msg);
+            break;
         case Category::Quest:
             handle_quest_broadcast(msg);
             break;
@@ -1046,6 +1050,15 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
                        mxh::proto::category_name(cat),
                        static_cast<int>(msg.header.protocol));
             break;
+    }
+}
+
+void CInGameState::handle_npc_message(const mxh::net::Message& msg) {
+    const auto proto = static_cast<mxh::proto::NpcProtocol>(msg.header.protocol);
+    if (proto == mxh::proto::NpcProtocol::SpeechNack) {
+        m_lastNpcError = "NPC is too far away.";
+        (void)m_uiRuntime.showMessage(9105, m_lastNpcError);
+        MLOG_WARN("CInGameState: NPC speech rejected");
     }
 }
 
