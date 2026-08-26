@@ -61,6 +61,7 @@ public:
                                      std::int32_t x, std::int32_t y);
     bool onMouseMove(std::int32_t x, std::int32_t y);
     bool onKey(bool down, std::int32_t key);
+    bool onKey(bool down, std::int32_t key, bool shift);
     bool onChar(std::int32_t ch);
 
     bool setDialogActive(std::string_view legacy_id, bool active) noexcept;
@@ -96,6 +97,7 @@ private:
     mxh::ui::cWindow* hitTest(std::int32_t x, std::int32_t y) const noexcept;
     void focus(mxh::ui::cWindow* window) noexcept;
     void focusNext() noexcept;
+    void focusPrevious() noexcept;
     void collectClosedModal() noexcept;
     mxh::ui::cMsgBox* createMessageBox(std::int32_t id,
                                       std::string message,

@@ -251,6 +251,23 @@ void ClientUiRuntime::focusNext() noexcept {
     focus(next == focusable.end() ? focusable.front() : *next);
 }
 
+void ClientUiRuntime::focusPrevious() noexcept {
+    std::vector<mxh::ui::cWindow*> focusable;
+    for (const auto& dialog : m_windows.dialogs()) {
+        collect_focusable(dialog.get(), focusable);
+    }
+    if (focusable.empty()) {
+        focus(nullptr);
+        return;
+    }
+    const auto current = std::find(focusable.begin(), focusable.end(), m_focused);
+    if (current == focusable.end() || current == focusable.begin()) {
+        focus(focusable.back());
+        return;
+    }
+    focus(*std::prev(current));
+}
+
 ClientUiInputResult ClientUiRuntime::onMouseButton(
     bool left, bool down, std::int32_t x, std::int32_t y) {
     ClientUiInputResult result;
@@ -325,6 +342,10 @@ bool ClientUiRuntime::onMouseMove(std::int32_t x, std::int32_t y) {
 }
 
 bool ClientUiRuntime::onKey(bool down, std::int32_t key) {
+    return onKey(down, key, false);
+}
+
+bool ClientUiRuntime::onKey(bool down, std::int32_t key, bool shift) {
     if (!m_active || !down) return false;
     if (m_windows.isModal()) {
         m_windows.ActionKeyboardEvent(key, 0);
@@ -332,7 +353,8 @@ bool ClientUiRuntime::onKey(bool down, std::int32_t key) {
         return true;
     }
     if (key == 9) {
-        focusNext();
+        if (shift) focusPrevious();
+        else focusNext();
         return true;
     }
     if (!m_focused) return false;
