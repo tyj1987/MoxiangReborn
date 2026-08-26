@@ -16,6 +16,7 @@
 #include "dx11/mesh_object.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <chrono>
 #include <optional>
@@ -57,11 +58,41 @@ bool readFile(I4DyuchiFileStorage* storage, const char* name,
 
 bool loadTexture(I4DyuchiFileStorage* storage, ID3D11Device* device,
                  const std::string& name, ComPtr<ID3D11ShaderResourceView>& srv) {
-    std::vector<std::uint8_t> encoded;
     if (name.empty()) return false;
-    std::string resolved = dx11::compiledTextureName(name);
-    if (resolved != name && !readFile(storage, resolved.c_str(), encoded)) resolved = name;
-    if (encoded.empty() && !readFile(storage, resolved.c_str(), encoded)) return false;
+    // Character MOD files use the original TGA/TIF material names while the
+    // runtime profile stores the compiled DDS sibling.  Keep the original
+    // name as a fallback (some legacy profiles really do ship the source
+    // texture), but try every supported compiled spelling before failing.
+    std::vector<std::string> candidates;
+    candidates.push_back(name);
+    const auto compiled = dx11::compiledTextureName(name);
+    if (compiled != name) candidates.push_back(compiled);
+    std::string extension = name.size() >= 4 ? name.substr(name.size() - 4) : std::string{};
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (extension == ".tif") {
+        auto dds = name;
+        dds.replace(dds.size() - 4, 4, ".dds");
+        candidates.push_back(std::move(dds));
+    }
+    // A small number of converted assets retain the historical duplicated
+    // extension (for example foo.tga.tga); normalize that spelling too.
+    for (const auto& suffix : {std::string{".tga.tga"}, std::string{".tif.tif"}}) {
+        if (name.size() >= suffix.size() &&
+            std::equal(suffix.rbegin(), suffix.rend(), name.rbegin(),
+                       [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) ==
+                                                   std::tolower(static_cast<unsigned char>(b)); })) {
+            auto dds = name.substr(0, name.size() - suffix.size()) + ".dds";
+            candidates.push_back(std::move(dds));
+        }
+    }
+    std::vector<std::uint8_t> encoded;
+    for (const auto& candidate : candidates) {
+        if (readFile(storage, candidate.c_str(), encoded)) {
+            break;
+        }
+    }
+    if (encoded.empty()) return false;
     const auto decoded = dx11::loadTextureFromMemory(encoded.data(),
         static_cast<std::uint32_t>(encoded.size()));
     if (decoded.pixels.empty()) return false;
