@@ -35,11 +35,37 @@ bool loadTexture(I4DyuchiFileStorage* storage, ID3D11Device* device,
                  std::string name, ComPtr<ID3D11ShaderResourceView>& srv) {
     if (name.empty()) return false;
     std::vector<std::uint8_t> encoded;
-    if (!readStorageFile(storage, name.c_str(), encoded)) {
-        const auto dot = name.find_last_of('.');
-        if (dot == std::string::npos) return false;
-        name.replace(dot, std::string::npos, ".dds");
-        if (!readStorageFile(storage, name.c_str(), encoded)) return false;
+    std::vector<std::string> candidates;
+    candidates.push_back(name);
+    const auto addDdsVariant = [&](std::string candidate) {
+        if (candidate.size() >= 4 &&
+            candidate.compare(candidate.size() - 4, 4, ".tga") == 0)
+            candidate.replace(candidate.size() - 4, 4, ".dds");
+        else if (candidate.size() >= 4 &&
+                 candidate.compare(candidate.size() - 4, 4, ".tif") == 0)
+            candidate.replace(candidate.size() - 4, 4, ".dds");
+        else {
+            const auto dot = candidate.find_last_of('.');
+            if (dot == std::string::npos) return;
+            candidate.replace(dot, std::string::npos, ".dds");
+        }
+        if (std::find(candidates.begin(), candidates.end(), candidate) == candidates.end())
+            candidates.push_back(std::move(candidate));
+    };
+    addDdsVariant(name);
+    // A few STM exports carry the authoring extension twice (for example
+    // `foo.tga.tga`).  Strip one layer before generating the engine DDS name;
+    // this remains an exact package lookup and never invents pixels.
+    if (name.size() >= 8 && name.compare(name.size() - 8, 8, ".tga.tga") == 0)
+        addDdsVariant(name.substr(0, name.size() - 4));
+    for (const auto& candidate : candidates) {
+        if (readStorageFile(storage, candidate.c_str(), encoded)) {
+            name = candidate;
+            break;
+        }
+    }
+    if (encoded.empty()) {
+        return false;
     }
     const auto decoded = dx11::loadTextureFromMemory(encoded.data(),
         static_cast<std::uint32_t>(encoded.size()));
