@@ -83,6 +83,36 @@ std::uint32_t cTextArea::ActionEvent(std::int32_t mouseX,
     return childEvent;
 }
 
+std::uint32_t cTextArea::ActionKeyboardEvent(std::int32_t key,
+                                             std::int32_t ch) {
+    if (!isEnabled() || !isActive() || !m_bCaret) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    constexpr std::int32_t kBackspace = 8;
+    constexpr std::int32_t kEnter = 13;
+    if (key == kBackspace) {
+        if (!m_bReadOnly && !m_scriptText.empty()) m_scriptText.pop_back();
+        return static_cast<std::uint32_t>(WindowEvent::KeyDown);
+    }
+    if (key == kEnter) {
+        if (!m_bReadOnly && m_bEnterAllow) {
+            if (m_nMaxLine <= 0 ||
+                static_cast<int>(m_scriptText.size()) < m_nMaxLine) {
+                m_scriptText.push_back('\n');
+            }
+        }
+        return static_cast<std::uint32_t>(WindowEvent::KeyDown);
+    }
+    if (ch > 0 && ch < 0x80) {
+        if (!m_bReadOnly && (m_nMaxLine <= 0 ||
+                             static_cast<int>(m_scriptText.size()) < m_nMaxLine)) {
+            m_scriptText.push_back(static_cast<char>(ch));
+        }
+        return static_cast<std::uint32_t>(WindowEvent::Char_);
+    }
+    return static_cast<std::uint32_t>(WindowEvent::Null);
+}
+
 void cTextArea::SetScriptText(const char* inText) {
     // 1:1 with legacy cTextArea::SetScriptText. The
     // legacy stores the text in an internal buffer

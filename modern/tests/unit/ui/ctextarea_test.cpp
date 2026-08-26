@@ -325,6 +325,21 @@ TEST(CTextAreaTest, PointerClickOutsideTextRectDoesNotFocusEditor) {
     EXPECT_FALSE(ta.IsCaretVisible());
 }
 
+TEST(CTextAreaTest, KeyboardInputHonorsEnterAndReadOnly) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 100}, 32);
+    ta.SetActive(true);
+    ta.SetFocusEdit(true);
+    ta.ActionKeyboardEvent(0, 'A');
+    ta.ActionKeyboardEvent(13, 0);
+    ta.ActionKeyboardEvent(0, 'B');
+    EXPECT_EQ(ta.GetScriptText(), "A\nB");
+    ta.SetReadOnly(true);
+    ta.ActionKeyboardEvent(8, 0);
+    EXPECT_EQ(ta.GetScriptText(), "A\nB");
+}
+
 TEST(CTextAreaTest, RenderIsNoOp) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);
