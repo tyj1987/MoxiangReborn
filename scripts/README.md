@@ -8,8 +8,9 @@ PowerShell 脚本用于现代化运维。
 |------|------|
 | `setup-modern.ps1` | 一次性初始化：检测工具 → CMake → 构建 → 测试 |
 | `start-server.ps1` | 启动/停止/重启服务端（替代原 .lnk） |
-| `verify-resources.ps1` | 资源完整性校验（TODO） |
-| `convert-resources.ps1` | 资源格式转换（TODO） |
+| `verify-resource-profile.py` | 只读校验 ResourceProfileManifest、关键文件和 SHA-256 |
+| `gui-client-smoke.ps1` | 启动三服并验证客户端状态帧、地图依赖和 GUI 运行证据 |
+| `run-human-acceptance.ps1` | 仅由操作者完成真实鼠标键盘验收，不注入凭据或输入 |
 
 ## 用法
 
@@ -28,6 +29,11 @@ PowerShell 脚本用于现代化运维。
 
 # 查看状态
 .\scripts\start-server.ps1 -Mode status
+
+# 校验正式资源 profile 的关键文件
+python .\scripts\verify-resource-profile.py `
+  .\reference\manifests\playdh-current.sha256.json `
+  --root .\modern\data\PlayDH --profile-id playdh-current
 ```
 
 ## 执行策略
