@@ -30,6 +30,7 @@
 #include <chrono>
 #include <iomanip>
 #include <functional>
+#include <set>
 
 #include "patch_security.hpp"
 
@@ -165,18 +166,32 @@ public:
         std::cout << "  Files to update: " << manifest.files.size() << std::endl;
         std::cout << "  Files to delete: " << manifest.deleteFiles.size() << std::endl;
 
-        // Create backup
-        if (!createBackup(manifest)) {
+        std::set<std::string> completed_paths;
+        const bool resuming = loadJournal(manifest.version, completed_paths) &&
+                               fs::is_directory(fs::path(gameDir_) / "_backup");
+        if (!resuming && !createBackup(manifest)) {
             std::cerr << "Failed to create backup" << std::endl;
+            return false;
+        }
+        if (!resuming && !beginJournal(manifest.version)) {
+            std::cerr << "Failed to create update journal" << std::endl;
             return false;
         }
 
         // Download and apply patches
-        size_t completed = 0;
+        size_t completed_count = 0;
         size_t total = manifest.files.size();
 
         for (const auto& file : manifest.files) {
-            std::cout << "  [" << (completed + 1) << "/" << total << "] " << file.path;
+            std::cout << "  [" << (completed_count + 1) << "/" << total << "] " << file.path;
+
+            if (completed_paths.count(file.path) != 0 &&
+                mxh::patch::verify_file(fs::path(gameDir_) / file.path,
+                                        file.size, file.sha256)) {
+                std::cout << " - RESUME" << std::endl;
+                ++completed_count;
+                continue;
+            }
 
             if (!downloadAndApplyPatch(file)) {
                 std::cerr << " - FAILED" << std::endl;
@@ -184,8 +199,13 @@ public:
                 return false;
             }
 
+            if (!appendJournal(file.path)) {
+                std::cerr << " - JOURNAL FAILED" << std::endl;
+                rollback();
+                return false;
+            }
             std::cout << " - OK" << std::endl;
-            completed++;
+            ++completed_count;
         }
 
         // Delete removed files
@@ -201,6 +221,13 @@ public:
         if (!updateVersionFile(manifest.version)) {
             std::cerr << "Failed to update version file" << std::endl;
             rollback();
+            return false;
+        }
+
+        std::error_code journal_error;
+        fs::remove(journalPath(), journal_error);
+        if (journal_error) {
+            std::cerr << "Failed to remove update journal: " << journal_error.message() << std::endl;
             return false;
         }
 
@@ -243,6 +270,8 @@ public:
 
         // Remove backup
         fs::remove_all(backupDir);
+        std::error_code journal_error;
+        fs::remove(journalPath(), journal_error);
 
         std::cout << "Rollback completed" << std::endl;
         return true;
@@ -255,6 +284,43 @@ public:
     }
 
 private:
+    fs::path journalPath() const { return fs::path(gameDir_) / ".update-journal"; }
+
+    bool loadJournal(const Version& version, std::set<std::string>& completed) const {
+        std::ifstream input(journalPath(), std::ios::binary);
+        if (!input) return false;
+        std::string line;
+        bool version_ok = false;
+        while (std::getline(input, line)) {
+            if (line.rfind("VERSION=", 0) == 0) {
+                version_ok = Version::fromString(line.substr(8)) == version;
+            } else if (line.rfind("DONE\t", 0) == 0 && version_ok) {
+                const auto path = line.substr(5);
+                if (mxh::patch::is_safe_relative_path(path) &&
+                    !mxh::patch::is_user_data_path(path)) completed.insert(path);
+            }
+        }
+        return version_ok;
+    }
+
+    bool beginJournal(const Version& version) const {
+        std::ofstream output(journalPath(), std::ios::binary | std::ios::trunc);
+        if (!output) return false;
+        output << "VERSION=" << version.toString() << "\n";
+        output.flush();
+        return static_cast<bool>(output);
+    }
+
+    bool appendJournal(const std::string& path) const {
+        if (!mxh::patch::is_safe_relative_path(path) ||
+            mxh::patch::is_user_data_path(path)) return false;
+        std::ofstream output(journalPath(), std::ios::binary | std::ios::app);
+        if (!output) return false;
+        output << "DONE\t" << path << "\n";
+        output.flush();
+        return static_cast<bool>(output);
+    }
+
     // Read current version from MHVerInfo.ver
     Version getCurrentVersion() const {
         fs::path verFile = fs::path(gameDir_) / "MHVerInfo.ver";
