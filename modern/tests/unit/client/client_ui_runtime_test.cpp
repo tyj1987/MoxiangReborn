@@ -204,6 +204,19 @@ TEST(ClientUiRuntime, TabAndShiftTabCycleRealLoginControls) {
     EXPECT_EQ(runtime.focusedWindow(), first);
 }
 
+TEST(ClientUiRuntime, HidingActiveSetClearsStaleKeyboardFocus) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "IDDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    ASSERT_TRUE(runtime.onKey(true, 9, false));
+    ASSERT_NE(runtime.focusedWindow(), nullptr);
+    runtime.applyActiveSet(std::array<std::string_view, 0>{});
+    EXPECT_EQ(runtime.focusedWindow(), nullptr);
+}
+
 TEST(ClientUiRuntime, RoutesCharactersOnlyToFocusedEditBox) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

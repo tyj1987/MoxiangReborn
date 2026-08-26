@@ -228,6 +228,17 @@ void ClientUiRuntime::applyActiveSet(
             }
         }
     }
+    bool focus_valid = m_focused != nullptr;
+    for (auto* node = static_cast<mxh::ui::cObject*>(m_focused);
+         node && focus_valid; node = node->parent()) {
+        const auto* window = dynamic_cast<const mxh::ui::cWindow*>(node);
+        if (!window || !window->isVisible() || !window->isEnabled()) {
+            focus_valid = false;
+        }
+    }
+    if (!focus_valid) {
+        focus(nullptr);
+    }
 }
 
 mxh::ui::cWindow* ClientUiRuntime::hitTest(std::int32_t x,
