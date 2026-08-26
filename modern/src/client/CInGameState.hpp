@@ -480,6 +480,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
     const std::string& last_item_error() const noexcept { return m_lastItemError; }
     const std::string& last_npc_error() const noexcept { return m_lastNpcError; }
+    const std::string& last_skill_error() const noexcept { return m_lastSkillError; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
     std::uint64_t attack_flash_age_ms() const noexcept;
 
@@ -565,6 +566,7 @@ public:
     std::string              m_failureReason;
     std::string              m_lastItemError;
     std::string              m_lastNpcError;
+    std::string              m_lastSkillError;
 
     // In-game input/movement state.
     std::uint32_t  m_keyMask      = 0;

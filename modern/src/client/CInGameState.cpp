@@ -754,6 +754,7 @@ void CInGameState::Release() {
     m_failureReason.clear();
     m_lastItemError.clear();
     m_lastNpcError.clear();
+    m_lastSkillError.clear();
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -1429,6 +1430,11 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
         case SkillProtocol::StartNack: {
             const std::uint8_t err =
                 msg.payload.empty() ? 0xFFu : msg.payload[0];
+            m_lastSkillError = err == 1u ? "Skill unavailable."
+                : err == 2u ? "Not enough MP."
+                : err == 4u ? "Target is out of range."
+                : "Skill could not be used.";
+            (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
             MLOG_WARN("CInGameState: SkillStartNack error=%u",
                       static_cast<unsigned>(err));
             break;

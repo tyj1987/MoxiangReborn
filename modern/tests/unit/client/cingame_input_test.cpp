@@ -459,6 +459,20 @@ TEST(InGamePlayable, ServerMovementCorrectionRollsBackLocalPrediction) {
     EXPECT_EQ(state.local_z(), z);
 }
 
+TEST(InGamePlayable, SkillNackBecomesVisiblePlayerFeedback) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack);
+    nack.header.object_id = state.player_id();
+    nack.payload = {4u};
+    state.on_message(mxh::net::make_connection_id(1), nack);
+    EXPECT_EQ(state.last_skill_error(), "Target is out of range.");
+}
+
 TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
