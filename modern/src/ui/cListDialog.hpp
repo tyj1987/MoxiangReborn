@@ -77,6 +77,12 @@ public:
     // Hit test: returns the row index under (x, y) or -1.
     int PtIdxInRow(std::int32_t x, std::int32_t y) const noexcept;
 
+    // Coordinate input used by quest/chat/shop list dialogs.  A left-button
+    // click latches the hit row and returns the legacy click event; pointer
+    // movement is routed to children without changing selection.
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
+
     // Render placeholder.
     void Render() override {}
 

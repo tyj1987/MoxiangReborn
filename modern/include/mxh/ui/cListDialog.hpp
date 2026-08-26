@@ -77,6 +77,9 @@ public:
     // Hit test: returns the row index under (x, y) or -1.
     int PtIdxInRow(std::int32_t x, std::int32_t y) const noexcept;
 
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
+
     // Render placeholder.
     void Render() override {}
 

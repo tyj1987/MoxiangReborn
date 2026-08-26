@@ -95,4 +95,24 @@ int cListDialog::PtIdxInRow(std::int32_t x, std::int32_t y) const noexcept {
     return row;
 }
 
+std::uint32_t cListDialog::ActionEvent(std::int32_t mouseX,
+                                       std::int32_t mouseY,
+                                       std::uint32_t mouseFlags) {
+    if (!isEnabled() || !isVisible() || !isActive()) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const auto childEvent = cDialog::ActionEvent(mouseX, mouseY, mouseFlags);
+    const int row = PtIdxInRow(mouseX, mouseY);
+    if ((mouseFlags & MouseFlagLButton) && row >= 0) {
+        m_selectedRow = row;
+        return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
+    }
+    if ((mouseFlags & MouseFlagLButton) &&
+        mouseX >= m_clipX && mouseX <= m_clipX + m_clipW &&
+        mouseY >= m_clipY && mouseY <= m_clipY + m_clipH) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    return childEvent;
+}
+
 } // namespace mxh::ui

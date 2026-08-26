@@ -127,6 +127,28 @@ TEST(CListDialog, PtIdxInRowRespectsClip) {
     EXPECT_EQ(l.PtIdxInRow(0,  40), -1);
 }
 
+TEST(CListDialog, ActionEventSelectsClickedRow) {
+    mxh::ui::cListDialog l;
+    l.Init(0, 0, 120, 80, nullptr, 1);
+    l.InitList(3, 10, 20, 80, 60);
+    l.AddItem("first");
+    l.AddItem("second");
+    l.SetActive(true);
+    EXPECT_EQ(l.ActionEvent(30, 40, mxh::ui::cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonClick));
+    EXPECT_EQ(l.GetCurSelectedRowIdx(), 1);
+}
+
+TEST(CListDialog, ActionEventIgnoresEmptyOrOutsideClicks) {
+    mxh::ui::cListDialog l;
+    l.Init(0, 0, 120, 80, nullptr, 1);
+    l.InitList(3, 10, 20, 80, 60);
+    l.SetActive(true);
+    EXPECT_EQ(l.ActionEvent(30, 40, mxh::ui::cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::Null));
+    EXPECT_EQ(l.GetCurSelectedRowIdx(), -1);
+}
+
 TEST(CListDialog, AutoScrollSetterGetter) {
     // 1:1 with legacy cListDialog::SetAutoScroll + SetShowSelect.
     // Both setters existed before this fix but the AutoScroll getter
