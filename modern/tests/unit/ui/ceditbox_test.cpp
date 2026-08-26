@@ -52,6 +52,33 @@ TEST(CEditBox, InsertCharAppendsAndMovesCaret) {
     EXPECT_EQ(e.caretPos(), 3u);
 }
 
+TEST(CEditBox, Utf8CodepointsInsertNavigateAndDeleteAsUnits) {
+    cEditBox e;
+    e.InitEditbox(200, 32);
+    e.SetFocus(true);
+    e.ActionKeyboardEvent(0, 0x4E2D); // 中
+    e.ActionKeyboardEvent(0, 0x6587); // 文
+    EXPECT_EQ(e.editText(), "\xE4\xB8\xAD\xE6\x96\x87");
+    EXPECT_EQ(e.caretPos(), 6u);
+
+    e.ActionKeyboardEvent(static_cast<std::int32_t>(Key::Left), 0);
+    EXPECT_EQ(e.caretPos(), 3u);
+    e.ActionKeyboardEvent(static_cast<std::int32_t>(Key::Back), 0);
+    EXPECT_EQ(e.editText(), "\xE6\x96\x87");
+    EXPECT_EQ(e.caretPos(), 0u);
+
+    e.ActionKeyboardEvent(static_cast<std::int32_t>(Key::Delete), 0);
+    EXPECT_TRUE(e.editText().empty());
+}
+
+TEST(CEditBox, SetEditTextDoesNotLeaveTruncatedUtf8Sequence) {
+    cEditBox e;
+    e.InitEditbox(200, 4); // three payload bytes: less than two CJK chars
+    e.SetEditText("\xE4\xB8\xAD\xE6\x96\x87");
+    EXPECT_EQ(e.editText(), "\xE4\xB8\xAD");
+    EXPECT_EQ(e.caretPos(), 3u);
+}
+
 TEST(CEditBox, BackspaceDeletesCharBeforeCaret) {
     cEditBox e;
     e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage);

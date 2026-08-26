@@ -2,11 +2,43 @@
 // Phase 6.2 — implementation of the modern cEditBox widget.
 #include "cEditBox.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <cstddef>
 
 #include "TextRender.hpp"
 
 namespace mxh::ui {
+
+namespace {
+bool is_utf8_continuation(unsigned char byte) noexcept {
+    return (byte & 0xC0u) == 0x80u;
+}
+
+std::size_t complete_utf8_prefix(const std::string& text,
+                                 std::size_t limit) noexcept {
+    const auto size = std::min(text.size(), limit);
+    std::size_t pos = 0;
+    while (pos < size) {
+        const auto lead = static_cast<unsigned char>(text[pos]);
+        std::size_t width = 1;
+        if (lead >= 0xC2u && lead <= 0xDFu) width = 2;
+        else if (lead >= 0xE0u && lead <= 0xEFu) width = 3;
+        else if (lead >= 0xF0u && lead <= 0xF4u) width = 4;
+        if (pos + width > size) break;
+        bool valid = true;
+        for (std::size_t i = 1; i < width; ++i) {
+            if (!is_utf8_continuation(static_cast<unsigned char>(text[pos + i]))) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) break;
+        pos += width;
+    }
+    return pos;
+}
+}
 
 void cEditBox::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
                     std::uint16_t hei, void* basicImage, void* focusImage,
@@ -64,6 +96,7 @@ void cEditBox::SetEditText(std::string text) {
     // std::string and cap to m_maxBytes - 1).
     const std::size_t cap = m_maxBytes > 0 ? m_maxBytes - 1 : 0;
     if (text.size() > cap) text.resize(cap);
+    text.resize(complete_utf8_prefix(text, text.size()));
     m_text  = std::move(text);
     m_caret = m_text.size();
     fireChange();
@@ -86,6 +119,10 @@ std::string cEditBox::displayText() const {
 
 void cEditBox::SetCaretPos(std::size_t pos) noexcept {
     if (pos > m_text.size()) pos = m_text.size();
+    while (pos > 0 && pos < m_text.size() &&
+           is_utf8_continuation(static_cast<unsigned char>(m_text[pos]))) {
+        --pos;
+    }
     m_caret = pos;
 }
 
@@ -122,18 +159,74 @@ void cEditBox::insertCharAtCaret(char c) {
     fireChange();
 }
 
+void cEditBox::insertCodepointAtCaret(std::uint32_t codepoint) {
+    if (m_maxBytes == 0 || codepoint == 0 || codepoint < 0x20u ||
+        codepoint == 0x7Fu || codepoint > 0x10FFFFu ||
+        (codepoint >= 0xD800u && codepoint <= 0xDFFFu)) return;
+    if (m_validCheck != 0 && codepoint > 0x7Fu) return;
+
+    char encoded[4]{};
+    std::size_t count = 0;
+    if (codepoint <= 0x7Fu) {
+        encoded[count++] = static_cast<char>(codepoint);
+    } else if (codepoint <= 0x7FFu) {
+        encoded[count++] = static_cast<char>(0xC0u | (codepoint >> 6));
+        encoded[count++] = static_cast<char>(0x80u | (codepoint & 0x3Fu));
+    } else if (codepoint <= 0xFFFFu) {
+        encoded[count++] = static_cast<char>(0xE0u | (codepoint >> 12));
+        encoded[count++] = static_cast<char>(0x80u | ((codepoint >> 6) & 0x3Fu));
+        encoded[count++] = static_cast<char>(0x80u | (codepoint & 0x3Fu));
+    } else {
+        encoded[count++] = static_cast<char>(0xF0u | (codepoint >> 18));
+        encoded[count++] = static_cast<char>(0x80u | ((codepoint >> 12) & 0x3Fu));
+        encoded[count++] = static_cast<char>(0x80u | ((codepoint >> 6) & 0x3Fu));
+        encoded[count++] = static_cast<char>(0x80u | (codepoint & 0x3Fu));
+    }
+    if (count == 1 && !charAllowed(encoded[0])) return;
+    const std::size_t cap = m_maxBytes - 1;
+    if (m_text.size() + count > cap) return;
+    if (m_bInsert) {
+        m_text.insert(m_caret, encoded, count);
+        m_caret += count;
+    } else if (m_caret < m_text.size()) {
+        const auto end = nextCodepointEnd();
+        if (end - m_caret < count && m_text.size() + count - (end - m_caret) > cap) return;
+        m_text.replace(m_caret, end - m_caret, encoded, count);
+        m_caret += count;
+    } else {
+        m_text.append(encoded, count);
+        m_caret += count;
+    }
+    fireChange();
+}
+
+std::size_t cEditBox::previousCodepointStart() const noexcept {
+    if (m_caret == 0) return 0;
+    std::size_t pos = m_caret - 1;
+    while (pos > 0 && is_utf8_continuation(static_cast<unsigned char>(m_text[pos]))) --pos;
+    return pos;
+}
+
+std::size_t cEditBox::nextCodepointEnd() const noexcept {
+    if (m_caret >= m_text.size()) return m_text.size();
+    std::size_t pos = m_caret + 1;
+    while (pos < m_text.size() && is_utf8_continuation(static_cast<unsigned char>(m_text[pos]))) ++pos;
+    return pos;
+}
+
 void cEditBox::deleteAtCaret() {
     // Backspace: delete the char to the left of the caret.
     if (m_caret == 0 || m_text.empty()) return;
-    m_text.erase(m_text.begin() + static_cast<std::ptrdiff_t>(m_caret) - 1);
-    --m_caret;
+    const auto start = previousCodepointStart();
+    m_text.erase(start, m_caret - start);
+    m_caret = start;
     fireChange();
 }
 
 void cEditBox::deleteForwardAtCaret() {
     // Delete: delete the char to the right of the caret.
     if (m_caret >= m_text.size()) return;
-    m_text.erase(m_text.begin() + static_cast<std::ptrdiff_t>(m_caret));
+    m_text.erase(m_caret, nextCodepointEnd() - m_caret);
     fireChange();
 }
 
@@ -185,10 +278,10 @@ std::uint32_t cEditBox::ActionKeyboardEvent(std::int32_t key, std::int32_t ch) {
             if (!m_bReadOnly) deleteForwardAtCaret();
             return static_cast<std::uint32_t>(WindowEvent::KeyDown);
         case Key::Left:
-            if (m_caret > 0) --m_caret;
+            m_caret = previousCodepointStart();
             return static_cast<std::uint32_t>(WindowEvent::KeyDown);
         case Key::Right:
-            if (m_caret < m_text.size()) ++m_caret;
+            m_caret = nextCodepointEnd();
             return static_cast<std::uint32_t>(WindowEvent::KeyDown);
         case Key::Home:
             m_caret = 0;
@@ -210,8 +303,8 @@ std::uint32_t cEditBox::ActionKeyboardEvent(std::int32_t key, std::int32_t ch) {
     }
 
     // Character input (Char).
-    if (ch > 0 && ch < 0x80) {
-        if (!m_bReadOnly) insertCharAtCaret(static_cast<char>(ch));
+    if (ch > 0) {
+        if (!m_bReadOnly) insertCodepointAtCaret(static_cast<std::uint32_t>(ch));
         return static_cast<std::uint32_t>(WindowEvent::Char_);
     }
     return static_cast<std::uint32_t>(WindowEvent::Null);

@@ -214,8 +214,11 @@ private:
 
     // Helpers.
     void insertCharAtCaret(char c);
+    void insertCodepointAtCaret(std::uint32_t codepoint);
     void deleteAtCaret();        // backspace
     void deleteForwardAtCaret();  // delete
+    std::size_t previousCodepointStart() const noexcept;
+    std::size_t nextCodepointEnd() const noexcept;
     bool charAllowed(char c) const noexcept;
     void fireChange();
 };
