@@ -267,10 +267,15 @@ void TerrainScene::configureCamera(float aspect) {
         const float pz = impl_->player_z * kSceneScale - half_height;
         const float back = impl_->camera_distance;
         const float up = impl_->camera_distance * 0.5f;
-        camera.v3From = {px - back * std::sin(yaw), up,
+        const float ground_y = heightAt(impl_->player_x, impl_->player_z) * kSceneScale;
+        const float look_y = ground_y + 1.0f;
+        camera.v3From = {px - back * std::sin(yaw), look_y + up,
                           pz - back * std::cos(yaw)};
-        camera.v3To   = {px, 0.0f, pz};
-        camera.v3Up   = {0, 0, 1};
+        camera.v3To   = {px, look_y, pz};
+        // Follow-camera space uses world Y as vertical.  Using the overview
+        // map-orientation up vector (Z) here rolls the view and can project
+        // the player/nearby monsters outside the deterministic entity crop.
+        camera.v3Up   = {0, 1, 0};
     } else {
         // Overview camera at the map centre, looking down. Deterministic
         // full-terrain screenshot view regardless of player position.
