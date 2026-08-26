@@ -63,6 +63,26 @@ void cTextArea::SetFocusEdit(bool val) noexcept {
     m_bCaret = val;
 }
 
+std::uint32_t cTextArea::ActionEvent(std::int32_t mouseX,
+                                     std::int32_t mouseY,
+                                     std::uint32_t mouseFlags) {
+    if (!isEnabled() || !isVisible() || !isActive()) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const auto childEvent = cDialog::ActionEvent(mouseX, mouseY, mouseFlags);
+    const auto& r = m_rcTextRelRect;
+    const bool inside = mouseX >= absX() + r.left &&
+                        mouseX <= absX() + r.right &&
+                        mouseY >= absY() + r.top &&
+                        mouseY <= absY() + r.bottom;
+    if (!inside) return childEvent;
+    if (mouseFlags & MouseFlagLButton) {
+        SetFocusEdit(true);
+        return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
+    }
+    return childEvent;
+}
+
 void cTextArea::SetScriptText(const char* inText) {
     // 1:1 with legacy cTextArea::SetScriptText. The
     // legacy stores the text in an internal buffer

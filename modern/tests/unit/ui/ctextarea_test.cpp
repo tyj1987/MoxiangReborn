@@ -304,6 +304,27 @@ TEST(CTextAreaTest, AddDelegatesToBaseDialog) {
 // Render (placeholder, 1:1 quirk: Phase 6.13+ deferred)
 // ===========================================================================
 
+TEST(CTextAreaTest, PointerClickInsideTextRectFocusesEditor) {
+    cTextArea ta;
+    ta.Init(100, 50, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{10, 12, 210, 92}, 256);
+    ta.SetActive(true);
+    EXPECT_EQ(ta.ActionEvent(130, 80, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_TRUE(ta.IsCaretVisible());
+}
+
+TEST(CTextAreaTest, PointerClickOutsideTextRectDoesNotFocusEditor) {
+    cTextArea ta;
+    ta.Init(100, 50, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{10, 12, 210, 92}, 256);
+    ta.SetActive(true);
+    ta.SetFocusEdit(false);
+    EXPECT_EQ(ta.ActionEvent(105, 55, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_FALSE(ta.IsCaretVisible());
+}
+
 TEST(CTextAreaTest, RenderIsNoOp) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);
