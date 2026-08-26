@@ -10,6 +10,7 @@ never changes canonical resources.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -74,6 +75,8 @@ def main() -> int:
     parser.add_argument("playdh_root", type=Path)
     parser.add_argument("--build-dir", type=Path, default=Path("modern/build"))
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--json", action="store_true",
+                        help="emit a machine-readable JSON report")
     args = parser.parse_args()
 
     if args.map_number < 0 or args.map_number > 255:
@@ -100,14 +103,24 @@ def main() -> int:
     required = parse_hfl_names(hfl_output)
     available = parse_pack_names(pack_output)
     missing = sorted(required - available)
-    result = [
-        f"map={args.map_number}",
-        f"hfl_used_texture_count={len(required)}",
-        f"pak_entry_count={len(available)}",
-        f"missing_texture_count={len(missing)}",
-    ]
-    result.extend(f"missing={name}" for name in missing)
-    text = "\n".join(result) + "\n"
+    report = {
+        "map": args.map_number,
+        "hfl_used_texture_count": len(required),
+        "pak_entry_count": len(available),
+        "missing_texture_count": len(missing),
+        "missing": missing,
+    }
+    if args.json:
+        text = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+    else:
+        result = [
+            f"map={args.map_number}",
+            f"hfl_used_texture_count={len(required)}",
+            f"pak_entry_count={len(available)}",
+            f"missing_texture_count={len(missing)}",
+        ]
+        result.extend(f"missing={name}" for name in missing)
+        text = "\n".join(result) + "\n"
     print(text, end="")
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
