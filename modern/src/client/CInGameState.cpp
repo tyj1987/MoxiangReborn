@@ -1333,7 +1333,22 @@ void CInGameState::handle_move_broadcast(const mxh::net::Message& msg) {
     const auto object_id = msg.header.object_id;
     const bool moving = msg.header.protocol != static_cast<std::uint8_t>(
         mxh::proto::MoveProtocol::Stop);
-    if (object_id == m_playerId) return;  // own echo (broadcast excludes sender)
+    if (object_id == m_playerId) {
+        if (msg.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::MoveProtocol::Correction)) {
+            // The server rejected a predicted jump.  Apply its authoritative
+            // position immediately so subsequent attacks/interactions use the
+            // corrected coordinates rather than the stale client prediction.
+            m_localX = static_cast<float>(pos->first);
+            m_localZ = static_cast<float>(pos->second);
+            m_info.position_x = pos->first;
+            m_info.position_z = pos->second;
+            m_moving = false;
+            MLOG_INFO("CInGameState: movement corrected to (%u,%u)",
+                      pos->first, pos->second);
+        }
+        return;  // own normal echo (broadcast excludes sender)
+    }
     for (auto& monster : monsters_) {
         if (monster.object_id == object_id) {
             const float dx = static_cast<float>(pos->first) - monster.position_x;

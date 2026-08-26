@@ -434,6 +434,31 @@ TEST(InGamePlayable, QStrafesInsteadOfOpeningQuestLog) {
     EXPECT_LT(state.local_x(), 25000u);
 }
 
+TEST(InGamePlayable, ServerMovementCorrectionRollsBackLocalPrediction) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.Process();
+    ASSERT_NE(state.local_z(), 25000u);
+
+    mxh::net::Message correction;
+    correction.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::Move);
+    correction.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::MoveProtocol::Correction);
+    correction.header.object_id = state.player_id();
+    correction.payload.resize(4);
+    const std::uint16_t x = 24900u;
+    const std::uint16_t z = 24800u;
+    std::memcpy(correction.payload.data(), &x, sizeof(x));
+    std::memcpy(correction.payload.data() + 2, &z, sizeof(z));
+    state.on_message(mxh::net::make_connection_id(1), correction);
+    EXPECT_EQ(state.local_x(), x);
+    EXPECT_EQ(state.local_z(), z);
+}
+
 TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
