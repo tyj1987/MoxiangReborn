@@ -69,6 +69,16 @@ void cEditBox::SetEditText(std::string text) {
     fireChange();
 }
 
+void cEditBox::ClearEditTextSecure() noexcept {
+    volatile char* bytes = m_text.empty() ? nullptr : m_text.data();
+    for (std::size_t i = 0; bytes && i < m_text.size(); ++i) {
+        bytes[i] = '\0';
+    }
+    m_text.clear();
+    m_caret = 0;
+    fireChange();
+}
+
 std::string cEditBox::displayText() const {
     if (!m_bSecret) return m_text;
     return std::string(m_text.size(), '*');

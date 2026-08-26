@@ -271,7 +271,7 @@ void CMainTitle::clearFields() {
 
 void CMainTitle::clearPassword() {
     clear_secret(m_password);
-    if (auto* pwd = password_edit()) pwd->SetEditText("");
+    if (auto* pwd = password_edit()) pwd->ClearEditTextSecure();
 }
 
 bool CMainTitle::consumeSubmit() noexcept {

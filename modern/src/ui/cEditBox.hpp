@@ -101,6 +101,10 @@ public:
 
     void SetEditText(std::string text);
 
+    // Securely erase the edit buffer before releasing it. This is used for
+    // password fields where ordinary string assignment is not sufficient.
+    void ClearEditTextSecure() noexcept;
+
     // Read-only mode: characters / Backspace / Delete all no-op; caret
     // optionally still shown (legacy m_bShowCaretInReadOnly).
     void SetReadOnly(bool v) noexcept        { m_bReadOnly = v; }

@@ -176,6 +176,17 @@ TEST(CEditBox, SetEditTextReplacesContent) {
     EXPECT_EQ(e.caretPos(), 11u);
 }
 
+TEST(CEditBox, ClearEditTextSecureErasesSecretBuffer) {
+    cEditBox e;
+    e.InitEditbox(160, 32);
+    e.SetSecret(true);
+    e.SetEditText("sensitive-password");
+    ASSERT_EQ(e.editText(), "sensitive-password");
+    e.ClearEditTextSecure();
+    EXPECT_TRUE(e.editText().empty());
+    EXPECT_TRUE(e.displayText().empty());
+}
+
 TEST(CEditBox, SetEditTextRespectsCapacity) {
     cEditBox e;
     e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage);
