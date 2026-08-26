@@ -24,6 +24,7 @@ using mxh::client::parse_chat_payload;
 using mxh::client::parse_move_payload;
 using mxh::client::pick_attack_target;
 using mxh::client::project_npc_to_screen;
+using mxh::client::unproject_screen_to_world;
 using mxh::client::quick_skill_for_slot;
 using mxh::client::step_movement;
 using mxh::client::kMoveSpeed;
@@ -212,6 +213,27 @@ TEST(InGameNpcProjection, BehindNpcIsRejected) {
                                        0.0f, -100.0f, sx, sy));
 }
 
+TEST(InGameNpcProjection, ScreenUnprojectionRoundTripsWorldPoint) {
+    constexpr float yaw = 0.65f;
+    float sx = 0;
+    float sy = 0;
+    ASSERT_TRUE(project_npc_to_screen(1200.0f, 800.0f, yaw,
+                                      1450.0f, 1225.0f, sx, sy));
+    float wx = 0;
+    float wz = 0;
+    ASSERT_TRUE(unproject_screen_to_world(1200.0f, 800.0f, yaw,
+                                          sx, sy, wx, wz));
+    EXPECT_NEAR(wx, 1450.0f, 0.01f);
+    EXPECT_NEAR(wz, 1225.0f, 0.01f);
+}
+
+TEST(InGameNpcProjection, ScreenUnprojectionRejectsBehindCamera) {
+    float wx = 0;
+    float wz = 0;
+    EXPECT_FALSE(unproject_screen_to_world(0.0f, 0.0f, 0.0f,
+                                           400.0f, 400.0f, wx, wz));
+}
+
 TEST(InGameWire, MoveMessageMatchesModernServerLayout) {
     const auto m = make_move_message(
         240366u, mxh::proto::MoveProtocol::OneTarget, 0x1234u, 0x5678u);
@@ -397,7 +419,7 @@ TEST(InGamePlayable, QStrafesInsteadOfOpeningQuestLog) {
     EXPECT_LT(state.local_x(), 25000u);
 }
 
-TEST(InGamePlayable, LeftClickAttacksNearestLiveMonster) {
+TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
     state.on_message(mxh::net::make_connection_id(1),
@@ -425,8 +447,11 @@ TEST(InGamePlayable, LeftClickAttacksNearestLiveMonster) {
             }
         }
     }
+    const auto before_x = state.local_x();
+    const auto before_z = state.local_z();
     state.OnMouseButton(true, true, miss_x, miss_y);
-    EXPECT_EQ(state.last_attack_target(), 50001u);
+    EXPECT_EQ(state.last_attack_target(), 0u);
+    EXPECT_TRUE(state.local_x() != before_x || state.local_z() != before_z);
 }
 
 TEST(InGamePlayable, LeftClickPrefersMonsterUnderCursor) {

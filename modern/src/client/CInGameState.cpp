@@ -543,6 +543,20 @@ bool project_npc_to_screen(float player_x, float player_z, float yaw,
     return true;
 }
 
+bool unproject_screen_to_world(float player_x, float player_z, float yaw,
+                               float screen_x, float screen_y,
+                               float& world_x, float& world_z) noexcept {
+    constexpr float kPixelsPerUnit = 0.8f;
+    const float right = (screen_x - 400.0f) / kPixelsPerUnit;
+    const float forward = (300.0f - screen_y) / kPixelsPerUnit;
+    if (forward < 0.0f) return false;
+    const float sin_yaw = std::sin(yaw);
+    const float cos_yaw = std::cos(yaw);
+    world_x = player_x + forward * sin_yaw + right * cos_yaw;
+    world_z = player_z + forward * cos_yaw - right * sin_yaw;
+    return true;
+}
+
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     // Need at least the trailing ServerTime block (current fixed payload).
@@ -2344,6 +2358,9 @@ void CInGameState::OnMouseButton(bool left, bool down,
             try_attack();
             return;
         }
+        if (move_to_screen(static_cast<float>(x), static_cast<float>(y))) {
+            return;
+        }
     }
     if (left && down) {
         try_attack();
@@ -2456,6 +2473,33 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
                   static_cast<std::uint16_t>(m_localZ),
                   mxh::proto::MoveProtocol::Stop);
     }
+}
+
+bool CInGameState::move_to_screen(float screen_x, float screen_y) {
+    if (!m_inGame) return false;
+    float target_x = 0.0f;
+    float target_z = 0.0f;
+    if (!unproject_screen_to_world(m_localX, m_localZ, m_cameraYaw,
+                                   screen_x, screen_y, target_x, target_z)) {
+        return false;
+    }
+    target_x = std::clamp(target_x, 0.0f, m_worldLimitX);
+    target_z = std::clamp(target_z, 0.0f, m_worldLimitZ);
+    if (m_collisionQuery && m_collisionQuery(target_x, target_z, 24.0f)) {
+        MLOG_DEBUG("CInGameState: click move blocked at (%.0f,%.0f)",
+                   target_x, target_z);
+        return false;
+    }
+    const auto x = static_cast<std::uint16_t>(target_x);
+    const auto z = static_cast<std::uint16_t>(target_z);
+    m_localX = target_x;
+    m_localZ = target_z;
+    m_info.position_x = x;
+    m_info.position_z = z;
+    m_moving = true;
+    send_move(x, z, mxh::proto::MoveProtocol::OneTarget);
+    MLOG_INFO("CInGameState: click move target=(%u,%u)", x, z);
+    return true;
 }
 
 void CInGameState::send_move(std::uint16_t x, std::uint16_t z,

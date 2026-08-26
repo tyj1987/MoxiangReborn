@@ -213,6 +213,12 @@ bool project_npc_to_screen(float player_x, float player_z, float yaw,
                            float npc_x, float npc_z,
                            float& screen_x, float& screen_y) noexcept;
 
+// Inverse of project_npc_to_screen for the fixed 4:3 logical world canvas.
+// Returns false for clicks behind the camera plane.
+bool unproject_screen_to_world(float player_x, float player_z, float yaw,
+                               float screen_x, float screen_y,
+                               float& world_x, float& world_z) noexcept;
+
 // -------------------------------------------------------------------------
 // In-game input + gameplay wire helpers (pure functions, unit-tested).
 //
@@ -492,6 +498,7 @@ public:
     void dispatch_gamein_ack(const GameInInfo& info);
     void fail_with(const std::string& reason);
     void update_movement(std::uint64_t now_ms);
+    bool move_to_screen(float screen_x, float screen_y);
     void interact_with_npc(std::uint32_t npc_id);
     void send_move(std::uint16_t x, std::uint16_t z,
                    mxh::proto::MoveProtocol proto);
