@@ -84,6 +84,11 @@ struct InterfaceNode {
     bool alpha_set = false;               // true if #ALPHA was explicit
     std::int32_t font_idx = 0;            // #FONTIDX
     bool font_idx_set = false;            // true if #FONTIDX was explicit
+    std::uint16_t grid_cols = 1;
+    std::uint16_t grid_rows = 1;
+    std::optional<WindowRect> init_grid;
+    std::uint16_t grid_border_x = 4;
+    std::uint16_t grid_border_y = 4;
     std::vector<std::unique_ptr<InterfaceNode>> children;
 };
 

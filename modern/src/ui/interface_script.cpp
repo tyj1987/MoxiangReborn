@@ -4,6 +4,7 @@
 #include "mxh/ui/interface_script.hpp"
 
 #include <cctype>
+#include <algorithm>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -245,6 +246,22 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
         if (!parse_int(payload, pos, v)) return false;
         node.font_idx = v;
         node.font_idx_set = true;
+        return true;
+    }
+    if (prop == "COLS" || prop == "ROWS") {
+        std::int32_t value;
+        if (!parse_int(payload, pos, value)) return false;
+        const auto clamped = static_cast<std::uint16_t>(std::clamp(value, 1, 255));
+        if (prop == "COLS") node.grid_cols = clamped;
+        else node.grid_rows = clamped;
+        return true;
+    }
+    if (prop == "INITGRID") {
+        std::int32_t values[6];
+        for (auto& value : values) if (!parse_int(payload, pos, value)) return false;
+        node.init_grid = WindowRect{values[0], values[1], values[2], values[3]};
+        node.grid_border_x = static_cast<std::uint16_t>(std::clamp(values[4], 0, 65535));
+        node.grid_border_y = static_cast<std::uint16_t>(std::clamp(values[5], 0, 65535));
         return true;
     }
     if (prop == "ID") {

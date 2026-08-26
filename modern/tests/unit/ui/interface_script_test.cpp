@@ -491,3 +491,30 @@ TEST(InterfaceScript, LoadsPlayDhTitanInventoryBinAndHasInventoryCells) {
         << "Titan_inventory.bin TITAN_INVENTORY_DLG has no child with "
            "a #POINT w of 36 or 40 — the legacy cell stride.";
 }
+
+TEST(InterfaceScriptParser, ParsesIconGridDimensionsAndInitGrid) {
+    constexpr std::string_view payload = R"(
+$INVENTORYDLG
+{
+ #POINT 0 0 320 240
+ $SHOPITEMINVENGRID
+ {
+  #POINT 3 4 200 160
+  #COLS 5
+  #ROWS 4
+  #INITGRID 0 0 40 40 5 5
+ }
+}
+)";
+    const auto parsed = parse_interface_script(payload);
+    ASSERT_EQ(parsed.roots.size(), 1u);
+    ASSERT_EQ(parsed.roots[0]->children.size(), 1u);
+    const auto& grid = *parsed.roots[0]->children[0];
+    EXPECT_EQ(grid.grid_cols, 5u);
+    EXPECT_EQ(grid.grid_rows, 4u);
+    ASSERT_TRUE(grid.init_grid.has_value());
+    EXPECT_EQ(grid.init_grid->w, 40);
+    EXPECT_EQ(grid.init_grid->h, 40);
+    EXPECT_EQ(grid.grid_border_x, 5u);
+    EXPECT_EQ(grid.grid_border_y, 5u);
+}

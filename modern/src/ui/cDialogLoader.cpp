@@ -349,7 +349,13 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
                 auto ig = std::make_unique<cIconGridDialog>();
                 ig->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
                           static_cast<std::uint16_t>(p.h),
-                          basic, /*col=*/1, /*row=*/1, /*id=*/0);
+                          basic, node.grid_cols, node.grid_rows, /*id=*/0);
+                if (node.init_grid) {
+                    const auto& g = *node.init_grid;
+                    ig->InitGrid(g.x, g.y, static_cast<std::uint16_t>(std::clamp(g.w, 0, 65535)),
+                                 static_cast<std::uint16_t>(std::clamp(g.h, 0, 65535)),
+                                 node.grid_border_x, node.grid_border_y);
+                }
                 if (basic) ++report.cimg_count;
                 parent.Add(std::move(ig));
             } else if (node.type == "LISTCTRL") {
@@ -542,7 +548,13 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
                 auto isi = std::make_unique<cItemShopInven>();
                 isi->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
                            static_cast<std::uint16_t>(p.h),
-                           basic, /*col=*/1, /*row=*/1, /*id=*/0);
+                           basic, node.grid_cols, node.grid_rows, /*id=*/0);
+                if (node.init_grid) {
+                    const auto& g = *node.init_grid;
+                    isi->InitGrid(g.x, g.y, static_cast<std::uint16_t>(std::clamp(g.w, 0, 65535)),
+                                  static_cast<std::uint16_t>(std::clamp(g.h, 0, 65535)),
+                                  node.grid_border_x, node.grid_border_y);
+                }
                 if (basic) ++report.cimg_count;
                 parent.Add(std::move(isi));
             } else if (node.type == "ANI") {
