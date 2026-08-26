@@ -1342,6 +1342,16 @@ DisplayTransitionResult applyDisplayTransition(
         : AdjustWindowRectEx(&desired, frame_style, FALSE, 0);
     if (!adjusted) {
         result.win32_error = GetLastError();
+        // The style mutation happened before frame calculation.  Restore it
+        // even when AdjustWindowRectEx* fails; otherwise a failed transition
+        // can leave the login window borderless while the viewport remains
+        // at 800x600, violating the transaction contract.
+        if (new_style != old_style) {
+            SetWindowLongPtrW(hwnd, GWL_STYLE, old_style);
+            SetWindowPos(hwnd, nullptr, old_window.left, old_window.top,
+                         old_outer_width, old_outer_height,
+                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
         return result;
     }
     const LONG desired_outer_width = desired.right - desired.left;
