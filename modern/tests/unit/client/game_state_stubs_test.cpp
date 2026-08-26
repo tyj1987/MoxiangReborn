@@ -121,6 +121,20 @@ TEST(GameLoadingCoordinator, AcceptsShippedMapZero) {
     EXPECT_FALSE(coordinator.context().failed);
 }
 
+TEST(GameLoadingCoordinator, ClearsPreviousRequestWhenTransferIsInvalid) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{55u, 10u});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    // A transfer of the wrong variant is an invalid next request; the old
+    // request must not remain observable after the failed consumption attempt.
+    engine.SetPendingTransfer(LoginResult{});
+    std::string error;
+    EXPECT_FALSE(coordinator.consume_pending_transfer(engine, &error));
+    EXPECT_FALSE(coordinator.has_request());
+    EXPECT_NE(error.find("invalid"), std::string::npos);
+}
+
 TEST(GameLoadingCoordinator, ProgressDoesNotRegressFromLateStageCallback) {
     CEngine engine;
     GameLoadingCoordinator coordinator;

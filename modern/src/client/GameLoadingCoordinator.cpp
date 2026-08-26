@@ -10,6 +10,10 @@ bool GameLoadingCoordinator::consume_pending_transfer(CEngine& engine, std::stri
         return false;
     }
     auto transfer = engine.TakePendingTransfer();
+    // A rejected transfer must not leave the previous map request observable
+    // through request(); consumers use the absence of a request to decide
+    // whether rollback to the old scene is still safe.
+    m_request.reset();
     const auto* request = std::get_if<GameEntryRequest>(&transfer);
     // Map 0 is a shipped, valid town/intro map.  Only the character ID is
     // intrinsically invalid here; map availability is checked by the
