@@ -91,6 +91,11 @@ public:
 
     void render();
 
+    // Update all progress gauges in the active state UI. Returns the number
+    // of gauge controls updated; loading states use this instead of drawing
+    // a debug-only percentage overlay.
+    std::size_t setProgressValue(float value) noexcept;
+
     mxh::ui::cWindow* findWindowByLegacyId(std::string_view id) const;
     mxh::ui::cWindow* findWindowByLegacyFunc(std::string_view func) const;
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& dialogs() const noexcept {

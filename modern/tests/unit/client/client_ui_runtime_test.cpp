@@ -18,11 +18,27 @@
 #include "CMainTitle.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cEditBox.hpp"
+#include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 
 namespace {
+
+TEST(ClientUiRuntime, SetProgressValueUpdatesNestedGauges) {
+    mxh::client::ClientUiRuntime runtime;
+    auto dialog = std::make_unique<mxh::ui::cDialog>();
+    dialog->Init(0, 0, 200, 100, nullptr, 1);
+    auto gauge = std::make_unique<mxh::ui::cGuagen>();
+    gauge->Init(0, 0, 100, 10, nullptr, 2);
+    auto* gaugePtr = gauge.get();
+    dialog->Add(std::move(gauge));
+    runtime.dialogsMutable().push_back(std::move(dialog));
+    EXPECT_EQ(runtime.setProgressValue(0.75f), 1u);
+    EXPECT_FLOAT_EQ(gaugePtr->GetValue(), 0.75f);
+    EXPECT_EQ(runtime.setProgressValue(2.0f), 1u);
+    EXPECT_FLOAT_EQ(gaugePtr->GetValue(), 1.0f);
+}
 
 TEST(ClientSettings, AtomicRoundTripAndValidation) {
     const auto path = std::filesystem::temp_directory_path() / "mxh-settings-roundtrip.json";

@@ -12,6 +12,7 @@
 #include "mxh/ui/ccombobox.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
+#include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cMsgBox.hpp"
 #include "mxh/ui/cWindow.hpp"
 
@@ -410,6 +411,23 @@ bool ClientUiRuntime::onChar(std::int32_t ch) {
 
 void ClientUiRuntime::render() {
     if (m_active) m_windows.RenderAll();
+}
+
+std::size_t ClientUiRuntime::setProgressValue(float value) noexcept {
+    value = std::clamp(value, 0.0f, 1.0f);
+    std::size_t updated = 0;
+    const auto visit = [&](auto&& self, mxh::ui::cWindow* window) -> void {
+        if (!window) return;
+        if (auto* gauge = dynamic_cast<mxh::ui::cGuagen*>(window)) {
+            gauge->SetValue(value);
+            ++updated;
+        }
+        for (std::size_t i = 0; i < window->childCount(); ++i) {
+            self(self, window->childAt(i));
+        }
+    };
+    for (auto& dialog : m_windows.dialogs()) visit(visit, dialog.get());
+    return updated;
 }
 
 bool ClientUiRuntime::showConfirmation(std::int32_t id, std::string message,

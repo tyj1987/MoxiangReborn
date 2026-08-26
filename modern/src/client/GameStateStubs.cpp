@@ -94,6 +94,7 @@ void CGameLoading::Process() {
         m_progress = std::clamp(static_cast<float>(context->completed_steps) /
                                 static_cast<float>(context->total_steps), 0.0f, 1.0f);
     }
+    m_uiRuntime.setProgressValue(m_progress);
     m_cancelled = context->cancelled;
     if (context->failed) {
         m_failed = true;
@@ -155,6 +156,7 @@ void CMapChange::Process() {
         m_failed = true;
         m_error = "map change context has zero steps";
     }
+    m_uiRuntime.setProgressValue(m_progress);
     m_cancelled = context->cancelled;
     if (context->failed) {
         m_failed = true;
