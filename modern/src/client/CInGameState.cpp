@@ -1423,6 +1423,10 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 // duplicated request from producing a phantom effect.
                 start_skill_effect(skill_idx, skill_object, m_lastTickMs,
                                    source_object);
+                // StartAck consumes the locally pending request.  Without
+                // clearing it here, the later SingleResult path would start
+                // the same BEFF timeline a second time.
+                m_pendingSkillId = 0;
                 push_effect_event(EffectEvent{
                     EffectEventKind::CastRelease, m_lastTickMs, source_object,
                     skill_object, skill_idx, skill_idx, 0, 0, 0});
