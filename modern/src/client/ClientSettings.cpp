@@ -10,6 +10,17 @@
 namespace mxh::client {
 namespace {
 
+bool directory_writable(const std::filesystem::path& directory) {
+    std::error_code ec;
+    std::filesystem::create_directories(directory, ec);
+    if (ec) return false;
+    wchar_t probe[MAX_PATH]{};
+    if (GetTempFileNameW(directory.wstring().c_str(), L"mxh", 0, probe) == 0)
+        return false;
+    DeleteFileW(probe);
+    return true;
+}
+
 std::string escape_json(const std::string& value) {
     std::string out;
     out.reserve(value.size() + 4);
@@ -123,7 +134,19 @@ std::filesystem::path ClientSettingsStore::default_path() {
     wchar_t buffer[32768]{};
     const auto length = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer, 32768);
     if (length == 0 || length >= 32768) return {};
-    return std::filesystem::path(buffer) / "Moxian" / "settings.json";
+    const auto local_dir = std::filesystem::path(buffer) / "Moxian";
+    if (directory_writable(local_dir)) return local_dir / "settings.json";
+
+    // Some managed/portable installations expose LOCALAPPDATA as read-only.
+    // Keep settings persistence functional without writing beside the game or
+    // silently dropping the user's display/audio choices.
+    wchar_t temp_buffer[MAX_PATH]{};
+    const auto temp_length = GetTempPathW(MAX_PATH, temp_buffer);
+    if (temp_length > 0 && temp_length < MAX_PATH) {
+        const auto fallback_dir = std::filesystem::path(temp_buffer) / "Moxian";
+        if (directory_writable(fallback_dir)) return fallback_dir / "settings.json";
+    }
+    return local_dir / "settings.json";
 }
 
 ClientSettingsV1 ClientSettingsStore::load(const std::filesystem::path& path,
@@ -185,10 +208,18 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     if (ec) { if (error) *error = ec.message(); return false; }
-    const auto temp = path.string() + ".tmp." +
-                      std::to_string(static_cast<unsigned long>(GetCurrentProcessId()));
-    std::ofstream output(temp, std::ios::binary | std::ios::trunc);
-    if (!output) { if (error) *error = "cannot open temporary settings file"; return false; }
+    // Keep the temporary path as a filesystem::path all the way through the
+    // Windows file APIs.  Converting LOCALAPPDATA to a narrow string first
+    // can select the process ANSI code page and make an otherwise valid user
+    // profile path unopenable on localized installations.
+    auto temp_path = path;
+    temp_path += ".tmp." +
+                 std::to_string(static_cast<unsigned long>(GetCurrentProcessId()));
+    std::ofstream output(temp_path, std::ios::binary | std::ios::trunc);
+    if (!output) {
+        if (error) *error = "cannot open temporary settings file: " + temp_path.string();
+        return false;
+    }
     output << "{\n"
            << "  \"schemaVersion\": " << settings.schema_version << ",\n"
            << "  \"resourceProfileId\": \"" << escape_json(settings.resource_profile_id) << "\",\n"
@@ -208,7 +239,6 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
     // Make the temporary file durable before publishing it.  A successful
     // rename alone only protects atomicity; it does not guarantee that the
     // newly selected display/audio settings survive a power loss.
-    const auto temp_path = std::filesystem::path(temp);
     const auto temp_wide = temp_path.wstring();
     HANDLE temp_handle = CreateFileW(
         temp_wide.c_str(), GENERIC_READ | GENERIC_WRITE,
@@ -216,7 +246,7 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (temp_handle == INVALID_HANDLE_VALUE) {
         if (error) *error = "cannot reopen temporary settings file for flush";
-        std::filesystem::remove(temp, ec);
+        std::filesystem::remove(temp_path, ec);
         return false;
     }
     const bool flushed = FlushFileBuffers(temp_handle) != FALSE;
@@ -224,7 +254,7 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
     CloseHandle(temp_handle);
     if (!flushed) {
         if (error) *error = "FlushFileBuffers failed: " + std::to_string(flush_error);
-        std::filesystem::remove(temp, ec);
+        std::filesystem::remove(temp_path, ec);
         return false;
     }
 
@@ -233,7 +263,7 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         const DWORD move_error = GetLastError();
         if (error) *error = "MoveFileExW failed: " + std::to_string(move_error);
-        std::filesystem::remove(temp, ec);
+        std::filesystem::remove(temp_path, ec);
         return false;
     }
     return true;
