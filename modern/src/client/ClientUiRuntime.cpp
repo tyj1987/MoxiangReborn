@@ -4,6 +4,8 @@
 #include <vector>
 
 #include "mxh/ui/cButton.hpp"
+#include "mxh/ui/ccheckbox.hpp"
+#include "mxh/ui/ccombobox.hpp"
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cMsgBox.hpp"
@@ -31,7 +33,9 @@ void collect_focusable(mxh::ui::cWindow* window,
                        std::vector<mxh::ui::cWindow*>& out) {
     if (!window || !window->isVisible() || !window->isEnabled()) return;
     if (dynamic_cast<mxh::ui::cEditBox*>(window) ||
-        dynamic_cast<mxh::ui::cButton*>(window)) {
+        dynamic_cast<mxh::ui::cButton*>(window) ||
+        dynamic_cast<mxh::ui::cCheckBox*>(window) ||
+        dynamic_cast<mxh::ui::cComboBox*>(window)) {
         out.push_back(window);
     }
     for (std::size_t i = 0; i < window->childCount(); ++i) {
