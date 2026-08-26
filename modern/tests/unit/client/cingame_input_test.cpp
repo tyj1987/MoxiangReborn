@@ -37,6 +37,8 @@ constexpr std::uint32_t kStrafeLeft = static_cast<std::uint32_t>(MoveKey::Strafe
 constexpr std::uint32_t kStrafeRight = static_cast<std::uint32_t>(MoveKey::StrafeRight);
 constexpr std::uint32_t kRotateLeft = static_cast<std::uint32_t>(MoveKey::RotateLeft);
 constexpr std::uint32_t kRotateRight = static_cast<std::uint32_t>(MoveKey::RotateRight);
+
+mxh::net::Message make_gamein_ack_at(std::uint16_t x, std::uint16_t z);
 }  // namespace
 
 TEST(InGameInput, VkMappingMatchesLegacyBindings) {
@@ -232,6 +234,19 @@ TEST(InGameNpcProjection, ScreenUnprojectionRejectsBehindCamera) {
     float wz = 0;
     EXPECT_FALSE(unproject_screen_to_world(0.0f, 0.0f, 0.0f,
                                            400.0f, 400.0f, wx, wz));
+}
+
+TEST(InGamePlayable, PillarboxClickDoesNotMoveWorld) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    const auto before_x = state.local_x();
+    const auto before_z = state.local_z();
+    state.OnMouseButton(true, true, -20, 300);
+    EXPECT_EQ(state.local_x(), before_x);
+    EXPECT_EQ(state.local_z(), before_z);
+    EXPECT_EQ(state.last_attack_target(), 0u);
 }
 
 TEST(InGameWire, MoveMessageMatchesModernServerLayout) {

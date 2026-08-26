@@ -2477,6 +2477,13 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
 
 bool CInGameState::move_to_screen(float screen_x, float screen_y) {
     if (!m_inGame) return false;
+    // The world uses the legacy 800x600 logical canvas.  In widescreen
+    // pillarbox mode, clicks in the side bars must remain inert instead of
+    // being projected into the world.
+    if (screen_x < 0.0f || screen_x > 800.0f ||
+        screen_y < 0.0f || screen_y > 600.0f) {
+        return false;
+    }
     float target_x = 0.0f;
     float target_z = 0.0f;
     if (!unproject_screen_to_world(m_localX, m_localZ, m_cameraYaw,
