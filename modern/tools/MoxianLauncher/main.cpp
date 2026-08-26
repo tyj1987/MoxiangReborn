@@ -149,12 +149,26 @@ private:
             MessageBoxW(hwnd_, L"未找到 MoxianClient.exe 或 mxh_client.exe，请先完成客户端安装。", L"启动失败", MB_ICONERROR);
             return;
         }
+        const fs::path roots[] = {bin / L"data" / L"PlayDH", bin.parent_path() / L"data" / L"PlayDH", bin.parent_path() / L"modern" / L"data" / L"PlayDH"};
+        fs::path resourceRoot;
+        for (const auto& root : roots) {
+            if (!fs::is_directory(root)) continue;
+            // A launcher must fail closed when the installed profile is
+            // incomplete.  Starting with a missing IDDlg or Map.pak only
+            // produces a misleading black/error screen in the client.
+            if (fs::is_regular_file(root / L"Map.pak") &&
+                fs::is_regular_file(root / L"Image" / L"InterfaceScript" / L"IDDlg.bin")) {
+                resourceRoot = root;
+                break;
+            }
+        }
+        if (resourceRoot.empty()) {
+            MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map.pak 或 Image\\InterfaceScript\\IDDlg.bin。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
+            return;
+        }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
         if (settings_.borderless) command += L" --borderless";
-        const fs::path roots[] = {bin / L"data" / L"PlayDH", bin.parent_path() / L"data" / L"PlayDH", bin.parent_path() / L"modern" / L"data" / L"PlayDH"};
-        for (const auto& root : roots) {
-            if (fs::is_directory(root)) { command += L" --resource-root \"" + root.wstring() + L"\""; break; }
-        }
+        command += L" --resource-root \"" + resourceRoot.wstring() + L"\"";
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
     }
