@@ -13,6 +13,8 @@
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
+#include "mxh/ui/cListCtrl.hpp"
+#include "mxh/ui/cListDialog.hpp"
 #include "mxh/ui/cMsgBox.hpp"
 #include "mxh/ui/cWindow.hpp"
 
@@ -31,7 +33,9 @@ bool is_focusable_control(const mxh::ui::cWindow* window) noexcept {
     return dynamic_cast<const mxh::ui::cEditBox*>(window) ||
            dynamic_cast<const mxh::ui::cButton*>(window) ||
            dynamic_cast<const mxh::ui::cCheckBox*>(window) ||
-           dynamic_cast<const mxh::ui::cComboBox*>(window);
+           dynamic_cast<const mxh::ui::cComboBox*>(window) ||
+           dynamic_cast<const mxh::ui::cListCtrl*>(window) ||
+           dynamic_cast<const mxh::ui::cListDialog*>(window);
 }
 
 mxh::ui::cWindow* hit_window(mxh::ui::cWindow* window,
@@ -366,6 +370,19 @@ bool ClientUiRuntime::onMouseMove(std::int32_t x, std::int32_t y) {
     }
     if (auto* hit = hitTest(x, y)) {
         hit->ActionEvent(x, y, 0u);
+        return true;
+    }
+    return false;
+}
+
+bool ClientUiRuntime::onMouseWheel(std::int32_t wheelDelta) noexcept {
+    if (!m_active || !m_focused || wheelDelta == 0) return false;
+    if (auto* list = dynamic_cast<mxh::ui::cListCtrl*>(m_focused)) {
+        list->OnMouseWheel(wheelDelta);
+        return true;
+    }
+    if (auto* list = dynamic_cast<mxh::ui::cListDialog*>(m_focused)) {
+        list->OnMouseWheel(wheelDelta);
         return true;
     }
     return false;

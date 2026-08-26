@@ -19,6 +19,7 @@
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
+#include "mxh/ui/cListCtrl.hpp"
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
@@ -38,6 +39,24 @@ TEST(ClientUiRuntime, SetProgressValueUpdatesNestedGauges) {
     EXPECT_FLOAT_EQ(gaugePtr->GetValue(), 0.75f);
     EXPECT_EQ(runtime.setProgressValue(2.0f), 1u);
     EXPECT_FLOAT_EQ(gaugePtr->GetValue(), 1.0f);
+}
+
+TEST(ClientUiRuntime, MouseWheelDispatchesToFocusedList) {
+    mxh::client::ClientUiRuntime runtime;
+    auto dialog = std::make_unique<mxh::ui::cDialog>();
+    dialog->Init(0, 0, 200, 100, nullptr, 1);
+    auto list = std::make_unique<mxh::ui::cListCtrl>();
+    list->Init(0, 0, 180, 80, nullptr, 2);
+    list->InitListCtrlImage(nullptr, 10, nullptr, 20, nullptr);
+    list->InitListCtrl(1, 2);
+    list->AddRow({{"a"}}); list->AddRow({{"b"}}); list->AddRow({{"c"}});
+    auto* listPtr = list.get();
+    dialog->Add(std::move(list));
+    runtime.dialogsMutable().push_back(std::move(dialog));
+    runtime.activateAllLoadedDialogs();
+    runtime.onMouseButton(true, true, 20, 20);
+    EXPECT_EQ(runtime.onMouseWheel(-120), true);
+    EXPECT_EQ(listPtr->topItemIdx(), 1);
 }
 
 TEST(ClientSettings, AtomicRoundTripAndValidation) {

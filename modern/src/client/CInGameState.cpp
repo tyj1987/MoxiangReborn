@@ -2323,6 +2323,7 @@ void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
 
 void CInGameState::OnMouseWheel(std::int32_t delta) {
     if (!m_inGame || delta == 0) return;
+    if (m_uiRuntime.onMouseWheel(delta)) return;
     constexpr float kWheelStep = 0.75f;
     const float direction = delta > 0 ? -1.0f : 1.0f;
     m_cameraDistance = std::clamp(

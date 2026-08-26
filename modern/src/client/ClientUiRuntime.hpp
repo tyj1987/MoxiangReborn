@@ -62,6 +62,7 @@ public:
     ClientUiInputResult onMouseButton(bool left, bool down,
                                      std::int32_t x, std::int32_t y);
     bool onMouseMove(std::int32_t x, std::int32_t y);
+    bool onMouseWheel(std::int32_t wheelDelta) noexcept;
     bool onKey(bool down, std::int32_t key);
     bool onKey(bool down, std::int32_t key, bool shift);
     std::optional<ClientUiActivation> consumeKeyActivation() noexcept {
