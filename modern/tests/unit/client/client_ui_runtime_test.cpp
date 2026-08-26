@@ -519,6 +519,24 @@ TEST(InGameUiRuntime, FocusedChatEditboxSynchronizesAndEnterSubmits) {
     EXPECT_TRUE(state.chat_buffer().empty());
 }
 
+TEST(InGameUiRuntime, ChatEditingUsesUtf8CodepointBoundaries) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.OnKeyEvent(true, mxh::client::kVkReturn);
+    ASSERT_TRUE(state.chat_open());
+
+    state.OnChar(0x4E2Du); // Chinese 中
+    state.OnChar(0x6587u); // Chinese 文
+    EXPECT_EQ(state.chat_buffer(), "\xE4\xB8\xAD\xE6\x96\x87");
+
+    state.OnKeyEvent(true, mxh::client::kVkBack);
+    EXPECT_EQ(state.chat_buffer(), "\xE4\xB8\xAD");
+    auto* edit = dynamic_cast<mxh::ui::cEditBox*>(
+        state.ui_runtime().findWindowByLegacyId("MI_CHATEDITBOX"));
+    ASSERT_NE(edit, nullptr);
+    EXPECT_EQ(edit->editText(), "\xE4\xB8\xAD");
+}
+
 TEST(InGameUiRuntime, QuestPageButtonsSelectLiveQuestEntry) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

@@ -72,6 +72,41 @@ std::optional<std::size_t> quick_slot_at_screen(float x, float y) {
     return slot;
 }
 
+bool append_chat_codepoint(std::string& text, std::uint32_t codepoint,
+                           std::size_t max_bytes) {
+    if (codepoint < 0x20u || codepoint == 0x7Fu ||
+        codepoint > 0x10FFFFu ||
+        (codepoint >= 0xD800u && codepoint <= 0xDFFFu)) return false;
+    char encoded[4]{};
+    std::size_t count = 0;
+    if (codepoint <= 0x7Fu) {
+        encoded[count++] = static_cast<char>(codepoint);
+    } else if (codepoint <= 0x7FFu) {
+        encoded[count++] = static_cast<char>(0xC0u | (codepoint >> 6));
+        encoded[count++] = static_cast<char>(0x80u | (codepoint & 0x3Fu));
+    } else if (codepoint <= 0xFFFFu) {
+        encoded[count++] = static_cast<char>(0xE0u | (codepoint >> 12));
+        encoded[count++] = static_cast<char>(0x80u | ((codepoint >> 6) & 0x3Fu));
+        encoded[count++] = static_cast<char>(0x80u | (codepoint & 0x3Fu));
+    } else {
+        encoded[count++] = static_cast<char>(0xF0u | (codepoint >> 18));
+        encoded[count++] = static_cast<char>(0x80u | ((codepoint >> 12) & 0x3Fu));
+        encoded[count++] = static_cast<char>(0x80u | ((codepoint >> 6) & 0x3Fu));
+        encoded[count++] = static_cast<char>(0x80u | (codepoint & 0x3Fu));
+    }
+    if (text.size() + count > max_bytes) return false;
+    text.append(encoded, count);
+    return true;
+}
+
+void erase_last_chat_codepoint(std::string& text) noexcept {
+    if (text.empty()) return;
+    std::size_t start = text.size() - 1;
+    while (start > 0 &&
+           (static_cast<unsigned char>(text[start]) & 0xC0u) == 0x80u) --start;
+    text.erase(start);
+}
+
 // Match map_handler.cpp's put_u32 (LE) layout.
 inline std::uint32_t get_u32(const std::uint8_t* p) {
     return  static_cast<std::uint32_t>(p[0])
@@ -1902,7 +1937,7 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         return;
     }
     if (m_chatOpen && pressed && vk == kVkBack) {
-        if (!m_chatBuffer.empty()) m_chatBuffer.pop_back();
+        erase_last_chat_codepoint(m_chatBuffer);
         if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
             if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
                 edit->SetEditText(m_chatBuffer);
@@ -1920,7 +1955,7 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
                     if (edit->editText() != m_chatBuffer) {
                         m_chatBuffer = edit->editText();
                     } else if (vk == kVkBack && !m_chatBuffer.empty()) {
-                        m_chatBuffer.pop_back();
+                        erase_last_chat_codepoint(m_chatBuffer);
                         edit->SetEditText(m_chatBuffer);
                     }
                 }
@@ -1960,7 +1995,7 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         return;
     }
     if (vk == kVkBack && pressed && m_chatOpen) {
-        if (!m_chatBuffer.empty()) m_chatBuffer.pop_back();
+        erase_last_chat_codepoint(m_chatBuffer);
         return;
     }
     if (m_chatOpen) return;  // typing: consume everything else
@@ -2109,8 +2144,7 @@ void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
 
 void CInGameState::OnChar(std::uint32_t ch) {
     if (m_chatOpen) {
-        if (ch < 0x20 || ch == 0x7F || m_chatBuffer.size() >= 200) return;
-        m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
+        if (!append_chat_codepoint(m_chatBuffer, ch, 200)) return;
         if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
             if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
                 edit->SetEditText(m_chatBuffer);
@@ -2124,9 +2158,7 @@ void CInGameState::OnChar(std::uint32_t ch) {
                 if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
                     if (edit->editText() != m_chatBuffer) {
                         m_chatBuffer = edit->editText();
-                    } else if (ch >= 0x20 && ch != 0x7F &&
-                               m_chatBuffer.size() < 200) {
-                        m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
+                    } else if (append_chat_codepoint(m_chatBuffer, ch, 200)) {
                         edit->SetEditText(m_chatBuffer);
                     }
                 }
@@ -2136,8 +2168,7 @@ void CInGameState::OnChar(std::uint32_t ch) {
     }
     if (!m_chatOpen) return;
     if (ch < 0x20 || ch == 0x7F) return;
-    if (m_chatBuffer.size() >= 200) return;
-    m_chatBuffer.push_back(static_cast<char>(ch & 0xFFu));
+    if (!append_chat_codepoint(m_chatBuffer, ch, 200)) return;
     if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
         if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {
             edit->SetEditText(m_chatBuffer);
