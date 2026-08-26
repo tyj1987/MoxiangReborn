@@ -21,6 +21,10 @@ HUMAN_RUNNER_FORBIDDEN = (
     "Stop-Process -Name", "Get-Process -Name",
 )
 SENSITIVE_LOG_MARKERS = ("auth_key=%", "dist_auth_key=%", "password=%")
+FORBIDDEN_PATH_MARKERS = (
+    "c:\\moxiang", "d:\\[sworking]", "source-recovery",
+    "modern/scratch", "modern\\scratch",
+)
 
 
 def markdown_heading_errors(path: Path) -> list[str]:
@@ -70,7 +74,9 @@ def main() -> int:
 
     for source_root in SOURCE_ROOTS:
         for path in source_root.rglob("*"):
-            if not path.is_file() or path.suffix.lower() not in {".cpp", ".hpp", ".h", ".cmake", ".txt"}:
+            if not path.is_file() or path.suffix.lower() not in {
+                ".cpp", ".hpp", ".h", ".cmake", ".txt", ".py", ".ps1"
+            }:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for marker in SENSITIVE_LOG_MARKERS:
@@ -79,6 +85,9 @@ def main() -> int:
             for marker in TEMP_SOURCE_MARKERS:
                 if marker in text:
                     errors.append(f"{path.relative_to(ROOT)}: temporary marker {marker!r}")
+            for marker in FORBIDDEN_PATH_MARKERS:
+                if marker in text.lower():
+                    errors.append(f"{path.relative_to(ROOT)}: repository/scratch path dependency {marker!r}")
 
     if not args.ignore_root_artifacts:
         artifacts: set[Path] = set()

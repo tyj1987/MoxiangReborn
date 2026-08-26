@@ -47,7 +47,7 @@ std::filesystem::path FilesystemFileStorage::resolve(const char* relative) const
     if (rel.is_absolute()) {
         // Some callers (e.g. cDialogLoader M-R4.1 sprite hook) hand us
         // already-absolute paths like
-        // "C:\moxiang\modern\data\PlayDH\Image\2D/1.tif" produced by
+        // An absolute local path produced by a diagnostic run can be
         // std::filesystem::path::string() on a path built from
         // m_pathRoot / "2D/1.tif" (the join preserves the original '/' in
         // the appended portion).  We canonicalize and only accept the path
