@@ -2263,16 +2263,22 @@ void CInGameState::OnMouseButton(bool left, bool down,
             }
         }
     }
+    // The quick-slot bar is rendered by the HUD compositor rather than an
+    // InterfaceScript child.  Its always-active QI_QUICKDLG root otherwise
+    // swallows clicks before they reach the skill dispatcher.  Reserve the
+    // bar's exact logical hit boxes for both button edges.
+    const auto quick_slot = left
+        ? quick_slot_at_screen(static_cast<float>(x), static_cast<float>(y))
+        : std::nullopt;
+    if (quick_slot) {
+        if (down) {
+            use_quick_slot(*quick_slot);
+        }
+        return;
+    }
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
     if (ui.activation) handle_ui_activation(*ui.activation);
     if (ui.consumed) return;
-    if (left && down) {
-        if (const auto slot = quick_slot_at_screen(static_cast<float>(x),
-                                                   static_cast<float>(y))) {
-            use_quick_slot(*slot);
-            return;
-        }
-    }
     if (left && down && m_shopOpen) {
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);
