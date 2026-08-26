@@ -2770,6 +2770,46 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     player_money = it->second.money;
                 }
             }
+            // Buying is authoritative too: when the map has live NPC
+            // instances, require the player to be within the same interaction
+            // radius used by speech and selling.  Keep the catalog-only path
+            // available for offline/unit flows where no NPC spawn list exists.
+            bool dealer_in_range = true;
+            {
+                std::optional<std::pair<float, float>> player_position;
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    if (const auto it = connected_players_.find(player_id);
+                        it != connected_players_.end()) {
+                        player_position = std::pair<float, float>{
+                            it->second.pos_x, it->second.pos_z};
+                    }
+                }
+                if (player_position) {
+                    std::lock_guard<std::mutex> lk(npcs_mu_);
+                    if (!npcs_.empty()) {
+                        dealer_in_range = false;
+                        for (const auto& npc : npcs_) {
+                            if (npc.npc_id != npc_id) continue;
+                            const float dx = player_position->first - npc.pos_x;
+                            const float dz = player_position->second - npc.pos_z;
+                            dealer_in_range = dx * dx + dz * dz <= 500.0f * 500.0f;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!dealer_in_range) {
+                mxh::net::Message nack;
+                nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack);
+                nack.header.object_id = msg.header.object_id;
+                nack.payload.resize(4);
+                if (msg.payload.size() >= 4) std::memcpy(nack.payload.data(), msg.payload.data(), 4);
+                reply_(id, nack);
+                std::cout << "[Map] sent ITEM_BUY_NACK dealer out of range or unknown\n";
+                break;
+            }
             const auto req_opt = parse_npc_shop_buy_request(npc_id, msg.payload);
             if (!req_opt.has_value()) {
                 mxh::net::Message nack;

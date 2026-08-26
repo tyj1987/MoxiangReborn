@@ -2074,6 +2074,19 @@ TEST(MapHandlerTest, SpeechSynShopListFeedsClientThenBuySynDebitsMoney) {
     handler.on_message(connection,
                        mxh::client::make_buy_message(123u, state.shop_items()[0].item_id, 1u));
     EXPECT_EQ(handler.player_money_for_test(123u), 7655u);
+
+    // Dealer purchases must obey the same authoritative interaction radius;
+    // a client cannot keep buying after moving away from the live NPC.
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 10000.0f, 10000.0f));
+    replies.clear();
+    handler.on_message(connection,
+                       mxh::client::make_buy_message(123u, state.shop_items()[0].item_id, 1u));
+    const auto buy_nack = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol ==
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack);
+    });
+    ASSERT_NE(buy_nack, replies.end());
+    EXPECT_EQ(handler.player_money_for_test(123u), 7655u);
 }
 
 TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
