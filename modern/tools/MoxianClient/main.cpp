@@ -3390,8 +3390,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 if (auto* cm = dynamic_cast<mxh::client::CCharMake*>(
                         mainGame.GetGameState(cur_state));
                     cm && cm->is_connected() && !cm->is_submitted() &&
-                    !cm->is_failed()) {
-                    mxh::client::CharacterMakeParams params;
+                    !cm->is_failed() &&
+                    (std::getenv("MXH_GUI_SMOKE_ROTATE_APPEARANCE") == nullptr ||
+                     smoke_appearance_rotated)) {
+                    mxh::client::CharacterMakeParams params =
+                        cm->form_model().params();
                     params.name = options.character_name;
                     (void)cm->SubmitCharacter(params);
                 }

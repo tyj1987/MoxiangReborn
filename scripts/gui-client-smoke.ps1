@@ -173,6 +173,9 @@ try {
     if ($RotateAppearance -and $log -notmatch 'GUI_SMOKE_APPEARANCE_ROTATED') {
         throw "GUI smoke appearance rotation did not reach CharMake; log=$stderr"
     }
+    if ($RotateAppearance -and $log -notmatch "GameInAck .*gender=1 face=0 hair=0") {
+        throw "GUI smoke created appearance was not persisted into GameInAck; log=$stderr"
+    }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
     }

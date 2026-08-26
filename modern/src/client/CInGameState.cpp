@@ -1078,7 +1078,7 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     m_localX = static_cast<float>(info.position_x);
     m_localZ = static_cast<float>(info.position_z);
     MLOG_INFO("CInGameState: GameInAck player_id=%u user_id=%u name='%s' "
-              "level=%u map=%u life=%u/%u gender=%u "
+              "level=%u map=%u life=%u/%u gender=%u face=%u hair=%u "
               "server_time=%u-%u-%u %u:00",
               static_cast<unsigned>(info.player_id),
               static_cast<unsigned>(info.user_id),
@@ -1088,6 +1088,8 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
               static_cast<unsigned>(info.life),
               static_cast<unsigned>(info.max_life),
               static_cast<unsigned>(info.gender),
+              static_cast<unsigned>(info.face_type),
+              static_cast<unsigned>(info.hair_type),
               static_cast<unsigned>(info.server_year),
               static_cast<unsigned>(info.server_month),
               static_cast<unsigned>(info.server_day),

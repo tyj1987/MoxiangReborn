@@ -508,6 +508,12 @@ bool CCharMake::SubmitCharacter(const CharacterMakeParams& params) {
         MLOG_DEBUG("CCharMake: submit already in flight, ignoring");
         return false;
     }
+    MLOG_INFO("CCharMake: submit appearance sex=%u face=%u hair=%u equipment0=%u equipment2=%u",
+              static_cast<unsigned>(params.sex_type),
+              static_cast<unsigned>(params.face_type),
+              static_cast<unsigned>(params.hair_type),
+              static_cast<unsigned>(params.weared_item_idx[0]),
+              static_cast<unsigned>(params.weared_item_idx[2]));
     m_pending = params;
     m_makeSent = true;
     if (m_connectAcked) send_make_syn();
