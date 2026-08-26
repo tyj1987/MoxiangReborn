@@ -79,6 +79,16 @@ TEST(CGameLoading, RejectsInvalidContext) {
     EXPECT_EQ(state.error(), "loading context has zero steps");
 }
 
+TEST(CGameLoading, StartFailsClosedWithoutEngineOrResourceRoot) {
+    LoadStateContext context{};
+    context.total_steps = 1;
+    CGameLoading state;
+    state.Init(&context);
+    state.Start(nullptr);
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "loading requires a client engine");
+}
+
 TEST(CMapChange, TracksProgressCancellationAndFailure) {
     LoadStateContext context;
     context.completed_steps = 4;
@@ -117,6 +127,16 @@ TEST(CMapChange, RejectsInvalidContext) {
     state.Init(&context);
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "map change context has zero steps");
+}
+
+TEST(CMapChange, StartFailsClosedWithoutEngineOrResourceRoot) {
+    LoadStateContext context{};
+    context.total_steps = 1;
+    CMapChange state;
+    state.Init(&context);
+    state.Start(nullptr);
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "map change requires a client engine");
 }
 
 TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {

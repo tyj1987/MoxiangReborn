@@ -69,11 +69,20 @@ void CGameLoading::Init(void* param) {
 }
 
 void CGameLoading::Start(CEngine* engine) {
-    if (!engine || !engine->playdh_root() || !m_uiRuntime.empty()) return;
+    if (m_uiRuntime.empty() && (!engine || !engine->playdh_root())) {
+        m_failed = true;
+        m_error = !engine ? "loading requires a client engine"
+                          : "loading requires an explicit PlayDH resource root";
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        return;
+    }
+    if (!m_uiRuntime.empty()) return;
     std::string error;
     if (!m_uiRuntime.load(*engine->playdh_root(), "NewLoadDlg.bin",
                           engine->ui_resolution_mode(), &error)) {
-        MLOG_WARN("CGameLoading: NewLoadDlg.bin unavailable: %s", error.c_str());
+        m_failed = true;
+        m_error = "loading UI unavailable: " + error;
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
         return;
     }
     m_uiRuntime.activateAllLoadedDialogs();
@@ -134,11 +143,20 @@ void CMapChange::Release() {
 }
 
 void CMapChange::Start(CEngine* engine) {
-    if (!engine || !engine->playdh_root() || !m_uiRuntime.empty()) return;
+    if (m_uiRuntime.empty() && (!engine || !engine->playdh_root())) {
+        m_failed = true;
+        m_error = !engine ? "map change requires a client engine"
+                          : "map change requires an explicit PlayDH resource root";
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
+        return;
+    }
+    if (!m_uiRuntime.empty()) return;
     std::string error;
     if (!m_uiRuntime.load(*engine->playdh_root(), "NewLoadDlg.bin",
                           engine->ui_resolution_mode(), &error)) {
-        MLOG_WARN("CMapChange: NewLoadDlg.bin unavailable: %s", error.c_str());
+        m_failed = true;
+        m_error = "map change UI unavailable: " + error;
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
         return;
     }
     m_uiRuntime.activateAllLoadedDialogs();
