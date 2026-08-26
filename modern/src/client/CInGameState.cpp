@@ -2276,6 +2276,13 @@ void CInGameState::OnMouseButton(bool left, bool down,
         }
         return;
     }
+    // Right-button drag is the world-camera gesture.  HUD roots are often
+    // broad decorative containers and must not swallow the gesture before
+    // the camera capture state is established.
+    if (!left) {
+        m_cameraDrag = down;
+        return;
+    }
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
     if (ui.activation) handle_ui_activation(*ui.activation);
     if (ui.consumed) return;
@@ -2319,7 +2326,6 @@ void CInGameState::OnMouseButton(bool left, bool down,
         try_attack();
         return;
     }
-    if (!left) m_cameraDrag = down;
 }
 
 bool CInGameState::request_inventory_move(std::size_t source,
@@ -2346,13 +2352,16 @@ bool CInGameState::request_inventory_move(std::size_t source,
 }
 
 void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
-    if (m_uiRuntime.onMouseMove(x, y)) {
+    if (m_cameraDrag) {
+        m_cameraYaw += static_cast<float>(x - m_lastMouseX) * 0.01f;
         m_lastMouseX = x;
         m_lastMouseY = y;
         return;
     }
-    if (m_cameraDrag) {
-        m_cameraYaw += static_cast<float>(x - m_lastMouseX) * 0.01f;
+    if (m_uiRuntime.onMouseMove(x, y)) {
+        m_lastMouseX = x;
+        m_lastMouseY = y;
+        return;
     }
     m_lastMouseX = x;
     m_lastMouseY = y;

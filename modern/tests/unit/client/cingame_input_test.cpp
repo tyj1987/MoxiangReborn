@@ -460,6 +460,19 @@ TEST(InGamePlayable, MouseWheelZoomIsBounded) {
     EXPECT_FLOAT_EQ(state.camera_distance(), 12.0f);
 }
 
+TEST(InGamePlayable, RightDragRotatesCameraThroughHudCoverage) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    const auto initial = state.camera_yaw();
+    state.OnMouseButton(false, true, 400, 300);
+    state.OnMouseMove(450, 300);
+    EXPECT_NE(state.camera_yaw(), initial);
+    state.OnMouseButton(false, false, 450, 300);
+    const auto settled = state.camera_yaw();
+    state.OnMouseMove(500, 300);
+    EXPECT_EQ(state.camera_yaw(), settled);
+}
+
 TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
