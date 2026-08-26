@@ -69,7 +69,30 @@ static void saveSettings(const LauncherSettings& s) {
     if (!out) return;
     out << text;
     out.close();
-    MoveFileExW(temp.c_str(), settingsPath().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+    if (!out) {
+        std::error_code ignored;
+        fs::remove(temp, ignored);
+        return;
+    }
+    // Publish only after the temporary settings file has reached the OS
+    // cache.  MOVEFILE_WRITE_THROUGH protects the rename itself, while this
+    // explicit flush protects the newly written display settings.
+    const auto tempHandle = CreateFileW(
+        temp.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (tempHandle == INVALID_HANDLE_VALUE || !FlushFileBuffers(tempHandle)) {
+        if (tempHandle != INVALID_HANDLE_VALUE) CloseHandle(tempHandle);
+        std::error_code ignored;
+        fs::remove(temp, ignored);
+        return;
+    }
+    CloseHandle(tempHandle);
+    if (!MoveFileExW(temp.c_str(), settingsPath().c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        std::error_code ignored;
+        fs::remove(temp, ignored);
+    }
 }
 
 static fs::path locateResourceRoot(const fs::path& executable) {
