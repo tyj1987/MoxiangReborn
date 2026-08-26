@@ -76,4 +76,11 @@ constexpr bool role_has_quest_indicator(NpcRole r) noexcept {
         || r == NpcRole::Suryun;
 }
 
+// Map-change NPCs are routed by AgentServer's UserConn handler rather than
+// the generic Npc forwarder.  Keeping this decision beside the wire-role
+// mapping prevents the client from emitting a ChangeMapSyn under Category::Npc.
+constexpr bool role_uses_agent_route(NpcRole r) noexcept {
+    return r == NpcRole::MapChange;
+}
+
 }  // namespace mxh::game

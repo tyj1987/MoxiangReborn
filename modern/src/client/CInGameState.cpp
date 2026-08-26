@@ -2715,13 +2715,16 @@ void CInGameState::interact_with_npc(std::uint32_t npc_id) {
         return;
     }
 
+    const bool uses_agent_route = mxh::game::role_uses_agent_route(role);
     mxh::net::Message msg;
-    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
-    msg.header.protocol = role == mxh::game::NpcRole::MapChange
+    msg.header.category = static_cast<std::uint8_t>(
+        uses_agent_route ? mxh::proto::Category::UserConn
+                         : mxh::proto::Category::Npc);
+    msg.header.protocol = uses_agent_route
         ? static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapSyn)
         : static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn);
     msg.header.object_id = m_playerId;
-    if (role == mxh::game::NpcRole::MapChange) {
+    if (uses_agent_route) {
         // The destination is route data, not a client-side constant.  Do not
         // send a fabricated map number when the selected profile has not
         // supplied the authoritative MapChange table.

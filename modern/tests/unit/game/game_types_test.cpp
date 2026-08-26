@@ -601,6 +601,12 @@ TEST(NpcRole, QuestIndicatorRoles) {
     EXPECT_FALSE(role_has_quest_indicator(NpcRole::Bomul));
 }
 
+TEST(NpcRole, MapChangeUsesAgentRoute) {
+    EXPECT_TRUE(role_uses_agent_route(NpcRole::MapChange));
+    EXPECT_FALSE(role_uses_agent_route(NpcRole::Talker));
+    EXPECT_FALSE(role_uses_agent_route(NpcRole::Dealer));
+}
+
 // Cross-check the modern helper against the legacy wire value lookup
 // — guards against a future enum reorder silently changing the slot.
 TEST(NpcRole, SlotAssignmentMatchesHostMainCppContract) {
