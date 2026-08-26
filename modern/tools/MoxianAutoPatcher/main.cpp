@@ -411,13 +411,18 @@ private:
 
         // Remove old backup if exists
         if (fs::exists(backupDir)) {
-            fs::remove_all(backupDir);
+            std::error_code remove_error;
+            fs::remove_all(backupDir, remove_error);
+            if (remove_error) return false;
         }
 
         // Create new backup
-        fs::create_directories(backupDir);
+        std::error_code directory_error;
+        fs::create_directories(backupDir, directory_error);
+        if (directory_error) return false;
 
         std::ofstream created(backupDir / ".created", std::ios::binary);
+        if (!created) return false;
         std::vector<std::string> paths = manifest.deleteFiles;
         for (const auto& file : manifest.files) paths.push_back(file.path);
         paths.push_back("MHVerInfo.ver");
@@ -425,11 +430,31 @@ private:
             const fs::path source = fs::path(gameDir_) / relative;
             if (fs::is_regular_file(source)) {
                 const fs::path destination = backupDir / relative;
-                fs::create_directories(destination.parent_path());
-                fs::copy_file(source, destination, fs::copy_options::overwrite_existing);
+                std::error_code error;
+                fs::create_directories(destination.parent_path(), error);
+                if (error || !fs::copy_file(source, destination,
+                                            fs::copy_options::overwrite_existing, error) || error) {
+                    created.close();
+                    std::error_code cleanup_error;
+                    fs::remove_all(backupDir, cleanup_error);
+                    return false;
+                }
             } else {
                 created << relative << '\n';
+                if (!created) {
+                    created.close();
+                    std::error_code cleanup_error;
+                    fs::remove_all(backupDir, cleanup_error);
+                    return false;
+                }
             }
+        }
+        created.flush();
+        if (!created) {
+            created.close();
+            std::error_code cleanup_error;
+            fs::remove_all(backupDir, cleanup_error);
+            return false;
         }
         std::cout << "Backup created" << std::endl;
         return true;
