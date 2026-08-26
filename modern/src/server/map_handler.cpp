@@ -4054,6 +4054,35 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 if (authoritative_target) {
                     target_x = authoritative_target->first;
                     target_z = authoritative_target->second;
+
+                    std::optional<std::pair<float, float>> caster_position;
+                    {
+                        std::lock_guard<std::mutex> lk(players_mu_);
+                        if (const auto it = connected_players_.find(caster_id);
+                            it != connected_players_.end()) {
+                            caster_position = std::pair<float, float>{
+                                it->second.pos_x, it->second.pos_z};
+                        }
+                    }
+                    constexpr float kMaxSkillTargetDistance = 500.0f;
+                    if (caster_position) {
+                        const float dx = caster_position->first - target_x;
+                        const float dz = caster_position->second - target_z;
+                        if (dx * dx + dz * dz >
+                            kMaxSkillTargetDistance * kMaxSkillTargetDistance) {
+                            mxh::net::Message nack;
+                            nack.header.category = static_cast<std::uint8_t>(
+                                mxh::proto::Category::Skill);
+                            nack.header.protocol = static_cast<std::uint8_t>(
+                                mxh::proto::SkillProtocol::StartNack);
+                            nack.header.object_id = caster_id;
+                            const std::uint8_t err = 4; // target out of range
+                            nack.payload.assign(&err, &err + 1);
+                            reply_(id, nack);
+                            std::cout << "[Map] Skill target out of range\n";
+                            break;
+                        }
+                    }
                 }
             }
 
