@@ -191,6 +191,13 @@ void ClientUiRuntime::applyActiveSet(
                 want = true;
                 break;
             }
+            // A child page/tab is still rendered through its parent dialog;
+            // hiding the root when only the child ID is active makes the
+            // otherwise valid tab appear to disappear entirely.
+            if (dialog->findWindowByLegacyId(id)) {
+                want = true;
+                break;
+            }
         }
         dialog->SetActive(want);
         dialog->SetVisible(want);
