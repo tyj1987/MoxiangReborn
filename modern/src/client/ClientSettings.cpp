@@ -185,7 +185,8 @@ bool ClientSettingsStore::save_atomic(const std::filesystem::path& path,
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     if (ec) { if (error) *error = ec.message(); return false; }
-    const auto temp = path.string() + ".tmp";
+    const auto temp = path.string() + ".tmp." +
+                      std::to_string(static_cast<unsigned long>(GetCurrentProcessId()));
     std::ofstream output(temp, std::ios::binary | std::ios::trunc);
     if (!output) { if (error) *error = "cannot open temporary settings file"; return false; }
     output << "{\n"
