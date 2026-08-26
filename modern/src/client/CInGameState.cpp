@@ -989,6 +989,34 @@ void CInGameState::refresh_live_ui_bindings() {
             }
         }
         if (auto* mini_map = dynamic_cast<mxh::ui::cMiniMapDlg*>(dialog.get())) {
+            mini_map->SetBigMapCallbacks(
+                [this]() noexcept { return m_mapOpen; },
+                [this](bool active) noexcept { set_map_open(active); });
+            mini_map->SetBigMapForwarders(
+                [this](std::uint32_t object_id, std::int32_t x,
+                       std::int32_t z) noexcept {
+                    if (auto* window = m_uiRuntime.findWindowByLegacyId(kBigMapDialogId)) {
+                        if (auto* big = dynamic_cast<mxh::ui::cBigMapDlg*>(window)) {
+                            big->SetPartyIconObjectPos(object_id, x, z);
+                        }
+                    }
+                },
+                [this](std::uint32_t object_id, std::int32_t x,
+                       std::int32_t z) noexcept {
+                    if (auto* window = m_uiRuntime.findWindowByLegacyId(kBigMapDialogId)) {
+                        if (auto* big = dynamic_cast<mxh::ui::cBigMapDlg*>(window)) {
+                            big->SetPartyIconTargetPos(object_id, x, z);
+                        }
+                    }
+                },
+                [this](std::uint32_t object_id, std::int32_t kind) noexcept {
+                    if (auto* window = m_uiRuntime.findWindowByLegacyId(kBigMapDialogId)) {
+                        if (auto* big = dynamic_cast<mxh::ui::cBigMapDlg*>(window)) {
+                            big->ShowQuestMarkIcon(object_id, kind);
+                        }
+                    }
+                });
+            mini_map->RefreshMode();
             mini_map->InitMiniMap(m_mapNum);
             mini_map->ClearIcons();
             mini_map->AddHeroIcon(m_playerId,
