@@ -32,6 +32,32 @@ TEST(CGuageBar, InheritsGuagenAndWindow) {
     window->Render();
 }
 
+TEST(CGuageBar, PointerDragMapsHorizontalPositionToRate) {
+    cGuageBar bar;
+    bar.Init(100, 20, 100, 12, nullptr, 1);
+    bar.InitGuageBar(100, false);
+    bar.InitValue(0, 100, 0);
+    bar.SetActive(true);
+    EXPECT_EQ(bar.ActionEvent(150, 25, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_NEAR(bar.GetCurRate(), 0.5f, 0.001f);
+    EXPECT_EQ(bar.GetCurValue(), 50);
+    EXPECT_TRUE(bar.IsDrag());
+    bar.ActionEvent(150, 25, 0);
+    EXPECT_FALSE(bar.IsDrag());
+}
+
+TEST(CGuageBar, PointerDragHonorsLock) {
+    cGuageBar bar;
+    bar.Init(0, 0, 100, 12, nullptr, 1);
+    bar.InitGuageBar(100, false);
+    bar.SetActive(true);
+    bar.SetGuageLock(true, 0xFFFFFFFFu);
+    EXPECT_EQ(bar.ActionEvent(50, 5, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::Null));
+    EXPECT_FALSE(bar.IsDrag());
+}
+
 TEST(CGuageBar, InitGuageBarStoresIntervalAndOrientation) {
     cGuageBar bar;
     bar.InitGuageBar(120, true);
