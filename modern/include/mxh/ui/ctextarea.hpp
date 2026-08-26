@@ -74,6 +74,9 @@ public:
 
     void SetFocusEdit(bool val) noexcept;
     void SetFocus(bool val) noexcept            { SetFocusEdit(val); }
+    bool IsCaretVisible() const noexcept        { return m_bCaret; }
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
 
     // ----- 1:1 with legacy cTextArea::GetScriptText / SetScriptText -----
 
