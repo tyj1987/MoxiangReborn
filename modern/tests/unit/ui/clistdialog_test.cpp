@@ -149,6 +149,21 @@ TEST(CListDialog, ActionEventIgnoresEmptyOrOutsideClicks) {
     EXPECT_EQ(l.GetCurSelectedRowIdx(), -1);
 }
 
+TEST(CListDialog, KeyboardNavigationMovesSelectionAndViewport) {
+    mxh::ui::cListDialog l;
+    l.Init(0, 0, 120, 80, nullptr, 1);
+    l.InitList(6, 10, 20, 80, 40);
+    for (int i = 0; i < 6; ++i) l.AddItem(std::to_string(i));
+    l.SetActive(true);
+    l.SetFocus(true);
+    EXPECT_EQ(l.ActionKeyboardEvent(40, 0),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::KeyDown));
+    EXPECT_EQ(l.GetCurSelectedRowIdx(), 1);
+    l.ActionKeyboardEvent(34, 0);
+    EXPECT_EQ(l.GetCurSelectedRowIdx(), 3);
+    EXPECT_EQ(l.GetTopListItemIdx(), 2);
+}
+
 TEST(CListDialog, AutoScrollSetterGetter) {
     // 1:1 with legacy cListDialog::SetAutoScroll + SetShowSelect.
     // Both setters existed before this fix but the AutoScroll getter

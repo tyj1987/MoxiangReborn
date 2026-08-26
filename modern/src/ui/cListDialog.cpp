@@ -2,6 +2,8 @@
 
 #include "cListDialog.hpp"
 
+#include <algorithm>
+
 namespace mxh::ui {
 
 cListDialog::cListDialog() = default;
@@ -113,6 +115,28 @@ std::uint32_t cListDialog::ActionEvent(std::int32_t mouseX,
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
     return childEvent;
+}
+
+std::uint32_t cListDialog::ActionKeyboardEvent(std::int32_t key,
+                                               std::int32_t /*ch*/) {
+    if (!isEnabled() || !isVisible() || !isActive() || m_rows.empty()) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const int visible = (m_lineHeight > 0 && m_clipH > 0)
+        ? std::max(1, m_clipH / m_lineHeight) : 1;
+    int selected = m_selectedRow < 0 ? m_topRow : m_selectedRow;
+    if (key == 38) --selected;
+    else if (key == 40) ++selected;
+    else if (key == 33) selected -= visible;
+    else if (key == 34) selected += visible;
+    else return static_cast<std::uint32_t>(WindowEvent::Null);
+    selected = std::clamp(selected, 0, static_cast<int>(m_rows.size()) - 1);
+    m_selectedRow = selected;
+    if (selected < m_topRow) m_topRow = selected;
+    const int maxTop = std::max(0, static_cast<int>(m_rows.size()) - visible);
+    if (selected >= m_topRow + visible) m_topRow = selected - visible + 1;
+    if (m_topRow > maxTop) m_topRow = maxTop;
+    return static_cast<std::uint32_t>(WindowEvent::KeyDown);
 }
 
 } // namespace mxh::ui
