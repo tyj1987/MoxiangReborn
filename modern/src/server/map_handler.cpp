@@ -3373,6 +3373,52 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
                 std::memcpy(&npc_id, msg.payload.data(), sizeof(npc_id));
             }
 
+            // The client performs the same range check for responsive input,
+            // but the server must enforce it as the authority.  Keep the
+            // catalog-only test/compatibility path (no live NPC instance)
+            // intact; once an NPC is spawned on this map, an out-of-range
+            // speech request is rejected before quest or shop side effects.
+            std::optional<std::pair<float, float>> player_position;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                if (const auto player = connected_players_.find(player_id);
+                    player != connected_players_.end()) {
+                    player_position = std::pair<float, float>{
+                        player->second.pos_x, player->second.pos_z};
+                }
+            }
+            if (player_position && npc_id != 0u) {
+                std::optional<std::pair<float, float>> npc_position;
+                {
+                    std::lock_guard<std::mutex> lk(npcs_mu_);
+                    const auto npc = std::find_if(npcs_.begin(), npcs_.end(),
+                        [npc_id](const ServerNpc& value) {
+                            return value.npc_id == npc_id;
+                        });
+                    if (npc != npcs_.end()) {
+                        npc_position = std::pair<float, float>{
+                            static_cast<float>(npc->pos_x),
+                            static_cast<float>(npc->pos_z)};
+                    }
+                }
+                if (npc_position) {
+                    const float dx = player_position->first - npc_position->first;
+                    const float dz = player_position->second - npc_position->second;
+                    if (dx * dx + dz * dz > 500.0f * 500.0f) {
+                        mxh::net::Message nack;
+                        nack.header.category = static_cast<std::uint8_t>(
+                            mxh::proto::Category::Npc);
+                        nack.header.protocol = static_cast<std::uint8_t>(
+                            mxh::proto::NpcProtocol::SpeechNack);
+                        nack.header.object_id = player_id;
+                        nack.payload = msg.payload;
+                        reply_(id, nack);
+                        std::cout << "[Map] rejected NPC_SPEECH_NACK out of range\n";
+                        return;
+                    }
+                }
+            }
+
             // Phase 10c P0: echo SpeechAck (legacy behavior preserved).
             mxh::net::Message reply;
             reply.header.category = static_cast<std::uint8_t>(

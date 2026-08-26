@@ -2110,6 +2110,43 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
     ASSERT_NE(nack, replies.end());
 }
 
+TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    const auto deal_path = write_temp_bin(
+        synthesize_dealitem_bin("7 map 2 npc 7 10 20 0 1 tab 555 10\n"));
+    handler.load_dealitem(deal_path.string());
+    std::error_code ignored;
+    std::filesystem::remove(deal_path, ignored);
+
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 10000.0f, 10000.0f));
+
+    mxh::net::Message talk;
+    talk.header.object_id = 123u;
+    talk.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+    talk.header.protocol = static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn);
+    talk.payload.resize(4, 0);
+    const std::uint32_t npc_id = 7u;
+    std::memcpy(talk.payload.data(), &npc_id, sizeof(npc_id));
+    replies.clear();
+    handler.on_message(connection, talk);
+    ASSERT_FALSE(replies.empty());
+    EXPECT_EQ(replies.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack));
+    EXPECT_EQ(replies.front().header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Npc));
+}
+
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     MockDbAdapter db;
     ReplySpy reply;
