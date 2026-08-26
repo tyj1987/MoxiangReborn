@@ -446,6 +446,25 @@ TEST(InGamePlayable, LeftClickPrefersMonsterUnderCursor) {
     EXPECT_EQ(state.last_attack_target(), 50001u);
 }
 
+TEST(InGamePlayable, ExplicitPointedTargetStillHonorsAttackRange) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_monster_add_at(50003u, 26000, 25000));
+
+    float screen_x = 0.0f;
+    float screen_y = 0.0f;
+    ASSERT_TRUE(mxh::client::project_npc_to_screen(
+        25000.0f, 25000.0f, 0.0f, 26000.0f, 25000.0f,
+        screen_x, screen_y));
+    state.OnMouseButton(true, true,
+                        static_cast<std::int32_t>(screen_x),
+                        static_cast<std::int32_t>(screen_y));
+    EXPECT_EQ(state.last_attack_target(), 0u);
+}
+
 TEST(InGamePlayable, MouseWheelZoomIsBounded) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

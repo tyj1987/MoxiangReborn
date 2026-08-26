@@ -2489,6 +2489,13 @@ void CInGameState::try_attack() {
             break;
         }
     }
+    const float target_dx = target_x - m_localX;
+    const float target_dz = target_z - m_localZ;
+    if (target_dx * target_dx + target_dz * target_dz >
+        kAttackRange * kAttackRange) {
+        MLOG_DEBUG("CInGameState: attack target=%u out of range", *target);
+        return;
+    }
     m_lastAttackTarget = *target;
     m_lastAttackMs = now;
     m_attackFlashMs = now;
@@ -2511,10 +2518,9 @@ void CInGameState::try_attack() {
                   *target, target_x, target_z);
     }
     if (m_pEngine) {
-        const float dx = target_x - m_localX;
-        const float dz = target_z - m_localZ;
         m_pEngine->EmitAudioAt(CEngine::AudioCue::Attack,
-                               std::sqrt(dx * dx + dz * dz));
+                               std::sqrt(target_dx * target_dx +
+                                         target_dz * target_dz));
     }
 }
 
