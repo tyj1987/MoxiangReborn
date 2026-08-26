@@ -212,11 +212,10 @@ mxh::client::LoginResult CLoginState::TakeLoginResult() {
     r.agent_port    = m_agentPort.load(std::memory_order_acquire);
     r.user_idx      = m_userIdx.load(std::memory_order_acquire);
     r.dist_auth_key = m_authKey.load(std::memory_order_acquire);
-    MLOG_DEBUG("CLoginState::TakeLoginResult -> user_idx=%u agent=%s:%u dist_auth_key=%u",
+    MLOG_DEBUG("CLoginState::TakeLoginResult -> user_idx=%u agent=%s:%u",
               static_cast<unsigned>(r.user_idx),
               r.agent_addr.c_str(),
-              static_cast<unsigned>(r.agent_port),
-              static_cast<unsigned>(r.dist_auth_key));
+              static_cast<unsigned>(r.agent_port));
     // user_level isn't returned by modern LoginServer's 23B ack.
     // Consume so a second call returns empty.
     m_agentAddr.clear();
@@ -274,8 +273,10 @@ void CLoginState::handle_message(mxh::net::ConnectionId id,
     switch (proto) {
         case UserConnProtocol::DistConnectSuccess: {
             m_authKey.store(msg.header.object_id, std::memory_order_release);
-            MLOG_INFO("CLoginState: got DistConnectSuccess auth_key=%u",
-                      static_cast<unsigned>(msg.header.object_id));
+            // The auth key is credential material; keep it out of logs even
+            // in developer builds.  Only the protocol event is useful for
+            // diagnosing the login state machine.
+            MLOG_INFO("CLoginState: got DistConnectSuccess");
             // Build and send the RequestLogin legacy payload.
             const auto pl = legacy_request_login_payload(
                 m_authKey, m_userId, m_password);

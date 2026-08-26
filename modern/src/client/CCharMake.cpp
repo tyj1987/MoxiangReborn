@@ -403,8 +403,7 @@ void CCharMake::on_message(mxh::net::ConnectionId id,
     switch (proto) {
         case UserConnProtocol::AgentConnectSuccess: {
             m_connectAcked = true;
-            MLOG_INFO("CCharMake: got AgentConnectSuccess (auth_key=%u)",
-                      static_cast<unsigned>(msg.header.object_id));
+            MLOG_INFO("CCharMake: got AgentConnectSuccess");
             // The host drives SubmitCharacter() once the user finishes
             // the creation form.  If a submit was already queued (host
             // called SubmitCharacter before the connect ack arrived), send

@@ -617,8 +617,7 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
         if (!login.is_ack_received()) {
-            LOG("[1/5] FAIL: timed out waiting for LoginAck (auth_key=%u)",
-                login.auth_key());
+            LOG("[1/5] FAIL: timed out waiting for LoginAck");
             return 2;
         }
     }

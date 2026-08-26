@@ -330,8 +330,7 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
     }
     switch (proto) {
         case UserConnProtocol::AgentConnectSuccess: {
-            MLOG_INFO("CCharSelectState: got AgentConnectSuccess (auth_key=%u)",
-                      static_cast<unsigned>(msg.header.object_id));
+            MLOG_INFO("CCharSelectState: got AgentConnectSuccess");
             send_list_syn();
             break;
         }
