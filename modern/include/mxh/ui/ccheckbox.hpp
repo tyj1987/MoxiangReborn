@@ -133,6 +133,8 @@ public:
               void* checkImage, CheckboxCallback Func,
               std::int32_t ID = 0);
     std::uint32_t ActionEvent(CMouse* mouseInfo);
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
     void Render();
 
     bool IsChecked() const noexcept { return m_fChecked; }
@@ -188,6 +190,7 @@ private:
     std::uint32_t m_dwCheckBoxTextColor = 0xFFFFFFFFu;  // 1:1 with legacy
                                                         // RGB_HALF(255,255,255) = white.
     bool m_fChecked = false;  // 1:1 with legacy m_fChecked.
+    bool m_pressed = false;
 
     // 1:1 with legacy cbWindowFunc. Modern cWindow doesn't
     // have cbWindowFunc; we store it locally.
