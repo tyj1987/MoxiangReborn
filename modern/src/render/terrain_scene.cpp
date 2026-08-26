@@ -64,6 +64,8 @@ struct TerrainScene::Impl {
     bool view_proj_valid = false;
     std::uint32_t placeholder_textures = 0;
     std::uint32_t unresolved_textures = 0;
+    float terrain_min_height = 0.0f;
+    float terrain_max_height = 0.0f;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -83,6 +85,14 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     std::vector<std::uint8_t> hflBytes;
     if (!readStorageFile(storage, hfl_name, hflBytes) ||
         !mxh::compat::parse_hfl(hflBytes, impl_->terrain, error)) return false;
+    if (!impl_->terrain.heights.empty()) {
+        const auto [min_it, max_it] = std::minmax_element(
+            impl_->terrain.heights.begin(), impl_->terrain.heights.end());
+        impl_->terrain_min_height = *min_it * kSceneScale;
+        impl_->terrain_max_height = *max_it * kSceneScale;
+    } else {
+        impl_->terrain_min_height = impl_->terrain_max_height = 0.0f;
+    }
 
     ID3D11Device* device = nullptr;
     if (!renderer->GetD3DDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)) || !device)
@@ -262,8 +272,18 @@ void TerrainScene::configureCamera(float aspect) {
     } else {
         // Overview camera at the map centre, looking down. Deterministic
         // full-terrain screenshot view regardless of player position.
-        camera.v3From = {0.0f, 35.0f, 0.0f};
-        camera.v3To   = {0.0f,  0.0f, 0.0f};
+        // Some maps contain cliffs whose elevation is well above the old
+        // fixed 35-unit camera height.  Aim at the terrain's vertical centre
+        // and lift the camera above the highest sample so the overview never
+        // starts inside the mesh (which otherwise produces a mostly-black
+        // frame even though every texture loaded successfully).
+        const float terrain_mid = (impl_->terrain_min_height +
+                                   impl_->terrain_max_height) * 0.5f;
+        const float extent = std::max(d.width, d.height) * kSceneScale;
+        const float camera_height = std::max(35.0f,
+            impl_->terrain_max_height + std::max(12.0f, extent * 0.75f));
+        camera.v3From = {0.0f, camera_height, 0.0f};
+        camera.v3To   = {0.0f,  terrain_mid, 0.0f};
         camera.v3Up   = {0, 0, 1};
     }
     camera.fFovY  = 3.14159265f / 3.0f;
