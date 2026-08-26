@@ -11,10 +11,17 @@ cGuagen::cGuagen() = default;
 cGuagen::~cGuagen() = default;
 
 void cGuagen::Render() {
-    // No-op: actual draw goes through the 6.4+ cImage seam
-    // (mxh::ui::cImage::render) which the Phase 5 renderer integration
-    // hooks up. This skeleton just stores the geometry; see the
-    // cImage test for the full render path example.
+    if (m_GuagePieceImage.IsNull() || !isVisible()) return;
+    const float fullWidth = m_fGuageWidth > 0.0f
+        ? m_fGuageWidth : static_cast<float>(width());
+    const float targetHeight = static_cast<float>(height()) *
+                               m_fGuagePieceHeightScaleY;
+    const auto targetWidth = static_cast<std::int32_t>(fullWidth * m_fPercentRate);
+    if (targetWidth <= 0 || targetHeight <= 0.0f) return;
+    (void)m_GuagePieceImage.render(
+        absX() + static_cast<std::int32_t>(m_imgRelPos.x),
+        absY() + static_cast<std::int32_t>(m_imgRelPos.y),
+        targetWidth, static_cast<std::int32_t>(targetHeight));
 }
 
 void cGuagen::SetValue(float val) {
