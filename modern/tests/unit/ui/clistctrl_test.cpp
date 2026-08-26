@@ -266,6 +266,20 @@ TEST(CListCtrl, KeyboardNavigationSelectsAndScrollsRows) {
     EXPECT_EQ(l.selectedRowIdx(), 1);
 }
 
+TEST(CListCtrl, MouseWheelScrollsAndClamps) {
+    cListCtrl l;
+    l.Init(0, 0, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    for (int i = 0; i < 5; ++i) l.AddRow({{std::to_string(i)}});
+    EXPECT_FALSE(l.OnMouseWheel(120));
+    EXPECT_TRUE(l.OnMouseWheel(-120));
+    EXPECT_EQ(l.topItemIdx(), 1);
+    for (int i = 0; i < 8; ++i) l.OnMouseWheel(-120);
+    EXPECT_EQ(l.topItemIdx(), 3);
+    EXPECT_FALSE(l.OnMouseWheel(-120));
+}
+
 TEST(CListCtrl, SetColumnsCapsRowVectors) {
     // Legacy contract: changing the column count shrinks any existing
     // rows' cell vectors to match.

@@ -164,6 +164,18 @@ TEST(CListDialog, KeyboardNavigationMovesSelectionAndViewport) {
     EXPECT_EQ(l.GetTopListItemIdx(), 2);
 }
 
+TEST(CListDialog, MouseWheelScrollsAndClamps) {
+    mxh::ui::cListDialog l;
+    l.Init(0, 0, 120, 80, nullptr, 1);
+    l.InitList(2, 10, 20, 80, 28);
+    l.AddItem("0"); l.AddItem("1"); l.AddItem("2");
+    EXPECT_TRUE(l.OnMouseWheel(-120));
+    EXPECT_EQ(l.GetTopListItemIdx(), 1);
+    EXPECT_FALSE(l.OnMouseWheel(-120));
+    EXPECT_TRUE(l.OnMouseWheel(120));
+    EXPECT_EQ(l.GetTopListItemIdx(), 0);
+}
+
 TEST(CListDialog, AutoScrollSetterGetter) {
     // 1:1 with legacy cListDialog::SetAutoScroll + SetShowSelect.
     // Both setters existed before this fix but the AutoScroll getter

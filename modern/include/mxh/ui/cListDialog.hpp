@@ -81,6 +81,7 @@ public:
                               std::uint32_t mouseFlags) override;
     std::uint32_t ActionKeyboardEvent(std::int32_t key,
                                       std::int32_t ch) override;
+    bool OnMouseWheel(std::int32_t wheelDelta) noexcept;
 
     // Render placeholder.
     void Render() override {}

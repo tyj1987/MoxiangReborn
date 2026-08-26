@@ -63,9 +63,7 @@ bool cListDialog::RemoveItem(const std::string& text) {
 
 void cListDialog::SetTopListItemIdx(int idx) noexcept {
     if (idx < 0) idx = 0;
-    if (idx >= static_cast<int>(m_rows.size())) {
-        idx = static_cast<int>(m_rows.size()) - 1;
-    }
+    if (idx >= static_cast<int>(m_rows.size())) idx = static_cast<int>(m_rows.size()) - 1;
     if (idx < 0) idx = 0;
     m_topRow = idx;
 }
@@ -137,6 +135,17 @@ std::uint32_t cListDialog::ActionKeyboardEvent(std::int32_t key,
     if (selected >= m_topRow + visible) m_topRow = selected - visible + 1;
     if (m_topRow > maxTop) m_topRow = maxTop;
     return static_cast<std::uint32_t>(WindowEvent::KeyDown);
+}
+
+bool cListDialog::OnMouseWheel(std::int32_t wheelDelta) noexcept {
+    if (!isEnabled() || !isVisible() || wheelDelta == 0) return false;
+    const int step = wheelDelta > 0 ? -1 : 1;
+    const int oldTop = m_topRow;
+    const int visible = (m_lineHeight > 0 && m_clipH > 0)
+        ? std::max(1, m_clipH / m_lineHeight) : 1;
+    const int maxTop = std::max(0, static_cast<int>(m_rows.size()) - visible);
+    m_topRow = std::clamp(m_topRow + step, 0, maxTop);
+    return oldTop != m_topRow;
 }
 
 } // namespace mxh::ui

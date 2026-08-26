@@ -172,4 +172,12 @@ std::uint32_t cListCtrl::ActionKeyboardEvent(std::int32_t key,
     return static_cast<std::uint32_t>(WindowEvent::KeyDown);
 }
 
+bool cListCtrl::OnMouseWheel(std::int32_t wheelDelta) noexcept {
+    if (!isEnabled() || !isVisible() || wheelDelta == 0) return false;
+    const int step = wheelDelta > 0 ? -1 : 1;
+    const int oldTop = m_topItemIdx;
+    SetTopItemIdx(m_topItemIdx + step);
+    return oldTop != m_topItemIdx;
+}
+
 } // namespace mxh::ui
