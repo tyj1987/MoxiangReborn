@@ -38,6 +38,28 @@ std::size_t complete_utf8_prefix(const std::string& text,
     }
     return pos;
 }
+
+std::size_t utf8_codepoint_count(const std::string& text) noexcept {
+    std::size_t count = 0;
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        const auto lead = static_cast<unsigned char>(text[pos]);
+        std::size_t width = 1;
+        if (lead >= 0xC2u && lead <= 0xDFu) width = 2;
+        else if (lead >= 0xE0u && lead <= 0xEFu) width = 3;
+        else if (lead >= 0xF0u && lead <= 0xF4u) width = 4;
+        if (pos + width > text.size()) width = 1;
+        for (std::size_t i = 1; i < width; ++i) {
+            if (!is_utf8_continuation(static_cast<unsigned char>(text[pos + i]))) {
+                width = 1;
+                break;
+            }
+        }
+        pos += width;
+        ++count;
+    }
+    return count;
+}
 }
 
 void cEditBox::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
@@ -114,7 +136,7 @@ void cEditBox::ClearEditTextSecure() noexcept {
 
 std::string cEditBox::displayText() const {
     if (!m_bSecret) return m_text;
-    return std::string(m_text.size(), '*');
+    return std::string(utf8_codepoint_count(m_text), '*');
 }
 
 void cEditBox::SetCaretPos(std::size_t pos) noexcept {

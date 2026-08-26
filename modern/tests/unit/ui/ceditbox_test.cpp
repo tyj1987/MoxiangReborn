@@ -79,6 +79,15 @@ TEST(CEditBox, SetEditTextDoesNotLeaveTruncatedUtf8Sequence) {
     EXPECT_EQ(e.caretPos(), 3u);
 }
 
+TEST(CEditBox, SecretDisplayMasksOneGlyphPerUtf8Codepoint) {
+    cEditBox e;
+    e.InitEditbox(200, 32);
+    e.SetEditText("A" "\xE4\xB8\xAD" "\xE6\x96\x87");
+    e.SetSecret(true);
+    EXPECT_EQ(e.displayText(), "***");
+    EXPECT_EQ(e.editText(), "A" "\xE4\xB8\xAD" "\xE6\x96\x87");
+}
+
 TEST(CEditBox, BackspaceDeletesCharBeforeCaret) {
     cEditBox e;
     e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage);
