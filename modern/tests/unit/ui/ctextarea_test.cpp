@@ -340,6 +340,21 @@ TEST(CTextAreaTest, KeyboardInputHonorsEnterAndReadOnly) {
     EXPECT_EQ(ta.GetScriptText(), "A\nB");
 }
 
+TEST(CTextAreaTest, KeyboardNavigationEditsAtCaret) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 100}, 32);
+    ta.SetActive(true);
+    ta.SetFocusEdit(true);
+    ta.SetScriptText("AC");
+    ta.ActionKeyboardEvent(37, 0);
+    ta.ActionKeyboardEvent(0, 'B');
+    EXPECT_EQ(ta.GetScriptText(), "ABC");
+    EXPECT_EQ(ta.GetCaretPos(), 2u);
+    ta.ActionKeyboardEvent(46, 0);
+    EXPECT_EQ(ta.GetScriptText(), "AB");
+}
+
 TEST(CTextAreaTest, RenderIsNoOp) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);

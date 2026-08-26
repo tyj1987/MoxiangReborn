@@ -91,14 +91,26 @@ std::uint32_t cTextArea::ActionKeyboardEvent(std::int32_t key,
     constexpr std::int32_t kBackspace = 8;
     constexpr std::int32_t kEnter = 13;
     if (key == kBackspace) {
-        if (!m_bReadOnly && !m_scriptText.empty()) m_scriptText.pop_back();
+        if (!m_bReadOnly && m_caretPos > 0) {
+            m_scriptText.erase(m_caretPos - 1, 1);
+            --m_caretPos;
+        }
+        return static_cast<std::uint32_t>(WindowEvent::KeyDown);
+    }
+    if (key == 37) { if (m_caretPos > 0) --m_caretPos; return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
+    if (key == 39) { if (m_caretPos < m_scriptText.size()) ++m_caretPos; return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
+    if (key == 36) { m_caretPos = 0; return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
+    if (key == 35) { m_caretPos = m_scriptText.size(); return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
+    if (key == 46) {
+        if (!m_bReadOnly && m_caretPos < m_scriptText.size()) m_scriptText.erase(m_caretPos, 1);
         return static_cast<std::uint32_t>(WindowEvent::KeyDown);
     }
     if (key == kEnter) {
         if (!m_bReadOnly && m_bEnterAllow) {
             if (m_nMaxLine <= 0 ||
                 static_cast<int>(m_scriptText.size()) < m_nMaxLine) {
-                m_scriptText.push_back('\n');
+                m_scriptText.insert(m_caretPos, 1, '\n');
+                ++m_caretPos;
             }
         }
         return static_cast<std::uint32_t>(WindowEvent::KeyDown);
@@ -106,7 +118,8 @@ std::uint32_t cTextArea::ActionKeyboardEvent(std::int32_t key,
     if (ch > 0 && ch < 0x80) {
         if (!m_bReadOnly && (m_nMaxLine <= 0 ||
                              static_cast<int>(m_scriptText.size()) < m_nMaxLine)) {
-            m_scriptText.push_back(static_cast<char>(ch));
+            m_scriptText.insert(m_caretPos, 1, static_cast<char>(ch));
+            ++m_caretPos;
         }
         return static_cast<std::uint32_t>(WindowEvent::Char_);
     }
@@ -120,6 +133,7 @@ void cTextArea::SetScriptText(const char* inText) {
     // port uses std::string for safe storage.
     if (inText) m_scriptText = inText;
     else        m_scriptText.clear();
+    m_caretPos = m_bCaretMoveFirst ? 0 : m_scriptText.size();
 }
 
 void cTextArea::GetScriptTextCString(char* outText, int bufSize) const {

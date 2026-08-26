@@ -88,6 +88,7 @@ public:
     // available via GetScriptTextCString.
     void SetScriptText(const char* inText);
     const std::string& GetScriptText() const noexcept { return m_scriptText; }
+    std::size_t GetCaretPos() const noexcept { return m_caretPos; }
     void GetScriptTextCString(char* outText, int bufSize) const;
 
     // ----- 1:1 with legacy cTextArea::SetReadOnly -----
@@ -167,6 +168,7 @@ private:
     std::uint32_t  m_dwTextColor  = 0xFF000000;
 
     std::string    m_scriptText;
+    std::size_t    m_caretPos = 0;
 };
 
 }  // namespace mxh::ui
