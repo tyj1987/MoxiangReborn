@@ -20,6 +20,7 @@ HUMAN_RUNNER_FORBIDDEN = (
     "SendKeys", "mouse_event", "keybd_event", "taskkill",
     "Stop-Process -Name", "Get-Process -Name",
 )
+SENSITIVE_LOG_MARKERS = ("auth_key=%", "dist_auth_key=%", "password=%")
 
 
 def markdown_heading_errors(path: Path) -> list[str]:
@@ -72,6 +73,9 @@ def main() -> int:
             if not path.is_file() or path.suffix.lower() not in {".cpp", ".hpp", ".h", ".cmake", ".txt"}:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
+            for marker in SENSITIVE_LOG_MARKERS:
+                if marker.lower() in text.lower():
+                    errors.append(f"{path.relative_to(ROOT)}: sensitive credential log marker {marker!r}")
             for marker in TEMP_SOURCE_MARKERS:
                 if marker in text:
                     errors.append(f"{path.relative_to(ROOT)}: temporary marker {marker!r}")
