@@ -2,6 +2,8 @@
 // Phase 6.5 — implementation of the modern cListCtrl widget.
 #include "cListCtrl.hpp"
 
+#include <algorithm>
+
 namespace mxh::ui {
 
 void cListCtrl::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
@@ -148,6 +150,26 @@ std::uint32_t cListCtrl::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
     return static_cast<std::uint32_t>(WindowEvent::MouseMove);
+}
+
+std::uint32_t cListCtrl::ActionKeyboardEvent(std::int32_t key,
+                                             std::int32_t /*ch*/) {
+    if (!isEnabled() || !isVisible() || !hasFocus() || m_rows.empty()) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const int visible = std::max(1, static_cast<int>(m_linePerPage));
+    int selected = m_selectedRowIdx;
+    if (selected < 0) selected = m_topItemIdx;
+    if (key == 38) --selected;             // VK_UP
+    else if (key == 40) ++selected;        // VK_DOWN
+    else if (key == 33) selected -= visible; // VK_PRIOR
+    else if (key == 34) selected += visible; // VK_NEXT
+    else return static_cast<std::uint32_t>(WindowEvent::Null);
+    selected = std::clamp(selected, 0, static_cast<int>(m_rows.size()) - 1);
+    m_selectedRowIdx = selected;
+    if (selected < m_topItemIdx) m_topItemIdx = selected;
+    if (selected >= m_topItemIdx + visible) m_topItemIdx = selected - visible + 1;
+    return static_cast<std::uint32_t>(WindowEvent::KeyDown);
 }
 
 } // namespace mxh::ui

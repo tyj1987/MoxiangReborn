@@ -88,6 +88,8 @@ public:
     // dblclick, otherwise the WE_* code from cWindow's child dispatch.
     std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
                               std::uint32_t mouseFlags) override;
+    std::uint32_t ActionKeyboardEvent(std::int32_t key,
+                                      std::int32_t ch) override;
 
     // -------------------------------------------------------------------------
     // Column model.

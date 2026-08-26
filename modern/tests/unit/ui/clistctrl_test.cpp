@@ -249,6 +249,23 @@ TEST(CListCtrl, ActionEventDisabledReturnsNull) {
               static_cast<std::uint32_t>(cWindow::WindowEvent::Null));
 }
 
+TEST(CListCtrl, KeyboardNavigationSelectsAndScrollsRows) {
+    cListCtrl l;
+    l.Init(0, 0, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    for (int i = 0; i < 6; ++i) l.AddRow({{std::to_string(i)}});
+    l.SetFocus(true);
+    EXPECT_EQ(l.ActionKeyboardEvent(40, 0),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::KeyDown));
+    EXPECT_EQ(l.selectedRowIdx(), 1);
+    l.ActionKeyboardEvent(34, 0);
+    EXPECT_EQ(l.selectedRowIdx(), 3);
+    EXPECT_EQ(l.topItemIdx(), 2);
+    l.ActionKeyboardEvent(33, 0);
+    EXPECT_EQ(l.selectedRowIdx(), 1);
+}
+
 TEST(CListCtrl, SetColumnsCapsRowVectors) {
     // Legacy contract: changing the column count shrinks any existing
     // rows' cell vectors to match.
