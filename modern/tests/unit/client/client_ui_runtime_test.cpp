@@ -185,6 +185,24 @@ TEST(ClientUiRuntime, DispatchesRealPushupCharacterSlot) {
     EXPECT_EQ(released.activation->legacy_id, "MT_FIRSTCHOSEBTN");
 }
 
+TEST(ClientUiRuntime, TabAndShiftTabCycleRealLoginControls) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "IDDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+
+    ASSERT_TRUE(runtime.onKey(true, 9, false));
+    ASSERT_NE(runtime.focusedWindow(), nullptr);
+    const auto first = runtime.focusedWindow();
+    ASSERT_TRUE(runtime.onKey(true, 9, true));
+    ASSERT_NE(runtime.focusedWindow(), nullptr);
+    EXPECT_NE(runtime.focusedWindow(), first);
+    ASSERT_TRUE(runtime.onKey(true, 9, false));
+    EXPECT_EQ(runtime.focusedWindow(), first);
+}
+
 TEST(ClientUiRuntime, RoutesCharactersOnlyToFocusedEditBox) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

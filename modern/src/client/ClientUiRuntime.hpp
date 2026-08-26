@@ -56,6 +56,7 @@ public:
     void setActive(bool active) noexcept;
     bool isActive() const noexcept { return m_active; }
     bool empty() const noexcept { return m_windows.dialogCount() == 0; }
+    mxh::ui::cWindow* focusedWindow() const noexcept { return m_focused; }
 
     ClientUiInputResult onMouseButton(bool left, bool down,
                                      std::int32_t x, std::int32_t y);
