@@ -2145,6 +2145,17 @@ TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {
               static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack));
     EXPECT_EQ(replies.front().header.category,
               static_cast<std::uint8_t>(mxh::proto::Category::Npc));
+
+    // A live map must also reject ids that are not among its spawned NPCs;
+    // otherwise a forged speech packet could advance a quest or resolve a
+    // dealer catalog without a real world target.
+    replies.clear();
+    const std::uint32_t unknown_npc_id = 999u;
+    std::memcpy(talk.payload.data(), &unknown_npc_id, sizeof(unknown_npc_id));
+    handler.on_message(connection, talk);
+    ASSERT_FALSE(replies.empty());
+    EXPECT_EQ(replies.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack));
 }
 
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {

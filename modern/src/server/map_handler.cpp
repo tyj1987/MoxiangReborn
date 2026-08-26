@@ -3389,8 +3389,10 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
             }
             if (player_position && npc_id != 0u) {
                 std::optional<std::pair<float, float>> npc_position;
+                bool live_npc_list_present = false;
                 {
                     std::lock_guard<std::mutex> lk(npcs_mu_);
+                    live_npc_list_present = !npcs_.empty();
                     const auto npc = std::find_if(npcs_.begin(), npcs_.end(),
                         [npc_id](const ServerNpc& value) {
                             return value.npc_id == npc_id;
@@ -3400,6 +3402,23 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
                             static_cast<float>(npc->pos_x),
                             static_cast<float>(npc->pos_z)};
                     }
+                }
+                // Once the map has published live NPC instances, an NPC id
+                // that is not present is not a valid interaction target.
+                // Reject it before quest progression or dealer resolution;
+                // retain the catalog-only compatibility path while the live
+                // list is still unavailable during offline/unit flows.
+                if (live_npc_list_present && !npc_position) {
+                    mxh::net::Message nack;
+                    nack.header.category = static_cast<std::uint8_t>(
+                        mxh::proto::Category::Npc);
+                    nack.header.protocol = static_cast<std::uint8_t>(
+                        mxh::proto::NpcProtocol::SpeechNack);
+                    nack.header.object_id = player_id;
+                    nack.payload = msg.payload;
+                    reply_(id, nack);
+                    std::cout << "[Map] rejected NPC_SPEECH_NACK unknown npc\n";
+                    return;
                 }
                 if (npc_position) {
                     const float dx = player_position->first - npc_position->first;
