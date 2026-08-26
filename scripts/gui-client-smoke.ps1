@@ -80,6 +80,11 @@ try {
         & $dbTool exec --db $dbConfig $skillSql
         if ($LASTEXITCODE -ne 0) { throw "GUI smoke skill setup failed" }
     }
+    if ($RotateAppearance) {
+        $equipmentSchemaSql = "CREATE TABLE IF NOT EXISTS modern_character_equipment(chrid INTEGER NOT NULL,slot INTEGER NOT NULL,item_idx INTEGER NOT NULL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(chrid,slot))"
+        & $dbTool exec --db $dbConfig $equipmentSchemaSql
+        if ($LASTEXITCODE -ne 0) { throw "GUI smoke equipment schema setup failed" }
+    }
     $arguments = @(
         '--login-host', '127.0.0.1',
         '--login-port', '16001',
@@ -173,7 +178,7 @@ try {
     if ($RotateAppearance -and $log -notmatch 'GUI_SMOKE_APPEARANCE_ROTATED') {
         throw "GUI smoke appearance rotation did not reach CharMake; log=$stderr"
     }
-    if ($RotateAppearance -and $log -notmatch "GameInAck .*gender=1 face=0 hair=0") {
+    if ($RotateAppearance -and $log -notmatch "GameInAck .*gender=1 face=0 hair=0 equip2=23010") {
         throw "GUI smoke created appearance was not persisted into GameInAck; log=$stderr"
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {

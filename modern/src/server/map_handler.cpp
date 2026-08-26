@@ -329,6 +329,24 @@ std::array<std::uint32_t, 8> load_quick_skills(mxh::db::IDbAdapter& db,
     return out;
 }
 
+void load_character_equipment(mxh::db::IDbAdapter& db, std::uint32_t chrid,
+                              mxh::game::ItemTotalInfo& items) {
+    mxh::db::ResultSet rows;
+    const auto result = db.query(
+        "SELECT slot,item_idx FROM modern_character_equipment WHERE chrid=? AND slot BETWEEN 0 AND 9 ORDER BY slot",
+        {mxh::db::bind(static_cast<std::int64_t>(chrid))}, rows);
+    if (!result.ok()) return;
+    for (const auto& row : rows.rows) {
+        if (row.size() < 2 || !std::holds_alternative<std::int64_t>(row[0]) ||
+            !std::holds_alternative<std::int64_t>(row[1])) continue;
+        const auto slot = static_cast<std::size_t>(std::get<std::int64_t>(row[0]));
+        if (slot < 10u) {
+            items.WearedItem[slot].wIconIdx = static_cast<std::uint16_t>(
+                std::get<std::int64_t>(row[1]));
+        }
+    }
+}
+
 mxh::net::Message make_gameout_ack() {
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
@@ -1335,6 +1353,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         pi.items.Inventory[i] = runtime.actor.state().inventory.items[i];
     for (std::size_t i = 0; i < runtime.actor.state().equipment.items.size(); ++i)
         pi.items.WearedItem[i] = runtime.actor.state().equipment.items[i];
+    load_character_equipment(db_, player_id, pi.items);
     runtime.actor.state().pos_x = pi.pos_x;
     runtime.actor.state().pos_z = pi.pos_z;
     {

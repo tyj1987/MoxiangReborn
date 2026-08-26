@@ -1218,6 +1218,9 @@ void AgentHandler::handle_legacy_character_make(
     // Width at offset 55 (float)
     float width = 0;
     std::memcpy(&width, data + 55, 4);
+    std::array<std::uint16_t, 10> weared_item_idx{};
+    std::memcpy(weared_item_idx.data(), data + 30,
+                weared_item_idx.size() * sizeof(std::uint16_t));
 
     std::cout << "[Agent] legacy: CHARACTERMAKE_SYN name='" << name
               << "' sex=" << (int)sex_type
@@ -1329,6 +1332,14 @@ void AgentHandler::handle_legacy_character_make(
             mxh::proto::UserConnProtocol::CharacterMakeNack);
         reply_(id, m);
         return;
+    }
+
+    for (std::size_t slot = 0; slot < weared_item_idx.size(); ++slot) {
+        if (weared_item_idx[slot] == 0) continue;
+        db_.execute(
+            "INSERT INTO modern_character_equipment(chrid,slot,item_idx) VALUES(?,?,?)",
+            {mxh::db::bind(chrid), mxh::db::bind(static_cast<std::int64_t>(slot)),
+             mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
     }
 
     std::cout << "[Agent] Created character '" << name << "' chrid=" << chrid
