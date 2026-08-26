@@ -11,8 +11,8 @@ The modern client has protocol and partial rendering foundations, but it is not 
 - Login, character-list/create protocol paths and several UI parser tests exist.
 - Map10 has real monster data and its current opaque AIGroup resource now decodes into 114 groups / 228 spawns; it remains the first combat acceptance map, but no human combat E5 has been recorded yet.
 - The headless client E2E can now explicitly target Map10: a fresh SQLite run completes LoginAck, character creation/selection, GameInAck(map=10), effect/skill catalog loading, and MonsterAdd events with the canonical PlayDH root. This is protocol/resource integration evidence, not a visible or human-playable acceptance.
-- The runtime still contains simplified state transitions, incomplete live UI service binding, placeholder entity paths, incomplete map environment/collision, and missing effect/SFX runtime coverage.
-- Login failure recovery, launcher/update integration and post-LoginAck display transition require implementation.
+- The client now has a staged GameLoading/MapChange pipeline, resource-backed character/entity rendering, post-LoginAck 800×600 → saved-resolution transition, and automated Map10 inventory/skill HUD interaction evidence. These are integration gates, not proof of a finished commercial client.
+- Remaining gaps include human credential/login recovery acceptance, complete live UI service binding, legacy visual/audio comparison, full combat/loot/map-change human flow, signed remote update transport, and missing canonical assets on Map0/Map1/Map101.
 - Automated/headless E2E and unit tests do not prove a visible, human-playable game.
 
 ## Evidence policy
@@ -29,7 +29,7 @@ Every PASS must link to a commit, resource-profile manifest, command and evidenc
 
 1. G0/G1: protected legacy reference, explicit `playdh-current` profile, no scratch runtime dependency.
 2. G2: clean Git tree, clean build, current documents only, no secrets or self-junctions.
-3. G4: launcher/login and 800×600 → saved 1024×768 client transition.
-4. G5: real character previews and loading/map-change states.
+3. G4: launcher/login human acceptance and 800×600 → saved 1024×768 client transition.
+4. G5: human character preview/create and loading/map-change acceptance.
 5. G6–G9: Map10 no-placeholder vertical slice with UI, combat, effects and audio.
 6. G10–G11: all active resources/maps/UI plus clean-machine and soak evidence.
