@@ -10,6 +10,7 @@
 #include "mxh/compat/npc_chx_catalog.hpp"
 
 #include <cstdlib>
+#include <algorithm>
 #include <cfloat>
 #include <cstring>
 #include <filesystem>
@@ -136,9 +137,20 @@ int cmd_hfl(const fs::path& path) {
     }
     std::vector<bool> used(hfl.textures.size(), false);
     for (const auto tile : hfl.tiles) if ((tile & 0x3fffu) < used.size()) used[tile & 0x3fffu] = true;
+    float min_height = 0.0f;
+    float max_height = 0.0f;
+    if (!hfl.heights.empty()) {
+        const auto [min_it, max_it] = std::minmax_element(
+            hfl.heights.begin(), hfl.heights.end());
+        min_height = *min_it;
+        max_height = *max_it;
+    }
     std::cout << "HFL version=" << hfl.version << " heights=" << hfl.desc.height_count_x << 'x'
               << hfl.desc.height_count_z << " tiles=" << hfl.desc.tile_count_x << 'x'
-              << hfl.desc.tile_count_z << " textures=" << hfl.textures.size() << "\n";
+              << hfl.desc.tile_count_z << " textures=" << hfl.textures.size()
+              << " face_size=" << hfl.desc.face_size
+              << " width=" << hfl.desc.width << " height=" << hfl.desc.height
+              << " elevation=" << min_height << ".." << max_height << "\n";
     for (std::size_t i = 0; i < hfl.textures.size(); ++i)
         std::cout << i << '\t' << hfl.textures[i].index << '\t' << hfl.textures[i].name
                   << "\tused=" << used[i] << '\n';
