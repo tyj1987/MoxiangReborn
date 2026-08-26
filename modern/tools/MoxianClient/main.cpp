@@ -1969,6 +1969,44 @@ void renderFrame(HWND h) {
                 last_state_logged = cur_state;
             }
             if (cur_state == static_cast<int>(mxh::client::GameStateId::CharSelect)) {
+                if (g_charPreviewScene && g_charSelectState) {
+                    const auto& slots = g_charSelectState->character_list();
+                    const mxh::client::CharacterSlot* selected = nullptr;
+                    for (const auto& slot : slots) {
+                        if (slot.valid && slot.chrid == g_charSelectState->selected_chrid()) {
+                            selected = &slot;
+                            break;
+                        }
+                    }
+                    if (!selected) {
+                        for (const auto& slot : slots) {
+                            if (slot.valid) { selected = &slot; break; }
+                        }
+                    }
+                    if (selected) {
+                        if (auto preview = mxh::client::make_character_preview(*selected)) {
+                            mxh::gx::WorldSnapshot snapshot;
+                            snapshot.local_player = *preview;
+                            g_charPreviewScene->synchronize(snapshot);
+                            configureCharacterPreviewCamera(
+                                g_renderer, 800.0f / 600.0f);
+                            g_charPreviewScene->render();
+                            g_renderer->SetScreenSpaceProjection();
+                            static std::uint32_t logged_preview = 0;
+                            if (logged_preview != selected->chrid) {
+                                MLOG_INFO("mxh_client: character preview rendered chrid=%u gender=%u face=%u hair=%u equipment=%zu models=%u failures=%u",
+                                          selected->chrid,
+                                          static_cast<unsigned>(selected->gender),
+                                          static_cast<unsigned>(selected->face_type),
+                                          static_cast<unsigned>(selected->hair_type),
+                                          selected->weared_item_idx.size(),
+                                          g_charPreviewScene->loadedModelCount(),
+                                          g_charPreviewScene->failedModelCount());
+                                logged_preview = selected->chrid;
+                            }
+                        }
+                    }
+                }
                 if (g_debugUiBounds) {
                     drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
                                145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
