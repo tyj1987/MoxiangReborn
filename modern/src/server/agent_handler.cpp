@@ -932,8 +932,22 @@ void AgentHandler::handle_legacy_character_list(
             put_u8(payload, static_cast<std::uint8_t>(get_int(rs, i, "face_type")));
             put_u8(payload, static_cast<std::uint8_t>(get_int(rs, i, "hair_type")));
 
-            // WearedItemIdx[10] (WORD each = 20 bytes)
-            put_zeros(payload, 20);
+            // WearedItemIdx[10] (WORD each = 20 bytes), rehydrated from the
+            // character equipment table so the select preview matches the
+            // appearance submitted during creation.
+            std::array<std::uint16_t, 10> equipped{};
+            mxh::db::ResultSet eq;
+            const auto chrid = static_cast<std::int64_t>(get_int(rs, i, "chrid"));
+            if (db_.query("SELECT slot,item_idx FROM modern_character_equipment WHERE chrid=? AND slot BETWEEN 0 AND 9 ORDER BY slot",
+                          {mxh::db::bind(chrid)}, eq).ok()) {
+                for (const auto& row : eq.rows) {
+                    if (row.size() < 2 || !std::holds_alternative<std::int64_t>(row[0]) ||
+                        !std::holds_alternative<std::int64_t>(row[1])) continue;
+                    const auto slot = static_cast<std::size_t>(std::get<std::int64_t>(row[0]));
+                    if (slot < equipped.size()) equipped[slot] = static_cast<std::uint16_t>(std::get<std::int64_t>(row[1]));
+                }
+            }
+            for (const auto item : equipped) put_u16(payload, item);
 
             // Stage / Level / CurMapNum / LoginMapNum
             put_u8(payload, 0);    // Stage
