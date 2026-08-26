@@ -127,18 +127,21 @@ std::filesystem::path find_playdh_root() {
     if (const char* configured = std::getenv("MXH_PLAYDH_ROOT")) {
         return std::filesystem::path(configured);
     }
-    for (const auto& candidate : {
-             std::filesystem::path("modern/data/PlayDH"),
-             std::filesystem::path("data/PlayDH"),
-             std::filesystem::path("../data/PlayDH"),
-             std::filesystem::path("../../data/PlayDH"),
-             std::filesystem::path("../../../../data/PlayDH"),
-             std::filesystem::path("C:/moxiang/modern/data/PlayDH")}) {
+    std::filesystem::path cursor = std::filesystem::current_path();
+    for (int depth = 0; depth < 8; ++depth) {
+        const auto candidate = cursor / "modern" / "data" / "PlayDH";
         if (std::filesystem::exists(
                 candidate / "Image" / "InterfaceScript" /
                 "CharSelectDlg.bin")) {
             return std::filesystem::absolute(candidate);
         }
+        if (std::filesystem::exists(
+                cursor / "data" / "PlayDH" / "Image" /
+                "InterfaceScript" / "CharSelectDlg.bin")) {
+            return std::filesystem::absolute(cursor / "data" / "PlayDH");
+        }
+        if (!cursor.has_parent_path() || cursor == cursor.parent_path()) break;
+        cursor = cursor.parent_path();
     }
     return {};
 }
