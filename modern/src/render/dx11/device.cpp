@@ -73,6 +73,10 @@ bool Device::initialize(HWND hWnd, const DISPLAY_INFO& info) {
     if (FAILED(m_device->CreateRasterizerState(&rd, &m_rasterizerDefault))) {
         MLOG_ERROR("[dx11] CreateRasterizerState failed");
     }
+    rd.CullMode = D3D11_CULL_NONE;
+    if (FAILED(m_device->CreateRasterizerState(&rd, &m_rasterizerCullNone))) {
+        MLOG_ERROR("[dx11] Create double-sided rasterizer state failed");
+    }
     m_context->RSSetState(m_rasterizerDefault.Get());
 
     // Default blend: alpha blend.

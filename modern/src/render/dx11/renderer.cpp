@@ -284,6 +284,12 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
 
     auto* ctx = m_dev->rawContext();
 
+    // Character MODs contain visible interior/back-facing polygons in the
+    // legacy client.  Render only those explicitly marked two-sided, while
+    // retaining normal culling for terrain and static scene geometry.
+    ctx->RSSetState(mesh->twoSided() ? m_dev->rasterizerCullNone()
+                                     : m_dev->rasterizerDefault());
+
     // Effect shader path: check RENDER_TYPE_USE_EFFECT flag.
     if ((dwFlag & RENDER_TYPE_USE_EFFECT) && m_effectPalette) {
         auto* effect = m_effectPalette->getEffect(dwEffectIndex);
@@ -362,6 +368,7 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     // Unbind SRV to avoid D3D11 warnings.
     ID3D11ShaderResourceView* nullSRV = nullptr;
     ctx->PSSetShaderResources(0, 1, &nullSRV);
+    ctx->RSSetState(m_dev->rasterizerDefault());
     return TRUE;
 }
 

@@ -70,6 +70,11 @@ public:
     // Set a diffuse SRV on a specific face group (defaults to group 0).
     void setDiffuseSRV(std::uint32_t groupIndex, ID3D11ShaderResourceView* srv);
 
+    // Character meshes retain the legacy double-sided material behavior.
+    // Static world geometry keeps the renderer's normal back-face culling.
+    void setTwoSided(bool enabled) noexcept { m_twoSided = enabled; }
+    bool twoSided() const noexcept { return m_twoSided; }
+
     // Effect shader support: wire the effect palette and renderer for
     // RENDER_TYPE_USE_EFFECT path (RenderEffect).
     void setRenderer(Device* dev);
@@ -117,6 +122,7 @@ public:
     std::uint32_t                          m_indexCount  = 0;
     std::uint32_t                          m_refCount    = 1;
     MATRIX4                                m_world = MatrixIdentity();
+    bool                                   m_twoSided = false;
 };
 
 } // namespace mxh::gx::dx11

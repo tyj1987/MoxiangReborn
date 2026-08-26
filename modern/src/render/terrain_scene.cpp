@@ -269,7 +269,23 @@ void TerrainScene::configureCamera(float aspect) {
         const float up = impl_->camera_distance * 0.5f;
         const float ground_y = heightAt(impl_->player_x, impl_->player_z) * kSceneScale;
         const float look_y = ground_y + 1.0f;
-        camera.v3From = {px - back * std::sin(yaw), look_y + up,
+        const float camera_x = impl_->player_x - back * std::sin(yaw) / kSceneScale;
+        const float camera_z = impl_->player_z - back * std::cos(yaw) / kSceneScale;
+        // The legacy camera follows the player along the ground, but must not
+        // end up behind a nearby ridge.  Sample the actual HFL surface along
+        // the player-to-camera segment and lift the camera above the highest
+        // sampled point.  This keeps the character visible without disabling
+        // depth testing or inventing a map-independent elevation.
+        float path_max_ground = ground_y;
+        for (int sample = 1; sample <= 8; ++sample) {
+            const float t = static_cast<float>(sample) / 8.0f;
+            const float sample_x = impl_->player_x + (camera_x - impl_->player_x) * t;
+            const float sample_z = impl_->player_z + (camera_z - impl_->player_z) * t;
+            path_max_ground = std::max(path_max_ground,
+                                       heightAt(sample_x, sample_z) * kSceneScale);
+        }
+        const float camera_y = std::max(look_y + up, path_max_ground + 1.5f);
+        camera.v3From = {px - back * std::sin(yaw), camera_y,
                           pz - back * std::cos(yaw)};
         camera.v3To   = {px, look_y, pz};
         // Follow-camera space uses world Y as vertical.  Using the overview

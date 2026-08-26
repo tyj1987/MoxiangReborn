@@ -60,6 +60,8 @@ public:
     ID3D11Device*           rawDevice()  const { return m_device.Get(); }
     ID3D11DeviceContext*    rawContext() const { return m_context.Get(); }
     ID3D11SamplerState*     samplerPointAddress() const { return m_samplerPoint.Get(); }
+    ID3D11RasterizerState*  rasterizerDefault() const { return m_rasterizerDefault.Get(); }
+    ID3D11RasterizerState*  rasterizerCullNone() const { return m_rasterizerCullNone.Get(); }
     IDXGISwapChain*         rawSwapChain() const { return m_swapChain.Get(); }
     ID3D11RenderTargetView* backBufferRTV() const { return m_backBufferRTV.Get(); }
     ID3D11DepthStencilView* depthStencilView() const { return m_dsv.Get(); }
@@ -142,6 +144,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Texture2D>        m_depthBuffer;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_depthStateDefault;
     Microsoft::WRL::ComPtr<ID3D11RasterizerState>   m_rasterizerDefault;
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState>   m_rasterizerCullNone;
     Microsoft::WRL::ComPtr<ID3D11BlendState>        m_blendDefault;
     Microsoft::WRL::ComPtr<ID3D11SamplerState>      m_samplerPoint;
     Microsoft::WRL::ComPtr<ID3D11SamplerState>      m_samplerLinear;

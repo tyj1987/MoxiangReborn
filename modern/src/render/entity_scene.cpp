@@ -317,7 +317,10 @@ struct EntityScene::Impl {
             if (appearances[gender]) {
                 playerVisual.kind = kind;
                 playerVisual.chx_name = appearances[gender]->body.base_object;
-                playerVisual.scale = 1.0f;
+                // Character source meshes are authored in decimetres while
+                // world coordinates are centimetres; the legacy client
+                // applies the corresponding 8x presentation scale here.
+                playerVisual.scale = 8.0f;
                 if (face < appearances[gender]->faces.size())
                     faceMod = appearances[gender]->faces[face];
                 if (hair < appearances[gender]->hairs.size())
@@ -461,6 +464,8 @@ struct EntityScene::Impl {
                     if (mesh->InsertFaceGroup(&face)) materials.push_back(group.material_index);
                 }
                 mesh->EndInitialize();
+                if (auto* dxMesh = dynamic_cast<dx11::MeshObject*>(mesh))
+                    dxMesh->setTwoSided(true);
                 for (std::uint32_t group = 0; group < materials.size(); ++group) {
                     const auto texture = materialBase + materials[group];
                     if (texture < model->textures.size())
