@@ -411,6 +411,7 @@ mxh::client::CCharSelectState* g_charSelectState = nullptr;
 mxh::client::CCharMake*        g_charMakeState   = nullptr;  // M-R7.1 (2026-08-20)
 mxh::client::CGameLoading*     g_gameLoadingState = nullptr;
 mxh::client::CMapChange*       g_mapChangeState = nullptr;
+mxh::client::GameLoadingCoordinator* g_loadingCoordinator = nullptr;
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
@@ -2297,6 +2298,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 return 0;
             }
         }
+        if (w == VK_ESCAPE && g_loadingCoordinator &&
+            (__g_currentState == static_cast<int>(mxh::client::GameStateId::GameLoading) ||
+             __g_currentState == static_cast<int>(mxh::client::GameStateId::MapChange))) {
+            g_loadingCoordinator->cancel();
+            InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
         if (g_charSelectState &&
             g_charSelectState->OnKeyEvent(true, static_cast<std::uint32_t>(w))) {
             return 0;
@@ -2915,6 +2923,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::uint16_t pending_map_num = 0;
     std::string pending_loading_error;
     mxh::client::GameLoadingCoordinator loadingCoordinator;
+    g_loadingCoordinator = &loadingCoordinator;
     std::unique_ptr<GameWorldLoadSession> worldLoadSession;
     bool map_change_from_game = false;
     bool game_loading_frame_presented = false;
@@ -3324,6 +3333,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     }
                     if (worldLoadSession) {
                         std::string loadingError;
+                        if (loadingCoordinator.context().cancelled) {
+                            pending_loading_error = "Map loading cancelled";
+                            mainGame.SetGameState(
+                                map_change_from_game
+                                    ? mxh::client::GameStateId::GameIn
+                                    : mxh::client::GameStateId::CharSelect);
+                            worldLoadSession.reset();
+                            map_change_from_game = false;
+                            continue;
+                        }
                         const auto result = worldLoadSession->advance(
                             [&loadingCoordinator](std::uint32_t step) {
                                 loadingCoordinator.mark_completed(step);
@@ -3629,6 +3648,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     }
     g_sprites = {};
     storage->Release();
+    g_loadingCoordinator = nullptr;
 
     return 0;
 }

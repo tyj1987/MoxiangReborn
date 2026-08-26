@@ -159,6 +159,19 @@ TEST(GameLoadingCoordinator, ProgressDoesNotRegressFromLateStageCallback) {
     EXPECT_EQ(coordinator.context().completed_steps, 10u);
 }
 
+TEST(GameLoadingCoordinator, CancellationIsTerminalAndIgnoresLateCompletion) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{7, 10});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    coordinator.mark_completed(4);
+    coordinator.cancel();
+    EXPECT_TRUE(coordinator.terminal());
+    EXPECT_TRUE(coordinator.context().cancelled);
+    coordinator.mark_completed(10);
+    EXPECT_EQ(coordinator.context().completed_steps, 4u);
+}
+
 TEST(GameLoadingCoordinator, ConsumesASecondEntryAfterFirstRequestCompletes) {
     mxh::client::CEngine engine;
     mxh::client::GameLoadingCoordinator coordinator;

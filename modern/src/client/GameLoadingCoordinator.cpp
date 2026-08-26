@@ -34,6 +34,7 @@ bool GameLoadingCoordinator::consume_pending_transfer(CEngine& engine, std::stri
 }
 
 void GameLoadingCoordinator::mark_completed(std::uint32_t completed_steps) noexcept {
+    if (m_context.cancelled || m_context.failed) return;
     const auto bounded = completed_steps > m_context.total_steps
         ? m_context.total_steps : completed_steps;
     // A real loading pipeline reports completed stages in order. Ignore a
