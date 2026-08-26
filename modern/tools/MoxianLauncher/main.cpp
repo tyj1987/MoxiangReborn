@@ -23,10 +23,24 @@ static fs::path settingsPath() {
     return root / L"Moxian" / L"settings.json";
 }
 
+static int parseBoundedInt(const std::string& value, int fallback) noexcept {
+    try {
+        const auto parsed = std::stoll(value);
+        if (parsed < 0 || parsed > 100000) return fallback;
+        return static_cast<int>(parsed);
+    } catch (...) {
+        return fallback;
+    }
+}
+
 static LauncherSettings loadSettings() {
     LauncherSettings s;
     std::ifstream in(settingsPath(), std::ios::binary);
+    if (!in) return s;
     std::string text((std::istreambuf_iterator<char>(in)), {});
+    const auto open = text.find('{');
+    const auto close = text.rfind('}');
+    if (open == std::string::npos || close == std::string::npos || open > close) return s;
     std::smatch match;
     int schema = 1;
     if (std::regex_search(text, match, std::regex(R"REGEX("schemaVersion"\s*:\s*(\d+))REGEX"))) {
@@ -36,8 +50,8 @@ static LauncherSettings loadSettings() {
     if (std::regex_search(text, match, std::regex(R"REGEX("resourceProfileId"\s*:\s*"([^"]+)")REGEX")) ||
         std::regex_search(text, match, std::regex(R"REGEX("profile"\s*:\s*"([^"]+)")REGEX")))
         s.profile = std::wstring(match[1].str().begin(), match[1].str().end());
-    if (std::regex_search(text, match, std::regex(R"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = std::stoi(match[1].str());
-    if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = std::stoi(match[1].str());
+    if (std::regex_search(text, match, std::regex(R"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = parseBoundedInt(match[1].str(), s.postWidth);
+    if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = parseBoundedInt(match[1].str(), s.postHeight);
     if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
     if (s.postWidth < 800 || s.postHeight < 600) { s.postWidth = 1024; s.postHeight = 768; }
