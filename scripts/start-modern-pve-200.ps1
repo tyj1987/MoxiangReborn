@@ -24,7 +24,7 @@ Path on the Windows VM where binaries are pushed (default: C:\moxiang\bin).
 SSH port on PVE 200 (default: 22).
 
 .PARAMETER PvePassword
-SSH password for PVE 200 (default: Tyj_198729).
+SSH password for PVE 200. If omitted, reads `MXH_PVE_PASSWORD` or prompts.
 
 .PARAMETER MapNumber
 Map number to bind MapServer to (default: 12).
@@ -42,7 +42,7 @@ param(
     [int]   $PvePort    = 22,
     [string]$PveHost    = '192.168.2.200',
     [string]$PveUser    = 'root',
-    [string]$PvePassword = 'Tyj_198729',
+    [string]$PvePassword = '',
     [int]   $MapNumber  = 12,
     [int]   $SshConnectTimeoutSec = 10,
     [int]   $PortProbeTimeoutSec  = 60,
@@ -52,6 +52,20 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$pvePasswordFromEnv = $env:MXH_PVE_PASSWORD
+if ([string]::IsNullOrWhiteSpace($PvePassword)) {
+    if (-not [string]::IsNullOrWhiteSpace($pvePasswordFromEnv)) {
+        $PvePassword = $pvePasswordFromEnv
+    } elseif (-not $DryRun) {
+        $secure = Read-Host 'PVE SSH password' -AsSecureString
+        $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+        try { $PvePassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+    }
+}
+if (-not $DryRun -and [string]::IsNullOrWhiteSpace($PvePassword)) {
+    throw 'PVE password is required via -PvePassword, MXH_PVE_PASSWORD, or the secure prompt'
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not (Test-Path -LiteralPath $BuildDir)) {
     throw "BuildDir not found: $BuildDir"
@@ -94,14 +108,18 @@ $pveSshArgs = @(
 function Invoke-PveSsh {
     param([string]$Command)
     $env:SSHPASS = $PvePassword
-    # Prefer sshpass if installed; fall back to a pty-allocating ssh.
-    $sshpass = Get-Command sshpass -ErrorAction SilentlyContinue
-    if ($sshpass) {
-        & sshpass -e ssh @pveSshArgs $Command
-    } else {
-        # No sshpass -> user will be prompted for the password interactively.
-        Write-Verbose "sshpass not available; using ssh (will prompt for password)"
-        & ssh @pveSshArgs $Command
+    try {
+        # Prefer sshpass if installed; fall back to a pty-allocating ssh.
+        $sshpass = Get-Command sshpass -ErrorAction SilentlyContinue
+        if ($sshpass) {
+            & sshpass -e ssh @pveSshArgs $Command
+        } else {
+            # No sshpass -> user will be prompted for the password interactively.
+            Write-Verbose "sshpass not available; using ssh (will prompt for password)"
+            & ssh @pveSshArgs $Command
+        }
+    } finally {
+        Remove-Item Env:SSHPASS -ErrorAction SilentlyContinue
     }
 }
 

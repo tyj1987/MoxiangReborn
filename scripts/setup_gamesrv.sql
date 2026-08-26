@@ -1,4 +1,6 @@
-ALTER LOGIN [GameSrv] WITH PASSWORD = 'w8j2f@Z0H7#Xl', CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF;
+-- Supply GameSrvPassword through a protected SQLCMD variable or secret-aware
+-- deployment wrapper; credentials must never be committed to this template.
+ALTER LOGIN [GameSrv] WITH PASSWORD = '$(GameSrvPassword)', CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF;
 GO
 ALTER LOGIN [GameSrv] ENABLE;
 GO
