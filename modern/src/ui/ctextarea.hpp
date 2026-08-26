@@ -118,6 +118,9 @@ public:
     // 12.x + 6.13: full caret / IME render path is deferred).
     void SetCaretMoveFirst(bool val) noexcept     { m_bCaretMoveFirst = val; }
     bool IsCaretMoveFirst() const noexcept       { return m_bCaretMoveFirst; }
+    int GetTopLineIdx() const noexcept           { return m_nTopLineIdx; }
+    void OnUpwardItem() noexcept;
+    void OnDownwardItem() noexcept;
 
     // ----- 1:1 with legacy cTextArea::SetTextColor -----
 

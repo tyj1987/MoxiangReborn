@@ -355,6 +355,25 @@ TEST(CTextAreaTest, KeyboardNavigationEditsAtCaret) {
     EXPECT_EQ(ta.GetScriptText(), "AB");
 }
 
+TEST(CTextAreaTest, ScrollCommandsClampToVisibleText) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 28}, 256);
+    ta.SetScriptText("A\nB\nC\nD");
+    EXPECT_EQ(ta.GetTopLineIdx(), 0);
+    ta.OnDownwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 1);
+    ta.OnDownwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 2);
+    ta.OnDownwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 2);
+    ta.OnUpwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 1);
+    ta.OnUpwardItem();
+    ta.OnUpwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 0);
+}
+
 TEST(CTextAreaTest, RenderIsNoOp) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);

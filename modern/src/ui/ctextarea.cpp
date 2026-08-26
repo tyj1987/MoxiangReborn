@@ -133,7 +133,21 @@ void cTextArea::SetScriptText(const char* inText) {
     // port uses std::string for safe storage.
     if (inText) m_scriptText = inText;
     else        m_scriptText.clear();
+    m_nTopLineIdx = 0;
     m_caretPos = m_bCaretMoveFirst ? 0 : m_scriptText.size();
+}
+
+void cTextArea::OnUpwardItem() noexcept {
+    if (m_nTopLineIdx > 0) --m_nTopLineIdx;
+}
+
+void cTextArea::OnDownwardItem() noexcept {
+    const int visible = (m_nLineHeight > 0 && m_rcTextRelRect.bottom > m_rcTextRelRect.top)
+        ? (m_rcTextRelRect.bottom - m_rcTextRelRect.top) / m_nLineHeight : 1;
+    int lines = 1;
+    for (const char ch : m_scriptText) if (ch == '\n') ++lines;
+    const int maxTop = std::max(0, lines - std::max(1, visible));
+    if (m_nTopLineIdx < maxTop) ++m_nTopLineIdx;
 }
 
 void cTextArea::GetScriptTextCString(char* outText, int bufSize) const {
