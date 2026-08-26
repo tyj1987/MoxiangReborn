@@ -26,6 +26,13 @@ bool shift_key_down() noexcept {
 #endif
 }
 
+bool is_focusable_control(const mxh::ui::cWindow* window) noexcept {
+    return dynamic_cast<const mxh::ui::cEditBox*>(window) ||
+           dynamic_cast<const mxh::ui::cButton*>(window) ||
+           dynamic_cast<const mxh::ui::cCheckBox*>(window) ||
+           dynamic_cast<const mxh::ui::cComboBox*>(window);
+}
+
 mxh::ui::cWindow* hit_window(mxh::ui::cWindow* window,
                              std::int32_t x, std::int32_t y) noexcept {
     if (!window || !window->isVisible() || !window->isEnabled()) {
@@ -44,10 +51,7 @@ mxh::ui::cWindow* hit_window(mxh::ui::cWindow* window,
 void collect_focusable(mxh::ui::cWindow* window,
                        std::vector<mxh::ui::cWindow*>& out) {
     if (!window || !window->isVisible() || !window->isEnabled()) return;
-    if (dynamic_cast<mxh::ui::cEditBox*>(window) ||
-        dynamic_cast<mxh::ui::cButton*>(window) ||
-        dynamic_cast<mxh::ui::cCheckBox*>(window) ||
-        dynamic_cast<mxh::ui::cComboBox*>(window)) {
+    if (is_focusable_control(window)) {
         out.push_back(window);
     }
     for (std::size_t i = 0; i < window->childCount(); ++i) {
@@ -309,7 +313,7 @@ ClientUiInputResult ClientUiRuntime::onMouseButton(
             focus(nullptr);
             return result;
         }
-        if (dynamic_cast<mxh::ui::cEditBox*>(hit)) focus(hit);
+        if (is_focusable_control(hit)) focus(hit);
         else if (m_focused != hit) focus(nullptr);
         hit->ActionEvent(x, y, mxh::ui::cWindow::MouseFlagLButton);
         result.consumed = true;
