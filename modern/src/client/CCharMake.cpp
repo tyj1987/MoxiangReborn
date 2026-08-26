@@ -666,6 +666,9 @@ bool CCharMake::RotateAppearanceOption(CharMakeOptionCategory category,
 
 bool CCharMake::OnKeyEvent(bool down, std::uint32_t key) {
     const bool consumed = m_uiRuntime.onKey(down, static_cast<std::int32_t>(key));
+    if (auto activation = m_uiRuntime.consumeKeyActivation()) {
+        handle_ui_activation(*activation);
+    }
     if (!down) return consumed;
     if (key == 0x08u) invalidate_name_check(); // VK_BACK
     if (key == 0x0Du) return SubmitCurrentForm() || consumed; // VK_RETURN

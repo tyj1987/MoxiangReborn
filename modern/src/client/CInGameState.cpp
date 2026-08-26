@@ -1911,6 +1911,9 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         return;
     }
     if (m_uiRuntime.onKey(pressed, static_cast<std::int32_t>(vk))) {
+        if (auto activation = m_uiRuntime.consumeKeyActivation()) {
+            handle_ui_activation(*activation);
+        }
         if (m_chatOpen) {
             if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
                 if (auto* edit = dynamic_cast<mxh::ui::cEditBox*>(window)) {

@@ -320,6 +320,9 @@ bool CMainTitle::OnMouseMove(std::int32_t x, std::int32_t y) {
 
 bool CMainTitle::OnKeyEvent(bool down, std::uint32_t key) {
     const bool consumed = m_uiRuntime.onKey(down, static_cast<std::int32_t>(key));
+    if (auto activation = m_uiRuntime.consumeKeyActivation()) {
+        handle_ui_activation(*activation);
+    }
     if (!down) return consumed;
     if (key == kVkReturn) return handle_edit_return() || consumed;
     return consumed;

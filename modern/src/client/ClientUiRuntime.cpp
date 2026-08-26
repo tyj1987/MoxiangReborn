@@ -385,6 +385,16 @@ bool ClientUiRuntime::onKey(bool down, std::int32_t key, bool shift) {
         return true;
     }
     if (!m_focused) return false;
+    if (key == 13 || key == 32) {
+        if (auto* button = dynamic_cast<mxh::ui::cButton*>(m_focused)) {
+            const auto x = button->absX() + button->width() / 2;
+            const auto y = button->absY() + button->height() / 2;
+            (void)onMouseButton(true, true, x, y);
+            const auto result = onMouseButton(true, false, x, y);
+            if (result.activation) m_keyActivation = *result.activation;
+            return true;
+        }
+    }
     return m_focused->ActionKeyboardEvent(key, 0) !=
            static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::Null);
 }

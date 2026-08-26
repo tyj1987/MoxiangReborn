@@ -685,7 +685,12 @@ bool CCharSelectState::OnMouseMove(std::int32_t x, std::int32_t y) {
 }
 
 bool CCharSelectState::OnKeyEvent(bool down, std::uint32_t key) {
-    if (m_uiRuntime.onKey(down, static_cast<std::int32_t>(key))) return true;
+    if (m_uiRuntime.onKey(down, static_cast<std::int32_t>(key))) {
+        if (auto activation = m_uiRuntime.consumeKeyActivation()) {
+            handle_ui_activation(*activation);
+        }
+        return true;
+    }
     if (!down) return false;
     switch (key) {
         case 0x26u: return select_adjacent(-1); // VK_UP

@@ -204,6 +204,23 @@ TEST(ClientUiRuntime, TabAndShiftTabCycleRealLoginControls) {
     EXPECT_EQ(runtime.focusedWindow(), first);
 }
 
+TEST(ClientUiRuntime, KeyboardConfirmProducesButtonActivation) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600));
+    auto* first = runtime.findWindowByLegacyId("MT_FIRSTCHOSEBTN");
+    ASSERT_NE(first, nullptr);
+    const auto x = first->absX() + first->width() / 2;
+    const auto y = first->absY() + first->height() / 2;
+    runtime.onMouseButton(true, true, x, y);
+    ASSERT_TRUE(runtime.onKey(true, 13, false));
+    const auto activation = runtime.consumeKeyActivation();
+    ASSERT_TRUE(activation.has_value());
+    EXPECT_EQ(activation->legacy_id, "MT_FIRSTCHOSEBTN");
+}
+
 TEST(ClientUiRuntime, HidingActiveSetClearsStaleKeyboardFocus) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

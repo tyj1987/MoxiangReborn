@@ -7,6 +7,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
@@ -63,6 +64,11 @@ public:
     bool onMouseMove(std::int32_t x, std::int32_t y);
     bool onKey(bool down, std::int32_t key);
     bool onKey(bool down, std::int32_t key, bool shift);
+    std::optional<ClientUiActivation> consumeKeyActivation() noexcept {
+        auto activation = std::move(m_keyActivation);
+        m_keyActivation.reset();
+        return activation;
+    }
     bool onChar(std::int32_t ch);
 
     bool setDialogActive(std::string_view legacy_id, bool active) noexcept;
@@ -109,6 +115,7 @@ private:
     mxh::ui::cWindow* m_focused = nullptr;
     mxh::ui::cWindow* m_pressedLeft = nullptr;
     bool m_active = false;
+    std::optional<ClientUiActivation> m_keyActivation;
 };
 
 } // namespace mxh::client
