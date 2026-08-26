@@ -57,6 +57,33 @@ def human_runner_errors() -> list[str]:
     return errors
 
 
+def duplicate_ui_header_errors() -> list[str]:
+    """Reject divergent public/private UI header mirrors.
+
+    The build includes both roots.  A class declaration that differs between
+    them creates an ODR/layout hazard even when each translation unit compiles.
+    Comments, BOMs and whitespace are intentionally ignored so documentation
+    edits do not create false positives.
+    """
+    public_root = ROOT / "modern" / "include" / "mxh" / "ui"
+    private_root = ROOT / "modern" / "src" / "ui"
+
+    def normalized(path: Path) -> str:
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+        text = re.sub(r"//[^\n]*", "", text)
+        return "".join(text.split())
+
+    errors: list[str] = []
+    for private in sorted(private_root.glob("*.hpp")):
+        public = public_root / private.name
+        if public.is_file() and normalized(private) != normalized(public):
+            errors.append(
+                f"{private.relative_to(ROOT)}: public/private UI header mirror diverges"
+            )
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -67,6 +94,7 @@ def main() -> int:
     args = parser.parse_args()
     errors = markdown_heading_errors(ROADMAP)
     errors.extend(human_runner_errors())
+    errors.extend(duplicate_ui_header_errors())
     roadmap_text = ROADMAP.read_text(encoding="utf-8-sig")
     for term in FORBIDDEN_ROADMAP_TERMS:
         if term in roadmap_text:
