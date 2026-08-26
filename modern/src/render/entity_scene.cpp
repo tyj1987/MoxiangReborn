@@ -324,6 +324,15 @@ struct EntityScene::Impl {
                 modFiles = mxh::game::resolve_equipped_character_mods(
                     modFiles, appearance.body.mod_files, item_catalog,
                 playerInfo->weared_item_idx);
+                const auto equipped = std::count_if(
+                    playerInfo->weared_item_idx.begin(),
+                    playerInfo->weared_item_idx.end(),
+                    [](std::uint16_t item) { return item != 0; });
+                MLOG_INFO("[entity] player appearance object=%u gender=%u face=%u hair=%u equipped=%zu resolved_mods=%zu",
+                          objectId, static_cast<unsigned>(playerInfo->gender),
+                          static_cast<unsigned>(playerInfo->face_type),
+                          static_cast<unsigned>(playerInfo->hair_type),
+                          equipped, modFiles.size());
             }
         }
         if (modFiles.empty()) return fail("CHX.mod_list.empty", visual->chx_name);
