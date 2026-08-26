@@ -1892,51 +1892,6 @@ void renderFrame(HWND h) {
                                  &rc, 0xFFFFFFFFu, 0, 0); MLOG_DEBUG("mxh_client: bg draw sprite=%p ok=%d", (void*)g_sprites[0].sprite, (int)_bg_ok); }
     }
 
-    // Character select is a real 3D presentation scene.  It intentionally
-    // runs after the login background and before screen-space UI so the
-    // original dialog remains clickable while the selected model is drawn
-    // in the central preview area.  The model payload comes directly from
-    // ChrTotalInfo; no appearance defaults or debug geometry are invented.
-    if (!g_renderTerrain &&
-        __g_currentState == static_cast<int>(mxh::client::GameStateId::CharSelect) &&
-        g_charPreviewScene && g_charSelectState) {
-        std::optional<mxh::gx::ScenePlayer> preview;
-        for (const auto& slot : g_charSelectState->character_list()) {
-            if (slot.valid && slot.chrid == g_charSelectState->selected_chrid()) {
-                preview = mxh::client::make_character_preview(slot);
-                break;
-            }
-        }
-        mxh::gx::WorldSnapshot snapshot;
-        snapshot.local_player = std::move(preview);
-        g_charPreviewScene->synchronize(snapshot);
-        g_charPreviewScene->setCameraFrustum(std::nullopt);
-        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
-        g_charPreviewScene->render();
-    }
-    if (!g_renderTerrain &&
-        __g_currentState == static_cast<int>(mxh::client::GameStateId::CharMake) &&
-        g_charPreviewScene && g_charMakeState) {
-        const auto& params = g_charMakeState->form_model().params();
-        mxh::gx::ScenePlayer preview{};
-        preview.object_id = 0;
-        preview.gender = params.sex_type;
-        preview.face_type = params.face_type;
-        preview.hair_type = params.hair_type;
-        preview.weared_item_idx = params.weared_item_idx;
-        preview.world_x = 25600.0f;
-        preview.world_y = 0.0f;
-        preview.world_z = 25600.0f;
-        preview.current_life = preview.max_life = 1;
-        preview.action = mxh::gx::SceneAction::Idle;
-        mxh::gx::WorldSnapshot snapshot;
-        snapshot.local_player = preview;
-        g_charPreviewScene->synchronize(snapshot);
-        g_charPreviewScene->setCameraFrustum(std::nullopt);
-        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
-        g_charPreviewScene->render();
-    }
-
     if (!g_renderTerrain && g_hud.barBg && g_hudFont) {
         g_renderer->SetScreenSpaceProjection();
         const auto drawText = [&](const std::string& value, LONG left, LONG top,
