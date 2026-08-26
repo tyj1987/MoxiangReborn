@@ -60,6 +60,11 @@ void cBigMapDlg::AddIcon(BigMapIconKind kind, std::uint32_t object_id, std::int3
     m_icons.emplace(object_id, BigMapIcon{object_id, kind, x, z, x, z});
 }
 
+void cBigMapDlg::ClearIcons() noexcept {
+    m_icons.clear();
+    m_heroIcon.reset();
+}
+
 void cBigMapDlg::AddPartyMemberIcon(std::uint32_t player_id, std::int32_t x, std::int32_t z) {
     AddIcon(BigMapIconKind::PartyMember, player_id, x, z);
 }

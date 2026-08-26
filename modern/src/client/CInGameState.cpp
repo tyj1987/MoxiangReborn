@@ -24,6 +24,7 @@
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/game/npc_role.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/ui/bigmapdlg.hpp"
 
 namespace mxh::client {
 
@@ -949,6 +950,42 @@ void CInGameState::refresh_live_ui_bindings() {
         if (auto* mp = dynamic_cast<mxh::ui::cMPGuageDialog*>(dialog.get())) {
             mp->SetPlayerStatsService(m_playerStatsService.get());
             mp->RefreshFromPlayerStats();
+        }
+        if (auto* big_map = dynamic_cast<mxh::ui::cBigMapDlg*>(dialog.get())) {
+            big_map->InitBigMap(m_mapNum);
+            big_map->ClearIcons();
+            big_map->AddHeroIcon(m_playerId,
+                                 static_cast<std::int32_t>(m_info.position_x),
+                                 static_cast<std::int32_t>(m_info.position_z));
+            for (const auto& npc : m_npcs) {
+                using mxh::game::NpcRole;
+                const auto role = mxh::game::role_from_wire(npc.npc_kind);
+                const auto kind = role == NpcRole::MapChange
+                    ? mxh::ui::BigMapIconKind::MapChange
+                    : role == NpcRole::Dealer || role == NpcRole::Bobusang
+                        ? mxh::ui::BigMapIconKind::Doctor
+                        : role == NpcRole::Wanted
+                            ? mxh::ui::BigMapIconKind::QuestExclamation1
+                            : mxh::ui::BigMapIconKind::Etc;
+                big_map->AddIcon(kind, npc.npc_id,
+                                 static_cast<std::int32_t>(npc.position_x),
+                                 static_cast<std::int32_t>(npc.position_z));
+                if (mxh::game::role_has_quest_indicator(role)) {
+                    big_map->ShowQuestMarkIcon(npc.npc_id, 1);
+                }
+            }
+            for (const auto& monster : monsters_) {
+                if (monster.current_life == 0) continue;
+                big_map->AddIcon(mxh::ui::BigMapIconKind::Etc,
+                                 monster.object_id,
+                                 static_cast<std::int32_t>(monster.position_x),
+                                 static_cast<std::int32_t>(monster.position_z));
+            }
+            for (const auto& [id, player] : m_remotePlayers) {
+                big_map->AddPartyMemberIcon(
+                    id, static_cast<std::int32_t>(player.position_x),
+                    static_cast<std::int32_t>(player.position_z));
+            }
         }
     }
 }
