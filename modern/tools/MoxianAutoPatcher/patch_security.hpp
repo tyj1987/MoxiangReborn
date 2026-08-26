@@ -33,6 +33,22 @@ inline bool is_safe_relative_path(const fs::path& path) {
     return true;
 }
 
+inline bool is_user_data_path(const fs::path& path) {
+    if (!is_safe_relative_path(path)) return false;
+    auto value = path.generic_string();
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    // Updates must never remove settings, screenshots, logs, or the
+    // updater's rollback journal/backup.  These paths are outside the
+    // signed game-file payload and survive repair/rollback by design.
+    return value == "_backup" || value.rfind("_backup/", 0) == 0 ||
+           value == "moxian/settings.json" || value.rfind("moxian/", 0) == 0 ||
+           value == "screenshots" || value.rfind("screenshots/", 0) == 0 ||
+           value == "logs" || value.rfind("logs/", 0) == 0 ||
+           value == ".update-journal";
+}
+
 inline std::string lower_hex(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));

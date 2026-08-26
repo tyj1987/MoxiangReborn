@@ -303,6 +303,7 @@ private:
                 manifest.files.push_back(std::move(file));
             } else if (fields.size() == 2 && fields[0] == "DELETE") {
                 if (!mxh::patch::is_safe_relative_path(fields[1])) throw std::runtime_error("unsafe delete path");
+                if (mxh::patch::is_user_data_path(fields[1])) throw std::runtime_error("manifest may not delete user data");
                 manifest.deleteFiles.push_back(fields[1]);
             } else {
                 throw std::runtime_error("invalid manifest record");

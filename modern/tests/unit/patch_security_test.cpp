@@ -12,6 +12,15 @@ TEST(PatchSecurity, AcceptsOnlyContainedRelativePaths) {
     EXPECT_FALSE(mxh::patch::is_safe_relative_path("bin/client.exe:payload"));
 }
 
+TEST(PatchSecurity, ProtectsUserDataFromManifestDeletes) {
+    EXPECT_TRUE(mxh::patch::is_user_data_path("Moxian/settings.json"));
+    EXPECT_TRUE(mxh::patch::is_user_data_path("screenshots/last.tga"));
+    EXPECT_TRUE(mxh::patch::is_user_data_path("logs/client.log"));
+    EXPECT_TRUE(mxh::patch::is_user_data_path("_backup/old.exe"));
+    EXPECT_FALSE(mxh::patch::is_user_data_path("bin/client.exe"));
+    EXPECT_FALSE(mxh::patch::is_user_data_path("../settings.json"));
+}
+
 TEST(PatchSecurity, Sha256AndSizeVerificationUseRealBytes) {
     const auto path = std::filesystem::temp_directory_path() / "mxh_patch_security.txt";
     {
