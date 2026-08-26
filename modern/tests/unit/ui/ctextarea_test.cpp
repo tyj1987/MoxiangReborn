@@ -374,6 +374,19 @@ TEST(CTextAreaTest, ScrollCommandsClampToVisibleText) {
     EXPECT_EQ(ta.GetTopLineIdx(), 0);
 }
 
+TEST(CTextAreaTest, Utf8CaretMovesAndDeletesWholeCodepoint) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 100}, 64);
+    ta.SetActive(true);
+    ta.SetFocusEdit(true);
+    ta.SetScriptText("甲B한");
+    ta.ActionKeyboardEvent(8, 0);
+    EXPECT_EQ(ta.GetScriptText(), "甲B");
+    ta.ActionKeyboardEvent(0, 0x4E59);
+    EXPECT_EQ(ta.GetScriptText(), "甲B乙");
+}
+
 TEST(CTextAreaTest, RenderIsNoOp) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);

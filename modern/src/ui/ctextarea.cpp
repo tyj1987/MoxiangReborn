@@ -7,6 +7,42 @@
 #include <algorithm>
 #include <cstring>
 
+namespace {
+std::size_t prev_utf8(const std::string& s, std::size_t pos) {
+    if (pos == 0) return 0;
+    --pos;
+    while (pos > 0 && (static_cast<unsigned char>(s[pos]) & 0xC0u) == 0x80u) --pos;
+    return pos;
+}
+
+std::size_t next_utf8(const std::string& s, std::size_t pos) {
+    if (pos >= s.size()) return s.size();
+    ++pos;
+    while (pos < s.size() && (static_cast<unsigned char>(s[pos]) & 0xC0u) == 0x80u) ++pos;
+    return pos;
+}
+
+std::string encode_utf8(std::int32_t cp) {
+    if (cp < 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return {};
+    std::string out;
+    if (cp <= 0x7F) out.push_back(static_cast<char>(cp));
+    else if (cp <= 0x7FF) {
+        out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else if (cp <= 0xFFFF) {
+        out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else {
+        out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    }
+    return out;
+}
+}
+
 namespace mxh::ui {
 
 cTextArea::cTextArea() = default;
@@ -92,17 +128,20 @@ std::uint32_t cTextArea::ActionKeyboardEvent(std::int32_t key,
     constexpr std::int32_t kEnter = 13;
     if (key == kBackspace) {
         if (!m_bReadOnly && m_caretPos > 0) {
-            m_scriptText.erase(m_caretPos - 1, 1);
-            --m_caretPos;
+            const auto begin = prev_utf8(m_scriptText, m_caretPos);
+            m_scriptText.erase(begin, m_caretPos - begin);
+            m_caretPos = begin;
         }
         return static_cast<std::uint32_t>(WindowEvent::KeyDown);
     }
-    if (key == 37) { if (m_caretPos > 0) --m_caretPos; return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
-    if (key == 39) { if (m_caretPos < m_scriptText.size()) ++m_caretPos; return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
+    if (key == 37) { m_caretPos = prev_utf8(m_scriptText, m_caretPos); return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
+    if (key == 39) { m_caretPos = next_utf8(m_scriptText, m_caretPos); return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
     if (key == 36) { m_caretPos = 0; return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
     if (key == 35) { m_caretPos = m_scriptText.size(); return static_cast<std::uint32_t>(WindowEvent::KeyDown); }
     if (key == 46) {
-        if (!m_bReadOnly && m_caretPos < m_scriptText.size()) m_scriptText.erase(m_caretPos, 1);
+        if (!m_bReadOnly && m_caretPos < m_scriptText.size()) {
+            m_scriptText.erase(m_caretPos, next_utf8(m_scriptText, m_caretPos) - m_caretPos);
+        }
         return static_cast<std::uint32_t>(WindowEvent::KeyDown);
     }
     if (key == kEnter) {
@@ -115,11 +154,12 @@ std::uint32_t cTextArea::ActionKeyboardEvent(std::int32_t key,
         }
         return static_cast<std::uint32_t>(WindowEvent::KeyDown);
     }
-    if (ch > 0 && ch < 0x80) {
-        if (!m_bReadOnly && (m_nMaxLine <= 0 ||
-                             static_cast<int>(m_scriptText.size()) < m_nMaxLine)) {
-            m_scriptText.insert(m_caretPos, 1, static_cast<char>(ch));
-            ++m_caretPos;
+    if (ch > 0) {
+        const auto encoded = encode_utf8(ch);
+        if (!encoded.empty() && !m_bReadOnly && (m_nMaxLine <= 0 ||
+                             static_cast<int>(m_scriptText.size() + encoded.size()) < m_nMaxLine)) {
+            m_scriptText.insert(m_caretPos, encoded);
+            m_caretPos += encoded.size();
         }
         return static_cast<std::uint32_t>(WindowEvent::Char_);
     }
