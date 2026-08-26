@@ -28,6 +28,11 @@ static LauncherSettings loadSettings() {
     std::ifstream in(settingsPath(), std::ios::binary);
     std::string text((std::istreambuf_iterator<char>(in)), {});
     std::smatch match;
+    int schema = 1;
+    if (std::regex_search(text, match, std::regex(R"REGEX("schemaVersion"\s*:\s*(\d+))REGEX"))) {
+        try { schema = std::stoi(match[1].str()); } catch (...) { schema = 0; }
+    }
+    if (schema != 1) return s;
     if (std::regex_search(text, match, std::regex(R"REGEX("resourceProfileId"\s*:\s*"([^"]+)")REGEX")) ||
         std::regex_search(text, match, std::regex(R"REGEX("profile"\s*:\s*"([^"]+)")REGEX")))
         s.profile = std::wstring(match[1].str().begin(), match[1].str().end());
@@ -35,7 +40,9 @@ static LauncherSettings loadSettings() {
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = std::stoi(match[1].str());
     if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
-    if (s.postWidth < 640 || s.postHeight < 480) { s.postWidth = 1024; s.postHeight = 768; }
+    if (s.postWidth < 800 || s.postHeight < 600) { s.postWidth = 1024; s.postHeight = 768; }
+    s.postWidth = (s.postWidth > 7680) ? 7680 : s.postWidth;
+    s.postHeight = (s.postHeight > 4320) ? 4320 : s.postHeight;
     return s;
 }
 
@@ -61,6 +68,7 @@ static void saveSettings(const LauncherSettings& s) {
             text.insert(insert_at, std::string(has_field ? ",\n  \"" : "  \"") + key + "\": " + value + "\n");
         }
     };
+    replace_or_insert("schemaVersion", "1");
     replace_or_insert("resourceProfileId", "\"" + profile + "\"");
     replace_or_insert("postLoginWidth", std::to_string(s.postWidth));
     replace_or_insert("postLoginHeight", std::to_string(s.postHeight));
