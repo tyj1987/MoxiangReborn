@@ -518,8 +518,18 @@ private:
             lines.push_back("VERSION=" + version.toString());
         }
 
-        // Write updated file
-        std::ofstream out(verFile);
+        // Write to a process-specific temporary file and publish atomically;
+        // a torn version file must never make the next update choose the
+        // wrong rollback path.
+        fs::path temp = verFile;
+        temp += ".tmp." + std::to_string(static_cast<unsigned long>(
+#ifdef _WIN32
+            GetCurrentProcessId()
+#else
+            0
+#endif
+        ));
+        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
         if (!out.is_open()) {
             return false;
         }
@@ -527,7 +537,28 @@ private:
         for (const auto& line : lines) {
             out << line << std::endl;
         }
-
+        out.flush();
+        out.close();
+        if (!out) {
+            std::error_code ignored;
+            fs::remove(temp, ignored);
+            return false;
+        }
+#ifdef _WIN32
+        if (!MoveFileExW(temp.c_str(), verFile.c_str(),
+                         MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            std::error_code ignored;
+            fs::remove(temp, ignored);
+            return false;
+        }
+#else
+        std::error_code error;
+        fs::rename(temp, verFile, error);
+        if (error) {
+            fs::remove(temp, error);
+            return false;
+        }
+#endif
         return true;
     }
 
