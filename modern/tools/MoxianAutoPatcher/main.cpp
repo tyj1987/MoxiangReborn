@@ -366,6 +366,7 @@ private:
         PatchManifest manifest;
         std::string line;
         bool has_version = false;
+        std::set<std::string> target_paths;
         while (std::getline(input, line)) {
             if (line.empty() || line[0] == '#') continue;
             if (line.rfind("VERSION=", 0) == 0) {
@@ -381,12 +382,20 @@ private:
                 if (!mxh::patch::is_safe_relative_path(fields[1])) throw std::runtime_error("unsafe patch target path");
                 PatchFile file;
                 file.path = fields[1]; file.url = fields[2]; file.sha256 = fields[3];
-                file.size = std::stoull(fields[4]);
+                try {
+                    file.size = std::stoull(fields[4]);
+                } catch (...) {
+                    throw std::runtime_error("invalid patch file size in manifest");
+                }
                 if (file.sha256.size() != 64) throw std::runtime_error("invalid SHA-256 in manifest");
+                if (!target_paths.insert(file.path).second)
+                    throw std::runtime_error("duplicate patch target in manifest");
                 manifest.files.push_back(std::move(file));
             } else if (fields.size() == 2 && fields[0] == "DELETE") {
                 if (!mxh::patch::is_safe_relative_path(fields[1])) throw std::runtime_error("unsafe delete path");
                 if (mxh::patch::is_user_data_path(fields[1])) throw std::runtime_error("manifest may not delete user data");
+                if (!target_paths.insert(fields[1]).second)
+                    throw std::runtime_error("duplicate patch target in manifest");
                 manifest.deleteFiles.push_back(fields[1]);
             } else {
                 throw std::runtime_error("invalid manifest record");
