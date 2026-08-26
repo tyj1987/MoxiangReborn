@@ -6,7 +6,7 @@ Windows VM via SSH-then-WinRM, with port probes for 16001/17001/18001.
 
 .DESCRIPTION
 User-stated context (see ROADMAP / session objective):
-  - PVE host:    192.168.2.200 (Linux sshd on port 22, root / Tyj_198729)
+  - PVE host:    192.168.2.200 (Linux sshd on port 22; credentials supplied at runtime)
   - Windows VM:  VM 100 inside PVE (user's "winserver")
   - Modern 3 服:  LoginServer (16001) + AgentServer (17001) + MapServer (18001)
   - Local build: C:\moxiang\modern\build\tools\Moxian{Login,Agent,Map}Server\
