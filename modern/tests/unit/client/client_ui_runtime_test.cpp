@@ -180,6 +180,7 @@ TEST(ClientUiRuntime, DispatchesRealPushupCharacterSlot) {
     const auto x = first->absX() + first->width() / 2;
     const auto y = first->absY() + first->height() / 2;
     runtime.onMouseButton(true, true, x, y);
+    EXPECT_EQ(runtime.focusedWindow(), first);
     const auto released = runtime.onMouseButton(true, false, x, y);
     ASSERT_TRUE(released.activation.has_value());
     EXPECT_EQ(released.activation->legacy_id, "MT_FIRSTCHOSEBTN");
