@@ -2171,6 +2171,50 @@ TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {
               static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack));
 }
 
+TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 1000.0f, 1000.0f));
+
+    mxh::net::Message move;
+    move.header.object_id = 123u;
+    move.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    move.header.protocol = static_cast<std::uint8_t>(mxh::proto::MoveProtocol::OneTarget);
+    move.payload.resize(4);
+    const std::uint16_t x = 20000u;
+    const std::uint16_t z = 20000u;
+    std::memcpy(move.payload.data(), &x, sizeof(x));
+    std::memcpy(move.payload.data() + 2, &z, sizeof(z));
+    handler.on_message(connection, move);
+
+    const auto correction = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol ==
+            static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction);
+    });
+    ASSERT_NE(correction, replies.end());
+    ASSERT_EQ(correction->payload.size(), 4u);
+    std::uint16_t corrected_x = 0;
+    std::uint16_t corrected_z = 0;
+    std::memcpy(&corrected_x, correction->payload.data(), sizeof(corrected_x));
+    std::memcpy(&corrected_z, correction->payload.data() + 2, sizeof(corrected_z));
+    EXPECT_EQ(corrected_x, 1000u);
+    EXPECT_EQ(corrected_z, 1000u);
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_FLOAT_EQ(snapshot->pos_x, 1000.0f);
+    EXPECT_FLOAT_EQ(snapshot->pos_z, 1000.0f);
+}
+
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     MockDbAdapter db;
     ReplySpy reply;
@@ -2342,6 +2386,7 @@ TEST(MapHandlerTest, MoveUpdatesAuthoritativePlayerPosition) {
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 0.0f, 0.0f));
 
     mxh::net::Message move;
     move.header.object_id = 123u;

@@ -456,9 +456,12 @@ bool MapHandler::set_player_money_for_test(std::uint32_t player_id, std::uint32_
 bool MapHandler::set_player_position_for_test(std::uint32_t player_id, float x, float z) {
     std::lock_guard<std::mutex> lock(players_mu_);
     const auto it = connected_players_.find(player_id);
-    if (it == connected_players_.end()) return false;
+    const auto runtime = player_runtimes_.find(player_id);
+    if (it == connected_players_.end() || runtime == player_runtimes_.end()) return false;
     it->second.pos_x = x;
     it->second.pos_z = z;
+    runtime->second.actor.state().pos_x = x;
+    runtime->second.actor.state().pos_z = z;
     return true;
 }
 
@@ -1637,6 +1640,9 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
         proto == mxh::proto::MoveProtocol::Stop ||
         proto == mxh::proto::MoveProtocol::Warp ||
         proto == mxh::proto::MoveProtocol::Correction) {
+        bool rejected_jump = false;
+        std::uint16_t accepted_x = 0;
+        std::uint16_t accepted_z = 0;
         {
             std::lock_guard<std::mutex> lock(players_mu_);
             auto player_it = connected_players_.find(sender_pid);
@@ -1649,12 +1655,40 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
                     std::uint16_t z = 0;
                     std::memcpy(&x, msg.payload.data(), sizeof(x));
                     std::memcpy(&z, msg.payload.data() + 2, sizeof(z));
-                    info.pos_x = static_cast<float>(x);
-                    info.pos_z = static_cast<float>(z);
-                    state.pos_x = info.pos_x;
-                    state.pos_z = info.pos_z;
+                    constexpr float kMaxClientStep = 5000.0f;
+                    const float dx = static_cast<float>(x) - info.pos_x;
+                    const float dz = static_cast<float>(z) - info.pos_z;
+                    if ((proto == mxh::proto::MoveProtocol::OneTarget ||
+                         proto == mxh::proto::MoveProtocol::Target) &&
+                        dx * dx + dz * dz > kMaxClientStep * kMaxClientStep) {
+                        rejected_jump = true;
+                        accepted_x = static_cast<std::uint16_t>(
+                            std::clamp(info.pos_x, 0.0f, 65535.0f));
+                        accepted_z = static_cast<std::uint16_t>(
+                            std::clamp(info.pos_z, 0.0f, 65535.0f));
+                    } else {
+                        info.pos_x = static_cast<float>(x);
+                        info.pos_z = static_cast<float>(z);
+                        state.pos_x = info.pos_x;
+                        state.pos_z = info.pos_z;
+                    }
                 }
             }
+        }
+        if (rejected_jump) {
+            mxh::net::Message correction;
+            correction.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::Move);
+            correction.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::MoveProtocol::Correction);
+            correction.header.object_id = sender_pid;
+            correction.payload.resize(4);
+            std::memcpy(correction.payload.data(), &accepted_x, sizeof(accepted_x));
+            std::memcpy(correction.payload.data() + 2, &accepted_z, sizeof(accepted_z));
+            reply_(id, correction);
+            std::cout << "[Map] rejected excessive move jump from player="
+                      << sender_pid << "\n";
+            return;
         }
         // Echo the move back to the sender (side-by-side move
         // scenario + modern smoke need this without a fully initialized
