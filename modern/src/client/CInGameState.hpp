@@ -224,8 +224,8 @@ bool unproject_screen_to_world(float player_x, float player_z, float yaw,
 //
 // Movement follows the legacy MHClient bindings: W/S forward/back, Q/E
 // strafe, A/D rotate the camera (arrow keys mirror W/S/A/D), mouse right
-// drag rotates the camera, left click attacks the selected monster (falling
-// back to the nearest live monster when the click hits empty world space).
+// drag rotates the camera, left click attacks an entity under the cursor or
+// issues a point-to-move request when the click lands on empty world space.
 // -------------------------------------------------------------------------
 enum class MoveKey : std::uint32_t {
     Forward     = 1u << 0,
