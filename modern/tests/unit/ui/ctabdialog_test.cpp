@@ -354,6 +354,25 @@ TEST_F(CTabDialogTest, ActionEventReturnsZeroForInactiveDialog) {
     EXPECT_EQ(d->ActionEvent(nullptr), 0u);
 }
 
+TEST_F(CTabDialogTest, PointerClickSelectsTabButton) {
+    auto d = MakeDialog();
+    d->InitTab(2);
+    d->SetActive(true);
+    auto first = MakeTabBtn(100);
+    auto second = MakeTabBtn(101);
+    second->SetRelXY(40, 0);
+    d->AddTabBtn(0, std::move(first));
+    d->AddTabBtn(1, std::move(second));
+    d->AddTabSheet(0, MakeTabSheet(200));
+    d->AddTabSheet(1, MakeTabSheet(201));
+    d->SelectTab(0);
+    EXPECT_EQ(d->ActionEvent(45, 5, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_EQ(d->GetCurTabNum(), 1);
+    EXPECT_TRUE(d->GetTabSheet(1)->isVisible());
+    EXPECT_FALSE(d->GetTabSheet(0)->isVisible());
+}
+
 // ---------------------------------------------------------------------------
 // Dtor (1:1 quirk: legacy SAFE_DELETE → modern unique_ptr auto)
 // ---------------------------------------------------------------------------
