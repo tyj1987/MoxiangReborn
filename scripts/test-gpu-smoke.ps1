@@ -25,7 +25,7 @@
 param(
     [int]$FrameCount = 3,
     [int]$TimeoutSeconds = 60,
-    [string]$ResourceRoot = 'C:\moxiang\modern\data\PlayDH',
+    [string]$ResourceRoot = (Join-Path $PSScriptRoot '..\modern\data\PlayDH'),
     [string]$OutDir = '',
     [int]$Width  = 800,
     [int]$Height = 600

@@ -134,7 +134,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("playdh_root", type=Path, help="Path to 墨香【源码配套资源】/PlayDH")
     p.add_argument("--build-dir", type=Path,
-                   default=Path(r"C:\moxiang\modern\build"),
+                   default=(Path(__file__).resolve().parents[1] / "build"),
                    help="Modern build directory containing mxh_explorer.exe")
     p.add_argument("--output", type=Path, default=None,
                    help="Write the coverage manifest to this file (text)")
