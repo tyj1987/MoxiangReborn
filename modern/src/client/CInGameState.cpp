@@ -758,6 +758,7 @@ void CInGameState::Release() {
     m_lastDamage = 0;
     m_lastHitTarget = 0;
     m_lastHitResult = 0;
+    m_lastDamageTimestampMs = 0;
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -1453,6 +1454,8 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 m_lastDamage = damage;
                 m_lastHitTarget = target;
                 m_lastHitResult = hit;
+                m_lastDamageTimestampMs = m_lastTickMs != 0
+                    ? m_lastTickMs : steady_now_ms();
                 const auto source_object = msg.header.object_id != 0
                     ? msg.header.object_id : m_playerId;
                 if (m_pendingSkillId != 0) {

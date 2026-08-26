@@ -493,6 +493,7 @@ TEST(InGamePlayable, SkillResultPublishesCombatFeedbackForHud) {
     EXPECT_EQ(state.last_damage(), damage);
     EXPECT_EQ(state.last_hit_target(), target);
     EXPECT_EQ(state.last_hit_result(), hit);
+    EXPECT_GT(state.last_damage_timestamp_ms(), 0u);
 }
 
 TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
