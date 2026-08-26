@@ -4022,6 +4022,41 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 }
             }
 
+            // Target coordinates are presentation hints from the client, not
+            // authoritative state.  When the target is a live player or
+            // monster, resolve its current map position before creating the
+            // skill instance and broadcasting visual data.  This keeps
+            // effects/hit positions aligned with the server-owned entity even
+            // when a client submits forged coordinates.
+            if (main_target != 0u) {
+                std::optional<std::pair<float, float>> authoritative_target;
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    if (const auto it = connected_players_.find(main_target);
+                        it != connected_players_.end() &&
+                        it->second.map_num == map_num_) {
+                        authoritative_target = std::pair<float, float>{
+                            it->second.pos_x, it->second.pos_z};
+                    }
+                }
+                if (!authoritative_target) {
+                    std::lock_guard<std::mutex> lk(monsters_mu_);
+                    const auto it = std::find_if(monsters_.begin(), monsters_.end(),
+                        [main_target](const auto& monster) {
+                            return monster.object_id == main_target &&
+                                   !monster.is_dead;
+                        });
+                    if (it != monsters_.end()) {
+                        authoritative_target = std::pair<float, float>{
+                            it->pos_x, it->pos_z};
+                    }
+                }
+                if (authoritative_target) {
+                    target_x = authoritative_target->first;
+                    target_z = authoritative_target->second;
+                }
+            }
+
             // MP check
             if (caster->combat.current_mp < mxh::game::to_simple(*skill).need_nearyuk) {
                 std::cout << "[Map] Skill not enough MP\n";
