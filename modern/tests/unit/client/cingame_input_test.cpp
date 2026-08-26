@@ -491,6 +491,31 @@ TEST(InGamePlayable, DiagonalCollisionSlidesAlongClearAxis) {
     EXPECT_TRUE(state.local_x() == 25000u || state.local_z() == 25000u);
 }
 
+TEST(InGamePlayable, ClickMoveSlidesAlongClearAxis) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.set_collision_query([](float x, float z, float) {
+        return x != 25000.0f && z != 25000.0f;
+    });
+    state.OnMouseButton(true, true, 320, 220);
+    EXPECT_TRUE(state.local_x() != 25000u || state.local_z() != 25000u);
+    EXPECT_TRUE(state.local_x() == 25000u || state.local_z() == 25000u);
+}
+
+TEST(InGamePlayable, FullyBlockedClickDoesNotAutoAttack) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_monster_add_at(50001u, 25000, 25000));
+    state.set_collision_query([](float, float, float) { return true; });
+    state.OnMouseButton(true, true, 320, 220);
+    EXPECT_EQ(state.last_attack_target(), 0u);
+}
+
 TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

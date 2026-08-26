@@ -2521,9 +2521,19 @@ bool CInGameState::move_to_screen(float screen_x, float screen_y) {
     target_x = std::clamp(target_x, 0.0f, m_worldLimitX);
     target_z = std::clamp(target_z, 0.0f, m_worldLimitZ);
     if (m_collisionQuery && m_collisionQuery(target_x, target_z, 24.0f)) {
-        MLOG_DEBUG("CInGameState: click move blocked at (%.0f,%.0f)",
-                   target_x, target_z);
-        return false;
+        const bool x_clear = !m_collisionQuery(target_x, m_localZ, 24.0f);
+        const bool z_clear = !m_collisionQuery(m_localX, target_z, 24.0f);
+        if (x_clear) {
+            target_z = m_localZ;
+        } else if (z_clear) {
+            target_x = m_localX;
+        } else {
+            MLOG_DEBUG("CInGameState: click move blocked at (%.0f,%.0f)",
+                       target_x, target_z);
+            // Consume the world click even when no path is available; it
+            // must never fall through to implicit nearest-target attack.
+            return true;
+        }
     }
     const auto x = static_cast<std::uint16_t>(target_x);
     const auto z = static_cast<std::uint16_t>(target_z);
