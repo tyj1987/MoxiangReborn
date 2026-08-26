@@ -2068,6 +2068,39 @@ void renderFrame(HWND h) {
                     }
                 }
             } else if (cur_state == static_cast<int>(mxh::client::GameStateId::CharMake)) {
+                if (g_charPreviewScene && g_charMakeState) {
+                    const auto& params = g_charMakeState->form_model().params();
+                    mxh::client::CharacterSlot preview_slot;
+                    preview_slot.valid = true;
+                    preview_slot.chrid = 0xFFFFFFFEu;
+                    preview_slot.gender = params.sex_type;
+                    preview_slot.face_type = params.face_type;
+                    preview_slot.hair_type = params.hair_type;
+                    preview_slot.weared_item_idx = params.weared_item_idx;
+                    if (auto preview = mxh::client::make_character_preview(preview_slot)) {
+                        mxh::gx::WorldSnapshot snapshot;
+                        snapshot.local_player = *preview;
+                        g_charPreviewScene->synchronize(snapshot);
+                        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
+                        g_charPreviewScene->render();
+                        g_renderer->SetScreenSpaceProjection();
+                        static std::uint32_t logged_make_preview =
+                            std::numeric_limits<std::uint32_t>::max();
+                        const auto appearance_key =
+                            (static_cast<std::uint32_t>(params.sex_type) << 16) |
+                            (static_cast<std::uint32_t>(params.face_type) << 8) |
+                            params.hair_type;
+                        if (logged_make_preview != appearance_key) {
+                            MLOG_INFO("mxh_client: character make preview rendered sex=%u face=%u hair=%u equipment=%zu failures=%u",
+                                      static_cast<unsigned>(params.sex_type),
+                                      static_cast<unsigned>(params.face_type),
+                                      static_cast<unsigned>(params.hair_type),
+                                      params.weared_item_idx.size(),
+                                      g_charPreviewScene->failedModelCount());
+                            logged_make_preview = appearance_key;
+                        }
+                    }
+                }
                 if (g_debugUiBounds) {
                     drawHudBar(g_renderer, g_hud.barBg, g_hud.barBg,
                                145.0f, 110.0f, 510.0f, 380.0f, 1.0f);
