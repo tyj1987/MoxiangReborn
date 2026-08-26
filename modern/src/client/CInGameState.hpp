@@ -481,6 +481,9 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::string& last_item_error() const noexcept { return m_lastItemError; }
     const std::string& last_npc_error() const noexcept { return m_lastNpcError; }
     const std::string& last_skill_error() const noexcept { return m_lastSkillError; }
+    std::int32_t last_damage() const noexcept { return m_lastDamage; }
+    std::uint32_t last_hit_target() const noexcept { return m_lastHitTarget; }
+    std::uint8_t last_hit_result() const noexcept { return m_lastHitResult; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
     std::uint64_t attack_flash_age_ms() const noexcept;
 
@@ -567,6 +570,9 @@ public:
     std::string              m_lastItemError;
     std::string              m_lastNpcError;
     std::string              m_lastSkillError;
+    std::int32_t             m_lastDamage = 0;
+    std::uint32_t            m_lastHitTarget = 0;
+    std::uint8_t              m_lastHitResult = 0;
 
     // In-game input/movement state.
     std::uint32_t  m_keyMask      = 0;

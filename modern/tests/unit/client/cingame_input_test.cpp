@@ -473,6 +473,28 @@ TEST(InGamePlayable, SkillNackBecomesVisiblePlayerFeedback) {
     EXPECT_EQ(state.last_skill_error(), "Target is out of range.");
 }
 
+TEST(InGamePlayable, SkillResultPublishesCombatFeedbackForHud) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message result;
+    result.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    result.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult);
+    result.header.object_id = state.player_id();
+    result.payload.resize(9);
+    const std::uint32_t target = 50001u;
+    const std::int32_t damage = 37;
+    const std::uint8_t hit = 1u;
+    std::memcpy(result.payload.data(), &target, sizeof(target));
+    std::memcpy(result.payload.data() + 4, &damage, sizeof(damage));
+    result.payload[8] = hit;
+    state.on_message(mxh::net::make_connection_id(1), result);
+    EXPECT_EQ(state.last_damage(), damage);
+    EXPECT_EQ(state.last_hit_target(), target);
+    EXPECT_EQ(state.last_hit_result(), hit);
+}
+
 TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
