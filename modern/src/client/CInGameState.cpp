@@ -738,6 +738,7 @@ void CInGameState::Release() {
     m_questStatus = "Not accepted";
     m_failed   = false;
     m_failureReason.clear();
+    m_lastItemError.clear();
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -1662,6 +1663,8 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     }
     if (proto == static_cast<std::uint8_t>(
             mxh::proto::ItemProtocol::PickupNack)) {
+        m_lastItemError = "Cannot pick up this item.";
+        (void)m_uiRuntime.showMessage(9102, m_lastItemError);
         MLOG_WARN("CInGameState: PickupNack");
         return;
     }
@@ -1798,7 +1801,14 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: BuyAck (shop closed)");
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyNack)) {
+        m_lastItemError = "Purchase failed.";
+        (void)m_uiRuntime.showMessage(9103, m_lastItemError);
         MLOG_WARN("CInGameState: BuyNack");
+    } else if (proto == static_cast<std::uint8_t>(
+                   mxh::proto::ItemProtocol::SellNack)) {
+        m_lastItemError = "Sale failed.";
+        (void)m_uiRuntime.showMessage(9104, m_lastItemError);
+        MLOG_WARN("CInGameState: SellNack");
     }
 }
 

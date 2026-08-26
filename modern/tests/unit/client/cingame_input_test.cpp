@@ -541,6 +541,27 @@ TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     EXPECT_EQ(state.game_info().items.Inventory[0].ItemParam, count);
 }
 
+TEST(InGamePlayable, ItemNacksBecomeVisiblePlayerFeedback) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+
+    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack);
+    state.on_message(mxh::net::make_connection_id(1), nack);
+    EXPECT_EQ(state.last_item_error(), "Cannot pick up this item.");
+
+    state.ui_runtime().clear();
+    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack);
+    state.on_message(mxh::net::make_connection_id(1), nack);
+    EXPECT_EQ(state.last_item_error(), "Purchase failed.");
+
+    state.ui_runtime().clear();
+    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellNack);
+    state.on_message(mxh::net::make_connection_id(1), nack);
+    EXPECT_EQ(state.last_item_error(), "Sale failed.");
+}
+
 TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

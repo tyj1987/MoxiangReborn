@@ -471,6 +471,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t pending_guild_invite_id() const noexcept { return m_pendingGuildInviteId; }
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
+    const std::string& last_item_error() const noexcept { return m_lastItemError; }
     // Attack flash age in ms; 0 = no active flash (attack happened >200ms ago or none).
     std::uint64_t attack_flash_age_ms() const noexcept;
 
@@ -552,6 +553,7 @@ public:
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
     std::string              m_failureReason;
+    std::string              m_lastItemError;
 
     // In-game input/movement state.
     std::uint32_t  m_keyMask      = 0;
