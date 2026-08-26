@@ -265,6 +265,19 @@ TEST(ClientUiRuntime, FailedMultiLoadKeepsPreviousTreeIntact) {
     EXPECT_EQ(runtime.findWindowByLegacyId("MI_MAINDLG"), nullptr);
 }
 
+TEST(ClientUiRuntime, ActiveChildAlsoActivatesOwningDialog) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    ASSERT_NE(runtime.findWindowByLegacyId("MT_FIRSTCHOSEBTN"), nullptr);
+    runtime.applyActiveSet(std::array<std::string_view, 1>{"MT_FIRSTCHOSEBTN"});
+    EXPECT_TRUE(runtime.isDialogActive("CS_CHARSELECTDLG"));
+    EXPECT_TRUE(runtime.isDialogActive("MT_FIRSTCHOSEBTN"));
+}
+
 TEST(ClientUiRuntime, LoadsLegacyChinaGameInCoreDialogSet) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

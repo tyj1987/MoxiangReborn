@@ -185,22 +185,28 @@ void ClientUiRuntime::applyActiveSet(
     m_active = true;
     for (const auto& dialog : m_windows.dialogs()) {
         if (!dialog) continue;
-        bool want = false;
+        // Reset both the root and any previously selected page before
+        // applying the new set; otherwise a tab that was active in the
+        // previous screen can remain visible after a state transition.
+        dialog->SetActive(false);
+        dialog->SetVisible(false);
         for (const auto id : active_ids) {
             if (dialog->legacyId() == id) {
-                want = true;
+                dialog->SetActive(true);
+                dialog->SetVisible(true);
                 break;
             }
             // A child page/tab is still rendered through its parent dialog;
             // hiding the root when only the child ID is active makes the
             // otherwise valid tab appear to disappear entirely.
-            if (dialog->findWindowByLegacyId(id)) {
-                want = true;
+            if (auto* child = dialog->findWindowByLegacyId(id)) {
+                dialog->SetActive(true);
+                dialog->SetVisible(true);
+                child->SetActive(true);
+                child->SetVisible(true);
                 break;
             }
         }
-        dialog->SetActive(want);
-        dialog->SetVisible(want);
     }
 }
 
