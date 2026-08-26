@@ -472,6 +472,7 @@ TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
     EXPECT_EQ(state.local_x(), 25000u);
     EXPECT_EQ(state.local_z(), 25000u);
     EXPECT_GT(state.camera_yaw(), before_yaw);
+    EXPECT_FALSE(state.is_moving());
 }
 
 TEST(InGamePlayable, DiagonalCollisionSlidesAlongClearAxis) {

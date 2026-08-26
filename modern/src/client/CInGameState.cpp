@@ -2477,6 +2477,12 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
             // Rotation is independent of translation and must remain
             // responsive while the avatar is pressed against an obstacle.
             m_cameraYaw = step.yaw;
+            if (m_moving) {
+                m_moving = false;
+                send_move(static_cast<std::uint16_t>(m_localX),
+                          static_cast<std::uint16_t>(m_localZ),
+                          mxh::proto::MoveProtocol::Stop);
+            }
             return;
         }
     }
