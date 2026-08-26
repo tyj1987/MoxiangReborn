@@ -2464,7 +2464,10 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
         m_collisionQuery(step.x, step.z, 24.0f)) {
         // Keep the last valid position and let the next tick retry.  The
         // server remains authoritative; this only prevents the local avatar
-        // from visibly tunnelling through loaded static geometry.
+        // from visibly tunnelling through loaded static geometry.  Rotation
+        // is independent of translation and must remain responsive while the
+        // avatar is pressed against an obstacle.
+        m_cameraYaw = step.yaw;
         return;
     }
     m_cameraYaw = step.yaw;

@@ -459,6 +459,21 @@ TEST(InGamePlayable, ServerMovementCorrectionRollsBackLocalPrediction) {
     EXPECT_EQ(state.local_z(), z);
 }
 
+TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.set_collision_query([](float, float, float) { return true; });
+    const auto before_yaw = state.camera_yaw();
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.OnKeyEvent(true, mxh::client::kVkD);
+    state.Process();
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
+    EXPECT_GT(state.camera_yaw(), before_yaw);
+}
+
 TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
