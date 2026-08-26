@@ -238,18 +238,21 @@ void TerrainScene::configureCamera(float aspect) {
     if (!impl_->renderer || impl_->terrain.heights.empty()) return;
     CAMERA_DESC camera{};
     constexpr float kSceneScale = 0.001f;
-    constexpr float kMapCenter = 25.6f;
     const auto& d = impl_->terrain.desc;
-    const float cx = d.width * kSceneScale * 0.5f;
-    const float cz = d.height * kSceneScale * 0.5f;
+    // Terrain vertices are authored around the origin (the mesh builder
+    // subtracts half the map extent from every X/Z position).  Keep the
+    // camera in that same coordinate system instead of assuming the legacy
+    // 25.6-unit half-size used by one particular map.
+    const float half_width = d.width * kSceneScale * 0.5f;
+    const float half_height = d.height * kSceneScale * 0.5f;
     if (impl_->follow_player) {
         // Third-person player camera. Camera sits 6 units behind and 3
         // units above the player in scaled world coords, looking at the
         // player. The view clips everything beyond 200 units, which is
         // enough for the 512x512-unit world.
         const float yaw = impl_->camera_yaw;
-        const float px = impl_->player_x * kSceneScale - kMapCenter;
-        const float pz = impl_->player_z * kSceneScale - kMapCenter;
+        const float px = impl_->player_x * kSceneScale - half_width;
+        const float pz = impl_->player_z * kSceneScale - half_height;
         const float back = impl_->camera_distance;
         const float up = impl_->camera_distance * 0.5f;
         camera.v3From = {px - back * std::sin(yaw), up,
@@ -259,8 +262,8 @@ void TerrainScene::configureCamera(float aspect) {
     } else {
         // Overview camera at the map centre, looking down. Deterministic
         // full-terrain screenshot view regardless of player position.
-        camera.v3From = {cx, 35.0f, cz};
-        camera.v3To   = {cx,  0.0f, cz};
+        camera.v3From = {0.0f, 35.0f, 0.0f};
+        camera.v3To   = {0.0f,  0.0f, 0.0f};
         camera.v3Up   = {0, 0, 1};
     }
     camera.fFovY  = 3.14159265f / 3.0f;
