@@ -145,6 +145,14 @@ ClientSettingsV1 ClientSettingsStore::load(const std::filesystem::path& path,
         return settings;
     }
     settings.schema_version = read_uint(text, "schemaVersion", 1);
+    if (settings.schema_version != 1) {
+        backup_corrupt_settings(path, warning);
+        if (warning) {
+            if (!warning->empty()) *warning += "; ";
+            *warning += "unsupported settings schema; defaults were used";
+        }
+        return defaults();
+    }
     settings.resource_profile_id = read_string(text, "resourceProfileId", settings.resource_profile_id);
     settings.locale = read_string(text, "locale", settings.locale);
     settings.post_login_width = read_uint(text, "postLoginWidth", settings.post_login_width);

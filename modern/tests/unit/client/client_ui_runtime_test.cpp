@@ -71,6 +71,27 @@ TEST(ClientSettings, EscapedAccountNameRoundTripsAndMalformedEscapeFallsBack) {
     std::filesystem::remove(path);
 }
 
+TEST(ClientSettings, UnknownSchemaIsBackedUpAndDefaultsAreUsed) {
+    const auto path = std::filesystem::temp_directory_path() / "mxh-settings-schema.json";
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << R"({"schemaVersion":99,"resourceProfileId":"playdh-current",)"
+                  R"("postLoginWidth":1920,"postLoginHeight":1080})";
+    }
+    std::string warning;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &warning);
+    EXPECT_EQ(actual.schema_version, 1u);
+    EXPECT_EQ(actual.post_login_width, 1024u);
+    EXPECT_NE(warning.find("unsupported settings schema"), std::string::npos);
+    EXPECT_FALSE(std::filesystem::exists(path));
+    for (const auto& entry : std::filesystem::directory_iterator(path.parent_path())) {
+        if (entry.path().filename().string().rfind("mxh-settings-schema.json.corrupt", 0) == 0) {
+            std::error_code ignored;
+            std::filesystem::remove(entry.path(), ignored);
+        }
+    }
+}
+
 TEST(ClientSettings, InvalidFileIsBackedUpBeforeDefaults) {
     const auto path = std::filesystem::temp_directory_path() /
                       "mxh-settings-invalid.json";
