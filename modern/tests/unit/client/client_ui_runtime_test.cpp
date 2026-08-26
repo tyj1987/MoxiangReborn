@@ -219,6 +219,11 @@ TEST(ClientUiRuntime, KeyboardConfirmProducesButtonActivation) {
     const auto activation = runtime.consumeKeyActivation();
     ASSERT_TRUE(activation.has_value());
     EXPECT_EQ(activation->legacy_id, "MT_FIRSTCHOSEBTN");
+
+    ASSERT_TRUE(runtime.onKey(true, 32, false));
+    const auto space_activation = runtime.consumeKeyActivation();
+    ASSERT_TRUE(space_activation.has_value());
+    EXPECT_EQ(space_activation->legacy_id, "MT_FIRSTCHOSEBTN");
 }
 
 TEST(ClientUiRuntime, HidingActiveSetClearsStaleKeyboardFocus) {
