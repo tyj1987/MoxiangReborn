@@ -72,6 +72,22 @@ static void saveSettings(const LauncherSettings& s) {
     MoveFileExW(temp.c_str(), settingsPath().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
 }
 
+static fs::path locateResourceRoot(const fs::path& executable) {
+    const fs::path bin = executable.parent_path();
+    const fs::path roots[] = {
+        bin / L"data" / L"PlayDH",
+        bin.parent_path() / L"data" / L"PlayDH",
+        bin.parent_path() / L"modern" / L"data" / L"PlayDH"
+    };
+    for (const auto& root : roots) {
+        if (fs::is_regular_file(root / L"Map.pak") &&
+            fs::is_regular_file(root / L"Image" / L"InterfaceScript" / L"IDDlg.bin")) {
+            return root;
+        }
+    }
+    return {};
+}
+
 class LauncherWindow {
 public:
     bool create(HINSTANCE instance) {
@@ -115,7 +131,17 @@ private:
             }
             return 0;
         }
-        if (msg == WM_COMMAND && LOWORD(wp) == 1) { MessageBoxW(hwnd_, L"未配置经过签名校验的补丁 manifest。为避免不安全更新，检查/修复已安全阻止。", L"检查/修复", MB_ICONWARNING); return 0; }
+        if (msg == WM_COMMAND && LOWORD(wp) == 1) {
+            wchar_t module[MAX_PATH]{};
+            GetModuleFileNameW(nullptr, module, MAX_PATH);
+            const auto root = locateResourceRoot(fs::path(module));
+            if (root.empty()) {
+                MessageBoxW(hwnd_, L"资源检查失败：缺少 Map.pak 或 Image\\InterfaceScript\\IDDlg.bin。未执行任何删除或下载。", L"检查/修复", MB_ICONERROR);
+            } else {
+                MessageBoxW(hwnd_, (L"本地资源基础文件检查通过：\n" + root.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
+            }
+            return 0;
+        }
         if (msg == WM_COMMAND && LOWORD(wp) == 2) {
             BOOL width_ok = FALSE;
             BOOL height_ok = FALSE;
@@ -149,19 +175,10 @@ private:
             MessageBoxW(hwnd_, L"未找到 MoxianClient.exe 或 mxh_client.exe，请先完成客户端安装。", L"启动失败", MB_ICONERROR);
             return;
         }
-        const fs::path roots[] = {bin / L"data" / L"PlayDH", bin.parent_path() / L"data" / L"PlayDH", bin.parent_path() / L"modern" / L"data" / L"PlayDH"};
-        fs::path resourceRoot;
-        for (const auto& root : roots) {
-            if (!fs::is_directory(root)) continue;
-            // A launcher must fail closed when the installed profile is
-            // incomplete.  Starting with a missing IDDlg or Map.pak only
-            // produces a misleading black/error screen in the client.
-            if (fs::is_regular_file(root / L"Map.pak") &&
-                fs::is_regular_file(root / L"Image" / L"InterfaceScript" / L"IDDlg.bin")) {
-                resourceRoot = root;
-                break;
-            }
-        }
+        // A launcher must fail closed when the installed profile is
+        // incomplete.  Starting with a missing IDDlg or Map.pak only
+        // produces a misleading black/error screen in the client.
+        const fs::path resourceRoot = locateResourceRoot(fs::path(module));
         if (resourceRoot.empty()) {
             MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map.pak 或 Image\\InterfaceScript\\IDDlg.bin。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
             return;
