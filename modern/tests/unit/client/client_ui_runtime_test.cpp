@@ -374,10 +374,10 @@ TEST(ClientUiRuntime, LoadsLegacyChinaGameInCoreDialogSet) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
 
-    constexpr std::array<std::string_view, 13> scripts{
+    constexpr std::array<std::string_view, 14> scripts{
         "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
         "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
-        "QuestTotal.bin", "ItemShop.bin"};
+        "QuestTotal.bin", "ItemShop.bin", "BigMap.bin"};
     mxh::client::ClientUiRuntime runtime;
     std::string error;
     ASSERT_TRUE(runtime.loadMany(playdh, scripts,

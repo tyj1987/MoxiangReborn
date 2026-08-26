@@ -37,10 +37,10 @@ namespace mxh::client {
 // -------------------------------------------------------------------------
 
 namespace {
-constexpr std::array<std::string_view, 13> kChinaGameInUiScripts{
+constexpr std::array<std::string_view, 14> kChinaGameInUiScripts{
     "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
     "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
-    "QuestTotal.bin", "ItemShop.bin"};
+    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin"};
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::array<std::string_view, 4> kInventoryTabButtonIds{
     "IN_TABBTN1", "IN_TABBTN2", "IN_TABBTN3", "IN_TABBTN4"};
@@ -50,6 +50,7 @@ constexpr std::string_view kQuestDialogId = "QUE_TOTALDLG";
 constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
 constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
 constexpr std::string_view kChatDialogId = "CTI_DLG";
+constexpr std::string_view kBigMapDialogId = "BIGMAPDLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 constexpr float kQuickSlotW = 44.0f;
@@ -759,6 +760,7 @@ void CInGameState::Release() {
     m_lastHitTarget = 0;
     m_lastHitResult = 0;
     m_lastDamageTimestampMs = 0;
+    m_mapOpen = false;
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -1941,6 +1943,11 @@ void CInGameState::set_chat_open(bool open) noexcept {
     }
 }
 
+void CInGameState::set_map_open(bool open) noexcept {
+    m_mapOpen = open;
+    m_uiRuntime.setDialogActive(kBigMapDialogId, open);
+}
+
 bool CInGameState::select_quest_index(std::size_t index) noexcept {
     if (index >= m_mainQuests.size() || m_mainQuests[index] == nullptr) {
         return false;
@@ -2096,6 +2103,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         }
         if (vk == kVkL) {  // 'L' toggles the quest log (Q is strafe)
             set_quest_open(!m_questOpen);
+            return;
+        }
+        if (vk == 0x4D) {  // 'M' toggles the full map
+            set_map_open(!m_mapOpen);
             return;
         }
         if (vk == kVkF) {

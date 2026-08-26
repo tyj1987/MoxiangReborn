@@ -118,6 +118,20 @@ TEST(InGamePlayable, StaticCollisionQueryRejectsCandidateStep) {
     EXPECT_EQ(state.local_z(), 1000u);
 }
 
+TEST(InGamePlayable, MKeyTogglesLoadedBigMapDialogState) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::client::GameInInfo info;
+    info.player_id = 42;
+    info.map_num = 10;
+    state.dispatch_gamein_ack(info);
+    EXPECT_FALSE(state.map_open());
+    state.OnKeyEvent(true, 0x4D); // M
+    EXPECT_TRUE(state.map_open());
+    state.OnKeyEvent(true, 0x4D);
+    EXPECT_FALSE(state.map_open());
+}
+
 TEST(InGamePlayable, EffectAudioDistanceUsesAuthoritativeObjectIdentity) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
