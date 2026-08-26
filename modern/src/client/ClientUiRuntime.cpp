@@ -1,5 +1,9 @@
 #include "ClientUiRuntime.hpp"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <vector>
 
@@ -13,6 +17,14 @@
 
 namespace mxh::client {
 namespace {
+
+bool shift_key_down() noexcept {
+#ifdef _WIN32
+    return (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+#else
+    return false;
+#endif
+}
 
 mxh::ui::cWindow* hit_window(mxh::ui::cWindow* window,
                              std::int32_t x, std::int32_t y) noexcept {
@@ -342,7 +354,7 @@ bool ClientUiRuntime::onMouseMove(std::int32_t x, std::int32_t y) {
 }
 
 bool ClientUiRuntime::onKey(bool down, std::int32_t key) {
-    return onKey(down, key, false);
+    return onKey(down, key, shift_key_down());
 }
 
 bool ClientUiRuntime::onKey(bool down, std::int32_t key, bool shift) {
