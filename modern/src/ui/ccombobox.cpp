@@ -97,14 +97,32 @@ void cComboBox::InitComboList(std::uint16_t listWid,
     m_overImage   = overImage;
 }
 
-std::uint32_t cComboBox::ActionEvent(std::int32_t /*mouseX*/,
-                                     std::int32_t /*mouseY*/,
-                                     std::uint32_t /*mouseFlags*/) {
-    // 1:1 with legacy cComboBox::ActionEvent. Modern port is a
-    // no-op stub. The data-side state (m_nOverIdx /
-    // m_nCurSelectedIdx / m_comboText) is preserved when
-    // ListMouseCheck is called directly (which the tests do).
-    return 0;
+std::uint32_t cComboBox::ActionEvent(std::int32_t mouseX,
+                                     std::int32_t mouseY,
+                                     std::uint32_t mouseFlags) {
+    if (!isEnabled()) {
+        m_dropdownOpen = false;
+        m_nOverIdx = -1;
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool left = (mouseFlags & MouseFlagLButton) != 0;
+    if (left && PtInWindow(mouseX, mouseY)) {
+        m_dropdownOpen = !m_dropdownOpen;
+        m_nOverIdx = -1;
+        return static_cast<std::uint32_t>(WindowEvent::LButtonDown);
+    }
+    if (left && m_dropdownOpen) {
+        const auto row = PtIdxInComboList(mouseX, mouseY);
+        if (row < GetItemCount()) {
+            ListMouseCheck(mouseX, mouseY, true);
+            m_dropdownOpen = false;
+            return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
+        }
+    } else if (!left && m_dropdownOpen) {
+        const auto row = PtIdxInComboList(mouseX, mouseY);
+        m_nOverIdx = row < GetItemCount() ? static_cast<int>(row) : -1;
+    }
+    return static_cast<std::uint32_t>(WindowEvent::Null);
 }
 
 void cComboBox::Add(cWindow* pushupBtn) {

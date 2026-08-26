@@ -290,3 +290,31 @@ TEST(CComboBox, ListMouseCheckNoHitResetsSelection) {
     c.ListMouseCheck(50, 9999, /*leftDown*/true);
     EXPECT_EQ(c.GetCurSelectedIdx(), -1);
 }
+
+TEST(CComboBox, PointerClickOpensAndSelectsDropdownRow) {
+    mxh::ui::cComboBox c;
+    c.Init(10, 10, 80, 20);
+    c.InitComboList(80, nullptr, 4, nullptr, 20, nullptr, 4, nullptr);
+    c.AddItem({"first", 0xffffffffu, 0});
+    c.AddItem({"second", 0xffffffffu, 0});
+    EXPECT_FALSE(c.IsDropdownOpen());
+    c.ActionEvent(20, 15, mxh::ui::cWindow::MouseFlagLButton);
+    EXPECT_TRUE(c.IsDropdownOpen());
+    c.ActionEvent(20, 35, mxh::ui::cWindow::MouseFlagLButton);
+    EXPECT_FALSE(c.IsDropdownOpen());
+    EXPECT_EQ(c.GetCurSelectedIdx(), 0);
+    EXPECT_EQ(c.GetComboText(), "first");
+}
+
+TEST(CComboBox, PointerHoverTracksOpenRowAndDisabledCloses) {
+    mxh::ui::cComboBox c;
+    c.Init(0, 0, 80, 20);
+    c.InitComboList(80, nullptr, 4, nullptr, 20, nullptr, 4, nullptr);
+    c.AddItem({"first", 0xffffffffu, 0});
+    c.ActionEvent(5, 5, mxh::ui::cWindow::MouseFlagLButton);
+    c.ActionEvent(5, 25, 0);
+    EXPECT_EQ(c.GetOverIdx(), 0);
+    c.SetEnabled(false);
+    c.ActionEvent(5, 25, 0);
+    EXPECT_FALSE(c.IsDropdownOpen());
+}

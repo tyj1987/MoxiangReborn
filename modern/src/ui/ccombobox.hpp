@@ -124,6 +124,7 @@ public:
     // preserved).
     std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
                               std::uint32_t mouseFlags) override;
+    bool IsDropdownOpen() const noexcept { return m_dropdownOpen; }
 
     // Add: 1:1 with legacy. The legacy checks the pushupBtn's
     // type == WT_PUSHUPBUTTON and casts to cPushupButton*. Modern
@@ -218,6 +219,7 @@ private:
     float m_overImageScaleY = 1.0f;
 
     int m_nOverIdx = -1;
+    bool m_dropdownOpen = false;
 
     std::uint16_t m_listWidth = 0;
     TextClippingRect m_textClippingRect{3, 4, 0, 0};
