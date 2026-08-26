@@ -11,7 +11,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-$runId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$runId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'),
+    ([guid]::NewGuid().ToString('N').Substring(0, 8))
 $runRoot = Join-Path $repoRoot "modern\out\runs\human\$runId"
 $logRoot = Join-Path $runRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
