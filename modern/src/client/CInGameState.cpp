@@ -2460,19 +2460,29 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
     const auto step = step_movement(m_keyMask, m_cameraYaw,
                                     m_localX, m_localZ, dt,
                                     m_worldLimitX, m_worldLimitZ);
+    float next_x = step.x;
+    float next_z = step.z;
     if (step.moving && m_collisionQuery &&
         m_collisionQuery(step.x, step.z, 24.0f)) {
-        // Keep the last valid position and let the next tick retry.  The
-        // server remains authoritative; this only prevents the local avatar
-        // from visibly tunnelling through loaded static geometry.  Rotation
-        // is independent of translation and must remain responsive while the
-        // avatar is pressed against an obstacle.
-        m_cameraYaw = step.yaw;
-        return;
+        // Keep movement responsive against walls by trying each axis
+        // independently.  This produces the legacy-style wall slide while
+        // still refusing a position when both axes are blocked.
+        const bool x_clear = !m_collisionQuery(step.x, m_localZ, 24.0f);
+        const bool z_clear = !m_collisionQuery(m_localX, step.z, 24.0f);
+        if (x_clear) {
+            next_z = m_localZ;
+        } else if (z_clear) {
+            next_x = m_localX;
+        } else {
+            // Rotation is independent of translation and must remain
+            // responsive while the avatar is pressed against an obstacle.
+            m_cameraYaw = step.yaw;
+            return;
+        }
     }
     m_cameraYaw = step.yaw;
-    m_localX = step.x;
-    m_localZ = step.z;
+    m_localX = next_x;
+    m_localZ = next_z;
 
     if (step.moving) {
         m_info.position_x = static_cast<std::uint16_t>(m_localX);

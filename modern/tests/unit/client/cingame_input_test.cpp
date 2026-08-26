@@ -474,6 +474,23 @@ TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
     EXPECT_GT(state.camera_yaw(), before_yaw);
 }
 
+TEST(InGamePlayable, DiagonalCollisionSlidesAlongClearAxis) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.set_collision_query([](float x, float z, float) {
+        // A diagonal destination is blocked, but either axis-aligned
+        // candidate is traversable.
+        return x != 25000.0f && z != 25000.0f;
+    });
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.OnKeyEvent(true, mxh::client::kVkQ);
+    state.Process();
+    EXPECT_TRUE(state.local_x() != 25000u || state.local_z() != 25000u);
+    EXPECT_TRUE(state.local_x() == 25000u || state.local_z() == 25000u);
+}
+
 TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
