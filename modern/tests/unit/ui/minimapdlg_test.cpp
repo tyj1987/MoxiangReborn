@@ -142,6 +142,15 @@ TEST(MiniMapDlg, HeroIconIsSeparateFromTable) {
     EXPECT_EQ(dialog.icon_count(), 0u);
 }
 
+TEST(MiniMapDlg, ClearIconsRemovesWorldAndHeroMarkers) {
+    cMiniMapDlg dialog;
+    dialog.AddHeroIcon(1, 20, 30);
+    dialog.AddIcon(BigMapIconKind::Etc, 2, 40, 50);
+    dialog.ClearIcons();
+    EXPECT_EQ(dialog.icon_count(), 0u);
+    EXPECT_FALSE(dialog.hero_icon().has_value());
+}
+
 TEST(MiniMapDlg, RemoveMissingIconIsNoOp) {
     cMiniMapDlg dialog;
     dialog.RemoveIcon(999);

@@ -46,6 +46,7 @@ public:
 
     void AddHeroIcon(std::uint32_t object_id, std::int32_t x = 0, std::int32_t z = 0);
     void AddIcon(BigMapIconKind kind, std::uint32_t object_id, std::int32_t x = 0, std::int32_t z = 0);
+    void ClearIcons() noexcept;
     void AddPartyMemberIcon(std::uint32_t player_id, std::int32_t x = 0, std::int32_t z = 0);
     void RemoveIcon(std::uint32_t object_id) noexcept;
     void SetPartyIconObjectPos(std::uint32_t player_id, std::int32_t x, std::int32_t z) noexcept;

@@ -15,6 +15,7 @@
 #include "mxh/ui/cAni.hpp"               // M-R4.8: cAni stub (full def, no legacy)
 #include "mxh/ui/cButton.hpp"
 #include "mxh/ui/bigmapdlg.hpp"
+#include "mxh/ui/minimapdlg.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
 #include "mxh/ui/cinventoryexdialog.hpp"
@@ -638,6 +639,9 @@ std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
     }
     if (node.type == "BIGMAPDLG") {
         return std::make_unique<cBigMapDlg>();
+    }
+    if (node.type == "MINIMAPDLG") {
+        return std::make_unique<cMiniMapDlg>();
     }
     if (node.type == "CHARMAKEDLG") {
         return std::make_unique<cCharMakeDlg>();
