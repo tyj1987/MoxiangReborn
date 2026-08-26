@@ -20,5 +20,3 @@ void cInventoryExDialog::RefreshFromInventoryService(){
 }
 void cInventoryExDialog::ReleaseInventory()noexcept{for(auto& s:m_slots)s.reset();m_money=0;m_state=InventoryState::Default;}
 }
-
-
