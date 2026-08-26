@@ -30,8 +30,30 @@ std::string read_string(const std::string& text, const char* key,
            (text[value_start] == ' ' || text[value_start] == '\t')) ++value_start;
     if (value_start >= text.size() || text[value_start] != '\"') return fallback;
     ++value_start;
-    const auto end = text.find('"', value_start);
-    return end == std::string::npos ? fallback : text.substr(value_start, end - value_start);
+    std::string value;
+    value.reserve(32);
+    for (std::size_t cursor = value_start; cursor < text.size(); ++cursor) {
+        const char ch = text[cursor];
+        if (ch == '"') return value;
+        if (static_cast<unsigned char>(ch) < 0x20) return fallback;
+        if (ch != '\\') {
+            value.push_back(ch);
+            continue;
+        }
+        if (++cursor >= text.size()) return fallback;
+        switch (text[cursor]) {
+        case '"': value.push_back('"'); break;
+        case '\\': value.push_back('\\'); break;
+        case '/': value.push_back('/'); break;
+        case 'b': value.push_back('\b'); break;
+        case 'f': value.push_back('\f'); break;
+        case 'n': value.push_back('\n'); break;
+        case 'r': value.push_back('\r'); break;
+        case 't': value.push_back('\t'); break;
+        default: return fallback;
+        }
+    }
+    return fallback;
 }
 
 std::uint32_t read_uint(const std::string& text, const char* key, std::uint32_t fallback) {

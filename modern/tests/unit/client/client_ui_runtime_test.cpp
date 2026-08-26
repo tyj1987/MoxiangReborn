@@ -48,6 +48,29 @@ TEST(ClientSettings, AtomicRoundTripAndValidation) {
     std::filesystem::remove(path);
 }
 
+TEST(ClientSettings, EscapedAccountNameRoundTripsAndMalformedEscapeFallsBack) {
+    const auto path = std::filesystem::temp_directory_path() / "mxh-settings-escaped.json";
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << R"({"schemaVersion":1,"resourceProfileId":"playdh-current",)"
+                  R"("postLoginWidth":1024,"postLoginHeight":768,"lastAccount":"a\"b\n"})";
+    }
+    std::string warning;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &warning);
+    EXPECT_EQ(actual.last_account, "a\"b\n");
+    std::filesystem::remove(path);
+
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << R"({"schemaVersion":1,"resourceProfileId":"playdh-current",)"
+                  R"("postLoginWidth":1024,"postLoginHeight":768,"lastAccount":"bad\q"})";
+    }
+    warning.clear();
+    const auto malformed = mxh::client::ClientSettingsStore::load(path, &warning);
+    EXPECT_TRUE(malformed.last_account.empty());
+    std::filesystem::remove(path);
+}
+
 TEST(ClientSettings, InvalidFileIsBackedUpBeforeDefaults) {
     const auto path = std::filesystem::temp_directory_path() /
                       "mxh-settings-invalid.json";
