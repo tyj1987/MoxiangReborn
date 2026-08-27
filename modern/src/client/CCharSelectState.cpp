@@ -722,6 +722,12 @@ void CCharSelectState::fail_with(const std::string& reason) {
     if (m_failed) return;
     m_failed = true;
     m_failureReason = reason;
+    // State errors must be visible in the real character-select UI.  The
+    // modal is best-effort so headless/unit hosts still retain the structured
+    // failure reason without requiring a loaded message-box asset.
+    if (!m_uiRuntime.showMessage(9000, reason)) {
+        MLOG_WARN("CCharSelectState: unable to present failure dialog");
+    }
     MLOG_ERROR("CCharSelectState: %s", reason.c_str());
 }
 
