@@ -2894,7 +2894,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         const auto image_dir = options.resource_root / "Image";
         if (!cResourceManager::getInstance().allLoaded()) {
             if (!cResourceManager::getInstance().InitScriptManager(image_dir)) {
-                std::fprintf(stderr, "mxh_client: M-R1 cResourceManager init failed\n");
+                std::fprintf(stderr,
+                             "mxh_client: playdh-current image path tables are incomplete; refusing to start\n");
+                MLOG_ERROR("mxh_client: M-R1 cResourceManager init failed; resource profile rejected");
+                return 3;
             } else {
                 MLOG_INFO("mxh_client: M-R1 cResourceManager loaded (%zu total records)",
                           cResourceManager::getInstance().sizeOf(PathFileType::HardPath)
@@ -2907,7 +2910,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             }
         }
         if (!cSpriteAtlas::getInstance().loaded()) {
-            cSpriteAtlas::getInstance().Init(options.resource_root);
+            if (!cSpriteAtlas::getInstance().Init(options.resource_root)) {
+                std::fprintf(stderr,
+                             "mxh_client: playdh-current sprite atlas is incomplete; refusing to start\n");
+                MLOG_ERROR("mxh_client: M-R2 cSpriteAtlas init failed; resource profile rejected");
+                return 3;
+            }
         }
         // Sprite hook is registered here so CharSelect/CharMake/GameIn
         // ClientUiRuntime loads can CreateSpriteObject. Do NOT LoadAll
