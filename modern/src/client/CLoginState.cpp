@@ -208,6 +208,10 @@ mxh::client::LoginResult CLoginState::TakeLoginResult() {
     {
         std::lock_guard<std::mutex> lk(m_mu);
         r.agent_addr = m_agentAddr;
+        // Consume the advertised endpoint while holding the same mutex used
+        // by the network callback that stores it.  Clearing it after unlock
+        // creates a race during a fast login/re-entry cycle.
+        m_agentAddr.clear();
     }
     r.agent_port    = m_agentPort.load(std::memory_order_acquire);
     r.user_idx      = m_userIdx.load(std::memory_order_acquire);
@@ -218,7 +222,6 @@ mxh::client::LoginResult CLoginState::TakeLoginResult() {
               static_cast<unsigned>(r.agent_port));
     // user_level isn't returned by modern LoginServer's 23B ack.
     // Consume so a second call returns empty.
-    m_agentAddr.clear();
     m_agentPort.store(0, std::memory_order_release);
     m_userIdx.store(0, std::memory_order_release);
     return r;
