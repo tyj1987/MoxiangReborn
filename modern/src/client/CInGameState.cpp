@@ -2511,10 +2511,9 @@ void CInGameState::OnMouseButton(bool left, bool down,
             return;
         }
     }
-    if (left && down) {
-        try_attack();
-        return;
-    }
+    // An empty/invalid world click must never fall through to an implicit
+    // nearest-monster attack.  Combat is entered only after the cursor picks
+    // a live monster (the branch above sets m_pendingAttackTarget).
 }
 
 bool CInGameState::request_inventory_move(std::size_t source,
