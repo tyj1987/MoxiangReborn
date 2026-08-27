@@ -1225,6 +1225,10 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CInGameState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
+    // Any request that was in flight is no longer authoritative after the
+    // transport closes.  Clear it before a retry/reconnect can re-enter this
+    // state, otherwise the old drop ID would suppress future pickups.
+    m_pendingPickupDrop = 0;
     if (!m_releasing && m_inGame && !m_failed) {
         const auto detail = std::string("游戏连接已断开：") +
                             mxh::net::to_string(reason);
