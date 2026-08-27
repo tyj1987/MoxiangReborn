@@ -98,6 +98,7 @@ public:
     std::size_t setProgressValue(float value) noexcept;
 
     mxh::ui::cWindow* findWindowByLegacyId(std::string_view id) const;
+    bool focusWindowByLegacyId(std::string_view id) noexcept;
     mxh::ui::cWindow* findWindowByLegacyFunc(std::string_view func) const;
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& dialogs() const noexcept {
         return m_windows.dialogs();

@@ -505,8 +505,16 @@ void ClientUiRuntime::collectClosedModal() noexcept {
 }
 
 mxh::ui::cWindow* ClientUiRuntime::findWindowByLegacyId(
-    std::string_view id) const {
+      std::string_view id) const {
     return m_windows.findWindowByLegacyId(id);
+}
+
+bool ClientUiRuntime::focusWindowByLegacyId(std::string_view id) noexcept {
+    if (!m_active) return false;
+    auto* window = findWindowByLegacyId(id);
+    if (!window) return false;
+    focus(window);
+    return true;
 }
 
 mxh::ui::cWindow* ClientUiRuntime::findWindowByLegacyFunc(

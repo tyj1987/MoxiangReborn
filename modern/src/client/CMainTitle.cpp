@@ -243,6 +243,8 @@ void CMainTitle::sync_credentials_from_edits() {
 bool CMainTitle::trySubmit() {
     sync_credentials_from_edits();
     if (m_username.empty() || m_password.empty()) {
+        (void)m_uiRuntime.focusWindowByLegacyId(
+            m_username.empty() ? "MT_IDEDITBOX" : "MT_PWDEDITBOX");
         (void)m_uiRuntime.showMessage(
             9202, "请输入账号和密码。");
         return false;
