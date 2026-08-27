@@ -410,6 +410,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // Inspectors (test + overlay).
     bool         is_connected() const noexcept;
     bool         is_in_game()   const noexcept { return m_inGame; }
+    bool         is_failed() const noexcept { return m_failed; }
+    const std::string& failure_reason() const noexcept { return m_failureReason; }
     bool smoke_exit_requested() const noexcept { return m_smokeExitRequested; }
     bool smoke_exit_ready() const noexcept {
         if (!m_smokeExitRequested) return false;

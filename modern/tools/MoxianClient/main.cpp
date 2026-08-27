@@ -3273,6 +3273,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     mainGame.SetGameState(mxh::client::GameStateId::CharSelect);
                 }
             }
+            if (cur_state == mxh::client::GameStateId::GameIn) {
+                if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
+                        mainGame.GetGameState(cur_state));
+                    game_in && game_in->is_failed()) {
+                    pending_loading_error = game_in->failure_reason();
+                    if (pending_loading_error.empty()) {
+                        pending_loading_error = "游戏连接已断开";
+                    }
+                    MLOG_ERROR("GameIn: %s", pending_loading_error.c_str());
+                    mainGame.SetGameState(mxh::client::GameStateId::Title);
+                }
+            }
             // GameLoading consumer must run every frame when the state is
             // GameLoading, because the CCharSelectState TCP recv thread may
             // set the GameEntryRequest transfer AFTER the state-transition
