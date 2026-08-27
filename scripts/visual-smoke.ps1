@@ -9,7 +9,7 @@ visual-smoke.ps1 — M-R0 视觉基线
   5. hud-only   — gamein + HP/MP/QuickSlot 显示
   6. inventory  — gamein + I 键开 Inventory
 
-每状态截 1 张 .tga + 1 张 .png（同一帧），存到 modern/docs/screenshots/baseline/
+每状态截 1 张 .tga + 1 张 .png（同一帧），存到 modern/out/runs/visual-smoke/<run-id>/
 
 usage:
   pwsh -File scripts/visual-smoke.ps1
@@ -23,7 +23,7 @@ param(
     [string]$Username = 'visualsmoke',
     [string]$Password = 'V1sualSm0ke',
     [string]$CharacterName = 'VisualSmoke',
-    [string]$LoginHost = '192.168.2.107',
+    [string]$LoginHost = '127.0.0.1',
     [string]$DbCfg = '',
     [string]$SqlHost = '192.168.2.203',
     [string]$SqlDatabase = 'Moxiang',
@@ -46,7 +46,7 @@ if (-not (Test-Path -LiteralPath $clientExe)) {
 
 # 截图输出目录
 $runId = [Guid]::NewGuid().ToString('N').Substring(0, 8)
-$runRoot = Join-Path $repoRoot "modern\docs\restoration-plan\baseline\$runId"
+$runRoot = Join-Path $repoRoot "modern\out\runs\visual-smoke\$runId"
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
 $logDir = Join-Path $runRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
