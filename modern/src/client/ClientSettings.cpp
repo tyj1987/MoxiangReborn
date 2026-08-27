@@ -25,9 +25,27 @@ bool directory_writable(const std::filesystem::path& directory) {
 std::string escape_json(const std::string& value) {
     std::string out;
     out.reserve(value.size() + 4);
+    constexpr char hex[] = "0123456789abcdef";
     for (const char ch : value) {
-        if (ch == '\\' || ch == '"') out.push_back('\\');
-        out.push_back(ch);
+        switch (ch) {
+        case '\\': out += "\\\\"; break;
+        case '"': out += "\\\""; break;
+        case '\b': out += "\\b"; break;
+        case '\f': out += "\\f"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        default:
+            if (static_cast<unsigned char>(ch) < 0x20u) {
+                const auto byte = static_cast<unsigned char>(ch);
+                out += "\\u00";
+                out.push_back(hex[(byte >> 4) & 0x0f]);
+                out.push_back(hex[byte & 0x0f]);
+            } else {
+                out.push_back(ch);
+            }
+            break;
+        }
     }
     return out;
 }
@@ -62,6 +80,22 @@ std::string read_string(const std::string& text, const char* key,
         case 'n': value.push_back('\n'); break;
         case 'r': value.push_back('\r'); break;
         case 't': value.push_back('\t'); break;
+        case 'u': {
+            if (cursor + 4 >= text.size() || text[cursor + 1] != '0' ||
+                text[cursor + 2] != '0') return fallback;
+            const auto hex_value = [](char digit) -> int {
+                if (digit >= '0' && digit <= '9') return digit - '0';
+                if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
+                if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
+                return -1;
+            };
+            const int hi = hex_value(text[cursor + 3]);
+            const int lo = hex_value(text[cursor + 4]);
+            if (hi < 0 || lo < 0) return fallback;
+            value.push_back(static_cast<char>((hi << 4) | lo));
+            cursor += 4;
+            break;
+        }
         default: return fallback;
         }
     }

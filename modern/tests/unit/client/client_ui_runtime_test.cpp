@@ -122,6 +122,20 @@ TEST(ClientSettings, NonFiniteVolumeFallsBackToSafeDefault) {
     std::filesystem::remove(path, ignored);
 }
 
+TEST(ClientSettings, EscapesControlBytesInPersistedAccount) {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "mxh-settings-control-account.json";
+    mxh::client::ClientSettingsV1 expected;
+    expected.last_account = "acct\n\x01";
+    std::string error;
+    ASSERT_TRUE(mxh::client::ClientSettingsStore::save_atomic(path, expected, &error))
+        << error;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &error);
+    EXPECT_EQ(actual.last_account, expected.last_account);
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+}
+
 TEST(ClientSettings, UnknownSchemaIsBackedUpAndDefaultsAreUsed) {
     const auto path = std::filesystem::temp_directory_path() / "mxh-settings-schema.json";
     {
