@@ -32,11 +32,13 @@ struct LauncherEndpoints {
     int mapPort = 8001;
 };
 
-static int parsePort(const wchar_t* value, int fallback) noexcept {
+static int parsePort(const wchar_t* value, int fallback, bool* valid = nullptr) noexcept {
+    if (valid) *valid = false;
     if (!value || !*value) return fallback;
     wchar_t* end = nullptr;
     const auto parsed = std::wcstol(value, &end, 10);
     if (end == value || *end != L'\0' || parsed < 1 || parsed > 65535) return fallback;
+    if (valid) *valid = true;
     return static_cast<int>(parsed);
 }
 
@@ -434,17 +436,22 @@ private:
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     LauncherEndpoints endpoints;
     fs::path resourceRoot;
+    bool invalidEndpoint = false;
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argv) {
         for (int i = 1; i + 1 < argc; ++i) {
             const auto name = std::wstring_view(argv[i]);
-            if (name == L"--login-port") endpoints.loginPort = parsePort(argv[++i], endpoints.loginPort);
-            else if (name == L"--agent-port") endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort);
-            else if (name == L"--map-port") endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort);
+            if (name == L"--login-port") { bool valid = false; endpoints.loginPort = parsePort(argv[++i], endpoints.loginPort, &valid); invalidEndpoint |= !valid; }
+            else if (name == L"--agent-port") { bool valid = false; endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort, &valid); invalidEndpoint |= !valid; }
+            else if (name == L"--map-port") { bool valid = false; endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort, &valid); invalidEndpoint |= !valid; }
             else if (name == L"--resource-root") resourceRoot = fs::path(argv[++i]);
         }
         LocalFree(argv);
+    }
+    if (invalidEndpoint) {
+        MessageBoxW(nullptr, L"服务端口必须是 1 到 65535 之间的整数。", L"启动器配置错误", MB_ICONERROR);
+        return 2;
     }
     if (endpoints.loginPort == endpoints.agentPort ||
         endpoints.loginPort == endpoints.mapPort ||
