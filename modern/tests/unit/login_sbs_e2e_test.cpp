@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <future>
 #include <filesystem>
+#include <cstdlib>
 #include <string>
 #include <thread>
 
@@ -65,4 +66,27 @@ TEST(MoxianLoginSbsE2E, ModernLoginAcceptsLegacy38BytePayload) {
     // The unit-test side only verifies binary presence + a smoke
     // that the test framework itself is wired in correctly.
     SUCCEED() << "login/sbs binaries present; E2E run is via scratch script";
+}
+
+TEST(MoxianLoginSbsE2E, StartsLoginServerAndAcceptsLoopbackProbe) {
+    const auto sbs = sbs_exe_path();
+    if (sbs.empty() || !exists(sbs)) GTEST_SKIP() << "modern side-by-side not built";
+    const auto tools_root = std::filesystem::path(sbs).parent_path().parent_path();
+    const auto capture = std::filesystem::temp_directory_path() /
+                         "mxh_login_sbs_probe";
+    std::filesystem::remove_all(capture);
+    std::filesystem::create_directories(capture);
+    const auto quote = [](const std::string& value) {
+        return std::string("\"") + value + "\"";
+    };
+    const auto command = quote(sbs) +
+        " --modern-only --start --scenario login --allow-empty" +
+        " --modern-server-dir " + quote(tools_root.string()) +
+        " --modern-port 26101 --capture-dir " + quote(capture.string()) +
+        " --timeout 3";
+    // cmd.exe needs an outer quote pair when /c starts with a quoted path.
+    const auto shell_command = std::string("cmd /c \"") + command + "\"";
+    const int rc = std::system(shell_command.c_str());
+    std::filesystem::remove_all(capture);
+    ASSERT_EQ(rc, 0) << "side-by-side login probe failed, rc=" << rc;
 }
