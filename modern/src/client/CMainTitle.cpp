@@ -242,7 +242,11 @@ void CMainTitle::sync_credentials_from_edits() {
 
 bool CMainTitle::trySubmit() {
     sync_credentials_from_edits();
-    if (m_username.empty() || m_password.empty()) return false;
+    if (m_username.empty() || m_password.empty()) {
+        (void)m_uiRuntime.showMessage(
+            9202, "请输入账号和密码。");
+        return false;
+    }
     m_submitRequested = true;
     return true;
 }
