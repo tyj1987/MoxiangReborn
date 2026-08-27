@@ -734,8 +734,11 @@ void CInGameState::Release() {
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
     m_pendingSkillId = 0;
+    m_pendingSkillSinceMs = 0;
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
+    m_pendingSkillId = 0;
+    m_pendingSkillSinceMs = 0;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
@@ -883,6 +886,16 @@ void CInGameState::Process() {
         }
     }
     const auto now_ms = steady_now_ms();
+    constexpr std::uint64_t kCombatRequestTimeoutMs = 5000;
+    if (m_pendingSkillId != 0 && m_pendingSkillSinceMs != 0 &&
+        now_ms - m_pendingSkillSinceMs >= kCombatRequestTimeoutMs) {
+        MLOG_WARN("CInGameState: combat request timed out skill=%u",
+                  static_cast<unsigned>(m_pendingSkillId));
+        m_pendingSkillId = 0;
+        m_pendingSkillSinceMs = 0;
+        m_lastSkillError = "Server response timed out.";
+        (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
+    }
     m_effectRuntime.advance(now_ms, [this](const RuntimeEffectEvent& event) {
         constexpr std::size_t kMaxRuntimeEvents = 256;
         if (m_runtimeEffectEvents.size() >= kMaxRuntimeEvents) {
@@ -1579,6 +1592,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 // clearing it here, the later SingleResult path would start
                 // the same BEFF timeline a second time.
                 m_pendingSkillId = 0;
+                m_pendingSkillSinceMs = 0;
                 push_effect_event(EffectEvent{
                     EffectEventKind::CastRelease, m_lastTickMs, source_object,
                     skill_object, skill_idx, skill_idx, 0, 0, 0});
@@ -1595,6 +1609,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 : err == 4u ? "Target is out of range."
                 : "Skill could not be used.";
             m_pendingSkillId = 0;
+            m_pendingSkillSinceMs = 0;
             (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
             MLOG_WARN("CInGameState: SkillStartNack error=%u",
                       static_cast<unsigned>(err));
@@ -1618,6 +1633,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                     start_skill_effect(m_pendingSkillId, target, m_lastTickMs,
                                        source_object);
                     m_pendingSkillId = 0;
+                    m_pendingSkillSinceMs = 0;
                 }
                 push_effect_event(EffectEvent{
                     EffectEventKind::Hit, m_lastTickMs, source_object, target,
@@ -2929,6 +2945,7 @@ void CInGameState::try_attack() {
                    mxh::net::to_string(e));
     } else {
         m_pendingSkillId = 1u;
+        m_pendingSkillSinceMs = now;
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
     }
@@ -3048,6 +3065,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_pendingSkillId = skill;
+        m_pendingSkillSinceMs = now;
         m_lastAttackMs = now;
         push_effect_event(EffectEvent{
             EffectEventKind::CastStart, now, m_playerId, target,
