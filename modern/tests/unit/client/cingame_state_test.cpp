@@ -544,4 +544,8 @@ TEST(InGameEntityLifecycle, ReleaseClearsWorldOwnedStateBeforeMapChange) {
     EXPECT_TRUE(state.monsters().empty());
     EXPECT_TRUE(state.npcs().empty());
     EXPECT_TRUE(state.ground_drops().empty());
+    EXPECT_EQ(state.local_x(), 0u);
+    EXPECT_EQ(state.local_z(), 0u);
+    EXPECT_FLOAT_EQ(state.camera_yaw(), 0.0f);
+    EXPECT_FLOAT_EQ(state.camera_distance(), 7.0f);
 }

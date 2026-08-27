@@ -777,6 +777,8 @@ void CInGameState::Release() {
     // frame delta before the new GameIn handshake arrives.
     m_cameraYaw = 0.0f;
     m_cameraDistance = 7.0f;
+    m_localX = 0.0f;
+    m_localZ = 0.0f;
     m_lastTickMs = 0;
     m_lastMoveSendMs = 0;
     m_inventoryDragSource.reset();
