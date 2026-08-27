@@ -36,6 +36,7 @@
 /modern/data/screenshots/
 /modern/docs/smoke_artifacts/
 /deploy/runtime/
+/deploy/client/
 /dist/
 
 # Local resource and reference payloads; manifests remain tracked.
