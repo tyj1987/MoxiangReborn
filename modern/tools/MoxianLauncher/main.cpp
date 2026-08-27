@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <optional>
 
 namespace fs = std::filesystem;
 
@@ -511,6 +512,12 @@ private:
                     MessageBoxW(hwnd_, (L"资源校验失败：\n" + hashError + L"\n未执行任何删除或下载。请从正式 profile 修复资源。").c_str(), L"检查/修复", MB_ICONERROR);
                     return 0;
                 }
+                // Keep the successful verification for this launcher
+                // session.  The launcher has no operation that mutates the
+                // installed profile after this point, so hashing every
+                // 5,000+ resource files again when Start is clicked would
+                // only add a long, redundant pause.
+                verifiedResourceRoot_ = fs::weakly_canonical(validRoot);
                 MessageBoxW(hwnd_, (L"本地资源基础检查和 SHA-256 校验通过：\n" + validRoot.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
             }
             return 0;
@@ -572,10 +579,15 @@ private:
             MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map10、怪物、NPC、登录、选角、建角或音频资源。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
             return;
         }
-        std::wstring hashError;
-        if (!verifyRequiredResourceHashes(resourceRoot, hashError)) {
-            MessageBoxW(hwnd_, (L"playdh-current 资源校验失败：\n" + hashError).c_str(), L"启动失败", MB_ICONERROR);
-            return;
+        const auto canonicalRoot = fs::weakly_canonical(resourceRoot);
+        if (!verifiedResourceRoot_.has_value() ||
+            canonicalRoot != *verifiedResourceRoot_) {
+            std::wstring hashError;
+            if (!verifyRequiredResourceHashes(resourceRoot, hashError)) {
+                MessageBoxW(hwnd_, (L"playdh-current 资源校验失败：\n" + hashError).c_str(), L"启动失败", MB_ICONERROR);
+                return;
+            }
+            verifiedResourceRoot_ = canonicalRoot;
         }
         std::wstring command = quoteWindowsArg(client.wstring()) + L" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight) +
             L" --login-port " + std::to_wstring(endpoints_.loginPort) +
@@ -593,6 +605,7 @@ private:
     HWND hwnd_{}; LauncherSettings settings_{}; LauncherEndpoints endpoints_{};
     fs::path resourceRoot_{};
     fs::path evidenceDir_{};
+    std::optional<fs::path> verifiedResourceRoot_{};
 };
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
