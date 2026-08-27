@@ -37,6 +37,7 @@
 //    inventory uses a single SetDisable on the whole dialog).
 
 #include "cIconGridDialog.hpp"
+#include "cImage.hpp"
 
 namespace mxh::ui {
 
@@ -45,6 +46,29 @@ cIconGridDialog::cIconGridDialog() = default;
 cIconGridDialog::~cIconGridDialog() {
     delete[] m_pIconGridCell;
     m_pIconGridCell = nullptr;
+}
+
+void cIconGridDialog::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+    if (!m_pIconGridCell) return;
+
+    const auto drawImage = [](void* image, int x, int y, int w, int h) {
+        if (!image || w <= 0 || h <= 0) return;
+        static_cast<cImage*>(image)->render(x, y, w, h);
+    };
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t pos = 0; pos < count; ++pos) {
+        const auto cellX = static_cast<std::uint16_t>(pos % m_nCol);
+        const auto cellY = static_cast<std::uint16_t>(pos / m_nCol);
+        const int x = absX() + m_gridX + static_cast<int>(m_wCellBorderX) * (cellX + 1)
+                    + static_cast<int>(cellX) * m_wCellWidth;
+        const int y = absY() + m_gridY + static_cast<int>(m_wCellBorderY) * (cellY + 1)
+                    + static_cast<int>(cellY) * m_wCellHeight;
+        if (m_bShowGrid) drawImage(m_iconCellBGImage, x, y, m_wCellWidth, m_wCellHeight);
+        if (static_cast<int>(pos) == m_lCurSelCellPos || static_cast<int>(pos) == m_lCurDragOverPos)
+            drawImage(m_dragOverBGImage, x, y, m_wCellWidth, m_wCellHeight);
+    }
 }
 
 void cIconGridDialog::Init(std::int32_t x, std::int32_t y,

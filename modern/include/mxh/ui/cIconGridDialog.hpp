@@ -85,9 +85,9 @@ public:
                   std::uint16_t cellWid, std::uint16_t cellHei,
                   std::uint16_t borderX,  std::uint16_t borderY);
 
-    // Render placeholder. The real draw (selected-bg, drag-over-bg,
-    // per-cell icon sprites) lands with the 6.6 cImage seam.
-    void Render() override {}
+    // Render the grid background and selection overlays through cImage;
+    // icon payload drawing remains owned by the eventual cIcon renderer.
+    void Render() override;
 
     // ActionEvent: row hit-test + selection update + drag dispatch.
     // Returns WE_LBTNCLICK on a successful cell click, otherwise the
@@ -168,8 +168,8 @@ public:
     // so the 1:1 UI integration tests don't have to wire images. The
     // cImage seam arrives in 6.6.
     // -------------------------------------------------------------------------
-    void SetIconCellBGImage(void* /*img*/) noexcept {}
-    void SetDragOverBGImage(void* /*img*/) noexcept {}
+    void SetIconCellBGImage(void* img) noexcept { m_iconCellBGImage = img; }
+    void SetDragOverBGImage(void* img) noexcept { m_dragOverBGImage = img; }
 
     void SetShowGrid(bool val) noexcept         { m_bShowGrid = val; }
     bool IsShowGrid() const noexcept           { return m_bShowGrid; }
@@ -239,6 +239,8 @@ private:
     bool             m_bItemDraged      = false;
     bool             m_bShowGrid        = false;
     int              m_nIconType        = 0;
+    void*            m_iconCellBGImage  = nullptr;
+    void*            m_dragOverBGImage  = nullptr;
 
     // Acceptable icon type bitmask.
     std::uint32_t    m_acceptableIconType = 0xFFFFFFFFu;
