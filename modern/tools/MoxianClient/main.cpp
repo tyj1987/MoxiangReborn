@@ -2351,31 +2351,33 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         } else if (GetCapture() == h) {
             ReleaseCapture();
         }
-        if (m == WM_LBUTTONUP && g_sfxPlayer && g_uiClickSound != 0xffffu) {
-            std::string audio_error;
-                        (void)g_sfxPlayer->playOnBus(g_uiClickSound,
-                                                     g_uiVolume,
-                                                     &audio_error);
-        }
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
         if (!logical.has_value()) return 0;
         const auto x = static_cast<std::int32_t>(logical->x);
         const auto y = static_cast<std::int32_t>(logical->y);
+        const auto playUiClick = [&]() {
+            if (m != WM_LBUTTONUP || !g_sfxPlayer || g_uiClickSound == 0xffffu) return;
+            std::string audio_error;
+            (void)g_sfxPlayer->playOnBus(g_uiClickSound, g_uiVolume, &audio_error);
+        };
         if (g_mainTitle &&
             g_mainTitle->OnMouseButton(true, m == WM_LBUTTONDOWN, x, y)) {
+            playUiClick();
             InvalidateRect(h, nullptr, FALSE);
             return 0;
         }
         if (g_charSelectState &&
             g_charSelectState->OnMouseButton(
                 true, m == WM_LBUTTONDOWN, x, y)) {
+            playUiClick();
             return 0;
         }
         if (g_charMakeState &&
             g_charMakeState->OnMouseButton(
                 true, m == WM_LBUTTONDOWN, x, y)) {
+            playUiClick();
             return 0;
         }
         if (g_inputTarget) {
