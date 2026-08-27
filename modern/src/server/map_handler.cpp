@@ -683,6 +683,15 @@ void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
         const auto slot = std::get<std::int64_t>(row[1]);
         mxh::game::ItemBase item{};
         item.dwDBIdx = static_cast<std::uint32_t>(std::get<std::int64_t>(row[2]));
+        if (item.dwDBIdx != 0u) {
+            auto next = next_item_db_idx_.load(std::memory_order_relaxed);
+            while (next <= item.dwDBIdx &&
+                   !next_item_db_idx_.compare_exchange_weak(
+                       next, item.dwDBIdx + 1u,
+                       std::memory_order_relaxed,
+                       std::memory_order_relaxed)) {
+            }
+        }
         item.wIconIdx = static_cast<std::uint16_t>(std::get<std::int64_t>(row[3]));
         item.Durability = static_cast<std::uint32_t>(std::get<std::int64_t>(row[4]));
         item.RareIdx = static_cast<std::uint32_t>(std::get<std::int64_t>(row[5]));
