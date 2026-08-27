@@ -2691,6 +2691,49 @@ bool CInGameState::move_to_screen(float screen_x, float screen_y) {
     }
     target_x = std::clamp(target_x, 0.0f, m_worldLimitX);
     target_z = std::clamp(target_z, 0.0f, m_worldLimitZ);
+    if (m_collisionQuery) {
+        const bool endpoint_blocked = m_collisionQuery(target_x, target_z, 24.0f);
+        if (endpoint_blocked) {
+            // Preserve legacy axis sliding before the segment sweep.  This
+            // also lets a diagonal click around a corner remain usable.
+            const bool x_clear = !m_collisionQuery(target_x, m_localZ, 24.0f);
+            const bool z_clear = !m_collisionQuery(m_localX, target_z, 24.0f);
+            if (x_clear) target_z = m_localZ;
+            else if (z_clear) target_x = m_localX;
+        }
+        // Check the whole click-to-move segment, not just its endpoint. A
+        // point test permits tunnelling through thin walls when a single
+        // click spans several tiles. Stop at the last clear sample so the
+        // server receives a reachable target and can still correct us.
+        const float dx = target_x - m_localX;
+        const float dz = target_z - m_localZ;
+        const float distance = std::sqrt(dx * dx + dz * dz);
+        const auto samples = std::max(1, static_cast<int>(std::ceil(distance / 64.0f)));
+        float clear_x = m_localX;
+        float clear_z = m_localZ;
+        bool blocked = false;
+        for (int sample = 1; sample <= samples; ++sample) {
+            const float t = static_cast<float>(sample) / static_cast<float>(samples);
+            const float probe_x = m_localX + dx * t;
+            const float probe_z = m_localZ + dz * t;
+            if (m_collisionQuery(probe_x, probe_z, 24.0f)) {
+                blocked = true;
+                break;
+            }
+            clear_x = probe_x;
+            clear_z = probe_z;
+        }
+        if (blocked) {
+            if (clear_x == m_localX && clear_z == m_localZ) {
+                // If the original destination was blocked and neither axis
+                // offered a slide, consume the click without moving.
+                MLOG_DEBUG("CInGameState: click move blocked along path");
+                return true;
+            }
+            target_x = clear_x;
+            target_z = clear_z;
+        }
+    }
     if (m_collisionQuery && m_collisionQuery(target_x, target_z, 24.0f)) {
         const bool x_clear = !m_collisionQuery(target_x, m_localZ, 24.0f);
         const bool z_clear = !m_collisionQuery(m_localX, target_z, 24.0f);
