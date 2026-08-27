@@ -1,5 +1,5 @@
 // mxh/tests/unit/client/cmain_title_test.cpp
-// Unit tests for mxh::client::CMainTitle (Phase A.1.8).
+// Unit tests for mxh::client::CMainTitle.
 //
 // Locks down the 1:1 surface:
 //   * Init reads MHVerInfo.ver and stores the version in
@@ -8,7 +8,7 @@
 //   * OnDisconnect updates the state machine flags (m_bDisconntinToDist,
 //     m_dwDiconWaitTime, m_bWaitConnectToAgent, m_bServerList).
 //   * GetDistAuthKey / GetUserIdx default to 0.
-//   * Process() is a no-op without crashing.
+//   * Process() remains safe across the active title lifecycle.
 
 #include "CMainTitle.hpp"
 #include "CEngine.hpp"
@@ -101,7 +101,7 @@ TEST(CMainTitle, LifecycleTogglesInitialized) {
     EXPECT_FALSE(title.isInitialized());
     title.Init(nullptr);
     EXPECT_TRUE(title.isInitialized());
-    title.Process();     // no-op stub
+    title.Process();
     title.Release();
     EXPECT_FALSE(title.isInitialized());
 }
