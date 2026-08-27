@@ -90,6 +90,11 @@ std::optional<mxh::gx::ScenePlayer> make_character_preview(
     const CharacterSlot& slot, float world_x = 25600.0f,
     float world_y = 0.0f, float world_z = 25600.0f);
 
+// Selection is authoritative to the most recently received list.  Keeping
+// this check separate makes the rule testable without opening a socket.
+bool is_listed_character(std::span<const CharacterSlot> slots,
+                         std::uint32_t chrid) noexcept;
+
 // Build the 8-byte CharacterListSyn payload (agent_handler.cpp:526-538):
 //   [user_id: u32 LE] [dist_auth_key: u32 LE]
 std::vector<std::uint8_t>

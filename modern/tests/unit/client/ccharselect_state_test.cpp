@@ -258,6 +258,17 @@ TEST(CharSelectWire, SelectAckEmptyPayload) {
     EXPECT_FALSE(map.has_value());
 }
 
+TEST(CharSelectSelection, RequiresLiveListedCharacter) {
+    std::array<mxh::client::CharacterSlot, 2> slots{};
+    slots[0].valid = true;
+    slots[0].chrid = 42;
+    slots[1].valid = false;
+    slots[1].chrid = 99;
+    EXPECT_TRUE(mxh::client::is_listed_character(slots, 42));
+    EXPECT_FALSE(mxh::client::is_listed_character(slots, 99));
+    EXPECT_FALSE(mxh::client::is_listed_character(slots, 0));
+}
+
 // -------------------------------------------------------------------------
 // CCharSelectState default state — no Start, no list, no selection.
 // -------------------------------------------------------------------------

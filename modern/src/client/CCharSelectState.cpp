@@ -35,6 +35,15 @@ std::optional<mxh::gx::ScenePlayer> make_character_preview(
     return preview;
 }
 
+bool is_listed_character(std::span<const CharacterSlot> slots,
+                         std::uint32_t chrid) noexcept {
+    return chrid != 0 && std::any_of(
+        slots.begin(), slots.end(),
+        [chrid](const CharacterSlot& slot) {
+            return slot.valid && slot.chrid == chrid;
+        });
+}
+
 CharSelectUiCommand resolve_char_select_ui_command(
     const ClientUiActivation& activation) noexcept {
     static constexpr std::string_view kSlotIds[] = {
@@ -509,6 +518,10 @@ void CCharSelectState::auto_select_first() {
 void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
     if (!is_connected()) {
         fail_with("SelectCharacter: not connected to AgentServer");
+        return;
+    }
+    if (!is_listed_character(m_characters, chrid)) {
+        fail_with("SelectCharacter: character is not present in the current list");
         return;
     }
     if (m_selectSent) {
