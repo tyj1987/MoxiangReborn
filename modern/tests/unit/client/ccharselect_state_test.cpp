@@ -228,6 +228,17 @@ TEST(CharSelectWire, ListAckHonorsAdvertisedCharacterCount) {
     EXPECT_EQ((*list)[1].chrid, 0u);
 }
 
+TEST(CharSelectWire, ListAckRejectsNegativeAdvertisedCount) {
+    std::array<std::uint8_t, 889> buf{};
+    const std::int32_t invalid_count = -1;
+    const std::uint32_t stale_id = 77;
+    std::memcpy(buf.data(), &invalid_count, sizeof(invalid_count));
+    std::memcpy(buf.data() + 14, &stale_id, sizeof(stale_id));
+    const auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_FALSE((*list)[0].valid);
+}
+
 TEST(CharSelectWire, ListAckTooShort) {
     std::array<std::uint8_t, 3> buf{};
     auto list = parse_legacy_character_list_ack(

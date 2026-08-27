@@ -139,10 +139,12 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     constexpr std::size_t kTotalOff   = 189;
     constexpr std::size_t kTotalSize  = 140;
 
-    std::uint32_t advertised_count = 0;
+    std::int32_t advertised_count = 0;
     std::memcpy(&advertised_count, payload.data(), sizeof(advertised_count));
-    const std::size_t char_count = std::min<std::size_t>(
-        kMaxSlots, static_cast<std::size_t>(advertised_count));
+    const std::size_t char_count = advertised_count > 0
+        ? std::min<std::size_t>(kMaxSlots,
+                                static_cast<std::size_t>(advertised_count))
+        : 0;
 
     std::vector<CharacterSlot> out(kMaxSlots);
     const std::size_t avail_for_slots = (payload.size() >= kBaseOff
