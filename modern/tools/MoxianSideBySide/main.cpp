@@ -312,7 +312,7 @@ int main(int argc, char** argv) {
             const auto mapPath = find_server_binary(
                 a.modern_server_dir, "MoxianMapServer", "mxh_map_server_CHINA.exe");
             ServerLaunch ml{loginPath, {}};
-            if (a.modern_legacy) ml.args.push_back("--legacy");
+            if (a.modern_legacy || a.modern_only) ml.args.push_back("--legacy");
             ml.args.push_back("--port"); ml.args.push_back(std::to_string(a.modern_port));
             ml.args.push_back("--init-schema");
             ml.args.push_back("--agent-addr"); ml.args.push_back("127.0.0.1");
@@ -320,12 +320,13 @@ int main(int argc, char** argv) {
             const bool login_only = a.scenario == "login";
             std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
                                                 "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
-if (a.modern_legacy) ma_args.push_back("--legacy");
+if (a.modern_legacy || a.modern_only) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
             std::vector<std::string> mm_args = {
                 "--port", std::to_string(a.modern_map_port), "--map",
                 std::to_string(a.map_num),
                 "--dev-stub-caster"};
+            if (a.modern_legacy || a.modern_only) mm_args.push_back("--legacy");
             if (!a.resource_root.empty()) {
                 mm_args.push_back("--resource-root");
                 mm_args.push_back(a.resource_root);
@@ -404,8 +405,12 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
             mxh::tools::sidebyside::save_capture(legacyTrace, legacyPath);
         }
         mxh::tools::sidebyside::save_capture(modernTrace, modernPath);
-        const auto diffs = mxh::tools::sidebyside::diff_traces(legacyTrace, modernTrace, options);
-        const bool missingTrace = legacyTrace.empty() || modernTrace.empty();
+        const bool has_expected_trace = !a.modern_only || !a.golden_path.empty();
+        const auto diffs = has_expected_trace
+            ? mxh::tools::sidebyside::diff_traces(legacyTrace, modernTrace, options)
+            : std::vector<mxh::tools::sidebyside::PacketDiff>{};
+        const bool missingTrace = has_expected_trace &&
+            (legacyTrace.empty() || modernTrace.empty());
         std::cout << "  expected=" << legacyTrace.size() << " modern="
                   << modernTrace.size() << " diff=" << diffs.size();
         if (missingTrace) std::cout << " missing_trace=true";
