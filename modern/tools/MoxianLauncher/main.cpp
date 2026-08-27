@@ -152,8 +152,18 @@ static fs::path locateResourceRoot(const fs::path& executable) {
         bin.parent_path() / L"modern" / L"data" / L"PlayDH"
     };
     for (const auto& root : roots) {
-        if (fs::is_regular_file(root / L"Map.pak") &&
-            fs::is_regular_file(root / L"Image" / L"InterfaceScript" / L"IDDlg.bin")) {
+        const fs::path required[] = {
+            root / L"Map.pak",
+            root / L"Resource" / L"Map" / L"Map10.bmhm",
+            root / L"Resource" / L"MonsterList.bin",
+            root / L"Resource" / L"Client" / L"NpcChxList.bin",
+            root / L"Image" / L"InterfaceScript" / L"IDDlg.bin",
+            root / L"Image" / L"InterfaceScript" / L"CharSelectDlg.bin",
+            root / L"Image" / L"InterfaceScript" / L"CharMakeNewDlg.bin",
+            root / L"Sound" / L"SoundList.bin"
+        };
+        if (std::all_of(std::begin(required), std::end(required),
+                        [](const auto& path) { return fs::is_regular_file(path); })) {
             return root;
         }
     }
@@ -226,7 +236,7 @@ private:
             GetModuleFileNameW(nullptr, module, MAX_PATH);
             const auto root = locateResourceRoot(fs::path(module));
             if (root.empty()) {
-                MessageBoxW(hwnd_, L"资源检查失败：缺少 Map.pak 或 Image\\InterfaceScript\\IDDlg.bin。未执行任何删除或下载。", L"检查/修复", MB_ICONERROR);
+                MessageBoxW(hwnd_, L"资源检查失败：缺少运行所需的 Map10、怪物、NPC、登录、选角、建角或音频资源。未执行任何删除或下载。", L"检查/修复", MB_ICONERROR);
             } else {
                 MessageBoxW(hwnd_, (L"本地资源基础文件检查通过：\n" + root.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
             }
@@ -282,7 +292,7 @@ private:
         // produces a misleading black/error screen in the client.
         const fs::path resourceRoot = locateResourceRoot(fs::path(module));
         if (resourceRoot.empty()) {
-            MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map.pak 或 Image\\InterfaceScript\\IDDlg.bin。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
+            MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map10、怪物、NPC、登录、选角、建角或音频资源。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
             return;
         }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
