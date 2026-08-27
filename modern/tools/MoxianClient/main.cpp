@@ -2278,6 +2278,20 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         g_audioFocused = w != FALSE;
         if (g_bgmPlayer) g_bgmPlayer->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
         if (g_sfxPlayer) g_sfxPlayer->setVolume(g_audioFocused ? g_sfxVolume : 0.0f);
+        if (!g_audioFocused) {
+            // Windows may not deliver KeyUp for keys held while the window
+            // loses activation.  Release the movement bindings explicitly so
+            // Alt-Tab/minimize cannot leave the avatar walking indefinitely.
+            constexpr std::array<std::uint32_t, 10> kMovementKeys{
+                0x57u, 0x53u, 0x51u, 0x45u, 0x41u, 0x44u,
+                VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT};
+            if (g_inputTarget) {
+                for (const auto key : kMovementKeys)
+                    g_inputTarget->OnKeyEvent(false, key);
+                g_inputTarget->OnMouseButton(false, false, 0, 0);
+            }
+            if (GetCapture() == h) ReleaseCapture();
+        }
         MLOG_INFO("mxh_client: audio focus=%s", g_audioFocused ? "active" : "muted");
         return 0;
     case WM_KEYDOWN:
