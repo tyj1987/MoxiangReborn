@@ -1,6 +1,7 @@
 #include "mxh/audio/sfx_player.hpp"
 #include "mxh/log/mlog.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -20,13 +21,27 @@ namespace { void error(std::string* out, const std::string& value) { if (out) *o
 struct SfxPlayer::MediaState {
     Microsoft::WRL::ComPtr<IXAudio2> engine;
     IXAudio2MasteringVoice* mastering = nullptr;
-    IXAudio2SourceVoice* source = nullptr;
-    std::vector<std::uint8_t> pcm;
-    WAVEFORMATEX format{};
+    struct Voice {
+        IXAudio2SourceVoice* source = nullptr;
+        std::vector<std::uint8_t> pcm;
+        WAVEFORMATEX format{};
+    };
+    // Effects must overlap: a sword hit cannot cut off the footstep or the
+    // previous skill cue.  A bounded round-robin pool keeps this deterministic
+    // under a burst of BEFF/SFX events while avoiding unbounded voice growth.
+    static constexpr std::size_t kVoiceCount = 16;
+    std::array<Voice, kVoiceCount> voices{};
+    std::size_t next_voice = 0;
     bool mf_started = false;
     bool com_owned = false;
     ~MediaState() {
-        if (source) { source->Stop(0); source->FlushSourceBuffers(); source->DestroyVoice(); }
+        for (auto& voice : voices) {
+            if (voice.source) {
+                voice.source->Stop(0);
+                voice.source->FlushSourceBuffers();
+                voice.source->DestroyVoice();
+            }
+        }
         if (mastering) mastering->DestroyVoice();
         if (mf_started) MFShutdown();
         if (com_owned) CoUninitialize();
@@ -46,8 +61,16 @@ static bool ensure_media(SfxPlayer::MediaState& m, std::string* out) {
 }
 
 static void stop_media(SfxPlayer::MediaState& m) noexcept {
-    if (m.source) { m.source->Stop(0); m.source->FlushSourceBuffers(); m.source->DestroyVoice(); m.source = nullptr; }
-    m.pcm.clear();
+    for (auto& voice : m.voices) {
+        if (voice.source) {
+            voice.source->Stop(0);
+            voice.source->FlushSourceBuffers();
+            voice.source->DestroyVoice();
+            voice.source = nullptr;
+        }
+        voice.pcm.clear();
+        voice.format = {};
+    }
 }
 #endif
 
@@ -107,7 +130,15 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
     if (!ensure_media(*media_, out)) return false;
-    stop_media(*media_);
+    auto& voice = media_->voices[media_->next_voice++ %
+                                 SfxPlayer::MediaState::kVoiceCount];
+    if (voice.source) {
+        voice.source->Stop(0);
+        voice.source->FlushSourceBuffers();
+        voice.source->DestroyVoice();
+        voice.source = nullptr;
+    }
+    voice.pcm.clear();
     Microsoft::WRL::ComPtr<IMFSourceReader> reader;
     HRESULT hr = MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader);
     Microsoft::WRL::ComPtr<IMFMediaType> requested;
@@ -132,19 +163,23 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
         Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
         if (FAILED(sample->ConvertToContiguousBuffer(&buffer))) continue;
         BYTE* data = nullptr; DWORD max = 0, current = 0;
-        if (SUCCEEDED(buffer->Lock(&data, &max, &current))) { media_->pcm.insert(media_->pcm.end(), data, data + current); buffer->Unlock(); }
+        if (SUCCEEDED(buffer->Lock(&data, &max, &current))) { voice.pcm.insert(voice.pcm.end(), data, data + current); buffer->Unlock(); }
     }
-    media_->format = {}; media_->format.wFormatTag = WAVE_FORMAT_PCM; media_->format.nChannels = static_cast<WORD>(channels);
-    media_->format.nSamplesPerSec = rate; media_->format.wBitsPerSample = static_cast<WORD>(bits);
-    media_->format.nBlockAlign = static_cast<WORD>(channels * bits / 8); media_->format.nAvgBytesPerSec = rate * media_->format.nBlockAlign;
-    if (media_->pcm.empty() || FAILED(media_->engine->CreateSourceVoice(&media_->source, &media_->format))) { error(out, "SFX source voice creation failed"); return false; }
-    XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size()); buffer.pAudioData = media_->pcm.data();
+    voice.format = {}; voice.format.wFormatTag = WAVE_FORMAT_PCM; voice.format.nChannels = static_cast<WORD>(channels);
+    voice.format.nSamplesPerSec = rate; voice.format.wBitsPerSample = static_cast<WORD>(bits);
+    voice.format.nBlockAlign = static_cast<WORD>(channels * bits / 8); voice.format.nAvgBytesPerSec = rate * voice.format.nBlockAlign;
+    if (voice.pcm.empty() || FAILED(media_->engine->CreateSourceVoice(&voice.source, &voice.format))) { error(out, "SFX source voice creation failed"); return false; }
+    XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(voice.pcm.size()); buffer.pAudioData = voice.pcm.data();
     if (entry.loop) buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
     else buffer.Flags = XAUDIO2_END_OF_STREAM;
     const float gain = std::clamp(volume_ * current_bus_gain_ *
         current_entry_volume_ * current_distance_gain_, 0.0f, 1.0f);
-    hr = media_->source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = media_->source->SetVolume(gain); if (SUCCEEDED(hr)) hr = media_->source->Start(0);
-    if (FAILED(hr)) { stop_media(*media_); error(out, "SFX playback failed"); return false; }
+    hr = voice.source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = voice.source->SetVolume(gain); if (SUCCEEDED(hr)) hr = voice.source->Start(0);
+    if (FAILED(hr)) {
+        voice.source->Stop(0); voice.source->FlushSourceBuffers();
+        voice.source->DestroyVoice(); voice.source = nullptr; voice.pcm.clear();
+        error(out, "SFX playback failed"); return false;
+    }
     current_id_ = id; MLOG_DEBUG("[audio] playing SFX id=%u", id); return true;
 #else
     (void)id; error(out, "SFX playback is only supported on Windows"); return false;
@@ -166,9 +201,14 @@ void SfxPlayer::setVolume(float value) noexcept {
     // XAudio2 or retain it for the next sound.
     volume_ = std::isfinite(value) ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
 #ifdef _WIN32
-    if (media_ && media_->source) media_->source->SetVolume(
-        std::clamp(volume_ * current_bus_gain_ * current_entry_volume_ *
-                  current_distance_gain_, 0.0f, 1.0f));
+    if (media_) {
+        const auto gain = std::clamp(volume_ * current_bus_gain_ *
+                                     current_entry_volume_ * current_distance_gain_,
+                                     0.0f, 1.0f);
+        for (auto& voice : media_->voices) {
+            if (voice.source) voice.source->SetVolume(gain);
+        }
+    }
 #endif
 }
 
