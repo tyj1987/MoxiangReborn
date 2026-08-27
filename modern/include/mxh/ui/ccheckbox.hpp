@@ -22,8 +22,8 @@
 //          fires cbWindowFunc with WE_CHECKED / WE_NOTCHECKED.
 //          Modern port: CMouse stubbed no-op (Phase 6.x deferred).
 //   - Render() — draws the checkBoxImage + checkImage (if
-//          checked) + the label text via CFONT_OBJ. Modern
-//          port: Render no-op stub (Phase 6.x render deferred).
+//          checked) + the label text via the shared cImage/TextRender
+//          adapters.
 //   - IsChecked / SetChecked — get/set m_fChecked.
 //   - SetCheckBoxMsg(msg, color) — copies the text + stores
 //          the color. Modern port: stores the text in a
@@ -76,9 +76,9 @@
 //   - 1:1 quirk: legacy `m_dwCheckBoxTextColor` is a DWORD
 //     (RGB color). Modern port: `std::uint32_t` ARGB.
 //   - 1:1 quirk: legacy `VECTOR2 start_pos` + `RGBA_MERGE`
-//     + `cFont` calls in Render. Modern cFont + cImage
-//     don't have these APIs. Modern port: Render is a
-//     no-op stub (Phase 6.x render wiring deferred).
+//     + `cFont` calls in Render. Modern rendering uses the shared
+//     cImage/TextRender adapters while preserving frame, checked-overlay
+//     and text ordering.
 //   - 1:1 quirk: legacy `m_pParent` is read in
 //     ActionEvent but the cCheckBox is a cWindow (not
 //     cDialog), so legacy cWindow has no m_pParent. The
