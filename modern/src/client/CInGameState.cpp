@@ -2739,8 +2739,10 @@ void CInGameState::set_world_bounds(float max_x, float max_z) noexcept {
     // Agent/Map movement packets encode coordinates as uint16.  Keep the
     // local simulation inside the same representable domain so prediction,
     // collision probes and authoritative corrections cannot diverge.
-    m_worldLimitX = std::clamp(max_x, 1.0f, 65535.0f);
-    m_worldLimitZ = std::clamp(max_z, 1.0f, 65535.0f);
+    m_worldLimitX = std::isfinite(max_x)
+        ? std::clamp(max_x, 1.0f, 65535.0f) : kWorldLimit;
+    m_worldLimitZ = std::isfinite(max_z)
+        ? std::clamp(max_z, 1.0f, 65535.0f) : kWorldLimit;
     m_localX = std::clamp(m_localX, 0.0f, m_worldLimitX);
     m_localZ = std::clamp(m_localZ, 0.0f, m_worldLimitZ);
 }
