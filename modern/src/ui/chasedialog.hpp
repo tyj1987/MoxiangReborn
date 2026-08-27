@@ -124,9 +124,10 @@ public:
 
     // ----- 1:1 with legacy CChaseDialog::Render -----
 
-    // Real GPU draw (minimap + target icon). Modern
-    // port is a no-op stub (Phase 6.13+ deferred).
-    void Render() override {}
+    // Render the loaded dialog tree (map panel and target text). The
+    // minimap sprite itself is supplied by the resource manager when its
+    // profile is available; no synthetic bitmap is generated here.
+    void Render() override;
 
     // ----- Accessors (used by tests) -----
 

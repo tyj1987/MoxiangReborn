@@ -8,6 +8,8 @@ namespace mxh::ui {
 
 class cImage;
 
+// Minimal concrete icon instance used by inventory-style containers. The
+// sprite is borrowed from the resource manager, matching cImage ownership.
 class cIcon : public cWindow {
 public:
     cIcon() = default;

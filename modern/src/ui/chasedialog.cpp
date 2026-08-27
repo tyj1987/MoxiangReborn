@@ -43,6 +43,11 @@ void cChaseDialog::SetActive(bool val) noexcept {
     m_bActive = val;
 }
 
+void cChaseDialog::Render() {
+    if (!isVisible() || !isActive()) return;
+    cDialog::Render();
+}
+
 bool cChaseDialog::InitMiniMap(int mapNum, std::uint16_t posX,
                               std::uint16_t posY, const char* strName,
                               int eventMapNum) {
