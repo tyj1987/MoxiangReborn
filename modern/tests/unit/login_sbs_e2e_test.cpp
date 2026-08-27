@@ -54,7 +54,7 @@ bool exists(const std::string& p) {
 }
 }
 
-TEST(MoxianLoginSbsE2E, ModernLoginAcceptsLegacy38BytePayload) {
+TEST(MoxianLoginSbsE2E, ServerBinariesAreDiscoverable) {
     if (!exists(login_exe_path())) {
         GTEST_SKIP() << "modern login server not built";
     }
@@ -65,7 +65,7 @@ TEST(MoxianLoginSbsE2E, ModernLoginAcceptsLegacy38BytePayload) {
     // modern/scratch/2026-07-26-replay-fix/run_sbs_login.py.
     // The unit-test side only verifies binary presence + a smoke
     // that the test framework itself is wired in correctly.
-    SUCCEED() << "login/sbs binaries present; E2E run is via scratch script";
+    SUCCEED() << "login/sbs binaries present in the active build tree";
 }
 
 TEST(MoxianLoginSbsE2E, StartsLoginServerAndAcceptsLoopbackProbe) {
