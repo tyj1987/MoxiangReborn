@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <array>
+#include <exception>
 #include <regex>
 #include <string>
 #include <string_view>
@@ -230,9 +231,14 @@ static bool verifyResourceManifest(const fs::path& root,
             error = L"资源清单包含不安全路径：" + fs::path(relative).wstring();
             return false;
         }
-        if (!expected.emplace(relative, Expected{
-                static_cast<std::uint64_t>(std::stoull((*it)[2].str())),
-                (*it)[3].str()}).second) {
+        std::uint64_t bytes = 0;
+        try {
+            bytes = static_cast<std::uint64_t>(std::stoull((*it)[2].str()));
+        } catch (const std::exception&) {
+            error = L"资源清单条目 bytes 数值无效：" + fs::path(relative).wstring();
+            return false;
+        }
+        if (!expected.emplace(relative, Expected{bytes, (*it)[3].str()}).second) {
             error = L"资源清单包含重复路径：" + fs::path(relative).wstring();
             return false;
         }
