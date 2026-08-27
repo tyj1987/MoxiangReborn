@@ -141,10 +141,12 @@ struct ClientOptions {
     std::uint32_t post_login_width = 1024;
     std::uint32_t post_login_height = 768;
     bool borderless = false;
+    bool vsync = true;
     bool resource_profile_overridden = false;
     bool post_login_width_overridden = false;
     bool post_login_height_overridden = false;
     bool borderless_overridden = false;
+    bool vsync_overridden = false;
 };
 
 std::uint32_t read_dimension_env(const wchar_t* name,
@@ -235,6 +237,8 @@ ClientOptions parse_client_options() {
             options.borderless = true;
             options.borderless_overridden = true;
         }
+        else if (arg == L"--no-vsync") { options.vsync = false; options.vsync_overridden = true; }
+        else if (arg == L"--vsync") { options.vsync = true; options.vsync_overridden = true; }
 #if !defined(MXH_DEV_AUTOMATION)
         else if (arg == L"--auto-login" || arg == L"--auto-create" ||
                  arg == L"--username" || arg == L"--password" ||
@@ -2470,6 +2474,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         options.resource_profile_id = persisted_settings.resource_profile_id;
     }
     if (!options.borderless_overridden) options.borderless = persisted_settings.borderless;
+    if (!options.vsync_overridden) options.vsync = persisted_settings.vsync;
     if (!options.post_login_width_overridden) options.post_login_width = persisted_settings.post_login_width;
     if (!options.post_login_height_overridden) options.post_login_height = persisted_settings.post_login_height;
 #if !defined(MXH_DEV_AUTOMATION)
@@ -2673,6 +2678,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         std::fprintf(stderr, "mxh_client: renderer->Create failed\n");
         return 1;
     }
+    renderer->SetVerticalSync(options.vsync ? TRUE : FALSE);
     g_renderer = renderer;
     {
         auto preview = std::make_unique<mxh::gx::EntityScene>();
