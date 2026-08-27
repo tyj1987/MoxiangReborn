@@ -1196,6 +1196,30 @@ void CInGameState::set_quest_catalog(mxh::compat::QuestStringCatalog catalog) {
             }
         }
     }
+
+    // InterfaceScript frequently nests the live stat widgets below a dialog
+    // root (for example the MP gauge inside the status page).  The legacy
+    // linker walks the complete window tree; only visiting top-level dialog
+    // objects leaves those controls with stale/default values even though the
+    // script loaded successfully.  Mirror that traversal for every nested
+    // window without changing ownership or activation semantics.
+    const auto bind_nested_stats = [this](auto&& self, mxh::ui::cWindow* window) -> void {
+        if (!window) return;
+        if (auto* character = dynamic_cast<mxh::ui::cCharacterDialog*>(window)) {
+            character->SetPlayerStatsService(m_playerStatsService.get());
+            character->RefreshFromPlayerStats();
+        }
+        if (auto* mp = dynamic_cast<mxh::ui::cMPGuageDialog*>(window)) {
+            mp->SetPlayerStatsService(m_playerStatsService.get());
+            mp->RefreshFromPlayerStats();
+        }
+        for (std::size_t i = 0; i < window->childCount(); ++i) {
+            self(self, window->childAt(i));
+        }
+    };
+    for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+        if (dialog) bind_nested_stats(bind_nested_stats, dialog.get());
+    }
 }
 
 bool CInGameState::on_connect(mxh::net::ConnectionId id,
