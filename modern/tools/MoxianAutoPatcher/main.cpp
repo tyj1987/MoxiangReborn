@@ -243,6 +243,31 @@ public:
             }
         }
 
+        // Re-verify the complete post-update file set before publishing the
+        // version marker.  Individual downloads are checked above, but a
+        // final pass catches an external file replacement or a failed delete
+        // while the update transaction is still reversible.
+        for (const auto& file : manifest.files) {
+            const auto target = fs::path(gameDir_) / file.path;
+            if (!mxh::patch::verify_file(target, file.size, file.sha256)) {
+                std::cerr << "Post-update verification failed: " << file.path << std::endl;
+                if (!rollback()) {
+                    std::cerr << "CRITICAL: post-update rollback failed" << std::endl;
+                }
+                return false;
+            }
+        }
+        for (const auto& path : manifest.deleteFiles) {
+            std::error_code exists_error;
+            if (fs::exists(fs::path(gameDir_) / path, exists_error) || exists_error) {
+                std::cerr << "Post-update delete verification failed: " << path << std::endl;
+                if (!rollback()) {
+                    std::cerr << "CRITICAL: post-update rollback failed" << std::endl;
+                }
+                return false;
+            }
+        }
+
         // Update version file
         if (!updateVersionFile(manifest.version)) {
             std::cerr << "Failed to update version file" << std::endl;
