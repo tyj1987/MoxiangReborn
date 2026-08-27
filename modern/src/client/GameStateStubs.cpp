@@ -1,9 +1,8 @@
 // mxh/client/GameStateStubs.cpp
-// Phase A.1.7 — implementation of the 9 eGAMESTATE concrete state
-// stubs.  Each method is intentionally a no-op for A.1.7; the real
-// bodies land in A.1.8+ as the corresponding legacy state is ported
-// (CMainTitle first, since the boot-to-login flow is the next thing
-// the user sees after the bootscreen).
+// Shared implementation for the remaining lightweight eGAMESTATE states.
+// Login, character select/create, loading, map change and GameIn have their
+// dedicated implementations; only intentionally inert legacy states use the
+// small lifecycle helper below.
 //
 // The 1:1 surface (Init / Release / Process / BeforeRender /
 // AfterRender) is preserved so the host's CMainGame driver and the

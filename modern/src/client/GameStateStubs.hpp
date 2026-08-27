@@ -1,13 +1,8 @@
 // mxh/client/GameStateStubs.hpp
-// Phase A.1.7 — 1:1 port of the 9 eGAMESTATE concrete states from
-// 墨香【源码】\[Client]MH\MainGame.h, in the same order.
-//
-// Each state ships as a thin CGameState subclass for A.1.7 so
-// CMainGame's state table is fully populated at boot and the legacy
-// state ID values continue to map to the same objects.  The bodies
-// are intentionally empty — A.1.8+ replaces them with the real Init /
-// Release / Process / network parse logic from the corresponding
-// legacy CMainTitle.cpp / CGameIn.cpp / etc.
+// Concrete state declarations retained for the legacy eGAMESTATE table.
+// Login, character select/create, GameIn, loading and map change expose their
+// real modern lifecycle here; only IntroReplay and MurimNet remain lightweight
+// compatibility states.
 //
 // The class names match the legacy naming (CMainTitle, CGameIn, ...)
 // 1:1 so a search-and-replace across the legacy source translates
@@ -36,7 +31,7 @@ struct LoadStateContext {
 };
 
 // -------------------------------------------------------------------------
-// CIntroReplay (legacy: CIntroReplayDlg) — Phase A.1.7 stub
+// CIntroReplay (legacy: CIntroReplayDlg) — compatibility state
 // -------------------------------------------------------------------------
 class CIntroReplay : public CGameState {
 public:
@@ -62,8 +57,7 @@ public:
 // -------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------
-// CGameLoading — "Loading map..." screen with progress bar.  Lands in
-// B.3 (map load).
+// CGameLoading — real map loading screen with progress and cancellation.
 // -------------------------------------------------------------------------
 class CGameLoading : public CGameState {
 public:
@@ -99,7 +93,7 @@ private:
 // -------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------
-// CMapChange — between-map transition state.  Lands in B.3.
+// CMapChange — between-map transition state sharing the load pipeline.
 // -------------------------------------------------------------------------
 class CMapChange : public CGameState {
 public:
