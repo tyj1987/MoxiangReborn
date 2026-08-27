@@ -628,6 +628,7 @@ public:
     std::uint32_t        m_shopNpcId = 0;
     std::uint32_t        m_lastBuyItemId = 0;
     std::uint32_t        m_pendingBuyItemId = 0;
+    std::uint64_t        m_pendingBuySinceMs = 0;
     std::vector<ShopItem> m_shopItems;
     bool                 m_questOpen = false;
     bool                 m_characterOpen = false;

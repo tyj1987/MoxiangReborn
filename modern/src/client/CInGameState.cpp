@@ -741,6 +741,7 @@ void CInGameState::Release() {
     m_pendingSkillSinceMs = 0;
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
+    m_pendingBuySinceMs = 0;
     m_pendingInventoryMove = false;
     m_pendingInventoryMoveSinceMs = 0;
     m_pendingInventoryMoveSinceMs = 0;
@@ -757,6 +758,7 @@ void CInGameState::Release() {
     m_shopNpcId = 0;
     m_lastBuyItemId = 0;
     m_pendingBuyItemId = 0;
+    m_pendingBuySinceMs = 0;
     m_lastAttackTarget = 0;
     m_pendingAttackTarget = 0;
     m_partyId = 0;
@@ -909,6 +911,16 @@ void CInGameState::Process() {
         m_pendingSkillSinceMs = 0;
         m_lastSkillError = "Server response timed out.";
         (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
+    }
+    constexpr std::uint64_t kShopRequestTimeoutMs = 5000;
+    if (m_pendingBuyItemId != 0 && m_pendingBuySinceMs != 0 &&
+        now_ms - m_pendingBuySinceMs >= kShopRequestTimeoutMs) {
+        MLOG_WARN("CInGameState: shop purchase timed out item=%u",
+                  static_cast<unsigned>(m_pendingBuyItemId));
+        m_pendingBuyItemId = 0;
+        m_pendingBuySinceMs = 0;
+        m_lastItemError = "Purchase request timed out.";
+        (void)m_uiRuntime.showMessage(9103, m_lastItemError);
     }
     m_effectRuntime.advance(now_ms, [this](const RuntimeEffectEvent& event) {
         constexpr std::size_t kMaxRuntimeEvents = 256;
@@ -1259,6 +1271,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     // state, otherwise the old drop ID would suppress future pickups.
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
+    m_pendingBuySinceMs = 0;
     m_pendingSkillId = 0;
     m_pendingSkillSinceMs = 0;
     m_pendingAttackTarget = 0;
@@ -2078,11 +2091,13 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyAck)) {
         m_pendingBuyItemId = 0;
+        m_pendingBuySinceMs = 0;
         set_shop_open(false);
         MLOG_INFO("CInGameState: BuyAck (shop closed)");
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyNack)) {
         m_pendingBuyItemId = 0;
+        m_pendingBuySinceMs = 0;
         m_lastItemError = "Purchase failed.";
         (void)m_uiRuntime.showMessage(9103, m_lastItemError);
         MLOG_WARN("CInGameState: BuyNack");
@@ -3292,6 +3307,7 @@ void CInGameState::buy_shop_item(std::size_t index) {
         make_buy_message(m_playerId, item.item_id, 1u));
     if (e == mxh::net::NetError::Ok) {
         m_pendingBuyItemId = item.item_id;
+        m_pendingBuySinceMs = steady_now_ms();
         MLOG_INFO("CInGameState: buy item=%u price=%u",
                   item.item_id, item.price);
     }
