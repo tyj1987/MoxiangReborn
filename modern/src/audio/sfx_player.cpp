@@ -1,6 +1,7 @@
 #include "mxh/audio/sfx_player.hpp"
 #include "mxh/log/mlog.hpp"
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 #ifdef _WIN32
@@ -70,6 +71,8 @@ std::filesystem::path SfxPlayer::resolve(std::uint16_t id) const {
 
 float SfxPlayer::distanceGain(float distance, float min_distance,
                               float max_distance) noexcept {
+    if (!std::isfinite(distance) || !std::isfinite(min_distance) ||
+        !std::isfinite(max_distance)) return 0.0f;
     if (distance <= min_distance || max_distance <= min_distance) return 1.0f;
     if (distance >= max_distance) return 0.0f;
     return std::clamp(1.0f - (distance - min_distance) /
@@ -92,6 +95,10 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
                             std::string* out) {
     const auto path = resolve(id);
     if (path.empty()) { error(out, "SFX sound ID is missing or not a WAV entry"); return false; }
+    if (!std::isfinite(bus_gain)) {
+        error(out, "SFX bus gain is not finite");
+        return false;
+    }
     const auto& entry = manifest_.entries[id];
     current_entry_volume_ = entry.volume > 0.0f ? entry.volume : 1.0f;
 #ifdef _WIN32
