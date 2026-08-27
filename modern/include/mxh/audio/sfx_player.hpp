@@ -26,6 +26,14 @@ public:
     [[nodiscard]] bool play(std::uint16_t sound_id, std::string* error = nullptr);
     [[nodiscard]] bool playAt(std::uint16_t sound_id, float distance,
                               std::string* error = nullptr);
+    // Apply an additional bus gain without changing the persistent SFX bus.
+    // UI and ambient callers use this to keep their volume independent from
+    // combat/effect cues while sharing the same decoded WAV channel.
+    [[nodiscard]] bool playOnBus(std::uint16_t sound_id, float bus_gain,
+                                 std::string* error = nullptr);
+    [[nodiscard]] bool playAtOnBus(std::uint16_t sound_id, float distance,
+                                   float bus_gain,
+                                   std::string* error = nullptr);
     [[nodiscard]] static float distanceGain(float distance, float min_distance,
                                              float max_distance) noexcept;
     void stop() noexcept;

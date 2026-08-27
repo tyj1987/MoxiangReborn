@@ -421,6 +421,7 @@ std::uint16_t g_uiClickSound = 0xffffu;
 std::uint16_t g_attackSound = 0xffffu;
 std::uint16_t g_skillSound = 0xffffu;
 std::uint16_t g_pickupSound = 0xffffu;
+float g_uiVolume = 1.0f;
 
 void configureCharacterPreviewCamera(I4DyuchiGXRenderer* renderer,
                                      float aspect) {
@@ -2332,7 +2333,9 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         if (m == WM_LBUTTONUP && g_sfxPlayer && g_uiClickSound != 0xffffu) {
             std::string audio_error;
-            (void)g_sfxPlayer->play(g_uiClickSound, &audio_error);
+                        (void)g_sfxPlayer->playOnBus(g_uiClickSound,
+                                                     g_uiVolume,
+                                                     &audio_error);
         }
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
@@ -2448,6 +2451,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::string settings_warning;
     const auto persisted_settings = mxh::client::ClientSettingsStore::load(
         settings_path, &settings_warning);
+    g_uiVolume = persisted_settings.ui_volume;
     if (!settings_warning.empty()) MLOG_WARN("mxh_client: %s", settings_warning.c_str());
     // Launcher-owned settings are the source of truth for a normal start.
     // Command-line overrides remain available for development, but the
