@@ -258,6 +258,7 @@ CCharMake::~CCharMake() = default;
 
 void CCharMake::Init(void* /*pInitParam*/) {
     MLOG_DEBUG("CCharMake::Init (waiting for Start() + SetLoginResult())");
+    m_releasing = false;
     setInitialized(true);
 }
 
@@ -340,6 +341,7 @@ mxh::net::IEncryptor* CCharMake::encryptor_for(mxh::net::ConnectionId) {
 
 void CCharMake::Release() {
     MLOG_DEBUG("CCharMake::Release");
+    m_releasing = true;
     m_uiRuntime.clear();
     m_optionCatalog.reset();
     m_formModel = CharacterMakeFormModel{};
@@ -490,7 +492,7 @@ void CCharMake::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CCharMake::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
-    if (!m_makeSent && !m_failed) {
+    if (!m_releasing && !m_failed) {
         fail_with(std::string("disconnected before create completed: ") +
                   mxh::net::to_string(reason));
     }

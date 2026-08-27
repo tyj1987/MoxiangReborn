@@ -229,6 +229,7 @@ private:
     bool                     m_connectAcked = false;
     bool                     m_makeSent = false;
     bool                     m_failed   = false;
+    bool                     m_releasing = true;
     std::string              m_failureReason;
 };
 
