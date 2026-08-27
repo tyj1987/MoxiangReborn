@@ -1023,6 +1023,7 @@ void drawHudBar(I4DyuchiGXRenderer* r, IDISpriteObject* bg,
 // real texture/object asset, and it fails closed when that asset cannot be
 // created.  The authoritative effect clock remains owned by CInGameState.
 struct EffectVisualOverlay {
+    static constexpr std::size_t kMaxActiveVisuals = 512;
     struct Instance {
         std::string key;
         std::uint32_t source_id = 0;
@@ -1123,7 +1124,9 @@ struct EffectVisualOverlay {
                 return;
             }
         }
-        if (active.size() >= 128) {
+        if (active.size() >= kMaxActiveVisuals) {
+            MLOG_WARN("mxh_client: BEFF visual capacity reached (%zu); evicting oldest visual",
+                      kMaxActiveVisuals);
             if (active.front().sprite) active.front().sprite->Release();
             active.erase(active.begin());
         }
