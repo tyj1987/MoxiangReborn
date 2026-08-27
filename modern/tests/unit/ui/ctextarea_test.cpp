@@ -27,8 +27,8 @@
 //     negative.
 //   - SetTextColor / GetTextColor stores the color.
 //   - Add delegates to cDialog::Add.
-//   - Render is a no-op (1:1 quirk: render path is Phase 6.13+
-//     deferred).
+//   - Render uses the shared image/text adapter and remains safe without a
+//     host renderer.
 //
 // 1:1 quirks preserved:
 //   - cImage opaque-pointer pattern (void*) — 1:1 with the
@@ -301,7 +301,7 @@ TEST(CTextAreaTest, AddDelegatesToBaseDialog) {
 }
 
 // ===========================================================================
-// Render (placeholder, 1:1 quirk: Phase 6.13+ deferred)
+// Render safety and adapter path
 // ===========================================================================
 
 TEST(CTextAreaTest, PointerClickInsideTextRectFocusesEditor) {
@@ -387,10 +387,10 @@ TEST(CTextAreaTest, Utf8CaretMovesAndDeletesWholeCodepoint) {
     EXPECT_EQ(ta.GetScriptText(), "甲B乙");
 }
 
-TEST(CTextAreaTest, RenderIsNoOp) {
+TEST(CTextAreaTest, RenderWithoutImagesIsSafe) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);
-    ta.Render();  // 1:1 quirk: no-op
+    ta.Render();
     SUCCEED();
 }
 

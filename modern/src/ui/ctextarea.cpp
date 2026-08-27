@@ -3,9 +3,12 @@
 // rationale + 1:1 quirks.
 
 #include "ctextarea.hpp"
+#include "cImage.hpp"
+#include "TextRender.hpp"
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 namespace {
 std::size_t prev_utf8(const std::string& s, std::size_t pos) {
@@ -218,6 +221,72 @@ void cTextArea::Add(cWindow* window) {
     // ownership convention).
     if (!window) return;
     cDialog::Add(std::unique_ptr<cWindow>(window));
+}
+
+void cTextArea::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+
+    const auto drawImage = [](void* handle, std::int32_t x, std::int32_t y,
+                              std::int32_t width, std::int32_t height) {
+        if (!handle || width <= 0 || height <= 0) return;
+        static_cast<cImage*>(handle)->render(x, y, width, height,
+                                             0xFFFFFFFFu, 1);
+    };
+    const auto originX = absX();
+    const auto originY = absY();
+    const auto areaWidth = static_cast<std::int32_t>(width());
+    if (m_topHeight) drawImage(m_TopImage, originX, originY, areaWidth, m_topHeight);
+
+    const auto bodyY = originY + static_cast<std::int32_t>(m_topHeight);
+    const auto bodyHeight = std::max<std::int32_t>(
+        0, static_cast<std::int32_t>(height()) - m_topHeight - m_downHeight);
+    if (bodyHeight > 0 && m_middleHeight > 0) {
+        for (std::int32_t y = 0; y < bodyHeight; y += m_middleHeight) {
+            drawImage(m_MiddleImage, originX, bodyY + y, areaWidth,
+                      std::min<std::int32_t>(m_middleHeight, bodyHeight - y));
+        }
+    }
+    if (m_downHeight)
+        drawImage(m_DownImage, originX,
+                  originY + static_cast<std::int32_t>(height()) - m_downHeight,
+                  areaWidth, m_downHeight);
+
+    const auto left = originX + m_rcTextRelRect.left;
+    const auto top = originY + m_rcTextRelRect.top;
+    const auto textWidth = std::max<std::int32_t>(0,
+        m_rcTextRelRect.right - m_rcTextRelRect.left);
+    const auto textHeight = std::max<std::int32_t>(0,
+        m_rcTextRelRect.bottom - m_rcTextRelRect.top);
+    if (textWidth == 0 || textHeight == 0) return;
+
+    std::vector<std::string> lines;
+    std::size_t begin = 0;
+    while (begin <= m_scriptText.size()) {
+        const auto end = m_scriptText.find('\n', begin);
+        lines.push_back(m_scriptText.substr(begin,
+            end == std::string::npos ? std::string::npos : end - begin));
+        if (end == std::string::npos) break;
+        begin = end + 1;
+    }
+    const auto first = std::clamp(m_nTopLineIdx, 0,
+                                  static_cast<int>(lines.size()));
+    const auto visible = std::max(0, textHeight / std::max(1, m_nLineHeight));
+    for (int i = 0; i < visible && first + i < static_cast<int>(lines.size()); ++i) {
+        std::string line = lines[static_cast<std::size_t>(first + i)];
+        if (m_bCaret && first + i == static_cast<int>(lines.size()) - 1)
+            line += "|";
+        TextRenderRequest request;
+        request.text = line;
+        request.x = left;
+        request.y = top + i * m_nLineHeight;
+        request.width = textWidth;
+        request.height = m_nLineHeight;
+        request.color = m_dwTextColor;
+        request.font_index = 0;
+        request.align = TextRenderAlign::Left;
+        renderText(request);
+    }
 }
 
 }  // namespace mxh::ui

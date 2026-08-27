@@ -136,12 +136,11 @@ public:
     // cDialog::Add).
     void Add(cWindow* window);
 
-    // ----- 1:1 with legacy cTextArea::Render (placeholder) -----
+    // ----- 1:1 with legacy cTextArea::Render -----
 
-    // 1:1 quirk: legacy cTextArea::Render draws the
-    // 3-row chrome + text + scrollbar. Modern port
-    // is a no-op (render path lands in Phase 6.13+).
-    void Render() override {}
+    // Draws the optional three-row chrome, visible text lines and caret via
+    // the shared cImage/TextRender adapters.
+    void Render() override;
 
 private:
     // Legacy fields (data model only — actual scroll /
