@@ -67,6 +67,22 @@ fs::path find_client_resource_dir() {
     std::error_code ec;
     return fs::is_directory(client, ec) ? client : fs::path{};
 }
+fs::path find_server_resource_dir() {
+    const auto canonical = find_resource_dir() / "Server";
+    std::error_code error;
+    if (fs::is_regular_file(canonical / "ItemMixList.bin", error)) return canonical;
+    try {
+        const auto cwd = fs::current_path();
+        for (fs::path base = cwd; !base.empty(); base = base.parent_path()) {
+            const auto candidate = base / "modern" / "deploy" / "server" /
+                                   "Distribute" / "Resource";
+            if (fs::is_directory(candidate, error)) return candidate;
+            if (base == base.root_path()) break;
+        }
+    } catch (...) {
+    }
+    return {};
+}
 
 }  // namespace
 
@@ -1745,9 +1761,9 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ItemLimitInfo) {
 
 
 TEST(MxhResourceParseServer, ReadMhBin_Server_ItemMixList) {
-    static const char* kName = "Server/ItemMixList.bin";
-    const auto dir = find_resource_dir();
-    if (dir.empty()) GTEST_SKIP() << "Server/ItemMixList.bin base not available";
+    static const char* kName = "ItemMixList.bin";
+    const auto dir = find_server_resource_dir();
+    if (dir.empty()) GTEST_SKIP() << "server ItemMixList.bin base not available";
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
