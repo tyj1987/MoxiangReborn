@@ -2274,6 +2274,21 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(HIWORD(l)));
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
+    case WM_DPICHANGED:
+        // Per-monitor DPI changes (including moving the window between
+        // displays) alter the non-client frame and client-area mapping.  Use
+        // the system's suggested outer rectangle, then let WM_SIZE refresh
+        // the logical viewport and DX11 swap-chain dimensions.
+        if (l != 0) {
+            const auto* suggested = reinterpret_cast<const RECT*>(l);
+            SetWindowPos(h, nullptr,
+                         suggested->left, suggested->top,
+                         suggested->right - suggested->left,
+                         suggested->bottom - suggested->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        if (g_renderer) g_renderer->UpdateWindowSize();
+        return 0;
     case WM_ACTIVATEAPP:
         g_audioFocused = w != FALSE;
         if (g_bgmPlayer) g_bgmPlayer->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
