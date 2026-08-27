@@ -79,6 +79,19 @@ TEST(CGameLoading, RejectsInvalidContext) {
     EXPECT_EQ(state.error(), "loading context has zero steps");
 }
 
+TEST(CGameLoading, CancellationWinsOverLateFailureAtInit) {
+    LoadStateContext context{};
+    context.total_steps = 4;
+    context.cancelled = true;
+    context.failed = true;
+    context.error = "late worker failure";
+    CGameLoading state;
+    state.Init(&context);
+    EXPECT_TRUE(state.cancelled());
+    EXPECT_FALSE(state.failed());
+    EXPECT_TRUE(state.error().empty());
+}
+
 TEST(CGameLoading, StartFailsClosedWithoutEngineOrResourceRoot) {
     LoadStateContext context{};
     context.total_steps = 1;
@@ -146,6 +159,19 @@ TEST(CMapChange, RejectsInvalidContext) {
     state.Init(&context);
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "map change context has zero steps");
+}
+
+TEST(CMapChange, CancellationWinsOverLateFailureAtInit) {
+    LoadStateContext context{};
+    context.total_steps = 4;
+    context.cancelled = true;
+    context.failed = true;
+    context.error = "late worker failure";
+    CMapChange state;
+    state.Init(&context);
+    EXPECT_TRUE(state.cancelled());
+    EXPECT_FALSE(state.failed());
+    EXPECT_TRUE(state.error().empty());
 }
 
 TEST(CMapChange, StartFailsClosedWithoutEngineOrResourceRoot) {

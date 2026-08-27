@@ -58,7 +58,7 @@ void CGameLoading::Init(void* param) {
                                     static_cast<float>(context->total_steps), 0.0f, 1.0f);
         }
         m_cancelled = context->cancelled;
-        if (context->failed) {
+        if (!m_cancelled && context->failed) {
             m_failed = true;
             m_error = context->error ? context->error : "map loading failed";
         }
@@ -129,7 +129,7 @@ void CMapChange::Init(void* param) {
                                     static_cast<float>(context->total_steps), 0.0f, 1.0f);
         }
         m_cancelled = context->cancelled;
-        if (context->failed) {
+        if (!m_cancelled && context->failed) {
             m_failed = true;
             m_error = context->error ? context->error : "map change failed";
         }
