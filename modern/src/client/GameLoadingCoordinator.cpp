@@ -48,6 +48,7 @@ void GameLoadingCoordinator::mark_completed(std::uint32_t completed_steps) noexc
 }
 
 void GameLoadingCoordinator::mark_failed(std::string message) noexcept {
+    if (m_context.failed || m_context.cancelled) return;
     m_context.failed = true;
     m_context.completed_steps = 0;
     m_error = std::move(message);

@@ -214,6 +214,18 @@ TEST(GameLoadingCoordinator, CancellationIsTerminalAndIgnoresLateCompletion) {
     EXPECT_EQ(coordinator.context().completed_steps, 4u);
 }
 
+TEST(GameLoadingCoordinator, FirstFailureWinsAgainstLateWorkerError) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{7, 10});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+    coordinator.mark_failed("texture decode failed");
+    coordinator.mark_failed("late worker error");
+    EXPECT_TRUE(coordinator.context().failed);
+    ASSERT_NE(coordinator.context().error, nullptr);
+    EXPECT_STREQ(coordinator.context().error, "texture decode failed");
+}
+
 TEST(GameLoadingCoordinator, ConsumesASecondEntryAfterFirstRequestCompletes) {
     mxh::client::CEngine engine;
     mxh::client::GameLoadingCoordinator coordinator;
