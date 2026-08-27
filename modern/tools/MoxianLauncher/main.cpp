@@ -30,9 +30,12 @@ struct LauncherSettings {
 };
 
 struct LauncherEndpoints {
-    int loginPort = 6001;
-    int agentPort = 7001;
-    int mapPort = 8001;
+    // Keep the launcher aligned with the standard modern three-service runbook
+    // and the client's own default Login/Map ports. Command-line overrides
+    // remain available for isolated test environments.
+    int loginPort = 16001;
+    int agentPort = 17001;
+    int mapPort = 18001;
 };
 
 static int parsePort(const wchar_t* value, int fallback, bool* valid = nullptr) noexcept {
