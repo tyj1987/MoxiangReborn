@@ -20,6 +20,17 @@ namespace mxh::client {
 std::optional<mxh::gx::ScenePlayer> make_character_preview(
     const CharacterSlot& slot, float world_x, float world_y, float world_z) {
     if (!slot.valid || slot.chrid == 0) return std::nullopt;
+    // The legacy character catalogs expose five face/hair variants and two
+    // body profiles.  Reject malformed network data before it reaches the
+    // renderer; an out-of-range index would otherwise select an unrelated
+    // model or trigger a placeholder fallback in EntityScene.
+    if (slot.gender > 1 || slot.face_type > 4 || slot.hair_type > 4) {
+        MLOG_WARN("CCharSelectState: refusing preview with invalid appearance chrid=%u gender=%u face=%u hair=%u",
+                  slot.chrid, static_cast<unsigned>(slot.gender),
+                  static_cast<unsigned>(slot.face_type),
+                  static_cast<unsigned>(slot.hair_type));
+        return std::nullopt;
+    }
     mxh::gx::ScenePlayer preview;
     preview.object_id = slot.chrid;
     preview.gender = slot.gender;

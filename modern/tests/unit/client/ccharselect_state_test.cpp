@@ -178,6 +178,20 @@ TEST(CharSelectWire, CharacterPreviewUsesServerAppearance) {
     EXPECT_FALSE(mxh::client::make_character_preview({}));
 }
 
+TEST(CharSelectWire, CharacterPreviewRejectsMalformedAppearance) {
+    mxh::client::CharacterSlot slot;
+    slot.valid = true;
+    slot.chrid = 100;
+    slot.gender = 2;
+    EXPECT_FALSE(mxh::client::make_character_preview(slot));
+    slot.gender = 0;
+    slot.face_type = 5;
+    EXPECT_FALSE(mxh::client::make_character_preview(slot));
+    slot.face_type = 0;
+    slot.hair_type = 5;
+    EXPECT_FALSE(mxh::client::make_character_preview(slot));
+}
+
 TEST(CharSelectWire, ListAckNameUsesAllSeventeenBytesWithoutTerminator) {
     std::array<std::uint8_t, 889> buf{};
     buf[0] = 1;
