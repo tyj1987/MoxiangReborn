@@ -143,7 +143,11 @@ static bool sha256File(const fs::path& path, std::string& hex) noexcept {
         ok = BCRYPT_SUCCESS(BCryptCreateHash(algorithm, &hash, object.data(), objectLength,
                               nullptr, 0, 0));
     }
-    std::array<char, 1024 * 1024> buffer{};
+    // Keep the streaming buffer on the heap.  A 1 MiB local array exhausted
+    // the default Windows thread stack before verification even reached the
+    // first resource, making the launcher's integrity gate crash with a
+    // STATUS_STACK_OVERFLOW on the real PlayDH profile.
+    std::vector<char> buffer(1024 * 1024);
     while (ok && input) {
         input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
         const auto count = input.gcount();
@@ -192,27 +196,73 @@ static bool verifyResourceManifest(const fs::path& root,
         return false;
     }
     const std::string text((std::istreambuf_iterator<char>(input)), {});
-    std::smatch profileMatch;
-    if (!std::regex_search(text, profileMatch,
-            std::regex(R"REGEX("profileId"\s*:\s*"([^"]+)")REGEX")) ||
-        profileMatch[1].str() != "playdh-current") {
+    const auto fieldString = [](std::string_view object,
+                                std::string_view key) -> std::optional<std::string> {
+        const std::string marker = "\"" + std::string(key) + "\"";
+        const auto keyPos = object.find(marker);
+        if (keyPos == std::string_view::npos) return std::nullopt;
+        auto pos = object.find(':', keyPos + marker.size());
+        if (pos == std::string_view::npos) return std::nullopt;
+        ++pos;
+        while (pos < object.size() && std::isspace(static_cast<unsigned char>(object[pos]))) ++pos;
+        if (pos >= object.size() || object[pos] != '\"') return std::nullopt;
+        ++pos;
+        std::string value;
+        for (; pos < object.size(); ++pos) {
+            const char ch = object[pos];
+            if (ch == '\"') return value;
+            if (ch == '\\' && pos + 1 < object.size()) {
+                const char escaped = object[++pos];
+                value.push_back(escaped == '\\' || escaped == '\"' ? escaped : escaped);
+            } else {
+                value.push_back(ch);
+            }
+        }
+        return std::nullopt;
+    };
+    const auto fieldNumber = [&fieldString](std::string_view object,
+                                             std::string_view key) -> std::optional<std::uint64_t> {
+        const std::string marker = "\"" + std::string(key) + "\"";
+        const auto keyPos = object.find(marker);
+        if (keyPos == std::string_view::npos) return std::nullopt;
+        auto pos = object.find(':', keyPos + marker.size());
+        if (pos == std::string_view::npos) return std::nullopt;
+        ++pos;
+        while (pos < object.size() && std::isspace(static_cast<unsigned char>(object[pos]))) ++pos;
+        const auto begin = pos;
+        while (pos < object.size() && std::isdigit(static_cast<unsigned char>(object[pos]))) ++pos;
+        if (begin == pos) return std::nullopt;
+        try { return static_cast<std::uint64_t>(std::stoull(std::string(object.substr(begin, pos - begin)))); }
+        catch (...) { return std::nullopt; }
+    };
+    const auto profile = fieldString(text, "profileId");
+    if (!profile || *profile != "playdh-current") {
         error = L"资源清单 profileId 不是 playdh-current：" + manifestPath.wstring();
         return false;
     }
-    std::smatch countMatch;
-    std::smatch byteMatch;
-    if (!std::regex_search(text, countMatch,
-            std::regex(R"REGEX("fileCount"\s*:\s*(\d+))REGEX")) ||
-        !std::regex_search(text, byteMatch,
-            std::regex(R"REGEX("byteCount"\s*:\s*([0-9]+(?:\.[0-9]+)?))REGEX"))) {
+    const auto expectedCountValue = fieldNumber(text, "fileCount");
+    const auto byteMarker = std::string("\"byteCount\"");
+    const auto bytePos = text.find(byteMarker);
+    if (!expectedCountValue || bytePos == std::string::npos) {
         error = L"资源清单缺少完整 inventory：" + manifestPath.wstring();
         return false;
     }
-    std::size_t expectedCount = 0;
+    const auto byteColon = text.find(':', bytePos + byteMarker.size());
+    if (byteColon == std::string::npos) {
+        error = L"资源清单 inventory 数值无效：" + manifestPath.wstring();
+        return false;
+    }
+    auto byteBegin = byteColon + 1;
+    while (byteBegin < text.size() && std::isspace(static_cast<unsigned char>(text[byteBegin]))) ++byteBegin;
+    const auto byteEnd = text.find_first_not_of("0123456789", byteBegin);
+    if (byteBegin == byteEnd) {
+        error = L"资源清单 inventory 数值无效：" + manifestPath.wstring();
+        return false;
+    }
+    std::size_t expectedCount = static_cast<std::size_t>(*expectedCountValue);
     std::uint64_t expectedBytes = 0;
     try {
-        expectedCount = static_cast<std::size_t>(std::stoull(countMatch[1].str()));
-        expectedBytes = static_cast<std::uint64_t>(std::stold(byteMatch[1].str()));
+        expectedBytes = static_cast<std::uint64_t>(std::stold(text.substr(byteBegin, byteEnd - byteBegin)));
     } catch (...) {
         error = L"资源清单 inventory 数值无效：" + manifestPath.wstring();
         return false;
@@ -220,28 +270,30 @@ static bool verifyResourceManifest(const fs::path& root,
 
     struct Expected { std::uint64_t bytes; std::string sha256; };
     std::unordered_map<std::string, Expected> expected;
-    const std::regex entryPattern(
-        R"REGEX(\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"bytes"\s*:\s*(\d+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})")REGEX");
-    for (std::sregex_iterator it(text.begin(), text.end(), entryPattern), end;
-         it != end; ++it) {
-        const auto relative = (*it)[1].str();
+    std::size_t entryPos = 0;
+    while ((entryPos = text.find("\"path\"", entryPos)) != std::string::npos) {
+        const auto objectEnd = text.find('}', entryPos);
+        if (objectEnd == std::string::npos) break;
+        const auto object = std::string_view(text).substr(entryPos, objectEnd - entryPos);
+        const auto relativeValue = fieldString(object, "path");
+        const auto bytesValue = fieldNumber(object, "bytes");
+        const auto shaValue = fieldString(object, "sha256");
+        if (!relativeValue || !bytesValue || !shaValue || shaValue->size() != 64) {
+            error = L"资源清单条目格式无效：" + manifestPath.wstring();
+            return false;
+        }
+        const auto& relative = *relativeValue;
         const auto normalized = fs::path(relative).lexically_normal();
         if (normalized.empty() || normalized.is_absolute() ||
             normalized != fs::path(relative) || relative.find('\\') != std::string::npos) {
             error = L"资源清单包含不安全路径：" + fs::path(relative).wstring();
             return false;
         }
-        std::uint64_t bytes = 0;
-        try {
-            bytes = static_cast<std::uint64_t>(std::stoull((*it)[2].str()));
-        } catch (const std::exception&) {
-            error = L"资源清单条目 bytes 数值无效：" + fs::path(relative).wstring();
-            return false;
-        }
-        if (!expected.emplace(relative, Expected{bytes, (*it)[3].str()}).second) {
+        if (!expected.emplace(relative, Expected{*bytesValue, *shaValue}).second) {
             error = L"资源清单包含重复路径：" + fs::path(relative).wstring();
             return false;
         }
+        entryPos = objectEnd + 1;
     }
     if (expected.size() != expectedCount) {
         error = L"资源清单 fileCount 与条目数不一致：" + manifestPath.wstring();
@@ -444,6 +496,27 @@ static fs::path locateResourceRoot(const fs::path& executable) {
     return {};
 }
 
+static fs::path locateClientExecutable(const fs::path& launcherExecutable) {
+    const auto bin = launcherExecutable.parent_path();
+    // Installed packages place both binaries beside each other.  The CMake
+    // developer layout keeps each target in its own directory, so also probe
+    // the sibling MoxianClient output directory explicitly.  Do not recurse
+    // or accept an arbitrary executable: the launcher must start the known
+    // client binary from one of these deterministic layouts.
+    const fs::path candidates[] = {
+        bin / L"MoxianClient.exe",
+        bin / L"mxh_client.exe",
+        bin.parent_path() / L"MoxianClient" / L"MoxianClient.exe",
+        bin.parent_path() / L"MoxianClient" / L"mxh_client.exe",
+        bin.parent_path() / L"MoxianClient" / L"Debug" / L"MoxianClient.exe",
+        bin.parent_path() / L"MoxianClient" / L"Debug" / L"mxh_client.exe",
+    };
+    for (const auto& candidate : candidates) {
+        if (fs::is_regular_file(candidate)) return candidate;
+    }
+    return {};
+}
+
 class LauncherWindow {
 public:
     LauncherWindow(LauncherEndpoints endpoints, fs::path resourceRoot,
@@ -576,8 +649,7 @@ private:
         // the modern build emits mxh_client.exe.  Probe only these two
         // explicit names; never search arbitrary executables or accept a
         // user-controlled command line.
-        fs::path client = bin / L"MoxianClient.exe";
-        if (!fs::is_regular_file(client)) client = bin / L"mxh_client.exe";
+        const fs::path client = locateClientExecutable(fs::path(module));
         if (!fs::is_regular_file(client)) {
             MessageBoxW(hwnd_, L"未找到 MoxianClient.exe 或 mxh_client.exe，请先完成客户端安装。", L"启动失败", MB_ICONERROR);
             return;
