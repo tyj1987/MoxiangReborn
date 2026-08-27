@@ -24,8 +24,26 @@ struct LauncherSettings {
 static fs::path settingsPath() {
     wchar_t buffer[MAX_PATH]{};
     DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer, MAX_PATH);
-    fs::path root = n ? fs::path(buffer) : fs::temp_directory_path();
-    return root / L"Moxian" / L"settings.json";
+    const fs::path localRoot = n ? fs::path(buffer) : fs::path{};
+    const fs::path candidates[] = {
+        localRoot / L"Moxian",
+        fs::temp_directory_path() / L"Moxian"
+    };
+    for (const auto& directory : candidates) {
+        if (directory.empty()) continue;
+        std::error_code ec;
+        fs::create_directories(directory, ec);
+        if (ec) continue;
+        wchar_t probe[MAX_PATH]{};
+        if (GetTempFileNameW(directory.c_str(), L"mxh", 0, probe) != 0) {
+            DeleteFileW(probe);
+            return directory / L"settings.json";
+        }
+    }
+    // Preserve a deterministic path for the error message if both locations
+    // are unavailable; saveSettings will fail closed and refuse launch.
+    return (localRoot.empty() ? fs::temp_directory_path() : localRoot) /
+           L"Moxian" / L"settings.json";
 }
 
 static int parseBoundedInt(const std::string& value, int fallback) noexcept {
