@@ -475,7 +475,12 @@ static fs::path locateResourceRoot(const fs::path& executable) {
     const fs::path roots[] = {
         bin / L"data" / L"PlayDH",
         bin.parent_path() / L"data" / L"PlayDH",
-        bin.parent_path() / L"modern" / L"data" / L"PlayDH"
+        bin.parent_path() / L"modern" / L"data" / L"PlayDH",
+        // CMake developer layout:
+        // modern/build/tools/MoxianLauncher/MoxianLauncher.exe
+        // modern/data/PlayDH
+        bin.parent_path().parent_path().parent_path() /
+            L"data" / L"PlayDH"
     };
     for (const auto& root : roots) {
         const fs::path required[] = {
