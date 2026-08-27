@@ -3,6 +3,7 @@
 #include "mxh/log/mlog.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <vector>
 
@@ -122,7 +123,8 @@ bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
     }
     const auto& entry = manifest_.entries[sound_id];
     const bool loop = entry.loop;
-    current_entry_volume_ = entry.volume > 0.0f ? entry.volume : 1.0f;
+    current_entry_volume_ = std::isfinite(entry.volume) && entry.volume > 0.0f
+        ? entry.volume : 1.0f;
     stop();
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
@@ -234,6 +236,7 @@ void BgmPlayer::stop() noexcept {
 }
 
 void BgmPlayer::setVolume(float normalized) noexcept {
+    if (!std::isfinite(normalized)) normalized = 0.0f;
     volume_ = std::clamp(normalized, 0.0f, 1.0f);
 #ifdef _WIN32
     if (media_ && media_->source) media_->source->SetVolume(

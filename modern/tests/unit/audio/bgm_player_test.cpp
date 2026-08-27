@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <limits>
 
 namespace {
 std::filesystem::path findSoundRoot() {
@@ -93,5 +94,13 @@ TEST(BgmPlayer, VolumeClampIsApplied) {
     player.setVolume(2.5f);   // above max
     player.setVolume(-0.5f);  // below min
     // This assertion guards that volume updates remain safe before playback.
+    SUCCEED();
+}
+
+TEST(BgmPlayer, NonFiniteVolumeIsSafe) {
+    mxh::audio::BgmPlayer player;
+    player.setVolume(std::numeric_limits<float>::quiet_NaN());
+    player.setVolume(std::numeric_limits<float>::infinity());
+    player.setVolume(-std::numeric_limits<float>::infinity());
     SUCCEED();
 }
