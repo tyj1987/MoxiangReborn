@@ -32,6 +32,11 @@
 #include <functional>
 #include <set>
 
+#ifdef _WIN32
+#include <urlmon.h>
+#pragma comment(lib, "urlmon.lib")
+#endif
+
 #include "patch_security.hpp"
 
 namespace fs = std::filesystem;
@@ -532,20 +537,38 @@ private:
 
     // Download and apply a single patch
     bool downloadAndApplyPatch(const PatchFile& file) {
-        // The current offline updater intentionally accepts only a local staging
-        // file.  Never reinterpret an https:// URL as a Windows relative path;
-        // a network transport must be added together with certificate and
-        // signed-manifest verification before remote patching is enabled.
-        if (file.url.find("://") != std::string::npos &&
-            file.url.rfind("file://", 0) != 0) {
-            std::cerr << "remote patch transport is not enabled; refusing "
-                      << file.path << std::endl;
+        fs::path targetPath = fs::path(gameDir_) / file.path;
+        fs::path sourcePath;
+        bool downloaded = false;
+        if (file.url.rfind("file://", 0) == 0) {
+            sourcePath = fs::path(file.url.substr(7));
+        } else if (file.url.rfind("https://", 0) == 0) {
+#ifdef _WIN32
+            sourcePath = targetPath;
+            sourcePath += ".mxh-download";
+            std::error_code cleanup_error;
+            fs::remove(sourcePath, cleanup_error);
+            const std::wstring url(file.url.begin(), file.url.end());
+            if (URLDownloadToFileW(nullptr, url.c_str(), sourcePath.c_str(),
+                                    0, nullptr) != S_OK) {
+                fs::remove(sourcePath, cleanup_error);
+                std::cerr << "HTTPS patch download failed: " << file.path << std::endl;
+                return false;
+            }
+            downloaded = true;
+#else
+            std::cerr << "HTTPS patch transport requires Windows: " << file.path << std::endl;
+            return false;
+#endif
+        } else {
+            std::cerr << "patch URL must use HTTPS or file://: " << file.path << std::endl;
             return false;
         }
-        fs::path targetPath = fs::path(gameDir_) / file.path;
-        fs::path sourcePath = file.url.rfind("file://", 0) == 0
-            ? fs::path(file.url.substr(7)) : fs::path(file.url);
-        if (!mxh::patch::verify_file(sourcePath, file.size, file.sha256)) return false;
+        if (!mxh::patch::verify_file(sourcePath, file.size, file.sha256)) {
+            std::error_code cleanup_error;
+            if (downloaded) fs::remove(sourcePath, cleanup_error);
+            return false;
+        }
         fs::create_directories(targetPath.parent_path());
         fs::path staged = targetPath;
         staged += ".mxh-new";
@@ -553,8 +576,10 @@ private:
         fs::copy_file(sourcePath, staged, fs::copy_options::overwrite_existing, error);
         if (error || !mxh::patch::verify_file(staged, file.size, file.sha256)) {
             fs::remove(staged, error);
+            if (downloaded) fs::remove(sourcePath, error);
             return false;
         }
+        if (downloaded) fs::remove(sourcePath, error);
 #ifdef _WIN32
         if (!MoveFileExW(staged.c_str(), targetPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
             fs::remove(staged, error);
