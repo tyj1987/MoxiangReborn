@@ -1,4 +1,4 @@
-// cnamechangenotifydlg.hpp -- modern port of Moxiang
+﻿// cnamechangenotifydlg.hpp -- modern port of Moxiang
 //   CNameChangeNotifyDlg (name change notification
 //   placeholder dialog).
 //

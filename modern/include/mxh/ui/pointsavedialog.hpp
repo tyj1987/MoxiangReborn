@@ -80,7 +80,7 @@ public:
     void SetItemToMapServer(std::uint32_t itemIdx,
                              std::uint32_t itemPos) noexcept;
 
-
+    
     // ----- 1:1 with legacy CHATMGR / eItemTable /
     // eObjectState_Deal / MAX_SAVEDMOVE_NAME constants -----
 

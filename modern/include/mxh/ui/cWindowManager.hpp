@@ -51,11 +51,6 @@ public:
     std::unique_ptr<cDialog> RemoveDialog(cDialog* dlg);
     bool RemoveDialogById(std::int32_t id);
     void RemoveAll();
-
-    // Process-exit teardown: release ownership without running widget
-    // destructors. The operating system reclaims the process heap after the
-    // renderer/network shutdown; this avoids executing callbacks or legacy
-    // widget cleanup while the host is already leaving the message loop.
     void AbandonAllForProcessExit() noexcept;
 
     // Process destroy queue (call once per frame). Dialogs marked

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "mxh/ui/cDialog.hpp"
 #include <cstdint>
 #include <functional>

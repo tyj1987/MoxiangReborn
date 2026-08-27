@@ -1,4 +1,4 @@
-// cintroreplaydlg.hpp -- modern port of Moxiang
+﻿// cintroreplaydlg.hpp -- modern port of Moxiang
 //   CIntroReplayDlg (intro replay placeholder dialog).
 //
 // 1:1 port of legacy `CIntroReplayDlg` from

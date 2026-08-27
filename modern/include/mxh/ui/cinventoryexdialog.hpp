@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/services/IInventoryService.hpp"
 #include <cstdint>
@@ -35,3 +35,5 @@ private:
  const mxh::services::IInventoryService* m_inventory{};
 };
 }
+
+

@@ -20,3 +20,4 @@ static constexpr std::uint32_t kWeNull=0;
 private:
 BuyStallDlgState m_state=BuyStallDlgState::NotOpened; cEditBox* m_titleEdit=nullptr; cEditBox* m_moneyEdit=nullptr; cButton* m_enterBtn=nullptr; cIconGridDialog* m_grid=nullptr; cButton* m_regBtn=nullptr; cButton* m_sellBtn=nullptr; std::array<std::uint32_t,kStallSlotCount> m_money{}; std::array<BuyRegInfo,kStallSlotCount> m_reg{}; BuyRegInfo m_fake{}; std::uint32_t m_totalMoney=0; char m_oldTitle[kTitleMaxLen+1]{}; int m_selected=-1; std::uint32_t m_owner=0; void* m_data=nullptr; void* m_sellItem=nullptr; std::uint16_t m_sellPos=0; CheckCallback m_selCb=nullptr; void* m_selUser=nullptr; CheckCallback m_moneyCb=nullptr; void* m_moneyUser=nullptr; ItemCallback m_itemCb=nullptr; void* m_itemUser=nullptr; ShowCallback m_showCb=nullptr; void* m_showUser=nullptr; CloseCallback m_closeCb=nullptr; void* m_closeUser=nullptr; };
 }
+

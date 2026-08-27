@@ -130,8 +130,8 @@ public:
     void UpdateData();
     void UpdateForStageAbility();
     void RefreshInfo();
-    // Refresh live level/HP/MP and the four legacy core attributes
-    // (GenGol/MinChub/CheRyuk/SimMek) supplied by the service.
+    // Refresh only fields with an unambiguous IPlayerStatsService mapping:
+    // level, current HP (life), and current MP (naeryuk).
     void RefreshFromPlayerStats();
     void SetPlayerStatsService(const mxh::services::IPlayerStatsService* service) noexcept {
         m_playerStatsService = service;

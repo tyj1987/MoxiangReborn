@@ -1,4 +1,4 @@
-// cloadingdlg.hpp -- modern port of Moxiang CLoadingDlg
+﻿// cloadingdlg.hpp -- modern port of Moxiang CLoadingDlg
 // (loading screen dialog: an empty placeholder).
 //
 // 1:1 port of legacy `CLoadingDlg` from

@@ -1,4 +1,4 @@
-// ckeysettingtipdlg.hpp -- modern port of Moxiang
+﻿// ckeysettingtipdlg.hpp -- modern port of Moxiang
 //   CKeySettingTipDlg (keyboard shortcut tip dialog).
 //
 // 1:1 port of legacy `CKeySettingTipDlg` from

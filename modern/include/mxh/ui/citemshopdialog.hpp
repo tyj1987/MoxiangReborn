@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "mxh/ui/cDialog.hpp"
 #include "mxh/services/IItemShopService.hpp"
 #include <cstdint>
