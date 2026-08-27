@@ -414,6 +414,10 @@ static bool saveSettings(const LauncherSettings& s) {
     fs::path temp = settingsPath(); temp += L".tmp";
     std::ifstream existing(settingsPath(), std::ios::binary);
     std::string text((std::istreambuf_iterator<char>(existing)), {});
+    // Windows does not allow MOVEFILE_REPLACE_EXISTING to replace a file
+    // whose read handle was opened without FILE_SHARE_DELETE.  Close the
+    // source stream before publishing the atomically-written temp file.
+    existing.close();
     if (text.empty()) text = "{\n}\n";
     std::string profile;
     profile.reserve(s.profile.size());
