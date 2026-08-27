@@ -48,6 +48,14 @@ constexpr std::size_t category_index(CharMakeOptionCategory category) noexcept {
     return static_cast<std::size_t>(category);
 }
 
+bool valid_name_bytes(const std::string& name) noexcept {
+    if (name.size() < 4 || name.size() > kMaxNameLength) return false;
+    for (const unsigned char byte : name) {
+        if (byte < 0x20u || byte == 0x7fu) return false;
+    }
+    return true;
+}
+
 } // namespace
 
 bool CharacterMakeFormModel::initialize(
@@ -499,6 +507,10 @@ bool CCharMake::SubmitCharacter(const CharacterMakeParams& params) {
         fail_with("SubmitCharacter: empty name");
         return false;
     }
+    if (!valid_name_bytes(params.name)) {
+        fail_with("SubmitCharacter: name must contain 4-16 valid bytes");
+        return false;
+    }
     if (!is_connected()) {
         fail_with("SubmitCharacter: not connected to AgentServer");
         return false;
@@ -565,7 +577,7 @@ bool CCharMake::CheckCurrentName() {
     auto* edit = name_edit();
     if (!edit || !is_connected() || m_nameCheckPending) return false;
     const auto& name = edit->editText();
-    if (name.size() < 4 || name.size() > kMaxNameLength) {
+    if (!valid_name_bytes(name)) {
         (void)m_uiRuntime.showMessage(9201,
             "Character name must contain 4-16 bytes.");
         return false;
@@ -591,7 +603,7 @@ bool CCharMake::SubmitCurrentForm() {
     if (!edit) return false;
     CharacterMakeParams params = m_formModel.params();
     params.name = edit->editText();
-    if (params.name.size() < 4 || params.name.size() > kMaxNameLength) {
+    if (!valid_name_bytes(params.name)) {
         (void)m_uiRuntime.showMessage(9201,
             "Character name must contain 4-16 bytes.");
         MLOG_WARN("CCharMake: character name must contain 4-16 bytes");
