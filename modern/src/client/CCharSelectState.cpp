@@ -462,7 +462,7 @@ void CCharSelectState::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CCharSelectState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
-    if (!m_releasing && !m_selectSent && !m_failed) {
+    if (!m_releasing && !m_failed) {
         fail_with(std::string("disconnected before CharacterSelectAck: ") +
                   mxh::net::to_string(reason));
     }
