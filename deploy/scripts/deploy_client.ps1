@@ -11,13 +11,14 @@ param(
     [string]$ServerIP = "127.0.0.1",
     [ValidateSet('playdh-current', 'sworking-2008-reference')]
     [string]$ResourceProfileId = 'playdh-current',
-    [switch]$Help
+    [switch]$Help,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 if ($Help) {
-    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference]'
-    Write-Host '说明: 默认执行完整客户端部署；-Help 只显示帮助，不创建或修改任何文件。'
+    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference] [-DryRun]'
+    Write-Host '说明: 默认执行完整客户端部署；-Help 只显示帮助，-DryRun 只校验资源，不创建或修改任何文件。'
     exit 0
 }
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
@@ -81,6 +82,11 @@ foreach ($entry in @($profile.required)) {
     if ($actualHash -ne ([string]$entry.sha256).ToLowerInvariant()) {
         throw "Profile resource hash mismatch: $requiredPath"
     }
+}
+if ($DryRun) {
+    Write-Host "Dry-run passed: profile '$ResourceProfileId' is complete and hash-verified."
+    Write-Host "No deployment files were created or modified."
+    exit 0
 }
 $profileDataRoot = Join-Path $DeployDir 'data\PlayDH'
 
