@@ -513,7 +513,8 @@ public:
         : options_(options), renderer_(renderer), storage_(storage),
           bgm_(bgm), map_num_(map_num),
           previous_render_terrain_(g_renderTerrain),
-          previous_capture_frame_(g_captureTerrainFrame) {
+          previous_capture_frame_(g_captureTerrainFrame),
+          previous_bgm_id_(bgm.currentSoundId()) {
         g_renderTerrain = false;
         g_captureTerrainFrame.clear();
     }
@@ -637,6 +638,7 @@ public:
         if (complete_) return;
         failed_ = true;
         error_ = "world loading cancelled";
+        restore_previous_bgm();
         g_renderTerrain = previous_render_terrain_;
         g_captureTerrainFrame = previous_capture_frame_;
     }
@@ -649,10 +651,24 @@ private:
     Result fail(std::string message, std::string& error) {
         failed_ = true;
         error_ = std::move(message);
+        restore_previous_bgm();
         g_renderTerrain = previous_render_terrain_;
         g_captureTerrainFrame = previous_capture_frame_;
         error = error_;
         return Result::Failed;
+    }
+
+    void restore_previous_bgm() noexcept {
+        if (bgm_.currentSoundId() == previous_bgm_id_) return;
+        if (previous_bgm_id_ == 0xffffu) {
+            bgm_.stop();
+            return;
+        }
+        std::string ignored;
+        if (!bgm_.play(previous_bgm_id_, &ignored)) {
+            MLOG_WARN("mxh_client: failed to restore previous BGM id=%u after map rollback: %s",
+                      static_cast<unsigned>(previous_bgm_id_), ignored.c_str());
+        }
     }
 
     const ClientOptions& options_;
@@ -667,6 +683,7 @@ private:
     std::string previous_capture_frame_;
     std::string stage_error_;
     std::string error_;
+    std::uint16_t previous_bgm_id_ = 0xffffu;
     std::optional<mxh::compat::BmhmMap> descriptor_;
     std::optional<mxh::compat::TtbTileTable> tile_table_;
     std::unique_ptr<mxh::gx::TerrainScene> terrain_;
