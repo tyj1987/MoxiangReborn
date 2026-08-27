@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('playdh-current', 'sworking-2008-reference')]
+    [ValidateSet('playdh-current')]
     [string]$ResourceProfileId = 'playdh-current',
     [ValidateRange(1, 65535)] [int]$LoginPort = 26101,
     [ValidateRange(1, 65535)] [int]$AgentPort = 27101,
@@ -54,11 +54,7 @@ function Stop-OwnedProcess {
     }
 }
 
-$resourceRoot = if ($ResourceProfileId -eq 'playdh-current') {
-    Join-Path $repoRoot 'modern\data\PlayDH'
-} else {
-    Join-Path $repoRoot 'reference\legacy-source\4dddd9a6\SWorking'
-}
+$resourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
 if (-not (Test-Path -LiteralPath $resourceRoot -PathType Container)) {
     throw "Resource profile root not found: $resourceRoot"
 }
