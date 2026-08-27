@@ -77,10 +77,18 @@ struct Version {
         std::regex pattern(R"((\d+)\.(\d+)\.(\d+)\.(\d+))");
         std::smatch matches;
         if (std::regex_match(str, matches, pattern)) {
-            v.major = std::stoi(matches[1]);
-            v.minor = std::stoi(matches[2]);
-            v.patch = std::stoi(matches[3]);
-            v.build = std::stoi(matches[4]);
+            try {
+                v.major = std::stoi(matches[1].str());
+                v.minor = std::stoi(matches[2].str());
+                v.patch = std::stoi(matches[3].str());
+                v.build = std::stoi(matches[4].str());
+            } catch (const std::exception&) {
+                // A remote manifest is untrusted input.  Treat overflow or
+                // malformed numeric components as an invalid zero version;
+                // callers can then reject it through their normal version
+                // policy without terminating the updater process.
+                return Version{};
+            }
         }
         return v;
     }
