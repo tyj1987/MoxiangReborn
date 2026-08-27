@@ -814,9 +814,38 @@ void __stdcall CoD3DDeviceDX11::SetViewFrusturm(VIEW_VOLUME* pViewVolume, CAMERA
 
 void __stdcall CoD3DDeviceDX11::GetSystemStatus(SYSTEM_STATUS* pStatus) {
     if (!pStatus) return;
-    pStatus->dwAvaliableTexMem = 256 * 1024 * 1024;  // 256 MB placeholder
-    pStatus->dwTotalTexMem     = 1024 * 1024 * 1024;
+    pStatus->dwAvaliableTexMem = 0;
+    pStatus->dwTotalTexMem = 0;
     std::strncpy(pStatus->szDeviceType, "DX11", sizeof(pStatus->szDeviceType) - 1);
+    pStatus->szDeviceType[sizeof(pStatus->szDeviceType) - 1] = '\0';
+    if (!m_dev || !m_dev->rawDevice()) return;
+
+    Microsoft::WRL::ComPtr<IDXGIDevice> dxgi_device;
+    if (FAILED(m_dev->rawDevice()->QueryInterface(
+            IID_PPV_ARGS(dxgi_device.GetAddressOf()))) || !dxgi_device) return;
+    Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
+    if (FAILED(dxgi_device->GetAdapter(adapter.GetAddressOf())) || !adapter) return;
+
+    DXGI_ADAPTER_DESC desc{};
+    if (SUCCEEDED(adapter->GetDesc(&desc))) {
+        const auto clamp_u32 = [](UINT64 value) {
+            return static_cast<std::uint32_t>(std::min<UINT64>(
+                value, static_cast<UINT64>(UINT32_MAX)));
+        };
+        pStatus->dwTotalTexMem = clamp_u32(desc.DedicatedVideoMemory);
+    }
+
+    Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter3;
+    if (SUCCEEDED(adapter.As(&adapter3)) && adapter3) {
+        DXGI_QUERY_VIDEO_MEMORY_INFO memory{};
+        if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(
+                0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory))) {
+            const UINT64 available = memory.Budget > memory.CurrentUsage
+                ? memory.Budget - memory.CurrentUsage : 0;
+            pStatus->dwAvaliableTexMem = static_cast<std::uint32_t>(std::min<UINT64>(
+                available, static_cast<UINT64>(UINT32_MAX)));
+        }
+    }
 }
 
 void __stdcall CoD3DDeviceDX11::UpdateWindowSize() {
