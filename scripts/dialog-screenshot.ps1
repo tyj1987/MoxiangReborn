@@ -24,11 +24,15 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
-$clientExe = Join-Path $buildRoot 'tools\MoxianClient\Debug\mxh_client.exe'
+$clientCandidates = @(
+    (Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'),
+    (Join-Path $buildRoot 'tools\MoxianClient\Debug\mxh_client.exe')
+)
+$clientExe = $clientCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 
 if (-not (Test-Path -LiteralPath $clientExe)) {
-    throw "MoxianClient.exe not found: $clientExe"
+    throw "MoxianClient.exe not found; checked: $($clientCandidates -join ', ')"
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
