@@ -2588,13 +2588,17 @@ bool CInGameState::OnMouseButton(bool left, bool down,
         const std::uint32_t npc = pick_npc_at_screen(fx, fy);
         if (npc != 0) {
             interact_with_npc(npc);
-            return false;
+            // NPC interaction owns the click; otherwise the same pointer
+            // event is also interpreted as a world move.
+            return true;
         }
         const std::uint32_t monster = pick_monster_at_screen(fx, fy);
         if (monster != 0) {
             m_pendingAttackTarget = monster;
             try_attack();
-            return false;
+            // Target selection/attack owns the click and must not issue a
+            // movement command toward the cursor in the same frame.
+            return true;
         }
         if (move_to_screen(static_cast<float>(x), static_cast<float>(y))) {
             return false;
