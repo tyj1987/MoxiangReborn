@@ -2487,6 +2487,18 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         return 0;
         }
     case WM_MOUSEWHEEL:
+        // WM_MOUSEWHEEL coordinates are screen-relative.  Convert them to
+        // the client viewport before dispatching so pillarbox side bars stay
+        // inert just like mouse clicks and movement.  This matters in 16:9
+        // mode where the legacy 4:3 canvas is intentionally not stretched.
+        {
+        POINT cursor{
+            static_cast<LONG>(static_cast<short>(LOWORD(l))),
+            static_cast<LONG>(static_cast<short>(HIWORD(l)))};
+        if (!ScreenToClient(h, &cursor) ||
+            !g_logicalViewport.to_logical(cursor.x, cursor.y).has_value()) {
+            return 0;
+        }
         if ((__g_currentState == static_cast<int>(mxh::client::GameStateId::CharSelect) ||
              __g_currentState == static_cast<int>(mxh::client::GameStateId::CharMake)) &&
             g_charPreviewController.onMouseWheel(
@@ -2500,6 +2512,7 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             InvalidateRect(h, nullptr, FALSE);
         }
         return 0;
+        }
     default:
         return DefWindowProc(h, m, w, l);
     }
