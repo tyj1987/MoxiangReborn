@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <fstream>
 #include <sstream>
 
@@ -102,6 +103,7 @@ float read_float(const std::string& text, const char* key, float fallback) {
 }
 
 float clamp_volume(float value) {
+    if (!std::isfinite(value)) return 1.0f;
     return std::clamp(value, 0.0f, 1.0f);
 }
 

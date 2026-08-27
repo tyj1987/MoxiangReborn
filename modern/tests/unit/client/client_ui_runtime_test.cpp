@@ -106,6 +106,22 @@ TEST(ClientSettings, EscapedAccountNameRoundTripsAndMalformedEscapeFallsBack) {
     std::filesystem::remove(path);
 }
 
+TEST(ClientSettings, NonFiniteVolumeFallsBackToSafeDefault) {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "mxh-settings-nonfinite-volume.json";
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << R"({"schemaVersion":1,"resourceProfileId":"playdh-current",)"
+                  R"("postLoginWidth":1024,"postLoginHeight":768,"bgmVolume":nan,"sfxVolume":-nan})";
+    }
+    std::string warning;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &warning);
+    EXPECT_FLOAT_EQ(actual.bgm_volume, 1.0f);
+    EXPECT_FLOAT_EQ(actual.sfx_volume, 1.0f);
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+}
+
 TEST(ClientSettings, UnknownSchemaIsBackedUpAndDefaultsAreUsed) {
     const auto path = std::filesystem::temp_directory_path() / "mxh-settings-schema.json";
     {
