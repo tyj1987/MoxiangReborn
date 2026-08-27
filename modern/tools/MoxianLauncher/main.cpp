@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <cwchar>
+#include <unordered_map>
 #include <vector>
 #include <utility>
 
@@ -163,26 +164,129 @@ static bool sha256File(const fs::path& path, std::string& hex) noexcept {
     return true;
 }
 
-static bool verifyRequiredResourceHashes(const fs::path& root, std::wstring& error) {
-    struct Entry { const wchar_t* relative; const char* sha256; };
-    static constexpr Entry required[] = {
-        {L"Resource/ItemList.bin", "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd"},
-        {L"Resource/CharacterExpPoint.bin", "8010160a2ed9a7e0bac91c73eb31efa43d25d101200d1cb149be5e8083305f59"},
-        {L"Resource/Server/Monster_10.bin", "50033323336100da141443f3b563c62312586d149edf5cfdd78262b26d15cc01"}
+static fs::path locateResourceManifest(const fs::path& root) {
+    // A release package carries the manifest beside its resource tree.  The
+    // extra repository-layout candidates keep the developer build usable
+    // without making an absolute machine path part of the product contract.
+    const fs::path candidates[] = {
+        root / L"resource-profile.sha256.json",
+        root.parent_path().parent_path().parent_path() /
+            L"reference/manifests/playdh-current.sha256.json",
+        root.parent_path().parent_path().parent_path().parent_path() /
+            L"reference/manifests/playdh-current.sha256.json"
     };
-    for (const auto& entry : required) {
-        const auto path = root / entry.relative;
-        std::string actual;
-        if (!sha256File(path, actual)) {
-            error = L"无法读取资源哈希：" + path.wstring();
+    for (const auto& candidate : candidates) {
+        if (fs::is_regular_file(candidate)) return candidate;
+    }
+    return {};
+}
+
+static bool verifyResourceManifest(const fs::path& root,
+                                   const fs::path& manifestPath,
+                                   std::wstring& error) {
+    std::ifstream input(manifestPath, std::ios::binary);
+    if (!input) {
+        error = L"无法读取资源清单：" + manifestPath.wstring();
+        return false;
+    }
+    const std::string text((std::istreambuf_iterator<char>(input)), {});
+    std::smatch profileMatch;
+    if (!std::regex_search(text, profileMatch,
+            std::regex(R"REGEX("profileId"\s*:\s*"([^"]+)")REGEX")) ||
+        profileMatch[1].str() != "playdh-current") {
+        error = L"资源清单 profileId 不是 playdh-current：" + manifestPath.wstring();
+        return false;
+    }
+    std::smatch countMatch;
+    std::smatch byteMatch;
+    if (!std::regex_search(text, countMatch,
+            std::regex(R"REGEX("fileCount"\s*:\s*(\d+))REGEX")) ||
+        !std::regex_search(text, byteMatch,
+            std::regex(R"REGEX("byteCount"\s*:\s*([0-9]+(?:\.[0-9]+)?))REGEX"))) {
+        error = L"资源清单缺少完整 inventory：" + manifestPath.wstring();
+        return false;
+    }
+    std::size_t expectedCount = 0;
+    std::uint64_t expectedBytes = 0;
+    try {
+        expectedCount = static_cast<std::size_t>(std::stoull(countMatch[1].str()));
+        expectedBytes = static_cast<std::uint64_t>(std::stold(byteMatch[1].str()));
+    } catch (...) {
+        error = L"资源清单 inventory 数值无效：" + manifestPath.wstring();
+        return false;
+    }
+
+    struct Expected { std::uint64_t bytes; std::string sha256; };
+    std::unordered_map<std::string, Expected> expected;
+    const std::regex entryPattern(
+        R"REGEX(\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"bytes"\s*:\s*(\d+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})")REGEX");
+    for (std::sregex_iterator it(text.begin(), text.end(), entryPattern), end;
+         it != end; ++it) {
+        const auto relative = (*it)[1].str();
+        const auto normalized = fs::path(relative).lexically_normal();
+        if (normalized.empty() || normalized.is_absolute() ||
+            normalized != fs::path(relative) || relative.find('\\') != std::string::npos) {
+            error = L"资源清单包含不安全路径：" + fs::path(relative).wstring();
             return false;
         }
-        if (_stricmp(actual.c_str(), entry.sha256) != 0) {
-            error = L"资源 SHA-256 不匹配：" + path.wstring();
+        if (!expected.emplace(relative, Expected{
+                static_cast<std::uint64_t>(std::stoull((*it)[2].str())),
+                (*it)[3].str()}).second) {
+            error = L"资源清单包含重复路径：" + fs::path(relative).wstring();
             return false;
         }
     }
+    if (expected.size() != expectedCount) {
+        error = L"资源清单 fileCount 与条目数不一致：" + manifestPath.wstring();
+        return false;
+    }
+    const auto files = [&] {
+        std::vector<fs::path> result;
+        std::error_code ec;
+        for (fs::recursive_directory_iterator it(root, ec), end; it != end && !ec; it.increment(ec)) {
+            if (it->is_regular_file(ec)) result.push_back(it->path());
+        }
+        return result;
+    }();
+    if (files.size() != expectedCount) {
+        error = L"资源文件数量与清单不一致：期望 " + std::to_wstring(expectedCount) +
+                L"，实际 " + std::to_wstring(files.size());
+        return false;
+    }
+    std::uint64_t actualBytes = 0;
+    for (const auto& file : files) {
+        const auto relative = file.lexically_relative(root).generic_string();
+        const auto found = expected.find(relative);
+        if (found == expected.end()) {
+            error = L"资源目录包含清单外文件：" + fs::path(relative).wstring();
+            return false;
+        }
+        const auto size = static_cast<std::uint64_t>(fs::file_size(file));
+        actualBytes += size;
+        if (size != found->second.bytes) {
+            error = L"资源大小不匹配：" + file.wstring();
+            return false;
+        }
+        std::string actual;
+        if (!sha256File(file, actual) || _stricmp(actual.c_str(), found->second.sha256.c_str()) != 0) {
+            error = L"资源 SHA-256 不匹配：" + file.wstring();
+            return false;
+        }
+    }
+    if (actualBytes != expectedBytes) {
+        error = L"资源总字节数与清单不一致";
+        return false;
+    }
     return true;
+}
+
+static bool verifyRequiredResourceHashes(const fs::path& root, std::wstring& error) {
+    const auto manifest = locateResourceManifest(root);
+    if (manifest.empty()) {
+        error = L"缺少 playdh-current 完整资源清单；拒绝使用不完整校验启动。";
+        return false;
+    }
+    return verifyResourceManifest(root, manifest, error);
 }
 
 static LauncherSettings loadSettings() {
@@ -473,17 +577,19 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     LauncherEndpoints endpoints;
     fs::path resourceRoot;
     fs::path evidenceDir;
+    bool verifyOnly = false;
     bool invalidEndpoint = false;
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argv) {
-        for (int i = 1; i + 1 < argc; ++i) {
+        for (int i = 1; i < argc; ++i) {
             const auto name = std::wstring_view(argv[i]);
             if (name == L"--login-port") { bool valid = false; endpoints.loginPort = parsePort(argv[++i], endpoints.loginPort, &valid); invalidEndpoint |= !valid; }
             else if (name == L"--agent-port") { bool valid = false; endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort, &valid); invalidEndpoint |= !valid; }
             else if (name == L"--map-port") { bool valid = false; endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort, &valid); invalidEndpoint |= !valid; }
             else if (name == L"--resource-root") resourceRoot = fs::path(argv[++i]);
             else if (name == L"--evidence-dir") evidenceDir = fs::path(argv[++i]);
+            else if (name == L"--verify-resources") verifyOnly = true;
         }
         LocalFree(argv);
     }
@@ -496,6 +602,23 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         endpoints.agentPort == endpoints.mapPort) {
         MessageBoxW(nullptr, L"登录、角色和地图服务端口必须互不相同。", L"启动器配置错误", MB_ICONERROR);
         return 2;
+    }
+    if (verifyOnly) {
+        if (resourceRoot.empty()) {
+            wchar_t module[MAX_PATH]{};
+            GetModuleFileNameW(nullptr, module, MAX_PATH);
+            resourceRoot = locateResourceRoot(fs::path(module));
+        }
+        std::wstring error;
+        const bool ok = !resourceRoot.empty() &&
+            verifyRequiredResourceHashes(resourceRoot, error);
+        if (!ok) {
+            OutputDebugStringW((L"MoxianLauncher resource verification failed: " +
+                                error + L"\n").c_str());
+            return 3;
+        }
+        OutputDebugStringW(L"MoxianLauncher resource verification passed\n");
+        return 0;
     }
     LauncherWindow window(endpoints, std::move(resourceRoot), std::move(evidenceDir));
     return window.create(instance) ? window.run() : 1;
