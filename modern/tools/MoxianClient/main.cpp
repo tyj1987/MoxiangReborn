@@ -415,6 +415,7 @@ mxh::client::GameLoadingCoordinator* g_loadingCoordinator = nullptr;
 mxh::client::CMainTitle*       g_mainTitle       = nullptr;
 mxh::client::LogicalViewport   g_logicalViewport;
 mxh::audio::SfxPlayer* g_sfxPlayer = nullptr;
+mxh::audio::BgmPlayer* g_bgmPlayer = nullptr;
 struct EffectVisualOverlay;
 EffectVisualOverlay* g_effectVisuals = nullptr;
 std::uint16_t g_uiClickSound = 0xffffu;
@@ -422,6 +423,9 @@ std::uint16_t g_attackSound = 0xffffu;
 std::uint16_t g_skillSound = 0xffffu;
 std::uint16_t g_pickupSound = 0xffffu;
 float g_uiVolume = 1.0f;
+float g_bgmVolume = 1.0f;
+float g_sfxVolume = 1.0f;
+bool g_audioFocused = true;
 
 void configureCharacterPreviewCamera(I4DyuchiGXRenderer* renderer,
                                      float aspect) {
@@ -2248,6 +2252,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(HIWORD(l)));
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
+    case WM_ACTIVATEAPP:
+        g_audioFocused = w != FALSE;
+        if (g_bgmPlayer) g_bgmPlayer->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
+        if (g_sfxPlayer) g_sfxPlayer->setVolume(g_audioFocused ? g_sfxVolume : 0.0f);
+        MLOG_INFO("mxh_client: audio focus=%s", g_audioFocused ? "active" : "muted");
+        return 0;
     case WM_KEYDOWN:
         if (w == VK_F12) {
             captureHumanEvidenceFrame();
@@ -2590,7 +2600,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     mxh::audio::BgmPlayer bgm;
     mxh::audio::SfxPlayer sfx;
+    g_bgmPlayer = &bgm;
     g_sfxPlayer = &sfx;
+    g_bgmVolume = persisted_settings.bgm_volume;
+    g_sfxVolume = persisted_settings.sfx_volume;
     std::string audio_error;
     if (bgm.initialize(options.resource_root / "Sound", &audio_error)) {
         bgm.setVolume(persisted_settings.bgm_volume);
@@ -3650,6 +3663,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_sprites = {};
     storage->Release();
     g_loadingCoordinator = nullptr;
+    g_bgmPlayer = nullptr;
+    g_sfxPlayer = nullptr;
 
     return 0;
 }
