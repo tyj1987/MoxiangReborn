@@ -294,15 +294,28 @@ static LauncherSettings loadSettings() {
     std::ifstream in(settingsPath(), std::ios::binary);
     if (!in) return s;
     std::string text((std::istreambuf_iterator<char>(in)), {});
+    const auto preserveInvalid = []() {
+        const auto source = settingsPath();
+        auto backup = source;
+        backup += L".invalid";
+        std::error_code error;
+        fs::copy_file(source, backup, fs::copy_options::overwrite_existing, error);
+    };
     const auto open = text.find('{');
     const auto close = text.rfind('}');
-    if (open == std::string::npos || close == std::string::npos || open > close) return s;
+    if (open == std::string::npos || close == std::string::npos || open > close) {
+        preserveInvalid();
+        return s;
+    }
     std::smatch match;
     int schema = 1;
     if (std::regex_search(text, match, std::regex(R"REGEX("schemaVersion"\s*:\s*(\d+))REGEX"))) {
         try { schema = std::stoi(match[1].str()); } catch (...) { schema = 0; }
     }
-    if (schema != 1) return s;
+    if (schema != 1) {
+        preserveInvalid();
+        return s;
+    }
     if (std::regex_search(text, match, std::regex(R"REGEX("resourceProfileId"\s*:\s*"([^"]+)")REGEX")) ||
         std::regex_search(text, match, std::regex(R"REGEX("profile"\s*:\s*"([^"]+)")REGEX")))
         s.profile = std::wstring(match[1].str().begin(), match[1].str().end());
