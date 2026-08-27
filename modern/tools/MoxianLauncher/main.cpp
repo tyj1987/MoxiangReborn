@@ -12,6 +12,7 @@
 #include <string_view>
 #include <cwchar>
 #include <vector>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -274,7 +275,8 @@ static fs::path locateResourceRoot(const fs::path& executable) {
 
 class LauncherWindow {
 public:
-    explicit LauncherWindow(LauncherEndpoints endpoints) : endpoints_(endpoints) {}
+    LauncherWindow(LauncherEndpoints endpoints, fs::path resourceRoot)
+        : endpoints_(endpoints), resourceRoot_(std::move(resourceRoot)) {}
     bool create(HINSTANCE instance) {
         settings_ = loadSettings();
         WNDCLASSW wc{}; wc.hInstance = instance; wc.lpfnWndProc = &LauncherWindow::proc;
@@ -337,16 +339,19 @@ private:
         if (msg == WM_COMMAND && LOWORD(wp) == 1) {
             wchar_t module[MAX_PATH]{};
             GetModuleFileNameW(nullptr, module, MAX_PATH);
-            const auto root = locateResourceRoot(fs::path(module));
-            if (root.empty()) {
+            const auto root = resourceRoot_.empty()
+                ? locateResourceRoot(fs::path(module)) : resourceRoot_;
+            const auto validRoot = root.empty() ? fs::path{} :
+                (fs::is_directory(root) ? root : fs::path{});
+            if (validRoot.empty()) {
                 MessageBoxW(hwnd_, L"资源检查失败：缺少运行所需的 Map10、怪物、NPC、登录、选角、建角或音频资源。未执行任何删除或下载。", L"检查/修复", MB_ICONERROR);
             } else {
                 std::wstring hashError;
-                if (!verifyRequiredResourceHashes(root, hashError)) {
+                if (!verifyRequiredResourceHashes(validRoot, hashError)) {
                     MessageBoxW(hwnd_, (L"资源校验失败：\n" + hashError + L"\n未执行任何删除或下载。请从正式 profile 修复资源。").c_str(), L"检查/修复", MB_ICONERROR);
                     return 0;
                 }
-                MessageBoxW(hwnd_, (L"本地资源基础检查和 SHA-256 校验通过：\n" + root.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
+                MessageBoxW(hwnd_, (L"本地资源基础检查和 SHA-256 校验通过：\n" + validRoot.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
             }
             return 0;
         }
@@ -401,7 +406,8 @@ private:
         // A launcher must fail closed when the installed profile is
         // incomplete.  Starting with a missing IDDlg or Map.pak only
         // produces a misleading black/error screen in the client.
-        const fs::path resourceRoot = locateResourceRoot(fs::path(module));
+        const fs::path resourceRoot = resourceRoot_.empty()
+            ? locateResourceRoot(fs::path(module)) : resourceRoot_;
         if (resourceRoot.empty()) {
             MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map10、怪物、NPC、登录、选角、建角或音频资源。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
             return;
@@ -422,10 +428,12 @@ private:
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
     }
     HWND hwnd_{}; LauncherSettings settings_{}; LauncherEndpoints endpoints_{};
+    fs::path resourceRoot_{};
 };
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     LauncherEndpoints endpoints;
+    fs::path resourceRoot;
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argv) {
@@ -434,6 +442,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             if (name == L"--login-port") endpoints.loginPort = parsePort(argv[++i], endpoints.loginPort);
             else if (name == L"--agent-port") endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort);
             else if (name == L"--map-port") endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort);
+            else if (name == L"--resource-root") resourceRoot = fs::path(argv[++i]);
         }
         LocalFree(argv);
     }
@@ -443,6 +452,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         MessageBoxW(nullptr, L"登录、角色和地图服务端口必须互不相同。", L"启动器配置错误", MB_ICONERROR);
         return 2;
     }
-    LauncherWindow window(endpoints);
+    LauncherWindow window(endpoints, std::move(resourceRoot));
     return window.create(instance) ? window.run() : 1;
 }

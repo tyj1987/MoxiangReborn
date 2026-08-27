@@ -102,7 +102,7 @@ try {
     }
 
     $launchStart = Get-Date
-    $launcherArgs = @('--login-port', $LoginPort, '--agent-port', $AgentPort, '--map-port', $MapPort)
+    $launcherArgs = @('--login-port', $LoginPort, '--agent-port', $AgentPort, '--map-port', $MapPort, '--resource-root', $resourceRoot)
     $launcher = Start-Process -FilePath $launcherExe -ArgumentList $launcherArgs -WorkingDirectory $repoRoot -PassThru
     $owned.Add([pscustomobject]@{ pid = $launcher.Id; exe = $launcherExe; name = 'launcher' })
 
