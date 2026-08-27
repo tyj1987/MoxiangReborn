@@ -2869,6 +2869,11 @@ void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
 void CInGameState::try_attack() {
     const auto now = steady_now_ms();
     if (!m_inGame) return;
+    // Do not overlap a server-authoritative skill/attack request.  The local
+    // cooldown is presentation timing only; under latency it can expire
+    // before the previous request receives StartAck/SingleResult and would
+    // otherwise produce duplicate combat packets.
+    if (m_pendingSkillId != 0) return;
     if (now - m_lastAttackMs <
         static_cast<std::uint64_t>(kAttackCooldownMs)) {
         return;
@@ -3005,6 +3010,7 @@ std::uint64_t CInGameState::attack_flash_age_ms() const noexcept {
 
 void CInGameState::use_quick_slot(std::size_t slot) {
     if (!m_inGame || !is_connected()) return;
+    if (m_pendingSkillId != 0) return;
     const auto skill = quick_skill_for_slot(m_info, slot);
     if (skill == 0) return;
     const auto now = steady_now_ms();
