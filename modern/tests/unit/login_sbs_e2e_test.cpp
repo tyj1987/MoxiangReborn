@@ -9,15 +9,42 @@
 #include <chrono>
 #include <cstdio>
 #include <future>
+#include <filesystem>
 #include <string>
 #include <thread>
 
 namespace {
 std::string login_exe_path() {
-    return std::string("C:/moxiang/modern/build/tools/MoxianLoginServer/Debug/mxh_login_server.exe");
+    for (auto root = std::filesystem::current_path(); !root.empty();
+         root = root.parent_path()) {
+        for (const auto& suffix : {std::filesystem::path{},
+                                   std::filesystem::path{"Debug"}}) {
+            for (const auto& tools_root : {root / "tools",
+                                           root / "modern" / "build" / "tools"}) {
+                const auto candidate = tools_root / "MoxianLoginServer" /
+                                       suffix / "mxh_login_server.exe";
+                if (std::filesystem::is_regular_file(candidate)) return candidate.string();
+            }
+        }
+        if (root == root.root_path()) break;
+    }
+    return {};
 }
 std::string sbs_exe_path() {
-    return std::string("C:/moxiang/modern/build/tools/MoxianSideBySide/Debug/mxh_side_by_side.exe");
+    for (auto root = std::filesystem::current_path(); !root.empty();
+         root = root.parent_path()) {
+        for (const auto& suffix : {std::filesystem::path{},
+                                   std::filesystem::path{"Debug"}}) {
+            for (const auto& tools_root : {root / "tools",
+                                           root / "modern" / "build" / "tools"}) {
+                const auto candidate = tools_root / "MoxianSideBySide" /
+                                       suffix / "mxh_side_by_side.exe";
+                if (std::filesystem::is_regular_file(candidate)) return candidate.string();
+            }
+        }
+        if (root == root.root_path()) break;
+    }
+    return {};
 }
 bool exists(const std::string& p) {
     FILE* f = std::fopen(p.c_str(), "rb");
