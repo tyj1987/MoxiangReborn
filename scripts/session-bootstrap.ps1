@@ -121,7 +121,10 @@ if (-not $SkipWorkingTree) {
     if (-not $git) {
         $results.Step2_WorkingTree = 'WARN (git not in PATH)'
     } else {
-        $status = & git -C $RepoRoot status --short 2>&1
+        # Some managed workstations expose an unreadable global excludes file.
+        # Override it for this repository-local audit so a benign warning cannot
+        # abort the bootstrap under $ErrorActionPreference = 'Stop'.
+        $status = & git -c core.excludesFile= -C $RepoRoot status --short 2>&1
         if ($LASTEXITCODE -ne 0) {
             $results.Step2_WorkingTree = "WARN (git exit $LASTEXITCODE)"
         } elseif ([string]::IsNullOrWhiteSpace(($status | Out-String))) {
