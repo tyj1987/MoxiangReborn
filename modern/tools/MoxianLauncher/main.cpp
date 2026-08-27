@@ -546,7 +546,7 @@ private:
         if (msg == WM_NCCREATE) { self = static_cast<LauncherWindow*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams); SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self)); self->hwnd_ = hwnd; }
         return self ? self->handle(msg, wp, lp) : DefWindowProcW(hwnd, msg, wp, lp);
     }
-    LRESULT handle(UINT msg, WPARAM wp, LPARAM) {
+    LRESULT handle(UINT msg, WPARAM wp, LPARAM lp) {
         if (msg == WM_CREATE) {
             CreateWindowW(L"STATIC", L"资源 profile: playdh-current\n账号密码在客户端登录界面输入，启动器不会接触凭据。", WS_CHILD | WS_VISIBLE, 20, 20, 430, 45, hwnd_, nullptr, nullptr, nullptr);
             CreateWindowW(L"BUTTON", L"检查/修复", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 85, 120, 32, hwnd_, reinterpret_cast<HMENU>(1), nullptr, nullptr);
@@ -640,7 +640,7 @@ private:
             return 0;
         }
         if (msg == WM_DESTROY) { PostQuitMessage(0); return 0; }
-        return DefWindowProcW(hwnd_, msg, wp, 0);
+        return DefWindowProcW(hwnd_, msg, wp, lp);
     }
     void launchClient() {
         wchar_t module[MAX_PATH]{}; GetModuleFileNameW(nullptr, module, MAX_PATH);
