@@ -1,10 +1,12 @@
 #include <windows.h>
+#include <bcrypt.h>
 #include <shellapi.h>
 #include <algorithm>
 #include <cmath>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <array>
 #include <regex>
 #include <string>
 #include <vector>
@@ -68,6 +70,70 @@ static int parseVolumePercent(const std::string& value, int fallback) noexcept {
     } catch (...) {
         return fallback;
     }
+}
+
+static bool sha256File(const fs::path& path, std::string& hex) noexcept {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return false;
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    DWORD objectLength = 0;
+    DWORD resultLength = 0;
+    bool ok = BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM,
+                                          nullptr, 0)) &&
+              BCRYPT_SUCCESS(BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH,
+                                reinterpret_cast<PUCHAR>(&objectLength),
+                                sizeof(objectLength), &resultLength, 0));
+    std::vector<UCHAR> object;
+    std::array<UCHAR, 32> digest{};
+    if (ok) {
+        object.resize(objectLength);
+        ok = BCRYPT_SUCCESS(BCryptCreateHash(algorithm, &hash, object.data(), objectLength,
+                              nullptr, 0, 0));
+    }
+    std::array<char, 1024 * 1024> buffer{};
+    while (ok && input) {
+        input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        const auto count = input.gcount();
+        if (count > 0) {
+            ok = BCRYPT_SUCCESS(BCryptHashData(hash, reinterpret_cast<PUCHAR>(buffer.data()),
+                                static_cast<ULONG>(count), 0));
+        }
+    }
+    if (ok) ok = BCRYPT_SUCCESS(BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0));
+    if (hash) BCryptDestroyHash(hash);
+    if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
+    if (!ok) return false;
+    static constexpr char digits[] = "0123456789abcdef";
+    hex.clear();
+    hex.reserve(64);
+    for (const auto byte : digest) {
+        hex.push_back(digits[(byte >> 4) & 0x0f]);
+        hex.push_back(digits[byte & 0x0f]);
+    }
+    return true;
+}
+
+static bool verifyRequiredResourceHashes(const fs::path& root, std::wstring& error) {
+    struct Entry { const wchar_t* relative; const char* sha256; };
+    static constexpr Entry required[] = {
+        {L"Resource/ItemList.bin", "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd"},
+        {L"Resource/CharacterExpPoint.bin", "8010160a2ed9a7e0bac91c73eb31efa43d25d101200d1cb149be5e8083305f59"},
+        {L"Resource/Server/Monster_10.bin", "50033323336100da141443f3b563c62312586d149edf5cfdd78262b26d15cc01"}
+    };
+    for (const auto& entry : required) {
+        const auto path = root / entry.relative;
+        std::string actual;
+        if (!sha256File(path, actual)) {
+            error = L"无法读取资源哈希：" + path.wstring();
+            return false;
+        }
+        if (_stricmp(actual.c_str(), entry.sha256) != 0) {
+            error = L"资源 SHA-256 不匹配：" + path.wstring();
+            return false;
+        }
+    }
+    return true;
 }
 
 static LauncherSettings loadSettings() {
@@ -258,7 +324,12 @@ private:
             if (root.empty()) {
                 MessageBoxW(hwnd_, L"资源检查失败：缺少运行所需的 Map10、怪物、NPC、登录、选角、建角或音频资源。未执行任何删除或下载。", L"检查/修复", MB_ICONERROR);
             } else {
-                MessageBoxW(hwnd_, (L"本地资源基础文件检查通过：\n" + root.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
+                std::wstring hashError;
+                if (!verifyRequiredResourceHashes(root, hashError)) {
+                    MessageBoxW(hwnd_, (L"资源校验失败：\n" + hashError + L"\n未执行任何删除或下载。请从正式 profile 修复资源。").c_str(), L"检查/修复", MB_ICONERROR);
+                    return 0;
+                }
+                MessageBoxW(hwnd_, (L"本地资源基础检查和 SHA-256 校验通过：\n" + root.wstring()).c_str(), L"检查/修复", MB_ICONINFORMATION);
             }
             return 0;
         }
@@ -316,6 +387,11 @@ private:
         const fs::path resourceRoot = locateResourceRoot(fs::path(module));
         if (resourceRoot.empty()) {
             MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map10、怪物、NPC、登录、选角、建角或音频资源。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
+            return;
+        }
+        std::wstring hashError;
+        if (!verifyRequiredResourceHashes(resourceRoot, hashError)) {
+            MessageBoxW(hwnd_, (L"playdh-current 资源校验失败：\n" + hashError).c_str(), L"启动失败", MB_ICONERROR);
             return;
         }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
