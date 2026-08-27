@@ -118,6 +118,22 @@ struct ServerLaunch {
     std::vector<std::string> args;
 };
 
+std::string find_server_binary(const std::string& root,
+                               const char* module,
+                               const char* filename) {
+    const std::filesystem::path base(root);
+    for (const auto& candidate : {
+             base / module / filename,
+             base / module / "Debug" / filename}) {
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(candidate, ec))
+            return candidate.string();
+    }
+    // Return the conventional path so CreateProcess reports the useful
+    // missing-binary error when neither layout exists.
+    return (base / module / filename).string();
+}
+
 ChildProcess start_process(const ServerLaunch& launch) {
     ChildProcess child;
     if (launch.executable.empty()) return child;
@@ -273,23 +289,29 @@ int main(int argc, char** argv) {
             legacy_login = start_process({a.legacy_exe, {}});
         }
         if (!a.modern_server_dir.empty()) {
-            const auto loginPath = a.modern_server_dir + "/MoxianLoginServer/Debug/mxh_login_server.exe";
-            const auto agentPath = a.modern_server_dir + "/MoxianAgentServer/Debug/mxh_agent_server_CHINA.exe";
-            const auto mapPath   = a.modern_server_dir + "/MoxianMapServer/Debug/mxh_map_server_CHINA.exe";
+            const auto loginPath = find_server_binary(
+                a.modern_server_dir, "MoxianLoginServer", "mxh_login_server.exe");
+            const auto agentPath = find_server_binary(
+                a.modern_server_dir, "MoxianAgentServer", "mxh_agent_server_CHINA.exe");
+            const auto mapPath = find_server_binary(
+                a.modern_server_dir, "MoxianMapServer", "mxh_map_server_CHINA.exe");
             ServerLaunch ml{loginPath, {}};
             if (a.modern_legacy) ml.args.push_back("--legacy");
             ml.args.push_back("--port"); ml.args.push_back(std::to_string(a.modern_port));
             ml.args.push_back("--init-schema");
             ml.args.push_back("--agent-addr"); ml.args.push_back("127.0.0.1");
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
+            const bool login_only = a.scenario == "login";
             std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
                                                 "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
 if (a.modern_legacy) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
             ServerLaunch mm{mapPath, {"--port", std::to_string(a.modern_map_port), "--map", "12", "--dev-stub-caster"}};
             modern_login = start_process(ml);
-            modern_agent = start_process(ma);
-            modern_map   = start_process(mm);
+            if (!login_only) {
+                modern_agent = start_process(ma);
+                modern_map   = start_process(mm);
+            }
         } else if (!a.modern_exe.empty()) {
             ServerLaunch ml{a.modern_exe, {}};
             if (a.modern_legacy) ml.args.push_back("--legacy");
@@ -299,7 +321,9 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         const bool modernOk = a.modern_server_dir.empty()
             ? (a.modern_exe.empty() || modern_login.started)
-            : (modern_login.started && modern_agent.started && modern_map.started);
+            : (modern_login.started &&
+               (a.scenario == "login" ||
+                (modern_agent.started && modern_map.started)));
         const bool legacyOk = a.legacy_exe.empty() || legacy_login.started;
         if (!modernOk || !legacyOk) {
             std::cerr << "sbs: failed to spawn processes legacy_ok="
