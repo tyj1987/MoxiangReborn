@@ -737,8 +737,6 @@ void CInGameState::Release() {
     m_pendingSkillSinceMs = 0;
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
-    m_pendingSkillId = 0;
-    m_pendingSkillSinceMs = 0;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
