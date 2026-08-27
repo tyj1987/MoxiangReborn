@@ -274,14 +274,12 @@ std::filesystem::path find_playdh_root() {
     std::error_code ec;
     auto base = std::filesystem::current_path(ec);
     for (int depth = 0; !base.empty() && depth < 8; ++depth) {
-        // Only accept canonical runtime locations.  Walking arbitrary child
-        // directories can select the compatibility junction under
-        // 墨香【源码配套资源】 instead of modern/data/PlayDH, silently mixing
-        // a reference profile into a production run.
+        // Only accept canonical runtime locations.  Never probe an arbitrary
+        // `PlayDH` child directory: compatibility junctions and recovered
+        // reference trees must be selected explicitly through a profile/root.
         const std::filesystem::path candidates[] = {
             base / "modern" / "data" / "PlayDH",
-            base / "data" / "PlayDH",
-            base / "PlayDH",
+            base / "data" / "PlayDH"
         };
         for (const auto& candidate : candidates) {
             if (std::filesystem::is_directory(candidate, ec)) return candidate;
