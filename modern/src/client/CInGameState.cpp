@@ -1867,6 +1867,12 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                       inventory_updated ? "updated" : "full-or-invalid");
             if (inventory_updated && m_pEngine) {
                 m_pEngine->EmitAudio(CEngine::AudioCue::Pickup);
+            } else if (!inventory_updated) {
+                // The server has already consumed the ground drop.  Report a
+                // full/invalid inventory immediately instead of silently
+                // losing the item from the player's visible state.
+                m_lastItemError = "Inventory is full.";
+                (void)m_uiRuntime.showMessage(9103, m_lastItemError);
             }
         }
         return;
