@@ -124,7 +124,10 @@ void CLoginState::Release() {
     m_started.store(false, std::memory_order_release);
     m_ackReceived.store(false, std::memory_order_release);
     m_failed.store(false, std::memory_order_release);
-    m_failureReason.clear();
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        m_failureReason.clear();
+    }
     clear_secret(m_password);
     m_events.clear();
     setInitialized(false);
@@ -410,7 +413,10 @@ void CLoginState::fail_with(const std::string& reason) {
     bool expected = false;
     if (!m_failed.compare_exchange_strong(expected, true,
             std::memory_order_acq_rel)) return;
-    m_failureReason = reason;
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        m_failureReason = reason;
+    }
     clear_secret(m_password);
     MLOG_ERROR("CLoginState: %s", reason.c_str());
 }

@@ -36,6 +36,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "mxh/net/net.hpp"
@@ -115,7 +116,10 @@ public:
     std::uint8_t user_level()    const noexcept { return 0; }  // legacy field; not in 23B ack
     bool        is_ack_received() const noexcept { return m_ackReceived.load(std::memory_order_acquire); }
     bool        is_failed()      const noexcept { return m_failed.load(std::memory_order_acquire); }
-    const std::string& failure_reason() const { return m_failureReason; }
+    std::string failure_reason() const {
+        std::lock_guard<std::mutex> lk(m_mu);
+        return m_failureReason;
+    }
 
     // Phase B.2.2: extract the LoginResult for the next state.  The
     // host calls this right before SetGameState(CharSelect) and feeds
