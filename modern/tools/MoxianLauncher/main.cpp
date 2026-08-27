@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <shellapi.h>
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -15,6 +16,8 @@ struct LauncherSettings {
     int postHeight = 768;
     bool borderless = false;
     bool vsync = true;
+    int bgmVolume = 100;
+    int sfxVolume = 100;
 };
 
 static fs::path settingsPath() {
@@ -55,10 +58,14 @@ static LauncherSettings loadSettings() {
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = parseBoundedInt(match[1].str(), s.postHeight);
     if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
     if (std::regex_search(text, match, std::regex(R"REGEX("vsync"\s*:\s*(true|false))REGEX"))) s.vsync = match[1].str() == "true";
+    if (std::regex_search(text, match, std::regex(R"REGEX("bgmVolume"\s*:\s*(\d+))REGEX"))) s.bgmVolume = parseBoundedInt(match[1].str(), s.bgmVolume);
+    if (std::regex_search(text, match, std::regex(R"REGEX("sfxVolume"\s*:\s*(\d+))REGEX"))) s.sfxVolume = parseBoundedInt(match[1].str(), s.sfxVolume);
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
     if (s.postWidth < 800 || s.postHeight < 600) { s.postWidth = 1024; s.postHeight = 768; }
     s.postWidth = (s.postWidth > 7680) ? 7680 : s.postWidth;
     s.postHeight = (s.postHeight > 4320) ? 4320 : s.postHeight;
+    s.bgmVolume = std::clamp(s.bgmVolume, 0, 100);
+    s.sfxVolume = std::clamp(s.sfxVolume, 0, 100);
     return s;
 }
 
@@ -90,6 +97,8 @@ static void saveSettings(const LauncherSettings& s) {
     replace_or_insert("postLoginHeight", std::to_string(s.postHeight));
     replace_or_insert("borderless", s.borderless ? "true" : "false");
     replace_or_insert("vsync", s.vsync ? "true" : "false");
+    replace_or_insert("bgmVolume", std::to_string(s.bgmVolume));
+    replace_or_insert("sfxVolume", std::to_string(s.sfxVolume));
     std::ofstream out(temp, std::ios::binary | std::ios::trunc);
     if (!out) return;
     out << text;
@@ -145,7 +154,7 @@ public:
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         RegisterClassW(&wc);
         hwnd_ = CreateWindowW(wc.lpszClassName, L"墨香启动器", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
-                              CW_USEDEFAULT, CW_USEDEFAULT, 480, 285, nullptr, nullptr, instance, this);
+                              CW_USEDEFAULT, CW_USEDEFAULT, 480, 335, nullptr, nullptr, instance, this);
         return hwnd_ != nullptr;
     }
     int run() { ShowWindow(hwnd_, SW_SHOW); UpdateWindow(hwnd_); MSG msg{}; while (GetMessageW(&msg, nullptr, 0, 0) > 0) { TranslateMessage(&msg); DispatchMessageW(&msg); } return static_cast<int>(msg.wParam); }
@@ -154,6 +163,8 @@ private:
     static constexpr int kPostHeightEdit = 11;
     static constexpr int kBorderlessCheck = 12;
     static constexpr int kVsyncCheck = 13;
+    static constexpr int kBgmVolumeEdit = 14;
+    static constexpr int kSfxVolumeEdit = 15;
     static LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         auto* self = reinterpret_cast<LauncherWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (msg == WM_NCCREATE) { self = static_cast<LauncherWindow*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams); SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self)); self->hwnd_ = hwnd; }
@@ -183,6 +194,16 @@ private:
             if (settings_.vsync) {
                 SendDlgItemMessageW(hwnd_, kVsyncCheck, BM_SETCHECK, BST_CHECKED, 0);
             }
+            CreateWindowW(L"STATIC", L"BGM 音量(0-100)", WS_CHILD | WS_VISIBLE,
+                          160, 200, 120, 22, hwnd_, nullptr, nullptr, nullptr);
+            CreateWindowW(L"EDIT", std::to_wstring(settings_.bgmVolume).c_str(),
+                          WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+                          285, 197, 65, 24, hwnd_, reinterpret_cast<HMENU>(kBgmVolumeEdit), nullptr, nullptr);
+            CreateWindowW(L"STATIC", L"SFX 音量(0-100)", WS_CHILD | WS_VISIBLE,
+                          160, 230, 120, 22, hwnd_, nullptr, nullptr, nullptr);
+            CreateWindowW(L"EDIT", std::to_wstring(settings_.sfxVolume).c_str(),
+                          WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+                          285, 227, 65, 24, hwnd_, reinterpret_cast<HMENU>(kSfxVolumeEdit), nullptr, nullptr);
             return 0;
         }
         if (msg == WM_COMMAND && LOWORD(wp) == 1) {
@@ -211,6 +232,16 @@ private:
                 hwnd_, kBorderlessCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
             settings_.vsync = SendDlgItemMessageW(
                 hwnd_, kVsyncCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+            BOOL bgm_ok = FALSE;
+            BOOL sfx_ok = FALSE;
+            const auto bgm = GetDlgItemInt(hwnd_, kBgmVolumeEdit, &bgm_ok, FALSE);
+            const auto sfx = GetDlgItemInt(hwnd_, kSfxVolumeEdit, &sfx_ok, FALSE);
+            if (!bgm_ok || !sfx_ok || bgm > 100 || sfx > 100) {
+                MessageBoxW(hwnd_, L"BGM/SFX 音量必须是 0 到 100 之间的整数。", L"设置无效", MB_ICONWARNING);
+                return 0;
+            }
+            settings_.bgmVolume = static_cast<int>(bgm);
+            settings_.sfxVolume = static_cast<int>(sfx);
             saveSettings(settings_);
             launchClient();
             return 0;
