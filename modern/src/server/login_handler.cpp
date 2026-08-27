@@ -13,6 +13,19 @@
 #include <fstream>
 #include <iostream>
 
+namespace {
+void clear_secret(std::string& value) noexcept {
+    volatile char* bytes = value.empty() ? nullptr : value.data();
+    for (std::size_t i = 0; i < value.size(); ++i) bytes[i] = '\0';
+    value.clear();
+}
+
+struct SecretGuard {
+    std::string& value;
+    ~SecretGuard() { clear_secret(value); }
+};
+} // namespace
+
 // Phase 7.6: File-based debug logging (capturable when running as background process).
 static std::ofstream g_dbg_log;
 static void dbg_log(const std::string& msg) {
@@ -274,6 +287,7 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
     std::string password(reinterpret_cast<const char*>(
                              msg.payload.data() + 2 + id_len + 2),
                          pw_len);
+    SecretGuard password_guard{password};
 
     std::cout << "[Login] RequestLogin id='" << user_id << "'\n";
 
@@ -330,6 +344,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     std::memcpy(pw_buf, msg.payload.data() + 21, 17);
     pw_buf[17] = '\0';
     std::string password(pw_buf);
+    SecretGuard password_guard{password};
     
     std::cout << "[Login] legacy: auth_key=" << auth_key
               << " id='" << user_id << "'\n";
