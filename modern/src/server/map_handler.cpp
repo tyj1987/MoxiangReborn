@@ -379,6 +379,23 @@ MapHandler::MapHandler(mxh::db::IDbAdapter& db, std::uint16_t map_num,
       use_legacy_framing_(use_legacy_framing),
       use_hsel_(use_hsel), hsel_(use_hsel, std::move(direct_send)) {
     init_skill_table();
+    // Seed the process-wide item allocator from the complete persisted table,
+    // not just players that happen to be loaded on this map.  This prevents a
+    // restart or a multi-map deployment from reusing an ID owned by an
+    // offline character.
+    mxh::db::ResultSet rows;
+    if (db_.query(
+            "SELECT COALESCE(MAX(db_idx),699999) AS max_db_idx "
+            "FROM modern_player_item", {}, rows).ok() &&
+        !rows.rows.empty()) {
+        const auto max_id = get_int(rows, 0, "max_db_idx", 699999);
+        if (max_id >= 0 && max_id < static_cast<std::int64_t>(UINT32_MAX)) {
+            next_item_db_idx_.store(
+                std::max<std::uint32_t>(700000u,
+                    static_cast<std::uint32_t>(max_id) + 1u),
+                std::memory_order_relaxed);
+        }
+    }
 }
 
 mxh::net::IEncryptor* MapHandler::encryptor_for(
