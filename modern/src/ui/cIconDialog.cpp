@@ -1,6 +1,7 @@
 // cIconDialog.cpp — modern implementation of 墨香 cIconDialog.
 
 #include "cIconDialog.hpp"
+#include "cImage.hpp"
 
 namespace mxh::ui {
 
@@ -9,6 +10,24 @@ cIconDialog::~cIconDialog() {
     // Cell data is owned (no need to delete icon pointers — those are
     // owned by the calling code; this mirrors the legacy SAFE_DELETE on
     // the cell array, not on the icons themselves).
+}
+
+void cIconDialog::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+    const auto drawImage = [](void* image, int x, int y, int w, int h) {
+        if (!image || w <= 0 || h <= 0) return;
+        static_cast<cImage*>(image)->render(x, y, w, h);
+    };
+    for (std::size_t i = 0; i < m_cells.size(); ++i) {
+        const auto& cell = m_cells[i];
+        if (cell.relW <= 0 || cell.relH <= 0) continue;
+        const int x = absX() + cell.relX;
+        const int y = absY() + cell.relY;
+        drawImage(m_iconCellBGImage, x, y, cell.relW, cell.relH);
+        if (static_cast<std::int32_t>(i) == m_curSelCellPos)
+            drawImage(m_dragOverBGImage, x, y, cell.relW, cell.relH);
+    }
 }
 
 void cIconDialog::SetCellNum(std::uint16_t num) {
