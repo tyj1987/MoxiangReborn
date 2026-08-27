@@ -47,6 +47,7 @@ struct Args {
     int modern_port = 16001;
     int modern_agent_port = 17001;
     int modern_map_port = 18001;
+    int map_num = 10;
     std::string capture_dir = "modern/out/runs/side-by-side-captures";
     int timeout_sec = 10;
     bool start_processes = false;
@@ -78,6 +79,7 @@ bool parse_args(int argc, char** argv, Args& a) {
         else if (s == "--modern-port") a.modern_port = std::stoi(next("--modern-port"));
         else if (s == "--modern-agent-port") a.modern_agent_port = std::stoi(next("--modern-agent-port"));
         else if (s == "--modern-map-port") a.modern_map_port = std::stoi(next("--modern-map-port"));
+        else if (s == "--map") a.map_num = std::stoi(next("--map"));
         else if (s == "--capture-dir") a.capture_dir = next("--capture-dir");
         else if (s == "--timeout")     a.timeout_sec = std::stoi(next("--timeout"));
         else if (s == "--start")       a.start_processes = true;
@@ -321,7 +323,8 @@ int main(int argc, char** argv) {
 if (a.modern_legacy) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
             std::vector<std::string> mm_args = {
-                "--port", std::to_string(a.modern_map_port), "--map", "12",
+                "--port", std::to_string(a.modern_map_port), "--map",
+                std::to_string(a.map_num),
                 "--dev-stub-caster"};
             if (!a.resource_root.empty()) {
                 mm_args.push_back("--resource-root");
