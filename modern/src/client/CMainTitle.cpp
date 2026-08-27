@@ -151,24 +151,16 @@ void CMainTitle::Release() {
 }
 
 void CMainTitle::Process() {
-    // The legacy CMainTitle::Process drives several timers:
-    //   * m_dwDiconWaitTime — Distribute disconnect wait (60s).
-    //   * m_dwWaitTime      — Agent connect wait.
-    //   * m_dwStartTime     — logo window fade-in.
-    // A.1.8 doesn't yet have a real Distribute / Agent connect so
-    // these timers stay at 0.  The Process() stub is here so the
-    // A.1.8.b network-layer task can fill in the timer logic
-    // without changing the surrounding code.
+    // Login/network ownership now lives in CLoginState.  The title state
+    // remains responsible for presenting IDDlg and collecting user input;
+    // this per-frame hook intentionally only maintains the active dialog.
     if (!m_bInit) return;
-    // No-op in A.1.8.  A.1.8.b will add: m_dwDiconWaitTime check +
-    // server list show + agent connect handshake.
 }
 
 void CMainTitle::OnLoginError(std::uint32_t errorcode, std::uint32_t /*dwParam*/) {
-    // 1:1 quirk: the legacy engine pops a cMsgBox with the error
-    // string keyed by errorcode (see Protocol.h's eLoginError
-    // enum).  A.1.8 just logs the error; the msgbox integration
-    // lands in A.1.8.b once cMsgBox is wired into the dialog tree.
+    // The host transfers failed login attempts back to Title and presents
+    // the server-provided reason through ClientUiRuntime::showMessage.
+    // Keep this hook for legacy callers that report directly to the state.
     MLOG_WARN("CMainTitle::OnLoginError code=%u", errorcode);
 }
 
