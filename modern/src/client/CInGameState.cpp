@@ -2716,7 +2716,9 @@ bool CInGameState::request_inventory_move(std::size_t source,
 
 void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
     if (m_cameraDrag) {
-        m_cameraYaw += static_cast<float>(x - m_lastMouseX) * 0.01f;
+        const float delta_x = static_cast<float>(x) -
+                              static_cast<float>(m_lastMouseX);
+        m_cameraYaw += delta_x * 0.01f;
         if (!std::isfinite(m_cameraYaw)) {
             m_cameraYaw = 0.0f;
         } else {
