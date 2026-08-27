@@ -1255,6 +1255,11 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingSkillEffects.clear();
     m_effectRuntime.clear();
     m_runtimeEffectEvents.clear();
+    m_chatBuffer.clear();
+    m_inventoryDragSource.reset();
+    set_chat_open(false);
+    set_shop_open(false);
+    set_inventory_open(false);
     if (!m_releasing && m_inGame && !m_failed) {
         const auto detail = std::string("游戏连接已断开：") +
                             mxh::net::to_string(reason);
