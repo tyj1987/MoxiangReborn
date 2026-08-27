@@ -781,6 +781,11 @@ void CInGameState::Release() {
     m_localZ = 0.0f;
     m_lastTickMs = 0;
     m_lastMoveSendMs = 0;
+    // These callbacks may capture scene-owned objects.  Drop them before the
+    // renderer replaces the old map scene so no input path can call into a
+    // destroyed StaticScene during the transition gap.
+    m_collisionQuery = {};
+    m_mapChangeTargetResolver = {};
     m_inventoryDragSource.reset();
     m_inventoryTab = 0;
     m_chatOpen = false;
