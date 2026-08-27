@@ -734,6 +734,7 @@ void CInGameState::Release() {
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
     m_pendingSkillId = 0;
+    m_pendingPickupDrop = 0;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
@@ -1763,12 +1764,14 @@ void CInGameState::handle_guild_message(const mxh::net::Message& msg) {
 
 void CInGameState::try_pickup() {
     if (!m_inGame) return;
+    if (m_pendingPickupDrop != 0) return;
     const auto drop_id = pick_nearest_drop();
     if (drop_id == 0) return;
     if (!is_connected()) return;
     const auto e = m_pEngine->agent_session().send(
         make_pickup_message(m_playerId, drop_id));
     if (e == mxh::net::NetError::Ok) {
+        m_pendingPickupDrop = drop_id;
         MLOG_INFO("CInGameState: pickup drop=%u", drop_id);
     }
 }
@@ -1850,6 +1853,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
             mxh::proto::ItemProtocol::PickupAck)) {
         if (msg.payload.size() >= 4) {
             const auto drop_id = get_u32(msg.payload.data());
+            if (m_pendingPickupDrop == drop_id) m_pendingPickupDrop = 0;
             m_groundDrops.erase(
                 std::remove_if(m_groundDrops.begin(), m_groundDrops.end(),
                     [drop_id](const GroundDropInfo& drop) {
@@ -1879,6 +1883,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     }
     if (proto == static_cast<std::uint8_t>(
             mxh::proto::ItemProtocol::PickupNack)) {
+        m_pendingPickupDrop = 0;
         m_lastItemError = "Cannot pick up this item.";
         (void)m_uiRuntime.showMessage(9102, m_lastItemError);
         MLOG_WARN("CInGameState: PickupNack");
@@ -2582,9 +2587,11 @@ bool CInGameState::OnMouseButton(bool left, bool down,
         const float fy = static_cast<float>(y);
         const std::uint32_t drop = pick_drop_at_screen(fx, fy);
         if (drop != 0) {
+            if (m_pendingPickupDrop != 0) return true;
             if (is_connected()) {
-                (void)m_pEngine->agent_session().send(
+                const auto sent = m_pEngine->agent_session().send(
                     make_pickup_message(m_playerId, drop));
+                if (sent == mxh::net::NetError::Ok) m_pendingPickupDrop = drop;
             }
             // The click has been consumed by the ground item.  Returning
             // false here lets the host interpret the same click as a move,

@@ -564,6 +564,9 @@ public:
     std::unique_ptr<mxh::game::ExperienceCurve> m_experienceCurve;
     std::vector<MonsterAddInfo> monsters_;
     std::vector<GroundDropInfo> m_groundDrops;
+    // One authoritative pickup request may be in flight at a time.  This
+    // prevents key-repeat or double-click input from duplicating PickupSyn.
+    std::uint32_t            m_pendingPickupDrop = 0;
     std::uint32_t            m_lastAttackTarget = 0;
     std::uint32_t            m_pendingAttackTarget = 0;
     std::uint32_t            m_pendingSkillId = 0;
