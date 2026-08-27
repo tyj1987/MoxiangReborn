@@ -2289,6 +2289,19 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
+    case WM_DISPLAYCHANGE: {
+        // Display mode/topology changes can invalidate the current client
+        // metrics without a matching resize message (notably during monitor
+        // hot-plug and remote-desktop transitions).  Re-read the actual
+        // client rectangle instead of trusting the message payload.
+        RECT client{};
+        if (GetClientRect(h, &client)) {
+            g_logicalViewport.update(client.right - client.left,
+                                     client.bottom - client.top);
+        }
+        if (g_renderer) g_renderer->UpdateWindowSize();
+        return 0;
+    }
     case WM_ACTIVATEAPP:
         g_audioFocused = w != FALSE;
         if (g_bgmPlayer) g_bgmPlayer->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
