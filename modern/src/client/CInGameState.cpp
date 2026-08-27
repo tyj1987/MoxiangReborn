@@ -1169,9 +1169,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
             handle_quest_broadcast(msg);
             break;
         default:
-            // Phase 10b: MapServer may also push ITEM_TOTALINFO_LOCAL
-            // (Category::Item, ItemProtocol::TotalInfoLocal) after the
-            // GameInAck.  Logged and ignored until the inventory UI lands.
+            // Unknown categories are retained in the trace for protocol
+            // diagnostics; all player-visible categories are dispatched
+            // above and inventory totals are handled by handle_item_broadcast.
             MLOG_DEBUG("CInGameState: ignoring category=%s proto=%d",
                        mxh::proto::category_name(cat),
                        static_cast<int>(msg.header.protocol));
