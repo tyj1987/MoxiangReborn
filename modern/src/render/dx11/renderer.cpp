@@ -294,6 +294,11 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     if ((dwFlag & RENDER_TYPE_USE_EFFECT) && m_effectPalette) {
         auto* effect = m_effectPalette->getEffect(dwEffectIndex);
         if (effect && effect->bSuccess) {
+            if (!m_meshShaders.psEffect) {
+                MLOG_WARN("[renderer] effect draw rejected: effect pixel shader is unavailable (index=%u)",
+                          static_cast<unsigned>(dwEffectIndex));
+                return FALSE;
+            }
             // RenderEffect supplies the effect pixel shader and texture, but
             // the legacy-compatible effect path still relies on the normal
             // mesh input contract.  Bind the vertex stage explicitly before
