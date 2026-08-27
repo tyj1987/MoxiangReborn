@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <span>
@@ -65,6 +66,26 @@ std::vector<std::uint8_t> to_bytes(std::string_view s) {
 std::filesystem::path kRealChr() {
     static const auto path = []() {
         auto p = std::filesystem::current_path();
+        // CTest may launch this executable from the repository root, while
+        // direct invocations commonly use modern/build. Probe the canonical
+        // build locations explicitly before walking ancestors so the fixture
+        // does not become an unjustified skip merely because of cwd.
+        const std::array<std::filesystem::path, 5> roots = {
+            p / "modern" / "build", p / "build", p,
+            p.parent_path() / "build",
+            p.parent_path().parent_path() / "build"
+        };
+        for (const auto& root : roots) {
+            if (!std::filesystem::exists(root / "CMakeCache.txt")) continue;
+            auto fixture = root / "test-fixtures" / "test-extract" / "11160.chr";
+            std::error_code ec;
+            std::filesystem::create_directories(fixture.parent_path(), ec);
+            if (!std::filesystem::exists(fixture)) {
+                std::ofstream f(fixture, std::ios::binary | std::ios::trunc);
+                f << "*MOD_FILE_NAME\t11160.MOD\r\n*MOTION_NUM\t1\r\n11160.ANM\r\n";
+            }
+            return fixture;
+        }
         // Walk up to find modern/build/, then descend into test-fixtures/.
         for (int level = 0; level < 8; ++level) {
             if (std::filesystem::exists(p / "CMakeCache.txt")) {
