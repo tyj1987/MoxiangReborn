@@ -740,6 +740,7 @@ void CInGameState::Release() {
     m_pendingSkillId = 0;
     m_pendingSkillSinceMs = 0;
     m_pendingPickupDrop = 0;
+    m_pendingPickupSinceMs = 0;
     m_pendingBuyItemId = 0;
     m_pendingBuySinceMs = 0;
     m_pendingInventoryMove = false;
@@ -893,6 +894,16 @@ void CInGameState::Process() {
         }
     }
     const auto now_ms = steady_now_ms();
+    constexpr std::uint64_t kPickupRequestTimeoutMs = 5000;
+    if (m_pendingPickupDrop != 0 && m_pendingPickupSinceMs != 0 &&
+        now_ms - m_pendingPickupSinceMs >= kPickupRequestTimeoutMs) {
+        MLOG_WARN("CInGameState: pickup request timed out drop=%u",
+                  static_cast<unsigned>(m_pendingPickupDrop));
+        m_pendingPickupDrop = 0;
+        m_pendingPickupSinceMs = 0;
+        m_lastItemError = "Pickup request timed out.";
+        (void)m_uiRuntime.showMessage(9102, m_lastItemError);
+    }
     constexpr std::uint64_t kInventoryMoveTimeoutMs = 5000;
     if (m_pendingInventoryMove && m_pendingInventoryMoveSinceMs != 0 &&
         now_ms - m_pendingInventoryMoveSinceMs >= kInventoryMoveTimeoutMs) {
@@ -1270,6 +1281,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     // transport closes.  Clear it before a retry/reconnect can re-enter this
     // state, otherwise the old drop ID would suppress future pickups.
     m_pendingPickupDrop = 0;
+    m_pendingPickupSinceMs = 0;
     m_pendingBuyItemId = 0;
     m_pendingBuySinceMs = 0;
     m_pendingSkillId = 0;
@@ -1921,7 +1933,10 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
             mxh::proto::ItemProtocol::PickupAck)) {
         if (msg.payload.size() >= 4) {
             const auto drop_id = get_u32(msg.payload.data());
-            if (m_pendingPickupDrop == drop_id) m_pendingPickupDrop = 0;
+            if (m_pendingPickupDrop == drop_id) {
+                m_pendingPickupDrop = 0;
+                m_pendingPickupSinceMs = 0;
+            }
             m_groundDrops.erase(
                 std::remove_if(m_groundDrops.begin(), m_groundDrops.end(),
                     [drop_id](const GroundDropInfo& drop) {
@@ -1952,6 +1967,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     if (proto == static_cast<std::uint8_t>(
             mxh::proto::ItemProtocol::PickupNack)) {
         m_pendingPickupDrop = 0;
+        m_pendingPickupSinceMs = 0;
         m_lastItemError = "Cannot pick up this item.";
         (void)m_uiRuntime.showMessage(9102, m_lastItemError);
         MLOG_WARN("CInGameState: PickupNack");
@@ -2667,7 +2683,10 @@ bool CInGameState::OnMouseButton(bool left, bool down,
             if (is_connected()) {
                 const auto sent = m_pEngine->agent_session().send(
                     make_pickup_message(m_playerId, drop));
-                if (sent == mxh::net::NetError::Ok) m_pendingPickupDrop = drop;
+                if (sent == mxh::net::NetError::Ok) {
+                    m_pendingPickupDrop = drop;
+                    m_pendingPickupSinceMs = steady_now_ms();
+                }
             }
             // The click has been consumed by the ground item.  Returning
             // false here lets the host interpret the same click as a move,
