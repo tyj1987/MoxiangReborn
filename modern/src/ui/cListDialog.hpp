@@ -86,8 +86,8 @@ public:
                                       std::int32_t ch) override;
     bool OnMouseWheel(std::int32_t wheelDelta) noexcept;
 
-    // Render placeholder.
-    void Render() override {}
+    // Render visible rows through the shared text adapter.
+    void Render() override;
 
     void SetAutoScroll(bool v) noexcept           { m_autoScroll = v; }
     bool IsAutoScroll() const noexcept            { return m_autoScroll; }

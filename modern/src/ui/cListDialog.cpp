@@ -1,6 +1,7 @@
 // cListDialog.cpp — modern implementation of 墨香 cListDialog.
 
 #include "cListDialog.hpp"
+#include "TextRender.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -9,6 +10,27 @@ namespace mxh::ui {
 
 cListDialog::cListDialog() = default;
 cListDialog::~cListDialog() = default;
+
+void cListDialog::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+    if (m_clipW <= 0 || m_clipH <= 0 || m_lineHeight <= 0) return;
+    const int visible = std::max(0, m_clipH / m_lineHeight);
+    for (int i = 0; i < visible; ++i) {
+        const int rowIndex = m_topRow + i;
+        if (rowIndex < 0 || rowIndex >= static_cast<int>(m_rows.size())) break;
+        TextRenderRequest request;
+        request.text = m_rows[static_cast<std::size_t>(rowIndex)].first;
+        request.x = m_clipX;
+        request.y = m_clipY + i * m_lineHeight;
+        request.width = m_clipW;
+        request.height = m_lineHeight;
+        request.color = m_rows[static_cast<std::size_t>(rowIndex)].second;
+        request.font_index = 0;
+        request.align = TextRenderAlign::Left;
+        renderText(request);
+    }
+}
 
 void cListDialog::InitList(std::uint16_t maxLines,
                             std::int32_t clipX, std::int32_t clipY,
