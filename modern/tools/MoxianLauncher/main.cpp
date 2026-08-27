@@ -84,7 +84,7 @@ static LauncherSettings loadSettings() {
     return s;
 }
 
-static void saveSettings(const LauncherSettings& s) {
+static bool saveSettings(const LauncherSettings& s) {
     std::error_code ec;
     fs::create_directories(settingsPath().parent_path(), ec);
     fs::path temp = settingsPath(); temp += L".tmp";
@@ -115,13 +115,13 @@ static void saveSettings(const LauncherSettings& s) {
     replace_or_insert("bgmVolume", std::to_string(static_cast<double>(s.bgmVolume) / 100.0));
     replace_or_insert("sfxVolume", std::to_string(static_cast<double>(s.sfxVolume) / 100.0));
     std::ofstream out(temp, std::ios::binary | std::ios::trunc);
-    if (!out) return;
+    if (!out) return false;
     out << text;
     out.close();
     if (!out) {
         std::error_code ignored;
         fs::remove(temp, ignored);
-        return;
+        return false;
     }
     // Publish only after the temporary settings file has reached the OS
     // cache.  MOVEFILE_WRITE_THROUGH protects the rename itself, while this
@@ -134,14 +134,16 @@ static void saveSettings(const LauncherSettings& s) {
         if (tempHandle != INVALID_HANDLE_VALUE) CloseHandle(tempHandle);
         std::error_code ignored;
         fs::remove(temp, ignored);
-        return;
+        return false;
     }
     CloseHandle(tempHandle);
     if (!MoveFileExW(temp.c_str(), settingsPath().c_str(),
                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         std::error_code ignored;
         fs::remove(temp, ignored);
+        return false;
     }
+    return true;
 }
 
 static fs::path locateResourceRoot(const fs::path& executable) {
@@ -267,7 +269,10 @@ private:
             }
             settings_.bgmVolume = static_cast<int>(bgm);
             settings_.sfxVolume = static_cast<int>(sfx);
-            saveSettings(settings_);
+            if (!saveSettings(settings_)) {
+                MessageBoxW(hwnd_, L"设置保存失败：无法写入用户配置。为避免启动后设置丢失，客户端未启动。", L"启动失败", MB_ICONERROR);
+                return 0;
+            }
             launchClient();
             return 0;
         }
