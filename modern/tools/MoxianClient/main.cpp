@@ -2589,6 +2589,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_sfxPlayer = &sfx;
     std::string audio_error;
     if (bgm.initialize(options.resource_root / "Sound", &audio_error)) {
+        bgm.setVolume(persisted_settings.bgm_volume);
         // 1667 is the original login theme in SoundList.bin.
         if (!bgm.play(1667, &audio_error))
             MLOG_WARN("mxh_client: login BGM unavailable: %s", audio_error.c_str());
@@ -2596,6 +2597,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         MLOG_WARN("mxh_client: SoundList unavailable: %s", audio_error.c_str());
     }
     if (sfx.initialize(options.resource_root / "Sound", &audio_error)) {
+        sfx.setVolume(persisted_settings.sfx_volume);
         // Prefer a named UI/button entry when the profile provides one; use
         // the first real WAV otherwise.  The choice is data-driven and never
         // invents a sound ID or touches resource bytes.
