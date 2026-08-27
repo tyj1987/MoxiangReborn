@@ -274,16 +274,30 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
                                 const mxh::net::Message& msg) {
     if (msg.payload.size() < 4) {
         std::cout << "[Login] payload too short\n";
+        reply_(id, make_login_nack());
         return;
     }
     std::uint16_t id_len = static_cast<std::uint16_t>(msg.payload[0])
                          | (static_cast<std::uint16_t>(msg.payload[1]) << 8);
-    if (msg.payload.size() < std::size_t(2 + id_len + 2)) return;
+    // Keep the parser aligned with account_service's actual limits.  Apart
+    // from rejecting malformed credentials early, this prevents an attacker
+    // from forcing a 65-KB allocation and database lookup with one packet.
+    if (id_len < 3u || id_len > 16u ||
+        msg.payload.size() < std::size_t(2 + id_len + 2)) {
+        std::cout << "[Login] invalid account length\n";
+        reply_(id, make_login_nack());
+        return;
+    }
     std::string user_id(reinterpret_cast<const char*>(msg.payload.data() + 2),
                         id_len);
     std::uint16_t pw_len = static_cast<std::uint16_t>(msg.payload[2 + id_len])
                          | (static_cast<std::uint16_t>(msg.payload[3 + id_len]) << 8);
-    if (msg.payload.size() < std::size_t(2 + id_len + 2 + pw_len)) return;
+    if (pw_len < 8u || pw_len > 16u ||
+        msg.payload.size() < std::size_t(2 + id_len + 2 + pw_len)) {
+        std::cout << "[Login] invalid password length\n";
+        reply_(id, make_login_nack());
+        return;
+    }
     std::string password(reinterpret_cast<const char*>(
                              msg.payload.data() + 2 + id_len + 2),
                          pw_len);
