@@ -1248,6 +1248,10 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingAttackTarget = 0;
     m_lastAttackTarget = 0;
     m_lastHitTarget = 0;
+    m_lastAttackMs = 0;
+    m_attackFlashMs = 0;
+    m_lastMoveSendMs = 0;
+    m_moving = false;
     m_pendingSkillEffects.clear();
     m_effectRuntime.clear();
     m_runtimeEffectEvents.clear();
