@@ -2883,7 +2883,9 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                 std::memcpy(reply_msg.payload.data(), msg.payload.data(), 4);
             }
             if (decision.status == mxh::server::NpcShopBuyStatus::Ok) {
-                std::uint32_t db_idx_seed = 700000u;
+                const auto db_idx_seed = next_item_db_idx_.fetch_add(
+                    static_cast<std::uint32_t>(req.qty),
+                    std::memory_order_relaxed);
                 bool ok = true;
                 mxh::game::ItemTotalInfo updated_items;
                 {

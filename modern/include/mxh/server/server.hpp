@@ -601,6 +601,10 @@ private:
     GuildLog guild_log_;
     std::unordered_map<std::uint32_t, GroundDrop> ground_drops_;
     std::uint32_t next_ground_drop_id_ = 90000;
+    // Item DB indices must remain unique across concurrent shop purchases;
+    // reusing a fixed seed would make later purchases overwrite identity
+    // references held by inventory, equipment and persistence layers.
+    std::atomic<std::uint32_t> next_item_db_idx_{700000};
     std::unique_ptr<mxh::game::ExperienceCurve> experience_curve_;
     DropTableRegistry drop_tables_;
 
