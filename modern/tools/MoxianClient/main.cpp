@@ -2381,9 +2381,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             return 0;
         }
         if (g_inputTarget) {
-            g_inputTarget->OnMouseButton(
+            if (g_inputTarget->OnMouseButton(
                 true, m == WM_LBUTTONDOWN,
-                x, y);
+                x, y)) {
+                playUiClick();
+            }
         }
         return 0;
         }

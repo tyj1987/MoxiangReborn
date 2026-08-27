@@ -386,7 +386,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // Input hooks driven by the host Win32 message pump (in-game only).
     void OnKeyEvent(bool pressed, std::uint32_t vk);
     void OnChar(std::uint32_t ch);
-    void OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
     void OnMouseMove(std::int32_t x, std::int32_t y);
     void OnMouseWheel(std::int32_t delta);
     void set_world_bounds(float max_x, float max_z) noexcept;

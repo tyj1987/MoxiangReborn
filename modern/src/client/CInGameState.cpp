@@ -2402,8 +2402,8 @@ void CInGameState::OnChar(std::uint32_t ch) {
     }
 }
 
-void CInGameState::OnMouseButton(bool left, bool down,
-                                  std::int32_t x, std::int32_t y) {
+bool CInGameState::OnMouseButton(bool left, bool down,
+                                 std::int32_t x, std::int32_t y) {
     m_lastMouseX = x;
     m_lastMouseY = y;
     if (left && m_inventoryOpen) {
@@ -2450,13 +2450,13 @@ void CInGameState::OnMouseButton(bool left, bool down,
                 ? &m_info.items.Inventory[*hit_slot]
                 : &m_info.items.WearedItem[*hit_slot - mxh::game::TP_WEAREDITEM_START];
             if (!mxh::game::is_empty_slot(*item)) m_inventoryDragSource = *hit_slot;
-            return;
+            return true;
         }
         if (!down && m_inventoryDragSource && hit_slot) {
             const auto source = *m_inventoryDragSource;
             m_inventoryDragSource.reset();
             if (source != *hit_slot) (void)request_inventory_move(source, *hit_slot);
-            return;
+            return true;
         }
         const auto grid_id = kInventoryTabDialogIds[m_inventoryTab];
         auto* grid = m_uiRuntime.findWindowByLegacyId(grid_id);
@@ -2478,13 +2478,13 @@ void CInGameState::OnMouseButton(bool left, bool down,
                         !mxh::game::is_empty_slot(m_info.items.Inventory[slot])) {
                         m_inventoryDragSource = slot;
                     }
-                    return;
+                    return true;
                 }
                 if (m_inventoryDragSource) {
                     const auto source = *m_inventoryDragSource;
                     m_inventoryDragSource.reset();
                     if (source != slot) (void)request_inventory_move(source, slot);
-                    return;
+                    return true;
                 }
             }
         }
@@ -2500,18 +2500,18 @@ void CInGameState::OnMouseButton(bool left, bool down,
         if (down) {
             use_quick_slot(*quick_slot);
         }
-        return;
+        return true;
     }
     // Right-button drag is the world-camera gesture.  HUD roots are often
     // broad decorative containers and must not swallow the gesture before
     // the camera capture state is established.
     if (!left) {
         m_cameraDrag = down;
-        return;
+        return false;
     }
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
     if (ui.activation) handle_ui_activation(*ui.activation);
-    if (ui.consumed) return;
+    if (ui.consumed) return true;
     if (left && down && m_shopOpen) {
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);
@@ -2521,7 +2521,7 @@ void CInGameState::OnMouseButton(bool left, bool down,
                 (fy - kShopPanelY) / kShopRowH);
             if (row < m_shopItems.size()) {
                 buy_shop_item(row);
-                return;
+                return true;
             }
         }
     }
@@ -2534,26 +2534,27 @@ void CInGameState::OnMouseButton(bool left, bool down,
                 (void)m_pEngine->agent_session().send(
                     make_pickup_message(m_playerId, drop));
             }
-            return;
+            return false;
         }
         const std::uint32_t npc = pick_npc_at_screen(fx, fy);
         if (npc != 0) {
             interact_with_npc(npc);
-            return;
+            return false;
         }
         const std::uint32_t monster = pick_monster_at_screen(fx, fy);
         if (monster != 0) {
             m_pendingAttackTarget = monster;
             try_attack();
-            return;
+            return false;
         }
         if (move_to_screen(static_cast<float>(x), static_cast<float>(y))) {
-            return;
+            return false;
         }
     }
     // An empty/invalid world click must never fall through to an implicit
     // nearest-monster attack.  Combat is entered only after the cursor picks
     // a live monster (the branch above sets m_pendingAttackTarget).
+    return false;
 }
 
 bool CInGameState::request_inventory_move(std::size_t source,
