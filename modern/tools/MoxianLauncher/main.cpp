@@ -277,8 +277,10 @@ static fs::path locateResourceRoot(const fs::path& executable) {
 
 class LauncherWindow {
 public:
-    LauncherWindow(LauncherEndpoints endpoints, fs::path resourceRoot)
-        : endpoints_(endpoints), resourceRoot_(std::move(resourceRoot)) {}
+    LauncherWindow(LauncherEndpoints endpoints, fs::path resourceRoot,
+                   fs::path evidenceDir)
+        : endpoints_(endpoints), resourceRoot_(std::move(resourceRoot)),
+          evidenceDir_(std::move(evidenceDir)) {}
     bool create(HINSTANCE instance) {
         settings_ = loadSettings();
         WNDCLASSW wc{}; wc.hInstance = instance; wc.lpfnWndProc = &LauncherWindow::proc;
@@ -426,16 +428,21 @@ private:
         if (settings_.borderless) command += L" --borderless";
         if (!settings_.vsync) command += L" --no-vsync";
         command += L" --resource-root \"" + resourceRoot.wstring() + L"\"";
+        if (!evidenceDir_.empty()) {
+            command += L" --evidence-dir \"" + evidenceDir_.wstring() + L"\"";
+        }
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
     }
     HWND hwnd_{}; LauncherSettings settings_{}; LauncherEndpoints endpoints_{};
     fs::path resourceRoot_{};
+    fs::path evidenceDir_{};
 };
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     LauncherEndpoints endpoints;
     fs::path resourceRoot;
+    fs::path evidenceDir;
     bool invalidEndpoint = false;
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -446,6 +453,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             else if (name == L"--agent-port") { bool valid = false; endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort, &valid); invalidEndpoint |= !valid; }
             else if (name == L"--map-port") { bool valid = false; endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort, &valid); invalidEndpoint |= !valid; }
             else if (name == L"--resource-root") resourceRoot = fs::path(argv[++i]);
+            else if (name == L"--evidence-dir") evidenceDir = fs::path(argv[++i]);
         }
         LocalFree(argv);
     }
@@ -459,6 +467,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         MessageBoxW(nullptr, L"登录、角色和地图服务端口必须互不相同。", L"启动器配置错误", MB_ICONERROR);
         return 2;
     }
-    LauncherWindow window(endpoints, std::move(resourceRoot));
+    LauncherWindow window(endpoints, std::move(resourceRoot), std::move(evidenceDir));
     return window.create(instance) ? window.run() : 1;
 }
