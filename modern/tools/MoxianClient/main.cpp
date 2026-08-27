@@ -1,26 +1,14 @@
-// MoxianClient: modern Moxian (DarkStory) client main entry.
+// MoxianClient: modern Moxian (DarkStory) client entry point.
 //
-// Phase A.1 â€” minimal skeleton that exercises the entire UI â†” GPU seam
-// end-to-end so the Phase 6.4 cImage::bindRenderer adapter gets a real
-// render path instead of a no-op stub. Subsequent phases (A.1.6+) layer
-// CMainGame + eGAMESTATE on top of this skeleton.
-//
-// Bootstrap order (matches what the legacy MHClient.cpp does at WinMain):
-//   1. Register window class + create HWND (the host surface for DX11).
-//   2. Mount the original PlayDH resource tree through I4DyuchiFileStorage.
-//   3. Create + initialise the IRenderer (DX11 backend).
-//   4. Install the cImage render adapter (the Phase 6.4 seam).
-//   5. Run the Win32 message pump. On each WM_PAINT we tick the game
-//      state machine (CMainGame in A.1.6+; a no-op frame for now) and
-//      present the back buffer.
+// Bootstrap order follows the legacy client while using the modern runtime:
+// create the Win32 host surface, mount the selected PlayDH profile, initialise
+// DX11/UI/audio services, register the complete client state table, and drive
+// the state machine from the message loop.
 //
 // 1:1 quirks preserved:
 //   - The 800x600 default window size matches the legacy MHClient default.
-//   - g_DistributeAddr / g_DistributePort / g_AgentAddr / g_AgentPort
-//     globals (parsed from MHVerInfo.ver in B.1+) live at file scope so
-//     MainTitle (A.1.8) can read them without touching the message pump.
-//   - The legacy WinMain order â€” instance handle â†’ class register â†’
-//     window create â†’ renderer init â†’ message loop â€” is preserved.
+//   - The legacy WinMain order — instance handle → class register → window
+//     create → renderer init → message loop — is preserved.
 
 #include <cstdio>
 #include <cstdlib>
@@ -100,8 +88,8 @@ std::uint16_t g_DistributePort = 6000;
 char   g_AgentAddr[16] = "127.0.0.1";
 std::uint16_t g_AgentPort = 7001;
 
-// Version string (mirrors the legacy g_CLIENTVERSION[32]).  A.1 uses a
-// placeholder; B.1 swaps in the parsed value from MHVerInfo.ver.
+// Version string mirrors the legacy g_CLIENTVERSION[32].  CMainTitle loads
+// MHVerInfo.ver when it is present and retains this safe fallback otherwise.
 char g_CLIENTVERSION[32] = "MXRBN99999999";
 
 bool g_running = true;
