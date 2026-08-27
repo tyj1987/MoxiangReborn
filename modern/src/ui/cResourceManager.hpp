@@ -56,6 +56,7 @@ struct LoadReport {
     PathFileType type;
     std::filesystem::path path;
     std::size_t records = 0;
+    std::size_t malformed_lines = 0;
     bool ok = false;
     std::string error;
 };

@@ -130,7 +130,10 @@ bool cResourceManager::loadTable(PathFileType type, const std::filesystem::path&
         }
         flush();
 
-        if (toks.size() < 5) continue;  // 老版允许 5 字段（无 atlas_idx）
+        if (toks.size() < 5) {
+            ++r.malformed_lines;
+            continue;  // 老版允许 5 字段（无 atlas_idx）
+        }
         ImageHardPath hp;
         std::int32_t dialog_idx = toks[0];
         if (toks.size() == 6) {
@@ -158,8 +161,11 @@ bool cResourceManager::loadTable(PathFileType type, const std::filesystem::path&
     }
 
     r.records = ok;
-    r.ok = true;
-    r.error.clear();
+    // A required path table with no valid records is not a usable resource
+    // profile. Keep the report explicit so callers cannot mistake a readable
+    // but empty/corrupt file for a complete seven-table initialization.
+    r.ok = ok != 0;
+    r.error = r.ok ? std::string{} : "no valid image path records";
     m_reports.push_back(r);
     MLOG_INFO("[cResourceManager] %s loaded from %s: %zu records (out of %zu lines)",
               kPathTypeName(type), bin_path.filename().string().c_str(),
