@@ -448,6 +448,21 @@ TEST(InGamePlayable, QStrafesInsteadOfOpeningQuestLog) {
     EXPECT_LT(state.local_x(), 25000u);
 }
 
+TEST(InGamePlayable, SocialHotkeysToggleFriendAndGuildWindows) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.OnKeyEvent(true, 0x48); // H
+    EXPECT_TRUE(state.friend_open());
+    state.OnKeyEvent(true, mxh::client::kVkEscape);
+    EXPECT_FALSE(state.friend_open());
+    state.OnKeyEvent(true, 0x47); // G
+    EXPECT_TRUE(state.guild_open());
+    state.OnKeyEvent(true, mxh::client::kVkEscape);
+    EXPECT_FALSE(state.guild_open());
+}
+
 TEST(InGamePlayable, ServerMovementCorrectionRollsBackLocalPrediction) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

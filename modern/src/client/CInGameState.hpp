@@ -440,6 +440,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool quest_open() const noexcept { return m_questOpen; }
     bool character_open() const noexcept { return m_characterOpen; }
     bool map_open() const noexcept { return m_mapOpen; }
+    bool friend_open() const noexcept { return m_friendOpen; }
+    bool guild_open() const noexcept { return m_guildOpen; }
     std::uint16_t quest_id() const noexcept { return m_questId; }
     const std::string& quest_status() const noexcept { return m_questStatus; }
     const mxh::compat::QuestStringEntry* selected_quest() const noexcept {
@@ -537,6 +539,8 @@ public:
     void set_character_open(bool open) noexcept;
     void set_chat_open(bool open) noexcept;
     void set_map_open(bool open) noexcept;
+    void set_friend_open(bool open) noexcept;
+    void set_guild_open(bool open) noexcept;
     bool select_quest_index(std::size_t index) noexcept;
     bool select_inventory_tab(std::size_t tab) noexcept;
     void push_effect_event(EffectEvent event) noexcept;
@@ -621,6 +625,8 @@ public:
     bool                 m_questOpen = false;
     bool                 m_characterOpen = false;
     bool                 m_mapOpen = false;
+    bool                 m_friendOpen = false;
+    bool                 m_guildOpen = false;
     std::uint16_t        m_questId = 1;
     std::string          m_questStatus = "Not accepted";
     mxh::compat::QuestStringCatalog m_questCatalog;

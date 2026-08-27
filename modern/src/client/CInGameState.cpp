@@ -39,10 +39,10 @@ namespace mxh::client {
 // -------------------------------------------------------------------------
 
 namespace {
-constexpr std::array<std::string_view, 14> kChinaGameInUiScripts{
+constexpr std::array<std::string_view, 16> kChinaGameInUiScripts{
     "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
     "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
-    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin"};
+    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin", "Friend.bin", "Guild.bin"};
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::array<std::string_view, 4> kInventoryTabButtonIds{
     "IN_TABBTN1", "IN_TABBTN2", "IN_TABBTN3", "IN_TABBTN4"};
@@ -53,6 +53,8 @@ constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
 constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
 constexpr std::string_view kChatDialogId = "CTI_DLG";
 constexpr std::string_view kBigMapDialogId = "BIGMAPDLG";
+constexpr std::string_view kFriendDialogId = "FRIENDDLG";
+constexpr std::string_view kGuildDialogId = "GUILDDLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 constexpr float kQuickSlotW = 44.0f;
@@ -763,6 +765,8 @@ void CInGameState::Release() {
     m_lastHitResult = 0;
     m_lastDamageTimestampMs = 0;
     m_mapOpen = false;
+    m_friendOpen = false;
+    m_guildOpen = false;
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -785,6 +789,8 @@ void CInGameState::Release() {
     set_quest_open(false);
     set_character_open(false);
     set_chat_open(false);
+    set_friend_open(false);
+    set_guild_open(false);
     setInitialized(false);
     m_releasing = false;
 }
@@ -2047,6 +2053,16 @@ void CInGameState::set_map_open(bool open) noexcept {
     m_uiRuntime.setDialogActive(kBigMapDialogId, open);
 }
 
+void CInGameState::set_friend_open(bool open) noexcept {
+    m_friendOpen = open;
+    m_uiRuntime.setDialogActive(kFriendDialogId, open);
+}
+
+void CInGameState::set_guild_open(bool open) noexcept {
+    m_guildOpen = open;
+    m_uiRuntime.setDialogActive(kGuildDialogId, open);
+}
+
 bool CInGameState::select_quest_index(std::size_t index) noexcept {
     if (index >= m_mainQuests.size() || m_mainQuests[index] == nullptr) {
         return false;
@@ -2176,6 +2192,14 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         set_character_open(false);
         return;
     }
+    if (vk == kVkEscape && pressed && m_friendOpen) {
+        set_friend_open(false);
+        return;
+    }
+    if (vk == kVkEscape && pressed && m_guildOpen) {
+        set_guild_open(false);
+        return;
+    }
     if (vk == kVkBack && pressed && m_chatOpen) {
         erase_last_chat_codepoint(m_chatBuffer);
         return;
@@ -2206,6 +2230,14 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         }
         if (vk == 0x4D) {  // 'M' toggles the full map
             set_map_open(!m_mapOpen);
+            return;
+        }
+        if (vk == 0x48) {  // 'H' toggles the friend list
+            set_friend_open(!m_friendOpen);
+            return;
+        }
+        if (vk == 0x47) {  // 'G' toggles the guild window
+            set_guild_open(!m_guildOpen);
             return;
         }
         if (vk == kVkF) {
