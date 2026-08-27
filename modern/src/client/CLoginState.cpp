@@ -153,6 +153,13 @@ void CLoginState::Start(CEngine* engine, std::string host,
                         std::uint16_t port,
                         std::string user_id, std::string password,
                         bool use_hsel) {
+    if (m_started.load(std::memory_order_acquire)) {
+        // Do not overwrite the in-flight credential buffer or endpoint when
+        // a UI retry callback races with the original connect attempt.
+        MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
+        clear_secret(password);
+        return;
+    }
     m_pEngine = engine;
     m_host    = std::move(host);
     m_port    = port;
@@ -163,10 +170,6 @@ void CLoginState::Start(CEngine* engine, std::string host,
         m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
     }
 
-    if (m_started.load(std::memory_order_acquire)) {
-        MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
-        return;
-    }
     m_started.store(true, std::memory_order_release);
 
     MLOG_INFO("CLoginState connecting to %s:%u as '%s'",
