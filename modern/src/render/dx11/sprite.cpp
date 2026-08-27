@@ -233,6 +233,12 @@ BOOL __stdcall SpriteObject::LockRect(LOCKED_RECT* pOutLockedRect, RECT* /*pRect
     return FALSE;
 }
 
-BOOL __stdcall SpriteObject::UnlockRect() { return TRUE; }
+BOOL __stdcall SpriteObject::UnlockRect() {
+    // LockRect is intentionally fail-closed until a staging/read-write texture
+    // path is implemented.  Returning TRUE here would report a successful
+    // unlock for a lock that never occurred and can make callers discard or
+    // submit invalid pixel data.
+    return FALSE;
+}
 
 } // namespace mxh::gx::dx11
