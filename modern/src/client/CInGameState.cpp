@@ -735,6 +735,7 @@ void CInGameState::Release() {
     m_sentGameOutSyn = false;
     m_pendingSkillId = 0;
     m_pendingPickupDrop = 0;
+    m_pendingBuyItemId = 0;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
@@ -747,6 +748,7 @@ void CInGameState::Release() {
     m_shopItems.clear();
     m_shopNpcId = 0;
     m_lastBuyItemId = 0;
+    m_pendingBuyItemId = 0;
     m_lastAttackTarget = 0;
     m_pendingAttackTarget = 0;
     m_partyId = 0;
@@ -1229,6 +1231,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     // transport closes.  Clear it before a retry/reconnect can re-enter this
     // state, otherwise the old drop ID would suppress future pickups.
     m_pendingPickupDrop = 0;
+    m_pendingBuyItemId = 0;
     if (!m_releasing && m_inGame && !m_failed) {
         const auto detail = std::string("游戏连接已断开：") +
                             mxh::net::to_string(reason);
@@ -2022,10 +2025,12 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         }
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyAck)) {
+        m_pendingBuyItemId = 0;
         set_shop_open(false);
         MLOG_INFO("CInGameState: BuyAck (shop closed)");
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyNack)) {
+        m_pendingBuyItemId = 0;
         m_lastItemError = "Purchase failed.";
         (void)m_uiRuntime.showMessage(9103, m_lastItemError);
         MLOG_WARN("CInGameState: BuyNack");
@@ -3184,6 +3189,7 @@ void CInGameState::buy_shop_item(std::size_t index) {
     if (!m_inGame) return;
     if (index >= m_shopItems.size()) return;
     const auto& item = m_shopItems[index];
+    if (m_pendingBuyItemId != 0) return;
     m_lastBuyItemId = item.item_id;
     if (!is_connected()) {
         MLOG_INFO("CInGameState: buy item=%u (offline)", item.item_id);
@@ -3192,6 +3198,7 @@ void CInGameState::buy_shop_item(std::size_t index) {
     const auto e = m_pEngine->agent_session().send(
         make_buy_message(m_playerId, item.item_id, 1u));
     if (e == mxh::net::NetError::Ok) {
+        m_pendingBuyItemId = item.item_id;
         MLOG_INFO("CInGameState: buy item=%u price=%u",
                   item.item_id, item.price);
     }
