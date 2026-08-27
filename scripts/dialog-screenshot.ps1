@@ -35,17 +35,6 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path $repoRoot "modern\out\runs\dialog-screenshot\${DialogName}.tga"
 }
 
-# 当前阶段：M-R3/M-R4 还没完成，dialog 树还没接 cDialog
-# 所以这个脚本只能截 5 状态基线图，dialog 自身还没法单独开
-Write-Host "[dialog-screenshot] STUB MODE" -ForegroundColor Yellow
-Write-Host "[dialog-screenshot] Dialog=$DialogName OpenKey=$OpenKey" -ForegroundColor Yellow
-Write-Host "[dialog-screenshot] M-R3 + M-R4 还没完成，无法对单 dialog 单独截" -ForegroundColor Yellow
-Write-Host "[dialog-screenshot] 等 M-R4 完成后这个脚本才生效" -ForegroundColor Yellow
-Write-Host "[dialog-screenshot] 占位 output: $OutputPath" -ForegroundColor Yellow
-
-# TODO M-R4: 实现
-# 1. 启动 modern server
-# 2. 启动 MoxianClient 进 GameIn
-# 3. 模拟按键 $OpenKey 打开 dialog
-# 4. CaptureScreen 截 $OutputPath
-# 5. 关闭 client + server
+# 单 dialog 截图仍要求真实 UI 树、输入分发和 settled-frame 采集；
+# 在这些能力完成前必须硬失败，不能把日志或空路径当作视觉证据。
+throw "dialog-screenshot is not available yet: real dialog capture is not implemented for '$DialogName' (OpenKey=$OpenKey). No screenshot was created."
