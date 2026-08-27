@@ -2892,7 +2892,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     {
         using namespace mxh::ui;
         const auto image_dir = options.resource_root / "Image";
-        if (!cResourceManager::getInstance().allLoaded()) {
+        if (!cResourceManager::getInstance().loadedFrom(image_dir)) {
             if (!cResourceManager::getInstance().InitScriptManager(image_dir)) {
                 std::fprintf(stderr,
                              "mxh_client: playdh-current image path tables are incomplete; refusing to start\n");

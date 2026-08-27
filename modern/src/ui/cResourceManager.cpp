@@ -53,6 +53,7 @@ cResourceManager& cResourceManager::getInstance() noexcept {
 void cResourceManager::ReleaseScriptManager() noexcept {
     for (auto& t : m_tables) t.clear();
     m_reports.clear();
+    m_pathRoot.clear();
     m_loaded = false;
 }
 
@@ -61,6 +62,10 @@ bool cResourceManager::InitScriptManager(const std::filesystem::path& path_root)
         MLOG_WARN("[cResourceManager] already loaded; releasing first");
         ReleaseScriptManager();
     }
+
+    std::error_code root_ec;
+    m_pathRoot = std::filesystem::weakly_canonical(path_root, root_ec);
+    if (root_ec) m_pathRoot = path_root.lexically_normal();
 
     for (const auto& f : kHardPathFiles) {
         const auto bin_path = path_root / f.filename;
@@ -196,6 +201,14 @@ bool cResourceManager::allLoaded() const noexcept {
         if (!r.ok) return false;
     }
     return true;
+}
+
+bool cResourceManager::loadedFrom(const std::filesystem::path& path_root) const noexcept {
+    if (!m_loaded) return false;
+    std::error_code ec;
+    const auto requested = std::filesystem::weakly_canonical(path_root, ec);
+    if (ec) return false;
+    return requested == m_pathRoot;
 }
 
 }  // namespace mxh::ui

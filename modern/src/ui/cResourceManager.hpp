@@ -88,6 +88,7 @@ public:
 
     // 7 张表都装载成功的检查
     [[nodiscard]] bool allLoaded() const noexcept;
+    [[nodiscard]] bool loadedFrom(const std::filesystem::path& path_root) const noexcept;
 
 private:
     cResourceManager() = default;
@@ -100,6 +101,7 @@ private:
     using Table = std::unordered_map<std::int32_t, ImageHardPath>;
     std::array<Table, 7> m_tables{};
     std::vector<LoadReport> m_reports;
+    std::filesystem::path m_pathRoot;
     bool m_loaded = false;
 };
 
