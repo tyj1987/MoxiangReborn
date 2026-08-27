@@ -17,6 +17,23 @@
 namespace mxh::audio {
 namespace { void error(std::string* out, const std::string& value) { if (out) *out = value; } }
 
+// SoundList is data, not a trusted path source.  Keep every decoded file
+// inside the profile's Sound directory even when an entry contains `..` or
+// an absolute path.  This also makes the release profile boundary explicit.
+static std::filesystem::path resolveWithinRoot(const std::filesystem::path& root,
+                                                const std::string& file_name) {
+    std::error_code ec;
+    const auto canonical_root = std::filesystem::weakly_canonical(root, ec);
+    if (ec || canonical_root.empty()) return {};
+    const auto candidate = std::filesystem::weakly_canonical(root / file_name, ec);
+    if (ec || candidate.empty()) return {};
+    const auto relative = candidate.lexically_relative(canonical_root);
+    if (relative.empty() || relative.is_absolute()) return {};
+    const auto first = relative.begin();
+    if (first == relative.end() || *first == std::filesystem::path("..")) return {};
+    return candidate;
+}
+
 #ifdef _WIN32
 struct SfxPlayer::MediaState {
     Microsoft::WRL::ComPtr<IXAudio2> engine;
@@ -88,8 +105,9 @@ std::filesystem::path SfxPlayer::resolve(std::uint16_t id) const {
     if (!ready_ || id >= manifest_.entries.size()) return {};
     const auto& entry = manifest_.entries[id];
     if (!entry.available || entry.streaming) return {};
-    const auto path = std::filesystem::weakly_canonical(sound_root_ / entry.file_name);
-    return std::filesystem::is_regular_file(path) ? path : std::filesystem::path{};
+    const auto path = resolveWithinRoot(sound_root_, entry.file_name);
+    return !path.empty() && std::filesystem::is_regular_file(path)
+        ? path : std::filesystem::path{};
 }
 
 float SfxPlayer::distanceGain(float distance, float min_distance,

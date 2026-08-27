@@ -25,6 +25,24 @@ void setError(std::string* error, const std::string& message) {
     if (error) *error = message;
 }
 
+// SoundList entries are untrusted metadata.  A BGM path must never escape
+// the selected profile's Sound directory through traversal or an absolute
+// path, otherwise a damaged profile could make the client read arbitrary
+// files during startup or map changes.
+std::filesystem::path resolveWithinRoot(const std::filesystem::path& root,
+                                        const std::string& file_name) {
+    std::error_code ec;
+    const auto canonical_root = std::filesystem::weakly_canonical(root, ec);
+    if (ec || canonical_root.empty()) return {};
+    const auto candidate = std::filesystem::weakly_canonical(root / file_name, ec);
+    if (ec || candidate.empty()) return {};
+    const auto relative = candidate.lexically_relative(canonical_root);
+    if (relative.empty() || relative.is_absolute()) return {};
+    const auto first = relative.begin();
+    if (first == relative.end() || *first == std::filesystem::path("..")) return {};
+    return candidate;
+}
+
 } // namespace
 
 #ifdef _WIN32
@@ -111,7 +129,7 @@ std::filesystem::path BgmPlayer::resolve(std::uint16_t sound_id) const {
     if (!ready_ || sound_id >= manifest_.entries.size()) return {};
     const auto& entry = manifest_.entries[sound_id];
     if (!entry.available || !entry.streaming) return {};
-    const auto candidate = std::filesystem::weakly_canonical(sound_root_ / entry.file_name);
+    const auto candidate = resolveWithinRoot(sound_root_, entry.file_name);
     return std::filesystem::is_regular_file(candidate) ? candidate : std::filesystem::path{};
 }
 
