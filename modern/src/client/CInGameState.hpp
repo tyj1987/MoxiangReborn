@@ -641,6 +641,7 @@ public:
     std::vector<const mxh::compat::QuestStringEntry*> m_mainQuests;
     std::size_t          m_questSelection = 0;
     std::optional<std::size_t> m_inventoryDragSource;
+    bool m_pendingInventoryMove = false;
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
     struct PendingSkillEffect {

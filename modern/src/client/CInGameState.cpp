@@ -737,6 +737,7 @@ void CInGameState::Release() {
     m_pendingSkillSinceMs = 0;
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
+    m_pendingInventoryMove = false;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
@@ -1255,6 +1256,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingSkillEffects.clear();
     m_effectRuntime.clear();
     m_runtimeEffectEvents.clear();
+    m_pendingInventoryMove = false;
     m_chatBuffer.clear();
     m_inventoryDragSource.reset();
     set_chat_open(false);
@@ -1971,6 +1973,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: item discarded pos=%u", pos);
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::MoveAck)) {
+        m_pendingInventoryMove = false;
         // MoveAck echoes ITEMBASE(22B) + target position(u16).
         if (msg.payload.size() < 24) return;
         const auto db_idx = get_u32(msg.payload.data());
@@ -2018,6 +2021,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                   db_idx, source, target);
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::MoveNack)) {
+        m_pendingInventoryMove = false;
         // Keep the authoritative rejection visible to the player.  The
         // server deliberately does not encode a new error protocol here;
         // the legacy client presents a modal item-move failure message.
@@ -2666,6 +2670,7 @@ bool CInGameState::OnMouseButton(bool left, bool down,
 bool CInGameState::request_inventory_move(std::size_t source,
                                           std::size_t target) {
     if (!m_inGame || !is_connected() ||
+        m_pendingInventoryMove ||
         source >= mxh::game::TP_WEAREDITEM_END ||
         target >= mxh::game::TP_WEAREDITEM_END || source == target) {
         return false;
@@ -2683,7 +2688,10 @@ bool CInGameState::request_inventory_move(std::size_t source,
     const auto target16 = static_cast<std::uint16_t>(target);
     std::memcpy(msg.payload.data() + sizeof(mxh::game::ItemBase), &target16,
                 sizeof(target16));
-    return m_pEngine->agent_session().send(msg) == mxh::net::NetError::Ok;
+    const auto sent = m_pEngine->agent_session().send(msg) ==
+                      mxh::net::NetError::Ok;
+    if (sent) m_pendingInventoryMove = true;
+    return sent;
 }
 
 void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
