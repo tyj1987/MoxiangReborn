@@ -8,6 +8,8 @@ bool GameLoadingCoordinator::consume_pending_transfer(CEngine& engine, std::stri
     // Every consume attempt describes the next transition.  Never expose a
     // previous map request after an absent or invalid transfer.
     m_request.reset();
+    m_error.clear();
+    m_context = LoadStateContext{};
     if (!engine.has_pending_transfer()) {
         if (error) *error = "waiting for GameEntryRequest";
         return false;
