@@ -271,6 +271,21 @@ TEST(GameLoadingCoordinator, FirstFailureWinsAgainstLateWorkerError) {
     EXPECT_STREQ(coordinator.context().error, "texture decode failed");
 }
 
+TEST(GameLoadingCoordinator, LateCancellationDoesNotMaskFailure) {
+    CEngine engine;
+    GameLoadingCoordinator coordinator;
+    engine.SetPendingTransfer(GameEntryRequest{7, 10});
+    ASSERT_TRUE(coordinator.consume_pending_transfer(engine));
+
+    coordinator.mark_failed("map descriptor unavailable");
+    coordinator.cancel();
+
+    EXPECT_TRUE(coordinator.context().failed);
+    EXPECT_FALSE(coordinator.context().cancelled);
+    ASSERT_NE(coordinator.context().error, nullptr);
+    EXPECT_STREQ(coordinator.context().error, "map descriptor unavailable");
+}
+
 TEST(GameLoadingCoordinator, ConsumesASecondEntryAfterFirstRequestCompletes) {
     mxh::client::CEngine engine;
     mxh::client::GameLoadingCoordinator coordinator;

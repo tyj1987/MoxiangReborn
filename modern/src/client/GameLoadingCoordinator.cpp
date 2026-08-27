@@ -56,6 +56,9 @@ void GameLoadingCoordinator::mark_failed(std::string message) noexcept {
 }
 
 void GameLoadingCoordinator::cancel() noexcept {
+    // Failure is terminal as well.  A late state teardown must not overwrite
+    // the actionable resource/network error with a generic cancellation.
+    if (m_context.failed) return;
     m_context.cancelled = true;
 }
 
