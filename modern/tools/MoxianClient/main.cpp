@@ -2619,9 +2619,21 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     if (bgm.initialize(options.resource_root / "Sound", &audio_error)) {
         bgm.setVolume(persisted_settings.bgm_volume);
         // 1667 is the original login theme in SoundList.bin.
-        if (!bgm.play(1667, &audio_error))
+        if (!bgm.play(1667, &audio_error) && !g_debugUiBounds) {
+            MLOG_ERROR("mxh_client: required login BGM unavailable: %s",
+                       audio_error.c_str());
+            storage->Release();
+            return 1;
+        } else if (!audio_error.empty()) {
             MLOG_WARN("mxh_client: login BGM unavailable: %s", audio_error.c_str());
+        }
     } else {
+        if (!g_debugUiBounds) {
+            MLOG_ERROR("mxh_client: required SoundList unavailable: %s",
+                       audio_error.c_str());
+            storage->Release();
+            return 1;
+        }
         MLOG_WARN("mxh_client: SoundList unavailable: %s", audio_error.c_str());
     }
     if (sfx.initialize(options.resource_root / "Sound", &audio_error)) {
@@ -2668,6 +2680,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             return 1;
         }
     } else {
+        if (!g_debugUiBounds) {
+            MLOG_ERROR("mxh_client: required SFX subsystem unavailable: %s",
+                       audio_error.c_str());
+            storage->Release();
+            return 1;
+        }
         MLOG_WARN("mxh_client: SFX unavailable: %s", audio_error.c_str());
     }
 
