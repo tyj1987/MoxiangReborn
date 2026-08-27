@@ -186,20 +186,21 @@ void cComboBox::ListMouseCheck(std::int32_t mouseX, std::int32_t mouseY,
 }
 
 std::uint16_t cComboBox::PtIdxInComboList(std::int32_t x, std::int32_t y) const {
-    // 1:1 with legacy. The legacy uses m_absPos (the combo's
-    // absolute position) + m_height (combo height) + m_listWidth
-    // + m_middleHeight to compute the row. Modern port uses
-    // absX() / absY() (inherited from cWindow) for the absolute
-    // position, and the stored m_middleHeight for the row
-    // pitch. The legacy returns GetItemCount()+1 on no-hit
-    // (so the legacy caller can compare > GetItemCount() to
-    // detect no-hit). Modern port returns the same.
     const std::int32_t listnum = static_cast<std::int32_t>(GetItemCount());
+    // The list is skinned as top cap + one middle slice per row + bottom
+    // cap. Cap pixels are not selectable; return the legacy count+1 sentinel
+    // for all non-row coordinates.
+    if (m_listWidth == 0 || m_middleHeight == 0 || listnum == 0) {
+        return static_cast<std::uint16_t>(listnum + 1);
+    }
+    const std::int32_t list_left = absX();
+    const std::int32_t list_top = absY() + static_cast<std::int32_t>(height());
+    const std::int32_t list_right = list_left + static_cast<std::int32_t>(m_listWidth);
+    const std::int32_t rows_top = list_top + static_cast<std::int32_t>(m_topHeight);
     for (std::int32_t i = 0; i < listnum; ++i) {
-        if (absX() < x && absY() + static_cast<std::int32_t>(height()) < y
-            && x < absX() + m_listWidth
-            && y < absY() + static_cast<std::int32_t>(height())
-                 + (i + 1) * m_middleHeight) {
+        const std::int32_t row_top = rows_top + i * static_cast<std::int32_t>(m_middleHeight);
+        const std::int32_t row_bottom = row_top + static_cast<std::int32_t>(m_middleHeight);
+        if (list_left < x && x < list_right && row_top < y && y < row_bottom) {
             return static_cast<std::uint16_t>(i);
         }
     }

@@ -232,10 +232,10 @@ TEST(CComboBox, PtIdxInComboListNoHitReturnsNoHit) {
 TEST(CComboBox, PtIdxInComboListWithItems) {
     // 1:1 with legacy: returns the row index if the click is
     // inside the list rect. The legacy uses m_absPos + m_height
-    // + (i+1) * m_middleHeight for the y-check. With absX=0
-    // absY=0, listWid=100, m_middleHeight=20:
-    //   row 0: y in [30, 50)  (height=30, then 1*20=50)
-    //   row 1: y in [50, 70)
+    // + top cap + i * m_middleHeight for the y-check. With absX=0
+    // absY=0, listWid=100, top=10, m_middleHeight=20:
+    //   row 0: y in (40, 60)
+    //   row 1: y in (60, 80)
     mxh::ui::cComboBox c;
     c.Init(0, 0, 100, 30, nullptr, 1);
     c.InitComboList(100, nullptr, 10, nullptr, 20, nullptr, 10, nullptr);
@@ -243,10 +243,20 @@ TEST(CComboBox, PtIdxInComboListWithItems) {
     c.AddItem({"row0"});
     c.AddItem({"row1"});
     c.AddItem({"row2"});
-    EXPECT_EQ(c.PtIdxInComboList(50, 35), 0u);  // row 0
-    EXPECT_EQ(c.PtIdxInComboList(50, 55), 1u);  // row 1
-    EXPECT_EQ(c.PtIdxInComboList(50, 75), 2u);  // row 2
+    EXPECT_EQ(c.PtIdxInComboList(50, 45), 0u);  // row 0
+    EXPECT_EQ(c.PtIdxInComboList(50, 65), 1u);  // row 1
+    EXPECT_EQ(c.PtIdxInComboList(50, 85), 2u);  // row 2
     EXPECT_EQ(c.PtIdxInComboList(50, 100), 4u); // no hit
+}
+
+TEST(CComboBox, PtIdxInComboListCapsAreNotSelectable) {
+    mxh::ui::cComboBox c;
+    c.Init(0, 0, 100, 30, nullptr, 1);
+    c.InitComboList(100, nullptr, 10, nullptr, 20, nullptr, 10, nullptr);
+    c.AddItem({"row0"});
+    EXPECT_EQ(c.PtIdxInComboList(50, 35), 2u);  // top cap
+    EXPECT_EQ(c.PtIdxInComboList(50, 55), 0u);  // row
+    EXPECT_EQ(c.PtIdxInComboList(50, 70), 2u);  // bottom cap
 }
 
 TEST(CComboBox, ListMouseCheckLeftDownSetsCurSelectedIdx) {
@@ -259,7 +269,7 @@ TEST(CComboBox, ListMouseCheckLeftDownSetsCurSelectedIdx) {
     c.SetMaxLine(10);
     c.AddItem({"first"});
     c.AddItem({"second"});
-    c.ListMouseCheck(50, 55, /*leftDown*/true);
+    c.ListMouseCheck(50, 65, /*leftDown*/true);
     EXPECT_EQ(c.GetCurSelectedIdx(), 1);
     EXPECT_EQ(c.GetComboText(), "second");
 }
@@ -274,7 +284,7 @@ TEST(CComboBox, ListMouseCheckHoverOnlySetsOverIdx) {
     c.AddItem({"first"});
     c.AddItem({"second"});
     c.SetCurSelectedIdx(-1);
-    c.ListMouseCheck(50, 35, /*leftDown*/false);
+    c.ListMouseCheck(50, 45, /*leftDown*/false);
     EXPECT_EQ(c.GetCurSelectedIdx(), -1);
     EXPECT_EQ(c.GetOverIdx(), 0);
 }
