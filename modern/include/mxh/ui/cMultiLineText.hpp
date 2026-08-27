@@ -12,8 +12,8 @@
 // semantics identical without the manual next-pointer dance, but
 // exposes the same API (AddLine, SetText, SetFontIdx, SetXY, etc.).
 //
-// Render is a no-op (the actual draw is the render-layer's job — the
-// 6.4+ cImage seam is the right integration point).
+// Render uses the shared text adapter; optional background imagery remains
+// owned by the host render layer.
 
 #pragma once
 
@@ -79,8 +79,8 @@ public:
 
     void operator=(const char* text) { SetText(text); }
 
-    // Render placeholder; the real draw goes through the 6.4+ adapter.
-    void Render() {}
+    // Render all live lines through the shared text adapter.
+    void Render();
 
 private:
     std::list<Line>    m_lines;
