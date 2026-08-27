@@ -9,6 +9,8 @@
 #include <array>
 #include <regex>
 #include <string>
+#include <string_view>
+#include <cwchar>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -22,6 +24,20 @@ struct LauncherSettings {
     int bgmVolume = 100;
     int sfxVolume = 100;
 };
+
+struct LauncherEndpoints {
+    int loginPort = 6001;
+    int agentPort = 7001;
+    int mapPort = 8001;
+};
+
+static int parsePort(const wchar_t* value, int fallback) noexcept {
+    if (!value || !*value) return fallback;
+    wchar_t* end = nullptr;
+    const auto parsed = std::wcstol(value, &end, 10);
+    if (end == value || *end != L'\0' || parsed < 1 || parsed > 65535) return fallback;
+    return static_cast<int>(parsed);
+}
 
 static fs::path settingsPath() {
     wchar_t buffer[MAX_PATH]{};
@@ -258,6 +274,7 @@ static fs::path locateResourceRoot(const fs::path& executable) {
 
 class LauncherWindow {
 public:
+    explicit LauncherWindow(LauncherEndpoints endpoints) : endpoints_(endpoints) {}
     bool create(HINSTANCE instance) {
         settings_ = loadSettings();
         WNDCLASSW wc{}; wc.hInstance = instance; wc.lpfnWndProc = &LauncherWindow::proc;
@@ -394,14 +411,32 @@ private:
             MessageBoxW(hwnd_, (L"playdh-current 资源校验失败：\n" + hashError).c_str(), L"启动失败", MB_ICONERROR);
             return;
         }
-        std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
+        std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight) +
+            L" --login-port " + std::to_wstring(endpoints_.loginPort) +
+            L" --agent-port " + std::to_wstring(endpoints_.agentPort) +
+            L" --map-port " + std::to_wstring(endpoints_.mapPort);
         if (settings_.borderless) command += L" --borderless";
         if (!settings_.vsync) command += L" --no-vsync";
         command += L" --resource-root \"" + resourceRoot.wstring() + L"\"";
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
     }
-    HWND hwnd_{}; LauncherSettings settings_{};
+    HWND hwnd_{}; LauncherSettings settings_{}; LauncherEndpoints endpoints_{};
 };
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) { LauncherWindow window; return window.create(instance) ? window.run() : 1; }
+int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+    LauncherEndpoints endpoints;
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (argv) {
+        for (int i = 1; i + 1 < argc; ++i) {
+            const auto name = std::wstring_view(argv[i]);
+            if (name == L"--login-port") endpoints.loginPort = parsePort(argv[++i], endpoints.loginPort);
+            else if (name == L"--agent-port") endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort);
+            else if (name == L"--map-port") endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort);
+        }
+        LocalFree(argv);
+    }
+    LauncherWindow window(endpoints);
+    return window.create(instance) ? window.run() : 1;
+}
