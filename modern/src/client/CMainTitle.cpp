@@ -1,20 +1,9 @@
 // mxh/client/CMainTitle.cpp
-// Phase A.1.8 — minimal CMainTitle implementation.  Reads MHVerInfo.ver
-// (client version string) and stubs out the rest of the boot flow
-// (logo window, server list, Distribute connect, agent connect).
-//
-// The legacy CMainTitle is a 1860-line file with 50+ members — a
-// full 1:1 port of all the body code (chat manager init, item
-// manager init, resource manager init, mouse/keyboard init, the
-// camera, ...) is multi-day work and is split across A.1.8.b+.
-// A.1.8 ships:
-//   * Full 1:1 surface (m_pCamera, m_pServerListDlg, m_pLogoWindow,
-//     m_bInit, m_bServerList, m_DistAuthKey, m_UserIdx, m_dwStartTime,
-//     ... all 14 fields from MainTitle.h).
-//   * Init reads MHVerInfo.ver.
-//   * Process / Release do the same bookkeeping the legacy engine
-//     did, but the heavy managers (ChatManager, ItemManager, ...)
-//     are stubbed out — those are in CGameIn, not CMainTitle.
+// Modern login-title state.  Owns the version check, logo/server-list
+// presentation and the hand-off into the authenticated client flow while
+// preserving the legacy public surface used by the surrounding state machine.
+// Optional legacy-only decorations remain outside the playable path; the
+// active IDDlg and network lifecycle are driven by the injected client context.
 
 #include "CMainTitle.hpp"
 
