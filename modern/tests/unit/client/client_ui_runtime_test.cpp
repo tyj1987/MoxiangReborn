@@ -524,6 +524,20 @@ TEST(InGameUiRuntime, EnterAndEscapeOwnRealChatDialog) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("CTI_DLG"));
 }
 
+TEST(InGameUiRuntime, MouseConsumptionSeparatesHudFromWorldInput) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+
+    // The HUD quick-slot bar is rendered outside InterfaceScript and must
+    // consume its own click so the host window does not also issue movement.
+    EXPECT_TRUE(state.OnMouseButton(true, true, 225, 480));
+
+    // Right-button dragging belongs to the camera gesture and is deliberately
+    // left for the host input layer rather than treated as a UI click.
+    EXPECT_FALSE(state.OnMouseButton(false, true, 225, 480));
+
+}
+
 TEST(InGameUiRuntime, FocusedChatEditboxSynchronizesAndEnterSubmits) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
