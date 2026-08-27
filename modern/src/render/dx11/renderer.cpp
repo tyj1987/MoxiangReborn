@@ -308,6 +308,19 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
             ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
             ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+            D3D11_MAPPED_SUBRESOURCE effectMapped{};
+            if (SUCCEEDED(ctx->Map(m_meshShaders.cbWorld.Get(), 0,
+                                   D3D11_MAP_WRITE_DISCARD, 0, &effectMapped))) {
+                const MATRIX4& world = mesh->worldTransform();
+                std::memcpy(effectMapped.pData, &world, sizeof(MATRIX4));
+                ctx->Unmap(m_meshShaders.cbWorld.Get(), 0);
+            }
+            if (SUCCEEDED(ctx->Map(m_meshShaders.cbViewProj.Get(), 0,
+                                   D3D11_MAP_WRITE_DISCARD, 0, &effectMapped))) {
+                const MATRIX4 viewProj = m_dev->viewProjMatrix();
+                std::memcpy(effectMapped.pData, &viewProj, sizeof(MATRIX4));
+                ctx->Unmap(m_meshShaders.cbViewProj.Get(), 0);
+            }
             ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
             ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
             mesh->setEffectPalette(m_effectPalette.get());
