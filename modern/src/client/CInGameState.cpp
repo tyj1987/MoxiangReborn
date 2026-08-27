@@ -860,7 +860,17 @@ void CInGameState::Process() {
                                    request.source_object_id);
             }
         } else {
-            MLOG_WARN("CInGameState effect catalog unavailable: %s", result.second.c_str());
+            // Effect assets are part of the authoritative gameplay
+            // presentation.  Continuing with an empty catalog would make
+            // skill acknowledgements succeed while silently dropping their
+            // animation/audio timeline, so fail the state instead of hiding
+            // a release-time resource defect.
+            const auto reason = result.second.empty()
+                ? std::string("unknown effect catalog error")
+                : result.second;
+            MLOG_ERROR("CInGameState effect catalog unavailable: %s",
+                       reason.c_str());
+            fail_with("GameIn effect catalog unavailable: " + reason);
         }
     }
     const auto now_ms = steady_now_ms();
