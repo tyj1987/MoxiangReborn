@@ -17,7 +17,7 @@
 # 5. 抽 5 sample dialog + 老 .tif SHA-256 入库 → visual-sprite-baseline.md
 #
 # 用法:
-#   python scripts/visual-sprite-compare.py --playdh <path> --count 5 --out modern/docs/restoration-plan/visual-sprite-baseline.md
+#   python scripts/visual-sprite-compare.py --playdh <path> --count 5 --out modern/out/runs/visual-sprite-compare/baseline.md
 #
 # 依赖: pip install pillow (PIL)
 # 头less 可跑, 不需要 ID3D11.

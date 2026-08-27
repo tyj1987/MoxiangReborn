@@ -32,7 +32,7 @@ if (-not (Test-Path -LiteralPath $clientExe)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $repoRoot "modern\docs\restoration-plan\dialogs\${DialogName}.tga"
+    $OutputPath = Join-Path $repoRoot "modern\out\runs\dialog-screenshot\${DialogName}.tga"
 }
 
 # 当前阶段：M-R3/M-R4 还没完成，dialog 树还没接 cDialog
