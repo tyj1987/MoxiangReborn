@@ -582,13 +582,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argv) {
+        const auto nextValue = [&](int& index) -> std::optional<std::wstring_view> {
+            if (index + 1 >= argc || argv[index + 1][0] == L'-') return std::nullopt;
+            ++index;
+            return std::wstring_view(argv[index]);
+        };
         for (int i = 1; i < argc; ++i) {
             const auto name = std::wstring_view(argv[i]);
-            if (name == L"--login-port") { bool valid = false; endpoints.loginPort = parsePort(argv[++i], endpoints.loginPort, &valid); invalidEndpoint |= !valid; }
-            else if (name == L"--agent-port") { bool valid = false; endpoints.agentPort = parsePort(argv[++i], endpoints.agentPort, &valid); invalidEndpoint |= !valid; }
-            else if (name == L"--map-port") { bool valid = false; endpoints.mapPort = parsePort(argv[++i], endpoints.mapPort, &valid); invalidEndpoint |= !valid; }
-            else if (name == L"--resource-root") resourceRoot = fs::path(argv[++i]);
-            else if (name == L"--evidence-dir") evidenceDir = fs::path(argv[++i]);
+            if (name == L"--login-port") { bool valid = false; const auto value = nextValue(i); endpoints.loginPort = value ? parsePort(value->data(), endpoints.loginPort, &valid) : endpoints.loginPort; invalidEndpoint |= !valid; }
+            else if (name == L"--agent-port") { bool valid = false; const auto value = nextValue(i); endpoints.agentPort = value ? parsePort(value->data(), endpoints.agentPort, &valid) : endpoints.agentPort; invalidEndpoint |= !valid; }
+            else if (name == L"--map-port") { bool valid = false; const auto value = nextValue(i); endpoints.mapPort = value ? parsePort(value->data(), endpoints.mapPort, &valid) : endpoints.mapPort; invalidEndpoint |= !valid; }
+            else if (name == L"--resource-root") { const auto value = nextValue(i); if (value) resourceRoot = fs::path(*value); else invalidEndpoint = true; }
+            else if (name == L"--evidence-dir") { const auto value = nextValue(i); if (value) evidenceDir = fs::path(*value); else invalidEndpoint = true; }
             else if (name == L"--verify-resources") verifyOnly = true;
         }
         LocalFree(argv);
