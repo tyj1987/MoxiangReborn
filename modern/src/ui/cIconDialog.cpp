@@ -59,8 +59,11 @@ bool cIconDialog::PtInCell(std::int32_t x, std::int32_t y) const noexcept {
         const std::int32_t x0 = absX() + c.relX;
         const std::int32_t y0 = absY() + c.relY;
         if (x < x0 || y < y0) continue;
-        if (x > x0 + c.relW) continue;
-        if (y > y0 + c.relH) continue;
+        // Match the renderer's rectangle semantics: the right/bottom edge is
+        // exclusive. This prevents a click exactly on a shared border from
+        // being accepted by both adjacent inventory cells.
+        if (x >= x0 + c.relW) continue;
+        if (y >= y0 + c.relH) continue;
         return true;
     }
     return false;
@@ -74,8 +77,8 @@ bool cIconDialog::GetPositionForXYRef(std::int32_t x, std::int32_t y,
         const std::int32_t x0 = absX() + c.relX;
         const std::int32_t y0 = absY() + c.relY;
         if (x < x0 || y < y0) continue;
-        if (x > x0 + c.relW) continue;
-        if (y > y0 + c.relH) continue;
+        if (x >= x0 + c.relW) continue;
+        if (y >= y0 + c.relH) continue;
         pos = i;
         return true;
     }

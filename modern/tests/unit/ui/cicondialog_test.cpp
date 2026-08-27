@@ -122,7 +122,9 @@ TEST(CIconDialog, AddIconCellRespectsDialogAbsXAbsY) {
     d.AddIconCell(0, 0, 50, 50);
     // Cell should be at dialog absX+0..absX+50, absY+0..absY+50.
     EXPECT_TRUE (d.PtInCell(120, 230));
-    EXPECT_TRUE (d.PtInCell(150, 250));
+    EXPECT_TRUE (d.PtInCell(149, 249));
+    EXPECT_FALSE(d.PtInCell(150, 230));  // right edge is exclusive
+    EXPECT_FALSE(d.PtInCell(130, 250));  // bottom edge is exclusive
     EXPECT_FALSE(d.PtInCell(99, 230));
     EXPECT_FALSE(d.PtInCell(151, 230));
 }
@@ -144,6 +146,11 @@ TEST(CIconDialog, GetPositionForXYRefReturnsIndex) {
 
     EXPECT_TRUE (d.GetPositionForXYRef(80, 80, pos));
     EXPECT_EQ   (pos, 3u);
+
+    EXPECT_TRUE (d.GetPositionForXYRef(50, 20, pos)); // shared edge belongs to cell 1
+    EXPECT_EQ   (pos, 1u);
+    EXPECT_FALSE(d.GetPositionForXYRef(100, 20, pos)); // outer right edge
+    EXPECT_FALSE(d.GetPositionForXYRef(20, 100, pos)); // outer bottom edge
 
     EXPECT_FALSE(d.GetPositionForXYRef(200, 200, pos));
     // pos unchanged when not found (we leave it untouched as the input).
