@@ -2884,10 +2884,10 @@ void CInGameState::try_attack() {
         if (it != monsters_.end()) target = it->object_id;
     }
     m_pendingAttackTarget = 0;
-    if (!target) {
-        target = pick_attack_target(
-            monsters_, m_localX, m_localZ, kAttackRange);
-    }
+    // Combat is initiated only by an explicit cursor selection.  Falling
+    // back to the nearest live monster makes a stale/invalid click target
+    // turn into an unrelated attack, which diverges from the legacy target
+    // frame and can also issue a duplicate attack after a despawn.
     if (!target) return;
 
     float target_x = 0;
