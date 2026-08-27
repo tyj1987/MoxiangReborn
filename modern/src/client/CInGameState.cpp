@@ -1194,8 +1194,14 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
     if (!m_releasing && m_inGame && !m_failed) {
-        MLOG_WARN("CInGameState: disconnected after entering game (in_game=%d)",
-                  m_inGame ? 1 : 0);
+        const auto detail = std::string("游戏连接已断开：") +
+                            mxh::net::to_string(reason);
+        fail_with(detail);
+        (void)m_uiRuntime.showMessage(9106, detail);
+        if (m_pEngine) {
+            m_pEngine->RequestStateChange(
+                static_cast<int>(GameStateId::Title));
+        }
     }
 }
 
