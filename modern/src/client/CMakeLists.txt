@@ -29,6 +29,10 @@ target_include_directories(mxh_client_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 target_link_libraries(mxh_client_lib PUBLIC mxh_ui mxh_render mxh_log mxh_net mxh_crypto)
+# The library is also linked by the fixture-driven client test executable.
+# Its fixture-only resource fallback is inert in production because the host
+# always supplies CEngine::playdh_root().
+target_compile_definitions(mxh_client_lib PRIVATE MXH_CLIENT_TEST_BUILD=1)
 if(MSVC)
     target_compile_options(mxh_client_lib PRIVATE /W3 /utf-8)
 endif()

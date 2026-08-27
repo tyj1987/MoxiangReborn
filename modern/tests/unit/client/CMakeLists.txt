@@ -28,6 +28,7 @@ target_link_libraries(mxh_client_tests
     mxh_render
     gtest_main
 )
+target_compile_definitions(mxh_client_tests PRIVATE MXH_CLIENT_TEST_BUILD=1)
 
 if(MSVC)
     target_compile_options(mxh_client_tests PRIVATE /W3 /utf-8)

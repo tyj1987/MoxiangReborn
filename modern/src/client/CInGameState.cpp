@@ -677,37 +677,15 @@ void CInGameState::Init(void* pInitParam) {
     MLOG_DEBUG("CInGameState::Init (waiting for Start() from host)");
     setInitialized(true);
 
-    // Load the GameIn InterfaceScript tree on Init so the state always
-    // owns its dialog tree, even before the host calls Start(). The
-    // pInitParam may carry the engine (production path) or be nullptr
-    // (unit tests). Fall back to MXH_PLAYDH_ROOT so headless tests
-    // don't need a fully wired CEngine.
-    std::optional<std::filesystem::path> playdh;
-    if (auto* engine = static_cast<CEngine*>(pInitParam)) {
-        playdh = engine->playdh_root();
-    }
-    if (!playdh.has_value()) {
-        if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
-            playdh = std::filesystem::path(env);
-        }
-    }
-    if (!playdh.has_value()) {
-        for (const auto& candidate : {
-                 std::filesystem::path("modern/data/PlayDH"),
-                 std::filesystem::path("data/PlayDH"),
-                 std::filesystem::path("../data/PlayDH"),
-                 std::filesystem::path("../../data/PlayDH"),
-                 std::filesystem::path("../../../../data/PlayDH")}) {
-            if (std::filesystem::exists(candidate / "Image" / "InterfaceScript" /
-                                          "15.bin")) {
-                playdh = std::filesystem::absolute(candidate);
-                break;
-            }
-        }
-    }
-    if (playdh.has_value() && m_uiRuntime.empty()) {
+    // Runtime resources are owned by the explicitly selected profile on the
+    // engine.  Do not search the current directory or consume an environment
+    // variable here: that silently mixes PlayDH variants and makes a shipped
+    // build depend on the developer's checkout layout.  Unit tests that do
+    // not provide an engine intentionally leave the runtime empty.
+    const auto* engine = static_cast<const CEngine*>(pInitParam);
+    if (engine && engine->playdh_root().has_value() && m_uiRuntime.empty()) {
         std::string ui_error;
-        if (!m_uiRuntime.loadMany(*playdh, kChinaGameInUiScripts,
+        if (!m_uiRuntime.loadMany(*engine->playdh_root(), kChinaGameInUiScripts,
                                   m_pEngine
                                       ? m_pEngine->ui_resolution_mode()
                                       : mxh::ui::ResolutionMode::Low800x600,
@@ -717,6 +695,29 @@ void CInGameState::Init(void* pInitParam) {
         } else {
             m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
         }
+#if defined(MXH_CLIENT_TEST_BUILD)
+    } else if (!engine && m_uiRuntime.empty()) {
+        // Unit tests exercise dialog behavior without constructing the full
+        // Win32 engine.  Keep this fixture-only path out of production code;
+        // shipped clients must always receive an explicit ResourceProfile.
+        for (const auto& fixture : {
+                 std::filesystem::path("modern/data/PlayDH"),
+                 std::filesystem::path("data/PlayDH"),
+                 std::filesystem::path("../data/PlayDH"),
+                 std::filesystem::path("../../data/PlayDH"),
+                 std::filesystem::path("../../../data/PlayDH"),
+                 std::filesystem::path("../../../../data/PlayDH")}) {
+            if (!std::filesystem::exists(fixture / "Image" / "InterfaceScript" /
+                                          "15.bin")) continue;
+            std::string ui_error;
+            if (m_uiRuntime.loadMany(fixture, kChinaGameInUiScripts,
+                                     mxh::ui::ResolutionMode::Low800x600,
+                                     &ui_error)) {
+                m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
+            }
+            break;
+        }
+#endif
     }
 }
 
