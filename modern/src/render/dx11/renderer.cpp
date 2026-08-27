@@ -294,6 +294,22 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     if ((dwFlag & RENDER_TYPE_USE_EFFECT) && m_effectPalette) {
         auto* effect = m_effectPalette->getEffect(dwEffectIndex);
         if (effect && effect->bSuccess) {
+            // RenderEffect supplies the effect pixel shader and texture, but
+            // the legacy-compatible effect path still relies on the normal
+            // mesh input contract.  Bind the vertex stage explicitly before
+            // entering it; otherwise D3D11 may retain an unrelated input
+            // layout/shader from the previous draw and silently discard the
+            // effect geometry.
+            UINT stride = sizeof(MeshObject::Vertex), offset = 0;
+            ID3D11Buffer* vb = mesh->vertexBuffer();
+            ID3D11Buffer* ib = mesh->indexBuffer();
+            ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+            ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
+            ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
+            ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+            ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
+            ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
             mesh->setEffectPalette(m_effectPalette.get());
             mesh->RenderEffect(m_meshShaders.psEffect.Get(), nullptr, effect, 0);
             return TRUE;
