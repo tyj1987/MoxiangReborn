@@ -2815,12 +2815,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     // create a synthetic placeholder dialog in the product path.
 
     // -------------------------------------------------------------------------
-    // Phase A.1.6 â€” wire CMainGame + CEngine + the 9 eGAMESTATE stubs.
+    // Wire CMainGame + CEngine and the complete nine-state client table.
     //
     // CEngine gets the HWND and the IRenderer so future states can
-    // look them up. CMainGame owns the state table; we register the
-    // 9 concrete stubs from GameStateStubs.hpp.  The boot transition
-    // (Engine â†’ CMainTitle) goes through CMainGame::SetGameState so
+    // look them up. CMainGame owns the state table; we register each
+    // concrete state implementation. The boot transition
+    // (Engine -> CMainTitle) goes through CMainGame::SetGameState so
     // the legacy "delayed transition on next Process()" semantics are
     // preserved.
     // -------------------------------------------------------------------------
@@ -2869,18 +2869,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     mainGame.RegisterState(mxh::client::GameStateId::MapChange,  std::make_unique<mxh::client::CMapChange>());
     mainGame.RegisterState(mxh::client::GameStateId::MurimNet,   std::make_unique<mxh::client::CMurimNet>());
 
-    // A.1.7 booted into the CConnecting stub (legacy started at
-    // eGAMESTATE_CONNECT and immediately tried the Distribute connect).
-    // Phase B.2.1 replaces the stub with CLoginState; we now boot into
-    // the CMainTitle (which presents the server list) and let the user
-    // click "Connect" to drive CLoginState explicitly.  Until the
-    // server-list UI is wired up we still boot into Connect as a
-    // dev-mode shortcut; that path will move to a button in B.2.5+.
+    // Normal launches enter the real title/login UI. Explicit automation
+    // mode may enter the login state directly, but never changes release
+    // behavior or injects credentials into the UI.
     mainGame.SetGameState(options.auto_login ? mxh::client::GameStateId::Connect
                                              : mxh::client::GameStateId::Title);
 
-    MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, "
-              "boot -> GameStateId::Connect");
+    MLOG_INFO("mxh_client: CMainGame initialised, 9 states registered, initial state=%s",
+              options.auto_login ? "Connect" : "Title");
 
     // Phase B.2.1: kick off the CLoginState connect (host-driven; the
     // state can't self-start because it doesn't know the login address
