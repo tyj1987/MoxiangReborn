@@ -42,6 +42,36 @@ static int parsePort(const wchar_t* value, int fallback, bool* valid = nullptr) 
     return static_cast<int>(parsed);
 }
 
+// Quote one argument using the CommandLineToArgvW/MSVC escaping rules.  The
+// launcher passes only paths and numeric settings to the client, but paths
+// may legally contain spaces, quotes, or trailing backslashes.  Hand-built
+// `"path"` wrapping is not sufficient for those cases and can alter the
+// resource root seen by the client.
+static std::wstring quoteWindowsArg(std::wstring_view value) {
+    std::wstring out;
+    out.reserve(value.size() + 2);
+    out.push_back(L'"');
+    std::size_t backslashes = 0;
+    for (const wchar_t ch : value) {
+        if (ch == L'\\') {
+            ++backslashes;
+            continue;
+        }
+        if (ch == L'"') {
+            out.append(backslashes * 2 + 1, L'\\');
+            out.push_back(L'"');
+            backslashes = 0;
+            continue;
+        }
+        out.append(backslashes, L'\\');
+        backslashes = 0;
+        out.push_back(ch);
+    }
+    out.append(backslashes * 2, L'\\');
+    out.push_back(L'"');
+    return out;
+}
+
 static fs::path settingsPath() {
     wchar_t buffer[MAX_PATH]{};
     DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer, MAX_PATH);
@@ -421,15 +451,15 @@ private:
             MessageBoxW(hwnd_, (L"playdh-current 资源校验失败：\n" + hashError).c_str(), L"启动失败", MB_ICONERROR);
             return;
         }
-        std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight) +
+        std::wstring command = quoteWindowsArg(client.wstring()) + L" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight) +
             L" --login-port " + std::to_wstring(endpoints_.loginPort) +
             L" --agent-port " + std::to_wstring(endpoints_.agentPort) +
             L" --map-port " + std::to_wstring(endpoints_.mapPort);
         if (settings_.borderless) command += L" --borderless";
         if (!settings_.vsync) command += L" --no-vsync";
-        command += L" --resource-root \"" + resourceRoot.wstring() + L"\"";
+        command += L" --resource-root " + quoteWindowsArg(resourceRoot.wstring());
         if (!evidenceDir_.empty()) {
-            command += L" --evidence-dir \"" + evidenceDir_.wstring() + L"\"";
+            command += L" --evidence-dir " + quoteWindowsArg(evidenceDir_.wstring());
         }
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
