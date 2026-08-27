@@ -112,8 +112,8 @@ static void saveSettings(const LauncherSettings& s) {
     replace_or_insert("postLoginHeight", std::to_string(s.postHeight));
     replace_or_insert("borderless", s.borderless ? "true" : "false");
     replace_or_insert("vsync", s.vsync ? "true" : "false");
-    replace_or_insert("bgmVolume", std::to_string(s.bgmVolume));
-    replace_or_insert("sfxVolume", std::to_string(s.sfxVolume));
+    replace_or_insert("bgmVolume", std::to_string(static_cast<double>(s.bgmVolume) / 100.0));
+    replace_or_insert("sfxVolume", std::to_string(static_cast<double>(s.sfxVolume) / 100.0));
     std::ofstream out(temp, std::ios::binary | std::ios::trunc);
     if (!out) return;
     out << text;
