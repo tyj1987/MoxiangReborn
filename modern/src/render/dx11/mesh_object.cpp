@@ -173,16 +173,19 @@ bool MeshObject::initializeCube(Device* dev, ID3D11ShaderResourceView* diffuseSR
 
 MeshObject* MeshObject::createFromFile(Device* dev, I4DyuchiFileStorage* storage, const char* path) {
     if (!dev || !storage || !path) return nullptr;
-    // Phase 5: .chx loader not implemented yet; placeholder for unit-cube test.
+    // CHX decoding is not available in this backend yet.  Returning an empty
+    // MeshObject here falsely reports success and lets callers render a
+    // zero-geometry/placeholder entity.  Fail closed so the runtime can
+    // surface the missing model and keep release placeholder counters honest.
     void* fp = storage->FSOpenFile(const_cast<char*>(path), 0);
     if (!fp) {
         MLOG_WARN("[mesh] FSOpenFile failed for '%s'", path);
         return nullptr;
     }
     storage->FSCloseFile(fp);
-    auto* m = new MeshObject();
-    m->m_dev = dev;
-    return m;
+    MLOG_WARN("[mesh] CHX model '%s' is present but unsupported; refusing empty mesh",
+              path);
+    return nullptr;
 }
 
 BOOL __stdcall MeshObject::StartInitialize(MESH_DESC* pDesc, IGeometryController* /*pCtrl*/,
