@@ -112,8 +112,9 @@ TEST(MxhResourceParse, ReadMhBin_AvatarEquip_bin) {
 TEST(MxhResourceParse, ReadMhBin_BobusangInfo_bin) {
     static const char* kName = "BobusangInfo.bin";
     const auto dir = find_resource_dir();
-    if (dir.empty()) GTEST_SKIP() << "deploy/Resource not available";
-    const auto p = dir / kName;
+    const auto playdh = find_playdh_dir();
+    if (dir.empty() && playdh.empty()) GTEST_SKIP() << "PlayDH/deploy Resource not available";
+    const auto p = dir.empty() ? playdh / "Server" / kName : dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
     ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
@@ -4389,4 +4390,3 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_questnpclist) {
     // are valid empty PackingMan outputs and the test should pass for them.
     EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
 }
-
