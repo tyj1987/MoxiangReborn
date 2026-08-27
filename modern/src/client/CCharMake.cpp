@@ -1,5 +1,5 @@
 // mxh/client/CCharMake.cpp
-// Phase B.4 - character-creation state implementation.
+// Character-creation state implementation.
 
 #include "CCharMake.hpp"
 #include "CEngine.hpp"

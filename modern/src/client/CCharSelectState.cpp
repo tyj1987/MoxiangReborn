@@ -1,5 +1,5 @@
 // mxh/client/CCharSelectState.cpp
-// Phase B.2.2 — character-select state implementation.
+// Character-select state implementation.
 
 #include "CCharSelectState.hpp"
 #include "CEngine.hpp"
