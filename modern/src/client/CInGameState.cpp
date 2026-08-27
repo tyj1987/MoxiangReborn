@@ -217,10 +217,14 @@ MoveResult step_movement(std::uint32_t keyMask, float yaw,
                          float x, float z, float dt,
                          float max_x, float max_z) noexcept {
     MoveResult result;
-    result.x = x;
-    result.z = z;
-    result.yaw = yaw;
-    if (dt <= 0.0f) return result;
+    result.x = std::isfinite(x) ? x : 0.0f;
+    result.z = std::isfinite(z) ? z : 0.0f;
+    result.yaw = std::isfinite(yaw) ? yaw : 0.0f;
+    if (!std::isfinite(dt) || !std::isfinite(yaw) ||
+        !std::isfinite(x) || !std::isfinite(z) ||
+        !std::isfinite(max_x) || !std::isfinite(max_z) || dt <= 0.0f) {
+        return result;
+    }
 
     // Camera-relative basis: at yaw=0 the legacy camera faces +Z.
     const float fwdX = std::sin(yaw);
