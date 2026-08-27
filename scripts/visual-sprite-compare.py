@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-# visual-sprite-compare.py — M-R4.2 视觉 1:1 替代验证
+# visual-sprite-compare.py — 资源像素基线采样
 #
-# 老 MoxiangClient Win11 崩溃无法对照(SS3DGFunc.dll 0xC0000005) →
-# 用 modern MoxianClient 跑老资源 + 老 sprite SHA-256 byte-compare 替代
-# (goal statement §4.3 + visual-baseline.md 接受)
+# 本工具只登记原始 atlas 的解码像素和裁剪区域哈希，作为 E0/E1 资源证据。
+# 它不运行客户端，也不能替代 legacy/modern 的 GPU 视觉对照或真人复核。
 #
 # 流程:
 #   1. 抽 N 个老 .tif 来自 <PlayDH>/image/2D/*.tif
@@ -115,7 +114,7 @@ def find_all_atlas_tifs(playdh_root: Path) -> List[Path]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="M-R4.2 老 .tif 像素 SHA-256 baseline")
+    ap = argparse.ArgumentParser(description="登记原始 atlas 像素基线（不代表运行时视觉等价）")
     ap.add_argument("--playdh", required=True, help="PlayDH root (含 Image/2D/*.tif)")
     ap.add_argument("--count", type=int, default=0,
                     help="抽几个 .tif 验证 (0 = 全部, 默认 184 atlas)")
@@ -158,10 +157,10 @@ def main() -> int:
 
     # 写 baseline md
     lines = [
-        "# Visual Sprite Baseline (M-R4.2 视觉 1:1 替代验证)",
+        "# Visual Sprite Resource Baseline (E0/E1)",
         "",
-        "> 老 MoxiangClient Win11 崩溃(SS3DGFunc.dll 0xC0000005)→",
-        "> 用 PIL 解码老 .tif + 像素 SHA-256 byte-compare 替代 (goal statement §4.3 + visual-baseline.md 接受)",
+        "> 本文件只记录原始 PlayDH atlas 的解码像素哈希和采样矩形。",
+        "> 它不是 legacy/modern 运行时视觉 1:1 证据，不能单独标记 E4/E5。",
         "",
         f"> 生成时间: {os.popen('date /t').read().strip()}",
         f"> PlayDH 根: {playdh}",
@@ -177,25 +176,20 @@ def main() -> int:
         )
     lines.extend([
         "",
-        "## 验证意义",
+        "## 证据边界",
         "",
-        "- 跨表查装链 (commit 17b38498) 已 1:1 通 — mock_sprite_calls=169 = cimages_loaded=169",
-        f"- 老 .tif 字节 SHA-256 = 老资源 1:1 字节保真 (跟老 client 截图同源), 覆盖 {len(rows)} atlas",
-        "- 中心 32x32 crop SHA-256 = cImage::SetSource(l,t,r,b,w,h) 截同 rect 区域同像素",
-        "- 现代 MoxianClient 实际跑 GPU 截屏需要显示器 (M-R4 物理限制, M-R5 性能段一起验)",
+        f"- E0：登记并解码 {len(rows)} 个原始 atlas；full/crop 哈希用于检测资源变化。",
+        "- E1：可重复解析像素数据；不证明 UI 装载、坐标、缩放、字体或 GPU 输出一致。",
+        "- 运行时视觉证据必须来自同一 profile 下 legacy 与 modern 的固定场景截图/视频及人工复核。",
         "",
-        "## 后续 M-R4.2 物理截屏",
+        "## 后续运行时验证",
         "",
-        "需要 1) 接显示器启 MoxianClient + 2) 跑 visual-smoke 5 状态 + 3) CaptureScreen 写 .tga →",
-        "PIL 解 .tga + SSIM 比 baseline. 老 client Win11 崩无法对照, 改用 baseline 自身 1:1 +",
-        "老 .tif pixel SHA-256 验证 1:1 (本表 = 字节 1:1 等价证据, 不是 SSIM ≥ 0.95).",
+        "需要在真实 legacy/modern 客户端中固定账号、相机、时间和动画帧，采集 settled frame 或短视频，",
+        "再按验证矩阵执行差分和人工复核；本表只能作为其中的原始资源输入。",
         "",
         "## 跨表查验证 (M-R4.1)",
         "",
-        "现代 cImage 装载链: cResourceManager::getHardPath(idx, HardPath) →",
-        "cSpriteAtlas::getInfo(atlas_idx) → 老 .tif 路径 → LoadSpriteFn hook → IDISpriteObject* →",
-        "cImage::SetSpriteObject + SetSource(l,t,r,b,w,h) → cDialog::Init(... cImage, id).",
-        "装载链 1:1 = 跨表查 1:1 (mock_sprite_calls 1:1 cimages_loaded).",
+        "资源装载链和 UI 运行时拓扑需要单独的结构追踪与运行时证据，不能由本工具的哈希采样推断。",
     ])
     out_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"\n[M-R4.2] Wrote {out_path} ({len(rows)} entries)")
