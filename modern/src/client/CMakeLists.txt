@@ -1,10 +1,10 @@
 # mxh_client_lib: Modern Moxian client state machine + engine glue
 # -----------------------------------------------------------------------------
-# Phase A.1.6 — bundles CMainGame (state machine) + CGameState (base) +
-# CEngine (renderer/network stub) + the 9 eGAMESTATE concrete classes into
-# a single static library that the MoxianClient executable links against.
-# Phase B.2.1 — adds CLoginState which replaces the CConnecting stub and
-# wires the login handshake (RequestLogin → LoginAck) via mxh::net::TcpClient.
+# Bundles CMainGame, CGameState, CEngine and all client state implementations
+# into the static library used by the modern client and its integration tests.
+# Login, character select/create, GameIn, loading and map-change states use
+# their live protocol/UI implementations; only compatibility states remain
+# intentionally lightweight.
 # -----------------------------------------------------------------------------
 add_library(mxh_client_lib STATIC
     AgentSession.cpp
