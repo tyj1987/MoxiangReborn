@@ -524,6 +524,38 @@ TEST(InGameUiRuntime, EnterAndEscapeOwnRealChatDialog) {
     EXPECT_FALSE(state.ui_runtime().isDialogActive("CTI_DLG"));
 }
 
+TEST(InGameUiRuntime, CloseActivationOwnsAuxiliaryDialogs) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+
+    state.OnKeyEvent(true, 0x4D); // M
+    ASSERT_TRUE(state.map_open());
+    mxh::client::ClientUiActivation close;
+    close.legacy_id = "CMI_CLOSEBTN";
+    close.dialog_legacy_id = "BIGMAPDLG";
+    EXPECT_TRUE(state.handle_ui_activation(close));
+    EXPECT_FALSE(state.map_open());
+
+    state.OnKeyEvent(true, 0x48); // H
+    ASSERT_TRUE(state.friend_open());
+    close.dialog_legacy_id = "FRIENDDLG";
+    EXPECT_TRUE(state.handle_ui_activation(close));
+    EXPECT_FALSE(state.friend_open());
+
+    state.OnKeyEvent(true, 0x47); // G
+    ASSERT_TRUE(state.guild_open());
+    close.dialog_legacy_id = "GUILDDLG";
+    EXPECT_TRUE(state.handle_ui_activation(close));
+    EXPECT_FALSE(state.guild_open());
+
+    state.OnKeyEvent(true, mxh::client::kVkReturn);
+    ASSERT_TRUE(state.chat_open());
+    close.dialog_legacy_id = "CTI_DLG";
+    EXPECT_TRUE(state.handle_ui_activation(close));
+    EXPECT_FALSE(state.chat_open());
+    EXPECT_TRUE(state.chat_buffer().empty());
+}
+
 TEST(InGameUiRuntime, MouseConsumptionSeparatesHudFromWorldInput) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

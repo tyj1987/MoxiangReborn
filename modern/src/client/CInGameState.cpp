@@ -2147,6 +2147,23 @@ bool CInGameState::handle_ui_activation(
         set_character_open(false);
         return true;
     }
+    if (activation.dialog_legacy_id == kChatDialogId) {
+        set_chat_open(false);
+        m_chatBuffer.clear();
+        return true;
+    }
+    if (activation.dialog_legacy_id == kBigMapDialogId) {
+        set_map_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kFriendDialogId) {
+        set_friend_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kGuildDialogId) {
+        set_guild_open(false);
+        return true;
+    }
     return false;
 }
 
