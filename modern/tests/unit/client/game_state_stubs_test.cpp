@@ -106,8 +106,27 @@ TEST(CMapChange, TracksProgressCancellationAndFailure) {
     context.failed = true;
     context.error = "target map unavailable";
     state.Process();
+    EXPECT_FALSE(state.failed());
+    EXPECT_TRUE(state.cancelled());
+    EXPECT_TRUE(state.error().empty());
+}
+
+TEST(CMapChange, FirstFailureWinsOverLateProgress) {
+    LoadStateContext context{};
+    context.total_steps = 10;
+    CMapChange state;
+    state.Init(&context);
+    context.failed = true;
+    context.error = "target map unavailable";
+    state.Process();
+    ASSERT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "target map unavailable");
+    context.failed = false;
+    context.completed_steps = 10;
+    state.Process();
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "target map unavailable");
+    EXPECT_LT(state.progress(), 1.0f);
 }
 
 TEST(CMapChange, FailureAndCancellationNeverReportCompletion) {

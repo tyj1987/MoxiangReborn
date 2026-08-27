@@ -98,13 +98,16 @@ void CGameLoading::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
     if (!context) return;
+    // Loading has a terminal state: cancellation or the first failure must
+    // not be overwritten by a late worker callback.
+    if (m_failed || m_cancelled) return;
     if (context->total_steps != 0) {
         m_progress = std::clamp(static_cast<float>(context->completed_steps) /
                                 static_cast<float>(context->total_steps), 0.0f, 1.0f);
     }
     m_uiRuntime.setProgressValue(m_progress);
     m_cancelled = context->cancelled;
-    if (context->failed) {
+    if (!m_cancelled && context->failed) {
         m_failed = true;
         m_error = context->error ? context->error : "map loading failed";
     }
@@ -166,6 +169,9 @@ void CMapChange::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
     if (!context) return;
+    // MapChange shares the same terminal-state contract as GameLoading:
+    // once cancelled or failed, late asynchronous results are ignored.
+    if (m_failed || m_cancelled) return;
     if (context->total_steps != 0) {
         m_progress = std::clamp(static_cast<float>(context->completed_steps) /
                                 static_cast<float>(context->total_steps), 0.0f, 1.0f);
@@ -175,7 +181,7 @@ void CMapChange::Process() {
     }
     m_uiRuntime.setProgressValue(m_progress);
     m_cancelled = context->cancelled;
-    if (context->failed) {
+    if (!m_cancelled && context->failed) {
         m_failed = true;
         m_error = context->error ? context->error : "map change failed";
     }
