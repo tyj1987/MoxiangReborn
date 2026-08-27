@@ -60,8 +60,12 @@ const std::filesystem::path kRealSkillList = [] {
 // ASCII-only temp path once per process, then using a narrow
 // std::ifstream on the temp copy.  The temp file is reused across
 // tests; the OS reclaims it on process exit.
-const std::string kTempSkillList =
-    "C:/Users/User/AppData/Local/Temp/mxh_skill_list_test.bin";
+const std::filesystem::path kTempSkillList = [] {
+    // Keep the copied fixture ASCII-named while honoring the active user's
+    // temp directory; the source profile path may contain CJK characters.
+    return std::filesystem::temp_directory_path() /
+           "mxh_skill_list_test.bin";
+}();
 
 bool ensure_temp_skill_list() {
     if (std::filesystem::exists(kTempSkillList)
@@ -317,7 +321,7 @@ TEST(SkillListParser, LoadRealSkillListFirstEntry) {
             EXPECT_EQ(s.NeedNaeRyuk[i], 0u);
         }
         EXPECT_EQ(s.LinkSkillIdx, 10001u);
-        const auto parsed = load_skill_list(kTempSkillList);
+        const auto parsed = load_skill_list(kTempSkillList.string());
         ASSERT_FALSE(parsed.skills.empty());
         ASSERT_FALSE(parsed.effect_refs.empty());
         EXPECT_EQ(parsed.effect_refs.front().skill_id, 1u);
@@ -342,7 +346,7 @@ TEST(SkillListParser, LoadRealSkillListManagerInit) {
     try {
         SkillManager mgr;
         std::uint32_t errs = 0;
-        mgr.init_from_bin(kTempSkillList, &errs);
+        mgr.init_from_bin(kTempSkillList.string(), &errs);
         EXPECT_EQ(errs, 0u);
         EXPECT_TRUE(mgr.exists(1u));
         EXPECT_TRUE(mgr.exists(2u));
