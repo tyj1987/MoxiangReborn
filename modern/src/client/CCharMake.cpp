@@ -565,7 +565,11 @@ bool CCharMake::CheckCurrentName() {
     auto* edit = name_edit();
     if (!edit || !is_connected() || m_nameCheckPending) return false;
     const auto& name = edit->editText();
-    if (name.size() < 4 || name.size() > kMaxNameLength) return false;
+    if (name.size() < 4 || name.size() > kMaxNameLength) {
+        (void)m_uiRuntime.showMessage(9201,
+            "Character name must contain 4-16 bytes.");
+        return false;
+    }
 
     mxh::net::Message out;
     out.header.category = static_cast<std::uint8_t>(
@@ -588,6 +592,8 @@ bool CCharMake::SubmitCurrentForm() {
     CharacterMakeParams params = m_formModel.params();
     params.name = edit->editText();
     if (params.name.size() < 4 || params.name.size() > kMaxNameLength) {
+        (void)m_uiRuntime.showMessage(9201,
+            "Character name must contain 4-16 bytes.");
         MLOG_WARN("CCharMake: character name must contain 4-16 bytes");
         return false;
     }
