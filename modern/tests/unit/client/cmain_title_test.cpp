@@ -161,6 +161,20 @@ TEST(CMainTitle, ClearPasswordPreservesAccountAndEditState) {
     title.Release();
 }
 
+TEST(CMainTitle, LoginErrorOpensVisibleRetryMessage) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::CEngine engine;
+    engine.SetPlaydhRoot(playdh);
+    CMainTitle title;
+    title.Init(nullptr);
+    title.Start(&engine, "acct", "secret");
+    ASSERT_TRUE(title.ui_runtime().isActive());
+    title.OnLoginError(7, 0);
+    EXPECT_TRUE(title.ui_runtime().hasModal());
+    title.Release();
+}
+
 TEST(CMainTitle, ReleaseClearsPasswordState) {
     CMainTitle title;
     title.Init(nullptr);

@@ -162,6 +162,12 @@ void CMainTitle::OnLoginError(std::uint32_t errorcode, std::uint32_t /*dwParam*/
     // the server-provided reason through ClientUiRuntime::showMessage.
     // Keep this hook for legacy callers that report directly to the state.
     MLOG_WARN("CMainTitle::OnLoginError code=%u", errorcode);
+    if (!m_bInit || !m_uiRuntime.isActive()) return;
+    const std::string message = "登录失败（错误码 " +
+        std::to_string(errorcode) + "），请检查账号和密码后重试。";
+    if (!m_uiRuntime.showMessage(0x4D4C4552, message)) {
+        MLOG_WARN("CMainTitle: unable to open login error dialog");
+    }
 }
 
 void CMainTitle::OnDisconnect() {
