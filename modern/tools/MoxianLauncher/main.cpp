@@ -437,6 +437,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         }
         LocalFree(argv);
     }
+    if (endpoints.loginPort == endpoints.agentPort ||
+        endpoints.loginPort == endpoints.mapPort ||
+        endpoints.agentPort == endpoints.mapPort) {
+        MessageBoxW(nullptr, L"登录、角色和地图服务端口必须互不相同。", L"启动器配置错误", MB_ICONERROR);
+        return 2;
+    }
     LauncherWindow window(endpoints);
     return window.create(instance) ? window.run() : 1;
 }
