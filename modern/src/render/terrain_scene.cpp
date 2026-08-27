@@ -62,7 +62,10 @@ struct TerrainScene::Impl {
     float camera_distance = 6.0f;
     MATRIX4 view_proj{};  // last view*projection from configureCamera
     bool view_proj_valid = false;
-    std::uint32_t placeholder_textures = 0;
+    // A legacy HFL palette entry named "1" is intentionally untextured;
+    // keep it separate from real missing-resource placeholders so release
+    // gates do not report a false visual fallback.
+    std::uint32_t palette_entries = 0;
     std::uint32_t unresolved_textures = 0;
     float terrain_min_height = 0.0f;
     float terrain_max_height = 0.0f;
@@ -80,7 +83,7 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     if (!renderer || !storage || !hfl_name) return false;
     for (auto* chunk : impl_->chunks) if (chunk) chunk->Release();
     impl_->chunks.clear(); impl_->textures.clear(); impl_->renderer = renderer;
-    impl_->placeholder_textures = 0;
+    impl_->palette_entries = 0;
     impl_->unresolved_textures = 0;
     std::vector<std::uint8_t> hflBytes;
     if (!readStorageFile(storage, hfl_name, hflBytes) ||
@@ -98,7 +101,7 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     if (!renderer->GetD3DDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)) || !device)
         return false;
     impl_->textures.resize(impl_->terrain.textures.size());
-    std::uint32_t placeholderTextures = 0;
+    std::uint32_t paletteEntries = 0;
     std::vector<bool> usedTextures(impl_->terrain.textures.size(), false);
     for (const auto integrated : impl_->terrain.tiles) {
         const auto textureIndex = integrated & 0x3fffu;
@@ -118,10 +121,9 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
                 // must not be replaced with a debug texture or counted as an
                 // unresolved resource.
                 if (textureName == "1") {
-                    ++placeholderTextures;
+                    ++paletteEntries;
                     continue;
                 }
-                ++placeholderTextures;
                 ++impl_->unresolved_textures;
                 continue;
             }
@@ -240,9 +242,9 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
               static_cast<unsigned>(impl_->chunks.size()), loadedTextureCount(),
               static_cast<unsigned>(impl_->textures.size()), terrain.desc.height_count_x,
               terrain.desc.height_count_z, terrain.desc.tile_count_x, terrain.desc.tile_count_z);
-    if (placeholderTextures)
-        MLOG_INFO("[terrain] palette placeholders=%u (legacy name '1')", placeholderTextures);
-    impl_->placeholder_textures = placeholderTextures;
+    if (paletteEntries)
+        MLOG_INFO("[terrain] intentional empty palette entries=%u (legacy name '1')", paletteEntries);
+    impl_->palette_entries = paletteEntries;
     return !impl_->chunks.empty();
 }
 
@@ -431,7 +433,10 @@ std::uint32_t TerrainScene::loadedTextureCount() const noexcept {
 }
 
 std::uint32_t TerrainScene::placeholderTextureCount() const noexcept {
-    return impl_ ? impl_->placeholder_textures : 0;
+    // No synthetic terrain texture is ever generated. Report unresolved
+    // material bindings through the public placeholder gate so a non-zero
+    // value remains a hard visual failure.
+    return impl_ ? impl_->unresolved_textures : 0;
 }
 
 std::uint32_t TerrainScene::unresolvedTextureCount() const noexcept {
