@@ -433,10 +433,38 @@ private:
 
     PatchManifest getManifest() const {
         if (manifestPath_.empty()) throw std::runtime_error("--manifest is required (refusing simulated update)");
+        fs::path manifestFile = fs::path(manifestPath_);
+        bool downloaded = false;
+        if (manifestPath_.rfind("https://", 0) == 0) {
+#ifdef _WIN32
+            manifestFile = fs::path(gameDir_) / ".manifest-download.tmp";
+            std::error_code cleanup_error;
+            fs::remove(manifestFile, cleanup_error);
+            const std::wstring url(manifestPath_.begin(), manifestPath_.end());
+            if (URLDownloadToFileW(nullptr, url.c_str(), manifestFile.c_str(),
+                                    0, nullptr) != S_OK) {
+                fs::remove(manifestFile, cleanup_error);
+                throw std::runtime_error("HTTPS manifest download failed");
+            }
+            downloaded = true;
+#else
+            throw std::runtime_error("HTTPS manifest transport requires Windows");
+#endif
+        } else if (manifestPath_.find("://") != std::string::npos &&
+                   manifestPath_.rfind("file://", 0) != 0) {
+            throw std::runtime_error("manifest URL must use HTTPS or file://");
+        } else if (manifestPath_.rfind("file://", 0) == 0) {
+            manifestFile = fs::path(manifestPath_.substr(7));
+        }
+        struct Cleanup {
+            fs::path path;
+            bool enabled;
+            ~Cleanup() { if (enabled) { std::error_code ignored; fs::remove(path, ignored); } }
+        } cleanup{manifestFile, downloaded};
         if (manifestSha256_.size() != 64 ||
-            mxh::patch::lower_hex(mxh::patch::sha256_file(manifestPath_)) != mxh::patch::lower_hex(manifestSha256_))
+            mxh::patch::lower_hex(mxh::patch::sha256_file(manifestFile)) != mxh::patch::lower_hex(manifestSha256_))
             throw std::runtime_error("manifest SHA-256 verification failed");
-        std::ifstream input(manifestPath_);
+        std::ifstream input(manifestFile);
         if (!input) throw std::runtime_error("cannot read manifest");
         PatchManifest manifest;
         std::string line;
