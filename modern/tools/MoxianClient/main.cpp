@@ -2799,8 +2799,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         MLOG_INFO("mxh_client: M-R1/M-R2 ready; InterfaceScript loads on demand per state");
     }
 
-    // All visible dialogs are owned by the active state/UI runtime.  Do not
-    // create a synthetic placeholder dialog in the product path.
+    // All visible dialogs are owned by the active state/UI runtime.  The
+    // product path never creates synthetic dialogs or debug-only roots.
 
     // -------------------------------------------------------------------------
     // Wire CMainGame + CEngine and the complete nine-state client table.
