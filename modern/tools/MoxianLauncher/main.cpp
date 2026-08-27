@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -37,6 +38,20 @@ static int parseBoundedInt(const std::string& value, int fallback) noexcept {
     }
 }
 
+static int parseVolumePercent(const std::string& value, int fallback) noexcept {
+    try {
+        const auto parsed = std::stod(value);
+        if (!std::isfinite(parsed) || parsed < 0.0 || parsed > 100.0) return fallback;
+        // ClientSettings stores normalized volume (0.0..1.0), while the
+        // launcher UI presents percentages. Accept both representations so
+        // settings survive a launcher/client round trip.
+        const auto percent = parsed <= 1.0 ? parsed * 100.0 : parsed;
+        return static_cast<int>(std::lround(percent));
+    } catch (...) {
+        return fallback;
+    }
+}
+
 static LauncherSettings loadSettings() {
     LauncherSettings s;
     std::ifstream in(settingsPath(), std::ios::binary);
@@ -58,8 +73,8 @@ static LauncherSettings loadSettings() {
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = parseBoundedInt(match[1].str(), s.postHeight);
     if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
     if (std::regex_search(text, match, std::regex(R"REGEX("vsync"\s*:\s*(true|false))REGEX"))) s.vsync = match[1].str() == "true";
-    if (std::regex_search(text, match, std::regex(R"REGEX("bgmVolume"\s*:\s*(\d+))REGEX"))) s.bgmVolume = parseBoundedInt(match[1].str(), s.bgmVolume);
-    if (std::regex_search(text, match, std::regex(R"REGEX("sfxVolume"\s*:\s*(\d+))REGEX"))) s.sfxVolume = parseBoundedInt(match[1].str(), s.sfxVolume);
+    if (std::regex_search(text, match, std::regex(R"REGEX("bgmVolume"\s*:\s*([0-9]+(?:\.[0-9]+)?))REGEX"))) s.bgmVolume = parseVolumePercent(match[1].str(), s.bgmVolume);
+    if (std::regex_search(text, match, std::regex(R"REGEX("sfxVolume"\s*:\s*([0-9]+(?:\.[0-9]+)?))REGEX"))) s.sfxVolume = parseVolumePercent(match[1].str(), s.sfxVolume);
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
     if (s.postWidth < 800 || s.postHeight < 600) { s.postWidth = 1024; s.postHeight = 768; }
     s.postWidth = (s.postWidth > 7680) ? 7680 : s.postWidth;
