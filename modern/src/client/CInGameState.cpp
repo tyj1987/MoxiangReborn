@@ -1243,6 +1243,14 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     // state, otherwise the old drop ID would suppress future pickups.
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
+    m_pendingSkillId = 0;
+    m_pendingSkillSinceMs = 0;
+    m_pendingAttackTarget = 0;
+    m_lastAttackTarget = 0;
+    m_lastHitTarget = 0;
+    m_pendingSkillEffects.clear();
+    m_effectRuntime.clear();
+    m_runtimeEffectEvents.clear();
     if (!m_releasing && m_inGame && !m_failed) {
         const auto detail = std::string("游戏连接已断开：") +
                             mxh::net::to_string(reason);
