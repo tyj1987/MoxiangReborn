@@ -120,15 +120,15 @@ std::uint32_t cSkinSelectDialog::ActionEvent(std::int32_t mouseX,
 void cSkinSelectDialog::populatePreview() {
     if (!m_pNomalSkinIconDlg) return;
     m_pNomalSkinIconDlg->DeleteIconAll();
-    // 1:1 with legacy: 3 placeholder cIcon* entries. The legacy
-    // uses real CItemShow* here (allocated by CItemShow::Init);
-    // the modern port uses tagged pointer placeholders. The
-    // engine-binder layer will replace with real cIcon* when
-    // CItemShow is ported.
+    // 1:1 with legacy: three concrete icon entries. Image resources are
+    // bound by the host when the selected skin is known.
+    m_previewIcons.clear();
     for (std::uint16_t i = 0; i < SKINITEM_LIST_MAX; ++i) {
-        auto* placeholder = reinterpret_cast<class cIcon*>(
-            static_cast<std::uintptr_t>(i + 1));
-        m_pNomalSkinIconDlg->AddIcon(i, placeholder);
+        auto icon = std::make_unique<cIcon>();
+        icon->InitIcon(0, 0, 40, 40, nullptr, 0, static_cast<int>(i + 1));
+        auto* raw = icon.get();
+        m_previewIcons.push_back(std::move(icon));
+        m_pNomalSkinIconDlg->AddIcon(i, raw);
     }
 }
 

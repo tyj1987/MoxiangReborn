@@ -69,6 +69,7 @@
 #pragma once
 
 #include "cDialog.hpp"
+#include "cIcon.hpp"
 
 #include <cstdint>
 
@@ -158,6 +159,7 @@ private:
     std::unique_ptr<cIconDialog> m_upSkinIcon;
     cListDialog*  m_pNomalSkinListDlg = nullptr;
     cIconDialog*  m_pNomalSkinIconDlg = nullptr;
+    std::vector<std::unique_ptr<cIcon>> m_previewIcons;
 
     // State.
     std::uint32_t m_dwSelectIdx       = 0;   // 1-based per legacy quirk

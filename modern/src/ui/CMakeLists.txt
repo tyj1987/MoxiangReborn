@@ -37,6 +37,7 @@ add_library(mxh_ui STATIC
     cMsgBox.cpp
     cDivideBox.cpp
     cIconDialog.cpp
+    cIcon.cpp
     cIconGridDialog.cpp
     cStatic.cpp
     cPushupButton.cpp
@@ -225,7 +226,6 @@ if(MSVC)
 endif()
 
 install(TARGETS mxh_ui ARCHIVE DESTINATION lib)
-
 
 
 

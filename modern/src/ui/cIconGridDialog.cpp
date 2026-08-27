@@ -37,6 +37,7 @@
 //    inventory uses a single SetDisable on the whole dialog).
 
 #include "cIconGridDialog.hpp"
+#include "cIcon.hpp"
 #include "cImage.hpp"
 
 namespace mxh::ui {
@@ -68,6 +69,11 @@ void cIconGridDialog::Render() {
         if (m_bShowGrid) drawImage(m_iconCellBGImage, x, y, m_wCellWidth, m_wCellHeight);
         if (static_cast<int>(pos) == m_lCurSelCellPos || static_cast<int>(pos) == m_lCurDragOverPos)
             drawImage(m_dragOverBGImage, x, y, m_wCellWidth, m_wCellHeight);
+        if (m_pIconGridCell[pos].inUse && m_pIconGridCell[pos].icon) {
+            auto* icon = static_cast<cIcon*>(m_pIconGridCell[pos].icon);
+            icon->SetAbsXY(x, y);
+            icon->Render();
+        }
     }
 }
 

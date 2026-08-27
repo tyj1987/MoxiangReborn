@@ -1,6 +1,7 @@
 // cIconDialog.cpp — modern implementation of 墨香 cIconDialog.
 
 #include "cIconDialog.hpp"
+#include "cIcon.hpp"
 #include "cImage.hpp"
 
 namespace mxh::ui {
@@ -27,6 +28,11 @@ void cIconDialog::Render() {
         drawImage(m_iconCellBGImage, x, y, cell.relW, cell.relH);
         if (static_cast<std::int32_t>(i) == m_curSelCellPos)
             drawImage(m_dragOverBGImage, x, y, cell.relW, cell.relH);
+        if (cell.inUse && cell.icon) {
+            auto* icon = static_cast<cIcon*>(cell.icon);
+            icon->SetAbsXY(x, y);
+            icon->Render();
+        }
     }
 }
 
