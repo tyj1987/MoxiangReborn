@@ -627,6 +627,7 @@ public:
     bool                 m_questOpen = false;
     bool                 m_characterOpen = false;
     bool                 m_mapOpen = false;
+    std::uint16_t        m_lastUiMapNum = 0xffffu;
     bool                 m_friendOpen = false;
     bool                 m_guildOpen = false;
     std::uint16_t        m_questId = 1;

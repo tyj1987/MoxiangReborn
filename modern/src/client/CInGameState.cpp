@@ -765,6 +765,7 @@ void CInGameState::Release() {
     m_lastHitResult = 0;
     m_lastDamageTimestampMs = 0;
     m_mapOpen = false;
+    m_lastUiMapNum = 0xffffu;
     m_friendOpen = false;
     m_guildOpen = false;
     m_uiRuntime.clear();
@@ -959,7 +960,7 @@ void CInGameState::refresh_live_ui_bindings() {
             mp->RefreshFromPlayerStats();
         }
         if (auto* big_map = dynamic_cast<mxh::ui::cBigMapDlg*>(dialog.get())) {
-            big_map->InitBigMap(m_mapNum);
+            if (m_lastUiMapNum != m_mapNum) big_map->InitBigMap(m_mapNum);
             big_map->ClearIcons();
             big_map->AddHeroIcon(m_playerId,
                                  static_cast<std::int32_t>(m_info.position_x),
@@ -1023,7 +1024,7 @@ void CInGameState::refresh_live_ui_bindings() {
                     }
                 });
             mini_map->RefreshMode();
-            mini_map->InitMiniMap(m_mapNum);
+            if (m_lastUiMapNum != m_mapNum) mini_map->InitMiniMap(m_mapNum);
             mini_map->ClearIcons();
             mini_map->AddHeroIcon(m_playerId,
                                   static_cast<std::int32_t>(m_info.position_x),
@@ -1056,6 +1057,7 @@ void CInGameState::refresh_live_ui_bindings() {
             }
         }
     }
+    m_lastUiMapNum = m_mapNum;
 }
 
 mxh::net::IEncryptor* CInGameState::encryptor_for(
