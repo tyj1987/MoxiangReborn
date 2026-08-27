@@ -35,6 +35,9 @@ fs::path find_resource_dir() {
             fs::path candidate = base / sub;
             if (fs::is_directory(candidate, ec)) return candidate;
         }
+        std::error_code ec;
+        const fs::path playdh = base / "modern" / "data" / "PlayDH" / "Resource";
+        if (fs::is_directory(playdh, ec)) return playdh;
         if (base == base.root_path()) break;
     }
     return {};
@@ -114,7 +117,8 @@ TEST(MxhResourceParse, ReadMhBin_BobusangInfo_bin) {
     const auto dir = find_resource_dir();
     const auto playdh = find_playdh_dir();
     if (dir.empty() && playdh.empty()) GTEST_SKIP() << "PlayDH/deploy Resource not available";
-    const auto p = dir.empty() ? playdh / "Server" / kName : dir / kName;
+    auto p = dir.empty() ? playdh / "Server" / kName : dir / kName;
+    if (!fs::exists(p) && !playdh.empty()) p = playdh / "Server" / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
     ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
