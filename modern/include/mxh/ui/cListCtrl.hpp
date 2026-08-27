@@ -80,8 +80,9 @@ public:
                            void* bodyImage, std::uint8_t bodyLineHeight,
                            void* overImage);
 
-    // Render placeholder (real GPU draw in 6.6 / MoxianRenderDemo smoke).
-    void Render() override {}
+    // Render headers, row skins and live cell text through the shared
+    // cImage/TextRender adapters.
+    void Render() override;
 
     // ActionEvent: row hit-test + selection update + click callbacks.
     // Returns WE_LBTNCLICK on a successful row click, WE_LBTNDBLCLICK on

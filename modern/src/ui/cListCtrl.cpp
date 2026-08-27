@@ -1,6 +1,8 @@
 // mxh/ui/cListCtrl.cpp
 // Phase 6.5 — implementation of the modern cListCtrl widget.
 #include "cListCtrl.hpp"
+#include "cImage.hpp"
+#include "TextRender.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -36,6 +38,72 @@ void cListCtrl::InitListCtrlImage(void* headImage, std::uint8_t headLineHeight,
     m_overImage      = overImage;
     m_headLineHeight = headLineHeight;
     m_bodyLineHeight = bodyLineHeight;
+}
+
+void cListCtrl::Render() {
+    if (!isVisible()) return;
+    cWindow::Render();
+
+    const auto drawImage = [](void* handle, std::int32_t x, std::int32_t y,
+                              std::int32_t w, std::int32_t h) {
+        if (!handle || w <= 0 || h <= 0) return;
+        static_cast<cImage*>(handle)->render(x, y, w, h);
+    };
+    const auto headerH = static_cast<std::int32_t>(m_headLineHeight);
+    const auto rowH = m_bodyLineHeight > 0
+        ? static_cast<std::int32_t>(m_bodyLineHeight) : 16;
+    const auto originX = absX();
+    const auto originY = absY();
+    if (headerH > 0) drawImage(m_headImage, originX, originY, width(), headerH);
+
+    std::int32_t columnX = originX + m_marginLeft;
+    for (const auto& column : m_columns) {
+        if (!column.header.empty()) {
+            TextRenderRequest request;
+            request.text = column.header;
+            request.x = columnX;
+            request.y = originY;
+            request.width = column.width;
+            request.height = headerH > 0 ? headerH : rowH;
+            request.color = column.headerColor;
+            request.font_index = 0;
+            request.align = TextRenderAlign::Left;
+            renderText(request);
+        }
+        columnX += column.width;
+    }
+
+    const int visible = m_linePerPage > 0 ? static_cast<int>(m_linePerPage)
+                                          : static_cast<int>(m_rows.size());
+    const int begin = std::clamp(m_topItemIdx, 0, static_cast<int>(m_rows.size()));
+    const int end = std::min(static_cast<int>(m_rows.size()), begin + visible);
+    for (int row = begin; row < end; ++row) {
+        const auto y = originY + headerH + (row - begin) * rowH;
+        if (row == m_selectedRowIdx && m_selectOption == 1)
+            drawImage(m_overImage, originX, y, width(), rowH);
+        else if (row == m_overRowIdx && m_selectOption == 0)
+            drawImage(m_overImage, originX, y, width(), rowH);
+        else
+            drawImage(m_bodyImage, originX, y, width(), rowH);
+
+        const auto& data = m_rows[static_cast<std::size_t>(row)];
+        columnX = originX + m_marginLeft;
+        for (std::size_t col = 0; col < m_columns.size(); ++col) {
+            if (col < data.texts.size() && !data.texts[col].empty()) {
+                TextRenderRequest request;
+                request.text = data.texts[col];
+                request.x = columnX;
+                request.y = y + m_marginTop;
+                request.width = m_columns[col].width;
+                request.height = rowH;
+                request.color = col < data.colors.size() ? data.colors[col] : 0xFF000000u;
+                request.font_index = 0;
+                request.align = TextRenderAlign::Left;
+                renderText(request);
+            }
+            columnX += m_columns[col].width;
+        }
+    }
 }
 
 void cListCtrl::SetColumns(std::vector<Column> cols) {
