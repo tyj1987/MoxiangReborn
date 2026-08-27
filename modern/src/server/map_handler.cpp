@@ -734,10 +734,19 @@ void MapHandler::persist_player_items(std::uint32_t player_id) {
         inventory = runtime->second.actor.state().inventory;
         equipment = runtime->second.actor.state().equipment;
     }
-    const std::vector<mxh::db::Bind> delete_args{mxh::db::bind(static_cast<std::int64_t>(player_id))};
-    if (!db_.execute("DELETE FROM modern_player_item WHERE player_id=?", delete_args).ok()) return;
-    const auto write = [&](std::int64_t container, std::size_t slot, const mxh::game::ItemBase& item) {
-        if (item.dwDBIdx == 0u) return;
+    if (!db_.begin_transaction().ok()) return;
+    const auto rollback = [&]() noexcept { (void)db_.rollback(); };
+    const std::vector<mxh::db::Bind> delete_args{
+        mxh::db::bind(static_cast<std::int64_t>(player_id))};
+    if (!db_.execute("DELETE FROM modern_player_item WHERE player_id=?",
+                     delete_args).ok()) {
+        rollback();
+        return;
+    }
+    bool write_failed = false;
+    const auto write = [&](std::int64_t container, std::size_t slot,
+                           const mxh::game::ItemBase& item) {
+        if (write_failed || item.dwDBIdx == 0u) return;
         const std::vector<mxh::db::Bind> args{
             mxh::db::bind(static_cast<std::int64_t>(player_id)), mxh::db::bind(container),
             mxh::db::bind(static_cast<std::int64_t>(slot)), mxh::db::bind(static_cast<std::int64_t>(item.dwDBIdx)),
@@ -747,10 +756,15 @@ void MapHandler::persist_player_items(std::uint32_t player_id) {
         const auto result = db_.execute(
             "INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param) "
             "VALUES(?,?,?,?,?,?,?,?,?)", args);
-        if (!result.ok()) std::cerr << "[Map] item persistence failed: " << result.error_message << "\n";
+        if (!result.ok()) {
+            write_failed = true;
+            std::cerr << "[Map] item persistence failed: "
+                      << result.error_message << "\n";
+        }
     };
     for (std::size_t i = 0; i < inventory.items.size(); ++i) write(0, i, inventory.items[i]);
     for (std::size_t i = 0; i < equipment.items.size(); ++i) write(1, i, equipment.items[i]);
+    if (write_failed || !db_.commit().ok()) rollback();
 }
 
 bool MapHandler::persist_player_money_for_test(std::uint32_t player_id, std::uint32_t money) {
