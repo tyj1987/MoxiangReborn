@@ -14,6 +14,7 @@ struct LauncherSettings {
     int postWidth = 1024;
     int postHeight = 768;
     bool borderless = false;
+    bool vsync = true;
 };
 
 static fs::path settingsPath() {
@@ -53,6 +54,7 @@ static LauncherSettings loadSettings() {
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = parseBoundedInt(match[1].str(), s.postWidth);
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = parseBoundedInt(match[1].str(), s.postHeight);
     if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
+    if (std::regex_search(text, match, std::regex(R"REGEX("vsync"\s*:\s*(true|false))REGEX"))) s.vsync = match[1].str() == "true";
     if (s.profile != L"playdh-current") s.profile = L"playdh-current";
     if (s.postWidth < 800 || s.postHeight < 600) { s.postWidth = 1024; s.postHeight = 768; }
     s.postWidth = (s.postWidth > 7680) ? 7680 : s.postWidth;
@@ -87,6 +89,7 @@ static void saveSettings(const LauncherSettings& s) {
     replace_or_insert("postLoginWidth", std::to_string(s.postWidth));
     replace_or_insert("postLoginHeight", std::to_string(s.postHeight));
     replace_or_insert("borderless", s.borderless ? "true" : "false");
+    replace_or_insert("vsync", s.vsync ? "true" : "false");
     std::ofstream out(temp, std::ios::binary | std::ios::trunc);
     if (!out) return;
     out << text;
@@ -142,7 +145,7 @@ public:
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         RegisterClassW(&wc);
         hwnd_ = CreateWindowW(wc.lpszClassName, L"墨香启动器", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
-                              CW_USEDEFAULT, CW_USEDEFAULT, 480, 250, nullptr, nullptr, instance, this);
+                              CW_USEDEFAULT, CW_USEDEFAULT, 480, 285, nullptr, nullptr, instance, this);
         return hwnd_ != nullptr;
     }
     int run() { ShowWindow(hwnd_, SW_SHOW); UpdateWindow(hwnd_); MSG msg{}; while (GetMessageW(&msg, nullptr, 0, 0) > 0) { TranslateMessage(&msg); DispatchMessageW(&msg); } return static_cast<int>(msg.wParam); }
@@ -150,6 +153,7 @@ private:
     static constexpr int kPostWidthEdit = 10;
     static constexpr int kPostHeightEdit = 11;
     static constexpr int kBorderlessCheck = 12;
+    static constexpr int kVsyncCheck = 13;
     static LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         auto* self = reinterpret_cast<LauncherWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (msg == WM_NCCREATE) { self = static_cast<LauncherWindow*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams); SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self)); self->hwnd_ = hwnd; }
@@ -173,6 +177,11 @@ private:
                           250, 165, 120, 24, hwnd_, reinterpret_cast<HMENU>(kBorderlessCheck), nullptr, nullptr);
             if (settings_.borderless) {
                 SendDlgItemMessageW(hwnd_, kBorderlessCheck, BM_SETCHECK, BST_CHECKED, 0);
+            }
+            CreateWindowW(L"BUTTON", L"垂直同步", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+                          20, 200, 120, 24, hwnd_, reinterpret_cast<HMENU>(kVsyncCheck), nullptr, nullptr);
+            if (settings_.vsync) {
+                SendDlgItemMessageW(hwnd_, kVsyncCheck, BM_SETCHECK, BST_CHECKED, 0);
             }
             return 0;
         }
@@ -200,6 +209,8 @@ private:
             settings_.postHeight = static_cast<int>(height);
             settings_.borderless = SendDlgItemMessageW(
                 hwnd_, kBorderlessCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+            settings_.vsync = SendDlgItemMessageW(
+                hwnd_, kVsyncCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
             saveSettings(settings_);
             launchClient();
             return 0;
@@ -230,6 +241,7 @@ private:
         }
         std::wstring command = L"\"" + client.wstring() + L"\" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight);
         if (settings_.borderless) command += L" --borderless";
+        if (!settings_.vsync) command += L" --no-vsync";
         command += L" --resource-root \"" + resourceRoot.wstring() + L"\"";
         STARTUPINFOW si{sizeof(si)}; PROCESS_INFORMATION pi{}; std::vector<wchar_t> mutableCommand(command.begin(), command.end()); mutableCommand.push_back(L'\0');
         if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE, 0, nullptr, client.parent_path().c_str(), &si, &pi)) MessageBoxW(hwnd_, L"无法启动客户端，请先完成客户端安装。", L"启动失败", MB_ICONERROR); else { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
