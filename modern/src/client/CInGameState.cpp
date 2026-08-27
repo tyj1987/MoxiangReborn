@@ -2580,7 +2580,10 @@ bool CInGameState::OnMouseButton(bool left, bool down,
                 (void)m_pEngine->agent_session().send(
                     make_pickup_message(m_playerId, drop));
             }
-            return false;
+            // The click has been consumed by the ground item.  Returning
+            // false here lets the host interpret the same click as a move,
+            // causing the player to walk away while the pickup is pending.
+            return true;
         }
         const std::uint32_t npc = pick_npc_at_screen(fx, fy);
         if (npc != 0) {
