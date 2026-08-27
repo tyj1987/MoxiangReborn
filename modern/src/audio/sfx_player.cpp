@@ -101,6 +101,9 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
     }
     const auto& entry = manifest_.entries[id];
     current_entry_volume_ = entry.volume > 0.0f ? entry.volume : 1.0f;
+    current_bus_gain_ = std::clamp(bus_gain, 0.0f, 1.0f);
+    current_distance_gain_ = distanceGain(
+        distance, entry.min_distance, entry.max_distance);
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
     if (!ensure_media(*media_, out)) return false;
@@ -138,8 +141,8 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
     XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size()); buffer.pAudioData = media_->pcm.data();
     if (entry.loop) buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
     else buffer.Flags = XAUDIO2_END_OF_STREAM;
-    const float gain = std::clamp(volume_ * std::clamp(bus_gain, 0.0f, 1.0f) * current_entry_volume_ *
-        distanceGain(distance, entry.min_distance, entry.max_distance), 0.0f, 1.0f);
+    const float gain = std::clamp(volume_ * current_bus_gain_ *
+        current_entry_volume_ * current_distance_gain_, 0.0f, 1.0f);
     hr = media_->source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = media_->source->SetVolume(gain); if (SUCCEEDED(hr)) hr = media_->source->Start(0);
     if (FAILED(hr)) { stop_media(*media_); error(out, "SFX playback failed"); return false; }
     current_id_ = id; MLOG_DEBUG("[audio] playing SFX id=%u", id); return true;
@@ -151,6 +154,8 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
 void SfxPlayer::stop() noexcept {
     current_id_ = 0xffffu;
     current_entry_volume_ = 1.0f;
+    current_bus_gain_ = 1.0f;
+    current_distance_gain_ = 1.0f;
 #ifdef _WIN32
     if (media_) stop_media(*media_);
 #endif
@@ -162,7 +167,8 @@ void SfxPlayer::setVolume(float value) noexcept {
     volume_ = std::isfinite(value) ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
 #ifdef _WIN32
     if (media_ && media_->source) media_->source->SetVolume(
-        std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));
+        std::clamp(volume_ * current_bus_gain_ * current_entry_volume_ *
+                  current_distance_gain_, 0.0f, 1.0f));
 #endif
 }
 

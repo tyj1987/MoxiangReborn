@@ -65,4 +65,5 @@ TEST(SfxPlayer, SetVolumeFallsBackForNonFiniteRuntimeValues) {
     EXPECT_FLOAT_EQ(player.volume(), 1.0f);
     player.setVolume(-std::numeric_limits<float>::infinity());
     EXPECT_FLOAT_EQ(player.volume(), 1.0f);
+    EXPECT_FLOAT_EQ(player.currentGain(), 1.0f);
 }
