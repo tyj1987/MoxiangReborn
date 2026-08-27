@@ -39,6 +39,7 @@
 #include "mxh/render/StaticScene.hpp"
 #include "mxh/render/SkyScene.hpp"
 #include "mxh/render/EntityScene.hpp"
+#include "mxh/client/CharacterPreviewController.hpp"
 #include "mxh/compat/map_change_catalog.hpp"
 #include "mxh/render/render_typedef.hpp"
 #include "mxh/game/npc_role.hpp"  // M-NPC1: per-role NPC marker slot + quest indicator
@@ -383,6 +384,7 @@ std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
 // with a dedicated camera and no map dependency.  Keeping it separate avoids
 // a RenderBox/debug avatar and lets the map scene be replaced transactionally.
 std::unique_ptr<mxh::gx::EntityScene> g_charPreviewScene;
+mxh::client::CharacterPreviewController g_charPreviewController;
 bool g_renderTerrain = false;
 std::string g_captureTerrainFrame;
 bool g_overviewCamera = false;
@@ -418,10 +420,14 @@ float g_sfxVolume = 1.0f;
 bool g_audioFocused = true;
 
 void configureCharacterPreviewCamera(I4DyuchiGXRenderer* renderer,
-                                     float aspect) {
+                                     float aspect,
+                                     const mxh::client::CharacterPreviewController& controller) {
     if (!renderer) return;
     mxh::gx::CAMERA_DESC camera{};
-    camera.v3From = {0.0f, 1.8f, -4.8f};
+    const float yaw = controller.yaw();
+    const float distance = controller.distance();
+    camera.v3From = {std::sin(yaw) * distance, 1.8f,
+                     -std::cos(yaw) * distance};
     camera.v3To = {0.0f, 1.0f, 0.0f};
     camera.v3Up = {0.0f, 1.0f, 0.0f};
     camera.fFovY = mxh::gx::PI / 3.0f;
@@ -1947,6 +1953,10 @@ void renderFrame(HWND h) {
             if (cur_state != last_state_logged) {
                 MLOG_INFO("mxh_client: renderFrame state=%d g_charSelectState=%p",
                           cur_state, (void*)g_charSelectState);
+                if (cur_state == static_cast<int>(mxh::client::GameStateId::CharSelect) ||
+                    cur_state == static_cast<int>(mxh::client::GameStateId::CharMake)) {
+                    g_charPreviewController.reset();
+                }
                 last_state_logged = cur_state;
             }
             if (cur_state == static_cast<int>(mxh::client::GameStateId::CharSelect)) {
@@ -1970,7 +1980,8 @@ void renderFrame(HWND h) {
                             snapshot.local_player = *preview;
                             g_charPreviewScene->synchronize(snapshot);
                             configureCharacterPreviewCamera(
-                                g_renderer, 800.0f / 600.0f);
+                                g_renderer, 800.0f / 600.0f,
+                                g_charPreviewController);
                             g_charPreviewScene->render();
                             g_renderer->SetScreenSpaceProjection();
                             static std::uint32_t logged_preview = 0;
@@ -2062,7 +2073,8 @@ void renderFrame(HWND h) {
                         mxh::gx::WorldSnapshot snapshot;
                         snapshot.local_player = *preview;
                         g_charPreviewScene->synchronize(snapshot);
-                        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f);
+                        configureCharacterPreviewCamera(g_renderer, 800.0f / 600.0f,
+                                                        g_charPreviewController);
                         g_charPreviewScene->render();
                         g_renderer->SetScreenSpaceProjection();
                         static std::uint32_t logged_make_preview =
@@ -2406,6 +2418,9 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 false, m == WM_RBUTTONDOWN,
                 static_cast<std::int32_t>(logical->x),
                 static_cast<std::int32_t>(logical->y))) {
+            if (m == WM_RBUTTONUP) g_charPreviewController.onMouseButton(
+                true, false, static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y));
             return 0;
         }
         if (g_charMakeState &&
@@ -2413,6 +2428,17 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 false, m == WM_RBUTTONDOWN,
                 static_cast<std::int32_t>(logical->x),
                 static_cast<std::int32_t>(logical->y))) {
+            if (m == WM_RBUTTONUP) g_charPreviewController.onMouseButton(
+                true, false, static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y));
+            return 0;
+        }
+        if ((g_charSelectState || g_charMakeState) &&
+            g_charPreviewController.onMouseButton(
+                true, m == WM_RBUTTONDOWN,
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            InvalidateRect(h, nullptr, FALSE);
             return 0;
         }
         if (g_inputTarget) {
@@ -2447,6 +2473,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 static_cast<std::int32_t>(logical->y))) {
             return 0;
         }
+        if (g_charPreviewController.onMouseMove(
+                static_cast<std::int32_t>(logical->x),
+                static_cast<std::int32_t>(logical->y))) {
+            InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseMove(
                 static_cast<std::int32_t>(logical->x),
@@ -2455,6 +2487,13 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         return 0;
         }
     case WM_MOUSEWHEEL:
+        if ((__g_currentState == static_cast<int>(mxh::client::GameStateId::CharSelect) ||
+             __g_currentState == static_cast<int>(mxh::client::GameStateId::CharMake)) &&
+            g_charPreviewController.onMouseWheel(
+                static_cast<std::int32_t>(static_cast<short>(HIWORD(w))))) {
+            InvalidateRect(h, nullptr, FALSE);
+            return 0;
+        }
         if (g_inputTarget) {
             g_inputTarget->OnMouseWheel(
                 static_cast<std::int32_t>(static_cast<short>(HIWORD(w))));
