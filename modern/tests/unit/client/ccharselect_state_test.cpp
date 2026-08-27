@@ -216,6 +216,18 @@ TEST(CharSelectWire, ListAckThreeChars) {
     EXPECT_FALSE((*list)[4].valid);
 }
 
+TEST(CharSelectWire, ListAckHonorsAdvertisedCharacterCount) {
+    std::array<std::uint8_t, 889> buf{};
+    buf[0] = 1; // only slot zero is occupied according to the legacy header
+    const std::uint32_t second_id = 99;
+    std::memcpy(buf.data() + 14 + 35, &second_id, sizeof(second_id));
+    const auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    ASSERT_EQ(list->size(), 5u);
+    EXPECT_FALSE((*list)[1].valid);
+    EXPECT_EQ((*list)[1].chrid, 0u);
+}
+
 TEST(CharSelectWire, ListAckTooShort) {
     std::array<std::uint8_t, 3> buf{};
     auto list = parse_legacy_character_list_ack(
