@@ -40,6 +40,7 @@ struct Args {
     std::string legacy_exe;
     std::string modern_exe;
     std::string modern_server_dir;
+    std::string resource_root;
     int legacy_port = 6001;
     int legacy_agent_port = 7001;
     int legacy_map_port = 6001;
@@ -70,6 +71,7 @@ bool parse_args(int argc, char** argv, Args& a) {
         else if (s == "--legacy-exe")  a.legacy_exe  = next("--legacy-exe");
         else if (s == "--modern-exe")  a.modern_exe  = next("--modern-exe");
         else if (s == "--modern-server-dir") a.modern_server_dir = next("--modern-server-dir");
+        else if (s == "--resource-root") a.resource_root = next("--resource-root");
         else if (s == "--legacy-port") a.legacy_port = std::stoi(next("--legacy-port"));
         else if (s == "--legacy-agent-port") a.legacy_agent_port = std::stoi(next("--legacy-agent-port"));
         else if (s == "--legacy-map-port") a.legacy_map_port = std::stoi(next("--legacy-map-port"));
@@ -93,6 +95,17 @@ bool parse_args(int argc, char** argv, Args& a) {
         }
     }
     return true;
+}
+
+std::string discover_playdh_root() {
+    for (auto root = std::filesystem::current_path(); !root.empty();
+         root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH";
+        std::error_code ec;
+        if (std::filesystem::is_directory(candidate, ec)) return candidate.string();
+        if (root == root.root_path()) break;
+    }
+    return {};
 }
 
 int endpoint_port(mxh::tools::sidebyside::ReplayEndpoint endpoint,
@@ -285,6 +298,7 @@ int main(int argc, char** argv) {
     ChildProcess modern_agent;
     ChildProcess modern_map;
     if (a.start_processes) {
+        if (a.resource_root.empty()) a.resource_root = discover_playdh_root();
         if (!a.legacy_exe.empty()) {
             legacy_login = start_process({a.legacy_exe, {}});
         }
@@ -306,7 +320,18 @@ int main(int argc, char** argv) {
                                                 "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
 if (a.modern_legacy) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
-            ServerLaunch mm{mapPath, {"--port", std::to_string(a.modern_map_port), "--map", "12", "--dev-stub-caster"}};
+            std::vector<std::string> mm_args = {
+                "--port", std::to_string(a.modern_map_port), "--map", "12",
+                "--dev-stub-caster"};
+            if (!a.resource_root.empty()) {
+                mm_args.push_back("--resource-root");
+                mm_args.push_back(a.resource_root);
+                const auto server_root = std::filesystem::path(a.resource_root) /
+                                         "Resource" / "Server";
+                mm_args.push_back("--server-resource-root");
+                mm_args.push_back(server_root.string());
+            }
+            ServerLaunch mm{mapPath, std::move(mm_args)};
             modern_login = start_process(ml);
             if (!login_only) {
                 modern_agent = start_process(ma);
