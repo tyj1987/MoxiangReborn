@@ -422,6 +422,17 @@ mxh::net::Message make_monster_add_at(std::uint32_t object_id,
 
 }  // namespace
 
+TEST(InGamePlayable, OffensiveQuickSlotRequiresExplicitCursorTarget) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_monster_add_at(50001u, 25020, 25000));
+    state.OnKeyEvent(true, 0x70); // F1, offensive starter skill
+    EXPECT_EQ(state.last_attack_target(), 0u);
+}
+
 TEST(InGamePlayable, HudDoesNotSwallowWasdAfterGameInAck) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

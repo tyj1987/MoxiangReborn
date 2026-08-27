@@ -2894,17 +2894,21 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         target_x = m_localX;
         target_z = m_localZ;
     } else {
-        const auto t = pick_attack_target(
-            monsters_, m_localX, m_localZ, kAttackRange);
-        if (!t) return;
-        target = *t;
-        for (const auto& monster : monsters_) {
-            if (monster.object_id == *t) {
-                target_x = static_cast<float>(monster.position_x);
-                target_z = static_cast<float>(monster.position_z);
-                break;
-            }
-        }
+        // Offensive skills must respect the target explicitly selected by
+        // the cursor.  Never substitute the nearest monster when the target
+        // is missing, dead, or has moved out of range.
+        const auto selected = std::find_if(
+            monsters_.begin(), monsters_.end(), [this](const auto& monster) {
+                return monster.object_id == m_lastAttackTarget &&
+                       monster.current_life != 0;
+            });
+        if (selected == monsters_.end()) return;
+        target = selected->object_id;
+        target_x = static_cast<float>(selected->position_x);
+        target_z = static_cast<float>(selected->position_z);
+        const float dx = target_x - m_localX;
+        const float dz = target_z - m_localZ;
+        if (dx * dx + dz * dz > kAttackRange * kAttackRange) return;
     }
 
     const auto e = m_pEngine->agent_session().send(
