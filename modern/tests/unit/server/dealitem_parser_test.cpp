@@ -9,12 +9,18 @@
 
 namespace {
 std::filesystem::path canonical_playdh() {
-    for (const auto& root : {
-             std::filesystem::current_path() / "modern" / "data" / "PlayDH",
-             std::filesystem::current_path() / "data" / "PlayDH"}) {
-        if (std::filesystem::exists(root / "Resource" / "Dealitem.bin")) {
-            return root;
+    auto base = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !base.empty(); ++depth) {
+        for (const auto& root : {
+                 base / "modern" / "data" / "PlayDH",
+                 base / "data" / "PlayDH"}) {
+            if (std::filesystem::exists(root / "Resource" / "Dealitem.bin")) {
+                return root;
+            }
         }
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
     }
     return {};
 }
