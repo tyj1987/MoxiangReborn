@@ -327,8 +327,14 @@ static LauncherSettings loadSettings() {
         return s;
     }
     if (std::regex_search(text, match, std::regex(R"REGEX("resourceProfileId"\s*:\s*"([^"]+)")REGEX")) ||
-        std::regex_search(text, match, std::regex(R"REGEX("profile"\s*:\s*"([^"]+)")REGEX")))
-        s.profile = std::wstring(match[1].str().begin(), match[1].str().end());
+        std::regex_search(text, match, std::regex(R"REGEX("profile"\s*:\s*"([^"]+)")REGEX"))) {
+        // Keep the matched UTF-8 bytes alive while constructing the wide
+        // string.  Calling str().begin() and str().end() on separate
+        // temporaries creates an invalid iterator range and made malformed
+        // settings capable of corrupting launcher state.
+        const auto profile = match[1].str();
+        s.profile.assign(profile.begin(), profile.end());
+    }
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginWidth"\s*:\s*(\d+))REGEX"))) s.postWidth = parseBoundedInt(match[1].str(), s.postWidth);
     if (std::regex_search(text, match, std::regex(R"REGEX("postLoginHeight"\s*:\s*(\d+))REGEX"))) s.postHeight = parseBoundedInt(match[1].str(), s.postHeight);
     if (std::regex_search(text, match, std::regex(R"REGEX("borderless"\s*:\s*(true|false))REGEX"))) s.borderless = match[1].str() == "true";
