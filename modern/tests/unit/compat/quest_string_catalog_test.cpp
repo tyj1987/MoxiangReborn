@@ -21,14 +21,12 @@ TEST(QuestStringCatalog, ConvertsKnownBig5TitleToUnicode) {
 
 TEST(QuestStringCatalog, LoadsRealQuestStringResource) {
     std::filesystem::path path;
-    for (const auto& item : std::filesystem::recursive_directory_iterator(
-             std::filesystem::current_path(),
-             std::filesystem::directory_options::skip_permission_denied)) {
-        if (item.is_regular_file() && item.path().filename() == "QuestString.bin" &&
-            item.path().parent_path().filename() == "QuestScript") {
-            path = item.path();
-            break;
-        }
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty() && path.empty(); ++depth) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" /
+                               "Resource" / "QuestScript" / "QuestString.bin";
+        if (std::filesystem::is_regular_file(candidate)) path = candidate;
+        root = root.parent_path();
     }
     if (!std::filesystem::exists(path)) GTEST_SKIP() << "PlayDH unavailable";
     const auto result = mxh::compat::load_quest_string_catalog(path);
