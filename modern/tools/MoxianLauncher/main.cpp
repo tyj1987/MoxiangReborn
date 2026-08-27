@@ -303,16 +303,25 @@ static LauncherSettings loadSettings() {
     };
     const auto open = text.find('{');
     const auto close = text.rfind('}');
-    if (open == std::string::npos || close == std::string::npos || open > close) {
+    const auto onlyWhitespace = [](std::string_view value) {
+        return std::all_of(value.begin(), value.end(), [](unsigned char c) {
+            return std::isspace(c) != 0;
+        });
+    };
+    if (open == std::string::npos || close == std::string::npos || open > close ||
+        !onlyWhitespace(std::string_view(text).substr(0, open)) ||
+        !onlyWhitespace(std::string_view(text).substr(close + 1))) {
         preserveInvalid();
         return s;
     }
     std::smatch match;
     int schema = 1;
-    if (std::regex_search(text, match, std::regex(R"REGEX("schemaVersion"\s*:\s*(\d+))REGEX"))) {
+    const bool hasSchema = std::regex_search(
+        text, match, std::regex(R"REGEX("schemaVersion"\s*:\s*(\d+))REGEX"));
+    if (hasSchema) {
         try { schema = std::stoi(match[1].str()); } catch (...) { schema = 0; }
     }
-    if (schema != 1) {
+    if (!hasSchema || schema != 1) {
         preserveInvalid();
         return s;
     }
