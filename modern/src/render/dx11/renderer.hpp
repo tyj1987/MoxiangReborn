@@ -118,6 +118,7 @@ public:
                                     MATRIX4* pMatProj, MATRIX4* pMatForBilboard) override;
     void __stdcall GetSystemStatus(SYSTEM_STATUS* pStatus) override;
     void __stdcall UpdateWindowSize() override;
+    BOOL __stdcall TryUpdateWindowSize() override;
     void __stdcall Present(HWND hWnd) override;
     void __stdcall SetAmbientColor(std::uint32_t dwColor) override;
     std::uint32_t __stdcall GetAmbientColor() override;

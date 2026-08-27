@@ -1399,11 +1399,14 @@ DisplayTransitionResult applyDisplayTransition(
         result.win32_error = GetLastError();
     } else {
         viewport.update(actual_width, actual_height);
-        if (renderer) renderer->UpdateWindowSize();
-        result.client_width = static_cast<std::uint32_t>(actual_width);
-        result.client_height = static_cast<std::uint32_t>(actual_height);
-        result.committed = true;
-        return result;
+        if (renderer && !renderer->TryUpdateWindowSize()) {
+            result.win32_error = ERROR_GEN_FAILURE;
+        } else {
+            result.client_width = static_cast<std::uint32_t>(actual_width);
+            result.client_height = static_cast<std::uint32_t>(actual_height);
+            result.committed = true;
+            return result;
+        }
     }
 
     // Roll back the outer window and the logical viewport.  A failed

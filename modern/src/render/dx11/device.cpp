@@ -384,18 +384,18 @@ ID3D11ShaderResourceView* Device::createTextureFromFile(const char* fileName) {
     return SUCCEEDED(hr) ? srv : nullptr;
 }
 
-void Device::updateWindowSize() {
-    if (!m_device || !m_swapChain || !m_context) return;
+bool Device::updateWindowSize() {
+    if (!m_device || !m_swapChain || !m_context) return false;
 
     // Get new client area size.
     RECT rc{};
-    if (!::GetClientRect(m_hwnd, &rc) || rc.right <= 0 || rc.bottom <= 0) return;
+    if (!::GetClientRect(m_hwnd, &rc) || rc.right <= 0 || rc.bottom <= 0) return false;
     UINT newW = static_cast<UINT>(rc.right - rc.left);
     UINT newH = static_cast<UINT>(rc.bottom - rc.top);
-    if (newW == 0 || newH == 0) return;
+    if (newW == 0 || newH == 0) return false;
 
     // If size unchanged, skip.
-    if (newW == m_width && newH == m_height) return;
+    if (newW == m_width && newH == m_height) return true;
 
     MLOG_INFO("[dx11] Resizing swap chain: %ux%u -> %ux%u",
               m_width, m_height, newW, newH);
@@ -410,14 +410,23 @@ void Device::updateWindowSize() {
     HRESULT hr = m_swapChain->ResizeBuffers(0, newW, newH, DXGI_FORMAT_UNKNOWN, 0);
     if (FAILED(hr)) {
         MLOG_ERROR("[dx11] ResizeBuffers failed: 0x%08x", hr);
-        return;
+        // ResizeBuffers can fail after the old render targets were released.
+        // Recreate them before returning so a failed transition does not
+        // leave the renderer unusable while the caller rolls the HWND back.
+        if (!createRenderTargets()) {
+            MLOG_ERROR("[dx11] failed to restore render targets after resize failure");
+        }
+        return false;
     }
 
     m_width  = static_cast<std::uint16_t>(newW);
     m_height = static_cast<std::uint16_t>(newH);
 
     // Re-create render targets at the new size.
-    createRenderTargets();
+    if (!createRenderTargets()) {
+        MLOG_ERROR("[dx11] failed to create render targets after resize");
+        return false;
+    }
 
     // Re-create shadow map if already initialized.
     if (m_shadowMapReady) {
@@ -429,6 +438,7 @@ void Device::updateWindowSize() {
     }
 
     MLOG_INFO("[dx11] Window resize complete: %ux%u", m_width, m_height);
+    return true;
 }
 
 // ===== Shadow map =====

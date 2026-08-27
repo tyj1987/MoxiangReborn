@@ -46,7 +46,7 @@ public:
 
     void present(HWND hWnd);
     void setVSync(BOOL vsync);
-    void updateWindowSize();
+    bool updateWindowSize();
 
     // Viewport + matrices for 3D rendering.
     void setViewFrustum(const VIEW_VOLUME& vv, const CAMERA_DESC& cam,

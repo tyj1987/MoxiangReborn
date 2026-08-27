@@ -189,6 +189,13 @@ interface I4DyuchiGXRenderer : public IUnknown {
                                            MATRIX4* pMatProj, MATRIX4* pMatForBilboard) = 0;
     virtual void __stdcall GetSystemStatus(SYSTEM_STATUS* pStatus) = 0;
     virtual void __stdcall UpdateWindowSize() = 0;
+    // Checked variant used by transactional display changes. Existing
+    // renderer implementations keep the legacy void entry point; callers
+    // that need rollback semantics use this default adapter instead.
+    virtual BOOL __stdcall TryUpdateWindowSize() {
+        UpdateWindowSize();
+        return TRUE;
+    }
     virtual void __stdcall Present(HWND hWnd) = 0;
     virtual void __stdcall SetAmbientColor(std::uint32_t dwColor) = 0;
     virtual std::uint32_t __stdcall GetAmbientColor() = 0;

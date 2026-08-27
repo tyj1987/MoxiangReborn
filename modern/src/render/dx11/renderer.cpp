@@ -884,7 +884,10 @@ void __stdcall CoD3DDeviceDX11::GetSystemStatus(SYSTEM_STATUS* pStatus) {
 
 void __stdcall CoD3DDeviceDX11::UpdateWindowSize() {
     if (!m_dev) return;
-    m_dev->updateWindowSize();
+    (void)m_dev->updateWindowSize();
+}
+BOOL __stdcall CoD3DDeviceDX11::TryUpdateWindowSize() {
+    return m_dev && m_dev->updateWindowSize() ? TRUE : FALSE;
 }
 void __stdcall CoD3DDeviceDX11::Present(HWND hWnd) { if (m_dev) m_dev->present(hWnd); }
 
