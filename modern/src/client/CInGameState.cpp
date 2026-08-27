@@ -3085,6 +3085,16 @@ void CInGameState::open_shop(std::uint32_t npc_id) {
     // object_id=0 on a connected session sends an invalid SpeechSyn packet
     // and can make the server resolve an unrelated/default NPC.
     if (!m_inGame || npc_id == 0) return;
+    const auto npc = std::find_if(m_npcs.begin(), m_npcs.end(),
+        [npc_id](const NpcInfo& info) { return info.npc_id == npc_id; });
+    if (npc == m_npcs.end()) return;
+    const auto role = mxh::game::role_from_wire(npc->npc_kind);
+    if (role != mxh::game::NpcRole::Dealer &&
+        role != mxh::game::NpcRole::Bobusang) {
+        MLOG_WARN("CInGameState: shop request rejected for non-dealer npc=%u",
+                  npc_id);
+        return;
+    }
     m_shopNpcId = npc_id;
     if (!is_connected()) {
         MLOG_INFO("CInGameState: open_shop npc=%u (offline)", npc_id);
