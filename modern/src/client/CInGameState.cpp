@@ -777,6 +777,10 @@ void CInGameState::Release() {
     m_chatOpen = false;
     m_chatBuffer.clear();
     m_effectEvents.clear();
+    // Runtime effect notifications are per-scene evidence/state.  Dropping
+    // them at the release boundary prevents a later GameIn instance from
+    // replaying stale hit/cast events from the previous map.
+    m_runtimeEffectEvents.clear();
     m_pendingSkillEffects.clear();
     m_effectRuntime.clear();
     m_playerStatsService.reset();
