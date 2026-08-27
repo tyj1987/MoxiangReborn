@@ -63,7 +63,10 @@ if (-not (Test-Path -LiteralPath $resourceRoot -PathType Container)) {
     throw "Resource profile root not found: $resourceRoot"
 }
 
-$clientExe = Resolve-RequiredFile @(
+$launcherExe = Resolve-RequiredFile @(
+    (Join-Path $repoRoot 'modern\build\tools\MoxianLauncher\MoxianLauncher.exe'),
+    (Join-Path $repoRoot 'modern\build\tools\MoxianLauncher\Debug\MoxianLauncher.exe'))
+$clientExeCandidates = @(
     (Join-Path $repoRoot 'modern\build\tools\MoxianClient\mxh_client.exe'),
     (Join-Path $repoRoot 'modern\build\tools\MoxianClient\Debug\mxh_client.exe'))
 $serverScript = Resolve-RequiredFile @((Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'))
@@ -75,7 +78,8 @@ if (@($previousState).Count -gt 0 -and -not $SkipServers) {
     throw 'Existing managed server state detected. Stop it explicitly before a human acceptance run.'
 }
 
-$client = $null
+$launcher = $null
+$clientPids = [System.Collections.Generic.List[int]]::new()
 $exitCode = 0
 try {
     if (-not $SkipServers) {
@@ -97,14 +101,13 @@ try {
         }
     }
 
-    $clientArgs = @('--login-port', $LoginPort, '--map-port', $MapPort,
-        '--resource-profile', $ResourceProfileId, '--resource-root', $resourceRoot,
-        '--width', 800, '--height', 600, '--evidence-dir', $evidenceRoot)
-    $client = Start-Process -FilePath $clientExe -ArgumentList $clientArgs -WorkingDirectory $repoRoot -PassThru -RedirectStandardOutput (Join-Path $logRoot 'client.stdout.log') -RedirectStandardError (Join-Path $logRoot 'client.stderr.log')
-    $owned.Add([pscustomobject]@{ pid = $client.Id; exe = $clientExe; name = 'client' })
+    $launchStart = Get-Date
+    $launcher = Start-Process -FilePath $launcherExe -WorkingDirectory $repoRoot -PassThru
+    $owned.Add([pscustomobject]@{ pid = $launcher.Id; exe = $launcherExe; name = 'launcher' })
 
     Write-Host "Human acceptance run: $runId" -ForegroundColor Cyan
     Write-Host "Artifacts: $runRoot"
+    Write-Host 'Use the launcher to check/repair resources, configure display/audio, and start the client.'
     Write-Host 'Credentials are entered manually in the client. This script supplies no username, password, mouse or keyboard input.'
     Write-Host 'Complete the scenario: launcher/settings -> login -> display transition -> select/create -> Map10 -> movement -> NPC/UI -> combat/skill -> loot/pickup -> map change -> relog.'
     Write-Host 'Press F12 after each settled checkpoint to capture a TGA in the evidence folder.'
@@ -119,6 +122,21 @@ try {
     $exitCode = 1
     Write-Error $_
 } finally {
+    # The launcher creates the client as a child after the operator clicks
+    # Start. Discover only the two explicit client paths and only processes
+    # created after this run began; never kill by a generic process name.
+    foreach ($candidate in $clientExeCandidates) {
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+        $resolved = (Resolve-Path -LiteralPath $candidate).Path
+        foreach ($process in @(Get-Process -ErrorAction SilentlyContinue)) {
+            if ($process.Id -eq $PID -or $process.Id -eq [int]$launcher.Id) { continue }
+            if ($process.StartTime -lt $launchStart) { continue }
+            if (Test-ExactProcess -Pid $process.Id -ExpectedPath $resolved) {
+                $clientPids.Add([int]$process.Id)
+                $owned.Add([pscustomobject]@{ pid = $process.Id; exe = $resolved; name = 'client' })
+            }
+        }
+    }
     foreach ($entry in $owned) { Stop-OwnedProcess $entry }
     if (-not $SkipServers -and (Test-Path -LiteralPath $stateFile -PathType Leaf)) {
         $state = @(Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json)
@@ -131,7 +149,8 @@ try {
         runId = $runId
         profile = $ResourceProfileId
         map = $MapNumber
-        clientPid = if ($null -ne $client) { $client.Id } else { $null }
+        launcherPid = if ($null -ne $launcher) { $launcher.Id } else { $null }
+        clientPids = @($clientPids)
         serverPids = @($serverPids)
         evidenceDir = $evidenceRoot
         evidenceFrames = @(Get-ChildItem -LiteralPath $evidenceRoot -Filter '*.tga' -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
