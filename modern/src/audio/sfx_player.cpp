@@ -156,7 +156,10 @@ void SfxPlayer::stop() noexcept {
 #endif
 }
 void SfxPlayer::setVolume(float value) noexcept {
-    volume_ = std::clamp(value, 0.0f, 1.0f);
+    // Runtime callers (including focus/device-recovery paths) can bypass the
+    // JSON settings validator.  Never propagate a non-finite gain into
+    // XAudio2 or retain it for the next sound.
+    volume_ = std::isfinite(value) ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
 #ifdef _WIN32
     if (media_ && media_->source) media_->source->SetVolume(
         std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));

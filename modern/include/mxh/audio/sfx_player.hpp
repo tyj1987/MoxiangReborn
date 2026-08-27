@@ -38,6 +38,7 @@ public:
                                              float max_distance) noexcept;
     void stop() noexcept;
     void setVolume(float normalized) noexcept;
+    [[nodiscard]] float volume() const noexcept { return volume_; }
     [[nodiscard]] bool ready() const noexcept { return ready_; }
     [[nodiscard]] std::filesystem::path resolve(std::uint16_t sound_id) const;
     [[nodiscard]] const mxh::compat::SoundList& manifest() const noexcept { return manifest_; }

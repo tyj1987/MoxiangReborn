@@ -53,3 +53,16 @@ TEST(SfxPlayer, DistanceGainRejectsNonFiniteInputs) {
     EXPECT_FLOAT_EQ(mxh::audio::SfxPlayer::distanceGain(nan, 10.0f, 100.0f), 0.0f);
     EXPECT_FLOAT_EQ(mxh::audio::SfxPlayer::distanceGain(10.0f, inf, 100.0f), 0.0f);
 }
+
+TEST(SfxPlayer, SetVolumeFallsBackForNonFiniteRuntimeValues) {
+    mxh::audio::SfxPlayer player;
+    player.setVolume(0.25f);
+    EXPECT_FLOAT_EQ(player.volume(), 0.25f);
+
+    player.setVolume(std::numeric_limits<float>::quiet_NaN());
+    EXPECT_FLOAT_EQ(player.volume(), 1.0f);
+    player.setVolume(std::numeric_limits<float>::infinity());
+    EXPECT_FLOAT_EQ(player.volume(), 1.0f);
+    player.setVolume(-std::numeric_limits<float>::infinity());
+    EXPECT_FLOAT_EQ(player.volume(), 1.0f);
+}
