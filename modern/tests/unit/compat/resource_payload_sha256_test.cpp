@@ -213,7 +213,9 @@ fs::path find_source_dir(const std::string& source) {
     const fs::path root = find_repo_root();
     if (source == "deploy/server/Distribute/Resource") {
         if (root.empty()) return {};
-        return root / fs::u8path(source);
+        const fs::path deploy = root / fs::u8path(source);
+        std::error_code error;
+        return fs::is_directory(deploy, error) ? deploy : fs::path{};
     }
     if (source == "PlayDH/Resource") return find_playdh_resource_dir();
     if (source == "PlayDH/Resource/Client") {

@@ -1,6 +1,6 @@
 {
     "format": "moxian-payload-sha256-v1",
-    "source": "C:\\moxiang\\deploy\\server\\Distribute\\Resource",
+    "source": "deploy/server/Distribute/Resource",
     "files": [
         {
             "name": "AbilityBaseInfo.bin",

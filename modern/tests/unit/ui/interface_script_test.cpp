@@ -376,10 +376,9 @@ TEST(InterfaceScriptParser, ApplyLegacyLayoutOnRealMainDlgBinFile) {
 TEST(InterfaceScript, LoadsPlayDhMPGuageBinAndFindsExpGuageChild) {
     namespace fs = std::filesystem;
     std::vector<const char*> candidates = {
-        "C:/moxiang/modern/data/PlayDH",
-        "C:\\moxiang\\modern\\data\\PlayDH",
         "../modern/data/PlayDH",
         "modern/data/PlayDH",
+        "../../modern/data/PlayDH",
     };
     fs::path playdh;
     for (const auto* c : candidates) {
@@ -431,10 +430,9 @@ TEST(InterfaceScript, LoadsPlayDhMPGuageBinAndFindsExpGuageChild) {
 TEST(InterfaceScript, LoadsPlayDhTitanInventoryBinAndHasInventoryCells) {
     namespace fs = std::filesystem;
     std::vector<const char*> candidates = {
-        "C:/moxiang/modern/data/PlayDH",
-        "C:\\moxiang\\modern\\data\\PlayDH",
         "../modern/data/PlayDH",
         "modern/data/PlayDH",
+        "../../modern/data/PlayDH",
     };
     fs::path playdh;
     for (const auto* c : candidates) {
