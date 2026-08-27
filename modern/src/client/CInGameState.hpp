@@ -642,6 +642,7 @@ public:
     std::size_t          m_questSelection = 0;
     std::optional<std::size_t> m_inventoryDragSource;
     bool m_pendingInventoryMove = false;
+    std::uint64_t m_pendingInventoryMoveSinceMs = 0;
     std::vector<EffectEvent> m_effectEvents;
     EffectRuntime m_effectRuntime;
     struct PendingSkillEffect {

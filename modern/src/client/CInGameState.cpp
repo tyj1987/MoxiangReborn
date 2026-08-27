@@ -738,6 +738,8 @@ void CInGameState::Release() {
     m_pendingPickupDrop = 0;
     m_pendingBuyItemId = 0;
     m_pendingInventoryMove = false;
+    m_pendingInventoryMoveSinceMs = 0;
+    m_pendingInventoryMoveSinceMs = 0;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
@@ -885,6 +887,15 @@ void CInGameState::Process() {
         }
     }
     const auto now_ms = steady_now_ms();
+    constexpr std::uint64_t kInventoryMoveTimeoutMs = 5000;
+    if (m_pendingInventoryMove && m_pendingInventoryMoveSinceMs != 0 &&
+        now_ms - m_pendingInventoryMoveSinceMs >= kInventoryMoveTimeoutMs) {
+        m_pendingInventoryMove = false;
+        m_pendingInventoryMoveSinceMs = 0;
+        m_lastItemError = "Item move timed out.";
+        (void)m_uiRuntime.showMessage(9101, m_lastItemError);
+        MLOG_WARN("CInGameState: inventory move request timed out");
+    }
     constexpr std::uint64_t kCombatRequestTimeoutMs = 5000;
     if (m_pendingSkillId != 0 && m_pendingSkillSinceMs != 0 &&
         now_ms - m_pendingSkillSinceMs >= kCombatRequestTimeoutMs) {
@@ -1974,6 +1985,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::MoveAck)) {
         m_pendingInventoryMove = false;
+        m_pendingInventoryMoveSinceMs = 0;
         // MoveAck echoes ITEMBASE(22B) + target position(u16).
         if (msg.payload.size() < 24) return;
         const auto db_idx = get_u32(msg.payload.data());
@@ -2022,6 +2034,7 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::MoveNack)) {
         m_pendingInventoryMove = false;
+        m_pendingInventoryMoveSinceMs = 0;
         // Keep the authoritative rejection visible to the player.  The
         // server deliberately does not encode a new error protocol here;
         // the legacy client presents a modal item-move failure message.
@@ -2690,7 +2703,10 @@ bool CInGameState::request_inventory_move(std::size_t source,
                 sizeof(target16));
     const auto sent = m_pEngine->agent_session().send(msg) ==
                       mxh::net::NetError::Ok;
-    if (sent) m_pendingInventoryMove = true;
+    if (sent) {
+        m_pendingInventoryMove = true;
+        m_pendingInventoryMoveSinceMs = steady_now_ms();
+    }
     return sent;
 }
 
