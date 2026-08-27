@@ -3061,7 +3061,10 @@ std::vector<RuntimeEffectEvent> CInGameState::drain_runtime_effect_events() noex
 }
 
 void CInGameState::open_shop(std::uint32_t npc_id) {
-    if (!m_inGame || (npc_id == 0 && !is_connected())) return;
+    // A shop request must always identify the selected dealer.  Allowing
+    // object_id=0 on a connected session sends an invalid SpeechSyn packet
+    // and can make the server resolve an unrelated/default NPC.
+    if (!m_inGame || npc_id == 0) return;
     m_shopNpcId = npc_id;
     if (!is_connected()) {
         MLOG_INFO("CInGameState: open_shop npc=%u (offline)", npc_id);
