@@ -18,6 +18,7 @@ bool EffectRuntime::start(std::string_view effect_name,
                           std::uint32_t target_object_id,
                           std::uint64_t now_ms,
                           float tick_per_frame_ms) {
+    if (m_instances.size() >= kMaxActiveInstances) return false;
     const auto* summary = m_catalog.script(effect_name);
     if (!summary) return false;
     Instance instance;

@@ -3,6 +3,7 @@
 #include "mxh/game/effect_catalog.hpp"
 #include "mxh/game/effect_timeline.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -34,6 +35,11 @@ struct RuntimeEffectEvent {
 
 class EffectRuntime {
 public:
+    // A malformed or bursty network stream must not grow the effect list
+    // without bound.  This is deliberately a generous runtime ceiling for
+    // Map10's 228-monster scene while keeping frame work deterministic.
+    static constexpr std::size_t kMaxActiveInstances = 512;
+
     bool load(const std::filesystem::path& playdh_root,
               std::string* error = nullptr);
     void adopt_catalog(mxh::game::EffectCatalog catalog) noexcept;

@@ -85,3 +85,18 @@ TEST(EffectRuntime, MissingIdFailsWithoutGuessingAnotherEffect) {
     EXPECT_FALSE(runtime.start_by_id(999999u, false, 1, 2, 0, 16));
     EXPECT_EQ(runtime.active_count(), 0u);
 }
+
+TEST(EffectRuntime, CapsBurstInstancesWithoutDroppingExistingTimelines) {
+    const auto root = find_playdh_root();
+    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
+    mxh::client::EffectRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, &error)) << error;
+    for (std::size_t i = 0; i < mxh::client::EffectRuntime::kMaxActiveInstances; ++i) {
+        ASSERT_TRUE(runtime.start("m_combo_gum01.beff",
+                                  static_cast<std::uint32_t>(i + 1), 0, 1000, 16));
+    }
+    EXPECT_EQ(runtime.active_count(), mxh::client::EffectRuntime::kMaxActiveInstances);
+    EXPECT_FALSE(runtime.start("m_combo_gum01.beff", 9999, 0, 1000, 16));
+    EXPECT_EQ(runtime.active_count(), mxh::client::EffectRuntime::kMaxActiveInstances);
+}
