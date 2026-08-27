@@ -2756,13 +2756,18 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
     m_localZ = next_z;
 
     if (step.moving) {
-        m_info.position_x = static_cast<std::uint16_t>(m_localX);
-        m_info.position_z = static_cast<std::uint16_t>(m_localZ);
+        m_info.position_x = static_cast<std::uint16_t>(
+            std::clamp(m_localX, 0.0f, 65535.0f));
+        m_info.position_z = static_cast<std::uint16_t>(
+            std::clamp(m_localZ, 0.0f, 65535.0f));
         m_moving = true;
         if (now_ms - m_lastMoveSendMs >=
             static_cast<std::uint64_t>(kMoveReportEveryMs)) {
-            send_move(static_cast<std::uint16_t>(m_localX),
-                      static_cast<std::uint16_t>(m_localZ),
+            const auto wire_x = static_cast<std::uint16_t>(
+                std::clamp(m_localX, 0.0f, 65535.0f));
+            const auto wire_z = static_cast<std::uint16_t>(
+                std::clamp(m_localZ, 0.0f, 65535.0f));
+            send_move(wire_x, wire_z,
                       mxh::proto::MoveProtocol::OneTarget);
             m_lastMoveSendMs = now_ms;
         }
@@ -2849,6 +2854,11 @@ bool CInGameState::move_to_screen(float screen_x, float screen_y) {
             return true;
         }
     }
+    // The wire protocol carries world coordinates as uint16.  A map profile
+    // may expose a larger geometric extent, but narrowing without a final
+    // bound would wrap the player to the opposite side of the map.
+    target_x = std::clamp(target_x, 0.0f, 65535.0f);
+    target_z = std::clamp(target_z, 0.0f, 65535.0f);
     const auto x = static_cast<std::uint16_t>(target_x);
     const auto z = static_cast<std::uint16_t>(target_z);
     m_localX = target_x;
