@@ -59,14 +59,11 @@
 // 3. **cImage is opaque.** The 4 image slots (top / middle /
 //    down / over) are stored as void*. Real cImage binds with
 //    6.6 cImage seam.
-// 4. **Render is a no-op.** The legacy Render draws the
-//    dropdown list (top + middle + down sprites + per-item
-//    text + over-image on hover). All of that needs cImage
-//    seam + font renderer. Modern port is no-op; the data
-//    model + state is fully testable.
-// 5. **ActionEvent is a no-op stub.** The legacy
-//    cbWindowFunc dispatch has no modern equivalent (the
-//    dispatcher integration is 6.6 follow-up).
+// 4. **Render uses the shared adapters.** The dropdown list
+//    (top + middle + down sprites + per-item text + over-image
+//    on hover) is drawn through cImage and TextRender.
+// 5. **ActionEvent owns the local interaction state.** It
+//    toggles the list, tracks hover and commits the selected row.
 // 6. **Engine singletons stubbed.** cWindowManager->IsMouseOverUsed
 //    / IsMouseDownUsed / SetMouseOverUsed / SetMouseDownUsed
 //    are all no-op. The data-side state (select-idx / over-idx /
@@ -116,8 +113,8 @@ public:
                        void* downImage,  std::uint16_t downHei,
                        void* overImage);
 
-    // Render no-op (cImage seam 6.6).
-    void Render() override {}
+    // Render selected text and the skinned dropdown rows when open.
+    void Render() override;
 
     // ActionEvent: 1:1 with legacy. Modern port is a no-op
     // (engine-side dispatch is stubbed; data-side effects are

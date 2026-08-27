@@ -22,17 +22,12 @@
 //    down / over) are stored as void*. Real cImage binds with
 //    6.6 cImage seam.
 //
-// 4. **Render is a no-op.** The legacy Render draws the
-//    dropdown list (top + middle + down sprites + per-item
-//    text + over-image on hover). All of that needs cImage
-//    seam + font renderer. Modern port is no-op; the data
-//    model + state is fully testable.
+// 4. **Render uses the shared adapters.** The dropdown list
+//    (top + middle + down sprites + per-item text + over-image
+//    on hover) is drawn through cImage and TextRender.
 //
-// 5. **ActionEvent is a no-op stub.** The legacy
-//    cbWindowFunc dispatch + cWindowManager mouse-dispatch
-//    have no modern equivalents; the dispatcher integration
-//    is 6.6 follow-up. Modern port preserves the data-side
-//    state (m_nOverIdx / m_nCurSelectedIdx / m_comboText).
+// 5. **ActionEvent owns the local interaction state.** It
+//    toggles the list, tracks hover and commits the selected row.
 //
 // 6. **Engine singletons stubbed.** cWindowManager->IsMouseOverUsed
 //    / IsMouseDownUsed / SetMouseOverUsed / SetMouseDownUsed
@@ -41,6 +36,8 @@
 #include "ccombobox.hpp"
 
 #include "cWindow.hpp"
+#include "cImage.hpp"
+#include "TextRender.hpp"
 
 #include <cstring>
 
@@ -80,6 +77,63 @@ void cComboBox::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
     // can locate the combo by id (cDialog uses cObject::id()
     // which is set by cWindow::Init's mutableId()=id line).
     cWindow::Init(x, y, wid, hei, basicImage, id);
+}
+
+void cComboBox::Render() {
+    if (!isVisible()) return;
+    cWindow::Render();
+
+    const auto drawImage = [](void* handle, std::int32_t x, std::int32_t y,
+                              std::int32_t width, std::int32_t height) {
+        if (!handle || width <= 0 || height <= 0) return;
+        static_cast<cImage*>(handle)->render(x, y, width, height,
+                                             0xFFFFFFFFu, 1);
+    };
+    if (!m_comboText.empty()) {
+        TextRenderRequest text;
+        text.text = m_comboText;
+        text.x = absX();
+        text.y = absY();
+        text.width = width();
+        text.height = height();
+        text.left_inset = m_textClippingRect.left;
+        text.right_inset = m_textClippingRect.right;
+        text.color = m_comboTextColor;
+        text.font_index = 0;
+        text.align = TextRenderAlign::Left;
+        renderText(text);
+    }
+    if (!m_dropdownOpen || GetItemCount() == 0 || m_middleHeight == 0) return;
+
+    const auto listTop = absY() + static_cast<std::int32_t>(height());
+    drawImage(m_topImage, absX(), listTop, m_listWidth, m_topHeight);
+    for (std::size_t i = 0; i < m_items.size(); ++i) {
+        const auto rowY = listTop + static_cast<std::int32_t>(m_topHeight) +
+                          static_cast<std::int32_t>(i) * m_middleHeight;
+        drawImage(m_middleImage, absX(), rowY, m_listWidth, m_middleHeight);
+        TextRenderRequest row;
+        row.text = m_items[i].text;
+        row.x = absX();
+        row.y = rowY;
+        row.width = m_listWidth;
+        row.height = m_middleHeight;
+        row.left_inset = m_textClippingRect.left;
+        row.right_inset = m_textClippingRect.right;
+        row.color = m_comboTextColor;
+        row.font_index = 0;
+        row.align = TextRenderAlign::Left;
+        renderText(row);
+        if (static_cast<int>(i) == m_nOverIdx) {
+            const auto w = static_cast<std::int32_t>(
+                static_cast<float>(m_listWidth) * m_overImageScaleX);
+            const auto h = static_cast<std::int32_t>(
+                static_cast<float>(m_middleHeight) * m_overImageScaleY);
+            drawImage(m_overImage, absX(), rowY, w, h);
+        }
+    }
+    const auto bottomY = listTop + static_cast<std::int32_t>(m_topHeight) +
+                         static_cast<std::int32_t>(m_items.size()) * m_middleHeight;
+    drawImage(m_downImage, absX(), bottomY, m_listWidth, m_downHeight);
 }
 
 void cComboBox::InitComboList(std::uint16_t listWid,
