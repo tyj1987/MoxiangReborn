@@ -772,6 +772,13 @@ void CInGameState::Release() {
     m_keyMask = 0;
     m_moving = false;
     m_cameraDrag = false;
+    // Camera and tick state belong to the world instance.  Reset them here
+    // so a MapChange cannot inherit the previous map's yaw, zoom or elapsed
+    // frame delta before the new GameIn handshake arrives.
+    m_cameraYaw = 0.0f;
+    m_cameraDistance = 7.0f;
+    m_lastTickMs = 0;
+    m_lastMoveSendMs = 0;
     m_inventoryDragSource.reset();
     m_inventoryTab = 0;
     m_chatOpen = false;
