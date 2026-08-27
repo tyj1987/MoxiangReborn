@@ -328,3 +328,16 @@ TEST(CComboBox, PointerHoverTracksOpenRowAndDisabledCloses) {
     c.ActionEvent(5, 25, 0);
     EXPECT_FALSE(c.IsDropdownOpen());
 }
+
+TEST(CComboBox, OutsideClickDismissesDropdown) {
+    mxh::ui::cComboBox c;
+    c.Init(10, 10, 80, 20);
+    c.InitComboList(80, nullptr, 4, nullptr, 20, nullptr, 4, nullptr);
+    c.AddItem({"first", 0xffffffffu, 0});
+    c.ActionEvent(20, 15, mxh::ui::cWindow::MouseFlagLButton);
+    ASSERT_TRUE(c.IsDropdownOpen());
+    EXPECT_EQ(c.ActionEvent(200, 200, mxh::ui::cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonClick));
+    EXPECT_FALSE(c.IsDropdownOpen());
+    EXPECT_EQ(c.GetOverIdx(), -1);
+}

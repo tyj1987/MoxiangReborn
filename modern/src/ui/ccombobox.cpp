@@ -118,6 +118,12 @@ std::uint32_t cComboBox::ActionEvent(std::int32_t mouseX,
             m_dropdownOpen = false;
             return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
         }
+        // Clicking elsewhere dismisses an open legacy combo list. Do this
+        // before world/UI dispatch sees the same mouse-up so a stale dropdown
+        // cannot consume subsequent clicks or leave an unreachable overlay.
+        m_dropdownOpen = false;
+        m_nOverIdx = -1;
+        return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
     } else if (!left && m_dropdownOpen) {
         const auto row = PtIdxInComboList(mouseX, mouseY);
         m_nOverIdx = row < GetItemCount() ? static_cast<int>(row) : -1;
