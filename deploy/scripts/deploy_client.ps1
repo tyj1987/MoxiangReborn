@@ -10,10 +10,16 @@ param(
     [string]$ResourceDir = "",
     [string]$ServerIP = "127.0.0.1",
     [ValidateSet('playdh-current', 'sworking-2008-reference')]
-    [string]$ResourceProfileId = 'playdh-current'
+    [string]$ResourceProfileId = 'playdh-current',
+    [switch]$Help
 )
 
 $ErrorActionPreference = "Stop"
+if ($Help) {
+    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference]'
+    Write-Host '说明: 默认执行完整客户端部署；-Help 只显示帮助，不创建或修改任何文件。'
+    exit 0
+}
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
 $profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
