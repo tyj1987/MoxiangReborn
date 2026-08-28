@@ -843,6 +843,33 @@ TEST(InGamePlayable, ItemNacksBecomeVisiblePlayerFeedback) {
     EXPECT_EQ(state.last_item_error(), "Sale failed.");
 }
 
+TEST(InGamePlayable, InvalidPickupAckDoesNotConsumeGroundDrop) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message notify;
+    notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    notify.payload.resize(20, 0);
+    const std::uint32_t drop_id = 9020u;
+    const std::uint16_t item_id = 502u;
+    std::memcpy(notify.payload.data(), &drop_id, 4);
+    std::memcpy(notify.payload.data() + 8, &item_id, 2);
+    state.on_message(mxh::net::make_connection_id(1), notify);
+    ASSERT_EQ(state.ground_drops().size(), 1u);
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
+    ack.payload.resize(8, 0);
+    std::memcpy(ack.payload.data(), &drop_id, 4);
+    std::memcpy(ack.payload.data() + 4, &item_id, 2);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_EQ(state.ground_drops().size(), 1u);
+    EXPECT_EQ(state.last_item_error(), "Invalid pickup confirmation.");
+}
+
 TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

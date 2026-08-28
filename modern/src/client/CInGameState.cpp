@@ -2173,16 +2173,25 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                 m_pendingPickupDrop = 0;
                 m_pendingPickupSinceMs = 0;
             }
+            const auto item_id = msg.payload.size() >= 6
+                ? get_u16(msg.payload.data() + 4) : 0u;
+            const auto count = msg.payload.size() >= 8
+                ? get_u16(msg.payload.data() + 6) : 0u;
+            if (msg.payload.size() >= 8 && (item_id == 0u || count == 0u)) {
+                m_lastItemError = "Invalid pickup confirmation.";
+                (void)m_uiRuntime.showMessage(9102, m_lastItemError);
+                MLOG_WARN("CInGameState: invalid PickupAck drop=%u item=%u count=%u",
+                          static_cast<unsigned>(drop_id),
+                          static_cast<unsigned>(item_id),
+                          static_cast<unsigned>(count));
+                return;
+            }
             m_groundDrops.erase(
                 std::remove_if(m_groundDrops.begin(), m_groundDrops.end(),
                     [drop_id](const GroundDropInfo& drop) {
                         return drop.object_id == drop_id;
                     }),
                 m_groundDrops.end());
-            const auto item_id = msg.payload.size() >= 6
-                ? get_u16(msg.payload.data() + 4) : 0u;
-            const auto count = msg.payload.size() >= 8
-                ? get_u16(msg.payload.data() + 6) : 0u;
             const bool inventory_updated =
                 apply_pickup_to_inventory(drop_id, item_id, count);
             if (inventory_updated && m_inventoryOpen) {
