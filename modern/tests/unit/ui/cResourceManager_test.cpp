@@ -28,8 +28,18 @@ fs::path resolvePlayDHRoot() {
     #ifdef MXH_PLAYDH_ROOT_TS
     return fs::path(MXH_PLAYDH_ROOT_TS);
     #endif
-    // Hardcoded fallback: assume test runs from <repo>/modern/build
-    return fs::path("C:/moxiang/墨香【源码配套资源】/PlayDH");
+    // Resolve from the executable/test working directory; never depend on a
+    // developer checkout path or the legacy compatibility junction.
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        if (fs::is_directory(candidate, ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
 }
 
 int g_failures = 0;

@@ -79,11 +79,16 @@ fs::path resolvePlayDHRoot() {
     //   C:\moxiang\墨香【源码配套资源】/PlayDH
     // Test 1-9 默认走 modern/data, 但允许 MXH_PLAYDH_ROOT env var 覆盖
     // (CI / portable run 也能用).
-    static const fs::path kModernRoot = fs::path("C:/moxiang/modern/data/PlayDH");
-    if (fs::exists(kModernRoot / "Image" / "InterfaceScript")) {
-        return kModernRoot;
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        if (fs::is_directory(candidate, ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
-    return fs::path("C:/moxiang/墨香【源码配套资源】/PlayDH");
+    return {};
 }
 
 int g_failures = 0;
