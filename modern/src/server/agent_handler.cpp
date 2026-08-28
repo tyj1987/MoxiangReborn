@@ -916,6 +916,30 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
         std::lock_guard<std::mutex> lk(map_route_mu_);
         char_to_client_[char_id]   = id.value;
     }
+    if (char_id != 0) {
+        mxh::db::ResultSet rows;
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(char_id))};
+        if (db_.query("SELECT player_id FROM modern_friend WHERE friend_id=?",
+                      params, rows).ok()) {
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                const auto player_id = static_cast<std::uint32_t>(
+                    get_int(rows, row, "player_id"));
+                std::optional<mxh::net::ConnectionId> target;
+                {
+                    std::lock_guard<std::mutex> lk(map_route_mu_);
+                    const auto it = char_to_client_.find(player_id);
+                    if (it != char_to_client_.end()) target = mxh::net::make_connection_id(it->second);
+                }
+                if (!target.has_value()) continue;
+                mxh::net::Message notify;
+                notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+                notify.header.protocol = 18u; // FriendLoginFriend
+                notify.header.object_id = char_id;
+                reply_(*target, notify);
+            }
+        }
+    }
 }
 
 
