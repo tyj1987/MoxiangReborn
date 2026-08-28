@@ -83,6 +83,11 @@ Args parse_args(int argc, char** argv) {
                       << "  --use-hsel        encrypt the legacy session with the HSEL stream cipher\n";
             std::exit(0);
         }
+        else {
+            std::cerr << "unknown option: " << s << "\n"
+                      << "use --help for valid options\n";
+            std::exit(2);
+        }
     }
     return a;
 }
