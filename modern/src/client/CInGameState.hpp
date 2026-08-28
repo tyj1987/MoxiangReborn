@@ -268,7 +268,10 @@ inline constexpr float kAttackCooldownMs = 800.0f;
 inline constexpr float kAttackRange      = 500.0f;
 inline constexpr float kPickupRange      = 500.0f;
 inline constexpr float kNpcInteractionRange = 500.0f;
-inline constexpr float kWorldLimit       = 50000.0f;
+// Coordinates on the legacy wire are unsigned 16-bit values.  Do not impose
+// an artificial 50,000-unit ceiling: map-specific bounds may use the full
+// representable domain and are clamped only when explicitly supplied.
+inline constexpr float kWorldLimit       = 65535.0f;
 inline constexpr std::uint32_t kVkF      = 0x46;
 inline constexpr std::uint32_t kVkL      = 0x4C;
 
