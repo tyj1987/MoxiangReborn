@@ -2011,6 +2011,17 @@ void CInGameState::handle_friend_message(const mxh::net::Message& msg) {
         (void)m_uiRuntime.showMessage(9121, "Friend removed.");
         return;
     }
+    if (proto == 21u) { // FriendLogoutNotifyToClient
+        for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+            if (auto* friend_dialog = dialog
+                    ? dynamic_cast<mxh::ui::cFriendDialog*>(dialog.get()) : nullptr) {
+                (void)friend_dialog->UpdateStatus(
+                    msg.header.object_id, mxh::services::FriendStatus::Offline);
+                friend_dialog->RefreshFriendList();
+            }
+        }
+        return;
+    }
     if (proto == kFriendAddInvite) {
         m_pendingFriendInviteId = msg.header.object_id;
         if (m_pendingFriendInviteId == 0 && msg.payload.size() >= 4) {
