@@ -42,10 +42,11 @@ namespace mxh::client {
 // -------------------------------------------------------------------------
 
 namespace {
-constexpr std::array<std::string_view, 16> kChinaGameInUiScripts{
+constexpr std::array<std::string_view, 17> kChinaGameInUiScripts{
     "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
     "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
-    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin", "Friend.bin", "Guild.bin"};
+    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin", "Friend.bin", "Guild.bin",
+    "21.bin"};
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::array<std::string_view, 4> kInventoryTabButtonIds{
     "IN_TABBTN1", "IN_TABBTN2", "IN_TABBTN3", "IN_TABBTN4"};
@@ -64,6 +65,7 @@ constexpr std::string_view kFriendDialogTypeAlias = "FRIENDDLG";
 // alias accepted for activation messages from legacy callers.
 constexpr std::string_view kGuildDialogId = "GD_GUILDDLG";
 constexpr std::string_view kGuildDialogTypeAlias = "GUILDDLG";
+constexpr std::string_view kOptionDialogId = "OTI_TABDLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 constexpr float kQuickSlotW = 44.0f;
@@ -792,6 +794,7 @@ void CInGameState::Release() {
     m_lastUiMapNum = 0xffffu;
     m_friendOpen = false;
     m_guildOpen = false;
+    m_optionOpen = false;
     m_uiRuntime.clear();
     m_keyMask = 0;
     m_moving = false;
@@ -2259,6 +2262,11 @@ void CInGameState::set_guild_open(bool open) noexcept {
     m_uiRuntime.setDialogActive(kGuildDialogId, open);
 }
 
+void CInGameState::set_option_open(bool open) noexcept {
+    m_optionOpen = open;
+    m_uiRuntime.setDialogActive(kOptionDialogId, open);
+}
+
 bool CInGameState::select_quest_index(std::size_t index) noexcept {
     if (index >= m_mainQuests.size() || m_mainQuests[index] == nullptr) {
         return false;
@@ -2275,6 +2283,11 @@ bool CInGameState::handle_ui_activation(
     // based shortcut and the real stats dialog receives live state.
     if (activation.legacy_id == "CI_BESTTIP") {
         set_character_open(!m_characterOpen);
+        return true;
+    }
+    if (activation.legacy_id == "CTI_BTN_OPTION") {
+        m_optionOpen = true;
+        m_uiRuntime.setDialogActive(kOptionDialogId, true);
         return true;
     }
     for (std::size_t i = 0; i < kInventoryTabButtonIds.size(); ++i) {
@@ -2324,6 +2337,10 @@ bool CInGameState::handle_ui_activation(
     if (activation.dialog_legacy_id == kGuildDialogId ||
         activation.dialog_legacy_id == kGuildDialogTypeAlias) {
         set_guild_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kOptionDialogId) {
+        set_option_open(false);
         return true;
     }
     return false;
@@ -2413,6 +2430,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     }
     if (vk == kVkEscape && pressed && m_guildOpen) {
         set_guild_open(false);
+        return;
+    }
+    if (vk == kVkEscape && pressed && m_optionOpen) {
+        set_option_open(false);
         return;
     }
     if (vk == kVkBack && pressed && m_chatOpen) {

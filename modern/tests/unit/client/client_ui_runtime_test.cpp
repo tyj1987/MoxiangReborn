@@ -19,6 +19,7 @@
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cfrienddialog.hpp"
+#include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cListCtrl.hpp"
@@ -476,6 +477,25 @@ TEST(ClientUiRuntime, LoadsFriendBinAsConcreteFriendDialog) {
     EXPECT_NE(friends->findWindowByLegacyId("FRI_SENDWHISPERBTN"), nullptr);
 }
 
+TEST(ClientUiRuntime, LoadsOptionBinAsConcreteOptionDialog) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "21.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    ASSERT_EQ(runtime.dialogs().size(), 1u);
+    auto* root = runtime.dialogs().front().get();
+    ASSERT_NE(root, nullptr);
+    auto* options = dynamic_cast<mxh::ui::cOptionDialog*>(root);
+    ASSERT_NE(options, nullptr);
+    EXPECT_EQ(root->legacyId(), "OTI_TABDLG");
+    EXPECT_NE(options->findWindowByLegacyId("OTI_BTN_OK"), nullptr);
+    EXPECT_NE(options->findWindowByLegacyId("OTI_SHEET3"), nullptr);
+}
+
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
@@ -549,6 +569,23 @@ TEST(InGameUiRuntime, CharacterInfoHudButtonTogglesLiveDialog) {
     EXPECT_TRUE(state.handle_ui_activation(click));
     EXPECT_FALSE(state.character_open());
     EXPECT_FALSE(state.ui_runtime().isDialogActive("CI_CHARDLG"));
+}
+
+TEST(InGameUiRuntime, ChatOptionButtonOpensAndClosesRealOptionDialog) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+
+    mxh::client::ClientUiActivation click;
+    click.legacy_id = "CTI_BTN_OPTION";
+    EXPECT_TRUE(state.handle_ui_activation(click));
+    EXPECT_TRUE(state.option_open());
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("OTI_TABDLG"));
+
+    click.legacy_id = "CMI_CLOSEBTN";
+    click.dialog_legacy_id = "OTI_TABDLG";
+    EXPECT_TRUE(state.handle_ui_activation(click));
+    EXPECT_FALSE(state.option_open());
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("OTI_TABDLG"));
 }
 
 TEST(InGameUiRuntime, EnterAndEscapeOwnRealChatDialog) {

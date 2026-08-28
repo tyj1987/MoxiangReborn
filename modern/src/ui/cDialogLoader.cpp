@@ -42,6 +42,7 @@
 #include "mxh/ui/cListDialogEx.hpp"
 #include "mxh/ui/cMugongDialog.hpp"
 #include "mxh/ui/cObjectGuagen.hpp"
+#include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cResourceManager.hpp"
@@ -672,6 +673,9 @@ std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
     }
     if (node.type == "FRIENDDLG") {
         return std::make_unique<cFriendDialog>();
+    }
+    if (node.type == "OPTIONDLG") {
+        return std::make_unique<cOptionDialog>();
     }
     return std::make_unique<cDialog>();
 }
