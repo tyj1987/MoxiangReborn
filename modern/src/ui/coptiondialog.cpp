@@ -112,6 +112,10 @@ void cOptionDialog::Linking() {
     m_cbEnvSound = checkbox("OTI_CB_ENVSOUND");
     m_gbGamma = gauge("OTI_GB_GAMMA"); m_gbSight = gauge("OTI_GB_SIGHT");
     m_gbBgmSound = gauge("OTI_GB_BGMSOUND"); m_gbEnvSound = gauge("OTI_GB_ENVSOUND");
+    if (m_gbGamma) m_gbGamma->InitValue(0, 100, 50);
+    if (m_gbSight) m_gbSight->InitValue(0, 100, 100);
+    if (m_gbBgmSound) m_gbBgmSound->InitValue(0, 100, 100);
+    if (m_gbEnvSound) m_gbEnvSound->InitValue(0, 100, 100);
     m_pbChatMode = pushup("OTI_PB_CHATMODE"); m_pbMacroMode = pushup("OTI_PB_MACROMODE");
     m_pbBasicGraphic = pushup("OTI_PB_BASICGRAPHIC"); m_pbDownGraphic = pushup("OTI_PB_DOWNGRAPHIC");
     m_pbBasicEffect = pushup("OTI_PB_BASICEFFECT"); m_pbOneEffect = pushup("OTI_PB_ONEEFFECT");
@@ -373,6 +377,14 @@ void cOptionDialog::DisableGraphicTab(bool bDisable) {
     // until cGuageBar is fully ported; the modern port just
     // records the flag.
     m_bGraphicTabDisabled = bDisable;
+    const auto setDisabled = [bDisable](cWindow* window) {
+        if (window) window->SetDisable(bDisable);
+    };
+    setDisabled(m_gbGamma); setDisabled(m_gbSight);
+    setDisabled(m_cbShadowHero); setDisabled(m_cbShadowMonster);
+    setDisabled(m_cbShadowOthers); setDisabled(m_pbBasicGraphic);
+    setDisabled(m_pbDownGraphic); setDisabled(m_pbBasicEffect);
+    setDisabled(m_pbOneEffect);
     // 1:1 quirk: legacy UpdateData(FALSE) calls
     //   DisableGraphicTab(m_GameOption.bAutoCtrl)
     // so the flag mirrors bAutoCtrl on every open.

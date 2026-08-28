@@ -21,6 +21,7 @@
 #include "mxh/ui/cfrienddialog.hpp"
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/ccheckbox.hpp"
+#include "mxh/ui/cGuageBar.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cListCtrl.hpp"
@@ -499,6 +500,15 @@ TEST(ClientUiRuntime, LoadsOptionBinAsConcreteOptionDialog) {
     auto* noDeal = dynamic_cast<mxh::ui::cCheckBox*>(
         options->findWindowByLegacyId("OTI_CB_NODEAL"));
     ASSERT_NE(noDeal, nullptr);
+    auto* gamma = dynamic_cast<mxh::ui::cGuageBar*>(
+        options->findWindowByLegacyId("OTI_GB_GAMMA"));
+    ASSERT_NE(gamma, nullptr);
+    EXPECT_EQ(gamma->GetMinValue(), 0);
+    EXPECT_EQ(gamma->GetMaxValue(), 100);
+    options->DisableGraphicTab(true);
+    EXPECT_FALSE(gamma->isEnabled());
+    options->DisableGraphicTab(false);
+    EXPECT_TRUE(gamma->isEnabled());
     options->gameOption().bNoDeal = true;
     options->UpdateData(false);
     EXPECT_TRUE(noDeal->IsChecked());
