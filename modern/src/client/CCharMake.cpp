@@ -684,12 +684,17 @@ bool CCharMake::RotateAppearanceOption(CharMakeOptionCategory category,
 }
 
 bool CCharMake::OnKeyEvent(bool down, std::uint32_t key) {
+    const auto* before_edit = name_edit();
+    const std::string before_name = before_edit ? before_edit->editText() : std::string{};
     const bool consumed = m_uiRuntime.onKey(down, static_cast<std::int32_t>(key));
     if (auto activation = m_uiRuntime.consumeKeyActivation()) {
         handle_ui_activation(*activation);
     }
+    const auto* after_edit = name_edit();
+    if (before_edit && after_edit && before_name != after_edit->editText()) {
+        invalidate_name_check();
+    }
     if (!down) return consumed;
-    if (key == 0x08u) invalidate_name_check(); // VK_BACK
     if (key == 0x0Du) return SubmitCurrentForm() || consumed; // VK_RETURN
     if (key == 0x1Bu) {                                      // VK_ESCAPE
         CancelCreation();
