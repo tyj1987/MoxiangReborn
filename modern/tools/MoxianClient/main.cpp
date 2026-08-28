@@ -3512,7 +3512,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         // is constructed. Rebind authoritative terrain bounds
                         // and static collision to this fresh input target;
                         // otherwise MapChange would leave the new player with
-                        // the old state's default 0..50000 movement limits.
+                        // the protocol-wide default movement limits.
                         if (g_terrain) {
                             g->set_world_bounds(g_terrain->worldWidth(),
                                                 g_terrain->worldHeight());
