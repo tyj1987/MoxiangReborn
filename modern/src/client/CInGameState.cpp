@@ -779,7 +779,6 @@ void CInGameState::Release() {
     m_pendingBuySinceMs = 0;
     m_pendingInventoryMove = false;
     m_pendingInventoryMoveSinceMs = 0;
-    m_pendingInventoryMoveSinceMs = 0;
     // A single CInGameState instance is reused across GameIn -> MapChange ->
     // GameIn transitions.  World entities are owned by the state, so they
     // must be discarded at the release boundary; otherwise the next map
@@ -803,7 +802,6 @@ void CInGameState::Release() {
     m_guildId = 0;
     m_guildMemberCount = 0;
     m_pendingGuildInviteId = 0;
-    m_pendingFriendInviteId = 0;
     m_questSelection = 0;
     m_questStatus = "Not accepted";
     m_failed   = false;
