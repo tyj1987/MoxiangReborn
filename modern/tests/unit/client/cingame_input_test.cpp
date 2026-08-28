@@ -395,6 +395,22 @@ TEST(InGameShop, BuyMessageMatchesModernServerLayout) {
     EXPECT_EQ(m.payload[3], 0u);
 }
 
+TEST(InGameShop, StaleBuyAckDoesNotCloseFreshShop) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message shop;
+    shop.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    shop.header.protocol = mxh::proto::kModernShopList;
+    shop.payload = {7, 0, 0, 0, 1, 0, 0x2B, 0x02, 10, 0, 0, 0};
+    state.on_message(mxh::net::make_connection_id(1), shop);
+    ASSERT_TRUE(state.shop_open());
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_TRUE(state.shop_open());
+}
+
 namespace {
 
 mxh::net::Message make_gamein_ack_at(std::uint16_t x, std::uint16_t z) {

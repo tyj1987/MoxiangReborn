@@ -2249,6 +2249,10 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         }
     } else if (proto == static_cast<std::uint8_t>(
                    mxh::proto::ItemProtocol::BuyAck)) {
+        if (m_pendingBuyItemId == 0) {
+            MLOG_DEBUG("CInGameState: ignoring stale BuyAck");
+            return;
+        }
         m_pendingBuyItemId = 0;
         m_pendingBuySinceMs = 0;
         set_shop_open(false);
