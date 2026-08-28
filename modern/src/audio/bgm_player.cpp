@@ -73,6 +73,17 @@ struct BgmPlayer::MediaState {
 
 bool ensure_media(BgmPlayer::MediaState& media, std::string* error) {
     if (!media.engine) {
+        const auto rollback_init = [&]() noexcept {
+            media.engine.Reset();
+            if (media.mf_started) {
+                MFShutdown();
+                media.mf_started = false;
+            }
+            if (media.com_owned) {
+                CoUninitialize();
+                media.com_owned = false;
+            }
+        };
         const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         if (SUCCEEDED(com)) media.com_owned = true;
         else if (com != RPC_E_CHANGED_MODE && com != S_FALSE) {
@@ -82,12 +93,14 @@ bool ensure_media(BgmPlayer::MediaState& media, std::string* error) {
         const HRESULT mf = MFStartup(MF_VERSION, MFSTARTUP_FULL);
         if (FAILED(mf)) {
             setError(error, "Media Foundation initialization failed: " + std::to_string(mf));
+            if (media.com_owned) { CoUninitialize(); media.com_owned = false; }
             return false;
         }
         media.mf_started = true;
         const HRESULT xa = XAudio2Create(&media.engine, 0, XAUDIO2_DEFAULT_PROCESSOR);
         if (FAILED(xa)) {
             setError(error, "XAudio2 initialization failed: " + std::to_string(xa));
+            rollback_init();
             return false;
         }
         const HRESULT master = media.engine->CreateMasteringVoice(
@@ -95,6 +108,7 @@ bool ensure_media(BgmPlayer::MediaState& media, std::string* error) {
             XAUDIO2_DEFAULT_SAMPLERATE);
         if (FAILED(master)) {
             setError(error, "XAudio2 mastering voice failed: " + std::to_string(master));
+            rollback_init();
             return false;
         }
     }

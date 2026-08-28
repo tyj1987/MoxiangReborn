@@ -68,13 +68,36 @@ struct SfxPlayer::MediaState {
 
 static bool ensure_media(SfxPlayer::MediaState& m, std::string* out) {
     if (m.engine) return true;
+    const auto rollback_init = [&]() noexcept {
+        if (m.mastering) {
+            m.mastering->DestroyVoice();
+            m.mastering = nullptr;
+        }
+        m.engine.Reset();
+        if (m.mf_started) {
+            MFShutdown();
+            m.mf_started = false;
+        }
+        if (m.com_owned) {
+            CoUninitialize();
+            m.com_owned = false;
+        }
+    };
     const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (SUCCEEDED(com)) m.com_owned = true;
     else if (com != RPC_E_CHANGED_MODE && com != S_FALSE) { error(out, "SFX COM initialization failed"); return false; }
-    if (FAILED(MFStartup(MF_VERSION, MFSTARTUP_FULL))) { error(out, "SFX Media Foundation initialization failed"); return false; }
+    if (FAILED(MFStartup(MF_VERSION, MFSTARTUP_FULL))) {
+        error(out, "SFX Media Foundation initialization failed");
+        if (m.com_owned) { CoUninitialize(); m.com_owned = false; }
+        return false;
+    }
     m.mf_started = true;
     if (FAILED(XAudio2Create(&m.engine, 0, XAUDIO2_DEFAULT_PROCESSOR)) ||
-        FAILED(m.engine->CreateMasteringVoice(&m.mastering))) { error(out, "SFX XAudio2 initialization failed"); return false; }
+        FAILED(m.engine->CreateMasteringVoice(&m.mastering))) {
+        error(out, "SFX XAudio2 initialization failed");
+        rollback_init();
+        return false;
+    }
     return true;
 }
 
