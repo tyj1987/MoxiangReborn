@@ -3662,30 +3662,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         if (g_effectVisuals) {
                             g_effectVisuals->consume(effect, renderer);
                         }
-                        if (effect.sound_id > 0xffffu || !sfx.ready() ||
-                            effect.unit_kind != "SOUND") {
-                            continue;
-                        }
-                        const auto distance = game_in->distance_to_object(
-                            effect.source_object_id);
-                        if (!distance.has_value()) {
-                            MLOG_WARN("mxh_client: effect sound source unavailable effect=%s source=%u",
-                                      effect.effect_name.c_str(),
-                                      static_cast<unsigned>(effect.source_object_id));
-                            continue;
-                        }
-                        std::string effect_audio_error;
-                        if (!sfx.playAt(static_cast<std::uint16_t>(effect.sound_id),
-                                        *distance, &effect_audio_error)) {
-                            MLOG_WARN("mxh_client: effect sound unavailable effect=%s id=%u: %s",
-                                      effect.effect_name.c_str(),
-                                      static_cast<unsigned>(effect.sound_id),
-                                      effect_audio_error.c_str());
-                        } else {
-                            MLOG_DEBUG("mxh_client: effect sound id=%u effect=%s",
-                                       static_cast<unsigned>(effect.sound_id),
-                                       effect.effect_name.c_str());
-                        }
                     }
                     for (const auto& effect : game_in->drain_effect_events()) {
                         if (effect.kind != mxh::client::EffectEventKind::Hit ||
