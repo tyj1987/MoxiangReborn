@@ -74,6 +74,7 @@ void CGameLoading::Init(void* param) {
 }
 
 void CGameLoading::Start(CEngine* engine) {
+    if (m_failed || m_cancelled) return;
     if (m_uiRuntime.empty() && (!engine || !engine->playdh_root())) {
         m_failed = true;
         m_error = !engine ? "loading requires a client engine"
@@ -165,6 +166,7 @@ void CMapChange::Release() {
 }
 
 void CMapChange::Start(CEngine* engine) {
+    if (m_failed || m_cancelled) return;
     if (m_uiRuntime.empty() && (!engine || !engine->playdh_root())) {
         m_failed = true;
         m_error = !engine ? "map change requires a client engine"
