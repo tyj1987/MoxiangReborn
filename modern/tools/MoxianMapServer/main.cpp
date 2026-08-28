@@ -291,7 +291,17 @@ int main(int argc, char** argv) {
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
         handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
         handler.load_item_list((root / "Resource" / "ItemList.bin").string());
+        if (!handler.has_loaded_item_list()) {
+            std::cerr << "FATAL: required ItemList.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_experience_curve((root / "Resource" / "CharacterExpPoint.bin").string());
+        if (!handler.has_loaded_experience_curve()) {
+            std::cerr << "FATAL: required CharacterExpPoint.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_quest_script(
             (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
         handler.load_quest_npcs(
