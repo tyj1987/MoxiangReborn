@@ -1833,7 +1833,18 @@ void CInGameState::handle_party_message(const mxh::net::Message& msg) {
     }
     if (proto == PartyProtocol::AddInvite && msg.payload.size() >= 4) {
         std::memcpy(&m_pendingPartyInviteId, msg.payload.data(), sizeof(m_pendingPartyInviteId));
-        m_uiRuntime.showMessage(9104, "You received a party invitation.");
+        // Invitations require an explicit player decision.  A passive toast
+        // left the pending invite stranded and made the advertised party
+        // flow impossible to complete with keyboard/mouse alone.
+        m_uiRuntime.showConfirmation(
+            9104, "You received a party invitation. Accept?",
+            [this](bool confirmed) {
+                if (confirmed) {
+                    (void)accept_party_invite();
+                } else {
+                    m_pendingPartyInviteId = 0;
+                }
+            });
         return;
     }
     if (proto == PartyProtocol::InviteAcceptAck && msg.payload.size() >= 5) {

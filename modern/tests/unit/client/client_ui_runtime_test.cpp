@@ -573,6 +573,20 @@ TEST(InGameUiRuntime, OptionOkActivationDispatchesConcreteDialogAction) {
     EXPECT_FALSE(state.option_open());
 }
 
+TEST(InGameUiRuntime, PartyInviteCreatesInteractiveConfirmationModal) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message invite;
+    invite.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    invite.header.protocol = static_cast<std::uint8_t>(mxh::proto::PartyProtocol::AddInvite);
+    const std::uint32_t party_id = 4242;
+    invite.payload.resize(sizeof(party_id));
+    std::memcpy(invite.payload.data(), &party_id, sizeof(party_id));
+    state.on_message(mxh::net::ConnectionId{7}, invite);
+    EXPECT_EQ(state.pending_party_invite_id(), party_id);
+    EXPECT_TRUE(state.ui_runtime().hasModal());
+}
+
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
