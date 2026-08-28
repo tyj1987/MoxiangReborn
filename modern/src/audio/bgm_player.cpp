@@ -74,6 +74,10 @@ struct BgmPlayer::MediaState {
 bool ensure_media(BgmPlayer::MediaState& media, std::string* error) {
     if (!media.engine) {
         const auto rollback_init = [&]() noexcept {
+            if (media.mastering) {
+                media.mastering->DestroyVoice();
+                media.mastering = nullptr;
+            }
             media.engine.Reset();
             if (media.mf_started) {
                 MFShutdown();
