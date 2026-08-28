@@ -64,6 +64,17 @@ TEST(CEngine, EmitsResolvedSoundIdsWithClampedDistance) {
     EXPECT_FLOAT_EQ(distance, 0.0f);
 }
 
+TEST(CEngine, EmitsSpatialCueWithNonNegativeDistance) {
+    mxh::client::CEngine engine;
+    float distance = -1.0f;
+    engine.SetSpatialAudioEventFn([&](mxh::client::CEngine::AudioCue cue, float d) {
+        EXPECT_EQ(cue, mxh::client::CEngine::AudioCue::Pickup);
+        distance = d;
+    });
+    engine.EmitAudioAt(mxh::client::CEngine::AudioCue::Pickup, -8.0f);
+    EXPECT_FLOAT_EQ(distance, 0.0f);
+}
+
 TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
     CMainGame game;
     game.Init(nullptr);

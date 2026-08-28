@@ -2186,6 +2186,16 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                           static_cast<unsigned>(count));
                 return;
             }
+            float pickup_distance = 0.0f;
+            if (const auto drop_it = std::find_if(
+                    m_groundDrops.begin(), m_groundDrops.end(),
+                    [drop_id](const GroundDropInfo& drop) {
+                        return drop.object_id == drop_id;
+                    }); drop_it != m_groundDrops.end()) {
+                const float dx = drop_it->position_x - m_localX;
+                const float dz = drop_it->position_z - m_localZ;
+                pickup_distance = std::sqrt(dx * dx + dz * dz);
+            }
             m_groundDrops.erase(
                 std::remove_if(m_groundDrops.begin(), m_groundDrops.end(),
                     [drop_id](const GroundDropInfo& drop) {
@@ -2203,7 +2213,8 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                       drop_id, item_id, count,
                       inventory_updated ? "updated" : "full-or-invalid");
             if (inventory_updated && m_pEngine) {
-                m_pEngine->EmitAudio(CEngine::AudioCue::Pickup);
+                m_pEngine->EmitAudioAt(CEngine::AudioCue::Pickup,
+                                       pickup_distance);
             } else if (!inventory_updated) {
                 // The server has already consumed the ground drop.  Report a
                 // full/invalid inventory immediately instead of silently
