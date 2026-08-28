@@ -220,16 +220,7 @@ std::string normalize_for_compare(const std::string& s) {
 }
 
 std::vector<std::string> collect_bin_names() {
-    fs::path playdh;
-    fs::path candidates[] = {
-        "modern/data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c / "Image" / "InterfaceScript", ec)) { playdh = c; break; }
-    }
+    const fs::path playdh = locate_playdh();
     std::vector<std::string> names;
     if (!playdh.empty()) {
         for (auto& e : fs::directory_iterator(playdh / "Image" / "InterfaceScript")) {
