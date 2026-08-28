@@ -5,6 +5,7 @@
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 #include "cinventoryexdialog.hpp"
+#include "mxh/ui/wearedexdialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cmpguagedialog.hpp"
@@ -2162,6 +2163,11 @@ void CInGameState::set_inventory_open(bool open) noexcept {
         inventory->SetInventoryService(m_inventoryService.get());
         inventory->SetMoney(m_info.money);
         inventory->RefreshFromInventoryService();
+        if (auto* wear = dynamic_cast<mxh::ui::cWearedExDialog*>(
+                inventory->findWindowByLegacyId("IN_WEAREDDLG"))) {
+            wear->SetInventoryService(m_inventoryService.get());
+            wear->RefreshFromInventoryService();
+        }
         break;
     }
 }

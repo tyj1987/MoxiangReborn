@@ -3,6 +3,10 @@
 // data-model rationale + 1:1 quirks.
 
 #include "wearedexdialog.hpp"
+#include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cResourceManager.hpp"
+
+#include <array>
 // cIcon class is forward-declared in cIconDialog.hpp
 // (no modern port yet — R-12.x deferred). The ctor
 // in wearedexdialog.cpp doesn't dereference cIcon*, so
@@ -25,6 +29,37 @@ cWearedExDialog::cWearedExDialog() {
 }
 
 cWearedExDialog::~cWearedExDialog() = default;
+
+void cWearedExDialog::RefreshFromInventoryService() {
+    if (!m_inventory) return;
+
+    // The ten rectangles are the live IN_WEAREDDLG layout also used by the
+    // gameplay hit-test (hat, weapon, dress, shoes, rings, cape, necklace,
+    // armlet and belt).
+    static constexpr std::array<std::array<std::int32_t, 2>, 10> kCells{{
+        {{53, 28}}, {{8, 73}}, {{98, 73}}, {{53, 118}},
+        {{143, 28}}, {{188, 28}}, {{143, 73}}, {{188, 73}},
+        {{143, 118}}, {{188, 118}}}};
+    SetCellNum(static_cast<std::uint16_t>(kCells.size()));
+    for (const auto& cell : kCells) AddIconCell(cell[0], cell[1], 42, 42);
+    m_owned_icons.clear();
+
+    for (std::size_t slot = 0; slot < kCells.size(); ++slot) {
+        const auto* item = m_inventory->getWearedItem(
+            static_cast<std::uint8_t>(slot));
+        if (!item || item->dwDBIdx == 0 || item->wIconIdx == 0) continue;
+        auto* image = cDialogLoader::LoadLegacyPathImage(
+            item->wIconIdx, PathFileType::ItemPath);
+        if (!image) continue;
+        auto icon = std::make_unique<cIcon>();
+        icon->InitIcon(0, 0, 42, 42, image, 0,
+                       static_cast<std::int32_t>(slot));
+        auto* icon_ptr = icon.get();
+        if (AddIcon(static_cast<std::uint16_t>(slot), icon_ptr)) {
+            m_owned_icons.push_back(std::move(icon));
+        }
+    }
+}
 
 bool cWearedExDialog::AddItem(std::uint16_t relPos, cIcon* inIcon) {
     // 1:1 with legacy CWearedExDialog::AddItem. The
