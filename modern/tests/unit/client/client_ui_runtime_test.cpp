@@ -31,6 +31,11 @@
 
 namespace {
 
+struct OptionApplyProbe { int calls = 0; };
+void option_apply_probe(mxh::ui::sGAMEOPTION*, void* user) {
+    ++static_cast<OptionApplyProbe*>(user)->calls;
+}
+
 TEST(ClientUiRuntime, SetProgressValueUpdatesNestedGauges) {
     mxh::client::ClientUiRuntime runtime;
     auto dialog = std::make_unique<mxh::ui::cDialog>();
@@ -515,6 +520,29 @@ TEST(ClientUiRuntime, LoadsOptionBinAsConcreteOptionDialog) {
     noDeal->SetChecked(false);
     options->UpdateData(true);
     EXPECT_FALSE(options->gameOption().bNoDeal);
+}
+
+TEST(InGameUiRuntime, OptionOkActivationDispatchesConcreteDialogAction) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    std::string ui_error;
+    ASSERT_TRUE(state.ui_runtime().load(find_playdh_root(), "21.bin",
+                                        mxh::ui::ResolutionMode::Low800x600,
+                                        &ui_error)) << ui_error;
+    auto* option = state.option_dialog();
+    ASSERT_NE(option, nullptr);
+    OptionApplyProbe probe;
+    option->SetApplyCallbackForTest(&option_apply_probe, &probe);
+    mxh::client::ClientUiActivation open;
+    open.legacy_id = "CTI_BTN_OPTION";
+    EXPECT_TRUE(state.handle_ui_activation(open));
+    ASSERT_TRUE(state.option_open());
+    mxh::client::ClientUiActivation ok;
+    ok.legacy_id = "OTI_BTN_OK";
+    ok.dialog_legacy_id = "OTI_TABDLG";
+    EXPECT_TRUE(state.handle_ui_activation(ok));
+    EXPECT_EQ(probe.calls, 1);
+    EXPECT_FALSE(state.option_open());
 }
 
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {

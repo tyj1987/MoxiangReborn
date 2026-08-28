@@ -2269,8 +2269,17 @@ void CInGameState::set_option_open(bool open) noexcept {
 }
 
 mxh::ui::cOptionDialog* CInGameState::option_dialog() noexcept {
-    return dynamic_cast<mxh::ui::cOptionDialog*>(
-        m_uiRuntime.findWindowByLegacyId(kOptionDialogId));
+    // ClientUiRuntime intentionally hides inactive dialogs from lookups so
+    // input cannot leak into hidden windows.  Options are normally inactive
+    // until the HUD button opens them, therefore resolve the owning root
+    // directly here and let set_option_open control its active state.
+    for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+        if (!dialog || dialog->legacyId() != kOptionDialogId) continue;
+        if (auto* option = dynamic_cast<mxh::ui::cOptionDialog*>(dialog.get())) {
+            return option;
+        }
+    }
+    return nullptr;
 }
 
 bool CInGameState::select_quest_index(std::size_t index) noexcept {
@@ -2295,6 +2304,27 @@ bool CInGameState::handle_ui_activation(
         m_optionOpen = true;
         m_uiRuntime.setDialogActive(kOptionDialogId, true);
         return true;
+    }
+    if (activation.dialog_legacy_id == kOptionDialogId) {
+        if (auto* option = option_dialog()) {
+            if (activation.legacy_id == "OTI_BTN_OK") {
+                option->OnActionEvent(mxh::ui::cOptionDialog::kOtiBtnOk, nullptr,
+                                      mxh::ui::legacy_window_event::kButtonClick);
+                set_option_open(false);
+                return true;
+            }
+            if (activation.legacy_id == "OTI_BTN_CANCEL") {
+                option->OnActionEvent(mxh::ui::cOptionDialog::kOtiBtnCancel, nullptr,
+                                      mxh::ui::legacy_window_event::kButtonClick);
+                set_option_open(false);
+                return true;
+            }
+            if (activation.legacy_id == "OTI_BTN_RESET") {
+                option->OnActionEvent(mxh::ui::cOptionDialog::kOtiBtnReset, nullptr,
+                                      mxh::ui::legacy_window_event::kButtonClick);
+                return true;
+            }
+        }
     }
     for (std::size_t i = 0; i < kInventoryTabButtonIds.size(); ++i) {
         if (activation.legacy_id == kInventoryTabButtonIds[i]) {
