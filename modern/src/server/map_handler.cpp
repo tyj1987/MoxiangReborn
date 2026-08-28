@@ -3725,6 +3725,10 @@ void MapHandler::init_skill_table() {
                   << " skills (hardcoded fallback skipped)\n";
         return;
     }
+    if (!allow_dev_skill_fallback_) {
+        std::cout << "[Map] SkillList.bin unavailable; hardcoded skill fallback disabled\n";
+        return;
+    }
     using namespace mxh::game;
     auto& t = skill_table_;
     add_simple_skill(t, 1,  "BasicSlash", 0, 3, 0, 500, 0, 0, 0, 15, 0,  100, 5,  0, 0);

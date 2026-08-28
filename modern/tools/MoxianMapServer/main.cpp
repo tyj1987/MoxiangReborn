@@ -331,6 +331,7 @@ int main(int argc, char** argv) {
     // M3 dev-stub-caster (side-by-side harness only).
     handler.set_dev_stub_caster(args.dev_stub_caster);
     handler.set_allow_dev_monster_fallback(args.allow_dev_fallbacks);
+    handler.set_allow_dev_skill_fallback(args.allow_dev_fallbacks);
     handler.set_dev_initial_money(args.dev_initial_money);
 
     mxh::net::TcpServer server(handler);

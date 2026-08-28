@@ -2707,6 +2707,17 @@ TEST(MapHandlerTest, ProductionModeKeepsValidEmptyRegenEmpty) {
     EXPECT_EQ(handler.monster_count_for_test(), 0u);
 }
 
+TEST(MapHandlerTest, ProductionModeDisablesHardcodedSkillFallback) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 12, make_reply_spy(reply));
+    ASSERT_NE(handler.find_skill(1u), nullptr);
+
+    handler.set_allow_dev_skill_fallback(false);
+
+    EXPECT_EQ(handler.find_skill(1u), nullptr);
+}
+
 TEST(MapHandlerTest, OnDisconnectDoesNotCrash) {
     MockDbAdapter db;
     ReplySpy reply;
