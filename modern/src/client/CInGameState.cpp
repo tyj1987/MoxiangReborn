@@ -33,6 +33,18 @@
 
 namespace mxh::client {
 
+namespace {
+// Values are fixed by the protected legacy MP_FRIEND protocol header.
+constexpr std::uint8_t kFriendAddSyn = 0;
+constexpr std::uint8_t kFriendAddAccept = 4;
+constexpr std::uint8_t kFriendAddInvite = 3;
+constexpr std::uint8_t kFriendAddAcceptAck = 5;
+constexpr std::uint8_t kFriendAddAcceptNack = 6;
+constexpr std::uint8_t kFriendAddDeny = 7;
+constexpr std::uint8_t kFriendAddAck = 1;
+constexpr std::uint8_t kFriendAddNack = 2;
+}
+
 // -------------------------------------------------------------------------
 // Wire-format helpers (pure functions, unit-tested independently).
 //
@@ -774,12 +786,14 @@ void CInGameState::Release() {
     m_pendingBuySinceMs = 0;
     m_lastAttackTarget = 0;
     m_pendingAttackTarget = 0;
+    m_pendingFriendInviteId = 0;
     m_partyId = 0;
     m_partyMemberCount = 0;
     m_pendingPartyInviteId = 0;
     m_guildId = 0;
     m_guildMemberCount = 0;
     m_pendingGuildInviteId = 0;
+    m_pendingFriendInviteId = 0;
     m_questSelection = 0;
     m_questStatus = "Not accepted";
     m_failed   = false;
@@ -1279,6 +1293,9 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
             break;
         case Category::Guild:
             handle_guild_message(msg);
+            break;
+        case Category::Friend:
+            handle_friend_message(msg);
             break;
         case Category::Item:
             handle_item_broadcast(msg);
@@ -1913,6 +1930,33 @@ void CInGameState::handle_guild_message(const mxh::net::Message& msg) {
     if (proto == GuildProtocol::CreateNack || proto == GuildProtocol::AddMemberNack ||
         proto == GuildProtocol::InviteAcceptNack || proto == GuildProtocol::BreakupNack) {
         m_uiRuntime.showMessage(9112, "Guild action failed.");
+    }
+}
+
+void CInGameState::handle_friend_message(const mxh::net::Message& msg) {
+    const auto proto = msg.header.protocol;
+    if (proto == kFriendAddInvite) {
+        m_pendingFriendInviteId = msg.header.object_id;
+        if (m_pendingFriendInviteId == 0 && msg.payload.size() >= 4) {
+            std::memcpy(&m_pendingFriendInviteId, msg.payload.data(), 4);
+        }
+        if (m_pendingFriendInviteId == 0) return;
+        m_uiRuntime.showConfirmation(
+            9120, "You received a friend request. Accept?",
+            [this](bool confirmed) {
+                if (confirmed) (void)accept_friend_invite();
+                else (void)deny_friend_invite();
+            });
+        return;
+    }
+    if (proto == kFriendAddAcceptAck || proto == kFriendAddAck) {
+        m_pendingFriendInviteId = 0;
+        m_uiRuntime.showMessage(9121, "Friend request accepted.");
+        return;
+    }
+    if (proto == kFriendAddAcceptNack || proto == kFriendAddNack) {
+        m_pendingFriendInviteId = 0;
+        m_uiRuntime.showMessage(9122, "Friend request failed.");
     }
 }
 
@@ -3533,6 +3577,35 @@ bool CInGameState::accept_guild_invite() {
     return m_pEngine->agent_session().send(make_guild_request_message(
                m_playerId, mxh::proto::GuildProtocol::InviteAccept, payload)) ==
            mxh::net::NetError::Ok;
+}
+
+bool CInGameState::request_friend_add(std::uint32_t target_player_id) {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || target_player_id == 0) return false;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    message.header.protocol = kFriendAddSyn;
+    message.header.object_id = target_player_id;
+    return m_pEngine->agent_session().send(std::move(message)) == mxh::net::NetError::Ok;
+}
+
+bool CInGameState::accept_friend_invite() {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || m_pendingFriendInviteId == 0) return false;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    message.header.protocol = kFriendAddAccept;
+    message.header.object_id = m_pendingFriendInviteId;
+    return m_pEngine->agent_session().send(std::move(message)) == mxh::net::NetError::Ok;
+}
+
+bool CInGameState::deny_friend_invite() {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || m_pendingFriendInviteId == 0) return false;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    message.header.protocol = kFriendAddDeny;
+    message.header.object_id = m_pendingFriendInviteId;
+    const auto result = m_pEngine->agent_session().send(std::move(message));
+    if (result == mxh::net::NetError::Ok) m_pendingFriendInviteId = 0;
+    return result == mxh::net::NetError::Ok;
 }
 
 void CInGameState::fail_with(const std::string& reason) {

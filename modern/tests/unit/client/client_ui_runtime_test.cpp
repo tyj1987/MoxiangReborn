@@ -601,6 +601,18 @@ TEST(InGameUiRuntime, GuildInviteCreatesInteractiveConfirmationModal) {
     EXPECT_TRUE(state.ui_runtime().hasModal());
 }
 
+TEST(InGameUiRuntime, FriendInviteCreatesInteractiveConfirmationModal) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message invite;
+    invite.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    invite.header.protocol = 3; // MP_FRIEND_ADD_INVITE
+    invite.header.object_id = 6262;
+    state.on_message(mxh::net::ConnectionId{9}, invite);
+    EXPECT_EQ(state.pending_friend_invite_id(), 6262u);
+    EXPECT_TRUE(state.ui_runtime().hasModal());
+}
+
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

@@ -485,6 +485,10 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool request_guild_invite(std::uint32_t target_player_id);
     bool accept_guild_invite();
     std::uint32_t pending_guild_invite_id() const noexcept { return m_pendingGuildInviteId; }
+    bool request_friend_add(std::uint32_t target_player_id);
+    bool accept_friend_invite();
+    bool deny_friend_invite();
+    std::uint32_t pending_friend_invite_id() const noexcept { return m_pendingFriendInviteId; }
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
     const std::string& last_item_error() const noexcept { return m_lastItemError; }
@@ -531,6 +535,7 @@ public:
     void handle_chat_broadcast(const mxh::net::Message& msg);
     void handle_party_message(const mxh::net::Message& msg);
     void handle_guild_message(const mxh::net::Message& msg);
+    void handle_friend_message(const mxh::net::Message& msg);
     void handle_item_broadcast(const mxh::net::Message& msg);
     void handle_npc_message(const mxh::net::Message& msg);
     bool apply_pickup_to_inventory(std::uint32_t drop_id,
@@ -625,6 +630,7 @@ public:
     std::uint32_t m_guildId = 0;
     std::uint8_t m_guildMemberCount = 0;
     std::uint32_t m_pendingGuildInviteId = 0;
+    std::uint32_t m_pendingFriendInviteId = 0;
     bool                 m_inventoryOpen = false;
     std::size_t          m_inventoryTab = 0;
     ClientUiRuntime      m_uiRuntime;
