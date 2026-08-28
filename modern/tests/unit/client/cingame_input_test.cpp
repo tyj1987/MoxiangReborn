@@ -137,6 +137,19 @@ TEST(InGamePlayable, OpeningChatClearsLatchedMovementInput) {
     EXPECT_EQ(state.local_z(), 1000u);
 }
 
+TEST(InGamePlayable, ChatModalConsumesCameraWheel) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::client::GameInInfo info;
+    info.player_id = 42;
+    info.map_num = 10;
+    state.dispatch_gamein_ack(info);
+    state.set_chat_open(true);
+    const auto distance = state.camera_distance();
+    state.OnMouseWheel(-120);
+    EXPECT_FLOAT_EQ(state.camera_distance(), distance);
+}
+
 TEST(InGamePlayable, MKeyTogglesLoadedBigMapDialogState) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
