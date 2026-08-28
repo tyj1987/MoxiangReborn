@@ -666,6 +666,9 @@ std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
     if (node.type == "CHARMAKEDLG") {
         return std::make_unique<cCharMakeDlg>();
     }
+    if (node.type == "GUILDDLG") {
+        return std::make_unique<cGuildDialog>();
+    }
     return std::make_unique<cDialog>();
 }
 }  // namespace
@@ -748,6 +751,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         // roots.
         if (root->type == "BIGMAPDLG" && !root->id.has_value()) {
             dlg->setLegacyId("BIGMAPDLG");
+        }
+        if (root->type == "GUILDDLG" && !root->id.has_value()) {
+            dlg->setLegacyId("GUILDDLG");
         }
         dlg->setName(r.bin_name);
         if (!first_point_set) {

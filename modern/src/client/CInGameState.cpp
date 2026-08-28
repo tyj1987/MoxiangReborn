@@ -57,7 +57,10 @@ constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
 constexpr std::string_view kChatDialogId = "CTI_DLG";
 constexpr std::string_view kBigMapDialogId = "BIGMAPDLG";
 constexpr std::string_view kFriendDialogId = "FRIENDDLG";
-constexpr std::string_view kGuildDialogId = "GUILDDLG";
+// Guild.bin carries the concrete root ID GD_GUILDDLG. Keep the old type-name
+// alias accepted for activation messages from legacy callers.
+constexpr std::string_view kGuildDialogId = "GD_GUILDDLG";
+constexpr std::string_view kGuildDialogTypeAlias = "GUILDDLG";
 constexpr std::array<std::string_view, 4> kDefaultHudDialogIds{
     "MI_MAINDLG", "QI_QUICKDLG", "MNM_DIALOG", "CG_GUAGEDLG"};
 constexpr float kQuickSlotW = 44.0f;
@@ -2314,7 +2317,8 @@ bool CInGameState::handle_ui_activation(
         set_friend_open(false);
         return true;
     }
-    if (activation.dialog_legacy_id == kGuildDialogId) {
+    if (activation.dialog_legacy_id == kGuildDialogId ||
+        activation.dialog_legacy_id == kGuildDialogTypeAlias) {
         set_guild_open(false);
         return true;
     }

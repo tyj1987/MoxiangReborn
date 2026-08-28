@@ -17,6 +17,7 @@
 #include "CInGameState.hpp"
 #include "CMainTitle.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cListCtrl.hpp"
@@ -434,6 +435,25 @@ TEST(ClientUiRuntime, LoadsLegacyChinaGameInCoreDialogSet) {
     EXPECT_FALSE(runtime.isDialogActive("IN_INVENTORYDLG"));
     EXPECT_FALSE(runtime.isDialogActive("QUE_TOTALDLG"));
     EXPECT_FALSE(runtime.isDialogActive("ITMALL_BASEDLG"));
+}
+
+TEST(ClientUiRuntime, LoadsGuildBinAsConcreteGuildDialog) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "Guild.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    ASSERT_EQ(runtime.dialogs().size(), 1u);
+    auto* root = runtime.dialogs().front().get();
+    ASSERT_NE(root, nullptr);
+    auto* guild = dynamic_cast<mxh::ui::cGuildDialog*>(root);
+    ASSERT_NE(guild, nullptr);
+    EXPECT_NE(guild->MemberList(), nullptr);
+    EXPECT_NE(guild->findWindowByLegacyId("GD_NAME"), nullptr);
+    EXPECT_NE(guild->findWindowByLegacyId("GD_MEMBERNUM"), nullptr);
 }
 
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
