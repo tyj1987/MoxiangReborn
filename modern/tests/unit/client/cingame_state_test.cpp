@@ -17,6 +17,24 @@ using mxh::client::parse_legacy_mugong_total;
 using mxh::client::parse_legacy_item_total;
 using mxh::client::parse_legacy_npc_add;
 
+namespace {
+std::filesystem::path find_playdh_root() {
+    std::error_code ec;
+    auto cursor = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    if (ec) return {};
+    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+        const auto modern = cursor / "modern" / "data" / "PlayDH";
+        if (std::filesystem::is_directory(modern, ec)) return modern;
+        const auto local = cursor / "data" / "PlayDH";
+        if (std::filesystem::is_directory(local, ec)) return local;
+        const auto parent = cursor.parent_path();
+        if (parent == cursor) break;
+        cursor = parent;
+    }
+    return {};
+}
+}  // namespace
+
 TEST(InGameMapFlow, IgnoresChangeMapAckBeforeGameInActivation) {
     mxh::client::CEngine engine;
     mxh::client::CInGameState state;
@@ -33,7 +51,9 @@ TEST(InGameMapFlow, IgnoresChangeMapAckBeforeGameInActivation) {
 
 TEST(InGameDisplay, UsesEngineResolutionDuringInitialUiLoad) {
     mxh::client::CEngine engine;
-    engine.SetPlaydhRoot(std::filesystem::path("modern/data/PlayDH"));
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    engine.SetPlaydhRoot(playdh);
     engine.SetUiResolutionMode(mxh::ui::ResolutionMode::Mid1024x768);
     mxh::client::CInGameState state;
     state.Init(&engine);
