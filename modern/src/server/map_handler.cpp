@@ -3109,10 +3109,15 @@ void MapHandler::spawn_monsters() {
                 break;
             }
         }
-        if (!tmpl && !monster_templates_.empty()) {
-            tmpl = &monster_templates_[0];  // fallback to first template
+        if (!tmpl) {
+            // Never substitute an unrelated monster template: doing so
+            // changes the visible model, combat stats and drop table for a
+            // legitimate spawn point. Keep the map deterministic and make
+            // the missing resource observable instead.
+            std::cerr << "[Map] skipped spawn with missing monster template kind="
+                      << sp.NpcKind << " name=" << sp.Name << "\n";
+            continue;
         }
-        if (!tmpl) continue;
 
         mxh::game::MonsterInstance m;
         m.object_id     = next_monster_id_++;
