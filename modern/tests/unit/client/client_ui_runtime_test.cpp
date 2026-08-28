@@ -18,6 +18,7 @@
 #include "CMainTitle.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cGuildDialog.hpp"
+#include "mxh/ui/cfrienddialog.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cListCtrl.hpp"
@@ -454,6 +455,25 @@ TEST(ClientUiRuntime, LoadsGuildBinAsConcreteGuildDialog) {
     EXPECT_NE(guild->MemberList(), nullptr);
     EXPECT_NE(guild->findWindowByLegacyId("GD_NAME"), nullptr);
     EXPECT_NE(guild->findWindowByLegacyId("GD_MEMBERNUM"), nullptr);
+}
+
+TEST(ClientUiRuntime, LoadsFriendBinAsConcreteFriendDialog) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "Friend.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+    ASSERT_EQ(runtime.dialogs().size(), 1u);
+    auto* root = runtime.dialogs().front().get();
+    ASSERT_NE(root, nullptr);
+    auto* friends = dynamic_cast<mxh::ui::cFriendDialog*>(root);
+    ASSERT_NE(friends, nullptr);
+    EXPECT_NE(friends->FriendList(), nullptr);
+    EXPECT_NE(friends->findWindowByLegacyId("FRI_ADDFRIENDBTN"), nullptr);
+    EXPECT_NE(friends->findWindowByLegacyId("FRI_SENDWHISPERBTN"), nullptr);
 }
 
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {

@@ -18,6 +18,7 @@
 #include "mxh/ui/minimapdlg.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
+#include "mxh/ui/cfrienddialog.hpp"
 #include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cinventoryexdialog.hpp"
 #include "mxh/ui/cmainbardialog.hpp"
@@ -669,6 +670,9 @@ std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
     if (node.type == "GUILDDLG") {
         return std::make_unique<cGuildDialog>();
     }
+    if (node.type == "FRIENDDLG") {
+        return std::make_unique<cFriendDialog>();
+    }
     return std::make_unique<cDialog>();
 }
 }  // namespace
@@ -755,6 +759,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         if (root->type == "GUILDDLG" && !root->id.has_value()) {
             dlg->setLegacyId("GUILDDLG");
         }
+        if (root->type == "FRIENDDLG" && !root->id.has_value()) {
+            dlg->setLegacyId("FRIENDDLG");
+        }
         dlg->setName(r.bin_name);
         if (!first_point_set) {
             const auto& p = *root->point;
@@ -787,6 +794,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         }
         if (auto* guild = dynamic_cast<cGuildDialog*>(dlg.get())) {
             guild->Linking();
+        }
+        if (auto* friend_dialog = dynamic_cast<cFriendDialog*>(dlg.get())) {
+            friend_dialog->Linking();
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
