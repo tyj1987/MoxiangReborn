@@ -288,6 +288,11 @@ int main(int argc, char** argv) {
             ? (root / "Resource" / "MonsterDropItemList.bin")
             : (root / "Resource" / "Server" / "MonsterDropItemList.bin");
         handler.load_drop_item_list(drop_path.string(), args.resource_profile);
+        if (!handler.has_loaded_drop_tables()) {
+            std::cerr << "FATAL: required MonsterDropItemList.bin could not be loaded from "
+                      << drop_path.string() << "\n";
+            return 1;
+        }
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
         handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
         handler.load_item_list((root / "Resource" / "ItemList.bin").string());
