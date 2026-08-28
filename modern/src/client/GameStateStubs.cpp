@@ -112,10 +112,14 @@ void CGameLoading::Process() {
     // Loading has a terminal state: cancellation or the first failure must
     // not be overwritten by a late worker callback.
     if (m_failed || m_cancelled) return;
-    if (context->total_steps != 0) {
-        m_progress = std::clamp(static_cast<float>(context->completed_steps) /
-                                static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    if (context->total_steps == 0) {
+        m_failed = true;
+        m_error = "loading context has zero steps";
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        return;
     }
+    m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                            static_cast<float>(context->total_steps), 0.0f, 1.0f);
     m_uiRuntime.setProgressValue(m_progress);
     m_cancelled = context->cancelled;
     if (!m_cancelled && context->failed) {
@@ -193,13 +197,14 @@ void CMapChange::Process() {
     // MapChange shares the same terminal-state contract as GameLoading:
     // once cancelled or failed, late asynchronous results are ignored.
     if (m_failed || m_cancelled) return;
-    if (context->total_steps != 0) {
-        m_progress = std::clamp(static_cast<float>(context->completed_steps) /
-                                static_cast<float>(context->total_steps), 0.0f, 1.0f);
-    } else {
+    if (context->total_steps == 0) {
         m_failed = true;
         m_error = "map change context has zero steps";
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
+        return;
     }
+    m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                            static_cast<float>(context->total_steps), 0.0f, 1.0f);
     m_uiRuntime.setProgressValue(m_progress);
     m_cancelled = context->cancelled;
     if (!m_cancelled && context->failed) {

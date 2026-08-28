@@ -112,6 +112,19 @@ TEST(CGameLoading, MissingContextFailsClosedInsteadOfHanging) {
     EXPECT_EQ(state.error(), "loading context is missing");
 }
 
+TEST(CGameLoading, RuntimeZeroStepContextFailsClosed) {
+    LoadStateContext context{};
+    context.total_steps = 4;
+    context.completed_steps = 2;
+    CGameLoading state;
+    state.Init(&context);
+    context.total_steps = 0;
+    state.Process();
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "loading context has zero steps");
+    EXPECT_LT(state.progress(), 1.0f);
+}
+
 TEST(CMapChange, TracksProgressCancellationAndFailure) {
     LoadStateContext context;
     context.completed_steps = 4;
@@ -202,6 +215,19 @@ TEST(CMapChange, MissingContextFailsClosedInsteadOfHanging) {
     state.Process();
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "map change context is missing");
+}
+
+TEST(CMapChange, RuntimeZeroStepContextFailsClosed) {
+    LoadStateContext context{};
+    context.total_steps = 4;
+    context.completed_steps = 2;
+    CMapChange state;
+    state.Init(&context);
+    context.total_steps = 0;
+    state.Process();
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "map change context has zero steps");
+    EXPECT_LT(state.progress(), 1.0f);
 }
 
 TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {
