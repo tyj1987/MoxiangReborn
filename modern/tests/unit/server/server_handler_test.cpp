@@ -411,6 +411,28 @@ TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
     EXPECT_EQ(reply.call_count.load(), 2);
 }
 
+TEST(AgentHandlerTest, ForwardsFriendRequestsToMapServerRoute) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    MockTcpSender map_sender;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.set_map_server(&map_sender, mxh::net::make_connection_id(77));
+    handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
+
+    mxh::net::Message request;
+    request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    request.header.protocol = 0; // FriendAddSyn
+    request.header.object_id = 456u;
+    handler.on_message(mxh::net::make_connection_id(100), request);
+
+    ASSERT_EQ(map_sender.send_count.load(), 1);
+    EXPECT_EQ(map_sender.last_message.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Friend));
+    EXPECT_EQ(map_sender.last_message.header.protocol, 0u);
+    EXPECT_EQ(map_sender.last_message.header.object_id, 123u);
+    EXPECT_EQ(reply.call_count.load(), 0);
+}
+
 TEST(AgentHandlerTest, DisconnectRemovesOffMapSocialRoute) {
     MockDbAdapter db;
     ReplySpy reply;

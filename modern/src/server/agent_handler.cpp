@@ -311,7 +311,8 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                cat == mxh::proto::Category::Quest ||
                cat == mxh::proto::Category::Battle ||
                cat == mxh::proto::Category::Party ||
-               cat == mxh::proto::Category::Guild) {
+               cat == mxh::proto::Category::Guild ||
+               cat == mxh::proto::Category::Friend) {
         std::cout << "[Agent] " << mxh::proto::category_name(cat)
                   << " proto=" << (int)msg.header.protocol
                   << " from conn=" << id.value << "\n";
