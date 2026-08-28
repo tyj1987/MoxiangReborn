@@ -405,10 +405,11 @@ bool ClientUiRuntime::onMouseWheel(std::int32_t wheelDelta,
                                    std::int32_t x,
                                    std::int32_t y) noexcept {
     if (!m_active || wheelDelta == 0) return false;
-    if (m_windows.isModal()) return true;
 
     // Prefer the control beneath the cursor, matching the original client;
     // fall back to keyboard focus for callers that do not have coordinates.
+    // Modal dialogs are included in hit testing so their lists can scroll,
+    // while an unhandled event still remains consumed by the modal owner.
     auto* target = hitTest(x, y);
     if (auto* list = dynamic_cast<mxh::ui::cListCtrl*>(target)) {
         list->OnMouseWheel(wheelDelta);
@@ -418,6 +419,7 @@ bool ClientUiRuntime::onMouseWheel(std::int32_t wheelDelta,
         list->OnMouseWheel(wheelDelta);
         return true;
     }
+    if (m_windows.isModal()) return true;
     return onMouseWheel(wheelDelta);
 }
 
