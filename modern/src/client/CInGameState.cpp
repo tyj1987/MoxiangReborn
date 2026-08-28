@@ -3098,6 +3098,14 @@ bool CInGameState::OnMouseButton(bool left, bool down,
     // the camera capture state is established.
     if (!left) {
         m_cameraDrag = down;
+        if (down) {
+            // Start each gesture from the press coordinate.  Reusing the
+            // previous frame's cursor position makes the first drag sample
+            // apply an artificial yaw jump after a long cursor move or a
+            // focus change.
+            m_lastMouseX = x;
+            m_lastMouseY = y;
+        }
         return false;
     }
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);

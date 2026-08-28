@@ -768,6 +768,16 @@ TEST(InGamePlayable, RightDragRotatesCameraThroughHudCoverage) {
     EXPECT_EQ(state.camera_yaw(), settled);
 }
 
+TEST(InGamePlayable, RightDragStartsFromPressCoordinate) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.OnMouseMove(20, 20);
+    state.OnMouseButton(false, true, 400, 300);
+    state.OnMouseMove(410, 300);
+    EXPECT_NEAR(state.camera_yaw(), 0.1f, 1.0e-5f);
+    state.OnMouseButton(false, false, 410, 300);
+}
+
 TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
