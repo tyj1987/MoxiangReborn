@@ -3283,7 +3283,7 @@ void CInGameState::OnMouseWheel(std::int32_t delta) {
     // Let the active dialog consume the wheel first (chat/shop lists may
     // scroll). Only an unhandled wheel event is blocked from reaching the
     // world camera while a modal is open.
-    if (m_uiRuntime.onMouseWheel(delta)) return;
+    if (m_uiRuntime.onMouseWheel(delta, m_lastMouseX, m_lastMouseY)) return;
     if (m_shopOpen || m_chatOpen) return;
     constexpr float kWheelStep = 0.75f;
     const float direction = delta > 0 ? -1.0f : 1.0f;

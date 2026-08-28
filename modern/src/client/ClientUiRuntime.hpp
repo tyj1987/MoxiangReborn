@@ -63,6 +63,10 @@ public:
                                      std::int32_t x, std::int32_t y);
     bool onMouseMove(std::int32_t x, std::int32_t y);
     bool onMouseWheel(std::int32_t wheelDelta) noexcept;
+    // Coordinate-aware variant used by the game host.  Legacy lists scroll
+    // under the cursor even when they have not received keyboard focus.
+    bool onMouseWheel(std::int32_t wheelDelta,
+                      std::int32_t x, std::int32_t y) noexcept;
     bool onKey(bool down, std::int32_t key);
     bool onKey(bool down, std::int32_t key, bool shift);
     std::optional<ClientUiActivation> consumeKeyActivation() noexcept {

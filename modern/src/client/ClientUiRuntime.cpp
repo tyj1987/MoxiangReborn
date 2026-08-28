@@ -401,6 +401,26 @@ bool ClientUiRuntime::onMouseWheel(std::int32_t wheelDelta) noexcept {
     return false;
 }
 
+bool ClientUiRuntime::onMouseWheel(std::int32_t wheelDelta,
+                                   std::int32_t x,
+                                   std::int32_t y) noexcept {
+    if (!m_active || wheelDelta == 0) return false;
+    if (m_windows.isModal()) return true;
+
+    // Prefer the control beneath the cursor, matching the original client;
+    // fall back to keyboard focus for callers that do not have coordinates.
+    auto* target = hitTest(x, y);
+    if (auto* list = dynamic_cast<mxh::ui::cListCtrl*>(target)) {
+        list->OnMouseWheel(wheelDelta);
+        return true;
+    }
+    if (auto* list = dynamic_cast<mxh::ui::cListDialog*>(target)) {
+        list->OnMouseWheel(wheelDelta);
+        return true;
+    }
+    return onMouseWheel(wheelDelta);
+}
+
 bool ClientUiRuntime::onKey(bool down, std::int32_t key) {
     return onKey(down, key, shift_key_down());
 }
