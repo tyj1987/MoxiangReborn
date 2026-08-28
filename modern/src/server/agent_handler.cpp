@@ -1688,8 +1688,21 @@ void AgentHandler::handle_legacy_character_select(
         return;
     }
 
-    std::uint16_t map_num = static_cast<std::uint16_t>(
-        get_int(rs, 0, "map_num", default_map_num_));
+    const auto map_value = get_int(rs, 0, "map_num", default_map_num_);
+    // CharacterSelectAck carries the destination map as MSG_BYTE.  Refuse a
+    // corrupt/out-of-range persisted value instead of truncating it and
+    // sending the player to an unrelated map.
+    if (map_value < 0 || map_value > 0xff) {
+        std::cout << "[Agent] CHARACTERSELECT_NACK invalid map number "
+                  << map_value << "\n";
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterSelectNack);
+        nack.header.object_id = character_id;
+        reply_(id, nack);
+        return;
+    }
+    const auto map_num = static_cast<std::uint16_t>(map_value);
 
     std::cout << "[Agent] CHARACTERSELECT_ACK chrid=" << character_id
               << " map=" << map_num << " name='"
