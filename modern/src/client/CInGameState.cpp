@@ -2122,6 +2122,16 @@ std::uint32_t CInGameState::pick_drop_at_screen(float sx, float sy) const {
     std::uint32_t best = 0;
     float best_d2 = 18.0f * 18.0f;
     for (const auto& drop : m_groundDrops) {
+        const float world_dx = drop.position_x - m_localX;
+        const float world_dz = drop.position_z - m_localZ;
+        if (world_dx * world_dx + world_dz * world_dz >
+            kPickupRange * kPickupRange) {
+            // Screen projection alone is not an interaction test: a distant
+            // drop can still overlap the cursor after perspective projection.
+            // Match keyboard pickup and server interaction semantics by
+            // rejecting anything outside the player's world pickup radius.
+            continue;
+        }
         float px = 0;
         float py = 0;
         if (!project_npc_to_screen(

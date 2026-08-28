@@ -870,6 +870,30 @@ TEST(InGamePlayable, InvalidPickupAckDoesNotConsumeGroundDrop) {
     EXPECT_EQ(state.last_item_error(), "Invalid pickup confirmation.");
 }
 
+TEST(InGamePlayable, ScreenPickupRejectsDropOutsideWorldRange) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+
+    mxh::net::Message notify;
+    notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    notify.payload.resize(20, 0);
+    const std::uint32_t drop_id = 9021u;
+    const std::uint16_t item_id = 503u;
+    const float far_x = 40000.0f;
+    const float far_z = 40000.0f;
+    std::memcpy(notify.payload.data(), &drop_id, 4);
+    std::memcpy(notify.payload.data() + 8, &item_id, 2);
+    std::memcpy(notify.payload.data() + 12, &far_x, 4);
+    std::memcpy(notify.payload.data() + 16, &far_z, 4);
+    state.on_message(mxh::net::make_connection_id(1), notify);
+    ASSERT_EQ(state.ground_drops().size(), 1u);
+
+    EXPECT_EQ(state.pick_drop_at_screen(400.0f, 300.0f), 0u);
+}
+
 TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
