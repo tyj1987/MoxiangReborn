@@ -141,9 +141,11 @@ bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
     }
     const auto& entry = manifest_.entries[sound_id];
     const bool loop = entry.loop;
+    // Stop the previous track before recording metadata for the new one;
+    // stop() resets current_entry_volume_ as part of its cleanup contract.
+    stop();
     current_entry_volume_ = std::isfinite(entry.volume) && entry.volume > 0.0f
         ? entry.volume : 1.0f;
-    stop();
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
     if (!ensure_media(*media_, error)) return false;
