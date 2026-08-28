@@ -2505,7 +2505,20 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
-        if (!logical.has_value()) return 0;
+        if (!logical.has_value()) {
+            // WM capture keeps delivering the release after the cursor has
+            // left the 4:3 content rect.  Do not drop that event merely
+            // because it cannot be mapped to a logical coordinate: dialogs
+            // and the in-game state still need it to clear pressed/dragging
+            // state (inventory drags, camera gestures, etc.).
+            if (m == WM_LBUTTONUP) {
+                if (g_mainTitle) (void)g_mainTitle->OnMouseButton(true, false, 0, 0);
+                if (g_charSelectState) (void)g_charSelectState->OnMouseButton(true, false, 0, 0);
+                if (g_charMakeState) (void)g_charMakeState->OnMouseButton(true, false, 0, 0);
+                if (g_inputTarget) (void)g_inputTarget->OnMouseButton(true, false, 0, 0);
+            }
+            return 0;
+        }
         const auto x = static_cast<std::int32_t>(logical->x);
         const auto y = static_cast<std::int32_t>(logical->y);
         const auto playUiClick = [&]() {
@@ -2551,7 +2564,20 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         const auto logical = g_logicalViewport.to_logical(
             static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
             static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
-        if (!logical.has_value()) return 0;
+        if (!logical.has_value()) {
+            if (m == WM_RBUTTONUP) {
+                // See the left-button path above: a captured release outside
+                // the pillarboxed content still must terminate camera/model
+                // rotation in every active state.
+                if (g_charSelectState) (void)g_charSelectState->OnMouseButton(false, false, 0, 0);
+                if (g_charMakeState) (void)g_charMakeState->OnMouseButton(false, false, 0, 0);
+                if (g_charPreviewController.onMouseButton(true, false, 0, 0)) {
+                    InvalidateRect(h, nullptr, FALSE);
+                }
+                if (g_inputTarget) (void)g_inputTarget->OnMouseButton(false, false, 0, 0);
+            }
+            return 0;
+        }
         if (g_charSelectState &&
             g_charSelectState->OnMouseButton(
                 false, m == WM_RBUTTONDOWN,
