@@ -180,8 +180,7 @@ fs::path find_repo_root() {
     }
     for (int depth = 0; depth < 10 && !current.empty(); ++depth) {
         std::error_code error;
-        if (fs::is_directory(current / "modern", error) &&
-            fs::is_directory(current / "deploy", error)) {
+        if (fs::is_directory(current / "modern" / "data" / "PlayDH", error)) {
             return current;
         }
         if (current == current.root_path()) break;
