@@ -459,7 +459,13 @@ std::vector<ShopItem> parse_shop_list(std::span<const std::uint8_t> payload) {
     out.reserve(count);
     std::size_t off = 6;
     for (std::uint16_t i = 0; i < count; ++i) {
-        if (off + 6 > payload.size()) break;
+        if (off + 6 > payload.size()) {
+            // A truncated catalog is not a usable shop.  Returning a partial
+            // list would expose misleading offers and allow an index to be
+            // interpreted against a different server-side catalog.
+            out.clear();
+            return out;
+        }
         ShopItem item;
         item.item_id = static_cast<std::uint16_t>(
             payload[off] | (static_cast<std::uint16_t>(payload[off + 1]) << 8));

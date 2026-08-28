@@ -373,6 +373,14 @@ TEST(InGameShop, ParseShopListShortPayloadIsEmpty) {
     EXPECT_TRUE(parse_shop_list(payload).empty());
 }
 
+TEST(InGameShop, ParseShopListRejectsTruncatedCatalog) {
+    std::array<std::uint8_t, 12> payload{};
+    payload[4] = 2; // two entries declared, only one entry fits
+    payload[6] = 0x10;
+    payload[8] = 100;
+    EXPECT_TRUE(parse_shop_list(payload).empty());
+}
+
 TEST(InGameShop, BuyMessageMatchesModernServerLayout) {
     const auto m = make_buy_message(240366u, 0x1234u, 1u);
     EXPECT_EQ(m.header.category,
