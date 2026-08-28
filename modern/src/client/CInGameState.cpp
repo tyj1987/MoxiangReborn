@@ -3001,11 +3001,18 @@ bool CInGameState::OnMouseButton(bool left, bool down,
         const auto inventory_slot = inventory_slot_at(x, y);
         const auto equipment_slot = equipment_slot_at(x, y);
         const auto hit_slot = inventory_slot ? inventory_slot : equipment_slot;
+        if (!down && m_inventoryDragSource && !hit_slot) {
+            // Releasing outside the inventory/equipment grids cancels the
+            // drag instead of carrying a stale source into the next click.
+            m_inventoryDragSource.reset();
+            return true;
+        }
         if (down && hit_slot) {
             const auto* item = *hit_slot < mxh::game::SLOT_INVENTORY_NUM
                 ? &m_info.items.Inventory[*hit_slot]
                 : &m_info.items.WearedItem[*hit_slot - mxh::game::TP_WEAREDITEM_START];
             if (!mxh::game::is_empty_slot(*item)) m_inventoryDragSource = *hit_slot;
+            else m_inventoryDragSource.reset();
             return true;
         }
         if (!down && m_inventoryDragSource && hit_slot) {
