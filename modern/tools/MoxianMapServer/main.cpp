@@ -74,6 +74,18 @@ std::uint16_t parse_u16_option(std::string_view token, const char* option,
     return static_cast<std::uint16_t>(value);
 }
 
+std::uint32_t parse_u32_option(std::string_view token, const char* option) {
+    unsigned long long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffffffffull) {
+        std::cerr << "invalid " << option << " (expected 0..4294967295): "
+                  << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint32_t>(value);
+}
+
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
@@ -105,7 +117,7 @@ Args parse_args(int argc, char** argv) {
         else if (s == "--allow-dev-fallbacks")
             a.allow_dev_fallbacks = true;
         else if (s == "--dev-initial-money" && i + 1 < argc)
-            a.dev_initial_money = static_cast<std::uint32_t>(std::stoul(argv[++i]));
+            a.dev_initial_money = parse_u32_option(argv[++i], "--dev-initial-money");
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
