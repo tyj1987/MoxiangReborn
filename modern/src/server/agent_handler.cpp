@@ -457,7 +457,13 @@ void AgentHandler::handle_friend(mxh::net::ConnectionId id,
             response.payload.insert(response.payload.end(),
                                     reinterpret_cast<const std::uint8_t*>(&value),
                                     reinterpret_cast<const std::uint8_t*>(&value) + sizeof(value));
-            response.payload.push_back(static_cast<std::uint8_t>(status ? *status : 0));
+            (void)status;
+            std::uint8_t presence = 0u;
+            {
+                std::lock_guard<std::mutex> lock(map_route_mu_);
+                if (char_to_client_.find(value) != char_to_client_.end()) presence = 1u;
+            }
+            response.payload.push_back(presence);
             response.payload.push_back(static_cast<std::uint8_t>(name->size()));
             response.payload.insert(response.payload.end(), name->begin(), name->end());
         }
