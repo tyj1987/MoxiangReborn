@@ -1549,8 +1549,9 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             break;
         }
         case UserConnProtocol::ObjectRemove: {
-            if (msg.payload.size() < 4) break;
-            const auto removed = get_u32(msg.payload.data());
+            const auto removed = msg.payload.size() >= 4
+                ? get_u32(msg.payload.data()) : msg.header.object_id;
+            if (removed == 0) break;
             monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
                 [removed](const MonsterAddInfo& m) {
                     return m.object_id == removed;
@@ -1562,6 +1563,9 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                 }),
                 m_npcs.end());
             m_remotePlayers.erase(removed);
+            (void)m_effectRuntime.stop_object(removed);
+            if (m_pendingAttackTarget == removed) m_pendingAttackTarget = 0;
+            if (m_lastAttackTarget == removed) m_lastAttackTarget = 0;
             MLOG_INFO("CInGameState: ObjectRemove id=%u", removed);
             break;
         }

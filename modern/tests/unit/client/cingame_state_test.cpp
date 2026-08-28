@@ -515,6 +515,15 @@ TEST(InGameEntityLifecycle, RepeatedAddReplacesAndRemoveUsesStableObjectId) {
     };
     remove(monsterId);
     remove(npcId);
+    state.on_message({}, monsterAdd);
+    ASSERT_EQ(state.monsters().size(), 1u);
+    mxh::net::Message header_only_remove;
+    header_only_remove.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    header_only_remove.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ObjectRemove);
+    header_only_remove.header.object_id = monsterId;
+    state.on_message({}, header_only_remove);
     EXPECT_TRUE(state.monsters().empty());
     EXPECT_TRUE(state.npcs().empty());
 }
