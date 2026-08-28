@@ -411,12 +411,10 @@ TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
     EXPECT_EQ(reply.call_count.load(), 2);
 }
 
-TEST(AgentHandlerTest, ForwardsFriendRequestsToMapServerRoute) {
+TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
     MockDbAdapter db;
     ReplySpy reply;
-    MockTcpSender map_sender;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply));
-    handler.set_map_server(&map_sender, mxh::net::make_connection_id(77));
     handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
 
     mxh::net::Message request;
@@ -425,12 +423,40 @@ TEST(AgentHandlerTest, ForwardsFriendRequestsToMapServerRoute) {
     request.header.object_id = 456u;
     handler.on_message(mxh::net::make_connection_id(100), request);
 
-    ASSERT_EQ(map_sender.send_count.load(), 1);
-    EXPECT_EQ(map_sender.last_message.header.category,
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_message.header.category,
               static_cast<std::uint8_t>(mxh::proto::Category::Friend));
-    EXPECT_EQ(map_sender.last_message.header.protocol, 0u);
-    EXPECT_EQ(map_sender.last_message.header.object_id, 123u);
-    EXPECT_EQ(reply.call_count.load(), 0);
+    EXPECT_EQ(reply.last_message.header.protocol, 2u);
+    EXPECT_EQ(reply.last_message.header.object_id, 456u);
+}
+
+TEST(AgentHandlerTest, CompletesOnlineFriendInviteHandshake) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
+    handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 10u);
+
+    mxh::net::Message add;
+    add.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    add.header.protocol = 0;
+    add.header.object_id = 456u;
+    handler.on_message(mxh::net::make_connection_id(100), add);
+    ASSERT_EQ(reply.messages.size(), 2u);
+    EXPECT_EQ(reply.messages[0].header.protocol, 3u);
+    EXPECT_EQ(reply.messages[0].header.object_id, 123u);
+    EXPECT_EQ(reply.messages[1].header.protocol, 1u);
+
+    mxh::net::Message accept;
+    accept.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    accept.header.protocol = 4;
+    accept.header.object_id = 123u;
+    handler.on_message(mxh::net::make_connection_id(101), accept);
+    ASSERT_EQ(reply.messages.size(), 4u);
+    EXPECT_EQ(reply.messages[2].header.protocol, 5u);
+    EXPECT_EQ(reply.messages[2].header.object_id, 456u);
+    EXPECT_EQ(reply.messages[3].header.protocol, 5u);
+    EXPECT_EQ(reply.messages[3].header.object_id, 123u);
 }
 
 TEST(AgentHandlerTest, DisconnectRemovesOffMapSocialRoute) {

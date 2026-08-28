@@ -302,6 +302,8 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
     if (cat == mxh::proto::Category::UserConn) {
         handle_userconn(id, msg);
+    } else if (cat == mxh::proto::Category::Friend) {
+        handle_friend(id, msg);
     } else if (cat == mxh::proto::Category::Move ||
                cat == mxh::proto::Category::Chat ||
                cat == mxh::proto::Category::Item ||
@@ -346,6 +348,112 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                   << " proto=" << (int)msg.header.protocol << "\n";
     }
 
+}
+
+void AgentHandler::handle_friend(mxh::net::ConnectionId id,
+                                  const mxh::net::Message& msg) {
+    constexpr std::uint8_t kAddSyn = 0;
+    constexpr std::uint8_t kAddAck = 1;
+    constexpr std::uint8_t kAddNack = 2;
+    constexpr std::uint8_t kAddInvite = 3;
+    constexpr std::uint8_t kAddAccept = 4;
+    constexpr std::uint8_t kAddAcceptAck = 5;
+    constexpr std::uint8_t kAddAcceptNack = 6;
+    constexpr std::uint8_t kAddDeny = 7;
+
+    const auto source = get_char_id(id);
+    if (source == 0 || msg.header.object_id == 0 || source == msg.header.object_id) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        nack.header.protocol = kAddNack;
+        nack.header.object_id = msg.header.object_id;
+        reply_(id, nack);
+        return;
+    }
+
+    std::optional<mxh::net::ConnectionId> target_connection;
+    {
+        std::lock_guard<std::mutex> lock(map_route_mu_);
+        const auto it = char_to_client_.find(msg.header.object_id);
+        if (it != char_to_client_.end()) {
+            target_connection = mxh::net::make_connection_id(it->second);
+        }
+    }
+
+    auto send_to_target = [&](std::uint8_t protocol, std::uint32_t object_id) {
+        if (!target_connection.has_value()) return false;
+        mxh::net::Message out;
+        out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        out.header.protocol = protocol;
+        out.header.object_id = object_id;
+        reply_(*target_connection, out);
+        return true;
+    };
+    auto send_to_source = [&](std::uint8_t protocol, std::uint32_t object_id) {
+        mxh::net::Message out;
+        out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        out.header.protocol = protocol;
+        out.header.object_id = object_id;
+        reply_(id, out);
+    };
+
+    switch (msg.header.protocol) {
+    case kAddSyn:
+        if (!send_to_target(kAddInvite, source)) {
+            send_to_source(kAddNack, msg.header.object_id);
+            return;
+        }
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            pending_friend_invites_[msg.header.object_id] = source;
+        }
+        send_to_source(kAddAck, msg.header.object_id);
+        return;
+    case kAddAccept: {
+        std::uint32_t requester = 0;
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            const auto it = pending_friend_invites_.find(source);
+            if (it != pending_friend_invites_.end()) {
+                requester = it->second;
+                pending_friend_invites_.erase(it);
+            }
+        }
+        if (requester == 0) {
+            send_to_source(kAddAcceptNack, msg.header.object_id);
+            return;
+        }
+        std::optional<mxh::net::ConnectionId> requester_connection;
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            const auto it = char_to_client_.find(requester);
+            if (it != char_to_client_.end()) requester_connection = mxh::net::make_connection_id(it->second);
+        }
+        if (!requester_connection.has_value()) {
+            send_to_source(kAddAcceptNack, requester);
+            return;
+        }
+        mxh::net::Message ack;
+        ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        ack.header.protocol = kAddAcceptAck;
+        ack.header.object_id = source;
+        reply_(*requester_connection, ack);
+        send_to_source(kAddAcceptAck, requester);
+        return;
+    }
+    case kAddDeny:
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            pending_friend_invites_.erase(source);
+        }
+        send_to_source(kAddNack, msg.header.object_id);
+        return;
+    default:
+        // Other friend protocols are still handled by the legacy Agent data
+        // plane when their database side-effect sink is installed.
+        send_to_source(kAddNack, msg.header.object_id);
+        return;
+    }
 }
 
 // ============================================================================
