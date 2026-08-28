@@ -55,7 +55,7 @@
 #include "services/InventoryServiceImpl.hpp"
 #include "mxh/services/IPlayerStatsService.hpp"
 
-namespace mxh::ui { class cOptionDialog; }
+namespace mxh::ui { class cOptionDialog; class cMiniFriendDialog; }
 
 namespace mxh::client {
 
@@ -448,6 +448,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool guild_open() const noexcept { return m_guildOpen; }
     bool option_open() const noexcept { return m_optionOpen; }
     mxh::ui::cOptionDialog* option_dialog() noexcept;
+    mxh::ui::cMiniFriendDialog* mini_friend_dialog() noexcept;
     std::uint16_t quest_id() const noexcept { return m_questId; }
     const std::string& quest_status() const noexcept { return m_questStatus; }
     const mxh::compat::QuestStringEntry* selected_quest() const noexcept {
@@ -486,6 +487,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool accept_guild_invite();
     std::uint32_t pending_guild_invite_id() const noexcept { return m_pendingGuildInviteId; }
     bool request_friend_add(std::uint32_t target_player_id);
+    bool request_friend_add_by_name(std::string_view name);
     bool accept_friend_invite();
     bool deny_friend_invite();
     std::uint32_t pending_friend_invite_id() const noexcept { return m_pendingFriendInviteId; }
@@ -494,6 +496,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::string& last_item_error() const noexcept { return m_lastItemError; }
     const std::string& last_npc_error() const noexcept { return m_lastNpcError; }
     const std::string& last_skill_error() const noexcept { return m_lastSkillError; }
+    const std::string& last_friend_error() const noexcept { return m_lastFriendError; }
     std::int32_t last_damage() const noexcept { return m_lastDamage; }
     std::uint32_t last_hit_target() const noexcept { return m_lastHitTarget; }
     std::uint8_t last_hit_result() const noexcept { return m_lastHitResult; }
@@ -551,6 +554,7 @@ public:
     void set_chat_open(bool open) noexcept;
     void set_map_open(bool open) noexcept;
     void set_friend_open(bool open) noexcept;
+    void set_mini_friend_open(bool open) noexcept;
     void set_guild_open(bool open) noexcept;
     void set_option_open(bool open) noexcept;
     bool select_quest_index(std::size_t index) noexcept;
@@ -596,6 +600,7 @@ public:
     std::string              m_lastItemError;
     std::string              m_lastNpcError;
     std::string              m_lastSkillError;
+    std::string              m_lastFriendError;
     std::int32_t             m_lastDamage = 0;
     std::uint32_t            m_lastHitTarget = 0;
     std::uint8_t              m_lastHitResult = 0;

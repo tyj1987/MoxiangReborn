@@ -13,6 +13,7 @@
 #include "mxh/ui/cIconGridDialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
 #include "mxh/ui/coptiondialog.hpp"
+#include "mxh/ui/cminifrienddialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -74,6 +75,7 @@ constexpr std::string_view kBigMapDialogId = "BIGMAPDLG";
 // type-name alias accepted for activation messages from legacy callers.
 constexpr std::string_view kFriendDialogId = "FRI_FRIENDDLG";
 constexpr std::string_view kFriendDialogTypeAlias = "FRIENDDLG";
+constexpr std::string_view kMiniFriendDialogId = "FRI_MINFRIENDDLG";
 // Guild.bin carries the concrete root ID GD_GUILDDLG. Keep the old type-name
 // alias accepted for activation messages from legacy callers.
 constexpr std::string_view kGuildDialogId = "GD_GUILDDLG";
@@ -1170,6 +1172,11 @@ void CInGameState::refresh_live_ui_bindings() {
                     id, static_cast<std::int32_t>(player.position_x),
                     static_cast<std::int32_t>(player.position_z));
             }
+        }
+        if (auto* mini_friend = dynamic_cast<mxh::ui::cMiniFriendDialog*>(dialog.get())) {
+            mini_friend->SetAddCallback([this](std::string_view name) {
+                return request_friend_add_by_name(name);
+            });
         }
     }
     m_lastUiMapNum = m_mapNum;
@@ -2351,6 +2358,10 @@ void CInGameState::set_friend_open(bool open) noexcept {
     m_uiRuntime.setDialogActive(kFriendDialogId, open);
 }
 
+void CInGameState::set_mini_friend_open(bool open) noexcept {
+    m_uiRuntime.setDialogActive(kMiniFriendDialogId, open);
+}
+
 void CInGameState::set_guild_open(bool open) noexcept {
     m_guildOpen = open;
     m_uiRuntime.setDialogActive(kGuildDialogId, open);
@@ -2370,6 +2381,16 @@ mxh::ui::cOptionDialog* CInGameState::option_dialog() noexcept {
         if (!dialog || dialog->legacyId() != kOptionDialogId) continue;
         if (auto* option = dynamic_cast<mxh::ui::cOptionDialog*>(dialog.get())) {
             return option;
+        }
+    }
+    return nullptr;
+}
+
+mxh::ui::cMiniFriendDialog* CInGameState::mini_friend_dialog() noexcept {
+    for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+        if (!dialog || dialog->legacyId() != kMiniFriendDialogId) continue;
+        if (auto* mini = dynamic_cast<mxh::ui::cMiniFriendDialog*>(dialog.get())) {
+            return mini;
         }
     }
     return nullptr;
@@ -2396,6 +2417,12 @@ bool CInGameState::handle_ui_activation(
     if (activation.legacy_id == "CTI_BTN_OPTION") {
         m_optionOpen = true;
         m_uiRuntime.setDialogActive(kOptionDialogId, true);
+        return true;
+    }
+    if (activation.legacy_id == "FRI_ADDFRIENDBTN" &&
+        (activation.dialog_legacy_id == kFriendDialogId ||
+         activation.dialog_legacy_id == kFriendDialogTypeAlias)) {
+        set_mini_friend_open(true);
         return true;
     }
     if (activation.dialog_legacy_id == kOptionDialogId) {
@@ -2461,6 +2488,10 @@ bool CInGameState::handle_ui_activation(
     if (activation.dialog_legacy_id == kFriendDialogId ||
         activation.dialog_legacy_id == kFriendDialogTypeAlias) {
         set_friend_open(false);
+        return true;
+    }
+    if (activation.dialog_legacy_id == kMiniFriendDialogId) {
+        set_mini_friend_open(false);
         return true;
     }
     if (activation.dialog_legacy_id == kGuildDialogId ||
@@ -3637,6 +3668,26 @@ bool CInGameState::request_friend_add(std::uint32_t target_player_id) {
     message.header.protocol = kFriendAddSyn;
     message.header.object_id = target_player_id;
     return m_pEngine->agent_session().send(std::move(message)) == mxh::net::NetError::Ok;
+}
+
+bool CInGameState::request_friend_add_by_name(std::string_view name) {
+    m_lastFriendError.clear();
+    if (name.empty() || name.size() > 16) {
+        m_lastFriendError = "Enter a valid player name.";
+        (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
+        return false;
+    }
+    for (const auto& [object_id, player] : m_remotePlayers) {
+        if (player.name == name) {
+            if (request_friend_add(object_id)) return true;
+            m_lastFriendError = "Friend request could not be sent.";
+            (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
+            return false;
+        }
+    }
+    m_lastFriendError = "That player is not visible nearby.";
+    (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
+    return false;
 }
 
 bool CInGameState::accept_friend_invite() {
