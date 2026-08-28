@@ -20,6 +20,16 @@ void cMiniFriendDialog::Linking() {
     //   m_pNameEdit->SetEditText("");
     //   m_pAddOkBtn = (cButton*)GetWindowForID(FRI_ADDOKBTN);
     //   m_pAddCancelBtn = (cButton*)GetWindowForID(FRI_ADDCANCELBTN);
+    // Resolve the shipped children when running from a real InterfaceScript;
+    // test injection remains supported for isolated dialog tests.
+    if (!m_pName) m_pName = dynamic_cast<cStatic*>(findWindowByLegacyId("FRI_NAME"));
+    if (!m_pNameEdit) m_pNameEdit = dynamic_cast<cEditBox*>(findWindowByLegacyId("FRI_NAMEEDIT"));
+    if (!m_pAddOkBtn) m_pAddOkBtn = dynamic_cast<cButton*>(findWindowByLegacyId("FRI_ADDOKBTN"));
+    if (!m_pAddCancelBtn) m_pAddCancelBtn = dynamic_cast<cButton*>(findWindowByLegacyId("FRI_ADDCANCELBTN"));
+    if (m_pNameEdit) {
+        m_pNameEdit->SetValidCheck(kValidCheckCharName);
+        m_pNameEdit->SetEditText("");
+    }
     // The modern port:
     //   * children resolved via host injection
     //     (SetChildrenForTest) -- the legacy

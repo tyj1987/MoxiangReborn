@@ -88,6 +88,8 @@ TEST(CMiniFriendDialog, LinkingIsNoOpWithInjectedChildren) {
     EXPECT_EQ(h.dlg.GetNameEditForTest(),     &h.nameEdit);
     EXPECT_EQ(h.dlg.GetAddOkBtnForTest(),     &h.addOk);
     EXPECT_EQ(h.dlg.GetAddCancelBtnForTest(), &h.addCancel);
+    EXPECT_EQ(h.nameEdit.GetValidCheckMethod(),
+              cMiniFriendDialog::kValidCheckCharName);
 }
 
 
