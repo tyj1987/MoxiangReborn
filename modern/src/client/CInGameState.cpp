@@ -1049,7 +1049,14 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
                   m_skillManager.size(),
                   static_cast<unsigned>(skillErrors));
     } catch (const std::exception& ex) {
-        MLOG_WARN("CInGameState skill list unavailable: %s", ex.what());
+        const std::string reason = std::string("GameIn skill list unavailable: ") +
+            ex.what();
+        MLOG_ERROR("CInGameState: %s", reason.c_str());
+        // Skill metadata is a required runtime dependency.  Continuing with
+        // an empty/default table makes the player appear in-world while
+        // silently disabling shortcuts and effect resolution.
+        fail_with(reason);
+        return;
     }
     const auto experiencePath = *m_pEngine->playdh_root() / "Resource" /
         "CharacterExpPoint.bin";
