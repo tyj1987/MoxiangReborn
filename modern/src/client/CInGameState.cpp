@@ -2185,6 +2185,11 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                 ? get_u16(msg.payload.data() + 6) : 0u;
             const bool inventory_updated =
                 apply_pickup_to_inventory(drop_id, item_id, count);
+            if (inventory_updated && m_inventoryOpen) {
+                // Rebind the live inventory dialog immediately; waiting for
+                // the next inventory open leaves the visible slot stale.
+                set_inventory_open(true);
+            }
             MLOG_INFO("CInGameState: picked up drop=%u item=%u count=%u inventory=%s",
                       drop_id, item_id, count,
                       inventory_updated ? "updated" : "full-or-invalid");
