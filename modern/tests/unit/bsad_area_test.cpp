@@ -7,12 +7,27 @@
 
 #include <cstring>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 using namespace mxh::compat;
 
 namespace {
+
+std::filesystem::path locate_playdh_root() {
+    std::error_code ec;
+    auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (std::filesystem::is_directory(candidate / "Resource" / "SkillArea", candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
+}
 
 // Build an MHFile blob from a plaintext payload.
 // Header {version=0x0131CA9E (matches real files), type=1, file_size=plain.size()}.
@@ -130,11 +145,10 @@ TEST(BsadArea, ParsesAllRealPlayDhFiles) {
         "13x13_Spikewall.bsad", "15x15_Blank.bsad", "17X17_Blank.bsad",
         "17X17_lineAttack.bsad",
     };
+    const auto playdh = locate_playdh_root();
+    ASSERT_FALSE(playdh.empty());
     for (const auto& name : kRealFiles) {
-        // Canonical PlayDH path under modern/data/ (see scratch/2026-08-20-env-sniff
-        // for the junction at C:/moxiang/墨香【源码配套资源】/PlayDH that also resolves).
-        const std::string path = std::string("C:/moxiang/modern/data/PlayDH/Resource/SkillArea/") + name;
-        auto area = BsadArea::load(path);
+        auto area = BsadArea::load((playdh / "Resource" / "SkillArea" / name).string());
         EXPECT_TRUE(area.cells.size() > 0) << name << " parsed empty";
         EXPECT_EQ(area.header.width, area.header.height) << name << " non-square";
         EXPECT_GT(area.header.width, 0u) << name << " zero width";
