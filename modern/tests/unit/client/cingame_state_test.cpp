@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <vector>
 
 using mxh::client::parse_legacy_gamein_ack;
@@ -28,6 +29,16 @@ TEST(InGameMapFlow, IgnoresChangeMapAckBeforeGameInActivation) {
     std::memcpy(ack.payload.data(), &target, sizeof(target));
     state.on_message({}, ack);
     EXPECT_FALSE(engine.has_pending_transfer());
+}
+
+TEST(InGameDisplay, UsesEngineResolutionDuringInitialUiLoad) {
+    mxh::client::CEngine engine;
+    engine.SetPlaydhRoot(std::filesystem::path("modern/data/PlayDH"));
+    engine.SetUiResolutionMode(mxh::ui::ResolutionMode::Mid1024x768);
+    mxh::client::CInGameState state;
+    state.Init(&engine);
+    EXPECT_EQ(state.ui_runtime().resolution_mode(),
+              mxh::ui::ResolutionMode::Mid1024x768);
 }
 
 TEST(InGameQuestWire, BuildsLegacyTwoByteQuestRequest) {
