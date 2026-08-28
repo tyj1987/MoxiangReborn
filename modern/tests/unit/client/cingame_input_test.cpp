@@ -967,6 +967,9 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     EXPECT_FALSE(state.inventory_open());
     EXPECT_TRUE(state.OnMouseButton(false, true, 400, 300));
     EXPECT_TRUE(state.OnMouseButton(false, false, 400, 300));
+    const auto shopCameraDistance = state.camera_distance();
+    state.OnMouseWheel(-120);
+    EXPECT_FLOAT_EQ(state.camera_distance(), shopCameraDistance);
     EXPECT_EQ(state.shop_items()[0].item_id, 0x022Bu);
 
     state.OnMouseButton(true, true,
