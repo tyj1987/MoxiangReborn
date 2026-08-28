@@ -587,6 +587,31 @@ TEST(InGamePlayable, SkillResultImmediatelyUpdatesTargetLifeBar) {
     EXPECT_EQ(state.monsters().front().current_life, 65u);
 }
 
+TEST(InGamePlayable, DuplicateMonsterDeathNotifyEmitsOneDeathEvent) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message monster;
+    monster.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    monster.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd);
+    monster.payload.resize(64, 0);
+    const std::uint32_t target = 50003u;
+    const std::uint32_t life = 25u;
+    std::memcpy(monster.payload.data(), &target, 4);
+    std::memcpy(monster.payload.data() + 35, &life, 4);
+    state.on_message({}, monster);
+    mxh::net::Message death;
+    death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Monster);
+    death.header.protocol = static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify);
+    death.header.object_id = target;
+    death.payload.resize(8, 0);
+    state.on_message({}, death);
+    state.on_message({}, death);
+    const auto events = state.drain_effect_events();
+    EXPECT_EQ(std::count_if(events.begin(), events.end(), [](const auto& event) {
+        return event.kind == mxh::client::EffectEventKind::Death;
+    }), 1);
+}
+
 TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

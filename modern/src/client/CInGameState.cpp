@@ -1679,9 +1679,10 @@ void CInGameState::handle_monster_broadcast(const mxh::net::Message& msg) {
     if (!life) return;
     for (auto& monster : monsters_) {
         if (monster.object_id == msg.header.object_id) {
+            const bool was_alive = monster.current_life != 0;
             monster.current_life = life->first;
             monster.current_shield = life->second;
-            if (monster.current_life == 0) {
+            if (was_alive && monster.current_life == 0) {
                 monster.moving = false;
                 push_effect_event(EffectEvent{
                     EffectEventKind::Death, m_lastTickMs, m_playerId,
