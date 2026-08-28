@@ -288,7 +288,7 @@ int main(int argc, char** argv) {
         },
         args.use_legacy, args.use_hsel,
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
-            if (server_ptr) server_ptr->send(id, m);
+            if (server_ptr) (void)server_ptr->send(id, m);
         }, args.default_map_num);
     handler.set_allow_dev_gamein_fallback(false);
 
