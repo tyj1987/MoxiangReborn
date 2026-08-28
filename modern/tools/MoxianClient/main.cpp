@@ -1260,6 +1260,16 @@ struct EffectVisualOverlay {
                     found = true;
                     break;
                 }
+                if (!found) {
+                    for (const auto& [remote_id, remote] : game.remote_players()) {
+                        if (remote_id != item.target_id && remote_id != item.source_id) continue;
+                        object.world_x = remote.position_x;
+                        object.world_z = remote.position_z;
+                        object.world_y = terrain.heightAt(remote.position_x, remote.position_z);
+                        found = true;
+                        break;
+                    }
+                }
                 if (!found) continue;
             }
             float progress = 1.0f;
@@ -1336,6 +1346,16 @@ struct EffectVisualOverlay {
                                     terrain.heightAt(monster.position_x, monster.position_z) +
                                         120.0f + item.position[1] + move_y,
                                     world_z, x, y);
+                    break;
+                }
+            }
+            if (!found) {
+                for (const auto& [remote_id, remote] : game.remote_players()) {
+                    if (remote_id != item.target_id && remote_id != item.source_id) continue;
+                    found = project(terrain.viewProj(), remote.position_x + item.position[0] + move_x,
+                                    terrain.heightAt(remote.position_x, remote.position_z) +
+                                        120.0f + item.position[1] + move_y,
+                                    remote.position_z + item.position[2] + move_z, x, y);
                     break;
                 }
             }
