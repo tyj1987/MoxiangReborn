@@ -802,6 +802,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         if (auto* friend_dialog = dynamic_cast<cFriendDialog*>(dlg.get())) {
             friend_dialog->Linking();
         }
+        if (auto* option_dialog = dynamic_cast<cOptionDialog*>(dlg.get())) {
+            option_dialog->Linking();
+        }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
         }

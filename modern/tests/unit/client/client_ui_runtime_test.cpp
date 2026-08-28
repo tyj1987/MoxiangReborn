@@ -20,6 +20,7 @@
 #include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cfrienddialog.hpp"
 #include "mxh/ui/coptiondialog.hpp"
+#include "mxh/ui/ccheckbox.hpp"
 #include "mxh/ui/cEditBox.hpp"
 #include "mxh/ui/cGuagen.hpp"
 #include "mxh/ui/cListCtrl.hpp"
@@ -494,6 +495,16 @@ TEST(ClientUiRuntime, LoadsOptionBinAsConcreteOptionDialog) {
     EXPECT_EQ(root->legacyId(), "OTI_TABDLG");
     EXPECT_NE(options->findWindowByLegacyId("OTI_BTN_OK"), nullptr);
     EXPECT_NE(options->findWindowByLegacyId("OTI_SHEET3"), nullptr);
+    EXPECT_TRUE(options->HasConcreteBindings());
+    auto* noDeal = dynamic_cast<mxh::ui::cCheckBox*>(
+        options->findWindowByLegacyId("OTI_CB_NODEAL"));
+    ASSERT_NE(noDeal, nullptr);
+    options->gameOption().bNoDeal = true;
+    options->UpdateData(false);
+    EXPECT_TRUE(noDeal->IsChecked());
+    noDeal->SetChecked(false);
+    options->UpdateData(true);
+    EXPECT_FALSE(options->gameOption().bNoDeal);
 }
 
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {

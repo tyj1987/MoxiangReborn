@@ -3,6 +3,7 @@
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/ccheckbox.hpp"
 #include "mxh/ui/cPushupButton.hpp"
+#include "mxh/ui/cGuageBar.hpp"
 #include "mxh/ui/legacy_window_event.hpp"
 
 #include <cassert>
@@ -92,14 +93,79 @@ void cOptionDialog::SetActive(bool val) noexcept {
 }
 
 void cOptionDialog::Linking() {
-    // 1:1 with legacy Linking.  The legacy walks the WINDOW_ID
-    // tree to find a single cCheckBox on the graphic tab and
-    // attach a tool-tip.  The modern port defers the WINDOW_ID
-    // walk until cWindowManager is fully ported; tests
-    // populate the children via SetChildWindowForTest.
+    auto checkbox = [this](std::string_view id) {
+        return dynamic_cast<cCheckBox*>(findWindowByLegacyId(id));
+    };
+    auto gauge = [this](std::string_view id) {
+        return dynamic_cast<cGuageBar*>(findWindowByLegacyId(id));
+    };
+    auto pushup = [this](std::string_view id) {
+        return dynamic_cast<cPushupButton*>(findWindowByLegacyId(id));
+    };
+    m_cbNoDeal = checkbox("OTI_CB_NODEAL"); m_cbNoParty = checkbox("OTI_CB_NOPARTY");
+    m_cbNoFriend = checkbox("OTI_CB_NOFRIEND"); m_cbNoChatting = checkbox("OTI_CB_NOCHATTING");
+    m_cbNoWhisper = checkbox("OTI_CB_NOWHISPER"); m_cbNoBalloon = checkbox("OTI_CB_NOBALLOON");
+    m_cbAutoHide = checkbox("OTI_CB_AUTOHIDE"); m_cbNoSystemMsg = checkbox("OTI_CB_NOSYSTEMMSG");
+    m_cbNoItemMsg = checkbox("OTI_CB_NOITEMMSG"); m_cbShadowHero = checkbox("OTI_CB_HEROSHADOW");
+    m_cbShadowMonster = checkbox("OTI_CB_MONSTERSHADOW"); m_cbShadowOthers = checkbox("OTI_CB_OTHERSSHADOW");
+    m_cbAutoControl = checkbox("OTI_CB_AUTOCONTROL"); m_cbBgmSound = checkbox("OTI_CB_BGMSOUND");
+    m_cbEnvSound = checkbox("OTI_CB_ENVSOUND");
+    m_gbGamma = gauge("OTI_GB_GAMMA"); m_gbSight = gauge("OTI_GB_SIGHT");
+    m_gbBgmSound = gauge("OTI_GB_BGMSOUND"); m_gbEnvSound = gauge("OTI_GB_ENVSOUND");
+    m_pbChatMode = pushup("OTI_PB_CHATMODE"); m_pbMacroMode = pushup("OTI_PB_MACROMODE");
+    m_pbBasicGraphic = pushup("OTI_PB_BASICGRAPHIC"); m_pbDownGraphic = pushup("OTI_PB_DOWNGRAPHIC");
+    m_pbBasicEffect = pushup("OTI_PB_BASICEFFECT"); m_pbOneEffect = pushup("OTI_PB_ONEEFFECT");
+    m_concreteBindings = m_cbNoDeal && m_cbNoParty && m_cbBgmSound && m_gbGamma && m_gbBgmSound;
 }
 
 void cOptionDialog::UpdateData(bool bSave) {
+    if (m_concreteBindings) {
+        if (bSave) {
+            m_GameOption.bNoDeal = m_cbNoDeal->IsChecked(); m_GameOption.bNoParty = m_cbNoParty->IsChecked();
+            m_GameOption.bNoFriend = m_cbNoFriend && m_cbNoFriend->IsChecked();
+            m_GameOption.bNoChatting = m_cbNoChatting && m_cbNoChatting->IsChecked();
+            m_GameOption.bNoWhisper = m_cbNoWhisper && m_cbNoWhisper->IsChecked();
+            m_GameOption.bNoBalloon = m_cbNoBalloon && m_cbNoBalloon->IsChecked();
+            m_GameOption.bAutoHide = m_cbAutoHide && m_cbAutoHide->IsChecked();
+            m_GameOption.bNoSystemMsg = m_cbNoSystemMsg && m_cbNoSystemMsg->IsChecked();
+            m_GameOption.bNoItemMsg = m_cbNoItemMsg && m_cbNoItemMsg->IsChecked();
+            m_GameOption.bShadowHero = m_cbShadowHero && m_cbShadowHero->IsChecked();
+            m_GameOption.bShadowMonster = m_cbShadowMonster && m_cbShadowMonster->IsChecked();
+            m_GameOption.bShadowOthers = m_cbShadowOthers && m_cbShadowOthers->IsChecked();
+            m_GameOption.bAutoCtrl = m_cbAutoControl && m_cbAutoControl->IsChecked();
+            m_GameOption.bSoundBGM = m_cbBgmSound->IsChecked();
+            m_GameOption.bSoundEnvironment = m_cbEnvSound && m_cbEnvSound->IsChecked();
+            m_GameOption.nGamma = m_gbGamma->GetCurValue(); m_GameOption.nSightDistance = m_gbSight->GetCurValue();
+            m_GameOption.nVolumnBGM = m_gbBgmSound->GetCurValue();
+            m_GameOption.nVolumnEnvironment = m_gbEnvSound->GetCurValue();
+            m_GameOption.nMacroMode = m_pbMacroMode && m_pbMacroMode->IsPushed() ? 1 : 0;
+            m_GameOption.nLODMode = m_pbDownGraphic && m_pbDownGraphic->IsPushed() ? 1 : 0;
+            m_GameOption.nEffectMode = m_pbOneEffect && m_pbOneEffect->IsPushed() ? 1 : 0;
+        } else {
+            m_cbNoDeal->SetChecked(m_GameOption.bNoDeal); m_cbNoParty->SetChecked(m_GameOption.bNoParty);
+            if (m_cbNoFriend) m_cbNoFriend->SetChecked(m_GameOption.bNoFriend);
+            if (m_cbNoChatting) m_cbNoChatting->SetChecked(m_GameOption.bNoChatting);
+            if (m_cbNoWhisper) m_cbNoWhisper->SetChecked(m_GameOption.bNoWhisper);
+            if (m_cbNoBalloon) m_cbNoBalloon->SetChecked(m_GameOption.bNoBalloon);
+            if (m_cbAutoHide) m_cbAutoHide->SetChecked(m_GameOption.bAutoHide);
+            if (m_cbNoSystemMsg) m_cbNoSystemMsg->SetChecked(m_GameOption.bNoSystemMsg);
+            if (m_cbNoItemMsg) m_cbNoItemMsg->SetChecked(m_GameOption.bNoItemMsg);
+            if (m_cbShadowHero) m_cbShadowHero->SetChecked(m_GameOption.bShadowHero);
+            if (m_cbShadowMonster) m_cbShadowMonster->SetChecked(m_GameOption.bShadowMonster);
+            if (m_cbShadowOthers) m_cbShadowOthers->SetChecked(m_GameOption.bShadowOthers);
+            if (m_cbAutoControl) m_cbAutoControl->SetChecked(m_GameOption.bAutoCtrl);
+            m_cbBgmSound->SetChecked(m_GameOption.bSoundBGM); if (m_cbEnvSound) m_cbEnvSound->SetChecked(m_GameOption.bSoundEnvironment);
+            m_gbGamma->SetCurValue(m_GameOption.nGamma); m_gbSight->SetCurValue(m_GameOption.nSightDistance);
+            m_gbBgmSound->SetCurValue(m_GameOption.nVolumnBGM); m_gbEnvSound->SetCurValue(m_GameOption.nVolumnEnvironment);
+            if (m_pbMacroMode) m_pbMacroMode->SetPush(m_GameOption.nMacroMode != 0);
+            if (m_pbBasicGraphic) m_pbBasicGraphic->SetPush(m_GameOption.nLODMode == 0);
+            if (m_pbDownGraphic) m_pbDownGraphic->SetPush(m_GameOption.nLODMode != 0);
+            if (m_pbBasicEffect) m_pbBasicEffect->SetPush(m_GameOption.nEffectMode == 0);
+            if (m_pbOneEffect) m_pbOneEffect->SetPush(m_GameOption.nEffectMode != 0);
+            DisableGraphicTab(m_GameOption.bAutoCtrl);
+        }
+        return;
+    }
     // 1:1 with legacy UpdateData.  bSave=true reads from the
     // tab sheets into m_GameOption; bSave=false writes from
     // m_GameOption to the tab sheets.  Both paths are routed
