@@ -427,6 +427,19 @@ TEST(ClientUiRuntime, ActiveChildAlsoActivatesOwningDialog) {
     EXPECT_TRUE(runtime.isDialogActive("MT_FIRSTCHOSEBTN"));
 }
 
+TEST(ClientUiRuntime, HidingActiveChildClearsKeyboardFocus) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "CharSelectDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    ASSERT_TRUE(runtime.focusWindowByLegacyId("MT_FIRSTCHOSEBTN"));
+    ASSERT_TRUE(runtime.setDialogActive("MT_FIRSTCHOSEBTN", false));
+    EXPECT_FALSE(runtime.onKey(true, 13));
+    EXPECT_FALSE(runtime.isDialogActive("MT_FIRSTCHOSEBTN"));
+}
+
 TEST(ClientUiRuntime, LoadsLegacyChinaGameInCoreDialogSet) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());

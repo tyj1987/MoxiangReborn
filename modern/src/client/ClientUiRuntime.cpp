@@ -177,6 +177,15 @@ bool ClientUiRuntime::setDialogActive(std::string_view legacy_id,
         if (auto* window = dialog->findWindowByLegacyId(legacy_id)) {
             window->SetActive(active);
             window->SetVisible(active);
+            // A tab/page can own the currently focused edit box.  Hiding the
+            // page must invalidate that focus immediately; otherwise keyboard
+            // input continues to target an invisible control after a tab
+            // switch and can mutate stale state.
+            if (!active && m_focused) {
+                const mxh::ui::cObject* node = m_focused;
+                while (node && node != window) node = node->parent();
+                if (node == window) focus(nullptr);
+            }
             return true;
         }
     }
