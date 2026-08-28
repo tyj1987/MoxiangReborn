@@ -74,6 +74,14 @@ public:
 
     bool setDialogActive(std::string_view legacy_id, bool active) noexcept;
     bool isDialogActive(std::string_view legacy_id) const noexcept;
+    // Update the manager's active layout mode after a committed display
+    // transition.  Existing controls keep their logical 4:3 coordinates;
+    // the mode change ensures subsequent dialog loads and hit-testing use
+    // the same resolution policy as the renderer.
+    void onResolutionChange(mxh::ui::ResolutionMode mode) noexcept;
+    mxh::ui::ResolutionMode resolution_mode() const noexcept {
+        return m_windows.currentResolutionMode();
+    }
     // CharSelect / CharMake load a single script whose roots must be
     // visible and hittable. GameIn must not call this — inventory/shop
     // stay inactive until I/B/Q.

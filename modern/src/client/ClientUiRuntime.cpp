@@ -198,6 +198,10 @@ bool ClientUiRuntime::isDialogActive(std::string_view legacy_id) const noexcept 
     return false;
 }
 
+void ClientUiRuntime::onResolutionChange(mxh::ui::ResolutionMode mode) noexcept {
+    m_windows.OnResolutionChange(mode);
+}
+
 void ClientUiRuntime::activateAllLoadedDialogs() noexcept {
     m_active = true;
     for (const auto& dialog : m_windows.dialogs()) {

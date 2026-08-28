@@ -522,6 +522,18 @@ TEST(ClientUiRuntime, LoadsOptionBinAsConcreteOptionDialog) {
     EXPECT_FALSE(options->gameOption().bNoDeal);
 }
 
+TEST(ClientUiRuntime, ResolutionChangeUpdatesWindowManagerMode) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "21.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    EXPECT_EQ(runtime.resolution_mode(), mxh::ui::ResolutionMode::Low800x600);
+    runtime.onResolutionChange(mxh::ui::ResolutionMode::High1920x1080);
+    EXPECT_EQ(runtime.resolution_mode(), mxh::ui::ResolutionMode::High1920x1080);
+}
+
 TEST(InGameUiRuntime, OptionOkActivationDispatchesConcreteDialogAction) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
