@@ -2155,6 +2155,20 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
             mxh::proto::ItemProtocol::PickupAck)) {
         if (msg.payload.size() >= 4) {
             const auto drop_id = get_u32(msg.payload.data());
+            const bool known_drop = m_pendingPickupDrop == drop_id ||
+                std::any_of(m_groundDrops.begin(), m_groundDrops.end(),
+                    [drop_id](const GroundDropInfo& drop) {
+                        return drop.object_id == drop_id;
+                    });
+            // A duplicate/late acknowledgement must not recreate an item in
+            // the local inventory after the ground object has already been
+            // consumed.  Accept acknowledgements for visible drops even when
+            // the request timed out, but reject ids never seen by this client.
+            if (!known_drop) {
+                MLOG_WARN("CInGameState: ignoring unknown PickupAck drop=%u",
+                          static_cast<unsigned>(drop_id));
+                return;
+            }
             if (m_pendingPickupDrop == drop_id) {
                 m_pendingPickupDrop = 0;
                 m_pendingPickupSinceMs = 0;

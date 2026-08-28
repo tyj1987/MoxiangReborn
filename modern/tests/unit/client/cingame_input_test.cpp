@@ -815,6 +815,11 @@ TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     EXPECT_EQ(state.game_info().items.Inventory[0].dwDBIdx, drop_id);
     EXPECT_EQ(state.game_info().items.Inventory[0].wIconIdx, item_id);
     EXPECT_EQ(state.game_info().items.Inventory[0].ItemParam, count);
+
+    // A repeated acknowledgement for the already-consumed drop must not
+    // create a second inventory entry.
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[1]));
 }
 
 TEST(InGamePlayable, ItemNacksBecomeVisiblePlayerFeedback) {
