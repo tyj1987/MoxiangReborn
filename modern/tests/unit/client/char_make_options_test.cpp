@@ -4,15 +4,26 @@
 
 namespace {
 
-const std::filesystem::path kPlaydhRoot =
-    "C:/moxiang/modern/data/PlayDH";
+std::filesystem::path playdh_root() {
+    std::error_code ec;
+    auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (std::filesystem::is_directory(candidate, candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
+}
 
 } // namespace
 
 TEST(CharMakeOptions, LoadsExactChinaResourceValues) {
     std::string error;
     const auto catalog = mxh::client::CharMakeOptionCatalog::load(
-        kPlaydhRoot, &error);
+        playdh_root(), &error);
     ASSERT_TRUE(catalog.has_value()) << error;
     ASSERT_TRUE(catalog->hasChinaBaseline());
 
