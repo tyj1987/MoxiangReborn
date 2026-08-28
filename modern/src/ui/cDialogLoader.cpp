@@ -769,6 +769,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
             }
         }
         if (!r.error.empty()) return r;
+        if (auto* character = dynamic_cast<cCharacterDialog*>(dlg.get())) {
+            character->Linking();
+        }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
         }

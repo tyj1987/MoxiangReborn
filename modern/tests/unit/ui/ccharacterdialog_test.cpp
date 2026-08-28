@@ -9,7 +9,7 @@
 //   * ATTRDEFENCE struct has the 4 stat-static + 4 stat-guage
 //   * Default construction zeroed (nocori=0, minus=0, no point-leveling)
 //   * Init stores dialog coords
-//   * Linking is a no-op (WINDOW_ID walk deferred)
+//   * Linking binds the InterfaceScript control IDs to live cStatic/cGuagen
 //   * SetActive notifies the main-bar icon callback
 //   * SetLevel/SetLife/SetShield/SetNaeRyuk/SetFame/SetBadFame
 //     format their values into the matching static
@@ -39,6 +39,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -153,6 +154,26 @@ TEST(CCharacterDialog, InitStoresPosition) {
     d.Init(100, 200, 300, 400, nullptr, 1);
     EXPECT_EQ(d.absX(), 100);
     EXPECT_EQ(d.absY(), 200);
+}
+
+TEST(CCharacterDialog, LinkingBindsRealStaticControls) {
+    cCharacterDialog d;
+    d.Init(0, 0, 252, 413, nullptr, 0);
+    auto level = std::make_unique<cStatic>();
+    level->Init(0, 0, 20, 12, nullptr, 0);
+    level->setLegacyId("CI_CHARLEVEL");
+    auto life = std::make_unique<cStatic>();
+    life->Init(0, 0, 20, 12, nullptr, 0);
+    life->setLegacyId("CI_CHARLIFE");
+    auto* level_ptr = level.get();
+    auto* life_ptr = life.get();
+    d.Add(std::move(level));
+    d.Add(std::move(life));
+    d.Linking();
+    d.SetLevel(17);
+    d.SetLife(1234);
+    EXPECT_EQ(level_ptr->GetStaticText(), "17");
+    EXPECT_EQ(life_ptr->GetStaticText(), "1234");
 }
 
 TEST(CCharacterDialog, SetActiveNotifiesMainBar) {

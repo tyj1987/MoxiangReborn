@@ -3,8 +3,10 @@
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cGuagen.hpp"
+#include "mxh/ui/cStatic.hpp"
 
 #include <cstdio>
+#include <cstring>
 
 namespace mxh::ui {
 
@@ -65,9 +67,42 @@ void cCharacterDialog::Init(long x, long y, std::uint16_t wid, std::uint16_t hei
 }
 
 void cCharacterDialog::Linking() {
-    // 1:1 with legacy Linking.  The legacy walks the
-    // WINDOW_ID tree; modern port defers that.  Tests
-    // populate children via SetChildrenForTest.
+    const auto staticFor = [this](const char* id) -> cStatic* {
+        return dynamic_cast<cStatic*>(findWindowByLegacyId(id));
+    };
+    m_ppStatic.munpa = staticFor("CI_CHARMUNPA");
+    m_ppStatic.jikwe = staticFor("CI_CHARJIKWE");
+    m_ppStatic.fame = staticFor("CI_CHARFAME");
+    m_ppStatic.badfame = staticFor("CI_CHARBADFAME");
+    m_ppStatic.name = staticFor("CI_CHARNAME");
+    m_ppStatic.stage = staticFor("CI_CHARSTAGE");
+    m_ppStatic.genGoal = staticFor("CI_CHARGENGOAL");
+    m_ppStatic.simmak = staticFor("CI_CHARSIMMAK");
+    m_ppStatic.minchub = staticFor("CI_CHARDEX");
+    m_ppStatic.cheryuk = staticFor("CI_CHARSTA");
+    m_ppStatic.level = staticFor("CI_CHARLEVEL");
+    m_ppStatic.expPercent = staticFor("CI_CHAREXPPERCENT");
+    m_ppStatic.point = staticFor("CI_CHARPOINT");
+    m_ppStatic.meleeattack = staticFor("CI_CHARATTACK");
+    m_ppStatic.rangeattack = staticFor("CI_LONGATTACK");
+    m_ppStatic.critical = staticFor("CI_CRITICAL");
+    m_ppStatic.attackdistance = staticFor("CI_DISTANCE");
+    m_ppStatic.life = staticFor("CI_CHARLIFE");
+    m_ppStatic.defense = staticFor("CI_CHARDEFENSE");
+    m_ppStatic.naeryuk = staticFor("CI_CHARNAERYUK");
+    m_ppStatic.Shield = staticFor("CI_HOSINDEFENSE");
+    m_AttrDefComponent.pStaticGenGol = staticFor("CI_CHARHWA");
+    m_AttrDefComponent.pStaticSimMak = staticFor("CI_CHARSU");
+    m_AttrDefComponent.pStaticMinChub = staticFor("CI_CHARMOK");
+    m_AttrDefComponent.pStaticCheRyuk = staticFor("CI_CHARKUM");
+    m_AttrDefComponent.pGuageGenGol = dynamic_cast<cGuagen*>(
+        findWindowByLegacyId("CI_DEFENCE_HWA"));
+    m_AttrDefComponent.pGuageSimMak = dynamic_cast<cGuagen*>(
+        findWindowByLegacyId("CI_DEFENCE_SU"));
+    m_AttrDefComponent.pGuageMinChub = dynamic_cast<cGuagen*>(
+        findWindowByLegacyId("CI_DEFENCE_MOK"));
+    m_AttrDefComponent.pGuageCheRyuk = dynamic_cast<cGuagen*>(
+        findWindowByLegacyId("CI_DEFENCE_KUM"));
 }
 
 void cCharacterDialog::SetActive(bool val) noexcept {
@@ -78,6 +113,30 @@ void cCharacterDialog::SetActive(bool val) noexcept {
 }
 
 void cCharacterDialog::SetStaticTextByField(const char* fieldName, const char* text) {
+    if (!fieldName || !text) return;
+    cStatic* target = nullptr;
+    if (std::strcmp(fieldName, "munpa") == 0) target = m_ppStatic.munpa;
+    else if (std::strcmp(fieldName, "jikwe") == 0) target = m_ppStatic.jikwe;
+    else if (std::strcmp(fieldName, "fame") == 0) target = m_ppStatic.fame;
+    else if (std::strcmp(fieldName, "badfame") == 0) target = m_ppStatic.badfame;
+    else if (std::strcmp(fieldName, "name") == 0) target = m_ppStatic.name;
+    else if (std::strcmp(fieldName, "stage") == 0) target = m_ppStatic.stage;
+    else if (std::strcmp(fieldName, "genGoal") == 0) target = m_ppStatic.genGoal;
+    else if (std::strcmp(fieldName, "simmak") == 0) target = m_ppStatic.simmak;
+    else if (std::strcmp(fieldName, "minchub") == 0) target = m_ppStatic.minchub;
+    else if (std::strcmp(fieldName, "cheryuk") == 0) target = m_ppStatic.cheryuk;
+    else if (std::strcmp(fieldName, "level") == 0) target = m_ppStatic.level;
+    else if (std::strcmp(fieldName, "expPercent") == 0) target = m_ppStatic.expPercent;
+    else if (std::strcmp(fieldName, "point") == 0) target = m_ppStatic.point;
+    else if (std::strcmp(fieldName, "meleeattack") == 0) target = m_ppStatic.meleeattack;
+    else if (std::strcmp(fieldName, "rangeattack") == 0) target = m_ppStatic.rangeattack;
+    else if (std::strcmp(fieldName, "critical") == 0) target = m_ppStatic.critical;
+    else if (std::strcmp(fieldName, "attackdistance") == 0) target = m_ppStatic.attackdistance;
+    else if (std::strcmp(fieldName, "life") == 0) target = m_ppStatic.life;
+    else if (std::strcmp(fieldName, "defense") == 0) target = m_ppStatic.defense;
+    else if (std::strcmp(fieldName, "naeryuk") == 0) target = m_ppStatic.naeryuk;
+    else if (std::strcmp(fieldName, "shield") == 0) target = m_ppStatic.Shield;
+    if (target) target->SetStaticText(text);
     if (m_setStaticTextCb) m_setStaticTextCb(fieldName, text, m_setStaticTextUser);
 }
 
