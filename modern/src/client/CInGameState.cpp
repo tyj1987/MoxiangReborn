@@ -3111,6 +3111,11 @@ bool CInGameState::OnMouseButton(bool left, bool down,
     // broad decorative containers and must not swallow the gesture before
     // the camera capture state is established.
     if (!left) {
+        if (m_shopOpen) {
+            // The shop is modal for both mouse buttons; do not rotate the
+            // world behind it while the panel owns interaction focus.
+            return true;
+        }
         m_cameraDrag = down;
         if (down) {
             // Start each gesture from the press coordinate.  Reusing the
