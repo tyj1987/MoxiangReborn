@@ -76,4 +76,20 @@ void cMiniFriendDialog::SetName(const char* name) {
     }
 }
 
+std::uint32_t cMiniFriendDialog::ActionEvent(std::int32_t mouseX,
+                                             std::int32_t mouseY,
+                                             std::uint32_t mouseFlags) {
+    const auto event = cDialog::ActionEvent(mouseX, mouseY, mouseFlags);
+    if (m_pAddCancelBtn && m_pAddCancelBtn->consumeClickInside()) {
+        SetActive(false);
+        return event;
+    }
+    if (m_pAddOkBtn && m_pAddOkBtn->consumeClickInside()) {
+        const std::string_view name = m_pNameEdit ? m_pNameEdit->editText() : std::string_view{};
+        if (m_addCallback && m_addCallback(name)) SetActive(false);
+        return event;
+    }
+    return event;
+}
+
 } // namespace mxh::ui

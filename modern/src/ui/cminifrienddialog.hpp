@@ -28,6 +28,8 @@
 #include "cDialog.hpp"
 
 #include <cstdint>
+#include <functional>
+#include <string_view>
 
 namespace mxh::ui {
 
@@ -37,6 +39,7 @@ class cStatic;
 
 class cMiniFriendDialog : public cDialog {
 public:
+    using AddCallback = std::function<bool(std::string_view)>;
     cMiniFriendDialog();
     ~cMiniFriendDialog() override;
 
@@ -60,6 +63,9 @@ public:
     // 1:1 with legacy SetName(char*).  Pre-fills the
     // edit box with `name`.
     void SetName(const char* name);
+    void SetAddCallback(AddCallback cb) { m_addCallback = std::move(cb); }
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
 
     // Disable flag accessor (1:1 with legacy m_bDisable).
     bool IsDisabled() const noexcept { return m_bDisable; }
@@ -94,6 +100,7 @@ private:
     cButton*  m_pAddOkBtn     = nullptr;
     cButton*  m_pAddCancelBtn = nullptr;
     bool      m_bDisable      = false;
+    AddCallback m_addCallback;
 };
 
 } // namespace mxh::ui
