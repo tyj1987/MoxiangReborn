@@ -1397,6 +1397,15 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_questId = 0;
     m_questSelection = 0;
     m_questStatus = "Not accepted";
+    monsters_.clear();
+    m_npcs.clear();
+    m_remotePlayers.clear();
+    m_groundDrops.clear();
+    m_shopItems.clear();
+    m_shopNpcId = 0;
+    m_pendingSkillEffects.clear();
+    m_effectRuntime.clear();
+    m_runtimeEffectEvents.clear();
     m_chatBuffer.clear();
     m_inventoryDragSource.reset();
     set_chat_open(false);
