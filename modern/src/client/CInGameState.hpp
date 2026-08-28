@@ -588,6 +588,7 @@ public:
     std::uint32_t            m_lastAttackTarget = 0;
     std::uint32_t            m_pendingAttackTarget = 0;
     std::uint32_t            m_pendingSkillId = 0;
+    std::uint32_t            m_pendingSkillTargetId = 0;
     std::uint64_t             m_pendingSkillSinceMs = 0;
     std::vector<NpcInfo> m_npcs;
     std::unordered_map<std::uint32_t, RemotePlayerInfo> m_remotePlayers;

@@ -771,6 +771,7 @@ void CInGameState::Release() {
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
     m_pendingSkillId = 0;
+    m_pendingSkillTargetId = 0;
     m_pendingSkillSinceMs = 0;
     m_pendingPickupDrop = 0;
     m_pendingPickupSinceMs = 0;
@@ -955,6 +956,7 @@ void CInGameState::Process() {
         MLOG_WARN("CInGameState: combat request timed out skill=%u",
                   static_cast<unsigned>(m_pendingSkillId));
         m_pendingSkillId = 0;
+        m_pendingSkillTargetId = 0;
         m_pendingSkillSinceMs = 0;
         m_lastSkillError = "Server response timed out.";
         (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
@@ -1364,8 +1366,9 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingPickupSinceMs = 0;
     m_pendingBuyItemId = 0;
     m_pendingBuySinceMs = 0;
-    m_pendingSkillId = 0;
-    m_pendingSkillSinceMs = 0;
+        m_pendingSkillId = 0;
+        m_pendingSkillTargetId = 0;
+        m_pendingSkillSinceMs = 0;
     m_pendingAttackTarget = 0;
     m_lastAttackTarget = 0;
     m_lastHitTarget = 0;
@@ -1596,6 +1599,11 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                 m_pendingPickupDrop = 0;
                 m_pendingPickupSinceMs = 0;
             }
+            if (m_pendingSkillTargetId == removed) {
+                m_pendingSkillId = 0;
+                m_pendingSkillTargetId = 0;
+                m_pendingSkillSinceMs = 0;
+            }
             m_remotePlayers.erase(removed);
             (void)m_effectRuntime.stop_object(removed);
             if (m_pendingAttackTarget == removed) m_pendingAttackTarget = 0;
@@ -1743,6 +1751,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 // clearing it here, the later SingleResult path would start
                 // the same BEFF timeline a second time.
                 m_pendingSkillId = 0;
+                m_pendingSkillTargetId = 0;
                 m_pendingSkillSinceMs = 0;
                 push_effect_event(EffectEvent{
                     EffectEventKind::CastRelease, m_lastTickMs, source_object,
@@ -1760,6 +1769,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 : err == 4u ? "Target is out of range."
                 : "Skill could not be used.";
             m_pendingSkillId = 0;
+            m_pendingSkillTargetId = 0;
             m_pendingSkillSinceMs = 0;
             (void)m_uiRuntime.showMessage(9120, m_lastSkillError);
             MLOG_WARN("CInGameState: SkillStartNack error=%u",
@@ -1794,6 +1804,7 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                     start_skill_effect(m_pendingSkillId, target, m_lastTickMs,
                                        source_object);
                     m_pendingSkillId = 0;
+                    m_pendingSkillTargetId = 0;
                     m_pendingSkillSinceMs = 0;
                 }
                 push_effect_event(EffectEvent{
@@ -3464,6 +3475,7 @@ void CInGameState::try_attack() {
                    mxh::net::to_string(e));
     } else {
         m_pendingSkillId = 1u;
+        m_pendingSkillTargetId = *target;
         m_pendingSkillSinceMs = now;
         MLOG_INFO("CInGameState: attack target=%u pos=(%.0f,%.0f)",
                   *target, target_x, target_z);
@@ -3584,6 +3596,7 @@ void CInGameState::use_quick_slot(std::size_t slot) {
         make_attack_message(m_playerId, skill, target, target_x, target_z));
     if (e == mxh::net::NetError::Ok) {
         m_pendingSkillId = skill;
+        m_pendingSkillTargetId = target;
         m_pendingSkillSinceMs = now;
         m_lastAttackMs = now;
         push_effect_event(EffectEvent{
