@@ -1394,6 +1394,14 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingSkillEffects.clear();
     m_effectRuntime.clear();
     m_runtimeEffectEvents.clear();
+    m_lastItemError.clear();
+    m_lastNpcError.clear();
+    m_lastSkillError.clear();
+    m_lastFriendError.clear();
+    m_lastDamage = 0;
+    m_lastHitTarget = 0;
+    m_lastHitResult = 0;
+    m_lastDamageTimestampMs = 0;
     m_pendingInventoryMove = false;
     m_pendingInventoryMoveSinceMs = 0;
     m_pendingPartyInviteId = 0;
