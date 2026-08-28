@@ -775,6 +775,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         if (auto* chat = dynamic_cast<cChatDialog*>(dlg.get())) {
             chat->Linking();
         }
+        if (auto* quest = dynamic_cast<cQuestDialog*>(dlg.get())) {
+            quest->Linking();
+        }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
         }
