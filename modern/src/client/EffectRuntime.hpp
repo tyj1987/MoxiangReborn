@@ -14,6 +14,7 @@
 namespace mxh::client {
 
 struct RuntimeEffectEvent {
+    std::uint64_t instance_id = 0;
     std::string effect_name;
     std::uint32_t source_object_id = 0;
     std::uint32_t target_object_id = 0;
@@ -65,6 +66,7 @@ public:
 
 private:
     struct Instance {
+        std::uint64_t instance_id = 0;
         std::string effect_name;
         std::uint32_t source_object_id = 0;
         std::uint32_t target_object_id = 0;
@@ -72,6 +74,7 @@ private:
     };
     mxh::game::EffectCatalog m_catalog;
     std::vector<Instance> m_instances;
+    std::uint64_t m_next_instance_id = 1;
 };
 
 } // namespace mxh::client

@@ -22,6 +22,8 @@ bool EffectRuntime::start(std::string_view effect_name,
     const auto* summary = m_catalog.script(effect_name);
     if (!summary) return false;
     Instance instance;
+    instance.instance_id = m_next_instance_id++;
+    if (m_next_instance_id == 0) m_next_instance_id = 1;
     instance.effect_name = std::string(effect_name);
     instance.source_object_id = source_object_id;
     instance.target_object_id = target_object_id;
@@ -48,7 +50,7 @@ void EffectRuntime::advance(
         const auto events = it->timeline.advance(now_ms);
         if (emit) {
             for (const auto& trigger : events) {
-                emit(RuntimeEffectEvent{it->effect_name,
+                emit(RuntimeEffectEvent{it->instance_id, it->effect_name,
                                         it->source_object_id,
                                         it->target_object_id, trigger,
                                         trigger.unit_kind, trigger.object_name,

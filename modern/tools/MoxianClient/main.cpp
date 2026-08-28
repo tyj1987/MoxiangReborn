@@ -1130,7 +1130,8 @@ struct EffectVisualOverlay {
         const bool mesh = event.unit_kind == "OBJECT" &&
                           !event.object_name.empty();
         if ((!renderer && !mesh) || (!mesh && !light && event.texture_name.empty())) return;
-        const std::string key = event.effect_name + ":" +
+        const std::string key = std::to_string(event.instance_id) + ":" +
+            event.effect_name + ":" +
             std::to_string(event.source_object_id) + ":" +
             std::to_string(event.target_object_id) + ":" +
             std::to_string(event.trigger.trigger.unit) + ":" +

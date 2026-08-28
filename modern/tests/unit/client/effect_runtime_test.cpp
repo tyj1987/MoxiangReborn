@@ -65,6 +65,24 @@ TEST(EffectRuntime, RunsAuthoritativeCombatEffectFromSkillList) {
     EXPECT_GT(runtime.active_count(), 0u);
 }
 
+TEST(EffectRuntime, OverlappingInstancesReceiveDistinctIds) {
+    const auto root = find_playdh_root();
+    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
+    mxh::client::EffectRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(root, &error)) << error;
+    ASSERT_TRUE(runtime.start("m_combo_gum01.beff", 101, 202, 1000, 16));
+    ASSERT_TRUE(runtime.start("m_combo_gum01.beff", 101, 202, 1000, 16));
+    std::vector<std::uint64_t> ids;
+    runtime.advance(1000, [&](const auto& event) {
+        if (!event.unit_kind.empty()) ids.push_back(event.instance_id);
+    });
+    ASSERT_FALSE(ids.empty());
+    EXPECT_NE(ids.front(), 0u);
+    EXPECT_EQ(std::count(ids.begin(), ids.end(), ids.front()),
+              static_cast<std::size_t>(1));
+}
+
 TEST(EffectRuntime, StopObjectRemovesMatchingSourceAndTargetInstances) {
     const auto root = find_playdh_root();
     if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
