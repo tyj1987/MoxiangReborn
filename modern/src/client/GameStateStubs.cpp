@@ -49,7 +49,13 @@ void CGameLoading::Init(void* param) {
     m_cancelled = false;
     m_error.clear();
     const auto* context = static_cast<const LoadStateContext*>(param);
-    if (context) {
+    if (!context) {
+        // A loading state without its coordinator context cannot make a
+        // safe progress or scene-activation decision. Fail at entry so the
+        // host never observes an apparently healthy loading screen.
+        m_failed = true;
+        m_error = "loading context is missing";
+    } else {
         if (context->total_steps == 0) {
             m_failed = true;
             m_error = "loading context has zero steps";
@@ -125,7 +131,12 @@ void CMapChange::Init(void* param) {
     m_cancelled = false;
     m_error.clear();
     const auto* context = static_cast<const LoadStateContext*>(param);
-    if (context) {
+    if (!context) {
+        // MapChange has the same fail-closed contract as initial loading;
+        // retaining an old scene without a transfer context is unsafe.
+        m_failed = true;
+        m_error = "map change context is missing";
+    } else {
         if (context->total_steps == 0) {
             m_failed = true;
             m_error = "map change context has zero steps";

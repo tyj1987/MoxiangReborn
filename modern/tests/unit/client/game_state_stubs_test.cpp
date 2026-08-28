@@ -105,6 +105,8 @@ TEST(CGameLoading, StartFailsClosedWithoutEngineOrResourceRoot) {
 TEST(CGameLoading, MissingContextFailsClosedInsteadOfHanging) {
     CGameLoading state;
     state.Init(nullptr);
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "loading context is missing");
     state.Process();
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "loading context is missing");
@@ -195,6 +197,8 @@ TEST(CMapChange, StartFailsClosedWithoutEngineOrResourceRoot) {
 TEST(CMapChange, MissingContextFailsClosedInsteadOfHanging) {
     CMapChange state;
     state.Init(nullptr);
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "map change context is missing");
     state.Process();
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "map change context is missing");
