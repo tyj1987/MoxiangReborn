@@ -202,11 +202,13 @@ public:
     std::uint32_t getMaxMp() const noexcept override { return m_info ? m_info->max_mp : 0; }
     float getHpFraction() const noexcept override {
         return !m_info || m_info->max_life == 0 ? 0.0f
-            : static_cast<float>(m_info->life) / static_cast<float>(m_info->max_life);
+            : std::clamp(static_cast<float>(m_info->life) /
+                         static_cast<float>(m_info->max_life), 0.0f, 1.0f);
     }
     float getMpFraction() const noexcept override {
         return !m_info || m_info->max_mp == 0 ? 0.0f
-            : static_cast<float>(m_info->mp) / static_cast<float>(m_info->max_mp);
+            : std::clamp(static_cast<float>(m_info->mp) /
+                         static_cast<float>(m_info->max_mp), 0.0f, 1.0f);
     }
 private:
     const GameInInfo* m_info = nullptr;
