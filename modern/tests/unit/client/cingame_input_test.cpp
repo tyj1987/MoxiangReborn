@@ -507,6 +507,21 @@ TEST(InGamePlayable, HudDoesNotSwallowWasdAfterGameInAck) {
     EXPECT_EQ(state.local_x(), 25000u);
 }
 
+TEST(InGamePlayable, DisconnectDeactivatesWorldBeforeStateRelease) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    ASSERT_TRUE(state.is_in_game());
+
+    state.on_disconnect(mxh::net::make_connection_id(1),
+                        mxh::net::NetError::Disconnected);
+
+    EXPECT_FALSE(state.is_in_game());
+    EXPECT_EQ(state.player_id(), 0u);
+    EXPECT_EQ(state.map_num(), 0u);
+}
+
 TEST(InGamePlayable, QStrafesInsteadOfOpeningQuestLog) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

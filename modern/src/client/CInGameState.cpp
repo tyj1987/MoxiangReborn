@@ -1440,6 +1440,14 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
                 static_cast<int>(GameStateId::Title));
         }
     }
+
+    // Deactivate the world immediately after scheduling the title transition.
+    // The state object can receive one more frame before Release() runs; keep
+    // that frame from accepting gameplay input or presenting stale entities.
+    m_inGame = false;
+    m_started = false;
+    m_playerId = 0;
+    m_mapNum = 0;
 }
 
 void CInGameState::send_gamein_syn() {
