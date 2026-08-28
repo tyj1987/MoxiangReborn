@@ -397,6 +397,48 @@ void AgentHandler::handle_friend(mxh::net::ConnectionId id,
         reply_(id, out);
     };
 
+    if (msg.header.protocol == 26u) { // FriendListSyn
+        mxh::net::Message response;
+        response.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        response.header.protocol = 27u; // FriendListAck
+        response.header.object_id = source;
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(source))};
+        mxh::db::ResultSet rows;
+        const auto result = db_.query(
+            "SELECT f.friend_id,c.charname,f.status FROM modern_friend f "
+            "LEFT JOIN character_info c ON c.chrid=f.friend_id "
+            "WHERE f.player_id=? ORDER BY f.friend_id", params, rows);
+        if (!result.ok() || rows.size() > 255u) {
+            response.header.protocol = kAddNack;
+            reply_(id, response);
+            return;
+        }
+        response.payload.reserve(1u + rows.size() * 8u);
+        response.payload.push_back(static_cast<std::uint8_t>(rows.size()));
+        for (std::size_t row = 0; row < rows.size(); ++row) {
+            const auto id_col = rows.column_index("friend_id");
+            const auto name_col = rows.column_index("charname");
+            const auto status_col = rows.column_index("status");
+            const auto* friend_id = id_col >= 0
+                ? std::get_if<std::int64_t>(&rows.at(row, static_cast<std::size_t>(id_col))) : nullptr;
+            const auto* name = name_col >= 0
+                ? std::get_if<std::string>(&rows.at(row, static_cast<std::size_t>(name_col))) : nullptr;
+            const auto* status = status_col >= 0
+                ? std::get_if<std::int64_t>(&rows.at(row, static_cast<std::size_t>(status_col))) : nullptr;
+            if (!friend_id || !name || name->size() > 255u) continue;
+            const auto value = static_cast<std::uint32_t>(*friend_id);
+            response.payload.insert(response.payload.end(),
+                                    reinterpret_cast<const std::uint8_t*>(&value),
+                                    reinterpret_cast<const std::uint8_t*>(&value) + sizeof(value));
+            response.payload.push_back(static_cast<std::uint8_t>(status ? *status : 0));
+            response.payload.push_back(static_cast<std::uint8_t>(name->size()));
+            response.payload.insert(response.payload.end(), name->begin(), name->end());
+        }
+        reply_(id, response);
+        return;
+    }
+
     switch (msg.header.protocol) {
     case kAddSyn:
         if (!send_to_target(kAddInvite, source)) {

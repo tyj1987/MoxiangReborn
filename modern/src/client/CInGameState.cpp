@@ -14,6 +14,7 @@
 #include "mxh/ui/cchatdialog.hpp"
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cminifrienddialog.hpp"
+#include "mxh/ui/cfrienddialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -1964,6 +1965,40 @@ void CInGameState::handle_guild_message(const mxh::net::Message& msg) {
 
 void CInGameState::handle_friend_message(const mxh::net::Message& msg) {
     const auto proto = msg.header.protocol;
+    if (proto == 27u) { // FriendListAck: count, [id:u32,status:u8,name_len:u8,name]
+        if (msg.payload.empty()) return;
+        std::size_t offset = 1;
+        const auto count = static_cast<std::size_t>(msg.payload[0]);
+        std::vector<mxh::ui::FriendEntry> entries;
+        entries.reserve(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            if (offset + 6u > msg.payload.size()) return;
+            std::uint32_t friend_id = 0;
+            std::memcpy(&friend_id, msg.payload.data() + offset, sizeof(friend_id));
+            offset += sizeof(friend_id);
+            const auto raw_status = msg.payload[offset++];
+            const auto name_len = static_cast<std::size_t>(msg.payload[offset++]);
+            if (offset + name_len > msg.payload.size()) return;
+            mxh::ui::FriendEntry entry;
+            entry.id = friend_id;
+            entry.status = raw_status <= 2u
+                ? static_cast<mxh::services::FriendStatus>(raw_status)
+                : mxh::services::FriendStatus::Offline;
+            entry.name.assign(reinterpret_cast<const char*>(msg.payload.data() + offset), name_len);
+            offset += name_len;
+            if (entry.id != 0 && !entry.name.empty()) entries.push_back(std::move(entry));
+        }
+        for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+            if (!dialog) continue;
+            auto* friend_dialog = dynamic_cast<mxh::ui::cFriendDialog*>(dialog.get());
+            if (!friend_dialog) continue;
+            const auto current = friend_dialog->Friends();
+            for (const auto& old : current) friend_dialog->RemoveFriend(old.id);
+            for (auto& entry : entries) friend_dialog->AddFriend(std::move(entry));
+            friend_dialog->RefreshFriendList();
+        }
+        return;
+    }
     if (proto == kFriendAddInvite) {
         m_pendingFriendInviteId = msg.header.object_id;
         if (m_pendingFriendInviteId == 0 && msg.payload.size() >= 4) {
@@ -2356,6 +2391,13 @@ void CInGameState::set_map_open(bool open) noexcept {
 void CInGameState::set_friend_open(bool open) noexcept {
     m_friendOpen = open;
     m_uiRuntime.setDialogActive(kFriendDialogId, open);
+    if (open && m_inGame && is_connected() && m_playerId != 0 && m_pEngine) {
+        mxh::net::Message request;
+        request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        request.header.protocol = 26u; // FriendListSyn
+        request.header.object_id = m_playerId;
+        (void)m_pEngine->agent_session().send(std::move(request));
+    }
 }
 
 void CInGameState::set_mini_friend_open(bool open) noexcept {
