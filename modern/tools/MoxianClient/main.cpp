@@ -2415,6 +2415,16 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                     g_inputTarget->OnKeyEvent(false, key);
                 g_inputTarget->OnMouseButton(false, false, 0, 0);
             }
+            // WM_ACTIVATEAPP does not guarantee a matching mouse-up for a
+            // drag that was interrupted by Alt-Tab/minimize.  Release the
+            // title, character-selection and character-creation surfaces as
+            // well, including the shared 3D preview controller.
+            if (g_mainTitle) (void)g_mainTitle->OnMouseButton(true, false, 0, 0);
+            if (g_charSelectState) (void)g_charSelectState->OnMouseButton(true, false, 0, 0);
+            if (g_charMakeState) (void)g_charMakeState->OnMouseButton(true, false, 0, 0);
+            if (g_charPreviewController.onMouseButton(true, false, 0, 0)) {
+                InvalidateRect(h, nullptr, FALSE);
+            }
             if (GetCapture() == h) ReleaseCapture();
         }
         MLOG_INFO("mxh_client: audio focus=%s", g_audioFocused ? "active" : "muted");
