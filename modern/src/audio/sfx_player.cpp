@@ -42,6 +42,7 @@ struct SfxPlayer::MediaState {
         IXAudio2SourceVoice* source = nullptr;
         std::vector<std::uint8_t> pcm;
         WAVEFORMATEX format{};
+        float mix_gain = 1.0f;
     };
     // Effects must overlap: a sword hit cannot cut off the footstep or the
     // previous skill cue.  A bounded round-robin pool keeps this deterministic
@@ -87,6 +88,7 @@ static void stop_media(SfxPlayer::MediaState& m) noexcept {
         }
         voice.pcm.clear();
         voice.format = {};
+        voice.mix_gain = 1.0f;
     }
 }
 #endif
@@ -192,10 +194,13 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
     else buffer.Flags = XAUDIO2_END_OF_STREAM;
     const float gain = std::clamp(volume_ * current_bus_gain_ *
         current_entry_volume_ * current_distance_gain_, 0.0f, 1.0f);
+    voice.mix_gain = std::clamp(current_bus_gain_ * current_entry_volume_ *
+                                current_distance_gain_, 0.0f, 1.0f);
     hr = voice.source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = voice.source->SetVolume(gain); if (SUCCEEDED(hr)) hr = voice.source->Start(0);
     if (FAILED(hr)) {
         voice.source->Stop(0); voice.source->FlushSourceBuffers();
         voice.source->DestroyVoice(); voice.source = nullptr; voice.pcm.clear();
+        voice.mix_gain = 1.0f;
         error(out, "SFX playback failed"); return false;
     }
     current_id_ = id; MLOG_DEBUG("[audio] playing SFX id=%u", id); return true;
@@ -220,11 +225,11 @@ void SfxPlayer::setVolume(float value) noexcept {
     volume_ = std::isfinite(value) ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
 #ifdef _WIN32
     if (media_) {
-        const auto gain = std::clamp(volume_ * current_bus_gain_ *
-                                     current_entry_volume_ * current_distance_gain_,
-                                     0.0f, 1.0f);
         for (auto& voice : media_->voices) {
-            if (voice.source) voice.source->SetVolume(gain);
+            if (voice.source) {
+                const auto gain = std::clamp(volume_ * voice.mix_gain, 0.0f, 1.0f);
+                voice.source->SetVolume(gain);
+            }
         }
     }
 #endif
