@@ -1149,6 +1149,12 @@ struct EffectVisualOverlay {
         if (std::find_if(active.begin(), active.end(),
                          [&key](const Instance& item) { return item.key == key; })
                 != active.end()) return;
+        if (active.size() >= kMaxActiveVisuals) {
+            MLOG_WARN("mxh_client: BEFF visual capacity reached (%zu); evicting oldest visual",
+                      kMaxActiveVisuals);
+            if (active.front().sprite) active.front().sprite->Release();
+            active.erase(active.begin());
+        }
         IDISpriteObject* sprite = nullptr;
         if (!mesh) {
             if (light) {
@@ -1165,12 +1171,6 @@ struct EffectVisualOverlay {
                           event.effect_name.c_str(), event.texture_name.c_str());
                 return;
             }
-        }
-        if (active.size() >= kMaxActiveVisuals) {
-            MLOG_WARN("mxh_client: BEFF visual capacity reached (%zu); evicting oldest visual",
-                      kMaxActiveVisuals);
-            if (active.front().sprite) active.front().sprite->Release();
-            active.erase(active.begin());
         }
         active.push_back({key, event.source_object_id, event.target_object_id,
                           sprite, event.texture_name,
