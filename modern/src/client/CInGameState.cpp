@@ -1371,9 +1371,9 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingPickupSinceMs = 0;
     m_pendingBuyItemId = 0;
     m_pendingBuySinceMs = 0;
-        m_pendingSkillId = 0;
-        m_pendingSkillTargetId = 0;
-        m_pendingSkillSinceMs = 0;
+    m_pendingSkillId = 0;
+    m_pendingSkillTargetId = 0;
+    m_pendingSkillSinceMs = 0;
     m_pendingAttackTarget = 0;
     m_lastAttackTarget = 0;
     m_lastHitTarget = 0;
@@ -1385,6 +1385,10 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_effectRuntime.clear();
     m_runtimeEffectEvents.clear();
     m_pendingInventoryMove = false;
+    m_pendingInventoryMoveSinceMs = 0;
+    m_pendingPartyInviteId = 0;
+    m_pendingGuildInviteId = 0;
+    m_pendingFriendInviteId = 0;
     m_chatBuffer.clear();
     m_inventoryDragSource.reset();
     set_chat_open(false);
