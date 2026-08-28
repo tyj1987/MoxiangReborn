@@ -132,6 +132,12 @@ public:
     void set_map_server_for_map(std::uint16_t map_num,
                                 mxh::net::ITcpSender* client,
                                 mxh::net::ConnectionId map_conn_id);
+    // Development-only compatibility path for offline protocol tests. A
+    // production Agent must wait for a real MapServer response instead of
+    // fabricating a GameInAck.
+    void set_allow_dev_gamein_fallback(bool on) noexcept {
+        allow_dev_gamein_fallback_ = on;
+    }
     mxh::net::ConnectionId get_map_connection() const;
 
     // Phase 9: forward MapServer response to the correct client.
@@ -221,6 +227,7 @@ private:
     ReplyFn reply_;
     bool use_legacy_framing_;
     std::uint16_t default_map_num_ = 12;
+    bool allow_dev_gamein_fallback_ = true;
 
     // Track user_id per connection (set during CharacterListSyn).
     mutable std::mutex user_mu_;

@@ -290,6 +290,7 @@ int main(int argc, char** argv) {
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
             if (server_ptr) server_ptr->send(id, m);
         }, args.default_map_num);
+    handler.set_allow_dev_gamein_fallback(false);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;

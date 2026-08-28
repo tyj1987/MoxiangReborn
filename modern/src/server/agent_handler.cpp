@@ -1836,7 +1836,19 @@ void AgentHandler::handle_legacy_gamein_syn(
         return;
     }
 
-    // Fallback: no MapServer connected, return stub GameInAck.
+    if (!allow_dev_gamein_fallback_) {
+        std::cerr << "[Agent] no MapServer connected; rejecting GAMEIN_SYN\n";
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameInNack);
+        nack.header.object_id = char_id;
+        reply_(id, nack);
+        return;
+    }
+
+    // Development-only fallback retained for offline protocol tests.
     std::cout << "[Agent] no MapServer, returning stub GameInAck\n";
     mxh::net::Message ack;
     ack.header.category = static_cast<std::uint8_t>(

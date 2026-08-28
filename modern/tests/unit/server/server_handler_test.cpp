@@ -605,6 +605,29 @@ TEST(AgentHandlerTest, GameInUsesMapSpecificServerRoute) {
     EXPECT_EQ(target_map.sent_msgs.front().header.object_id, 450035712u);
 }
 
+TEST(AgentHandlerTest, ProductionGameInRejectsWhenMapServerIsUnavailable) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true,
+                                      false, {}, /*default_map_num=*/12);
+    handler.set_allow_dev_gamein_fallback(false);
+    const auto connection = mxh::net::make_connection_id(1104);
+    handler.register_session(connection, 3001u, 450035716u, 12u);
+
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = 450035716u;
+    handler.on_message(connection, game_in);
+
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+    EXPECT_TRUE(reply.messages.front().payload.empty());
+}
+
 TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
     MockDbAdapter db;
     ReplySpy reply;
