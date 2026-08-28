@@ -1393,11 +1393,19 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingGuildInviteId = 0;
     m_pendingFriendInviteId = 0;
     m_questId = 0;
+    m_questSelection = 0;
+    m_questStatus = "Not accepted";
     m_chatBuffer.clear();
     m_inventoryDragSource.reset();
     set_chat_open(false);
     set_shop_open(false);
     set_inventory_open(false);
+    set_quest_open(false);
+    set_character_open(false);
+    set_friend_open(false);
+    set_guild_open(false);
+    set_map_open(false);
+    set_option_open(false);
     if (!m_releasing && m_inGame && !m_failed) {
         const auto detail = std::string("游戏连接已断开：") +
                             mxh::net::to_string(reason);
