@@ -56,7 +56,10 @@ constexpr std::string_view kItemShopDialogId = "ITMALL_BASEDLG";
 constexpr std::string_view kCharacterDialogId = "CI_CHARDLG";
 constexpr std::string_view kChatDialogId = "CTI_DLG";
 constexpr std::string_view kBigMapDialogId = "BIGMAPDLG";
-constexpr std::string_view kFriendDialogId = "FRIENDDLG";
+// Friend.bin carries the concrete root ID FRI_FRIENDDLG. Keep the old
+// type-name alias accepted for activation messages from legacy callers.
+constexpr std::string_view kFriendDialogId = "FRI_FRIENDDLG";
+constexpr std::string_view kFriendDialogTypeAlias = "FRIENDDLG";
 // Guild.bin carries the concrete root ID GD_GUILDDLG. Keep the old type-name
 // alias accepted for activation messages from legacy callers.
 constexpr std::string_view kGuildDialogId = "GD_GUILDDLG";
@@ -2313,7 +2316,8 @@ bool CInGameState::handle_ui_activation(
         set_map_open(false);
         return true;
     }
-    if (activation.dialog_legacy_id == kFriendDialogId) {
+    if (activation.dialog_legacy_id == kFriendDialogId ||
+        activation.dialog_legacy_id == kFriendDialogTypeAlias) {
         set_friend_open(false);
         return true;
     }
