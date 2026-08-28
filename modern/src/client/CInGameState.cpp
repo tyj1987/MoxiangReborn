@@ -3274,8 +3274,11 @@ void CInGameState::OnMouseMove(std::int32_t x, std::int32_t y) {
 
 void CInGameState::OnMouseWheel(std::int32_t delta) {
     if (!m_inGame || delta == 0) return;
-    if (m_shopOpen || m_chatOpen) return;  // modal dialogs must not zoom the world camera
+    // Let the active dialog consume the wheel first (chat/shop lists may
+    // scroll). Only an unhandled wheel event is blocked from reaching the
+    // world camera while a modal is open.
     if (m_uiRuntime.onMouseWheel(delta)) return;
+    if (m_shopOpen || m_chatOpen) return;
     constexpr float kWheelStep = 0.75f;
     const float direction = delta > 0 ? -1.0f : 1.0f;
     m_cameraDistance = std::clamp(
