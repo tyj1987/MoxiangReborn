@@ -134,6 +134,11 @@ Args parse_args(int argc, char** argv) {
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
         }
+        else {
+            std::cerr << "unknown option: " << s << "\n"
+                      << "use --help for valid options\n";
+            std::exit(2);
+        }
     }
     return a;
 }
