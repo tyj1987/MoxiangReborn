@@ -1357,7 +1357,12 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
 
 void CInGameState::handle_npc_message(const mxh::net::Message& msg) {
     const auto proto = static_cast<mxh::proto::NpcProtocol>(msg.header.protocol);
-    if (proto == mxh::proto::NpcProtocol::SpeechNack) {
+    if (proto == mxh::proto::NpcProtocol::SpeechAck) {
+        // A successful retry supersedes any earlier range/interaction error;
+        // stale feedback must not remain visible over the live NPC dialog.
+        m_lastNpcError.clear();
+        MLOG_DEBUG("CInGameState: NPC speech acknowledged");
+    } else if (proto == mxh::proto::NpcProtocol::SpeechNack) {
         m_lastNpcError = "NPC is too far away.";
         (void)m_uiRuntime.showMessage(9105, m_lastNpcError);
         MLOG_WARN("CInGameState: NPC speech rejected");

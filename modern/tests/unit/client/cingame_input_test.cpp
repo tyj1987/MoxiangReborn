@@ -1058,6 +1058,21 @@ TEST(InGamePlayable, NpcSpeechNackBecomesVisiblePlayerFeedback) {
     EXPECT_EQ(state.last_npc_error(), "NPC is too far away.");
 }
 
+TEST(InGamePlayable, NpcSpeechAckClearsStaleErrorFeedback) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack);
+    state.on_message(mxh::net::make_connection_id(1), nack);
+    ASSERT_FALSE(state.last_npc_error().empty());
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechAck);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    EXPECT_TRUE(state.last_npc_error().empty());
+}
+
 TEST(InGamePlayable, MoneyUpdateFromShopAckFeedsLiveHudState) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
