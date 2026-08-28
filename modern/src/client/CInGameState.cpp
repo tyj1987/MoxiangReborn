@@ -1886,7 +1886,15 @@ void CInGameState::handle_guild_message(const mxh::net::Message& msg) {
     if (proto == GuildProtocol::AddMemberInvite && msg.payload.size() >= 4) {
         std::memcpy(&m_pendingGuildInviteId, msg.payload.data(),
                     sizeof(m_pendingGuildInviteId));
-        m_uiRuntime.showMessage(9113, "You received a guild invitation.");
+        m_uiRuntime.showConfirmation(
+            9113, "You received a guild invitation. Accept?",
+            [this](bool confirmed) {
+                if (confirmed) {
+                    (void)accept_guild_invite();
+                } else {
+                    m_pendingGuildInviteId = 0;
+                }
+            });
         return;
     }
     if (proto == GuildProtocol::InviteAccept && msg.payload.size() >= 5) {

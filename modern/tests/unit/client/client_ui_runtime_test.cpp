@@ -587,6 +587,20 @@ TEST(InGameUiRuntime, PartyInviteCreatesInteractiveConfirmationModal) {
     EXPECT_TRUE(state.ui_runtime().hasModal());
 }
 
+TEST(InGameUiRuntime, GuildInviteCreatesInteractiveConfirmationModal) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message invite;
+    invite.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Guild);
+    invite.header.protocol = static_cast<std::uint8_t>(mxh::proto::GuildProtocol::AddMemberInvite);
+    const std::uint32_t guild_id = 5151;
+    invite.payload.resize(sizeof(guild_id));
+    std::memcpy(invite.payload.data(), &guild_id, sizeof(guild_id));
+    state.on_message(mxh::net::ConnectionId{8}, invite);
+    EXPECT_EQ(state.pending_guild_invite_id(), guild_id);
+    EXPECT_TRUE(state.ui_runtime().hasModal());
+}
+
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
