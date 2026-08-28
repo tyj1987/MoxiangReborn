@@ -132,6 +132,22 @@ TEST(ClientSettings, NonFiniteVolumeFallsBackToSafeDefault) {
     std::filesystem::remove(path, ignored);
 }
 
+TEST(ClientSettings, TrailingGarbageInDisplayDimensionFallsBackSafely) {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "mxh-settings-display-garbage.json";
+    {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << R"({"schemaVersion":1,"resourceProfileId":"playdh-current",)"
+                  R"("postLoginWidth":1920oops,"postLoginHeight":768})";
+    }
+    std::string warning;
+    const auto actual = mxh::client::ClientSettingsStore::load(path, &warning);
+    EXPECT_EQ(actual.post_login_width, 1024u);
+    EXPECT_EQ(actual.post_login_height, 768u);
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+}
+
 TEST(ClientSettings, EscapesControlBytesInPersistedAccount) {
     const auto path = std::filesystem::temp_directory_path() /
                       "mxh-settings-control-account.json";

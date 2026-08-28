@@ -112,7 +112,11 @@ std::uint32_t read_uint(const std::string& text, const char* key, std::uint32_t 
     const auto end = text.data() + text.size();
     std::uint32_t value = fallback;
     const auto result = std::from_chars(begin, end, value);
-    return result.ec == std::errc{} ? value : fallback;
+    if (result.ec != std::errc{}) return fallback;
+    if (result.ptr != end && *result.ptr != ',' && *result.ptr != '}' &&
+        *result.ptr != ' ' && *result.ptr != '\t' && *result.ptr != '\r' &&
+        *result.ptr != '\n') return fallback;
+    return value;
 }
 
 bool read_bool(const std::string& text, const char* key, bool fallback) {
