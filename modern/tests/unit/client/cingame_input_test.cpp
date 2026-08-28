@@ -944,6 +944,7 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     state.on_message(mxh::net::make_connection_id(1), npc);
     ASSERT_EQ(state.npcs().size(), 1u);
 
+    state.OnKeyEvent(true, mxh::client::kVkW);
     state.OnKeyEvent(true, 0x42);  // B — nearest NPC shop
     EXPECT_EQ(state.shop_npc_id(), 7u);
 
@@ -971,6 +972,10 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
                         static_cast<std::int32_t>(mxh::client::kShopPanelY + 4));
     EXPECT_EQ(state.last_buy_item_id(), 0x022Bu);
     EXPECT_TRUE(state.OnMouseButton(true, true, 760, 560));
+    state.OnKeyEvent(true, 0x42);  // close shop
+    state.Process();
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
 }
 
 TEST(InGamePlayable, BKeyDoesNotOpenShopForQuestNpc) {

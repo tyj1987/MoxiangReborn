@@ -2479,6 +2479,11 @@ void CInGameState::toggle_inventory() noexcept {
 
 void CInGameState::set_shop_open(bool open) noexcept {
     m_shopOpen = open;
+    if (open) {
+        // A shop captures keyboard focus. Clear movement before the modal
+        // state hides subsequent key-up events from gameplay input.
+        m_keyMask = 0;
+    }
     m_uiRuntime.setDialogActive(kItemShopDialogId, open);
 }
 
@@ -2700,7 +2705,7 @@ bool CInGameState::handle_ui_activation(
 
 void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     const std::uint32_t move_mask = key_mask_for_vk(vk);
-    if (move_mask != 0 && !m_chatOpen) {
+    if (move_mask != 0 && !m_chatOpen && !m_shopOpen) {
         // HUD widgets must not swallow WASD/QE. Original Q/E is strafe.
         if (pressed) m_keyMask |= move_mask;
         else m_keyMask &= ~move_mask;
