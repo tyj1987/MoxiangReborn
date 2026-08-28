@@ -1949,7 +1949,11 @@ void CInGameState::handle_friend_message(const mxh::net::Message& msg) {
             });
         return;
     }
-    if (proto == kFriendAddAcceptAck || proto == kFriendAddAck) {
+    if (proto == kFriendAddAck) {
+        m_uiRuntime.showMessage(9121, "Friend request sent.");
+        return;
+    }
+    if (proto == kFriendAddAcceptAck) {
         m_pendingFriendInviteId = 0;
         m_uiRuntime.showMessage(9121, "Friend request accepted.");
         return;

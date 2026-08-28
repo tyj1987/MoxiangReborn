@@ -613,6 +613,7 @@ TEST(InGameUiRuntime, FriendInviteCreatesInteractiveConfirmationModal) {
     EXPECT_TRUE(state.ui_runtime().hasModal());
 }
 
+
 TEST(InGameUiRuntime, InventoryCloseActivatesHandleUiActivation) {
     const auto playdh = find_playdh_root();
     ASSERT_FALSE(playdh.empty());
