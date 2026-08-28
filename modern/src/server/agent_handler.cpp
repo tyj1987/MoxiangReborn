@@ -433,6 +433,28 @@ void AgentHandler::handle_friend(mxh::net::ConnectionId id,
             send_to_source(kAddAcceptNack, requester);
             return;
         }
+        const std::array<mxh::db::Bind, 2> relation_params = {
+            mxh::db::bind(static_cast<std::int64_t>(source)),
+            mxh::db::bind(static_cast<std::int64_t>(requester))};
+        bool persisted = db_.begin_transaction().ok();
+        if (persisted) {
+            persisted = db_.execute(
+                "INSERT INTO modern_friend (player_id,friend_id,status) VALUES (?,?,0)",
+                relation_params).ok();
+        }
+        if (persisted) {
+            const std::array<mxh::db::Bind, 2> reverse_params = {
+                mxh::db::bind(static_cast<std::int64_t>(requester)),
+                mxh::db::bind(static_cast<std::int64_t>(source))};
+            persisted = db_.execute(
+                "INSERT INTO modern_friend (player_id,friend_id,status) VALUES (?,?,0)",
+                reverse_params).ok();
+        }
+        if (!persisted || !db_.commit().ok()) {
+            (void)db_.rollback();
+            send_to_source(kAddAcceptNack, requester);
+            return;
+        }
         mxh::net::Message ack;
         ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
         ack.header.protocol = kAddAcceptAck;
