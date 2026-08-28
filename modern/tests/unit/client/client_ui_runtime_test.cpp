@@ -19,6 +19,7 @@
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cfrienddialog.hpp"
+#include "mxh/ui/cminifrienddialog.hpp"
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/ccheckbox.hpp"
 #include "mxh/ui/cGuageBar.hpp"
@@ -498,6 +499,24 @@ TEST(ClientUiRuntime, LoadsFriendBinAsConcreteFriendDialog) {
     EXPECT_NE(friends->FriendList(), nullptr);
     EXPECT_NE(friends->findWindowByLegacyId("FRI_ADDFRIENDBTN"), nullptr);
     EXPECT_NE(friends->findWindowByLegacyId("FRI_SENDWHISPERBTN"), nullptr);
+}
+
+TEST(ClientUiRuntime, LoadsMiniFriendBinAsConcreteDialog) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "MiniFriend.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error)) << error;
+    mxh::ui::cWindow* dialog = nullptr;
+    for (auto& candidate : runtime.dialogsMutable()) {
+        if (candidate && candidate->legacyId() == "FRI_MINFRIENDDLG") {
+            dialog = candidate.get();
+            break;
+        }
+    }
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_NE(dynamic_cast<mxh::ui::cMiniFriendDialog*>(dialog), nullptr);
 }
 
 TEST(ClientUiRuntime, LoadsOptionBinAsConcreteOptionDialog) {

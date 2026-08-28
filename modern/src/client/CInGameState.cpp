@@ -55,11 +55,11 @@ constexpr std::uint8_t kFriendAddNack = 2;
 // -------------------------------------------------------------------------
 
 namespace {
-constexpr std::array<std::string_view, 17> kChinaGameInUiScripts{
+constexpr std::array<std::string_view, 18> kChinaGameInUiScripts{
     "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
     "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
-    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin", "Friend.bin", "Guild.bin",
-    "21.bin"};
+    "QuestTotal.bin", "ItemShop.bin", "BigMap.bin", "Friend.bin", "MiniFriend.bin",
+    "Guild.bin", "21.bin"};
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::array<std::string_view, 4> kInventoryTabButtonIds{
     "IN_TABBTN1", "IN_TABBTN2", "IN_TABBTN3", "IN_TABBTN4"};

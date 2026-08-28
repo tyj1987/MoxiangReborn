@@ -19,6 +19,7 @@
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
 #include "mxh/ui/cfrienddialog.hpp"
+#include "mxh/ui/cminifrienddialog.hpp"
 #include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cinventoryexdialog.hpp"
 #include "mxh/ui/cmainbardialog.hpp"
@@ -469,6 +470,14 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
                           basic, /*id=*/0);
                 if (basic) ++report.cimg_count;
                 parent.Add(std::move(qd));
+            } else if (node.type == "MINFRIENDDLG") {
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto md = std::make_unique<cMiniFriendDialog>();
+                md->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                         static_cast<std::uint16_t>(p.h), basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(md));
             } else if (node.type == "WANTEDDLG") {
                 // M-R4.7: cWantedDialog (wanted list) — 1 类图.
                 cImage* basic = loadImageForImageIdx(node.basic_image_idx,
@@ -674,6 +683,9 @@ std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
     if (node.type == "FRIENDDLG") {
         return std::make_unique<cFriendDialog>();
     }
+    if (node.type == "MINFRIENDDLG") {
+        return std::make_unique<cMiniFriendDialog>();
+    }
     if (node.type == "OPTIONDLG") {
         return std::make_unique<cOptionDialog>();
     }
@@ -801,6 +813,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         }
         if (auto* friend_dialog = dynamic_cast<cFriendDialog*>(dlg.get())) {
             friend_dialog->Linking();
+        }
+        if (auto* mini_friend = dynamic_cast<cMiniFriendDialog*>(dlg.get())) {
+            mini_friend->Linking();
         }
         if (auto* option_dialog = dynamic_cast<cOptionDialog*>(dlg.get())) {
             option_dialog->Linking();
