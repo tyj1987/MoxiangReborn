@@ -351,19 +351,7 @@ TEST(InterfaceScriptParser, ApplyLegacyLayoutOnRealMainDlgBinFile) {
     // position/size must match the legacy hand-coded values (422, 726,
     // 602, 42 — same as our kMainDlgSnippet golden).
     namespace fs = std::filesystem;
-    const char* candidates[] = {
-        "modern/data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    fs::path playdh;
-    for (const auto* c : candidates) {
-        std::error_code ec;
-        if (fs::exists(fs::path(c) / "Image" / "InterfaceScript" / "15.bin", ec)) {
-            playdh = c;
-            break;
-        }
-    }
+    const fs::path playdh = find_playdh_root();
     if (playdh.empty()) {
         GTEST_SKIP() << "PlayDH not available; skipping real-bin wiring test.";
     }
