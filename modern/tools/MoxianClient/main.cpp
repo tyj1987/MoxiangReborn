@@ -1207,6 +1207,7 @@ struct EffectVisualOverlay {
                         if (remote_id != item.target_id && remote_id != item.source_id) continue;
                         world_x = static_cast<float>(remote.position_x);
                         world_z = static_cast<float>(remote.position_z);
+                        found = true;
                         break;
                     }
                 }
