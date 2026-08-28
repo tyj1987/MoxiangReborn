@@ -402,7 +402,13 @@ static LauncherSettings loadSettings() {
     if (std::regex_search(text, match, std::regex(R"REGEX("vsync"\s*:\s*(true|false))REGEX"))) s.vsync = match[1].str() == "true";
     if (std::regex_search(text, match, std::regex(R"REGEX("bgmVolume"\s*:\s*([0-9]+(?:\.[0-9]+)?))REGEX"))) s.bgmVolume = parseVolumePercent(match[1].str(), s.bgmVolume);
     if (std::regex_search(text, match, std::regex(R"REGEX("sfxVolume"\s*:\s*([0-9]+(?:\.[0-9]+)?))REGEX"))) s.sfxVolume = parseVolumePercent(match[1].str(), s.sfxVolume);
-    if (s.profile != L"playdh-current") s.profile = L"playdh-current";
+    if (s.profile != L"playdh-current") {
+        // An unknown profile must not be silently rewritten: doing so hides
+        // a damaged or cross-version settings file. Preserve the evidence
+        // and restart from the documented safe production profile.
+        preserveInvalid();
+        return LauncherSettings{};
+    }
     if (s.postWidth < 800 || s.postHeight < 600) { s.postWidth = 1024; s.postHeight = 768; }
     s.postWidth = (s.postWidth > 7680) ? 7680 : s.postWidth;
     s.postHeight = (s.postHeight > 4320) ? 4320 : s.postHeight;
