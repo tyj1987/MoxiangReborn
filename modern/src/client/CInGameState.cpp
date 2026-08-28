@@ -766,6 +766,8 @@ void CInGameState::Release() {
         send_gameout_syn();
     }
     m_info = GameInInfo{};
+    m_playerId = 0;
+    m_mapNum = 0;
     m_inGame   = false;
     m_started  = false;
     m_sentGameInSyn = false;
@@ -803,6 +805,7 @@ void CInGameState::Release() {
     m_guildMemberCount = 0;
     m_pendingGuildInviteId = 0;
     m_questSelection = 0;
+    m_questId = 0;
     m_questStatus = "Not accepted";
     m_failed   = false;
     m_failureReason.clear();
@@ -1389,6 +1392,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     m_pendingPartyInviteId = 0;
     m_pendingGuildInviteId = 0;
     m_pendingFriendInviteId = 0;
+    m_questId = 0;
     m_chatBuffer.clear();
     m_inventoryDragSource.reset();
     set_chat_open(false);
