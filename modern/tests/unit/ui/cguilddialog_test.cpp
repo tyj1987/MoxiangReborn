@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+
 namespace {
 
 mxh::ui::cGuildDialog::MemberInfo MakeMember(const char* name,
@@ -142,6 +144,53 @@ TEST(CGuildDialog, RefreshMemberListPopulatesListDialog) {
     d.ResetMemberInfo(MakeMember("Bob",   3, 99, false));
     d.RefreshMemberList();
     EXPECT_EQ(list->RowCount(), 2u);
+}
+
+TEST(CGuildDialog, LinkingResolvesLegacyControlsAndMirrorsLiveState) {
+    mxh::ui::cGuildDialog d;
+    d.Init(0, 0, 400, 400, nullptr, 1);
+    d.ResetMemberInfo(MakeMember("Alice", 0, 30));
+
+    auto list = std::make_unique<mxh::ui::cListDialog>();
+    auto* listPtr = list.get();
+    listPtr->Init(0, 0, 200, 200, nullptr, 7001);
+    listPtr->setLegacyId("GD_MEMBERLIST");
+    listPtr->InitList(20, 0, 0, 200, 200);
+    d.Add(std::move(list));
+
+    const auto addStatic = [&d](const char* id) {
+        auto control = std::make_unique<mxh::ui::cStatic>();
+        auto* raw = control.get();
+        raw->Init(0, 0, 100, 20, nullptr, 0);
+        raw->setLegacyId(id);
+        d.Add(std::move(control));
+        return raw;
+    };
+    auto* name = addStatic("GD_NAME");
+    auto* level = addStatic("GD_LEVEL");
+    auto* master = addStatic("GD_MASTER");
+    auto* count = addStatic("GD_MEMBERNUM");
+    auto* location = addStatic("GD_LOCATION");
+    auto* unionName = addStatic("GD_UNIONNAME");
+
+    d.Linking();
+    ASSERT_EQ(d.MemberList(), listPtr);
+    ASSERT_EQ(listPtr->RowCount(), 1u);
+    EXPECT_NE(listPtr->GetRow(0).first.find("Alice"), std::string::npos);
+
+    d.SetGuildInfo("ShadowFang", "MasterA", "Map_5", 9, 50,
+                   "AlliedFang");
+    EXPECT_EQ(name->GetStaticText(), "ShadowFang");
+    EXPECT_EQ(level->GetStaticValue(), 9);
+    EXPECT_EQ(master->GetStaticText(), "MasterA");
+    EXPECT_EQ(count->GetStaticValue(), 50);
+    EXPECT_EQ(location->GetStaticText(), "Map_5");
+    EXPECT_EQ(unionName->GetStaticText(), "AlliedFang");
+
+    d.SetSelectedMember(0);
+    d.DeleteMemberAll();
+    EXPECT_EQ(listPtr->RowCount(), 0u);
+    EXPECT_EQ(listPtr->GetCurSelectedRowIdx(), -1);
 }
 
 TEST(CGuildDialog, SetDisableFuncBtnMemberDisablesSenior) {

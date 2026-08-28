@@ -18,6 +18,7 @@
 #include "mxh/ui/minimapdlg.hpp"
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
+#include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cinventoryexdialog.hpp"
 #include "mxh/ui/cmainbardialog.hpp"
 #include "mxh/ui/cmakdial.hpp"
@@ -777,6 +778,9 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         }
         if (auto* quest = dynamic_cast<cQuestDialog*>(dlg.get())) {
             quest->Linking();
+        }
+        if (auto* guild = dynamic_cast<cGuildDialog*>(dlg.get())) {
+            guild->Linking();
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
