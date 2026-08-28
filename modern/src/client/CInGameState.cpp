@@ -11,6 +11,7 @@
 #include "mxh/ui/cmpguagedialog.hpp"
 #include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cIconGridDialog.hpp"
+#include "mxh/ui/cchatdialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -1791,6 +1792,24 @@ void CInGameState::handle_chat_broadcast(const mxh::net::Message& msg) {
     }
     MLOG_INFO("CInGameState: chat from=%u: %s",
               msg.header.object_id, text.c_str());
+    if (auto* window = m_uiRuntime.findWindowByLegacyId(kChatDialogId)) {
+        if (auto* chat = dynamic_cast<mxh::ui::cChatDialog*>(window)) {
+            using mxh::proto::ChatProtocol;
+            const auto proto = static_cast<ChatProtocol>(msg.header.protocol);
+            std::uint8_t limit = mxh::ui::kChatLimitWhole;
+            if (proto == ChatProtocol::Party) limit = mxh::ui::kChatLimitParty;
+            else if (proto == ChatProtocol::Guild ||
+                     proto == ChatProtocol::GuildUnion) {
+                limit = mxh::ui::kChatLimitGuild;
+            } else if (proto == ChatProtocol::SmallShout ||
+                       proto == ChatProtocol::GMSmallShout ||
+                       proto == ChatProtocol::ShoutSendAll ||
+                       proto == ChatProtocol::ShoutSendServer) {
+                limit = mxh::ui::kChatLimitShout;
+            }
+            chat->AddMsg(limit, 0xFFFFFFFFu, text.c_str());
+        }
+    }
 }
 
 void CInGameState::handle_party_message(const mxh::net::Message& msg) {
