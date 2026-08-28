@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
         },
         args.use_legacy, args.use_hsel,
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
-            if (server_ptr) server_ptr->send(id, m);
+            if (server_ptr) (void)server_ptr->send(id, m);
         });
 
     // Load the real game data tables when a PlayDH root is supplied.

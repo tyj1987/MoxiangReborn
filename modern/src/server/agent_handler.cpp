@@ -1602,7 +1602,7 @@ void AgentHandler::handle_legacy_character_make(
 
     for (std::size_t slot = 0; slot < weared_item_idx.size(); ++slot) {
         if (weared_item_idx[slot] == 0) continue;
-        db_.execute(
+        (void)db_.execute(
             "INSERT INTO modern_character_equipment(chrid,slot,item_idx) VALUES(?,?,?)",
             {mxh::db::bind(chrid), mxh::db::bind(static_cast<std::int64_t>(slot)),
              mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
