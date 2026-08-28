@@ -1190,12 +1190,22 @@ struct EffectVisualOverlay {
             float world_x = static_cast<float>(info.position_x);
             float world_z = static_cast<float>(info.position_z);
             if (item.target_id != info.player_id && item.source_id != info.player_id) {
+                bool found = false;
                 for (const auto& monster : game.monsters()) {
                     if (monster.object_id != item.target_id &&
                         monster.object_id != item.source_id) continue;
                     world_x = static_cast<float>(monster.position_x);
                     world_z = static_cast<float>(monster.position_z);
+                    found = true;
                     break;
+                }
+                if (!found) {
+                    for (const auto& [remote_id, remote] : game.remote_players()) {
+                        if (remote_id != item.target_id && remote_id != item.source_id) continue;
+                        world_x = static_cast<float>(remote.position_x);
+                        world_z = static_cast<float>(remote.position_z);
+                        break;
+                    }
                 }
             }
             LIGHT_DESC light{};
