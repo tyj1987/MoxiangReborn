@@ -1831,6 +1831,15 @@ void AgentHandler::handle_legacy_gamein_syn(
         if (err != mxh::net::NetError::Ok) {
             std::cerr << "[Agent] failed to forward GAMEIN_SYN to MapServer: "
                       << mxh::net::to_string(err) << "\n";
+            // Do not leave the client waiting forever when the route drops
+            // between the connectivity check and send().
+            mxh::net::Message nack;
+            nack.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            nack.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInNack);
+            nack.header.object_id = char_id;
+            reply_(id, nack);
         }
         // Response will come back via forward_from_map() when MapServer replies.
         return;

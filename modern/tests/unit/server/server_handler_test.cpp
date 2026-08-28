@@ -124,7 +124,7 @@ public:
     [[nodiscard]] mxh::net::NetError send(const mxh::net::Message& msg) override {
         ++send_count;
         last_message = msg;
-        if (!connected) return mxh::net::NetError::SendFailed;
+        if (!connected || fail_send) return mxh::net::NetError::SendFailed;
         sent_msgs.push_back(msg);
         return mxh::net::NetError::Ok;
     }
@@ -133,12 +133,14 @@ public:
     // Tests can flip connected ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ false to simulate the map server going
     // down between set_map_server() and on_disconnect().
     void set_connected(bool c) noexcept { connected = c; }
+    void set_fail_send(bool f) noexcept { fail_send = f; }
 
     std::atomic<int> send_count{0};
     std::vector<mxh::net::Message> sent_msgs;
     mxh::net::Message last_message{};
 private:
     bool connected = true;
+    bool fail_send = false;
 };
 
 class MapHandlerForwardingSender final : public mxh::net::ITcpSender {
@@ -626,6 +628,30 @@ TEST(AgentHandlerTest, ProductionGameInRejectsWhenMapServerIsUnavailable) {
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
     EXPECT_TRUE(reply.messages.front().payload.empty());
+}
+
+TEST(AgentHandlerTest, GameInSendFailureReturnsNackInsteadOfHanging) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true,
+                                      false, {}, /*default_map_num=*/12);
+    const auto connection = mxh::net::make_connection_id(1105);
+    handler.register_session(connection, 3001u, 450035717u, 12u);
+    MockTcpSender map;
+    map.set_fail_send(true);
+    handler.set_map_server(&map, mxh::net::make_connection_id(12));
+
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = 450035717u;
+    handler.on_message(connection, game_in);
+
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
 }
 
 TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
