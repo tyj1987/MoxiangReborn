@@ -1302,22 +1302,40 @@ struct EffectVisualOverlay {
                 I4DyuchiGXRenderer* renderer) const {
         if (!renderer) return;
         renderer->SetScreenSpaceProjection();
+        const auto now = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count());
         for (const auto& item : active) {
+            float move_progress = 1.0f;
+            if (item.move_duration_ms != 0u && now >= item.move_start_ms) {
+                move_progress = std::clamp(
+                    static_cast<float>(now - item.move_start_ms) /
+                        static_cast<float>(item.move_duration_ms), 0.0f, 1.0f);
+            }
+            const auto move_x = item.move_offset[0] * move_progress;
+            const auto move_y = item.move_offset[1] * move_progress;
+            const auto move_z = item.move_offset[2] * move_progress;
             float x = 0.0f, y = 0.0f;
             bool found = false;
             const auto& info = game.game_info();
             if (item.target_id == info.player_id || item.source_id == info.player_id) {
-                found = project(terrain.viewProj(), info.position_x,
-                                terrain.heightAt(info.position_x, info.position_z) + 120.0f,
-                                info.position_z, x, y);
+                const float world_x = info.position_x + item.position[0] + move_x;
+                const float world_z = info.position_z + item.position[2] + move_z;
+                found = project(terrain.viewProj(), world_x,
+                                terrain.heightAt(info.position_x, info.position_z) +
+                                    120.0f + item.position[1] + move_y,
+                                world_z, x, y);
             }
             if (!found) {
                 for (const auto& monster : game.monsters()) {
                     if (monster.object_id != item.target_id &&
                         monster.object_id != item.source_id) continue;
-                    found = project(terrain.viewProj(), monster.position_x,
-                                    terrain.heightAt(monster.position_x, monster.position_z) + 120.0f,
-                                    monster.position_z, x, y);
+                    const float world_x = monster.position_x + item.position[0] + move_x;
+                    const float world_z = monster.position_z + item.position[2] + move_z;
+                    found = project(terrain.viewProj(), world_x,
+                                    terrain.heightAt(monster.position_x, monster.position_z) +
+                                        120.0f + item.position[1] + move_y,
+                                    world_z, x, y);
                     break;
                 }
             }
