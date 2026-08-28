@@ -51,6 +51,19 @@ TEST(CEngine, EmitsSemanticAudioCuesToHost) {
     EXPECT_EQ(cues[3], mxh::client::CEngine::AudioCue::Pickup);
 }
 
+TEST(CEngine, EmitsResolvedSoundIdsWithClampedDistance) {
+    mxh::client::CEngine engine;
+    std::uint32_t sound_id = 0;
+    float distance = -1.0f;
+    engine.SetSoundEventFn([&](std::uint32_t id, float d) {
+        sound_id = id;
+        distance = d;
+    });
+    engine.EmitSoundAt(417u, -3.0f);
+    EXPECT_EQ(sound_id, 417u);
+    EXPECT_FLOAT_EQ(distance, 0.0f);
+}
+
 TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
     CMainGame game;
     game.Init(nullptr);

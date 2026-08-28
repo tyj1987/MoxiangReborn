@@ -980,7 +980,11 @@ void CInGameState::Process() {
         // combat input, using the source object identity for attenuation.
         if ((event.sound_id != 0 || !event.sound_name.empty()) && m_pEngine) {
             const float distance = distance_to_object(event.source_object_id).value_or(0.0f);
-            m_pEngine->EmitAudioAt(CEngine::AudioCue::Skill, distance);
+            if (event.sound_id != 0) {
+                m_pEngine->EmitSoundAt(event.sound_id, distance);
+            } else {
+                m_pEngine->EmitAudioAt(CEngine::AudioCue::Skill, distance);
+            }
         }
     });
     if (is_connected() && !m_sentGameInSyn) {

@@ -45,6 +45,7 @@ public:
     enum class AudioCue : std::uint8_t { Attack, Skill, UiClick, Pickup };
     using AudioEventFn = std::function<void(AudioCue)>;
     using SpatialAudioEventFn = std::function<void(AudioCue, float)>;
+    using SoundEventFn = std::function<void(std::uint32_t, float)>;
     CEngine() = default;
     ~CEngine() = default;
 
@@ -126,6 +127,10 @@ public:
         if (m_spatialAudioEventFn) m_spatialAudioEventFn(cue, std::max(0.0f, distance));
         else EmitAudio(cue);
     }
+    void SetSoundEventFn(SoundEventFn fn) noexcept { m_soundEventFn = std::move(fn); }
+    void EmitSoundAt(std::uint32_t sound_id, float distance) const {
+        if (m_soundEventFn) m_soundEventFn(sound_id, std::max(0.0f, distance));
+    }
 
 private:
     void*                           m_hWnd         = nullptr;
@@ -139,6 +144,7 @@ private:
     AgentSession                    m_agentSession;
     AudioEventFn                    m_audioEventFn;
     SpatialAudioEventFn             m_spatialAudioEventFn;
+    SoundEventFn                    m_soundEventFn;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers
     // are wired in.  Kept out of A.1.6 to keep the surface minimal.
 };
