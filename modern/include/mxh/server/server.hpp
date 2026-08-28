@@ -312,9 +312,8 @@ public:
     // real ITEM_INFO rows (LifeRecover / LifeRecoverRate /
     // NaeRyukRecover / NaeRyukRecoverRate) instead of the
     // hardcoded linear-scale placeholder.
-    // Errors per row are logged to stdout and skipped; a hard
-    // I/O failure leaves item_manager_ empty so the placeholder
-    // path remains intact.
+    // Errors per row are logged to stdout and skipped; a hard I/O failure
+    // leaves item_manager_ empty and is rejected by production startup.
     void load_item_list(const std::string& path);
     void load_drop_item_list(const std::string& path,
                              std::string_view resource_profile_id);
@@ -330,9 +329,9 @@ public:
     // so init_skill_table() / find_skill() resolve from the real
     // SKILLINFO rows (SkillIdx / SkillName / SkillKind / SkillRange /
     // WeaponKind / UpPhyAttack[0] / NeedNaeRyuk[0] / etc.) instead of
-    // the 4-skill hardcoded placeholder.  Errors per row are logged
-    // to stdout and skipped; a hard I/O failure leaves skill_manager_
-    // empty so the hardcoded path remains intact.
+    // the 4-skill hardcoded placeholder. Errors per row are logged to
+    // stdout and skipped; a hard I/O failure leaves skill_manager_ empty
+    // and is rejected by production startup.
     void load_skill_list(const std::string& path);
     // True only when the explicit runtime resource profile supplied a real
     // SkillList.bin.  Production startup uses this to reject silent fallback
@@ -342,20 +341,17 @@ public:
     // M3-MAP dealitem loader: load the real DealItem.bin into
     // dealitem_catalog_ so the BuySyn arm of handle_item() can resolve
     // a per-NPC NpcShopCatalog instead of falling through to
-    // NpcMismatch.  Errors per row are logged to stdout and skipped; a
-    // hard I/O failure leaves dealitem_catalog_ empty so the wire
-    // shape stays a 4B BuyNack echo and side-by-side 5/5 capture stays
-    // diff=0 (same as the npc_id=0 + empty catalog pre-loader arm).
+    // NpcMismatch. Errors per row are logged to stdout and skipped; a hard
+    // I/O failure leaves dealitem_catalog_ empty for the caller to reject
+    // or report according to the selected runtime profile.
     void load_dealitem(const std::string& path);
 
     // M3-MAP quest script loader: load the real QuestScript.bin
     // into quest_definitions_ so the StartSyn arm of
     // handle_quest() can resolve quest definitions and accept
-    // the quest.  Errors per row are logged to stdout and
-    // skipped; a hard I/O failure leaves quest_definitions_
-    // empty so the wire shape stays StartNack + 2B quest_id
-    // echo and side-by-side 5/5 capture stays diff=0 (same as
-    // the pre-loader arm).
+    // the quest. Errors per row are logged to stdout and skipped; a hard
+    // I/O failure leaves quest_definitions_ empty for the caller to reject
+    // or report according to the selected runtime profile.
     void load_quest_script(const std::string& path);
     void load_quest_npcs(const std::string& path);
 
