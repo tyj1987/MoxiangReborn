@@ -525,7 +525,10 @@ public:
     void fail_with(const std::string& reason);
     void update_movement(std::uint64_t now_ms);
     bool move_to_screen(float screen_x, float screen_y);
-    void interact_with_npc(std::uint32_t npc_id);
+    // Returns true when the interaction request was handled locally or sent
+    // to the server.  A false result lets the click path fall back to
+    // click-to-move for a visible but distant NPC.
+    bool interact_with_npc(std::uint32_t npc_id);
     void send_move(std::uint16_t x, std::uint16_t z,
                    mxh::proto::MoveProtocol proto);
     void try_attack();

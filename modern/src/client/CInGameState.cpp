@@ -3151,9 +3151,14 @@ bool CInGameState::OnMouseButton(bool left, bool down,
         }
         const std::uint32_t npc = pick_npc_at_screen(fx, fy);
         if (npc != 0) {
-            interact_with_npc(npc);
-            // NPC interaction owns the click; otherwise the same pointer
-            // event is also interpreted as a world move.
+            if (!interact_with_npc(npc)) {
+                // A distant NPC remains a valid world destination.  Do not
+                // consume the click without feedback; walk toward the
+                // selected NPC and let a later click perform the interaction.
+                (void)move_to_screen(fx, fy);
+            }
+            // A selected NPC owns the click, whether it triggered an
+            // interaction or a click-to-move approach.
             return true;
         }
         const std::uint32_t monster = pick_monster_at_screen(fx, fy);
@@ -3709,28 +3714,28 @@ void CInGameState::open_shop(std::uint32_t npc_id) {
     }
 }
 
-void CInGameState::interact_with_npc(std::uint32_t npc_id) {
-    if (!m_inGame || npc_id == 0) return;
+bool CInGameState::interact_with_npc(std::uint32_t npc_id) {
+    if (!m_inGame || npc_id == 0) return false;
     const auto it = std::find_if(m_npcs.begin(), m_npcs.end(),
         [npc_id](const NpcInfo& npc) { return npc.npc_id == npc_id; });
-    if (it == m_npcs.end()) return;
+    if (it == m_npcs.end()) return false;
 
     const auto role = mxh::game::role_from_wire(it->npc_kind);
     const float dx = static_cast<float>(it->position_x) - m_localX;
     const float dz = static_cast<float>(it->position_z) - m_localZ;
     if (dx * dx + dz * dz > kNpcInteractionRange * kNpcInteractionRange) {
         MLOG_DEBUG("CInGameState: NPC interaction npc=%u out of range", npc_id);
-        return;
+        return false;
     }
     if (role == mxh::game::NpcRole::Dealer ||
         role == mxh::game::NpcRole::Bobusang) {
         open_shop(npc_id);
-        return;
+        return true;
     }
     if (!is_connected()) {
         MLOG_INFO("CInGameState: NPC interaction npc=%u role=%u (offline)",
                   npc_id, static_cast<unsigned>(it->npc_kind));
-        return;
+        return true;
     }
 
     const bool uses_agent_route = mxh::game::role_uses_agent_route(role);
@@ -3749,13 +3754,13 @@ void CInGameState::interact_with_npc(std::uint32_t npc_id) {
         if (!m_mapChangeTargetResolver) {
             MLOG_WARN("CInGameState: MapChange NPC %u has no route resolver",
                       npc_id);
-            return;
+            return false;
         }
         const auto target = m_mapChangeTargetResolver(npc_id, m_mapNum);
         if (!target || *target == 0 || *target == m_mapNum) {
             MLOG_WARN("CInGameState: MapChange NPC %u has no valid destination",
                       npc_id);
-            return;
+            return false;
         }
         msg.payload.resize(4, 0);
         put_u16(msg.payload, 0, *target);
@@ -3767,7 +3772,9 @@ void CInGameState::interact_with_npc(std::uint32_t npc_id) {
         MLOG_INFO("CInGameState: NPC interaction npc=%u role=%u protocol=%u",
                   npc_id, static_cast<unsigned>(it->npc_kind),
                   static_cast<unsigned>(msg.header.protocol));
+        return true;
     }
+    return false;
 }
 
 void CInGameState::buy_shop_item(std::size_t index) {

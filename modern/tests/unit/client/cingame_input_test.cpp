@@ -1011,6 +1011,7 @@ TEST(InGamePlayable, DistantNpcDoesNotTriggerInteraction) {
     std::memcpy(npc.payload.data() + 45, &far, sizeof(far));
     std::memcpy(npc.payload.data() + 47, &far, sizeof(far));
     state.on_message(mxh::net::make_connection_id(1), npc);
+    EXPECT_FALSE(state.interact_with_npc(npc_id));
     state.OnKeyEvent(true, 0x42);
     EXPECT_FALSE(state.shop_open());
     EXPECT_EQ(state.shop_npc_id(), 0u);
