@@ -16,6 +16,20 @@
 
 namespace {
 
+std::filesystem::path playdh_root() {
+    std::error_code ec;
+    auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (std::filesystem::is_directory(candidate, candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
+}
+
 constexpr std::uint32_t kTestWidth  = 8;
 constexpr std::uint32_t kTestHeight = 6;
 
@@ -224,7 +238,7 @@ TEST(TextureLoader, FlipVerticalSwapsFirstAndLastRow) {
 }
 
 TEST(TextureLoader, LoginDdsSkyBandIsOnTopAfterTitleFlip) {
-    const auto path = std::filesystem::path("C:/moxiang/modern/data/PlayDH/Image/2D/login.dds");
+    const auto path = playdh_root() / "Image" / "2D" / "login.dds";
     ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
     const auto size = static_cast<std::uintmax_t>(std::filesystem::file_size(path));
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));

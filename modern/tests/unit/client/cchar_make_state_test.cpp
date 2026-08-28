@@ -13,6 +13,23 @@
 
 #include <array>
 #include <cstring>
+#include <filesystem>
+
+namespace {
+std::filesystem::path playdh_root() {
+    std::error_code ec;
+    auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (std::filesystem::is_directory(candidate, candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
+}
+}
 
 using mxh::client::CharacterMakeParams;
 using mxh::client::CCharMake;
@@ -153,7 +170,7 @@ TEST(CharMakeWire, NameCheckPayloadIsLegacyNameField) {
 TEST(CharacterMakeFormModel, UsesResourceDefaultsAndWrapsSelections) {
     std::string error;
     const auto catalog = mxh::client::CharMakeOptionCatalog::load(
-        "C:/moxiang/modern/data/PlayDH", &error);
+        playdh_root(), &error);
     ASSERT_TRUE(catalog.has_value()) << error;
     mxh::client::CharacterMakeFormModel model;
     ASSERT_TRUE(model.initialize(*catalog));
