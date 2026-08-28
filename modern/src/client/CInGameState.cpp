@@ -3111,9 +3111,9 @@ bool CInGameState::OnMouseButton(bool left, bool down,
     // broad decorative containers and must not swallow the gesture before
     // the camera capture state is established.
     if (!left) {
-        if (m_shopOpen) {
-            // The shop is modal for both mouse buttons; do not rotate the
-            // world behind it while the panel owns interaction focus.
+        if (m_shopOpen || m_chatOpen) {
+            // Shop/chat are modal for both mouse buttons; do not rotate the
+            // world behind them while the dialog owns interaction focus.
             return true;
         }
         m_cameraDrag = down;
@@ -3130,6 +3130,12 @@ bool CInGameState::OnMouseButton(bool left, bool down,
     const auto ui = m_uiRuntime.onMouseButton(left, down, x, y);
     if (ui.activation) handle_ui_activation(*ui.activation);
     if (ui.consumed) return true;
+    if (m_chatOpen) {
+        // Chat is modal after its controls have had a chance to consume the
+        // click. Do not let clicks outside the text box fall through to
+        // movement, targeting or pickup.
+        return true;
+    }
     if (left && down && m_shopOpen) {
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);

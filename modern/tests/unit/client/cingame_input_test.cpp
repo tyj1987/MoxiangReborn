@@ -148,6 +148,9 @@ TEST(InGamePlayable, ChatModalConsumesCameraWheel) {
     const auto distance = state.camera_distance();
     state.OnMouseWheel(-120);
     EXPECT_FLOAT_EQ(state.camera_distance(), distance);
+    EXPECT_TRUE(state.OnMouseButton(true, true, 760, 560));
+    EXPECT_TRUE(state.OnMouseButton(false, true, 400, 300));
+    EXPECT_TRUE(state.OnMouseButton(false, false, 400, 300));
 }
 
 TEST(InGamePlayable, MKeyTogglesLoadedBigMapDialogState) {
