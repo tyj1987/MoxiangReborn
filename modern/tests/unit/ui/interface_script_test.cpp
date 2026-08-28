@@ -24,6 +24,22 @@ using mxh::ui::parse_interface_script;
 
 namespace {
 
+std::filesystem::path find_playdh_root() {
+    std::error_code ec;
+    auto cursor = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    if (ec) return {};
+    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+        const auto candidate = cursor / "modern" / "data" / "PlayDH";
+        if (std::filesystem::is_directory(candidate, ec)) return candidate;
+        const auto local = cursor / "data" / "PlayDH";
+        if (std::filesystem::is_directory(local, ec)) return local;
+        const auto parent = cursor.parent_path();
+        if (parent == cursor) break;
+        cursor = parent;
+    }
+    return {};
+}
+
 // A trimmed reproduction of the MAINDLG from PlayDH/Image/InterfaceScript/
 // 15.bin (decrypted payload). Used as a fixed input for parser correctness.
 constexpr std::string_view kMainDlgSnippet = R"(
@@ -375,19 +391,7 @@ TEST(InterfaceScriptParser, ApplyLegacyLayoutOnRealMainDlgBinFile) {
 // byte-level rather than rendered-as-solid-color proof.
 TEST(InterfaceScript, LoadsPlayDhMPGuageBinAndFindsExpGuageChild) {
     namespace fs = std::filesystem;
-    std::vector<const char*> candidates = {
-        "../modern/data/PlayDH",
-        "modern/data/PlayDH",
-        "../../modern/data/PlayDH",
-    };
-    fs::path playdh;
-    for (const auto* c : candidates) {
-        std::error_code ec;
-        if (fs::exists(fs::path(c) / "Image" / "InterfaceScript" / "MPGuage.bin", ec)) {
-            playdh = c;
-            break;
-        }
-    }
+    const fs::path playdh = find_playdh_root();
     if (playdh.empty()) {
         GTEST_SKIP() << "PlayDH not available; skipping real MPGuage.bin test.";
     }
@@ -429,20 +433,7 @@ TEST(InterfaceScript, LoadsPlayDhMPGuageBinAndFindsExpGuageChild) {
 // Inventory panel.
 TEST(InterfaceScript, LoadsPlayDhTitanInventoryBinAndHasInventoryCells) {
     namespace fs = std::filesystem;
-    std::vector<const char*> candidates = {
-        "../modern/data/PlayDH",
-        "modern/data/PlayDH",
-        "../../modern/data/PlayDH",
-    };
-    fs::path playdh;
-    for (const auto* c : candidates) {
-        std::error_code ec;
-        if (fs::exists(fs::path(c) / "Image" / "InterfaceScript" /
-                            "Titan_inventory.bin", ec)) {
-            playdh = c;
-            break;
-        }
-    }
+    const fs::path playdh = find_playdh_root();
     if (playdh.empty()) {
         GTEST_SKIP() << "PlayDH not available; skipping Titan_inventory.bin test.";
     }
