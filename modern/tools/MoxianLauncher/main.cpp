@@ -716,6 +716,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     fs::path evidenceDir;
     bool verifyOnly = false;
     bool invalidEndpoint = false;
+    bool invalidOption = false;
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argv) {
@@ -732,8 +733,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             else if (name == L"--resource-root") { const auto value = nextValue(i); if (value) resourceRoot = fs::path(*value); else invalidEndpoint = true; }
             else if (name == L"--evidence-dir") { const auto value = nextValue(i); if (value) evidenceDir = fs::path(*value); else invalidEndpoint = true; }
             else if (name == L"--verify-resources") verifyOnly = true;
+            else invalidOption = true;
         }
         LocalFree(argv);
+    }
+    if (invalidOption) {
+        MessageBoxW(nullptr, L"启动器收到未知参数。请使用受支持的选项：--login-port、--agent-port、--map-port、--resource-root、--evidence-dir、--verify-resources。", L"启动器配置错误", MB_ICONERROR);
+        return 2;
     }
     if (invalidEndpoint) {
         MessageBoxW(nullptr, L"服务端口必须是 1 到 65535 之间的整数。", L"启动器配置错误", MB_ICONERROR);
