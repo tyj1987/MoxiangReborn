@@ -321,6 +321,7 @@ public:
     bool has_loaded_item_list() const noexcept { return item_manager_.size() != 0; }
     bool has_loaded_experience_curve() const noexcept { return experience_curve_ != nullptr; }
     bool has_loaded_drop_tables() const noexcept { return drop_tables_.size() != 0; }
+    bool has_loaded_dealitem_catalog() const noexcept { return !dealitem_catalog_.npcs.empty(); }
 
     // Test-only read-only accessor for item_manager_.
     const mxh::game::ItemManager& item_manager_for_test() const noexcept { return item_manager_; }

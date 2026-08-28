@@ -294,6 +294,11 @@ int main(int argc, char** argv) {
             return 1;
         }
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
+        if (!handler.has_loaded_dealitem_catalog()) {
+            std::cerr << "FATAL: required Dealitem.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
         handler.load_item_list((root / "Resource" / "ItemList.bin").string());
         if (!handler.has_loaded_item_list()) {
