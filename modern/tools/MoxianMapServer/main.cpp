@@ -314,8 +314,18 @@ int main(int argc, char** argv) {
         }
         handler.load_quest_script(
             (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
+        if (!handler.has_loaded_quest_script()) {
+            std::cerr << "FATAL: required QuestScript.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_quest_npcs(
             (root / "Resource" / "QuestScript" / "questnpclist.bin").string());
+        if (!handler.has_loaded_quest_npcs()) {
+            std::cerr << "FATAL: required questnpclist.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
     }
 
     // M3 dev-stub-caster (side-by-side harness only).
