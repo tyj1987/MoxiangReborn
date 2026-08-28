@@ -118,6 +118,25 @@ TEST(InGamePlayable, StaticCollisionQueryRejectsCandidateStep) {
     EXPECT_EQ(state.local_z(), 1000u);
 }
 
+TEST(InGamePlayable, OpeningChatClearsLatchedMovementInput) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::client::GameInInfo info;
+    info.player_id = 42;
+    info.position_x = 1000;
+    info.position_z = 1000;
+    info.map_num = 10;
+    state.dispatch_gamein_ack(info);
+
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.set_chat_open(true);
+    state.OnKeyEvent(false, mxh::client::kVkW);
+    state.Process();
+
+    EXPECT_EQ(state.local_x(), 1000u);
+    EXPECT_EQ(state.local_z(), 1000u);
+}
+
 TEST(InGamePlayable, MKeyTogglesLoadedBigMapDialogState) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

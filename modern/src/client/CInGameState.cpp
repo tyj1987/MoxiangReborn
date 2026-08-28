@@ -2495,6 +2495,12 @@ void CInGameState::set_character_open(bool open) noexcept {
 
 void CInGameState::set_chat_open(bool open) noexcept {
     m_chatOpen = open;
+    if (open) {
+        // Key-up messages are owned by the focused chat edit control. Clear
+        // movement before handing focus to it, otherwise a key held while
+        // opening chat can remain latched and resume walking after close.
+        m_keyMask = 0;
+    }
     m_uiRuntime.setDialogActive(kChatDialogId, open);
     if (open) {
         if (auto* window = m_uiRuntime.findWindowByLegacyId("MI_CHATEDITBOX")) {
