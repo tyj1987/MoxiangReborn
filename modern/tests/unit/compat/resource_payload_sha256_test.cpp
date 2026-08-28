@@ -201,7 +201,7 @@ fs::path find_playdh_resource_dir() {
     }
     for (int depth = 0; depth < 10 && !current.empty(); ++depth) {
         std::error_code error;
-        const fs::path direct = current / fs::u8path(kPlayDhResourceU8);
+        const fs::path direct = current / "modern" / "data" / "PlayDH" / "Resource";
         if (fs::is_directory(direct, error)) return direct;
         if (current == current.root_path()) break;
         current = current.parent_path();
