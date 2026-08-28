@@ -664,7 +664,9 @@ public:
     bool                 m_friendOpen = false;
     bool                 m_guildOpen = false;
     bool                 m_optionOpen = false;
-    std::uint16_t        m_questId = 1;
+    // Zero means no quest is selected; a real quest id is installed only
+    // after the live quest list is received.
+    std::uint16_t        m_questId = 0;
     std::string          m_questStatus = "Not accepted";
     mxh::compat::QuestStringCatalog m_questCatalog;
     std::vector<const mxh::compat::QuestStringEntry*> m_mainQuests;
