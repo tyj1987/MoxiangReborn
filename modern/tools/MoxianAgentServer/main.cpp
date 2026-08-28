@@ -27,6 +27,7 @@
 #include "mxh/net/net.hpp"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
@@ -61,6 +62,17 @@ struct Args {
     std::vector<MapRouteSpec> map_routes;
 };
 
+std::uint16_t parse_default_map(std::string_view token) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffu) {
+        std::cerr << "invalid --default-map (expected 0..255): " << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
@@ -92,7 +104,7 @@ Args parse_args(int argc, char** argv) {
             }
         }
         else if (s == "--default-map" && i + 1 < argc)
-            a.default_map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.default_map_num = parse_default_map(argv[++i]);
         else if (s == "--map-server-map" && i + 1 < argc) {
             // Parse MAP=HOST:PORT. This is explicit so a production run
             // cannot silently infer a destination from the process name.
