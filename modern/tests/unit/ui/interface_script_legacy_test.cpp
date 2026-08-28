@@ -27,31 +27,29 @@ namespace {
 // Locate PlayDH. In normal local runs this is a junction at
 // modern/data/PlayDH. For the harness we accept several fallbacks.
 fs::path locate_playdh() {
-    fs::path candidates[] = {
-        "modern/data/PlayDH",
-        "../data/PlayDH",
-        "../../data/PlayDH",
-        "../../../data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c / "Image" / "InterfaceScript", ec)) return c;
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate / "Image" / "InterfaceScript", candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
     return {};
 }
 
 fs::path locate_golden_dir() {
-    fs::path candidates[] = {
-        "modern/tests/fixtures/interface_script",
-        "../tests/fixtures/interface_script",
-        "../../tests/fixtures/interface_script",
-        "C:/moxiang/modern/tests/fixtures/interface_script",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c, ec)) return c;
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "tests" / "fixtures" / "interface_script";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate, candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
     return {};
 }
