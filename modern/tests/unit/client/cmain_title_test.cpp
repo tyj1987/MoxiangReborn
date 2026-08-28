@@ -171,6 +171,8 @@ TEST(CMainTitle, LoginErrorOpensVisibleRetryMessage) {
     title.Start(&engine, "acct", "secret");
     ASSERT_TRUE(title.ui_runtime().isActive());
     title.OnLoginError(7, 0);
+    EXPECT_EQ(title.username(), "acct");
+    EXPECT_TRUE(title.password().empty());
     EXPECT_TRUE(title.ui_runtime().hasModal());
     title.Release();
 }
