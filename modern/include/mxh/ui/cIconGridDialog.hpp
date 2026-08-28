@@ -80,6 +80,15 @@ public:
                   std::uint16_t cellWid, std::uint16_t cellHei,
                   std::uint16_t borderX,  std::uint16_t borderY);
 
+    // Resize the cell storage without resetting the dialog identity or
+    // background image.  Runtime-owned grids such as inventory tabs are
+    // declared as generic 1x1 InterfaceScript nodes and receive their real
+    // dimensions when the owning dialog binds live state.
+    void EnsureGridDimensions(std::uint16_t col, std::uint16_t row);
+
+    // Detach every icon from the grid. Ownership remains with the caller.
+    void ClearIcons() noexcept;
+
     // Render the grid background and selection overlays through cImage;
     // icon payload drawing remains owned by the eventual cIcon renderer.
     void Render() override;

@@ -45,6 +45,33 @@ TEST(CIconGridDialog, InitAllocatesEmptyGrid) {
     }
 }
 
+TEST(CIconGridDialog, EnsureGridDimensionsReallocatesRuntimeGrid) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(10, 20, 216, 171, nullptr, 1, 1, 42);
+    d.setLegacyId("IN_TABDLG1");
+    d.EnsureGridDimensions(5, 4);
+    EXPECT_EQ(d.GetCellNum(), 20u);
+    EXPECT_EQ(d.col(), 5u);
+    EXPECT_EQ(d.row(), 4u);
+    EXPECT_EQ(d.id(), 42);
+    EXPECT_EQ(d.legacyId(), "IN_TABDLG1");
+    EXPECT_TRUE(d.IsAddable(19));
+}
+
+TEST(CIconGridDialog, ClearIconsDetachesAllCells) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 200, 200, nullptr, 2, 1);
+    auto* first = MakeIcon(reinterpret_cast<void*>(0xA1));
+    auto* second = MakeIcon(reinterpret_cast<void*>(0xA2));
+    ASSERT_TRUE(d.AddIcon(0, first));
+    ASSERT_TRUE(d.AddIcon(1, second));
+    d.ClearIcons();
+    EXPECT_EQ(d.GetIconForIdx(0), nullptr);
+    EXPECT_EQ(d.GetIconForIdx(1), nullptr);
+    EXPECT_TRUE(d.IsAddable(0));
+    EXPECT_TRUE(d.IsAddable(1));
+}
+
 TEST(CIconGridDialog, InitGridComputesCellRect) {
     mxh::ui::cIconGridDialog d;
     d.Init(0, 0, 200, 200, nullptr, 4, 3);

@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) resolution_mode 接 mode 参数
 
 namespace mxh::ui {
@@ -126,6 +127,12 @@ public:
     // such as cMsgBox whose images are addressed by fixed resource indices
     // instead of an InterfaceScript node.
     static cImage* LoadLegacyImage(std::int32_t hard_idx);
+
+    // Load an image addressed by one of the legacy image path tables.  Item
+    // rows store Image2DNum values from image_item_path.bin rather than the
+    // hard-path table used by dialog chrome.
+    static cImage* LoadLegacyPathImage(std::int32_t image_idx,
+                                       PathFileType path_type);
 };
 
 }  // namespace mxh::ui

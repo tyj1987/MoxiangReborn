@@ -114,6 +114,37 @@ void cIconGridDialog::InitGrid(std::int32_t gridX, std::int32_t gridY,
     computeCellRect();
 }
 
+void cIconGridDialog::EnsureGridDimensions(std::uint16_t col,
+                                           std::uint16_t row) {
+    if (col == 0 || row == 0) return;
+    if (m_nCol == col && m_nRow == row && m_pIconGridCell) return;
+    delete[] m_pIconGridCell;
+    m_nCol = col;
+    m_nRow = row;
+    const auto count = static_cast<std::size_t>(m_nCol) * m_nRow;
+    m_pIconGridCell = new cIconGridCell[count];
+    for (std::size_t i = 0; i < count; ++i) {
+        m_pIconGridCell[i].icon = nullptr;
+        m_pIconGridCell[i].inUse = false;
+    }
+    m_lCurSelCellPos = -1;
+    m_pressedCellPos = -1;
+    m_lCurDragOverPos = -1;
+    computeCellRect();
+}
+
+void cIconGridDialog::ClearIcons() noexcept {
+    if (!m_pIconGridCell) return;
+    const auto count = static_cast<std::size_t>(m_nCol) * m_nRow;
+    for (std::size_t i = 0; i < count; ++i) {
+        m_pIconGridCell[i].icon = nullptr;
+        m_pIconGridCell[i].inUse = false;
+    }
+    m_lCurSelCellPos = -1;
+    m_pressedCellPos = -1;
+    m_lCurDragOverPos = -1;
+}
+
 void cIconGridDialog::computeCellRect() noexcept {
     m_cellRect.left   = m_gridX;
     m_cellRect.right  = m_cellRect.left + static_cast<std::int32_t>(m_nCol) * m_wCellWidth

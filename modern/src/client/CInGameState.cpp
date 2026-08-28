@@ -9,6 +9,7 @@
 #include "mxh/ui/ccharacterdialog.hpp"
 #include "mxh/ui/cmpguagedialog.hpp"
 #include "mxh/ui/cQuestDialog.hpp"
+#include "mxh/ui/cIconGridDialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -2582,20 +2583,16 @@ bool CInGameState::OnMouseButton(bool left, bool down,
     if (left && m_inventoryOpen) {
         auto inventory_slot_at = [&](std::int32_t px, std::int32_t py)
             -> std::optional<std::size_t> {
-            const auto* grid = m_uiRuntime.findWindowByLegacyId(
+            auto* window = m_uiRuntime.findWindowByLegacyId(
                 kInventoryTabDialogIds[m_inventoryTab]);
+            auto* grid = dynamic_cast<mxh::ui::cIconGridDialog*>(window);
             if (!grid) return std::nullopt;
-            const auto local_x = px - grid->absX();
-            const auto local_y = py - grid->absY();
-            constexpr std::int32_t cell = 40;
-            constexpr std::int32_t gap = 5;
-            const auto col = local_x / (cell + gap);
-            const auto row = local_y / (cell + gap);
-            const auto in_cell_x = local_x % (cell + gap);
-            const auto in_cell_y = local_y % (cell + gap);
-            if (col < 0 || col >= 5 || row < 0 || row >= 4 ||
-                in_cell_x >= cell || in_cell_y >= cell) return std::nullopt;
-            return m_inventoryTab * 20u + static_cast<std::size_t>(row * 5 + col);
+            std::uint16_t cell_x = 0, cell_y = 0;
+            if (!grid->GetCellPosition(px, py, cell_x, cell_y)) {
+                return std::nullopt;
+            }
+            return m_inventoryTab * 20u +
+                   static_cast<std::size_t>(cell_y) * grid->col() + cell_x;
         };
         auto equipment_slot_at = [&](std::int32_t px, std::int32_t py)
             -> std::optional<std::size_t> {
@@ -2632,20 +2629,13 @@ bool CInGameState::OnMouseButton(bool left, bool down,
             return true;
         }
         const auto grid_id = kInventoryTabDialogIds[m_inventoryTab];
-        auto* grid = m_uiRuntime.findWindowByLegacyId(grid_id);
+        auto* grid = dynamic_cast<mxh::ui::cIconGridDialog*>(
+            m_uiRuntime.findWindowByLegacyId(grid_id));
         if (grid) {
-            const auto local_x = x - grid->absX();
-            const auto local_y = y - grid->absY();
-            constexpr std::int32_t cell = 40;
-            constexpr std::int32_t gap = 5;
-            const auto col = local_x / (cell + gap);
-            const auto row = local_y / (cell + gap);
-            const auto in_cell_x = local_x % (cell + gap);
-            const auto in_cell_y = local_y % (cell + gap);
-            if (col >= 0 && col < 5 && row >= 0 && row < 4 &&
-                in_cell_x < cell && in_cell_y < cell) {
+            std::uint16_t cell_x = 0, cell_y = 0;
+            if (grid->GetCellPosition(x, y, cell_x, cell_y)) {
                 const std::size_t slot = m_inventoryTab * 20u +
-                    static_cast<std::size_t>(row * 5 + col);
+                    static_cast<std::size_t>(cell_y) * grid->col() + cell_x;
                 if (down) {
                     if (slot < mxh::game::SLOT_INVENTORY_NUM &&
                         !mxh::game::is_empty_slot(m_info.items.Inventory[slot])) {
