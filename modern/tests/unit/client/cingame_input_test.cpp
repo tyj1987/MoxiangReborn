@@ -968,6 +968,7 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
                         static_cast<std::int32_t>(mxh::client::kShopPanelX + 8),
                         static_cast<std::int32_t>(mxh::client::kShopPanelY + 4));
     EXPECT_EQ(state.last_buy_item_id(), 0x022Bu);
+    EXPECT_TRUE(state.OnMouseButton(true, true, 760, 560));
 }
 
 TEST(InGamePlayable, BKeyDoesNotOpenShopForQuestNpc) {

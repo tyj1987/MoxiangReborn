@@ -3129,6 +3129,10 @@ bool CInGameState::OnMouseButton(bool left, bool down,
                 return true;
             }
         }
+        // The shop compositor is a modal surface even outside its row hit
+        // boxes. Consume the click so it cannot fall through to world
+        // movement, NPC selection or combat while the shop is open.
+        return true;
     }
     if (left && down && !m_shopOpen) {
         const float fx = static_cast<float>(x);
