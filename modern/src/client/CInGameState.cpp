@@ -2296,7 +2296,20 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         auto& target_item = is_inventory(target)
             ? m_info.items.Inventory[target]
             : m_info.items.WearedItem[target - mxh::game::TP_WEAREDITEM_START];
-        std::swap(source_item, target_item);
+        // Modern servers echo the authoritative ITEMBASE in bytes 0..21.
+        // Apply it when complete; older/fixture acknowledgements may carry
+        // only the db index, in which case retain the legacy swap behavior.
+        mxh::game::ItemBase wire_item{};
+        std::memcpy(&wire_item, msg.payload.data(), sizeof(wire_item));
+        const bool has_authoritative_item =
+            wire_item.dwDBIdx == db_idx && wire_item.wIconIdx != 0;
+        if (has_authoritative_item) {
+            const auto displaced = target_item;
+            source_item = displaced;
+            target_item = wire_item;
+        } else {
+            std::swap(source_item, target_item);
+        }
         source_item.Position = source;
         target_item.Position = target;
         if (m_inventoryOpen) set_inventory_open(true);

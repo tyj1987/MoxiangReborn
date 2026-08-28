@@ -1041,6 +1041,37 @@ TEST(InGamePlayable, MoveAckReordersLiveInventorySlots) {
     EXPECT_EQ(state.game_info().items.Inventory[5].Position, 5u);
 }
 
+TEST(InGamePlayable, MoveAckAppliesAuthoritativeItemFields) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::game::ItemTotalInfo items{};
+    items.Inventory[3] = mxh::game::make_item(7201u, 301u, 3u, 40u, 2u);
+    mxh::net::Message inventory;
+    inventory.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    inventory.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    inventory.payload.resize(sizeof(items));
+    std::memcpy(inventory.payload.data(), &items, sizeof(items));
+    state.on_message(mxh::net::make_connection_id(1), inventory);
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveAck);
+    ack.payload.resize(24, 0);
+    const auto authoritative = mxh::game::make_item(7201u, 301u, 0u, 77u, 9u);
+    std::memcpy(ack.payload.data(), &authoritative, sizeof(authoritative));
+    const std::uint16_t target = 6u;
+    std::memcpy(ack.payload.data() + 22, &target, sizeof(target));
+    state.on_message(mxh::net::make_connection_id(1), ack);
+
+    EXPECT_EQ(state.game_info().items.Inventory[6].dwDBIdx, 7201u);
+    EXPECT_EQ(state.game_info().items.Inventory[6].Durability, 77u);
+    EXPECT_EQ(state.game_info().items.Inventory[6].ItemParam, 9u);
+    EXPECT_EQ(state.game_info().items.Inventory[6].Position, 6u);
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[3]));
+}
+
 TEST(InGamePlayable, MoveNackShowsVisibleItemMoveMessage) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
