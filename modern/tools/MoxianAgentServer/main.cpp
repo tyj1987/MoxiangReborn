@@ -73,12 +73,25 @@ std::uint16_t parse_default_map(std::string_view token) {
     return static_cast<std::uint16_t>(value);
 }
 
+std::uint16_t parse_u16_option(std::string_view token, const char* option,
+                               std::uint16_t minimum = 1) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffffu || value < minimum) {
+        std::cerr << "invalid " << option << " (expected " << minimum
+                  << "..65535): " << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
         std::string_view s = argv[i];
         if (s == "--port" && i + 1 < argc)
-            a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.port = parse_u16_option(argv[++i], "--port");
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
         else if (s == "--db-env" && i + 1 < argc)
@@ -97,8 +110,8 @@ Args parse_args(int argc, char** argv) {
             auto colon = spec.rfind(':');
             if (colon != std::string::npos) {
                 a.map_server_addr = spec.substr(0, colon);
-                a.map_server_port = static_cast<std::uint16_t>(
-                    std::stoi(spec.substr(colon + 1)));
+                a.map_server_port = parse_u16_option(
+                    spec.substr(colon + 1), "--map-server port");
             } else {
                 a.map_server_addr = spec;
             }
@@ -119,10 +132,10 @@ Args parse_args(int argc, char** argv) {
             }
             Args::MapRouteSpec route;
             route.map_num = static_cast<std::uint16_t>(
-                std::stoi(spec.substr(0, equals)));
+                parse_u16_option(spec.substr(0, equals), "--map-server-map map", 0));
             route.address = spec.substr(equals + 1, colon - equals - 1);
-            route.port = static_cast<std::uint16_t>(
-                std::stoi(spec.substr(colon + 1)));
+            route.port = parse_u16_option(spec.substr(colon + 1),
+                                          "--map-server-map port");
             if (route.map_num == 0 || route.port == 0 || route.address.empty())
                 std::exit(2);
             a.map_routes.push_back(std::move(route));
