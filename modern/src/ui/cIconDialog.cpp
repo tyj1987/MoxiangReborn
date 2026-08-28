@@ -127,13 +127,15 @@ cIcon* cIconDialog::GetIconForIdx(std::uint16_t idx) const {
 }
 
 void cIconDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
-    // Legacy: shift only the icons that aren't world-anchored (bOnlyLink = false).
-    // The legacy code does this via cIcon::SetAbsXY on the icon object; since
-    // cIcon is opaque to our modern port, we record the dialog-relative
-    // delta here. A follow-up that wires cIconSprite can apply the shift.
     const std::int32_t dx = x - absX();
     const std::int32_t dy = y - absY();
-    (void)dx; (void)dy;
+    // Legacy: shift only icons that are not world-anchored (bOnlyLink=false).
+    // cIcon is now a concrete cWindow, so preserve its actual position when
+    // the dialog is moved instead of waiting for a later render pass.
+    for (auto& cell : m_cells) {
+        if (!cell.icon || cell.onlyLink) continue;
+        cell.icon->SetAbsXY(cell.icon->absX() + dx, cell.icon->absY() + dy);
+    }
     cDialog::SetAbsXY(x, y);
 }
 

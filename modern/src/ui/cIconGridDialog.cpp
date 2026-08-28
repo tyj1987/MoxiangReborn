@@ -142,11 +142,17 @@ bool cIconGridDialog::isIconDepend(cIcon* /*icon*/) const noexcept {
 }
 
 void cIconGridDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
-    // 1:1 with legacy. Compute the delta and apply it to our own
-    // abs (cDialog::SetAbsXY) so the cell rect stays correct.
-    // The legacy also iterates the icons and calls SetAbsXY on
-    // each one — modern cIcon is opaque, so we record the
-    // delta here; the icon cascade lands in 6.6.
+    // 1:1 with legacy. Move dependent icon windows by the same delta before
+    // updating the dialog anchor, so drag/drop and hit-testing observe the
+    // new location immediately rather than only after Render().
+    const std::int32_t dx = x - absX();
+    const std::int32_t dy = y - absY();
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t i = 0; i < count; ++i) {
+        auto& cell = m_pIconGridCell[i];
+        if (!cell.icon || !isIconDepend(cell.icon)) continue;
+        cell.icon->SetAbsXY(cell.icon->absX() + dx, cell.icon->absY() + dy);
+    }
     cDialog::SetAbsXY(x, y);
 }
 

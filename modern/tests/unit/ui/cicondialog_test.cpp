@@ -1,6 +1,7 @@
 // cicondialog_test.cpp — Phase 6.11 coverage for cIconDialog (icon grid).
 
 #include "cIconDialog.hpp"
+#include "cIcon.hpp"
 
 #include <gtest/gtest.h>
 
@@ -191,4 +192,32 @@ TEST(CIconDialog, SetAbsXYMovesDialogAbsPosition) {
     EXPECT_FALSE(d.PtInCell(20, 30));
     EXPECT_EQ(d.absX(), 100);
     EXPECT_EQ(d.absY(), 200);
+}
+
+TEST(CIconDialog, SetAbsXYMovesDependentIconsBySameDelta) {
+    mxh::ui::cIconDialog d;
+    d.Init(10, 20, 100, 100, nullptr, 1);
+    d.SetCellNum(1);
+    d.AddIconCell(0, 0, 40, 40);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(15, 25, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetAbsXY(110, 220);
+    EXPECT_EQ(icon.absX(), 115);
+    EXPECT_EQ(icon.absY(), 225);
+}
+
+TEST(CIconDialog, SetAbsXYKeepsOnlyLinkedIconAnchored) {
+    mxh::ui::cIconDialog d;
+    d.Init(10, 20, 100, 100, nullptr, 1);
+    d.SetCellNum(1);
+    d.AddIconCell(0, 0, 40, 40);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(15, 25, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon, true));
+
+    d.SetAbsXY(110, 220);
+    EXPECT_EQ(icon.absX(), 15);
+    EXPECT_EQ(icon.absY(), 25);
 }

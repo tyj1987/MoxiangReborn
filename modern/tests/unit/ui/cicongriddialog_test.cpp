@@ -5,6 +5,7 @@
 // separately by the 6.6 cImage seam follow-up.
 
 #include "cIconGridDialog.hpp"
+#include "cIcon.hpp"
 
 #include <gtest/gtest.h>
 
@@ -321,13 +322,14 @@ TEST(CIconGridDialog, RenderIsNoop) {
 }
 
 TEST(CIconGridDialog, SetAbsXYMovesDialog) {
-    // 1:1 with legacy SetAbsXY. Modern cIcon is opaque, so the icon
-    // cascade is a no-op stub. The dialog's own abs position
-    // updates and PtInCell re-anchors to the new position.
+    // 1:1 with legacy SetAbsXY. The concrete icon follows the dialog while
+    // PtInCell re-anchors to the new position.
     mxh::ui::cIconGridDialog d;
     d.Init(0, 0, 200, 200, nullptr, 4, 3);
     d.InitGrid(0, 0, 40, 40, 4, 4);
-    ASSERT_TRUE(d.AddIcon(0, MakeIcon(reinterpret_cast<void*>(0x11))));
+    mxh::ui::cIcon icon;
+    icon.InitIcon(0, 0, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
     d.SetAbsXY(100, 200);
     EXPECT_EQ(d.absX(), 100);
     EXPECT_EQ(d.absY(), 200);
@@ -335,4 +337,16 @@ TEST(CIconGridDialog, SetAbsXYMovesDialog) {
     // PtInCell uses cellWid-based hit range.
     EXPECT_TRUE(d.PtInCell(120, 220));
     EXPECT_FALSE(d.PtInCell(20, 30));
+}
+
+TEST(CIconGridDialog, SetAbsXYMovesDependentIconBySameDelta) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(10, 20, 100, 100, nullptr, 1, 1);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(15, 25, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetAbsXY(110, 220);
+    EXPECT_EQ(icon.absX(), 115);
+    EXPECT_EQ(icon.absY(), 225);
 }
