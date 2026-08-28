@@ -1601,7 +1601,7 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             break;
         }
         case UserConnProtocol::ChangeMapAck:
-            if (msg.payload.size() >= sizeof(std::uint16_t) && m_pEngine) {
+            if (m_inGame && msg.payload.size() >= sizeof(std::uint16_t) && m_pEngine) {
                 const auto target_map = get_u16(msg.payload.data());
                 if (target_map != 0u && target_map != m_mapNum) {
                     m_pEngine->SetPendingTransfer(
