@@ -2625,6 +2625,27 @@ void CInGameState::send_quest(mxh::proto::QuestProtocol protocol) {
 
 void CInGameState::handle_quest_broadcast(const mxh::net::Message& msg) {
     const auto protocol = static_cast<mxh::proto::QuestProtocol>(msg.header.protocol);
+    if (protocol == mxh::proto::QuestProtocol::RemoveNotify) {
+        std::uint16_t removed_id = msg.header.object_id != 0
+            ? static_cast<std::uint16_t>(msg.header.object_id)
+            : 0;
+        if (msg.payload.size() >= 2) {
+            removed_id = static_cast<std::uint16_t>(msg.payload[0] |
+                (static_cast<std::uint16_t>(msg.payload[1]) << 8));
+        }
+        if (removed_id == 0) return;
+        if (auto* window = m_uiRuntime.findWindowByLegacyId(kQuestDialogId)) {
+            if (auto* dialog = dynamic_cast<mxh::ui::cQuestDialog*>(window)) {
+                (void)dialog->RemoveQuest(removed_id);
+            }
+        }
+        if (m_questId == removed_id) {
+            m_questId = 0;
+            m_questStatus = "Not accepted";
+        }
+        MLOG_INFO("CInGameState: quest removed id=%u", removed_id);
+        return;
+    }
     if ((protocol == mxh::proto::QuestProtocol::ChangeState ||
          protocol == mxh::proto::QuestProtocol::TotalInfo) &&
         msg.payload.size() >= 8) {

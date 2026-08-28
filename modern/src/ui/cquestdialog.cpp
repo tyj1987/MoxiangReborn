@@ -40,6 +40,19 @@ void cQuestDialog::ClearQuests() {
     syncQuestList();
 }
 
+bool cQuestDialog::RemoveQuest(std::uint32_t id) {
+    const auto it = std::find_if(m_quests.begin(), m_quests.end(),
+                                 [id](const auto& quest) { return quest.id == id; });
+    if (it == m_quests.end()) return false;
+    const auto removed = static_cast<std::size_t>(std::distance(m_quests.begin(), it));
+    m_quests.erase(it);
+    if (m_quests.empty()) m_selected = static_cast<std::size_t>(-1);
+    else if (m_selected > removed) --m_selected;
+    else if (m_selected == removed) m_selected = std::min(m_selected, m_quests.size() - 1);
+    syncQuestList();
+    return true;
+}
+
 bool cQuestDialog::UpdateQuest(std::uint32_t id, QuestStatus s) {
     for (auto& q : m_quests) {
         if (q.id == id) {

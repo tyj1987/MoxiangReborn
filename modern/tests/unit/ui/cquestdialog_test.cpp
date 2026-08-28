@@ -64,6 +64,18 @@ TEST(QuestDialog, ClearQuestsRebuildsSelectionAndRuntimeList) {
     EXPECT_EQ(d.Selected()->id, 2u);
 }
 
+TEST(QuestDialog, RemoveQuestRebuildsListAndSelection) {
+    cQuestDialog d;
+    d.AddQuest({1, "First", QuestStatus::Active, 1});
+    d.AddQuest({2, "Second", QuestStatus::Available, 2});
+    ASSERT_TRUE(d.Select(1));
+    EXPECT_TRUE(d.RemoveQuest(1));
+    ASSERT_EQ(d.Quests().size(), 1u);
+    ASSERT_NE(d.Selected(), nullptr);
+    EXPECT_EQ(d.Selected()->id, 2u);
+    EXPECT_FALSE(d.RemoveQuest(9));
+}
+
 TEST(QuestDialog, ServiceBackedClaimRequiresServiceAcceptance) {
     cQuestDialog d;
     QuestService service;
