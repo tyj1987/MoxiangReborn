@@ -3098,7 +3098,7 @@ bool CInGameState::OnMouseButton(bool left, bool down,
     // InterfaceScript child.  Its always-active QI_QUICKDLG root otherwise
     // swallows clicks before they reach the skill dispatcher.  Reserve the
     // bar's exact logical hit boxes for both button edges.
-    const auto quick_slot = left
+    const auto quick_slot = left && !m_chatOpen && !m_shopOpen
         ? quick_slot_at_screen(static_cast<float>(x), static_cast<float>(y))
         : std::nullopt;
     if (quick_slot) {

@@ -970,6 +970,8 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     const auto shopCameraDistance = state.camera_distance();
     state.OnMouseWheel(-120);
     EXPECT_FLOAT_EQ(state.camera_distance(), shopCameraDistance);
+    EXPECT_TRUE(state.OnMouseButton(true, true, 220, 480));
+    EXPECT_TRUE(state.shop_open());
     EXPECT_EQ(state.shop_items()[0].item_id, 0x022Bu);
 
     state.OnMouseButton(true, true,
