@@ -2927,7 +2927,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     static_cast<std::uint32_t>(req.qty),
                     std::memory_order_relaxed);
                 bool ok = true;
-                mxh::game::ItemTotalInfo updated_items;
+                mxh::game::ItemTotalInfo updated_items{};
                 {
                     std::lock_guard<std::mutex> lk(players_mu_);
                     auto info_it = connected_players_.find(player_id);
