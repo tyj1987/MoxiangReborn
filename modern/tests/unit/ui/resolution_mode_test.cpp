@@ -47,7 +47,17 @@ fs::path resolvePlayDHRoot() {
     if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
         return fs::path(env);
     }
-    return fs::path("C:/moxiang/modern/data/PlayDH");
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate, candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
 }
 
 int main() {
