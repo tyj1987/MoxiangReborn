@@ -430,6 +430,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::vector<GroundDropInfo>& ground_drops() const noexcept {
         return m_groundDrops;
     }
+    std::uint32_t pending_pickup_drop() const noexcept { return m_pendingPickupDrop; }
     std::uint32_t last_attack_target() const noexcept { return m_lastAttackTarget; }
     const std::vector<NpcInfo>& npcs() const noexcept { return m_npcs; }
     const std::unordered_map<std::uint32_t, RemotePlayerInfo>& remote_players()

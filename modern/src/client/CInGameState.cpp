@@ -1592,6 +1592,10 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                     return drop.object_id == removed;
                 }),
                 m_groundDrops.end());
+            if (m_pendingPickupDrop == removed) {
+                m_pendingPickupDrop = 0;
+                m_pendingPickupSinceMs = 0;
+            }
             m_remotePlayers.erase(removed);
             (void)m_effectRuntime.stop_object(removed);
             if (m_pendingAttackTarget == removed) m_pendingAttackTarget = 0;
