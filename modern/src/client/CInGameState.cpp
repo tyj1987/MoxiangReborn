@@ -3163,10 +3163,29 @@ bool CInGameState::OnMouseButton(bool left, bool down,
         }
         const std::uint32_t monster = pick_monster_at_screen(fx, fy);
         if (monster != 0) {
-            m_pendingAttackTarget = monster;
-            try_attack();
-            // Target selection/attack owns the click and must not issue a
-            // movement command toward the cursor in the same frame.
+            const auto selected = std::find_if(
+                monsters_.begin(), monsters_.end(),
+                [monster](const MonsterAddInfo& info) {
+                    return info.object_id == monster && info.current_life != 0;
+                });
+            const bool in_range = selected != monsters_.end() &&
+                ((static_cast<float>(selected->position_x) - m_localX) *
+                 (static_cast<float>(selected->position_x) - m_localX) +
+                 (static_cast<float>(selected->position_z) - m_localZ) *
+                 (static_cast<float>(selected->position_z) - m_localZ) <=
+                 kAttackRange * kAttackRange);
+            if (in_range) {
+                m_pendingAttackTarget = monster;
+                try_attack();
+            } else {
+                // A visible monster outside attack range is still a valid
+                // world destination. Walk toward it instead of consuming the
+                // click without movement or feedback.
+                (void)move_to_screen(fx, fy);
+            }
+            // Target selection owns the click; movement, when needed, was
+            // issued explicitly above rather than falling through a second
+            // world-click interpretation.
             return true;
         }
         if (move_to_screen(static_cast<float>(x), static_cast<float>(y))) {
