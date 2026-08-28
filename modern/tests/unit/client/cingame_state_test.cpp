@@ -573,3 +573,25 @@ TEST(InGameEntityLifecycle, ReleaseClearsWorldOwnedStateBeforeMapChange) {
     EXPECT_FLOAT_EQ(state.camera_yaw(), 0.0f);
     EXPECT_FLOAT_EQ(state.camera_distance(), 7.0f);
 }
+
+TEST(InGameEntityLifecycle, ObjectRemoveClearsGroundDropWithSameObjectId) {
+    mxh::client::CInGameState state;
+    mxh::net::Message drop;
+    drop.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    drop.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    drop.payload.resize(20, 0);
+    const std::uint32_t object_id = 812u;
+    const std::uint16_t item_id = 41u;
+    std::memcpy(drop.payload.data(), &object_id, sizeof(object_id));
+    std::memcpy(drop.payload.data() + 8, &item_id, sizeof(item_id));
+    state.on_message({}, drop);
+    ASSERT_EQ(state.ground_drops().size(), 1u);
+
+    mxh::net::Message remove;
+    remove.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    remove.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ObjectRemove);
+    remove.payload.resize(sizeof(object_id));
+    std::memcpy(remove.payload.data(), &object_id, sizeof(object_id));
+    state.on_message({}, remove);
+    EXPECT_TRUE(state.ground_drops().empty());
+}

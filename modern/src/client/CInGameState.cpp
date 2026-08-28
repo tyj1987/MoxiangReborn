@@ -1587,6 +1587,11 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                     return npc.npc_id == removed;
                 }),
                 m_npcs.end());
+            m_groundDrops.erase(std::remove_if(m_groundDrops.begin(), m_groundDrops.end(),
+                [removed](const GroundDropInfo& drop) {
+                    return drop.object_id == removed;
+                }),
+                m_groundDrops.end());
             m_remotePlayers.erase(removed);
             (void)m_effectRuntime.stop_object(removed);
             if (m_pendingAttackTarget == removed) m_pendingAttackTarget = 0;
