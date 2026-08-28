@@ -279,6 +279,11 @@ int main(int argc, char** argv) {
     if (!args.resource_root.empty()) {
         const auto root = std::filesystem::path(args.resource_root);
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
+        if (!handler.has_loaded_skill_list()) {
+            std::cerr << "FATAL: required SkillList.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         const auto drop_path = args.resource_profile == "playdh-current"
             ? (root / "Resource" / "MonsterDropItemList.bin")
             : (root / "Resource" / "Server" / "MonsterDropItemList.bin");

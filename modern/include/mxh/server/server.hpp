@@ -332,6 +332,10 @@ public:
     // to stdout and skipped; a hard I/O failure leaves skill_manager_
     // empty so the hardcoded path remains intact.
     void load_skill_list(const std::string& path);
+    // True only when the explicit runtime resource profile supplied a real
+    // SkillList.bin.  Production startup uses this to reject silent fallback
+    // to the four-skill development table.
+    bool has_loaded_skill_list() const noexcept { return skill_manager_.size() != 0; }
 
     // M3-MAP dealitem loader: load the real DealItem.bin into
     // dealitem_catalog_ so the BuySyn arm of handle_item() can resolve
