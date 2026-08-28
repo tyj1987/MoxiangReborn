@@ -1650,6 +1650,11 @@ void MapHandler::spawn_map_npcs() {
 
 void MapHandler::send_npc_add(mxh::net::ConnectionId id,
                               const ServerNpc& npc) {
+    if (npc.npc_id > 0xffffu) {
+        std::cout << "[Map] refusing NPC_ADD with out-of-range id="
+                  << npc.npc_id << "\n";
+        return;
+    }
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::UserConn);
