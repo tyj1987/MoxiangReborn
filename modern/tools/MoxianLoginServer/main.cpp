@@ -6,6 +6,7 @@
 #include "mxh/server/server.hpp"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
@@ -35,12 +36,24 @@ struct Args {
     bool use_hsel   = false;  // Phase R-1: HSEL-encrypted legacy session
 };
 
+std::uint16_t parse_port(std::string_view token, const char* option) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value == 0 || value > 0xffffu) {
+        std::cerr << "invalid " << option << " (expected 1..65535): "
+                  << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
         std::string_view s = argv[i];
         if (s == "--port" && i + 1 < argc)
-            a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.port = parse_port(argv[++i], "--port");
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
         else if (s == "--db-env" && i + 1 < argc)
@@ -52,7 +65,7 @@ Args parse_args(int argc, char** argv) {
         else if (s == "--agent-addr" && i + 1 < argc)
             a.agent_addr = argv[++i];
         else if (s == "--agent-port" && i + 1 < argc)
-            a.agent_port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.agent_port = parse_port(argv[++i], "--agent-port");
         else if (s == "--legacy")
             a.use_legacy = true;
         else if (s == "--use-hsel")
