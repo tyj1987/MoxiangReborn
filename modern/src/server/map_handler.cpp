@@ -1667,7 +1667,7 @@ void MapHandler::send_npc_add(mxh::net::ConnectionId id,
     put_str(m.payload, 8, npc.name.c_str(), 17);
     put_u16(m.payload, 35, npc.npc_kind);
     put_u16(m.payload, 39, npc.map_num);
-    put_u16(m.payload, 41, npc.npc_id);  // NpcUniqueIdx
+    put_u16(m.payload, 41, static_cast<std::uint16_t>(npc.npc_id));  // NpcUniqueIdx
     put_u16(m.payload, 45, npc.pos_x);
     put_u16(m.payload, 47, npc.pos_z);
     m.payload[63] = 1;  // bLogin
