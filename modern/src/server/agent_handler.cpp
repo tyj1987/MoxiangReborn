@@ -439,6 +439,29 @@ void AgentHandler::handle_friend(mxh::net::ConnectionId id,
         return;
     }
 
+    if (msg.header.protocol == 8u) { // FriendDelSyn
+        const std::array<mxh::db::Bind, 2> params = {
+            mxh::db::bind(static_cast<std::int64_t>(source)),
+            mxh::db::bind(static_cast<std::int64_t>(msg.header.object_id))};
+        bool removed = db_.begin_transaction().ok();
+        if (removed) removed = db_.execute(
+            "DELETE FROM modern_friend WHERE player_id=? AND friend_id=?", params).ok();
+        if (removed) {
+            const std::array<mxh::db::Bind, 2> reverse = {
+                mxh::db::bind(static_cast<std::int64_t>(msg.header.object_id)),
+                mxh::db::bind(static_cast<std::int64_t>(source))};
+            removed = db_.execute(
+                "DELETE FROM modern_friend WHERE player_id=? AND friend_id=?", reverse).ok();
+        }
+        if (!removed || !db_.commit().ok()) {
+            (void)db_.rollback();
+            send_to_source(kAddNack, msg.header.object_id);
+            return;
+        }
+        send_to_source(9u, msg.header.object_id); // FriendDelAck
+        return;
+    }
+
     switch (msg.header.protocol) {
     case kAddSyn:
         if (!send_to_target(kAddInvite, source)) {

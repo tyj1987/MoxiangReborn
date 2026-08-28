@@ -1999,6 +1999,18 @@ void CInGameState::handle_friend_message(const mxh::net::Message& msg) {
         }
         return;
     }
+    if (proto == 9u) { // FriendDelAck
+        const auto removed_id = msg.header.object_id;
+        for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+            if (auto* friend_dialog = dialog
+                    ? dynamic_cast<mxh::ui::cFriendDialog*>(dialog.get()) : nullptr) {
+                (void)friend_dialog->RemoveFriend(removed_id);
+                friend_dialog->RefreshFriendList();
+            }
+        }
+        (void)m_uiRuntime.showMessage(9121, "Friend removed.");
+        return;
+    }
     if (proto == kFriendAddInvite) {
         m_pendingFriendInviteId = msg.header.object_id;
         if (m_pendingFriendInviteId == 0 && msg.payload.size() >= 4) {
@@ -2438,6 +2450,17 @@ mxh::ui::cMiniFriendDialog* CInGameState::mini_friend_dialog() noexcept {
     return nullptr;
 }
 
+mxh::ui::cFriendDialog* CInGameState::friend_dialog() noexcept {
+    for (auto& dialog : m_uiRuntime.dialogsMutable()) {
+        if (!dialog) continue;
+        if (dialog->legacyId() != kFriendDialogId) continue;
+        if (auto* friend_dialog = dynamic_cast<mxh::ui::cFriendDialog*>(dialog.get())) {
+            return friend_dialog;
+        }
+    }
+    return nullptr;
+}
+
 bool CInGameState::select_quest_index(std::size_t index) noexcept {
     if (index >= m_mainQuests.size() || m_mainQuests[index] == nullptr) {
         return false;
@@ -2465,6 +2488,16 @@ bool CInGameState::handle_ui_activation(
         (activation.dialog_legacy_id == kFriendDialogId ||
          activation.dialog_legacy_id == kFriendDialogTypeAlias)) {
         set_mini_friend_open(true);
+        return true;
+    }
+    if (activation.legacy_id == "FRI_DELFRIENDBTN" &&
+        (activation.dialog_legacy_id == kFriendDialogId ||
+         activation.dialog_legacy_id == kFriendDialogTypeAlias)) {
+        if (auto* dialog = friend_dialog()) {
+            if (const auto* selected = dialog->Selected()) {
+                (void)request_friend_delete(selected->id);
+            }
+        }
         return true;
     }
     if (activation.dialog_legacy_id == kOptionDialogId) {
@@ -3730,6 +3763,15 @@ bool CInGameState::request_friend_add_by_name(std::string_view name) {
     m_lastFriendError = "That player is not visible nearby.";
     (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
     return false;
+}
+
+bool CInGameState::request_friend_delete(std::uint32_t friend_id) {
+    if (!m_inGame || !is_connected() || m_playerId == 0 || friend_id == 0) return false;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    message.header.protocol = 8u; // FriendDelSyn
+    message.header.object_id = friend_id;
+    return m_pEngine->agent_session().send(std::move(message)) == mxh::net::NetError::Ok;
 }
 
 bool CInGameState::accept_friend_invite() {

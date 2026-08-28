@@ -55,7 +55,7 @@
 #include "services/InventoryServiceImpl.hpp"
 #include "mxh/services/IPlayerStatsService.hpp"
 
-namespace mxh::ui { class cOptionDialog; class cMiniFriendDialog; }
+namespace mxh::ui { class cOptionDialog; class cMiniFriendDialog; class cFriendDialog; }
 
 namespace mxh::client {
 
@@ -449,6 +449,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool option_open() const noexcept { return m_optionOpen; }
     mxh::ui::cOptionDialog* option_dialog() noexcept;
     mxh::ui::cMiniFriendDialog* mini_friend_dialog() noexcept;
+    mxh::ui::cFriendDialog* friend_dialog() noexcept;
     std::uint16_t quest_id() const noexcept { return m_questId; }
     const std::string& quest_status() const noexcept { return m_questStatus; }
     const mxh::compat::QuestStringEntry* selected_quest() const noexcept {
@@ -488,6 +489,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t pending_guild_invite_id() const noexcept { return m_pendingGuildInviteId; }
     bool request_friend_add(std::uint32_t target_player_id);
     bool request_friend_add_by_name(std::string_view name);
+    bool request_friend_delete(std::uint32_t friend_id);
     bool accept_friend_invite();
     bool deny_friend_invite();
     std::uint32_t pending_friend_invite_id() const noexcept { return m_pendingFriendInviteId; }
