@@ -15,17 +15,15 @@ namespace fs = std::filesystem;
 namespace {
 
 fs::path locate_playdh() {
-    fs::path candidates[] = {
-        "modern/data/PlayDH",
-        "../data/PlayDH",
-        "../../data/PlayDH",
-        "../../../data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c / "Image", ec)) return c;
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate / "Image", candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
     return {};
 }

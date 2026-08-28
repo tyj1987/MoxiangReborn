@@ -34,7 +34,8 @@ fs::path resolvePlayDHRoot() {
     auto current = fs::absolute(fs::current_path(ec), ec);
     for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
         const auto candidate = current / "modern" / "data" / "PlayDH";
-        if (fs::is_directory(candidate, ec)) return candidate;
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate, candidate_ec)) return candidate;
         const auto parent = current.parent_path();
         if (parent == current) break;
         current = parent;
