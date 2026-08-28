@@ -36,3 +36,10 @@ endif()
 
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_client_tests)
+
+# Keep one aggregate entry in addition to the per-case entries above.  The
+# aggregate is the stable client regression gate: it executes the complete
+# binary (including any parameterized tests that gtest_add_tests cannot
+# enumerate) and lets CI invoke the client suite by one predictable name.
+add_test(NAME mxh_client_all_tests
+    COMMAND mxh_client_tests --gtest_brief=1)
