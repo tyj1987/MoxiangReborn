@@ -55,6 +55,8 @@
 #include "services/InventoryServiceImpl.hpp"
 #include "mxh/services/IPlayerStatsService.hpp"
 
+namespace mxh::ui { class cOptionDialog; }
+
 namespace mxh::client {
 
 class CEngine;
@@ -445,6 +447,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool friend_open() const noexcept { return m_friendOpen; }
     bool guild_open() const noexcept { return m_guildOpen; }
     bool option_open() const noexcept { return m_optionOpen; }
+    mxh::ui::cOptionDialog* option_dialog() noexcept;
     std::uint16_t quest_id() const noexcept { return m_questId; }
     const std::string& quest_status() const noexcept { return m_questStatus; }
     const mxh::compat::QuestStringEntry* selected_quest() const noexcept {

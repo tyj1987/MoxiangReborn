@@ -12,6 +12,7 @@
 #include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cIconGridDialog.hpp"
 #include "mxh/ui/cchatdialog.hpp"
+#include "mxh/ui/coptiondialog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -2265,6 +2266,11 @@ void CInGameState::set_guild_open(bool open) noexcept {
 void CInGameState::set_option_open(bool open) noexcept {
     m_optionOpen = open;
     m_uiRuntime.setDialogActive(kOptionDialogId, open);
+}
+
+mxh::ui::cOptionDialog* CInGameState::option_dialog() noexcept {
+    return dynamic_cast<mxh::ui::cOptionDialog*>(
+        m_uiRuntime.findWindowByLegacyId(kOptionDialogId));
 }
 
 bool CInGameState::select_quest_index(std::size_t index) noexcept {

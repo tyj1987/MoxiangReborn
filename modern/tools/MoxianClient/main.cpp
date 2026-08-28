@@ -23,6 +23,7 @@
 #include <memory>
 #include <string_view>
 #include <chrono>
+#include <cmath>
 #include <vector>
 #include <unordered_map>
 
@@ -48,6 +49,7 @@
 #include "mxh/ui/cDialogLoader.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
+#include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "TextRender.hpp"
 #include "mxh/log/mlog.hpp"
@@ -418,6 +420,35 @@ float g_uiVolume = 1.0f;
 float g_bgmVolume = 1.0f;
 float g_sfxVolume = 1.0f;
 bool g_audioFocused = true;
+
+struct OptionRuntimeContext {
+    mxh::client::ClientSettingsV1* settings = nullptr;
+    mxh::audio::BgmPlayer* bgm = nullptr;
+    mxh::audio::SfxPlayer* sfx = nullptr;
+};
+
+void option_default_callback(mxh::ui::sGAMEOPTION* option, void* user) {
+    const auto* ctx = static_cast<const OptionRuntimeContext*>(user);
+    if (!option || !ctx || !ctx->settings) return;
+    option->bSoundBGM = ctx->settings->bgm_volume > 0.0f;
+    option->bSoundEnvironment = ctx->settings->ambient_volume > 0.0f;
+    option->nVolumnBGM = static_cast<int>(std::lround(ctx->settings->bgm_volume * 100.0f));
+    option->nVolumnEnvironment = static_cast<int>(std::lround(ctx->settings->ambient_volume * 100.0f));
+}
+
+void option_apply_callback(mxh::ui::sGAMEOPTION* option, void* user) {
+    auto* ctx = static_cast<OptionRuntimeContext*>(user);
+    if (!option || !ctx || !ctx->settings) return;
+    const auto normalized = [](int value) {
+        return std::clamp(static_cast<float>(value) / 100.0f, 0.0f, 1.0f);
+    };
+    ctx->settings->bgm_volume = normalized(option->nVolumnBGM);
+    ctx->settings->ambient_volume = normalized(option->nVolumnEnvironment);
+    g_bgmVolume = option->bSoundBGM ? ctx->settings->bgm_volume : 0.0f;
+    if (ctx->bgm) ctx->bgm->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
+    g_sfxVolume = option->bSoundEnvironment ? ctx->settings->sfx_volume : 0.0f;
+    if (ctx->sfx) ctx->sfx->setVolume(g_audioFocused ? g_sfxVolume : 0.0f);
+}
 
 void configureCharacterPreviewCamera(I4DyuchiGXRenderer* renderer,
                                      float aspect,
@@ -2570,7 +2601,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     ClientOptions options = parse_client_options();
     const auto settings_path = mxh::client::ClientSettingsStore::default_path();
     std::string settings_warning;
-    const auto persisted_settings = mxh::client::ClientSettingsStore::load(
+    auto persisted_settings = mxh::client::ClientSettingsStore::load(
         settings_path, &settings_warning);
     g_uiVolume = persisted_settings.ui_volume;
     if (!settings_warning.empty()) MLOG_WARN("mxh_client: %s", settings_warning.c_str());
@@ -2712,6 +2743,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     mxh::audio::BgmPlayer bgm;
     mxh::audio::SfxPlayer sfx;
+    OptionRuntimeContext optionContext{&persisted_settings, &bgm, &sfx};
     g_bgmPlayer = &bgm;
     g_sfxPlayer = &sfx;
     g_bgmVolume = persisted_settings.bgm_volume;
@@ -3356,6 +3388,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         g->set_quest_catalog(std::move(questCatalog));
                         g->Start(mainGame.GetEngine(), pending_character_id,
                                  pending_map_num);
+                        if (auto* option = g->option_dialog()) {
+                            option->SetDefaultCallbackForTest(&option_default_callback,
+                                                               &optionContext);
+                            option->SetApplyCallbackForTest(&option_apply_callback,
+                                                             &optionContext);
+                            option->gameOption().nVolumnBGM = static_cast<int>(
+                                std::lround(persisted_settings.bgm_volume * 100.0f));
+                            option->gameOption().nVolumnEnvironment = static_cast<int>(
+                                std::lround(persisted_settings.ambient_volume * 100.0f));
+                            option->UpdateData(false);
+                        }
                         g_inputTarget = g;
                         // World loading commits before the new GameIn state
                         // is constructed. Rebind authoritative terrain bounds
