@@ -544,6 +544,33 @@ TEST(InGamePlayable, SkillResultPublishesCombatFeedbackForHud) {
     EXPECT_GT(state.last_damage_timestamp_ms(), 0u);
 }
 
+TEST(InGamePlayable, SkillResultImmediatelyUpdatesTargetLifeBar) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::net::Message monster;
+    monster.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    monster.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd);
+    monster.payload.resize(64, 0);
+    const std::uint32_t target = 50002u;
+    const std::uint32_t life = 100u;
+    std::memcpy(monster.payload.data(), &target, 4);
+    std::memcpy(monster.payload.data() + 35, &life, 4);
+    state.on_message(mxh::net::make_connection_id(1), monster);
+    ASSERT_EQ(state.monsters().size(), 1u);
+    mxh::net::Message result;
+    result.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    result.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult);
+    result.payload.resize(9);
+    const std::int32_t damage = 35;
+    std::memcpy(result.payload.data(), &target, 4);
+    std::memcpy(result.payload.data() + 4, &damage, 4);
+    result.payload[8] = 1;
+    state.on_message(mxh::net::make_connection_id(1), result);
+    EXPECT_EQ(state.monsters().front().current_life, 65u);
+}
+
 TEST(InGamePlayable, BlockedMovementStillRotatesCamera) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

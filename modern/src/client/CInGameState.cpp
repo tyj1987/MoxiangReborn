@@ -1749,6 +1749,16 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 m_lastHitResult = hit;
                 m_lastDamageTimestampMs = m_lastTickMs != 0
                     ? m_lastTickMs : steady_now_ms();
+                if (damage > 0) {
+                    for (auto& monster : monsters_) {
+                        if (monster.object_id != target || monster.current_life == 0) continue;
+                        const auto dealt = static_cast<std::uint32_t>(damage);
+                        monster.current_life = dealt >= monster.current_life
+                            ? 0u : monster.current_life - dealt;
+                        if (monster.current_life == 0) monster.moving = false;
+                        break;
+                    }
+                }
                 const auto source_object = msg.header.object_id != 0
                     ? msg.header.object_id : m_playerId;
                 if (m_pendingSkillId != 0) {
