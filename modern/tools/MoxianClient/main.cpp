@@ -1184,6 +1184,9 @@ struct EffectVisualOverlay {
                            I4DyuchiGXRenderer* renderer) const {
         if (!renderer) return;
         std::uint32_t slot = 0;
+        const auto now = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count());
         const auto& info = game.game_info();
         for (const auto& item : active) {
             if (!item.light || slot >= 8u) continue;
@@ -1209,16 +1212,25 @@ struct EffectVisualOverlay {
                 }
             }
             if (!found) continue;
+            float move_progress = 1.0f;
+            if (item.move_duration_ms != 0u && now >= item.move_start_ms) {
+                move_progress = std::clamp(
+                    static_cast<float>(now - item.move_start_ms) /
+                        static_cast<float>(item.move_duration_ms), 0.0f, 1.0f);
+            }
+            const auto move_x = item.move_offset[0] * move_progress;
+            const auto move_y = item.move_offset[1] * move_progress;
+            const auto move_z = item.move_offset[2] * move_progress;
             LIGHT_DESC light{};
             light.dwDiffuse = item.color_index == 0u ? 0xffffffffu : 0u;
             light.dwAmbient = 0u;
             light.dwSpecular = 0u;
             light.v3Point = {world_x * mxh::gx::kEntitySceneScale -
-                             mxh::gx::kEntityMapCenter + item.position[0] *
+                             mxh::gx::kEntityMapCenter + (item.position[0] + move_x) *
                              mxh::gx::kEntitySceneScale,
-                             item.position[1] * mxh::gx::kEntitySceneScale,
+                             (item.position[1] + move_y) * mxh::gx::kEntitySceneScale,
                              world_z * mxh::gx::kEntitySceneScale -
-                             mxh::gx::kEntityMapCenter + item.position[2] *
+                             mxh::gx::kEntityMapCenter + (item.position[2] + move_z) *
                              mxh::gx::kEntitySceneScale};
             light.fRs = item.radius > 0.0f ? item.radius *
                         mxh::gx::kEntitySceneScale : 2.0f;
