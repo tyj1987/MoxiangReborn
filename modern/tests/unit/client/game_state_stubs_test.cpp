@@ -102,6 +102,14 @@ TEST(CGameLoading, StartFailsClosedWithoutEngineOrResourceRoot) {
     EXPECT_EQ(state.error(), "loading requires a client engine");
 }
 
+TEST(CGameLoading, MissingContextFailsClosedInsteadOfHanging) {
+    CGameLoading state;
+    state.Init(nullptr);
+    state.Process();
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "loading context is missing");
+}
+
 TEST(CMapChange, TracksProgressCancellationAndFailure) {
     LoadStateContext context;
     context.completed_steps = 4;
@@ -182,6 +190,14 @@ TEST(CMapChange, StartFailsClosedWithoutEngineOrResourceRoot) {
     state.Start(nullptr);
     EXPECT_TRUE(state.failed());
     EXPECT_EQ(state.error(), "map change requires a client engine");
+}
+
+TEST(CMapChange, MissingContextFailsClosedInsteadOfHanging) {
+    CMapChange state;
+    state.Init(nullptr);
+    state.Process();
+    EXPECT_TRUE(state.failed());
+    EXPECT_EQ(state.error(), "map change context is missing");
 }
 
 TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {

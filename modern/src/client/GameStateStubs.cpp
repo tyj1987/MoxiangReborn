@@ -97,7 +97,12 @@ void CGameLoading::Release() {
 void CGameLoading::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
-    if (!context) return;
+    if (!context) {
+        m_failed = true;
+        m_error = "loading context is missing";
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        return;
+    }
     // Loading has a terminal state: cancellation or the first failure must
     // not be overwritten by a late worker callback.
     if (m_failed || m_cancelled) return;
@@ -168,7 +173,12 @@ void CMapChange::Start(CEngine* engine) {
 void CMapChange::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
-    if (!context) return;
+    if (!context) {
+        m_failed = true;
+        m_error = "map change context is missing";
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
+        return;
+    }
     // MapChange shares the same terminal-state contract as GameLoading:
     // once cancelled or failed, late asynchronous results are ignored.
     if (m_failed || m_cancelled) return;
