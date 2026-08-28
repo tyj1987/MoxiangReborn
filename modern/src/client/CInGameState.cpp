@@ -2793,6 +2793,9 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
         return;
     }
     if (m_chatOpen) return;  // typing: consume everything else
+    // The shop is a modal dialog. Keep its dedicated B close shortcut, but
+    // block every other gameplay hotkey before any shortcut branch runs.
+    if (m_shopOpen && pressed && vk != 0x42) return;
 
     if (pressed) {
         if (vk >= 0x70 && vk <= 0x77) {  // F1..F8 quick slots

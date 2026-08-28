@@ -962,6 +962,8 @@ TEST(InGamePlayable, BKeyOpensNearestNpcShopThenBuyClickSelectsCatalogItem) {
     ASSERT_TRUE(state.shop_open());
     ASSERT_EQ(state.shop_items().size(), 1u);
     EXPECT_EQ(state.shop_npc_id(), 7u);
+    state.OnKeyEvent(true, 0x49);  // I must not open inventory through shop modal.
+    EXPECT_FALSE(state.inventory_open());
     EXPECT_EQ(state.shop_items()[0].item_id, 0x022Bu);
 
     state.OnMouseButton(true, true,
