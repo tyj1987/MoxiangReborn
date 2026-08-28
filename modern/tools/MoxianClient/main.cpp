@@ -1574,7 +1574,7 @@ void renderFrame(HWND h) {
         // up.  There is deliberately no synthetic icon or coloured quad
         // fallback: an unknown item is shown by its authoritative numeric ID.
         if (g_inputTarget && g_inputTarget->is_in_game() && g_hudFont &&
-            g_entityScene) {
+            g_entityScene && g_terrain) {
             for (const auto& drop : g_inputTarget->ground_drops()) {
                 float sx = 0.0f, sy = 0.0f;
                 if (!EffectVisualOverlay::project(
