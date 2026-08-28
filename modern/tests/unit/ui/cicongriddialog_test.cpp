@@ -200,6 +200,26 @@ TEST(CIconGridDialog, GetPositionForXYRefLinearises) {
     EXPECT_FALSE(d.GetPositionForXYRef(500, 500, pos));
 }
 
+TEST(CIconGridDialog, GetCellPositionUsesHalfOpenCellRectangles) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 200, 200, nullptr, 2, 2);
+    d.InitGrid(0, 0, 40, 40, 0, 0);
+
+    std::uint16_t x = 99;
+    std::uint16_t y = 99;
+    EXPECT_TRUE(d.GetCellPosition(0, 0, x, y));
+    EXPECT_EQ(x, 0u);
+    EXPECT_EQ(y, 0u);
+    EXPECT_TRUE(d.GetCellPosition(40, 0, x, y));
+    EXPECT_EQ(x, 1u); // shared edge belongs to the next column
+    EXPECT_EQ(y, 0u);
+    EXPECT_TRUE(d.GetCellPosition(0, 40, x, y));
+    EXPECT_EQ(x, 0u);
+    EXPECT_EQ(y, 1u); // shared edge belongs to the next row
+    EXPECT_FALSE(d.GetCellPosition(80, 0, x, y)); // outer right edge
+    EXPECT_FALSE(d.GetCellPosition(0, 80, x, y)); // outer bottom edge
+}
+
 TEST(CIconGridDialog, GetCellAbsPos) {
     mxh::ui::cIconGridDialog d;
     d.Init(50, 100, 200, 200, nullptr, 4, 3);

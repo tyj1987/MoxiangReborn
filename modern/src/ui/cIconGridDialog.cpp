@@ -208,8 +208,12 @@ bool cIconGridDialog::GetCellPosition(std::int32_t mouseX, std::int32_t mouseY,
                 + static_cast<int>(m_wCellBorderX) * (i + 1) + static_cast<int>(i) * m_wCellWidth;
             const int cellpY = absY() + m_cellRect.top
                 + static_cast<int>(m_wCellBorderY) * (j + 1) + static_cast<int>(j) * m_wCellHeight;
-            if (cellpX < mouseX && mouseX < cellpX + DEFAULT_CELLSIZE
-                && cellpY < mouseY && mouseY < cellpY + DEFAULT_CELLSIZE) {
+            // Keep the grid hitbox contract consistent with cIconDialog and
+            // the renderer: left/top are inclusive, right/bottom exclusive.
+            // The previous strict comparison left a one-pixel dead zone on
+            // every shared border between adjacent cells.
+            if (mouseX >= cellpX && mouseX < cellpX + DEFAULT_CELLSIZE
+                && mouseY >= cellpY && mouseY < cellpY + DEFAULT_CELLSIZE) {
                 cellX = i;
                 cellY = j;
                 return true;
