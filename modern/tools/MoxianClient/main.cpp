@@ -1189,8 +1189,8 @@ struct EffectVisualOverlay {
             if (!item.light || slot >= 8u) continue;
             float world_x = static_cast<float>(info.position_x);
             float world_z = static_cast<float>(info.position_z);
-            if (item.target_id != info.player_id && item.source_id != info.player_id) {
-                bool found = false;
+            bool found = item.target_id == info.player_id || item.source_id == info.player_id;
+            if (!found) {
                 for (const auto& monster : game.monsters()) {
                     if (monster.object_id != item.target_id &&
                         monster.object_id != item.source_id) continue;
@@ -1208,6 +1208,7 @@ struct EffectVisualOverlay {
                     }
                 }
             }
+            if (!found) continue;
             LIGHT_DESC light{};
             light.dwDiffuse = item.color_index == 0u ? 0xffffffffu : 0u;
             light.dwAmbient = 0u;
