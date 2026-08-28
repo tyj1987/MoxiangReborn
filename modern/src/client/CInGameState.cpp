@@ -1213,6 +1213,7 @@ void CInGameState::set_quest_catalog(mxh::compat::QuestStringCatalog catalog) {
     if (!m_mainQuests.empty()) m_questId = m_mainQuests.front()->quest_id;
     if (auto* window = m_uiRuntime.findWindowByLegacyId(kQuestDialogId)) {
         if (auto* dialog = dynamic_cast<mxh::ui::cQuestDialog*>(window)) {
+            dialog->ClearQuests();
             for (const auto* quest : m_mainQuests) {
                 if (!quest) continue;
                 mxh::ui::QuestEntry entry;

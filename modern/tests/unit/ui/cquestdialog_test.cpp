@@ -52,6 +52,18 @@ TEST(QuestDialog, UpdatesAndRejectsUnknownQuest) {
     EXPECT_FALSE(d.UpdateQuest(9, QuestStatus::Completed));
 }
 
+TEST(QuestDialog, ClearQuestsRebuildsSelectionAndRuntimeList) {
+    cQuestDialog d;
+    d.AddQuest({1, "Old quest", QuestStatus::Active, 1});
+    ASSERT_TRUE(d.Select(0));
+    d.ClearQuests();
+    EXPECT_TRUE(d.Quests().empty());
+    EXPECT_EQ(d.Selected(), nullptr);
+    d.AddQuest({2, "Fresh quest", QuestStatus::Available, 2});
+    ASSERT_TRUE(d.Select(0));
+    EXPECT_EQ(d.Selected()->id, 2u);
+}
+
 TEST(QuestDialog, ServiceBackedClaimRequiresServiceAcceptance) {
     cQuestDialog d;
     QuestService service;

@@ -34,6 +34,12 @@ void cQuestDialog::AddQuest(QuestEntry q) {
     }
 }
 
+void cQuestDialog::ClearQuests() {
+    m_quests.clear();
+    m_selected = static_cast<std::size_t>(-1);
+    syncQuestList();
+}
+
 bool cQuestDialog::UpdateQuest(std::uint32_t id, QuestStatus s) {
     for (auto& q : m_quests) {
         if (q.id == id) {
