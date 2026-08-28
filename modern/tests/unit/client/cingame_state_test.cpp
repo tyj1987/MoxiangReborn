@@ -1,4 +1,5 @@
 #include "CInGameState.hpp"
+#include "CEngine.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 
 #include <gtest/gtest.h>
@@ -14,6 +15,20 @@ using mxh::client::parse_legacy_monster_add;
 using mxh::client::parse_legacy_mugong_total;
 using mxh::client::parse_legacy_item_total;
 using mxh::client::parse_legacy_npc_add;
+
+TEST(InGameMapFlow, IgnoresChangeMapAckBeforeGameInActivation) {
+    mxh::client::CEngine engine;
+    mxh::client::CInGameState state;
+    state.Start(&engine, 42u, 10u);
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck);
+    const std::uint16_t target = 12u;
+    ack.payload.resize(sizeof(target));
+    std::memcpy(ack.payload.data(), &target, sizeof(target));
+    state.on_message({}, ack);
+    EXPECT_FALSE(engine.has_pending_transfer());
+}
 
 TEST(InGameQuestWire, BuildsLegacyTwoByteQuestRequest) {
     const auto message = mxh::client::make_quest_message(
