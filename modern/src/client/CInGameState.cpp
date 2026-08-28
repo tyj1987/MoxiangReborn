@@ -1720,6 +1720,11 @@ void CInGameState::handle_monster_broadcast(const mxh::net::Message& msg) {
             monster.current_shield = life->second;
             if (was_alive && monster.current_life == 0) {
                 monster.moving = false;
+                if (m_pendingSkillTargetId == monster.object_id) {
+                    m_pendingSkillId = 0;
+                    m_pendingSkillTargetId = 0;
+                    m_pendingSkillSinceMs = 0;
+                }
                 push_effect_event(EffectEvent{
                     EffectEventKind::Death, m_lastTickMs, m_playerId,
                     monster.object_id, 0, 0, 0, 0, 0});
