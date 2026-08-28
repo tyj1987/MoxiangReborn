@@ -27,6 +27,7 @@
 #include "mxh/net/net.hpp"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
@@ -60,14 +61,27 @@ struct Args {
     std::uint32_t dev_initial_money = 0;
 };
 
+std::uint16_t parse_u16_option(std::string_view token, const char* option,
+                               std::uint16_t minimum = 1) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffffu || value < minimum) {
+        std::cerr << "invalid " << option << " (expected " << minimum
+                  << "..65535): " << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
         std::string_view s = argv[i];
         if (s == "--port" && i + 1 < argc)
-            a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.port = parse_u16_option(argv[++i], "--port");
         else if (s == "--map" && i + 1 < argc)
-            a.map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.map_num = parse_u16_option(argv[++i], "--map", 0);
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
         else if (s == "--db-env" && i + 1 < argc)
