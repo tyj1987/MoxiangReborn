@@ -522,6 +522,22 @@ TEST(InGamePlayable, DisconnectDeactivatesWorldBeforeStateRelease) {
     EXPECT_EQ(state.map_num(), 0u);
 }
 
+TEST(InGamePlayable, GameInNackFailsAndDeactivatesEntryState) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    nack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInNack);
+    state.on_message(mxh::net::make_connection_id(1), nack);
+
+    EXPECT_FALSE(state.is_in_game());
+    EXPECT_EQ(state.player_id(), 0u);
+    EXPECT_EQ(state.map_num(), 0u);
+    EXPECT_EQ(state.failure_reason(), "进入游戏失败：地图服务器不可用");
+}
+
 TEST(InGamePlayable, QStrafesInsteadOfOpeningQuestLog) {
     mxh::client::CInGameState state;
     state.Init(nullptr);

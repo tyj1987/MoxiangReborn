@@ -1540,6 +1540,21 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
     using mxh::proto::UserConnProtocol;
     const auto proto = static_cast<UserConnProtocol>(msg.header.protocol);
     switch (proto) {
+        case UserConnProtocol::GameInNack: {
+            const std::string detail = "进入游戏失败：地图服务器不可用";
+            fail_with(detail);
+            m_inGame = false;
+            m_started = false;
+            m_playerId = 0;
+            m_mapNum = 0;
+            (void)m_uiRuntime.showMessage(9107, detail);
+            if (!m_releasing && m_pEngine) {
+                m_pEngine->RequestStateChange(
+                    static_cast<int>(GameStateId::CharSelect));
+            }
+            MLOG_WARN("CInGameState: GameInNack received");
+            break;
+        }
         case UserConnProtocol::GameInAck: {
             auto info = parse_legacy_gamein_ack(msg.payload);
             if (!info) {
