@@ -975,6 +975,13 @@ void CInGameState::Process() {
             m_runtimeEffectEvents.erase(m_runtimeEffectEvents.begin());
         }
         m_runtimeEffectEvents.push_back(event);
+        // Sound-bearing effect timeline events are the authoritative visual
+        // feedback point. Route them through the same spatial audio seam as
+        // combat input, using the source object identity for attenuation.
+        if ((event.sound_id != 0 || !event.sound_name.empty()) && m_pEngine) {
+            const float distance = distance_to_object(event.source_object_id).value_or(0.0f);
+            m_pEngine->EmitAudioAt(CEngine::AudioCue::Skill, distance);
+        }
     });
     if (is_connected() && !m_sentGameInSyn) {
         send_gamein_syn();
