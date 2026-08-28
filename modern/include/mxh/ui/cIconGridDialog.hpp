@@ -5,8 +5,7 @@
 // 1:1 port of legacy `cIconGridDialog` from
 //   `墨香【源码】\[Client]MH\Interface\cIconGridDialog.{h,cpp}`
 // (19 KB of legacy code; the modern port keeps the data model + state
-// machine and stubs render / drag-dispatch with no-ops until the 6.6+
-// cImage seam is wired in).
+// machine and routes grid/icon drawing through the cImage seam).
 //
 // The legacy widget extends cDialog directly (NOT cIconDialog — the
 // 1D-cell cIconDialog and the 2D-grid cIconGridDialog are siblings
@@ -29,9 +28,7 @@
 //   - m_acceptableIconType (per-instance icon-type bitmask).
 //
 // Render-side hooks (SetIconCellBGImage / SetDragOverBGImage) and
-// Render() are inert no-ops so 1:1 UI integration tests don't have to
-// wire images. The cImage seam arrives in 6.6 alongside the rest of
-// the 6.x render family.
+// cImage-based cell/icon drawing are available to the live UI runtime.
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md), this is a
 // Tier 1.5 subcontrol port (alongside cListDialogEx in 0.13.13,
@@ -47,9 +44,7 @@
 
 namespace mxh::ui {
 
-// Forward declaration; the modern cIconGridDialog accepts any
-// cWindow-derived pointer as the icon payload (we do not dereference
-// it during testing).
+// Forward declaration for the concrete icon payload owned by the caller.
 class cIcon;
 
 struct cIconGridCell {

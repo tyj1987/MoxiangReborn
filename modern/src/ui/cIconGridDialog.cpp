@@ -132,12 +132,8 @@ bool cIconGridDialog::cellInBounds(std::uint16_t cellX, std::uint16_t cellY) con
 }
 
 bool cIconGridDialog::isIconDepend(cIcon* /*icon*/) const noexcept {
-    // See file-level comment (1). Modern cIcon is opaque; we
-    // treat all stored icons as "depend" (matching the legacy
-    // default of IsDepend() = true for any icon added via
-    // AddIcon — the only way to set IsDepend(FALSE) is to manually
-    // flip it on the icon after Add, which the modern port
-    // doesn't do).
+    // AddIcon stores dependent cIcon windows by default, matching legacy
+    // IsDepend() behavior. The modern cIcon exposes the same state directly.
     return true;
 }
 
@@ -157,12 +153,15 @@ void cIconGridDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
 }
 
 void cIconGridDialog::SetActive(bool val) noexcept {
-    // 1:1 with legacy. cDialog::SetActiveRecursive already cascades
-    // through children. The legacy additionally iterates dependent
-    // icons — modern cIcon is opaque, so we just record the
-    // selection reset and skip the icon cascade.
+    // cDialog handles normal children; grid icons live in cells, so cascade
+    // the active state explicitly.
     if (!isEnabled()) return;
     cDialog::SetActive(val);
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t i = 0; i < count; ++i) {
+        auto& cell = m_pIconGridCell[i];
+        if (cell.icon && isIconDepend(cell.icon)) cell.icon->SetActive(val);
+    }
     m_lCurSelCellPos = -1;
     m_pressedCellPos = -1;
     m_pressedButton = 0;
@@ -170,7 +169,11 @@ void cIconGridDialog::SetActive(bool val) noexcept {
 
 void cIconGridDialog::SetDisable(bool val) noexcept {
     cDialog::SetDisable(val);
-    // Icon cascade: 6.6 follow-up (modern cIcon is opaque).
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t i = 0; i < count; ++i) {
+        auto& cell = m_pIconGridCell[i];
+        if (cell.icon && isIconDepend(cell.icon)) cell.icon->SetDisable(val);
+    }
 }
 
 void cIconGridDialog::SetAlpha(std::uint8_t al) noexcept {

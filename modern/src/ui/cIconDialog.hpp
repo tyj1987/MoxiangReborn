@@ -20,11 +20,8 @@
 //     (the legacy's `bOnlyLink=FALSE` path; `bOnlyLink=TRUE` slots
 //     keep their world-anchored position).
 //
-// Drag-and-drop + render side effects are out of scope here — they need
-// the legacy `cIcon` class (which is a cWindow-derived sprite) plus
-// the dispatcher integration. The Phase 6 series keeps the data model
-// 1:1 so a follow-up Phase 7 / 8 task can wire the cIcon sprite on top
-// without breaking cell semantics.
+// Concrete cIcon instances are rendered through their cImage binding and
+// follow dialog state/position changes, while cell semantics remain 1:1.
 
 #pragma once
 
@@ -35,8 +32,7 @@
 
 namespace mxh::ui {
 
-// Forward declaration; the modern cIconDialog accepts any cWindow-derived
-// pointer as the icon payload (we do not dereference it during testing).
+// Forward declaration for the concrete icon payload owned by the caller.
 class cIcon;
 
 struct cIconCell {
@@ -83,6 +79,8 @@ public:
     // Layout -----------------------------------------------------------------
     // SetAbsXY cascades to non-link icons (legacy behavior).
     void SetAbsXY(std::int32_t x, std::int32_t y) noexcept override;
+    void SetActive(bool v) noexcept override;
+    void SetDisable(bool v) noexcept override;
 
     // Render-side hooks for real cell and selection images.
     void SetIconCellBGImage(void* img) noexcept { m_iconCellBGImage = img; }

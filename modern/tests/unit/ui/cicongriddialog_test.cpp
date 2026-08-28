@@ -350,3 +350,20 @@ TEST(CIconGridDialog, SetAbsXYMovesDependentIconBySameDelta) {
     EXPECT_EQ(icon.absX(), 115);
     EXPECT_EQ(icon.absY(), 225);
 }
+
+TEST(CIconGridDialog, ActiveAndDisableStateCascadesToIcons) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 100, 100, nullptr, 1, 1);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(0, 0, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetActive(false);
+    EXPECT_FALSE(icon.isActive());
+    d.SetActive(true);
+    EXPECT_TRUE(icon.isActive());
+    d.SetDisable(true);
+    EXPECT_FALSE(icon.isEnabled());
+    d.SetDisable(false);
+    EXPECT_TRUE(icon.isEnabled());
+}

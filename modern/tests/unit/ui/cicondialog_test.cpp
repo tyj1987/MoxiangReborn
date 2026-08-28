@@ -221,3 +221,22 @@ TEST(CIconDialog, SetAbsXYKeepsOnlyLinkedIconAnchored) {
     EXPECT_EQ(icon.absX(), 15);
     EXPECT_EQ(icon.absY(), 25);
 }
+
+TEST(CIconDialog, ActiveAndDisableStateCascadesToIcons) {
+    mxh::ui::cIconDialog d;
+    d.Init(0, 0, 100, 100, nullptr, 1);
+    d.SetCellNum(1);
+    d.AddIconCell(0, 0, 40, 40);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(0, 0, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetActive(false);
+    EXPECT_FALSE(icon.isActive());
+    d.SetActive(true);
+    EXPECT_TRUE(icon.isActive());
+    d.SetDisable(true);
+    EXPECT_FALSE(icon.isEnabled());
+    d.SetDisable(false);
+    EXPECT_TRUE(icon.isEnabled());
+}

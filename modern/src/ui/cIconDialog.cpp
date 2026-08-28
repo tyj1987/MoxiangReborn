@@ -139,4 +139,18 @@ void cIconDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
     cDialog::SetAbsXY(x, y);
 }
 
+void cIconDialog::SetActive(bool v) noexcept {
+    cDialog::SetActive(v);
+    for (auto& cell : m_cells) {
+        if (cell.icon) cell.icon->SetActive(v);
+    }
+}
+
+void cIconDialog::SetDisable(bool v) noexcept {
+    cDialog::SetDisable(v);
+    for (auto& cell : m_cells) {
+        if (cell.icon) cell.icon->SetDisable(v);
+    }
+}
+
 } // namespace mxh::ui
