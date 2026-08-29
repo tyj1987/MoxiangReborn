@@ -13,6 +13,11 @@ def fail(message: str) -> None:
 
 path = Path(sys.argv[1])
 allow_ui_overlay = "--allow-ui-overlay" in sys.argv[2:]
+# Map12 is a legacy staging/portal scene whose fixed smoke camera sees only a
+# small patch of terrain. Keep the color-diversity and diagnostic checks, but
+# make the sparse-coverage exception explicit instead of weakening the normal
+# 18% gameplay-map gate.
+allow_sparse = "--allow-sparse" in sys.argv[2:]
 data = path.read_bytes()
 if len(data) < 18:
     fail("short TGA header")
@@ -41,7 +46,7 @@ for offset in range(0, len(pixels), stride):
         green_probe += 1
 
 coverage = foreground / (width * height)
-if coverage < 0.18:
+if coverage < (0.02 if allow_sparse else 0.18):
     fail(f"terrain coverage out of range: {coverage:.1%}")
 if len(colors) < 100:
     fail(f"terrain color diversity is too low: {len(colors)}")

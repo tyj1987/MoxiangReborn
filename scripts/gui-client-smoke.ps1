@@ -224,6 +224,7 @@ try {
     if (-not $FollowCamera) {
         $terrainArgs = @($frame)
         if ($ExerciseInventory) { $terrainArgs += '--allow-ui-overlay' }
+        if ($MapNumber -eq 12) { $terrainArgs += '--allow-sparse' }
         & python (Join-Path $repoRoot 'scripts\verify-terrain-frame.py') @terrainArgs
         if ($LASTEXITCODE -ne 0) { throw "GUI terrain frame validation failed: $frame" }
     } else {
