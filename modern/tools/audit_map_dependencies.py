@@ -92,13 +92,24 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="mxh-map-audit-") as temp:
         temp_root = Path(temp)
         hfl_path = temp_root / f"{map_name}.hfl"
+        # Report an absent map entry as a deterministic profile blocker.  The
+        # old path let the explorer traceback leak through, obscuring whether
+        # the map or its textures were actually missing.
+        pack_output = run(explorer, "list", str(map_pack))
+        pack_names = parse_pack_names(pack_output)
+        if f"{map_name}.hfl".casefold() not in pack_names:
+            print(
+                f"FAIL: map {args.map_number} HFL entry is absent from Map.pak "
+                f"(expected {map_name}.hfl); profile does not ship this map",
+                file=sys.stderr,
+            )
+            return 2
         # Explorer writes the extracted entry into the requested directory.
         run(explorer, "extract-pak", str(map_pack), f"{map_name}.hfl", "-o", str(temp_root))
         if not hfl_path.is_file():
             print(f"FAIL: extracted HFL missing: {hfl_path}", file=sys.stderr)
             return 2
         hfl_output = run(explorer, "hfl", str(hfl_path))
-        pack_output = run(explorer, "list", str(map_pack))
 
     required = parse_hfl_names(hfl_output)
     available = parse_pack_names(pack_output)
