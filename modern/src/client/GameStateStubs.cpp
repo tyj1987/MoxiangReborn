@@ -50,11 +50,10 @@ void CGameLoading::Init(void* param) {
     m_error.clear();
     const auto* context = static_cast<const LoadStateContext*>(param);
     if (!context) {
-        // A loading state without its coordinator context cannot make a
-        // safe progress or scene-activation decision. Fail at entry so the
-        // host never observes an apparently healthy loading screen.
-        m_failed = true;
-        m_error = "loading context is missing";
+        // The network receive thread can publish the GameEntryRequest one
+        // frame after the state transition. Keep the state pending until the
+        // host attaches the coordinator context; failing here races that
+        // legitimate hand-off and strands the client in CharSelect.
     } else {
         if (context->total_steps == 0) {
             m_failed = true;
@@ -105,9 +104,9 @@ void CGameLoading::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
     if (!context) {
-        m_failed = true;
-        m_error = "loading context is missing";
-        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        // Context is attached by the host after the asynchronous
+        // GameEntryRequest is consumed. A missing context during this frame
+        // is therefore a pending state, not a successful load or an error.
         return;
     }
     // Loading has a terminal state: cancellation or the first failure must
@@ -137,10 +136,8 @@ void CMapChange::Init(void* param) {
     m_error.clear();
     const auto* context = static_cast<const LoadStateContext*>(param);
     if (!context) {
-        // MapChange has the same fail-closed contract as initial loading;
-        // retaining an old scene without a transfer context is unsafe.
-        m_failed = true;
-        m_error = "map change context is missing";
+        // MapChange uses the same asynchronous transfer hand-off as initial
+        // loading; the host may attach its context on the next frame.
     } else {
         if (context->total_steps == 0) {
             m_failed = true;
@@ -191,9 +188,6 @@ void CMapChange::Process() {
     tick();
     const auto* context = static_cast<const LoadStateContext*>(initParam());
     if (!context) {
-        m_failed = true;
-        m_error = "map change context is missing";
-        MLOG_ERROR("CMapChange: %s", m_error.c_str());
         return;
     }
     // MapChange shares the same terminal-state contract as GameLoading:

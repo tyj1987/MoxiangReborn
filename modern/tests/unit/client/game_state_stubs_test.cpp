@@ -102,14 +102,13 @@ TEST(CGameLoading, StartFailsClosedWithoutEngineOrResourceRoot) {
     EXPECT_EQ(state.error(), "loading requires a client engine");
 }
 
-TEST(CGameLoading, MissingContextFailsClosedInsteadOfHanging) {
+TEST(CGameLoading, MissingContextWaitsForAsynchronousHandOff) {
     CGameLoading state;
     state.Init(nullptr);
-    EXPECT_TRUE(state.failed());
-    EXPECT_EQ(state.error(), "loading context is missing");
+    EXPECT_FALSE(state.failed());
+    EXPECT_TRUE(state.error().empty());
     state.Process();
-    EXPECT_TRUE(state.failed());
-    EXPECT_EQ(state.error(), "loading context is missing");
+    EXPECT_FALSE(state.failed());
 }
 
 TEST(CGameLoading, RuntimeZeroStepContextFailsClosed) {
@@ -129,7 +128,7 @@ TEST(CGameLoading, StartDoesNotOverwriteTerminalContextFailure) {
     CGameLoading state;
     state.Init(nullptr);
     state.Start(nullptr);
-    EXPECT_EQ(state.error(), "loading context is missing");
+    EXPECT_EQ(state.error(), "loading requires a client engine");
 }
 
 TEST(CMapChange, TracksProgressCancellationAndFailure) {
@@ -214,14 +213,13 @@ TEST(CMapChange, StartFailsClosedWithoutEngineOrResourceRoot) {
     EXPECT_EQ(state.error(), "map change requires a client engine");
 }
 
-TEST(CMapChange, MissingContextFailsClosedInsteadOfHanging) {
+TEST(CMapChange, MissingContextWaitsForAsynchronousHandOff) {
     CMapChange state;
     state.Init(nullptr);
-    EXPECT_TRUE(state.failed());
-    EXPECT_EQ(state.error(), "map change context is missing");
+    EXPECT_FALSE(state.failed());
+    EXPECT_TRUE(state.error().empty());
     state.Process();
-    EXPECT_TRUE(state.failed());
-    EXPECT_EQ(state.error(), "map change context is missing");
+    EXPECT_FALSE(state.failed());
 }
 
 TEST(CMapChange, RuntimeZeroStepContextFailsClosed) {
@@ -241,7 +239,7 @@ TEST(CMapChange, StartDoesNotOverwriteTerminalContextFailure) {
     CMapChange state;
     state.Init(nullptr);
     state.Start(nullptr);
-    EXPECT_EQ(state.error(), "map change context is missing");
+    EXPECT_EQ(state.error(), "map change requires a client engine");
 }
 
 TEST(GameLoadingCoordinator, ConsumesOnlyValidEntryTransfer) {

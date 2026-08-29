@@ -8,8 +8,8 @@
       "serverSource": "Resource/Server",
       "hashManifest": "reference/manifests/playdh-current.sha256.json",
       "inventory": {
-        "fileCount": 5132,
-        "byteCount": 1681047275
+        "fileCount": 5131,
+        "byteCount": 1681042155
       },
       "required": [
         {

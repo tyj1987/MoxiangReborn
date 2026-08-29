@@ -4,8 +4,8 @@
   "source": "canonical PlayDH current resource tree (derived runtime files excluded)",
   "root": "C:\\moxiang\\modern\\data\\PlayDH",
   "generatedAtUtc": "2026-08-25T00:49:35.7063415Z",
-  "fileCount": 5132,
-  "byteCount": 1681047275.0,
+  "fileCount": 5131,
+  "byteCount": 1681042155,
   "files": [
     {
       "path": "ANRaster.tga",
@@ -396,11 +396,6 @@
       "path": "Image/2D/skill_store_icon.tif",
       "bytes": 129168,
       "sha256": "96192741f12d356ec0be39a0897225eee11602b31965204d519d3f3e8ea0e59d"
-    },
-    {
-      "path": "Image/2D/Thumbs.db",
-      "bytes": 5120,
-      "sha256": "1c581605051cc4220d3e0ea2904a6a600f0e216a9da9b08374bb4c6040580eb2"
     },
     {
       "path": "Image/2D/Titan_amki_icon.tif",
@@ -25667,5 +25662,4 @@
       "bytes": 73464,
       "sha256": "63c67fdc0527224eef47dd2f2b51401e509c046b5e72d4b1767676ef7cf7ce96"
     }
-  ]
-}
+  ]}
