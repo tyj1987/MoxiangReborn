@@ -22,7 +22,11 @@ def main() -> int:
                            for i, v in enumerate(rect)))
     # The first deterministic spawn is east of LoginPoint 2012 and projects
     # into this region with the legacy 30-degree GameIn camera.
-    monster_crop = crop((480, 220, 650, 410))
+    # Keep a generous world-space crop around the first projected spawn. The
+    # exact screen footprint shifts by a few pixels when the interaction smoke
+    # opens inventory/skill UI before the settled frame; expanding the crop
+    # avoids treating that valid projection shift as a missing material.
+    monster_crop = crop((450, 180, 700, 450))
     pixels = list(monster_crop.get_flattened_data())
     dark = sum(1 for r, g, b in pixels if r < 70 and g < 70 and b < 55)
     red = sum(1 for r, g, b in pixels if r > 45 and r > g * 1.5 and r > b * 1.35)
