@@ -488,61 +488,67 @@ int run_e2e(const CliArgs& cli) {
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "login";
         procs.back()->exe  = cli.login_exe;
-        procs.back()->spawn_with_args("", {
+        std::vector<std::string> login_args{
             "--port", "16001",
             "--backend", backend_flag,
             "--db", login_db,
             "--agent-addr", "127.0.0.1",
             "--agent-port", "17001",
-            "--legacy",
-            (cli.use_hsel ? "--use-hsel" : "")});
+            "--legacy"};
+        if (cli.use_hsel) login_args.emplace_back("--use-hsel");
+        procs.back()->spawn_with_args("", login_args);
 
         // AgentServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "agent";
         procs.back()->exe  = cli.agent_exe;
-        procs.back()->spawn_with_args("", {
+        std::vector<std::string> agent_args{
             "--port", "17001",
             "--backend", backend_flag,
             "--db", agent_db,
             "--legacy",
             "--map-server", "127.0.0.1:18001",
-            "--default-map", std::to_string(cli.map_number),
-            (cli.exercise_mapchange ? "--map-server-map" : ""),
-            (cli.exercise_mapchange ? "12=127.0.0.1:18002" : ""),
-            (cli.use_hsel ? "--use-hsel" : "")});
+            "--default-map", std::to_string(cli.map_number)};
+        if (cli.exercise_mapchange) {
+            agent_args.emplace_back("--map-server-map");
+            agent_args.emplace_back("12=127.0.0.1:18002");
+        }
+        if (cli.use_hsel) agent_args.emplace_back("--use-hsel");
+        procs.back()->spawn_with_args("", agent_args);
 
         // MapServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "map";
         procs.back()->exe  = cli.map_exe;
-        procs.back()->spawn_with_args("", {
+        std::vector<std::string> map_args{
             "--port", "18001",
             "--backend", backend_flag,
             "--map", std::to_string(cli.map_number),
             "--db", map_db,
             "--resource-root", e2e_playdh_root.string(),
             "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
-            "--resource-profile", "playdh-current",
-            "--legacy",
-            (cli.exercise_shop ? "--dev-initial-money" : ""),
-            (cli.exercise_shop ? "10000000" : ""),
-            (cli.use_hsel ? "--use-hsel" : "")});
+            "--resource-profile", "playdh-current"};
+        if (cli.exercise_shop) {
+            map_args.emplace_back("--dev-initial-money");
+            map_args.emplace_back("10000000");
+        }
+        if (cli.use_hsel) map_args.emplace_back("--use-hsel");
+        procs.back()->spawn_with_args("", map_args);
 
         if (cli.exercise_mapchange) {
             procs.push_back(std::make_unique<ServerProc>());
             procs.back()->name = "map12";
             procs.back()->exe = cli.map_exe;
-            procs.back()->spawn_with_args("", {
+            std::vector<std::string> map12_args{
                 "--port", "18002",
                 "--backend", backend_flag,
                 "--map", "12",
                 "--db", map_db,
                 "--resource-root", e2e_playdh_root.string(),
                 "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
-                "--resource-profile", "playdh-current",
-                "--legacy",
-                (cli.use_hsel ? "--use-hsel" : "")});
+                "--resource-profile", "playdh-current"};
+            if (cli.use_hsel) map12_args.emplace_back("--use-hsel");
+            procs.back()->spawn_with_args("", map12_args);
         }
 
         // Wait for the three ports.
