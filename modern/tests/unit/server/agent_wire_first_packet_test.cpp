@@ -49,7 +49,25 @@ using mxh::net::TcpServer;
 using mxh::proto::Category;
 using mxh::proto::UserConnProtocol;
 
-constexpr std::uint16_t kAgentWirePort = 54323;
+int find_free_port() {
+    WSADATA wsa{};
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return 0;
+    SOCKET tmp = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (tmp == INVALID_SOCKET) return 0;
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    int len = sizeof(addr);
+    if (::bind(tmp, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0 ||
+        ::getsockname(tmp, reinterpret_cast<sockaddr*>(&addr), &len) != 0) {
+        ::closesocket(tmp);
+        return 0;
+    }
+    const int port = ntohs(addr.sin_port);
+    ::closesocket(tmp);
+    return port;
+}
 
 // Connect a raw TCP socket to localhost:port, return the socket.
 SOCKET connect_localhost(std::uint16_t port) {
@@ -137,7 +155,9 @@ protected:
         server_ = std::make_unique<TcpServer>(*handler_);
         ServerConfig scfg;
         scfg.bind_address = "127.0.0.1";
-        scfg.port = kAgentWirePort;
+        port_ = static_cast<std::uint16_t>(find_free_port());
+        ASSERT_GT(port_, 0);
+        scfg.port = port_;
         scfg.use_legacy_framing = true;
         scfg.idle_timeout = std::chrono::milliseconds{5000};
         auto sr = server_->start(scfg);
@@ -182,6 +202,7 @@ protected:
     std::unique_ptr<TcpServer> server_;
     std::thread drain_thread_;
     std::atomic<bool> drain_running_{false};
+    std::uint16_t port_ = 0;
     std::mutex replies_mu_;
     std::unordered_map<std::uint64_t, std::vector<Message>> replies_;
 };
@@ -191,7 +212,7 @@ std::atomic<int> AgentWireFixture::test_id_{0};
 }  // namespace
 
 TEST_F(AgentWireFixture, FirstPacketHeaderIsAgentConnectSuccess) {
-    SOCKET s = connect_localhost(kAgentWirePort);
+    SOCKET s = connect_localhost(port_);
     ASSERT_NE(s, INVALID_SOCKET);
     // Legacy framing adds a 2-byte length prefix before the MsgHeader,
     // so the full first wire frame is 2 + 8 = 10 bytes.
@@ -229,7 +250,7 @@ TEST_F(AgentWireFixture, DeterministicHeaderPrefixIsStableAcrossConnections) {
     std::uint32_t second_auth_key = 0;
 
     for (int i = 0; i < 2; ++i) {
-        SOCKET s = connect_localhost(kAgentWirePort);
+        SOCKET s = connect_localhost(port_);
         ASSERT_NE(s, INVALID_SOCKET);
         auto bytes = recv_n(s, 10, std::chrono::milliseconds{2000});
         ::closesocket(s);
