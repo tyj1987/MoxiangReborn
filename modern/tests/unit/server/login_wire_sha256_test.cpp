@@ -16,6 +16,11 @@
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
 
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+#endif
+
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -49,7 +54,35 @@ using mxh::net::TcpClient;
 using mxh::net::TcpServer;
 using mxh::net::CaptureHandler;
 
-constexpr std::uint16_t kWireSha256Port = 54322;
+// The ACK payload is part of the wire-hash fixture, so its advertised Agent
+// endpoint remains fixed. The actual Login listener is ephemeral to prevent
+// a full CTest run from colliding with a recently released socket.
+constexpr std::uint16_t kGoldenAgentPort = 54323;
+
+int find_free_port() {
+#ifdef _WIN32
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return 0;
+#endif
+    SOCKET tmp = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (tmp == INVALID_SOCKET) return 0;
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    socklen_t len = sizeof(addr);
+    if (::bind(tmp, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        ::closesocket(tmp);
+        return 0;
+    }
+    if (::getsockname(tmp, reinterpret_cast<sockaddr*>(&addr), &len) != 0) {
+        ::closesocket(tmp);
+        return 0;
+    }
+    const int port = ntohs(addr.sin_port);
+    ::closesocket(tmp);
+    return port;
+}
 
 // Inner handler used as the CaptureHandler delegate. Provides wait_for
 // so the test can synchronize with server-side message delivery.
@@ -130,8 +163,9 @@ protected:
         auto* sa = static_cast<mxh::db::SqliteAdapter*>(db_.get());
         ASSERT_TRUE(sa->exec_multi(schema));
 
-        port_ = kWireSha256Port;
-        agent_port_for_ack_ = static_cast<std::uint16_t>(port_ + 1);
+        port_ = find_free_port();
+        ASSERT_GT(port_, 0);
+        agent_port_for_ack_ = kGoldenAgentPort;
 
         handler_ = std::make_unique<mxh::server::LoginHandler>(
             *db_, "127.0.0.1", agent_port_for_ack_,
