@@ -10,7 +10,7 @@ PowerShell 脚本用于现代化运维。
 | `start-server.ps1` | 启动/停止/重启服务端（替代原 .lnk） |
 | `verify-resource-profile.py` | 只读校验 ResourceProfileManifest、关键文件和 SHA-256 |
 | `gui-client-smoke.ps1` | 启动三服并验证客户端状态帧、地图依赖和 GUI 运行证据 |
-| `run-human-acceptance.ps1` | 仅由操作者完成真实鼠标键盘验收，不注入凭据或输入 |
+| `run-human-acceptance.ps1` | 仅由操作者完成真实鼠标键盘验收；支持 SQLite 或仅经进程环境注入的 MSSQL，不注入凭据或输入 |
 
 ## 用法
 

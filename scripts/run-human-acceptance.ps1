@@ -6,6 +6,10 @@ param(
     [ValidateRange(1, 65535)] [int]$AgentPort = 27101,
     [ValidateRange(1, 65535)] [int]$MapPort = 28101,
     [ValidateRange(0, 255)] [int]$MapNumber = 10,
+    [ValidateSet('sqlite', 'mssql_odbc')]
+    [string]$Backend = 'sqlite',
+    [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
+    [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
     [ValidateRange(0, 64)] [int]$MinimumEvidenceFrames = 8,
     [switch]$SkipServers
 )
@@ -73,6 +77,9 @@ $previousState = if (Test-Path -LiteralPath $stateFile -PathType Leaf) {
 if (@($previousState).Count -gt 0 -and -not $SkipServers) {
     throw 'Existing managed server state detected. Stop it explicitly before a human acceptance run.'
 }
+if ($Backend -eq 'mssql_odbc' -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process'))) {
+    throw "MSSQL human acceptance requires a protected process environment variable: $DatabaseConfigEnv"
+}
 
 $launcher = $null
 $clientPids = [System.Collections.Generic.List[int]]::new()
@@ -83,7 +90,8 @@ try {
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $serverScript,
             '-Mode', 'start', '-ResourceProfileId', $ResourceProfileId,
             '-LoginPort', $LoginPort, '-AgentPort', $AgentPort, '-MapPort', $MapPort,
-            '-MapNumber', $MapNumber, '-DataDir', $runRoot
+            '-MapNumber', $MapNumber, '-Backend', $Backend,
+            '-DatabaseConfigEnv', $DatabaseConfigEnv, '-DataDir', $runRoot
         )
         $starter = Start-Process -FilePath 'powershell.exe' -ArgumentList $serverArgs -WorkingDirectory $repoRoot -Wait -PassThru -RedirectStandardOutput (Join-Path $logRoot 'server-start.stdout.log') -RedirectStandardError (Join-Path $logRoot 'server-start.stderr.log')
         if ($starter.ExitCode -ne 0) { throw "Server startup failed with exit code $($starter.ExitCode)" }
@@ -105,7 +113,8 @@ try {
     Write-Host "Human acceptance run: $runId" -ForegroundColor Cyan
     Write-Host "Artifacts: $runRoot"
     Write-Host 'Use the launcher to check/repair resources, configure display/audio, and start the client.'
-    Write-Host 'Credentials are entered manually in the client. This script supplies no username, password, mouse or keyboard input.'
+    Write-Host "Backend: $Backend. Credentials are entered manually in the client; database credentials stay in the protected process environment."
+    Write-Host 'This script supplies no username, password, mouse or keyboard input.'
     Write-Host 'Complete the scenario: launcher/settings -> login -> display transition -> select/create -> Map10 -> movement -> NPC/UI -> combat/skill -> loot/pickup -> map change -> relog.'
     Write-Host 'Press F12 after each settled checkpoint to capture a TGA in the evidence folder.'
     Write-Host 'Checkpoints: login, display-transition, char-select-or-create, loading, map10, combat-and-loot, map-change, relog.'
@@ -146,6 +155,8 @@ try {
         runId = $runId
         profile = $ResourceProfileId
         map = $MapNumber
+        backend = $Backend
+        databaseConfigEnv = $DatabaseConfigEnv
         launcherPid = if ($null -ne $launcher) { $launcher.Id } else { $null }
         clientPids = @($clientPids)
         serverPids = @($serverPids)

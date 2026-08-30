@@ -98,12 +98,29 @@ try {
                 }
                 $DbCfg = "backend=mssql_odbc;host=$SqlHost;database=$SqlDatabase;user=$SqlUser;password=$SqlPassword;encrypt=no;trust_server_certificate=yes;odbc_driver=$SqlOdbcDriver"
             } else {
-                $DbCfg = "sqlite;path=" + (Join-Path $dataDir 'login.db')
+                # Keep registration in the same SQLite database started by
+                # start_modern.ps1 for a self-contained local smoke run.
+                $DbCfg = "sqlite;path=" + (Join-Path $dataDir 'moxian.db')
             }
         }
         $dbCfgLog = [regex]::Replace($DbCfg, 'password=[^;]*', 'password=***')
         Write-Host "[visual-smoke] registering account $Username (db=$dbCfgLog)..." -ForegroundColor Cyan
-        $Password | & $dbTool register --db $DbCfg $Username 2>&1
+        # Native stdin from a PowerShell pipeline can be UTF-16. The DB tool
+        # validates an ASCII password byte-for-byte, so redirect an explicit
+        # ASCII fixture instead (matching gui-client-smoke.ps1).
+        $registerInput = Join-Path $runRoot 'register.stdin'
+        try {
+            [System.IO.File]::WriteAllText(
+                $registerInput, "$Password`n", [System.Text.Encoding]::ASCII)
+            $register = Start-Process -FilePath $dbTool `
+                -ArgumentList @('register', '--db', $DbCfg, $Username) `
+                -RedirectStandardInput $registerInput -NoNewWindow -Wait -PassThru
+            if ($register.ExitCode -ne 0) {
+                throw "Visual smoke test account registration failed with exit code $($register.ExitCode)"
+            }
+        } finally {
+            Remove-Item -LiteralPath $registerInput -Force -ErrorAction SilentlyContinue
+        }
     } else {
         Write-Host "[visual-smoke] db tool not found, skipping register: $dbTool" -ForegroundColor Yellow
     }
@@ -126,7 +143,7 @@ try {
         '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
     )
 
-    Write-Host "[visual-smoke] launching MoxianClient with smoke-settle-frames=40" -ForegroundColor Cyan
+    Write-Host "[visual-smoke] launching MoxianClient with smoke-settle-frames=20" -ForegroundColor Cyan
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
 

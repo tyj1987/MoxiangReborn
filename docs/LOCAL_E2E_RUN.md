@@ -41,6 +41,20 @@ never put credentials in a command line, tracked file, or log. Then run:
 is absent, report an environment skip rather than silently switching backend
 or resource profile.
 
+For the visible, operator-driven acceptance run, pass the same protected
+connection configuration only through the current process environment, then
+start the launcher-backed runner:
+
+```powershell
+$env:MXH_DATABASE_CONFIG = $env:MXH_MSSQL_E2E
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-human-acceptance.ps1 -Backend mssql_odbc
+```
+
+The runner starts the three modern services against MSSQL, opens the real
+launcher and leaves login credentials and all mouse/keyboard actions to the
+operator. It records only the backend name and environment-variable name in
+its run metadata, never the connection string or password.
+
 ## Expected result
 
 The run reports LoginAck, CharacterListAck, character creation/re-list, and a
@@ -51,5 +65,6 @@ comparison evidence belongs in `docs/VERIFICATION_MATRIX.md`.
 ## Related checks
 
 - `ctest -C Debug --test-dir modern/build -R MoxianClientE2E`
-- `scripts/run-human-acceptance.ps1` for the operator-driven path
+- `scripts/run-human-acceptance.ps1 -Backend mssql_odbc` for the visible,
+  operator-driven MSSQL path
 - `docs/VERIFICATION_MATRIX.md` for commit/resource/evidence binding
