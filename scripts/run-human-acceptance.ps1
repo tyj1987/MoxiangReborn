@@ -33,8 +33,8 @@ function Resolve-RequiredFile {
 }
 
 function Test-ExactProcess {
-    param([int]$Pid, [string]$ExpectedPath)
-    $process = Get-Process -Id $Pid -ErrorAction SilentlyContinue
+    param([int]$ProcessId, [string]$ExpectedPath)
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     if ($null -eq $process -or [string]::IsNullOrWhiteSpace([string]$process.Path)) { return $false }
     try {
         $actual = (Resolve-Path -LiteralPath $process.Path).Path
@@ -47,7 +47,7 @@ function Stop-OwnedProcess {
     param($Entry)
     if ($null -eq $Entry) { return }
     $pidValue = [int]$Entry.pid
-    if (Test-ExactProcess -Pid $pidValue -ExpectedPath ([string]$Entry.exe)) {
+    if (Test-ExactProcess -ProcessId $pidValue -ExpectedPath ([string]$Entry.exe)) {
         Stop-Process -Id $pidValue -Force -ErrorAction SilentlyContinue
     } else {
         Write-Warning "Refusing to stop PID $pidValue because executable identity no longer matches."
@@ -90,7 +90,7 @@ try {
         if (-not (Test-Path -LiteralPath $stateFile -PathType Leaf)) { throw 'Server startup produced no PID manifest.' }
         $state = @(Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json)
         foreach ($entry in $state) {
-            if (-not (Test-ExactProcess -Pid ([int]$entry.pid) -ExpectedPath ([string]$entry.exe))) {
+            if (-not (Test-ExactProcess -ProcessId ([int]$entry.pid) -ExpectedPath ([string]$entry.exe))) {
                 throw "Server PID identity check failed for $($entry.name)."
             }
             $serverPids.Add([int]$entry.pid)
@@ -128,7 +128,7 @@ try {
         foreach ($process in @(Get-Process -ErrorAction SilentlyContinue)) {
             if ($process.Id -eq $PID -or $process.Id -eq [int]$launcher.Id) { continue }
             if ($process.StartTime -lt $launchStart) { continue }
-            if (Test-ExactProcess -Pid $process.Id -ExpectedPath $resolved) {
+            if (Test-ExactProcess -ProcessId $process.Id -ExpectedPath $resolved) {
                 $clientPids.Add([int]$process.Id)
                 $owned.Add([pscustomobject]@{ pid = $process.Id; exe = $resolved; name = 'client' })
             }

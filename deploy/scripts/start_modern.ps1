@@ -335,7 +335,8 @@ if ($Backend -eq 'sqlite') {
 }
 [Environment]::SetEnvironmentVariable($DatabaseConfigEnv, $databaseConfig, 'Process')
 
-$commonDbArgs = @('--backend', $Backend, '--db-env', $DatabaseConfigEnv, '--legacy')
+$commonDbArgs = @('--backend', $Backend, '--db-env', $DatabaseConfigEnv)
+$legacyArgs = @('--legacy')
 $hselArgs = if ($UseHsel) { @('--use-hsel') } else { @() }
 $fallbackArgs = if ($AllowDevFallbacks) { @('--allow-dev-fallbacks') } else { @() }
 $processes = @(
@@ -348,12 +349,12 @@ $processes = @(
     [ordered]@{
         name = 'agent'; exe = $agentExe; port = $AgentPort
         args = @('--port', $AgentPort, '--bind-address', $BindAddress,
-            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $commonDbArgs + $hselArgs
+            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $commonDbArgs + $legacyArgs + $hselArgs
     },
     [ordered]@{
         name = 'login'; exe = $loginExe; port = $LoginPort
         args = @('--port', $LoginPort, '--bind-address', $BindAddress,
-            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $commonDbArgs + $hselArgs
+            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $commonDbArgs + $legacyArgs + $hselArgs
     }
 )
 
