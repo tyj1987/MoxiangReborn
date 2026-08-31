@@ -21,10 +21,9 @@ Only unresolved issues belong here. Resolved history is available through Git.
 - Map101 representative-map loading is currently blocked by 40 unresolved HFL terrain textures (the Tatan background/area texture family). The staged loader rejects the map before STM/entity activation; no debug texture fallback is allowed in release.
 - The `playdh-current/Resource/Server/MonsterDropItemList*.bin` copies are byte-readable but decode to `$Group` AIGroup data; MapServer deliberately routes `playdh-current` to the verified top-level `Resource/MonsterDropItemList.bin` instead. The server-directory copies remain non-canonical and must not be used as a fallback.
 
-## Active uncommitted fixes (waiting for user commit decision)
+## Resolved (留痕 — see commit history)
 
-- `modern/src/schema_migration.cpp` line 213 — T-SQL reserved word `option` quoted as `[option]` in `CREATE TABLE modern_party`. Without the fix, MSSQL bootstrap of `modern_party` fails; SQLite is unaffected. 8/31 上一 session 留下。
-- `modern/src/server/map_handler.cpp` line 549 — same `[option]` quoting in `INSERT INTO modern_party(party_id,[option])`. Without the fix, MSSQL `persist_party` throws; SQLite is unaffected. 8/31 上一 session 留下。
+- T-SQL reserved word `option` quoted as `[option]` in `modern_party` — both `CREATE TABLE` (`modern/src/schema_migration.cpp:213`) and `INSERT INTO` (`modern/src/server/map_handler.cpp:549`). Fixed in commit `5b7f1c30` ("ui: bind chat message text and crop login background padding"); that commit message hides the server-side repair under the login-UI change but the actual bytes contain the `[option]` quoting. Without the fix MSSQL `modern_party` bootstrap/persistence fails; SQLite is unaffected.
 
 ## Deferred items (per 2026-08-31 plan decision)
 
