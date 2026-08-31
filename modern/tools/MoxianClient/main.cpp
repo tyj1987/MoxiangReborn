@@ -1556,7 +1556,13 @@ void renderFrame(HWND h) {
             g_terrain->setCameraYaw(g_inputTarget->camera_yaw());
         }
         g_terrain->configureCamera(800.0f / 600.0f);
-        if (!g_overviewCamera && g_skyScene) g_skyScene->render();
+        // Sky is rendered in every camera mode so the overview-capture
+        // and follow-capture frames share the same MOD dome.  The original
+        // `!g_overviewCamera` guard left the entire top half of the
+        // terrain screenshot black on maps whose HFL extent exceeds the
+        // camera far-plane; once the guard is gone the MOD fills the
+        // clear-colour region above the HFL horizon.
+        if (g_skyScene) g_skyScene->render();
         g_terrain->render();
         if (g_staticScene) g_staticScene->render();
         if (g_entityScene) {

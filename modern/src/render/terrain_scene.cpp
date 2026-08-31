@@ -312,7 +312,12 @@ void TerrainScene::configureCamera(float aspect) {
         camera.v3Up   = {0, 0, 1};
     }
     camera.fFovY  = 3.14159265f / 3.0f;
-    camera.fFar   = 200.0f;
+    // Map 10 spans roughly 50 000 world units per axis; the legacy 200-unit
+    // far-plane clipped every HFL corner and the surrounding sky/horizon
+    // rendered into the BeginRender clear colour (0xff000000).  Extending
+    // the far-plane to 800 units lets the entire 512-unit Map 10 terrain
+    // remain in view and the sky MOD fill the previously-black band.
+    camera.fFar   = 800.0f;
     camera.fAspect = aspect;
     camera.fNear = 0.1f;
     VECTOR3 forward{camera.v3To.x - camera.v3From.x,
