@@ -17,6 +17,7 @@
 #include "CInGameState.hpp"
 #include "CMainTitle.hpp"
 #include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/ui/cButton.hpp"
 #include "mxh/ui/cGuildDialog.hpp"
 #include "mxh/ui/cfrienddialog.hpp"
 #include "mxh/ui/cminifrienddialog.hpp"
@@ -1290,6 +1291,27 @@ TEST(ClientUiRuntime, LoginDlgOkAndExitHitboxesDispatchShippedCommands) {
     ASSERT_TRUE(end_click.activation.has_value());
     EXPECT_EQ(mxh::client::resolve_login_ui_command(*end_click.activation).kind,
               mxh::client::LoginUiCommandKind::Exit);
+}
+
+TEST(ClientUiRuntime, LoginDlgBindsShippedChatMessageText) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+
+    mxh::client::ClientUiRuntime runtime;
+    std::string error;
+    ASSERT_TRUE(runtime.load(playdh, "IDDlg.bin",
+                             mxh::ui::ResolutionMode::Low800x600, &error))
+        << error;
+
+    auto* ok = dynamic_cast<mxh::ui::cButton*>(
+        runtime.findWindowByLegacyId("MT_OKBTN"));
+    if (!ok) {
+        ok = dynamic_cast<mxh::ui::cButton*>(
+            runtime.findWindowByLegacyFunc("MT_LogInOkBtnFunc"));
+    }
+    ASSERT_NE(ok, nullptr);
+    EXPECT_FALSE(ok->text().empty())
+        << "#BTNTEXT must resolve through Image/chat_msg.bin";
 }
 
 TEST(ClientUiRuntime, LoginIdAndPasswordHitboxesAcceptTypedText) {

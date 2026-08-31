@@ -546,7 +546,7 @@ void MapHandler::persist_party(const Party& party) {
     }
     db_.execute("DELETE FROM modern_party_member WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party.party_id))});
     db_.execute("DELETE FROM modern_party WHERE party_id=?", {mxh::db::bind(static_cast<std::int64_t>(party.party_id))});
-    db_.execute("INSERT INTO modern_party(party_id,option) VALUES(?,?)",
+    db_.execute("INSERT INTO modern_party(party_id,[option]) VALUES(?,?)",
                 {mxh::db::bind(static_cast<std::int64_t>(party.party_id)), mxh::db::bind(static_cast<std::int64_t>(party.option))});
     for (std::uint8_t i = 0; i < party.member_count; ++i) {
         const auto& m = party.members[i];

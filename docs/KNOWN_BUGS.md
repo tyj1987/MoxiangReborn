@@ -21,6 +21,16 @@ Only unresolved issues belong here. Resolved history is available through Git.
 - Map101 representative-map loading is currently blocked by 40 unresolved HFL terrain textures (the Tatan background/area texture family). The staged loader rejects the map before STM/entity activation; no debug texture fallback is allowed in release.
 - The `playdh-current/Resource/Server/MonsterDropItemList*.bin` copies are byte-readable but decode to `$Group` AIGroup data; MapServer deliberately routes `playdh-current` to the verified top-level `Resource/MonsterDropItemList.bin` instead. The server-directory copies remain non-canonical and must not be used as a fallback.
 
+## Active uncommitted fixes (waiting for user commit decision)
+
+- `modern/src/schema_migration.cpp` line 213 — T-SQL reserved word `option` quoted as `[option]` in `CREATE TABLE modern_party`. Without the fix, MSSQL bootstrap of `modern_party` fails; SQLite is unaffected. 8/31 上一 session 留下。
+- `modern/src/server/map_handler.cpp` line 549 — same `[option]` quoting in `INSERT INTO modern_party(party_id,[option])`. Without the fix, MSSQL `persist_party` throws; SQLite is unaffected. 8/31 上一 session 留下。
+
+## Deferred items (per 2026-08-31 plan decision)
+
+- 5 个 ui 头文件 out-of-sync (`ccheckbox.hpp` 等)：脚本 `-Fix` 默认 `src/ui → include/mxh/ui`，但实测 3 个文件 (ccheckbox.hpp 1.5天 / ccombobox.hpp 1分 / ctextarea.hpp 3分) include 比 src 新，盲目 -Fix 会回滚。**本 plan 留 G10**，等用户拍板方向后单独 commit。
+- 3 个 include-only 头文件 (`cAni.hpp` / `cItemShopInven.hpp` / `resolution_mode.hpp`)：原计划标"决策待定"，但实测这 3 个头文件**被 cDialogLoader.cpp / cWindowManager.cpp 主动 include**，属于"include-only 头是设计如此"（R-36/R-37 注释允许这种情况）。**G-4 不需要操作**。
+
 ## Governance blockers
 
 - The canonical PlayDH tree contains derived runtime files that require classification before removal.

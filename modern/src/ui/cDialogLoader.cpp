@@ -4,9 +4,11 @@
 #include "mxh/ui/cDialogLoader.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <unordered_map>
 
@@ -114,6 +116,52 @@ struct ImageKeyHash {
 std::unordered_map<ImageKey, cImage*, ImageKeyHash> g_cimage_cache;
 std::unordered_map<std::string, void*> g_sprite_by_path;
 
+using ChatMessageTable = std::unordered_map<std::int32_t, std::string>;
+std::unordered_map<std::string, ChatMessageTable> g_chat_message_tables;
+
+const ChatMessageTable* loadChatMessagesForScript(const std::filesystem::path& bin_path) {
+    const auto chat_path = bin_path.parent_path().parent_path() / "chat_msg.bin";
+    const auto cache_key = chat_path.lexically_normal().string();
+    if (const auto found = g_chat_message_tables.find(cache_key);
+        found != g_chat_message_tables.end()) {
+        return &found->second;
+    }
+
+    auto read = mxh::compat::read_mh_bin(chat_path);
+    if (!read.ok()) return nullptr;
+
+    ChatMessageTable messages;
+    const std::string_view payload(
+        reinterpret_cast<const char*>(read.value.data.data()), read.value.data.size());
+    std::size_t cursor = 0;
+    while (cursor < payload.size()) {
+        const auto line_end = payload.find_first_of("\r\n", cursor);
+        const auto line = payload.substr(cursor, line_end - cursor);
+        std::size_t value_begin = 0;
+        while (value_begin < line.size() && line[value_begin] == ' ') ++value_begin;
+        std::int32_t id = 0;
+        const auto [id_end, id_error] = std::from_chars(
+            line.data() + value_begin, line.data() + line.size(), id);
+        if (id_error == std::errc{} && id_end != line.data() + value_begin) {
+            auto quote = static_cast<std::size_t>(id_end - line.data());
+            while (quote < line.size() && line[quote] == ' ') ++quote;
+            if (quote < line.size() && line[quote] == '"') {
+                const auto closing = line.find('"', quote + 1);
+                if (closing != std::string_view::npos) {
+                    messages.emplace(id, std::string(line.substr(quote + 1, closing - quote - 1)));
+                }
+            }
+        }
+        cursor = line_end == std::string_view::npos ? payload.size() : line_end + 1;
+        if (cursor < payload.size() && payload[cursor] == '\n' &&
+            line_end < payload.size() && payload[line_end] == '\r') {
+            ++cursor;
+        }
+    }
+
+    return &g_chat_message_tables.emplace(cache_key, std::move(messages)).first->second;
+}
+
 void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
     if (node.id.has_value()) {
         window.setLegacyId(*node.id);
@@ -134,6 +182,23 @@ void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
         } else if (auto* button = dynamic_cast<cButton*>(&window)) {
             button->SetFontIdx(font);
         }
+    }
+}
+
+void applyLegacyText(cWindow& window, const InterfaceNode& node,
+                     const ChatMessageTable* messages) {
+    if (!messages) return;
+    const auto text_for = [messages](const std::optional<std::int32_t>& index)
+        -> const std::string* {
+        if (!index.has_value()) return nullptr;
+        const auto found = messages->find(*index);
+        return found == messages->end() ? nullptr : &found->second;
+    };
+    if (auto* label = dynamic_cast<cStatic*>(&window)) {
+        if (const auto* text = text_for(node.text_msg_idx)) label->SetStaticText(*text);
+    }
+    if (auto* button = dynamic_cast<cButton*>(&window)) {
+        if (const auto* text = text_for(node.btn_text_msg_idx)) button->SetText(*text);
     }
 }
 
@@ -218,6 +283,7 @@ namespace {
 
 bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
                       DialogLoadReport& report, ResolutionMode mode,
+                      const ChatMessageTable* messages,
                       std::size_t depth = 0) {
             // InterfaceScript is untrusted profile data.  A malformed
             // nested tree must fail fast instead of exhausting the stack or
@@ -616,6 +682,7 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
             if (parent.childCount() > before_count) {
                 if (cWindow* added = parent.childAt(parent.childCount() - 1)) {
                     applyLegacyIdentity(*added, node);
+                    applyLegacyText(*added, node, messages);
                 }
             }
             // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
@@ -628,7 +695,7 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
 
     for (const auto& nested : node.children) {
         const auto nested_before = added->childCount();
-        if (!addInterfaceNode(*added, *nested, report, mode, depth + 1)) continue;
+        if (!addInterfaceNode(*added, *nested, report, mode, messages, depth + 1)) continue;
         if (auto* gauge = dynamic_cast<cGuageBar*>(added)) {
             if (cWindow* gauge_child = added->childAt(nested_before)) {
                 if (dynamic_cast<cButton*>(gauge_child)) {
@@ -714,6 +781,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         r.error = "decrypted payload is empty";
         return r;
     }
+    const auto* chat_messages = loadChatMessagesForScript(bin_path);
 
     // 2) parse_interface_script
     std::string_view payload(
@@ -794,7 +862,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         // 9 类图 (basic/over/press/select/focus/tooltip) 跨表查装
         std::size_t child_count = 0;
         for (const auto& child : root->children) {
-            if (addInterfaceNode(*dlg, *child, r, mode)) {
+            if (addInterfaceNode(*dlg, *child, r, mode, chat_messages)) {
                 ++child_count;
             }
         }
