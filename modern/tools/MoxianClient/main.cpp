@@ -2010,19 +2010,19 @@ void renderFrame(HWND h) {
     if (!g_renderTerrain && g_sprites[0].sprite) {
         IMAGE_HEADER image{};
         g_sprites[0].sprite->GetImageHeader(&image, 0);
-        // The shipped login DDS is a power-of-two 1024x1024 texture whose
-        // 4:3 scene occupies the bottom 1024x768 pixels.  Rendering the full
-        // texture exposes its black padding as a large band at the bottom of
-        // the screen after the renderer's vertical flip.
+        // The shipped login DDS is a power-of-two 1024x1024 texture.  After
+        // the loader's vertical flip its actual painted scene is rows 55..713;
+        // the rest is DDS padding.  Crop that source rectangle and scale it
+        // to the title canvas so neither padding strip reaches the screen.
         const bool has_login_padding = image.dwWidth == 1024 && image.dwHeight == 1024;
-        const auto source_height = has_login_padding ? 768u : image.dwHeight;
-        const auto source_top = has_login_padding ? image.dwHeight - source_height : 0u;
+        const auto source_top = has_login_padding ? 55u : 0u;
+        const auto source_height = has_login_padding ? 658u : image.dwHeight;
         VECTOR2 scale{
             image.dwWidth ? 800.0f / static_cast<float>(image.dwWidth) : 1.0f,
             source_height ? 600.0f / static_cast<float>(source_height) : 1.0f };
         VECTOR2 trans{ 0.0f, 0.0f };
         RECT     rc{ 0, static_cast<LONG>(source_top), static_cast<LONG>(image.dwWidth),
-                     static_cast<LONG>(image.dwHeight) };
+                     static_cast<LONG>(source_top + source_height) };
         { BOOL _bg_ok = g_renderer->RenderSprite(g_sprites[0].sprite, &scale, 0.0f, &trans,
                                  &rc, 0xFFFFFFFFu, 0, 0); MLOG_DEBUG("mxh_client: bg draw sprite=%p ok=%d", (void*)g_sprites[0].sprite, (int)_bg_ok); }
     }
