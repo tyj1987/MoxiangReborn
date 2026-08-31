@@ -1302,6 +1302,7 @@ TEST(ClientUiRuntime, LoginDlgBindsShippedChatMessageText) {
     ASSERT_TRUE(runtime.load(playdh, "IDDlg.bin",
                              mxh::ui::ResolutionMode::Low800x600, &error))
         << error;
+    runtime.activateAllLoadedDialogs();
 
     auto* ok = dynamic_cast<mxh::ui::cButton*>(
         runtime.findWindowByLegacyId("MT_OKBTN"));
@@ -1311,7 +1312,7 @@ TEST(ClientUiRuntime, LoginDlgBindsShippedChatMessageText) {
     }
     ASSERT_NE(ok, nullptr);
     EXPECT_FALSE(ok->text().empty())
-        << "#BTNTEXT must resolve through Image/chat_msg.bin";
+        << "#BTNTEXT must resolve through Image/image_msg.bin";
 }
 
 TEST(ClientUiRuntime, LoginIdAndPasswordHitboxesAcceptTypedText) {

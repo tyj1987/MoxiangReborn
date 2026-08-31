@@ -120,7 +120,10 @@ using ChatMessageTable = std::unordered_map<std::int32_t, std::string>;
 std::unordered_map<std::string, ChatMessageTable> g_chat_message_tables;
 
 const ChatMessageTable* loadChatMessagesForScript(const std::filesystem::path& bin_path) {
-    const auto chat_path = bin_path.parent_path().parent_path() / "chat_msg.bin";
+    // cResourceManager::GetMsg is initialized with FILE_IMAGE_MSG, which is
+    // Image/image_msg.bin.  chat_msg.bin is a separate in-game chat catalog
+    // and yields plausible but completely wrong captions on title dialogs.
+    const auto chat_path = bin_path.parent_path().parent_path() / "image_msg.bin";
     const auto cache_key = chat_path.lexically_normal().string();
     if (const auto found = g_chat_message_tables.find(cache_key);
         found != g_chat_message_tables.end()) {
@@ -134,6 +137,7 @@ const ChatMessageTable* loadChatMessagesForScript(const std::filesystem::path& b
     const std::string_view payload(
         reinterpret_cast<const char*>(read.value.data.data()), read.value.data.size());
     std::size_t cursor = 0;
+    std::int32_t line_number = 1;
     while (cursor < payload.size()) {
         const auto line_end = payload.find_first_of("\r\n", cursor);
         const auto line = payload.substr(cursor, line_end - cursor);
@@ -148,8 +152,16 @@ const ChatMessageTable* loadChatMessagesForScript(const std::filesystem::path& b
             if (quote < line.size() && line[quote] == '"') {
                 const auto closing = line.find('"', quote + 1);
                 if (closing != std::string_view::npos) {
-                    messages.emplace(id, std::string(line.substr(quote + 1, closing - quote - 1)));
+                    // cResourceManager::GetMsg skips idx - 1 physical lines;
+                    // the numeric prefix is consumed but never used as a key.
+                    messages.emplace(line_number,
+                                     std::string(line.substr(quote + 1, closing - quote - 1)));
                 }
+            } else if (quote < line.size()) {
+                // Image/image_msg.bin stores unquoted UI captions.  The
+                // legacy loader consumes the leading number and returns the
+                // rest of that physical line verbatim.
+                messages.emplace(line_number, std::string(line.substr(quote)));
             }
         }
         cursor = line_end == std::string_view::npos ? payload.size() : line_end + 1;
@@ -157,6 +169,7 @@ const ChatMessageTable* loadChatMessagesForScript(const std::filesystem::path& b
             line_end < payload.size() && payload[line_end] == '\r') {
             ++cursor;
         }
+        ++line_number;
     }
 
     return &g_chat_message_tables.emplace(cache_key, std::move(messages)).first->second;
@@ -200,6 +213,15 @@ void applyLegacyText(cWindow& window, const InterfaceNode& node,
     if (auto* button = dynamic_cast<cButton*>(&window)) {
         if (const auto* text = text_for(node.btn_text_msg_idx)) button->SetText(*text);
     }
+}
+
+void applyLegacyActiveState(cWindow& window, const InterfaceNode& node) {
+    if (!node.active_set) return;
+    // #ACTIVE controls visibility in the legacy script, not merely input.
+    // Respect it before the title state selects its root dialog so hidden
+    // character-management captions cannot bleed into the login frame.
+    window.SetActive(node.active);
+    window.SetVisible(node.active);
 }
 
 }  // namespace
@@ -682,6 +704,7 @@ bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
             if (parent.childCount() > before_count) {
                 if (cWindow* added = parent.childAt(parent.childCount() - 1)) {
                     applyLegacyIdentity(*added, node);
+                    applyLegacyActiveState(*added, node);
                     applyLegacyText(*added, node, messages);
                 }
             }

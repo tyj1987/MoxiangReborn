@@ -18,6 +18,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -194,8 +195,10 @@ void CMainTitle::Start(CEngine* engine,
             MLOG_WARN("CMainTitle: IDDlg.bin load failed: %s",
                       ui_error.c_str());
         } else {
-            m_uiRuntime.activateAllLoadedDialogs();
-            if (!m_uiRuntime.setDialogActive("MT_LOGINDLG", true)) {
+            constexpr std::array<std::string_view, 1> kLoginDialogs{
+                "MT_LOGINDLG"};
+            m_uiRuntime.applyActiveSet(kLoginDialogs);
+            if (!m_uiRuntime.isDialogActive("MT_LOGINDLG")) {
                 MLOG_WARN("CMainTitle: MT_LOGINDLG id not found after load");
             }
             if (auto* root = dynamic_cast<mxh::ui::cDialog*>(
