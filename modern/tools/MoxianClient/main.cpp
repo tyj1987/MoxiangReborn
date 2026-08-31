@@ -396,6 +396,15 @@ int __g_currentState = -1;
 std::string __g_pendingStateFrame;
 std::string g_evidenceDir;
 std::uint64_t g_evidenceFrameSequence = 0;
+// One-shot: when the follow-camera smoke runs the player's yaw defaults to
+// zero and the canonical Map 10 NPC spawn positions (22000,11700) and
+// (3500,46900) sit outside the 4:3 viewport.  Until the operator manually
+// rotates the camera (production behaviour) every NPC marker is hidden,
+// which is fine for a real player but makes the automated E4/E5 evidence
+// for static NPC markers impossible to collect.  Face the closest NPC at
+// the first opportunity so a follow-camera smoke can record an actual
+// marker on the wire.
+bool g_followCameraFacedFirstNpc = false;
 
 // Active in-game input target. The WndProc forwards keyboard/mouse events
 // to the current game state (only CInGameState consumes input today).
@@ -1861,17 +1870,77 @@ void renderFrame(HWND h) {
 
             // Static NPC markers (click to talk / open their shop).
             // M-NPC1: per-role colour + "!" quest indicator + Big5 name.
-            for (const auto& npc : g_inputTarget->npcs()) {
-                float sx = 0;
-                float sy = 0;
-                if (!mxh::client::project_npc_to_screen(
-                        info.position_x, info.position_z,
-                        g_inputTarget->camera_yaw(),
-                        static_cast<float>(npc.position_x),
-                        static_cast<float>(npc.position_z),
-                        sx, sy)) {
-                    continue;
+            // M-NPC2: project the NPC head position through the same view*proj
+            // matrix as entities/effects so the marker lands on the actual
+            // screen-space pixel of the NPC instead of the legacy 2D
+            // yaw-projection that pushed everything outside the viewport
+            // for HFL-scale maps.
+            const auto npc_view_proj = g_terrain->viewProj();
+            // Auto-aim the follow-camera at the nearest NPC once, so the
+            // automated smoke can record a marker without an operator.
+            // Opt-in via the MXH_FACE_NPCS=1 environment variable; the
+            // production default leaves the camera yaw alone so a real
+            // player still has full manual control.
+            if (!g_followCameraFacedFirstNpc &&
+                std::getenv("MXH_FACE_NPCS") &&
+                std::getenv("MXH_FACE_NPCS")[0] == '1' &&
+                !g_inputTarget->npcs().empty()) {
+                const auto& info_local = g_inputTarget->game_info();
+                const mxh::client::NpcInfo* closest = nullptr;
+                float closest_d2 = std::numeric_limits<float>::infinity();
+                for (const auto& n : g_inputTarget->npcs()) {
+                    const float dx = static_cast<float>(n.position_x) -
+                                     info_local.position_x;
+                    const float dz = static_cast<float>(n.position_z) -
+                                     info_local.position_z;
+                    const float d2 = dx * dx + dz * dz;
+                    if (d2 < closest_d2) {
+                        closest_d2 = d2;
+                        closest = &n;
+                    }
                 }
+                if (closest) {
+                    const float dx = static_cast<float>(closest->position_x) -
+                                     info_local.position_x;
+                    const float dz = static_cast<float>(closest->position_z) -
+                                     info_local.position_z;
+                    const float yaw = std::atan2(dx, dz);
+                    g_inputTarget->set_camera_yaw(yaw);
+                    g_terrain->setCameraYaw(yaw);
+                    g_followCameraFacedFirstNpc = true;
+                    MLOG_INFO("mxh_client: MXH_FACE_NPCS auto-aim yaw=%g nearest_npc=(%g,%g)",
+                        yaw, static_cast<float>(closest->position_x),
+                        static_cast<float>(closest->position_z));
+                }
+            }
+            for (const auto& npc : g_inputTarget->npcs()) {
+                const float world_x = static_cast<float>(npc.position_x);
+                const float world_z = static_cast<float>(npc.position_z);
+                // Lift the marker above the NPC head.  Entity heightAt is in
+                // raw world units; the renderer expects scaled Y so add the
+                // head offset after the height lookup.
+                const float ground_y = g_terrain->heightAt(world_x, world_z);
+                const float head_y = (ground_y + 200.0f) *
+                                     mxh::gx::kEntitySceneScale;
+                const float tx = world_x * mxh::gx::kEntitySceneScale -
+                                 mxh::gx::kEntityMapCenter;
+                const float tz = world_z * mxh::gx::kEntitySceneScale -
+                                 mxh::gx::kEntityMapCenter;
+                const float clip_x = tx * npc_view_proj._11 +
+                                     head_y * npc_view_proj._21 +
+                                     tz * npc_view_proj._31 +
+                                     npc_view_proj._41;
+                const float clip_y = tx * npc_view_proj._12 +
+                                     head_y * npc_view_proj._22 +
+                                     tz * npc_view_proj._32 +
+                                     npc_view_proj._42;
+                const float clip_w = tx * npc_view_proj._14 +
+                                     head_y * npc_view_proj._24 +
+                                     tz * npc_view_proj._34 +
+                                     npc_view_proj._44;
+                if (clip_w <= 0.001f) continue;
+                const float sx = (clip_x / clip_w + 1.0f) * 400.0f;
+                const float sy = (1.0f - clip_y / clip_w) * 300.0f;
                 if (sx < -20.0f || sx > 820.0f || sy < -20.0f ||
                     sy > 620.0f) {
                     continue;

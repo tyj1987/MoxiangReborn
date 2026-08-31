@@ -440,6 +440,11 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
         const noexcept { return m_remotePlayers; }
     float camera_yaw() const noexcept { return m_cameraYaw; }
     float camera_distance() const noexcept { return m_cameraDistance; }
+    // Test/smoke hook: override the follow-camera yaw so the canonical
+    // Map 10 NPC spawn positions land inside the 4:3 viewport.  Production
+    // players continue to rotate via right-button drag (OnMouseMove) so
+    // this helper is opt-in from main.cpp when --follow-camera is set.
+    void set_camera_yaw(float radians) noexcept { m_cameraYaw = radians; }
     bool is_moving() const noexcept { return m_moving; }
     bool chat_open() const noexcept { return m_chatOpen; }
     bool inventory_open() const noexcept { return m_inventoryOpen; }
