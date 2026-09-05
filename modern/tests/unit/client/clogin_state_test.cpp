@@ -307,3 +307,51 @@ TEST(LoginStateErrorMatrix, FailWithIsIdempotent) {
     s.Process();
     EXPECT_EQ(s.failure_reason(), first);
 }
+
+// -------------------------------------------------------------------------
+// §7.2 LoginServer 不可用 + 断线后重试: drive the on_disconnect path.
+// CLoginState::on_disconnect queues a Disconnected event; Process() drains
+// the queue and (if no ack has been received yet) flips is_failed()
+// with "disconnected before LoginAck: <reason>".  This covers both the
+// §7.2 connect-failed case (the LoginServer is not listening) and
+// the §7.2 retry-after-disconnect case (the user clicked Login, the
+// socket closed, the state surfaces a recoverable error, the user
+// can press Login again).
+// -------------------------------------------------------------------------
+
+TEST(LoginStateErrorMatrix, DisconnectBeforeAckTriggersFailWith) {
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    // Drive a synthetic disconnect (e.g. LoginServer closed mid-handshake).
+    s.on_disconnect({}, mxh::net::NetError::Disconnected);
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_NE(s.failure_reason().find("disconnected before LoginAck"),
+              std::string::npos);
+}
+
+TEST(LoginStateErrorMatrix, DisconnectAfterAckIsIgnored) {
+    // If we already received the LoginAck, a later disconnect must
+    // not stomp the success state.  This locks the §7.2 断线后重试
+    // gate: a stale disconnect event from a previous session cannot
+    // turn a successful login into a failure.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    // Build a valid 23B LoginAck so the state records ack_received=true.
+    std::array<std::uint8_t, 23> ack{};
+    std::memcpy(ack.data(), "127.0.0.1", 9);
+    ack[16] = 0x59; ack[17] = 0x1B;
+    ack[18] = 0x04; ack[19] = 0x03; ack[20] = 0x02; ack[21] = 0x01;
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginAck);
+    m.payload.assign(ack.begin(), ack.end());
+    s.HandleMessageForTest(m);
+    s.Process();
+    ASSERT_FALSE(s.is_failed());
+
+    // Now a disconnect arrives — must not flip is_failed.
+    s.on_disconnect({}, mxh::net::NetError::Disconnected);
+    s.Process();
+    EXPECT_FALSE(s.is_failed());
+}
