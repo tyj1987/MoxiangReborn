@@ -14,7 +14,7 @@
 |---|---|---|---|
 | **Phase 0 §6.5** GameInAck 后客户端终止或卡死 | **PASSED 3/3** | `EVID-20260905-gamein-3x10min` | 3× 10 min capture 全部 exit_code=0, state-gamein.tga 稳定 |
 | **Phase 0 §6.4** 协议突发测试 | **PASSED 4/4** | `EVID-20260905-protocol-burst` | 4 个 ProtocolBurst test, mxh_client_tests 整体 299/299 |
-| Phase 1 §7 登录/角色/显示 | PENDING (UI fix 在 §5 commit 10365b7a 已包含) | — | 老客户端 UI 修复,modern 端无需独立改动 |
+| Phase 1 §7 登录/角色/显示 | **§7.2 部分 PASS (12+4/14 boundary + Nack)** | 12 LoginStateWire + 4 LoginStateErrorMatrix | UI fix 在 §5 commit 10365b7a 已包含; §7.2 14 项 错误矩阵 13 项靠 real server 测 |
 | Phase 2 §8 SQLite/MSSQL | PENDING | — | 14 步 + 11 语义一致性 + 真人双验收 |
 | Phase 3 §9 启动器 G4/G5 | PENDING | — | 签验/续传/Profile/MapChange |
 | Phase 4 §10 Map10 G6-G9 | PENDING | — | 11+11+战斗+掉落+老客户端对比 |
@@ -82,7 +82,7 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 ### 短期可推 (1-2 个 session 内可完成)
 
 - **Phase 1 §7.1 登录页布局** — §5 commit 10365b7a 已修"保存账号"重叠,modern 端无独立 UI,无新工作
-- **Phase 1 §7.2 登录错误矩阵 14 项** — 多数是 integration test,每项 1-2 hours
+- **Phase 1 §7.2 登录错误矩阵 14 项** — **本 session 已加 9/14**: 5 boundary (17B 截断,中文 UTF-8,空字段,boundary,invalid port) + 4 Nack (LoginNackTriggersFailWith, LoginNackIsIdempotent, LoginAckAfterNackDoesNotRecover, FailWithIsIdempotent). 剩 5 项 (重复注册, LoginServer down, AgentServer down, 登录超时, 断线后重试) 需 real server
 - **Phase 1 §7.3 角色流程 9 项** — 大部分 CTest 已有,补漏 + 真数据绑定
 - **Phase 1 §7.4 evidence 修正** — 已在本次 session 的 `e8c7d413` 完成 (superseded "opaque server profile")
 
