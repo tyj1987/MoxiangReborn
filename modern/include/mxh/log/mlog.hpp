@@ -4,13 +4,24 @@
 #pragma once
 
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 
 namespace mxh {
 
 enum class LogLevel { Debug, Info, Warn, Error };
 
+// Cross-process run identifier. When set (via set_run_id or
+// MXH_RUN_ID env var), every log line includes the run id so
+// concurrent client / LoginServer / AgentServer / MapServer logs
+// can be correlated. Empty string disables the prefix.
 void log_message(LogLevel level, const char* file, int line, const char* fmt, ...);
+
+void set_run_id(const char* run_id) noexcept;
+const char* run_id() noexcept;
+
+void set_process_name(const char* name) noexcept;
+const char* process_name() noexcept;
 
 } // namespace mxh
 
