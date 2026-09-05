@@ -328,3 +328,24 @@ TEST(CCharMakeNameCheck, HandleMessageForTestWithoutPendingIsIgnored) {
     EXPECT_FALSE(s.name_available().has_value());
     s.Release();
 }
+
+TEST(CCharMakeCreate, CharacterMakeNackTriggersFailWith) {
+    // §7.3 名称合法性和重复检查: the agent rejects the CharacterMake
+    // submission (duplicate name or invalid params) by sending a
+    // CharacterMakeNack.  The state must flip to is_failed() and
+    // surface a human-readable reason so the host can show a
+    // recoverable error (vs. silently leaving the user on the create
+    // form wondering why nothing happened).
+    CCharMake s;
+    s.Init(nullptr);
+    s.SetDispatchForTest(true);
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterMakeNack);
+    m.payload = {};
+    s.HandleMessageForTest(m);
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_NE(s.failure_reason().find("CharacterMakeNack"), std::string::npos);
+    s.Release();
+}
