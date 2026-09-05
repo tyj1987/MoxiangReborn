@@ -109,12 +109,11 @@ if ($LASTEXITCODE -ne 0) { throw "start_modern.ps1 failed with exit $LASTEXITCOD
 $sqlitePath = Join-Path $repoRoot 'deploy\runtime\modern\data\moxian.db'
 $dbCfgForRegister = "backend=sqlite;path=$sqlitePath"
 [Environment]::SetEnvironmentVariable('MXH_DATABASE_CONFIG', $dbCfgForRegister, 'Process')
-$accountNameBase = ($runId -replace '[^a-z0-9]', '')
-# Cap to 13 chars so 'cgi_' (4 chars) + base (≤13) = ≤17; the
-# register-test-account.ps1 regex caps at 16, so we must use ≤12
-# for the base.
-$accountNameBase = $accountNameBase.Substring(0, [Math]::Min(12, $accountNameBase.Length))
-$accountName = 'cgi_' + $accountNameBase
+# Account name is derived from the guid8 portion of the run id so
+# every per-second run gets a unique value (the timestamp alone
+# collides when two runs start in the same second).  cgi_ (4) +
+# 8-char hex guid = 12 chars, well under the 16-char regex cap.
+$accountName = 'cgi_' + $guid8
 $passwordPlain = 'Test1234!GameIn'
 Write-Host "Registering test account $accountName" -ForegroundColor Yellow
 & "$repoRoot\scripts\register-test-account.ps1" -AccountName $accountName -Password $passwordPlain -DbConfig $dbCfgForRegister | Out-Null
