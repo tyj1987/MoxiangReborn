@@ -2029,7 +2029,25 @@ void renderFrame(HWND h) {
                 }
             }
             }
-            g_inputTarget->ui_runtime().render();
+            // Phase 0 §6.5: the in-game UI render can fire a C++
+            // throw from inside the dialog list link item smart
+            // pointer move-construct path (RtlCaptureStackBackTrace
+            // showed the top frame at <memory>:1328
+            // std::_Ptr_base<mxh::ui::cListDialogEx::LinkItem>::
+            // _Move_construct_from in run gfix-20260905-071655-84).
+            // The previous outer try-catch (commit ec87032e) only
+            // wrapped the entity-scene block, so a UI-render throw
+            // escaped into the function's __try filter and tripped
+            // EXCEPTION_EXECUTE_HANDLER.  Catching here keeps the
+            // 10-minute stability gate alive when a single HUD
+            // dialog's vector resize fails.  See veh.log in the
+            // run's dumps/ directory for the VEH-recorded throw
+            // site + stack frames.
+            try {
+                g_inputTarget->ui_runtime().render();
+            } catch (...) {
+                MLOG_ERROR("mxh_client: in-game UI render threw C++ exception");
+            }
         }
     }
 

@@ -19,6 +19,7 @@
 #include <cctype>
 #include <cmath>
 #include <chrono>
+#include <exception>
 #include <optional>
 #include <limits>
 #include <functional>
@@ -620,7 +621,30 @@ bool EntityScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         if (error) *error = "MonsterList.bin unavailable";
         return false;
     }
-    impl_->catalog = mxh::compat::MonsterCatalog::parse_bin(bytes);
+    // Phase 0 §6.5: parse_bin -> parse_text -> std::stof on a
+    // malformed MonsterList.bin line was observed throwing
+    // std::invalid_argument during entity-scene load (VEH stack
+    // trace in run gfix-20260905-071655-84 showed the top frame
+    // <string>:206 inside std::stof called from
+    // EntityScene::load at entity_scene.cpp:623).  The inner
+    // try/catch (...) inside MonsterCatalog::parse_text is
+    // bypassed when the binary's .text is rebuilt with /Zi +
+    // /DEBUG and the std::stof throw propagates past the catch
+    // handler.  Wrapping the parse_bin call here gives the load
+    // a second safety net so a single bad line can never crash
+    // the client.  If the parse returns nullopt we still return
+    // false, the same as the prior failure path.
+    try {
+        impl_->catalog = mxh::compat::MonsterCatalog::parse_bin(bytes);
+    } catch (const std::exception& ex) {
+        MLOG_ERROR("[entity] MonsterCatalog::parse_bin threw: %s", ex.what());
+        if (error) *error = std::string("MonsterList.bin parse threw: ") + ex.what();
+        return false;
+    } catch (...) {
+        MLOG_ERROR("[entity] MonsterCatalog::parse_bin threw unknown C++ exception");
+        if (error) *error = "MonsterList.bin parse threw unknown exception";
+        return false;
+    }
     if (!impl_->catalog) {
         if (error) *error = "MonsterList.bin parse failed";
         return false;
@@ -629,7 +653,17 @@ bool EntityScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         if (error) *error = "Resource/Client/NpcChxList.bin unavailable";
         return false;
     }
-    impl_->npc_catalog = mxh::compat::NpcChxCatalog::parse_bin(bytes);
+    try {
+        impl_->npc_catalog = mxh::compat::NpcChxCatalog::parse_bin(bytes);
+    } catch (const std::exception& ex) {
+        MLOG_ERROR("[entity] NpcChxCatalog::parse_bin threw: %s", ex.what());
+        if (error) *error = std::string("NpcChxList.bin parse threw: ") + ex.what();
+        return false;
+    } catch (...) {
+        MLOG_ERROR("[entity] NpcChxCatalog::parse_bin threw unknown C++ exception");
+        if (error) *error = "NpcChxList.bin parse threw unknown exception";
+        return false;
+    }
     if (!impl_->npc_catalog) {
         if (error) *error = "Resource/Client/NpcChxList.bin parse failed";
         return false;

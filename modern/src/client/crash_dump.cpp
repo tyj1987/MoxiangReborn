@@ -22,6 +22,7 @@
 
 #include <windows.h>
 #include <dbghelp.h>
+#include <winternl.h>
 
 #pragma comment(lib, "dbghelp.lib")
 
@@ -36,6 +37,114 @@ std::atomic<bool> g_installed = false;
 char g_run_id[24] = {0};
 char g_dump_dir[260] = {0};
 char g_process_name[16] = {0};
+
+// VEH handle: 0 until AddVectoredExceptionHandler is called.  We
+// use the VEH to log the *real* throw call site for 0xE06D7363
+// (C++ throw) — the SEH chain returns EXCEPTION_EXECUTE_HANDLER
+// from a function whose `__try` filter shadows the original
+// __CxxThrowException@8 call, so the dump's reported EIP is the
+// SEH unwinder's landing pad, not the throw helper.  VEH runs
+// before any SEH filter, so the ExceptionAddress is the actual
+// `call __CxxThrowException` instruction in the offending TU.
+void* g_veh_handle = nullptr;
+std::atomic<bool> g_veh_logged = false;
+
+LONG WINAPI veh_filter(EXCEPTION_POINTERS* ep) noexcept {
+    if (!ep || !ep->ExceptionRecord) return EXCEPTION_CONTINUE_SEARCH;
+    constexpr DWORD kCppThrow = 0xE06D7363;
+    if (ep->ExceptionRecord->ExceptionCode != kCppThrow) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+    // Log at most once per process — the SEH filter terminates
+    // anyway, but repeated VEH firing during a single unwind can
+    // spam stderr and obscure earlier diagnostics.
+    bool expected = false;
+    if (!g_veh_logged.compare_exchange_strong(expected, true)) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+    const auto* er = ep->ExceptionRecord;
+    char line[512];
+    const ULONG_PTR exc_addr = reinterpret_cast<ULONG_PTR>(er->ExceptionAddress);
+    const ULONG_PTR exc_obj = er->NumberParameters >= 1
+        ? er->ExceptionInformation[0]
+        : 0UL;
+    const ULONG_PTR ebp = ep->ContextRecord
+        ? ep->ContextRecord->Ebp
+        : 0UL;
+    const ULONG_PTR esp = ep->ContextRecord
+        ? ep->ContextRecord->Esp
+        : 0UL;
+    std::snprintf(line, sizeof(line),
+                  "mxh_client: VEH throw site pid=%lu tid=%lu code=0x%08lX "
+                  "addr=0x%IX obj=0x%IX nparams=%lu ebp=0x%IX esp=0x%IX "
+                  "run_id=%s\n",
+                  GetCurrentProcessId(), GetCurrentThreadId(),
+                  static_cast<unsigned long>(er->ExceptionCode),
+                  exc_addr, exc_obj,
+                  static_cast<unsigned long>(er->NumberParameters),
+                  ebp, esp,
+                  g_run_id);
+    // Capture the stack so we can map the throw call site to a
+    // CInGameState.cpp line.  EBP-based walk avoids the safe-SEH
+    // bypass required by RtlCaptureStackBackTrace and is plenty
+    // for the 5-15 deep call chain the entity-scene render path
+    // produces.
+    char* cursor = line + std::strlen(line);
+    constexpr std::size_t kLineCap = sizeof(line);
+    constexpr std::size_t kFrameCap = 16;
+    void* frames[kFrameCap] = {nullptr};
+    USHORT n = RtlCaptureStackBackTrace(0, kFrameCap, frames, nullptr);
+    if (cursor < line + kLineCap) {
+        int wrote = std::snprintf(cursor, kLineCap - (cursor - line),
+                                  "  frames=%u: ", static_cast<unsigned>(n));
+        if (wrote > 0) cursor += wrote;
+    }
+    for (USHORT i = 0; i < n && cursor < line + kLineCap - 16; ++i) {
+        const ULONG_PTR ret_addr = reinterpret_cast<ULONG_PTR>(frames[i]);
+        int wrote = std::snprintf(cursor, kLineCap - (cursor - line),
+                                  "%s0x%IX",
+                                  i == 0 ? "" : " ",
+                                  ret_addr);
+        if (wrote > 0) cursor += wrote;
+    }
+    if (cursor < line + kLineCap - 1) {
+        *cursor = '\n';
+        ++cursor;
+        *cursor = '\0';
+    }
+    // Three write paths so the diagnostic survives the SEH filter
+    // terminating the process and any handle re-routing the
+    // capture harness performs on stderr:
+    //   1. A dedicated `veh.log` next to the minidump (only
+    //      writable when MXH_DUMP_DIR is set, which the capture
+    //      harness does for every smoke run).
+    //   2. The inherited stderr handle.
+    //   3. The inherited stdout handle.
+    if (g_dump_dir[0] != '\0') {
+        char path[512];
+        std::snprintf(path, sizeof(path), "%s\\veh.log", g_dump_dir);
+        HANDLE file = CreateFileA(path, FILE_APPEND_DATA, FILE_SHARE_READ,
+                                  nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+                                  nullptr);
+        if (file != INVALID_HANDLE_VALUE) {
+            DWORD wrote = 0;
+            WriteFile(file, line, static_cast<DWORD>(std::strlen(line)),
+                      &wrote, nullptr);
+            CloseHandle(file);
+        }
+    }
+    HANDLE err = GetStdHandle(STD_ERROR_HANDLE);
+    if (err != nullptr && err != INVALID_HANDLE_VALUE) {
+        DWORD wrote = 0;
+        WriteFile(err, line, static_cast<DWORD>(std::strlen(line)), &wrote, nullptr);
+    }
+    HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (out != nullptr && out != INVALID_HANDLE_VALUE) {
+        DWORD wrote = 0;
+        WriteFile(out, line, static_cast<DWORD>(std::strlen(line)), &wrote, nullptr);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
 
 void read_env_into(char* dst, std::size_t cap, const char* name) noexcept {
     if (cap == 0) return;
@@ -144,6 +253,12 @@ void install_crash_dump_handler() noexcept {
         return;
     }
     SetUnhandledExceptionFilter(&se_filter);
+    // VEH runs first in the exception chain, ahead of any SEH
+    // filter.  We register it after SetUnhandledExceptionFilter so
+    // the order is: kernel -> VEH -> SEH -> filter -> unwinder.
+    if (g_veh_handle == nullptr) {
+        g_veh_handle = AddVectoredExceptionHandler(1, &veh_filter);
+    }
 }
 
 const char* crash_dump_run_id() noexcept {
