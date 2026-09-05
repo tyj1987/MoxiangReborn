@@ -25,7 +25,8 @@ param(
     [switch]$DryRun,
     [switch]$UseHsel,
     [switch]$AllowDevFallbacks,
-    [switch]$SkipResourceIntegrity
+    [switch]$SkipResourceIntegrity,
+    [string]$RunId = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -339,22 +340,28 @@ $commonDbArgs = @('--backend', $Backend, '--db-env', $DatabaseConfigEnv)
 $legacyArgs = @('--legacy')
 $hselArgs = if ($UseHsel) { @('--use-hsel') } else { @() }
 $fallbackArgs = if ($AllowDevFallbacks) { @('--allow-dev-fallbacks') } else { @() }
+# Cross-process run identifier.  When non-empty, every server
+# process and the client receive MXH_RUN_ID so logs from
+# concurrent processes can be correlated.  The capture tool
+# requires a fresh run id per attempt so we do not mix stale
+# evidence with the current run.
+$runIdArg = if (-not [string]::IsNullOrWhiteSpace($RunId)) { @('--run-id', $RunId) } else { @() }
 $processes = @(
     [ordered]@{
         name = 'map'; exe = $mapExe; port = $MapPort
         args = @('--port', $MapPort, '--map', $MapNumber, '--bind-address', $MapBindAddress,
             '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot,
-            '--resource-profile', $ResourceProfileId) + $commonDbArgs + $hselArgs + $fallbackArgs
+            '--resource-profile', $ResourceProfileId) + $runIdArg + $commonDbArgs + $hselArgs + $fallbackArgs
     },
     [ordered]@{
         name = 'agent'; exe = $agentExe; port = $AgentPort
         args = @('--port', $AgentPort, '--bind-address', $BindAddress,
-            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $commonDbArgs + $legacyArgs + $hselArgs
+            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $runIdArg + $commonDbArgs + $legacyArgs + $hselArgs
     },
     [ordered]@{
         name = 'login'; exe = $loginExe; port = $LoginPort
         args = @('--port', $LoginPort, '--bind-address', $BindAddress,
-            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $commonDbArgs + $legacyArgs + $hselArgs
+            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $runIdArg + $commonDbArgs + $legacyArgs + $hselArgs
     }
 )
 
@@ -375,6 +382,7 @@ try {
     $manifest = [ordered]@{
         schema = 1
         git_commit = $gitCommit
+        run_id = $RunId
         locale = $Locale
         config = $Config
         backend = $Backend
@@ -397,8 +405,16 @@ try {
     foreach ($item in $processes) {
         $stdout = Join-Path $logDir "$($item.name).out.log"
         $stderr = Join-Path $logDir "$($item.name).err.log"
-        $process = Start-Process -FilePath $item.exe -ArgumentList $item.args -WorkingDirectory (Split-Path -Parent $item.exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden
-        $entry = [ordered]@{ name = $item.name; pid = $process.Id; port = $item.port; exe = $item.exe }
+        $procEnv = [System.Collections.Generic.Dictionary[string,string]]::new()
+        foreach ($kv in [Environment]::GetEnvironmentVariables('Process').GetEnumerator()) {
+            $procEnv[[string]$kv.Key] = [string]$kv.Value
+        }
+        $procEnv['MXH_PROCESS'] = $item.name
+        if (-not [string]::IsNullOrWhiteSpace($RunId)) {
+            $procEnv['MXH_RUN_ID'] = $RunId
+        }
+        $process = Start-Process -FilePath $item.exe -ArgumentList $item.args -WorkingDirectory (Split-Path -Parent $item.exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden -Environment $procEnv
+        $entry = [ordered]@{ name = $item.name; pid = $process.Id; port = $item.port; exe = $item.exe; run_id = $RunId }
         $state += $entry
         $state | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $pidFile -Encoding utf8
         Start-Sleep -Milliseconds 500
