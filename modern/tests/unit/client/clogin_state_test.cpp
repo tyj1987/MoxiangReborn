@@ -141,3 +141,72 @@ TEST(CLoginStateDefaults, AllFieldsZero) {
     EXPECT_EQ(s.agent_addr(), "");
     EXPECT_EQ(s.agent_port(), 0u);
 }
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.2 登录错误矩阵 — wire-format boundary coverage.
+// The full error matrix (Nack, server-down, retry, etc.) is exercised
+// end-to-end by MoxianClientE2E and the Phase B.2.5 E2E tool; this
+// section locks the byte-format boundaries that an attacker could
+// otherwise probe.
+// -------------------------------------------------------------------------
+
+TEST(LoginStateWire, RequestLoginPayloadBoundaryLength17) {
+    // Exactly 17 bytes of id is the documented max; password must
+    // still occupy the next 17 bytes starting at offset 21.
+    const std::string id17(17, 'a');
+    const std::string pw3("xyz");
+    const auto pl = legacy_request_login_payload(0u, id17, pw3);
+    ASSERT_EQ(pl.size(), 38u);
+    for (int i = 0; i < 17; ++i) EXPECT_EQ(pl[4 + i], 'a');
+    EXPECT_EQ(pl[21], 'x');
+    EXPECT_EQ(pl[22], 'y');
+    EXPECT_EQ(pl[23], 'z');
+    for (int i = 24; i < 38; ++i) EXPECT_EQ(pl[i], 0u);
+}
+
+TEST(LoginStateWire, RequestLoginPayloadUtf8IdRoundTrip) {
+    // Chinese 墨香玩家 (multi-byte UTF-8) is the §7.2 合法中文 case.
+    // 4 chars × 3 bytes = 12 bytes; well under the 17-byte cap.
+    const std::string cn_id = "\xE5\xA2\xA8\xE9\xA6\x99\xE7\x8E\xA9\xE5\xAE\xB6";  // 墨香玩家
+    const auto pl = legacy_request_login_payload(0x01020304u, cn_id, "pw");
+    ASSERT_EQ(pl.size(), 38u);
+    EXPECT_EQ(pl[4], 0xE5u);
+    EXPECT_EQ(pl[5], 0xA2u);
+    EXPECT_EQ(pl[6], 0xA8u);
+    EXPECT_EQ(pl[15], 0xB6u);
+    EXPECT_EQ(pl[16], 0u);  // 12 bytes of UTF-8, 5 bytes of zero padding
+    EXPECT_EQ(pl[21], 'p');
+    EXPECT_EQ(pl[22], 'w');
+}
+
+TEST(LoginStateWire, RequestLoginPayloadUtf8Truncation) {
+    // Chinese text longer than 17 bytes must be truncated to 17 bytes
+    // (the legacy 17-byte id field is fixed).  The truncated bytes are
+    // the leading 17 bytes of the UTF-8 sequence — partial codepoints
+    // are possible but match the legacy MHClient behaviour.
+    const std::string cn_id(20, '\xE5');  // 20 × 0xE5 — leading bytes only
+    const auto pl = legacy_request_login_payload(0u, cn_id, "");
+    for (int i = 0; i < 17; ++i) EXPECT_EQ(pl[4 + i], 0xE5u);
+    // bytes 21..37 remain zero because password is empty
+    for (int i = 21; i < 38; ++i) EXPECT_EQ(pl[i], 0u);
+}
+
+TEST(LoginStateWire, LoginAckBoundaryPayload) {
+    // Exactly 23 bytes is the documented min; smaller must reject.
+    std::array<std::uint8_t, 23> buf{};
+    auto ack = parse_legacy_login_ack(std::span<const std::uint8_t>(buf.data(), buf.size()));
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->user_level, 0u);
+}
+
+TEST(LoginStateWire, LoginAckNullAgentAddrIsNotEmpty) {
+    // A LoginAck whose agent_ip field is all zeros (the server has
+    // nothing to advertise because it could not bind) must still parse
+    // successfully and report an empty string — not crash the state.
+    std::array<std::uint8_t, 23> buf{};
+    buf[16] = 0xFF; buf[17] = 0xFF;  // invalid port 65535 — must not crash
+    auto ack = parse_legacy_login_ack(std::span<const std::uint8_t>(buf.data(), buf.size()));
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->agent_addr, "");
+    EXPECT_EQ(ack->agent_port, 65535u);
+}
