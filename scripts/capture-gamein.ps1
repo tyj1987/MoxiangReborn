@@ -121,12 +121,12 @@ foreach ($kv in [Environment]::GetEnvironmentVariables('Process').GetEnumerator(
 }
 $clientEnv['MXH_RUN_ID'] = $runId
 $clientEnv['MXH_PROCESS'] = 'client'
-# Force a deterministic GUI smoke handoff so the client can be
-# driven without a human at the keyboard.  mxh_client --gui-smoke
-# runs an automated end-to-end flow; it sets MXH_GUI_SMOKE_EXIT=1
-# after GameInAck so we always observe the post-ack frame before
-# the process exits.
-$clientEnv['MXH_GUI_SMOKE'] = '1'
+# Drive the client's GUI smoke handoff so the post-ack frame is
+# captured before the process exits.  MXH_GUI_SMOKE_EXIT=1 makes
+# the client request a clean exit after the GameIn state has
+# streamed 228 monsters.  The plan (§6.5) requires three
+# independent 10-minute Map10 stability runs; this script is the
+# shared capture harness for those runs.
 $clientEnv['MXH_GUI_SMOKE_EXIT'] = '1'
 
 $clientStdout = Join-Path $logDir 'client.stdout.log'
@@ -136,8 +136,7 @@ $clientArgs = @(
     '--login-port', "$LoginPort",
     '--map', "$MapNumber",
     '--resource-profile', $ResourceProfileId,
-    '--state-frames-dir', $evidenceDir,
-    '--gui-smoke'
+    '--state-frames-dir', $evidenceDir
 )
 $clientProc = Start-Process -FilePath $clientExe `
     -ArgumentList $clientArgs `
