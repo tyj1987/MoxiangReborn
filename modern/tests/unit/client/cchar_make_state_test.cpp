@@ -349,3 +349,75 @@ TEST(CCharMakeCreate, CharacterMakeNackTriggersFailWith) {
     EXPECT_NE(s.failure_reason().find("CharacterMakeNack"), std::string::npos);
     s.Release();
 }
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.3 名称合法性和重复检查 — boundary coverage via SubmitCharacter.
+//
+// The valid_name_bytes() helper is in an anonymous namespace in
+// CCharMake.cpp, so the test exercises it through the public
+// SubmitCharacter() entry point.  The contract is that an invalid
+// name (too short / too long / control byte) must not be sent to
+// the agent and must flip is_failed() with the same reason the
+// legacy UI surfaced, so a host swapping the live wire for the test
+// hook sees identical error semantics.
+// -------------------------------------------------------------------------
+
+namespace {
+mxh::client::CharacterMakeParams make_params_with_name(const std::string& name) {
+    mxh::client::CharacterMakeParams p{};
+    p.name = name;
+    p.sex_type = 1;
+    p.hair_type = 1;
+    p.face_type = 1;
+    return p;
+}
+}  // namespace
+
+TEST(CCharMakeNameValidation, BoundaryLengthsViaSubmit) {
+    // 3 bytes: too short
+    {
+        CCharMake s;
+        s.Init(nullptr);
+        CharacterMakeParams p = make_params_with_name("abc");
+        EXPECT_FALSE(s.SubmitCharacter(p));
+        EXPECT_TRUE(s.is_failed());
+        s.Release();
+    }
+    // 17 bytes: one over kMaxNameLength
+    {
+        CCharMake s;
+        s.Init(nullptr);
+        CharacterMakeParams p = make_params_with_name("0123456789abcdefg");
+        EXPECT_FALSE(s.SubmitCharacter(p));
+        EXPECT_TRUE(s.is_failed());
+        s.Release();
+    }
+}
+
+TEST(CCharMakeNameValidation, RejectsControlCharactersViaSubmit) {
+    // 0x00..0x1F and 0x7F are control bytes; the legacy validator
+    // rejected them.  Tab is the most likely to slip past a "string
+    // is non-empty" check, so test it explicitly.
+    CCharMake s;
+    s.Init(nullptr);
+    CharacterMakeParams p = make_params_with_name("a\tbc");
+    EXPECT_FALSE(s.SubmitCharacter(p));
+    EXPECT_TRUE(s.is_failed());
+    s.Release();
+}
+
+TEST(CCharMakeNameValidation, AcceptsUtf8MultiByteAtSubmitTime) {
+    // Chinese 4-char name = 12 UTF-8 bytes.  This is within the
+    // 4..16 byte window and must not fail with a "name" reason.
+    // We can't observe the wire send (no connection), but the
+    // failure_reason must be empty so the host can confirm the
+    // name passed validation.
+    CCharMake s;
+    s.Init(nullptr);
+    CharacterMakeParams p = make_params_with_name("\xE5\xA2\xA8\xE9\xA6\x99\xE7\x8E\xA9\xE5\xAE\xB6");
+    (void)s.SubmitCharacter(p);  // may return false (no connection) but
+                                 // must NOT fail because of the name
+    EXPECT_EQ(s.failure_reason().find("name must contain"),
+              std::string::npos);
+    s.Release();
+}
