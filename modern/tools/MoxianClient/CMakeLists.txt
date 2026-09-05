@@ -16,4 +16,15 @@ target_link_libraries(mxh_client PRIVATE mxh_ui mxh_client_lib mxh_render mxh_au
 if(MSVC)
     target_compile_options(mxh_client PRIVATE /W3 /utf-8)
     target_link_libraries(mxh_client PRIVATE d3d11 dxgi d3dcompiler shell32)
+    # Phase 0 §6.5: GameLoading state allocates ~125 MB for
+    # terrain / static / entity scenes.  Combined with CInGameState's
+    # UI runtime and lambda captures, peak working set reaches
+    # ~1.6 GB on a 32-bit process, which trips std::bad_alloc
+    # before the GameIn render finishes.  Marking the binary
+    # large-address-aware lets the 32-bit process use up to 4 GB
+    # of user-mode address space on 64-bit Windows (the boot
+    # option increaseuserva <n> may also be needed on the host for
+    # 3 GB+ on a 32-bit Windows kernel; not required on the
+    # supported x64 capture host).  See /LARGEADDRESSAWARE in MSDN.
+    target_link_options(mxh_client PRIVATE /LARGEADDRESSAWARE)
 endif()
