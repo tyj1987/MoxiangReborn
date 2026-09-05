@@ -8,6 +8,7 @@
 
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
+#include "mxh/log/mlog.hpp"
 
 #include <cassert>
 #include <utility>
@@ -135,12 +136,22 @@ void CMainGame::Process() {
     // the top of Process() so any in-flight work in the old state
     // completed before the new state took over.
     if (m_bChangeState) {
+        // Phase 0 §6.5 heap probe: tag every state boundary with
+        // a GetProcessMemoryInfo snapshot so the post-mortem MLOG
+        // timeline can show whether memory grows monotonically
+        // across the GameLoading -> GameIn transition.  The
+        // repeated 0xE06D7363 throw with a moving site (stof ->
+        // ComPtr::operator= -> deque::_Tidy) is the signature of
+        // heap exhaustion, so we need an annotated WS/peak
+        // trace to confirm or rule it out.
+        MLOG_HEAP("state_pre_release");
         // Release the current state.  If the target state is End, we
         // also null the current pointer to indicate "no state" (the
         // engine's "end the game" signal in the legacy code).
         if (m_pCurrentGameState && m_pCurrentGameState->isInitialized()) {
             m_pCurrentGameState->Release();
         }
+        MLOG_HEAP("state_post_release");
         // Borrow the new state from the slot table. We do NOT
         // unique_ptr::reset(next) because the slot's unique_ptr also
         // owns the same pointer — that would lead to a double-free at
@@ -169,6 +180,7 @@ void CMainGame::Process() {
                 next->setInitialized(true);
             }
         }
+        MLOG_HEAP("state_post_init");
         m_bChangeState = false;
         m_pNextStateInitParam = nullptr;
     }

@@ -12,6 +12,11 @@
 #include <mutex>
 #include <sstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <psapi.h>
+#endif
+
 namespace mxh {
 
 namespace {
@@ -164,3 +169,21 @@ void log_message(LogLevel level, const char* file, int line, const char* fmt, ..
 }
 
 } // namespace mxh
+
+#ifdef _WIN32
+mxh::HeapSnapshot mxh::take_heap_snapshot() noexcept {
+    mxh::HeapSnapshot snap{};
+    PROCESS_MEMORY_COUNTERS pmc{};
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        snap.working_set_bytes = pmc.WorkingSetSize;
+        snap.peak_working_set_bytes = pmc.PeakWorkingSetSize;
+        // PROCESS_MEMORY_COUNTERS does not expose PrivateUsage /
+        // VirtualSize directly on this Windows SKU.  PagefileUsage
+        // is the closest portable proxy and is what WinDbg's
+        // !address -summary reports for the process.
+        snap.private_bytes = pmc.PagefileUsage;
+        snap.virtual_bytes = pmc.PeakPagefileUsage;
+    }
+    return snap;
+}
+#endif

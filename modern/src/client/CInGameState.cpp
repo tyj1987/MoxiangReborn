@@ -1018,6 +1018,7 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         fail_with("GameIn requires an explicit PlayDH resource root");
         return;
     }
+    MLOG_HEAP("gamein_start_enter");
     {
         const auto effect_root = *m_pEngine->playdh_root();
         if (const char* smoke_exit = std::getenv("MXH_GUI_SMOKE_EXIT");
@@ -1034,6 +1035,7 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
             MLOG_INFO("CInGameState effect catalog loading asynchronously");
         }
     }
+    MLOG_HEAP("gamein_after_effect_kickoff");
     if (m_uiRuntime.empty()) {
         std::string ui_error;
         if (!m_uiRuntime.loadMany(*m_pEngine->playdh_root(),
@@ -1043,7 +1045,9 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
             fail_with("GameIn UI load failed: " + ui_error);
             return;
         }
+        MLOG_HEAP("gamein_after_ui_loadmany");
     }
+    MLOG_HEAP("gamein_pre_skilllist");
     const auto skillPath = *m_pEngine->playdh_root() / "Resource" / "SkillList.bin";
     try {
         std::uint32_t skillErrors = 0;
@@ -1061,6 +1065,7 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         fail_with(reason);
         return;
     }
+    MLOG_HEAP("gamein_post_skilllist");
     const auto experiencePath = *m_pEngine->playdh_root() / "Resource" /
         "CharacterExpPoint.bin";
     try {
@@ -1074,10 +1079,13 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         fail_with("GameIn experience curve unavailable: " + experiencePath.string());
         return;
     }
+    MLOG_HEAP("gamein_post_expcurve");
     m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
+    MLOG_HEAP("gamein_post_applyactiveset");
     m_playerStatsService = std::make_unique<GameInPlayerStatsService>(
         &m_info, m_experienceCurve.get());
     refresh_live_ui_bindings();
+    MLOG_HEAP("gamein_post_refresh_bindings");
     MLOG_INFO("CInGameState using persistent AgentSession (player_id=%u, map=%u)",
               static_cast<unsigned>(m_playerId),
               static_cast<unsigned>(m_mapNum));
@@ -1085,7 +1093,9 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
         fail_with("GameIn requires a connected AgentSession");
         return;
     }
+    MLOG_HEAP("gamein_pre_send_gamein_syn");
     send_gamein_syn();
+    MLOG_HEAP("gamein_post_send_gamein_syn");
 }
 
 void CInGameState::refresh_live_ui_bindings() {
@@ -1608,6 +1618,7 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                           msg.payload.size());
                 break;
             }
+            MLOG_HEAP("monster_add_pre_insert");
             const auto existing = std::find_if(
                 monsters_.begin(), monsters_.end(),
                 [&](const MonsterAddInfo& monster) {
@@ -1615,6 +1626,10 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                 });
             if (existing == monsters_.end()) monsters_.push_back(*info);
             else *existing = *info;
+            if ((monsters_.size() & 0x3F) == 0) {
+                MLOG_HEAP("monster_add_post_insert");
+                MLOG_DEBUG("CInGameState: MonsterAdd count=%zu", monsters_.size());
+            }
             MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u pos=(%u,%u) name=%.16s",
                        static_cast<unsigned>(info->object_id),
                        static_cast<unsigned>(info->monster_kind),

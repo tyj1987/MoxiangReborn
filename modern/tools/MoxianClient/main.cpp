@@ -3637,6 +3637,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 } else if (cur_state == mxh::client::GameStateId::GameIn) {
                     if (auto* g = dynamic_cast<mxh::client::CInGameState*>(
                             mainGame.GetGameState(cur_state))) {
+                        MLOG_HEAP("main_pre_questcatalog");
                         auto questCatalog = mxh::compat::load_quest_string_catalog(
                             options.resource_root / "Resource" / "QuestScript" / "QuestString.bin");
                         if (!questCatalog.error_message.empty()) {
@@ -3647,8 +3648,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                       questCatalog.entries.size(), questCatalog.main_quests().size());
                         }
                         g->set_quest_catalog(std::move(questCatalog));
+                        MLOG_HEAP("main_post_questcatalog");
+                        MLOG_HEAP("main_pre_gamein_start");
                         g->Start(mainGame.GetEngine(), pending_character_id,
                                  pending_map_num);
+                        MLOG_HEAP("main_post_gamein_start");
                         if (auto* option = g->option_dialog()) {
                             option->SetDefaultCallbackForTest(&option_default_callback,
                                                                &optionContext);
@@ -3661,6 +3665,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             option->UpdateData(false);
                         }
                         g_inputTarget = g;
+                        MLOG_HEAP("main_post_inputtarget");
                         // World loading commits before the new GameIn state
                         // is constructed. Rebind authoritative terrain bounds
                         // and static collision to this fresh input target;
