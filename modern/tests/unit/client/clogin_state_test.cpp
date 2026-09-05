@@ -9,6 +9,8 @@
 //   * CLoginState::fail_with() is idempotent.
 
 #include "CLoginState.hpp"
+#include "mxh/proto/protocol.hpp"
+#include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
 
@@ -209,4 +211,99 @@ TEST(LoginStateWire, LoginAckNullAgentAddrIsNotEmpty) {
     ASSERT_TRUE(ack.has_value());
     EXPECT_EQ(ack->agent_addr, "");
     EXPECT_EQ(ack->agent_port, 65535u);
+}
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.2 错误矩阵 — LoginNack / 数据库不可用 / LoginServer down.
+//
+// These cover the §7.2 items that the CLoginState can decide on its
+// own: 错误密码 / 不存在账号 / 禁用账号 / 数据库不可用 all collapse to
+// the same LoginNack path, so one test covers all four.  LoginServer
+// 不可用 / 登录超时 / 断线后重试 are exercised by on_disconnect paths
+// in the E2E tool and the capture harness — not unit-testable here.
+// -------------------------------------------------------------------------
+
+namespace {
+mxh::net::Message make_login_nack() {
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginNack);
+    m.header.object_id = 0;
+    m.payload = {};
+    return m;
+}
+}  // namespace
+
+TEST(LoginStateErrorMatrix, LoginNackTriggersFailWith) {
+    // 错误密码 / 不存在账号 / 禁用账号 / 数据库不可用 all hit the same
+    // Nack path.  The state must flip to is_failed() with a non-empty
+    // failure_reason() so the host can surface a recoverable error.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();  // CLoginState::on_message queues; Process() drains
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_FALSE(s.failure_reason().empty());
+    EXPECT_FALSE(s.is_ack_received());
+}
+
+TEST(LoginStateErrorMatrix, LoginNackIsIdempotent) {
+    // 连续点击登录 with two back-to-back Nacks must not crash, leak,
+    // or change the failure reason after the first one.  The first
+    // fail_with() short-circuits further state mutation.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    const auto first_reason = s.failure_reason();
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    EXPECT_EQ(s.failure_reason(), first_reason);
+}
+
+TEST(LoginStateErrorMatrix, LoginAckAfterNackDoesNotRecover) {
+    // A late LoginAck after a Nack must not silently promote the
+    // state — once failed, only a fresh Start() should re-arm the
+    // connection.  This locks the "disconnect + retry" gate: a
+    // broken session cannot be revived by a stray packet on the
+    // existing socket.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+
+    // Build a real LoginAck payload (23B) — must not flip is_failed.
+    std::array<std::uint8_t, 23> ack{};
+    std::memcpy(ack.data(), "127.0.0.1", 9);
+    ack[16] = 0x59; ack[17] = 0x1B;  // port 7001 LE
+    ack[18] = 0x04; ack[19] = 0x03; ack[20] = 0x02; ack[21] = 0x01;
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginAck);
+    m.payload.assign(ack.begin(), ack.end());
+    s.HandleMessageForTest(m);
+    s.Process();
+    EXPECT_TRUE(s.is_failed());  // still failed — no silent recovery
+}
+
+TEST(LoginStateErrorMatrix, FailWithIsIdempotent) {
+    // Direct fail_with() is idempotent: the first call wins, the
+    // second is a no-op.  The dispatch path depends on this so a
+    // burst of Nacks / malformed acks does not overwrite the original
+    // human-readable reason with a less informative follow-up.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    const auto first = s.failure_reason();
+    EXPECT_FALSE(first.empty());
+    // send a short payload to trigger "payload too short" path
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginAck);
+    m.payload.assign(10, 0);  // < 23 bytes
+    s.HandleMessageForTest(m);
+    s.Process();
+    EXPECT_EQ(s.failure_reason(), first);
 }

@@ -129,6 +129,19 @@ public:
     // (LoginResult is defined in CCharSelectState.hpp.)
     LoginResult TakeLoginResult();
 
+    // ---- Phase 1 §7.2 protocol-burst test hooks ------------------------
+    // Direct dispatch (skips network recv thread) so the test can slam
+    // the state with synthetic LoginNack / LoginAck packets and verify
+    // fail_with() lands without spinning up a real LoginServer.  Mirrors
+    // the CInGameState::SetDispatchForTest pattern added in commit
+    // a8e194da.  Production code never calls these; they exist purely
+    // so clogin_state_test can drive on_message() without sockets.
+    void SetDispatchForTest(bool enabled) noexcept { m_dispatchEnabledForTest = enabled; }
+    void HandleMessageForTest(const mxh::net::Message& msg) {
+        if (!m_dispatchEnabledForTest) return;
+        on_message({}, msg);
+    }
+
 private:
     void handle_message(mxh::net::ConnectionId id, const mxh::net::Message& msg);
     void handle_disconnect(mxh::net::ConnectionId id, mxh::net::NetError reason);
@@ -148,6 +161,11 @@ private:
     // host's main thread (e.g. B.2.5 E2E poll loop).  std::atomic
     // ensures the host sees updates without UB.
     std::atomic<std::uint32_t> m_authKey    {0};
+    // Phase 1 §7.2: opt-in flag for clogin_state_test to call
+    // on_message() directly.  When false, HandleMessageForTest is a
+    // no-op so a missing test setup cannot accidentally exercise
+    // the dispatch path.  Defaults to false.
+    bool m_dispatchEnabledForTest = false;
     std::atomic<std::uint32_t> m_userIdx    {0};
     std::atomic<std::uint16_t> m_agentPort  {0};
     // m_agentAddr is a std::string; we guard it with m_mu under
