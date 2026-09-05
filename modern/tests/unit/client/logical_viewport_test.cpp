@@ -19,6 +19,20 @@ TEST(LogicalViewportTest, ExactEightHundredBySixHundredIsIdentity) {
     EXPECT_FLOAT_EQ(point->y, 300.0f);
 }
 
+TEST(LogicalViewportTest, InterfaceScriptModeFollowsLogicalCanvasNotPhysicalWindow) {
+    LogicalViewport viewport;
+    viewport.update(1024, 768);
+
+    EXPECT_EQ(LogicalViewport::ui_resolution_mode(),
+              mxh::ui::ResolutionMode::Low800x600);
+    EXPECT_EQ(viewport.content_rect().width, 1024);
+    EXPECT_EQ(viewport.content_rect().height, 768);
+
+    viewport.update(1920, 1080);
+    EXPECT_EQ(LogicalViewport::ui_resolution_mode(),
+              mxh::ui::ResolutionMode::Low800x600);
+}
+
 TEST(LogicalViewportTest, WideWindowAddsHorizontalBlackBars) {
     LogicalViewport viewport;
     viewport.update(1920, 1080);

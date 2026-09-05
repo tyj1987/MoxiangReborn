@@ -3496,9 +3496,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                    static_cast<unsigned long>(transition.win32_error));
                     } else {
                         post_login_display_applied = true;
-                        const auto ui_mode = mxh::ui::detect_from_screen_size(
-                            static_cast<int>(post_login_w),
-                            static_cast<int>(post_login_h));
+                        // The renderer and input mapper keep a fixed 800x600
+                        // logical canvas.  The physical post-login HWND may be
+                        // 1024x768 or larger, but that only scales the canvas;
+                        // InterfaceScript must therefore keep using #POINT_.
+                        // Choosing from physical pixels loads x=827-style
+                        // coordinates into an 800-wide canvas and clips the
+                        // complete CharSelect dialog off the right edge.
+                        const auto ui_mode =
+                            mxh::client::LogicalViewport::ui_resolution_mode();
                         mainGame.GetEngine()->SetUiResolutionMode(ui_mode);
                         if (g_mainTitle) {
                             g_mainTitle->ui_runtime().onResolutionChange(ui_mode);
