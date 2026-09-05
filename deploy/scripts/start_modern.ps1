@@ -341,27 +341,26 @@ $legacyArgs = @('--legacy')
 $hselArgs = if ($UseHsel) { @('--use-hsel') } else { @() }
 $fallbackArgs = if ($AllowDevFallbacks) { @('--allow-dev-fallbacks') } else { @() }
 # Cross-process run identifier.  When non-empty, every server
-# process and the client receive MXH_RUN_ID so logs from
-# concurrent processes can be correlated.  The capture tool
-# requires a fresh run id per attempt so we do not mix stale
-# evidence with the current run.
-$runIdArg = if (-not [string]::IsNullOrWhiteSpace($RunId)) { @('--run-id', $RunId) } else { @() }
+# process and the client receive MXH_RUN_ID via the process
+# environment so logs from concurrent processes can be
+# correlated.  The capture tool requires a fresh run id per
+# attempt so we do not mix stale evidence with the current run.
 $processes = @(
     [ordered]@{
         name = 'map'; exe = $mapExe; port = $MapPort
         args = @('--port', $MapPort, '--map', $MapNumber, '--bind-address', $MapBindAddress,
             '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot,
-            '--resource-profile', $ResourceProfileId) + $runIdArg + $commonDbArgs + $hselArgs + $fallbackArgs
+            '--resource-profile', $ResourceProfileId) + $commonDbArgs + $hselArgs + $fallbackArgs
     },
     [ordered]@{
         name = 'agent'; exe = $agentExe; port = $AgentPort
         args = @('--port', $AgentPort, '--bind-address', $BindAddress,
-            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $runIdArg + $commonDbArgs + $legacyArgs + $hselArgs
+            '--map-server', "${MapEndpointAddress}:$MapPort", '--default-map', $MapNumber) + $commonDbArgs + $legacyArgs + $hselArgs
     },
     [ordered]@{
         name = 'login'; exe = $loginExe; port = $LoginPort
         args = @('--port', $LoginPort, '--bind-address', $BindAddress,
-            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $runIdArg + $commonDbArgs + $legacyArgs + $hselArgs
+            '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort) + $commonDbArgs + $legacyArgs + $hselArgs
     }
 )
 
