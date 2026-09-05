@@ -7,6 +7,7 @@ add_executable(mxh_client_tests
     cchar_make_state_test.cpp
     cingame_state_test.cpp
     cingame_input_test.cpp
+    protocol_burst_test.cpp
     client_e2e_flow_test.cpp
     network_event_queue_test.cpp
     state_transfer_test.cpp

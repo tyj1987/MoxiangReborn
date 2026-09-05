@@ -525,6 +525,20 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     }
 
 public:
+    // ---- Phase 0 §6.4 protocol-burst test hooks ---------------------------
+    // Direct dispatch (skips network recv thread) so the test can slam the
+    // state with hundreds of synthetic packets per frame and verify the
+    // state machine does not double-free / leak / promote to in-game
+    // before GameInAck.  Production code never calls these; they exist
+    // purely so protocol_burst_test.cpp can drive on_message() without
+    // spinning up a real MapServer connection.
+    // m_dispatchEnabledForTest is consulted inside HandleMessageForTest
+    // so a missing opt-in is loud (no-op) rather than a silent fall-through.
+    void SetDispatchForTest(bool enabled) noexcept { m_dispatchEnabledForTest = enabled; }
+    void HandleMessageForTest(const mxh::net::Message& msg) {
+        if (!m_dispatchEnabledForTest) return;
+        on_message({}, msg);
+    }
     bool handle_ui_activation(const ClientUiActivation& activation);
     void send_gamein_syn();
     void send_gameout_syn();
@@ -691,6 +705,11 @@ public:
     std::future<std::pair<mxh::game::EffectCatalog, std::string>> m_effectCatalogLoad;
     bool m_effectCatalogLoading = false;
     bool m_smokeExitRequested = false;
+    // Phase 0 §6.4: opt-in flag for protocol_burst_test to call
+    // on_message() directly.  When false, HandleMessageForTest is a no-op
+    // so a missing test setup cannot accidentally exercise the dispatch
+    // path.  Defaults to false; tests must call SetDispatchForTest(true).
+    bool m_dispatchEnabledForTest = false;
     mxh::game::SkillManager m_skillManager;
     float m_effectTickPerFrameMs = 1000.0f / 30.0f;
     std::vector<RuntimeEffectEvent> m_runtimeEffectEvents;
