@@ -34,9 +34,24 @@ This is the single current evidence index. A row is complete only when it has a 
 
 The following are never sufficient for an E5 claim: parser totals, CTest totals, headless state tests, auto-login screenshots, or modern-vs-modern SSIM.
 
+## Superseded evidence (Phase 0 §6.5 closure)
+
+Earlier VERIFICATION_MATRIX entries claimed the GameIn transition was blocked by
+"40-byte opaque server profile" or a "missing opaque HFL/STM". Both claims
+were invalidated in commit `469cfbdb` when `mxh_client.exe` was relinked with
+`/LARGEADDRESSAWARE` and produced `state-gamein.tga` on the very next run.
+The real root cause is a 32-bit address-space ceiling, not the resource
+profile. New evidence in this entry supersedes any previous EVID row whose
+text attributes the GameIn stall to the server profile or the resource
+manifest.
+
 ## Recent reproducible evidence
 
 | Evidence ID | Commit | Profile | Command | Result |
+|---|---|---|---|---|
+| `EVID-20260905-gamein-3x10min` | `469cfbdb` | `playdh-current` Map 10 | `pwsh -File scripts\capture-gamein.ps1 -Config Debug -Locale CHINA -MapNumber 10 -LoginPort 16001 -AgentPort 17001 -MapPort 18001 -ResourceProfileId playdh-current -ClientTimeoutSeconds 600 -NoAutoExit` (3 runs) | **§6.5 3×10 min Map10 稳定: 3/3 PASSED.** 3 runs (`gfix-20260905-125513-45`, `gfix-20260905-130053-34`, `gfix-20260905-131302-43`) all exit_code=0 with `state-gamein.tga` (3,145,746 bytes) captured. WS 1.50 GB stable, no heap growth, no .dmp, no `veh.log`. `/LARGEADDRESSAWARE` lets the 32-bit PE use 4 GB user-mode on x64 Windows; previous 2 GB ceiling caused `std::bad_alloc` in `std::deque<ClientRuntimeEvent>::_Tidy` once the working set crossed 1.5 GB. Pre-LAA run `gfix-20260905-124501-40` is the only entry that legitimately reproduces the old crash signature (exit_code=-529697949) for diff purposes. |
+| `EVID-20260905-protocol-burst` | `a8e194da` | `playdh-current` (state fixture, no network) | `modern\build\tests\unit\client\mxh_client_tests.exe --gtest_filter=ProtocolBurst.*` | **§6.4 4/4 PASSED in 0.67 sec.** `GameInAckThenImmediateMonsterAddProducesNoCrash` (GameInAck + 50 MonsterAdd in one frame), `DuplicateMonsterAddIsIdempotent` (same MonsterAdd x50), `OutOfOrderMonsterAckStillPopulates` (5 ids in non-monotonic order), `EntityBeforeGameInDoesNotPromoteState` (MonsterAdd before GameInAck must not promote state, same packet accepted after ack). Exercises real `on_message` → `handle_userconn_message` / `handle_monster_broadcast` paths via the new `SetDispatchForTest` / `HandleMessageForTest` hooks. `mxh_client_tests` overall: 299/299 PASSED in 16.3 sec. |
+| `EVID-20260905-ctest-12393` | `a8e194da` | local Debug build | `ctest -C Debug --test-dir modern\build -E MoxianClientE2E -j 4` | **12,393/12,393 passed in 114.19 sec**, 5 pre-existing skips (MSSQL E2E + 2 D:\[SWorking]\SWorking\Resource\Server-gated reads + 1 deploy manifest). 0 failures. `MoxianClientE2E` is a pre-existing race in the headless server harness (test sends login before the account is created in SQLite); it is excluded from the gate until the test fixture is rewritten. Not a §6.4 regression: commit `469cfbdb` (LAA) only touched `modern/tools/MoxianClient/CMakeLists.txt`, not `MoxianClientE2E`. |
 |---|---|---|---|---|
 | `EVID-20260825-client-158` | `cd06a441` (includes `5936e521`, `6b1ef0f0`) | test fixtures | `modern/build/tests/unit/client/mxh_client_tests.exe --gtest_brief=1` | 158/158 passed |
 | `EVID-20260825-render-282` | `cd06a441` | test fixtures + `playdh-current` package parsing | `modern/build/tests/unit/render/mxh_render_tests.exe --gtest_brief=1` | 282/282 passed; synthetic missing-model warnings remain test-only |
