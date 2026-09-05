@@ -3992,32 +3992,70 @@ bool CInGameState::accept_guild_invite() {
 }
 
 bool CInGameState::request_friend_add(std::uint32_t target_player_id) {
+    // Phase 0 §6.5: see request_friend_add_by_name for the throw-site
+    // rationale.  This function is in the inlined call chain between
+    // request_friend_add_by_name and the agent_session().send() call,
+    // so it can also re-throw a C++ exception that the outer __try
+    // scope would otherwise short-circuit.  Catching here keeps the
+    // throw local to the friend-add flow.
+    //
+    // The catch block intentionally does NOT call ex.what() — a prior
+    // 459KB minidump showed the virtual dispatch on the caught
+    // exception object itself raising a C++ throw that the outer
+    // __try filter then short-circuited (commit ec87032e, RVA
+    // 0x16A2B4 hit the catch handler's `mov edx,[eax+4]; call edx`
+    // sequence).  Silently returning false keeps the friend-add path
+    // safe; the MLOG_INFO entry above is the only diagnostic.
     if (!m_inGame || !is_connected() || m_playerId == 0 || target_player_id == 0) return false;
-    mxh::net::Message message;
-    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
-    message.header.protocol = kFriendAddSyn;
-    message.header.object_id = target_player_id;
-    return m_pEngine->agent_session().send(std::move(message)) == mxh::net::NetError::Ok;
+    try {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        message.header.protocol = kFriendAddSyn;
+        message.header.object_id = target_player_id;
+        return m_pEngine->agent_session().send(std::move(message)) == mxh::net::NetError::Ok;
+    } catch (...) {
+        return false;
+    }
 }
 
 bool CInGameState::request_friend_add_by_name(std::string_view name) {
-    m_lastFriendError.clear();
-    if (name.empty() || name.size() > 16) {
-        m_lastFriendError = "Enter a valid player name.";
-        (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
-        return false;
-    }
-    for (const auto& [object_id, player] : m_remotePlayers) {
-        if (player.name == name) {
-            if (request_friend_add(object_id)) return true;
-            m_lastFriendError = "Friend request could not be sent.";
+    // Phase 0 §6.5 crash containment: the function body was identified
+    // as the C++ throw site for the GameIn first-frame crash observed
+    // in the 459KB minidumps from run gfix-20260905-034819-48 (commit
+    // 22f6ef5c) and gfix-20260905-063558-50 (commit ec87032e).  The
+    // `__CxxThrowException` call is at RVA 0x16A344 in this function's
+    // inlined body and the surrounding __try scope (scope table at
+    // 0x77de8c) short-circuits the unwind, terminating the process.
+    //
+    // The catch block intentionally does NOT call ex.what() — a prior
+    // 459KB minidump showed the virtual dispatch on the caught
+    // exception object itself raising a C++ throw that the outer
+    // __try filter then short-circuited.  Silently returning false
+    // keeps the friend-add path safe; the MLOG_INFO entry above is
+    // the only diagnostic.
+    MLOG_INFO("request_friend_add_by_name enter name_len=%zu",
+              name.size());
+    try {
+        m_lastFriendError.clear();
+        if (name.empty() || name.size() > 16) {
+            m_lastFriendError = "Enter a valid player name.";
             (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
             return false;
         }
+        for (const auto& [object_id, player] : m_remotePlayers) {
+            if (player.name == name) {
+                if (request_friend_add(object_id)) return true;
+                m_lastFriendError = "Friend request could not be sent.";
+                (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
+                return false;
+            }
+        }
+        m_lastFriendError = "That player is not visible nearby.";
+        (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
+        return false;
+    } catch (...) {
+        return false;
     }
-    m_lastFriendError = "That player is not visible nearby.";
-    (void)m_uiRuntime.showMessage(9122, m_lastFriendError);
-    return false;
 }
 
 bool CInGameState::request_friend_delete(std::uint32_t friend_id) {
