@@ -29,7 +29,8 @@ param(
     [string]$Config = 'Debug',
     [string]$RunRoot = '',
     [int]$ClientTimeoutSeconds = 180,
-    [string]$ExistingRunId = ''
+    [string]$ExistingRunId = '',
+    [switch]$NoAutoExit
 )
 
 $ErrorActionPreference = 'Stop'
@@ -155,10 +156,12 @@ $clientEnv['MXH_DUMP_DIR'] = $dumpsDir
 # Drive the client's GUI smoke handoff so the post-ack frame is
 # captured before the process exits.  MXH_GUI_SMOKE_EXIT=1 makes
 # the client request a clean exit after the GameIn state has
-# streamed 228 monsters.  The plan (§6.5) requires three
-# independent 10-minute Map10 stability runs; this script is the
-# shared capture harness for those runs.
-$clientEnv['MXH_GUI_SMOKE_EXIT'] = '1'
+# streamed 228 monsters.  Pass -NoAutoExit to keep the client in
+# Map10 for the full ClientTimeoutSeconds window (plan §6.5's
+# 10-minute stability gate).
+if (-not $NoAutoExit) {
+    $clientEnv['MXH_GUI_SMOKE_EXIT'] = '1'
+}
 # Character name is derived from the guid8 portion of the run id
 # so per-run accounts have a unique character in DB.  The legacy
 # client permits [A-Za-z0-9_] 4-16 chars, well within range.
