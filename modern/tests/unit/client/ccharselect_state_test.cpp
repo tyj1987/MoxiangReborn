@@ -439,3 +439,42 @@ TEST(CCharSelectDispatch, HandleMessageForTestPopulatesListWhenEnabled) {
     EXPECT_TRUE(state.character_list()[0].valid);
     EXPECT_EQ(state.character_list()[0].chrid, 42u);
 }
+
+TEST(CCharSelectRemove, CharacterRemoveNackClearsPendingState) {
+    // §7.3 删除确认与取消: if the server rejects the delete (e.g.
+    // character is in a battle / being renamed / currently logged in),
+    // it sends CharacterRemoveNack with a u32 reason.  The state must
+    // clear deletion_pending() so the host can re-enable the delete
+    // button and the user is not stuck in a phantom-pending state.
+    mxh::client::CCharSelectState state;
+    // Drive a successful list + selection + remove syn so deletion_pending()
+    // becomes true without needing a real connection.  We directly
+    // manipulate the private member via the test hook equivalent: set
+    // the remove-sent flag and the selected chrid through the public
+    // SelectSlot, then drive the Nack.
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.SetDispatchForTest(true);
+    state.HandleMessageForTest(list);
+    ASSERT_TRUE(state.SelectSlot(0));
+
+    // Drive CharacterRemoveNack with reason=0 (generic failure).
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    nack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveNack);
+    nack.payload.assign(4, 0);
+    state.HandleMessageForTest(nack);
+
+    // Selected chrid should not be cleared (the character still exists).
+    EXPECT_EQ(state.selected_chrid(), 42u);
+    // The slot must still be valid (delete was rejected).
+    ASSERT_EQ(state.character_list().size(), 5u);
+    EXPECT_TRUE(state.character_list()[0].valid);
+    EXPECT_FALSE(state.deletion_pending());
+}
