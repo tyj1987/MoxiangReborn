@@ -145,6 +145,13 @@ foreach ($kv in [Environment]::GetEnvironmentVariables('Process').GetEnumerator(
 }
 $clientEnv['MXH_RUN_ID'] = $runId
 $clientEnv['MXH_PROCESS'] = 'client'
+# Phase 0 §6.3: tell the client where to drop a minidump if it
+# crashes.  The capture tool pre-creates the dumps/ dir; the
+# handler in modern/src/client/crash_dump.cpp writes a minidump
+# named "<process>-<run>-<pid>-<excode>.dmp" there.  The install
+# is a no-op when this env var is missing, so a normal release
+# launch without the capture harness is unaffected.
+$clientEnv['MXH_DUMP_DIR'] = $dumpsDir
 # Drive the client's GUI smoke handoff so the post-ack frame is
 # captured before the process exits.  MXH_GUI_SMOKE_EXIT=1 makes
 # the client request a clean exit after the GameIn state has

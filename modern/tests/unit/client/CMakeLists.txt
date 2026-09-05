@@ -16,6 +16,7 @@ add_executable(mxh_client_tests
     effect_runtime_test.cpp
     char_make_options_test.cpp
     character_preview_controller_test.cpp
+    crash_dump_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE

@@ -41,6 +41,7 @@
 #include "mxh/render/SkyScene.hpp"
 #include "mxh/render/EntityScene.hpp"
 #include "mxh/client/CharacterPreviewController.hpp"
+#include "mxh/client/crash_dump.hpp"
 #include "mxh/compat/map_change_catalog.hpp"
 #include "mxh/render/render_typedef.hpp"
 #include "mxh/game/npc_role.hpp"  // M-NPC1: per-role NPC marker slot + quest indicator
@@ -2798,6 +2799,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // WinMain. 1:1 mirrors MHClient.cpp's WinMain order.
 // ---------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*show*/) {
+    // Phase 0 §6.3: install the controlled unhandled-exception
+    // handler first so a crash before the renderer is up still
+    // produces a run-id-tagged minidump in the capture tool's
+    // dumps/ directory.  The handler is a no-op when MXH_DUMP_DIR
+    // is not set (i.e. a normal release launch).
+    mxh::client::install_crash_dump_handler();
     ClientOptions options = parse_client_options();
     const auto settings_path = mxh::client::ClientSettingsStore::default_path();
     std::string settings_warning;
