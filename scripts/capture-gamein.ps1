@@ -152,6 +152,10 @@ $clientEnv['MXH_PROCESS'] = 'client'
 # independent 10-minute Map10 stability runs; this script is the
 # shared capture harness for those runs.
 $clientEnv['MXH_GUI_SMOKE_EXIT'] = '1'
+# Character name is derived from the guid8 portion of the run id
+# so per-run accounts have a unique character in DB.  The legacy
+# client permits [A-Za-z0-9_] 4-16 chars, well within range.
+$characterName = 'hero_' + $guid8
 
 $clientStdout = Join-Path $logDir 'client.stdout.log'
 $clientStderr = Join-Path $logDir 'client.stderr.log'
@@ -163,7 +167,9 @@ $clientArgs = @(
     '--state-frames-dir', $evidenceDir,
     '--auto-login',
     '--username', $accountName,
-    '--password', $passwordPlain
+    '--password', $passwordPlain,
+    '--auto-create',
+    '--character-name', $characterName
 )
 $clientProc = Start-Process -FilePath $clientExe `
     -ArgumentList $clientArgs `
@@ -221,6 +227,7 @@ $result = [ordered]@{
     ports = [ordered]@{ login = $LoginPort; agent = $AgentPort; map = $MapPort }
     backend = 'sqlite'
     test_account = [ordered]@{ name = $accountName; password = $passwordPlain }
+    character_name = $characterName
     started_at_utc = $clientLog.started_at_utc
     ended_at_utc   = $clientLog.ended_at_utc
     client = $clientLog
