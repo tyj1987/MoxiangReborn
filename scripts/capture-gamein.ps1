@@ -109,7 +109,12 @@ if ($LASTEXITCODE -ne 0) { throw "start_modern.ps1 failed with exit $LASTEXITCOD
 $sqlitePath = Join-Path $repoRoot 'deploy\runtime\modern\data\moxian.db'
 $dbCfgForRegister = "backend=sqlite;path=$sqlitePath"
 [Environment]::SetEnvironmentVariable('MXH_DATABASE_CONFIG', $dbCfgForRegister, 'Process')
-$accountName = 'cgi_' + ($runId -replace '[^a-z0-9]', '').Substring(0, [Math]::Min(13, ($runId -replace '[^a-z0-9]', '').Length))
+$accountNameBase = ($runId -replace '[^a-z0-9]', '')
+# Cap to 13 chars so 'cgi_' (4 chars) + base (≤13) = ≤17; the
+# register-test-account.ps1 regex caps at 16, so we must use ≤12
+# for the base.
+$accountNameBase = $accountNameBase.Substring(0, [Math]::Min(12, $accountNameBase.Length))
+$accountName = 'cgi_' + $accountNameBase
 $passwordPlain = 'Test1234!GameIn'
 Write-Host "Registering test account $accountName" -ForegroundColor Yellow
 & "$repoRoot\scripts\register-test-account.ps1" -AccountName $accountName -Password $passwordPlain -DbConfig $dbCfgForRegister | Out-Null
