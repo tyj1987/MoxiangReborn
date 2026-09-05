@@ -393,6 +393,8 @@ bool g_overviewCamera = false;
 bool g_debugUiBounds = false;
 std::string __g_stateFramesDir;
 int __g_currentState = -1;
+int __g_lastCapturedState = -1;
+std::uint64_t __g_stateEnteredAtMs = 0;
 std::string __g_pendingStateFrame;
 std::string g_evidenceDir;
 std::uint64_t g_evidenceFrameSequence = 0;
@@ -2351,7 +2353,22 @@ void renderFrame(HWND h) {
     }
 
     g_renderer->EndRender();
+    bool state_frame_ready = true;
+    if (__g_currentState == static_cast<int>(mxh::client::GameStateId::CharSelect)) {
+        state_frame_ready = g_charSelectState &&
+                            g_charSelectState->has_character_list();
+    } else if (__g_currentState == static_cast<int>(mxh::client::GameStateId::GameIn)) {
+        // The GameIn state becomes current before GameInAck and before the
+        // streamed entity set has been rendered.  Capturing that first frame
+        // produces a misleading all-black acceptance image.  Wait for the
+        // authoritative ack and a short render-settle interval instead.
+        state_frame_ready = g_inputTarget && g_inputTarget->is_in_game() &&
+                            g_renderTerrain && __g_stateEnteredAtMs != 0 &&
+                            GetTickCount64() - __g_stateEnteredAtMs >= 2500;
+    }
     if (!__g_stateFramesDir.empty() && __g_currentState >= 0 &&
+        state_frame_ready &&
+        __g_lastCapturedState != __g_currentState &&
         __g_pendingStateFrame.empty()) {
         // Build per-state frame path on first frame in this state.
         static const char* kStateNames[] = {
@@ -2368,6 +2385,7 @@ void renderFrame(HWND h) {
         std::string mutable_fname = __g_pendingStateFrame;
         __g_pendingStateFrame.clear();
         if (g_renderer->CaptureScreen(mutable_fname.data())) {
+            __g_lastCapturedState = __g_currentState;
             MLOG_INFO("mxh_client: state frame saved state=%d path=%s",
                       __g_currentState, mutable_fname.c_str());
         }
@@ -3422,6 +3440,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 }
             }
             if (cur_state != prev_state) {
+                __g_stateEnteredAtMs = GetTickCount64();
                 if ((prev_state == mxh::client::GameStateId::GameLoading ||
                      prev_state == mxh::client::GameStateId::MapChange) &&
                     cur_state != mxh::client::GameStateId::GameLoading &&
