@@ -95,6 +95,26 @@ $startArgs = @{
 & "$repoRoot\deploy\scripts\start_modern.ps1" @startArgs
 if ($LASTEXITCODE -ne 0) { throw "start_modern.ps1 failed with exit $LASTEXITCODE" }
 
+# -------------------------------------------------------------------
+# Stage 1b - register a per-run test account.  Each capture
+# attempt reuses the same MXH_DATABASE_CONFIG that start_modern
+# just used, so the registration lands in the same SQLite DB the
+# servers are reading.  The account name is derived from the run
+# id so two consecutive runs never collide.
+#
+# Important: start_modern's `finally` block resets
+# MXH_DATABASE_CONFIG to its previous (empty) value, so we have
+# to recompute the same backend=sqlite;path=... string here.
+# -------------------------------------------------------------------
+$sqlitePath = Join-Path $repoRoot 'deploy\runtime\modern\data\moxian.db'
+$dbCfgForRegister = "backend=sqlite;path=$sqlitePath"
+[Environment]::SetEnvironmentVariable('MXH_DATABASE_CONFIG', $dbCfgForRegister, 'Process')
+$accountName = 'cgi_' + ($runId -replace '[^a-z0-9]', '').Substring(0, [Math]::Min(13, ($runId -replace '[^a-z0-9]', '').Length))
+$passwordPlain = 'Test1234!GameIn'
+Write-Host "Registering test account $accountName" -ForegroundColor Yellow
+& "$repoRoot\scripts\register-test-account.ps1" -AccountName $accountName -Password $passwordPlain -DbConfig $dbCfgForRegister | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "register-test-account.ps1 failed with exit $LASTEXITCODE" }
+
 # Mirror the server logs into the run dir so the per-run evidence
 # bundle stands alone.  The original logs at deploy\runtime\modern\logs
 # continue to receive the redirected stdout/stderr.
@@ -136,7 +156,10 @@ $clientArgs = @(
     '--login-port', "$LoginPort",
     '--map', "$MapNumber",
     '--resource-profile', $ResourceProfileId,
-    '--state-frames-dir', $evidenceDir
+    '--state-frames-dir', $evidenceDir,
+    '--auto-login',
+    '--username', $accountName,
+    '--password', $passwordPlain
 )
 $clientProc = Start-Process -FilePath $clientExe `
     -ArgumentList $clientArgs `
@@ -193,6 +216,7 @@ $result = [ordered]@{
     map_number = $MapNumber
     ports = [ordered]@{ login = $LoginPort; agent = $AgentPort; map = $MapPort }
     backend = 'sqlite'
+    test_account = [ordered]@{ name = $accountName; password = $passwordPlain }
     started_at_utc = $clientLog.started_at_utc
     ended_at_utc   = $clientLog.ended_at_utc
     client = $clientLog
@@ -218,6 +242,7 @@ $result = [ordered]@{
         'evidence freshness is enforced: every .tga is the same run id and was captured'
         'during the matching client process lifetime.  A black-frame or wrong-size .tga'
         'is reported as FAIL by the human acceptance step (see plan §6.1).'
+        'test account is per-run and derived from the run id; reuse is safe across runs.'
     )
 }
 $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $runDir 'result.json') -Encoding utf8
