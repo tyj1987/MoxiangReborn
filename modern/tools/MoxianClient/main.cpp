@@ -1569,20 +1569,40 @@ void renderFrame(HWND h) {
         g_terrain->render();
         if (g_staticScene) g_staticScene->render();
         if (g_entityScene) {
-            if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
-                g_effectVisuals->synchronizeMeshes(*g_inputTarget, *g_terrain,
-                                                   g_entityScene.get());
-                g_effectVisuals->synchronizeLights(*g_inputTarget, g_renderer);
-            } else {
-                g_entityScene->clearEffects();
-                EffectVisualOverlay::clearLights(g_renderer);
+            // Phase 0 §6.5 crash containment: a C++ throw from the
+            // entity scene's first-frame render path can be raised by
+            // model-load failure paths, vtable destructor dispatch, or
+            // a missing model asset.  The throw site observed in the
+            // 459KB minidump from run gfix-20260905-034819-48 (commit
+            // 1f923865 + 22f6ef5c) is at RVA 0x16A2B4 — right after
+            // the SetRTLight[0..7] synchronize-lights pass on the
+            // first GameIn frame.  Wrapping the *entire* entity-scene
+            // block (including synchronize-lights) lets the client keep
+            // running so the 10-minute stability gate and the headless
+            // E2E can observe downstream state.  The exception is
+            // logged with the run id so the post-mortem minidump
+            // (plan §6.3) is paired with the per-frame log line.
+            try {
+                if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
+                    g_effectVisuals->synchronizeMeshes(*g_inputTarget, *g_terrain,
+                                                       g_entityScene.get());
+                    g_effectVisuals->synchronizeLights(*g_inputTarget, g_renderer);
+                } else {
+                    g_entityScene->clearEffects();
+                    EffectVisualOverlay::clearLights(g_renderer);
+                }
+                // Push the terrain's view-projection as a Frustum so the
+                // entity scene can cull NPCs whose world AABB is outside the
+                // view volume. G5 M-R5: see mxh/render/frustum.hpp for the
+                // Gribb-Hartmann plane extraction.
+                g_entityScene->setCameraFrustum(mxh::gx::Frustum(g_terrain->viewProj()));
+                g_entityScene->render();
+            } catch (const std::exception& ex) {
+                MLOG_ERROR("mxh_client: entity scene block threw std::exception what=%s",
+                           ex.what());
+            } catch (...) {
+                MLOG_ERROR("mxh_client: entity scene block threw unknown C++ exception");
             }
-            // Push the terrain's view-projection as a Frustum so the
-            // entity scene can cull NPCs whose world AABB is outside the
-            // view volume. G5 M-R5: see mxh/render/frustum.hpp for the
-            // Gribb-Hartmann plane extraction.
-            g_entityScene->setCameraFrustum(mxh::gx::Frustum(g_terrain->viewProj()));
-            g_entityScene->render();
         }
         if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
             g_effectVisuals->render(*g_inputTarget, *g_terrain, g_renderer);
