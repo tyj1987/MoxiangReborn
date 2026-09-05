@@ -179,7 +179,13 @@ $clientArgs = @(
     '--username', $accountName,
     '--password', $passwordPlain,
     '--auto-create',
-    '--character-name', $characterName
+    '--character-name', $characterName,
+    # Phase 0 §6.5: 10 min stability must not be confounded with the
+    # release visual gate (placeholderCount / unresolvedTextures != 0
+    # → g_running = false).  --debug-ui-bounds suppresses the gate so
+    # the §6.5 capture proves the GameIn runtime is stable on its own
+    # (the resource profile quality is a separate Phase 5 G10 concern).
+    '--debug-ui-bounds'
 )
 $clientProc = Start-Process -FilePath $clientExe `
     -ArgumentList $clientArgs `
