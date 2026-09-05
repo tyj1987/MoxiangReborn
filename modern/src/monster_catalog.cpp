@@ -39,8 +39,19 @@ std::optional<MonsterCatalog> MonsterCatalog::parse_text(
         visual.kind = static_cast<std::uint16_t>(kind);
         visual.name.assign(fields[1]);
         visual.chx_name.assign(fields[6]);
-        try { visual.scale = std::stof(std::string(fields[7])); }
-        catch (...) { visual.scale = 1.0f; }
+        try {
+            float parsed_scale = 1.0f;
+            const auto* first = fields[7].data();
+            const auto* last = first + fields[7].size();
+            const auto fc = std::from_chars(first, last, parsed_scale);
+            if (fc.ec == std::errc{} && fc.ptr == last) {
+                visual.scale = parsed_scale;
+            } else {
+                visual.scale = 1.0f;
+            }
+        } catch (...) {
+            visual.scale = 1.0f;
+        }
         if (!(visual.scale > 0.0f && visual.scale < 100.0f)) visual.scale = 1.0f;
         catalog.entries_.push_back(std::move(visual));
     }

@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -82,12 +83,10 @@ bool parse_i32(const std::string& tok, std::int32_t& out) {
 
 bool parse_f32(const std::string& tok, float& out) {
     if (tok.empty()) return false;
-    try {
-        out = std::stof(tok);
-        return true;
-    } catch (...) {
-        return false;
-    }
+    const auto* first = tok.data();
+    const auto* last = first + tok.size();
+    const auto fc = std::from_chars(first, last, out);
+    return fc.ec == std::errc{} && fc.ptr == last;
 }
 
 // Apply a 12-element AdditiveAttr segment to the SkillInfo.
