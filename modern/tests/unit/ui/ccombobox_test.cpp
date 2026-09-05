@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+
 namespace {
 
 // cPushupButton-like placeholder. cPushupButton is opaque in
@@ -204,6 +206,26 @@ TEST(CComboBox, AddLinkComboBtn) {
     c.Add(btn);
     EXPECT_EQ(c.GetComboBtn(), btn);
     delete btn;
+}
+
+TEST(CComboBox, ParentAttachmentComposesAbsolutePositionAndArrowOffset) {
+    mxh::ui::cWindow parent;
+    parent.Init(301, 125, 197, 180, nullptr, 1);
+
+    auto combo = std::make_unique<mxh::ui::cComboBox>();
+    combo->Init(58, 29, 127, 21, nullptr, 2);
+    auto* comboPtr = combo.get();
+
+    auto* button = new mxh::ui::cWindow;
+    button->Init(100, 1, 19, 19, nullptr, 3);
+    comboPtr->Add(button);
+    parent.Add(std::move(combo));
+
+    EXPECT_EQ(comboPtr->absX(), 359);
+    EXPECT_EQ(comboPtr->absY(), 154);
+    EXPECT_EQ(button->absX(), 459);
+    EXPECT_EQ(button->absY(), 155);
+    delete button;
 }
 
 TEST(CComboBox, AddNullBtnIsSafe) {

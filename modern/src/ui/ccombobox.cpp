@@ -191,29 +191,19 @@ void cComboBox::Add(cWindow* pushupBtn) {
     // check is documented as a no-op.
     if (!pushupBtn) return;
     m_pComboBtn = pushupBtn;
-    // 1:1 with legacy: SetAbsXY on the pushup button using
-    // m_absPos + m_relPos. Modern cWindow doesn't have a
-    // separate m_relPos (rel position is per-window). We
-    // assume the pushup button's rel position is (0, 0) for
-    // 1:1 (legacy stores it as m_relPos in the button).
-    if (m_pComboBtn) {
-        m_pComboBtn->SetAbsXY(absX(), absY());
-        m_pComboBtn->setParent(this);
-    }
+    m_pComboBtn->setParent(this);
+    m_pComboBtn->SetAbsXY(absX() + m_pComboBtn->relX(),
+                          absY() + m_pComboBtn->relY());
 }
 
 void cComboBox::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
-    // 1:1 with legacy. cWindow::SetAbsXY + cascade to pushup
-    // button. Modern cListItem doesn't have absX/absY; we
-    // store them in a private m_absX/m_absY if needed. (For
-    // cStallFindDlg use, abs position is set via the dialog
-    // parent's SetAbsXY + the cWindow tree.)
-    (void)x; (void)y;
+    // cWindow::Add dispatches this override when attaching the combo to its
+    // parent. Preserve the composed screen-space origin; otherwise IDDlg's
+    // (58,29) child point is rendered at the desktop's top-left.
+    cWindow::SetAbsXY(x, y);
     if (m_pComboBtn) {
-        // Cascading: modern cPushupButton is opaque; we just
-        // forward the abs position. The engine-binder layer
-        // (Phase 14+) will re-add the rel-position math.
-        m_pComboBtn->SetAbsXY(x, y);
+        m_pComboBtn->SetAbsXY(x + m_pComboBtn->relX(),
+                              y + m_pComboBtn->relY());
     }
 }
 
