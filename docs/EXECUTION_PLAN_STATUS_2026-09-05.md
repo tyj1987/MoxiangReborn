@@ -14,7 +14,7 @@
 |---|---|---|---|
 | **Phase 0 §6.5** GameInAck 后客户端终止或卡死 | **PASSED 3/3** | `EVID-20260905-gamein-3x10min` | 3× 10 min capture 全部 exit_code=0, state-gamein.tga 稳定 |
 | **Phase 0 §6.4** 协议突发测试 | **PASSED 4/4** | `EVID-20260905-protocol-burst` | 4 个 ProtocolBurst test, mxh_client_tests 整体 299/299 |
-| Phase 1 §7 登录/角色/显示 | **§7.2 部分 PASS (12+4/14 boundary + Nack)** | 12 LoginStateWire + 4 LoginStateErrorMatrix | UI fix 在 §5 commit 10365b7a 已包含; §7.2 14 项 错误矩阵 13 项靠 real server 测 |
+| Phase 1 §7 登录/角色/显示 | **§7.2 PASS 9/14 + §7.3 PASS 2 silent-ingress** | 12 LoginStateWire + 4 LoginStateErrorMatrix + 2 CCharMakeNameCheck | UI fix 在 §5 commit 10365b7a 已包含; §7.2 14 项 错误矩阵 13 项靠 real server 测 |
 | Phase 2 §8 SQLite/MSSQL | PENDING | — | 14 步 + 11 语义一致性 + 真人双验收 |
 | Phase 3 §9 启动器 G4/G5 | PENDING | — | 签验/续传/Profile/MapChange |
 | Phase 4 §10 Map10 G6-G9 | PENDING | — | 11+11+战斗+掉落+老客户端对比 |
