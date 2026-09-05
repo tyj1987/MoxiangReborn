@@ -1,0 +1,5 @@
+add_executable(mx_dump_inspect mx_dump_inspect.cpp)
+target_link_libraries(mx_dump_inspect PRIVATE dbghelp)
+if(MSVC)
+    target_compile_options(mx_dump_inspect PRIVATE /EHsc /std:c++20 /utf-8)
+endif()
