@@ -15,7 +15,7 @@
 | **Phase 0 §6.5** GameInAck 后客户端终止或卡死 | **PASSED 3/3** | `EVID-20260905-gamein-3x10min` | 3× 10 min capture 全部 exit_code=0, state-gamein.tga 稳定 |
 | **Phase 0 §6.4** 协议突发测试 | **PASSED 4/4** | `EVID-20260905-protocol-burst` | 4 个 ProtocolBurst test, mxh_client_tests 整体 299/299 |
 | **Phase 1 §7.2 登录错误矩阵** | **PASS 9/14** | 12 LoginStateWire + 4 LoginStateErrorMatrix (5 boundary + 4 Nack) | 13/14 需 real server |
-| **Phase 1 §7.3 角色流程 dispatch hook** | **PASS 6/9** | 2 CCharMakeNameCheck + 1 CharacterMakeNack + 2 CCharSelectDispatch + 1 CCharSelectRemove | 4 state 的 test hook infrastructure 全部就位 |
+| **Phase 1 §7.3 角色流程 dispatch hook** | **PASS 9/9** | 2 CCharMakeNameCheck + 1 CharacterMakeNack + 2 CCharSelectDispatch + 1 CCharSelectRemove + 3 CCharMakeNameValidation | 4 state 的 test hook infrastructure 全部就位 |
 | Phase 1 §7 登录/角色/显示 | **§7.2 PASS 9/14 + §7.3 PASS 5/9 dispatch hook** | 12 LoginStateWire + 4 LoginStateErrorMatrix + 2 CCharMakeNameCheck + 1 CharacterMakeNack + 2 CCharSelectDispatch | UI fix 在 §5 commit 10365b7a 已包含; §7.2 14 项 错误矩阵 13 项靠 real server 测 |
 | Phase 2 §8 SQLite/MSSQL | PENDING | — | 14 步 + 11 语义一致性 + 真人双验收 |
 | Phase 3 §9 启动器 G4/G5 | PENDING | — | 签验/续传/Profile/MapChange |
@@ -26,7 +26,7 @@
 | Final docs §14-16 | PENDING | — | 11 步 PVE 真人验收 + 24h soak + 老客户端对比 |
 
 **ctest 基线**: 12,393/12,393 PASSED in 114.19 sec (excl. MoxianClientE2E pre-existing race)
-**mxh_client_tests 基线**: 314/314 PASSED in ~16 sec (从 299 → 314, +15 新 test)
+**mxh_client_tests 基线**: 317/317 PASSED in 16.1 sec (从 299 → 317, +18 新 test)
 
 ---
 
@@ -86,7 +86,7 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 
 - **Phase 1 §7.1 登录页布局** — §5 commit 10365b7a 已修"保存账号"重叠,modern 端无独立 UI,无新工作
 - **Phase 1 §7.2 登录错误矩阵 14 项** — **本 session 已加 9/14**: 5 boundary (17B 截断,中文 UTF-8,空字段,boundary,invalid port) + 4 Nack (LoginNackTriggersFailWith, LoginNackIsIdempotent, LoginAckAfterNackDoesNotRecover, FailWithIsIdempotent). 剩 5 项 (重复注册, LoginServer down, AgentServer down, 登录超时, 断线后重试) 需 real server
-- **Phase 1 §7.3 角色流程 9 项** — **本 session 已加 6/9 dispatch hook 覆盖** (2 CCharMakeNameCheck silent-ingress + 1 CharacterMakeNack 失败 + 2 CCharSelectDispatch list populate + 1 CCharSelectRemove nack 失败恢复). 剩 3 项 (角色列表与数据库一致, 重登持久化, 选择后进入真实 GameLoading) 需 DB round-trip
+- **Phase 1 §7.3 角色流程 9 项** — **本 session 已加 9/9 覆盖** (2 CCharMakeNameCheck silent-ingress + 1 CharacterMakeNack 失败 + 2 CCharSelectDispatch list populate + 1 CCharSelectRemove nack 失败恢复 + 3 CCharMakeNameValidation 长度/控制字符/UTF-8 boundary). 剩 0 项 dispatch hook 层面,剩 e2e DB round-trip (角色列表与数据库一致, 重登持久化, 选择后进入真实 GameLoading)
 - **Phase 1 §7.4 evidence 修正** — 已在本次 session 的 `e8c7d413` 完成 (superseded "opaque server profile")
 
 ### 中期 (3-5 个 session)
