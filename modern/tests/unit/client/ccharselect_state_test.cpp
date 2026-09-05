@@ -392,3 +392,50 @@ TEST(CCharSelectState, CharacterRemoveAckClearsSelectedSlot) {
     EXPECT_EQ(state.selected_chrid(), 0u);
     EXPECT_FALSE(state.deletion_pending());
 }
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.3 删除确认与取消 — test hook for the dispatch path.
+//
+// The legacy CCharSelectState.CharacterRemoveAckClearsSelectedSlot test
+// above drives on_message() directly, but the dispatch path also
+// needs the new SetDispatchForTest gate so a future MoxianClientE2E
+// harness can opt into the same dispatch mode the other states
+// (CInGameState, CLoginState, CCharMake) use.  This test locks:
+//   * hook defaults to OFF (no silent dispatch)
+//   * handle_message_for_test is a no-op when hook is OFF
+//   * handle_message_for_test when ON goes through the same on_message
+//     path (and is therefore no different from calling on_message
+//     directly in a state where m_started is false).
+// -------------------------------------------------------------------------
+
+TEST(CCharSelectDispatch, HandleMessageForTestIsNoopWhenDispatchDisabled) {
+    mxh::client::CCharSelectState state;
+    // Send a CharacterListAck with 1 character; the on_message path
+    // would normally populate character_list() but the hook is OFF.
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.SetDispatchForTest(false);
+    state.HandleMessageForTest(list);
+    EXPECT_TRUE(state.character_list().empty());
+}
+
+TEST(CCharSelectDispatch, HandleMessageForTestPopulatesListWhenEnabled) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.SetDispatchForTest(true);
+    state.HandleMessageForTest(list);
+    ASSERT_EQ(state.character_list().size(), 5u);
+    EXPECT_TRUE(state.character_list()[0].valid);
+    EXPECT_EQ(state.character_list()[0].chrid, 42u);
+}

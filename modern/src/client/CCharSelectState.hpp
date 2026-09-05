@@ -160,6 +160,19 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // Idempotent (second call is a no-op).
     void Start(CEngine* engine, bool use_hsel = false);
 
+    // ---- Phase 1 §7.3 protocol-burst test hooks ------------------------
+    // Direct dispatch (skips network recv thread) so the test can drive
+    // the state with synthetic CharacterRemoveAck / ListAck packets and
+    // verify §7.3 删除确认 / 取消 and 重登持久化 paths without spinning
+    // up a real AgentServer.  Mirrors the CInGameState / CLoginState /
+    // CCharMake hook pattern (commits a8e194da / d3804f82 / f8eb9acd).
+    // Production code never calls these.
+    void SetDispatchForTest(bool enabled) noexcept { m_dispatchEnabledForTest = enabled; }
+    void HandleMessageForTest(const mxh::net::Message& msg) {
+        if (!m_dispatchEnabledForTest) return;
+        on_message({}, msg);
+    }
+
     // Manual selection is the production default. The test-only switch
     // preserves deterministic unattended E2E coverage.
     void SelectCharacter(std::uint32_t chrid);
@@ -226,6 +239,11 @@ private:
     bool                     m_listSynSent  = false;
     std::uint32_t            m_removeChrid  = 0;
     bool                     m_autoSelectForTest = false;
+    // Phase 1 §7.3: opt-in flag for ccharselect_state_test to call
+    // on_message() directly.  When false, HandleMessageForTest is a
+    // no-op so a missing test setup cannot accidentally exercise the
+    // dispatch path.  Defaults to false.
+    bool                     m_dispatchEnabledForTest = false;
     bool                     m_releasing    = false;
     bool                     m_failed      = false;
     std::string              m_failureReason;
