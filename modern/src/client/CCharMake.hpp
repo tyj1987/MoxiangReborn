@@ -172,6 +172,18 @@ public:
     // Idempotent (second call is a no-op).
     void Start(CEngine* engine, bool use_hsel = false);
 
+    // ---- Phase 1 §7.3 protocol-burst test hooks ------------------------
+    // Direct dispatch (skips network recv thread) so the test can slam
+    // the state with synthetic NameCheck / MakeAck packets and verify
+    // the create flow without spinning up a real AgentServer.  Mirrors
+    // the CInGameState / CLoginState hook pattern (commits a8e194da /
+    // d3804f82).  Production code never calls these.
+    void SetDispatchForTest(bool enabled) noexcept { m_dispatchEnabledForTest = enabled; }
+    void HandleMessageForTest(const mxh::net::Message& msg) {
+        if (!m_dispatchEnabledForTest) return;
+        on_message({}, msg);
+    }
+
     // M-R7.1 (G3 bug fix 2026-08-20): host reads the loaded cDialog
     // tree to render the 1:1 UI (CharMakeNewDlg.bin — 49 children).
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
@@ -230,6 +242,11 @@ private:
     bool                     m_makeSent = false;
     bool                     m_failed   = false;
     bool                     m_releasing = true;
+    // Phase 1 §7.3: opt-in flag for cchar_make_state_test to call
+    // on_message() directly.  When false, HandleMessageForTest is a
+    // no-op so a missing test setup cannot accidentally exercise the
+    // dispatch path.  Defaults to false.
+    bool                     m_dispatchEnabledForTest = false;
     std::string              m_failureReason;
 };
 

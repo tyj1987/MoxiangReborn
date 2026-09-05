@@ -8,6 +8,8 @@
 //   * CCharMake default state + lifecycle.
 
 #include "CCharMake.hpp"
+#include "mxh/proto/protocol.hpp"
+#include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
 
@@ -277,5 +279,52 @@ TEST(CCharMake, EmptyNameRejected) {
     EXPECT_TRUE(s.is_failed());
     EXPECT_NE(s.failure_reason().find("empty name"),
               std::string::npos);
+    s.Release();
+}
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.3 角色流程 — NameCheckAck/Nack test hook coverage.
+//
+// The full name check path requires a live AgentServer connection
+// (CheckCurrentName() returns false when is_connected() is false and
+// the m_nameCheckPending flag is only set after a successful send).
+// The hook below lets us directly drive the dispatch path so we can
+// lock the per-message behavior: the ack path stores
+// m_nameAvailable = true, the nack path stores false, and a packet
+// without a pending check is silently ignored.  This complements the
+// legacy CharMakeWire payload tests, which only cover the encoder.
+// -------------------------------------------------------------------------
+
+TEST(CCharMakeNameCheck, HandleMessageForTestIsNoopWhenDispatchDisabled) {
+    CCharMake s;
+    s.Init(nullptr);
+    s.SetDispatchForTest(false);
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterNameCheckAck);
+    m.payload = {};
+    s.HandleMessageForTest(m);
+    EXPECT_FALSE(s.name_available().has_value());
+    s.Release();
+}
+
+TEST(CCharMakeNameCheck, HandleMessageForTestWithoutPendingIsIgnored) {
+    // Drive a NameCheckAck through the dispatch path with the hook
+    // enabled but no prior CheckCurrentName() call: the per-message
+    // handler must guard on m_nameCheckPending and not stomp the
+    // initial std::nullopt state.  This is the §7.3 silent-ingress
+    // defense — a stray ack from a previous session must not flip the
+    // availability indicator.
+    CCharMake s;
+    s.Init(nullptr);
+    s.SetDispatchForTest(true);
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterNameCheckAck);
+    m.payload = {};
+    s.HandleMessageForTest(m);
+    EXPECT_FALSE(s.name_available().has_value());
     s.Release();
 }
