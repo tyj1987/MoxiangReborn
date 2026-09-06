@@ -380,6 +380,24 @@ namespace {
 
 I4DyuchiGXRenderer* g_renderer = nullptr;
 std::unique_ptr<mxh::gx::TerrainScene> g_terrain;
+// Map-authored clear colour from BMHM BACKCOLOR. Pure black (0xff000000)
+// made terrain holes look like a void even when sky/STM were present.
+std::uint32_t g_mapClearColor = 0xff000000u;
+// Map-authored FOG state from BMHM *FOG* / *FOGCOLOR / *FOGDENSITY /
+// *FOGSTART / *FOGEND. TerrainScene keeps owning HFL; the BMHM is the
+// authoritative source for the runtime fog band, so the FOG* keys are
+// surfaced here (mirroring the g_mapClearColor pattern) and pushed to
+// the renderer between configureCamera() and the first scene draw.
+// When *FOG 0 the renderer's fog state is explicitly disabled so a
+// subsequent map that does enable fog cannot leak a stale band.
+struct MapFogState {
+    bool         enabled = false;
+    float        start   = 2000.0f;
+    float        end     = 8000.0f;
+    float        density = 1.0f;
+    std::uint32_t color  = 0x80808080u;  // legacy RGBA_MAKE(a,r,g,b)
+};
+MapFogState g_mapFog;
 std::unique_ptr<mxh::gx::StaticScene> g_staticScene;
 std::unique_ptr<mxh::gx::SkyScene> g_skyScene;
 std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
@@ -596,7 +614,14 @@ public:
             tile_table_ = mxh::compat::TtbTileTable::load(tile_path);
             if (!tile_table_ || tile_table_->tiles.empty())
                 return fail("Tile table unavailable: " + tile_path.string(), error);
-            MLOG_INFO("mxh_client: loaded TTB %s (%ux%u tiles)",
+            // TTB audit: per the architect's T2 ruling the tile table is
+            // intentionally load-only here. TerrainScene keeps owning HFL
+            // as the runtime terrain authority and does not consume the
+            // TTB; the parsed table is held for the lifetime of this
+            // session so any future feature that needs tile metadata can
+            // read it through `tile_table_` without re-parsing the file,
+            // but no current render or game-logic path is wired to it.
+            MLOG_INFO("mxh_client: loaded TTB %s (%ux%u tiles, load-only)",
                       tile_path.string().c_str(),
                       static_cast<unsigned>(tile_table_->width),
                       static_cast<unsigned>(tile_table_->height));
@@ -677,6 +702,30 @@ public:
         }
         g_renderTerrain = true;
         if (g_overviewCamera) g_captureTerrainFrame = options_.save_frame;
+        if (descriptor_) {
+            g_mapClearColor = descriptor_->desc().back_color
+                                  ? descriptor_->desc().back_color
+                                  : 0xff000000u;
+            // The fog band comes from the BMHM (*FOG* keys); TerrainScene
+            // keeps owning HFL, so the FOG* values are surfaced here and
+            // pushed to the renderer between configureCamera() and the
+            // first scene draw in renderFrame(). When the map author
+            // disabled fog the renderer is explicitly told to clear any
+            // previous band so a later fog-enabled map cannot leak.
+            const auto& dd = descriptor_->desc();
+            g_mapFog.enabled = dd.fog_enabled;
+            g_mapFog.start   = dd.fog_start;
+            g_mapFog.end     = dd.fog_end;
+            g_mapFog.density = dd.fog_density;
+            g_mapFog.color   = dd.fog_color;
+            MLOG_INFO("mxh_client: map clear color=0x%08x (from BMHM)",
+                      g_mapClearColor);
+            MLOG_INFO("mxh_client: map fog %s start=%.1f end=%.1f "
+                      "density=%.2f color=0x%08x (from BMHM)",
+                      g_mapFog.enabled ? "enabled" : "disabled",
+                      g_mapFog.start, g_mapFog.end, g_mapFog.density,
+                      g_mapFog.color);
+        }
         mark(progress, 10);
         complete_ = true;
         MLOG_INFO("mxh_client: staged GameLoading complete map=%u", static_cast<unsigned>(map_num_));
@@ -1575,14 +1624,31 @@ void renderFrame(HWND h) {
     };
     g_renderer->BeginRender(
         content.width > 0 && content.height > 0 ? &contentRect : nullptr,
-        0xff000000, 0);
+        g_mapClearColor, 0);
 
     if (g_renderTerrain && g_terrain) {
         if (g_inputTarget) {
             g_terrain->setCameraDistance(g_inputTarget->camera_distance());
             g_terrain->setCameraYaw(g_inputTarget->camera_yaw());
         }
-        g_terrain->configureCamera(800.0f / 600.0f);
+        const float aspect = (content.width > 0 && content.height > 0)
+            ? (static_cast<float>(content.width) /
+               static_cast<float>(content.height))
+            : (800.0f / 600.0f);
+        g_terrain->configureCamera(aspect);
+        // Apply the map-authored fog band from the BMHM descriptor. This
+        // is the architect-mandated T1 wiring: after configureCamera and
+        // before any scene draw, the renderer's FOG must reflect the
+        // active map. TerrainScene keeps owning HFL; the BMHM is the
+        // single source of truth for *FOG*/FOGCOLOR. Clear colour stays
+        // BACKCOLOR (applied via BeginRender above) and is not affected
+        // by the fog band.
+        if (g_mapFog.enabled) {
+            g_renderer->EnableFog(g_mapFog.start, g_mapFog.end,
+                                  g_mapFog.density, g_mapFog.color, 0);
+        } else {
+            g_renderer->DisableFog();
+        }
         // Push the map-specific (X, Z) half-extent to the entity + static
         // scenes so they re-centre their own vertices by the same offset
         // the terrain mesh builder subtracted in `load()`.  This replaces
