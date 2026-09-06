@@ -15,6 +15,7 @@
 #include "mxh/db/mssql_odbc_adapter.hpp"
 #endif
 
+#include <cstdlib>
 #include <gtest/gtest.h>
 
 using namespace mxh::db;
@@ -115,6 +116,33 @@ TEST(MssqlOdbcAdapter, DisconnectIsIdempotent) {
     ASSERT_NE(a, nullptr);
     a->disconnect();
     a->disconnect();  // second call must be a no-op, not a crash
+    EXPECT_FALSE(a->is_connected());
+}
+
+// Connects to the local SQL Server via the shared-memory (lpc) protocol
+// using `host=(local)`.  The local MSSQLSERVER on this machine does not
+// listen on TCP 1433, so `host=localhost` trips the 5-second
+// `SQL_LOGIN_TIMEOUT` with a `TCP 提供程序: 等待的操作过时` error; using
+// the parenthesized form makes `MssqlOdbcAdapter::build_conn_string`
+// detect a `pipe_style` host and omit the `,port` suffix, which routes
+// `SQLDriverConnect` through lpc and reaches the server immediately.
+//
+// Gated by `MXH_MSSQL_E2E` so unconfigured CI does not need MSSQL.
+// See CHANGELOG entry "MSSQLSERVER local ODBC: host=(local) vs
+// host=localhost" (2026-09-06) for the root cause.
+TEST(MssqlOdbcAdapter, ConnectToLocalServerViaSharedMemorySucceeds) {
+    const char* raw = std::getenv("MXH_MSSQL_E2E");
+    if (!raw || !*raw) {
+        GTEST_SKIP() << "set MXH_MSSQL_E2E=backend=mssql_odbc;host=(local);database=...;";
+    }
+    auto a = make_adapter("mssql_odbc");
+    ASSERT_NE(a, nullptr);
+    auto cfg = ConnectionConfig::from_kv_string(raw);
+    cfg.backend = "mssql_odbc";
+    auto r = a->connect(cfg);
+    ASSERT_TRUE(r.ok()) << r.error_message;
+    EXPECT_TRUE(a->is_connected());
+    a->disconnect();
     EXPECT_FALSE(a->is_connected());
 }
 
