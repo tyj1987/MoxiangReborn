@@ -47,6 +47,12 @@
   - `Test2` deletes the test row by `charname` *and* by `chrid` because the `character_info` table has a unique index `ux_character_info_charname` and a previous interrupted run can leave a same-name row with a different chrid, which the original chrid-only delete would not catch.
 - ctest defaults still skip all 3 (env var not set globally); per-machine opt-in via `MXH_MSSQL_E2E` keeps the unconfigured CI path unchanged. Full ctest baseline remains 12,418/12,418 PASS in 116.53 sec.
 
+### MxhResourceParse.ReadMhBin_PenaltyTime_bin — Panelty/Penalty filename tolerance (2026-09-06)
+
+- Commit `1396ff5f` — the test used to hard-code `PenaltyTime.bin` (legacy `GameResourceManager.cpp:4146` spelling, double L), but the canonical PlayDH ships it as `PaneltyTime.bin` (single L — a packaging typo from the original release, **not** something we are allowed to rename: `AGENTS.md §0` forbids resource-byte edits).
+- Test now tries `PenaltyTime.bin` first, then `PaneltyTime.bin`, with the matched name used in the assertion error messages. `MxhResourceParse.ReadMhBin_PenaltyTime_bin` now PASSES in 0.01 sec; full ctest baseline remains 12,418/12,418 PASS in 115.57 sec, SKIP count drops from 5 to 4.
+- The remaining SKIP test in `MxhResourceParse` is `MxhResourcePayloadSha256.VerifyManifest_Deploy`, which loads `resource_payload_manifest_deploy.json` and verifies files under `deploy/server/Distribute/Resource` — a deploy-time artifact that does not exist in the source tree, so the test legitimately skips outside of a release-pipeline run.
+
 ### Governance and provenance
 
 - Protected 12 unreachable Git commits with backup refs and a verified bundle.
