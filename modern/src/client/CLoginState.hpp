@@ -34,6 +34,7 @@
 #include "CCharSelectState.hpp"   // defines LoginResult (shared with CCharSelectState)
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -142,6 +143,23 @@ public:
         on_message({}, msg);
     }
 
+    // ---- Phase 1 §7.2 login-timeout test hook ----------------------------
+    // Override the application-level LoginAck timeout.  Production code
+    // uses the default 10-second budget; tests set a sub-second budget
+    // to verify the timeout fires when no LoginAck/Nack arrives.  See
+    // CHANGELOG entry "CLoginState login-timeout test hook" (2026-09-06).
+    void SetLoginAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
+        m_loginAckTimeout = t;
+    }
+
+    // Arm the LoginAck deadline as if `RequestLogin` had just been sent.
+    // Tests use this to drive the timeout path without needing a real
+    // DistConnectSuccess (which would touch m_client->send).  Production
+    // code never calls this.
+    void ArmLoginAckDeadlineForTest() noexcept {
+        m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
+    }
+
 private:
     void handle_message(mxh::net::ConnectionId id, const mxh::net::Message& msg);
     void handle_disconnect(mxh::net::ConnectionId id, mxh::net::NetError reason);
@@ -179,6 +197,14 @@ private:
     std::atomic<bool>        m_ackReceived {false};
     std::atomic<bool>        m_failed     {false};
     std::string              m_failureReason;
+
+    // Phase 1 §7.2: application-level LoginAck timeout.  The deadline
+    // is reset by `handle_message` right after `RequestLogin` is sent;
+    // `Process()` polls it on every tick.  Default 10 s, overridable
+    // by `SetLoginAckTimeoutForTest`.  We use steady_clock so a wall-
+    // clock adjustment (e.g. NTP) does not falsely fire the timeout.
+    std::chrono::steady_clock::time_point m_loginAckDeadline{};
+    std::chrono::milliseconds             m_loginAckTimeout{std::chrono::seconds(10)};
 };
 
 } // namespace mxh::client

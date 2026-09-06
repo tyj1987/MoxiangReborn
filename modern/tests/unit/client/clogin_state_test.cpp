@@ -15,8 +15,10 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <span>
+#include <thread>
 
 using mxh::client::LegacyLoginAck;
 using mxh::client::legacy_request_login_payload;
@@ -306,6 +308,38 @@ TEST(LoginStateErrorMatrix, FailWithIsIdempotent) {
     s.HandleMessageForTest(m);
     s.Process();
     EXPECT_EQ(s.failure_reason(), first);
+}
+
+// Phase 1 §7.2 "登录超时": with no LoginAck / LoginNack arriving after
+// RequestLogin is sent, the application-level deadline fires and the
+// state surfaces a recoverable failure instead of hanging silently.
+// Production default is 10 s; we override to 50 ms for the test.
+TEST(LoginStateErrorMatrix, LoginAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CLoginState s;
+    s.SetLoginAckTimeoutForTest(std::chrono::milliseconds(50));
+    s.ArmLoginAckDeadlineForTest();
+    EXPECT_FALSE(s.is_failed());
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_FALSE(s.failure_reason().empty());
+    EXPECT_NE(s.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << s.failure_reason();
+}
+
+TEST(LoginStateErrorMatrix, LoginAckBeforeTimeoutDoesNotFail) {
+    // Sanity check: if a LoginAck arrives before the deadline, the
+    // Process() poll must not fire the timeout.  The deadline is
+    // disarmed by dispatch_login_ack so subsequent ticks are no-ops.
+    mxh::client::CLoginState s;
+    s.SetLoginAckTimeoutForTest(std::chrono::milliseconds(50));
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    // failure reason should be the nack, NOT a timeout
+    EXPECT_EQ(s.failure_reason().find("timeout"), std::string::npos)
+        << "unexpected 'timeout' in: " << s.failure_reason();
 }
 
 // -------------------------------------------------------------------------

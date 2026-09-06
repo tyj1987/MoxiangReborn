@@ -124,6 +124,9 @@ void CLoginState::Release() {
     m_started.store(false, std::memory_order_release);
     m_ackReceived.store(false, std::memory_order_release);
     m_failed.store(false, std::memory_order_release);
+    // Phase 1 §7.2: clear the LoginAck timeout so a re-entry does not
+    // carry a stale deadline from a previous Start().
+    m_loginAckDeadline = {};
     {
         std::lock_guard<std::mutex> lk(m_mu);
         m_failureReason.clear();
@@ -149,6 +152,18 @@ void CLoginState::Process() {
             case ClientRuntimeEventKind::Connected:
                 break;
         }
+    }
+    // Phase 1 §7.2: application-level LoginAck timeout.  After
+    // RequestLogin is sent, `handle_message` arms `m_loginAckDeadline`;
+    // if neither LoginAck nor LoginNack arrives before the deadline,
+    // we surface a fail_with so the user can retry (instead of hanging
+    // silently).  Skipped when the deadline is unset (not yet started)
+    // or when the state is already terminal.
+    if (!m_ackReceived.load(std::memory_order_acquire) &&
+        !m_failed.load(std::memory_order_acquire) &&
+        m_loginAckDeadline != std::chrono::steady_clock::time_point{} &&
+        std::chrono::steady_clock::now() >= m_loginAckDeadline) {
+        fail_with("LoginAck timeout (no response from LoginServer)");
     }
 }
 
@@ -303,6 +318,9 @@ void CLoginState::handle_message(mxh::net::ConnectionId id,
                 return;
             }
             MLOG_INFO("CLoginState: sent RequestLogin (38B legacy payload)");
+            // Phase 1 §7.2: arm the application-level LoginAck timeout
+            // (default 10 s, overridable via SetLoginAckTimeoutForTest).
+            m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
             break;
         }
         case UserConnProtocol::NotifyUserLoginAck: {
@@ -378,6 +396,12 @@ void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {
     m_agentPort.store(ack.agent_port, std::memory_order_release);
     m_userIdx.store(ack.user_idx, std::memory_order_release);
     m_ackReceived.store(true, std::memory_order_release);
+    // Phase 1 §7.2: disarm the LoginAck timeout — the ack arrived
+    // before the deadline, so the Process() poll no longer needs to
+    // check against it.  Releasing the deadline also prevents a
+    // subsequent Process() from spuriously firing it on a stale
+    // post-success value.
+    m_loginAckDeadline = {};
     MLOG_INFO("CLoginState: LoginAck agent=%s:%u user_idx=%u level=%u",
               ack.agent_addr.c_str(),
               static_cast<unsigned>(ack.agent_port),
