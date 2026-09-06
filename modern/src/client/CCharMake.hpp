@@ -46,6 +46,7 @@
 #include "CCharSelectState.hpp"  // LoginResult
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -184,6 +185,16 @@ public:
         on_message({}, msg);
     }
 
+    // ---- Phase 1 §7.3 test hook: arm the CharacterMakeAck timeout ----
+    // Mirrors CLoginState (commit fa74305e) and CCharSelectState
+    // (commit 45009501).  Production code never calls these.
+    void SetMakeAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
+        m_makeAckTimeout = t;
+    }
+    void ArmMakeAckDeadlineForTest() noexcept {
+        m_makeAckDeadline = std::chrono::steady_clock::now() + m_makeAckTimeout;
+    }
+
     // M-R7.1 (G3 bug fix 2026-08-20): host reads the loaded cDialog
     // tree to render the 1:1 UI (CharMakeNewDlg.bin — 49 children).
     const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
@@ -248,6 +259,15 @@ private:
     // dispatch path.  Defaults to false.
     bool                     m_dispatchEnabledForTest = false;
     std::string              m_failureReason;
+
+    // Phase 1 §7.3: application-level CharacterMakeAck timeout.
+    // Mirrors the CLoginState login-timeout (fa74305e) and the
+    // CCharSelectState list/select-ack timeout (45009501).  Default
+    // 10 s, overridable by SetMakeAckTimeoutForTest.  The deadline is
+    // set by `send_make_syn` and disarmed by the dispatch path (Nack
+    // or the post-create CharacterListAck) or by Release().
+    std::chrono::steady_clock::time_point m_makeAckDeadline{};
+    std::chrono::milliseconds             m_makeAckTimeout{std::chrono::seconds(10)};
 };
 
 } // namespace mxh::client

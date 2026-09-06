@@ -14,8 +14,10 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <thread>
 
 namespace {
 std::filesystem::path playdh_root() {
@@ -419,5 +421,24 @@ TEST(CCharMakeNameValidation, AcceptsUtf8MultiByteAtSubmitTime) {
                                  // must NOT fail because of the name
     EXPECT_EQ(s.failure_reason().find("name must contain"),
               std::string::npos);
+    s.Release();
+}
+
+// Phase 1 §7.3: when the AgentServer stops responding to a
+// CharacterMakeSyn (e.g. the DB write stalls), the application-level
+// deadline must fire and surface a fail_with() so the user can
+// retry the create instead of the state hanging forever.  Mirrors the
+// CLoginState (fa74305e) and CCharSelectState (45009501) timeouts.
+TEST(CCharMakeAckTimeout, MakeAckTimeoutFiresWhenNoResponse) {
+    CCharMake s;
+    s.Init(nullptr);
+    s.SetMakeAckTimeoutForTest(std::chrono::milliseconds(50));
+    s.ArmMakeAckDeadlineForTest();
+    EXPECT_FALSE(s.is_failed());
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_NE(s.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << s.failure_reason();
     s.Release();
 }

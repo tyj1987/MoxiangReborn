@@ -355,11 +355,24 @@ void CCharMake::Release() {
     m_makeSent     = false;
     m_failed       = false;
     m_failureReason.clear();
+    // Phase 1 §7.3: clear the CharacterMakeAck timeout so a re-entry
+    // does not carry a stale deadline from a previous Start().
+    m_makeAckDeadline = {};
     setInitialized(false);
 }
 
 void CCharMake::Process() {
     tick();
+    // Phase 1 §7.3: application-level CharacterMakeAck timeout.  Mirrors
+    // CLoginState (fa74305e) and CCharSelectState (45009501).  Polled
+    // BEFORE the `if (!m_pEngine)` guard so a hung-state test (no
+    // engine) can still drive the timeout path through
+    // `ArmMakeAckDeadlineForTest`.
+    if (!m_failed &&
+        m_makeAckDeadline != std::chrono::steady_clock::time_point{} &&
+        std::chrono::steady_clock::now() >= m_makeAckDeadline) {
+        fail_with("CharacterMakeAck timeout (no response from AgentServer)");
+    }
     if (!m_pEngine) return;
     for (auto& event : m_pEngine->agent_session().events().drain()) {
         switch (event.kind) {
@@ -428,6 +441,10 @@ void CCharMake::on_message(mxh::net::ConnectionId id,
             // exactly like the legacy client does on CHARACTERLIST_ACK.
             MLOG_INFO("CCharMake: CharacterListAck received after create; "
                       "switching to CharSelect");
+            // Phase 1 §7.3: disarm the CharacterMakeAck timeout — the
+            // create succeeded.  The state-switch to CharSelect will
+            // also call Release() which clears it as a belt-and-suspenders.
+            m_makeAckDeadline = {};
             if (m_pEngine) {
                 m_pEngine->SetPendingTransfer(m_login);
                 m_pEngine->RequestStateChange(
@@ -462,6 +479,9 @@ void CCharMake::on_message(mxh::net::ConnectionId id,
             break;
         }
         case UserConnProtocol::CharacterMakeNack: {
+            // Phase 1 §7.3: disarm the CharacterMakeAck timeout — the
+            // server responded (with a Nack).
+            m_makeAckDeadline = {};
             fail_with("CharacterMakeNack received (name taken or invalid params)");
             break;
         }
@@ -727,6 +747,10 @@ void CCharMake::send_make_syn() {
     }
     MLOG_INFO("CCharMake: sent CharacterMakeSyn name='%s' (59B legacy payload)",
               m_pending.name.c_str());
+    // Phase 1 §7.3: arm the CharacterMakeAck timeout.  Disarmed by
+    // the dispatch path when the create succeeds (post-create
+    // CharacterListAck triggers a state switch) or fails (Nack).
+    m_makeAckDeadline = std::chrono::steady_clock::now() + m_makeAckTimeout;
 }
 
 void CCharMake::fail_with(const std::string& reason) {
