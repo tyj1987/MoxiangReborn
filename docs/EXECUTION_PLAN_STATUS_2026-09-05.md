@@ -26,7 +26,7 @@
 | Phase 7 §13 PVE 双 VM | PENDING | — | 需 VM 192.168.2.200 + 新建 moxiang-app + moxiang-db |
 | Final docs §14-16 | PENDING | — | 11 步 PVE 真人验收 + 24h soak + 老客户端对比 |
 
-**ctest 基线 (本 session 末,2026-09-06)**: **12,418/12,418 PASSED in 116.20 sec** (含 MoxianClientE2E + MoxianClientE2EDumpCli; 详见 §3 race resolution)
+**ctest 基线 (本 session 末,2026-09-06)**: **12,419/12,419 PASSED in 116.53 sec** (含 MoxianClientE2E + MoxianClientE2EDumpCli + MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds 默认 SKIP; 详见 §3 race resolution + CHANGELOG)
 **mxh_client_tests 基线**: 322/322 PASSED in 16.6 sec (从 299 → 322, +23 新 test)
 
 ---
