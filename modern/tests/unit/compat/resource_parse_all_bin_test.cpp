@@ -453,17 +453,28 @@ TEST(MxhResourceParse, ReadMhBin_PartyPlustimeInfo_bin) {
 }
 
 TEST(MxhResourceParse, ReadMhBin_PenaltyTime_bin) {
-    static const char* kName = "PenaltyTime.bin";
+    // The legacy GameResourceManager.cpp:4146 references
+    // "Resource/PenaltyTime.bin" (double L), but the canonical PlayDH
+    // ships it as "PaneltyTime.bin" (single L).  Accept either spelling
+    // so the test reflects the actual on-disk resource without
+    // requiring a rename of the binary file.  See CHANGELOG entry
+    // "MxhResourceParse.ReadMhBin_PenaltyTime_bin — Panelty/Penalty
+    // filename tolerance" (2026-09-06) for the root cause.
     const auto dir = find_resource_dir();
     if (dir.empty()) GTEST_SKIP() << "deploy/Resource not available";
-    const auto p = dir / kName;
-    if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
+    fs::path p;
+    const char* matched = nullptr;
+    for (const auto* name : {"PenaltyTime.bin", "PaneltyTime.bin"}) {
+        const auto candidate = dir / name;
+        if (fs::exists(candidate)) { p = candidate; matched = name; break; }
+    }
+    if (p.empty()) GTEST_SKIP() << "PenaltyTime.bin/PaneltyTime.bin not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
+    ASSERT_TRUE(r.ok()) << matched << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
-        << kName << " payload size mismatch";
-    EXPECT_GT(r.value.header.file_size, 0u) << kName;
-    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << kName;
+        << matched << " payload size mismatch";
+    EXPECT_GT(r.value.header.file_size, 0u) << matched;
+    EXPECT_LE(r.value.header.file_size, 256u * 1024u * 1024u) << matched;
 }
 
 TEST(MxhResourceParse, ReadMhBin_PetBuffList_bin) {
