@@ -1,11 +1,11 @@
 # EXECUTION_PLAN 状态报告 — 2026-09-05 / 2026-09-06 update
 
 > **来源**: `C:\moxiang\modern\scratch\2026-09-05-minimax-m3-execution\EXECUTION_PLAN.md`
-> **session 起算**: 2026-09-05 (本 session 累计 75 commits, 14+ hours)
-> **分支**: `codex/runtime-recovery-pve` (领先 origin 75 commits)
-> **HEAD**: `2be4737e` docs: session 总结 entry (Unreleased 段 顶部)
+> **session 起算**: 2026-09-05 (本 session 累计 77 commits, 14+ hours)
+> **分支**: `codex/runtime-recovery-pve` (领先 origin 77 commits)
+> **HEAD**: `e41e3daa` tests: 4 tests for the map-display fix (terrain + cingame + smoke)
 > **工作树**: clean (除 untracked `modern/build-release/` 按 §5 保留)
-> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (顶部 session 总结 + 9 个 detailed commit notes)
+> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (顶部 map-display fix + session 总结 + 10 个 detailed commit notes)
 
 ---
 

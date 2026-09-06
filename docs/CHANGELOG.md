@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Map-display fix + verification (2026-09-09, commits `c5d25a9b` + `e41e3daa`)
+
+- **3 root-cause fixes** for the "client map display completely wrong" report:
+  1. `EntityScene` / `StaticScene` now accept a per-frame `setMapCenter(x, z)`; the centre is cached in `Impl::map_center_x / map_center_z` and used by the entity / placeholder / collision / effect render paths. The hard-coded `kEntityMapCenter = 25.6f` constant was only correct for maps whose `d.width * kSceneScale * 0.5 == 25.6` (Map 12 d.width 51 200); Map 10 / Map 21 (d.width 50 000) drifted by 0.6 world units until this setter existed.
+  2. `EffectVisualOverlay::project()` in `tools/MoxianClient/main.cpp` now takes the centre as a parameter; a new `project_world_point()` helper centralises the `heightAt → project()` pipeline. All 4 overlay call-sites (damage text x2, ground drops x1, light position x1) and the 3 embedded projection blocks (player / monster / remote player head markers) route through the new helper. The remaining NPC head marker at the smoke-test auto-aim block now reads `g_terrain->mapCenter()` directly.
+  3. `main.cpp::renderFrame()` pushes `terrain->mapCenter()` to `g_entityScene->setMapCenter()` and `g_staticScene->setMapCenter()` immediately after `configureCamera()`, so the cache reflects the just-parsed HFL descriptor.
+- **TerrainScene::mapCenter()** added to the public API; returns `std::pair<float, float>` (half-width, half-height in scaled world units), populated in `load()`.
+- **GameInAck timeout verified**: the existing `CInGameAckTimeout.GameInAckTimeoutFiresWhenNoResponse` test (commit `2bee25c2`) and the new `DoesNotFalseFireWithoutTestHook` + `DoesNotFalseFireAfterLongIdle` tests together prove the timeout only fires when the test hooks explicitly arm it; the production path remains silent.
+- **4 new tests** (3 unit + 1 opt-in integration):
+  - `terrain_scene_test.cpp` (new, 3 tests): `DefaultsToOriginBeforeLoad` (pre-load sentinel `(0, 0)`), `IsIdempotentAndConst` (no side effects), `ReturnsStdPairOfFloats` (compile-time type guard).
+  - `cingame_state_test.cpp` (+3 tests): `InGameEntityMapCenter.EntitySceneUsesPushedMapCenter` (4 successive `setMapCenter` + `synchronize` round-trips at centres 25.6 / 25.0 / 1.0 / 0.0), `CInGameAckTimeout.DoesNotFalseFireWithoutTestHook`, `CInGameAckTimeout.DoesNotFalseFireAfterLongIdle`.
+  - `map10_smoke.cpp` (new, opt-in via `MXH_MAP10_SMOKE=1`): 60-s in-game smoke (configurable via `MXH_MAP10_SMOKE_BUDGET`); spawns `mxh_client_e2e` as a subprocess, asserts exit 0 + `map_num=10` in the output.
+- **ctest baseline**: 12,425 → **12,432** PASS in ~126 s, 0 FAIL, 6 default SKIP (all opt-in env-gated: `MXH_MAP10_SMOKE` / `MXH_MSSQL_E2E` / `MxhResourcePayloadSha256`).
+
 ### Session summary — 2026-09-05 / 2026-09-06 (commit `404dec6d`)
 
 - 19 commits pushed to `codex/runtime-recovery-pve` (74 ahead of origin) in 14+ hours.
