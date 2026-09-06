@@ -13,8 +13,10 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <span>
+#include <thread>
 
 #include "mxh/proto/protocol.hpp"
 
@@ -477,4 +479,48 @@ TEST(CCharSelectRemove, CharacterRemoveNackClearsPendingState) {
     ASSERT_EQ(state.character_list().size(), 5u);
     EXPECT_TRUE(state.character_list()[0].valid);
     EXPECT_FALSE(state.deletion_pending());
+}
+
+// Phase 1 §7.3: when the AgentServer stops responding to
+// CharacterListSyn, the application-level deadline must fire and
+// surface a fail_with() instead of hanging the user at the
+// character-select screen.  Mirrors the CLoginState login-timeout
+// pattern (commit fa74305e).
+TEST(CharSelectAckTimeout, ListAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CCharSelectState state;
+    state.SetAckTimeoutForTest(std::chrono::milliseconds(50));
+    state.ArmListAckDeadlineForTest();
+    EXPECT_FALSE(state.is_failed());
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    state.Process();
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_NE(state.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << state.failure_reason();
+}
+
+// Phase 1 §7.3: same pattern for the CharacterSelectAck round-trip
+// (after the user picks a slot).  The state must surface a recoverable
+// failure within the budget so the user can retry from the
+// character-select screen rather than the client hanging.
+TEST(CharSelectAckTimeout, SelectAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CCharSelectState state;
+    state.SetDispatchForTest(true);
+    // First feed a real ListAck so the state has a valid slot to pick.
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.HandleMessageForTest(list);
+    ASSERT_TRUE(state.SelectSlot(0));
+    // Arm the SelectAck deadline AFTER the select was sent.
+    state.SetAckTimeoutForTest(std::chrono::milliseconds(50));
+    state.ArmSelectAckDeadlineForTest();
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    state.Process();
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_NE(state.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << state.failure_reason();
 }

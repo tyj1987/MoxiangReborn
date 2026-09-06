@@ -300,11 +300,34 @@ void CCharSelectState::Release() {
     m_releasing     = false;
     m_failed        = false;
     m_failureReason.clear();
+    // Phase 1 §7.3: clear the application-level timeouts so a re-entry
+    // does not carry a stale deadline from a previous Start().
+    m_listAckDeadline  = {};
+    m_selectAckDeadline = {};
     setInitialized(false);
 }
 
 void CCharSelectState::Process() {
     tick();
+    // Phase 1 §7.2 / §7.3: application-level timeouts for the
+    // CharacterListAck and CharacterSelectAck round-trips.  Mirrors
+    // CLoginState (commit fa74305e).  Polled BEFORE the `if (!m_pEngine)`
+    // guard so a hung-state test (no engine) can still drive the
+    // timeout path through `ArmListAckDeadlineForTest`.
+    if (!m_failed) {
+        const auto now = std::chrono::steady_clock::now();
+        if (m_listAckDeadline != std::chrono::steady_clock::time_point{} &&
+            now >= m_listAckDeadline && !m_listReceived) {
+            fail_with("CharacterListAck timeout (no response from AgentServer)");
+        } else if (m_selectAckDeadline != std::chrono::steady_clock::time_point{} &&
+                   now >= m_selectAckDeadline) {
+            // The select-ack deadline is set ONLY by `send_select_syn`
+            // (production) or `ArmSelectAckDeadlineForTest` (test), both
+            // of which happen *after* the Syn is sent — so the deadline
+            // itself implies "we are waiting for the SelectAck".
+            fail_with("CharacterSelectAck timeout (no response from AgentServer)");
+        }
+    }
     if (!m_pEngine) return;
     for (auto& event : m_pEngine->agent_session().events().drain()) {
         switch (event.kind) {
@@ -369,6 +392,9 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             }
             m_characters  = std::move(*list);
             m_listReceived = true;
+            // Phase 1 §7.3: disarm the CharacterListAck timeout — the
+            // ListAck arrived before the deadline.
+            m_listAckDeadline = {};
             MLOG_INFO("CCharSelectState: CharacterListAck char_count derived from list, "
                       "first valid chrid=%u",
                       static_cast<unsigned>(m_characters.empty()
@@ -380,6 +406,10 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             break;
         }
         case UserConnProtocol::CharacterListNack: {
+            // Phase 1 §7.3: disarm the CharacterListAck timeout — the
+            // server responded (with a Nack).  The follow-up fail_with()
+            // also flips m_failed so the Process() poll becomes a no-op.
+            m_listAckDeadline = {};
             fail_with("CharacterListNack received");
             break;
         }
@@ -393,6 +423,8 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             break;
         }
         case UserConnProtocol::CharacterSelectNack: {
+            // Phase 1 §7.3: disarm the CharacterSelectAck timeout.
+            m_selectAckDeadline = {};
             fail_with("CharacterSelectNack received (no matching character in DB)");
             break;
         }
@@ -487,6 +519,9 @@ void CCharSelectState::send_list_syn() {
     }
     m_listSynSent = true;
     MLOG_INFO("CCharSelectState: sent CharacterListSyn (8B legacy payload)");
+    // Phase 1 §7.3: arm the CharacterListAck timeout.  Disarmed in
+    // the dispatch path when ListAck / ListNack arrives.
+    m_listAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
 }
 
 bool CCharSelectState::send_remove_syn(std::uint32_t character_id) {
@@ -564,6 +599,9 @@ void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
     m_selectSent = true;
     MLOG_INFO("CCharSelectState: sent CharacterSelectSyn chrid=%u",
               static_cast<unsigned>(chrid));
+    // Phase 1 §7.3: arm the CharacterSelectAck timeout.  Disarmed
+    // in the dispatch path when SelectAck / SelectNack arrives.
+    m_selectAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
 }
 
 bool CCharSelectState::SelectSlot(std::size_t slot_index) noexcept {
@@ -736,6 +774,8 @@ bool CCharSelectState::OnChar(std::uint32_t ch) {
 
 void CCharSelectState::dispatch_select_ack(std::uint16_t map_num) {
     m_selectedMap = map_num;
+    // Phase 1 §7.3: disarm the CharacterSelectAck timeout.
+    m_selectAckDeadline = {};
     MLOG_INFO("CCharSelectState: CharacterSelectAck chrid=%u map_num=%u",
               static_cast<unsigned>(m_selectedChrid),
               static_cast<unsigned>(map_num));

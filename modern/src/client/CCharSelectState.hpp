@@ -35,6 +35,7 @@
 #include "ClientUiRuntime.hpp"
 #include "StateTransfer.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <array>
 #include <memory>
@@ -173,6 +174,20 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
         on_message({}, msg);
     }
 
+    // ---- Phase 1 §7.2 / §7.3 test hook: arm the CharacterListAck / -----
+    // CharacterSelectAck application-level timeouts.  Mirrors the
+    // CLoginState login-timeout hook (commit fa74305e) — production code
+    // never calls these.
+    void SetAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
+        m_ackTimeout = t;
+    }
+    void ArmListAckDeadlineForTest() noexcept {
+        m_listAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
+    }
+    void ArmSelectAckDeadlineForTest() noexcept {
+        m_selectAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
+    }
+
     // Manual selection is the production default. The test-only switch
     // preserves deterministic unattended E2E coverage.
     void SelectCharacter(std::uint32_t chrid);
@@ -247,6 +262,16 @@ private:
     bool                     m_releasing    = false;
     bool                     m_failed      = false;
     std::string              m_failureReason;
+
+    // Phase 1 §7.2 / §7.3: application-level timeouts for the
+    // CharacterListAck (after CharacterListSyn) and CharacterSelectAck
+    // (after CharacterSelectSyn) round-trips.  Mirrors the CLoginState
+    // login-timeout pattern (commit fa74305e).  Default 10 s, overridable
+    // by SetAckTimeoutForTest.  steady_clock so a wall-clock adjustment
+    // (e.g. NTP) cannot false-fire.
+    std::chrono::steady_clock::time_point m_listAckDeadline{};
+    std::chrono::steady_clock::time_point m_selectAckDeadline{};
+    std::chrono::milliseconds             m_ackTimeout{std::chrono::seconds(10)};
 };
 
 } // namespace mxh::client
