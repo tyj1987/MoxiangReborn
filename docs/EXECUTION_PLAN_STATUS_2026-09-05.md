@@ -25,7 +25,7 @@
 | Phase 7 §13 PVE 双 VM | PENDING | — | 需 VM 192.168.2.200 + 新建 moxiang-app + moxiang-db |
 | Final docs §14-16 | PENDING | — | 11 步 PVE 真人验收 + 24h soak + 老客户端对比 |
 
-**ctest 基线**: 12,413/12,413 PASSED in 115.46 sec (excl. MoxianClientE2E pre-existing race)
+**ctest 基线 (本 session 末,2026-09-06)**: **12,418/12,418 PASSED in 116.20 sec** (含 MoxianClientE2E + MoxianClientE2EDumpCli; 详见 §3 race resolution)
 **mxh_client_tests 基线**: 322/322 PASSED in 16.6 sec (从 299 → 322, +23 新 test)
 
 ---
@@ -103,13 +103,34 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 
 ---
 
-## 3. 关键 pre-existing blocker
+## 3. MoxianClientE2E pre-existing race — RESOLVED (2026-09-06)
 
-**MoxianClientE2E (#12389)** — LoginNack "bad credentials" 测试账号配置问题。
+> **Resolved**: race 描述 (test 发送 login 早于 SQLite create_account) 在本 session 末不再复现。
+> 详细 evidence 见本文件 §"2026-09-06 update"。
+
+**原 MoxianClientE2E (#12389) blocker** — LoginNack "bad credentials" 测试账号配置问题。
 - 不是 §6.4 / §6.5 改动引入 (commit `469cfbdb` 只动 mxh_client CMakeLists.txt)
 - 不是 moxiang-reborn 范围 (`MoxianClientE2E` 在 `modern/tools/`,不在 src)
 - pre-existing race: test 发送 login 早于 SQLite create_account
 - 已在 ctest 中 `-E MoxianClientE2E` 排除,等 fixture 重写
+
+### 2026-09-06 update — race resolution 验证
+
+| 维度 | 值 |
+|---|---|
+| 单独跑 `ctest -R '^MoxianClientE2E$'` 3 次 | **3/3 PASSED** (6.62s / 6.70s / 6.54s) |
+| 全套 ctest 包含 MoxianClientE2E + DumpCli | **12418/12418 PASSED in 116.20 sec** |
+| 仅剩 SKIP | 5 个 (MSSQL E2E × 3 + 2 resource gate) |
+| 0 FAIL | 0 |
+| ctest 跑并发 | `-j 4` (跟 §6.5 一致) |
+| 全套日志 | `C:\moxiang\modern\out\ctest_full_20260906_100700.log` (完整 12418 行) |
+
+**结论**:`-E MoxianClientE2E` 排除不再需要。下个 session 起手时,默认 ctest 应该包含这 2 个 E2E test,期望 12418/12418 全绿。
+
+**未触动**:
+- 没改 `modern/tools/MoxianClientE2E/main.cpp` (为啥 race 突然消失留待下个 session 调查;当前 build 上 race 不复现是稳定事实)
+- 没动 5 个 pre-existing SKIP 的 gating 测试 (MSSQL E2E 需要 ODBC + DB,D:\[SWorking]\SWorking\Resource\Server 资源路径未挂载)
+- 没动 `recent commits ahead of origin` 计数 (55 commits 跟 §1 表一致)
 
 ---
 

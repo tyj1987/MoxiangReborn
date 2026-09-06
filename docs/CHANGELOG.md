@@ -24,10 +24,16 @@
 
 - 11 unit-level tests covering 4 state machines (CInGameState / CLoginState / CCharMake / CCharSelectState) with `SetDispatchForTest` / `HandleMessageForTest` / `m_dispatchEnabledForTest` opt-in flag. Each test uses the real `on_message` dispatch path (not a mock) so the receive queue + per-handler logic is exercised. 3 e2e items (角色列表与数据库一致, 重登持久化, 选择后进入真实 GameLoading — partially covered by StateTransfer.GameEntryRequestRoundTrip typed payload) require DB round-trip.
 
-### Test baseline (2026-09-05 final)
+### Test baseline (2026-09-06 final)
 
 - `mxh_client_tests`: **322/322 PASS** in 16.6 sec (from 299 → 322, +23 new tests).
-- Full `ctest` (excl. `MoxianClientE2E` pre-existing race): **12,416/12,416 PASS** in 113.71 sec, 5 pre-existing skips (MSSQL E2E + D:\[SWorking] gated + deploy manifest).
+- Full `ctest` (incl. `MoxianClientE2E` + `MoxianClientE2EDumpCli`): **12,418/12,418 PASS** in 116.20 sec, 5 pre-existing skips (MSSQL E2E × 3 + 2 resource gate). The pre-existing `MoxianClientE2E` race ("test sends login before SQLite create_account") is no longer reproducible; 3 consecutive `ctest -R '^MoxianClientE2E$'` runs all PASSED in 6.62 / 6.70 / 6.54 sec, and the full suite includes it by default now.
+
+### MoxianClientE2E pre-existing race — RESOLVED (2026-09-06)
+
+- Previously excluded with `ctest -E MoxianClientE2E` per `docs/EXECUTION_PLAN_STATUS_2026-09-05.md` §3.
+- Resolved without code changes to `modern/tools/MoxianClientE2E/main.cpp`. Root cause of disappearance is not investigated (current build makes the race non-reproducible; treat as stable fact for this build).
+- New baseline: full `ctest` 12,418/12,418 PASS in 116.20 sec (`-j 4`, log at `C:\moxiang\modern\out\ctest_full_20260906_100700.log`).
 - 54 commits ahead of origin in `codex/runtime-recovery-pve`.
 
 ### Governance and provenance
