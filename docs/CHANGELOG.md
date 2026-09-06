@@ -36,6 +36,17 @@
 - New baseline: full `ctest` 12,418/12,418 PASS in 116.20 sec (`-j 4`, log at `C:\moxiang\modern\out\ctest_full_20260906_100700.log`).
 - 54 commits ahead of origin in `codex/runtime-recovery-pve`.
 
+### MssqlRealE2E — 2/3 SKIP tests now unblocked (2026-09-06)
+
+- `MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip` + `MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState` now PASS against the local `MSSQLSERVER` instance with `MXH_MSSQL_E2E='backend=mssql_odbc;host=(local);database=Moxiang;encrypt=no;trust_server_certificate=yes;'`.
+- `MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip` still SKIPs (needs `MXH_MSSQL_LEGACY_E2E` + restored legacy `.bak` with `CharacterInfo` + `LogMoney` — not yet on this machine).
+- Key environmental finding (commit `fcb1f986`): the local `MSSQLSERVER` does not listen on TCP 1433 (`Get-NetTCPConnection -LocalPort 1433` returns empty), so the ODBC adapter's 5-second `SQL_LOGIN_TIMEOUT` trips when using `host=localhost`. Use `host=(local)` (parenthesized) to force the shared-memory protocol path; this is parsed as a `pipe_style` host by `MssqlOdbcAdapter::build_conn_string` and the `,port` suffix is omitted, which lets `SQLDriverConnect` reach the local server via lpc.
+- Test code fixes in `modern/tests/unit/db/mssql_real_e2e_test.cpp`:
+  - `Test1` (LoginCharacterAndLogMoneyRoundTrip) + `Test2` (ModernSchemaLoginAndCharacterRoundTrip) `connect` asserts now print `cr.error_message` on failure (was: opaque `Value of: ok()`).
+  - `Test2 INSERT` now uses `ins_r.ok() << ins_r.error_message` (same pattern as the existing `Test3`).
+  - `Test2` deletes the test row by `charname` *and* by `chrid` because the `character_info` table has a unique index `ux_character_info_charname` and a previous interrupted run can leave a same-name row with a different chrid, which the original chrid-only delete would not catch.
+- ctest defaults still skip all 3 (env var not set globally); per-machine opt-in via `MXH_MSSQL_E2E` keeps the unconfigured CI path unchanged. Full ctest baseline remains 12,418/12,418 PASS in 116.53 sec.
+
 ### Governance and provenance
 
 - Protected 12 unreachable Git commits with backup refs and a verified bundle.
