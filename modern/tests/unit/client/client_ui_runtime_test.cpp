@@ -182,6 +182,42 @@ TEST(ClientSettings, EscapesControlBytesInPersistedAccount) {
     std::filesystem::remove(path, ignored);
 }
 
+// Phase 1 §7.2 #14: "保存账号不保存密码明文".
+// ClientSettingsV1 carries last_account (the typed field name) and
+// nothing else user-secret-shaped; the password buffer lives in
+// CLoginState and is zeroized on Release().  This test locks the
+// on-disk guarantee by saving a settings file, reading it back as
+// raw bytes, and asserting no field with "pass" in its name (case
+// insensitive) is serialized.
+TEST(ClientSettings, PersistedFileDoesNotContainPasswordField) {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "mxh-settings-no-password.json";
+    mxh::client::ClientSettingsV1 settings;
+    settings.last_account = "alice";
+    settings.post_login_width = 1280;
+    settings.post_login_height = 720;
+    std::string error;
+    ASSERT_TRUE(mxh::client::ClientSettingsStore::save_atomic(path, settings, &error))
+        << error;
+    // Read the raw bytes (not via load()) so a field-name change
+    // in ClientSettingsV1 cannot silently hide a regression.
+    std::ifstream input(path, std::ios::binary);
+    ASSERT_TRUE(input.good());
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    input.close();
+    const std::string contents = buffer.str();
+    EXPECT_EQ(contents.find("password"), std::string::npos);
+    EXPECT_EQ(contents.find("Password"), std::string::npos);
+    EXPECT_EQ(contents.find("PASS"), std::string::npos);
+    EXPECT_EQ(contents.find("passwd"), std::string::npos);
+    // lastAccount IS serialized (the account name must be there so
+    // the host can pre-fill the field on next launch).
+    EXPECT_NE(contents.find("lastAccount"), std::string::npos);
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+}
+
 TEST(ClientSettings, UnknownSchemaIsBackedUpAndDefaultsAreUsed) {
     const auto path = std::filesystem::temp_directory_path() / "mxh-settings-schema.json";
     {
