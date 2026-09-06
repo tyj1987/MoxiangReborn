@@ -5,9 +5,11 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <thread>
 #include <vector>
 
 using mxh::client::parse_legacy_gamein_ack;
@@ -668,4 +670,28 @@ TEST(InGameEntityLifecycle, ObjectRemoveClearsGroundDropWithSameObjectId) {
     std::memcpy(remove.payload.data(), &object_id, sizeof(object_id));
     state.on_message({}, remove);
     EXPECT_TRUE(state.ground_drops().empty());
+}
+
+// Phase 1: when the MapServer stops responding to a GameInSyn (e.g.
+// the entity-spawn pipeline stalls), the application-level deadline
+// must fire and surface a fail_with() so the state can be retried
+// instead of hanging.  Mirrors the CLoginState / CCharSelectState /
+// CCharMake ack-timeout pattern (commits fa74305e / 45009501 /
+// b4d2b68c).
+TEST(CInGameAckTimeout, GameInAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CInGameState state;
+    state.SetGameInAckTimeoutForTest(50);
+    state.ArmGameInAckDeadlineForTest();
+    // The Process() poll is gated by `m_sentGameInSyn`; flip it for
+    // the test so the timeout can fire without a real send.
+    // m_sentGameInSyn is private — we can route the deadline through
+    // a Process() tick that the timeout check still fires on.
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    state.Process();
+    // Without a real send, the dispatch path won't arm the deadline
+    // in production; the test exercises the timeout infrastructure
+    // via the dedicated test hook.
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_NE(state.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << state.failure_reason();
 }

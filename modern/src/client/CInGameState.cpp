@@ -774,6 +774,7 @@ void CInGameState::Release() {
     m_started  = false;
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
+    m_pendingGameInAckSinceMs = 0;
     m_pendingSkillId = 0;
     m_pendingSkillTargetId = 0;
     m_pendingSkillSinceMs = 0;
@@ -972,7 +973,23 @@ void CInGameState::Process() {
         m_pendingBuyItemId = 0;
         m_pendingBuySinceMs = 0;
         m_lastItemError = "Purchase request timed out.";
-        (void)m_uiRuntime.showMessage(9103, m_lastItemError);
+        (void)m_uiRuntime.showMessage(9101, m_lastItemError);
+    }
+    // Phase 1: GameInAck timeout.  Mirrors the four other request
+    // timeouts above.  Fires when the MapServer stops responding to
+    // a GameInSyn within the budget; clears m_sentGameInSyn and
+    // surfaces a fail_with() so the state can be retried (or the
+    // host can pop a dialog).  Gated by m_sentGameInSyn AND a
+    // non-zero m_pendingGameInAckSinceMs so the test hook
+    // ArmGameInAckDeadlineForTest can drive the path without a real
+    // send.
+    if (m_sentGameInSyn && m_pendingGameInAckSinceMs != 0 &&
+        now_ms - m_pendingGameInAckSinceMs >= m_gameInAckTimeoutMs) {
+        MLOG_WARN("CInGameState: GameInAck timed out player_id=%u",
+                  static_cast<unsigned>(m_playerId));
+        m_sentGameInSyn = false;
+        m_pendingGameInAckSinceMs = 0;
+        fail_with("GameInAck timeout (no response from MapServer)");
     }
     m_effectRuntime.advance(now_ms, [this](const RuntimeEffectEvent& event) {
         constexpr std::size_t kMaxRuntimeEvents = 256;
@@ -1479,8 +1496,20 @@ void CInGameState::send_gamein_syn() {
         return;
     }
     m_sentGameInSyn = true;
+    m_pendingGameInAckSinceMs = steady_now_ms();
     MLOG_INFO("CInGameState: sent GameInSyn player_id=%u (empty payload)",
               static_cast<unsigned>(m_playerId));
+}
+
+void CInGameState::ArmGameInAckDeadlineForTest() noexcept {
+    // Place the deadline m_gameInAckTimeoutMs in the past so the
+    // very next Process() tick fires the timeout.  Also flip
+    // m_sentGameInSyn because the production Process() check is
+    // gated by it (the real-world flow only arms the deadline from
+    // send_gamein_syn which also sets the flag).
+    m_pendingGameInAckSinceMs = steady_now_ms() -
+        (m_gameInAckTimeoutMs + 1);
+    m_sentGameInSyn = true;
 }
 
 void CInGameState::send_gameout_syn() {
@@ -1510,6 +1539,9 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     if (info.player_id != 0u) m_playerId = info.player_id;
     m_info   = info;
     m_inGame = true;
+    // Phase 1: disarm the GameInAck timeout — the ack arrived before
+    // the deadline.
+    m_pendingGameInAckSinceMs = 0;
     if (info.map_num != 0) m_mapNum = info.map_num;
     m_localX = static_cast<float>(info.position_x);
     m_localZ = static_cast<float>(info.position_z);

@@ -539,6 +539,17 @@ public:
         if (!m_dispatchEnabledForTest) return;
         on_message({}, msg);
     }
+
+    // ---- Phase 1 test hook: arm the GameInAck timeout.  Mirrors the
+    // CLoginState / CCharSelectState / CCharMake ack-timeout pattern
+    // (commits fa74305e / 45009501 / b4d2b68c).  Production code never
+    // calls these.  `ArmGameInAckDeadlineForTest` puts the pending
+    // timestamp `m_gameInAckTimeoutMs` milliseconds in the past so the
+    // next Process() tick fires the timeout.
+    void SetGameInAckTimeoutForTest(std::uint64_t budget_ms) noexcept {
+        m_gameInAckTimeoutMs = budget_ms;
+    }
+    void ArmGameInAckDeadlineForTest() noexcept;
     bool handle_ui_activation(const ClientUiActivation& activation);
     void send_gamein_syn();
     void send_gameout_syn();
@@ -622,6 +633,12 @@ public:
     bool                     m_failed     = false;
     bool                     m_sentGameInSyn = false;  // gate for Process() retry
     bool                     m_sentGameOutSyn = false;
+    // Phase 1: timestamp (steady_now_ms) of the most recent GameInSyn
+    // send.  0 means no Syn is in flight (cleared by the GameInAck
+    // dispatch path or by Release).  Mirrors the four other request
+    // timeouts in this class (pickup / inventory / combat / shop).
+    std::uint64_t            m_pendingGameInAckSinceMs = 0;
+    std::uint64_t            m_gameInAckTimeoutMs      = 10000;  // 10s default
     bool                     m_releasing = false;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
