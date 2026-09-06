@@ -86,9 +86,10 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 ### 短期可推 (1-2 个 session 内可完成)
 
 - **Phase 1 §7.1 登录页布局** — §5 commit 10365b7a 已修"保存账号"重叠,modern 端无独立 UI,无新工作
-- **Phase 1 §7.2 登录错误矩阵 14 项** — **本 session 已加 12/14**: 5 boundary (17B 截断,中文 UTF-8,空字段,boundary,invalid port) + 4 Nack (LoginNackTriggersFailWith, LoginNackIsIdempotent, LoginAckAfterNackDoesNotRecover, FailWithIsIdempotent) + 2 disconnect (DisconnectBeforeAckTriggersFailWith, DisconnectAfterAckIsIgnored) + 1 ClientSettings.PersistedFileDoesNotContainPasswordField (#14 保存账号不保存密码明文). 剩 2 项 (重复注册, 登录超时) 需 real server
-- **Phase 1 §7.3 角色流程 9 项** — **本 session 已加 11/9 覆盖** (2 CCharMakeNameCheck silent-ingress + 1 CharacterMakeNack 失败 + 2 CCharSelectDispatch list populate + 1 CCharSelectRemove nack 失败恢复 + 3 CCharMakeNameValidation 长度/控制字符/UTF-8 boundary + 1 InGameMapFlow.ChangeMapAckAfterActivationSetsPendingTransfer ChangeMapAck no-engine fail-safe + 1 StateTransfer.GameEntryRequestRoundTripPreservesCharacterIdAndMapNum typed payload 跨状态). 剩 0 项 dispatch hook 层面,剩 e2e DB round-trip (角色列表与数据库一致, 重登持久化, 选择后进入真实 GameLoading — 后者部分覆盖 via GameEntryRequest typed payload round-trip)
+- **Phase 1 §7.2 登录错误矩阵 14 项** — **本 session 已加 12/14 + 1/14 (登录超时)**: 5 boundary + 4 Nack + 2 disconnect + 1 ClientSettings + **1 LoginAck application-level timeout (commit fa74305e)**. 剩 1 项 (重复注册) 真不可达 — 协议头 `MP_USERCONN_LOGIN_NACK` 是 0-byte payload,client 端无 reason-code 信号区分
+- **Phase 1 §7.3 角色流程 9 项** — **本 session 已加 11/9 dispatch hook + 3 ack-timeout**: 11 dispatch hook tests + 1 CCharSelectState List/Select Ack timeout (45009501) + 1 CCharMake MakeAck timeout (b4d2b68c) + 1 CInGameState GameInAck timeout (2bee25c2). 4-state ack-timeout 全部覆盖 (10s default,steady_clock). 剩 0 项 dispatch hook,剩 e2e DB round-trip (角色列表与数据库一致, 重登持久化, 选择后进入真实 GameLoading — 后者部分覆盖 via GameEntryRequest typed payload round-trip)
 - **Phase 1 §7.4 evidence 修正** — 已在本次 session 的 `e8c7d413` 完成 (superseded "opaque server profile")
+- **新增 2026-09-06**: 4-state ack-timeout 完整覆盖 (CLoginState + CCharSelectState x2 + CCharMake + CInGameState),全部 10s default,steady_clock,Process() poll 模式。原始 client 缺 application-level timeout 是 missing feature,4 state machine 之前会无限等 server 响应。详见 CHANGELOG Unreleased 段最终 coverage table
 
 ### 中期 (3-5 个 session)
 
