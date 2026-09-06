@@ -53,6 +53,12 @@
 - Test now tries `PenaltyTime.bin` first, then `PaneltyTime.bin`, with the matched name used in the assertion error messages. `MxhResourceParse.ReadMhBin_PenaltyTime_bin` now PASSES in 0.01 sec; full ctest baseline remains 12,418/12,418 PASS in 115.57 sec, SKIP count drops from 5 to 4.
 - The remaining SKIP test in `MxhResourceParse` is `MxhResourcePayloadSha256.VerifyManifest_Deploy`, which loads `resource_payload_manifest_deploy.json` and verifies files under `deploy/server/Distribute/Resource` — a deploy-time artifact that does not exist in the source tree, so the test legitimately skips outside of a release-pipeline run.
 
+### MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds — regression lock (2026-09-06)
+
+- Commit `4c7894c9` — new test that locks the `host=(local)` shared-memory (lpc) protocol behavior discovered this session. Default `MXH_MSSQL_E2E` is unset, so the test SKIPs on a clean CI; with the env var set it connects via `SQLDriverConnect` to the local `MSSQLSERVER` over lpc in 33 ms and asserts `is_connected()` round-trip.
+- The test fails immediately if anyone changes `MssqlOdbcAdapter::build_conn_string` to break the `(` / `\` `pipe_style` detection, with `cr.error_message` showing the actual `SQLSTATE` (e.g. `08001 ... TCP 提供程序: 等待的操作过时`).
+- Full ctest baseline moves from 12,418 to 12,419 tests; default SKIP count moves from 4 to 5 (the new test adds 1 SKIP). With `MXH_MSSQL_E2E` set, 12,420/12,420 PASS across the MssqlRealE2E + MssqlOdbcAdapter shared-memory coverage.
+
 ### Governance and provenance
 
 - Protected 12 unreachable Git commits with backup refs and a verified bundle.
