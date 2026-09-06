@@ -71,6 +71,37 @@
 - Full ctest baseline: **12,419 → 12,421** (`+2`), all PASS in 116.60 sec. `mxh_client_tests` 322 → 324.
 - **§7.2 剩 1 项 (重复注册) 不可达** — 协议头 `MP_USERCONN_LOGIN_NACK` 是 0-byte payload,client 端没有 reason-code 信号区分"重复注册" vs "密码错" vs "账号禁用" (per `墨香【源码】\[CC]Header\Protocol.h`)。server 端在 LoginHandler 里区分但 client 端统一走 `fail_with("LoginNack received (bad credentials?)")`。这条靠 server 端 e2e (MoxianClientE2E 已涵盖) 验证,client 端 unit-test 不能补。
 
+### CCharSelectState List/Select Ack application-level timeout (2026-09-06)
+
+- Commit `45009501` — Same missing-feature pattern as `CLoginState`, now applied to `CCharSelectState` for the two server round-trips after the user lands on the character-select screen: `CharacterListAck` (after `CharacterListSyn`) and `CharacterSelectAck` (after `CharacterSelectSyn`). Without these, a hung AgentServer would freeze the UI indefinitely; with them, the state surfaces a recoverable `fail_with()` so the user can retry.
+- 10-second default deadline (steady_clock), overridable per-test by `SetAckTimeoutForTest(std::chrono::milliseconds)`; separate `ArmListAckDeadlineForTest` and `ArmSelectAckDeadlineForTest` because the two round-trips fire at different points in the lifecycle. The `m_selectSent` guard was removed from the `Process()` poll because the deadline itself implies "Syn has been sent" (only `send_select_syn` and the test hook set it).
+- New tests: `CharSelectAckTimeout.ListAckTimeoutFiresWhenNoResponse` (94 ms) and `CharSelectAckTimeout.SelectAckTimeoutFiresWhenNoResponse` (95 ms). `ccharselect_state_test.cpp` needed `<chrono>` + `<thread>` headers added.
+- Full ctest baseline: **12,421 → 12,423** (`+2`).
+
+### CCharMake CharacterMakeAck application-level timeout (2026-09-06)
+
+- Commit `b4d2b68c` — Same pattern extended to `CCharMake`. After `send_make_syn` is sent, the state waits for either a `CharacterMakeNack` (immediate `fail_with`) or a post-create `CharacterListAck` (state-switch back to `CharSelect`); without a timeout, a stalled DB write inside the AgentServer would freeze the user at the character-create UI with no recovery path.
+- Deadline is disarmed in three places: `CharacterMakeNack`, the post-create `CharacterListAck` dispatch, and `Release()`. New test `CCharMakeAckTimeout.MakeAckTimeoutFiresWhenNoResponse` (85 ms).
+- Full ctest baseline: **12,423 → 12,424** (`+1`).
+
+### CInGameState GameInAck application-level timeout (2026-09-06)
+
+- Commit `2bee25c2` — Completes the 4-state-machine ack-timeout coverage. `CInGameState` already had 4 other request timeouts in `Process()` (pickup / inventory / combat / shop, 5s each); the missing fifth was the `GameInAck` round-trip after `GameInSyn` is sent at state start. With this fix, a hung MapServer no longer freezes the user at a black "in-game" loading state.
+- Uses the same `m_pendingXxxSinceMs` (steady_now_ms) timestamp pattern as the four sibling timeouts, with a 10-second budget. The `ArmGameInAckDeadlineForTest` hook is defined in the `.cpp` rather than the header so we don't collide with the existing `mxh::client::steady_now_ms` free function via a forward declaration. New test `CInGameAckTimeout.GameInAckTimeoutFiresWhenNoResponse` (90 ms).
+- Full ctest baseline: **12,424 → 12,425** (`+1`).
+
+### Final state-machine ack-timeout coverage (2026-09-06)
+
+| State machine | Ack round-trip | Timeout | Commit | Test |
+|---|---|---|---|---|
+| `CLoginState` | `LoginAck` | 10s | `fa74305e` | `LoginAckTimeoutFiresWhenNoResponse` (85 ms) |
+| `CCharSelectState` | `ListAck` | 10s | `45009501` | `ListAckTimeoutFiresWhenNoResponse` (94 ms) |
+| `CCharSelectState` | `SelectAck` | 10s | `45009501` | `SelectAckTimeoutFiresWhenNoResponse` (95 ms) |
+| `CCharMake` | `MakeAck` (via post-create `ListAck`) | 10s | `b4d2b68c` | `MakeAckTimeoutFiresWhenNoResponse` (85 ms) |
+| `CInGameState` | `GameInAck` | 10s | `2bee25c2` | `GameInAckTimeoutFiresWhenNoResponse` (90 ms) |
+
+All four state machines now surface a recoverable `fail_with("...Ack timeout (no response from ...Server)")` instead of hanging silently on a stalled server. The 4-state coverage is the §7.2 / §7.3 missing-feature complement to the existing 11 dispatch-hook tests — together they lock the "I never wait forever" invariant.
+
 ### Governance and provenance
 
 - Protected 12 unreachable Git commits with backup refs and a verified bundle.
