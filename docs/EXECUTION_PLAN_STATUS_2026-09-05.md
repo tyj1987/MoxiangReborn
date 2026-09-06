@@ -1,11 +1,11 @@
 # EXECUTION_PLAN 状态报告 — 2026-09-05 / 2026-09-06 update
 
 > **来源**: `C:\moxiang\modern\scratch\2026-09-05-minimax-m3-execution\EXECUTION_PLAN.md`
-> **session 起算**: 2026-09-05 (本 session 累计 62 commits, 14+ hours)
-> **分支**: `codex/runtime-recovery-pve` (领先 origin 62 commits)
-> **HEAD**: `cf4045a2` docs: MssqlOdbcAdapter shared-memory regression lock + 12419 baseline
+> **session 起算**: 2026-09-05 (本 session 累计 63 commits, 14+ hours)
+> **分支**: `codex/runtime-recovery-pve` (领先 origin 63 commits)
+> **HEAD**: `29d39118` docs: handoff 同步 14→62 commits + cf4045a2 HEAD
 > **工作树**: clean (除 untracked `modern/build-release/` 按 §5 保留)
-> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (7 个 2026-09-06 entries 包含本 session 全部改进)
+> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (8 个 2026-09-06 entries 包含本 session 全部改进)
 
 ---
 
@@ -31,7 +31,7 @@
 
 ---
 
-## 1. 本 session 完成的具体工作 (14 commits)
+## 1. 本 session 完成的具体工作 (62 commits, 2026-09-05 起)
 
 ### Phase 0 §6.5 诊断 + 修复 (8 commits)
 
@@ -131,7 +131,7 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 **未触动**:
 - 没改 `modern/tools/MoxianClientE2E/main.cpp` (为啥 race 突然消失留待下个 session 调查;当前 build 上 race 不复现是稳定事实)
 - 没动 5 个 pre-existing SKIP 的 gating 测试 (MSSQL E2E 需要 ODBC + DB,D:\[SWorking]\SWorking\Resource\Server 资源路径未挂载)
-- 没动 `recent commits ahead of origin` 计数 (55 commits 跟 §1 表一致)
+- 没动 `recent commits ahead of origin` 计数 (本 session 末 63 commits,见头部)
 
 ---
 
@@ -139,7 +139,7 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 
 下个 session 起手三件事 (按 AGENTS.md §2):
 1. `scripts/session-bootstrap.ps1` (清根目录 + 反 JSON 截断工具箱)
-2. `git log --oneline 6fa0fe73..HEAD` 确认 14 commits 还在
+2. `git log --oneline 6fa0fe73..HEAD` 确认 63 commits 还在 (本 session 起点 14,末 63)
 3. 读 `EXECUTION_PLAN.md` §7 (Phase 1) 起步 — §7.1 已基本完成,直接推 §7.2 14 项错误矩阵
 
 ## 5. 重要文件/路径
