@@ -12,7 +12,7 @@
 
 | Phase | 状态 | 关键 evidence | 备注 |
 |---|---|---|---|
-| **Phase 0 §6.5** GameInAck 后客户端终止或卡死 | **PASSED 3/3** | `EVID-20260905-gamein-3x10min` | 3× 10 min capture 全部 exit_code=0, state-gamein.tga 稳定 |
+| **Phase 0 §6.5** GameInAck 后客户端终止或卡死 | **PASSED 3/3 (literal 10-min)** | `EVID-20260905-gamein-3x10min` + `EVID-20260905-gamein-10min-literal` | 3× 10 min capture 全部 10:00+ 跑满, state-gamein.tga 稳定 (literal 10 min 跑满 3/3 在 commit 3512f078 加 --debug-ui-bounds 之后) |
 | **Phase 0 §6.4** 协议突发测试 | **PASSED 4/4** | `EVID-20260905-protocol-burst` | 4 个 ProtocolBurst test, mxh_client_tests 整体 299/299 |
 | **Phase 1 §7.2 登录错误矩阵** | **PASS 11/14** | 12 LoginStateWire + 6 LoginStateErrorMatrix (5 boundary + 4 Nack + 2 disconnect) | 3/14 需 real server (重复注册 / 登录超时 / LoginServer 不可用 — 改为 2) |
 | **Phase 1 §7.3 角色流程 dispatch hook** | **PASS 9/9** | 2 CCharMakeNameCheck + 1 CharacterMakeNack + 2 CCharSelectDispatch + 1 CCharSelectRemove + 3 CCharMakeNameValidation | 4 state 的 test hook infrastructure 全部就位 |
