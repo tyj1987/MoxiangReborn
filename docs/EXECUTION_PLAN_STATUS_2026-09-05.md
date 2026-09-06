@@ -1,10 +1,11 @@
-# EXECUTION_PLAN 状态报告 — 2026-09-05
+# EXECUTION_PLAN 状态报告 — 2026-09-05 / 2026-09-06 update
 
 > **来源**: `C:\moxiang\modern\scratch\2026-09-05-minimax-m3-execution\EXECUTION_PLAN.md`
-> **session 起算**: 2026-09-05 (本 session 累计 14 commits, 12+ hours)
-> **分支**: `codex/runtime-recovery-pve` (领先 origin 14 commits)
-> **HEAD**: `e8c7d413` docs: VERIFICATION_MATRIX 加 §6.5/§6.4 evidence
+> **session 起算**: 2026-09-05 (本 session 累计 62 commits, 14+ hours)
+> **分支**: `codex/runtime-recovery-pve` (领先 origin 62 commits)
+> **HEAD**: `cf4045a2` docs: MssqlOdbcAdapter shared-memory regression lock + 12419 baseline
 > **工作树**: clean (除 untracked `modern/build-release/` 按 §5 保留)
+> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (7 个 2026-09-06 entries 包含本 session 全部改进)
 
 ---
 
