@@ -129,7 +129,7 @@ mxh_client_tests binary 整体 299/299 PASS in 16.3 sec。
 **结论**:`-E MoxianClientE2E` 排除不再需要。下个 session 起手时,默认 ctest 应该包含这 2 个 E2E test,期望 12418/12418 全绿。
 
 **未触动**:
-- 没改 `modern/tools/MoxianClientE2E/main.cpp` (为啥 race 突然消失留待下个 session 调查;当前 build 上 race 不复现是稳定事实)
+- ~~没改 `modern/tools/MoxianClientE2E/main.cpp` (为啥 race 突然消失留待下个 session 调查;当前 build 上 race 不复现是稳定事实)~~ **2026-09-06 update**:race 根因找到 — commit `00018e11` (2026-08-21) 改 spawn 顺序,E2E 工具先 `prepare_sqlite_database` (migrate + create_account) 再 spawn 三服,LoginServer 不再带 `--init-schema` flag。Race window (`spawn LoginServer` vs `E2E 发送 RequestLogin`) 消失因为 DB 在 spawn 前已就绪。详见 CHANGELOG Unreleased 段。
 - 没动 5 个 pre-existing SKIP 的 gating 测试 (MSSQL E2E 需要 ODBC + DB,D:\[SWorking]\SWorking\Resource\Server 资源路径未挂载)
 - 没动 `recent commits ahead of origin` 计数 (本 session 末 63 commits,见头部)
 
