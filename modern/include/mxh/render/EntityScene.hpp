@@ -137,6 +137,15 @@ public:
     // the player model is always rendered (camera-centric). Pass an
     // empty optional to disable culling (the default).
     void setCameraFrustum(std::optional<Frustum> frustum) noexcept;
+    // Push the (X, Z) half-extent in scaled world units that the terrain mesh
+    // builder subtracts from each vertex, so entity / static / effect scenes
+    // re-centre their own coordinates by the same offset. Must be called
+    // after every successful `TerrainScene::load()` because the centre is
+    // map-specific. The legacy constant `kEntityMapCenter = 25.6f` was only
+    // correct for maps whose half-width * kSceneScale == 25.6 (Map 12
+    // d.width = 51 200); Map 10 (d.width = 50 000) and Map 21 (d.width =
+    // 50 000) drifted by 0.6 units until this setter existed.
+    void setMapCenter(float world_x, float world_z) noexcept;
     [[nodiscard]] std::uint32_t loadedModelCount() const noexcept;
     [[nodiscard]] std::uint32_t instanceCount() const noexcept;
     [[nodiscard]] std::uint32_t playerInstanceCount() const noexcept;

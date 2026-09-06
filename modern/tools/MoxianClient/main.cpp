@@ -1193,6 +1193,7 @@ struct EffectVisualOverlay {
     }
 
     void synchronizeLights(const mxh::client::CInGameState& game,
+                           const mxh::gx::TerrainScene& terrain,
                            I4DyuchiGXRenderer* renderer) const {
         if (!renderer) return;
         std::uint32_t slot = 0;
@@ -1234,16 +1235,17 @@ struct EffectVisualOverlay {
             const auto move_x = item.move_offset[0] * move_progress;
             const auto move_y = item.move_offset[1] * move_progress;
             const auto move_z = item.move_offset[2] * move_progress;
+            const auto centre = terrain.mapCenter();
             LIGHT_DESC light{};
             light.dwDiffuse = item.color_index == 0u ? 0xffffffffu : 0u;
             light.dwAmbient = 0u;
             light.dwSpecular = 0u;
             light.v3Point = {world_x * mxh::gx::kEntitySceneScale -
-                             mxh::gx::kEntityMapCenter + (item.position[0] + move_x) *
+                             centre.first + (item.position[0] + move_x) *
                              mxh::gx::kEntitySceneScale,
                              (item.position[1] + move_y) * mxh::gx::kEntitySceneScale,
                              world_z * mxh::gx::kEntitySceneScale -
-                             mxh::gx::kEntityMapCenter + (item.position[2] + move_z) *
+                             centre.second + (item.position[2] + move_z) *
                              mxh::gx::kEntitySceneScale};
             light.fRs = item.radius > 0.0f ? item.radius *
                         mxh::gx::kEntitySceneScale : 2.0f;
@@ -1324,12 +1326,11 @@ struct EffectVisualOverlay {
 
     static bool project(const mxh::gx::MATRIX4& matrix,
                         float world_x, float world_y, float world_z,
+                        float center_x, float center_z,
                         float& screen_x, float& screen_y) noexcept {
-        const float x = world_x * mxh::gx::kEntitySceneScale -
-                        mxh::gx::kEntityMapCenter;
+        const float x = world_x * mxh::gx::kEntitySceneScale - center_x;
         const float y = world_y * mxh::gx::kEntitySceneScale;
-        const float z = world_z * mxh::gx::kEntitySceneScale -
-                        mxh::gx::kEntityMapCenter;
+        const float z = world_z * mxh::gx::kEntitySceneScale - center_z;
         const float clip_x = x * matrix._11 + y * matrix._21 +
                              z * matrix._31 + matrix._41;
         const float clip_y = x * matrix._12 + y * matrix._22 +
@@ -1341,6 +1342,27 @@ struct EffectVisualOverlay {
         screen_y = (1.0f - clip_y / clip_w) * 300.0f;
         return screen_x >= -128.0f && screen_x <= 928.0f &&
                screen_y >= -128.0f && screen_y <= 728.0f;
+    }
+
+    // Centralised heightAt → project() pipeline. All overlay rendering
+    // (damage text, ground drops, NPC head markers, effect lights) goes
+    // through this helper so the unit conversions happen in exactly one
+    // place and the cached terrain map centre is reused.
+    // - `head_offset_raw` is the *raw* world-unit offset above the
+    //   ground (e.g. 120.0f for ~12cm above ground on a face_size=100
+    //   map). Legacy callers already expressed head offsets in raw
+    //   face-size units; this helper keeps that convention while
+    //   routing the centre lookup through the terrain.
+    static bool project_world_point(const mxh::gx::MATRIX4& matrix,
+                                    const mxh::gx::TerrainScene& terrain,
+                                    float world_x, float world_z,
+                                    float head_offset_raw,
+                                    float& screen_x, float& screen_y) noexcept {
+        const auto centre = terrain.mapCenter();
+        const float y_raw = terrain.heightAt(world_x, world_z) + head_offset_raw;
+        return project(matrix, world_x, y_raw, world_z,
+                       centre.first, centre.second,
+                       screen_x, screen_y);
     }
 
     void render(const mxh::client::CInGameState& game,
@@ -1364,13 +1386,14 @@ struct EffectVisualOverlay {
             float x = 0.0f, y = 0.0f;
             bool found = false;
             const auto& info = game.game_info();
+            const auto centre = terrain.mapCenter();
             if (item.target_id == info.player_id || item.source_id == info.player_id) {
                 const float world_x = info.position_x + item.position[0] + move_x;
                 const float world_z = info.position_z + item.position[2] + move_z;
                 found = project(terrain.viewProj(), world_x,
                                 terrain.heightAt(info.position_x, info.position_z) +
                                     120.0f + item.position[1] + move_y,
-                                world_z, x, y);
+                                world_z, centre.first, centre.second, x, y);
             }
             if (!found) {
                 for (const auto& monster : game.monsters()) {
@@ -1381,7 +1404,7 @@ struct EffectVisualOverlay {
                     found = project(terrain.viewProj(), world_x,
                                     terrain.heightAt(monster.position_x, monster.position_z) +
                                         120.0f + item.position[1] + move_y,
-                                    world_z, x, y);
+                                    world_z, centre.first, centre.second, x, y);
                     break;
                 }
             }
@@ -1391,7 +1414,8 @@ struct EffectVisualOverlay {
                     found = project(terrain.viewProj(), remote.position_x + item.position[0] + move_x,
                                     terrain.heightAt(remote.position_x, remote.position_z) +
                                         120.0f + item.position[1] + move_y,
-                                    remote.position_z + item.position[2] + move_z, x, y);
+                                    remote.position_z + item.position[2] + move_z,
+                                    centre.first, centre.second, x, y);
                     break;
                 }
             }
@@ -1559,6 +1583,22 @@ void renderFrame(HWND h) {
             g_terrain->setCameraYaw(g_inputTarget->camera_yaw());
         }
         g_terrain->configureCamera(800.0f / 600.0f);
+        // Push the map-specific (X, Z) half-extent to the entity + static
+        // scenes so they re-centre their own vertices by the same offset
+        // the terrain mesh builder subtracted in `load()`.  This replaces
+        // the legacy hard-coded `kEntityMapCenter = 25.6f` constant that
+        // was only correct for maps whose half-width * kSceneScale == 25.6
+        // (Map 12 d.width = 51 200); Map 10 (d.width = 50 000) and Map 21
+        // (d.width = 50 000) drifted by 0.6 units in world space until
+        // this push existed.
+        if (g_entityScene) {
+            const auto centre = g_terrain->mapCenter();
+            g_entityScene->setMapCenter(centre.first, centre.second);
+        }
+        if (g_staticScene) {
+            const auto centre = g_terrain->mapCenter();
+            g_staticScene->setMapCenter(centre.first, centre.second);
+        }
         // Sky is rendered in every camera mode so the overview-capture
         // and follow-capture frames share the same MOD dome.  The original
         // `!g_overviewCamera` guard left the entire top half of the
@@ -1586,7 +1626,7 @@ void renderFrame(HWND h) {
                 if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
                     g_effectVisuals->synchronizeMeshes(*g_inputTarget, *g_terrain,
                                                        g_entityScene.get());
-                    g_effectVisuals->synchronizeLights(*g_inputTarget, g_renderer);
+                    g_effectVisuals->synchronizeLights(*g_inputTarget, *g_terrain, g_renderer);
                 } else {
                     g_entityScene->clearEffects();
                     EffectVisualOverlay::clearLights(g_renderer);
@@ -1618,17 +1658,15 @@ void renderFrame(HWND h) {
                 float sx = 0.0f, sy = 0.0f;
                 bool found = false;
                 if (feedback.target_id == info.player_id) {
-                    found = EffectVisualOverlay::project(
-                        g_terrain->viewProj(), info.position_x,
-                        g_terrain->heightAt(info.position_x, info.position_z) + 140.0f,
-                        info.position_z, sx, sy);
+                    found = EffectVisualOverlay::project_world_point(
+                        g_terrain->viewProj(), *g_terrain,
+                        info.position_x, info.position_z, 140.0f, sx, sy);
                 } else {
                     for (const auto& monster : g_inputTarget->monsters()) {
                         if (monster.object_id != feedback.target_id) continue;
-                        found = EffectVisualOverlay::project(
-                            g_terrain->viewProj(), monster.position_x,
-                            g_terrain->heightAt(monster.position_x, monster.position_z) + 140.0f,
-                            monster.position_z, sx, sy);
+                        found = EffectVisualOverlay::project_world_point(
+                            g_terrain->viewProj(), *g_terrain,
+                            monster.position_x, monster.position_z, 140.0f, sx, sy);
                         break;
                     }
                 }
@@ -1659,11 +1697,9 @@ void renderFrame(HWND h) {
             g_entityScene && g_terrain) {
             for (const auto& drop : g_inputTarget->ground_drops()) {
                 float sx = 0.0f, sy = 0.0f;
-                if (!EffectVisualOverlay::project(
-                        g_terrain->viewProj(), drop.position_x,
-                        g_terrain->heightAt(drop.position_x, drop.position_z) +
-                            100.0f,
-                        drop.position_z, sx, sy)) {
+                if (!EffectVisualOverlay::project_world_point(
+                        g_terrain->viewProj(), *g_terrain,
+                        drop.position_x, drop.position_z, 100.0f, sx, sy)) {
                     continue;
                 }
                 auto name = g_entityScene->itemDisplayName(drop.item_id);
@@ -1951,10 +1987,11 @@ void renderFrame(HWND h) {
                 const float ground_y = g_terrain->heightAt(world_x, world_z);
                 const float head_y = (ground_y + 200.0f) *
                                      mxh::gx::kEntitySceneScale;
+                const auto centre = g_terrain->mapCenter();
                 const float tx = world_x * mxh::gx::kEntitySceneScale -
-                                 mxh::gx::kEntityMapCenter;
+                                 centre.first;
                 const float tz = world_z * mxh::gx::kEntitySceneScale -
-                                 mxh::gx::kEntityMapCenter;
+                                 centre.second;
                 const float clip_x = tx * npc_view_proj._11 +
                                      head_y * npc_view_proj._21 +
                                      tz * npc_view_proj._31 +

@@ -34,7 +34,11 @@ namespace mxh::gx {
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr float kSceneScale = kEntitySceneScale;
-constexpr float kMapCenter = kEntityMapCenter;
+// kMapCenter is now sourced from the cached centre pushed by the caller via
+// EntityScene::setMapCenter (defaults to the legacy 25.6f constant for any
+// code path that constructs an EntityScene without a matching TerrainScene
+// — e.g. the standalone unit tests that build placeholders before the
+// terrain is loaded). See mxh::gx::EntityScene::setMapCenter for details.
 
 std::uint32_t entityModelKey(SceneEntityType type,
                              std::uint16_t kind) noexcept {
@@ -255,6 +259,14 @@ struct EntityScene::Impl {
     std::vector<ScenePlayer> remote_players;
     std::optional<Frustum> frustum;
     std::uint32_t culled_instances = 0;
+    // Cached (X, Z) half-extent in scaled world units. Pushed by
+    // setMapCenter() once per frame from TerrainScene::mapCenter() so the
+    // entity / placeholder render path re-centres its vertices by the same
+    // offset the terrain mesh builder subtracts. Defaults to the legacy
+    // 25.6f constant for unit tests that build an EntityScene without
+    // a corresponding TerrainScene (placeholders, snapshot tests, etc.).
+    float map_center_x = kEntityMapCenter;
+    float map_center_z = kEntityMapCenter;
     std::uint32_t failed_load_count = 0;
     bool placeholder_rendering_enabled = false;
     std::unordered_set<std::uint32_t> placeholder_ids;
@@ -796,9 +808,9 @@ void EntityScene::render() {
         if (auto* model = impl_->loadModel(kind, &player)) {
             impl_->updateAnimation(*model, SceneEntityType::Monster,
                                    true, player.action);
-            const float tx = player.world_x * kSceneScale - kMapCenter;
+            const float tx = player.world_x * kSceneScale - impl_->map_center_x;
             const float ty = player.world_y * kSceneScale - model->minimum.y;
-            const float tz = player.world_z * kSceneScale - kMapCenter;
+            const float tz = player.world_z * kSceneScale - impl_->map_center_z;
             if (!alwaysRender && impl_->frustum) {
                 const float radius = std::max({
                     std::abs(model->minimum.x), std::abs(model->maximum.x),
@@ -838,9 +850,9 @@ void EntityScene::render() {
         // so the world-space AABB is the local AABB translated by the
         // (x, y, z) world position. Apply the frustum p-vertex test
         // before pushing draw calls to the renderer.
-        const float tx = entity.world_x * kSceneScale - kMapCenter;
+        const float tx = entity.world_x * kSceneScale - impl_->map_center_x;
         const float ty = entity.world_y * kSceneScale - model->minimum.y;
-        const float tz = entity.world_z * kSceneScale - kMapCenter;
+        const float tz = entity.world_z * kSceneScale - impl_->map_center_z;
         if (impl_->frustum) {
             const float radius = std::max({
                 std::abs(model->minimum.x), std::abs(model->maximum.x),
@@ -867,9 +879,9 @@ void EntityScene::render() {
         auto* model = impl_->loadModel(0, nullptr, SceneEntityType::Monster,
                                        effect.object_id, effect.chx_name);
         if (!model) continue;
-        const float tx = effect.world_x * kSceneScale - kMapCenter;
+        const float tx = effect.world_x * kSceneScale - impl_->map_center_x;
         const float ty = effect.world_y * kSceneScale - model->minimum.y;
-        const float tz = effect.world_z * kSceneScale - kMapCenter;
+        const float tz = effect.world_z * kSceneScale - impl_->map_center_z;
         if (impl_->frustum) {
             const float radius = std::max({
                 std::abs(model->minimum.x), std::abs(model->maximum.x),
@@ -917,6 +929,11 @@ void EntityScene::setPlaceholderRenderingEnabled(bool enabled) noexcept {
 
 void EntityScene::setCameraFrustum(std::optional<Frustum> frustum) noexcept {
     impl_->frustum = std::move(frustum);
+}
+
+void EntityScene::setMapCenter(float world_x, float world_z) noexcept {
+    impl_->map_center_x = world_x;
+    impl_->map_center_z = world_z;
 }
 
 std::uint32_t EntityScene::loadedModelCount() const noexcept {

@@ -29,6 +29,14 @@ public:
     // a map has no static geometry.
     [[nodiscard]] bool blocksPoint(float world_x, float world_z,
                                    float radius = 0.0f) const noexcept;
+    // Push the (X, Z) half-extent in scaled world units that the terrain mesh
+    // builder subtracts from each vertex, so the STM mesh re-centres by the
+    // same offset. Must be called after every successful `TerrainScene::load()`
+    // because the centre is map-specific. The legacy constant `25.6f` was
+    // only correct for maps whose half-width * kSceneScale == 25.6 (Map 12
+    // d.width = 51 200); Map 10 (d.width = 50 000) and Map 21 (d.width =
+    // 50 000) drifted by 0.6 units until this setter existed.
+    void setMapCenter(float world_x, float world_z) noexcept;
 
 private:
     struct Impl;

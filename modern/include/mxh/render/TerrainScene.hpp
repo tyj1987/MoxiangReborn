@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "mxh/render/math.hpp"
 
@@ -35,6 +36,14 @@ public:
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
     [[nodiscard]] float worldWidth() const noexcept;
     [[nodiscard]] float worldHeight() const noexcept;
+    // Returns the (X, Z) half-extent of the current map in scaled world units.
+    // Used by downstream scenes (entity / static / effect) to re-centre their
+    // own X/Z coords by the same offset the terrain mesh builder subtracts in
+    // `load()`. The hard-coded `kEntityMapCenter = 25.6f` constant was correct
+    // only for maps whose `desc.width * kSceneScale * 0.5 == 25.6`; this accessor
+    // makes the centre map-specific so Map 10 / Map 12 / Map 21 / any future
+    // map renders without a quadrant drift.
+    [[nodiscard]] std::pair<float, float> mapCenter() const noexcept;
     [[nodiscard]] std::uint32_t chunkCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
     [[nodiscard]] std::uint32_t placeholderTextureCount() const noexcept;

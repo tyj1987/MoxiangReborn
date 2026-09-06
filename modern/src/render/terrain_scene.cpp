@@ -69,6 +69,14 @@ struct TerrainScene::Impl {
     std::uint32_t unresolved_textures = 0;
     float terrain_min_height = 0.0f;
     float terrain_max_height = 0.0f;
+    // Map-specific (X, Z) half-extent in scaled world units. Computed once
+    // in load() from `desc.width / desc.height` so the entity / static /
+    // effect scenes can re-centre their own X/Z coords by the same offset
+    // the terrain mesh builder subtracts. Replaces the hard-coded
+    // kEntityMapCenter = 25.6f constant that was only correct for maps
+    // whose half-width * kSceneScale == 25.6.
+    float map_center_x = 0.0f;
+    float map_center_z = 0.0f;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -85,9 +93,21 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     impl_->chunks.clear(); impl_->textures.clear(); impl_->renderer = renderer;
     impl_->palette_entries = 0;
     impl_->unresolved_textures = 0;
+    // Reset the cached map centre; the real value is set below from
+    // the parsed desc so a failed load leaves the centre at (0, 0)
+    // and downstream callers see "no map" via mapCenter().
+    impl_->map_center_x = 0.0f;
+    impl_->map_center_z = 0.0f;
     std::vector<std::uint8_t> hflBytes;
     if (!readStorageFile(storage, hfl_name, hflBytes) ||
         !mxh::compat::parse_hfl(hflBytes, impl_->terrain, error)) return false;
+    // Cache the (X, Z) half-extent in scaled world units. The terrain mesh
+    // builder subtracts `desc.width * kSceneScale * 0.5` from every X and
+    // `desc.height * kSceneScale * 0.5` from every Z (see configureCamera);
+    // downstream scenes (entity / static / effect) must apply the same
+    // offset so positions are world-aligned.
+    impl_->map_center_x = impl_->terrain.desc.width * kSceneScale * 0.5f;
+    impl_->map_center_z = impl_->terrain.desc.height * kSceneScale * 0.5f;
     if (!impl_->terrain.heights.empty()) {
         const auto [min_it, max_it] = std::minmax_element(
             impl_->terrain.heights.begin(), impl_->terrain.heights.end());
@@ -423,6 +443,14 @@ float TerrainScene::worldWidth() const noexcept {
 
 float TerrainScene::worldHeight() const noexcept {
     return static_cast<float>(impl_->terrain.desc.height);
+}
+
+std::pair<float, float> TerrainScene::mapCenter() const noexcept {
+    // Returns the scaled world units that the terrain mesh builder subtracts
+    // from each X / Z vertex (so positions become centred around the origin).
+    // Defaults to (0, 0) before load() succeeds so callers can detect a
+    // not-yet-loaded terrain via the centre being the world origin.
+    return {impl_->map_center_x, impl_->map_center_z};
 }
 
 void TerrainScene::render() {

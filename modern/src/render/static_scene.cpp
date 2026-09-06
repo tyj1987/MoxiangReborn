@@ -17,6 +17,10 @@ namespace mxh::gx {
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr float kSceneScale = 0.001f;
+// kMapCenter is now sourced from the cached centre pushed by the caller via
+// StaticScene::setMapCenter (defaults to the legacy 25.6f constant for any
+// code path that constructs a StaticScene without a matching TerrainScene —
+// e.g. the standalone tests). See mxh::gx::StaticScene::setMapCenter.
 constexpr float kMapCenter = 25.6f;
 
 bool readStorageFile(I4DyuchiFileStorage* storage, const char* name,
@@ -89,6 +93,13 @@ struct StaticScene::Impl {
     std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
     std::uint32_t unresolved_textures = 0;
     std::vector<Bounds> collision_bounds;
+    // Cached (X, Z) half-extent in scaled world units. Pushed by
+    // setMapCenter() once per frame from TerrainScene::mapCenter() so the
+    // STM mesh re-centres by the same offset the terrain mesh builder
+    // subtracts. Defaults to the legacy 25.6f constant for unit tests that
+    // build a StaticScene without a corresponding TerrainScene.
+    float map_center_x = 25.6f;
+    float map_center_z = 25.6f;
     ~Impl() { for (auto* mesh : meshes) if (mesh) mesh->Release(); }
 };
 
@@ -110,10 +121,10 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     impl_->collision_bounds.reserve(scene.collision_bounds.size());
     for (const auto& source : scene.collision_bounds) {
         impl_->collision_bounds.push_back({
-            source.min[0] * kSceneScale - kMapCenter,
-            source.max[0] * kSceneScale - kMapCenter,
-            source.min[2] * kSceneScale - kMapCenter,
-            source.max[2] * kSceneScale - kMapCenter});
+            source.min[0] * kSceneScale - impl_->map_center_x,
+            source.max[0] * kSceneScale - impl_->map_center_x,
+            source.min[2] * kSceneScale - impl_->map_center_z,
+            source.max[2] * kSceneScale - impl_->map_center_z});
     }
 
     ID3D11Device* device = nullptr;
@@ -140,9 +151,9 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         std::vector<VECTOR3> normals(source.positions.size(), VECTOR3{0, 1, 0});
         std::vector<TVERTEX> texcoords(source.positions.size());
         for (std::size_t i = 0; i < source.positions.size(); ++i) {
-            positions[i] = {source.positions[i][0] * kSceneScale - kMapCenter,
+            positions[i] = {source.positions[i][0] * kSceneScale - impl_->map_center_x,
                             source.positions[i][1] * kSceneScale,
-                            source.positions[i][2] * kSceneScale - kMapCenter};
+                            source.positions[i][2] * kSceneScale - impl_->map_center_z};
             if (i < source.normals.size())
                 normals[i] = {source.normals[i][0], source.normals[i][1], source.normals[i][2]};
             if (i < source.texcoords.size())
@@ -201,8 +212,8 @@ std::uint32_t StaticScene::unresolvedTextureCount() const noexcept {
 bool StaticScene::blocksPoint(float world_x, float world_z,
                               float radius) const noexcept {
     if (!impl_ || impl_->collision_bounds.empty()) return false;
-    const float scene_x = world_x * kSceneScale - kMapCenter;
-    const float scene_z = world_z * kSceneScale - kMapCenter;
+    const float scene_x = world_x * kSceneScale - impl_->map_center_x;
+    const float scene_z = world_z * kSceneScale - impl_->map_center_z;
     const float r = std::max(0.0f, radius) * kSceneScale;
     return std::any_of(impl_->collision_bounds.begin(),
                        impl_->collision_bounds.end(),
@@ -210,5 +221,11 @@ bool StaticScene::blocksPoint(float world_x, float world_z,
         return scene_x >= b.min_x - r && scene_x <= b.max_x + r &&
                scene_z >= b.min_z - r && scene_z <= b.max_z + r;
     });
+}
+
+void StaticScene::setMapCenter(float world_x, float world_z) noexcept {
+    if (!impl_) return;
+    impl_->map_center_x = world_x;
+    impl_->map_center_z = world_z;
 }
 } // namespace mxh::gx
