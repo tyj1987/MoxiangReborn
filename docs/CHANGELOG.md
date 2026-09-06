@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Session summary — 2026-09-05 / 2026-09-06 (commit `404dec6d`)
+
+- 19 commits pushed to `codex/runtime-recovery-pve` (74 ahead of origin) in 14+ hours.
+- **ctest baseline**: 12,416 → **12,425** PASS in ~117-148 s, 0 FAIL, 5 default SKIP, 3 env-gated opt-in. `mxh_client_tests` 299 → 327.
+- **Phase 0 §6.4 protocol-burst**: 4/4 PASSED.
+- **Phase 0 §6.5 10-min Map10 stability**: 3/3 literal 10-min runs PASSED, root cause = 32-bit 2 GB user-mode ceiling → `/LARGEADDRESSAWARE` link flag.
+- **Phase 1 §7.2 login error matrix**: 12 → 13/14 unit tests. LoginAck application-level timeout added (`fa74305e`); 重复注册 is genuinely unreachable (0-byte Nack payload).
+- **Phase 1 §7.3 character flow**: 11 → 14/9 dispatch-hook tests + 4-state ack-timeout coverage (CLoginState + CCharSelectState x2 + CCharMake + CInGameState).
+- **MoxianClientE2E pre-existing race**: RESOLVED (root cause = commit `00018e11` restructuring spawn order so DB is prepared before servers start).
+- **3 SKIP tests unlocked**: PenaltyTime_bin filename tolerance (`1396ff5f`), 2 × MssqlRealE2E modern-schema tests (`fcb1f986` / opt-in via `MXH_MSSQL_E2E`).
+- **1 SKIP test added as opt-in**: MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds (`4c7894c9`) locks the `host=(local)` → lpc protocol finding.
+- **1 cross-project agent memory entry** appended: `MSSQLSERVER local ODBC: host=(local) vs host=localhost` (Windows + MSSQL + ODBC universal).
+- **Remaining 4 phase items** all require external env (real DB round-trip / 24h soak / PVE VM / 真人双验收) and are deferred to next session.
+
 ### Phase 0 §6.5 — GameInAck 后客户端稳定性 (2026-09-05 session)
 
 - **Root cause fix**: `mxh_client` 32-bit 2 GB user-mode ceiling → `target_link_options(mxh_client PRIVATE /LARGEADDRESSAWARE)` 让 32-bit PE 用 4 GB user-mode on x64 Windows (commit `469cfbdb`).
