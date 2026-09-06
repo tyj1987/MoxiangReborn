@@ -12,7 +12,8 @@ TEST(MssqlRealE2E, LoginCharacterAndLogMoneyRoundTrip) {
  cfg.backend = "mssql_odbc";
  auto db = make_adapter(cfg.backend);
  ASSERT_NE(db, nullptr);
- ASSERT_TRUE(db->connect(cfg).ok());
+ auto cr = db->connect(cfg);
+ ASSERT_TRUE(cr.ok()) << cr.error_message;
  ResultSet characters;
  auto q = db->query("SELECT TOP 1 * FROM CharacterInfo", characters);
  ASSERT_TRUE(q.ok()) << q.error_message;
@@ -35,7 +36,8 @@ TEST(MssqlRealE2E, ModernSchemaLoginAndCharacterRoundTrip) {
  cfg.backend = "mssql_odbc";
  auto db = make_adapter(cfg.backend);
  ASSERT_NE(db, nullptr);
- ASSERT_TRUE(db->connect(cfg).ok());
+ auto cr = db->connect(cfg);
+ ASSERT_TRUE(cr.ok()) << cr.error_message;
 
  // Ensure the modern tables exist (idempotent; matches
  // deploy/database/mx_modern_schema_mssql.sql).
@@ -84,10 +86,17 @@ TEST(MssqlRealE2E, ModernSchemaLoginAndCharacterRoundTrip) {
 
  // Character insert (AgentHandler's exact column set) + readback.
  const std::int64_t chrid = 99001;
+ // The DB has a unique index on charname, so a previous interrupted run
+ // could leave a row with the same name but a different chrid.  Delete
+ // by both columns to make the test fully idempotent.
  std::vector<Bind> del_params = { mxh::db::bind(chrid) };
+ std::vector<Bind> del_by_name_params = { mxh::db::bind(std::string("MSSQLHero")) };
  ASSERT_TRUE(db->execute(
      "DELETE FROM dbo.character_info WHERE chrid = ?",
      del_params).ok());
+ ASSERT_TRUE(db->execute(
+     "DELETE FROM dbo.character_info WHERE charname = ?",
+     del_by_name_params).ok());
  std::vector<Bind> ins_params = {
      mxh::db::bind(chrid), mxh::db::bind(std::string("MSSQLHero")),
      mxh::db::bind(std::int64_t(1)),
@@ -97,12 +106,13 @@ TEST(MssqlRealE2E, ModernSchemaLoginAndCharacterRoundTrip) {
      mxh::db::bind(1.0),
      mxh::db::bind(std::int64_t(12)), mxh::db::bind(std::int64_t(0)),
  };
- ASSERT_TRUE(db->execute(
+ auto ins_r = db->execute(
      "INSERT INTO character_info "
      "(chrid, charname, userid, sex_type, hair_type, face_type, "
      "body_type, start_area, height, width, level, map_num, standing_idx) "
      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-     ins_params).ok());
+     ins_params);
+ ASSERT_TRUE(ins_r.ok()) << ins_r.error_message;
  ResultSet char_rs;
  std::vector<Bind> char_params = { mxh::db::bind(chrid) };
  auto cq = db->query(
