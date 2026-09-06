@@ -30,6 +30,30 @@ TEST(StateTransfer, DoesNotConfuseGameEntryWithLoginResult) {
     EXPECT_EQ(std::get_if<mxh::client::LoginResult>(&transfer), nullptr);
 }
 
+// Phase 1 §7.3 "选择后进入真实 GameLoading" + "加载失败可恢复":
+// the engine must hold a typed GameEntryRequest across the
+// GameIn -> CMapChange state transition so the next state's Start
+// can read player_id + map_num without the previous state
+// holding a reference.  Without the typed payload, the
+// character_id could drift between AgentSession and MapServer
+// on a reconnect, producing "character not found" on the new
+// map.  This test pins the round-trip end-to-end.
+TEST(StateTransfer, GameEntryRequestRoundTripPreservesCharacterIdAndMapNum) {
+    mxh::client::CEngine engine;
+    engine.SetPendingTransfer(mxh::client::GameEntryRequest{100000u, 12u});
+    ASSERT_TRUE(engine.has_pending_transfer());
+    EXPECT_TRUE(engine.pending_transfer_is<mxh::client::GameEntryRequest>());
+    const auto transfer = engine.TakePendingTransfer();
+    ASSERT_TRUE(std::holds_alternative<mxh::client::GameEntryRequest>(transfer));
+    const auto& entry = std::get<mxh::client::GameEntryRequest>(transfer);
+    EXPECT_EQ(entry.character_id, 100000u);
+    EXPECT_EQ(entry.map_num, 12u);
+    // After TakePendingTransfer, the slot is reset so the next
+    // transition does not inherit a stale target map.
+    EXPECT_FALSE(engine.has_pending_transfer());
+    EXPECT_FALSE(engine.pending_transfer_is<mxh::client::GameEntryRequest>());
+}
+
 TEST(StateTransfer, PendingTypeCanBeInspectedWithoutConsumption) {
     mxh::client::CEngine engine;
     mxh::client::LoginResult login;
