@@ -61,6 +61,16 @@
 - The test fails immediately if anyone changes `MssqlOdbcAdapter::build_conn_string` to break the `(` / `\` `pipe_style` detection, with `cr.error_message` showing the actual `SQLSTATE` (e.g. `08001 ... TCP 提供程序: 等待的操作过时`).
 - Full ctest baseline moves from 12,418 to 12,419 tests; default SKIP count moves from 4 to 5 (the new test adds 1 SKIP). With `MXH_MSSQL_E2E` set, 12,420/12,420 PASS across the MssqlRealE2E + MssqlOdbcAdapter shared-memory coverage.
 
+### CLoginState application-level LoginAck timeout (2026-09-06)
+
+- Commit `fa74305e` — Phase 1 §7.2 "登录超时" was a missing feature: after `RequestLogin` was sent, `CLoginState` waited forever for a `LoginAck` / `LoginNack` and the client would hang silently if the LoginServer stopped responding. Added a 10-second application-level deadline (steady_clock so NTP adjustments cannot false-fire it) with a `Process()` poll that calls `fail_with("LoginAck timeout (no response from LoginServer)")` once the deadline elapses. The deadline is also reset in `dispatch_login_ack` and `Release()` so a stale value cannot trigger after success or a re-entry.
+- Public test hooks `SetLoginAckTimeoutForTest(std::chrono::milliseconds)` and `ArmLoginAckDeadlineForTest()` (the latter simulates the "we just sent RequestLogin" moment without touching `m_client->send`).
+- New unit tests in `clogin_state_test.cpp`:
+  - `LoginStateErrorMatrix.LoginAckTimeoutFiresWhenNoResponse` — 50 ms budget, 80 ms sleep, asserts `is_failed()` + reason contains "timeout" (runs in ~85 ms).
+  - `LoginStateErrorMatrix.LoginAckBeforeTimeoutDoesNotFail` — sanity check that a Nack arriving first does not race the timeout (reason does not contain "timeout").
+- Full ctest baseline: **12,419 → 12,421** (`+2`), all PASS in 116.60 sec. `mxh_client_tests` 322 → 324.
+- **§7.2 剩 1 项 (重复注册) 不可达** — 协议头 `MP_USERCONN_LOGIN_NACK` 是 0-byte payload,client 端没有 reason-code 信号区分"重复注册" vs "密码错" vs "账号禁用" (per `墨香【源码】\[CC]Header\Protocol.h`)。server 端在 LoginHandler 里区分但 client 端统一走 `fail_with("LoginNack received (bad credentials?)")`。这条靠 server 端 e2e (MoxianClientE2E 已涵盖) 验证,client 端 unit-test 不能补。
+
 ### Governance and provenance
 
 - Protected 12 unreachable Git commits with backup refs and a verified bundle.
