@@ -23,6 +23,7 @@ add_executable(mxh_render_tests
     filesystem_file_storage_test.cpp
     frustum_test.cpp
     entity_scene_snapshot_test.cpp
+    terrain_scene_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -117,6 +118,9 @@ gtest_add_tests(TARGET mxh_render_tests
     EntitySceneMotion.MapsLegacyOneBasedActionSlotsToChxIndices
     EntityScenePlaceholder.FillOctUsesSceneScaleAndKindColor
     EntityScenePlaceholder.MonsterSpawnStaysDrawableWithoutCatalog
+    TerrainSceneMapCenter.DefaultsToOriginBeforeLoad
+    TerrainSceneMapCenter.IsIdempotentAndConst
+    TerrainSceneMapCenter.ReturnsStdPairOfFloats
     HFieldObjectDefaults.ConstructWithoutDeviceDoesNotCrash
     HFieldObjectDefaults.QueryInterfaceIUnknownReturnsSelf
     HFieldObjectDefaults.QueryInterfaceUnknownIIDReturnsENoInterface

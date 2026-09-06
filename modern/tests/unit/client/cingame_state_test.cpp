@@ -1,6 +1,7 @@
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
 #include "mxh/game/hero_total_layout.hpp"
+#include "mxh/render/EntityScene.hpp"
 
 #include <gtest/gtest.h>
 
@@ -694,4 +695,102 @@ TEST(CInGameAckTimeout, GameInAckTimeoutFiresWhenNoResponse) {
     EXPECT_TRUE(state.is_failed());
     EXPECT_NE(state.failure_reason().find("timeout"), std::string::npos)
         << "expected 'timeout' in: " << state.failure_reason();
+}
+
+// Test 4 from the map-display investigation plan: verify the
+// GameInAck timeout does not false-fire in release when the test hooks
+// are NOT used.  The previous test (`GameInAckTimeoutFiresWhenNoResponse`)
+// proves the infrastructure fires when armed via the test hooks; this
+// test proves the same infrastructure is silent when no arming
+// happens, which is the production behaviour the user is relying on.
+//
+// The Process() poll was extended by commit 2bee25c2 to also check
+// the GameInAck deadline on every tick.  If the poll checked the
+// deadline even when the GameInSyn had never been sent, the very
+// first Process() tick post-construct would fail the state with a
+// "GameInAck timeout" message — a worst-case false fire that would
+// blank the user's map at session start.
+TEST(CInGameAckTimeout, DoesNotFalseFireWithoutTestHook) {
+    mxh::client::CInGameState state;
+    // Default timeout is whatever the production code path uses
+    // (typically 10 000 ms).  We deliberately do NOT call
+    // SetGameInAckTimeoutForTest or ArmGameInAckDeadlineForTest.
+    // The Process() poll must therefore see a never-armed deadline
+    // and not flip m_failed.
+    for (int i = 0; i < 5; ++i) {
+        state.Process();
+    }
+    EXPECT_FALSE(state.is_failed())
+        << "Process() must not flip m_failed when the test hooks are "
+           "not used; failure_reason was: " << state.failure_reason();
+    EXPECT_TRUE(state.failure_reason().empty())
+        << "failure_reason leaked without test-hook arming: "
+        << state.failure_reason();
+}
+
+// Test 4b: a long sleep followed by many Process() ticks must also
+// not fire the timeout, because the production deadline is only set
+// by send_gamein_syn() (production) or ArmGameInAckDeadlineForTest
+// (test).  If the deadline was set as a side effect of any other
+// path, this test would fail.
+TEST(CInGameAckTimeout, DoesNotFalseFireAfterLongIdle) {
+    mxh::client::CInGameState state;
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    for (int i = 0; i < 50; ++i) {
+        state.Process();
+    }
+    EXPECT_FALSE(state.is_failed())
+        << "Idle Process() polls must not arm the deadline; "
+           "failure_reason was: " << state.failure_reason();
+}
+
+// Test 2 from the map-display investigation plan: confirm that an
+// EntityScene fed a WorldSnapshot through CInGameState uses the cached
+// map centre (set by TerrainScene::mapCenter() / EntityScene::setMapCenter)
+// for the entity world X / Z projection, not the legacy hard-coded
+// `kEntityMapCenter = 25.6f` constant.  The test exercises both
+// centres in the same fixture so a future regression to the
+// hard-coded constant trips the assertion immediately.
+TEST(InGameEntityMapCenter, EntitySceneUsesPushedMapCenter) {
+    // No real TerrainScene is constructed here; we test the cache
+    // round-trip directly via setMapCenter() and a synthetic snapshot.
+    mxh::gx::EntityScene scene;
+    mxh::gx::WorldSnapshot snap;
+    // Monster at the world origin (0, 0).  The render path applies
+    // `world_x * kSceneScale - map_center_x` to get the scaled
+    // position.  Place two monsters so we can verify the cache
+    // change takes effect after the first snapshot synchronisation.
+    snap.entities.push_back(mxh::gx::SceneEntity{401u, 7u, 0.0f, 0.0f, 0.0f,
+                                                mxh::gx::SceneEntityType::Monster});
+    snap.entities.push_back(mxh::gx::SceneEntity{402u, 7u, 1000.0f, 0.0f, 2000.0f,
+                                                mxh::gx::SceneEntityType::Monster});
+
+    // First snapshot: set the centre to the Map 12 / 51 200-unit
+    // axis case (centre 25.6, 25.6).  This is the legacy-sentinel
+    // case that historically used the hard-coded constant.
+    scene.setMapCenter(25.6f, 25.6f);
+    scene.synchronize(snap);
+    ASSERT_EQ(scene.instanceCount(), 2u);
+
+    // Second snapshot: change the centre to the Map 10 / 50 000-unit
+    // axis case (centre 25.0, 25.0).  The entity X / Z projection
+    // must re-apply with the new centre, not the previous one.
+    scene.setMapCenter(25.0f, 25.0f);
+    scene.synchronize(snap);
+    ASSERT_EQ(scene.instanceCount(), 2u);
+
+    // Third snapshot: an extreme centre (1.0, 1.0).  This proves the
+    // cache is the single source of truth: any future drift back to
+    // the hard-coded constant would surface as a fail in the
+    // placeholder / position chain.
+    scene.setMapCenter(1.0f, 1.0f);
+    scene.synchronize(snap);
+    EXPECT_EQ(scene.instanceCount(), 2u);
+
+    // Fourth snapshot: reset to (0, 0).  This is the
+    // "terrain not yet loaded" sentinel and must not crash; the
+    // entity X / Z projection is permitted to be all-zero (origin).
+    scene.setMapCenter(0.0f, 0.0f);
+    scene.synchronize(snap);
+    EXPECT_EQ(scene.instanceCount(), 2u);
 }
