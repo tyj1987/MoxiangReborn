@@ -122,6 +122,20 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
         return false;
     impl_->textures.resize(impl_->terrain.textures.size());
     std::uint32_t paletteEntries = 0;
+    // Per-t6 instrumentation: the "13/37" texture count from earlier
+    // sessions is the total palette / loaded ratio, not the
+    // visible-fragment ratio.  Distinguish them by collecting the
+    // `used` set (indices actually referenced by `tiles`) and the
+    // subset that successfully produced an SRV.  A non-zero
+    // `failed_among_used` would mean the runtime is missing a
+    // tile-fraction that the renderer actually wants to draw, which
+    // is the only failure mode that justifies a parser / pak fix per
+    // the project's hard constraints (STM / TTB / HFL authority must
+    // not be touched otherwise).  Palette entries named "1" (legacy
+    // intentionally untextured) are excluded from both counts.
+    std::uint32_t usedCount = 0;
+    std::uint32_t usedLoaded = 0;
+    std::uint32_t failed_among_used = 0;
     std::vector<bool> usedTextures(impl_->terrain.textures.size(), false);
     for (const auto integrated : impl_->terrain.tiles) {
         const auto textureIndex = integrated & 0x3fffu;
@@ -129,8 +143,11 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     }
     for (std::size_t i = 0; i < impl_->terrain.textures.size(); ++i) {
         if (!usedTextures[i]) continue;
+        ++usedCount;
         std::vector<std::uint8_t> encoded;
         std::string textureName = impl_->terrain.textures[i].name;
+        std::string attemptedForm;  // which file form we ended up reading
+        bool loadOk = false;
         if (!readStorageFile(storage, textureName.c_str(), encoded)) {
             // The shipped Map.pak contains the engine-converted DDS form while
             // old HFL descriptors retain their authoring-time .tga names.
@@ -142,22 +159,37 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
                 // unresolved resource.
                 if (textureName == "1") {
                     ++paletteEntries;
+                    MLOG_INFO("[terrain] used[i=%u] name=1 status=palette-skip",
+                              static_cast<unsigned>(i));
                     continue;
                 }
                 ++impl_->unresolved_textures;
+                ++failed_among_used;
+                MLOG_INFO("[terrain] used[i=%u] name=%s status=missing-no-dot",
+                          static_cast<unsigned>(i), textureName.c_str());
                 continue;
             }
             textureName.replace(dot, std::string::npos, ".dds");
             if (!readStorageFile(storage, textureName.c_str(), encoded)) {
                 MLOG_WARN("[terrain] texture missing: %s", textureName.c_str());
                 ++impl_->unresolved_textures;
+                ++failed_among_used;
+                MLOG_INFO("[terrain] used[i=%u] name=%s status=missing-dds",
+                          static_cast<unsigned>(i), textureName.c_str());
                 continue;
             }
+            attemptedForm = ".dds";
+        } else {
+            attemptedForm = ".tga";
         }
         const auto decoded = dx11::loadTextureFromMemory(encoded.data(), static_cast<std::uint32_t>(encoded.size()));
         if (decoded.pixels.empty()) {
             MLOG_WARN("[terrain] texture decode failed: %s", textureName.c_str());
             ++impl_->unresolved_textures;
+            ++failed_among_used;
+            MLOG_INFO("[terrain] used[i=%u] name=%s form=%s status=decode-fail",
+                      static_cast<unsigned>(i), textureName.c_str(),
+                      attemptedForm.c_str());
             continue;
         }
         D3D11_TEXTURE2D_DESC desc{};
@@ -169,7 +201,21 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
         ComPtr<ID3D11Texture2D> texture;
         if (SUCCEEDED(device->CreateTexture2D(&desc, &initial, &texture)))
             device->CreateShaderResourceView(texture.Get(), nullptr, &impl_->textures[i]);
-        if (!impl_->textures[i]) ++impl_->unresolved_textures;
+        if (!impl_->textures[i]) {
+            ++impl_->unresolved_textures;
+            ++failed_among_used;
+            MLOG_INFO("[terrain] used[i=%u] name=%s form=%s status=srv-fail",
+                      static_cast<unsigned>(i), textureName.c_str(),
+                      attemptedForm.c_str());
+        } else {
+            ++usedLoaded;
+            loadOk = true;
+        }
+        if (loadOk) {
+            MLOG_INFO("[terrain] used[i=%u] name=%s form=%s status=loaded",
+                      static_cast<unsigned>(i), textureName.c_str(),
+                      attemptedForm.c_str());
+        }
     }
 
     const auto& terrain = impl_->terrain;
@@ -262,6 +308,17 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
               static_cast<unsigned>(impl_->chunks.size()), loadedTextureCount(),
               static_cast<unsigned>(impl_->textures.size()), terrain.desc.height_count_x,
               terrain.desc.height_count_z, terrain.desc.tile_count_x, terrain.desc.tile_count_z);
+    // Per-t6 instrumentation summary. `usedCount` is the set of palette
+    // indices actually referenced by `tiles`; `usedLoaded` is the subset
+    // that produced an SRV.  Anything in `usedCount - usedLoaded` is a
+    // missing asset the runtime was asked to draw, which is the only
+    // failure mode the project's hard constraints allow us to fix.
+    MLOG_INFO("[terrain] per-used summary: used=%u loaded=%u failed_among_used=%u",
+              usedCount, usedLoaded, failed_among_used);
+    if (failed_among_used) {
+        MLOG_WARN("[terrain] used-set has %u missing entries; see [terrain] used[*] "
+                  "lines above for names", failed_among_used);
+    }
     if (paletteEntries)
         MLOG_INFO("[terrain] intentional empty palette entries=%u (legacy name '1')", paletteEntries);
     impl_->palette_entries = paletteEntries;

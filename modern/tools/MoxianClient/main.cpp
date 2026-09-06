@@ -1643,7 +1643,30 @@ void renderFrame(HWND h) {
         // single source of truth for *FOG*/FOGCOLOR. Clear colour stays
         // BACKCOLOR (applied via BeginRender above) and is not affected
         // by the fog band.
-        if (g_mapFog.enabled) {
+        //
+        // t6 diagnostic bypass: `MXH_FOG_DISABLE=1` is a per-process
+        // operator override that suppresses the MapDesc FOG band so an
+        // A/B capture can separate the mapblur contribution that the
+        // FOG band is responsible for (the BMHM FOGSTART=1 / FOGEND=30000
+        // // FOGDENSITY=1 on Map 10 floods the near field with the fog
+        // colour) from contributions that come from the terrain
+        // geometry / texture pipeline.  Default behaviour is unchanged
+        // (no env var -> BMHM fog still applied), satisfying the
+        // project constraint that nothing here may rewrite the
+        // MapDesc / HFL authority or inject TTB / STM data.
+        static const char* kFogBypass = std::getenv("MXH_FOG_DISABLE");
+        const bool fogBypass = kFogBypass && kFogBypass[0] == '1';
+        if (fogBypass) {
+            // A/B evidence: keep the log line so the post-mortem can
+            // pair the bypass with the BMHM band the renderer would
+            // otherwise have drawn.
+            MLOG_INFO("mxh_client: FOG diag bypass (MXH_FOG_DISABLE=1); "
+                      "skipping EnableFog (BMHM band start=%.1f end=%.1f "
+                      "density=%.2f color=0x%08x would have been applied)",
+                      g_mapFog.start, g_mapFog.end, g_mapFog.density,
+                      g_mapFog.color);
+        }
+        if (g_mapFog.enabled && !fogBypass) {
             g_renderer->EnableFog(g_mapFog.start, g_mapFog.end,
                                   g_mapFog.density, g_mapFog.color, 0);
         } else {
