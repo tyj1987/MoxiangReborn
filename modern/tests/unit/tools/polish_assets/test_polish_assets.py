@@ -105,11 +105,118 @@ class MinimapGeneratorTests(unittest.TestCase):
     def test_generates_mini_files(self):
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
-            n = polish_assets.generate_minimap(tdp)
+            n = polish_assets.generate_minimap(tdp, force=True)
             self.assertEqual(n, 65 * 2)
             self.assertTrue((tdp / "mini_0.dds").is_file())
             self.assertTrue((tdp / "mini_0_ful.dds").is_file())
             self.assertTrue((tdp / "mini_64.dds").is_file())
+            self.assertTrue((tdp / "mini_64_ful.dds").is_file())
+
+
+class ParseMiniFilenameTests(unittest.TestCase):
+    """_parse_mini_filename maps legacy minimap DDS stems to map ids."""
+
+    CASES = [
+        ("mini_0",       0),
+        ("mini_0_ful",   0),
+        ("mini_01",      1),
+        ("mini_01_ful",  1),
+        ("mini_64",      64),
+        ("mini_64_ful",  64),
+        ("mini_001",     1),
+    ]
+    NEGATIVE = ["", "mini_", "mini_abc", "mini_1_xyz", "loading_0"]
+
+    def test_known_stems(self):
+        for stem, expected in self.CASES:
+            self.assertEqual(
+                polish_assets._parse_mini_filename(stem), expected,
+                f"expected {stem!r} -> {expected}")
+
+    def test_case_insensitive_prefix(self):
+        self.assertEqual(polish_assets._parse_mini_filename("MINI_5"), 5)
+        self.assertEqual(polish_assets._parse_mini_filename("Mini_5_ful"), 5)
+
+    def test_negative_stems_return_none(self):
+        for stem in self.NEGATIVE:
+            self.assertIsNone(
+                polish_assets._parse_mini_filename(stem),
+                f"{stem!r} should be rejected")
+
+
+class ScanExistingMinimapsTests(unittest.TestCase):
+    """scan_existing_minimaps collects the set of map ids already on disk."""
+
+    def test_empty_dir_returns_empty_set(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(
+                polish_assets.scan_existing_minimaps(Path(td)), set())
+
+    def test_missing_dir_returns_empty_set(self):
+        # scan must not raise when the directory does not yet exist.
+        self.assertEqual(
+            polish_assets.scan_existing_minimaps(Path("/no/such/dir/xyz")), set())
+
+    def test_collects_both_dds_and_ful_variants(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            polish_assets.write_dds_24(tdp / "mini_5.dds", 4, 4, b"\x20" * 48)
+            polish_assets.write_dds_24(tdp / "mini_42_ful.dds", 4, 4, b"\x20" * 48)
+            polish_assets.write_dds_24(tdp / "mini_7_ful.dds", 4, 4, b"\x20" * 48)
+            self.assertEqual(
+                polish_assets.scan_existing_minimaps(tdp), {5, 42, 7})
+
+    def test_ignores_non_minimap_dds(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            polish_assets.write_dds_24(tdp / "login.dds", 4, 4, b"\x20" * 48)
+            polish_assets.write_dds_24(tdp / "mini_0.dds", 4, 4, b"\x20" * 48)
+            polish_assets.write_dds_24(tdp / "loading.dds", 4, 4, b"\x20" * 48)
+            self.assertEqual(
+                polish_assets.scan_existing_minimaps(tdp), {0})
+
+
+class FoldMinimapTests(unittest.TestCase):
+    """generate_minimap must NOT clobber real shipped minimap textures."""
+
+    def test_fold_mode_skips_existing(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            # Seed two real minimap DDS files (mimicking shipped assets).
+            sentinel_a = b"\xAA" * 196736
+            sentinel_b = b"\xBB" * 196736
+            (tdp / "mini_5.dds").write_bytes(sentinel_a)
+            (tdp / "mini_42_ful.dds").write_bytes(sentinel_b)
+            n = polish_assets.generate_minimap(tdp, force=False)
+            # 2 maps skipped -> 63 maps * 2 files = 126 new DDS written
+            self.assertEqual(n, 63 * 2)
+            # Real shipped assets must remain byte-identical (no clobber).
+            self.assertEqual((tdp / "mini_5.dds").read_bytes(), sentinel_a)
+            self.assertEqual((tdp / "mini_42_ful.dds").read_bytes(), sentinel_b)
+            # Fold is per-map-id: a seeded mini_5.dds skips the entire
+            # map-id 5 -- so neither mini_5_ful.dds nor the seeded file
+            # is touched.  Likewise for map-id 42.
+            self.assertFalse((tdp / "mini_5_ful.dds").is_file(),
+                "fold must skip per-map-id, not per-file")
+            self.assertFalse((tdp / "mini_42.dds").is_file(),
+                "fold must skip per-map-id, not per-file")
+
+    def test_force_mode_rewrites_existing(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            sentinel = b"\xCC" * 196736
+            (tdp / "mini_5.dds").write_bytes(sentinel)
+            n = polish_assets.generate_minimap(tdp, force=True)
+            self.assertEqual(n, 65 * 2)
+            # The sentinel should have been overwritten by the new DDS.
+            self.assertNotEqual((tdp / "mini_5.dds").read_bytes(), sentinel)
+
+    def test_fold_on_empty_dir_writes_all(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            n = polish_assets.generate_minimap(tdp, force=False)
+            self.assertEqual(n, 65 * 2)
+            self.assertTrue((tdp / "mini_0.dds").is_file())
             self.assertTrue((tdp / "mini_64_ful.dds").is_file())
 
 

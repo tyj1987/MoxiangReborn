@@ -12,13 +12,15 @@ polish_assets.py — 程序化生成 5 类占位/差异化资源。
   - 65 张 maploadingimage<N>.dds (按地图名 hash 上色, 1024x768, BC1/24-bit)
   - 32 张 LoadingTip<N>.dds (32 条 tip 文字, 256x128, 24-bit)
   - 3 张 now_loading0<N>.tif (进度帧动画, 256x64 RGB)
-  - ~50 张 mini_<N>.dds (小地图, 256x256, BC1)
+  - 65 张 mini_<N>.dds + mini_<N>_ful.dds (256x256, BC1) -- 默认 fold 模式,
+    真实 minimap DDS 已存在则保留, 缺失才生成占位; --force 全量重写;
+    --audit 仅扫描报告不写盘。
   - 4 张大背景 (login/KeySetting1/KeySetting2/Titanlogo_sub) (1024x768, BC1)
 
 所有图片用最简 24-bit RGB DDS 格式（4 byte magic 'DDS ' + 124 byte header +
 RGB24 数据），D3D11/DXGI 都能直接采样。
 
-只读: 墨香【源码配套资源】\PlayDH\Map.pak (1 entry / file 模式, 用于 HFL 头校验)
+只读: 墨香【源码配套资源】\\PlayDH\\Map.pak (1 entry / file 模式, 用于 HFL 头校验)
        modern\data\PlayDH\Resource\Server\MapName.bin (如果有地图名表)
 只写: 用户 --out 指定的目录。
 """
@@ -376,18 +378,74 @@ def generate_loading(out_dir: Path) -> int:
     return n
 
 
-def generate_minimap(out_dir: Path) -> int:
-    """Generate mini_<N>.dds for 65 maps (256x256, hashed palette)."""
+def _parse_mini_filename(stem: str) -> int | None:
+    """Parse a minimap DDS filename stem to its map id, or None if not a minimap.
+
+    Accepted forms (case-insensitive prefix "mini_"):
+      mini_0       -> 0
+      mini_0_ful   -> 0
+      mini_01      -> 1
+      mini_01_ful  -> 1
+      mini_001     -> 1
+    Anything else (mini_abc, mini_) returns None so callers can filter.
+    """
+    if not stem.lower().startswith("mini_"):
+        return None
+    rest = stem[5:]
+    if rest.endswith("_ful"):
+        rest = rest[:-4]
+    if not rest or not rest.isdigit():
+        return None
+    return int(rest)
+
+
+def scan_existing_minimaps(out_dir: Path) -> set[int]:
+    """Return the set of map ids whose minimap DDS already exist on disk.
+
+    Scans both ``mini_<N>.dds`` and ``mini_<N>_ful.dds`` -- a map id is in
+    the returned set if either variant is present.  Used by the fold mode
+    of ``generate_minimap`` to keep real shipped assets and only synthesize
+    placeholders for missing maps.
+    """
+    if not out_dir.is_dir():
+        return set()
+    found: set[int] = set()
+    for entry in out_dir.iterdir():
+        if not entry.is_file() or entry.suffix.lower() != ".dds":
+            continue
+        mid = _parse_mini_filename(entry.stem)
+        if mid is not None:
+            found.add(mid)
+    return found
+
+
+def generate_minimap(out_dir: Path, force: bool = False) -> int:
+    """Generate mini_<N>.dds (256x256, hashed palette).
+
+    Fold mode (default): for each known map id, keep the existing
+    ``mini_<N>.dds`` / ``mini_<N>_ful.dds`` (if either variant is already
+    on disk) untouched and only synthesize the placeholders for missing
+    maps.  This avoids clobbering the real shipped minimap textures
+    that already live in ``modern/data/PlayDH/Image/MiniMap``.
+
+    Force mode (``force=True``): rewrite every ``mini_<N>*.dds`` regardless
+    of what is on disk (used by tests and explicit overrides).
+
+    Returns the number of DDS files actually written.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    existing = set() if force else scan_existing_minimaps(out_dir)
     n = 0
     for mid in _known_map_ids()[:65]:
+        if mid in existing:
+            continue
         name = f"Map{mid}"
         palette = _hashed_palette(name)
         pixels = _tiled_pattern(256, 256, palette, text="")
         write_dds_24(out_dir / f"mini_{mid}.dds", 256, 256, pixels)
-        # Also _ful variant
         write_dds_24(out_dir / f"mini_{mid}_ful.dds", 256, 256, pixels)
-        n += 1
-    return n * 2
+        n += 2
+    return n
 
 
 def generate_ui_bg(out_dir: Path) -> int:
@@ -423,6 +481,10 @@ def main() -> int:
                     help="生成全部")
     ap.add_argument("--dry-run", action="store_true",
                     help="只统计不写盘")
+    ap.add_argument("--force", action="store_true",
+                    help="minimap: 覆盖已存在文件 (默认 fold 模式: 真实 DDS 优先保留)")
+    ap.add_argument("--audit", action="store_true",
+                    help="minimap: 扫描已存在 vs 缺失, 打印报告后退出 (不写盘)")
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -435,12 +497,26 @@ def main() -> int:
         else:
             total += n
     if args.generate_minimap or args.all:
-        n = 65 * 2
-        print(f"[minimap] target={out_dir / 'Image' / 'MiniMap'} files={n}")
+        mm_dir = out_dir / "Image" / "MiniMap"
+        existing = scan_existing_minimaps(mm_dir)
+        if args.audit:
+            known = set(_known_map_ids()[:65])
+            missing = sorted(known - existing)
+            print(f"[minimap-audit] dir={mm_dir} "
+                  f"existing={len(existing)} missing={len(missing)} known={len(known)}")
+            print(f"[minimap-audit] existing_ids={sorted(existing)[:20]}"
+                  + (" ..." if len(existing) > 20 else ""))
+            print(f"[minimap-audit] missing_ids={missing[:20]}"
+                  + (" ..." if len(missing) > 20 else ""))
+            return 0
+        n_full = 65 * 2
+        n_to_write = n_full - len(existing) * 2 if not args.force else n_full
+        print(f"[minimap] target={mm_dir} existing={len(existing)} "
+              f"to_write={n_to_write} force={args.force}")
         if not args.dry_run:
-            total += generate_minimap(out_dir / "Image" / "MiniMap")
+            total += generate_minimap(mm_dir, force=args.force)
         else:
-            total += n
+            total += n_to_write
     if args.generate_ui_bg or args.all:
         n = 4
         print(f"[ui-bg] target={out_dir / 'Image' / '2D'} files={n}")

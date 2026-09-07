@@ -45,7 +45,7 @@ add_test(NAME mxh_polish_assets_tests
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 set_tests_properties(mxh_polish_assets_tests PROPERTIES
     LABELS "tools;python"
-    TIMEOUT 60)
+    TIMEOUT 180)
 
 # -----------------------------------------------------------------------------
 # mxh_render_hfl_tests — unit tests for modern/tools/render_hfl.py
