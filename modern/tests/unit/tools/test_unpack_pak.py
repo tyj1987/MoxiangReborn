@@ -51,9 +51,12 @@ def _make_pak(entries: list[tuple[str, bytes]], out_path: Path) -> int:
             f.write(name_b)
             f.write(b"\x00")
             f.write(data)
-            pad = (-f.tell()) & 3
-            if pad:
-                f.write(b"\x00" * pad)
+            # NOTE: the legacy 4DyuchiFileStorage writer does NOT
+            # insert a 4-byte pad between entries; the cursor advances
+            # by exactly 32 + name_len + 1 + real_size, with no
+            # trailing alignment.  Earlier fixtures added a pad here
+            # which self-consistently passed but did not match what
+            # real .pak files actually contain.
     return len(entries)
 
 

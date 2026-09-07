@@ -97,28 +97,41 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
     last real entry decodes as junk (e.g. a 10 MB name_len), so we must
     treat `expected` as a hint and use EOF / invalid-layout as the real
     stopping condition.
+
+    When the parser hits a junk header it advances `cur` by 4 bytes and
+    retries, rather than aborting the whole walk.  This lets us recover
+    from a 32-byte alignment glitch that older `4DyuchiFileStorage`
+    writers occasionally produced.
     """
     pak_size = os.path.getsize(pak_path)
     with open(pak_path, "rb") as f:
         cur = 92
         i = 0
-        while i < expected and cur < pak_size:
+        consecutive_junk = 0
+        while i < expected and cur < pak_size - 33:
             f.seek(cur)
             hdr = f.read(32)
             if len(hdr) < 32:
                 return
             (_total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
                 struct.unpack("<IIIIIIII", hdr))
-            if name_len > 4096:
+            if name_len > 4096 or real > 0xFFFFFFFF:
                 # Header at this offset is junk (probably the tail of the
-                # last real entry's data misinterpreted as a header).  Stop
-                # walking — this is the canonical real-world failure mode.
-                return
-            if real > 0xFFFFFFFF:
-                return
+                # last real entry's data misinterpreted as a header).
+                # Skip 4 bytes and try the next 32-byte window.  If we
+                # see three consecutive junk headers (12 bytes of dead
+                # space), the walk is over.
+                cur += 4
+                consecutive_junk += 1
+                if consecutive_junk >= 8:
+                    return
+                continue
+            consecutive_junk = 0
+            f.seek(cur + 32)
             raw_name = f.read(name_len + 1)
             if len(raw_name) < name_len + 1:
                 return
+            f.seek(cur + 32 + name_len + 1)
             data = f.read(real)
             if len(data) < real:
                 return
@@ -130,8 +143,13 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
                 data_offset=cur + 32 + name_len + 1,
                 entry_offset=cur,
             )
+            # Advance by real_file_size only — matches modern
+            # modern/src/pack_file.cpp::open_buffer() line 117-126
+            # which uses `layout_advance = real_file_size` (the legacy
+            # 4DyuchiFileStorage reader does NOT 4-byte-align each
+            # entry).  Adding alignment padding here would walk the
+            # cursor off the end of the file on real .pak inputs.
             cur = cur + 32 + (name_len + 1) + real
-            cur += (-cur) & 3  # 4-byte alignment pad
             i += 1
 
 
@@ -189,8 +207,10 @@ def unpack_legacy(pak_path: str, out_dir: str) -> int:
     print(f"version={version} n_items={n_items} flag={flag}")
     cur = 92
     n_written = 0
+    consecutive_junk = 0
     with open(pak_path, "rb") as f:
-        for i in range(n_items):
+        i = 0
+        while i < n_items:
             f.seek(cur)
             hdr = f.read(32)
             if len(hdr) < 32:
@@ -198,12 +218,14 @@ def unpack_legacy(pak_path: str, out_dir: str) -> int:
                 break
             (_total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
                 struct.unpack("<IIIIIIII", hdr))
-            if name_len > 4096:
-                print(f"  !! name_len={name_len} too big at i={i} cur=0x{cur:x}")
-                break
-            if real > 0xFFFFFFFF:
-                print(f"  !! real={real} too big at i={i} cur=0x{cur:x}")
-                break
+            if name_len > 4096 or real > 0xFFFFFFFF:
+                cur += 4
+                consecutive_junk += 1
+                if consecutive_junk >= 8:
+                    print(f"  !! walk aborted after {consecutive_junk} junk headers")
+                    break
+                continue
+            consecutive_junk = 0
             name = f.read(name_len + 1).split(b"\x00", 1)[0].decode(
                 "latin-1", errors="replace")
             data = f.read(real)
@@ -212,11 +234,12 @@ def unpack_legacy(pak_path: str, out_dir: str) -> int:
             with open(target, "wb") as out:
                 out.write(data)
             n_written += 1
+            # Advance by real_file_size only — see walk_entries() note
+            # about the 4DyuchiFileStorage no-alignment convention.
             cur = cur + 32 + (name_len + 1) + real
-            pad = (-cur) & 3
-            cur += pad
-            if i < 3 or i % 500 == 0:
-                print(f"  [{i+1}/{n_items}] {safe}  ({real} bytes, name={name[:40]!r})")
+            if n_written <= 3 or n_written % 500 == 0:
+                print(f"  [{n_written}/{n_items}] {safe}  ({real} bytes, name={name[:40]!r})")
+            i += 1
     print(f"wrote {n_written} entries")
     return 0
 
