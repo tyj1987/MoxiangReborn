@@ -5,6 +5,9 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 namespace {
 std::filesystem::path findMapPack() {
@@ -51,4 +54,60 @@ TEST(HflHeightField, RejectsTruncatedData) {
     const std::uint8_t data[8]{};
     mxh::compat::HflHeightField terrain;
     EXPECT_FALSE(mxh::compat::parse_hfl(data, terrain));
+}
+
+// 2026-09-07 visual-polish: validate that the procedurally synthesized
+// placeholder HFL files emitted by modern/tools/gen_hfl_placeholders.py
+// round-trip through the real C++ parser.  Skipped if the PlayDH
+// fixture is not present (mirrors the convention of ParsesRealMap12Terrain).
+TEST(HflHeightField, PlaceholderFilesParse) {
+    namespace fs = std::filesystem;
+    fs::path mapDir;
+    auto root = fs::current_path();
+    for (int level = 0; level < 8; ++level) {
+        for (const auto& first : fs::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto candidate = first.path() / "PlayDH" / "Resource" / "Map";
+            if (fs::exists(candidate) && fs::is_directory(candidate)) {
+                mapDir = candidate;
+                break;
+            }
+        }
+        if (!mapDir.empty()) break;
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
+    }
+    if (mapDir.empty()) GTEST_SKIP() << "PlayDH/Resource/Map fixture not installed";
+
+    // Scan a handful of placeholder HFL files (any non-template map id).
+    // The first map id we find that is NOT 10, 21, or 101 is by
+    // definition a placeholder; we parse it and verify the parser
+    // accepts the procedurally-synthesized header and height grid.
+    int placeholders = 0;
+    for (const auto& entry : fs::directory_iterator(mapDir)) {
+        if (!entry.is_regular_file()) continue;
+        const auto& name = entry.path().filename().string();
+        if (name == "10.hfl" || name == "21.hfl" || name == "101.hfl") continue;
+        if (name.find(".hfl") == std::string::npos) continue;
+        const auto bytes = [&] {
+            std::ifstream f(entry.path(), std::ios::binary);
+            std::ostringstream ss;
+            ss << f.rdbuf();
+            const std::string& s = ss.str();
+            return std::vector<std::uint8_t>(reinterpret_cast<const std::uint8_t*>(s.data()),
+                                             reinterpret_cast<const std::uint8_t*>(s.data() + s.size()));
+        }();
+        mxh::compat::HflHeightField terrain;
+        std::string error;
+        ASSERT_TRUE(mxh::compat::parse_hfl(bytes, terrain, &error))
+            << "placeholder " << name << " failed: " << error;
+        EXPECT_EQ(terrain.version, 1u);
+        EXPECT_GT(terrain.desc.height_count_x, 0u);
+        EXPECT_GT(terrain.desc.height_count_z, 0u);
+        EXPECT_EQ(terrain.heights.size(),
+                  terrain.desc.height_count_x * terrain.desc.height_count_z);
+        ++placeholders;
+        if (placeholders >= 3) break;
+    }
+    EXPECT_GE(placeholders, 1) << "no placeholder HFL files were found under " << mapDir;
 }

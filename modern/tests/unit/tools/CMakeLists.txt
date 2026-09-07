@@ -57,3 +57,16 @@ add_test(NAME mxh_render_hfl_tests
 set_tests_properties(mxh_render_hfl_tests PROPERTIES
     LABELS "tools;python"
     TIMEOUT 60)
+
+# -----------------------------------------------------------------------------
+# mxh_gen_hfl_placeholders_tests — unit tests for
+# modern/tools/gen_hfl_placeholders.py (synthesize missing HFL placeholders
+# for maps that have a Map<N>.bmhm but no <N>.hfl on disk).
+# -----------------------------------------------------------------------------
+add_test(NAME mxh_gen_hfl_placeholders_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/gen_hfl_placeholders/test_gen_hfl_placeholders.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_gen_hfl_placeholders_tests PROPERTIES
+    LABELS "tools;python"
+    TIMEOUT 60)
