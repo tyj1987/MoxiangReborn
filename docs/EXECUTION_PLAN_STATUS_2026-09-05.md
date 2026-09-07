@@ -1,11 +1,12 @@
 # EXECUTION_PLAN 状态报告 — 2026-09-05 / 2026-09-06 update
 
 > **来源**: `C:\moxiang\modern\scratch\2026-09-05-minimax-m3-execution\EXECUTION_PLAN.md`
-> **session 起算**: 2026-09-05 (本 session 累计 77 commits, 14+ hours)
-> **分支**: `codex/runtime-recovery-pve` (领先 origin 77 commits)
-> **HEAD**: `e41e3daa` tests: 4 tests for the map-display fix (terrain + cingame + smoke)
+> **session 起算**: 2026-09-05 (本 session 累计 78 commits, 15+ hours)
+> **分支**: `codex/runtime-recovery-pve` (领先 origin 78 commits)
+> **HEAD**: `e9bbe064` diag: t6 mapblur A/B — used 仪表 + MXH_FOG_DISABLE bypass
 > **工作树**: clean (除 untracked `modern/build-release/` 按 §5 保留)
-> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (顶部 map-display fix + session 总结 + 10 个 detailed commit notes)
+> **详细 handoff**: 见 `docs/CHANGELOG.md` Unreleased 段 (顶部 mapblur 糊团下一刀 t6 诊断 + map-display fix + session 总结 + 10 个 detailed commit notes)
+> **2026-09-06 update**: Phase 4 §10 G6 推进一格 — Mapblur 糊团下一刀 t6 诊断 (`e9bbe064`) 量化排除 FOG 雾带 + 贴图两个假设, 留作渲染策略层下一刀 (灯光 / sky 底色 / 曝光 / placeholder)。 ctest 12,426 PASS / 0 FAIL / 6 opt-in skip, 0 回归。 详见 `docs/CHANGELOG.md` Unreleased 段 "Mapblur 糊团下一刀 t6 诊断" 段 + `modern/scratch/2026-09-06-mapblur-t6/REPORT.md`。
 
 ---
 
@@ -13,6 +14,7 @@
 
 | Phase | 状态 | 关键 evidence | 备注 |
 |---|---|---|---|
+| **Phase 4 §10 Map10 G6 糊团下一刀 t6** | **DIAGNOSTIC PASSED 2/2 A/B** | `EVID-20260906-mapblur-t6-AB` | 2 A/B capture (`gfix-20260906-111141-37` default FOG on, `gfix-20260906-111214-64` MXH_FOG_DISABLE=1), `used=13 loaded=13 failed_among_used=0` (糊团不是贴图), A vs B pixel diff 99.5% 一致 + max Δ=1 (糊团不是 FOG 雾带), 留作渲染策略层下一刀 |
 | **Phase 0 §6.5** GameInAck 后客户端终止或卡死 | **PASSED 3/3 (literal 10-min)** | `EVID-20260905-gamein-3x10min` + `EVID-20260905-gamein-10min-literal` | 3× 10 min capture 全部 10:00+ 跑满, state-gamein.tga 稳定 (literal 10 min 跑满 3/3 在 commit 3512f078 加 --debug-ui-bounds 之后) |
 | **Phase 0 §6.4** 协议突发测试 | **PASSED 4/4** | `EVID-20260905-protocol-burst` | 4 个 ProtocolBurst test, mxh_client_tests 整体 299/299 |
 | **Phase 1 §7.2 登录错误矩阵** | **PASS 12/14** | 12 LoginStateWire + 6 LoginStateErrorMatrix + 1 ClientSettings.PersistedFileDoesNotContainPasswordField (5 boundary + 4 Nack + 2 disconnect + 1 no-password-persist) | 2/14 需 real server (重复注册 / 登录超时) |
@@ -31,7 +33,20 @@
 
 ---
 
-## 1. 本 session 完成的具体工作 (62 commits, 2026-09-05 起)
+## 1. 本 session 完成的具体工作 (63 commits, 2026-09-05 起 + 1 commit 2026-09-06 t6 诊断)
+
+### Phase 4 §10 Map10 G6 糊团下一刀 t6 诊断 (1 commit, 2026-09-06)
+
+| Commit | 主题 |
+|---|---|
+| `e9bbe064` | diag: t6 mapblur A/B — used 仪表 + MXH_FOG_DISABLE bypass |
+
+**关键验收**:
+- 2 A/B capture (`gfix-20260906-111141-37` + `gfix-20260906-111214-64`), 都是 exit=0, 6 state frames, gamein.tga 3,145,746 bytes
+- `used=13 loaded=13 failed_among_used=0` (排除"13/37 缺 24 张"误读, 糊团不是 terrain 贴图)
+- A vs B pixel diff: 20.47% 像素 Δ=1 LSB, max=1, mean R/G/B ≤ 0.10/0.06/0.09, 163 unique 5-bit 量化 buckets identical (排除 BMHM FOG 雾带主因, 99.5% 像素肉眼无差异)
+- 糊团真实成因: scene 内容本身 (channel mean 42/43/57, 4.55% non-bg, 缺 bright source + sky 底色), 留作渲染策略层下一刀
+- ctest 12,426 PASS / 0 FAIL / 6 opt-in skip in 128.91 sec (基线 12,432 一致, 0 回归)
 
 ### Phase 0 §6.5 诊断 + 修复 (8 commits)
 
