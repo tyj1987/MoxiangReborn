@@ -124,6 +124,8 @@ struct CliArgs {
     std::string db;                     // SQLite file path or MSSQL kv string
     bool db_explicit = false;
     bool no_spawn = false;
+    bool keep_servers = false; // 2026-09-07: skip procs destructor cleanup so a
+                               // follow-up GUI client can attach after E2E PASS
     std::string character_name;
     std::string account = "mxh_e2e";
     std::string password = "Pass1234";
@@ -208,6 +210,7 @@ CliArgs parse_cli(int argc, char** argv) {
             a.db_explicit = true;
         }
         else if (s == "--no-spawn") a.no_spawn = true;
+        else if (s == "--keep-servers") a.keep_servers = true;
         else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
         else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
         else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
@@ -1259,11 +1262,24 @@ int run_e2e(const CliArgs& cli) {
         }
     }
     // Clean shutdown — release states and the persistent AgentSession, then
-    // kill server procs (ServerProc dtor calls TerminateProcess).
+    // kill server procs (ServerProc dtor calls TerminateProcess) unless
+    // --keep-servers asked us to leave them running for a follow-up GUI
+    // client capture (2026-09-07 visual polish).
     game.Release();
     login.Release();
     engine.Release();
-    procs.clear();
+    if (cli.keep_servers) {
+        // std::unique_ptr::release() relinquishes ownership without
+        // destroying the object, so ~ServerProc (which would call
+        // TerminateProcess) never runs.  The detached procs keep the
+        // child server processes alive so a follow-up mxh_client can
+        // attach with --auto-create to capture the post-GameIn frame.
+        LOG("Phase B.2.5 e2e: --keep-servers set; 3 server procs left running for follow-up capture");
+        for (auto& p : procs) (void)p.release();
+        procs.clear();
+    } else {
+        procs.clear();
+    }
     ::WSACleanup();
     LOG("Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)");
     return 0;

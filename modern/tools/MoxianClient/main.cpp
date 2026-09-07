@@ -3998,6 +3998,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         mainGame.GetEngine()->SetPendingTransfer(cs->login_result());
                         mainGame.SetGameState(mxh::client::GameStateId::CharMake);
                         auto_create_requested = true;
+                    } else {
+                        // 2026-09-07 visual polish: with --auto-create +
+                        // existing characters, the GUI cannot ask the user
+                        // to pick a slot, so drive CharacterSelectSyn
+                        // against the first valid character and let the
+                        // smoke run continue into GameIn.  This is the
+                        // same code path the human would take on click.
+                        for (const auto& slot : cs->character_list()) {
+                            if (slot.valid) {
+                                cs->SelectCharacter(slot.chrid);
+                                auto_create_requested = true;
+                                MLOG_INFO("mxh_client: auto-create selected existing chrid=%u",
+                                          slot.chrid);
+                                break;
+                            }
+                        }
                     }
                 }
             } else if (cur_state == mxh::client::GameStateId::CharMake &&
