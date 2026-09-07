@@ -21,7 +21,7 @@ polish_assets.py — 程序化生成 5 类占位/差异化资源。
 RGB24 数据），D3D11/DXGI 都能直接采样。
 
 只读: 墨香【源码配套资源】\\PlayDH\\Map.pak (1 entry / file 模式, 用于 HFL 头校验)
-       modern\data\PlayDH\Resource\Server\MapName.bin (如果有地图名表)
+       modern\\data\\PlayDH\\Resource\\Server\\MapName.bin (如果有地图名表)
 只写: 用户 --out 指定的目录。
 """
 

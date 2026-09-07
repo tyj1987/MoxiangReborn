@@ -85,3 +85,20 @@ add_test(NAME mxh_audit_minimap_tests
 set_tests_properties(mxh_audit_minimap_tests PROPERTIES
     LABELS "tools;python"
     TIMEOUT 60)
+
+# -----------------------------------------------------------------------------
+# mxh_integration_minimap_audit_tests — cross-tool consistency ctest.
+# Shells out to polish_assets.py --generate-minimap --audit and
+# audit_minimap.py --check-fold --json on a synthetic PlayDH tree and
+# asserts the two tools report the same existing / known / missing
+# counts.  Also asserts that the fold mode (no --audit) actually
+# writes only the missing placeholders without clobbering pre-seeded
+# real DDS.
+# -----------------------------------------------------------------------------
+add_test(NAME mxh_integration_minimap_audit_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/integration_minimap_audit.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_integration_minimap_audit_tests PROPERTIES
+    LABELS "tools;python;integration"
+    TIMEOUT 60)
