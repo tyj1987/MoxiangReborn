@@ -896,6 +896,18 @@ void CInGameState::Process() {
     }
     update_movement(steady_now_ms());
     refresh_live_ui_bindings();
+    // The GUI smoke exit gate is gated on a "world has rendered for N
+    // frames" predicate (see smoke_exit_ready() in the header).  We
+    // count every Process() tick that runs *after* GameInAck and while
+    // the smoke is armed.  This counter feeds both smoke_exit_ready()
+    // and the smoke harness's --state-frames-dir CaptureScreen path,
+    // so the first authoritative frame is captured roughly at the same
+    // moment the smoke exit unlocks.
+    if (m_inGame && m_smokeExitRequested) {
+        if (m_smokeSettleFrames < m_smokeSettleRequired) {
+            ++m_smokeSettleFrames;
+        }
+    }
     if (m_effectCatalogLoading && m_effectCatalogLoad.valid() &&
         m_effectCatalogLoad.wait_for(std::chrono::milliseconds(0)) ==
             std::future_status::ready) {
@@ -1564,13 +1576,30 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
               static_cast<unsigned>(info.server_day),
               static_cast<unsigned>(info.server_hour));
     // The GUI smoke harness requests a deterministic handoff marker.  Stop
-    // only after the authoritative ack has been parsed; normal clients keep
-    // running and proceed into the regular render/input loop.
+    // only after the authoritative ack has been parsed AND a populated
+    // scene has been rendered for at least MXH_GUI_SMOKE_SETTLE_FRAMES
+    // ticks (default 90 — see smoke_exit_ready() in the header).  Normal
+    // clients keep running and proceed into the regular render/input loop.
     if (const char* smoke_exit = std::getenv("MXH_GUI_SMOKE_EXIT");
         smoke_exit && *smoke_exit == '1') {
-        MLOG_INFO("mxh_client: GUI_SMOKE_PASS player_id=%u map=%u",
-                  static_cast<unsigned>(m_playerId),
-                  static_cast<unsigned>(m_mapNum));
+        // Reset settle bookkeeping on every fresh GameInAck so a re-entry
+        // (e.g. disconnect → reconnect) cannot inherit a previously
+        // satisfied counter.
+        m_smokeSettleFrames = 0;
+        m_smokeSettleRequired = 90;
+        if (const char* settle = std::getenv("MXH_GUI_SMOKE_SETTLE_FRAMES");
+            settle && *settle != '\0') {
+            try {
+                const long parsed = std::stol(settle);
+                if (parsed > 0 && parsed <= 10000) {
+                    m_smokeSettleRequired = static_cast<std::uint32_t>(parsed);
+                }
+            } catch (...) {
+                // Invalid env value: keep the 90-frame default.
+            }
+        }
+        MLOG_INFO("CInGameState: GUI smoke armed (settle_frames_required=%u)",
+                  static_cast<unsigned>(m_smokeSettleRequired));
         m_smokeExitRequested = true;
     }
     // B.2.3 doesn't switch state â€” the in-game loop is the terminal

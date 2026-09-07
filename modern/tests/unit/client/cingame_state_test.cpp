@@ -1,6 +1,7 @@
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
 #include "mxh/game/hero_total_layout.hpp"
+#include "mxh/proto/protocol.hpp"
 #include "mxh/render/EntityScene.hpp"
 
 #include <gtest/gtest.h>
@@ -8,8 +9,10 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -793,4 +796,155 @@ TEST(InGameEntityMapCenter, EntitySceneUsesPushedMapCenter) {
     scene.setMapCenter(0.0f, 0.0f);
     scene.synchronize(snap);
     EXPECT_EQ(scene.instanceCount(), 2u);
+}
+
+// -------------------------------------------------------------------------
+// Smoke-exit settle-frame gate (2026-09-07 visual-polish follow-up).
+//
+// The GUI smoke harness used to call --exit-after-gamein and immediately
+// observe GUI_SMOKE_PASS because smoke_exit_ready() returned true the
+// moment 228 monsters were streamed in, which happened on the very
+// first Process() tick after GameInAck.  That closed the window before
+// the renderer had a chance to draw a single frame, so the
+// --state-frames-dir capture came back empty and the documented
+// "playable visual" evidence (terrain, monster sprites, mainbar) was
+// missing entirely.
+//
+// The fix introduces a frame counter (m_smokeSettleFrames) that
+// increments every Process() tick while the smoke is armed and a
+// monster-count floor.  smoke_exit_ready() is now the conjunction of
+// the two, sourced from the env var MXH_GUI_SMOKE_SETTLE_FRAMES (with
+// a 90-frame default that matches --smoke-settle-frames).  These
+// tests lock down both halves of the gate so a future regression to
+// the "instant true" behaviour is caught by ctest before it can
+// re-ship.
+// -------------------------------------------------------------------------
+
+namespace {
+
+mxh::net::Message gamein_ack_message(std::uint32_t player_id) {
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    m.header.object_id = player_id;
+    m.payload.assign(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0u);
+    return m;
+}
+
+mxh::net::Message monster_add_message(std::uint32_t object_id) {
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd);
+    m.header.object_id = object_id;
+    m.payload.assign(64u, 0u);
+    std::memcpy(m.payload.data(), &object_id, sizeof(object_id));
+    return m;
+}
+
+}  // namespace
+
+TEST(CInGameSmokeExitGate, ReadyFalseBeforeSettleFramesAccumulate) {
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "5");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "1");
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.SetDispatchForTest(true);
+    state.Start(nullptr, 900001u, 10u);
+    state.HandleMessageForTest(gamein_ack_message(900001u));
+    ASSERT_TRUE(state.is_in_game());
+    for (std::uint32_t i = 0; i < 228u; ++i) {
+        state.HandleMessageForTest(monster_add_message(0x900000u + i));
+    }
+    ASSERT_GE(state.monsters().size(), 228u);
+    state.Process();
+    EXPECT_FALSE(state.smoke_exit_ready())
+        << "smoke_exit_ready() must remain false while the settle "
+           "frame budget is still being consumed; "
+           "smoke_settle_frames=" << state.smoke_settle_frames()
+        << " required=" << state.smoke_settle_required();
+
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "");
+    state.Release();
+}
+
+TEST(CInGameSmokeExitGate, ReadyTrueOnlyAfterSettleAndMonsters) {
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "3");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "1");
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.SetDispatchForTest(true);
+    state.Start(nullptr, 900002u, 10u);
+    state.HandleMessageForTest(gamein_ack_message(900002u));
+    ASSERT_TRUE(state.is_in_game());
+    for (std::uint32_t i = 0; i < 228u; ++i) {
+        state.HandleMessageForTest(monster_add_message(0xA00000u + i));
+    }
+    state.Process();
+    state.Process();
+    EXPECT_FALSE(state.smoke_exit_ready())
+        << "settle frames=" << state.smoke_settle_frames()
+        << " required=" << state.smoke_settle_required();
+    state.Process();
+    EXPECT_TRUE(state.smoke_exit_ready())
+        << "settle frames=" << state.smoke_settle_frames()
+        << " required=" << state.smoke_settle_required()
+        << " monsters=" << state.monsters().size();
+
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "");
+    state.Release();
+}
+
+TEST(CInGameSmokeExitGate, SettleCounterResetsOnReentry) {
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "4");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "1");
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.SetDispatchForTest(true);
+    state.Start(nullptr, 900003u, 10u);
+    state.HandleMessageForTest(gamein_ack_message(900003u));
+    for (std::uint32_t i = 0; i < 228u; ++i) {
+        state.HandleMessageForTest(monster_add_message(0xB00000u + i));
+    }
+    for (int i = 0; i < 4; ++i) state.Process();
+    ASSERT_TRUE(state.smoke_exit_ready());
+
+    state.HandleMessageForTest(gamein_ack_message(900003u));
+    EXPECT_EQ(state.smoke_settle_frames(), 0u)
+        << "smoke settle counter must reset to zero on re-entry";
+    EXPECT_EQ(state.smoke_settle_required(), 4u)
+        << "smoke settle required must be re-read from the env var "
+           "on every GameInAck";
+    EXPECT_FALSE(state.smoke_exit_ready())
+        << "after re-entry the gate must close again until the "
+           "settle budget is consumed a second time";
+
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "");
+    state.Release();
+}
+
+TEST(CInGameSmokeExitGate, NonMapTenGateIgnoresMonstersBelow228) {
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "2");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "1");
+
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.SetDispatchForTest(true);
+    state.Start(nullptr, 900004u, 21u);
+    state.HandleMessageForTest(gamein_ack_message(900004u));
+    state.HandleMessageForTest(monster_add_message(0xC000001u));
+    ASSERT_GE(state.monsters().size(), 1u);
+    state.Process();
+    EXPECT_FALSE(state.smoke_exit_ready());
+    state.Process();
+    EXPECT_TRUE(state.smoke_exit_ready());
+
+    _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "");
+    _putenv_s("MXH_GUI_SMOKE_EXIT", "");
+    state.Release();
 }

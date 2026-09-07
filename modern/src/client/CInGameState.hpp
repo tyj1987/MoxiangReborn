@@ -418,10 +418,29 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     bool         is_failed() const noexcept { return m_failed; }
     const std::string& failure_reason() const noexcept { return m_failureReason; }
     bool smoke_exit_requested() const noexcept { return m_smokeExitRequested; }
+    // The smoke-exit gate is the canonical "the world has settled enough
+    // to take a meaningful acceptance screenshot" predicate.  Production
+    // smoke harnesses call --exit-after-gamein / MXH_GUI_SMOKE_EXIT=1 and
+    // immediately set m_smokeExitRequested from the GameInAck callback.
+    // The naive `monsters_.size() >= 228` check used to return true on
+    // the very first frame, which made the GUI client close before any
+    // terrain or sprite had been drawn.  We now require a configurable
+    // number of in-game Process() ticks so the headless capture path
+    // observes a populated, rendered frame.  The required frame count
+    // comes from the env var MXH_GUI_SMOKE_SETTLE_FRAMES (default 90,
+    // matches --smoke-settle-frames) and is captured once at GameInAck
+    // so a late env-var change cannot race the exit.
     bool smoke_exit_ready() const noexcept {
         if (!m_smokeExitRequested) return false;
+        if (m_smokeSettleFrames < m_smokeSettleRequired) return false;
         if (m_mapNum == 10) return monsters_.size() >= 228;
         return !monsters_.empty() || !m_npcs.empty();
+    }
+    std::uint32_t smoke_settle_frames() const noexcept {
+        return m_smokeSettleFrames;
+    }
+    std::uint32_t smoke_settle_required() const noexcept {
+        return m_smokeSettleRequired;
     }
     std::uint32_t player_id()   const noexcept { return m_playerId; }
     // Resolve an authoritative world distance for effect/audio consumers.
@@ -722,6 +741,14 @@ public:
     std::future<std::pair<mxh::game::EffectCatalog, std::string>> m_effectCatalogLoad;
     bool m_effectCatalogLoading = false;
     bool m_smokeExitRequested = false;
+    // Frame counter that begins incrementing from the first Process()
+    // tick after GameInAck.  Combined with m_smokeSettleRequired this
+    // gives smoke_exit_ready() a deterministic "world has rendered for
+    // N frames" gate instead of a monster-count instant-true.
+    std::uint32_t m_smokeSettleFrames = 0;
+    // Captured at GameInAck from MXH_GUI_SMOKE_SETTLE_FRAMES (or the
+    // build default 90).  See smoke_exit_ready() for the rationale.
+    std::uint32_t m_smokeSettleRequired = 90;
     // Phase 0 §6.4: opt-in flag for protocol_burst_test to call
     // on_message() directly.  When false, HandleMessageForTest is a no-op
     // so a missing test setup cannot accidentally exercise the dispatch
