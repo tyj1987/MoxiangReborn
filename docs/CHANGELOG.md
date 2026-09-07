@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### visual / UI / map polish follow-up (2026-09-07 evening, 4 commit)
+
+紧接日间 session 收尾, 4 个 commit 把 polish session 的资源侧打磨到底:
+
+- `80fbee87` `polish_assets: minimap fold 模式` -- `--generate-minimap` 改为 fold: 真实 minimap DDS 优先保留, 缺失才程序化. 加 `--audit` 报告 + `--force` 全量覆盖. 80 个真实 minimap (`mini_0..mini_207.dds` + `_ful`) 100% 覆盖 65 个 map, 0 缺失, fold 后真实 DDS 字节级保留.
+- `9842a50c` `tools: gen_hfl_placeholders.py` -- 合成 78 个 HFL placeholder, 解决 `Map.pak` 1 entry 真相下 78 个 map 缺 height field 全部黑屏问题. 17/17 unit test PASS + 1/1 ctest PASS + `HflHeightField.PlaceholderFilesParse` 3/3 ctest 验证 modern parser 接受 placeholder 字节. `Resource/Map/` 现 81 HFL (3 真实 10/21/101 + 78 placeholder).
+- `1bcb3976` `chore: 收尾 .gitignore` -- `**/__pycache__/` + `/modern/build-release/` 加入 ignore, 清 commit 3 误带 pyc, 补 commit 漏掉的 `test_unpack_pak.py` (220 行).
+- `8dfdf486` `test+docs: CaptureScreen TGA round-trip` -- 锁住 `CoD3DDeviceDX11::CaptureScreen` (`renderer.cpp:908`) 的 `saveTGA` 输出能 `loadTGA` 还原. 9/9 TGA ctest PASS, 给未来任何 CaptureScreen 重写最小属性保证.
+
+**当前状态**:
+- 12,434 ctest **100% PASS** (0 回归, 4 SQL SKIP)
+- 11 commit 在 `codex/runtime-recovery-pve`, 最新 `8dfdf486` 推送到 GitHub
+- `docs/PLAYABLE_STATUS.md` 已同步: UI 5/5 cpp 落地, 78 HFL placeholder, C-35 文档化, 12,434 ctest 计数
+
+**C-35 仍 blocked** (不能动老源码): 4 个 `DistributeServer_Debug_<LOCALE>` 目标编译撞 shared header enum 重定义. 显式写入 `PLAYABLE_STATUS.md`, no follow-up committed until refactor authorized.
+
 ### Visual / UI / map polish session (2026-09-07, scratch/2026-09-07-visual-polish/)
 
 **根因修正**：7 个 .pak（Map/Character/monster/npc/Effect/Titan/Pet）每个只装 1 个 entry，**资源已在 `modern/data/PlayDH/`**。视觉/UI"一团糊"主要原因是缺资源生成 + HFL/STM 在 4 个临时位置未落到正式目录 + 部分 UI 缺差异化 dds。
