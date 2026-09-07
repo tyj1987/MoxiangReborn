@@ -70,3 +70,18 @@ add_test(NAME mxh_gen_hfl_placeholders_tests
 set_tests_properties(mxh_gen_hfl_placeholders_tests PROPERTIES
     LABELS "tools;python"
     TIMEOUT 60)
+
+# -----------------------------------------------------------------------------
+# mxh_audit_minimap_tests — unit tests for
+# modern/tools/audit_minimap.py (one-shot health check of PlayDH minimap
+# resources: real DDS coverage, encrypted Minimap<N>.bin path index, the
+# central image_minimap_path.bin, and the fold-mode dry run that
+# polish_assets.py --generate-minimap would perform).
+# -----------------------------------------------------------------------------
+add_test(NAME mxh_audit_minimap_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/audit_minimap/test_audit_minimap.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_audit_minimap_tests PROPERTIES
+    LABELS "tools;python"
+    TIMEOUT 60)
