@@ -270,3 +270,10 @@ add_test(NAME mxh_window_manager_focus_tests
     COMMAND $<TARGET_FILE:mxh_window_manager_focus_tests>)
 set_tests_properties(mxh_window_manager_focus_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# -----------------------------------------------------------------------------
+# 2026-09-07 visual polish — pak_extract (unpack_pak.py) Python unit tests.
+# Self-contained: synthesizes a minimal .pak in a temp directory and exercises
+# the parser end-to-end, so it does not depend on any real PlayDH resource.
+# -----------------------------------------------------------------------------
+add_subdirectory(tools)
