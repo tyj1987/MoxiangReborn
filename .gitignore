@@ -31,10 +31,12 @@
 
 # Modern generated trees
 /modern/build/
+/modern/build-release/
 /modern/out/
 /modern/scratch/
 /modern/data/screenshots/
 /modern/docs/smoke_artifacts/
+**/__pycache__/
 /deploy/runtime/
 /deploy/client/
 /dist/
