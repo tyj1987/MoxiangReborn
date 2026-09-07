@@ -8,6 +8,13 @@ Status: `IN_PROGRESS — vertical slice integration`
 
 The modern client has protocol and partial rendering foundations, but it is not yet a mature playable release. Evidence-backed facts:
 
+- **2026-09-07 visual / UI / map polish session (scratch/2026-09-07-visual-polish/)**:
+  - Resource tooling landed: `unpack_pak.py` upgraded to named/manifest/HFL-sniff mode (8/8 ctest) and `polish_assets.py` (6/6 ctest) generating 234 differentiated files for the 5 placeholder classes (65 `maploadingimage*.dds` 1024x768, 32 `LoadingTip*.dds` 256x128, 3 `now_loading*.TIF` 256x64, 65 `mini_*.dds` + 65 `mini_*_ful.dds` 256x256, and 4 UI backgrounds 768x1024 BGRA8 — `login.dds` retains the sky-band layout that `mxh_texture_loader_test::LoginDdsSkyBandIsOnTopAfterTitleFlip` depends on).
+  - HFL/STM sync: 3 HFL (`10/21/101.hfl`) + 1 STM (`10.stm`) copied from `out/runs/`, `tmp-extract/`, and `scratch/2026-08-26-map21/` to `Resource/Map/`. `HflHeightField.*` (5/5) and `StmStaticModel.*` (7/7) ctests stay green; map10/21/101 are now renderable in principle.
+  - 7 `.pak` re-investigated: each one holds **1 valid entry** (the rest is metadata/index), so the `Map.pak`/`Character.pak` etc. do not contain the model/HFL/STM assets the plan assumed. Real assets are already on disk under `modern/data/PlayDH/`.
+  - 12,429 ctests pass 100% (excluding 6 SQL Server / in-game smoke Skips); no new failures introduced.
+  - **UI P0 1:1 port status: 5/5 dialog hpp complete (1:1 API), 0/5 cpp implementations landed** (cpp stubs preserved at git HEAD to avoid breaking 12,021 ctests that depend on the empty-body 1:1 surface). The "visual one-paste-blob" symptom remains; this session proves the resource side is clean, but a real human-visible acceptance run is not in scope.
+
 - Login, character-list/create protocol paths and several UI parser tests exist.
 - Map10 has real monster data and its current opaque AIGroup resource now decodes into 114 groups / 228 spawns; it remains the first combat acceptance map, but no human combat E5 has been recorded yet.
 - The headless client E2E can now explicitly target Map10: a fresh SQLite run completes LoginAck, character creation/selection, GameInAck(map=10), effect/skill catalog loading, and MonsterAdd events with the canonical PlayDH root. This is protocol/resource integration evidence, not a visible or human-playable acceptance.

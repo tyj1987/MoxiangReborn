@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+### Visual / UI / map polish session (2026-09-07, scratch/2026-09-07-visual-polish/)
+
+**根因修正**：7 个 .pak（Map/Character/monster/npc/Effect/Titan/Pet）每个只装 1 个 entry，**资源已在 `modern/data/PlayDH/`**。视觉/UI"一团糊"主要原因是缺资源生成 + HFL/STM 在 4 个临时位置未落到正式目录 + 部分 UI 缺差异化 dds。
+
+**交付**：
+- `modern/tools/unpack_pak.py` (14,820 bytes)：升级为 pak_extract 模式（named + HFL sniff + manifest + dry-run + filter）。8/8 unit test PASS。1/1 ctest PASS。
+- `modern/tools/polish_assets.py` (16,699 bytes, 新增)：生成 5 类差异化 DDS/TIF。6/6 unit test PASS。1/1 ctest PASS。
+- `modern/scratch/2026-09-07-visual-polish/sync_hfl_stm.ps1`：把 4 个临时 HFL/STM 落到 `Resource/Map/`（10.hfl, 21.hfl, 101.hfl, 10.stm）。HFL/STM 解析 ctest 12/12 PASS。
+- `polish_assets.py --all` 落盘 234 个差异化资源到 PlayDH（loading 100 + minimap 130 + 大背景 4）。`TextureLoader.LoginDdsSkyBandIsOnTopAfterTitleFlip` ctest 1/1 PASS（保留 768x1024 BGRA8 + sky band 布局）。
+- `modern/src/ui/cquickdialog.cpp` (65 行 1:1 port, 升级自 git HEAD 1 行)：5/5 ctest PASS。
+- `modern/tests/unit/tools/` (新增)：2 个 ctest target。
+- 7 文档：README / RISKS / REVIEW / UNPACK_REPORT / PHASE3_PLAN / FINAL。
+
+**关键证据**：
+- 12,429 ctest **100% PASS** (排除 6 SQL Server / in-game smoke Skips) — 0 回归
+- 5/5 P0 dialog 1:1 port 实际**全部完成**（charmake/loading/mainbar 在 hpp inline, minimap 116 行 + cquickdialog 65 行 cpp）
+
+**未触碰**：`[CC]Header/Protocol.h` / `CommonStruct.h` / 老源码 / SQL Server / .pak 写 / commit（不 commit unless asked）。
+
+### Mapblur 糊团下一刀 t6 诊断 (2026-09-06, commit `e9bbe064`)
+
+按 Notion 任务"糊团下一刀:贴图缺失(13/37)或 STM"顺序 (used/unresolved 仪表 → Fog ON/OFF A/B → …-mapblur-t6),加 t6 诊断两块, 量化糊团的实际贡献, 决定是否要修解析/打包。
+
+- **`modern/src/render/terrain_scene.cpp`**: per-tile `[terrain] used[i=N] name=X form=Y status=Z]` 行 + `[terrain] per-used summary` 行 (`used/loaded/failed_among_used`), 排除"13/37 缺 24 张"误读。 37 = HFL palette 总名字数, 13 = 实际 tiles 引用数, legacy palette name `1` 从 used + failed 两个计数中排除 (保留 `palette_entries` 单独统计)。
+- **`modern/tools/MoxianClient/main.cpp`**: per-process 操作旁路 `MXH_FOG_DISABLE=1`, 抑制 MapDesc FOG band, A/B capture 量化 FOG 雾带对 gamein 帧的视觉贡献。 默认行为不变 (无 env var 仍按 BMHM 接线, 见 commit `5507ce63`), 满足项目硬约束 (不改 MapDesc / HFL authority, 不注入 TTB / STM 数据)。
+
+**t6 A/B 实测证据 (Map10, `playdh-current`)**:
+
+| run | id | env | exit | gamein.tga |
+|---|---|---|---|---|
+| A | `gfix-20260906-111141-37` | (default FOG on) | 0 | 3,145,746 bytes |
+| B | `gfix-20260906-111214-64` | `MXH_FOG_DISABLE=1` | 0 | 3,145,746 bytes |
+
+- `used=13 loaded=13 failed_among_used=0` (糊团 *不是* terrain 贴图 — HFL palette 中 24 个未引用条目是 unused dead palette, 跟 1:1 资源约束一致, 不需要改解析/打包)
+- A vs B pixel diff: **20.47 % 像素 Δ=1 LSB**, max Δ = 1, mean R/G/B = 0.10 / 0.06 / 0.09 (糊团 *不是* FOG 雾带 — 关闭 FOG 后 99.5 % 像素肉眼无差异)
+- 163 unique 5-bit 量化 buckets 完全相同; dark frac 1.89 % vs 1.92 %; non-bg 4.55 % vs 4.54 %; channel mean R/G/B 42.47/43.06/57.24 vs 42.38/43.00/57.15
+- 糊团真实成因 = scene 内容本身: 整体能量被压住, channel mean 42/43/57 (低饱和偏暗), 4.55 % 像素 non-bg, 95 % 像素集中在 (0,0,0)~(32,32,32) 范围, 缺 bright source + sky 底色 (无阳光/月光/视差)
+
+**结论**: 排除 FOG + 贴图两个假设, 糊团是 *渲染策略* 层问题 (灯光 / sky 底色 / 曝光 / RenderBox placeholder), 不是 *资源层* 问题 (HFL/TTB/STM/pak)。 下一刀候选 (按硬约束, 禁动 HFL/TTB/STM): 加 directional light / ambient bump、sky 底色按"夜晚"重设 + 加 emissive、RenderBox placeholder 检查、DX11 端 tone-map / exposure。 这些是 *非资源* 调整, 撞 1:1 复刻 vs 渲染策略取舍, 需要 user 拍板。
+
+**ctest 验证**: 12,426 PASS / 0 FAIL / 6 opt-in env-gated skip in 128.91s (基线 12,432 一致, 0 回归)。 详见 `modern/scratch/2026-09-06-mapblur-t6/REPORT.md` (working dir, `/modern/scratch/` 在 `.gitignore`)。
+
 ### Map-display fix + verification (2026-09-09, commits `c5d25a9b` + `e41e3daa`)
 
 - **3 root-cause fixes** for the "client map display completely wrong" report:
