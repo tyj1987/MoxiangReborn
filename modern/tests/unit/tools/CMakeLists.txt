@@ -102,3 +102,23 @@ add_test(NAME mxh_integration_minimap_audit_tests
 set_tests_properties(mxh_integration_minimap_audit_tests PROPERTIES
     LABELS "tools;python;integration"
     TIMEOUT 60)
+
+# -----------------------------------------------------------------------------
+# mxh_compat_round_trip_tests — unit tests for
+# modern/tools/compat_round_trip.py.  The verifier re-implements the
+# legacy CMHFile::CheckCRC signed-i XOR and the modern unsigned-i XOR
+# in pure Python so it can byte-diff real PlayDH .bmhm / .ttb / .bsad
+# files against the legacy reference.  These unit tests cover the
+# classification rules (u16 vs u32 .ttb layout, size-mismatch, BSAD
+# acceptance) and lock the documented equivalence between the two
+# XOR variants — important because the modern `text_parse.hpp:51` and
+# the legacy `(char)i` paths differ in their intermediate arithmetic
+# but must produce the same plaintext.
+# -----------------------------------------------------------------------------
+add_test(NAME mxh_compat_round_trip_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_compat_round_trip.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_compat_round_trip_tests PROPERTIES
+    LABELS "tools;python;compat"
+    TIMEOUT 60)
