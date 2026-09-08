@@ -1,0 +1,14 @@
+창모드
+홈페이지
+회원등록
+아이템몰
+게시판
+게임시작
+VersionChecking
+DownLoading
+Extracting
+Packing
+PatchComplete
+접속실패
+UploadingPatch
+저해상도모드

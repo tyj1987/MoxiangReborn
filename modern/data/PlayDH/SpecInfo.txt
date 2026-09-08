@@ -1,0 +1,10 @@
+Intel(R) Pentium(R) D CPU 3.00GHz| Support SSE2992 MHz
+Microsoft Windows XP Professional 
+Service Pack 2 (Build 2600)
+Memory : 1024 M
+HardDiskFreeSize : 20852 M
+Realtek HD Audio output
+DirectX 9.0c installed
+Video Memory : 1037043 / 1035763 KB | AGP Memory : 252927 KB
+Chip : NVIDIA GeForce 9400 GT  | Ver : nv4_disp.dll (6.14.11.7531) | DisplayMode : 1280X1024 70 Hz 
+압축텍스쳐 지원

@@ -42,7 +42,14 @@
 /dist/
 
 # Local resource and reference payloads; manifests remain tracked.
-/modern/data/PlayDH/
+# 2026-09-08: modern/data/PlayDH/ is now TRACKED for 1:1 resource
+# alignment (see docs/RESOURCE_FORMATS.md and the 2026-09-08
+# 1:1 verifier commit).  The tree is 1.76 GB across 5372 files
+# (BMHM, TTB, BSAD, HFL, DDS, TIF, CHX, CHR, ANM, MOD, .pak
+# mirrors) and is the canonical binary reference for every modern
+# parser.  Local mirrors like 墨香【源码配套资源】\PlayDH\ still
+# remain untracked below.
+/modern/data/PlayDH/  # TRACKED — see comment above
 /reference/*
 !/reference/README.md
 !/reference/manifests/

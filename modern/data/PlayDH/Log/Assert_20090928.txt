@@ -1,0 +1,5 @@
+.\GuildManager.cpp line:1203, msg:Fail To Load a File : GuildLevel, time:9월/28일 22시53분47.640초
+.\GuildManager.cpp line:1203, msg:Fail To Load a File : GuildLevel, time:9월/28일 22시54분6.78초
+.\GuildManager.cpp line:1203, msg:Fail To Load a File : GuildLevel, time:9월/28일 23시3분30.718초
+.\GuildManager.cpp line:1203, msg:Fail To Load a File : GuildLevel, time:9월/28일 23시4분37.625초
+.\GuildManager.cpp line:1203, msg:Fail To Load a File : GuildLevel, time:9월/28일 23시7분29.156초

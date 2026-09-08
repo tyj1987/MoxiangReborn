@@ -1,33 +1,17 @@
-*.c text eol=lf
-*.cpp text eol=lf
-*.h text eol=lf
-*.hpp text eol=lf
-*.md text eol=lf
-*.py text eol=lf
-*.ps1 text eol=lf
-*.bat text eol=lf
-*.txt text eol=lf
-*.cmake text eol=lf
-CMakeLists.txt text eol=lf
-*.bin binary
-*.pak binary
-*.db binary
-*.bmhm binary
-*.ttb binary
-*.hfl binary
-*.stm binary
-*.chl binary
-*.chx binary
-*.chr binary
-*.mon binary
-*.bsad binary
-*.beff binary
-*.befl binary
-*.dds binary
-*.tga binary
-*.tif binary
-*.bmp binary
-*.wav binary
-*.mp3 binary
-*.m3d binary
-*.mhd binary
+# Git LFS (Large File Storage) tracking rules.
+#
+# 2026-09-08: the 2008 墨香 client PlayDH tree has 4 .pak archives
+# that exceed GitHub's 100 MB per-file limit:
+#   modern/data/PlayDH/Map.pak        557.24 MB
+#   modern/data/PlayDH/Character.pak  239.56 MB
+#   modern/data/PlayDH/Effect.pak     207.32 MB
+#   modern/data/PlayDH/monster.pak    167.04 MB
+# These four files are routed through Git LFS so the canonical 1:1
+# resource reference can live in this repository without violating
+# the 100 MB cap.  All other PlayDH resources (3 369 smaller
+# files, 1 126 MB total) are tracked as plain git blobs.
+
+modern/data/PlayDH/Map.pak filter=lfs diff=lfs merge=lfs -text
+modern/data/PlayDH/Character.pak filter=lfs diff=lfs merge=lfs -text
+modern/data/PlayDH/Effect.pak filter=lfs diff=lfs merge=lfs -text
+modern/data/PlayDH/monster.pak filter=lfs diff=lfs merge=lfs -text
