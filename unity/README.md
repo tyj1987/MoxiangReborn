@@ -48,3 +48,21 @@ security. The Editor test covers 100 reconnects; the Player captures its own
 rendered frame. Both remain automated evidence, not human gameplay acceptance.
 
 See `docs/UNITY_REMASTER_STATUS.md` and `docs/UNITY_GAMEPLAY_COVERAGE.md` for gates.
+
+Map10 terrain now uses `Map10.mxhterrain`: its ScriptedImporter generates the
+64 meshes, materials and Prefab from the heightfield and explicit palette. The
+13 `.mxhdds` files contain byte-identical DDS payloads selected from Map.pak;
+the custom extension routes them to the legacy DDS importer. They retain their
+original five mip levels, which Unity's default DDS importer rejects as incomplete.
+This restores source materials, not the modern high-detail remaster sample.
+
+Reproduce palette extraction into a new directory (never overwrite sources):
+
+```powershell
+python modern/tools/unity_terrain_palette.py unity/baselines/playdh-current.json.gz modern/data/PlayDH unity/baselines/map10-terrain-palette.json modern/out/unity-remaster/palette-reproduction
+```
+
+`Moxiang.Editor.TerrainPaletteSetup.Apply` explicitly binds the imported terrain
+Prefab into the saved connection validation scene. The original geometry-only
+mesh stays available as a disabled renderer for inspection. No visual mesh is
+used as an authoritative movement/collision substitute.

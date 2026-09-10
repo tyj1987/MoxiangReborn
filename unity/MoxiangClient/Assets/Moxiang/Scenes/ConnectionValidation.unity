@@ -2479,7 +2479,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 992754358}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -3037,7 +3037,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "MAP 10 \xB7 GEOMETRY INSPECTION\nMaterials, collision and gameplay are not accepted yet."
+  m_text: "MAP 10 \xB7 SOURCE MATERIAL INSPECTION\nCollision, full gameplay and remaster quality remain unaccepted."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -3117,6 +3117,63 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1135402454}
   m_CullTransparentMesh: 1
+--- !u!1001 &1175693341
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2358016279522780041, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3564833296568518824, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
+      propertyPath: m_Name
+      value: Map10
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: -5939572086523569093, guid: c3c3cd2bcad20ec4f977e3790d0345a9, type: 3}
 --- !u!1 &1203966491
 GameObject:
   m_ObjectHideFlags: 0
@@ -5854,3 +5911,4 @@ SceneRoots:
   - {fileID: 992754361}
   - {fileID: 1203966495}
   - {fileID: 1896477849}
+  - {fileID: 1175693341}

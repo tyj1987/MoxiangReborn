@@ -4,6 +4,10 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Restored Map10's 13 source terrain textures with explicit provenance and a
+  partial-mip DDS importer; a terrain ScriptedImporter builds 64 chunks and the
+  Prefab, verified in a real three-server standalone Player. Modern high-detail
+  art, collision and gameplay acceptance remain pending.
 - Created `codex/unity-client-remaster` from `89a11b3`; the original client,
   servers, resource bytes and gameplay remain the reference path.
 - Added deterministic PAK/loose-file provenance auditing, explicit source

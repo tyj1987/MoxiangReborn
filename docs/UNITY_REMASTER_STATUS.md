@@ -34,6 +34,24 @@ is separate and must not be labelled pixel-identical original rendering.
 
 ## Resource baseline
 
+Map10 source-material restoration (2026-09-11): the 13 used HFL palette slots
+resolve explicitly from authoring `.tga` names to unique same-name `.dds` entries
+in Map.pak, consistent with the existing terrain renderer's mapping. The reviewed
+selection is `unity/baselines/map10-terrain-palette.json`. All source hashes match.
+Each source has a partial five-level DDS mip chain; Unity's default importer
+rejects it. `MxhDdsImporter` keeps the original DXT blocks and mip count without
+recompression. `MxhTerrainImporter` generates 64 meshes/materials/Prefab subassets
+from `.mxhterrain`, preserving tile rotation, global normals and existing winding.
+These generated meshes are not duplicated in version control. No collision or
+high-detail remaster quality acceptance is inferred from source-material display.
+
+Verification: Unity 13 passed / 1 real-server test ignored without its fixture;
+full C++ 12,454 registered / zero failures / 6 skips, 92.10 seconds; source-byte
+check 5,372 passed. Independent Player run `14edba8c09164acb8a110e865df70644`
+reached real three-server GameIn and visibly rendered the textured map. Evidence:
+`modern/out/unity-remaster/terrain-importer-tests.xml`, `terrain-ctest.log`, and
+`three-server/14edba8c09164acb8a110e865df70644/player.png`.
+
 The new audit reads all seven PAK containers and loose files without extraction
 into the source tree. It records 19,682 logical assets, 19,741 physical sources,
 14,376 PAK entries and 5,365 loose files. All PAK entry counts match their headers.

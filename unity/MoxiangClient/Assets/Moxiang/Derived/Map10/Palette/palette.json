@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "heightfieldSourceId": "mxh:a34e67bfe4881c2da5fe113422879008012e8e93f97b85089cb56d8bad931166",
+  "entries": [
+    {
+      "slot": 0,
+      "authoringName": "tile_10-6.tga",
+      "file": "tile_10-6.mxhdds",
+      "sourceId": "mxh:e42f058883124b388d6f217eac7f20fc0d181c364aac4742982d28ee70189b92",
+      "sha256": "94b39d39df127e74d008a2fdc9e54710f63de49db5859ec763db7a49ea1632ce",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 1,
+      "authoringName": "tile_10-2.tga",
+      "file": "tile_10-2.mxhdds",
+      "sourceId": "mxh:80c484280c2392d0f8c9237d6b1952703219390a95e2393a7c79f71c0d0fe0b0",
+      "sha256": "7589564463c8b2b830feda350e9aa46739b18b3d768eda5dff0b15fd9457dbc2",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 2,
+      "authoringName": "tile_10-3.tga",
+      "file": "tile_10-3.mxhdds",
+      "sourceId": "mxh:c72d7f3c9a87edd3b96421f900751087f85c00d935e9a6cd4610012c7862bc5f",
+      "sha256": "d117f2ed5a052e5b9cde3829ef156670941dc0d0ea0c6cab3f3e0ed667e3fd58",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 3,
+      "authoringName": "tile_10-4.tga",
+      "file": "tile_10-4.mxhdds",
+      "sourceId": "mxh:392c210247511803f2c35270fb3c40fd6f19676344bfe8b37543e915049c5148",
+      "sha256": "67d7884868c91ef29e8ff83e3002751c84071befde250966a9b219653e4e16ef",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 4,
+      "authoringName": "tile_10-5.tga",
+      "file": "tile_10-5.mxhdds",
+      "sourceId": "mxh:15be626beb32b9f01dcc057ceeee0850c98f4f558dd47a4e3137e3f4b5a20967",
+      "sha256": "1dd71c0547dfa4b1ba143305a866db848738474790751f942e1e0ffcc1a07cb0",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 5,
+      "authoringName": "tile_10-1.tga",
+      "file": "tile_10-1.mxhdds",
+      "sourceId": "mxh:018fab40b177ca940bd91e4b34fbe4352b005841b841257fafa95118c60e1e70",
+      "sha256": "69361134b1c5bd802325389d17a31a7af6c462168b6e68933e9726b1ca1c4a36",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 6,
+      "authoringName": "tile_10-7.tga",
+      "file": "tile_10-7.mxhdds",
+      "sourceId": "mxh:aac16c8a73523cb7404ba31ee9805d0917bcedee7ec217e5e7464fb2c7e5572f",
+      "sha256": "72693ea2b9812d36a4a3aab43e662095824016fde794f298de1c5aebacb878ce",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 7,
+      "authoringName": "tile_10-8.tga",
+      "file": "tile_10-8.mxhdds",
+      "sourceId": "mxh:bea00b256464e058f83d402971556903e58179946e830f34f7bfd77c76a58ee9",
+      "sha256": "0950cfc9c476529dfbf5fc425cd2f4bb7bdb827b70442e1a01ad22880852907c",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 8,
+      "authoringName": "tile_10-9.tga",
+      "file": "tile_10-9.mxhdds",
+      "sourceId": "mxh:040bf17f32eb95381ea6212161116f3d018969ac0a3f03ee695e04e1f0a29e3e",
+      "sha256": "199ee583d9eb0f1047dcc01df4a7b07dbc16696fc04936dd658ee9282b69e442",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 9,
+      "authoringName": "tile_10-10.tga",
+      "file": "tile_10-10.mxhdds",
+      "sourceId": "mxh:ec17f81edf5253874bb2be34296c23690d8ec6a41c5ae9ea9a8ef2bb7cbf8f5c",
+      "sha256": "f0fb5bd80b9d443684bc0f25740c45b994ca3394d987b9ce9c83efc346fdb4a9",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 10,
+      "authoringName": "tile_10-11.tga",
+      "file": "tile_10-11.mxhdds",
+      "sourceId": "mxh:44360c81f51354f8501f12cfc9bc23a0857ad87b5efd34f7143c8f7ca9a16e48",
+      "sha256": "9c00aad79e512b9950f8c949852d7a2027e7ce82a4d41571d3999ccdea6365be",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 11,
+      "authoringName": "tile_10-12.tga",
+      "file": "tile_10-12.mxhdds",
+      "sourceId": "mxh:7340aa7abff5567a592ffc8e323b5aa22bbc031ac33ca12d459f990e07b2f195",
+      "sha256": "94ee54b1a85422d96443327de814798beb8bc8a5781648020eb4ef5b4fe8ecd7",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 12,
+      "authoringName": "tile_10-13.tga",
+      "file": "tile_10-13.mxhdds",
+      "sourceId": "mxh:4cd7227ba47081f379e5b54a5a6fb1383ab94b756d0fb3bcb6af6b3401894fe9",
+      "sha256": "d320f377bb92c8a1ff252bd5d2f9f9986e91d1bc447b80559f3f929d5b640c17",
+      "provenance": "unknown"
+    }
+  ],
+  "planSha256": "5333a4008c86b736d0270dbe41da7e3eb37acedec304c6b47152bc8160c3dbd9"
+}

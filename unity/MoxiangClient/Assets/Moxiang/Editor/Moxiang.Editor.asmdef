@@ -1,0 +1,6 @@
+{
+  "name": "Moxiang.Editor",
+  "references": ["Moxiang.Runtime", "Unity.TextMeshPro", "UnityEngine.UI", "Unity.InputSystem"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
