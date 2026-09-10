@@ -138,6 +138,7 @@ public:
     }
 
     std::atomic<std::uint32_t> valid_create_packets{0};
+    std::atomic<std::uint32_t> valid_move_packets{0};
 
 private:
     void send(mxh::net::ConnectionId id, std::uint8_t protocol,
@@ -177,6 +178,25 @@ private:
 
     void handle_agent(mxh::net::ConnectionId id,
                       const mxh::net::Message& message) {
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Move)) {
+            if (message.header.object_id != 7001 || message.payload.size() != 4 ||
+                (message.header.protocol != 13 && message.header.protocol != 8)) return;
+            ++valid_move_packets;
+            auto reply = message;
+            // A normal own echo must not overwrite prediction, while remote
+            // reports are delivered with their object identity and wire mode.
+            reply.header.object_id = 8002;
+            (void)server_->send(id, reply);
+            reply.header.object_id = 7001;
+            put_u16(reply.payload, 0, 9);
+            (void)server_->send(id, reply);
+            reply.header.protocol = 2;
+            put_u16(reply.payload, 0, 120);
+            put_u16(reply.payload, 2, 240);
+            if (get_u16(message.payload, 0) == 65535) reply.payload.push_back(0);
+            (void)server_->send(id, reply);
+            return;
+        }
         using mxh::proto::UserConnProtocol;
         const auto protocol = static_cast<UserConnProtocol>(message.header.protocol);
         if (protocol == UserConnProtocol::CharacterListSyn) {
@@ -616,6 +636,79 @@ TEST(UnityCoreAbi, UnsupportedCommandDoesNotSendPacket) {
 
 TEST(UnityCoreNetwork, PlaintextRealSocketLoginThroughGameIn) {
     run_protocol_round_trip(false, 0, "墨香", "墨香");
+}
+
+TEST(UnityCoreNetwork, MovementPredictionCorrectionAndStaleGeneration) {
+    ProtocolPair servers(true, "Mover");
+    ASSERT_TRUE(servers.start(true));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, MXH_UNITY_CONNECT_USE_HSEL);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command);
+    command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    command.type = MXH_UNITY_COMMAND_MOVE;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot));
+    command.type = MXH_UNITY_COMMAND_MOVE;
+    command.argument0 = 1000; command.argument1 = 2000;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command.expected_map_generation = snapshot.map_generation;
+    command.argument0 = 65536;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.argument0 = 1000; command.payload_size = 4;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.payload_size = 0;
+    EXPECT_EQ(servers.agent.valid_move_packets.load(), 0u);
+    for (const auto type : {MXH_UNITY_COMMAND_MOVE, MXH_UNITY_COMMAND_STOP}) {
+        command.type = type; command.request_id = 77;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        std::uint32_t required = 0;
+        ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+        EXPECT_EQ(snapshot.game.position_x, 1000);
+        EXPECT_EQ(snapshot.game.position_z, 2000);
+        bool submitted = false, remote = false, corrected = false;
+        std::uint64_t sequence = 0;
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (!corrected && std::chrono::steady_clock::now() < deadline) {
+            mxh_unity_tick(handle);
+            mxh_unity_event event{};
+            while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+                EXPECT_GT(event.sequence, sequence); sequence = event.sequence;
+                EXPECT_EQ(event.map_generation, snapshot.map_generation);
+                if (event.type == MXH_UNITY_EVENT_MOVEMENT_SUBMITTED) {
+                    submitted = true; EXPECT_EQ(event.request_id, 77u);
+                    EXPECT_EQ(event.argument1, 1000u | (2000u << 16));
+                    EXPECT_EQ(event.reserved0, type == MXH_UNITY_COMMAND_MOVE ? 13u : 8u);
+                }
+                if (event.type == MXH_UNITY_EVENT_OBJECT_MOVEMENT) {
+                    remote = true; EXPECT_EQ(event.argument0, 8002u);
+                    EXPECT_EQ(event.argument1, 1000u | (2000u << 16));
+                }
+                if (event.type == MXH_UNITY_EVENT_POSITION_CORRECTION) {
+                    corrected = true; EXPECT_EQ(event.request_id, 0u);
+                    EXPECT_EQ(event.argument1, 120u | (240u << 16));
+                }
+            }
+            std::this_thread::sleep_for(5ms);
+        }
+        EXPECT_TRUE(submitted); EXPECT_TRUE(remote); ASSERT_TRUE(corrected);
+        ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+        EXPECT_EQ(snapshot.game.position_x, 120); EXPECT_EQ(snapshot.game.position_z, 240);
+    }
+    command.argument0 = 65535;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_FAILED, snapshot));
+    EXPECT_EQ(snapshot.last_result, MXH_UNITY_PROTOCOL_ERROR);
+    EXPECT_EQ(servers.agent.valid_move_packets.load(), 3u);
 }
 
 TEST(UnityCoreNetwork, HselRealSocketLoginThroughGameIn) {

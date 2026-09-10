@@ -38,6 +38,8 @@ python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remast
 python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --editor-test
 python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --create-character
 python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --editor-test --create-character
+python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --editor-test --movement
+python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --movement
 ```
 
 These create fresh SQLite fixture databases and temporary accounts under
@@ -50,6 +52,11 @@ callback; the Editor additionally reconnects 100 times. Client-facing HSEL and t
 Agent→Map loopback link are recorded separately; neither certifies deployment
 security. The Editor test covers 100 reconnects; the Player captures its own
 rendered frame. Both remain automated evidence, not human gameplay acceptance.
+
+`--movement` adds an observer account and verifies two native sessions' movement,
+stop and excessive-jump correction. Run separately from `--create-character`.
+The Player probe uses the connection component's Move method and native events;
+it does not simulate two human players or validate collision/controller quality.
 
 See `docs/UNITY_REMASTER_STATUS.md` and `docs/UNITY_GAMEPLAY_COVERAGE.md` for gates.
 

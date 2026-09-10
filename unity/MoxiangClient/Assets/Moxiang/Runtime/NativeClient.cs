@@ -67,7 +67,7 @@ namespace Moxiang
     /// <summary>Owns one native session. Call on the Unity main thread and Dispose before domain reload.</summary>
     public sealed class NativeClient : IDisposable
     {
-        public const uint ApiVersion = 0x00010001;
+        public const uint ApiVersion = 0x00010002;
         private const string Library = "mxh_unity_core";
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
         private readonly object gate = new object();
@@ -156,6 +156,21 @@ namespace Moxiang
                     expectedMapGeneration = observed.mapGeneration, nameLength = length, name = encoded,
                     sex = sex, hair = hair, face = face, clothOption = cloth, bootOption = boots, weaponOption = weapon,
                     reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        // Sends a predicted current position. The legacy server sends only
+        // corrections to us; successful sends do not confirm acceptance.
+        public CoreResult Move(ushort x, ushort z, bool stop, CoreSnapshot observed)
+        {
+            lock (gate)
+            {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = stop ? 4u : 3u,
+                    argument0 = x, argument1 = z, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
                 return mxh_unity_submit_command(handle, ref command);
             }
         }

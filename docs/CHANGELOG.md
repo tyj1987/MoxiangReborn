@@ -4,6 +4,12 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added shared movement encoding and Unity Move/Stop/correction events. Real
+  Editor and Player two-session runs now pass move, stop and rejected-jump
+  routing. Fixed duplicate Map fan-out, owner correction routing, HSEL shared
+  directional state and send-order races exposed by this integration. x64
+  core/crypto: 40 passed; full CTest: zero failed, six skipped. Original fixed
+  collision data is located but timed movement/collision acceptance remains open.
 - Added authoritative character creation with ABI 0x00010001 and Unity option
   controls. Empty-account Editor and Player runs verified creation, initial
   equipment and GameIn against real three-server SQLite fixtures; Editor also

@@ -2,6 +2,7 @@
 
 #include "mxh/game/item_types.hpp"
 #include "mxh/net/net.hpp"
+#include "mxh/proto/protocol.hpp"
 
 #include <array>
 #include <cstddef>
@@ -10,9 +11,16 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace mxh::client {
+
+// Shared by DX11 and Unity: little-endian current-position report, not an ACK.
+mxh::net::Message make_move_message(std::uint32_t player_id,
+    mxh::proto::MoveProtocol protocol, std::uint16_t x, std::uint16_t z);
+std::optional<std::pair<std::uint16_t, std::uint16_t>>
+parse_move_payload(std::span<const std::uint8_t> payload);
 
 struct LegacyLoginAck {
     std::string agent_addr;

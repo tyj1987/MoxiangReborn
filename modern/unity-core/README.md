@@ -60,3 +60,10 @@ rejects control characters, unrepresentable names, and names outside the
 original 4-16 encoded-byte limit; it never truncates a code point or wire name.
 Events and selection commands carry session and map generations so Unity can
 discard late events and the core can reject stale UI commands.
+
+API 0x00010002 additionally submits MOVE/STOP in legacy game coordinates and
+publishes predicted submissions, own corrections and remote movement events.
+Normal movement has no owner ACK; a successful send is not server acceptance.
+See `docs/UNITY_MOVEMENT_STATUS.md` for the exact event layout and the inherited
+server collision/time/state gaps. HSEL now uses independent TX/RX key schedules;
+client/core/server builds must be updated or rolled back together.

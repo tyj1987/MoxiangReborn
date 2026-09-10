@@ -160,6 +160,24 @@ std::optional<std::vector<std::uint8_t>> legacy_character_make_syn_payload(
     return out;
 }
 
+mxh::net::Message make_move_message(std::uint32_t player_id,
+    mxh::proto::MoveProtocol protocol, std::uint16_t x, std::uint16_t z) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    message.header.protocol = static_cast<std::uint8_t>(protocol);
+    message.header.object_id = player_id;
+    message.payload.resize(4);
+    put_u16(message.payload, 0, x);
+    put_u16(message.payload, 2, z);
+    return message;
+}
+
+std::optional<std::pair<std::uint16_t, std::uint16_t>>
+parse_move_payload(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 4) return std::nullopt;
+    return std::make_pair(get_u16(payload.data()), get_u16(payload.data() + 2));
+}
+
 std::vector<std::uint8_t> legacy_character_remove_syn_payload(
     std::uint32_t character_id) {
     return {static_cast<std::uint8_t>(character_id),

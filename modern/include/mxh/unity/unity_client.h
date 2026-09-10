@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define MXH_UNITY_API_VERSION UINT32_C(0x00010001)
+#define MXH_UNITY_API_VERSION UINT32_C(0x00010002)
 #define MXH_UNITY_MAX_HOST_BYTES UINT32_C(255)
 #define MXH_UNITY_MAX_CREDENTIAL_BYTES UINT32_C(17)
 #define MXH_UNITY_MAX_NAME_BYTES UINT32_C(64)
@@ -66,12 +66,21 @@ typedef enum mxh_unity_event_type {
     MXH_UNITY_EVENT_GAME_IN = 3,
     MXH_UNITY_EVENT_DISCONNECTED = 4,
     MXH_UNITY_EVENT_ERROR = 5,
-    MXH_UNITY_EVENT_CHARACTER_CREATE = 6
+    MXH_UNITY_EVENT_CHARACTER_CREATE = 6,
+    /* Movement events: argument0=object ID, argument1=x|(z<<16), reserved0=
+       wire MoveProtocol. SUBMITTED is local prediction, never server acceptance.
+       CORRECTION has request_id=0: the legacy wire has no request correlation. */
+    MXH_UNITY_EVENT_MOVEMENT_SUBMITTED = 7,
+    MXH_UNITY_EVENT_POSITION_CORRECTION = 8,
+    MXH_UNITY_EVENT_OBJECT_MOVEMENT = 9
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {
     MXH_UNITY_COMMAND_SELECT_CHARACTER = 1,
-    MXH_UNITY_COMMAND_CREATE_CHARACTER = 2
+    MXH_UNITY_COMMAND_CREATE_CHARACTER = 2,
+    /* argument0=x, argument1=z in legacy uint16 game units; payload_size=0. */
+    MXH_UNITY_COMMAND_MOVE = 3,
+    MXH_UNITY_COMMAND_STOP = 4
 } mxh_unity_command_type;
 
 /* Bytes after expected_map_generation used by CREATE_CHARACTER. */
@@ -171,7 +180,7 @@ typedef struct mxh_unity_game_snapshot {
     uint16_t min_chub;
     uint16_t che_ryuk;
     uint16_t sim_mek;
-    uint16_t position_x;
+    uint16_t position_x; /* predicted after a submitted move; server corrections replace it */
     uint16_t position_z;
     uint16_t server_year;
     uint16_t server_month;

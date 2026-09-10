@@ -17,6 +17,11 @@ namespace Moxiang
         private ulong sequence;
         private string failure;
         public CoreSnapshot Observed => observed;
+        public event Action<CoreEvent> CoreEventReceived;
+        public CoreResult Move(ushort x, ushort z, bool stop)
+        {
+            return client == null ? CoreResult.NotReady : client.Move(x, z, stop, observed);
+        }
         public CoreResult CreateCharacterFromUi(string name, byte sex, byte hair, byte face, byte cloth, byte boots, byte weapon)
         {
             if (client == null) return CoreResult.NotReady;
@@ -68,6 +73,7 @@ namespace Moxiang
                     if (item.sequence <= sequence) continue;
                     sequence = item.sequence;
                     if (item.result != CoreResult.Ok) failure = item.Text;
+                    CoreEventReceived?.Invoke(item);
                 }
                 Refresh();
             }
@@ -115,6 +121,8 @@ namespace Moxiang
             if (client != null && observed.state == CoreState.InGame)
                 status.text += "\nMap " + observed.game.mapNumber + " | Level " + observed.game.level +
                     " | HP " + observed.game.life + "/" + observed.game.maxLife;
+            if (client != null && observed.state == CoreState.InGame)
+                status.text += "\nPosition " + observed.game.positionX + ", " + observed.game.positionZ;
             connect.interactable = client != null && (observed.state == CoreState.Idle || observed.state == CoreState.Failed);
             disconnect.interactable = client != null && observed.state != CoreState.Idle;
             for (int i = 0; i < characters.Length; ++i)

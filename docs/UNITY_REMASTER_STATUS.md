@@ -201,6 +201,27 @@ preview, CJK input/font coverage, movement, combat and full Map10 gameplay remai
 unaccepted. The rendered terrain is source material inspection, not the modern
 high-detail quality sample. MSSQL/PVE and full-game delivery remain open.
 
+### Movement bridge and network recovery (2026-09-11)
+
+API 0x00010002 now bridges Move/Stop, predicted local position, own server
+Correction and remote movement events, using shared DX11/native wire helpers.
+Real two-session testing uncovered and fixed duplicate Map-to-Agent fan-out,
+misrouted owner corrections, shared HSEL directional key schedules and encrypted
+send ordering. These fixes preserve public crypto signatures and protocol headers.
+Client/core/server binaries must be updated or rolled back together.
+
+The x64 core/crypto suite passed 40 tests. Full x86 CTest had 12,456 registered,
+zero failed and six skipped. Editor run `e76269ba960c4c1682af3ef2ed18aba4` and
+standalone Player run `759f279828f049ceb0d85ec5b96bb9ab` passed actual three-server
+move/stop/correction with two native sessions. Editor also completed 100 reconnects.
+This does not prove two-human gameplay, full movement rules or persistence.
+
+Read-only source review also located real Map10 fixed-attribute collision data
+at `Resource/Map/10.ttb` (1024x1024 WORD attributes, 50-unit cells); six source
+copies match. It remains to integrate strict loading, original time/state rules
+and segment collision. See `docs/UNITY_MOVEMENT_STATUS.md` for exact contracts,
+source evidence, known gaps and run paths. Full Map10/game acceptance remains open.
+
 ## Delivery rules
 
 Keep the original x86 build and DX11 executable for differential testing. Native

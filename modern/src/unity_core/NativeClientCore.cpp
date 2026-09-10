@@ -439,8 +439,36 @@ void NativeClientCore::handle_agent_event(
 void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
     using mxh::proto::UserConnProtocol;
     if (message.header.category != kUserConn) {
-        if (state_ != MXH_UNITY_STATE_IN_GAME)
+        if (state_ != MXH_UNITY_STATE_IN_GAME) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "unexpected agent message category");
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Move)) {
+            using mxh::proto::MoveProtocol;
+            const auto move = static_cast<MoveProtocol>(message.header.protocol);
+            if (move != MoveProtocol::OneTarget && move != MoveProtocol::Stop &&
+                move != MoveProtocol::Correction) return;
+            const auto position = mxh::client::parse_move_payload(message.payload);
+            if (!position || message.payload.size() != 4 || message.header.object_id == 0) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid modern movement payload");
+                return;
+            }
+            const auto packed = static_cast<std::uint32_t>(position->first) |
+                (static_cast<std::uint32_t>(position->second) << 16);
+            if (message.header.object_id == game_.player_id) {
+                // Normal broadcasts exclude the sender. Only Correction is
+                // authoritative; a send or an ordinary echo is not an ACK.
+                if (move != MoveProtocol::Correction) return;
+                game_.position_x = position->first;
+                game_.position_z = position->second;
+                ++revision_;
+                (void)emit(MXH_UNITY_EVENT_POSITION_CORRECTION, MXH_UNITY_OK, 0,
+                    game_.player_id, packed, {}, message.header.protocol);
+            } else {
+                (void)emit(MXH_UNITY_EVENT_OBJECT_MOVEMENT, MXH_UNITY_OK, 0,
+                    message.header.object_id, packed, {}, message.header.protocol);
+            }
+        }
         return;
     }
     const auto protocol = static_cast<UserConnProtocol>(message.header.protocol);
@@ -657,12 +685,34 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     std::lock_guard lock(mutex_);
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
     if (command.type != MXH_UNITY_COMMAND_SELECT_CHARACTER &&
-        command.type != MXH_UNITY_COMMAND_CREATE_CHARACTER)
+        command.type != MXH_UNITY_COMMAND_CREATE_CHARACTER &&
+        command.type != MXH_UNITY_COMMAND_MOVE && command.type != MXH_UNITY_COMMAND_STOP)
         return MXH_UNITY_UNSUPPORTED;
-    if (state_ != MXH_UNITY_STATE_CHARACTER_LIST_READY ||
-        command.expected_session_generation != session_generation_ ||
+    if (command.expected_session_generation != session_generation_ ||
         command.expected_map_generation != map_generation_)
         return MXH_UNITY_WRONG_STATE;
+    if (command.type == MXH_UNITY_COMMAND_MOVE || command.type == MXH_UNITY_COMMAND_STOP) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 > 0xffffu ||
+            command.argument1 > 0xffffu) return MXH_UNITY_INVALID_ARGUMENT;
+        const auto protocol = command.type == MXH_UNITY_COMMAND_MOVE
+            ? mxh::proto::MoveProtocol::OneTarget : mxh::proto::MoveProtocol::Stop;
+        const auto x = static_cast<std::uint16_t>(command.argument0);
+        const auto z = static_cast<std::uint16_t>(command.argument1);
+        if (agent_.send(mxh::client::make_move_message(game_.player_id, protocol, x, z))
+            != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "movement send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
+        game_.position_x = x;
+        game_.position_z = z;
+        ++revision_;
+        (void)emit(MXH_UNITY_EVENT_MOVEMENT_SUBMITTED, MXH_UNITY_OK, command.request_id,
+            game_.player_id, static_cast<std::uint32_t>(x) | (static_cast<std::uint32_t>(z) << 16),
+            {}, static_cast<std::uint8_t>(protocol));
+        return MXH_UNITY_OK;
+    }
+    if (state_ != MXH_UNITY_STATE_CHARACTER_LIST_READY) return MXH_UNITY_WRONG_STATE;
     if (command.type == MXH_UNITY_COMMAND_CREATE_CHARACTER) {
         if (command.payload_size != MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE ||
             command.argument0 != 0 || command.argument1 != 0 ||
@@ -757,7 +807,8 @@ void NativeClientCore::fail(std::uint32_t result, std::string detail) {
 
 bool NativeClientCore::emit(std::uint32_t type, std::uint32_t result,
                             std::uint64_t request_id, std::uint32_t argument0,
-                            std::uint32_t argument1, const std::string& text) {
+                            std::uint32_t argument1, const std::string& text,
+                            std::uint32_t wire_protocol) {
     const bool terminal = type == MXH_UNITY_EVENT_ERROR ||
                           type == MXH_UNITY_EVENT_DISCONNECTED;
     const auto make_event = [&] {
@@ -772,6 +823,7 @@ bool NativeClientCore::emit(std::uint32_t type, std::uint32_t result,
         event.map_generation = map_generation_;
         event.argument0 = argument0;
         event.argument1 = argument1;
+        event.reserved0 = wire_protocol;
         copy_text(event.text, sizeof(event.text), event.text_length, text);
         return event;
     };

@@ -313,20 +313,6 @@ pick_attack_target(const std::vector<MonsterAddInfo>& monsters,
     return best;
 }
 
-mxh::net::Message make_move_message(std::uint32_t player_id,
-                                    mxh::proto::MoveProtocol proto,
-                                    std::uint16_t x, std::uint16_t z) {
-    mxh::net::Message message;
-    message.header.category = static_cast<std::uint8_t>(
-        mxh::proto::Category::Move);
-    message.header.protocol = static_cast<std::uint8_t>(proto);
-    message.header.object_id = player_id;
-    message.payload.resize(4);
-    put_u16(message.payload, 0, x);
-    put_u16(message.payload, 2, z);
-    return message;
-}
-
 mxh::net::Message make_attack_message(std::uint32_t player_id,
                                       std::uint32_t skill_idx,
                                       std::uint32_t main_target,
@@ -382,16 +368,6 @@ mxh::net::Message make_quest_message(std::uint32_t player_id,
     message.payload.resize(2);
     put_u16(message.payload, 0, quest_id);
     return message;
-}
-
-std::optional<std::pair<std::uint16_t, std::uint16_t>>
-parse_move_payload(std::span<const std::uint8_t> payload) {
-    if (payload.size() < 4) return std::nullopt;
-    const std::uint16_t x = static_cast<std::uint16_t>(
-        payload[0] | (static_cast<std::uint16_t>(payload[1]) << 8));
-    const std::uint16_t z = static_cast<std::uint16_t>(
-        payload[2] | (static_cast<std::uint16_t>(payload[3]) << 8));
-    return std::make_pair(x, z);
 }
 
 std::optional<std::pair<std::uint32_t, std::uint32_t>>

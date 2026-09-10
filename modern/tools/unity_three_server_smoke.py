@@ -18,7 +18,10 @@ def main() -> int:
     parser.add_argument('--player', type=Path, required=True)
     parser.add_argument('--editor-test', action='store_true', help='Run Unity EditMode against the same real servers instead of the Player')
     parser.add_argument('--create-character', action='store_true', help='Start with an empty account and create through the real client protocol')
+    parser.add_argument('--movement', action='store_true', help='Verify two native sessions with real movement broadcasts and correction')
     args = parser.parse_args()
+    if args.movement and args.create_character:
+        parser.error('Run movement and empty-account creation as separate isolated fixtures')
     repo = Path(__file__).resolve().parents[2]
     player = args.player.resolve(strict=True)
     output = repo / 'modern/out/unity-remaster/three-server' / uuid.uuid4().hex
@@ -26,6 +29,8 @@ def main() -> int:
     database = output / 'fixture.db'
     dbtool = repo / 'modern/build/tools/MoxianDbTool/mxh_db_tool.exe'
     env = os.environ.copy()
+    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER'):
+        env.pop(key, None)
     env['MXH_UNITY_SMOKE_DATABASE'] = f'backend=sqlite;path={database}'
     env['MXH_RUN_ID'] = output.name
     common = ['--backend', 'sqlite', '--db-env', 'MXH_UNITY_SMOKE_DATABASE']
@@ -33,6 +38,9 @@ def main() -> int:
     subprocess.run([str(dbtool), 'migrate', '--db-env', 'MXH_UNITY_SMOKE_DATABASE'], env=env, check=True, capture_output=True, **quiet)
     account, password = 'unity_smoke', 'Mx1' + secrets.token_hex(6)
     subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', account], input=password + '\n', text=True, env=env, check=True, capture_output=True, **quiet)
+    observer_account = 'unity_observer'
+    if args.movement:
+        subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', observer_account], input=password + '\n', text=True, env=env, check=True, capture_output=True, **quiet)
     with sqlite3.connect(database) as db:
         identity = db.execute('SELECT user_idx FROM modern_account_identity WHERE account_id=?', (account,)).fetchone()
         if identity is None:
@@ -41,6 +49,14 @@ def main() -> int:
             identity = (1,)
         if not args.create_character:
             db.execute('INSERT INTO character_info(charname,chrid,userid,map_num,start_area) VALUES(?,?,?,?,?)', ('UnitySmoke', 111, str(identity[0]), 10, 10))
+        if args.movement:
+            observer_identity = db.execute('SELECT user_idx FROM modern_account_identity WHERE account_id=?', (observer_account,)).fetchone()
+            if observer_identity is None:
+                observer_index = db.execute('SELECT COALESCE(MAX(user_idx),0)+1 FROM modern_account_identity').fetchone()[0]
+                db.execute('INSERT INTO modern_account_identity(account_id,user_idx) VALUES(?,?)', (observer_account, observer_index))
+            else:
+                observer_index = observer_identity[0]
+            db.execute('INSERT INTO character_info(charname,chrid,userid,map_num,start_area) VALUES(?,?,?,?,?)', ('UnityObserver', 222, str(observer_index), 10, 10))
     sockets = [socket.socket() for _ in range(3)]
     try:
         for item in sockets: item.bind(('127.0.0.1', 0))
@@ -79,6 +95,7 @@ def main() -> int:
         env['MXH_SMOKE_LOGIN_PORT'] = str(login_port)
         env['MXH_SMOKE_USER'], env['MXH_SMOKE_PASSWORD'] = account, password
         if args.create_character: env['MXH_SMOKE_CREATE_NAME'] = 'UnityNew'
+        if args.movement: env['MXH_SMOKE_OBSERVER_USER'] = observer_account
         if args.editor_test:
             cli = Path(os.environ['LOCALAPPDATA']) / 'Unity/bin/unity.exe'
             result_path = output / 'editor-tests.xml'
@@ -87,12 +104,16 @@ def main() -> int:
             results = ET.parse(result_path).getroot() if result_path.exists() else None
             real_test = None if results is None else results.find(".//test-case[@name='RealThreeServerGameInAndReconnect']")
             passed = completed.returncode == 0 and results is not None and results.get('failed') == '0' and real_test is not None and real_test.get('result') == 'Passed'
+            if args.movement:
+                move_test = None if results is None else results.find(".//test-case[@name='RealTwoClientsObserveMoveStopAndRejectedJump']")
+                passed = passed and move_test is not None and move_test.get('result') == 'Passed'
         else:
             completed = subprocess.run([str(player), '--mxh-smoke-output', str(output), '-logFile', str(output / 'player.log'), '-screen-width', '1280', '-screen-height', '720', '-screen-fullscreen', '0'], cwd=player.parent, env=env, timeout=60)
             report_path = output / 'report.json'
             report = json.loads(report_path.read_text()) if report_path.exists() else {}
             passed = completed.returncode == 0 and report.get('gameInReached') and report.get('mapNumber') == 10
             if not args.create_character: passed = passed and report.get('playerId') == 111
+            if args.movement: passed = passed and report.get('movementRequested') is True and report.get('movementPassed') is True
         creation = None
         if args.create_character:
             with sqlite3.connect(database) as db:
@@ -103,6 +124,7 @@ def main() -> int:
             if not args.editor_test: passed = passed and report.get('playerId') == rows[0][0] and report.get('characterCreated') is True
         summary = {'runId': output.name, 'passed': bool(passed), 'surface': 'Editor' if args.editor_test else 'Player', 'backend': 'sqlite', 'serverType': 'real modern executables', 'clientTransport': 'HSEL', 'internalTransport': 'legacy plaintext loopback', 'fixtureCharacter': not args.create_character, 'creation': creation, 'humanAcceptance': False, 'output': str(output)}
         summary['serverExitCodesBeforeCleanup'] = {spec[0]: process.poll() for spec, process in zip(specs, processes)}
+        summary['twoNativeSessionMovement'] = args.movement
         (output / 'three-server-summary.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary))
         return 0 if passed else 1

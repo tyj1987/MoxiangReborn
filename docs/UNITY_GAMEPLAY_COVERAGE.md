@@ -5,6 +5,11 @@ Source baseline: `89a11b3653549bab7471f53f8f0aafb72e98ce2a`.
 All Unity gameplay acceptance is pending until separately demonstrated in the
 Editor and standalone Player. File existence and unit tests are not live integration.
 
+Current automated migration progress is recorded separately in
+`UNITY_REMASTER_STATUS.md` and `UNITY_MOVEMENT_STATUS.md`: login/creation/GameIn,
+100 reconnects and two-native-session move/stop/correction now have actual server
+evidence. These do not close the full gameplay/human/visual gates below.
+
 | Scope | Existing implementation / reference | Automated evidence entry | Inherited gap |
 |---|---|---|---|
 | Login, character selection | `modern/src/client/CServerConnect.cpp`, `CCharSelect.cpp`; `modern/src/server/agent_handler.cpp` | client state and server handler tests | Unity real three-server lifecycle, rejection/reconnect and human selection |

@@ -14,6 +14,7 @@ namespace Moxiang
             public bool nativeLifecyclePassed;
             public bool networkRequested, gameInReached;
             public bool characterCreated;
+            public bool movementRequested, movementPassed;
             public uint playerId;
             public ushort mapNumber;
             public int nativeCycles, frame, width, height, terrainVertices;
@@ -59,6 +60,9 @@ namespace Moxiang
             if (report.networkRequested)
             {
                 var panel = FindFirstObjectByType<ConnectionPanel>();
+                string observerAccount = Environment.GetEnvironmentVariable("MXH_SMOKE_OBSERVER_USER");
+                string observerSecret = string.IsNullOrEmpty(observerAccount) ? null : Environment.GetEnvironmentVariable("MXH_SMOKE_PASSWORD");
+                report.movementRequested = !string.IsNullOrEmpty(observerAccount);
                 try
                 {
                     panel.BeginDevelopmentProbe("127.0.0.1", loginPort,
@@ -94,6 +98,10 @@ namespace Moxiang
                     yield return null;
                 }
                 if (!report.gameInReached && string.IsNullOrEmpty(report.error)) report.error = "GameIn acknowledgement not reached within 30 seconds.";
+                if (report.gameInReached && report.movementRequested)
+                    yield return DevelopmentMovementProbe.Run(panel, ushort.Parse(loginPort), observerAccount, observerSecret,
+                        (passed, error) => { report.movementPassed = passed; if (!passed) report.error = error; });
+                observerSecret = null;
             }
             for (int i = 0; i < 120; ++i) yield return null;
             yield return new WaitForEndOfFrame();
@@ -111,7 +119,8 @@ namespace Moxiang
                 Debug.Log("MXH_PLAYER_SMOKE_COMPLETE run=" + report.runId + " native=" + report.nativeLifecyclePassed);
             }
             catch (Exception exception) { Debug.LogError("MXH_PLAYER_SMOKE_FAILED " + exception.GetType().Name); Application.Quit(1); yield break; }
-            Application.Quit(report.nativeLifecyclePassed && (!report.networkRequested || report.gameInReached) ? 0 : 1);
+            Application.Quit(report.nativeLifecyclePassed && (!report.networkRequested || report.gameInReached) &&
+                (!report.movementRequested || report.movementPassed) && string.IsNullOrEmpty(report.error) ? 0 : 1);
         }
     }
 }

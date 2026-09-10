@@ -60,7 +60,8 @@ private:
     bool shutdown_noexcept() noexcept;
     bool emit(std::uint32_t type, std::uint32_t result,
               std::uint64_t request_id = 0, std::uint32_t argument0 = 0,
-              std::uint32_t argument1 = 0, const std::string& text = {});
+              std::uint32_t argument1 = 0, const std::string& text = {},
+              std::uint32_t wire_protocol = 0);
     static void clear_secret(std::string& value) noexcept;
 
     mutable std::recursive_mutex mutex_;
