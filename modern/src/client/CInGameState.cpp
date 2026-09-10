@@ -187,7 +187,7 @@ public:
     std::uint16_t getCheRyuk() const noexcept override { return m_info ? m_info->che_ryuk : 0; }
     std::uint16_t getSimMek() const noexcept override { return m_info ? m_info->sim_mek : 0; }
     std::uint16_t getLevel() const noexcept override { return m_info ? m_info->level : 0; }
-    std::uint32_t getLevelExp() const noexcept override { return m_info ? m_info->exp : 0; }
+    std::uint64_t getLevelExp() const noexcept override { return m_info ? m_info->exp : 0; }
     std::uint32_t getExpForNextLevel() const noexcept override {
         if (!m_info || !m_curve || m_info->level == 0 ||
             m_info->level >= m_curve->size()) return 0;
@@ -599,102 +599,6 @@ bool unproject_screen_to_world(float player_x, float player_z, float yaw,
     world_x = player_x + forward * sin_yaw + right * cos_yaw;
     world_z = player_z + forward * cos_yaw - right * sin_yaw;
     return true;
-}
-
-std::optional<GameInInfo>
-parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
-    // Need at least the trailing ServerTime block (current fixed payload).
-    if (payload.size() < mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE) return std::nullopt;
-
-    GameInInfo info;
-    // BASEOBJECT_INFO [0..35)
-    info.player_id = get_u32(payload.data() + 0);
-    info.user_id   = get_u32(payload.data() + 4);
-    // name is char[17] null-padded at offset 8; stop at the first NUL
-    // (or at the 17-byte boundary).
-    constexpr std::size_t kNameOffset = 8;
-    constexpr std::size_t kNameMax    = 17;
-    std::size_t name_end = kNameMax;
-    for (std::size_t i = 0; i < kNameMax; ++i) {
-        if (payload[kNameOffset + i] == 0) { name_end = i; break; }
-    }
-    info.name.assign(reinterpret_cast<const char*>(
-                        payload.data() + kNameOffset),
-                    name_end);
-
-    // CHARACTER_TOTALINFO [35..147)
-    info.life     = static_cast<std::uint16_t>(
-                        get_u32(payload.data() + 35 + 0)  & 0xFFFFu);
-    info.max_life = static_cast<std::uint16_t>(
-                        get_u32(payload.data() + 35 + 4)  & 0xFFFFu);
-    info.gender   = payload[35 + 16];
-    info.face_type = payload[35 + 17];
-    info.hair_type = payload[35 + 18];
-    for (std::size_t slot = 0; slot < info.weared_item_idx.size(); ++slot)
-        info.weared_item_idx[slot] = get_u16(payload.data() + 35 + 19 + slot * 2);
-    info.level    = get_u16(payload.data() + 35 + 40);
-    info.map_num  = get_u16(payload.data() + 35 + 42);
-
-    // HERO_TOTALINFO [147..206): naeryuk(+8/+12), exp(+20), money(+30).
-    info.gen_gol  = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 0);
-    info.min_chub = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 2);
-    info.che_ryuk = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 4);
-    info.sim_mek  = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 6);
-    info.mp      = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 8);
-    info.max_mp  = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12);
-    info.exp     = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20);
-    info.money   = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 30);
-
-    info.position_x = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET);
-    info.position_z = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2);
-
-    // SYSTEMTIME ServerTime at HERO_TOTAL_SERVER_TIME_OFFSET â€” 5 little-endian u16s:
-    //   +0 year, +2 month, +4 wday, +6 day, +8 hour
-    info.server_year  = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 0);
-    info.server_month = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 2);
-    // The next two bytes after month contain wday; we do not store it.
-    info.server_day   = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 6);
-    info.server_hour  = get_u16(payload.data() + mxh::game::HERO_TOTAL_SERVER_TIME_OFFSET + 8);
-
-    info.mugong = parse_legacy_mugong_total(payload);
-    info.items  = parse_legacy_item_total(payload);
-
-    return info;
-}
-
-std::array<MugongInfo, kMugongSlotCount>
-parse_legacy_mugong_total(std::span<const std::uint8_t> payload) {
-    std::array<MugongInfo, kMugongSlotCount> out{};
-    constexpr std::size_t kSlotBytes = 18;
-    if (payload.size() < mxh::game::HERO_TOTAL_MUGONG_OFFSET +
-                             kMugongSlotCount * kSlotBytes) {
-        return out;
-    }
-    const auto* p = payload.data() + mxh::game::HERO_TOTAL_MUGONG_OFFSET;
-    for (std::size_t i = 0; i < kMugongSlotCount; ++i) {
-        const std::size_t off = i * kSlotBytes;
-        out[i].db_idx       = get_u32(p + off + 0);
-        out[i].icon_idx     = get_u16(p + off + 4);
-        out[i].position     = get_u16(p + off + 6);
-        out[i].exp          = get_u32(p + off + 8);
-        out[i].sung         = p[off + 12];
-        out[i].wear         = p[off + 13];
-        out[i].quick_position = get_u16(p + off + 14);
-        out[i].option_idx   = get_u16(p + off + 16);
-    }
-    return out;
-}
-
-mxh::game::ItemTotalInfo
-parse_legacy_item_total(std::span<const std::uint8_t> payload) {
-    mxh::game::ItemTotalInfo out{};
-    if (payload.size() <
-        mxh::game::HERO_TOTAL_ITEM_OFFSET + sizeof(out)) {
-        return out;
-    }
-    std::memcpy(&out, payload.data() + mxh::game::HERO_TOTAL_ITEM_OFFSET,
-                sizeof(out));
-    return out;
 }
 
 std::uint32_t quick_skill_for_slot(const GameInInfo& info,
@@ -1491,13 +1395,7 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
 
 void CInGameState::send_gamein_syn() {
     if (m_sentGameInSyn) return;
-    mxh::net::Message out;
-    out.header.category = static_cast<std::uint8_t>(
-        mxh::proto::Category::UserConn);
-    out.header.protocol = static_cast<std::uint8_t>(
-        mxh::proto::UserConnProtocol::GameInSyn);
-    out.header.object_id = m_playerId;   // chrid in MSGBASE
-    out.payload          = {};           // empty payload
+    auto out = make_legacy_gamein_syn_message(m_playerId);
     const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         // Don't fail; Process() will retry on the next tick once the
@@ -1526,13 +1424,7 @@ void CInGameState::ArmGameInAckDeadlineForTest() noexcept {
 
 void CInGameState::send_gameout_syn() {
     if (m_sentGameOutSyn || !m_pEngine || m_playerId == 0) return;
-    mxh::net::Message out;
-    out.header.category = static_cast<std::uint8_t>(
-        mxh::proto::Category::UserConn);
-    out.header.protocol = static_cast<std::uint8_t>(
-        mxh::proto::UserConnProtocol::GameOutSyn);
-    out.header.object_id = m_playerId;
-    out.payload = {};
+    auto out = make_legacy_gameout_syn_message(m_playerId);
     const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         MLOG_WARN("CInGameState: send GameOutSyn failed: %s",

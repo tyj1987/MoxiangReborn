@@ -65,7 +65,7 @@ struct CharacterStats final : mxh::services::IPlayerStatsService {
     std::uint16_t getCheRyuk() const noexcept override { return 33; }
     std::uint16_t getSimMek() const noexcept override { return 44; }
     std::uint16_t getLevel() const noexcept override { return level; }
-    std::uint32_t getLevelExp() const noexcept override { return 0; }
+    std::uint64_t getLevelExp() const noexcept override { return 0; }
     std::uint32_t getExpForNextLevel() const noexcept override { return 0; }
     std::uint32_t getCurrentHp() const noexcept override { return hp; }
     std::uint32_t getMaxHp() const noexcept override { return 0; }

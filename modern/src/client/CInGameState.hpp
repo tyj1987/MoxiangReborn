@@ -31,6 +31,7 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "ClientWire.hpp"
 #include "EffectRuntime.hpp"
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/game/experience_curve.hpp"
@@ -60,67 +61,6 @@ namespace mxh::ui { class cOptionDialog; class cMiniFriendDialog; class cFriendD
 namespace mxh::client {
 
 class CEngine;
-
-// 1:1 with legacy MUGONGBASE (packed 18 bytes).
-struct MugongInfo {
-    std::uint32_t db_idx       = 0;
-    std::uint16_t icon_idx     = 0;  // mugong/skill idx
-    std::uint16_t position     = 0;
-    std::uint32_t exp          = 0;
-    std::uint8_t  sung         = 0;
-    std::uint8_t  wear         = 0;
-    std::uint16_t quick_position = 0;
-    std::uint16_t option_idx   = 0;
-};
-
-inline constexpr std::size_t kMugongSlotCount = 25;  // 20 mugong + 5 jinbub
-inline constexpr std::size_t kQuickSlotCount  = 8;
-
-// 1:1 with the SEND_HERO_TOTALINFO layout in map_handler.cpp
-// (kPayloadBaseObjOff/kPayloadCharTotalOff/...).  We expose the
-// minimum subset needed to drive a "you are in game" overlay.
-struct GameInInfo {
-    std::uint32_t  player_id    = 0;
-    std::uint32_t  user_id      = 0;
-    std::string    name;             // up to 16 chars + NUL
-    std::uint16_t  level        = 0;
-    std::uint16_t  map_num      = 0;
-    std::uint16_t  life         = 0;
-    std::uint16_t  max_life     = 0;
-    std::uint32_t  mp           = 0;
-    std::uint32_t  max_mp       = 0;
-    std::uint32_t  exp          = 0;
-    std::uint32_t  money        = 0;
-    std::uint8_t   gender       = 0;
-    std::uint8_t   face_type    = 0;
-    std::uint8_t   hair_type    = 0;
-    std::uint16_t  gen_gol      = 0;
-    std::uint16_t  min_chub     = 0;
-    std::uint16_t  che_ryuk     = 0;
-    std::uint16_t  sim_mek      = 0;
-    std::array<std::uint16_t, 10> weared_item_idx{};
-    std::uint16_t  position_x   = 0;
-    std::uint16_t  position_z   = 0;
-    // Server-time stamp from SYSTEMTIME (year/month/wday/day/hour).
-    std::uint16_t  server_year  = 0;
-    std::uint16_t  server_month = 0;
-    std::uint16_t  server_day   = 0;
-    std::uint16_t  server_hour  = 0;
-    std::array<MugongInfo, kMugongSlotCount> mugong{};
-    mxh::game::ItemTotalInfo items{};
-};
-
-// Parse the legacy GameInAck payload (map_handler.cpp
-// make_gamein_ack).  Returns std::nullopt if the payload is too short
-// to safely read BASEOBJECT_INFO / CHARACTER_TOTALINFO / ServerTime.
-std::optional<GameInInfo>
-parse_legacy_gamein_ack(std::span<const std::uint8_t> payload);
-
-std::array<MugongInfo, kMugongSlotCount>
-parse_legacy_mugong_total(std::span<const std::uint8_t> payload);
-
-mxh::game::ItemTotalInfo
-parse_legacy_item_total(std::span<const std::uint8_t> payload);
 
 // Quick-slot skill for a slot index. Uses parsed mugong data when present,
 // otherwise the level-1 starter set [1,2,3,10] until the server sends real

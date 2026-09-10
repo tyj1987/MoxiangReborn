@@ -48,57 +48,6 @@ void clear_secret(std::string& value) noexcept {
 }
 
 // -------------------------------------------------------------------------
-// Wire-format helpers (pure functions, unit-tested independently).
-// -------------------------------------------------------------------------
-
-std::vector<std::uint8_t>
-legacy_request_login_payload(std::uint32_t auth_key,
-                             const std::string& user_id,
-                             const std::string& password) {
-    // login_handler.cpp:handle_legacy_login expects exactly 38 bytes:
-    //   [AuthKey:4B LE] [id:17B null-padded] [pw:17B null-padded]
-    std::vector<std::uint8_t> out(38, 0);
-    out[0] = static_cast<std::uint8_t>(auth_key & 0xFF);
-    out[1] = static_cast<std::uint8_t>((auth_key >> 8) & 0xFF);
-    out[2] = static_cast<std::uint8_t>((auth_key >> 16) & 0xFF);
-    out[3] = static_cast<std::uint8_t>((auth_key >> 24) & 0xFF);
-
-    auto copy_padded = [](std::uint8_t* dst, const std::string& s) {
-        const auto n = std::min<std::size_t>(s.size(), 17);
-        if (n) std::memcpy(dst, s.data(), n);
-        // remaining 17 - n bytes stay zero
-    };
-    copy_padded(out.data() + 4,  user_id);
-    copy_padded(out.data() + 21, password);
-    return out;
-}
-
-std::optional<LegacyLoginAck>
-parse_legacy_login_ack(std::span<const std::uint8_t> payload) {
-    if (payload.size() < 23) return std::nullopt;
-    LegacyLoginAck a;
-    // [0..16]  agentip (16B, null-padded).  std::span has no find()
-    // helper so we scan manually up to 16 bytes.
-    std::size_t addr_end = 16;
-    for (std::size_t i = 0; i < 16 && i < payload.size(); ++i) {
-        if (payload[i] == 0) { addr_end = i; break; }
-    }
-    a.agent_addr.assign(reinterpret_cast<const char*>(payload.data()),
-                        addr_end);
-    // [16..18] agentport (u16 LE)
-    a.agent_port = static_cast<std::uint16_t>(
-        payload[16] | (static_cast<std::uint16_t>(payload[17]) << 8));
-    // [18..22] userIdx (u32 LE)
-    a.user_idx = static_cast<std::uint32_t>(
-        payload[18]        | (static_cast<std::uint32_t>(payload[19]) << 8)
-      | (static_cast<std::uint32_t>(payload[20]) << 16)
-      | (static_cast<std::uint32_t>(payload[21]) << 24));
-    // [22] user level
-    a.user_level = payload[22];
-    return a;
-}
-
-// -------------------------------------------------------------------------
 // CLoginState
 // -------------------------------------------------------------------------
 

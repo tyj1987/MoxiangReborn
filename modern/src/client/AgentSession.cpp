@@ -3,6 +3,7 @@
 #include "mxh/log/mlog.hpp"
 #include "mxh/proto/protocol.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <utility>
@@ -10,14 +11,20 @@
 namespace mxh::client {
 
 AgentSession::AgentSession() = default;
-AgentSession::~AgentSession() { disconnect(); }
+AgentSession::~AgentSession() noexcept {
+    try { disconnect(); }
+    catch (...) {}
+}
 
 mxh::net::NetError AgentSession::connect(
-    const std::string& host, std::uint16_t port, bool use_hsel) {
+    const std::string& host, std::uint16_t port, bool use_hsel,
+    std::chrono::milliseconds connect_timeout) {
     if (is_connected()) return mxh::net::NetError::Ok;
     disconnect();
     m_events.clear();
     m_ready.store(false, std::memory_order_release);
+    m_hselReceived.store(false, std::memory_order_release);
+    m_useHsel = use_hsel;
     if (use_hsel) m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
 
     m_client = std::make_unique<mxh::net::TcpClient>(*this);
@@ -26,7 +33,7 @@ mxh::net::NetError AgentSession::connect(
     config.port = port;
     config.use_legacy_framing = true;
     config.use_encryption = use_hsel;
-    config.connect_timeout = std::chrono::milliseconds(3000);
+    config.connect_timeout = std::max(std::chrono::milliseconds(1), connect_timeout);
     const auto result = m_client->connect(config);
     if (result != mxh::net::NetError::Ok) m_client.reset();
     return result;
@@ -34,11 +41,13 @@ mxh::net::NetError AgentSession::connect(
 
 void AgentSession::disconnect() {
     m_ready.store(false, std::memory_order_release);
+    m_hselReceived.store(false, std::memory_order_release);
     if (m_client) {
         if (m_client->is_connected()) m_client->disconnect();
         m_client.reset();
     }
     m_hsel.reset();
+    m_useHsel = false;
 }
 
 mxh::net::NetError AgentSession::send(const mxh::net::Message& message) {
@@ -64,7 +73,15 @@ void AgentSession::on_message(
     const auto hsel_protocol = static_cast<std::uint8_t>(mxh::proto::kModernHselKey);
     if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn)
         && message.header.protocol == hsel_protocol) {
-        if (message.payload.size() < sizeof(mxh::crypto::HselInit)) {
+        if (!m_useHsel || m_hselReceived.load(std::memory_order_acquire)) {
+            ClientRuntimeEvent event;
+            event.kind = ClientRuntimeEventKind::Error;
+            event.connection = id;
+            event.detail = "unexpected or duplicate HselKey";
+            (void)m_events.push(std::move(event));
+            return;
+        }
+        if (message.payload.size() != sizeof(mxh::crypto::HselInit)) {
             ClientRuntimeEvent event;
             event.kind = ClientRuntimeEventKind::Error;
             event.connection = id;
@@ -80,11 +97,21 @@ void AgentSession::on_message(
             event.connection = id;
             event.detail = "HselKey import failed";
             (void)m_events.push(std::move(event));
+        } else {
+            m_hselReceived.store(true, std::memory_order_release);
         }
         return;
     }
     if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn)
         && message.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::AgentConnectSuccess)) {
+        if (m_useHsel && !m_hselReceived.load(std::memory_order_acquire)) {
+            ClientRuntimeEvent event;
+            event.kind = ClientRuntimeEventKind::Error;
+            event.connection = id;
+            event.detail = "AgentConnectSuccess arrived before HselKey";
+            (void)m_events.push(std::move(event));
+            return;
+        }
         m_ready.store(true, std::memory_order_release);
     }
     ClientRuntimeEvent event;

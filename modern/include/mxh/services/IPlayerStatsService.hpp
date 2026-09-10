@@ -59,7 +59,7 @@ public:
     // levels is `getLevelExp() + level_to_exp(getLevel())`
     // (the service may compute the level-to-exp table
     // internally).
-    virtual std::uint32_t getLevelExp() const noexcept = 0;
+    virtual std::uint64_t getLevelExp() const noexcept = 0;
 
     // Exp needed to advance from the current level to the
     // next. For max level this returns 0.

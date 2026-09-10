@@ -8,6 +8,7 @@
 # -----------------------------------------------------------------------------
 add_library(mxh_client_lib STATIC
     AgentSession.cpp
+    ClientWire.cpp
     ClientSettings.cpp
     crash_dump.cpp
     GameLoadingCoordinator.cpp

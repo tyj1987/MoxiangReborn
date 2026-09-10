@@ -232,16 +232,13 @@ TEST(CharSelectWire, ListAckThreeChars) {
     EXPECT_FALSE((*list)[4].valid);
 }
 
-TEST(CharSelectWire, ListAckHonorsAdvertisedCharacterCount) {
+TEST(CharSelectWire, ListAckRejectsNonzeroTailBeyondAdvertisedCount) {
     std::array<std::uint8_t, 889> buf{};
     buf[0] = 1; // only slot zero is occupied according to the legacy header
     const std::uint32_t second_id = 99;
     std::memcpy(buf.data() + 14 + 35, &second_id, sizeof(second_id));
     const auto list = parse_legacy_character_list_ack(buf);
-    ASSERT_TRUE(list.has_value());
-    ASSERT_EQ(list->size(), 5u);
-    EXPECT_FALSE((*list)[1].valid);
-    EXPECT_EQ((*list)[1].chrid, 0u);
+    EXPECT_FALSE(list.has_value());
 }
 
 TEST(CharSelectWire, ListAckRejectsNegativeAdvertisedCount) {
@@ -251,8 +248,34 @@ TEST(CharSelectWire, ListAckRejectsNegativeAdvertisedCount) {
     std::memcpy(buf.data(), &invalid_count, sizeof(invalid_count));
     std::memcpy(buf.data() + 14, &stale_id, sizeof(stale_id));
     const auto list = parse_legacy_character_list_ack(buf);
-    ASSERT_TRUE(list.has_value());
-    EXPECT_FALSE((*list)[0].valid);
+    EXPECT_FALSE(list.has_value());
+}
+
+TEST(CharSelectWire, ListAckRejectsAdvertisedCountAboveWireCapacity) {
+    std::array<std::uint8_t, 889> buf{};
+    const std::int32_t invalid_count = 6;
+    std::memcpy(buf.data(), &invalid_count, sizeof(invalid_count));
+    EXPECT_FALSE(parse_legacy_character_list_ack(buf).has_value());
+}
+
+TEST(CharSelectWire, ListAckRejectsZeroOrDuplicateAdvertisedSlots) {
+    std::array<std::uint8_t, 889> zero_first{};
+    zero_first[0] = 1;
+    EXPECT_FALSE(parse_legacy_character_list_ack(zero_first).has_value());
+
+    std::array<std::uint8_t, 889> duplicate{};
+    duplicate[0] = 2;
+    const std::uint32_t same_id = 77;
+    std::memcpy(duplicate.data() + 14, &same_id, sizeof(same_id));
+    std::memcpy(duplicate.data() + 14 + 35, &same_id, sizeof(same_id));
+    EXPECT_FALSE(parse_legacy_character_list_ack(duplicate).has_value());
+}
+
+TEST(CharSelectWire, ListAckRejectsTrailingBytes) {
+    std::array<std::uint8_t, 890> one_extra{};
+    EXPECT_FALSE(parse_legacy_character_list_ack(one_extra).has_value());
+    std::array<std::uint8_t, 1017> cryptcheck_shaped{};
+    EXPECT_FALSE(parse_legacy_character_list_ack(cryptcheck_shaped).has_value());
 }
 
 TEST(CharSelectWire, ListAckTooShort) {
@@ -262,22 +285,14 @@ TEST(CharSelectWire, ListAckTooShort) {
     EXPECT_FALSE(list.has_value());
 }
 
-TEST(CharSelectWire, ListAckTruncatedSlotsStillParsed) {
-    // 100B: long enough to declare char_count but shorter than the full
-    // 889B layout.  Parser should defensively read what's available.
+TEST(CharSelectWire, ListAckRejectsTruncatedBaseAndTotalInfo) {
     std::array<std::uint8_t, 100> buf{};
     buf[0] = 0x05u;  // CharNum = 5
-    auto list = parse_legacy_character_list_ack(
-        std::span<const std::uint8_t>(buf.data(), buf.size()));
-    ASSERT_TRUE(list.has_value());
-    EXPECT_EQ(list->size(), 5u);
-    // With only 100B, the parser can read at most 2 complete slots
-    // (14 + 2*35 = 84 ≤ 100), so slots 0, 1 get default zero chrid
-    // (no .valid) and slots 2-4 are also zero.
-    for (const auto& slot : *list) {
-        EXPECT_FALSE(slot.valid);
-        EXPECT_EQ(slot.chrid, 0u);
-    }
+    EXPECT_FALSE(parse_legacy_character_list_ack(buf).has_value());
+
+    std::array<std::uint8_t, 888> missing_last_total_byte{};
+    missing_last_total_byte[0] = 1;
+    EXPECT_FALSE(parse_legacy_character_list_ack(missing_last_total_byte).has_value());
 }
 
 // -------------------------------------------------------------------------

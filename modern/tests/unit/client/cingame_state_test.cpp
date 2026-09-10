@@ -127,8 +127,8 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     std::vector<std::uint8_t> payload(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
     const std::uint32_t player_id = 42;
     const std::uint32_t user_id = 84;
-    const std::uint32_t life = 900;
-    const std::uint32_t max_life = 1000;
+    const std::uint32_t life = 90000;
+    const std::uint32_t max_life = 100000;
     const std::uint16_t level = 33;
     const std::uint16_t map_num = 12;
     const std::uint16_t position_x = 25000;
@@ -149,7 +149,7 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     std::memcpy(payload.data() + 77, &map_num, sizeof(map_num));
     const std::uint32_t mp = 1200;
     const std::uint32_t max_mp = 1500;
-    const std::uint32_t exp = 980;
+    const std::uint64_t exp = 0x123456789ULL;
     const std::uint32_t money = 123456;
     const std::array<std::uint16_t, 4> attributes{111, 222, 333, 444};
     for (std::size_t i = 0; i < attributes.size(); ++i) {
@@ -160,9 +160,9 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
                 &mp, sizeof(mp));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12,
                 &max_mp, sizeof(max_mp));
-    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20,
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 22,
                 &exp, sizeof(exp));
-    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 30,
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 36,
                 &money, sizeof(money));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, &position_x, sizeof(position_x));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, &position_z, sizeof(position_z));
@@ -183,8 +183,8 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     EXPECT_EQ(info->player_id, player_id);
     EXPECT_EQ(info->user_id, user_id);
     EXPECT_EQ(info->name, "Hero");
-    EXPECT_EQ(info->life, 900u);
-    EXPECT_EQ(info->max_life, 1000u);
+    EXPECT_EQ(info->life, life);
+    EXPECT_EQ(info->max_life, max_life);
     EXPECT_EQ(info->gender, 1u);
     EXPECT_EQ(info->face_type, 3u);
     EXPECT_EQ(info->hair_type, 4u);

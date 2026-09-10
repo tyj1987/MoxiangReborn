@@ -32,6 +32,7 @@
 
 #include "CGameState.hpp"
 #include "CCharSelectState.hpp"   // defines LoginResult (shared with CCharSelectState)
+#include "ClientWire.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -48,29 +49,6 @@ namespace mxh::client {
 
 class CEngine;
 class CMainGame;
-
-// 1:1 with the legacy LoginHandler::make_login_ack() payload layout.
-struct LegacyLoginAck {
-    std::string  agent_addr;     // null-padded up to 16 bytes
-    std::uint16_t agent_port = 0; // little-endian on the wire
-    std::uint32_t user_idx   = 0; // little-endian
-    std::uint8_t  user_level = 0;
-};
-
-// Build the 38-byte RequestLogin payload that the modern LoginServer
-// expects in legacy mode (login_handler.cpp::handle_legacy_login):
-//   [AuthKey: u32 LE] [id: char[17]] [pw: char[17]]
-// id and pw are UTF-8, truncated at 17 bytes, null-padded.
-std::vector<std::uint8_t>
-legacy_request_login_payload(std::uint32_t auth_key,
-                             const std::string& user_id,
-                             const std::string& password);
-
-// Parse the 23-byte legacy LoginAck payload (login_handler.cpp lines
-// 339-354). Returns std::nullopt if the payload is too short or
-// contains invalid UTF-8 in the agent address.
-std::optional<LegacyLoginAck>
-parse_legacy_login_ack(std::span<const std::uint8_t> payload);
 
 // -------------------------------------------------------------------------
 // CLoginState — eGS_CONNECT state, drives the LoginServer handshake.

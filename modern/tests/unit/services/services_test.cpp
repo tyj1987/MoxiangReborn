@@ -126,7 +126,7 @@ public:
     std::uint16_t getWis()  const noexcept override { return wis; }
     std::uint16_t getDex()  const noexcept override { return dex; }
     std::uint16_t getLevel() const noexcept override { return level; }
-    std::uint32_t getLevelExp() const noexcept override { return level_exp; }
+    std::uint64_t getLevelExp() const noexcept override { return level_exp; }
     std::uint32_t getExpForNextLevel() const noexcept override { return exp_for_next; }
     std::uint32_t getCurrentHp() const noexcept override { return current_hp; }
     std::uint32_t getMaxHp() const noexcept override { return max_hp; }

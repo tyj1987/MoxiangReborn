@@ -6,6 +6,7 @@
 #include "mxh/net/net.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -17,13 +18,14 @@ namespace mxh::client {
 class AgentSession final : public mxh::net::IConnectionHandler {
 public:
     AgentSession();
-    ~AgentSession() override;
+    ~AgentSession() noexcept override;
 
     AgentSession(const AgentSession&) = delete;
     AgentSession& operator=(const AgentSession&) = delete;
 
     [[nodiscard]] mxh::net::NetError connect(
-        const std::string& host, std::uint16_t port, bool use_hsel = false);
+        const std::string& host, std::uint16_t port, bool use_hsel = false,
+        std::chrono::milliseconds connect_timeout = std::chrono::milliseconds(3000));
     void disconnect();
     [[nodiscard]] mxh::net::NetError send(const mxh::net::Message& message);
 
@@ -41,6 +43,8 @@ private:
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
     NetworkEventQueue m_events;
     std::atomic<bool> m_ready{false};
+    std::atomic<bool> m_hselReceived{false};
+    bool m_useHsel = false;
 };
 
 }  // namespace mxh::client

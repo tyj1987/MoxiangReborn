@@ -33,6 +33,7 @@
 
 #include "CGameState.hpp"
 #include "ClientUiRuntime.hpp"
+#include "ClientWire.hpp"
 #include "StateTransfer.hpp"
 
 #include <chrono>
@@ -70,62 +71,12 @@ struct CharSelectUiCommand {
 CharSelectUiCommand resolve_char_select_ui_command(
     const ClientUiActivation& activation) noexcept;
 
-// One slot in the legacy CharacterListAck SEND_CHARSELECT_INFO.
-// We retain the character id and original 17-byte name used by the slot UI.
-struct CharacterSlot {
-    std::uint32_t chrid = 0;
-    std::string   name;
-    bool          valid = false;     // false = empty slot (chrid == 0)
-    std::uint8_t gender = 0;
-    std::uint8_t face_type = 0;
-    std::uint8_t hair_type = 0;
-    std::uint16_t level = 0;
-    std::uint16_t map_num = 0;
-    std::array<std::uint16_t, 10> weared_item_idx{};
-};
-
 // Converts the server's complete character slot into the renderer's stable
 // appearance payload. The preview scene can place this at any camera anchor
 // without inventing appearance defaults or touching protocol data.
 std::optional<mxh::gx::ScenePlayer> make_character_preview(
     const CharacterSlot& slot, float world_x = 25600.0f,
     float world_y = 0.0f, float world_z = 25600.0f);
-
-// Selection is authoritative to the most recently received list.  Keeping
-// this check separate makes the rule testable without opening a socket.
-bool is_listed_character(std::span<const CharacterSlot> slots,
-                         std::uint32_t chrid) noexcept;
-
-// Build the 8-byte CharacterListSyn payload (agent_handler.cpp:526-538):
-//   [user_id: u32 LE] [dist_auth_key: u32 LE]
-std::vector<std::uint8_t>
-legacy_character_list_syn_payload(std::uint32_t user_id,
-                                  std::uint32_t dist_auth_key);
-
-// Build the minimal CharacterSelectSyn payload (proto=16):
-//   [channel: u16 LE]  (the chrid is in MSGBASE.object_id, not payload)
-std::vector<std::uint8_t>
-legacy_character_select_syn_payload(std::uint16_t channel);
-
-// Build the 4-byte CharacterRemoveSyn payload (legacy MSG_DWORD):
-//   [character_id: u32 LE]
-std::vector<std::uint8_t>
-legacy_character_remove_syn_payload(std::uint32_t character_id);
-
-// Build the empty-payload DisconnectSyn packet used to leave Agent cleanly.
-mxh::net::Message legacy_character_disconnect_syn_message();
-
-// Parse the 889-byte legacy CharacterListAck payload (no _CRYPTCHECK_,
-// CHINA locale, kMaxCharSlots=5).  Returns the first 5 slots; valid
-// flag is true for slots 0..char_count-1.  Returns std::nullopt if the
-// payload is shorter than 4 bytes (CharNum header) or the slot fields
-// would read past the end.
-std::optional<std::vector<CharacterSlot>>
-parse_legacy_character_list_ack(std::span<const std::uint8_t> payload);
-
-// Parse the 1-byte CharacterSelectAck payload (map number).
-std::optional<std::uint16_t>
-parse_legacy_character_select_ack(std::span<const std::uint8_t> payload);
 
 // -------------------------------------------------------------------------
 // CCharSelectState — eGS_CHARSELECT state.

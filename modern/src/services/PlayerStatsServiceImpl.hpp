@@ -68,7 +68,7 @@ public:
     // argument and these getters will read from it.
 
     std::uint16_t getLevel() const noexcept override { return m_combat.level; }
-    std::uint32_t getLevelExp() const noexcept override { return 0; }
+    std::uint64_t getLevelExp() const noexcept override { return 0; }
 
     std::uint32_t getExpForNextLevel() const noexcept override {
         // 1:1 quirk (legacy): the level-to-exp table is read
