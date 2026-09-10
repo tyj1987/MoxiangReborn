@@ -126,6 +126,11 @@ set_tests_properties(mxh_compat_round_trip_tests PROPERTIES
 add_test(NAME mxh_unity_resource_audit_tests
     COMMAND "${_MXH_PYTHON_EXE}" "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_unity_resource_audit.py"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+add_test(NAME mxh_unity_terrain_palette_tests
+    COMMAND "${_MXH_PYTHON_EXE}" "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_unity_terrain_palette.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_terrain_palette_tests PROPERTIES
+    LABELS "tools;python;unity;provenance" TIMEOUT 60)
 set_tests_properties(mxh_unity_resource_audit_tests PROPERTIES
     LABELS "tools;python;unity;provenance"
     TIMEOUT 60)
