@@ -4,8 +4,8 @@ using System.Text;
 
 namespace Moxiang
 {
-    public enum CoreResult : uint { Ok, InvalidArgument, InvalidHandle, WrongState, NetworkError, ProtocolError, BufferTooSmall, Unsupported, NotReady, InternalError }
-    public enum CoreState : uint { Idle, LoginConnecting, AwaitLoginAck, AgentConnecting, AwaitCharacterList, CharacterListReady, AwaitCharacterSelect, AwaitGameIn, InGame, Failed, ShuttingDown }
+    public enum CoreResult : uint { Ok, InvalidArgument, InvalidHandle, WrongState, NetworkError, ProtocolError, BufferTooSmall, Unsupported, NotReady, InternalError, Rejected }
+    public enum CoreState : uint { Idle, LoginConnecting, AwaitLoginAck, AgentConnecting, AwaitCharacterList, CharacterListReady, AwaitCharacterSelect, AwaitGameIn, InGame, Failed, ShuttingDown, AwaitCharacterCreate }
     public enum LegacyTextEncoding : uint { Utf8 = 0, Korean949 = 2, Chinese936 = 4 }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -67,7 +67,7 @@ namespace Moxiang
     /// <summary>Owns one native session. Call on the Unity main thread and Dispose before domain reload.</summary>
     public sealed class NativeClient : IDisposable
     {
-        public const uint ApiVersion = 0x00010000;
+        public const uint ApiVersion = 0x00010001;
         private const string Library = "mxh_unity_core";
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
         private readonly object gate = new object();
@@ -90,6 +90,10 @@ namespace Moxiang
         {
             public uint structSize, type, payloadSize, reserved0, argument0, argument1;
             public ulong requestId, expectedSessionGeneration, expectedMapGeneration;
+            public uint nameLength;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 65)] public byte[] name;
+            public byte sex, hair, face, clothOption, bootOption, weaponOption;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 5)] public byte[] reserved1;
         }
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
@@ -104,6 +108,8 @@ namespace Moxiang
 
         public NativeClient()
         {
+            if (Marshal.SizeOf<Command>() != 128 || Marshal.OffsetOf<Command>(nameof(Command.name)).ToInt32() != 52)
+                throw new InvalidOperationException("Managed command ABI layout mismatch.");
             if (IntPtr.Size != 8) throw new PlatformNotSupportedException("Moxiang core requires a 64-bit process.");
             if (mxh_unity_get_api_version() != ApiVersion) throw new InvalidOperationException("Native core API version mismatch.");
             Check(mxh_unity_create(out handle));
@@ -133,7 +139,23 @@ namespace Moxiang
                 EnsureAlive();
                 var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = 1,
                     argument0 = characterId, argument1 = channel, requestId = ++nextRequestId,
-                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration };
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult CreateCharacter(string name, byte sex, byte hair, byte face, byte cloth, byte boots, byte weapon, CoreSnapshot observed)
+        {
+            byte[] encoded = Encode(name, 65, out uint length, 64);
+            lock (gate)
+            {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = 2, payloadSize = 80,
+                    requestId = ++nextRequestId, expectedSessionGeneration = observed.sessionGeneration,
+                    expectedMapGeneration = observed.mapGeneration, nameLength = length, name = encoded,
+                    sex = sex, hair = hair, face = face, clothOption = cloth, bootOption = boots, weaponOption = weapon,
+                    reserved1 = new byte[5] };
                 return mxh_unity_submit_command(handle, ref command);
             }
         }

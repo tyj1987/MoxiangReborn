@@ -4,6 +4,11 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added authoritative character creation with ABI 0x00010001 and Unity option
+  controls. Empty-account Editor and Player runs verified creation, initial
+  equipment and GameIn against real three-server SQLite fixtures; Editor also
+  passed 100 reconnects. Native tests: 29 passed; full CTest: zero failures,
+  six skips. Appearance preview, CJK and full gameplay acceptance remain open.
 - Restored Map10's 13 source terrain textures with explicit provenance and a
   partial-mip DDS importer; a terrain ScriptedImporter builds 64 chunks and the
   Prefab, verified in a real three-server standalone Player. Modern high-detail

@@ -17,6 +17,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--player', type=Path, required=True)
     parser.add_argument('--editor-test', action='store_true', help='Run Unity EditMode against the same real servers instead of the Player')
+    parser.add_argument('--create-character', action='store_true', help='Start with an empty account and create through the real client protocol')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     player = args.player.resolve(strict=True)
@@ -38,7 +39,8 @@ def main() -> int:
             # Same persistent identity table consumed by LoginServer; isolated fixture only.
             db.execute('INSERT INTO modern_account_identity(account_id,user_idx) VALUES(?,?)', (account, 1))
             identity = (1,)
-        db.execute('INSERT INTO character_info(charname,chrid,userid,map_num,start_area) VALUES(?,?,?,?,?)', ('UnitySmoke', 111, str(identity[0]), 10, 10))
+        if not args.create_character:
+            db.execute('INSERT INTO character_info(charname,chrid,userid,map_num,start_area) VALUES(?,?,?,?,?)', ('UnitySmoke', 111, str(identity[0]), 10, 10))
     sockets = [socket.socket() for _ in range(3)]
     try:
         for item in sockets: item.bind(('127.0.0.1', 0))
@@ -76,6 +78,7 @@ def main() -> int:
                     time.sleep(0.1)
         env['MXH_SMOKE_LOGIN_PORT'] = str(login_port)
         env['MXH_SMOKE_USER'], env['MXH_SMOKE_PASSWORD'] = account, password
+        if args.create_character: env['MXH_SMOKE_CREATE_NAME'] = 'UnityNew'
         if args.editor_test:
             cli = Path(os.environ['LOCALAPPDATA']) / 'Unity/bin/unity.exe'
             result_path = output / 'editor-tests.xml'
@@ -88,8 +91,17 @@ def main() -> int:
             completed = subprocess.run([str(player), '--mxh-smoke-output', str(output), '-logFile', str(output / 'player.log'), '-screen-width', '1280', '-screen-height', '720', '-screen-fullscreen', '0'], cwd=player.parent, env=env, timeout=60)
             report_path = output / 'report.json'
             report = json.loads(report_path.read_text()) if report_path.exists() else {}
-            passed = completed.returncode == 0 and report.get('gameInReached') and report.get('playerId') == 111 and report.get('mapNumber') == 10
-        summary = {'runId': output.name, 'passed': bool(passed), 'surface': 'Editor' if args.editor_test else 'Player', 'backend': 'sqlite', 'serverType': 'real modern executables', 'clientTransport': 'HSEL', 'internalTransport': 'legacy plaintext loopback', 'fixtureCharacter': True, 'humanAcceptance': False, 'output': str(output)}
+            passed = completed.returncode == 0 and report.get('gameInReached') and report.get('mapNumber') == 10
+            if not args.create_character: passed = passed and report.get('playerId') == 111
+        creation = None
+        if args.create_character:
+            with sqlite3.connect(database) as db:
+                rows = db.execute('SELECT chrid,charname,start_area FROM character_info WHERE userid=?', (str(identity[0]),)).fetchall()
+                equipment = [] if len(rows) != 1 else db.execute('SELECT slot,item_idx FROM modern_character_equipment WHERE chrid=? ORDER BY slot', (rows[0][0],)).fetchall()
+            creation = {'characters': rows, 'equipment': equipment}
+            passed = passed and len(rows) == 1 and rows[0][1:] == ('UnityNew', 17) and equipment == [(1, 11000), (2, 23000), (3, 27000)]
+            if not args.editor_test: passed = passed and report.get('playerId') == rows[0][0] and report.get('characterCreated') is True
+        summary = {'runId': output.name, 'passed': bool(passed), 'surface': 'Editor' if args.editor_test else 'Player', 'backend': 'sqlite', 'serverType': 'real modern executables', 'clientTransport': 'HSEL', 'internalTransport': 'legacy plaintext loopback', 'fixtureCharacter': not args.create_character, 'creation': creation, 'humanAcceptance': False, 'output': str(output)}
         summary['serverExitCodesBeforeCleanup'] = {spec[0]: process.poll() for spec, process in zip(specs, processes)}
         (output / 'three-server-summary.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary))

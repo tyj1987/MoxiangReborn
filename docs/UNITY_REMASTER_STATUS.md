@@ -173,6 +173,34 @@ The inherited security stubs and credential transport policy remain release
 blockers. `RemasterBuildGuard` refuses non-development builds while these gates,
 resource provenance and full gameplay acceptance are incomplete.
 
+### Character creation validation (2026-09-11)
+
+The native command ABI is now `0x00010001`, with a 128-byte command. Event and
+snapshot sizes remain 320/992 bytes. Creation validates UTF-8, legacy encoded
+name length without truncation/best-fit conversion, semantic appearance options,
+slot capacity and session/map generations. It confirms creation only after the
+server returns a consistent refreshed list; rejection preserves the old list.
+Original protocol headers and gameplay data were not modified.
+
+The independent native implementation passed 29 x64 tests. The main x86 build
+and full CTest completed with zero failures (12,454 registered, six skipped,
+89.05 seconds). Skips include MSSQL integration and release/resource checks;
+they are not acceptance evidence. Log: `modern/out/unity-remaster/create-ctest.log`.
+
+Real isolated SQLite three-server runs started with no character:
+- Editor `414e13942d634476b3e50e076fa549ea`: creation, GameIn and 100 reconnects.
+- Player `ce8c15e258af4b3cb02d9ecb876a093f`: actual creation button callback,
+  refreshed slot and GameIn; rendered frame inspected in `player.png`.
+
+Both persisted character 100000 / UnityNew / start area 17 and equipment
+slots 1/2/3 with item IDs 11000/23000/27000. Evidence is under
+`modern/out/unity-remaster/three-server/<run-id>/`. Staged native DLL SHA-256:
+`84D1D3343E7BF2BE66E8E84270BD906963C1F5D9B43042F19E35EB0AA7053C9A`.
+These are automated development checks, not human acceptance. Appearance
+preview, CJK input/font coverage, movement, combat and full Map10 gameplay remain
+unaccepted. The rendered terrain is source material inspection, not the modern
+high-detail quality sample. MSSQL/PVE and full-game delivery remain open.
+
 ## Delivery rules
 
 Keep the original x86 build and DX11 executable for differential testing. Native

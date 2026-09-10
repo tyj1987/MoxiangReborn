@@ -15,6 +15,9 @@ namespace Moxiang.Tests
             ushort port = ushort.Parse(portText);
             string user = Environment.GetEnvironmentVariable("MXH_SMOKE_USER");
             string password = Environment.GetEnvironmentVariable("MXH_SMOKE_PASSWORD");
+            string createName = Environment.GetEnvironmentVariable("MXH_SMOKE_CREATE_NAME");
+            uint characterId = string.IsNullOrEmpty(createName) ? 111u : 0u;
+            bool createSubmitted = false, createConfirmed = false;
             using (var client = new NativeClient())
             {
                 ulong lastGeneration = 0;
@@ -26,17 +29,30 @@ namespace Moxiang.Tests
                     while (timer.Elapsed < TimeSpan.FromSeconds(30))
                     {
                         client.Tick(); state = client.Snapshot();
-                        while (client.PollEvent(out _)) { }
+                        while (client.PollEvent(out CoreEvent item))
+                            if (item.type == 6) { Assert.That(item.result, Is.EqualTo(CoreResult.Ok), item.Text); createConfirmed = true; }
                         if (state.state == CoreState.CharacterListReady)
                         {
+                            if (!string.IsNullOrEmpty(createName) && state.characterCount == 0 && !createSubmitted)
+                            {
+                                Assert.That(client.CreateCharacter(createName, 0, 0, 0, 0, 0, 0, state), Is.EqualTo(CoreResult.Ok));
+                                createSubmitted = true; continue;
+                            }
                             Assert.That(state.characterCount, Is.EqualTo(1));
-                            Assert.That(client.SelectCharacter(111, 0, state), Is.EqualTo(CoreResult.Ok));
+                            if (characterId == 0)
+                            {
+                                Assert.That(state.characters[0].DisplayName, Is.EqualTo(createName));
+                                characterId = state.characters[0].characterId;
+                                Assert.That(characterId, Is.GreaterThan(0));
+                            }
+                            Assert.That(client.SelectCharacter(characterId, 0, state), Is.EqualTo(CoreResult.Ok));
                         }
                         if (state.state == CoreState.InGame || state.state == CoreState.Failed) break;
                         Thread.Sleep(10);
                     }
                     Assert.That(state.state, Is.EqualTo(CoreState.InGame), state.Error);
-                    Assert.That(state.game.playerId, Is.EqualTo(111));
+                    Assert.That(state.game.playerId, Is.EqualTo(characterId));
+                    if (!string.IsNullOrEmpty(createName)) Assert.That(createConfirmed, Is.True);
                     Assert.That(state.game.mapNumber, Is.EqualTo(10));
                     Assert.That(state.sessionGeneration, Is.GreaterThan(lastGeneration));
                     lastGeneration = state.sessionGeneration;

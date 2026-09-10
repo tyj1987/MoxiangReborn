@@ -17,6 +17,17 @@ namespace Moxiang
         private ulong sequence;
         private string failure;
         public CoreSnapshot Observed => observed;
+        public CoreResult CreateCharacterFromUi(string name, byte sex, byte hair, byte face, byte cloth, byte boots, byte weapon)
+        {
+            if (client == null) return CoreResult.NotReady;
+            try
+            {
+                var result = client.CreateCharacter(name, sex, hair, face, cloth, boots, weapon, observed);
+                failure = result == CoreResult.Ok ? null : "Create character: " + result;
+                return result;
+            }
+            catch (Exception exception) { failure = exception.Message; return CoreResult.InvalidArgument; }
+        }
         public void BeginDevelopmentProbe(string loginHost, string loginPort, string account, string secret)
         {
             if (!Debug.isDebugBuild) throw new InvalidOperationException("Development probe is disabled.");

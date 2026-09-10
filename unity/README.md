@@ -36,13 +36,17 @@ Real isolated integration checks (requires existing modern server binaries):
 ```powershell
 python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe
 python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --editor-test
+python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --create-character
+python modern/tools/unity_three_server_smoke.py --player modern/out/unity-remaster/player/MoxiangClient.exe --editor-test --create-character
 ```
 
 These create fresh SQLite fixture databases and temporary accounts under
 `modern/out/unity-remaster/three-server`, bind only loopback, and stop only the
 processes they started. Passwords are passed through stdin/process environment,
-never stored in project settings. The fixture seeds a character, so it does not
-test character creation. Client-facing HSEL and the current plaintext internal
+never stored in project settings. By default the fixture seeds a character;
+`--create-character` starts with an empty account and verifies the created row,
+start area and initial equipment. The Player invokes the actual creation button
+callback; the Editor additionally reconnects 100 times. Client-facing HSEL and the current plaintext internal
 Agent→Map loopback link are recorded separately; neither certifies deployment
 security. The Editor test covers 100 reconnects; the Player captures its own
 rendered frame. Both remain automated evidence, not human gameplay acceptance.

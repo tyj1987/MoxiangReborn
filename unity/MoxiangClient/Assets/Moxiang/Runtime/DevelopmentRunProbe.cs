@@ -13,6 +13,7 @@ namespace Moxiang
             public string runId, utc, unity, graphics, scene, status, error;
             public bool nativeLifecyclePassed;
             public bool networkRequested, gameInReached;
+            public bool characterCreated;
             public uint playerId;
             public ushort mapNumber;
             public int nativeCycles, frame, width, height, terrainVertices;
@@ -66,9 +67,24 @@ namespace Moxiang
                 }
                 catch (Exception exception) { report.error = exception.GetType().Name + ": " + exception.Message; }
                 float deadline = Time.realtimeSinceStartup + 30;
+                string createName = Environment.GetEnvironmentVariable("MXH_SMOKE_CREATE_NAME");
+                bool createSubmitted = false;
                 while (panel != null && Time.realtimeSinceStartup < deadline)
                 {
-                    if (panel.Observed.state == CoreState.CharacterListReady) panel.SelectFirstForDevelopmentProbe();
+                    if (panel.Observed.state == CoreState.CharacterListReady)
+                    {
+                        if (!string.IsNullOrEmpty(createName) && panel.Observed.characterCount == 0 && !createSubmitted)
+                        {
+                            var creation = FindFirstObjectByType<CharacterCreatePanel>();
+                            if (creation == null) { report.error = "Character creation UI missing."; break; }
+                            creation.characterName.text = createName; creation.create.onClick.Invoke(); createSubmitted = true;
+                        }
+                        else if (panel.Observed.characterCount > 0)
+                        {
+                            report.characterCreated = createSubmitted && panel.Observed.characters[0].DisplayName == createName;
+                            panel.SelectFirstForDevelopmentProbe();
+                        }
+                    }
                     if (panel.Observed.state == CoreState.InGame)
                     {
                         report.gameInReached = true; report.playerId = panel.Observed.game.playerId; report.mapNumber = panel.Observed.game.mapNumber;
