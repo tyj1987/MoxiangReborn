@@ -1739,11 +1739,9 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
                       << sender_pid << "\n";
             return;
         }
-        // Echo the move back to the sender (side-by-side move
-        // scenario + modern smoke need this without a fully initialized
-        // player context, mirroring the handle_chat fix). broadcast_except
-        // below still fans out to other players for real gameplay.
-        reply_(id, msg);
+        // broadcast_except sends once per physical Agent connection, including
+        // the sender's multiplexed connection. An additional reply duplicates
+        // every remote movement; Agent performs the per-character exclusion.
         mxh::net::Message fwd;
         fwd.header = msg.header;
         fwd.payload = msg.payload;

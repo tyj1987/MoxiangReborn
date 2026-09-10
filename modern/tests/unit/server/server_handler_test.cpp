@@ -413,6 +413,30 @@ TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
     EXPECT_EQ(reply.call_count.load(), 2);
 }
 
+TEST(AgentHandlerTest, MovementCorrectionRoutesOnlyToOwnerWhileReportsExcludeOwner) {
+    MockDbAdapter db;
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    AgentHandler handler(db, [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+        delivered.emplace_back(id.value, msg);
+    });
+    handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
+    handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 10u);
+    auto move = mxh::client::make_move_message(123, mxh::proto::MoveProtocol::OneTarget, 120, 240);
+    handler.forward_from_map(mxh::net::make_connection_id(77), move);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 101u);
+    delivered.clear();
+    move.header.protocol = static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction);
+    handler.forward_from_map(mxh::net::make_connection_id(77), move);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 100u);
+    EXPECT_EQ(delivered[0].second.payload, move.payload);
+    delivered.clear();
+    move.header.object_id = 999u;
+    handler.forward_from_map(mxh::net::make_connection_id(77), move);
+    EXPECT_TRUE(delivered.empty());
+}
+
 TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
     MockDbAdapter db;
     ReplySpy reply;
@@ -2318,6 +2342,39 @@ TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
     ASSERT_TRUE(snapshot.has_value());
     EXPECT_FLOAT_EQ(snapshot->pos_x, 1000.0f);
     EXPECT_FLOAT_EQ(snapshot->pos_z, 1000.0f);
+}
+
+TEST(MapHandlerTest, MovementIsSentOncePerMultiplexedAgentConnection) {
+    MockDbAdapter db;
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    MapHandler handler(db, 10, [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+        delivered.emplace_back(id.value, msg);
+    });
+    mxh::net::Message enter;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    const auto shared = mxh::net::make_connection_id(55);
+    for (auto player : {123u, 456u}) {
+        enter.header.object_id = player;
+        handler.on_message(shared, enter);
+        ASSERT_TRUE(handler.set_player_position_for_test(player, 1000, 1000));
+    }
+    enter.header.object_id = 789u;
+    handler.on_message(mxh::net::make_connection_id(56), enter);
+    for (auto protocol : {mxh::proto::MoveProtocol::OneTarget, mxh::proto::MoveProtocol::Stop}) {
+        delivered.clear();
+        const auto move = mxh::client::make_move_message(123, protocol, 1100, 1100);
+        handler.on_message(shared, move);
+        ASSERT_EQ(delivered.size(), 2u);
+        std::vector<std::uint64_t> destinations;
+        for (const auto& item : delivered) {
+            destinations.push_back(item.first);
+            EXPECT_EQ(item.second.payload, move.payload);
+            EXPECT_EQ(item.second.header.protocol, move.header.protocol);
+        }
+        std::sort(destinations.begin(), destinations.end());
+        EXPECT_EQ(destinations, (std::vector<std::uint64_t>{55, 56}));
+    }
 }
 
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
