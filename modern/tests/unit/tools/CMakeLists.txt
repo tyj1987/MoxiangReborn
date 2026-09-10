@@ -122,3 +122,16 @@ add_test(NAME mxh_compat_round_trip_tests
 set_tests_properties(mxh_compat_round_trip_tests PROPERTIES
     LABELS "tools;python;compat"
     TIMEOUT 60)
+
+add_test(NAME mxh_unity_resource_audit_tests
+    COMMAND "${_MXH_PYTHON_EXE}" "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_unity_resource_audit.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_resource_audit_tests PROPERTIES
+    LABELS "tools;python;unity;provenance"
+    TIMEOUT 60)
+add_test(NAME mxh_unity_asset_extract_tests
+    COMMAND "${_MXH_PYTHON_EXE}" "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_unity_asset_extract.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_asset_extract_tests PROPERTIES
+    LABELS "tools;python;unity;provenance"
+    TIMEOUT 60)
