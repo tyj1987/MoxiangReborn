@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <utility>
 
 namespace mxh::client {
 namespace {
@@ -23,6 +24,26 @@ std::uint32_t get_u32(const std::uint8_t* p) noexcept {
 std::uint64_t get_u64(const std::uint8_t* p) noexcept {
     return static_cast<std::uint64_t>(get_u32(p)) |
            (static_cast<std::uint64_t>(get_u32(p + 4)) << 32);
+}
+
+void put_u16(std::vector<std::uint8_t>& out, std::size_t offset,
+             std::uint16_t value) noexcept {
+    out[offset] = static_cast<std::uint8_t>(value);
+    out[offset + 1] = static_cast<std::uint8_t>(value >> 8);
+}
+
+void put_u32(std::vector<std::uint8_t>& out, std::size_t offset,
+             std::uint32_t value) noexcept {
+    for (std::size_t i = 0; i < 4; ++i)
+        out[offset + i] = static_cast<std::uint8_t>(value >> (i * 8));
+}
+
+void put_f32(std::vector<std::uint8_t>& out, std::size_t offset,
+             float value) noexcept {
+    std::uint32_t bits = 0;
+    static_assert(sizeof(bits) == sizeof(value));
+    std::memcpy(&bits, &value, sizeof(bits));
+    put_u32(out, offset, bits);
 }
 }
 
@@ -80,6 +101,63 @@ std::vector<std::uint8_t> legacy_character_select_syn_payload(
     std::uint16_t channel) {
     return {static_cast<std::uint8_t>(channel),
             static_cast<std::uint8_t>(channel >> 8)};
+}
+
+bool valid_legacy_character_name_bytes(std::string_view name) noexcept {
+    if (name.size() < 4 || name.size() > 16) return false;
+    for (const auto byte : name) {
+        const auto value = static_cast<unsigned char>(byte);
+        if (value < 0x20u || value == 0x7fu) return false;
+    }
+    return true;
+}
+
+std::optional<LegacyCharacterMakeParams> legacy_china_character_make_params(
+    std::string wire_name, std::uint8_t sex_type, std::uint8_t hair_type,
+    std::uint8_t face_type, std::uint8_t cloth_option,
+    std::uint8_t boot_option, std::uint8_t weapon_option) {
+    // Values are the exact CHINA CharMake_SelectOption.bin baseline already
+    // locked by CharMakeOptions tests. Unity supplies indices, never item IDs.
+    static constexpr std::array<std::uint16_t, 2> kCloth{23000, 23010};
+    static constexpr std::array<std::uint16_t, 2> kBoot{27000, 27010};
+    static constexpr std::array<std::uint16_t, 6> kWeapon{
+        11000, 13000, 15000, 17000, 19000, 21000};
+    if (!valid_legacy_character_name_bytes(wire_name) || sex_type > 1 ||
+        hair_type > 4 || face_type > 4 || cloth_option >= kCloth.size() ||
+        boot_option >= kBoot.size() || weapon_option >= kWeapon.size())
+        return std::nullopt;
+    LegacyCharacterMakeParams out;
+    out.wire_name = std::move(wire_name);
+    out.sex_type = sex_type;
+    out.hair_type = hair_type;
+    out.face_type = face_type;
+    out.worn_item_index[1] = kWeapon[weapon_option];
+    out.worn_item_index[2] = kCloth[cloth_option];
+    out.worn_item_index[3] = kBoot[boot_option];
+    return out;
+}
+
+std::optional<std::vector<std::uint8_t>> legacy_character_make_syn_payload(
+    const LegacyCharacterMakeParams& params, std::uint32_t user_id) {
+    if (!valid_legacy_character_name_bytes(params.wire_name) ||
+        params.sex_type > 1 || params.hair_type > 4 || params.face_type > 4)
+        return std::nullopt;
+    std::vector<std::uint8_t> out(59, 0);
+    const auto name_size = params.wire_name.size();
+    if (name_size != 0)
+        std::memcpy(out.data(), params.wire_name.data(), name_size);
+    put_u32(out, 17, user_id);
+    out[21] = params.sex_type;
+    out[22] = params.body_type;
+    out[23] = params.hair_type;
+    out[24] = params.face_type;
+    out[25] = params.start_area;
+    for (std::size_t i = 0; i < params.worn_item_index.size(); ++i)
+        put_u16(out, 30 + i * 2, params.worn_item_index[i]);
+    out[50] = params.standing_array_num;
+    put_f32(out, 51, params.height);
+    put_f32(out, 55, params.width);
+    return out;
 }
 
 std::vector<std::uint8_t> legacy_character_remove_syn_payload(

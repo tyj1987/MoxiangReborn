@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define MXH_UNITY_API_VERSION UINT32_C(0x00010000)
+#define MXH_UNITY_API_VERSION UINT32_C(0x00010001)
 #define MXH_UNITY_MAX_HOST_BYTES UINT32_C(255)
 #define MXH_UNITY_MAX_CREDENTIAL_BYTES UINT32_C(17)
 #define MXH_UNITY_MAX_NAME_BYTES UINT32_C(64)
@@ -40,7 +40,9 @@ typedef enum mxh_unity_result {
     MXH_UNITY_BUFFER_TOO_SMALL = 6,
     MXH_UNITY_UNSUPPORTED = 7,
     MXH_UNITY_NOT_READY = 8,
-    MXH_UNITY_INTERNAL_ERROR = 9
+    MXH_UNITY_INTERNAL_ERROR = 9,
+    /* The server understood a non-terminal request but refused it. */
+    MXH_UNITY_REJECTED = 10
 } mxh_unity_result;
 
 typedef enum mxh_unity_state {
@@ -54,7 +56,8 @@ typedef enum mxh_unity_state {
     MXH_UNITY_STATE_AWAIT_GAME_IN = 7,
     MXH_UNITY_STATE_IN_GAME = 8,
     MXH_UNITY_STATE_FAILED = 9,
-    MXH_UNITY_STATE_SHUTTING_DOWN = 10
+    MXH_UNITY_STATE_SHUTTING_DOWN = 10,
+    MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE = 11
 } mxh_unity_state;
 
 typedef enum mxh_unity_event_type {
@@ -62,12 +65,17 @@ typedef enum mxh_unity_event_type {
     MXH_UNITY_EVENT_CHARACTER_LIST = 2,
     MXH_UNITY_EVENT_GAME_IN = 3,
     MXH_UNITY_EVENT_DISCONNECTED = 4,
-    MXH_UNITY_EVENT_ERROR = 5
+    MXH_UNITY_EVENT_ERROR = 5,
+    MXH_UNITY_EVENT_CHARACTER_CREATE = 6
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {
-    MXH_UNITY_COMMAND_SELECT_CHARACTER = 1
+    MXH_UNITY_COMMAND_SELECT_CHARACTER = 1,
+    MXH_UNITY_COMMAND_CREATE_CHARACTER = 2
 } mxh_unity_command_type;
+
+/* Bytes after expected_map_generation used by CREATE_CHARACTER. */
+#define MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE UINT32_C(80)
 
 enum {
     MXH_UNITY_CONNECT_USE_HSEL = 1u << 0,
@@ -100,6 +108,18 @@ typedef struct mxh_unity_command {
     uint64_t request_id;
     uint64_t expected_session_generation; /* reject commands from an old login */
     uint64_t expected_map_generation;     /* reject commands from an old map */
+    /* CREATE_CHARACTER semantic payload. name is UTF-8 and is never a raw
+       legacy wire field. The native core validates/transcodes it and maps the
+       option indices to the locked China baseline values. */
+    uint32_t name_length;
+    char name[65];
+    uint8_t sex_type;      /* 0..1 */
+    uint8_t hair_type;     /* 0..4 */
+    uint8_t face_type;     /* 0..4 */
+    uint8_t cloth_option;  /* 0..1 */
+    uint8_t boot_option;   /* 0..1 */
+    uint8_t weapon_option; /* 0..5 */
+    uint8_t reserved1[5];
 } mxh_unity_command;
 
 typedef struct mxh_unity_event {
@@ -182,7 +202,7 @@ typedef struct mxh_unity_snapshot {
 #ifdef __cplusplus
 static_assert(sizeof(mxh_unity_connect_args) == 412,
               "mxh_unity_connect_args ABI changed");
-static_assert(sizeof(mxh_unity_command) == 48,
+static_assert(sizeof(mxh_unity_command) == 128,
               "mxh_unity_command ABI changed");
 static_assert(sizeof(mxh_unity_character_slot) == 108,
               "mxh_unity_character_slot ABI changed");

@@ -115,8 +115,12 @@ std::uint32_t MXH_UNITY_CALL mxh_unity_submit_command(
     mxh_unity_handle handle, const mxh_unity_command* command) {
     auto core = acquire(handle);
     if (!core) return MXH_UNITY_INVALID_HANDLE;
-    if (!command || command->struct_size < sizeof(mxh_unity_command) ||
-        command->payload_size != 0)
+    if (!command || command->struct_size < sizeof(mxh_unity_command))
+        return MXH_UNITY_INVALID_ARGUMENT;
+    if ((command->type == MXH_UNITY_COMMAND_SELECT_CHARACTER &&
+         command->payload_size != 0) ||
+        (command->type == MXH_UNITY_COMMAND_CREATE_CHARACTER &&
+         command->payload_size != MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE))
         return MXH_UNITY_INVALID_ARGUMENT;
     try { return core->submit(*command); }
     catch (...) { return MXH_UNITY_INTERNAL_ERROR; }

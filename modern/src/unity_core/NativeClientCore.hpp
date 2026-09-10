@@ -96,6 +96,8 @@ private:
     std::uint32_t selected_character_id_ = 0;
     std::uint16_t selected_map_ = 0;
     std::uint64_t pending_request_id_ = 0;
+    std::string pending_create_name_;
+    std::vector<std::uint32_t> pending_character_ids_;
     Clock::time_point deadline_{};
     std::vector<mxh::client::CharacterSlot> characters_;
     mxh::client::GameInInfo game_{};

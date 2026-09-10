@@ -48,6 +48,55 @@ bool valid_utf8(const std::string& text) noexcept {
     return true;
 }
 
+bool valid_utf8_name_text(const std::string& text) noexcept {
+    if (!valid_utf8(text) || text.empty()) return false;
+    std::size_t i = 0;
+    while (i < text.size()) {
+        const auto lead = static_cast<unsigned char>(text[i]);
+        std::size_t count = 1;
+        std::uint32_t value = lead;
+        if ((lead & 0xe0) == 0xc0) { count = 2; value = lead & 0x1f; }
+        else if ((lead & 0xf0) == 0xe0) { count = 3; value = lead & 0x0f; }
+        else if ((lead & 0xf8) == 0xf0) { count = 4; value = lead & 0x07; }
+        for (std::size_t j = 1; j < count; ++j)
+            value = (value << 6) |
+                    (static_cast<unsigned char>(text[i + j]) & 0x3f);
+        if (value < 0x20 || (value >= 0x7f && value <= 0x9f)) return false;
+        i += count;
+    }
+    return true;
+}
+
+std::optional<std::string> name_from_utf8(const std::string& source,
+                                          std::uint32_t code_page) {
+    if (!valid_utf8_name_text(source)) return std::nullopt;
+    if (code_page == 0) return source;
+#if defined(_WIN32)
+    const int wide_count = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, source.data(),
+        static_cast<int>(source.size()), nullptr, 0);
+    if (wide_count <= 0) return std::nullopt;
+    std::wstring wide(static_cast<std::size_t>(wide_count), L'\0');
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, source.data(),
+                            static_cast<int>(source.size()), wide.data(),
+                            wide_count) != wide_count) return std::nullopt;
+    BOOL used_default = FALSE;
+    const int byte_count = WideCharToMultiByte(
+        code_page, WC_NO_BEST_FIT_CHARS, wide.data(), wide_count,
+        nullptr, 0, nullptr, &used_default);
+    if (byte_count <= 0 || used_default) return std::nullopt;
+    std::string encoded(static_cast<std::size_t>(byte_count), '\0');
+    used_default = FALSE;
+    if (WideCharToMultiByte(code_page, WC_NO_BEST_FIT_CHARS, wide.data(),
+                            wide_count, encoded.data(), byte_count,
+                            nullptr, &used_default) != byte_count || used_default)
+        return std::nullopt;
+    return encoded;
+#else
+    return std::nullopt;
+#endif
+}
+
 std::optional<std::string> name_to_utf8(const std::string& source,
                                         std::uint32_t code_page) {
     if (code_page == 0) {
@@ -134,6 +183,8 @@ std::uint32_t NativeClientCore::connect(
     selected_character_id_ = 0;
     selected_map_ = 0;
     pending_request_id_ = 0;
+    pending_create_name_.clear();
+    pending_character_ids_.clear();
     characters_.clear();
     game_ = {};
     login_events_.clear();
@@ -199,6 +250,8 @@ std::uint32_t NativeClientCore::disconnect() {
     selected_character_id_ = 0;
     selected_map_ = 0;
     pending_request_id_ = 0;
+    pending_create_name_.clear();
+    pending_character_ids_.clear();
     characters_.clear();
     game_ = {};
     deadline_ = {};
@@ -244,6 +297,8 @@ bool NativeClientCore::shutdown_noexcept() noexcept {
     selected_character_id_ = 0;
     selected_map_ = 0;
     pending_request_id_ = 0;
+    pending_create_name_.clear();
+    pending_character_ids_.clear();
     characters_.clear();
     game_ = {};
     deadline_ = {};
@@ -284,6 +339,7 @@ void NativeClientCore::handle_login_event(
                state_ != MXH_UNITY_STATE_AGENT_CONNECTING &&
                state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_LIST &&
                state_ != MXH_UNITY_STATE_CHARACTER_LIST_READY &&
+               state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE &&
                state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_SELECT &&
                state_ != MXH_UNITY_STATE_AWAIT_GAME_IN &&
                state_ != MXH_UNITY_STATE_IN_GAME &&
@@ -414,7 +470,10 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         return;
     }
     if (protocol == UserConnProtocol::CharacterListAck) {
-        if (state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_LIST) {
+        const bool creation_refresh =
+            state_ == MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE;
+        if (state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_LIST &&
+            !creation_refresh) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "unexpected CharacterListAck");
             return;
         }
@@ -443,12 +502,86 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
             }
             slot.name = std::move(*utf8);
         }
+        std::uint32_t count = 0;
+        for (const auto& slot : *parsed) if (slot.valid) ++count;
+        std::uint32_t created_character_id = 0;
+        if (creation_refresh) {
+            if (count != pending_character_ids_.size() + 1) {
+                fail(MXH_UNITY_PROTOCOL_ERROR,
+                     "character creation refresh count mismatch");
+                return;
+            }
+            for (const auto old_id : pending_character_ids_) {
+                if (!mxh::client::is_listed_character(*parsed, old_id)) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR,
+                         "character creation refresh removed an existing character");
+                    return;
+                }
+            }
+            for (const auto& slot : *parsed) {
+                if (!slot.valid || slot.name != pending_create_name_) continue;
+                if (std::find(pending_character_ids_.begin(),
+                              pending_character_ids_.end(), slot.chrid) !=
+                    pending_character_ids_.end() || created_character_id != 0) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR,
+                         "character creation refresh identity mismatch");
+                    return;
+                }
+                created_character_id = slot.chrid;
+            }
+            if (created_character_id == 0) {
+                fail(MXH_UNITY_PROTOCOL_ERROR,
+                     "character creation refresh omitted requested character");
+                return;
+            }
+        }
+        const auto completed_request_id = pending_request_id_;
+        const auto completed_name = pending_create_name_;
         characters_ = std::move(*parsed);
         deadline_ = {};
+        pending_request_id_ = 0;
+        pending_create_name_.clear();
+        pending_character_ids_.clear();
+        last_result_ = MXH_UNITY_OK;
         transition(MXH_UNITY_STATE_CHARACTER_LIST_READY);
-        std::uint32_t count = 0;
-        for (const auto& slot : characters_) if (slot.valid) ++count;
         (void)emit(MXH_UNITY_EVENT_CHARACTER_LIST, MXH_UNITY_OK, 0, count);
+        if (creation_refresh) {
+            (void)emit(MXH_UNITY_EVENT_CHARACTER_CREATE, MXH_UNITY_OK,
+                       completed_request_id, created_character_id, count,
+                       completed_name);
+        }
+        return;
+    }
+    if (protocol == UserConnProtocol::CharacterMakeNack) {
+        if (state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE ||
+            !message.payload.empty() ||
+            (message.header.object_id != 0 &&
+             message.header.object_id != user_index_)) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid CharacterMakeNack framing");
+            return;
+        }
+        const auto request_id = pending_request_id_;
+        pending_request_id_ = 0;
+        pending_create_name_.clear();
+        pending_character_ids_.clear();
+        deadline_ = {};
+        last_result_ = MXH_UNITY_REJECTED;
+        transition(MXH_UNITY_STATE_CHARACTER_LIST_READY);
+        (void)emit(MXH_UNITY_EVENT_CHARACTER_CREATE, MXH_UNITY_REJECTED,
+                   request_id, 0, 0, "character creation rejected");
+        return;
+    }
+    if (protocol == UserConnProtocol::CharacterMakeAck) {
+        if (state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE ||
+            !message.payload.empty() ||
+            (message.header.object_id != 0 &&
+             message.header.object_id != user_index_)) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid CharacterMakeAck framing");
+            return;
+        }
+        // Some legacy variants send this before the authoritative refreshed
+        // character list. Success is published only after that list arrives.
+        deadline_ = Clock::now() + std::chrono::milliseconds(timeout_ms_);
         return;
     }
     if (protocol == UserConnProtocol::CharacterSelectNack) {
@@ -523,12 +656,57 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
 std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     std::lock_guard lock(mutex_);
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
-    if (command.type != MXH_UNITY_COMMAND_SELECT_CHARACTER)
+    if (command.type != MXH_UNITY_COMMAND_SELECT_CHARACTER &&
+        command.type != MXH_UNITY_COMMAND_CREATE_CHARACTER)
         return MXH_UNITY_UNSUPPORTED;
     if (state_ != MXH_UNITY_STATE_CHARACTER_LIST_READY ||
         command.expected_session_generation != session_generation_ ||
         command.expected_map_generation != map_generation_)
         return MXH_UNITY_WRONG_STATE;
+    if (command.type == MXH_UNITY_COMMAND_CREATE_CHARACTER) {
+        if (command.payload_size != MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE ||
+            command.argument0 != 0 || command.argument1 != 0 ||
+            command.name_length == 0 ||
+            command.name_length > MXH_UNITY_MAX_NAME_BYTES ||
+            std::memchr(command.name, 0, command.name_length) != nullptr)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        std::size_t current_count = 0;
+        for (const auto& slot : characters_) if (slot.valid) ++current_count;
+        if (current_count >= MXH_UNITY_MAX_CHARACTER_SLOTS)
+            return MXH_UNITY_WRONG_STATE;
+        std::string utf8_name(command.name, command.name_length);
+        auto wire_name = name_from_utf8(utf8_name, legacy_text_code_page_);
+        if (!wire_name) return MXH_UNITY_INVALID_ARGUMENT;
+        auto params = mxh::client::legacy_china_character_make_params(
+            std::move(*wire_name), command.sex_type, command.hair_type,
+            command.face_type, command.cloth_option, command.boot_option,
+            command.weapon_option);
+        if (!params) return MXH_UNITY_INVALID_ARGUMENT;
+        mxh::net::Message request{};
+        request.header.category = kUserConn;
+        request.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterMakeSyn);
+        request.header.object_id = user_index_;
+        auto payload = mxh::client::legacy_character_make_syn_payload(
+            *params, user_index_);
+        if (!payload) return MXH_UNITY_INVALID_ARGUMENT;
+        request.payload = std::move(*payload);
+        const auto sent = agent_.send(request);
+        if (sent != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "CharacterMakeSyn send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
+        pending_request_id_ = command.request_id;
+        pending_create_name_ = std::move(utf8_name);
+        pending_character_ids_.clear();
+        for (const auto& slot : characters_)
+            if (slot.valid) pending_character_ids_.push_back(slot.chrid);
+        last_result_ = MXH_UNITY_OK;
+        transition(MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE);
+        deadline_ = Clock::now() + std::chrono::milliseconds(timeout_ms_);
+        return MXH_UNITY_OK;
+    }
+    if (command.payload_size != 0) return MXH_UNITY_INVALID_ARGUMENT;
     if (!mxh::client::is_listed_character(characters_, command.argument0))
         return MXH_UNITY_INVALID_ARGUMENT;
     if (command.argument1 > 0xffffu) return MXH_UNITY_INVALID_ARGUMENT;
@@ -546,6 +724,9 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     }
     selected_character_id_ = command.argument0;
     pending_request_id_ = command.request_id;
+    pending_create_name_.clear();
+    pending_character_ids_.clear();
+    last_result_ = MXH_UNITY_OK;
     transition(MXH_UNITY_STATE_AWAIT_CHARACTER_SELECT);
     deadline_ = Clock::now() + std::chrono::milliseconds(timeout_ms_);
     return MXH_UNITY_OK;
@@ -564,6 +745,9 @@ void NativeClientCore::fail(std::uint32_t result, std::string detail) {
     clear_secret(password_);
     user_id_.clear();
     auth_key_ = 0;
+    pending_request_id_ = 0;
+    pending_create_name_.clear();
+    pending_character_ids_.clear();
     deadline_ = {};
     state_ = MXH_UNITY_STATE_FAILED;
     ++revision_;

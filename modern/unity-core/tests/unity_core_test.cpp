@@ -43,6 +43,20 @@ void put_u64(std::vector<std::uint8_t>& bytes, std::size_t offset,
     put_u32(bytes, offset + 4, static_cast<std::uint32_t>(value >> 32));
 }
 
+std::uint16_t get_u16(const std::vector<std::uint8_t>& bytes,
+                      std::size_t offset) {
+    return static_cast<std::uint16_t>(bytes[offset]) |
+           (static_cast<std::uint16_t>(bytes[offset + 1]) << 8);
+}
+
+std::uint32_t get_u32(const std::vector<std::uint8_t>& bytes,
+                      std::size_t offset) {
+    std::uint32_t value = 0;
+    for (std::size_t i = 0; i < 4; ++i)
+        value |= static_cast<std::uint32_t>(bytes[offset + i]) << (i * 8);
+    return value;
+}
+
 std::uint16_t find_free_port() {
     WSADATA data{};
     if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return 0;
@@ -71,15 +85,22 @@ std::uint16_t find_free_port() {
 class ProtocolServer final : public mxh::net::IConnectionHandler {
 public:
     enum class Role { Login, Agent };
+    enum class CreateReply { Success, Reject, MismatchedList };
 
     ProtocolServer(Role role, bool hsel, std::uint16_t agent_port,
                    std::string wire_name, std::uint32_t game_user_id = 42,
-                   std::uint16_t game_map = 10)
+                   std::uint16_t game_map = 10,
+                   CreateReply create_reply = CreateReply::Success,
+                   std::string create_wire_name = {},
+                   bool initially_empty = false)
         : role_(role), hsel_(hsel, [this](mxh::net::ConnectionId id,
                                          const mxh::net::Message& message) {
               if (server_) (void)server_->send(id, message);
           }), agent_port_(agent_port), wire_name_(std::move(wire_name)),
-          game_user_id_(game_user_id), game_map_(game_map) {}
+          game_user_id_(game_user_id), game_map_(game_map),
+          create_reply_(create_reply),
+          create_wire_name_(std::move(create_wire_name)),
+          initially_empty_(initially_empty) {}
 
     void attach(mxh::net::TcpServer* server) { server_ = server; }
 
@@ -115,6 +136,8 @@ public:
     mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override {
         return hsel_.encryptor_for(id);
     }
+
+    std::atomic<std::uint32_t> valid_create_packets{0};
 
 private:
     void send(mxh::net::ConnectionId id, std::uint8_t protocol,
@@ -161,19 +184,48 @@ private:
                 send(id, static_cast<std::uint8_t>(UserConnProtocol::CharacterListNack));
                 return;
             }
-            std::vector<std::uint8_t> ack(889, 0);
-            put_u32(ack, 0, 1);
-            put_u32(ack, 14, 7001);
-            put_u32(ack, 18, 42);
-            std::memcpy(ack.data() + 22, wire_name_.data(),
-                        std::min<std::size_t>(wire_name_.size(), 16));
-            ack[189 + 16] = 1;
-            ack[189 + 17] = 2;
-            ack[189 + 18] = 3;
-            put_u16(ack, 189 + 40, 17);
-            put_u16(ack, 189 + 42, 10);
-            send(id, static_cast<std::uint8_t>(UserConnProtocol::CharacterListAck),
-                 std::move(ack));
+            send_character_list(id, false);
+        } else if (protocol == UserConnProtocol::CharacterMakeSyn) {
+            bool valid = message.header.object_id == 42 &&
+                         message.payload.size() == 59 &&
+                         !create_wire_name_.empty() &&
+                         create_wire_name_.size() <= 16 &&
+                         std::memcmp(message.payload.data(),
+                                     create_wire_name_.data(),
+                                     create_wire_name_.size()) == 0 &&
+                         message.payload[create_wire_name_.size()] == 0 &&
+                         get_u32(message.payload, 17) == 42 &&
+                         message.payload[21] == 1 &&
+                         message.payload[22] == 0 &&
+                         message.payload[23] == 4 &&
+                         message.payload[24] == 3 &&
+                         message.payload[25] == 17 &&
+                         get_u32(message.payload, 26) == 0 &&
+                         get_u16(message.payload, 32) == 21000 &&
+                         get_u16(message.payload, 34) == 23010 &&
+                         get_u16(message.payload, 36) == 27010 &&
+                         message.payload[50] == 0xff &&
+                         get_u32(message.payload, 51) == 0x3f800000u &&
+                         get_u32(message.payload, 55) == 0x3f800000u;
+            for (std::size_t slot = 0; slot < 10; ++slot) {
+                if (slot != 1 && slot != 2 && slot != 3 &&
+                    get_u16(message.payload, 30 + slot * 2) != 0)
+                    valid = false;
+            }
+            if (!valid) {
+                send(id, static_cast<std::uint8_t>(
+                    UserConnProtocol::CharacterMakeNack));
+                return;
+            }
+            valid_create_packets.fetch_add(1, std::memory_order_release);
+            if (create_reply_ == CreateReply::Reject) {
+                send(id, static_cast<std::uint8_t>(
+                    UserConnProtocol::CharacterMakeNack));
+            } else if (create_reply_ == CreateReply::MismatchedList) {
+                send_character_list(id, false);
+            } else {
+                send_character_list(id, true);
+            }
         } else if (protocol == UserConnProtocol::CharacterSelectSyn) {
             if (message.header.object_id != 7001 || message.payload.size() != 2) {
                 send(id, static_cast<std::uint8_t>(UserConnProtocol::CharacterSelectNack));
@@ -217,12 +269,51 @@ private:
         }
     }
 
+    void send_character_list(mxh::net::ConnectionId id, bool with_created) {
+        using mxh::proto::UserConnProtocol;
+        std::vector<std::uint8_t> ack(889, 0);
+        const auto initial_count = initially_empty_ ? 0u : 1u;
+        put_u32(ack, 0, initial_count + (with_created ? 1u : 0u));
+        if (!initially_empty_) {
+            put_u32(ack, 14, 7001);
+            put_u32(ack, 18, 42);
+            std::memcpy(ack.data() + 22, wire_name_.data(),
+                        std::min<std::size_t>(wire_name_.size(), 16));
+            ack[189 + 16] = 1;
+            ack[189 + 17] = 2;
+            ack[189 + 18] = 3;
+            put_u16(ack, 189 + 40, 17);
+            put_u16(ack, 189 + 42, 10);
+        }
+        if (with_created) {
+            const std::size_t slot = initially_empty_ ? 0 : 1;
+            put_u32(ack, 14 + slot * 35, 7002);
+            put_u32(ack, 18 + slot * 35, 42);
+            std::memcpy(ack.data() + 22 + slot * 35, create_wire_name_.data(),
+                        create_wire_name_.size());
+            const auto total = 189 + slot * 140;
+            ack[total + 16] = 1;
+            ack[total + 17] = 3;
+            ack[total + 18] = 4;
+            put_u16(ack, total + 19 + 2, 21000);
+            put_u16(ack, total + 19 + 4, 23010);
+            put_u16(ack, total + 19 + 6, 27010);
+            put_u16(ack, total + 40, 1);
+            put_u16(ack, total + 42, 10);
+        }
+        send(id, static_cast<std::uint8_t>(UserConnProtocol::CharacterListAck),
+             std::move(ack));
+    }
+
     Role role_;
     mxh::server::HselSessionManager hsel_;
     std::uint16_t agent_port_;
     std::string wire_name_;
     std::uint32_t game_user_id_;
     std::uint16_t game_map_;
+    CreateReply create_reply_;
+    std::string create_wire_name_;
+    bool initially_empty_;
     mxh::net::TcpServer* server_ = nullptr;
 };
 
@@ -230,11 +321,16 @@ class ProtocolPair {
 public:
     ProtocolPair(bool hsel, std::string wire_name,
                  std::uint32_t game_user_id = 42,
-                 std::uint16_t game_map = 10)
+                 std::uint16_t game_map = 10,
+                 ProtocolServer::CreateReply create_reply =
+                     ProtocolServer::CreateReply::Success,
+                 std::string create_wire_name = {},
+                 bool initially_empty = false)
         : login_port(find_free_port()), agent_port(find_free_port()),
           login(ProtocolServer::Role::Login, hsel, agent_port, wire_name),
           agent(ProtocolServer::Role::Agent, hsel, agent_port,
-                std::move(wire_name), game_user_id, game_map),
+                std::move(wire_name), game_user_id, game_map, create_reply,
+                std::move(create_wire_name), initially_empty),
           login_server(login), agent_server(agent) {
         login.attach(&login_server);
         agent.attach(&agent_server);
@@ -340,6 +436,51 @@ bool wait_for_state(mxh_unity_handle handle, std::uint32_t expected,
         while (mxh_unity_poll_event(handle, &event, sizeof(event),
                                     &required) == MXH_UNITY_OK) {}
         if (snapshot.state == expected) return true;
+        if (snapshot.state == MXH_UNITY_STATE_FAILED) return false;
+        std::this_thread::sleep_for(5ms);
+    }
+    return false;
+}
+
+mxh_unity_command make_create_command(const mxh_unity_snapshot& snapshot,
+                                      std::string name,
+                                      std::uint64_t request_id = 501) {
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command);
+    command.type = MXH_UNITY_COMMAND_CREATE_CHARACTER;
+    command.payload_size = MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE;
+    command.request_id = request_id;
+    command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    command.name_length = static_cast<std::uint32_t>(name.size());
+    if (name.size() <= sizeof(command.name))
+        std::memcpy(command.name, name.data(), name.size());
+    command.sex_type = 1;
+    command.hair_type = 4;
+    command.face_type = 3;
+    command.cloth_option = 1;
+    command.boot_option = 1;
+    command.weapon_option = 5;
+    return command;
+}
+
+bool wait_for_create_event(mxh_unity_handle handle, mxh_unity_event& found,
+                           mxh_unity_snapshot& snapshot) {
+    const auto deadline = std::chrono::steady_clock::now() + 5s;
+    while (std::chrono::steady_clock::now() < deadline) {
+        (void)mxh_unity_tick(handle);
+        std::uint32_t required = 0;
+        if (mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot),
+                                    &required) != MXH_UNITY_OK)
+            return false;
+        mxh_unity_event event{};
+        while (mxh_unity_poll_event(handle, &event, sizeof(event),
+                                    &required) == MXH_UNITY_OK) {
+            if (event.type == MXH_UNITY_EVENT_CHARACTER_CREATE) {
+                found = event;
+                return true;
+            }
+        }
         if (snapshot.state == MXH_UNITY_STATE_FAILED) return false;
         std::this_thread::sleep_for(5ms);
     }
@@ -485,6 +626,152 @@ TEST(UnityCoreNetwork, ConvertsCp936NamesToUtf8) {
     const std::string gbk_name{"\xC4\xAB\xCF\xE3", 4};
     run_protocol_round_trip(false, MXH_UNITY_CONNECT_LEGACY_TEXT_CP936,
                             gbk_name, "墨香");
+}
+
+TEST(UnityCoreNetwork, CreatesCp936CharacterFromSemanticOptionsAndRefreshesList) {
+    const std::string first_wire_name{"\xC4\xAB\xCF\xE3", 4};
+    const std::string created_wire_name{"\xD0\xC2\xCF\xC0", 4};
+    const std::string created_utf8 = "新侠";
+    ProtocolPair servers(false, first_wire_name, 42, 10,
+        ProtocolServer::CreateReply::Success, created_wire_name);
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    auto args = make_connect(servers.login_port,
+                             MXH_UNITY_CONNECT_LEGACY_TEXT_CP936);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY,
+                               snapshot));
+    auto command = make_create_command(snapshot, created_utf8, 0x1234);
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    mxh_unity_event event{};
+    ASSERT_TRUE(wait_for_create_event(handle, event, snapshot)) << snapshot.error;
+    EXPECT_EQ(event.result, MXH_UNITY_OK);
+    EXPECT_EQ(event.request_id, 0x1234u);
+    EXPECT_EQ(event.argument0, 7002u);
+    EXPECT_EQ(event.argument1, 2u);
+    EXPECT_EQ(std::string(event.text, event.text_length), created_utf8);
+    EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_CHARACTER_LIST_READY);
+    ASSERT_EQ(snapshot.character_count, 2u);
+    EXPECT_EQ(snapshot.characters[1].character_id, 7002u);
+    EXPECT_EQ(std::string(snapshot.characters[1].name,
+                          snapshot.characters[1].name_length), created_utf8);
+    EXPECT_EQ(snapshot.characters[1].worn_item_index[1], 21000u);
+    EXPECT_EQ(snapshot.characters[1].worn_item_index[2], 23010u);
+    EXPECT_EQ(snapshot.characters[1].worn_item_index[3], 27010u);
+    EXPECT_EQ(servers.agent.valid_create_packets.load(std::memory_order_acquire),
+              1u);
+    EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
+}
+
+TEST(UnityCoreNetwork, EmptyAccountCreatesItsFirstCharacterOverRealSocket) {
+    ProtocolPair servers(false, "UnusedHero", 42, 10,
+        ProtocolServer::CreateReply::Success, "FirstHero", true);
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY,
+                               snapshot));
+    ASSERT_EQ(snapshot.character_count, 0u);
+    auto command = make_create_command(snapshot, "FirstHero", 0x4321);
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    mxh_unity_event event{};
+    ASSERT_TRUE(wait_for_create_event(handle, event, snapshot)) << snapshot.error;
+    EXPECT_EQ(event.result, MXH_UNITY_OK);
+    EXPECT_EQ(event.request_id, 0x4321u);
+    EXPECT_EQ(event.argument0, 7002u);
+    EXPECT_EQ(event.argument1, 1u);
+    ASSERT_EQ(snapshot.character_count, 1u);
+    EXPECT_EQ(snapshot.characters[0].character_id, 7002u);
+    EXPECT_EQ(std::string(snapshot.characters[0].name,
+                          snapshot.characters[0].name_length), "FirstHero");
+    EXPECT_EQ(servers.agent.valid_create_packets.load(std::memory_order_acquire),
+              1u);
+    EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
+}
+
+TEST(UnityCoreNetwork, CharacterMakeNackIsNonTerminalRejectedEvent) {
+    ProtocolPair servers(false, "FirstHero", 42, 10,
+        ProtocolServer::CreateReply::Reject, "TakenHero");
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY,
+                               snapshot));
+    auto command = make_create_command(snapshot, "TakenHero", 0x5678);
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    mxh_unity_event event{};
+    ASSERT_TRUE(wait_for_create_event(handle, event, snapshot));
+    EXPECT_EQ(event.result, MXH_UNITY_REJECTED);
+    EXPECT_EQ(event.request_id, 0x5678u);
+    EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_CHARACTER_LIST_READY);
+    EXPECT_EQ(snapshot.last_result, MXH_UNITY_REJECTED);
+    EXPECT_EQ(snapshot.character_count, 1u);
+    EXPECT_EQ(servers.agent.valid_create_packets.load(std::memory_order_acquire),
+              1u);
+    EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
+}
+
+TEST(UnityCoreNetwork, CreateRefreshMustContainTheNewRequestedIdentity) {
+    ProtocolPair servers(false, "FirstHero", 42, 10,
+        ProtocolServer::CreateReply::MismatchedList, "SecondHero");
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY,
+                               snapshot));
+    auto command = make_create_command(snapshot, "SecondHero", 777);
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_FAILED, snapshot));
+    EXPECT_EQ(snapshot.last_result, MXH_UNITY_PROTOCOL_ERROR);
+    EXPECT_EQ(snapshot.character_count, 1u);
+    EXPECT_EQ(servers.agent.valid_create_packets.load(std::memory_order_acquire),
+              1u);
+    EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
+}
+
+TEST(UnityCoreNetwork, RejectsStaleInvalidOrUnrepresentableCreateLocally) {
+    const std::string first_wire_name{"\xC4\xAB\xCF\xE3", 4};
+    const std::string expected_wire_name{"\xD0\xC2\xCF\xC0", 4};
+    ProtocolPair servers(false, first_wire_name, 42, 10,
+        ProtocolServer::CreateReply::Success, expected_wire_name);
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    auto args = make_connect(servers.login_port,
+                             MXH_UNITY_CONNECT_LEGACY_TEXT_CP936);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY,
+                               snapshot));
+
+    auto command = make_create_command(snapshot, "新侠");
+    command.expected_session_generation--;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command = make_create_command(snapshot, std::string{"\xFF" "abc", 4});
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command = make_create_command(snapshot, std::string{"Ab\nc", 4});
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command = make_create_command(snapshot, "😀");
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command = make_create_command(snapshot, "新新新新新新新新新");
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command = make_create_command(snapshot, "新侠");
+    command.weapon_option = 6;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    EXPECT_EQ(servers.agent.valid_create_packets.load(std::memory_order_acquire),
+              0u);
+    EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
 }
 
 TEST(UnityCoreNetwork, GameInRejectsMismatchedUserWithoutAdvancingGeneration) {
@@ -645,6 +932,38 @@ TEST(ClientWire, CharacterListRequiresCompleteBoundedLegacyPayload) {
     const std::uint32_t second_id = 7002;
     std::memcpy(wire.data() + 14 + 35, &second_id, sizeof(second_id));
     EXPECT_TRUE(mxh::client::parse_legacy_character_list_ack(wire).has_value());
+}
+
+TEST(ClientWire, CharacterMakeUsesLockedChinaSemanticOptions) {
+    auto params = mxh::client::legacy_china_character_make_params(
+        "NewHero", 1, 4, 3, 1, 1, 5);
+    ASSERT_TRUE(params.has_value());
+    const auto wire = mxh::client::legacy_character_make_syn_payload(*params, 42);
+    ASSERT_TRUE(wire.has_value());
+    ASSERT_EQ(wire->size(), 59u);
+    EXPECT_EQ(std::memcmp(wire->data(), "NewHero", 7), 0);
+    EXPECT_EQ((*wire)[7], 0u);
+    EXPECT_EQ(get_u32(*wire, 17), 42u);
+    EXPECT_EQ((*wire)[21], 1u);
+    EXPECT_EQ((*wire)[22], 0u);
+    EXPECT_EQ((*wire)[23], 4u);
+    EXPECT_EQ((*wire)[24], 3u);
+    EXPECT_EQ((*wire)[25], 17u);
+    EXPECT_EQ(get_u32(*wire, 26), 0u);
+    EXPECT_EQ(get_u16(*wire, 32), 21000u);
+    EXPECT_EQ(get_u16(*wire, 34), 23010u);
+    EXPECT_EQ(get_u16(*wire, 36), 27010u);
+    EXPECT_EQ((*wire)[50], 0xffu);
+    EXPECT_EQ(get_u32(*wire, 51), 0x3f800000u);
+    EXPECT_EQ(get_u32(*wire, 55), 0x3f800000u);
+    EXPECT_FALSE(mxh::client::legacy_china_character_make_params(
+        "abc", 1, 4, 3, 1, 1, 5).has_value());
+    mxh::client::LegacyCharacterMakeParams too_long;
+    too_long.wire_name = "12345678901234567";
+    EXPECT_FALSE(mxh::client::legacy_character_make_syn_payload(
+        too_long, 42).has_value());
+    EXPECT_FALSE(mxh::client::legacy_china_character_make_params(
+        "NewHero", 2, 4, 3, 1, 1, 5).has_value());
 }
 
 TEST(NativeClientCore, PublicEventOverflowIsFailClosed) {

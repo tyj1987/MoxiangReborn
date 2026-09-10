@@ -14,12 +14,23 @@ The public ABI is `modern/include/mxh/unity/unity_client.h`. All structures are
 packed fixed-width POD values with explicit sizes. Unity owns no native pointer;
 it holds a `uint64_t` handle and polls events/snapshots from its main thread.
 `submit_command` accepts semantic commands only. Version 1 supports character
-selection and returns `MXH_UNITY_UNSUPPORTED` for every other command.
+creation and selection and returns `MXH_UNITY_UNSUPPORTED` for every other
+command. Character creation takes a UTF-8 name plus sex/hair/face and
+cloth/boot/weapon option indices. The native core owns the original CHINA
+option-value mapping and emits the 59-byte legacy request; Unity never builds a
+packet or supplies raw item IDs.
 
 The state machine advances only after valid server acknowledgements:
 
 `Login connect -> LoginAck -> Agent connect -> CharacterListAck ->
 CharacterSelectAck -> GameInAck`
+
+From `CharacterListReady`, creation enters `AwaitCharacterCreate`. A valid
+`CharacterMakeNack` produces a non-terminal `CHARACTER_CREATE/REJECTED` event
+and returns to the ready list. Success is reported only when the server's
+authoritative refreshed `CharacterListAck` contains exactly one new ID with the
+requested name; an optional empty `CharacterMakeAck` is only an intermediate
+acknowledgement.
 
 The Agent TCP/HSEL session remains alive from character selection through
 GameIn. A protocol error, HSEL error, acknowledgement timeout, or event queue
@@ -44,5 +55,8 @@ contract.
 
 Character names crossing the ABI are UTF-8. The default rejects invalid UTF-8;
 the CP949 and CP936 connect flags explicitly transcode legacy database bytes.
+Creation performs the inverse conversion without best-fit substitutions and
+rejects control characters, unrepresentable names, and names outside the
+original 4-16 encoded-byte limit; it never truncates a code point or wire name.
 Events and selection commands carry session and map generations so Unity can
 discard late events and the core can reject stale UI commands.

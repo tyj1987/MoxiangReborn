@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mxh::client {
@@ -30,6 +31,19 @@ struct CharacterSlot {
     std::uint16_t level = 0;
     std::uint16_t map_num = 0;
     std::array<std::uint16_t, 10> weared_item_idx{};
+};
+
+struct LegacyCharacterMakeParams {
+    std::string wire_name;
+    std::uint8_t sex_type = 0;
+    std::uint8_t body_type = 0;
+    std::uint8_t hair_type = 0;
+    std::uint8_t face_type = 0;
+    std::uint8_t start_area = 17;
+    std::array<std::uint16_t, 10> worn_item_index{};
+    std::uint8_t standing_array_num = 0xff;
+    float height = 1.0f;
+    float width = 1.0f;
 };
 
 struct MugongInfo {
@@ -90,6 +104,13 @@ std::vector<std::uint8_t> legacy_character_list_syn_payload(
     std::uint32_t user_id, std::uint32_t dist_auth_key);
 std::vector<std::uint8_t> legacy_character_select_syn_payload(
     std::uint16_t channel);
+bool valid_legacy_character_name_bytes(std::string_view name) noexcept;
+std::optional<LegacyCharacterMakeParams> legacy_china_character_make_params(
+    std::string wire_name, std::uint8_t sex_type, std::uint8_t hair_type,
+    std::uint8_t face_type, std::uint8_t cloth_option,
+    std::uint8_t boot_option, std::uint8_t weapon_option);
+std::optional<std::vector<std::uint8_t>> legacy_character_make_syn_payload(
+    const LegacyCharacterMakeParams& params, std::uint32_t user_id);
 std::vector<std::uint8_t> legacy_character_remove_syn_payload(
     std::uint32_t character_id);
 mxh::net::Message legacy_character_disconnect_syn_message();
