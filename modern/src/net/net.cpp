@@ -92,6 +92,13 @@ struct Connection {
     std::atomic<bool> ready_for_reap{false};
     std::atomic<bool> disconnect_notified{false};
     IEncryptor* encryptor = nullptr;
+    std::mutex encryptor_mu;
+
+    void invalidate_encryptor() {
+        std::lock_guard<std::mutex> lock(encryptor_mu);
+        active.store(false);
+        encryptor = nullptr;
+    }
 
     // Phase 10e: Per-connection async send queue + dedicated sender thread.
     // Decouples callers (drain_to / handler threads) from blocking I/O.
@@ -304,7 +311,11 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                     if (it == impl_->connections.end()) return;
                     c = it->second.get();
                 }
-                c->encryptor = handler_.encryptor_for(ConnectionId{id});
+                {
+                    std::lock_guard<std::mutex> lock(c->encryptor_mu);
+                    if (c->active.load())
+                        c->encryptor = handler_.encryptor_for(ConnectionId{id});
+                }
 
                 std::vector<std::uint8_t> buffer(impl_->cfg.recv_buffer_size);
                 std::vector<std::uint8_t> carryover;
@@ -313,6 +324,9 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                     int n = recv(c->sock, reinterpret_cast<char*>(buffer.data()),
                                  static_cast<int>(buffer.size()), 0);
                     if (n <= 0) {
+                        // Complete outstanding cipher calls before the handler
+                        // releases its cipher. Do not hold this lock in callbacks.
+                        c->invalidate_encryptor();
                         if (!c->disconnect_notified.exchange(true)) {
                             handler_.on_disconnect(ConnectionId{id}, NetError::Disconnected);
                         }
@@ -370,7 +384,11 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                             // only, leaving the parsed header fields as
                             // encrypted bytes. Symmetric with TcpServer::send
                             // which encrypts the whole msg_body.
-                            if (c->encryptor) c->encryptor->decrypt(msg_body);
+                            {
+                                std::lock_guard<std::mutex> lock(c->encryptor_mu);
+                                if (!c->active.load()) break;
+                                if (c->encryptor) c->encryptor->decrypt(msg_body);
+                            }
 
                             MsgHeader h{};
                             h.checksum  = msg_body[0];
@@ -405,7 +423,11 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                                                carryover.end());
                             
                             // Optional decryption.
-                            if (c->encryptor) c->encryptor->decrypt(msg.payload);
+                            {
+                                std::lock_guard<std::mutex> lock(c->encryptor_mu);
+                                if (!c->active.load()) break;
+                                if (c->encryptor) c->encryptor->decrypt(msg.payload);
+                            }
                             
                             handler_.on_message(ConnectionId{id}, msg);
                             
@@ -461,7 +483,7 @@ void TcpServer::stop() {
     {
         std::lock_guard<std::mutex> lk(impl_->connections_mu);
         for (auto& [_, conn] : impl_->connections) {
-            conn->active.store(false);
+            conn->invalidate_encryptor();
             if (!conn->disconnect_notified.exchange(true)) {
                 stop_disconnects.push_back(ConnectionId{conn->id});
             }
@@ -560,7 +582,11 @@ NetError TcpServer::send(ConnectionId id, const Message& msg) {
                         msg.payload.data(), msg.payload.size());
         }
     }
-    if (c->encryptor) c->encryptor->encrypt(msg_body);
+    {
+        std::lock_guard<std::mutex> lock(c->encryptor_mu);
+        if (!c->active.load()) return NetError::Disconnected;
+        if (c->encryptor) c->encryptor->encrypt(msg_body);
+    }
 
     // Debug: log raw send bytes
     if (impl_->cfg.use_legacy_framing) {

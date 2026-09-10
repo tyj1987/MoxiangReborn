@@ -499,6 +499,112 @@ struct EncryptedHandler : IConnectionHandler {
     ConnectionId last_id() const { return last_cid; }
 };
 
+TEST(EncryptionIntegration, DisconnectCallbackCannotUseRetiredCipher) {
+    struct Handler : EncryptedHandler {
+        TcpServer* server = nullptr;
+        std::atomic<bool> complete{false};
+        NetError result = NetError::Ok;
+        void on_disconnect(ConnectionId id, NetError) override {
+            // Handler-owned ciphers may already have been freed here.
+            // Keep this test cipher alive to detect use without invoking UB.
+            result = server->send(id, Message{});
+            complete.store(true);
+        }
+    } handler;
+    TcpServer server(handler);
+    handler.server = &server;
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(find_free_port());
+    ASSERT_NE(cfg.port, 0);
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    CountingHandler client_handler;
+    TcpClient client(client_handler);
+    ClientConfig client_cfg;
+    client_cfg.remote_address = "127.0.0.1";
+    client_cfg.port = cfg.port;
+    ASSERT_EQ(client.connect(client_cfg), NetError::Ok);
+    client.disconnect();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!handler.complete.load() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    server.stop();
+    ASSERT_TRUE(handler.complete.load());
+    EXPECT_EQ(handler.result, NetError::Disconnected);
+    EXPECT_EQ(handler.encryptor.encrypt_count_.load(), 0);
+}
+
+TEST(EncryptionIntegration, DisconnectWaitsForInFlightCipherBeforeDestroyingIt) {
+    struct State {
+        std::atomic<bool> entered{false}, release{false}, finished{false};
+        std::atomic<bool> destroyed{false}, destroyedEarly{false}, disconnected{false};
+    } state;
+    struct Cipher : XorEncryptor {
+        State& state;
+        explicit Cipher(State& value) : state(value) {}
+        ~Cipher() override {
+            state.destroyedEarly.store(!state.finished.load());
+            state.destroyed.store(true);
+        }
+        NetError encrypt(std::span<std::uint8_t>) override {
+            // Only external state is used after entry, including on the old
+            // faulty implementation, so this regression does not dereference
+            // an object after its disconnect callback destroyed it.
+            State& external = state;
+            external.entered.store(true);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+            while (!external.release.load() && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            external.finished.store(true);
+            return NetError::Ok;
+        }
+    };
+    struct Handler : CountingHandler {
+        State& state;
+        std::unique_ptr<Cipher> cipher;
+        std::atomic<std::uint64_t> connectedId{0};
+        explicit Handler(State& value) : state(value), cipher(std::make_unique<Cipher>(value)) {}
+        bool on_connect(ConnectionId id, const std::string&) override {
+            connectedId.store(id.value);
+            return true;
+        }
+        IEncryptor* encryptor_for(ConnectionId) override { return cipher.get(); }
+        void on_disconnect(ConnectionId, NetError) override {
+            cipher.reset();
+            state.disconnected.store(true);
+        }
+    } handler(state);
+    TcpServer server(handler);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(find_free_port());
+    ASSERT_NE(cfg.port, 0);
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    CountingHandler client_handler;
+    TcpClient client(client_handler);
+    ClientConfig client_cfg;
+    client_cfg.remote_address = "127.0.0.1";
+    client_cfg.port = cfg.port;
+    ASSERT_EQ(client.connect(client_cfg), NetError::Ok);
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (handler.connectedId.load() == 0 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    ASSERT_NE(handler.connectedId.load(), 0u);
+    std::thread sending([&] { (void)server.send(ConnectionId{handler.connectedId.load()}, Message{}); });
+    deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!state.entered.load() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    client.disconnect();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const bool callbackWaited = !state.destroyed.load();
+    state.release.store(true);
+    sending.join();
+    server.stop();
+    EXPECT_TRUE(state.entered.load());
+    EXPECT_TRUE(callbackWaited);
+    EXPECT_TRUE(state.disconnected.load());
+    EXPECT_TRUE(state.destroyed.load());
+    EXPECT_FALSE(state.destroyedEarly.load());
+}
+
 TEST(EncryptionIntegration, ServerEncryptsOutgoingMessages) {
     EncryptedHandler sh;
     TcpServer server(sh);
