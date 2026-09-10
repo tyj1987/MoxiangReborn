@@ -4,6 +4,12 @@ This file is the current player-facing truth. Historical session claims are inte
 
 ## Current state
 
+**2026-09-11 correction:** the new full seven-PAK audit supersedes the older
+single-entry PAK statement and loose-HFL origin claims below. The packs contain
+14,376 entries; all 81 current loose HFLs match generated-placeholder height
+fingerprints. Unity migration is separately tracked in `UNITY_REMASTER_STATUS.md`;
+this correction is not a visual or playable PASS.
+
 Status: `IN_PROGRESS — vertical slice integration`
 
 The modern client has protocol and partial rendering foundations, but it is not yet a mature playable release. Evidence-backed facts:

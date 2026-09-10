@@ -32,6 +32,7 @@
 # Modern generated trees
 /modern/build/
 /modern/build-release/
+/modern/build-unity-x64/
 /modern/out/
 /modern/scratch/
 /modern/data/screenshots/
@@ -78,3 +79,20 @@
 /docs/**/run-*/
 /docs/**/baseline-*/
 /docs/**/screenshots/
+
+# Unity generated state; source assets and their .meta files remain tracked.
+/unity/**/[Ll]ibrary/
+/unity/**/[Tt]emp/
+/unity/**/[Oo]bj/
+/unity/**/[Ll]ogs/
+/unity/**/[Uu]ser[Ss]ettings/
+/unity/**/[Bb]uild/
+/unity/**/[Bb]uilds/
+/unity/**/.vs/
+/unity/**/*.csproj
+/unity/**/*.sln
+/unity/**/*.slnx
+/unity/MoxiangClient/Assets/Plugins/x86_64/*.dll
+/unity/MoxiangClient/Assets/Plugins/x86_64/*.pdb
+/unity/MoxiangClient/Assets/Screenshots/
+/unity/MoxiangClient/Assets/Screenshots.meta

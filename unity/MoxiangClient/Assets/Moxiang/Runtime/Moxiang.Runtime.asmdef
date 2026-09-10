@@ -1,0 +1,7 @@
+{
+  "name": "Moxiang.Runtime",
+  "rootNamespace": "Moxiang",
+  "references": ["Unity.TextMeshPro", "UnityEngine.UI"],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}

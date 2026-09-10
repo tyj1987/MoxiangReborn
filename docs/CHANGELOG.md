@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Unity remaster foundation (2026-09-11, incomplete migration)
+
+- Created `codex/unity-client-remaster` from `89a11b3`; the original client,
+  servers, resource bytes and gameplay remain the reference path.
+- Added deterministic PAK/loose-file provenance auditing, explicit source
+  extraction, native HFL export and a Unity ScriptedImporter. The audit corrects
+  the historical one-entry PAK and three-original-loose-HFL claims below:
+  seven PAKs contain 14,376 entries and all 81 loose HFLs match generated terrain.
+- Added an independent x64 C ABI client core and shared pure protocol helpers,
+  plus a pinned Unity 6000.6.0f1/URP/D3D11 project and development connection scene.
+- A standalone Unity Player has reached real modern Login/Agent/Map GameIn with
+  an isolated SQLite fixture and displayed Map10 inspection geometry. This is
+  network/geometry evidence, not complete gameplay or approved remaster art.
+- Fixed GameIn account identity, legacy experience/money decoding and numeric
+  widths. Fixed a server cipher lifetime race exposed by actual reconnection;
+  final Editor validation passed 100 real three-server reconnect cycles.
+- Full status, limitations and gate evidence: `UNITY_REMASTER_STATUS.md` and
+  `UNITY_GAMEPLAY_COVERAGE.md`. All remaining gameplay, visual, dual-database,
+  security and release acceptance stays open.
+
 ### visual / UI / map polish follow-up (2026-09-07 evening, 4 commit)
 
 紧接日间 session 收尾, 4 个 commit 把 polish session 的资源侧打磨到底:
