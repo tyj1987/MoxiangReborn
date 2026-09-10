@@ -222,7 +222,7 @@ CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
     return cd;
 }
 
-mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
+mxh::net::Message make_gamein_ack(std::uint32_t player_id, std::uint32_t user_id, const CharData& cd,
                                   const mxh::game::ItemTotalInfo& items,
                                   const std::array<std::uint32_t, 8>& skills,
                                   float position_x, float position_z) {
@@ -238,7 +238,7 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
 
     // --- BASEOBJECT_INFO [0..34] ---
     put_u32(m.payload, kPayloadBaseObjOff + 0, player_id);
-    put_u32(m.payload, kPayloadBaseObjOff + 4, player_id);
+    put_u32(m.payload, kPayloadBaseObjOff + 4, user_id);
     put_str(m.payload, kPayloadBaseObjOff + 8, cd.name.c_str(), 17);
 
     // --- CHARACTER_TOTALINFO [35..146] ---
@@ -1332,6 +1332,10 @@ void MapHandler::handle_userconn(mxh::net::ConnectionId id,
 void MapHandler::handle_gamein(mxh::net::ConnectionId id,
                                const mxh::net::Message& msg) {
     std::uint32_t player_id = msg.header.object_id;
+    // Modern Agent DWORD1 carries the authenticated account, not character ID.
+    std::uint32_t user_id = 0;
+    if (msg.payload.size() == 16)
+        std::memcpy(&user_id, msg.payload.data(), sizeof(user_id));
     std::cout << "[Map] GAMEIN_SYN from player=" << player_id
               << " payload=" << msg.payload.size() << "B\n";
 
@@ -1436,7 +1440,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         quick_skills[2] = 3;
         quick_skills[3] = 10;
     }
-    reply_(id, make_gamein_ack(player_id, cd, pi.items, quick_skills,
+    reply_(id, make_gamein_ack(player_id, user_id, cd, pi.items, quick_skills,
                                pi.pos_x, pi.pos_z));
     // Rehydrate the quest dialog from the authoritative persisted log before
     // any new interaction.  The legacy client receives one TotalInfo record

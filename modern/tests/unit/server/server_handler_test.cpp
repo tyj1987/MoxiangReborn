@@ -1649,6 +1649,9 @@ TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
     game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.payload.resize(16, 0);
+    const std::uint32_t authenticated_user = 42;
+    std::memcpy(game_in.payload.data(), &authenticated_user, sizeof(authenticated_user));
 
     handler.on_message(mxh::net::make_connection_id(55), game_in);
 
@@ -1660,6 +1663,11 @@ TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
     EXPECT_EQ(ack.header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck));
     ASSERT_EQ(ack.payload.size(), mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE);
+    std::uint32_t received_player = 0, received_user = 0;
+    std::memcpy(&received_player, ack.payload.data(), sizeof(received_player));
+    std::memcpy(&received_user, ack.payload.data() + 4, sizeof(received_user));
+    EXPECT_EQ(received_player, 123u);
+    EXPECT_EQ(received_user, authenticated_user);
     std::uint16_t spawn_x = 0, spawn_z = 0;
     std::memcpy(&spawn_x, ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, sizeof(spawn_x));
     std::memcpy(&spawn_z, ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, sizeof(spawn_z));
