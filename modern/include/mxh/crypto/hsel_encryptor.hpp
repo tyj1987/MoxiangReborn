@@ -8,10 +8,9 @@
 // Legacy stream semantics: HSEL uses SEPARATE en/de streams per side. A
 // stream that encrypts must never decrypt (and vice versa); both peers
 // advance their key schedule in lockstep, one operation per message. The
-// net layer satisfies this naturally -- each side runs exactly one
-// encrypt or decrypt per message in its direction -- so a single
-// HselStreamCipher per connection is correct there. Same-stream
-// encrypt-then-decrypt is NOT a valid usage pattern (matches legacy).
+// adapter therefore owns two HselStream instances per connection. Sharing one
+// key schedule across directions fails as soon as sends and receives interleave.
+// Same-stream encrypt-then-decrypt is NOT a valid usage pattern (matches legacy).
 //
 // Session keys: seed() generates a fresh random HselInit (RAND type,
 // triple DES, swap on, default key customization) seeded from the steady
@@ -26,6 +25,7 @@
 #include "mxh/net/net.hpp"
 
 #include <cstdint>
+#include <mutex>
 #include <span>
 
 namespace mxh::crypto {
@@ -63,11 +63,14 @@ public:
     // send key message (plaintext) -> import (re-arm with same keys).
     void reset() noexcept;
 
-    bool initialized() const noexcept { return ready_; }
+    bool initialized() const noexcept { std::lock_guard lock(mutex_); return ready_; }
+    // Quiescent handshake inspection only; use export_init for a locked copy.
     const HselInit& init() const noexcept { return init_; }
 
 private:
-    HselStream stream_;
+    mutable std::mutex mutex_;
+    HselStream encrypt_stream_;
+    HselStream decrypt_stream_;
     HselInit   init_{};
     bool       ready_ = false;
 };

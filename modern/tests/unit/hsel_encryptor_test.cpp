@@ -21,10 +21,12 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <barrier>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -158,6 +160,35 @@ TEST(HselStreamCipher, UninitializedPassThroughMatchesLegacy) {
     EXPECT_EQ(buf, orig);
     HselInit init{};
     EXPECT_FALSE(c.export_init(init));
+}
+
+TEST(HselStreamCipher, IndependentDirectionsSurviveCrossedUnequalBursts) {
+    for (const auto type : {mxh::crypto::HSEL_ENCRYPTTYPE_1, mxh::crypto::HSEL_ENCRYPTTYPE_2,
+                            mxh::crypto::HSEL_ENCRYPTTYPE_3, mxh::crypto::HSEL_ENCRYPTTYPE_4}) {
+        HselStreamCipher left, right;
+        left.seed();
+        HselInit init{};
+        ASSERT_TRUE(left.export_init(init));
+        init.iEncryptType = type;
+        ASSERT_TRUE(left.import_init(init));
+        ASSERT_TRUE(right.import_init(init));
+        for (int cycle = 0; cycle < 8; ++cycle) {
+            auto left_first = make_buf(12, static_cast<std::uint8_t>(cycle));
+            auto left_second = make_buf(67, static_cast<std::uint8_t>(cycle + 20));
+            auto right_first = make_buf(3032, static_cast<std::uint8_t>(cycle + 40));
+            const auto a = left_first, b = left_second, c = right_first;
+            // Crossed TCP traffic: both sides send before either receives.
+            ASSERT_EQ(left.encrypt(left_first), NetError::Ok);
+            ASSERT_EQ(left.encrypt(left_second), NetError::Ok);
+            ASSERT_EQ(right.encrypt(right_first), NetError::Ok);
+            ASSERT_EQ(right.decrypt(left_first), NetError::Ok);
+            ASSERT_EQ(left.decrypt(right_first), NetError::Ok);
+            ASSERT_EQ(right.decrypt(left_second), NetError::Ok);
+            ASSERT_EQ(left_first, a) << "directional stream mismatch";
+            ASSERT_EQ(left_second, b) << "unequal burst stream mismatch";
+            ASSERT_EQ(right_first, c) << "reverse stream mismatch";
+        }
+    }
 }
 
 TEST(HselStreamCipher, ExportImportIsDeterministic) {
@@ -322,4 +353,59 @@ TEST(HselStreamCipher, NetLayerEncryptedRoundTripWithLegacyFraming) {
 
     client.disconnect();
     server.stop();
+}
+
+TEST(HselStreamCipher, ConcurrentBidirectionalSendersPreserveEveryLegacyFrame) {
+    HselStreamCipher server_cipher, client_cipher;
+    server_cipher.seed();
+    HselInit init{};
+    ASSERT_TRUE(server_cipher.export_init(init));
+    ASSERT_TRUE(client_cipher.import_init(init));
+    HselNetHandler server_handler(&server_cipher), client_handler(&client_cipher);
+    TcpServer server(server_handler);
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig scfg;
+    scfg.bind_address = "127.0.0.1";
+    scfg.port = static_cast<std::uint16_t>(port);
+    scfg.use_legacy_framing = true; scfg.use_encryption = true;
+    ASSERT_EQ(server.start(scfg), NetError::Ok);
+    TcpClient client(client_handler);
+    ClientConfig ccfg;
+    ccfg.remote_address = "127.0.0.1"; ccfg.port = scfg.port;
+    ccfg.use_legacy_framing = true; ccfg.use_encryption = true;
+    ASSERT_EQ(client.connect(ccfg), NetError::Ok);
+    ASSERT_TRUE(wait_for(server_handler.connects, 1));
+    const ConnectionId connection{server_handler.last_id.load()};
+    std::barrier start(4);
+    std::atomic<unsigned> failures{0};
+    auto produce = [&](bool from_server, unsigned lane) {
+        start.arrive_and_wait();
+        for (unsigned i = 0; i < 200; ++i) {
+            Message message;
+            message.header.category = 8; message.header.protocol = 13;
+            message.header.object_id = lane * 200 + i + 1;
+            message.payload = make_buf(i % 7 == 0 ? 3032 : 4, static_cast<std::uint8_t>(message.header.object_id));
+            const auto result = from_server ? server.send(connection, message) : client.send(message);
+            if (result != NetError::Ok) ++failures;
+        }
+    };
+    std::thread a(produce, false, 0), b(produce, false, 1);
+    std::thread c(produce, true, 0), d(produce, true, 1);
+    a.join(); b.join(); c.join(); d.join();
+    ASSERT_EQ(failures.load(), 0u);
+    ASSERT_TRUE(wait_for(server_handler.messages, 400));
+    ASSERT_TRUE(wait_for(client_handler.messages, 400));
+    client.disconnect(); server.stop();
+    for (const auto* handler : {&server_handler, &client_handler}) {
+        ASSERT_EQ(handler->received.size(), 400u);
+        std::set<std::uint32_t> identities;
+        for (const auto& message : handler->received) {
+            ASSERT_EQ(message.header.category, 8); ASSERT_EQ(message.header.protocol, 13);
+            ASSERT_GE(message.header.object_id, 1u); ASSERT_LE(message.header.object_id, 400u);
+            const auto index = (message.header.object_id - 1) % 200;
+            EXPECT_EQ(message.payload, make_buf(index % 7 == 0 ? 3032 : 4, static_cast<std::uint8_t>(message.header.object_id)));
+            EXPECT_TRUE(identities.insert(message.header.object_id).second);
+        }
+    }
 }

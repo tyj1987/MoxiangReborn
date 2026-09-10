@@ -93,6 +93,7 @@ struct Connection {
     std::atomic<bool> disconnect_notified{false};
     IEncryptor* encryptor = nullptr;
     std::mutex encryptor_mu;
+    std::mutex send_order_mu; // cipher key advancement and queue insertion share one order
 
     void invalidate_encryptor() {
         std::lock_guard<std::mutex> lock(encryptor_mu);
@@ -582,10 +583,14 @@ NetError TcpServer::send(ConnectionId id, const Message& msg) {
                         msg.payload.data(), msg.payload.size());
         }
     }
+    std::lock_guard<std::mutex> order_lock(c->send_order_mu);
     {
         std::lock_guard<std::mutex> lock(c->encryptor_mu);
         if (!c->active.load()) return NetError::Disconnected;
-        if (c->encryptor) c->encryptor->encrypt(msg_body);
+        if (c->encryptor) {
+            const auto result = c->encryptor->encrypt(msg_body);
+            if (result != NetError::Ok) return result;
+        }
     }
 
     // Debug: log raw send bytes
@@ -872,6 +877,11 @@ NetError TcpClient::send(const Message& msg) {
         std::memcpy(msg_body.data() + sizeof(msg.header),
                     msg.payload.data(), msg.payload.size());
     }
+    // Serialize key advancement with the corresponding wire send. Locking
+    // only the socket lets concurrent callers send key N+1 before key N.
+    std::lock_guard<std::mutex> lk(impl_->send_mu);
+    if (impl_->sock == INVALID_SOCKET || !impl_->connected.load())
+        return NetError::Disconnected;
     // Phase 4.4: optional encryption (same as TcpServer::send).
     if (impl_->encryptor) {
         NetError enc = impl_->encryptor->encrypt(msg_body);
@@ -890,12 +900,6 @@ NetError TcpClient::send(const Message& msg) {
     } else {
         out = std::move(msg_body);
     }
-
-    // send_mu protects socket validity check + ::send loop from
-    // concurrent disconnect() / recv-thread close.
-    std::lock_guard<std::mutex> lk(impl_->send_mu);
-    if (impl_->sock == INVALID_SOCKET || !impl_->connected.load())
-        return NetError::Disconnected;
 
     int total = static_cast<int>(out.size());
     int sent = 0;

@@ -33,9 +33,10 @@ HselInit default_init() {
 }  // namespace
 
 void HselStreamCipher::seed() {
-    stream_.rng().set_state(next_seed());
+    std::lock_guard lock(mutex_);
+    encrypt_stream_.rng().set_state(next_seed());
     init_ = default_init();
-    const std::int32_t rt = stream_.initial(init_);
+    const std::int32_t rt = encrypt_stream_.initial(init_);
     if (rt == 0) {
         ready_ = false;
         return;
@@ -43,12 +44,13 @@ void HselStreamCipher::seed() {
     // initial() resolved the RAND type and generated concrete keys into
     // the stream's own init; re-read it so export_init() carries the
     // fully-resolved session (identical on the peer after import).
-    init_ = stream_.hsel_init();
-    ready_ = true;
+    init_ = encrypt_stream_.hsel_init();
+    ready_ = decrypt_stream_.initial(init_) != 0;
 }
 
 mxh::net::NetError HselStreamCipher::encrypt(
     std::span<std::uint8_t> data) {
+    std::lock_guard lock(mutex_);
     if (!ready_) {
         // 1:1 with legacy CCrypt::Encrypt: not inited -> pass through.
         return mxh::net::NetError::Ok;
@@ -61,13 +63,14 @@ mxh::net::NetError HselStreamCipher::encrypt(
         return mxh::net::NetError::EncryptionFailed;
     }
     const bool ok =
-        stream_.encrypt(reinterpret_cast<char*>(data.data()), size);
+        encrypt_stream_.encrypt(reinterpret_cast<char*>(data.data()), size);
     return ok ? mxh::net::NetError::Ok
               : mxh::net::NetError::EncryptionFailed;
 }
 
 mxh::net::NetError HselStreamCipher::decrypt(
     std::span<std::uint8_t> data) {
+    std::lock_guard lock(mutex_);
     if (!ready_) {
         // 1:1 with legacy CCrypt::Decrypt: not inited -> pass through.
         return mxh::net::NetError::Ok;
@@ -80,12 +83,13 @@ mxh::net::NetError HselStreamCipher::decrypt(
         return mxh::net::NetError::DecryptionFailed;
     }
     const bool ok =
-        stream_.decrypt(reinterpret_cast<char*>(data.data()), size);
+        decrypt_stream_.decrypt(reinterpret_cast<char*>(data.data()), size);
     return ok ? mxh::net::NetError::Ok
               : mxh::net::NetError::DecryptionFailed;
 }
 
 bool HselStreamCipher::export_init(HselInit& out) const {
+    std::lock_guard lock(mutex_);
     if (!ready_) {
         return false;
     }
@@ -94,14 +98,18 @@ bool HselStreamCipher::export_init(HselInit& out) const {
 }
 
 bool HselStreamCipher::import_init(const HselInit& init) {
+    std::lock_guard lock(mutex_);
     init_ = init;
-    const std::int32_t rt = stream_.initial(init_);
-    ready_ = (rt != 0);
+    const std::int32_t en = encrypt_stream_.initial(init_);
+    const std::int32_t de = decrypt_stream_.initial(init_);
+    ready_ = en != 0 && de != 0;
     return ready_;
 }
 
 void HselStreamCipher::reset() noexcept {
-    stream_ = HselStream{};
+    std::lock_guard lock(mutex_);
+    encrypt_stream_ = HselStream{};
+    decrypt_stream_ = HselStream{};
     init_ = HselInit{};
     ready_ = false;
 }
