@@ -145,8 +145,9 @@ visual collision are not substitutes for authoritative tiles. These gaps remain
 blockers to complete Map10/full-game acceptance.
 
 The shared single-segment time module is now implemented for x86 game and x64
-native core, with ten clock-driven tests. It is not yet activated in runtime
-movement. See `UNITY_TIMED_MOVEMENT.md` for exact source behavior and the required
+native core, with ten clock-driven tests. MapHandler now centralizes position
+materialization, but network commands still do not start time-based movement.
+See `UNITY_TIMED_MOVEMENT.md` for exact source behavior and the required
 coordinated server/client/position-reader cutover; current probes do not prove
 timed movement or complete speed selection.
 

@@ -4,6 +4,11 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Centralized MapHandler position reset/materialization across runtime snapshots,
+  network entry, monster ticks and disconnect. Fixed-clock tests prove synchronized
+  caches, trajectory cancellation and pickup range checks against elapsed motion.
+  Production movement commands still use their previous semantics; timed command
+  activation and client interpolation remain pending.
 - Fixed zero-life/inactive runtime actors accepting client movement. A regression
   test first reproduced position updates and broadcasts, then verified owner-only
   correction and unchanged position after the gate. Original death notification,

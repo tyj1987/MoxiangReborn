@@ -2479,6 +2479,67 @@ TEST(MapHandlerTest, ZeroLifeMovementCannotRewritePositionAndRecoveryIsNotSticky
     EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1100);
 }
 
+TEST(MapHandlerTest, TimedPositionCacheAdvancesAndLegacyResetCancelsTrajectory) {
+    std::uint64_t now=100;
+    MockDbAdapter db;
+    ReplySpy reply;
+    MapHandler handler(db,10,make_reply_spy(reply));
+    ASSERT_TRUE(handler.set_movement_clock_for_test([&]{return now;}));
+    ASSERT_TRUE(handler.install_fixed_tiles(clear_movement_fixture()));
+    const auto owner=mxh::net::make_connection_id(55);
+    mxh::net::Message enter;
+    enter.header.object_id=123;
+    enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(owner,enter);
+    EXPECT_FALSE(handler.set_movement_clock_for_test([&]{return now;}));
+    ASSERT_TRUE(handler.set_player_position_for_test(123,1000,1000));
+    ASSERT_TRUE(handler.start_player_trajectory_for_test(123,1400,1000,400));
+    now=600;
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1200);
+    handler.on_message(owner,mxh::client::make_move_message(123,mxh::proto::MoveProtocol::Stop,1250,1000));
+    now=900;
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1250);
+    ASSERT_TRUE(handler.start_player_trajectory_for_test(123,1450,1000,400));
+    now=1150;
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123,0,0));
+    now=1200;
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    now=1250;
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    EXPECT_FALSE(handler.set_player_position_for_test(123,-1,1000));
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+}
+
+TEST(MapHandlerTest, PickupUsesMaterializedPositionWithoutSnapshotSideEffects) {
+    std::uint64_t now=0;
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    MapHandler handler(db,10,[&](mxh::net::ConnectionId,const mxh::net::Message& m){replies.push_back(m);});
+    ASSERT_TRUE(handler.set_movement_clock_for_test([&]{return now;}));
+    const auto owner=mxh::net::make_connection_id(55);
+    mxh::net::Message enter;
+    enter.header.object_id=123;
+    enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(owner,enter);
+    ASSERT_TRUE(handler.set_player_position_for_test(123,1000,1000));
+    const auto drop=handler.create_ground_drop_for_test(50000,77,1,2000,1000); ASSERT_TRUE(drop);
+    ASSERT_TRUE(handler.start_player_trajectory_for_test(123,2000,1000,400));
+    for(const auto time : {1000u,1250u}) {
+        now=time; replies.clear();
+        handler.on_message(owner,mxh::client::make_pickup_message(123,drop->object_id));
+        const auto expected=time==1000?mxh::proto::ItemProtocol::PickupNack:mxh::proto::ItemProtocol::PickupAck;
+        EXPECT_TRUE(std::any_of(replies.begin(),replies.end(),[&](const auto& reply){
+            return reply.header.category==static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+                   reply.header.protocol==static_cast<std::uint8_t>(expected);
+        }));
+    }
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1500);
+    EXPECT_EQ(handler.player_runtime_snapshot(123)->inventory_count,1);
+}
+
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     MockDbAdapter db;
     ReplySpy reply;

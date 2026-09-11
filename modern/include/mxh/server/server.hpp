@@ -19,6 +19,7 @@
 #include "mxh/server/player.hpp"
 #include "mxh/server/fixed_tile_map.hpp"
 #include "mxh/game/kyunggong_catalog.hpp"
+#include "mxh/game/movement_timeline.hpp"
 #include "mxh/server/party_manager.hpp"
 #include "mxh/server/guild_manager.hpp"
 #include "mxh/server/drop_item.hpp"
@@ -422,6 +423,8 @@ public:
     std::size_t claim_pending_item_grants_for_test(std::uint32_t player_id);
     bool set_player_money_for_test(std::uint32_t player_id, std::uint32_t money);
     bool set_player_position_for_test(std::uint32_t player_id, float x, float z);
+    bool set_movement_clock_for_test(std::function<std::uint64_t()> clock);
+    bool start_player_trajectory_for_test(std::uint32_t player_id, float x, float z, float speed);
     std::uint32_t player_money_for_test(std::uint32_t player_id) noexcept;
     std::size_t player_quest_count_for_test(std::uint32_t player_id) noexcept;
     std::optional<QuestProgress> quest_progress_for_test(std::uint32_t player_id,
@@ -457,6 +460,7 @@ public:
     // Per-player state stored on the server.
     struct PlayerRuntime {
         Player actor;
+        mxh::game::MovementTimeline movement;
         QuestLog quest_log;
         PetManagerState pet_manager;
         TitanManagerState titan_manager;
@@ -620,6 +624,11 @@ private:
     // Keyed by player_id because AgentServer multiplexes multiple players
     // through a single TCP connection to MapServer.
     std::mutex players_mu_;
+    std::function<std::uint64_t()> movement_clock_;
+    std::uint64_t movement_now() const;
+    bool reset_player_position_locked(std::uint32_t id, float x, float z, std::uint64_t now);
+    void materialize_player_position_locked(std::uint32_t id, std::uint64_t now);
+    void materialize_positions();
     std::optional<FixedTileMap> fixed_tiles_;
     mxh::game::KyungGongCatalog kyunggong_catalog_;
     std::unordered_map<std::uint32_t, PlayerInfo> connected_players_;

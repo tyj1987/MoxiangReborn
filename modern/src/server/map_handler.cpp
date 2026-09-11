@@ -411,6 +411,7 @@ std::optional<MapHandler::PlayerRuntimeSnapshot> MapHandler::player_runtime_snap
     snapshot.lifecycle = it->second.actor.lifecycle();
     snapshot.player_id = it->second.actor.state().player_id;
     snapshot.map_num = it->second.actor.state().map_num;
+    materialize_player_position_locked(player_id,movement_now());
     snapshot.pos_x = it->second.actor.state().pos_x;
     snapshot.pos_z = it->second.actor.state().pos_z;
     snapshot.quest_count = it->second.quest_log.quests.size();
@@ -472,14 +473,7 @@ bool MapHandler::set_player_money_for_test(std::uint32_t player_id, std::uint32_
 
 bool MapHandler::set_player_position_for_test(std::uint32_t player_id, float x, float z) {
     std::lock_guard<std::mutex> lock(players_mu_);
-    const auto it = connected_players_.find(player_id);
-    const auto runtime = player_runtimes_.find(player_id);
-    if (it == connected_players_.end() || runtime == player_runtimes_.end()) return false;
-    it->second.pos_x = x;
-    it->second.pos_z = z;
-    runtime->second.actor.state().pos_x = x;
-    runtime->second.actor.state().pos_z = z;
-    return true;
+    return reset_player_position_locked(player_id,x,z,movement_now());
 }
 
 std::uint32_t MapHandler::player_money_for_test(std::uint32_t player_id) noexcept {
@@ -1190,6 +1184,7 @@ void MapHandler::on_disconnect(mxh::net::ConnectionId id,
                                mxh::net::NetError reason) {
     std::cout << "[Map] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << ")\n";
+    materialize_positions();
     hsel_.on_disconnect(id);
     // Remove ALL players on this TCP connection (AgentServer multiplexes).
     std::vector<std::uint32_t> removed_pids;
@@ -1227,6 +1222,7 @@ void MapHandler::on_disconnect(mxh::net::ConnectionId id,
 
 void MapHandler::on_message(mxh::net::ConnectionId id,
                             const mxh::net::Message& msg) {
+    materialize_positions();
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
     std::cout << "[Map] on_message cat=" << mxh::proto::category_name(cat)
               << " proto=" << (int)msg.header.protocol
@@ -1407,6 +1403,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         std::lock_guard<std::mutex> lk(players_mu_);
         connected_players_[player_id] = pi;
         player_runtimes_[player_id] = std::move(runtime);
+        (void)reset_player_position_locked(player_id,pi.pos_x,pi.pos_z,movement_now());
     }
     const auto grants_claimed = claim_pending_item_grants(player_id);
     if (grants_claimed != 0) {
@@ -3284,6 +3281,7 @@ void MapHandler::broadcast_monster_move(
 }
 
 void MapHandler::tick_monster_ai() {
+    materialize_positions();
     // Called periodically from the server main loop or a timer.
     // Phase 10c P0: simple state machine.
     auto now_ms = static_cast<std::uint64_t>(

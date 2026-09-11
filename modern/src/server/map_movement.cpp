@@ -2,9 +2,55 @@
 #include "mxh/compat/mh_file_ex.hpp"
 #include <algorithm>
 #include <cstring>
+#include <chrono>
 #include <utility>
 
 namespace mxh::server {
+std::uint64_t MapHandler::movement_now() const {
+    if(movement_clock_) return movement_clock_();
+    return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+bool MapHandler::set_movement_clock_for_test(std::function<std::uint64_t()> clock) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    if(!clock || !connected_players_.empty()) return false;
+    movement_clock_=std::move(clock); return true;
+}
+bool MapHandler::reset_player_position_locked(std::uint32_t id,float x,float z,std::uint64_t now) {
+    const auto info=connected_players_.find(id); const auto runtime=player_runtimes_.find(id);
+    if(info==connected_players_.end() || runtime==player_runtimes_.end()) return false;
+    if(!runtime->second.movement.reset({x,z},now)) return false;
+    info->second.pos_x=x; info->second.pos_z=z;
+    runtime->second.actor.state().pos_x=x; runtime->second.actor.state().pos_z=z;
+    return true;
+}
+void MapHandler::materialize_player_position_locked(std::uint32_t id,std::uint64_t now) {
+    const auto info=connected_players_.find(id); const auto runtime=player_runtimes_.find(id);
+    if(info==connected_players_.end() || runtime==player_runtimes_.end()) return;
+    auto& motion=runtime->second.movement;
+    if(!motion.initialized()) {
+        if(!motion.reset({info->second.pos_x,info->second.pos_z},now)) return;
+    }
+    // Combat/message entry already materialized the position before changing
+    // life/lifecycle. Do not add elapsed travel after that state change.
+    if(!runtime->second.actor.is_active() || !runtime->second.actor.is_alive())
+        (void)motion.reset(motion.position(),now);
+    const auto position=motion.advance(now);
+    info->second.pos_x=position.x; info->second.pos_z=position.z;
+    runtime->second.actor.state().pos_x=position.x; runtime->second.actor.state().pos_z=position.z;
+}
+void MapHandler::materialize_positions() {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto now=movement_now();
+    for(const auto& [id,unused]:connected_players_) materialize_player_position_locked(id,now);
+}
+bool MapHandler::start_player_trajectory_for_test(std::uint32_t id,float x,float z,float speed) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto runtime=player_runtimes_.find(id); if(runtime==player_runtimes_.end()) return false;
+    const auto now=movement_now(); materialize_player_position_locked(id,now);
+    return runtime->second.movement.start({x,z},speed,now);
+}
+
 bool MapHandler::load_kyunggong_catalog(const std::filesystem::path& path, std::string& error) {
     error.clear();
     std::error_code ec;
@@ -64,9 +110,7 @@ void MapHandler::handle_move(mxh::net::ConnectionId id, const mxh::net::Message&
             accepted_x = static_cast<std::uint16_t>(std::clamp(info.pos_x, 0.0f, 65535.0f));
             accepted_z = static_cast<std::uint16_t>(std::clamp(info.pos_z, 0.0f, 65535.0f));
         } else {
-            info.pos_x = x; info.pos_z = z;
-            auto& state = ri->second.actor.state();
-            state.pos_x = x; state.pos_z = z;
+            (void)reset_player_position_locked(player,x,z,movement_now());
         }
     }
     if (rejected) {

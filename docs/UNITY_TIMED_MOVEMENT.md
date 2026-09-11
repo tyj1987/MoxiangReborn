@@ -4,10 +4,33 @@
 
 `modern/include/mxh/game/movement_timeline.hpp` and its `.cpp` provide a
 render-independent single-segment timeline, compiled in both the x86 game library
-and the independent x64 Unity core. This is not yet activated in MapHandler or
-client prediction. Existing Player movement probes still exercise the earlier
+and the independent x64 Unity core. MapHandler now owns and materializes each
+player's timeline, but network commands do not yet start timed trajectories and
+client prediction is not yet switched. Existing Player movement probes still exercise the earlier
 four-byte position behavior. Do not claim runtime speed authority from these
 unit tests or from the collision probe.
+
+The server now centralizes position reset/materialization under `players_mu_`,
+synchronizing PlayerInfo and actor.state. Network entry, monster tick and disconnect
+materialize players before work; snapshots materialize the requested player.
+GameIn, legacy position updates and the test setter reset trajectories. Dead or
+inactive actors freeze at the last materialized position instead of adding travel
+after the state change. Test-only clock/trajectory hooks prove interpolation,
+legacy Stop cancellation and a real PickupSyn range transition: rejection at
+600 units, acceptance at the existing 500-unit threshold, without a snapshot call
+to refresh state first. No network flag or production shortcut enables those hooks.
+
+The current entry hook updates every player's position per message. Its performance
+must be measured before large-population acceptance. Test clock callbacks run under
+the player mutex and must not reenter MapHandler. A separate preexisting skill-path
+risk remains: caster/target PlayerInfo pointers escape the mutex and may be invalid
+after disconnect/replacement. Fix that before starting production trajectories.
+
+Validation of position centralization: full x86 build and full CTest passed
+(exit 0); focused position/pickup regression tests passed. Real independent
+Player against the three local servers passed movement and collision regression,
+run `aa6440115db94b7da4e25aad6b45af5c`. This uses SQLite and the existing four-byte
+movement protocol; it does not prove timed client movement or MSSQL behavior.
 
 Source: `D:/MX/src/[Server]Map/CharMove.cpp:106-234` constructs direction from
 distance/speed and evaluates position using server milliseconds. Arrival uses
@@ -121,7 +144,7 @@ special_resources_resolved flag prevents not-yet-loaded data from masquerading
 as the original verified missing-resource cases. Caller must supply the original
 ordered active status list. Negative source formula results are preserved; the
 time module refuses negative speed, so runtime policy must report that outcome.
-Like the timeline, this resolver is not yet activated in MapHandler; complete
+This speed resolver is not yet activated in MapHandler; complete
 authoritative input loading and coordinated server/client semantics remain open.
 
 ### Actual lightness resource now loaded by MapServer
