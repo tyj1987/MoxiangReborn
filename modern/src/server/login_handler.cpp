@@ -545,7 +545,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     }
     std::cout << "[Login] legacy: credential lookup backend=" << db_.backend_name()
               << " query_ok=" << (q.ok() ? 1 : 0)
-              << " rows=" << rs.rows.size() << "\n";
+              << " rows=" << rs.rows.size() << std::endl;
     
     if (ok) {
         const auto user_idx = ensure_account_user_idx(db_, user_id);
