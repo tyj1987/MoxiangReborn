@@ -339,6 +339,9 @@ NPC projection/unprojection, and nearest-monster cursor targeting. Native Core
 entity-event extraction will use these existing tested layouts rather than a
 new inferred wire format.
 
+After entity add/remove event integration, the Unity combat/entity EditMode
+subset passed 6/6 again. Report: `unity_entity_editmode_latest.xml`.
+
 Unity now contains `ServerEntityRegistry`, which consumes the bounded
 MonsterAdd/NpcAdd events and instantiates only explicitly assigned audited
 prefabs, attaching the stable target ID and MapCoordinates projection. Missing
