@@ -71,6 +71,8 @@ namespace Moxiang.Editor
             var skillInput = terrain.AddComponent<SkillHotkeyController>();
             skillInput.connection = logic;
             skillInput.targetSelection = targetSelection;
+            var entityRegistry = terrain.AddComponent<ServerEntityRegistry>();
+            entityRegistry.connection = logic;
             logic.characters = new UnityEngine.UI.Button[5]; logic.characterLabels = new TMP_Text[5];
             for (int i = 0; i < 5; ++i) logic.characters[i] = Button(panel, "Empty slot", -474 - i * 32, out logic.characterLabels[i], 28);
             var note = Label(canvas.transform, "MAP 10 · GEOMETRY INSPECTION\nMaterials, collision and gameplay are not accepted yet.", 0, 0, 600, 70, 18);
