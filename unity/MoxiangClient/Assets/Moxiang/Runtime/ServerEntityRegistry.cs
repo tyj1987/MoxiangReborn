@@ -16,12 +16,23 @@ namespace Moxiang
         public float mapDepth = 102400f;
         private readonly Dictionary<uint, GameObject> entities = new Dictionary<uint, GameObject>();
         private readonly Dictionary<uint, GameObject> drops = new Dictionary<uint, GameObject>();
+        private ulong activeMapGeneration;
 
         private void OnEnable() { if (connection != null) connection.CoreEventReceived += OnCoreEvent; }
         private void OnDisable() { if (connection != null) connection.CoreEventReceived -= OnCoreEvent; }
 
         private void OnCoreEvent(CoreEvent e)
         {
+            if (e.state == CoreState.InGame && activeMapGeneration != 0 &&
+                e.mapGeneration != activeMapGeneration)
+            {
+                foreach (var entity in entities.Values) if (entity != null) Destroy(entity);
+                entities.Clear();
+                foreach (var drop in drops.Values) if (drop != null) Destroy(drop);
+                drops.Clear();
+            }
+            if (e.state == CoreState.InGame) activeMapGeneration = e.mapGeneration;
+            else if (e.type == NativeClient.EventDisconnected) activeMapGeneration = 0;
             if (e.type == NativeClient.EventDisconnected || e.state != CoreState.InGame)
             {
                 foreach (var entity in entities.Values) if (entity != null) Destroy(entity);
