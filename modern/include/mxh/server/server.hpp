@@ -288,6 +288,10 @@ class MapHandler final : public mxh::net::IConnectionHandler {
 public:
     bool install_fixed_tiles(FixedTileMap tiles);
     bool set_timed_movement_enabled(bool enabled);
+    // Atomically allocate the next nonzero movement epoch. Returns 0 only
+    // once the counter has wrapped past std::numeric_limits<uint64_t>::max();
+    // that outcome refuses any further allocation until the process restarts.
+    static std::uint64_t allocate_movement_epoch();
     bool load_kyunggong_catalog(const std::filesystem::path& path, std::string& error);
     std::optional<mxh::game::KyungGongInfo> kyunggong_info(std::uint16_t id);
     struct GroundDrop {

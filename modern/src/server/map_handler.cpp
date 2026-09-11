@@ -1418,6 +1418,11 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         std::lock_guard<std::mutex> lk(players_mu_);
         connected_players_[player_id] = pi;
         player_runtimes_[player_id] = std::move(runtime);
+        auto& new_runtime = player_runtimes_[player_id];
+        if (timed_movement_enabled_) {
+            new_runtime.movement_epoch = allocate_movement_epoch();
+            new_runtime.movement_last_publish = movement_now();
+        }
         (void)reset_player_position_locked(player_id,pi.pos_x,pi.pos_z,movement_now());
     }
     const auto grants_claimed = claim_pending_item_grants(player_id);

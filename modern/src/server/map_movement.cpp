@@ -9,15 +9,13 @@
 #include <utility>
 
 namespace mxh::server {
-namespace {
-std::uint64_t next_movement_epoch() {
+std::uint64_t MapHandler::allocate_movement_epoch() {
     static std::atomic<std::uint64_t> next{1};
     auto value=next.load();
     while (value != std::numeric_limits<std::uint64_t>::max()) {
         if (next.compare_exchange_weak(value,value+1)) return value;
     }
     return 0; // Never recycle an epoch after overflow.
-}
 }
 bool MapHandler::set_timed_movement_enabled(bool enabled) {
     std::lock_guard<std::mutex> lock(players_mu_);
@@ -77,7 +75,7 @@ void MapHandler::handle_timed_move(mxh::net::ConnectionId id,const mxh::net::Mes
         const auto now=movement_now(); materialize_player_position_locked(player,now);
         auto& rt=ri->second;
         if (hello) {
-            if (!rt.movement_epoch) rt.movement_epoch=next_movement_epoch();
+            if (!rt.movement_epoch) rt.movement_epoch=allocate_movement_epoch();
             response=movement_state_locked(player,wire::StateKind::Snapshot,now);
         } else {
             if (!rt.movement_epoch || command->epoch!=rt.movement_epoch ||
@@ -159,7 +157,7 @@ void MapHandler::materialize_positions() {
             materialize_player_position_locked(id,now);
             const bool transition=old_count!=rt.movement.remaining_route().size() || was_moving!=rt.movement.moving();
             const bool due=now>=rt.movement_last_publish && now-rt.movement_last_publish>=100;
-            if (rt.movement_epoch && (transition || ((was_moving || rt.movement.moving()) && due))) {
+            if (rt.movement_epoch && (transition || (rt.movement.moving() && due))) {
                 const auto state=movement_state_locked(id,mxh::proto::movement::StateKind::Snapshot,now);
                 if (state) pending.push_back({id,info.conn_id,*state});
             }
