@@ -15,11 +15,15 @@
 // or authorize a command: the server must bind epoch/sequence to the live player.
 namespace mxh::proto::movement {
 inline constexpr std::uint8_t version = 1;
+// Reserved modern-only Move subprotocols; original enum values remain unchanged.
+inline constexpr std::uint8_t hello_protocol = 128, command_protocol = 129;
+inline constexpr std::uint8_t owner_state_protocol = 130, observer_state_protocol = 131;
+inline constexpr std::array<std::uint8_t,8> hello_payload{'M','X','M','H',version,0,0,0};
 inline constexpr std::size_t max_points = 15;
 inline constexpr std::size_t command_header_size = 24;
 inline constexpr std::size_t state_header_size = 52;
 struct Point { std::uint16_t x = 0, z = 0; };
-enum class CommandKind : std::uint8_t { Route = 1, Stop = 2 };
+enum class CommandKind : std::uint8_t { Route = 1, Stop = 2, OneTarget = 3 };
 enum class StateKind : std::uint8_t { Started = 1, Stopped = 2, Corrected = 3, Snapshot = 4 };
 
 struct Command {
@@ -74,8 +78,9 @@ inline void read_points(std::span<const std::uint8_t> bytes,std::size_t offset,s
 
 inline bool valid(const Command& command) noexcept {
     if (!command.epoch || !command.sequence || !command.count || command.count>max_points) return false;
-    if (command.kind!=CommandKind::Route && command.kind!=CommandKind::Stop) return false;
-    if (command.kind==CommandKind::Stop && command.count!=1) return false;
+    if (command.kind!=CommandKind::Route && command.kind!=CommandKind::Stop &&
+        command.kind!=CommandKind::OneTarget) return false;
+    if (command.kind!=CommandKind::Route && command.count!=1) return false;
     return detail::valid_points({command.points.data(),command.count});
 }
 inline bool valid(const State& state) noexcept {

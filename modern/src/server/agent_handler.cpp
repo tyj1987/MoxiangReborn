@@ -958,7 +958,8 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
     // Phase 10c: Monster/Npc/UserConn(MonsterAdd/ObjectRemove) are also
     // broadcast to all clients since they use monster object_id, not char_id.
     const bool position_correction = cat == mxh::proto::Category::Move &&
-        msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction);
+        (msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction) ||
+         msg.header.protocol == mxh::proto::movement::owner_state_protocol);
     if ((cat == mxh::proto::Category::Move && !position_correction) ||
         cat == mxh::proto::Category::Chat ||
         cat == mxh::proto::Category::Monster ||

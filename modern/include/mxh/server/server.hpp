@@ -20,6 +20,7 @@
 #include "mxh/server/fixed_tile_map.hpp"
 #include "mxh/game/kyunggong_catalog.hpp"
 #include "mxh/game/movement_timeline.hpp"
+#include "mxh/proto/movement_wire.hpp"
 #include "mxh/server/party_manager.hpp"
 #include "mxh/server/guild_manager.hpp"
 #include "mxh/server/drop_item.hpp"
@@ -286,6 +287,7 @@ private:
 class MapHandler final : public mxh::net::IConnectionHandler {
 public:
     bool install_fixed_tiles(FixedTileMap tiles);
+    bool set_timed_movement_enabled(bool enabled);
     bool load_kyunggong_catalog(const std::filesystem::path& path, std::string& error);
     std::optional<mxh::game::KyungGongInfo> kyunggong_info(std::uint16_t id);
     struct GroundDrop {
@@ -463,6 +465,8 @@ public:
     struct PlayerRuntime {
         Player actor;
         mxh::game::MovementTimeline movement;
+        std::uint64_t movement_epoch = 0, movement_command_sequence = 0;
+        std::uint64_t movement_state_sequence = 0, movement_last_publish = 0;
         QuestLog quest_log;
         PetManagerState pet_manager;
         TitanManagerState titan_manager;
@@ -634,6 +638,12 @@ private:
     bool reset_player_position_locked(std::uint32_t id, float x, float z, std::uint64_t now);
     void materialize_player_position_locked(std::uint32_t id, std::uint64_t now);
     void materialize_positions();
+    void handle_timed_move(mxh::net::ConnectionId id, const mxh::net::Message& message);
+    std::optional<mxh::proto::movement::State> movement_state_locked(
+        std::uint32_t player, mxh::proto::movement::StateKind kind, std::uint64_t now);
+    void send_movement_state(std::uint32_t player, std::uint64_t connection,
+        const mxh::proto::movement::State& state, bool observers);
+    bool timed_movement_enabled_ = false;
     std::optional<FixedTileMap> fixed_tiles_;
     mxh::game::KyungGongCatalog kyunggong_catalog_;
     std::unordered_map<std::uint32_t, PlayerInfo> connected_players_;

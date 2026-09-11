@@ -58,6 +58,7 @@ struct Args {
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
     bool          allow_dev_fallbacks = false;
+    bool          experimental_timed_movement = false;
     std::uint32_t dev_initial_money = 0;
 };
 
@@ -116,6 +117,8 @@ Args parse_args(int argc, char** argv) {
             a.dev_stub_caster = true;  // M3 side-by-side only
         else if (s == "--allow-dev-fallbacks")
             a.allow_dev_fallbacks = true;
+        else if (s == "--experimental-timed-movement")
+            a.experimental_timed_movement = true;
         else if (s == "--dev-initial-money" && i + 1 < argc)
             a.dev_initial_money = parse_u32_option(argv[++i], "--dev-initial-money");
         else if (s == "--help") {
@@ -128,6 +131,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
                       << "  --server-resource-root DIR  legacy Server resource directory\n"
                       << "  --resource-profile ID  playdh-current or sworking-2008-reference\n"
+                      << "  --experimental-timed-movement  enable negotiated ordinary-run prototype\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
                       << "  --dev-initial-money N  test-only starting money fixture\n"
@@ -315,6 +319,10 @@ int main(int argc, char** argv) {
     std::string kyunggong_error;
     if (!handler.load_kyunggong_catalog(resource_base / "KyungGongInfo.bin", kyunggong_error)) {
         std::cerr << "FATAL: required lightness resource: " << kyunggong_error << "\n";
+        return 1;
+    }
+    if (!handler.set_timed_movement_enabled(args.experimental_timed_movement)) {
+        std::cerr << "FATAL: could not configure timed movement\n";
         return 1;
     }
 

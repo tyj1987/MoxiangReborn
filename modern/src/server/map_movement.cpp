@@ -1,11 +1,117 @@
 #include "mxh/server/server.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
+#include "mxh/game/player_move_speed.hpp"
+#include <atomic>
+#include <limits>
 #include <algorithm>
 #include <cstring>
 #include <chrono>
 #include <utility>
 
 namespace mxh::server {
+namespace {
+std::uint64_t next_movement_epoch() {
+    static std::atomic<std::uint64_t> next{1};
+    auto value=next.load();
+    while (value != std::numeric_limits<std::uint64_t>::max()) {
+        if (next.compare_exchange_weak(value,value+1)) return value;
+    }
+    return 0; // Never recycle an epoch after overflow.
+}
+}
+bool MapHandler::set_timed_movement_enabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    if (!connected_players_.empty() || (enabled && !fixed_tiles_)) return false;
+    timed_movement_enabled_=enabled; return true;
+}
+std::optional<mxh::proto::movement::State> MapHandler::movement_state_locked(
+    std::uint32_t player,mxh::proto::movement::StateKind kind,std::uint64_t now) {
+    auto& rt=player_runtimes_.at(player);
+    if (!rt.movement_epoch || rt.movement_state_sequence==std::numeric_limits<std::uint64_t>::max()) return std::nullopt;
+    mxh::proto::movement::State state;
+    state.kind=kind; state.epoch=rt.movement_epoch;
+    state.command_sequence=rt.movement_command_sequence;
+    state.state_sequence=++rt.movement_state_sequence; state.server_time_ms=now;
+    state.x=rt.movement.position().x; state.z=rt.movement.position().z;
+    if (rt.movement.moving()) {
+        const auto route=rt.movement.remaining_route();
+        state.count=static_cast<std::uint8_t>(route.size()); state.speed=rt.movement.speed();
+        for (std::size_t i=0;i<route.size();++i)
+            state.points[i]={static_cast<std::uint16_t>(route[i].x),static_cast<std::uint16_t>(route[i].z)};
+    }
+    rt.movement_last_publish=now;
+    return state;
+}
+void MapHandler::send_movement_state(std::uint32_t player,std::uint64_t connection,
+    const mxh::proto::movement::State& state,bool observers) {
+    auto payload=mxh::proto::movement::encode(state); if (!payload) return;
+    mxh::net::Message message;
+    message.header.category=static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    message.header.protocol=mxh::proto::movement::owner_state_protocol;
+    message.header.object_id=player; message.payload=std::move(*payload);
+    reply_(mxh::net::ConnectionId{connection},message);
+    if (observers) {
+        message.header.protocol=mxh::proto::movement::observer_state_protocol;
+        if (state.kind==mxh::proto::movement::StateKind::Corrected) {
+            auto visible=state; visible.kind=mxh::proto::movement::StateKind::Snapshot;
+            message.payload=*mxh::proto::movement::encode(visible);
+        }
+        broadcast_except(player,message);
+    }
+}
+void MapHandler::handle_timed_move(mxh::net::ConnectionId id,const mxh::net::Message& message) {
+    namespace wire=mxh::proto::movement;
+    const bool hello=message.header.protocol==wire::hello_protocol;
+    if (hello && (message.payload.size()!=wire::hello_payload.size() ||
+        !std::equal(message.payload.begin(),message.payload.end(),wire::hello_payload.begin()))) return;
+    const auto command=hello?std::optional<wire::Command>{}:wire::decode_command(message.payload);
+    if (!hello && !command) return;
+    std::optional<wire::State> response;
+    bool observers=false;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        if (!timed_movement_enabled_) return;
+        const auto player=message.header.object_id;
+        const auto pi=connected_players_.find(player); const auto ri=player_runtimes_.find(player);
+        if (pi==connected_players_.end() || ri==player_runtimes_.end() || pi->second.conn_id!=id.value) return;
+        const auto now=movement_now(); materialize_player_position_locked(player,now);
+        auto& rt=ri->second;
+        if (hello) {
+            if (!rt.movement_epoch) rt.movement_epoch=next_movement_epoch();
+            response=movement_state_locked(player,wire::StateKind::Snapshot,now);
+        } else {
+            if (!rt.movement_epoch || command->epoch!=rt.movement_epoch ||
+                command->sequence<=rt.movement_command_sequence ||
+                rt.movement_state_sequence==std::numeric_limits<std::uint64_t>::max()) return;
+            rt.movement_command_sequence=command->sequence;
+            bool accepted=rt.actor.is_active() && rt.actor.is_alive() && fixed_tiles_.has_value();
+            auto from=rt.movement.position();
+            std::array<mxh::game::MovementPoint,wire::max_points> route{};
+            for (std::size_t i=0;i<command->count;++i) {
+                const auto p=command->points[i]; route[i]={float(p.x),float(p.z)};
+                if (accepted && ((command->kind==wire::CommandKind::OneTarget && fixed_tiles_->blocked(p.x,p.z)) ||
+                    fixed_tiles_->trace(from.x,from.z,p.x,p.z).collision)) accepted=false;
+                from=route[i];
+            }
+            auto kind=wire::StateKind::Corrected;
+            if (accepted && command->kind==wire::CommandKind::Stop) {
+                accepted=rt.movement.stop(route[0],now)==mxh::game::MovementStopResult::Accepted;
+                if (accepted) kind=wire::StateKind::Stopped;
+            } else if (accepted) {
+                // Experimental baseline: original InitMove starts in ordinary Run.
+                // Runtime lightness/Titan/status mode integration remains gated work.
+                const auto speed=mxh::game::player_move_speed(mxh::game::PlayerMoveSpeedInput{});
+                accepted=speed && rt.movement.start_route({route.data(),command->count},*speed,now);
+                if (accepted) kind=wire::StateKind::Started;
+            }
+            if (!accepted) rt.movement.halt(now);
+            materialize_player_position_locked(player,now);
+            response=movement_state_locked(player,kind,now);
+            observers=true; // Observers must also see an authoritative halt after rejection.
+        }
+    }
+    if (response) send_movement_state(message.header.object_id,id.value,*response,observers);
+}
 std::uint64_t MapHandler::movement_now() const {
     if(movement_clock_) return movement_clock_();
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -40,9 +146,26 @@ void MapHandler::materialize_player_position_locked(std::uint32_t id,std::uint64
     runtime->second.actor.state().pos_x=position.x; runtime->second.actor.state().pos_z=position.z;
 }
 void MapHandler::materialize_positions() {
-    std::lock_guard<std::mutex> lock(players_mu_);
-    const auto now=movement_now();
-    for(const auto& [id,unused]:connected_players_) materialize_player_position_locked(id,now);
+    struct Pending { std::uint32_t player; std::uint64_t connection; mxh::proto::movement::State state; };
+    std::vector<Pending> pending;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto now=movement_now();
+        for(const auto& [id,info]:connected_players_) {
+            const auto ri=player_runtimes_.find(id); if (ri==player_runtimes_.end()) continue;
+            auto& rt=ri->second;
+            const bool was_moving=rt.movement.moving();
+            const auto old_count=rt.movement.remaining_route().size();
+            materialize_player_position_locked(id,now);
+            const bool transition=old_count!=rt.movement.remaining_route().size() || was_moving!=rt.movement.moving();
+            const bool due=now>=rt.movement_last_publish && now-rt.movement_last_publish>=100;
+            if (rt.movement_epoch && (transition || ((was_moving || rt.movement.moving()) && due))) {
+                const auto state=movement_state_locked(id,mxh::proto::movement::StateKind::Snapshot,now);
+                if (state) pending.push_back({id,info.conn_id,*state});
+            }
+        }
+    }
+    for (const auto& item:pending) send_movement_state(item.player,item.connection,item.state,true);
 }
 bool MapHandler::start_player_trajectory_for_test(std::uint32_t id,float x,float z,float speed) {
     std::lock_guard<std::mutex> lock(players_mu_);
@@ -79,6 +202,10 @@ bool MapHandler::install_fixed_tiles(FixedTileMap tiles) {
 }
 
 void MapHandler::handle_move(mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+    if (msg.header.protocol==mxh::proto::movement::hello_protocol ||
+        msg.header.protocol==mxh::proto::movement::command_protocol) {
+        handle_timed_move(id,msg); return;
+    }
     const auto protocol = static_cast<mxh::proto::MoveProtocol>(msg.header.protocol);
     // Warp/Correction/Init are server state, never client movement authority.
     if (protocol != mxh::proto::MoveProtocol::OneTarget &&
@@ -94,6 +221,7 @@ void MapHandler::handle_move(mxh::net::ConnectionId id, const mxh::net::Message&
         const auto ri = player_runtimes_.find(player);
         if (pi == connected_players_.end() || ri == player_runtimes_.end() ||
             pi->second.conn_id != id.value) return;
+        if (ri->second.movement_epoch) return; // No legacy teleport fallback after negotiation.
         auto& info = pi->second;
         std::uint16_t x = 0, z = 0;
         std::memcpy(&x, msg.payload.data(), 2);
