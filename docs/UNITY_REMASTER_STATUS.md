@@ -266,6 +266,11 @@ completed successfully: 27 total, 25 passed, 0 failed, 2 skipped. Report:
 `unity_editmode_results_latest.xml`. The skipped cases remain environment or
 runtime-dependent and do not constitute Player combat acceptance.
 
+Combat input EditMode subset subsequently passed 6/6 (target selection, skill
+hotkeys and Map10 pointer input), with report `unity_combat_editmode.xml`.
+This verifies Unity-side request gating and coordinate/identity handling only;
+it does not replace server-backed hit, damage, or two-player acceptance.
+
 ## 2026-09-12 Map10 combat input increment
 
 The Unity remaster now exposes a server-authoritative skill command through the
