@@ -90,3 +90,12 @@ deadline.
 - Drive the rest of the in-game flow (chat, move, combat) once the
   visual client is wired. The modern native core has the wire paths
   ready; only the visual + input side is missing.
+
+## Independent MSSQL E2E evidence (2026-09-12)
+
+The rebuilt standalone client E2E also passed all five stages against the
+explicit local MSSQL instance with HSEL enabled: login, character list,
+character creation, relist, and Map10 GameIn. It reported `LoginAck user_idx=7`,
+created/relisted `player_id=100006`, and received `GameInAck` with `map=10`,
+`life=100/100`, and 228 initial monsters. This is automated evidence;
+human acceptance, performance, and long-run stability remain open.
