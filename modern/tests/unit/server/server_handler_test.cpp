@@ -3982,4 +3982,37 @@ TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
 }
 
+TEST(MapHandlerTest, StatsReportsConnectedDrainingAndTimedMovement) {
+    test::ReplySpy reply;
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    mxh::server::MapHandler handler(*db, /*map_num=*/12,
+                                    test::make_reply_spy(reply));
+    // set_timed_movement_enabled requires a non-empty FixedTileMap; install
+    // the smallest valid one (2x2) so the toggle succeeds. Format: 4-byte
+    // little-endian width, 4-byte height, then width*height*2 bytes of
+    // WORD attributes (each cell gets two bytes: flag + value).
+    std::vector<std::uint8_t> raw(8 + 2u * 2u * 2u, 0);
+    raw[0] = 2; raw[4] = 2;  // width=2, height=2 (LE)
+    std::string err;
+    auto tiles = mxh::server::FixedTileMap::decode(raw, err);
+    ASSERT_TRUE(tiles.has_value()) << err;
+    ASSERT_TRUE(handler.install_fixed_tiles(std::move(*tiles)));
+    ASSERT_TRUE(handler.set_timed_movement_enabled(true));
+
+    // Empty handler reports zero.
+    const auto initial = handler.stats();
+    EXPECT_EQ(initial.map_num, 12u);
+    EXPECT_EQ(initial.connected_players, 0u);
+    EXPECT_EQ(initial.timed_movement_sessions, 0u);
+    EXPECT_FALSE(initial.draining);
+
+    // Marking draining flips the flag in stats.
+    handler.prepare_for_shutdown();
+    EXPECT_TRUE(handler.stats().draining);
+}
+
 }  // namespace mxh::server::test

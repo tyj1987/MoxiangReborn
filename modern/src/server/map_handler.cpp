@@ -3376,6 +3376,19 @@ void MapHandler::broadcast_monster_move(
     }
 }
 
+MapHandler::Stats MapHandler::stats() const {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    Stats s;
+    s.map_num = map_num_;
+    s.draining = draining_.load();
+    s.connected_players = connected_players_.size();
+    for (const auto& [pid, rt] : player_runtimes_) {
+        (void)pid;
+        if (rt.movement_epoch != 0) ++s.timed_movement_sessions;
+    }
+    return s;
+}
+
 void MapHandler::tick_monster_ai() {
     materialize_positions();
     // Called periodically from the server main loop or a timer.

@@ -58,6 +58,7 @@ struct Args {
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
     bool          allow_dev_fallbacks = false;
+    std::uint32_t stats_interval_seconds = 60;  // 0 disables the periodic dump
     bool          experimental_timed_movement = false;
     std::uint32_t dev_initial_money = 0;
 };
@@ -120,6 +121,8 @@ Args parse_args(int argc, char** argv) {
             a.dev_stub_caster = true;  // M3 side-by-side only
         else if (s == "--allow-dev-fallbacks")
             a.allow_dev_fallbacks = true;
+        else if (s == "--stats-interval" && i + 1 < argc)
+            a.stats_interval_seconds = static_cast<std::uint32_t>(std::stoul(argv[++i]));
         else if (s == "--experimental-timed-movement")
             a.experimental_timed_movement = true;
         else if (s == "--dev-initial-money" && i + 1 < argc)
@@ -137,6 +140,7 @@ Args parse_args(int argc, char** argv) {
                       << "  --experimental-timed-movement  enable negotiated ordinary-run prototype\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
+                      << "  --stats-interval N   periodic health dump interval (s); 0 disables\n"
                       << "  --dev-initial-money N  test-only starting money fixture\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
@@ -406,12 +410,24 @@ int main(int argc, char** argv) {
 
     // 3. Main loop: drain reply queue + sleep.
     auto last_ai_tick = std::chrono::steady_clock::now();
+    auto last_stats_log = std::chrono::steady_clock::now();
+    auto stats_interval = std::chrono::seconds(args.stats_interval_seconds > 0
+        ? args.stats_interval_seconds : 60);
     while (g_running.load()) {
         queue->drain_to(server);
         const auto now = std::chrono::steady_clock::now();
         if (now - last_ai_tick >= std::chrono::milliseconds(100)) {
             handler.tick_monster_ai();
             last_ai_tick = now;
+        }
+        if (now - last_stats_log >= stats_interval) {
+            const auto s = handler.stats();
+            std::cout << "[Map] stats map=" << s.map_num
+                      << " players=" << s.connected_players
+                      << " timed_movement=" << s.timed_movement_sessions
+                      << " draining=" << (s.draining ? "yes" : "no")
+                      << "\n";
+            last_stats_log = now;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
