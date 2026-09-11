@@ -96,6 +96,8 @@ typedef enum mxh_unity_event_type {
        argument1=current shield. */
     ,MXH_UNITY_EVENT_ENTITY_SHIELD = 16
     ,MXH_UNITY_EVENT_GROUND_DROP = 17
+    /* PickupAck: argument0=drop object ID, argument1=item ID; text=count. */
+    ,MXH_UNITY_EVENT_PICKUP_CONFIRMED = 18
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {

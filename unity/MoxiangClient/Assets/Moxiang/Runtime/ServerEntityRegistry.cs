@@ -58,6 +58,12 @@ namespace Moxiang
                 drops[e.argument0] = dropInstance;
                 return;
             }
+            if (e.type == NativeClient.EventPickupConfirmed)
+            {
+                if (drops.TryGetValue(e.argument0, out var picked)) Destroy(picked);
+                drops.Remove(e.argument0);
+                return;
+            }
             if (e.type == NativeClient.EventEntityLife)
             {
                 if (entities.TryGetValue(e.argument0, out var live) && live != null)
