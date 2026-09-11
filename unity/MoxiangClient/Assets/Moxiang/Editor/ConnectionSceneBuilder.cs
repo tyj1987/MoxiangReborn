@@ -52,8 +52,9 @@ namespace Moxiang.Editor
             panel.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(0.025f, 0.04f, 0.06f, 0.94f);
             var logic = panel.gameObject.AddComponent<ConnectionPanel>();
             var inputController = terrain.AddComponent<Map10InputController>();
-            inputController.mapCollider = terrain.AddComponent<MeshCollider>();
-            inputController.mapCollider.sharedMesh = heightfield.inspectionMesh;
+            var mapCollider = terrain.AddComponent<MeshCollider>();
+            inputController.mapCollider = mapCollider;
+            mapCollider.sharedMesh = heightfield.inspectionMesh;
             Label(panel, "MOXIANG", 24, -20, 350, 40, 30);
             Label(panel, "Connection validation / Development build", 24, -64, 350, 32, 15);
             logic.host = Input(panel, "Host", "127.0.0.1", -110, false);
