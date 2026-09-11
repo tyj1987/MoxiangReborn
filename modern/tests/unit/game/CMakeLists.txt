@@ -14,6 +14,7 @@ add_executable(mxh_game_tests
     effect_timeline_test.cpp
     movement_timeline_test.cpp
     player_move_speed_test.cpp
+    kyunggong_catalog_test.cpp
 )
 target_include_directories(mxh_game_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
@@ -23,6 +24,7 @@ target_link_libraries(mxh_game_tests
     mxh_game
     gtest_main
 )
+target_compile_definitions(mxh_game_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 if(MSVC)
     target_compile_options(mxh_game_tests PRIVATE /W3 /utf-8)
 endif()

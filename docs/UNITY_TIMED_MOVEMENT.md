@@ -123,6 +123,48 @@ ordered active status list. Negative source formula results are preserved; the
 time module refuses negative speed, so runtime policy must report that outcome.
 Like the timeline, this resolver is not yet activated in MapHandler; complete
 authoritative input loading and coordinated server/client semantics remain open.
+
+### Actual lightness resource now loaded by MapServer
+
+The original `KyungGongManager.cpp:32-53` loads `Resource/KyungGongInfo.bin`;
+`KyungGongInfo.cpp:22-34` reads nine tokens in order: id, name, MP cost, move
+type, speed, change time, start/ongoing/end effects. This is packed text, not a
+fixed-width binary record. `KyungGongCatalog` now parses decoded MHFile data into
+typed records, preserves source-name bytes and maps the original effect token
+`-1` to WORD 65535. It rejects truncation, duplicate ids, extra incomplete records,
+numeric suffixes/overflow, nonfinite or negative speed, embedded NUL and oversized
+input. Zero speed remains expressible because original CharMove.cpp:110-115
+explicitly ends movement for that value; parsed data is not movement permission.
+
+MapServer startup requires the actual catalog before listening. Decode/parse
+failure does not replace an existing catalog, and replacement is refused while
+players are connected. The canonical 208-byte source is unchanged:
+SHA-256 `AF3DBC8AB600325ED171AF68506B33ADBB97CF41FA78BE253E1E3BCDB6C1064E`.
+
+| ID | Speed | MP cost | Move type | Change time |
+|---|---:|---:|---:|---:|
+| 2600 | 600 | 5 | 1 | 2500 |
+| 2601 | 750 | 7 | 1 | 2500 |
+| 2602 | 900 | 10 | 2 | 2000 |
+| 2603 | 1050 | 13 | 2 | 1500 |
+| 2604 | 1200 | 15 | 3 | 1000 |
+
+All five start effects are 65535. The three catalog tests and MapHandler load/
+session test pass. Real Player/SQLite/HSEL three-server regression
+`4d537f92f9ac429eb34c29127c883dc8` passed after mandatory catalog loading,
+including the existing movement/collision probe. That run proves startup and
+existing behavior, not activation of lightness or timed authority.
+Final full x86 build and CTest passed (exit 0), including the explicit original
+zero-speed representation test. Original resource bytes were not changed.
+
+Remaining mode work: Move proto 3/4 (Walk/Run) and proto 5 (KyungGongSyn) are
+currently ignored by MapHandler. Original proto 5 uses MSG_DWORD2 with KG id in
+dwData2, not the four-byte coordinate message. CharMove.cpp:287-323 checks ability
+201/204/207, learned level, AbilityInfo and character level, then updates mode and
+MP timing; these gates and the MP consumption loop still need migration before
+using the catalog to enable lightness. Category 23 is a grade notification, not
+the Move-mode request. Position materialization and client semantic cutover
+listed above remain required.
 Titan ordinary Walk uses constant 300 without requiring the resource-ready flag;
 only resource-dependent branches require it. Final x64 core tests: 55/55 passed,
 including all five speed tests. Read-only source review found no remaining

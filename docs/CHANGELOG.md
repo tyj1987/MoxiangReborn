@@ -4,6 +4,11 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added typed original lightness resource catalog and mandatory MapServer startup
+  load. Five real records, encoded names, MP costs and effect sentinels are
+  preserved; malformed/duplicate/truncated data and live replacement are rejected.
+  Real three-server Player regression `4d537f92f9ac429eb34c29127c883dc8` passed.
+  Ability/mode/MP gates and time-based runtime activation remain incomplete.
 - Ported player movement speed selection for walk/run, lightness bonuses and
   Titan modes, including source-defined missing-resource returns and ordered
   status overrides. Shared x86/x64 tests lock these formulas. Runtime wiring is

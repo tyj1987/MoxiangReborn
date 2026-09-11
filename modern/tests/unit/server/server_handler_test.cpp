@@ -2307,6 +2307,27 @@ static mxh::server::FixedTileMap clear_movement_fixture() {
     return *mxh::server::FixedTileMap::decode(bytes, error);
 }
 
+TEST(MapHandlerTest, LightnessCatalogLoadsOriginalResourceAndCannotChangeDuringSession) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    MapHandler handler(db,10,make_reply_spy(reply));
+    const auto path=std::filesystem::path(MXH_SOURCE_DIR)/"data/PlayDH/Resource/KyungGongInfo.bin";
+    std::string error;
+    ASSERT_TRUE(handler.load_kyunggong_catalog(path,error))<<error;
+    ASSERT_TRUE(handler.kyunggong_info(2602));
+    EXPECT_FLOAT_EQ(handler.kyunggong_info(2602)->speed,900);
+    EXPECT_FALSE(handler.load_kyunggong_catalog(path.parent_path()/"missing-lightness-fixture.bin",error));
+    EXPECT_FLOAT_EQ(handler.kyunggong_info(2602)->speed,900);
+    mxh::net::Message enter;
+    enter.header.object_id=123;
+    enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55),enter);
+    EXPECT_FALSE(handler.load_kyunggong_catalog(path,error));
+    EXPECT_EQ(error,"cannot replace lightness data with active players");
+    EXPECT_FLOAT_EQ(handler.kyunggong_info(2602)->speed,900);
+}
+
 TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
     MockDbAdapter db;
     std::vector<mxh::net::Message> replies;

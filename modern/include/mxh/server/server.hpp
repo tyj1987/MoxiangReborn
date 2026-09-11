@@ -18,6 +18,7 @@
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/server/player.hpp"
 #include "mxh/server/fixed_tile_map.hpp"
+#include "mxh/game/kyunggong_catalog.hpp"
 #include "mxh/server/party_manager.hpp"
 #include "mxh/server/guild_manager.hpp"
 #include "mxh/server/drop_item.hpp"
@@ -284,6 +285,8 @@ private:
 class MapHandler final : public mxh::net::IConnectionHandler {
 public:
     bool install_fixed_tiles(FixedTileMap tiles);
+    bool load_kyunggong_catalog(const std::filesystem::path& path, std::string& error);
+    std::optional<mxh::game::KyungGongInfo> kyunggong_info(std::uint16_t id);
     struct GroundDrop {
         std::uint32_t object_id = 0;
         std::uint32_t source_monster_id = 0;
@@ -618,6 +621,7 @@ private:
     // through a single TCP connection to MapServer.
     std::mutex players_mu_;
     std::optional<FixedTileMap> fixed_tiles_;
+    mxh::game::KyungGongCatalog kyunggong_catalog_;
     std::unordered_map<std::uint32_t, PlayerInfo> connected_players_;
     std::unordered_map<std::uint32_t, PlayerRuntime> player_runtimes_;
     // Live party state for the current map process. Persistence and cross-map

@@ -1,9 +1,30 @@
 #include "mxh/server/server.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
 #include <algorithm>
 #include <cstring>
 #include <utility>
 
 namespace mxh::server {
+bool MapHandler::load_kyunggong_catalog(const std::filesystem::path& path, std::string& error) {
+    error.clear();
+    std::error_code ec;
+    const auto bytes=std::filesystem::file_size(path,ec);
+    if(ec || bytes>256*1024) { error="lightness resource missing or oversized"; return false; }
+    auto decoded=mxh::compat::read_mh_bin(path);
+    if(!decoded) { error="lightness resource could not be decoded"; return false; }
+    auto catalog=mxh::game::KyungGongCatalog::parse(
+        std::string_view(reinterpret_cast<const char*>(decoded.value.data.data()),decoded.value.data.size()),error);
+    if(!catalog) return false;
+    std::lock_guard<std::mutex> lock(players_mu_);
+    if(!connected_players_.empty()) { error="cannot replace lightness data with active players"; return false; }
+    kyunggong_catalog_=std::move(*catalog); return true;
+}
+std::optional<mxh::game::KyungGongInfo> MapHandler::kyunggong_info(std::uint16_t id) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto* row=kyunggong_catalog_.find(id);
+    return row?std::optional<mxh::game::KyungGongInfo>(*row):std::nullopt;
+}
+
 bool MapHandler::install_fixed_tiles(FixedTileMap tiles) {
     std::lock_guard<std::mutex> lock(players_mu_);
     if (!tiles.width() || !tiles.height() || !connected_players_.empty()) return false;

@@ -312,6 +312,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    std::string kyunggong_error;
+    if (!handler.load_kyunggong_catalog(resource_base / "KyungGongInfo.bin", kyunggong_error)) {
+        std::cerr << "FATAL: required lightness resource: " << kyunggong_error << "\n";
+        return 1;
+    }
+
     // Load the real game data tables when a PlayDH root is supplied.
     // Falls back to hardcoded tables / empty catalogs otherwise so the
     // existing e2e and side-by-side paths keep their deterministic traces.
