@@ -407,3 +407,10 @@ A fresh Development Player three-server movement smoke on 2026-09-12 passed
 with run ID `48e4b38117d34ab9ac16859dd0faab32`. It exercised the real modern
 SQLite/HSEL path, two native sessions, Map10 collision data and server
 correction. This is regression evidence only; human acceptance remains open.
+
+The 2026-09-12 resource gate was rerun against canonical `modern/data/PlayDH`.
+The parser coverage audit passed 600/600 files (598 parsed without sidecar
+material and 2 present source files), while the profile manifest still reports
+19,682 logical assets, 53 conflicts, 59 unresolved selections and 108 release
+blockers. Release remains closed until each selection is resolved and the
+visual sample is accepted.
