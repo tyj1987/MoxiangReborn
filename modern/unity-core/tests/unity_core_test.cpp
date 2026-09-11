@@ -634,6 +634,27 @@ TEST(UnityCoreAbi, UnsupportedCommandDoesNotSendPacket) {
     EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
 }
 
+TEST(UnityCoreAbi, SkillCommandRejectsIdleAndMalformedPayload) {
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    std::uint32_t required = 0;
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+    mxh_unity_command head{};
+    head.struct_size = sizeof(head);
+    head.type = MXH_UNITY_COMMAND_SKILL;
+    head.argument0 = 1;
+    head.argument1 = 2;
+    head.expected_session_generation = snapshot.session_generation;
+    head.expected_map_generation = snapshot.map_generation;
+    std::uint8_t payload[MXH_UNITY_SKILL_PAYLOAD_SIZE]{};
+    mxh_unity_extended_command command{head, payload, MXH_UNITY_SKILL_PAYLOAD_SIZE};
+    EXPECT_EQ(mxh_unity_submit_extended_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command.payload_size = 4;
+    EXPECT_EQ(mxh_unity_submit_extended_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
+}
+
 TEST(UnityCoreNetwork, PlaintextRealSocketLoginThroughGameIn) {
     run_protocol_round_trip(false, 0, "墨香", "墨香");
 }
