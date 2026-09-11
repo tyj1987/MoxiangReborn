@@ -26,6 +26,7 @@ add_library(mxh_game STATIC
     effect_catalog.cpp
     effect_timeline.cpp
     movement_timeline.cpp
+    player_move_speed.cpp
 )
 target_include_directories(mxh_game PUBLIC
     ${CMAKE_SOURCE_DIR}/include

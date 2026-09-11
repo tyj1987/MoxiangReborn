@@ -105,7 +105,30 @@ Constants verified at CommonGameDefine.h:936-939. Preserve explicit original
 fallbacks; distinguish a verified source-defined missing-grade case from a
 not-yet-loaded modern runtime dependency. Also inspect the base GetMoveSpeed
 wrapper and movement state effects before treating DoGetMoveSpeed as the final
-authoritative speed. That wrapper has not yet been located in this increment.
+authoritative speed.
+
+The wrapper is now located: Object.h:209-217 uses GET_STATUS over the ordered
+status list; Status.h:12 computes `(Ori + Up) - Down`.
+SkillObjectAttachUnit_MoveSpeed.cpp:42-47 assigns each nonzero percentage to its
+direction's accumulator, replacing prior Up or Down. It neither sums percentages
+nor compounds the already modified speed. Zero leaves the previous accumulator.
+
+`game/player_move_speed.hpp/.cpp` now ports these branches and ordered effects
+into both native architectures. Five tests cover plain modes, all lightness
+bonuses, Titan grade selection/fallback, unresolved inputs, ordered status
+overwrites, negative source results and invalid floating-point data. An explicit
+special_resources_resolved flag prevents not-yet-loaded data from masquerading
+as the original verified missing-resource cases. Caller must supply the original
+ordered active status list. Negative source formula results are preserved; the
+time module refuses negative speed, so runtime policy must report that outcome.
+Like the timeline, this resolver is not yet activated in MapHandler; complete
+authoritative input loading and coordinated server/client semantics remain open.
+Titan ordinary Walk uses constant 300 without requiring the resource-ready flag;
+only resource-dependent branches require it. Final x64 core tests: 55/55 passed,
+including all five speed tests. Read-only source review found no remaining
+branch-formula discrepancy after rechecking the resource-ready gate.
+Final x86 full build and full CTest also passed (exit 0). Neither the new speed
+resolver nor the timeline is staged into a claimed runtime-authority release.
 
 Validation for this increment: final x64 build/core CTest 50/50 passed; final
 x86 full build passed; full x86 CTest with `--output-on-failure -j 8 --quiet`

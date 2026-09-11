@@ -13,6 +13,7 @@ add_executable(mxh_game_tests
     effect_catalog_test.cpp
     effect_timeline_test.cpp
     movement_timeline_test.cpp
+    player_move_speed_test.cpp
 )
 target_include_directories(mxh_game_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include

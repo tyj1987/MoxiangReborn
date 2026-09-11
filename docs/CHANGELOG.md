@@ -4,6 +4,10 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Ported player movement speed selection for walk/run, lightness bonuses and
+  Titan modes, including source-defined missing-resource returns and ordered
+  status overrides. Shared x86/x64 tests lock these formulas. Runtime wiring is
+  still pending; this does not claim movement-speed authority in the Player.
 - Added shared time-based movement math from original CharMove: interpolation,
   strict arrival boundary, retargeting and server-relative Stop tolerance, with
   ten deterministic tests on x86/x64. Runtime activation remains pending the
