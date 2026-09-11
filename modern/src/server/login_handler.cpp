@@ -543,6 +543,9 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
           && !is_account_login_blocked(db_, user_id);
         user_level = static_cast<std::uint8_t>(std::get<std::int64_t>(row[2]));
     }
+    std::cout << "[Login] legacy: credential lookup backend=" << db_.backend_name()
+              << " query_ok=" << (q.ok() ? 1 : 0)
+              << " rows=" << rs.rows.size() << "\n";
     
     if (ok) {
         const auto user_idx = ensure_account_user_idx(db_, user_id);
