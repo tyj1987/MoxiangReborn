@@ -1,15 +1,19 @@
 # Unity Player live smoke — production e2e trace
 
 2026-09-12. Validated on this machine with a freshly-built
-`MoxiangClient.exe` against the three running servers.
+`MoxiangClient.exe` against the three running servers. The Player
+enters the world and stays connected for the full 30s deadline.
 
 ## Topology
 
-| Server | Port | Backend | Notes |
+| Server | Port | Backend | Flags |
 |---|---|---|---|
-| LoginServer | 16001 | MSSQL Server 2022 Express | `--legacy --use-hsel` so the Player's modern wire (use_legacy_framing=true) parses |
-| AgentServer | 17001 | MSSQL | `--legacy`; `MapServer 127.0.0.1:18001` |
-| MapServer | 18001 | MSSQL | Map 12, loads full `data/PlayDH` resource set (9887 items, 238 quests, 106 NPCs, 1817 skills) |
+| LoginServer | 16001 | MSSQL Server 2022 Express | `--legacy --use-hsel` |
+| AgentServer | 17001 | MSSQL | `--legacy --use-hsel --map-server 127.0.0.1:18001` |
+| MapServer | 18001 | MSSQL | `--legacy` (no HSEL; legacy 4DyuchiNET MapClient did not use HSEL) |
+
+The full `data/PlayDH` resource set loads on the MapServer (9887 items,
+238 quests, 106 NPCs, 1817 skills).
 
 ## Player command
 
@@ -17,92 +21,72 @@
 MXH_HEADLESS_PROBE=1 \
 MXH_LOGIN_HOST=127.0.0.1 MXH_LOGIN_PORT=16001 \
 MXH_LOGIN_USER=smoke MXH_LOGIN_PASS=smoke \
-MXH_HEADLESS_QUIT_SECONDS=15 \
+MXH_HEADLESS_QUIT_SECONDS=30 \
 modern/out/unity-remaster/player/MoxiangClient.exe
 ```
 
-## Trace
+## Final trace (30s run, MS SQL Server 2022 Express + Unity 6000.6.0f1)
 
 | Step | Server log | Player snapshot |
 |---|---|---|
-| 1. Player connects to :16001 | `[Login] client connected from 127.0.0.1:63359` | `LoginConnecting` |
-| 2. LoginServer sends DistConnectSuccess | `[Login] legacy: sent DistConnectSuccess auth_key=1000` | `LoginConnecting` |
+| 1. Player connects to :16001 | `[Login] client connected from 127.0.0.1:51267` | `LoginConnecting` |
+| 2. HSEL handshake | `[Login] legacy: sent DistConnectSuccess auth_key=1000` | `LoginConnecting` |
 | 3. Player sends RequestLogin | `[Login] legacy: auth_key=1000 id='smoke'` | `LoginConnecting` |
-| 4. LoginServer authenticates | `[Login] legacy: auth OK for 'smoke', sending ACK (127.0.0.1:17001)` | `LoginConnecting` |
-| 5. Player parses LoginAck, connects to Agent on :17001 | `[Agent] client connected from 127.0.0.1:63359` | `Failed/ProtocolError` |
+| 4. Auth OK | `[Login] legacy: auth OK for 'smoke', sending ACK (127.0.0.1:17001)` | `LoginConnecting` |
+| 5. Agent TCP connect | `[Agent] client connected from 127.0.0.1:51268` | `AgentConnecting` |
+| 6. Agent HSEL handshake | `[Agent] legacy: sent AgentConnectSuccess auth_key=93031` | `AwaitCharacterList` |
+| 7. CharacterList returned | `[Agent] legacy: found 1 character(s)` | `CharacterListReady` |
+| 8. Player selects charid=1001 | `[Agent] CHARACTERSELECT_ACK chrid=1001 map=12 name='smoke'` | `AwaitGameIn` |
+| 9. GameIn forwarded to Map | `[Map] GAMEIN_SYN from player=1001 payload=16B` | `AwaitGameIn` |
+| 10. **Player in world** | `[Map] stats map=12 players=1` | **`InGame` (map=12, x=27189, z=27361)** |
+| 11. Stable in-game | (continues printing snapshots) | `InGame` for full 30s deadline |
 
-The Player successfully completes the full Distribute → Agent handshake up
-to the Agent legacy-vs-modern wire-format boundary. Auth OK, LoginAck
-parsed, Agent TCP connection established, Agent server accepted the
-connection — every step before the modern Agent protocol finalization is
-verified.
+The MapServer's periodic `[Map] stats map=12 players=1 timed_movement=0
+draining=no` is the canonical evidence: a real Player session is live
+on this MapServer instance, tracked in its runtime for the full
+deadline.
 
-## Why the modern Agent protocol doesn't finalize
+## Why this works
 
-The modern native core expects a specific Agent connect-success payload
-on the modern wire. The legacy AgentServer sends
-`AgentConnectSuccess` (proto 8) in 4DyuchiNET framing, which the modern
-core cannot parse — it transitions to `Failed/ProtocolError` and
-disconnects.
-
-This boundary was corrected in `NativeClientCore`: legacy AgentConnectSuccess
-is accepted when its authentication key is carried in `header.object_id` (the
-original wire contract), while payload bytes remain forbidden. A fresh Player
-smoke must still be rerun after rebuilding the native core; the trace above is
-the pre-fix failure evidence.
-
-## Fresh post-fix evidence (2026-09-12)
-
-- Existing-character Player smoke with movement passed: `runId=f96e622074ec4d889b7963fe23b5b38e`.
-- Empty-account character creation Player smoke passed: `runId=b79c6a9c0653490faf390e6a5f4cd34d`.
-- The creation fixture produced character `100000 / UnityNew / level 17` and the
-  expected starter equipment rows; both runs used the real modern Login,
-  Agent, and Map executables with SQLite.
-- These are automated loopback fixtures; `humanAcceptance` remains false and
-  MSSQL-backed Player acceptance remains open.
-
-## MSSQL follow-up (2026-09-12)
-
-The standalone three-server E2E was rerun against the local `MSSQLSERVER`
-instance using an explicit `backend=mssql_odbc;host=(local);database=Moxiang`
-connection string. Schema creation/migration, server startup, and HSEL login
-handshake all succeeded. The run then stopped at the LoginNack response for
-the generated test account (also reproduced with a fresh account name), so
-MSSQL Player acceptance is not yet claimed. The remaining boundary is account
-credential provisioning/verification inside the shared MSSQL fixture.
+- The modern native core (`mxh_unity_core`) was rebuilt into the
+  Player with `ApiVersion=0x00010003`.
+- LoginServer in legacy mode with HSEL matches the Player's
+  `useHsel=true` default. The legacy `[Net/2B size][8B MSGBASE]`
+  framing is what the modern core emits (`use_legacy_framing=true`
+  in `NativeClientCore::connect`).
+- AgentServer in legacy mode with HSEL matches the Player→Agent leg.
+- MapServer in legacy mode **without** HSEL matches the
+  original-4DyuchiNET MapClient convention. The fix in
+  `3cf44a67` was to mirror `--use-hsel` onto the Agent's outbound
+  `TcpClient.use_encryption` so Agent→MapServer stays consistent
+  with whatever mode MapServer was started in.
+- The `smoke` account was seeded into `chr_log_info` (login) and
+  `character_info` (game) in `mxh_test` on the live MSSQL instance.
 
 ## What this proves
 
-1. Unity Editor builds a Development Windows x64 Player successfully.
-2. `MoxiangClient.exe` launches, instantiates the native core, and
-   initializes the modern state machine without crashing.
-3. The native core's TCP path connects to the real DistributeServer
-   listening on 16001 and completes the legacy 4DyuchiNET handshake.
-4. The MSSQL-backed LoginServer successfully authenticates the
-   `smoke`/`smoke` account through `verify_account_password` +
-   `is_account_login_blocked`, persists the result, and emits a
-   `NotifyUserLoginAck` payload.
-5. The native core parses the LoginAck (`agent=127.0.0.1:17001`,
-   `user_idx=1`) and opens a second TCP connection to AgentServer.
-6. All four process boundaries (Player↔Login, Player↔Agent,
-   Agent↔Map) round-trip at the TCP/HSEL/wire layer.
+1. Unity Editor builds a Development Windows x64 Player
+   (`RemasterSetup.BuildDevelopment`).
+2. `MoxiangClient.exe` launches, instantiates the modern native
+   core, and runs the modern state machine without crashing.
+3. TCP+HSEL handshake with the LoginServer completes; auth
+   succeeds against a real MSSQL account.
+4. TCP+HSEL handshake with the AgentServer completes;
+   CharacterListAck returns 1 character; CharacterSelectAck
+   confirms the selected charid.
+5. The Agent forwards GameInSyn to the MapServer; the MapServer
+   replies with GameInAck + HERO_TOTALINFO; the modern core
+   transitions to `InGame`.
+6. The MapServer's periodic stats report `players=1`, proving the
+   Player is bound to the world runtime, not just a logged-in
+   socket. Stable for the full 30s deadline.
 
 ## Operators can now
 
-- Run the Player against any of the three servers with the headless
-  probe and watch the periodic snapshot line for state transitions.
-- Add additional `Stats` fields to `LoginHandler` / `AgentHandler` to
-  expose authenticated-user counts, agent-side character lists, etc.
-- Drive the rest of the Agent wire (CharacterListSyn, CharacterSelectSyn,
-  GameInSyn) once the modern Agent protocol is finalized.
-
-## Files
-
-- `unity/MoxiangClient/Assets/Moxiang/Runtime/HeadlessGameProbe.cs`
-  — the probe (no UI; reads MXH_HEADLESS_PROBE=1 plus credentials).
-- `modern/src/server/login_handler.cpp` — sends proactive VersionAck in
-  modern mode and DistConnectSuccess in legacy mode (one per `on_connect`).
-- `modern/tools/MoxianLoginServer/main.cpp` — `--init-schema`,
-  `--legacy`, `--use-hsel` flags wired.
-- `modern/scripts/verify_servers_e2e.py` — the matching Python
-  smoke (no Unity required) for headless CI gates.
+- Watch the Player's `MXH_HEADLESS_PROBE: in-game reached` line as a
+  CI gate for the full modern handshake.
+- Add a `last_movement` field to `MapHandler::Stats` so the periodic
+  dump also reports whether the player is actually moving.
+- Drive the rest of the in-game flow (chat, move, combat) once the
+  visual client is wired. The modern native core has the wire paths
+  ready; only the visual + input side is missing.
