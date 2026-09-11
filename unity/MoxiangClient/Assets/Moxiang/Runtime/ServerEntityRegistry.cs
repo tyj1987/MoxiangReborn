@@ -18,6 +18,12 @@ namespace Moxiang
 
         private void OnCoreEvent(CoreEvent e)
         {
+            if (e.type == NativeClient.EventDisconnected || e.state != CoreState.InGame)
+            {
+                foreach (var entity in entities.Values) if (entity != null) Destroy(entity);
+                entities.Clear();
+                if (e.type == NativeClient.EventDisconnected) return;
+            }
             if (e.type == NativeClient.EventEntityRemoved)
             {
                 if (entities.TryGetValue(e.argument0, out var removed)) Destroy(removed);
