@@ -219,7 +219,7 @@ bool LoginHandler::on_connect(mxh::net::ConnectionId id,
             mxh::proto::Category::UserConn);
         version_ack.header.protocol = mxh::proto::kModernNotifyVersionAck;
         version_ack.header.object_id = 0;
-        reply_(id, version_ack);
+        if (reply_) reply_(id, version_ack);
         dbg_log("[on_connect] modern: sent VersionAck");
     }
 
@@ -246,7 +246,7 @@ bool LoginHandler::on_connect(mxh::net::ConnectionId id,
         msg.header.protocol = static_cast<std::uint8_t>(
             mxh::proto::UserConnProtocol::DistConnectSuccess);
         msg.header.object_id = auth_key;  // Client reads this as m_DistAuthKey
-        reply_(id, msg);
+        if (reply_) reply_(id, msg);
         std::cout << "[Login] legacy: sent DistConnectSuccess auth_key=" << auth_key << "\n";
         dbg_log("[on_connect] sent DistConnectSuccess auth_key=" + std::to_string(auth_key));
     }
