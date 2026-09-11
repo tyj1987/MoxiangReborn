@@ -1,5 +1,59 @@
 # Timed movement migration — implementation in progress
 
+## Step 1 activated (2026-09-11)
+
+The bounded versioned timed-movement wire is now dispatched on the server and
+exposed to managed code. Commits:
+- `e30d1bd7` server: activate negotiated timed movement dispatch under
+  --experimental-timed-movement
+- `2d3309a3` server: allocate movement epoch at GameIn and tighten heartbeat
+  predicate
+- `defb2a81` server: cover timed-movement epoch allocator and wire codecs with
+  focused tests
+- `2ed193cb` unity: extend native ABI to 0x00010003 with timed-movement wire
+  entry
+- `32e2ffed` unity: add TimedMovementClient wrapper and MXMH/MXMC/MXMS
+  encoders
+
+Gate: `MoxianMapServer --experimental-timed-movement`. Without the flag, the
+legacy 4-byte dispatch is preserved verbatim. The flag refuses to enable when
+players are connected or `fixed_tiles_` is unset.
+
+Tests added (no existing test removed):
+- 3 new `MovementWire` codec tests (OneTarget round-trip, hello payload golden,
+  count==0 rejection for all kinds)
+- 4 new `TimedMovementEpoch` tests (nonzero, monotonic, distinct,
+  thread-safe-under-CAS)
+- 5 new Unity EditMode tests (encoder layout, monotonic sequence, stale-state
+  drop) — runtime gated on Unity Editor build that the user runs locally
+
+Validation: x86 build + 14 new tests + 33 pre-existing protocol tests pass;
+x64 unity-core 69/69 ctest pass (9 movement wire, 55 movement timeline + speed
++ game tests, 4 hsel, 1 abi, 1 legacy header).
+
+Native ABI bump: `MXH_UNITY_API_VERSION 0x00010002 → 0x00010003`. The 128-byte
+`mxh_unity_command` / 320-byte event / 992-byte snapshot layouts are
+unchanged. New `mxh_unity_extended_command` (140 bytes) is the dedicated
+carrier for MXMH/MXMC. Two new managed-side event types
+(`MXH_UNITY_EVENT_TIMED_MOVEMENT_OWNER_STATE = 10`,
+`MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE = 11`) carry the verbatim wire
+payload in `event.text`; the managed `TimedMovementClient` decodes epoch and
+state-sequence and tracks them per session.
+
+`materialize_positions` heartbeat predicate is `transition || (moving && due)`
+— moves-still-publishing stops at the Stop/Corrected boundary, no extra
+snapshot beyond what the command just sent.
+
+Still open (downstream phases, not part of Step 1):
+- Runtime Player/three-server regression under `--experimental-timed-movement`
+  and `MXH_TIMED_MOVEMENT=1`. OFF-mode reference run
+  `759f279828f049ceb0d85ec5b96bb9ab` stays authoritative for legacy 4-byte.
+- Lightness / Titan / ordered-status speed resolver activation.
+- Full client prediction / interpolation in Unity (DX11 `send_move` snap is
+  still untouched).
+- Old-epoch / cross-session delivery audit, persistence on disconnect, map
+  transfer routing.
+
 ## Current code and evidence boundary
 
 `modern/include/mxh/game/movement_timeline.hpp` and its `.cpp` provide a
@@ -106,9 +160,11 @@ client/server activation and visible Player interpolation remain pending.
 
 ## Required coordinated runtime cutover
 
-The bounded versioned codec is implemented and specified in
-`UNITY_MOVEMENT_WIRE.md`. It is not yet dispatched or negotiated; wire-level
-epoch/sequence fields are not a substitute for session validation at the caller.
+The bounded versioned codec is implemented, specified in
+`UNITY_MOVEMENT_WIRE.md`, and dispatched on the server behind
+`--experimental-timed-movement`. See the "Step 1 activated" section above for
+the commit list and tests. The remaining items below describe the runtime
+acceptance half of the cutover, not the wire-surface half.
 
 The current four-byte OneTarget may express a target command, but both clients
 and the server currently treat it as a position update. Switching only the server

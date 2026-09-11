@@ -171,3 +171,54 @@ Validation: full x86 build and full CTest passed; targeted movement regressions
 passed 3/3. Real SQLite/HSEL Player run `82ad616ae8bb4916ba24c41cbc81388a`
 passed normal move/stop, excessive jump and blocked-cell correction. Zero-life
 rejection is proven by the handler test, not by a Player death scenario.
+
+### Bounded timed-movement activation (2026-09-11)
+
+Native ABI version bumped from `0x00010002` to `0x00010003` to add a
+variable-length payload carrier. The existing 128-byte `mxh_unity_command` /
+320-byte event / 992-byte snapshot layouts are unchanged; the new
+`mxh_unity_extended_command` (140 bytes, pack=1) carries the literal MXMH (8
+bytes) or MXMC (24 + 4N bytes, N in 1..15) frame, and a new entry
+`mxh_unity_submit_extended_command` forwards it as a Move subprotocol on the
+same Agent path as the legacy Move command.
+
+The wire discriminators are 128 (hello), 129 (command), 130 (owner state),
+131 (observer state); the C++ codec in `modern/include/mxh/proto/movement_wire.hpp`
+pins their meaning and validates epoch, sequence, count bounds, point bounds
+and IEEE754 finiteness. Six focused `MovementWire` codec tests plus four new
+`TimedMovementEpoch` allocator tests pass on both x86 and x64 native cores;
+no regression in the 33 pre-existing protocol tests.
+
+MapHandler now exposes `set_timed_movement_enabled(bool)` plus a public static
+`allocate_movement_epoch()` (atomic CAS, never zero, never wraps). The
+MapServer `--experimental-timed-movement` flag flips the gate at startup;
+without it, the legacy 4-byte dispatch is preserved verbatim.
+
+GameIn now reserves a fresh nonzero `movement_epoch` and primes
+`movement_last_publish` to `movement_now()` whenever the gate is enabled, so a
+client that misses the hello handshake already owns a legal epoch. The
+`materialize_positions` heartbeat predicate is tightened to `transition ||
+(moving && due)`; transitions still publish, but a moving-to-idle player no
+longer gets one extra snapshot beyond the Stop/Corrected it just sent.
+
+`UnityNativeApi` rejects HELLO_TIMED/TIMED_ROUTE/TIMED_STOP from the legacy
+`mxh_unity_submit_command` entry; only `mxh_unity_submit_extended_command`
+accepts them. `NativeClientCore` tracks `movement_epoch_`,
+`next_movement_command_sequence_` and `last_movement_state_sequence_` per
+session, enforces the epoch/sequence contract on every command and the strict
+state-sequence order on every state event. Two new managed-side event types
+(`MXH_UNITY_EVENT_TIMED_MOVEMENT_OWNER_STATE = 10`,
+`MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE = 11`) carry the verbatim wire
+payload in `event.text`; argument1 packs `x|(z<<16)`.
+
+`TimedMovementClient` (Unity Runtime) owns the (epoch, sequence) pair per
+session, exposes `SubmitHello / SubmitRoute / SubmitStop / OnMovementState`,
+and refuses to send under any epoch other than the one captured on the first
+state event. `TimedMovementClientTests` (Unity EditMode) covers the encoder
+golden, monotonic sequence accounting and the stale-epoch drop. Net add: 5
+EditMode tests; existing 13 untouched.
+
+The OFF reference run `759f279828f049ceb0d85ec5b96bb9ab` remains authoritative
+for legacy 4-byte acceptance. Real Player run under
+`MXH_TIMED_MOVEMENT=1 --experimental-timed-movement` is the next gate; this
+increment proves the dispatch + ABI surface, not the runtime acceptance.

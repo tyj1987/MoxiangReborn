@@ -85,6 +85,17 @@ visual acceptance or game release readiness.
 
 ## Verification and environment
 
+- Bounded timed-movement activation (2026-09-11): native ABI bumped to
+  `0x00010003` with new `mxh_unity_submit_extended_command` entry and a 140-byte
+  `mxh_unity_extended_command` carrier. `MoxianMapServer
+  --experimental-timed-movement` flips the gate; without the flag, the legacy
+  4-byte dispatch is preserved verbatim. 14 new server-side tests + 5 new Unity
+  EditMode tests added; no existing test removed. See
+  `docs/UNITY_TIMED_MOVEMENT.md` ("Step 1 activated") and
+  `docs/UNITY_MOVEMENT_STATUS.md` ("Bounded timed-movement activation").
+  OFF reference run `759f279828f049ceb0d85ec5b96bb9ab` remains authoritative
+  for legacy 4-byte; real Player run under
+  `MXH_TIMED_MOVEMENT=1 --experimental-timed-movement` is the next gate.
 - Final x86 build passed; full CTest registered 12,453 tests, zero failures,
   6 explicit skips, 74.94 seconds. The skips are Map10 release/human smoke,
   deployed resource digest, and four MSSQL tests. Evidence:
