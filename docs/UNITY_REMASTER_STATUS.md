@@ -333,6 +333,11 @@ Development Player empty-account creation smoke also passed with run ID
 created character `UnityNew` (level 17) and returned the expected initial
 equipment records. Movement and creation remain separate isolated fixtures.
 
+The empty-account creation fixture also passed through the Unity Editor surface
+with run ID `c9160b99a73c46a7b497773bb8edc3ba`, returning the same character and
+initial equipment records. Editor and Player now both have real-server creation
+evidence.
+
 After adding the skill ABI rejection test, the x64 Unity core suite passes
 70/70. The new coverage asserts that skill commands are rejected outside
 InGame and when the bounded payload length is malformed.
