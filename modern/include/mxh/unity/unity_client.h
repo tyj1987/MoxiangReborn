@@ -102,8 +102,13 @@ typedef enum mxh_unity_command_type {
        mxh_unity_submit_command with type 5/6/7 is rejected. */
     MXH_UNITY_COMMAND_HELLO_TIMED = 5,
     MXH_UNITY_COMMAND_TIMED_ROUTE = 6,
-    MXH_UNITY_COMMAND_TIMED_STOP = 7
+    MXH_UNITY_COMMAND_TIMED_STOP = 7,
+    /* Skill StartSyn: head.argument0=skill index, argument1=target object;
+       payload is exactly target_x/target_z as little-endian float32. */
+    MXH_UNITY_COMMAND_SKILL = 8
 } mxh_unity_command_type;
+
+#define MXH_UNITY_SKILL_PAYLOAD_SIZE UINT32_C(8)
 
 /* Bytes after expected_map_generation used by CREATE_CHARACTER. */
 #define MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE UINT32_C(80)

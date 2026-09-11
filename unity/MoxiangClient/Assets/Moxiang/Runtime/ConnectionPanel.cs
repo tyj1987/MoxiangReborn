@@ -22,6 +22,10 @@ namespace Moxiang
         {
             return client == null ? CoreResult.NotReady : client.Move(x, z, stop, observed);
         }
+        public CoreResult UseSkill(uint skillId, uint targetObjectId, float targetX, float targetZ)
+        {
+            return client == null ? CoreResult.NotReady : client.SubmitSkill(skillId, targetObjectId, targetX, targetZ, observed);
+        }
         public CoreResult CreateCharacterFromUi(string name, byte sex, byte hair, byte face, byte cloth, byte boots, byte weapon)
         {
             if (client == null) return CoreResult.NotReady;

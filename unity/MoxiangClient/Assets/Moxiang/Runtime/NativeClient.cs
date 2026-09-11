@@ -207,6 +207,27 @@ namespace Moxiang
             }
         }
 
+        public CoreResult SubmitSkill(uint skillId, uint targetObjectId, float targetX, float targetZ, CoreSnapshot observed)
+        {
+            if (skillId == 0 || targetObjectId == 0) return CoreResult.InvalidArgument;
+            byte[] payload = new byte[8];
+            Array.Copy(BitConverter.GetBytes(targetX), 0, payload, 0, 4);
+            Array.Copy(BitConverter.GetBytes(targetZ), 0, payload, 4, 4);
+            lock (gate) {
+                EnsureAlive();
+                IntPtr unmanaged = Marshal.AllocHGlobal(payload.Length);
+                try {
+                    Marshal.Copy(payload, 0, unmanaged, payload.Length);
+                    var head = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = 8u,
+                        payloadSize = 8u, argument0 = skillId, argument1 = targetObjectId,
+                        requestId = ++nextRequestId, expectedSessionGeneration = observed.sessionGeneration,
+                        expectedMapGeneration = observed.mapGeneration, name = new byte[65], reserved1 = new byte[5] };
+                    var command = new ExtendedCommand { head = head, payload = unmanaged, payloadSize = 8u };
+                    return mxh_unity_submit_extended_command(handle, ref command);
+                } finally { Marshal.FreeHGlobal(unmanaged); }
+            }
+        }
+
         // Bounded versioned timed-movement wire submit. The caller owns the
         // payload buffer; the native core copies it during the call. Returns
         // CoreResult.ProtocolError / WrongState / NotReady as documented on

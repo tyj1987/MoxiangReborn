@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cmath>
 #include <span>
 #include <utility>
 
@@ -872,6 +873,31 @@ bool NativeClientCore::emit(std::uint32_t type, std::uint32_t result,
 std::uint32_t NativeClientCore::submit_extended(const mxh_unity_extended_command& command) {
     std::lock_guard lock(mutex_);
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
+    if (command.head.type == MXH_UNITY_COMMAND_SKILL) {
+        if (command.head.expected_session_generation != session_generation_ ||
+            command.head.expected_map_generation != map_generation_)
+            return MXH_UNITY_WRONG_STATE;
+        if (state_ != MXH_UNITY_STATE_IN_GAME || !command.payload ||
+            command.payload_size != MXH_UNITY_SKILL_PAYLOAD_SIZE ||
+            command.head.argument0 == 0 || command.head.argument1 == 0)
+            return state_ == MXH_UNITY_STATE_IN_GAME ? MXH_UNITY_INVALID_ARGUMENT : MXH_UNITY_WRONG_STATE;
+        float target_x = 0.0f, target_z = 0.0f;
+        std::memcpy(&target_x, command.payload, sizeof(target_x));
+        std::memcpy(&target_z, command.payload + sizeof(target_x), sizeof(target_z));
+        if (!std::isfinite(target_x) || !std::isfinite(target_z)) return MXH_UNITY_INVALID_ARGUMENT;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartSyn);
+        message.header.object_id = game_.player_id;
+        message.payload.resize(16);
+        std::memcpy(message.payload.data(), &command.head.argument0, 4);
+        std::memcpy(message.payload.data() + 4, &command.head.argument1, 4);
+        std::memcpy(message.payload.data() + 8, &target_x, 4);
+        std::memcpy(message.payload.data() + 12, &target_z, 4);
+        if (agent_.send(message) != mxh::net::NetError::Ok) { fail(MXH_UNITY_NETWORK_ERROR, "skill send failed"); return MXH_UNITY_NETWORK_ERROR; }
+        ++revision_;
+        return MXH_UNITY_OK;
+    }
     namespace wire = mxh::proto::movement;
     switch (command.head.type) {
         case MXH_UNITY_COMMAND_HELLO_TIMED:
