@@ -149,3 +149,23 @@ native core, with ten clock-driven tests. It is not yet activated in runtime
 movement. See `UNITY_TIMED_MOVEMENT.md` for exact source behavior and the required
 coordinated server/client/position-reader cutover; current probes do not prove
 timed movement or complete speed selection.
+
+### Runtime life/lifecycle gate
+
+MapHandler now requires the runtime actor to be Active and alive before accepting
+Target, OneTarget or Stop position changes. A red test first demonstrated that a
+zero-HP actor moved and broadcast to both physical connections. The same test now
+proves owner-only correction, unchanged position for all three message forms,
+and renewed movement after the fixture restores HP on its still-Active actor.
+This last case is not a test of the full death/revival lifecycle.
+
+This uses the existing modern correction event so current clients can discard
+prediction. Original MapNetworkMsgParser.cpp:1166-1172 and :1266-1272 send the
+separate MP_CHAR_YOUAREDIED notification for dead target commands; that character
+notification and its UI are not yet migrated. The full original object-state
+rules (including Ungijosik/Immortal), timed positions and mode transitions remain
+open. No original protocol headers or gameplay numeric constants were modified.
+Validation: full x86 build and full CTest passed; targeted movement regressions
+passed 3/3. Real SQLite/HSEL Player run `82ad616ae8bb4916ba24c41cbc81388a`
+passed normal move/stop, excessive jump and blocked-cell correction. Zero-life
+rejection is proven by the handler test, not by a Player death scenario.

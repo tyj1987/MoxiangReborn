@@ -2450,6 +2450,35 @@ TEST(MapHandlerTest, MovementIsSentOncePerMultiplexedAgentConnection) {
     }
 }
 
+TEST(MapHandlerTest, ZeroLifeMovementCannotRewritePositionAndRecoveryIsNotSticky) {
+    MockDbAdapter db;
+    std::vector<std::pair<std::uint64_t,mxh::net::Message>> delivered;
+    MapHandler handler(db,10,[&](mxh::net::ConnectionId id,const mxh::net::Message& m) { delivered.emplace_back(id.value,m); });
+    ASSERT_TRUE(handler.install_fixed_tiles(clear_movement_fixture()));
+    const auto owner=mxh::net::make_connection_id(55);
+    mxh::net::Message enter;
+    enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.header.object_id=123; handler.on_message(owner,enter);
+    enter.header.object_id=456; handler.on_message(mxh::net::make_connection_id(56),enter);
+    ASSERT_TRUE(handler.set_player_position_for_test(123,1000,1000));
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123,0,0));
+    for(auto protocol : {mxh::proto::MoveProtocol::OneTarget,mxh::proto::MoveProtocol::Target,mxh::proto::MoveProtocol::Stop}) {
+        delivered.clear();
+        handler.on_message(owner,mxh::client::make_move_message(123,protocol,1100,1100));
+        ASSERT_EQ(delivered.size(),1);
+        EXPECT_EQ(delivered[0].first,55);
+        EXPECT_EQ(delivered[0].second.header.protocol,static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction));
+        auto state=handler.player_runtime_snapshot(123); ASSERT_TRUE(state);
+        EXPECT_FLOAT_EQ(state->pos_x,1000); EXPECT_FLOAT_EQ(state->pos_z,1000);
+    }
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123,100,0));
+    delivered.clear();
+    handler.on_message(owner,mxh::client::make_move_message(123,mxh::proto::MoveProtocol::OneTarget,1100,1100));
+    EXPECT_EQ(delivered.size(),2);
+    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1100);
+}
+
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     MockDbAdapter db;
     ReplySpy reply;

@@ -56,7 +56,8 @@ void MapHandler::handle_move(mxh::net::ConnectionId id, const mxh::net::Message&
         const float dz = static_cast<float>(z) - info.pos_z;
         // Keep the existing coarse bound for every client movement, including
         // Stop. Time/speed authority is a separate remaining migration gate.
-        rejected = dx * dx + dz * dz > 5000.0f * 5000.0f || !fixed_tiles_ ||
+        rejected = !ri->second.actor.is_active() || !ri->second.actor.is_alive() ||
+            dx * dx + dz * dz > 5000.0f * 5000.0f || !fixed_tiles_ ||
             (protocol == mxh::proto::MoveProtocol::OneTarget && fixed_tiles_->blocked(x, z)) ||
             fixed_tiles_->trace(info.pos_x, info.pos_z, x, z).collision;
         if (rejected) {

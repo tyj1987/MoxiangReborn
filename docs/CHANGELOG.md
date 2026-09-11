@@ -4,6 +4,10 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Fixed zero-life/inactive runtime actors accepting client movement. A regression
+  test first reproduced position updates and broadcasts, then verified owner-only
+  correction and unchanged position after the gate. Original death notification,
+  detailed object states and full revival acceptance remain pending.
 - Added typed original lightness resource catalog and mandatory MapServer startup
   load. Five real records, encoded names, MP costs and effect sentinels are
   preserved; malformed/duplicate/truncated data and live replacement are rejected.
