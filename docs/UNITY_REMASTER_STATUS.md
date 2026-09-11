@@ -332,3 +332,9 @@ equipment records. Movement and creation remain separate isolated fixtures.
 After adding the skill ABI rejection test, the x64 Unity core suite passes
 70/70. The new coverage asserts that skill commands are rejected outside
 InGame and when the bounded payload length is malformed.
+
+The current branch also revalidated the MSSQL ODBC five-stage E2E after the
+Unity combat ABI changes: Login, character list, relist and Map10 GameIn all
+passed, with 228 initial monsters observed. The run reused an existing test
+character because the account already contained one; no database schema or
+server formula changes were made.
