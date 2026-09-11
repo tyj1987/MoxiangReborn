@@ -19,6 +19,15 @@ namespace Moxiang
             bool corrected = false;
             ushort x = checked((ushort)(panel.Observed.game.positionX + 64));
             ushort z = checked((ushort)(panel.Observed.game.positionZ + 32));
+            ushort blockedX = 0, blockedZ = 0;
+            if (!ushort.TryParse(Environment.GetEnvironmentVariable("MXH_SMOKE_BLOCKED_X"), out blockedX) ||
+                !ushort.TryParse(Environment.GetEnvironmentVariable("MXH_SMOKE_BLOCKED_Z"), out blockedZ)) {
+                observer.Dispose(); complete(false, "Missing audited collision target."); yield break;
+            }
+            long dx = (long)blockedX - x, dz = (long)blockedZ - z;
+            if (dx * dx + dz * dz >= 5000L * 5000L) {
+                observer.Dispose(); complete(false, "Collision probe would only exercise jump rejection."); yield break;
+            }
             uint owner = panel.Observed.game.playerId, packed = x | ((uint)z << 16);
             Action<CoreEvent> receive = item => {
                 if (item.type == 8 && item.argument0 == owner && item.argument1 == packed && item.reserved0 == 2)
@@ -64,7 +73,18 @@ namespace Moxiang
                                 throw new InvalidOperationException("Correction was not applied to the snapshot.");
                             stage = 4; quietUntil = Time.realtimeSinceStartup + 0.4f;
                         }
-                        if (stage == 4 && Time.realtimeSinceStartup >= quietUntil) success = true;
+                        if (stage == 4 && Time.realtimeSinceStartup >= quietUntil) {
+                            corrected = false;
+                            if (panel.Move(blockedX, blockedZ, false) != CoreResult.Ok)
+                                throw new InvalidOperationException("Collision probe submission failed.");
+                            stage = 5;
+                        }
+                        if (stage == 5 && corrected) {
+                            if (panel.Observed.game.positionX != x || panel.Observed.game.positionZ != z)
+                                throw new InvalidOperationException("Collision correction did not restore position.");
+                            stage = 6; quietUntil = Time.realtimeSinceStartup + 0.4f;
+                        }
+                        if (stage == 6 && Time.realtimeSinceStartup >= quietUntil) success = true;
                     }
                     catch (Exception exception) { error = exception.GetType().Name + ": " + exception.Message; }
                     if (success) { complete(true, null); yield break; }

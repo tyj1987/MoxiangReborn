@@ -78,6 +78,14 @@ namespace Moxiang.Tests
                 Assert.That(corrected.requestId, Is.Zero, "Legacy corrections have no request ID.");
                 Assert.That(mover.Snapshot().game.positionX, Is.EqualTo(x));
                 Assert.That(mover.Snapshot().game.positionZ, Is.EqualTo(z));
+                ushort blockedX = ushort.Parse(Environment.GetEnvironmentVariable("MXH_SMOKE_BLOCKED_X"));
+                ushort blockedZ = ushort.Parse(Environment.GetEnvironmentVariable("MXH_SMOKE_BLOCKED_Z"));
+                long dx = (long)blockedX - x, dz = (long)blockedZ - z;
+                Assert.That(dx * dx + dz * dz, Is.LessThan(5000L * 5000L));
+                Assert.That(mover.Move(blockedX, blockedZ, false, mover.Snapshot()), Is.EqualTo(CoreResult.Ok));
+                WaitFor(observer, mover, 8, initial.game.playerId, packed, 2);
+                Assert.That(mover.Snapshot().game.positionX, Is.EqualTo(x));
+                Assert.That(mover.Snapshot().game.positionZ, Is.EqualTo(z));
                 var quiet = Stopwatch.StartNew();
                 while (quiet.Elapsed < TimeSpan.FromMilliseconds(400))
                 {

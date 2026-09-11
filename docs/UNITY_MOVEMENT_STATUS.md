@@ -114,7 +114,32 @@ Target/Stop endpoint distinction. That Player run verifies normal movement and
 excessive-step correction after integration; blocked endpoint rejection is
 currently unit-tested, not yet a dedicated Player wall-crossing probe.
 
-Remaining: original timed speed/state/stop rules, shared client prediction,
-position persistence and broader independent scan-oracle coverage. HFL and STM
+Independent scan coverage now includes 124,852 paths over a 7x7 grid: each single
+blocked cell, all clear, checkerboard and all blocked; all start/end combinations
+cover every direction and subcell offsets. A separate reference path builder
+normalizes major/minor axes and resolves fixture collisions independently of
+production helpers. Goldens lock the biased diagonal and strict decision tie.
+All seven fixed-tile tests and the full CTest run pass.
+
+The real-server smoke now audits Map10's exact SHA-256 and chooses blocked cell
+center (26175,25425), WORD attribute 1, from accepted position (25064,25032).
+Squared distance 1,388,770 is below the 5000-unit jump threshold. Both Editor and
+Player probes require a correction back to the accepted position and observe the
+second session for forbidden movement broadcasts. Player reports require probe
+version 2 and a separate collisionPassed flag, so older binaries cannot satisfy
+this new check. Fresh real SQLite/HSEL evidence:
+- Editor: `f5d80dbe7bbb4b61bb651797623e6f7e`, all selected tests passed.
+- Player: `d7193e33e2ce402daee4fda301e714fc`, report explicitly records
+  movementProbeVersion=2, collisionPassed=true, position=(25064,25032).
+- Player screenshot inspected at that run's `player.png`; it remains a terrain
+  and connection validation view, without character/art-quality acceptance.
+
+These are two native sessions with real servers, not two human players or full
+collision certification across every map. The selected blocked target proves
+rejection below the jump threshold; clear destinations across obstacles and
+complete client input/path prediction are further runtime cases to add.
+
+Remaining: original timed speed/state/stop rules, shared client prediction and
+position persistence. HFL and STM
 visual collision are not substitutes for authoritative tiles. These gaps remain
 blockers to complete Map10/full-game acceptance.

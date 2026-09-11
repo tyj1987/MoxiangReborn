@@ -15,6 +15,8 @@ namespace Moxiang
             public bool networkRequested, gameInReached;
             public bool characterCreated;
             public bool movementRequested, movementPassed;
+            public bool collisionPassed;
+            public int movementProbeVersion = 2;
             public uint playerId;
             public ushort mapNumber;
             public int nativeCycles, frame, width, height, terrainVertices;
@@ -100,7 +102,7 @@ namespace Moxiang
                 if (!report.gameInReached && string.IsNullOrEmpty(report.error)) report.error = "GameIn acknowledgement not reached within 30 seconds.";
                 if (report.gameInReached && report.movementRequested)
                     yield return DevelopmentMovementProbe.Run(panel, ushort.Parse(loginPort), observerAccount, observerSecret,
-                        (passed, error) => { report.movementPassed = passed; if (!passed) report.error = error; });
+                        (passed, error) => { report.movementPassed = passed; report.collisionPassed = passed; if (!passed) report.error = error; });
                 observerSecret = null;
             }
             for (int i = 0; i < 120; ++i) yield return null;

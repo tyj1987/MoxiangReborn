@@ -232,6 +232,13 @@ Source Map10 SHA-256 is unchanged. Player SQLite/HSEL movement regression run
 tests and remaining timed movement, state, persistence and wall-probe gaps.
 This supersedes the earlier statement that all segment collision is pending.
 
+Further verification: 124,852 independent reference-path comparisons pass.
+Audited Map10 blocked-cell movement now passes in real Editor run
+`f5d80dbe7bbb4b61bb651797623e6f7e` and Player run
+`d7193e33e2ce402daee4fda301e714fc`. The target is below the jump threshold,
+the owner is corrected, and the observer receives no rejected movement.
+Versioned Player reports prevent older movement-only binaries from passing.
+
 Keep the original x86 build and DX11 executable for differential testing. Native
 Unity builds use their own x64 output directory. Do not automatically fix duplicate
 UI headers by copying one side: newer declarations exist on both sides.

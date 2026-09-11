@@ -1,16 +1,45 @@
 """Isolated loopback-only real server + Unity Player smoke; never production acceptance."""
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import os
 import secrets
 import socket
 import sqlite3
 import subprocess
+import struct
 import time
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+
+def collision_fixture(resources: Path) -> dict:
+    source = resources / 'Resource/Map/10.ttb'
+    raw = source.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != '6b1cc9a83d79aa7f764e1d19446ee3aff6d9625f7d8a52b02ffa8be7e4b78f5b':
+        raise RuntimeError('Map10 collision fixture digest changed; re-audit before updating fixture')
+    width, height = struct.unpack_from('<ii', raw)
+    if (width, height, len(raw)) != (1024, 1024, 2097160):
+        raise RuntimeError('Map10 fixed tile layout changed')
+    start_x, start_z = 25064, 25032  # Movement probe's accepted Move/Stop endpoint.
+    candidates = []
+    for z in range(max(0, start_z // 50 - 89), min(height, start_z // 50 + 90)):
+        for x in range(max(0, start_x // 50 - 89), min(width, start_x // 50 + 90)):
+            if not struct.unpack_from('<H', raw, 8 + 2 * (z * width + x))[0] & 1:
+                continue
+            px, pz = x * 50 + 25, z * 50 + 25
+            distance_squared = (px - start_x) ** 2 + (pz - start_z) ** 2
+            if 0 < distance_squared < 4500 ** 2:
+                candidates.append((distance_squared, px, pz))
+    if not candidates:
+        raise RuntimeError('No blocked Map10 target inside the non-jump collision probe radius')
+    distance_squared, x, z = min(candidates)
+    return {'map': 10, 'sha256': digest, 'x': x, 'z': z,
+            'fromX': start_x, 'fromZ': start_z, 'distanceSquared': distance_squared,
+            'attribute': struct.unpack_from('<H', raw, 8 + 2 * ((z // 50) * width + x // 50))[0]}
 
 
 def main() -> int:
@@ -29,7 +58,7 @@ def main() -> int:
     database = output / 'fixture.db'
     dbtool = repo / 'modern/build/tools/MoxianDbTool/mxh_db_tool.exe'
     env = os.environ.copy()
-    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER'):
+    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER', 'MXH_SMOKE_BLOCKED_X', 'MXH_SMOKE_BLOCKED_Z'):
         env.pop(key, None)
     env['MXH_UNITY_SMOKE_DATABASE'] = f'backend=sqlite;path={database}'
     env['MXH_RUN_ID'] = output.name
@@ -64,6 +93,10 @@ def main() -> int:
     finally:
         for item in sockets: item.close()
     resources = repo / 'modern/data/PlayDH'
+    collision = collision_fixture(resources) if args.movement else None
+    if collision:
+        env['MXH_SMOKE_BLOCKED_X'] = str(collision['x'])
+        env['MXH_SMOKE_BLOCKED_Z'] = str(collision['z'])
     tools = repo / 'modern/build/tools'
     specs = [
         ('map', tools / 'MoxianMapServer/mxh_map_server_CHINA.exe', map_port,
@@ -113,7 +146,9 @@ def main() -> int:
             report = json.loads(report_path.read_text()) if report_path.exists() else {}
             passed = completed.returncode == 0 and report.get('gameInReached') and report.get('mapNumber') == 10
             if not args.create_character: passed = passed and report.get('playerId') == 111
-            if args.movement: passed = passed and report.get('movementRequested') is True and report.get('movementPassed') is True
+            if args.movement:
+                passed = passed and report.get('movementRequested') is True and report.get('movementPassed') is True
+                passed = passed and report.get('movementProbeVersion') == 2 and report.get('collisionPassed') is True
         creation = None
         if args.create_character:
             with sqlite3.connect(database) as db:
@@ -125,6 +160,7 @@ def main() -> int:
         summary = {'runId': output.name, 'passed': bool(passed), 'surface': 'Editor' if args.editor_test else 'Player', 'backend': 'sqlite', 'serverType': 'real modern executables', 'clientTransport': 'HSEL', 'internalTransport': 'legacy plaintext loopback', 'fixtureCharacter': not args.create_character, 'creation': creation, 'humanAcceptance': False, 'output': str(output)}
         summary['serverExitCodesBeforeCleanup'] = {spec[0]: process.poll() for spec, process in zip(specs, processes)}
         summary['twoNativeSessionMovement'] = args.movement
+        summary['collisionFixture'] = collision
         (output / 'three-server-summary.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary))
         return 0 if passed else 1

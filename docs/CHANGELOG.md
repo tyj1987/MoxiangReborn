@@ -4,6 +4,11 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added 124,852 independent original-scan path comparisons and real Map10
+  blocked-cell probes below the jump threshold. Unity Editor and versioned
+  Player reports verify owner correction and no rejected move broadcast.
+  Runs: `f5d80dbe7bbb4b61bb651797623e6f7e` (Editor),
+  `d7193e33e2ce402daee4fda301e714fc` (Player). Full CTest passed.
 - Added strict original fixed-tile loading and MapServer movement collision
   checks, preserving the original OneTarget versus Target/Stop distinction.
   Missing/malformed maps fail startup; invalid movement cannot alter or broadcast
