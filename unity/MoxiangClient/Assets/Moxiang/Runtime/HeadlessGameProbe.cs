@@ -79,6 +79,8 @@ namespace Moxiang
             float.TryParse(System.Environment.GetEnvironmentVariable("MXH_HEADLESS_QUIT_SECONDS") ?? "0",
                            out quitSeconds);
             var deadline = quitSeconds > 0 ? Time.realtimeSinceStartup + quitSeconds : -1f;
+            bool selected = false;
+            uint pickedCharacter = 0;
             while (true)
             {
                 if (client == null) yield break;
@@ -89,13 +91,30 @@ namespace Moxiang
                     yield break;
                 }
                 var snap = client.Snapshot();
+                // Drive the next state once the modern core has caught up.
+                if (!selected && snap.state == CoreState.CharacterListReady &&
+                    snap.characterCount > 0)
+                {
+                    pickedCharacter = snap.characters[0].characterId;
+                    Debug.Log("MXH_HEADLESS_PROBE: selecting characterId=" + pickedCharacter);
+                    var r = client.SelectCharacter(pickedCharacter, 0, snap);
+                    if (r != CoreResult.Ok)
+                        Debug.LogError("MXH_HEADLESS_PROBE: SelectCharacter failed: " + r);
+                    selected = true;
+                }
                 if (Time.realtimeSinceStartup - lastPrint >= 1f)
                 {
                     lastPrint = Time.realtimeSinceStartup;
                     Debug.Log(string.Format(
-                        "MXH_HEADLESS_PROBE: state={0} result={1} chars={2} map={3} x={4} z={5}",
+                        "MXH_HEADLESS_PROBE: state={0} result={1} chars={2} map={3} x={4} z={5} selected={6}",
                         snap.state, snap.lastResult, snap.characterCount,
-                        snap.game.mapNumber, snap.game.positionX, snap.game.positionZ));
+                        snap.game.mapNumber, snap.game.positionX, snap.game.positionZ,
+                        pickedCharacter));
+                }
+                if (snap.state == CoreState.InGame)
+                {
+                    Debug.Log("MXH_HEADLESS_PROBE: in-game reached map=" + snap.game.mapNumber +
+                              " x=" + snap.game.positionX + " z=" + snap.game.positionZ);
                 }
                 if (deadline > 0 && Time.realtimeSinceStartup >= deadline)
                 {

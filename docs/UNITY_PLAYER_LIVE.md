@@ -45,8 +45,11 @@ on the modern wire. The legacy AgentServer sends
 core cannot parse — it transitions to `Failed/ProtocolError` and
 disconnects.
 
-This is a modernization gap, not a regression. The fix is in the
-AgentServer's modern path or the modern core's legacy fallback.
+This boundary was corrected in `NativeClientCore`: legacy AgentConnectSuccess
+is accepted when its authentication key is carried in `header.object_id` (the
+original wire contract), while payload bytes remain forbidden. A fresh Player
+smoke must still be rerun after rebuilding the native core; the trace above is
+the pre-fix failure evidence.
 
 ## What this proves
 
