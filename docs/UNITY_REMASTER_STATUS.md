@@ -333,6 +333,11 @@ Development Player empty-account creation smoke also passed with run ID
 created character `UnityNew` (level 17) and returned the expected initial
 equipment records. Movement and creation remain separate isolated fixtures.
 
+After the Input System preload rebuild at source revision `db85bd6b`, the
+latest Player movement smoke passed with run ID
+`1e3b432b5fe148899b82a0086a95d79a`: two native sessions, Map10 collision and
+server correction over SQLite/HSEL.
+
 An x86 Debug full CTest rerun completed with exit code 0: 12,548 tests passed
 in 75.06 seconds. Eight tests were intentionally skipped for MSSQL, deploy
 manifest, or release-only fixtures. Reproducible wrapper:
