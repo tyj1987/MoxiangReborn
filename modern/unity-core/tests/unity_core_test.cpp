@@ -1,6 +1,7 @@
 #include "mxh/unity/unity_client.h"
 #include "client/NetworkEventQueue.hpp"
 #include "unity_core/NativeClientCore.hpp"
+#include "client/CInGameState.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/net/net.hpp"
@@ -590,6 +591,20 @@ void run_gamein_identity_mismatch(std::uint32_t game_user_id,
     EXPECT_EQ(mxh_unity_destroy(handle), MXH_UNITY_OK);
 }
 }  // namespace
+
+TEST(UnityCoreWire, MonsterLifePayloadUsesLittleEndianLifeAndShield) {
+    const std::array<std::uint8_t, 8> wire{0x78, 0x56, 0x34, 0x12,
+                                            0xef, 0xcd, 0xab, 0x90};
+    const auto parsed = mxh::client::parse_monster_life_payload(wire);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->first, 0x12345678u);
+    EXPECT_EQ(parsed->second, 0x90abcdefu);
+}
+
+TEST(UnityCoreWire, MonsterLifePayloadRejectsTruncation) {
+    const std::array<std::uint8_t, 7> wire{};
+    EXPECT_FALSE(mxh::client::parse_monster_life_payload(wire).has_value());
+}
 
 TEST(UnityCoreAbi, VersionAndHandleLifecycle) {
     EXPECT_EQ(mxh_unity_get_api_version(), MXH_UNITY_API_VERSION);
