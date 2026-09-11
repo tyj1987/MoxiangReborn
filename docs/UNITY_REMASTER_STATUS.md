@@ -70,6 +70,15 @@ The full reproducible baseline is `unity/baselines/playdh-current.json.gz`.
 The manifest checksum protects metadata against accidental changes; it is not a
 digital signature. Production signing remains a separate release gate.
 
+### Current remaster-v1 audit (2026-09-12)
+
+The reproducible audit was rerun from the current branch HEAD into
+`modern/out/unity-remaster/unity-remaster-v1-manifest.json`. It found 19,682
+logical assets and 19,741 physical sources, with 53 conflicting assets, 6
+identical duplicates, and 59 unresolved source selections. Release validation
+reported 108 blockers, so the manifest is development evidence only; no
+unselected or generated-placeholder source was copied into the Unity project.
+
 Commands (repository root):
 
 ```powershell
