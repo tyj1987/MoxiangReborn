@@ -2936,6 +2936,144 @@ TEST(MapHandlerTest, ProductionModeKeepsValidEmptyRegenEmpty) {
     EXPECT_EQ(handler.monster_count_for_test(), 0u);
 }
 
+TEST(MapHandlerTest, SkillDoesNotApplyToReplacedCasterOrTargetSession) {
+    for (const auto skill_id : {1u, 3u}) {
+        for (const auto replaced : {111u, 222u}) {
+            MockDbAdapter db;
+            MapHandler* active = nullptr;
+            bool replace_on_ack = false;
+            unsigned results = 0;
+            const auto conn = mxh::net::make_connection_id(55);
+            auto enter = [](std::uint32_t player) {
+                mxh::net::Message m;
+                m.header.object_id = player;
+                m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+                m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+                return m;
+            };
+            MapHandler handler(db,10,[&](mxh::net::ConnectionId,const mxh::net::Message& reply) {
+                if (reply.header.category != static_cast<std::uint8_t>(mxh::proto::Category::Skill)) return;
+                if (reply.header.protocol == static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult)) ++results;
+                if (replace_on_ack && reply.header.protocol == static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartAck)) {
+                    replace_on_ack = false;
+                    // Same ID and same multiplexed connection: only session identity changes.
+                    active->on_message(conn,enter(replaced));
+                    EXPECT_TRUE(active->set_player_position_for_test(replaced,1000,1000));
+                    EXPECT_TRUE(active->set_player_vitals_for_test(222,1,50));
+                }
+            });
+            active = &handler;
+            handler.on_message(conn,enter(111));
+            handler.on_message(conn,enter(222));
+            ASSERT_TRUE(handler.set_player_position_for_test(111,1000,1000));
+            ASSERT_TRUE(handler.set_player_position_for_test(222,1000,1000));
+            mxh::net::Message cast;
+            cast.header.object_id = 111;
+            cast.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+            cast.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartSyn);
+            cast.payload.resize(16);
+            const std::uint32_t target = 222;
+            std::memcpy(cast.payload.data(),&skill_id,4);
+            std::memcpy(cast.payload.data()+4,&target,4);
+            replace_on_ack = true;
+            handler.on_message(conn,cast);
+            EXPECT_FALSE(replace_on_ack);
+            EXPECT_EQ(results,0u);
+            EXPECT_EQ(handler.player_runtime_snapshot(222)->current_hp,1u);
+            // The current session can still use the same ordinary skill path.
+            handler.on_message(conn,cast);
+            EXPECT_GT(results,0u);
+        }
+    }
+}
+
+TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    MapHandler handler(db,10,make_reply_spy(reply));
+    const auto owner = mxh::net::make_connection_id(55);
+    mxh::net::Message enter;
+    enter.header.object_id = 111;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(owner,enter);
+    mxh::net::Message cast;
+    cast.header.object_id = 111;
+    cast.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    cast.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartSyn);
+    cast.payload.resize(16);
+    const std::uint32_t skill_id = 3;
+    std::memcpy(cast.payload.data(),&skill_id,4);
+    const auto before = handler.player_runtime_snapshot(111)->current_mp;
+    reply.messages.clear();
+    handler.on_message(mxh::net::make_connection_id(99),cast);
+    EXPECT_TRUE(reply.messages.empty());
+    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,before);
+    handler.on_message(owner,cast);
+    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,before-10);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(111,100,9));
+    reply.messages.clear();
+    handler.on_message(owner,cast);
+    ASSERT_EQ(reply.messages.size(),1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
+    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,9u);
+}
+
+TEST(MapHandlerTest, SkillMonsterCommitRejectsReplacedCasterAndRemoveCanReenter) {
+    MockDbAdapter db;
+    MapHandler* active = nullptr;
+    bool replace_on_ack = false;
+    bool reenter_on_remove = false;
+    unsigned results = 0;
+    const auto conn = mxh::net::make_connection_id(55);
+    const auto observer = mxh::net::make_connection_id(66);
+    mxh::net::Message enter;
+    enter.header.object_id = 111;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    mxh::net::Message cast;
+    cast.header.object_id = 111;
+    cast.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    cast.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartSyn);
+    cast.payload.resize(16);
+    const std::uint32_t skill = 1, target = 88000;
+    std::memcpy(cast.payload.data(),&skill,4);
+    std::memcpy(cast.payload.data()+4,&target,4);
+    MapHandler handler(db,10,[&](mxh::net::ConnectionId,const mxh::net::Message& reply) {
+        if (reply.header.category != static_cast<std::uint8_t>(mxh::proto::Category::Skill)) return;
+        const auto proto = static_cast<mxh::proto::SkillProtocol>(reply.header.protocol);
+        if (proto == mxh::proto::SkillProtocol::SingleResult) ++results;
+        if (replace_on_ack && proto == mxh::proto::SkillProtocol::StartAck) {
+            replace_on_ack = false;
+            active->on_message(conn,enter);
+            EXPECT_TRUE(active->set_player_position_for_test(111,1000,1000));
+        }
+        if (reenter_on_remove && proto == mxh::proto::SkillProtocol::SkillObjectRemove) {
+            reenter_on_remove = false;
+            active->on_message(conn,cast);
+        }
+    });
+    active = &handler;
+    handler.on_message(conn,enter);
+    auto other = enter; other.header.object_id = 222;
+    handler.on_message(observer,other);
+    ASSERT_TRUE(handler.set_player_position_for_test(111,1000,1000));
+    mxh::game::MonsterInstance monster;
+    monster.object_id = target; monster.monster_kind = 77;
+    monster.max_life = 100000; monster.current_life = 100000;
+    monster.pos_x = 1000; monster.pos_z = 1000;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    replace_on_ack = true;
+    handler.on_message(conn,cast);
+    EXPECT_FALSE(replace_on_ack);
+    EXPECT_EQ(results,0u);
+    reenter_on_remove = true;
+    handler.on_message(conn,cast);
+    EXPECT_FALSE(reenter_on_remove);
+    EXPECT_EQ(results,2u);
+}
+
 TEST(MapHandlerTest, ProductionModeDisablesHardcodedSkillFallback) {
     MockDbAdapter db;
     ReplySpy reply;

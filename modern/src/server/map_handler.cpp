@@ -1034,16 +1034,28 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     std::uint32_t attacker_player_id,
     std::uint32_t monster_object_id,
     std::uint32_t damage,
-    std::uint32_t rng_value) {
+    std::uint32_t rng_value,
+    std::shared_ptr<const std::uint8_t> expected_session,
+    bool* accepted) {
+    if (accepted) *accepted = false;
     mxh::game::MonsterInstance updated_monster;
     GroundDrop created_drop;
     bool has_drop = false;
     {
-        std::lock_guard<std::mutex> monster_lock(monsters_mu_);
+        // Commit damage under both locks so GameIn/disconnect cannot replace
+        // the accepted caster between identity validation and monster mutation.
+        std::scoped_lock state_lock(players_mu_, monsters_mu_);
+        if (expected_session) {
+            const auto owner = connected_players_.find(attacker_player_id);
+            if (owner == connected_players_.end() || owner->second.session_identity != expected_session)
+                return std::nullopt;
+        }
         const auto monster_it = std::find_if(monsters_.begin(), monsters_.end(), [&](const auto& monster) {
             return monster.object_id == monster_object_id;
         });
-        if (monster_it == monsters_.end() || monster_it->is_dead || damage == 0u) return std::nullopt;
+        if (monster_it == monsters_.end() || monster_it->is_dead) return std::nullopt;
+        if (accepted) *accepted = true;
+        if (damage == 0u) return std::nullopt;
 
         monster_it->current_life = damage >= monster_it->current_life
             ? 0u : monster_it->current_life - damage;
@@ -1080,7 +1092,9 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
         {
             std::lock_guard<std::mutex> player_lock(players_mu_);
             const auto player = player_runtimes_.find(attacker_player_id);
-            if (player != player_runtimes_.end()) {
+            const auto owner = connected_players_.find(attacker_player_id);
+            if (player != player_runtimes_.end() && (!expected_session ||
+                (owner != connected_players_.end() && owner->second.session_identity == expected_session))) {
                 quest_changes = dispatch_quest_event(player->second.quest_log,
                     QuestEvent{QuestSubKind::Kill, updated_monster.monster_kind, 1u});
             }
@@ -1105,7 +1119,8 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             std::lock_guard<std::mutex> player_lock(players_mu_);
             const auto player = player_runtimes_.find(attacker_player_id);
             const auto info = connected_players_.find(attacker_player_id);
-            if (player != player_runtimes_.end() && experience_curve_) {
+            if (player != player_runtimes_.end() && experience_curve_ && (!expected_session ||
+                (info != connected_players_.end() && info->second.session_identity == expected_session))) {
                 const auto level = player->second.actor.state().progress.level;
                 const auto threshold = experience_curve_->max_exp_point(
                     static_cast<std::uint16_t>(std::min<std::uint32_t>(level, mxh::game::MAX_CHARACTER_LEVEL_NUM)));
@@ -1125,7 +1140,7 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
                 "level=excluded.level,exp=excluded.exp,updated_at=excluded.updated_at", params);
             if (!saved.ok()) std::cerr << "[Map] experience persistence failed: " << saved.error_message << "\n";
         }
-        if (awarded != 0u && player_connection != 0) {
+        if (awarded != 0u && player_awarded && player_connection != 0) {
             mxh::net::Message exp;
             exp.header.category = 3u;
             exp.header.protocol = 13u;
@@ -2260,20 +2275,24 @@ void MapHandler::send_object_remove_locked(std::uint32_t target_player_id,
 
 void MapHandler::broadcast_except(std::uint32_t except_player_id,
                                  const mxh::net::Message& msg) {
-    std::lock_guard<std::mutex> lk(players_mu_);
     // Phase 10c fix: AgentServer multiplexes multiple players through a
     // single TCP connection.  We CANNOT exclude the sender's connection
     // because other players may share it.  Send to ALL connections and
     // let AgentServer's forward_from_map handle per-player filtering.
     std::vector<std::uint64_t> active_conns;
-    for (auto& [pid, info] : connected_players_) {
-        if (std::find(active_conns.begin(), active_conns.end(), info.conn_id)
-            == active_conns.end()) {
-            active_conns.push_back(info.conn_id);
+    std::size_t player_count = 0;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        player_count = connected_players_.size();
+        for (const auto& [pid, info] : connected_players_) {
+            if (std::find(active_conns.begin(), active_conns.end(), info.conn_id)
+                == active_conns.end()) {
+                active_conns.push_back(info.conn_id);
+            }
         }
     }
     std::cout << "[Map] broadcast_except sender=" << except_player_id
-              << " players=" << connected_players_.size()
+              << " players=" << player_count
               << " conns=" << active_conns.size() << "\n";
     for (auto conn : active_conns) {
         mxh::net::ConnectionId target{conn};
@@ -3938,11 +3957,11 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             }
 
             // Find caster
-            PlayerInfo* caster = nullptr;
+            std::optional<PlayerInfo> caster;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 auto it = connected_players_.find(caster_id);
-                if (it != connected_players_.end()) caster = &it->second;
+                if (it != connected_players_.end()) caster = it->second;
             }
             if (!caster) {
                 if (dev_stub_caster_) {
@@ -3978,7 +3997,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     {
                         std::lock_guard<std::mutex> lk(players_mu_);
                         auto it2 = connected_players_.find(caster_id);
-                        if (it2 != connected_players_.end()) caster = &it2->second;
+                        if (it2 != connected_players_.end()) caster = it2->second;
                     }
                     if (!caster) {
                         std::cout << "[Map] dev_stub_caster injection failed\n";
@@ -4004,6 +4023,9 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 }
             }
 
+            if (caster->conn_id != id.value) break;
+            std::shared_ptr<const std::uint8_t> target_session;
+
             // Target coordinates are presentation hints from the client, not
             // authoritative state.  When the target is a live player or
             // monster, resolve its current map position before creating the
@@ -4017,6 +4039,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     if (const auto it = connected_players_.find(main_target);
                         it != connected_players_.end() &&
                         it->second.map_num == map_num_) {
+                        target_session = it->second.session_identity;
                         authoritative_target = std::pair<float, float>{
                             it->second.pos_x, it->second.pos_z};
                     }
@@ -4068,8 +4091,27 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 }
             }
 
-            // MP check
-            if (caster->combat.current_mp < mxh::game::to_simple(*skill).need_nearyuk) {
+            // Reserve MP atomically against the same session that was validated.
+            const auto simple = mxh::game::to_simple(*skill);
+            bool enough_mp = false;
+            {
+                std::lock_guard<std::mutex> lock(players_mu_);
+                const auto it = connected_players_.find(caster_id);
+                if (it == connected_players_.end() ||
+                    it->second.session_identity != caster->session_identity ||
+                    it->second.conn_id != id.value) break;
+                const auto runtime = player_runtimes_.find(caster_id);
+                if (runtime != player_runtimes_.end())
+                    it->second.combat.current_mp = runtime->second.actor.state().vitals.current_mp;
+                enough_mp = it->second.combat.current_mp >= simple.need_nearyuk;
+                if (enough_mp) {
+                    it->second.combat.current_mp -= simple.need_nearyuk;
+                    if (const auto rt = player_runtimes_.find(caster_id); rt != player_runtimes_.end())
+                        rt->second.actor.state().vitals.current_mp = it->second.combat.current_mp;
+                    caster->combat = it->second.combat;
+                }
+            }
+            if (!enough_mp) {
                 std::cout << "[Map] Skill not enough MP\n";
                 mxh::net::Message nack;
                 nack.header.category = static_cast<std::uint8_t>(
@@ -4083,10 +4125,6 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 reply_(id, nack);
                 break;
             }
-
-            // Deduct MP
-            const auto simple = mxh::game::to_simple(*skill);
-            caster->combat.current_mp -= simple.need_nearyuk;
 
             // Create skill instance
             mxh::game::SkillInstance skill_obj;
@@ -4124,29 +4162,34 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             // Calculate damage for target
             if (main_target != 0 && simple.skill_kind == mxh::game::SkillKind::Combo) {
                 // Attack skill - calculate damage
-                PlayerInfo* target = nullptr;
+                std::optional<mxh::game::DamageResult> player_damage;
+                std::uint32_t target_hp = 0;
                 {
-                    std::lock_guard<std::mutex> lk(players_mu_);
-                    auto it = connected_players_.find(main_target);
-                    if (it != connected_players_.end()) target = &it->second;
-                }
-
-                if (target) {
-                    auto dmg = calculate_damage(caster->combat, target->combat,
-                                               *skill);
-                    {
-                        std::lock_guard<std::mutex> state_lock(players_mu_);
+                    std::lock_guard<std::mutex> state_lock(players_mu_);
+                    const auto owner = connected_players_.find(caster_id);
+                    const auto it = connected_players_.find(main_target);
+                    if (owner != connected_players_.end() &&
+                        owner->second.session_identity == caster->session_identity &&
+                        it != connected_players_.end() && target_session &&
+                        it->second.session_identity == target_session) {
+                        auto& target = it->second;
+                        const auto dmg = calculate_damage(caster->combat, target.combat, *skill);
+                        player_damage = dmg;
                         auto runtime_it = player_runtimes_.find(main_target);
                         if (runtime_it != player_runtimes_.end()) {
                             runtime_it->second.actor.apply_damage(
                                 static_cast<std::uint32_t>(std::max(0, dmg.damage)));
-                            target->combat.current_hp = runtime_it->second.actor.state().vitals.current_hp;
+                            target.combat.current_hp = runtime_it->second.actor.state().vitals.current_hp;
                         } else {
                             const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
-                            target->combat.current_hp = target->combat.current_hp > damage
-                                ? target->combat.current_hp - damage : 0u;
+                            target.combat.current_hp = target.combat.current_hp > damage
+                                ? target.combat.current_hp - damage : 0u;
                         }
+                        target_hp = target.combat.current_hp;
                     }
+                }
+                if (player_damage) {
+                    const auto& dmg = *player_damage;
                     // Send SingleResult to target
                     send_skill_single_result(main_target, main_target,
                                             dmg.damage, dmg.hit_result);
@@ -4157,9 +4200,9 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
 
                     std::cout << "[Map] Skill damage: " << dmg.damage
                               << " hit=" << (int)dmg.hit_result
-                              << " target_hp=" << target->combat.current_hp
+                              << " target_hp=" << target_hp
                               << "\n";
-                } else {
+                } else if (!target_session) {
                     mxh::game::PlayerCombatStats monster_stats;
                     bool monster_found = false;
                     {
@@ -4179,8 +4222,11 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                         const auto dmg = calculate_damage(caster->combat, monster_stats, *skill);
                         const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
                         static thread_local std::mt19937 drop_rng(std::random_device{}());
-                        apply_monster_damage(caster_id, main_target, damage, drop_rng());
-                        send_skill_single_result(caster_id, main_target, dmg.damage, dmg.hit_result);
+                        bool accepted = false;
+                        apply_monster_damage(caster_id, main_target, damage, drop_rng(),
+                                             caster->session_identity, &accepted);
+                        if (accepted)
+                            send_skill_single_result(caster_id, main_target, dmg.damage, dmg.hit_result);
                     } else {
                         std::cout << "[Map] Skill target " << main_target
                                   << " not found\n";
@@ -4189,30 +4235,37 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             } else if (simple.skill_kind == mxh::game::SkillKind::OuterMugong) {
                 // Heal skill
                 if (main_target != 0) {
-                    PlayerInfo* target = nullptr;
+                    const std::int32_t heal = mxh::server::skill_caster_heal_amount(caster->combat, simple);
+                    bool healed = false;
+                    std::uint32_t target_hp = 0;
                     {
-                        std::lock_guard<std::mutex> lk(players_mu_);
-                        auto it = connected_players_.find(main_target);
-                        if (it != connected_players_.end()) target = &it->second;
-                    }
-                    if (target) {
-                        const std::int32_t heal = mxh::server::skill_caster_heal_amount(caster->combat, simple);
-                        {
-                            std::lock_guard<std::mutex> state_lock(players_mu_);
+                        std::lock_guard<std::mutex> state_lock(players_mu_);
+                        const auto owner = connected_players_.find(caster_id);
+                        const auto it = connected_players_.find(main_target);
+                        if (owner != connected_players_.end() &&
+                            owner->second.session_identity == caster->session_identity &&
+                            it != connected_players_.end() && target_session &&
+                            it->second.session_identity == target_session) {
+                            auto& target = it->second;
                             auto runtime_it = player_runtimes_.find(main_target);
                             if (runtime_it != player_runtimes_.end()) {
                                 auto& vitals = runtime_it->second.actor.state().vitals;
                                 apply_hp_delta(vitals, heal);
-                                target->combat.current_hp = vitals.current_hp;
+                                target.combat.current_hp = vitals.current_hp;
                             } else {
-                                target->combat.current_hp = std::min<std::uint32_t>(
-                                    target->combat.max_hp,
-                                    target->combat.current_hp + static_cast<std::uint32_t>(std::max(0, heal)));
+                                target.combat.current_hp = std::min<std::uint32_t>(
+                                    target.combat.max_hp,
+                                    target.combat.current_hp + static_cast<std::uint32_t>(std::max(0, heal)));
                             }
-                        }                        send_skill_single_result(main_target, main_target,
+                            healed = true;
+                            target_hp = target.combat.current_hp;
+                        }
+                    }
+                    if (healed) {
+                        send_skill_single_result(main_target, main_target,
                                                 -heal, 1);  // negative = heal
                         std::cout << "[Map] Skill heal: " << heal
-                                  << " target_hp=" << target->combat.current_hp
+                                  << " target_hp=" << target_hp
                                   << "\n";
                     }
                 }
@@ -4220,13 +4273,16 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
 
             // Remove skill object after duration (instant for now)
             if (simple.duration == 0) {
-                std::lock_guard<std::mutex> lk(skills_mu_);
-                active_skills_.erase(
-                    std::remove_if(active_skills_.begin(), active_skills_.end(),
-                        [&](const mxh::game::SkillInstance& s) {
-                            return s.skill_object_id == skill_obj.skill_object_id;
-                        }),
-                    active_skills_.end());
+                {
+                    std::lock_guard<std::mutex> lk(skills_mu_);
+                    active_skills_.erase(
+                        std::remove_if(active_skills_.begin(), active_skills_.end(),
+                            [&](const mxh::game::SkillInstance& s) {
+                                return s.skill_object_id == skill_obj.skill_object_id;
+                            }),
+                        active_skills_.end());
+                }
+                // Sending can reenter this handler; do not hold skills_mu_.
                 // Broadcast remove
                 broadcast_skill_object_remove(caster_id, skill_obj.skill_object_id);
             }

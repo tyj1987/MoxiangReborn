@@ -22,9 +22,35 @@ to refresh state first. No network flag or production shortcut enables those hoo
 
 The current entry hook updates every player's position per message. Its performance
 must be measured before large-population acceptance. Test clock callbacks run under
-the player mutex and must not reenter MapHandler. A separate preexisting skill-path
-risk remains: caster/target PlayerInfo pointers escape the mutex and may be invalid
-after disconnect/replacement. Fix that before starting production trajectories.
+the player mutex and must not reenter MapHandler.
+
+The skill path now snapshots caster values and validates internal session tokens
+before MP reservation and player damage/healing. No PlayerInfo pointer escapes
+the mutex. Monster damage validates the caster token while holding both player
+and monster locks; follow-up quest/experience mutations also check that identity.
+MP is read from runtime vitals and synchronized with the combat cache after the
+atomic deduction. This fixes a reproduced 55-versus-50 initial MP mismatch.
+Instant skill removal releases the skill mutex before broadcasting, allowing
+the send callback to reenter skill handling without self-deadlock.
+
+These changes protect the state mutations covered here. They do not establish
+global session-tagged delivery: result routing, persistence and other subsystems
+still use player IDs in several later steps. Cooldown/learned-skill checks,
+original skill range semantics and production timed movement remain separate
+unfinished requirements. The regression fixtures use explicitly available
+development skills, not evidence of the complete original skill catalog.
+
+Skill lifetime validation: all three focused tests passed, covering caster and
+target replacement on the same connection for attack/heal, monster commit after
+caster replacement, nested casting during remove broadcasts, foreign connection
+rejection and insufficient runtime MP. The MP test first failed with 40 instead
+of the expected 45, exposing the stale combat cache; the reentry test also first
+failed with resource-deadlock after exposing broadcast_except's player lock.
+The latter now snapshots connections under lock and invokes the sender after
+unlocking. Full x86 build and full CTest passed (exit 0). Real Player/SQLite/HSEL
+three-server movement and collision regression passed in run
+`4573f176ed15407d9153e0358af27bf2`; it validates shared-path regression, not
+in-Player skill visuals, MSSQL, or human gameplay acceptance.
 
 Validation of position centralization: full x86 build and full CTest passed
 (exit 0); focused position/pickup regression tests passed. Real independent

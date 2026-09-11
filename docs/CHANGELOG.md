@@ -4,6 +4,11 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Removed unlocked player pointers from skill damage/heal handling, added
+  session identity checks to skill state mutations, and made MP reservation
+  atomic using runtime vitals. Reproduced and corrected a 55/50 MP cache mismatch.
+  Monster commits validate identity under both state locks; instant skill removal
+  broadcasts after releasing the skill lock to permit callback reentry.
 - Centralized MapHandler position reset/materialization across runtime snapshots,
   network entry, monster ticks and disconnect. Fixed-clock tests prove synchronized
   caches, trajectory cancellation and pickup range checks against elapsed motion.

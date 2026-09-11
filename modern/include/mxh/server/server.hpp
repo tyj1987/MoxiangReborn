@@ -454,7 +454,9 @@ public:
     std::size_t install_ai_groups(const AiGroupList& groups);
     std::size_t monster_count_for_test();
     std::size_t live_monster_count_for_test();
-    std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id, std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value);
+    std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id,
+        std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value,
+        std::shared_ptr<const std::uint8_t> expected_session = {}, bool* accepted = nullptr);
 
 
     // Per-player state stored on the server.
@@ -467,6 +469,9 @@ public:
     };
 
     struct PlayerInfo {
+        // Internal identity survives value snapshots but changes on GameIn.
+        std::shared_ptr<const std::uint8_t> session_identity =
+            std::make_shared<const std::uint8_t>(0);
         std::uint32_t player_id = 0;
         std::uint64_t conn_id = 0;  // TCP connection for reply routing
         std::uint16_t map_num = 0;
