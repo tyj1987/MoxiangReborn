@@ -66,6 +66,7 @@ ConnectionConfig ConnectionConfig::from_kv_string(std::string_view s) {
         else if (k == "odbc_driver") cfg.odbc_driver = v;
         else if (k == "encrypt") cfg.encrypt = (v == "yes" || v == "true" || v == "1");
         else if (k == "trust_server_certificate") cfg.trust_server_certificate = (v == "yes" || v == "true" || v == "1");
+        else if (k == "busy_timeout_ms") cfg.busy_timeout_ms = std::stoi(v);
     }
     return cfg;
 }
@@ -81,6 +82,7 @@ std::string ConnectionConfig::to_kv_string() const {
     if (!odbc_driver.empty()) os << "odbc_driver=" << odbc_driver << ';';
     os << "encrypt=" << (encrypt ? "yes" : "no") << ';';
     os << "trust_server_certificate=" << (trust_server_certificate ? "yes" : "no") << ';';
+    os << "busy_timeout_ms=" << busy_timeout_ms << ';';
     return os.str();
 }
 

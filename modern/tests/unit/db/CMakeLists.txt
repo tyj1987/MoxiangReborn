@@ -30,6 +30,8 @@ gtest_add_tests(TARGET mxh_db_tests
     SqliteAdapter.NullAndBlobBindings
     SqliteAdapter.FileBasedPersistence
     SqliteAdapter.ExecMultiWithInsertOrIgnore
+    SqliteAdapter.BusyTimeoutZeroMeansImmediateBusy
+    SqliteAdapter.BusyTimeoutWaitsBeforeFailing
     MssqlOdbcAdapter.FactoryReturnsNonNull
     MssqlOdbcAdapter.FactoryAcceptsAliases
     MssqlOdbcAdapter.InitiallyNotConnected

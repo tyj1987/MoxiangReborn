@@ -41,6 +41,11 @@ struct ConnectionConfig {
     // opt out when the installed ODBC driver lacks TLS support.
     bool encrypt = true;
     bool trust_server_certificate = false;
+    // SQLite-only: busy_timeout in milliseconds. A contended writer will
+    // wait this long before returning SQLITE_BUSY (mapped to
+    // DbError::IoError). PooledDbAdapter forwards this to every slot.
+    // 0 means immediate SQLITE_BUSY.
+    std::int32_t busy_timeout_ms = 5000;
 
     // Construct from a simple "key=value" string for tooling.
     static ConnectionConfig from_kv_string(std::string_view s);

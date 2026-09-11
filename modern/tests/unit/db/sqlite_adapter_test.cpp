@@ -5,8 +5,17 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
+
+#if defined(_WIN32)
+#include <process.h>
+#define MXH_TEST_GETPID() ::_getpid()
+#else
+#include <unistd.h>
+#define MXH_TEST_GETPID() ::getpid()
+#endif
 
 using namespace mxh::db;
 namespace mx = mxh::db;
@@ -170,4 +179,69 @@ INSERT OR IGNORE INTO t (id, n) VALUES ('b', 2);
     EXPECT_EQ(std::get<std::int64_t>(rs2.rows[0][1]), 1);
     EXPECT_EQ(std::get<std::string>(rs2.rows[1][0]), "b");
     EXPECT_EQ(std::get<std::int64_t>(rs2.rows[1][1]), 2);
+}
+
+TEST(SqliteAdapter, BusyTimeoutZeroMeansImmediateBusy) {
+    // Use a file-backed database so a second connection can hold the
+    // writer lock via BEGIN IMMEDIATE.
+    auto path = std::filesystem::temp_directory_path() /
+                ("mxh_busy_zero_" + std::to_string(MXH_TEST_GETPID()) + ".db");
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+
+    ConnectionConfig cfg;
+    cfg.backend = "sqlite";
+    cfg.path = path.string();
+    cfg.busy_timeout_ms = 0;  // immediate BUSY
+    auto a = make_adapter("sqlite");
+    ASSERT_TRUE(a->connect(cfg).ok());
+    ASSERT_TRUE(a->execute(
+        "CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER)").ok());
+
+    ConnectionConfig cfg2 = cfg;
+    cfg2.busy_timeout_ms = 0;
+    auto b = make_adapter("sqlite");
+    ASSERT_TRUE(b->connect(cfg2).ok());
+    // BEGIN IMMEDIATE acquires the writer lock synchronously; any other
+    // connection trying to write will get SQLITE_BUSY immediately.
+    ASSERT_TRUE(b->execute("BEGIN IMMEDIATE").ok());
+    ASSERT_TRUE(b->execute("INSERT INTO t(v) VALUES (1)").ok());
+    auto r = a->execute("INSERT INTO t(v) VALUES (2)");
+    EXPECT_FALSE(r.ok());
+    EXPECT_EQ(r.error, DbError::IoError);
+    ASSERT_TRUE(b->execute("COMMIT").ok());
+    std::filesystem::remove(path, ec);
+}
+
+TEST(SqliteAdapter, BusyTimeoutWaitsBeforeFailing) {
+    auto path = std::filesystem::temp_directory_path() /
+                ("mxh_busy_wait_" + std::to_string(MXH_TEST_GETPID()) + ".db");
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+
+    ConnectionConfig cfg;
+    cfg.backend = "sqlite";
+    cfg.path = path.string();
+    cfg.busy_timeout_ms = 500;  // wait up to 500ms
+    auto a = make_adapter("sqlite");
+    ASSERT_TRUE(a->connect(cfg).ok());
+    ASSERT_TRUE(a->execute(
+        "CREATE TABLE t(id INTEGER PRIMARY KEY, v INTEGER)").ok());
+
+    ConnectionConfig cfg2 = cfg;
+    cfg2.busy_timeout_ms = 500;
+    auto b = make_adapter("sqlite");
+    ASSERT_TRUE(b->connect(cfg2).ok());
+    ASSERT_TRUE(b->execute("BEGIN IMMEDIATE").ok());
+    ASSERT_TRUE(b->execute("INSERT INTO t(v) VALUES (1)").ok());
+    const auto start = std::chrono::steady_clock::now();
+    auto r = a->execute("INSERT INTO t(v) VALUES (2)");
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    ASSERT_FALSE(r.ok());
+    EXPECT_EQ(r.error, DbError::IoError);
+    // It must have waited at least 400ms (with a 100ms tolerance below).
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    EXPECT_GE(elapsed_ms, 400);
+    ASSERT_TRUE(b->execute("COMMIT").ok());
+    std::filesystem::remove(path, ec);
 }

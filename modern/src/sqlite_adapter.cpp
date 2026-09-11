@@ -36,6 +36,13 @@ DbResult SqliteAdapter::connect(const ConnectionConfig& cfg) {
     // Foreign keys, WAL mode for better concurrency.
     sqlite3_exec(db_, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
     sqlite3_exec(db_, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
+    // Busy-timeout so a contended writer waits instead of failing the
+    // request. 0 means default (immediate SQLITE_BUSY). The pragma is
+    // set per-connection so PooledDbAdapter slots can have different
+    // budgets if needed.
+    if (cfg.busy_timeout_ms > 0) {
+        sqlite3_busy_timeout(db_, static_cast<int>(cfg.busy_timeout_ms));
+    }
     return r;
 }
 
