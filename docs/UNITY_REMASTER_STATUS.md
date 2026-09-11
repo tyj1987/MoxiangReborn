@@ -310,3 +310,8 @@ Development Player movement smoke subsequently passed with run ID
 SQLite/HSEL path, Map10 collision fixture and server correction all passed.
 This closes the automated two-session movement gate; human acceptance and
 visible combat presentation remain open.
+
+Development Player empty-account creation smoke also passed with run ID
+`0a3727158a2b4e788120f6764b9eb9cb`: the real three-server SQLite/HSEL path
+created character `UnityNew` (level 17) and returned the expected initial
+equipment records. Movement and creation remain separate isolated fixtures.
