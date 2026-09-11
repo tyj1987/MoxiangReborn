@@ -95,6 +95,7 @@ typedef enum mxh_unity_event_type {
     /* Monster LifeNotify shield component: argument0=object ID,
        argument1=current shield. */
     ,MXH_UNITY_EVENT_ENTITY_SHIELD = 16
+    ,MXH_UNITY_EVENT_GROUND_DROP = 17
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {

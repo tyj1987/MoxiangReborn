@@ -514,6 +514,14 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
                        message.header.object_id, life->second, {}, message.header.protocol);
             return;
         }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify)) {
+            const auto drop = mxh::client::parse_legacy_ground_drop(message.payload);
+            if (!drop) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid ground drop payload"); return; }
+            const auto detail = std::to_string(drop->count) + "," + std::to_string(drop->position_x) + "," + std::to_string(drop->position_z);
+            (void)emit(MXH_UNITY_EVENT_GROUND_DROP, MXH_UNITY_OK, 0, drop->object_id, drop->item_id, detail, message.header.protocol);
+            return;
+        }
         return;
     }
     const auto protocol = static_cast<UserConnProtocol>(message.header.protocol);

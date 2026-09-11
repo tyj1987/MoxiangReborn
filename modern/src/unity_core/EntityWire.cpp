@@ -1,5 +1,6 @@
 #include "../client/CInGameState.hpp"
 #include <cstring>
+#include <cmath>
 
 namespace mxh::client {
 namespace {
@@ -32,5 +33,18 @@ std::optional<std::pair<std::uint32_t, std::uint32_t>>
 parse_monster_life_payload(std::span<const std::uint8_t> payload) {
     if (payload.size() < 8) return std::nullopt;
     return std::make_pair(u32(payload.data()), u32(payload.data() + 4));
+}
+
+std::optional<GroundDropInfo> parse_legacy_ground_drop(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 20) return std::nullopt;
+    GroundDropInfo drop;
+    drop.object_id = u32(payload.data());
+    drop.source_monster_id = u32(payload.data() + 4);
+    drop.item_id = u16(payload.data() + 8);
+    drop.count = u16(payload.data() + 10);
+    std::memcpy(&drop.position_x, payload.data() + 12, sizeof(float));
+    std::memcpy(&drop.position_z, payload.data() + 16, sizeof(float));
+    if (drop.object_id == 0 || drop.item_id == 0 || drop.count == 0 || !std::isfinite(drop.position_x) || !std::isfinite(drop.position_z)) return std::nullopt;
+    return drop;
 }
 }
