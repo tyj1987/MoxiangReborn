@@ -269,10 +269,15 @@ struct ServerProc {
         // would keep a parent that waits on the tool from ever seeing
         // EOF (the commercial smoke gate hangs at exit).  Null handles
         // give the children their own console-less std streams.
-        si.dwFlags = STARTF_USESTDHANDLES;
-        si.hStdInput  = nullptr;
-        si.hStdOutput = nullptr;
-        si.hStdError  = nullptr;
+        const bool inherit_stdio = std::getenv("MXH_E2E_INHERIT_SERVER_STDIO") != nullptr;
+        if (inherit_stdio) {
+            si.dwFlags = 0;
+        } else {
+            si.dwFlags = STARTF_USESTDHANDLES;
+            si.hStdInput  = nullptr;
+            si.hStdOutput = nullptr;
+            si.hStdError  = nullptr;
+        }
         PROCESS_INFORMATION pi{};
         std::wstring wcmd(line.begin(), line.end());
         std::wstring wdir;
