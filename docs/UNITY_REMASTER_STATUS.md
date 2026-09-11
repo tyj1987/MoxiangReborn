@@ -414,3 +414,8 @@ material and 2 present source files), while the profile manifest still reports
 19,682 logical assets, 53 conflicts, 59 unresolved selections and 108 release
 blockers. Release remains closed until each selection is resolved and the
 visual sample is accepted.
+
+The current Player was rechecked against the real three-server SQLite/HSEL
+fixture on 2026-09-12. Run ID `efb0cf183bc64469851ca980058545ce` passed login,
+two native sessions, Map10 collision and server correction. The fixture does
+not provide human acceptance evidence.
