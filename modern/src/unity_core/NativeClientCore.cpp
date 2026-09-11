@@ -529,6 +529,10 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         (void)emit(MXH_UNITY_EVENT_MONSTER_ADDED, MXH_UNITY_OK, 0,
                    parsed->object_id, packed, parsed->name,
                    message.header.protocol);
+        (void)emit(MXH_UNITY_EVENT_ENTITY_LIFE, MXH_UNITY_OK, 0,
+                   parsed->object_id, parsed->current_life, {}, message.header.protocol);
+        (void)emit(MXH_UNITY_EVENT_ENTITY_SHIELD, MXH_UNITY_OK, 0,
+                   parsed->object_id, parsed->current_shield, {}, message.header.protocol);
         return;
     }
     if (state_ == MXH_UNITY_STATE_IN_GAME &&
