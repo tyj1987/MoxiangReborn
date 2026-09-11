@@ -21,12 +21,17 @@
 extern "C" {
 #endif
 
-#define MXH_UNITY_API_VERSION UINT32_C(0x00010002)
+#define MXH_UNITY_API_VERSION UINT32_C(0x00010003)
 #define MXH_UNITY_MAX_HOST_BYTES UINT32_C(255)
 #define MXH_UNITY_MAX_CREDENTIAL_BYTES UINT32_C(17)
 #define MXH_UNITY_MAX_NAME_BYTES UINT32_C(64)
 #define MXH_UNITY_MAX_EVENT_TEXT_BYTES UINT32_C(255)
 #define MXH_UNITY_MAX_CHARACTER_SLOTS UINT32_C(5)
+/* Bounded versioned timed-movement wire payload cap: hello is 8 bytes; a
+   15-point command is 24 + 4*15 = 84 bytes. The native core rejects anything
+   outside this range. */
+#define MXH_UNITY_TIMED_MOVEMENT_MAX_PAYLOAD UINT32_C(84)
+#define MXH_UNITY_TIMED_MOVEMENT_HELLO_PAYLOAD UINT32_C(8)
 
 typedef uint64_t mxh_unity_handle;
 
@@ -72,7 +77,16 @@ typedef enum mxh_unity_event_type {
        CORRECTION has request_id=0: the legacy wire has no request correlation. */
     MXH_UNITY_EVENT_MOVEMENT_SUBMITTED = 7,
     MXH_UNITY_EVENT_POSITION_CORRECTION = 8,
-    MXH_UNITY_EVENT_OBJECT_MOVEMENT = 9
+    MXH_UNITY_EVENT_OBJECT_MOVEMENT = 9,
+    /* Timed-movement owner broadcast: argument0=object ID, argument1=(x|(z<<16)),
+       reserved0=Move owner_state_protocol (130). request_id carries the
+       related command sequence (lower 32 bits) so the Unity side can match
+       submitted routes. sequence carries the server state sequence. */
+    MXH_UNITY_EVENT_TIMED_MOVEMENT_OWNER_STATE = 10,
+    /* Timed-movement observer broadcast: same packing as owner state but
+       reserved0=Move observer_state_protocol (131); text carries the encoded
+       wire payload verbatim, length = text_length. */
+    MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE = 11
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {
@@ -80,7 +94,15 @@ typedef enum mxh_unity_command_type {
     MXH_UNITY_COMMAND_CREATE_CHARACTER = 2,
     /* argument0=x, argument1=z in legacy uint16 game units; payload_size=0. */
     MXH_UNITY_COMMAND_MOVE = 3,
-    MXH_UNITY_COMMAND_STOP = 4
+    MXH_UNITY_COMMAND_STOP = 4,
+    /* Bounded versioned timed-movement wire (only valid when the server was
+       started with --experimental-timed-movement). payload carries the literal
+       MXMH (8 bytes) or MXMC (24 + 4N bytes, N in 1..15) bytes, and is sent as
+       a Move subprotocol. Use mxh_unity_submit_extended_command to send these;
+       mxh_unity_submit_command with type 5/6/7 is rejected. */
+    MXH_UNITY_COMMAND_HELLO_TIMED = 5,
+    MXH_UNITY_COMMAND_TIMED_ROUTE = 6,
+    MXH_UNITY_COMMAND_TIMED_STOP = 7
 } mxh_unity_command_type;
 
 /* Bytes after expected_map_generation used by CREATE_CHARACTER. */
@@ -130,6 +152,17 @@ typedef struct mxh_unity_command {
     uint8_t weapon_option; /* 0..5 */
     uint8_t reserved1[5];
 } mxh_unity_command;
+
+/* Variable-length payload carrier for the bounded timed-movement wire.
+   The payload bytes are the literal MXMH or MXMC frame; the native core wraps
+   them as a Move subprotocol message and forwards via the same agent path as
+   the legacy Move command. payload is read but not retained, so the caller can
+   reuse the buffer once the function returns. */
+typedef struct mxh_unity_extended_command {
+    mxh_unity_command head;
+    const uint8_t* payload;
+    uint32_t payload_size;
+} mxh_unity_extended_command;
 
 typedef struct mxh_unity_event {
     uint32_t struct_size;
@@ -213,6 +246,8 @@ static_assert(sizeof(mxh_unity_connect_args) == 412,
               "mxh_unity_connect_args ABI changed");
 static_assert(sizeof(mxh_unity_command) == 128,
               "mxh_unity_command ABI changed");
+static_assert(sizeof(mxh_unity_extended_command) == 140,
+              "mxh_unity_extended_command ABI changed");
 static_assert(sizeof(mxh_unity_character_slot) == 108,
               "mxh_unity_character_slot ABI changed");
 static_assert(sizeof(mxh_unity_game_snapshot) == 132,
@@ -223,6 +258,7 @@ static_assert(sizeof(mxh_unity_snapshot) == 992,
               "mxh_unity_snapshot ABI changed");
 static_assert(std::is_trivially_copyable_v<mxh_unity_connect_args> &&
               std::is_trivially_copyable_v<mxh_unity_command> &&
+              std::is_trivially_copyable_v<mxh_unity_extended_command> &&
               std::is_trivially_copyable_v<mxh_unity_event> &&
               std::is_trivially_copyable_v<mxh_unity_snapshot>,
               "Unity ABI structs must remain POD-compatible");
@@ -241,6 +277,15 @@ MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_tick(
     mxh_unity_handle handle);
 MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_submit_command(
     mxh_unity_handle handle, const mxh_unity_command* command);
+/* Bounded versioned timed-movement wire entry. The native core validates
+   payload_size, sends the bytes as a Move subprotocol (hello=128 or
+   command=129 depending on head.type), and updates the per-session epoch and
+   command sequence atomically. Returns MXH_UNITY_INVALID_ARGUMENT for
+   unsupported types or out-of-range sizes; MXH_UNITY_WRONG_STATE if the
+   session is not IN_GAME; MXH_UNITY_NOT_READY when the underlying network
+   send fails. */
+MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_submit_extended_command(
+    mxh_unity_handle handle, const mxh_unity_extended_command* command);
 MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_poll_event(
     mxh_unity_handle handle, void* event_buffer, uint32_t event_buffer_size,
     uint32_t* out_required_size);

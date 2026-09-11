@@ -122,7 +122,26 @@ std::uint32_t MXH_UNITY_CALL mxh_unity_submit_command(
         (command->type == MXH_UNITY_COMMAND_CREATE_CHARACTER &&
          command->payload_size != MXH_UNITY_CREATE_COMMAND_PAYLOAD_SIZE))
         return MXH_UNITY_INVALID_ARGUMENT;
+    // Reject timed-movement types from the legacy entry: callers must use
+    // mxh_unity_submit_extended_command so the variable-length payload is
+    // delivered through the dedicated channel.
+    if (command->type == MXH_UNITY_COMMAND_HELLO_TIMED ||
+        command->type == MXH_UNITY_COMMAND_TIMED_ROUTE ||
+        command->type == MXH_UNITY_COMMAND_TIMED_STOP)
+        return MXH_UNITY_UNSUPPORTED;
     try { return core->submit(*command); }
+    catch (...) { return MXH_UNITY_INTERNAL_ERROR; }
+}
+
+std::uint32_t MXH_UNITY_CALL mxh_unity_submit_extended_command(
+    mxh_unity_handle handle, const mxh_unity_extended_command* command) {
+    auto core = acquire(handle);
+    if (!core) return MXH_UNITY_INVALID_HANDLE;
+    if (!command) return MXH_UNITY_INVALID_ARGUMENT;
+    if (command->head.struct_size < sizeof(mxh_unity_command) ||
+        command->payload_size > MXH_UNITY_TIMED_MOVEMENT_MAX_PAYLOAD)
+        return MXH_UNITY_INVALID_ARGUMENT;
+    try { return core->submit_extended(*command); }
     catch (...) { return MXH_UNITY_INTERNAL_ERROR; }
 }
 

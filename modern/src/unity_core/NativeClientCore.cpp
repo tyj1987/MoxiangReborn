@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <span>
 #include <utility>
 
 #if defined(_WIN32)
@@ -445,7 +446,36 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Move)) {
             using mxh::proto::MoveProtocol;
-            const auto move = static_cast<MoveProtocol>(message.header.protocol);
+            namespace wire = mxh::proto::movement;
+            const auto protocol = message.header.protocol;
+            // Bounded versioned timed-movement state: MXMS with the new
+            // owner_state_protocol / observer_state_protocol subprotocols.
+            // Decode the wire, validate monotonic sequence, capture epoch for
+            // outgoing commands, and surface to managed code via dedicated
+            // event types so it can carry the full state in event.text.
+            if (protocol == wire::owner_state_protocol ||
+                protocol == wire::observer_state_protocol) {
+                if (message.header.object_id == 0) return;
+                const auto state = wire::decode_state(message.payload);
+                if (!state) return;
+                if (movement_epoch_ != 0 && state->epoch != movement_epoch_) return;
+                if (movement_epoch_ == 0) movement_epoch_ = state->epoch;
+                if (state->state_sequence <= last_movement_state_sequence_) return;
+                last_movement_state_sequence_ = state->state_sequence;
+                const auto packed = static_cast<std::uint32_t>(state->x) |
+                    (static_cast<std::uint32_t>(state->z) << 16);
+                const auto text_len = static_cast<std::uint32_t>(message.payload.size());
+                std::string text;
+                text.resize(text_len);
+                if (text_len != 0) std::memcpy(text.data(), message.payload.data(), text_len);
+                const auto event_type = protocol == wire::owner_state_protocol
+                    ? MXH_UNITY_EVENT_TIMED_MOVEMENT_OWNER_STATE
+                    : MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE;
+                (void)emit(event_type, MXH_UNITY_OK, state->command_sequence,
+                    message.header.object_id, packed, std::move(text), protocol);
+                return;
+            }
+            const auto move = static_cast<MoveProtocol>(protocol);
             if (move != MoveProtocol::OneTarget && move != MoveProtocol::Stop &&
                 move != MoveProtocol::Correction) return;
             const auto position = mxh::client::parse_move_payload(message.payload);
@@ -837,6 +867,64 @@ bool NativeClientCore::emit(std::uint32_t type, std::uint32_t result,
     }
     events_.push_back(make_event());
     return true;
+}
+
+std::uint32_t NativeClientCore::submit_extended(const mxh_unity_extended_command& command) {
+    std::lock_guard lock(mutex_);
+    if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
+    namespace wire = mxh::proto::movement;
+    switch (command.head.type) {
+        case MXH_UNITY_COMMAND_HELLO_TIMED:
+        case MXH_UNITY_COMMAND_TIMED_ROUTE:
+        case MXH_UNITY_COMMAND_TIMED_STOP:
+            break;
+        default:
+            return MXH_UNITY_UNSUPPORTED;
+    }
+    if (command.head.expected_session_generation != session_generation_ ||
+        command.head.expected_map_generation != map_generation_)
+        return MXH_UNITY_WRONG_STATE;
+    if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+    if (!command.payload || command.payload_size == 0)
+        return MXH_UNITY_INVALID_ARGUMENT;
+    if (command.head.type == MXH_UNITY_COMMAND_HELLO_TIMED) {
+        if (command.payload_size != MXH_UNITY_TIMED_MOVEMENT_HELLO_PAYLOAD)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        if (std::memcmp(command.payload, wire::hello_payload.data(),
+                        wire::hello_payload.size()) != 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+    } else {
+        if (command.payload_size < wire::command_header_size ||
+            command.payload_size > MXH_UNITY_TIMED_MOVEMENT_MAX_PAYLOAD ||
+            (command.payload_size - wire::command_header_size) % 4 != 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        const auto decoded = wire::decode_command(
+            std::span<const std::uint8_t>(command.payload, command.payload_size));
+        if (!decoded) return MXH_UNITY_INVALID_ARGUMENT;
+        // Bind the command to the session epoch the server handed us in the
+        // first state broadcast. The C# helper builds the wire payload, so
+        // this is the only spot that enforces the cross-field contract.
+        if (movement_epoch_ == 0) return MXH_UNITY_WRONG_STATE;
+        if (decoded->epoch != movement_epoch_) return MXH_UNITY_PROTOCOL_ERROR;
+        if (decoded->sequence == 0 ||
+            decoded->sequence <= next_movement_command_sequence_)
+            return MXH_UNITY_PROTOCOL_ERROR;
+        next_movement_command_sequence_ = decoded->sequence;
+    }
+    mxh::net::Message message{};
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    message.header.protocol = command.head.type == MXH_UNITY_COMMAND_HELLO_TIMED
+        ? wire::hello_protocol : wire::command_protocol;
+    message.header.object_id = game_.player_id;
+    message.payload.assign(command.payload,
+                          command.payload + command.payload_size);
+    const auto sent = agent_.send(message);
+    if (sent != mxh::net::NetError::Ok) {
+        fail(MXH_UNITY_NETWORK_ERROR, "timed movement send failed");
+        return MXH_UNITY_NETWORK_ERROR;
+    }
+    ++revision_;
+    return MXH_UNITY_OK;
 }
 
 std::uint32_t NativeClientCore::poll_event(mxh_unity_event& event) {

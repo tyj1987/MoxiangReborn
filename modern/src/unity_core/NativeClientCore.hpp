@@ -5,6 +5,7 @@
 #include "../client/NetworkEventQueue.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/net/net.hpp"
+#include "mxh/proto/movement_wire.hpp"
 #include "mxh/unity/unity_client.h"
 
 #include <chrono>
@@ -32,6 +33,7 @@ public:
     std::uint32_t disconnect();
     std::uint32_t tick();
     std::uint32_t submit(const mxh_unity_command& command);
+    std::uint32_t submit_extended(const mxh_unity_extended_command& command);
     std::uint32_t poll_event(mxh_unity_event& event);
     std::uint32_t copy_snapshot(mxh_unity_snapshot& snapshot) const;
 
@@ -102,6 +104,13 @@ private:
     Clock::time_point deadline_{};
     std::vector<mxh::client::CharacterSlot> characters_;
     mxh::client::GameInInfo game_{};
+
+    // Bounded timed-movement wire session state. The native core receives the
+    // epoch from the server's hello response (allocated server-side) and
+    // allocates command sequences monotonically from 1.
+    std::uint64_t movement_epoch_ = 0;
+    std::uint64_t next_movement_command_sequence_ = 0;
+    std::uint64_t last_movement_state_sequence_ = 0;
 };
 
 }  // namespace mxh::unity
