@@ -395,3 +395,10 @@ Unity combat ABI changes: Login, character list, relist and Map10 GameIn all
 passed, with 228 initial monsters observed. The run reused an existing test
 character because the account already contained one; no database schema or
 server formula changes were made.
+
+On 2026-09-12, the reproducible full modern Debug CTest wrapper completed with
+12,548/12,548 tests passed and exit code 0 in 75.06 seconds. Eight tests remain
+intentionally skipped for release-only, deploy-manifest, or MSSQL fixtures;
+this does not close the independent MSSQL or human gameplay gates. The latest
+Unity social/entity coverage includes chat, quest, ground-drop, pickup and
+entity-health paths; those targeted EditMode and x64 core suites also passed.
