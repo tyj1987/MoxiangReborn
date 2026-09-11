@@ -4,10 +4,14 @@ add_executable(mxh_db_tests
     mssql_odbc_adapter_test.cpp
     db_thread_test.cpp
     mssql_real_e2e_test.cpp
+    mssql_production_modules_test.cpp
     real_resource_test.cpp
     schema_migration_test.cpp
     pooled_db_adapter_test.cpp
     player_position_persistence_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/login_audit.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/account_lockout.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/account_moderation.cpp
 )
 
 target_link_libraries(mxh_db_tests PRIVATE mxh_db mxh_compat gtest_main)
@@ -32,6 +36,8 @@ gtest_add_tests(TARGET mxh_db_tests
     SqliteAdapter.ExecMultiWithInsertOrIgnore
     SqliteAdapter.BusyTimeoutZeroMeansImmediateBusy
     SqliteAdapter.BusyTimeoutWaitsBeforeFailing
+    MssqlProdE2E.PooledDbAdapterMultiSlotRoundTrip
+    MssqlProdE2E.LoginAuditAndLockoutEscalateAgainstMssql
     MssqlOdbcAdapter.FactoryReturnsNonNull
     MssqlOdbcAdapter.FactoryAcceptsAliases
     MssqlOdbcAdapter.InitiallyNotConnected
