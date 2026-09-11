@@ -92,6 +92,9 @@ typedef enum mxh_unity_event_type {
     ,MXH_UNITY_EVENT_ENTITY_REMOVED = 14
     /* Monster LifeNotify: argument0=object ID, argument1=current life. */
     ,MXH_UNITY_EVENT_ENTITY_LIFE = 15
+    /* Monster LifeNotify shield component: argument0=object ID,
+       argument1=current shield. */
+    ,MXH_UNITY_EVENT_ENTITY_SHIELD = 16
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {

@@ -13,6 +13,8 @@ public sealed class ServerEntityHealthTests
         Assert.That(health.CurrentLife, Is.EqualTo(321u));
         health.SetCurrentLife(0u);
         Assert.That(health.CurrentLife, Is.EqualTo(0u));
+        health.SetCurrentShield(17u);
+        Assert.That(health.CurrentShield, Is.EqualTo(17u));
         Object.DestroyImmediate(go);
     }
 }

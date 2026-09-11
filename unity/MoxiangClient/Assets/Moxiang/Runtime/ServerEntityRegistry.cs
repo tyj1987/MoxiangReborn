@@ -40,6 +40,15 @@ namespace Moxiang
                 }
                 return;
             }
+            if (e.type == NativeClient.EventEntityShield)
+            {
+                if (entities.TryGetValue(e.argument0, out var shielded) && shielded != null)
+                {
+                    var healthSink = shielded.GetComponent<ServerEntityHealth>();
+                    if (healthSink != null) healthSink.SetCurrentShield(e.argument1);
+                }
+                return;
+            }
             if (e.type != NativeClient.EventMonsterAdded && e.type != NativeClient.EventNpcAdded || e.argument0 == 0) return;
             var prefab = e.type == NativeClient.EventMonsterAdded ? monsterPrefab : npcPrefab;
             if (prefab == null) return;

@@ -510,6 +510,8 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
             }
             (void)emit(MXH_UNITY_EVENT_ENTITY_LIFE, MXH_UNITY_OK, 0,
                        message.header.object_id, life->first, {}, message.header.protocol);
+            (void)emit(MXH_UNITY_EVENT_ENTITY_SHIELD, MXH_UNITY_OK, 0,
+                       message.header.object_id, life->second, {}, message.header.protocol);
             return;
         }
         return;

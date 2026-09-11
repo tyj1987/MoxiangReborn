@@ -6,10 +6,16 @@ namespace Moxiang
     public sealed class ServerEntityHealth : MonoBehaviour
     {
         public uint CurrentLife { get; private set; }
+        public uint CurrentShield { get; private set; }
 
         public void SetCurrentLife(uint value)
         {
             CurrentLife = value;
+        }
+
+        public void SetCurrentShield(uint value)
+        {
+            CurrentShield = value;
         }
     }
 }
