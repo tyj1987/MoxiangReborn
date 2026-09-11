@@ -62,6 +62,17 @@ mxh::net::Message make_pickup_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_quest_message(std::uint32_t player_id,
+                                     mxh::proto::QuestProtocol protocol,
+                                     std::uint16_t quest_id) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    message.header.protocol = static_cast<std::uint8_t>(protocol);
+    message.header.object_id = player_id;
+    message.payload = {static_cast<std::uint8_t>(quest_id), static_cast<std::uint8_t>(quest_id >> 8)};
+    return message;
+}
+
 std::optional<PickupAckInfo> parse_pickup_ack_payload(std::span<const std::uint8_t> payload) {
     if (payload.size() < 8) return std::nullopt;
     PickupAckInfo ack;

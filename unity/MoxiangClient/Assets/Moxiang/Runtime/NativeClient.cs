@@ -132,6 +132,7 @@ namespace Moxiang
         public const uint EventGroundDrop = 17;
         public const uint EventPickupConfirmed = 18;
         public const uint CommandPickup = 9;
+        public const uint CommandQuest = 10;
         public const uint EventDisconnected = 4;
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
@@ -246,6 +247,19 @@ namespace Moxiang
                     argument0 = dropObjectId, requestId = ++nextRequestId,
                     expectedSessionGeneration = observed.sessionGeneration,
                     expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitQuest(ushort questId, byte protocol, CoreSnapshot observed)
+        {
+            if (questId == 0 || (protocol != 9 && protocol != 12)) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandQuest,
+                    argument0 = questId, argument1 = protocol, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
                     name = new byte[65], reserved1 = new byte[5] };
                 return mxh_unity_submit_command(handle, ref command);
             }

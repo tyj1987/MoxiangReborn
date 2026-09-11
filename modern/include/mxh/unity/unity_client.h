@@ -118,7 +118,8 @@ typedef enum mxh_unity_command_type {
        payload is exactly target_x/target_z as little-endian float32. */
     MXH_UNITY_COMMAND_SKILL = 8,
     /* PickupSyn: argument0=ground-drop object ID, no payload. */
-    MXH_UNITY_COMMAND_PICKUP = 9
+    MXH_UNITY_COMMAND_PICKUP = 9,
+    MXH_UNITY_COMMAND_QUEST = 10
 } mxh_unity_command_type;
 
 #define MXH_UNITY_SKILL_PAYLOAD_SIZE UINT32_C(8)

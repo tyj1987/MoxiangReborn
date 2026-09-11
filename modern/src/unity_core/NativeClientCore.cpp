@@ -791,7 +791,7 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     if (command.type != MXH_UNITY_COMMAND_SELECT_CHARACTER &&
         command.type != MXH_UNITY_COMMAND_CREATE_CHARACTER &&
         command.type != MXH_UNITY_COMMAND_MOVE && command.type != MXH_UNITY_COMMAND_STOP &&
-        command.type != MXH_UNITY_COMMAND_PICKUP)
+        command.type != MXH_UNITY_COMMAND_PICKUP && command.type != MXH_UNITY_COMMAND_QUEST)
         return MXH_UNITY_UNSUPPORTED;
     if (command.expected_session_generation != session_generation_ ||
         command.expected_map_generation != map_generation_)
@@ -824,6 +824,22 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
         const auto message = mxh::client::make_pickup_message(game_.player_id, command.argument0);
         if (agent_.send(message) != mxh::net::NetError::Ok) {
             fail(MXH_UNITY_NETWORK_ERROR, "pickup send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
+        ++revision_;
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_QUEST) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 == 0 ||
+            (command.argument1 != static_cast<std::uint32_t>(mxh::proto::QuestProtocol::StartSyn) &&
+             command.argument1 != static_cast<std::uint32_t>(mxh::proto::QuestProtocol::EndSyn)))
+            return MXH_UNITY_INVALID_ARGUMENT;
+        const auto message = mxh::client::make_quest_message(
+            game_.player_id, static_cast<mxh::proto::QuestProtocol>(command.argument1),
+            static_cast<std::uint16_t>(command.argument0));
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "quest send failed");
             return MXH_UNITY_NETWORK_ERROR;
         }
         ++revision_;
