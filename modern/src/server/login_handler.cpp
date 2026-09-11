@@ -140,6 +140,12 @@ LoginRateLimiter::Stats LoginHandler::rate_limiter_stats() const {
     return rate_limiter_->stats();
 }
 
+void LoginHandler::prepare_for_shutdown() {
+    if (draining_.exchange(true)) return;  // idempotent
+    std::cout << "[Login] prepare_for_shutdown: draining, disconnecting from DB\n";
+    if (db_.is_connected()) db_.disconnect();
+}
+
 mxh::net::IEncryptor* LoginHandler::encryptor_for(
     mxh::net::ConnectionId id) {
     return hsel_.encryptor_for(id);
@@ -147,6 +153,13 @@ mxh::net::IEncryptor* LoginHandler::encryptor_for(
 
 bool LoginHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
+    // Graceful shutdown: reject new clients once draining.
+    if (draining_.load()) {
+        std::cout << "[Login] rejecting connection from " << remote_addr
+                  << " — handler is draining\n";
+        dbg_log("[on_connect] draining remote=" + remote_addr);
+        return false;
+    }
     // Production hardening: per-IP connection budget. A flooding source is
     // dropped at accept time so it cannot waste server CPU on the
     // handshake or reply loop.

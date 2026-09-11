@@ -180,6 +180,11 @@ mxh::net::IEncryptor* AgentHandler::encryptor_for(
 
 bool AgentHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
+    if (draining_.load()) {
+        std::cout << "[Agent] rejecting connection from " << remote_addr
+                  << " — handler is draining\n";
+        return false;
+    }
     std::cout << "[Agent] client connected from " << remote_addr << "\n";
 
     // Phase 7.6: In legacy mode, immediately send AGENT_CONNECTSUCCESS.
@@ -196,6 +201,12 @@ bool AgentHandler::on_connect(mxh::net::ConnectionId id,
                   << agent_auth_key << "\n";
     }
     return true;
+}
+
+void AgentHandler::prepare_for_shutdown() {
+    if (draining_.exchange(true)) return;  // idempotent
+    std::cout << "[Agent] prepare_for_shutdown: draining, disconnecting from DB\n";
+    if (db_.is_connected()) db_.disconnect();
 }
 
 void AgentHandler::on_disconnect(mxh::net::ConnectionId id,

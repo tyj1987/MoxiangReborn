@@ -95,6 +95,12 @@ public:
     // Snapshot the limiter stats. Cheap; reads under a single mutex.
     LoginRateLimiter::Stats rate_limiter_stats() const;
 
+    // Graceful shutdown: reject new connections, persist any login-side
+    // state, disconnect from the DB. Idempotent. See MapHandler for the
+    // matching contract that persists per-player position.
+    void prepare_for_shutdown();
+    bool is_draining() const noexcept { return draining_; }
+
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
@@ -126,6 +132,7 @@ private:
     // login failure tracking. Held by shared_ptr so tests can replace it
     // and so the lifetime is independent of LoginHandler construction.
     std::shared_ptr<LoginRateLimiter> rate_limiter_;
+    std::atomic<bool> draining_{false};
 };
 
 // AgentHandler - serves the per-user agent connection.
@@ -147,6 +154,11 @@ public:
     void on_disconnect(mxh::net::ConnectionId id,
                        mxh::net::NetError reason) override;
     mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
+
+    // Graceful shutdown: reject new connections and disconnect from the DB.
+    // Idempotent.
+    void prepare_for_shutdown();
+    bool is_draining() const noexcept { return draining_; }
 
     // Phase 9: connect to MapServer for GameIn forwarding.
     // Phase 12.1 P2-13: takes ITcpSender* (was TcpClient*) so tests can
@@ -295,6 +307,7 @@ private:
 
     bool use_hsel_;
     HselSessionManager hsel_;
+    std::atomic<bool> draining_{false};
 };
 
 // MapHandler - serves per-map instance.

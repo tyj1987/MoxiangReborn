@@ -446,6 +446,7 @@ int main(int argc, char** argv) {
         route->client.reset();
         route->handler.reset();
     }
+    handler.prepare_for_shutdown();
     server.stop();
     return 0;
 }

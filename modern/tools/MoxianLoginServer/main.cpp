@@ -217,6 +217,7 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "[main] shutting down...\n";
+    handler.prepare_for_shutdown();
     server.stop();
     return 0;
 }
