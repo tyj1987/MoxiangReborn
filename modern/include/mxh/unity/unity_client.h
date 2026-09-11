@@ -89,6 +89,7 @@ typedef enum mxh_unity_event_type {
     MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE = 11
     ,MXH_UNITY_EVENT_MONSTER_ADDED = 12
     ,MXH_UNITY_EVENT_NPC_ADDED = 13
+    ,MXH_UNITY_EVENT_ENTITY_REMOVED = 14
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {

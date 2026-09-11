@@ -532,6 +532,18 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
                    message.header.protocol);
         return;
     }
+    if (state_ == MXH_UNITY_STATE_IN_GAME &&
+        protocol == UserConnProtocol::ObjectRemove) {
+        if (message.payload.size() < 4) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid ObjectRemove payload");
+            return;
+        }
+        std::uint32_t object_id = 0;
+        std::memcpy(&object_id, message.payload.data(), sizeof(object_id));
+        if (object_id == 0) return;
+        (void)emit(MXH_UNITY_EVENT_ENTITY_REMOVED, MXH_UNITY_OK, 0, object_id, 0, {}, message.header.protocol);
+        return;
+    }
     if (protocol == UserConnProtocol::AgentConnectSuccess) {
         if (state_ != MXH_UNITY_STATE_AGENT_CONNECTING || !agent_.is_ready() ||
             !message.payload.empty()) {

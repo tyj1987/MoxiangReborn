@@ -18,6 +18,12 @@ namespace Moxiang
 
         private void OnCoreEvent(CoreEvent e)
         {
+            if (e.type == NativeClient.EventEntityRemoved)
+            {
+                if (entities.TryGetValue(e.argument0, out var removed)) Destroy(removed);
+                entities.Remove(e.argument0);
+                return;
+            }
             if (e.type != NativeClient.EventMonsterAdded && e.type != NativeClient.EventNpcAdded || e.argument0 == 0) return;
             var prefab = e.type == NativeClient.EventMonsterAdded ? monsterPrefab : npcPrefab;
             if (prefab == null) return;

@@ -126,6 +126,7 @@ namespace Moxiang
         public const byte TimedStateKindSnapshot = 4;
         public const uint EventMonsterAdded = 12;
         public const uint EventNpcAdded = 13;
+        public const uint EventEntityRemoved = 14;
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_create(out ulong session);
