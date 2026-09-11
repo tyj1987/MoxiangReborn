@@ -64,6 +64,11 @@ namespace Moxiang.Editor
             logic.disconnect = Button(panel, "Disconnect", -362, out _);
             logic.status = Label(panel, "Idle", 24, -410, 350, 60, 16);
             inputController.connection = logic;
+            var targetSelection = terrain.AddComponent<TargetSelectionController>();
+            targetSelection.worldCamera = camera;
+            var skillInput = terrain.AddComponent<SkillHotkeyController>();
+            skillInput.connection = logic;
+            skillInput.targetSelection = targetSelection;
             logic.characters = new UnityEngine.UI.Button[5]; logic.characterLabels = new TMP_Text[5];
             for (int i = 0; i < 5; ++i) logic.characters[i] = Button(panel, "Empty slot", -474 - i * 32, out logic.characterLabels[i], 28);
             var note = Label(canvas.transform, "MAP 10 · GEOMETRY INSPECTION\nMaterials, collision and gameplay are not accepted yet.", 0, 0, 600, 70, 18);
