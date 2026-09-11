@@ -542,6 +542,9 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
                 fail(MXH_UNITY_PROTOCOL_ERROR, "invalid chat payload"); return;
             }
             const std::string text(reinterpret_cast<const char*>(message.payload.data()), message.payload.size());
+            if (!valid_utf8(text)) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid chat utf8"); return;
+            }
             (void)emit(MXH_UNITY_EVENT_CHAT_MESSAGE, MXH_UNITY_OK, 0,
                        message.header.object_id, 0, text, message.header.protocol);
             return;
