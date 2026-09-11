@@ -34,8 +34,8 @@ namespace Moxiang
             {
                 if (entities.TryGetValue(e.argument0, out var live) && live != null)
                 {
-                    var health = live.GetComponent<ServerEntityHealth>();
-                    if (health != null) health.SetCurrentLife(e.argument1);
+                    var healthSink = live.GetComponent<ServerEntityHealth>();
+                    if (healthSink != null) healthSink.SetCurrentLife(e.argument1);
                     if (e.argument1 == 0) live.SetActive(false);
                 }
                 return;
@@ -48,6 +48,10 @@ namespace Moxiang
             var instance = Instantiate(prefab, new MapCoordinates(mapWidth, mapDepth).ToScene(new Vector3(x, 0, z)), Quaternion.identity, transform);
             var selectable = instance.GetComponent<TargetSelectable>() ?? instance.AddComponent<TargetSelectable>();
             selectable.objectId = e.argument0;
+            // LifeNotify is authoritative; every materialized entity must have
+            // a state sink even when the audited visual prefab omits it.
+            var health = instance.GetComponent<ServerEntityHealth>();
+            if (health == null) instance.AddComponent<ServerEntityHealth>();
             entities[e.argument0] = instance;
         }
     }
