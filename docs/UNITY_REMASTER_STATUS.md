@@ -419,3 +419,7 @@ The current Player was rechecked against the real three-server SQLite/HSEL
 fixture on 2026-09-12. Run ID `efb0cf183bc64469851ca980058545ce` passed login,
 two native sessions, Map10 collision and server correction. The fixture does
 not provide human acceptance evidence.
+The manifest was also regenerated with the actual branch commit hash instead
+of the literal `HEAD`; this removed the synthetic source-commit blocker. The
+current release blocker count is 107, all from unresolved provenance,
+source-selection or missing map-data findings.
