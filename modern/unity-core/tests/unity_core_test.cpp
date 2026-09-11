@@ -606,6 +606,20 @@ TEST(UnityCoreWire, MonsterLifePayloadRejectsTruncation) {
     EXPECT_FALSE(mxh::client::parse_monster_life_payload(wire).has_value());
 }
 
+TEST(UnityCoreWire, PickupMessagePinsLegacyItemWire) {
+    const auto message = mxh::client::make_pickup_message(77u, 0x12345678u);
+    EXPECT_EQ(message.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Item));
+    EXPECT_EQ(message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn));
+    EXPECT_EQ(message.header.object_id, 77u);
+    ASSERT_EQ(message.payload.size(), 4u);
+    EXPECT_EQ(message.payload[0], 0x78);
+    EXPECT_EQ(message.payload[1], 0x56);
+    EXPECT_EQ(message.payload[2], 0x34);
+    EXPECT_EQ(message.payload[3], 0x12);
+}
+
 TEST(UnityCoreAbi, VersionAndHandleLifecycle) {
     EXPECT_EQ(mxh_unity_get_api_version(), MXH_UNITY_API_VERSION);
     mxh_unity_handle handle = 0;
