@@ -1014,6 +1014,17 @@ std::uint32_t NativeClientCore::submit_extended(const mxh_unity_extended_command
         ++revision_;
         return MXH_UNITY_OK;
     }
+    if (command.head.type == MXH_UNITY_COMMAND_CHAT) {
+        if (command.head.expected_session_generation != session_generation_ || command.head.expected_map_generation != map_generation_)
+            return MXH_UNITY_WRONG_STATE;
+        if (state_ != MXH_UNITY_STATE_IN_GAME || !command.payload || command.payload_size == 0 || command.payload_size > 200)
+            return state_ == MXH_UNITY_STATE_IN_GAME ? MXH_UNITY_INVALID_ARGUMENT : MXH_UNITY_WRONG_STATE;
+        const std::string text(reinterpret_cast<const char*>(command.payload), command.payload_size);
+        const auto message = mxh::client::make_chat_message(game_.player_id, text);
+        if (agent_.send(message) != mxh::net::NetError::Ok) { fail(MXH_UNITY_NETWORK_ERROR, "chat send failed"); return MXH_UNITY_NETWORK_ERROR; }
+        ++revision_;
+        return MXH_UNITY_OK;
+    }
     namespace wire = mxh::proto::movement;
     switch (command.head.type) {
         case MXH_UNITY_COMMAND_HELLO_TIMED:

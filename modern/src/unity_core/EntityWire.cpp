@@ -73,6 +73,15 @@ mxh::net::Message make_quest_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_chat_message(std::uint32_t player_id, const std::string& text) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Chat);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ChatProtocol::All);
+    message.header.object_id = player_id;
+    message.payload.assign(text.begin(), text.end());
+    return message;
+}
+
 std::optional<PickupAckInfo> parse_pickup_ack_payload(std::span<const std::uint8_t> payload) {
     if (payload.size() < 8) return std::nullopt;
     PickupAckInfo ack;

@@ -35,6 +35,10 @@ namespace Moxiang
             if (questId == 0 || (protocol != 9 && protocol != 12)) return CoreResult.InvalidArgument;
             return client == null ? CoreResult.NotReady : client.SubmitQuest(questId, protocol, observed);
         }
+        public CoreResult Chat(string text)
+        {
+            return client == null ? CoreResult.NotReady : client.SubmitChat(text, observed);
+        }
         public CoreResult CreateCharacterFromUi(string name, byte sex, byte hair, byte face, byte cloth, byte boots, byte weapon)
         {
             if (client == null) return CoreResult.NotReady;

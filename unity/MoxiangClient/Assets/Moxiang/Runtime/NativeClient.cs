@@ -134,6 +134,7 @@ namespace Moxiang
         public const uint EventQuestUpdated = 19;
         public const uint CommandPickup = 9;
         public const uint CommandQuest = 10;
+        public const uint CommandChat = 11;
         public const uint EventDisconnected = 4;
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
@@ -263,6 +264,26 @@ namespace Moxiang
                     expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
                     name = new byte[65], reserved1 = new byte[5] };
                 return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitChat(string text, CoreSnapshot observed)
+        {
+            if (string.IsNullOrEmpty(text)) return CoreResult.InvalidArgument;
+            var payload = Utf8.GetBytes(text);
+            if (payload.Length == 0 || payload.Length > 200) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var unmanaged = Marshal.AllocHGlobal(payload.Length);
+                try {
+                    Marshal.Copy(payload, 0, unmanaged, payload.Length);
+                    var head = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandChat,
+                        payloadSize = (uint)payload.Length, requestId = ++nextRequestId,
+                        expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                        name = new byte[65], reserved1 = new byte[5] };
+                    var command = new ExtendedCommand { head = head, payload = unmanaged, payloadSize = (uint)payload.Length };
+                    return mxh_unity_submit_extended_command(handle, ref command);
+                } finally { Marshal.FreeHGlobal(unmanaged); }
             }
         }
 
