@@ -333,6 +333,12 @@ Development Player empty-account creation smoke also passed with run ID
 created character `UnityNew` (level 17) and returned the expected initial
 equipment records. Movement and creation remain separate isolated fixtures.
 
+The existing client entity parser baseline was revalidated independently:
+9/9 tests passed for MonsterAdd/NpcAdd decoding and short-payload rejection,
+NPC projection/unprojection, and nearest-monster cursor targeting. Native Core
+entity-event extraction will use these existing tested layouts rather than a
+new inferred wire format.
+
 After the Input System preload rebuild at source revision `db85bd6b`, the
 latest Player movement smoke passed with run ID
 `1e3b432b5fe148899b82a0086a95d79a`: two native sessions, Map10 collision and
