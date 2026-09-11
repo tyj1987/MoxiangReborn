@@ -52,6 +52,9 @@ namespace Moxiang
                 dropSelectable.objectId = e.argument0;
                 var state = dropInstance.GetComponent<ServerGroundDrop>() ?? dropInstance.AddComponent<ServerGroundDrop>();
                 state.Initialize(e.argument0, e.argument1, dropCount);
+                var pickup = dropInstance.GetComponent<GroundDropPickup>() ?? dropInstance.AddComponent<GroundDropPickup>();
+                pickup.connection = connection;
+                pickup.drop = state;
                 drops[e.argument0] = dropInstance;
                 return;
             }
