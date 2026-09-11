@@ -324,6 +324,10 @@ run ID `0a0dea4b56fa4b71b42decb427e0e06d` (`--editor-test --movement`), includin
 two native sessions, Map10 collision and server correction. Editor and Player
 movement paths now both have fresh real-server evidence.
 
+The latest provenance-backed Player was rechecked with the movement fixture:
+run ID `be7875040e2946bba72d269c7feed48e` passed two-session Map10 movement,
+collision and server correction over SQLite/HSEL.
+
 Development Player empty-account creation smoke also passed with run ID
 `0a3727158a2b4e788120f6764b9eb9cb`: the real three-server SQLite/HSEL path
 created character `UnityNew` (level 17) and returned the expected initial
