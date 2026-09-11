@@ -311,6 +311,11 @@ SQLite/HSEL path, Map10 collision fixture and server correction all passed.
 This closes the automated two-session movement gate; human acceptance and
 visible combat presentation remain open.
 
+The same isolated fixture also passed through the Unity Editor surface with
+run ID `0a0dea4b56fa4b71b42decb427e0e06d` (`--editor-test --movement`), including
+two native sessions, Map10 collision and server correction. Editor and Player
+movement paths now both have fresh real-server evidence.
+
 Development Player empty-account creation smoke also passed with run ID
 `0a3727158a2b4e788120f6764b9eb9cb`: the real three-server SQLite/HSEL path
 created character `UnityNew` (level 17) and returned the expected initial
