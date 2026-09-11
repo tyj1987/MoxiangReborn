@@ -257,3 +257,18 @@ Record each gate with source revision, resource digest, exact command and run ID
 Default deployment order remains local acceptance, then PVE, with SQLite and MSSQL
 both verified. No release tag, production rollout or completion claim is implied
 by this status document.
+
+## 2026-09-12 Map10 combat input increment
+
+The Unity remaster now exposes a server-authoritative skill command through the
+fixed-width native ABI (`MXH_UNITY_COMMAND_SKILL=8`). The command validates
+skill and target IDs, finite target coordinates, session generation and map
+generation before constructing the existing `Skill StartSyn` payload. Commits
+`f502941e`, `4cd1986b`, `0ac91c06`, `a309cda6`, `a4e6b898`, `6ac77fbe` and
+`05200461` add the Unity bridge, stable target identity, scene wiring and target
+invalidation rules without changing locked protocol headers or server formulas.
+
+The x64 Unity core regression suite remains 69/69 passed. Unity Editor/Player
+combat evidence is still pending because the local Unity licensing IPC client
+is unavailable; entity snapshot synchronization, visible hit presentation and
+two-human combat acceptance remain open.
