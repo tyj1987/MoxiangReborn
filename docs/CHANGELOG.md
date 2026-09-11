@@ -4,6 +4,10 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Extended the shared movement timeline to 15-point routes using original
+  observation-time segment transitions, strict arrival and clamped waypoint
+  origins. Added five route tests covering bounds, malformed inputs, duplicate
+  points, aliased input and cancellation. Network activation is still pending.
 - Removed unlocked player pointers from skill damage/heal handling, added
   session identity checks to skill state mutations, and made MP reservation
   atomic using runtime vitals. Reproduced and corrected a 55/50 MP cache mismatch.

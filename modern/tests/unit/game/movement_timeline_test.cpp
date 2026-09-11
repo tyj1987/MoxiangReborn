@@ -3,6 +3,85 @@
 #include <limits>
 using namespace mxh::game;
 
+TEST(MovementTimeline, RouteStartsNextSegmentAtObservationTimeWithoutCarryingOvershoot) {
+    MovementTimeline move;
+    ASSERT_TRUE(move.reset({1000,1000},0));
+    const std::array<MovementPoint,3> route{{{1400,1000},{1400,1400},{1800,1400}}};
+    ASSERT_TRUE(move.start_route(route,400,0));
+    EXPECT_FLOAT_EQ(move.advance(1000).x,1400);
+    EXPECT_EQ(move.remaining_route().size(),3u); // strict arrival boundary
+    auto p=move.advance(5000);
+    EXPECT_FLOAT_EQ(p.x,1400); EXPECT_FLOAT_EQ(p.z,1000);
+    EXPECT_EQ(move.remaining_route().size(),2u); // no four seconds of catch-up
+    p=move.advance(5500);
+    EXPECT_FLOAT_EQ(p.x,1400); EXPECT_FLOAT_EQ(p.z,1200);
+    EXPECT_FLOAT_EQ(move.advance(6000).z,1400);
+    EXPECT_EQ(move.remaining_route().size(),2u);
+    EXPECT_FLOAT_EQ(move.advance(6001).x,1400);
+    EXPECT_EQ(move.remaining_route().size(),1u);
+    EXPECT_FLOAT_EQ(move.advance(6501).x,1600);
+    EXPECT_FLOAT_EQ(move.advance(7002).x,1800);
+    EXPECT_FALSE(move.moving()); EXPECT_TRUE(move.remaining_route().empty());
+}
+
+TEST(MovementTimeline, RouteBoundsAndMalformedLaterPointPreserveExistingPath) {
+    MovementTimeline move; ASSERT_TRUE(move.reset({1000,1000},0));
+    std::array<MovementPoint,MovementTimeline::max_route_points+1> route;
+    route.fill({1400,1000});
+    EXPECT_FALSE(move.start_route(route,400,0));
+    EXPECT_FALSE(move.start_route({},400,0));
+    ASSERT_TRUE(move.start_route(std::span<const MovementPoint>(route.data(),15),400,0));
+    EXPECT_EQ(move.remaining_route().size(),15u);
+    route[14].z=std::numeric_limits<float>::quiet_NaN();
+    EXPECT_FALSE(move.start_route(std::span<const MovementPoint>(route.data(),15),400,500));
+    EXPECT_EQ(move.remaining_route().size(),15u);
+    EXPECT_FLOAT_EQ(move.advance(500).x,1200);
+    EXPECT_EQ(move.target().z,1000);
+}
+
+TEST(MovementTimeline, RouteBoundaryWaypointClampsBeforeStartingTheNextSegment) {
+    MovementTimeline move; ASSERT_TRUE(move.reset({51000,1000},0));
+    const std::array<MovementPoint,2> route{{{51199,1000},{51000,1000}}};
+    ASSERT_TRUE(move.start_route(route,100,0));
+    EXPECT_FLOAT_EQ(move.advance(2000).x,51100);
+    EXPECT_FLOAT_EQ(move.advance(2500).x,51050);
+    EXPECT_FLOAT_EQ(move.advance(3000).x,51000);
+    EXPECT_TRUE(move.moving());
+    (void)move.advance(3001); EXPECT_FALSE(move.moving());
+}
+
+TEST(MovementTimeline, DuplicateWaypointsAdvanceAtMostOncePerDistinctTimestamp) {
+    MovementTimeline move; ASSERT_TRUE(move.reset({1000,1000},0));
+    const std::array<MovementPoint,3> route{{{1000,1000},{1000,1000},{1400,1000}}};
+    ASSERT_TRUE(move.start_route(route,400,0));
+    EXPECT_FLOAT_EQ(move.advance(100).x,1000);
+    EXPECT_EQ(move.remaining_route().size(),2u);
+    for(int i=0;i<100;++i) (void)move.advance(100);
+    EXPECT_EQ(move.remaining_route().size(),2u);
+    EXPECT_FLOAT_EQ(move.advance(101).x,1000);
+    EXPECT_EQ(move.remaining_route().size(),1u);
+    EXPECT_FLOAT_EQ(move.advance(601).x,1200);
+    EXPECT_FLOAT_EQ(move.advance(500).x,1200); // old timestamp cannot rewind
+}
+
+TEST(MovementTimeline, RouteResetStopHaltAndAliasedRetargetHaveDefinedOwnership) {
+    const std::array<MovementPoint,2> route{{{1400,1000},{1400,1400}}};
+    MovementTimeline move; ASSERT_TRUE(move.reset({1000,1000},0));
+    ASSERT_TRUE(move.start_route(route,400,0));
+    // The caller can reuse the remaining route view even while advance consumes a point.
+    ASSERT_TRUE(move.start_route(move.remaining_route(),400,1500));
+    EXPECT_EQ(move.remaining_route().size(),2u);
+    EXPECT_EQ(move.stop({1400,1000},1500),MovementStopResult::Accepted);
+    EXPECT_TRUE(move.remaining_route().empty());
+    ASSERT_TRUE(move.start_route(route,400,1500));
+    move.halt(1501); EXPECT_TRUE(move.remaining_route().empty());
+    ASSERT_TRUE(move.start_route(route,400,1501));
+    ASSERT_TRUE(move.reset({1000,1000},1501)); EXPECT_TRUE(move.remaining_route().empty());
+    ASSERT_TRUE(move.start_route(route,400,1501));
+    ASSERT_TRUE(move.start_route(route,0,2001));
+    EXPECT_FALSE(move.moving()); EXPECT_TRUE(move.remaining_route().empty());
+}
+
 TEST(MovementTimeline, RunUsesServerTimeAndStrictOriginalArrivalBoundary) {
     MovementTimeline move;
     ASSERT_TRUE(move.reset({1000,1000},100));

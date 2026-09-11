@@ -3,7 +3,7 @@
 ## Current code and evidence boundary
 
 `modern/include/mxh/game/movement_timeline.hpp` and its `.cpp` provide a
-render-independent single-segment timeline, compiled in both the x86 game library
+render-independent movement timeline, compiled in both the x86 game library
 and the independent x64 Unity core. MapHandler now owns and materializes each
 player's timeline, but network commands do not yet start timed trajectories and
 client prediction is not yet switched. Existing Player movement probes still exercise the earlier
@@ -76,6 +76,34 @@ Stop timestamps and reset versus materialized position. Speeds are supplied by
 the caller; these tests do not establish full character
 speed selection for lightness skills, equipment or Titan modes.
 
+### Bounded route evaluation
+
+`start_route` now accepts 1..15 waypoints, matching
+`D:/MX/src/[CC]Header/CommonGameDefine.h:2180`. The original
+`CharMove.cpp:194-219` starts the next segment at the current observation time;
+it does not carry elapsed overshoot into later segments. At most one waypoint
+transition happens per distinct timestamp, including repeated zero-length points.
+At exactly the estimated arrival time the current segment is still active.
+
+The recursive same-timestamp `CalcPositionEx` called by `StartMoveEx` clamps the
+next start position before building its direction. The edge fixture reaches a
+51199 waypoint, starts the next segment at 51100, and reaches 51050 after another
+500 ms at speed 100. Clamping only the returned position would produce a different
+route. Input is copied before materialization so a remaining-route span may alias
+the same object. Invalid size/coordinates or invalid derived motion never replace
+the existing route. Reset, Stop, halt and zero speed clear all queued waypoints.
+
+Five route tests extend the ten existing timeline tests. Final x64 core CTest is
+60/60 passed; x86 focused timeline/server-position regression is 17/17 passed.
+Full x86 build and full CTest also passed (exit 0). Independent read-only source
+review verified transition timing and identified the clamp-order detail covered
+by the final edge fixture. No Editor/Player route test is claimed for this step.
+This is shared math, not an enabled network route. The current route API uses a
+caller-supplied constant speed; original StartMoveEx queries GetMoveSpeed at each
+segment start. Authoritative mode/status refresh at segment transitions must be
+connected before claiming dynamic-speed route parity. Versioned payloads,
+client/server activation and visible Player interpolation remain pending.
+
 ## Required coordinated runtime cutover
 
 The current four-byte OneTarget may express a target command, but both clients
@@ -105,8 +133,9 @@ The cutover must include:
 | GameOut and disconnect | 1287, 1189 |
 
 Line anchors are from the 6fe4ddf5 checkout and will move during extraction.
-The skill path also retains a PlayerInfo pointer after unlocking; copy the needed
-combat/position state before releasing the lock during this refactor.
+The previously noted unlocked skill PlayerInfo pointers have been replaced with
+value snapshots and session checks; see the current evidence and remaining
+cross-session delivery/persistence limits above.
 
 4. Reset/correction/spawn clear prior trajectories. GameOut/disconnect/transfer
    must materialize the final point before persistence or ownership handoff.
