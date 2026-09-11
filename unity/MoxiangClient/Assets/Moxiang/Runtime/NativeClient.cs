@@ -131,6 +131,7 @@ namespace Moxiang
         public const uint EventEntityShield = 16;
         public const uint EventGroundDrop = 17;
         public const uint EventPickupConfirmed = 18;
+        public const uint EventQuestUpdated = 19;
         public const uint CommandPickup = 9;
         public const uint CommandQuest = 10;
         public const uint EventDisconnected = 4;

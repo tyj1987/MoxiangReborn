@@ -522,6 +522,20 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
             (void)emit(MXH_UNITY_EVENT_GROUND_DROP, MXH_UNITY_OK, 0, drop->object_id, drop->item_id, detail, message.header.protocol);
             return;
         }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Quest)) {
+            const auto protocol = static_cast<mxh::proto::QuestProtocol>(message.header.protocol);
+            std::uint32_t quest_id = 0, state = 0;
+            if ((protocol == mxh::proto::QuestProtocol::ChangeState || protocol == mxh::proto::QuestProtocol::TotalInfo) && message.payload.size() >= 8) {
+                std::memcpy(&quest_id, message.payload.data(), 4);
+                std::memcpy(&state, message.payload.data() + 4, 4);
+            } else if (message.payload.size() >= 2) {
+                quest_id = static_cast<std::uint32_t>(message.payload[0] | (message.payload[1] << 8));
+            } else if (message.header.object_id != 0) quest_id = message.header.object_id;
+            if (quest_id == 0 || quest_id > 0xffffu) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid quest update"); return; }
+            (void)emit(MXH_UNITY_EVENT_QUEST_UPDATED, MXH_UNITY_OK, 0, quest_id,
+                       state != 0 ? state : message.header.protocol, {}, message.header.protocol);
+            return;
+        }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck)) {
             const auto ack = mxh::client::parse_pickup_ack_payload(message.payload);
