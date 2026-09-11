@@ -87,6 +87,8 @@ typedef enum mxh_unity_event_type {
        reserved0=Move observer_state_protocol (131); text carries the encoded
        wire payload verbatim, length = text_length. */
     MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE = 11
+    ,MXH_UNITY_EVENT_MONSTER_ADDED = 12
+    ,MXH_UNITY_EVENT_NPC_ADDED = 13
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {

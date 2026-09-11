@@ -1,4 +1,5 @@
 #include "NativeClientCore.hpp"
+#include "../client/CInGameState.hpp"
 
 #include "mxh/proto/protocol.hpp"
 
@@ -503,6 +504,34 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         return;
     }
     const auto protocol = static_cast<UserConnProtocol>(message.header.protocol);
+    if (state_ == MXH_UNITY_STATE_IN_GAME &&
+        protocol == UserConnProtocol::MonsterAdd) {
+        const auto parsed = mxh::client::parse_legacy_monster_add(message.payload);
+        if (!parsed || parsed->object_id == 0) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid MonsterAdd payload");
+            return;
+        }
+        const auto packed = static_cast<std::uint32_t>(parsed->position_x) |
+            (static_cast<std::uint32_t>(parsed->position_z) << 16);
+        (void)emit(MXH_UNITY_EVENT_MONSTER_ADDED, MXH_UNITY_OK, 0,
+                   parsed->object_id, packed, parsed->name,
+                   message.header.protocol);
+        return;
+    }
+    if (state_ == MXH_UNITY_STATE_IN_GAME &&
+        protocol == UserConnProtocol::NpcAdd) {
+        const auto parsed = mxh::client::parse_legacy_npc_add(message.payload);
+        if (!parsed || parsed->npc_id == 0) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid NpcAdd payload");
+            return;
+        }
+        const auto packed = static_cast<std::uint32_t>(parsed->position_x) |
+            (static_cast<std::uint32_t>(parsed->position_z) << 16);
+        (void)emit(MXH_UNITY_EVENT_NPC_ADDED, MXH_UNITY_OK, 0,
+                   parsed->npc_id, packed, parsed->name,
+                   message.header.protocol);
+        return;
+    }
     if (protocol == UserConnProtocol::AgentConnectSuccess) {
         if (state_ != MXH_UNITY_STATE_AGENT_CONNECTING || !agent_.is_ready() ||
             !message.payload.empty()) {

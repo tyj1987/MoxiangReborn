@@ -18,6 +18,7 @@ add_library(mxh_unity_core_impl STATIC
     ${MXH_SRC}/client/AgentSession.cpp
     ${MXH_SRC}/client/ClientWire.cpp
     ${MXH_SRC}/unity_core/NativeClientCore.cpp
+    ${MXH_SRC}/unity_core/EntityWire.cpp
     ${MXH_SRC}/game/movement_timeline.cpp
     ${MXH_SRC}/game/player_move_speed.cpp
 )
