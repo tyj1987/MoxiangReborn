@@ -127,6 +127,7 @@ namespace Moxiang
         public const uint EventMonsterAdded = 12;
         public const uint EventNpcAdded = 13;
         public const uint EventEntityRemoved = 14;
+        public const uint EventEntityLife = 15;
         public const uint EventDisconnected = 4;
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();

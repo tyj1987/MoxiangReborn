@@ -501,6 +501,17 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
                     message.header.object_id, packed, {}, message.header.protocol);
             }
         }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Monster) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify)) {
+            const auto life = mxh::client::parse_monster_life_payload(message.payload);
+            if (!life || message.header.object_id == 0) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Monster LifeNotify payload");
+                return;
+            }
+            (void)emit(MXH_UNITY_EVENT_ENTITY_LIFE, MXH_UNITY_OK, 0,
+                       message.header.object_id, life->first, {}, message.header.protocol);
+            return;
+        }
         return;
     }
     const auto protocol = static_cast<UserConnProtocol>(message.header.protocol);

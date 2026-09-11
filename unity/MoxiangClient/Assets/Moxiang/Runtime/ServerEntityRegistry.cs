@@ -30,6 +30,16 @@ namespace Moxiang
                 entities.Remove(e.argument0);
                 return;
             }
+            if (e.type == NativeClient.EventEntityLife)
+            {
+                if (entities.TryGetValue(e.argument0, out var live) && live != null)
+                {
+                    var health = live.GetComponent<ServerEntityHealth>();
+                    if (health != null) health.SetCurrentLife(e.argument1);
+                    if (e.argument1 == 0) live.SetActive(false);
+                }
+                return;
+            }
             if (e.type != NativeClient.EventMonsterAdded && e.type != NativeClient.EventNpcAdded || e.argument0 == 0) return;
             var prefab = e.type == NativeClient.EventMonsterAdded ? monsterPrefab : npcPrefab;
             if (prefab == null) return;

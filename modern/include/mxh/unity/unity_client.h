@@ -90,6 +90,8 @@ typedef enum mxh_unity_event_type {
     ,MXH_UNITY_EVENT_MONSTER_ADDED = 12
     ,MXH_UNITY_EVENT_NPC_ADDED = 13
     ,MXH_UNITY_EVENT_ENTITY_REMOVED = 14
+    /* Monster LifeNotify: argument0=object ID, argument1=current life. */
+    ,MXH_UNITY_EVENT_ENTITY_LIFE = 15
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {

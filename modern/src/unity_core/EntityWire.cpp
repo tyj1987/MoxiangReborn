@@ -27,4 +27,10 @@ std::optional<NpcInfo> parse_legacy_npc_add(std::span<const std::uint8_t> payloa
     info.position_z = u16(payload.data() + 47);
     return info;
 }
+
+std::optional<std::pair<std::uint32_t, std::uint32_t>>
+parse_monster_life_payload(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 8) return std::nullopt;
+    return std::make_pair(u32(payload.data()), u32(payload.data() + 4));
+}
 }
