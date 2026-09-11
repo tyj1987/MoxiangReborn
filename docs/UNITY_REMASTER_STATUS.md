@@ -333,6 +333,11 @@ Development Player empty-account creation smoke also passed with run ID
 created character `UnityNew` (level 17) and returned the expected initial
 equipment records. Movement and creation remain separate isolated fixtures.
 
+An x86 Debug full CTest rerun completed with exit code 0: 12,548 tests passed
+in 75.06 seconds. Eight tests were intentionally skipped for MSSQL, deploy
+manifest, or release-only fixtures. Reproducible wrapper:
+`modern/scratch/2026-09-12-unity-remaster/run-ctest-summary.ps1`.
+
 The empty-account creation fixture also passed through the Unity Editor surface
 with run ID `c9160b99a73c46a7b497773bb8edc3ba`, returning the same character and
 initial equipment records. Editor and Player now both have real-server creation
