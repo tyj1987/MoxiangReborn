@@ -106,6 +106,10 @@ client/server activation and visible Player interpolation remain pending.
 
 ## Required coordinated runtime cutover
 
+The bounded versioned codec is implemented and specified in
+`UNITY_MOVEMENT_WIRE.md`. It is not yet dispatched or negotiated; wire-level
+epoch/sequence fields are not a substitute for session validation at the caller.
+
 The current four-byte OneTarget may express a target command, but both clients
 and the server currently treat it as a position update. Switching only the server
 would leave local and remote views teleporting while gameplay uses interpolation.

@@ -59,6 +59,7 @@ if(MXH_UNITY_BUILD_TESTS)
         tests/unity_core_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/game/movement_timeline_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/game/player_move_speed_test.cpp
+        ${MXH_MODERN_ROOT}/tests/unit/proto/movement_wire_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/hsel_encryptor_test.cpp
         ${MXH_SRC}/server/hsel_session.cpp)
     target_compile_features(mxh_unity_core_tests PRIVATE cxx_std_20)

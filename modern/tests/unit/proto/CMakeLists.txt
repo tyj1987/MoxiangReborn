@@ -5,6 +5,7 @@
 
 add_executable(mxh_protocol_tests
     protocol_test.cpp
+    movement_wire_test.cpp
 )
 
 target_link_libraries(mxh_protocol_tests PRIVATE gtest_main)

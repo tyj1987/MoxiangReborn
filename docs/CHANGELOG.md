@@ -4,6 +4,10 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added a versioned bounded timed-movement command/state codec with explicit
+  little-endian fields, epoch/sequence/clock metadata and strict semantic/length
+  validation. Six dual-architecture tests pin layout and reject malformed input.
+  Negotiation, dispatch and timed Player activation remain pending.
 - Extended the shared movement timeline to 15-point routes using original
   observation-time segment transitions, strict arrival and clamped waypoint
   origins. Added five route tests covering bounds, malformed inputs, duplicate
