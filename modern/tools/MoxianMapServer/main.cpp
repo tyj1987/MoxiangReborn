@@ -111,6 +111,9 @@ Args parse_args(int argc, char** argv) {
             a.db_backend = argv[++i];
         else if (s == "--no-legacy")
             a.use_legacy = false;
+        else if (s == "--legacy")
+            a.use_legacy = true;  // legacy is the default; flag accepted for
+                                   // parity with the verify_servers_e2e.py script
         else if (s == "--use-hsel")
             a.use_hsel = true;
         else if (s == "--dev-stub-caster")

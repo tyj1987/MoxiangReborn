@@ -2,6 +2,7 @@
 
 #include "mxh/crypto/crypto.hpp"
 #include "mxh/db/db_adapter.hpp"
+#include "mxh/db/schema_migration.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/server/server.hpp"
 
@@ -34,6 +35,7 @@ struct Args {
     std::uint16_t agent_port = 7001;
     bool use_legacy = false;  // Phase 7.6: 4DyuchiNET compatibility
     bool use_hsel   = false;  // Phase R-1: HSEL-encrypted legacy session
+    bool init_schema = false;  // apply schema migration on connect (e2e smoke)
 };
 
 std::uint16_t parse_port(std::string_view token, const char* option) {
@@ -70,6 +72,8 @@ Args parse_args(int argc, char** argv) {
             a.use_legacy = true;
         else if (s == "--use-hsel")
             a.use_hsel = true;
+        else if (s == "--init-schema")
+            a.init_schema = true;
         else if (s == "--help") {
             std::cout << "Usage: mxh_login_server [options]\n"
                       << "  --port N          listen port (default 6001)\n"
@@ -80,7 +84,8 @@ Args parse_args(int argc, char** argv) {
                       << "  --agent-addr ADDR advertised AgentServer address in LoginAck\n"
                       << "  --agent-port N    AgentServer port\n"
                       << "  --legacy          enable 4DyuchiNET legacy protocol framing\n"
-                      << "  --use-hsel        encrypt the legacy session with the HSEL stream cipher\n";
+                      << "  --use-hsel        encrypt the legacy session with the HSEL stream cipher\n"
+                      << "  --init-schema     apply the schema migration on connect (e2e smoke)\n";
             std::exit(0);
         }
         else {
@@ -178,6 +183,16 @@ int main(int argc, char** argv) {
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect (backend='" << db_cfg.backend
                        << "'): " << cr.error_message << "\n"; return 1; }
+    if (args.init_schema) {
+        const auto migrated = mxh::db::migrate_modern_schema(*db);
+        if (!migrated.ok()) {
+            std::cerr << "FATAL: schema migration failed: "
+                      << migrated.error_message << "\n";
+            return 1;
+        }
+        std::cout << "[Login] schema migrated to version "
+                  << mxh::db::kModernSchemaVersion << "\n";
+    }
 
     // 2. Build reply queue + handler + server. Schema migrations are a
     // deployment precondition and are never performed by service processes.

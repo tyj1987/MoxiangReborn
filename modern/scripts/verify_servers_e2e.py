@@ -234,6 +234,29 @@ def seed_agent_character(db_path: Path) -> None:
         connection.close()
 
 
+def seed_login_user(db_path: Path) -> None:
+    """Pre-populate the legacy chr_log_info row that RequestLogin expects.
+
+    The verify_servers_e2e script sends id="test" pw="test" so the
+    LoginServer's RequestLogin handler can validate the credentials.
+    The legacy plaintext form is fine for a smoke test; production
+    deployments route through create_account which uses the modern
+    pbkdf2 hashed form.
+    """
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS chr_log_info ("
+            "id TEXT PRIMARY KEY, pw TEXT NOT NULL, userlevel INTEGER NOT NULL DEFAULT 0)")
+        connection.execute(
+            "INSERT OR REPLACE INTO chr_log_info (id, pw, userlevel) "
+            "VALUES (?, ?, ?)",
+            ("test", "test", 0))
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def wait_for_log(server: ServerProc, needle: str, timeout: float = 3.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -409,6 +432,7 @@ def main() -> int:
     db_login = scratch / "login.db"
     db_agent = scratch / "agent.db"
     db_map   = scratch / "map.db"
+    seed_login_user(db_login)
     seed_agent_character(db_agent)
 
     # Spawn servers.  LoginServer uses --init-schema so the test user is
@@ -433,7 +457,8 @@ def main() -> int:
                      "--port", str(MAP_PORT),
                      "--map", "12",  # default 12 = village map
                      "--db", str(db_map),
-                     "--legacy"]),
+                     "--legacy",
+                     "--resource-root", str(script_dir / ".." / "data" / "PlayDH")]),
     ]
     print(f"  [boot] starting login + agent before delayed MapServer ({cfg_dir_name}) ...")
     for server in servers[:2]:
