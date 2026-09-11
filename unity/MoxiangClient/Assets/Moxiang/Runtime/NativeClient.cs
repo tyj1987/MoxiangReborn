@@ -67,7 +67,7 @@ namespace Moxiang
     /// <summary>Owns one native session. Call on the Unity main thread and Dispose before domain reload.</summary>
     public sealed class NativeClient : IDisposable
     {
-        public const uint ApiVersion = 0x00010002;
+        public const uint ApiVersion = 0x00010003;
         private const string Library = "mxh_unity_core";
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
         private readonly object gate = new object();
@@ -96,6 +96,35 @@ namespace Moxiang
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 5)] public byte[] reserved1;
         }
 
+        // Bounded versioned timed-movement wire carrier: Command head + 8-byte
+        // payload pointer + 4-byte payload size. Total 140 bytes under Pack=1,
+        // matching modern/include/mxh/unity/unity_client.h.
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct ExtendedCommand
+        {
+            public Command head;
+            public IntPtr payload;
+            public uint payloadSize;
+        }
+
+        // Bounded versioned timed-movement wire constants. Must match
+        // modern/include/mxh/proto/movement_wire.hpp exactly; any drift breaks
+        // the on-wire handshake.
+        public const byte TimedHelloProtocol = 128;
+        public const byte TimedCommandProtocol = 129;
+        public const byte TimedOwnerStateProtocol = 130;
+        public const byte TimedObserverStateProtocol = 131;
+        public const uint TimedHelloPayloadSize = 8;
+        public const uint TimedMaxPayloadSize = 84;
+        public const uint TimedCommandHeaderSize = 24;
+        public const byte TimedCommandKindRoute = 1;
+        public const byte TimedCommandKindStop = 2;
+        public const byte TimedCommandKindOneTarget = 3;
+        public const byte TimedStateKindStarted = 1;
+        public const byte TimedStateKindStopped = 2;
+        public const byte TimedStateKindCorrected = 3;
+        public const byte TimedStateKindSnapshot = 4;
+
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_create(out ulong session);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_destroy(ulong session);
@@ -103,6 +132,7 @@ namespace Moxiang
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_disconnect(ulong session);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_tick(ulong session);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_submit_command(ulong session, ref Command command);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_submit_extended_command(ulong session, ref ExtendedCommand command);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_poll_event(ulong session, IntPtr buffer, uint size, out uint required);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_copy_snapshot(ulong session, IntPtr buffer, uint size, out uint required);
 
@@ -110,6 +140,8 @@ namespace Moxiang
         {
             if (Marshal.SizeOf<Command>() != 128 || Marshal.OffsetOf<Command>(nameof(Command.name)).ToInt32() != 52)
                 throw new InvalidOperationException("Managed command ABI layout mismatch.");
+            if (Marshal.SizeOf<ExtendedCommand>() != 140)
+                throw new InvalidOperationException("Managed extended-command ABI layout mismatch.");
             if (IntPtr.Size != 8) throw new PlatformNotSupportedException("Moxiang core requires a 64-bit process.");
             if (mxh_unity_get_api_version() != ApiVersion) throw new InvalidOperationException("Native core API version mismatch.");
             Check(mxh_unity_create(out handle));
@@ -173,6 +205,100 @@ namespace Moxiang
                     name = new byte[65], reserved1 = new byte[5] };
                 return mxh_unity_submit_command(handle, ref command);
             }
+        }
+
+        // Bounded versioned timed-movement wire submit. The caller owns the
+        // payload buffer; the native core copies it during the call. Returns
+        // CoreResult.ProtocolError / WrongState / NotReady as documented on
+        // the C entry. payload must be a non-null byte[] whose length is in
+        // { TimedHelloPayloadSize, [TimedCommandHeaderSize .. TimedMaxPayloadSize]
+        // with length == TimedCommandHeaderSize mod 4 == 0 }.
+        public CoreResult SubmitExtended(uint type, byte[] payload, uint requestId, CoreSnapshot observed)
+        {
+            if (payload == null) throw new ArgumentNullException(nameof(payload));
+            if (payload.Length == 0 || payload.Length > TimedMaxPayloadSize)
+                throw new ArgumentOutOfRangeException(nameof(payload));
+            lock (gate)
+            {
+                EnsureAlive();
+                IntPtr unmanaged = Marshal.AllocHGlobal(payload.Length);
+                try
+                {
+                    Marshal.Copy(payload, 0, unmanaged, payload.Length);
+                    var head = new Command
+                    {
+                        structSize = (uint)Marshal.SizeOf<Command>(),
+                        type = type,
+                        payloadSize = (uint)payload.Length,
+                        requestId = requestId,
+                        expectedSessionGeneration = observed.sessionGeneration,
+                        expectedMapGeneration = observed.mapGeneration,
+                        name = new byte[65],
+                        reserved1 = new byte[5]
+                    };
+                    var command = new ExtendedCommand { head = head, payload = unmanaged, payloadSize = (uint)payload.Length };
+                    return mxh_unity_submit_extended_command(handle, ref command);
+                }
+                finally { Marshal.FreeHGlobal(unmanaged); }
+            }
+        }
+
+        // ===== Bounded timed-movement wire encoders =====
+        // Layout must byte-match modern/include/mxh/proto/movement_wire.hpp.
+        // All integers little-endian; floats IEEE754 binary32 little-endian.
+        // Route and Stop commands carry the requestor-supplied epoch + sequence;
+        // Hello uses the fixed MXMH|1|0|0|0 header.
+
+        public static byte[] EncodeTimedHello()
+        {
+            return new byte[] { (byte)'M', (byte)'X', (byte)'M', (byte)'H',
+                                1, 0, 0, 0 };
+        }
+
+        public static byte[] EncodeTimedRoute(ulong epoch, ulong sequence, params (ushort x, ushort z)[] points)
+        {
+            if (epoch == 0) throw new ArgumentOutOfRangeException(nameof(epoch));
+            if (sequence == 0) throw new ArgumentOutOfRangeException(nameof(sequence));
+            if (points == null || points.Length < 1 || points.Length > 15)
+                throw new ArgumentOutOfRangeException(nameof(points));
+            var bytes = new byte[TimedCommandHeaderSize + 4 * points.Length];
+            bytes[0] = (byte)'M'; bytes[1] = (byte)'X'; bytes[2] = (byte)'M'; bytes[3] = (byte)'C';
+            bytes[4] = 1; bytes[5] = TimedCommandKindRoute; bytes[6] = (byte)points.Length; bytes[7] = 0;
+            WriteUInt64LE(bytes, 8, epoch);
+            WriteUInt64LE(bytes, 16, sequence);
+            int offset = (int)TimedCommandHeaderSize;
+            for (int i = 0; i < points.Length; ++i)
+            {
+                WriteUInt16LE(bytes, offset, points[i].x); offset += 2;
+                WriteUInt16LE(bytes, offset, points[i].z); offset += 2;
+            }
+            return bytes;
+        }
+
+        public static byte[] EncodeTimedStop(ulong epoch, ulong sequence, ushort x, ushort z)
+        {
+            if (epoch == 0) throw new ArgumentOutOfRangeException(nameof(epoch));
+            if (sequence == 0) throw new ArgumentOutOfRangeException(nameof(sequence));
+            var bytes = new byte[TimedCommandHeaderSize + 4];
+            bytes[0] = (byte)'M'; bytes[1] = (byte)'X'; bytes[2] = (byte)'M'; bytes[3] = (byte)'C';
+            bytes[4] = 1; bytes[5] = TimedCommandKindStop; bytes[6] = 1; bytes[7] = 0;
+            WriteUInt64LE(bytes, 8, epoch);
+            WriteUInt64LE(bytes, 16, sequence);
+            WriteUInt16LE(bytes, (int)TimedCommandHeaderSize, x);
+            WriteUInt16LE(bytes, (int)TimedCommandHeaderSize + 2, z);
+            return bytes;
+        }
+
+        private static void WriteUInt16LE(byte[] buffer, int offset, ushort value)
+        {
+            buffer[offset]     = (byte)(value & 0xff);
+            buffer[offset + 1] = (byte)((value >> 8) & 0xff);
+        }
+
+        private static void WriteUInt64LE(byte[] buffer, int offset, ulong value)
+        {
+            for (int i = 0; i < 8; ++i)
+                buffer[offset + i] = (byte)((value >> (8 * i)) & 0xff);
         }
 
         public CoreSnapshot Snapshot()
