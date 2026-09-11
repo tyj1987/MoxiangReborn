@@ -7,6 +7,7 @@ add_executable(mxh_db_tests
     real_resource_test.cpp
     schema_migration_test.cpp
     pooled_db_adapter_test.cpp
+    player_position_persistence_test.cpp
 )
 
 target_link_libraries(mxh_db_tests PRIVATE mxh_db mxh_compat gtest_main)
@@ -56,6 +57,10 @@ gtest_add_tests(TARGET mxh_db_tests
     PooledDbAdapter.IdbAdapterQueriesReturnConnectionFailedAfterTimeout
     PooledDbAdapter.DisconnectClosesAllSlots
     PooledDbAdapter.MoveTransfersOwnershipAndReleasesOnce
+    PlayerPositionPersistence.InsertCreatesRow
+    PlayerPositionPersistence.SecondWriteUpsertsSameRow
+    PlayerPositionPersistence.IndependentPlayersDoNotCollide
+    PlayerPositionPersistence.GracefulShutdownSweepWritesAllConnectedRows
 )
 # Real SQL Server test skips unless MXH_MSSQL_E2E is configured.
 add_test(NAME mssql_real_e2e_test COMMAND mxh_db_tests --gtest_filter=MssqlRealE2E.*)

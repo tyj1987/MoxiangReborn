@@ -718,6 +718,73 @@ void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
     }
 }
 
+namespace {
+// no-op: implementations now live on MapHandler so they can access the
+// private runtime maps.
+}  // namespace
+
+bool MapHandler::persist_player_position_locked(std::uint32_t player_id) {
+    // Snapshots the player's runtime under players_mu_, then writes to
+    // modern_player_position outside the lock to avoid blocking other
+    // runtime traffic.
+    std::uint16_t map_num;
+    std::uint16_t pos_x;
+    std::uint16_t pos_z;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto runtime = player_runtimes_.find(player_id);
+        if (runtime == player_runtimes_.end()) return false;
+        const auto& actor = runtime->second.actor.state();
+        map_num = map_num_;
+        pos_x = static_cast<std::uint16_t>(actor.pos_x);
+        pos_z = static_cast<std::uint16_t>(actor.pos_z);
+    }
+    const std::vector<mxh::db::Bind> params{
+        mxh::db::bind(static_cast<std::int64_t>(player_id)),
+        mxh::db::bind(static_cast<std::int64_t>(map_num)),
+        mxh::db::bind(static_cast<std::int64_t>(pos_x)),
+        mxh::db::bind(static_cast<std::int64_t>(pos_z))};
+    auto r = db_.execute(
+        "INSERT INTO modern_player_position "
+        "(player_id, map_num, pos_x, pos_z, updated_at) "
+        "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+        "ON CONFLICT (player_id) DO UPDATE SET "
+        "map_num = excluded.map_num, pos_x = excluded.pos_x, "
+        "pos_z = excluded.pos_z, updated_at = excluded.updated_at",
+        params);
+    if (!r.ok()) {
+        std::cerr << "[Map] persist_player_position(" << player_id
+                  << ") DB error: " << r.error_message << "\n";
+        return false;
+    }
+    return true;
+}
+
+std::size_t MapHandler::persist_all_connected_player_positions() {
+    std::vector<std::uint32_t> ids;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        ids.reserve(connected_players_.size());
+        for (const auto& [pid, info] : connected_players_) ids.push_back(pid);
+    }
+    std::size_t wrote = 0;
+    for (const auto pid : ids) {
+        if (persist_player_position_locked(pid)) ++wrote;
+    }
+    std::cout << "[Map] persisted positions for " << wrote << " of "
+              << ids.size() << " connected players\n";
+    return wrote;
+}
+
+void MapHandler::prepare_for_shutdown() {
+    if (draining_.exchange(true)) return;  // idempotent
+    std::cout << "[Map] prepare_for_shutdown: draining, persisting "
+              << "positions and disconnecting from DB\n";
+    materialize_positions();
+    persist_all_connected_player_positions();
+    if (db_.is_connected()) db_.disconnect();
+}
+
 void MapHandler::persist_player_items(std::uint32_t player_id) {
     InventorySlots inventory;
     EquipSlots equipment;
@@ -1186,6 +1253,11 @@ std::size_t MapHandler::player_runtime_count() {
 
 bool MapHandler::on_connect(mxh::net::ConnectionId id,
                             const std::string& remote_addr) {
+    if (draining_.load()) {
+        std::cout << "[Map] rejecting connection from " << remote_addr
+                  << " — handler is draining (map=" << map_num_ << ")\n";
+        return false;
+    }
     std::cout << "[Map] client connected from " << remote_addr
               << " (map=" << map_num_ << ")\n";
     if (use_hsel_) {

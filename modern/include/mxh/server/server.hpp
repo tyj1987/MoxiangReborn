@@ -43,6 +43,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <atomic>
 
 namespace mxh::server {
 
@@ -536,6 +537,19 @@ public:
     // broadcasts movement. The map server main loop calls this periodically.
     void tick_monster_ai();
 
+    // M4 production: graceful-shutdown position checkpoint. Persists every
+    // connected player's last known position so the server can crash or be
+    // SIGTERM'd without losing player place-in-the-world. Returns the
+    // number of rows actually written (best-effort; failures are logged).
+    std::size_t persist_all_connected_player_positions();
+
+    // Mark the handler as draining so on_connect rejects new clients,
+    // persist every connected player's position, and disconnect from the
+    // database. After this call on_connect returns false and the main
+    // loop can shut down cleanly. Idempotent.
+    void prepare_for_shutdown();
+    bool is_draining() const noexcept { return draining_; }
+
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
@@ -613,6 +627,11 @@ private:
     void load_player_items(std::uint32_t player_id, Player& player);
     void persist_player_items(std::uint32_t player_id);
 
+    // Persist a single connected player's current position. The acquisition
+    // of the runtime snapshot is locked; the DB write uses the raw db_
+    // reference outside the lock. Logs and returns false on DB error.
+    bool persist_player_position_locked(std::uint32_t player_id);
+
     // M3 D-stage: upsert every active quest in the player's quest_log to
     // the modern_player_quest_log table via the db_ adapter.  Called
     // automatically by the StartSyn Ok arm in handle_quest().  Failure
@@ -670,6 +689,7 @@ private:
     void send_movement_state(std::uint32_t player, std::uint64_t connection,
         const mxh::proto::movement::State& state, bool observers);
     bool timed_movement_enabled_ = false;
+    std::atomic<bool> draining_{false};
     std::optional<FixedTileMap> fixed_tiles_;
     mxh::game::KyungGongCatalog kyunggong_catalog_;
     std::unordered_map<std::uint32_t, PlayerInfo> connected_players_;

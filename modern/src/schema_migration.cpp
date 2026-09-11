@@ -132,6 +132,14 @@ CREATE TABLE IF NOT EXISTS modern_player_quest_log (
     PRIMARY KEY (player_id, quest_id)
 );
 CREATE INDEX IF NOT EXISTS idx_modern_player_quest_log_player ON modern_player_quest_log(player_id);
+CREATE TABLE IF NOT EXISTS modern_player_position (
+    player_id INTEGER PRIMARY KEY,
+    map_num INTEGER NOT NULL,
+    pos_x INTEGER NOT NULL,
+    pos_z INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_modern_player_position_updated_at ON modern_player_position(updated_at);
 CREATE TABLE IF NOT EXISTS modern_player_quest_sub (
     player_id INTEGER NOT NULL,
     quest_id INTEGER NOT NULL,
@@ -199,7 +207,7 @@ CREATE TABLE IF NOT EXISTS log_chat (
 INSERT OR IGNORE INTO modern_schema_version(version) VALUES (1);
 )SQL";
 
-constexpr std::array<std::string_view, 27> kMssqlSchema = {
+constexpr std::array<std::string_view, 28> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.modern_schema_version', N'U') IS NULL CREATE TABLE dbo.modern_schema_version (version INT NOT NULL PRIMARY KEY, applied_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL CREATE TABLE dbo.chr_log_info (id NVARCHAR(50) NOT NULL PRIMARY KEY, pw NVARCHAR(160) NOT NULL, userlevel INT NOT NULL DEFAULT 0, registerdate NVARCHAR(32) NULL, lastlogindate NVARCHAR(32) NULL, lastloginip NVARCHAR(64) NULL, usepoint BIGINT NOT NULL DEFAULT 0)",
     "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL",
@@ -220,6 +228,7 @@ constexpr std::array<std::string_view, 27> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.modern_character_equipment', N'U') IS NULL CREATE TABLE dbo.modern_character_equipment (chrid BIGINT NOT NULL, slot INT NOT NULL, item_idx INT NOT NULL, updated_at NVARCHAR(32) NOT NULL, CONSTRAINT pk_modern_character_equipment PRIMARY KEY (chrid,slot))",
     "IF OBJECT_ID(N'dbo.modern_player_quest_log', N'U') IS NULL CREATE TABLE dbo.modern_player_quest_log (player_id BIGINT NOT NULL, quest_id BIGINT NOT NULL, state TINYINT NOT NULL DEFAULT 0, accepted_time_ms BIGINT NOT NULL DEFAULT 0, updated_at NVARCHAR(32) NOT NULL, CONSTRAINT pk_modern_player_quest_log PRIMARY KEY (player_id,quest_id))",
     "IF OBJECT_ID(N'dbo.modern_player_quest_sub', N'U') IS NULL CREATE TABLE dbo.modern_player_quest_sub (player_id BIGINT NOT NULL, quest_id BIGINT NOT NULL, sub_index INT NOT NULL, kind TINYINT NOT NULL, target_id BIGINT NOT NULL, count BIGINT NOT NULL DEFAULT 0, target_count BIGINT NOT NULL, CONSTRAINT pk_modern_player_quest_sub PRIMARY KEY (player_id,quest_id,sub_index))",
+    "IF OBJECT_ID(N'dbo.modern_player_position', N'U') IS NULL CREATE TABLE dbo.modern_player_position (player_id BIGINT NOT NULL PRIMARY KEY, map_num INT NOT NULL, pos_x BIGINT NOT NULL, pos_z BIGINT NOT NULL, updated_at NVARCHAR(32) NOT NULL)",
     "IF OBJECT_ID(N'dbo.modern_account_status', N'U') IS NULL CREATE TABLE dbo.modern_account_status (account_id NVARCHAR(50) NOT NULL PRIMARY KEY, login_blocked INT NOT NULL DEFAULT 0, reason NVARCHAR(256) NOT NULL DEFAULT N'', updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF OBJECT_ID(N'dbo.modern_account_identity', N'U') IS NULL CREATE TABLE dbo.modern_account_identity (account_id NVARCHAR(50) NOT NULL PRIMARY KEY, user_idx BIGINT NOT NULL UNIQUE)",
     "IF OBJECT_ID(N'dbo.modern_gm_audit', N'U') IS NULL CREATE TABLE dbo.modern_gm_audit (audit_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY, actor NVARCHAR(64) NOT NULL, target_account NVARCHAR(50) NOT NULL, action NVARCHAR(32) NOT NULL, reason NVARCHAR(256) NOT NULL DEFAULT N'', created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
