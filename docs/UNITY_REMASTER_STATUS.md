@@ -304,3 +304,9 @@ The x64 Unity core regression suite remains 69/69 passed. Unity Editor/Player
 combat evidence is still pending because the local Unity licensing IPC client
 is unavailable; entity snapshot synchronization, visible hit presentation and
 two-human combat acceptance remain open.
+
+Development Player movement smoke subsequently passed with run ID
+`5017b7094e40469288ad4f3d0a4fad4f`: two native sessions, the real three-server
+SQLite/HSEL path, Map10 collision fixture and server correction all passed.
+This closes the automated two-session movement gate; human acceptance and
+visible combat presentation remain open.
