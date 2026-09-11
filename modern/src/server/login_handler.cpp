@@ -7,6 +7,7 @@
 #include "mxh/server/server.hpp"
 #include "mxh/server/account_service.hpp"
 #include "mxh/server/account_moderation.hpp"
+#include "mxh/server/account_lockout.hpp"
 #include "mxh/server/login_audit.hpp"
 
 #include <cstring>
@@ -433,6 +434,11 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
                                kLoginOutcomeBadPassword);
         }
         rate_limiter_->record_login_failure(user_id);
+        // Auto-lockout policy: 5 bad-password / throttled / blocked
+        // outcomes within 60 minutes escalates to a permanent block.
+        // Policy is intentionally off-by-default (threshold=0) until an
+        // operator flips it on with --auto-lockout-threshold / --auto-lockout-window.
+        evaluate_lockout(db_, user_id, lockout_threshold_, lockout_window_minutes_);
         reply_(id, make_login_nack());
     }
 }
@@ -569,6 +575,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
             record_login_audit(db_, user_id, remote_addr_for(*this, id),
                                kLoginOutcomeBadPassword);
         }
+        evaluate_lockout(db_, user_id, lockout_threshold_, lockout_window_minutes_);
         // Send NACK with the proper UserConn NACK protocol id (3),
         // not by copying the client's request header (which is
         // RequestLogin=1, a C->D direction the client won't match

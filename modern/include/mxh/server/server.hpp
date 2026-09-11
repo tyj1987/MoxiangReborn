@@ -95,6 +95,19 @@ public:
     // Snapshot the limiter stats. Cheap; reads under a single mutex.
     LoginRateLimiter::Stats rate_limiter_stats() const;
 
+    // M4 production: auto-lockout policy. evaluate_lockout() counts the
+    // bad-password / throttled / blocked outcomes in modern_login_audit
+    // over the last `lockout_window_minutes_` and blocks the account
+    // via set_account_login_blocked when the count reaches
+    // `lockout_threshold_`. Default 0 (disabled). Production deployments
+    // typically set threshold=5, window=60.
+    void set_auto_lockout(int threshold, int window_minutes) noexcept {
+        lockout_threshold_ = threshold;
+        lockout_window_minutes_ = window_minutes;
+    }
+    int auto_lockout_threshold() const noexcept { return lockout_threshold_; }
+    int auto_lockout_window_minutes() const noexcept { return lockout_window_minutes_; }
+
     // Graceful shutdown: reject new connections, persist any login-side
     // state, disconnect from the DB. Idempotent. See MapHandler for the
     // matching contract that persists per-player position.
@@ -144,6 +157,10 @@ private:
     // login failure tracking. Held by shared_ptr so tests can replace it
     // and so the lifetime is independent of LoginHandler construction.
     std::shared_ptr<LoginRateLimiter> rate_limiter_;
+    // Auto-lockout policy knobs. evaluate_lockout() reads these after
+    // every recorded failure.
+    int lockout_threshold_ = 0;
+    int lockout_window_minutes_ = 60;
     std::atomic<bool> draining_{false};
 };
 

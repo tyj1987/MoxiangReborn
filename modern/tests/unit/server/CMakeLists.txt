@@ -86,6 +86,33 @@ gtest_add_tests(TARGET mxh_login_audit_tests
     PRE_SHIP_BUILD
 )
 
+# Auto-lockout policy tests (modern_login_audit + modern_account_status).
+add_executable(mxh_account_lockout_tests
+    account_lockout_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/account_lockout.cpp
+)
+target_link_libraries(mxh_account_lockout_tests PRIVATE
+    mxh_server mxh_db gtest_main
+)
+target_include_directories(mxh_account_lockout_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(mxh_account_lockout_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_account_lockout_tests
+    AccountLockout.DisabledByZeroThreshold
+    AccountLockout.BelowThresholdReturnsBelowThreshold
+    AccountLockout.HitsThresholdBlocksAndAudits
+    AccountLockout.AlreadyBlockedIsNotDoubleLogged
+    AccountLockout.ThrottledAndBadPasswordAggregate
+    AccountLockout.AcceptedOutcomesDoNotCount
+    AccountLockout.EmptyAccountIsNoOp
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_character_calc_manager_tests
     character_calc_manager_test.cpp
 )
