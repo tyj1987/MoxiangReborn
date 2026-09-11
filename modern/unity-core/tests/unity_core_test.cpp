@@ -627,6 +627,18 @@ TEST(UnityCoreWire, PickupAckPayloadRejectsInvalidFields) {
     auto invalid = wire; invalid[6] = invalid[7] = 0;
     EXPECT_FALSE(mxh::client::parse_pickup_ack_payload(invalid).has_value());
 }
+TEST(UnityCoreWire, QuestMessagePinsLegacyQuestWire) {
+    const auto message = mxh::client::make_quest_message(
+        88u, mxh::proto::QuestProtocol::StartSyn, 0x3456u);
+    EXPECT_EQ(message.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Quest));
+    EXPECT_EQ(message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn));
+    EXPECT_EQ(message.header.object_id, 88u);
+    ASSERT_EQ(message.payload.size(), 2u);
+    EXPECT_EQ(message.payload[0], 0x56);
+    EXPECT_EQ(message.payload[1], 0x34);
+}
 
 TEST(UnityCoreAbi, VersionAndHandleLifecycle) {
     EXPECT_EQ(mxh_unity_get_api_version(), MXH_UNITY_API_VERSION);
