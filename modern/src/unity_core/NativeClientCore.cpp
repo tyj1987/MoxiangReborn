@@ -524,13 +524,9 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck)) {
-            if (message.payload.size() < 8) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid pickup ack payload"); return; }
-            std::uint32_t drop_id = 0;
-            std::memcpy(&drop_id, message.payload.data(), sizeof(drop_id));
-            const auto item_id = static_cast<std::uint32_t>(message.payload[4] | (message.payload[5] << 8));
-            const auto count = static_cast<std::uint32_t>(message.payload[6] | (message.payload[7] << 8));
-            if (drop_id == 0 || item_id == 0 || count == 0) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid pickup ack fields"); return; }
-            (void)emit(MXH_UNITY_EVENT_PICKUP_CONFIRMED, MXH_UNITY_OK, 0, drop_id, item_id, std::to_string(count), message.header.protocol);
+            const auto ack = mxh::client::parse_pickup_ack_payload(message.payload);
+            if (!ack) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid pickup ack payload"); return; }
+            (void)emit(MXH_UNITY_EVENT_PICKUP_CONFIRMED, MXH_UNITY_OK, 0, ack->drop_id, ack->item_id, std::to_string(ack->count), message.header.protocol);
             return;
         }
         return;

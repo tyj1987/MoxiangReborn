@@ -619,6 +619,14 @@ TEST(UnityCoreWire, PickupMessagePinsLegacyItemWire) {
     EXPECT_EQ(message.payload[2], 0x34);
     EXPECT_EQ(message.payload[3], 0x12);
 }
+TEST(UnityCoreWire, PickupAckPayloadRejectsInvalidFields) {
+    const std::array<std::uint8_t, 8> wire{41, 0, 0, 0, 9, 0, 3, 0};
+    const auto ack = mxh::client::parse_pickup_ack_payload(wire);
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->drop_id, 41u); EXPECT_EQ(ack->item_id, 9u); EXPECT_EQ(ack->count, 3u);
+    auto invalid = wire; invalid[6] = invalid[7] = 0;
+    EXPECT_FALSE(mxh::client::parse_pickup_ack_payload(invalid).has_value());
+}
 
 TEST(UnityCoreAbi, VersionAndHandleLifecycle) {
     EXPECT_EQ(mxh_unity_get_api_version(), MXH_UNITY_API_VERSION);

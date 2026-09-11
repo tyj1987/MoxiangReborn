@@ -61,4 +61,14 @@ mxh::net::Message make_pickup_message(std::uint32_t player_id,
     message.payload[3] = static_cast<std::uint8_t>(drop_object_id >> 24);
     return message;
 }
+
+std::optional<PickupAckInfo> parse_pickup_ack_payload(std::span<const std::uint8_t> payload) {
+    if (payload.size() < 8) return std::nullopt;
+    PickupAckInfo ack;
+    ack.drop_id = u32(payload.data());
+    ack.item_id = u16(payload.data() + 4);
+    ack.count = u16(payload.data() + 6);
+    if (ack.drop_id == 0 || ack.item_id == 0 || ack.count == 0) return std::nullopt;
+    return ack;
+}
 }

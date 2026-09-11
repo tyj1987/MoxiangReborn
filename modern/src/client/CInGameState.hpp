@@ -281,6 +281,8 @@ struct GroundDropInfo {
     float position_x = 0.0f;
     float position_z = 0.0f;
 };
+struct PickupAckInfo { std::uint32_t drop_id = 0, item_id = 0, count = 0; };
+std::optional<PickupAckInfo> parse_pickup_ack_payload(std::span<const std::uint8_t> payload);
 
 std::optional<GroundDropInfo>
 parse_legacy_ground_drop(std::span<const std::uint8_t> payload);
