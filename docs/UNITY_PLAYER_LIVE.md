@@ -61,6 +61,16 @@ the pre-fix failure evidence.
 - These are automated loopback fixtures; `humanAcceptance` remains false and
   MSSQL-backed Player acceptance remains open.
 
+## MSSQL follow-up (2026-09-12)
+
+The standalone three-server E2E was rerun against the local `MSSQLSERVER`
+instance using an explicit `backend=mssql_odbc;host=(local);database=Moxiang`
+connection string. Schema creation/migration, server startup, and HSEL login
+handshake all succeeded. The run then stopped at the LoginNack response for
+the generated test account (also reproduced with a fresh account name), so
+MSSQL Player acceptance is not yet claimed. The remaining boundary is account
+credential provisioning/verification inside the shared MSSQL fixture.
+
 ## What this proves
 
 1. Unity Editor builds a Development Windows x64 Player successfully.
