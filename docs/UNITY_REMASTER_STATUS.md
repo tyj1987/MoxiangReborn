@@ -311,6 +311,14 @@ SQLite/HSEL path, Map10 collision fixture and server correction all passed.
 This closes the automated two-session movement gate; human acceptance and
 visible combat presentation remain open.
 
+The Development Player was rebuilt through Unity CLI with
+`Moxiang.Editor.RemasterSetup.BuildDevelopment`; the build returned success and
+produced a success provenance manifest at
+`modern/out/unity-remaster/player/MoxiangClient.provenance.json` (source
+revision `d045b130`). A fresh three-server Player smoke passed afterward with
+run ID `39b2adecb1fa4a2c9051a131d8b75dc2`. The CLI still reports a non-fatal
+licensing validation warning; the project build method remains Development-only.
+
 The same isolated fixture also passed through the Unity Editor surface with
 run ID `0a0dea4b56fa4b71b42decb427e0e06d` (`--editor-test --movement`), including
 two native sessions, Map10 collision and server correction. Editor and Player
