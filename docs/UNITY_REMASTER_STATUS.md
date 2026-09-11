@@ -258,6 +258,14 @@ Default deployment order remains local acceptance, then PVE, with SQLite and MSS
 both verified. No release tag, production rollout or completion claim is implied
 by this status document.
 
+## 2026-09-12 Unity compile and EditMode recovery
+
+The Map10 scene-builder collider typing error was fixed in `25c92cb1`. After
+terminating the stale pre-fix Editor process, Unity 6000.6.0f1 EditMode tests
+completed successfully: 27 total, 25 passed, 0 failed, 2 skipped. Report:
+`unity_editmode_results_latest.xml`. The skipped cases remain environment or
+runtime-dependent and do not constitute Player combat acceptance.
+
 ## 2026-09-12 Map10 combat input increment
 
 The Unity remaster now exposes a server-authoritative skill command through the
