@@ -283,6 +283,13 @@ but two consecutive StandaloneWindows64 batch builds still exit with
 Player output is therefore still withheld pending a successful licensing
 validation during the build process.
 
+The reviewed development build method (`Moxiang.Editor.RemasterSetup.BuildDevelopment`)
+successfully produced `modern/out/unity-remaster/player/MoxiangClient.exe` with
+the native x64 core. Real three-server Player smoke then passed with run ID
+`e08a27b6eeba4b758280a4c53d1e1903` (SQLite, client HSEL, internal legacy
+plaintext loopback). This is an internal Development build; human acceptance,
+combat presentation, two-session movement and release-gate criteria remain open.
+
 ## 2026-09-12 Map10 combat input increment
 
 The Unity remaster now exposes a server-authoritative skill command through the
