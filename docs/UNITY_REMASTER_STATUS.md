@@ -333,6 +333,10 @@ After adding the skill ABI rejection test, the x64 Unity core suite passes
 70/70. The new coverage asserts that skill commands are rejected outside
 InGame and when the bounded payload length is malformed.
 
+Full Unity EditMode was rerun after the ABI test addition: 27 total, 25 passed,
+0 failed and 2 intentionally skipped for the isolated real-server fixture.
+Report: `unity_editmode_full_latest.xml`.
+
 The current branch also revalidated the MSSQL ODBC five-stage E2E after the
 Unity combat ABI changes: Login, character list, relist and Map10 GameIn all
 passed, with 228 initial monsters observed. The run reused an existing test
