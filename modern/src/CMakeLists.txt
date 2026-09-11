@@ -61,6 +61,7 @@ if(SQLite3_FOUND)
         db_adapter.cpp
         schema_migration.cpp
         sqlite_adapter.cpp
+        pooled_db_adapter.cpp
         db_factory.cpp
         db_thread.cpp
         mssql_odbc_adapter.cpp
@@ -75,6 +76,7 @@ else()
         db_adapter.cpp
         schema_migration.cpp
         sqlite_adapter.cpp
+        pooled_db_adapter.cpp
         db_factory.cpp
         db_thread.cpp
         mssql_odbc_adapter.cpp
