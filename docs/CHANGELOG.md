@@ -4,6 +4,11 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added shared time-based movement math from original CharMove: interpolation,
+  strict arrival boundary, retargeting and server-relative Stop tolerance, with
+  ten deterministic tests on x86/x64. Runtime activation remains pending the
+  coordinated position-reader, speed-selection and client semantic migration;
+  details and source anchors are in `docs/UNITY_TIMED_MOVEMENT.md`.
 - Added 124,852 independent original-scan path comparisons and real Map10
   blocked-cell probes below the jump threshold. Unity Editor and versioned
   Player reports verify owner correction and no rejected move broadcast.

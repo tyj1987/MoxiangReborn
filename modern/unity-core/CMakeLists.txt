@@ -18,6 +18,7 @@ add_library(mxh_unity_core_impl STATIC
     ${MXH_SRC}/client/AgentSession.cpp
     ${MXH_SRC}/client/ClientWire.cpp
     ${MXH_SRC}/unity_core/NativeClientCore.cpp
+    ${MXH_SRC}/game/movement_timeline.cpp
 )
 
 target_include_directories(mxh_unity_core_impl
@@ -55,6 +56,7 @@ if(MXH_UNITY_BUILD_TESTS)
                      ${CMAKE_BINARY_DIR}/_deps/googletest-build EXCLUDE_FROM_ALL)
     add_executable(mxh_unity_core_tests
         tests/unity_core_test.cpp
+        ${MXH_MODERN_ROOT}/tests/unit/game/movement_timeline_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/hsel_encryptor_test.cpp
         ${MXH_SRC}/server/hsel_session.cpp)
     target_compile_features(mxh_unity_core_tests PRIVATE cxx_std_20)
