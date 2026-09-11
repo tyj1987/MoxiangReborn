@@ -402,3 +402,8 @@ intentionally skipped for release-only, deploy-manifest, or MSSQL fixtures;
 this does not close the independent MSSQL or human gameplay gates. The latest
 Unity social/entity coverage includes chat, quest, ground-drop, pickup and
 entity-health paths; those targeted EditMode and x64 core suites also passed.
+
+A fresh Development Player three-server movement smoke on 2026-09-12 passed
+with run ID `48e4b38117d34ab9ac16859dd0faab32`. It exercised the real modern
+SQLite/HSEL path, two native sessions, Map10 collision data and server
+correction. This is regression evidence only; human acceptance remains open.
