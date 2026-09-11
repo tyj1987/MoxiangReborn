@@ -339,6 +339,12 @@ NPC projection/unprojection, and nearest-monster cursor targeting. Native Core
 entity-event extraction will use these existing tested layouts rather than a
 new inferred wire format.
 
+Unity now contains `ServerEntityRegistry`, which consumes the bounded
+MonsterAdd/NpcAdd events and instantiates only explicitly assigned audited
+prefabs, attaching the stable target ID and MapCoordinates projection. Missing
+prefabs are ignored safely rather than replaced with fake gameplay entities.
+Entity registry scripts compile and the combat EditMode subset remains 6/6.
+
 After the Input System preload rebuild at source revision `db85bd6b`, the
 latest Player movement smoke passed with run ID
 `1e3b432b5fe148899b82a0086a95d79a`: two native sessions, Map10 collision and
