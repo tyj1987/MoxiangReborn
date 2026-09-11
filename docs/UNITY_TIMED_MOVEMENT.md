@@ -314,3 +314,9 @@ Validation for this increment: final x64 build/core CTest 50/50 passed; final
 x86 full build passed; full x86 CTest with `--output-on-failure -j 8 --quiet`
 returned 0. Independent read-only review found no blocking timeline math issue.
 No Player build is claimed to exercise this inactive module.
+
+Fresh Unity 6000.6.0f1 EditMode run on 2026-09-12 produced
+`C:/moxiang/unity_editmode_results.xml`: 21 tests, 0 failures, 0 errors and 2
+explicit environment skips. All six `TimedMovementClientTests` passed. This is
+Editor test evidence only; it does not prove a Player build, real timed route
+dispatch or two-human acceptance.
