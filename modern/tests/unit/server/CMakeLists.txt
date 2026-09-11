@@ -38,6 +38,27 @@ gtest_add_tests(TARGET mxh_timed_movement_epoch_tests
     PRE_SHIP_BUILD
 )
 
+# Login server rate limiter tests (production hardening).
+# Pure in-process limiter with deterministic virtual clock; no DB.
+add_executable(mxh_login_rate_limiter_tests
+    login_rate_limiter_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/login_rate_limiter.cpp
+)
+target_link_libraries(mxh_login_rate_limiter_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_login_rate_limiter_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(mxh_login_rate_limiter_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_login_rate_limiter_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_character_calc_manager_tests
     character_calc_manager_test.cpp
 )

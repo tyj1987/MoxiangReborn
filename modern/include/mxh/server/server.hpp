@@ -33,6 +33,7 @@
 #include "mxh/server/hackshield_manager.hpp"
 #include "mxh/server/hsel_session.hpp"
 #include "mxh/compat/quest_npc_catalog.hpp"
+#include "mxh/server/login_rate_limiter.hpp"
 
 #include <functional>
 #include <memory>
@@ -67,6 +68,19 @@ public:
                  std::function<void(mxh::net::ConnectionId,
                                     const mxh::net::Message&)>
                      direct_send = {});
+    // Test/operator injection: replace the default in-process rate limiter
+    // with one configured for production or unit-test scenarios. Production
+    // callers leave the default; tests pass a deterministic clock.
+    LoginHandler(mxh::db::IDbAdapter& db,
+                 std::string agent_addr,
+                 std::uint16_t agent_port,
+                 ReplyFn reply,
+                 std::shared_ptr<LoginRateLimiter> rate_limiter,
+                 bool use_legacy_framing = false,
+                 bool use_hsel = false,
+                 std::function<void(mxh::net::ConnectionId,
+                                    const mxh::net::Message&)>
+                     direct_send = {});
     ~LoginHandler() override = default;
 
     bool on_connect(mxh::net::ConnectionId id,
@@ -76,6 +90,9 @@ public:
     void on_disconnect(mxh::net::ConnectionId id,
                        mxh::net::NetError reason) override;
     mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
+
+    // Snapshot the limiter stats. Cheap; reads under a single mutex.
+    LoginRateLimiter::Stats rate_limiter_stats() const;
 
 private:
     void handle_userconn(mxh::net::ConnectionId id,
@@ -103,6 +120,11 @@ private:
     std::mutex auth_mu_;
     std::unordered_map<std::uint64_t, std::uint32_t> auth_keys_;
     std::uint32_t next_auth_key_ = 1000;
+
+    // Production hardening: per-IP connection rate limit + per-account
+    // login failure tracking. Held by shared_ptr so tests can replace it
+    // and so the lifetime is independent of LoginHandler construction.
+    std::shared_ptr<LoginRateLimiter> rate_limiter_;
 };
 
 // AgentHandler - serves the per-user agent connection.

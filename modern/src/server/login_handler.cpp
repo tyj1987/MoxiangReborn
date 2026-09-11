@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 namespace {
 void clear_secret(std::string& value) noexcept {
@@ -113,7 +114,31 @@ LoginHandler::LoginHandler(mxh::db::IDbAdapter& db,
       agent_port_(agent_port), reply_(std::move(reply)),
       use_legacy_framing_(use_legacy_framing),
       use_hsel_(use_hsel),
-      hsel_(use_hsel, std::move(direct_send)) {}
+      hsel_(use_hsel, std::move(direct_send)),
+      rate_limiter_(std::make_shared<LoginRateLimiter>()) {}
+
+LoginHandler::LoginHandler(mxh::db::IDbAdapter& db,
+                           std::string agent_addr,
+                           std::uint16_t agent_port,
+                           ReplyFn reply,
+                           std::shared_ptr<LoginRateLimiter> rate_limiter,
+                           bool use_legacy_framing,
+                           bool use_hsel,
+                           std::function<void(mxh::net::ConnectionId,
+                                              const mxh::net::Message&)>
+                               direct_send)
+    : db_(db), agent_addr_(std::move(agent_addr)),
+      agent_port_(agent_port), reply_(std::move(reply)),
+      use_legacy_framing_(use_legacy_framing),
+      use_hsel_(use_hsel),
+      hsel_(use_hsel, std::move(direct_send)),
+      rate_limiter_(std::move(rate_limiter)) {
+    if (!rate_limiter_) rate_limiter_ = std::make_shared<LoginRateLimiter>();
+}
+
+LoginRateLimiter::Stats LoginHandler::rate_limiter_stats() const {
+    return rate_limiter_->stats();
+}
 
 mxh::net::IEncryptor* LoginHandler::encryptor_for(
     mxh::net::ConnectionId id) {
@@ -122,6 +147,14 @@ mxh::net::IEncryptor* LoginHandler::encryptor_for(
 
 bool LoginHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
+    // Production hardening: per-IP connection budget. A flooding source is
+    // dropped at accept time so it cannot waste server CPU on the
+    // handshake or reply loop.
+    if (rate_limiter_ && !rate_limiter_->admit_connection(remote_addr)) {
+        std::cout << "[Login] rate-limited connection from " << remote_addr << "\n";
+        dbg_log("[on_connect] rate-limited remote=" + remote_addr);
+        return false;
+    }
     std::cout << "[Login] client connected from " << remote_addr << "\n";
     dbg_log("[on_connect] id=" + std::to_string(id.value) + " remote=" + remote_addr
             + " legacy=" + (use_legacy_framing_ ? "yes" : "no"));
@@ -305,6 +338,18 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
 
     std::cout << "[Login] RequestLogin id='" << user_id << "'\n";
 
+    // Production hardening: per-account login throttle. Burst credential
+    // attacks must be NACKed before the DB is queried, so the failure
+    // counter advances even when the account does not exist.
+    if (rate_limiter_ && !rate_limiter_->admit_login_attempt(user_id)) {
+        std::cout << "[Login] throttle-FAIL for '" << user_id
+                  << "', sending NACK\n";
+        dbg_log("[handle_login] throttled user_id=" + user_id);
+        rate_limiter_->record_login_failure(user_id);
+        reply_(id, make_login_nack());
+        return;
+    }
+
     mxh::db::ResultSet rs;
     std::vector<mxh::db::Bind> params{mxh::db::bind(user_id)};
     auto q = db_.query(
@@ -321,11 +366,13 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
     if (ok) {
         std::cout << "[Login] auth OK for '" << user_id << "', sending ACK ("
                   << agent_addr_ << ":" << agent_port_ << ")\n";
+        rate_limiter_->record_login_success(user_id);
         const auto user_idx = ensure_account_user_idx(db_, user_id);
         if (user_idx == 0) { reply_(id, make_login_nack()); return; }
         reply_(id, make_login_ack(agent_port_, agent_addr_, user_idx));
     } else {
         std::cout << "[Login] auth FAIL for '" << user_id << "', sending NACK\n";
+        rate_limiter_->record_login_failure(user_id);
         reply_(id, make_login_nack());
     }
 }
@@ -364,7 +411,23 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
               << " id='" << user_id << "'\n";
     dbg_log("[handle_legacy_login] auth_key=" + std::to_string(auth_key)
             + " id='" + user_id + "' payload_size=" + std::to_string(msg.payload.size()));
-    
+
+    // Production hardening: per-account login throttle.
+    if (rate_limiter_ && !rate_limiter_->admit_login_attempt(user_id)) {
+        std::cout << "[Login] legacy: throttle-FAIL for '" << user_id
+                  << "', sending NACK\n";
+        dbg_log("[handle_legacy_login] throttled user_id=" + user_id);
+        rate_limiter_->record_login_failure(user_id);
+        mxh::net::Message nack_msg;
+        nack_msg.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack_msg.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::NotifyUserLoginNack);
+        nack_msg.header.object_id = 0;
+        reply_(id, nack_msg);
+        return;
+    }
+
     // Query database
     mxh::db::ResultSet rs;
     std::vector<mxh::db::Bind> params{mxh::db::bind(user_id)};
@@ -384,6 +447,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     if (ok) {
         const auto user_idx = ensure_account_user_idx(db_, user_id);
         if (user_idx == 0) { reply_(id, make_login_nack()); return; }
+        rate_limiter_->record_login_success(user_id);
         std::cout << "[Login] legacy: auth OK for '" << user_id
                   << "', sending ACK (" << agent_addr_ << ":" << agent_port_ << ")\n";
         // Build MSG_LOGIN_ACK: MSGBASE(8B) + agentip(16B) + agentport(2B) + userIdx(4B) + cbUserLevel(1B)
@@ -423,6 +487,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
         dbg_log("[handle_legacy_login] reply_ returned OK");
     } else {
         std::cout << "[Login] legacy: auth FAIL for '" << user_id << "'\n";
+        rate_limiter_->record_login_failure(user_id);
         // Send NACK with the proper UserConn NACK protocol id (3),
         // not by copying the client's request header (which is
         // RequestLogin=1, a C->D direction the client won't match
