@@ -10,6 +10,7 @@ namespace Moxiang
     public sealed class SkillHotkeyController : MonoBehaviour
     {
         public ConnectionPanel connection;
+        public TargetSelectionController targetSelection;
         public KeyCode[] hotkeys = { KeyCode.Alpha1, KeyCode.Alpha2, KeyCode.Alpha3, KeyCode.Alpha4,
             KeyCode.Alpha5, KeyCode.Alpha6, KeyCode.Alpha7, KeyCode.Alpha8 };
         public uint[] skillIds = new uint[8];
@@ -39,9 +40,13 @@ namespace Moxiang
             {
                 if (!Input.GetKeyDown(hotkeys[i])) continue;
                 if (TryResolveSkill(hotkeys[i], hotkeys, skillIds, out uint skillId))
+                {
+                    if (targetSelection != null && targetSelection.TryGetTarget(out var id, out var position))
+                    { selectedTargetObjectId = id; targetGamePosition = position; }
                     SkillRequested?.Invoke(skillId);
                     if (selectedTargetObjectId != 0)
                         connection.UseSkill(skillId, selectedTargetObjectId, targetGamePosition.x, targetGamePosition.y);
+                }
                 break;
             }
         }
