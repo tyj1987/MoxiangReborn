@@ -132,6 +132,7 @@ namespace Moxiang
         public const uint EventGroundDrop = 17;
         public const uint EventPickupConfirmed = 18;
         public const uint EventQuestUpdated = 19;
+        public const uint EventChatMessage = 20;
         public const uint CommandPickup = 9;
         public const uint CommandQuest = 10;
         public const uint CommandChat = 11;
