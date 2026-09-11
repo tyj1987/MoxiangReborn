@@ -783,7 +783,8 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
     if (command.type != MXH_UNITY_COMMAND_SELECT_CHARACTER &&
         command.type != MXH_UNITY_COMMAND_CREATE_CHARACTER &&
-        command.type != MXH_UNITY_COMMAND_MOVE && command.type != MXH_UNITY_COMMAND_STOP)
+        command.type != MXH_UNITY_COMMAND_MOVE && command.type != MXH_UNITY_COMMAND_STOP &&
+        command.type != MXH_UNITY_COMMAND_PICKUP)
         return MXH_UNITY_UNSUPPORTED;
     if (command.expected_session_generation != session_generation_ ||
         command.expected_map_generation != map_generation_)
@@ -807,6 +808,18 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
         (void)emit(MXH_UNITY_EVENT_MOVEMENT_SUBMITTED, MXH_UNITY_OK, command.request_id,
             game_.player_id, static_cast<std::uint32_t>(x) | (static_cast<std::uint32_t>(z) << 16),
             {}, static_cast<std::uint8_t>(protocol));
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_PICKUP) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 == 0 || command.argument1 != 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        const auto message = mxh::client::make_pickup_message(game_.player_id, command.argument0);
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "pickup send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
+        ++revision_;
         return MXH_UNITY_OK;
     }
     if (state_ != MXH_UNITY_STATE_CHARACTER_LIST_READY) return MXH_UNITY_WRONG_STATE;

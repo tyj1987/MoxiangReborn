@@ -47,4 +47,18 @@ std::optional<GroundDropInfo> parse_legacy_ground_drop(std::span<const std::uint
     if (drop.object_id == 0 || drop.item_id == 0 || drop.count == 0 || !std::isfinite(drop.position_x) || !std::isfinite(drop.position_z)) return std::nullopt;
     return drop;
 }
+
+mxh::net::Message make_pickup_message(std::uint32_t player_id,
+                                      std::uint32_t drop_object_id) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn);
+    message.header.object_id = player_id;
+    message.payload.resize(4);
+    message.payload[0] = static_cast<std::uint8_t>(drop_object_id);
+    message.payload[1] = static_cast<std::uint8_t>(drop_object_id >> 8);
+    message.payload[2] = static_cast<std::uint8_t>(drop_object_id >> 16);
+    message.payload[3] = static_cast<std::uint8_t>(drop_object_id >> 24);
+    return message;
+}
 }

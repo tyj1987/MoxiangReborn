@@ -130,6 +130,7 @@ namespace Moxiang
         public const uint EventEntityLife = 15;
         public const uint EventEntityShield = 16;
         public const uint EventGroundDrop = 17;
+        public const uint CommandPickup = 9;
         public const uint EventDisconnected = 4;
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
@@ -232,6 +233,20 @@ namespace Moxiang
                     var command = new ExtendedCommand { head = head, payload = unmanaged, payloadSize = 8u };
                     return mxh_unity_submit_extended_command(handle, ref command);
                 } finally { Marshal.FreeHGlobal(unmanaged); }
+            }
+        }
+
+        public CoreResult SubmitPickup(uint dropObjectId, CoreSnapshot observed)
+        {
+            if (dropObjectId == 0) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandPickup,
+                    argument0 = dropObjectId, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration,
+                    expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
             }
         }
 

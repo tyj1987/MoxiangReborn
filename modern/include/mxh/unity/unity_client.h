@@ -114,7 +114,9 @@ typedef enum mxh_unity_command_type {
     MXH_UNITY_COMMAND_TIMED_STOP = 7,
     /* Skill StartSyn: head.argument0=skill index, argument1=target object;
        payload is exactly target_x/target_z as little-endian float32. */
-    MXH_UNITY_COMMAND_SKILL = 8
+    MXH_UNITY_COMMAND_SKILL = 8,
+    /* PickupSyn: argument0=ground-drop object ID, no payload. */
+    MXH_UNITY_COMMAND_PICKUP = 9
 } mxh_unity_command_type;
 
 #define MXH_UNITY_SKILL_PAYLOAD_SIZE UINT32_C(8)
