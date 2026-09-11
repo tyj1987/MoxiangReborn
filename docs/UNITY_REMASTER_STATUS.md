@@ -92,6 +92,16 @@ containers). The initial release provenance check intentionally fails with 107
 blockers. Passing that check alone would not establish full dependency closure,
 visual acceptance or game release readiness.
 
+## Latest runtime evidence (2026-09-12)
+
+The current branch passed the five-stage `MoxianClientE2E` against the local
+MSSQL ODBC backend with HSEL enabled: LoginAck, character list, character
+creation/relist, Map10 GameInAck, and initial entity delivery all succeeded.
+The Map10 session received 228 monster additions and ended with a valid player
+snapshot (`map=10`, `life=100/100`) before clean GameOut/disconnect. This is
+protocol and persistence evidence; it does not replace visible human combat or
+resource-quality acceptance.
+
 ## Verification and environment
 
 - Bounded timed-movement activation (2026-09-11): native ABI bumped to
