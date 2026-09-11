@@ -11,11 +11,17 @@ namespace Moxiang
         public LayerMask targetLayers = ~0;
         public TargetSelectable selected;
         public event Action<uint, Vector2> TargetSelected;
+        private ulong selectedMapGeneration;
 
         private void Update()
         {
-            if (connection != null && connection.Observed.state != CoreState.InGame)
-            { selected = null; return; }
+            if (connection != null)
+            {
+                var snapshot = connection.Observed;
+                if (snapshot.state != CoreState.InGame ||
+                    (selected != null && selectedMapGeneration != snapshot.mapGeneration))
+                { selected = null; return; }
+            }
             if (Input.GetMouseButtonDown(1)) { selected = null; return; }
             if (!Input.GetMouseButtonDown(0) || worldCamera == null ||
                 (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
@@ -24,6 +30,7 @@ namespace Moxiang
             var candidate = hit.collider.GetComponentInParent<TargetSelectable>();
             if (candidate == null || candidate.objectId == 0) return;
             selected = candidate;
+            selectedMapGeneration = connection == null ? 0 : connection.Observed.mapGeneration;
             TargetSelected?.Invoke(candidate.objectId, new Vector2(hit.point.x, hit.point.z));
         }
 
