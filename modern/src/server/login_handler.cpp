@@ -209,6 +209,20 @@ bool LoginHandler::on_connect(mxh::net::ConnectionId id,
     dbg_log("[on_connect] id=" + std::to_string(id.value) + " remote=" + remote_addr
             + " legacy=" + (use_legacy_framing_ ? "yes" : "no"));
 
+    // Modern flow: the modern native core waits for a version ack before it
+    // sends RequestLogin. Push one proactively so the client does not
+    // stall on connect. Legacy mode does not use this; the legacy path
+    // is handled below.
+    if (!use_legacy_framing_) {
+        mxh::net::Message version_ack;
+        version_ack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        version_ack.header.protocol = mxh::proto::kModernNotifyVersionAck;
+        version_ack.header.object_id = 0;
+        reply_(id, version_ack);
+        dbg_log("[on_connect] modern: sent VersionAck");
+    }
+
     // Phase 7.6: In legacy mode, immediately send MP_USERCONN_DIST_CONNECTSUCCESS
     // with a unique auth key in dwObjectID. The client stores this as m_DistAuthKey
     // and later passes it to the AgentServer as proof of Distribute authentication.
