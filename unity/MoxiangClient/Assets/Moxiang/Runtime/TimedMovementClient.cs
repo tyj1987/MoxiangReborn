@@ -20,6 +20,7 @@ namespace Moxiang
         private readonly NativeClient client;
         private ulong epoch;
         private ulong sequence;
+        private ulong lastStateSequence;
 
         public TimedMovementClient(NativeClient client)
         {
@@ -53,7 +54,7 @@ namespace Moxiang
             var next = NextSequence;
             var payload = NativeClient.EncodeTimedRoute(epoch, next, points);
             var snapshot = client.Snapshot();
-            var result = client.SubmitExtended(CommandTimedRoute, payload, next, snapshot);
+            var result = client.SubmitExtended(CommandTimedRoute, payload, (uint)next, snapshot);
             if (result == CoreResult.Ok) sequence = next;
             return result;
         }
@@ -64,7 +65,7 @@ namespace Moxiang
             var next = NextSequence;
             var payload = NativeClient.EncodeTimedStop(epoch, next, x, z);
             var snapshot = client.Snapshot();
-            var result = client.SubmitExtended(CommandTimedStop, payload, next, snapshot);
+            var result = client.SubmitExtended(CommandTimedStop, payload, (uint)next, snapshot);
             if (result == CoreResult.Ok) sequence = next;
             return result;
         }
@@ -96,8 +97,9 @@ namespace Moxiang
                 observedStateSeq |= ((ulong)evt.text[24 + i]) << (8 * i);
             if (observedEpoch == 0) return false;
             if (epoch != 0 && observedEpoch != epoch) return false;
-            if (observedStateSeq <= sequence) return false;
+            if (observedStateSeq <= lastStateSequence) return false;
             epoch = observedEpoch;
+            lastStateSequence = observedStateSeq;
             return true;
         }
 
@@ -105,6 +107,7 @@ namespace Moxiang
         {
             epoch = 0;
             sequence = 0;
+            lastStateSequence = 0;
         }
     }
 }

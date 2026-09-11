@@ -103,8 +103,12 @@ namespace Moxiang.Tests
             stateBytes[2] = (byte)'M'; stateBytes[3] = (byte)'S';
             stateBytes[4] = (byte)1; stateBytes[5] = NativeClient.TimedStateKindSnapshot;
             stateBytes[6] = (byte)0; stateBytes[7] = (byte)0;
-            for (int i = 0; i < 8; ++i) stateBytes[8 + i] = (byte)(7 >> (8 * i));
-            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)(1 >> (8 * i));
+            // ulong shifts of >= 32 are well-defined; the matching NativeClient
+            // decoder also uses ulong so the wire layout matches.
+            ulong epoch = 7UL;
+            for (int i = 0; i < 8; ++i) stateBytes[8 + i] = (byte)(epoch >> (8 * i));
+            ulong stateSeq = 1UL;
+            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)(stateSeq >> (8 * i));
             var evt = new CoreEvent
             {
                 structSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<CoreEvent>(),
@@ -116,14 +120,14 @@ namespace Moxiang.Tests
             Assert.That(timed.Epoch, Is.EqualTo(7UL));
 
             // Same epoch, lower or equal state sequence must be dropped.
-            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)(1 >> (8 * i));
+            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)((ulong)1UL >> (8 * i));
             Assert.That(timed.OnMovementState(evt), Is.False);
-            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)(0 >> (8 * i));
+            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)((ulong)0UL >> (8 * i));
             Assert.That(timed.OnMovementState(evt), Is.False);
 
             // Different epoch must be dropped while the session is bound.
-            for (int i = 0; i < 8; ++i) stateBytes[8 + i] = (byte)(99 >> (8 * i));
-            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)(2 >> (8 * i));
+            for (int i = 0; i < 8; ++i) stateBytes[8 + i] = (byte)((ulong)99UL >> (8 * i));
+            for (int i = 0; i < 8; ++i) stateBytes[24 + i] = (byte)((ulong)2UL >> (8 * i));
             Assert.That(timed.OnMovementState(evt), Is.False);
 
             // Non-timed event types are ignored.
