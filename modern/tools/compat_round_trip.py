@@ -302,9 +302,11 @@ def bsad_canonical_round_trip(path: Path) -> dict:
 
 def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    repository_root = Path(__file__).resolve().parents[2]
+    playdh_root = repository_root / "modern" / "data" / "PlayDH"
     parser.add_argument(
         "--root",
-        default=r"C:\moxiang\modern\data\PlayDH\Resource\Map",
+        default=str(playdh_root / "Resource" / "Map"),
         help="Directory to scan for resources.",
     )
     parser.add_argument(
@@ -319,7 +321,7 @@ def main(argv: List[str]) -> int:
     files = sorted(p for p in root.rglob(f"*{args.ext}") if p.is_file())
     if args.ext == ".bsad":
         files = [
-            p for p in Path(r"C:\moxiang\modern\data\PlayDH").rglob("*.bsad")
+            p for p in playdh_root.rglob("*.bsad")
         ]
     if args.limit:
         files = files[: args.limit]
