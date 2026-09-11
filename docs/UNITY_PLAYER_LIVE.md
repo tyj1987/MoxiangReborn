@@ -99,3 +99,8 @@ character creation, relist, and Map10 GameIn. It reported `LoginAck user_idx=7`,
 created/relisted `player_id=100006`, and received `GameInAck` with `map=10`,
 `life=100/100`, and 228 initial monsters. This is automated evidence;
 human acceptance, performance, and long-run stability remain open.
+
+The subsequent Player movement regression also passed after the internal
+loopback change (`runId=8839c4808e24445bb1b89e5ba8d751cd`): HSEL client
+transport, two-session movement, and the Map10 collision fixture remained
+green.
