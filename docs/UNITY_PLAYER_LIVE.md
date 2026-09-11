@@ -51,6 +51,16 @@ original wire contract), while payload bytes remain forbidden. A fresh Player
 smoke must still be rerun after rebuilding the native core; the trace above is
 the pre-fix failure evidence.
 
+## Fresh post-fix evidence (2026-09-12)
+
+- Existing-character Player smoke with movement passed: `runId=f96e622074ec4d889b7963fe23b5b38e`.
+- Empty-account character creation Player smoke passed: `runId=b79c6a9c0653490faf390e6a5f4cd34d`.
+- The creation fixture produced character `100000 / UnityNew / level 17` and the
+  expected starter equipment rows; both runs used the real modern Login,
+  Agent, and Map executables with SQLite.
+- These are automated loopback fixtures; `humanAcceptance` remains false and
+  MSSQL-backed Player acceptance remains open.
+
 ## What this proves
 
 1. Unity Editor builds a Development Windows x64 Player successfully.
