@@ -51,6 +51,9 @@ namespace Moxiang.Editor
             panel.anchorMin = panel.anchorMax = new Vector2(0, 0.5f); panel.pivot = new Vector2(0, 0.5f); panel.anchoredPosition = new Vector2(24, 0);
             panel.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(0.025f, 0.04f, 0.06f, 0.94f);
             var logic = panel.gameObject.AddComponent<ConnectionPanel>();
+            var inputController = terrain.AddComponent<Map10InputController>();
+            inputController.mapCollider = terrain.AddComponent<MeshCollider>();
+            inputController.mapCollider.sharedMesh = heightfield.inspectionMesh;
             Label(panel, "MOXIANG", 24, -20, 350, 40, 30);
             Label(panel, "Connection validation / Development build", 24, -64, 350, 32, 15);
             logic.host = Input(panel, "Host", "127.0.0.1", -110, false);
@@ -60,6 +63,7 @@ namespace Moxiang.Editor
             logic.connect = Button(panel, "Connect", -316, out _);
             logic.disconnect = Button(panel, "Disconnect", -362, out _);
             logic.status = Label(panel, "Idle", 24, -410, 350, 60, 16);
+            inputController.connection = logic;
             logic.characters = new UnityEngine.UI.Button[5]; logic.characterLabels = new TMP_Text[5];
             for (int i = 0; i < 5; ++i) logic.characters[i] = Button(panel, "Empty slot", -474 - i * 32, out logic.characterLabels[i], 28);
             var note = Label(canvas.transform, "MAP 10 · GEOMETRY INSPECTION\nMaterials, collision and gameplay are not accepted yet.", 0, 0, 600, 70, 18);
