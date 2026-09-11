@@ -63,6 +63,8 @@
 /*.out
 /*.tmp
 /Testing/
+/unity_*.xml
+/modern/backend=mssql_odbc;*
 
 # Unity CLI can create a project-state mirror at the repository root when a
 # caller starts from the wrong working directory. Keep that cache local; the
