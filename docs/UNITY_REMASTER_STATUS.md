@@ -423,3 +423,10 @@ The manifest was also regenerated with the actual branch commit hash instead
 of the literal `HEAD`; this removed the synthetic source-commit blocker. The
 current release blocker count is 107, all from unresolved provenance,
 source-selection or missing map-data findings.
+
+MapChange baseline verification was rerun on 2026-09-12: the modern route
+catalog, loading coordinator, cancellation and late-failure handling, entity
+cleanup, NPC route semantics and map-change UI callbacks passed **40/40**.
+This proves the preserved core baseline only; Unity NPC interaction and the
+Unity-side route resolver remain intentionally unexposed until their session
+level resource lifetime is implemented.
