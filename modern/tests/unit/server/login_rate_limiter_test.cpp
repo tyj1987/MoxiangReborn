@@ -10,6 +10,8 @@
 //   - failure throttle exists but does not block (advisory metric)
 
 #include "mxh/server/login_rate_limiter.hpp"
+#include "mxh/server/server.hpp"
+#include "mxh/db/db_adapter.hpp"
 
 #include <gtest/gtest.h>
 #include <chrono>
@@ -152,3 +154,32 @@ TEST(LoginRateLimiter, ClearForgetsEverything) {
 
 }  // namespace
 }  // namespace mxh::server
+
+namespace {
+TEST(LoginHandlerStats, ReportsCountersAndDrainingFlag) {
+    // Stand up a LoginHandler with a real DB so we can drive a few
+    // on_connect / handle_login cycles; the test only inspects stats(),
+    // so any error reply is acceptable.
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    // Drop a minimal chr_log_info schema so legacy framing can be
+    // constructed without DB errors; the test does not drive login
+    // payloads, just stats().
+    ASSERT_TRUE(db->execute(
+        "CREATE TABLE IF NOT EXISTS chr_log_info ("
+        "id TEXT PRIMARY KEY, pw TEXT NOT NULL, userlevel INTEGER NOT NULL DEFAULT 0)").ok());
+    using ReplyFn = std::function<void(mxh::net::ConnectionId, const mxh::net::Message&)>;
+    ReplyFn reply = [](mxh::net::ConnectionId, const mxh::net::Message&) {};
+    mxh::server::LoginHandler handler(*db, "127.0.0.1", 7001, reply);
+    auto s = handler.stats();
+    EXPECT_FALSE(s.draining);
+    EXPECT_EQ(s.tracked_connections, 0u);
+    EXPECT_EQ(s.tracked_accounts, 0u);
+
+    handler.prepare_for_shutdown();
+    EXPECT_TRUE(handler.stats().draining);
+}
+}  // anonymous namespace

@@ -114,6 +114,18 @@ public:
     void prepare_for_shutdown();
     bool is_draining() const noexcept { return draining_; }
 
+    // M4 production: cheap snapshot for operator consoles. Reads under
+    // the rate-limiter + connection-addrs_ locks; no DB round-trip.
+    struct Stats {
+        std::size_t tracked_connections = 0;
+        std::size_t tracked_accounts = 0;
+        std::uint64_t total_rejected_connections = 0;
+        std::uint64_t total_rejected_logins = 0;
+        std::uint64_t total_recorded_failures = 0;
+        bool draining = false;
+    };
+    Stats stats() const;
+
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
@@ -137,7 +149,7 @@ private:
     std::unordered_set<std::uint64_t> version_verified_;
 
     // Phase 7.6: per-connection auth keys for legacy protocol.
-    std::mutex auth_mu_;
+    mutable std::mutex auth_mu_;
     std::unordered_map<std::uint64_t, std::uint32_t> auth_keys_;
     std::uint32_t next_auth_key_ = 1000;
 
@@ -150,7 +162,7 @@ public:
     const std::unordered_map<std::uint64_t, std::string>& connection_addrs_map() const noexcept {
         return connection_addrs_;
     }
-    std::mutex& auth_mu() noexcept { return auth_mu_; }
+    std::mutex& auth_mu() const noexcept { return auth_mu_; }
 private:
 
     // Production hardening: per-IP connection rate limit + per-account

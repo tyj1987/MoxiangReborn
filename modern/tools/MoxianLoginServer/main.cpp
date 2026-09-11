@@ -225,9 +225,24 @@ int main(int argc, char** argv) {
     std::cout << "[main] LoginServer listening on " << args.bind_address
               << ":" << args.port << "\n";
 
-    // 4. Main loop: drain reply queue + sleep.
+    // 4. Main loop: drain reply queue + sleep + periodic stats dump.
+    auto last_stats_log = std::chrono::steady_clock::now();
+    const auto stats_interval = std::chrono::seconds(60);
     while (g_running.load()) {
         queue->drain_to(server);
+        const auto now = std::chrono::steady_clock::now();
+        if (now - last_stats_log >= stats_interval) {
+            const auto s = handler.stats();
+            std::cout << "[Login] stats rejected_conn="
+                      << s.total_rejected_connections
+                      << " rejected_login=" << s.total_rejected_logins
+                      << " failures=" << s.total_recorded_failures
+                      << " tracked_ips=" << s.tracked_connections
+                      << " tracked_accts=" << s.tracked_accounts
+                      << " draining=" << (s.draining ? "yes" : "no")
+                      << "\n";
+            last_stats_log = now;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 

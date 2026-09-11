@@ -55,6 +55,15 @@ target_compile_definitions(mxh_login_rate_limiter_tests PRIVATE
     MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_login_rate_limiter_tests
+    LoginRateLimiter.AdmitsUpToTheConfiguredConnectionBudget
+    LoginRateLimiter.ConnectionBudgetSlidesAfterWindowExpires
+    LoginRateLimiter.LoginAttemptCountedAgainstFailureBudget
+    LoginRateLimiter.FailureWindowSlidesOutOldFailures
+    LoginRateLimiter.RecordLoginSuccessResetsFailureCounter
+    LoginRateLimiter.ConcurrentConnectionAdmitsDoNotExceedBudget
+    LoginRateLimiter.StatsReportTrackedBucketsAndCounters
+    LoginRateLimiter.ClearForgetsEverything
+    LoginHandlerStats.ReportsCountersAndDrainingFlag
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )

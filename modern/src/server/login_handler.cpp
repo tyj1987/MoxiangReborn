@@ -142,6 +142,24 @@ LoginRateLimiter::Stats LoginHandler::rate_limiter_stats() const {
     return rate_limiter_->stats();
 }
 
+LoginHandler::Stats LoginHandler::stats() const {
+    Stats s;
+    s.draining = draining_.load();
+    if (rate_limiter_) {
+        const auto inner = rate_limiter_->stats();
+        s.total_rejected_connections = inner.total_rejected_connections;
+        s.total_rejected_logins = inner.total_rejected_logins;
+        s.total_recorded_failures = inner.total_recorded_failures;
+        s.tracked_connections = inner.tracked_ips;
+        s.tracked_accounts = inner.tracked_accounts;
+    }
+    {
+        std::lock_guard<std::mutex> lock(auth_mu());
+        s.tracked_connections = std::max(s.tracked_connections, connection_addrs_map().size());
+    }
+    return s;
+}
+
 void LoginHandler::prepare_for_shutdown() {
     if (draining_.exchange(true)) return;  // idempotent
     std::cout << "[Login] prepare_for_shutdown: draining, disconnecting from DB\n";
