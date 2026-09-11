@@ -64,6 +64,15 @@
 /*.tmp
 /Testing/
 
+# Unity CLI can create a project-state mirror at the repository root when a
+# caller starts from the wrong working directory. Keep that cache local; the
+# canonical project lives under unity/MoxiangClient/.
+/Library/
+/Logs/
+/Packages/
+/ProjectSettings/
+/UserSettings/
+
 # Runtime secrets and local settings
 *.env.local
 *.secret
