@@ -355,7 +355,10 @@ int main(int argc, char** argv) {
         ccfg.remote_address = args.map_server_addr;
         ccfg.port = args.map_server_port;
         ccfg.use_legacy_framing = true;
-        ccfg.use_encryption = args.use_hsel;  // match MapServer's HSEL mode
+        // Agent->Map is an internal legacy loopback; HSEL terminates on the
+        // client-facing Agent connection and MapClientHandler has no HSEL
+        // handshake state.
+        ccfg.use_encryption = false;
         ccfg.connect_timeout = std::chrono::milliseconds(500);
         const auto error = map_client->connect(ccfg);
         if (error != mxh::net::NetError::Ok) {
@@ -395,7 +398,7 @@ int main(int argc, char** argv) {
         ccfg.remote_address = spec.address;
         ccfg.port = spec.port;
         ccfg.use_legacy_framing = true;
-        ccfg.use_encryption = args.use_hsel;  // match MapServer's HSEL mode
+        ccfg.use_encryption = false;
         ccfg.connect_timeout = std::chrono::milliseconds(500);
         const auto error = route->client->connect(ccfg);
         if (error != mxh::net::NetError::Ok) {

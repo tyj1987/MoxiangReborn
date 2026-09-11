@@ -540,7 +540,9 @@ int run_e2e(const CliArgs& cli) {
             map_args.emplace_back("--dev-initial-money");
             map_args.emplace_back("10000000");
         }
-        if (cli.use_hsel) map_args.emplace_back("--use-hsel");
+        // Agent->Map is an internal legacy loopback. MapClientHandler does
+        // not terminate an HSEL handshake; keep client-facing HSEL isolated
+        // to Login/Agent connections.
         procs.back()->spawn_with_args("", map_args);
 
         if (cli.exercise_mapchange) {
@@ -555,7 +557,6 @@ int run_e2e(const CliArgs& cli) {
                 "--resource-root", e2e_playdh_root.string(),
                 "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
                 "--resource-profile", "playdh-current"};
-            if (cli.use_hsel) map12_args.emplace_back("--use-hsel");
             procs.back()->spawn_with_args("", map12_args);
         }
 
