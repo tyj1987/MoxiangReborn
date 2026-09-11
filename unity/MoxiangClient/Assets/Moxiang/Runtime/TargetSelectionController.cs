@@ -16,6 +16,7 @@ namespace Moxiang
         {
             if (connection != null && connection.Observed.state != CoreState.InGame)
             { selected = null; return; }
+            if (Input.GetMouseButtonDown(1)) { selected = null; return; }
             if (!Input.GetMouseButtonDown(0) || worldCamera == null ||
                 (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
             Ray ray = worldCamera.ScreenPointToRay(Input.mousePosition);
