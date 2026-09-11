@@ -277,6 +277,12 @@ both require the isolated real-server fixture (`unity_three_server_smoke.py
 There is currently no built Unity Player executable under `unity/`, so these
 gates remain pending rather than being marked passed.
 
+`unity license status` reports an active signed-in Unity Personal ULF license,
+but two consecutive StandaloneWindows64 batch builds still exit with
+`LicensingClient has failed validation; ignoring`. EditMode remains runnable;
+Player output is therefore still withheld pending a successful licensing
+validation during the build process.
+
 ## 2026-09-12 Map10 combat input increment
 
 The Unity remaster now exposes a server-authoritative skill command through the
