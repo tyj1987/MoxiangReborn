@@ -59,6 +59,33 @@ gtest_add_tests(TARGET mxh_login_rate_limiter_tests
     PRE_SHIP_BUILD
 )
 
+# Login audit tests (modern_login_audit table writes + counter aggregation).
+# Pure DB; SQLite-only because the modern_login_audit schema is identical
+# across SQLite and MSSQL (verified by schema_migration_test).
+add_executable(mxh_login_audit_tests
+    login_audit_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/login_audit.cpp
+)
+target_link_libraries(mxh_login_audit_tests PRIVATE
+    mxh_server mxh_db gtest_main
+)
+target_include_directories(mxh_login_audit_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(mxh_login_audit_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_login_audit_tests
+    LoginAudit.RecordAndQueryBackReturnsRow
+    LoginAudit.EmptyAccountAndAddressAreAccepted
+    LoginAudit.CountFailuresAggregatesOutcomesWithinWindow
+    LoginAudit.CountFailuresRespectsWindowBoundary
+    LoginAudit.DbFailureDoesNotThrow
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_character_calc_manager_tests
     character_calc_manager_test.cpp
 )

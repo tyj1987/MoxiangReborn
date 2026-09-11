@@ -176,6 +176,7 @@ add_library(mxh_server STATIC
     server/help_request_manager.cpp
     server/login_handler.cpp
     server/login_rate_limiter.cpp
+    server/login_audit.cpp
     server/hsel_session.cpp
     server/agent_handler.cpp
     server/map_handler.cpp

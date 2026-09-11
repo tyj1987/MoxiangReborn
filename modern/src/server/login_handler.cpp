@@ -7,6 +7,7 @@
 #include "mxh/server/server.hpp"
 #include "mxh/server/account_service.hpp"
 #include "mxh/server/account_moderation.hpp"
+#include "mxh/server/login_audit.hpp"
 
 #include <cstring>
 #include <cstdlib>
@@ -146,6 +147,18 @@ void LoginHandler::prepare_for_shutdown() {
     if (db_.is_connected()) db_.disconnect();
 }
 
+namespace {
+// Resolve the cached remote_addr for a connection. Returns "" if the
+// connection has already disconnected and the cache entry was erased.
+std::string remote_addr_for(LoginHandler& handler,
+                            mxh::net::ConnectionId id) {
+    std::lock_guard<std::mutex> lock(handler.auth_mu());
+    auto it = handler.connection_addrs_map().find(id.value);
+    return it == handler.connection_addrs_map().end() ? std::string{}
+                                                       : it->second;
+}
+}  // namespace
+
 mxh::net::IEncryptor* LoginHandler::encryptor_for(
     mxh::net::ConnectionId id) {
     return hsel_.encryptor_for(id);
@@ -166,7 +179,12 @@ bool LoginHandler::on_connect(mxh::net::ConnectionId id,
     if (rate_limiter_ && !rate_limiter_->admit_connection(remote_addr)) {
         std::cout << "[Login] rate-limited connection from " << remote_addr << "\n";
         dbg_log("[on_connect] rate-limited remote=" + remote_addr);
+        record_login_audit(db_, "", remote_addr, kLoginOutcomeRateLimited);
         return false;
+    }
+    {
+        std::lock_guard<std::mutex> lk(auth_mu_);
+        connection_addrs_[id.value] = remote_addr;
     }
     std::cout << "[Login] client connected from " << remote_addr << "\n";
     dbg_log("[on_connect] id=" + std::to_string(id.value) + " remote=" + remote_addr
@@ -206,9 +224,16 @@ void LoginHandler::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
     std::cout << "[Login] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << ")\n";
-    // Clean up version state.
-    std::lock_guard<std::mutex> lk(version_mu_);
-    version_verified_.erase(id.value);
+    // Clean up version state, auth key, and the audit-side remote_addr cache.
+    {
+        std::lock_guard<std::mutex> lk(version_mu_);
+        version_verified_.erase(id.value);
+    }
+    {
+        std::lock_guard<std::mutex> lk(auth_mu_);
+        auth_keys_.erase(id.value);
+        connection_addrs_.erase(id.value);
+    }
     hsel_.on_disconnect(id);
 }
 
@@ -357,6 +382,8 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
     if (rate_limiter_ && !rate_limiter_->admit_login_attempt(user_id)) {
         std::cout << "[Login] throttle-FAIL for '" << user_id
                   << "', sending NACK\n";
+        record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                           kLoginOutcomeThrottled);
         dbg_log("[handle_login] throttled user_id=" + user_id);
         rate_limiter_->record_login_failure(user_id);
         reply_(id, make_login_nack());
@@ -381,10 +408,30 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
                   << agent_addr_ << ":" << agent_port_ << ")\n";
         rate_limiter_->record_login_success(user_id);
         const auto user_idx = ensure_account_user_idx(db_, user_id);
-        if (user_idx == 0) { reply_(id, make_login_nack()); return; }
+        if (user_idx == 0) {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeRejected, "user_idx_missing");
+            reply_(id, make_login_nack());
+            return;
+        }
+        record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                           kLoginOutcomeAccepted);
         reply_(id, make_login_ack(agent_port_, agent_addr_, user_idx));
     } else {
         std::cout << "[Login] auth FAIL for '" << user_id << "', sending NACK\n";
+        // Distinguish "no account" (likely credential stuffing) from
+        // "bad password" or "blocked" so dashboards can show two separate
+        // threat signals.
+        if (!q.ok() || rs.empty()) {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeNoAccount);
+        } else if (is_account_login_blocked(db_, user_id)) {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeBlocked);
+        } else {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeBadPassword);
+        }
         rate_limiter_->record_login_failure(user_id);
         reply_(id, make_login_nack());
     }
@@ -429,6 +476,8 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     if (rate_limiter_ && !rate_limiter_->admit_login_attempt(user_id)) {
         std::cout << "[Login] legacy: throttle-FAIL for '" << user_id
                   << "', sending NACK\n";
+        record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                           kLoginOutcomeThrottled);
         dbg_log("[handle_legacy_login] throttled user_id=" + user_id);
         rate_limiter_->record_login_failure(user_id);
         mxh::net::Message nack_msg;
@@ -459,7 +508,14 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     
     if (ok) {
         const auto user_idx = ensure_account_user_idx(db_, user_id);
-        if (user_idx == 0) { reply_(id, make_login_nack()); return; }
+        if (user_idx == 0) {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeRejected, "user_idx_missing");
+            reply_(id, make_login_nack());
+            return;
+        }
+        record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                           kLoginOutcomeAccepted);
         rate_limiter_->record_login_success(user_id);
         std::cout << "[Login] legacy: auth OK for '" << user_id
                   << "', sending ACK (" << agent_addr_ << ":" << agent_port_ << ")\n";
@@ -501,6 +557,18 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     } else {
         std::cout << "[Login] legacy: auth FAIL for '" << user_id << "'\n";
         rate_limiter_->record_login_failure(user_id);
+        // Mirror the modern path: distinguish no_account / blocked /
+        // bad_password so the dashboard can distinguish threat signals.
+        if (!q.ok() || rs.empty()) {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeNoAccount);
+        } else if (is_account_login_blocked(db_, user_id)) {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeBlocked);
+        } else {
+            record_login_audit(db_, user_id, remote_addr_for(*this, id),
+                               kLoginOutcomeBadPassword);
+        }
         // Send NACK with the proper UserConn NACK protocol id (3),
         // not by copying the client's request header (which is
         // RequestLogin=1, a C->D direction the client won't match

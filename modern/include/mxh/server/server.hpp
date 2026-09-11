@@ -128,6 +128,18 @@ private:
     std::unordered_map<std::uint64_t, std::uint32_t> auth_keys_;
     std::uint32_t next_auth_key_ = 1000;
 
+    // M4 production: per-connection remote_addr for login_audit entries.
+    // Mirrors the auth_keys_ lifetime so a stale entry can never be reused.
+    std::unordered_map<std::uint64_t, std::string> connection_addrs_;
+public:
+    // Const accessor used by login_audit helpers; the helper locks
+    // auth_mu_ externally so this stays const noexcept.
+    const std::unordered_map<std::uint64_t, std::string>& connection_addrs_map() const noexcept {
+        return connection_addrs_;
+    }
+    std::mutex& auth_mu() noexcept { return auth_mu_; }
+private:
+
     // Production hardening: per-IP connection rate limit + per-account
     // login failure tracking. Held by shared_ptr so tests can replace it
     // and so the lifetime is independent of LoginHandler construction.
