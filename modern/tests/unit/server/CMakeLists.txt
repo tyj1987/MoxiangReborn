@@ -21,6 +21,23 @@ gtest_add_tests(TARGET mxh_server_handler_tests
     PRE_SHIP_BUILD
 )
 
+# Bounded timed-movement epoch allocator tests (Phase: timed-movement activation).
+# Pure static method, no MapHandler construction required.
+add_executable(mxh_timed_movement_epoch_tests
+    timed_movement_epoch_test.cpp
+)
+target_link_libraries(mxh_timed_movement_epoch_tests PRIVATE
+    mxh_server gtest_main
+)
+target_include_directories(mxh_timed_movement_epoch_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_timed_movement_epoch_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_character_calc_manager_tests
     character_calc_manager_test.cpp
 )

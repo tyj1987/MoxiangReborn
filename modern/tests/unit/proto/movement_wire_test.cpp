@@ -125,3 +125,55 @@ TEST(MovementWire, FullRouteSnapshotPreservesLargeClocksAndFractionalPosition) {
     EXPECT_FLOAT_EQ(parsed->x,s.x); EXPECT_FLOAT_EQ(parsed->z,s.z);
     for (std::size_t i=0;i<15;++i) EXPECT_EQ(parsed->points[i].x,1000+i);
 }
+
+TEST(MovementWire, OneTargetCommandKindIsRoundTripSafeAndCountStrict) {
+    auto c=command_fixture();
+    c.kind=wire::CommandKind::OneTarget;
+    c.count=1; c.points[0]={0xabcd,0x1234};
+    auto bytes=wire::encode(c); ASSERT_TRUE(bytes);
+    EXPECT_EQ(bytes->size(),wire::command_header_size+4u);
+    EXPECT_EQ(bytes->at(5),static_cast<std::uint8_t>(wire::CommandKind::OneTarget));
+    auto parsed=wire::decode_command(*bytes); ASSERT_TRUE(parsed);
+    EXPECT_EQ(parsed->kind,wire::CommandKind::OneTarget);
+    EXPECT_EQ(parsed->points[0].x,0xabcd); EXPECT_EQ(parsed->points[0].z,0x1234);
+
+    // OneTarget must carry exactly one point; multi-point routes are reserved
+    // for Route. Two-point input must round-trip through a parse failure.
+    c.count=2; c.points[1]={0x1111,0x2222};
+    EXPECT_FALSE(wire::encode(c));
+}
+
+TEST(MovementWire, HelloPayloadIsLiteralEightBytesAndVersionPinned) {
+    // Hello payload bytes are a public constexpr; any drift in their values
+    // breaks the on-wire handshake. Pin the exact layout.
+    const std::array<std::uint8_t,8> expected{
+        'M','X','M','H', wire::version, 0, 0, 0};
+    EXPECT_EQ(wire::hello_payload, expected);
+    EXPECT_EQ(wire::hello_payload.size(),8u);
+    // Re-decode the hello header through the command codec with count=0 to
+    // confirm it parses cleanly as a four-byte-MXMH prefix even though it is
+    // not a valid Command.
+    auto header_only=std::vector<std::uint8_t>(wire::hello_payload.begin(),
+                                               wire::hello_payload.begin()+8);
+    EXPECT_FALSE(wire::decode_command(header_only));
+    // But the protocol discriminators must remain distinct.
+    EXPECT_NE(wire::hello_protocol, wire::command_protocol);
+    EXPECT_NE(wire::command_protocol, wire::owner_state_protocol);
+    EXPECT_NE(wire::owner_state_protocol, wire::observer_state_protocol);
+    EXPECT_GE(wire::hello_protocol,128u);
+    EXPECT_LE(wire::observer_state_protocol,255u);
+}
+
+TEST(MovementWire, AllThreeCommandKindsRejectCountZeroAndRejectInvalidKind) {
+    for (auto kind : {wire::CommandKind::Route,
+                      wire::CommandKind::Stop,
+                      wire::CommandKind::OneTarget}) {
+        auto c=command_fixture();
+        c.kind=kind;
+        c.count=0;
+        EXPECT_FALSE(wire::encode(c));
+    }
+    auto c=command_fixture();
+    c.kind=static_cast<wire::CommandKind>(99);
+    EXPECT_FALSE(wire::encode(c));
+}
