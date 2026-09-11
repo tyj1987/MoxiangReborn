@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Globalization;
+using System;
 using UnityEngine;
 
 namespace Moxiang
@@ -9,9 +11,11 @@ namespace Moxiang
         public ConnectionPanel connection;
         public GameObject monsterPrefab;
         public GameObject npcPrefab;
+        public GameObject groundDropPrefab;
         public float mapWidth = 51200f;
         public float mapDepth = 102400f;
         private readonly Dictionary<uint, GameObject> entities = new Dictionary<uint, GameObject>();
+        private readonly Dictionary<uint, GameObject> drops = new Dictionary<uint, GameObject>();
 
         private void OnEnable() { if (connection != null) connection.CoreEventReceived += OnCoreEvent; }
         private void OnDisable() { if (connection != null) connection.CoreEventReceived -= OnCoreEvent; }
@@ -22,12 +26,33 @@ namespace Moxiang
             {
                 foreach (var entity in entities.Values) if (entity != null) Destroy(entity);
                 entities.Clear();
+                foreach (var drop in drops.Values) if (drop != null) Destroy(drop);
+                drops.Clear();
                 if (e.type == NativeClient.EventDisconnected) return;
             }
             if (e.type == NativeClient.EventEntityRemoved)
             {
                 if (entities.TryGetValue(e.argument0, out var removed)) Destroy(removed);
                 entities.Remove(e.argument0);
+                if (drops.TryGetValue(e.argument0, out var removedDrop)) Destroy(removedDrop);
+                drops.Remove(e.argument0);
+                return;
+            }
+            if (e.type == NativeClient.EventGroundDrop)
+            {
+                if (groundDropPrefab == null || e.argument0 == 0 || e.argument1 == 0) return;
+                var fields = e.Text.Split(',');
+                if (fields.Length != 3 || !ushort.TryParse(fields[0], NumberStyles.None, CultureInfo.InvariantCulture, out var dropCount) ||
+                    !float.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var dropX) ||
+                    !float.TryParse(fields[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var dropZ) ||
+                    dropCount == 0 || !float.IsFinite(dropX) || !float.IsFinite(dropZ)) return;
+                if (drops.TryGetValue(e.argument0, out var oldDrop)) Destroy(oldDrop);
+                var dropInstance = Instantiate(groundDropPrefab, new MapCoordinates(mapWidth, mapDepth).ToScene(new Vector3(dropX, 0, dropZ)), Quaternion.identity, transform);
+                var dropSelectable = dropInstance.GetComponent<TargetSelectable>() ?? dropInstance.AddComponent<TargetSelectable>();
+                dropSelectable.objectId = e.argument0;
+                var state = dropInstance.GetComponent<ServerGroundDrop>() ?? dropInstance.AddComponent<ServerGroundDrop>();
+                state.Initialize(e.argument0, e.argument1, dropCount);
+                drops[e.argument0] = dropInstance;
                 return;
             }
             if (e.type == NativeClient.EventEntityLife)
