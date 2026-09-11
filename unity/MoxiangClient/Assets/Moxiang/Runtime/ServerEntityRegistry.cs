@@ -60,7 +60,12 @@ namespace Moxiang
             }
             if (e.type == NativeClient.EventPickupConfirmed)
             {
-                if (drops.TryGetValue(e.argument0, out var picked)) Destroy(picked);
+                if (drops.TryGetValue(e.argument0, out var picked))
+                {
+                    var pickup = picked.GetComponent<GroundDropPickup>();
+                    if (pickup != null) pickup.Confirmed();
+                    Destroy(picked);
+                }
                 drops.Remove(e.argument0);
                 return;
             }

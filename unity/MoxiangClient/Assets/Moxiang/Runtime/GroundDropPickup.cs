@@ -7,11 +7,15 @@ namespace Moxiang
     {
         public ConnectionPanel connection;
         public ServerGroundDrop drop;
+        private bool pending;
+
+        public void Confirmed() { pending = false; }
 
         private void OnMouseDown()
         {
-            if (connection == null || drop == null || drop.ObjectId == 0) return;
-            connection.Pickup(drop.ObjectId);
+            if (pending || connection == null || drop == null || drop.ObjectId == 0) return;
+            var result = connection.Pickup(drop.ObjectId);
+            pending = result == CoreResult.Ok;
         }
     }
 }
