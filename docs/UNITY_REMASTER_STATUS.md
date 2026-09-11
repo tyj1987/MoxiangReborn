@@ -271,6 +271,12 @@ hotkeys and Map10 pointer input), with report `unity_combat_editmode.xml`.
 This verifies Unity-side request gating and coordinate/identity handling only;
 it does not replace server-backed hit, damage, or two-player acceptance.
 
+The remaining two tests in the full EditMode report are intentionally skipped:
+both require the isolated real-server fixture (`unity_three_server_smoke.py
+--editor-test --movement`) and one requires the two-account movement setup.
+There is currently no built Unity Player executable under `unity/`, so these
+gates remain pending rather than being marked passed.
+
 ## 2026-09-12 Map10 combat input increment
 
 The Unity remaster now exposes a server-authoritative skill command through the
