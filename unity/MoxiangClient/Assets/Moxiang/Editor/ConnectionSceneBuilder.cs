@@ -65,6 +65,7 @@ namespace Moxiang.Editor
             logic.status = Label(panel, "Idle", 24, -410, 350, 60, 16);
             inputController.connection = logic;
             var targetSelection = terrain.AddComponent<TargetSelectionController>();
+            targetSelection.connection = logic;
             targetSelection.worldCamera = camera;
             var skillInput = terrain.AddComponent<SkillHotkeyController>();
             skillInput.connection = logic;

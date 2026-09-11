@@ -6,6 +6,7 @@ namespace Moxiang
 {
     public sealed class TargetSelectionController : MonoBehaviour
     {
+        public ConnectionPanel connection;
         public Camera worldCamera;
         public LayerMask targetLayers = ~0;
         public TargetSelectable selected;
@@ -13,6 +14,8 @@ namespace Moxiang
 
         private void Update()
         {
+            if (connection != null && connection.Observed.state != CoreState.InGame)
+            { selected = null; return; }
             if (!Input.GetMouseButtonDown(0) || worldCamera == null ||
                 (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
             Ray ray = worldCamera.ScreenPointToRay(Input.mousePosition);
