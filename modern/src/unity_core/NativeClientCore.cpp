@@ -831,7 +831,7 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     }
     if (command.type == MXH_UNITY_COMMAND_QUEST) {
         if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
-        if (command.payload_size != 0 || command.argument0 == 0 ||
+        if (command.payload_size != 0 || command.argument0 == 0 || command.argument0 > 0xffffu ||
             (command.argument1 != static_cast<std::uint32_t>(mxh::proto::QuestProtocol::StartSyn) &&
              command.argument1 != static_cast<std::uint32_t>(mxh::proto::QuestProtocol::EndSyn)))
             return MXH_UNITY_INVALID_ARGUMENT;
