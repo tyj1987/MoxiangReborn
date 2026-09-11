@@ -304,6 +304,14 @@ int main(int argc, char** argv) {
             if (server_ptr) (void)server_ptr->send(id, m);
         });
 
+    std::string fixed_tile_error;
+    auto fixed_tiles = mxh::server::FixedTileMap::load(
+        resource_base / "Map" / (std::to_string(args.map_num) + ".ttb"), fixed_tile_error);
+    if (!fixed_tiles || !handler.install_fixed_tiles(std::move(*fixed_tiles))) {
+        std::cerr << "FATAL: required fixed tile map: " << fixed_tile_error << "\n";
+        return 1;
+    }
+
     // Load the real game data tables when a PlayDH root is supplied.
     // Falls back to hardcoded tables / empty catalogs otherwise so the
     // existing e2e and side-by-side paths keep their deterministic traces.

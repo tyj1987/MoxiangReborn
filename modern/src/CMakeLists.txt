@@ -313,6 +313,8 @@ add_library(mxh_server STATIC
     server/agent_streetstall_side_effect_plan.cpp
     server/agent_exchange.cpp
     server/agent_exchange_side_effect_plan.cpp
+    server/fixed_tile_map.cpp
+    server/map_movement.cpp
     server/fixed_tile.cpp
     server/fixed_tile_info.cpp
     server/tile.cpp
@@ -483,8 +485,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
-
 
 
 

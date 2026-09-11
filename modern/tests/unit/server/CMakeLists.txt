@@ -1259,6 +1259,11 @@ target_link_libraries(mxh_fixed_tile_info_tests PRIVATE mxh_server GTest::gtest_
 gtest_add_tests(TARGET mxh_fixed_tile_info_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+add_executable(mxh_fixed_tile_map_tests fixed_tile_map_test.cpp)
+target_link_libraries(mxh_fixed_tile_map_tests PRIVATE mxh_server GTest::gtest_main)
+target_compile_definitions(mxh_fixed_tile_map_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_add_tests(TARGET mxh_fixed_tile_map_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 add_executable(mxh_tile_tests
     tile_test.cpp
 )

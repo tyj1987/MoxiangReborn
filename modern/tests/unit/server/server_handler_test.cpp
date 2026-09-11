@@ -2300,6 +2300,13 @@ TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {
               static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack));
 }
 
+static mxh::server::FixedTileMap clear_movement_fixture() {
+    std::vector<std::uint8_t> bytes(8 + 32 * 32 * 2);
+    bytes[0] = 32; bytes[4] = 32;
+    std::string error;
+    return *mxh::server::FixedTileMap::decode(bytes, error);
+}
+
 TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
     MockDbAdapter db;
     std::vector<mxh::net::Message> replies;
@@ -2307,6 +2314,7 @@ TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
         [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
             replies.push_back(message);
         });
+    ASSERT_TRUE(handler.install_fixed_tiles(clear_movement_fixture()));
     const auto connection = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
@@ -2344,12 +2352,56 @@ TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
     EXPECT_FLOAT_EQ(snapshot->pos_z, 1000.0f);
 }
 
+TEST(MapHandlerTest, MovementFailsClosedWithoutTilesAndRejectsBlockedEndpoints) {
+    for (bool install : {false, true}) {
+        MockDbAdapter db;
+        std::vector<mxh::net::Message> replies;
+        MapHandler handler(db, 10, [&](mxh::net::ConnectionId, const mxh::net::Message& m) { replies.push_back(m); });
+        if (install) {
+            std::vector<std::uint8_t> bytes(8 + 4 * 4 * 2);
+            bytes[0] = 4; bytes[4] = 4; bytes[8 + (1 * 4 + 1) * 2] = 1;
+            std::string error;
+            auto tiles = mxh::server::FixedTileMap::decode(bytes, error);
+            ASSERT_TRUE(tiles);
+            ASSERT_TRUE(handler.install_fixed_tiles(std::move(*tiles)));
+        }
+        const auto connection = mxh::net::make_connection_id(55);
+        mxh::net::Message enter;
+        enter.header.object_id = 123;
+        enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message(connection, enter);
+        ASSERT_TRUE(handler.set_player_position_for_test(123, 1, 1));
+        EXPECT_FALSE(handler.install_fixed_tiles(clear_movement_fixture()));
+        for (auto protocol : {mxh::proto::MoveProtocol::OneTarget}) {
+            replies.clear();
+            handler.on_message(connection, mxh::client::make_move_message(123, protocol, 51, 51));
+            ASSERT_EQ(replies.size(), 1);
+            EXPECT_EQ(replies[0].header.protocol, static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction));
+            auto state = handler.player_runtime_snapshot(123); ASSERT_TRUE(state);
+            EXPECT_FLOAT_EQ(state->pos_x, 1); EXPECT_FLOAT_EQ(state->pos_z, 1);
+        }
+        replies.clear();
+        handler.on_message(mxh::net::make_connection_id(99), mxh::client::make_move_message(123, mxh::proto::MoveProtocol::Target, 51, 51));
+        EXPECT_TRUE(replies.empty());
+        auto malformed = mxh::client::make_move_message(123, mxh::proto::MoveProtocol::Target, 51, 51);
+        malformed.payload.push_back(0);
+        handler.on_message(connection, malformed);
+        EXPECT_TRUE(replies.empty());
+        for (auto protocol : {mxh::proto::MoveProtocol::Warp, mxh::proto::MoveProtocol::Correction, mxh::proto::MoveProtocol::Init})
+            handler.on_message(connection, mxh::client::make_move_message(123, protocol, 101, 101));
+        EXPECT_TRUE(replies.empty());
+        EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x, 1);
+    }
+}
+
 TEST(MapHandlerTest, MovementIsSentOncePerMultiplexedAgentConnection) {
     MockDbAdapter db;
     std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
     MapHandler handler(db, 10, [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
         delivered.emplace_back(id.value, msg);
     });
+    ASSERT_TRUE(handler.install_fixed_tiles(clear_movement_fixture()));
     mxh::net::Message enter;
     enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
@@ -2542,6 +2594,7 @@ TEST(MapHandlerTest, MoveUpdatesAuthoritativePlayerPosition) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    ASSERT_TRUE(handler.install_fixed_tiles(clear_movement_fixture()));
     const auto connection = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;

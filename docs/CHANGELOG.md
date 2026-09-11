@@ -4,6 +4,12 @@
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
+- Added strict original fixed-tile loading and MapServer movement collision
+  checks, preserving the original OneTarget versus Target/Stop distinction.
+  Missing/malformed maps fail startup; invalid movement cannot alter or broadcast
+  position. Loader and handler tests pass; real Unity Player movement run
+  `1b0dafffeb7647678a19c69c675348b1` passed against SQLite/HSEL three-server fixtures.
+  Timed movement, state rules, persistence and full-game acceptance remain open.
 - Added shared movement encoding and Unity Move/Stop/correction events. Real
   Editor and Player two-session runs now pass move, stop and rejected-jump
   routing. Fixed duplicate Map fan-out, owner correction routing, HSEL shared

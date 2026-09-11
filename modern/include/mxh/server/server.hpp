@@ -17,6 +17,7 @@
 #include "mxh/game/skill_types.hpp"
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/server/player.hpp"
+#include "mxh/server/fixed_tile_map.hpp"
 #include "mxh/server/party_manager.hpp"
 #include "mxh/server/guild_manager.hpp"
 #include "mxh/server/drop_item.hpp"
@@ -282,6 +283,7 @@ private:
 // directly after receiving Agent address from DistributeServer).
 class MapHandler final : public mxh::net::IConnectionHandler {
 public:
+    bool install_fixed_tiles(FixedTileMap tiles);
     struct GroundDrop {
         std::uint32_t object_id = 0;
         std::uint32_t source_monster_id = 0;
@@ -615,6 +617,7 @@ private:
     // Keyed by player_id because AgentServer multiplexes multiple players
     // through a single TCP connection to MapServer.
     std::mutex players_mu_;
+    std::optional<FixedTileMap> fixed_tiles_;
     std::unordered_map<std::uint32_t, PlayerInfo> connected_players_;
     std::unordered_map<std::uint32_t, PlayerRuntime> player_runtimes_;
     // Live party state for the current map process. Persistence and cross-map

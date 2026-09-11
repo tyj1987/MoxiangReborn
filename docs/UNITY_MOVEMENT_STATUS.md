@@ -87,11 +87,34 @@ plus an eight-byte header. SHA-256:
 PlayDH, D:/MX server/client/client-legacy/SWorking/backup match exactly.
 These are existing authoritative source bytes, not generated replacement data.
 
-The next implementation must strictly load these fixed attributes (exact length,
-bounded dimensions, no all-clear fallback), migrate segment/endpoint checks and
-the original timed movement/state rules into the server, then use the same map
-semantics for client prediction. Existing FixedTileInfoState/FixedTile and
-ObjectState components are reusable. HFL and STM visual collision are not
-substitutes. Modern currently has only a per-target 5000-unit jump check, accepts
-other weakly checked movement forms, and does not persist position on logout.
-These gaps remain blockers to complete Map10/full-game acceptance.
+### Fixed attributes integrated (2026-09-11)
+
+`FixedTileMap` now loads bounded dimensions and exact WORD payload lengths,
+retains all attribute bits, and rejects missing, truncated or trailing data.
+MapServer requires its actual map file before listening, including development
+fallback mode. Original resources remain unchanged. The original biased segment
+scan is preserved; OneTarget endpoint blocking is checked separately because the scan can
+omit the diagonal endpoint. Target and Stop retain the original segment-only
+collision rule. Invalid world/grid coordinates fail closed.
+
+Movement now requires exact four-byte payloads, a known player/runtime and the
+player's physical Agent connection. Only Target, OneTarget and Stop are accepted
+from clients. Missing tiles, blocked paths/endpoints and excessive steps return
+an owner-only correction without changing state or broadcasting invalid moves.
+Client Warp, Correction and Init cannot rewrite position. Map replacement is
+refused while players are connected. The 5000-unit coarse bound now also applies
+to Stop; it remains an interim defense, not original timed movement authority.
+
+Validation: x86 full build passed; full `ctest -C Debug --test-dir modern/build
+--output-on-failure -j 8 --quiet` returned 0. A focused 15-test run passed,
+including five FixedTileMap tests and server rejection/ownership/endpoint tests.
+Real SQLite/HSEL Unity Player two-session movement passed with run ID
+`1b0dafffeb7647678a19c69c675348b1` after the read-only review corrected the
+Target/Stop endpoint distinction. That Player run verifies normal movement and
+excessive-step correction after integration; blocked endpoint rejection is
+currently unit-tested, not yet a dedicated Player wall-crossing probe.
+
+Remaining: original timed speed/state/stop rules, shared client prediction,
+position persistence and broader independent scan-oracle coverage. HFL and STM
+visual collision are not substitutes for authoritative tiles. These gaps remain
+blockers to complete Map10/full-game acceptance.

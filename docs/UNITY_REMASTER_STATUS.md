@@ -224,6 +224,14 @@ source evidence, known gaps and run paths. Full Map10/game acceptance remains op
 
 ## Delivery rules
 
+Latest collision increment: MapServer now requires strict original fixed-tile
+data and validates movement against its segment scan (plus OneTarget endpoint).
+Malformed, unknown-owner and client authority-only movement packets are rejected.
+Source Map10 SHA-256 is unchanged. Player SQLite/HSEL movement regression run
+`1b0dafffeb7647678a19c69c675348b1` passed. See `UNITY_MOVEMENT_STATUS.md` for
+tests and remaining timed movement, state, persistence and wall-probe gaps.
+This supersedes the earlier statement that all segment collision is pending.
+
 Keep the original x86 build and DX11 executable for differential testing. Native
 Unity builds use their own x64 output directory. Do not automatically fix duplicate
 UI headers by copying one side: newer declarations exist on both sides.
