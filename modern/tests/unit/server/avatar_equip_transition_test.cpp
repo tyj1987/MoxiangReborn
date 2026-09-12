@@ -532,6 +532,35 @@ TEST(AvatarEquipTakeOff, CosmeticPositionClearedAndDefaultFilled) {
     EXPECT_TRUE(found_param_update);
 }
 
+TEST(AvatarEquipTakeOff, OwnZeroMaskPreservesSourceFailureAfterSlotClear) {
+    FakeEnv env; AvatarSlots av{}; av[2] = 100;
+    env.avatar_equips[100] = make_equip(2, {});
+    env.avatar_equips[100].item[2] = 0;
+    env.item_infos[100] = {77}; env.using_items[100] = {901};
+    const auto out = take_off_avatar_item(env,&av,100,390);
+    EXPECT_EQ(out.status,AvatarEquipStatus::DependentItemInfoMissing);
+    EXPECT_EQ(out.avatar[2],0);
+    for (std::size_t i=12;i<17;++i) EXPECT_EQ(out.avatar[i],1);
+    ASSERT_EQ(out.effects.size(),2u);
+    EXPECT_EQ(out.effects[0].kind,AvatarEquipEffectKind::ParamUpdateToDb);
+    EXPECT_EQ(out.effects[0].item_idx,100); EXPECT_EQ(out.effects[0].param,77u);
+    EXPECT_EQ(out.effects[1].kind,AvatarEquipEffectKind::ParamUpdateInMemory);
+    EXPECT_FALSE(out.send_avatar_info); EXPECT_FALSE(out.recalculate_avatar_option);
+}
+
+TEST(AvatarEquipTakeOff, OwnZeroMaskUsesZeroItemInfoWhenPresent) {
+    FakeEnv env; AvatarSlots av{}; av[2] = 100;
+    env.avatar_equips[100] = make_equip(2, {});
+    env.avatar_equips[100].item[2] = 0;
+    env.item_infos[100] = {77}; env.item_infos[0] = {9};
+    const auto out = take_off_avatar_item(env,&av,100,390);
+    EXPECT_EQ(out.status,AvatarEquipStatus::Ok); EXPECT_EQ(out.avatar[2],0);
+    ASSERT_EQ(out.effects.size(),2u);
+    EXPECT_EQ(out.effects[0].item_idx,100); EXPECT_EQ(out.effects[0].param,77u);
+    EXPECT_EQ(out.effects[1].item_idx,0); EXPECT_EQ(out.effects[1].param,9u);
+    EXPECT_TRUE(out.send_avatar_info); EXPECT_TRUE(out.recalculate_avatar_option);
+}
+
 TEST(AvatarEquipTakeOff, WeaponSlotReplacedByDressDefault) {
     FakeEnv env;
     AvatarSlots av = zero_avatar();
@@ -583,7 +612,6 @@ TEST(AvatarEquipTakeOff, DependentItemInfoMissingIsRejected) {
                                     /*item_pos=*/5);
     EXPECT_EQ(out.status, AvatarEquipStatus::DependentItemInfoMissing);
 }
-
 
 
 

@@ -307,7 +307,8 @@ inline AvatarEquipTransition take_off_avatar_item(
             apply_weared_default_fill(out.avatar, *avatar_equip);
             append_avatar_param_update(out, env, item_idx, item_idx,
                                        item_info->sell_price);
-            continue;
+            // Source continues to the mask check below even for this slot.
+            // A zero own-slot mask therefore consults item-info for index zero.
         }
         if (i < kAvatarCosmeticEnd && avatar_equip->item[i] == 0u) {
             const AvatarItemInfoView* off_info = env.find_item_info(out.avatar[i]);
