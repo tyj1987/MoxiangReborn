@@ -437,6 +437,43 @@ TEST(AgentHandlerTest, MovementCorrectionRoutesOnlyToOwnerWhileReportsExcludeOwn
     EXPECT_TRUE(delivered.empty());
 }
 
+TEST(AgentHandlerTest, ExplicitMapSourceIsolatesWorldEventsAndRoutesNpcSpeechToOwner) {
+    MockDbAdapter db;
+    std::vector<std::uint64_t> delivered;
+    AgentHandler handler(db, [&](mxh::net::ConnectionId id, const mxh::net::Message&) {
+        delivered.push_back(id.value);
+    });
+    handler.register_session(mxh::net::make_connection_id(100), 1, 123, 10);
+    handler.register_session(mxh::net::make_connection_id(101), 2, 456, 12);
+    handler.register_session(mxh::net::make_connection_id(102), 3, 789, 10);
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NpcAdd);
+    message.header.object_id = 92;
+    handler.forward_from_map(mxh::net::make_connection_id(1), message, 12);
+    EXPECT_EQ(delivered, std::vector<std::uint64_t>{101});
+    delivered.clear();
+    // The other independent TcpClient can also have connection ID 1.
+    handler.forward_from_map(mxh::net::make_connection_id(1), message, 10);
+    std::sort(delivered.begin(), delivered.end());
+    EXPECT_EQ(delivered, (std::vector<std::uint64_t>{100,102}));
+    delivered.clear();
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechAck);
+    message.header.object_id = 123;
+    handler.forward_from_map(mxh::net::make_connection_id(1), message, 10);
+    EXPECT_EQ(delivered, std::vector<std::uint64_t>{100});
+    delivered.clear();
+    handler.register_session(mxh::net::make_connection_id(100), 1, 123, 12);
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+    handler.forward_from_map(mxh::net::make_connection_id(1), message, 10);
+    EXPECT_TRUE(delivered.empty()); // Late source-map balance cannot replace destination state.
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
+    handler.forward_from_map(mxh::net::make_connection_id(1), message, 10);
+    EXPECT_EQ(delivered, std::vector<std::uint64_t>{100}); // Cross-map social state remains routable.
+}
+
 TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
     MockDbAdapter db;
     ReplySpy reply;

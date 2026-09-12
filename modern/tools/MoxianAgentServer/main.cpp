@@ -224,8 +224,8 @@ struct ReplyQueue {
 // them to AgentHandler for routing to the correct client.
 class MapClientHandler : public mxh::net::IConnectionHandler {
 public:
-    explicit MapClientHandler(mxh::server::AgentHandler& agent)
-        : agent_(agent) {}
+    explicit MapClientHandler(mxh::server::AgentHandler& agent, std::uint16_t source_map)
+        : agent_(agent), source_map_(source_map) {}
 
     bool on_connect(mxh::net::ConnectionId id,
                     const std::string& remote_addr) override {
@@ -241,7 +241,7 @@ public:
                   << " proto=" << (int)msg.header.protocol
                   << " obj=" << msg.header.object_id << "\n";
         // Forward MapServer response to AgentHandler for client routing.
-        agent_.forward_from_map(id, msg);
+        agent_.forward_from_map(id, msg, source_map_);
     }
 
     void on_disconnect(mxh::net::ConnectionId id,
@@ -253,6 +253,7 @@ public:
     mxh::net::ConnectionId get_map_conn_id() const { return map_conn_id_; }
 
 private:
+    const std::uint16_t source_map_;
     mxh::server::AgentHandler& agent_;
     mxh::net::ConnectionId map_conn_id_{};
 };
@@ -349,7 +350,7 @@ int main(int argc, char** argv) {
     auto next_map_reconnect = std::chrono::steady_clock::now();
 
     const auto connect_map_server = [&]() -> bool {
-        map_handler = std::make_unique<MapClientHandler>(handler);
+        map_handler = std::make_unique<MapClientHandler>(handler, args.default_map_num);
         map_client = std::make_unique<mxh::net::TcpClient>(*map_handler);
         mxh::net::ClientConfig ccfg;
         ccfg.remote_address = args.map_server_addr;
@@ -392,7 +393,7 @@ int main(int argc, char** argv) {
     for (const auto& spec : args.map_routes) {
         auto route = std::make_unique<MapRouteConnection>();
         route->spec = spec;
-        route->handler = std::make_unique<MapClientHandler>(handler);
+        route->handler = std::make_unique<MapClientHandler>(handler, spec.map_num);
         route->client = std::make_unique<mxh::net::TcpClient>(*route->handler);
         mxh::net::ClientConfig ccfg;
         ccfg.remote_address = spec.address;

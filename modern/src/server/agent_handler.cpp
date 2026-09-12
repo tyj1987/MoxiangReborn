@@ -961,8 +961,28 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
 
 
 void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
-                                    const mxh::net::Message& msg) {
+                                    const mxh::net::Message& msg,
+                                    std::uint16_t source_map) {
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
+    // TcpClient connection IDs are local to each endpoint. Production callers
+    // supply the configured map identity, never an ID inferred from that socket.
+    // Zero retains the existing offline fixture path only.
+    struct Recipient { std::uint32_t character; std::uint64_t connection; std::uint16_t map; };
+    std::vector<Recipient> recipients;
+    {
+        std::scoped_lock lk(user_mu_, map_route_mu_);
+        for (const auto& [character, connection] : char_to_client_) {
+            const auto map = conn_map_nums_.find(connection);
+            recipients.push_back({character, connection,
+                map == conn_map_nums_.end() ? std::uint16_t{0} : map->second});
+        }
+    }
+    const auto belongs_to_map = [&](std::uint16_t map) {
+        return source_map == 0 || source_map == map;
+    };
+    const bool npc_response = cat == mxh::proto::Category::Npc &&
+        (msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechAck) ||
+         msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechNack));
 
     // Phase 9.2: Move/Chat are broadcast messages — forward to ALL clients
     // except the sender (whose char_id matches msg.header.object_id).
@@ -974,14 +994,13 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
     if ((cat == mxh::proto::Category::Move && !position_correction) ||
         cat == mxh::proto::Category::Chat ||
         cat == mxh::proto::Category::Monster ||
-        cat == mxh::proto::Category::Npc ||
+        (cat == mxh::proto::Category::Npc && !npc_response) ||
         cat == mxh::proto::Category::Skill) {
         std::uint32_t sender_char_id = msg.header.object_id;
         std::size_t routed = 0;
         {
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
-                if (chrid == sender_char_id) continue;
+            for (const auto& [chrid, conn_val, map] : recipients) {
+                if (chrid == sender_char_id || !belongs_to_map(map)) continue;
                 reply_(mxh::net::ConnectionId{conn_val}, msg);
                 ++routed;
             }
@@ -1001,8 +1020,8 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
             proto == mxh::proto::UserConnProtocol::NpcAdd) {
             // Broadcast to ALL clients
             std::size_t routed = 0;
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
+            for (const auto& [chrid, conn_val, map] : recipients) {
+                if (!belongs_to_map(map)) continue;
                 reply_(mxh::net::ConnectionId{conn_val}, msg);
                 ++routed;
             }
@@ -1014,8 +1033,8 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
         if (proto == mxh::proto::UserConnProtocol::ObjectRemove) {
             // ObjectRemove could be for a monster — broadcast to all
             std::size_t routed = 0;
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
+            for (const auto& [chrid, conn_val, map] : recipients) {
+                if (!belongs_to_map(map)) continue;
                 reply_(mxh::net::ConnectionId{conn_val}, msg);
                 ++routed;
             }
@@ -1027,15 +1046,19 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
     // Default: route to the single client that owns this char_id.
     std::uint32_t target_char_id = msg.header.object_id;
     std::uint64_t client_conn_value = 0;
+    std::uint16_t client_map = 0;
     {
-        std::lock_guard<std::mutex> lk(map_route_mu_);
-        auto it = char_to_client_.find(target_char_id);
-        if (it != char_to_client_.end()) {
-            client_conn_value = it->second;
+        for (const auto& recipient : recipients) {
+            if (recipient.character != target_char_id) continue;
+            client_conn_value = recipient.connection;
+            client_map = recipient.map;
+            break;
         }
     }
 
-    if (client_conn_value != 0) {
+    const bool world_reply = cat == mxh::proto::Category::UserConn ||
+        cat == mxh::proto::Category::Item || cat == mxh::proto::Category::Move || npc_response;
+    if (client_conn_value != 0 && (!world_reply || belongs_to_map(client_map))) {
         mxh::net::ConnectionId client_id{client_conn_value};
         std::cout << "[Agent] forwarding map response proto="
                   << static_cast<int>(msg.header.protocol)
