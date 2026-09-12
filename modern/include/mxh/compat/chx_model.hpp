@@ -15,19 +15,16 @@
 //
 //       *MOD_FILE_NUM    <N>            # required
 //       *MOD_FILE_NAME   <path_1>       # exactly N
-//       *MOD_FILE_NAME   <path_2>
+//       *MOTION_NUM      <M1>           # motions for path_1
+//       <motion_path_1>                 # exactly M1
 //       ...
-//       *MOD_FILE_NAME   <path_N>
-//       *MOTION_NUM      <M>            # optional, default 0
-//       <motion_path_1>                 # exactly M
+//       *MOD_FILE_NAME   <path_2>       # next model's own motion list
+//       *MOTION_NUM      <M2>
 //       ...
-//       <motion_path_M>
 //
-//   Unlike .chr, a .chx file has at most one *MOD_FILE_NUM block and
-//   the model parts share a single motion list (no per-section list,
-//   no material list). Materials are referenced inside the individual
-//   .MOD files. *MOD_FILE_NAME is the only section-style token; the
-//   file is otherwise flat.
+//   Each model section owns its motion list. Legacy LoadModelData stops
+//   at the next *MOD_FILE_NAME. The flattened motions view below is kept
+//   for existing callers; it must not be used to assign clips to parts.
 //
 //   Verified with Character.pak:man.chx (the first line is
 //   "*MOD_FILE_NUM\t5", followed by 5 *MOD_FILE_NAME lines).
@@ -53,11 +50,16 @@ inline constexpr std::size_t kChxMaxModFiles  = 256;     // defensive cap
 
 // Decoded view of one .chx file. mod_files lists the .MOD parts in
 // the order they appear (this matches the order the engine uses to
-// piece the character together). motions is the shared animation
-// list (often empty for static / non-animated .chx).
+// piece the character together). motions is a legacy flattened view.
+struct ChxModelPart {
+    std::string mod_file;
+    std::vector<std::string> motions;
+};
+
 struct ChxModel {
     std::vector<std::string> mod_files;     // e.g. {"M_HAIR01.MOD", "M_BODY01.MOD", ...}
-    std::vector<std::string> motions;       // e.g. {"man_walk.ANM", ...}
+    std::vector<std::string> motions;       // flattened, preserves repeats
+    std::vector<ChxModelPart> parts;        // model-local animation order
 
     // Original plaintext, kept for round-trip tools.
     [[nodiscard]] const std::string& plaintext() const noexcept {

@@ -93,6 +93,13 @@ TEST(ChxModelRealResource, ManChxIsTextMetadata) {
     ASSERT_TRUE(m.has_value()) << "parser rejected a real .chx text file";
     EXPECT_EQ(m->mod_files.size(), 5u)
         << "man.chx is expected to have 5 *MOD_FILE_NAME entries";
+    ASSERT_EQ(m->parts.size(), 5u);
+    for (std::size_t i = 0; i < m->parts.size(); ++i) {
+        EXPECT_EQ(m->parts[i].mod_file, m->mod_files[i]);
+        ASSERT_EQ(m->parts[i].motions.size(), 466u);
+        EXPECT_EQ(m->parts[i].motions.front(), "m001.anm");
+    }
+    EXPECT_EQ(m->motions.size(), 5u * 466u);
 }
 
 TEST(ChxModelRealResource, MonsterBinSmoke) {

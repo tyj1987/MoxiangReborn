@@ -3,9 +3,8 @@
 // See chx_model.hpp for the full format description. .chx is
 // tab-separated plain text. The first recognized token is
 // *MOD_FILE_NUM, which sets a count for the *MOD_FILE_NAME
-// entries that follow. After those are exhausted, *MOTION_NUM sets
-// a count for plain motion-path lines. No nested sections, no
-// material list.
+// entries that follow. Each *MOTION_NUM belongs to the preceding model
+// section; retain that association as well as the legacy flattened view.
 
 #include "mxh/compat/chx_model.hpp"
 #include "mxh/compat/detail/text_parse.hpp"
@@ -81,6 +80,7 @@ std::optional<ChxModel> ChxModel::parse(
             }
             if (mod_files_remaining > 0 && !rest.empty()) {
                 m.mod_files.emplace_back(rest.front());
+                m.parts.push_back({std::string(rest.front()), {}});
                 --mod_files_remaining;
             }
             continue;
@@ -94,6 +94,7 @@ std::optional<ChxModel> ChxModel::parse(
         // Plain path token → must be a motion path.
         if (motions_remaining > 0) {
             m.motions.emplace_back(first);
+            if (!m.parts.empty()) m.parts.back().motions.emplace_back(first);
             --motions_remaining;
             continue;
         }

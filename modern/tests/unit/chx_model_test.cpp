@@ -59,6 +59,21 @@ TEST(ChxModelParseTest, RejectsEmptyBuffer) {
     EXPECT_FALSE(ChxModel::parse(std::span<const std::uint8_t>{}).has_value());
 }
 
+TEST(ChxModelParseTest, PreservesDistinctMotionListsPerModelPart) {
+    auto model = ChxModel::parse(to_bytes(
+        "*MOD_FILE_NUM 3\n*MOD_FILE_NAME hair.mod\n*MOTION_NUM 2\n"
+        "idle.anm\nattack.anm\n*MOD_FILE_NAME face.mod\n*MOTION_NUM 1\n"
+        "face_idle.anm\n*MOD_FILE_NAME body.mod\n*MOTION_NUM 0\n"));
+    ASSERT_TRUE(model.has_value());
+    ASSERT_EQ(model->parts.size(), 3u);
+    EXPECT_EQ(model->parts[0].mod_file, "hair.mod");
+    EXPECT_EQ(model->parts[0].motions, (std::vector<std::string>{"idle.anm", "attack.anm"}));
+    EXPECT_EQ(model->parts[1].mod_file, "face.mod");
+    EXPECT_EQ(model->parts[1].motions, (std::vector<std::string>{"face_idle.anm"}));
+    EXPECT_TRUE(model->parts[2].motions.empty());
+    EXPECT_EQ(model->motions, (std::vector<std::string>{"idle.anm", "attack.anm", "face_idle.anm"}));
+}
+
 TEST(ChxModelParseTest, RejectsWhitespaceOnly) {
     auto bytes = to_bytes("   \n\t\n  \n");
     EXPECT_FALSE(ChxModel::parse(bytes).has_value());
