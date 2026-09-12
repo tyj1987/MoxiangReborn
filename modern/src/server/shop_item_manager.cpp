@@ -186,23 +186,24 @@ std::size_t ShopItemManager::tick_and_collect_expired(std::uint32_t delta_ms,
 }
 
 std::size_t ShopItemManager::collect_realtime_expired(
-    game::PackedTime now, std::vector<std::uint64_t>& out) const {
+    const game::ItemManager& items, game::PackedTime now, std::vector<std::uint64_t>& out) const {
     const std::size_t before = out.size();
     for (const auto& kv : m_usingItems) {
         const auto& entry = kv.second;
         // Stored-time branch only (legacy SellPrice == eShopItemUseParam_Realtime).
         // Playtime / Continue / one-shot rows never trigger this sweep.
-        if (entry.Data.ShopItem.Param != mxh::game::SHOP_ITEM_PARAM_STORED_TIME) continue;
+        game::ItemInfo info{};
+        if (!items.try_get(entry.Data.ShopItem.ItemBase.wIconIdx, info) ||
+            info.SellPrice != mxh::game::SHOP_ITEM_PARAM_STORED_TIME) continue;
         const std::uint32_t end_time = entry.Data.ShopItem.Remaintime;
-        if (end_time == 0u) continue;  // defensive: avoid 0 sentinel matching everything
         if (now.value > end_time) out.push_back(kv.first);
     }
     return out.size() - before;
 }
 
-std::size_t ShopItemManager::consume_realtime_expired(game::PackedTime now) {
+std::size_t ShopItemManager::consume_realtime_expired(const game::ItemManager& items, game::PackedTime now) {
     std::vector<std::uint64_t> expired;
-    collect_realtime_expired(now, expired);
+    collect_realtime_expired(items, now, expired);
     for (const auto& idx : expired) {
         auto it = m_usingItems.find(idx);
         if (it == m_usingItems.end()) continue;
@@ -232,10 +233,10 @@ std::size_t ShopItemManager::consume_realtime_expired(game::PackedTime now) {
 //                   wIconIdx, dwDBIdx, Position, 0,
 //                   Durability, player_exp_point)
 std::size_t ShopItemManager::collect_avatar_realtime_expired(
-    game::PackedTime now, std::vector<std::uint64_t>& out) const {
+    const game::ItemManager& items, game::PackedTime now, std::vector<std::uint64_t>& out) const {
     // Same predicate as collect_realtime_expired, but no timer gate and
     // documented for the avatar-event loop. Reuses the same code path.
-    return collect_realtime_expired(now, out);
+    return collect_realtime_expired(items, now, out);
 }
 
 std::vector<std::uint8_t> ShopItemManager::serialize_using_items(

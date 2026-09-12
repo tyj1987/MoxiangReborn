@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "mxh/game/shop_item_types.hpp"
+#include "mxh/game/item_manager.hpp"
 #include <mxh/server/legacy_shop_item_kind.hpp>
 
 namespace mxh::server {
@@ -279,8 +280,10 @@ public:
     // is earlier than the current packed stTIME. This is the data-plane
     // half of that sweep, with the same predicate: only stored-time
     // rows are considered, and the comparison is now.value > end_time.
+    // Resolve the timer type from items, never the mutable row Param
+    // (equipped avatars use Param=10). Missing catalog entries are skipped.
     // Returns the number of new indices appended to out.
-    std::size_t collect_realtime_expired(game::PackedTime now,
+    std::size_t collect_realtime_expired(const game::ItemManager& items, game::PackedTime now,
                                          std::vector<std::uint64_t>& out) const;
 
     // Same as collect_realtime_expired but also removes the matching
@@ -288,7 +291,7 @@ public:
     // legacy DeleteUsingShopItem + Remaintime=0 sequence at the end of
     // CheckEndTime. Use the const collect_realtime_expired first if the
     // caller needs to surface each row to the wire before deletion.
-    std::size_t consume_realtime_expired(game::PackedTime now);
+    std::size_t consume_realtime_expired(const game::ItemManager& items, game::PackedTime now);
 
     // ---- D4.22 CheckAvatarEndtime data plane ----
     //
@@ -315,7 +318,7 @@ public:
     // side-effect chain (DiscardItem + SendMsgDwordToPlayer(USEEND)
     // + ShopItemDeleteToDB + LogItemMoney) can document the intent.
     std::size_t collect_avatar_realtime_expired(
-        game::PackedTime now, std::vector<std::uint64_t>& out) const;
+        const game::ItemManager& items, game::PackedTime now, std::vector<std::uint64_t>& out) const;
 
     // Reset m_Checktime after a check sweep so the next 30-second window
     // begins. Legacy resets to 0 unconditionally.
