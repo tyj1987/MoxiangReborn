@@ -13,7 +13,7 @@
 namespace mxh::server {
 
 inline constexpr std::size_t kAvatarCosmeticEnd = 12u;
-inline constexpr std::size_t kAvatarWearedGum = 18u;
+inline constexpr std::size_t kAvatarWearedGum = static_cast<std::size_t>(game::AvatarSlot::Weared_Gum);
 inline constexpr std::uint32_t kShopItemUseParamEquipAvatar = 10u;
 
 using AvatarSlots = std::array<std::uint16_t, game::EAvatarCount>;
@@ -128,10 +128,8 @@ inline AvatarEquipTransition put_on_avatar_item(
         out.status = AvatarEquipStatus::AvatarMissing;
         return out;
     }
-    if (item_pos >= game::EAvatarCount) {
-        out.status = AvatarEquipStatus::PositionOutOfRange;
-        return out;
-    }
+    // item_pos is an absolute inventory position (e.g. 240/390), not an avatar slot.
+    // The inventory provider owns its bounds and availability checks.
 
     const AvatarUsingItemView* shop_item = env.find_using_item(item_idx);
     const AvatarItemBaseView* item_base = env.find_item_at(item_pos);
@@ -195,26 +193,26 @@ inline AvatarEquipTransition put_on_avatar_item(
         out.avatar[position] = item_idx;
         append_avatar_param_update(out, env, item_idx, item_idx,
                                    kShopItemUseParamEquipAvatar);
-    } else {
-        if (out.avatar[position] != 0u) {
-            const std::uint16_t old_item = out.avatar[position];
-            const AvatarEquipRow* old_equip = env.find_avatar_equip(old_item);
-            const AvatarItemInfoView* old_info = env.find_item_info(old_item);
-            if (old_equip != nullptr && old_info != nullptr) {
-                apply_weared_default_fill(out.avatar, *old_equip);
-                append_avatar_param_update(out, env, old_item, old_item,
-                                           old_info->sell_price);
-            }
-        }
-        out.avatar[position] = item_idx;
-        apply_weared_default_fill(out.avatar, *avatar_equip);
-        append_avatar_param_update(out, env, item_idx, item_idx,
-                                   kShopItemUseParamEquipAvatar);
     }
 
-    for (std::size_t i = 0; i < kAvatarCosmeticEnd; ++i) {
-        if (i == position) {
+    // Preserve the source's ordered loop: cosmetic removals restore old defaults,
+    // then the new mask clears the five worn-appearance flags at indices 12..16.
+    for (std::size_t i = 0; i < kAvatarWearedGum; ++i) {
+        if (i >= kAvatarCosmeticEnd) {
+            if (avatar_equip->item[i] == 0u) out.avatar[i] = 0u;
             continue;
+        }
+        if (i == position) {
+            if (out.avatar[i] != 0u) {
+                const auto old_item = out.avatar[i];
+                const auto* old_equip = env.find_avatar_equip(old_item);
+                const auto* old_info = env.find_item_info(old_item);
+                if (!old_equip || !old_info) continue;
+                apply_weared_default_fill(out.avatar, *old_equip);
+                append_avatar_param_update(out, env, old_item, old_item, old_info->sell_price);
+            }
+            out.avatar[i] = item_idx;
+            append_avatar_param_update(out, env, item_idx, item_idx, kShopItemUseParamEquipAvatar);
         }
         if (avatar_equip->item[i] == 0u && out.avatar[i] != 0u) {
             const std::uint16_t removed_item = out.avatar[i];

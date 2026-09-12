@@ -5,41 +5,40 @@
 // is wrapped in #pragma pack(push,1) and is the server-side aggregate
 // that holds every stat bonus a player's currently-equipped shop items
 // (charms, herbs, incantations, etc.) have contributed. The personal
-// avatar stats are tracked in the Avatar[24] WORD array (consumed by
+// avatar stats are tracked in the Avatar[23] WORD array (consumed by
 // calc_avatar_option / AVATARITEMOPTION, see avatar_item_option.hpp).
 //
 // 1:1 invariants (under pack(1)):
-//   - Avatar[24]      = 48 bytes (24 * WORD), indices 0..23 = eAvatar_Hat..WeeMaxAmgi.
-//   - wSkinItem[6]    = 12 bytes (6 * WORD), indices 0..5 = eSkinItem_Hat..Shoes.
+//   - Avatar[23]      = 46 bytes, indices 0..22 = eAvatar_Hat..Weared_Amgi.
+//   - wSkinItem[5]    = 10 bytes, indices 0..4 = eSkinItem_Hat..Shoes.
 //   - All other fields are 1/2/4-byte primitives laid out in legacy order.
-//   - Total size = 124 bytes (validated by the test suite).
+//   - Total size = 120 bytes (validated by size and offset assertions).
 //
-// Wire compatibility: SHOPITEMOPTION is server-side state and not
-// serialized over the modern T-series wire. The legacy CommonStruct.h
-// packed layout only matters if the modern AgentServer talks to a legacy
-// MapServer (not in scope here).
+// HERO_TOTALINFO reserves this exact layout on the current modern GameIn wire.
+// Explicit field encoding is preferred over host-layout memcpy for transmission.
 
 #pragma once
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include "mxh/game/avatar_item_option.hpp"
 
 namespace mxh::game {
 
 // 1:1 with legacy eSkinItem_* enum (eSkinItem_Hat..eSkinItem_Shoes).
-// 6 cosmetic skin slots. The eSkinItem_Max sentinel is the legacy
+// 5 cosmetic skin slots. The eSkinItem_Max sentinel is the legacy
 // array bound and is kept as a named constant so the struct layout
 // can be asserted in tests.
-inline constexpr std::size_t ESkinItemCount = 6u;
+inline constexpr std::size_t ESkinItemCount = 5u;
 
 #pragma pack(push, 1)
 
-// 1:1 port of legacy SHOPITEMOPTION (124 bytes under pack(1)).
+// 1:1 port of legacy SHOPITEMOPTION (120 bytes under pack(1)).
 // Field order and sizes match CommonStruct.h exactly so the legacy
 // memcpy / aggregation semantics stay in sync.
 struct ShopItemOption {
-    std::array<std::uint16_t, 24> Avatar{};
+    std::array<std::uint16_t, EAvatarCount> Avatar{};
 
     // 4 base stats (legacy Gengol/Minchub/Cheryuk/Simmek).
     std::uint16_t Gengol  = 0;
@@ -117,10 +116,13 @@ struct ShopItemOption {
 
 #pragma pack(pop)
 
-// Compile-time size assertion. The legacy struct is 124 bytes under pack(1);
+// Compile-time size assertion. The legacy struct is 120 bytes under pack(1);
 // the modern port deviates by 0 bytes.
-static_assert(sizeof(ShopItemOption) == 124,
-              "ShopItemOption must be 124 bytes (1:1 with legacy "
+static_assert(sizeof(ShopItemOption) == 120,
+              "ShopItemOption must be 120 bytes (1:1 with legacy "
               "CommonStruct.h SHOPITEMOPTION under pack(1)).");
+static_assert(offsetof(ShopItemOption, Gengol) == 46);
+static_assert(offsetof(ShopItemOption, wSkinItem) == 106);
+static_assert(offsetof(ShopItemOption, dwStreetStallDecoration) == 116);
 
 }  // namespace mxh::game

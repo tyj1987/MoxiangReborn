@@ -528,7 +528,7 @@ TEST(CalcAvatarOption, AvatarItemOptionSizeMatchesLegacy) {
     EXPECT_EQ(sizeof(AvatarItemOption), 39u);
 }
 
-TEST(CalcAvatarOption, EAvatarCountIs24) {
-    // 1:1 lock: eAvatar_Max = 24 (24 avatar slots, indices 0..23).
-    EXPECT_EQ(EAvatarCount, 24u);
+TEST(CalcAvatarOption, EAvatarCountIs23) {
+    // Source eAvatar_Max is the exclusive bound: 23 slots, indices 0..22.
+    EXPECT_EQ(EAvatarCount, 23u);
 }

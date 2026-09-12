@@ -53,17 +53,17 @@ CalcShopItemOptionInfo BaseCharmInfo() {
 //---------------------------------------------------------------------
 
 TEST(ShopItemOptionLayout, SizeMatchesLegacy) {
-    EXPECT_EQ(sizeof(ShopItemOption), 124u);
+    EXPECT_EQ(sizeof(ShopItemOption), 120u);
 }
 
-TEST(ShopItemOptionLayout, AvatarArrayIs24Words) {
+TEST(ShopItemOptionLayout, AvatarArrayIs23Words) {
     ShopItemOption s;
-    EXPECT_EQ(s.Avatar.size(), 24u);
+    EXPECT_EQ(s.Avatar.size(), 23u);
 }
 
-TEST(ShopItemOptionLayout, SkinItemArrayIs6Words) {
+TEST(ShopItemOptionLayout, SkinItemArrayIs5Words) {
     ShopItemOption s;
-    EXPECT_EQ(s.wSkinItem.size(), 6u);
+    EXPECT_EQ(s.wSkinItem.size(), 5u);
 }
 
 //---------------------------------------------------------------------

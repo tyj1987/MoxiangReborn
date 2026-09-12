@@ -57,6 +57,9 @@ AvatarEquipRow make_equip(std::uint8_t pos,
         if (i >= EAvatarCount) break;
         e.item[i++] = v;
     }
+    // Normal equip fixture permits its own slot; a zero own mask explicitly
+    // triggers the source's immediate removal path and is tested separately.
+    if (pos < EAvatarCount) e.item[pos] = 1;
     return e;
 }
 
@@ -65,6 +68,60 @@ std::array<std::uint16_t, EAvatarCount> zero_avatar() { return {}; }
 }  // namespace
 
 // ---------- PutOnAvatarItem no-op conditions ----------
+
+TEST(AvatarEquipPutOn, AbsoluteShopInventoryPositionsAreNotAvatarSlots) {
+    for (const std::uint16_t position : {240, 390}) {
+        FakeEnv env; AvatarSlots av{};
+        env.inventory[position] = {901}; env.using_items[100] = {901};
+        env.avatar_equips[100] = make_equip(17, {}); env.item_infos[100] = {};
+        auto out = put_on_avatar_item(env,&av,100,position,true,1);
+        EXPECT_EQ(out.status,AvatarEquipStatus::Ok); EXPECT_EQ(out.avatar[17],100);
+        env.avatar_equips[100].position = 23; // exclusive source sentinel
+        out = put_on_avatar_item(env,&av,100,position,true,1);
+        EXPECT_EQ(out.status,AvatarEquipStatus::PositionOutOfRange);
+    }
+}
+
+TEST(AvatarEquipPutOn, MissingOldCosmeticRecordPreservesTheOldSlot) {
+    FakeEnv env; AvatarSlots av{}; av[2] = 333;
+    env.inventory[390] = {901}; env.using_items[100] = {901};
+    env.avatar_equips[100] = make_equip(2, {}); env.item_infos[100] = {};
+    const auto out = put_on_avatar_item(env,&av,100,390,false,1);
+    EXPECT_EQ(out.status,AvatarEquipStatus::Ok); EXPECT_EQ(out.avatar[2],333);
+    EXPECT_TRUE(out.effects.empty());
+}
+
+TEST(AvatarEquipPutOn, OwnZeroMaskExecutesTheSourceRemovalPath) {
+    FakeEnv env; AvatarSlots av{};
+    env.inventory[390] = {901}; env.using_items[100] = {901};
+    env.avatar_equips[100] = make_equip(2, {});
+    env.avatar_equips[100].item[2] = 0;
+    env.item_infos[100] = {77};
+    const auto out = put_on_avatar_item(env,&av,100,390,false,1);
+    EXPECT_EQ(out.status,AvatarEquipStatus::Ok); EXPECT_EQ(out.avatar[2],0);
+    ASSERT_EQ(out.effects.size(),4u);
+    EXPECT_EQ(out.effects[0].kind,AvatarEquipEffectKind::ParamUpdateToDb);
+    EXPECT_EQ(out.effects[0].param,10u); EXPECT_EQ(out.effects[1].param,10u);
+    EXPECT_EQ(out.effects[2].kind,AvatarEquipEffectKind::ParamUpdateToDb);
+    EXPECT_EQ(out.effects[2].param,77u); EXPECT_EQ(out.effects[3].param,77u);
+}
+
+TEST(AvatarEquipPutOn, SourceSlotOrderRemovesHatBeforeInstallingDress) {
+    FakeEnv env; AvatarSlots av{}; av[0] = 300;
+    env.inventory[390] = {901}; env.using_items[100] = {901};
+    env.avatar_equips[100] = make_equip(6, {}); env.item_infos[100] = {9};
+    env.avatar_equips[300] = make_equip(0, {}); env.item_infos[300] = {77};
+    const auto out = put_on_avatar_item(env,&av,100,390,false,1);
+    EXPECT_EQ(out.status,AvatarEquipStatus::Ok); EXPECT_EQ(out.avatar[0],0);
+    EXPECT_EQ(out.avatar[6],100);
+    for (std::size_t i=12;i<17;++i) EXPECT_EQ(out.avatar[i],0);
+    ASSERT_EQ(out.effects.size(),4u);
+    EXPECT_EQ(out.effects[0].item_idx,300); EXPECT_EQ(out.effects[0].param,77u);
+    // Preserve the source's ItemIdx lookup for the in-memory removed-item effect.
+    EXPECT_EQ(out.effects[1].item_idx,100); EXPECT_EQ(out.effects[1].param,77u);
+    EXPECT_EQ(out.effects[2].item_idx,100); EXPECT_EQ(out.effects[2].param,10u);
+    EXPECT_EQ(out.effects[3].item_idx,100); EXPECT_EQ(out.effects[3].param,10u);
+}
 
 TEST(AvatarEquipPutOn, NullAvatarIsRejected) {
     FakeEnv env;
@@ -236,14 +293,14 @@ TEST(AvatarEquipPutOn, WeaponSlotAllowedWhenSlotMatchesWeaponType) {
     AvatarUsingItemView shop{100};
     env.inventory[5] = base;
     env.using_items[100] = shop;
-    // Position 19 = Weared_Gwun (18 + 1); weapon_equip_type = 2 -> gun
-    env.avatar_equips[100] = make_equip(19, {});  // position 19 = Weared_Gwun
+    // Source: sword=17, fist=18; weapon type 2 is fist.
+    env.avatar_equips[100] = make_equip(18, {});
     env.item_infos[100] = AvatarItemInfoView{};
     auto out = put_on_avatar_item(env, &av, /*item_idx=*/100,
                                   /*item_pos=*/5, /*player_inited=*/true,
                                   /*weapon_equip_type=*/2);
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
-    EXPECT_EQ(out.avatar[19], 100u);
+    EXPECT_EQ(out.avatar[18], 100u);
 }
 
 TEST(AvatarEquipPutOn, NonWeaponPositionFilledWithoutDefaultFill) {
@@ -260,20 +317,21 @@ TEST(AvatarEquipPutOn, NonWeaponPositionFilledWithoutDefaultFill) {
                                   /*weapon_equip_type=*/2);
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
     EXPECT_EQ(out.avatar[2], 100u);
-    // default fill applies to the new equip's mask; mask[12..17]=0 -> 1
-    for (std::size_t i = 12; i < 18; ++i) {
-        EXPECT_EQ(out.avatar[i], 1u);
+    // The new mask hides worn appearance, without touching weapon slot 17.
+    for (std::size_t i = 12; i < 17; ++i) {
+        EXPECT_EQ(out.avatar[i], 0u);
     }
 }
 
-TEST(AvatarEquipPutOn, DefaultFillZerosBecomeOnes) {
+TEST(AvatarEquipPutOn, NewMaskClearsWornFlags) {
     FakeEnv env;
     AvatarSlots av = zero_avatar();
     AvatarItemBaseView base{100};
     AvatarUsingItemView shop{100};
     env.inventory[5] = base;
     env.using_items[100] = shop;
-    // equip.Item[12..17] = 0 -> those slots default to 1
+    for (std::size_t i = 12; i < EAvatarCount; ++i) av[i] = 1;
+    // New mask clears 12..16 after processing cosmetics.
     env.avatar_equips[100] = make_equip(2, {0,0,0,0,0,0,0,0,0,0,0,0,
                                             0,0,0,0,0,0, 0,0,0,0,0,0});
     env.item_infos[100] = AvatarItemInfoView{};
@@ -282,9 +340,10 @@ TEST(AvatarEquipPutOn, DefaultFillZerosBecomeOnes) {
                                   /*weapon_equip_type=*/1);
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
     EXPECT_EQ(out.avatar[2], 100u);
-    for (std::size_t i = 12; i < 18; ++i) {
-        EXPECT_EQ(out.avatar[i], 1u);
+    for (std::size_t i = 12; i < 17; ++i) {
+        EXPECT_EQ(out.avatar[i], 0u);
     }
+    EXPECT_EQ(out.avatar[17], 1u);
 }
 
 TEST(AvatarEquipPutOn, DefaultFillNonZeroMasksPreserve) {
@@ -297,6 +356,7 @@ TEST(AvatarEquipPutOn, DefaultFillNonZeroMasksPreserve) {
     env.using_items[100] = shop;
     std::array<std::uint16_t, EAvatarCount> mask{};
     mask[12] = 7;  // non-zero -> preserve existing
+    mask[2] = 1; // retain the equipped face itself
     AvatarEquipRow row{};
     row.position = 2;
     row.item = mask;
@@ -308,8 +368,8 @@ TEST(AvatarEquipPutOn, DefaultFillNonZeroMasksPreserve) {
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
     EXPECT_EQ(out.avatar[2], 100u);
     EXPECT_EQ(out.avatar[12], 999u);  // preserved
-    for (std::size_t i = 13; i < 18; ++i) {
-        EXPECT_EQ(out.avatar[i], 1u);
+    for (std::size_t i = 13; i < 17; ++i) {
+        EXPECT_EQ(out.avatar[i], 0u);
     }
 }
 
@@ -323,7 +383,7 @@ TEST(AvatarEquipPutOn, ReplacingHatOverridesExistingAndAppliesMask) {
     env.using_items[100] = shop;
     env.avatar_equips[100] = make_equip(0, {});
     env.item_infos[100] = AvatarItemInfoView{};
-    // The equip has Item[12..17] = 0 -> default fill -> 1
+    // Old defaults restore to 1, then the new mask clears them to 0.
     env.item_infos[333] = AvatarItemInfoView{777};
     env.avatar_equips[333] = make_equip(0, {});
     auto out = put_on_avatar_item(env, &av, /*item_idx=*/100,
@@ -331,8 +391,8 @@ TEST(AvatarEquipPutOn, ReplacingHatOverridesExistingAndAppliesMask) {
                                   /*weapon_equip_type=*/1);
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
     EXPECT_EQ(out.avatar[0], 100u);
-    for (std::size_t i = 12; i < 18; ++i) {
-        EXPECT_EQ(out.avatar[i], 1u);
+    for (std::size_t i = 12; i < 17; ++i) {
+        EXPECT_EQ(out.avatar[i], 0u);
     }
     // the previous item's param update is recorded
     bool found_old_param = false;
@@ -359,7 +419,7 @@ TEST(AvatarEquipPutOn, WeaponSlotReplacesOldItemWithParamUpdate) {
     env.item_infos[333] = AvatarItemInfoView{888};
     auto out = put_on_avatar_item(env, &av, /*item_idx=*/100,
                                   /*item_pos=*/5, /*player_inited=*/true,
-                                  /*weapon_equip_type=*/1);
+                                  /*weapon_equip_type=*/2);
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
     EXPECT_EQ(out.avatar[18], 100u);
     bool found_old = false;
@@ -390,7 +450,7 @@ TEST(AvatarEquipPutOn, WeaponSlotExistingItemInfoMissingIsRejected) {
     env.item_infos[100] = AvatarItemInfoView{};
     auto out = put_on_avatar_item(env, &av, /*item_idx=*/100,
                                   /*item_pos=*/5, /*player_inited=*/true,
-                                  /*weapon_equip_type=*/1);
+                                  /*weapon_equip_type=*/2);
     EXPECT_EQ(out.status, AvatarEquipStatus::ExistingItemInfoMissing);
 }
 
@@ -458,7 +518,7 @@ TEST(AvatarEquipTakeOff, CosmeticPositionClearedAndDefaultFilled) {
                                     /*item_pos=*/5);
     EXPECT_EQ(out.status, AvatarEquipStatus::Ok);
     EXPECT_EQ(out.avatar[2], 0u);
-    for (std::size_t i = 12; i < 18; ++i) {
+    for (std::size_t i = 12; i < 17; ++i) {
         EXPECT_EQ(out.avatar[i], 1u);
     }
     bool found_param_update = false;
@@ -523,9 +583,6 @@ TEST(AvatarEquipTakeOff, DependentItemInfoMissingIsRejected) {
                                     /*item_pos=*/5);
     EXPECT_EQ(out.status, AvatarEquipStatus::DependentItemInfoMissing);
 }
-
-
-
 
 
 

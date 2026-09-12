@@ -29,10 +29,10 @@ TEST(AvatarItemOptionLayout, StructIsThirtyNineBytes) {
     EXPECT_EQ(sizeof(AvatarItemOption), 39u);
 }
 
-// eAvatar_Max sentinel matches the legacy 24-slot array.
-TEST(AvatarItemOptionLayout, MaxSlotEqualsTwentyFour) {
-    EXPECT_EQ(static_cast<std::size_t>(AvatarSlot::Max), 24u);
-    EXPECT_EQ(EAvatarCount, 24u);
+// eAvatar_Max is an exclusive bound, not an additional slot.
+TEST(AvatarItemOptionLayout, MaxSlotEqualsTwentyThree) {
+    EXPECT_EQ(static_cast<std::size_t>(AvatarSlot::Max), 23u);
+    EXPECT_EQ(EAvatarCount, 23u);
 }
 
 // Cosmetic slots are 0..11, weapon slots are 12..22, sentinel is 23.
@@ -407,25 +407,25 @@ TEST(CalcAvatarOption, TwoSlotsSameItemSumsDoublesTheDelta) {
 }
 
 // ===========================================================================
-// All 24 slots exercised at once
+// All 23 source slots exercised at once
 // ===========================================================================
 
-TEST(CalcAvatarOption, AllTwentyFourSlotsCanContribute) {
+TEST(CalcAvatarOption, AllTwentyThreeSlotsCanContribute) {
     ItemManager mgr;
-    for (std::uint16_t i = 0; i < 24; ++i) {
+    for (std::uint16_t i = 0; i < EAvatarCount; ++i) {
         ItemInfo info = mk_info(static_cast<std::uint16_t>(100 + i));
         info.GenGol = 1;
         mgr.add(info);
     }
     auto a = empty_avatar();
-    for (std::uint16_t i = 0; i < 24; ++i) {
+    for (std::uint16_t i = 0; i < EAvatarCount; ++i) {
         a[i] = static_cast<std::uint16_t>(100 + i);
     }
     AvatarItemOption out = mxh::server::calc_avatar_option(a, mgr);
-    EXPECT_EQ(out.Gengol, 24u);  // 24 slots * 1 each
+    EXPECT_EQ(out.Gengol, 23u);  // source has 23 slots, 1 each
 }
 
-TEST(CalcAvatarOption, AllTwentyFourSlotsAtBaseSkinContributeZero) {
+TEST(CalcAvatarOption, AllTwentyThreeSlotsAtBaseSkinContributeZero) {
     // Every slot at base skin (wIconIdx == 1) -> all skipped.
     ItemManager mgr;
     ItemInfo info = mk_info(901);

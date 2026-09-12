@@ -38,7 +38,7 @@ namespace mxh::server {
 // consult it).
 struct AvatarEquipRow {
     std::uint8_t position = 0;     // legacy Position (eAvatar_*)
-    std::array<std::uint16_t, game::EAvatarCount> item{};  // legacy Item[24]
+    std::array<std::uint16_t, game::EAvatarCount> item{};  // legacy Item[23]
 };
 
 // Legacy enum values used as the bounds of the default-fill loop.

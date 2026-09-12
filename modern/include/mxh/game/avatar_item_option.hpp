@@ -3,14 +3,14 @@
 // 1:1 port of legacy [CC]Header/CommonStruct.h AVATARITEMOPTION plus the
 // eAvatar_* enum from [CC]Header/CommonGameDefine.h. The legacy struct is
 // wrapped in #pragma pack(push,1) and lives inside the SHOPITEMOPTION
-// aggregate (avatar[24] + stat accumulators). The modern port pulls both
+// aggregate (avatar[23] + stat accumulators). The modern port pulls both
 // into a single header so the data plane (calc_avatar_option) can match
 // the legacy accumulator behavior byte-for-byte without dragging in the
 // full CommonStruct.h header chain.
 //
 // 1:1 invariants (under pack(1)):
-//   - eAvatar_Max       = 24 (24 avatar slots, indices 0..23).
-//   - AVATARITEMOPTION  = 50 bytes (28 fields, no virtual, no padding).
+//   - eAvatar_Max       = 23 (23 avatar slots, indices 0..22).
+//   - AVATARITEMOPTION  = 39 bytes (25 fields, no virtual, no padding).
 //
 // Wire compatibility: AVATARITEMOPTION is server-side state and not
 // serialized over the modern T-series wire. The legacy CommonStruct.h
@@ -25,13 +25,13 @@
 
 namespace mxh::game {
 
-// 24 avatar slots, 1:1 with legacy eAvatar_* enum.
+// 23 avatar slots, 1:1 with legacy eAvatar_* enum.
 //
 // Indices 0..11 are cosmetic slots (Hat, Hair, Face, Mask, Glasses,
-// Mustache, Dress, Shoulder, Shoes, Hand, Effect).
-// Indices 12..22 are weapon-slot avatars (Weared_Hair..Weared_Amgi).
+// Mustache, Dress, Shoulder, Back, Shoes, Effect, Hand).
+// Indices 12..16 are worn flags; 17..22 are weapon avatars.
 // Index 23 (eAvatar_Max) is the legacy sentinel.
-inline constexpr std::size_t EAvatarCount = 24u;
+inline constexpr std::size_t EAvatarCount = 23u;
 
 enum class AvatarSlot : std::uint8_t {
     Hat = 0,
@@ -59,14 +59,14 @@ enum class AvatarSlot : std::uint8_t {
     Weared_Gung,
     Weared_Amgi,
 
-    Max = 24,
+    Max = 23,
 };
 
 #pragma pack(push, 1)
 
-// 1:1 port of legacy AVATARITEMOPTION (50 bytes under pack(1)).
+// 1:1 port of legacy AVATARITEMOPTION (39 bytes under pack(1)).
 // Field order and sizes match CommonStruct.h exactly so the legacy
-// memcpy() pairs (avatar[24] + stat accumulators) stay in sync.
+// memcpy() pairs (avatar[23] + stat accumulators) stay in sync.
 struct AvatarItemOption {
     std::uint16_t Life = 0;
     std::uint16_t Shield = 0;
