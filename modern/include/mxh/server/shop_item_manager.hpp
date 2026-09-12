@@ -34,6 +34,7 @@
 
 #include "mxh/game/shop_item_types.hpp"
 #include "mxh/game/item_manager.hpp"
+#include "mxh/server/dup_param.hpp"
 #include <mxh/server/legacy_shop_item_kind.hpp>
 
 namespace mxh::server {
@@ -107,6 +108,15 @@ public:
     // Reset all five dup counters to 0. Legacy called this on logout/cleanup.
     void clear_dup_counters() noexcept;
 
+    DupCounters dup_counters() const noexcept {
+        return {m_DupCharm, m_DupHerb, m_DupIncantation, m_DupSundries, m_DupPetEquip};
+    }
+    void set_dup_counters(const DupCounters& counters) noexcept {
+        m_DupCharm = counters.charm; m_DupHerb = counters.herb;
+        m_DupIncantation = counters.incantation; m_DupSundries = counters.sundries;
+        m_DupPetEquip = counters.pet_equip;
+    }
+
     // ProtectItemIdx: legacy m_ProtectItemIdx. Stores the item index that
     // protected the player from a particular shop-item debuff (e.g. revival
     // scroll). Defaults to 0 (no protection).
@@ -139,8 +149,9 @@ public:
     //
     // The full legacy UsedShopItem path also adjusts ShopItemOption
     // (SkillPoint / StatePoint counters) for special incantation items
-    // and writes the row to DB; those hooks live outside the data
-    // plane and remain in a follow-up commit.
+    // and handles expiry and option restoration. Production restoration
+    // must use restore_used_shop_item.hpp with bound runtime effects;
+    // this insertion helper alone does not restore a player's shop state.
     bool used_shop_item(const game::ItemBase& item_base,
                         std::uint32_t param,
                         game::PackedTime begin_time,

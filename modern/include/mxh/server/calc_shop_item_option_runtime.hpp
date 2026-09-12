@@ -23,6 +23,9 @@
 #pragma once
 
 #include <cstdint>
+#include <cmath>
+#include <optional>
+#include <mxh/game/item_manager.hpp>
 
 #include <mxh/game/shop_item_option.hpp>
 #include <mxh/server/calc_shop_item_option.hpp>
@@ -30,6 +33,30 @@
 #include <mxh/server/shop_item_manager.hpp>
 
 namespace mxh::server {
+
+// Extract the exact fields consumed by CalcShopItemOption from parsed ItemList
+// metadata. Fire is Element[ATTR_FIRE-1] in CommonGameStruct.h, and the source
+// tests its DWORD conversion. Reject non-representable values rather than invoke
+// undefined floating-point conversion on malformed data.
+inline std::optional<CalcShopItemOptionInfo> shop_option_info(const game::ItemInfo& item) {
+    const double fire = item.AttrRegist.Element[0];
+    if (!std::isfinite(fire) || fire < 0 || fire > 4294967295.0) return std::nullopt;
+    CalcShopItemOptionInfo out{};
+    out.ItemKind=item.ItemKind; out.ItemIdx=item.ItemIdx; out.ItemType=item.ItemType;
+    out.GenGol=item.GenGol; out.MinChub=item.MinChub; out.CheRyuk=item.CheRyuk;
+    out.SimMek=item.SimMek; out.Life=item.Life; out.Shield=item.Shield; out.NaeRyuk=item.NaeRyuk;
+    out.LimitJob=item.LimitJob; out.LimitGender=item.LimitGender; out.LimitLevel=item.LimitLevel;
+    out.LimitGenGol=item.LimitGenGol; out.LimitMinChub=item.LimitMinChub;
+    out.LimitCheRyuk=item.LimitCheRyuk; out.LimitSimMek=item.LimitSimMek;
+    out.ItemGrade=item.ItemGrade; out.RangeType=item.RangeType;
+    out.Plus_MugongIdx=item.Plus_MugongIdx; out.Plus_Value=item.Plus_Value;
+    out.AllPlus_Kind=item.AllPlus_Kind; out.RangeAttackMin=item.RangeAttackMin;
+    out.RangeAttackMax=item.RangeAttackMax; out.CriticalPercent=item.CriticalPercent;
+    out.PhyDef=item.PhyDef; out.NaeRyukRecover=item.NaeRyukRecover;
+    out.MeleeAttackMin=item.MeleeAttackMin;
+    out.AttrFire=static_cast<std::uint32_t>(fire);
+    return out;
+}
 
 // Player-side hook for the SetExtra* slot calls. The legacy code calls
 // these directly on CPlayer (m_pPlayer->SetExtraInvenSlotCount etc);

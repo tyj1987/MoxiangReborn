@@ -2504,6 +2504,7 @@ gtest_add_tests(TARGET mxh_c_monster_speech_manager_tests
 )
 add_executable(mxh_shop_item_manager_tests
     shop_item_manager_test.cpp
+    restore_used_shop_item_test.cpp
     shop_item_update_sql_test.cpp
     calc_shop_item_option_test.cpp
     calc_shop_item_option_runtime_test.cpp

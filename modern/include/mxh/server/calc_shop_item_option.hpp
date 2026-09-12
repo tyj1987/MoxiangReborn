@@ -104,7 +104,7 @@ struct CalcShopItemOptionInfo {
     // AttrRegist.GetElement_Val(ATTR_FIRE) of the legacy item info.
     // The data plane does not drag in the ATTRIBUTEREGIST struct;
     // the orchestrator extracts the fire element and passes it here.
-    std::uint16_t AttrFire         = 0;
+    std::uint32_t AttrFire         = 0; // source casts the fire value to DWORD
 };
 
 // Environment for runtime-dependent gate checks. The legacy function
