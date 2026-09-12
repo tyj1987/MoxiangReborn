@@ -19,9 +19,9 @@
 //   - The dup counter byte is 1:1 with m_DupCharm / m_DupHerb /
 //     m_DupIncantation / m_DupSundries / m_DupPetEquip (legacy DWORD).
 //   - AddDupParam: OR the dup-table Param bits into the counter.
-//   - DeleteDupParam: XOR (clear) the dup-table Param bits, but only if
-//     the corresponding counter bit is set (legacy: `(pDupOption->Param
-//     & FLAG) && (m_DupXXX & FLAG)` then XOR).
+//   - DeleteDupParam: source-listed masks differ from addition; the later
+//     five charm flags toggle unconditionally, while other listed flags
+//     clear only when present. Missing keys stop subsequent categories.
 //   - IsDupAble: return true if NONE of the dup-table Param bits are
 //     already set in the counter (legacy: returns FALSE if any are set).
 //   - The bStreetStall side effect (legacy AddDupParam: bStreetStall=1,
@@ -124,6 +124,7 @@ struct DupParamIndices {
     std::uint32_t mugong_type       = 0;  // 0 means no incantation SHOPITEMDUP
     std::uint32_t life_recover      = 0;  // 0 means no sundries SHOPITEMDUP
     std::uint32_t life_recover_rate = 0;  // 0 means no pet-equip SHOPITEMDUP
+    bool life_recover_rate_nonzero = false; // nonzero float can truncate to key zero
 };
 
 // ============================================================================
@@ -137,12 +138,12 @@ struct DupParamIndices {
 class DupParamLookup {
 public:
     virtual ~DupParamLookup() = default;
-    // Returns the SHOPITEMDUP.Param bitset for the given index, or 0
-    // if no entry exists in the legacy table. The default implementation
-    // returns 0 (perfectly valid for the "no dup protection" case).
-    virtual std::uint32_t dup_param_for(std::uint32_t index) const noexcept {
-        (void)index;
-        return 0;
+    // A present entry with Param=0 differs from a missing table entry:
+    // AddDupParam stops at a missing key, preserving earlier category effects.
+    virtual bool try_get_dup_param(std::uint32_t index, std::uint32_t& param) const noexcept = 0;
+    std::uint32_t dup_param_for(std::uint32_t index) const noexcept {
+        std::uint32_t param = 0;
+        return try_get_dup_param(index, param) ? param : 0;
     }
 };
 
@@ -168,10 +169,9 @@ void add_dup_param(DupCounters& counters,
                    const DupParamLookup& lookup,
                    SundrySideEffects& sundry_side_effects) noexcept;
 
-// 1:1 with legacy CShopItemManager::DeleteDupParam. For each of the 5
-// category blocks: lookup the SHOPITEMDUP table by the corresponding
-// index, then XOR (clear) the dup.Param bits from the counter, but
-// only if the corresponding counter bit is set. Sundries has a side
+// Source DeleteDupParam stops at missing keys. Most listed bits clear only
+// when present; Ghost/Woigong/Naegong/Hunter/ExpDay unconditionally XOR.
+// Incantations clear only MemoryMove and ProtectAll. Sundries has a side
 // effect on the player's bStreetStall (captured in
 // sundry_side_effects).
 void delete_dup_param(DupCounters& counters,

@@ -28,15 +28,15 @@ using namespace mxh::server;
 
 namespace {
 
-// Test lookup that maps index -> Param bitset. Index 0 / unmapped
-// returns 0 (matches the legacy "no SHOPITEMDUP entry" path).
+// Preserve the distinction between a missing entry and a present zero bitset.
 class FixedLookup final : public DupParamLookup {
 public:
     std::map<std::uint32_t, std::uint32_t> table;
-    std::uint32_t dup_param_for(std::uint32_t index) const noexcept override {
+    bool try_get_dup_param(std::uint32_t index, std::uint32_t& param) const noexcept override {
         auto it = table.find(index);
-        if (it == table.end()) return 0;
-        return it->second;
+        if (it == table.end()) return false;
+        param = it->second;
+        return true;
     }
 };
 
@@ -59,6 +59,38 @@ TEST(AddDupParam, NoIndicesIsNoOp) {
     EXPECT_EQ(c.pet_equip, 0u);
     EXPECT_FALSE(fx.set_b_street_stall);
     EXPECT_FALSE(fx.clear_b_street_stall);
+}
+
+TEST(AddDupParam, MissingCategoryStopsLaterEffectsAndPreservesEarlierOnes) {
+    for (std::uint32_t missing=1; missing<=5; ++missing) {
+        FixedLookup lookup;
+        for (std::uint32_t key=1; key<=5; ++key) if (key!=missing) lookup.table[key]=2;
+        DupCounters counters{}; DupParamIndices indices{1,2,3,4,5}; SundrySideEffects effects{};
+        add_dup_param(counters,indices,lookup,effects);
+        EXPECT_EQ(counters.charm,missing>1?2u:0u);
+        EXPECT_EQ(counters.herb,missing>2?2u:0u);
+        EXPECT_EQ(counters.incantation,missing>3?2u:0u);
+        EXPECT_EQ(counters.sundries,missing>4?2u:0u);
+        EXPECT_EQ(counters.pet_equip,0u);
+        EXPECT_EQ(effects.set_b_street_stall,missing>4);
+    }
+}
+
+TEST(AddDupParam, PresentZeroEntryDoesNotStopLaterCategories) {
+    FixedLookup lookup; lookup.table[1]=0; lookup.table[2]=2;
+    DupCounters counters{}; DupParamIndices indices{1,2,0,0,0}; SundrySideEffects effects{};
+    add_dup_param(counters,indices,lookup,effects);
+    EXPECT_EQ(counters.charm,0u); EXPECT_EQ(counters.herb,2u);
+}
+
+TEST(AddDupParam, OnlySourceListedBitsAreAddedToEachCategory) {
+    FixedLookup lookup; lookup.table[1]=0xffffffffu;
+    DupCounters counters{}; DupParamIndices indices{1,1,1,1,1}; SundrySideEffects effects{};
+    add_dup_param(counters,indices,lookup,effects);
+    EXPECT_EQ(counters.charm,0xc1feu);
+    EXPECT_EQ(counters.herb,0x1feu); EXPECT_EQ(counters.incantation,0x1feu);
+    EXPECT_EQ(counters.sundries,2u); EXPECT_EQ(counters.pet_equip,2u);
+    EXPECT_TRUE(effects.set_b_street_stall);
 }
 
 TEST(AddDupParam, CharmBitsOrIntoCounter) {
@@ -415,9 +447,51 @@ TEST(IsDupAble, LookupReturnsZeroIsTrue) {
     DupCounters c;
     c.charm = charm_dup::WoigongDamage;  // counter has bits
     DupParamIndices idx;
-    idx.all_plus_value = 999;  // not in lookup
+    idx.all_plus_value = 999;
     FixedLookup lookup;
+    lookup.table[999] = 0; // present zero is valid; missing is rejected
     EXPECT_TRUE(is_dup_able(c, idx, lookup));
+}
+
+TEST(IsDupAble, MissingEntryInEveryCategoryRejects) {
+    const DupParamIndices cases[]={{1,0,0,0,0},{0,1,0,0,0},{0,0,1,0,0},
+                                  {0,0,0,1,0},{0,0,0,0,1},{0,0,0,0,0,true}};
+    FixedLookup lookup; DupCounters counters{};
+    for (const auto& indices:cases) EXPECT_FALSE(is_dup_able(counters,indices,lookup));
+}
+
+TEST(IsDupAble, UnlistedBitsDoNotBlockUse) {
+    DupCounters counters{1,1,1,1,1}; DupParamIndices indices{1,1,1,1,1};
+    FixedLookup lookup; lookup.table[1]=1;
+    EXPECT_TRUE(is_dup_able(counters,indices,lookup));
+}
+
+TEST(DeleteDupParam, LaterCharmFlagsToggleEvenWhenAbsent) {
+    FixedLookup lookup; lookup.table[1]=0xffffffffu;
+    DupCounters counters{}; DupParamIndices indices{1,0,0,0,0}; SundrySideEffects effects{};
+    delete_dup_param(counters,indices,lookup,effects);
+    EXPECT_EQ(counters.charm,0xc1c0u);
+    delete_dup_param(counters,indices,lookup,effects);
+    EXPECT_EQ(counters.charm,0u);
+}
+
+TEST(DeleteDupParam, IncantationDeletesOnlyMemoryAndProtectFlags) {
+    FixedLookup lookup; lookup.table[1]=0xffffffffu;
+    DupCounters counters{0,0,0xffffffffu,0,0}; DupParamIndices indices{0,0,1,0,0};
+    SundrySideEffects effects{}; delete_dup_param(counters,indices,lookup,effects);
+    EXPECT_EQ(counters.incantation,0xfffffff9u);
+}
+
+TEST(DeleteDupParam, MissingCategoryStopsAfterEarlierEffects) {
+    for (std::uint32_t missing=1;missing<=5;++missing) {
+        FixedLookup lookup;
+        for (std::uint32_t key=1;key<=5;++key) if(key!=missing) lookup.table[key]=2;
+        DupCounters counters{2,2,2,2,2}; DupParamIndices indices{1,2,3,4,5}; SundrySideEffects effects{};
+        delete_dup_param(counters,indices,lookup,effects);
+        EXPECT_EQ(counters.charm,missing>1?0u:2u); EXPECT_EQ(counters.herb,missing>2?0u:2u);
+        EXPECT_EQ(counters.incantation,missing>3?0u:2u); EXPECT_EQ(counters.sundries,missing>4?0u:2u);
+        EXPECT_EQ(counters.pet_equip,2u); EXPECT_EQ(effects.clear_b_street_stall,missing>4);
+    }
 }
 
 TEST(IsDupAble, AnyCategoryOverlapBlocks) {
