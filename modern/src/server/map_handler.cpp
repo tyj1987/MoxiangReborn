@@ -2850,6 +2850,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             const std::uint32_t player_id = msg.header.object_id;
             std::uint32_t player_money = 0;
             std::uint32_t npc_id = 0;
+            std::vector<std::uint32_t> candidate_dealers;
             std::uint16_t target_item_id = 0;
             if (msg.payload.size() >= 2) {
                 std::memcpy(&target_item_id, msg.payload.data(), sizeof(target_item_id));
@@ -2859,12 +2860,12 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                 if (target_item_id != 0u) {
                     for (const auto& npc : dealitem_catalog_.npcs) {
                         if (npc.find_item(target_item_id) != nullptr) {
-                            npc_id = npc.npc_index;
-                            break;
+                            candidate_dealers.push_back(npc.npc_index);
                         }
                     }
                 }
             }
+            if (!candidate_dealers.empty()) npc_id = candidate_dealers.front();
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 const auto it = connected_players_.find(player_id);
@@ -2892,11 +2893,15 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     if (!npcs_.empty()) {
                         dealer_in_range = false;
                         for (const auto& npc : npcs_) {
-                            if (npc.npc_id != npc_id) continue;
+                            if (std::find(candidate_dealers.begin(), candidate_dealers.end(), npc.npc_id)
+                                == candidate_dealers.end()) continue;
                             const float dx = player_position->first - npc.pos_x;
                             const float dz = player_position->second - npc.pos_z;
-                            dealer_in_range = dx * dx + dz * dz <= 500.0f * 500.0f;
-                            break;
+                            if (dx * dx + dz * dz <= 500.0f * 500.0f) {
+                                npc_id = npc.npc_id;
+                                dealer_in_range = true;
+                                break;
+                            }
                         }
                     }
                 }

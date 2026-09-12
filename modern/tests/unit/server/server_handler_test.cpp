@@ -3384,6 +3384,33 @@ TEST(MapHandlerTest, LoadQuestScriptPopulatesDefinitionsFromBin) {
     ASSERT_EQ(def->subquests.size(), 1u);
     EXPECT_EQ(def->subquests[0].triggers.size(), 1u);
 }
+TEST(MapHandlerTest, BuyResolvesNearbyDealerWhenEarlierCatalogAlsoSellsItem) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto path = write_temp_bin(synthesize_dealitem_bin(
+        "1 map 1 npc 2 100 100 0 1 tab 555 10\n"
+        "7 map 1 npc 3 25000 25000 0 1 tab 555 10\n"));
+    handler.load_dealitem(path.string());
+    std::error_code ec; std::filesystem::remove(path, ec);
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message message;
+    message.header.object_id = 123u;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, message);
+    ASSERT_TRUE(handler.set_player_money_for_test(123u, 1000u));
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn);
+    message.payload = {0x2b, 0x02, 1, 0}; // item 555, quantity 1
+    handler.on_message(connection, message);
+    ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 20000.0f, 20000.0f));
+    handler.on_message(connection, message);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+}
+
 TEST(MapHandlerTest, RepeatedGameOutDoesNotOverwritePersistedMoneyWithZero) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
