@@ -12,6 +12,7 @@
 // first-class type).
 
 #pragma once
+#include "mxh/game/shop_item_option.hpp"
 
 #include "mxh/game/skill_types.hpp"
 #include "mxh/game/item_types.hpp"
@@ -179,6 +180,18 @@ struct PlayerState final {
     // GetSkillStatsOption / GetUniqueItemStats). Callers populate these
     // before invoking compute_max_* / tick_* helpers.
     CalcEquipBonuses bonuses;
+    // Source Player.cpp:117-119: original worn visuals are enabled by default.
+    // This state is not proof that persisted shop rows have been restored.
+    game::ShopItemOption shop_options = [] {
+        game::ShopItemOption options{};
+        for (std::size_t i=12; i<game::EAvatarCount; ++i) options.Avatar[i]=1;
+        return options;
+    }();
+
+    // Apply the restored option record and its resource-cap contributions.
+    // Combat/progression/slot consumers still need their own integration;
+    // this method binds resource caps only and does not heal current vitals.
+    void apply_shop_options(const game::ShopItemOption& options) noexcept;
 
     // Mussang-mode metadata (legacy IsMussangMode / GetStage). Set by the
     // battle handler when entering mussang mode; passed to recovery ticks.

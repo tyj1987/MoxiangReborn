@@ -22,6 +22,14 @@ void PlayerState::recompute_max_stats() noexcept {
     vitals.max_mp     = compute_max_naeryuk(b, bonuses);
 }
 
+void PlayerState::apply_shop_options(const game::ShopItemOption& options) noexcept {
+    shop_options = options;
+    bonuses.shop_life = options.Life;
+    bonuses.shop_shield = options.Shield;
+    bonuses.shop_naeryuk = options.Naeryuk;
+    recompute_max_stats();
+}
+
 PlayerState make_player_state(std::uint32_t player_id,
                               std::uint32_t user_id,
                               std::uint16_t level,

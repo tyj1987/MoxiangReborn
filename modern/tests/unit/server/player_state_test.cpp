@@ -33,6 +33,31 @@ using mxh::game::ItemBase;
 }
 
 // ---- make_player_state ----
+TEST(PlayerShopState, SourceDefaultEnablesOnlyWornVisualSlots) {
+    const PlayerState state{};
+    ASSERT_EQ(state.shop_options.Avatar.size(),23u);
+    for(std::size_t i=0;i<23;++i) EXPECT_EQ(state.shop_options.Avatar[i],i<12?0:1);
+    EXPECT_EQ(state.shop_options.Life,0u); EXPECT_EQ(state.shop_options.bStreetStall,0u);
+}
+
+TEST(PlayerShopState, ResourceCapsReplaceShopContributionWithoutHealingOrAccumulating) {
+    CalcBaseStats base{}; base.level=20; base.cheryuk=50;
+    CalcEquipBonuses bonus{}; bonus.item_max_life=17; bonus.avatar_life=13;
+    auto state=make_player_state(42,7,20,base,bonus);
+    const auto hp=state.vitals.max_hp, shield=state.vitals.max_shield, mp=state.vitals.max_mp;
+    state.vitals.current_hp=10;
+    auto options=state.shop_options; options.Life=100; options.Shield=30; options.Naeryuk=40;
+    options.ProtectCount=4; options.wSkinItem[0]=101;
+    state.apply_shop_options(options);
+    EXPECT_EQ(state.vitals.max_hp,hp+100); EXPECT_EQ(state.vitals.max_shield,shield+30);
+    EXPECT_EQ(state.vitals.max_mp,mp+40); EXPECT_EQ(state.vitals.current_hp,10u);
+    EXPECT_EQ(state.bonuses.item_max_life,17); EXPECT_EQ(state.bonuses.avatar_life,13);
+    EXPECT_EQ(state.shop_options.ProtectCount,4); EXPECT_EQ(state.shop_options.wSkinItem[0],101);
+    state.apply_shop_options(options); EXPECT_EQ(state.vitals.max_hp,hp+100);
+    options.Life=0; options.Shield=0; options.Naeryuk=0; state.apply_shop_options(options);
+    EXPECT_EQ(state.vitals.max_hp,hp); EXPECT_EQ(state.vitals.max_shield,shield); EXPECT_EQ(state.vitals.max_mp,mp);
+}
+
 TEST(PlayerStateMake, BasicSpawnFullVitals) {
     CalcBaseStats b; b.level = 20; b.cheryuk = 50;
     auto s = make_player_state(1001, 7, 20, b, CalcEquipBonuses{});
@@ -257,4 +282,3 @@ TEST(PlayerVitals, RecoverySnapshotInit) {
     EXPECT_EQ(v.pending_life_count, 0u);
     EXPECT_EQ(v.last_life_check_ms, 0u);
 }
-
