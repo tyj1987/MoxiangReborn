@@ -3384,6 +3384,30 @@ TEST(MapHandlerTest, LoadQuestScriptPopulatesDefinitionsFromBin) {
     ASSERT_EQ(def->subquests.size(), 1u);
     EXPECT_EQ(def->subquests[0].triggers.size(), 1u);
 }
+TEST(MapHandlerTest, RepeatedGameOutDoesNotOverwritePersistedMoneyWithZero) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi("CREATE TABLE modern_player_state (player_id INTEGER PRIMARY KEY, money INTEGER NOT NULL, updated_at TEXT NOT NULL);").ok());
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message message;
+    message.header.object_id = 123u;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, message);
+    ASSERT_TRUE(handler.set_player_money_for_test(123u, 999u));
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+    handler.on_message(connection, message);
+    handler.on_message(connection, message);
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=123", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 999);
+}
+
 TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
     MockDbAdapter db;
     ReplySpy reply;
