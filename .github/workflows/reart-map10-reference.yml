@@ -1,0 +1,61 @@
+name: Verify original Map10 reference
+on:
+  push:
+    branches: [codex/original-assets-foundation]
+    paths: [.github/workflows/reart-map10-reference.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  map10-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Retrieve only the pinned Map.pak reference
+        run: git lfs pull --include="modern/data/PlayDH/Map.pak" --exclude=""
+      - name: Validate archive and extract only Map10 height reference
+        shell: python
+        run: |
+          import hashlib, json, pathlib, struct
+          path = pathlib.Path('modern/data/PlayDH/Map.pak')
+          raw = path.read_bytes()
+          expected = 'b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0'
+          assert hashlib.sha256(raw).hexdigest() == expected, 'Wrong LFS object or unresolved pointer'
+          version, count = struct.unpack_from('<II', raw)
+          assert version == 1 and count <= 1000000
+          cursor = 92
+          entries = []
+          output = pathlib.Path('map10-reference'); output.mkdir()
+          report = {'baseline': '89a11b3653549bab7471f53f8f0aafb72e98ce2a', 'archive_sha256': expected, 'scope': 'read-only reference; not original replacement artwork', 'entries': []}
+          for i in range(count):
+              assert cursor + 32 <= len(raw), 'Truncated archive header'
+              size, data_size, name_size, offset, f1, f2, f3, f4 = struct.unpack_from('<8I', raw, cursor)
+              assert 33 + name_size + data_size <= size and cursor + size <= len(raw)
+              name_raw = raw[cursor+32:cursor+32+name_size]
+              name = name_raw.decode('latin1').replace('\\', '/')
+              start = cursor + 33 + name_size
+              if name.rsplit('/', 1)[-1].lower() in {'10.hfl', 'map10.bmhm', '10.ttb'}:
+                  data = raw[start:start+data_size]
+                  basename = name.rsplit('/', 1)[-1].lower()
+                  assert not (output/basename).exists(), 'Duplicate basename'
+                  (output/basename).write_bytes(data)
+                  entry = {'name': name, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+                  if basename == '10.hfl':
+                      assert len(data) >= 112
+                      hx, hz = struct.unpack_from('<II', data, 56)
+                      width, height = struct.unpack_from('<ff', data, 64)
+                      entry.update(height_count_x=hx, height_count_z=hz, width=width, height=height)
+                  report['entries'].append(entry)
+              cursor += size
+          assert len(report['entries']) >= 1, 'No Map10 data found'
+          (output/'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: original-map10-reference
+          path: map10-reference/
+          if-no-files-found: error
+          retention-days: 3
