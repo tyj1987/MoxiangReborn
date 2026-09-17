@@ -1,0 +1,59 @@
+name: Original asset source audit
+
+on:
+  push:
+    branches: [codex/original-assets-foundation]
+    paths: [.github/workflows/reart-source-audit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Freeze tracked source and resource availability
+        shell: bash
+        run: |
+          mkdir -p audit-output
+          git rev-parse HEAD > audit-output/commit.txt
+          git ls-tree -r --full-tree HEAD > audit-output/tracked-tree.txt
+          git status --porcelain=v1 > audit-output/working-tree.txt
+          python3 - <<'PY'
+          import collections, hashlib, json, pathlib, subprocess
+          root = pathlib.Path('.')
+          paths = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          records = []
+          for name in paths:
+              if not name.startswith('modern/data/PlayDH/'):
+                  continue
+              path = root / name
+              if not path.is_file() or path.is_symlink():
+                  records.append({'path': name, 'state': 'missing-or-symlink'})
+                  continue
+              digest = hashlib.sha256()
+              with path.open('rb') as source:
+                  prefix = source.read(256)
+                  digest.update(prefix)
+                  for chunk in iter(lambda: source.read(1048576), b''):
+                      digest.update(chunk)
+              records.append({'path': name, 'size': path.stat().st_size, 'sha256': digest.hexdigest(), 'state': 'lfs-pointer' if prefix.startswith(b'version https://git-lfs.github.com/spec/v1') else 'tracked-bytes'})
+          report = {'schema': 1, 'scope': 'tracked repository bytes only; excludes untracked/external PlayDH files; not active-gameplay coverage', 'baseline': '89a11b3653549bab7471f53f8f0aafb72e98ce2a', 'counts': dict(collections.Counter(r['state'] for r in records)), 'files': records}
+          pathlib.Path('audit-output/tracked-resource-inventory.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+          # Archive contains only this repository's tracked files; never .git,
+          # runner credentials, environment, local external data or secrets.
+          # It stays in this repository's short-lived Actions artifact store.
+          git archive --format=tar --output=audit-output/source.tar HEAD
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reart-audit-inputs
+          path: audit-output/
+          if-no-files-found: error
+          retention-days: 3
