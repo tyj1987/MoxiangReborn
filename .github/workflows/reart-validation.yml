@@ -1,0 +1,44 @@
+name: Original asset tooling validation
+on:
+  push:
+    branches: [codex/original-assets-foundation]
+    paths:
+      - modern/tools/reart/**
+      - modern/tests/reart/**
+      - .github/workflows/reart-validation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          lfs: false
+          persist-credentials: false
+      - name: Generate and validate original assets with existing parsers
+        shell: python
+        run: |
+          import os, pathlib, subprocess, sys
+          output=pathlib.Path(os.environ['RUNNER_TEMP'])/'reart-validation'
+          subprocess.run([sys.executable,'modern/tools/reart/ci_check.py','--repo','.', '--output',str(output)],check=True)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: original-assets-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/reart-validation/evidence/
+            ${{ runner.temp }}/reart-validation/*.zip
+            ${{ runner.temp }}/reart-validation/*.html
+            ${{ runner.temp }}/reart-validation/SHA256.json
+          if-no-files-found: error
+          retention-days: 14
