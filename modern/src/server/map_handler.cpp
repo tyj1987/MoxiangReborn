@@ -5486,8 +5486,7 @@ bool MapHandler::load_exp_penalty(const std::filesystem::path& path, std::string
         ? "7abcc8211e0bffa58ce7658883c79bf040e748a42568701b773e4ed3f0809419"
         : "f39c4d312788fbb66f7eecf798e33bb82a9e2f5a647b31e300cf2db19d396a19";
     if (mxh::net::sha256(bytes).to_hex() != expected) return false;
-    exp_penalties_ = mxh::game::decode_exp_penalty(bytes, format);
-    return exp_penalties_.has_value();
+    return install_decoded_exp_penalties(mxh::game::decode_exp_penalty(bytes, format));
 }
 
 bool MapHandler::load_login_points(const std::filesystem::path& path, std::string_view profile) {
@@ -5505,8 +5504,7 @@ bool MapHandler::load_login_points(const std::filesystem::path& path, std::strin
         ? "08f66bb7d4f7eb2b8fa61828c284ed8384a312a8d2809d12399bbfcdb3dc811e"
         : "19ae7df6504ebd20949e41b8eb1f64c5c52fff0a5d87596755357b4500b879ab";
     if (mxh::net::sha256(bytes).to_hex() != expected) return false;
-    login_points_ = mxh::game::decode_login_points(bytes, format);
-    return login_points_.has_value();
+    return install_decoded_login_points(mxh::game::decode_login_points(bytes, format));
 }
 
 void MapHandler::load_monster_list(const std::string& path) {

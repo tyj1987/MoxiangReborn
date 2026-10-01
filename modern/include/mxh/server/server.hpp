@@ -56,9 +56,13 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <atomic>
 
 namespace mxh::server {
+
+// Defined only in the handler test translation unit; no runtime test switch.
+namespace test { struct MapHandlerResourceTestPeer; }
 
 // Forward declare TcpServer so handlers can send replies.
 namespace net_detail { class TcpServerBase; }
@@ -711,6 +715,17 @@ public:
     bool is_draining() const noexcept { return draining_; }
 
 private:
+    friend struct test::MapHandlerResourceTestPeer;
+    // Production callers reach these typed installs only after the public
+    // file loader has verified its pinned digest and decoded the resource.
+    bool install_decoded_exp_penalties(std::optional<mxh::game::ExpPenaltyTable> table) {
+        exp_penalties_ = std::move(table);
+        return exp_penalties_.has_value();
+    }
+    bool install_decoded_login_points(std::optional<mxh::game::LoginPointTable> table) {
+        login_points_ = std::move(table);
+        return login_points_.has_value();
+    }
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
     void handle_move(mxh::net::ConnectionId id,

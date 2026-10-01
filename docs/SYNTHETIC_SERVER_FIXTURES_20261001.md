@@ -1,6 +1,14 @@
 # 三项Handler历史资源依赖的隔离
 
-本提交只调整测试与测试构建入口，不修改生产游戏数据或解析器。ROG在补入经SHA核对的旧文件后报告原Handler173/173通过；不带未追踪文件时170/173。该运行结果来自协作端，不是云端亲测。
+本批隔离测试资源依赖，不修改生产游戏数据或解析器。ROG在补入经SHA核对的旧文件后报告原Handler173/173通过；不带未追踪文件时170/173。该运行结果来自协作端，不是云端亲测。
+
+## SHA校验与测试注入修正
+
+ROG在`8910dcf265c7b2d81c0f28cf89b0789380961b41`报告Windows构建通过、默认Handler179/181，登录点和惩罚表两项失败：合成文件在生产加载器的固定SHA校验处被正确拒绝，尚未进入解码器。这两项失败不能作为验收通过。
+
+修正采用仅在Handler测试翻译单元定义的`MapHandlerResourceTestPeer`，把真实解码器产生的类型化表交给Handler的私有安装方法。默认合成回归通过该入口检查行为；可选原资源参考测试仍调用生产文件加载器。安装方法不是公开API，并有编译期访问性断言；没有环境变量、运行时开关或任意文件加载的生产入口。
+
+生产加载器的profile检查、旧表清除、文件读取/长度检查、四个固定SHA及摘要比较均保留，仅将校验后的赋值封装为私有方法。新增`ProductionResourceLoadersRejectSyntheticHashesAndClearStaleTables`，对current和legacy的登录点/惩罚表分别验证：相同合成内容可经测试入口安装，但生产文件入口必须拒绝并清除旧表。该Handler回归需ROG运行，云端12项可移植测试不包含它。
 
 ## 默认回归与参考测试
 
@@ -27,7 +35,7 @@ ctest --test-dir modern/out/pickup-wire-tests --output-on-failure
 Windows先在不补入旧reference文件的隔离checkout构建并运行默认Handler：
 
 ```text
-mxh_server_handler_tests --gtest_filter=MapHandlerTest.LoginPointRequestAppliesPenaltyAndRestoresOnRelogin:MapHandlerTest.SyntheticMonster10BinSpawnsAllGroups:MapHandlerTest.ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable:SyntheticServerResources.*
+mxh_server_handler_tests --gtest_filter=MapHandlerTest.LoginPointRequestAppliesPenaltyAndRestoresOnRelogin:MapHandlerTest.SyntheticMonster10BinSpawnsAllGroups:MapHandlerTest.ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable:MapHandlerTest.ProductionResourceLoadersRejectSyntheticHashesAndClearStaleTables:SyntheticServerResources.*
 mxh_server_handler_tests
 ```
 

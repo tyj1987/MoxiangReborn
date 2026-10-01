@@ -63,6 +63,51 @@
 
 namespace mxh::server::test {
 
+// This peer is defined only in this test target. It accepts decoded tables,
+// never adds an unaudited-file path to the production server's public API.
+struct MapHandlerResourceTestPeer {
+    static bool penalties(MapHandler& handler, std::optional<mxh::game::ExpPenaltyTable> table) {
+        return handler.install_decoded_exp_penalties(std::move(table));
+    }
+    static bool login_points(MapHandler& handler, std::optional<mxh::game::LoginPointTable> table) {
+        return handler.install_decoded_login_points(std::move(table));
+    }
+};
+
+template<class T> concept PublicPenaltyInstall = requires(T& handler) {
+    handler.install_decoded_exp_penalties(std::optional<mxh::game::ExpPenaltyTable>{});
+};
+template<class T> concept PublicLoginInstall = requires(T& handler) {
+    handler.install_decoded_login_points(std::optional<mxh::game::LoginPointTable>{});
+};
+static_assert(!PublicPenaltyInstall<MapHandler> && !PublicLoginInstall<MapHandler>);
+
+using TestResourceLoader = bool (*)(MapHandler&, const std::filesystem::path&, std::string_view);
+std::vector<std::uint8_t> read_synthetic_resource(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+bool inject_synthetic_login(MapHandler& handler, const std::filesystem::path& path, std::string_view profile) {
+    std::optional<mxh::game::LoginPointTable> table;
+    if (profile == "playdh-current" || profile == "sworking-2008-reference")
+        table = mxh::game::decode_login_points(read_synthetic_resource(path), profile == "playdh-current"
+            ? mxh::game::LoginPointProfile::PlayDhCurrent : mxh::game::LoginPointProfile::LegacyMhFile);
+    return MapHandlerResourceTestPeer::login_points(handler, std::move(table));
+}
+bool inject_synthetic_penalties(MapHandler& handler, const std::filesystem::path& path, std::string_view profile) {
+    std::optional<mxh::game::ExpPenaltyTable> table;
+    if (profile == "playdh-current" || profile == "sworking-2008-reference")
+        table = mxh::game::decode_exp_penalty(read_synthetic_resource(path), profile == "playdh-current"
+            ? mxh::game::ExpPenaltyProfile::PlayDhCurrent : mxh::game::ExpPenaltyProfile::LegacyMhFile);
+    return MapHandlerResourceTestPeer::penalties(handler, std::move(table));
+}
+bool load_reference_login(MapHandler& handler, const std::filesystem::path& path, std::string_view profile) {
+    return handler.load_login_points(path, profile);
+}
+bool load_reference_penalties(MapHandler& handler, const std::filesystem::path& path, std::string_view profile) {
+    return handler.load_exp_penalty(path, profile);
+}
+
 // ===========================================================================
 // Mock IDbAdapter ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â minimum viable stub for handler construction.
 //
@@ -2713,7 +2758,7 @@ TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
 }
 
 void check_login_point_request(const std::filesystem::path& current_path,
-                               const std::filesystem::path& legacy_path) {
+                               const std::filesystem::path& legacy_path, TestResourceLoader load_login) {
     const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
     auto read_bytes = [](const std::filesystem::path& path) {
         std::ifstream input(path, std::ios::binary);
@@ -2791,7 +2836,7 @@ void check_login_point_request(const std::filesystem::path& current_path,
         ReplySpy reply;
         mxh::server::MapHandler event_map(db, 58, make_reply_spy(reply));
         event_map.set_allow_dev_gamein_fallback(false);
-        ASSERT_TRUE(event_map.load_login_points(current_path, "playdh-current"));
+        ASSERT_TRUE(load_login(event_map, current_path, "playdh-current"));
         event_map.on_message({55}, enter());
         ASSERT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
         reply.messages.clear();
@@ -2811,7 +2856,7 @@ void check_login_point_request(const std::filesystem::path& current_path,
     handler.load_experience_curve((root / "CharacterExpPoint.bin").string());
     ASSERT_TRUE(handler.load_exp_penalty(root / "Server/ExpPenalty.bin", "playdh-current"));
     ASSERT_TRUE(handler.load_map_kinds(root / "MapKindInfo.bin", "playdh-current"));
-    ASSERT_TRUE(handler.load_login_points(current_path, "playdh-current"));
+    ASSERT_TRUE(load_login(handler, current_path, "playdh-current"));
     handler.on_message({55}, enter());
     const auto before = handler.player_runtime_snapshot(777);
     ASSERT_TRUE(before);
@@ -2874,13 +2919,13 @@ TEST(MapHandlerTest, LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
     namespace fixture = mxh::test::resources;
     const fixture::TemporaryBin current(fixture::current(fixture::login_text, fixture::login_key));
     const fixture::TemporaryBin legacy(fixture::legacy(fixture::login_text));
-    check_login_point_request(current.path, legacy.path);
+    check_login_point_request(current.path, legacy.path, inject_synthetic_login);
 }
 
 TEST(MapHandlerReferenceTest, DISABLED_LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
     check_login_point_request(std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/Server/LoginPoint.bin",
         std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
-        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/LoginPoint.bin");
+        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/LoginPoint.bin", load_reference_login);
 }
 
 TEST(MapHandlerTest, DeadDisconnectAppliesLoginPenaltyWithoutMoving) {
@@ -5184,21 +5229,21 @@ TEST(MapHandlerTest, SkillDoesNotApplyToReplacedCasterOrTargetSession) {
 }
 
 void check_penalty_profile_switch(const std::filesystem::path& current,
-                                  const std::filesystem::path& legacy) {
+                                  const std::filesystem::path& legacy, TestResourceLoader load_penalties) {
     MockDbAdapter db;
     ReplySpy reply;
     MapHandler handler(db,10,make_reply_spy(reply));
-    ASSERT_TRUE(handler.load_exp_penalty(current, "playdh-current"));
+    ASSERT_TRUE(load_penalties(handler, current, "playdh-current"));
     ASSERT_TRUE(handler.exp_penalties());
     EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).present_percent, 2.4f);
-    EXPECT_FALSE(handler.load_exp_penalty(current, "sworking-2008-reference"));
+    EXPECT_FALSE(load_penalties(handler, current, "sworking-2008-reference"));
     EXPECT_FALSE(handler.exp_penalties());
-    ASSERT_TRUE(handler.load_exp_penalty(legacy, "sworking-2008-reference"));
+    ASSERT_TRUE(load_penalties(handler, legacy, "sworking-2008-reference"));
     EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).login_percent, 1.9f);
-    EXPECT_FALSE(handler.load_exp_penalty(legacy, "unknown-profile"));
+    EXPECT_FALSE(load_penalties(handler, legacy, "unknown-profile"));
     EXPECT_FALSE(handler.exp_penalties());
-    ASSERT_TRUE(handler.load_exp_penalty(current, "playdh-current"));
-    EXPECT_FALSE(handler.load_exp_penalty(current / "missing.bin", "playdh-current"));
+    ASSERT_TRUE(load_penalties(handler, current, "playdh-current"));
+    EXPECT_FALSE(load_penalties(handler, current / "missing.bin", "playdh-current"));
     EXPECT_FALSE(handler.exp_penalties());
 }
 
@@ -5206,13 +5251,37 @@ TEST(MapHandlerTest, ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
     namespace fixture = mxh::test::resources;
     const fixture::TemporaryBin current(fixture::current(fixture::penalty_text, fixture::penalty_key));
     const fixture::TemporaryBin legacy(fixture::legacy(fixture::penalty_text));
-    check_penalty_profile_switch(current.path, legacy.path);
+    check_penalty_profile_switch(current.path, legacy.path, inject_synthetic_penalties);
 }
 
 TEST(MapHandlerReferenceTest, DISABLED_ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
     check_penalty_profile_switch(std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/Server/ExpPenalty.bin",
         std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
-        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/ExpPenalty.bin");
+        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/ExpPenalty.bin", load_reference_penalties);
+}
+
+TEST(MapHandlerTest, ProductionResourceLoadersRejectSyntheticHashesAndClearStaleTables) {
+    namespace fixture = mxh::test::resources;
+    MockDbAdapter db;
+    ReplySpy reply;
+    MapHandler handler(db, 10, make_reply_spy(reply));
+    for (const bool current : {false, true}) {
+        const std::string_view profile = current ? "playdh-current" : "sworking-2008-reference";
+        const fixture::TemporaryBin login(current ? fixture::current(fixture::login_text, fixture::login_key)
+                                                  : fixture::legacy(fixture::login_text));
+        const fixture::TemporaryBin penalties(current ? fixture::current(fixture::penalty_text, fixture::penalty_key)
+                                                      : fixture::legacy(fixture::penalty_text));
+        // The same well-formed synthetic bytes are usable only via the peer
+        // compiled into this test, never through the production file loaders.
+        ASSERT_TRUE(inject_synthetic_login(handler, login.path, profile));
+        ASSERT_TRUE(handler.login_points());
+        EXPECT_FALSE(handler.load_login_points(login.path, profile));
+        EXPECT_FALSE(handler.login_points());
+        ASSERT_TRUE(inject_synthetic_penalties(handler, penalties.path, profile));
+        ASSERT_TRUE(handler.exp_penalties());
+        EXPECT_FALSE(handler.load_exp_penalty(penalties.path, profile));
+        EXPECT_FALSE(handler.exp_penalties());
+    }
 }
 
 TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection) {
