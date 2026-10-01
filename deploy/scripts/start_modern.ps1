@@ -323,6 +323,17 @@ $dbTool = Resolve-ModernBinary 'MoxianDbTool' 'mxh_db_tool.exe'
 $loginExe = Resolve-ModernBinary 'MoxianLoginServer' 'mxh_login_server.exe'
 $agentExe = Resolve-ModernBinary 'MoxianAgentServer' "mxh_agent_server_$Locale.exe"
 $mapExe = Resolve-ModernBinary 'MoxianMapServer' "mxh_map_server_$Locale.exe"
+$requiredWriterContract = 'mxh-map-writer-v2:item-containers-0-5,shop-skin-5,used-items,starter-equipment-atomic'
+$mapWriterContract = (& $mapExe --print-writer-contract | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $mapWriterContract -cne $requiredWriterContract) {
+    throw "MapServer writer contract mismatch: required '$requiredWriterContract', reported '$mapWriterContract'"
+}
+$binaryHashes = [ordered]@{
+    db_tool = (Get-FileHash -LiteralPath $dbTool -Algorithm SHA256).Hash.ToLowerInvariant()
+    login = (Get-FileHash -LiteralPath $loginExe -Algorithm SHA256).Hash.ToLowerInvariant()
+    agent = (Get-FileHash -LiteralPath $agentExe -Algorithm SHA256).Hash.ToLowerInvariant()
+    map = (Get-FileHash -LiteralPath $mapExe -Algorithm SHA256).Hash.ToLowerInvariant()
+}
 
 $previousDatabaseConfig = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
 if ($Backend -eq 'sqlite') {
@@ -376,6 +387,10 @@ try {
 
     & $dbTool migrate --db-env $DatabaseConfigEnv
     if ($LASTEXITCODE -ne 0) { throw "Database migration failed with exit code $LASTEXITCODE" }
+    $databaseWriterContract = (& $dbTool verify-writer-contract --db-env $DatabaseConfigEnv | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $databaseWriterContract -cne $requiredWriterContract) {
+        throw "Database writer contract mismatch: required '$requiredWriterContract', reported '$databaseWriterContract'"
+    }
 
     $gitCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
     $manifest = [ordered]@{
@@ -386,6 +401,8 @@ try {
         config = $Config
         backend = $Backend
         database_source = "environment:$DatabaseConfigEnv"
+        writer_contract = $requiredWriterContract
+        binary_sha256 = $binaryHashes
         bind_address = $BindAddress
         advertised_agent_address = $AdvertisedAgentAddress
         map_bind_address = $MapBindAddress

@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "stableId": "monster-visual-kind-103",
+  "classification": "recovered-original",
+  "source": {
+    "chx": {
+      "pak": "monster.pak",
+      "index": 1368,
+      "name": "l103.chx",
+      "bytes": 296,
+      "sha256": "17aac0520d8434c3fbb1e4768b78db34971a280977a8f35240bd2f43c54145da",
+      "offset": 88495307
+    },
+    "model": {
+      "pak": "monster.pak",
+      "index": 1352,
+      "name": "l103_lod2.mod",
+      "bytes": 98430,
+      "sha256": "7022d3fdbe22ee51cfdd13a1055523d359afdb7734c0b685b1d2e5f5c9e6bebf",
+      "offset": 87465128
+    },
+    "textures": [
+      {
+        "pak": "monster.pak",
+        "index": 1367,
+        "name": "l103.tif",
+        "bytes": 381252,
+        "sha256": "a6f8db856342fae667d7abb539bea08f385b436f7e7de10b8ead2ee4aa8991d3",
+        "offset": 88114014,
+        "derivative": "l103.png",
+        "derivativeSha256": "405b0da3e67387c213f8a3a790a25396df707b822342fdb6a8b492fb2c6ff981"
+      }
+    ],
+    "motions": [
+      {
+        "pak": "monster.pak",
+        "index": 1355,
+        "name": "l103_12.anm",
+        "bytes": 27920,
+        "sha256": "296b4f6440f56a0fe2f090f4a0d219f01f948e5d02fd8f1d2ff282b5025b3e1f",
+        "offset": 87677214
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1356,
+        "name": "l103_11.anm",
+        "bytes": 9728,
+        "sha256": "bc67363c5eee7b5911eff2c06c825cb61cdaed624a1dd2ba60c17c8c7c880c82",
+        "offset": 87705178
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1357,
+        "name": "l103_10.anm",
+        "bytes": 9708,
+        "sha256": "ddec4f74b60daff816b943d34aefb9d109365927cdc86845c40ac83d56e061d2",
+        "offset": 87714950
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1358,
+        "name": "l103_09.anm",
+        "bytes": 53000,
+        "sha256": "9803025fd683025986f0bf996815fceab5ebe636d25da99e2b832334d7daccb9",
+        "offset": 87724702
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1359,
+        "name": "l103_08.anm",
+        "bytes": 45920,
+        "sha256": "6892798b3951afaa30df3176abcbc1575d65c8a308d0075503698618079bb2d3",
+        "offset": 87777746
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1360,
+        "name": "l103_07.anm",
+        "bytes": 29440,
+        "sha256": "ad7ddf8fc47f10588d268c99ac5d8cc76b1f9e05114e76a442615f49822c1d51",
+        "offset": 87823710
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1361,
+        "name": "l103_06.anm",
+        "bytes": 25760,
+        "sha256": "0af33ccf5563cc3ba275cccb42a383b9b27403f5e133a41e649ff288a4a299d5",
+        "offset": 87853194
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1362,
+        "name": "l103_05.anm",
+        "bytes": 27488,
+        "sha256": "bfa4e3977eb3b04c51200ac278db8788cab50aaaed266137c2675c05faaaa55b",
+        "offset": 87878998
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1363,
+        "name": "l103_04.anm",
+        "bytes": 52020,
+        "sha256": "bab46fa6c79ad772b9c29347185b6d32ae54cd7f5078ff4960df66e77742be87",
+        "offset": 87906530
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1364,
+        "name": "l103_03.anm",
+        "bytes": 65080,
+        "sha256": "86f1755723387b63a965adbce2a92bf4a3b5bdc4ce866a89c132d3f4f1fb7ef9",
+        "offset": 87958594
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1365,
+        "name": "l103_02.anm",
+        "bytes": 43424,
+        "sha256": "1b8d20cfd109fa7e430d5ac0f5c74b70bfba5f184302892df13f35769deecfdb",
+        "offset": 88023718
+      },
+      {
+        "pak": "monster.pak",
+        "index": 1366,
+        "name": "l103_01.anm",
+        "bytes": 46784,
+        "sha256": "ed21448e40d9fcffa0466592ea2a1e24d437103104bd8f7284dacf30d0ca751e",
+        "offset": 88067186
+      }
+    ]
+  },
+  "derivativeModel": "l103_lod2.mxhmodel",
+  "derivativeModelSha256": "1baea94b651a0c2f60c973b7bd7818bc54f8a660d597bfdf971491838b856453",
+  "motionDerivatives": [
+    {
+      "name": "Motions/l103_01.mxhmotion",
+      "sha256": "4a32c9ff0ad8f72e205c407c75db0adc46074186640b154c8ddb245fb186bb9c"
+    },
+    {
+      "name": "Motions/l103_02.mxhmotion",
+      "sha256": "79d473f570d94bf20981541fc753f5107278f293f305f218d62448888d20f40a"
+    },
+    {
+      "name": "Motions/l103_03.mxhmotion",
+      "sha256": "7aca6d5fca37199f05411f4738a6e265896c90cbfb351e9be252d156d0a4656d"
+    },
+    {
+      "name": "Motions/l103_04.mxhmotion",
+      "sha256": "c3fa22cba428e510b5d3fb378c206e4f83263841c1242b287db0bbab94458126"
+    },
+    {
+      "name": "Motions/l103_05.mxhmotion",
+      "sha256": "f8894513c7a774e60c4d26fd7e1f5081f0f1bcf8ea1854545ca09fde8478a1de"
+    },
+    {
+      "name": "Motions/l103_06.mxhmotion",
+      "sha256": "e816694a05a36fba9de073673009e7304355aa3b02769a2b5bb37cbcbe1079e6"
+    },
+    {
+      "name": "Motions/l103_07.mxhmotion",
+      "sha256": "d677a8aff8bafcc010ecf59d7b11ded7d1fad38a3ae364807ae62919e823b395"
+    },
+    {
+      "name": "Motions/l103_08.mxhmotion",
+      "sha256": "e9ee71d31419a483133d685daabcadc3a4149d66a097aeb6535a08b0a0305297"
+    },
+    {
+      "name": "Motions/l103_09.mxhmotion",
+      "sha256": "2f10adb52cbc9e26b76c90d9e0a34ab266b46e6096af86c930da43e5a3fc1988"
+    },
+    {
+      "name": "Motions/l103_10.mxhmotion",
+      "sha256": "db83bd30c4fa765a5534dd008df004a4cd951a867a4667d502467f086bab14f0"
+    },
+    {
+      "name": "Motions/l103_11.mxhmotion",
+      "sha256": "bf64edc5c20499081d6cdcbe3427c44ad3b2fc018bc2735cc070f9ab3b7b3d88"
+    },
+    {
+      "name": "Motions/l103_12.mxhmotion",
+      "sha256": "263f13b257c21f0230b2e7742ba4f72159b3995c28ba959b156a15fa806d034e"
+    }
+  ]
+}

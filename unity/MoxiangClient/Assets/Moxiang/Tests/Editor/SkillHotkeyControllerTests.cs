@@ -6,6 +6,21 @@ namespace Moxiang.Tests
     public sealed class SkillHotkeyControllerTests
     {
         [Test]
+        public void ChatFieldOwnsNumberKeysEvenWhenPointerLeavesUi()
+        {
+            var fieldObject = new GameObject("chat", typeof(RectTransform));
+            try
+            {
+                var field = fieldObject.AddComponent<TMPro.TMP_InputField>();
+                Assert.That(SkillHotkeyController.TextInputOwnsKeyboard(fieldObject), Is.True);
+                field.interactable = false;
+                Assert.That(SkillHotkeyController.TextInputOwnsKeyboard(fieldObject), Is.False);
+                Assert.That(SkillHotkeyController.TextInputOwnsKeyboard(null), Is.False);
+            }
+            finally { Object.DestroyImmediate(fieldObject); }
+        }
+
+        [Test]
         public void ResolvesOnlyBoundNonZeroSkill()
         {
             var keys = new[] { KeyCode.Alpha1, KeyCode.Alpha2 };

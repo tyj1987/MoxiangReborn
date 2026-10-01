@@ -218,4 +218,60 @@ TEST(MssqlRealE2E, BuySynOkArmPersistsMoneyToMssqlModernPlayerState) {
      del_params).ok());
  db->disconnect();
 }
+
+TEST(MssqlRealE2E, QuestAndExperienceProductionUpsertsExecuteOnSqlServer) {
+ const char* raw = std::getenv("MXH_MSSQL_E2E");
+ if (!raw || !*raw) GTEST_SKIP() << "set MXH_MSSQL_E2E for dedicated test database";
+ auto cfg = ConnectionConfig::from_kv_string(raw);
+ cfg.backend = "mssql_odbc";
+ auto db = make_adapter(cfg.backend);
+ ASSERT_NE(db, nullptr);
+ ASSERT_TRUE(db->connect(cfg).ok());
+ const std::int64_t pid = 912346;
+ const std::int64_t qid = 77;
+ ASSERT_TRUE(db->execute("DELETE FROM modern_player_quest_sub WHERE player_id=?", {mxh::db::bind(pid)}).ok());
+ ASSERT_TRUE(db->execute("DELETE FROM modern_player_quest_log WHERE player_id=?", {mxh::db::bind(pid)}).ok());
+ ASSERT_TRUE(db->execute("DELETE FROM modern_player_state WHERE player_id=?", {mxh::db::bind(pid)}).ok());
+
+ const std::vector<Bind> quest_args{mxh::db::bind(pid), mxh::db::bind(qid),
+     mxh::db::bind(std::int64_t(2)), mxh::db::bind(std::int64_t(123456))};
+ auto result = db->execute(
+     "MERGE modern_player_quest_log WITH (HOLDLOCK) AS target "
+     "USING (SELECT ? AS player_id, ? AS quest_id, ? AS state, ? AS accepted_time_ms) AS source "
+     "ON target.player_id=source.player_id AND target.quest_id=source.quest_id "
+     "WHEN MATCHED THEN UPDATE SET state=source.state, accepted_time_ms=source.accepted_time_ms, "
+     "updated_at=CONVERT(nvarchar(32),SYSUTCDATETIME(),127) "
+     "WHEN NOT MATCHED THEN INSERT (player_id,quest_id,state,accepted_time_ms,updated_at) VALUES "
+     "(source.player_id,source.quest_id,source.state,source.accepted_time_ms,"
+     "CONVERT(nvarchar(32),SYSUTCDATETIME(),127));", quest_args);
+ ASSERT_TRUE(result.ok()) << result.error_message;
+
+ const std::vector<Bind> exp_args{mxh::db::bind(pid), mxh::db::bind(std::int64_t(3)),
+     mxh::db::bind(std::int64_t(4567))};
+ result = db->execute(
+     "MERGE modern_player_state WITH (HOLDLOCK) AS target "
+     "USING (SELECT ? AS player_id, ? AS level, ? AS exp) AS source "
+     "ON target.player_id=source.player_id "
+     "WHEN MATCHED THEN UPDATE SET level=source.level,exp=source.exp,"
+     "updated_at=CONVERT(nvarchar(32),SYSUTCDATETIME(),127) "
+     "WHEN NOT MATCHED THEN INSERT (player_id,level,exp,money,updated_at) "
+     "VALUES(source.player_id,source.level,source.exp,0,"
+     "CONVERT(nvarchar(32),SYSUTCDATETIME(),127));", exp_args);
+ ASSERT_TRUE(result.ok()) << result.error_message;
+
+ ResultSet rows;
+ ASSERT_TRUE(db->query(
+     "SELECT q.state,q.accepted_time_ms,s.level,s.exp FROM modern_player_quest_log q "
+     "JOIN modern_player_state s ON s.player_id=q.player_id WHERE q.player_id=? AND q.quest_id=?",
+     {mxh::db::bind(pid), mxh::db::bind(qid)}, rows).ok());
+ ASSERT_EQ(rows.rows.size(), 1u);
+ EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 2);
+ EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 123456);
+ EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 3);
+ EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][3]), 4567);
+
+ ASSERT_TRUE(db->execute("DELETE FROM modern_player_quest_log WHERE player_id=?", {mxh::db::bind(pid)}).ok());
+ ASSERT_TRUE(db->execute("DELETE FROM modern_player_state WHERE player_id=?", {mxh::db::bind(pid)}).ok());
+ db->disconnect();
+}
 }

@@ -79,6 +79,42 @@ static PetTotalInfo make_pet(std::uint32_t item_db_idx = 1u,
 
 // ---- Constants 1:1 ----
 
+TEST(PetManagerMasterRevive, OnlySummonedPetChangesAndExactZeroDoesNotKill) {
+    auto state=make_pet_manager();
+    add_pet_total_info(state,make_pet(1,0,1,1000,100));
+    add_pet_total_info(state,make_pet(2,0,1,1000,100));
+    state.m_curSummonItemDBIdx=1;
+    state.m_iFriendshipReduceAmount=-100;
+    const auto effect=mxh::server::apply_master_revive_pet_loss(state);
+    EXPECT_EQ(find_pet_total_info(state,1)->PetFriendly,0u);
+    EXPECT_EQ(find_pet_total_info(state,1)->bAlive,1u);
+    EXPECT_EQ(find_pet_total_info(state,2)->PetFriendly,100u);
+    EXPECT_TRUE(effect.log_master_death);
+    EXPECT_TRUE(effect.send_pet_info);
+    EXPECT_FALSE(effect.send_pet_death);
+    EXPECT_EQ(effect.release_delay_ms,0u);
+    const auto death=mxh::server::apply_master_revive_pet_loss(state);
+    EXPECT_EQ(find_pet_total_info(state,1)->bAlive,0u);
+    EXPECT_TRUE(death.send_pet_death);
+    EXPECT_EQ(death.release_delay_ms,5000u);
+}
+
+TEST(PetManagerMasterRevive, MissingSummonZeroDeltaAndEventPetFollowOriginalGuards) {
+    auto state=make_pet_manager();
+    state.m_iFriendshipReduceAmount=-100;
+    EXPECT_FALSE(mxh::server::apply_master_revive_pet_loss(state).log_master_death);
+    state.m_curSummonItemDBIdx=1;
+    EXPECT_FALSE(mxh::server::apply_master_revive_pet_loss(state).log_master_death);
+    add_pet_total_info(state,make_pet(1,static_cast<std::uint16_t>(PetKind::EventPet),1,1000,50));
+    const auto effect=mxh::server::apply_master_revive_pet_loss(state);
+    EXPECT_TRUE(effect.log_master_death);
+    EXPECT_FALSE(effect.send_pet_info);
+    EXPECT_FALSE(effect.send_pet_death);
+    EXPECT_EQ(find_pet_total_info(state,1)->PetFriendly,50u);
+    state.m_iFriendshipReduceAmount=0;
+    EXPECT_FALSE(mxh::server::apply_master_revive_pet_loss(state).log_master_death);
+}
+
 TEST(PetManagerConstants, DefaultFriendlyMatchesLegacy) {
     EXPECT_EQ(PET_DEFAULT_FRIENDLY, 3000000u);
 }

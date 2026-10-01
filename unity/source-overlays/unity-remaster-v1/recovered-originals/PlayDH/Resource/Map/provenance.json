@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "classification": "recovered-original-candidate",
+  "releaseAllowed": false,
+  "sourceContainer": "D:/MX/client/Package/3DData/Map.pak",
+  "sourceContainerBytes": 1135536849,
+  "sourceContainerSha256": "00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3",
+  "headerLayout": {
+    "versionOffset": 0,
+    "standardCountOffset": 4,
+    "standardCount": 0,
+    "recoveredCountOffset": 92,
+    "recoveredCount": 11267,
+    "firstEntryOffset": 96,
+    "parsedEntryCount": 11267,
+    "finalEntryEndOffset": 1135536849
+  },
+  "purpose": "Four HFL candidates recovered without modifying the source container. Release use requires source-profile integration and explicit verified-original attestation.",
+  "entriesManifest": "manifest.json"
+}

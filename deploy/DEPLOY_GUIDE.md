@@ -6,19 +6,26 @@
 For a reproducible local three-server run without SQL Server, use the modern launcher:
 
 ```powershell
-powershell -File deploy\scripts\start_modern.ps1 -Mode start -Locale CHINA
-powershell -File deploy\scripts\start_modern.ps1 -Mode status
+pwsh -File deploy\scripts\start_modern.ps1 -Mode start -Locale CHINA
+pwsh -File deploy\scripts\start_modern.ps1 -Mode status
 # run modern/build/tools/MoxianClientE2E/Debug/mxh_client_e2e.exe
-powershell -File deploy\scripts\start_modern.ps1 -Mode stop
+pwsh -File deploy\scripts\start_modern.ps1 -Mode stop
 ```
 
-For production MSSQL configuration, validate the generated command line without starting processes:
+For MSSQL, place the ODBC configuration in a process environment variable and
+pass only its name. Do not put credentials on the command line:
 
 ```powershell
-powershell -File deploy\scripts\start_modern.ps1 -Mode start -Backend mssql_odbc -DbRoot "backend=mssql_odbc;host=127.0.0.1;database=Moxiang;user=sa;password=..." -DryRun
+$env:MXH_DATABASE_CONFIG = '<configuration supplied by the deployment secret store>'
+pwsh -File deploy\scripts\start_modern.ps1 -Mode start -Backend mssql_odbc -DatabaseConfigEnv MXH_DATABASE_CONFIG -DryRun
 ```
 
-`-DryRun` verifies all three modern executables and confirms that MSSQL mode does not pass the SQLite-only schema initialization flag.
+`-DryRun` verifies the selected executables and resource inputs without connecting
+to the database. A real start migrates the shared schema, requires MapServer and
+the database to report the exact same writer contract, and then starts processes.
+`deploy/runtime/modern/deployment.json` records that contract and SHA-256 for the
+DB tool and all three server executables. A missing column, an older MapServer, or
+a changed contract fails before any server process starts.
 
 The launcher starts modern Login/Agent/Map on ports `16001/17001/18001`, stores runtime data under `deploy/runtime/modern`, initializes the SQLite demo account on first start, writes per-service logs, records PIDs, performs port health checks, and supports safe stop/restart. Production deployment still requires MSSQL and the production configuration path below.
 

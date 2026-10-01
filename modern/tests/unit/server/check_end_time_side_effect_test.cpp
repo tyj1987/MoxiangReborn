@@ -9,6 +9,13 @@
 using namespace mxh::server;
 using namespace mxh::game;
 
+TEST(CheckEndTimeSideEffect, NotificationsUseOriginalProtocolBytes) {
+    // Protocol.h enum, after explicit BUY_SYN=22; audited alongside CHASE_SYN=154.
+    EXPECT_EQ(LEGACY_MP_ITEM_SHOPITEM_USEEND,106u);
+    EXPECT_EQ(static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemOneMinute),108u);
+    EXPECT_NE(LEGACY_MP_ITEM_SHOPITEM_USEEND,static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+}
+
 namespace {
 
 ShopItemWithTime make_row(std::uint16_t pos, std::uint16_t icon,

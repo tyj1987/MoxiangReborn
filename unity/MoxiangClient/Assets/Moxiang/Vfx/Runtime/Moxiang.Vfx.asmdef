@@ -1,0 +1,12 @@
+{
+  "name": "Moxiang.Vfx",
+  "rootNamespace": "Moxiang.Vfx",
+  "references": [
+    "Moxiang.Runtime",
+    "Effekseer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "noEngineReferences": false
+}

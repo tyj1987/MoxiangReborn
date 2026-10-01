@@ -77,15 +77,38 @@ class PakStats:
 # ---------------------------------------------------------------------------
 
 def parse_pak(pak_path: str) -> tuple[bytes, int, int, int]:
-    """Read the 92-byte header.  Returns (raw_header, version, n_items, flag)."""
+    """Read the header. Returns (raw_header, version, n_items, flag).
+
+    A later writer variant leaves the standard count at offset 4 as zero,
+    stores it at offset 92 and starts entries at offset 96. The returned raw
+    header remains the compatible 92-byte prefix; callers use the recovered
+    count transparently.
+    """
     with open(pak_path, "rb") as f:
-        pak_header = f.read(92)
+        prefix = f.read(96)
+    pak_header = prefix[:92]
     if len(pak_header) < 92:
         raise ValueError(f"pak header too short: {pak_path}")
     version, n_items, flag = struct.unpack("<III", pak_header[:12])
     if version != 1:
         raise ValueError(f"unknown pak version {version:#x} in {pak_path}")
+    if n_items == 0 and len(prefix) >= 96:
+        shifted_count = struct.unpack_from("<I", prefix, 92)[0]
+        if shifted_count:
+            n_items = shifted_count
     return pak_header, version, n_items, flag
+
+
+def entry_start_offset(pak_path: str) -> int:
+    """Return 92 for the standard layout or 96 for shifted-count archives."""
+    with open(pak_path, "rb") as f:
+        prefix = f.read(96)
+    if len(prefix) >= 96:
+        standard_count = struct.unpack_from("<I", prefix, 4)[0]
+        shifted_count = struct.unpack_from("<I", prefix, 92)[0]
+        if standard_count == 0 and shifted_count:
+            return 96
+    return 92
 
 
 def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
@@ -105,7 +128,7 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
     """
     pak_size = os.path.getsize(pak_path)
     with open(pak_path, "rb") as f:
-        cur = 92
+        cur = entry_start_offset(pak_path)
         i = 0
         consecutive_junk = 0
         while i < expected and cur < pak_size - 33:
@@ -205,7 +228,7 @@ def unpack_legacy(pak_path: str, out_dir: str) -> int:
     os.makedirs(out_dir, exist_ok=True)
     _header, version, n_items, flag = parse_pak(pak_path)
     print(f"version={version} n_items={n_items} flag={flag}")
-    cur = 92
+    cur = entry_start_offset(pak_path)
     n_written = 0
     consecutive_junk = 0
     with open(pak_path, "rb") as f:

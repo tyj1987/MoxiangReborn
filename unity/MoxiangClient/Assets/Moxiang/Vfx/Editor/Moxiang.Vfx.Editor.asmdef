@@ -1,0 +1,16 @@
+{
+  "name": "Moxiang.Vfx.Editor",
+  "rootNamespace": "Moxiang.Vfx.Editor",
+  "references": [
+    "Moxiang.Vfx",
+    "Effekseer",
+    "Effekseer.URP",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "noEngineReferences": false
+}

@@ -5,7 +5,7 @@ using System.Text;
 namespace Moxiang
 {
     public enum CoreResult : uint { Ok, InvalidArgument, InvalidHandle, WrongState, NetworkError, ProtocolError, BufferTooSmall, Unsupported, NotReady, InternalError, Rejected }
-    public enum CoreState : uint { Idle, LoginConnecting, AwaitLoginAck, AgentConnecting, AwaitCharacterList, CharacterListReady, AwaitCharacterSelect, AwaitGameIn, InGame, Failed, ShuttingDown, AwaitCharacterCreate }
+    public enum CoreState : uint { Idle, LoginConnecting, AwaitLoginAck, AgentConnecting, AwaitCharacterList, CharacterListReady, AwaitCharacterSelect, AwaitGameIn, InGame, Failed, ShuttingDown, AwaitCharacterCreate, AwaitMapChange }
     public enum LegacyTextEncoding : uint { Utf8 = 0, Korean949 = 2, Chinese936 = 4 }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -30,6 +30,7 @@ namespace Moxiang
         public ushort level, mapNumber;
         public uint life, maxLife, mp, maxMp;
         public ulong experience;
+        public ulong maxExperience;
         public uint money;
         public ushort genGol, minChub, cheRyuk, simMek, positionX, positionZ;
         public ushort serverYear, serverMonth, serverDay, serverHour;
@@ -67,7 +68,7 @@ namespace Moxiang
     /// <summary>Owns one native session. Call on the Unity main thread and Dispose before domain reload.</summary>
     public sealed class NativeClient : IDisposable
     {
-        public const uint ApiVersion = 0x00010003;
+        public const uint ApiVersion = 0x00010011;
         private const string Library = "mxh_unity_core";
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
         private readonly object gate = new object();
@@ -125,7 +126,16 @@ namespace Moxiang
         public const byte TimedStateKindCorrected = 3;
         public const byte TimedStateKindSnapshot = 4;
         public const uint EventMonsterAdded = 12;
+        public const uint EventObjectMovement = 9;
         public const uint EventNpcAdded = 13;
+        public const uint EventSkillHit = 34;
+        public const uint EventSkillRelease = 35;
+        public const uint EventPlayerLife = 36;
+        public const uint EventPlayerShieldDelta = 37;
+        public const uint EventPlayerDeath = 38;
+        public const uint EventShopProtection = 39;
+        public const uint EventPlayerMp = 40;
+        public const uint EventCharacterRevive = 41;
         public const uint EventEntityRemoved = 14;
         public const uint EventEntityLife = 15;
         public const uint EventEntityShield = 16;
@@ -136,11 +146,36 @@ namespace Moxiang
         public const uint CommandPickup = 9;
         public const uint CommandQuest = 10;
         public const uint CommandChat = 11;
+        public const uint CommandNpcInteract = 12;
+        public const uint CommandQuestNpcTalk = 18;
+        public const uint CommandPresentRevive = 19;
+        public const uint CommandLoginRevive = 20;
+        public const uint EventNpcResponse = 21;
+        public const uint EventQuestNpcResponse = 33;
+        public const uint EventShopCatalog = 22;
+        public const uint EventBuyResponse = 23;
+        public const uint EventInventory = 24;
+        public const uint EventMapChange = 25;
+        public const uint EventShopAppearance = 26;
+        public const uint EventShopItemUseEnd = 27;
+        public const uint EventShopItemOneMinute = 28;
+        public const uint ProtocolShopItemUseEnd = 106;
+        public const uint ProtocolShopItemOneMinute = 108;
+        public const uint CommandBuy = 13;
+        public const uint CommandUseItem = 14;
+        public const uint EventItemUseResponse = 29;
+        public const uint CommandMoveItem = 15;
+        public const uint EventItemMoveResponse = 30;
+        public const uint CommandSell = 16;
+        public const uint EventSellResponse = 31;
+        public const uint CommandDiscardItem = 17;
+        public const uint EventDiscardResponse = 32;
         public const uint EventDisconnected = 4;
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern uint mxh_unity_get_api_version();
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_create(out ulong session);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_destroy(ulong session);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_load_map_routes(ulong session, byte[] path, uint length);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_connect(ulong session, ref ConnectArgs args);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_disconnect(ulong session);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern CoreResult mxh_unity_tick(ulong session);
@@ -172,6 +207,12 @@ namespace Moxiang
             args.password = Encode(password, 64, out args.passwordLength, 17);
             try { lock (gate) { EnsureAlive(); return mxh_unity_connect(handle, ref args); } }
             finally { Array.Clear(args.password, 0, args.password.Length); }
+        }
+
+        public CoreResult LoadMapRoutes(string path)
+        {
+            byte[] encoded = Encode(path, 4097, out uint length, 4096);
+            lock (gate) { EnsureAlive(); return mxh_unity_load_map_routes(handle, encoded, length); }
         }
 
         public CoreResult Tick() { lock (gate) { EnsureAlive(); return mxh_unity_tick(handle); } }
@@ -238,6 +279,125 @@ namespace Moxiang
                     var command = new ExtendedCommand { head = head, payload = unmanaged, payloadSize = 8u };
                     return mxh_unity_submit_extended_command(handle, ref command);
                 } finally { Marshal.FreeHGlobal(unmanaged); }
+            }
+        }
+
+        public CoreResult SubmitBuy(ushort itemId, ushort quantity, CoreSnapshot observed)
+        {
+            if (itemId == 0 || quantity == 0) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandBuy,
+                    argument0 = itemId, argument1 = quantity, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitUseItem(ushort position, CoreSnapshot observed)
+        {
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandUseItem,
+                    argument0 = position, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitMoveItem(ushort source, ushort target, CoreSnapshot observed)
+        {
+            if (source >= 90 || target >= 90 || source == target) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandMoveItem,
+                    argument0 = source, argument1 = target, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitSell(ushort position, ushort quantity, ushort dealer, CoreSnapshot observed)
+        {
+            if (position >= InventoryState.CarriedSlotCount || quantity == 0 || dealer == 0)
+                return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandSell,
+                    argument0 = position, argument1 = (uint)quantity | ((uint)dealer << 16), requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitDiscardItem(ushort position, CoreSnapshot observed)
+        {
+            if (position >= InventoryState.CarriedSlotCount) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandDiscardItem,
+                    argument0 = position, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration, expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitNpcInteraction(uint npcObjectId, CoreSnapshot observed)
+        {
+            if (npcObjectId == 0) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandNpcInteract,
+                    argument0 = npcObjectId, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration,
+                    expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitLoginRevive(CoreSnapshot observed)
+        {
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandLoginRevive,
+                    requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration,
+                    expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitPresentRevive(CoreSnapshot observed)
+        {
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandPresentRevive,
+                    requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration,
+                    expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
+            }
+        }
+
+        public CoreResult SubmitQuestNpcTalk(ushort npcIndex, ushort questId, CoreSnapshot observed)
+        {
+            if (npcIndex == 0 || questId == 0) return CoreResult.InvalidArgument;
+            lock (gate) {
+                EnsureAlive();
+                var command = new Command { structSize = (uint)Marshal.SizeOf<Command>(), type = CommandQuestNpcTalk,
+                    argument0 = npcIndex, argument1 = questId, requestId = ++nextRequestId,
+                    expectedSessionGeneration = observed.sessionGeneration,
+                    expectedMapGeneration = observed.mapGeneration,
+                    name = new byte[65], reserved1 = new byte[5] };
+                return mxh_unity_submit_command(handle, ref command);
             }
         }
 

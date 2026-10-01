@@ -7,7 +7,7 @@
 
 namespace mxh::server {
 
-enum class ShopRestoreLocale { China, Korea, Japan, HongKong, Thailand };
+using ShopRestoreLocale = ShopLocale;
 enum class ShopRestoreStatus { Restored, InvalidItem, AlreadyPresent, MissingItemInfo,
                                Expired, DiscardFailed, InsertFailed };
 

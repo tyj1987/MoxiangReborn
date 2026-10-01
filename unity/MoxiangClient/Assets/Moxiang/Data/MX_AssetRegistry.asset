@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18f5531ce05732545b7c26ead74b9527, type: 3}
+  m_Name: MX_AssetRegistry
+  m_EditorClassIdentifier: Moxiang.Runtime::Moxiang.MoxiangAssetRegistry
+  entries:
+  - legacyId: 
+    assetId: MX_ENV_WUGUAN_ASSEMBLY_001
+    category: 5
+    runtimePath: Assets/Moxiang/ArtV2/Environment/Wuguan/Prefabs/MX_ENV_WUGUAN_ASSEMBLY_001.prefab
+  - legacyId: 
+    assetId: MX_WPN_SWORD_001
+    category: 4
+    runtimePath: Assets/Moxiang/ArtV2/Weapons/Sword/Prefabs/MX_WPN_SWORD_001.prefab
+  - legacyId: 
+    assetId: MX_WPN_BLADE_001
+    category: 4
+    runtimePath: Assets/Moxiang/ArtV2/Weapons/Blade/Prefabs/MX_WPN_BLADE_001.prefab
+  - legacyId: 
+    assetId: MX_WPN_SPEAR_001
+    category: 4
+    runtimePath: Assets/Moxiang/ArtV2/Weapons/Spear/Prefabs/MX_WPN_SPEAR_001.prefab

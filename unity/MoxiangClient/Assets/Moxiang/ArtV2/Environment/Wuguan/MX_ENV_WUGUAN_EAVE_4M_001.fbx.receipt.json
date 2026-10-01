@@ -1,0 +1,27 @@
+{
+  "schema": "moxiang.blender-export-receipt.v1",
+  "generated_utc": "2026-09-28T02:47:44.274594+00:00",
+  "asset_id": "MX_ENV_WUGUAN_EAVE_4M_001",
+  "category": "Environment",
+  "source_file": "MX_ENV_WUGUAN_KIT_001.blend",
+  "source_sha256": "9b43fb32590dc1e97696e4baa5aee0e98fecb17e33e15c614c9f15e0bbc17938",
+  "export_file": "MX_ENV_WUGUAN_EAVE_4M_001.fbx",
+  "export_sha256": "d743163cfb21d7754b74bf3db8c3a0d2de76b4e3299812a2ab9c601c3625312d",
+  "blender_version": "5.2.1 LTS",
+  "scale_meters": 1.0,
+  "forward_axis": "-Z",
+  "up_axis": "Y",
+  "objects": [
+    "MX_ENV_WUGUAN_EAVE_4M_001",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_0",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_1",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_2",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_3",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_4",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_5",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_6",
+    "MX_ENV_WUGUAN_EAVE_4M_001__BATTEN_7",
+    "MX_ENV_WUGUAN_EAVE_4M_001__FASCIA",
+    "MX_ENV_WUGUAN_EAVE_4M_001__RAFTER_MAIN"
+  ]
+}

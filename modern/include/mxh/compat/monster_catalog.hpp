@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -13,6 +14,22 @@ struct MonsterVisual {
     std::string name;
     std::string chx_name;
     float scale = 1.0f;
+    std::uint8_t level = 1;
+    std::uint32_t life = 0;
+    std::uint32_t shield = 0;
+    std::uint32_t exp = 0;
+    std::uint16_t attack_min = 0;
+    std::uint16_t attack_max = 0;
+    std::uint16_t defense = 0;
+    float walk_speed = 0.0f;
+    float run_speed = 0.0f;
+    float domain_range = 0.0f;
+    bool aggressive = false;
+    float search_period_ms = 0.0f;
+    float search_range = 0.0f;
+    std::uint8_t attack_count = 0;
+    std::array<std::uint32_t, 2> attack_skills{};
+    std::array<std::uint32_t, 2> attack_rates{};
 };
 
 class MonsterCatalog {

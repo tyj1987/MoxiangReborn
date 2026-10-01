@@ -151,11 +151,11 @@ bool ShopItemManager::delete_move_point(std::uint32_t db_idx) noexcept {
 
 bool ShopItemManager::tick(std::uint32_t delta_ms) noexcept {
     m_Updatetime += delta_ms;
+    m_Checktime += delta_ms;
     if (m_Updatetime > SHOP_ITEM_UPDATE_INTERVAL_MS) {
         m_Updatetime = 0;
         return true;  // rollover - legacy flushes ShopItemAllUseInfo to DB
     }
-    m_Checktime += delta_ms;
     return false;
 }
 
@@ -175,14 +175,13 @@ std::size_t ShopItemManager::tick_and_collect_expired(std::uint32_t delta_ms,
                                                      std::uint32_t now_ms,
                                                      std::vector<std::uint64_t>& out) {
     const bool rollover = tick(delta_ms);
-    (void)rollover;
-    if (!check_due()) {
+    if (!rollover && !check_due()) {
         out.clear();
         return 0;
     }
-    const std::size_t before = out.size();
     collect_expired(now_ms, out);
-    return out.size() - before;
+    clear_check_time();
+    return out.size();
 }
 
 std::size_t ShopItemManager::collect_realtime_expired(

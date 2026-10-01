@@ -121,6 +121,24 @@ struct InventorySlots final {
     std::array<mxh::game::ItemBase, mxh::game::SLOT_INVENTORY_NUM> items{};
 };
 
+// Source Player initializes half of SLOT_SHOPINVEN_NUM: positions 390..409.
+// The existing ItemTotalInfo wire block has exactly these 20 cells.
+struct ShopInventorySlots final {
+    std::array<mxh::game::ItemBase, mxh::game::TABCELL_SHOPINVEN_NUM> items{};
+};
+
+struct PetWearSlots final {
+    std::array<mxh::game::ItemBase, mxh::game::SLOT_PETWEAR_NUM> items{};
+};
+
+struct TitanWearSlots final {
+    std::array<mxh::game::ItemBase, mxh::game::SLOT_TITANWEAR_NUM> items{};
+};
+
+struct TitanShopItemSlots final {
+    std::array<mxh::game::ItemBase, mxh::game::SLOT_TITANSHOPITEM_NUM> items{};
+};
+
 // ---- Pyoguk (warehouse) slot ----
 struct PyogukSlots final {
     std::array<mxh::game::ItemBase, mxh::game::SLOT_PYOGUK_NUM> items{};
@@ -147,7 +165,16 @@ struct QuickBar final {
 // attributes, learned skills, quick-slot bar, party/guild membership,
 // inventory/equipment/warehouse and the bonus table (CalcEquipBonuses) for
 // compute_max_* derivation. Used by MapHandler as the single source of truth.
+// Session-local source death flags. Original CPlayer initializes these to false
+// and clears them after ordinary revival; they are not client-supplied fields.
+struct PlayerDeathFlags final {
+    bool battle_channel = false;
+    bool guild_field_war = false;
+    bool special_map = false;
+};
+
 struct PlayerState final {
+    PlayerDeathFlags death_flags;
     // Identity
     std::uint32_t player_id  = 0;
     std::uint32_t user_id    = 0;     // MHAccount index
@@ -169,6 +196,10 @@ struct PlayerState final {
     // Equipment / inventory / warehouse
     EquipSlots    equipment;
     InventorySlots inventory;
+    ShopInventorySlots shop_inventory;
+    PetWearSlots pet_wear;
+    TitanWearSlots titan_wear;
+    TitanShopItemSlots titan_shop_items;
     PyogukSlots   pyoguk;
 
     // Skill / quick-slot UI
@@ -192,6 +223,8 @@ struct PlayerState final {
     // Combat/progression/slot consumers still need their own integration;
     // this method binds resource caps only and does not heal current vitals.
     void apply_shop_options(const game::ShopItemOption& options) noexcept;
+    game::AvatarItemOption avatar_options{};
+    void apply_avatar_options(const game::AvatarItemOption& options) noexcept;
 
     // Mussang-mode metadata (legacy IsMussangMode / GetStage). Set by the
     // battle handler when entering mussang mode; passed to recovery ticks.

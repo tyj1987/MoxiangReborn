@@ -19,8 +19,14 @@
 //   - HSEL encryption integration with the handlers ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â covered
 //     by hsel_stream_test.cpp + aes_gcm_test.cpp.
 
+#include "mxh/game/experience_curve.hpp"
+#include "mxh/game/exp_penalty.hpp"
 #include "mxh/game/hero_total_layout.hpp"
+#include "mxh/proto/character_revive.hpp"
+#include "mxh/server/agent_userconn.hpp"
 #include "mxh/server/server.hpp"
+#include "mxh/server/commit_present_revive.hpp"
+#include "mxh/server/revive_vitality_messages.hpp"
 #include "mxh/server/ai_system.hpp"
 #include "client/CInGameState.hpp"
 #include "mxh/render/EntityScene.hpp"
@@ -36,11 +42,18 @@
 #include "vector"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
+#include "mxh/db/schema_migration.hpp"
+#include "mxh/db/modern_shop_state.hpp"
 #include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
 
 #include <atomic>
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 #include <memory>
 #include <string>
 #include <vector>
@@ -60,8 +73,12 @@ public:
     }
     void disconnect() override {}
     bool is_connected() const noexcept override { return true; }
-    mxh::db::DbResult execute(std::string_view, std::span<const mxh::db::Bind>) override {
+    mxh::db::DbResult execute(std::string_view sql, std::span<const mxh::db::Bind>) override {
         ++exec_count;
+        executed_sql.emplace_back(sql);
+        if (throw_write) throw std::runtime_error("injected adapter exception");
+        if (!fail_write_matching.empty() && sql.find(fail_write_matching) != std::string_view::npos)
+            return {mxh::db::DbError::IoError, "injected write failure"};
         return {};
     }
     // R-2: if userlevel_to_return != UINT8_MAX, treat the next query
@@ -85,16 +102,35 @@ public:
         return {};
     }
 
-    mxh::db::DbResult begin_transaction() override { return {}; }
-    mxh::db::DbResult commit() override { return {}; }
-    mxh::db::DbResult rollback() override { return {}; }
-    std::string backend_name() const noexcept override { return "mock"; }
+    mxh::db::DbResult begin_transaction() override {
+        ++begin_count;
+        return fail_begin ? mxh::db::DbResult{mxh::db::DbError::IoError, "injected begin failure"} : mxh::db::DbResult{};
+    }
+    mxh::db::DbResult commit() override {
+        return fail_commit ? mxh::db::DbResult{mxh::db::DbError::IoError, "injected commit failure"} : mxh::db::DbResult{};
+    }
+    mxh::db::DbResult rollback() override {
+        ++rollback_count;
+        if (throw_rollback) throw std::runtime_error("injected rollback exception");
+        return fail_rollback ? mxh::db::DbResult{mxh::db::DbError::IoError, "injected rollback failure"} : mxh::db::DbResult{};
+    }
+    std::string backend_name() const noexcept override { return backend; }
 
     // Counters for tests that want to verify "handler did NOT call
     // the DB on a no-DB code path". Public so the gtest bodies can
     // read them directly.
     std::atomic<int> exec_count{0};
     std::atomic<int> query_count{0};
+    std::atomic<int> begin_count{0};
+    std::atomic<int> rollback_count{0};
+    std::string backend = "mock";
+    std::vector<std::string> executed_sql;
+    std::string fail_write_matching;
+    bool fail_begin = false;
+    bool fail_commit = false;
+    bool fail_rollback = false;
+    bool throw_write = false;
+    bool throw_rollback = false;
 };
 
 // Helper: a ReplyFn-compatible spy that counts calls.
@@ -103,6 +139,7 @@ struct ReplySpy {
     mxh::net::ConnectionId last_id{};
     mxh::net::Message last_message{};
     std::vector<mxh::net::Message> messages;
+    std::vector<mxh::net::ConnectionId> connection_ids;
 };
 
 inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
@@ -111,6 +148,7 @@ inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
         spy.last_id = id;
         spy.last_message = message;
         spy.messages.push_back(message);
+        spy.connection_ids.push_back(id);
     };
 }
 
@@ -126,6 +164,7 @@ public:
         last_message = msg;
         if (!connected || fail_send) return mxh::net::NetError::SendFailed;
         sent_msgs.push_back(msg);
+        if (on_send) on_send(msg);
         return mxh::net::NetError::Ok;
     }
     [[nodiscard]] bool is_connected() const noexcept override { return connected; }
@@ -137,6 +176,7 @@ public:
 
     std::atomic<int> send_count{0};
     std::vector<mxh::net::Message> sent_msgs;
+    std::function<void(const mxh::net::Message&)> on_send;
     mxh::net::Message last_message{};
 private:
     bool connected = true;
@@ -437,6 +477,29 @@ TEST(AgentHandlerTest, MovementCorrectionRoutesOnlyToOwnerWhileReportsExcludeOwn
     EXPECT_TRUE(delivered.empty());
 }
 
+TEST(AgentHandlerTest, SkillStartResponseRoutesToCasterWhileWorldSkillEventsExcludeCaster) {
+    MockDbAdapter db;
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    AgentHandler handler(db, [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+        delivered.emplace_back(id.value, msg);
+    });
+    handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
+    handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 10u);
+    mxh::net::Message skill;
+    skill.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    skill.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartAck);
+    skill.header.object_id = 123u;
+    skill.payload.resize(8);
+    handler.forward_from_map(mxh::net::make_connection_id(77), skill, 10u);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 100u);
+    delivered.clear();
+    skill.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SkillObjectAdd);
+    handler.forward_from_map(mxh::net::make_connection_id(77), skill, 10u);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 101u);
+}
+
 TEST(AgentHandlerTest, ExplicitMapSourceIsolatesWorldEventsAndRoutesNpcSpeechToOwner) {
     MockDbAdapter db;
     std::vector<std::uint64_t> delivered;
@@ -472,6 +535,67 @@ TEST(AgentHandlerTest, ExplicitMapSourceIsolatesWorldEventsAndRoutesNpcSpeechToO
     message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Party);
     handler.forward_from_map(mxh::net::make_connection_id(1), message, 10);
     EXPECT_EQ(delivered, std::vector<std::uint64_t>{100}); // Cross-map social state remains routable.
+}
+
+TEST(AgentHandlerTest, MonsterDeathRoutesToVictimAndRejectsOldMapVitality) {
+    MockDbAdapter db;
+    std::vector<std::uint64_t> delivered;
+    AgentHandler handler(db, [&](mxh::net::ConnectionId id, const mxh::net::Message&) {
+        delivered.push_back(id.value);
+    });
+    handler.register_session({100}, 1, 123, 10);
+    handler.register_session({101}, 2, 456, 10);
+    mxh::net::Message death;
+    death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    death.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie);
+    death.header.object_id = 50023;
+    death.payload.resize(8);
+    const std::uint32_t attacker = 50023, victim = 123;
+    std::memcpy(death.payload.data(), &attacker, 4);
+    std::memcpy(death.payload.data() + 4, &victim, 4);
+    handler.forward_from_map({77}, death, 12);
+    EXPECT_TRUE(delivered.empty());
+    handler.forward_from_map({77}, death, 10);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0], 100u);
+    delivered.clear();
+    death.payload.push_back(0);
+    handler.forward_from_map({77}, death, 10);
+    EXPECT_TRUE(delivered.empty());
+    mxh::net::Message life;
+    life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+    life.header.object_id = victim;
+    life.payload.resize(4);
+    handler.forward_from_map({77}, life, 12);
+    EXPECT_TRUE(delivered.empty());
+    handler.forward_from_map({77}, life, 10);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0], 100u);
+}
+
+TEST(AgentHandlerTest, SkillHitIncludesVictimAndSameMapObservers) {
+    MockDbAdapter db;
+    std::vector<std::uint64_t> delivered;
+    AgentHandler handler(db, [&](mxh::net::ConnectionId id, const mxh::net::Message&) {
+        delivered.push_back(id.value);
+    });
+    handler.register_session({100}, 1, 123, 10);
+    handler.register_session({101}, 2, 456, 10);
+    handler.register_session({102}, 3, 789, 12);
+    mxh::net::Message hit;
+    hit.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    hit.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult);
+    hit.header.object_id = 123;
+    hit.payload.resize(9);
+    const std::uint32_t victim = 123;
+    const std::int32_t damage = 7;
+    std::memcpy(hit.payload.data(), &victim, 4);
+    std::memcpy(hit.payload.data() + 4, &damage, 4);
+    hit.payload[8] = 1;
+    handler.forward_from_map({77}, hit, 10);
+    std::sort(delivered.begin(), delivered.end());
+    EXPECT_EQ(delivered, (std::vector<std::uint64_t>{100, 101}));
 }
 
 TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
@@ -743,13 +867,36 @@ TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
     ASSERT_EQ(current_map.sent_msgs.size(), 1u);
     EXPECT_EQ(current_map.sent_msgs.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn));
+    EXPECT_TRUE(target_map.sent_msgs.empty());
+    EXPECT_TRUE(reply.messages.empty());
+    mxh::net::Message source_ack;
+    source_ack.header = change.header;
+    source_ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck);
+    handler.forward_from_map({1}, source_ack, 10); // Wrong source cannot advance the transfer.
+    EXPECT_TRUE(target_map.sent_msgs.empty());
+    handler.forward_from_map({1}, source_ack, 7);
     ASSERT_EQ(target_map.sent_msgs.size(), 1u);
     EXPECT_EQ(target_map.sent_msgs.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn));
     EXPECT_EQ(target_map.sent_msgs.front().header.object_id, 450035713u);
-    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_TRUE(reply.messages.empty());
+    mxh::net::Message entry_ack;
+    entry_ack.header = change.header;
+    entry_ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    entry_ack.payload.resize(3775, 0);
+    const std::uint32_t character = 450035713u, user = 3001u;
+    std::memcpy(entry_ack.payload.data(), &character, 4);
+    std::memcpy(entry_ack.payload.data() + 4, &user, 4);
+    std::memcpy(entry_ack.payload.data() + 77, &target_num, 2);
+    handler.forward_from_map({1}, entry_ack, 10);
+    ASSERT_EQ(reply.messages.size(), 2u);
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck));
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck));
+    handler.forward_from_map({1}, entry_ack, 10);
+    handler.forward_from_map({1}, source_ack, 7);
+    EXPECT_EQ(reply.messages.size(), 2u); // Terminal handshake duplicates must not replay entry.
 }
 
 TEST(AgentHandlerTest, ChangeMapWithoutTargetRouteReturnsNackAndKeepsCurrentMap) {
@@ -797,7 +944,7 @@ TEST(AgentHandlerTest, ChangeMapBootstrapsTargetMapHandlerAndRelaysGameInAck) {
     mxh::server::MapHandler target_handler(
         db, target_map,
         [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
-            handler.forward_from_map(id, msg);
+            handler.forward_from_map(id, msg, target_map);
         });
     MapHandlerForwardingSender target_map_sender(target_handler,
                                                  target_connection);
@@ -813,6 +960,12 @@ TEST(AgentHandlerTest, ChangeMapBootstrapsTargetMapHandlerAndRelaysGameInAck) {
     change.payload.resize(4, 0);
     std::memcpy(change.payload.data(), &target_map, sizeof(target_map));
     handler.on_message(client_connection, change);
+
+    EXPECT_FALSE(target_handler.player_runtime_snapshot(char_id).has_value());
+    mxh::net::Message source_ack;
+    source_ack.header = change.header;
+    source_ack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck);
+    handler.forward_from_map({7}, source_ack, 7);
 
     const auto snapshot = target_handler.player_runtime_snapshot(char_id);
     ASSERT_TRUE(snapshot.has_value());
@@ -833,6 +986,149 @@ TEST(AgentHandlerTest, ChangeMapBootstrapsTargetMapHandlerAndRelaysGameInAck) {
     }
     EXPECT_TRUE(saw_game_in_ack);
     EXPECT_TRUE(saw_change_map_ack);
+    ASSERT_GE(reply.messages.size(), 2u);
+    EXPECT_EQ(reply.messages[0].header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck));
+    EXPECT_EQ(reply.messages[1].header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck));
+}
+
+TEST(AgentHandlerTest, TransferRejectionRestoresSourceBeforeResumingCommands) {
+    using P = mxh::proto::UserConnProtocol;
+    for (const bool reject_source : {true, false}) {
+        SCOPED_TRACE(reject_source);
+        MockDbAdapter db;
+        ReplySpy reply;
+        mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, 7);
+        MockTcpSender source, target;
+        handler.set_map_server(&source, {1});
+        handler.set_map_server_for_map(10, &target, {1});
+        handler.register_session({1101}, 3001, 777, 7);
+        auto message = [](P protocol) {
+            mxh::net::Message m;
+            m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+            m.header.protocol = static_cast<std::uint8_t>(protocol);
+            m.header.object_id = 777;
+            return m;
+        };
+        auto change = message(P::ChangeMapSyn);
+        change.payload = {10, 0};
+        handler.on_message({1101}, change);
+        auto move = message(P::GameInSyn);
+        move.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+        handler.on_message({1101}, move);
+        handler.on_message({1101}, change);
+        ASSERT_EQ(source.sent_msgs.size(), 1u); // Neither movement nor duplicate request reaches the source.
+        if (reject_source) {
+            handler.forward_from_map({1}, message(P::GameOutNack), 7);
+            handler.forward_from_map({1}, message(P::GameOutNack), 7);
+            EXPECT_EQ(reply.messages.size(), 1u);
+            EXPECT_TRUE(target.sent_msgs.empty());
+        } else {
+            handler.forward_from_map({1}, message(P::GameOutAck), 7);
+            ASSERT_EQ(target.sent_msgs.size(), 1u);
+            handler.forward_from_map({1}, message(P::GameInNack), 10);
+            ASSERT_EQ(source.sent_msgs.size(), 2u);
+            EXPECT_EQ(source.sent_msgs.back().header.protocol, static_cast<std::uint8_t>(P::GameInSyn));
+            EXPECT_TRUE(reply.messages.empty()); // Rejection is not recovery until source admission succeeds.
+            auto restored = message(P::GameInAck);
+            restored.payload.resize(3775, 0);
+            const std::uint32_t character = 777, user = 3001;
+            const std::uint16_t map = 7;
+            std::memcpy(restored.payload.data(), &character, 4);
+            std::memcpy(restored.payload.data() + 4, &user, 4);
+            std::memcpy(restored.payload.data() + 77, &map, 2);
+            handler.forward_from_map({1}, restored, 7);
+            ASSERT_EQ(reply.messages.size(), 2u);
+            EXPECT_EQ(reply.messages.back().header.protocol, static_cast<std::uint8_t>(P::GameInAck));
+        }
+        ASSERT_FALSE(reply.messages.empty());
+        EXPECT_EQ(reply.messages.front().header.protocol, static_cast<std::uint8_t>(reject_source ? P::ChangeMapNack : P::ChangeMapAck));
+        const auto before = source.sent_msgs.size();
+        handler.on_message({1101}, move);
+        EXPECT_EQ(source.sent_msgs.size(), before + 1);
+    }
+}
+
+TEST(AgentHandlerTest, TransferUncertainOutcomeFreezesLateRepliesAndCleansPossibleOwner) {
+    using P = mxh::proto::UserConnProtocol;
+    // Timeout before exit, timeout after exit, malformed admission, send failure.
+    for (int failure = 0; failure != 4; ++failure) {
+        SCOPED_TRACE(failure);
+        MockDbAdapter db;
+        ReplySpy reply;
+        mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, 7);
+        MockTcpSender source, target;
+        handler.set_map_server(&source, {1});
+        handler.set_map_server_for_map(10, &target, {1});
+        handler.register_session({1101}, 3001, 777, 7);
+        mxh::net::Message m;
+        m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        m.header.object_id = 777;
+        m.header.protocol = static_cast<std::uint8_t>(P::ChangeMapSyn);
+        m.payload = {10, 0};
+        handler.on_message({1101}, m);
+        if (failure == 3) target.set_fail_send(true);
+        if (failure != 0) {
+            m.header.protocol = static_cast<std::uint8_t>(P::GameOutAck);
+            m.payload.clear();
+            handler.forward_from_map({1}, m, 7);
+        }
+        if (failure == 2) {
+            m.header.protocol = static_cast<std::uint8_t>(P::GameInAck);
+            handler.forward_from_map({1}, m, 10); // Empty / malformed payload must never commit the route.
+        }
+        const auto closes = handler.poll_map_transfers(std::chrono::steady_clock::now() + std::chrono::seconds(30));
+        ASSERT_EQ(closes.size(), 1u);
+        EXPECT_EQ(closes[0].value, 1101u);
+        ASSERT_EQ(reply.messages.size(), 1u);
+        EXPECT_EQ(reply.messages[0].header.protocol, static_cast<std::uint8_t>(P::GameInNack));
+        m.header.protocol = static_cast<std::uint8_t>(P::GameOutAck);
+        handler.forward_from_map({1}, m, 7);
+        m.header.protocol = static_cast<std::uint8_t>(P::GameInAck);
+        handler.forward_from_map({1}, m, 10);
+        EXPECT_TRUE(handler.poll_map_transfers(std::chrono::steady_clock::now() + std::chrono::seconds(60)).empty());
+        EXPECT_EQ(reply.messages.size(), 1u); // Late replies cannot reopen a failed transfer.
+        const auto source_count = source.sent_msgs.size(), target_count = target.sent_msgs.size();
+        m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+        handler.on_message({1101}, m);
+        EXPECT_EQ(source.sent_msgs.size(), source_count);
+        EXPECT_EQ(target.sent_msgs.size(), target_count);
+        target.set_fail_send(false);
+        handler.on_disconnect({1101}, mxh::net::NetError::Disconnected);
+        if (failure == 0) EXPECT_EQ(source.sent_msgs.size(), source_count + 1);
+        else {
+            EXPECT_EQ(source.sent_msgs.size(), source_count);
+            ASSERT_EQ(target.sent_msgs.size(), target_count + 1);
+            EXPECT_EQ(target.sent_msgs.back().header.protocol, static_cast<std::uint8_t>(P::GameOutSyn));
+        }
+    }
+}
+
+TEST(AgentHandlerTest, DisconnectDetachesRouteBeforeSynchronousCleanupAndPreservesNewOwner) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, 7);
+    MockTcpSender source;
+    handler.set_map_server(&source, {1});
+    handler.register_session({1101}, 3001, 777, 7);
+    source.on_send = [&](const mxh::net::Message& request) {
+        auto response = request;
+        response.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck);
+        response.payload.clear();
+        handler.forward_from_map({1}, response, 7);
+    };
+    handler.on_disconnect({1101}, mxh::net::NetError::Disconnected);
+    ASSERT_EQ(source.sent_msgs.size(), 1u);
+    EXPECT_TRUE(reply.messages.empty());
+    handler.register_session({1102}, 3001, 777, 7);
+    handler.register_session({1103}, 3001, 777, 7);
+    handler.on_disconnect({1102}, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(source.sent_msgs.size(), 1u); // Old connection must not log out the rebound character.
+    mxh::net::Message state;
+    state.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    state.header.object_id = 777;
+    handler.forward_from_map({1}, state, 7);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.last_id.value, 1103u);
 }
 
 TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
@@ -885,6 +1181,38 @@ TEST(AgentHandlerTest, DisconnectSynWithoutCharacterDoesNotTouchMap) {
     EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::DisconnectAck));
     EXPECT_TRUE(map.sent_msgs.empty());
+}
+
+TEST(AgentHandlerTest, ReviveRequestsUseOwnedMapRouteAndRejectResponsePayloads) {
+    MockDbAdapter db; ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    const auto connection=mxh::net::make_connection_id(1002);
+    handler.register_session(connection,3002,777,10);
+    MockTcpSender fallback, map;
+    handler.set_map_server(&fallback,{42});
+    handler.set_map_server_for_map(10,&map,{43});
+    mxh::net::Message request;
+    request.header.category=static_cast<std::uint8_t>(mxh::proto::Category::CharRevive);
+    request.header.object_id=999; // Spoofed identity must be replaced.
+    for(const auto protocol:{0,3,6}) {
+        request.header.protocol=static_cast<std::uint8_t>(protocol);
+        handler.on_message(connection,request);
+    }
+    ASSERT_EQ(map.sent_msgs.size(),3u);
+    for(const auto& message:map.sent_msgs) {
+        EXPECT_EQ(message.header.object_id,777u);
+        EXPECT_TRUE(message.payload.empty());
+    }
+    EXPECT_TRUE(fallback.sent_msgs.empty());
+    for(const auto protocol:{1,2,4,5,7,8,255}) {
+        request.header.protocol=static_cast<std::uint8_t>(protocol);
+        handler.on_message(connection,request);
+    }
+    request.header.protocol=0; request.payload={0};
+    handler.on_message(connection,request);
+    request.payload.clear();
+    handler.on_message({9999},request);
+    EXPECT_EQ(map.sent_msgs.size(),3u);
 }
 
 // ===========================================================================
@@ -1610,6 +1938,29 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
 }
 
+TEST(MapHandlerTest, AuthenticatedGameInRetainsAccountAndAppearanceInActor) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig config; config.path=":memory:";
+    ASSERT_TRUE(db.connect(config).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num,sex_type,face_type,hair_type) "
+                             "VALUES(777,'123','AppearanceHero',10,1,4,6);").ok());
+    ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    mxh::net::Message request;
+    request.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    request.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    request.header.object_id=777; request.payload.assign(16,0);
+    request.payload[0]=124; // wrong authenticated owner must not create a runtime
+    handler.on_message({99},request);
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+    request.payload[0]=123;
+    handler.on_message({99},request);
+    const auto snapshot=handler.player_runtime_snapshot(777); ASSERT_TRUE(snapshot);
+    EXPECT_EQ(snapshot->user_id,123u); EXPECT_EQ(snapshot->player_id,777u);
+    EXPECT_EQ(snapshot->gender,1); EXPECT_EQ(snapshot->face_type,4); EXPECT_EQ(snapshot->hair_type,6);
+}
+
 TEST(MapHandlerTest, TargetMapGameInUsesTargetMapAndEmitsAck) {
     MockDbAdapter db;
     ReplySpy reply;
@@ -1635,6 +1986,7 @@ TEST(MapHandlerTest, TargetMapGameInUsesTargetMapAndEmitsAck) {
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
     EXPECT_EQ(snapshot->map_num, target_map);
     EXPECT_EQ(snapshot->player_id, char_id);
+    EXPECT_EQ(snapshot->user_id, user_id);
 
     const auto ack = std::find_if(reply.messages.begin(), reply.messages.end(),
         [](const mxh::net::Message& message) {
@@ -1677,8 +2029,37 @@ TEST(MapHandlerTest, CharacterAddCarriesVisiblePlayerVitals) {
                 sizeof(currentLife));
     std::memcpy(&maxLife, message->payload.data() + 39,
                 sizeof(maxLife));
-    EXPECT_EQ(currentLife, 100u);
-    EXPECT_EQ(maxLife, 100u);
+    const auto actor=handler.player_runtime_snapshot(202u); ASSERT_TRUE(actor);
+    EXPECT_EQ(currentLife, actor->current_hp);
+    EXPECT_EQ(maxLife, actor->max_hp);
+    const auto self=std::find_if(reply.messages.begin(),reply.messages.end(),[](const auto& packet) {
+        return packet.header.object_id==202u && packet.header.protocol==static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    });
+    ASSERT_NE(self,reply.messages.end());
+    std::uint32_t shield=0,maxShield=0,selfShield=0,selfMaxShield=0;
+    std::memcpy(&shield,message->payload.data()+43,4); std::memcpy(&maxShield,message->payload.data()+47,4);
+    std::memcpy(&selfShield,self->payload.data()+43,4); std::memcpy(&selfMaxShield,self->payload.data()+47,4);
+    EXPECT_EQ(shield,selfShield); EXPECT_EQ(maxShield,selfMaxShield);
+    EXPECT_GT(maxShield,0u); // fixture's level contribution must not be zero-filled
+
+    // The admitted source defaults must reach both self and observer packets.
+    // Zero-filling this block hides ordinary worn equipment in the Unity policy.
+    std::size_t checked = 0;
+    for (const auto& packet : reply.messages) {
+        if (packet.header.category != static_cast<std::uint8_t>(mxh::proto::Category::UserConn)) continue;
+        const bool self = packet.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+        const bool other = packet.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterAdd);
+        if (!self && !other) continue;
+        const std::size_t offset = self ? mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET : 161u;
+        ASSERT_GE(packet.payload.size(), offset + 120u);
+        for (std::size_t byte = 0; byte < 120; ++byte) {
+            const auto expected = byte >= 24 && byte < 46 && byte % 2 == 0 ? 1 : 0;
+            EXPECT_EQ(packet.payload[offset + byte], expected) << "shop byte=" << byte;
+        }
+        ++checked;
+    }
+    // Current Map routing copies each observer direction to both Agent links.
+    EXPECT_EQ(checked, 6u); // two self ACKs and four observer copies
 }
 
 TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
@@ -1792,14 +2173,10 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
     cfg.backend = "sqlite";
     cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,"
-        "face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER);"
-        "CREATE TABLE modern_player_item (player_id INTEGER NOT NULL,container INTEGER NOT NULL,slot INTEGER NOT NULL,"
-        "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,rare_idx INTEGER NOT NULL,"
-        "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
-        "UNIQUE(player_id,db_idx));"
-        "INSERT INTO character_info VALUES(123,'ItemHero',0,1,1,1.0,1.0,1,7);"
+        "INSERT INTO character_info(chrid,userid,charname,sex_type,face_type,hair_type,height,width,level,map_num) "
+        "VALUES(123,'123','ItemHero',0,1,1,1.0,1.0,1,7);"
         "INSERT INTO modern_player_item VALUES(123,0,4,9001,555,87,3,65535,8);"
         "INSERT INTO modern_player_item VALUES(123,1,2,9002,777,65,4,65535,1);").ok());
 
@@ -1823,6 +2200,7 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
         EXPECT_EQ(items.WearedItem[2].dwDBIdx, 9002u);
         EXPECT_EQ(items.WearedItem[2].wIconIdx, 777u);
         handler.on_disconnect(connection, mxh::net::NetError::Disconnected);
+        EXPECT_FALSE(handler.is_draining());
     }
     mxh::db::ResultSet rows;
     const std::vector<mxh::db::Bind> no_args;
@@ -1833,6 +2211,1479 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 555);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][1]), 2);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][2]), 777);
+}
+
+TEST(MapHandlerTest, ExtendedShopContainersSurviveExitAndFreshHandlerRelogin) {
+    mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(123,'123','ShopHero',7);"
+        "INSERT INTO modern_player_item VALUES(123,0,4,9001,555,87,3,65535,8);"
+        "INSERT INTO modern_player_item VALUES(123,1,2,9002,777,65,4,65535,1);"
+        "INSERT INTO modern_player_item VALUES(123,2,0,9003,55001,4294967295,3,65535,2147483648);"
+        "INSERT INTO modern_player_item VALUES(123,2,19,9004,55002,71,4,65535,9);"
+        "INSERT INTO modern_player_item VALUES(123,3,2,9005,55003,72,5,65535,10);"
+        "INSERT INTO modern_player_item VALUES(123,4,6,9006,55004,73,6,65535,11);"
+        "INSERT INTO modern_player_item VALUES(123,5,3,9007,55005,74,7,65535,12);").ok());
+    for (int session = 0; session < 2; ++session) {
+        ReplySpy reply; mxh::server::MapHandler handler(db,7,make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        mxh::net::Message enter;
+        enter.header.object_id=123;
+        enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16,0); enter.payload[0]=123;
+        handler.on_message({55},enter);
+        ASSERT_TRUE(handler.player_runtime_snapshot(123));
+        const auto ack = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
+            return message.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+        });
+        ASSERT_NE(ack,reply.messages.end());
+        ASSERT_GE(ack->payload.size(),mxh::game::HERO_TOTAL_ITEM_OFFSET+sizeof(mxh::game::ItemTotalInfo));
+        mxh::game::ItemTotalInfo items{};
+        std::memcpy(&items,ack->payload.data()+mxh::game::HERO_TOTAL_ITEM_OFFSET,sizeof(items));
+        EXPECT_EQ(items.Inventory[4].dwDBIdx,9001u); EXPECT_EQ(items.WearedItem[2].dwDBIdx,9002u);
+        EXPECT_EQ(items.ShopInventory[0].dwDBIdx,9003u); EXPECT_EQ(items.ShopInventory[0].wIconIdx,55001u);
+        EXPECT_EQ(items.ShopInventory[0].Position,390u); EXPECT_EQ(items.ShopInventory[0].Durability,UINT32_MAX);
+        EXPECT_EQ(items.ShopInventory[0].ItemParam,0x80000000u); EXPECT_EQ(items.ShopInventory[0].QuickPosition,65535u);
+        EXPECT_EQ(items.ShopInventory[19].dwDBIdx,9004u); EXPECT_EQ(items.ShopInventory[19].Position,409u);
+        EXPECT_EQ(items.PetWearedItem[2].dwDBIdx,9005u); EXPECT_EQ(items.PetWearedItem[2].Position,492u);
+        EXPECT_EQ(items.TitanWearedItem[6].dwDBIdx,9006u); EXPECT_EQ(items.TitanWearedItem[6].Position,499u);
+        EXPECT_EQ(items.TitanShopItem[3].dwDBIdx,9007u); EXPECT_EQ(items.TitanShopItem[3].Position,503u);
+        if (session == 1) {
+            ASSERT_TRUE(db.exec_multi("CREATE TRIGGER fail_shop_save BEFORE INSERT ON modern_player_item "
+                "WHEN NEW.container=2 BEGIN SELECT RAISE(ABORT,'injected shop save failure'); END;").ok());
+            auto leave = enter;
+            leave.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+            handler.on_message({55},leave);
+            EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+            EXPECT_TRUE(handler.player_runtime_snapshot(123));
+            mxh::db::ResultSet retained;
+            ASSERT_TRUE(db.query("SELECT container FROM modern_player_item WHERE player_id=123",{},retained).ok());
+            EXPECT_EQ(retained.rows.size(),7u); // DELETE and preceding ordinary writes were rolled back.
+            ASSERT_TRUE(db.exec_multi("DROP TRIGGER fail_shop_save;").ok());
+        }
+        handler.on_disconnect({55},mxh::net::NetError::Disconnected);
+        EXPECT_FALSE(handler.is_draining());
+        mxh::db::ResultSet rows;
+        ASSERT_TRUE(db.query("SELECT container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param "
+                             "FROM modern_player_item WHERE player_id=123 ORDER BY container,slot",{},rows).ok());
+        ASSERT_EQ(rows.rows.size(),7u);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[2][0]),2);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[2][4]),4294967295LL);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[2][7]),2147483648LL);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[3][1]),19);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[4][0]),3);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[5][0]),4);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[6][0]),5);
+    }
+}
+
+TEST(MapHandlerTest, ShopAdmissionRestoresWireAndCommitsExpiryAtomically) {
+    for (int failure : {1,2,0}) {
+        SCOPED_TRACE(failure);
+        mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','RestoreHero',10);"
+            "INSERT INTO modern_player_item VALUES(777,2,0,9002,55002,1,0,65535,0);"
+            "INSERT INTO modern_player_item VALUES(777,2,1,9003,63130,1,0,65535,0);"
+            "INSERT INTO modern_player_item VALUES(777,2,2,9004,57680,1,0,65535,0);").ok());
+        mxh::db::LegacyShopAppearanceRows saved;
+        saved.skin={101,102,103,104,105};
+        saved.used_items.push_back({55001,0,9001,2,0,60000});
+        saved.used_items.push_back({55002,390,9002,1,0,0});
+        saved.used_items.push_back({57680,392,9004,10,0,0xffffffffu});
+        saved.used_items.push_back({63130,391,9003,10,0,0xffffffffu});
+        const auto initial=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(initial);
+        ASSERT_TRUE(mxh::db::save_modern_shop_state(db,777,123,*initial,saved));
+        ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        const auto root=std::filesystem::path(MXH_SOURCE_DIR)/"data/PlayDH/Resource";
+        std::uint64_t shop_now=1000;
+        ASSERT_TRUE(handler.set_movement_clock_for_test([&]{return shop_now;}));
+        std::string error;
+        ASSERT_TRUE(handler.load_shop_event_rates(root/"Server/DropRate.bin",mxh::server::ShopLocale::China,error)) << error;
+        ASSERT_TRUE(handler.load_shop_dup_catalog(root/"ItemdupOption.bin",error)) << error;
+        ASSERT_TRUE(handler.load_avatar_equip_catalog(root/"AvatarEquip.bin",error)) << error;
+        mxh::game::ItemInfo buff{}; buff.ItemIdx=55001; buff.ItemKind=258; buff.Plus_MugongIdx=100; buff.SellPrice=2;
+        handler.add_item_info_for_test(buff);
+        mxh::game::ItemInfo expired{}; expired.ItemIdx=55002; expired.ItemType=11; expired.SellPrice=1;
+        handler.add_item_info_for_test(expired);
+        mxh::game::ItemInfo dress{}; dress.ItemIdx=63130; dress.ItemType=11; dress.SellPrice=1; dress.Life=55;
+        handler.add_item_info_for_test(dress);
+        auto previous_dress=dress; previous_dress.ItemIdx=57680; previous_dress.Life=77;
+        handler.add_item_info_for_test(previous_dress);
+        if (failure == 1) ASSERT_TRUE(db.exec_multi("CREATE TRIGGER fail_shop_record BEFORE UPDATE OF character_data ON character_info "
+             "BEGIN SELECT RAISE(ABORT,'injected shop state failure'); END;").ok());
+        if (failure == 2) ASSERT_TRUE(db.exec_multi("DROP TABLE modern_character_equipment;").ok());
+        mxh::net::Message enter; enter.header.object_id=777;
+        enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16,0); enter.payload[0]=123;
+        testing::internal::CaptureStdout();
+        handler.on_message({55},enter);
+        const auto logged=testing::internal::GetCapturedStdout();
+        const auto restored=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(restored);
+        mxh::db::ResultSet inventory; ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777",{},inventory).ok());
+        if (failure != 0) {
+            EXPECT_FALSE(handler.player_runtime_snapshot(777));
+            ASSERT_FALSE(reply.messages.empty());
+            EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+            EXPECT_EQ(restored->rows.used_items.size(),4u); EXPECT_EQ(inventory.rows.size(),3u);
+            EXPECT_EQ(restored->rows.used_items[2].parameter,10u); // replacement update rolled back too
+            EXPECT_EQ(logged.find("ShopItemUseEnd"),std::string::npos);
+        } else {
+            EXPECT_TRUE(handler.player_runtime_snapshot(777));
+            ASSERT_EQ(restored->rows.used_items.size(),3u); EXPECT_EQ(restored->rows.used_items[0].item_id,55001u);
+            EXPECT_EQ(restored->rows.used_items[1].item_id,57680u);
+            EXPECT_EQ(restored->rows.used_items[1].parameter,1u); // source SellPrice after replacement
+            EXPECT_EQ(restored->rows.used_items[2].parameter,10u);
+            EXPECT_EQ(inventory.rows.size(),2u); EXPECT_NE(logged.find("ShopItemUseEnd player=777 db_idx=9002"),std::string::npos);
+            const auto ack=std::find_if(reply.messages.begin(),reply.messages.end(),[](const auto& message) {
+                return message.header.protocol==static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+            });
+            ASSERT_NE(ack,reply.messages.end());
+            mxh::game::ShopItemOption options{};
+            std::memcpy(&options,ack->payload.data()+mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET,sizeof(options));
+            EXPECT_EQ(options.Life,100); EXPECT_EQ(options.wSkinItem,saved.skin);
+            EXPECT_EQ(options.Avatar[6],63130);
+            EXPECT_EQ(options.Avatar[15],0); EXPECT_EQ(options.Avatar[16],0);
+            const auto actor=handler.player_runtime_snapshot(777); ASSERT_TRUE(actor);
+            const auto wire_u32=[&](std::size_t at) { std::uint32_t value; std::memcpy(&value,ack->payload.data()+at,4); return value; };
+            EXPECT_EQ(wire_u32(35),actor->current_hp); EXPECT_EQ(wire_u32(39),actor->max_hp);
+            EXPECT_EQ(wire_u32(155),actor->current_mp); EXPECT_EQ(wire_u32(159),actor->max_mp);
+            EXPECT_EQ(actor->max_hp,actor->current_hp+155u); // charm 100 + worn dress 55; no healing
+            mxh::game::ItemTotalInfo items{};
+            std::memcpy(&items,ack->payload.data()+mxh::game::HERO_TOTAL_ITEM_OFFSET,sizeof(items));
+            EXPECT_EQ(items.ShopInventory[0].dwDBIdx,0u);
+            EXPECT_EQ(items.ShopInventory[1].dwDBIdx,9003u);
+            EXPECT_EQ(items.ShopInventory[2].dwDBIdx,9004u); // replacing clothing does not discard it
+            auto leave=enter;
+            leave.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+            shop_now+=45000; // source logout bounds this final slice to 30 seconds
+            ASSERT_TRUE(db.exec_multi("CREATE TRIGGER fail_logout_shop BEFORE UPDATE OF character_data ON character_info BEGIN SELECT RAISE(ABORT,'logout shop failure'); END;").ok());
+            handler.on_message({55},leave);
+            ASSERT_TRUE(handler.player_runtime_snapshot(777));
+            EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+            const auto failed_exit=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(failed_exit);
+            EXPECT_EQ(failed_exit->rows.used_items[0].remaining_time,60000u);
+            ASSERT_TRUE(db.exec_multi("DROP TRIGGER fail_logout_shop;").ok());
+            handler.on_message({55},leave);
+            ASSERT_FALSE(handler.player_runtime_snapshot(777));
+            reply.messages.clear();
+            handler.on_message({55},enter);
+            const auto rejoined=handler.player_runtime_snapshot(777); ASSERT_TRUE(rejoined);
+            EXPECT_EQ(rejoined->max_hp,actor->max_hp);
+            const auto next_ack=std::find_if(reply.messages.begin(),reply.messages.end(),[](const auto& packet) {
+                return packet.header.protocol==static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+            });
+            ASSERT_NE(next_ack,reply.messages.end());
+            mxh::game::ShopItemOption next_options{};
+            std::memcpy(&next_options,next_ack->payload.data()+mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET,sizeof(next_options));
+            EXPECT_EQ(next_options.Avatar,options.Avatar);
+            const auto next_saved=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(next_saved);
+            ASSERT_EQ(next_saved->rows.used_items.size(),3u);
+            EXPECT_EQ(next_saved->rows.used_items[0].remaining_time,30000u);
+            EXPECT_EQ(next_saved->rows.used_items[1].parameter,1u);
+            EXPECT_EQ(next_saved->rows.used_items[2].parameter,10u);
+        }
+    }
+}
+
+TEST(MapHandlerTest, AdmissionRestoresPersistedZeroLifeAsDeadWithoutShopItems) {
+    mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','DeadHero',10);").ok());
+    const auto initial=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(initial);
+    const std::vector<mxh::db::PersistedPet> pets{{901,1,2,1234,57,1,0,0}};
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(db,777,123,*initial,{},mxh::db::PersistedVitals{0,0,7},pets));
+    ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    mxh::net::Message enter; enter.header.object_id=777;
+    enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16,0); enter.payload[0]=123;
+    handler.on_message({55},enter);
+    const auto player=handler.player_runtime_snapshot(777); ASSERT_TRUE(player);
+    EXPECT_EQ(player->current_hp,0u);
+    EXPECT_EQ(player->current_mp,7u);
+    EXPECT_EQ(player->pet_count,1u);
+    EXPECT_EQ(player->lifecycle,mxh::server::PlayerLifecycle::Dead);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(777,0,5));
+    handler.on_disconnect({55},mxh::net::NetError::Disconnected);
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+    const auto saved=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(saved);
+    ASSERT_TRUE(saved->vitals);
+    EXPECT_EQ(saved->vitals->life,0u);
+    EXPECT_EQ(saved->vitals->naeryuk,5u);
+    ASSERT_TRUE(saved->pets); ASSERT_EQ(saved->pets->size(),1u);
+    EXPECT_EQ((*saved->pets)[0].summon_item,901u);
+    EXPECT_EQ((*saved->pets)[0].friendship,57u);
+    EXPECT_EQ((*saved->pets)[0].stamina,1234u);
+    EXPECT_EQ((*saved->pets)[0].grade,2u);
+    handler.on_message({56},enter);
+    const auto reentered=handler.player_runtime_snapshot(777); ASSERT_TRUE(reentered);
+    EXPECT_EQ(reentered->current_hp,0u);
+    EXPECT_EQ(reentered->current_mp,5u);
+    EXPECT_EQ(reentered->pet_count,1u);
+    EXPECT_EQ(reentered->lifecycle,mxh::server::PlayerLifecycle::Dead);
+}
+
+TEST(MapHandlerTest, MapKindsAreProfileBoundAndFailedReloadClearsOldRules) {
+    mxh::db::SqliteAdapter db;
+    ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+    const auto source=std::filesystem::path(MXH_SOURCE_DIR)/"data/PlayDH/Resource/MapKindInfo.bin";
+    EXPECT_FALSE(handler.resolved_map_kind(10));
+    ASSERT_TRUE(handler.load_map_kinds(source,"playdh-current"));
+    EXPECT_EQ(handler.resolved_map_kind(10),64u);
+    EXPECT_FALSE(handler.resolved_map_kind(118));
+    EXPECT_FALSE(handler.resolved_map_kind(99999));
+    EXPECT_FALSE(handler.load_map_kinds(source,"sworking-2008-reference"));
+    EXPECT_FALSE(handler.resolved_map_kind(10));
+    ASSERT_TRUE(handler.load_map_kinds(source,"playdh-current"));
+    EXPECT_FALSE(handler.load_map_kinds(source,"unknown"));
+    EXPECT_FALSE(handler.resolved_map_kind(10));
+}
+
+TEST(MapHandlerTest, CompletePresentReviveCandidateCommitsActorAndPetTogether) {
+    using namespace mxh::server;
+    mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig config; config.path=":memory:";
+    ASSERT_TRUE(db.connect(config).ok());
+    ASSERT_TRUE(db.exec_multi("CREATE TABLE character_info(chrid INT PRIMARY KEY,userid TEXT,level INT,character_data BLOB);"
+        "CREATE TABLE modern_player_state(player_id INT PRIMARY KEY,level INT,exp INT,money INT);"
+        "INSERT INTO character_info VALUES(777,'123',5,NULL);"
+        "INSERT INTO modern_player_state VALUES(777,5,100,100);").ok());
+    Player actor; PlayerSpawnInfo spawn;
+    spawn.player_id=777; spawn.user_id=123; spawn.level=5; spawn.map_num=10;
+    spawn.base.level=5; spawn.base.cheryuk=20; spawn.base.simmek=10;
+    ASSERT_TRUE(actor.initialize(spawn)); ASSERT_TRUE(actor.activate());
+    actor.state().progress.money=100; actor.state().progress.level_exp=100;
+    actor.state().vitals.current_hp=0; ASSERT_TRUE(actor.mark_dead_if_zero_life());
+    std::string text;
+    for(unsigned level=1;level<=121;++level) text+=std::to_string(level)+" 1000\n";
+    const auto curve=mxh::game::ExperienceCurve::load_from_text(text);
+    PetManagerState pets; PetTotalInfo pet{};
+    pet.PetSummonItemDBIdx=901; pet.PetKind=1; pet.PetGrade=1;
+    pet.PetFriendly=10; pet.bAlive=1; pets.m_PetInfoList.push_back(pet);
+    pets.m_curSummonItemDBIdx=901; pets.m_iFriendshipReduceAmount=-20;
+    mxh::game::MapKindTable maps;
+    maps[10]=64;
+    LootingManagerState looting;
+    create_looting_room(looting,make_looting_room(777,999,0,0));
+    EXPECT_FALSE(prepare_resolved_present_revive(actor,curve,{}, {},{},pets,looting,maps,
+        false,false,false));
+    ASSERT_TRUE(close_looting_room(looting,777));
+    const auto candidate=prepare_resolved_present_revive(actor,curve,{}, {},{},pets,looting,maps,
+        false,false,false);
+    ASSERT_TRUE(candidate);
+    const auto snapshot=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(snapshot);
+    for(unsigned invalid=0;invalid<3;++invalid) {
+        auto malformed=*candidate;
+        if(invalid==0) malformed.actor.state().pos_x=-1;
+        if(invalid==1) malformed.actor.state().map_num=2;
+        if(invalid==2) malformed.actor.state().vitals.current_hp=0xffffffffu;
+        EXPECT_EQ(commit_present_revive(db,*snapshot,actor,malformed),mxh::db::ReviveCommit::Rejected);
+        mxh::db::ResultSet unchanged;
+        ASSERT_TRUE(db.query("SELECT money,exp FROM modern_player_state WHERE player_id=777",{},unchanged).ok());
+        ASSERT_EQ(unchanged.rows.size(),1u);
+        EXPECT_EQ(std::get<std::int64_t>(unchanged.rows[0][0]),100);
+        EXPECT_EQ(std::get<std::int64_t>(unchanged.rows[0][1]),100);
+        const auto untouched=mxh::db::load_modern_shop_state(db,777,123);
+        ASSERT_TRUE(untouched); EXPECT_FALSE(untouched->vitals); EXPECT_FALSE(untouched->pets);
+    }
+    EXPECT_EQ(commit_present_revive(db,*snapshot,actor,*candidate),mxh::db::ReviveCommit::Committed);
+    const auto saved=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(saved);
+    ASSERT_TRUE(saved->vitals); EXPECT_EQ(saved->vitals->life,candidate->actor.state().vitals.current_hp);
+    ASSERT_TRUE(saved->pets); ASSERT_EQ(saved->pets->size(),1u);
+    EXPECT_EQ((*saved->pets)[0].alive,0u); EXPECT_EQ((*saved->pets)[0].friendship,0u);
+    mxh::db::ResultSet result;
+    ASSERT_TRUE(db.query("SELECT money,exp FROM modern_player_state WHERE player_id=777",{},result).ok());
+    ASSERT_EQ(result.rows.size(),1u);
+    EXPECT_EQ(std::get<std::int64_t>(result.rows[0][0]),94);
+    EXPECT_EQ(std::get<std::int64_t>(result.rows[0][1]),70);
+    EXPECT_EQ(actor.lifecycle(),PlayerLifecycle::Dead);
+    EXPECT_EQ(pets.m_PetInfoList[0].PetFriendly,10u);
+    EXPECT_EQ(commit_present_revive(db,*snapshot,actor,*candidate),mxh::db::ReviveCommit::Rejected);
+}
+
+TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    const auto curve = mxh::game::ExperienceCurve::load_from_bin(root / "CharacterExpPoint.bin");
+    std::ifstream penalty_file(root / "Server/ExpPenalty.bin", std::ios::binary);
+    const std::vector<std::uint8_t> penalty_bytes{
+        std::istreambuf_iterator<char>(penalty_file), std::istreambuf_iterator<char>()};
+    const auto penalties = mxh::game::decode_exp_penalty(
+        penalty_bytes, mxh::game::ExpPenaltyProfile::PlayDhCurrent);
+    ASSERT_TRUE(penalties);
+    const auto threshold = curve.max_exp_point(5);
+    ASSERT_GT(threshold, 1u);
+    ASSERT_LE(threshold, 0xffffffffu);
+    const auto seeded_exp = static_cast<std::uint32_t>(threshold - 1);
+    const auto loss = mxh::game::unprotected_revive_loss(
+        *penalties, mxh::game::ReviveLocation::Present, 5, 100000u, threshold);
+    ASSERT_TRUE(loss);
+    ASSERT_GT(loss->money, 0u);
+    ASSERT_LT(loss->experience, seeded_exp);
+    const auto reduced = curve.reduce_exp({5, seeded_exp}, loss->experience);
+    EXPECT_EQ(reduced.level, 5u);
+
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig config;
+    config.path = ":memory:";
+    ASSERT_TRUE(db.connect(config).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(charname,chrid,userid,level,map_num) "
+        "VALUES('DeadHero',777,'123',5,10);"
+        "INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) "
+        "VALUES(777,100000,5," + std::to_string(seeded_exp) + ",'now');").ok());
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(
+        db, 777, 123, *initial, {}, mxh::db::PersistedVitals{0, 0, 40}));
+
+    auto enter = [] {
+        mxh::net::Message message;
+        message.header.object_id = 777;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        message.payload.assign(16, 0);
+        message.payload[0] = 123;
+        return message;
+    };
+    auto revive = [](std::uint8_t protocol, std::uint32_t player) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::CharRevive);
+        message.header.protocol = protocol;
+        message.header.object_id = player;
+        return message;
+    };
+    {
+        ReplySpy reply;
+        mxh::server::MapHandler event_map(db, 58, make_reply_spy(reply));
+        event_map.set_allow_dev_gamein_fallback(false);
+        event_map.on_message({55}, enter());
+        const auto dead = event_map.player_runtime_snapshot(777);
+        ASSERT_TRUE(dead);
+        EXPECT_EQ(dead->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        EXPECT_EQ(dead->map_num, 58u);
+        reply.messages.clear();
+        event_map.on_message({55}, revive(0, 777));
+        EXPECT_TRUE(reply.messages.empty());
+        EXPECT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        event_map.on_disconnect({55}, mxh::net::NetError::Disconnected);
+        EXPECT_FALSE(event_map.is_draining());
+        EXPECT_FALSE(event_map.player_runtime_snapshot(777));
+    }
+    // The event-map exit records that map. Map 10 has no transfer route from it,
+    // so drop the saved point before the ordinary-map admission.
+    ASSERT_TRUE(db.exec_multi("DELETE FROM modern_player_position WHERE player_id=777;").ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    handler.load_experience_curve((root / "CharacterExpPoint.bin").string());
+    ASSERT_TRUE(handler.has_loaded_experience_curve());
+    ASSERT_TRUE(handler.load_exp_penalty(root / "Server/ExpPenalty.bin", "playdh-current"));
+    ASSERT_TRUE(handler.load_map_kinds(root / "MapKindInfo.bin", "playdh-current"));
+    handler.on_message({55}, enter());
+    const auto before = handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(before);
+    EXPECT_EQ(before->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    EXPECT_EQ(before->level, 5u);
+    EXPECT_EQ(before->level_exp, seeded_exp);
+    EXPECT_EQ(handler.player_money_for_test(777), 100000u);
+    EXPECT_EQ(before->current_hp, 0u);
+    EXPECT_GT(before->current_mp, 0u);
+    EXPECT_FLOAT_EQ(before->pos_x, 25000.0f);
+    EXPECT_FLOAT_EQ(before->pos_z, 25000.0f);
+
+    reply.messages.clear();
+    auto rejected = revive(0, 777);
+    rejected.payload = {0};
+    handler.on_message({55}, rejected);
+    handler.on_message({55}, revive(3, 777));
+    handler.on_message({55}, revive(6, 777));
+    handler.on_message({99}, revive(0, 777));
+    handler.on_message({55}, revive(0, 0));
+    EXPECT_TRUE(reply.messages.empty());
+    EXPECT_EQ(handler.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    EXPECT_EQ(handler.player_money_for_test(777), 100000u);
+
+    reply.messages.clear();
+    handler.on_message({55}, revive(0, 777));
+    const auto after = handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(after);
+    EXPECT_EQ(after->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(after->level, reduced.level);
+    EXPECT_EQ(after->level_exp, reduced.exp_point);
+    EXPECT_EQ(handler.player_money_for_test(777), 100000u - loss->money);
+    EXPECT_EQ(after->current_hp, static_cast<std::uint32_t>(after->max_hp * 0.3));
+    EXPECT_GT(after->current_hp, 0u);
+    EXPECT_EQ(after->current_mp, 0u);
+    EXPECT_FALSE(handler.is_draining());
+
+    const auto find_message = [&](std::uint8_t category, std::uint8_t protocol) {
+        return std::find_if(reply.messages.begin(), reply.messages.end(), [&](const auto& message) {
+            return message.header.category == category && message.header.protocol == protocol;
+        });
+    };
+    const auto position_message = find_message(
+        static_cast<std::uint8_t>(mxh::proto::Category::UserConn), 44);
+    const auto money_message = find_message(
+        static_cast<std::uint8_t>(mxh::proto::Category::Item),
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money));
+    const auto experience_message = find_message(3, 13);
+    const auto life_message = find_message(
+        static_cast<std::uint8_t>(mxh::proto::Category::Character), 1);
+    const auto mp_message = find_message(
+        static_cast<std::uint8_t>(mxh::proto::Category::Character), 9);
+    ASSERT_NE(position_message, reply.messages.end());
+    ASSERT_NE(money_message, reply.messages.end());
+    ASSERT_NE(life_message, reply.messages.end());
+    ASSERT_NE(mp_message, reply.messages.end());
+    EXPECT_LT(position_message, money_message);
+    EXPECT_LT(money_message, life_message);
+    EXPECT_LT(life_message, mp_message);
+    EXPECT_EQ(position_message->header.object_id, 777u);
+    const auto position = mxh::proto::decode_character_revive(777, position_message->payload);
+    ASSERT_TRUE(position);
+    EXPECT_EQ(position->x, 25000u);
+    EXPECT_EQ(position->z, 25000u);
+    ASSERT_EQ(money_message->payload.size(), 4u);
+    std::uint32_t money = 0;
+    std::memcpy(&money, money_message->payload.data(), 4);
+    EXPECT_EQ(money, 100000u - loss->money);
+    if (loss->experience == 0) {
+        EXPECT_EQ(experience_message, reply.messages.end());
+    } else {
+        ASSERT_NE(experience_message, reply.messages.end());
+        EXPECT_LT(money_message, experience_message);
+        EXPECT_LT(experience_message, life_message);
+        ASSERT_EQ(experience_message->payload.size(), 9u);
+        std::int64_t experience = 0;
+        std::memcpy(&experience, experience_message->payload.data(), 8);
+        EXPECT_EQ(experience, static_cast<std::int64_t>(reduced.exp_point));
+        EXPECT_EQ(experience_message->payload[8], 1u);
+    }
+    std::int32_t life_delta = 0;
+    ASSERT_EQ(life_message->payload.size(), 4u);
+    std::memcpy(&life_delta, life_message->payload.data(), 4);
+    EXPECT_EQ(life_delta, static_cast<std::int32_t>(after->current_hp));
+    std::int32_t mp_delta = 0;
+    ASSERT_EQ(mp_message->payload.size(), 4u);
+    std::memcpy(&mp_delta, mp_message->payload.data(), 4);
+    EXPECT_EQ(mp_delta, -static_cast<std::int32_t>(before->current_mp));
+
+    mxh::db::ResultSet saved;
+    ASSERT_TRUE(db.query("SELECT level,exp,money FROM modern_player_state WHERE player_id=777", {}, saved).ok());
+    ASSERT_EQ(saved.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][0]), static_cast<std::int64_t>(reduced.level));
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][1]), static_cast<std::int64_t>(reduced.exp_point));
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][2]), static_cast<std::int64_t>(100000u - loss->money));
+    const auto persisted = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(persisted);
+    ASSERT_TRUE(persisted->vitals);
+    EXPECT_EQ(persisted->vitals->life, after->current_hp);
+    EXPECT_EQ(persisted->vitals->naeryuk, 0u);
+
+    const auto count = reply.messages.size();
+    handler.on_message({55}, revive(0, 777));
+    ASSERT_EQ(reply.messages.size(), count + 1);
+    EXPECT_EQ(reply.messages.back().header.protocol, mxh::server::userconn_character_revive_nack);
+    EXPECT_EQ(reply.messages.back().payload, (std::vector<std::uint8_t>{1}));
+    EXPECT_EQ(handler.player_runtime_snapshot(777)->current_hp, after->current_hp);
+
+    handler.on_disconnect({55}, mxh::net::NetError::Disconnected);
+    EXPECT_FALSE(handler.is_draining());
+    mxh::server::MapHandler restored(db, 10, make_reply_spy(reply));
+    restored.set_allow_dev_gamein_fallback(false);
+    restored.on_message({56}, enter());
+    const auto relogin = restored.player_runtime_snapshot(777);
+    ASSERT_TRUE(relogin);
+    EXPECT_EQ(relogin->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(relogin->current_hp, after->current_hp);
+    EXPECT_EQ(relogin->current_mp, 0u);
+    EXPECT_EQ(relogin->level_exp, after->level_exp);
+    EXPECT_EQ(restored.player_money_for_test(777), 100000u - loss->money);
+}
+
+TEST(MapHandlerTest, LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    const auto current_path = root / "Server/LoginPoint.bin";
+    const auto legacy_path = std::filesystem::path(MXH_SOURCE_DIR) / ".." /
+        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/LoginPoint.bin";
+    auto read_bytes = [](const std::filesystem::path& path) {
+        std::ifstream input(path, std::ios::binary);
+        return std::vector<std::uint8_t>(std::istreambuf_iterator<char>(input),
+                                         std::istreambuf_iterator<char>());
+    };
+    const auto current_points = mxh::game::decode_login_points(
+        read_bytes(current_path), mxh::game::LoginPointProfile::PlayDhCurrent);
+    const auto legacy_points = mxh::game::decode_login_points(
+        read_bytes(legacy_path), mxh::game::LoginPointProfile::LegacyMhFile);
+    ASSERT_TRUE(current_points);
+    ASSERT_TRUE(legacy_points);
+    const auto current_ten = mxh::game::login_revive_point(*current_points, 10);
+    const auto legacy_ten = mxh::game::login_revive_point(*legacy_points, 10);
+    const auto current_twelve = mxh::game::login_revive_point(*current_points, 12);
+    const auto legacy_twelve = mxh::game::login_revive_point(*legacy_points, 12);
+    ASSERT_TRUE(current_ten);
+    ASSERT_TRUE(legacy_ten);
+    ASSERT_TRUE(current_twelve);
+    ASSERT_TRUE(legacy_twelve);
+    EXPECT_FLOAT_EQ(current_ten->x, legacy_ten->x);
+    EXPECT_FLOAT_EQ(current_ten->z, legacy_ten->z);
+    EXPECT_FLOAT_EQ(current_twelve->x, legacy_twelve->x);
+    EXPECT_FLOAT_EQ(current_twelve->z, legacy_twelve->z);
+    EXPECT_NE(current_ten->x, 25000.0f);
+    EXPECT_LT(current_ten->x, 65536.0f);
+    EXPECT_LT(current_ten->z, 65536.0f);
+
+    const auto curve = mxh::game::ExperienceCurve::load_from_bin(root / "CharacterExpPoint.bin");
+    const auto penalties = mxh::game::decode_exp_penalty(
+        read_bytes(root / "Server/ExpPenalty.bin"), mxh::game::ExpPenaltyProfile::PlayDhCurrent);
+    ASSERT_TRUE(penalties);
+    const auto threshold = curve.max_exp_point(5);
+    ASSERT_GT(threshold, 1u);
+    ASSERT_LE(threshold, 0xffffffffu);
+    const auto seeded_exp = static_cast<std::uint32_t>(threshold - 1);
+    const auto loss = mxh::game::unprotected_revive_loss(
+        *penalties, mxh::game::ReviveLocation::Login, 5, 100000u, threshold);
+    ASSERT_TRUE(loss);
+    EXPECT_EQ(loss->money, static_cast<std::uint32_t>(100000.0 * 0.04));
+    ASSERT_LT(loss->experience, seeded_exp);
+    const auto reduced = curve.reduce_exp({5, seeded_exp}, loss->experience);
+
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig config;
+    config.path = ":memory:";
+    ASSERT_TRUE(db.connect(config).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(charname,chrid,userid,level,map_num) "
+        "VALUES('DeadHero',777,'123',5,10);"
+        "INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) "
+        "VALUES(777,100000,5," + std::to_string(seeded_exp) + ",'now');").ok());
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(
+        db, 777, 123, *initial, {}, mxh::db::PersistedVitals{0, 0, 40}));
+    auto enter = [] {
+        mxh::net::Message message;
+        message.header.object_id = 777;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        message.payload.assign(16, 0);
+        message.payload[0] = 123;
+        return message;
+    };
+    auto revive = [](std::uint8_t protocol) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::CharRevive);
+        message.header.protocol = protocol;
+        message.header.object_id = 777;
+        return message;
+    };
+    {
+        ReplySpy reply;
+        mxh::server::MapHandler event_map(db, 58, make_reply_spy(reply));
+        event_map.set_allow_dev_gamein_fallback(false);
+        ASSERT_TRUE(event_map.load_login_points(current_path, "playdh-current"));
+        event_map.on_message({55}, enter());
+        ASSERT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        reply.messages.clear();
+        event_map.on_message({55}, revive(3));
+        EXPECT_TRUE(reply.messages.empty());
+        EXPECT_EQ(event_map.player_money_for_test(777), 100000u);
+        EXPECT_EQ(event_map.player_runtime_snapshot(777)->level_exp, seeded_exp);
+        EXPECT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        event_map.on_disconnect({55}, mxh::net::NetError::Disconnected);
+        EXPECT_FALSE(event_map.is_draining());
+    }
+    ASSERT_TRUE(db.exec_multi("DELETE FROM modern_player_position WHERE player_id=777;").ok());
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    handler.load_experience_curve((root / "CharacterExpPoint.bin").string());
+    ASSERT_TRUE(handler.load_exp_penalty(root / "Server/ExpPenalty.bin", "playdh-current"));
+    ASSERT_TRUE(handler.load_map_kinds(root / "MapKindInfo.bin", "playdh-current"));
+    ASSERT_TRUE(handler.load_login_points(current_path, "playdh-current"));
+    handler.on_message({55}, enter());
+    const auto before = handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(before);
+    EXPECT_EQ(before->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    EXPECT_FLOAT_EQ(before->pos_x, 25000.0f);
+    reply.messages.clear();
+    auto malformed = revive(3);
+    malformed.payload = {0};
+    handler.on_message({55}, malformed);
+    handler.on_message({55}, revive(6));
+    handler.on_message({99}, revive(3));
+    EXPECT_TRUE(reply.messages.empty());
+    EXPECT_EQ(handler.player_money_for_test(777), 100000u);
+    EXPECT_EQ(handler.player_runtime_snapshot(777)->level_exp, seeded_exp);
+    EXPECT_EQ(handler.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+
+    reply.messages.clear();
+    handler.on_message({55}, revive(3));
+    const auto after = handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(after);
+    EXPECT_EQ(after->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(handler.player_money_for_test(777), 100000u - loss->money);
+    EXPECT_EQ(after->level_exp, reduced.exp_point);
+    EXPECT_EQ(after->current_hp, static_cast<std::uint32_t>(after->max_hp * 0.3));
+    EXPECT_EQ(after->current_shield, static_cast<std::uint32_t>(after->max_shield * 0.3));
+    EXPECT_EQ(after->current_mp, 0u);
+    EXPECT_FLOAT_EQ(after->pos_x, current_ten->x);
+    EXPECT_FLOAT_EQ(after->pos_z, current_ten->z);
+    const auto position = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
+        return message.header.protocol == 44;
+    });
+    ASSERT_NE(position, reply.messages.end());
+    const auto decoded = mxh::proto::decode_character_revive(777, position->payload);
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->x, static_cast<std::uint16_t>(current_ten->x));
+    EXPECT_EQ(decoded->z, static_cast<std::uint16_t>(current_ten->z));
+    const auto repeat = reply.messages.size();
+    handler.on_message({55}, revive(3));
+    ASSERT_EQ(reply.messages.size(), repeat + 1);
+    EXPECT_EQ(reply.messages.back().header.protocol, mxh::server::userconn_character_revive_nack);
+    EXPECT_EQ(handler.player_money_for_test(777), 100000u - loss->money);
+
+    handler.on_disconnect({55}, mxh::net::NetError::Disconnected);
+    EXPECT_FALSE(handler.is_draining());
+    mxh::server::MapHandler restored(db, 10, make_reply_spy(reply));
+    restored.set_allow_dev_gamein_fallback(false);
+    restored.on_message({56}, enter());
+    const auto relogin = restored.player_runtime_snapshot(777);
+    ASSERT_TRUE(relogin);
+    EXPECT_EQ(relogin->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(relogin->current_hp, after->current_hp);
+    EXPECT_EQ(relogin->current_mp, 0u);
+    EXPECT_EQ(relogin->level_exp, after->level_exp);
+    EXPECT_EQ(restored.player_money_for_test(777), 100000u - loss->money);
+    EXPECT_FLOAT_EQ(relogin->pos_x, current_ten->x);
+    EXPECT_FLOAT_EQ(relogin->pos_z, current_ten->z);
+}
+
+TEST(MapHandlerTest, DeadDisconnectAppliesLoginPenaltyWithoutMoving) {
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    const auto curve = mxh::game::ExperienceCurve::load_from_bin(root / "CharacterExpPoint.bin");
+    std::ifstream penalty_file(root / "Server/ExpPenalty.bin", std::ios::binary);
+    const auto penalties = mxh::game::decode_exp_penalty(
+        std::vector<std::uint8_t>(std::istreambuf_iterator<char>(penalty_file),
+                                  std::istreambuf_iterator<char>()),
+        mxh::game::ExpPenaltyProfile::PlayDhCurrent);
+    ASSERT_TRUE(penalties);
+    const auto threshold = curve.max_exp_point(5);
+    ASSERT_GT(threshold, 1u);
+    ASSERT_LE(threshold, 0xffffffffu);
+    const auto seeded_exp = static_cast<std::uint32_t>(threshold - 1);
+    const auto loss = mxh::game::unprotected_revive_loss(
+        *penalties, mxh::game::ReviveLocation::Login, 5, 100000u, threshold);
+    ASSERT_TRUE(loss);
+    EXPECT_EQ(loss->money, static_cast<std::uint32_t>(100000.0 * 0.04));
+    const auto reduced = curve.reduce_exp({5, seeded_exp}, loss->experience);
+
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig config;
+    config.path = ":memory:";
+    ASSERT_TRUE(db.connect(config).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(charname,chrid,userid,level,map_num) "
+        "VALUES('DeadHero',777,'123',5,10);"
+        "INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) "
+        "VALUES(777,100000,5," + std::to_string(seeded_exp) + ",'now');").ok());
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(
+        db, 777, 123, *initial, {}, mxh::db::PersistedVitals{0, 0, 40}));
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    handler.load_experience_curve((root / "CharacterExpPoint.bin").string());
+    ASSERT_TRUE(handler.load_exp_penalty(root / "Server/ExpPenalty.bin", "playdh-current"));
+    ASSERT_TRUE(handler.load_map_kinds(root / "MapKindInfo.bin", "playdh-current"));
+    mxh::net::Message enter;
+    enter.header.object_id = 777;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16, 0);
+    enter.payload[0] = 123;
+    handler.on_message({55}, enter);
+    const auto before = handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(before);
+    EXPECT_EQ(before->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    EXPECT_FLOAT_EQ(before->pos_x, 25000.0f);
+    EXPECT_FLOAT_EQ(before->pos_z, 25000.0f);
+    handler.on_disconnect({55}, mxh::net::NetError::Disconnected);
+    EXPECT_FALSE(handler.is_draining());
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+    mxh::db::ResultSet saved;
+    ASSERT_TRUE(db.query("SELECT level,exp,money FROM modern_player_state WHERE player_id=777", {}, saved).ok());
+    ASSERT_EQ(saved.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][0]), static_cast<std::int64_t>(reduced.level));
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][1]), static_cast<std::int64_t>(reduced.exp_point));
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][2]), static_cast<std::int64_t>(100000u - loss->money));
+    const auto vitals = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(vitals);
+    ASSERT_TRUE(vitals->vitals);
+    EXPECT_GT(vitals->vitals->life, 0u);
+    EXPECT_EQ(vitals->vitals->naeryuk, 0u);
+    mxh::db::ResultSet position;
+    ASSERT_TRUE(db.query("SELECT pos_x,pos_z FROM modern_player_position WHERE player_id=777", {}, position).ok());
+    ASSERT_EQ(position.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(position.rows[0][0]), 25000);
+    EXPECT_EQ(std::get<std::int64_t>(position.rows[0][1]), 25000);
+
+    mxh::server::MapHandler restored(db, 10, make_reply_spy(reply));
+    restored.set_allow_dev_gamein_fallback(false);
+    restored.on_message({56}, enter);
+    const auto relogin = restored.player_runtime_snapshot(777);
+    ASSERT_TRUE(relogin);
+    EXPECT_EQ(relogin->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(relogin->current_hp, vitals->vitals->life);
+    EXPECT_EQ(relogin->current_mp, 0u);
+    EXPECT_EQ(relogin->level_exp, static_cast<std::uint32_t>(reduced.exp_point));
+    EXPECT_EQ(restored.player_money_for_test(777), 100000u - loss->money);
+    EXPECT_FLOAT_EQ(relogin->pos_x, 25000.0f);
+    EXPECT_FLOAT_EQ(relogin->pos_z, 25000.0f);
+    EXPECT_EQ(relogin->current_hp, static_cast<std::uint32_t>(relogin->max_hp * 0.3));
+}
+
+TEST(MapHandlerTest, ReviveVitalityMessagesPreserveSignedDeltasAndRejectOverflow) {
+    using namespace mxh::server;
+    Player actor; PlayerSpawnInfo spawn;
+    spawn.player_id=777; spawn.user_id=123; spawn.level=5; spawn.map_num=10;
+    spawn.base.level=5; spawn.base.cheryuk=20; spawn.base.simmek=10;
+    ASSERT_TRUE(actor.initialize(spawn)); ASSERT_TRUE(actor.activate());
+    actor.state().vitals.current_hp=0;
+    actor.state().vitals.current_mp=7;
+    actor.state().vitals.current_shield=0;
+    ASSERT_TRUE(actor.mark_dead_if_zero_life());
+    Player revived=actor;
+    ASSERT_TRUE(revived.revive());
+    revived.state().vitals.current_hp=300;
+    revived.state().vitals.current_mp=0;
+    revived.state().vitals.current_shield=100;
+    revived.state().pos_x=258.9f; revived.state().pos_z=404;
+    const auto messages=prepare_revive_vitality_messages(actor,revived);
+    ASSERT_TRUE(messages);
+    EXPECT_EQ(messages->position.header.protocol,44);
+    const auto position=mxh::proto::decode_character_revive(777,messages->position.payload);
+    ASSERT_TRUE(position); EXPECT_EQ(position->x,258); EXPECT_EQ(position->z,404);
+    ASSERT_EQ(messages->vitality.size(),3u);
+    EXPECT_EQ(messages->vitality[0].header.protocol,1);
+    EXPECT_EQ(messages->vitality[1].header.protocol,9);
+    EXPECT_EQ(messages->vitality[2].header.protocol,5);
+    EXPECT_EQ(messages->vitality[1].payload,(std::vector<std::uint8_t>{249,255,255,255}));
+    revived.state().vitals.current_mp=7;
+    EXPECT_EQ(prepare_revive_vitality_messages(actor,revived)->vitality.size(),2u);
+    revived.state().vitals.current_hp=0xffffffffu;
+    EXPECT_FALSE(prepare_revive_vitality_messages(actor,revived));
+    EXPECT_EQ(actor.lifecycle(),PlayerLifecycle::Dead);
+    EXPECT_EQ(actor.state().vitals.current_hp,0u);
+}
+
+TEST(MapHandlerTest, SkinCatalogLoadsRealNormalAndCostumeTablesAndRejectsCorruption) {
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    std::string error;
+    const auto catalog = mxh::server::load_skin_catalog(
+        root / "SkinSelectItemList.bin", root / "CostumeSkinItemList.bin", error);
+    ASSERT_TRUE(catalog) << error;
+    EXPECT_FALSE(catalog->normal.empty());
+    EXPECT_FALSE(catalog->costume.empty());
+    EXPECT_TRUE(std::any_of(catalog->normal.begin(), catalog->normal.end(), [](const auto& row) {
+        return std::any_of(row.equip_item.begin(), row.equip_item.end(), [](auto item) { return item != 0; });
+    }));
+    EXPECT_TRUE(std::any_of(catalog->costume.begin(), catalog->costume.end(), [](const auto& row) {
+        return row.equip_item[0] != 0;
+    }));
+
+    std::ifstream input(root / "SkinSelectItemList.bin", std::ios::binary);
+    ASSERT_TRUE(input);
+    std::vector<std::uint8_t> corrupt{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    ASSERT_GT(corrupt.size(), 14u);
+    corrupt.back() ^= 0xffu;
+    EXPECT_FALSE(mxh::server::parse_skin_catalog_file(corrupt, false, error));
+    EXPECT_EQ(error, "skin catalog checksum mismatch");
+}
+
+TEST(MapHandlerTest, ShopAdmissionExpiresPhysicalItemsFromOriginalWornContainers) {
+    struct Case { int container; int slot; std::uint16_t position; std::uint16_t kind; };
+    for (const auto test : std::array{
+             Case{1,2,82,mxh::server::LEGACY_SHOP_ITEM_EQUIP},
+             Case{3,1,491,mxh::server::LEGACY_SHOP_ITEM_PET_EQUIP},
+             Case{5,2,502,mxh::server::LEGACY_SHOP_ITEM_TITAN_EQUIP}}) {
+        SCOPED_TRACE(test.container);
+        mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','WornRestore',10);"
+            "INSERT INTO modern_player_item VALUES(777," + std::to_string(test.container) + "," +
+            std::to_string(test.slot) + ",9001,55001,1,0,65535,0);").ok());
+        mxh::db::LegacyShopAppearanceRows saved;
+        saved.used_items.push_back({55001,390,9001,1,0,0});
+        const auto initial=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(initial);
+        ASSERT_TRUE(mxh::db::save_modern_shop_state(db,777,123,*initial,saved));
+        ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        const auto root=std::filesystem::path(MXH_SOURCE_DIR)/"data/PlayDH/Resource";
+        std::string error;
+        ASSERT_TRUE(handler.load_shop_event_rates(root/"Server/DropRate.bin",mxh::server::ShopLocale::China,error)) << error;
+        ASSERT_TRUE(handler.load_shop_dup_catalog(root/"ItemdupOption.bin",error)) << error;
+        mxh::game::ItemInfo item{}; item.ItemIdx=55001; item.ItemType=11;
+        item.ItemKind=test.kind; item.SellPrice=1;
+        handler.add_item_info_for_test(item);
+        mxh::net::Message enter; enter.header.object_id=777;
+        enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16,0); enter.payload[0]=123;
+        handler.on_message({55},enter);
+        ASSERT_TRUE(handler.player_runtime_snapshot(777));
+        const auto persisted=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(persisted);
+        EXPECT_TRUE(persisted->rows.used_items.empty());
+        mxh::db::ResultSet rows;
+        ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777",{},rows).ok());
+        EXPECT_TRUE(rows.rows.empty());
+        const auto ack=std::find_if(reply.messages.begin(),reply.messages.end(),[](const auto& message) {
+            return message.header.protocol==static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+        });
+        ASSERT_NE(ack,reply.messages.end());
+        mxh::game::ItemTotalInfo items{};
+        std::memcpy(&items,ack->payload.data()+mxh::game::HERO_TOTAL_ITEM_OFFSET,sizeof(items));
+        const auto& cleared = test.container==1 ? items.WearedItem[test.slot] :
+            (test.container==3 ? items.PetWearedItem[test.slot] : items.TitanShopItem[test.slot]);
+        EXPECT_EQ(cleared.dwDBIdx,0u);
+        EXPECT_EQ(cleared.Position,test.position);
+    }
+}
+
+TEST(MapHandlerTest, OnlineShopPlaytimePublishesMinuteAndCommitsExpiryBeforeUseEnd) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','TimerHero',10);").ok());
+
+    mxh::db::LegacyShopAppearanceRows saved;
+    saved.used_items.push_back({55001, 0, 9001, 2, 0, 90001});
+    saved.used_items.push_back({55002, 0, 9002, 2, 0, 900001});
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(db, 777, 123, *initial, saved));
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    std::string error;
+    ASSERT_TRUE(handler.load_shop_event_rates(
+        root / "Server/DropRate.bin", mxh::server::ShopLocale::China, error)) << error;
+    ASSERT_TRUE(handler.load_shop_dup_catalog(root / "ItemdupOption.bin", error)) << error;
+    mxh::game::ItemInfo buff{};
+    buff.ItemIdx = 55001;
+    buff.ItemKind = 258;
+    buff.SellPrice = mxh::game::SHOP_ITEM_PARAM_PLAY_TIME;
+    handler.add_item_info_for_test(buff);
+    auto long_buff = buff;
+    long_buff.ItemIdx = 55002;
+    handler.add_item_info_for_test(long_buff);
+
+    std::uint64_t now = 1000;
+    ASSERT_TRUE(handler.set_movement_clock_for_test([&] { return now; }));
+    mxh::net::Message enter;
+    enter.header.object_id = 777;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16, 0);
+    enter.payload[0] = 123;
+    handler.on_message({55}, enter);
+    ASSERT_TRUE(handler.player_runtime_snapshot(777));
+    reply.messages.clear();
+
+    now = 31001;
+    handler.tick_shop_items(30001);
+    const auto minute_item = handler.shop_using_item_for_test(777, 55001);
+    ASSERT_TRUE(minute_item);
+    EXPECT_EQ(minute_item->Data.ShopItem.Remaintime, 60000u);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.category,
+        static_cast<std::uint8_t>(mxh::proto::Category::Item));
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemOneMinute));
+    EXPECT_EQ(reply.messages[0].header.object_id, 777u);
+    ASSERT_EQ(reply.messages[0].payload.size(), 4u);
+    std::uint32_t wire_icon = 0;
+    std::memcpy(&wire_icon, reply.messages[0].payload.data(), sizeof(wire_icon));
+    EXPECT_EQ(wire_icon, 55001u);
+    const auto before_expiry = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(before_expiry);
+    ASSERT_EQ(before_expiry->rows.used_items.size(), 2u);
+    EXPECT_EQ(before_expiry->rows.used_items[0].remaining_time, 90001u);
+
+    reply.messages.clear();
+    now = 61001;
+    handler.tick_shop_items(30000);
+    ASSERT_TRUE(handler.shop_using_item_for_test(777, 55001));
+    EXPECT_TRUE(reply.messages.empty());
+
+    now = 91001;
+    handler.tick_shop_items(30000);
+    EXPECT_FALSE(handler.shop_using_item_for_test(777, 55001));
+    ASSERT_EQ(reply.messages.size(), 3u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+    EXPECT_EQ(reply.messages[1].header.protocol, mxh::proto::kModernShopAppearance);
+    EXPECT_EQ(reply.messages[1].header.category,
+        static_cast<std::uint8_t>(mxh::proto::Category::Server));
+    EXPECT_EQ(reply.messages[1].payload.size(), sizeof(mxh::game::ShopItemOption));
+    EXPECT_EQ(reply.messages[2].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd));
+    const auto after_expiry = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(after_expiry);
+    ASSERT_EQ(after_expiry->rows.used_items.size(), 1u);
+    EXPECT_EQ(after_expiry->rows.used_items[0].item_id, 55002u);
+
+    reply.messages.clear();
+    now = 601002;
+    handler.tick_shop_items(510001);
+    EXPECT_TRUE(reply.messages.empty());
+    const auto after_flush = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(after_flush);
+    ASSERT_EQ(after_flush->rows.used_items.size(), 1u);
+    EXPECT_EQ(after_flush->rows.used_items[0].remaining_time, 299999u);
+    EXPECT_FALSE(handler.is_draining());
+}
+
+TEST(MapHandlerTest, OnlineShopExpiryRollbackPublishesNeitherStateNorUseEnd) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','RollbackHero',10);"
+        "INSERT INTO modern_player_item VALUES(777,2,0,9001,55001,1,0,65535,0);").ok());
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    std::string error;
+    const auto catalog = mxh::server::load_skin_catalog(
+        root / "SkinSelectItemList.bin", root / "CostumeSkinItemList.bin", error);
+    ASSERT_TRUE(catalog) << error;
+    const auto normal = std::find_if(catalog->normal.begin(), catalog->normal.end(), [](const auto& row) {
+        return row.equip_item[0] != 0;
+    });
+    ASSERT_NE(normal, catalog->normal.end());
+    mxh::db::LegacyShopAppearanceRows saved;
+    saved.skin[0] = normal->equip_item[0];
+    saved.used_items.push_back({55001, 0, 9001, 2, 0, 30000});
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(db, 777, 123, *initial, saved));
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    ASSERT_TRUE(handler.load_shop_event_rates(
+        root / "Server/DropRate.bin", mxh::server::ShopLocale::China, error)) << error;
+    ASSERT_TRUE(handler.load_shop_dup_catalog(root / "ItemdupOption.bin", error)) << error;
+    ASSERT_TRUE(handler.load_skin_catalogs(
+        root / "SkinSelectItemList.bin", root / "CostumeSkinItemList.bin", error)) << error;
+    mxh::game::ItemInfo buff{};
+    buff.ItemIdx = 55001;
+    buff.ItemType = 11;
+    buff.ItemKind = mxh::server::LEGACY_SHOP_ITEM_NOMALCLOTHES_SKIN;
+    buff.SellPrice = mxh::game::SHOP_ITEM_PARAM_PLAY_TIME;
+    handler.add_item_info_for_test(buff);
+    std::uint64_t now = 1000;
+    ASSERT_TRUE(handler.set_movement_clock_for_test([&] { return now; }));
+
+    mxh::net::Message enter;
+    enter.header.object_id = 777;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16, 0);
+    enter.payload[0] = 123;
+    handler.on_message({55}, enter);
+    ASSERT_TRUE(handler.shop_using_item_for_test(777, 55001));
+    reply.messages.clear();
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TRIGGER fail_online_shop BEFORE UPDATE OF character_data ON character_info "
+        "BEGIN SELECT RAISE(ABORT,'injected online shop failure'); END;").ok());
+
+    now = 31000;
+    handler.tick_shop_items(30000);
+
+    EXPECT_TRUE(handler.is_draining());
+    EXPECT_TRUE(handler.shop_using_item_for_test(777, 55001));
+    EXPECT_TRUE(reply.messages.empty());
+    const auto retained = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(retained);
+    ASSERT_EQ(retained->rows.used_items.size(), 1u);
+    EXPECT_EQ(retained->rows.used_items[0].remaining_time, 30000u);
+    EXPECT_EQ(retained->rows.skin[0], normal->equip_item[0]);
+    mxh::db::ResultSet physical;
+    ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, physical).ok());
+    ASSERT_EQ(physical.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(physical.rows[0][0]), 9001);
+}
+
+TEST(MapHandlerTest, OnlineShopTimerRejectsDatabaseStateChangedAfterAdmission) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','DriftHero',10);").ok());
+    mxh::db::LegacyShopAppearanceRows saved;
+    saved.used_items.push_back({55001, 0, 9001, 2, 0, 30000});
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(db, 777, 123, *initial, saved));
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    std::string error;
+    ASSERT_TRUE(handler.load_shop_event_rates(
+        root / "Server/DropRate.bin", mxh::server::ShopLocale::China, error)) << error;
+    ASSERT_TRUE(handler.load_shop_dup_catalog(root / "ItemdupOption.bin", error)) << error;
+    mxh::game::ItemInfo buff{};
+    buff.ItemIdx = 55001;
+    buff.ItemKind = 258;
+    buff.SellPrice = mxh::game::SHOP_ITEM_PARAM_PLAY_TIME;
+    handler.add_item_info_for_test(buff);
+    std::uint64_t now = 1000;
+    ASSERT_TRUE(handler.set_movement_clock_for_test([&] { return now; }));
+
+    mxh::net::Message enter;
+    enter.header.object_id = 777;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16, 0);
+    enter.payload[0] = 123;
+    handler.on_message({55}, enter);
+    ASSERT_TRUE(handler.shop_using_item_for_test(777, 55001));
+    reply.messages.clear();
+
+    auto external = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(external);
+    auto externally_changed = external->rows;
+    ASSERT_EQ(externally_changed.used_items.size(), 1u);
+    externally_changed.used_items[0].remaining_time = 60000;
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(
+        db, 777, 123, *external, externally_changed));
+
+    now = 31000;
+    handler.tick_shop_items(30000);
+
+    EXPECT_TRUE(handler.is_draining());
+    EXPECT_TRUE(handler.shop_using_item_for_test(777, 55001));
+    EXPECT_TRUE(reply.messages.empty());
+    const auto retained = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(retained);
+    ASSERT_EQ(retained->rows.used_items.size(), 1u);
+    EXPECT_EQ(retained->rows.used_items[0].remaining_time, 60000u);
+}
+
+TEST(MapHandlerTest, OnlineRealtimeShopItemUsesPackedClockForMinuteAndExpiry) {
+    const auto pack = [](std::uint8_t hour, std::uint8_t minute, std::uint8_t second) {
+        return mxh::game::PackedTime{10u << 28 | 9u << 24 | 13u << 18 |
+            static_cast<std::uint32_t>(hour) << 12 |
+            static_cast<std::uint32_t>(minute) << 6 | second};
+    };
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','RealtimeHero',10);"
+        "INSERT INTO modern_player_item VALUES(777,2,0,9001,55001,1,0,65535,0);").ok());
+    mxh::db::LegacyShopAppearanceRows saved;
+    saved.used_items.push_back({55001, 999, 9001, 1, pack(12, 0, 0).value, pack(12, 0, 30).value});
+    const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(initial);
+    ASSERT_TRUE(mxh::db::save_modern_shop_state(db, 777, 123, *initial, saved));
+
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    std::string error;
+    ASSERT_TRUE(handler.load_shop_event_rates(
+        root / "Server/DropRate.bin", mxh::server::ShopLocale::China, error)) << error;
+    ASSERT_TRUE(handler.load_shop_dup_catalog(root / "ItemdupOption.bin", error)) << error;
+    mxh::game::ItemInfo buff{};
+    buff.ItemIdx = 55001;
+    buff.ItemKind = mxh::server::LEGACY_SHOP_ITEM_MAKEUP;
+    buff.ItemType = 11;
+    buff.SellPrice = mxh::game::SHOP_ITEM_PARAM_STORED_TIME;
+    handler.add_item_info_for_test(buff);
+    auto packed_now = pack(12, 0, 0);
+    ASSERT_TRUE(handler.set_shop_time_clock_for_test([&] { return packed_now; }));
+
+    mxh::net::Message enter;
+    enter.header.object_id = 777;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16, 0);
+    enter.payload[0] = 123;
+    handler.on_message({55}, enter);
+    ASSERT_TRUE(handler.shop_using_item_for_test(777, 55001));
+    reply.messages.clear();
+
+    packed_now = pack(12, 0, 1);
+    handler.tick_shop_items(30000);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemOneMinute));
+    EXPECT_TRUE(handler.shop_using_item_for_test(777, 55001));
+
+    reply.messages.clear();
+    packed_now = pack(12, 0, 31);
+    handler.tick_shop_items(30000);
+    ASSERT_EQ(reply.messages.size(), 4u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardAck));
+    ASSERT_EQ(reply.messages[0].payload.size(), 6u);
+    std::uint16_t discard_position = 0;
+    std::memcpy(&discard_position, reply.messages[0].payload.data(), 2u);
+    EXPECT_EQ(discard_position, mxh::game::TP_SHOPINVEN_START);
+    EXPECT_EQ(reply.messages[1].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+    EXPECT_EQ(reply.messages[2].header.protocol, mxh::proto::kModernShopAppearance);
+    EXPECT_EQ(reply.messages[2].header.category,
+        static_cast<std::uint8_t>(mxh::proto::Category::Server));
+    EXPECT_EQ(reply.messages[2].payload.size(), sizeof(mxh::game::ShopItemOption));
+    EXPECT_EQ(reply.messages[3].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd));
+    EXPECT_FALSE(handler.shop_using_item_for_test(777, 55001));
+    const auto persisted = mxh::db::load_modern_shop_state(db, 777, 123);
+    ASSERT_TRUE(persisted);
+    EXPECT_TRUE(persisted->rows.used_items.empty());
+    mxh::db::ResultSet inventory;
+    ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, inventory).ok());
+    EXPECT_TRUE(inventory.rows.empty());
+}
+
+TEST(MapHandlerTest, OnlineRealtimeExpirySearchesOriginalWornContainers) {
+    struct Case {
+        std::int64_t container;
+        std::int64_t slot;
+        std::uint16_t kind;
+        std::uint16_t position;
+        bool discard_ack;
+    };
+    const auto pack = [](std::uint8_t hour, std::uint8_t minute, std::uint8_t second) {
+        return mxh::game::PackedTime{10u << 28 | 9u << 24 | 13u << 18 |
+            static_cast<std::uint32_t>(hour) << 12 |
+            static_cast<std::uint32_t>(minute) << 6 | second};
+    };
+    for (const auto test : std::array{
+             Case{1, 2, mxh::server::LEGACY_SHOP_ITEM_MAKEUP,
+                  static_cast<std::uint16_t>(mxh::game::TP_WEAREDITEM_START + 2), true},
+             Case{1, 2, mxh::server::LEGACY_SHOP_ITEM_EQUIP,
+                  static_cast<std::uint16_t>(mxh::game::TP_WEAREDITEM_START + 2), false},
+             Case{3, 1, mxh::server::LEGACY_SHOP_ITEM_PET_EQUIP,
+                  static_cast<std::uint16_t>(mxh::game::TP_PETWEAR_START + 1), true},
+             Case{5, 2, mxh::server::LEGACY_SHOP_ITEM_TITAN_EQUIP,
+                  static_cast<std::uint16_t>(mxh::game::TP_TITANSHOPITEM_START + 2), true}}) {
+        SCOPED_TRACE(test.container);
+        mxh::db::SqliteAdapter db;
+        mxh::db::ConnectionConfig cfg;
+        cfg.path = ":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok());
+        ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        const std::vector<mxh::db::Bind> no_args;
+        ASSERT_TRUE(db.execute(
+            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','WornTimerHero',10)",
+            no_args).ok());
+        const std::array item_args{
+            mxh::db::bind(std::int64_t{777}), mxh::db::bind(test.container),
+            mxh::db::bind(test.slot), mxh::db::bind(std::int64_t{9001}),
+            mxh::db::bind(std::int64_t{55001}), mxh::db::bind(std::int64_t{1}),
+            mxh::db::bind(std::int64_t{0}), mxh::db::bind(std::int64_t{65535}),
+            mxh::db::bind(std::int64_t{0})};
+        ASSERT_TRUE(db.execute(
+            "INSERT INTO modern_player_item VALUES(?,?,?,?,?,?,?,?,?)",
+            item_args).ok());
+        mxh::db::LegacyShopAppearanceRows saved;
+        saved.used_items.push_back(
+            {55001, 999, 9001, 1, pack(12, 0, 0).value, pack(12, 0, 30).value});
+        const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+        ASSERT_TRUE(initial);
+        ASSERT_TRUE(mxh::db::save_modern_shop_state(db, 777, 123, *initial, saved));
+
+        ReplySpy reply;
+        mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+        std::string error;
+        ASSERT_TRUE(handler.load_shop_event_rates(
+            root / "Server/DropRate.bin", mxh::server::ShopLocale::China, error)) << error;
+        ASSERT_TRUE(handler.load_shop_dup_catalog(root / "ItemdupOption.bin", error)) << error;
+        mxh::game::ItemInfo item{};
+        item.ItemIdx = 55001;
+        item.ItemKind = test.kind;
+        item.ItemType = 11;
+        item.SellPrice = mxh::game::SHOP_ITEM_PARAM_STORED_TIME;
+        handler.add_item_info_for_test(item);
+        auto packed_now = pack(12, 0, 0);
+        ASSERT_TRUE(handler.set_shop_time_clock_for_test([&] { return packed_now; }));
+
+        mxh::net::Message enter;
+        enter.header.object_id = 777;
+        enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16, 0);
+        enter.payload[0] = 123;
+        handler.on_message({55}, enter);
+        ASSERT_TRUE(handler.shop_using_item_for_test(777, 55001));
+        reply.messages.clear();
+
+        packed_now = pack(12, 0, 31);
+        handler.tick_shop_items(30000);
+        ASSERT_FALSE(handler.is_draining());
+        EXPECT_FALSE(handler.shop_using_item_for_test(777, 55001));
+        ASSERT_EQ(reply.messages.size(), test.discard_ack ? 4u : 3u);
+        std::size_t total_index = 0;
+        if (test.discard_ack) {
+            EXPECT_EQ(reply.messages[0].header.protocol,
+                static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardAck));
+            std::uint16_t discarded_position = 0;
+            std::memcpy(&discarded_position, reply.messages[0].payload.data(), 2u);
+            EXPECT_EQ(discarded_position, test.position);
+            total_index = 1;
+        }
+        EXPECT_EQ(reply.messages[total_index].header.protocol,
+                        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+        ASSERT_EQ(reply.messages[total_index].payload.size(),sizeof(mxh::game::ItemTotalInfo));
+        mxh::game::ItemTotalInfo total{};
+        std::memcpy(&total,reply.messages[total_index].payload.data(),sizeof(total));
+        const auto& cleared = test.container==1 ? total.WearedItem[test.slot] :
+            (test.container==3 ? total.PetWearedItem[test.slot] : total.TitanShopItem[test.slot]);
+        EXPECT_EQ(cleared.dwDBIdx,0u);
+        EXPECT_EQ(cleared.Position,test.position);
+        EXPECT_EQ(reply.messages[total_index+1].header.protocol, mxh::proto::kModernShopAppearance);
+        EXPECT_EQ(reply.messages[total_index+2].header.protocol,
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd));
+        mxh::db::ResultSet inventory;
+        ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, inventory).ok());
+        EXPECT_TRUE(inventory.rows.empty());
+    }
+}
+
+TEST(MapHandlerTest, SkinExpiryClearsGameInSnapshotAndOnlinePublishesLegacyAck) {
+    const auto pack = [](std::uint8_t hour, std::uint8_t minute, std::uint8_t second) {
+        return mxh::game::PackedTime{10u << 28 | 9u << 24 | 13u << 18 |
+            static_cast<std::uint32_t>(hour) << 12 |
+            static_cast<std::uint32_t>(minute) << 6 | second};
+    };
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
+    std::string error;
+    const auto catalog = mxh::server::load_skin_catalog(
+        root / "SkinSelectItemList.bin", root / "CostumeSkinItemList.bin", error);
+    ASSERT_TRUE(catalog) << error;
+    const auto normal = std::find_if(catalog->normal.begin(), catalog->normal.end(), [](const auto& row) {
+        return row.equip_item[0] != 0;
+    });
+    ASSERT_NE(normal, catalog->normal.end());
+    const auto costume = std::find_if(catalog->costume.begin(), catalog->costume.end(), [](const auto& row) {
+        return row.equip_item[0] != 0;
+    });
+    ASSERT_NE(costume, catalog->costume.end());
+    struct SkinCase { std::uint16_t kind; std::uint16_t equipment; };
+
+    for (const auto skin_case : std::array{
+             SkinCase{mxh::server::LEGACY_SHOP_ITEM_NOMALCLOTHES_SKIN, normal->equip_item[0]},
+             SkinCase{mxh::server::LEGACY_SHOP_ITEM_COSTUME_SKIN, costume->equip_item[0]}}) {
+      for (const bool expire_online : {false, true}) {
+        SCOPED_TRACE(testing::Message() << "kind=" << skin_case.kind
+                                      << " online=" << expire_online);
+        mxh::db::SqliteAdapter db;
+        mxh::db::ConnectionConfig cfg;
+        cfg.path = ":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok());
+        ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.exec_multi(
+            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','SkinHero',10);"
+            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(778,'124','ObserverHero',10);"
+            "INSERT INTO modern_player_item VALUES(777,2,0,9001,55001,1,0,65535,0);").ok());
+        mxh::db::LegacyShopAppearanceRows saved;
+        saved.skin[0] = skin_case.equipment;
+        saved.used_items.push_back({55001, 390, 9001, 1, pack(12, 0, 0).value,
+            pack(12, 0, expire_online ? 30 : 0).value});
+        const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
+        ASSERT_TRUE(initial);
+        ASSERT_TRUE(mxh::db::save_modern_shop_state(db, 777, 123, *initial, saved));
+
+        ReplySpy reply;
+        mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        ASSERT_TRUE(handler.load_shop_event_rates(
+            root / "Server/DropRate.bin", mxh::server::ShopLocale::China, error)) << error;
+        ASSERT_TRUE(handler.load_shop_dup_catalog(root / "ItemdupOption.bin", error)) << error;
+        ASSERT_TRUE(handler.load_skin_catalogs(
+            root / "SkinSelectItemList.bin", root / "CostumeSkinItemList.bin", error)) << error;
+        mxh::game::ItemInfo skin_item{};
+        skin_item.ItemIdx = 55001;
+        skin_item.ItemType = 11;
+        skin_item.ItemKind = skin_case.kind;
+        skin_item.SellPrice = mxh::game::SHOP_ITEM_PARAM_STORED_TIME;
+        handler.add_item_info_for_test(skin_item);
+        auto now = pack(12, 0, expire_online ? 0 : 1);
+        ASSERT_TRUE(handler.set_shop_time_clock_for_test([&] { return now; }));
+
+        mxh::net::Message enter;
+        enter.header.object_id = 777;
+        enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16, 0);
+        enter.payload[0] = 123;
+        handler.on_message({55}, enter);
+        const auto ack = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& packet) {
+            return packet.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+                packet.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+        });
+        ASSERT_NE(ack, reply.messages.end());
+        mxh::game::ShopItemOption options{};
+        std::memcpy(&options, ack->payload.data() + mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET,
+            sizeof(options));
+        if (!expire_online) {
+            EXPECT_EQ(options.wSkinItem[0], 0u);
+            EXPECT_FALSE(handler.shop_using_item_for_test(777, 55001));
+            EXPECT_TRUE(std::none_of(reply.messages.begin(), reply.messages.end(), [](const auto& packet) {
+                return packet.header.protocol == static_cast<std::uint8_t>(
+                    mxh::proto::ItemProtocol::ShopItemUseEnd);
+            }));
+        } else {
+            EXPECT_EQ(options.wSkinItem[0], skin_case.equipment);
+            ASSERT_TRUE(handler.shop_using_item_for_test(777, 55001));
+            auto observer_enter = enter;
+            observer_enter.header.object_id = 778;
+            observer_enter.payload[0] = 124;
+            handler.on_message({56}, observer_enter);
+            ASSERT_TRUE(handler.player_runtime_snapshot(778));
+            reply.messages.clear();
+            reply.connection_ids.clear();
+            now = pack(12, 0, 31);
+            handler.tick_shop_items(30000);
+            ASSERT_EQ(reply.messages.size(), 5u);
+            EXPECT_EQ(reply.messages[0].header.category,
+                static_cast<std::uint8_t>(mxh::proto::Category::ItemExt));
+            EXPECT_EQ(reply.messages[0].header.protocol, static_cast<std::uint8_t>(
+                mxh::proto::ItemExtProtocol::SkinItemDiscardAck));
+            EXPECT_EQ(reply.messages[0].header.object_id, 777u);
+            ASSERT_EQ(reply.messages[0].payload.size(), 10u);
+            mxh::server::SkinItemSlots wire_skin{};
+            std::memcpy(wire_skin.data(), reply.messages[0].payload.data(), sizeof(wire_skin));
+            EXPECT_EQ(wire_skin, mxh::server::SkinItemSlots{});
+            EXPECT_EQ(reply.messages[1].header.protocol, static_cast<std::uint8_t>(
+                mxh::proto::ItemExtProtocol::SkinItemDiscardAck));
+            ASSERT_GE(reply.connection_ids.size(), 2u);
+            const std::array observer_ids{
+                reply.connection_ids[0].value, reply.connection_ids[1].value};
+            EXPECT_NE(observer_ids[0], observer_ids[1]);
+            EXPECT_TRUE(std::find(observer_ids.begin(), observer_ids.end(), 55u) != observer_ids.end());
+            EXPECT_TRUE(std::find(observer_ids.begin(), observer_ids.end(), 56u) != observer_ids.end());
+            EXPECT_EQ(reply.messages[2].header.protocol,
+                static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+            EXPECT_EQ(reply.messages[3].header.protocol, mxh::proto::kModernShopAppearance);
+            EXPECT_EQ(reply.messages[4].header.protocol,
+                static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd));
+        }
+        const auto persisted = mxh::db::load_modern_shop_state(db, 777, 123);
+        ASSERT_TRUE(persisted);
+        EXPECT_EQ(persisted->rows.skin, mxh::server::SkinItemSlots{});
+        EXPECT_TRUE(persisted->rows.used_items.empty());
+        mxh::db::ResultSet physical;
+        ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, physical).ok());
+        EXPECT_TRUE(physical.rows.empty());
+      }
+    }
+}
+
+TEST(MapHandlerTest, ShopAdmissionBeginFailureDrainsConnection) {
+    mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','BeginHero',10);").ok());
+    ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    // An existing transaction makes BEGIN fail while connection ownership is uncertain.
+    ASSERT_TRUE(db.begin_transaction().ok());
+    mxh::net::Message enter; enter.header.object_id=777;
+    enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    enter.payload.assign(16,0); enter.payload[0]=123;
+    handler.on_message({55},enter);
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+    EXPECT_TRUE(handler.is_draining());
+    EXPECT_FALSE(db.is_connected());
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+}
+
+TEST(MapHandlerTest, InvalidShopInventoryRejectsEntryWithoutErasingDatabaseRows) {
+    for (const auto* slot : {"-1", "20", "40", "'bad-slot'"}) {
+        SCOPED_TRACE(slot);
+        mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(123,'123','BadShop',7);").ok());
+        ASSERT_TRUE(db.exec_multi(std::string("INSERT INTO modern_player_item VALUES(123,2,")+slot+",9003,55001,1,0,65535,0);").ok());
+        ReplySpy reply; mxh::server::MapHandler handler(db,7,make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        mxh::net::Message enter; enter.header.object_id=123;
+        enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16,0); enter.payload[0]=123;
+        handler.on_message({55},enter);
+        EXPECT_FALSE(handler.player_runtime_snapshot(123));
+        ASSERT_FALSE(reply.messages.empty());
+        EXPECT_EQ(reply.messages.back().header.protocol,static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+        handler.on_disconnect({55},mxh::net::NetError::Disconnected);
+        mxh::db::ResultSet rows; ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=123",{},rows).ok());
+        ASSERT_EQ(rows.rows.size(),1u); EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]),9003);
+    }
+}
+
+TEST(MapHandlerTest, InvalidExtendedShopContainerSlotsRejectEntryWithoutErasingRows) {
+    struct Case { const char* container; const char* slot; };
+    for (const auto test : std::array{
+             Case{"3","3"}, Case{"4","7"}, Case{"5","4"}, Case{"6","0"},
+             Case{"-1","0"}, Case{"'bad-container'","0"}, Case{"3","'bad-slot'"},
+             Case{"3","9223372036854775807"}}) {
+        SCOPED_TRACE(std::string(test.container) + ":" + test.slot);
+        mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(123,'123','BadExtended',7);"
+            "INSERT INTO modern_player_item VALUES(123," + std::string(test.container) + "," +
+            test.slot + ",9003,55001,1,0,65535,0);").ok());
+        ReplySpy reply; mxh::server::MapHandler handler(db,7,make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        mxh::net::Message enter; enter.header.object_id=123;
+        enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16,0); enter.payload[0]=123;
+        handler.on_message({55},enter);
+        EXPECT_FALSE(handler.player_runtime_snapshot(123));
+        ASSERT_FALSE(reply.messages.empty());
+        EXPECT_EQ(reply.messages.back().header.protocol,
+            static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+        handler.on_disconnect({55},mxh::net::NetError::Disconnected);
+        mxh::db::ResultSet rows;
+        ASSERT_TRUE(db.query("SELECT container,slot,db_idx FROM modern_player_item WHERE player_id=123",{},rows).ok());
+        ASSERT_EQ(rows.rows.size(),1u);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]),9003);
+    }
 }
 
 TEST(MapHandlerTest, MoveSynSwapsAuthoritativeSlotsAndPersistsDestination) {
@@ -2109,7 +3960,15 @@ namespace {
 // to avoid a forward-declaration-to-anonymous-namespace mismatch (each anonymous
 // namespace in a TU has a unique generated name).
 std::filesystem::path write_temp_bin(const std::vector<std::uint8_t>& bytes) {
-    const auto path = std::filesystem::temp_directory_path() / "mxh_map_handler_load_test.bin";
+    static std::atomic<std::uint64_t> next_file{0};
+#ifdef _WIN32
+    const auto process_id = _getpid();
+#else
+    const auto process_id = getpid();
+#endif
+    const auto path = std::filesystem::temp_directory_path() /
+        ("mxh_map_handler_load_test_" + std::to_string(process_id) + "_" +
+         std::to_string(next_file.fetch_add(1)) + ".bin");
     std::ofstream ofs(path, std::ios::binary);
     ofs.write(reinterpret_cast<const char*>(bytes.data()),
                static_cast<std::streamsize>(bytes.size()));
@@ -2654,6 +4513,7 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
 
 TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     MockDbAdapter db; std::vector<mxh::net::Message> replies;
+    db.backend = "mssql_odbc";
     mxh::server::MapHandler handler(db, 7, [&](mxh::net::ConnectionId, const auto& message) { replies.push_back(message); });
     const std::string exp_path = std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin";
     handler.load_experience_curve(exp_path);
@@ -2665,7 +4525,26 @@ TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
     const auto exp = std::find_if(replies.begin(), replies.end(), [](const auto& message) { return message.header.category == 3u && message.header.protocol == 13u; });
     ASSERT_NE(exp, replies.end()); ASSERT_EQ(exp->payload.size(), 9u);
-    std::int64_t amount = 0; std::memcpy(&amount, exp->payload.data(), sizeof(amount)); EXPECT_EQ(amount, 123);
+    // Current level-one table threshold is 20: 123 reward leaves 103 at level 2.
+    std::int64_t amount = 0; std::memcpy(&amount, exp->payload.data(), sizeof(amount)); EXPECT_EQ(amount, 103);
+    EXPECT_EQ(exp->payload[8],0u);
+    const auto level = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.category == 3u && message.header.protocol == 19u;
+    });
+    ASSERT_NE(level, replies.end());
+    ASSERT_EQ(level->payload.size(), 18u);
+    const std::uint16_t level_value = static_cast<std::uint16_t>(
+        level->payload[0] | (static_cast<std::uint16_t>(level->payload[1]) << 8));
+    std::int64_t level_exp = 0, level_max = 0;
+    std::memcpy(&level_exp, level->payload.data() + 2, sizeof(level_exp));
+    std::memcpy(&level_max, level->payload.data() + 10, sizeof(level_max));
+    EXPECT_EQ(level_value, 2u);
+    EXPECT_EQ(level_exp, 103);
+    EXPECT_GT(level_max, 0);
+    const auto state_write = std::find_if(db.executed_sql.begin(), db.executed_sql.end(),
+        [](const auto& sql) { return sql.find("MERGE modern_player_state") != std::string::npos; });
+    ASSERT_NE(state_write, db.executed_sql.end());
+    EXPECT_EQ(state_write->find("ON CONFLICT"), std::string::npos);
 }
 
 TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
@@ -2678,13 +4557,98 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
         mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
         handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
         mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); handler.on_message(mxh::net::make_connection_id(55), in);
+        ASSERT_TRUE(handler.set_player_money_for_test(123,4321));
         mxh::game::MonsterInstance monster; monster.object_id=99001; monster.max_life=1; monster.current_life=1; monster.exp_reward=1000000; ASSERT_TRUE(handler.add_monster_instance(monster));
         (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
+        mxh::db::ResultSet money;
+        ASSERT_TRUE(db->query("SELECT money FROM modern_player_state WHERE player_id=123",money).ok());
+        ASSERT_EQ(money.rows.size(),1u);
+        EXPECT_EQ(std::get<std::int64_t>(money.rows[0][0]),4321);
+        // Existing-row experience updates must not overwrite independently saved money.
+        ASSERT_TRUE(db->execute("UPDATE modern_player_state SET money=5432 WHERE player_id=123").ok());
+        monster.object_id=99003;
+        ASSERT_TRUE(handler.add_monster_instance(monster));
+        (void)handler.apply_monster_damage(123,monster.object_id,1,99);
+        money.rows.clear();
+        ASSERT_TRUE(db->query("SELECT money FROM modern_player_state WHERE player_id=123",money).ok());
+        ASSERT_EQ(money.rows.size(),1u);
+        EXPECT_EQ(std::get<std::int64_t>(money.rows[0][0]),5432);
+        const auto notice=std::find_if(reply.messages.rbegin(),reply.messages.rend(),[](const auto& message){
+            return message.header.category==3 && message.header.protocol==13;
+        });
+        ASSERT_NE(notice,reply.messages.rend());
+        ASSERT_EQ(notice->payload.size(),9u);
+        std::int64_t current_exp=0;
+        std::memcpy(&current_exp,notice->payload.data(),8);
+        EXPECT_EQ(current_exp,handler.player_runtime_snapshot(123)->level_exp);
+        EXPECT_EQ(notice->payload[8],0u);
     }
     mxh::db::ResultSet saved; ASSERT_TRUE(db->query("SELECT level,exp FROM modern_player_state WHERE player_id=123", saved).ok()); ASSERT_EQ(saved.rows.size(),1u);
     const auto saved_level=std::get<std::int64_t>(saved.rows[0][0]); EXPECT_GT(saved_level,1);
     mxh::server::MapHandler restored(*db, 7, make_reply_spy(reply)); mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); restored.on_message(mxh::net::make_connection_id(56), in);
     const auto snapshot=restored.player_runtime_snapshot(123); ASSERT_TRUE(snapshot); EXPECT_EQ(snapshot->level, saved_level);
+}
+
+TEST(MapHandlerTest, MaximumLevelKillDoesNotWriteOrNotifyExperience) {
+    auto db=mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE character_info(chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES(123,'Hero',0,1,1,1,1,121,7)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_player_state(player_id INTEGER PRIMARY KEY,money INTEGER DEFAULT 0,level INTEGER DEFAULT 1,exp INTEGER DEFAULT 0,updated_at TEXT)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO modern_player_state VALUES(123,4321,121,77,'baseline')").ok());
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(*db,7,[&](mxh::net::ConnectionId,const auto& message){replies.push_back(message);});
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR)+"/data/PlayDH/Resource/CharacterExpPoint.bin");
+    mxh::net::Message in; in.header.object_id=123;
+    in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message({55},in);
+    ASSERT_TRUE(handler.player_runtime_snapshot(123));
+    ASSERT_EQ(handler.player_runtime_snapshot(123)->level,121);
+    ASSERT_TRUE(db->execute("CREATE TRIGGER reject_max_exp BEFORE INSERT ON modern_player_state BEGIN SELECT RAISE(ABORT,'unexpected maximum-level write'); END").ok());
+    mxh::game::MonsterInstance monster; monster.object_id=99004; monster.max_life=1;
+    monster.current_life=1; monster.exp_reward=1000;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    (void)handler.apply_monster_damage(123,99004,1,99);
+    EXPECT_FALSE(handler.is_draining());
+    EXPECT_EQ(handler.player_runtime_snapshot(123)->level_exp,77u);
+    EXPECT_TRUE(std::none_of(replies.begin(),replies.end(),[](const auto& message){
+        return message.header.category==3 && message.header.protocol==13;
+    }));
+}
+
+TEST(MapHandlerTest, FailedExperienceWriteDoesNotPublishRewardAndDrains) {
+    auto db=mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE character_info(chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES(123,'Hero',0,1,1,1,1,1,7)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE modern_player_state(player_id INTEGER PRIMARY KEY,money INTEGER DEFAULT 0,level INTEGER DEFAULT 1,exp INTEGER DEFAULT 0,updated_at TEXT)").ok());
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(*db,7,[&](mxh::net::ConnectionId,const auto& message){replies.push_back(message);});
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR)+"/data/PlayDH/Resource/CharacterExpPoint.bin");
+    mxh::net::Message in; in.header.object_id=123;
+    in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message({55},in);
+    const auto before=handler.player_runtime_snapshot(123); ASSERT_TRUE(before);
+    ASSERT_TRUE(db->execute("CREATE TRIGGER reject_experience BEFORE INSERT ON modern_player_state BEGIN SELECT RAISE(ABORT,'injected reward failure'); END").ok());
+    mxh::game::MonsterInstance monster; monster.object_id=99002; monster.max_life=1;
+    monster.current_life=1; monster.exp_reward=1000000;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    (void)handler.apply_monster_damage(123,99002,1,99);
+    EXPECT_TRUE(handler.is_draining());
+    const auto reply_count=replies.size();
+    bool accepted=true;
+    (void)handler.apply_monster_damage(123,99002,1,99,{},&accepted);
+    EXPECT_FALSE(accepted);
+    EXPECT_EQ(replies.size(),reply_count);
+    const auto after=handler.player_runtime_snapshot(123); ASSERT_TRUE(after);
+    EXPECT_EQ(after->level,before->level);
+    EXPECT_EQ(after->level_exp,before->level_exp);
+    EXPECT_EQ(after->total_exp,before->total_exp);
+    EXPECT_TRUE(std::none_of(replies.begin(),replies.end(),[](const auto& message){
+        return message.header.category==3 && message.header.protocol==13;
+    }));
 }
 
 TEST(MapHandlerTest, UseConsumesActorItemAndUpdatesVitals) {
@@ -3024,6 +4988,27 @@ TEST(MapHandlerTest, SkillDoesNotApplyToReplacedCasterOrTargetSession) {
     }
 }
 
+TEST(MapHandlerTest, ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    MapHandler handler(db,10,make_reply_spy(reply));
+    const auto root = std::filesystem::path(MXH_SOURCE_DIR);
+    const auto current = root / "data/PlayDH/Resource/Server/ExpPenalty.bin";
+    const auto legacy = root.parent_path() / "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/ExpPenalty.bin";
+    ASSERT_TRUE(handler.load_exp_penalty(current, "playdh-current"));
+    ASSERT_TRUE(handler.exp_penalties());
+    EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).present_percent, 2.4f);
+    EXPECT_FALSE(handler.load_exp_penalty(current, "sworking-2008-reference"));
+    EXPECT_FALSE(handler.exp_penalties());
+    ASSERT_TRUE(handler.load_exp_penalty(legacy, "sworking-2008-reference"));
+    EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).login_percent, 1.9f);
+    EXPECT_FALSE(handler.load_exp_penalty(legacy, "unknown-profile"));
+    EXPECT_FALSE(handler.exp_penalties());
+    ASSERT_TRUE(handler.load_exp_penalty(current, "playdh-current"));
+    EXPECT_FALSE(handler.load_exp_penalty(current / "missing.bin", "playdh-current"));
+    EXPECT_FALSE(handler.exp_penalties());
+}
+
 TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection) {
     MockDbAdapter db;
     ReplySpy reply;
@@ -3055,6 +5040,14 @@ TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection
     EXPECT_EQ(reply.messages.front().header.protocol,
         static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
     EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,9u);
+    ASSERT_TRUE(handler.set_player_vitals_for_test(111,0,50));
+    reply.messages.clear();
+    handler.on_message(owner,cast);
+    ASSERT_EQ(reply.messages.size(),1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
+    EXPECT_EQ(reply.messages.front().payload, std::vector<std::uint8_t>{3});
+    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,50u);
 }
 
 TEST(MapHandlerTest, SkillMonsterCommitRejectsReplacedCasterAndRemoveCanReenter) {
@@ -3290,6 +5283,86 @@ TEST(MapHandlerTest, UseSynConsumesItemAndAdvancesUseItemQuest) {
     EXPECT_EQ(progress->subs[0].count, 1u);
     EXPECT_EQ(progress->state, mxh::server::QuestState::Complete);
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+    const auto inventory = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
+        return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    });
+    ASSERT_NE(inventory, reply.messages.end());
+    ASSERT_EQ(inventory->payload.size(), sizeof(mxh::game::ItemTotalInfo));
+    mxh::game::ItemTotalInfo refreshed{};
+    std::memcpy(&refreshed, inventory->payload.data(), sizeof(refreshed));
+    EXPECT_TRUE(mxh::game::is_empty_slot(refreshed.Inventory[0]));
+}
+
+TEST(MapHandlerTest, QuestNpcTalkUsesSemanticNpcAndQuestContext) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    const auto npc_path = write_temp_bin(synthesize_dealitem_bin(
+        "7\t25\tQuestNpc\t38\t100\t100\t0\t\r\n"));
+    handler.load_quest_npcs(npc_path.string());
+    std::error_code ec;
+    std::filesystem::remove(npc_path, ec);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 1000.0f, 1000.0f));
+
+    const auto quest_path = write_temp_bin(synthesize_dealitem_bin(
+        "$QUEST 88 { $SUBQUEST 0 { #TRIGGER @TALKTONPC 38 88 *ENDQUEST 0 } }\n"
+        "$QUEST 89 { $SUBQUEST 0 { #TRIGGER @TALKTONPC 38 89 *ENDQUEST 0 } }"));
+    handler.load_quest_script(quest_path.string());
+    std::filesystem::remove(quest_path, ec);
+    for (const std::uint16_t quest_id : {std::uint16_t{88u}, std::uint16_t{89u}}) {
+        mxh::net::Message start;
+        start.header.object_id = 123u;
+        start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+        start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+        start.payload.resize(2);
+        std::memcpy(start.payload.data(), &quest_id, sizeof(quest_id));
+        handler.on_message(connection, start);
+    }
+
+    mxh::net::Message talk;
+    talk.header.object_id = 123u;
+    talk.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    talk.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalk);
+    talk.payload.resize(4);
+    const std::uint16_t npc = 38u;
+    const std::uint16_t selected_quest = 89u;
+    std::memcpy(talk.payload.data(), &npc, sizeof(npc));
+    std::memcpy(talk.payload.data() + 2, &selected_quest, sizeof(selected_quest));
+    reply.messages.clear();
+    handler.on_message(connection, talk);
+
+    EXPECT_EQ(handler.quest_progress_for_test(123u, 89u)->subs[0].count, 0u);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkNack));
+
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 100.0f, 100.0f));
+    reply.messages.clear();
+    handler.on_message(connection, talk);
+
+    EXPECT_EQ(handler.quest_progress_for_test(123u, 88u)->subs[0].count, 0u);
+    EXPECT_EQ(handler.quest_progress_for_test(123u, 89u)->subs[0].count, 1u);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkAck));
+
+    // A failed durable write must restore the in-memory quest state.
+    const std::uint16_t first_quest = 88u;
+    std::memcpy(talk.payload.data() + 2, &first_quest, sizeof(first_quest));
+    db.fail_write_matching = "modern_player_quest_log";
+    reply.messages.clear();
+    handler.on_message(connection, talk);
+    EXPECT_EQ(handler.quest_progress_for_test(123u, 88u)->subs[0].count, 0u);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkNack));
 }
 
 
@@ -3352,6 +5425,91 @@ TEST(MapHandlerTest, LoadSkillListPopulatesManagerFromBin) {
     ASSERT_NE(found, nullptr);
     EXPECT_EQ(found->SkillIdx, 1u);
     EXPECT_EQ(found->WeaponKind, 2u);
+}
+
+TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDamage) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    const auto skill_path = write_temp_bin(synthesize_itemlist_bin(
+        build_test_skill_row_150(42u, 0u, 10u)));
+    handler.load_skill_list(skill_path.string());
+    std::error_code ec;
+    std::filesystem::remove(skill_path, ec);
+
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 0.0f, 0.0f));
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 3u, 0u));
+
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 88042u;
+    monster.monster_kind = 73u;
+    monster.map_num = 10u;
+    monster.level = 1u;
+    monster.max_life = monster.current_life = 100u;
+    monster.attack_min = monster.attack_max = 10u;
+    monster.attack_count = 1u;
+    monster.attack_skills[0] = 42u;
+    monster.search_period_ms = 1u;
+    monster.ai_state = mxh::game::MonsterAIState::Attack;
+    monster.target_object_id = 123u;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+
+    std::uint64_t now = 1000u; // DelayTime is 1000: strict boundary must not attack.
+    handler.set_monster_ai_clock_for_test([&] { return now; });
+    handler.set_monster_ai_rng_for_test([] { return 0u; });
+    reply.messages.clear();
+    handler.tick_monster_ai();
+    EXPECT_TRUE(reply.messages.empty());
+
+    now = 1001u;
+    handler.tick_monster_ai();
+    const auto has = [&](mxh::proto::Category category, std::uint8_t protocol) {
+        return std::find_if(reply.messages.begin(), reply.messages.end(), [&](const auto& message) {
+            return message.header.category == static_cast<std::uint8_t>(category) &&
+                   message.header.protocol == protocol;
+        });
+    };
+    const auto life = has(mxh::proto::Category::Character,
+        static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck));
+    ASSERT_NE(life, reply.messages.end());
+    ASSERT_EQ(life->payload.size(), 4u);
+    std::int32_t life_delta = 0;
+    std::memcpy(&life_delta, life->payload.data(), 4u);
+    EXPECT_EQ(life_delta, -3);
+    EXPECT_NE(has(mxh::proto::Category::Skill,
+                  static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SkillObjectAdd)), reply.messages.end());
+    EXPECT_NE(has(mxh::proto::Category::Skill,
+                  static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult)), reply.messages.end());
+    EXPECT_NE(has(mxh::proto::Category::Skill,
+                  static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SkillObjectRemove)), reply.messages.end());
+    const auto death = has(mxh::proto::Category::UserConn,
+        static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie));
+    ASSERT_NE(death, reply.messages.end());
+    ASSERT_EQ(death->payload.size(), 8u);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->current_hp, 0u);
+
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+
+    reply.messages.clear();
+    now = 3000u;
+    handler.tick_monster_ai();
+    EXPECT_TRUE(reply.messages.empty());
+}
+
+TEST(MapHandlerTest, LoadMonsterListRequiresAndAcceptsCanonicalPlayDh) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    EXPECT_FALSE(handler.has_loaded_monster_list());
+    handler.load_monster_list(
+        (std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/MonsterList.bin").string());
+    EXPECT_TRUE(handler.has_loaded_monster_list());
 }
 
 TEST(MapHandlerTest, FindSkillReadsFromLoadedSkillListBin) {
@@ -3454,6 +5612,8 @@ TEST(MapHandlerTest, RepeatedGameOutDoesNotOverwritePersistedMoneyWithZero) {
     cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(db.exec_multi("CREATE TABLE modern_player_state (player_id INTEGER PRIMARY KEY, money INTEGER NOT NULL, updated_at TEXT NOT NULL);").ok());
+    ASSERT_TRUE(db.exec_multi("CREATE TABLE modern_player_item (player_id INTEGER,container INTEGER,slot INTEGER,db_idx INTEGER,item_idx INTEGER,durability INTEGER,rare_idx INTEGER,quick_position INTEGER,item_param INTEGER);").ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     const auto connection = mxh::net::make_connection_id(55);
@@ -3502,6 +5662,28 @@ TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
     const auto snap = handler.player_runtime_snapshot(123u);
     ASSERT_TRUE(snap.has_value());
     EXPECT_EQ(snap->inventory_count, 3u); // qty=3 -> 3 stack items
+
+    db.fail_write_matching = "modern_player_state";
+    reply.messages.clear();
+    handler.on_message(connection, buy);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack));
+    EXPECT_EQ(handler.player_money_for_test(123u), 1000u);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 3u);
+    EXPECT_GE(db.rollback_count.load(), 1);
+    EXPECT_FALSE(handler.is_draining());
+
+    db.fail_write_matching.clear();
+    db.fail_commit = true;
+    reply.messages.clear();
+    handler.on_message(connection, buy);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack));
+    EXPECT_EQ(handler.player_money_for_test(123u), 1000u);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 3u);
+    EXPECT_TRUE(handler.is_draining());
 }
 
 TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
@@ -3563,10 +5745,39 @@ TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
     EXPECT_EQ(handler.player_money_for_test(123u), 1100u);
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+
+    // A failed money write must roll back the inventory transaction, restore
+    // the live state and publish only a Nack. This prevents item loss with no
+    // sale proceeds when either database backend rejects the second write.
+    handler.on_message(connection, buy);
+    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto money_before_failure = handler.player_money_for_test(123u);
+    db.fail_write_matching = "modern_player_state";
+    reply.messages.clear();
+    handler.on_message(connection, sell);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellNack));
+    EXPECT_EQ(handler.player_money_for_test(123u), money_before_failure);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    EXPECT_GE(db.rollback_count.load(), 1);
+    EXPECT_FALSE(handler.is_draining());
+
+    db.fail_write_matching.clear();
+    db.fail_commit = true;
+    reply.messages.clear();
+    handler.on_message(connection, sell);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellNack));
+    EXPECT_EQ(handler.player_money_for_test(123u), money_before_failure);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    EXPECT_TRUE(handler.is_draining());
 }
 
 TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
     MockDbAdapter db;
+    db.backend = "mssql_odbc";
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     const auto connection = mxh::net::make_connection_id(55);
@@ -3591,6 +5802,75 @@ TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
     std::memcpy(start.payload.data(), &qid, sizeof(qid));
     handler.on_message(connection, start);
     EXPECT_EQ(handler.player_quest_count_for_test(456u), 1u);
+    const auto quest_write = std::find_if(db.executed_sql.begin(), db.executed_sql.end(),
+        [](const auto& sql) { return sql.find("MERGE modern_player_quest_log") != std::string::npos; });
+    ASSERT_NE(quest_write, db.executed_sql.end());
+    EXPECT_EQ(quest_write->find("ON CONFLICT"), std::string::npos);
+}
+
+TEST(MapHandlerTest, StartSynRejectsLevelMismatchBeforePersistence) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 456u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const auto qpath = write_temp_bin(synthesize_dealitem_bin(
+        "$QUEST 173 { $SUBQUEST 0 {\n#LIMIT &LEVEL 48 53\n"
+        "#TRIGGER @TALKTONPC 38 173 *ENDQUEST 0\n} }"));
+    handler.load_quest_script(qpath.string());
+    std::error_code ec; std::filesystem::remove(qpath, ec);
+    mxh::net::Message start;
+    start.header.object_id = 456u;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t qid = 173u;
+    std::memcpy(start.payload.data(), &qid, sizeof(qid));
+    reply.messages.clear();
+    handler.on_message(connection, start);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartNack));
+    EXPECT_EQ(handler.player_quest_count_for_test(456u), 0u);
+    EXPECT_EQ(db.begin_count, 0u);
+}
+
+TEST(MapHandlerTest, StartSynWriteFailureRestoresRuntimeAndReturnsNack) {
+    MockDbAdapter db;
+    db.backend = "mssql_odbc";
+    db.fail_write_matching = "MERGE modern_player_quest_log";
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 456u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const auto qpath = write_temp_bin(synthesize_dealitem_bin(
+        "$QUEST 99 { $SUBQUEST 0 { #TRIGGER @HUNT 1 1 *ENDQUEST 0 } }"));
+    handler.load_quest_script(qpath.string());
+    std::error_code ec; std::filesystem::remove(qpath, ec);
+    mxh::net::Message start;
+    start.header.object_id = 456u;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t qid = 99u;
+    std::memcpy(start.payload.data(), &qid, sizeof(qid));
+    reply.messages.clear();
+    handler.on_message(connection, start);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartNack));
+    EXPECT_EQ(handler.player_quest_count_for_test(456u), 0u);
+    EXPECT_EQ(db.begin_count, 1u);
+    EXPECT_EQ(db.rollback_count, 1u);
+    EXPECT_FALSE(handler.is_draining());
 }
 
 
@@ -3617,6 +5897,15 @@ TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
         " level      INTEGER NOT NULL DEFAULT 1,"
         " exp        INTEGER NOT NULL DEFAULT 0,"
         " updated_at TEXT    NOT NULL"
+        ");"
+        "CREATE TABLE modern_player_item ("
+        " player_id INTEGER NOT NULL, container INTEGER NOT NULL,"
+        " slot INTEGER NOT NULL, db_idx INTEGER NOT NULL,"
+        " item_idx INTEGER NOT NULL, durability INTEGER NOT NULL,"
+        " rare_idx INTEGER NOT NULL, quick_position INTEGER NOT NULL,"
+        " item_param INTEGER NOT NULL,"
+        " PRIMARY KEY (player_id, container, slot),"
+        " UNIQUE (player_id, db_idx)"
         ");");
     ASSERT_TRUE(ct.ok()) << ct.error_message;
 
@@ -3682,13 +5971,34 @@ TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
     ASSERT_EQ(rs.rows.size(), 1u);
     ASSERT_TRUE(std::holds_alternative<std::int64_t>(rs.rows[0][0]));
     EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 1000);
+    mxh::db::ResultSet item_rows;
+    ASSERT_TRUE(db.query(
+        "SELECT item_idx FROM modern_player_item WHERE player_id=? ORDER BY slot",
+        qp, item_rows).ok());
+    ASSERT_EQ(item_rows.rows.size(), 3u);
+    for (const auto& row : item_rows.rows) {
+        ASSERT_FALSE(row.empty());
+        EXPECT_EQ(std::get<std::int64_t>(row[0]), item);
+    }
 }
 
 TEST(MapHandlerTest, ItemPricesFillCatalogAndDeductRealMoney) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
-    mxh::db::SqliteAdapter* db_ptr = &db;
-    (void)db_ptr;
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE modern_player_state ("
+        " player_id INTEGER PRIMARY KEY, money INTEGER NOT NULL DEFAULT 0,"
+        " level INTEGER NOT NULL DEFAULT 1, exp INTEGER NOT NULL DEFAULT 0,"
+        " updated_at TEXT NOT NULL);"
+        "CREATE TABLE modern_player_item ("
+        " player_id INTEGER NOT NULL, container INTEGER NOT NULL,"
+        " slot INTEGER NOT NULL, db_idx INTEGER NOT NULL, item_idx INTEGER NOT NULL,"
+        " durability INTEGER NOT NULL, rare_idx INTEGER NOT NULL,"
+        " quick_position INTEGER NOT NULL, item_param INTEGER NOT NULL,"
+        " PRIMARY KEY (player_id, container, slot), UNIQUE (player_id, db_idx));").ok());
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     const auto connection = mxh::net::make_connection_id(55);
@@ -3808,7 +6118,13 @@ TEST(MapHandlerTest, StartSynOkArmPersistsQuestLogToSqliteMemory) {
         " state            INTEGER NOT NULL DEFAULT 0,"
         " accepted_time_ms INTEGER NOT NULL DEFAULT 0,"
         " updated_at       TEXT    NOT NULL,"
-        " PRIMARY KEY (player_id, quest_id));");
+        " PRIMARY KEY (player_id, quest_id));"
+        "CREATE TABLE modern_player_quest_sub ("
+        " player_id INTEGER NOT NULL, quest_id INTEGER NOT NULL,"
+        " sub_index INTEGER NOT NULL, kind INTEGER NOT NULL,"
+        " target_id INTEGER NOT NULL, count INTEGER NOT NULL,"
+        " target_count INTEGER NOT NULL,"
+        " PRIMARY KEY (player_id, quest_id, sub_index));");
     ASSERT_TRUE(ct.ok()) << ct.error_message;
 
     // 3) Build a MapHandler around the live db.  ReplySpy captures
@@ -3878,7 +6194,7 @@ TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
-    const std::string quest_text = "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 10 10 *ADDCOUNT 1 1 } }";
+    const std::string quest_text = "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 10 10 *ADDCOUNT 1 10 } }";
     const auto qpath = write_temp_bin(synthesize_dealitem_bin(quest_text));
     handler.load_quest_script(qpath.string());
     std::error_code ec; std::filesystem::remove(qpath, ec);
@@ -3963,6 +6279,57 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndNack));
 }
 
+TEST(MapHandlerTest, QuestRewardWriteFailureRestoresRuntimeAndReturnsNack) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message in;
+    in.header.object_id = 123;
+    in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, in);
+    const auto qpath = write_temp_bin(synthesize_dealitem_bin(
+        "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 77 1 *GIVEMONEY 50 *ENDQUEST 1 } }"));
+    handler.load_quest_script(qpath.string());
+    std::error_code ec; std::filesystem::remove(qpath, ec);
+    mxh::net::Message start;
+    start.header.object_id = 123;
+    start.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    start.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn);
+    start.payload.resize(2);
+    const std::uint16_t qid = 99;
+    std::memcpy(start.payload.data(), &qid, sizeof(qid));
+    handler.on_message(connection, start);
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 99001; monster.monster_kind = 77; monster.max_life = 1; monster.current_life = 1;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
+    ASSERT_EQ(handler.quest_progress_for_test(123, 99)->state, mxh::server::QuestState::Complete);
+    const auto money_before = handler.player_money_for_test(123);
+    mxh::net::Message end = start;
+    end.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndSyn);
+    db.fail_write_matching = "UPDATE modern_player_state";
+    reply.messages.clear();
+    handler.on_message(connection, end);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndNack));
+    EXPECT_EQ(handler.quest_progress_for_test(123, 99)->state, mxh::server::QuestState::Complete);
+    EXPECT_EQ(handler.player_money_for_test(123), money_before);
+    EXPECT_EQ(db.rollback_count.load(), 1);
+    EXPECT_FALSE(handler.is_draining());
+
+    db.fail_write_matching.clear();
+    reply.messages.clear();
+    handler.on_message(connection, end);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.messages.back().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndAck));
+    EXPECT_EQ(handler.quest_progress_for_test(123, 99)->state, mxh::server::QuestState::Rewarded);
+    EXPECT_EQ(handler.player_money_for_test(123), money_before + 50);
+}
+
 // M3 D-stage: persist_quest_log_for_test must hit the DB on every
 // call.  This pins the helper in isolation (no wire traffic).
 TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
@@ -3978,7 +6345,13 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
         " state            INTEGER NOT NULL DEFAULT 0,"
         " accepted_time_ms INTEGER NOT NULL DEFAULT 0,"
         " updated_at       TEXT    NOT NULL,"
-        " PRIMARY KEY (player_id, quest_id));").ok());
+        " PRIMARY KEY (player_id, quest_id));"
+        "CREATE TABLE modern_player_quest_sub ("
+        " player_id INTEGER NOT NULL, quest_id INTEGER NOT NULL,"
+        " sub_index INTEGER NOT NULL, kind INTEGER NOT NULL,"
+        " target_id INTEGER NOT NULL, count INTEGER NOT NULL,"
+        " target_count INTEGER NOT NULL,"
+        " PRIMARY KEY (player_id, quest_id, sub_index));").ok());
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -4026,6 +6399,78 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
 
 // GameOut is the authoritative session boundary: live money must be flushed
 // before the player runtime is removed, so a subsequent GameIn can observe it.
+TEST(MapHandlerTest, SavedPositionLoadsAndLogoutPersistsMapUsedByCharacterSelect) {
+    for (const bool incoming_transfer : {false, true}) {
+    SCOPED_TRACE(incoming_transfer);
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','PositionHero',10);"
+        "INSERT INTO modern_player_position VALUES(777,2,7211,43329,CURRENT_TIMESTAMP);").ok());
+    if (incoming_transfer)
+        ASSERT_TRUE(db.exec_multi("UPDATE modern_player_position SET map_num=10,pos_x=46973,pos_z=4198;").ok());
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 2, make_reply_spy(reply));
+    ASSERT_TRUE(handler.load_map_routes(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path()
+        / "data" / "PlayDH" / "Resource" / "MapChange.bin"));
+    handler.set_allow_dev_gamein_fallback(false);
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    message.header.object_id = 777;
+    message.payload.assign(16, 0); message.payload[0] = 123;
+    handler.on_message({99}, message);
+    auto ack = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& item) {
+        return item.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    });
+    ASSERT_NE(ack, reply.messages.end());
+    std::uint16_t x = 0, z = 0;
+    std::memcpy(&x, ack->payload.data() + 207, 2);
+    std::memcpy(&z, ack->payload.data() + 209, 2);
+    EXPECT_EQ(x, 7211); EXPECT_EQ(z, 43329);
+    ASSERT_TRUE(handler.set_player_position_for_test(777, 7250, 43350));
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+    handler.on_message({99}, message);
+    EXPECT_EQ(reply.messages.back().header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT map_num,pos_x,pos_z FROM modern_player_position WHERE player_id=777", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 2);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 7250);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 43350);
+    ASSERT_TRUE(db.query("SELECT map_num FROM character_info WHERE chrid=777", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 2);
+}
+
+}
+
+TEST(MapHandlerTest, CrossMapEntryRejectsPositionAwayFromCanonicalExit) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','PositionHero',10);"
+        "INSERT INTO modern_player_position VALUES(777,10,25000,25000,CURRENT_TIMESTAMP);").ok());
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 2, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    ASSERT_TRUE(handler.load_map_routes(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path()
+        / "data" / "PlayDH" / "Resource" / "MapChange.bin"));
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    message.header.object_id = 777;
+    message.payload.assign(16, 0); message.payload[0] = 123;
+    handler.on_message({99}, message);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+}
+
 TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
@@ -4042,6 +6487,7 @@ TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
         " db_idx INTEGER NOT NULL, item_idx INTEGER NOT NULL, durability INTEGER NOT NULL,"
         " rare_idx INTEGER NOT NULL, quick_position INTEGER NOT NULL, item_param INTEGER NOT NULL);"
     ).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
@@ -4068,6 +6514,219 @@ TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.last_message.header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+    EXPECT_EQ(reply.last_message.header.object_id, 777u);
+    EXPECT_TRUE(reply.last_message.payload.empty());
+}
+
+TEST(MapHandlerTest, MultiplexedGameOutAcknowledgementsIdentifyEachCharacter) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(99);
+    mxh::net::Message request;
+    request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    for (const std::uint32_t player : {777u, 888u}) {
+        request.header.object_id = player;
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message(connection, request);
+    }
+    ASSERT_EQ(handler.player_runtime_count(), 2u);
+    for (const std::uint32_t player : {888u, 777u}) {
+        request.header.object_id = player;
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+        handler.on_message(connection, request);
+        ASSERT_EQ(reply.last_id.value, connection.value);
+        EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+        EXPECT_EQ(reply.last_message.header.object_id, player);
+        EXPECT_TRUE(reply.last_message.payload.empty());
+    }
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    handler.on_message(connection, request);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+    EXPECT_EQ(reply.last_message.header.object_id, 777u);
+}
+
+TEST(MapHandlerTest, StrictGameInRejectsMissingOwnedCharacterAndReadFailures) {
+    const std::vector<std::string> missing_tables = {"", "", "", "character_info", "modern_player_state",
+        "modern_player_item", "modern_player_quest_log", "modern_player_quest_sub", "modern_character_equipment"};
+    for (std::size_t scenario = 0; scenario < missing_tables.size(); ++scenario) {
+        SCOPED_TRACE(scenario);
+        mxh::db::SqliteAdapter db;
+        mxh::db::ConnectionConfig config{};
+        config.backend = "sqlite"; config.path = ":memory:";
+        ASSERT_TRUE(db.connect(config).ok());
+        ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        if (scenario != 1)
+            ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(charname,chrid,userid,map_num,start_area) VALUES('EntryTest',777,'123',10,10);").ok());
+        if (!missing_tables[scenario].empty())
+            ASSERT_TRUE(db.exec_multi("DROP TABLE " + missing_tables[scenario]).ok());
+        ReplySpy reply;
+        mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        mxh::net::Message entry;
+        entry.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        entry.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        entry.header.object_id = 777;
+        entry.payload.resize(16, 0);
+        const std::uint32_t owner = scenario == 2 ? 124u : 123u;
+        std::memcpy(entry.payload.data(), &owner, sizeof(owner));
+        handler.on_message(mxh::net::make_connection_id(99), entry);
+        ASSERT_FALSE(reply.messages.empty());
+        if (scenario == 0) {
+            EXPECT_EQ(handler.player_runtime_count(), 1u); // Empty inventory/quests are valid persisted state.
+            EXPECT_EQ(reply.messages.front().header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck));
+        } else {
+            EXPECT_EQ(handler.player_runtime_count(), 0u);
+            ASSERT_EQ(reply.messages.size(), 1u);
+            EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+            EXPECT_EQ(reply.last_message.header.object_id, 777u);
+        }
+    }
+}
+
+TEST(MapHandlerTest, GameOutWriteFailureRetriesButCommitUncertaintyDrains) {
+    for (int phase = 0; phase < 4; ++phase) {
+        SCOPED_TRACE(phase);
+        MockDbAdapter db;
+        ReplySpy reply;
+        mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+        const auto connection = mxh::net::make_connection_id(99);
+        mxh::net::Message request;
+        request.header.object_id = 777;
+        request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message(connection, request);
+        ASSERT_TRUE(handler.set_player_money_for_test(777, 4242));
+        db.fail_begin = phase == 0;
+        db.fail_commit = phase == 1;
+        if (phase == 2) db.fail_write_matching = "DELETE FROM modern_player_item";
+        if (phase == 3) db.fail_write_matching = "INSERT INTO modern_player_state";
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+        handler.on_message(connection, request);
+        EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+        EXPECT_EQ(reply.last_message.header.object_id, 777u);
+        EXPECT_EQ(handler.player_runtime_count(), 1u);
+        EXPECT_EQ(handler.player_money_for_test(777), 4242u);
+        if (phase == 1) {
+            EXPECT_TRUE(handler.is_draining());
+            EXPECT_FALSE(handler.prepare_for_shutdown());
+            const auto calls = reply.call_count.load();
+            handler.on_message(connection, request);
+            EXPECT_EQ(reply.call_count.load(), calls);
+            continue;
+        }
+        db.fail_begin = db.fail_commit = false;
+        db.fail_write_matching.clear();
+        handler.on_message(connection, request);
+        EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+        EXPECT_EQ(handler.player_runtime_count(), 0u);
+    }
+}
+
+TEST(MapHandlerTest, LateExitFailureRollsBackItemsMoneyAndPositionBeforeRetry) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','AtomicHero',10);"
+        "INSERT INTO modern_player_position VALUES(777,10,25000,25000,CURRENT_TIMESTAMP);"
+        "INSERT INTO modern_player_state(player_id,money,updated_at) VALUES(777,100,CURRENT_TIMESTAMP);").ok());
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    mxh::net::Message request;
+    request.header.object_id = 777;
+    request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    request.payload.assign(16, 0); request.payload[0] = 123;
+    handler.on_message({99}, request);
+    ASSERT_EQ(handler.player_runtime_count(), 1u);
+    ASSERT_TRUE(handler.set_player_money_for_test(777, 4242));
+    ASSERT_TRUE(handler.set_player_position_for_test(777, 25100, 25200));
+    // A database sentinel absent from the runtime proves the earlier DELETE is
+    // rolled back, even though failure occurs after the position UPSERT.
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param) "
+        "VALUES(777,0,0,1234,53343,1,0,0,0);"
+        "CREATE TRIGGER fail_exit_map BEFORE UPDATE OF map_num ON character_info "
+        "BEGIN SELECT RAISE(ABORT,'injected late exit failure'); END;").ok());
+    request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+    handler.on_message({99}, request);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+    EXPECT_EQ(handler.player_runtime_count(), 1u);
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 100);
+    ASSERT_TRUE(db.query("SELECT pos_x,pos_z FROM modern_player_position WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 25000);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(1)), 25000);
+    ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 1234);
+    ASSERT_TRUE(db.exec_multi("DROP TRIGGER fail_exit_map;").ok());
+    ASSERT_TRUE(handler.set_player_vitals_for_test(777,0,5));
+    ASSERT_TRUE(db.exec_multi("CREATE TRIGGER fail_exit_vitals BEFORE UPDATE OF character_data ON character_info "
+        "BEGIN SELECT RAISE(ABORT,'injected vitals exit failure'); END;").ok());
+    handler.on_message({99}, request);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+    EXPECT_EQ(handler.player_runtime_count(), 1u);
+    ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)),100);
+    ASSERT_TRUE(db.query("SELECT pos_x FROM modern_player_position WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)),25000);
+    const auto failed_vitals=mxh::db::load_modern_shop_state(db,777,123);
+    ASSERT_TRUE(failed_vitals); EXPECT_FALSE(failed_vitals->vitals);
+    ASSERT_TRUE(db.exec_multi("DROP TRIGGER fail_exit_vitals;").ok());
+    handler.on_message({99}, request);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 4242);
+    const auto saved_vitals=mxh::db::load_modern_shop_state(db,777,123);
+    ASSERT_TRUE(saved_vitals); ASSERT_TRUE(saved_vitals->vitals);
+    EXPECT_EQ(saved_vitals->vitals->life,0u);
+    EXPECT_EQ(saved_vitals->vitals->naeryuk,5u);
+    ASSERT_TRUE(db.query("SELECT pos_x,pos_z FROM modern_player_position WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 25100);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(1)), 25200);
+    ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, rows).ok());
+    EXPECT_TRUE(rows.empty());
+}
+
+TEST(MapHandlerTest, ExitAdapterExceptionRollsBackAndRollbackFailureStopsFurtherWork) {
+    for (int rollback_mode = 0; rollback_mode < 3; ++rollback_mode) {
+        SCOPED_TRACE(rollback_mode);
+        MockDbAdapter db;
+        ReplySpy reply;
+        mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+        mxh::net::Message request;
+        request.header.object_id = 777;
+        request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message({99}, request);
+        ASSERT_EQ(handler.player_runtime_count(), 1u);
+        db.throw_write = true;
+        db.fail_rollback = rollback_mode == 1;
+        db.throw_rollback = rollback_mode == 2;
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+        EXPECT_NO_THROW(handler.on_message({99}, request));
+        EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack));
+        EXPECT_EQ(db.rollback_count.load(), 1);
+        EXPECT_EQ(handler.player_runtime_count(), 1u);
+        EXPECT_EQ(handler.is_draining(), rollback_mode != 0);
+        const auto writes = db.exec_count.load();
+        db.throw_write = db.fail_rollback = db.throw_rollback = false;
+        handler.on_message({99}, request);
+        if (rollback_mode == 0) {
+            EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+            EXPECT_EQ(handler.player_runtime_count(), 0u);
+        } else {
+            EXPECT_EQ(db.exec_count.load(), writes);
+            EXPECT_FALSE(handler.prepare_for_shutdown());
+        }
+    }
 }
 
 TEST(MapHandlerTest, StatsReportsConnectedDrainingAndTimedMovement) {
@@ -4101,6 +6760,159 @@ TEST(MapHandlerTest, StatsReportsConnectedDrainingAndTimedMovement) {
     // Marking draining flips the flag in stats.
     handler.prepare_for_shutdown();
     EXPECT_TRUE(handler.stats().draining);
+}
+
+TEST(MapHandlerTest, DrainingRejectsQueuedMessagesAndTickWithoutDatabaseWork) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    mxh::net::Message request;
+    request.header.object_id = 777;
+    request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message({99}, request);
+    ASSERT_EQ(handler.player_runtime_count(), 1u);
+    handler.prepare_for_shutdown();
+    const auto writes = db.exec_count.load();
+    const auto queries = db.query_count.load();
+    const auto begins = db.begin_count.load();
+    const auto replies = reply.call_count.load();
+    // Already accepted TCP connections can still have messages queued when the
+    // shutdown thread closes the database. None may admit or mutate players.
+    request.header.object_id = 778;
+    handler.on_message({99}, request);
+    request.header.object_id = 777;
+    request.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutSyn);
+    handler.on_message({99}, request);
+    handler.tick_monster_ai();
+    EXPECT_EQ(handler.player_runtime_count(), 1u);
+    EXPECT_EQ(reply.call_count.load(), replies);
+    EXPECT_FALSE(handler.on_connect({100}, "127.0.0.1"));
+    handler.on_disconnect({99}, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    EXPECT_EQ(db.exec_count.load(), writes);
+    EXPECT_EQ(db.query_count.load(), queries);
+    EXPECT_EQ(db.begin_count.load(), begins);
+    handler.prepare_for_shutdown();
+    EXPECT_EQ(db.exec_count.load(), writes);
+}
+
+TEST(MapHandlerTest, ShutdownSavesExitStateAndReportsLateFailureAfterDatabaseReopen) {
+    for (const bool fail_save : {false, true}) {
+        SCOPED_TRACE(fail_save);
+        const auto path = std::filesystem::temp_directory_path() /
+            ("mxh_shutdown_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".db");
+        ASSERT_FALSE(std::filesystem::exists(path));
+        struct Cleanup {
+            std::filesystem::path path;
+            ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); }
+        } cleanup{path};
+        mxh::db::SqliteAdapter db;
+        mxh::db::ConnectionConfig cfg{};
+        cfg.backend = "sqlite"; cfg.path = path.string();
+        ASSERT_TRUE(db.connect(cfg).ok());
+        ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.exec_multi(
+            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','ShutdownHero',10);"
+            "INSERT INTO modern_player_position VALUES(777,10,25000,25000,CURRENT_TIMESTAMP);"
+            "INSERT INTO modern_player_state(player_id,money,updated_at) VALUES(777,100,CURRENT_TIMESTAMP);").ok());
+        ReplySpy reply;
+        mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        mxh::net::Message message;
+        message.header.object_id = 777;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        message.payload.assign(16, 0); message.payload[0] = 123;
+        handler.on_message({99}, message);
+        ASSERT_EQ(handler.player_runtime_count(), 1u);
+        ASSERT_TRUE(handler.set_player_money_for_test(777, 4242));
+        ASSERT_TRUE(handler.set_player_position_for_test(777, 25100, 25200));
+        mxh::game::ItemBase item{};
+        item.dwDBIdx = 1234; item.wIconIdx = 53343; item.Durability = 1;
+        ASSERT_TRUE(handler.add_player_item_for_test(777, item));
+        if (fail_save) ASSERT_TRUE(db.exec_multi(
+            "CREATE TRIGGER fail_shutdown BEFORE UPDATE OF map_num ON character_info "
+            "BEGIN SELECT RAISE(ABORT,'injected shutdown failure'); END;").ok());
+        EXPECT_EQ(handler.prepare_for_shutdown(), !fail_save);
+        EXPECT_FALSE(db.is_connected());
+        EXPECT_EQ(handler.prepare_for_shutdown(), !fail_save);
+        ASSERT_TRUE(db.connect(cfg).ok());
+        mxh::db::ResultSet rows;
+        ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=777", {}, rows).ok());
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), fail_save ? 100 : 4242);
+        ASSERT_TRUE(db.query("SELECT pos_x FROM modern_player_position WHERE player_id=777", {}, rows).ok());
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), fail_save ? 25000 : 25100);
+        ASSERT_TRUE(db.query("SELECT db_idx,item_idx FROM modern_player_item WHERE player_id=777", {}, rows).ok());
+        if (fail_save) EXPECT_TRUE(rows.empty());
+        else {
+            ASSERT_EQ(rows.rows.size(), 1u);
+            EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 1234);
+            EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(1)), 53343);
+        }
+        db.disconnect();
+    }
+}
+
+TEST(MapHandlerTest, DisconnectPersistsExitStateAndOldCallbackCannotRemoveReconnectedPlayer) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','DisconnectHero',10);").ok());
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_allow_dev_gamein_fallback(false);
+    mxh::net::Message message;
+    message.header.object_id = 777;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    message.payload.assign(16, 0); message.payload[0] = 123;
+    handler.on_message({99}, message);
+    ASSERT_EQ(handler.player_runtime_count(), 1u);
+    ASSERT_TRUE(handler.set_player_money_for_test(777, 4242));
+    ASSERT_TRUE(handler.set_player_position_for_test(777, 25100, 25200));
+    mxh::game::ItemBase item{};
+    item.dwDBIdx = 1234; item.wIconIdx = 53343; item.Durability = 1;
+    ASSERT_TRUE(handler.add_player_item_for_test(777, item));
+    handler.on_disconnect({99}, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    EXPECT_FALSE(handler.is_draining());
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT money FROM modern_player_state WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 4242);
+    ASSERT_TRUE(db.query("SELECT pos_x,pos_z FROM modern_player_position WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 25100);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(1)), 25200);
+    ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=777", {}, rows).ok());
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows.at(0).at(0)), 1234);
+    handler.on_message({100}, message);
+    EXPECT_EQ(handler.player_money_for_test(777), 4242u);
+    handler.on_disconnect({99}, mxh::net::NetError::Disconnected);
+    EXPECT_EQ(handler.player_runtime_count(), 1u);
+    EXPECT_FALSE(handler.is_draining());
+}
+
+TEST(MapHandlerTest, DisconnectSaveFailureDrainsInsteadOfAdmittingStaleReconnect) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
+    mxh::net::Message message;
+    message.header.object_id = 777;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message({99}, message);
+    ASSERT_EQ(handler.player_runtime_count(), 1u);
+    db.fail_write_matching = "INSERT INTO modern_player_state";
+    handler.on_disconnect({99}, mxh::net::NetError::Disconnected);
+    EXPECT_TRUE(handler.is_draining());
+    EXPECT_FALSE(handler.prepare_for_shutdown());
+    const auto writes = db.exec_count.load();
+    handler.on_message({100}, message);
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    EXPECT_EQ(db.exec_count.load(), writes);
 }
 
 }  // namespace mxh::server::test

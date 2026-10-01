@@ -72,11 +72,34 @@ ExperienceState ExperienceCurve::add_exp(ExperienceState state, std::uint64_t am
     const auto new_exp = state.exp_point + amount;
     const auto threshold = max_exp_point(state.level);
     if (new_exp >= threshold) {
-        ++state.level;
+        // SetPlayerExpPoint subtracts before SetLevel rejects the sentinel 121.
+        if(state.level + 1 < MAX_CHARACTER_LEVEL_NUM) ++state.level;
         state.exp_point = new_exp - threshold;
     } else {
         state.exp_point = new_exp;
     }
+    return state;
+}
+
+ExperienceState ExperienceCurve::reduce_exp(ExperienceState state, std::uint64_t amount) const {
+    if (state.level == 0 || state.level > required_exp_.size())
+        throw std::invalid_argument("invalid experience level");
+    // CPlayer::ReduceExpPoint clamps only when the starting level is one.
+    if (state.level == 1 && amount > state.exp_point) amount = state.exp_point;
+    unsigned levels_lost = 0;
+    while (state.exp_point < amount) {
+        // Reject invalid/out-of-contract losses instead of reproducing the
+        // legacy unsigned level underflow or its emergency loop break.
+        if (state.level <= 1 || levels_lost >= 3)
+            throw std::out_of_range("experience loss exceeds legacy supported range");
+        amount -= state.exp_point;
+        --state.level;
+        ++levels_lost;
+        const auto threshold = max_exp_point(state.level);
+        if (threshold == 0) throw std::out_of_range("zero level threshold");
+        state.exp_point = threshold - 1;
+    }
+    state.exp_point -= amount;
     return state;
 }
 

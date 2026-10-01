@@ -34,6 +34,14 @@ struct MapChangeCatalog final {
         std::uint16_t current_map, std::string_view object_name) const noexcept;
 };
 
+struct StaticNpcEntry final {
+    std::uint16_t map = 0, job = 0, index = 0;
+    std::string name;
+    float x = 0, z = 0, angle = 0;
+};
+[[nodiscard]] std::optional<std::vector<StaticNpcEntry>> load_static_npc_bin(
+    const std::filesystem::path& path) noexcept;
+
 [[nodiscard]] std::optional<MapChangeCatalog> parse_map_change_text(
     std::string_view text) noexcept;
 [[nodiscard]] std::optional<MapChangeCatalog> load_map_change_bin(

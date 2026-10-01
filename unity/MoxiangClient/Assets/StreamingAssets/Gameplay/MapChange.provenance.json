@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "stableId": "playdh-current/map-change-catalog",
+  "classification": "original",
+  "source": "modern/data/PlayDH/Resource/MapChange.bin",
+  "sha256": "66aca3ccca86469e4f8ec1f0dada451fd2422d5c4b0c2698408e56c0101b7048",
+  "converterVersion": "byte-copy-v1",
+  "stageCommand": "powershell -NoProfile -File scripts/stage-unity-map-routes.ps1"
+}

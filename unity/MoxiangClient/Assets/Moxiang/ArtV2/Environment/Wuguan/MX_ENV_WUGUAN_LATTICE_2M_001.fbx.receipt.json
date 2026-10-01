@@ -1,0 +1,31 @@
+{
+  "schema": "moxiang.blender-export-receipt.v1",
+  "generated_utc": "2026-09-28T02:47:44.116056+00:00",
+  "asset_id": "MX_ENV_WUGUAN_LATTICE_2M_001",
+  "category": "Environment",
+  "source_file": "MX_ENV_WUGUAN_KIT_001.blend",
+  "source_sha256": "9b43fb32590dc1e97696e4baa5aee0e98fecb17e33e15c614c9f15e0bbc17938",
+  "export_file": "MX_ENV_WUGUAN_LATTICE_2M_001.fbx",
+  "export_sha256": "6cca379249fe71de83d464e135786f31616129c7c1d8ed2d1a128e939301eb5b",
+  "blender_version": "5.2.1 LTS",
+  "scale_meters": 1.0,
+  "forward_axis": "-Z",
+  "up_axis": "Y",
+  "objects": [
+    "MX_ENV_WUGUAN_LATTICE_2M_001",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__FRAME_BOTTOM",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__FRAME_L",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__FRAME_R",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__FRAME_TOP",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__H_0",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__H_1",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__H_2",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__H_3",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__H_4",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__V_0",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__V_1",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__V_2",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__V_3",
+    "MX_ENV_WUGUAN_LATTICE_2M_001__V_4"
+  ]
+}

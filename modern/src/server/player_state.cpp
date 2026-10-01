@@ -30,6 +30,14 @@ void PlayerState::apply_shop_options(const game::ShopItemOption& options) noexce
     recompute_max_stats();
 }
 
+void PlayerState::apply_avatar_options(const game::AvatarItemOption& options) noexcept {
+    avatar_options=options;
+    bonuses.avatar_life=options.Life;
+    bonuses.avatar_shield=options.Shield;
+    bonuses.avatar_naeryuk=options.Naeruyk;
+    recompute_max_stats();
+}
+
 PlayerState make_player_state(std::uint32_t player_id,
                               std::uint32_t user_id,
                               std::uint16_t level,

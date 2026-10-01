@@ -15,6 +15,7 @@
 //   Pos(12) Angle(4)
 // ============================================================================
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <cmath>
@@ -98,6 +99,10 @@ struct MonsterTemplate {
     float         SearchRange = 500.0f;
     float         DomainRange = 1000.0f;
     bool          Aggressive  = false;
+    std::uint32_t SearchPeriodMs = 1000;
+    std::uint8_t  AttackCount = 0;
+    std::array<std::uint32_t, 2> AttackSkills{};
+    std::array<std::uint32_t, 2> AttackRates{};
     std::uint16_t DropItemId   = 0;
     std::uint32_t DropItemRatio = 100;
 };
@@ -144,6 +149,12 @@ struct MonsterInstance {
     float         search_range= 500.0f;
     float         domain_range= 1000.0f;
     bool          aggressive  = false;
+    std::uint32_t search_period_ms = 1000;
+    std::uint8_t  attack_count = 0;
+    std::array<std::uint32_t, 2> attack_skills{};
+    std::array<std::uint32_t, 2> attack_rates{};
+    std::uint8_t current_attack_slot = 0;
+    std::uint64_t last_attack_ms = 0;
     std::uint16_t drop_item_id = 0;
     std::uint32_t drop_item_ratio = 100;
 };

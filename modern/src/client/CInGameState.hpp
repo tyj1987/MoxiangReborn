@@ -243,6 +243,15 @@ mxh::net::Message make_attack_message(std::uint32_t player_id,
 mxh::net::Message make_quest_message(std::uint32_t player_id,
                                      mxh::proto::QuestProtocol protocol,
                                      std::uint16_t quest_id);
+mxh::net::Message make_quest_npc_talk_message(std::uint32_t player_id,
+                                              std::uint16_t npc_index,
+                                              std::uint16_t quest_id);
+struct QuestNpcTalkResponse final {
+    std::uint16_t npc_index = 0;
+    std::uint16_t quest_id = 0;
+};
+std::optional<QuestNpcTalkResponse> parse_quest_npc_talk_response(
+    std::span<const std::uint8_t> payload) noexcept;
 
 std::optional<std::pair<std::uint16_t, std::uint16_t>>
 parse_move_payload(std::span<const std::uint8_t> payload);

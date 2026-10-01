@@ -1,7 +1,7 @@
 {
   "name": "Moxiang.EditorTests",
   "rootNamespace": "Moxiang.Tests",
-  "references": ["Moxiang.Runtime", "Moxiang.Editor"],
+  "references": ["Moxiang.Runtime", "Moxiang.Editor", "Unity.TextMeshPro", "UnityEngine.UI"],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],
   "autoReferenced": false

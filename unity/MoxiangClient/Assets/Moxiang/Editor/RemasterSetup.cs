@@ -14,10 +14,23 @@ namespace Moxiang.Editor
     {
         public const string EditorVersion = "6000.6.0f1";
 
+        public static void ConfigureInputCompatibility()
+        {
+            var settings = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
+            var input = settings.FindProperty("activeInputHandler");
+            if (input == null) throw new InvalidOperationException("Pinned Editor input setting is unavailable.");
+            // uGUI uses Input System; existing world/skill controls use UnityEngine.Input.
+            input.intValue = 2; // Both
+            settings.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssets();
+            Debug.Log("MXH_INPUT_COMPATIBILITY_READY both=true restart_before_build=true");
+        }
+
         public static void Configure()
         {
             if (Application.unityVersion != EditorVersion)
                 throw new InvalidOperationException("Remaster requires Unity " + EditorVersion);
+            ConfigureInputCompatibility();
             PlayerSettings.companyName = "Moxiang";
             PlayerSettings.productName = "Moxiang Remaster";
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Standalone, "com.moxiang.remaster");

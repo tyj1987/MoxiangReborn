@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 #include <mxh/server/restore_used_shop_item.hpp>
+#include <mxh/server/shop_dup_catalog.hpp>
+#include <mxh/server/shop_event_rates.hpp>
+#include <mxh/server/restore_shop_persistence.hpp>
+#include <mxh/db/sqlite_adapter.hpp>
 #include <string>
 #include <vector>
 #include <limits>
@@ -125,6 +129,56 @@ struct RestoreDupLookup : DupParamLookup {
         param=2; return true;
     }
 };
+struct PersistenceEffects : ShopRestorePersistenceEffects {
+    using ShopRestorePersistenceEffects::ShopRestorePersistenceEffects;
+    bool discard_ok=true;
+    int logs=0;
+    bool discard_item(const game::ItemBase&) override { return discard_ok; }
+    void log_expired(const game::ShopItemBase&) override { ++logs; }
+};
+
+TEST_F(RestoreUsedShopItem, ConvertedStatePersistsDistinctParametersAndHonorsRollback) {
+    db::SqliteAdapter adapter; db::IDbAdapter& database=adapter;
+    db::ConnectionConfig config; config.path=":memory:";
+    ASSERT_TRUE(database.connect(config).ok());
+    ASSERT_TRUE(database.execute("CREATE TABLE character_info(chrid INT PRIMARY KEY,userid TEXT,character_data BLOB)").ok());
+    ASSERT_TRUE(database.execute("INSERT INTO character_info VALUES(42,'7',NULL)").ok());
+    auto initial=db::load_modern_shop_state(database,42,7); ASSERT_TRUE(initial);
+    db::LegacyShopAppearanceRows rows; rows.used_items.push_back({55321,390,801,99,45,7});
+    ASSERT_TRUE(db::save_modern_shop_state(database,42,7,*initial,rows));
+    auto saved=db::load_modern_shop_state(database,42,7); ASSERT_TRUE(saved);
+    CalcShopItemOptionEnv environment; RestorePlayerHook player; RestoreDupLookup duplicates;
+    PersistenceEffects persistent_effects(manager,catalog,options,environment,player,duplicates,*saved);
+    define(55321);
+    ASSERT_EQ(restore_used_shop_item(manager,catalog,options,persistent_effects,&item,99,
+        game::PackedTime{45},7,777,game::PackedTime{100},ShopRestoreLocale::China),ShopRestoreStatus::Restored);
+    ASSERT_EQ(persistent_effects.pending_rows().used_items.size(),1u);
+    EXPECT_EQ(persistent_effects.pending_rows().used_items[0].item_id,55299);
+    EXPECT_EQ(persistent_effects.pending_rows().used_items[0].parameter,7u);
+    EXPECT_EQ(persistent_effects.pending_rows().used_items[0].remaining_time,23u);
+    EXPECT_EQ(manager.find_using_item(55299)->Data.ShopItem.Param,99u);
+    ASSERT_TRUE(database.begin_transaction().ok());
+    ASSERT_TRUE(persistent_effects.save_shop_record(database,42,7));
+    ASSERT_TRUE(database.rollback().ok());
+    EXPECT_EQ(db::load_modern_shop_state(database,42,7)->rows.used_items[0].item_id,55321);
+    ASSERT_TRUE(persistent_effects.save_shop_record(database,42,7));
+    EXPECT_EQ(db::load_modern_shop_state(database,42,7)->rows.used_items[0].item_id,55299);
+}
+
+TEST_F(RestoreUsedShopItem, ExpiryDraftRetainsFailedDiscardAndRemovesSuccessfulDiscard) {
+    db::ModernShopState snapshot;
+    snapshot.rows.used_items.push_back({55134,390,801,10,45,100});
+    CalcShopItemOptionEnv environment; RestorePlayerHook player; RestoreDupLookup duplicates;
+    PersistenceEffects persistent_effects(manager,catalog,options,environment,player,duplicates,snapshot);
+    define(55134,1,11); persistent_effects.discard_ok=false;
+    EXPECT_EQ(restore_used_shop_item(manager,catalog,options,persistent_effects,&item,10,
+        game::PackedTime{45},100,777,game::PackedTime{101},ShopRestoreLocale::China),ShopRestoreStatus::DiscardFailed);
+    EXPECT_EQ(persistent_effects.pending_rows().used_items.size(),1u); EXPECT_EQ(persistent_effects.logs,0);
+    persistent_effects.discard_ok=true;
+    EXPECT_EQ(restore_used_shop_item(manager,catalog,options,persistent_effects,&item,10,
+        game::PackedTime{45},100,777,game::PackedTime{101},ShopRestoreLocale::China),ShopRestoreStatus::Expired);
+    EXPECT_TRUE(persistent_effects.pending_rows().used_items.empty()); EXPECT_EQ(persistent_effects.logs,1);
+}
 TEST_F(RestoreUsedShopItem, BoundCalculatorRestoresActualProtectAndMixStats) {
     CalcShopItemOptionEnv environment; RestorePlayerHook player;
     RestoreDupLookup duplicates;
@@ -177,5 +231,72 @@ TEST(ShopOptionCatalogInput, InvalidFloatCannotEnterIntegerConversion) {
                             std::numeric_limits<float>::quiet_NaN(),4294967296.0f}) {
         info.AttrRegist.Element[0]=value; EXPECT_FALSE(shop_option_info(info));
     }
+}
+TEST(ShopEventRates, RealPlaydhDecodesEverySourceRateAndSnapshotsCurrentValues) {
+    const auto modern=std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
+    std::string error;
+    const auto environment=load_playdh_shop_rates(modern/"data/PlayDH/Resource/Server/DropRate.bin",ShopLocale::China,error);
+    ASSERT_TRUE(environment) << error;
+    const ShopRateEnvironment::Rates expected{1,6000,10,1,1,1,1,6,1.2f,2000,50,150};
+    EXPECT_EQ(environment->baseline(),expected); EXPECT_EQ(environment->current(),expected);
+    EXPECT_EQ(environment->locale(),ShopLocale::China);
+    for(std::uint16_t id=0;id<12;++id) EXPECT_TRUE(environment->event_rate_active(id));
+    EXPECT_FALSE(environment->event_rate_active(12)); EXPECT_FALSE(environment->event_rate_active(65535));
+    auto changed=expected; changed[1]=12000;
+    const auto during_event=environment->with_current(changed); ASSERT_TRUE(during_event);
+    EXPECT_FALSE(during_event->event_rate_active(1)); EXPECT_TRUE(during_event->event_rate_active(9));
+    EXPECT_TRUE(environment->event_rate_active(1)); // admission snapshot cannot be retroactively changed
+    CalcShopItemOptionInfo item{}; item.ItemKind=LEGACY_SHOP_ITEM_CHARM;
+    item.ItemIdx=55001; item.LimitSimMek=3; item.MeleeAttackMin=1;
+    game::ShopItemOption normal{}, active{}; CalcShopItemOptionSideEffects effects;
+    ASSERT_EQ(calc_shop_item_option(normal,item.ItemIdx,true,0,item,*environment,0,effects),CalcShopItemOptionStatus::Ok);
+    ASSERT_EQ(calc_shop_item_option(active,item.ItemIdx,true,0,item,*during_event,0,effects),CalcShopItemOptionStatus::Ok);
+    EXPECT_EQ(normal.PlustimeExp,3); EXPECT_EQ(active.PlustimeExp,0);
+    changed[1]=std::numeric_limits<float>::quiet_NaN();
+    EXPECT_FALSE(environment->with_current(changed));
+}
+
+TEST(ShopEventRates, CorruptContainerAndUnrecognizedPayloadCannotPublishRates) {
+    const auto modern=std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
+    std::ifstream file(modern/"data/PlayDH/Resource/Server/DropRate.bin",std::ios::binary);
+    ASSERT_TRUE(file.good());
+    std::vector<std::uint8_t> raw((std::istreambuf_iterator<char>(file)),{});
+    ASSERT_EQ(raw.size(),212u); std::string error;
+    auto bad=raw; bad[25]^=1; // '#EXP' label, not a rate-value policy change
+    EXPECT_FALSE(parse_playdh_shop_rates(bad,ShopLocale::China,error));
+    bad=raw; bad.pop_back(); EXPECT_FALSE(parse_playdh_shop_rates(bad,ShopLocale::China,error));
+    bad=raw; bad[12]=0; EXPECT_FALSE(parse_playdh_shop_rates(bad,ShopLocale::China,error));
+    EXPECT_FALSE(parse_shop_rate_text("#EXP 1",ShopLocale::China,error));
+    EXPECT_FALSE(parse_shop_rate_text("#EXP nan",ShopLocale::China,error));
+    EXPECT_FALSE(parse_shop_rate_text("#EXP 1 #EXP 2",ShopLocale::China,error));
+    EXPECT_FALSE(parse_shop_rate_text("#EXP 1garbage",ShopLocale::China,error));
+}
+
+TEST(ShopDupCatalog, RealPlaydhContainsOriginalTwentyEightEntries) {
+    const auto modern=std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
+    std::string error;
+    auto catalog=load_shop_dup_bin(modern/"data/PlayDH/Resource/ItemdupOption.bin",error);
+    ASSERT_TRUE(catalog) << error; ASSERT_EQ(catalog->entries.size(),28u);
+    std::uint32_t value=999;
+    ASSERT_TRUE(catalog->try_get_dup_param(9,value)); EXPECT_EQ(value,2u);
+    EXPECT_EQ(catalog->entries.at(9).category,"#SUNDRIES");
+    ASSERT_TRUE(catalog->try_get_dup_param(28,value)); EXPECT_EQ(value,32768u);
+    EXPECT_FALSE(catalog->try_get_dup_param(999,value));
+    DupCounters counters{}; SundrySideEffects effects{};
+    add_dup_param(counters,DupParamIndices{28,16,4,9,15},*catalog,effects);
+    EXPECT_EQ(counters.charm,32768u); EXPECT_EQ(counters.herb,2u);
+    EXPECT_EQ(counters.incantation,4u); EXPECT_EQ(counters.sundries,2u); EXPECT_EQ(counters.pet_equip,2u);
+    EXPECT_TRUE(effects.set_b_street_stall);
+}
+TEST(ShopDupCatalog, CorruptAndTruncatedInputCannotPublishPartialCatalog) {
+    const auto modern=std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
+    std::ifstream stream(modern/"data/PlayDH/Resource/ItemdupOption.bin",std::ios::binary);
+    ASSERT_TRUE(stream);
+    std::vector<std::uint8_t> raw((std::istreambuf_iterator<char>(stream)),{});
+    ASSERT_GT(raw.size(),14u); std::string error;
+    raw[13]^=1;
+    EXPECT_FALSE(parse_shop_dup_bin(raw,error)); EXPECT_EQ(error,"ItemdupOption checksum mismatch");
+    raw[13]^=1; raw.pop_back();
+    EXPECT_FALSE(parse_shop_dup_bin(raw,error)); EXPECT_EQ(error,"ItemdupOption payload size mismatch");
 }
 } // namespace

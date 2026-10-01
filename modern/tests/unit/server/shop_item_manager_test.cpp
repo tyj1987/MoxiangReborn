@@ -448,6 +448,24 @@ TEST(ShopItemManagerExpire, EmptyTableProducesEmptyOutput) {
     EXPECT_TRUE(out.empty());
 }
 
+TEST(ShopItemManagerTick, ForcedFlushAccumulatesCheckClockAndResetsSweep) {
+    ShopItemManager manager;
+    manager.set_update_time(600000u);
+    manager.set_check_time(17u);
+    EXPECT_TRUE(manager.tick(1u));
+    EXPECT_EQ(manager.check_time(),18u);
+    manager.set_update_time(600000u);
+    UsingShopItemEntry entry{}; entry.ItemIdx=99; entry.Data=make_with_time(99,1);
+    entry.Data.LastCheckTime=0;
+    ASSERT_TRUE(manager.add_using_item(entry));
+    std::vector<std::uint64_t> expired{1,2,3};
+    EXPECT_EQ(manager.tick_and_collect_expired(1,2,expired),1u);
+    ASSERT_EQ(expired.size(),1u); EXPECT_EQ(expired[0],99u);
+    EXPECT_EQ(manager.check_time(),0u);
+    EXPECT_EQ(manager.tick_and_collect_expired(1,3,expired),0u);
+    EXPECT_TRUE(expired.empty());
+}
+
 TEST(ShopItemManagerExpire, ItemWithFutureDeadlineIsNotExpired) {
     ShopItemManager m;
     int s = 0;

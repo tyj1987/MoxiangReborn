@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "heightfieldSourceId": "mxh:7cc11cfa0bdf24b647e3868f17cb8bc377bd8a7f2a0434572c08f678078cfa32",
+  "complete": false,
+  "unresolved": [
+    {
+      "slot": 13,
+      "authoringName": "1",
+      "tileCount": 1,
+      "candidateCount": 0
+    }
+  ],
+  "entries": [
+    {
+      "slot": 0,
+      "authoringName": "t10_h_w_01.tga",
+      "file": "t10_h_w_01.mxhdds",
+      "sourceId": "mxh:c6d43d40505219fe4d5aa3c73f395d100dad5493b240e5eb24e5f1e44108c0c6",
+      "sha256": "1c84d312c66ec0e9f5887eccca1ae57a694e48dfd0c30c08b4f62103914152dd",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 4,
+      "authoringName": "t10_h_w_15.tga",
+      "file": "t10_h_w_15.mxhdds",
+      "sourceId": "mxh:8a2099619cb9726386682b87af8ea7d38c8c688fb76a4af07e2912f898aab70d",
+      "sha256": "b45fdb4666e42d428a5d97e9a1071816a2173b5a392bc7f5e72403ec6a1bec70",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 6,
+      "authoringName": "Tile_2_02.TGA",
+      "file": "tile_2_02.mxhdds",
+      "sourceId": "mxh:0146a57f4fe34507e092a6212677661112cbabb8319537c352249504bfb7162e",
+      "sha256": "e33204c2600c667b88a051181ef267ebd472de306de89a18ade3525b80887b37",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 11,
+      "authoringName": "Tile_2_23.TGA",
+      "file": "tile_2_23.mxhdds",
+      "sourceId": "mxh:23227027f232a418c90f3567656f704d73ce130361934f0c4ecb024d4b71db72",
+      "sha256": "fad5f2ad122f546053318ae6170bd9307e42f08e0b745cceeee58aa0d844c3c7",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 15,
+      "authoringName": "Tile_2_31.TGA",
+      "file": "tile_2_31.mxhdds",
+      "sourceId": "mxh:52f7ffad48f8fdb5b34c0a3451a48d93fb694e4d96c2dae0c7c5d5f0f18aa642",
+      "sha256": "1900c35ce9fb6d68d743b9dab6d53d9c605186c0e86c879e8d7d71d869f8a01e",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 16,
+      "authoringName": "Tile_2_32.TGA",
+      "file": "tile_2_32.mxhdds",
+      "sourceId": "mxh:da8ca31396613d87eecd9bb59d444602cf701d3187ba353e36e47c6b70f9de11",
+      "sha256": "20757dc3f085ee485d66a422ad2920a918791bf3cfea4a3778b83e6d6e60d782",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 17,
+      "authoringName": "Tile_2_33.TGA",
+      "file": "tile_2_33.mxhdds",
+      "sourceId": "mxh:9a9acfe53d3afdad5bdd874e4c63cc0ba1424bbbff55518b3587bed249b7200b",
+      "sha256": "930e5fd3c63fffdf811c45dfcf6f5d88ea48ef262a606da5bb5ed48d2f21dbee",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 18,
+      "authoringName": "Tile_2_34.TGA",
+      "file": "tile_2_34.mxhdds",
+      "sourceId": "mxh:98f3f34e57419d3d00f93ce722bbf9fc0c7a247e2eb7c0f7d7a97572788f8f51",
+      "sha256": "1a7cc36c1e71fee11d9e18f3e80619474aa69d1b98f392fb62d78d12711f9e61",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 19,
+      "authoringName": "huang_tile15.tga",
+      "file": "huang_tile15.mxhdds",
+      "sourceId": "mxh:a7eee1b595f63a0ec5b03e587f7336bb5f9293173130e6673f00f3d15027bb4c",
+      "sha256": "2e94e42b9f76b030fd94acb113c53fb69e39467a6d6c0ea6749a3651d4a89af4",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 20,
+      "authoringName": "huang_tile16.tga",
+      "file": "huang_tile16.mxhdds",
+      "sourceId": "mxh:1e36dcf78d5bdf925f32a76349d802612058d334b483f460b479382acfd13a6f",
+      "sha256": "36b9202782bbbfb73e3d6a31bd751a19b016420ce0698dbc95e8cc71b78b0d86",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 21,
+      "authoringName": "huang_tile17.tga",
+      "file": "huang_tile17.mxhdds",
+      "sourceId": "mxh:ad89c2e30e44f23f6c05a83031b25f28ea72b56cdb42f67fdb1c3c6d23855ffc",
+      "sha256": "a6bf00e47b8c194fe8f5031a739082b85e0e678499e65dd1ba28b34b2bdcb401",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 22,
+      "authoringName": "huang_tile18.tga",
+      "file": "huang_tile18.mxhdds",
+      "sourceId": "mxh:9340b753a9003039c2d17473d5befe4c15c7f2285319413ff52f3f9083e027f6",
+      "sha256": "a8cec96b2376f16bdf60bb9d8d580c2164d0af6ada4c647c0a31c4fc6d4d91bc",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 23,
+      "authoringName": "huang_tile19.tga",
+      "file": "huang_tile19.mxhdds",
+      "sourceId": "mxh:9dbd5f0b109dac30407062560b71db259a73b5aab4ca568e6721e2d4557de820",
+      "sha256": "01a90b99e81f160a1e9fb211ff68bdcdf2ab00d48a24e7e56cfe12b879427816",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 24,
+      "authoringName": "huang_tile20.tga",
+      "file": "huang_tile20.mxhdds",
+      "sourceId": "mxh:bf6598e73f928b70d3678d010140cf927798d7496f7b4b3b0f55b0870454d7d6",
+      "sha256": "c2149f37e02d9a8836545eb7faf0be5caed58326edb045bc57c9b83517b57013",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 25,
+      "authoringName": "huang_tile21.tga",
+      "file": "huang_tile21.mxhdds",
+      "sourceId": "mxh:4885c798c3a13534e5423fcb2869e34bed173c237165593c3d2df11a53900bb9",
+      "sha256": "22cb6b2dcf48550be98f8c051b405955067f5ba946521709853f44ac4ac7b3e2",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 29,
+      "authoringName": "Tile_2_11.TGA",
+      "file": "tile_2_11.mxhdds",
+      "sourceId": "mxh:d37a2434f25d6434139dca1c844b691be50fd984b8bbc7682b47f9664f71b026",
+      "sha256": "fe8fa2e7da8277379266a983910fe8c0719c62b56dca6848fa85a14fa0a914fe",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 30,
+      "authoringName": "Tile_2_12.TGA",
+      "file": "tile_2_12.mxhdds",
+      "sourceId": "mxh:182878f2083f543d2076005a875788bfd07a323d694e4653ca3073d0b18a1a54",
+      "sha256": "5c754a5e5f5b8233c63409a644c285dab2d32a3b1d4f597d81d7edbf5ac9a35f",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 31,
+      "authoringName": "Tile_2_13.TGA",
+      "file": "tile_2_13.mxhdds",
+      "sourceId": "mxh:2f60cb75c7e24bb904431ce610e90622bac3c37c205b7a5e6448670ae5db51b3",
+      "sha256": "e7aca19c4d3e193fe4ffa32cacb76dfa05cb4c5607277accd1a450e8d31c92fb",
+      "provenance": "unknown"
+    },
+    {
+      "slot": 32,
+      "authoringName": "Tile_2_14.TGA",
+      "file": "tile_2_14.mxhdds",
+      "sourceId": "mxh:504c99aeb06b71690a6ba23021b06bde7e04577a70e8e24c9ac4f442bb221fde",
+      "sha256": "b1ce7ac175ddb25e7e2cb8bf326d8b6dc403a96e30bb12893d931772f7cbea18",
+      "provenance": "unknown"
+    }
+  ],
+  "planSha256": "210a14c2a9144c9e6e4a56ef50c037e9ba08eb0355fd37a44ad46911c22c418d"
+}

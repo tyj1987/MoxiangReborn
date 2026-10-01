@@ -7,7 +7,10 @@
 #include <fstream>
 
 TEST(MonsterCatalog, ParsesVisualColumns) {
-    const std::string text = "1\tMonster\t0\t1\t-1\t0\tL001.chx\t1.3\t30\r\n";
+    const std::string text =
+        "1\tMonster\tMonster\t7\t-1\t0\tL001.chx\t1.3\t30\t1\t1\t1000\t50\t90\t2"
+        "\t12\t20\t3\t4\t0\t0\t0\t0\t0\t50\t100\t120\t0\t0\t0\t0\t0\t0\t0"
+        "\t1000\t0\t0\t1\t750\t0\t500\t360\t0\t2\t301\t302\t70\t30\r\n";
     const auto catalog = mxh::compat::MonsterCatalog::parse_text(
         {reinterpret_cast<const std::uint8_t*>(text.data()), text.size()});
     ASSERT_TRUE(catalog.has_value());
@@ -15,6 +18,14 @@ TEST(MonsterCatalog, ParsesVisualColumns) {
     ASSERT_NE(visual, nullptr);
     EXPECT_EQ(visual->chx_name, "L001.chx");
     EXPECT_FLOAT_EQ(visual->scale, 1.3f);
+    EXPECT_EQ(visual->life, 1000u);
+    EXPECT_EQ(visual->attack_min, 12u);
+    EXPECT_EQ(visual->attack_max, 20u);
+    EXPECT_TRUE(visual->aggressive);
+    EXPECT_FLOAT_EQ(visual->search_period_ms, 750.0f);
+    EXPECT_EQ(visual->attack_count, 2u);
+    EXPECT_EQ(visual->attack_skills[0], 301u);
+    EXPECT_EQ(visual->attack_rates[1], 30u);
     EXPECT_EQ(catalog->find(2), nullptr);
 }
 
@@ -43,4 +54,13 @@ TEST(MonsterCatalog, ParsesRealPlayDhWhenAvailable) {
     ASSERT_NE(first, nullptr);
     EXPECT_EQ(first->chx_name, "L001.chx");
     EXPECT_FLOAT_EQ(first->scale, 1.0f);
+    for (const auto kind : {73u, 102u, 103u, 104u, 105u, 219u}) {
+        const auto* monster = catalog->find(static_cast<std::uint16_t>(kind));
+        ASSERT_NE(monster, nullptr) << "Map10 kind=" << kind;
+        EXPECT_GT(monster->life, 0u);
+        EXPECT_LE(monster->attack_min, monster->attack_max);
+        EXPECT_LE(monster->attack_count, 2u);
+        if (monster->attack_count != 0)
+            EXPECT_NE(monster->attack_skills[0], 0u);
+    }
 }

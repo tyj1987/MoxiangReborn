@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "sources": [
+    {
+      "bytes": 87504,
+      "container": "Character.pak",
+      "entryIndex": 2299,
+      "entryOffset": 120672418,
+      "physicalPath": "Character.pak!/m_nude.dds",
+      "sha256": "2583721f64cfa1200499b09f0dc81745a5bcadf971cc945452da3fa3086e671f",
+      "sourceId": "mxh:f7688075f3a3e522920c06313b90fa4b7198d3d184d6ce90458c2e8b39021aec",
+      "sourceType": "pak"
+    },
+    {
+      "bytes": 43816,
+      "container": "Character.pak",
+      "entryIndex": 2054,
+      "entryOffset": 99349287,
+      "physicalPath": "Character.pak!/m_face01.dds",
+      "sha256": "5ee6069ddf8a5fc8c3ba4330a2a84097635fe560fef65692387b05dd89e8bbd9",
+      "sourceId": "mxh:6d948468e70c783544135e531a5124d2afebfd8ee599f9fd7d935ba9f3437f64",
+      "sourceType": "pak"
+    },
+    {
+      "bytes": 43816,
+      "container": "Character.pak",
+      "entryIndex": 2148,
+      "entryOffset": 108059292,
+      "physicalPath": "Character.pak!/m_hair01.dds",
+      "sha256": "08a867233c6bdbe37a87de94fef03b8001d4b3a7a5cd9e2251bcac24217f04af",
+      "sourceId": "mxh:a407fb60510f10cce0bf706b32b16803bb5bca1227a30bcaed6d96b308291c9e",
+      "sourceType": "pak"
+    },
+    {
+      "bytes": 2856,
+      "container": "Character.pak",
+      "entryIndex": 2188,
+      "entryOffset": 112164793,
+      "physicalPath": "Character.pak!/m_hands.dds",
+      "sha256": "37185c4ce2597a08cd3b844a580608f7506a7b1ab26c6bf179ecf0934220dc5e",
+      "sourceId": "mxh:1a6f76ae4a37d6e59298aa3508609a68ec585cb5544281f6956d4557ae20bdd1",
+      "sourceType": "pak"
+    },
+    {
+      "bytes": 2856,
+      "container": "Character.pak",
+      "entryIndex": 2100,
+      "entryOffset": 101578835,
+      "physicalPath": "Character.pak!/m_foots.dds",
+      "sha256": "808295392840fb7f150c4d0debe17a73514e732047cbef60c4a96a4a6c0cc7c5",
+      "sourceId": "mxh:170e0f86848cbe81a6c19f7f51b0b58f1aaab6db4bc894b1d2b86aef34bb72da",
+      "sourceType": "pak"
+    }
+  ]
+}

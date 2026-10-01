@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <limits>
+#include <cmath>
 #include <string_view>
 
 namespace mxh::compat {
@@ -117,6 +118,35 @@ std::optional<MapChangeCatalog> load_map_change_bin(
     if (!file.ok()) return std::nullopt;
     const auto* data = reinterpret_cast<const char*>(file.value.data.data());
     return parse_map_change_text({data, file.value.data.size()});
+}
+
+std::optional<std::vector<StaticNpcEntry>> load_static_npc_bin(const std::filesystem::path& path) noexcept {
+    const auto file = read_mh_bin(path);
+    if (!file.ok()) return std::nullopt;
+    std::string_view text(reinterpret_cast<const char*>(file.value.data.data()), file.value.data.size());
+    std::vector<StaticNpcEntry> entries;
+    while (!text.empty()) {
+        const auto end = text.find('\n');
+        auto line = text.substr(0, end);
+        if (end == std::string_view::npos) text = {}; else text.remove_prefix(end + 1);
+        if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+        if (line.empty()) continue;
+        const auto columns = fields(line);
+        StaticNpcEntry entry;
+        // Map zero records are disabled spawn rows in this resource profile.
+        // Legacy loading filters by the active map before consuming the row.
+        if (!columns.empty() && parse_u16(columns[0], entry.map) && entry.map == 0) continue;
+        if (columns.size() != 7 || !parse_u16(columns[0], entry.map) ||
+            !parse_u16(columns[1], entry.job) || !parse_u16(columns[3], entry.index) ||
+            !parse_float(columns[4], entry.x) || !parse_float(columns[5], entry.z) ||
+            !parse_float(columns[6], entry.angle) || entry.map == 0 || entry.index == 0 ||
+            columns[2].empty() || columns[2].size() > 64 || !std::isfinite(entry.x) ||
+            !std::isfinite(entry.z) || !std::isfinite(entry.angle) || entry.x < 0 || entry.z < 0 ||
+            entry.x > 65535 || entry.z > 65535 || entries.size() >= 4096) return std::nullopt;
+        entry.name = columns[2];
+        entries.push_back(std::move(entry));
+    }
+    return entries;
 }
 
 }  // namespace mxh::compat

@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <winsock2.h>
@@ -87,6 +88,7 @@ class ProtocolServer final : public mxh::net::IConnectionHandler {
 public:
     enum class Role { Login, Agent };
     enum class CreateReply { Success, Reject, MismatchedList };
+    enum class NpcReply { Ack, Nack, Truncated, WrongPlayer, ZeroNpc, BuyMismatch, BuySilent };
 
     ProtocolServer(Role role, bool hsel, std::uint16_t agent_port,
                    std::string wire_name, std::uint32_t game_user_id = 42,
@@ -140,6 +142,30 @@ public:
 
     std::atomic<std::uint32_t> valid_create_packets{0};
     std::atomic<std::uint32_t> valid_move_packets{0};
+    std::atomic<std::uint32_t> valid_present_revive_packets{0};
+    std::atomic<std::uint32_t> valid_login_revive_packets{0};
+    std::atomic<bool> npc_fixture{false};
+    std::atomic<bool> shop_notice_fixture{false};
+    std::atomic<int> invalid_protection_fixture{0};
+    std::atomic<int> invalid_mp_fixture{0};
+    std::atomic<bool> shop_appearance_refresh_fixture{false};
+    std::atomic<bool> monster_burst{false};
+    std::atomic<bool> skill_timeline_fixture{false};
+    std::atomic<bool> player_vitality_fixture{false};
+    std::atomic<int> invalid_experience_fixture{0};
+    std::atomic<int> player_death_fixture{0};
+    std::atomic<bool> monster_burst_sent{false};
+    std::string transfer_npc_name;
+    std::atomic<int> transfer_reply{0};
+    std::atomic<int> transfer_packets{0};
+    std::atomic<NpcReply> npc_reply{NpcReply::Ack};
+    std::atomic<std::uint32_t> npc_packets{0};
+    std::atomic<std::uint32_t> valid_npc_packets{0};
+    std::atomic<std::uint32_t> valid_buy_packets{0};
+    std::atomic<std::uint32_t> valid_use_packets{0};
+    std::atomic<std::uint32_t> valid_move_item_packets{0};
+    std::atomic<std::uint32_t> valid_sell_packets{0};
+    std::atomic<std::uint32_t> valid_discard_packets{0};
 
 private:
     void send(mxh::net::ConnectionId id, std::uint8_t protocol,
@@ -179,6 +205,130 @@ private:
 
     void handle_agent(mxh::net::ConnectionId id,
                       const mxh::net::Message& message) {
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::CharRevive)) {
+            if (message.payload.empty() && message.header.object_id == 7001) {
+                if (message.header.protocol == 0) ++valid_present_revive_packets;
+                if (message.header.protocol == 3) ++valid_login_revive_packets;
+            }
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardSyn)) {
+            if (message.header.object_id != 7001 || message.payload != std::vector<std::uint8_t>{0, 0}) return;
+            ++valid_discard_packets;
+            auto response = message;
+            response.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardAck);
+            (void)server_->send(id, response);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardSyn)) {
+            if (message.header.object_id != 7001 || message.payload != std::vector<std::uint8_t>{0, 0}) return;
+            ++valid_discard_packets;
+            auto response = message;
+            response.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardAck);
+            (void)server_->send(id, response);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellSyn)) {
+            if (message.header.object_id != 7001 ||
+                message.payload != std::vector<std::uint8_t>{0, 0, 4, 5, 2, 0, 77, 0}) return;
+            ++valid_sell_packets;
+            auto response = message;
+            response.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellAck);
+            (void)server_->send(id, response);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveSyn)) {
+            if (message.header.object_id != 7001 || message.payload.size() != 24 ||
+                get_u16(message.payload, 22) != 80 || get_u32(message.payload, 0) == 0) return;
+            ++valid_move_item_packets;
+            auto response = message;
+            response.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveAck);
+            (void)server_->send(id, response);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseSyn)) {
+            if (message.header.object_id != 7001 || message.payload != std::vector<std::uint8_t>{5, 0}) return;
+            ++valid_use_packets;
+            mxh::net::Message response{};
+            response.header = message.header;
+            response.header.protocol = static_cast<std::uint8_t>(npc_reply.load() == NpcReply::Nack
+                ? mxh::proto::ItemProtocol::UseNack : mxh::proto::ItemProtocol::UseAck);
+            if (npc_reply.load() == NpcReply::Nack) {
+                response.payload = message.payload;
+            } else {
+                response.payload.resize(20);
+                put_u16(response.payload, 0, 5);
+                put_u16(response.payload, 2, 321);
+                put_u32(response.payload, 4, 25);
+                put_u32(response.payload, 8, 10);
+                put_u32(response.payload, 12, 777);
+                put_u32(response.payload, 16, 333);
+            }
+            (void)server_->send(id, response);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn)) {
+            if (message.header.object_id != 7001 || message.payload != std::vector<std::uint8_t>{100, 0, 2, 0}) return;
+            ++valid_buy_packets;
+            if (npc_reply.load() == NpcReply::BuySilent) return;
+            auto response = message;
+            if (npc_reply.load() == NpcReply::BuyMismatch) response.payload[2] = 3;
+            response.header.protocol = static_cast<std::uint8_t>(npc_reply.load() == NpcReply::Nack
+                ? mxh::proto::ItemProtocol::BuyNack : mxh::proto::ItemProtocol::BuyAck);
+            (void)server_->send(id, response);
+            if (npc_reply.load() == NpcReply::Ack) {
+                mxh::net::Message inventory{};
+                inventory.header = message.header;
+                inventory.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                inventory.payload.resize(sizeof(mxh::game::ItemTotalInfo));
+                for (std::size_t i = 0; i < inventory.payload.size(); ++i)
+                    inventory.payload[i] = static_cast<std::uint8_t>(i);
+                (void)server_->send(id, inventory);
+            }
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Npc)) {
+            ++npc_packets;
+            if (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn) &&
+                message.header.object_id == 7001 && message.payload == std::vector<std::uint8_t>{77, 0, 0, 0}) {
+                ++valid_npc_packets;
+                auto response = message;
+                const auto reply_mode = npc_reply.load();
+                response.header.protocol = static_cast<std::uint8_t>(reply_mode == NpcReply::Nack
+                    ? mxh::proto::NpcProtocol::SpeechNack : mxh::proto::NpcProtocol::SpeechAck);
+                if (reply_mode == NpcReply::Truncated) response.payload.resize(3);
+                if (reply_mode == NpcReply::WrongPlayer) response.header.object_id = 7002;
+                if (reply_mode == NpcReply::ZeroNpc) response.payload.assign(4, 0);
+                (void)server_->send(id, response);
+                if (reply_mode == NpcReply::Ack || reply_mode == NpcReply::BuyMismatch || reply_mode == NpcReply::BuySilent) {
+                    mxh::net::Message money{};
+                    money.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                    money.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+                    money.header.object_id = 7001;
+                    money.payload = {0xfe, 0xff, 0xff, 0xff};
+                    (void)server_->send(id, money);
+                    mxh::net::Message shop{};
+                    shop.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                    shop.header.protocol = mxh::proto::kModernShopList;
+                    shop.header.object_id = 7001;
+                    shop.payload.resize(6 + 81 * 6);
+                    put_u32(shop.payload, 0, 77); put_u16(shop.payload, 4, 81);
+                    for (unsigned i = 0; i < 81; ++i) {
+                        put_u16(shop.payload, 6 + i * 6, static_cast<std::uint16_t>(100 + i));
+                        put_u32(shop.payload, 8 + i * 6, 0xffffffffu - i);
+                    }
+                    (void)server_->send(id, shop);
+                }
+                send(id, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ObjectRemove), {77, 0, 0, 0});
+            }
+            return;
+        }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Move)) {
             if (message.header.object_id != 7001 || message.payload.size() != 4 ||
                 (message.header.protocol != 13 && message.header.protocol != 8)) return;
@@ -254,8 +404,20 @@ private:
             }
             send(id, static_cast<std::uint8_t>(UserConnProtocol::CharacterSelectAck),
                  {10}, 7001);
-        } else if (protocol == UserConnProtocol::GameInSyn) {
-            if (message.header.object_id != 7001 || !message.payload.empty()) {
+        } else if (protocol == UserConnProtocol::GameInSyn || protocol == UserConnProtocol::ChangeMapSyn) {
+            std::uint16_t admitted_map = game_map_;
+            if (protocol == UserConnProtocol::ChangeMapSyn) {
+                if (message.header.object_id != 7001 || message.payload.size() != 16 ||
+                    get_u16(message.payload, 0) != 2) return;
+                ++transfer_packets;
+                if (transfer_reply == 1) {
+                    send(id, static_cast<std::uint8_t>(UserConnProtocol::ChangeMapNack), {2, 0}, 7001);
+                    return;
+                }
+                admitted_map = transfer_reply == 2 ? 10 : transfer_reply == 3 ? 99 : 2;
+                send(id, static_cast<std::uint8_t>(UserConnProtocol::ChangeMapAck),
+                    {static_cast<std::uint8_t>(admitted_map), 0}, 7001);
+            } else if (message.header.object_id != 7001 || !message.payload.empty()) {
                 send(id, static_cast<std::uint8_t>(UserConnProtocol::GameInNack));
                 return;
             }
@@ -267,8 +429,12 @@ private:
                         std::min<std::size_t>(wire_name_.size(), 16));
             put_u32(ack, 35, 70001);
             put_u32(ack, 39, 80002);
+            for (std::size_t i = 0; i < 120; ++i)
+                ack[mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET + i] = static_cast<std::uint8_t>(i * 17);
+            // Deliberately differs from the character-list appearance (1,2,3).
+            ack[51] = 0; ack[52] = 4; ack[53] = 1;
             put_u16(ack, 75, 17);
-            put_u16(ack, 77, game_map_);
+            put_u16(ack, 77, admitted_map);
             const auto hero = mxh::game::HERO_TOTAL_HERO_OFFSET;
             put_u16(ack, hero, 11);
             put_u16(ack, hero + 2, 12);
@@ -287,6 +453,161 @@ private:
             put_u16(ack, time + 8, 20);
             send(id, static_cast<std::uint8_t>(UserConnProtocol::GameInAck),
                  std::move(ack), 7001);
+            if(const int bad=invalid_mp_fixture.load()) {
+                mxh::net::Message notice{};
+                notice.header.category=static_cast<std::uint8_t>(mxh::proto::Category::Character);
+                notice.header.protocol=static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::NaeryukAck);
+                notice.header.object_id=bad==1 ? 7002 : 7001;
+                notice.payload.resize(4);
+                const std::int32_t delta=bad==4 ? -223 : bad==5 ? 112 : bad==6 ? INT32_MAX : 0;
+                put_u32(notice.payload,0,static_cast<std::uint32_t>(delta));
+                if(bad==2) notice.payload.resize(3);
+                if(bad==3) notice.payload.resize(5);
+                (void)server_->send(id,notice);
+            }
+            if (const int bad=invalid_protection_fixture.load()) {
+                mxh::net::Message notice{};
+                notice.header.category=static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                notice.header.protocol=bad==5 ? 109 : bad==6 ? 110 : 150;
+                notice.header.object_id=bad==1 ? 7002 : 7001;
+                notice.payload.resize(4);
+                put_u32(notice.payload,0,bad==4 ? 128u : bad==5 ? 55312u : bad==6 ? 55311u : 0u);
+                if(bad==2) notice.payload.resize(3);
+                if(bad==3) notice.payload.resize(5);
+                (void)server_->send(id,notice);
+            }
+            if (shop_notice_fixture.load()) {
+                if (shop_appearance_refresh_fixture.load()) {
+                    mxh::net::Message appearance{};
+                    appearance.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Server);
+                    appearance.header.protocol = mxh::proto::kModernShopAppearance;
+                    appearance.header.object_id = 7001;
+                    appearance.payload.resize(120);
+                    for (std::size_t i = 0; i < appearance.payload.size(); ++i)
+                        appearance.payload[i] = static_cast<std::uint8_t>(255u - i);
+                    (void)server_->send(id, appearance);
+                }
+                for (const auto [notice_protocol, item] : std::array{
+                         std::pair{mxh::proto::ItemProtocol::ShopItemOneMinute, 55001u},
+                         std::pair{mxh::proto::ItemProtocol::ShopItemUseEnd, 55002u},
+                         std::pair{mxh::proto::ItemProtocol::ShopItemMoneyProtect,55311u},
+                         std::pair{mxh::proto::ItemProtocol::ShopItemExpProtect,55312u},
+                         std::pair{mxh::proto::ItemProtocol::ShopItemProtectAll,0u}}) {
+                    mxh::net::Message notice{};
+                    notice.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                    notice.header.protocol = static_cast<std::uint8_t>(notice_protocol);
+                    notice.header.object_id = 7001;
+                    notice.payload.resize(4);
+                    put_u32(notice.payload, 0, item);
+                    (void)server_->send(id, notice);
+                }
+            }
+            if (monster_burst.load()) {
+                for (std::uint32_t i = 0; i < 100; ++i) {
+                    std::vector<std::uint8_t> monster(64, 0);
+                    put_u32(monster, 0, 10000 + i);
+                    put_u32(monster, 35, 100);
+                    put_u16(monster, 43, 73);
+                    put_u16(monster, 47, 10);
+                    send(id, static_cast<std::uint8_t>(UserConnProtocol::MonsterAdd), std::move(monster));
+                }
+                monster_burst_sent = true;
+            }
+            if (skill_timeline_fixture.load()) {
+                mxh::net::Message release{};
+                release.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+                release.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartAck);
+                release.header.object_id = 7001;
+                release.payload.resize(8); put_u32(release.payload, 0, 10); put_u32(release.payload, 4, 9001);
+                (void)server_->send(id, release);
+                mxh::net::Message hit{};
+                hit.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+                hit.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult);
+                hit.header.object_id = 10000;
+                hit.payload.resize(9); put_u32(hit.payload, 0, 10000); put_u32(hit.payload, 4, 123); hit.payload[8] = 2;
+                (void)server_->send(id, hit);
+            }
+            if (player_vitality_fixture.load()) {
+                mxh::net::Message experience{};
+                experience.header.category=3; experience.header.protocol=13;
+                experience.header.object_id=7001;
+                experience.payload.resize(9);
+                put_u32(experience.payload,0,500);
+                (void)server_->send(id,experience);
+                put_u32(experience.payload,0,123);
+                experience.payload[8]=1; // Death sets absolute exp, not a delta.
+                (void)server_->send(id,experience);
+                mxh::net::Message level{};
+                level.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+                level.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LevelNotify);
+                level.header.object_id = 7001;
+                level.payload.resize(18);
+                put_u16(level.payload, 0, 7);
+                const std::int64_t current_level_exp = 123;
+                const std::int64_t maximum_level_exp = 4567;
+                std::memcpy(level.payload.data() + 2, &current_level_exp, 8);
+                std::memcpy(level.payload.data() + 10, &maximum_level_exp, 8);
+                (void)server_->send(id, level);
+                mxh::net::Message life{};
+                life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+                life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+                life.header.object_id = 7001;
+                life.payload.resize(4); put_u32(life.payload, 0, static_cast<std::uint32_t>(-7));
+                (void)server_->send(id, life);
+                life.header.protocol=static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::NaeryukAck);
+                put_u32(life.payload,0,static_cast<std::uint32_t>(-222));
+                (void)server_->send(id,life);
+            }
+            if(const auto bad=invalid_experience_fixture.load()) {
+                mxh::net::Message experience{};
+                experience.header.category=3; experience.header.protocol=13;
+                experience.header.object_id=7001; experience.payload.resize(9);
+                put_u32(experience.payload,0,321);
+                (void)server_->send(id,experience);
+                put_u32(experience.payload,0,999);
+                switch(bad) {
+                case 1: experience.header.object_id=7002; break;
+                case 2: experience.payload.resize(8); break;
+                case 3: experience.payload.push_back(0); break;
+                case 4: experience.payload[7]=128; break;
+                case 5: experience.payload[8]=3; break;
+                }
+                (void)server_->send(id,experience);
+            }
+            if (player_death_fixture.load()) {
+                mxh::net::Message death{};
+                death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+                death.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie);
+                death.header.object_id = 50023;
+                death.payload.resize(8);
+                put_u32(death.payload, 0, 50023); put_u32(death.payload, 4, 7001);
+                switch (player_death_fixture.load()) {
+                case 2: death.payload.resize(7); break;
+                case 3: death.payload.push_back(0); break;
+                case 4: put_u32(death.payload, 0, 50024); break;
+                case 5: put_u32(death.payload, 4, 7002); break;
+                case 6: death.header.object_id = 0; put_u32(death.payload, 0, 0); break;
+                default: break;
+                }
+                (void)server_->send(id, death);
+                if(player_death_fixture.load()==7) {
+                    std::vector<std::uint8_t> position(8);
+                    put_u32(position,0,7001); put_u16(position,4,303); put_u16(position,6,404);
+                    send(id,static_cast<std::uint8_t>(UserConnProtocol::CharacterRevive),std::move(position),7001);
+                }
+            }
+            if (npc_fixture.load()) {
+                for (std::uint32_t npc_id = 77; npc_id <= 79; ++npc_id) {
+                    std::vector<std::uint8_t> npc(64, 0);
+                    put_u32(npc, 0, npc_id);
+                    put_u16(npc, 35, npc_id == 78 ? 27 : 1);
+                    if (npc_id == 78 && transfer_npc_name.size() <= 16)
+                        std::memcpy(npc.data() + 8, transfer_npc_name.data(), transfer_npc_name.size());
+                    put_u16(npc, 45, npc_id == 79 ? 10000 : 101);
+                    put_u16(npc, 47, 202);
+                    send(id, static_cast<std::uint8_t>(UserConnProtocol::NpcAdd), std::move(npc));
+                }
+            }
         }
     }
 
@@ -445,7 +766,7 @@ mxh_unity_connect_args make_connect(std::uint16_t port, std::uint32_t flags) {
 }
 
 bool wait_for_state(mxh_unity_handle handle, std::uint32_t expected,
-                    mxh_unity_snapshot& snapshot) {
+                    mxh_unity_snapshot& snapshot, bool drain_events = true) {
     const auto deadline = std::chrono::steady_clock::now() + 5s;
     while (std::chrono::steady_clock::now() < deadline) {
         (void)mxh_unity_tick(handle);
@@ -454,7 +775,7 @@ bool wait_for_state(mxh_unity_handle handle, std::uint32_t expected,
                                     &required) != MXH_UNITY_OK)
             return false;
         mxh_unity_event event{};
-        while (mxh_unity_poll_event(handle, &event, sizeof(event),
+        while (drain_events && mxh_unity_poll_event(handle, &event, sizeof(event),
                                     &required) == MXH_UNITY_OK) {}
         if (snapshot.state == expected) return true;
         if (snapshot.state == MXH_UNITY_STATE_FAILED) return false;
@@ -523,6 +844,9 @@ void run_protocol_round_trip(bool hsel, std::uint32_t text_flag,
                                snapshot)) << snapshot.error;
     ASSERT_EQ(snapshot.character_count, 1);
     EXPECT_EQ(snapshot.characters[0].character_id, 7001u);
+    EXPECT_EQ(snapshot.characters[0].gender, 1);
+    EXPECT_EQ(snapshot.characters[0].face_type, 2);
+    EXPECT_EQ(snapshot.characters[0].hair_type, 3);
     EXPECT_EQ(std::string(snapshot.characters[0].name,
                           snapshot.characters[0].name_length), expected_utf8);
     const auto session_generation = snapshot.session_generation;
@@ -539,7 +863,7 @@ void run_protocol_round_trip(bool hsel, std::uint32_t text_flag,
     EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
     command.expected_map_generation = snapshot.map_generation;
     ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
-    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot))
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false))
         << snapshot.error;
     EXPECT_EQ(snapshot.session_generation, session_generation);
     EXPECT_EQ(snapshot.map_generation, 1u);
@@ -549,10 +873,28 @@ void run_protocol_round_trip(bool hsel, std::uint32_t text_flag,
     EXPECT_EQ(snapshot.game.level, 17);
     EXPECT_EQ(snapshot.game.life, 70001u);
     EXPECT_EQ(snapshot.game.max_life, 80002u);
+    EXPECT_EQ(snapshot.characters[0].gender, 0);
+    EXPECT_EQ(snapshot.characters[0].face_type, 4);
+    EXPECT_EQ(snapshot.characters[0].hair_type, 1);
     EXPECT_EQ(snapshot.game.mp, 222u);
     EXPECT_EQ(snapshot.game.experience, 0x000000020000115Cull);
     EXPECT_EQ(std::string(snapshot.game.name, snapshot.game.name_length),
               expected_utf8);
+    mxh_unity_event appearance{};
+    std::uint32_t appearance_required = 0;
+    unsigned appearance_count = 0;
+    while (mxh_unity_poll_event(handle, &appearance, sizeof(appearance), &appearance_required) == MXH_UNITY_OK) {
+        if (appearance.type != MXH_UNITY_EVENT_SHOP_APPEARANCE) continue;
+        ++appearance_count;
+        EXPECT_EQ(appearance.argument0, snapshot.game.player_id);
+        EXPECT_EQ(appearance.argument1, 1u);
+        EXPECT_EQ(appearance.session_generation, snapshot.session_generation);
+        EXPECT_EQ(appearance.map_generation, snapshot.map_generation);
+        ASSERT_EQ(appearance.text_length, 120u);
+        for (std::size_t i = 0; i < 120; ++i)
+            EXPECT_EQ(static_cast<std::uint8_t>(appearance.text[i]), static_cast<std::uint8_t>(i * 17));
+    }
+    EXPECT_EQ(appearance_count, 1u);
     EXPECT_EQ(mxh_unity_disconnect(handle), MXH_UNITY_OK);
     std::uint32_t required = 0;
     ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot),
@@ -640,6 +982,29 @@ TEST(UnityCoreWire, QuestMessagePinsLegacyQuestWire) {
     EXPECT_EQ(message.payload[1], 0x34);
 }
 
+TEST(UnityCoreWire, QuestNpcTalkPinsSemanticNpcAndQuestWire) {
+    const auto message = mxh::client::make_quest_npc_talk_message(
+        88u, 0x1234u, 0x5678u);
+    EXPECT_EQ(message.header.category,
+              static_cast<std::uint8_t>(mxh::proto::Category::Quest));
+    EXPECT_EQ(message.header.protocol, 24u);
+    EXPECT_EQ(message.header.object_id, 88u);
+    const std::vector<std::uint8_t> expected{0x34, 0x12, 0x78, 0x56};
+    EXPECT_EQ(message.payload, expected);
+}
+
+TEST(UnityCoreWire, QuestNpcTalkResponseRejectsTruncatedOrZeroFields) {
+    const std::array<std::uint8_t, 4> wire{0x34, 0x12, 0x78, 0x56};
+    const auto response = mxh::client::parse_quest_npc_talk_response(wire);
+    ASSERT_TRUE(response.has_value());
+    EXPECT_EQ(response->npc_index, 0x1234u);
+    EXPECT_EQ(response->quest_id, 0x5678u);
+    EXPECT_FALSE(mxh::client::parse_quest_npc_talk_response(
+        std::span<const std::uint8_t>(wire.data(), 3)).has_value());
+    auto zero_npc = wire; zero_npc[0] = zero_npc[1] = 0;
+    EXPECT_FALSE(mxh::client::parse_quest_npc_talk_response(zero_npc).has_value());
+}
+
 TEST(UnityCoreAbi, VersionAndHandleLifecycle) {
     EXPECT_EQ(mxh_unity_get_api_version(), MXH_UNITY_API_VERSION);
     mxh_unity_handle handle = 0;
@@ -708,6 +1073,430 @@ TEST(UnityCoreNetwork, PlaintextRealSocketLoginThroughGameIn) {
     run_protocol_round_trip(false, 0, "墨香", "墨香");
 }
 
+TEST(UnityCoreNetwork, ShopExpiryNoticesPreserveOriginalWireAndGeneration) {
+    ProtocolPair servers(true, "ShopTimerHero");
+    servers.agent.shop_notice_fixture = true;
+    servers.agent.shop_appearance_refresh_fixture = true;
+    ASSERT_TRUE(servers.start(true));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, MXH_UNITY_CONNECT_USE_HSEL);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command);
+    command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001;
+    command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+
+    bool saw_one_minute = false;
+    bool saw_use_end = false;
+    bool saw_appearance_refresh = false;
+    unsigned protection_notices=0;
+    const auto deadline = std::chrono::steady_clock::now() + 5s;
+    while ((!saw_one_minute || !saw_use_end || !saw_appearance_refresh || protection_notices!=3) &&
+           std::chrono::steady_clock::now() < deadline) {
+        (void)mxh_unity_tick(handle);
+        mxh_unity_event event{};
+        std::uint32_t required = 0;
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+            if(event.type==MXH_UNITY_EVENT_SHOP_PROTECTION) {
+                EXPECT_EQ(event.state,MXH_UNITY_STATE_IN_GAME);
+                EXPECT_EQ(event.session_generation,snapshot.session_generation);
+                EXPECT_EQ(event.map_generation,snapshot.map_generation);
+                EXPECT_EQ(event.argument0,protection_notices==0 ? 55311u : protection_notices==1 ? 55312u : 0u);
+                EXPECT_EQ(event.reserved0,protection_notices==0 ? 109u : protection_notices==1 ? 110u : 150u);
+                ++protection_notices;
+                continue;
+            }
+            if (event.type == MXH_UNITY_EVENT_SHOP_APPEARANCE &&
+                event.reserved0 == mxh::proto::kModernShopAppearance) {
+                saw_appearance_refresh = true;
+                EXPECT_EQ(event.argument0, 7001u);
+                EXPECT_EQ(event.argument1, 1u);
+                ASSERT_EQ(event.text_length, 120u);
+                for (std::size_t i = 0; i < event.text_length; ++i)
+                    EXPECT_EQ(static_cast<std::uint8_t>(event.text[i]),
+                              static_cast<std::uint8_t>(255u - i));
+                continue;
+            }
+            if (event.type != MXH_UNITY_EVENT_SHOP_ITEM_ONE_MINUTE &&
+                event.type != MXH_UNITY_EVENT_SHOP_ITEM_USE_END) continue;
+            EXPECT_EQ(event.result, MXH_UNITY_OK);
+            EXPECT_EQ(event.state, MXH_UNITY_STATE_IN_GAME);
+            EXPECT_EQ(event.session_generation, snapshot.session_generation);
+            EXPECT_EQ(event.map_generation, snapshot.map_generation);
+            EXPECT_EQ(event.argument1, 0u);
+            EXPECT_EQ(event.text_length, 0u);
+            if (event.type == MXH_UNITY_EVENT_SHOP_ITEM_ONE_MINUTE) {
+                saw_one_minute = true;
+                EXPECT_EQ(event.argument0, 55001u);
+                EXPECT_EQ(event.reserved0, static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemOneMinute));
+            } else {
+                saw_use_end = true;
+                EXPECT_EQ(event.argument0, 55002u);
+                EXPECT_EQ(event.reserved0, static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd));
+            }
+        }
+        std::this_thread::sleep_for(1ms);
+    }
+    EXPECT_TRUE(saw_one_minute);
+    EXPECT_TRUE(saw_use_end);
+    EXPECT_TRUE(saw_appearance_refresh);
+    EXPECT_EQ(protection_notices,3u);
+}
+
+TEST(UnityCoreNetwork, CatalogNpcTransferUsesServerAdmissionAndGeneration) {
+    const auto path = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path()
+        / "data" / "PlayDH" / "Resource" / "MapChange.bin";
+    const auto catalog = mxh::compat::load_map_change_bin(path);
+    ASSERT_TRUE(catalog);
+    const auto* route = catalog->find_destination(10, 2);
+    ASSERT_NE(route, nullptr);
+    const auto path_bytes = path.u8string();
+    for (int mode = 0; mode != 4; ++mode) {
+        SCOPED_TRACE(mode);
+        ProtocolPair servers(true, "TransferHero");
+        servers.agent.npc_fixture = true;
+        servers.agent.transfer_npc_name = route->object_name;
+        servers.agent.transfer_reply = mode;
+        ASSERT_TRUE(servers.start(true));
+        mxh_unity_handle handle = 0;
+        ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+        struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+        ASSERT_EQ(mxh_unity_load_map_routes(handle, reinterpret_cast<const char*>(path_bytes.data()),
+            static_cast<std::uint32_t>(path_bytes.size())), MXH_UNITY_OK);
+        auto args = make_connect(servers.login_port, MXH_UNITY_CONNECT_USE_HSEL);
+        ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+        mxh_unity_snapshot snapshot{};
+        ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+        mxh_unity_command command{};
+        command.struct_size = sizeof(command);
+        command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+        command.argument0 = 7001;
+        command.expected_session_generation = snapshot.session_generation;
+        command.expected_map_generation = snapshot.map_generation;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+        bool saw_npc = false;
+        auto until = std::chrono::steady_clock::now() + 5s;
+        while (!saw_npc && std::chrono::steady_clock::now() < until) {
+            mxh_unity_tick(handle);
+            mxh_unity_event event{}; std::uint32_t size = 0;
+            while (mxh_unity_poll_event(handle, &event, sizeof(event), &size) == MXH_UNITY_OK) {
+                if (event.type == MXH_UNITY_EVENT_NPC_ADDED && event.argument0 == 78) {
+                    EXPECT_EQ(event.reserved0, 27u);
+                    saw_npc = true;
+                }
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(saw_npc);
+        command.type = MXH_UNITY_COMMAND_NPC_INTERACT;
+        command.argument0 = 78;
+        command.request_id = 1234;
+        command.expected_map_generation = snapshot.map_generation;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+        bool saw_result = false;
+        until = std::chrono::steady_clock::now() + 5s;
+        while (std::chrono::steady_clock::now() < until) {
+            mxh_unity_tick(handle);
+            mxh_unity_event event{}; std::uint32_t size = 0;
+            while (mxh_unity_poll_event(handle, &event, sizeof(event), &size) == MXH_UNITY_OK) {
+                if (event.type != MXH_UNITY_EVENT_MAP_CHANGE) continue;
+                saw_result = true;
+                EXPECT_EQ(event.request_id, 1234u);
+                EXPECT_EQ(event.argument0, 2u);
+                EXPECT_EQ(event.argument1, mode == 0 ? 2u : 10u);
+                EXPECT_EQ(event.result, mode == 0 ? MXH_UNITY_OK : MXH_UNITY_REJECTED);
+            }
+            mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &size);
+            if (saw_result || snapshot.state == MXH_UNITY_STATE_FAILED) break;
+            std::this_thread::sleep_for(1ms);
+        }
+        EXPECT_EQ(servers.agent.transfer_packets.load(), 1);
+        if (mode == 3) {
+            EXPECT_FALSE(saw_result);
+            EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_FAILED);
+            EXPECT_EQ(snapshot.map_generation, command.expected_map_generation);
+        } else {
+            EXPECT_TRUE(saw_result);
+            EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_IN_GAME);
+            EXPECT_EQ(snapshot.map_generation, command.expected_map_generation + (mode == 1 ? 0 : 1));
+            EXPECT_EQ(snapshot.game.map_number, mode == 0 ? 2 : 10);
+            if (mode != 1) EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+        }
+    }
+}
+
+class UnityNpcResponse : public ::testing::TestWithParam<ProtocolServer::NpcReply> {};
+
+TEST_P(UnityNpcResponse, SpeechWireAndInvalidTargetsPreserveServerOutcome) {
+    ProtocolPair servers(true, "NpcHero");
+    servers.agent.npc_fixture = true;
+    servers.agent.npc_reply = GetParam();
+    ASSERT_TRUE(servers.start(true));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, MXH_UNITY_CONNECT_USE_HSEL);
+    if (GetParam() == ProtocolServer::NpcReply::BuySilent) args.timeout_ms = 1000;
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command);
+    command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    command.type = MXH_UNITY_COMMAND_NPC_INTERACT;
+    command.argument0 = 77;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+    auto wait_event = [&](std::uint32_t type, std::uint32_t object) {
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (std::chrono::steady_clock::now() < deadline) {
+            mxh_unity_tick(handle);
+            mxh_unity_event event{};
+            std::uint32_t required = 0;
+            while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK)
+                if (event.type == type && event.argument0 == object) {
+                    if (type == MXH_UNITY_EVENT_NPC_RESPONSE || type == MXH_UNITY_EVENT_BUY_RESPONSE) {
+                        EXPECT_EQ(event.result, GetParam() == ProtocolServer::NpcReply::Nack
+                            ? MXH_UNITY_REJECTED : MXH_UNITY_OK);
+                        EXPECT_EQ(event.request_id, type == MXH_UNITY_EVENT_BUY_RESPONSE ? 99u : 0u);
+                        EXPECT_EQ(event.map_generation, snapshot.map_generation);
+                    }
+                    return true;
+                }
+            std::this_thread::sleep_for(1ms);
+        }
+        return false;
+    };
+    ASSERT_TRUE(wait_event(MXH_UNITY_EVENT_NPC_ADDED, 79));
+    command.type = MXH_UNITY_COMMAND_NPC_INTERACT;
+    command.argument0 = 77;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command.expected_map_generation = snapshot.map_generation;
+    command.payload_size = 1;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.payload_size = 0;
+    command.argument0 = 80;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_REJECTED);
+    command.argument0 = 79;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_REJECTED);
+    command.argument0 = 78;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_NOT_READY);
+    command.argument0 = 77;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    if (GetParam() == ProtocolServer::NpcReply::Truncated || GetParam() == ProtocolServer::NpcReply::WrongPlayer ||
+        GetParam() == ProtocolServer::NpcReply::ZeroNpc) {
+        ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_FAILED, snapshot, false));
+        EXPECT_EQ(snapshot.last_result, MXH_UNITY_PROTOCOL_ERROR);
+        mxh_unity_event event{};
+        std::uint32_t required = 0;
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK)
+            EXPECT_NE(event.type, MXH_UNITY_EVENT_NPC_RESPONSE);
+        EXPECT_EQ(servers.agent.valid_npc_packets.load(), 1u);
+        return;
+    }
+    ASSERT_TRUE(wait_event(MXH_UNITY_EVENT_NPC_RESPONSE, 77));
+    if (GetParam() != ProtocolServer::NpcReply::Nack) {
+        unsigned received = 0;
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (received < 81 && std::chrono::steady_clock::now() < deadline) {
+            mxh_unity_tick(handle);
+            mxh_unity_event event{};
+            std::uint32_t required = 0;
+            while (received < 81 && mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+                if (event.type != MXH_UNITY_EVENT_SHOP_CATALOG) continue;
+                ASSERT_EQ(event.argument0, 77u);
+                ASSERT_EQ(event.argument1, 81u);
+                ASSERT_EQ(event.reserved0, received);
+                ASSERT_EQ(event.text_length, std::min(40u, 81u - received) * 6);
+                std::vector<std::uint8_t> bytes(event.text, event.text + event.text_length);
+                for (unsigned offset = 0; offset < event.text_length; offset += 6, ++received) {
+                    EXPECT_EQ(get_u16(bytes, offset), 100 + received);
+                    EXPECT_EQ(get_u32(bytes, offset + 2), 0xffffffffu - received);
+                }
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_EQ(received, 81u);
+        std::uint32_t required = 0;
+        ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+        EXPECT_EQ(snapshot.game.money, 0xfffffffeu);
+    }
+    ASSERT_TRUE(wait_event(MXH_UNITY_EVENT_ENTITY_REMOVED, 77));
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_REJECTED);
+    EXPECT_EQ(servers.agent.npc_packets.load(), 1u);
+    EXPECT_EQ(servers.agent.valid_npc_packets.load(), 1u);
+    command.type = MXH_UNITY_COMMAND_BUY;
+    command.argument0 = 100; command.argument1 = 0;
+    command.request_id = 99;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.argument1 = 2;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_NOT_READY);
+    if (GetParam() == ProtocolServer::NpcReply::BuyMismatch || GetParam() == ProtocolServer::NpcReply::BuySilent) {
+        ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_FAILED, snapshot, false));
+        EXPECT_EQ(snapshot.last_result, GetParam() == ProtocolServer::NpcReply::BuySilent
+            ? MXH_UNITY_NETWORK_ERROR : MXH_UNITY_PROTOCOL_ERROR);
+        mxh_unity_event event{};
+        std::uint32_t required = 0;
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK)
+            EXPECT_NE(event.type, MXH_UNITY_EVENT_BUY_RESPONSE);
+        EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+        EXPECT_EQ(servers.agent.valid_buy_packets.load(), 1u);
+        EXPECT_EQ(snapshot.game.money, 0xfffffffeu);
+        return;
+    }
+    ASSERT_TRUE(wait_event(MXH_UNITY_EVENT_BUY_RESPONSE, 100));
+    if (GetParam() == ProtocolServer::NpcReply::Ack) {
+        unsigned slots = 0;
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (slots < 124 && std::chrono::steady_clock::now() < deadline) {
+            mxh_unity_tick(handle);
+            mxh_unity_event event{};
+            std::uint32_t required = 0;
+            while (slots < 124 && mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+                if (event.type != MXH_UNITY_EVENT_INVENTORY) continue;
+                ASSERT_EQ(event.argument0, 7001u); ASSERT_EQ(event.argument1, 124u);
+                ASSERT_EQ(event.reserved0, slots);
+                ASSERT_EQ(event.text_length, std::min(11u, 124u - slots) * 22);
+                for (unsigned i = 0; i < event.text_length; ++i)
+                    EXPECT_EQ(static_cast<std::uint8_t>(event.text[i]), static_cast<std::uint8_t>(slots * 22 + i));
+                slots += event.text_length / 22;
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_EQ(slots, 124u);
+    }
+    EXPECT_EQ(servers.agent.valid_buy_packets.load(), 1u);
+    std::uint32_t required = 0;
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+    EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_IN_GAME);
+    command.type = MXH_UNITY_COMMAND_USE_ITEM;
+    command.argument0 = 5; command.argument1 = 1; command.request_id = 101;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.argument1 = 0;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_NOT_READY);
+    mxh_unity_event use_event{};
+    bool found_use = false;
+    const auto use_deadline = std::chrono::steady_clock::now() + 5s;
+    while (!found_use && std::chrono::steady_clock::now() < use_deadline) {
+        mxh_unity_tick(handle);
+        while (mxh_unity_poll_event(handle, &use_event, sizeof(use_event), &required) == MXH_UNITY_OK) {
+            if (use_event.type == MXH_UNITY_EVENT_ITEM_USE_RESPONSE) { found_use = true; break; }
+        }
+        std::this_thread::sleep_for(1ms);
+    }
+    ASSERT_TRUE(found_use);
+    EXPECT_EQ(use_event.request_id, 101u);
+    EXPECT_EQ(use_event.argument0, 5u);
+    EXPECT_EQ(use_event.argument1, GetParam() == ProtocolServer::NpcReply::Nack ? 0u : 321u);
+    EXPECT_EQ(use_event.result, GetParam() == ProtocolServer::NpcReply::Nack ? MXH_UNITY_REJECTED : MXH_UNITY_OK);
+    EXPECT_EQ(use_event.text_length, GetParam() == ProtocolServer::NpcReply::Nack ? 0u : 20u);
+    EXPECT_EQ(servers.agent.valid_use_packets.load(), 1u);
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+    if (GetParam() != ProtocolServer::NpcReply::Nack) {
+        EXPECT_EQ(snapshot.game.life, 777u);
+        EXPECT_EQ(snapshot.game.mp, 333u);
+    }
+    if (GetParam() == ProtocolServer::NpcReply::Ack) {
+        command.type = MXH_UNITY_COMMAND_MOVE_ITEM;
+        command.argument0 = 0; command.argument1 = 0; command.request_id = 102;
+        EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+        command.argument1 = 80;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_NOT_READY);
+        mxh_unity_event move_event{};
+        bool found_move = false;
+        const auto move_deadline = std::chrono::steady_clock::now() + 5s;
+        while (!found_move && std::chrono::steady_clock::now() < move_deadline) {
+            mxh_unity_tick(handle);
+            while (mxh_unity_poll_event(handle, &move_event, sizeof(move_event), &required) == MXH_UNITY_OK) {
+                if (move_event.type == MXH_UNITY_EVENT_ITEM_MOVE_RESPONSE) { found_move = true; break; }
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(found_move);
+        EXPECT_EQ(move_event.result, MXH_UNITY_OK);
+        EXPECT_EQ(move_event.request_id, 102u);
+        EXPECT_EQ(move_event.argument0, 0u);
+        EXPECT_EQ(move_event.argument1, 80u);
+        EXPECT_EQ(servers.agent.valid_move_item_packets.load(), 1u);
+
+        command.type = MXH_UNITY_COMMAND_SELL;
+        command.argument0 = 0; command.argument1 = 2u | (77u << 16); command.request_id = 103;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        mxh_unity_event sell_event{};
+        bool found_sell = false;
+        const auto sell_deadline = std::chrono::steady_clock::now() + 5s;
+        while (!found_sell && std::chrono::steady_clock::now() < sell_deadline) {
+            ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+            while (mxh_unity_poll_event(handle, &sell_event, sizeof(sell_event), &required) == MXH_UNITY_OK) {
+                if (sell_event.type == MXH_UNITY_EVENT_SELL_RESPONSE) { found_sell = true; break; }
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(found_sell);
+        EXPECT_EQ(sell_event.result, MXH_UNITY_OK);
+        EXPECT_EQ(sell_event.request_id, 103u);
+        EXPECT_EQ(sell_event.argument0, 0u);
+        EXPECT_EQ(sell_event.argument1, 0x0504u);
+        EXPECT_EQ(sell_event.reserved0, 2u);
+        EXPECT_EQ(servers.agent.valid_sell_packets.load(), 1u);
+
+        command.type = MXH_UNITY_COMMAND_DISCARD_ITEM;
+        command.argument0 = 0; command.argument1 = 1; command.request_id = 104;
+        EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+        command.argument1 = 0;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        mxh_unity_event discard_event{};
+        bool found_discard = false;
+        const auto discard_deadline = std::chrono::steady_clock::now() + 5s;
+        while (!found_discard && std::chrono::steady_clock::now() < discard_deadline) {
+            ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+            while (mxh_unity_poll_event(handle, &discard_event, sizeof(discard_event), &required) == MXH_UNITY_OK) {
+                if (discard_event.type == MXH_UNITY_EVENT_DISCARD_RESPONSE) { found_discard = true; break; }
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(found_discard);
+        EXPECT_EQ(discard_event.result, MXH_UNITY_OK);
+        EXPECT_EQ(discard_event.request_id, 104u);
+        EXPECT_EQ(discard_event.argument0, 0u);
+        EXPECT_EQ(servers.agent.valid_discard_packets.load(), 1u);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(Hsel, UnityNpcResponse,
+    ::testing::Values(ProtocolServer::NpcReply::Ack, ProtocolServer::NpcReply::Nack,
+        ProtocolServer::NpcReply::Truncated, ProtocolServer::NpcReply::WrongPlayer,
+        ProtocolServer::NpcReply::ZeroNpc, ProtocolServer::NpcReply::BuyMismatch, ProtocolServer::NpcReply::BuySilent),
+    [](const ::testing::TestParamInfo<ProtocolServer::NpcReply>& info) {
+        switch (info.param) {
+            case ProtocolServer::NpcReply::Ack: return "Ack";
+            case ProtocolServer::NpcReply::Nack: return "Nack";
+            case ProtocolServer::NpcReply::Truncated: return "Truncated";
+            case ProtocolServer::NpcReply::WrongPlayer: return "WrongPlayer";
+            case ProtocolServer::NpcReply::ZeroNpc: return "ZeroNpc";
+            case ProtocolServer::NpcReply::BuyMismatch: return "BuyMismatch";
+            case ProtocolServer::NpcReply::BuySilent: return "BuySilent";
+        }
+        return "Unknown";
+    });
+
 TEST(UnityCoreNetwork, MovementPredictionCorrectionAndStaleGeneration) {
     ProtocolPair servers(true, "Mover");
     ASSERT_TRUE(servers.start(true));
@@ -728,6 +1517,18 @@ TEST(UnityCoreNetwork, MovementPredictionCorrectionAndStaleGeneration) {
     command.argument0 = 7001;
     ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
     ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot));
+    const auto stale_map_generation = command.expected_map_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    command.type = MXH_UNITY_COMMAND_PRESENT_REVIVE;
+    command.argument0 = 0;
+    command.argument1 = 0;
+    command.payload_size = 0;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    EXPECT_EQ(servers.agent.valid_present_revive_packets.load(), 0u);
+    command.type = MXH_UNITY_COMMAND_LOGIN_REVIVE;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    EXPECT_EQ(servers.agent.valid_login_revive_packets.load(), 0u);
+    command.expected_map_generation = stale_map_generation;
     command.type = MXH_UNITY_COMMAND_MOVE;
     command.argument0 = 1000; command.argument1 = 2000;
     EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
@@ -781,8 +1582,311 @@ TEST(UnityCoreNetwork, MovementPredictionCorrectionAndStaleGeneration) {
     EXPECT_EQ(servers.agent.valid_move_packets.load(), 3u);
 }
 
+TEST(UnityCoreNetwork, MonsterBurstSurvivesPausedConsumerInWireOrder) {
+    ProtocolPair servers(false, "BurstHero");
+    servers.agent.monster_burst = true;
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command);
+    command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001;
+    command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+    std::this_thread::sleep_for(200ms); // Simulate a terrain-loading frame.
+    ASSERT_TRUE(servers.agent.monster_burst_sent.load());
+    std::vector<mxh_unity_event> received;
+    std::uint32_t required = 0;
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while (received.size() < 300 && std::chrono::steady_clock::now() < deadline) {
+        ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+        mxh_unity_event event{};
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK)
+            if (event.argument0 >= 10000 && event.argument0 < 10100) received.push_back(event);
+        std::this_thread::sleep_for(5ms);
+    }
+    ASSERT_EQ(received.size(), 300u);
+    const std::uint32_t types[] = {MXH_UNITY_EVENT_MONSTER_ADDED, MXH_UNITY_EVENT_ENTITY_LIFE, MXH_UNITY_EVENT_ENTITY_SHIELD};
+    for (std::size_t i = 0; i < received.size(); ++i) {
+        EXPECT_EQ(received[i].argument0, 10000u + i / 3);
+        EXPECT_EQ(received[i].type, types[i % 3]);
+        if (received[i].type == MXH_UNITY_EVENT_MONSTER_ADDED)
+            EXPECT_EQ(received[i].reserved0, 73u);
+        if (i) EXPECT_LT(received[i - 1].sequence, received[i].sequence);
+    }
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+    EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_IN_GAME);
+    EXPECT_EQ(snapshot.dropped_event_count, 0u);
+}
+
+TEST(UnityCoreNetwork, ServerSkillTimelineEmitsReleaseThenAuthoritativeHit) {
+    ProtocolPair servers(false, "SkillTimelineHero");
+    servers.agent.skill_timeline_fixture = true;
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command); command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001; command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+    std::vector<mxh_unity_event> timeline;
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while (timeline.size() < 2 && std::chrono::steady_clock::now() < deadline) {
+        ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+        mxh_unity_event event{}; std::uint32_t required = 0;
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK)
+            if (event.type == MXH_UNITY_EVENT_SKILL_RELEASE || event.type == MXH_UNITY_EVENT_SKILL_HIT) timeline.push_back(event);
+        std::this_thread::sleep_for(1ms);
+    }
+    ASSERT_EQ(timeline.size(), 2u);
+    EXPECT_EQ(timeline[0].type, MXH_UNITY_EVENT_SKILL_RELEASE);
+    EXPECT_EQ(timeline[0].argument0, 7001u); EXPECT_EQ(timeline[0].argument1, 10u);
+    EXPECT_EQ(timeline[0].request_id, 9001u);
+    EXPECT_EQ(timeline[1].type, MXH_UNITY_EVENT_SKILL_HIT);
+    EXPECT_EQ(timeline[1].argument0, 10000u); EXPECT_EQ(timeline[1].argument1, 123u);
+    EXPECT_EQ(timeline[1].reserved0, 2u);
+}
+
+TEST(UnityCoreNetwork, ServerCharacterLifeDeltaUpdatesAuthoritativeSnapshot) {
+    ProtocolPair servers(false, "VitalityHero");
+    servers.agent.player_vitality_fixture = true;
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command); command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001; command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+    constexpr std::uint32_t expected_life = 70001u - 7u;
+    bool observed_mp=false;
+    bool observed = false; std::uint32_t required = 0;
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while ((!observed || !observed_mp) && std::chrono::steady_clock::now() < deadline) {
+        ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+        mxh_unity_event event{};
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+            if(event.type==MXH_UNITY_EVENT_PLAYER_MP) {
+                observed_mp=true;
+                EXPECT_EQ(event.argument0,7001u); EXPECT_EQ(event.argument1,0u);
+                EXPECT_EQ(static_cast<std::int32_t>(event.reserved0),-222);
+                continue;
+            }
+            if (event.type != MXH_UNITY_EVENT_PLAYER_LIFE) continue;
+            observed = true;
+            EXPECT_EQ(event.argument0, 7001u);
+            EXPECT_EQ(event.argument1, expected_life);
+            EXPECT_EQ(static_cast<std::int32_t>(event.reserved0), -7);
+        }
+        std::this_thread::sleep_for(1ms);
+    }
+    ASSERT_TRUE(observed);
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+    EXPECT_EQ(snapshot.game.life, expected_life);
+    EXPECT_TRUE(observed_mp);
+    EXPECT_EQ(snapshot.game.mp,0u);
+    EXPECT_EQ(snapshot.game.experience,123u);
+    EXPECT_EQ(snapshot.game.level,7u);
+    EXPECT_EQ(snapshot.game.max_experience,4567u);
+}
+
 TEST(UnityCoreNetwork, HselRealSocketLoginThroughGameIn) {
     run_protocol_round_trip(true, 0, "HselHero", "HselHero");
+}
+
+TEST(UnityCoreNetwork, InvalidExperienceCannotReplaceLastAuthoritativeValue) {
+    for(int bad=1;bad<=5;++bad) {
+        SCOPED_TRACE(bad);
+        ProtocolPair servers(false,"ExperienceHero");
+        servers.agent.invalid_experience_fixture=bad;
+        ASSERT_TRUE(servers.start(false));
+        mxh_unity_handle handle=0;
+        ASSERT_EQ(mxh_unity_create(&handle),MXH_UNITY_OK);
+        struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+        auto args=make_connect(servers.login_port,0);
+        ASSERT_EQ(mxh_unity_connect(handle,&args),MXH_UNITY_OK);
+        mxh_unity_snapshot snapshot{};
+        ASSERT_TRUE(wait_for_state(handle,MXH_UNITY_STATE_CHARACTER_LIST_READY,snapshot));
+        mxh_unity_command command{};
+        command.struct_size=sizeof(command); command.type=MXH_UNITY_COMMAND_SELECT_CHARACTER;
+        command.argument0=7001; command.expected_session_generation=snapshot.session_generation;
+        command.expected_map_generation=snapshot.map_generation;
+        ASSERT_EQ(mxh_unity_submit_command(handle,&command),MXH_UNITY_OK);
+        ASSERT_TRUE(wait_for_state(handle,MXH_UNITY_STATE_FAILED,snapshot,false));
+        EXPECT_EQ(snapshot.game.experience,321u);
+    }
+}
+
+TEST(UnityCoreNetwork, InvalidProtectionOrMpCannotPublishStateEvent) {
+    for(bool mana : {false,true}) {
+    SCOPED_TRACE(mana ? "MP" : "Protection");
+    for(int bad=1;bad<=6;++bad) {
+        SCOPED_TRACE(bad);
+        ProtocolPair servers(false,"ProtectHero");
+        if(mana) servers.agent.invalid_mp_fixture=bad;
+        else servers.agent.invalid_protection_fixture=bad;
+        ASSERT_TRUE(servers.start(false));
+        mxh_unity_handle handle=0;
+        ASSERT_EQ(mxh_unity_create(&handle),MXH_UNITY_OK);
+        struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+        auto args=make_connect(servers.login_port,0);
+        ASSERT_EQ(mxh_unity_connect(handle,&args),MXH_UNITY_OK);
+        mxh_unity_snapshot snapshot{};
+        ASSERT_TRUE(wait_for_state(handle,MXH_UNITY_STATE_CHARACTER_LIST_READY,snapshot));
+        mxh_unity_command command{};
+        command.struct_size=sizeof(command); command.type=MXH_UNITY_COMMAND_SELECT_CHARACTER;
+        command.argument0=7001; command.expected_session_generation=snapshot.session_generation;
+        command.expected_map_generation=snapshot.map_generation;
+        ASSERT_EQ(mxh_unity_submit_command(handle,&command),MXH_UNITY_OK);
+        ASSERT_TRUE(wait_for_state(handle,MXH_UNITY_STATE_FAILED,snapshot,false));
+        mxh_unity_event event{}; std::uint32_t required=0; bool protocol_error=false;
+        while(mxh_unity_poll_event(handle,&event,sizeof(event),&required)==MXH_UNITY_OK) {
+            EXPECT_NE(event.type,MXH_UNITY_EVENT_SHOP_PROTECTION);
+            EXPECT_NE(event.type,MXH_UNITY_EVENT_PLAYER_MP);
+            protocol_error|=event.result==MXH_UNITY_PROTOCOL_ERROR;
+        }
+        EXPECT_TRUE(protocol_error);
+    }
+    }
+}
+
+TEST(UnityCoreNetwork, InvalidServerDeathCannotPublishPlayerDeath) {
+    for (int fixture = 2; fixture <= 6; ++fixture) {
+        SCOPED_TRACE(fixture);
+        ProtocolPair servers(false, "DeathHero");
+        servers.agent.player_death_fixture = fixture;
+        ASSERT_TRUE(servers.start(false));
+        mxh_unity_handle handle = 0;
+        ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+        struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+        auto args = make_connect(servers.login_port, 0);
+        ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+        mxh_unity_snapshot snapshot{};
+        ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+        mxh_unity_command command{};
+        command.struct_size = sizeof(command); command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+        command.argument0 = 7001; command.expected_session_generation = snapshot.session_generation;
+        command.expected_map_generation = snapshot.map_generation;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_FAILED, snapshot, false));
+        std::uint32_t required = 0;
+        mxh_unity_event event{};
+        bool protocol_error = false;
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+            EXPECT_NE(event.type, MXH_UNITY_EVENT_PLAYER_DEATH);
+            protocol_error |= event.result == MXH_UNITY_PROTOCOL_ERROR;
+        }
+        EXPECT_TRUE(protocol_error);
+    }
+}
+
+TEST(UnityCoreNetwork, ServerDeathAndRevivePositionDoNotInventRestoredLife) {
+    ProtocolPair servers(false, "DeathHero");
+    servers.agent.player_death_fixture = 7;
+    ASSERT_TRUE(servers.start(false));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, 0);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command); command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER;
+    command.argument0 = 7001; command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot, false));
+    bool observed = false, revived_position=false; std::uint32_t required = 0;
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while ((!observed || !revived_position) && std::chrono::steady_clock::now() < deadline) {
+        ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+        mxh_unity_event event{};
+        while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+            if(event.type==MXH_UNITY_EVENT_CHARACTER_REVIVE) {
+                revived_position=true;
+                EXPECT_EQ(event.argument0,7001u);
+                EXPECT_EQ(event.argument1,303u|(404u<<16));
+                EXPECT_EQ(event.map_generation,snapshot.map_generation);
+                continue;
+            }
+            if (event.type != MXH_UNITY_EVENT_PLAYER_DEATH) continue;
+            observed = true;
+            EXPECT_EQ(event.argument0, 7001u); EXPECT_EQ(event.argument1, 50023u);
+        }
+        std::this_thread::sleep_for(1ms);
+    }
+    ASSERT_TRUE(observed);
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &snapshot, sizeof(snapshot), &required), MXH_UNITY_OK);
+    EXPECT_EQ(snapshot.game.life, 0u);
+    EXPECT_TRUE(revived_position);
+    EXPECT_EQ(snapshot.game.position_x,303u); EXPECT_EQ(snapshot.game.position_z,404u);
+    command.expected_map_generation = snapshot.map_generation;
+    command.type = MXH_UNITY_COMMAND_PRESENT_REVIVE;
+    command.argument0 = 1;
+    command.argument1 = 0;
+    command.payload_size = 0;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.argument0 = 0;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    const auto revive_deadline = std::chrono::steady_clock::now() + 2s;
+    while (servers.agent.valid_present_revive_packets.load() == 0 &&
+           std::chrono::steady_clock::now() < revive_deadline) {
+        std::this_thread::sleep_for(1ms);
+    }
+    EXPECT_EQ(servers.agent.valid_present_revive_packets.load(), 1u);
+    command.type = MXH_UNITY_COMMAND_LOGIN_REVIVE;
+    command.argument0 = 1;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    command.argument0 = 0;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    const auto login_deadline = std::chrono::steady_clock::now() + 2s;
+    while (servers.agent.valid_login_revive_packets.load() == 0 &&
+           std::chrono::steady_clock::now() < login_deadline) {
+        std::this_thread::sleep_for(1ms);
+    }
+    EXPECT_EQ(servers.agent.valid_login_revive_packets.load(), 1u);
+    EXPECT_EQ(servers.agent.valid_present_revive_packets.load(), 1u);
+    command.payload_size = 1;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_INVALID_ARGUMENT);
+    EXPECT_EQ(servers.agent.valid_present_revive_packets.load(), 1u);
+    command.payload_size = 0;
+    command.type = MXH_UNITY_COMMAND_MOVE;
+    command.argument0 = 100; command.argument1 = 200;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    command.type = MXH_UNITY_COMMAND_STOP;
+    EXPECT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_WRONG_STATE);
+    const std::uint8_t target[MXH_UNITY_SKILL_PAYLOAD_SIZE]{};
+    mxh_unity_extended_command extended{};
+    extended.head = command;
+    extended.head.type = MXH_UNITY_COMMAND_SKILL;
+    extended.payload = target; extended.payload_size = sizeof(target);
+    EXPECT_EQ(mxh_unity_submit_extended_command(handle, &extended), MXH_UNITY_WRONG_STATE);
+    mxh_unity_snapshot after{};
+    ASSERT_EQ(mxh_unity_copy_snapshot(handle, &after, sizeof(after), &required), MXH_UNITY_OK);
+    EXPECT_EQ(after.game.position_x, snapshot.game.position_x);
+    EXPECT_EQ(after.game.position_z, snapshot.game.position_z);
 }
 
 TEST(UnityCoreNetwork, ConvertsCp936NamesToUtf8) {
@@ -1129,7 +2233,7 @@ TEST(ClientWire, CharacterMakeUsesLockedChinaSemanticOptions) {
         "NewHero", 2, 4, 3, 1, 1, 5).has_value());
 }
 
-TEST(NativeClientCore, PublicEventOverflowIsFailClosed) {
+TEST(NativeClientCore, UndrainedPublicQueueRetainsTerminalTimeout) {
     ProtocolPair servers(false, "OverflowHero");
     ASSERT_TRUE(servers.start(false));
     mxh::unity::NativeClientCore core(1);
@@ -1145,11 +2249,11 @@ TEST(NativeClientCore, PublicEventOverflowIsFailClosed) {
     }
     EXPECT_EQ(snapshot.state, MXH_UNITY_STATE_FAILED);
     EXPECT_GE(snapshot.dropped_event_count, 1u);
-    EXPECT_EQ(snapshot.last_result, MXH_UNITY_INTERNAL_ERROR);
+    EXPECT_EQ(snapshot.last_result, MXH_UNITY_NETWORK_ERROR);
     mxh_unity_event event{};
     ASSERT_EQ(core.poll_event(event), MXH_UNITY_OK);
     EXPECT_EQ(event.type, MXH_UNITY_EVENT_ERROR);
-    EXPECT_EQ(event.result, MXH_UNITY_INTERNAL_ERROR);
+    EXPECT_EQ(event.result, MXH_UNITY_NETWORK_ERROR);
 }
 
 TEST(NativeClientCore, TerminalEventReplacesExactlyOneSlotAtCapacityThree) {
@@ -1170,7 +2274,9 @@ TEST(NativeClientCore, TerminalEventReplacesExactlyOneSlotAtCapacityThree) {
     ASSERT_EQ(core.disconnect(), MXH_UNITY_OK);
     mxh_unity_snapshot after{};
     ASSERT_EQ(core.copy_snapshot(after), MXH_UNITY_OK);
-    EXPECT_EQ(after.dropped_event_count, before.dropped_event_count + 2);
+    // Backpressure kept the login head queued: state + timeout use two slots.
+    // Shutdown fills the third; only the final disconnected event replaces it.
+    EXPECT_EQ(after.dropped_event_count, before.dropped_event_count + 1);
     std::vector<mxh_unity_event> events;
     mxh_unity_event event{};
     while (core.poll_event(event) == MXH_UNITY_OK) events.push_back(event);

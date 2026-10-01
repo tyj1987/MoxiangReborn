@@ -77,17 +77,19 @@ TEST(HflHeightField, PlaceholderFilesParse) {
         if (!root.has_parent_path() || root.parent_path() == root) break;
         root = root.parent_path();
     }
-    if (mapDir.empty()) GTEST_SKIP() << "PlayDH/Resource/Map fixture not installed";
+    const auto overlay = root.parent_path() / "unity" / "source-overlays" /
+        "unity-remaster-v1" / "development-placeholders" / "PlayDH" / "Resource" / "Map";
+    if (fs::is_directory(overlay)) mapDir = fs::weakly_canonical(overlay);
+    if (mapDir.empty()) GTEST_SKIP() << "Unity remaster placeholder overlay is not installed";
 
     // Scan a handful of placeholder HFL files (any non-template map id).
-    // The first map id we find that is NOT 10, 21, or 101 is by
-    // definition a placeholder; we parse it and verify the parser
+    // Every HFL in this explicitly named development overlay is a placeholder;
+    // parse a sample and verify the parser
     // accepts the procedurally-synthesized header and height grid.
     int placeholders = 0;
     for (const auto& entry : fs::directory_iterator(mapDir)) {
         if (!entry.is_regular_file()) continue;
         const auto& name = entry.path().filename().string();
-        if (name == "10.hfl" || name == "21.hfl" || name == "101.hfl") continue;
         if (name.find(".hfl") == std::string::npos) continue;
         const auto bytes = [&] {
             std::ifstream f(entry.path(), std::ios::binary);

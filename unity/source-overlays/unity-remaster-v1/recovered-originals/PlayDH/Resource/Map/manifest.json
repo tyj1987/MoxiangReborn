@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "tool": "pak_extract",
+  "generatedAtUtc": "2026-09-12T22:05:29Z",
+  "pak": {
+    "path": "D:\\MX\\client\\Package\\3DData\\Map.pak",
+    "size": 1135536849,
+    "version": 1,
+    "fileItemNum": 11267
+  },
+  "stats": {
+    "parsed": 11267,
+    "written": 4,
+    "skipped_filter": 11263,
+    "skipped_truncated": 0,
+    "skipped_hfl_bad": 0,
+    "skipped_name_bad": 0,
+    "elapsedMs": 358
+  },
+  "entries": [
+    {
+      "index": 8955,
+      "name": "3.hfl",
+      "bytes": 1189592,
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "offset": 605651907
+    },
+    {
+      "index": 9477,
+      "name": "203.hfl",
+      "bytes": 3685568,
+      "sha256": "4315f3be66df23183b4b034b495f8f6c9b53bd027e32afee84e291b6c24046e8",
+      "offset": 732859362
+    },
+    {
+      "index": 9741,
+      "name": "198.hfl",
+      "bytes": 1184002,
+      "sha256": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+      "offset": 794351727
+    },
+    {
+      "index": 10839,
+      "name": "103.hfl",
+      "bytes": 1184392,
+      "sha256": "60333632dc3326728014b61d4a530d6f3d6c53ac62601606b706b35b236e45c9",
+      "offset": 1034481427
+    }
+  ]
+}

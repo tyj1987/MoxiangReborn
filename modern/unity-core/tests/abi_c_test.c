@@ -9,9 +9,9 @@ typedef char assert_command_name_offset[(offsetof(mxh_unity_command, name) == 52
 typedef char assert_command_sex_offset[(offsetof(mxh_unity_command, sex_type) == 117) ? 1 : -1];
 typedef char assert_command_weapon_offset[(offsetof(mxh_unity_command, weapon_option) == 122) ? 1 : -1];
 typedef char assert_character_abi[(sizeof(mxh_unity_character_slot) == 108) ? 1 : -1];
-typedef char assert_game_abi[(sizeof(mxh_unity_game_snapshot) == 132) ? 1 : -1];
+typedef char assert_game_abi[(sizeof(mxh_unity_game_snapshot) == 140) ? 1 : -1];
 typedef char assert_event_abi[(sizeof(mxh_unity_event) == 320) ? 1 : -1];
-typedef char assert_snapshot_abi[(sizeof(mxh_unity_snapshot) == 992) ? 1 : -1];
+typedef char assert_snapshot_abi[(sizeof(mxh_unity_snapshot) == 1000) ? 1 : -1];
 
 int main(void) {
     mxh_unity_handle handle = 0;

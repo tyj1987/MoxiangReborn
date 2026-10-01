@@ -1,0 +1,623 @@
+{
+  "schema": 1,
+  "sourceBlend": "unity/source-overlays/wuguan-training-hall/WuguanTrainingHall_PBR.blend",
+  "sourceSha256": "868bdcfc61c23000a490cc09937beadf62d5493443d8b311711907e1b1e60eed",
+  "pbrManifestSha256": "fa15c983bee1781ece02f9c39c0ca209953ed277d28e5708d2cbaf9724fff18c",
+  "script": "unity/source-overlays/wuguan-training-hall/refine_high_low.py",
+  "scriptSha256": "6c058db505f636a1512f33d376c30e460f5a1a465d28cbc0fe01235cf6a89eb3",
+  "size": 4096,
+  "method": "Cycles selected-to-active with explicit 0.04m cages; geometric high detail",
+  "pairs": [
+    {
+      "low": "Beam_-6.1",
+      "high": "HIGH_Beam_-6.1",
+      "cage": "CAGE_Beam_-6.1",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Beam_6.1",
+      "high": "HIGH_Beam_6.1",
+      "cage": "CAGE_Beam_6.1",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Bench_E_1",
+      "high": "HIGH_Bench_E_1",
+      "cage": "CAGE_Bench_E_1",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Bench_E_2",
+      "high": "HIGH_Bench_E_2",
+      "cage": "CAGE_Bench_E_2",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Bench_W_1",
+      "high": "HIGH_Bench_W_1",
+      "cage": "CAGE_Bench_W_1",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Bench_W_2",
+      "high": "HIGH_Bench_W_2",
+      "cage": "CAGE_Bench_W_2",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Brazier_1_Bowl",
+      "high": "HIGH_Brazier_1_Bowl",
+      "cage": "CAGE_Brazier_1_Bowl",
+      "refined": true,
+      "lowTriangles": 60,
+      "highTriangles": 3072,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Brazier_1_Foot",
+      "high": "HIGH_Brazier_1_Foot",
+      "cage": "CAGE_Brazier_1_Foot",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Brazier_1_Stem",
+      "high": "HIGH_Brazier_1_Stem",
+      "cage": "CAGE_Brazier_1_Stem",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Brazier_2_Bowl",
+      "high": "HIGH_Brazier_2_Bowl",
+      "cage": "CAGE_Brazier_2_Bowl",
+      "refined": true,
+      "lowTriangles": 60,
+      "highTriangles": 3072,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Brazier_2_Foot",
+      "high": "HIGH_Brazier_2_Foot",
+      "cage": "CAGE_Brazier_2_Foot",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Brazier_2_Stem",
+      "high": "HIGH_Brazier_2_Stem",
+      "cage": "CAGE_Brazier_2_Stem",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_East",
+      "high": "HIGH_COL_East",
+      "cage": "CAGE_COL_East",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Floor",
+      "high": "HIGH_COL_Floor",
+      "cage": "CAGE_COL_Floor",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_North_A",
+      "high": "HIGH_COL_North_A",
+      "cage": "CAGE_COL_North_A",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_North_B",
+      "high": "HIGH_COL_North_B",
+      "cage": "CAGE_COL_North_B",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_-4_-6.1",
+      "high": "HIGH_COL_Post_-4_-6.1",
+      "cage": "CAGE_COL_Post_-4_-6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_-4_6.1",
+      "high": "HIGH_COL_Post_-4_6.1",
+      "cage": "CAGE_COL_Post_-4_6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_-8_-6.1",
+      "high": "HIGH_COL_Post_-8_-6.1",
+      "cage": "CAGE_COL_Post_-8_-6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_-8_6.1",
+      "high": "HIGH_COL_Post_-8_6.1",
+      "cage": "CAGE_COL_Post_-8_6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_0_-6.1",
+      "high": "HIGH_COL_Post_0_-6.1",
+      "cage": "CAGE_COL_Post_0_-6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_0_6.1",
+      "high": "HIGH_COL_Post_0_6.1",
+      "cage": "CAGE_COL_Post_0_6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_4_-6.1",
+      "high": "HIGH_COL_Post_4_-6.1",
+      "cage": "CAGE_COL_Post_4_-6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_4_6.1",
+      "high": "HIGH_COL_Post_4_6.1",
+      "cage": "CAGE_COL_Post_4_6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_8_-6.1",
+      "high": "HIGH_COL_Post_8_-6.1",
+      "cage": "CAGE_COL_Post_8_-6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_Post_8_6.1",
+      "high": "HIGH_COL_Post_8_6.1",
+      "cage": "CAGE_COL_Post_8_6.1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_South_L",
+      "high": "HIGH_COL_South_L",
+      "cage": "CAGE_COL_South_L",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_South_R",
+      "high": "HIGH_COL_South_R",
+      "cage": "CAGE_COL_South_R",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "COL_West",
+      "high": "HIGH_COL_West",
+      "cage": "CAGE_COL_West",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Ceiling_Rafters_All",
+      "high": "HIGH_Ceiling_Rafters_All",
+      "cage": "CAGE_Ceiling_Rafters_All",
+      "refined": false,
+      "lowTriangles": 540,
+      "highTriangles": 540,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Combat_Mat",
+      "high": "HIGH_Combat_Mat",
+      "cage": "CAGE_Combat_Mat",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "DummyArm_1",
+      "high": "HIGH_DummyArm_1",
+      "cage": "CAGE_DummyArm_1",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "DummyArm_2",
+      "high": "HIGH_DummyArm_2",
+      "cage": "CAGE_DummyArm_2",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "DummyArm_3",
+      "high": "HIGH_DummyArm_3",
+      "cage": "CAGE_DummyArm_3",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "DummyArm_4",
+      "high": "HIGH_DummyArm_4",
+      "cage": "CAGE_DummyArm_4",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Dummy_1",
+      "high": "HIGH_Dummy_1",
+      "cage": "CAGE_Dummy_1",
+      "refined": true,
+      "lowTriangles": 60,
+      "highTriangles": 3072,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Dummy_2",
+      "high": "HIGH_Dummy_2",
+      "cage": "CAGE_Dummy_2",
+      "refined": true,
+      "lowTriangles": 60,
+      "highTriangles": 3072,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Dummy_3",
+      "high": "HIGH_Dummy_3",
+      "cage": "CAGE_Dummy_3",
+      "refined": true,
+      "lowTriangles": 60,
+      "highTriangles": 3072,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Dummy_4",
+      "high": "HIGH_Dummy_4",
+      "cage": "CAGE_Dummy_4",
+      "refined": true,
+      "lowTriangles": 60,
+      "highTriangles": 3072,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Instructor_Backdrop",
+      "high": "HIGH_Instructor_Backdrop",
+      "cage": "CAGE_Instructor_Backdrop",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Instructor_Dais",
+      "high": "HIGH_Instructor_Dais",
+      "cage": "CAGE_Instructor_Dais",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_1_Frame",
+      "high": "HIGH_Lantern_1_Frame",
+      "cage": "CAGE_Lantern_1_Frame",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_1_Paper",
+      "high": "HIGH_Lantern_1_Paper",
+      "cage": "CAGE_Lantern_1_Paper",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_2_Frame",
+      "high": "HIGH_Lantern_2_Frame",
+      "cage": "CAGE_Lantern_2_Frame",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_2_Paper",
+      "high": "HIGH_Lantern_2_Paper",
+      "cage": "CAGE_Lantern_2_Paper",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_3_Frame",
+      "high": "HIGH_Lantern_3_Frame",
+      "cage": "CAGE_Lantern_3_Frame",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_3_Paper",
+      "high": "HIGH_Lantern_3_Paper",
+      "cage": "CAGE_Lantern_3_Paper",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_4_Frame",
+      "high": "HIGH_Lantern_4_Frame",
+      "cage": "CAGE_Lantern_4_Frame",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lantern_4_Paper",
+      "high": "HIGH_Lantern_4_Paper",
+      "cage": "CAGE_Lantern_4_Paper",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Lattice_All",
+      "high": "HIGH_Lattice_All",
+      "cage": "CAGE_Lattice_All",
+      "refined": false,
+      "lowTriangles": 6492,
+      "highTriangles": 6492,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Mat_Border_All",
+      "high": "HIGH_Mat_Border_All",
+      "cage": "CAGE_Mat_Border_All",
+      "refined": false,
+      "lowTriangles": 432,
+      "highTriangles": 432,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Plaque",
+      "high": "HIGH_Plaque",
+      "cage": "CAGE_Plaque",
+      "refined": true,
+      "lowTriangles": 108,
+      "highTriangles": 6912,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Rack_L",
+      "high": "HIGH_Rack_L",
+      "cage": "CAGE_Rack_L",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Rack_R",
+      "high": "HIGH_Rack_R",
+      "cage": "CAGE_Rack_R",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Scroll_1_Ink",
+      "high": "HIGH_Scroll_1_Ink",
+      "cage": "CAGE_Scroll_1_Ink",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Scroll_1_Paper",
+      "high": "HIGH_Scroll_1_Paper",
+      "cage": "CAGE_Scroll_1_Paper",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Scroll_2_Ink",
+      "high": "HIGH_Scroll_2_Ink",
+      "cage": "CAGE_Scroll_2_Ink",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Scroll_2_Paper",
+      "high": "HIGH_Scroll_2_Paper",
+      "cage": "CAGE_Scroll_2_Paper",
+      "refined": false,
+      "lowTriangles": 108,
+      "highTriangles": 108,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_L_0",
+      "high": "HIGH_Weapon_L_0",
+      "cage": "CAGE_Weapon_L_0",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_L_1",
+      "high": "HIGH_Weapon_L_1",
+      "cage": "CAGE_Weapon_L_1",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_L_2",
+      "high": "HIGH_Weapon_L_2",
+      "cage": "CAGE_Weapon_L_2",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_L_3",
+      "high": "HIGH_Weapon_L_3",
+      "cage": "CAGE_Weapon_L_3",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_R_0",
+      "high": "HIGH_Weapon_R_0",
+      "cage": "CAGE_Weapon_R_0",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_R_1",
+      "high": "HIGH_Weapon_R_1",
+      "cage": "CAGE_Weapon_R_1",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_R_2",
+      "high": "HIGH_Weapon_R_2",
+      "cage": "CAGE_Weapon_R_2",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    },
+    {
+      "low": "Weapon_R_3",
+      "high": "HIGH_Weapon_R_3",
+      "cage": "CAGE_Weapon_R_3",
+      "refined": false,
+      "lowTriangles": 60,
+      "highTriangles": 60,
+      "cageDistance": 0.04
+    }
+  ],
+  "refinedPairs": 21,
+  "stats": {
+    "mean": 0.5118275880813599,
+    "min": 0.0,
+    "max": 1.0,
+    "occludedRatio": 0.6629446811187374,
+    "normalChangedRatio": 0.09643347750124949
+  },
+  "lowTriangles": 13308,
+  "highTriangles": 133440,
+  "normalPath": "unity/MoxiangClient/Assets/Moxiang/Art/WuguanTrainingHall/Textures/Hall_HighLow_Normal.png",
+  "normalSha256": "94b3a18af3b0bf0e15e1836034568535d108e4837d69a789f89a046472894af9",
+  "aoPath": "unity/MoxiangClient/Assets/Moxiang/Art/WuguanTrainingHall/Textures/Hall_AO.png",
+  "aoSha256": "005f6b5d1f347196e2295521a4336b2f15b8fe100aca0edda5029128fd6ebd0f",
+  "blendPath": "unity/source-overlays/wuguan-training-hall/WuguanTrainingHall_HighLow.blend",
+  "blendSha256": "62e9833f9c8904c402e55c2e0393e69df75720d429bc0c30da2ece10a6878baf",
+  "scope": "Geometric wear/detail pass; not final commercial art acceptance"
+}

@@ -31,9 +31,9 @@ namespace Moxiang.Tests
         public void PackedLayoutMatchesNativeV1Contract()
         {
             Assert.That(Marshal.SizeOf<CoreCharacter>(), Is.EqualTo(108));
-            Assert.That(Marshal.SizeOf<CoreGame>(), Is.EqualTo(132));
+            Assert.That(Marshal.SizeOf<CoreGame>(), Is.EqualTo(140));
             Assert.That(Marshal.SizeOf<CoreEvent>(), Is.EqualTo(320));
-            Assert.That(Marshal.SizeOf<CoreSnapshot>(), Is.EqualTo(992));
+            Assert.That(Marshal.SizeOf<CoreSnapshot>(), Is.EqualTo(1000));
             Assert.That(Marshal.OffsetOf<CoreSnapshot>(nameof(CoreSnapshot.sessionGeneration)).ToInt32(), Is.EqualTo(24));
             Assert.That(Marshal.OffsetOf<CoreSnapshot>(nameof(CoreSnapshot.characters)).ToInt32(), Is.EqualTo(60));
         }

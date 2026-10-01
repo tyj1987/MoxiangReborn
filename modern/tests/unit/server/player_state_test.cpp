@@ -58,6 +58,23 @@ TEST(PlayerShopState, ResourceCapsReplaceShopContributionWithoutHealingOrAccumul
     EXPECT_EQ(state.vitals.max_hp,hp); EXPECT_EQ(state.vitals.max_shield,shield); EXPECT_EQ(state.vitals.max_mp,mp);
 }
 
+TEST(PlayerAvatarOptions, CapsReplaceWithoutHealingOrRemovingShopBonuses) {
+    CalcBaseStats base; base.level=20; base.cheryuk=50; base.simmek=30;
+    CalcEquipBonuses bonuses; bonuses.shop_life=17; bonuses.item_max_life=23;
+    auto state=make_player_state(1,2,20,base,bonuses);
+    const auto hp=state.vitals.max_hp, shield=state.vitals.max_shield, mp=state.vitals.max_mp;
+    state.vitals.current_hp=10; state.vitals.current_shield=11; state.vitals.current_mp=12;
+    mxh::game::AvatarItemOption options; options.Life=55; options.Shield=33; options.Naeruyk=22; options.Attack=7;
+    state.apply_avatar_options(options);
+    EXPECT_EQ(state.vitals.max_hp,hp+55); EXPECT_EQ(state.vitals.max_shield,shield+33); EXPECT_EQ(state.vitals.max_mp,mp+22);
+    EXPECT_EQ(state.avatar_options.Attack,7); EXPECT_EQ(state.bonuses.shop_life,17);
+    EXPECT_EQ(state.bonuses.item_max_life,23);
+    state.apply_avatar_options(options); EXPECT_EQ(state.vitals.max_hp,hp+55);
+    state.apply_avatar_options({});
+    EXPECT_EQ(state.vitals.max_hp,hp); EXPECT_EQ(state.vitals.max_shield,shield); EXPECT_EQ(state.vitals.max_mp,mp);
+    EXPECT_EQ(state.vitals.current_hp,10u); EXPECT_EQ(state.vitals.current_shield,11u); EXPECT_EQ(state.vitals.current_mp,12u);
+}
+
 TEST(PlayerStateMake, BasicSpawnFullVitals) {
     CalcBaseStats b; b.level = 20; b.cheryuk = 50;
     auto s = make_player_state(1001, 7, 20, b, CalcEquipBonuses{});

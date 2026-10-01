@@ -63,6 +63,8 @@ namespace Moxiang.Editor
             logic.password = Input(panel, "Password", "", -260, true);
             logic.connect = Button(panel, "Connect", -316, out _);
             logic.disconnect = Button(panel, "Disconnect", -362, out _);
+            logic.presentRevive = Button(panel, "原地复活", -580, out _);
+            logic.loginRevive = Button(panel, "登录点复活", -616, out _);
             logic.status = Label(panel, "Idle", 24, -410, 350, 60, 16);
             inputController.connection = logic;
             var targetSelection = terrain.AddComponent<TargetSelectionController>();
@@ -90,6 +92,90 @@ namespace Moxiang.Editor
             Debug.Log("MXH_CONNECTION_SCENE_CREATED");
         }
 
+        public static void AddTradeControls()
+        {
+            if (SceneManager.GetActiveScene().path != ScenePath) throw new InvalidOperationException("Open the connection validation scene first.");
+            var canvas = GameObject.Find("ConnectionCanvas");
+            var connection = UnityEngine.Object.FindFirstObjectByType<ConnectionPanel>();
+            if (canvas == null || connection == null) throw new InvalidOperationException("Missing connection canvas or controller.");
+            if (canvas.transform.Find("TradePanel") != null) return;
+            font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+            if (font == null) throw new InvalidOperationException("Missing UI font.");
+            var panel = Rect("TradePanel", canvas.transform, new Vector2(400, 640));
+            panel.gameObject.SetActive(false);
+            panel.anchorMin = panel.anchorMax = new Vector2(1, 0.5f); panel.pivot = new Vector2(1, 0.5f); panel.anchoredPosition = new Vector2(-24, 0);
+            panel.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(0.025f, 0.04f, 0.06f, 0.94f);
+            panel.GetComponent<UnityEngine.UI.Image>().color = new Color(0.025f, 0.04f, 0.06f, 1);
+            var trade = panel.gameObject.AddComponent<TradePanel>(); trade.connection = connection;
+            trade.heading = Label(panel, "Shop", 24, -16, 350, 34, 20);
+            Label(panel, "Development IDs · item names/art pending", 24, -50, 350, 24, 13);
+            trade.mode = Button(panel, "Switch shop / inventory", -82, out _);
+            trade.quantity = Input(panel, "Quantity", "1", -132, false);
+            trade.quantity.contentType = TMP_InputField.ContentType.IntegerNumber; trade.quantity.characterLimit = 5;
+            trade.rows = new UnityEngine.UI.Button[8]; trade.rowLabels = new TMP_Text[8];
+            for (int i = 0; i < 8; ++i) trade.rows[i] = Button(panel, "—", -180 - i * 40, out trade.rowLabels[i], 34);
+            trade.previous = Button(panel, "Previous page", -512, out _, 30);
+            trade.next = Button(panel, "Next page", -550, out _, 30);
+            trade.pageLabel = Label(panel, "Waiting for server data", 24, -592, 350, 28, 15);
+            panel.gameObject.SetActive(true);
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            if (!EditorSceneManager.SaveScene(SceneManager.GetActiveScene())) throw new IOException("Could not save trade panel.");
+        }
+
+        public static void AddQuestDialogueControls()
+        {
+            if (SceneManager.GetActiveScene().path != ScenePath)
+                EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var canvas = GameObject.Find("ConnectionCanvas");
+            var connection = UnityEngine.Object.FindFirstObjectByType<ConnectionPanel>();
+            var selection = UnityEngine.Object.FindFirstObjectByType<TargetSelectionController>();
+            var questState = UnityEngine.Object.FindFirstObjectByType<QuestStateController>();
+            if (canvas == null || connection == null)
+                throw new InvalidOperationException("Missing quest dialogue dependencies.");
+            if (selection == null)
+            {
+                var host = GameObject.Find("Map10GeometryInspection") ?? new GameObject("WorldInteractionControllers");
+                selection = host.AddComponent<TargetSelectionController>();
+                selection.connection = connection;
+                selection.worldCamera = Camera.main;
+            }
+            if (questState == null)
+            {
+                questState = selection.gameObject.AddComponent<QuestStateController>();
+                questState.connection = connection;
+            }
+            font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+            if (font == null) throw new InvalidOperationException("Missing UI font.");
+            var existing = canvas.transform.Find("QuestDialoguePanel");
+            var panel = existing == null ? Rect("QuestDialoguePanel", canvas.transform, new Vector2(520, 292)) : (RectTransform)existing;
+            if (existing != null)
+            {
+                var existingDialogue = panel.GetComponent<QuestDialogueController>();
+                if (existingDialogue.questChoices == null) existingDialogue.questChoices = Dropdown(panel, -142);
+                if (existingDialogue.continueLabel == null && existingDialogue.continueQuest != null)
+                    existingDialogue.continueLabel = existingDialogue.continueQuest.GetComponentInChildren<TMP_Text>();
+                panel.gameObject.SetActive(true);
+                existingDialogue.Hide();
+                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+                if (!EditorSceneManager.SaveScene(SceneManager.GetActiveScene())) throw new IOException("Could not update quest dialogue panel.");
+                return;
+            }
+            panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0); panel.pivot = new Vector2(0.5f, 0);
+            panel.anchoredPosition = new Vector2(0, 34);
+            panel.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(0.025f, 0.04f, 0.06f, 0.97f);
+            var dialogue = panel.gameObject.AddComponent<QuestDialogueController>();
+            dialogue.connection = connection; dialogue.targetSelection = selection; dialogue.questState = questState;
+            dialogue.heading = Label(panel, "NPC", 24, -18, 472, 34, 22);
+            dialogue.body = Label(panel, "任务对话", 24, -58, 472, 76, 17);
+            dialogue.questChoices = Dropdown(panel, -142);
+            dialogue.feedback = Label(panel, "", 24, -184, 472, 28, 15);
+            dialogue.continueQuest = Button(panel, "继续任务", -218, out dialogue.continueLabel, 34);
+            dialogue.close = Button(panel, "关闭", -256, out _, 30);
+            dialogue.Hide();
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            if (!EditorSceneManager.SaveScene(SceneManager.GetActiveScene())) throw new IOException("Could not save quest dialogue panel.");
+        }
+
         private static RectTransform Rect(string name, Transform parent, Vector2 size)
         {
             var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
@@ -115,6 +201,20 @@ namespace Moxiang.Editor
             input.contentType = secret ? TMP_InputField.ContentType.Password : TMP_InputField.ContentType.Standard;
             input.lineType = TMP_InputField.LineType.SingleLine; input.characterLimit = title == "Host" ? 255 : 63; input.text = value;
             return input;
+        }
+        private static TMP_Dropdown Dropdown(Transform parent, float y)
+        {
+            var rect = Rect("QuestChoices", parent, new Vector2(472, 36)); rect.anchoredPosition = new Vector2(24, y);
+            rect.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(0.13f, 0.17f, 0.21f);
+            var dropdown = rect.gameObject.AddComponent<TMP_Dropdown>();
+            dropdown.captionText = Label(rect, "", 10, 0, 438, 36, 16);
+            dropdown.template = Rect("Template", rect, new Vector2(472, 144));
+            dropdown.template.anchoredPosition = new Vector2(0, -38);
+            dropdown.template.gameObject.AddComponent<UnityEngine.UI.Image>().color = new Color(0.08f, 0.11f, 0.14f);
+            var viewport = Rect("Viewport", dropdown.template, new Vector2(472, 144));
+            dropdown.itemText = Label(viewport, "", 10, 0, 438, 32, 16);
+            dropdown.template.gameObject.SetActive(false);
+            return dropdown;
         }
         private static UnityEngine.UI.Button Button(Transform parent, string text, float y, out TMP_Text label, float height = 38)
         {

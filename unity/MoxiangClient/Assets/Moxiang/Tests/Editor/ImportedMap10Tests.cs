@@ -7,6 +7,23 @@ namespace Moxiang.Tests
     public class ImportedMap10Tests
     {
         [Test]
+        public void PackedMap2ImportsOriginalGridAndCanonicalArrivalWithinBounds()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<ImportedHeightField>("Assets/Moxiang/Derived/Map2/Map2.mxhasset");
+            Assert.That(asset, Is.Not.Null);
+            Assert.That(asset.descriptor.sourceSha256, Is.EqualTo("d49dd4b864f09e3880124d31633d1b0860175805a3273284988c2b421d9e31e2"));
+            Assert.That(asset.heights.Length, Is.EqualTo(513 * 513));
+            Assert.That(asset.descriptor.tiles.Length, Is.EqualTo(256 * 256));
+            Assert.That(asset.inspectionMesh.vertexCount, Is.EqualTo(asset.heights.Length));
+            var arrival = new MapCoordinates(asset.descriptor.width, asset.descriptor.depth)
+                .ToScene(new Vector3(7211, 0, 43329));
+            var bounds = asset.inspectionMesh.bounds;
+            Assert.That(arrival.x, Is.InRange(bounds.min.x, bounds.max.x));
+            Assert.That(arrival.z, Is.InRange(bounds.min.z, bounds.max.z));
+            Assert.That(asset.IsReleaseReady, Is.False);
+        }
+
+        [Test]
         public void PackedMap10RetainsHeightGridAndSourceIdentity()
         {
             var asset = AssetDatabase.LoadAssetAtPath<ImportedHeightField>("Assets/Moxiang/Derived/Map10/Map10.mxhasset");

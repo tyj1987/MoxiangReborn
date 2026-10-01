@@ -31,13 +31,15 @@
 
 #include <mxh/server/dup_param.hpp>
 #include <mxh/server/shop_item_manager.hpp>
+#include <mxh/proto/protocol.hpp>
 
 namespace mxh::server {
 
 // 1:1 with legacy MP_ITEM_SHOPITEM_USEEND protocol code. The category
 // is MP_ITEM (legacy const), so only the protocol is needed at the
 // data plane.
-inline constexpr std::uint8_t LEGACY_MP_ITEM_SHOPITEM_USEEND = 0u;
+inline constexpr std::uint8_t LEGACY_MP_ITEM_SHOPITEM_USEEND =
+    static_cast<std::uint8_t>(proto::ItemProtocol::ShopItemUseEnd);
 
 // Step kinds emitted by the side-effect dispatcher, in the order the
 // legacy code applies them. Each step carries the data the orchestrator

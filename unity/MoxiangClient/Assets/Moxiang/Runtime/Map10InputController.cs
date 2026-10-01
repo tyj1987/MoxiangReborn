@@ -15,6 +15,13 @@ namespace Moxiang
 
         private MapCoordinates Coordinates => new MapCoordinates(mapWidth, mapDepth);
 
+        public static bool EntityOwnsClick(Ray ray, float groundDistance)
+        {
+            if (!Physics.Raycast(ray, out var hit, groundDistance)) return false;
+            var target = hit.collider.GetComponentInParent<TargetSelectable>();
+            return target != null && target.objectId != 0;
+        }
+
         private void Update()
         {
             if (connection == null || worldCamera == null || mapCollider == null ||
@@ -25,6 +32,7 @@ namespace Moxiang
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
             Ray ray = worldCamera.ScreenPointToRay(Input.mousePosition);
             if (!mapCollider.Raycast(ray, out RaycastHit hit, worldCamera.farClipPlane)) return;
+            if (move && EntityOwnsClick(ray, hit.distance)) return;
             Vector3 game = Coordinates.ToGame(hit.point);
             if (game.x < 0 || game.z < 0 || game.x > mapWidth || game.z > mapDepth) return;
             connection.Move((ushort)Mathf.Clamp(Mathf.RoundToInt(game.x), 0, ushort.MaxValue),

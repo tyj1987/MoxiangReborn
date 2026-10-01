@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstring>
 
 using mxh::game::ShopItemOption;
 using mxh::server::CalcShopItemOptionEnv;
@@ -31,6 +32,9 @@ namespace {
 // Test env that lets the test flip the event_rate_active gate.
 class TestEnv final : public CalcShopItemOptionEnv {
 public:
+    // Existing union-of-index fixtures describe the HK branch explicitly.
+    mxh::server::ShopLocale selected_locale = mxh::server::ShopLocale::HongKong;
+    mxh::server::ShopLocale locale() const noexcept override { return selected_locale; }
     bool event_rate_active(std::uint16_t rate_id) const noexcept override {
         (void)rate_id;
         return rate_active;
@@ -56,6 +60,39 @@ TEST(ShopItemOptionLayout, SizeMatchesLegacy) {
     EXPECT_EQ(sizeof(ShopItemOption), 120u);
 }
 
+TEST(CalcShopItemOption, ExpansionCallbacksMatchSourceLocaleAndIndexMatrix) {
+    using mxh::server::ShopLocale;
+    struct Expansion { std::uint32_t base, hk_variant; };
+    // Original CommonGameDefine indices, grouped inventory/warehouse/skill/character.
+    const Expansion cases[] = {{57542,57958},{57544,57960},{55361,57957},{57543,57959}};
+    for (auto locale : {ShopLocale::China, ShopLocale::Korea, ShopLocale::Japan,
+                        ShopLocale::HongKong, ShopLocale::Thailand}) {
+        for (std::size_t kind = 0; kind < 4; ++kind) {
+            for (bool variant : {false,true}) {
+                for (bool add : {false,true}) {
+                    TestEnv env; env.selected_locale = locale;
+                    CalcShopItemOptionInfo info{}; info.ItemKind = LEGACY_SHOP_ITEM_INCANTATION;
+                    info.ItemIdx = variant ? cases[kind].hk_variant : cases[kind].base;
+                    ShopItemOption stats{}; CalcShopItemOptionSideEffects effects;
+                    ASSERT_EQ(calc_shop_item_option(stats,info.ItemIdx,add,17,info,env,0,effects),
+                              CalcShopItemOptionStatus::Ok);
+                    const bool eligible = locale == ShopLocale::HongKong ||
+                        (!variant && (locale == ShopLocale::Japan || locale == ShopLocale::Thailand));
+                    SCOPED_TRACE(static_cast<int>(locale));
+                    SCOPED_TRACE(info.ItemIdx);
+                    SCOPED_TRACE(add);
+                    EXPECT_EQ(effects.expanded_inven_slot,eligible && kind==0);
+                    EXPECT_EQ(effects.expanded_pyoguk_slot,eligible && kind==1);
+                    EXPECT_EQ(effects.expanded_mugong_slot,eligible && kind==2);
+                    EXPECT_EQ(effects.expanded_character_slot,eligible && kind==3);
+                    EXPECT_EQ(mxh::game::encode_shop_item_option(stats),mxh::game::encode_shop_item_option(ShopItemOption{}));
+                }
+            }
+        }
+    }
+    EXPECT_EQ(CalcShopItemOptionEnv{}.locale(),ShopLocale::China);
+}
+
 TEST(ShopItemOptionLayout, AvatarArrayIs23Words) {
     ShopItemOption s;
     EXPECT_EQ(s.Avatar.size(), 23u);
@@ -64,6 +101,25 @@ TEST(ShopItemOptionLayout, AvatarArrayIs23Words) {
 TEST(ShopItemOptionLayout, SkinItemArrayIs5Words) {
     ShopItemOption s;
     EXPECT_EQ(s.wSkinItem.size(), 5u);
+}
+
+TEST(ShopItemOptionLayout, WireMatchesPackedLittleEndianReferenceIncludingSignedBytes) {
+    const std::uint16_t endian = 1;
+    if (*reinterpret_cast<const std::uint8_t*>(&endian) != 1)
+        GTEST_SKIP() << "Packed source reference fixture is little-endian";
+    // Every byte differs, with signed chars and DWORD high bits exercised.
+    // The original packed SHOPITEMOPTION ABI is the reference, not the encoder.
+    std::array<std::uint8_t, 120> reference{};
+    for (std::size_t i = 0; i < reference.size(); ++i)
+        reference[i] = static_cast<std::uint8_t>(0x80u + i);
+    ShopItemOption option;
+    std::memcpy(&option, reference.data(), reference.size());
+    EXPECT_EQ(mxh::game::encode_shop_item_option(option), reference);
+    EXPECT_EQ(option.Avatar[0], 0x8180u);
+    EXPECT_EQ(option.Gengol, 0xafaeu);
+    EXPECT_LT(option.ProtectCount, 0);
+    EXPECT_EQ(option.wSkinItem[0], 0xebeau);
+    EXPECT_EQ(option.dwStreetStallDecoration, 0xf7f6f5f4u);
 }
 
 //---------------------------------------------------------------------

@@ -103,6 +103,8 @@ TEST(FilesystemFileStorage, Map10TerrainAndStaticDependenciesArePresent) {
     const auto stmBytes = read("10.stm");
     ASSERT_FALSE(hflBytes.empty());
     ASSERT_FALSE(stmBytes.empty());
+    EXPECT_EQ(hflBytes.size(), 1188682u); // original Map.pak entry, never the 137030-byte loose placeholder
+    EXPECT_EQ(stmBytes.size(), 3622560u);
     mxh::compat::HflHeightField hfl;
     mxh::compat::StmStaticModel stm;
     std::string error;

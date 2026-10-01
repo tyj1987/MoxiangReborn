@@ -1,0 +1,21 @@
+{
+  "schema": "moxiang.blender-export-receipt.v1",
+  "generated_utc": "2026-09-28T02:47:44.236179+00:00",
+  "asset_id": "MX_ENV_WUGUAN_BRAZIER_001",
+  "category": "Environment",
+  "source_file": "MX_ENV_WUGUAN_KIT_001.blend",
+  "source_sha256": "9b43fb32590dc1e97696e4baa5aee0e98fecb17e33e15c614c9f15e0bbc17938",
+  "export_file": "MX_ENV_WUGUAN_BRAZIER_001.fbx",
+  "export_sha256": "6da5cb6aa5db4a474acbd27e60f0cfe33f9ab32f9d8acb81e8f7b784594df44c",
+  "blender_version": "5.2.1 LTS",
+  "scale_meters": 1.0,
+  "forward_axis": "-Z",
+  "up_axis": "Y",
+  "objects": [
+    "MX_ENV_WUGUAN_BRAZIER_001",
+    "MX_ENV_WUGUAN_BRAZIER_001__BOWL_LOW",
+    "MX_ENV_WUGUAN_BRAZIER_001__BOWL_RIM",
+    "MX_ENV_WUGUAN_BRAZIER_001__FOOT",
+    "MX_ENV_WUGUAN_BRAZIER_001__STEM"
+  ]
+}

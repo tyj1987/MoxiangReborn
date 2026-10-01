@@ -6,5 +6,8 @@ namespace Moxiang
     public sealed class TargetSelectable : MonoBehaviour
     {
         public uint objectId;
+        public bool isNpc;
+        public uint visualKind;
+        public string displayName;
     }
 }

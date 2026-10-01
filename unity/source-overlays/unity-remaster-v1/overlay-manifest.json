@@ -1,0 +1,3222 @@
+{
+  "schemaVersion": 1,
+  "profileId": "unity-remaster-v1",
+  "kind": "development-source-overlay",
+  "releaseAllowed": false,
+  "assetCount": 241,
+  "inventorySha256": "a6af69a42c0d0352bc393d1a7839c58cc401b2c63e3ba8553c4ea4c23a9afe60",
+  "assets": [
+    {
+      "stableId": "mxh:a9288166a90ad8b840780b4bf6fa470e8544400ba072a9ac6afc8a716ffb4779",
+      "logicalPath": "Image/LoadingMap/maploadingimage000.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage000.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage000.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b0db1454d2e7c4c4f0a1baae3d2dba1f54545763741c2c19b360484ca6d34187",
+      "logicalPath": "Image/LoadingMap/maploadingimage001.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage001.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage001.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0002d3289894d7c05b9fd6b185ac6213d666b2b145c790402f8bb4360f845260",
+      "logicalPath": "Image/LoadingMap/maploadingimage002.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage002.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage002.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:464909cb03ff6229772c8c21307318de6eb205f428c87c3f7532595e071ba01f",
+      "logicalPath": "Image/LoadingMap/maploadingimage003.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage003.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage003.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:70c94014da0e7367079ef2af556bb7bda82493db02d90bcfff9e317accd799c2",
+      "logicalPath": "Image/LoadingMap/maploadingimage004.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage004.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage004.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:91aaa5f232645e196f330f2863be879e93d95e4782dafc7f177245b483a06a4d",
+      "logicalPath": "Image/LoadingMap/maploadingimage005.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage005.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage005.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d07b2aee49aae01cce1908e85559b5e466f821079e4cdf9a80a361dc5ebb6fc7",
+      "logicalPath": "Image/LoadingMap/maploadingimage006.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage006.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage006.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a550c921e3073c46d06d14f75e8fac28387862ea9500c683c7674324d113962a",
+      "logicalPath": "Image/LoadingMap/maploadingimage007.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage007.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage007.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d7241c256227a32ab879b15b7fc5e99e28bea0ca6d062718e89301a18e7360a0",
+      "logicalPath": "Image/LoadingMap/maploadingimage008.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage008.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage008.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:70e9d82ab8dea20941687efdc4adac43d63a9f39fe06046682e2459379f8f66b",
+      "logicalPath": "Image/LoadingMap/maploadingimage009.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage009.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage009.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:c684ec5ff9693fb262dc935ec24c5b48ada7f881f88fa5e5185f9b639a6ea609",
+      "logicalPath": "Image/LoadingMap/maploadingimage010.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage010.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage010.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:cad656256b11ec7cf488dd0ce8553ed249c03c5e69f60e78c2d65ea6564ea70d",
+      "logicalPath": "Image/LoadingMap/maploadingimage011.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage011.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage011.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:82c2460d492c896c57e0593985ae6fd4f053968ed36d1576b40cafe064b0ef49",
+      "logicalPath": "Image/LoadingMap/maploadingimage012.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage012.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage012.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:850fe1bc4bcc307168ac8d4fc94368e535a4218a15be3f831e90a5d2e17223f5",
+      "logicalPath": "Image/LoadingMap/maploadingimage013.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage013.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage013.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3ad2a8e96abf5320ff3aef5bb0ed9be3dd41e8cfc71bb9214ea4fb55dd3fad78",
+      "logicalPath": "Image/LoadingMap/maploadingimage014.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage014.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage014.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0529d0579c4da51803c200daddc2e61bb9da3f6d14bd8c7c69204145f2ec7c51",
+      "logicalPath": "Image/LoadingMap/maploadingimage015.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage015.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage015.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:ac811fae2c5ea13ccd409429c08800fb844f244cab18382ec3d1cc273dc7d641",
+      "logicalPath": "Image/LoadingMap/maploadingimage016.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage016.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage016.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8c0fc18bae3ab98f38827e5ffcffa125f1c9759e364313d65e0bf8b27bc9790f",
+      "logicalPath": "Image/LoadingMap/maploadingimage017.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage017.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage017.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:db6b6ebe63f4380fb26281c1eca741ca480a27c0021cf202dfa1cb7a4f821e1d",
+      "logicalPath": "Image/LoadingMap/maploadingimage018.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage018.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage018.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1a520bbe0fdc4e7ce2a8453265a5168021e27a453b1396077330b8e8574b7198",
+      "logicalPath": "Image/LoadingMap/maploadingimage019.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage019.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage019.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:24401346e95e84697d823b6c3bbfd00eea52bfd24110000dea693c4a6d3bd6c5",
+      "logicalPath": "Image/LoadingMap/maploadingimage020.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage020.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage020.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:2ccfde393187393cd8815c6c17f03c5349876bb92c18650c326221b045746ea7",
+      "logicalPath": "Image/LoadingMap/maploadingimage021.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage021.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage021.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:e360ee36ca79bc63b99a2c8978a0cc5bd20bcf9ad5e0197ab80f726aaf4ef983",
+      "logicalPath": "Image/LoadingMap/maploadingimage022.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage022.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage022.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8844380ca0145645a31f473c8780f325d08d6fdfd22c19089572a76396489aaf",
+      "logicalPath": "Image/LoadingMap/maploadingimage023.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage023.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage023.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:2f18ae2a041a571b840b9f6eee0ddd49959a96f36c23e870e31937867d73dbf4",
+      "logicalPath": "Image/LoadingMap/maploadingimage024.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage024.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage024.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f40fb82699a10de4dba5d910d3f3da3914a0fae24d554904a3be027ea715f769",
+      "logicalPath": "Image/LoadingMap/maploadingimage025.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage025.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage025.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:54a9f65c09656a17ad43b2689dd00336b6c1aef6335589fa31c2e195eb8da84c",
+      "logicalPath": "Image/LoadingMap/maploadingimage026.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage026.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage026.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a0afc453c48dea1ba175fda2d8b013ebfa2f05c1e58761bcff7791af7ea2426c",
+      "logicalPath": "Image/LoadingMap/maploadingimage027.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage027.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage027.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1415882c316523bc3bba47868af4c5ee10e297afcd342e41694d4495db6527ee",
+      "logicalPath": "Image/LoadingMap/maploadingimage028.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage028.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage028.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f55fed937ea10fea9d089e207b6c23a019642dd6706dc41b017baf3a110d900a",
+      "logicalPath": "Image/LoadingMap/maploadingimage029.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage029.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage029.dds",
+      "bytes": 2359424,
+      "sha256": "17ca8c7035a28c1e601835bddcbac71bee2a1bae280f1e4c3eebd99dabc4ae46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b67809c8cb14fd49244e2202a4d49b6b3cab63cbf2cb5387998d3dc2cb088b8e",
+      "logicalPath": "Image/LoadingMap/maploadingimage030.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage030.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage030.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f481121e5ff7c7ba2ea5deedde4f3b53792b396f71f767ac49844cdb9499e32a",
+      "logicalPath": "Image/LoadingMap/maploadingimage031.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage031.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage031.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5382fc87550860a507cda008ef33979569b777f1f718a0be5b57034af4dd7191",
+      "logicalPath": "Image/LoadingMap/maploadingimage032.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage032.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage032.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f519bf5b6e6e706515f9c52d78a19b48f490d447168f70e4482d50111100e336",
+      "logicalPath": "Image/LoadingMap/maploadingimage033.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage033.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage033.dds",
+      "bytes": 2359424,
+      "sha256": "17ca8c7035a28c1e601835bddcbac71bee2a1bae280f1e4c3eebd99dabc4ae46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4087132f69a14a9d3d4b601ec990b43be6c510c7f5935aa393783b9fb1d2ec8b",
+      "logicalPath": "Image/LoadingMap/maploadingimage034.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage034.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage034.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:dea152bd5f01b3d3b37b8a7998c3a96a79cd030289409da8439ef570b7cebdea",
+      "logicalPath": "Image/LoadingMap/maploadingimage035.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage035.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage035.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f3dd13c4b8ec25056acbac2b4b97bbcf70e044efe10aabe8a3e9c75585c23552",
+      "logicalPath": "Image/LoadingMap/maploadingimage036.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage036.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage036.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b4df19ff0793546fb88e7d3bddfd99c9821db5c04dd50aba0dedcb7ad28aacdd",
+      "logicalPath": "Image/LoadingMap/maploadingimage037.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage037.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage037.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1a480fde65c63941dcd4e020553f86af4b2ebaf63364fb7e2f61f7ac0cdb2698",
+      "logicalPath": "Image/LoadingMap/maploadingimage038.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage038.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage038.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:65993b609c6ef92f48d9c649b1a32228dcde218e2d876cfce7ccf566d03c88eb",
+      "logicalPath": "Image/LoadingMap/maploadingimage039.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage039.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage039.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8fa7e01b03c1d0a727fc6032fb7f11b2d2865b0843534461e2d3bf46af00eb7a",
+      "logicalPath": "Image/LoadingMap/maploadingimage040.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage040.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage040.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:534625f50d70e43affaa239f0e3a6b662393d29d40d7f2b49326187e69ecd064",
+      "logicalPath": "Image/LoadingMap/maploadingimage041.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage041.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage041.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5ccd3787e0e34e196bc9ec5a0b613ac0a8b62e49db9b596369e8d8bb29be4b14",
+      "logicalPath": "Image/LoadingMap/maploadingimage042.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage042.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage042.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:00176aae4b1d647a8e878eea8b57311bcdb608b87b71459da100aa82dc949685",
+      "logicalPath": "Image/LoadingMap/maploadingimage043.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage043.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage043.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:17835a717302edfae399d70564bd959154d5771e7bd45cbc5822472738d8f534",
+      "logicalPath": "Image/LoadingMap/maploadingimage044.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage044.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage044.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:eb5b526e65aa36825b4911383ec4f28828db37249596eeefa7b8118be4a49f4f",
+      "logicalPath": "Image/LoadingMap/maploadingimage045.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage045.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage045.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9beda18e8b166547a1e9a7e7e174d0934ba6de09c999afe2f3d98c0c4a8be93f",
+      "logicalPath": "Image/LoadingMap/maploadingimage046.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage046.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage046.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d9fae29ffe172e649fbd7e577cc6f2adcbe8f9983aa4bdc4b34b1b0d9cd79bbf",
+      "logicalPath": "Image/LoadingMap/maploadingimage047.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage047.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage047.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:10e1dd119243b80874143c101351fae4c289e7b56cf7465597b202b88fc1df78",
+      "logicalPath": "Image/LoadingMap/maploadingimage048.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage048.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage048.dds",
+      "bytes": 2359424,
+      "sha256": "17ca8c7035a28c1e601835bddcbac71bee2a1bae280f1e4c3eebd99dabc4ae46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a2c3146a984996da2c102113926bb8f56c6bd5aeb94d97784a845161af1b02e6",
+      "logicalPath": "Image/LoadingMap/maploadingimage049.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage049.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage049.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:e45df3d72ca1d688ba60d2bcf3eaf0229626cdde953d137453c0998fa228f4c7",
+      "logicalPath": "Image/LoadingMap/maploadingimage050.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage050.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage050.dds",
+      "bytes": 2359424,
+      "sha256": "17ca8c7035a28c1e601835bddcbac71bee2a1bae280f1e4c3eebd99dabc4ae46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:803aec1dccc0a68ec1af624db06baeca94047f54dfa69fa4809271a9a3b9372f",
+      "logicalPath": "Image/LoadingMap/maploadingimage051.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage051.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage051.dds",
+      "bytes": 2359424,
+      "sha256": "17ca8c7035a28c1e601835bddcbac71bee2a1bae280f1e4c3eebd99dabc4ae46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:835e97bd45a39341db201b8e95ecf646019fa96cfa2378694e1c86fa16b58663",
+      "logicalPath": "Image/LoadingMap/maploadingimage052.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage052.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage052.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:ed931f76f01f551df6aac9e74d250126665fdaf367a6fad748fd2cb9d43da29d",
+      "logicalPath": "Image/LoadingMap/maploadingimage053.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage053.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage053.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1ea07248d815e9ec146f8ecb3299127700f1f1e281108d6724ab5a8569b87dc5",
+      "logicalPath": "Image/LoadingMap/maploadingimage054.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage054.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage054.dds",
+      "bytes": 2359424,
+      "sha256": "2c609657d93d8077d603de0d01c4a1ae3009df29fb0b2fa93b17fd0e458a1711",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5993572456f044bbea1da4f0d21f7dcfefd62ba2f845b1494adf3a3d816f83c9",
+      "logicalPath": "Image/LoadingMap/maploadingimage055.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage055.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage055.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8ea651db504e9317668f32fdb943a389711fc6515dfb30ac0fede1ee728dda87",
+      "logicalPath": "Image/LoadingMap/maploadingimage056.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage056.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage056.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:142c2ed19323be3e750673399c8861810e0aa507f955d5ac81e0807bc2105e54",
+      "logicalPath": "Image/LoadingMap/maploadingimage057.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage057.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage057.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8865d05c2cd627a1e0b821323b231a6109a17fcc9e5783c39546da06278d0473",
+      "logicalPath": "Image/LoadingMap/maploadingimage058.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage058.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage058.dds",
+      "bytes": 2359424,
+      "sha256": "cd2e09bc1f211edddc45b029ae7fa791a4881bd1abfb63d635d73c5f1c0e2d46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5ce48aae944ebc2235f2b4acfbedddcfa120a31c5940093632ee1f08919a79ac",
+      "logicalPath": "Image/LoadingMap/maploadingimage059.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage059.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage059.dds",
+      "bytes": 2359424,
+      "sha256": "17ca8c7035a28c1e601835bddcbac71bee2a1bae280f1e4c3eebd99dabc4ae46",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:76aed47a033236a61627fa9103826be0bd118d0842955fd3479608c7a3eb9849",
+      "logicalPath": "Image/LoadingMap/maploadingimage060.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage060.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage060.dds",
+      "bytes": 2359424,
+      "sha256": "2c20d9ad00ab3417062c3a59859d302a873128a79a9e0598bfaec740cf104410",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:823433967196fe9572b1a4ad79a3509f682189f2460819986901a5a1c74330c4",
+      "logicalPath": "Image/LoadingMap/maploadingimage061.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage061.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage061.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4edaef1cf70512aa28fbe0ee402288c4a038d90cf178e0144d7ad0d8767d109f",
+      "logicalPath": "Image/LoadingMap/maploadingimage062.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage062.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage062.dds",
+      "bytes": 2359424,
+      "sha256": "cd18a13751dabb04a5b963d229c4f5bb82f2f7928c777131fbc4505a855fb951",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b034bed6e37fb415d611daad467d0360ed731dbd71a2f6288ef084c11d718604",
+      "logicalPath": "Image/LoadingMap/maploadingimage063.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage063.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage063.dds",
+      "bytes": 2359424,
+      "sha256": "5f47da59f4eaedb92027ede528cf2491639c651a0c072e835b1e67a735f8d481",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1a37c2143857240bd2b0ed0093347a340de2c46ddf69ea5cf403fd7824d9a993",
+      "logicalPath": "Image/LoadingMap/maploadingimage064.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/LoadingMap/maploadingimage064.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/LoadingMap/maploadingimage064.dds",
+      "bytes": 2359424,
+      "sha256": "3b8cbdeb4451009833cd78df828b9444899053d3fb109514651712e8bf3b240d",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:954505b5851863c81502083a7679dd881b4d9fb8e91adf653363cd3b074749f6",
+      "logicalPath": "Image/MiniMap/mini_0.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_0.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_0.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:65b08ea8e6c230db39a3db925184fd7e70b2ab8ce1e67c57d2a18894c158caa5",
+      "logicalPath": "Image/MiniMap/mini_0_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_0_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_0_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:74cc588510fb9bb0b89262a92a3f482f8f377dc5297daffe78e4dadbfa4e3207",
+      "logicalPath": "Image/MiniMap/mini_1.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_1.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_1.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:855fe6f79b4add2f0297732cdced7fd3bbe10372ce058d89a9595d2bef3cb686",
+      "logicalPath": "Image/MiniMap/mini_16.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_16.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_16.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:2486a5a4e7a4bac3a87ff5cbc7dd63b8c0ed8c284beab84b810d7ebe7176ec8d",
+      "logicalPath": "Image/MiniMap/mini_16_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_16_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_16_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3b336b2ae5e767c0adff1e1c564bee4231248da483855a860f470317285687a2",
+      "logicalPath": "Image/MiniMap/mini_1_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_1_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_1_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f99d4e357e885dff4a2ebeb5197f3c29074556a79fdc5b56d9934f5322e21959",
+      "logicalPath": "Image/MiniMap/mini_2.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_2.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_2.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:cc84bb8e7f7f17aebe4ec0fc5538b1dffd37d312e130a485548fcd26831e754f",
+      "logicalPath": "Image/MiniMap/mini_23.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_23.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_23.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:741f8ddc1f4d6154fe742acd575772edb235d61f1d30084c8df8dcfea1b89fbc",
+      "logicalPath": "Image/MiniMap/mini_23_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_23_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_23_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:04e3021dc7ef2bb642a109050838c05ff332566cef16e50c1ab50f5fc3db1b17",
+      "logicalPath": "Image/MiniMap/mini_24.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_24.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_24.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4a22e08386844135cbdb39349b7d941b10ec78052b7d8d27ad94fbaba74c3dd1",
+      "logicalPath": "Image/MiniMap/mini_24_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_24_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_24_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:abc186569c560252a4625ff4942a97ef736e0612e94b69946c0d2b4701b7c6dc",
+      "logicalPath": "Image/MiniMap/mini_26.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_26.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_26.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:736d00f8c3b6364d9af0b3f6accb4a3618638280a0a039e5a0755c44bd3cd843",
+      "logicalPath": "Image/MiniMap/mini_26_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_26_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_26_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d0f4e51bd343cb223dd5a6aeafc123f954f63f3a41b7776bd605185ad8f0b900",
+      "logicalPath": "Image/MiniMap/mini_27.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_27.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_27.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:488ad3c94ae197eb2a693fcedc405587a7a3262d4891cdc8f9d51558ccca10d8",
+      "logicalPath": "Image/MiniMap/mini_27_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_27_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_27_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:ce3d7307d3a72b8ef2e851324ec763e75f23f0a5886193d7949a3e1677dce506",
+      "logicalPath": "Image/MiniMap/mini_28.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_28.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_28.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d11f6525485fadc5b9c64fbad69ba9fae108564c94c81e9a0e14d4b710249c84",
+      "logicalPath": "Image/MiniMap/mini_28_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_28_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_28_ful.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d661a83dcc11b0275714a789119c1eb5bc7746c6c9ae908cff1c79bf18da4f89",
+      "logicalPath": "Image/MiniMap/mini_29.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_29.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_29.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:47b8c5bbec1187c51b450fae5ef653ea35aa09fedd1f51bbd6e09264d88b4793",
+      "logicalPath": "Image/MiniMap/mini_29_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_29_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_29_ful.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:00a62770b194914cdf4b901c3d6bc59de2f8178a6b38d4ea20df7e06dc7037f4",
+      "logicalPath": "Image/MiniMap/mini_2_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_2_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_2_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b6af1b67ae6f8110dea42815759d5cb61f45a45ca3a680b19bd09d8ce6b06fb8",
+      "logicalPath": "Image/MiniMap/mini_3.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_3.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_3.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5156ec354545fa41039cfbdbea4df081cdd5fd6fee2355772c344aa4faaba0e5",
+      "logicalPath": "Image/MiniMap/mini_30.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_30.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_30.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3da8c59aa70f2a057214c57da5203c152ddb87d956f131a28d4e83de12bacf26",
+      "logicalPath": "Image/MiniMap/mini_30_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_30_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_30_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5cc00b5d689ae9e70068bf1e537de5d5f21bc71bf40ed50b8db0c83ed55e8870",
+      "logicalPath": "Image/MiniMap/mini_31.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_31.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_31.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:452ae7cd2c45ad40f512192b32cea828a05f79acf535e4ece85960a2b7dcae33",
+      "logicalPath": "Image/MiniMap/mini_31_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_31_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_31_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4f45533b8df213e543db9a29921b24c6c384380d0dab2c6b3f902cca06569266",
+      "logicalPath": "Image/MiniMap/mini_32.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_32.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_32.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:edffaecf44f650d2be6bedf317a737b096693855d336c831f8e9629c64d588dc",
+      "logicalPath": "Image/MiniMap/mini_32_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_32_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_32_ful.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b01e26f00fe9251eaa7d28642ab8a4ec48e9a2f70a95c13b4fd2cf15b217f626",
+      "logicalPath": "Image/MiniMap/mini_33.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_33.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_33.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:595a9333f7cd66476fef0eac3f7c8f1d0bd0e026579f1ee5351810668e734c51",
+      "logicalPath": "Image/MiniMap/mini_33_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_33_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_33_ful.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:19fb97263d217f1849c92c9c6c531dd28ef54f707b1115d5490bed709d8f6325",
+      "logicalPath": "Image/MiniMap/mini_34.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_34.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_34.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d64dd58f2f9418eb7cb17077c756eb6c0d736c5ec002d1a629aaa4d5802a10c0",
+      "logicalPath": "Image/MiniMap/mini_34_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_34_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_34_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:7fd5c7d572c31a8b2607edb8c5b1dc73120d7a5ddbcf0b63c077d26c131a8520",
+      "logicalPath": "Image/MiniMap/mini_36.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_36.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_36.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d2d455cb782f2cbc1e7eced9249967248a0900ffe59ba37d15998398a56bfe5e",
+      "logicalPath": "Image/MiniMap/mini_36_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_36_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_36_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:e442e768b1bce52382cbdbd7c5018d5bd067025e57c34cf20cf62dbf911f6bdd",
+      "logicalPath": "Image/MiniMap/mini_37.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_37.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_37.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:69ac919583837024cea26fd60f00e415b1e6f712405d2c808ca8d9f6fab2ec98",
+      "logicalPath": "Image/MiniMap/mini_37_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_37_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_37_ful.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:171e1bf05bbcee01e28bb1739151541d4b433605e6ffd819c3304abd26c2c35e",
+      "logicalPath": "Image/MiniMap/mini_38.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_38.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_38.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a9f90a0b5755907d215e1c97482a4c6f349afa5dcfdb7fe0b84bcc8ad1802f16",
+      "logicalPath": "Image/MiniMap/mini_38_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_38_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_38_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8c3df6ff244bd8b72adf0e7be1753f9b904ca7d419633a9e6075f90d52b989bd",
+      "logicalPath": "Image/MiniMap/mini_3_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_3_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_3_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a54568c1f2d6260670b673eb2d1947b99fdf93b568018dd8774ceb972d726170",
+      "logicalPath": "Image/MiniMap/mini_4.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_4.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_4.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:364f72441c48be54adbb06fa6b104e811257401ccc2c0577c1195ff057a6d9a8",
+      "logicalPath": "Image/MiniMap/mini_41.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_41.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_41.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3d46da86d22b2be817f24e1e3faaf899139faf28581b46156adc4bfb3b5181c4",
+      "logicalPath": "Image/MiniMap/mini_41_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_41_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_41_ful.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5db48a0bd6078e5c36dc8bfb3efc291483a1d9242055ca07c42bf24d738d055c",
+      "logicalPath": "Image/MiniMap/mini_42.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_42.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_42.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:e575e8078c2b641fee747c48d76d559378847a0b6534f14ef64fa5b38f05cc16",
+      "logicalPath": "Image/MiniMap/mini_42_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_42_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_42_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d37f5a94088566a1d20e81e099dc2d159b26aa8fd9f81180ee5a01f2498209d7",
+      "logicalPath": "Image/MiniMap/mini_43.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_43.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_43.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:c15371431ca944efcf3b4dd8253e95652d52c5f94f52b911c2b56422bf2dcc7e",
+      "logicalPath": "Image/MiniMap/mini_43_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_43_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_43_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:474ed20fbf3b0e65f865e36d327cc8e1697a7d09cb3a192888e3681861fe771e",
+      "logicalPath": "Image/MiniMap/mini_44.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_44.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_44.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1aef9c6a83fe0b04488f9ef3da840723e04f577f8dcff1014077a38e44e187f0",
+      "logicalPath": "Image/MiniMap/mini_44_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_44_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_44_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:7aa52d9f307244e185f02403d9e864d0abe49ed5ee891795bdfbd42e9bd65c32",
+      "logicalPath": "Image/MiniMap/mini_45.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_45.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_45.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:c183ad24e2393355972ed5ec45f905bbdfbf86a5b34303581894c32c577fe71b",
+      "logicalPath": "Image/MiniMap/mini_45_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_45_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_45_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:c4b9324c506f69ead4fb01ade6f797bbb25ad4b9969011441d6177d81672f910",
+      "logicalPath": "Image/MiniMap/mini_46.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_46.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_46.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:798109f34812d5ea8fd461251d6c517bdca78d3b9fb62b4de76f7c87779aa334",
+      "logicalPath": "Image/MiniMap/mini_46_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_46_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_46_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:188f10ebe639b72cbdf0e9ee3adcc1c2a8b0616ad4e625e80b0b39a7286134b5",
+      "logicalPath": "Image/MiniMap/mini_47.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_47.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_47.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:15dd5220a580f7537550a2aa1350ca278697443a5285586ea4ca95870322d5cb",
+      "logicalPath": "Image/MiniMap/mini_47_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_47_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_47_ful.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:7ad3b0da6edf85e4713e66eedf316ffd96a3bcab0f079971c1f29633d6842261",
+      "logicalPath": "Image/MiniMap/mini_48.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_48.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_48.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:7d294834de1e7e20f335682296cf25e235bd2f0ba006a70fb7f1b1d1fd2c2a6b",
+      "logicalPath": "Image/MiniMap/mini_48_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_48_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_48_ful.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:853e4d862120f0e51d444ad9664b1e6d3cebe6221d13a7e06d855ab179b83e01",
+      "logicalPath": "Image/MiniMap/mini_49.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_49.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_49.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:299e768eb904c135c52113676bb5f0037d7863321bd418985eefa9ff44522abb",
+      "logicalPath": "Image/MiniMap/mini_49_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_49_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_49_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0614c8378247a710fcb486e2d7615ad8ac4ccf53fdd3ae9942dbcfe1e99c668e",
+      "logicalPath": "Image/MiniMap/mini_4_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_4_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_4_ful.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:85b02b77640e116a6401b48dd91e745a82a35c70444d463e46b03ba8cab5eb3d",
+      "logicalPath": "Image/MiniMap/mini_5.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_5.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_5.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:90d72d080f2ec58d01ac2d41fb160b2171ac8a4b795db479a19c0df42c871e9e",
+      "logicalPath": "Image/MiniMap/mini_50.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_50.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_50.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1e495efdb67572bfd700b5a56067027d10564a10f987646ff4f92a88ac3b82e2",
+      "logicalPath": "Image/MiniMap/mini_50_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_50_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_50_ful.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:72bfe0562cd1261394956316a03c4779a3d50705e40a84760519eda38dad3bd3",
+      "logicalPath": "Image/MiniMap/mini_51.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_51.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_51.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:66e0df4dbe66b53d51e72e21a21efbb70701948baccf9fe58f653c1328b1ed78",
+      "logicalPath": "Image/MiniMap/mini_51_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_51_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_51_ful.dds",
+      "bytes": 196736,
+      "sha256": "cfbe1509935acf1262be1fe5528c967aa648ee1d490a74dfbd69e73b89bdef73",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0d30f1f2a971f78b26733097a9072d7bac9d8a234b0cfbde6b322cb80c9f11ef",
+      "logicalPath": "Image/MiniMap/mini_52.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_52.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_52.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f8751dc9f889598852bad4a8312ba3e324455ebdea121b972a5ee8abe871166b",
+      "logicalPath": "Image/MiniMap/mini_52_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_52_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_52_ful.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5b0085893b9ce890342989e575583eaa6c394fdc51b6043dde9baf35fea97660",
+      "logicalPath": "Image/MiniMap/mini_53.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_53.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_53.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a2c3d710d51764f8aa9e5410fd0fd98234053bef7979db2a3ae08f260c2f9b71",
+      "logicalPath": "Image/MiniMap/mini_53_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_53_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_53_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3c1de8a949e63026472bf08f8dc8299f41e0493c0498d9ad2ee9418a7d8f4483",
+      "logicalPath": "Image/MiniMap/mini_54.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_54.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_54.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:706bdc4c364898184d26fb32ecb746405127b5f4c8111ba9f7cdcf50bb867239",
+      "logicalPath": "Image/MiniMap/mini_54_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_54_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_54_ful.dds",
+      "bytes": 196736,
+      "sha256": "bc8c89b1302904c1ecac7cb766b8093de23d9250d8f07ef011a4dc5ad527c776",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:67a1996c9f41d853f33653adccabac8c7be36ede1e66cc54f966250d9e6c22d2",
+      "logicalPath": "Image/MiniMap/mini_55.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_55.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_55.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4d3ce064896d10b3debdc47166e4086dd006b9bd32fcf7dee42f2f62b27a8d8b",
+      "logicalPath": "Image/MiniMap/mini_55_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_55_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_55_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:414b4ef0940a84afaf3ad0978f53237da966f9b9f846791b29685f2096df17a7",
+      "logicalPath": "Image/MiniMap/mini_56.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_56.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_56.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9b19d810dac1fdf0fe9db22212352a910c51e92eeaff6b7e20869f61009099b0",
+      "logicalPath": "Image/MiniMap/mini_56_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_56_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_56_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:59ea8e272286e4f5606d9fdb3b6bb4287eea641d0a3246e49e1d5abef5081b70",
+      "logicalPath": "Image/MiniMap/mini_57.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_57.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_57.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b27b1129d0646470b59e01c3ea5d9d169f4e48c55eebd7d1b67a3fb6f1550363",
+      "logicalPath": "Image/MiniMap/mini_57_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_57_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_57_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:45744456da0e86a65a22936b1fea9e8085b76b292e134cbb83bb25d754403e2e",
+      "logicalPath": "Image/MiniMap/mini_58.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_58.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_58.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f870004660e7c3f2392151e0e74bce85e4a7e167417e9d7198b32cbb95fb3728",
+      "logicalPath": "Image/MiniMap/mini_58_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_58_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_58_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4790ca631bc26ec4e702336c18a9c95a117ba1792ba24c29c8a7e4361277297d",
+      "logicalPath": "Image/MiniMap/mini_5_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_5_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_5_ful.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0bba3d188e99226e6ac851def31c855ac59d099ea98fceb7ed277acd10313ff7",
+      "logicalPath": "Image/MiniMap/mini_6.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_6.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_6.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0b872b0cbfcfbb7342f8eacb796deb94a9a8e0178060ff38e9f78d8b21ea8a95",
+      "logicalPath": "Image/MiniMap/mini_61.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_61.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_61.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:192a8d108ebd0b05c9b202d899c8ac2dff9c86ffb7565d757fe866afe5facfa2",
+      "logicalPath": "Image/MiniMap/mini_61_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_61_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_61_ful.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:878541650f5467e5107bab6ff4c03f7c8ac0e5c81978788d75625b45a9311f6f",
+      "logicalPath": "Image/MiniMap/mini_62.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_62.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_62.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8a8881c05936c5e13f647da8d8f8db038fbfc679a46ad9a5c5169a9d17d1cbe1",
+      "logicalPath": "Image/MiniMap/mini_62_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_62_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_62_ful.dds",
+      "bytes": 196736,
+      "sha256": "06fb8e2fa4ec1e73462c6b2f390b122e972504e9012ec2c8c528e9b97766ff84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:56acbd8ad66f7e6aa514da4e9f8da5ae6ec0b5fcc82234a56be87186224f3a16",
+      "logicalPath": "Image/MiniMap/mini_63.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_63.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_63.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a46a0d74ae8bbb2490260fd17eec1c093e67e46765d9486a6131b4b48a7de042",
+      "logicalPath": "Image/MiniMap/mini_63_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_63_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_63_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8f3f1a7445b69ab0a6362d513e01d0458a55c792d8ee6de24ba93332595b3781",
+      "logicalPath": "Image/MiniMap/mini_64.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_64.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_64.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4d4ae0f45ccbd193a86f300b6226526461894091356d2852e30fe44e900f1643",
+      "logicalPath": "Image/MiniMap/mini_64_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_64_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_64_ful.dds",
+      "bytes": 196736,
+      "sha256": "7e33be66590863d0185b13eacc49a3c52eae32a31e77d385541e9800e20b37f2",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:af25fc255841f42b7ad2123b80c12f4fefe1453bc9269387a52ba02fbaf48a57",
+      "logicalPath": "Image/MiniMap/mini_6_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_6_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_6_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:00823942f7a4ea182afee7bd41eedada5ef51679bc63d3af68caf6956d43f7fe",
+      "logicalPath": "Image/MiniMap/mini_7.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_7.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_7.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9a1a401d6d3d13dd8147aa3e4501d21643c1e768762d4288d8c5ecda9bf59858",
+      "logicalPath": "Image/MiniMap/mini_7_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_7_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_7_ful.dds",
+      "bytes": 196736,
+      "sha256": "61832631404ca48cac1c796c1fcd8dff449fef0be8836a65e9f508d6a17d350e",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0a5a238e2657f60771cf8bc569626bf7405ce4b4118c3f31f80e7f0f893629c1",
+      "logicalPath": "Image/MiniMap/mini_8.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_8.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_8.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4ea9b9afc8e5113f3501f3296ba49f52bd3b6075e7d57c28c8dd70fa5124a14a",
+      "logicalPath": "Image/MiniMap/mini_8_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_8_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_8_ful.dds",
+      "bytes": 196736,
+      "sha256": "9a8dbbbc98f32ad5becf41e7179eee5aa2ee1b8ffb90d6d787e506bc7fc19581",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3ca7908e92e4ae2a0a0b2a016be4404c07ea2f4e5643f9a1978235988bec01f8",
+      "logicalPath": "Image/MiniMap/mini_9.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_9.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_9.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f5de18027953b3533bb284f1a3345857b0bba86d0f5fbf22b4e614ef013541e2",
+      "logicalPath": "Image/MiniMap/mini_9_ful.dds",
+      "originalLoosePath": "modern/data/PlayDH/Image/MiniMap/mini_9_ful.dds",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Image/MiniMap/mini_9_ful.dds",
+      "bytes": 196736,
+      "sha256": "910dbec6a96ad39ef318ef112f318f886edf58e58fd807852ab476b2bc07ed84",
+      "classification": "generated-ui-placeholder",
+      "converterVersion": "polish-assets-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:54eb4ad152b473479171e5acd9ed27fc5bb0c25e9950e60098ac6fc1175e7f9c",
+      "logicalPath": "Resource/Map/0.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/0.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/0.hfl",
+      "bytes": 137030,
+      "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:c2abf5162b6a296a0e95af512fc8837f51ea990eea0f811c6a4af17fde917689",
+      "logicalPath": "Resource/Map/1.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/1.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/1.hfl",
+      "bytes": 137030,
+      "sha256": "04c5d4845c6ab14fd24decdd088406c67e886229e8e0d05eeca99375ce930a11",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:ba28d281387eb4d38c1509908fd3f994c25879612b21ecda5659c3fb924ca86d",
+      "logicalPath": "Resource/Map/10.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/10.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/10.hfl",
+      "bytes": 137030,
+      "sha256": "e24de771dca4a44da03baea1a284c1717ba10d9134db1365e590f39f47aa849f",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:26ac174989dc5e7e439084c32febdffb7e8f2331dee044f01b8c69b2ca706981",
+      "logicalPath": "Resource/Map/10.stm",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/10.stm",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/10.stm",
+      "bytes": 3622560,
+      "sha256": "ca4cb140434abbf5064f8822bab4af84fecaeb7d113330333ce464d9c017e80f",
+      "classification": "recovered-duplicate",
+      "converterVersion": "byte-preserving-relocation-v1",
+      "dependencies": [
+        "Map.pak!/10.stm"
+      ],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b7323a23157eaf082e2d5d2654ba636ae1298a6167f77e4c11feb62acd8577c0",
+      "logicalPath": "Resource/Map/100.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/100.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/100.hfl",
+      "bytes": 137030,
+      "sha256": "8fb9057e05c5216db4151c48d7b9057cee2354fa082ee91a21679e267445d536",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:844edbc2e6064ea64e12f0287fef4948102759dce51576719e40e618b47ef965",
+      "logicalPath": "Resource/Map/101.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/101.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/101.hfl",
+      "bytes": 137030,
+      "sha256": "ac98bbbcd486f41b689310547243569754da962540459aa55c5770d6b3847414",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3298a47c829b3808b448bffb378d70448beee6a1ca2897bd603e523c06b13885",
+      "logicalPath": "Resource/Map/102.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/102.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/102.hfl",
+      "bytes": 137030,
+      "sha256": "0f7677d63c3e2ca024813a048b1444142272372e15057e0bfcc8d56246834451",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0b374caaac48d1c0ee9a4a5d58009fe95de9b9ffe66a1bfe5446bd544fc4fc11",
+      "logicalPath": "Resource/Map/103.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/103.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/103.hfl",
+      "bytes": 137030,
+      "sha256": "2df3d6eefdaf4b63b2c214885cb526a8d172a94ded9b80107b7a89557edaa170",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:ecdef7eb951ddd4b0aa09cc4e46f3de4d8711f744cbd73639be1862d0cd9ae6f",
+      "logicalPath": "Resource/Map/104.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/104.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/104.hfl",
+      "bytes": 137030,
+      "sha256": "6f2005fe0ca879abefad8146479cfb8dc43b1c0eab3e1716286dac21dac91247",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1a4ce31e2c76a73bfce0113e2e129de924e118bc87d4b179c41aa59ef377f8cf",
+      "logicalPath": "Resource/Map/105.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/105.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/105.hfl",
+      "bytes": 137030,
+      "sha256": "00b5dea76e6c7565dc36590ae6804a63ce76be926481c2a1256adb021ceaaddc",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8e037e7f9525dd1db1a9e399b4d93a68ade3a8386d4e11ae14a4c013732c2f89",
+      "logicalPath": "Resource/Map/106.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/106.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/106.hfl",
+      "bytes": 137030,
+      "sha256": "e4eaa41d91c8160d2dde9b79dfce9c94d6ecc3cd1b31a39f2f037c9775b136dc",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a9898784cb8dc2e4f831f46c90a71e79da51346381be5b08679e06744be18cbb",
+      "logicalPath": "Resource/Map/108.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/108.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/108.hfl",
+      "bytes": 137030,
+      "sha256": "4be3966c4936bf7f96b8313d0814dd9b8b83e13029a1656a9df4306149f7ab9b",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5dae9076aca3e48327c922b9856988cbd5b072583114bd2b5e86c7c7ab0885a9",
+      "logicalPath": "Resource/Map/109.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/109.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/109.hfl",
+      "bytes": 137030,
+      "sha256": "4003c83c71b01f5abd74359f44eeda1d1bbcc4a3b00760e4cbd20537ed25e8cd",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:82cc5412efab9da069037e75315a7a3f016ffb60b766ae3933ef2b89623dd595",
+      "logicalPath": "Resource/Map/11.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/11.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/11.hfl",
+      "bytes": 137030,
+      "sha256": "ca0055e2d8412026ab88745c281b5e1749ce78ca44274341b42222c9d608a622",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4b87abbbc34f1be87fe4e9dd3a49a3f82641b6215be417b8281454e9c2b1cc3e",
+      "logicalPath": "Resource/Map/110.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/110.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/110.hfl",
+      "bytes": 137030,
+      "sha256": "2a6bfe0f01cd7c2de33cbf1e20813ae8a15f513458326bb663ec8fc4a5c148a1",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0da1e80c5ae327942435440a5cfcc02d9a25e7093c1f24f552c6f5560e6c6f38",
+      "logicalPath": "Resource/Map/114.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/114.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/114.hfl",
+      "bytes": 137030,
+      "sha256": "88dc8ec6565656119c82620bf809767bc2cd34b998a92254c0a5bee1b8c1ee49",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:70bec4bfc6661038b1918d3bd1b0dbf3cc02656734ce10bdf92212193e116c8e",
+      "logicalPath": "Resource/Map/115.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/115.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/115.hfl",
+      "bytes": 137030,
+      "sha256": "b1a0c231fccd8c99fc0df5c46023b45c337534faceee5028321ef244d4368601",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3029756f418cf8d9a66d0b171ae32c6c52ced699f70da074e7e9be1cc0baf66d",
+      "logicalPath": "Resource/Map/116.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/116.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/116.hfl",
+      "bytes": 137030,
+      "sha256": "6b4d1c06ad3251e35908d102a494454cc6ac3679cedb35862b7d7efae79d1f48",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:42229909e64bf1c0951452eb188a4e3a0338a0d453e189f3ccc0a0bf6500b7d7",
+      "logicalPath": "Resource/Map/117.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/117.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/117.hfl",
+      "bytes": 137030,
+      "sha256": "0751f2459cddc347650f77e4311e471098f18cd9d3394323d3eda8495c749be6",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:389d65ce13cf22beaeba9325140be03b745a0d1fe8986b5daca7c12fb8cdafac",
+      "logicalPath": "Resource/Map/118.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/118.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/118.hfl",
+      "bytes": 137030,
+      "sha256": "98b6823efca29f603d08e3fa4334b45bf8a52b10449db9eed3a6a0348e859e06",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:63bf9b2116b7578fe394d3c810b9a90945e5bf8a6240466bb62d68574c8ceb42",
+      "logicalPath": "Resource/Map/12.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/12.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/12.hfl",
+      "bytes": 137030,
+      "sha256": "d28bc1e1597a804e0ab14683eabb3fa9f0cddda8cd156b120c5da3bb1d59543e",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b1846dfdd8467f0c5cdda64ad47b10dbb528849dc0e19f8c42f70fe559ff19e0",
+      "logicalPath": "Resource/Map/13.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/13.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/13.hfl",
+      "bytes": 137030,
+      "sha256": "f2fbc42b22281aa67b723fceffe622030928f4c9753e97237cba949adc6d2826",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:073f38ff9456a689cd083a6bd98038699be0cf4e092c5e074755e9e1c467baf5",
+      "logicalPath": "Resource/Map/14.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/14.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/14.hfl",
+      "bytes": 137030,
+      "sha256": "6af7e3c70876b2bc1448e70258e30fe4ddbb4ba4d340f4302b58a586d318e70a",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8bd77598854a2f25aabbe61bf5fc5aa6a04496e6afe97dc69f4e781524f9069d",
+      "logicalPath": "Resource/Map/15.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/15.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/15.hfl",
+      "bytes": 137030,
+      "sha256": "5c071b4ebb41d2c65ce3ed394d78e96195e70c5aa225842e7754de3c5eb520e6",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:648fbd3f978668b19ffa20f0dc77ae28e182ba1458339c0d835b42a54bfece47",
+      "logicalPath": "Resource/Map/17.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/17.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/17.hfl",
+      "bytes": 137030,
+      "sha256": "21de7aebee31d2e062f7443257c04fc9a9cf85d094ae6907218d929260dddd40",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:02eaaffbb16fb0147e1c7de54720a3345894f633a41004062d3de5f943c767f3",
+      "logicalPath": "Resource/Map/18.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/18.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/18.hfl",
+      "bytes": 137030,
+      "sha256": "e83bef3290ae603752cb24ad215f2430472b0a002ecdcce7c630d27928ed8b10",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:966c7590e85b8df6cd51c085e4004fa645a2691358e5b76fe898569963a32fb9",
+      "logicalPath": "Resource/Map/19.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/19.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/19.hfl",
+      "bytes": 137030,
+      "sha256": "64891a0701818ec76a2d7c116af135f570bf8550433f526a09c1f68a21497916",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:adc6bfd4499ff65ba1f52e0609505663166a0fbe9ca6cfea756185283b453571",
+      "logicalPath": "Resource/Map/198.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/198.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/198.hfl",
+      "bytes": 137030,
+      "sha256": "4c7ac16c78a10163b60a3a0ea84a5af4d3df7aa9f1194ce34518f23a08d64893",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:abbff3e8938d90c5804b6b9e619951edc609b4b59a1fdde3bd0a4130cd7bff08",
+      "logicalPath": "Resource/Map/199.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/199.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/199.hfl",
+      "bytes": 137030,
+      "sha256": "546b352aecb9179bbb9736c3442e0acc3a03a995361fc3b0f57999535dbef092",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3fcbb0fb3c362e194c4dfaac4c839b2fb32646169ce0abeda03edc4e184ed85c",
+      "logicalPath": "Resource/Map/2.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/2.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/2.hfl",
+      "bytes": 137030,
+      "sha256": "66d9fdd1fbf82a1fca4b01a957990b41ab44e290e86b5aaca2f137c7eacd0305",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:78f99887b6c5caf07d8527a58f88f7aa883267ffd0321147aa2d281e2dcee668",
+      "logicalPath": "Resource/Map/20.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/20.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/20.hfl",
+      "bytes": 137030,
+      "sha256": "92f45366d34a4bcc53adf94481410c315680659451f230670f5756a1ffd37a0a",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:8337a268bf819d07597bc8a5b0bf6d972be5e01a6165ad8a8848a90eafef62c5",
+      "logicalPath": "Resource/Map/200.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/200.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/200.hfl",
+      "bytes": 137030,
+      "sha256": "11788ee014c8f5c63589ad4bb3e654a80c8a27ac740882111df4445b6316e773",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0aa23f3e17b314aa66cc584d024f65cf91635cebf2a337d5d19ffb8fd5f47dda",
+      "logicalPath": "Resource/Map/201.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/201.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/201.hfl",
+      "bytes": 137030,
+      "sha256": "e0ea700aba9fdc826d0aaae5a64c2a22f27c29396011c1bc2165883a4bd0b2c3",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:636ab38de906244cd0e455c55744c34d10d5a970cbd1a721af9787913d178cdc",
+      "logicalPath": "Resource/Map/202.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/202.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/202.hfl",
+      "bytes": 137030,
+      "sha256": "b7595e2280e08f827b46190883824e2af0950ad2503c4968c4419343315f43d9",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:28a24f781fe85f792bfe44806ed56e31bd8599c4420dfe3e5f85beeb598f78bb",
+      "logicalPath": "Resource/Map/203.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/203.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/203.hfl",
+      "bytes": 137030,
+      "sha256": "b31c78c5b50a9711f69bfe4f43304d97c58a994dbbfb92bb6089a140e7176dae",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:bd96a2b20ce6a6b8f09798bb69c1a2914353a8a06fb298933fb825c138180a36",
+      "logicalPath": "Resource/Map/204.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/204.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/204.hfl",
+      "bytes": 137030,
+      "sha256": "810f684b63756528aa79c2b85cbc91fc5add04c749c3d50707867b2333c1dd60",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:89b1540d24f33f13545c6f5c064b074485d22b81d87e5e518dbce8eccd4b8b1d",
+      "logicalPath": "Resource/Map/205.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/205.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/205.hfl",
+      "bytes": 137030,
+      "sha256": "137b2d518972e15850d1e397d623b89ef5ac18cd88ee45bc76a48abad9d458db",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:a611e2a274402238ffe51dd5c3cc7767762c32c9c4ad3e03d1e1ac7875ff383b",
+      "logicalPath": "Resource/Map/206.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/206.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/206.hfl",
+      "bytes": 137030,
+      "sha256": "daae25b3ab5ed4f542d4b71fe2772666f819d9aade072fefc5cb550486408b70",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9e543fa73632adbce166868e76e13bd413d567a3e243c2501782d108c1477448",
+      "logicalPath": "Resource/Map/207.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/207.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/207.hfl",
+      "bytes": 137030,
+      "sha256": "f5e4717eb6be2f2f6f6cf795fa9fd36da67554f18f1f746d6a406b306f7c1154",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:cd9c424f19793e852b63a1f09e1c43bac24b1ac90645567d9fe7e98bb4035c6f",
+      "logicalPath": "Resource/Map/21.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/21.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/21.hfl",
+      "bytes": 137030,
+      "sha256": "b26e8c53919a2cec5c10d7cc2d67f94a81ec1a9aa8544ead2e408b0578a949df",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9d387dc58985d214ac7b7c519b9a5dcd0a3117709772fe27d2bcd32fd4789216",
+      "logicalPath": "Resource/Map/22.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/22.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/22.hfl",
+      "bytes": 137030,
+      "sha256": "7d1776fd28838d072561e48ca253a483e5b0afdfd44cbc5de10fbf563ce60e20",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:1418c9ff1da8a27084dac435ff49339d4a02c73da386f679ba9581c3958f612b",
+      "logicalPath": "Resource/Map/23.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/23.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/23.hfl",
+      "bytes": 137030,
+      "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:825d90c23f0526393093cb0934ad258f2cce397c0cd9592ea11e66ff24172228",
+      "logicalPath": "Resource/Map/24.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/24.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/24.hfl",
+      "bytes": 137030,
+      "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b280d13740d815476ec915968858d2cac466f61b268d607e94e16201f98aceb0",
+      "logicalPath": "Resource/Map/25.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/25.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/25.hfl",
+      "bytes": 137030,
+      "sha256": "c22373ad82baf4185416d773e13d42c4e93eedd41b8a94f5e536aecc3256d461",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:da7d48e93b5246d603f7c980cea1ab6a0ec73bb9af4113d2bab2ccffcfbd4ecd",
+      "logicalPath": "Resource/Map/26.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/26.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/26.hfl",
+      "bytes": 137030,
+      "sha256": "722cde292d6e83ab28bde8a66ee9c9a16c9b54d31244158fdc89837681c3b7e4",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:10ea2260356576db50f569350bd4b8a767f9a05966c7ad024a3af8c7cb003813",
+      "logicalPath": "Resource/Map/27.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/27.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/27.hfl",
+      "bytes": 137030,
+      "sha256": "d86f7e23afd274c93bcefc300f897461882b8ff63877f5bd13f1aeb759bbddf9",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:66797434f36c8653341baceb9d83960555b1262b99fe529353c05fd74e9b5fcb",
+      "logicalPath": "Resource/Map/28.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/28.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/28.hfl",
+      "bytes": 137030,
+      "sha256": "c6e0dccaf735d1aa41ab83d7b9e8d5720b4e1fd68637cb723cc1dd2690c42f1f",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d1273cfad5bb93afa1f2f91e18af393312b538b0cc1fbebc7703411e17eae2c2",
+      "logicalPath": "Resource/Map/3.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/3.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/3.hfl",
+      "bytes": 137030,
+      "sha256": "49cc2fb093afcf37cb26cad24f5ae23466d64b2feb21436aefd8cbda530c4859",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:58024bc4b5df4aa90a4fef079558df142cc9f53138bb674719e3754a5c9b4b44",
+      "logicalPath": "Resource/Map/32.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/32.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/32.hfl",
+      "bytes": 137030,
+      "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:37b0e8e8ca72d123fbde6a37f0f777b1ddd2b5270469d8b4fe596f0ac80623d9",
+      "logicalPath": "Resource/Map/33.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/33.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/33.hfl",
+      "bytes": 137030,
+      "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:94c7ede003d68087b0495bb1b7454ba7b6e8dc240f99aeba128ad03499fc7977",
+      "logicalPath": "Resource/Map/34.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/34.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/34.hfl",
+      "bytes": 137030,
+      "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5cb5e1cb5047f5958d26de9c032ffb5c0026eb7f352a28c37b5d9abee2a0264e",
+      "logicalPath": "Resource/Map/35.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/35.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/35.hfl",
+      "bytes": 137030,
+      "sha256": "7f3f95538732e422430585f5a79d1b94fd561acb292a8b4ba0e27b7df59b4b7c",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d88e4f4473142a51b9cfd84c69985c294137d02d8c7858f3d62652e2fa118229",
+      "logicalPath": "Resource/Map/37.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/37.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/37.hfl",
+      "bytes": 137030,
+      "sha256": "93b526bb9f555dce31a05aec784a160b16948af374cb06328212840e1f64a1d2",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:28021116c8ffa62ad5af90856415e2f1ca0bac23ec8bf96bd861603d5e3bb826",
+      "logicalPath": "Resource/Map/39.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/39.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/39.hfl",
+      "bytes": 137030,
+      "sha256": "703315eda634d012c0bd057ee9f6b301de56f1628d132ebef451cf8e56a87fcc",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:cd89ffddcaf885c6f3041f17bc0c02c54355a72da36e36fdc2aef51de6061a61",
+      "logicalPath": "Resource/Map/4.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/4.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/4.hfl",
+      "bytes": 137030,
+      "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:29a2644e4b6cf9c93970d34ee5fdb69725e60b469d76df74d7d5e7c347591926",
+      "logicalPath": "Resource/Map/40.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/40.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/40.hfl",
+      "bytes": 137030,
+      "sha256": "59a889d735b72c732e80e799030e54fa40e63ec913fe8d9295366e8bdf69efb5",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:f7b497f725eebabb07e8daaf22d4d276fcf13df12e91a1aa688ce55eef91726a",
+      "logicalPath": "Resource/Map/42.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/42.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/42.hfl",
+      "bytes": 137030,
+      "sha256": "43f5f691b703ec86decee4a295026de6d02fad7225a0cb2fb1af855708c95e6a",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0777309f8025c8ec4e3d1be58c93548a269506df64005f523fb8de4d7940e547",
+      "logicalPath": "Resource/Map/44.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/44.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/44.hfl",
+      "bytes": 137030,
+      "sha256": "6ef334fe835f2c6a9bdbcef100d75d19e7276eb690a1d841515bf527ead049e1",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:96bfd8e3554ae58cbb1f1d5586b75004b9fd75535dc2ab8e15426ff68aa2c96c",
+      "logicalPath": "Resource/Map/5.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/5.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/5.hfl",
+      "bytes": 137030,
+      "sha256": "2bba2649ff3829b3e481ff1eeb253eaf21a8cd310b057ad0ff943795838981fb",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5ca621bcda97c0b5a2d9575797808727a65c559aeb0765b9b49668ffd043febf",
+      "logicalPath": "Resource/Map/55.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/55.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/55.hfl",
+      "bytes": 137030,
+      "sha256": "4496d4bf2b8545bb3401bb2b07331dd75bb9ef953233f058af64d4a7a607ef65",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0d1f44f811d4f985f97e2ea1571f5cf72402bf94e7d5517eae2498cab211d2cf",
+      "logicalPath": "Resource/Map/58.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/58.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/58.hfl",
+      "bytes": 137030,
+      "sha256": "d79337af8921cca26b5d3becd3b8e6557e6ea70e8f523b9c07756a3a035dec7e",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:2e3259c230941c7fcd87d8dbdfab22fa3313134f30685b142e1a88558ea64ff9",
+      "logicalPath": "Resource/Map/59.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/59.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/59.hfl",
+      "bytes": 137030,
+      "sha256": "d0973ea6e65b2ae096f1e130846dc852fd992779b2b3dc9f2ce8957a2a7cb5e2",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5fd0bf74eba8ac7b20af916b5eba04cd8c7281c8af924d14b82f64080918e7a9",
+      "logicalPath": "Resource/Map/6.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/6.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/6.hfl",
+      "bytes": 137030,
+      "sha256": "0949fd49ded3413733c2c148fa785774a2420c97ebdfbb461fe208e35d728679",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:4243248eec30963c5e8d502967ad1bc62792ecff40e3e8a547ec85fbc9e663c5",
+      "logicalPath": "Resource/Map/60.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/60.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/60.hfl",
+      "bytes": 137030,
+      "sha256": "6ef200adc0afa6a1e213b9fb27ec758bf1d6ce0c2d6ea45623b2b7a53734be03",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:0509e3081c2f38700a7f9b4db4fbdbc3832cd9a2fa00c288d11b6c6df3400ee5",
+      "logicalPath": "Resource/Map/61.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/61.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/61.hfl",
+      "bytes": 137030,
+      "sha256": "5ea5d85ed6305003f779bf0c7bc96f78d4d15793d76aa7d80a7bd3dbaa9fbf34",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:6ff633ff5750f206c596cc1af800db5d0eafbded7c790546c39997dbee0bc2f4",
+      "logicalPath": "Resource/Map/65.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/65.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/65.hfl",
+      "bytes": 137030,
+      "sha256": "adae68a2a5e7812ba935c7f630bcccac3660b883d6746af402e0b4eebdcb30db",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:04143d37b2062c76e7fb0380eb80a7e2bb42a29aab79ae4716950fc181852e76",
+      "logicalPath": "Resource/Map/66.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/66.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/66.hfl",
+      "bytes": 137030,
+      "sha256": "7020a6c4892bcd68c7de036c5508e9ad136c6eefe427cbf897249cfde189f756",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:40ba9463163e901d00b4f059532da89f66c0371492d1a0ad6c025eed6209ec75",
+      "logicalPath": "Resource/Map/67.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/67.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/67.hfl",
+      "bytes": 137030,
+      "sha256": "903a82a0ded68fcbee291a3b29eeb03f2871936e24794dd155453116de89614f",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b575a25a38be27c2657d4b4fccbe8462b9ee7d4144463188d3cb277f89cc18f6",
+      "logicalPath": "Resource/Map/68.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/68.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/68.hfl",
+      "bytes": 137030,
+      "sha256": "992237bb20707a3277733b71cee605dc1816efa966b4485e07627a6f48719d5a",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3dd8935f8ce10c73b41fb6bbb05a2f45a77147c4eb4ec0ffdc853aca368808fe",
+      "logicalPath": "Resource/Map/69.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/69.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/69.hfl",
+      "bytes": 137030,
+      "sha256": "1ff001e263d71dea6c9537e46662162ec26ca924aa067adb5229c6c3857a22b5",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9bcb59fa133e3183498175903c5b4f96bb85fc3948c369a7d1655fd4dfe2c2e5",
+      "logicalPath": "Resource/Map/7.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/7.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/7.hfl",
+      "bytes": 137030,
+      "sha256": "e79167eff08f93f67814db0a3ee5fac4996cfc3ce4925db193c0dc8d9f6cc7c7",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:5a25bbbffe2aaa6f2622667faf3c105b8d455d9d9aee673017220208e750048d",
+      "logicalPath": "Resource/Map/70.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/70.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/70.hfl",
+      "bytes": 137030,
+      "sha256": "44ddcd5a83996464855c01eece165a27ccafe7b0e53bcaaa019ee6e2d82e873c",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:b881e81ce2ef0fa37331b9aa0a6232c88a2b9ef3c00190ea354d6b6b2e2fccac",
+      "logicalPath": "Resource/Map/72.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/72.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/72.hfl",
+      "bytes": 137030,
+      "sha256": "9683851d9684bb301faf35855609cde592b4389b3a324c5c09ad798017a8bce5",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:57d4ddd2bc3cb2b82903c4b58f840fa46b6bfeae5553e5b69918ac9340fe50a8",
+      "logicalPath": "Resource/Map/73.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/73.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/73.hfl",
+      "bytes": 137030,
+      "sha256": "3fcb43331b6dd3c5d9b55f58dbd8918f8bf42cd575c94e81b24c21875064e8a6",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9202685f3b4df101d1ab3a0666428edb0b7ff310c0de605d7ca09dfd1a92d891",
+      "logicalPath": "Resource/Map/75.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/75.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/75.hfl",
+      "bytes": 137030,
+      "sha256": "cb29e47cbbf0d22ea757569b4a0758fede58683f9dd3cee16ecc0837c1b9821e",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:2273371db34493d7b31f5195323d46d2695dcde1596f2aea057e5fddc6f8ac16",
+      "logicalPath": "Resource/Map/8.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/8.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/8.hfl",
+      "bytes": 137030,
+      "sha256": "9af00332f11f905c2b3c458ab9df66c46a4654ae3eccb48e471b22879ac54286",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:6dd3cfd0e14156c0e3c2e7f8965483d457a3a87e515b1c06aa64cf8e9ee423a6",
+      "logicalPath": "Resource/Map/9.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/9.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/9.hfl",
+      "bytes": 137030,
+      "sha256": "f087b9860b408845b1d488dff5bf240baa2cf2bf30bc365c1ef188557074a6d7",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:7caa69cd66f3d70c476f0a9a283cb018f8ab90f4b343cc98558de61ce6cde3e3",
+      "logicalPath": "Resource/Map/94.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/94.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/94.hfl",
+      "bytes": 137030,
+      "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:3f5be737ef2bc28f8927835da9070906dcc752ae489116cd7678c95b99fd051a",
+      "logicalPath": "Resource/Map/95.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/95.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/95.hfl",
+      "bytes": 137030,
+      "sha256": "f3e189d0c089534b53767b442b02bcbf48dc93e148d52c76c4b669d7564d33e1",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:d4234287e5ffc35945bc5ae70ddab00faf0baaab2494ed798a5190c0902c89e7",
+      "logicalPath": "Resource/Map/96.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/96.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/96.hfl",
+      "bytes": 137030,
+      "sha256": "faaefedb59ff2bf96f3d21745ca41be8c4b26856f3650e19809e5967bf659698",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:9a7080f774e3c550b77684fcebee645788a0ed8d21cfd78a064c34f9ad9c2229",
+      "logicalPath": "Resource/Map/97.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/97.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/97.hfl",
+      "bytes": 137030,
+      "sha256": "84da968a6edd77a9e9697f20cc754a3b603d8c89b167f491051887e0e68bc4df",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    },
+    {
+      "stableId": "mxh:7c7e0308dae2dadae8696c03c149aec52dbea80cd3f5f3f208c566dbb6474198",
+      "logicalPath": "Resource/Map/99.hfl",
+      "originalLoosePath": "modern/data/PlayDH/Resource/Map/99.hfl",
+      "overlayPath": "unity-remaster-v1/development-placeholders/PlayDH/Resource/Map/99.hfl",
+      "bytes": 137030,
+      "sha256": "deab8ad5748656972ad93b2ace86b7fc9e2f6506eb2783c2dcc1549ed209a589",
+      "classification": "development-placeholder",
+      "converterVersion": "gen-hfl-placeholder-v1",
+      "dependencies": [],
+      "releaseAllowed": false
+    }
+  ]
+}

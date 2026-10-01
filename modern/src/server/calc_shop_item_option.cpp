@@ -161,22 +161,31 @@ CalcShopItemOptionStatus calc_shop_item_option(
         // SetExtraSlotCount / SetExtraCharacterSlot side effects.
         // The data plane captures the intent in the side-effects struct
         // so the orchestrator can dispatch the player-side updates.
-        else {
+        else if (env.locale() == ShopLocale::Japan || env.locale() == ShopLocale::HongKong ||
+                 env.locale() == ShopLocale::Thailand) {
             switch (static_cast<IncantationId>(info.ItemIdx)) {
-                case IncantationId::InvenExtend:
                 case IncantationId::InvenExtend2:
+                    if (env.locale() != ShopLocale::HongKong) break;
+                    [[fallthrough]];
+                case IncantationId::InvenExtend:
                     out_side_effects.expanded_inven_slot = true;
                     break;
-                case IncantationId::PyogukExtend:
                 case IncantationId::PyogukExtend2:
+                    if (env.locale() != ShopLocale::HongKong) break;
+                    [[fallthrough]];
+                case IncantationId::PyogukExtend:
                     out_side_effects.expanded_pyoguk_slot = true;
                     break;
-                case IncantationId::MugongExtend:
                 case IncantationId::MugongExtend2:
+                    if (env.locale() != ShopLocale::HongKong) break;
+                    [[fallthrough]];
+                case IncantationId::MugongExtend:
                     out_side_effects.expanded_mugong_slot = true;
                     break;
-                case IncantationId::CharacterSlot:
                 case IncantationId::CharacterSlot2:
+                    if (env.locale() != ShopLocale::HongKong) break;
+                    [[fallthrough]];
+                case IncantationId::CharacterSlot:
                     out_side_effects.expanded_character_slot = true;
                     break;
                 default:

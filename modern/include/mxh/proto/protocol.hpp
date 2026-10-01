@@ -303,7 +303,7 @@ enum class UserConnProtocol : std::uint8_t {
     ServerNotReady         = 74,  // A → C: server not ready
     MapDesc                = 75,  // A → C: map description
     CharacterReviveNack    = 76,  // A → C: revive nack
-    ReadyToRevive          = 77,  // C → A: ready to revive
+    ReadyToRevive          = 77,  // Map → C (via Agent): server permits revive choice
     CheatUsing             = 78,  // cheat usage
     CheatChangeMapAck      = 79,  // GM map change ack
     UseDynamicSyn          = 80,  // dynamic use syn
@@ -362,6 +362,11 @@ constexpr std::uint8_t kModernCheckVersion      = 200;  // C → D: version chec
 constexpr std::uint8_t kModernNotifyVersionAck  = 201;  // D → C: version ack
 constexpr std::uint8_t kModernNotifyVersionNack = 202;  // D → C: version nack
 constexpr std::uint8_t kModernHselKey           = 203;  // D → C: HSEL session key (64B HselInit)
+
+// Modern-only authoritative shop appearance refresh, Category::Server. Keeping
+// it out of Category::Item avoids colliding with the original Item value 198.
+// Payload is the exact 120-byte legacy SHOPITEMOPTION wire block.
+constexpr std::uint8_t kModernShopAppearance    = 198;
 
 // Modern-only NPC shop list (S -> C on SpeechSyn), Category::Item.
 // Payload: [npc_id:u32][count:u16] + count x [item_id:u16][price:u32].
@@ -526,6 +531,11 @@ enum class ItemProtocol : std::uint8_t {
     DissolveSuccessAck   = 50,
     DissolveFailedAck    = 51,
     DissolveNack         = 52,
+    ShopItemUseEnd       = 106,
+    ShopItemOneMinute    = 108,
+    ShopItemMoneyProtect = 109,
+    ShopItemExpProtect   = 110,
+    ShopItemProtectAll   = 150,
 
     // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_CHASE_*
     // (positions 154/155/156 in [CC]Header/Protocol.h).
@@ -545,6 +555,14 @@ enum class ItemProtocol : std::uint8_t {
     ShopItemJobChangeNack = 177,
 };
 
+// Item extension sub-protocols (MP_ITEMEXT_*).
+// Values are locked to the original MP_PROTOCOL_ITEMEXT enum.
+enum class ItemExtProtocol : std::uint8_t {
+    SkinItemDiscardAck = 20,
+};
+
+static_assert(static_cast<std::uint8_t>(ItemExtProtocol::SkinItemDiscardAck) == 20u);
+
 // ============================================================================
 // Monster sub-protocols (MP_MONSTER_*).
 // 1:1 with the original C enum MP_PROTOCOL_MONSTER.
@@ -554,6 +572,16 @@ enum class MonsterProtocol : std::uint8_t {
     RestStartNotify   = 1,   // S -> C: monster started resting
     RestEndNotify     = 2,   // S -> C: monster stopped resting
     RecallNotify      = 3,   // S -> C: monster recalled/respawned
+};
+
+// Player vitality deltas from the original MP_PROTOCOL_CHAR enum. SetLife and
+// SetShield send signed new-minus-old int32 payloads to the owning client.
+enum class CharacterProtocol : std::uint8_t {
+    LifeAck = 1,
+    ShieldAck = 5,
+    NaeryukAck = 9,
+    ExpPointAck = 13,
+    LevelNotify = 19,
 };
 
 // ============================================================================
@@ -651,6 +679,12 @@ enum class QuestProtocol : std::uint8_t {
     EndSyn                = 12,  // C -> S: complete quest
     EndAck                = 13,
     EndNack               = 14,
+    NpcTalk               = 24,  // C -> S: semantic NPC index + quest index
+    NpcTalkSyn            = 36,  // C -> S: DB eligibility checked variant
+    NpcTalkAck            = 37,
+    NpcTalkNack           = 38,
+    ExecuteError          = 39,
+    Full                  = 40,
 };
 
 }  // namespace mxh::proto

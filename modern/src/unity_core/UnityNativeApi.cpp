@@ -104,6 +104,16 @@ std::uint32_t MXH_UNITY_CALL mxh_unity_disconnect(mxh_unity_handle handle) {
     catch (...) { return MXH_UNITY_INTERNAL_ERROR; }
 }
 
+std::uint32_t MXH_UNITY_CALL mxh_unity_load_map_routes(
+    mxh_unity_handle handle, const char* utf8_path, std::uint32_t path_length) {
+    const auto core = acquire(handle);
+    if (!core) return MXH_UNITY_INVALID_HANDLE;
+    if (!utf8_path || path_length == 0 || path_length > 4096 || contains_nul(utf8_path, path_length))
+        return MXH_UNITY_INVALID_ARGUMENT;
+    try { return core->load_map_routes(std::string(utf8_path, path_length)); }
+    catch (...) { return MXH_UNITY_INTERNAL_ERROR; }
+}
+
 std::uint32_t MXH_UNITY_CALL mxh_unity_tick(mxh_unity_handle handle) {
     auto core = acquire(handle);
     if (!core) return MXH_UNITY_INVALID_HANDLE;

@@ -140,3 +140,67 @@ add_test(NAME mxh_unity_asset_extract_tests
 set_tests_properties(mxh_unity_asset_extract_tests PROPERTIES
     LABELS "tools;python;unity;provenance"
     TIMEOUT 60)
+
+add_test(NAME mxh_writer_contract_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_writer_contract.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_writer_contract_tests PROPERTIES
+    LABELS "tools;python;deployment;database"
+    TIMEOUT 60)
+
+add_test(NAME mxh_unity_source_binding_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_verify_unity_source_binding.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_source_binding_tests PROPERTIES
+    LABELS "tools;python;unity;provenance"
+    TIMEOUT 60)
+
+add_test(NAME mxh_unity_map10_source_binding
+    COMMAND "${_MXH_PYTHON_EXE}"
+            "${CMAKE_SOURCE_DIR}/tools/verify_unity_source_binding.py"
+            "${CMAKE_SOURCE_DIR}/../unity/baselines/playdh-current.json.gz"
+            "${CMAKE_SOURCE_DIR}/../unity/MoxiangClient/Assets/Moxiang/Derived/Map10/Map10.mxhasset"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_map10_source_binding PROPERTIES
+    LABELS "tools;python;unity;provenance;real-resource"
+    TIMEOUT 60)
+
+add_test(NAME mxh_unity_map2_source_binding
+    COMMAND "${_MXH_PYTHON_EXE}"
+            "${CMAKE_SOURCE_DIR}/tools/verify_unity_source_binding.py"
+            "${CMAKE_SOURCE_DIR}/../unity/baselines/playdh-current.json.gz"
+            "${CMAKE_SOURCE_DIR}/../unity/MoxiangClient/Assets/Moxiang/Derived/Map2/Map2.mxhasset"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_map2_source_binding PROPERTIES
+    LABELS "tools;python;unity;provenance;real-resource"
+    TIMEOUT 60)
+
+add_test(NAME mxh_unity_safe_pak_hfl_selection_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_select_original_pak_hfl.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_safe_pak_hfl_selection_tests PROPERTIES
+    LABELS "tools;python;unity;provenance"
+    TIMEOUT 60)
+
+add_test(NAME mxh_unity_overlay_manifest_tests
+    COMMAND "${_MXH_PYTHON_EXE}" -m unittest -v
+            "${CMAKE_SOURCE_DIR}/tests/unit/tools/test_build_unity_overlay_manifest.py"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(mxh_unity_overlay_manifest_tests PROPERTIES
+    LABELS "tools;python;unity;provenance"
+    TIMEOUT 60)
+
+add_test(NAME mxh_unity_composite_source_bytes
+    COMMAND "${_MXH_PYTHON_EXE}"
+            "${CMAKE_SOURCE_DIR}/tools/unity_resource_audit.py"
+            verify-source
+            "${CMAKE_SOURCE_DIR}/../unity/baselines/playdh-current.json.gz"
+            "${CMAKE_SOURCE_DIR}/data/PlayDH"
+            --additional-root
+            "recovered-map=${CMAKE_SOURCE_DIR}/../unity/source-overlays/unity-remaster-v1/recovered-originals/PlayDH")
+set_tests_properties(mxh_unity_composite_source_bytes PROPERTIES
+    LABELS "tools;python;unity;provenance;real-resource"
+    TIMEOUT 120)

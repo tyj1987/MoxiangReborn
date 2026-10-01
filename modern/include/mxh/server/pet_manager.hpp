@@ -245,6 +245,36 @@ inline void add_friendship(PetTotalInfo& pet, int delta) {
 
 
 
+struct MasterRevivePetEffect {
+    std::uint32_t summon_item_db_idx = 0;
+    bool log_master_death = false;
+    bool send_pet_info = false;
+    bool send_pet_death = false;
+    std::uint32_t release_delay_ms = 0;
+};
+
+// Apply to the transaction's pet-state copy, never directly before commit.
+// m_iFriendshipReduceAmount is already the signed, equipment-adjusted rule.
+// PetManager.cpp:1707; Pet.cpp:494. No summoned pet or zero delta is a no-op.
+inline MasterRevivePetEffect apply_master_revive_pet_loss(PetManagerState& state) {
+    MasterRevivePetEffect result;
+    if (!state.m_curSummonItemDBIdx || state.m_iFriendshipReduceAmount == 0) return result;
+    auto* pet=find_pet_total_info(state,*state.m_curSummonItemDBIdx);
+    if (!pet) return result;
+    result.summon_item_db_idx=pet->PetSummonItemDBIdx;
+    result.log_master_death=true;
+    if (pet->PetKind == static_cast<std::uint16_t>(PetKind::EventPet)) return result;
+    const auto value=static_cast<std::int64_t>(pet->PetFriendly)+state.m_iFriendshipReduceAmount;
+    add_friendship(*pet,state.m_iFriendshipReduceAmount);
+    result.send_pet_info=true;
+    // Exact zero stays alive in the original; only an underflow kills the pet.
+    if (value < 0) {
+        result.send_pet_death=true;
+        result.release_delay_ms=5000;
+    }
+    return result;
+}
+
 inline bool is_pet_max_friendship(const PetTotalInfo& pet) {
     return pet.PetFriendly >= PET_MAX_FRIENDLY;
 }

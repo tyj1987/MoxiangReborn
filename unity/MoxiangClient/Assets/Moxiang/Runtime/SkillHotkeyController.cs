@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using TMPro;
+using UnityEngine.UI;
 
 namespace Moxiang
 {
@@ -32,17 +34,33 @@ namespace Moxiang
             return false;
         }
 
+        public static bool TextInputOwnsKeyboard(GameObject selectedObject)
+        {
+            if (selectedObject == null) return false;
+            var tmp = selectedObject.GetComponentInParent<TMP_InputField>();
+            if (tmp != null && tmp.isActiveAndEnabled && tmp.interactable) return true;
+            var legacy = selectedObject.GetComponentInParent<InputField>();
+            return legacy != null && legacy.isActiveAndEnabled && legacy.interactable;
+        }
+
         private void Update()
         {
             if (connection == null || connection.Observed.state != CoreState.InGame) return;
+            if (hotkeys == null || TextInputOwnsKeyboard(EventSystem.current == null
+                ? null : EventSystem.current.currentSelectedGameObject)) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
             for (int i = 0; i < hotkeys.Length; ++i)
             {
                 if (!Input.GetKeyDown(hotkeys[i])) continue;
                 if (TryResolveSkill(hotkeys[i], hotkeys, skillIds, out uint skillId))
                 {
-                    if (targetSelection != null && targetSelection.TryGetTarget(out var id, out var position))
-                    { selectedTargetObjectId = id; targetGamePosition = position; }
+                    if (targetSelection == null || !targetSelection.TryGetTarget(out var id, out var position))
+                    {
+                        selectedTargetObjectId = 0;
+                        targetGamePosition = default;
+                        return;
+                    }
+                    selectedTargetObjectId = id; targetGamePosition = position;
                     SkillRequested?.Invoke(skillId);
                     if (selectedTargetObjectId != 0)
                         connection.UseSkill(skillId, selectedTargetObjectId, targetGamePosition.x, targetGamePosition.y);

@@ -8,12 +8,14 @@
 
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/schema_migration.hpp"
+#include "mxh/db/writer_contract.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/server/account_service.hpp"
 #include "mxh/server/account_moderation.hpp"
 
 #include <cstdio>
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -34,6 +36,7 @@ COMMANDS:
     exec    --db <cfg> <sql>       Execute a SQL statement (INSERT/UPDATE/DELETE/DDL)
     query   --db <cfg> <sql>       Execute a query and print result as TSV
     schema  --db <cfg>             List tables
+    verify-writer-contract --db <cfg>  Verify the database surface required by the current MapServer
     register --db <cfg> <account>  Create account; reads password from stdin
     ban      --db <cfg> <account> <actor> <reason>  Block login and audit
     unban    --db <cfg> <account> <actor> <reason>  Restore login and audit
@@ -377,6 +380,34 @@ int cmd_schema(const std::string& cfg_str) {
     return 0;
 }
 
+int cmd_verify_writer_contract(const std::string& cfg_str) {
+    auto cfg = mxh::db::ConnectionConfig::from_kv_string(cfg_str);
+    auto adapter = mxh::db::make_adapter(cfg.backend);
+    if (!adapter) { std::cerr << "ERROR: unknown backend\n"; return 1; }
+    const auto connected = adapter->connect(cfg);
+    if (!connected) { std::cerr << "ERROR connect: " << connected.error_message << "\n"; return 1; }
+
+    const std::array<std::string_view, 3> probes{
+        "SELECT container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param FROM modern_player_item WHERE 1=0",
+        "SELECT character_data FROM character_info WHERE 1=0",
+        "SELECT chrid,slot,item_idx,updated_at FROM modern_character_equipment WHERE 1=0"
+    };
+    for (const auto sql : probes) {
+        mxh::db::ResultSet rows;
+        const auto result = adapter->query(std::string(sql), rows);
+        if (!result) {
+            std::cerr << "ERROR writer contract probe failed: " << result.error_message << "\n";
+            return 1;
+        }
+    }
+    if (mxh::db::modern_schema_version(*adapter) < 1) {
+        std::cerr << "ERROR writer contract requires modern schema version 1 or later\n";
+        return 1;
+    }
+    std::cout << mxh::db::kMapWriterContract << "\n";
+    return 0;
+}
+
 int cmd_register(const std::string& cfg_str, const std::string& account) {
     auto cfg = mxh::db::ConnectionConfig::from_kv_string(cfg_str);
     auto adapter = mxh::db::make_adapter(cfg.backend);
@@ -465,6 +496,9 @@ int main(int argc, char** argv) {
         }
         if (cmd == "schema" && positional.empty()) {
             return cmd_schema(cfg_str);
+        }
+        if (cmd == "verify-writer-contract" && positional.empty()) {
+            return cmd_verify_writer_contract(cfg_str);
         }
         if (cmd == "register" && positional.size() == 1) {
             return cmd_register(cfg_str, positional[0]);

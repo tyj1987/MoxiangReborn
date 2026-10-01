@@ -7,6 +7,7 @@
 #include "mxh/net/net.hpp"
 #include "mxh/proto/movement_wire.hpp"
 #include "mxh/unity/unity_client.h"
+#include "NpcDirectory.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -31,6 +32,7 @@ public:
                           std::uint32_t flags, std::uint32_t timeout_ms);
     std::uint32_t destroy() noexcept;
     std::uint32_t disconnect();
+    std::uint32_t load_map_routes(const std::string& utf8_path);
     std::uint32_t tick();
     std::uint32_t submit(const mxh_unity_command& command);
     std::uint32_t submit_extended(const mxh_unity_extended_command& command);
@@ -57,6 +59,7 @@ private:
     void handle_login_message(const mxh::net::Message& message);
     void handle_agent_message(const mxh::net::Message& message);
     void transition(std::uint32_t state);
+    void emit_inventory();
     void fail(std::uint32_t result, std::string detail);
     void close_connections();
     bool shutdown_noexcept() noexcept;
@@ -104,6 +107,42 @@ private:
     Clock::time_point deadline_{};
     std::vector<mxh::client::CharacterSlot> characters_;
     mxh::client::GameInInfo game_{};
+    NpcDirectory npcs_;
+    std::optional<mxh::compat::MapChangeCatalog> map_routes_;
+    struct PendingTransfer {
+        std::uint16_t source = 0, target = 0;
+        std::uint64_t request = 0;
+    } pending_transfer_;
+    struct PendingBuy {
+        std::uint16_t item = 0, quantity = 0;
+        std::uint64_t request = 0;
+        Clock::time_point deadline{};
+    } pending_buy_;
+    struct PendingUse {
+        bool active = false;
+        std::uint16_t position = 0;
+        std::uint64_t request = 0;
+        Clock::time_point deadline{};
+    } pending_use_;
+    struct PendingItemMove {
+        bool active = false;
+        std::uint16_t source = 0, target = 0;
+        std::uint32_t database_id = 0;
+        std::uint64_t request = 0;
+        Clock::time_point deadline{};
+    } pending_item_move_;
+    struct PendingSell {
+        bool active = false;
+        std::uint16_t position = 0, item = 0, quantity = 0, dealer = 0;
+        std::uint64_t request = 0;
+        Clock::time_point deadline{};
+    } pending_sell_;
+    struct PendingDiscard {
+        bool active = false;
+        std::uint16_t position = 0;
+        std::uint64_t request = 0;
+        Clock::time_point deadline{};
+    } pending_discard_;
 
     // Bounded timed-movement wire session state. The native core receives the
     // epoch from the server's hello response (allocated server-side) and
