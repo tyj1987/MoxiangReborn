@@ -1,5 +1,13 @@
 # Map10 冷导入依赖修复
 
+## ROG失败后的shader依赖增量
+
+ROG在132950b首次冷导入得到DefaultAsset/0 chunks，5项新增EditMode仅3项通过；日志指向创建Material时的空shader。单次recovery得到64 chunks、64个带纹理renderer、13 DDS，不能替代冷导入验收。
+
+本增量把导入器升到3，增加`Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader` artifact依赖（Map10共15个：shader、heightfield、13 DDS），用`AssetDatabase.LoadAssetAtPath<Shader>`显式加载并在创建任何材质前拒绝null；移除对全局`Shader.Find`名称查找的依赖，无替代shader或延时。路径对应[Unity官方URP Lit shader源码](https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader)；项目锁定URP17.6.0，实际包资产可用性仍由ROG导入验证。
+
+五项EditMode测试更新依赖计数及shader引用断言，来源/hash负例要求shader先成功导入，以免把shader缺失误算成来源校验成功。云端31项Python工具测试、治理/diff通过，但无法运行Unity：本增量尚未宣称修复通过，仍需ROG冷Library与5用例复测。已向协作端索要两项失败用例名称/异常片段，以检查是否另有原因。下文为此前增量的历史设计与验证边界。
+
 基线：`9a830a98ecc9bb26a5b4966669ef4136f232142d`，同分支增量。ROG报告按heightfield→13 DDS→terrain顺序重导可恢复64 chunks，来源与hash匹配；这是协作端证据，不是云端Unity运行结果。
 
 ## 改动

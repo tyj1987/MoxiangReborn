@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Terrain shader artifact dependency (2026-10-01)
+
+- Terrain importer v3 declares and loads the URP Lit shader asset explicitly, rejecting unavailable shader output before material creation. ROG v2 cold import and 2/5 Editor tests failed on null shader; recovery success was not cold-import acceptance. Updated five regression cases; Unity verification remains pending.
+
 ### Smoke setup failure evidence (2026-10-01)
 
 - Added a bounded top-level failure report around fixture setup and first server startup, retaining owned-process cleanup and existing success gates. Migration timeout, registration failure and initial listen timeout regressions pass; Python Unity tool tests pass 31/31. Review scope is the 99b3a72→af66675 increment, not the full PR against main.

@@ -8,9 +8,10 @@ using UnityEngine;
 
 namespace Moxiang.Editor
 {
-    [ScriptedImporter(2, "mxhterrain")]
+    [ScriptedImporter(3, "mxhterrain")]
     public sealed class MxhTerrainImporter : ScriptedImporter
     {
+        public const string TerrainShaderPath = "Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader";
         [Serializable] private sealed class Descriptor { public int schemaVersion; public bool releaseReady; public string heightfieldFile, paletteFile, visualOverrideFile; }
         [Serializable] private sealed class VisualOverride
         {
@@ -38,11 +39,11 @@ namespace Moxiang.Editor
             string palettePath = Child(directory, descriptor.paletteFile);
             // A missing palette remains a source dependency in OnImportAsset.
             // Its later arrival causes another dependency discovery/import.
-            if (!File.Exists(palettePath)) return new[] { heightPath };
+            if (!File.Exists(palettePath)) return new[] { TerrainShaderPath, heightPath };
             var palette = JsonUtility.FromJson<Palette>(File.ReadAllText(palettePath));
             if (palette == null || palette.schemaVersion != 1 || palette.releaseReady || palette.entries == null)
                 throw new InvalidDataException("Unsupported terrain palette.");
-            return new[] { heightPath }.Concat(palette.entries.Select(entry =>
+            return new[] { TerrainShaderPath, heightPath }.Concat(palette.entries.Select(entry =>
                 Child(Path.GetDirectoryName(palettePath), entry.file))).Distinct().ToArray();
         }
 
@@ -65,6 +66,10 @@ namespace Moxiang.Editor
             var descriptor = JsonUtility.FromJson<Descriptor>(File.ReadAllText(context.assetPath));
             if (descriptor == null || descriptor.schemaVersion != 1 || descriptor.releaseReady)
                 throw new InvalidDataException("Unsupported terrain descriptor or premature release label.");
+            context.DependsOnArtifact(TerrainShaderPath);
+            var terrainShader = AssetDatabase.LoadAssetAtPath<Shader>(TerrainShaderPath);
+            if (terrainShader == null)
+                throw new InvalidDataException("Terrain shader import result is unavailable: " + TerrainShaderPath);
             string directory = Path.GetDirectoryName(context.assetPath);
             string heightPath = Child(directory, descriptor.heightfieldFile), palettePath = Child(directory, descriptor.paletteFile);
             context.DependsOnSourceAsset(heightPath); context.DependsOnSourceAsset(palettePath);
@@ -110,7 +115,7 @@ namespace Moxiang.Editor
                         throw new InvalidDataException("Terrain texture source hash mismatch.");
                 var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
                 if (texture == null) throw new InvalidDataException("Import the source DDS before building terrain.");
-                var material = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "TerrainSlot" + slots[i] };
+                var material = new Material(terrainShader) { name = "TerrainSlot" + slots[i] };
                 if (slots[i] == overriddenSlot) material.name += "_DevelopmentOverride_Unaccepted";
                 material.SetTexture("_BaseMap", texture); material.SetColor("_BaseColor", Color.white); material.SetFloat("_Smoothness", 0);
                 context.AddObjectToAsset(material.name, material); materials[i] = material;

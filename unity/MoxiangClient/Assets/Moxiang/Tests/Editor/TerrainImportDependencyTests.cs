@@ -70,12 +70,16 @@ namespace Moxiang.Tests
             var dependencies = AssetDatabase.GetDependencies(TerrainPath);
             Assert.That(dependencies, Does.Contain(FieldPath));
             Assert.That(dependencies, Does.Contain(TexturePath));
+            Assert.That(dependencies, Does.Contain(MxhTerrainImporter.TerrainShaderPath));
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(MxhTerrainImporter.TerrainShaderPath);
+            Assert.That(shader, Is.Not.Null);
+            Assert.That(terrain.GetComponentInChildren<MeshRenderer>().sharedMaterial.shader, Is.SameAs(shader));
         }
 
         [Test]
         public void ColdImportOrdersArtifactsWithoutManualDependencyImport()
         {
-            CollectionAssert.AreEquivalent(new[] { FieldPath, TexturePath },
+            CollectionAssert.AreEquivalent(new[] { MxhTerrainImporter.TerrainShaderPath, FieldPath, TexturePath },
                 MxhTerrainImporter.GatherDependenciesFromSourceFile(TerrainPath));
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             AssertTerrain();
@@ -105,16 +109,18 @@ namespace Moxiang.Tests
                 Assert.Throws<InvalidDataException>(() => MxhTerrainImporter.ReimportWithDependencies(TerrainPath));
                 Assert.That(AssetDatabase.LoadAssetAtPath<ImportedHeightField>(FieldPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<Texture2D>(TexturePath), Is.Not.Null);
+                Assert.That(AssetDatabase.LoadAssetAtPath<Shader>(MxhTerrainImporter.TerrainShaderPath), Is.Not.Null);
                 Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(TerrainPath), Is.Null);
             }
             finally { LogAssert.ignoreFailingMessages = previous; }
         }
 
         [Test]
-        public void Map10DeclaresHeightfieldAndAllThirteenTextureArtifacts()
+        public void Map10DeclaresShaderHeightfieldAndAllThirteenTextureArtifacts()
         {
             var dependencies = MxhTerrainImporter.GatherDependenciesFromSourceFile("Assets/Moxiang/Derived/Map10/Map10.mxhterrain");
-            Assert.That(dependencies.Length, Is.EqualTo(14));
+            Assert.That(dependencies.Length, Is.EqualTo(15));
+            Assert.That(dependencies, Does.Contain(MxhTerrainImporter.TerrainShaderPath));
             Assert.That(dependencies.Count(path => path.EndsWith(".mxhasset")), Is.EqualTo(1));
             Assert.That(dependencies.Count(path => path.EndsWith(".mxhdds")), Is.EqualTo(13));
         }
