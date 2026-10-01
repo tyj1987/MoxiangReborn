@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Realtime shop appearance admission (2026-10-01)
+
+- Exclude only known realtime MAKEUP/EQUIP appearance templates with no combat stats/effects from ordinary equipment calculation. ShopItemManager retains its separate time accounting; physical records are preserved. Ordinary invalid durability, rare/set and stat-bearing unsupported items still reject. Portable regression suite passes 114/114; Windows handler rerun pending.
+
 ### Handler fixtures after attribute admission (2026-10-01)
 
 - Added explicit four-stat12 inputs to 23 controlled strict-mode character fixtures, retaining unknown/partial-import coverage unchanged. Guarded runtime/quest/optional snapshots before dereference to prevent a failed admission from aborting the test process. Extended-container success now uses an explicit plain dress; separate rejection coverage preserves unsupported option records. Twenty-four literal fixture inserts validate against isolated migrated SQLite; Windows handler execution remains with ROG.

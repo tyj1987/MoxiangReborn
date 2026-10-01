@@ -3,9 +3,30 @@
 #include "mxh/game/base_attack_power.hpp"
 #include "mxh/game/item_list_types.hpp"
 #include "mxh/server/player_state.hpp"
+#include "mxh/server/legacy_shop_item_kind.hpp"
 #include <algorithm>
 
 namespace mxh::server {
+
+// Realtime shop appearance is restored/expired by ShopItemManager using
+// SellPrice==StoredTime and the separate Param/BeginTime/Remaintime record.
+// Its physical ItemBase is not an ordinary weapon/option record. Only skip a
+// known appearance with no stat/effect contribution; never silently omit buffs.
+inline bool is_noncombat_realtime_shop_appearance(const game::ItemInfo& info) noexcept {
+    if ((info.ItemKind != LEGACY_SHOP_ITEM_MAKEUP && info.ItemKind != LEGACY_SHOP_ITEM_EQUIP) ||
+        info.ItemType != 11 || info.SellPrice != 1u /* SHOP_ITEM_PARAM_STORED_TIME */ ||
+        info.GenGol || info.MinChub || info.CheRyuk || info.SimMek ||
+        info.Life || info.Shield || info.NaeRyuk || info.PhyDef ||
+        info.MeleeAttackMin || info.MeleeAttackMax || info.RangeAttackMin || info.RangeAttackMax ||
+        info.CriticalPercent || info.Plus_MugongIdx || info.Plus_Value ||
+        info.AllPlus_Kind || info.AllPlus_Value || info.wSetItemKind ||
+        info.LifeRecover || info.LifeRecoverRate != 0 || info.NaeRyukRecover || info.NaeRyukRecoverRate != 0 ||
+        info.MugongNum || info.MugongType || info.wItemAttr ||
+        info.wAcquireSkillIdx1 || info.wAcquireSkillIdx2 || info.wDeleteSkillIdx) return false;
+    for (unsigned i=0;i<game::ITEM_ELEM_MAX;++i)
+        if (info.AttrAttack.Element[i] != 0 || info.AttrRegist.Element[i] != 0) return false;
+    return true;
+}
 
 // Ordinary KR/CN equipment only. Recompute from scratch; never accumulate a
 // previous result. Unsupported templates/options fail before publishing stats.
@@ -24,10 +45,11 @@ bool rebuild_equipment_stats(PlayerState& state, game::PlayerCombatStats& combat
         const auto& item=state.equipment.items[slot];
         if (!item.dwDBIdx) continue; // Appearance-only icons confer no stats.
         game::ItemInfo info{};
-        if (!lookup(item.wIconIdx,info) || !(info.ItemKind & 2048u) ||
+        if (!lookup(item.wIconIdx,info) || item.RareIdx || info.wSetItemKind) return false;
+        if (is_noncombat_realtime_shop_appearance(info)) continue;
+        if (!(info.ItemKind & 2048u) ||
             !(info.EquipKind == slot || (info.EquipKind == game::WEARED_RING1 && slot == game::WEARED_RING2)) ||
-            (item.Durability != 0u && item.Durability != 100u) ||
-            item.RareIdx || info.wSetItemKind) return false;
+            (item.Durability != 0u && item.Durability != 100u)) return false;
         // Modern make_item/grant/drop/shop creation uses exactly 100 for plain
         // durability; zero is also used for plain fixtures/records. These are
         // not a general legacy option-index range. Original nonzero option IDs

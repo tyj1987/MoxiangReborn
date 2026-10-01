@@ -137,3 +137,43 @@ TEST(PlayerEquipmentStats, ModernPlainDurability100AndZeroAreAcceptedButNotArbit
     item.RareIdx=0; catalog.entries[11000].wSetItemKind=1;
     EXPECT_FALSE(rebuild_equipment_stats(state,combat,catalog));
 }
+
+TEST(PlayerEquipmentStats, RealtimeAppearanceIsNotOrdinaryDurabilityOrWeaponStats) {
+    for (auto kind : {LEGACY_SHOP_ITEM_MAKEUP,LEGACY_SHOP_ITEM_EQUIP}) {
+        auto state=new_character(); PlayerCombatStats combat; Catalog catalog;
+        ItemInfo appearance; appearance.ItemIdx=55001; appearance.ItemKind=kind;
+        appearance.ItemType=11; appearance.SellPrice=1; // SHOP_ITEM_PARAM_STORED_TIME
+        catalog.entries[55001]=appearance;
+        wear(state,WEARED_DRESS,55001);
+        state.equipment.items[WEARED_DRESS].Durability=1;
+        ASSERT_TRUE(rebuild_equipment_stats(state,combat,catalog));
+        EXPECT_EQ(combat.phy_attack_min,16u); EXPECT_EQ(combat.phy_defence,8u);
+        EXPECT_EQ(state.vitals.max_hp,125u);
+        EXPECT_EQ(state.equipment.items[WEARED_DRESS].Durability,1u);
+        auto reloaded=new_character(); reloaded.equipment=state.equipment;
+        ASSERT_TRUE(rebuild_equipment_stats(reloaded,combat,catalog));
+        reloaded.equipment.items[WEARED_DRESS]={}; // ShopItemManager expiration.
+        ASSERT_TRUE(rebuild_equipment_stats(reloaded,combat,catalog));
+        EXPECT_EQ(combat.phy_attack_min,16u); EXPECT_EQ(reloaded.vitals.max_hp,125u);
+    }
+}
+
+TEST(PlayerEquipmentStats, TimedAppearanceExceptionCannotHideCombatOrOptionFields) {
+    auto state=new_character(); PlayerCombatStats combat; Catalog catalog;
+    ItemInfo appearance; appearance.ItemIdx=55001; appearance.ItemKind=LEGACY_SHOP_ITEM_EQUIP;
+    appearance.ItemType=11; appearance.SellPrice=1; // SHOP_ITEM_PARAM_STORED_TIME
+    wear(state,WEARED_DRESS,55001); auto& worn=state.equipment.items[WEARED_DRESS];
+    worn.Durability=1;
+    const auto rejects=[&](ItemInfo item) { catalog.entries[55001]=item; return !rebuild_equipment_stats(state,combat,catalog); };
+    auto changed=appearance; changed.Life=1; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.GenGol=1; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.MeleeAttackMin=1; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.AttrAttack.Element[0]=.1f; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.Plus_MugongIdx=1; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.LifeRecover=1; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.wSetItemKind=1; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.ItemKind=2048; changed.EquipKind=WEARED_DRESS; EXPECT_TRUE(rejects(changed));
+    changed=appearance; changed.SellPrice=2; EXPECT_TRUE(rejects(changed)); // playtime, not realtime
+    changed=appearance; changed.ItemType=0; EXPECT_TRUE(rejects(changed));
+    worn.RareIdx=1; EXPECT_TRUE(rejects(appearance));
+}

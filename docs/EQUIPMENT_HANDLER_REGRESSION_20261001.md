@@ -33,3 +33,11 @@ ROG 回报：native/equipment/schema111/111通过；新协议1/2通过，普通�
 
 ROG Python临时目录写入拒绝按环境阻碍记录，未改工具逻辑、系统目录或权限。
 两笔均未部署、未执行生产迁移；旧unknown拒绝仍是未发布候选行为，不声称旧角色兼容或全量handler验收完成。
+
+## 后续：限时商城外观入场
+
+ROG 在 `2b7d76c680f6e014f6cc0cbc60546e6c7cd6400a` 回报 native112/112、EquipmentPersistence3/3；完整handler190/192通过、3 disabled。两个失败分别为商城限时穿戴入场，以及StrictGameIn的成功场景仍缺四项基础属性。
+
+本逻辑修复只处理前者：`ShopItemManager::collect_realtime_expired` 使用模板SellPrice=StoredTime及独立Param/BeginTime/Remaintime记录处理恢复/到期，物理ItemBase不应套普通装备耐久/选项解释。仅MAKEUP261、EQUIP264且ItemType11、StoredTime、无任何战斗属性/效果的模板跳过普通装备计算；保留物理字段，由既有商城管理器负责到期。稀有/套装仍先拒绝，普通装备仍只接受0/100，带属性的商城项仍不支持。没有改真实限时handler样本。
+
+新增portable测试验证两类外观重建、重建后的重新载入及移除不改变裸装数值，记录Durability1保留；并覆盖属性、攻击、元素、恢复、技能、稀有/套装及非实时模板拒绝。构建命令：`cmake --build /workspace/moxiang-audit-20261001/build-pickup --parallel 3`；`ctest --test-dir /workspace/moxiang-audit-20261001/build-pickup --output-on-failure`，**114/114通过**。证据：`/workspace/moxiang-audit-20261001/timed-appearance-ctest.log`。这不是Windows完整handler验收；需ROG重跑上述两个失败、EquipmentPersistence及完整handler。
