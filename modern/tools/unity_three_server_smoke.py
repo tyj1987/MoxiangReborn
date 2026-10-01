@@ -95,12 +95,17 @@ def main() -> int:
     parser.add_argument('--quest-reward', action='store_true', help='Verify canonical quest 173 completion, reward and reconnect persistence in Editor')
     parser.add_argument('--quest-npc', action='store_true', help='Verify canonical Map10 NPC 572 advances quest 180 and persists')
     parser.add_argument('--combat-timeline', action='store_true', help='Verify authoritative skill release and hit drive the original monster hit animation in Player')
+    parser.add_argument('--pickup-loop', action='store_true', help='Isolated SQLite Player kill/pickup/restart/relogin evidence; no reward overrides')
     parser.add_argument('--player-death', action='store_true', help='With --combat-timeline, verify server death and dead input rejection')
     parser.add_argument('--transfer', action='store_true', help='Verify canonical Map10 to Map2 transfer using two real MapServers')
     parser.add_argument('--backend', choices=('sqlite', 'mssql_odbc'), default='sqlite')
     parser.add_argument('--mssql-config-env', default='MXH_MSSQL_E2E',
                         help='Environment variable containing the MSSQL connection config; its value is never logged')
     args = parser.parse_args()
+    if args.pickup_loop and (args.backend != 'sqlite' or any((args.editor_test, args.create_character,
+            args.movement, args.trade, args.equipment, args.item_use, args.sell, args.discard, args.quest,
+            args.quest_reward, args.quest_npc, args.combat_timeline, args.player_death, args.transfer))):
+        parser.error('--pickup-loop requires a separate standalone SQLite fixture')
     if args.transfer and (not args.editor_test or args.trade or args.equipment or args.item_use or args.sell or args.discard or args.quest or args.movement or args.create_character):
         parser.error('--transfer requires --editor-test and an isolated transfer fixture')
     if args.trade and (not args.editor_test or args.equipment or args.item_use or args.sell or args.discard or args.movement or args.create_character):
@@ -134,7 +139,7 @@ def main() -> int:
     dbtool = repo / 'modern/build/tools/MoxianDbTool/mxh_db_tool.exe'
     env = os.environ.copy()
     env.pop('MXH_SMOKE_TRANSFER', None)
-    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER', 'MXH_SMOKE_BLOCKED_X', 'MXH_SMOKE_BLOCKED_Z', 'MXH_SMOKE_TRADE', 'MXH_SMOKE_EQUIPMENT', 'MXH_SMOKE_ITEM_USE', 'MXH_SMOKE_SELL', 'MXH_SMOKE_DISCARD', 'MXH_SMOKE_QUEST', 'MXH_SMOKE_QUEST_REWARD', 'MXH_SMOKE_QUEST_NPC', 'MXH_SMOKE_COMBAT_TIMELINE'):
+    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER', 'MXH_SMOKE_BLOCKED_X', 'MXH_SMOKE_BLOCKED_Z', 'MXH_SMOKE_TRADE', 'MXH_SMOKE_EQUIPMENT', 'MXH_SMOKE_ITEM_USE', 'MXH_SMOKE_SELL', 'MXH_SMOKE_DISCARD', 'MXH_SMOKE_QUEST', 'MXH_SMOKE_QUEST_REWARD', 'MXH_SMOKE_QUEST_NPC', 'MXH_SMOKE_COMBAT_TIMELINE', 'MXH_SMOKE_PLAYER_DEATH', 'MXH_SMOKE_PICKUP_LOOP', 'MXH_SMOKE_PICKUP_PHASE'):
         env.pop(key, None)
     if args.backend == 'sqlite':
         env['MXH_UNITY_SMOKE_DATABASE'] = f'backend=sqlite;path={database}'
@@ -147,10 +152,10 @@ def main() -> int:
     env['MXH_RUN_ID'] = output.name
     common = ['--backend', args.backend, '--db-env', 'MXH_UNITY_SMOKE_DATABASE']
     quiet = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
-    subprocess.run([str(dbtool), 'migrate', '--db-env', 'MXH_UNITY_SMOKE_DATABASE'], env=env, check=True, capture_output=True, **quiet)
+    subprocess.run([str(dbtool), 'migrate', '--db-env', 'MXH_UNITY_SMOKE_DATABASE'], env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop else None, **quiet)
     run_suffix = output.name[:8]
     account, password = f'ux_{run_suffix}', 'Mx1' + secrets.token_hex(6)
-    subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', account], input=password + '\n', text=True, env=env, check=True, capture_output=True, **quiet)
+    subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', account], input=password + '\n', text=True, env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop else None, **quiet)
     observer_account = f'uo_{run_suffix}'
     if args.movement:
         subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', observer_account], input=password + '\n', text=True, env=env, check=True, capture_output=True, **quiet)
@@ -194,7 +199,7 @@ def main() -> int:
             db.execute("INSERT INTO modern_player_position VALUES(111,10,3500,46900,CURRENT_TIMESTAMP)")
             db.execute("INSERT INTO modern_player_quest_log(player_id,quest_id,state,accepted_time_ms,updated_at) VALUES(111,180,1,123456,CURRENT_TIMESTAMP)")
             db.execute("INSERT INTO modern_player_quest_sub(player_id,quest_id,sub_index,kind,target_id,count,target_count) VALUES(111,180,0,4,41,1,1)")
-        if args.combat_timeline:
+        if args.combat_timeline or args.pickup_loop:
             db.execute("INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) VALUES(111,0,48,0,CURRENT_TIMESTAMP)")
             db.execute("INSERT INTO modern_player_position VALUES(111,10,44178,13253,CURRENT_TIMESTAMP)")
         if args.transfer:
@@ -304,9 +309,10 @@ def main() -> int:
         specs.insert(1, ('map-target', tools / 'MoxianMapServer/mxh_map_server_CHINA.exe', target_port,
             ['--map', '2', '--resource-root', str(resources), '--server-resource-root', str(resources / 'Resource/Server'), '--resource-profile', 'playdh-current']))
     processes, logs = [], []
-    try:
+    restart_count = 0
+    def start_servers(suffix=''):
         for name, executable, port, extra in specs:
-            log = (output / f'{name}.log').open('w', encoding='utf-8')
+            log = (output / f'{name}{suffix}.log').open('w', encoding='utf-8')
             logs.append(log)
             # Current Agent MapClientHandler speaks legacy framing without HSEL.
             # Keep that existing internal link strictly on loopback. Client-facing
@@ -322,6 +328,20 @@ def main() -> int:
                 except OSError:
                     if time.monotonic() >= deadline: raise RuntimeError(f'{name} listen timeout')
                     time.sleep(0.1)
+    def restart_servers():
+        nonlocal restart_count
+        if any(process.poll() is not None for process in processes):
+            raise RuntimeError('Server exited before controlled pickup-loop restart')
+        for process in reversed(processes):
+            if process.poll() is None:
+                process.terminate()
+                try: process.wait(timeout=10)
+                except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=5)
+        processes.clear()
+        restart_count += 1
+        start_servers(f'-restart-{restart_count}')
+    try:
+        start_servers()
         env['MXH_SMOKE_LOGIN_PORT'] = str(login_port)
         env['MXH_SMOKE_USER'], env['MXH_SMOKE_PASSWORD'] = account, password
         if args.create_character: env['MXH_SMOKE_CREATE_NAME'] = create_name
@@ -337,6 +357,7 @@ def main() -> int:
         if args.combat_timeline: env['MXH_SMOKE_COMBAT_TIMELINE'] = '1'
         if args.player_death: env['MXH_SMOKE_PLAYER_DEATH'] = '1'
         if args.transfer: env['MXH_SMOKE_TRANSFER'] = '1'
+        pickup_loop = None
         if args.editor_test:
             cli = Path(os.environ['LOCALAPPDATA']) / 'Unity/bin/unity.exe'
             result_path = output / 'editor-tests.xml'
@@ -358,6 +379,10 @@ def main() -> int:
             if args.movement:
                 move_test = None if results is None else results.find(".//test-case[@name='RealTwoClientsObserveMoveStopAndRejectedJump']")
                 passed = passed and move_test is not None and move_test.get('result') == 'Passed'
+        elif args.pickup_loop:
+            from unity_pickup_loop import run_pickup_loop
+            pickup_loop = run_pickup_loop(player, output, env, database, restart_servers)
+            passed = pickup_loop['passed']
         else:
             completed = subprocess.run([str(player), '--mxh-smoke-output', str(output), '-logFile', str(output / 'player.log'), '-screen-width', '1280', '-screen-height', '720', '-screen-fullscreen', '0'], cwd=player.parent, env=env, timeout=60)
             report_path = output / 'report.json'
@@ -416,7 +441,11 @@ def main() -> int:
             passed = passed and len(rows) == 1 and rows[0][1:] == (create_name, 17) and equipment == [(1, 11000), (2, 23000), (3, 27000)]
             if not args.editor_test: passed = passed and report.get('playerId') == rows[0][0] and report.get('characterCreated') is True
         summary = {'runId': output.name, 'passed': bool(passed), 'surface': 'Editor' if args.editor_test else 'Player', 'backend': args.backend, 'serverType': 'real modern executables', 'clientTransport': 'HSEL', 'internalTransport': 'legacy plaintext loopback', 'fixtureCharacter': not args.create_character, 'creation': creation, 'humanAcceptance': False, 'output': str(output)}
+        if args.pickup_loop: summary['pickupLoop'] = pickup_loop
         summary['serverExitCodesBeforeCleanup'] = {spec[0]: process.poll() for spec, process in zip(specs, processes)}
+        if args.pickup_loop and any(code is not None for code in summary['serverExitCodesBeforeCleanup'].values()):
+            passed = False
+            summary['passed'] = False
         summary['twoNativeSessionMovement'] = args.movement
         summary['collisionFixture'] = collision
         if args.transfer:

@@ -46,6 +46,7 @@ namespace Moxiang
         {
             if (!Debug.isDebugBuild || Application.isEditor) return;
             var args = Environment.GetCommandLineArgs();
+            if (Array.IndexOf(args, "--mxh-pickup-loop") >= 0) return;
             int index = Array.IndexOf(args, "--mxh-smoke-output");
             if (index < 0 || index + 1 >= args.Length) return;
             var probe = new GameObject("ExplicitDevelopmentProbe").AddComponent<DevelopmentRunProbe>();

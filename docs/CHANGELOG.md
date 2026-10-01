@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Opt-in Unity pickup persistence probe (2026-10-01)
+
+- Added isolated SQLite/loopback `--pickup-loop` mode: three Development Player sessions, two controlled server restarts, authoritative kill/drop/pickup/inventory gates, clean client disconnect, and read-only database comparison. Ordinary Player defaults and production combat/rewards are unchanged. Python tests pass 28/28; Windows/Unity execution remains pending. See `docs/UNITY_PICKUP_LOOP_PROBE_20261001.md` for evidence limits and deadlines.
+
 ### Unity terrain import dependencies (2026-10-01)
 
 - Added terrain artifact dependency discovery/registration and bumped importer version to 2 for cold-import ordering. Added a bounded dependency reimport command, separate missing-artifact diagnostics, and five Editor regression cases. Provenance/hash/slot validation remains enforced. Cloud Python tools pass 18/18; Unity cold-import validation awaits ROG. See `docs/UNITY_TERRAIN_IMPORT_FIX_20261001.md`.
