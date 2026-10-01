@@ -12,8 +12,13 @@
 # can run alongside a developer's working servers.
 # -----------------------------------------------------------------------------
 add_executable(mxh_client_e2e main.cpp)
+add_executable(mxh_map17_evidence_test map17_evidence_test.cpp)
+target_link_libraries(mxh_map17_evidence_test PRIVATE mxh_db)
+target_include_directories(mxh_map17_evidence_test PRIVATE ${CMAKE_SOURCE_DIR}/third_party/sqlite)
+add_test(NAME Map17ReadOnlyEvidence COMMAND mxh_map17_evidence_test)
 target_include_directories(mxh_client_e2e PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
+    ${CMAKE_SOURCE_DIR}/third_party/sqlite
 )
 target_link_libraries(mxh_client_e2e PRIVATE mxh_client_lib mxh_db mxh_server mxh_log)
 add_dependencies(mxh_client_e2e
@@ -24,7 +29,7 @@ add_dependencies(mxh_client_e2e
 if(MSVC)
     target_compile_definitions(mxh_client_e2e PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_options(mxh_client_e2e PRIVATE /W3 /utf-8)
-    target_link_libraries(mxh_client_e2e PRIVATE ws2_32)
+    target_link_libraries(mxh_client_e2e PRIVATE ws2_32 bcrypt)
 endif()
 
 # Register as a ctest test.  The tool exits 0 only when all 3 protocol

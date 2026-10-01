@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Map17 protocol pickup probe candidate (2026-10-01)
+
+- Replace the E2E tool's direct attack call with public projection/click targeting in an isolated Map17 combat mode. Require source-matched natural loot, the actual client's PickupAck receipt log, exact DBID/count, GameOutAck and read-only SQLite/relogin consistency. SQLite evidence boundary test passes in cloud; full Windows build/live protocol validation pending. See `docs/MAP17_PROTOCOL_PICKUP_PROBE_20261001.md`.
+
 ### Entity display height candidate (2026-10-01)
 
 - Query the current visible terrain triangles before spawning monster/NPC/drop presentation; reject stale or unavailable surfaces instead of placing at Y0. Keep server XZ/collision, model scale and importers unchanged. Added six height/surface EditMode cases and explicit surface fixtures for entity regressions. Cloud Python42/42 and governance checks pass; Unity compilation, EditMode and ROG visual acceptance remain pending. See `docs/UNITY_DISPLAY_HEIGHT_CANDIDATE_20261001.md`.
