@@ -132,9 +132,43 @@ def main() -> int:
     if args.movement and args.create_character:
         parser.error('Run movement and empty-account creation as separate isolated fixtures')
     repo = Path(__file__).resolve().parents[2]
-    player = args.player.resolve(strict=True)
     output = repo / 'modern/out/unity-remaster/three-server' / uuid.uuid4().hex
     output.mkdir(parents=True)
+    return execute_reported(args, parser, repo, output, map_number)
+
+
+def execute_reported(args, parser, repo: Path, output: Path, map_number: int) -> int:
+    """One failure boundary includes setup/startup and the existing owned-process cleanup."""
+    progress = {'stage': 'player-path'}
+    try:
+        player = args.player.resolve(strict=True)
+        return run_fixture(args, parser, repo, player, output, map_number, progress)
+    except Exception as error:
+        # Do not serialize command lines, subprocess stdout/stderr, env or credentials.
+        failure = {'runId': output.name, 'passed': False, 'humanAcceptance': False,
+                   'surface': 'Editor' if args.editor_test else 'Player', 'backend': args.backend,
+                   'output': str(output), 'failureStage': progress['stage'],
+                   'server': progress.get('server'), 'errorType': type(error).__name__,
+                   'timeoutSeconds': error.timeout if isinstance(error, subprocess.TimeoutExpired)
+                       else (20 if isinstance(error, TimeoutError) and progress.get('server') else None),
+                   'returnCode': getattr(error, 'returncode', None)}
+        # Finite writes, no retries. Stdout remains machine-readable if disk writes fail.
+        try:
+            (output / 'failure-summary.json').write_text(json.dumps(failure, indent=2), encoding='utf-8')
+            (output / 'three-server-summary.json').write_text(json.dumps(failure, indent=2), encoding='utf-8')
+            if args.pickup_loop:
+                path = output / 'pickup-loop-summary.json'
+                details = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'phases': []}
+                details.update(passed=False, humanAcceptance=False, failure=failure)
+                path.write_text(json.dumps(details, indent=2), encoding='utf-8')
+        except (OSError, ValueError) as write_error:
+            failure['reportWriteError'] = type(write_error).__name__
+        print(json.dumps(failure))
+        return 1
+
+
+def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number: int, progress: dict) -> int:
+    progress['stage'] = 'fixture-setup'
     database = output / 'fixture.db'
     dbtool = repo / 'modern/build/tools/MoxianDbTool/mxh_db_tool.exe'
     env = os.environ.copy()
@@ -152,10 +186,13 @@ def main() -> int:
     env['MXH_RUN_ID'] = output.name
     common = ['--backend', args.backend, '--db-env', 'MXH_UNITY_SMOKE_DATABASE']
     quiet = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
+    progress['stage'] = 'database-migration'
     subprocess.run([str(dbtool), 'migrate', '--db-env', 'MXH_UNITY_SMOKE_DATABASE'], env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop else None, **quiet)
     run_suffix = output.name[:8]
     account, password = f'ux_{run_suffix}', 'Mx1' + secrets.token_hex(6)
+    progress['stage'] = 'account-registration'
     subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', account], input=password + '\n', text=True, env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop else None, **quiet)
+    progress['stage'] = 'fixture-seeding'
     observer_account = f'uo_{run_suffix}'
     if args.movement:
         subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', observer_account], input=password + '\n', text=True, env=env, check=True, capture_output=True, **quiet)
@@ -312,6 +349,7 @@ def main() -> int:
     restart_count = 0
     def start_servers(suffix=''):
         for name, executable, port, extra in specs:
+            progress['server'] = name
             log = (output / f'{name}{suffix}.log').open('w', encoding='utf-8')
             logs.append(log)
             # Current Agent MapClientHandler speaks legacy framing without HSEL.
@@ -326,7 +364,7 @@ def main() -> int:
                 try:
                     with socket.create_connection(('127.0.0.1', port), timeout=0.2): break
                 except OSError:
-                    if time.monotonic() >= deadline: raise RuntimeError(f'{name} listen timeout')
+                    if time.monotonic() >= deadline: raise TimeoutError(f'{name} listen timeout')
                     time.sleep(0.1)
     def restart_servers():
         nonlocal restart_count
@@ -341,7 +379,10 @@ def main() -> int:
         restart_count += 1
         start_servers(f'-restart-{restart_count}')
     try:
+        progress['stage'] = 'initial-server-startup'
         start_servers()
+        progress['stage'] = 'client-and-evidence'
+        progress.pop('server', None)
         env['MXH_SMOKE_LOGIN_PORT'] = str(login_port)
         env['MXH_SMOKE_USER'], env['MXH_SMOKE_PASSWORD'] = account, password
         if args.create_character: env['MXH_SMOKE_CREATE_NAME'] = create_name

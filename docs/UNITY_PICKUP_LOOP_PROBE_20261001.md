@@ -36,6 +36,8 @@ python modern/tools/unity_three_server_smoke.py --player <DevelopmentPlayer.exe>
 - 各阶段`persisted-inventory.json`：只读SQLite快照，包含DBID、物品、槽位、durability、rare、quick position、item parameter。
 - 各阶段`player.log`、三服及重启日志、`pickup-loop-summary.json`、总`three-server-summary.json`。
 
+输出目录创建后，顶层失败边界也覆盖Player路径校验、数据库migration、账号registration、夹具准备及三服首次启动。若尚未进入Player阶段即失败，仍写`failure-summary.json`、`three-server-summary.json`和失败的`pickup-loop-summary.json`，返回码为1。JSON记录failureStage、server、errorType、timeoutSeconds和returnCode，不复制异常内的命令、stdout/stderr或env。已有进程先经原有finally清理再报告；仅操作本次Popen对象。报告写盘只尝试一次；若磁盘不可写，stdout仍输出含reportWriteError的机器可读失败结果。
+
 Python独立校验器不只读取布尔结果：检查原生击中/生命0/掉落/Ack/完整库存事件及顺序和代次，核对每次重登库存、旧物品不变、新DBID唯一以及实际SQLite记录。致死一击的伤害通知可能晚于生命0通知，故不强制二者的错误先后假设；生命0必须早于掉落、掉落早于Ack、完整库存晚于Ack。
 
 交互分级：技能/移动属于协议命令调用，拾取属于组件方法自动调用，断开属于UI按钮事件自动调用；均不是OS鼠标输入。`humanAcceptance=false`、`mouseInteraction=false`始终保留。该模式不验证标签可读性、遮挡、真人点击、伤害动画、截图质量或全部场景性能。
@@ -45,3 +47,9 @@ Python独立校验器不只读取布尔结果：检查原生击中/生命0/掉�
 Python测试28/28通过（其中本批10项），覆盖缺事件、错误代次/顺序、旧报告、ID重复/旧物品丢失、只读SQLite、进程超时失败落盘、三阶段编排及互斥CLI约束。Python编译、项目治理、diff检查通过。
 
 云端无Windows三服可执行文件和Unity Editor/Player，未执行本批C#编译或真实端到端验收。ROG先完成132950b的冷导入复测，再同步本批提交构建并运行新模式。任何超时应按具体阶段日志记录缺口；测试代码通过不能替代真实击杀/掉落/拾取/重登结果。
+
+失败报告增量新增3项回归：migration 30秒超时、registration非零退出、首次MapServer监听20秒超时。检查三份失败JSON和stdout、禁止敏感子进程信息入报告，并验证监听超时仅清理拥有的进程。云端Python Unity工具测试现31/31通过；本次没有改变真实成功门槛。
+
+## Review范围
+
+独立只读review覆盖`99b3a72f6fe5093c07495a311d007f6e5a51ea75`至`af66675cc2e44e0e95ff82b55cd9b8a90f7097f7`的9个提交、44个文件，本次修复其失败产物P2问题。协作端报告PR1相对main仍包含1752个提交、7143个文件且mergeable=false；该整PR状态未由本云端重新核验。局部review不能视为整PR通过。本次未修改PR base、未合并，也未处理整PR冲突。

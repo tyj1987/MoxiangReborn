@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Smoke setup failure evidence (2026-10-01)
+
+- Added a bounded top-level failure report around fixture setup and first server startup, retaining owned-process cleanup and existing success gates. Migration timeout, registration failure and initial listen timeout regressions pass; Python Unity tool tests pass 31/31. Review scope is the 99b3a72→af66675 increment, not the full PR against main.
+
 ### Opt-in Unity pickup persistence probe (2026-10-01)
 
 - Added isolated SQLite/loopback `--pickup-loop` mode: three Development Player sessions, two controlled server restarts, authoritative kill/drop/pickup/inventory gates, clean client disconnect, and read-only database comparison. Ordinary Player defaults and production combat/rewards are unchanged. Python tests pass 28/28; Windows/Unity execution remains pending. See `docs/UNITY_PICKUP_LOOP_PROBE_20261001.md` for evidence limits and deadlines.
