@@ -1,5 +1,90 @@
 # Unity remaster — implementation status
 
+## 2026-10-01 evidence update — source snapshot and ROG acceptance boundaries
+
+This versioned update applies to `codex/fix-pickup-loop-20261001` at
+`eeb92238012e8849f6173686fcd2b99a036f48f8`, derived from the selected ROG
+source snapshot `99b3a72f6fe5093c07495a311d007f6e5a51ea75`. The branch and
+baseline under Approved scope below describe the historical remaster approval,
+not the current audit checkout. Historical entries remain dated evidence;
+their passing counts do not automatically apply to this snapshot.
+
+The snapshot selected source changes and excluded assets from that source
+sync. Consequently the checkout's asset tree can differ from the ROG workspace
+and from paths described in older reports. An omitted asset, an unhydrated LFS
+pointer, and an invalid/missing canonical source are different conditions;
+none alone proves missing implementation. No asset completeness or full-game
+completion percentage is inferred from this source snapshot.
+
+### Windows code regression at eeb9223
+
+ROG reported the following results for the full SHA above; these are external
+Windows executions reported by the coordinating thread, not cloud Linux runs:
+
+| Suite | Reported result | What remains outside this evidence |
+|---|---|---|
+| Native / equipment / schema | 114/114 passed | Unity rendering and human gameplay |
+| Two previously failing handler cases | 2/2 passed | Full Player flow |
+| EquipmentPersistence | 3/3 passed | Human equip/combat/pickup/relogin sequence |
+| Complete handler suite | 194/194 passed; 3 additionally disabled | Disabled coverage, deployment and live Unity acceptance |
+
+The production and fixture changes are documented in
+[Equipment handler regression](EQUIPMENT_HANDLER_REGRESSION_20261001.md) and
+[Equipment combat hydration](EQUIPMENT_COMBAT_HYDRATION_20261001.md).
+Their earlier "Windows rerun pending" statements record the state before this
+ROG result. This update resolves that code-regression rerun only; it does not
+resolve the visual, gameplay or release gates below.
+
+### Visual evidence remains incomplete
+
+- **Map10 population:** early 228-monster/6-kind results establish component,
+  instance and event counts. The reviewed early screenshot does not establish
+  a discernible player, trees or monsters. Counts and first-hit events are not
+  readable-scene or human combat acceptance. See the existing
+  [pickup probe scope](UNITY_PICKUP_LOOP_PROBE_20261001.md) and its distinction
+  between first hit and kill/drop/pickup/persistence.
+- **Cold import:** at `132950b02fa978318845d2f0e62c731cfdabe6bb`, ROG reported
+  DefaultAsset/0 chunks on first import and 3/5 new EditMode cases passing.
+  One recovery produced 64 chunks/renderers and 13 DDS, which does not pass
+  the cold-import gate. Shader dependency/load changes in
+  `b349232215a30e4ee624ca0efbde903f13dc147f` and the assertion/geometry-propagation
+  follow-up `c10b49be6861d0d8e49901d55e50f2a07e3a1380` have **not received a
+  reported ROG rerun**. The two failed assertions and the separate null-shader
+  log must not be conflated; details and the current six-case rerun are in
+  [Terrain import fix](UNITY_TERRAIN_IMPORT_FIX_20261001.md).
+- **NPC:** ROG reports that a real FBX imported successfully. Play-mode
+  presentation, live identity/interaction, animation and human inspection
+  remain untested. This does not replace the separate NPC/B16 executor's
+  acceptance or justify generating substitute assets.
+- **Map17:** the ROG source audit found two real 513×513 HFL candidates;
+  the loose 16×16 file remains a generated placeholder. The standard package's
+  42-DDS HFL closure lacks nine DDS and its STM references missing `test4.tif`;
+  another version has 440 DDS references with seven missing. These versions
+  must not be mixed. Standard-package `17.map` references to its HFL/STM were
+  verified. L001 CHX/model/textures/12 actions have hashes and a successful
+  exporter report, but neither that result nor source availability is Unity
+  scene acceptance. Visual integration remains blocked pending the bounded
+  same-source search; no Map17 scene expansion is claimed here.
+
+ROG raw logs, screenshots and asset receipts are external evidence, not files
+published by this documentation commit. Exact ROG log locations/run identifiers
+for this update have not yet been supplied to this checkout; they must be
+attached by the executing/coordinating thread before independent reproduction.
+Paths such as historical `modern/out/unity-remaster/...` entries below identify
+the executor's output layout, not artifacts guaranteed to exist in every clone.
+Repository links above provide reviewable implementation reports; they are not
+substitutes for the external raw logs. No private configuration is included.
+
+### Gate disposition (2026-10-01)
+
+A remains **Partial** (source/dependency closure); B remains **Partial**
+(the reported code suites pass, but not every runtime/fault case); C remains
+**Not accepted** (cold import, discernible visual sample and human review);
+D remains **Not accepted** (complete real playable chain and two-player/DB
+acceptance); E and F remain **Not accepted** (full-game and release conditions).
+No deployment, PR merge, visual approval or release promotion accompanies this
+documentation update. The historical gate table below is retained unchanged.
+
 ## Approved scope
 
 Branch: `codex/unity-client-remaster`, source baseline
