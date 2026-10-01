@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Handler fixtures after attribute admission (2026-10-01)
+
+- Added explicit four-stat12 inputs to 23 controlled strict-mode character fixtures, retaining unknown/partial-import coverage unchanged. Guarded runtime/quest/optional snapshots before dereference to prevent a failed admission from aborting the test process. Extended-container success now uses an explicit plain dress; separate rejection coverage preserves unsupported option records. Twenty-four literal fixture inserts validate against isolated migrated SQLite; Windows handler execution remains with ROG.
+
 ### Plain modern item durability compatibility (2026-10-01)
 
 - ROG found that normal pending grants create Durability100 while the new equipment calculation rejected every nonzero value. Accept exactly the existing modern plain values0/100, retaining rejection of other durability values and rare/set options. Regression fixtures now use the real make_item default100; no granted weapon or production generator is rewritten to0. Legacy nonzero option IDs still require explicit import semantics, including the collision at ID100.

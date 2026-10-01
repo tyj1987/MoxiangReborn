@@ -1991,8 +1991,8 @@ TEST(MapHandlerTest, AuthenticatedGameInRetainsAccountAndAppearanceInActor) {
     mxh::db::ConnectionConfig config; config.path=":memory:";
     ASSERT_TRUE(db.connect(config).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num,sex_type,face_type,hair_type) "
-                             "VALUES(777,'123','AppearanceHero',10,1,4,6);").ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num,sex_type,face_type,hair_type) "
+                             "VALUES(12,12,12,12,777,'123','AppearanceHero',10,1,4,6);").ok());
     ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
     handler.set_allow_dev_gamein_fallback(false);
     mxh::net::Message request;
@@ -2266,9 +2266,9 @@ TEST(MapHandlerTest, ExtendedShopContainersSurviveExitAndFreshHandlerRelogin) {
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(123,'123','ShopHero',7);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,123,'123','ShopHero',7);"
         "INSERT INTO modern_player_item VALUES(123,0,4,9001,555,87,3,65535,8);"
-        "INSERT INTO modern_player_item VALUES(123,1,2,9002,777,65,4,65535,1);"
+        "INSERT INTO modern_player_item VALUES(123,1,2,9002,777,100,0,65535,1);"
         "INSERT INTO modern_player_item VALUES(123,2,0,9003,55001,4294967295,3,65535,2147483648);"
         "INSERT INTO modern_player_item VALUES(123,2,19,9004,55002,71,4,65535,9);"
         "INSERT INTO modern_player_item VALUES(123,3,2,9005,55003,72,5,65535,10);"
@@ -2277,6 +2277,11 @@ TEST(MapHandlerTest, ExtendedShopContainersSurviveExitAndFreshHandlerRelogin) {
     for (int session = 0; session < 2; ++session) {
         ReplySpy reply; mxh::server::MapHandler handler(db,7,make_reply_spy(reply));
         handler.set_allow_dev_gamein_fallback(false);
+        // This is a plain worn dress, not an unimplemented rare-option item.
+        // Arbitrary payload preservation remains exercised in all other bags.
+        mxh::game::ItemInfo dress{};
+        dress.ItemIdx=777; dress.ItemKind=2048; dress.EquipKind=2;
+        handler.add_item_info_for_test(dress);
         mxh::net::Message enter;
         enter.header.object_id=123;
         enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -2333,7 +2338,7 @@ TEST(MapHandlerTest, ShopAdmissionRestoresWireAndCommitsExpiryAtomically) {
         SCOPED_TRACE(failure);
         mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
         ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','RestoreHero',10);"
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','RestoreHero',10);"
             "INSERT INTO modern_player_item VALUES(777,2,0,9002,55002,1,0,65535,0);"
             "INSERT INTO modern_player_item VALUES(777,2,1,9003,63130,1,0,65535,0);"
             "INSERT INTO modern_player_item VALUES(777,2,2,9004,57680,1,0,65535,0);").ok());
@@ -2442,7 +2447,7 @@ TEST(MapHandlerTest, ShopAdmissionRestoresWireAndCommitsExpiryAtomically) {
 TEST(MapHandlerTest, AdmissionRestoresPersistedZeroLifeAsDeadWithoutShopItems) {
     mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
     ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','DeadHero',10);").ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','DeadHero',10);").ok());
     const auto initial=mxh::db::load_modern_shop_state(db,777,123); ASSERT_TRUE(initial);
     const std::vector<mxh::db::PersistedPet> pets{{901,1,2,1234,57,1,0,0}};
     ASSERT_TRUE(mxh::db::save_modern_shop_state(db,777,123,*initial,{},mxh::db::PersistedVitals{0,0,7},pets));
@@ -2582,8 +2587,8 @@ TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
     ASSERT_TRUE(db.connect(config).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(charname,chrid,userid,level,map_num) "
-        "VALUES('DeadHero',777,'123',5,10);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,charname,chrid,userid,level,map_num) "
+        "VALUES(12,12,12,12,'DeadHero',777,'123',5,10);"
         "INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) "
         "VALUES(777,100000,5," + std::to_string(seeded_exp) + ",'now');").ok());
     const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
@@ -2619,7 +2624,9 @@ TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
         reply.messages.clear();
         event_map.on_message({55}, revive(0, 777));
         EXPECT_TRUE(reply.messages.empty());
-        EXPECT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        const auto checked_snapshot_1=event_map.player_runtime_snapshot(777);
+        ASSERT_TRUE(checked_snapshot_1);
+        EXPECT_EQ(checked_snapshot_1->lifecycle, mxh::server::PlayerLifecycle::Dead);
         event_map.on_disconnect({55}, mxh::net::NetError::Disconnected);
         EXPECT_FALSE(event_map.is_draining());
         EXPECT_FALSE(event_map.player_runtime_snapshot(777));
@@ -2656,7 +2663,9 @@ TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
     handler.on_message({99}, revive(0, 777));
     handler.on_message({55}, revive(0, 0));
     EXPECT_TRUE(reply.messages.empty());
-    EXPECT_EQ(handler.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    const auto checked_snapshot_2=handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(checked_snapshot_2);
+    EXPECT_EQ(checked_snapshot_2->lifecycle, mxh::server::PlayerLifecycle::Dead);
     EXPECT_EQ(handler.player_money_for_test(777), 100000u);
 
     reply.messages.clear();
@@ -2741,7 +2750,9 @@ TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
     ASSERT_EQ(reply.messages.size(), count + 1);
     EXPECT_EQ(reply.messages.back().header.protocol, mxh::server::userconn_character_revive_nack);
     EXPECT_EQ(reply.messages.back().payload, (std::vector<std::uint8_t>{1}));
-    EXPECT_EQ(handler.player_runtime_snapshot(777)->current_hp, after->current_hp);
+    const auto checked_snapshot_3=handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(checked_snapshot_3);
+    EXPECT_EQ(checked_snapshot_3->current_hp, after->current_hp);
 
     handler.on_disconnect({55}, mxh::net::NetError::Disconnected);
     EXPECT_FALSE(handler.is_draining());
@@ -2808,8 +2819,8 @@ void check_login_point_request(const std::filesystem::path& current_path,
     ASSERT_TRUE(db.connect(config).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(charname,chrid,userid,level,map_num) "
-        "VALUES('DeadHero',777,'123',5,10);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,charname,chrid,userid,level,map_num) "
+        "VALUES(12,12,12,12,'DeadHero',777,'123',5,10);"
         "INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) "
         "VALUES(777,100000,5," + std::to_string(seeded_exp) + ",'now');").ok());
     const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
@@ -2838,13 +2849,19 @@ void check_login_point_request(const std::filesystem::path& current_path,
         event_map.set_allow_dev_gamein_fallback(false);
         ASSERT_TRUE(load_login(event_map, current_path, "playdh-current"));
         event_map.on_message({55}, enter());
-        ASSERT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        const auto checked_snapshot_4=event_map.player_runtime_snapshot(777);
+        ASSERT_TRUE(checked_snapshot_4);
+        ASSERT_EQ(checked_snapshot_4->lifecycle, mxh::server::PlayerLifecycle::Dead);
         reply.messages.clear();
         event_map.on_message({55}, revive(3));
         EXPECT_TRUE(reply.messages.empty());
         EXPECT_EQ(event_map.player_money_for_test(777), 100000u);
-        EXPECT_EQ(event_map.player_runtime_snapshot(777)->level_exp, seeded_exp);
-        EXPECT_EQ(event_map.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+        const auto checked_snapshot_5=event_map.player_runtime_snapshot(777);
+        ASSERT_TRUE(checked_snapshot_5);
+        EXPECT_EQ(checked_snapshot_5->level_exp, seeded_exp);
+        const auto checked_snapshot_6=event_map.player_runtime_snapshot(777);
+        ASSERT_TRUE(checked_snapshot_6);
+        EXPECT_EQ(checked_snapshot_6->lifecycle, mxh::server::PlayerLifecycle::Dead);
         event_map.on_disconnect({55}, mxh::net::NetError::Disconnected);
         EXPECT_FALSE(event_map.is_draining());
     }
@@ -2870,8 +2887,12 @@ void check_login_point_request(const std::filesystem::path& current_path,
     handler.on_message({99}, revive(3));
     EXPECT_TRUE(reply.messages.empty());
     EXPECT_EQ(handler.player_money_for_test(777), 100000u);
-    EXPECT_EQ(handler.player_runtime_snapshot(777)->level_exp, seeded_exp);
-    EXPECT_EQ(handler.player_runtime_snapshot(777)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    const auto checked_snapshot_7=handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(checked_snapshot_7);
+    EXPECT_EQ(checked_snapshot_7->level_exp, seeded_exp);
+    const auto checked_snapshot_8=handler.player_runtime_snapshot(777);
+    ASSERT_TRUE(checked_snapshot_8);
+    EXPECT_EQ(checked_snapshot_8->lifecycle, mxh::server::PlayerLifecycle::Dead);
 
     reply.messages.clear();
     handler.on_message({55}, revive(3));
@@ -2953,8 +2974,8 @@ TEST(MapHandlerTest, DeadDisconnectAppliesLoginPenaltyWithoutMoving) {
     ASSERT_TRUE(db.connect(config).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(charname,chrid,userid,level,map_num) "
-        "VALUES('DeadHero',777,'123',5,10);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,charname,chrid,userid,level,map_num) "
+        "VALUES(12,12,12,12,'DeadHero',777,'123',5,10);"
         "INSERT INTO modern_player_state(player_id,money,level,exp,updated_at) "
         "VALUES(777,100000,5," + std::to_string(seeded_exp) + ",'now');").ok());
     const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
@@ -3041,7 +3062,9 @@ TEST(MapHandlerTest, ReviveVitalityMessagesPreserveSignedDeltasAndRejectOverflow
     EXPECT_EQ(messages->vitality[2].header.protocol,5);
     EXPECT_EQ(messages->vitality[1].payload,(std::vector<std::uint8_t>{249,255,255,255}));
     revived.state().vitals.current_mp=7;
-    EXPECT_EQ(prepare_revive_vitality_messages(actor,revived)->vitality.size(),2u);
+    const auto without_mp=prepare_revive_vitality_messages(actor,revived);
+    ASSERT_TRUE(without_mp);
+    EXPECT_EQ(without_mp->vitality.size(),2u);
     revived.state().vitals.current_hp=0xffffffffu;
     EXPECT_FALSE(prepare_revive_vitality_messages(actor,revived));
     EXPECT_EQ(actor.lifecycle(),PlayerLifecycle::Dead);
@@ -3082,7 +3105,7 @@ TEST(MapHandlerTest, ShopAdmissionExpiresPhysicalItemsFromOriginalWornContainers
         SCOPED_TRACE(test.container);
         mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
         ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','WornRestore',10);"
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','WornRestore',10);"
             "INSERT INTO modern_player_item VALUES(777," + std::to_string(test.container) + "," +
             std::to_string(test.slot) + ",9001,55001,1,0,65535,0);").ok());
         mxh::db::LegacyShopAppearanceRows saved;
@@ -3129,7 +3152,7 @@ TEST(MapHandlerTest, OnlineShopPlaytimePublishesMinuteAndCommitsExpiryBeforeUseE
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','TimerHero',10);").ok());
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','TimerHero',10);").ok());
 
     mxh::db::LegacyShopAppearanceRows saved;
     saved.used_items.push_back({55001, 0, 9001, 2, 0, 90001});
@@ -3228,7 +3251,7 @@ TEST(MapHandlerTest, OnlineShopExpiryRollbackPublishesNeitherStateNorUseEnd) {
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','RollbackHero',10);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','RollbackHero',10);"
         "INSERT INTO modern_player_item VALUES(777,2,0,9001,55001,1,0,65535,0);").ok());
     const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
     std::string error;
@@ -3300,7 +3323,7 @@ TEST(MapHandlerTest, OnlineShopTimerRejectsDatabaseStateChangedAfterAdmission) {
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','DriftHero',10);").ok());
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','DriftHero',10);").ok());
     mxh::db::LegacyShopAppearanceRows saved;
     saved.used_items.push_back({55001, 0, 9001, 2, 0, 30000});
     const auto initial = mxh::db::load_modern_shop_state(db, 777, 123);
@@ -3365,7 +3388,7 @@ TEST(MapHandlerTest, OnlineRealtimeShopItemUsesPackedClockForMinuteAndExpiry) {
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','RealtimeHero',10);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','RealtimeHero',10);"
         "INSERT INTO modern_player_item VALUES(777,2,0,9001,55001,1,0,65535,0);").ok());
     mxh::db::LegacyShopAppearanceRows saved;
     saved.used_items.push_back({55001, 999, 9001, 1, pack(12, 0, 0).value, pack(12, 0, 30).value});
@@ -3464,7 +3487,7 @@ TEST(MapHandlerTest, OnlineRealtimeExpirySearchesOriginalWornContainers) {
         ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
         const std::vector<mxh::db::Bind> no_args;
         ASSERT_TRUE(db.execute(
-            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','WornTimerHero',10)",
+            "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','WornTimerHero',10)",
             no_args).ok());
         const std::array item_args{
             mxh::db::bind(std::int64_t{777}), mxh::db::bind(test.container),
@@ -3574,8 +3597,8 @@ TEST(MapHandlerTest, SkinExpiryClearsGameInSnapshotAndOnlinePublishesLegacyAck) 
         ASSERT_TRUE(db.connect(cfg).ok());
         ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
         ASSERT_TRUE(db.exec_multi(
-            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','SkinHero',10);"
-            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(778,'124','ObserverHero',10);"
+            "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','SkinHero',10);"
+            "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,778,'124','ObserverHero',10);"
             "INSERT INTO modern_player_item VALUES(777,2,0,9001,55001,1,0,65535,0);").ok());
         mxh::db::LegacyShopAppearanceRows saved;
         saved.skin[0] = skin_case.equipment;
@@ -3674,7 +3697,7 @@ TEST(MapHandlerTest, SkinExpiryClearsGameInSnapshotAndOnlinePublishesLegacyAck) 
 TEST(MapHandlerTest, ShopAdmissionBeginFailureDrainsConnection) {
     mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
     ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','BeginHero',10);").ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','BeginHero',10);").ok());
     ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
     handler.set_allow_dev_gamein_fallback(false);
     // An existing transaction makes BEGIN fail while connection ownership is uncertain.
@@ -3696,7 +3719,7 @@ TEST(MapHandlerTest, InvalidShopInventoryRejectsEntryWithoutErasingDatabaseRows)
         SCOPED_TRACE(slot);
         mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
         ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(123,'123','BadShop',7);").ok());
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,123,'123','BadShop',7);").ok());
         ASSERT_TRUE(db.exec_multi(std::string("INSERT INTO modern_player_item VALUES(123,2,")+slot+",9003,55001,1,0,65535,0);").ok());
         ReplySpy reply; mxh::server::MapHandler handler(db,7,make_reply_spy(reply));
         handler.set_allow_dev_gamein_fallback(false);
@@ -3723,7 +3746,7 @@ TEST(MapHandlerTest, InvalidExtendedShopContainerSlotsRejectEntryWithoutErasingR
         SCOPED_TRACE(std::string(test.container) + ":" + test.slot);
         mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
         ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(123,'123','BadExtended',7);"
+        ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,123,'123','BadExtended',7);"
             "INSERT INTO modern_player_item VALUES(123," + std::string(test.container) + "," +
             test.slot + ",9003,55001,1,0,65535,0);").ok());
         ReplySpy reply; mxh::server::MapHandler handler(db,7,make_reply_spy(reply));
@@ -4008,7 +4031,9 @@ TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
     ASSERT_NE(ack, replies.end());
     state.on_message(mxh::net::make_connection_id(1), *ack);
     EXPECT_TRUE(state.ground_drops().empty());
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_9=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_9);
+    EXPECT_EQ(checked_snapshot_9->inventory_count, 1u);
 }
 
 namespace {
@@ -4196,7 +4221,9 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
     });
     ASSERT_NE(ack, replies.end());
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_10=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_10);
+    EXPECT_EQ(checked_snapshot_10->inventory_count, 1u);
     const auto total = std::find_if(ack + 1, replies.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
@@ -4219,7 +4246,9 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
     });
     ASSERT_NE(nack, replies.end());
     EXPECT_EQ(replies.size(), 1u);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_11=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_11);
+    EXPECT_EQ(checked_snapshot_11->inventory_count, 1u);
 }
 
 TEST(MapHandlerTest, PickupDistanceBoundaryAndFullInventoryDoNotPublishFalseUpdates) {
@@ -4242,7 +4271,10 @@ TEST(MapHandlerTest, PickupDistanceBoundaryAndFullInventoryDoNotPublishFalseUpda
             ? mxh::proto::ItemProtocol::PickupAck : mxh::proto::ItemProtocol::PickupNack));
         EXPECT_EQ(reply.messages.size(), distance == 500 ? 2u : 1u);
         // Fill every remaining carried slot, then request one more real pickup.
-        while (handler.player_runtime_snapshot(123)->inventory_count < 80) {
+        for (;;) {
+            const auto carried=handler.player_runtime_snapshot(123);
+            ASSERT_TRUE(carried);
+            if (carried->inventory_count >= 80) break;
             auto fill = handler.create_ground_drop_for_test(50000, 77, 1, 25000, 25000);
             ASSERT_TRUE(fill);
             ASSERT_TRUE(handler.claim_ground_drop_for_test(123, fill->object_id));
@@ -4253,7 +4285,9 @@ TEST(MapHandlerTest, PickupDistanceBoundaryAndFullInventoryDoNotPublishFalseUpda
         handler.on_message(connection, mxh::client::make_pickup_message(123, excess->object_id));
         ASSERT_EQ(reply.messages.size(), 1u);
         EXPECT_EQ(reply.messages[0].header.protocol, static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack));
-        EXPECT_EQ(handler.player_runtime_snapshot(123)->inventory_count, 80u);
+        const auto checked_snapshot_12=handler.player_runtime_snapshot(123);
+        ASSERT_TRUE(checked_snapshot_12);
+        EXPECT_EQ(checked_snapshot_12->inventory_count, 80u);
     }
 }
 
@@ -4308,7 +4342,9 @@ TEST(MapHandlerTest, PickupSnapshotSurvivesDisconnectAndFreshHandlerRelogin) {
     EXPECT_EQ(restored.Inventory[0].wIconIdx, picked.Inventory[0].wIconIdx);
     EXPECT_EQ(restored.Inventory[0].ItemParam, picked.Inventory[0].ItemParam);
     EXPECT_EQ(restored.Inventory[4].dwDBIdx, 90000u);
-    EXPECT_EQ(reconnected.player_runtime_snapshot(123)->inventory_count, 2u);
+    const auto checked_snapshot_13=reconnected.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_13);
+    EXPECT_EQ(checked_snapshot_13->inventory_count, 2u);
     // A fresh Handler reuses the transient ground ID. It must still award a
     // new persistent item identity, without replacing either saved item.
     const auto second = reconnected.create_ground_drop_for_test(50000, 99, 4, 25000, 25000);
@@ -4329,7 +4365,9 @@ TEST(MapHandlerTest, PickupSnapshotSurvivesDisconnectAndFreshHandlerRelogin) {
     ReplySpy final_reply;
     MapHandler final_handler(db, 7, make_reply_spy(final_reply));
     final_handler.on_message(connection, enter);
-    EXPECT_EQ(final_handler.player_runtime_snapshot(123)->inventory_count, 3u);
+    const auto checked_snapshot_14=final_handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_14);
+    EXPECT_EQ(checked_snapshot_14->inventory_count, 3u);
     const auto final_game = std::find_if(final_reply.messages.begin(), final_reply.messages.end(), [](const auto& m) {
         return m.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
             m.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
@@ -4378,7 +4416,9 @@ TEST(MapHandlerTest, ConcurrentPickupRequestsKeepDistinctItemIdsAndClaimOnce) {
     std::set<std::uint32_t> ids;
     for (const auto& item : final_items.Inventory) if (item.dwDBIdx) ids.insert(item.dwDBIdx);
     EXPECT_EQ(ids.size(), 12u);
-    EXPECT_EQ(handler.player_runtime_snapshot(123)->inventory_count, 12u);
+    const auto checked_snapshot_15=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_15);
+    EXPECT_EQ(checked_snapshot_15->inventory_count, 12u);
 }
 
 TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {
@@ -4444,9 +4484,13 @@ TEST(MapHandlerTest, LightnessCatalogLoadsOriginalResourceAndCannotChangeDuringS
     std::string error;
     ASSERT_TRUE(handler.load_kyunggong_catalog(path,error))<<error;
     ASSERT_TRUE(handler.kyunggong_info(2602));
-    EXPECT_FLOAT_EQ(handler.kyunggong_info(2602)->speed,900);
+    const auto checked_view_1=handler.kyunggong_info(2602);
+    ASSERT_TRUE(checked_view_1);
+    EXPECT_FLOAT_EQ(checked_view_1->speed,900);
     EXPECT_FALSE(handler.load_kyunggong_catalog(path.parent_path()/"missing-lightness-fixture.bin",error));
-    EXPECT_FLOAT_EQ(handler.kyunggong_info(2602)->speed,900);
+    const auto checked_view_2=handler.kyunggong_info(2602);
+    ASSERT_TRUE(checked_view_2);
+    EXPECT_FLOAT_EQ(checked_view_2->speed,900);
     mxh::net::Message enter;
     enter.header.object_id=123;
     enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -4454,7 +4498,9 @@ TEST(MapHandlerTest, LightnessCatalogLoadsOriginalResourceAndCannotChangeDuringS
     handler.on_message(mxh::net::make_connection_id(55),enter);
     EXPECT_FALSE(handler.load_kyunggong_catalog(path,error));
     EXPECT_EQ(error,"cannot replace lightness data with active players");
-    EXPECT_FLOAT_EQ(handler.kyunggong_info(2602)->speed,900);
+    const auto checked_view_3=handler.kyunggong_info(2602);
+    ASSERT_TRUE(checked_view_3);
+    EXPECT_FLOAT_EQ(checked_view_3->speed,900);
 }
 
 TEST(MapHandlerTest, ExcessiveClientMoveJumpIsCorrected) {
@@ -4541,7 +4587,9 @@ TEST(MapHandlerTest, MovementFailsClosedWithoutTilesAndRejectsBlockedEndpoints) 
         for (auto protocol : {mxh::proto::MoveProtocol::Warp, mxh::proto::MoveProtocol::Correction, mxh::proto::MoveProtocol::Init})
             handler.on_message(connection, mxh::client::make_move_message(123, protocol, 101, 101));
         EXPECT_TRUE(replies.empty());
-        EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x, 1);
+        const auto checked_snapshot_16=handler.player_runtime_snapshot(123);
+        ASSERT_TRUE(checked_snapshot_16);
+        EXPECT_FLOAT_EQ(checked_snapshot_16->pos_x, 1);
     }
 }
 
@@ -4605,7 +4653,9 @@ TEST(MapHandlerTest, ZeroLifeMovementCannotRewritePositionAndRecoveryIsNotSticky
     delivered.clear();
     handler.on_message(owner,mxh::client::make_move_message(123,mxh::proto::MoveProtocol::OneTarget,1100,1100));
     EXPECT_EQ(delivered.size(),2);
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1100);
+    const auto checked_snapshot_17=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_17);
+    EXPECT_FLOAT_EQ(checked_snapshot_17->pos_x,1100);
 }
 
 TEST(MapHandlerTest, TimedPositionCacheAdvancesAndLegacyResetCancelsTrajectory) {
@@ -4625,20 +4675,32 @@ TEST(MapHandlerTest, TimedPositionCacheAdvancesAndLegacyResetCancelsTrajectory) 
     ASSERT_TRUE(handler.set_player_position_for_test(123,1000,1000));
     ASSERT_TRUE(handler.start_player_trajectory_for_test(123,1400,1000,400));
     now=600;
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1200);
+    const auto checked_snapshot_18=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_18);
+    EXPECT_FLOAT_EQ(checked_snapshot_18->pos_x,1200);
     handler.on_message(owner,mxh::client::make_move_message(123,mxh::proto::MoveProtocol::Stop,1250,1000));
     now=900;
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1250);
+    const auto checked_snapshot_19=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_19);
+    EXPECT_FLOAT_EQ(checked_snapshot_19->pos_x,1250);
     ASSERT_TRUE(handler.start_player_trajectory_for_test(123,1450,1000,400));
     now=1150;
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    const auto checked_snapshot_20=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_20);
+    EXPECT_FLOAT_EQ(checked_snapshot_20->pos_x,1350);
     ASSERT_TRUE(handler.set_player_vitals_for_test(123,0,0));
     now=1200;
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    const auto checked_snapshot_21=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_21);
+    EXPECT_FLOAT_EQ(checked_snapshot_21->pos_x,1350);
     now=1250;
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    const auto checked_snapshot_22=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_22);
+    EXPECT_FLOAT_EQ(checked_snapshot_22->pos_x,1350);
     EXPECT_FALSE(handler.set_player_position_for_test(123,-1,1000));
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1350);
+    const auto checked_snapshot_23=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_23);
+    EXPECT_FLOAT_EQ(checked_snapshot_23->pos_x,1350);
 }
 
 TEST(MapHandlerTest, PickupUsesMaterializedPositionWithoutSnapshotSideEffects) {
@@ -4665,8 +4727,12 @@ TEST(MapHandlerTest, PickupUsesMaterializedPositionWithoutSnapshotSideEffects) {
                    reply.header.protocol==static_cast<std::uint8_t>(expected);
         }));
     }
-    EXPECT_FLOAT_EQ(handler.player_runtime_snapshot(123)->pos_x,1500);
-    EXPECT_EQ(handler.player_runtime_snapshot(123)->inventory_count,1);
+    const auto checked_snapshot_24=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_24);
+    EXPECT_FLOAT_EQ(checked_snapshot_24->pos_x,1500);
+    const auto checked_snapshot_25=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_25);
+    EXPECT_EQ(checked_snapshot_25->inventory_count,1);
 }
 
 TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
@@ -4741,7 +4807,9 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
     ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
     EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
     ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_26=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_26);
+    EXPECT_EQ(checked_snapshot_26->inventory_count, 1u);
 }
 
 TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
@@ -4813,7 +4881,9 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
         ASSERT_EQ(notice->payload.size(),9u);
         std::int64_t current_exp=0;
         std::memcpy(&current_exp,notice->payload.data(),8);
-        EXPECT_EQ(current_exp,handler.player_runtime_snapshot(123)->level_exp);
+        const auto checked_snapshot_27=handler.player_runtime_snapshot(123);
+        ASSERT_TRUE(checked_snapshot_27);
+        EXPECT_EQ(current_exp,checked_snapshot_27->level_exp);
         EXPECT_EQ(notice->payload[8],0u);
     }
     mxh::db::ResultSet saved; ASSERT_TRUE(db->query("SELECT level,exp FROM modern_player_state WHERE player_id=123", saved).ok()); ASSERT_EQ(saved.rows.size(),1u);
@@ -4837,14 +4907,18 @@ TEST(MapHandlerTest, MaximumLevelKillDoesNotWriteOrNotifyExperience) {
     in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message({55},in);
     ASSERT_TRUE(handler.player_runtime_snapshot(123));
-    ASSERT_EQ(handler.player_runtime_snapshot(123)->level,121);
+    const auto checked_snapshot_28=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_28);
+    ASSERT_EQ(checked_snapshot_28->level,121);
     ASSERT_TRUE(db->execute("CREATE TRIGGER reject_max_exp BEFORE INSERT ON modern_player_state BEGIN SELECT RAISE(ABORT,'unexpected maximum-level write'); END").ok());
     mxh::game::MonsterInstance monster; monster.object_id=99004; monster.max_life=1;
     monster.current_life=1; monster.exp_reward=1000;
     ASSERT_TRUE(handler.add_monster_instance(monster));
     (void)handler.apply_monster_damage(123,99004,1,99);
     EXPECT_FALSE(handler.is_draining());
-    EXPECT_EQ(handler.player_runtime_snapshot(123)->level_exp,77u);
+    const auto checked_snapshot_29=handler.player_runtime_snapshot(123);
+    ASSERT_TRUE(checked_snapshot_29);
+    EXPECT_EQ(checked_snapshot_29->level_exp,77u);
     EXPECT_TRUE(std::none_of(replies.begin(),replies.end(),[](const auto& message){
         return message.header.category==3 && message.header.protocol==13;
     }));
@@ -4896,7 +4970,9 @@ TEST(MapHandlerTest, UseConsumesActorItemAndUpdatesVitals) {
     handler.on_message(connection, game_in);
     ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 1u, 1u));
     ASSERT_TRUE(handler.add_player_item_for_test(123u, mxh::game::make_item(9002u, 1u, 0u)));
-    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_30=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_30);
+    ASSERT_EQ(checked_snapshot_30->inventory_count, 1u);
     mxh::net::Message use;
     use.header.object_id = 123u;
     use.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
@@ -4923,7 +4999,9 @@ TEST(MapHandlerTest, DiscardRemovesAuthoritativeInventoryItem) {
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(connection, game_in);
     ASSERT_TRUE(handler.add_player_item_for_test(123u, mxh::game::make_item(9001u, 77u, 0u)));
-    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_31=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_31);
+    ASSERT_EQ(checked_snapshot_31->inventory_count, 1u);
     mxh::net::Message discard;
     discard.header.object_id = 123u;
     discard.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
@@ -4932,7 +5010,9 @@ TEST(MapHandlerTest, DiscardRemovesAuthoritativeInventoryItem) {
     const std::uint16_t pos = 0u;
     std::memcpy(discard.payload.data(), &pos, sizeof(pos));
     handler.on_message(connection, discard);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+    const auto checked_snapshot_32=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_32);
+    EXPECT_EQ(checked_snapshot_32->inventory_count, 0u);
 }
 
 TEST(MapHandlerTest, MoveUpdatesAuthoritativePlayerPosition) {
@@ -5220,7 +5300,9 @@ TEST(MapHandlerTest, SkillDoesNotApplyToReplacedCasterOrTargetSession) {
             handler.on_message(conn,cast);
             EXPECT_FALSE(replace_on_ack);
             EXPECT_EQ(results,0u);
-            EXPECT_EQ(handler.player_runtime_snapshot(222)->current_hp,1u);
+            const auto checked_snapshot_33=handler.player_runtime_snapshot(222);
+            ASSERT_TRUE(checked_snapshot_33);
+            EXPECT_EQ(checked_snapshot_33->current_hp,1u);
             // The current session can still use the same ordinary skill path.
             handler.on_message(conn,cast);
             EXPECT_GT(results,0u);
@@ -5235,11 +5317,15 @@ void check_penalty_profile_switch(const std::filesystem::path& current,
     MapHandler handler(db,10,make_reply_spy(reply));
     ASSERT_TRUE(load_penalties(handler, current, "playdh-current"));
     ASSERT_TRUE(handler.exp_penalties());
-    EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).present_percent, 2.4f);
+    const auto checked_view_4=handler.exp_penalties();
+    ASSERT_TRUE(checked_view_4);
+    EXPECT_FLOAT_EQ(checked_view_4->at(48).present_percent, 2.4f);
     EXPECT_FALSE(load_penalties(handler, current, "sworking-2008-reference"));
     EXPECT_FALSE(handler.exp_penalties());
     ASSERT_TRUE(load_penalties(handler, legacy, "sworking-2008-reference"));
-    EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).login_percent, 1.9f);
+    const auto checked_view_5=handler.exp_penalties();
+    ASSERT_TRUE(checked_view_5);
+    EXPECT_FLOAT_EQ(checked_view_5->at(48).login_percent, 1.9f);
     EXPECT_FALSE(load_penalties(handler, legacy, "unknown-profile"));
     EXPECT_FALSE(handler.exp_penalties());
     ASSERT_TRUE(load_penalties(handler, current, "playdh-current"));
@@ -5301,20 +5387,28 @@ TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection
     cast.payload.resize(16);
     const std::uint32_t skill_id = 3;
     std::memcpy(cast.payload.data(),&skill_id,4);
-    const auto before = handler.player_runtime_snapshot(111)->current_mp;
+    const auto checked_snapshot_34=handler.player_runtime_snapshot(111);
+    ASSERT_TRUE(checked_snapshot_34);
+    const auto before = checked_snapshot_34->current_mp;
     reply.messages.clear();
     handler.on_message(mxh::net::make_connection_id(99),cast);
     EXPECT_TRUE(reply.messages.empty());
-    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,before);
+    const auto checked_snapshot_35=handler.player_runtime_snapshot(111);
+    ASSERT_TRUE(checked_snapshot_35);
+    EXPECT_EQ(checked_snapshot_35->current_mp,before);
     handler.on_message(owner,cast);
-    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,before-10);
+    const auto checked_snapshot_36=handler.player_runtime_snapshot(111);
+    ASSERT_TRUE(checked_snapshot_36);
+    EXPECT_EQ(checked_snapshot_36->current_mp,before-10);
     ASSERT_TRUE(handler.set_player_vitals_for_test(111,100,9));
     reply.messages.clear();
     handler.on_message(owner,cast);
     ASSERT_EQ(reply.messages.size(),1u);
     EXPECT_EQ(reply.messages.front().header.protocol,
         static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
-    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,9u);
+    const auto checked_snapshot_37=handler.player_runtime_snapshot(111);
+    ASSERT_TRUE(checked_snapshot_37);
+    EXPECT_EQ(checked_snapshot_37->current_mp,9u);
     ASSERT_TRUE(handler.set_player_vitals_for_test(111,0,50));
     reply.messages.clear();
     handler.on_message(owner,cast);
@@ -5322,7 +5416,9 @@ TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection
     EXPECT_EQ(reply.messages.front().header.protocol,
         static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
     EXPECT_EQ(reply.messages.front().payload, std::vector<std::uint8_t>{3});
-    EXPECT_EQ(handler.player_runtime_snapshot(111)->current_mp,50u);
+    const auto checked_snapshot_38=handler.player_runtime_snapshot(111);
+    ASSERT_TRUE(checked_snapshot_38);
+    EXPECT_EQ(checked_snapshot_38->current_mp,50u);
 }
 
 TEST(MapHandlerTest, SkillMonsterCommitRejectsReplacedCasterAndRemoveCanReenter) {
@@ -5557,7 +5653,9 @@ TEST(MapHandlerTest, UseSynConsumesItemAndAdvancesUseItemQuest) {
     ASSERT_EQ(progress->subs.size(), 1u);
     EXPECT_EQ(progress->subs[0].count, 1u);
     EXPECT_EQ(progress->state, mxh::server::QuestState::Complete);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+    const auto checked_snapshot_39=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_39);
+    EXPECT_EQ(checked_snapshot_39->inventory_count, 0u);
     const auto inventory = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
@@ -5613,7 +5711,9 @@ TEST(MapHandlerTest, QuestNpcTalkUsesSemanticNpcAndQuestContext) {
     reply.messages.clear();
     handler.on_message(connection, talk);
 
-    EXPECT_EQ(handler.quest_progress_for_test(123u, 89u)->subs[0].count, 0u);
+    const auto checked_view_6=handler.quest_progress_for_test(123u, 89u);
+    ASSERT_TRUE(checked_view_6);
+    EXPECT_EQ(checked_view_6->subs[0].count, 0u);
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkNack));
@@ -5622,8 +5722,12 @@ TEST(MapHandlerTest, QuestNpcTalkUsesSemanticNpcAndQuestContext) {
     reply.messages.clear();
     handler.on_message(connection, talk);
 
-    EXPECT_EQ(handler.quest_progress_for_test(123u, 88u)->subs[0].count, 0u);
-    EXPECT_EQ(handler.quest_progress_for_test(123u, 89u)->subs[0].count, 1u);
+    const auto checked_view_7=handler.quest_progress_for_test(123u, 88u);
+    ASSERT_TRUE(checked_view_7);
+    EXPECT_EQ(checked_view_7->subs[0].count, 0u);
+    const auto checked_view_8=handler.quest_progress_for_test(123u, 89u);
+    ASSERT_TRUE(checked_view_8);
+    EXPECT_EQ(checked_view_8->subs[0].count, 1u);
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkAck));
@@ -5634,7 +5738,9 @@ TEST(MapHandlerTest, QuestNpcTalkUsesSemanticNpcAndQuestContext) {
     db.fail_write_matching = "modern_player_quest_log";
     reply.messages.clear();
     handler.on_message(connection, talk);
-    EXPECT_EQ(handler.quest_progress_for_test(123u, 88u)->subs[0].count, 0u);
+    const auto checked_view_9=handler.quest_progress_for_test(123u, 88u);
+    ASSERT_TRUE(checked_view_9);
+    EXPECT_EQ(checked_view_9->subs[0].count, 0u);
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkNack));
@@ -5767,9 +5873,13 @@ TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDamag
         static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie));
     ASSERT_NE(death, reply.messages.end());
     ASSERT_EQ(death->payload.size(), 8u);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->current_hp, 0u);
+    const auto checked_snapshot_40=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_40);
+    EXPECT_EQ(checked_snapshot_40->current_hp, 0u);
 
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->lifecycle, mxh::server::PlayerLifecycle::Dead);
+    const auto checked_snapshot_41=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_41);
+    EXPECT_EQ(checked_snapshot_41->lifecycle, mxh::server::PlayerLifecycle::Dead);
 
     reply.messages.clear();
     now = 3000u;
@@ -5875,10 +5985,14 @@ TEST(MapHandlerTest, BuyResolvesNearbyDealerWhenEarlierCatalogAlsoSellsItem) {
     message.payload = {0x2b, 0x02, 1, 0}; // item 555, quantity 1
     handler.on_message(connection, message);
     ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_42=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_42);
+    EXPECT_EQ(checked_snapshot_42->inventory_count, 1u);
     ASSERT_TRUE(handler.set_player_position_for_test(123u, 20000.0f, 20000.0f));
     handler.on_message(connection, message);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_43=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_43);
+    EXPECT_EQ(checked_snapshot_43->inventory_count, 1u);
 }
 
 TEST(MapHandlerTest, RepeatedGameOutDoesNotOverwritePersistedMoneyWithZero) {
@@ -5945,7 +6059,9 @@ TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
     EXPECT_EQ(reply.messages[0].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack));
     EXPECT_EQ(handler.player_money_for_test(123u), 1000u);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 3u);
+    const auto checked_snapshot_44=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_44);
+    EXPECT_EQ(checked_snapshot_44->inventory_count, 3u);
     EXPECT_GE(db.rollback_count.load(), 1);
     EXPECT_FALSE(handler.is_draining());
 
@@ -5957,7 +6073,9 @@ TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
     EXPECT_EQ(reply.messages[0].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack));
     EXPECT_EQ(handler.player_money_for_test(123u), 1000u);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 3u);
+    const auto checked_snapshot_45=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_45);
+    EXPECT_EQ(checked_snapshot_45->inventory_count, 3u);
     EXPECT_TRUE(handler.is_draining());
 }
 
@@ -5996,7 +6114,9 @@ TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
     std::memcpy(buy.payload.data() + 2, &qty, 2);
     handler.on_message(connection, buy);
     ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
-    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_46=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_46);
+    ASSERT_EQ(checked_snapshot_46->inventory_count, 1u);
     reply.messages.clear();
 
     mxh::net::Message sell;
@@ -6019,13 +6139,17 @@ TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
     EXPECT_EQ(reply.messages[2].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
     EXPECT_EQ(handler.player_money_for_test(123u), 1100u);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+    const auto checked_snapshot_47=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_47);
+    EXPECT_EQ(checked_snapshot_47->inventory_count, 0u);
 
     // A failed money write must roll back the inventory transaction, restore
     // the live state and publish only a Nack. This prevents item loss with no
     // sale proceeds when either database backend rejects the second write.
     handler.on_message(connection, buy);
-    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_48=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_48);
+    ASSERT_EQ(checked_snapshot_48->inventory_count, 1u);
     const auto money_before_failure = handler.player_money_for_test(123u);
     db.fail_write_matching = "modern_player_state";
     reply.messages.clear();
@@ -6034,7 +6158,9 @@ TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
     EXPECT_EQ(reply.messages[0].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellNack));
     EXPECT_EQ(handler.player_money_for_test(123u), money_before_failure);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_49=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_49);
+    EXPECT_EQ(checked_snapshot_49->inventory_count, 1u);
     EXPECT_GE(db.rollback_count.load(), 1);
     EXPECT_FALSE(handler.is_draining());
 
@@ -6046,7 +6172,9 @@ TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
     EXPECT_EQ(reply.messages[0].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellNack));
     EXPECT_EQ(handler.player_money_for_test(123u), money_before_failure);
-    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto checked_snapshot_50=handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(checked_snapshot_50);
+    EXPECT_EQ(checked_snapshot_50->inventory_count, 1u);
     EXPECT_TRUE(handler.is_draining());
 }
 
@@ -6580,7 +6708,9 @@ TEST(MapHandlerTest, QuestRewardWriteFailureRestoresRuntimeAndReturnsNack) {
     monster.object_id = 99001; monster.monster_kind = 77; monster.max_life = 1; monster.current_life = 1;
     ASSERT_TRUE(handler.add_monster_instance(monster));
     (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
-    ASSERT_EQ(handler.quest_progress_for_test(123, 99)->state, mxh::server::QuestState::Complete);
+    const auto checked_view_10=handler.quest_progress_for_test(123, 99);
+    ASSERT_TRUE(checked_view_10);
+    ASSERT_EQ(checked_view_10->state, mxh::server::QuestState::Complete);
     const auto money_before = handler.player_money_for_test(123);
     mxh::net::Message end = start;
     end.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndSyn);
@@ -6590,7 +6720,9 @@ TEST(MapHandlerTest, QuestRewardWriteFailureRestoresRuntimeAndReturnsNack) {
     ASSERT_EQ(reply.messages.size(), 1u);
     EXPECT_EQ(reply.messages[0].header.protocol,
               static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndNack));
-    EXPECT_EQ(handler.quest_progress_for_test(123, 99)->state, mxh::server::QuestState::Complete);
+    const auto checked_view_11=handler.quest_progress_for_test(123, 99);
+    ASSERT_TRUE(checked_view_11);
+    EXPECT_EQ(checked_view_11->state, mxh::server::QuestState::Complete);
     EXPECT_EQ(handler.player_money_for_test(123), money_before);
     EXPECT_EQ(db.rollback_count.load(), 1);
     EXPECT_FALSE(handler.is_draining());
@@ -6601,7 +6733,9 @@ TEST(MapHandlerTest, QuestRewardWriteFailureRestoresRuntimeAndReturnsNack) {
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.messages.back().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndAck));
-    EXPECT_EQ(handler.quest_progress_for_test(123, 99)->state, mxh::server::QuestState::Rewarded);
+    const auto checked_view_12=handler.quest_progress_for_test(123, 99);
+    ASSERT_TRUE(checked_view_12);
+    EXPECT_EQ(checked_view_12->state, mxh::server::QuestState::Rewarded);
     EXPECT_EQ(handler.player_money_for_test(123), money_before + 50);
 }
 
@@ -6682,7 +6816,7 @@ TEST(MapHandlerTest, SavedPositionLoadsAndLogoutPersistsMapUsedByCharacterSelect
     cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','PositionHero',10);"
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','PositionHero',10);"
         "INSERT INTO modern_player_position VALUES(777,2,7211,43329,CURRENT_TIMESTAMP);").ok());
     if (incoming_transfer)
         ASSERT_TRUE(db.exec_multi("UPDATE modern_player_position SET map_num=10,pos_x=46973,pos_z=4198;").ok());
@@ -6728,7 +6862,7 @@ TEST(MapHandlerTest, CrossMapEntryRejectsPositionAwayFromCanonicalExit) {
     cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
-    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','PositionHero',10);"
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','PositionHero',10);"
         "INSERT INTO modern_player_position VALUES(777,10,25000,25000,CURRENT_TIMESTAMP);").ok());
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 2, make_reply_spy(reply));
@@ -6905,7 +7039,7 @@ TEST(MapHandlerTest, LateExitFailureRollsBackItemsMoneyAndPositionBeforeRetry) {
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','AtomicHero',10);"
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','AtomicHero',10);"
         "INSERT INTO modern_player_position VALUES(777,10,25000,25000,CURRENT_TIMESTAMP);"
         "INSERT INTO modern_player_state(player_id,money,updated_at) VALUES(777,100,CURRENT_TIMESTAMP);").ok());
     ReplySpy reply;
@@ -7088,7 +7222,7 @@ TEST(MapHandlerTest, ShutdownSavesExitStateAndReportsLateFailureAfterDatabaseReo
         ASSERT_TRUE(db.connect(cfg).ok());
         ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
         ASSERT_TRUE(db.exec_multi(
-            "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','ShutdownHero',10);"
+            "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','ShutdownHero',10);"
             "INSERT INTO modern_player_position VALUES(777,10,25000,25000,CURRENT_TIMESTAMP);"
             "INSERT INTO modern_player_state(player_id,money,updated_at) VALUES(777,100,CURRENT_TIMESTAMP);").ok());
         ReplySpy reply;
@@ -7136,7 +7270,7 @@ TEST(MapHandlerTest, DisconnectPersistsExitStateAndOldCallbackCannotRemoveReconn
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.exec_multi(
-        "INSERT INTO character_info(chrid,userid,charname,map_num) VALUES(777,'123','DisconnectHero',10);").ok());
+        "INSERT INTO character_info(base_gengol,base_minchub,base_cheryuk,base_simmek,chrid,userid,charname,map_num) VALUES(12,12,12,12,777,'123','DisconnectHero',10);").ok());
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
     handler.set_allow_dev_gamein_fallback(false);
@@ -7248,9 +7382,17 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
         EXPECT_EQ(snapshot->physical_attack_min,29u); EXPECT_EQ(snapshot->physical_attack_max,35u);
         move(handler,81); // Same request returns Nack and does not double-apply.
         EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
-        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min,29u);
-        move(handler,0); EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min,16u);
-        move(handler,81); EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min,29u);
+        const auto checked_snapshot_51=handler.player_runtime_snapshot(character);
+        ASSERT_TRUE(checked_snapshot_51);
+        EXPECT_EQ(checked_snapshot_51->physical_attack_min,29u);
+        move(handler,0);
+        const auto checked_snapshot_52=handler.player_runtime_snapshot(character);
+        ASSERT_TRUE(checked_snapshot_52);
+        EXPECT_EQ(checked_snapshot_52->physical_attack_min,16u);
+        move(handler,81);
+        const auto checked_snapshot_53=handler.player_runtime_snapshot(character);
+        ASSERT_TRUE(checked_snapshot_53);
+        EXPECT_EQ(checked_snapshot_53->physical_attack_min,29u);
         handler.on_disconnect({91},mxh::net::NetError::Disconnected);
     }
     {
@@ -7258,7 +7400,10 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
         handler.on_message({91},game_in);
         auto snapshot=handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
         EXPECT_EQ(snapshot->physical_attack_min,29u); EXPECT_EQ(snapshot->physical_attack_max,35u);
-        move(handler,0); EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min,16u);
+        move(handler,0);
+        const auto checked_snapshot_54=handler.player_runtime_snapshot(character);
+        ASSERT_TRUE(checked_snapshot_54);
+        EXPECT_EQ(checked_snapshot_54->physical_attack_min,16u);
         handler.on_disconnect({91},mxh::net::NetError::Disconnected);
     }
     {
@@ -7266,6 +7411,35 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
         handler.on_message({91},game_in);
         auto snapshot=handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
         EXPECT_EQ(snapshot->physical_attack_min,16u);
+    }
+}
+
+TEST(EquipmentPersistence, UnsupportedWornOptionsRejectWithoutRewritingItems) {
+    for (const auto option: {std::pair{65,0},std::pair{100,4}}) {
+        SCOPED_TRACE(option.first);
+        SCOPED_TRACE(option.second);
+        mxh::db::SqliteAdapter db; mxh::db::ConnectionConfig cfg; cfg.path=":memory:";
+        ASSERT_TRUE(db.connect(cfg).ok()); ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+        ASSERT_TRUE(db.execute("INSERT INTO character_info(chrid,userid,charname,base_gengol,base_minchub,base_cheryuk,base_simmek) "
+            "VALUES(777,'123','OptionFixture',12,12,12,12)",{}).ok());
+        const std::vector<mxh::db::Bind> args{mxh::db::bind(option.first),mxh::db::bind(option.second)};
+        ASSERT_TRUE(db.execute("INSERT INTO modern_player_item VALUES(777,1,2,9002,777,?,?,65535,1)",args).ok());
+        ReplySpy reply; mxh::server::MapHandler handler(db,10,make_reply_spy(reply));
+        handler.set_allow_dev_gamein_fallback(false);
+        mxh::game::ItemInfo dress{}; dress.ItemIdx=777; dress.ItemKind=2048; dress.EquipKind=2;
+        handler.add_item_info_for_test(dress);
+        mxh::net::Message enter; enter.header.object_id=777;
+        enter.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        enter.payload.assign(16,0); enter.payload[0]=123;
+        handler.on_message({99},enter);
+        EXPECT_FALSE(handler.player_runtime_snapshot(777));
+        EXPECT_EQ(reply.last_message.header.protocol,static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+        mxh::db::ResultSet rows;
+        ASSERT_TRUE(db.query("SELECT durability,rare_idx FROM modern_player_item WHERE db_idx=9002",{},rows).ok());
+        ASSERT_EQ(rows.rows.size(),1u);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]),option.first);
+        EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]),option.second);
     }
 }
 
