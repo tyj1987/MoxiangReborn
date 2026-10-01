@@ -100,6 +100,7 @@ def main() -> int:
     parser.add_argument('--quest-reward', action='store_true', help='Verify canonical quest 173 completion, reward and reconnect persistence in Editor')
     parser.add_argument('--quest-npc', action='store_true', help='Verify canonical Map10 NPC 572 advances quest 180 and persists')
     parser.add_argument('--combat-timeline', action='store_true', help='Verify authoritative skill release and hit drive the original monster hit animation in Player')
+    parser.add_argument('--prepare-pickup-input', action='store_true', help='Create a fresh character and verify operational grant/equip/reconnect; combat readiness remains separately gated')
     parser.add_argument('--pickup-loop', action='store_true', help='Isolated SQLite Player kill/pickup/restart/relogin evidence; no reward overrides')
     parser.add_argument('--player-death', action='store_true', help='With --combat-timeline, verify server death and dead input rejection')
     parser.add_argument('--transfer', action='store_true', help='Verify canonical Map10 to Map2 transfer using two real MapServers')
@@ -107,7 +108,9 @@ def main() -> int:
     parser.add_argument('--mssql-config-env', default='MXH_MSSQL_E2E',
                         help='Environment variable containing the MSSQL connection config; its value is never logged')
     args = parser.parse_args()
-    if args.pickup_loop and (args.backend != 'sqlite' or any((args.editor_test, args.create_character,
+    if args.pickup_loop and args.prepare_pickup_input:
+        parser.error('Run pickup and preparation as separate isolated fixtures')
+    if (args.pickup_loop or args.prepare_pickup_input) and (args.backend != 'sqlite' or any((args.editor_test, args.create_character,
             args.movement, args.trade, args.equipment, args.item_use, args.sell, args.discard, args.quest,
             args.quest_reward, args.quest_npc, args.combat_timeline, args.player_death, args.transfer))):
         parser.error('--pickup-loop requires a separate standalone SQLite fixture')
@@ -133,6 +136,7 @@ def main() -> int:
         parser.error('--player-death requires --combat-timeline')
     if args.combat_timeline and (args.editor_test or args.trade or args.equipment or args.item_use or args.sell or args.discard or args.quest or args.quest_reward or args.quest_npc or args.movement or args.create_character or args.transfer):
         parser.error('--combat-timeline requires a standalone Player fixture')
+    if args.prepare_pickup_input: args.create_character = True
     map_number = 12 if args.trade or args.sell else 10
     if args.movement and args.create_character:
         parser.error('Run movement and empty-account creation as separate isolated fixtures')
@@ -167,6 +171,10 @@ def execute_reported(args, parser, repo: Path, output: Path, map_number: int) ->
                 details = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'phases': []}
                 details.update(passed=False, humanAcceptance=False, failure=failure)
                 path.write_text(json.dumps(details, indent=2), encoding='utf-8')
+            if args.prepare_pickup_input:
+                (output / 'pickup-preparation-summary.json').write_text(json.dumps({
+                    'passed': False, 'preparationPassed': False, 'combatReady': False,
+                    'humanAcceptance': False, 'failure': failure}, indent=2), encoding='utf-8')
         except (OSError, ValueError) as write_error:
             failure['reportWriteError'] = type(write_error).__name__
         print(json.dumps(failure))
@@ -182,7 +190,7 @@ def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number
     dbtool = repo / 'modern/build/tools/MoxianDbTool/mxh_db_tool.exe'
     env = os.environ.copy()
     env.pop('MXH_SMOKE_TRANSFER', None)
-    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER', 'MXH_SMOKE_BLOCKED_X', 'MXH_SMOKE_BLOCKED_Z', 'MXH_SMOKE_TRADE', 'MXH_SMOKE_EQUIPMENT', 'MXH_SMOKE_ITEM_USE', 'MXH_SMOKE_SELL', 'MXH_SMOKE_DISCARD', 'MXH_SMOKE_QUEST', 'MXH_SMOKE_QUEST_REWARD', 'MXH_SMOKE_QUEST_NPC', 'MXH_SMOKE_COMBAT_TIMELINE', 'MXH_SMOKE_PLAYER_DEATH', 'MXH_SMOKE_PICKUP_LOOP', 'MXH_SMOKE_PICKUP_PHASE'):
+    for key in ('MXH_SMOKE_CREATE_NAME', 'MXH_SMOKE_OBSERVER_USER', 'MXH_SMOKE_BLOCKED_X', 'MXH_SMOKE_BLOCKED_Z', 'MXH_SMOKE_TRADE', 'MXH_SMOKE_EQUIPMENT', 'MXH_SMOKE_ITEM_USE', 'MXH_SMOKE_SELL', 'MXH_SMOKE_DISCARD', 'MXH_SMOKE_QUEST', 'MXH_SMOKE_QUEST_REWARD', 'MXH_SMOKE_QUEST_NPC', 'MXH_SMOKE_COMBAT_TIMELINE', 'MXH_SMOKE_PLAYER_DEATH', 'MXH_SMOKE_PICKUP_LOOP', 'MXH_SMOKE_PICKUP_PHASE', 'MXH_SMOKE_PREPARE_CHARACTER', 'MXH_SMOKE_PREPARE_ITEM'):
         env.pop(key, None)
     if args.backend == 'sqlite':
         env['MXH_UNITY_SMOKE_DATABASE'] = f'backend=sqlite;path={database}'
@@ -196,11 +204,11 @@ def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number
     common = ['--backend', args.backend, '--db-env', 'MXH_UNITY_SMOKE_DATABASE']
     quiet = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
     progress['stage'] = 'database-migration'
-    subprocess.run([str(dbtool), 'migrate', '--db-env', 'MXH_UNITY_SMOKE_DATABASE'], env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop else None, **quiet)
+    subprocess.run([str(dbtool), 'migrate', '--db-env', 'MXH_UNITY_SMOKE_DATABASE'], env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop or args.prepare_pickup_input else None, **quiet)
     run_suffix = output.name[:8]
     account, password = f'ux_{run_suffix}', 'Mx1' + secrets.token_hex(6)
     progress['stage'] = 'account-registration'
-    subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', account], input=password + '\n', text=True, env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop else None, **quiet)
+    subprocess.run([str(dbtool), 'register', '--db-env', 'MXH_UNITY_SMOKE_DATABASE', account], input=password + '\n', text=True, env=env, check=True, capture_output=True, timeout=30 if args.pickup_loop or args.prepare_pickup_input else None, **quiet)
     progress['stage'] = 'fixture-seeding'
     observer_account = f'uo_{run_suffix}'
     if args.movement:
@@ -408,6 +416,7 @@ def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number
         if args.player_death: env['MXH_SMOKE_PLAYER_DEATH'] = '1'
         if args.transfer: env['MXH_SMOKE_TRANSFER'] = '1'
         pickup_loop = None
+        pickup_preparation = None
         if args.editor_test:
             cli = Path(os.environ['LOCALAPPDATA']) / 'Unity/bin/unity.exe'
             result_path = output / 'editor-tests.xml'
@@ -429,6 +438,10 @@ def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number
             if args.movement:
                 move_test = None if results is None else results.find(".//test-case[@name='RealTwoClientsObserveMoveStopAndRejectedJump']")
                 passed = passed and move_test is not None and move_test.get('result') == 'Passed'
+        elif args.prepare_pickup_input:
+            from unity_pickup_prepare import run_preparation
+            pickup_preparation = run_preparation(player, output, env, database, account, repo)
+            passed = pickup_preparation['passed']
         elif args.pickup_loop:
             from unity_pickup_loop import run_pickup_loop
             pickup_loop = run_pickup_loop(player, output, env, database, restart_servers)
@@ -477,7 +490,7 @@ def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number
                         ('deathRequested', 'deathObserved', 'deadMoveRejected', 'deadSkillRejected'))
                     passed = passed and report.get('snapshotLifeAtCapture') == 0
         creation = None
-        if args.create_character:
+        if args.create_character and not args.prepare_pickup_input:
             if args.backend == 'sqlite':
                 with sqlite3.connect(database) as db:
                     rows = db.execute('SELECT chrid,charname,start_area FROM character_info WHERE userid=?', (str(identity[0]),)).fetchall()
@@ -491,6 +504,7 @@ def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number
             passed = passed and len(rows) == 1 and rows[0][1:] == (create_name, 17) and equipment == [(1, 11000), (2, 23000), (3, 27000)]
             if not args.editor_test: passed = passed and report.get('playerId') == rows[0][0] and report.get('characterCreated') is True
         summary = {'runId': output.name, 'passed': bool(passed), 'surface': 'Editor' if args.editor_test else 'Player', 'backend': args.backend, 'serverType': 'real modern executables', 'clientTransport': 'HSEL', 'internalTransport': 'legacy plaintext loopback', 'fixtureCharacter': not args.create_character, 'creation': creation, 'humanAcceptance': False, 'output': str(output)}
+        if args.prepare_pickup_input: summary['pickupPreparation'] = pickup_preparation
         if args.pickup_loop: summary['pickupLoop'] = pickup_loop
         summary['serverExitCodesBeforeCleanup'] = {spec[0]: process.poll() for spec, process in zip(specs, processes)}
         if args.pickup_loop and any(code is not None for code in summary['serverExitCodesBeforeCleanup'].values()):

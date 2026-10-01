@@ -24,7 +24,7 @@ class SmokeFailureReportTests(unittest.TestCase):
         self.output.mkdir()
         player = self.root / 'Player.exe'
         player.touch()
-        self.args = argparse.Namespace(player=player, backend='sqlite', pickup_loop=True,
+        self.args = argparse.Namespace(player=player, backend='sqlite', pickup_loop=True, prepare_pickup_input=False,
             **{key: False for key in ('editor_test', 'create_character', 'movement', 'trade', 'equipment',
                 'item_use', 'sell', 'discard', 'quest', 'quest_reward', 'quest_npc', 'combat_timeline', 'player_death', 'transfer')})
         # These tests isolate later setup failures, after a reviewed fixture gate.

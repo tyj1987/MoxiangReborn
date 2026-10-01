@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Isolated normal character preparation (2026-10-01)
+
+- Added `--prepare-pickup-input`: new account, protocol-created level1 character, pending starter-weapon grant claimed by MapServer, normal equip acknowledgement and reconnect persistence checks. Refuses external/shared/pre-existing fixture data. Preparation is distinguished from combat readiness; unresolved stat hydration keeps overall failure and no selected target. Python tools pass 41/41; Unity/Windows execution pending.
+
 ### Terrain dependency regression semantics (2026-10-01)
 
 - Corrected the heightfield assertion to use declared import dependencies instead of serialized-object references. Added a source-change propagation test requiring rebuilt terrain geometry without manually reimporting terrain. Six Editor cases await Unity; no cold-import pass is claimed.

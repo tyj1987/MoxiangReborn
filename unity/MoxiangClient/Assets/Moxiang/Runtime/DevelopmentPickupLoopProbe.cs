@@ -24,6 +24,9 @@ namespace Moxiang
             public uint playerId, mapNumber, dropId, itemId, count, acquiredDatabaseId;
             public int skillAttempts;
             public string lastSkillSubmission;
+            public bool characterCreated, equipmentAck;
+            public uint preparedDatabaseId;
+            public uint[] visibleMonsterIds, visibleMonsterKinds;
             public Item[] before = Array.Empty<Item>(), after = Array.Empty<Item>();
         }
         private readonly Report report = new Report();
@@ -32,6 +35,8 @@ namespace Moxiang
         private StreamWriter events;
         private float deadline, overallDeadline, nextCommand;
         private bool selected, finished;
+        private bool createSubmitted, equipSubmitted;
+        private bool Preparing => report.phase != null && report.phase.StartsWith("prepare-");
         private ulong inventorySequence, ackSequence;
         private const uint Target = 50023;
 
@@ -55,7 +60,8 @@ namespace Moxiang
             events = new StreamWriter(Path.Combine(output, "pickup-events.jsonl")) { AutoFlush = true };
             report.phase = Environment.GetEnvironmentVariable("MXH_SMOKE_PICKUP_PHASE");
             report.runId = Environment.GetEnvironmentVariable("MXH_RUN_ID");
-            if (report.phase != "first" && report.phase != "second" && report.phase != "verify")
+            if (report.phase != "first" && report.phase != "second" && report.phase != "verify" &&
+                report.phase != "prepare-create" && report.phase != "prepare-equip" && report.phase != "prepare-verify")
                 throw new InvalidOperationException("Unknown pickup phase.");
             if (Environment.GetEnvironmentVariable("MXH_SMOKE_PICKUP_LOOP") != "1")
                 throw new InvalidOperationException("Isolated harness opt-in required.");
@@ -85,7 +91,7 @@ namespace Moxiang
             // No credentials or chat text; native sequence/generations retain protocol evidence.
             if (e.type == NativeClient.EventSkillHit || e.type == NativeClient.EventEntityLife ||
                 e.type == NativeClient.EventGroundDrop || e.type == NativeClient.EventPickupConfirmed ||
-                e.type == NativeClient.EventInventory || e.type == NativeClient.EventDisconnected)
+                e.type == NativeClient.EventInventory || e.type == NativeClient.EventDisconnected || e.type == NativeClient.EventItemMoveResponse)
                 events.WriteLine(JsonUtility.ToJson(new EventEvidence(e)));
             if (e.type == NativeClient.EventDisconnected) report.disconnected = true;
             if (e.state != CoreState.InGame || e.sessionGeneration != panel.Observed.sessionGeneration ||
@@ -109,6 +115,11 @@ namespace Moxiang
                 report.pickupAck = true; ackSequence = e.sequence;
             }
             if (e.type == NativeClient.EventInventory && panel.Inventory.Matches(panel.Observed)) inventorySequence = e.sequence;
+            if (Preparing && e.type == NativeClient.EventItemMoveResponse && equipSubmitted)
+            {
+                if (e.result != CoreResult.Ok) { Fail(new InvalidOperationException("Server rejected preparation equipment move.")); return; }
+                report.equipmentAck = true; ackSequence = e.sequence;
+            }
         }
 
         [Serializable] private sealed class EventEvidence
@@ -137,12 +148,41 @@ namespace Moxiang
             if (panel.Observed.state == CoreState.Failed) throw new InvalidOperationException(panel.Observed.Error);
             if (report.stage == "login")
             {
+                if (report.phase == "prepare-create" && panel.Observed.state == CoreState.CharacterListReady)
+                {
+                    if (panel.Observed.characterCount == 0 && !createSubmitted)
+                    {
+                        var creation = FindFirstObjectByType<CharacterCreatePanel>();
+                        if (creation == null) throw new InvalidOperationException("Character creation UI missing.");
+                        creation.characterName.text = Environment.GetEnvironmentVariable("MXH_SMOKE_CREATE_NAME");
+                        creation.create.onClick.Invoke(); createSubmitted = true;
+                    }
+                    else if (panel.Observed.characterCount > 0)
+                    {
+                        if (!createSubmitted || panel.Observed.characterCount != 1 ||
+                            panel.Observed.characters[0].DisplayName != Environment.GetEnvironmentVariable("MXH_SMOKE_CREATE_NAME"))
+                            throw new InvalidOperationException("Preparation requires exactly one newly created character.");
+                        report.characterCreated = true;
+                    }
+                }
                 if (!selected && panel.Observed.state == CoreState.CharacterListReady && panel.Observed.characterCount > 0)
                 { panel.SelectFirstForDevelopmentProbe(); selected = true; }
                 if (panel.Observed.state != CoreState.InGame || !panel.Inventory.Matches(panel.Observed) || !panel.MapPresentationReady) return;
                 report.playerId = panel.Observed.game.playerId; report.mapNumber = panel.Observed.game.mapNumber;
-                if (report.playerId != 111 || report.mapNumber != 10) throw new InvalidOperationException("Unexpected isolated fixture identity/map.");
+                if ((!Preparing && report.playerId != 111) || report.mapNumber != 10) throw new InvalidOperationException("Unexpected isolated fixture identity/map.");
                 report.gameIn = report.presentationReady = true; report.before = Inventory();
+                if (Preparing)
+                {
+                    var targets = FindObjectsByType<TargetSelectable>(FindObjectsSortMode.None).Where(t => !t.isNpc &&
+                        t.objectId >= 50000 && t.GetComponentInParent<ServerEntityRegistry>() != null).ToArray();
+                    report.visibleMonsterIds = targets.Select(t => t.objectId).ToArray();
+                    report.visibleMonsterKinds = targets.Select(t => t.visualKind).ToArray();
+                    if (report.phase == "prepare-create") { report.after = Inventory(); Disconnect(); return; }
+                    if (report.playerId != uint.Parse(Environment.GetEnvironmentVariable("MXH_SMOKE_PREPARE_CHARACTER")))
+                        throw new InvalidOperationException("Prepared character identity mismatch.");
+                    report.preparedDatabaseId = uint.Parse(Environment.GetEnvironmentVariable("MXH_SMOKE_PREPARE_ITEM"));
+                    Stage("prepare-equipment", 15); return;
+                }
                 if (report.phase == "verify") { report.after = Inventory(); Disconnect(); }
                 else Stage("combat", 120);
                 return;
@@ -154,6 +194,23 @@ namespace Moxiang
             }
             if (panel.Observed.state != CoreState.InGame || panel.Observed.game.life == 0)
                 throw new InvalidOperationException("Lost live InGame state; no revive or success substitution.");
+            if (report.stage == "prepare-equipment")
+            {
+                if (!panel.Inventory.Matches(panel.Observed)) return;
+                var worn = panel.Inventory.Slots[81];
+                if (worn.DatabaseId == report.preparedDatabaseId && worn.ItemId == 11000 &&
+                    (report.phase == "prepare-verify" || report.equipmentAck && inventorySequence > ackSequence))
+                { report.after = Inventory(); Disconnect(); return; }
+                if (report.phase == "prepare-verify") throw new InvalidOperationException("Equipment missing after reconnect.");
+                if (!equipSubmitted)
+                {
+                    var carried = panel.Inventory.Slots.Take(80).Single(i => i.DatabaseId == report.preparedDatabaseId && i.ItemId == 11000);
+                    if (panel.MoveInventoryItem(carried.Position, 81) != CoreResult.Ok)
+                        throw new InvalidOperationException("Preparation equipment command did not submit.");
+                    equipSubmitted = true;
+                }
+                return;
+            }
             if (report.stage == "combat")
             {
                 if (report.zeroLife && report.hit) { Stage("pickup", 30); return; }

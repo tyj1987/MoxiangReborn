@@ -1,5 +1,7 @@
 # 真实拾取探针战斗输入审查
 
+后续已新增可执行`--prepare-pickup-input`，走DbTool注册→真实CharacterMake→MapServer管理队列claim→正常穿戴→重登核验。详见`docs/UNITY_PICKUP_INPUT_PREPARATION_20261001.md`。它落实现有受支持准备路径，仍不把未接通的战斗属性/已学技能假定为完成；没有有效目标时整体failed。
+
 本报告独立于shader补丁。ROG在0d456d7运行：16次Hit、每次damage=1、目标剩5420生命，玩家累计受伤340后死亡；未进入kill/drop/pickup/relogin。新实现不把这个结果转成通过，也不重复启动已证实不可能完成的输入。
 
 ## 数据与代码结论
