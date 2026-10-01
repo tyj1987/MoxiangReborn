@@ -9,3 +9,12 @@ target_include_directories(mxh_pickup_wire_tests PRIVATE ../../../src/unity_core
 target_link_libraries(mxh_pickup_wire_tests PRIVATE GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(mxh_pickup_wire_tests)
+
+add_executable(mxh_synthetic_server_resources_tests
+    ../../../tests/unit/server/synthetic_server_resources_test.cpp
+    ../../../src/server/ai_group_loader.cpp
+    ../../../src/mh_file_ex.cpp)
+target_compile_features(mxh_synthetic_server_resources_tests PRIVATE cxx_std_20)
+target_include_directories(mxh_synthetic_server_resources_tests PRIVATE ../../../include)
+target_link_libraries(mxh_synthetic_server_resources_tests PRIVATE GTest::gtest_main)
+gtest_discover_tests(mxh_synthetic_server_resources_tests)

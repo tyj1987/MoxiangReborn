@@ -20,6 +20,7 @@
 //     by hsel_stream_test.cpp + aes_gcm_test.cpp.
 
 #include "mxh/game/experience_curve.hpp"
+#include "synthetic_server_resources.hpp"
 #include "mxh/game/exp_penalty.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/proto/character_revive.hpp"
@@ -2711,11 +2712,9 @@ TEST(MapHandlerTest, PresentSpotRequestAppliesPenaltyAndRestoresOnRelogin) {
     EXPECT_EQ(restored.player_money_for_test(777), 100000u - loss->money);
 }
 
-TEST(MapHandlerTest, LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
+void check_login_point_request(const std::filesystem::path& current_path,
+                               const std::filesystem::path& legacy_path) {
     const auto root = std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource";
-    const auto current_path = root / "Server/LoginPoint.bin";
-    const auto legacy_path = std::filesystem::path(MXH_SOURCE_DIR) / ".." /
-        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/LoginPoint.bin";
     auto read_bytes = [](const std::filesystem::path& path) {
         std::ifstream input(path, std::ios::binary);
         return std::vector<std::uint8_t>(std::istreambuf_iterator<char>(input),
@@ -2869,6 +2868,19 @@ TEST(MapHandlerTest, LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
     EXPECT_EQ(restored.player_money_for_test(777), 100000u - loss->money);
     EXPECT_FLOAT_EQ(relogin->pos_x, current_ten->x);
     EXPECT_FLOAT_EQ(relogin->pos_z, current_ten->z);
+}
+
+TEST(MapHandlerTest, LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
+    namespace fixture = mxh::test::resources;
+    const fixture::TemporaryBin current(fixture::current(fixture::login_text, fixture::login_key));
+    const fixture::TemporaryBin legacy(fixture::legacy(fixture::login_text));
+    check_login_point_request(current.path, legacy.path);
+}
+
+TEST(MapHandlerReferenceTest, DISABLED_LoginPointRequestAppliesPenaltyAndRestoresOnRelogin) {
+    check_login_point_request(std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/Server/LoginPoint.bin",
+        std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
+        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/LoginPoint.bin");
 }
 
 TEST(MapHandlerTest, DeadDisconnectAppliesLoginPenaltyWithoutMoving) {
@@ -4966,11 +4978,7 @@ TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
     EXPECT_EQ(handler.monster_count_for_test(), groups.spawn_count());
 }
 
-TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
-    const auto path = std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
-        "reference" / "legacy-source" / "4dddd9a6" /
-        "SWorking" / "Resource" / "Server" /
-        "Monster_10.bin";
+void check_monster_groups(const std::filesystem::path& path) {
     ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
     auto& ai = mxh::server::AISystem::instance();
     struct RestoreEmptyAi {
@@ -5037,6 +5045,17 @@ TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
     if (!scene.placeholders().empty()) {
         EXPECT_GT(scene.placeholders().front().radius, 0.0f);
     }
+}
+
+TEST(MapHandlerTest, SyntheticMonster10BinSpawnsAllGroups) {
+    namespace fixture = mxh::test::resources;
+    const fixture::TemporaryBin monsters(fixture::legacy(fixture::monster_text()));
+    check_monster_groups(monsters.path);
+}
+
+TEST(MapHandlerReferenceTest, DISABLED_RecoveredMonster10BinSpawnsAllGroups) {
+    check_monster_groups(std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
+        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/Monster_10.bin");
 }
 
 TEST(AgentHandlerTest, ForwardFromMapMonsterAddReachesRegisteredClient) {
@@ -5164,13 +5183,11 @@ TEST(MapHandlerTest, SkillDoesNotApplyToReplacedCasterOrTargetSession) {
     }
 }
 
-TEST(MapHandlerTest, ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
+void check_penalty_profile_switch(const std::filesystem::path& current,
+                                  const std::filesystem::path& legacy) {
     MockDbAdapter db;
     ReplySpy reply;
     MapHandler handler(db,10,make_reply_spy(reply));
-    const auto root = std::filesystem::path(MXH_SOURCE_DIR);
-    const auto current = root / "data/PlayDH/Resource/Server/ExpPenalty.bin";
-    const auto legacy = root.parent_path() / "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/ExpPenalty.bin";
     ASSERT_TRUE(handler.load_exp_penalty(current, "playdh-current"));
     ASSERT_TRUE(handler.exp_penalties());
     EXPECT_FLOAT_EQ(handler.exp_penalties()->at(48).present_percent, 2.4f);
@@ -5183,6 +5200,19 @@ TEST(MapHandlerTest, ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
     ASSERT_TRUE(handler.load_exp_penalty(current, "playdh-current"));
     EXPECT_FALSE(handler.load_exp_penalty(current / "missing.bin", "playdh-current"));
     EXPECT_FALSE(handler.exp_penalties());
+}
+
+TEST(MapHandlerTest, ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
+    namespace fixture = mxh::test::resources;
+    const fixture::TemporaryBin current(fixture::current(fixture::penalty_text, fixture::penalty_key));
+    const fixture::TemporaryBin legacy(fixture::legacy(fixture::penalty_text));
+    check_penalty_profile_switch(current.path, legacy.path);
+}
+
+TEST(MapHandlerReferenceTest, DISABLED_ExpPenaltyLoadRequiresMatchingProfileAndClearsStaleTable) {
+    check_penalty_profile_switch(std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/Server/ExpPenalty.bin",
+        std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
+        "reference/legacy-source/4dddd9a6/SWorking/Resource/Server/ExpPenalty.bin");
 }
 
 TEST(MapHandlerTest, SkillMpReservationUpdatesRuntimeAndRejectsForeignConnection) {
