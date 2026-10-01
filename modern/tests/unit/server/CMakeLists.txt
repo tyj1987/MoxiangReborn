@@ -3,6 +3,7 @@
 
 add_executable(mxh_server_handler_tests
     server_handler_test.cpp
+    item_id_test.cpp
 )
 
 target_link_libraries(mxh_server_handler_tests PRIVATE

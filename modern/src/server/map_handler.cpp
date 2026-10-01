@@ -35,6 +35,7 @@
 #include "mxh/server/agent_userconn.hpp"
 #include "mxh/game/login_point.hpp"
 #include "mxh/server/commit_present_revive.hpp"
+#include "mxh/server/item_id.hpp"
 #include "mxh/server/revive_vitality_messages.hpp"
 #include "mxh/proto/character_level.hpp"
 #include "mxh/server/ai_system.hpp"
@@ -442,7 +443,7 @@ MapHandler::MapHandler(mxh::db::IDbAdapter& db, std::uint16_t map_num,
       use_legacy_framing_(use_legacy_framing),
       use_hsel_(use_hsel), hsel_(use_hsel, std::move(direct_send)) {
     init_skill_table();
-    // Seed the process-wide item allocator from the complete persisted table,
+    // Seed this handler's item allocator from the complete persisted table,
     // not just players that happen to be loaded on this map.  This prevents a
     // restart or a multi-map deployment from reusing an ID owned by an
     // offline character.
@@ -452,10 +453,10 @@ MapHandler::MapHandler(mxh::db::IDbAdapter& db, std::uint16_t map_num,
             "FROM modern_player_item", {}, rows).ok() &&
         !rows.rows.empty()) {
         const auto max_id = get_int(rows, 0, "max_db_idx", 699999);
-        if (max_id >= 0 && max_id < static_cast<std::int64_t>(UINT32_MAX)) {
+        if (max_id >= 0 && max_id <= static_cast<std::int64_t>(UINT32_MAX)) {
             next_item_db_idx_.store(
                 std::max<std::uint32_t>(700000u,
-                    static_cast<std::uint32_t>(max_id) + 1u),
+                    max_id == UINT32_MAX ? UINT32_MAX : static_cast<std::uint32_t>(max_id) + 1u),
                 std::memory_order_relaxed);
         }
     }
@@ -1598,7 +1599,9 @@ bool MapHandler::claim_ground_drop_for_test(std::uint32_t player_id, std::uint32
         if (drop_it == ground_drops_.end() || runtime_it == player_runtimes_.end() || drop_it->second.claimed) return false;
         item_id = drop_it->second.item_id;
         item_count = drop_it->second.count;
-        auto item = mxh::game::make_item(static_cast<std::uint32_t>(drop_object_id), item_id, 0u, 100u, item_count);
+        const auto item_db_id = reserve_item_id(next_item_db_idx_);
+        if (!item_db_id) return false;
+        auto item = mxh::game::make_item(*item_db_id, item_id, 0u, 100u, item_count);
         if (!runtime_it->second.actor.insert_inventory_item(item)) return false;
         drop_it->second.claimed = true;
     }
