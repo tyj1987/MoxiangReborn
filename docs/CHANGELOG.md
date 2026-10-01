@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### New-character base attributes and ordinary equipment (2026-10-01)
+
+- Added nullable base-attribute migration fields without old-player backfill; normal CharacterMake writes recovered four-stat12 inputs. Formal GameIn rejects unknown/partial imports. Ordinary KR/CN equipment rebuilds physical attack endpoints, defence and resource bonuses on entry/move; damage consumes the range. Unsupported options fail explicitly. Portable tests pass 111/111 and Python tools 42/42; Windows create/equip/unequip/relogin tests remain unrun. No production migration or deployment. See `docs/EQUIPMENT_COMBAT_HYDRATION_20261001.md` for compatibility gates and remaining Windows/old-fixture validation.
+
 ### Recovered base-attack formula evidence (2026-10-01)
 
 - Added an unwired pure base-attack calculator and five golden tests from ROG's recovered CommonCalcFunc formula, with explicit recovered-file provenance and invalid-result rejection. Portable tests pass 17/17. Production equipment hydration remains blocked on missing persisted base attributes and unverified character-creation/backfill defaults; no combat, schema, or fixture stat override. See `docs/EQUIPMENT_COMBAT_FORMULA_20261001.md`.

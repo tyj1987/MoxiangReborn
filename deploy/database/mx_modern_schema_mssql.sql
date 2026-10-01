@@ -72,6 +72,18 @@ BEGIN
 END
 GO
 
+-- Deliberately nullable: old characters require authoritative attribute import.
+-- Only normal CharacterMake writes the recovered new-character values (12).
+IF COL_LENGTH(N'dbo.character_info', N'base_gengol') IS NULL
+    ALTER TABLE dbo.character_info ADD base_gengol INT NULL CHECK (base_gengol BETWEEN 0 AND 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_minchub') IS NULL
+    ALTER TABLE dbo.character_info ADD base_minchub INT NULL CHECK (base_minchub BETWEEN 0 AND 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_cheryuk') IS NULL
+    ALTER TABLE dbo.character_info ADD base_cheryuk INT NULL CHECK (base_cheryuk BETWEEN 0 AND 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_simmek') IS NULL
+    ALTER TABLE dbo.character_info ADD base_simmek INT NULL CHECK (base_simmek BETWEEN 0 AND 65535);
+GO
+
 IF EXISTS (
     SELECT 1
     FROM sys.columns

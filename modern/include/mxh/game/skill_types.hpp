@@ -240,11 +240,16 @@ struct PlayerCombatStats {
     std::uint32_t max_mp = 50;
     std::uint32_t current_mp = 50;
     std::uint16_t phy_attack = 10;      // physical attack
-    std::uint16_t phy_defence = 5;      // physical defence
+    std::uint32_t phy_defence = 5;      // physical defence (legacy DWORD result)
     std::uint16_t att_attack = 0;       // attribute attack
     std::uint16_t att_defence = 0;      // attribute defence
     std::uint8_t  critical_rate = 5;    // critical chance (%)
     std::uint8_t  dodge_rate = 5;       // dodge chance (%)
+    // Server-only derived endpoints; no change to packet layout. Legacy test
+    // callers without hydrated equipment continue to use the scalar field.
+    bool has_physical_range = false;
+    std::uint32_t phy_attack_min = 0;
+    std::uint32_t phy_attack_max = 0;
 };
 
 // ============================================================================

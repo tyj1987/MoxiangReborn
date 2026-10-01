@@ -190,6 +190,8 @@ struct PlayerState final {
     PlayerProgress  progress;
     PlayerVitals    vitals;
     PlayerAttributes attributes;
+    // Rebuilt from owned equipment, never persisted over the base attributes.
+    PlayerAttributes equipment_attributes;
     GuildMembership guild;
     PartyMembership party;
 

@@ -416,6 +416,8 @@ public:
 
 
     struct PlayerRuntimeSnapshot {
+        bool physical_stats_ready = false;
+        std::uint32_t physical_attack_min = 0, physical_attack_max = 0, physical_defence = 0;
         PlayerLifecycle lifecycle = PlayerLifecycle::Disconnected;
         std::uint32_t player_id = 0;
         std::uint32_t user_id = 0;

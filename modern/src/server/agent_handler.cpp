@@ -1670,11 +1670,15 @@ void AgentHandler::handle_legacy_character_make(
         mxh::db::bind(static_cast<std::int64_t>(default_map_num_)),
         mxh::db::bind(static_cast<std::int64_t>(standing_idx))
     };
+    // Recovered AgentDBMsgParser.cpp passes four 12s for new characters.
+    // This is creation-only; nullable existing rows require explicit import.
+    // Provenance and SP evidence boundary: EQUIPMENT_COMBAT_HYDRATION_20261001.md.
     auto result = db_.execute(
         "INSERT INTO character_info "
         "(chrid, charname, userid, sex_type, hair_type, face_type, "
-        "body_type, start_area, height, width, level, map_num, standing_idx) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+        "body_type, start_area, height, width, level, map_num, standing_idx, "
+        "base_gengol,base_minchub,base_cheryuk,base_simmek) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 12,12,12,12)",
         ins_params);
 
     if (!result.ok()) {

@@ -29,11 +29,11 @@ def verify_owned_fixture(database: Path, output: Path, account: str, character=N
         identities = db.execute('SELECT account_id,user_idx FROM modern_account_identity').fetchall()
         if len(identities) != 1 or identities[0][0] != account:
             raise ValueError('Preparation refuses shared or foreign accounts')
-        rows = db.execute('SELECT chrid,userid,level FROM character_info').fetchall()
+        rows = db.execute('SELECT chrid,userid,level,base_gengol,base_minchub,base_cheryuk,base_simmek FROM character_info').fetchall()
         if character is None:
             if rows: raise ValueError('Preparation requires a new account without characters')
-        elif rows != [(character, str(identities[0][1]), 1)]:
-            raise ValueError('Preparation refuses foreign, additional, or edited-level characters')
+        elif rows != [(character, str(identities[0][1]), 1, 12, 12, 12, 12)]:
+            raise ValueError('Preparation requires a unique normal level1 character with persisted creation attributes12')
 
 
 def queue_starter_weapon(database: Path, output: Path, account: str, character: int):
@@ -104,7 +104,9 @@ def run_preparation(player: Path, output: Path, env: dict, database: Path, accou
                     raise ValueError('Authoritative reconnect inventory differs from SQLite equipment')
             result['phases'].append({'phase': phase, 'report': str(directory/'pickup-report.json')})
         result['preparationPassed'] = True
-        result['error'] = 'combat-stats-initialization-gap: normal starter preparation is verified, but no audited viable scene target exists with default attack10'
+        result['error'] = 'starter-target-not-viable: normal starter preparation is verified; derived attack29..35 still cannot overcome audited Map10 defenses'
+        result['expectedStarterStats'] = {'baseAttributes': [12,12,12,12], 'physicalAttackMin': 29,
+            'physicalAttackMax': 35, 'physicalDefense': 8, 'runtimeCombatMeasured': False}
         result['visibleMonsterIds'] = report.get('visibleMonsterIds', [])
         result['visibleMonsterKinds'] = report.get('visibleMonsterKinds', [])
         stats = {105: (5096,451), 73: (5436,480), 103: (5788,510),
@@ -112,7 +114,7 @@ def run_preparation(player: Path, output: Path, env: dict, database: Path, accou
         result['candidateEvaluation'] = [
             {'kind': kind, 'hp': stats[kind][0] if kind in stats else None,
              'defense': stats[kind][1] if kind in stats else None, 'eligible': False,
-             'reason': 'default attack10 cannot meet 120s budget' if kind in stats else 'unaudited scene kind'}
+             'reason': 'starter attack upper bound35 cannot meet 120s budget' if kind in stats else 'unaudited scene kind'}
             for kind in sorted(set(result['visibleMonsterKinds']))]
         result['skillInitialization'] = {'rowsInserted': 0, 'learnedSkillProtocolVerified': False,
             'reason': 'Only server default quickbar bindings exist; learned-skill persistence is not connected'}

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(MoxiangPickupWireTests LANGUAGES CXX)
+project(MoxiangPickupWireTests LANGUAGES C CXX)
 enable_testing()
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 add_subdirectory(../../../third_party/googletest-src googletest EXCLUDE_FROM_ALL)
@@ -25,3 +25,25 @@ target_compile_features(mxh_base_attack_power_tests PRIVATE cxx_std_20)
 target_include_directories(mxh_base_attack_power_tests PRIVATE ../../../include)
 target_link_libraries(mxh_base_attack_power_tests PRIVATE GTest::gtest_main)
 gtest_discover_tests(mxh_base_attack_power_tests)
+
+add_library(mxh_audit_sqlite STATIC ../../../third_party/sqlite/sqlite3.c)
+target_include_directories(mxh_audit_sqlite PUBLIC ../../../third_party/sqlite)
+add_executable(mxh_equipment_stats_tests
+    ../../../tests/unit/server/player_equipment_stats_test.cpp
+    ../../../tests/unit/server/player_state_test.cpp
+    ../../../tests/unit/server/character_calc_manager_test.cpp
+    ../../../tests/unit/server/skill_caster_test.cpp
+    ../../../tests/unit/db/schema_migration_test.cpp
+    ../../../src/server/player_state.cpp
+    ../../../src/server/character_calc_manager.cpp
+    ../../../src/server/skill_caster.cpp
+    ../../../src/game/item_list_parser.cpp
+    ../../../src/mh_file_ex.cpp
+    ../../../src/schema_migration.cpp
+    ../../../src/sqlite_adapter.cpp
+    ../../../src/db_adapter.cpp)
+target_compile_features(mxh_equipment_stats_tests PRIVATE cxx_std_20)
+target_compile_definitions(mxh_equipment_stats_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../..")
+target_include_directories(mxh_equipment_stats_tests PRIVATE ../../../include)
+target_link_libraries(mxh_equipment_stats_tests PRIVATE GTest::gtest_main mxh_audit_sqlite)
+gtest_discover_tests(mxh_equipment_stats_tests)

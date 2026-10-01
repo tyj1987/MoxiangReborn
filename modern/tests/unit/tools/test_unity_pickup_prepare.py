@@ -26,7 +26,7 @@ class PreparationTests(unittest.TestCase):
             db.executescript('''
                 CREATE TABLE modern_account_identity(account_id,user_idx);
                 INSERT INTO modern_account_identity VALUES('ux_aaaaaaaa',1);
-                CREATE TABLE character_info(chrid,userid,level);
+                CREATE TABLE character_info(chrid,userid,level,base_gengol,base_minchub,base_cheryuk,base_simmek);
                 CREATE TABLE modern_character_equipment(chrid,slot,item_idx);
                 CREATE TABLE modern_player_item(player_id,container,slot,db_idx,item_idx,item_param);
                 CREATE TABLE modern_item_grant(grant_id INTEGER PRIMARY KEY,idempotency_key UNIQUE,
@@ -35,7 +35,7 @@ class PreparationTests(unittest.TestCase):
 
     def character(self):
         with sqlite3.connect(self.database) as db:
-            db.execute("INSERT INTO character_info VALUES(100000,'1',1)")
+            db.execute("INSERT INTO character_info VALUES(100000,'1',1,12,12,12,12)")
 
     def test_grant_only_queues_request_without_inventory_or_stat_edits(self):
         self.character()
@@ -64,6 +64,16 @@ class PreparationTests(unittest.TestCase):
             db.execute('DELETE FROM modern_item_grant')
             db.execute('INSERT INTO modern_player_item VALUES(100000,0,0,1,77,1)')
         with self.assertRaises(ValueError): prepare.queue_starter_weapon(self.database, self.output, self.account, 100000)
+
+    def test_refuses_unknown_or_modified_creation_attributes(self):
+        self.character()
+        for value in (None, 99):
+            with sqlite3.connect(self.database) as db:
+                db.execute('UPDATE character_info SET base_gengol=?', (value,))
+            with self.assertRaises(ValueError):
+                prepare.queue_starter_weapon(self.database, self.output, self.account, 100000)
+        with sqlite3.connect(self.database) as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM modern_item_grant').fetchone()[0], 0)
 
     def test_player_timeout_produces_failed_preparation(self):
         with patch.object(prepare, 'verify_resource_inputs', return_value={}), \

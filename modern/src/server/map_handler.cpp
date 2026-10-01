@@ -36,6 +36,7 @@
 #include "mxh/game/login_point.hpp"
 #include "mxh/server/commit_present_revive.hpp"
 #include "mxh/server/item_id.hpp"
+#include "mxh/server/player_equipment_stats.hpp"
 #include "mxh/server/revive_vitality_messages.hpp"
 #include "mxh/proto/character_level.hpp"
 #include "mxh/server/ai_system.hpp"
@@ -217,6 +218,8 @@ std::optional<std::time_t> packed_shop_time_to_epoch(mxh::game::PackedTime value
 // CharData: real character data loaded from the database.
 // ---------------------------------------------------------------------------
 struct CharData {
+    CalcBaseStats base{};
+    bool base_known = false;
     std::uint32_t chrid = 0;
     std::string name = "Player";
     std::uint32_t life = 100, max_life = 100;
@@ -263,6 +266,29 @@ std::optional<CharData> load_char_data(mxh::db::IDbAdapter& db, std::uint32_t ch
         cd.exp = static_cast<std::uint32_t>(get_int(state, 0, "exp"));
         cd.money = static_cast<std::uint32_t>(get_int(state, 0, "money"));
     }
+    mxh::db::ResultSet attributes;
+    r = db.query("SELECT base_gengol,base_minchub,base_cheryuk,base_simmek "
+                 "FROM character_info WHERE chrid=?", params, attributes);
+    if (r.ok() && attributes.rows.size() == 1 && attributes.rows[0].size() == 4) {
+        cd.base_known = std::all_of(attributes.rows[0].begin(), attributes.rows[0].end(),
+            [](const auto& value) {
+                const auto* n = std::get_if<std::int64_t>(&value);
+                return n && *n >= 0 && *n <= 65535;
+            });
+        if (cd.base_known) {
+            cd.base.gengol = static_cast<std::uint16_t>(std::get<std::int64_t>(attributes.rows[0][0]));
+            cd.base.minchub = static_cast<std::uint16_t>(std::get<std::int64_t>(attributes.rows[0][1]));
+            cd.base.cheryuk = static_cast<std::uint16_t>(std::get<std::int64_t>(attributes.rows[0][2]));
+            cd.base.simmek = static_cast<std::uint16_t>(std::get<std::int64_t>(attributes.rows[0][3]));
+        }
+    }
+    // No inferred defaults for existing characters. GameIn needs authoritative
+    // vitals and defence before a character can enter monster aggro range.
+    if (!cd.base_known && !allow_defaults) {
+        std::cerr << "[Map] attribute-import-required player=" << chrid << '\n';
+        return std::nullopt;
+    }
+    cd.base.level = cd.level;
     return cd;
 }
 
@@ -310,10 +336,10 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, std::uint32_t user_id
     put_f32(m.payload, kPayloadCharTotalOff + 74, 60.0f);
 
     // --- HERO_TOTALINFO [147..206] ---
-    put_u16(m.payload, kPayloadHeroTotalOff + 0, 10);
-    put_u16(m.payload, kPayloadHeroTotalOff + 2, 10);
-    put_u16(m.payload, kPayloadHeroTotalOff + 4, 10);
-    put_u16(m.payload, kPayloadHeroTotalOff + 6, 10);
+    put_u16(m.payload, kPayloadHeroTotalOff + 0, cd.base.gengol);
+    put_u16(m.payload, kPayloadHeroTotalOff + 2, cd.base.minchub);
+    put_u16(m.payload, kPayloadHeroTotalOff + 4, cd.base.cheryuk);
+    put_u16(m.payload, kPayloadHeroTotalOff + 6, cd.base.simmek);
     put_u32(m.payload, kPayloadHeroTotalOff + 8, vitals.current_mp);
     put_u32(m.payload, kPayloadHeroTotalOff + 12, vitals.max_mp);
     const std::int64_t exp = cd.exp;
@@ -495,6 +521,12 @@ std::optional<MapHandler::PlayerRuntimeSnapshot> MapHandler::player_runtime_snap
     snapshot.total_exp = it->second.actor.state().progress.total_exp;
     snapshot.current_shield = it->second.actor.state().vitals.current_shield;
     snapshot.max_shield = it->second.actor.state().vitals.max_shield;
+    if (const auto info=connected_players_.find(player_id); info!=connected_players_.end()) {
+        snapshot.physical_stats_ready=info->second.combat.has_physical_range;
+        snapshot.physical_attack_min=info->second.combat.phy_attack_min;
+        snapshot.physical_attack_max=info->second.combat.phy_attack_max;
+        snapshot.physical_defence=info->second.combat.phy_defence;
+    }
     return snapshot;
 }
 
@@ -2491,9 +2523,11 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     spawn.level = cd.level;
     spawn.map_num = map_num_;
     spawn.name = cd.name;
-    spawn.base.level = cd.level;
-    spawn.bonuses.item_max_life = static_cast<std::int32_t>(pi.combat.max_hp);
-    spawn.bonuses.item_max_naeryuk = static_cast<std::int32_t>(pi.combat.max_mp);
+    spawn.base = cd.base;
+    if (!cd.base_known) { // Existing explicitly enabled development fallback only.
+        spawn.bonuses.item_max_life = static_cast<std::int32_t>(pi.combat.max_hp);
+        spawn.bonuses.item_max_naeryuk = static_cast<std::int32_t>(pi.combat.max_mp);
+    }
     PlayerRuntime runtime;
     runtime.quest_log.player_id = player_id;
     if (!load_quest_log(player_id, runtime.quest_log) && !allow_dev_gamein_fallback_) {
@@ -2520,10 +2554,18 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         reject_entry(); return;
     }
     if (!restore_player_shop(player_id,user_id,runtime)) { reject_entry(); return; }
+    if (cd.base_known) {
+        if (!rebuild_equipment_stats(runtime.actor.state(), pi.combat,
+                [&](auto icon, auto& info) { return item_manager_.try_get(icon,info); })) {
+            std::cerr << "[Map] unsupported-equipment-stats player=" << player_id << '\n';
+            reject_entry(); return;
+        }
+    }
     load_membership_state(player_id, cd.name, cd.level);
     pi.items = make_item_total(runtime.actor.state());
     for (std::size_t i = 0; i < appearance_present.size(); ++i)
-        if (appearance_present[i]) pi.items.WearedItem[i].wIconIdx = appearance.WearedItem[i].wIconIdx;
+        if (appearance_present[i] && pi.items.WearedItem[i].dwDBIdx == 0)
+            pi.items.WearedItem[i].wIconIdx = appearance.WearedItem[i].wIconIdx;
     runtime.actor.state().pos_x = pi.pos_x;
     runtime.actor.state().pos_z = pi.pos_z;
     pi.shop_options = runtime.actor.state().shop_options;
@@ -3597,7 +3639,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         }
                         mxh::game::ItemInfo item_info{};
                         if (!item_manager_.try_get(item->wIconIdx, item_info)) {
-                            return true;  // incomplete profile: preserve fail-open contract
+                            return !info_it->second.combat.has_physical_range;
                         }
                         return legacy_item_can_equip_in_slot(item_info, position) &&
                                legacy_item_meets_player_limits(item_info, actor_state);
@@ -3608,11 +3650,20 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                                            source_item ? source_item->Position : new_pos);
                     if (source_item && target_item && source_item != target_item &&
                         legal_equipment) {
+                        const auto source_before=*source_item;
+                        const auto target_before=*target_item;
                         const auto source_pos = source_item->Position;
                         std::swap(*source_item, *target_item);
                         source_item->Position = source_pos;
                         target_item->Position = new_pos;
                         found = true;
+                        if (info_it->second.combat.has_physical_range &&
+                            !rebuild_equipment_stats(actor_state,info_it->second.combat,
+                                [&](auto icon,auto& info) { return item_manager_.try_get(icon,info); })) {
+                            *source_item=source_before;
+                            *target_item=target_before;
+                            found=false;
+                        }
                     }
                     if (found) {
                         actor_state.recompute_max_stats();

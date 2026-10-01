@@ -20,12 +20,13 @@ class PickupFixtureTests(unittest.TestCase):
     def test_real_sources_match_audit_and_emit_specific_blocker(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder)
-            with self.assertRaisesRegex(RuntimeError, 'combat-stats-initialization-gap'):
+            with self.assertRaisesRegex(RuntimeError, 'attribute-import-required'):
                 audit.require_viable_pickup_fixture(REPO, output)
             report = json.loads((output/'pickup-fixture-audit.json').read_text())
             self.assertTrue(report['resourceHashesMatchAudit'])
             self.assertFalse(report['readyForPlayerRun'])
-            self.assertEqual(report['actor']['maximumHp'], 340)
+            self.assertIn('unknown', report['actor']['attributes'])
+            self.assertNotIn('physicalAttack', report['actor'])
 
     def test_missing_or_changed_sources_require_reaudit(self):
         with tempfile.TemporaryDirectory() as folder:

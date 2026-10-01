@@ -8,10 +8,10 @@ namespace mxh::server {
 CalcBaseStats PlayerState::base_stats() const noexcept {
     CalcBaseStats b;
     b.level   = progress.level;
-    b.gengol  = attributes.gengol;
-    b.simmek  = attributes.simmek;
-    b.minchub = attributes.minchub;
-    b.cheryuk = attributes.cheryuk;
+    b.gengol  = static_cast<std::uint16_t>(attributes.gengol + equipment_attributes.gengol + shop_options.Gengol + avatar_options.Gengol);
+    b.simmek  = static_cast<std::uint16_t>(attributes.simmek + equipment_attributes.simmek + shop_options.Simmek + avatar_options.Simmek);
+    b.minchub = static_cast<std::uint16_t>(attributes.minchub + equipment_attributes.minchub + shop_options.Minchub + avatar_options.Minchub);
+    b.cheryuk = static_cast<std::uint16_t>(attributes.cheryuk + equipment_attributes.cheryuk + shop_options.Cheryuk + avatar_options.Cheryuk);
     return b;
 }
 
