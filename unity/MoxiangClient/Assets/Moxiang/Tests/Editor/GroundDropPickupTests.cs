@@ -56,8 +56,19 @@ public sealed class GroundDropPickupTests
         Assert.That(prefab.GetComponent<Collider>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<GroundDropLabel>().font, Is.Not.Null);
         Assert.That(prefab.GetComponent<GroundDropPickup>().drop, Is.SameAs(prefab.GetComponent<ServerGroundDrop>()));
+        Assert.That(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(prefab, out string guid, out long localId), Is.True);
+        Assert.That(guid, Is.EqualTo("9418879f64c84d3bbcef91b20797458a"));
+        Assert.That(localId, Is.Not.EqualTo(100100000L), "The prefab asset's reserved ID cannot identify its root GameObject.");
         var scene = System.IO.File.ReadAllText("Assets/Moxiang/Scenes/ConnectionValidation.unity");
-        Assert.That(scene, Does.Contain("groundDropPrefab: {fileID: 100100000, guid: 9418879f64c84d3bbcef91b20797458a, type: 3}"));
+        Assert.That(scene, Does.Contain($"groundDropPrefab: {{fileID: {localId}, guid: {guid}, type: 3}}"));
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        try
+        {
+            Assert.That(instance, Is.Not.Null);
+            Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(instance), Is.SameAs(prefab));
+            Assert.That(instance.GetComponent<GroundDropPickup>().drop, Is.SameAs(instance.GetComponent<ServerGroundDrop>()));
+        }
+        finally { if (instance != null) Object.DestroyImmediate(instance); }
     }
 
     [Test]

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Unity pickup EditMode corrections (2026-10-01)
+
+- Replaced GroundDropLabel's reserved root fileID and updated every local/scene reference. The Editor test now checks Unity's imported GUID/local ID and prefab instantiation. Cloud YAML reference validation passes; Unity import/EditMode execution awaits ROG.
+
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 
 - Added a versioned bounded timed-movement command/state codec with explicit

@@ -6211,7 +6211,7 @@ MonoBehaviour:
   npcVisuals:
   - visualKind: 54
     prefab: {fileID: 9171473571410430069, guid: 715581c5323e14b4d8576c6ff6676083, type: 3}
-  groundDropPrefab: {fileID: 100100000, guid: 9418879f64c84d3bbcef91b20797458a, type: 3}
+  groundDropPrefab: {fileID: 7184136029510842001, guid: 9418879f64c84d3bbcef91b20797458a, type: 3}
   mapWidth: 51200
   mapDepth: 102400
 --- !u!114 &992754363
