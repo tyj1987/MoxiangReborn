@@ -15,6 +15,7 @@ namespace Moxiang.Tests
             {
                 var registry = host.AddComponent<ServerEntityRegistry>();
                 registry.groundDropPrefab = prefab;
+                using var surface = new DisplaySurfaceFixture(registry);
                 var dispatch = typeof(ServerEntityRegistry).GetMethod("OnCoreEvent", BindingFlags.Instance | BindingFlags.NonPublic);
                 var bytes = NativeClient.Encode("3,100,200", 256, out uint textLength);
                 dispatch.Invoke(registry, new object[] { new CoreEvent { type = NativeClient.EventGroundDrop,
@@ -22,6 +23,9 @@ namespace Moxiang.Tests
                     text = bytes, textLength = textLength } });
                 var pickup = host.GetComponentInChildren<GroundDropPickup>();
                 Assert.That(pickup, Is.Not.Null);
+                Assert.That(pickup.transform.position.y,Is.EqualTo(5f));
+                Assert.That(new MapCoordinates(51200,51200).ToGame(pickup.transform.position).x,Is.EqualTo(100).Within(.01));
+                Assert.That(new MapCoordinates(51200,51200).ToGame(pickup.transform.position).z,Is.EqualTo(200).Within(.01));
                 Assert.That(pickup.GetComponent<Collider>(), Is.Not.Null);
                 var pending = typeof(GroundDropPickup).GetField("pending", BindingFlags.Instance | BindingFlags.NonPublic);
                 pending.SetValue(pickup, true);
@@ -91,7 +95,7 @@ namespace Moxiang.Tests
 
             accept.Invoke(registry, new object[] { item });
             Assert.That(registryGo.transform.childCount, Is.Zero);
-            typeof(MapVisualController).GetProperty("IsReady").SetValue(visuals, true);
+            using var surface = new DisplaySurfaceFixture(registry,generation:7,existing:visuals);
             update.Invoke(registry, null);
 
             Assert.That(registryGo.transform.childCount, Is.EqualTo(1));
@@ -99,9 +103,11 @@ namespace Moxiang.Tests
             Assert.That(selectable, Is.Not.Null);
             Assert.That(selectable.objectId, Is.EqualTo(572));
             Assert.That(selectable.isNpc, Is.True);
+            Assert.That(selectable.transform.position.y,Is.EqualTo(5f));
 
             Object.DestroyImmediate(registry.npcPrefab);
             Object.DestroyImmediate(registryGo);
+            surface.Dispose();
             Object.DestroyImmediate(connectionGo);
         }
 
@@ -113,6 +119,7 @@ namespace Moxiang.Tests
             var fallback = new GameObject("fallback");
             var kind54 = new GameObject("kind-54");
             registry.npcPrefab = fallback;
+            using var surface = new DisplaySurfaceFixture(registry);
             registry.npcVisuals = new[]
             {
                 new ServerEntityRegistry.VisualKindPrefab { visualKind = 54, prefab = kind54 }
@@ -141,6 +148,7 @@ namespace Moxiang.Tests
             var registryGo = new GameObject("registry");
             var registry = registryGo.AddComponent<ServerEntityRegistry>();
             var kind73 = new GameObject("kind-73");
+            using var surface = new DisplaySurfaceFixture(registry);
             kind73.AddComponent<MeshRenderer>();
             registry.monsterVisuals = new[]
             {
@@ -158,6 +166,7 @@ namespace Moxiang.Tests
             Assert.That(selectable, Is.Not.Null);
             Assert.That(selectable.transform.name, Does.StartWith("kind-73"));
             Assert.That(selectable.visualKind, Is.EqualTo(73));
+            Assert.That(selectable.transform.position.y,Is.EqualTo(5f));
             Assert.That(selectable.GetComponent<BoxCollider>(), Is.Not.Null);
 
             Object.DestroyImmediate(registryGo);

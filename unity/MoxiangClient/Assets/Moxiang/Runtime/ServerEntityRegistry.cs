@@ -23,6 +23,19 @@ namespace Moxiang
         }
 
         public ConnectionPanel connection;
+        [NonSerialized] public MapVisualController displaySurface;
+        public string PresentationFailure { get; private set; }
+
+        private bool DisplayPosition(CoreEvent e,float x,float z,out Vector3 position)
+        {
+            position=default;
+            if(displaySurface!=null && displaySurface.TryGetDisplayPosition(e.sessionGeneration,e.mapGeneration,x,z,out position))
+            { PresentationFailure=null;return true; }
+            const string error="Entity display height unavailable: no current surface, invalid coordinates or unsupported map transform.";
+            if(PresentationFailure!=error)Debug.LogError(error,this);
+            PresentationFailure=error;
+            return false;
+        }
         public GameObject monsterPrefab;
         public GameObject map44TrainingPrefab;
         public MonsterVisualPrefab[] monsterVisuals = Array.Empty<MonsterVisualPrefab>();
@@ -50,6 +63,7 @@ namespace Moxiang
 
         public void ClearPresentation()
         {
+            PresentationFailure=null;
             foreach (var entity in entities.Values) if (entity != null) { entity.SetActive(false); Destroy(entity); }
             foreach (var drop in drops.Values) if (drop != null) { drop.SetActive(false); Destroy(drop); }
             entities.Clear(); drops.Clear(); activeMapGeneration = 0;
@@ -83,6 +97,8 @@ namespace Moxiang
                 }
                 return;
             }
+            if(e.state==CoreState.InGame && displaySurface!=null && displaySurface.IsReady &&
+                !displaySurface.Matches(e.sessionGeneration,e.mapGeneration))return;
             if (e.state == CoreState.InGame && activeMapGeneration != 0 &&
                 e.mapGeneration != activeMapGeneration)
             {
@@ -116,8 +132,9 @@ namespace Moxiang
                     !float.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var dropX) ||
                     !float.TryParse(fields[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var dropZ) ||
                     dropCount == 0 || !float.IsFinite(dropX) || !float.IsFinite(dropZ)) return;
+                if(!DisplayPosition(e,dropX,dropZ,out var dropPosition))return;
                 if (drops.TryGetValue(e.argument0, out var oldDrop)) Destroy(oldDrop);
-                var dropInstance = Instantiate(groundDropPrefab, new MapCoordinates(mapWidth, mapDepth).ToScene(new Vector3(dropX, 0, dropZ)), Quaternion.identity, transform);
+                var dropInstance = Instantiate(groundDropPrefab, dropPosition, Quaternion.identity, transform);
                 var dropSelectable = dropInstance.GetComponent<TargetSelectable>() ?? dropInstance.AddComponent<TargetSelectable>();
                 dropSelectable.objectId = e.argument0;
                 var state = dropInstance.GetComponent<ServerGroundDrop>() ?? dropInstance.AddComponent<ServerGroundDrop>();
@@ -189,9 +206,10 @@ namespace Moxiang
             MonsterVisualPrefab monsterVisual = default;
             var prefab = e.type == NativeClient.EventMonsterAdded ? ResolveMonsterPrefab(e.reserved0, out monsterVisual) : ResolvePrefab(npcVisuals, e.reserved0, npcPrefab);
             if (prefab == null) return;
-            if (entities.TryGetValue(e.argument0, out var old)) Destroy(old);
             ushort x = (ushort)(e.argument1 & 0xffff), z = (ushort)(e.argument1 >> 16);
-            var instance = Instantiate(prefab, new MapCoordinates(mapWidth, mapDepth).ToScene(new Vector3(x, 0, z)), Quaternion.identity, transform);
+            if(!DisplayPosition(e,x,z,out var entityPosition))return;
+            if (entities.TryGetValue(e.argument0, out var old)) Destroy(old);
+            var instance = Instantiate(prefab, entityPosition, Quaternion.identity, transform);
             var selectable = instance.GetComponent<TargetSelectable>() ?? instance.AddComponent<TargetSelectable>();
             selectable.objectId = e.argument0;
             selectable.isNpc = e.type == NativeClient.EventNpcAdded;

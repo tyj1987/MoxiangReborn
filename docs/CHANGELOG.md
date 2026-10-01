@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Entity display height candidate (2026-10-01)
+
+- Query the current visible terrain triangles before spawning monster/NPC/drop presentation; reject stale or unavailable surfaces instead of placing at Y0. Keep server XZ/collision, model scale and importers unchanged. Added six height/surface EditMode cases and explicit surface fixtures for entity regressions. Cloud Python42/42 and governance checks pass; Unity compilation, EditMode and ROG visual acceptance remain pending. See `docs/UNITY_DISPLAY_HEIGHT_CANDIDATE_20261001.md`.
+
 ### Strict GameIn ownership/read fixture (2026-10-01)
 
 - Supply explicit four-stat12 inputs in StrictGameInRejectsMissingOwnedCharacterAndReadFailures so the valid scenario reaches admission and failure scenarios exercise ownership/read failures. Its exact INSERT passes against production SQLite table/migration SQL; omitted attributes still remain NULL and the unknown/partial-import regression is unchanged. Windows handler rerun pending.

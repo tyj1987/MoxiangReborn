@@ -32,6 +32,7 @@ namespace Moxiang.Tests
                 var observed=typeof(ConnectionPanel).GetField("observed",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
                 observed.SetValue(connection,snapshot);
                 var registry=go.AddComponent<ServerEntityRegistry>();registry.connection=connection;registry.mapDepth=51200;
+                using var surface=new DisplaySurfaceFixture(registry,11,22,0);
                 registry.monsterPrefab=fallback;registry.map44TrainingPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(Moxiang.Editor.WuguanTrainingDummyPrefab.Path);
                 Assert.That(registry.map44TrainingPrefab,Is.Not.Null);
                 var dispatch=typeof(ServerEntityRegistry).GetMethod("OnCoreEvent",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
@@ -86,6 +87,7 @@ namespace Moxiang.Tests
             try{
                 source.AddComponent<WuguanServerHitReceiver>();
                 var registry=go.AddComponent<ServerEntityRegistry>();registry.monsterPrefab=source;
+                using var surface=new DisplaySurfaceFixture(registry,11,22,0);
                 var dispatch=typeof(ServerEntityRegistry).GetMethod("OnCoreEvent",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
                 var added=Added();added.text=new byte[256];dispatch.Invoke(registry,new object[]{added});
                 var receiver=go.GetComponentInChildren<WuguanServerHitReceiver>();Assert.That(receiver,Is.Not.Null);
