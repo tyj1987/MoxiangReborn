@@ -1,5 +1,7 @@
 # 独立 Player 击杀—拾取—重登探针
 
+**当前阻碍更新：** ROG实测裸等级48角色打50023每次仅1伤害并死亡。云端已核实当前默认物攻与目标防御不匹配；现增加建库前失败保护，`--pickup-loop`输出`pickup-fixture-audit.json`并停在`combat-fixture-preflight`，直到标准战斗属性初始化与新profile完成审查。详见`docs/UNITY_PICKUP_FIXTURE_AUDIT_20261001.md`。以下是既有执行流程，不代表现在能通过。
+
 本模式是自动组件/协议/持久化验证，不是真人点击或整体游戏验收。此前ROG报告Map10/228怪物/6 kind/动画/首击Hit通过；首击探针不会证明击杀、掉落或拾取。本模式不替换`--combat-timeline`。
 
 ## 执行范围

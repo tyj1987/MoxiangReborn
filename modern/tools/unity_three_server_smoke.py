@@ -16,6 +16,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
+def require_viable_pickup_fixture(repo: Path, output: Path):
+    from unity_pickup_fixture import require_viable_pickup_fixture as audit
+    audit(repo, output)
+
+
 def sql_text(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
@@ -148,6 +153,7 @@ def execute_reported(args, parser, repo: Path, output: Path, map_number: int) ->
         failure = {'runId': output.name, 'passed': False, 'humanAcceptance': False,
                    'surface': 'Editor' if args.editor_test else 'Player', 'backend': args.backend,
                    'output': str(output), 'failureStage': progress['stage'],
+                   'fixtureAudit': str(output / 'pickup-fixture-audit.json') if (output / 'pickup-fixture-audit.json').exists() else None,
                    'server': progress.get('server'), 'errorType': type(error).__name__,
                    'timeoutSeconds': error.timeout if isinstance(error, subprocess.TimeoutExpired)
                        else (20 if isinstance(error, TimeoutError) and progress.get('server') else None),
@@ -168,6 +174,9 @@ def execute_reported(args, parser, repo: Path, output: Path, map_number: int) ->
 
 
 def run_fixture(args, parser, repo: Path, player: Path, output: Path, map_number: int, progress: dict) -> int:
+    if args.pickup_loop:
+        progress['stage'] = 'combat-fixture-preflight'
+        require_viable_pickup_fixture(repo, output)
     progress['stage'] = 'fixture-setup'
     database = output / 'fixture.db'
     dbtool = repo / 'modern/build/tools/MoxianDbTool/mxh_db_tool.exe'

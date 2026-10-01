@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Pickup combat fixture audit (2026-10-01)
+
+- Confirmed the level48 bare-character fixture retains default physical attack10 against Map10 target defense480/HP5436; skill1 adds zero attack, matching ROG's 1-damage hits and death. Added pinned-source preflight failure evidence and a read-only production-parser inspection tool. No combat/reward/stat override; standard combat-stat hydration and a viable equipped fixture remain blocked work. Python tests pass 34/34.
+
 ### Terrain shader artifact dependency (2026-10-01)
 
 - Terrain importer v3 declares and loads the URP Lit shader asset explicitly, rejecting unavailable shader output before material creation. ROG v2 cold import and 2/5 Editor tests failed on null shader; recovery success was not cold-import acceptance. Updated five regression cases; Unity verification remains pending.

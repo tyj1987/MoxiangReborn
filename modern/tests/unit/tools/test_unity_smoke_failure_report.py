@@ -27,6 +27,10 @@ class SmokeFailureReportTests(unittest.TestCase):
         self.args = argparse.Namespace(player=player, backend='sqlite', pickup_loop=True,
             **{key: False for key in ('editor_test', 'create_character', 'movement', 'trade', 'equipment',
                 'item_use', 'sell', 'discard', 'quest', 'quest_reward', 'quest_npc', 'combat_timeline', 'player_death', 'transfer')})
+        # These tests isolate later setup failures, after a reviewed fixture gate.
+        gate = patch.object(smoke, 'require_viable_pickup_fixture')
+        gate.start()
+        self.addCleanup(gate.stop)
 
     def run_reported(self):
         stdout = io.StringIO()
