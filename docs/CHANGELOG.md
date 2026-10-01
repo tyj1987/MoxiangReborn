@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Unity terrain import dependencies (2026-10-01)
+
+- Added terrain artifact dependency discovery/registration and bumped importer version to 2 for cold-import ordering. Added a bounded dependency reimport command, separate missing-artifact diagnostics, and five Editor regression cases. Provenance/hash/slot validation remains enforced. Cloud Python tools pass 18/18; Unity cold-import validation awaits ROG. See `docs/UNITY_TERRAIN_IMPORT_FIX_20261001.md`.
+
 ### Unity pickup EditMode corrections (2026-10-01)
 
 - Replaced GroundDropLabel's reserved root fileID and updated every local/scene reference. The Editor test now checks Unity's imported GUID/local ID and prefab instantiation. Cloud YAML reference validation passes; Unity import/EditMode execution awaits ROG.

@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Moxiang.Editor
 {
-    [ScriptedImporter(1, "mxhterrain")]
+    [ScriptedImporter(2, "mxhterrain")]
     public sealed class MxhTerrainImporter : ScriptedImporter
     {
         [Serializable] private sealed class Descriptor { public int schemaVersion; public bool releaseReady; public string heightfieldFile, paletteFile, visualOverrideFile; }
@@ -26,6 +26,40 @@ namespace Moxiang.Editor
                 throw new InvalidDataException("Terrain dependency must be a relative child asset.");
             return Path.Combine(directory, child).Replace('\\', '/');
         }
+        // Unity calls this before imports start. Read source metadata only:
+        // loading imported objects here is unsupported and recreates the ordering bug.
+        public static string[] GatherDependenciesFromSourceFile(string path)
+        {
+            var descriptor = JsonUtility.FromJson<Descriptor>(File.ReadAllText(path));
+            if (descriptor == null || descriptor.schemaVersion != 1 || descriptor.releaseReady)
+                throw new InvalidDataException("Unsupported terrain descriptor or premature release label.");
+            string directory = Path.GetDirectoryName(path);
+            string heightPath = Child(directory, descriptor.heightfieldFile);
+            string palettePath = Child(directory, descriptor.paletteFile);
+            // A missing palette remains a source dependency in OnImportAsset.
+            // Its later arrival causes another dependency discovery/import.
+            if (!File.Exists(palettePath)) return new[] { heightPath };
+            var palette = JsonUtility.FromJson<Palette>(File.ReadAllText(palettePath));
+            if (palette == null || palette.schemaVersion != 1 || palette.releaseReady || palette.entries == null)
+                throw new InvalidDataException("Unsupported terrain palette.");
+            return new[] { heightPath }.Concat(palette.entries.Select(entry =>
+                Child(Path.GetDirectoryName(palettePath), entry.file))).Distinct().ToArray();
+        }
+
+        [MenuItem("Moxiang/Reimport Map10 Terrain Dependencies")]
+        public static void ReimportMap10Dependencies() => ReimportWithDependencies("Assets/Moxiang/Derived/Map10/Map10.mxhterrain");
+
+        // Explicit recovery outside import callbacks: one bounded pass, no Refresh loop.
+        public static void ReimportWithDependencies(string terrainPath)
+        {
+            const ImportAssetOptions options = ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport;
+            foreach (string dependency in GatherDependenciesFromSourceFile(terrainPath))
+                AssetDatabase.ImportAsset(dependency, options);
+            AssetDatabase.ImportAsset(terrainPath, options);
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(terrainPath) == null)
+                throw new InvalidDataException("Terrain import failed after dependency reimport; inspect the import error and source checks.");
+        }
+
         public override void OnImportAsset(AssetImportContext context)
         {
             var descriptor = JsonUtility.FromJson<Descriptor>(File.ReadAllText(context.assetPath));
@@ -34,9 +68,12 @@ namespace Moxiang.Editor
             string directory = Path.GetDirectoryName(context.assetPath);
             string heightPath = Child(directory, descriptor.heightfieldFile), palettePath = Child(directory, descriptor.paletteFile);
             context.DependsOnSourceAsset(heightPath); context.DependsOnSourceAsset(palettePath);
+            context.DependsOnArtifact(heightPath);
             var field = AssetDatabase.LoadAssetAtPath<ImportedHeightField>(heightPath);
+            if (field == null)
+                throw new InvalidDataException("Terrain heightfield import result is unavailable: " + heightPath);
             var palette = JsonUtility.FromJson<Palette>(File.ReadAllText(palettePath));
-            if (field == null || palette == null || palette.schemaVersion != 1 || palette.releaseReady || palette.heightfieldSourceId != field.descriptor.sourceId)
+            if (palette == null || palette.schemaVersion != 1 || palette.releaseReady || palette.heightfieldSourceId != field.descriptor.sourceId)
                 throw new InvalidDataException("Terrain and palette provenance do not match.");
             int overriddenSlot = -1;
             if (!string.IsNullOrEmpty(descriptor.visualOverrideFile))
@@ -67,6 +104,7 @@ namespace Moxiang.Editor
                     throw new InvalidDataException("Invalid source texture mapping.");
                 string path = Child(Path.GetDirectoryName(palettePath), entry.file);
                 context.DependsOnSourceAsset(path);
+                context.DependsOnArtifact(path);
                 using (var sha = SHA256.Create())
                     if (BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant() != entry.sha256)
                         throw new InvalidDataException("Terrain texture source hash mismatch.");
