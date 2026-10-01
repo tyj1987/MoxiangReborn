@@ -68,7 +68,9 @@ namespace Moxiang.Tests
             Assert.That(terrain.GetComponentInChildren<MeshRenderer>().sharedMaterial.mainTexture,
                 Is.SameAs(AssetDatabase.LoadAssetAtPath<Texture2D>(TexturePath)));
             var dependencies = AssetDatabase.GetDependencies(TerrainPath);
-            Assert.That(dependencies, Does.Contain(FieldPath));
+            // GetDependencies enumerates serialized asset references. The field
+            // is consumed to create new meshes, not retained as an Object reference.
+            Assert.That(MxhTerrainImporter.GatherDependenciesFromSourceFile(TerrainPath), Does.Contain(FieldPath));
             Assert.That(dependencies, Does.Contain(TexturePath));
             Assert.That(dependencies, Does.Contain(MxhTerrainImporter.TerrainShaderPath));
             var shader = AssetDatabase.LoadAssetAtPath<Shader>(MxhTerrainImporter.TerrainShaderPath);
@@ -89,6 +91,35 @@ namespace Moxiang.Tests
         public void ExplicitRecoveryImportsDependenciesInOnePass()
         {
             MxhTerrainImporter.ReimportWithDependencies(TerrainPath);
+            AssertTerrain();
+        }
+
+        [Test]
+        public void HeightfieldChangeRebuildsTerrainWithoutExplicitTerrainReimport()
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            AssertTerrain();
+            var original = AssetDatabase.LoadAssetAtPath<GameObject>(TerrainPath)
+                .GetComponentInChildren<MeshFilter>().sharedMesh;
+            Assert.That(original.vertices[0].y, Is.EqualTo(0).Within(0.00001f));
+            string terrainSource = File.ReadAllText(TerrainPath);
+
+            // Change only the owned synthetic height source and its valid digest.
+            // Terrain descriptor, palette and shader remain unchanged.
+            var heights = new byte[16];
+            for (int i = 0; i < 4; ++i) Array.Copy(BitConverter.GetBytes(1000f), 0, heights, i * 4, 4);
+            File.WriteAllBytes(root + "/height.bytes", heights);
+            var field = JsonUtility.FromJson<HeightFieldDescriptor>(File.ReadAllText(FieldPath));
+            field.heightSha256 = Hash(heights);
+            File.WriteAllText(FieldPath, JsonUtility.ToJson(field));
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+
+            Assert.That(File.ReadAllText(TerrainPath), Is.EqualTo(terrainSource));
+            Assert.That(AssetDatabase.LoadAssetAtPath<ImportedHeightField>(FieldPath).heights[0], Is.EqualTo(1000));
+            var rebuilt = AssetDatabase.LoadAssetAtPath<GameObject>(TerrainPath)
+                .GetComponentInChildren<MeshFilter>().sharedMesh;
+            Assert.That(rebuilt.vertices[0].y, Is.EqualTo(1).Within(0.00001f),
+                "Terrain must consume the changed heightfield artifact without a manual terrain ImportAsset.");
             AssertTerrain();
         }
 

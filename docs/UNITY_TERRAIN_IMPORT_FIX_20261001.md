@@ -1,5 +1,15 @@
 # Map10 冷导入依赖修复
 
+## 精确失败用例与API语义修正
+
+补充ROG证据：`ColdImportOrdersArtifactsWithoutManualDependencyImport`、`ExplicitRecoveryImportsDependenciesInOnePass`均失败在`AssertTerrain`的heightfield依赖列表断言。它们不是空shader失败的直接证据；Map10首次冷导入的空shader日志是独立问题，尚未证明时序是唯一原因。
+
+Unity的[`AssetDatabase.GetDependencies`](https://docs.unity3d.com/6000.6/Documentation/ScriptReference/AssetDatabase.GetDependencies.html)枚举资产对象引用，不是完整的导入artifact依赖图。terrain保留DDS和shader引用，但将heightfield读入后生成自己的mesh，不保留ImportedHeightField对象引用。因而不要求GetDependencies包含Z.mxhasset；替换为GatherDependencies明确声明它的断言，保留DDS/shader真实引用断言。
+
+同时新增行为回归`HeightfieldChangeRebuildsTerrainWithoutExplicitTerrainReimport`：先导入原创夹具，再只修改height sidecar和匹配的SHA，保持terrain descriptor不变；一次同步Refresh后要求heightfield和terrain顶点都变化，禁止显式重导terrain。它验证源→heightfield→terrain的更新传播，避免仅删除错误断言掩盖依赖未生效。此测试并不单独区分source与artifact依赖哪条触发了更新。
+
+当前共6项EditMode，云端尚未执行，仍待ROG在可用GUI下运行；34项Python工具测试、治理/diff通过不能代替该验收。没有绕过Windows安全弹窗。
+
 ## ROG失败后的shader依赖增量
 
 ROG在132950b首次冷导入得到DefaultAsset/0 chunks，5项新增EditMode仅3项通过；日志指向创建Material时的空shader。单次recovery得到64 chunks、64个带纹理renderer、13 DDS，不能替代冷导入验收。
