@@ -5,6 +5,7 @@
 ### Unity pickup EditMode corrections (2026-10-01)
 
 - Replaced GroundDropLabel's reserved root fileID and updated every local/scene reference. The Editor test now checks Unity's imported GUID/local ID and prefab instantiation. Cloud YAML reference validation passes; Unity import/EditMode execution awaits ROG.
+- Fixed the registry pickup fixture to use NativeClient.Encode with the ABI's 256-byte buffer and actual text length. Added four at/beyond-capacity rejection cases through CoreEvent.Text and registry dispatch, asserting no drop is created. Production decoding is unchanged. Cloud checks: 18 Python Unity tool tests and 12 portable C++ tests pass; these do not execute the new C# tests. Map10 terrain/source validation is unchanged.
 
 ### Unity remaster foundation (2026-09-11, incomplete migration)
 

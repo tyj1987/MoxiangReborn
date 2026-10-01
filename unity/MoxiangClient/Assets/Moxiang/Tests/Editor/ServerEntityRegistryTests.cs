@@ -16,10 +16,10 @@ namespace Moxiang.Tests
                 var registry = host.AddComponent<ServerEntityRegistry>();
                 registry.groundDropPrefab = prefab;
                 var dispatch = typeof(ServerEntityRegistry).GetMethod("OnCoreEvent", BindingFlags.Instance | BindingFlags.NonPublic);
-                var bytes = System.Text.Encoding.UTF8.GetBytes("3,100,200");
+                var bytes = NativeClient.Encode("3,100,200", 256, out uint textLength);
                 dispatch.Invoke(registry, new object[] { new CoreEvent { type = NativeClient.EventGroundDrop,
                     state = CoreState.InGame, mapGeneration = 1, argument0 = 41, argument1 = 77,
-                    text = bytes, textLength = (uint)bytes.Length } });
+                    text = bytes, textLength = textLength } });
                 var pickup = host.GetComponentInChildren<GroundDropPickup>();
                 Assert.That(pickup, Is.Not.Null);
                 Assert.That(pickup.GetComponent<Collider>(), Is.Not.Null);
@@ -37,6 +37,32 @@ namespace Moxiang.Tests
                 outcome.result = CoreResult.Ok;
                 dispatch.Invoke(registry, new object[] { outcome });
                 Assert.That(host.GetComponentInChildren<GroundDropPickup>(), Is.Null);
+            }
+            finally { Object.DestroyImmediate(host); Object.DestroyImmediate(prefab); }
+        }
+
+        [TestCase(9, 9u)]
+        [TestCase(9, 10u)]
+        [TestCase(256, 256u)]
+        [TestCase(256, 257u)]
+        public void GroundDropRejectsTextLengthAtOrBeyondBufferCapacity(int capacity, uint length)
+        {
+            var host = new GameObject("registry");
+            var prefab = new GameObject("drop");
+            try
+            {
+                var registry = host.AddComponent<ServerEntityRegistry>();
+                registry.groundDropPrefab = prefab;
+                var bytes = new byte[capacity];
+                System.Text.Encoding.UTF8.GetBytes("3,100,200").CopyTo(bytes, 0);
+                var item = new CoreEvent { type = NativeClient.EventGroundDrop,
+                    state = CoreState.InGame, mapGeneration = 1, argument0 = 41, argument1 = 77,
+                    text = bytes, textLength = length };
+                Assert.Throws<System.InvalidOperationException>(() => { var ignored = item.Text; });
+                var dispatch = typeof(ServerEntityRegistry).GetMethod("OnCoreEvent", BindingFlags.Instance | BindingFlags.NonPublic);
+                var error = Assert.Throws<TargetInvocationException>(() => dispatch.Invoke(registry, new object[] { item }));
+                Assert.That(error.InnerException, Is.TypeOf<System.InvalidOperationException>());
+                Assert.That(host.transform.childCount, Is.Zero);
             }
             finally { Object.DestroyImmediate(host); Object.DestroyImmediate(prefab); }
         }
