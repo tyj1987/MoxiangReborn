@@ -71,7 +71,8 @@ namespace Moxiang
                 if (e.type == NativeClient.EventMonsterAdded || e.type == NativeClient.EventNpcAdded ||
                     e.type == NativeClient.EventGroundDrop || e.type == NativeClient.EventEntityRemoved ||
                     e.type == NativeClient.EventEntityLife || e.type == NativeClient.EventEntityShield ||
-                    e.type == NativeClient.EventObjectMovement || e.type == NativeClient.EventSkillHit)
+                    e.type == NativeClient.EventObjectMovement || e.type == NativeClient.EventSkillHit ||
+                    e.type == NativeClient.EventPickupConfirmed)
                 {
                     if (pendingPresentation.Count >= 4096)
                     {
@@ -124,6 +125,8 @@ namespace Moxiang
                 var pickup = dropInstance.GetComponent<GroundDropPickup>() ?? dropInstance.AddComponent<GroundDropPickup>();
                 pickup.connection = connection;
                 pickup.drop = state;
+                if (dropInstance.GetComponent<Collider>() == null)
+                    dropInstance.AddComponent<BoxCollider>();
                 drops[e.argument0] = dropInstance;
                 return;
             }
@@ -133,9 +136,14 @@ namespace Moxiang
                 {
                     var pickup = picked.GetComponent<GroundDropPickup>();
                     if (pickup != null) pickup.Confirmed();
-                    Destroy(picked);
+                    if (e.result == CoreResult.Ok)
+                    {
+                        picked.SetActive(false);
+                        if (Application.isPlaying) Destroy(picked);
+                        else DestroyImmediate(picked);
+                    }
                 }
-                drops.Remove(e.argument0);
+                if (e.result == CoreResult.Ok) drops.Remove(e.argument0);
                 return;
             }
             if (e.type == NativeClient.EventObjectMovement)

@@ -101,6 +101,7 @@ typedef enum mxh_unity_event_type {
     ,MXH_UNITY_EVENT_ENTITY_SHIELD = 16
     ,MXH_UNITY_EVENT_GROUND_DROP = 17
     /* PickupAck: argument0=drop object ID, argument1=item ID; text=count. */
+    /* Pickup outcome: OK removes the drop; REJECTED leaves it available. */
     ,MXH_UNITY_EVENT_PICKUP_CONFIRMED = 18
     ,MXH_UNITY_EVENT_QUEST_UPDATED = 19
     ,MXH_UNITY_EVENT_CHAT_MESSAGE = 20

@@ -235,6 +235,8 @@ namespace Moxiang
                         failure = item.result == CoreResult.Ok ? "Sale accepted" : "Sale rejected";
                     if (item.type == NativeClient.EventDiscardResponse)
                         failure = item.result == CoreResult.Ok ? "Item discarded" : "Discard rejected";
+                    if (item.type == NativeClient.EventPickupConfirmed)
+                        failure = item.result == CoreResult.Ok ? "拾取成功，背包正在同步。" : "拾取未成功，请检查距离、背包空间或物品是否仍可领取。";
                     CoreEventReceived?.Invoke(item);
                 }
                 Appearance.Observe(observed, Inventory);

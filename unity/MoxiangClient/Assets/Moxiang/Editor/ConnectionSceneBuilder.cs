@@ -75,6 +75,8 @@ namespace Moxiang.Editor
             skillInput.targetSelection = targetSelection;
             var entityRegistry = terrain.AddComponent<ServerEntityRegistry>();
             entityRegistry.connection = logic;
+            entityRegistry.groundDropPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Moxiang/Scenes/GroundDropLabel.prefab");
+            if (entityRegistry.groundDropPrefab == null) throw new InvalidOperationException("Missing ground drop label prefab.");
             var questState = terrain.AddComponent<QuestStateController>();
             questState.connection = logic;
             var chatLog = terrain.AddComponent<ChatLogController>();

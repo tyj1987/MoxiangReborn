@@ -166,6 +166,7 @@ public:
     std::atomic<std::uint32_t> valid_move_item_packets{0};
     std::atomic<std::uint32_t> valid_sell_packets{0};
     std::atomic<std::uint32_t> valid_discard_packets{0};
+    std::atomic<bool> accept_pickup{false};
 
 private:
     void send(mxh::net::ConnectionId id, std::uint8_t protocol,
@@ -205,6 +206,18 @@ private:
 
     void handle_agent(mxh::net::ConnectionId id,
                       const mxh::net::Message& message) {
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn)) {
+            if (message.header.object_id != 7001 || message.payload != std::vector<std::uint8_t>{41,0,0,0}) return;
+            auto response = message;
+            const bool accepted = accept_pickup.load();
+            response.header.protocol = static_cast<std::uint8_t>(accepted
+                ? mxh::proto::ItemProtocol::PickupAck : mxh::proto::ItemProtocol::PickupNack);
+            response.payload.resize(8, 0);
+            if (accepted) { put_u16(response.payload, 4, 77); put_u16(response.payload, 6, 3); }
+            (void)server_->send(id, response);
+            return;
+        }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::CharRevive)) {
             if (message.payload.empty() && message.header.object_id == 7001) {
                 if (message.header.protocol == 0) ++valid_present_revive_packets;
@@ -1496,6 +1509,49 @@ INSTANTIATE_TEST_SUITE_P(Hsel, UnityNpcResponse,
         }
         return "Unknown";
     });
+
+TEST(UnityCoreNetwork, PickupRejectionThenSuccessPreservesSessionAndDropIdentity) {
+    ProtocolPair servers(true, "PickupHero");
+    ASSERT_TRUE(servers.start(true));
+    mxh_unity_handle handle = 0;
+    ASSERT_EQ(mxh_unity_create(&handle), MXH_UNITY_OK);
+    struct Owner { mxh_unity_handle h; ~Owner() { mxh_unity_destroy(h); } } owner{handle};
+    auto args = make_connect(servers.login_port, MXH_UNITY_CONNECT_USE_HSEL);
+    ASSERT_EQ(mxh_unity_connect(handle, &args), MXH_UNITY_OK);
+    mxh_unity_snapshot snapshot{};
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_CHARACTER_LIST_READY, snapshot));
+    mxh_unity_command command{};
+    command.struct_size = sizeof(command);
+    command.type = MXH_UNITY_COMMAND_SELECT_CHARACTER; command.argument0 = 7001;
+    command.expected_session_generation = snapshot.session_generation;
+    command.expected_map_generation = snapshot.map_generation;
+    ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+    ASSERT_TRUE(wait_for_state(handle, MXH_UNITY_STATE_IN_GAME, snapshot));
+    command.type = MXH_UNITY_COMMAND_PICKUP; command.argument0 = 41;
+    command.expected_map_generation = snapshot.map_generation;
+    for (const bool accepted : {false, true}) {
+        servers.agent.accept_pickup = accepted;
+        ASSERT_EQ(mxh_unity_submit_command(handle, &command), MXH_UNITY_OK);
+        bool received = false;
+        const auto deadline = std::chrono::steady_clock::now() + 2s;
+        while (!received && std::chrono::steady_clock::now() < deadline) {
+            ASSERT_EQ(mxh_unity_tick(handle), MXH_UNITY_OK);
+            mxh_unity_event event{}; std::uint32_t required = 0;
+            while (mxh_unity_poll_event(handle, &event, sizeof(event), &required) == MXH_UNITY_OK) {
+                if (event.type != MXH_UNITY_EVENT_PICKUP_CONFIRMED) continue;
+                received = true;
+                EXPECT_EQ(event.result, accepted ? MXH_UNITY_OK : MXH_UNITY_REJECTED);
+                EXPECT_EQ(event.argument0, 41u);
+                EXPECT_EQ(event.argument1, accepted ? 77u : 0u);
+                EXPECT_EQ(event.state, MXH_UNITY_STATE_IN_GAME);
+                EXPECT_EQ(event.session_generation, snapshot.session_generation);
+                EXPECT_EQ(event.map_generation, snapshot.map_generation);
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(received);
+    }
+}
 
 TEST(UnityCoreNetwork, MovementPredictionCorrectionAndStaleGeneration) {
     ProtocolPair servers(true, "Mover");

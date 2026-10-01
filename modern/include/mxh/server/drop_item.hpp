@@ -46,7 +46,7 @@ public:
     const DropTable* find(std::uint32_t monster_kind, std::uint32_t drop_id) const noexcept;
 
     // Roll one drop given a drop_id and monster_kind. Returns 0 if no drop.
-    // ng is a 0..RAND_MAX source; we modulo at our own basis.
+    // rng is a 0..RAND_MAX source; we modulo at our own basis.
     std::uint32_t roll(std::uint32_t monster_kind, std::uint32_t drop_id,
                         std::uint32_t rng_value) const noexcept;
 

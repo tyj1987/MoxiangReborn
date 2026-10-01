@@ -4138,6 +4138,18 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
     });
     ASSERT_NE(ack, replies.end());
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+    const auto total = std::find_if(ack + 1, replies.end(), [](const auto& message) {
+        return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    });
+    ASSERT_NE(total, replies.end());
+    EXPECT_EQ(total->header.object_id, 123u);
+    ASSERT_EQ(total->payload.size(), sizeof(mxh::game::ItemTotalInfo));
+    mxh::game::ItemTotalInfo items{};
+    std::memcpy(&items, total->payload.data(), sizeof(items));
+    EXPECT_EQ(items.Inventory[0].dwDBIdx, drop->object_id);
+    EXPECT_EQ(items.Inventory[0].wIconIdx, 77u);
+    EXPECT_EQ(items.Inventory[0].ItemParam, 1u);
 
     replies.clear();
     handler.on_message(connection, pickup);
@@ -4146,6 +4158,94 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
             static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack);
     });
     ASSERT_NE(nack, replies.end());
+    EXPECT_EQ(replies.size(), 1u);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+}
+
+TEST(MapHandlerTest, PickupDistanceBoundaryAndFullInventoryDoNotPublishFalseUpdates) {
+    for (const auto distance : {500.0f, 501.0f}) {
+        MockDbAdapter db;
+        ReplySpy reply;
+        MapHandler handler(db, 7, make_reply_spy(reply));
+        const auto connection = mxh::net::make_connection_id(55);
+        mxh::net::Message enter;
+        enter.header.object_id = 123;
+        enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message(connection, enter);
+        auto drop = handler.create_ground_drop_for_test(50000, 77, 1, 25000 + distance, 25000);
+        ASSERT_TRUE(drop);
+        reply.messages.clear();
+        handler.on_message(connection, mxh::client::make_pickup_message(123, drop->object_id));
+        ASSERT_FALSE(reply.messages.empty());
+        EXPECT_EQ(reply.messages.front().header.protocol, static_cast<std::uint8_t>(distance == 500
+            ? mxh::proto::ItemProtocol::PickupAck : mxh::proto::ItemProtocol::PickupNack));
+        EXPECT_EQ(reply.messages.size(), distance == 500 ? 2u : 1u);
+        // Fill every remaining carried slot, then request one more real pickup.
+        while (handler.player_runtime_snapshot(123)->inventory_count < 80) {
+            auto fill = handler.create_ground_drop_for_test(50000, 77, 1, 25000, 25000);
+            ASSERT_TRUE(fill);
+            ASSERT_TRUE(handler.claim_ground_drop_for_test(123, fill->object_id));
+        }
+        auto excess = handler.create_ground_drop_for_test(50000, 77, 1, 25000, 25000);
+        ASSERT_TRUE(excess);
+        reply.messages.clear();
+        handler.on_message(connection, mxh::client::make_pickup_message(123, excess->object_id));
+        ASSERT_EQ(reply.messages.size(), 1u);
+        EXPECT_EQ(reply.messages[0].header.protocol, static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack));
+        EXPECT_EQ(handler.player_runtime_snapshot(123)->inventory_count, 80u);
+    }
+}
+
+TEST(MapHandlerTest, PickupSnapshotSurvivesDisconnectAndFreshHandlerRelogin) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite"; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(chrid,userid,charname,sex_type,face_type,hair_type,height,width,level,map_num) "
+        "VALUES(123,'123','PickupHero',0,1,1,1.0,1.0,1,7);").ok());
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message enter;
+    enter.header.object_id = 123;
+    enter.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    enter.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    mxh::game::ItemTotalInfo picked{};
+    {
+        ReplySpy reply;
+        MapHandler handler(db, 7, make_reply_spy(reply));
+        handler.on_message(connection, enter);
+        auto drop = handler.create_ground_drop_for_test(50000, 77, 3, 25000, 25000);
+        ASSERT_TRUE(drop);
+        reply.messages.clear();
+        handler.on_message(connection, mxh::client::make_pickup_message(123, drop->object_id));
+        const auto total = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& m) {
+            return m.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+                m.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+        });
+        ASSERT_NE(total, reply.messages.end());
+        ASSERT_EQ(total->payload.size(), sizeof(picked));
+        std::memcpy(&picked, total->payload.data(), sizeof(picked));
+        EXPECT_EQ(picked.Inventory[0].dwDBIdx, drop->object_id);
+        EXPECT_EQ(picked.Inventory[0].ItemParam, 3u);
+        handler.on_disconnect(connection, mxh::net::NetError::Disconnected);
+        ASSERT_FALSE(handler.is_draining());
+    }
+    ReplySpy reply;
+    MapHandler reconnected(db, 7, make_reply_spy(reply));
+    reconnected.on_message(connection, enter);
+    const auto game = std::find_if(reply.messages.begin(), reply.messages.end(), [](const auto& m) {
+        return m.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+            m.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+    });
+    ASSERT_NE(game, reply.messages.end());
+    ASSERT_GE(game->payload.size(), mxh::game::HERO_TOTAL_ITEM_OFFSET + sizeof(picked));
+    mxh::game::ItemTotalInfo restored{};
+    std::memcpy(&restored, game->payload.data() + mxh::game::HERO_TOTAL_ITEM_OFFSET, sizeof(restored));
+    EXPECT_EQ(restored.Inventory[0].dwDBIdx, picked.Inventory[0].dwDBIdx);
+    EXPECT_EQ(restored.Inventory[0].wIconIdx, picked.Inventory[0].wIconIdx);
+    EXPECT_EQ(restored.Inventory[0].ItemParam, picked.Inventory[0].ItemParam);
+    EXPECT_EQ(reconnected.player_runtime_snapshot(123)->inventory_count, 1u);
 }
 
 TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {

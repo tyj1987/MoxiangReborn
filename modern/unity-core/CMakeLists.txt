@@ -69,6 +69,7 @@ if(MXH_UNITY_BUILD_TESTS)
     add_executable(mxh_unity_core_tests
         tests/unity_core_test.cpp
         tests/npc_directory_test.cpp
+        tests/pickup_wire_test.cpp
         tests/shop_appearance_wire_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/game/movement_timeline_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/game/player_move_speed_test.cpp

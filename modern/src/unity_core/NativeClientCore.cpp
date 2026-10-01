@@ -1,4 +1,5 @@
 #include "NativeClientCore.hpp"
+#include "PickupWire.hpp"
 #include "ShopWire.hpp"
 #include "ShopAppearanceWire.hpp"
 #include "../client/CInGameState.hpp"
@@ -1001,10 +1002,16 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
             return;
         }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
-            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck)) {
-            const auto ack = mxh::client::parse_pickup_ack_payload(message.payload);
-            if (!ack) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid pickup ack payload"); return; }
-            (void)emit(MXH_UNITY_EVENT_PICKUP_CONFIRMED, MXH_UNITY_OK, 0, ack->drop_id, ack->item_id, std::to_string(ack->count), message.header.protocol);
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack))) {
+            const bool accepted = message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
+            const auto ack = decode_pickup_response(message.payload, accepted);
+            if (!ack || message.header.object_id != game_.player_id) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid pickup response"); return;
+            }
+            (void)emit(MXH_UNITY_EVENT_PICKUP_CONFIRMED, accepted ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                0, ack->drop_id, ack->item_id, accepted ? std::to_string(ack->count) : "Pickup rejected",
+                message.header.protocol);
             return;
         }
         return;

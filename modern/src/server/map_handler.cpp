@@ -3508,6 +3508,26 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::cout << "[Map] sent ITEM_PICKUP_"
                       << (claimed ? "ACK" : "NACK")
                       << " drop=" << drop_id << "\n";
+            if (claimed) {
+                // Publish the actor's authoritative slots, just as other item
+                // operations do. PickupAck alone does not describe a slot/DBID.
+                mxh::game::ItemTotalInfo updated_items{};
+                {
+                    std::lock_guard<std::mutex> lock(players_mu_);
+                    const auto runtime = player_runtimes_.find(player_id);
+                    const auto player = connected_players_.find(player_id);
+                    if (runtime == player_runtimes_.end() || player == connected_players_.end()) break;
+                    updated_items = make_item_total(runtime->second.actor.state());
+                    player->second.items = updated_items;
+                }
+                mxh::net::Message total;
+                total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                total.header.object_id = player_id;
+                total.payload.resize(sizeof(updated_items));
+                std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+                reply_(id, total);
+            }
             break;
         }
 

@@ -7,6 +7,41 @@ namespace Moxiang.Tests
     public sealed class ServerEntityRegistryTests
     {
         [Test]
+        public void PickupRejectionKeepsDropAndSuccessRemovesIt()
+        {
+            var host = new GameObject("registry");
+            var prefab = new GameObject("drop");
+            try
+            {
+                var registry = host.AddComponent<ServerEntityRegistry>();
+                registry.groundDropPrefab = prefab;
+                var dispatch = typeof(ServerEntityRegistry).GetMethod("OnCoreEvent", BindingFlags.Instance | BindingFlags.NonPublic);
+                var bytes = System.Text.Encoding.UTF8.GetBytes("3,100,200");
+                dispatch.Invoke(registry, new object[] { new CoreEvent { type = NativeClient.EventGroundDrop,
+                    state = CoreState.InGame, mapGeneration = 1, argument0 = 41, argument1 = 77,
+                    text = bytes, textLength = (uint)bytes.Length } });
+                var pickup = host.GetComponentInChildren<GroundDropPickup>();
+                Assert.That(pickup, Is.Not.Null);
+                Assert.That(pickup.GetComponent<Collider>(), Is.Not.Null);
+                var pending = typeof(GroundDropPickup).GetField("pending", BindingFlags.Instance | BindingFlags.NonPublic);
+                pending.SetValue(pickup, true);
+                var outcome = new CoreEvent { type = NativeClient.EventPickupConfirmed, state = CoreState.InGame,
+                    mapGeneration = 1, argument0 = 41, result = CoreResult.Rejected };
+                var otherDrop = outcome; otherDrop.argument0 = 42;
+                dispatch.Invoke(registry, new object[] { otherDrop });
+                Assert.That(pickup.Pending, Is.True);
+                dispatch.Invoke(registry, new object[] { outcome });
+                Assert.That(pickup.Pending, Is.False);
+                Assert.That(pickup.gameObject.activeSelf, Is.True);
+                Assert.That(pickup.drop.ItemId, Is.EqualTo(77u));
+                outcome.result = CoreResult.Ok;
+                dispatch.Invoke(registry, new object[] { outcome });
+                Assert.That(host.GetComponentInChildren<GroundDropPickup>(), Is.Null);
+            }
+            finally { Object.DestroyImmediate(host); Object.DestroyImmediate(prefab); }
+        }
+
+        [Test]
         public void BuffersNpcUntilAuditedMapPresentationIsReady()
         {
             var connectionGo = new GameObject("connection");

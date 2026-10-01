@@ -10,6 +10,7 @@ namespace Moxiang
         public float confirmationTimeoutSeconds = 5f;
         private bool pending;
         private float pendingSince;
+        public bool Pending => pending;
 
         public void Confirmed() { pending = false; }
 
@@ -20,12 +21,15 @@ namespace Moxiang
                 pending = false;
         }
 
-        private void OnMouseDown()
+        private void OnMouseDown() { RequestPickup(); }
+
+        public CoreResult RequestPickup()
         {
-            if (pending || connection == null || drop == null || drop.ObjectId == 0) return;
+            if (pending || connection == null || drop == null || drop.ObjectId == 0) return CoreResult.NotReady;
             var result = connection.Pickup(drop.ObjectId);
             pending = result == CoreResult.Ok;
             if (pending) pendingSince = Time.unscaledTime;
+            return result;
         }
     }
 }

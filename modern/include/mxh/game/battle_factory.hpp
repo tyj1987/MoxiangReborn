@@ -34,7 +34,7 @@ double compute_critical_rate(std::int32_t attacker_crit,
                             double fCriticalRate);
 
 // True iff the random roll succeeds given the computed critical rate.
-// and_0_99 is the integer [0, 100) sample; legacy uses (rand()%100).
+// rand_0_99 is the integer [0, 100) sample; legacy uses (rand()%100).
 bool roll_critical(double critical_rate, int rand_0_99);
 
 // Same formula as critical, replacing GetCritical with GetDecisive.
