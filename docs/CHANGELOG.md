@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Recovered base-attack formula evidence (2026-10-01)
+
+- Added an unwired pure base-attack calculator and five golden tests from ROG's recovered CommonCalcFunc formula, with explicit recovered-file provenance and invalid-result rejection. Portable tests pass 17/17. Production equipment hydration remains blocked on missing persisted base attributes and unverified character-creation/backfill defaults; no combat, schema, or fixture stat override. See `docs/EQUIPMENT_COMBAT_FORMULA_20261001.md`.
+
 ### Isolated normal character preparation (2026-10-01)
 
 - Added `--prepare-pickup-input`: new account, protocol-created level1 character, pending starter-weapon grant claimed by MapServer, normal equip acknowledgement and reconnect persistence checks. Refuses external/shared/pre-existing fixture data. Preparation is distinguished from combat readiness; unresolved stat hydration keeps overall failure and no selected target. Python tools pass 41/41; Unity/Windows execution pending.
