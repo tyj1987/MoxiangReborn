@@ -25,8 +25,7 @@ struct Catalog {
     }
 };
 void wear(PlayerState& state,std::uint8_t slot,std::uint16_t icon) {
-    auto& item=state.equipment.items[slot]; item.dwDBIdx=100+slot;
-    item.wIconIdx=icon; item.Position=TP_WEAREDITEM_START+slot;
+    state.equipment.items[slot]=make_item(100+slot,icon,TP_WEAREDITEM_START+slot);
 }
 }
 
@@ -117,4 +116,24 @@ TEST(PlayerEquipmentStats, CanonicalStarterTemplateProducesAuditedRange) {
     ASSERT_TRUE(rebuild_equipment_stats(state,combat,catalog));
     EXPECT_EQ(combat.phy_attack_min,29u); EXPECT_EQ(combat.phy_attack_max,35u);
     EXPECT_EQ(combat.phy_defence,8u);
+}
+
+TEST(PlayerEquipmentStats, ModernPlainDurability100AndZeroAreAcceptedButNotArbitraryOptionIds) {
+    auto state=new_character(); PlayerCombatStats combat; Catalog catalog;
+    wear(state,WEARED_WEAPON,11000);
+    auto& item=state.equipment.items[WEARED_WEAPON];
+    ASSERT_EQ(item.Durability,100u); // Real factory default, no test normalization.
+    ASSERT_TRUE(rebuild_equipment_stats(state,combat,catalog));
+    EXPECT_EQ(combat.phy_attack_min,29u); EXPECT_EQ(combat.phy_attack_max,35u);
+    for (auto invalid : {1u,99u,101u,UINT32_MAX}) {
+        item.Durability=invalid;
+        EXPECT_FALSE(rebuild_equipment_stats(state,combat,catalog));
+        EXPECT_EQ(combat.phy_attack_min,29u); // Failed candidate cannot overwrite stats.
+    }
+    item.Durability=0;
+    EXPECT_TRUE(rebuild_equipment_stats(state,combat,catalog));
+    item.Durability=100; item.RareIdx=100;
+    EXPECT_FALSE(rebuild_equipment_stats(state,combat,catalog));
+    item.RareIdx=0; catalog.entries[11000].wSetItemKind=1;
+    EXPECT_FALSE(rebuild_equipment_stats(state,combat,catalog));
 }

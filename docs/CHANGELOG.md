@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Plain modern item durability compatibility (2026-10-01)
+
+- ROG found that normal pending grants create Durability100 while the new equipment calculation rejected every nonzero value. Accept exactly the existing modern plain values0/100, retaining rejection of other durability values and rare/set options. Regression fixtures now use the real make_item default100; no granted weapon or production generator is rewritten to0. Legacy nonzero option IDs still require explicit import semantics, including the collision at ID100.
+
 ### New-character base attributes and ordinary equipment (2026-10-01)
 
 - Added nullable base-attribute migration fields without old-player backfill; normal CharacterMake writes recovered four-stat12 inputs. Formal GameIn rejects unknown/partial imports. Ordinary KR/CN equipment rebuilds physical attack endpoints, defence and resource bonuses on entry/move; damage consumes the range. Unsupported options fail explicitly. Portable tests pass 111/111 and Python tools 42/42; Windows create/equip/unequip/relogin tests remain unrun. No production migration or deployment. See `docs/EQUIPMENT_COMBAT_HYDRATION_20261001.md` for compatibility gates and remaining Windows/old-fixture validation.

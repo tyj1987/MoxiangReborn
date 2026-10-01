@@ -26,7 +26,12 @@ bool rebuild_equipment_stats(PlayerState& state, game::PlayerCombatStats& combat
         game::ItemInfo info{};
         if (!lookup(item.wIconIdx,info) || !(info.ItemKind & 2048u) ||
             !(info.EquipKind == slot || (info.EquipKind == game::WEARED_RING1 && slot == game::WEARED_RING2)) ||
-            item.Durability || item.RareIdx || info.wSetItemKind) return false;
+            (item.Durability != 0u && item.Durability != 100u) ||
+            item.RareIdx || info.wSetItemKind) return false;
+        // Modern make_item/grant/drop/shop creation uses exactly 100 for plain
+        // durability; zero is also used for plain fixtures/records. These are
+        // not a general legacy option-index range. Original nonzero option IDs
+        // require an explicit import/option model (including a legacy ID100).
         // Elemental options require the separate per-element combat pipeline.
         for (unsigned i=0;i<game::ITEM_ELEM_MAX;++i)
             if (info.AttrAttack.Element[i] != 0 || info.AttrRegist.Element[i] != 0) return false;
