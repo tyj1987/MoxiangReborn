@@ -21,7 +21,14 @@ namespace Moxiang
                 pending = false;
         }
 
-        private void OnMouseDown() { RequestPickup(); }
+        private void OnMouseDown()
+        {
+            // A label click is owned by its uGUI button; don't also send a
+            // physics click through that label (or another foreground panel).
+            if (UnityEngine.EventSystems.EventSystem.current != null &&
+                UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+            RequestPickup();
+        }
 
         public CoreResult RequestPickup()
         {
