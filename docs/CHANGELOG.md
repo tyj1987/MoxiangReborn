@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Strict GameIn ownership/read fixture (2026-10-01)
+
+- Supply explicit four-stat12 inputs in StrictGameInRejectsMissingOwnedCharacterAndReadFailures so the valid scenario reaches admission and failure scenarios exercise ownership/read failures. Its exact INSERT passes against production SQLite table/migration SQL; omitted attributes still remain NULL and the unknown/partial-import regression is unchanged. Windows handler rerun pending.
+
 ### Realtime shop appearance admission (2026-10-01)
 
 - Exclude only known realtime MAKEUP/EQUIP appearance templates with no combat stats/effects from ordinary equipment calculation. ShopItemManager retains its separate time accounting; physical records are preserved. Ordinary invalid durability, rare/set and stat-bearing unsupported items still reject. Portable regression suite passes 114/114; Windows handler rerun pending.

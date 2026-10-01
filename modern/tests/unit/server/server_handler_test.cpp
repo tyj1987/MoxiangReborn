@@ -6966,7 +6966,7 @@ TEST(MapHandlerTest, StrictGameInRejectsMissingOwnedCharacterAndReadFailures) {
         ASSERT_TRUE(db.connect(config).ok());
         ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
         if (scenario != 1)
-            ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(charname,chrid,userid,map_num,start_area) VALUES('EntryTest',777,'123',10,10);").ok());
+            ASSERT_TRUE(db.exec_multi("INSERT INTO character_info(charname,chrid,userid,map_num,start_area,base_gengol,base_minchub,base_cheryuk,base_simmek) VALUES('EntryTest',777,'123',10,10,12,12,12,12);").ok());
         if (!missing_tables[scenario].empty())
             ASSERT_TRUE(db.exec_multi("DROP TABLE " + missing_tables[scenario]).ok());
         ReplySpy reply;

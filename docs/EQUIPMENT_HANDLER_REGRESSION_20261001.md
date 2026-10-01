@@ -41,3 +41,9 @@ ROG 在 `2b7d76c680f6e014f6cc0cbc60546e6c7cd6400a` 回报 native112/112、Equipm
 本逻辑修复只处理前者：`ShopItemManager::collect_realtime_expired` 使用模板SellPrice=StoredTime及独立Param/BeginTime/Remaintime记录处理恢复/到期，物理ItemBase不应套普通装备耐久/选项解释。仅MAKEUP261、EQUIP264且ItemType11、StoredTime、无任何战斗属性/效果的模板跳过普通装备计算；保留物理字段，由既有商城管理器负责到期。稀有/套装仍先拒绝，普通装备仍只接受0/100，带属性的商城项仍不支持。没有改真实限时handler样本。
 
 新增portable测试验证两类外观重建、重建后的重新载入及移除不改变裸装数值，记录Durability1保留；并覆盖属性、攻击、元素、恢复、技能、稀有/套装及非实时模板拒绝。构建命令：`cmake --build /workspace/moxiang-audit-20261001/build-pickup --parallel 3`；`ctest --test-dir /workspace/moxiang-audit-20261001/build-pickup --output-on-failure`，**114/114通过**。证据：`/workspace/moxiang-audit-20261001/timed-appearance-ctest.log`。这不是Windows完整handler验收；需ROG重跑上述两个失败、EquipmentPersistence及完整handler。
+
+## 后续：StrictGameIn受控夹具（独立提交）
+
+逻辑提交为 `a18a4ba9eda3054d73fc94b22edbafe22eb38513`。本笔仅将`StrictGameInRejectsMissingOwnedCharacterAndReadFailures`的一条受控INSERT加入四项明确12；场景1仍不创建角色，所有缺表/所有权错误分支和断言不变。生产代码/默认值/旧数据均未改。
+
+`python /workspace/moxiang-audit-20261001/validate_strict_fixture.py`抽取本条原样SQL，在生产character_info建表及四条基础属性迁移SQL上执行成功，读回四项12；额外省略属性的角色仍读回四项NULL。`OldUnknownAttributesFailAdmissionWithoutBackfill`与逻辑提交逐字一致。证据：`/workspace/moxiang-audit-20261001/strict-fixture-sql.log`。portable114/114为前笔生产逻辑的实测结果，本笔只涉及其未编入的Windows handler夹具，不能据此宣称完整handler已通过。
