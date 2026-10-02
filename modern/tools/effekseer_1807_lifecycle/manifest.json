@@ -3,11 +3,11 @@
   "files": {
     "Assets/Effekseer/Scripts/EffekseerSound.cs": {
       "original_sha256": "9e598af85826abf02a5d606c99403ab48baed902dd67e35bd9ea06a911d756b8",
-      "patched_sha256": "d78d292d3c6d4bb024b11767e433af1024276b7694833c8fb639e89460e1c82b"
+      "patched_sha256": "49321b356a4df830ca30a205eff6b16d2b9c3e07f97a3c2ca2eb700ff80cbd0e"
     },
     "Assets/Effekseer/Scripts/EffekseerRuntime.cs": {
       "original_sha256": "47676f4cc4f09bc925b7dc20a70bfe3a1c602a17dfea65a8384956d1ce58879a",
-      "patched_sha256": "f6fd64db83248c1587f2f1f6af2109c777956811a39754aa5ed9cd3b62ea27dc"
+      "patched_sha256": "35378332a30aa4f00fa6b1220216f0866d7b14d0a0f4f43381a3682fa31ce391"
     }
   }
 }

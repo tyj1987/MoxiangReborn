@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Effekseer cleanup-failure follow-up (2026-10-02)
+
+- Reproduce six managed failure-path regressions against the previous lifecycle patch, then stop owned audio even when native unregister fails and retain ownership for its safe retry. Runtime cleanup flags now change only on success; System disable/Term exceptions retain their original error and block re-enable, updates and unsafe repeated release. No blind retry of an unknown partial native outcome.
+- Updated kit passes 22/22 managed lifecycle tests and 9/9 exact-patch tests. Document the owner-read/epoch-read window explicitly: this includes already-started old callbacks and is not solved without a native generation/quiescence contract. Output SHA gates were updated; a previous patched pair must be restored from its original backup before applying this revision. Unity/native behavior remains pending the single ROG isolated validation pass.
+
 ### Effekseer 1.80.7 lifecycle patch kit (2026-10-02)
 
 - Add an opt-in exact-SHA patch/applicator for the two ROG-matched official Sound/Runtime files, with original backups and preserved MIT license. Stable callback locking, owned generation queues, explicit lifecycle state and native calls outside the gate address repeated disable, disposed callbacks and stale-owner disposal without suppressing normal audio work. No vendor file is installed into game Assets.

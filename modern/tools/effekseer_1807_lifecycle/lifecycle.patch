@@ -59,7 +59,7 @@
  			GC.SuppressFinalize(this);
  		}
  
-@@ -93,90 +98,113 @@
+@@ -93,90 +98,124 @@
  
  		internal void OnEnable()
  		{
@@ -124,6 +124,15 @@
 -					e.Invoke();
 -				}
 -				events.Clear();
+-				Plugin.EffekseerSetSoundPlayerEvent(null, null, null, null, null);
+-			}
+-
+-			Instance = null;
+-		}
+-
+-		public void SetSoundScale(float scale)
+-		{
+-			soundScale = Mathf.Max(scale, 0f);
 +			RequireLifecycleThread();
 +			bool unregister;
 +			lock (CallbackGate)
@@ -133,16 +142,19 @@
 +				events.Clear(); // Pending Play data must not survive native resource release.
 +				unregister = ReferenceEquals(instance, this) && callbacksRegistered;
 +			}
-+			if (unregister)
- 				Plugin.EffekseerSetSoundPlayerEvent(null, null, null, null, null);
--			}
--
--			Instance = null;
--		}
--
--		public void SetSoundScale(float scale)
--		{
--			soundScale = Mathf.Max(scale, 0f);
++			try
++			{
++				if (unregister)
++					Plugin.EffekseerSetSoundPlayerEvent(null, null, null, null, null);
++			}
++			catch (Exception unregisterError)
++			{
++				// Closing callback admission must also silence owned audio when
++				// native cleanup fails. Keep registration/ownership for a retry.
++				try { StopAllSounds(); }
++				catch (Exception audioError) { throw new AggregateException(unregisterError, audioError); }
++				throw;
++			}
 +			// Keep ownership reserved until unregister succeeds. Native failure is
 +			// visible and a subsequent disable can retry without enabling a new owner.
 +			lock (CallbackGate)
@@ -234,7 +246,7 @@
  
  		private void PlaySound(IntPtr tag,
  			IntPtr data, float volume, float pan, float pitch,
-@@ -217,7 +245,7 @@
+@@ -217,7 +256,7 @@
  			{
  				if (sound.audioTag == tag.ToString())
  				{
@@ -243,7 +255,7 @@
  				}
  			}
  		}
-@@ -247,7 +275,7 @@
+@@ -247,7 +286,7 @@
  		{
  			foreach (var sound in childInstances)
  			{
@@ -254,15 +266,24 @@
  	}
 --- a/Assets/Effekseer/Scripts/EffekseerRuntime.cs
 +++ b/Assets/Effekseer/Scripts/EffekseerRuntime.cs
-@@ -14,6 +14,7 @@
+@@ -14,6 +14,16 @@
  		private EffekseerSystem system;
  		[SerializeField]
  		private Internal.EffekseerSoundPlayer soundPlayer;
-+		private bool pluginInitialized, initialized, systemEnabled;
++		private bool pluginInitialized, initialized, systemEnabled, cleanupPending;
++		private System.Exception systemCleanupFailure, terminationFailure;
++
++		private void ThrowIfCleanupFault()
++		{
++			var failure = systemCleanupFailure ?? terminationFailure;
++			if (failure != null)
++				throw new System.InvalidOperationException(
++					"Effekseer cleanup outcome is unknown; restart the isolated Editor before reuse.", failure);
++		}
  
  		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
  		static void RuntimeInitializeOnLoad()
-@@ -30,21 +31,39 @@
+@@ -30,21 +40,50 @@
  			{
  				system = new EffekseerSystem();
  			}
@@ -279,18 +300,29 @@
  		{
 -			soundPlayer.Dispose();
 -			system.TermPlugin();
++			ThrowIfCleanupFault();
 +			initialized = false;
 +			OnDisable();
 +			if (soundPlayer != null) soundPlayer.Dispose();
 +			if (pluginInitialized)
 +			{
++				try { system.TermPlugin(); }
++				catch (System.Exception error)
++				{
++					// TermPlugin may throw after native termination. Never blindly
++					// run it twice or report successful completion on this path.
++					terminationFailure = error;
++					throw;
++				}
 +				pluginInitialized = false;
-+				system.TermPlugin();
 +			}
  		}
  
  		void OnEnable()
  		{
++			ThrowIfCleanupFault();
++			if (cleanupPending)
++				throw new System.InvalidOperationException("Effekseer sound cleanup must finish before re-enabling.");
 +			if (!initialized || systemEnabled) return;
  			system.OnEnable();
 -			soundPlayer.OnEnable();
@@ -305,23 +337,34 @@
  
  			foreach (var effectAsset in EffekseerEffectAsset.enabledAssets)
  			{
-@@ -59,12 +78,17 @@
+@@ -59,12 +98,28 @@
  
  		void OnDisable()
  		{
 -			soundPlayer.OnDisable();
 -			system.OnDisable();
++			ThrowIfCleanupFault();
++			cleanupPending = true;
 +			if (soundPlayer != null) soundPlayer.OnDisable();
 +			if (systemEnabled)
 +			{
++				try { system.OnDisable(); }
++				catch (System.Exception error)
++				{
++					// Renderer/resource cleanup is not transactional or provably
++					// idempotent. Preserve its error and block unsafe reuse/retry.
++					systemCleanupFailure = error;
++					throw;
++				}
 +				systemEnabled = false;
-+				system.OnDisable();
 +			}
++			cleanupPending = false;
  		}
  
  		void LateUpdate()
  		{
-+			if (!initialized || !systemEnabled) return;
++			if (!initialized || !systemEnabled || cleanupPending ||
++				systemCleanupFailure != null || terminationFailure != null) return;
  			Plugin.UpdateNetwork();
  			soundPlayer.Update();
  			system.Update(Time.deltaTime, Time.unscaledDeltaTime);

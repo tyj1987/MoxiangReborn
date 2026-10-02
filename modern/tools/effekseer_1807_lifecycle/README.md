@@ -44,12 +44,20 @@ throws rather than racing Unity APIs. A retired instance cannot clear another
 owner. Dispose is explicit and repeat-safe; the old finalizer that mutated the
 singleton from a GC thread is removed. Native registration errors are surfaced,
 partial registration attempts are unregistered, and failed unregistration
-reserves the disabled owner for retry instead of enabling a second owner.
+reserves the disabled owner for retry instead of enabling a second owner. Owned
+audio is stopped even when unregistration throws; a simultaneous audio-stop
+exception is aggregated with the original unregistration error.
 
 Runtime tracks completed plugin initialization and system activation. Disabled
 or incomplete instances do not update. It disables sound before the system,
 disposes sound before native termination, avoids duplicate cleanup, and keeps
-activation/cleanup exceptions visible. A failure before InitPlugin returns is
+activation/cleanup exceptions visible. Completion flags change only after the
+corresponding cleanup returns successfully. Sound cleanup that has not finished
+blocks re-enable; retrying its callback unregistration can finish that stage.
+An exception from system.OnDisable or TermPlugin has an unknown partial outcome:
+the original error is retained, updates/re-enable and further cleanup attempts
+are blocked, and an isolated Editor restart is required. It is unsafe to blindly
+retry renderer/resource cleanup or native termination. A failure before InitPlugin returns is
 **not** treated as successful initialization and does not force TermPlugin.
 
 ## Apply on the existing ROG isolated copy
@@ -68,7 +76,9 @@ errors roll back completed writes; a process/power interruption between files
 is not a filesystem transaction. A mixed state is refused for manual inspection
 and restoration from the backup. Linked paths and this repository's canonical
 Unity project are refused. Repeating application to an exact patched pair is
-a no-op. The utility does not close Editors or alter process settings.
+a no-op. A pair patched by the earlier `3cd63113` kit is not accepted by this
+revision: restore its saved original pair first, then check/apply the new kit
+with a new backup directory. The utility does not close Editors or alter process settings.
 
 To restore, with the isolated Editor closed, copy the two original `.cs` files
 from the retained backup to the same `Assets/Effekseer/Scripts` paths and run
@@ -87,16 +97,24 @@ symlink refusal; and rollback on the second write's injected failure.
 
 Managed red/green compiles the actual original/patched vendor pair using Unity
 and native test doubles. Original: three expected failures (repeat disable,
-callback after Dispose, stale-owner Dispose). Patched: 16/16 passing, including
+callback after Dispose, stale-owner Dispose). Patched: 22/22 passing, including
 normal queued playback/stop, all five callbacks after disposal, repeat and
 pre-enable disable, callbacks during native registration/unregistration,
 callback waiting across a generation change, detached old work, new-generation
 work, ownership, registration/unregistration failures and retry, off-thread
 misuse, incomplete initialization and normal Runtime disable/reenable/destroy.
+The six review regressions first failed against the `3cd63113` patch: active
+owned audio after failed unregister; System disable failing before release;
+System disable failing after release; Runtime retry of sound-unregister only;
+TermPlugin failure before native termination; and failure after native termination.
+They now pass, asserting retained original errors, unchanged completion flags on
+failure, blocked re-enable/updates, no unsafe repeat renderer/native release,
+and a successful sound-unregister retry. These are managed fault injections,
+not evidence of the corresponding exception occurring in Unity.
 
 Cloud used a temporary .NET SDK8.0.100 from Microsoft's official distribution,
 verified against its published SHA512. No SDK or build outputs are committed.
-Evidence: `/workspace/moxiang-audit-20261001/effekseer-final-red-green/`.
+Evidence: `/workspace/moxiang-audit-20261001/effekseer-review-final/`.
 This is real managed compilation/execution, **not Unity/native acceptance**.
 
 ## Limits and one ROG validation pass
@@ -105,9 +123,14 @@ This is real managed compilation/execution, **not Unity/native acceptance**.
   SetSoundPlayer; it does not expose a quiescence barrier. Its source is supporting
   evidence, not a verified hash of the installed native DLL. Static native
   callbacks carry no owner/epoch token. Work already captured/enqueued for an
-  old generation is rejected, but a native invocation that starts only after
-  re-enable is indistinguishable from a new-generation call. This patch does
-  not invent an ABI token or claim native worker shutdown has been proven.
+  old generation is rejected once both owner and epoch have been captured.
+  A callback can read owner, pause across Disable/Enable on that same owner,
+  and then read the new epoch: it is indistinguishable from new work. This
+  boundary therefore includes already-started callbacks that have not captured
+  epoch, as well as native invocations that first enter after re-enable. The
+  waiting-on-gate test captures epoch before waiting; it does not cover this
+  earlier read window. This patch does not invent an ABI token or claim complete
+  cross-generation protection or native worker quiescence.
 - Internal native allocation failure partway through InitPlugin, or a partial
   renderer failure inside system.OnEnable, is not made transactionally recoverable
   by this two-file patch. The original exception remains visible; validate the

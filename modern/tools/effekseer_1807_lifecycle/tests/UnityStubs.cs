@@ -22,10 +22,10 @@ namespace Effekseer {
  public class EffekseerSettings {public int soundInstances;public static bool Fail;static EffekseerSettings settings=new EffekseerSettings();public static EffekseerSettings Instance {get {if(Fail)throw new InvalidOperationException("sound init failed");return settings;}}}
  public class EffekseerEffectAsset {public static Dictionary<int,WeakReference> enabledAssets=new Dictionary<int,WeakReference>();}
  public class EffekseerSystem {
-  public static EffekseerSystem Instance;public static bool FailInit;public static int Terms,Enables,Disables;
+  public static EffekseerSystem Instance;public static bool FailInit,FailDisable,FailAfterDisable,FailTerm,FailAfterTerm;public static int Terms,TermAttempts,Enables,Disables,DisableAttempts,Updates;
   public void InitPlugin(){if(FailInit)throw new InvalidOperationException("plugin init failed");Instance=this;}
-  public void TermPlugin(){Terms++;Instance=null;}public void OnEnable(){Enables++;}public void OnDisable(){Disables++;}
-  public void Update(float a,float b){}public void LoadEffect(EffekseerEffectAsset x){}public static IntPtr GetCachedSound(IntPtr x){return x;}
+  public void TermPlugin(){TermAttempts++;if(FailTerm)throw new InvalidOperationException("termination failed before native");Terms++;Instance=null;if(FailAfterTerm)throw new InvalidOperationException("termination failed after native");}public void OnEnable(){Enables++;}public void OnDisable(){DisableAttempts++;if(FailDisable)throw new InvalidOperationException("renderer cleanup failed before release");Disables++;if(FailAfterDisable)throw new InvalidOperationException("renderer cleanup failed after release");}
+  public void Update(float a,float b){Updates++;}public void LoadEffect(EffekseerEffectAsset x){}public static IntPtr GetCachedSound(IntPtr x){return x;}
  }
  public static class Plugin {
   public delegate void EffekseerSoundPlayerPlay(IntPtr tag,IntPtr data,float volume,float pan,float pitch,bool mode,float x,float y,float z,float distance);
@@ -34,11 +34,11 @@ namespace Effekseer {
   public delegate bool EffekseerSoundPlayerCheckPlayingTag(IntPtr tag);
   public delegate void EffekseerSoundPlayerStopAll();
   public static EffekseerSoundPlayerStopTag Stop;public static EffekseerSoundPlayerPauseTag Pause;public static EffekseerSoundPlayerPlay Play;public static EffekseerSoundPlayerStopAll StopAll;public static EffekseerSoundPlayerCheckPlayingTag Check;
-  public static int Registers,Unregisters;public static bool FailRegister,FailUnregister;public static Action DuringRegister,DuringUnregister;
+  public static int Registers,Unregisters,NetworkUpdates;public static bool FailRegister,FailUnregister;public static Action DuringRegister,DuringUnregister;
   public static void EffekseerSetSoundPlayerEvent(EffekseerSoundPlayerPlay play,EffekseerSoundPlayerStopTag stop,EffekseerSoundPlayerPauseTag pause,EffekseerSoundPlayerCheckPlayingTag check,EffekseerSoundPlayerStopAll all){
    if(play!=null){Registers++;Play=play;Stop=stop;Pause=pause;StopAll=all;Check=check;if(DuringRegister!=null)DuringRegister();if(FailRegister)throw new InvalidOperationException("registration failed");}
    else {Unregisters++;if(DuringUnregister!=null)DuringUnregister();if(FailUnregister)throw new InvalidOperationException("unregistration failed");Play=null;Stop=null;Pause=null;StopAll=null;Check=null;}
   }
-  public static void UpdateNetwork(){}public static int Effekseer_Manager_GetEffectHandles(int[] x,int n){return 0;}public static IntPtr Effekseer_Manager_GetName(int x){return IntPtr.Zero;}public static int EffekseerGetInstanceCount(int x){return 0;}
+  public static void UpdateNetwork(){NetworkUpdates++;}public static int Effekseer_Manager_GetEffectHandles(int[] x,int n){return 0;}public static IntPtr Effekseer_Manager_GetName(int x){return IntPtr.Zero;}public static int EffekseerGetInstanceCount(int x){return 0;}
  }
 }

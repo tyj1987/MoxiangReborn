@@ -6,16 +6,17 @@ using System.Threading;
 using Effekseer;
 using Effekseer.Internal;
 class LifecycleTests {
- static int passed;
+ static int passed,failed;
  static void Assert(bool condition,string message){if(!condition)throw new Exception(message);}
  static void Call(object instance,string name){try{instance.GetType().GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(instance,null);}catch(TargetInvocationException e){throw e.InnerException;}}
- static void Throws<T>(Action action) where T:Exception {try{action();}catch(T){return;}throw new Exception("Expected "+typeof(T).Name);}
+ static T Capture<T>(Action action) where T:Exception {try{action();}catch(T e){return e;}throw new Exception("Expected "+typeof(T).Name);}
+ static void Throws<T>(Action action) where T:Exception {Capture<T>(action);}
  static List<Action> Events(EffekseerSoundPlayer player){return (List<Action>)typeof(EffekseerSoundPlayer).GetField("events",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(player);}
  static void Queue(Action<EffekseerSoundPlayer> action){typeof(EffekseerSoundPlayer).GetMethod("Enqueue",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{action});}
  static void Worker(Action action){Exception error=null;var worker=new Thread(()=>{try{action();}catch(Exception e){error=e;}});worker.IsBackground=true;worker.Start();Assert(worker.Join(2000),"Native callback blocked: managed gate held across native call");if(error!=null)throw error;}
- static void Reset(){Plugin.FailRegister=Plugin.FailUnregister=false;Plugin.DuringRegister=Plugin.DuringUnregister=null;if(EffekseerSoundPlayer.Instance!=null)EffekseerSoundPlayer.Instance.Dispose();Plugin.Registers=Plugin.Unregisters=0;EffekseerSettings.Fail=false;EffekseerSystem.FailInit=false;EffekseerSystem.Instance=null;EffekseerSystem.Terms=EffekseerSystem.Enables=EffekseerSystem.Disables=0;}
- static void Test(string name,Action test){Reset();test();Reset();passed++;Console.WriteLine("PASS "+name);}
- static void Main(){
+ static void Reset(){Plugin.FailRegister=Plugin.FailUnregister=false;Plugin.DuringRegister=Plugin.DuringUnregister=null;if(EffekseerSoundPlayer.Instance!=null)EffekseerSoundPlayer.Instance.Dispose();Plugin.Registers=Plugin.Unregisters=Plugin.NetworkUpdates=0;EffekseerSettings.Fail=false;EffekseerSystem.FailInit=EffekseerSystem.FailDisable=EffekseerSystem.FailAfterDisable=EffekseerSystem.FailTerm=EffekseerSystem.FailAfterTerm=false;EffekseerSystem.Instance=null;EffekseerSystem.Updates=EffekseerSystem.Terms=EffekseerSystem.TermAttempts=EffekseerSystem.Enables=EffekseerSystem.Disables=EffekseerSystem.DisableAttempts=0;}
+ static void Test(string name,Action test){Reset();try{test();passed++;Console.WriteLine("PASS "+name);}catch(Exception e){failed++;Console.WriteLine("FAIL "+name+": "+e.Message);}finally{Reset();}}
+ static int Main(){
   Test("normal queue executes only in Update",()=>{using(var p=new EffekseerSoundPlayer()){p.OnEnable();int ran=0;Queue(owner=>{Assert(ReferenceEquals(owner,p),"wrong owner");ran++;});Assert(ran==0,"callback executed off-thread");p.Update();Assert(ran==1,"work lost");}});
   Test("actual sound play and stop stay queued and audible in managed simulation",()=>{using(var p=new EffekseerSoundPlayer()){
    var child=new EffekseerSoundInstance();Call(child,"Awake");
@@ -51,6 +52,63 @@ class LifecycleTests {
   Test("Runtime plugin initialization failure",()=>{var r=new EffekseerRuntime();EffekseerSystem.FailInit=true;Throws<InvalidOperationException>(()=>Call(r,"Awake"));Call(r,"OnEnable");Call(r,"OnDisable");Call(r,"OnDestroy");Assert(EffekseerSystem.Terms==0&&Plugin.Registers==0,"uninitialized plugin touched");});
   Test("Runtime sound initialization failure",()=>{var r=new EffekseerRuntime();EffekseerSettings.Fail=true;Throws<InvalidOperationException>(()=>Call(r,"Awake"));Call(r,"OnEnable");Call(r,"OnDisable");Call(r,"OnDestroy");Call(r,"OnDestroy");Assert(EffekseerSystem.Terms==1&&EffekseerSystem.Disables==0&&Plugin.Registers==0,"partial init cleanup count");});
   Test("Runtime normal disable reenable destroy",()=>{var r=new EffekseerRuntime();Call(r,"Awake");Call(r,"OnEnable");Call(r,"OnDisable");Call(r,"OnDisable");Call(r,"OnEnable");Call(r,"OnDestroy");Call(r,"OnDestroy");Assert(EffekseerSystem.Enables==2&&EffekseerSystem.Disables==2&&EffekseerSystem.Terms==1&&Plugin.Registers==2&&Plugin.Unregisters==2,"runtime lifecycle counts");});
+  Test("failed unregister still stops all active owned audio",()=>{
+   var p=new EffekseerSoundPlayer();
+   var audios=new List<UnityEngine.AudioSource>();
+   for(int i=0;i<2;i++){
+    var child=new EffekseerSoundInstance();Call(child,"Awake");
+    ((List<EffekseerSoundInstance>)typeof(EffekseerSoundPlayer).GetField("childInstances",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(p)).Add(child);
+    audios.Add((UnityEngine.AudioSource)typeof(EffekseerSoundInstance).GetField("audio",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(child));
+   }
+   p.OnEnable();foreach(var audio in audios)audio.Play();
+   Plugin.FailUnregister=true;Throws<InvalidOperationException>(()=>p.OnDisable());
+   Assert(audios.TrueForAll(audio=>!audio.isPlaying),"audio remains playing after native unregistration failure");
+   Assert(!EffekseerSoundPlayer.IsValid&&ReferenceEquals(EffekseerSoundPlayer.Instance,p),"retry ownership lost");
+   Assert(Events(p).Count==0,"pending audio survived failure");
+   Plugin.FailUnregister=false;p.OnDisable();p.Dispose();Assert(Plugin.Unregisters==2,"cleanup retry not executed exactly once");
+  });
+  Test("failed Runtime disable retains incomplete state and blocks unsafe retry",()=>{
+   var r=new EffekseerRuntime();Call(r,"Awake");Call(r,"OnEnable");
+   EffekseerSystem.FailDisable=true;var original=Capture<InvalidOperationException>(()=>Call(r,"OnDisable"));
+   Assert((bool)typeof(EffekseerRuntime).GetField("systemEnabled",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(r),"renderer completion flag cleared before cleanup succeeded");
+   Throws<InvalidOperationException>(()=>Call(r,"OnEnable"));Assert(EffekseerSystem.Enables==1,"replacement renderer created during failed cleanup");
+   EffekseerSystem.FailDisable=false;var retained=Capture<InvalidOperationException>(()=>Call(r,"OnDisable"));
+   Assert(ReferenceEquals(retained.InnerException,original),"system cleanup error was lost");
+   Call(r,"LateUpdate");Assert(EffekseerSystem.Updates==0&&Plugin.NetworkUpdates==0,"updates ran after failed cleanup");
+   Throws<InvalidOperationException>(()=>Call(r,"OnDestroy"));
+   Assert(EffekseerSystem.DisableAttempts==1&&EffekseerSystem.Disables==0&&EffekseerSystem.TermAttempts==0,"uncertain renderer cleanup retried or plugin terminated");
+  });
+  Test("failed Runtime disable after renderer release does not release twice",()=>{
+   var r=new EffekseerRuntime();Call(r,"Awake");Call(r,"OnEnable");
+   EffekseerSystem.FailAfterDisable=true;var original=Capture<InvalidOperationException>(()=>Call(r,"OnDisable"));
+   EffekseerSystem.FailAfterDisable=false;var retained=Capture<InvalidOperationException>(()=>Call(r,"OnDisable"));
+   Assert(ReferenceEquals(retained.InnerException,original),"post-release error was lost");
+   Throws<InvalidOperationException>(()=>Call(r,"OnEnable"));
+   Assert(EffekseerSystem.DisableAttempts==1&&EffekseerSystem.Disables==1&&EffekseerSystem.Enables==1,"partially released renderer reused or released twice");
+  });
+  Test("Runtime sound unregister failure can retry before system cleanup",()=>{
+   var r=new EffekseerRuntime();Call(r,"Awake");Call(r,"OnEnable");
+   Plugin.FailUnregister=true;Throws<InvalidOperationException>(()=>Call(r,"OnDisable"));
+   Throws<InvalidOperationException>(()=>Call(r,"OnEnable"));Assert(EffekseerSystem.DisableAttempts==0,"system cleanup ran before callback removal");
+   Plugin.FailUnregister=false;Call(r,"OnDisable");Call(r,"OnEnable");
+   Assert(EffekseerSystem.Disables==1&&EffekseerSystem.Enables==2,"safe sound unregister retry did not allow re-enable");Call(r,"OnDestroy");
+  });
+  Test("failed Runtime termination remains visible without unsafe native retry",()=>{
+   var r=new EffekseerRuntime();Call(r,"Awake");Call(r,"OnEnable");
+   EffekseerSystem.FailTerm=true;var original=Capture<InvalidOperationException>(()=>Call(r,"OnDestroy"));
+   Assert((bool)typeof(EffekseerRuntime).GetField("pluginInitialized",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(r),"termination completion claimed after failure");
+   EffekseerSystem.FailTerm=false;var retained=Capture<InvalidOperationException>(()=>Call(r,"OnDestroy"));
+   Assert(ReferenceEquals(retained.InnerException,original),"termination error was lost");
+   Throws<InvalidOperationException>(()=>Call(r,"OnEnable"));Assert(EffekseerSystem.TermAttempts==1,"uncertain native TermPlugin retried");
+  });
+  Test("failure after native termination never double-terminates",()=>{
+   var r=new EffekseerRuntime();Call(r,"Awake");Call(r,"OnEnable");
+   EffekseerSystem.FailAfterTerm=true;var original=Capture<InvalidOperationException>(()=>Call(r,"OnDestroy"));
+   EffekseerSystem.FailAfterTerm=false;var retained=Capture<InvalidOperationException>(()=>Call(r,"OnDestroy"));
+   Assert(ReferenceEquals(retained.InnerException,original),"post-native termination error was lost");
+   Assert(EffekseerSystem.Terms==1&&EffekseerSystem.TermAttempts==1,"native termination executed twice");
+  });
   Console.WriteLine(passed+" lifecycle tests passed (managed stubs; not Unity/native acceptance)");
+  Console.WriteLine(failed+" lifecycle tests failed");return failed==0?0:1;
  }
 }
