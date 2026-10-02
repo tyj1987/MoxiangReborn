@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Effekseer 1.80.7 lifecycle patch kit (2026-10-02)
+
+- Add an opt-in exact-SHA patch/applicator for the two ROG-matched official Sound/Runtime files, with original backups and preserved MIT license. Stable callback locking, owned generation queues, explicit lifecycle state and native calls outside the gate address repeated disable, disposed callbacks and stale-owner disposal without suppressing normal audio work. No vendor file is installed into game Assets.
+- Application safety tests pass 9/9; actual original C# reproduces three defects, and the patched pair passes 16 managed lifecycle tests using Unity/native doubles. Native quiescence, partial internal native initialization and real Unity/Play behavior remain unverified. See `modern/tools/effekseer_1807_lifecycle/README.md` for the one isolated ROG apply/compile/Play pass and precise limits.
+
 ### Authoritative monster life and Map17 death evidence (2026-10-02)
 
 - Stop applying SkillSingleResult damage to the monster's already updated LifeNotify snapshot; retain damage/HUD/hit/end feedback. Five ordered-message regressions cover living HP, duplicates, delayed results, death/removal and respawn. An extracted-production-handler cloud harness reproduced four failures before the fix and passes 5/5 afterward; both native test files pass GCC syntax checks. Full Windows client linking/execution remains pending (cloud lacks objbase.h).

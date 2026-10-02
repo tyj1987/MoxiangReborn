@@ -1,0 +1,327 @@
+--- a/Assets/Effekseer/Scripts/EffekseerSound.cs
++++ b/Assets/Effekseer/Scripts/EffekseerSound.cs
+@@ -1,6 +1,7 @@
+ ﻿using System;
+ using System.Collections.Generic;
+ using System.Runtime.InteropServices;
++using System.Threading;
+ using UnityEngine;
+ 
+ #if UNITY_EDITOR
+@@ -49,29 +50,33 @@
+ 	[Serializable]
+ 	public class EffekseerSoundPlayer : IDisposable
+ 	{
+-		// Singleton instance
+-		public static EffekseerSoundPlayer Instance { get; private set; }
+-		public static bool IsValid { get { return Instance != null; } }
++		// Lifecycle runs on the constructing Unity thread. Native callbacks only
++		// enqueue managed work; no native call is made while CallbackGate is held.
++		private static readonly object CallbackGate = new object();
++		private static EffekseerSoundPlayer instance;
++		public static EffekseerSoundPlayer Instance { get { return Volatile.Read(ref instance); } }
++		public static bool IsValid { get { lock (CallbackGate) { return instance != null && instance.enabled; } } }
++		private readonly int lifecycleThread = Thread.CurrentThread.ManagedThreadId;
++		private bool enabled, disposed, callbacksRegistered;
++		private long generation;
+ 		private float soundScale = 1f;
+-
+-		// Pooled instances
+ 		private List<EffekseerSoundInstance> childInstances = new List<EffekseerSoundInstance>();
+-
+-		List<Action> events = new List<Action>();
+-
+-		public EffekseerSoundPlayer()
+-		{
+-			Instance = this;
+-		}
+-
+-		~EffekseerSoundPlayer()
+-		{
+-			Dispose();
++		private readonly List<Action> events = new List<Action>();
++
++		public EffekseerSoundPlayer() { }
++
++		private void RequireLifecycleThread()
++		{
++			if (Thread.CurrentThread.ManagedThreadId != lifecycleThread)
++				throw new InvalidOperationException("Effekseer sound lifecycle must run on its Unity thread.");
+ 		}
+ 
+ 		public void Dispose()
+ 		{
+-			Instance = null;
++			RequireLifecycleThread();
++			if (disposed) return;
++			OnDisable(); // Retryable if native unregistration fails; do not hide it.
++			disposed = true;
+ 			GC.SuppressFinalize(this);
+ 		}
+ 
+@@ -93,90 +98,113 @@
+ 
+ 		internal void OnEnable()
+ 		{
+-			Instance = this;
+-			Plugin.EffekseerSetSoundPlayerEvent(
+-				SoundPlayerPlay,
+-				SoundPlayerStopTag,
+-				SoundPlayerPauseTag,
+-				SoundPlayerCheckPlayingTag,
+-				SoundPlayerStopAll);
++			RequireLifecycleThread();
++			lock (CallbackGate)
++			{
++				if (disposed) throw new ObjectDisposedException(nameof(EffekseerSoundPlayer));
++				if (enabled) return;
++				if (instance != null)
++					throw new InvalidOperationException("Effekseer sound owner is active or awaiting native cleanup.");
++				Interlocked.Increment(ref generation);
++				Volatile.Write(ref instance, this);
++				enabled = true;
++				callbacksRegistered = true; // Registration may throw after a partial native change.
++			}
++			try
++			{
++				Plugin.EffekseerSetSoundPlayerEvent(SoundPlayerPlay, SoundPlayerStopTag,
++					SoundPlayerPauseTag, SoundPlayerCheckPlayingTag, SoundPlayerStopAll);
++			}
++			catch (Exception registrationError)
++			{
++				try { OnDisable(); }
++				catch (Exception cleanupError) { throw new AggregateException(registrationError, cleanupError); }
++				throw;
++			}
+ 		}
+ 
+ 		internal void Update()
+ 		{
+-			lock (Instance)
+-			{
+-				foreach (var e in events)
+-				{
+-					e.Invoke();
+-				}
++			RequireLifecycleThread();
++			Action[] pending;
++			lock (CallbackGate)
++			{
++				if (!enabled || !ReferenceEquals(instance, this)) return;
++				pending = events.ToArray();
+ 				events.Clear();
+ 			}
++			// PlaySound may call native GetCachedSound. Never execute under the gate.
++			foreach (var action in pending) action();
+ 		}
+ 
+ 		internal void OnDisable()
+ 		{
+-			lock (Instance)
+-			{
+-				foreach (var e in events)
+-				{
+-					e.Invoke();
+-				}
+-				events.Clear();
++			RequireLifecycleThread();
++			bool unregister;
++			lock (CallbackGate)
++			{
++				enabled = false;
++				Interlocked.Increment(ref generation);
++				events.Clear(); // Pending Play data must not survive native resource release.
++				unregister = ReferenceEquals(instance, this) && callbacksRegistered;
++			}
++			if (unregister)
+ 				Plugin.EffekseerSetSoundPlayerEvent(null, null, null, null, null);
+-			}
+-
+-			Instance = null;
+-		}
+-
+-		public void SetSoundScale(float scale)
+-		{
+-			soundScale = Mathf.Max(scale, 0f);
++			// Keep ownership reserved until unregister succeeds. Native failure is
++			// visible and a subsequent disable can retry without enabling a new owner.
++			lock (CallbackGate)
++			{
++				callbacksRegistered = false;
++				if (ReferenceEquals(instance, this)) Volatile.Write(ref instance, null);
++			}
++			StopAllSounds();
++		}
++
++		public void SetSoundScale(float scale) { soundScale = Mathf.Max(scale, 0f); }
++
++		private static void Enqueue(Action<EffekseerSoundPlayer> action)
++		{
++			var owner = Instance;
++			if (owner == null) return; // Callback after unregistration/disposal.
++			var epoch = Interlocked.Read(ref owner.generation);
++			lock (CallbackGate)
++			{
++				if (!ReferenceEquals(instance, owner) || !owner.enabled || owner.generation != epoch) return;
++				owner.events.Add(() =>
++				{
++					lock (CallbackGate)
++					{
++						if (!ReferenceEquals(instance, owner) || !owner.enabled || owner.generation != epoch) return;
++					}
++					// Update and lifecycle are serialized on the Unity thread.
++					action(owner);
++				});
++			}
+ 		}
+ 
+ 		[AOT.MonoPInvokeCallback(typeof(Plugin.EffekseerSoundPlayerPlay))]
+-		private static void SoundPlayerPlay(IntPtr tag,
+-				IntPtr data, float volume, float pan, float pitch,
+-				bool mode3D, float x, float y, float z, float distance)
+-		{
+-
+-			lock (Instance)
+-			{
+-				Instance.events.Add(() => { Instance.PlaySound(tag, data, volume, pan, pitch, mode3D, x, y, z, distance); });
+-			}
++		private static void SoundPlayerPlay(IntPtr tag, IntPtr data, float volume, float pan, float pitch,
++			bool mode3D, float x, float y, float z, float distance)
++		{
++			Enqueue(owner => owner.PlaySound(tag, data, volume, pan, pitch, mode3D, x, y, z, distance));
+ 		}
+ 		[AOT.MonoPInvokeCallback(typeof(Plugin.EffekseerSoundPlayerStopTag))]
+-		private static void SoundPlayerStopTag(IntPtr tag)
+-		{
+-			lock (Instance)
+-			{
+-				Instance.events.Add(() => { Instance.StopSound(tag); });
+-			}
+-		}
++		private static void SoundPlayerStopTag(IntPtr tag) { Enqueue(owner => owner.StopSound(tag)); }
+ 		[AOT.MonoPInvokeCallback(typeof(Plugin.EffekseerSoundPlayerPauseTag))]
+-		private static void SoundPlayerPauseTag(IntPtr tag, bool pause)
+-		{
+-			lock (Instance)
+-			{
+-				Instance.events.Add(() => { Instance.PauseSound(tag, pause); });
+-			}
+-		}
++		private static void SoundPlayerPauseTag(IntPtr tag, bool pause) { Enqueue(owner => owner.PauseSound(tag, pause)); }
+ 		[AOT.MonoPInvokeCallback(typeof(Plugin.EffekseerSoundPlayerCheckPlayingTag))]
+ 		private static bool SoundPlayerCheckPlayingTag(IntPtr tag)
+ 		{
+-			lock (Instance)
+-			{
+-				return Instance.CheckSound(tag);
++			var owner = Instance;
++			if (owner == null) return false;
++			var epoch = Interlocked.Read(ref owner.generation);
++			lock (CallbackGate)
++			{
++				return ReferenceEquals(instance, owner) && owner.enabled && owner.generation == epoch && owner.CheckSound(tag);
+ 			}
+ 		}
+ 		[AOT.MonoPInvokeCallback(typeof(Plugin.EffekseerSoundPlayerStopAll))]
+-		private static void SoundPlayerStopAll()
+-		{
+-			lock (Instance)
+-			{
+-				Instance.events.Add(() => { Instance.StopAllSounds(); });
+-			}
+-		}
++		private static void SoundPlayerStopAll() { Enqueue(owner => owner.StopAllSounds()); }
+ 
+ 		private void PlaySound(IntPtr tag,
+ 			IntPtr data, float volume, float pan, float pitch,
+@@ -217,7 +245,7 @@
+ 			{
+ 				if (sound.audioTag == tag.ToString())
+ 				{
+-					sound.Stop();
++					if (sound != null) sound.Stop();
+ 				}
+ 			}
+ 		}
+@@ -247,7 +275,7 @@
+ 		{
+ 			foreach (var sound in childInstances)
+ 			{
+-				sound.Stop();
++				if (sound != null) sound.Stop();
+ 			}
+ 		}
+ 	}
+--- a/Assets/Effekseer/Scripts/EffekseerRuntime.cs
++++ b/Assets/Effekseer/Scripts/EffekseerRuntime.cs
+@@ -14,6 +14,7 @@
+ 		private EffekseerSystem system;
+ 		[SerializeField]
+ 		private Internal.EffekseerSoundPlayer soundPlayer;
++		private bool pluginInitialized, initialized, systemEnabled;
+ 
+ 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+ 		static void RuntimeInitializeOnLoad()
+@@ -30,21 +31,39 @@
+ 			{
+ 				system = new EffekseerSystem();
+ 			}
++			if (EffekseerSystem.Instance != null && !ReferenceEquals(EffekseerSystem.Instance, system))
++				throw new System.InvalidOperationException("Another Effekseer runtime owns the native plugin.");
+ 			system.InitPlugin();
++			pluginInitialized = true;
+ 			soundPlayer = new Internal.EffekseerSoundPlayer();
+ 			soundPlayer.Init(gameObject);
++			initialized = true;
+ 		}
+ 
+ 		void OnDestroy()
+ 		{
+-			soundPlayer.Dispose();
+-			system.TermPlugin();
++			initialized = false;
++			OnDisable();
++			if (soundPlayer != null) soundPlayer.Dispose();
++			if (pluginInitialized)
++			{
++				pluginInitialized = false;
++				system.TermPlugin();
++			}
+ 		}
+ 
+ 		void OnEnable()
+ 		{
++			if (!initialized || systemEnabled) return;
+ 			system.OnEnable();
+-			soundPlayer.OnEnable();
++			systemEnabled = true;
++			try { soundPlayer.OnEnable(); }
++			catch (System.Exception activationError)
++			{
++				try { OnDisable(); }
++				catch (System.Exception cleanupError) { throw new System.AggregateException(activationError, cleanupError); }
++				throw;
++			}
+ 
+ 			foreach (var effectAsset in EffekseerEffectAsset.enabledAssets)
+ 			{
+@@ -59,12 +78,17 @@
+ 
+ 		void OnDisable()
+ 		{
+-			soundPlayer.OnDisable();
+-			system.OnDisable();
++			if (soundPlayer != null) soundPlayer.OnDisable();
++			if (systemEnabled)
++			{
++				systemEnabled = false;
++				system.OnDisable();
++			}
+ 		}
+ 
+ 		void LateUpdate()
+ 		{
++			if (!initialized || !systemEnabled) return;
+ 			Plugin.UpdateNetwork();
+ 			soundPlayer.Update();
+ 			system.Update(Time.deltaTime, Time.unscaledDeltaTime);

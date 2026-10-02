@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><GenerateAssemblyInfo>false</GenerateAssemblyInfo><TestMain Condition="'$(TestMain)' == ''">LifecycleTests.cs</TestMain></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="UnityStubs.cs" /><Compile Include="$(TestMain)" />
+    <Compile Include="$(VendorSources)/EffekseerSound.cs" /><Compile Include="$(VendorSources)/EffekseerRuntime.cs" />
+  </ItemGroup>
+</Project>

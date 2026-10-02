@@ -1,0 +1,5 @@
+# Unified-diff context includes a required space before original tabs/blank lines.
+# Preserve these bytes; this exception applies only to the patch artifact.
+lifecycle.patch -whitespace
+# Fixture hashes include BOM and original LF bytes, also on Windows checkouts.
+tests/upstream/*.cs -text
