@@ -46,7 +46,9 @@ inline bool map17_combat_probe(mxh::client::CInGameState& game,mxh::client::CEng
     std::uint32_t character,int timeout,const std::filesystem::path& root,
     const std::string& db,const std::filesystem::path& log) {
     using Clock=std::chrono::steady_clock;
-    const auto deadline=Clock::now()+std::chrono::seconds(timeout*15);
+    const auto started=Clock::now();
+    const auto deadline=started+std::chrono::seconds(timeout*15);
+    LOG("Map17 probe deadline_ms=%d",timeout*15000);
     const auto pump=[&](){game.Process();std::this_thread::sleep_for(std::chrono::milliseconds(25));};
     while(game.monsters().size()<216 && Clock::now()<deadline)pump();
     if(game.game_info().map_num!=17 || game.monsters().size()!=216){LOG("FAIL: Map17 admission/population");return false;}
@@ -96,16 +98,25 @@ inline bool map17_combat_probe(mxh::client::CInGameState& game,mxh::client::CEng
         const int px=static_cast<int>(std::lround(sx)),py=static_cast<int>(std::lround(sy));
         game.OnMouseButton(true,true,px,py);game.OnMouseButton(true,false,px,py);return true;
     };
-    bool hit=false,life_changed=false,killed=false;
+    bool hit=false,life_changed=false,killed=false,missing_logged=false;
     mxh::client::GroundDropInfo drop{};auto next_attack=Clock::now();
     while(Clock::now()<deadline){
         pump();
-        for(const auto& event:game.drain_effect_events())
-            if(event.kind==mxh::client::EffectEventKind::Hit && event.target_object_id==chosen.object_id)hit=true;
+        for(const auto& event:game.drain_effect_events()) {
+            if(event.target_object_id!=chosen.object_id)continue;
+            if(event.kind==mxh::client::EffectEventKind::Hit)hit=true;
+            // Death is emitted by the authoritative LifeNotify transition.
+            // Neither disappearance nor a damage feedback event proves death.
+            if(event.kind==mxh::client::EffectEventKind::Death){
+                killed=true;LOG("Map17 authoritative death target=%u",chosen.object_id);
+            }
+        }
         auto target=std::find_if(game.monsters().begin(),game.monsters().end(),[&](const auto&m){return m.object_id==chosen.object_id;});
-        if(target==game.monsters().end())killed=hit;
+        if(target==game.monsters().end()){
+            if(!missing_logged){LOG("Map17 target absent id=%u death_confirmed=%d",chosen.object_id,killed);missing_logged=true;}
+        }
         else {
-            life_changed|=target->current_life<chosen.current_life;killed|=target->current_life==0;
+            life_changed|=target->current_life<chosen.current_life;
             if(target->current_life && Clock::now()>=next_attack){
                 if(!click(target->position_x,target->position_z)){LOG("FAIL: target projection outside clickable canvas");return false;}
                 if(game.last_attack_target()!=0 && game.last_attack_target()!=chosen.object_id){LOG("FAIL: click selected another monster");return false;}
@@ -116,6 +127,7 @@ inline bool map17_combat_probe(mxh::client::CInGameState& game,mxh::client::CEng
         if(killed && hit && drop.object_id)break;
     }
     if(!hit || !killed || !drop.object_id || (drop.item_id!=8000 && drop.item_id!=8007 && drop.item_id!=8500) || drop.count!=1){
+        LOG("Map17 combat elapsed_ms=%lld deadline_reached=%d",static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-started).count()),Clock::now()>=deadline);
         LOG("FAIL: kill/natural-drop hit=%d life_change=%d killed=%d source=%u drop=%u item=%u",hit,life_changed,killed,drop.source_monster_id,drop.object_id,drop.item_id);
         LOG("combat state player_hp=%u local=%u,%u last_attack=%u skill_error=%s",game.game_info().life,game.local_x(),game.local_z(),game.last_attack_target(),game.last_skill_error().c_str());return false;
     }

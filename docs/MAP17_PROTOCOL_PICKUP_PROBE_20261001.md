@@ -22,7 +22,9 @@
 
 1. 获取本笔完整SHA，在既有Windows构建环境构建`mxh_client_e2e`及`mxh_map17_evidence_test`；执行`ctest -R '^Map17ReadOnlyEvidence$' --output-on-failure`。
 2. 确認三个隔离端口空闲，运行`mxh_client_e2e.exe --exercise-combat --map-number 17 --backend sqlite --timeout 12 --use-hsel`，必要时显式提供三个exe路径；不要提供DB路径、no-spawn或发奖。逻辑投影点击沿原客户端执行，毋需Unity Play。
-3. 标准输出给出新`moxian-map17-<pid>-<stamp>`证据目录。收集`result.json`、`client.log`及该目录SQLite：结果初始为失败/started，所有正常失败返回更新exitCode；异常中止仍留下初始记录和日志。目录创建本身失败只能保留启动器stdout/stderr，不宣称已落文件。combat及重登共用timeout×15（最大180秒）截止；此前启动/登录各有现有阶段超时。外部监督总预算建议360秒，卡住时保留日志及自建PID，不反复自动重跑。
+3. 标准输出给出新`moxian-map17-<pid>-<stamp>`证据目录。收集`result.json`、`client.log`、`login.log`、`agent.log`、`map.log`及该目录SQLite：结果初始为失败/started，所有正常失败返回更新exitCode；异常中止仍留下初始记录和日志。目录创建本身失败只能保留启动器stdout/stderr，不宣称已落文件。combat及重登共用timeout×15（最大180秒）截止；此前启动/登录各有现有阶段超时。外部监督总预算建议360秒，卡住时保留日志及自建PID，不反复自动重跑。
 4. success必须同时有source hashes、真实kind1 ID、kill/source-matched drop、匹配PickupAck日志、同DBID数量、GameOutAck和重登SQLite记录。失败先据具体阶段诊断；不改规则或放宽测试。`visualAcceptance`永远false，Map17缺9DDS/test4.tif仍独立阻塞。
 
 后续Unity高度/冷导入和Effekseer生命周期验证应在GUI所有者释放后合并安排，不与此非GUI进程测试混为同一门禁。
+
+2026-10-02修订：死亡必须有权威LifeNotify产生的Death事件，目标消失不能证明死亡。子服日志采用独立文件和受限继承句柄；Windows采集验收尚待复跑。HP修复及回归边界见`MONSTER_LIFE_AUTHORITY_FIX_20261002.md`。

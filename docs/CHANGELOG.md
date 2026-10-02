@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Authoritative monster life and Map17 death evidence (2026-10-02)
+
+- Stop applying SkillSingleResult damage to the monster's already updated LifeNotify snapshot; retain damage/HUD/hit/end feedback. Five ordered-message regressions cover living HP, duplicates, delayed results, death/removal and respawn. An extracted-production-handler cloud harness reproduced four failures before the fix and passes 5/5 afterward; both native test files pass GCC syntax checks. Full Windows client linking/execution remains pending (cloud lacks objbase.h).
+- Map17 probe now requires a LifeNotify-derived Death event instead of treating disappearance/zero predicted HP as death. Preserve same-source natural-drop, PickupAck and persistence requirements. Capture each child server's stdout/stderr into isolated login/agent/map logs with a restricted inherited-handle list, and log elapsed/deadline evidence. Windows process-capture runtime verification remains pending. ROG's eight hits ending at authoritative HP5 are consistent with the fixed double-subtraction defect; the real pickup/relogin loop is still FAIL/unverified until rerun. See `docs/MONSTER_LIFE_AUTHORITY_FIX_20261002.md`.
+
 ### Independent NPC ground measurement candidate (2026-10-02)
 
 - Added `modern/tools/npc_acceptance` outside Unity Assets: explicit reviewed-floor queries exclude self/dynamic colliders and named ceiling/wall exclusions, distinguish multi-mesh AABB from optional anatomical markers, and keep misses invalid. CSV summary validation passes five cloud tests; helper compilation and two Unity physics tests remain pending in the existing ROG acceptance project. No game or vendor changes.

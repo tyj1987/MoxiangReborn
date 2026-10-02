@@ -626,7 +626,7 @@ TEST(InGamePlayable, SkillResultPublishesCombatFeedbackForHud) {
     EXPECT_GT(state.last_damage_timestamp_ms(), 0u);
 }
 
-TEST(InGamePlayable, SkillResultImmediatelyUpdatesTargetLifeBar) {
+TEST(InGamePlayable, SkillResultWaitsForAuthoritativeTargetLifeBar) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
     state.on_message(mxh::net::make_connection_id(1),
@@ -650,6 +650,16 @@ TEST(InGamePlayable, SkillResultImmediatelyUpdatesTargetLifeBar) {
     std::memcpy(result.payload.data() + 4, &damage, 4);
     result.payload[8] = 1;
     state.on_message(mxh::net::make_connection_id(1), result);
+    EXPECT_EQ(state.monsters().front().current_life, 100u);
+    EXPECT_EQ(state.last_damage(), damage);
+    mxh::net::Message life_notify;
+    life_notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Monster);
+    life_notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify);
+    life_notify.header.object_id = target;
+    life_notify.payload.assign(8, 0);
+    const std::uint32_t remaining = 65;
+    std::memcpy(life_notify.payload.data(), &remaining, 4);
+    state.on_message(mxh::net::make_connection_id(1), life_notify);
     EXPECT_EQ(state.monsters().front().current_life, 65u);
 }
 

@@ -258,7 +258,8 @@ struct ServerProc {
     DWORD       pid     = 0;
 
     void spawn_with_args(const std::string& workdir,
-                         const std::vector<std::string>& args) {
+                         const std::vector<std::string>& args,
+                         const std::filesystem::path& log_path = {}) {
         // Build a single command-line string.  CreateProcessW wants the
         // whole thing in one string (no argv split).
         std::string line = "\"" + exe + "\"";
@@ -267,8 +268,22 @@ struct ServerProc {
         }
         cmdline = line;
 
-        STARTUPINFOW si{};
+        STARTUPINFOEXW startup{};
+        auto& si = startup.StartupInfo;
         si.cb = sizeof(si);
+        // Own only this child's files. The handle list prevents inheriting
+        // the caller's capture pipes, sockets or another child's logs.
+        struct Capture {
+            HANDLE output = INVALID_HANDLE_VALUE, input = INVALID_HANDLE_VALUE;
+            HANDLE inherited[2]{};
+            std::vector<unsigned char> storage;
+            LPPROC_THREAD_ATTRIBUTE_LIST attributes = nullptr;
+            ~Capture() {
+                if(attributes)DeleteProcThreadAttributeList(attributes);
+                if(output!=INVALID_HANDLE_VALUE)CloseHandle(output);
+                if(input!=INVALID_HANDLE_VALUE)CloseHandle(input);
+            }
+        } capture;
         // Do not inherit our redirected stdout/stderr handles: the three
         // servers hold the pipes open for their whole lifetime, which
         // would keep a parent that waits on the tool from ever seeing
@@ -283,6 +298,32 @@ struct ServerProc {
             si.hStdOutput = nullptr;
             si.hStdError  = nullptr;
         }
+        if(!log_path.empty()) {
+            SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES),nullptr,TRUE};
+            capture.output=CreateFileW(log_path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,
+                &security,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+            capture.input=CreateFileW(L"NUL",GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,
+                &security,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+            if(capture.output==INVALID_HANDLE_VALUE || capture.input==INVALID_HANDLE_VALUE)
+                throw std::runtime_error("E2E server log handle creation failed");
+            SIZE_T size=0;
+            InitializeProcThreadAttributeList(nullptr,1,0,&size);
+            capture.storage.resize(size);
+            auto* attributes=reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(capture.storage.data());
+            if(!InitializeProcThreadAttributeList(attributes,1,0,&size))
+                throw std::runtime_error("E2E server log attribute initialization failed");
+            capture.attributes=attributes;
+            capture.inherited[0]=capture.output;
+            capture.inherited[1]=capture.input;
+            if(!UpdateProcThreadAttribute(attributes,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                capture.inherited,sizeof(capture.inherited),nullptr,nullptr))
+                throw std::runtime_error("E2E server log handle isolation failed");
+            startup.lpAttributeList=attributes;
+            si.cb=sizeof(startup);
+            si.dwFlags=STARTF_USESTDHANDLES;
+            si.hStdInput=capture.input;
+            si.hStdOutput=si.hStdError=capture.output;
+        }
         PROCESS_INFORMATION pi{};
         std::wstring wcmd(line.begin(), line.end());
         std::wstring wdir;
@@ -291,7 +332,8 @@ struct ServerProc {
         BOOL ok = CreateProcessW(
             nullptr, wcmd.data(),
             nullptr, nullptr,
-            FALSE, CREATE_NEW_PROCESS_GROUP,
+            log_path.empty()?FALSE:TRUE,
+            CREATE_NEW_PROCESS_GROUP | (log_path.empty()?0:EXTENDED_STARTUPINFO_PRESENT),
             nullptr,
             wdir.empty() ? nullptr : wdir.c_str(),
             &si, &pi);
@@ -521,7 +563,8 @@ int run_e2e(const CliArgs& cli) {
             "--legacy"};
         if (cli.use_hsel) login_args.emplace_back("--use-hsel");
         if(cli.exercise_combat){login_args.emplace_back("--bind-address");login_args.emplace_back("127.0.0.1");}
-        procs.back()->spawn_with_args("", login_args);
+        procs.back()->spawn_with_args("", login_args,cli.exercise_combat?
+            std::filesystem::path(cli.combat_log).parent_path()/"login.log":std::filesystem::path{});
 
         // AgentServer
         procs.push_back(std::make_unique<ServerProc>());
@@ -540,7 +583,8 @@ int run_e2e(const CliArgs& cli) {
         }
         if (cli.use_hsel) agent_args.emplace_back("--use-hsel");
         if(cli.exercise_combat){agent_args.emplace_back("--bind-address");agent_args.emplace_back("127.0.0.1");}
-        procs.back()->spawn_with_args("", agent_args);
+        procs.back()->spawn_with_args("", agent_args,cli.exercise_combat?
+            std::filesystem::path(cli.combat_log).parent_path()/"agent.log":std::filesystem::path{});
 
         // MapServer
         procs.push_back(std::make_unique<ServerProc>());
@@ -562,7 +606,8 @@ int run_e2e(const CliArgs& cli) {
         // not terminate an HSEL handshake; keep client-facing HSEL isolated
         // to Login/Agent connections.
         if(cli.exercise_combat){map_args.emplace_back("--bind-address");map_args.emplace_back("127.0.0.1");}
-        procs.back()->spawn_with_args("", map_args);
+        procs.back()->spawn_with_args("", map_args,cli.exercise_combat?
+            std::filesystem::path(cli.combat_log).parent_path()/"map.log":std::filesystem::path{});
 
         if (cli.exercise_mapchange) {
             procs.push_back(std::make_unique<ServerProc>());
@@ -1180,7 +1225,8 @@ int main(int argc, char** argv) {
         int result=2;
         try {result=run_e2e(cli);}catch(const std::exception& e){LOG("FAIL: exception: %s",e.what());}
         std::ofstream(result_path)<<"{\"passed\":"<<(result==0?"true":"false")
-            <<",\"exitCode\":"<<result<<",\"visualAcceptance\":false,\"log\":\"client.log\",\"database\":\"moxian.db\"}\n";
+            <<",\"exitCode\":"<<result<<",\"visualAcceptance\":false,\"log\":\"client.log\","
+            <<"\"serverLogs\":[\"login.log\",\"agent.log\",\"map.log\"],\"database\":\"moxian.db\"}\n";
         return result;
 #endif
     }
