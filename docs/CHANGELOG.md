@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Independent NPC ground measurement candidate (2026-10-02)
+
+- Added `modern/tools/npc_acceptance` outside Unity Assets: explicit reviewed-floor queries exclude self/dynamic colliders and named ceiling/wall exclusions, distinguish multi-mesh AABB from optional anatomical markers, and keep misses invalid. CSV summary validation passes five cloud tests; helper compilation and two Unity physics tests remain pending in the existing ROG acceptance project. No game or vendor changes.
+
 ### Map17 protocol pickup probe candidate (2026-10-01)
 
 - Replace the E2E tool's direct attack call with public projection/click targeting in an isolated Map17 combat mode. Require source-matched natural loot, the actual client's PickupAck receipt log, exact DBID/count, GameOutAck and read-only SQLite/relogin consistency. SQLite evidence boundary test passes in cloud; full Windows build/live protocol validation pending. See `docs/MAP17_PROTOCOL_PICKUP_PROBE_20261001.md`.
