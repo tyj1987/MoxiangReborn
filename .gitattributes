@@ -11,6 +11,10 @@
 # the 100 MB cap.  All other PlayDH resources (3 369 smaller
 # files, 1 126 MB total) are tracked as plain git blobs.
 
+# Keep every PlayDH byte intact across Windows checkouts. The four LFS
+# archives retain their specific filter rules below.
+modern/data/PlayDH/** -text
+
 modern/data/PlayDH/Map.pak filter=lfs diff=lfs merge=lfs -text
 modern/data/PlayDH/Character.pak filter=lfs diff=lfs merge=lfs -text
 modern/data/PlayDH/Effect.pak filter=lfs diff=lfs merge=lfs -text
