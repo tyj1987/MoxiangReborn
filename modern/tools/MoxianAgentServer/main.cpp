@@ -25,6 +25,7 @@
 #include "mxh/server/server.hpp"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/net/net.hpp"
+#include "mxh/net/packet_trace.hpp"
 
 #include <atomic>
 #include <charconv>
@@ -237,9 +238,13 @@ public:
     void on_message(mxh::net::ConnectionId id,
                     const mxh::net::Message& msg) override {
         auto cat = static_cast<mxh::proto::Category>(msg.header.category);
-        std::cout << "[MapClient] recv cat=" << mxh::proto::category_name(cat)
-                  << " proto=" << (int)msg.header.protocol
-                  << " obj=" << msg.header.object_id << "\n";
+        if (mxh::net::packet_trace_enabled() ||
+            msg.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInAck)) {
+            std::cout << "[MapClient] recv cat=" << mxh::proto::category_name(cat)
+                      << " proto=" << (int)msg.header.protocol
+                      << " obj=" << msg.header.object_id << "\n";
+        }
         // Forward MapServer response to AgentHandler for client routing.
         agent_.forward_from_map(id, msg);
     }

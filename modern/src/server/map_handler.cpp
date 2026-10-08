@@ -20,6 +20,7 @@
 //   [2B length LE] [8B MSGBASE: checksum+code+cat+proto+objID] [payload]
 
 #include "mxh/server/server.hpp"
+#include "mxh/net/packet_trace.hpp"
 #include "mxh/server/live_events.hpp"
 #include "mxh/server/distributer.hpp"
 #include "mxh/server/quest_runtime_adapter.hpp"
@@ -3303,9 +3304,11 @@ void MapHandler::spawn_monsters() {
             }
             monsters_.push_back(m);
             ++spawned_count;
-            std::cout << "[Map] ai_spawn monster id=" << m.object_id
-                      << " kind=" << m.monster_kind
-                      << " at (" << m.pos_x << "," << m.pos_z << ")\n";
+            if (mxh::net::packet_trace_enabled()) {
+                std::cout << "[Map] ai_spawn monster id=" << m.object_id
+                          << " kind=" << m.monster_kind
+                          << " at (" << m.pos_x << "," << m.pos_z << ")\n";
+            }
         }
         std::cout << "[Map] spawned " << spawned_count
                   << " monsters from ai_group_list" << std::endl;
@@ -3378,9 +3381,11 @@ void MapHandler::spawn_monsters() {
         m.drop_item_ratio = tmpl->DropItemRatio;
 
         monsters_.push_back(m);
-        std::cout << "[Map] spawned monster id=" << m.object_id
-                  << " name='" << m.name << "' kind=" << m.monster_kind
-                  << " at (" << m.pos_x << "," << m.pos_z << ")\n";
+        if (mxh::net::packet_trace_enabled()) {
+            std::cout << "[Map] spawned monster id=" << m.object_id
+                      << " name='" << m.name << "' kind=" << m.monster_kind
+                      << " at (" << m.pos_x << "," << m.pos_z << ")\n";
+        }
     }
 }
 
@@ -3442,9 +3447,11 @@ void MapHandler::send_monster_add(std::uint32_t player_id,
     m.payload[off] = 1;
 
     if (reply_) {
-        std::cout << "[Map] reply MonsterAdd oid=" << monster.object_id
-                  << " kind=" << monster.monster_kind
-                  << " conn=" << target.value << "\n";
+        if (mxh::net::packet_trace_enabled()) {
+            std::cout << "[Map] reply MonsterAdd oid=" << monster.object_id
+                      << " kind=" << monster.monster_kind
+                      << " conn=" << target.value << "\n";
+        }
         reply_(target, m);
     }
 }

@@ -5,6 +5,7 @@
 // Moxian server demo; production should switch to IOCP/io_uring.
 
 #include "mxh/net/net.hpp"
+#include "mxh/net/packet_trace.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -324,7 +325,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                                      buffer.begin() + n);
 
                     // Debug: log raw received bytes
-                    if (impl_->cfg.use_legacy_framing) {
+                    if (impl_->cfg.use_legacy_framing && packet_trace_enabled()) {
                         std::cerr << "[net] recv " << n << " bytes, carryover=" << carryover.size() << " hex:";
                         for (int i = 0; i < n && i < 64; ++i)
                             fprintf(stderr, " %02x", buffer[i]);
@@ -563,7 +564,7 @@ NetError TcpServer::send(ConnectionId id, const Message& msg) {
     if (c->encryptor) c->encryptor->encrypt(msg_body);
 
     // Debug: log raw send bytes
-    if (impl_->cfg.use_legacy_framing) {
+    if (impl_->cfg.use_legacy_framing && packet_trace_enabled()) {
         std::cerr << "[net] send msg_body size=" << msg_body.size() << " hex:";
         for (std::size_t i = 0; i < msg_body.size() && i < 64; ++i)
             fprintf(stderr, " %02x", msg_body[i]);
@@ -578,10 +579,12 @@ NetError TcpServer::send(ConnectionId id, const Message& msg) {
         out[0] = static_cast<std::uint8_t>(len & 0xFF);
         out[1] = static_cast<std::uint8_t>((len >> 8) & 0xFF);
         std::memcpy(out.data() + 2, msg_body.data(), msg_body.size());
-        std::cerr << "[net] send wire size=" << out.size() << " hex:";
-        for (std::size_t i = 0; i < out.size() && i < 64; ++i)
-            fprintf(stderr, " %02x", out[i]);
-        fprintf(stderr, "\n");
+        if (packet_trace_enabled()) {
+            std::cerr << "[net] send wire size=" << out.size() << " hex:";
+            for (std::size_t i = 0; i < out.size() && i < 64; ++i)
+                fprintf(stderr, " %02x", out[i]);
+            fprintf(stderr, "\n");
+        }
     } else {
         out = std::move(msg_body);
     }

@@ -22,12 +22,21 @@
 //     hsel_stream_test.cpp + aes_gcm_test.cpp.
 
 #include "mxh/net/net.hpp"
+#include "mxh/net/packet_trace.hpp"
 
 #include <gtest/gtest.h>
 
 #include <type_traits>
+#include <cstdlib>
+#include <string_view>
 
 namespace mxh::net::test {
+
+TEST(PacketTraceTest, RequiresExplicitOneInThisProcess) {
+    const char* setting = std::getenv("MXH_PACKET_TRACE");
+    const bool expected = setting != nullptr && std::string_view(setting) == "1";
+    EXPECT_EQ(packet_trace_enabled(), expected);
+}
 
 // ===========================================================================
 // MsgHeader wire format

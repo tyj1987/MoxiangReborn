@@ -24,6 +24,7 @@
 //   - CharacterAdd/ObjectRemove forwarded to other players
 
 #include "mxh/server/server.hpp"
+#include "mxh/net/packet_trace.hpp"
 
 #include <array>
 #include <cstring>
@@ -972,9 +973,11 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
                 ++routed;
             }
         }
-        std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
-                  << " sender=" << sender_char_id
-                  << " routed=" << routed << "\n";
+        if (mxh::net::packet_trace_enabled()) {
+            std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
+                      << " sender=" << sender_char_id
+                      << " routed=" << routed << "\n";
+        }
         return;
     }
 
@@ -992,9 +995,11 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
                 reply_(mxh::net::ConnectionId{conn_val}, msg);
                 ++routed;
             }
-            std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
-                      << " proto=" << static_cast<int>(proto)
-                      << " routed=" << routed << "\n";
+            if (mxh::net::packet_trace_enabled()) {
+                std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
+                          << " proto=" << static_cast<int>(proto)
+                          << " routed=" << routed << "\n";
+            }
             return;
         }
         if (proto == mxh::proto::UserConnProtocol::ObjectRemove) {
@@ -1005,7 +1010,9 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
                 reply_(mxh::net::ConnectionId{conn_val}, msg);
                 ++routed;
             }
-            std::cout << "[Agent] broadcast ObjectRemove routed=" << routed << "\n";
+            if (mxh::net::packet_trace_enabled()) {
+                std::cout << "[Agent] broadcast ObjectRemove routed=" << routed << "\n";
+            }
             return;
         }
     }
