@@ -202,6 +202,15 @@ add_executable(mxh_ui_tests
     cskillpointredist_test.cpp
 )
 
+add_executable(mxh_dialog_atlas_tests cDialogLoader_atlas_test.cpp)
+target_link_libraries(mxh_dialog_atlas_tests PRIVATE
+    mxh_ui mxh_compat mxh_log gtest_main)
+target_include_directories(mxh_dialog_atlas_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(mxh_dialog_atlas_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME mxh_dialog_atlas_contract COMMAND mxh_dialog_atlas_tests)
+
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat mxh_log gtest_main)
 
 # cResourceManager_test uses its own small hand-written runner.  Keeping it in

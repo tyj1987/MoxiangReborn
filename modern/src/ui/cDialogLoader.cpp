@@ -95,16 +95,20 @@ std::vector<std::unique_ptr<cImage>> g_cimage_owners;
 // same cImage for the same image_idx+rect.
 struct ImageKey {
     PathFileType type = PathFileType::HardPath;
+    bool direct_atlas = false;
     std::int32_t idx = 0;
     std::int32_t l = 0, t = 0, r = 0, b = 0;
     bool operator==(const ImageKey& o) const noexcept {
-        return type == o.type && idx == o.idx && l == o.l && t == o.t &&
+        return type == o.type && direct_atlas == o.direct_atlas &&
+               idx == o.idx && l == o.l && t == o.t &&
                r == o.r && b == o.b;
     }
 };
 struct ImageKeyHash {
     std::size_t operator()(const ImageKey& k) const noexcept {
         std::size_t h = static_cast<std::size_t>(k.type);
+        h ^= static_cast<std::size_t>(k.direct_atlas) + 0x9e3779b9u +
+             (h << 6) + (h >> 2);
         h ^= static_cast<std::size_t>(k.idx) + 0x9e3779b9u + (h << 6) + (h >> 2);
         h ^= static_cast<std::size_t>(k.l) + 0x9e3779b9u + (h << 6) + (h >> 2);
         h ^= static_cast<std::size_t>(k.t) + 0x9e3779b9u + (h << 6) + (h >> 2);
@@ -239,20 +243,16 @@ namespace {
 // M-R4.3 helper: 跨表查 1 张老 .tif 装 cImage. 命中 cimages_owners vector.
 // 失败 (hook 未注册 / image_idx < 0 / rect 缺失 / 跨表查 miss) 返 nullptr.
 // M-R4.1 root basicImage + M-R4.3 children 9 类图都用这个.
-cImage* loadImageForPathIndex(std::int32_t image_idx, PathFileType path_type,
-                               const ImageRect& rect) {
-    if (!g_loadSprite || image_idx < 0) {
+cImage* loadImageFromAtlas(std::int32_t atlas_idx, const ImageRect& rect,
+                           const ImageKey& key) {
+    if (!g_loadSprite || atlas_idx < 0) {
         return nullptr;
     }
     const auto& ir = rect;
-    const ImageKey key{path_type, image_idx, ir.left, ir.top, ir.right, ir.bottom};
     if (auto it = g_cimage_cache.find(key); it != g_cimage_cache.end()) {
         return it->second;
     }
-    const auto hp = cResourceManager::getInstance().getHardPath(
-        image_idx, path_type);
-    if (!hp.has_value()) return nullptr;
-    const auto info = cSpriteAtlas::getInstance().getInfo(hp->atlas_idx);
+    const auto info = cSpriteAtlas::getInstance().getInfo(atlas_idx);
     if (!info.has_value()) return nullptr;
     const auto tif_abs = cSpriteAtlas::getInstance().resolvePath(*info);
     if (!std::filesystem::exists(tif_abs)) return nullptr;
@@ -275,10 +275,25 @@ cImage* loadImageForPathIndex(std::int32_t image_idx, PathFileType path_type,
     return out;
 }
 
+cImage* loadImageForPathIndex(std::int32_t image_idx, PathFileType path_type,
+                               const ImageRect& rect) {
+    if (image_idx < 0) return nullptr;
+    const auto hp = cResourceManager::getInstance().getHardPath(
+        image_idx, path_type);
+    if (!hp.has_value()) return nullptr;
+    const ImageKey key{path_type, false, image_idx,
+                       rect.left, rect.top, rect.right, rect.bottom};
+    return loadImageFromAtlas(hp->atlas_idx, rect, key);
+}
+
 cImage* loadImageForImageIdx(std::int32_t image_idx,
                               const std::optional<mxh::ui::ImageRect>& rect) {
     if (!rect.has_value()) return nullptr;
-    return loadImageForPathIndex(image_idx, PathFileType::HardPath, *rect);
+    // InterfaceScript image tuples contain a direct image_path.bin atlas
+    // index plus a source rect. They are not image_hard_path.bin icon IDs.
+    const ImageKey key{PathFileType::HardPath, true, image_idx,
+                       rect->left, rect->top, rect->right, rect->bottom};
+    return loadImageFromAtlas(image_idx, *rect, key);
 }
 
 } // namespace
@@ -287,7 +302,7 @@ cImage* cDialogLoader::LoadLegacyImage(std::int32_t hard_idx) {
     const auto hard_path = cResourceManager::getInstance().getHardPath(
         hard_idx, PathFileType::HardPath);
     if (!hard_path) return nullptr;
-    return loadImageForImageIdx(hard_idx, ImageRect{
+    return loadImageForPathIndex(hard_idx, PathFileType::HardPath, ImageRect{
         hard_path->left, hard_path->top, hard_path->right, hard_path->bottom});
 }
 

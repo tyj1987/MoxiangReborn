@@ -124,11 +124,18 @@ void cWindow::Render() {
         // legacy API and the modern framework.  See Phase 6.0 notes on
         // cWindow.hpp for the contract.
         auto* img = static_cast<cImage*>(m_basicImage);
-        img->render(m_absX, m_absY,
-                    static_cast<std::int32_t>(m_w),
-                    static_cast<std::int32_t>(m_h),
-                    0xFFFFFFFFu,
-                    /*zOrder=*/0);
+        // In the original cWindow::Render, the window bounds are for input
+        // and layout; cImage::RenderSprite draws its source rectangle at its
+        // natural size (times the image scale).  Stretching the sprite to
+        // the window bounds turns 15.bin's 14x42 main-bar end cap into a
+        // 602x42 striped panel.
+        const auto& source = img->srcImageRect();
+        const auto image_width = source.isEmpty()
+            ? static_cast<std::int32_t>(m_w) : source.right - source.left;
+        const auto image_height = source.isEmpty()
+            ? static_cast<std::int32_t>(m_h) : source.bottom - source.top;
+        img->render(m_absX, m_absY, image_width, image_height,
+                    0xFFFFFFFFu, /*zOrder=*/0);
     }
 
     // Recurse into children.  The legacy engine drew children in the
