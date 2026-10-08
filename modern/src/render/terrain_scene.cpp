@@ -267,13 +267,12 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
                                 uvs.push_back(rotatedUv(u, v, rotation));
                             }
                             auto& indices = groups[textureIndex];
-                            // DX11's FrontCounterClockwise state evaluates the
-                            // projected winding, which is reversed by the
-                            // left-handed X/Z ground basis.  Emit the upward
-                            // normal first so steep Map21 faces are not
-                            // discarded as backfaces.
-                            indices.insert(indices.end(), {base, static_cast<std::uint16_t>(base+2), static_cast<std::uint16_t>(base+1),
-                                                           base, static_cast<std::uint16_t>(base+3), static_cast<std::uint16_t>(base+2)});
+                            // Under the DX11 rasterizer's CCW-front state, the
+                            // follow camera sees this X/Z ordering. Reversing
+                            // it culls every Map 10 ground tile even though
+                            // all referenced DDS textures load successfully.
+                            indices.insert(indices.end(), {base, static_cast<std::uint16_t>(base+1), static_cast<std::uint16_t>(base+2),
+                                                           base, static_cast<std::uint16_t>(base+2), static_cast<std::uint16_t>(base+3)});
                         }
                     }
                 }
