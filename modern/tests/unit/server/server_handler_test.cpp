@@ -97,6 +97,48 @@ public:
     std::atomic<int> query_count{0};
 };
 
+class CharacterCreateDb final : public mxh::db::IDbAdapter {
+public:
+    mxh::db::DbResult connect(const mxh::db::ConnectionConfig&) override { return {}; }
+    void disconnect() override {}
+    bool is_connected() const noexcept override { return true; }
+    mxh::db::DbResult query(std::string_view, std::span<const mxh::db::Bind>,
+                            mxh::db::ResultSet& out) override {
+        out = {};
+        return {};
+    }
+    mxh::db::DbResult execute(std::string_view sql,
+                               std::span<const mxh::db::Bind> params) override {
+        if (sql.find("INSERT INTO character_info") != std::string_view::npos) {
+            ++character_inserts;
+        } else if (sql.find("INSERT INTO modern_character_equipment") !=
+                   std::string_view::npos) {
+            ++equipment_inserts;
+            if (sql.find("updated_at") == std::string_view::npos ||
+                sql.find("CURRENT_TIMESTAMP") == std::string_view::npos ||
+                params.size() != 3) {
+                return {mxh::db::DbError::ConstraintViolation,
+                        "updated_at is required"};
+            }
+            if (fail_equipment) {
+                return {mxh::db::DbError::ConstraintViolation,
+                        "simulated equipment failure"};
+            }
+        }
+        return {};
+    }
+    mxh::db::DbResult begin_transaction() override { ++begins; return {}; }
+    mxh::db::DbResult commit() override { ++commits; return {}; }
+    mxh::db::DbResult rollback() override { ++rollbacks; return {}; }
+    std::string backend_name() const noexcept override { return "test"; }
+    bool fail_equipment = false;
+    int character_inserts = 0;
+    int equipment_inserts = 0;
+    int begins = 0;
+    int commits = 0;
+    int rollbacks = 0;
+};
+
 // Helper: a ReplyFn-compatible spy that counts calls.
 struct ReplySpy {
     std::atomic<int> call_count{0};
@@ -112,6 +154,58 @@ inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
         spy.last_message = message;
         spy.messages.push_back(message);
     };
+}
+
+mxh::net::Message character_make_with_default_clothes() {
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    msg.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterMakeSyn);
+    msg.payload.resize(59, 0);
+    const char name[] = "MoxSuit";
+    std::memcpy(msg.payload.data(), name, sizeof(name));
+    const std::uint32_t user_id = 42;
+    std::memcpy(msg.payload.data() + 17, &user_id, sizeof(user_id));
+    const std::uint16_t cloth = 23000;
+    const std::uint16_t boot = 27000;
+    std::memcpy(msg.payload.data() + 30 + 2 * 2, &cloth, sizeof(cloth));
+    std::memcpy(msg.payload.data() + 30 + 3 * 2, &boot, sizeof(boot));
+    msg.payload[25] = 17;
+    return msg;
+}
+
+TEST(AgentCharacterCreateTest, PersistsDefaultClothesBeforeAcknowledging) {
+    CharacterCreateDb db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    handler.on_message(mxh::net::make_connection_id(9001),
+                       character_make_with_default_clothes());
+    EXPECT_EQ(db.begins, 1);
+    EXPECT_EQ(db.character_inserts, 1);
+    EXPECT_EQ(db.equipment_inserts, 2);
+    EXPECT_EQ(db.commits, 1);
+    EXPECT_EQ(db.rollbacks, 0);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_NE(reply.last_message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterMakeNack));
+}
+
+TEST(AgentCharacterCreateTest, EquipmentFailureRollsBackAndRejectsCreation) {
+    CharacterCreateDb db;
+    db.fail_equipment = true;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    handler.on_message(mxh::net::make_connection_id(9002),
+                       character_make_with_default_clothes());
+    EXPECT_EQ(db.begins, 1);
+    EXPECT_EQ(db.character_inserts, 1);
+    EXPECT_EQ(db.equipment_inserts, 1);
+    EXPECT_EQ(db.commits, 0);
+    EXPECT_EQ(db.rollbacks, 1);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterMakeNack));
 }
 
 // ===========================================================================

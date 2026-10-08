@@ -1581,6 +1581,17 @@ void AgentHandler::handle_legacy_character_make(
         mxh::db::bind(static_cast<std::int64_t>(default_map_num_)),
         mxh::db::bind(static_cast<std::int64_t>(standing_idx))
     };
+    if (!db_.begin_transaction().ok()) {
+        std::cerr << "[Agent] CreateCharacter DB transaction start failed\n";
+        mxh::net::Message m;
+        m.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        m.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterMakeNack);
+        reply_(id, m);
+        return;
+    }
+
     auto result = db_.execute(
         "INSERT INTO character_info "
         "(chrid, charname, userid, sex_type, hair_type, face_type, "
@@ -1591,6 +1602,7 @@ void AgentHandler::handle_legacy_character_make(
     if (!result.ok()) {
         std::cerr << "[Agent] CreateCharacter DB error: "
                   << result.error_message << "\n";
+        (void)db_.rollback();
         mxh::net::Message m;
         m.header.category = static_cast<std::uint8_t>(
             mxh::proto::Category::UserConn);
@@ -1602,10 +1614,34 @@ void AgentHandler::handle_legacy_character_make(
 
     for (std::size_t slot = 0; slot < weared_item_idx.size(); ++slot) {
         if (weared_item_idx[slot] == 0) continue;
-        (void)db_.execute(
-            "INSERT INTO modern_character_equipment(chrid,slot,item_idx) VALUES(?,?,?)",
+        const auto equipment_result = db_.execute(
+            "INSERT INTO modern_character_equipment(chrid,slot,item_idx,updated_at) "
+            "VALUES(?,?,?,CURRENT_TIMESTAMP)",
             {mxh::db::bind(chrid), mxh::db::bind(static_cast<std::int64_t>(slot)),
              mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
+        if (!equipment_result.ok()) {
+            std::cerr << "[Agent] CreateCharacter equipment DB error: "
+                      << equipment_result.error_message << "\n";
+            (void)db_.rollback();
+            mxh::net::Message m;
+            m.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            m.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::CharacterMakeNack);
+            reply_(id, m);
+            return;
+        }
+    }
+    if (!db_.commit().ok()) {
+        std::cerr << "[Agent] CreateCharacter DB commit failed\n";
+        (void)db_.rollback();
+        mxh::net::Message m;
+        m.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        m.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterMakeNack);
+        reply_(id, m);
+        return;
     }
 
     std::cout << "[Agent] Created character '" << name << "' chrid=" << chrid
