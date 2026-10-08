@@ -35,6 +35,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 
+PLAYDH_ROOT = Path(__file__).resolve().parents[1] / "data" / "PlayDH"
+
+
 # ---------------------------------------------------------------------------
 # Legacy CMHFile algorithm (re-implemented verbatim from
 #   墨香【源码】\[Server]Map\MHFile.cpp
@@ -304,7 +307,7 @@ def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--root",
-        default=r"C:\moxiang\modern\data\PlayDH\Resource\Map",
+        default=str(PLAYDH_ROOT / "Resource" / "Map"),
         help="Directory to scan for resources.",
     )
     parser.add_argument(
@@ -319,7 +322,7 @@ def main(argv: List[str]) -> int:
     files = sorted(p for p in root.rglob(f"*{args.ext}") if p.is_file())
     if args.ext == ".bsad":
         files = [
-            p for p in Path(r"C:\moxiang\modern\data\PlayDH").rglob("*.bsad")
+            p for p in PLAYDH_ROOT.rglob("*.bsad")
         ]
     if args.limit:
         files = files[: args.limit]
