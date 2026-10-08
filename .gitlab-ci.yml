@@ -1,0 +1,77 @@
+stages:
+  - verify
+  - resources
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009" && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009" && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
+    - when: never
+
+variables:
+  # Only resource jobs request LFS payloads during the Runner checkout.
+  GIT_LFS_SKIP_SMUDGE: "1"
+
+.linux_trusted:
+  image: python:3.12-alpine3.22@sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322
+  tags:
+    - docker
+    - linux
+    - trusted
+
+original_governance_and_python_tests:
+  extends: .linux_trusted
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+  script:
+    - python3 --version
+    - python3 scripts/check-project-governance.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
+
+original_lfs_integrity:
+  extends: .linux_trusted
+  stage: resources
+  variables:
+    # Runner helper fetches LFS using its job credentials and trusted CA.
+    GIT_LFS_SKIP_SMUDGE: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+  script:
+    - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
+
+unity_governance_and_python_tests:
+  extends: .linux_trusted
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
+  script:
+    - python3 --version
+    - python3 scripts/check-project-governance.py
+    - python3 -B -m unittest discover -s modern/tests/unit/tools -p test_unity_resource_audit.py
+    - python3 -B -m unittest discover -s modern/tests/unit/tools -p test_unity_terrain_palette.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
+
+unity_lfs_and_source_integrity:
+  extends: .linux_trusted
+  stage: resources
+  variables:
+    # Runner helper fetches LFS using its job credentials and trusted CA.
+    GIT_LFS_SKIP_SMUDGE: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
+  script:
+    - python3 scripts/verify-resource-profile.py unity/dependencies/effekseer-1.80.7.files.json --root unity/MoxiangClient/Assets/Effekseer --profile-id effekseer-1.80.7 --full --exact
+    - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
+    - python3 modern/tools/unity_resource_audit.py verify-source unity/baselines/playdh-current.json.gz modern/data/PlayDH --additional-root recovered-map=unity/source-overlays/unity-remaster-v1/recovered-originals/PlayDH

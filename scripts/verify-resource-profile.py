@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import stat
 import sys
 from pathlib import Path
 
@@ -27,12 +29,39 @@ def digest(path: Path) -> str:
     return hasher.hexdigest()
 
 
+def verify_exact_file_set(root: Path, entries: list[dict]) -> int:
+    """Reject unlisted resources and directory links without traversing them."""
+    expected = [entry.get("path") for entry in entries]
+    if any(not isinstance(path, str) or not path for path in expected):
+        raise ValueError("manifest contains an invalid resource path")
+    if len(set(expected)) != len(expected):
+        raise ValueError("manifest contains duplicate resource paths")
+    actual: set[str] = set()
+    def fail_walk(error: OSError) -> None:
+        raise error
+    for directory, dirs, files in os.walk(root, followlinks=False, onerror=fail_walk):
+        for name in dirs + files:
+            path = Path(directory) / name
+            info = path.lstat()
+            if path.is_symlink() or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                raise ValueError(f"linked resource path is not an exact baseline: {path.relative_to(root)}")
+        for name in files:
+            actual.add((Path(directory) / name).relative_to(root).as_posix())
+    wanted = set(expected)
+    extra = sorted(actual - wanted)
+    missing = sorted(wanted - actual)
+    if extra or missing:
+        raise ValueError(f"resource file set mismatch: extra={extra[:8]}, missing={missing[:8]}")
+    return len(actual)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--root", type=Path)
     parser.add_argument("--profile-id", required=True)
     parser.add_argument("--full", action="store_true", help="hash every manifest entry")
+    parser.add_argument("--exact", action="store_true", help="also reject unlisted files and links")
     parser.add_argument("--path", action="append", default=[], help="verify only this path (repeatable)")
     args = parser.parse_args()
 
@@ -48,6 +77,8 @@ def main() -> int:
         entries = document.get("files")
         if not isinstance(entries, list):
             raise ValueError("manifest files must be an array")
+        if args.exact:
+            verify_exact_file_set(root, entries)
         selected = set(args.path)
         checked = 0
         total_bytes = 0
@@ -83,7 +114,8 @@ def main() -> int:
                     raise ValueError(f"required resource invalid: {relative}")
             checked = len(required)
         print(json.dumps({"profileId": args.profile_id, "checked": checked,
-                          "bytes": total_bytes, "fullHash": bool(args.full or selected)},
+                          "bytes": total_bytes, "fullHash": bool(args.full or selected),
+                          "exactFileSet": bool(args.exact)},
                          ensure_ascii=False))
         return 0
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:

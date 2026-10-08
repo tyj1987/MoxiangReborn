@@ -1,33 +1,31 @@
-# Moxian modern roadmap
+# Moxiang 开发路线图
 
-## Current truth
+更新于 2026-10-09。优先原版 modern DX11 可玩闭环；Unity 独立保留。[当前重整状态](docs/REORGANIZATION_STATUS.md) 记录本轮事实，[可玩状态](docs/PLAYABLE_STATUS.md) 和 [验收矩阵](docs/VERIFICATION_MATRIX.md) 记录玩法细项。旧通过记录必须重新绑定提交、资源摘要和运行证据。
 
-The project is in the vertical-slice integration stage, not final polish. Protocol and server foundations, resource parsers, partial DX11 rendering and several UI trees exist, but the complete player-visible chain is not yet release-ready.
+| 阶段 | 工作 | 完成条件 |
+| --- | --- | --- |
+| A 保全校准 | WIP、分支、资产、数据库去向表；远端恢复验证；文档与绑定校准 | 独有成果可恢复，删除对象逐项可证 |
+| B 工程基线 | 分批吸收 runtime 与候选修复；头文件校准；移除 scratch 依赖 | 两线独立干净构建与相关测试通过 |
+| C PVE 环境 | CT105 原件保全及副本恢复；VM112 三服；独立数据库与契约 | 登录、三服交接、一致性与业务持久化实际通过 |
+| D 原版首个可玩版本 | 启动器→登录→建选角→Map10→移动/NPC/任务→战斗→自然掉落→点击拾取→装备→切图→重登 | GUI、权威事件与数据库结果一致 |
+| E 原版完整覆盖 | 全地图、动作、技能、物品、交易、聊天、公会、Boss、MurimNet、商城、异常流程 | 逐项闭合功能、资源字节、解析、数值、地图语义及视听对照 |
+| F Unity 完整可用 | 冷导入、画面、动作、拾取；原创及合格公开资源；同等玩法 | Editor、独立 Player 及重制美术验收通过 |
+| G 交付与最终清理 | 干净恢复、更新回滚、性能、双客户端、故障恢复、24 小时运行 | 两线可独立恢复启动；清理后重建；分支与删除清单闭合 |
 
-Authoritative status is maintained in:
+## 分线与环境
 
-`README.md → ROADMAP.md → docs/PLAYABLE_STATUS.md / docs/KNOWN_BUGS.md / docs/VERIFICATION_MATRIX.md`
+长期分支终态为 main（原版及共享服务）和 codex/unity-client-remaster（Unity）。main 先吸收 runtime；旧 main 的构建修复和三个原始源码取消跟踪变更单独核对。PR #1 分批吸收；共享修复带测试分别进入两线，Unity 专属修改只进入重制线。original-assets-foundation 四个独有提交及全部原创成果先保全。独有内容有去处、两线验收和远端恢复通过后才删除旧分支；历史提交不重写。
 
-## Execution order
+独立工作树、构建、输出、日志、配置和可写数据库。原版保持 playdh-current；Unity 派生资源不得回写。VM112 原版端口 16001/17001/18001，Unity 26101/27101/28101；VM100 暂作对照。数据库测试均在 PVE，失败不回退本机数据库。部署记录三服版本、资源摘要和 writer contract，不兼容拒绝启动；入口必须明确远端主机和模式。
 
-1. Protect recovered source and resource provenance; remove hidden scratch dependencies.
-2. Normalize Git, build outputs, secrets, scripts and current documentation.
-3. Introduce explicit resource profiles and client settings/display infrastructure.
-4. Complete launcher → login → LoginAck → display transition.
-5. Complete character select/create previews and real GameLoading/MapChange.
-6. Complete Map10 with real terrain, entities, UI, interaction, combat, effects and audio.
-7. Expand all active UI, maps, entities, skills, audio and player-visible systems.
-8. Run legacy comparison, clean-machine deployment, fault injection and long soak.
+不改原始协议参考头、CommonStruct.h、玩法公式及 HSEL/HackShield/nProtect 既有接口签名。
 
-## Non-negotiable constraints
+## 资源与清理
 
-- Do not modify `[CC]Header/Protocol.h` or `CommonStruct.h`.
-- Do not change resource bytes, gameplay formulas or HSEL/HackShield/nProtect signatures.
-- `playdh-current` is the only normal runtime profile.
-- The recovered 2008 SWorking material is read-only reference data.
-- Release evidence must include real human input; `--auto-*` is never a release gate.
-- A parser or unit-test pass is not a visual or playable pass.
+资源顺序：已有原创成果 → 合适的免费商用公开资源 → 补充原生创作。保留武馆、刀剑枪、可编辑源文件及工具。优先筛选 Poly Haven、ambientCG、Kenney，逐包记录来源、作者、版本、许可证、哈希、修改及署名要求；商用许可和公开裸资源再分发许可分别核查。原游戏资源仍遵守 NOTICE。
 
-## Completion gate
+覆盖登记的 19 个项目和 C/D 兼容入口；Junction 只算入口。可再生或完全重复内容确认无占用后直接永久删除。闲置源码须验证提交、独有分支、LFS、子模块、二进制、忽略文件及必要配置可恢复；唯一资产、数据库、凭据、现用工具和 AI 环境保留。
 
-The roadmap is complete only when a clean-machine user can update, log in, transition from 800×600 to the saved 1024×768 default, select/create a fully rendered character, load Map10, interact with UI/NPCs, fight, use skills, see/hear effects, pick up and equip items, change maps, recover from faults and relog with persisted state. Full-resource and full-map coverage must be recorded in `docs/VERIFICATION_MATRIX.md`.
+删除账本记录绝对路径、实际物理目标、大小、类型、独有内容去向、恢复证据和结果；执行前复核变化。以实际释放量报告，不以目录占用估算。清理后重新构建运行两线。
+
+自动测试、探针和截图不代替真实 GUI 全链操作；通过、失败、跳过、未运行分别记录。完整交付还须双客户端、断线重连、服务重启、数据库失败恢复和 24 小时稳定性证据。
