@@ -10,31 +10,24 @@
 |---|---|
 | 客户端构建存在 | `modern\build\tools\MoxianClient\mxh_client.exe` |
 | 启动器构建存在 | `modern\build\tools\MoxianLauncher\MoxianLauncher.exe` |
-| 数据库工具存在 | `modern\build\tools\MoxianDbTool\mxh_db_tool.exe` |
-| 服务端 3 个进程就绪 | `mxh_login_server.exe` / `mxh_agent_server_CHINA.exe` / `mxh_map_server_CHINA.exe` |
+| PVE 三服与数据库就绪 | `192.168.2.244` 的 Login `16001`、Agent `17001`、Map `18001`；由 PVE 管理 |
 | 现代 资源 PlayDH 完整 | `modern\data\PlayDH\` (1.56 GB, 4,971 文件) |
 
-任何一项缺失先跑 `scripts\build-modern.bat Debug` 重建。
+客户端或启动器缺失时先构建本机目标；PVE 服务状态须在 PVE 核验。PVE LoginServer 的 `AdvertisedAgentAddress` 必须设为客户端可达的 `192.168.2.244`，否则 LoginAck 会通告默认 loopback 地址。
 
 ## 1. 一键入口（最简单路径）
 
 ```powershell
-cd C:\moxiang
+pwsh -File scripts\run-human-acceptance.ps1 -PlanOnly
 pwsh -File scripts\run-human-acceptance.ps1
 ```
 
 默认行为：
-- 后端 = `sqlite`（首次跑推荐）
-- 地图 = Map10
+- Login = `192.168.2.244:16001`；Agent `17001`；Map `18001`
 - 资源 profile = `playdh-current`
-- 输出到 `modern\out\runs\human\<runId>\` 含 `logs/` + `evidence/`
-- 服务端启起来 → 启动器弹出 → 人工操作 → 按 Enter 收尾
+- 输出到 `modern\out\runs\human\<runId>\evidence\`
+- 启动器弹出 → 人工操作 → 按 Enter 收尾；本机不启动三服或数据库
 - **最少需要 8 张 F12 帧**，否则脚本报"insufficient evidence"并退出 1
-
-如果首次跑想换数据库，把 `scripts\run-human-acceptance.ps1 -SkipServers` 拆开：
-- 服务端启：`deploy\scripts\start_modern.ps1 -Mode start -Backend mssql_odbc -DatabaseConfigEnv MXH_DATABASE_CONFIG`
-- 设 env：`$env:MXH_DATABASE_CONFIG = "backend=mssql_odbc;host=127.0.0.1;port=14333;..."`
-- 入口：`pwsh -File scripts\run-human-acceptance.ps1 -SkipServers`
 
 ## 2. 8 个强制 checkpoint（按这个顺序按 F12）
 
@@ -67,9 +60,9 @@ pwsh -File scripts\run-human-acceptance.ps1
 ## 4. 收尾
 
 回到启动 `run-human-acceptance.ps1` 的 PowerShell 窗口，按 Enter：
-- 脚本会发 stop 给所有 3 个服务进程
-- 写 `run.json` 总结（含每个 F12 帧名 + PIDs + 退出码）
-- exit 0 = 全部 OK；exit 1 = 任何一步失败
+- 脚本只关闭本次识别出的启动器和客户端进程，PVE 三服继续由 PVE 管理
+- 写 `run.json` 总结（含每个 F12 帧名、客户端 PIDs、端点与退出码）
+- exit 0 仅表示证据采集流程完成且达到最少帧数，`run.json` 写入 `acceptanceStatus=evidence_collected_awaiting_review`；8 个 GUI checkpoint、音频与持久化结果仍须人工逐项审阅。exit 1 表示采集流程未完成，`acceptanceStatus=collection_incomplete`。
 
 ## 5. 工具脚本（可单独用）
 
@@ -78,17 +71,16 @@ pwsh -File scripts\run-human-acceptance.ps1
 | `scripts\register-test-account.ps1` | 在跑服务端数据库里建 1 个测试账号 | 想跳过注册直接登录时 |
 | `scripts\capture-state-frames.ps1` | 用 auto-login 跑完整 client 流，抓 state-*.tga | 验证客户端基础设施 OK（无人工） |
 | `scripts\collect-server-logs.ps1` | 收 `deploy\runtime\modern\logs\` + marker 摘要 | 看服务端协议流转 |
-| `scripts\run-human-acceptance.ps1` | 上面 3 个 + 启停服务的总入口 | 每次完整人工验收 |
+| `scripts\run-human-acceptance.ps1` | 仅启动本机 DX11 客户端并记录人工证据 | 每次完整人工验收 |
 
-## 6. 工具链烟测（不开 launcher）
+## 6. 历史本机工具链烟测（不开 launcher）
 
 ```powershell
-cd C:\moxiang
 pwsh -File modern\scratch\2026-08-31-human-acceptance\toolchain-smoke.ps1
 ```
 
 输出 `TOOLCHAIN_SMOKE_PASS` 即：start server → register → collect logs → stop 全通。
-**不验证 client 端**，只验证服务端/数据库基础设施。
+**不验证 client 端**，只验证旧本机服务端/数据库基础设施；不属于本轮 PVE 人工验收路径。
 
 ## 7. 已知会失败的（按 plan 接受为"留 G10/G11"）
 

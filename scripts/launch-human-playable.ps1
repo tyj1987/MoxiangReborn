@@ -1,11 +1,10 @@
 [CmdletBinding()]
 param(
-    [ValidateRange(1, 65535)] [int]$LoginPort = 26101,
-    [ValidateRange(1, 65535)] [int]$AgentPort = 27101,
-    [ValidateRange(1, 65535)] [int]$MapPort = 28101,
-    [ValidateRange(0, 255)] [int]$MapNumber = 10,
-    [ValidateRange(0, 64)] [int]$MinimumEvidenceFrames = 8,
-    [switch]$SkipServers
+    [ValidatePattern('^[A-Za-z0-9.-]+$')] [string]$LoginHost = '192.168.2.244',
+    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
+    [ValidateRange(0, 64)] [int]$MinimumEvidenceFrames = 8
 )
 
 # Compatibility entry point. The former implementation launched the client
@@ -14,7 +13,6 @@ param(
 # hardened launcher-driven acceptance flow.
 $runner = Join-Path $PSScriptRoot 'run-human-acceptance.ps1'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner `
-    -ResourceProfileId playdh-current -LoginPort $LoginPort -AgentPort $AgentPort `
-    -MapPort $MapPort -MapNumber $MapNumber `
-    -MinimumEvidenceFrames $MinimumEvidenceFrames -SkipServers:$SkipServers
+    -ResourceProfileId playdh-current -LoginHost $LoginHost -LoginPort $LoginPort -AgentPort $AgentPort `
+    -MapPort $MapPort -MinimumEvidenceFrames $MinimumEvidenceFrames
 exit $LASTEXITCODE

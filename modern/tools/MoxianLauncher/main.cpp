@@ -30,9 +30,8 @@ struct LauncherSettings {
 };
 
 struct LauncherEndpoints {
-    // Keep the launcher aligned with the standard modern three-service runbook
-    // and the client's own default Login/Map ports. Command-line overrides
-    // remain available for isolated test environments.
+    // Original DX11 client uses the PVE three-service endpoint by default.
+    std::wstring loginHost = L"192.168.2.244";
     int loginPort = 16001;
     int agentPort = 17001;
     int mapPort = 18001;
@@ -692,6 +691,7 @@ private:
             verifiedResourceRoot_ = canonicalRoot;
         }
         std::wstring command = quoteWindowsArg(client.wstring()) + L" --resource-profile playdh-current --login-width 800 --login-height 600 --post-width " + std::to_wstring(settings_.postWidth) + L" --post-height " + std::to_wstring(settings_.postHeight) +
+            L" --login-host " + quoteWindowsArg(endpoints_.loginHost) +
             L" --login-port " + std::to_wstring(endpoints_.loginPort) +
             L" --agent-port " + std::to_wstring(endpoints_.agentPort) +
             L" --map-port " + std::to_wstring(endpoints_.mapPort);
@@ -727,7 +727,17 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         };
         for (int i = 1; i < argc; ++i) {
             const auto name = std::wstring_view(argv[i]);
-            if (name == L"--login-port") { bool valid = false; const auto value = nextValue(i); endpoints.loginPort = value ? parsePort(value->data(), endpoints.loginPort, &valid) : endpoints.loginPort; invalidEndpoint |= !valid; }
+            if (name == L"--login-host") {
+                const auto value = nextValue(i);
+                if (!value || value->empty() || value->size() > 253 ||
+                    !std::all_of(value->begin(), value->end(), [](wchar_t ch) {
+                        return (ch >= L'a' && ch <= L'z') ||
+                               (ch >= L'A' && ch <= L'Z') ||
+                               (ch >= L'0' && ch <= L'9') || ch == L'.' || ch == L'-';
+                    })) invalidEndpoint = true;
+                else endpoints.loginHost = *value;
+            }
+            else if (name == L"--login-port") { bool valid = false; const auto value = nextValue(i); endpoints.loginPort = value ? parsePort(value->data(), endpoints.loginPort, &valid) : endpoints.loginPort; invalidEndpoint |= !valid; }
             else if (name == L"--agent-port") { bool valid = false; const auto value = nextValue(i); endpoints.agentPort = value ? parsePort(value->data(), endpoints.agentPort, &valid) : endpoints.agentPort; invalidEndpoint |= !valid; }
             else if (name == L"--map-port") { bool valid = false; const auto value = nextValue(i); endpoints.mapPort = value ? parsePort(value->data(), endpoints.mapPort, &valid) : endpoints.mapPort; invalidEndpoint |= !valid; }
             else if (name == L"--resource-root") { const auto value = nextValue(i); if (value) resourceRoot = fs::path(*value); else invalidEndpoint = true; }
@@ -738,11 +748,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         LocalFree(argv);
     }
     if (invalidOption) {
-        MessageBoxW(nullptr, L"启动器收到未知参数。请使用受支持的选项：--login-port、--agent-port、--map-port、--resource-root、--evidence-dir、--verify-resources。", L"启动器配置错误", MB_ICONERROR);
+        MessageBoxW(nullptr, L"启动器收到未知参数。请使用受支持的选项：--login-host、--login-port、--agent-port、--map-port、--resource-root、--evidence-dir、--verify-resources。", L"启动器配置错误", MB_ICONERROR);
         return 2;
     }
     if (invalidEndpoint) {
-        MessageBoxW(nullptr, L"服务端口必须是 1 到 65535 之间的整数。", L"启动器配置错误", MB_ICONERROR);
+        MessageBoxW(nullptr, L"登录主机或服务端口无效；主机须为 DNS 名或 IPv4 地址，端口须为 1 到 65535。", L"启动器配置错误", MB_ICONERROR);
         return 2;
     }
     if (endpoints.loginPort == endpoints.agentPort ||

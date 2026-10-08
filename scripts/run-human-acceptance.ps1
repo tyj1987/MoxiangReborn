@@ -2,29 +2,43 @@
 param(
     [ValidateSet('playdh-current')]
     [string]$ResourceProfileId = 'playdh-current',
-    [ValidateRange(1, 65535)] [int]$LoginPort = 26101,
-    [ValidateRange(1, 65535)] [int]$AgentPort = 27101,
-    [ValidateRange(1, 65535)] [int]$MapPort = 28101,
-    [ValidateRange(0, 255)] [int]$MapNumber = 10,
-    [ValidateSet('sqlite', 'mssql_odbc')]
-    [string]$Backend = 'sqlite',
-    [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
-    [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
+    [ValidatePattern('^[A-Za-z0-9.-]+$')] [string]$LoginHost = '192.168.2.244',
+    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
     [ValidateRange(0, 64)] [int]$MinimumEvidenceFrames = 8,
-    [switch]$SkipServers
+    [switch]$PlanOnly
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$resourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
+$launcherEndpointArgs = @('--login-host', $LoginHost, '--login-port', $LoginPort,
+    '--agent-port', $AgentPort, '--map-port', $MapPort, '--resource-root', $resourceRoot)
+if ($LoginPort -eq $AgentPort -or $LoginPort -eq $MapPort -or $AgentPort -eq $MapPort) {
+    throw 'Login, Agent and Map ports must be different.'
+}
+if ($PlanOnly) {
+    [ordered]@{
+        mode = 'client-only'
+        profile = $ResourceProfileId
+        loginHost = $LoginHost
+        loginPort = $LoginPort
+        agentPort = $AgentPort
+        mapPort = $MapPort
+        launcherArguments = $launcherEndpointArgs
+        startsLocalServers = $false
+        needsLocalDatabaseConfig = $false
+        acceptanceStatus = 'not_evaluated'
+    } | ConvertTo-Json -Depth 4
+    return
+}
 $runId = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'),
     ([guid]::NewGuid().ToString('N').Substring(0, 8))
 $runRoot = Join-Path $repoRoot "modern\out\runs\human\$runId"
-$logRoot = Join-Path $runRoot 'logs'
 $evidenceRoot = Join-Path $runRoot 'evidence'
-$null = New-Item -ItemType Directory -Force -Path $logRoot
 $null = New-Item -ItemType Directory -Force -Path $evidenceRoot
 $owned = [System.Collections.Generic.List[object]]::new()
-$serverPids = [System.Collections.Generic.List[int]]::new()
 
 function Resolve-RequiredFile {
     param([string[]]$Candidates)
@@ -58,7 +72,6 @@ function Stop-OwnedProcess {
     }
 }
 
-$resourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
 if (-not (Test-Path -LiteralPath $resourceRoot -PathType Container)) {
     throw "Resource profile root not found: $resourceRoot"
 }
@@ -69,51 +82,20 @@ $launcherExe = Resolve-RequiredFile @(
 $clientExeCandidates = @(
     (Join-Path $repoRoot 'modern\build\tools\MoxianClient\mxh_client.exe'),
     (Join-Path $repoRoot 'modern\build\tools\MoxianClient\Debug\mxh_client.exe'))
-$serverScript = Resolve-RequiredFile @((Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'))
-$stateFile = Join-Path $repoRoot 'deploy\runtime\modern\pids.json'
-$previousState = if (Test-Path -LiteralPath $stateFile -PathType Leaf) {
-    Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
-} else { @() }
-if (@($previousState).Count -gt 0 -and -not $SkipServers) {
-    throw 'Existing managed server state detected. Stop it explicitly before a human acceptance run.'
-}
-if ($Backend -eq 'mssql_odbc' -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process'))) {
-    throw "MSSQL human acceptance requires a protected process environment variable: $DatabaseConfigEnv"
-}
-
 $launcher = $null
 $clientPids = [System.Collections.Generic.List[int]]::new()
 $exitCode = 0
 try {
-    if (-not $SkipServers) {
-        $serverArgs = @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $serverScript,
-            '-Mode', 'start', '-ResourceProfileId', $ResourceProfileId,
-            '-LoginPort', $LoginPort, '-AgentPort', $AgentPort, '-MapPort', $MapPort,
-            '-MapNumber', $MapNumber, '-Backend', $Backend,
-            '-DatabaseConfigEnv', $DatabaseConfigEnv, '-DataDir', $runRoot
-        )
-        $starter = Start-Process -FilePath 'powershell.exe' -ArgumentList $serverArgs -WorkingDirectory $repoRoot -Wait -PassThru -RedirectStandardOutput (Join-Path $logRoot 'server-start.stdout.log') -RedirectStandardError (Join-Path $logRoot 'server-start.stderr.log')
-        if ($starter.ExitCode -ne 0) { throw "Server startup failed with exit code $($starter.ExitCode)" }
-        if (-not (Test-Path -LiteralPath $stateFile -PathType Leaf)) { throw 'Server startup produced no PID manifest.' }
-        $state = @(Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json)
-        foreach ($entry in $state) {
-            if (-not (Test-ExactProcess -ProcessId ([int]$entry.pid) -ExpectedPath ([string]$entry.exe))) {
-                throw "Server PID identity check failed for $($entry.name)."
-            }
-            $serverPids.Add([int]$entry.pid)
-        }
-    }
-
     $launchStart = Get-Date
-    $launcherArgs = @('--login-port', $LoginPort, '--agent-port', $AgentPort, '--map-port', $MapPort, '--resource-root', $resourceRoot, '--evidence-dir', $evidenceRoot)
+    $launcherArgs = $launcherEndpointArgs + @('--evidence-dir', $evidenceRoot)
     $launcher = Start-Process -FilePath $launcherExe -ArgumentList $launcherArgs -WorkingDirectory $repoRoot -PassThru
     $owned.Add([pscustomobject]@{ pid = $launcher.Id; exe = $launcherExe; name = 'launcher' })
 
     Write-Host "Human acceptance run: $runId" -ForegroundColor Cyan
     Write-Host "Artifacts: $runRoot"
     Write-Host 'Use the launcher to check/repair resources, configure display/audio, and start the client.'
-    Write-Host "Backend: $Backend. Credentials are entered manually in the client; database credentials stay in the protected process environment."
+    Write-Host "Login endpoint: ${LoginHost}:$LoginPort (Agent $AgentPort, Map $MapPort)."
+    Write-Host 'Account credentials are entered manually in the client.'
     Write-Host 'This script supplies no username, password, mouse or keyboard input.'
     Write-Host 'Complete the scenario: launcher/settings -> login -> display transition -> select/create -> Map10 -> movement -> NPC/UI -> combat/skill -> loot/pickup -> map change -> relog.'
     Write-Host 'Press F12 after each settled checkpoint to capture a TGA in the evidence folder.'
@@ -124,6 +106,7 @@ try {
     if ($captured.Count -lt $MinimumEvidenceFrames) {
         throw "Human acceptance produced $($captured.Count) evidence frame(s); minimum is $MinimumEvidenceFrames. Capture settled checkpoints with F12 before finishing."
     }
+    Write-Host 'Evidence collection finished; the GUI checkpoints still require human review.'
 } catch {
     $exitCode = 1
     Write-Error $_
@@ -135,8 +118,10 @@ try {
         if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
         $resolved = (Resolve-Path -LiteralPath $candidate).Path
         foreach ($process in @(Get-Process -ErrorAction SilentlyContinue)) {
-            if ($process.Id -eq $PID -or $process.Id -eq [int]$launcher.Id) { continue }
-            if ($process.StartTime -lt $launchStart) { continue }
+            if ($process.Id -eq $PID -or ($null -ne $launcher -and $process.Id -eq [int]$launcher.Id)) { continue }
+            try {
+                if ($process.StartTime -lt $launchStart) { continue }
+            } catch { continue }
             if (Test-ExactProcess -ProcessId $process.Id -ExpectedPath $resolved) {
                 $clientPids.Add([int]$process.Id)
                 $owned.Add([pscustomobject]@{ pid = $process.Id; exe = $resolved; name = 'client' })
@@ -144,24 +129,19 @@ try {
         }
     }
     foreach ($entry in $owned) { Stop-OwnedProcess $entry }
-    if (-not $SkipServers -and (Test-Path -LiteralPath $stateFile -PathType Leaf)) {
-        $state = @(Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json)
-        foreach ($entry in $state) {
-            if ($serverPids -contains [int]$entry.pid) { Stop-OwnedProcess $entry }
-        }
-        Remove-Item -LiteralPath $stateFile -Force -ErrorAction SilentlyContinue
-    }
     [ordered]@{
         runId = $runId
         profile = $ResourceProfileId
-        map = $MapNumber
-        backend = $Backend
-        databaseConfigEnv = $DatabaseConfigEnv
+        mode = 'client-only'
+        loginHost = $LoginHost
+        loginPort = $LoginPort
+        agentPort = $AgentPort
+        mapPort = $MapPort
         launcherPid = if ($null -ne $launcher) { $launcher.Id } else { $null }
         clientPids = @($clientPids)
-        serverPids = @($serverPids)
         evidenceDir = $evidenceRoot
         evidenceFrames = @(Get-ChildItem -LiteralPath $evidenceRoot -Filter '*.tga' -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
+        acceptanceStatus = if ($exitCode -eq 0) { 'evidence_collected_awaiting_review' } else { 'collection_incomplete' }
         exitCode = $exitCode
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runRoot 'run.json') -Encoding utf8
 }

@@ -4,6 +4,10 @@ This runbook exercises the modern Login/Agent/Map chain with the canonical
 `playdh-current` resource profile. It is an engineering E3/E4 check; it does
 not replace GUI input or legacy-client visual review.
 
+The local SQLite/MSSQL commands below are isolated engineering fixtures. The
+current human acceptance route connects the local DX11 client to the PVE stack
+at `192.168.2.244:16001/17001/18001`.
+
 ## SQLite (disposable local run)
 
 Build the four binaries with `scripts/build-modern.bat`, then run from the
@@ -41,19 +45,18 @@ never put credentials in a command line, tracked file, or log. Then run:
 is absent, report an environment skip rather than silently switching backend
 or resource profile.
 
-For the visible, operator-driven acceptance run, pass the same protected
-connection configuration only through the current process environment, then
-start the launcher-backed runner:
+For visible, operator-driven acceptance, confirm the PVE stack is healthy and
+that LoginServer advertises Agent address `192.168.2.244`, then start the
+local launcher-backed client:
 
 ```powershell
-$env:MXH_DATABASE_CONFIG = $env:MXH_MSSQL_E2E
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-human-acceptance.ps1 -Backend mssql_odbc
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-human-acceptance.ps1 -PlanOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-human-acceptance.ps1
 ```
 
-The runner starts the three modern services against MSSQL, opens the real
-launcher and leaves login credentials and all mouse/keyboard actions to the
-operator. It records only the backend name and environment-variable name in
-its run metadata, never the connection string or password.
+The runner opens the real launcher and leaves login credentials and all
+mouse/keyboard actions to the operator. It neither starts local services nor
+reads a local database connection string.
 
 ## Expected result
 
@@ -65,6 +68,5 @@ comparison evidence belongs in `docs/VERIFICATION_MATRIX.md`.
 ## Related checks
 
 - `ctest -C Debug --test-dir modern/build -R MoxianClientE2E`
-- `scripts/run-human-acceptance.ps1 -Backend mssql_odbc` for the visible,
-  operator-driven MSSQL path
+- `scripts/run-human-acceptance.ps1 -PlanOnly` for the PVE endpoint plan
 - `docs/VERIFICATION_MATRIX.md` for commit/resource/evidence binding
