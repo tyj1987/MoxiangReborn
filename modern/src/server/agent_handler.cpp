@@ -1595,8 +1595,9 @@ void AgentHandler::handle_legacy_character_make(
     auto result = db_.execute(
         "INSERT INTO character_info "
         "(chrid, charname, userid, sex_type, hair_type, face_type, "
-        "body_type, start_area, height, width, level, map_num, standing_idx) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+        "body_type, start_area, height, width, level, map_num, standing_idx, "
+        "base_gengol, base_minchub, base_cheryuk, base_simmek) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 12, 12, 12, 12)",
         ins_params);
 
     if (!result.ok()) {

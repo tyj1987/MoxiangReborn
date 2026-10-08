@@ -40,6 +40,7 @@
 #include "mxh/game/item_list_parser.hpp"
 #include "mxh/game/battle_factory.hpp"
 #include "mxh/server/item_id.hpp"
+#include "mxh/server/player_equipment_stats.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -182,11 +183,9 @@ std::string get_str(const mxh::db::ResultSet& rs, std::size_t row,
 // CharData: real character data loaded from the database.
 // ---------------------------------------------------------------------------
 struct CharData {
+    CalcBaseStats base{};
     std::uint32_t chrid = 0;
     std::string name = "Player";
-    std::uint32_t life = 100, max_life = 100;
-    std::uint32_t shield = 0, max_shield = 0;
-    std::uint32_t naeryuk = 50, max_naeryuk = 50;
     std::uint32_t exp = 0;
     std::uint32_t money = 0;
     std::uint8_t gender = 0;
@@ -197,7 +196,7 @@ struct CharData {
     float height = 1.0f, width = 1.0f;
 };
 
-CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
+std::optional<CharData> load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
     CharData cd;
     cd.chrid = chrid;
     mxh::db::ResultSet rs;
@@ -206,7 +205,8 @@ CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
         "SELECT charname, sex_type, face_type, hair_type, height, width, "
         "level, map_num FROM character_info WHERE chrid = ?",
         params, rs);
-    if (r.ok() && !rs.empty()) {
+    if (!r.ok()) return std::nullopt;
+    if (!rs.empty()) {
         cd.name      = get_str(rs, 0, "charname", "Player");
         cd.gender    = static_cast<std::uint8_t>(get_int(rs, 0, "sex_type"));
         cd.face_type = static_cast<std::uint8_t>(get_int(rs, 0, "face_type", 1));
@@ -223,10 +223,32 @@ CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
         cd.exp = static_cast<std::uint32_t>(get_int(state, 0, "exp"));
         cd.money = static_cast<std::uint32_t>(get_int(state, 0, "money"));
     }
+    mxh::db::ResultSet attributes;
+    r = db.query("SELECT base_gengol,base_minchub,base_cheryuk,base_simmek "
+                 "FROM character_info WHERE chrid=?", params, attributes);
+    if (!r.ok() || attributes.rows.size() != 1 || attributes.rows[0].size() != 4) {
+        std::cerr << "[Map] attribute-import-required player=" << chrid << '\n';
+        return std::nullopt;
+    }
+    std::array<std::uint16_t, 4> values{};
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        const auto* value = std::get_if<std::int64_t>(&attributes.rows[0][i]);
+        if (!value || *value < 0 || *value > 65535) {
+            std::cerr << "[Map] attribute-import-required player=" << chrid << '\n';
+            return std::nullopt;
+        }
+        values[i] = static_cast<std::uint16_t>(*value);
+    }
+    cd.base.level = cd.level;
+    cd.base.gengol = values[0];
+    cd.base.minchub = values[1];
+    cd.base.cheryuk = values[2];
+    cd.base.simmek = values[3];
     return cd;
 }
 
 mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
+                                  const PlayerVitals& vitals,
                                   const mxh::game::ItemTotalInfo& items,
                                   const std::array<std::uint32_t, 8>& skills,
                                   float position_x, float position_z) {
@@ -246,10 +268,10 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
     put_str(m.payload, kPayloadBaseObjOff + 8, cd.name.c_str(), 17);
 
     // --- CHARACTER_TOTALINFO [35..146] ---
-    put_u32(m.payload, kPayloadCharTotalOff + 0, cd.life);
-    put_u32(m.payload, kPayloadCharTotalOff + 4, cd.max_life);
-    put_u32(m.payload, kPayloadCharTotalOff + 8, cd.shield);
-    put_u32(m.payload, kPayloadCharTotalOff + 12, cd.max_shield);
+    put_u32(m.payload, kPayloadCharTotalOff + 0, vitals.current_hp);
+    put_u32(m.payload, kPayloadCharTotalOff + 4, vitals.max_hp);
+    put_u32(m.payload, kPayloadCharTotalOff + 8, vitals.current_shield);
+    put_u32(m.payload, kPayloadCharTotalOff + 12, vitals.max_shield);
     put_u8(m.payload, kPayloadCharTotalOff + 16, cd.gender);
     put_u8(m.payload, kPayloadCharTotalOff + 17, cd.face_type);
     put_u8(m.payload, kPayloadCharTotalOff + 18, cd.hair_type);
@@ -265,12 +287,12 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, const CharData& cd,
     put_f32(m.payload, kPayloadCharTotalOff + 74, 60.0f);
 
     // --- HERO_TOTALINFO [147..206] ---
-    put_u16(m.payload, kPayloadHeroTotalOff + 0, 10);
-    put_u16(m.payload, kPayloadHeroTotalOff + 2, 10);
-    put_u16(m.payload, kPayloadHeroTotalOff + 4, 10);
-    put_u16(m.payload, kPayloadHeroTotalOff + 6, 10);
-    put_u32(m.payload, kPayloadHeroTotalOff + 8, 50);
-    put_u32(m.payload, kPayloadHeroTotalOff + 12, 50);
+    put_u16(m.payload, kPayloadHeroTotalOff + 0, cd.base.gengol);
+    put_u16(m.payload, kPayloadHeroTotalOff + 2, cd.base.minchub);
+    put_u16(m.payload, kPayloadHeroTotalOff + 4, cd.base.cheryuk);
+    put_u16(m.payload, kPayloadHeroTotalOff + 6, cd.base.simmek);
+    put_u32(m.payload, kPayloadHeroTotalOff + 8, vitals.current_mp);
+    put_u32(m.payload, kPayloadHeroTotalOff + 12, vitals.max_mp);
     const std::int64_t exp = cd.exp;
     std::memcpy(m.payload.data() + kPayloadHeroTotalOff + 22, &exp, sizeof(exp));
     put_u32(m.payload, kPayloadHeroTotalOff + 36, cd.money);
@@ -428,6 +450,13 @@ std::optional<MapHandler::PlayerRuntimeSnapshot> MapHandler::player_runtime_snap
     snapshot.level = it->second.actor.state().progress.level;
     snapshot.level_exp = it->second.actor.state().progress.level_exp;
     snapshot.total_exp = it->second.actor.state().progress.total_exp;
+    if (const auto info = connected_players_.find(player_id);
+        info != connected_players_.end()) {
+        snapshot.physical_stats_ready = info->second.combat.has_physical_range;
+        snapshot.physical_attack_min = info->second.combat.phy_attack_min;
+        snapshot.physical_attack_max = info->second.combat.phy_attack_max;
+        snapshot.physical_defence = info->second.combat.phy_defence;
+    }
     return snapshot;
 }
 
@@ -688,22 +717,38 @@ void MapHandler::load_membership_state(std::uint32_t player_id, std::string_view
     }
 }
 
-void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
+bool MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
     mxh::db::ResultSet rows;
     const std::vector<mxh::db::Bind> args{mxh::db::bind(static_cast<std::int64_t>(player_id))};
     const auto result = db_.query(
         "SELECT container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param "
         "FROM modern_player_item WHERE player_id=? ORDER BY container,slot", args, rows);
-    if (!result.ok()) return;
+    if (!result.ok()) {
+        std::cerr << "[Map] item-load-failed player=" << player_id << '\n';
+        return false;
+    }
+    std::unordered_set<std::uint32_t> seen_ids;
     for (const auto& row : rows.rows) {
-        if (row.size() < 8) continue;
+        if (row.size() != 8) return false;
         bool valid = true;
         for (const auto& value : row) valid = valid && std::holds_alternative<std::int64_t>(value);
-        if (!valid) continue;
+        if (!valid) return false;
         const auto container = std::get<std::int64_t>(row[0]);
         const auto slot = std::get<std::int64_t>(row[1]);
+        const auto db_idx = std::get<std::int64_t>(row[2]);
+        const auto icon = std::get<std::int64_t>(row[3]);
+        const auto durability = std::get<std::int64_t>(row[4]);
+        const auto rare = std::get<std::int64_t>(row[5]);
+        const auto quick = std::get<std::int64_t>(row[6]);
+        const auto param = std::get<std::int64_t>(row[7]);
+        const auto fits_u32 = [](std::int64_t value) { return value >= 0 && value <= UINT32_MAX; };
+        if (container < 0 || container > 5 || slot < 0 ||
+            db_idx <= 0 || !fits_u32(db_idx) || icon <= 0 || icon > UINT16_MAX ||
+            !fits_u32(durability) || !fits_u32(rare) || quick < 0 || quick > UINT16_MAX ||
+            !fits_u32(param) || !seen_ids.insert(static_cast<std::uint32_t>(db_idx)).second)
+            return false;
         mxh::game::ItemBase item{};
-        item.dwDBIdx = static_cast<std::uint32_t>(std::get<std::int64_t>(row[2]));
+        item.dwDBIdx = static_cast<std::uint32_t>(db_idx);
         if (item.dwDBIdx != 0u && item.dwDBIdx < kFirstGrantItemId) {
             auto next = next_item_db_idx_.load(std::memory_order_relaxed);
             while (next <= item.dwDBIdx &&
@@ -713,19 +758,24 @@ void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
                        std::memory_order_relaxed)) {
             }
         }
-        item.wIconIdx = static_cast<std::uint16_t>(std::get<std::int64_t>(row[3]));
-        item.Durability = static_cast<std::uint32_t>(std::get<std::int64_t>(row[4]));
-        item.RareIdx = static_cast<std::uint32_t>(std::get<std::int64_t>(row[5]));
-        item.QuickPosition = static_cast<std::uint16_t>(std::get<std::int64_t>(row[6]));
-        item.ItemParam = static_cast<std::uint32_t>(std::get<std::int64_t>(row[7]));
+        item.wIconIdx = static_cast<std::uint16_t>(icon);
+        item.Durability = static_cast<std::uint32_t>(durability);
+        item.RareIdx = static_cast<std::uint32_t>(rare);
+        item.QuickPosition = static_cast<std::uint16_t>(quick);
+        item.ItemParam = static_cast<std::uint32_t>(param);
         if (container == 0 && slot >= 0 && slot < static_cast<std::int64_t>(player.state().inventory.items.size())) {
+            if (player.state().inventory.items[static_cast<std::size_t>(slot)].dwDBIdx) return false;
             item.Position = static_cast<std::uint16_t>(slot);
             player.state().inventory.items[static_cast<std::size_t>(slot)] = item;
         } else if (container == 1 && slot >= 0 && slot < static_cast<std::int64_t>(player.state().equipment.items.size())) {
+            if (player.state().equipment.items[static_cast<std::size_t>(slot)].dwDBIdx) return false;
             item.Position = static_cast<std::uint16_t>(mxh::game::TP_WEAREDITEM_START + slot);
             player.state().equipment.items[static_cast<std::size_t>(slot)] = item;
+        } else if (container == 0 || container == 1) {
+            return false;
         }
     }
+    return true;
 }
 
 bool MapHandler::persist_player_items(std::uint32_t player_id) {
@@ -1369,7 +1419,16 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
               << " payload=" << msg.payload.size() << "B\n";
 
     // Phase 9.1: Load real character data from DB.
-    CharData cd = load_char_data(db_, player_id);
+    const auto loaded = load_char_data(db_, player_id);
+    if (!loaded) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack);
+        nack.header.object_id = player_id;
+        reply_(id, nack);
+        return;
+    }
+    CharData cd = *loaded;
     if (dev_initial_money_ != 0) {
         cd.money = dev_initial_money_;
         std::cout << "[Map] DEV initial money fixture applied player="
@@ -1408,9 +1467,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     spawn.level = cd.level;
     spawn.map_num = map_num_;
     spawn.name = cd.name;
-    spawn.base.level = cd.level;
-    spawn.bonuses.item_max_life = static_cast<std::int32_t>(pi.combat.max_hp);
-    spawn.bonuses.item_max_naeryuk = static_cast<std::int32_t>(pi.combat.max_mp);
+    spawn.base = cd.base;
     PlayerRuntime runtime;
     runtime.quest_log.player_id = player_id;
     load_quest_log(player_id, runtime.quest_log);
@@ -1423,13 +1480,39 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     runtime.actor.state().progress.level_exp = cd.exp;
     runtime.actor.state().progress.total_exp = cd.exp;
     runtime.actor.state().progress.money = cd.money;
-    load_player_items(player_id, runtime.actor);
+    if (!load_player_items(player_id, runtime.actor)) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack);
+        nack.header.object_id = player_id;
+        reply_(id, nack);
+        return;
+    }
+    if (!rebuild_equipment_stats(runtime.actor.state(), pi.combat,
+            [&](auto icon, auto& info) { return item_manager_.try_get(icon, info); })) {
+        std::cerr << "[Map] unsupported-equipment-stats player=" << player_id << '\n';
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack);
+        nack.header.object_id = player_id;
+        reply_(id, nack);
+        return;
+    }
+    const auto vitals = runtime.actor.state().vitals;
+    pi.combat.max_hp = vitals.max_hp;
+    pi.combat.current_hp = vitals.current_hp;
+    pi.combat.max_mp = vitals.max_mp;
+    pi.combat.current_mp = vitals.current_mp;
     load_membership_state(player_id, cd.name, cd.level);
     for (std::size_t i = 0; i < runtime.actor.state().inventory.items.size(); ++i)
         pi.items.Inventory[i] = runtime.actor.state().inventory.items[i];
     for (std::size_t i = 0; i < runtime.actor.state().equipment.items.size(); ++i)
         pi.items.WearedItem[i] = runtime.actor.state().equipment.items[i];
-    load_character_equipment(db_, player_id, pi.items);
+    mxh::game::ItemTotalInfo appearance{};
+    load_character_equipment(db_, player_id, appearance);
+    for (std::size_t slot = 0; slot < mxh::game::WEARED_ITEM_MAX; ++slot)
+        if (pi.items.WearedItem[slot].dwDBIdx == 0u && appearance.WearedItem[slot].wIconIdx != 0u)
+            pi.items.WearedItem[slot].wIconIdx = appearance.WearedItem[slot].wIconIdx;
     runtime.actor.state().pos_x = pi.pos_x;
     runtime.actor.state().pos_z = pi.pos_z;
     {
@@ -1469,7 +1552,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         quick_skills[2] = 3;
         quick_skills[3] = 10;
     }
-    reply_(id, make_gamein_ack(player_id, cd, pi.items, quick_skills,
+    reply_(id, make_gamein_ack(player_id, cd, vitals, pi.items, quick_skills,
                                pi.pos_x, pi.pos_z));
     // Rehydrate the quest dialog from the authoritative persisted log before
     // any new interaction.  The legacy client receives one TotalInfo record
@@ -2535,7 +2618,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         }
                         mxh::game::ItemInfo item_info{};
                         if (!item_manager_.try_get(item->wIconIdx, item_info)) {
-                            return true;  // incomplete profile: preserve fail-open contract
+                            return !info_it->second.combat.has_physical_range;
                         }
                         return legacy_item_can_equip_in_slot(item_info, position) &&
                                legacy_item_meets_player_limits(item_info, actor_state);
@@ -2546,11 +2629,20 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                                            source_item ? source_item->Position : new_pos);
                     if (source_item && target_item && source_item != target_item &&
                         legal_equipment) {
+                        const auto source_before = *source_item;
+                        const auto target_before = *target_item;
                         const auto source_pos = source_item->Position;
                         std::swap(*source_item, *target_item);
                         source_item->Position = source_pos;
                         target_item->Position = new_pos;
                         found = true;
+                        if (info_it->second.combat.has_physical_range &&
+                            !rebuild_equipment_stats(actor_state, info_it->second.combat,
+                                [&](auto icon, auto& info) { return item_manager_.try_get(icon, info); })) {
+                            *source_item = source_before;
+                            *target_item = target_before;
+                            found = false;
+                        }
                     }
                     if (found) {
                         actor_state.recompute_max_stats();

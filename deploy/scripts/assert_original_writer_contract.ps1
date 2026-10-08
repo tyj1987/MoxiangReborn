@@ -30,6 +30,36 @@ SELECT CASE WHEN
     AND COL_LENGTH(N'dbo.modern_player_state', N'money') IS NOT NULL
     AND COL_LENGTH(N'dbo.modern_player_state', N'exp') IS NOT NULL
     AND COL_LENGTH(N'dbo.modern_player_state', N'level') IS NOT NULL
+    AND 4 = (
+        SELECT COUNT(*)
+        FROM (VALUES
+            (N'base_gengol', N'ck_character_info_base_gengol'),
+            (N'base_minchub', N'ck_character_info_base_minchub'),
+            (N'base_cheryuk', N'ck_character_info_base_cheryuk'),
+            (N'base_simmek', N'ck_character_info_base_simmek')
+        ) AS required(column_name, constraint_name)
+        JOIN sys.columns AS c
+          ON c.object_id = OBJECT_ID(N'dbo.character_info')
+         AND c.name = required.column_name
+        JOIN sys.check_constraints AS ck
+          ON ck.parent_object_id = c.object_id
+         AND ck.name = required.constraint_name
+        CROSS APPLY (SELECT LOWER(REPLACE(REPLACE(REPLACE(REPLACE(
+            REPLACE(REPLACE(REPLACE(REPLACE(ck.definition,
+                N'(', N''), N')', N''), N'[', N''), N']', N''),
+                N' ', N''), NCHAR(9), N''), NCHAR(10), N''), NCHAR(13), N''))
+            AS normalized) AS expr_norm
+        WHERE TYPE_NAME(c.user_type_id) = N'int'
+          AND c.is_nullable = 1
+          AND c.default_object_id = 0
+          AND c.is_identity = 0
+          AND ck.is_disabled = 0
+          AND ck.is_not_trusted = 0
+          AND expr_norm.normalized IN (
+              required.column_name + N'>=0and' + required.column_name + N'<=65535',
+              required.column_name + N'<=65535and' + required.column_name + N'>=0'
+          )
+    )
 THEN 1 ELSE 0 END AS contract_ok
 '@
 

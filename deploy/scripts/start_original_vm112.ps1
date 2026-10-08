@@ -43,6 +43,7 @@ if ($null -eq $writerContract -or
     [string]$writerContract.databaseHost -ne '192.168.2.238' -or
     [string]$writerContract.database -ne 'MoxiangOriginalTest_20261009' -or
     [int]$writerContract.schemaVersion -ne 1 -or
+    [string]$writerContract.numericAttributes -ne 'base-4-int-nullable-checked-v1' -or
     [string]$writerContract.resourceProfile -ne 'playdh-current' -or
     [string]$manifest.sourceHead -notmatch '^[0-9a-f]{40}$' -or
     [string]$manifest.sourcePatchSha256 -notmatch '^[0-9a-f]{64}$') {

@@ -107,6 +107,7 @@ def main():
             "databaseHost": "192.168.2.238",
             "database": "MoxiangOriginalTest_20261009",
             "schemaVersion": 1,
+            "numericAttributes": "base-4-int-nullable-checked-v1",
             "resourceProfile": "playdh-current",
             "resourceManifestSha256": sha256(ROOT / "reference/manifests/playdh-current.sha256.json"),
         },

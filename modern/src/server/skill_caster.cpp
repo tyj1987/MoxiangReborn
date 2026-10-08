@@ -1,15 +1,13 @@
 ﻿// skill_caster.cpp - Phase 13.4 caster data plane implementation.
 //
-// 1:1 port of the skill caster decision + damage math that legacy
-// [Server]Map/SkillManager.cpp + [Server]Map/CharacterCalcManager.cpp
-// expose.  The body of `skill_caster_calculate_damage` is a 1:1
-// extraction of the inline `MapHandler::calculate_damage` so the
-// 5/5 attack capture wire shape stays byte-for-byte stable when
-// the orchestrator is later rewired to call this module.
+// The current skill/defence damage path remains simplified. Hydrated ordinary
+// weapon endpoints are sampled inclusively without changing the wire shape.
 
 #include "mxh/server/skill_caster.hpp"
 
 #include <cmath>
+#include <algorithm>
+#include <limits>
 #include <utility>
 
 namespace mxh::server {
@@ -55,9 +53,14 @@ mxh::game::DamageResult skill_caster_calculate_damage(
     }
 
     const auto simple = mxh::game::to_simple(skill);
-    std::int32_t base_damage = static_cast<std::int32_t>(simple.phy_attack)
-                             + static_cast<std::int32_t>(attacker.phy_attack)
-                             - static_cast<std::int32_t>(defender.phy_defence);
+    std::uint32_t physical = attacker.phy_attack;
+    if (attacker.has_physical_range) {
+        if (attacker.phy_attack_max < attacker.phy_attack_min) return result;
+        const auto span = std::uint64_t(attacker.phy_attack_max) - attacker.phy_attack_min + 1u;
+        physical = attacker.phy_attack_min + static_cast<std::uint32_t>(rng() % span);
+    }
+    std::int64_t base_damage = static_cast<std::int64_t>(simple.phy_attack)
+                             + physical - static_cast<std::int64_t>(defender.phy_defence);
     if (base_damage < 1) base_damage = 1;
 
     std::int32_t attr_damage = static_cast<std::int32_t>(simple.att_attack)
@@ -65,18 +68,19 @@ mxh::game::DamageResult skill_caster_calculate_damage(
                              - static_cast<std::int32_t>(defender.att_defence);
     if (attr_damage < 0) attr_damage = 0;
 
-    std::int32_t total_damage = base_damage + attr_damage;
+    std::int64_t total_damage = base_damage + attr_damage;
 
     std::uint8_t crit_roll = static_cast<std::uint8_t>(rng() % 100);
     if (crit_roll < (simple.critical_rate + attacker.critical_rate)) {
         result.is_critical = true;
-        total_damage = static_cast<std::int32_t>(total_damage * 1.5);
+        total_damage = static_cast<std::int64_t>(total_damage * 1.5);
         result.hit_result = 2;
     } else {
         result.hit_result = 1;
     }
 
-    result.damage = total_damage;
+    result.damage = static_cast<std::int32_t>(std::min<std::int64_t>(
+        total_damage, std::numeric_limits<std::int32_t>::max()));
     return result;
 }
 

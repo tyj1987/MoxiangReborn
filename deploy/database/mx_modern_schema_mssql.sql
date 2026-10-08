@@ -72,6 +72,18 @@ BEGIN
 END
 GO
 
+-- Old characters retain NULL until their four attributes are imported from
+-- an authoritative source. Only CharacterMake writes 12 for new characters.
+IF COL_LENGTH(N'dbo.character_info', N'base_gengol') IS NULL
+    ALTER TABLE dbo.character_info ADD base_gengol INT NULL CONSTRAINT ck_character_info_base_gengol CHECK (base_gengol >= 0 AND base_gengol <= 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_minchub') IS NULL
+    ALTER TABLE dbo.character_info ADD base_minchub INT NULL CONSTRAINT ck_character_info_base_minchub CHECK (base_minchub >= 0 AND base_minchub <= 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_cheryuk') IS NULL
+    ALTER TABLE dbo.character_info ADD base_cheryuk INT NULL CONSTRAINT ck_character_info_base_cheryuk CHECK (base_cheryuk >= 0 AND base_cheryuk <= 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_simmek') IS NULL
+    ALTER TABLE dbo.character_info ADD base_simmek INT NULL CONSTRAINT ck_character_info_base_simmek CHECK (base_simmek >= 0 AND base_simmek <= 65535);
+GO
+
 IF EXISTS (
     SELECT 1
     FROM sys.columns

@@ -45,6 +45,17 @@ class Vm112WriterContractTests(unittest.TestCase):
         self.assertLess(source.index("if (-not $Start)"),
                         source.index("assert_original_writer_contract.ps1"))
 
+    def test_guard_pins_new_nullable_attribute_writer_contract(self):
+        source = GUARD.read_text(encoding="utf-8")
+        self.assertIn("DB_NAME() = N'MoxiangOriginalTest_20261009'", source)
+        self.assertIn("sys.check_constraints", source)
+        for name in ("gengol", "minchub", "cheryuk", "simmek"):
+            self.assertIn(f"ck_character_info_base_{name}", source)
+        for condition in ("TYPE_NAME(c.user_type_id) = N'int'", "c.is_nullable = 1",
+                          "c.default_object_id = 0", "ck.is_disabled = 0",
+                          "ck.is_not_trusted = 0", "N'<=65535'"):
+            self.assertIn(condition, source)
+
 
 if __name__ == "__main__":
     unittest.main()

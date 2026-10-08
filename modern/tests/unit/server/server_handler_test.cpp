@@ -36,6 +36,7 @@
 #include "vector"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
+#include "mxh/db/schema_migration.hpp"
 #include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
@@ -48,6 +49,39 @@
 #include <thread>
 
 namespace mxh::server::test {
+
+bool seed_fixture_base_attributes(mxh::db::IDbAdapter& db, std::uint32_t character) {
+    for (const char* statement : {
+             "ALTER TABLE character_info ADD COLUMN base_gengol INTEGER NULL",
+             "ALTER TABLE character_info ADD COLUMN base_minchub INTEGER NULL",
+             "ALTER TABLE character_info ADD COLUMN base_cheryuk INTEGER NULL",
+             "ALTER TABLE character_info ADD COLUMN base_simmek INTEGER NULL"}) {
+        if (!db.execute(statement).ok()) return false;
+    }
+    if (!db.execute("UPDATE character_info SET base_gengol=12,base_minchub=12,"
+                    "base_cheryuk=12,base_simmek=12 WHERE chrid=?",
+                    {mxh::db::bind(static_cast<std::int64_t>(character))}).ok()) return false;
+    return db.execute("CREATE TABLE IF NOT EXISTS modern_player_item ("
+                      "player_id INTEGER NOT NULL,container INTEGER NOT NULL,slot INTEGER NOT NULL,"
+                      "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,"
+                      "rare_idx INTEGER NOT NULL,quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,"
+                      "PRIMARY KEY(player_id,container,slot),UNIQUE(player_id,db_idx))").ok();
+}
+
+bool create_fixture_character(mxh::db::IDbAdapter& db, std::uint32_t character) {
+    if (!db.execute("CREATE TABLE character_info ("
+                    "chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,face_type INTEGER,"
+                    "hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER,"
+                    "base_gengol INTEGER NULL,base_minchub INTEGER NULL,"
+                    "base_cheryuk INTEGER NULL,base_simmek INTEGER NULL)").ok()) return false;
+    if (!db.execute("INSERT INTO character_info VALUES(?,'FixtureHero',0,1,1,1,1,1,7,12,12,12,12)",
+                    {mxh::db::bind(static_cast<std::int64_t>(character))}).ok()) return false;
+    return db.execute("CREATE TABLE IF NOT EXISTS modern_player_item ("
+                      "player_id INTEGER NOT NULL,container INTEGER NOT NULL,slot INTEGER NOT NULL,"
+                      "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,"
+                      "rare_idx INTEGER NOT NULL,quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,"
+                      "PRIMARY KEY(player_id,container,slot),UNIQUE(player_id,db_idx))").ok();
+}
 
 // ===========================================================================
 // Mock IDbAdapter ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â minimum viable stub for handler construction.
@@ -84,6 +118,11 @@ public:
                            mxh::db::ResultSet& out) override {
         ++query_count;
         out = mxh::db::ResultSet{};
+        if (sql.find("base_gengol,base_minchub,base_cheryuk,base_simmek") != std::string_view::npos &&
+            !return_unknown_attributes) {
+            out.rows.push_back({std::int64_t{12}, std::int64_t{12},
+                                std::int64_t{12}, std::int64_t{12}});
+        }
         std::uint8_t lvl = userlevel_to_return.load();
         if (lvl != 0xFFu && sql.find("chr_log_info") != std::string_view::npos) {
             mxh::db::ResultSet injected;
@@ -113,6 +152,7 @@ public:
     int item_insert_count = 0;
     std::int64_t last_item_db_idx = 0;
     bool pause_item_insert = false;
+    bool return_unknown_attributes = false;
     std::atomic<int> active_transactions{0};
     std::atomic<bool> transaction_overlap{false};
 };
@@ -1661,6 +1701,28 @@ TEST(MapHandlerTest, RuntimeSnapshotIsCreatedOnGameIn) {
     EXPECT_FLOAT_EQ(snapshot->pos_x, 25000.0f);
     EXPECT_FLOAT_EQ(snapshot->pos_z, 25000.0f);
     EXPECT_EQ(snapshot->lifecycle, mxh::server::PlayerLifecycle::Active);
+    EXPECT_EQ(snapshot->current_hp, 125u);
+    EXPECT_EQ(snapshot->max_hp, 125u);
+    EXPECT_TRUE(snapshot->physical_stats_ready);
+    EXPECT_EQ(snapshot->physical_attack_min, 16u);
+    EXPECT_EQ(snapshot->physical_attack_max, 16u);
+    EXPECT_EQ(snapshot->physical_defence, 8u);
+}
+
+TEST(MapHandlerTest, UnknownBaseAttributesRejectGameInBeforeCreatingActor) {
+    MockDbAdapter db;
+    db.return_unknown_attributes = true;
+    ReplySpy reply;
+    mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    EXPECT_EQ(handler.player_runtime_count(), 0u);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
 }
 
 TEST(MapHandlerTest, TargetMapGameInUsesTargetMapAndEmitsAck) {
@@ -1730,15 +1792,16 @@ TEST(MapHandlerTest, CharacterAddCarriesVisiblePlayerVitals) {
                 sizeof(currentLife));
     std::memcpy(&maxLife, message->payload.data() + 39,
                 sizeof(maxLife));
-    EXPECT_EQ(currentLife, 100u);
-    EXPECT_EQ(maxLife, 100u);
+    EXPECT_EQ(currentLife, 125u);
+    EXPECT_EQ(maxLife, 125u);
 }
 
 TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
     auto db = mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
     ASSERT_TRUE(db->connect(cfg).ok());
-    ASSERT_TRUE(db->execute("CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,level INTEGER,gender INTEGER,face INTEGER,hair INTEGER)").ok());
-    ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES (123,'GrantHero',1,0,0,0)").ok());
+    ASSERT_TRUE(db->execute("CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,level INTEGER,sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,map_num INTEGER)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES (123,'GrantHero',1,0,0,0,1,1,7)").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(*db, 123u));
     ASSERT_TRUE(db->execute("CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY,idempotency_key TEXT UNIQUE,character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,inventory_slot INTEGER,created_by TEXT,reason TEXT,created_at TEXT,claimed_at TEXT)").ok());
     ASSERT_TRUE(db->execute("INSERT INTO modern_item_grant VALUES (1,'once',123,8000,3,'pending',NULL,'gm','test',CURRENT_TIMESTAMP,NULL)").ok());
     ReplySpy reply; mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
@@ -1779,6 +1842,12 @@ TEST(MapHandlerTest, GameInAckEmbedsCurrentItemLayoutWithoutLocalItemPacket) {
     std::memcpy(&spawn_z, ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, sizeof(spawn_z));
     EXPECT_EQ(spawn_x, 25000u);
     EXPECT_EQ(spawn_z, 25000u);
+    std::uint32_t wire_hp = 0;
+    std::uint16_t wire_gengol = 0;
+    std::memcpy(&wire_hp, ack.payload.data() + mxh::game::HERO_TOTAL_CHARACTER_OFFSET, sizeof(wire_hp));
+    std::memcpy(&wire_gengol, ack.payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET, sizeof(wire_gengol));
+    EXPECT_EQ(wire_hp, 125u);
+    EXPECT_EQ(wire_gengol, 12u);
     for (std::size_t offset = mxh::game::HERO_TOTAL_ITEM_OFFSET;
          offset < mxh::game::HERO_TOTAL_OPTION_COUNTS_OFFSET; ++offset) {
         EXPECT_EQ(ack.payload[offset], 0u);
@@ -1804,6 +1873,7 @@ TEST(MapHandlerTest, GameInRestoresProgressAndSerializesLegacyHeroOffsets) {
         "level INTEGER NOT NULL,exp INTEGER NOT NULL,updated_at TEXT NOT NULL);"
         "INSERT INTO character_info VALUES(123,'PersistHero',0,1,1,1.0,1.0,1,7);"
         "INSERT INTO modern_player_state VALUES(123,7654321,12,34567,'now');").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -1846,12 +1916,14 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
         "UNIQUE(player_id,db_idx));"
         "INSERT INTO character_info VALUES(123,'ItemHero',0,1,1,1.0,1.0,1,7);"
         "INSERT INTO modern_player_item VALUES(123,0,4,9001,555,87,3,65535,8);"
-        "INSERT INTO modern_player_item VALUES(123,1,2,9002,777,65,4,65535,1);").ok());
+        "INSERT INTO modern_player_item VALUES(123,1,1,9002,11000,100,0,65535,1);").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
 
     const auto connection = mxh::net::make_connection_id(55);
     {
         ReplySpy reply;
         mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
+        handler.load_item_list(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/ItemList.bin");
         mxh::net::Message game_in;
         game_in.header.object_id = 123u;
         game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -1865,8 +1937,8 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
         std::memcpy(&items, reply.messages.front().payload.data() + mxh::game::HERO_TOTAL_ITEM_OFFSET, sizeof(items));
         EXPECT_EQ(items.Inventory[4].dwDBIdx, 9001u);
         EXPECT_EQ(items.Inventory[4].wIconIdx, 555u);
-        EXPECT_EQ(items.WearedItem[2].dwDBIdx, 9002u);
-        EXPECT_EQ(items.WearedItem[2].wIconIdx, 777u);
+        EXPECT_EQ(items.WearedItem[1].dwDBIdx, 9002u);
+        EXPECT_EQ(items.WearedItem[1].wIconIdx, 11000u);
         handler.on_disconnect(connection, mxh::net::NetError::Disconnected);
     }
     mxh::db::ResultSet rows;
@@ -1876,8 +1948,8 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
     ASSERT_EQ(rows.rows.size(), 2u);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 4);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 555);
-    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][1]), 2);
-    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][2]), 777);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][1]), 1);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][2]), 11000);
 }
 
 TEST(MapHandlerTest, LoadedGrantIdDoesNotAdvanceOrdinaryItemAllocatorPastBoundary) {
@@ -1898,6 +1970,7 @@ TEST(MapHandlerTest, LoadedGrantIdDoesNotAdvanceOrdinaryItemAllocatorPastBoundar
         "INSERT INTO modern_player_item VALUES(123,2,3,9003,777,70,2,4,5);"
         "INSERT INTO modern_player_item VALUES(123,5,2,9004,888,80,3,6,7);"
         "INSERT INTO modern_player_item VALUES(999,0,0,2147483646,556,100,0,65535,1);").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
 
     ReplySpy reply;
     MapHandler handler(db, 7, make_reply_spy(reply));
@@ -1958,6 +2031,7 @@ TEST(MapHandlerTest, MoveSynSwapsAuthoritativeSlotsAndPersistsDestination) {
         "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,rare_idx INTEGER NOT NULL,"
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));").ok());
+    ASSERT_TRUE(create_fixture_character(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     mxh::net::Message game_in; game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -1989,6 +2063,7 @@ TEST(MapHandlerTest, MoveSynMovesInventoryItemIntoEquipmentAndPersistsContainer)
         "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,rare_idx INTEGER NOT NULL,"
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));").ok());
+    ASSERT_TRUE(create_fixture_character(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     mxh::net::Message game_in; game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -2034,6 +2109,7 @@ TEST(MapHandlerTest, MoveSynRejectsKnownNonEquipmentItemIntoEquipment) {
         "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,rare_idx INTEGER NOT NULL,"
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));").ok());
+    ASSERT_TRUE(create_fixture_character(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     mxh::game::ItemInfo item_info{};
     item_info.ItemIdx = 601u;
@@ -2679,6 +2755,7 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
     auto db = mxh::db::make_adapter("sqlite"); mxh::db::ConnectionConfig cfg; cfg.path = ":memory:"; ASSERT_TRUE(db->connect(cfg).ok());
     ASSERT_TRUE(db->execute("CREATE TABLE character_info(chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER)").ok());
     ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES(123,'Hero',0,1,1,1,1,1,7)").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(*db, 123u));
     ASSERT_TRUE(db->execute("CREATE TABLE modern_player_state(player_id INTEGER PRIMARY KEY,money INTEGER DEFAULT 0,level INTEGER DEFAULT 1,exp INTEGER DEFAULT 0,updated_at TEXT)").ok());
     ReplySpy reply;
     {
@@ -3434,6 +3511,7 @@ TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
         " updated_at TEXT    NOT NULL"
         ");");
     ASSERT_TRUE(ct.ok()) << ct.error_message;
+    ASSERT_TRUE(create_fixture_character(db, 123u));
 
     // 3) Build a MapHandler around the live db.  ReplySpy captures
     //    the BuyAck so we can confirm the wire shape did not change.
@@ -3502,6 +3580,10 @@ TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
 TEST(MapHandlerTest, ItemPricesFillCatalogAndDeductRealMoney) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(create_fixture_character(db, 123u));
     mxh::db::SqliteAdapter* db_ptr = &db;
     (void)db_ptr;
     ReplySpy reply;
@@ -3625,6 +3707,7 @@ TEST(MapHandlerTest, StartSynOkArmPersistsQuestLogToSqliteMemory) {
         " updated_at       TEXT    NOT NULL,"
         " PRIMARY KEY (player_id, quest_id));");
     ASSERT_TRUE(ct.ok()) << ct.error_message;
+    ASSERT_TRUE(create_fixture_character(db, 456u));
 
     // 3) Build a MapHandler around the live db.  ReplySpy captures
     //    the StartAck so we can confirm the wire shape did not change.
@@ -3690,6 +3773,7 @@ TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
         "target_count INTEGER NOT NULL,PRIMARY KEY(player_id,quest_id,sub_index));"
         "INSERT INTO modern_player_quest_log VALUES(456,99,1,1234,'now');"
         "INSERT INTO modern_player_quest_sub VALUES(456,99,0,1,10,4,10);").ok());
+    ASSERT_TRUE(create_fixture_character(db, 456u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -3743,6 +3827,7 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),UNIQUE(player_id,db_idx));"
         "INSERT INTO character_info VALUES(123,'QuestHero',0,1,1,1,1,1,7);"
         "INSERT INTO modern_player_state VALUES(123,100,1,0,'now');").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
     const std::string quest_text =
@@ -3794,6 +3879,7 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
         " accepted_time_ms INTEGER NOT NULL DEFAULT 0,"
         " updated_at       TEXT    NOT NULL,"
         " PRIMARY KEY (player_id, quest_id));").ok());
+    ASSERT_TRUE(create_fixture_character(db, 888u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -3857,6 +3943,7 @@ TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
         " db_idx INTEGER NOT NULL, item_idx INTEGER NOT NULL, durability INTEGER NOT NULL,"
         " rare_idx INTEGER NOT NULL, quick_position INTEGER NOT NULL, item_param INTEGER NOT NULL);"
     ).ok());
+    ASSERT_TRUE(create_fixture_character(db, 777u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
@@ -4013,6 +4100,226 @@ TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath
     ASSERT_EQ(reply.messages.size(), 1u);
     EXPECT_EQ(reply.messages[0].header.protocol,
         static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
+}
+
+class FaultedItemLoadDb final : public mxh::db::IDbAdapter {
+public:
+    enum class Fault { None, QueryError, NullDurability } fault = Fault::None;
+    mxh::db::SqliteAdapter storage;
+    unsigned item_deletes = 0;
+
+    mxh::db::DbResult connect(const mxh::db::ConnectionConfig& cfg) override { return storage.connect(cfg); }
+    void disconnect() override { storage.disconnect(); }
+    bool is_connected() const noexcept override { return storage.is_connected(); }
+    mxh::db::DbResult execute(std::string_view sql, std::span<const mxh::db::Bind> args) override {
+        if (sql.find("DELETE FROM modern_player_item") != std::string_view::npos) ++item_deletes;
+        return storage.execute(sql, args);
+    }
+    mxh::db::DbResult query(std::string_view sql, std::span<const mxh::db::Bind> args,
+                            mxh::db::ResultSet& out) override {
+        const bool item_load = sql.find("FROM modern_player_item WHERE player_id=? ORDER BY container,slot") !=
+                               std::string_view::npos;
+        if (item_load && fault == Fault::QueryError)
+            return {mxh::db::DbError::IoError, "fixture item read failure"};
+        auto result = storage.query(sql, args, out);
+        if (result.ok() && item_load && fault == Fault::NullDurability && !out.rows.empty())
+            out.rows.front()[4] = std::monostate{};
+        return result;
+    }
+    mxh::db::DbResult begin_transaction() override { return storage.begin_transaction(); }
+    mxh::db::DbResult commit() override { return storage.commit(); }
+    mxh::db::DbResult rollback() override { return storage.rollback(); }
+    std::string backend_name() const noexcept override { return "faulted-sqlite"; }
+};
+
+TEST(EquipmentPersistence, FailedOrMalformedItemReadKeepsExistingOwnedEquipment) {
+    FaultedItemLoadDb db;
+    mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db.storage).ok());
+    ASSERT_TRUE(db.execute("INSERT INTO character_info(chrid,userid,charname,level,"
+                           "base_gengol,base_minchub,base_cheryuk,base_simmek) "
+                           "VALUES(123,'1','OwnedHero',1,12,12,12,12)", {}).ok());
+    ASSERT_TRUE(db.execute("INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,"
+                           "durability,rare_idx,quick_position,item_param) "
+                           "VALUES(123,1,1,700001,11000,100,0,65535,1)", {}).ok());
+    ReplySpy reply;
+    MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    const auto connection = mxh::net::make_connection_id(91);
+    for (auto fault : {FaultedItemLoadDb::Fault::QueryError,
+                       FaultedItemLoadDb::Fault::NullDurability}) {
+        db.fault = fault;
+        reply.messages.clear();
+        handler.on_message(connection, game_in);
+        EXPECT_FALSE(handler.player_runtime_snapshot(123));
+        ASSERT_EQ(reply.messages.size(), 1u);
+        EXPECT_EQ(reply.messages.front().header.protocol,
+                  static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+        EXPECT_EQ(db.item_deletes, 0u);
+        mxh::db::ResultSet persisted;
+        ASSERT_TRUE(db.storage.query("SELECT container,slot,db_idx,item_idx,durability FROM modern_player_item WHERE player_id=123",
+                                     {}, persisted).ok());
+        ASSERT_EQ(persisted.rows.size(), 1u);
+        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][0]), 1);
+        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][1]), 1);
+        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][2]), 700001);
+        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][3]), 11000);
+        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][4]), 100);
+    }
+}
+
+TEST(EquipmentPersistence, UnsupportedOwnedEquipmentRejectsAdmissionWithoutMutation) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.execute("INSERT INTO character_info(chrid,userid,charname,level,"
+                           "base_gengol,base_minchub,base_cheryuk,base_simmek) "
+                           "VALUES(123,'1','UnsupportedHero',1,12,12,12,12)", {}).ok());
+    ASSERT_TRUE(db.execute("INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,"
+                           "durability,rare_idx,quick_position,item_param) "
+                           "VALUES(123,1,1,700001,555,100,0,65535,1)", {}).ok());
+    ReplySpy reply;
+    MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message({91}, game_in);
+    EXPECT_FALSE(handler.player_runtime_snapshot(123));
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT db_idx,item_idx FROM modern_player_item WHERE player_id=123", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 700001);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 555);
+}
+
+TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ReplySpy reply;
+    AgentHandler agent(db, make_reply_spy(reply), true, false, {}, 10);
+    mxh::net::Message create;
+    create.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    create.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterMakeSyn);
+    create.payload.assign(59, 0);
+    std::memcpy(create.payload.data(), "EquipmentHero", 13);
+    const std::uint32_t account = 123;
+    const float scale = 1.f;
+    std::memcpy(create.payload.data() + 17, &account, 4);
+    std::memcpy(create.payload.data() + 51, &scale, 4);
+    std::memcpy(create.payload.data() + 55, &scale, 4);
+    agent.on_message({90}, create);
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT chrid,base_gengol,base_minchub,base_cheryuk,base_simmek FROM character_info", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    for (unsigned i = 1; i < 5; ++i) EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][i]), 12);
+    const auto character = static_cast<std::uint32_t>(std::get<std::int64_t>(rows.rows[0][0]));
+    const std::vector<mxh::db::Bind> grant_args{mxh::db::bind(static_cast<std::int64_t>(character))};
+    ASSERT_TRUE(db.execute("INSERT INTO modern_item_grant(idempotency_key,character_id,item_id,item_count,status,created_by,reason) "
+                           "VALUES('equipment-test',?,11000,1,'pending','unit-test','ordinary starter')", grant_args).ok());
+    mxh::net::Message game_in;
+    game_in.header = create.header;
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = character;
+    game_in.payload.assign(16, 0);
+    std::memcpy(game_in.payload.data(), &account, 4);
+    const auto configure = [&](MapHandler& handler) {
+        handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    };
+    std::uint32_t database_id = 0;
+    const auto move = [&](MapHandler& handler, std::uint16_t destination) {
+        mxh::net::Message request;
+        request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        request.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveSyn);
+        request.header.object_id = character;
+        request.payload.assign(24, 0);
+        std::memcpy(request.payload.data(), &database_id, 4);
+        std::memcpy(request.payload.data() + 22, &destination, 2);
+        handler.on_message({91}, request);
+    };
+    {
+        MapHandler handler(db, 10, make_reply_spy(reply)); configure(handler);
+        handler.on_message({91}, game_in);
+        auto snapshot = handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
+        EXPECT_EQ(snapshot->max_hp, 125u);
+        EXPECT_EQ(snapshot->physical_defence, 8u);
+        EXPECT_EQ(snapshot->physical_attack_min, 16u);
+        ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item", {}, rows).ok());
+        ASSERT_EQ(rows.rows.size(), 1u);
+        database_id = static_cast<std::uint32_t>(std::get<std::int64_t>(rows.rows[0][0]));
+        move(handler, 81);
+        snapshot = handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
+        EXPECT_EQ(snapshot->physical_attack_min, 29u);
+        EXPECT_EQ(snapshot->physical_attack_max, 35u);
+        move(handler, 81);
+        EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
+        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 29u);
+        move(handler, 0);
+        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 16u);
+        move(handler, 81);
+        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 29u);
+        handler.on_disconnect({91}, mxh::net::NetError::Disconnected);
+    }
+    {
+        MapHandler handler(db, 10, make_reply_spy(reply)); configure(handler);
+        handler.on_message({91}, game_in);
+        auto snapshot = handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
+        EXPECT_EQ(snapshot->physical_attack_min, 29u);
+        EXPECT_EQ(snapshot->physical_attack_max, 35u);
+        move(handler, 0);
+        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 16u);
+        handler.on_disconnect({91}, mxh::net::NetError::Disconnected);
+    }
+    {
+        MapHandler handler(db, 10, make_reply_spy(reply)); configure(handler);
+        handler.on_message({91}, game_in);
+        auto snapshot = handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
+        EXPECT_EQ(snapshot->physical_attack_min, 16u);
+    }
+}
+
+TEST(EquipmentPersistence, UnknownAndPartialLegacyAttributesRejectWithoutBackfill) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(db.execute("INSERT INTO character_info(chrid,userid,charname,level) "
+                           "VALUES(777,'123','OldUnknown',48)", {}).ok());
+    ReplySpy reply;
+    MapHandler handler(db, 10, make_reply_spy(reply));
+    mxh::net::Message game_in;
+    game_in.header.object_id = 777;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.payload.assign(16, 0);
+    game_in.payload[0] = 123;
+    handler.on_message({91}, game_in);
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack));
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT base_gengol,base_minchub,base_cheryuk,base_simmek FROM character_info", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    for (const auto& cell : rows.rows[0]) EXPECT_TRUE(std::holds_alternative<std::monostate>(cell));
+    ASSERT_TRUE(db.execute("UPDATE character_info SET base_gengol=31 WHERE chrid=777", {}).ok());
+    handler.on_message({91}, game_in);
+    EXPECT_FALSE(handler.player_runtime_snapshot(777));
+    ASSERT_TRUE(db.execute("UPDATE character_info SET base_minchub=12,base_cheryuk=18,base_simmek=27 WHERE chrid=777", {}).ok());
+    handler.on_message({91}, game_in);
+    const auto imported = handler.player_runtime_snapshot(777); ASSERT_TRUE(imported);
+    EXPECT_EQ(imported->max_hp, 48u * 5u + 18u * 10u);
 }
 
 }  // namespace mxh::server::test

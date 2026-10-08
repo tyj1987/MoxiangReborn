@@ -295,6 +295,10 @@ public:
 
 
     struct PlayerRuntimeSnapshot {
+        bool physical_stats_ready = false;
+        std::uint32_t physical_attack_min = 0;
+        std::uint32_t physical_attack_max = 0;
+        std::uint32_t physical_defence = 0;
         PlayerLifecycle lifecycle = PlayerLifecycle::Disconnected;
         std::uint32_t player_id = 0;
         std::uint16_t map_num = 0;
@@ -576,7 +580,7 @@ private:
     // wire reply (the wire reply has already been sent before the
     // write is attempted; the next BuySyn will overwrite the row).
     void persist_player_money(std::uint32_t player_id, std::uint32_t money);
-    void load_player_items(std::uint32_t player_id, Player& player);
+    bool load_player_items(std::uint32_t player_id, Player& player);
     bool persist_player_items(std::uint32_t player_id);
 
     // M3 D-stage: upsert every active quest in the player's quest_log to

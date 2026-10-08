@@ -26,7 +26,7 @@ TEST(SchemaMigration, CreatesVersionedSharedSchemaWithoutAccounts) {
 
     mxh::db::ResultSet columns;
     ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
-    EXPECT_EQ(columns.rows.size(), 14u);
+    EXPECT_EQ(columns.rows.size(), 18u);
 }
 
 TEST(SchemaMigration, IsIdempotent) {
@@ -50,7 +50,38 @@ TEST(SchemaMigration, UpgradesLegacyCharacterTableInPlace) {
 
     mxh::db::ResultSet columns;
     ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
-    EXPECT_EQ(columns.rows.size(), 14u);
+    EXPECT_EQ(columns.rows.size(), 18u);
+}
+
+TEST(SchemaMigration, LegacyAttributesStayNullWithoutDefaultsOrBackfill) {
+    mxh::db::SqliteAdapter db;
+    connect_memory_db(db);
+    ASSERT_TRUE(db.execute(
+        "CREATE TABLE character_info (charname TEXT PRIMARY KEY, chrid INTEGER UNIQUE, userid TEXT, character_data BLOB)", {}).ok());
+    ASSERT_TRUE(db.execute(
+        "INSERT INTO character_info(charname,chrid,userid) VALUES('OldHero',7,'old')", {}).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+
+    mxh::db::ResultSet row;
+    ASSERT_TRUE(db.query("SELECT base_gengol,base_minchub,base_cheryuk,base_simmek "
+                         "FROM character_info WHERE chrid=7", {}, row).ok());
+    ASSERT_EQ(row.rows.size(), 1u);
+    for (const auto& value : row.rows.front()) EXPECT_TRUE(std::holds_alternative<std::monostate>(value));
+
+    mxh::db::ResultSet columns;
+    ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
+    unsigned seen = 0;
+    for (const auto& col : columns.rows) {
+        const auto* name = std::get_if<std::string>(&col[1]);
+        if (name && name->rfind("base_", 0) == 0) {
+            ++seen;
+            EXPECT_EQ(std::get<std::int64_t>(col[3]), 0);
+            EXPECT_TRUE(std::holds_alternative<std::monostate>(col[4]));
+        }
+    }
+    EXPECT_EQ(seen, 4u);
+    EXPECT_FALSE(db.execute("UPDATE character_info SET base_gengol=65536 WHERE chrid=7", {}).ok());
 }
 
 TEST(SchemaMigration, UpgradesLegacyPlayerStateWithSocialColumns) {
