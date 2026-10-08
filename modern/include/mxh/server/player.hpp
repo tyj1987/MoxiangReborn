@@ -69,6 +69,7 @@ public:
                       std::uint16_t inventory_slot) noexcept;
 
     PlayerDamageResult apply_damage(std::uint32_t amount) noexcept;
+    bool mark_dead_if_zero_life() noexcept;
     bool revive() noexcept;
     void heal_full() noexcept;
 

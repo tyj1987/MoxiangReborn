@@ -481,6 +481,45 @@ mxh::net::Message make_monster_add_at(std::uint32_t object_id,
 
 }  // namespace
 
+TEST(InGamePlayable, CharacterDeltasAndDeathUseAuthoritativeMessages) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto ack = make_gamein_ack_at(25000, 25000);
+    const std::uint32_t initial_life = 50;
+    std::memcpy(ack.payload.data() + 35, &initial_life, 4);
+    std::memcpy(ack.payload.data() + 39, &initial_life, 4);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    ASSERT_EQ(state.game_info().life, 50u);
+
+    mxh::net::Message delta;
+    delta.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    delta.header.object_id = 42;
+    delta.payload.resize(4);
+    std::int32_t amount = -7;
+    std::memcpy(delta.payload.data(), &amount, 4);
+    delta.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+    state.on_message(mxh::net::make_connection_id(1), delta);
+    EXPECT_EQ(state.game_info().life, 43u);
+    delta.header.object_id = 99;
+    state.on_message(mxh::net::make_connection_id(1), delta);
+    EXPECT_EQ(state.game_info().life, 43u);
+    delta.header.object_id = 42;
+    delta.payload.resize(3);
+    state.on_message(mxh::net::make_connection_id(1), delta);
+    EXPECT_EQ(state.game_info().life, 43u);
+
+    mxh::net::Message death;
+    death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    death.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie);
+    death.payload.resize(8);
+    const std::uint32_t monster = 50000;
+    const std::uint32_t player = 42;
+    std::memcpy(death.payload.data(), &monster, 4);
+    std::memcpy(death.payload.data() + 4, &player, 4);
+    state.on_message(mxh::net::make_connection_id(1), death);
+    EXPECT_EQ(state.game_info().life, 0u);
+}
+
 TEST(InGamePlayable, OffensiveQuickSlotRequiresExplicitCursorTarget) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
@@ -626,7 +665,7 @@ TEST(InGamePlayable, SkillResultPublishesCombatFeedbackForHud) {
     EXPECT_GT(state.last_damage_timestamp_ms(), 0u);
 }
 
-TEST(InGamePlayable, SkillResultImmediatelyUpdatesTargetLifeBar) {
+TEST(InGamePlayable, SkillResultWaitsForAuthoritativeTargetLifeBar) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
     state.on_message(mxh::net::make_connection_id(1),
@@ -650,6 +689,16 @@ TEST(InGamePlayable, SkillResultImmediatelyUpdatesTargetLifeBar) {
     std::memcpy(result.payload.data() + 4, &damage, 4);
     result.payload[8] = 1;
     state.on_message(mxh::net::make_connection_id(1), result);
+    EXPECT_EQ(state.monsters().front().current_life, 100u);
+    EXPECT_EQ(state.last_damage(), damage);
+    mxh::net::Message life_notify;
+    life_notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Monster);
+    life_notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify);
+    life_notify.header.object_id = target;
+    life_notify.payload.assign(8, 0);
+    const std::uint32_t remaining = 65;
+    std::memcpy(life_notify.payload.data(), &remaining, 4);
+    state.on_message(mxh::net::make_connection_id(1), life_notify);
     EXPECT_EQ(state.monsters().front().current_life, 65u);
 }
 
@@ -888,14 +937,27 @@ TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     std::memcpy(ack.payload.data() + 6, &count, 2);
     state.on_message(mxh::net::make_connection_id(1), ack);
     EXPECT_TRUE(state.ground_drops().empty());
-    EXPECT_EQ(state.game_info().items.Inventory[0].dwDBIdx, drop_id);
-    EXPECT_EQ(state.game_info().items.Inventory[0].wIconIdx, item_id);
-    EXPECT_EQ(state.game_info().items.Inventory[0].ItemParam, count);
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[0]));
+
+    mxh::game::ItemTotalInfo authoritative{};
+    const std::uint32_t persistent_id = 700123u;
+    authoritative.Inventory[5] = mxh::game::make_item(persistent_id, item_id, 5u, 100u, count);
+    mxh::net::Message snapshot;
+    snapshot.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    snapshot.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    snapshot.payload.resize(sizeof(authoritative));
+    std::memcpy(snapshot.payload.data(), &authoritative, sizeof(authoritative));
+    state.on_message(mxh::net::make_connection_id(1), snapshot);
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[0]));
+    EXPECT_EQ(state.game_info().items.Inventory[5].dwDBIdx, persistent_id);
+    EXPECT_EQ(state.game_info().items.Inventory[5].wIconIdx, item_id);
+    EXPECT_EQ(state.game_info().items.Inventory[5].ItemParam, count);
 
     // A repeated acknowledgement for the already-consumed drop must not
     // create a second inventory entry.
     state.on_message(mxh::net::make_connection_id(1), ack);
     EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[1]));
+    EXPECT_EQ(state.game_info().items.Inventory[5].dwDBIdx, persistent_id);
 }
 
 TEST(InGamePlayable, ItemNacksBecomeVisiblePlayerFeedback) {

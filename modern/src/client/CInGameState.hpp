@@ -599,9 +599,6 @@ public:
     void handle_friend_message(const mxh::net::Message& msg);
     void handle_item_broadcast(const mxh::net::Message& msg);
     void handle_npc_message(const mxh::net::Message& msg);
-    bool apply_pickup_to_inventory(std::uint32_t drop_id,
-                                   std::uint16_t item_id,
-                                   std::uint16_t count) noexcept;
     void handle_quest_broadcast(const mxh::net::Message& msg);
     void send_quest(mxh::proto::QuestProtocol protocol);
     void refresh_live_ui_bindings();

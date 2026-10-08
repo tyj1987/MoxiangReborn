@@ -38,12 +38,16 @@
 #include "mxh/server/quest_script_loader.hpp"
 #include "mxh/server/skill_caster.hpp"
 #include "mxh/game/item_list_parser.hpp"
+#include "mxh/game/battle_factory.hpp"
+#include "mxh/server/item_id.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstring>
 #include <ctime>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <random>
 #include <vector>
@@ -386,10 +390,10 @@ MapHandler::MapHandler(mxh::db::IDbAdapter& db, std::uint16_t map_num,
     mxh::db::ResultSet rows;
     if (db_.query(
             "SELECT COALESCE(MAX(db_idx),699999) AS max_db_idx "
-            "FROM modern_player_item", {}, rows).ok() &&
+            "FROM modern_player_item WHERE db_idx < 2147483648", {}, rows).ok() &&
         !rows.rows.empty()) {
         const auto max_id = get_int(rows, 0, "max_db_idx", 699999);
-        if (max_id >= 0 && max_id < static_cast<std::int64_t>(UINT32_MAX)) {
+        if (max_id >= 0 && max_id < static_cast<std::int64_t>(kFirstGrantItemId)) {
             next_item_db_idx_.store(
                 std::max<std::uint32_t>(700000u,
                     static_cast<std::uint32_t>(max_id) + 1u),
@@ -700,7 +704,7 @@ void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
         const auto slot = std::get<std::int64_t>(row[1]);
         mxh::game::ItemBase item{};
         item.dwDBIdx = static_cast<std::uint32_t>(std::get<std::int64_t>(row[2]));
-        if (item.dwDBIdx != 0u) {
+        if (item.dwDBIdx != 0u && item.dwDBIdx < kFirstGrantItemId) {
             auto next = next_item_db_idx_.load(std::memory_order_relaxed);
             while (next <= item.dwDBIdx &&
                    !next_item_db_idx_.compare_exchange_weak(
@@ -724,24 +728,24 @@ void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
     }
 }
 
-void MapHandler::persist_player_items(std::uint32_t player_id) {
+bool MapHandler::persist_player_items(std::uint32_t player_id) {
     InventorySlots inventory;
     EquipSlots equipment;
     {
         std::lock_guard<std::mutex> lock(players_mu_);
         const auto runtime = player_runtimes_.find(player_id);
-        if (runtime == player_runtimes_.end()) return;
+        if (runtime == player_runtimes_.end()) return false;
         inventory = runtime->second.actor.state().inventory;
         equipment = runtime->second.actor.state().equipment;
     }
-    if (!db_.begin_transaction().ok()) return;
+    if (!db_.begin_transaction().ok()) return false;
     const auto rollback = [&]() noexcept { (void)db_.rollback(); };
     const std::vector<mxh::db::Bind> delete_args{
         mxh::db::bind(static_cast<std::int64_t>(player_id))};
-    if (!db_.execute("DELETE FROM modern_player_item WHERE player_id=?",
+    if (!db_.execute("DELETE FROM modern_player_item WHERE player_id=? AND container IN (0,1)",
                      delete_args).ok()) {
         rollback();
-        return;
+        return false;
     }
     bool write_failed = false;
     const auto write = [&](std::int64_t container, std::size_t slot,
@@ -764,7 +768,15 @@ void MapHandler::persist_player_items(std::uint32_t player_id) {
     };
     for (std::size_t i = 0; i < inventory.items.size(); ++i) write(0, i, inventory.items[i]);
     for (std::size_t i = 0; i < equipment.items.size(); ++i) write(1, i, equipment.items[i]);
-    if (write_failed || !db_.commit().ok()) rollback();
+    if (write_failed) {
+        rollback();
+        return false;
+    }
+    if (!db_.commit().ok()) {
+        rollback();
+        return false;
+    }
+    return true;
 }
 
 bool MapHandler::persist_player_money_for_test(std::uint32_t player_id, std::uint32_t money) {
@@ -960,6 +972,8 @@ std::optional<MapHandler::GroundDrop> MapHandler::create_ground_drop_for_test(st
 bool MapHandler::claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id) {
     std::uint16_t item_id = 0;
     std::uint16_t item_count = 0;
+    std::optional<std::uint16_t> inserted_slot;
+    std::uint32_t inserted_db_id = 0;
     {
         std::lock_guard<std::mutex> lock(players_mu_);
         const auto drop_it = ground_drops_.find(drop_object_id);
@@ -967,9 +981,26 @@ bool MapHandler::claim_ground_drop_for_test(std::uint32_t player_id, std::uint32
         if (drop_it == ground_drops_.end() || runtime_it == player_runtimes_.end() || drop_it->second.claimed) return false;
         item_id = drop_it->second.item_id;
         item_count = drop_it->second.count;
-        auto item = mxh::game::make_item(static_cast<std::uint32_t>(drop_object_id), item_id, 0u, 100u, item_count);
-        if (!runtime_it->second.actor.insert_inventory_item(item)) return false;
+        const auto item_db_id = reserve_item_id(next_item_db_idx_);
+        if (!item_db_id) return false;
+        auto item = mxh::game::make_item(*item_db_id, item_id, 0u, 100u, item_count);
+        inserted_slot = runtime_it->second.actor.insert_inventory_item(item);
+        if (!inserted_slot) return false;
+        inserted_db_id = *item_db_id;
         drop_it->second.claimed = true;
+    }
+
+    // The pickup acknowledgement is only sent after this transaction commits.
+    // If persistence fails, restore both the live slot and the ground claim.
+    if (!persist_player_items(player_id)) {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto runtime_it = player_runtimes_.find(player_id);
+        const auto drop_it = ground_drops_.find(drop_object_id);
+        if (runtime_it != player_runtimes_.end() &&
+            runtime_it->second.actor.state().inventory.items[*inserted_slot].dwDBIdx == inserted_db_id)
+            (void)runtime_it->second.actor.remove_inventory_item(*inserted_slot);
+        if (drop_it != ground_drops_.end()) drop_it->second.claimed = false;
+        return false;
     }
 
     // Collection is an authoritative quest event, not a client-side label.
@@ -1188,6 +1219,7 @@ bool MapHandler::on_connect(mxh::net::ConnectionId id,
 
 void MapHandler::on_disconnect(mxh::net::ConnectionId id,
                                mxh::net::NetError reason) {
+    std::lock_guard<std::mutex> dispatch_lock(dispatch_mu_);
     std::cout << "[Map] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << ")\n";
     hsel_.on_disconnect(id);
@@ -1227,6 +1259,7 @@ void MapHandler::on_disconnect(mxh::net::ConnectionId id,
 
 void MapHandler::on_message(mxh::net::ConnectionId id,
                             const mxh::net::Message& msg) {
+    std::lock_guard<std::mutex> dispatch_lock(dispatch_mu_);
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
     std::cout << "[Map] on_message cat=" << mxh::proto::category_name(cat)
               << " proto=" << (int)msg.header.protocol
@@ -2415,6 +2448,27 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::cout << "[Map] sent ITEM_PICKUP_"
                       << (claimed ? "ACK" : "NACK")
                       << " drop=" << drop_id << "\n";
+            if (claimed) {
+                mxh::game::ItemTotalInfo updated_items{};
+                {
+                    std::lock_guard<std::mutex> lock(players_mu_);
+                    const auto runtime = player_runtimes_.find(player_id);
+                    const auto player = connected_players_.find(player_id);
+                    if (runtime == player_runtimes_.end() || player == connected_players_.end()) break;
+                    updated_items = player->second.items;
+                    std::copy(std::begin(runtime->second.actor.state().inventory.items),
+                              std::end(runtime->second.actor.state().inventory.items),
+                              std::begin(updated_items.Inventory));
+                    player->second.items = updated_items;
+                }
+                mxh::net::Message total;
+                total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                total.header.object_id = player_id;
+                total.payload.resize(sizeof(updated_items));
+                std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+                reply_(id, total);
+            }
             break;
         }
 
@@ -2928,9 +2982,6 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                 std::memcpy(reply_msg.payload.data(), msg.payload.data(), 4);
             }
             if (decision.status == mxh::server::NpcShopBuyStatus::Ok) {
-                const auto db_idx_seed = next_item_db_idx_.fetch_add(
-                    static_cast<std::uint32_t>(req.qty),
-                    std::memory_order_relaxed);
                 bool ok = true;
                 mxh::game::ItemTotalInfo updated_items{};
                 {
@@ -2938,18 +2989,24 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     auto info_it = connected_players_.find(player_id);
                     auto rt_it   = player_runtimes_.find(player_id);
                     if (info_it != connected_players_.end() && rt_it != player_runtimes_.end()) {
+                        const auto inventory_before = rt_it->second.actor.state().inventory;
                         info_it->second.money = decision.new_money;
                         rt_it->second.actor.set_money(decision.new_money);
                         for (std::uint16_t n = 0; n < req.qty; ++n) {
-                            mxh::game::ItemBase bought = mxh::game::make_item(db_idx_seed + n, req.item_id, 0u);
+                            const auto db_idx = reserve_item_id(next_item_db_idx_);
+                            if (!db_idx) { ok = false; break; }
+                            mxh::game::ItemBase bought = mxh::game::make_item(*db_idx, req.item_id, 0u);
                             bought.ItemParam = 1u;
                             if (rt_it->second.actor.insert_inventory_item(bought).has_value()) {
                                 continue;
                             }
-                            info_it->second.money = player_money;
-                            rt_it->second.actor.set_money(player_money);
                             ok = false;
                             break;
+                        }
+                        if (!ok) {
+                            rt_it->second.actor.state().inventory = inventory_before;
+                            info_it->second.money = player_money;
+                            rt_it->second.actor.set_money(player_money);
                         }
                         if (ok) {
                             for (std::size_t i = 0; i < mxh::game::SLOT_INVENTORY_NUM; ++i) {
@@ -3016,6 +3073,25 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
 // Phase 10c: Monster management
 // ============================================================================
 
+bool MapHandler::has_ai_group_monster_templates(const AiGroupList& groups) const noexcept {
+    if (!monster_catalog_) return false;
+    for (const auto& group : groups.groups) {
+        for (const auto& def : group.spawns) {
+            if (def.monster_kind > UINT16_MAX) return false;
+            const auto* source = monster_catalog_->find(static_cast<std::uint16_t>(def.monster_kind));
+            if (!source) return false;
+            for (std::size_t slot = 0; slot < source->attack_count; ++slot) {
+                if (!find_skill(source->attack_skills[slot])) {
+                    std::cerr << "[Map] missing MonsterList attack skill kind=" << def.monster_kind
+                              << " skill=" << source->attack_skills[slot] << "\n";
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
 std::size_t MapHandler::install_ai_groups(const AiGroupList& groups) {
     std::size_t spawned = 0;
     ai_spawn_overrides_.clear();
@@ -3023,10 +3099,35 @@ std::size_t MapHandler::install_ai_groups(const AiGroupList& groups) {
     ai_spawn_overrides_.reserve(groups.spawn_count());
     for (const auto& group : groups.groups) {
         for (const auto& def : group.spawns) {
-            ai_spawn_overrides_.push_back(def);
             mxh::game::MonsterTemplate tpl;
             tpl.MonsterKind = def.monster_kind;
             tpl.ObjectKind  = def.object_kind;
+            if (monster_catalog_) {
+                const auto* source = monster_catalog_->find(static_cast<std::uint16_t>(def.monster_kind));
+                if (!source) {
+                    std::cerr << "[Map] AI spawn references missing MonsterList kind=" << def.monster_kind << "\n";
+                    continue;
+                }
+                std::strncpy(tpl.Name, source->name.c_str(), 16);
+                tpl.Name[16] = '\0';
+                tpl.Level = source->level;
+                tpl.Life = source->life;
+                tpl.Shield = source->shield;
+                tpl.ExpPoint = source->exp;
+                tpl.AttackMin = source->attack_min;
+                tpl.AttackMax = source->attack_max;
+                tpl.Defense = source->defense;
+                tpl.WalkSpeed = source->walk_speed;
+                tpl.RunSpeed = source->run_speed;
+                tpl.SearchRange = source->search_range;
+                tpl.DomainRange = source->domain_range;
+                tpl.Aggressive = source->aggressive;
+                tpl.SearchPeriodMs = static_cast<std::uint32_t>(source->search_period_ms);
+                tpl.AttackCount = source->attack_count;
+                tpl.AttackSkills = source->attack_skills;
+                tpl.AttackRates = source->attack_rates;
+            }
+            ai_spawn_overrides_.push_back(def);
             ai_template_overrides_.emplace(def.monster_kind, tpl);
             ++spawned;
         }
@@ -3084,6 +3185,21 @@ void MapHandler::spawn_monsters() {
             // regen manager (CAIGroup::Die). Modern GameIn creates the
             // instance immediately, so the first appearance is alive.
             m.is_dead  = false;
+            if (tmpl) {
+                m.exp_reward = tmpl->ExpPoint;
+                m.attack_min = tmpl->AttackMin;
+                m.attack_max = tmpl->AttackMax;
+                m.defense = tmpl->Defense;
+                m.walk_speed = tmpl->WalkSpeed;
+                m.run_speed = tmpl->RunSpeed;
+                m.search_range = tmpl->SearchRange;
+                m.domain_range = tmpl->DomainRange;
+                m.aggressive = tmpl->Aggressive;
+                m.search_period_ms = tmpl->SearchPeriodMs;
+                m.attack_count = tmpl->AttackCount;
+                m.attack_skills = tmpl->AttackSkills;
+                m.attack_rates = tmpl->AttackRates;
+            }
             // In the current PlayDH profile the drop-list index is the
             // monster kind.  Only enable the relation when a real table is
             // present; missing data remains a no-drop state instead of
@@ -3162,6 +3278,10 @@ void MapHandler::spawn_monsters() {
         m.search_range  = tmpl->SearchRange;
         m.domain_range  = tmpl->DomainRange;
         m.aggressive    = tmpl->Aggressive;
+        m.search_period_ms = tmpl->SearchPeriodMs;
+        m.attack_count = tmpl->AttackCount;
+        m.attack_skills = tmpl->AttackSkills;
+        m.attack_rates = tmpl->AttackRates;
         m.drop_item_id  = tmpl->DropItemId;
         m.drop_item_ratio = tmpl->DropItemRatio;
 
@@ -3356,13 +3476,29 @@ void MapHandler::broadcast_monster_move(
 }
 
 void MapHandler::tick_monster_ai() {
+    std::lock_guard<std::mutex> dispatch_lock(dispatch_mu_);
     // Called periodically from the server main loop or a timer.
     // Phase 10c P0: simple state machine.
-    auto now_ms = static_cast<std::uint64_t>(
+    auto now_ms = monster_ai_clock_ ? monster_ai_clock_() : static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count());
 
     std::vector<mxh::game::MonsterInstance> moved;
+    struct PendingAttack {
+        std::uint64_t connection_id = 0;
+        std::uint32_t player_id = 0;
+        std::uint32_t monster_id = 0;
+        std::int32_t life_delta = 0;
+        std::int32_t shield_delta = 0;
+        bool died = false;
+        mxh::game::SkillInstance skill;
+    };
+    std::vector<PendingAttack> attacks;
+    auto random_value = [&]() -> std::uint32_t {
+        if (monster_ai_rng_) return monster_ai_rng_();
+        static thread_local std::mt19937 rng(std::random_device{}());
+        return rng();
+    };
     {
         std::lock_guard<std::mutex> lk(monsters_mu_);
 
@@ -3384,8 +3520,9 @@ void MapHandler::tick_monster_ai() {
                 continue;
             }
 
-            // AI tick every 1 second
-            if (now_ms - m.last_ai_tick_ms < 1000) continue;
+            // MonsterList supplies the original search/decision period.
+            if (now_ms < m.last_ai_tick_ms ||
+                now_ms - m.last_ai_tick_ms < m.search_period_ms) continue;
             m.last_ai_tick_ms = now_ms;
 
             switch (m.ai_state) {
@@ -3420,8 +3557,13 @@ void MapHandler::tick_monster_ai() {
                     float dx = it->second.pos_x - m.pos_x;
                     float dz = it->second.pos_z - m.pos_z;
                     float dist = std::sqrt(dx * dx + dz * dz);
-                    if (dist < 3.0f) {
-                        // In attack range
+                    const auto slot = std::min<std::size_t>(m.current_attack_slot, 1);
+                    const auto* skill = m.attack_count == 0 ? nullptr : find_skill(m.attack_skills[slot]);
+                    if (!skill) {
+                        m.ai_state = mxh::game::MonsterAIState::Return;
+                        break;
+                    }
+                    if (dist <= static_cast<float>(skill->SkillRange)) {
                         m.ai_state = mxh::game::MonsterAIState::Attack;
                     } else {
                         // Move toward target
@@ -3433,11 +3575,76 @@ void MapHandler::tick_monster_ai() {
                     break;
                 }
                 case mxh::game::MonsterAIState::Attack: {
-                    // Phase 10c P0: just log the attack, damage dealt in Phase 10d
-                    std::cout << "[Map] monster id=" << m.object_id
-                              << " attacks player=" << m.target_object_id << "\n";
-                    // Return to chase (will re-evaluate next tick)
-                    m.ai_state = mxh::game::MonsterAIState::Chase;
+                    std::lock_guard<std::mutex> plk(players_mu_);
+                    auto player = connected_players_.find(m.target_object_id);
+                    auto runtime = player_runtimes_.find(m.target_object_id);
+                    if (player == connected_players_.end() || runtime == player_runtimes_.end() ||
+                        player->second.combat.current_hp == 0) {
+                        m.ai_state = mxh::game::MonsterAIState::Return;
+                        break;
+                    }
+                    const auto slot = std::min<std::size_t>(m.current_attack_slot, 1);
+                    const auto* skill = m.attack_count == 0 ? nullptr : find_skill(m.attack_skills[slot]);
+                    if (!skill) {
+                        m.ai_state = mxh::game::MonsterAIState::Return;
+                        break;
+                    }
+                    const float d2 = mxh::game::distance_sq_2d(
+                        m.pos_x, m.pos_z, player->second.pos_x, player->second.pos_z);
+                    const float range = static_cast<float>(skill->SkillRange);
+                    if (d2 > range * range) {
+                        m.ai_state = mxh::game::MonsterAIState::Chase;
+                        break;
+                    }
+                    // Original StateMachinen uses a strict skill delay comparison.
+                    if (now_ms <= m.last_attack_ms || now_ms - m.last_attack_ms <= skill->DelayTime) break;
+
+                    const auto gap = m.attack_max >= m.attack_min
+                        ? static_cast<std::uint32_t>(m.attack_max - m.attack_min + 1u) : 1u;
+                    // Legacy AttackCalc::getMonsterPhysicalAttackPower accepts a
+                    // PhyAttackRate argument but returns the inclusive base roll
+                    // without multiplying by it (AttackCalc.cpp:333-351).
+                    const auto raw = mxh::game::compute_monster_physical_attack(
+                        m.attack_min, m.attack_max, 1.0, static_cast<int>(random_value() % gap));
+                    auto& vitals = runtime->second.actor.state().vitals;
+                    const double shield_ratio = skill->ComboNum == 100 ? 0.7 : 0.5;
+                    const auto requested_shield = static_cast<std::uint32_t>(raw * shield_ratio);
+                    const auto shield_damage = std::min(vitals.current_shield, requested_shield);
+                    const auto after_shield = raw - shield_damage;
+                    const auto defense = mxh::game::compute_phy_defence_level(
+                        player->second.combat.phy_defence, m.level);
+                    const auto calculated = mxh::game::compute_received_damage(after_shield, defense);
+                    const auto life_damage = std::min(vitals.current_hp, std::max(1u, calculated));
+                    vitals.current_shield -= shield_damage;
+                    vitals.current_hp -= life_damage;
+                    (void)runtime->second.actor.mark_dead_if_zero_life();
+                    player->second.combat.current_hp = vitals.current_hp;
+
+                    PendingAttack pending;
+                    pending.connection_id = player->second.conn_id;
+                    pending.player_id = player->first;
+                    pending.monster_id = m.object_id;
+                    pending.life_delta = -static_cast<std::int32_t>(life_damage);
+                    pending.shield_delta = -static_cast<std::int32_t>(shield_damage);
+                    pending.died = vitals.current_hp == 0;
+                    pending.skill.skill_object_id = next_skill_obj_id_++;
+                    pending.skill.skill_idx = skill->SkillIdx;
+                    pending.skill.caster_id = m.object_id;
+                    pending.skill.main_target_id = player->first;
+                    pending.skill.pos_x = player->second.pos_x;
+                    pending.skill.pos_z = player->second.pos_z;
+                    pending.skill.direction = static_cast<std::uint16_t>(m.angle);
+                    pending.skill.start_time = now_ms;
+                    pending.skill.duration = skill->Duration;
+                    attacks.push_back(pending);
+
+                    m.last_attack_ms = now_ms;
+                    if (m.attack_count > 1) {
+                        const auto roll = random_value() % 99u;
+                        m.current_attack_slot = roll < m.attack_rates[0] ? 0 : 1;
+                    } else {
+                        m.current_attack_slot = 0;
+                    }
                     break;
                 }
                 case mxh::game::MonsterAIState::Return: {
@@ -3464,6 +3671,37 @@ void MapHandler::tick_monster_ai() {
     }
     for (const auto& m : moved) {
         broadcast_monster_move(m);
+    }
+    for (const auto& attack : attacks) {
+        broadcast_skill_object_add(0, attack.skill, attack.monster_id);
+        send_skill_single_result(attack.player_id, attack.player_id, -attack.life_delta, 1);
+        if (attack.shield_delta != 0) {
+            mxh::net::Message shield;
+            shield.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+            shield.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::ShieldAck);
+            shield.header.object_id = attack.player_id;
+            shield.payload.resize(sizeof(attack.shield_delta));
+            std::memcpy(shield.payload.data(), &attack.shield_delta, sizeof(attack.shield_delta));
+            reply_(mxh::net::ConnectionId{attack.connection_id}, shield);
+        }
+        mxh::net::Message life;
+        life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+        life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+        life.header.object_id = attack.player_id;
+        life.payload.resize(sizeof(attack.life_delta));
+        std::memcpy(life.payload.data(), &attack.life_delta, sizeof(attack.life_delta));
+        reply_(mxh::net::ConnectionId{attack.connection_id}, life);
+        if (attack.died) {
+            mxh::net::Message death;
+            death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+            death.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie);
+            death.header.object_id = attack.monster_id;
+            death.payload.resize(8);
+            std::memcpy(death.payload.data(), &attack.monster_id, 4);
+            std::memcpy(death.payload.data() + 4, &attack.player_id, 4);
+            reply_(mxh::net::ConnectionId{attack.connection_id}, death);
+        }
+        broadcast_skill_object_remove(0, attack.skill.skill_object_id);
     }
 }
 
@@ -3744,6 +3982,27 @@ void MapHandler::init_skill_table() {
               << " hardcoded skills\n";
 }
 // R-8: load real ItemList.bin into item_manager_ (1:1 lookup).
+void MapHandler::load_monster_list(const std::string& path) {
+    monster_catalog_.reset();
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        std::cerr << "[Map] MonsterList.bin unavailable: " << path << "\n";
+        return;
+    }
+    const std::vector<std::uint8_t> bytes{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    try {
+        monster_catalog_ = mxh::compat::MonsterCatalog::parse_bin(bytes);
+    } catch (const std::exception& ex) {
+        std::cerr << "[Map] MonsterList.bin invalid: " << ex.what() << "\n";
+        return;
+    }
+    if (!monster_catalog_ || monster_catalog_->entries().empty()) {
+        monster_catalog_.reset();
+        std::cerr << "[Map] MonsterList.bin has no valid rows: " << path << "\n";
+    }
+}
+
 void MapHandler::load_item_list(const std::string& path) {
     std::uint32_t errors = 0;
     try {
@@ -4073,6 +4332,20 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     std::uint8_t err = 3;  // unknown caster
                     nack.payload.assign(reinterpret_cast<const std::uint8_t*>(&err),
                                         reinterpret_cast<const std::uint8_t*>(&err) + 1);
+                    reply_(id, nack);
+                    break;
+                }
+            }
+
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto runtime = player_runtimes_.find(caster_id);
+                if (runtime != player_runtimes_.end() && !runtime->second.actor.is_alive()) {
+                    mxh::net::Message nack;
+                    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+                    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack);
+                    nack.header.object_id = caster_id;
+                    nack.payload = {3u};  // existing rejected-caster response shape
                     reply_(id, nack);
                     break;
                 }

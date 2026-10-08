@@ -209,6 +209,12 @@ inline const char* category_name(Category c) {
 }
 
 // ============================================================================
+// Character sub-protocols (MP_CHAR_*). These are existing legacy wire values.
+enum class CharacterProtocol : std::uint8_t {
+    LifeAck = 1,
+    ShieldAck = 5,
+};
+
 // UserConn sub-protocols (MP_USERCONN_*).
 // This is the login flow: client → DistributeServer → AgentServer.
 // Values are 1:1 with the original C enum MP_PROTOCOL_USERCONN (auto-increment

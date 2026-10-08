@@ -106,6 +106,7 @@ gtest_add_tests(TARGET mxh_resource_payload_sha256_tests WORKING_DIRECTORY ${CMA
 
 add_executable(mxh_monster_catalog_tests monster_catalog_test.cpp)
 target_link_libraries(mxh_monster_catalog_tests PRIVATE mxh_compat gtest_main)
+target_compile_definitions(mxh_monster_catalog_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_include_directories(mxh_monster_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_monster_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)

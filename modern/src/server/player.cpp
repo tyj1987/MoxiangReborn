@@ -219,6 +219,12 @@ PlayerDamageResult Player::apply_damage(std::uint32_t amount) noexcept {
     return result;
 }
 
+bool Player::mark_dead_if_zero_life() noexcept {
+    if (lifecycle_ != PlayerLifecycle::Active || state_.vitals.current_hp != 0) return false;
+    lifecycle_ = PlayerLifecycle::Dead;
+    return true;
+}
+
 bool Player::revive() noexcept {
     if (lifecycle_ != PlayerLifecycle::Dead) return false;
     state_.vitals.current_hp = std::max<std::uint32_t>(1, state_.vitals.max_hp / 2);

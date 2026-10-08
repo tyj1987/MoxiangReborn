@@ -7,7 +7,10 @@
 #include <fstream>
 
 TEST(MonsterCatalog, ParsesVisualColumns) {
-    const std::string text = "1\tMonster\t0\t1\t-1\t0\tL001.chx\t1.3\t30\r\n";
+    const std::string text =
+        "1\tMonster\tMonster\t7\t-1\t0\tL001.chx\t1.3\t30\t1\t1\t1000\t50\t90\t2"
+        "\t12\t20\t3\t4\t0\t0\t0\t0\t0\t50\t100\t120\t0\t0\t0\t0\t0\t0\t0"
+        "\t1000\t0\t0\t1\t750\t0\t500\t360\t0\t2\t301\t302\t70\t30\r\n";
     const auto catalog = mxh::compat::MonsterCatalog::parse_text(
         {reinterpret_cast<const std::uint8_t*>(text.data()), text.size()});
     ASSERT_TRUE(catalog.has_value());
@@ -15,23 +18,21 @@ TEST(MonsterCatalog, ParsesVisualColumns) {
     ASSERT_NE(visual, nullptr);
     EXPECT_EQ(visual->chx_name, "L001.chx");
     EXPECT_FLOAT_EQ(visual->scale, 1.3f);
+    EXPECT_EQ(visual->life, 1000u);
+    EXPECT_EQ(visual->attack_min, 12u);
+    EXPECT_EQ(visual->attack_max, 20u);
+    EXPECT_TRUE(visual->aggressive);
+    EXPECT_FLOAT_EQ(visual->search_period_ms, 750.0f);
+    EXPECT_EQ(visual->attack_count, 2u);
+    EXPECT_EQ(visual->attack_skills[0], 301u);
+    EXPECT_EQ(visual->attack_rates[1], 30u);
     EXPECT_EQ(catalog->find(2), nullptr);
 }
 
-TEST(MonsterCatalog, ParsesRealPlayDhWhenAvailable) {
-    auto root = std::filesystem::current_path();
-    std::filesystem::path file;
-    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
-        for (const auto& entry : std::filesystem::directory_iterator(root)) {
-            if (!entry.is_directory()) continue;
-            const auto candidate = entry.path() / L"PlayDH" / L"Resource" / L"MonsterList.bin";
-            const auto direct = entry.path() / L"Resource" / L"MonsterList.bin";
-            if (std::filesystem::is_regular_file(candidate)) { file = candidate; break; }
-            if (std::filesystem::is_regular_file(direct)) { file = direct; break; }
-        }
-        if (!file.empty()) break;
-    }
-    if (file.empty()) GTEST_SKIP() << "PlayDH MonsterList.bin unavailable";
+TEST(MonsterCatalog, ParsesCanonicalPlayDh) {
+    const auto file = std::filesystem::path(MXH_SOURCE_DIR) /
+        "data/PlayDH/Resource/MonsterList.bin";
+    ASSERT_TRUE(std::filesystem::is_regular_file(file));
     std::ifstream input(file, std::ios::binary | std::ios::ate);
     ASSERT_TRUE(input.good());
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(input.tellg()));
@@ -43,4 +44,33 @@ TEST(MonsterCatalog, ParsesRealPlayDhWhenAvailable) {
     ASSERT_NE(first, nullptr);
     EXPECT_EQ(first->chx_name, "L001.chx");
     EXPECT_FLOAT_EQ(first->scale, 1.0f);
+    for (const auto kind : {73u, 102u, 103u, 104u, 105u, 219u}) {
+        const auto* monster = catalog->find(static_cast<std::uint16_t>(kind));
+        ASSERT_NE(monster, nullptr) << "Map10 kind=" << kind;
+        EXPECT_GT(monster->life, 0u);
+        EXPECT_LE(monster->attack_min, monster->attack_max);
+        EXPECT_LE(monster->attack_count, 2u);
+        if (monster->attack_count != 0)
+            EXPECT_NE(monster->attack_skills[0], 0u);
+    }
+    const auto* active = catalog->find(73u);
+    ASSERT_NE(active, nullptr);
+    EXPECT_EQ(active->level, 55u);
+    EXPECT_EQ(active->life, 5436u);
+    EXPECT_EQ(active->attack_min, 108u);
+    EXPECT_EQ(active->attack_max, 135u);
+    EXPECT_EQ(active->defense, 480u);
+    EXPECT_TRUE(active->aggressive);
+    EXPECT_FLOAT_EQ(active->search_period_ms, 1000.0f);
+    EXPECT_EQ(active->attack_skills[0], 1444u);
+
+    const auto* passive = catalog->find(105u);
+    ASSERT_NE(passive, nullptr);
+    EXPECT_EQ(passive->level, 53u);
+    EXPECT_EQ(passive->life, 5096u);
+    EXPECT_EQ(passive->attack_min, 105u);
+    EXPECT_EQ(passive->attack_max, 131u);
+    EXPECT_EQ(passive->defense, 451u);
+    EXPECT_FALSE(passive->aggressive);
+    EXPECT_EQ(passive->attack_skills[0], 1508u);
 }

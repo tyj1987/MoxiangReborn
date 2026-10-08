@@ -1359,6 +1359,19 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
         case Category::Monster:
             handle_monster_broadcast(msg);
             break;
+        case Category::Character: {
+            if (msg.header.object_id != m_playerId || msg.payload.size() != 4) break;
+            const auto protocol = static_cast<mxh::proto::CharacterProtocol>(msg.header.protocol);
+            std::int32_t delta = 0;
+            std::memcpy(&delta, msg.payload.data(), sizeof(delta));
+            if (protocol == mxh::proto::CharacterProtocol::LifeAck) {
+                const auto life = static_cast<std::int64_t>(m_info.life) + delta;
+                m_info.life = static_cast<std::uint16_t>(std::clamp<std::int64_t>(
+                    life, 0, m_info.max_life));
+                refresh_live_ui_bindings();
+            }
+            break;
+        }
         case Category::Skill:
             handle_skill_broadcast(msg);
             break;
@@ -1755,6 +1768,18 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             MLOG_INFO("CInGameState: ObjectRemove id=%u", removed);
             break;
         }
+        case UserConnProtocol::CharacterDie: {
+            if (msg.payload.size() != 8) break;
+            const auto victim = get_u32(msg.payload.data() + 4);
+            if (victim == m_playerId) {
+                m_info.life = 0;
+                m_pendingAttackTarget = 0;
+                m_pendingSkillId = 0;
+                m_pendingSkillTargetId = 0;
+                refresh_live_ui_bindings();
+            }
+            break;
+        }
         case UserConnProtocol::ConnectionCheckOk: {
             // Phase 10d keep-alive.  Server pushes this every ~10s
             // once you're in game; we just log.
@@ -1937,16 +1962,9 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 m_lastHitResult = hit;
                 m_lastDamageTimestampMs = m_lastTickMs != 0
                     ? m_lastTickMs : steady_now_ms();
-                if (damage > 0) {
-                    for (auto& monster : monsters_) {
-                        if (monster.object_id != target || monster.current_life == 0) continue;
-                        const auto dealt = static_cast<std::uint32_t>(damage);
-                        monster.current_life = dealt >= monster.current_life
-                            ? 0u : monster.current_life - dealt;
-                        if (monster.current_life == 0) monster.moving = false;
-                        break;
-                    }
-                }
+                // MonsterAdd and LifeNotify carry authoritative HP.  The
+                // SingleResult drives hit feedback only; subtracting its
+                // damage here would apply the same server hit twice.
                 const auto source_object = msg.header.object_id != 0
                     ? msg.header.object_id : m_playerId;
                 if (m_pendingSkillId != 0) {
@@ -2294,20 +2312,6 @@ std::uint32_t CInGameState::pick_drop_at_screen(float sx, float sy) const {
     return best;
 }
 
-bool CInGameState::apply_pickup_to_inventory(std::uint32_t drop_id,
-                                             std::uint16_t item_id,
-                                             std::uint16_t count) noexcept {
-    if (drop_id == 0u || item_id == 0u || count == 0u) return false;
-    for (std::uint16_t slot = 0;
-         slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
-        auto& item = m_info.items.Inventory[slot];
-        if (!mxh::game::is_empty_slot(item)) continue;
-        item = mxh::game::make_item(drop_id, item_id, slot, 100u, count);
-        return true;
-    }
-    return false;
-}
-
 void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     const auto proto = msg.header.protocol;
     if (proto == static_cast<std::uint8_t>(
@@ -2332,17 +2336,15 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     }
     if (proto == static_cast<std::uint8_t>(
             mxh::proto::ItemProtocol::PickupAck)) {
-        if (msg.payload.size() >= 4) {
+        if (msg.payload.size() == 8) {
             const auto drop_id = get_u32(msg.payload.data());
             const bool known_drop = m_pendingPickupDrop == drop_id ||
                 std::any_of(m_groundDrops.begin(), m_groundDrops.end(),
                     [drop_id](const GroundDropInfo& drop) {
                         return drop.object_id == drop_id;
                     });
-            // A duplicate/late acknowledgement must not recreate an item in
-            // the local inventory after the ground object has already been
-            // consumed.  Accept acknowledgements for visible drops even when
-            // the request timed out, but reject ids never seen by this client.
+            // Accept acknowledgements for visible drops even when the
+            // request timed out, but ignore unknown or duplicate IDs.
             if (!known_drop) {
                 MLOG_WARN("CInGameState: ignoring unknown PickupAck drop=%u",
                           static_cast<unsigned>(drop_id));
@@ -2352,11 +2354,9 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                 m_pendingPickupDrop = 0;
                 m_pendingPickupSinceMs = 0;
             }
-            const auto item_id = msg.payload.size() >= 6
-                ? get_u16(msg.payload.data() + 4) : 0u;
-            const auto count = msg.payload.size() >= 8
-                ? get_u16(msg.payload.data() + 6) : 0u;
-            if (msg.payload.size() >= 8 && (item_id == 0u || count == 0u)) {
+            const auto item_id = get_u16(msg.payload.data() + 4);
+            const auto count = get_u16(msg.payload.data() + 6);
+            if (item_id == 0u || count == 0u) {
                 m_lastItemError = "Invalid pickup confirmation.";
                 (void)m_uiRuntime.showMessage(9102, m_lastItemError);
                 MLOG_WARN("CInGameState: invalid PickupAck drop=%u item=%u count=%u",
@@ -2381,25 +2381,14 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
                         return drop.object_id == drop_id;
                     }),
                 m_groundDrops.end());
-            const bool inventory_updated =
-                apply_pickup_to_inventory(drop_id, item_id, count);
-            if (inventory_updated && m_inventoryOpen) {
-                // Rebind the live inventory dialog immediately; waiting for
-                // the next inventory open leaves the visible slot stale.
-                set_inventory_open(true);
-            }
-            MLOG_INFO("CInGameState: picked up drop=%u item=%u count=%u inventory=%s",
-                      drop_id, item_id, count,
-                      inventory_updated ? "updated" : "full-or-invalid");
-            if (inventory_updated && m_pEngine) {
+            // PickupAck identifies the consumed ground object, not the new
+            // inventory slot or persistent DBID. The server's subsequent
+            // TotalInfoLocal snapshot supplies both authoritative values.
+            MLOG_INFO("CInGameState: picked up drop=%u item=%u count=%u awaiting inventory snapshot",
+                      drop_id, item_id, count);
+            if (m_pEngine) {
                 m_pEngine->EmitAudioAt(CEngine::AudioCue::Pickup,
                                        pickup_distance);
-            } else if (!inventory_updated) {
-                // The server has already consumed the ground drop.  Report a
-                // full/invalid inventory immediately instead of silently
-                // losing the item from the player's visible state.
-                m_lastItemError = "Inventory is full.";
-                (void)m_uiRuntime.showMessage(9103, m_lastItemError);
             }
         }
         return;

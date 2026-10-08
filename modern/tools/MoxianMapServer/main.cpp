@@ -315,6 +315,12 @@ int main(int argc, char** argv) {
                       << root.string() << "\n";
             return 1;
         }
+        handler.load_monster_list((root / "Resource" / "MonsterList.bin").string());
+        if (!handler.has_loaded_monster_list() ||
+            !handler.has_ai_group_monster_templates(mxh::server::AISystem::instance().group_list())) {
+            std::cerr << "FATAL: MonsterList.bin is missing, invalid, or lacks a map AI kind\n";
+            return 1;
+        }
         const auto drop_path = args.resource_profile == "playdh-current"
             ? (root / "Resource" / "MonsterDropItemList.bin")
             : (root / "Resource" / "Server" / "MonsterDropItemList.bin");

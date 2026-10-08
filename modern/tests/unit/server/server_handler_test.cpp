@@ -41,9 +41,11 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
+#include <thread>
 
 namespace mxh::server::test {
 
@@ -60,8 +62,16 @@ public:
     }
     void disconnect() override {}
     bool is_connected() const noexcept override { return true; }
-    mxh::db::DbResult execute(std::string_view, std::span<const mxh::db::Bind>) override {
+    mxh::db::DbResult execute(std::string_view sql, std::span<const mxh::db::Bind> args) override {
         ++exec_count;
+        if (sql.find("INSERT INTO modern_player_item") != std::string_view::npos) {
+            ++item_insert_count;
+            if (pause_item_insert) std::this_thread::sleep_for(std::chrono::milliseconds(15));
+            if (args.size() > 3 && std::holds_alternative<std::int64_t>(args[3].value))
+                last_item_db_idx = std::get<std::int64_t>(args[3].value);
+            if (fail_item_insert)
+                return {mxh::db::DbError::ConstraintViolation, "simulated item write failure"};
+        }
         return {};
     }
     // R-2: if userlevel_to_return != UINT8_MAX, treat the next query
@@ -85,9 +95,12 @@ public:
         return {};
     }
 
-    mxh::db::DbResult begin_transaction() override { return {}; }
-    mxh::db::DbResult commit() override { return {}; }
-    mxh::db::DbResult rollback() override { return {}; }
+    mxh::db::DbResult begin_transaction() override {
+        if (++active_transactions > 1) transaction_overlap = true;
+        return {};
+    }
+    mxh::db::DbResult commit() override { --active_transactions; return {}; }
+    mxh::db::DbResult rollback() override { ++rollbacks; --active_transactions; return {}; }
     std::string backend_name() const noexcept override { return "mock"; }
 
     // Counters for tests that want to verify "handler did NOT call
@@ -95,6 +108,13 @@ public:
     // read them directly.
     std::atomic<int> exec_count{0};
     std::atomic<int> query_count{0};
+    bool fail_item_insert = false;
+    int rollbacks = 0;
+    int item_insert_count = 0;
+    std::int64_t last_item_db_idx = 0;
+    bool pause_item_insert = false;
+    std::atomic<int> active_transactions{0};
+    std::atomic<bool> transaction_overlap{false};
 };
 
 class CharacterCreateDb final : public mxh::db::IDbAdapter {
@@ -1860,6 +1880,75 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][2]), 777);
 }
 
+TEST(MapHandlerTest, LoadedGrantIdDoesNotAdvanceOrdinaryItemAllocatorPastBoundary) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg{};
+    cfg.backend = "sqlite";
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,sex_type INTEGER,"
+        "face_type INTEGER,hair_type INTEGER,height REAL,width REAL,level INTEGER,map_num INTEGER);"
+        "CREATE TABLE modern_player_item (player_id INTEGER NOT NULL,container INTEGER NOT NULL,slot INTEGER NOT NULL,"
+        "db_idx INTEGER NOT NULL,item_idx INTEGER NOT NULL,durability INTEGER NOT NULL,rare_idx INTEGER NOT NULL,"
+        "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
+        "UNIQUE(player_id,db_idx));"
+        "INSERT INTO character_info VALUES(123,'GrantHero',0,1,1,1.0,1.0,1,7);"
+        "INSERT INTO modern_player_item VALUES(123,0,4,2147483649,555,100,0,65535,1);"
+        "INSERT INTO modern_player_item VALUES(123,2,3,9003,777,70,2,4,5);"
+        "INSERT INTO modern_player_item VALUES(123,5,2,9004,888,80,3,6,7);"
+        "INSERT INTO modern_player_item VALUES(999,0,0,2147483646,556,100,0,65535,1);").ok());
+
+    ReplySpy reply;
+    MapHandler handler(db, 7, make_reply_spy(reply));
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+
+    const auto first = handler.create_ground_drop_for_test(50000u, 77u, 1u, 25000.0f, 25000.0f);
+    ASSERT_TRUE(first.has_value());
+    reply.messages.clear();
+    handler.on_message(connection, mxh::client::make_pickup_message(123u, first->object_id));
+    ASSERT_EQ(reply.messages.size(), 2u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck));
+    mxh::game::ItemTotalInfo total{};
+    ASSERT_EQ(reply.messages[1].payload.size(), sizeof(total));
+    std::memcpy(&total, reply.messages[1].payload.data(), sizeof(total));
+    EXPECT_EQ(total.Inventory[0].dwDBIdx, 2147483647u);
+    EXPECT_EQ(total.Inventory[4].dwDBIdx, 2147483649u);
+
+    const auto second = handler.create_ground_drop_for_test(50001u, 78u, 1u, 25000.0f, 25000.0f);
+    ASSERT_TRUE(second.has_value());
+    reply.messages.clear();
+    handler.on_message(connection, mxh::client::make_pickup_message(123u, second->object_id));
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack));
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 2u);
+
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT db_idx FROM modern_player_item WHERE player_id=123 AND container=0 ORDER BY slot", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 2u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 2147483647);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][0]), 2147483649);
+    rows = {};
+    ASSERT_TRUE(db.query("SELECT container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param "
+                         "FROM modern_player_item WHERE player_id=123 AND container IN (2,5) ORDER BY container",
+                         {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 2u);
+    const std::array<std::array<std::int64_t, 8>, 2> expected{{
+        {{2,3,9003,777,70,2,4,5}}, {{5,2,9004,888,80,3,6,7}}
+    }};
+    for (std::size_t i = 0; i < expected.size(); ++i)
+        for (std::size_t j = 0; j < expected[i].size(); ++j)
+            EXPECT_EQ(std::get<std::int64_t>(rows.rows[i][j]), expected[i][j]);
+}
+
 TEST(MapHandlerTest, MoveSynSwapsAuthoritativeSlotsAndPersistsDestination) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{}; cfg.backend = "sqlite"; cfg.path = ":memory:";
@@ -2303,6 +2392,19 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
     });
     ASSERT_NE(ack, replies.end());
+    ASSERT_EQ(ack->payload.size(), 8u);
+    const auto total = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+               message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+    });
+    ASSERT_NE(total, replies.end());
+    ASSERT_EQ(total->payload.size(), sizeof(mxh::game::ItemTotalInfo));
+    mxh::game::ItemTotalInfo authoritative{};
+    std::memcpy(&authoritative, total->payload.data(), sizeof(authoritative));
+    EXPECT_NE(authoritative.Inventory[0].dwDBIdx, drop->object_id);
+    EXPECT_EQ(db.item_insert_count, 1);
+    EXPECT_EQ(db.last_item_db_idx, authoritative.Inventory[0].dwDBIdx);
+    EXPECT_EQ(authoritative.Inventory[0].wIconIdx, 77u);
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
 
     replies.clear();
@@ -2312,6 +2414,82 @@ TEST(MapHandlerTest, PickupSynClaimsNearbyGroundDropOnce) {
             static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack);
     });
     ASSERT_NE(nack, replies.end());
+    EXPECT_EQ(replies.size(), 1u) << "rejected duplicate cannot publish a new inventory snapshot";
+}
+
+TEST(MapHandlerTest, PickupWriteFailureKeepsGroundDropAndRejectsAck) {
+    MockDbAdapter db;
+    std::vector<mxh::net::Message> replies;
+    MapHandler handler(db, 7, [&](mxh::net::ConnectionId, const mxh::net::Message& msg) {
+        replies.push_back(msg);
+    });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const auto drop = handler.create_ground_drop_for_test(50000u, 77u, 1u, 25000.0f, 25000.0f);
+    ASSERT_TRUE(drop.has_value());
+    const auto pickup = mxh::client::make_pickup_message(123u, drop->object_id);
+
+    db.fail_item_insert = true;
+    replies.clear();
+    handler.on_message(connection, pickup);
+    ASSERT_EQ(replies.size(), 1u);
+    EXPECT_EQ(replies[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupNack));
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
+    EXPECT_EQ(db.rollbacks, 1);
+
+    db.fail_item_insert = false;
+    replies.clear();
+    handler.on_message(connection, pickup);
+    ASSERT_EQ(replies.size(), 2u);
+    EXPECT_EQ(replies[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck));
+    EXPECT_EQ(replies[1].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal));
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
+}
+
+TEST(MapHandlerTest, ConcurrentPickupCallbacksSerializeItemTransactions) {
+    MockDbAdapter db;
+    db.pause_item_insert = true;
+    std::mutex replies_mu;
+    std::vector<mxh::net::Message> replies;
+    MapHandler handler(db, 7, [&](mxh::net::ConnectionId, const mxh::net::Message& msg) {
+        std::lock_guard<std::mutex> lock(replies_mu);
+        replies.push_back(msg);
+    });
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    const auto first = handler.create_ground_drop_for_test(50000u, 77u, 1u, 25000.0f, 25000.0f);
+    const auto second = handler.create_ground_drop_for_test(50001u, 78u, 1u, 25000.0f, 25000.0f);
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(second.has_value());
+    std::atomic<bool> go{false};
+    const auto pick = [&](std::uint32_t drop_id) {
+        while (!go.load(std::memory_order_acquire)) std::this_thread::yield();
+        handler.on_message(connection, mxh::client::make_pickup_message(123u, drop_id));
+    };
+    std::thread one(pick, first->object_id);
+    std::thread two(pick, second->object_id);
+    go.store(true, std::memory_order_release);
+    one.join();
+    two.join();
+    EXPECT_FALSE(db.transaction_overlap.load());
+    EXPECT_EQ(db.active_transactions.load(), 0);
+    EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 2u);
+    const auto acks = std::count_if(replies.begin(), replies.end(), [](const auto& msg) {
+        return msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupAck);
+    });
+    EXPECT_EQ(acks, 2);
 }
 
 TEST(MapHandlerTest, SpeechSynRejectsLiveNpcOutsideInteractionRange) {
@@ -2654,18 +2832,16 @@ TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
     EXPECT_EQ(handler.monster_count_for_test(), groups.spawn_count());
 }
 
-TEST(MapHandlerTest, RecoveredMonster10BinSpawnsAllGroups) {
-    const auto path = std::filesystem::path(MXH_SOURCE_DIR).parent_path() /
-        "reference" / "legacy-source" / "4dddd9a6" /
-        "SWorking" / "Resource" / "Server" /
-        "Monster_10.bin";
+TEST(MapHandlerTest, CanonicalMonster10BinSpawnsAllGroups) {
+    const auto path = std::filesystem::path(MXH_SOURCE_DIR) /
+        "data" / "PlayDH" / "Resource" / "Server" / "Monster_10.bin";
     ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
     auto& ai = mxh::server::AISystem::instance();
     struct RestoreEmptyAi {
         mxh::server::AISystem& ai;
         ~RestoreEmptyAi() { ai.load_ai_group_list(); }
     } restore{ai};
-    ASSERT_TRUE(ai.load_ai_group_list(path));
+    ASSERT_TRUE(ai.load_ai_group_list(path, "playdh-current"));
     EXPECT_EQ(ai.group_list().spawn_count(), 228u);
 
     MockDbAdapter db;
@@ -3707,6 +3883,136 @@ TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
     ASSERT_FALSE(reply.messages.empty());
     EXPECT_EQ(reply.last_message.header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutAck));
+}
+
+namespace {
+std::string build_monster_attack_skill_row(std::uint16_t skill_idx) {
+    std::vector<std::string> fields(150u, "0");
+    fields[0] = std::to_string(skill_idx);
+    fields[1] = "MonsterAttackTest";
+    fields[7] = "0";
+    fields[8] = "230";
+    fields[16] = "0.0";
+    fields[20] = "1";
+    fields[25] = "1";
+    fields[29] = "1000";
+    fields[69] = "12";
+    fields[70] = "10";
+    fields[149] = "10001";
+    std::ostringstream row;
+    for (std::size_t i = 0; i < fields.size(); ++i) {
+        if (i != 0) row << '\t';
+        row << fields[i];
+    }
+    return row.str();
+}
+}  // namespace
+
+TEST(MapHandlerTest, Map10AiKindsRequireCanonicalMonsterList) {
+    MockDbAdapter db;
+    MapHandler handler(db, 10, [](mxh::net::ConnectionId, const mxh::net::Message&) {});
+    const auto ai_path = std::filesystem::path(MXH_SOURCE_DIR) /
+        "data/PlayDH/Resource/Server/Monster_10.bin";
+    const auto groups = load_ai_group_list_bin(ai_path, "playdh-current");
+    ASSERT_TRUE(groups.has_value());
+    EXPECT_FALSE(handler.has_ai_group_monster_templates(*groups));
+    handler.load_monster_list((std::filesystem::path(MXH_SOURCE_DIR) /
+        "data/PlayDH/Resource/MonsterList.bin").string());
+    ASSERT_TRUE(handler.has_loaded_monster_list());
+    handler.load_skill_list((std::filesystem::path(MXH_SOURCE_DIR) /
+        "data/PlayDH/Resource/SkillList.bin").string());
+    ASSERT_TRUE(handler.has_loaded_skill_list());
+    for (const auto id : {1444u, 1508u}) {
+        const auto* skill = handler.find_skill(id);
+        ASSERT_NE(skill, nullptr);
+        EXPECT_EQ(skill->ComboNum, 10u);
+        EXPECT_FLOAT_EQ(skill->FirstPhyAttack[0], 2.04f);
+    }
+    EXPECT_TRUE(handler.has_ai_group_monster_templates(*groups));
+    EXPECT_EQ(groups->spawn_count(), 228u);
+}
+
+TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    MapHandler handler(db, 10, make_reply_spy(reply));
+    const auto skill_path = write_temp_bin(synthesize_item_list_bin(
+        build_monster_attack_skill_row(42u)));
+    handler.load_skill_list(skill_path.string());
+    std::error_code ec;
+    std::filesystem::remove(skill_path, ec);
+    ASSERT_NE(handler.find_skill(42u), nullptr);
+
+    const auto connection = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(connection, game_in);
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 0.0f, 0.0f));
+    ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 3u, 0u));
+
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 88042u;
+    monster.monster_kind = 73u;
+    monster.map_num = 10u;
+    monster.level = 1u;
+    monster.max_life = monster.current_life = 100u;
+    monster.attack_min = monster.attack_max = 10u;
+    monster.attack_count = 1u;
+    monster.attack_skills[0] = 42u;
+    monster.search_period_ms = 1u;
+    monster.ai_state = mxh::game::MonsterAIState::Attack;
+    monster.target_object_id = 123u;
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+
+    std::uint64_t now = 1000u;
+    handler.set_monster_ai_clock_for_test([&] { return now; });
+    handler.set_monster_ai_rng_for_test([] { return 0u; });
+    reply.messages.clear();
+    handler.tick_monster_ai();
+    EXPECT_TRUE(reply.messages.empty()) << "legacy delay uses a strict boundary";
+
+    now = 1001u;
+    handler.tick_monster_ai();
+    const auto has = [&](mxh::proto::Category category, std::uint8_t protocol) {
+        return std::find_if(reply.messages.begin(), reply.messages.end(), [&](const auto& message) {
+            return message.header.category == static_cast<std::uint8_t>(category) &&
+                   message.header.protocol == protocol;
+        });
+    };
+    const auto life = has(mxh::proto::Category::Character,
+        static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck));
+    ASSERT_NE(life, reply.messages.end());
+    ASSERT_EQ(life->payload.size(), 4u);
+    std::int32_t life_delta = 0;
+    std::memcpy(&life_delta, life->payload.data(), 4u);
+    EXPECT_EQ(life_delta, -3);
+    const auto death = has(mxh::proto::Category::UserConn,
+        static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie));
+    ASSERT_NE(death, reply.messages.end());
+    ASSERT_EQ(death->payload.size(), 8u);
+    const auto snapshot = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->current_hp, 0u);
+    EXPECT_EQ(snapshot->lifecycle, PlayerLifecycle::Dead);
+
+    reply.messages.clear();
+    now = 3000u;
+    handler.tick_monster_ai();
+    EXPECT_TRUE(reply.messages.empty()) << "dead target cannot take another hit";
+
+    mxh::net::Message skill_syn;
+    skill_syn.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    skill_syn.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartSyn);
+    skill_syn.header.object_id = 123u;
+    skill_syn.payload.resize(16, 0);
+    const std::uint32_t skill_idx = 42u;
+    std::memcpy(skill_syn.payload.data(), &skill_idx, 4);
+    handler.on_message(connection, skill_syn);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+        static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack));
 }
 
 }  // namespace mxh::server::test

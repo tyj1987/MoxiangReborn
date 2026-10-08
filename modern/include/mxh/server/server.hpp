@@ -29,6 +29,7 @@
 #include "mxh/server/hackshield_manager.hpp"
 #include "mxh/server/hsel_session.hpp"
 #include "mxh/compat/quest_npc_catalog.hpp"
+#include "mxh/compat/monster_catalog.hpp"
 
 #include <functional>
 #include <memory>
@@ -322,6 +323,9 @@ public:
     // Errors per row are logged to stdout and skipped; a hard I/O failure
     // leaves item_manager_ empty and is rejected by production startup.
     void load_item_list(const std::string& path);
+    void load_monster_list(const std::string& path);
+    bool has_loaded_monster_list() const noexcept { return monster_catalog_.has_value(); }
+    bool has_ai_group_monster_templates(const AiGroupList& groups) const noexcept;
     void load_drop_item_list(const std::string& path,
                              std::string_view resource_profile_id);
     void load_experience_curve(const std::string& path);
@@ -443,6 +447,12 @@ public:
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);
     bool add_monster_instance(const mxh::game::MonsterInstance& monster);
+    void set_monster_ai_clock_for_test(std::function<std::uint64_t()> clock) {
+        monster_ai_clock_ = std::move(clock);
+    }
+    void set_monster_ai_rng_for_test(std::function<std::uint32_t()> rng) {
+        monster_ai_rng_ = std::move(rng);
+    }
     std::size_t install_ai_groups(const AiGroupList& groups);
     std::size_t monster_count_for_test();
     std::size_t live_monster_count_for_test();
@@ -567,7 +577,7 @@ private:
     // write is attempted; the next BuySyn will overwrite the row).
     void persist_player_money(std::uint32_t player_id, std::uint32_t money);
     void load_player_items(std::uint32_t player_id, Player& player);
-    void persist_player_items(std::uint32_t player_id);
+    bool persist_player_items(std::uint32_t player_id);
 
     // M3 D-stage: upsert every active quest in the player's quest_log to
     // the modern_player_quest_log table via the db_ adapter.  Called
@@ -606,6 +616,10 @@ private:
     void send_object_remove_locked(std::uint32_t target_player_id,
                                    std::uint32_t object_id);
 
+    // TcpServer invokes callbacks on per-connection receive threads while the
+    // main loop ticks AI. Serialize handler mutations and DB transactions so
+    // an inventory snapshot cannot interleave with another item operation.
+    std::mutex dispatch_mu_;
     mxh::db::IDbAdapter& db_;
     std::uint16_t map_num_;
     ReplyFn reply_;
@@ -643,6 +657,9 @@ private:
     std::uint32_t dev_initial_money_ = 0;
     std::vector<AiSpawnDefinition> ai_spawn_overrides_;
     std::unordered_map<std::uint32_t, mxh::game::MonsterTemplate> ai_template_overrides_;
+    std::optional<mxh::compat::MonsterCatalog> monster_catalog_;
+    std::function<std::uint64_t()> monster_ai_clock_;
+    std::function<std::uint32_t()> monster_ai_rng_;
 
     // Phase 10d: Skill management
     std::unordered_map<std::uint32_t, mxh::game::SkillInfo> skill_table_;
