@@ -627,6 +627,8 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
                         get_u32(payload.data() + 35 + 0)  & 0xFFFFu);
     info.max_life = static_cast<std::uint16_t>(
                         get_u32(payload.data() + 35 + 4)  & 0xFFFFu);
+    info.shield = get_u32(payload.data() + 35 + 8);
+    info.max_shield = get_u32(payload.data() + 35 + 12);
     info.gender   = payload[35 + 16];
     info.face_type = payload[35 + 17];
     info.hair_type = payload[35 + 18];
@@ -1134,6 +1136,7 @@ void CInGameState::refresh_live_ui_bindings() {
         if (auto* character = dynamic_cast<mxh::ui::cCharacterDialog*>(dialog.get())) {
             character->SetPlayerStatsService(m_playerStatsService.get());
             character->RefreshFromPlayerStats();
+            character->SetShield(m_info.shield);
         }
         if (auto* mp = dynamic_cast<mxh::ui::cMPGuageDialog*>(dialog.get())) {
             mp->SetPlayerStatsService(m_playerStatsService.get());
@@ -1368,6 +1371,11 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
                 const auto life = static_cast<std::int64_t>(m_info.life) + delta;
                 m_info.life = static_cast<std::uint16_t>(std::clamp<std::int64_t>(
                     life, 0, m_info.max_life));
+                refresh_live_ui_bindings();
+            } else if (protocol == mxh::proto::CharacterProtocol::ShieldAck) {
+                const auto shield = static_cast<std::int64_t>(m_info.shield) + delta;
+                m_info.shield = static_cast<std::uint32_t>(std::clamp<std::int64_t>(
+                    shield, 0, m_info.max_shield));
                 refresh_live_ui_bindings();
             }
             break;
@@ -1664,6 +1672,8 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                     std::min(info->life, std::uint32_t{0xffffu}));
                 m_info.max_life = static_cast<std::uint16_t>(
                     std::min(info->max_life, std::uint32_t{0xffffu}));
+                m_info.shield = info->shield;
+                m_info.max_shield = info->max_shield;
                 m_info.gender = info->gender;
                 m_info.face_type = info->face_type;
                 m_info.hair_type = info->hair_type;

@@ -108,6 +108,8 @@ struct GameInInfo {
     std::uint16_t  server_hour  = 0;
     std::array<MugongInfo, kMugongSlotCount> mugong{};
     mxh::game::ItemTotalInfo items{};
+    std::uint32_t shield = 0;
+    std::uint32_t max_shield = 0;
 };
 
 // Parse the legacy GameInAck payload (map_handler.cpp

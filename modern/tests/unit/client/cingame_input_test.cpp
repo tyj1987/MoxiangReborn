@@ -520,6 +520,52 @@ TEST(InGamePlayable, CharacterDeltasAndDeathUseAuthoritativeMessages) {
     EXPECT_EQ(state.game_info().life, 0u);
 }
 
+TEST(InGamePlayable, ShieldAckUpdatesOnlyOwnShieldWithinServerMaximum) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto ack = make_gamein_ack_at(25000, 25000);
+    const std::uint32_t initial_life = 50, max_life = 100;
+    const std::uint32_t initial_shield = 30, max_shield = 80;
+    std::memcpy(ack.payload.data() + 35, &initial_life, 4);
+    std::memcpy(ack.payload.data() + 39, &max_life, 4);
+    std::memcpy(ack.payload.data() + 43, &initial_shield, 4);
+    std::memcpy(ack.payload.data() + 47, &max_shield, 4);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    ASSERT_EQ(state.game_info().life, 50u);
+    ASSERT_EQ(state.game_info().shield, 30u);
+    ASSERT_EQ(state.game_info().max_shield, 80u);
+
+    mxh::net::Message delta;
+    delta.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    delta.header.object_id = 42u;
+    delta.payload.resize(sizeof(std::int32_t));
+    const auto send_delta = [&](mxh::proto::CharacterProtocol protocol, std::int32_t amount) {
+        delta.header.protocol = static_cast<std::uint8_t>(protocol);
+        std::memcpy(delta.payload.data(), &amount, sizeof(amount));
+        state.on_message(mxh::net::make_connection_id(1), delta);
+    };
+    send_delta(mxh::proto::CharacterProtocol::LifeAck, -7);
+    EXPECT_EQ(state.game_info().life, 43u);
+    EXPECT_EQ(state.game_info().shield, 30u);
+    send_delta(mxh::proto::CharacterProtocol::ShieldAck, -11);
+    EXPECT_EQ(state.game_info().life, 43u);
+    EXPECT_EQ(state.game_info().shield, 19u);
+
+    delta.header.object_id = 99u;
+    send_delta(mxh::proto::CharacterProtocol::ShieldAck, -10);
+    EXPECT_EQ(state.game_info().shield, 19u);
+    delta.header.object_id = 42u;
+    delta.payload.resize(3u);
+    state.on_message(mxh::net::make_connection_id(1), delta);
+    EXPECT_EQ(state.game_info().shield, 19u);
+    delta.payload.resize(sizeof(std::int32_t));
+    send_delta(mxh::proto::CharacterProtocol::ShieldAck, INT32_MIN);
+    EXPECT_EQ(state.game_info().shield, 0u);
+    send_delta(mxh::proto::CharacterProtocol::ShieldAck, INT32_MAX);
+    EXPECT_EQ(state.game_info().shield, 80u);
+    EXPECT_EQ(state.game_info().life, 43u);
+}
+
 TEST(InGamePlayable, OffensiveQuickSlotRequiresExplicitCursorTarget) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
